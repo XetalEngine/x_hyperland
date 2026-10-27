@@ -123,6 +123,91 @@ class StorageTests(unittest.TestCase):
             store.check(self.bindings, (self.root / 'hyprland.conf').read_text())
         self.assertEqual((self.root / 'keybindings.conf').read_bytes(), self.original)
 
+    def test_preset_roundtrip_keeps_metadata_disabled_entries_and_submaps(self):
+        records = keys.parse('bindd = SUPER, F8, Example, exec, printf "one,two"\n'
+                             '# disabled: bindm = SUPER, mouse:273, resizewindow 1\n'
+                             'submap = custom\nbind = , Escape, submap, reset\nsubmap = reset\n')
+        records[0].label = 'Éditeur example'
+        target = self.root / 'my preset.conf'
+        store = self.store()
+        store.save_preset(target, records)
+        self.assertEqual(store.read_preset(target, self.bindings), records)
+        self.assertEqual(self.calls, [])
+        self.assertEqual(store.path.read_bytes(), self.original)
+
+    def test_loading_older_preset_retains_exact_local_recovery_binding(self):
+        recovery = keys.Binding('local-recovery', 'Cancel shortcut recording', 'System',
+                                True, '', 'Escape', 'submap', 'reset', submap=keys.CAPTURE_MAP, protected=True)
+        target = self.root / 'older.conf'
+        imported = copy.deepcopy(self.bindings)
+        imported[0].protected = True
+        foreign = copy.deepcopy(recovery)
+        foreign.id, foreign.args, foreign.label = 'foreign-recovery', 'other-mode', 'Different recovery'
+        target.write_text(keys.serialize(imported + [foreign]))
+        result = self.store().read_preset(target, self.bindings + [recovery])
+        self.assertEqual([b for b in result if b.protected], [recovery])
+        self.assertFalse(result[0].protected)
+        self.assertEqual(len(result), len(self.bindings) + 1)
+        target.write_text(keys.serialize(imported))
+        self.assertEqual(self.store().read_preset(target, self.bindings + [recovery])[-1], recovery)
+        self.assertEqual(self.calls, [])
+
+    def test_defaults_are_fixed_when_active_hotkeys_change(self):
+        store = self.store()
+        store.defaults.parent.mkdir()
+        store.defaults.write_bytes(self.original)
+        self.bindings[0].key = 'T'
+        store.apply(self.bindings, keys.digest(self.original))
+        self.assertEqual(store.defaults.read_bytes(), self.original)
+        restored = store.read_preset(store.defaults, self.bindings)
+        self.assertEqual(restored[0].key, 'Q')
+        self.assertEqual(keys.parse(store.path.read_text())[0].key, 'T')
+
+    def test_export_cannot_bypass_apply_or_overwrite_defaults(self):
+        store = self.store()
+        store.defaults.parent.mkdir()
+        store.defaults.write_bytes(self.original)
+        alias = self.root / 'alias.conf'
+        alias.symlink_to(store.path)
+        for path in (store.path, store.main, store.defaults, alias):
+            with self.subTest(path=path), self.assertRaisesRegex(keys.ConfigError, 'separate preset'):
+                store.save_preset(path, self.bindings)
+        self.assertEqual(store.path.read_bytes(), self.original)
+        self.assertEqual(store.defaults.read_bytes(), self.original)
+
+    def test_bad_presets_never_write_active_config_or_run_commands(self):
+        store = self.store()
+        target = self.root / 'bad.conf'
+        payloads = [b'', b'\xff', b'exec-once = touch /tmp/not-a-binding\n',
+                    b'source = another.conf\n',
+                    b'# @hotkey {"label": 42}\nbind = SUPER, Q, exec, kitty\n',
+                    b'# @hotkey []\nbind = SUPER, Q, exec, kitty\n',
+                    b'#' * (2 * 1024 * 1024 + 1)]
+        for data in payloads:
+            with self.subTest(prefix=data[:50]):
+                target.write_bytes(data)
+                with self.assertRaises(keys.ConfigError):store.read_preset(target, self.bindings)
+        self.assertEqual(store.path.read_bytes(), self.original)
+        self.assertEqual(self.calls, [])
+
+    def test_preset_draft_still_uses_conflicts_and_external_edit_protection(self):
+        store = self.store()
+        target = self.root / 'conflicting.conf'
+        duplicate = copy.deepcopy(self.bindings[0])
+        duplicate.id = 'new-id'
+        target.write_text(keys.serialize(self.bindings + [duplicate]))
+        draft = store.read_preset(target, self.bindings)
+        with self.assertRaisesRegex(keys.ConfigError, 'same shortcut'):
+            store.apply(draft, keys.digest(self.original))
+        self.assertEqual(store.path.read_bytes(), self.original)
+        target.write_bytes(self.original)
+        draft = store.read_preset(target, self.bindings)
+        external = self.original + b'# saved elsewhere\n'
+        store.path.write_bytes(external)
+        with self.assertRaisesRegex(keys.ConfigError, 'changed outside'):
+            store.apply(draft, keys.digest(self.original))
+        self.assertEqual(store.path.read_bytes(), external)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

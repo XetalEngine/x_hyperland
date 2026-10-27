@@ -13,7 +13,7 @@ import subprocess
 import sys
 import uuid
 
-from PyQt6.QtCore import Qt, QTimer, QRunnable, QThreadPool, QObject, pyqtSignal, QPropertyAnimation, QEasingCurve, QFileSystemWatcher
+from PyQt6.QtCore import Qt, QTimer, QRunnable, QThreadPool, QObject, pyqtSignal, QPropertyAnimation, QEasingCurve, QFileSystemWatcher, QStandardPaths
 from PyQt6.QtGui import QFont, QKeySequence, QShortcut, QColor, QPalette, QTextCharFormat
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import (
     QLabel, QPushButton, QLineEdit, QComboBox, QCheckBox, QTabWidget, QTabBar,
     QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QSplitter,
     QFormLayout, QGroupBox, QMessageBox, QTextEdit, QSlider, QCalendarWidget,
-    QProgressBar, QListWidget, QFrame, QGraphicsOpacityEffect, QScrollArea,
+    QProgressBar, QListWidget, QFrame, QGraphicsOpacityEffect, QScrollArea, QFileDialog, QSizePolicy,
 )
 import keys
 from key_capture import CaptureEdit
@@ -176,6 +176,8 @@ class Hotkeys(QWidget):
         self.baseline = []
         self.current_id = None
         self.dirty = self.loading = self.busy = False
+        self.preset_directory = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
+                                     or str(Path.home()))
         self.values = keys.variables(self.store.main.read_text())
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -192,10 +194,22 @@ class Hotkeys(QWidget):
         self.categories = QTabBar()
         self.categories.setExpanding(False)
         self.categories.setUsesScrollButtons(True)
+        self.categories.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.categories.setMinimumWidth(0)
         for name in ['All', *keys.CATEGORIES, 'Live', 'History']:
             self.categories.addTab(name)
         self.categories.currentChanged.connect(self.render)
-        layout.addWidget(self.categories)
+        navigation = QHBoxLayout()
+        navigation.addWidget(self.categories, 1)
+        self.reset_defaults_button = button('Reset defaults', self.reset_defaults)
+        self.reset_defaults_button.setToolTip('Load your saved default hotkeys as a draft, then review and Apply.')
+        self.save_preset_button = button('Save current…', self.save_preset)
+        self.save_preset_button.setToolTip('Export all hotkeys in the editor, including pending edits, to a preset file.')
+        self.load_preset_button = button('Load preset…', self.load_preset)
+        self.load_preset_button.setToolTip('Load hotkeys from a file as a draft. Changes take effect after Apply.')
+        for action in (self.reset_defaults_button, self.save_preset_button, self.load_preset_button):
+            navigation.addWidget(action)
+        layout.addLayout(navigation)
         split = QSplitter()
         self.bindings_table = table(['On', 'Shortcut', 'Action', 'Type'])
         self.bindings_table.setColumnWidth(0, 42)
@@ -506,6 +520,76 @@ class Hotkeys(QWidget):
             self.stop_capture(silent=True)
             self.reload(force=True)
 
+    def stage_preset(self, records, description):
+        self.records = records
+        self.current_id = None
+        self.loading = True
+        self.search.clear()
+        self.categories.setCurrentIndex(0)
+        self.loading = False
+        self.mark_dirty()
+        self.render()
+        problems = keys.conflicts(self.records, self.values)
+        message = (description + '  ·  Review the draft, then Apply changes'
+                   if self.dirty else description + '  ·  Already matches your saved hotkeys')
+        self.tell(message + ('\n' + '\n'.join(problems) if problems else ''), bool(problems))
+
+    def reset_defaults(self):
+        if self.busy:
+            return
+        self.stop_capture(silent=True)
+        try:
+            records = self.store.read_preset(self.store.defaults, self.baseline)
+        except Exception as exc:
+            self.tell('Could not load defaults: ' + str(exc), True)
+            return
+        prompt = QMessageBox(self)
+        prompt.setWindowTitle('Reset default hotkeys?')
+        prompt.setText('Load your saved default hotkeys into the editor?')
+        prompt.setInformativeText(('Your pending edits will be replaced.\n\n' if self.dirty else '') +
+                                  'Review the changes below, then Apply changes to activate them.')
+        reset = prompt.addButton('Load defaults', QMessageBox.ButtonRole.AcceptRole)
+        cancel = prompt.addButton(QMessageBox.StandardButton.Cancel)
+        prompt.setDefaultButton(cancel)
+        prompt.setEscapeButton(cancel)
+        prompt.exec()
+        if prompt.clickedButton() == reset:
+            self.stage_preset(records, 'Defaults loaded')
+
+    def save_preset(self):
+        if self.busy:
+            return
+        self.stop_capture(silent=True)
+        self.edit(refresh=False)
+        path, _ = QFileDialog.getSaveFileName(self, 'Save current hotkeys as a preset',
+            str(self.preset_directory / 'Xetal-hotkeys.conf'),
+            'Hotkey presets (*.conf);;All files (*)', options=QFileDialog.Option.DontUseNativeDialog)
+        if not path:
+            return
+        try:
+            self.store.save_preset(path, copy.deepcopy(self.records))
+            self.preset_directory = Path(path).parent
+            self.tell('Saved all hotkeys to ' + path + ('  ·  Pending edits are still unapplied' if self.dirty else ''))
+        except Exception as exc:
+            self.tell('Could not save preset: ' + str(exc), True)
+
+    def load_preset(self):
+        if self.busy:
+            return
+        self.stop_capture(silent=True)
+        path, _ = QFileDialog.getOpenFileName(self, 'Load hotkey preset', str(self.preset_directory),
+            'Hotkey presets (*.conf);;All files (*)', options=QFileDialog.Option.DontUseNativeDialog)
+        if not path:
+            return
+        try:
+            records = self.store.read_preset(path, self.baseline)
+            if self.dirty and not self.confirm_discard():
+                return
+            self.preset_directory = Path(path).parent
+            self.stage_preset(records, 'Loaded ' + Path(path).name)
+        except Exception as exc:
+            self.tell('Could not load preset: ' + str(exc), True)
+
     def add(self):
         b = keys.Binding(uuid.uuid4().hex, 'New binding', 'Applications', True, 'SUPER', '', 'exec')
         self.records.append(b)
@@ -652,7 +736,7 @@ class Hotkeys(QWidget):
 
     def render_history(self):
         self.loading = True
-        self.history = sorted(keys.STATE.glob('keybindings-*.conf'), reverse=True)
+        self.history = sorted(self.store.state.glob('keybindings-*.conf'), reverse=True)
         self.bindings_table.setHorizontalHeaderLabels(['', 'Saved backup (UTC)', 'Version', ''])
         self.bindings_table.setRowCount(len(self.history))
         for row, path in enumerate(self.history):
@@ -672,12 +756,9 @@ class Hotkeys(QWidget):
         if self.dirty and not self.confirm_discard():
             return
         try:
-            self.records = keys.parse(self.history[row].read_text())
-            for widget in self.fields.values():
-                widget.setEnabled(True)
-            self.categories.setCurrentIndex(0)
-            self.mark_dirty()
-            self.render()
+            self.stop_capture(silent=True)
+            records = self.store.read_preset(self.history[row], self.baseline)
+            self.stage_preset(records, 'Loaded backup ' + self.history[row].name)
         except Exception as exc:
             self.tell(str(exc), True)
 

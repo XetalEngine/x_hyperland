@@ -1,7 +1,7 @@
 """Hyprland-only binding storage with validation, conflict checks and rollback."""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 import fcntl
@@ -253,10 +253,63 @@ class Store:
     def __init__(self, root=ROOT, state=STATE, runner=command):
         self.root, self.state, self.run = Path(root), Path(state), runner
         self.path, self.main = self.root / 'keybindings.conf', self.root / 'hyprland.conf'
+        self.defaults = self.root / 'control_center' / 'keybindings-defaults.conf'
 
     def load(self):
         data = self.path.read_bytes()
         return parse(data.decode()), digest(data)
+
+    def read_preset(self, path, baseline):
+        """Read a binding-only draft, retaining this installation's recovery key."""
+        try:
+            with Path(path).open('rb') as stream:
+                data = stream.read(2 * 1024 * 1024 + 1)
+            if len(data) > 2 * 1024 * 1024:
+                raise ConfigError('This preset is too large (maximum 2 MiB).')
+            records = parse(data.decode('utf-8-sig'))
+            self.validate_preset(records)
+        except (UnicodeError, ValueError, TypeError, AttributeError) as exc:
+            raise ConfigError(f'Not a valid UTF-8 hotkey preset: {exc}') from exc
+        values = variables(self.main.read_text())
+        recovery = [b for b in baseline if b.protected]
+        result, retained = [], set()
+        for binding in records:
+            reserved = next((b for b in recovery if b.id == binding.id
+                             or trigger(b, values) == trigger(binding, values)), None)
+            if reserved:
+                if reserved.id not in retained:
+                    result.append(replace(reserved))
+                    retained.add(reserved.id)
+            else:
+                # Imported metadata must not make ordinary bindings uneditable.
+                result.append(replace(binding, protected=False))
+        result.extend(replace(b) for b in recovery if b.id not in retained)
+        return result
+
+    @staticmethod
+    def validate_preset(records):
+        if not records:
+            raise ConfigError('This preset contains no hotkey bindings.')
+        for b in records:
+            if not all(isinstance(getattr(b, field), str) for field in
+                       ('id', 'label', 'category', 'mods', 'key', 'dispatcher', 'args', 'flags', 'submap')):
+                raise ConfigError('Preset names, IDs, categories and binding fields must be text.')
+            if not b.id:
+                raise ConfigError('A preset binding has an empty ID.')
+            if 'd' in b.flags and any(c in b.label for c in '\r\n\x00'):
+                raise ConfigError('A binding description must be a single line.')
+        validate_fields(records)
+
+    def save_preset(self, path, records):
+        """Export the complete editor draft without applying it or reloading."""
+        path = Path(path)
+        if path.resolve() in {self.path.resolve(), self.main.resolve(), self.defaults.resolve()}:
+            raise ConfigError('Choose a separate preset file. Use Apply changes to update active hotkeys; '
+                              'the saved defaults are kept unchanged.')
+        self.validate_preset(records)
+        content = serialize(records).encode('utf-8')
+        parse(content.decode('utf-8'))  # Refuse an export that cannot be read back.
+        atomic_write(path, content)
 
     def check(self, bindings, main_text):
         validate_fields(bindings)

@@ -1,5 +1,6 @@
 """Interaction regressions with temporary bindings and no live config changes."""
 from pathlib import Path
+import copy
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -7,7 +8,7 @@ from unittest.mock import patch
 from PyQt6.QtCore import Qt, QPoint, QPointF, QEvent, QTimer
 from PyQt6.QtGui import QWheelEvent, QEnterEvent
 from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication, QMessageBox, QScrollArea
+from PyQt6.QtWidgets import QApplication, QMessageBox, QScrollArea, QFileDialog
 
 import app
 import keys
@@ -38,7 +39,10 @@ class EditorUITests(unittest.TestCase):
 
     def tearDown(self):
         self.assertEqual((self.root/'keybindings.conf').read_bytes(),self.original)
-        self.page.close();self.page.deleteLater();self.tmp.cleanup()
+        self.page.close();self.page.deleteLater()
+        # Dispose file watchers before removing the directory they observe.
+        QT.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        self.tmp.cleanup()
 
     def modify(self):
         field = self.page.fields['label']
@@ -120,6 +124,92 @@ class EditorUITests(unittest.TestCase):
             with self.assertRaisesRegex(keys.ConfigError,'changed outside'):self.store.apply(self.page.records,self.page.expected)
             self.page.discard();self.assertFalse(self.page.dirty);self.assertIn('new-app',[b.id for b in self.page.records])
         finally:self.store.path.write_bytes(self.original)
+
+    def test_save_current_exports_all_categories_and_keeps_draft_unapplied(self):
+        self.modify()
+        self.page.categories.setCurrentIndex(2)
+        self.page.search.setText('Renamed')
+        target = self.root / 'favorites.conf'
+        with patch.object(QFileDialog, 'getSaveFileName', return_value=(str(target), '')):
+            self.page.save_preset()
+        exported = keys.parse(target.read_text())
+        self.assertEqual(len(exported), 2)
+        self.assertEqual(exported[0].label, 'Renamed terminal')
+        self.assertTrue(self.page.dirty)
+        self.assertFalse(self.page.change_panel.isHidden())
+
+    def test_load_preset_from_history_shows_draft_and_discard_restores_active(self):
+        preset = copy.deepcopy(self.records)
+        preset[0].key = 'F9'
+        preset[1].enabled = False
+        target = self.root / 'import.conf'
+        target.write_text(keys.serialize(preset))
+        expected = self.page.expected
+        self.page.categories.setCurrentIndex(7)
+        self.page.search.setText('not visible')
+        with patch.object(QFileDialog, 'getOpenFileName', return_value=(str(target), '')):
+            self.page.load_preset()
+        QTest.qWait(210)
+        self.assertEqual(self.page.records, preset)
+        self.assertEqual(self.page.expected, expected)
+        self.assertEqual(self.page.categories.currentIndex(), 0)
+        self.assertEqual(self.page.search.text(), '')
+        self.assertTrue(self.page.dirty)
+        self.assertIn('F9', self.page.change_log.toPlainText())
+        self.page.discard()
+        self.assertEqual(self.page.records, self.records)
+        self.assertFalse(self.page.dirty)
+
+    def test_cancelled_or_invalid_load_preserves_existing_draft(self):
+        self.modify()
+        draft = copy.deepcopy(self.page.records)
+        with patch.object(QFileDialog, 'getOpenFileName', return_value=('', '')):
+            self.page.load_preset()
+        self.assertEqual(self.page.records, draft)
+        target = self.root / 'bad.conf'
+        target.write_text('source = not-a-preset.conf\n')
+        with (patch.object(QFileDialog, 'getOpenFileName', return_value=(str(target), '')),
+              patch.object(self.page, 'confirm_discard') as confirm):
+            self.page.load_preset()
+            confirm.assert_not_called()
+        self.assertEqual(self.page.records, draft)
+        self.assertIn('Could not load preset', self.page.status.text())
+        target.write_bytes(self.original)
+        with (patch.object(QFileDialog, 'getOpenFileName', return_value=(str(target), '')),
+              patch.object(self.page, 'confirm_discard', return_value=False)):
+            self.page.load_preset()
+        self.assertEqual(self.page.records, draft)
+
+    def test_reset_defaults_requires_confirmation_and_uses_reviewable_draft(self):
+        defaults = copy.deepcopy(self.records)
+        defaults[0].key = 'F10'
+        self.store.defaults.parent.mkdir()
+        self.store.defaults.write_text(keys.serialize(defaults))
+        self.modify()
+        draft = copy.deepcopy(self.page.records)
+        QTimer.singleShot(20, lambda: QApplication.activeModalWidget().button(QMessageBox.StandardButton.Cancel).click())
+        self.page.reset_defaults()
+        self.assertEqual(self.page.records, draft)
+        def confirm():
+            box = QApplication.activeModalWidget()
+            next(b for b in box.buttons() if b.text() == 'Load defaults').click()
+        QTimer.singleShot(20, confirm)
+        self.page.reset_defaults()
+        self.assertEqual(self.page.records, defaults)
+        self.assertTrue(self.page.dirty)
+        self.assertIn('F10', self.page.change_log.toPlainText())
+        self.assertEqual(self.store.defaults.read_text(), keys.serialize(defaults))
+
+    def test_preset_actions_fit_small_control_desk_and_stay_available_in_history(self):
+        self.page.resize(970, 510)
+        self.page.categories.setCurrentIndex(7)
+        QTest.qWait(50)
+        actions = (self.page.reset_defaults_button, self.page.save_preset_button, self.page.load_preset_button)
+        for widget in actions:
+            self.assertTrue(widget.isVisible())
+            self.assertTrue(widget.isEnabled())
+            self.assertTrue(self.page.rect().contains(widget.geometry()))
+        self.assertLess(self.page.categories.geometry().right(), actions[0].geometry().left())
 
 
 class OverlayUITests(unittest.TestCase):

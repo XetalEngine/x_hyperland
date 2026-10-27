@@ -50,6 +50,14 @@ Calendar and System tabs.
 Hotkey categories include Window hover, Applications, Workspaces, Media & Devices,
 and System. Live shows every binding loaded by the compositor, including runtime
 additions. History can load previous versions as drafts for review and restoration.
+Reset defaults loads the 76 saved bindings captured on 27 October 2026 from
+control_center/keybindings-defaults.conf. It asks for confirmation and creates a
+draft; Apply changes activates it, and Discard changes returns to your saved set.
+Save current exports all editor bindings, including pending edits, to a .conf
+preset. Load preset imports that file as a reviewable draft. Presets preserve
+names, categories, disabled bindings, mouse shortcuts and shortcut modes. The
+local shortcut-recording recovery key is always retained. Saving a preset does
+not apply pending edits or replace the fixed defaults.
 
 The editor modifies only keybindings.conf. Apply or Ctrl+S checks conflicts and
 validates the complete config before saving/reloading. It saves previous versions
