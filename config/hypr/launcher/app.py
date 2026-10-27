@@ -1,0 +1,664 @@
+#!/usr/bin/env python3
+"""Hyprland application menu. All menu preferences stay in this directory."""
+from pathlib import Path
+import argparse
+import datetime
+import json
+import os
+import subprocess
+import sys
+import time
+
+from PyQt6.QtCore import Qt, QSize, QRectF, QTimer, QEvent, QEasingCurve, QPropertyAnimation, pyqtProperty
+from PyQt6.QtGui import QColor, QPainter, QLinearGradient, QPen, QIcon, QFont, QKeySequence, QShortcut
+from PyQt6.QtNetwork import QLocalServer, QLocalSocket
+from PyQt6.QtWidgets import (QApplication, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
+    QLineEdit, QListWidget, QListWidgetItem, QListView, QStyledItemDelegate, QStyle, QMenu,
+    QGraphicsOpacityEffect, QMessageBox, QDialog, QSizeGrip)
+import catalog
+import shortcuts
+import pins
+import geometry
+import hotkeys
+from hotkey_dialog import HotkeyDialog
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'theme'))
+import runtime as theme_runtime
+from editor import ShortcutEditor
+from window_chrome import close_button
+
+STYLE = '''
+QWidget { color: #e6edf8; font-family: "Noto Sans"; font-size: 13px; background: transparent; }
+QLabel#brand { font-size: 24px; font-weight: 700; letter-spacing: 2px; }
+QLabel#eyebrow { color: #68dece; font-size: 10px; font-weight: 600; letter-spacing: 2px; }
+QLabel#muted { color: #93a4bb; font-size: 12px; }
+QLabel#section { font-size: 17px; font-weight: 600; }
+QLineEdit { background: rgba(9,15,27,180); border: 1px solid #34475e; border-radius: 10px;
+ padding: 14px 16px; font-size: 16px; selection-background-color: #396c78; }
+QLineEdit:focus { border: 1px solid #70dcca; background: rgba(12,22,35,220); }
+QPushButton { border: 0; border-radius: 8px; text-align: left; padding: 11px 12px; color: #aab9ce; }
+QPushButton:hover { background: rgba(105,152,181,35); color: #ffffff; }
+QPushButton:checked { background: rgba(77,187,173,35); color: #83ead8; }
+QListWidget { border: none; outline: 0; background: transparent; }
+QScrollBar:vertical { width: 5px; background: transparent; margin: 4px 0; }
+QScrollBar::handle:vertical { background: #41566e; border-radius: 2px; min-height: 30px; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
+QMenu { background: #192435; border: 1px solid #42576e; border-radius: 8px; padding: 6px; }
+QMenu::item { padding: 9px 32px; border-radius: 4px; }
+QMenu::item:selected { background: #2a4a55; }
+QMenu::item:disabled { color: #71859b; }
+QMenu::separator { height: 1px; background: #34485c; margin: 6px 10px; }
+QDialog, QMessageBox { background: #14202f; color: #e6edf8; }
+'''
+
+
+def label(text, name=''):
+    w = QLabel(text)
+    w.setObjectName(name)
+    return w
+
+
+def launch(argv):
+    subprocess.Popen([str(a) for a in argv], start_new_session=True, env=theme_runtime.environment(),
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def leave_dashboard():
+    shortcuts.leave_dashboard()
+
+
+def icon_for(app):
+    icon = app.get_icon()
+    if icon:
+        if hasattr(icon, 'get_file'):
+            return QIcon(icon.get_file().get_path())
+        if hasattr(icon, 'get_names'):
+            for name in icon.get_names():
+                candidate = QIcon.fromTheme(name)
+                if not candidate.isNull():
+                    return candidate
+    return QIcon.fromTheme('application-x-executable')
+
+
+class Tiles(QStyledItemDelegate):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.hover = -1
+        self.amount = 0.0
+        self.animation = QPropertyAnimation(self, b'glow')
+        self.animation.setDuration(160)
+
+    @pyqtProperty(float)
+    def glow(self):
+        return self.amount
+
+    @glow.setter
+    def glow(self, value):
+        self.amount = value
+        self.parent().viewport().update()
+
+    def entered(self, item):
+        self.hover = self.parent().row(item)
+        self.animation.stop()
+        self.animation.setStartValue(0.0)
+        self.animation.setEndValue(1.0)
+        self.animation.start()
+
+    def paint(self, painter, option, index):
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        box = QRectF(option.rect.adjusted(5, 4, -5, -4))
+        selected = bool(option.state & QStyle.StateFlag.State_Selected)
+        hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
+        opacity = self.amount if hovered and index.row() == self.hover else 0
+        gradient = QLinearGradient(box.topLeft(), box.bottomRight())
+        if theme_runtime.mode() == 'light':
+            gradient.setColorAt(0, QColor('#d7e8eb' if selected else '#edf3f9'))
+            gradient.setColorAt(1, QColor('#dbe8f1'))
+        else:
+            gradient.setColorAt(0, QColor(55, 83, 111, int(85 + opacity * 65 + selected * 40)))
+            gradient.setColorAt(1, QColor(20, 34, 52, 130))
+        painter.setBrush(gradient)
+        painter.setPen(QPen(QColor(113, 218, 205, 155 if selected else int(25 + opacity * 70)), 1))
+        painter.drawRoundedRect(box, 10, 10)
+        icon = index.data(Qt.ItemDataRole.DecorationRole)
+        size = 38 + round(opacity * 3)
+        icon.paint(painter, int(box.center().x() - size / 2), int(box.top() + 9 - opacity * 2), size, size)
+        painter.setPen(QColor(theme_runtime.colors()['Text']))
+        painter.setFont(QFont('Noto Sans', 9))
+        name = index.data(Qt.ItemDataRole.DisplayRole)
+        text_box = QRectF(box.left() + 7, box.top() + 51, box.width() - 14, 31)
+        if len(name) > 30:
+            name = name[:28] + '…'
+        painter.drawText(text_box, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap, name)
+        bindings=index.data(hotkeys.ROLE)
+        if bindings is not None:
+            text=bindings[0]+(f'  +{len(bindings)-1}' if len(bindings)>1 else '') if bindings else 'No hotkey'
+            painter.setFont(QFont('Noto Sans',8))
+            text=painter.fontMetrics().elidedText(text,Qt.TextElideMode.ElideRight,int(box.width()-20))
+            badge=QRectF(box.left()+8,box.top()+85,box.width()-16,16)
+            light=theme_runtime.mode()=='light'
+            painter.setBrush(QColor('#cce6e5' if light else '#233c48') if bindings else Qt.BrushStyle.NoBrush)
+            painter.setPen(Qt.PenStyle.NoPen);painter.drawRoundedRect(badge,5,5)
+            painter.setPen(QColor(('#236b66' if light else '#91e2d8') if bindings else ('#516579' if light else '#8c9fb4')))
+            painter.drawText(badge,Qt.AlignmentFlag.AlignCenter,text)
+        painter.restore()
+
+    def sizeHint(self, option, index):
+        return self.parent().gridSize()
+
+
+class LaunchGrid(QListWidget):
+    def mouseReleaseEvent(self, event):
+        item = self.itemAt(event.position().toPoint())
+        super().mouseReleaseEvent(event)
+        if event.button() == Qt.MouseButton.LeftButton and item:
+            self.itemActivated.emit(item)
+
+
+class Menu(QWidget):
+    def __init__(self, preview=False):
+        super().__init__(None, Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setWindowTitle('Xetal applications')
+        self.setMinimumSize(740, 690)
+        self.resize(*(geometry.DEFAULT if preview else geometry.size()))
+        self.setMouseTracking(True)
+        self.preview = preview
+        self.size_grip = QSizeGrip(self)
+        self.size_grip.setToolTip('Drag to resize the Apps menu')
+        self.size_grip.setStyleSheet('background: transparent;')
+        self.interaction_depth = 0
+        self.started = time.monotonic()
+        self.apps = catalog.applications()
+        self.pinned = catalog.favorites()
+        self.hotkeys=hotkeys.ShortcutIndex(self)
+        self.page = 'Favorites'
+        self.filter_category = ''
+        outer = QHBoxLayout(self)
+        outer.setContentsMargins(24, 26, 24, 20)
+        outer.setSpacing(25)
+        sidebar = QVBoxLayout()
+        sidebar.setSpacing(6)
+        sidebar.addWidget(label('X E T A L', 'brand'))
+        sidebar.addWidget(label('YOUR WORKSPACE', 'eyebrow'))
+        sidebar.addSpacing(24)
+        self.nav = []
+        for name, icon in [('Favorites', 'starred'), ('All apps', 'view-grid'),
+                           ('Development', 'applications-development'), ('Internet', 'applications-internet'),
+                           ('Media', 'applications-multimedia'), ('Games', 'applications-games'),
+                           ('Utilities', 'applications-utilities')]:
+            button = QPushButton(QIcon.fromTheme(icon), '  ' + name)
+            button.setCheckable(True)
+            button.setFixedWidth(180)
+            button.clicked.connect(lambda checked=False, n=name: self.select_page(n))
+            sidebar.addWidget(button)
+            self.nav.append((name, button))
+        sidebar.addStretch()
+        for name, icon, command in [
+            ('Files', 'folder', [catalog.ROOT/'scripts/dolphin.sh']),
+            ('Theme', 'preferences-desktop-theme', [catalog.ROOT/'scripts/wallpaper.sh']),
+            ('Control desk', 'preferences-system', [catalog.ROOT/'scripts/control-center.sh', '--tab', 'hotkeys']),
+            ('Session & power', 'system-shutdown', [catalog.ROOT/'scripts/control-center.sh', '--tab', 'system'])]:
+            button = QPushButton(QIcon.fromTheme(icon), '  ' + name)
+            button.clicked.connect(lambda checked=False, c=command: self.run_command(c))
+            sidebar.addWidget(button)
+        sidebar.addSpacing(10)
+        sidebar.addWidget(label('●  ' + os.environ.get('USER', 'xetal'), 'eyebrow'))
+        sidebar.addWidget(label('Hyprland session', 'muted'))
+        outer.addLayout(sidebar)
+        main = QVBoxLayout()
+        main.setSpacing(16)
+        greeting = QHBoxLayout()
+        self.close_button=close_button(self,title='Close Apps')
+        greeting.addWidget(label('Make something great.', 'section'))
+        greeting.addStretch()
+        self.clock = label('', 'muted')
+        greeting.addWidget(self.clock)
+        greeting.addWidget(self.close_button)
+        main.addLayout(greeting)
+        self.search = QLineEdit()
+        self.search.setPlaceholderText('Search apps, tools, and favorites…')
+        self.search.setClearButtonEnabled(True)
+        self.search.textChanged.connect(self.populate)
+        self.search.returnPressed.connect(self.activate_current)
+        self.search.installEventFilter(self)
+        main.addWidget(self.search)
+        heading = QHBoxLayout()
+        self.heading = label('Favorites', 'section')
+        self.count = label('', 'muted')
+        heading.addWidget(self.heading)
+        heading.addStretch()
+        heading.addWidget(self.count)
+        main.addLayout(heading)
+        self.grid = LaunchGrid()
+        self.grid.setViewMode(QListView.ViewMode.IconMode)
+        self.grid.setResizeMode(QListView.ResizeMode.Adjust)
+        self.grid.setMovement(QListView.Movement.Static)
+        self.grid.setGridSize(QSize(142, 112))
+        self.grid.setWrapping(True)
+        self.grid.setWordWrap(True)
+        self.grid.setMouseTracking(True)
+        self.grid.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.delegate = Tiles(self.grid)
+        self.grid.setItemDelegate(self.delegate)
+        self.grid.itemEntered.connect(self.delegate.entered)
+        self.grid.itemActivated.connect(self.open_app)
+        self.grid.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.grid.customContextMenuRequested.connect(self.context_menu)
+        main.addWidget(self.grid, 1)
+        self.status = label('Right-click any app to edit its shortcut, icon, or launch options', 'muted')
+        self.status.setWordWrap(True)
+        main.addWidget(self.status)
+        footer = QHBoxLayout()
+        footer.addWidget(label('↵  Open     ↑↓←→  Navigate     Esc  Close', 'muted'))
+        footer.addStretch()
+        create = QPushButton(QIcon.fromTheme('list-add'), ' New shortcut')
+        create.clicked.connect(lambda: self.perform('new'))
+        footer.addWidget(create)
+        footer.addWidget(label('SUPER + SPACE', 'eyebrow'))
+        main.addLayout(footer)
+        outer.addLayout(main, 1)
+        QShortcut(QKeySequence('Escape'), self).activated.connect(self.close)
+        QShortcut(QKeySequence('Ctrl+F'), self).activated.connect(self.search.setFocus)
+        QShortcut(QKeySequence('F2'), self).activated.connect(self.edit_current)
+        QShortcut(QKeySequence('Ctrl+N'), self).activated.connect(lambda: self.perform('new'))
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.tick)
+        self.timer.start(1000)
+        self.tick()
+        self.fade = None
+        self.select_page('Favorites')
+        self.hotkeys.changed.connect(self.update_hotkeys)
+        QTimer.singleShot(100, self.search.setFocus)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        gradient = QLinearGradient(0, 0, self.width(), self.height())
+        if theme_runtime.mode() == 'light':
+            gradient.setColorAt(0, QColor(246, 250, 255, 250))
+            gradient.setColorAt(.6, QColor(235, 243, 250, 247))
+            gradient.setColorAt(1, QColor(226, 241, 243, 250))
+        else:
+            gradient.setColorAt(0, QColor(17, 28, 44, 237))
+            gradient.setColorAt(.6, QColor(16, 23, 38, 225))
+            gradient.setColorAt(1, QColor(28, 29, 49, 233))
+        painter.setBrush(gradient)
+        painter.setPen(QPen(QColor(98, 164, 179, 110), 1))
+        painter.drawRoundedRect(QRectF(self.rect()).adjusted(.5, .5, -.5, -.5), 17, 17)
+        painter.setPen(QColor(140, 172, 200, 35))
+        painter.drawLine(226, 30, 226, self.height() - 30)
+
+    def resize_edges(self, point):
+        edges = Qt.Edge(0)
+        if point.x() < 9: edges |= Qt.Edge.LeftEdge
+        elif point.x() >= self.width() - 9: edges |= Qt.Edge.RightEdge
+        if point.y() < 9: edges |= Qt.Edge.TopEdge
+        elif point.y() >= self.height() - 9: edges |= Qt.Edge.BottomEdge
+        return edges
+
+    def mouseMoveEvent(self, event):
+        edges = self.resize_edges(event.position())
+        horizontal = bool(edges & (Qt.Edge.LeftEdge | Qt.Edge.RightEdge))
+        vertical = bool(edges & (Qt.Edge.TopEdge | Qt.Edge.BottomEdge))
+        if horizontal and vertical:
+            cursor = Qt.CursorShape.SizeFDiagCursor if bool(edges & Qt.Edge.LeftEdge) == bool(edges & Qt.Edge.TopEdge) else Qt.CursorShape.SizeBDiagCursor
+        elif horizontal: cursor = Qt.CursorShape.SizeHorCursor
+        elif vertical: cursor = Qt.CursorShape.SizeVerCursor
+        else: cursor = Qt.CursorShape.ArrowCursor
+        self.setCursor(cursor)
+        super().mouseMoveEvent(event)
+
+    def mousePressEvent(self, event):
+        edges = self.resize_edges(event.position())
+        if event.button() == Qt.MouseButton.LeftButton and edges and self.windowHandle():
+            self.started = time.monotonic()
+            if self.windowHandle().startSystemResize(edges):
+                event.accept(); return
+        super().mousePressEvent(event)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, 'size_grip'):
+            self.size_grip.setGeometry(self.width() - 24, self.height() - 24, 18, 18)
+            self.size_grip.raise_()
+        self.started = time.monotonic()
+
+    def tick(self):
+        self.clock.setText(datetime.datetime.now().strftime('%a, %b %d   ·   %H:%M'))
+
+    def select_page(self, name):
+        self.page = name
+        for title, button in self.nav:
+            button.setChecked(title == name)
+        self.search.clear()
+        self.populate()
+        if self.fade:
+            self.fade.stop()
+        self.fade_effect = QGraphicsOpacityEffect(self.grid)
+        self.grid.setGraphicsEffect(self.fade_effect)
+        self.fade = QPropertyAnimation(self.fade_effect, b'opacity', self)
+        self.fade.setDuration(180)
+        self.fade.setStartValue(.25)
+        self.fade.setEndValue(1.0)
+        self.fade.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.fade.start()
+
+    def populate(self):
+        query = self.search.text().casefold().strip()
+        categories = {'Development': ('Development',), 'Internet': ('Network',),
+                      'Media': ('AudioVideo', 'Graphics'), 'Games': ('Game',),
+                      'Utilities': ('Utility', 'System', 'Settings', 'Office')}
+        apps = list(self.apps.values())
+        if query:
+            def rank(app):
+                name = app.get_display_name().casefold()
+                return (not name.startswith(query), app.get_id() not in self.pinned, name)
+            apps = [a for a in apps if all(token in ' '.join([a.get_display_name(), a.get_description() or '',
+                    a.get_executable() or '', a.get_categories() or '', ' '.join(a.get_keywords() or [])]).casefold()
+                    for token in query.split())]
+            apps.sort(key=rank)
+        elif self.page == 'Favorites':
+            apps = [self.apps[i] for i in self.pinned if i in self.apps]
+        else:
+            if self.page in categories:
+                apps = [a for a in apps if any(c in (a.get_categories() or '').split(';') for c in categories[self.page])]
+            apps.sort(key=lambda a: a.get_display_name().casefold())
+        self.grid.clear()
+        for app in apps:
+            item = QListWidgetItem(icon_for(app), app.get_display_name())
+            item.setData(Qt.ItemDataRole.UserRole, app.get_id())
+            item.setToolTip(app.get_display_name() + '\n' + (app.get_description() or ''))
+            self.grid.addItem(item)
+        self.update_hotkeys()
+        if apps:
+            self.grid.setCurrentRow(0)
+        self.heading.setText('Search results' if query else self.page)
+        self.count.setText(f'{len(apps)} apps')
+        if hasattr(self, 'status'):
+            self.status.setText('No matching applications. Try a different name.' if not apps else
+                'Right-click to customize  ·  F2 edits the selected shortcut')
+
+    def update_hotkeys(self):
+        for row in range(self.grid.count()):
+            item=self.grid.item(row);entry=self.apps[item.data(Qt.ItemDataRole.UserRole)]
+            labels=self.hotkeys.labels(entry)
+            item.setData(hotkeys.ROLE,labels if entry.get_id() in self.pinned else None)
+            tip=entry.get_display_name()+'\n'+(entry.get_description() or '')
+            if labels:tip+='\nLaunch: '+', '.join(labels)
+            elif entry.get_id() in self.pinned:tip+='\nRight-click → Set launch hotkey…'
+            item.setToolTip(tip)
+
+    def run_command(self, command):
+        leave_dashboard()
+        launch(command)
+        self.close()
+
+    def activate_current(self):
+        if self.grid.currentItem():
+            self.open_app(self.grid.currentItem())
+
+    def open_app(self, item):
+        if self.interaction_depth:
+            return
+        app_id = item.data(Qt.ItemDataRole.UserRole)
+        self.launch_app(app_id)
+
+    def launch_app(self, app_id, terminal=None, floating=None):
+        try:
+            leave_dashboard()
+            self.apps[app_id].launch(terminal=terminal,floating=floating)
+            self.close()
+        except Exception as exc:
+            self.status.setText('Could not open this app: ' + str(exc))
+
+    def context_menu(self, point):
+        item = self.grid.currentItem() if point.x() < 0 else self.grid.itemAt(point)
+        if item:
+            self.grid.setCurrentItem(item)
+        app_id = item.data(Qt.ItemDataRole.UserRole) if item else None
+        menu = self.build_context_menu(app_id)
+        self.interaction_depth += 1
+        try:
+            position = self.grid.visualItemRect(item).center() if point.x() < 0 and item else point
+            action = menu.exec(self.grid.viewport().mapToGlobal(position))
+            if action and action.data():
+                self.perform(action.data(), app_id)
+        finally:
+            self.interaction_depth -= 1
+            menu.deleteLater()
+            self.started = time.monotonic()
+            if self.isVisible():
+                self.activateWindow()
+
+    def build_context_menu(self, app_id=None):
+        menu = QMenu(self)
+        def add(text, icon, action, enabled=True):
+            item = menu.addAction(QIcon.fromTheme(icon), text)
+            item.setData(action); item.setEnabled(enabled)
+            return item
+        if app_id:
+            entry = self.apps[app_id]
+            title = menu.addAction(entry.get_display_name().replace('&', '&&'))
+            title.setEnabled(False)
+            add('Open', 'system-run', 'open')
+            add('Launch floating', 'window-new', 'open-floating')
+            add('Open in terminal', 'utilities-terminal', 'terminal')
+            menu.addSeparator()
+            add('Unpin from Favorites' if app_id in self.pinned else 'Pin to Favorites', 'starred', 'pin')
+            on_bar = app_id in pins.pinned()
+            add('Unpin from bar' if on_bar else 'Pin to bar · beside Keys',
+                'window-unpin' if on_bar else 'window-pin', 'bar-pin')
+            add('Duplicate into Favorites…', 'edit-copy', 'duplicate')
+            menu.addSeparator()
+            add('Edit shortcut…', 'document-edit', 'edit')
+            add('Change launch hotkey…' if self.hotkeys.bindings(entry) else 'Set launch hotkey…',
+                'preferences-desktop-keyboard-shortcuts', 'hotkey')
+            add('Change icon…', 'preferences-desktop-icons', 'icon')
+            check = add('Always run in terminal', 'utilities-terminal', 'toggle-terminal')
+            check.setIcon(QIcon())
+            check.setCheckable(True); check.setChecked(entry.fields['terminal'])
+            check=add('Always start floating','window-new','toggle-floating')
+            check.setIcon(QIcon());check.setCheckable(True);check.setChecked(entry.fields['floating'])
+            menu.addSeparator()
+            add('Copy command', 'edit-copy', 'copy-command')
+            add('Show shortcut file', 'document-open-folder', 'show-file', bool(entry.source))
+            add('Restore original settings', 'edit-undo', 'reset', bool(entry.changes) and not entry.custom)
+            if entry.custom:
+                add('Delete this shortcut copy…', 'edit-delete', 'delete')
+            menu.addSeparator()
+        add('New shortcut…', 'list-add', 'new')
+        return menu
+
+    def refresh_apps(self, selected_id=None):
+        self.apps = catalog.applications()
+        self.pinned = catalog.favorites()
+        self.populate()
+        for row in range(self.grid.count()):
+            if self.grid.item(row).data(Qt.ItemDataRole.UserRole) == selected_id:
+                self.grid.setCurrentRow(row)
+                break
+
+    def edit_current(self):
+        item = self.grid.currentItem()
+        if item:
+            self.perform('edit', item.data(Qt.ItemDataRole.UserRole))
+
+    def edit_shortcut(self, entry=None, duplicate=False, change_icon=False):
+        dialog = ShortcutEditor(entry, self, duplicate=duplicate)
+        if change_icon:
+            QTimer.singleShot(0, lambda: dialog.browse('icon'))
+        while dialog.exec() == QDialog.DialogCode.Accepted:
+            try:
+                if duplicate or entry is None:
+                    ident = shortcuts.duplicate(entry, dialog.fields)
+                    catalog.pin(ident, True)
+                else:
+                    ident = shortcuts.save(entry, dialog.fields)
+                self.refresh_apps(ident)
+                self.status.setText('Shortcut saved in this Hyprland menu.')
+                break
+            except (OSError, ValueError) as exc:
+                dialog.error.setText('Could not save: ' + str(exc))
+        dialog.deleteLater()
+
+    def perform(self, action, app_id=None):
+        entry = self.apps.get(app_id)
+        self.interaction_depth += 1
+        try:
+            if action in ('open', 'terminal', 'open-floating'):
+                self.launch_app(app_id, True if action == 'terminal' else None,
+                                True if action=='open-floating' else None)
+            elif action == 'pin':
+                catalog.pin(app_id, app_id not in self.pinned)
+                self.refresh_apps(app_id)
+            elif action == 'bar-pin':
+                enabled = app_id not in pins.pinned()
+                pins.pin(app_id, enabled)
+                self.status.setText('Pinned beside Keys. Drag its icon on the bar to reorder.' if enabled
+                                    else 'Unpinned from the bar.')
+            elif action in ('edit', 'duplicate', 'icon', 'new'):
+                self.edit_shortcut(None if action == 'new' else entry,
+                                   duplicate=action == 'duplicate', change_icon=action == 'icon')
+            elif action == 'hotkey':
+                dialog=HotkeyDialog(entry,self,self.hotkeys.store)
+                if dialog.exec()==QDialog.DialogCode.Accepted:
+                    self.hotkeys.reload();self.update_hotkeys()
+                    self.status.setText('Hotkeys updated · Control desk → Hotkeys → Applications')
+                dialog.deleteLater()
+            elif action == 'toggle-terminal':
+                shortcuts.save(entry, {**entry.fields, 'terminal': not entry.fields['terminal']})
+                self.refresh_apps(app_id)
+            elif action == 'toggle-floating':
+                shortcuts.save(entry,{**entry.fields,'floating':not entry.fields['floating']})
+                self.refresh_apps(app_id)
+                self.status.setText('Floating preference saved. Super+V toggles any focused window.')
+            elif action == 'copy-command':
+                QApplication.clipboard().setText(entry.get_commandline())
+                self.status.setText('Command copied.')
+            elif action == 'show-file':
+                self.run_command([catalog.ROOT/'scripts/dolphin.sh', '--select', entry.source])
+            elif action == 'reset':
+                shortcuts.reset(entry)
+                self.refresh_apps(app_id)
+                self.status.setText('Original shortcut settings restored.')
+            elif action == 'delete':
+                prompt = QMessageBox(self)
+                prompt.setWindowTitle('Delete shortcut copy?')
+                prompt.setTextFormat(Qt.TextFormat.PlainText)
+                prompt.setText('Delete “' + entry.get_display_name() + '” from this menu?')
+                prompt.setInformativeText('The installed application and its original shortcut are kept.')
+                delete = prompt.addButton('Delete copy', QMessageBox.ButtonRole.DestructiveRole)
+                cancel = prompt.addButton(QMessageBox.StandardButton.Cancel)
+                prompt.setDefaultButton(cancel); prompt.setEscapeButton(cancel); prompt.exec()
+                if prompt.clickedButton() == delete:
+                    shortcuts.remove_copy(entry)
+                    catalog.pin(app_id, False)
+                    pins.pin(app_id, False)
+                    self.refresh_apps()
+        except Exception as exc:
+            self.status.setText('Could not update shortcut: ' + str(exc))
+        finally:
+            self.interaction_depth -= 1
+            self.started = time.monotonic()
+            if self.isVisible():
+                self.activateWindow()
+
+    def eventFilter(self, watched, event):
+        if watched == self.search and event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Down:
+            self.grid.setFocus()
+            return True
+        return super().eventFilter(watched, event)
+
+    def changeEvent(self, event):
+        if event.type() == QEvent.Type.ActivationChange and not self.isActiveWindow() and not self.preview:
+            QTimer.singleShot(120, self.close_if_outside)
+        super().changeEvent(event)
+
+    def close_if_outside(self):
+        if (not self.preview and self.isVisible() and not self.isActiveWindow()
+                and not self.interaction_depth and time.monotonic() - self.started > .6
+                and not QApplication.activePopupWidget() and not QApplication.activeModalWidget()):
+            self.close()
+
+    def closeEvent(self, event):
+        if QApplication.activeModalWidget() and self.interaction_depth:
+            event.ignore()
+            return
+        if not self.preview:
+            try: geometry.save(self.width(), self.height())
+            except OSError: pass
+        super().closeEvent(event)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--preview')
+    parser.add_argument('--edit', help='Open the shortcut editor for this application ID')
+    args = parser.parse_args()
+    if not args.preview and not os.environ.get('HYPRLAND_INSTANCE_SIGNATURE'):
+        return 1
+    app = QApplication(sys.argv[:1])
+    app.setApplicationName('xetal-launcher')
+    app.setDesktopFileName('xetal-launcher')
+    theme_runtime.install(app, STYLE)
+    QIcon.setThemeSearchPaths([str(Path.home()/'.local/share/icons'), '/usr/share/icons'])
+    QIcon.setFallbackThemeName('hicolor')
+    QIcon.setThemeName('Papirus-Light' if theme_runtime.mode() == 'light' else 'Papirus-Dark')
+    server = None
+    if not args.preview:
+        instance = Path(os.environ['XDG_RUNTIME_DIR']) / 'hypr' / os.environ['HYPRLAND_INSTANCE_SIGNATURE']
+        address = str(instance/'xetal-launcher.sock')
+        peer = QLocalSocket()
+        peer.connectToServer(address)
+        if peer.waitForConnected(100):
+            peer.write((json.dumps({'edit': args.edit}) + '\n').encode() if args.edit else b'toggle\n')
+            peer.waitForBytesWritten(100)
+            return 0
+        QLocalServer.removeServer(address)
+        server = QLocalServer()
+        if not server.listen(address):
+            return 1
+    window = Menu(bool(args.preview))
+    if server:
+        def accept_request():
+            peer = server.nextPendingConnection()
+            def receive():
+                if not peer.canReadLine():
+                    return
+                message = bytes(peer.readLine()).strip()
+                peer.disconnectFromServer()
+                peer.deleteLater()
+                if message == b'toggle':
+                    window.close()
+                    return
+                try:
+                    ident = json.loads(message).get('edit')
+                    if ident and not window.interaction_depth:
+                        window.refresh_apps(ident)
+                        if ident in window.apps:
+                            window.show(); window.activateWindow()
+                            window.perform('edit', ident)
+                except (ValueError, AttributeError):
+                    pass
+            peer.readyRead.connect(receive)
+            receive()
+        server.newConnection.connect(accept_request)
+        watcher = QLocalSocket(app)
+        watcher.connectToServer(str(instance/'.socket2.sock'))
+        watcher.readyRead.connect(lambda: watcher.readAll())
+        watcher.disconnected.connect(app.quit)
+    window.show()
+    if window.screen():
+        available = window.screen().availableGeometry()
+        window.resize(min(window.width(), available.width() - 48), min(window.height(), available.height() - 70))
+    if args.edit and args.edit in window.apps:
+        QTimer.singleShot(0, lambda: window.perform('edit', args.edit))
+    if args.preview:
+        QTimer.singleShot(600, lambda: (window.grab().save(args.preview), app.quit()))
+    return app.exec()
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

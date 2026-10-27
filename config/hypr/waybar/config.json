@@ -1,0 +1,251 @@
+{
+  "layer": "top",
+  "position": "top",
+  "height": 38,
+  "spacing": 2,
+  "reload_style_on_change": true,
+  "modules-left": [
+    "custom/launcher",
+    "hyprland/workspaces",
+    "cffi/new-workspace",
+    "custom/keys",
+    "cffi/app-pins"
+  ],
+  "modules-center": [
+    "mpris"
+  ],
+  "modules-right": [
+    "cpu",
+    "memory",
+    "custom/temperature",
+    "disk",
+    "custom/internet",
+    "custom/lan",
+    "custom/wifi",
+    "custom/vpn",
+    "bluetooth",
+    "group/audio",
+    "pulseaudio#microphone",
+    "idle_inhibitor",
+    "custom/notifications",
+    "tray",
+    "clock",
+    "custom/power"
+  ],
+  "custom/launcher": {
+    "format": "\udb82\udcc7  Apps",
+    "tooltip-format": "Application launcher \u00b7 Super + Space",
+    "on-click": "~/.config/hypr/scripts/launcher.sh",
+    "on-click-right": "$HOME/.config/hypr/scripts/control-center.sh --tab system"
+  },
+  "hyprland/workspaces": {
+    "format": "{name} {windows}",
+    "all-outputs": false,
+    "show-special": true,
+    "special-visible-only": false,
+    "on-click": "activate",
+    "workspace-taskbar": {
+      "enable": true,
+      "update-active-window": true,
+      "format": "{icon}",
+      "icon-size": 21,
+      "on-click-window": "hyprctl dispatch focuswindow address:{address}",
+      "icon-theme": [
+        "Papirus-Dark",
+        "Adwaita"
+      ],
+      "ignore-list": [],
+      "active-window-position": "none"
+    },
+    "active-only": false,
+    "persistent-only": false,
+    "move-to-monitor": false,
+    "sort-by": "number"
+  },
+  "custom/keys": {
+    "format": "\udb80\udf0c  Keys",
+    "tooltip-format": "Hotkey editor \u00b7 Super + K",
+    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab hotkeys"
+  },
+  "cffi/app-pins": {
+    "module_path": "@HOME@/.config/hypr/waybar/pins/pins.so"
+  },
+  "mpris": {
+    "format": "{player_icon} {dynamic}",
+    "format-paused": "{status_icon} {dynamic}",
+    "player-icons": {
+      "default": "\uf001",
+      "firefox": "\uf269",
+      "spotify": "\uf1bc"
+    },
+    "status-icons": {
+      "paused": "\uf04c",
+      "playing": "\uf04b"
+    },
+    "dynamic-len": 25,
+    "max-length": 30,
+    "on-click": "playerctl play-pause",
+    "on-click-right": "playerctl next",
+    "on-click-middle": "playerctl previous"
+  },
+  "cpu": {
+    "format": "\uf4bc {usage}%",
+    "interval": 3,
+    "tooltip": true,
+    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab system",
+    "on-click-right": "kitty --config $HOME/.config/hypr/kitty.conf -e htop"
+  },
+  "memory": {
+    "format": "\uefc5 {used:0.0f}G",
+    "interval": 3,
+    "tooltip-format": "Memory: {used:0.1f} / {total:0.1f} GiB ({percentage}%)",
+    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab system"
+  },
+  "disk": {
+    "path": "@HOME@",
+    "format": "\udb80\udeca {percentage_used}%",
+    "tooltip-format": "Home disk: {free} free / {total}",
+    "interval": 30,
+    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab system"
+  },
+  "custom/internet": {
+    "exec": "$HOME/.config/hypr/scripts/panel-status.py internet",
+    "return-type": "json",
+    "interval": 10,
+    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab network"
+  },
+  "custom/vpn": {
+    "exec": "$HOME/.config/hypr/scripts/panel-status.py vpn",
+    "return-type": "json",
+    "interval": 10,
+    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab network"
+  },
+  "bluetooth": {
+    "format": "\uf294",
+    "format-disabled": "\udb80\udcb2",
+    "format-off": "\udb80\udcb2",
+    "format-no-controller": "\udb80\udcb2",
+    "format-connected": "\uf294 {num_connections}",
+    "tooltip-format": "Bluetooth: {status}\nClick for device manager",
+    "tooltip-format-connected": "{device_enumerate}",
+    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab bluetooth"
+  },
+  "pulseaudio": {
+    "format": "{icon} {volume}%",
+    "format-muted": "\udb81\udf5f Muted",
+    "format-icons": {
+      "headphone": "\udb80\udecb",
+      "headset": "\udb80\udece",
+      "default": [
+        "\udb81\udd7f",
+        "\udb81\udd80",
+        "\udb81\udd7e"
+      ]
+    },
+    "scroll-step": 3,
+    "max-volume": 100,
+    "tooltip-format": "{desc}\nScroll: volume \u00b7 Right-click: mute\nClick: mixer and routing",
+    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab audio",
+    "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
+  },
+  "pulseaudio#microphone": {
+    "format": "{format_source}",
+    "format-muted": "{format_source}",
+    "format-source": "\udb80\udf6c {volume}%",
+    "format-source-muted": "\udb80\udf6d",
+    "tooltip-format": "Microphone\nScroll: input level \u00b7 Right-click: mute\nClick: input devices",
+    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab audio",
+    "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle",
+    "on-scroll-up": "wpctl set-volume -l 1 @DEFAULT_AUDIO_SOURCE@ 3%+",
+    "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 3%-"
+  },
+  "idle_inhibitor": {
+    "format": "{icon}",
+    "format-icons": {
+      "activated": "\udb80\udd76",
+      "deactivated": "\udb81\udeca"
+    },
+    "tooltip-format-activated": "Keep-awake enabled \u00b7 Click to allow idle",
+    "tooltip-format-deactivated": "Click to keep this session awake"
+  },
+  "custom/notifications": {
+    "exec": "swaync-client -swb",
+    "return-type": "json",
+    "format": "{icon} {text}",
+    "format-icons": {
+      "notification": "\udb84\udd6b",
+      "none": "\udb80\udc9a",
+      "dnd-notification": "\udb80\udc9b",
+      "dnd-none": "\udb80\udc9b",
+      "inhibited-notification": "\udb80\udc9b",
+      "inhibited-none": "\udb80\udc9b",
+      "dnd-inhibited-notification": "\udb80\udc9b",
+      "dnd-inhibited-none": "\udb80\udc9b"
+    },
+    "tooltip": false,
+    "on-click": "swaync-client -t",
+    "on-click-right": "swaync-client -d",
+    "restart-interval": 5
+  },
+  "tray": {
+    "icon-size": 19,
+    "spacing": 8,
+    "show-passive-items": true
+  },
+  "clock": {
+    "format": "{:%a %d %b  %I:%M %p}",
+    "format-alt": "{:%Y-%m-%d  %H:%M:%S}",
+    "interval": 1,
+    "tooltip-format": "<big>{:%A, %B %d}</big>\n<tt><small>{calendar}</small></tt>",
+    "calendar": {
+      "mode": "month",
+      "format": {
+        "today": "<span color='#75ddd0'><b>{}</b></span>"
+      }
+    },
+    "actions": {
+      "on-scroll-up": "shift_up",
+      "on-scroll-down": "shift_down"
+    },
+    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab calendar"
+  },
+  "custom/power": {
+    "format": "\u23fb",
+    "tooltip-format": "Session and power controls",
+    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab system",
+    "on-click-right": "hyprlock --config $HOME/.config/hypr/hyprlock.conf"
+  },
+  "group/audio": {
+    "orientation": "inherit",
+    "modules": [
+      "pulseaudio",
+      "pulseaudio/slider"
+    ]
+  },
+  "pulseaudio/slider": {
+    "min": 0,
+    "max": 100,
+    "orientation": "horizontal"
+  },
+  "custom/wifi": {
+    "exec": "$HOME/.config/hypr/scripts/panel-status.py wifi",
+    "return-type": "json",
+    "interval": 5,
+    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab network"
+  },
+  "cffi/new-workspace": {
+    "module_path": "@HOME@/.config/hypr/waybar/workspaces/controls.so"
+  },
+  "custom/temperature": {
+    "exec": "$HOME/.config/hypr/scripts/panel-status.py temperature",
+    "return-type": "json",
+    "interval": 5,
+    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab system"
+  },
+  "custom/lan": {
+    "exec": "$HOME/.config/hypr/scripts/panel-status.py lan",
+    "return-type": "json",
+    "interval": 5,
+    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab network"
+  }
+}

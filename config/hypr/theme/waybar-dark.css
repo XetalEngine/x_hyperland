@@ -1,0 +1,98 @@
+/* Local Hyprland styling. No GTK theme or KDE setting is changed. */
+* {
+    font-family: "FiraCode Nerd Font", "DejaVu Sans", sans-serif;
+    font-size: 12px;
+    border: none;
+    border-radius: 0;
+    min-height: 0;
+    box-shadow: none;
+}
+window#waybar {
+    background: rgba(17, 22, 29, 0.98);
+    color: #d5dfec;
+    border-bottom: 1px solid #344551;
+}
+.modules-left, .modules-center, .modules-right { padding: 3px 5px; }
+#custom-launcher, #custom-keys, #cpu, #memory, #custom-temperature, #disk,
+#custom-internet, #custom-wifi, #custom-lan, #custom-vpn, #bluetooth, #pulseaudio,
+#idle_inhibitor, #custom-notifications, #clock, #custom-power, #mpris {
+    padding: 0 7px;
+    margin: 1px 1px;
+    border-radius: 4px;
+    transition: background-color 180ms ease, color 180ms ease;
+}
+#custom-launcher { color: #85e5d3; font-weight: bold; background: #243a40; padding: 0 12px; }
+#custom-keys { color: #a5c2ef; background: #202f43; padding: 0 10px; }
+#xetal-pins { margin: 1px 0 1px 5px; padding-left: 7px; border-left: 1px solid #344b58; }
+#xetal-pins.empty { margin: 0; padding: 0; border: 0; }
+#xetal-pins .pin {
+    background: #202f3b; padding: 0 5px; margin: 0 1px;
+    border: 2px solid transparent; border-radius: 5px; min-width: 22px;
+    transition: background-color 150ms ease, border-color 150ms ease;
+}
+#xetal-pins .pin:hover { background: #34515b; border-bottom-color: #7ae1cf; }
+#xetal-pins .pin:focus { background: #2b454f; }
+#xetal-pins .pin.dragging { opacity: 0.4; }
+#xetal-pins .pin.drop-before { border-left-color: #8dfbe0; background: #294953; }
+#xetal-pins .pin.drop-after { border-right-color: #8dfbe0; background: #294953; }
+#custom-launcher:hover, #custom-keys:hover, #clock:hover, #custom-power:hover,
+#custom-wifi:hover, #custom-lan:hover, #bluetooth:hover, #pulseaudio:hover, #custom-notifications:hover,
+#cpu:hover, #memory:hover, #custom-temperature:hover, #disk:hover, #custom-vpn:hover,
+#mpris:hover, #custom-internet:hover, #idle_inhibitor:hover { background: #354651; color: #f3ffff; }
+#workspaces { margin: 0 5px; }
+#workspaces button {
+    color: #8da2b9;
+    padding: 0 7px;
+    margin: 1px 2px;
+    border-radius: 4px;
+    background: #202b36;
+    border-bottom: 2px solid transparent;
+    transition: background-color 180ms ease, border-color 180ms ease;
+}
+#workspaces button.active { color: #c8fff2; background: #2a454b; border-bottom-color: #70d5c8; }
+#workspaces button:hover { background: #3b4e5f; }
+#workspaces button.urgent { color: #ffd9d9; background: #713f4c; }
+#workspaces .taskbar-window { padding: 0 3px; margin: 0 1px; border-radius: 3px; }
+#workspaces .taskbar-window.active { background: #45656b; }
+#cpu, #memory, #custom-temperature, #disk { color: #97aabd; }
+#custom-temperature.critical { color: #ff8585; background: #4b2835; }
+#custom-internet.online, #custom-vpn.connected { color: #78d6af; }
+#custom-internet.offline, #custom-lan.disconnected, #bluetooth.disabled, #bluetooth.off { color: #78899c; }
+#custom-vpn.disconnected { color: #78899c; }
+#custom-lan { color: #9fbedc; }
+#bluetooth { color: #8abaf0; }
+#audio { background: #22303b; border-radius: 4px; margin: 1px 2px; padding: 0 3px; }
+#pulseaudio { color: #9fdfd4; }
+#pulseaudio.muted { color: #e4a6b0; }
+#pulseaudio-slider { padding: 0 8px 0 2px; }
+#pulseaudio-slider trough { min-width: 72px; min-height: 5px; border-radius: 4px; background: #3b4a58; }
+#pulseaudio-slider highlight { border-radius: 4px; background: linear-gradient(to right, #4faaa7, #8ce2c7); }
+#pulseaudio-slider slider { min-width: 11px; min-height: 11px; margin: -4px 0; border-radius: 6px; background: #c5fff1; }
+#pulseaudio-slider slider:hover { background: #ffffff; }
+#idle_inhibitor.activated { color: #f3d78e; background: #4a4029; }
+#custom-notifications { color: #aac5f0; }
+#tray { padding: 0 8px; margin: 1px 4px; border-left: 1px solid #344350; }
+#tray > .needs-attention { background: #704549; border-radius: 4px; }
+#clock { color: #e1eaf7; background: #24313f; padding: 0 11px; }
+#custom-power { color: #e5a4af; padding: 0 11px; font-size: 17px; }
+#mpris { color: #acb8cb; }
+tooltip { background: #1b2530; color: #e1ebf5; border: 1px solid #4a5d70; border-radius: 5px; }
+tooltip label { padding: 8px; }
+menu { background: #1b2530; color: #dce7f3; border: 1px solid #45586c; padding: 5px; }
+menuitem { border-radius: 3px; padding: 7px 12px; }
+menuitem:hover { background: #345267; color: #ffffff; }
+
+#custom-wifi { color: #9fbedc; }
+#custom-wifi.disconnected { color: #7f92a8; }
+
+#new-workspace { color: #85e5d3; font-size: 19px; background: #243a40; border-radius: 4px; padding: 0 8px; margin: 1px 3px 1px 0; }
+#new-workspace:hover { color: #effffc; background: #3b605f; }
+
+/* Small close target beside empty numbered workspaces. */
+#workspaces button.workspace-remove {
+    color: #f08a95; background: transparent; border: none;
+    padding: 0; margin: 0; min-width: 16px; min-height: 18px;
+    font-size: 15px; font-weight: bold; border-radius: 3px;
+}
+#workspaces button.workspace-remove:hover { color: #ffffff; background: #a23d50; }
+#workspaces button.workspace-remove:focus { box-shadow: inset 0 0 0 1px #f08a95; }

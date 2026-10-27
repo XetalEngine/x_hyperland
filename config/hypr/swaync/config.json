@@ -1,0 +1,20 @@
+{
+  "$schema": "/etc/xdg/swaync/configSchema.json",
+  "ignore-gtk-theme": true,
+  "positionX": "right",
+  "positionY": "top",
+  "layer": "overlay",
+  "control-center-layer": "top",
+  "timeout": 5,
+  "timeout-low": 3,
+  "timeout-critical": 0,
+  "fit-to-screen": true,
+  "notification-window-width": 400,
+  "control-center-width": 400,
+  "widgets": ["title", "dnd", "notifications"],
+  "scripts": {},
+  "widget-config": {
+    "title": {"text": "Notifications", "clear-all-button": true},
+    "dnd": {"text": "Do Not Disturb"}
+  }
+}

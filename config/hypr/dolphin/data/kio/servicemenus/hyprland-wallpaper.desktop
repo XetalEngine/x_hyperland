@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Service
+MimeType=image/jpeg;image/png;image/webp;image/bmp;image/tiff;image/avif;
+Actions=hyprlandWallpaper;
+X-KDE-Priority=TopLevel
+X-KDE-RequiredNumberOfUrls=1
+Icon=preferences-desktop-wallpaper
+
+[Desktop Action hyprlandWallpaper]
+Name=Set as Hyprland wallpaper…
+Icon=preferences-desktop-wallpaper
+Exec=@HOME@/.config/hypr/scripts/wallpaper.sh %f

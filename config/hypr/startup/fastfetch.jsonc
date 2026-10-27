@@ -1,0 +1,16 @@
+{
+  "logo": {"type": "builtin", "source": "arch_small", "color": {"1": "38;2;115;212;209"}, "padding": {"right": 3, "top": 1}},
+  "display": {"separator": "  ", "color": {"keys": "38;2;133;178;230", "title": "38;2;115;212;209"}},
+  "modules": [
+    "title", "separator",
+    {"type": "os", "key": "OS", "format": "{pretty-name}"},
+    {"type": "kernel", "key": "Kernel", "format": "{release}"},
+    {"type": "wm", "key": "Session"},
+    {"type": "uptime", "key": "Uptime"},
+    {"type": "cpu", "key": "CPU", "format": "{name}"},
+    {"type": "gpu", "key": "GPU", "format": "{name}"},
+    {"type": "memory", "key": "Memory"},
+    {"type": "disk", "key": "Disk", "folders": "/", "showExternal": false},
+    "break", {"type": "colors", "symbol": "circle"}
+  ]
+}

@@ -1,0 +1,15 @@
+[DetailsMode]
+RightPadding=0
+
+[General]
+Version=202
+
+[KFileDialog Settings]
+Places Icons Auto-resize=true
+Places Icons Static Size=32
+
+[MainWindow]
+MenuBar=Disabled
+
+[PlacesPanel]
+IconSize=-1

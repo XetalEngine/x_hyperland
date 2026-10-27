@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Dolphin (Xetal session)
+Comment=Open folders with the Hyprland Dolphin profile
+Exec=@HOME@/.config/hypr/scripts/dolphin.sh %U
+Icon=system-file-manager
+Terminal=false
+NoDisplay=true
+MimeType=inode/directory;
+StartupWMClass=org.kde.dolphin

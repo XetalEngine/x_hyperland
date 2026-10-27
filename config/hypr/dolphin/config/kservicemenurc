@@ -1,0 +1,15 @@
+[Show]
+compressfileitemaction=true
+extractfileitemaction=true
+forgetfileitemaction=true
+hidefileitemaction=false
+installFont=true
+kactivitymanagerd_fileitem_linking_plugin=true
+kio-admin=true
+movetonewfolderitemaction=true
+plasmavaultfileitemaction=true
+runInKonsole=true
+setfoldericonitemaction=true
+sharefileitemaction=true
+tagsfileitemaction=true
+wallpaperfileitemaction=false

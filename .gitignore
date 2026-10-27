@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.so
+*.o
+*.a
+*.lock
+config/hypr/share-picker/build/
+config/hypr/share-picker/window-preview
+config/hypr/theme/qt5/
+config/hypr/theme/qt6/
+config/hypr/theme/qt-settings/
+config/hypr/dolphin/cache/
+config/hypr/dolphin/state/
+config/hypr/assets/font-cache/
+.xetal-install.json
+.DS_Store

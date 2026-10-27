@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "overrides": {
+    "cachyostools-cachyostools.desktop": {
+      "terminal": false
+    }
+  },
+  "copies": {}
+}
