@@ -4,13 +4,13 @@ The initial package was checked on 26 October 2026 on the original Arch Linux de
 
 ## Automated checks
 
-**171 tests passed**, including the subsequent hovered-app force-kill, grouped favorites, free tile placement and screenshot-focus fixes:
+**175 tests passed**, including the subsequent hovered-app force-kill, grouped favorites, free tile placement and focus-dismissal fixes:
 
 | Suite | Tests |
 | --- | ---: |
 | Installer | 13 |
 | Control desk, hotkeys, audio and display settings | 46 |
-| Application launcher, favorite groups, shortcut editing, pins and hotkeys | 55 |
+| Application launcher, favorite groups, shortcut editing, pins and hotkeys | 59 |
 | Theme, wallpaper and window controls | 14 |
 | Application switcher | 2 |
 | Screen-sharing picker | 10 |
@@ -25,6 +25,8 @@ Favorite-layout coverage includes migration without rewriting existing favorites
 The follow-up tile placement checks cover vertical stacks with empty adjacent cells, saved gaps, resizing occupied tiles, collision handling and invalid positions. A real pointer drag placed the second small tile directly below the first without filling the neighboring cell. Screenshot tests use fake capture tools to verify that Apps stays visible during selection/capture, with the guard released on success, cancellation, capture failure and clipboard failure. The notification broker cannot retain that guard.
 
 After compacting the launcher header, the 55 launcher checks passed again. Rendered windows at 1140×723, 1140×600 and 740×480 were checked for overlapping controls, independent sidebar/tile scrolling and saved shorter heights. Existing favorite groups and positions remained unchanged.
+
+Four focus-dismissal regressions cover an outside click during the opening delay, capture completion without a second focus event, editor protection, and returning focus before dismissal. Three reproduced failures passed after replacing the single check with a retry timer. A private Xvfb window-manager session also verified actual outside clicks and capture protection/release.
 
 The hover-kill tests cover a pointer target different from keyboard focus, empty desktop, floating/fullscreen/special workspaces, pinned windows, rotated/scaled displays, bars/overlays, invalid process identities and a target changing before dispatch. The dry-run path cannot send a signal.
 

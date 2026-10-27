@@ -183,6 +183,9 @@ class Menu(QWidget):
         self.size_grip.setStyleSheet('background: transparent;')
         self.interaction_depth = 0
         self.started = time.monotonic()
+        self.dismiss_timer = QTimer(self)
+        self.dismiss_timer.setSingleShot(True)
+        self.dismiss_timer.timeout.connect(self.close_if_outside)
         self.apps = catalog.applications()
         self.pinned = catalog.favorites()
         self.hotkeys=hotkeys.ShortcutIndex(self)
@@ -796,21 +799,34 @@ class Menu(QWidget):
         return super().eventFilter(watched, event)
 
     def changeEvent(self, event):
-        if event.type() == QEvent.Type.ActivationChange and not self.isActiveWindow() and not self.preview:
-            QTimer.singleShot(120, self.close_if_outside)
+        if event.type() == QEvent.Type.ActivationChange and hasattr(self, 'dismiss_timer'):
+            if self.isActiveWindow() or self.preview:
+                self.dismiss_timer.stop()
+            else:
+                self.dismiss_timer.start(120)
         super().changeEvent(event)
 
     def close_if_outside(self):
-        if (not self.preview and self.isVisible() and not self.isActiveWindow()
-                and not self.interaction_depth and time.monotonic() - self.started > .6
-                and not capture_guard.active()
-                and not QApplication.activePopupWidget() and not QApplication.activeModalWidget()):
-            self.close()
+        self.dismiss_timer.stop()
+        if self.preview or not self.isVisible() or self.isActiveWindow():
+            return
+        # Focus may already be elsewhere when capture or an editor finishes;
+        # there may be no second activation event to trigger dismissal.
+        if (self.interaction_depth or capture_guard.active()
+                or QApplication.activePopupWidget() or QApplication.activeModalWidget()):
+            self.dismiss_timer.start(120)
+            return
+        remaining = .6 - (time.monotonic() - self.started)
+        if remaining > 0:
+            self.dismiss_timer.start(max(1, int(remaining * 1000) + 1))
+            return
+        self.close()
 
     def closeEvent(self, event):
         if QApplication.activeModalWidget() and self.interaction_depth:
             event.ignore()
             return
+        self.dismiss_timer.stop()
         if not self.preview:
             try: geometry.save(self.width(), self.height())
             except OSError: pass
