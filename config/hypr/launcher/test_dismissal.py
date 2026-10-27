@@ -88,5 +88,67 @@ class DismissalTests(unittest.TestCase):
         QTest.qWait(200)
         self.assertFalse(self.menu.isVisible())
 
+    def test_wallpaper_click_closes_even_while_qt_remains_active(self):
+        self.focused = True
+        with patch.object(app, 'check_pointer', side_effect=lambda parent, done: done(True)):
+            self.menu.pointer_clicked()
+        self.assertFalse(self.menu.isVisible())
+
+    def test_click_inside_keeps_active_menu_open(self):
+        self.focused = True
+        with patch.object(app, 'check_pointer', side_effect=lambda parent, done: done(False)):
+            self.menu.pointer_clicked()
+        self.assertTrue(self.menu.isVisible())
+
+    def test_wallpaper_click_during_opening_delay_is_retried(self):
+        self.focused = True
+        self.menu.started = time.monotonic()
+        with patch.object(app, 'check_pointer', side_effect=lambda parent, done: done(True)):
+            self.menu.pointer_clicked()
+        self.assertTrue(self.menu.isVisible())
+        QTest.qWait(750)
+        self.assertFalse(self.menu.isVisible())
+
+    def test_later_inside_click_cancels_pending_wallpaper_dismissal(self):
+        self.focused = True
+        self.menu.started = time.monotonic()
+        with patch.object(app, 'check_pointer', side_effect=lambda parent, done: done(True)):
+            self.menu.pointer_clicked()
+        with patch.object(app, 'check_pointer', side_effect=lambda parent, done: done(False)):
+            self.menu.pointer_clicked()
+        QTest.qWait(750)
+        self.assertTrue(self.menu.isVisible())
+
+    def test_late_reply_cannot_dismiss_after_another_click(self):
+        self.focused = True
+        replies = []
+        with patch.object(app, 'check_pointer', side_effect=lambda parent, done: replies.append(done)):
+            self.menu.pointer_clicked()
+            self.menu.pointer_clicked()
+        replies[1](False)
+        replies[0](True)
+        self.assertTrue(self.menu.isVisible())
+
+    def test_screenshot_and_drag_clicks_are_ignored(self):
+        self.focused = True
+        with patch.object(app, 'check_pointer') as check:
+            self.capture = True
+            self.menu.pointer_clicked()
+            self.capture = False
+            self.menu.interaction_depth = 1
+            self.menu.pointer_clicked()
+            check.assert_not_called()
+        self.menu.interaction_depth = 0
+        self.assertTrue(self.menu.isVisible())
+
+    def test_editor_opened_while_query_pending_prevents_close(self):
+        replies = []
+        with patch.object(app, 'check_pointer', side_effect=lambda parent, done: replies.append(done)):
+            self.menu.pointer_clicked()
+        self.menu.interaction_depth = 1
+        replies[0](True)
+        self.assertTrue(self.menu.isVisible())
+        self.menu.interaction_depth = 0
+
 
 if __name__ == '__main__':unittest.main()

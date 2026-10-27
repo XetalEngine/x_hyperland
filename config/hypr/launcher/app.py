@@ -24,6 +24,7 @@ import geometry
 import hotkeys
 import favorite_layout
 import capture_guard
+from outside_click import CLICK_EVENT, check_pointer
 from favorite_board import Board
 from hotkey_dialog import HotkeyDialog
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'theme'))
@@ -185,6 +186,8 @@ class Menu(QWidget):
         self.size_grip.setStyleSheet('background: transparent;')
         self.interaction_depth = 0
         self.started = time.monotonic()
+        self.pointer_generation = 0
+        self.pending_outside_click = False
         self.dismiss_timer = QTimer(self)
         self.dismiss_timer.setSingleShot(True)
         self.dismiss_timer.timeout.connect(self.close_if_outside)
@@ -805,19 +808,48 @@ class Menu(QWidget):
     def changeEvent(self, event):
         if event.type() == QEvent.Type.ActivationChange and hasattr(self, 'dismiss_timer'):
             if self.isActiveWindow() or self.preview:
+                self.pending_outside_click = False
+                self.pointer_generation += 1
                 self.dismiss_timer.stop()
             else:
                 self.dismiss_timer.start(120)
         super().changeEvent(event)
 
+    def handle_compositor_events(self, watcher):
+        while watcher.canReadLine():
+            if bytes(watcher.readLine()).strip() == CLICK_EVENT:
+                self.pointer_clicked()
+
+    def dismissal_protected(self):
+        return (self.interaction_depth or capture_guard.active()
+                or QApplication.activePopupWidget() or QApplication.activeModalWidget())
+
+    def pointer_clicked(self):
+        self.pointer_generation += 1
+        generation = self.pointer_generation
+        self.pending_outside_click = False
+        if self.preview or not self.isVisible() or self.dismissal_protected():
+            return
+
+        def checked(outside):
+            if (generation != self.pointer_generation or outside is not True
+                    or not self.isVisible() or self.dismissal_protected()):
+                return
+            # Clicking wallpaper need not deactivate a Wayland toplevel.
+            self.pending_outside_click = True
+            self.close_if_outside()
+
+        check_pointer(self, checked)
+
     def close_if_outside(self):
         self.dismiss_timer.stop()
-        if self.preview or not self.isVisible() or self.isActiveWindow():
+        if (self.preview or not self.isVisible()
+                or (self.isActiveWindow() and not self.pending_outside_click)):
             return
         # Focus may already be elsewhere when capture or an editor finishes;
         # there may be no second activation event to trigger dismissal.
-        if (self.interaction_depth or capture_guard.active()
-                or QApplication.activePopupWidget() or QApplication.activeModalWidget()):
+        if self.dismissal_protected():
+            self.pending_outside_click = False
             self.dismiss_timer.start(120)
             return
         remaining = .6 - (time.monotonic() - self.started)
@@ -831,6 +863,8 @@ class Menu(QWidget):
             event.ignore()
             return
         self.dismiss_timer.stop()
+        self.pointer_generation += 1
+        self.pending_outside_click = False
         if not self.preview:
             try: geometry.save(self.width(), self.height())
             except OSError: pass
@@ -892,7 +926,7 @@ def main():
         server.newConnection.connect(accept_request)
         watcher = QLocalSocket(app)
         watcher.connectToServer(str(instance/'.socket2.sock'))
-        watcher.readyRead.connect(lambda: watcher.readAll())
+        watcher.readyRead.connect(lambda: window.handle_compositor_events(watcher))
         watcher.disconnected.connect(app.quit)
     window.show()
     if window.screen():

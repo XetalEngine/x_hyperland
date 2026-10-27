@@ -150,9 +150,10 @@ and saved app hotkeys use the same launch settings. Super+V toggles any focused
 window, including an existing window reused by a single-instance application.
 Typing searches all installed visible applications, even while Favorites is selected.
 Escape dismisses the menu. Its settings live in launcher/.
-Clicking another window dismisses Apps, including clicks during its brief
-opening delay. Dialogs and screenshots temporarily protect the menu; losing
-focus is checked again when they finish.
+Clicking outside Apps dismisses it, including the desktop wallpaper and clicks
+during its brief opening delay. Non-consuming compositor click events cover
+wallpaper clicks that leave keyboard focus on the menu. Dialogs, screenshots,
+and tile drags temporarily protect it; losing focus is checked again afterward.
 Print and Shift+Print keep Apps visible until screenshot capture finishes.
 Drag its edges, corners or bottom-right grip to resize it. The size is remembered
 in launcher/window.json, including heights down to 480 pixels. The tile area and
