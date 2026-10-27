@@ -19,6 +19,7 @@ import tty
 
 from PIL import Image, ImageDraw
 import numpy as np
+from companion import Artwork, Choice, Input, MOUSE_ON, MOUSE_OFF, pixel_size
 
 ROOT = Path(__file__).resolve().parent
 ESC = '\033['
@@ -168,6 +169,29 @@ class Scene:
         self.mode=mode;self.start=time.monotonic();self.last_fetch=-100;self.fetch=[]
         self.rng=random.Random(29);self.drops=[];self.dimensions=None
         self.last_visibility=0;self.is_visible=True
+        self.choice=Choice() if mode=='hero' else None
+        self.artwork=Artwork() if mode=='hero' else None
+        self.art_area=(0,0,0,0)
+
+    def input(self,event):
+        kind,x,y=event
+        left,top,width,height=self.art_area
+        if self.choice and (kind=='switch' or (kind=='click' and
+                left<=x<left+width and top<=y<top+height)):
+            self.choice.switch()
+
+    def graphics(self,cols,rows,t,fd):
+        if not self.artwork:
+            return ''
+        if self.choice.view=='ascii':
+            return self.artwork.hide()
+        try:
+            return self.artwork.draw(self.art_area,(cols,rows),pixel_size(fd,cols,rows),t)
+        except (OSError,ValueError) as exc:
+            self.choice.view='ascii'
+            self.choice.warn('Artwork unavailable · showing ASCII')
+            print(f'Xetal companion: {exc}',file=sys.stderr)
+            return self.artwork.hide(release=True)
 
     def shown(self):
         if time.monotonic()-self.last_visibility>2:
@@ -183,12 +207,15 @@ class Scene:
         t=time.monotonic()-self.start if t is None else t
         if self.mode=='hero':
             lines=[heading('04 / XETAL ENGINE',cols,'ONLINE'),'']
-            scale=2 if cols>=132 else 1
-            lines += [centered(s,cols) for s in blocks('XETAL ENGINE',scale,t,False)]
-            lines += ['',centered(color(MUTED)+'C R E A T E   /   B U I L D   /   E X P L O R E'+RESET,cols)]
-            h=max(8,rows-len(lines)-4);w=min(cols-4,round(h*1.8))
-            lines += [centered(s,cols) for s in mascot(t,w,h)]
+            scale=2 if cols>=140 else 1
+            if rows>=24 and cols>=70:
+                lines += [centered(s,cols) for s in blocks('XETAL ENGINE',scale,t,False)]
+                lines += ['',centered(color(MUTED)+'C R E A T E   /   B U I L D   /   E X P L O R E'+RESET,cols)]
+            h=max(1,rows-len(lines)-4);w=max(1,min(cols-4,round(h*1.8)))
+            self.art_area=(0,len(lines),cols,h)
+            lines += ([centered(s,cols) for s in mascot(t,w,h)] if self.choice.view=='ascii' else ['']*h)
             lines += [centered(color(TEAL)+'X E T A L   /   S Y S T E M   C O M P A N I O N'+RESET,cols),
+                      centered(color(MUTED)+self.choice.hint()+RESET,cols),
                       centered(color(MUTED)+'Super + D  hide dashboard   ·   Super + Space  apps'+RESET,cols)]
             return lines
         if self.mode=='clock':
@@ -241,34 +268,44 @@ def main():
     args=parser.parse_args()
     scene=Scene(args.mode)
     if args.frame:
+        if scene.choice:scene.choice.view='ascii'
         cols,rows=shutil.get_terminal_size((120,52))
         print('\n'.join(scene.frame(cols,rows,2)))
         return
     old=termios.tcgetattr(sys.stdin)
     tty.setcbreak(sys.stdin.fileno())
+    input_events=Input()
     stopped=False
     def stop(*_):
         nonlocal stopped
         stopped=True
     for sig in [signal.SIGTERM,signal.SIGHUP,signal.SIGINT]:signal.signal(sig,stop)
-    sys.stdout.write(ESC+'?1049h'+ESC+'?25l'+ESC+'?7l')
+    sys.stdout.write(ESC+'?1049h'+ESC+'?25l'+ESC+'?7l'+(MOUSE_ON if scene.choice else ''))
     try:
         while not stopped:
             start=time.monotonic()
+            data=b''
             if select.select([sys.stdin],[],[],0)[0]:
-                key=os.read(sys.stdin.fileno(),32)
-                if key in (b'\x1b',b'q',b'Q'):
+                data=os.read(sys.stdin.fileno(),4096)
+                if not data:break
+            for event in input_events.feed(data):
+                if event[0]=='hide':
                     subprocess.run(['hyprctl','dispatch','togglespecialworkspace','xetal-startup'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                else:
+                    scene.input(event)
             if scene.shown():
                 cols,rows=shutil.get_terminal_size()
                 lines=scene.frame(cols,rows)
                 frame=ESC+'H'+''.join(clip(line,cols-1)+ESC+'K'+('\r\n' if n<rows-1 else '') for n,line in enumerate((lines+['']*rows)[:rows]))
+                frame+=scene.graphics(cols,rows,time.monotonic()-scene.start,sys.stdout.fileno())
                 sys.stdout.write(frame);sys.stdout.flush()
             interval=.1 if args.mode in ('hero','matrix') and scene.is_visible else .5
+            if scene.choice and scene.choice.view=='mascot' and scene.is_visible:interval=.05
             time.sleep(max(.01,interval-(time.monotonic()-start)))
     except (BrokenPipeError,OSError):pass
     finally:
         try:
+            if scene.artwork:sys.stdout.write(scene.artwork.hide(release=True)+MOUSE_OFF)
             sys.stdout.write(RESET+ESC+'?7h'+ESC+'?25h'+ESC+'?1049l');sys.stdout.flush()
             termios.tcsetattr(sys.stdin,termios.TCSADRAIN,old)
         except (OSError,termios.error):pass

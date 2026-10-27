@@ -32,7 +32,7 @@ Arch/CachyOS is the tested build environment. Package recipes are also provided 
 | Displays | Drag monitor rectangles; configure resolution, refresh, scaling, rotation and mirroring with timed Keep/Revert protection. |
 | Theme | Dark, Light and High contrast palettes, live Qt 5/6 theme plugins, matching GTK appearance, window effects and per-monitor wallpapers. |
 | Wallpaper | The exact included image, monitor previews, individual assignments, fit modes, and image-picker previews/file properties. |
-| Startup | Five-second login delay, then the staggered Fastfetch, Matrix, clock and Xetal animated ASCII consoles. |
+| Startup | Five-second login delay, then the staggered Fastfetch, Matrix, clock and Xetal companion consoles. Click the companion to switch between animated ASCII and the original PNG mascot with gentle idle motion; your choice survives login. |
 | App switcher | Super+Tab across all monitors/workspaces; release Super to focus the selected app on its original monitor. |
 | Dolphin | Separate themed profile, Places icons, image wallpaper action, and folder-link handling. |
 | Kitty | Animated cursor, themed colors and an interactive scrollback scrollbar. |
@@ -42,7 +42,7 @@ Arch/CachyOS is the tested build environment. Package recipes are also provided 
 
 ## Your hardware and existing desktop
 
-The default install uses **your current monitor names, positions, resolutions and scaling**. Outside a running Hyprland session, it uses preferred modes and automatic placement. The startup scene uses the second display when available, and fits a single-display setup too. Network adapters and temperature sensors are detected at runtime.
+The default install uses **your current monitor names, positions, resolutions and scaling**. Outside a running Hyprland session, it uses preferred modes and automatic placement. The startup scene uses the second display when available, and fits a single-display setup too. Click the companion artwork or press Space in its console to switch views. Network adapters and temperature sensors are detected at runtime.
 
 The complete original three-monitor configuration is retained in [`profiles/xetal-original`](profiles/xetal-original). Use `--profile original` only for the original DP-4/DP-5/DP-6 arrangement and supported modes. You can otherwise arrange screens through Control desk → Displays.
 
@@ -109,4 +109,4 @@ python3 -m unittest discover -s tests -v
 
 See [validation notes](docs/VALIDATION.md), [dependencies](docs/DEPENDENCIES.md), [third-party notices](THIRD_PARTY_NOTICES.md), and the detailed [desktop guide](config/hypr/README.txt).
 
-Browser profiles, credentials, caches, recent-file history, private bookmarks, session logs and compiled build artifacts are excluded. The wallpaper and font assets have checksums in [`assets-manifest.json`](assets-manifest.json).
+Browser profiles, credentials, caches, recent-file history, private bookmarks, session logs and compiled build artifacts are excluded. The wallpaper, mascot and font assets have checksums in [`assets-manifest.json`](assets-manifest.json).

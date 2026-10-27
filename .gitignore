@@ -11,6 +11,7 @@ config/hypr/theme/qt6/
 config/hypr/theme/qt-settings/
 config/hypr/dolphin/cache/
 config/hypr/dolphin/state/
+config/hypr/startup/state/
 config/hypr/assets/font-cache/
 .xetal-install.json
 .DS_Store

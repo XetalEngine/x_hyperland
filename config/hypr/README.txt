@@ -175,6 +175,13 @@ The Xetal dashboard waits five seconds after Hyprland login, then opens on the s
 in four steps: Fastfetch, Matrix rain, clock/date, then the Xetal Engine banner
 and animated original ASCII cyber-cat. Super+D or Escape inside a console hides
 it; Super+D reuses existing consoles and recreates any that were closed.
+Click the companion or press Space in its console to switch between ASCII and
+the supplied Xetal mascot PNG, with its transparency and a gentle idle bob/sway.
+The last selected view is saved immediately in startup/state/companion.json and
+restored next time. The original artwork is in startup/assets/xetal-mascot.png.
+The image fits the available space without cropping or changing its proportions.
+Dragging, scrolling and right-clicking do not cycle it. Mouse reporting and the
+image are cleaned up when the companion console exits.
 Super+D stays immediate; the delay applies only to the --login autostart. Exiting
 Hyprland during the delay cancels the sequence through its compositor connection.
 Animations pause while the dashboard is hidden. It uses a dedicated special
