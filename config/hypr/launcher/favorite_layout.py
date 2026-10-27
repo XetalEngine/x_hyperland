@@ -1,0 +1,154 @@
+"""Persistent favorite groups and tile packing, independent of menu dimensions."""
+import copy
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import tempfile
+import uuid
+
+STATE = Path(__file__).with_name('favorite-layout.json')
+MEDIUM_WIDTH, MEDIUM_HEIGHT = 142, 112
+COLUMN_WIDTH = MEDIUM_WIDTH * 3
+COLUMN_GAP = 24
+
+
+def group(title='Pinned apps', column=0):
+    return {'id': uuid.uuid4().hex, 'title': title, 'column': column, 'tiles': []}
+
+
+def validate(data):
+    if not isinstance(data, dict) or data.get('version') != 1 or not isinstance(data.get('groups'), list):
+        raise ValueError('The saved favorite layout is not supported.')
+    groups, apps = set(), set()
+    for item in data['groups']:
+        if (not isinstance(item, dict) or not isinstance(item.get('id'), str) or not item['id']
+                or item['id'] in groups or not isinstance(item.get('title'), str)
+                or not item['title'].strip() or len(item['title']) > 80
+                or type(item.get('column')) is not int or not 0 <= item['column'] < 64
+                or not isinstance(item.get('tiles'), list)):
+            raise ValueError('A saved favorite group is invalid.')
+        groups.add(item['id'])
+        for tile in item['tiles']:
+            if (not isinstance(tile, dict) or not isinstance(tile.get('app'), str) or not tile['app']
+                    or tile['app'] in apps or tile.get('size') not in ('small', 'medium')):
+                raise ValueError('A saved favorite tile is invalid or duplicated.')
+            apps.add(tile['app'])
+    return data
+
+
+def reconcile(data, favorites):
+    """Keep local order; new pins join the first group, unpins disappear."""
+    data = copy.deepcopy(data)
+    favorites = list(dict.fromkeys(favorites))
+    present = set()
+    for item in data['groups']:
+        item['tiles'] = [tile for tile in item['tiles'] if tile['app'] in favorites]
+        present.update(tile['app'] for tile in item['tiles'])
+    additions = [app for app in favorites if app not in present]
+    if additions and not data['groups']:
+        data['groups'].append(group())
+    if additions:
+        data['groups'][0]['tiles'].extend({'app': app, 'size': 'medium'} for app in additions)
+    return data
+
+
+def packed(tiles):
+    """Three medium slots per row; each slot holds a 2×2 small-icon block."""
+    occupied = set()
+    result = []
+    for tile in tiles:
+        small = tile['size'] == 'small'
+        slot = 0
+        while True:
+            x, y = (slot % 3) * 2, (slot // 3) * 2
+            cells = [(x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1)]
+            if small:
+                cell = next((cell for cell in cells if cell not in occupied), None)
+                if cell is not None:
+                    occupied.add(cell)
+                    result.append((tile['app'], cell[0] * MEDIUM_WIDTH // 2,
+                                   cell[1] * MEDIUM_HEIGHT // 2, MEDIUM_WIDTH // 2, MEDIUM_HEIGHT // 2))
+                    break
+            elif not occupied.intersection(cells):
+                occupied.update(cells)
+                result.append((tile['app'], x * MEDIUM_WIDTH // 2, y * MEDIUM_HEIGHT // 2,
+                               MEDIUM_WIDTH, MEDIUM_HEIGHT))
+                break
+            slot += 1
+    return result
+
+
+def find_group(data, ident):
+    return next(item for item in data['groups'] if item['id'] == ident)
+
+
+def find_tile(data, app):
+    return next((item, tile) for item in data['groups'] for tile in item['tiles'] if tile['app'] == app)
+
+
+def move_tile(data, app, destination, before=None):
+    source, tile = find_tile(data, app)
+    target = find_group(data, destination)
+    if before == app:
+        return
+    source['tiles'].remove(tile)
+    index = next((i for i, existing in enumerate(target['tiles']) if existing['app'] == before), len(target['tiles']))
+    target['tiles'].insert(index, tile)
+
+
+def move_group(data, ident, column, before=None):
+    if before == ident:
+        return
+    item = find_group(data, ident)
+    data['groups'].remove(item)
+    item['column'] = column
+    index = next((i for i, existing in enumerate(data['groups']) if existing['id'] == before), len(data['groups']))
+    data['groups'].insert(index, item)
+
+
+def remove_group(data, ident):
+    item = find_group(data, ident)
+    others = [g for g in data['groups'] if g is not item]
+    if item['tiles'] and not others:
+        raise ValueError('Keep one group for your pinned apps, or create another group first.')
+    if item['tiles']:
+        others[0]['tiles'].extend(item['tiles'])
+    data['groups'].remove(item)
+
+
+class Store:
+    def __init__(self, path=None):
+        self.path = Path(path) if path else STATE
+
+    def raw(self):
+        try:
+            return self.path.read_bytes()
+        except FileNotFoundError:
+            return b''
+
+    def load(self, favorites):
+        raw = self.raw()
+        data = validate(json.loads(raw)) if raw else {'version': 1, 'groups': []}
+        return reconcile(data, favorites), hashlib.sha256(raw).hexdigest()
+
+    def save(self, data, expected):
+        validate(data)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self.path.with_suffix('.lock').open('a') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            if hashlib.sha256(self.raw()).hexdigest() != expected:
+                raise ValueError('The layout changed outside this menu. Reopen Favorites to load the latest layout.')
+            content = (json.dumps(data, indent=2, ensure_ascii=False) + '\n').encode()
+            fd, name = tempfile.mkstemp(prefix='.favorites-', dir=self.path.parent)
+            try:
+                with os.fdopen(fd, 'wb') as stream:
+                    stream.write(content)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.replace(name, self.path)
+            finally:
+                if os.path.exists(name):
+                    os.unlink(name)
+            return hashlib.sha256(content).hexdigest()

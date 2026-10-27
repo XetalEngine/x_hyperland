@@ -4,13 +4,13 @@ The initial package was checked on 26 October 2026 on the original Arch Linux de
 
 ## Automated checks
 
-**141 tests passed**, including the subsequent hovered-app force-kill addition:
+**157 tests passed**, including the subsequent hovered-app force-kill and grouped-favorites additions:
 
 | Suite | Tests |
 | --- | ---: |
 | Installer | 13 |
 | Control desk, hotkeys, audio and display settings | 46 |
-| Application launcher, shortcut editing, pins and hotkeys | 31 |
+| Application launcher, favorite groups, shortcut editing, pins and hotkeys | 47 |
 | Theme, wallpaper and window controls | 14 |
 | Application switcher | 2 |
 | Screen-sharing picker | 10 |
@@ -19,6 +19,8 @@ The initial package was checked on 26 October 2026 on the original Arch Linux de
 Installer coverage includes a different home directory, HDMI/eDP connectors, fractional scaling, offline automatic monitor configuration, the optional original monitor layout, disabled login animation, backup/restore, restoration after a failed activation, symlinked existing profiles, concurrent configuration edits, and asset checksums. Existing KDE settings and changes made after installing are retained in the install/restore tests.
 
 GUI tests use Qt's offscreen backend. Tests do not log out, change live display modes, install packages, or replace the real user profile.
+
+Favorite-layout coverage includes migration without rewriting existing favorites, persistent group/order/size changes, four-small-to-one-medium packing, fixed columns across resizing, keyboard navigation, search, cancelled drags, and conflicting or malformed saved state. Native pointer tests in a private Xvfb display also verified tile reordering, moves between groups, dragging group headers between columns, and clicking small tiles. Dropping tiles did not launch applications. Dark and light layouts were rendered and visually checked.
 
 The hover-kill tests cover a pointer target different from keyboard focus, empty desktop, floating/fullscreen/special workspaces, pinned windows, rotated/scaled displays, bars/overlays, invalid process identities and a target changing before dispatch. The dry-run path cannot send a signal.
 

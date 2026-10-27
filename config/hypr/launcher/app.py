@@ -2,6 +2,7 @@
 """Hyprland application menu. All menu preferences stay in this directory."""
 from pathlib import Path
 import argparse
+import copy
 import datetime
 import json
 import os
@@ -14,12 +15,14 @@ from PyQt6.QtGui import QColor, QPainter, QLinearGradient, QPen, QIcon, QFont, Q
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (QApplication, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
     QLineEdit, QListWidget, QListWidgetItem, QListView, QStyledItemDelegate, QStyle, QMenu,
-    QGraphicsOpacityEffect, QMessageBox, QDialog, QSizeGrip)
+    QGraphicsOpacityEffect, QMessageBox, QDialog, QSizeGrip, QStackedWidget, QInputDialog)
 import catalog
 import shortcuts
 import pins
 import geometry
 import hotkeys
+import favorite_layout
+from favorite_board import Board
 from hotkey_dialog import HotkeyDialog
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'theme'))
 import runtime as theme_runtime
@@ -105,12 +108,17 @@ class Tiles(QStyledItemDelegate):
         self.animation.start()
 
     def paint(self, painter, option, index):
+        hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
+        self.draw(painter, option.rect, index.data(Qt.ItemDataRole.DecorationRole),
+                  index.data(Qt.ItemDataRole.DisplayRole), index.data(hotkeys.ROLE),
+                  bool(option.state & QStyle.StateFlag.State_Selected),
+                  self.amount if hovered and index.row() == self.hover else 0)
+
+    @staticmethod
+    def draw(painter, rect, icon, name, bindings, selected=False, opacity=0, small=False):
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        box = QRectF(option.rect.adjusted(5, 4, -5, -4))
-        selected = bool(option.state & QStyle.StateFlag.State_Selected)
-        hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
-        opacity = self.amount if hovered and index.row() == self.hover else 0
+        box = QRectF(rect.adjusted(5, 4, -5, -4))
         gradient = QLinearGradient(box.topLeft(), box.bottomRight())
         if theme_runtime.mode() == 'light':
             gradient.setColorAt(0, QColor('#d7e8eb' if selected else '#edf3f9'))
@@ -121,17 +129,19 @@ class Tiles(QStyledItemDelegate):
         painter.setBrush(gradient)
         painter.setPen(QPen(QColor(113, 218, 205, 155 if selected else int(25 + opacity * 70)), 1))
         painter.drawRoundedRect(box, 10, 10)
-        icon = index.data(Qt.ItemDataRole.DecorationRole)
+        if small:
+            size = 27 + round(opacity * 2)
+            icon.paint(painter, round(box.center().x() - size / 2), round(box.center().y() - size / 2), size, size)
+            painter.restore()
+            return
         size = 38 + round(opacity * 3)
         icon.paint(painter, int(box.center().x() - size / 2), int(box.top() + 9 - opacity * 2), size, size)
         painter.setPen(QColor(theme_runtime.colors()['Text']))
         painter.setFont(QFont('Noto Sans', 9))
-        name = index.data(Qt.ItemDataRole.DisplayRole)
         text_box = QRectF(box.left() + 7, box.top() + 51, box.width() - 14, 31)
         if len(name) > 30:
             name = name[:28] + '…'
         painter.drawText(text_box, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap, name)
-        bindings=index.data(hotkeys.ROLE)
         if bindings is not None:
             text=bindings[0]+(f'  +{len(bindings)-1}' if len(bindings)>1 else '') if bindings else 'No hotkey'
             painter.setFont(QFont('Noto Sans',8))
@@ -173,6 +183,10 @@ class Menu(QWidget):
         self.apps = catalog.applications()
         self.pinned = catalog.favorites()
         self.hotkeys=hotkeys.ShortcutIndex(self)
+        self.layout_store = favorite_layout.Store()
+        self.favorite_layout = {'version': 1, 'groups': []}
+        self.layout_token = None
+        self.layout_error = ''
         self.page = 'Favorites'
         self.filter_category = ''
         outer = QHBoxLayout(self)
@@ -229,6 +243,10 @@ class Menu(QWidget):
         self.count = label('', 'muted')
         heading.addWidget(self.heading)
         heading.addStretch()
+        self.add_group_button = QPushButton('+ New group')
+        self.add_group_button.setStyleSheet('padding:5px 10px; color:palette(link);')
+        self.add_group_button.clicked.connect(lambda: self.new_group())
+        heading.addWidget(self.add_group_button)
         heading.addWidget(self.count)
         main.addLayout(heading)
         self.grid = LaunchGrid()
@@ -246,7 +264,20 @@ class Menu(QWidget):
         self.grid.itemActivated.connect(self.open_app)
         self.grid.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.grid.customContextMenuRequested.connect(self.context_menu)
-        main.addWidget(self.grid, 1)
+        self.favorites_board = Board(Tiles.draw)
+        self.favorites_board.activated.connect(lambda ident: self.launch_app(ident))
+        self.favorites_board.selectedChanged.connect(self.select_favorite)
+        self.favorites_board.appMenuRequested.connect(self.app_context_at)
+        self.favorites_board.groupMenuRequested.connect(self.group_context_at)
+        self.favorites_board.backgroundMenuRequested.connect(self.group_background_menu)
+        self.favorites_board.newGroupRequested.connect(self.new_group)
+        self.favorites_board.renameRequested.connect(self.rename_group)
+        self.favorites_board.dropped.connect(self.move_favorite)
+        self.favorites_board.dragStateChanged.connect(self.drag_state)
+        self.views = QStackedWidget()
+        self.views.addWidget(self.grid)
+        self.views.addWidget(self.favorites_board)
+        main.addWidget(self.views, 1)
         self.status = label('Right-click any app to edit its shortcut, icon, or launch options', 'muted')
         self.status.setWordWrap(True)
         main.addWidget(self.status)
@@ -336,8 +367,8 @@ class Menu(QWidget):
         self.populate()
         if self.fade:
             self.fade.stop()
-        self.fade_effect = QGraphicsOpacityEffect(self.grid)
-        self.grid.setGraphicsEffect(self.fade_effect)
+        self.fade_effect = QGraphicsOpacityEffect(self.views)
+        self.views.setGraphicsEffect(self.fade_effect)
         self.fade = QPropertyAnimation(self.fade_effect, b'opacity', self)
         self.fade.setDuration(180)
         self.fade.setStartValue(.25)
@@ -346,6 +377,8 @@ class Menu(QWidget):
         self.fade.start()
 
     def populate(self):
+        selected = self.grid.currentItem().data(Qt.ItemDataRole.UserRole) if self.grid.currentItem() else None
+        self.reload_layout()
         query = self.search.text().casefold().strip()
         categories = {'Development': ('Development',), 'Internet': ('Network',),
                       'Media': ('AudioVideo', 'Graphics'), 'Games': ('Game',),
@@ -360,7 +393,8 @@ class Menu(QWidget):
                     for token in query.split())]
             apps.sort(key=rank)
         elif self.page == 'Favorites':
-            apps = [self.apps[i] for i in self.pinned if i in self.apps]
+            groups = sorted(self.favorite_layout['groups'], key=lambda group: group['column'])
+            apps = [self.apps[tile['app']] for group in groups for tile in group['tiles'] if tile['app'] in self.apps]
         else:
             if self.page in categories:
                 apps = [a for a in apps if any(c in (a.get_categories() or '').split(';') for c in categories[self.page])]
@@ -373,11 +407,19 @@ class Menu(QWidget):
             self.grid.addItem(item)
         self.update_hotkeys()
         if apps:
-            self.grid.setCurrentRow(0)
+            row = next((i for i, app in enumerate(apps) if app.get_id() == selected), 0)
+            self.grid.setCurrentRow(row)
+        current = self.grid.currentItem().data(Qt.ItemDataRole.UserRole) if self.grid.currentItem() else None
+        self.favorites_board.set_layout(self.favorite_layout, self.favorite_items(), current)
+        grouped = self.page == 'Favorites' and not query
+        self.views.setCurrentWidget(self.favorites_board if grouped else self.grid)
+        self.add_group_button.setVisible(grouped)
         self.heading.setText('Search results' if query else self.page)
         self.count.setText(f'{len(apps)} apps')
         if hasattr(self, 'status'):
-            self.status.setText('No matching applications. Try a different name.' if not apps else
+            self.status.setText(self.layout_error if grouped and self.layout_error else
+                'Drag tiles or group titles to arrange  ·  Right-click for size and options' if grouped else
+                'No matching applications. Try a different name.' if not apps else
                 'Right-click to customize  ·  F2 edits the selected shortcut')
 
     def update_hotkeys(self):
@@ -389,6 +431,130 @@ class Menu(QWidget):
             if labels:tip+='\nLaunch: '+', '.join(labels)
             elif entry.get_id() in self.pinned:tip+='\nRight-click → Set launch hotkey…'
             item.setToolTip(tip)
+        if hasattr(self, 'favorites_board') and self.favorites_board.tiles:
+            self.favorites_board.update_items(self.favorite_items())
+
+    def favorite_items(self):
+        result = {}
+        for ident in self.pinned:
+            entry = self.apps.get(ident)
+            if entry:
+                bindings = self.hotkeys.labels(entry)
+                tip = entry.get_display_name() + '\n' + (entry.get_description() or '')
+                if bindings:
+                    tip += '\nLaunch: ' + ', '.join(bindings)
+                result[ident] = {'name': entry.get_display_name(), 'icon': icon_for(entry),
+                                 'hotkeys': bindings, 'tooltip': tip}
+        return result
+
+    def reload_layout(self):
+        try:
+            self.favorite_layout, self.layout_token = self.layout_store.load(self.pinned)
+            self.layout_error = ''
+        except (OSError, ValueError, TypeError) as exc:
+            self.favorite_layout = favorite_layout.reconcile({'version': 1, 'groups': []}, self.pinned)
+            self.layout_token = None
+            self.layout_error = 'Could not read saved layout: ' + str(exc)
+
+    def change_layout(self, change, selected=None):
+        try:
+            if self.layout_token is None:
+                raise ValueError(self.layout_error or 'Reload Favorites before editing its layout.')
+            data = copy.deepcopy(self.favorite_layout)
+            change(data)
+            if data == self.favorite_layout:
+                return
+            self.layout_token = self.layout_store.save(data, self.layout_token)
+            self.favorite_layout = data
+            self.favorites_board.set_layout(data, self.favorite_items(), selected or self.favorites_board.selected)
+            self.status.setText('Layout saved  ·  Drag to arrange · Right-click for tile size and groups')
+        except (OSError, ValueError, StopIteration) as exc:
+            self.status.setText('Could not save layout: ' + str(exc))
+
+    def select_favorite(self, ident):
+        for row in range(self.grid.count()):
+            if self.grid.item(row).data(Qt.ItemDataRole.UserRole) == ident:
+                self.grid.setCurrentRow(row)
+                break
+
+    def drag_state(self, active):
+        self.interaction_depth += 1 if active else -1
+        self.started = time.monotonic()
+
+    def new_group(self, column=None):
+        if column is None:
+            selected = next((g for g in self.favorite_layout['groups'] if g['id'] == self.favorites_board.selected_group), None)
+            column = selected['column'] if selected else 0
+        self.interaction_depth += 1
+        try:
+            title, accepted = QInputDialog.getText(self, 'New favorite group', 'Group title:')
+            if accepted and title.strip():
+                self.change_layout(lambda data: data['groups'].append(favorite_layout.group(title.strip(), column)))
+        finally:
+            self.interaction_depth -= 1
+            self.started = time.monotonic()
+
+    def rename_group(self, ident):
+        group = favorite_layout.find_group(self.favorite_layout, ident)
+        self.interaction_depth += 1
+        try:
+            title, accepted = QInputDialog.getText(self, 'Rename group', 'Group title:', text=group['title'])
+            if accepted and title.strip():
+                self.change_layout(lambda data: favorite_layout.find_group(data, ident).update(title=title.strip()))
+        finally:
+            self.interaction_depth -= 1
+            self.started = time.monotonic()
+
+    def move_favorite(self, payload, target):
+        def change(data):
+            if payload['kind'] == 'group':
+                favorite_layout.move_group(data, payload['id'], target['column'], target['before'])
+            else:
+                ident = target['group']
+                if ident is None:
+                    group = favorite_layout.group('New group', target['column'])
+                    data['groups'].append(group)
+                    ident = group['id']
+                favorite_layout.move_tile(data, payload['id'], ident, target['before'])
+        self.change_layout(change, payload['id'] if payload['kind'] == 'tile' else None)
+
+    def group_context_at(self, ident, position):
+        group = favorite_layout.find_group(self.favorite_layout, ident)
+        menu = QMenu(self)
+        menu.addAction('Rename group…').setData('rename')
+        left = menu.addAction('Move group one column left'); left.setData('left'); left.setEnabled(group['column'] > 0)
+        right = menu.addAction('Move group one column right'); right.setData('right'); right.setEnabled(group['column'] < 63)
+        menu.addSeparator()
+        remove = menu.addAction('Remove group · keep its apps'); remove.setData('remove')
+        remove.setEnabled(len(self.favorite_layout['groups']) > 1 or not group['tiles'])
+        self.interaction_depth += 1
+        try:
+            action = menu.exec(position)
+            if action:
+                if action.data() == 'rename': self.rename_group(ident)
+                elif action.data() == 'remove': self.change_layout(lambda data: favorite_layout.remove_group(data, ident))
+                else:
+                    column = group['column'] + (-1 if action.data() == 'left' else 1)
+                    self.change_layout(lambda data: favorite_layout.move_group(data, ident, column))
+        finally:
+            menu.deleteLater()
+            self.interaction_depth -= 1
+            self.started = time.monotonic()
+
+    def group_background_menu(self, column, position):
+        menu = QMenu(self)
+        menu.addAction('New group…').setData('group')
+        menu.addAction('New shortcut…').setData('shortcut')
+        self.interaction_depth += 1
+        try:
+            action = menu.exec(position)
+            if action:
+                if action.data() == 'group': self.new_group(column)
+                else: self.perform('new')
+        finally:
+            menu.deleteLater()
+            self.interaction_depth -= 1
+            self.started = time.monotonic()
 
     def run_command(self, command):
         leave_dashboard()
@@ -396,6 +562,14 @@ class Menu(QWidget):
         self.close()
 
     def activate_current(self):
+        if self.views.currentWidget() == self.favorites_board:
+            board = self.favorites_board
+            target = board.tiles.get(board.selected)
+            if target is None or target.isHidden():
+                target = next((tile for tile in board.tiles.values() if not tile.isHidden()), None)
+            if target:
+                self.launch_app(target.ident)
+            return
         if self.grid.currentItem():
             self.open_app(self.grid.currentItem())
 
@@ -418,11 +592,16 @@ class Menu(QWidget):
         if item:
             self.grid.setCurrentItem(item)
         app_id = item.data(Qt.ItemDataRole.UserRole) if item else None
+        position = self.grid.visualItemRect(item).center() if point.x() < 0 and item else point
+        self.app_context_at(app_id, self.grid.viewport().mapToGlobal(position))
+
+    def app_context_at(self, app_id, position):
+        if app_id:
+            self.select_favorite(app_id)
         menu = self.build_context_menu(app_id)
         self.interaction_depth += 1
         try:
-            position = self.grid.visualItemRect(item).center() if point.x() < 0 and item else point
-            action = menu.exec(self.grid.viewport().mapToGlobal(position))
+            action = menu.exec(position)
             if action and action.data():
                 self.perform(action.data(), app_id)
         finally:
@@ -451,6 +630,16 @@ class Menu(QWidget):
             add('Unpin from bar' if on_bar else 'Pin to bar · beside Keys',
                 'window-unpin' if on_bar else 'window-pin', 'bar-pin')
             add('Duplicate into Favorites…', 'edit-copy', 'duplicate')
+            if app_id in self.pinned:
+                sizes = menu.addMenu('Tile size')
+                current = favorite_layout.find_tile(self.favorite_layout, app_id)[1]['size']
+                for size, title in [('medium', 'Medium · icon, name and hotkey'), ('small', 'Small · icon only')]:
+                    action = sizes.addAction(title); action.setData('tile-size:' + size)
+                    action.setCheckable(True); action.setChecked(current == size)
+                groups = menu.addMenu('Move to group')
+                for group in self.favorite_layout['groups']:
+                    action = groups.addAction(group['title'].replace('&', '&&'))
+                    action.setData('tile-group:' + group['id'])
             menu.addSeparator()
             add('Edit shortcut…', 'document-edit', 'edit')
             add('Change launch hotkey…' if self.hotkeys.bindings(entry) else 'Set launch hotkey…',
@@ -469,6 +658,7 @@ class Menu(QWidget):
                 add('Delete this shortcut copy…', 'edit-delete', 'delete')
             menu.addSeparator()
         add('New shortcut…', 'list-add', 'new')
+        add('New favorite group…', 'folder-new', 'new-group')
         return menu
 
     def refresh_apps(self, selected_id=None):
@@ -478,9 +668,14 @@ class Menu(QWidget):
         for row in range(self.grid.count()):
             if self.grid.item(row).data(Qt.ItemDataRole.UserRole) == selected_id:
                 self.grid.setCurrentRow(row)
+                self.favorites_board.select(selected_id)
                 break
 
     def edit_current(self):
+        for ident, header in self.favorites_board.headers.items():
+            if header.hasFocus():
+                self.rename_group(ident)
+                return
         item = self.grid.currentItem()
         if item:
             self.perform('edit', item.data(Qt.ItemDataRole.UserRole))
@@ -507,7 +702,13 @@ class Menu(QWidget):
         entry = self.apps.get(app_id)
         self.interaction_depth += 1
         try:
-            if action in ('open', 'terminal', 'open-floating'):
+            if action.startswith('tile-size:'):
+                self.change_layout(lambda data: favorite_layout.find_tile(data, app_id)[1].update(size=action.split(':', 1)[1]), app_id)
+            elif action.startswith('tile-group:'):
+                self.change_layout(lambda data: favorite_layout.move_tile(data, app_id, action.split(':', 1)[1]), app_id)
+            elif action == 'new-group':
+                self.new_group()
+            elif action in ('open', 'terminal', 'open-floating'):
                 self.launch_app(app_id, True if action == 'terminal' else None,
                                 True if action=='open-floating' else None)
             elif action == 'pin':
@@ -567,7 +768,10 @@ class Menu(QWidget):
 
     def eventFilter(self, watched, event):
         if watched == self.search and event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Down:
-            self.grid.setFocus()
+            if self.views.currentWidget() == self.favorites_board:
+                self.favorites_board.focus_selected()
+            else:
+                self.grid.setFocus()
             return True
         return super().eventFilter(watched, event)
 

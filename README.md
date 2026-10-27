@@ -24,7 +24,7 @@ Arch/CachyOS is the tested build environment. Package recipes are also provided 
 
 | Component | Included behavior |
 | --- | --- |
-| Apps menu | Resizable menu, search and categories, favorites, custom icons/commands, terminal options, duplicate shortcuts, floating launch, and hotkey badges/editing. |
+| Apps menu | Resizable menu, search and categories, draggable favorite groups, medium/icon-only small tiles, custom icons/commands, terminal options, duplicate shortcuts, floating launch, and hotkey badges/editing. |
 | Top bar | Per-display workspaces, every app's icon, + to add a workspace, red × to remove an empty one, draggable pinned apps, media controls, device/status indicators and tray. |
 | Control desk | Hotkeys, Audio, Network, Bluetooth, Displays, Input, Theme, Calendar and System tabs, with visible close controls. |
 | Hotkeys | Capture/edit shortcuts, searchable categories, pending-change log, Apply/Discard, remove confirmation, validation, history and rollback. |
@@ -51,6 +51,8 @@ Installation is scoped to `~/.config/hypr` and private backups under `~/.local/s
 The bundled Fira Code Nerd Font is loaded by this session's font configuration. Papirus and Noto are installed as dependencies. Your existing shell and prompt stay available in Kitty.
 
 Favorites retain the original desktop-entry IDs and include portable terminal, file manager and browser entries. Apps appear when installed. **Separate programs such as Echo, XMusic, CachyOS Tools, Linux Studio, Discord and GitHub Desktop are not bundled application binaries or separate source repositories.** This repo contains the entire Hyprland desktop and its custom tools; you install your applications separately. Launch preferences, pinning and app hotkeys work with any installed application.
+
+In Apps → Favorites, use **+ New group**, then drag tiles between groups or drag a group title to move it. Double-click a title to rename it. Right-click a tile → **Tile size** selects Medium (icon, name and hotkey) or Small (icon only); four small tiles fit one medium slot. Each column is three medium tiles wide. Widening the menu reveals additional columns; shrinking hides them without rearranging your layout. Group names, order, columns and sizes save automatically.
 
 ## Check, prepare, restore
 

@@ -162,12 +162,12 @@ class ShortcutTests(unittest.TestCase):
         menu = app.Menu(True); menu.show(); QTest.qWait(220)
         called = []
         menu.launch_app = lambda *args, **kwargs: called.append(args)
-        point = menu.grid.visualItemRect(menu.grid.item(0)).center()
-        QTest.mouseClick(menu.grid.viewport(), Qt.MouseButton.RightButton, pos=point)
+        tile = menu.favorites_board.tiles['example.desktop']
+        QTest.mouseClick(tile, Qt.MouseButton.RightButton, pos=tile.rect().center())
         self.assertEqual(called, [])
         actions = {a.data() for a in menu.build_context_menu('example.desktop').actions()}
         self.assertTrue({'edit','icon','duplicate','pin','terminal','toggle-terminal','copy-command','show-file','reset'} <= actions)
-        QTest.mouseClick(menu.grid.viewport(), Qt.MouseButton.LeftButton, pos=point)
+        QTest.mouseClick(tile, Qt.MouseButton.LeftButton, pos=tile.rect().center())
         self.assertEqual(called, [('example.desktop',)])
 
     def test_editor_cancel_does_not_write_and_invalid_command_stays_open(self):

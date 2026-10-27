@@ -97,7 +97,17 @@ writing KDE settings. Right-click app tiles for Open, Open in terminal, pin/unpi
 Duplicate into Favorites, Edit shortcut, Change icon, Always run in terminal,
 Copy command, Show shortcut file, and Restore original settings. F2 edits the
 selected shortcut; Ctrl+N or New shortcut creates a favorite from a command.
-Favorite tiles show their enabled launch hotkey below the app name. A +N badge
+Favorites can be dragged to reorder or moved between named groups. Use + New
+group or right-click empty space to create a group. Drag its title to move the
+whole group, double-click to rename, or use its ellipsis menu. Removing a group
+keeps its apps in another group. Right-click a favorite -> Tile size chooses
+Medium or Small; four icon-only small tiles fit one medium tile's footprint.
+Each column is three medium tiles wide. Widen the menu to reveal more columns;
+shrinking hides columns without moving their contents. Drop a tile or group in
+an empty column to use it. Order, titles, sizes and columns save automatically
+in launcher/favorite-layout.json, separate from KDE settings. Search and other
+categories continue to show the alphabetical app grid.
+Medium favorite tiles show their enabled launch hotkey below the app name. A +N badge
 indicates additional bindings; hovering lists them all. Right-click any app for
 Set/Change launch hotkey. Record a shortcut or enter its modifiers and key,
 enable/disable it, add another binding, or remove one after confirmation.
