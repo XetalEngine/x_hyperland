@@ -12,6 +12,7 @@ import uuid
 import sys
 
 from gi.repository import Gio, GLib
+import floating as floating_windows
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'theme'))
@@ -142,14 +143,22 @@ class Entry:
         if in_float:
             if not environment.get('HYPRLAND_INSTANCE_SIGNATURE'):
                 raise ValueError('Floating launch is available in the Hyprland session.')
-            # Hyprland associates this one launch with its new window. Quoted argv
-            # keeps saved commands literal, exactly as in an ordinary launch.
-            command='exec '+shlex.join(['python3',str(ROOT/'theme/run.py'),*argv])
+            # Use the app's requested size on its first floating launch; later
+            # launches restore only sizes recorded while it was floating.
+            ticket = floating_windows.prepare(self, in_terminal, environment)
+            command='exec '+shlex.join(['python3', str(ROOT/'launcher/floating.py'), '--exec-token', ticket['token'],
+                                       '--', 'python3', str(ROOT/'theme/run.py'), *argv])
             if directory:command='cd '+shlex.quote(directory)+' && '+command
-            result=subprocess.run(['hyprctl','dispatch','exec','[float on] '+command],
-                                  env=environment,capture_output=True,text=True,timeout=4)
-            if result.returncode or result.stdout.strip()!='ok':
-                raise ValueError((result.stderr or result.stdout or 'Could not start a floating window.').strip())
+            success = False
+            try:
+                result=subprocess.run(['hyprctl','dispatch','exec','['+ticket['rules']+'] '+command],
+                                      env=environment,capture_output=True,text=True,timeout=4)
+                if result.returncode or result.stdout.strip()!='ok':
+                    raise ValueError((result.stderr or result.stdout or 'Could not start a floating window.').strip())
+                success = True
+            finally:
+                try:floating_windows.finish(ticket, success, environment)
+                except (OSError, ValueError) as error:print('Floating size memory:', error, file=sys.stderr)
             return result
         if in_terminal or isolated or self.custom or self.changes or terminal is False:
             return subprocess.Popen(argv, cwd=directory, start_new_session=True, env=environment,

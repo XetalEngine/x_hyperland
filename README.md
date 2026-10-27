@@ -58,6 +58,8 @@ The compact header puts the page title, **New group** and **New shortcut** above
 
 **Ctrl+click** an app in Favorites, categories or search results to launch it floating for that launch. Normal clicks keep the shortcut's saved preference, and Ctrl+drag still reorders favorites.
 
+Floating launches open centered, using the app's default size the first time and its last floating size afterwards. Resize a floating window once to remember that size across launches and logins. Tiling, maximizing and fullscreen do not replace the remembered floating size; deliberately tall floating windows retain their size. Size memory is local to this desktop profile, with separate preferences for app and terminal launches.
+
 ## Check, prepare, restore
 
 ```bash

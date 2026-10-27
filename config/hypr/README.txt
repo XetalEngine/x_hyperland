@@ -137,6 +137,13 @@ explicit shell command if shell syntax is intended.
 Ctrl+click any app tile, including search results, to launch it floating once.
 Right-click -> Launch floating does the same. Normal clicks and keyboard launches
 use the saved preference; Ctrl+drag still rearranges favorites without launching.
+Floating launches are centered. Their first launch uses the app's requested size;
+later launches use the current or last remembered floating size, including a tall
+size you deliberately chose. Tiled, maximized and fullscreen geometry is ignored.
+Sizes survive logins in launcher/floating-sizes.json, separately for each shortcut
+and its terminal mode. The size tracker starts on demand and exits with this
+Hyprland session. A single-instance app which reactivates its existing window can
+be floated and centered as well; a slow new instance is left to finish launching.
 Always start floating saves the preference for that shortcut; the
 same option appears in Properties. Copies can have independent preferences,
 and saved app hotkeys use the same launch settings. Super+V toggles any focused

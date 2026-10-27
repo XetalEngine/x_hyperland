@@ -38,6 +38,9 @@ class ShortcutTests(unittest.TestCase):
         self.patches = [patch.object(shortcuts, 'STATE', self.root/'shortcuts.json'),
                         patch.object(app.geometry, 'STATE', self.root/'window.json'),
                         patch.object(app.favorite_layout, 'STATE', self.root/'favorite-layout.json'),
+                        patch.object(shortcuts.floating_windows, 'prepare', return_value={
+                            'token': 'test', 'rules': 'float on; center on'}),
+                        patch.object(shortcuts.floating_windows, 'finish'),
                         patch.object(shortcuts, 'ICONS', self.root/'icons'),
                         patch.object(catalog, 'LOCAL', self.root/'favorites.json'),
                         patch.object(pins, 'STATE', self.root/'bar-pins.json'),
@@ -117,7 +120,7 @@ class ShortcutTests(unittest.TestCase):
             saved.launch()
         argv=dispatch.call_args.args[0]
         self.assertEqual(argv[:3],['hyprctl','dispatch','exec'])
-        command=argv[3];self.assertTrue(command.startswith('[float on] cd '+shlex.quote(str(folder))+' && exec '))
+        command=argv[3];self.assertTrue(command.startswith('[float on; center on] cd '+shlex.quote(str(folder))+' && exec '))
         parsed=shlex.split(command.split(' && exec ',1)[1])
         self.assertEqual(parsed[-2:],['/usr/bin/printf','literal $HOME; `id`'])
         shortcuts.reset(saved);self.assertFalse(catalog.applications()[self.entry.get_id()].fields['floating'])
@@ -126,7 +129,7 @@ class ShortcutTests(unittest.TestCase):
         with (patch.dict(os.environ,{'HYPRLAND_INSTANCE_SIGNATURE':'test'}),
               patch.object(shortcuts.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'ok\n','')) as dispatch):
             self.entry.launch(terminal=True,floating=True)
-        argv=shlex.split(dispatch.call_args.args[0][-1].removeprefix('[float on] exec '))
+        argv=shlex.split(dispatch.call_args.args[0][-1].removeprefix('[float on; center on] exec '))
         self.assertIn('kitty',argv);self.assertIn('--config',argv);self.assertIn('-e',argv)
         with (patch.dict(os.environ,{'HYPRLAND_INSTANCE_SIGNATURE':'test'}),
               patch.object(shortcuts.subprocess,'run',return_value=subprocess.CompletedProcess([],1,'','test rejection'))):

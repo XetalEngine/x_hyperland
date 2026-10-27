@@ -1,0 +1,300 @@
+"""Session-owned floating placement and per-shortcut size memory."""
+import argparse
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import select
+import signal
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+import uuid
+
+STATE = Path(__file__).resolve().parent / 'floating-sizes.json'
+TAG = re.compile(r'^xetal-float-([0-9a-f]{24})-[0-9a-f]{12}\*?$')
+
+
+def runtime(environment=None):
+    env = os.environ if environment is None else environment
+    return Path(env['XDG_RUNTIME_DIR']) / 'hypr' / env['HYPRLAND_INSTANCE_SIGNATURE']
+
+
+def valid_size(value):
+    return (isinstance(value, list) and len(value) == 2
+            and all(type(n) is int and 1 <= n <= 32768 for n in value))
+
+
+class Store:
+    def __init__(self, path=None):
+        self.path = Path(path or STATE)
+
+    def read(self):
+        if not self.path.exists():return {}
+        data = json.loads(self.path.read_text())
+        if (not isinstance(data, dict) or data.get('version') != 1 or not isinstance(data.get('sizes'), dict)
+                or any(not re.fullmatch(r'[0-9a-f]{24}', key) or not valid_size(value)
+                       for key, value in data['sizes'].items())):
+            raise ValueError('Invalid floating window sizes; existing settings were left untouched.')
+        return data['sizes']
+
+    def save(self, changes):
+        if not changes:return
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self.path.with_suffix('.lock').open('a') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            sizes = self.read()
+            if all(sizes.get(key) == value for key, value in changes.items()):return
+            sizes.update(changes)
+            fd, name = tempfile.mkstemp(prefix='.floating-sizes-', dir=self.path.parent)
+            try:
+                with os.fdopen(fd, 'w') as out:
+                    json.dump({'version': 1, 'sizes': sizes}, out, indent=2)
+                    out.write('\n'); out.flush(); os.fsync(out.fileno())
+                os.replace(name, self.path)
+            finally:
+                if os.path.exists(name):os.unlink(name)
+
+
+def window_key(client):
+    for tag in client.get('tags', []):
+        match = TAG.fullmatch(tag)
+        if match:return match[1]
+
+
+def eligible(client):
+    return (client.get('mapped') and client.get('floating')
+            and not client.get('fullscreen') and not client.get('fullscreenClient')
+            and valid_size(client.get('size')))
+
+
+def normalized(value):
+    return re.sub(r'[^a-z0-9]', '', value.casefold())
+
+
+def process_stamp(pid):
+    try:
+        fields = Path(f'/proc/{int(pid)}/stat').read_text().rsplit(') ', 1)[1].split()
+        return fields[19] if fields[0] != 'Z' else None
+    except (OSError, ValueError, IndexError):return None
+
+
+def matches(client, request):
+    if window_key(client) == request['key']:return True
+    if request['terminal']:
+        return (normalized(client.get('initialClass', '')) == 'kitty'
+                and client.get('initialTitle') == request['name'])
+    classes = {normalized(client.get(name, '')) for name in ('class', 'initialClass')}
+    return bool((classes - {''}) & set(request['classes']))
+
+
+def workarea(monitor):
+    scale = monitor.get('scale', 1) or 1
+    width, height = monitor['width'], monitor['height']
+    if monitor.get('transform', 0) % 2:width, height = height, width
+    left, top, right, bottom = monitor.get('reserved', [0, 0, 0, 0])
+    return (monitor['x'] + left, monitor['y'] + top,
+            max(1, round(width / scale) - left - right),
+            max(1, round(height / scale) - top - bottom))
+
+
+class Hypr:
+    def __init__(self, root):self.root = root
+
+    def command(self, command):
+        with socket.socket(socket.AF_UNIX) as stream:
+            stream.settimeout(2)
+            stream.connect(str(self.root / '.socket.sock'))
+            stream.sendall(command.encode())
+            chunks = []
+            while chunk := stream.recv(65536):chunks.append(chunk)
+        return b''.join(chunks).decode()
+
+    def query(self, what):return json.loads(self.command('j/' + what))
+
+    def dispatch(self, what, args):
+        answer = self.command('dispatch ' + what + ' ' + args).strip()
+        if answer != 'ok':raise ValueError(answer)
+
+
+class Tracker:
+    def __init__(self, hypr, store):
+        self.hypr, self.store = hypr, store
+        self.pending, self.samples = {}, {}
+
+    def prepare(self, request, now):
+        clients = self.hypr.query('clients')
+        saved = self.store.read().get(request['key'])
+        current = sorted((c for c in clients if eligible(c) and matches(c, request)),
+                         key=lambda c: c.get('focusHistoryID', 999))
+        if current:
+            saved = current[0]['size']
+            self.store.save({request['key']: saved})
+        token = uuid.uuid4().hex[:12]
+        tag = 'xetal-float-' + request['key'] + '-' + token
+        self.pending[token] = dict(request, tag=tag, size=saved, created=now, committed=None,
+                                   existing={c['address'] for c in clients if matches(c, request)})
+        rules = ['float on', 'center on', 'tag +' + tag]
+        if saved:rules.append(f'size {saved[0]} {saved[1]}')
+        return {'token': token, 'rules': '; '.join(rules)}
+
+    def finish(self, token, success, now):
+        if token not in self.pending:return
+        if success:self.pending[token]['committed'] = now
+        else:self.pending.pop(token)
+
+    def started(self, token, pid):
+        if token in self.pending:
+            self.pending[token]['process'] = (pid, process_stamp(pid))
+
+    def place_reused(self, client, request):
+        address = 'address:' + client['address']
+        self.hypr.dispatch('setfloating', address)
+        if request['size']:
+            width, height = request['size']
+            self.hypr.dispatch('resizewindowpixel', f'exact {width} {height},' + address)
+        # Read the resulting size: toggling from tiled restores Hyprland's
+        # natural floating geometry when we have no saved floating size yet.
+        current = next((c for c in self.hypr.query('clients') if c['address'] == client['address']), None)
+        if not current:return
+        monitor = next((m for m in self.hypr.query('monitors') if m['id'] == current['monitor']), None)
+        if monitor:
+            x, y, width, height = workarea(monitor)
+            w, h = current['size']
+            self.hypr.dispatch('movewindowpixel', f'exact {round(x+(width-w)/2)} {round(y+(height-h)/2)},' + address)
+        for tag in current.get('tags', []):
+            if TAG.fullmatch(tag):self.hypr.dispatch('tagwindow', '-' + tag.removesuffix('*') + ',' + address)
+        self.hypr.dispatch('tagwindow', '+' + request['tag'] + ',' + address)
+
+    def update(self, clients, now):
+        for token, request in list(self.pending.items()):
+            if any(request['tag'] in [tag.removesuffix('*') for tag in c.get('tags', [])] for c in clients):
+                del self.pending[token]
+                continue
+            if now - request['created'] > 12:
+                del self.pending[token]
+                continue
+            if request['committed'] is None or now - request['committed'] < 1:continue
+            launched = request.get('process')
+            if not launched or not launched[1] or process_stamp(launched[0]) == launched[1]:continue
+            # An app may activate its existing window instead of making one.
+            # Wait for the new invocation to exit; a slow new window must not
+            # cause us to change a different instance which is already open.
+            active = next((c for c in clients if c.get('focusHistoryID') == 0
+                           and c['address'] in request['existing'] and c.get('mapped')
+                           and not c.get('fullscreen') and not c.get('fullscreenClient')), None)
+            if active:
+                self.place_reused(active, request)
+                del self.pending[token]
+
+        changes, present, settled = {}, set(), []
+        # If several windows settle together, the most recently focused wins.
+        for client in sorted(clients, key=lambda c: c.get('focusHistoryID', 999), reverse=True):
+            key, address = window_key(client), client['address']
+            if not key or not eligible(client):continue
+            present.add(address)
+            size = client['size'][:]
+            previous = self.samples.get(address)
+            if previous is None or previous[0] != size:
+                self.samples[address] = (size, now, False, key)
+            elif not previous[2] and now - previous[1] >= .5:
+                changes[key] = size
+                settled.append(address)
+        mapped = {c['address'] for c in clients if c.get('mapped')}
+        for address, sample in self.samples.items():
+            if address not in mapped and not sample[2]:changes.setdefault(sample[3], sample[0])
+        self.store.save(changes)
+        for address in settled:
+            size, since, _, key = self.samples[address]
+            self.samples[address] = (size, since, True, key)
+        self.samples = {address: sample for address, sample in self.samples.items() if address in present}
+
+
+def exchange(root, payload):
+    with socket.socket(socket.AF_UNIX) as stream:
+        stream.settimeout(3)
+        stream.connect(str(root / 'floating-geometry.sock'))
+        stream.sendall(json.dumps(payload).encode() + b'\n')
+        with stream.makefile('rb') as reader:reply = json.loads(reader.readline(65536))
+    if 'error' in reply:raise ValueError(reply['error'])
+    return reply
+
+
+def prepare(entry, terminal, environment):
+    root = runtime(environment)
+    identity = entry.get_id() + ('\0terminal' if terminal else '\0application')
+    classes = [entry.origin.removesuffix('.desktop'), Path(entry.argv()[0]).name]
+    if entry.base:
+        wm_class = entry.base.get_startup_wm_class()
+        if wm_class:classes.append(wm_class)
+    request = {'action': 'prepare', 'key': hashlib.sha256(identity.encode()).hexdigest()[:24],
+               'classes': [normalized(value) for value in classes], 'terminal': bool(terminal),
+               'name': entry.get_display_name()}
+    try:return exchange(root, request)
+    except (FileNotFoundError, ConnectionRefusedError):pass
+    with (root / 'floating-geometry.log').open('a') as log:
+        subprocess.Popen([sys.executable, str(Path(__file__).resolve()), '--watch'], env=environment,
+                         stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        try:return exchange(root, request)
+        except (FileNotFoundError, ConnectionRefusedError):time.sleep(.03)
+    raise ValueError('Floating window size memory could not start; check floating-geometry.log.')
+
+
+def finish(ticket, success, environment):
+    exchange(runtime(environment), {'action': 'finish', 'token': ticket['token'], 'success': success})
+
+
+def watch(root, store):
+    with (root / 'floating-geometry.lock').open('a') as lock:
+        try:fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:return
+        endpoint = root / 'floating-geometry.sock'
+        with socket.socket(socket.AF_UNIX) as events, socket.socket(socket.AF_UNIX) as server:
+            events.connect(str(root / '.socket2.sock'))
+            endpoint.unlink(missing_ok=True)
+            server.bind(str(endpoint)); endpoint.chmod(0o600); server.listen(8)
+            tracker = Tracker(Hypr(root), store)
+            try:
+                while True:
+                    readable, _, _ = select.select([events, server], [], [], .25)
+                    if events in readable and not events.recv(65536):return
+                    if server in readable:
+                        connection, _ = server.accept()
+                        with connection:
+                            connection.settimeout(2)
+                            try:
+                                with connection.makefile('rb') as reader:request = json.loads(reader.readline(65536))
+                                now = time.monotonic()
+                                if request['action'] == 'prepare':reply = tracker.prepare(request, now)
+                                elif request['action'] == 'finish':
+                                    tracker.finish(request['token'], request['success'], now);reply = {'ok': True}
+                                elif request['action'] == 'started':
+                                    tracker.started(request['token'], request['pid']);reply = {'ok': True}
+                                else:raise ValueError('Unknown floating window request.')
+                            except Exception as error:reply = {'error': str(error)}
+                            try:connection.sendall(json.dumps(reply).encode() + b'\n')
+                            except (BrokenPipeError, ConnectionResetError):pass
+                    if readable or tracker.pending or tracker.samples:
+                        try:tracker.update(tracker.hypr.query('clients'), time.monotonic())
+                        except (OSError, ValueError) as error:print('Floating size memory:', error, flush=True)
+            finally:endpoint.unlink(missing_ok=True)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser();parser.add_argument('--watch', action='store_true')
+    parser.add_argument('--state', type=Path);parser.add_argument('--exec-token')
+    parser.add_argument('command', nargs=argparse.REMAINDER);args = parser.parse_args()
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+    if args.watch:watch(runtime(), Store(args.state))
+    elif args.exec_token:
+        command = args.command[1:] if args.command[:1] == ['--'] else args.command
+        if not command:parser.error('A program to launch is required.')
+        try:exchange(runtime(), {'action': 'started', 'token': args.exec_token, 'pid': os.getpid()})
+        except (OSError, ValueError) as error:print('Floating size memory:', error, file=sys.stderr)
+        os.execvpe(command[0], command, os.environ)
