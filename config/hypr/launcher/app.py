@@ -22,6 +22,7 @@ import pins
 import geometry
 import hotkeys
 import favorite_layout
+import capture_guard
 from favorite_board import Board
 from hotkey_dialog import HotkeyDialog
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'theme'))
@@ -515,7 +516,7 @@ class Menu(QWidget):
                     group = favorite_layout.group('New group', target['column'])
                     data['groups'].append(group)
                     ident = group['id']
-                favorite_layout.move_tile(data, payload['id'], ident, target['before'])
+                favorite_layout.place_tile(data, payload['id'], ident, target['cell'])
         self.change_layout(change, payload['id'] if payload['kind'] == 'tile' else None)
 
     def group_context_at(self, ident, position):
@@ -657,7 +658,8 @@ class Menu(QWidget):
             if entry.custom:
                 add('Delete this shortcut copy…', 'edit-delete', 'delete')
             menu.addSeparator()
-        add('New shortcut…', 'list-add', 'new')
+        if not app_id:
+            add('New shortcut…', 'list-add', 'new')
         add('New favorite group…', 'folder-new', 'new-group')
         return menu
 
@@ -703,7 +705,7 @@ class Menu(QWidget):
         self.interaction_depth += 1
         try:
             if action.startswith('tile-size:'):
-                self.change_layout(lambda data: favorite_layout.find_tile(data, app_id)[1].update(size=action.split(':', 1)[1]), app_id)
+                self.change_layout(lambda data: favorite_layout.resize_tile(data, app_id, action.split(':', 1)[1]), app_id)
             elif action.startswith('tile-group:'):
                 self.change_layout(lambda data: favorite_layout.move_tile(data, app_id, action.split(':', 1)[1]), app_id)
             elif action == 'new-group':
@@ -783,6 +785,7 @@ class Menu(QWidget):
     def close_if_outside(self):
         if (not self.preview and self.isVisible() and not self.isActiveWindow()
                 and not self.interaction_depth and time.monotonic() - self.started > .6
+                and not capture_guard.active()
                 and not QApplication.activePopupWidget() and not QApplication.activeModalWidget()):
             self.close()
 

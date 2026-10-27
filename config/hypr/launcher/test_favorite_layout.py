@@ -1,5 +1,7 @@
 import copy
+import fcntl
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -90,6 +92,53 @@ class LayoutTests(unittest.TestCase):
             else:data['groups'][0]['column'] = -1
             with self.subTest(change=change), self.assertRaises(ValueError):self.store.save(data, self.token)
         self.assertFalse(self.store.path.exists())
+
+    def test_small_tiles_keep_a_vertical_column_and_empty_cells_after_reload(self):
+        for ident in self.ids[:3]:layout.resize_tile(self.data, ident, 'small')
+        group = self.data['groups'][0]
+        for ident, row in zip(self.ids[:3], (0, 1, 4)):
+            layout.place_tile(self.data, ident, group['id'], [0, row])
+        self.store.save(self.data, self.token)
+        reloaded, _ = self.store.load(self.ids)
+        positions = {ident: (x, y) for ident, x, y, _, _ in layout.packed(reloaded['groups'][0]['tiles'])}
+        self.assertEqual([positions[ident] for ident in self.ids[:3]], [(0, 0), (0, 56), (0, 224)])
+        self.assertNotIn((71, 0), positions.values())
+
+    def test_drop_on_occupied_cell_only_displaces_the_colliding_tile(self):
+        group = self.data['groups'][0]
+        before = {ident: (x, y) for ident, x, y, _, _ in layout.packed(group['tiles'])}
+        layout.place_tile(self.data, self.ids[2], group['id'], [0, 0])
+        after = {ident: (x, y) for ident, x, y, _, _ in layout.packed(group['tiles'])}
+        self.assertEqual(after[self.ids[2]], (0, 0))
+        self.assertEqual(after[self.ids[0]], before[self.ids[2]])
+        for ident in self.ids[3:] + [self.ids[1]]:self.assertEqual(after[ident], before[ident])
+        layout.validate(self.data)
+
+    def test_growing_small_tile_makes_room_without_overlap_or_lost_apps(self):
+        group = self.data['groups'][0]
+        for ident in self.ids[:4]:layout.resize_tile(self.data, ident, 'small')
+        for ident, cell in zip(self.ids[:4], ([0, 0], [1, 0], [0, 1], [1, 1])):
+            layout.place_tile(self.data, ident, group['id'], cell)
+        layout.resize_tile(self.data, self.ids[0], 'medium')
+        self.assertEqual(layout.find_tile(self.data, self.ids[0])[1]['cell'], [0, 0])
+        layout.validate(self.data)
+        self.assertEqual({tile['app'] for tile in group['tiles']}, set(self.ids))
+
+    def test_unpin_and_new_pin_keep_deliberate_gaps(self):
+        group = self.data['groups'][0]
+        layout.place_tile(self.data, self.ids[0], group['id'], [4, 8])
+        layout.resize_tile(self.data, self.ids[1], 'small')
+        expected = layout.find_tile(self.data, self.ids[0])[1]['cell'][:]
+        updated = layout.reconcile(self.data, self.ids[2:] + [self.ids[0], 'new.desktop'])
+        self.assertEqual(layout.find_tile(updated, self.ids[0])[1]['cell'], expected)
+        layout.freeze(updated['groups'][0]);layout.validate(updated)
+
+    def test_overlapping_or_out_of_bounds_saved_positions_are_rejected(self):
+        for cell in ([0, 0], [5, 0], [-1, 2], [0, 999999], ['0', 1]):
+            data = copy.deepcopy(self.data)
+            data['groups'][0]['tiles'][0]['cell'] = [0, 0]
+            data['groups'][0]['tiles'][1]['cell'] = cell
+            with self.subTest(cell=cell), self.assertRaises(ValueError):layout.validate(data)
 
 
 class BoardTests(unittest.TestCase):
@@ -245,6 +294,46 @@ class BoardTests(unittest.TestCase):
         QT.sendEvent(board.canvas, event)
         self.assertFalse(event.isAccepted())
         self.assertFalse(layout.STATE.exists())
+
+    def test_small_tile_can_drop_below_another_without_filling_the_row(self):
+        for ident in self.ids[:2]:self.menu.perform('tile-size:small', ident)
+        board = self.menu.favorites_board
+        origin = board.regions[0]['body'].topLeft()
+        point = origin + QPoint(25, 56 + 20)
+        payload = {'kind': 'tile', 'id': self.ids[1]}
+        board.hover_drop(payload, point)
+        self.assertEqual(board.drop_hint.topLeft(), origin + QPoint(0, 56))
+        self.drop('tile', self.ids[1], point)
+        first, second = board.tiles[self.ids[0]], board.tiles[self.ids[1]]
+        self.assertEqual(second.geometry().topLeft(), first.geometry().topLeft() + QPoint(0, 56))
+        self.menu.select_page('Favorites')
+        self.assertEqual(board.tiles[self.ids[1]].geometry().topLeft(), origin + QPoint(0, 56))
+        self.assertEqual(self.calls, [])
+
+    def test_new_shortcut_is_only_in_the_empty_space_menu(self):
+        for ident in (None, self.ids[0]):
+            menu = self.menu.build_context_menu(ident)
+            actions = [action.data() for action in menu.actions()]
+            self.assertEqual('new' in actions, ident is None)
+            self.assertIn('new-group', actions)
+            menu.deleteLater()
+
+    def test_screenshot_focus_loss_keeps_menu_until_capture_lock_is_released(self):
+        runtime = self.root / 'runtime'
+        path = runtime / 'hypr' / 'test' / 'screenshot-active.lock'
+        path.parent.mkdir(parents=True)
+        self.menu.preview = False
+        self.menu.started -= 2
+        with (patch.dict(os.environ, XDG_RUNTIME_DIR=str(runtime), HYPRLAND_INSTANCE_SIGNATURE='test'),
+              patch.object(self.menu, 'isActiveWindow', return_value=False),
+              patch.object(self.menu, 'close') as close, path.open('wb') as guard):
+            fcntl.flock(guard, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self.menu.close_if_outside()
+            close.assert_not_called()
+            fcntl.flock(guard, fcntl.LOCK_UN)
+            self.menu.close_if_outside()
+            close.assert_called_once_with()
+        self.menu.preview = True
 
 
 if __name__ == '__main__':unittest.main()

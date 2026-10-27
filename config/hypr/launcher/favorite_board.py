@@ -326,7 +326,7 @@ class Board(QScrollArea):
             ident, column = group['id'], group['column']
             x, y = column * STRIDE, y_positions[column]
             placed = layout.packed([tile for tile in group['tiles'] if tile['app'] in self.items])
-            height = max((top + height for _, _, top, _, height in placed), default=layout.MEDIUM_HEIGHT)
+            height = max(layout.MEDIUM_HEIGHT, max((top + height for _, _, top, _, height in placed), default=0))
             header = QRect(x, y, layout.COLUMN_WIDTH, HEADER)
             body = QRect(x, y + HEADER, layout.COLUMN_WIDTH, height)
             self.regions.append({'id': ident, 'column': column, 'header': header, 'body': body, 'empty': not placed})
@@ -369,28 +369,27 @@ class Board(QScrollArea):
         if payload['kind'] == 'group':
             before = next((g['id'] for g in groups if point.y() < g['body'].center().y()), None)
             return {'column': column, 'before': before}
-        if not groups:
-            return {'column': column, 'group': None, 'before': None}
-        group = next((g for g in groups if point.y() <= g['body'].bottom() + GROUP_GAP // 2), groups[-1])
-        before = None
-        entries = layout.find_group(self.data, group['id'])['tiles']
-        for index, tile in enumerate(entries):
-            button = self.tiles.get(tile['app'])
-            if button and button.geometry().contains(point):
-                if point.x() <= button.geometry().center().x():
-                    before = tile['app']
-                else:
-                    before = next((t['app'] for t in entries[index + 1:] if t['app'] != payload['id']), None)
-                break
-        return {'column': column, 'group': group['id'], 'before': before}
+        group = next((g for i, g in enumerate(groups)
+                      if i == len(groups) - 1 or point.y() < groups[i + 1]['header'].top()), None)
+        origin = group['body'].topLeft() if group else QPoint(column * STRIDE, HEADER)
+        tile = layout.find_tile(self.data, payload['id'])[1]
+        span = 1 if tile['size'] == 'small' else 2
+        x = max(0, min(6 - span, (point.x() - origin.x()) // (layout.CELL_WIDTH * span) * span))
+        y = max(0, min(4096 - span, (point.y() - origin.y()) // (layout.CELL_HEIGHT * span) * span))
+        return {'column': column, 'group': group['id'] if group else None, 'cell': [x, y]}
 
     def hover_drop(self, payload, point):
         self.drag_payload = payload
         target = self.drop_target(payload, point)
         self.drop_hint = None
         if target:
-            if payload['kind'] == 'tile' and target.get('before') in self.tiles:
-                self.drop_hint = self.tiles[target['before']].geometry()
+            if payload['kind'] == 'tile':
+                region = next((g for g in self.regions if g['id'] == target['group']), None)
+                origin = region['body'].topLeft() if region else QPoint(target['column'] * STRIDE, HEADER)
+                span = 1 if layout.find_tile(self.data, payload['id'])[1]['size'] == 'small' else 2
+                x, y = target['cell']
+                self.drop_hint = QRect(origin.x() + x * layout.CELL_WIDTH, origin.y() + y * layout.CELL_HEIGHT,
+                                       span * layout.CELL_WIDTH, span * layout.CELL_HEIGHT)
             else:
                 ident = target.get('group') or target.get('before')
                 region = next((g for g in self.regions if g['id'] == ident), None)

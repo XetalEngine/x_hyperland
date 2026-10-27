@@ -12,6 +12,20 @@ STATE = Path(__file__).with_name('favorite-layout.json')
 MEDIUM_WIDTH, MEDIUM_HEIGHT = 142, 112
 COLUMN_WIDTH = MEDIUM_WIDTH * 3
 COLUMN_GAP = 24
+CELL_WIDTH, CELL_HEIGHT = MEDIUM_WIDTH // 2, MEDIUM_HEIGHT // 2
+
+
+def footprint(tile, cell):
+    size = 1 if tile['size'] == 'small' else 2
+    x, y = cell
+    return {(x + dx, y + dy) for dx in range(size) for dy in range(size)}
+
+
+def valid_cell(tile, cell):
+    size = 1 if tile['size'] == 'small' else 2
+    return (isinstance(cell, (list, tuple)) and len(cell) == 2
+            and all(type(value) is int for value in cell)
+            and 0 <= cell[0] <= 6 - size and 0 <= cell[1] <= 4096 - size)
 
 
 def group(title='Pinned apps', column=0):
@@ -30,11 +44,16 @@ def validate(data):
                 or not isinstance(item.get('tiles'), list)):
             raise ValueError('A saved favorite group is invalid.')
         groups.add(item['id'])
+        occupied = set()
         for tile in item['tiles']:
             if (not isinstance(tile, dict) or not isinstance(tile.get('app'), str) or not tile['app']
                     or tile['app'] in apps or tile.get('size') not in ('small', 'medium')):
                 raise ValueError('A saved favorite tile is invalid or duplicated.')
             apps.add(tile['app'])
+            if 'cell' in tile:
+                if not valid_cell(tile, tile['cell']) or occupied.intersection(footprint(tile, tile['cell'])):
+                    raise ValueError('A saved tile position is invalid or overlaps another tile.')
+                occupied.update(footprint(tile, tile['cell']))
     return data
 
 
@@ -55,11 +74,16 @@ def reconcile(data, favorites):
 
 
 def packed(tiles):
-    """Three medium slots per row; each slot holds a 2×2 small-icon block."""
-    occupied = set()
+    """Keep saved cells; only automatically place tiles without a position."""
+    occupied = {cell for tile in tiles if 'cell' in tile for cell in footprint(tile, tile['cell'])}
     result = []
     for tile in tiles:
         small = tile['size'] == 'small'
+        if 'cell' in tile:
+            x, y = tile['cell']
+            size = 1 if small else 2
+            result.append((tile['app'], x * CELL_WIDTH, y * CELL_HEIGHT, size * CELL_WIDTH, size * CELL_HEIGHT))
+            continue
         slot = 0
         while True:
             x, y = (slot % 3) * 2, (slot // 3) * 2
@@ -80,6 +104,60 @@ def packed(tiles):
     return result
 
 
+def freeze(item):
+    positions = {app: [x // CELL_WIDTH, y // CELL_HEIGHT] for app, x, y, _, _ in packed(item['tiles'])}
+    for tile in item['tiles']:
+        tile['cell'] = positions[tile['app']]
+
+
+def settle(item, moving, preferred=None):
+    """The chosen tile keeps its cell; only overlapping tiles make room."""
+    taken = footprint(moving, moving['cell'])
+    displaced = []
+    for tile in item['tiles']:
+        if tile is moving:
+            continue
+        if taken.intersection(footprint(tile, tile['cell'])):
+            displaced.append(tile)
+        else:
+            taken.update(footprint(tile, tile['cell']))
+    for tile in displaced:
+        tile.pop('cell')
+        if preferred is not None and valid_cell(tile, preferred) and not taken.intersection(footprint(tile, preferred)):
+            tile['cell'] = list(preferred)
+            taken.update(footprint(tile, preferred))
+    freeze(item)
+
+
+def place_tile(data, app, destination, cell):
+    source, tile = find_tile(data, app)
+    target = find_group(data, destination)
+    if not valid_cell(tile, cell):
+        raise ValueError('Drop the tile inside the group grid.')
+    freeze(source)
+    if target is not source:
+        freeze(target)
+    previous = tile['cell']
+    source['tiles'].remove(tile)
+    target['tiles'].append(tile)
+    tile['cell'] = list(cell)
+    settle(target, tile, previous if source is target else None)
+    target['tiles'].sort(key=lambda t: (t['cell'][1], t['cell'][0]))
+
+
+def resize_tile(data, app, size):
+    if size not in ('small', 'medium'):
+        raise ValueError('Choose Small or Medium.')
+    item, tile = find_tile(data, app)
+    if tile['size'] == size:
+        return
+    freeze(item)
+    tile['size'] = size
+    tile['cell'][0] = min(tile['cell'][0], 5 if size == 'small' else 4)
+    tile['cell'][1] = min(tile['cell'][1], 4095 if size == 'small' else 4094)
+    settle(item, tile)
+
+
 def find_group(data, ident):
     return next(item for item in data['groups'] if item['id'] == ident)
 
@@ -93,7 +171,14 @@ def move_tile(data, app, destination, before=None):
     target = find_group(data, destination)
     if before == app:
         return
+    if source is target and before is None:
+        return
+    if any('cell' in t for t in source['tiles']):
+        freeze(source)
+    if any('cell' in t for t in target['tiles']):
+        freeze(target)
     source['tiles'].remove(tile)
+    tile.pop('cell', None)
     index = next((i for i, existing in enumerate(target['tiles']) if existing['app'] == before), len(target['tiles']))
     target['tiles'].insert(index, tile)
 
@@ -114,6 +199,8 @@ def remove_group(data, ident):
     if item['tiles'] and not others:
         raise ValueError('Keep one group for your pinned apps, or create another group first.')
     if item['tiles']:
+        for tile in item['tiles']:
+            tile.pop('cell', None)
         others[0]['tiles'].extend(item['tiles'])
     data['groups'].remove(item)
 

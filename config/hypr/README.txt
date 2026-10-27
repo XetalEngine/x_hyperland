@@ -102,6 +102,10 @@ group or right-click empty space to create a group. Drag its title to move the
 whole group, double-click to rename, or use its ellipsis menu. Removing a group
 keeps its apps in another group. Right-click a favorite -> Tile size chooses
 Medium or Small; four icon-only small tiles fit one medium tile's footprint.
+Drops save the chosen cell, so small tiles can form a vertical column without
+filling the row first. Intentional gaps stay empty. The drop outline shows the
+destination; an occupied cell makes room without repacking unrelated tiles.
+New shortcut is available on empty space and the footer, not on an app's menu.
 Each column is three medium tiles wide. Widen the menu to reveal more columns;
 shrinking hides columns without moving their contents. Drop a tile or group in
 an empty column to use it. Order, titles, sizes and columns save automatically
@@ -133,6 +137,7 @@ and saved app hotkeys use the same launch settings. Super+V toggles any focused
 window, including an existing window reused by a single-instance application.
 Typing searches all installed visible applications, even while Favorites is selected.
 Escape dismisses the menu. Its settings live in launcher/.
+Print and Shift+Print keep Apps visible until screenshot capture finishes.
 Drag its edges, corners or bottom-right grip to resize it. The size is remembered
 in launcher/window.json. The icon file chooser includes an image preview, size,
 dimensions, creation time (when recorded by the filesystem) and modified time.
