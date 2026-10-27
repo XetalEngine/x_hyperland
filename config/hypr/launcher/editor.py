@@ -112,7 +112,7 @@ class ShortcutEditor(QDialog):
     def __init__(self, entry=None, parent=None, duplicate=False):
         super().__init__(parent)
         self.entry, self.duplicate = entry, duplicate
-        self.setWindowTitle('New favorite shortcut' if duplicate or entry is None else 'Edit shortcut')
+        self.setWindowTitle('New favorite shortcut' if duplicate or entry is None else 'Properties')
         self.setStyleSheet(shortcuts.theme_runtime.stylesheet(DIALOG_STYLE))
         self.resize(730, 670)
         self.fields = dict(entry.fields) if entry else {

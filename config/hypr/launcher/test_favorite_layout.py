@@ -310,12 +310,15 @@ class BoardTests(unittest.TestCase):
         self.assertEqual(board.tiles[self.ids[1]].geometry().topLeft(), origin + QPoint(0, 56))
         self.assertEqual(self.calls, [])
 
-    def test_new_shortcut_is_only_in_the_empty_space_menu(self):
+    def test_creation_actions_are_only_in_empty_space_and_properties_is_last(self):
         for ident in (None, self.ids[0]):
             menu = self.menu.build_context_menu(ident)
             actions = [action.data() for action in menu.actions()]
             self.assertEqual('new' in actions, ident is None)
-            self.assertIn('new-group', actions)
+            self.assertEqual('new-group' in actions, ident is None)
+            if ident:
+                self.assertEqual(menu.actions()[-1].text(), 'Properties')
+                self.assertEqual(actions[-1], 'edit')
             menu.deleteLater()
 
     def test_screenshot_focus_loss_keeps_menu_until_capture_lock_is_released(self):

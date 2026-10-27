@@ -661,7 +661,6 @@ class Menu(QWidget):
                     action = groups.addAction(group['title'].replace('&', '&&'))
                     action.setData('tile-group:' + group['id'])
             menu.addSeparator()
-            add('Edit shortcut…', 'document-edit', 'edit')
             add('Change launch hotkey…' if self.hotkeys.bindings(entry) else 'Set launch hotkey…',
                 'preferences-desktop-keyboard-shortcuts', 'hotkey')
             add('Change icon…', 'preferences-desktop-icons', 'icon')
@@ -677,9 +676,10 @@ class Menu(QWidget):
             if entry.custom:
                 add('Delete this shortcut copy…', 'edit-delete', 'delete')
             menu.addSeparator()
-        if not app_id:
+            add('Properties', 'document-properties', 'edit')
+        else:
             add('New shortcut…', 'list-add', 'new')
-        add('New favorite group…', 'folder-new', 'new-group')
+            add('New favorite group…', 'folder-new', 'new-group')
         return menu
 
     def refresh_apps(self, selected_id=None):

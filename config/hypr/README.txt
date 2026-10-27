@@ -94,9 +94,11 @@ External GTK controls keep preferences under hypr/apps using the keyfile backend
 
 The application menu reads favorites from the active KDE Kickoff menu without
 writing KDE settings. Right-click app tiles for Open, Open in terminal, pin/unpin,
-Duplicate into Favorites, Edit shortcut, Change icon, Always run in terminal,
+Duplicate into Favorites, Properties, Change icon, Always run in terminal,
 Copy command, Show shortcut file, and Restore original settings. F2 edits the
 selected shortcut; Ctrl+N or New shortcut creates a favorite from a command.
+Properties is the last item in each app's context menu. Group creation is
+available from empty space or New group in the header.
 Favorites can be dragged to reorder or moved between named groups. Use + New
 group or right-click empty space to create a group. Drag its title to move the
 whole group, double-click to rename, or use its ellipsis menu. Removing a group
@@ -134,7 +136,7 @@ profile. Commands use desktop-entry arguments, not an implicit shell; use an
 explicit shell command if shell syntax is intended.
 Right-click -> Launch floating opens a new window above the tiled layout for
 that launch. Always start floating saves the preference for that shortcut; the
-same option appears in Edit shortcut. Copies can have independent preferences,
+same option appears in Properties. Copies can have independent preferences,
 and saved app hotkeys use the same launch settings. Super+V toggles any focused
 window, including an existing window reused by a single-instance application.
 Typing searches all installed visible applications, even while Favorites is selected.
