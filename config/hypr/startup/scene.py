@@ -180,13 +180,13 @@ class Scene:
                 left<=x<left+width and top<=y<top+height)):
             self.choice.switch()
 
-    def graphics(self,cols,rows,t,fd):
+    def graphics(self,cols,rows,fd):
         if not self.artwork:
             return ''
         if self.choice.view=='ascii':
             return self.artwork.hide()
         try:
-            return self.artwork.draw(self.art_area,(cols,rows),pixel_size(fd,cols,rows),t)
+            return self.artwork.draw(self.art_area,(cols,rows),pixel_size(fd,cols,rows))
         except (OSError,ValueError) as exc:
             self.choice.view='ascii'
             self.choice.warn('Artwork unavailable · showing ASCII')
@@ -297,10 +297,9 @@ def main():
                 cols,rows=shutil.get_terminal_size()
                 lines=scene.frame(cols,rows)
                 frame=ESC+'H'+''.join(clip(line,cols-1)+ESC+'K'+('\r\n' if n<rows-1 else '') for n,line in enumerate((lines+['']*rows)[:rows]))
-                frame+=scene.graphics(cols,rows,time.monotonic()-scene.start,sys.stdout.fileno())
+                frame+=scene.graphics(cols,rows,sys.stdout.fileno())
                 sys.stdout.write(frame);sys.stdout.flush()
             interval=.1 if args.mode in ('hero','matrix') and scene.is_visible else .5
-            if scene.choice and scene.choice.view=='mascot' and scene.is_visible:interval=.05
             time.sleep(max(.01,interval-(time.monotonic()-start)))
     except (BrokenPipeError,OSError):pass
     finally:

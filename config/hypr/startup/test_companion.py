@@ -103,36 +103,32 @@ class CompanionTests(unittest.TestCase):
 
     def test_artwork_loaded_once_reused_and_released_on_exit(self):
         art = companion.Artwork()
-        first = art.draw((0, 11, 110, 35), (110, 50), (990, 900), 0)
+        first = art.draw((0, 11, 110, 35), (110, 50), (990, 900))
         self.assertIn('a=t', first)
         self.assertIn('a=p', first)
         self.assertIn('p=1', first)
-        self.assertIn('a=p', art.draw((0, 11, 110, 35), (110, 50), (990, 900), 1))
+        self.assertEqual('', art.draw((0, 11, 110, 35), (110, 50), (990, 900)))
         self.assertIn('d=i', art.hide())
-        second = art.draw((0, 11, 110, 35), (110, 50), (990, 900), 0)
+        second = art.draw((0, 11, 110, 35), (110, 50), (990, 900))
         self.assertNotIn('a=t', second)
         self.assertIn('a=p', second)
         self.assertIn('d=I', art.hide(release=True))
         self.assertFalse(art.loaded)
 
-    def test_idle_motion_and_resizes_stay_inside_viewport(self):
+    def test_resizes_stay_inside_viewport(self):
         art = companion.Artwork()
         art.load()
         for cols, rows, cw, ch in ((110, 50, 9, 18), (180, 70, 14, 29),
                                     (32, 15, 8, 16), (18, 10, 10, 21)):
             area = (1, 2, cols - 2, rows - 5)
-            positions = set()
-            for frame in range(100):
-                place = art.placement(area, (cols, rows), (cols * cw, rows * ch), frame / 10)
-                self.assertIsNotNone(place)
-                x, y, dx, dy, height = place
-                positions.add((x, y, dx, dy))
-                px, py = x * cw + dx, y * ch + dy
-                self.assertGreaterEqual(px, area[0] * cw)
-                self.assertGreaterEqual(py, area[1] * ch)
-                self.assertLessEqual(px + height * ch * art.ratio, (area[0] + area[2]) * cw)
-                self.assertLessEqual(py + height * ch, (area[1] + area[3]) * ch)
-            self.assertGreater(len(positions), 1)
+            place = art.placement(area, (cols, rows), (cols * cw, rows * ch))
+            self.assertIsNotNone(place)
+            x, y, dx, dy, height = place
+            px, py = x * cw + dx, y * ch + dy
+            self.assertGreaterEqual(px, area[0] * cw)
+            self.assertGreaterEqual(py, area[1] * ch)
+            self.assertLessEqual(px + height * ch * art.ratio, (area[0] + area[2]) * cw)
+            self.assertLessEqual(py + height * ch, (area[1] + area[3]) * ch)
 
     def test_missing_artwork_falls_back_without_forgetting_user_choice(self):
         choice = companion.Choice(self.state)
@@ -142,7 +138,7 @@ class CompanionTests(unittest.TestCase):
         view.artwork = companion.Artwork(Path(self.temp.name) / 'missing.png')
         view.frame(110, 50, 0)
         with patch.object(scene.sys, 'stderr'):
-            self.assertEqual(view.graphics(110, 50, 0, -1), '')
+            self.assertEqual(view.graphics(110, 50, -1), '')
         self.assertEqual(view.choice.view, 'ascii')
         self.assertEqual(companion.Choice(self.state).view, 'mascot')
         self.assertIn('unavailable', view.choice.hint())

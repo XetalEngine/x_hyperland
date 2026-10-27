@@ -137,7 +137,7 @@ def pixel_size(fd, cols, rows):
 
 
 class Artwork:
-    """Load the original PNG once; animate its placement, never rewrite its pixels."""
+    """Display the original PNG centered and static, preserving its pixels."""
     image_id = 1480938572
 
     def __init__(self, path=ART):
@@ -165,24 +165,24 @@ class Artwork:
         self.loaded = True
         return self.command(payload, a='t', f=100, t='f', i=self.image_id, q=2)
 
-    def placement(self, area, cells, pixels, tick):
+    def placement(self, area, cells, pixels):
         left, top, width, height = area
         cols, rows = cells
         cw, ch = max(1, pixels[0] // cols), max(1, pixels[1] // rows)
-        # Leave a full cell around the image for motion, preserving its aspect ratio.
+        # Leave a full cell of padding, preserving the image's aspect ratio.
         image_rows = min(height - 2, int((width - 2) * cw / self.ratio / ch))
         if image_rows < 1:
             return None
         ph = image_rows * ch
         pw = math.ceil(ph * self.ratio)
         margin_x, margin_y = (width * cw - pw) / 2, (height * ch - ph) / 2
-        x = round(left * cw + margin_x + min(3, margin_x / 2) * math.sin(tick * math.tau / 7))
-        y = round(top * ch + margin_y + min(5, margin_y / 2) * math.sin(tick * math.tau / 4.8))
+        x = round(left * cw + margin_x)
+        y = round(top * ch + margin_y)
         return (x // cw, y // ch, x % cw, y % ch, image_rows)
 
-    def draw(self, area, cells, pixels, tick):
+    def draw(self, area, cells, pixels):
         result = '' if self.loaded else self.load()
-        placement = self.placement(area, cells, pixels, tick)
+        placement = self.placement(area, cells, pixels)
         if placement is None:
             return result + self.hide()
         if placement != self.last_placement:

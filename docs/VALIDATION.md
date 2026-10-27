@@ -32,6 +32,8 @@ Floating-launch follow-up: **75 launcher tests passed**, including checks for Ct
 
 Startup mascot follow-up: **12 companion tests and all 13 installer tests passed**. Coverage includes saved view selection in both directions, failed atomic saves, damaged preferences, fragmented mouse reports, drag/scroll/right-click filtering, Escape handling, image cleanup, missing artwork and bounded idle motion across terminal sizes. A disposable native Wayland Kitty instance on an unopened workspace verified ASCII → PNG → ASCII through mouse reports, transparent image rendering, idle movement, resizing from 1000×1000 to 720×680, and restoring the PNG choice after closing/reopening. Native screenshots were inspected at both sizes. The check used temporary preferences and closed its own windows. The shipped mascot's checksum matches the supplied PNG byte for byte.
 
+The PNG mascot was subsequently made static at the user's request. Its placement now changes only with the window dimensions or view selection. The 12 companion checks passed again with the motion expectations updated; animated ASCII, click switching and saved selection remain supported.
+
 The hover-kill tests cover a pointer target different from keyboard focus, empty desktop, floating/fullscreen/special workspaces, pinned windows, rotated/scaled displays, bars/overlays, invalid process identities and a target changing before dispatch. The dry-run path cannot send a signal.
 
 A disposable Qt window in an unopened special workspace also verified the real compositor signal path. It ignored a normal close, survived the helper's dry-run, and was removed by the force-kill helper. That check supplied a synthetic pointer over the disposable window; it did not target existing applications.

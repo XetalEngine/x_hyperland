@@ -32,7 +32,7 @@ Arch/CachyOS is the tested build environment. Package recipes are also provided 
 | Displays | Drag monitor rectangles; configure resolution, refresh, scaling, rotation and mirroring with timed Keep/Revert protection. |
 | Theme | Dark, Light and High contrast palettes, live Qt 5/6 theme plugins, matching GTK appearance, window effects and per-monitor wallpapers. |
 | Wallpaper | The exact included image, monitor previews, individual assignments, fit modes, and image-picker previews/file properties. |
-| Startup | Five-second login delay, then the staggered Fastfetch, Matrix, clock and Xetal companion consoles. Click the companion to switch between animated ASCII and the original PNG mascot with gentle idle motion; your choice survives login. |
+| Startup | Five-second login delay, then the staggered Fastfetch, Matrix, clock and Xetal companion consoles. Click the companion to switch between animated ASCII and the static original PNG mascot; your choice survives login. |
 | App switcher | Super+Tab across all monitors/workspaces; release Super to focus the selected app on its original monitor. |
 | Dolphin | Separate themed profile, Places icons, image wallpaper action, and folder-link handling. |
 | Kitty | Animated cursor, themed colors and an interactive scrollback scrollbar. |
