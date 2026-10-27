@@ -77,11 +77,21 @@ class Tile(Draggable):
         super().__init__(board, 'tile', ident, parent)
         self.size_name = size
         self.amount = 0.0
+        self.floating_click = False
         self.animation = QPropertyAnimation(self, b'glow', self)
         self.animation.setDuration(160)
-        self.clicked.connect(lambda: board.activated.emit(ident))
+        self.clicked.connect(lambda: board.activated.emit(ident, self.floating_click))
         self.setAccessibleName(board.items[ident]['name'])
         self.setToolTip(board.items[ident]['tooltip'])
+
+    def mouseReleaseEvent(self, event):
+        # Keep Qt's normal click/drag handling; the override belongs to this
+        # mouse release only, never a later keyboard activation or plain click.
+        self.floating_click = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
+        try:
+            super().mouseReleaseEvent(event)
+        finally:
+            self.floating_click = False
 
     @pyqtProperty(float)
     def glow(self):
@@ -208,7 +218,7 @@ class Canvas(QWidget):
 
 
 class Board(QScrollArea):
-    activated = pyqtSignal(str)
+    activated = pyqtSignal(str, bool)
     selectedChanged = pyqtSignal(str)
     appMenuRequested = pyqtSignal(str, QPoint)
     groupMenuRequested = pyqtSignal(str, QPoint)

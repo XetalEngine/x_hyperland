@@ -134,8 +134,10 @@ cached in launcher/icons/. Installed desktop entries and KDE favorites are never
 written. Terminal launches use the local Kitty config; Dolphin keeps its isolated
 profile. Commands use desktop-entry arguments, not an implicit shell; use an
 explicit shell command if shell syntax is intended.
-Right-click -> Launch floating opens a new window above the tiled layout for
-that launch. Always start floating saves the preference for that shortcut; the
+Ctrl+click any app tile, including search results, to launch it floating once.
+Right-click -> Launch floating does the same. Normal clicks and keyboard launches
+use the saved preference; Ctrl+drag still rearranges favorites without launching.
+Always start floating saves the preference for that shortcut; the
 same option appears in Properties. Copies can have independent preferences,
 and saved app hotkeys use the same launch settings. Super+V toggles any focused
 window, including an existing window reused by a single-instance application.

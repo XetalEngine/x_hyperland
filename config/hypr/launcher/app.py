@@ -10,7 +10,7 @@ import subprocess
 import sys
 import time
 
-from PyQt6.QtCore import Qt, QSize, QRectF, QTimer, QEvent, QEasingCurve, QPropertyAnimation, pyqtProperty
+from PyQt6.QtCore import Qt, QSize, QRectF, QTimer, QEvent, QEasingCurve, QPropertyAnimation, pyqtProperty, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter, QLinearGradient, QPen, QIcon, QFont, QKeySequence, QShortcut
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (QApplication, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
@@ -162,11 +162,13 @@ class Tiles(QStyledItemDelegate):
 
 
 class LaunchGrid(QListWidget):
+    clickedApp = pyqtSignal(QListWidgetItem, bool)
+
     def mouseReleaseEvent(self, event):
         item = self.itemAt(event.position().toPoint())
         super().mouseReleaseEvent(event)
         if event.button() == Qt.MouseButton.LeftButton and item:
-            self.itemActivated.emit(item)
+            self.clickedApp.emit(item, bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier))
 
 
 class Menu(QWidget):
@@ -286,10 +288,12 @@ class Menu(QWidget):
         self.grid.setItemDelegate(self.delegate)
         self.grid.itemEntered.connect(self.delegate.entered)
         self.grid.itemActivated.connect(self.open_app)
+        self.grid.clickedApp.connect(self.open_app)
         self.grid.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.grid.customContextMenuRequested.connect(self.context_menu)
         self.favorites_board = Board(Tiles.draw)
-        self.favorites_board.activated.connect(lambda ident: self.launch_app(ident))
+        self.favorites_board.activated.connect(
+            lambda ident, floating: self.launch_app(ident, floating=True if floating else None))
         self.favorites_board.selectedChanged.connect(self.select_favorite)
         self.favorites_board.appMenuRequested.connect(self.app_context_at)
         self.favorites_board.groupMenuRequested.connect(self.group_context_at)
@@ -596,11 +600,11 @@ class Menu(QWidget):
         if self.grid.currentItem():
             self.open_app(self.grid.currentItem())
 
-    def open_app(self, item):
+    def open_app(self, item, floating=False):
         if self.interaction_depth:
             return
         app_id = item.data(Qt.ItemDataRole.UserRole)
-        self.launch_app(app_id)
+        self.launch_app(app_id, floating=True if floating else None)
 
     def launch_app(self, app_id, terminal=None, floating=None):
         try:

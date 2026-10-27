@@ -37,6 +37,7 @@ class ShortcutTests(unittest.TestCase):
         self.native = Gio.DesktopAppInfo.new_from_filename(str(self.desktop))
         self.patches = [patch.object(shortcuts, 'STATE', self.root/'shortcuts.json'),
                         patch.object(app.geometry, 'STATE', self.root/'window.json'),
+                        patch.object(app.favorite_layout, 'STATE', self.root/'favorite-layout.json'),
                         patch.object(shortcuts, 'ICONS', self.root/'icons'),
                         patch.object(catalog, 'LOCAL', self.root/'favorites.json'),
                         patch.object(pins, 'STATE', self.root/'bar-pins.json'),
@@ -140,6 +141,39 @@ class ShortcutTests(unittest.TestCase):
         dialog=ShortcutEditor(saved,menu);self.assertTrue(dialog.floating.isChecked())
         dialog.floating.setChecked(False);dialog.accept();self.assertFalse(dialog.fields['floating'])
 
+    def test_ctrl_click_floats_once_without_changing_saved_preference(self):
+        for saved_floating in (False, True):
+            shortcuts.save(self.entry, {**self.entry.fields, 'floating': saved_floating})
+            saved = shortcuts.STATE.read_bytes()
+            menu = app.Menu(preview=True)
+            menu.show(); QTest.qWait(220)
+            with (patch.object(menu, 'close'), patch.object(app, 'leave_dashboard'),
+                  patch.object(shortcuts.Entry, 'launch') as launch):
+                for view in ('medium', 'small', 'all', 'search'):
+                    with self.subTest(saved_floating=saved_floating, view=view):
+                        if view in ('medium', 'small'):
+                            menu.perform('tile-size:' + view, self.entry.get_id())
+                            target = menu.favorites_board.tiles[self.entry.get_id()]
+                            point = target.rect().center()
+                        else:
+                            menu.select_page('All apps')
+                            if view == 'search':menu.search.setText('Example')
+                            target = menu.grid.viewport()
+                            point = menu.grid.visualItemRect(menu.grid.item(0)).center()
+                        launch.reset_mock()
+                        QTest.mouseClick(target, Qt.MouseButton.LeftButton,
+                                         Qt.KeyboardModifier.ControlModifier, pos=point)
+                        launch.assert_called_once_with(terminal=None, floating=True)
+                        launch.reset_mock()
+                        QTest.mouseClick(target, Qt.MouseButton.LeftButton, pos=point)
+                        launch.assert_called_once_with(terminal=None, floating=None)
+                        launch.reset_mock()
+                        QTest.keyClick(target if view in ('medium', 'small') else menu.grid,
+                                       Qt.Key.Key_Return)
+                        launch.assert_called_once_with(terminal=None, floating=None)
+                        self.assertEqual(shortcuts.STATE.read_bytes(), saved)
+            menu.close()
+
     def test_invalid_save_leaves_state_unchanged(self):
         shortcuts.save(self.entry, {**self.entry.fields, 'name': 'Saved'})
         original = shortcuts.STATE.read_bytes()
@@ -163,8 +197,9 @@ class ShortcutTests(unittest.TestCase):
         called = []
         menu.launch_app = lambda *args, **kwargs: called.append(args)
         tile = menu.favorites_board.tiles['example.desktop']
-        QTest.mouseClick(tile, Qt.MouseButton.RightButton, pos=tile.rect().center())
-        self.assertEqual(called, [])
+        for modifiers in (Qt.KeyboardModifier.NoModifier, Qt.KeyboardModifier.ControlModifier):
+            QTest.mouseClick(tile, Qt.MouseButton.RightButton, modifiers, pos=tile.rect().center())
+            self.assertEqual(called, [])
         actions = {a.data() for a in menu.build_context_menu('example.desktop').actions()}
         self.assertTrue({'edit','icon','duplicate','pin','terminal','toggle-terminal','copy-command','show-file','reset'} <= actions)
         QTest.mouseClick(tile, Qt.MouseButton.LeftButton, pos=tile.rect().center())

@@ -159,7 +159,8 @@ class BoardTests(unittest.TestCase):
         self.menu.show()
         QTest.qWait(220)
         self.calls = []
-        self.menu.launch_app = lambda *args: self.calls.append(args)
+        self.menu.launch_app = lambda ident, floating=None: self.calls.append(
+            (ident,) if floating is None else (ident, floating))
 
     def tearDown(self):
         self.menu.close()
@@ -246,19 +247,22 @@ class BoardTests(unittest.TestCase):
     def test_cancelled_drag_does_not_launch_and_following_click_still_works(self):
         board = self.menu.favorites_board
         tile = board.tiles[self.ids[0]]
-        depths = []
-        drag = MagicMock()
-        drag.exec.side_effect = lambda action: depths.append(self.menu.interaction_depth)
-        QTest.mousePress(tile, Qt.MouseButton.LeftButton, pos=QPoint(20, 20))
-        event = QMouseEvent(QEvent.Type.MouseMove, QPointF(60, 60), QPointF(tile.mapToGlobal(QPoint(60, 60))),
-                            Qt.MouseButton.NoButton, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
-        with patch.object(favorite_board, 'QDrag', return_value=drag):QT.sendEvent(tile, event)
-        QTest.mouseRelease(tile, Qt.MouseButton.LeftButton, pos=QPoint(60, 60))
-        self.assertEqual(self.calls, [])
-        self.assertEqual(depths, [1])
-        self.assertEqual(self.menu.interaction_depth, 0)
-        QTest.mouseClick(tile, Qt.MouseButton.LeftButton, pos=tile.rect().center())
-        self.assertEqual(self.calls, [(self.ids[0],)])
+        for modifiers in (Qt.KeyboardModifier.NoModifier, Qt.KeyboardModifier.ControlModifier):
+            with self.subTest(modifiers=modifiers):
+                self.calls.clear()
+                depths = []
+                drag = MagicMock()
+                drag.exec.side_effect = lambda action: depths.append(self.menu.interaction_depth)
+                QTest.mousePress(tile, Qt.MouseButton.LeftButton, modifiers, pos=QPoint(20, 20))
+                event = QMouseEvent(QEvent.Type.MouseMove, QPointF(60, 60), QPointF(tile.mapToGlobal(QPoint(60, 60))),
+                                    Qt.MouseButton.NoButton, Qt.MouseButton.LeftButton, modifiers)
+                with patch.object(favorite_board, 'QDrag', return_value=drag):QT.sendEvent(tile, event)
+                QTest.mouseRelease(tile, Qt.MouseButton.LeftButton, modifiers, pos=QPoint(60, 60))
+                self.assertEqual(self.calls, [])
+                self.assertEqual(depths, [1])
+                self.assertEqual(self.menu.interaction_depth, 0)
+                QTest.mouseClick(tile, Qt.MouseButton.LeftButton, pos=tile.rect().center())
+                self.assertEqual(self.calls, [(self.ids[0],)])
 
     def test_group_creation_rename_and_keyboard_navigation(self):
         with patch.object(app.QInputDialog, 'getText', return_value=('My tools', True)):

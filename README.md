@@ -56,6 +56,8 @@ In Apps → Favorites, use **+ New group**, then drag tiles between groups or dr
 
 The compact header puts the page title, **New group** and **New shortcut** above the slim search field. Drag the bottom edge or corner to shorten the menu, down to 480 pixels high; tiles and sidebar navigation scroll independently when needed. Your window size is remembered.
 
+**Ctrl+click** an app in Favorites, categories or search results to launch it floating for that launch. Normal clicks keep the shortcut's saved preference, and Ctrl+drag still reorders favorites.
+
 ## Check, prepare, restore
 
 ```bash
