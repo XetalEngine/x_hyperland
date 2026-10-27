@@ -5,7 +5,7 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 | Area | Required components |
 | --- | --- |
 | Desktop | Hyprland 0.56+, Hyprpaper 0.8+, Hyprlock, Waybar 0.15+, Kitty 0.49+, Dolphin, SwayNotificationCenter |
-| Python | Python 3.11+, PyQt6 Widgets/Network, PyGObject with Gio/GTK 3, Pillow |
+| Python | Python 3.11+, PyQt6 Widgets/Network, PyGObject with Gio/GTK 3/GtkLayerShell, Pillow |
 | Native builds | C/C++17/20 compiler, pkg-config, GTK 3, gtk-layer-shell, json-glib, Wayland client/scanner; Qt 5 and 6 development tools and private QtGui/QtCore headers |
 | Capture | grim, slurp, wl-clipboard, xdg-desktop-portal-hyprland, GTK desktop portal |
 | Audio | PipeWire PulseAudio compatibility, pactl, WirePlumber/wpctl, playerctl |

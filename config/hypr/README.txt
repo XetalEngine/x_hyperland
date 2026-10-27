@@ -34,7 +34,7 @@ Shortcuts (Super is the Windows key):
 Screenshots are saved under your Pictures/Screenshots directory and copied to
 the clipboard. Existing workspace, move/resize and media shortcuts are retained.
 
-The session helper starts the local Waybar, Hyprpaper and, if needed, notifications and an
+The session helper starts the local Waybar, Hyprpaper, desktop context menu and, if needed, notifications and an
 authentication agent. It stops its own child processes when this Hyprland instance
 ends. It does not install or enable systemd services or global autostart entries.
 
@@ -45,8 +45,28 @@ notifications and a clock/calendar. Click most indicators to open their controls
 Scroll the speaker or mic indicator to adjust its level; right-click to mute.
 Left-click notifications to open them; right-click to toggle Do Not Disturb.
 
+Right-click uncovered wallpaper for File Manager, Wallpaper and Display Settings.
+The native menu has a thin accent strip and follows the current desktop theme.
+It works on each monitor, stays below app windows until opened, closes on an
+outside click or Escape, and stops when this Hyprland session ends.
+
+Control desk → Context Menu edits its contents and appearance. Drag items to
+reorder them or into submenus; add app shortcuts, custom commands, folders,
+websites, section headings, dividers, spacers and column splits. Items can be
+disabled without deleting them. The appearance controls change column width,
+row and icon sizes, font, padding, rounding, opacity, shadow and accent strip.
+Choose custom colors or follow the system's light/dark/high-contrast theme.
+The preview never runs commands. Apply changes saves the draft; Discard returns
+to the saved menu. Changes appear on the next wallpaper right-click. Removing
+an item also removes its assigned global hotkeys on Apply. Backups are saved in
+~/.local/state/hyprland-control/context-menu-*.json. Save/Load preset transfers
+the complete menu as JSON; loading and resetting defaults create drafts.
+After applying menu edits, Configure hotkey opens the shared shortcut recorder.
+These bindings appear in Hotkeys → Applications with the same validation,
+external-edit detection, recovery key and rollback as the rest of the desktop.
+
 The control desk has Hotkeys, Audio, Network, Bluetooth, Displays, Input, Theme,
-Calendar and System tabs.
+Context Menu, Calendar and System tabs.
 Hotkey categories include Window hover, Applications, Workspaces, Media & Devices,
 and System. Live shows every binding loaded by the compositor, including runtime
 additions. History can load previous versions as drafts for review and restoration.

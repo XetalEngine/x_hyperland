@@ -24,7 +24,7 @@ PACKAGES = {
         libnotify polkit-gnome papirus-icon-theme google-noto-sans-fonts dejavu-sans-fonts dejavu-sans-mono-fonts'''.split(),
     'debian': '''hyprland hyprpaper hyprlock waybar kitty dolphin sway-notification-center grim slurp wl-clipboard
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
-        python3 python3-pyqt6 python3-gi python3-pil gir1.2-gtk-3.0 build-essential pkg-config
+        python3 python3-pyqt6 python3-gi python3-pil gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1 build-essential pkg-config
         libgtk-3-dev libgtk-layer-shell-dev libjson-glib-dev qtbase5-dev qtbase5-private-dev qtwayland5
         qt6-base-dev qt6-base-dev-tools qt6-base-private-dev qt6-wayland libwayland-dev libwayland-bin wayland-protocols
         network-manager network-manager-gnome blueman bluez pipewire-pulse wireplumber pulseaudio-utils
@@ -56,7 +56,7 @@ def check():
     if sys.version_info < (3,11): errors.append('Python 3.11 or newer is required.')
     errors += ['Missing command: '+command for command in COMMANDS if not shutil.which(command)]
     result=subprocess.run([sys.executable,'-c',
-        "import PyQt6.QtWidgets, PyQt6.QtNetwork; from PIL import Image; import gi; gi.require_version('Gtk','3.0'); from gi.repository import Gio,Gtk"],
+        "import PyQt6.QtWidgets, PyQt6.QtNetwork; from PIL import Image; import gi; gi.require_version('Gtk','3.0'); gi.require_version('GtkLayerShell','0.1'); from gi.repository import Gio,Gtk,GtkLayerShell"],
         capture_output=True,text=True)
     if result.returncode:errors.append('Python GUI/image dependencies: '+result.stderr.strip().splitlines()[-1])
     if shutil.which('pkg-config'):

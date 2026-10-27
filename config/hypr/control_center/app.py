@@ -31,6 +31,7 @@ from display_page import DisplaysPage
 from preferences_page import PreferencesPage
 from page import ThemePage
 from audio_page import AudioPage, STYLE as AUDIO_STYLE
+from context_menu_page import ContextMenuPage, STYLE as CONTEXT_STYLE
 from window_chrome import close_button
 
 STYLE = '''
@@ -87,7 +88,7 @@ QFrame#changes QLabel, QFrame#changes QTextEdit { background: transparent; borde
 QFrame#changes QTextEdit { font-family: "DejaVu Sans Mono"; font-size: 11px; }
 QPushButton#windowClose { font-size: 23px; color: #a9bacd; background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 0; }
 QPushButton#windowClose:hover { color: #fff1f3; background: #663544; border-color: #b3687f; }
-'''+AUDIO_STYLE
+'''+AUDIO_STYLE+CONTEXT_STYLE
 
 
 def run(argv, timeout=6, check=True):
@@ -1128,9 +1129,10 @@ class Window(QMainWindow):
         self.pages = {'hotkeys': Hotkeys(), 'audio': AudioPage(async_run), 'network': NetworkPage(),
                       'bluetooth': BluetoothPage(), 'displays': DisplaysPage(async_run),
                       'input': PreferencesPage('input', async_run), 'theme': ThemePage(async_run),
+                      'context-menu': ContextMenuPage(async_run),
                       'calendar': CalendarPage(), 'system': SystemPage()}
         for name, page in self.pages.items():
-            self.tabs.addTab(page, name.title())
+            self.tabs.addTab(page, name.replace('-', ' ').title())
         self.tabs.currentChanged.connect(self.changed)
         layout.addWidget(self.tabs, 1)
         self.setCentralWidget(root)
@@ -1184,10 +1186,10 @@ class Window(QMainWindow):
         if hotkeys.busy or (hotkeys.dirty and not hotkeys.confirm_discard()):
             event.ignore()
             return
-        if not self.pages['displays'].can_close() or any(self.pages[name].busy for name in ('input','theme')):
+        if not self.pages['displays'].can_close() or any(self.pages[name].busy for name in ('input','theme','context-menu')):
             event.ignore()
             return
-        unsaved = [name.title() for name in ('displays','input','theme') if self.pages[name].dirty]
+        unsaved = [name.replace('-', ' ').title() for name in ('displays','input','theme','context-menu') if self.pages[name].dirty]
         if unsaved and QMessageBox.question(self, 'Discard unsaved changes?',
                 'Discard the draft in '+', '.join(unsaved)+' and close?',
                 QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
@@ -1200,7 +1202,7 @@ class Window(QMainWindow):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--tab', choices=['hotkeys', 'audio', 'network', 'bluetooth', 'displays', 'input', 'theme', 'calendar', 'system'], default='hotkeys')
+    parser.add_argument('--tab', choices=['hotkeys', 'audio', 'network', 'bluetooth', 'displays', 'input', 'theme', 'context-menu', 'calendar', 'system'], default='hotkeys')
     parser.add_argument('--preview', help='Render the initial window to a PNG and exit')
     parser.add_argument('--window-hints', action='store_true')
     args = parser.parse_args()

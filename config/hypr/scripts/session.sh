@@ -47,6 +47,10 @@ if ! pgrep -u "$UID" -x hyprpaper >/dev/null; then
     children+=("$!")
 fi
 
+# Native right-click menus receive input only on the uncovered wallpaper.
+"$config_dir/scripts/desktop-menu.sh" >"$instance_dir/desktop-menu.log" 2>&1 9>&- &
+children+=("$!")
+
 # A real tray network applet, owned by this Hyprland session only.
 if ! pgrep -u "$UID" -x nm-applet >/dev/null; then
     XDG_CONFIG_HOME="$config_dir/apps" GSETTINGS_BACKEND=keyfile GTK_THEME="${GTK_THEME:-Adwaita:dark}" nm-applet --indicator \

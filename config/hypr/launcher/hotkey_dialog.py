@@ -31,8 +31,9 @@ def compositor(*args):
 
 
 class HotkeyDialog(QDialog):
-    def __init__(self,entry,parent=None,store=None):
+    def __init__(self,entry,parent=None,store=None,adapter=None):
         super().__init__(parent)
+        self.adapter=adapter or hotkeys
         self.entry=entry;self.store=store or hotkeys.keys.Store();self.records=[];self.expected='';self.values={}
         self.busy=False;self.loading=False;self.job=None;self.saved=False
         self.setWindowTitle('Launch hotkey · '+entry.get_display_name());self.resize(590,490)
@@ -80,7 +81,7 @@ QPushButton:disabled { color: #71859b; background: #202b39; }
         self.stop_capture();self.loading=True
         try:
             self.records,self.expected=self.store.load();self.values=hotkeys.keys.variables(self.store.main.read_text())
-            bindings=hotkeys.matches(self.entry,self.records,self.values)
+            bindings=self.adapter.matches(self.entry,self.records,self.values)
             self.choice.clear()
             for b in bindings:
                 suffix=' · disabled' if not b.enabled else ''
@@ -103,7 +104,7 @@ QPushButton:disabled { color: #71859b; background: #202b39; }
         self.remove.setEnabled(bool(b) and allowed);self.loading=False;self.validate()
 
     def candidate(self,remove=False):
-        return hotkeys.edited(self.records,self.entry,self.choice.currentData(),self.mods.text(),self.key.text(),self.enabled.isChecked(),remove)
+        return self.adapter.edited(self.records,self.entry,self.choice.currentData(),self.mods.text(),self.key.text(),self.enabled.isChecked(),remove)
 
     def validate(self,*_):
         if self.loading or self.busy:return
@@ -134,7 +135,7 @@ QPushButton:disabled { color: #71859b; background: #202b39; }
         self.stop_capture()
         prompt=QMessageBox(self);prompt.setWindowTitle('Remove launch hotkey?');prompt.setTextFormat(Qt.TextFormat.PlainText)
         prompt.setText('Remove '+hotkeys.display(b,self.values)+' for '+self.entry.get_display_name()+'?')
-        prompt.setInformativeText('The app and its favorite stay in your menu. This removes only this launch hotkey.')
+        prompt.setInformativeText(getattr(self.adapter,'remove_message','The app and its favorite stay in your menu. This removes only this launch hotkey.'))
         remove=prompt.addButton('Remove hotkey',QMessageBox.ButtonRole.DestructiveRole)
         cancel=prompt.addButton(QMessageBox.StandardButton.Cancel);prompt.setDefaultButton(cancel);prompt.setEscapeButton(cancel)
         prompt.exec()
