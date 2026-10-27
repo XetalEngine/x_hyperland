@@ -4,7 +4,7 @@ The initial package was checked on 26 October 2026 on the original Arch Linux de
 
 ## Automated checks
 
-**128 tests passed:**
+**141 tests passed**, including the subsequent hovered-app force-kill addition:
 
 | Suite | Tests |
 | --- | ---: |
@@ -14,11 +14,15 @@ The initial package was checked on 26 October 2026 on the original Arch Linux de
 | Theme, wallpaper and window controls | 14 |
 | Application switcher | 2 |
 | Screen-sharing picker | 10 |
-| Workspace and screenshot helpers | 12 |
+| Workspace, screenshot and hovered-app force-kill helpers | 25 |
 
 Installer coverage includes a different home directory, HDMI/eDP connectors, fractional scaling, offline automatic monitor configuration, the optional original monitor layout, disabled login animation, backup/restore, restoration after a failed activation, symlinked existing profiles, concurrent configuration edits, and asset checksums. Existing KDE settings and changes made after installing are retained in the install/restore tests.
 
 GUI tests use Qt's offscreen backend. Tests do not log out, change live display modes, install packages, or replace the real user profile.
+
+The hover-kill tests cover a pointer target different from keyboard focus, empty desktop, floating/fullscreen/special workspaces, pinned windows, rotated/scaled displays, bars/overlays, invalid process identities and a target changing before dispatch. The dry-run path cannot send a signal.
+
+A disposable Qt window in an unopened special workspace also verified the real compositor signal path. It ignored a normal close, survived the helper's dry-run, and was removed by the force-kill helper. That check supplied a synthetic pointer over the disposable window; it did not target existing applications.
 
 ## Native build and configuration validation
 

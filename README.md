@@ -80,11 +80,14 @@ The prepare destination must not already exist. The normal installer builds in a
 | Super+Shift+number | Move the focused app to that workspace |
 | Super+V | Toggle floating |
 | Super+C | Close the focused window |
+| Super+Shift+K | Force-kill the application under the pointer |
 | Super+/ | Window shortcut overlay |
 | Super+D | Show/hide the animated dashboard |
 | Super+Shift+S / Super+S | Send to / show the Magic workspace |
 | Super+L | Lock |
 | Print / Shift+Print | Capture an area / all displays |
+
+Super+Shift+K is for stuck applications: it sends SIGKILL without a save prompt, which can close other windows belonging to the same app process. It targets the window under the pointer, does nothing over empty desktop or the bar, and appears in Control desk → Hotkeys → Window hover.
 
 ## Source and checks
 

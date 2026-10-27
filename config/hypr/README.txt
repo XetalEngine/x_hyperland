@@ -15,6 +15,7 @@ Shortcuts (Super is the Windows key):
   Super + Shift + S       Send the focused app to the Magic scratch workspace
   Super + S               Show / hide Magic; its bar button remains while occupied
   Super + C               Close active window
+  Super + Shift + K       Force-kill the application under the pointer
   Super + V               Toggle floating
   Super + F               Fullscreen
   Super + J               Toggle tiling split
@@ -67,6 +68,12 @@ physical US slash key code 61. The table accepts wheel scrolling and scrollbar
 input. The 18-second dismissal timer pauses while the pointer is inside it;
 Escape, the close button, or another Super+/ dismisses it immediately.
 Mouse/window operations are listed with their actual current modifiers.
+
+Super+Shift+K force-kills a stuck application under the pointer. It sends SIGKILL
+without a save prompt, so unsaved work and other windows of the same process may
+be lost. Empty desktop, top bars and notification surfaces do not target an app
+behind them. The helper rechecks the hovered window before sending the signal;
+it never substitutes the keyboard-focused window when there is no target.
 
 The window is branded Xetal / Session tools. Control desk, Apps, Theme, and the
 app switcher have a visible close button. Their Qt dialogs and file pickers also
