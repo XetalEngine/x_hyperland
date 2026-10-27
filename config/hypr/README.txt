@@ -6,6 +6,7 @@ sync scripts, shared environment changes, or scripts that restart portal/audio
 services. The old ML4W files remain outside this active configuration.
 
 Shortcuts (Super is the Windows key):
+  Super + Ctrl + P        Floating YouTube MP3/MP4 downloader
   Super + Q or Return     Terminal (its own Kitty config)
   Super + R or Space      Xetal application menu (search, categories, KDE favorites)
   Super + E               Dolphin with its separate dark Hyprland profile
@@ -33,6 +34,25 @@ Shortcuts (Super is the Windows key):
 
 Screenshots are saved under your Pictures/Screenshots directory and copied to
 the clipboard. Existing workspace, move/resize and media shortcuts are retained.
+
+Media downloader: Super+Ctrl+P, Apps → Xetal Media Downloader, or run
+~/.config/hypr/scripts/media-download.sh. Choose MP3 for the XDG Music folder
+or MP4 for the XDG Videos folder, enter a YouTube link and select Download.
+YouTube IDs, regular links, Shorts and youtu.be links are accepted; playlists
+are not downloaded. MP3 uses the best audio source and ffmpeg VBR quality 0.
+MP4 uses the best video and audio streams, with no resolution cap, and remuxes
+to MP4 without video re-encoding. Existing completed files are not overwritten.
+Selected text is captured from Wayland PRIMARY before the popup opens.
+For apps that do not publish PRIMARY selection, use Copy and the Paste button.
+Selecting text or opening the popup never starts a download automatically.
+The progress display and compact log show downloads and post-processing. Cancel
+stops the job and its ffmpeg children; closing an active job asks first. Reopening
+the shortcut focuses the existing popup and keeps an active download intact.
+Update yt-dlp fetches an official stable release, checks its SHA-256 and version,
+then atomically installs it under ~/.local/state/hyprland-media/bin/yt-dlp.
+The previous private version is retained. System packages and dmp3/dmp4 aliases
+remain managed separately. FFmpeg and a supported Deno/Node/QuickJS runtime are
+required. The popup remembers format and window size, not the selected address.
 
 The session helper starts the local Waybar, Hyprpaper, desktop context menu and, if needed, notifications and an
 authentication agent. It stops its own child processes when this Hyprland instance

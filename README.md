@@ -85,6 +85,7 @@ The prepare destination must not already exist. The normal installer builds in a
 | Super+A | Audio mixer |
 | Super+Q / Super+Enter | Kitty |
 | Super+E | Dolphin |
+| Super+Ctrl+P | YouTube MP3/MP4 downloader |
 | Super+Tab / Super+Shift+Tab | App switcher, forward/reverse |
 | Super+number | Switch workspace |
 | Super+Shift+number | Move the focused app to that workspace |
@@ -98,6 +99,8 @@ The prepare destination must not already exist. The normal installer builds in a
 | Print / Shift+Print | Capture an area / all displays |
 
 Super+Shift+K is for stuck applications: it sends SIGKILL without a save prompt, which can close other windows belonging to the same app process. It targets the window under the pointer, does nothing over empty desktop or the bar, and appears in Control desk → Hotkeys → Window hover.
+
+The floating Media downloader captures selected YouTube links before taking focus and also supports Paste or manual entry. MP3 uses the best audio source and highest-quality MP3 encoding; MP4 merges the best video and audio without a resolution cap. Files go to your XDG Music/Videos folders. The popup includes progress, a live log, cancellation and file/folder actions. **Update yt-dlp** verifies and installs an official private copy for this popup under `~/.local/state/hyprland-media`; it does not upgrade system packages.
 
 ## Source and checks
 

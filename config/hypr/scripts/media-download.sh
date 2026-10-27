@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+set -euo pipefail
+exec python3 "$HOME/.config/hypr/theme/run.py" python3 "$HOME/.config/hypr/media/app.py" "$@"

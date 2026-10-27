@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Xetal Media Downloader
+Comment=Download YouTube audio to Music or video to Videos
+Exec=@HOME@/.config/hypr/scripts/media-download.sh
+Icon=folder-download
+Terminal=false
+Categories=AudioVideo;
+StartupWMClass=xetal-media
