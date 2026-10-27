@@ -105,7 +105,9 @@ Medium or Small; four icon-only small tiles fit one medium tile's footprint.
 Drops save the chosen cell, so small tiles can form a vertical column without
 filling the row first. Intentional gaps stay empty. The drop outline shows the
 destination; an occupied cell makes room without repacking unrelated tiles.
-New shortcut is available on empty space and the footer, not on an app's menu.
+New shortcut is available on empty space and beside New group in the header,
+not on an app's menu. The page title replaces the greeting above the slim search
+field. Permanent navigation/drag hints and the footer have been removed.
 Each column is three medium tiles wide. Widen the menu to reveal more columns;
 shrinking hides columns without moving their contents. Drop a tile or group in
 an empty column to use it. Order, titles, sizes and columns save automatically
@@ -139,7 +141,9 @@ Typing searches all installed visible applications, even while Favorites is sele
 Escape dismisses the menu. Its settings live in launcher/.
 Print and Shift+Print keep Apps visible until screenshot capture finishes.
 Drag its edges, corners or bottom-right grip to resize it. The size is remembered
-in launcher/window.json. The icon file chooser includes an image preview, size,
+in launcher/window.json, including heights down to 480 pixels. The tile area and
+sidebar navigation scroll independently in shorter windows without overlapping
+the header or bottom edge. The icon file chooser includes an image preview, size,
 dimensions, creation time (when recorded by the filesystem) and modified time.
 
 Right-click any app → Pin to bar places its icon immediately after Keys. These

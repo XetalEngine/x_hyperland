@@ -15,7 +15,8 @@ from PyQt6.QtGui import QColor, QPainter, QLinearGradient, QPen, QIcon, QFont, Q
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (QApplication, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
     QLineEdit, QListWidget, QListWidgetItem, QListView, QStyledItemDelegate, QStyle, QMenu,
-    QGraphicsOpacityEffect, QMessageBox, QDialog, QSizeGrip, QStackedWidget, QInputDialog)
+    QGraphicsOpacityEffect, QMessageBox, QDialog, QSizeGrip, QStackedWidget, QInputDialog,
+    QScrollArea, QLayout)
 import catalog
 import shortcuts
 import pins
@@ -39,6 +40,7 @@ QLabel#section { font-size: 17px; font-weight: 600; }
 QLineEdit { background: rgba(9,15,27,180); border: 1px solid #34475e; border-radius: 10px;
  padding: 14px 16px; font-size: 16px; selection-background-color: #396c78; }
 QLineEdit:focus { border: 1px solid #70dcca; background: rgba(12,22,35,220); }
+QLineEdit#appSearch { padding: 7px 14px; font-size: 14px; }
 QPushButton { border: 0; border-radius: 8px; text-align: left; padding: 11px 12px; color: #aab9ce; }
 QPushButton:hover { background: rgba(105,152,181,35); color: #ffffff; }
 QPushButton:checked { background: rgba(77,187,173,35); color: #83ead8; }
@@ -172,7 +174,7 @@ class Menu(QWidget):
         super().__init__(None, Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setWindowTitle('Xetal applications')
-        self.setMinimumSize(740, 690)
+        self.setMinimumSize(*geometry.MINIMUM)
         self.resize(*(geometry.DEFAULT if preview else geometry.size()))
         self.setMouseTracking(True)
         self.preview = preview
@@ -192,12 +194,25 @@ class Menu(QWidget):
         self.filter_category = ''
         outer = QHBoxLayout(self)
         outer.setContentsMargins(24, 26, 24, 20)
-        outer.setSpacing(25)
-        sidebar = QVBoxLayout()
+        outer.setSpacing(20)
+        sidebar_widget = QWidget()
+        sidebar_widget.setFixedWidth(185)
+        sidebar = QVBoxLayout(sidebar_widget)
+        sidebar.setContentsMargins(0, 0, 0, 0)
         sidebar.setSpacing(6)
         sidebar.addWidget(label('X E T A L', 'brand'))
         sidebar.addWidget(label('YOUR WORKSPACE', 'eyebrow'))
         sidebar.addSpacing(24)
+        self.sidebar_scroll = QScrollArea()
+        self.sidebar_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        self.sidebar_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.sidebar_scroll.setWidgetResizable(True)
+        self.sidebar_scroll.setStyleSheet('QScrollArea {background:transparent; border:0;}')
+        navigation_widget = QWidget()
+        navigation = QVBoxLayout(navigation_widget)
+        navigation.setContentsMargins(0, 0, 0, 0)
+        navigation.setSpacing(6)
+        navigation.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         self.nav = []
         for name, icon in [('Favorites', 'starred'), ('All apps', 'view-grid'),
                            ('Development', 'applications-development'), ('Internet', 'applications-internet'),
@@ -207,49 +222,54 @@ class Menu(QWidget):
             button.setCheckable(True)
             button.setFixedWidth(180)
             button.clicked.connect(lambda checked=False, n=name: self.select_page(n))
-            sidebar.addWidget(button)
+            navigation.addWidget(button)
             self.nav.append((name, button))
-        sidebar.addStretch()
+        navigation.addStretch()
         for name, icon, command in [
             ('Files', 'folder', [catalog.ROOT/'scripts/dolphin.sh']),
             ('Theme', 'preferences-desktop-theme', [catalog.ROOT/'scripts/wallpaper.sh']),
             ('Control desk', 'preferences-system', [catalog.ROOT/'scripts/control-center.sh', '--tab', 'hotkeys']),
             ('Session & power', 'system-shutdown', [catalog.ROOT/'scripts/control-center.sh', '--tab', 'system'])]:
             button = QPushButton(QIcon.fromTheme(icon), '  ' + name)
+            button.setFixedWidth(180)
             button.clicked.connect(lambda checked=False, c=command: self.run_command(c))
-            sidebar.addWidget(button)
+            navigation.addWidget(button)
+        self.sidebar_scroll.setWidget(navigation_widget)
+        sidebar.addWidget(self.sidebar_scroll, 1)
         sidebar.addSpacing(10)
         sidebar.addWidget(label('●  ' + os.environ.get('USER', 'xetal'), 'eyebrow'))
         sidebar.addWidget(label('Hyprland session', 'muted'))
-        outer.addLayout(sidebar)
+        outer.addWidget(sidebar_widget)
         main = QVBoxLayout()
         main.setSpacing(16)
         greeting = QHBoxLayout()
+        greeting.setSpacing(8)
         self.close_button=close_button(self,title='Close Apps')
-        greeting.addWidget(label('Make something great.', 'section'))
+        self.heading = label('Favorites', 'section')
+        greeting.addWidget(self.heading)
         greeting.addStretch()
+        self.add_group_button = QPushButton('+ New group')
+        self.add_group_button.setStyleSheet('padding:5px 8px; color:palette(link);')
+        self.add_group_button.clicked.connect(lambda: self.new_group())
+        greeting.addWidget(self.add_group_button)
+        self.create_button = QPushButton(QIcon.fromTheme('list-add'), 'New shortcut')
+        self.create_button.setStyleSheet('padding:5px 8px;')
+        self.create_button.clicked.connect(lambda: self.perform('new'))
+        greeting.addWidget(self.create_button)
+        self.count = label('', 'muted')
+        greeting.addWidget(self.count)
         self.clock = label('', 'muted')
         greeting.addWidget(self.clock)
         greeting.addWidget(self.close_button)
         main.addLayout(greeting)
         self.search = QLineEdit()
+        self.search.setObjectName('appSearch')
         self.search.setPlaceholderText('Search apps, tools, and favorites…')
         self.search.setClearButtonEnabled(True)
         self.search.textChanged.connect(self.populate)
         self.search.returnPressed.connect(self.activate_current)
         self.search.installEventFilter(self)
         main.addWidget(self.search)
-        heading = QHBoxLayout()
-        self.heading = label('Favorites', 'section')
-        self.count = label('', 'muted')
-        heading.addWidget(self.heading)
-        heading.addStretch()
-        self.add_group_button = QPushButton('+ New group')
-        self.add_group_button.setStyleSheet('padding:5px 10px; color:palette(link);')
-        self.add_group_button.clicked.connect(lambda: self.new_group())
-        heading.addWidget(self.add_group_button)
-        heading.addWidget(self.count)
-        main.addLayout(heading)
         self.grid = LaunchGrid()
         self.grid.setViewMode(QListView.ViewMode.IconMode)
         self.grid.setResizeMode(QListView.ResizeMode.Adjust)
@@ -279,17 +299,10 @@ class Menu(QWidget):
         self.views.addWidget(self.grid)
         self.views.addWidget(self.favorites_board)
         main.addWidget(self.views, 1)
-        self.status = label('Right-click any app to edit its shortcut, icon, or launch options', 'muted')
+        self.status = label('', 'muted')
         self.status.setWordWrap(True)
+        self.status.hide()
         main.addWidget(self.status)
-        footer = QHBoxLayout()
-        footer.addWidget(label('↵  Open     ↑↓←→  Navigate     Esc  Close', 'muted'))
-        footer.addStretch()
-        create = QPushButton(QIcon.fromTheme('list-add'), ' New shortcut')
-        create.clicked.connect(lambda: self.perform('new'))
-        footer.addWidget(create)
-        footer.addWidget(label('SUPER + SPACE', 'eyebrow'))
-        main.addLayout(footer)
         outer.addLayout(main, 1)
         QShortcut(QKeySequence('Escape'), self).activated.connect(self.close)
         QShortcut(QKeySequence('Ctrl+F'), self).activated.connect(self.search.setFocus)
@@ -355,10 +368,18 @@ class Menu(QWidget):
         if hasattr(self, 'size_grip'):
             self.size_grip.setGeometry(self.width() - 24, self.height() - 24, 18, 18)
             self.size_grip.raise_()
+        if hasattr(self, 'clock'):
+            self.tick()
         self.started = time.monotonic()
 
     def tick(self):
-        self.clock.setText(datetime.datetime.now().strftime('%a, %b %d   ·   %H:%M'))
+        now = datetime.datetime.now()
+        self.clock.setText(now.strftime('%a, %b %d   ·   %H:%M' if self.width() >= 1100 else '%H:%M'))
+        self.clock.setToolTip(now.strftime('%A, %B %d'))
+
+    def report(self, message=''):
+        self.status.setText(message)
+        self.status.setVisible(bool(message))
 
     def select_page(self, name):
         self.page = name
@@ -418,10 +439,8 @@ class Menu(QWidget):
         self.heading.setText('Search results' if query else self.page)
         self.count.setText(f'{len(apps)} apps')
         if hasattr(self, 'status'):
-            self.status.setText(self.layout_error if grouped and self.layout_error else
-                'Drag tiles or group titles to arrange  ·  Right-click for size and options' if grouped else
-                'No matching applications. Try a different name.' if not apps else
-                'Right-click to customize  ·  F2 edits the selected shortcut')
+            self.report(self.layout_error if grouped and self.layout_error else
+                        'No matching applications. Try a different name.' if not apps else '')
 
     def update_hotkeys(self):
         for row in range(self.grid.count()):
@@ -468,9 +487,9 @@ class Menu(QWidget):
             self.layout_token = self.layout_store.save(data, self.layout_token)
             self.favorite_layout = data
             self.favorites_board.set_layout(data, self.favorite_items(), selected or self.favorites_board.selected)
-            self.status.setText('Layout saved  ·  Drag to arrange · Right-click for tile size and groups')
+            self.report()
         except (OSError, ValueError, StopIteration) as exc:
-            self.status.setText('Could not save layout: ' + str(exc))
+            self.report('Could not save layout: ' + str(exc))
 
     def select_favorite(self, ident):
         for row in range(self.grid.count()):
@@ -586,7 +605,7 @@ class Menu(QWidget):
             self.apps[app_id].launch(terminal=terminal,floating=floating)
             self.close()
         except Exception as exc:
-            self.status.setText('Could not open this app: ' + str(exc))
+            self.report('Could not open this app: ' + str(exc))
 
     def context_menu(self, point):
         item = self.grid.currentItem() if point.x() < 0 else self.grid.itemAt(point)
@@ -694,7 +713,7 @@ class Menu(QWidget):
                 else:
                     ident = shortcuts.save(entry, dialog.fields)
                 self.refresh_apps(ident)
-                self.status.setText('Shortcut saved in this Hyprland menu.')
+                self.report('Shortcut saved.')
                 break
             except (OSError, ValueError) as exc:
                 dialog.error.setText('Could not save: ' + str(exc))
@@ -719,8 +738,7 @@ class Menu(QWidget):
             elif action == 'bar-pin':
                 enabled = app_id not in pins.pinned()
                 pins.pin(app_id, enabled)
-                self.status.setText('Pinned beside Keys. Drag its icon on the bar to reorder.' if enabled
-                                    else 'Unpinned from the bar.')
+                self.report('Pinned beside Keys.' if enabled else 'Unpinned from the bar.')
             elif action in ('edit', 'duplicate', 'icon', 'new'):
                 self.edit_shortcut(None if action == 'new' else entry,
                                    duplicate=action == 'duplicate', change_icon=action == 'icon')
@@ -728,7 +746,7 @@ class Menu(QWidget):
                 dialog=HotkeyDialog(entry,self,self.hotkeys.store)
                 if dialog.exec()==QDialog.DialogCode.Accepted:
                     self.hotkeys.reload();self.update_hotkeys()
-                    self.status.setText('Hotkeys updated · Control desk → Hotkeys → Applications')
+                    self.report('Hotkeys updated.')
                 dialog.deleteLater()
             elif action == 'toggle-terminal':
                 shortcuts.save(entry, {**entry.fields, 'terminal': not entry.fields['terminal']})
@@ -736,16 +754,16 @@ class Menu(QWidget):
             elif action == 'toggle-floating':
                 shortcuts.save(entry,{**entry.fields,'floating':not entry.fields['floating']})
                 self.refresh_apps(app_id)
-                self.status.setText('Floating preference saved. Super+V toggles any focused window.')
+                self.report('Floating preference saved.')
             elif action == 'copy-command':
                 QApplication.clipboard().setText(entry.get_commandline())
-                self.status.setText('Command copied.')
+                self.report('Command copied.')
             elif action == 'show-file':
                 self.run_command([catalog.ROOT/'scripts/dolphin.sh', '--select', entry.source])
             elif action == 'reset':
                 shortcuts.reset(entry)
                 self.refresh_apps(app_id)
-                self.status.setText('Original shortcut settings restored.')
+                self.report('Original shortcut settings restored.')
             elif action == 'delete':
                 prompt = QMessageBox(self)
                 prompt.setWindowTitle('Delete shortcut copy?')
@@ -761,7 +779,7 @@ class Menu(QWidget):
                     pins.pin(app_id, False)
                     self.refresh_apps()
         except Exception as exc:
-            self.status.setText('Could not update shortcut: ' + str(exc))
+            self.report('Could not update shortcut: ' + str(exc))
         finally:
             self.interaction_depth -= 1
             self.started = time.monotonic()

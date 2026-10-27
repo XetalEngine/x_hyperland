@@ -54,6 +54,8 @@ Favorites retain the original desktop-entry IDs and include portable terminal, f
 
 In Apps → Favorites, use **+ New group**, then drag tiles between groups or drag a group title to move it. Double-click a title to rename it. Right-click a tile → **Tile size** selects Medium (icon, name and hotkey) or Small (icon only); four small tiles fit one medium slot. Drop small tiles directly above, below or beside one another; empty cells stay empty until you use them. Each column is three medium tiles wide. Widening the menu reveals additional columns; shrinking hides them without rearranging your layout. Group names, positions, columns and sizes save automatically. Right-click empty space for **New shortcut**. Print and Shift+Print keep the menu visible during screenshot capture.
 
+The compact header puts the page title, **New group** and **New shortcut** above the slim search field. Drag the bottom edge or corner to shorten the menu, down to 480 pixels high; tiles and sidebar navigation scroll independently when needed. Your window size is remembered.
+
 ## Check, prepare, restore
 
 ```bash

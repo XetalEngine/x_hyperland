@@ -6,13 +6,14 @@ import tempfile
 
 STATE = Path(__file__).resolve().parent / 'window.json'
 DEFAULT = (980, 720)
+MINIMUM = (740, 480)
 
 
 def size():
     try:
         data = json.loads(STATE.read_text())
         width, height = int(data['width']), int(data['height'])
-        if 740 <= width <= 7680 and 640 <= height <= 4320:
+        if MINIMUM[0] <= width <= 7680 and MINIMUM[1] <= height <= 4320:
             return width, height
     except (OSError, ValueError, TypeError, KeyError):
         pass

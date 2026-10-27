@@ -24,6 +24,8 @@ Favorite-layout coverage includes migration without rewriting existing favorites
 
 The follow-up tile placement checks cover vertical stacks with empty adjacent cells, saved gaps, resizing occupied tiles, collision handling and invalid positions. A real pointer drag placed the second small tile directly below the first without filling the neighboring cell. Screenshot tests use fake capture tools to verify that Apps stays visible during selection/capture, with the guard released on success, cancellation, capture failure and clipboard failure. The notification broker cannot retain that guard.
 
+After compacting the launcher header, the 55 launcher checks passed again. Rendered windows at 1140×723, 1140×600 and 740×480 were checked for overlapping controls, independent sidebar/tile scrolling and saved shorter heights. Existing favorite groups and positions remained unchanged.
+
 The hover-kill tests cover a pointer target different from keyboard focus, empty desktop, floating/fullscreen/special workspaces, pinned windows, rotated/scaled displays, bars/overlays, invalid process identities and a target changing before dispatch. The dry-run path cannot send a signal.
 
 A disposable Qt window in an unopened special workspace also verified the real compositor signal path. It ignored a normal close, survived the helper's dry-run, and was removed by the force-kill helper. That check supplied a synthetic pointer over the disposable window; it did not target existing applications.
