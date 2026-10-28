@@ -22,6 +22,7 @@ class DismissalTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         self.patches = [patch.object(catalog, 'applications', return_value={}),
+                        patch.object(app.bar_toggle, 'remember'),
                         patch.object(catalog, 'favorites', return_value=[]),
                         patch.object(favorite_layout, 'STATE', self.root / 'favorites.json'),
                         patch.object(geometry, 'STATE', self.root / 'window.json')]

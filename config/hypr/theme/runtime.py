@@ -24,6 +24,10 @@ def design():
     return value if value in DESIGNS else 'raw'
 
 
+def launcher_wallpaper():
+    return state().get('launcher_wallpaper') is True
+
+
 def mode():
     try:
         value = json.loads(STATE.read_text())['mode']

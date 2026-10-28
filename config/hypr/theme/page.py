@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 from PyQt6.QtCore import Qt,QRectF,pyqtSignal
 from PyQt6.QtGui import QPixmap,QImageReader,QPainter,QPainterPath,QColor,QPen,QFont
-from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QLabel,QComboBox,QPushButton,QFileDialog,QTabWidget,QMessageBox,QFrame,QScrollArea)
+from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QLayout,QLabel,QComboBox,QPushButton,QFileDialog,QTabWidget,QMessageBox,QFrame,QScrollArea,QCheckBox)
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import backend
 import runtime
@@ -12,6 +12,7 @@ from image_picker import ImagePicker
 import desktop_settings as settings
 from preferences_page import PreferencesPage
 from identity import ProfileCard
+from design_preview import DesktopPreview
 
 
 def label(text,name=''):
@@ -153,7 +154,8 @@ class WallpapersPage(QWidget):
 
 class DesignCard(QPushButton):
     def __init__(self,style,parent=None):
-        super().__init__(parent);self.design=style;self.mode='dark';self.setCheckable(True);self.setMinimumSize(245,178)
+        super().__init__(parent);self.design=style;self.mode='dark';self.setCheckable(True);self.setMinimumSize(245,224)
+        self.artwork=DesktopPreview()
         self.setAccessibleName(runtime.DESIGNS[style]);self.setCursor(Qt.CursorShape.PointingHandCursor)
     def paintEvent(self,event):
         p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -161,17 +163,7 @@ class DesignCard(QPushButton):
         box=QRectF(self.rect()).adjusted(2,2,-2,-2)
         p.setBrush(QColor(colors['Window']));p.setPen(QPen(QColor(colors['Accent'] if self.isChecked() else colors['Midlight']),2 if self.isChecked() else 1))
         p.drawRoundedRect(box,16,16)
-        preview=box.adjusted(14,14,-14,-58)
-        p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(colors['AlternateBase']));p.drawRoundedRect(preview,12 if modern else 3,12 if modern else 3)
-        rail=QRectF(preview.x()+8,preview.y()+8,27,preview.height()-16)
-        p.setBrush(QColor(colors['Base']));p.drawRoundedRect(rail,9 if modern else 1,9 if modern else 1)
-        for row in range(3):
-            p.setBrush(QColor(colors['Accent'] if row==0 else colors['Midlight']))
-            p.drawRoundedRect(QRectF(rail.x()+7,rail.y()+8+row*21,13,13),5 if modern else 1,5 if modern else 1)
-        p.setBrush(QColor(colors['Button']));p.drawRoundedRect(QRectF(preview.x()+44,preview.y()+8,preview.width()-52,26),9 if modern else 2,9 if modern else 2)
-        width=(preview.width()-60)/2
-        for col in range(2):
-            p.drawRoundedRect(QRectF(preview.x()+44+col*(width+8),preview.y()+42,width,preview.height()-50),11 if modern else 2,11 if modern else 2)
+        self.artwork.paint(p,box.adjusted(14,14,-14,-58),self.design,self.mode)
         p.setPen(QColor(colors['Text']));p.setFont(QFont('Noto Sans',12,QFont.Weight.DemiBold))
         p.drawText(QRectF(box.x()+16,box.bottom()-49,box.width()-32,23),Qt.AlignmentFlag.AlignVCenter,runtime.DESIGNS[self.design])
         p.setPen(QColor(colors['PlaceholderText']));p.setFont(QFont('Noto Sans',9))
@@ -181,25 +173,36 @@ class DesignCard(QPushButton):
 class DesignPage(QWidget):
     def __init__(self,owner):
         super().__init__();self.owner=owner
-        root=QVBoxLayout(self);root.setContentsMargins(6,12,6,6);root.setSpacing(16)
+        outer=QVBoxLayout(self);outer.setContentsMargins(0,0,0,0)
+        scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff);outer.addWidget(scroll)
+        body=QWidget();scroll.setWidget(body)
+        root=QVBoxLayout(body);root.setContentsMargins(6,12,6,6);root.setSpacing(16)
+        root.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         self.cards={};row=QHBoxLayout();row.setSpacing(16)
         for style in runtime.DESIGNS:
             card=DesignCard(style);card.clicked.connect(lambda _,s=style:owner.design.setCurrentIndex(owner.design.findData(s)))
             self.cards[style]=card;row.addWidget(card,1)
         root.addLayout(row)
-        self.profile=ProfileCard();self.profile.setMaximumHeight(200);root.addWidget(self.profile)
+        self.wallpaper=QCheckBox('Use wallpaper behind Apps');self.wallpaper.setChecked(owner.backdrop)
+        self.wallpaper.setToolTip('Show the current monitor’s wallpaper behind the entire Apps menu in Xetal Raw and Xetal Modern.')
+        self.wallpaper.toggled.connect(owner.set_backdrop);root.addWidget(self.wallpaper)
+        self.profile=ProfileCard();self.profile.setMinimumHeight(140);self.profile.setMaximumHeight(160);root.addWidget(self.profile)
         controls=QHBoxLayout();controls.addWidget(label('Your profile image','muted'));controls.addStretch()
         controls.addWidget(button('Choose image or GIF…',owner.choose_avatar))
         controls.addWidget(button('Use account picture',lambda:owner.set_avatar('auto')))
         root.addLayout(controls);root.addStretch()
-    def refresh(self):self.profile.refresh()
+    def refresh(self):
+        self.profile.refresh();self.profile.avatar.refresh(self.owner.avatar)
+        for card in self.cards.values():card.artwork.refresh(self.owner.avatar);card.update()
 
 
 class ThemePage(QWidget):
     def __init__(self,async_run,filename=''):
         super().__init__(); self.async_run=async_run; self.applying=False; self.token=None
         self.avatar=runtime.state().get('avatar','assets/account.gif')
-        self.baseline=(runtime.design(),runtime.mode(),self.avatar)
+        self.backdrop=runtime.launcher_wallpaper()
+        self.baseline=(runtime.design(),runtime.mode(),self.avatar,self.backdrop)
         root=QVBoxLayout(self);root.setContentsMargins(18,16,18,16)
         heading=QHBoxLayout();brand=label('Theme & wallpaper','brand');brand.setWordWrap(False);heading.addWidget(brand);heading.addStretch()
         self.design=QComboBox()
@@ -216,7 +219,7 @@ class ThemePage(QWidget):
         if filename:self.tabs.setCurrentWidget(self.wallpapers)
         self.design.currentIndexChanged.connect(self.changed);self.mode.currentIndexChanged.connect(self.changed)
         self.tabs.currentChanged.connect(lambda _:self.tabs.currentWidget().refresh());self.changed()
-    def choice(self):return self.design.currentData(),self.mode.currentData(),self.avatar
+    def choice(self):return self.design.currentData(),self.mode.currentData(),self.avatar,self.backdrop
     @property
     def dirty(self):return self.wallpapers.dirty or self.appearance.dirty or self.choice()!=self.baseline
     @property
@@ -224,7 +227,9 @@ class ThemePage(QWidget):
     def refresh(self):
         if not self.applying and self.choice()==self.baseline:
             self.avatar=runtime.state().get('avatar','assets/account.gif')
-            self.baseline=(runtime.design(),runtime.mode(),self.avatar)
+            self.backdrop=runtime.launcher_wallpaper()
+            self.baseline=(runtime.design(),runtime.mode(),self.avatar,self.backdrop)
+            self.design_page.wallpaper.blockSignals(True);self.design_page.wallpaper.setChecked(self.backdrop);self.design_page.wallpaper.blockSignals(False)
             self.mode.setCurrentIndex(self.mode.findData(self.baseline[1]));self.design.setCurrentIndex(self.design.findData(self.baseline[0]))
             self.token=backend.theme_token();self.changed()
         self.tabs.currentWidget().refresh()
@@ -234,14 +239,16 @@ class ThemePage(QWidget):
         for style,card in self.design_page.cards.items():
             card.mode=self.mode.currentData();card.setChecked(style==self.design.currentData());card.update()
     def set_avatar(self,choice):
-        self.avatar=choice;self.design_page.profile.avatar.refresh(choice);self.changed()
+        self.avatar=choice;self.design_page.refresh();self.changed()
+    def set_backdrop(self,enabled):
+        self.backdrop=enabled;self.changed()
     def choose_avatar(self):
         picker=ImagePicker(self,'Choose profile image or GIF',str(Path.home()/'Pictures'),'Images (*.gif *.png *.jpg *.jpeg *.webp)',self.async_run)
         if picker.exec() and picker.selectedFiles():self.set_avatar(picker.selectedFiles()[0])
     def save_mode(self):
         if self.applying or not self.token:return
-        choice=self.choice();style,value,avatar=choice;token=self.token;self.applying=True;self.changed();self.status.setText('Applying '+runtime.DESIGNS[style]+'…')
-        self.async_run(lambda:backend.apply_mode(value,token,style,avatar),lambda token:self.saved(choice,token),self.failed)
+        choice=self.choice();style,value,avatar,backdrop=choice;token=self.token;self.applying=True;self.changed();self.status.setText('Applying '+runtime.DESIGNS[style]+'…')
+        self.async_run(lambda:backend.apply_mode(value,token,style,avatar,backdrop),lambda token:self.saved(choice,token),self.failed)
     def saved(self,value,token):
         self.baseline=value;self.token=token;self.applying=False;self.changed()
         self.design_page.profile.refresh()

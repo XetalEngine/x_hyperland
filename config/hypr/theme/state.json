@@ -2,5 +2,6 @@
   "version": 2,
   "mode": "dark",
   "design": "modern",
-  "avatar": "assets/account.gif"
+  "avatar": "assets/account.gif",
+  "launcher_wallpaper": true
 }

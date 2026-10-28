@@ -10,6 +10,7 @@ from PIL import Image
 import backend
 import runtime
 import build
+import identity
 
 
 class WallpaperTests(unittest.TestCase):
@@ -168,12 +169,46 @@ class ThemeTransactionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'reload failed'):backend.apply_mode('dark',backend.theme_token(),'modern')
         for path,original in self.files.items():self.assertEqual(path.read_bytes(),original,path)
 
+    def test_wallpaper_option_survives_design_changes_and_can_be_disabled(self):
+        self.add_raw_profiles();self.store.save.side_effect=None
+        with patch.object(backend.Path,'iterdir',return_value=iter(())):
+            backend.apply_mode('dark',backend.theme_token(),'modern',launcher_wallpaper=True)
+            self.assertTrue(runtime.launcher_wallpaper())
+            backend.apply_mode('light',backend.theme_token(),'raw')
+            self.assertTrue(runtime.launcher_wallpaper())
+            backend.apply_mode('dark',backend.theme_token(),'modern',launcher_wallpaper=False)
+            self.assertFalse(runtime.launcher_wallpaper())
+
+    def test_wallpaper_option_rolls_back_with_a_failed_apply(self):
+        with self.assertRaisesRegex(ValueError,'reload failed'):
+            backend.apply_mode('dark',backend.theme_token(),launcher_wallpaper=True)
+        self.assertEqual(runtime.STATE.read_bytes(),self.files[runtime.STATE])
+        self.assertFalse(runtime.launcher_wallpaper())
+
     def test_external_lock_edit_stops_theme_change(self):
         self.add_raw_profiles();token=backend.theme_token()
         (self.root/'hyprlock.conf').write_text('user edited lock\n')
         with self.assertRaisesRegex(ValueError,'changed elsewhere'):backend.apply_mode('dark',token,'modern')
         self.store.save.assert_not_called()
         self.assertEqual((self.root/'hyprlock.conf').read_text(),'user edited lock\n')
+
+
+class LauncherWallpaperTests(unittest.TestCase):
+    def test_uses_the_current_monitors_wallpaper_with_a_portable_fallback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);wallpaper=root/'wallpaper';wallpaper.mkdir()
+            first=wallpaper/'first.png';second=wallpaper/'second.png';default=wallpaper/'bundled.png'
+            for path in (first,second,default):path.touch()
+            selection=wallpaper/'selection.json'
+            selection.write_text(json.dumps({'DP-1':{'path':str(first)},'DP-2':{'path':str(second)}}))
+            (wallpaper/'default.json').write_text(json.dumps({'image':'bundled.png'}))
+            with patch.object(runtime,'ROOT',root/'theme'):
+                self.assertEqual(identity.wallpaper_path('DP-2'),second)
+                self.assertEqual(identity.wallpaper_path('new-output'),first)
+                first.unlink();second.unlink()
+                self.assertEqual(identity.wallpaper_path('DP-2'),default)
+                selection.write_text('[]')
+                self.assertEqual(identity.wallpaper_path('DP-2'),default)
 
 
 if __name__=='__main__':unittest.main()

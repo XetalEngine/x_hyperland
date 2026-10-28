@@ -35,7 +35,7 @@
   "custom/launcher": {
     "format": "\udb82\udcc7  Apps",
     "tooltip-format": "Application launcher \u00b7 Super + Space",
-    "on-click": "~/.config/hypr/scripts/launcher.sh",
+    "on-click": "~/.config/hypr/scripts/launcher.sh --from-bar",
     "on-click-right": "$HOME/.config/hypr/scripts/control-center.sh --tab system"
   },
   "hyprland/workspaces": {

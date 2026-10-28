@@ -11,7 +11,7 @@ import sys
 import time
 
 from PyQt6.QtCore import Qt, QSize, QRectF, QTimer, QEvent, QEasingCurve, QPropertyAnimation, pyqtProperty, pyqtSignal
-from PyQt6.QtGui import QColor, QPainter, QLinearGradient, QPen, QIcon, QFont, QKeySequence, QShortcut
+from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPixmap, QLinearGradient, QPen, QIcon, QFont, QKeySequence, QShortcut
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (QApplication, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
     QLineEdit, QListWidget, QListWidgetItem, QListView, QStyledItemDelegate, QStyle, QMenu,
@@ -24,6 +24,7 @@ import geometry
 import hotkeys
 import favorite_layout
 import capture_guard
+import bar_toggle
 from outside_click import CLICK_EVENT, check_pointer
 from favorite_board import Board
 from hotkey_dialog import HotkeyDialog
@@ -31,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'theme'))
 import runtime as theme_runtime
 from editor import ShortcutEditor
 from window_chrome import close_button
-from identity import ProfileCard
+from identity import Avatar, ProfileCard, wallpaper_path
 
 STYLE = '''
 QWidget { color: #e6edf8; font-family: "Noto Sans"; font-size: 13px; background: transparent; }
@@ -214,9 +215,14 @@ class Menu(QWidget):
         sidebar = QVBoxLayout(sidebar_widget)
         sidebar.setContentsMargins(0, 0, 0, 0)
         sidebar.setSpacing(6)
-        self.raw_brand=label('X E T A L', 'brand');sidebar.addWidget(self.raw_brand)
-        self.raw_eyebrow=label('YOUR WORKSPACE', 'eyebrow');sidebar.addWidget(self.raw_eyebrow)
-        self.profile=ProfileCard(compact=True);self.profile.setMaximumHeight(145);sidebar.addWidget(self.profile)
+        self.raw_header=QWidget();raw_row=QHBoxLayout(self.raw_header);raw_row.setContentsMargins(0,0,0,0);raw_row.setSpacing(10)
+        self.raw_avatar=Avatar(50);raw_row.addWidget(self.raw_avatar)
+        self.raw_avatar.clicked.connect(lambda:self.run_command([catalog.ROOT/'scripts/control-center.sh','--tab','theme']))
+        raw_titles=QVBoxLayout();raw_titles.setSpacing(5)
+        self.raw_brand=label('XETAL', 'brand');self.raw_brand.setStyleSheet('font-size:19px; letter-spacing:3px;');raw_titles.addWidget(self.raw_brand)
+        self.raw_eyebrow=label('YOUR WORKSPACE', 'eyebrow');self.raw_eyebrow.setStyleSheet('font-size:8px; letter-spacing:1px;');raw_titles.addWidget(self.raw_eyebrow)
+        raw_row.addLayout(raw_titles,1);sidebar.addWidget(self.raw_header)
+        self.profile=ProfileCard(compact=True,backdrop=False);self.profile.setMaximumHeight(145);sidebar.addWidget(self.profile)
         self.profile.avatar.clicked.connect(lambda:self.run_command([catalog.ROOT/'scripts/control-center.sh','--tab','home']))
         sidebar.addSpacing(24)
         self.sidebar_scroll = QScrollArea()
@@ -337,19 +343,33 @@ class Menu(QWidget):
         self.hotkeys.changed.connect(self.update_hotkeys)
         self.apply_design()
         if hasattr(QApplication.instance(),'hypr_theme'):QApplication.instance().hypr_theme.changed.connect(self.apply_design)
+        QApplication.instance().aboutToQuit.connect(self.deleteLater)
         QTimer.singleShot(100, self.search.setFocus)
 
     def apply_design(self):
         modern=theme_runtime.design()=='modern'
         self.profile.setVisible(modern);self.profile.refresh()
+        self.raw_header.setVisible(not modern);self.raw_avatar.refresh()
         for widget in (self.raw_brand,self.raw_eyebrow,self.raw_account,self.raw_session):widget.setVisible(not modern)
         self.outer.setContentsMargins(*(18,18,18,16) if modern else (24,26,24,20))
         self.outer.setSpacing(18 if modern else 20)
+        self.refresh_backdrop()
         self.update();self.grid.viewport().update();self.favorites_board.viewport().update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        if getattr(self,'backdrop_image',None) and not self.backdrop_image.isNull():
+            box=QRectF(self.rect()).adjusted(.5,.5,-.5,-.5)
+            path=QPainterPath();path.addRoundedRect(box,20 if theme_runtime.design()=='modern' else 17,20 if theme_runtime.design()=='modern' else 17)
+            painter.save();painter.setClipPath(path);painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+            picture=self.backdrop_image;scale=max(box.width()/picture.width(),box.height()/picture.height())
+            target=QRectF(0,0,picture.width()*scale,picture.height()*scale);target.moveCenter(box.center())
+            painter.drawPixmap(target,picture,QRectF(picture.rect()))
+            shade=QColor(theme_runtime.colors()['Window']);shade.setAlpha(236 if theme_runtime.mode()=='light' else 242 if theme_runtime.mode()=='contrast' else 210)
+            painter.fillRect(box,shade);painter.restore()
+            painter.setBrush(Qt.BrushStyle.NoBrush);painter.setPen(QPen(QColor(theme_runtime.colors()['Midlight']),1));painter.drawPath(path)
+            return
         if theme_runtime.design()=='modern':
             colors=theme_runtime.colors();painter.setBrush(QColor(colors['Window']));painter.setPen(QPen(QColor(colors['Midlight']),1))
             painter.drawRoundedRect(QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),20,20)
@@ -368,6 +388,19 @@ class Menu(QWidget):
         painter.drawRoundedRect(QRectF(self.rect()).adjusted(.5, .5, -.5, -.5), 17, 17)
         painter.setPen(QColor(140, 172, 200, 35))
         painter.drawLine(226, 30, 226, self.height() - 30)
+
+    def refresh_backdrop(self,*_):
+        screen=self.screen()
+        path=wallpaper_path(screen.name() if screen else None) if theme_runtime.launcher_wallpaper() else None
+        if path!=getattr(self,'backdrop_source',None) or not hasattr(self,'backdrop_image'):
+            self.backdrop_source=path;self.backdrop_image=QPixmap(str(path)) if path else QPixmap()
+        self.update()
+
+    def showEvent(self,event):
+        super().showEvent(event)
+        if not getattr(self,'backdrop_screen_connected',False) and self.windowHandle():
+            self.windowHandle().screenChanged.connect(self.refresh_backdrop);self.backdrop_screen_connected=True
+        self.refresh_backdrop()
 
     def resize_edges(self, point):
         edges = Qt.Edge(0)
@@ -880,6 +913,7 @@ class Menu(QWidget):
         if remaining > 0:
             self.dismiss_timer.start(max(1, int(remaining * 1000) + 1))
             return
+        bar_toggle.remember()
         self.close()
 
     def closeEvent(self, event):
@@ -898,6 +932,7 @@ class Menu(QWidget):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--preview')
+    parser.add_argument('--from-bar',action='store_true',help='Toggle from the Apps button')
     parser.add_argument('--edit', help='Open the shortcut editor for this application ID')
     args = parser.parse_args()
     if not args.preview and not os.environ.get('HYPRLAND_INSTANCE_SIGNATURE'):
@@ -916,9 +951,13 @@ def main():
         peer = QLocalSocket()
         peer.connectToServer(address)
         if peer.waitForConnected(100):
+            bar_toggle.clear()
             peer.write((json.dumps({'edit': args.edit}) + '\n').encode() if args.edit else b'toggle\n')
             peer.waitForBytesWritten(100)
             return 0
+        if args.from_bar and not args.edit and bar_toggle.consume():
+            return 0
+        bar_toggle.clear()
         QLocalServer.removeServer(address)
         server = QLocalServer()
         if not server.listen(address):

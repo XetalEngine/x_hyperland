@@ -237,11 +237,13 @@ label {{
 '''
 
 
-def apply_mode(value,expected,design=None,avatar=None):
+def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None):
     if value not in runtime.MODES: raise ValueError('Choose an available theme.')
     design=design or runtime.design()
     if design not in runtime.DESIGNS:raise ValueError('Choose Xetal Raw or Xetal Modern.')
     previous=runtime.state()
+    launcher_wallpaper=previous.get('launcher_wallpaper',False) if launcher_wallpaper is None else launcher_wallpaper
+    if not isinstance(launcher_wallpaper,bool):raise ValueError('Choose whether to use a wallpaper behind Apps.')
     avatar=previous.get('avatar','auto') if avatar is None else avatar
     if not isinstance(avatar,str) or any(c in avatar for c in '\r\n\0'):
         raise ValueError('Choose a valid account image.')
@@ -279,7 +281,7 @@ def apply_mode(value,expected,design=None,avatar=None):
     if design=='modern':css+=designs.notification_style(colors)
     bar=runtime.stylesheet((runtime.ROOT/'waybar-dark.css').read_text(),value,design,qt=False)
     if design=='modern':bar+=designs.waybar_style(colors)
-    files={runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,'avatar':avatar},indent=2)+'\n').encode(),
+    files={runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,'avatar':avatar,'launcher_wallpaper':launcher_wallpaper},indent=2)+'\n').encode(),
            runtime.ROOT/'current.colors':scheme.encode(),runtime.ROOT/'kitty-colors.conf':kitty_colors(value,design).encode(),
            isolated:(stream.getvalue().rstrip()+'\n').encode(),
            ROOT/'waybar/style.css':bar.encode(),

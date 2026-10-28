@@ -263,13 +263,13 @@ class Board(QScrollArea):
             header.setText('⠿  ' + group['title'].replace('&', '&&'))
             header.setAccessibleName(group['title'] + ' group; drag to move')
             header.setToolTip('Drag this title to move the group · Double-click to rename')
-            header.setStyleSheet('QPushButton {padding:4px 6px; font-size:13px; font-weight:600; color:palette(window-text);}')
+            header.setStyleSheet('QPushButton {padding:4px 38px 4px 6px; font-size:13px; font-weight:600; color:palette(window-text);}')
             self.headers[ident] = header
-            menu = QToolButton(self.canvas)
+            menu = QToolButton(header)
             menu.setText('⋯')
             menu.setAccessibleName('Options for ' + group['title'])
             menu.setToolTip('Rename, move or remove group')
-            menu.setStyleSheet('QToolButton {border:0; border-radius:5px; color:palette(placeholder-text); font-size:20px;} QToolButton:hover {background:palette(highlight); color:palette(highlighted-text);}')
+            menu.setStyleSheet('QToolButton {background:transparent; border:0; border-radius:5px; color:palette(placeholder-text); font-size:20px;} QToolButton:hover {background:palette(highlight); color:palette(highlighted-text);}')
             menu.clicked.connect(lambda checked=False, ident=ident, menu=menu: self.groupMenuRequested.emit(ident, menu.mapToGlobal(menu.rect().bottomLeft())))
             self.menus[ident] = menu
             for tile in group['tiles']:
@@ -340,8 +340,8 @@ class Board(QScrollArea):
             header = QRect(x, y, layout.COLUMN_WIDTH, HEADER)
             body = QRect(x, y + HEADER, layout.COLUMN_WIDTH, height)
             self.regions.append({'id': ident, 'column': column, 'header': header, 'body': body, 'empty': not placed})
-            self.headers[ident].setGeometry(x, y, layout.COLUMN_WIDTH - 32, HEADER)
-            self.menus[ident].setGeometry(x + layout.COLUMN_WIDTH - 30, y + 2, 28, HEADER - 4)
+            self.headers[ident].setGeometry(x, y, layout.COLUMN_WIDTH, HEADER)
+            self.menus[ident].setGeometry(layout.COLUMN_WIDTH - 34, 2, 28, HEADER - 4)
             visible = column < self.visible_columns
             self.headers[ident].setVisible(visible)
             self.menus[ident].setVisible(visible)

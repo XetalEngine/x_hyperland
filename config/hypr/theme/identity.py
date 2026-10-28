@@ -24,10 +24,13 @@ def avatar_path(choice=None):
     return None
 
 
-def wallpaper_path():
+def wallpaper_path(connector=None):
     try:
         choices = json.loads((runtime.ROOT.parent/'wallpaper/selection.json').read_text())
-        for item in choices.values():
+        if not isinstance(choices,dict):raise ValueError('Invalid wallpaper selection')
+        ordered=([choices[connector]] if connector in choices else [])+list(choices.values())
+        for item in ordered:
+            if not isinstance(item,dict) or not isinstance(item.get('path'),str):continue
             path = Path(item['path']).expanduser()
             if path.is_file(): return path
     except (OSError, ValueError, KeyError, TypeError): pass
@@ -104,9 +107,9 @@ class Avatar(QWidget):
 
 
 class ProfileCard(QWidget):
-    def __init__(self, compact=False, parent=None):
+    def __init__(self, compact=False, parent=None, backdrop=True):
         super().__init__(parent)
-        self.compact = compact; self.background = QPixmap(); self.background_path = None
+        self.compact = compact; self.backdrop=backdrop; self.background = QPixmap(); self.background_path = None
         self.setMinimumHeight(100 if compact else 190)
         layout = QVBoxLayout(self) if compact else QHBoxLayout(self)
         layout.setContentsMargins(14 if compact else 26, 14, 14 if compact else 26, 14)
@@ -115,11 +118,9 @@ class ProfileCard(QWidget):
         layout.addWidget(self.avatar, 0, Qt.AlignmentFlag.AlignLeft if compact else Qt.AlignmentFlag.AlignVCenter)
         text = QVBoxLayout(); text.setSpacing(4)
         self.name = QLabel(getpass.getuser()); self.name.setTextFormat(Qt.TextFormat.PlainText)
-        self.name.setStyleSheet('background:transparent; color:#e5eff9; font-size:'+('15' if compact else '23')+'px; font-weight:700;')
         text.addWidget(self.name)
-        detail = QLabel('Xetal Modern' if compact else getpass.getuser()+'@'+socket.gethostname())
+        detail = self.detail = QLabel(runtime.DESIGNS[runtime.design()] if compact else getpass.getuser()+'@'+socket.gethostname())
         detail.setTextFormat(Qt.TextFormat.PlainText); detail.setWordWrap(True)
-        detail.setStyleSheet('background:transparent; color:#b2cee4; font-size:12px;')
         text.addWidget(detail)
         if not compact:
             caption = QLabel('Your desktop. Your space.')
@@ -130,13 +131,18 @@ class ProfileCard(QWidget):
 
     def refresh(self):
         self.avatar.refresh()
-        path = wallpaper_path()
+        colors=runtime.colors()
+        self.name.setStyleSheet('background:transparent; color:'+('#e5eff9' if self.backdrop else colors['WindowText'])+'; font-size:'+('15' if self.compact else '23')+'px; font-weight:700;')
+        self.detail.setStyleSheet('background:transparent; color:'+('#b2cee4' if self.backdrop else colors['PlaceholderText'])+'; font-size:12px;')
+        if self.compact:self.detail.setText(runtime.DESIGNS[runtime.design()])
+        path = wallpaper_path() if self.backdrop else None
         if path != self.background_path:
             self.background_path = path
             self.background = QPixmap(str(path)) if path else QPixmap()
         self.update()
 
     def paintEvent(self, event):
+        if not self.backdrop:return
         p = QPainter(self); p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         box = QRectF(self.rect()); clip = QPainterPath(); clip.addRoundedRect(box, 18, 18); p.setClipPath(clip)
