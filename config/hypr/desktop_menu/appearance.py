@@ -6,6 +6,10 @@ import runtime as theme_runtime
 
 
 def colors(style):
+    if style['palette']=='system' and theme_runtime.design()=='modern':
+        p=theme_runtime.colors()
+        return {'background':p['Window'],'background_end':p['Window'],'text':p['Text'],'border':p['Midlight'],
+                'accent':p['Accent'],'hover':p['Highlight'],'hover_text':p['HighlightedText'],'divider':p['Midlight']}
     return {key: (theme_runtime.recolor(value, theme_runtime.mode())
                   if style['palette'] == 'system' else style[key])
             for key, value in menu_config.CUSTOM_COLORS.items()}
@@ -42,18 +46,19 @@ def rgba(value, opacity):
 
 def css(style):
     c = colors(style)
+    rounding=max(16,style['rounding']) if style['palette']=='system' and theme_runtime.design()=='modern' else style['rounding']
     return f'''
     window#xetal-desktop-background {{background:transparent; border:none; box-shadow:none;}}
     menu.desktop-context-menu {{
         background:linear-gradient(to bottom right, {rgba(c['background'], style['opacity'])}, {rgba(c['background_end'], style['opacity'])});
         color:{c['text']}; border:1px solid {c['border']};
         border-left:{style['accent_width']}px solid {c['accent']};
-        border-radius:{style['rounding']}px; padding:{style['padding']}px;
+        border-radius:{rounding}px; padding:{style['padding']}px;
         box-shadow:{'0 6px 20px rgba(0,0,0,0.24)' if style['shadow'] else 'none'};
     }}
     menu.desktop-context-menu menuitem {{
         min-width:0; min-height:0; padding:0; border:1px solid transparent;
-        border-radius:{min(style['rounding'], 7)}px;
+        border-radius:{min(rounding, 9)}px;
         background:transparent; color:{c['text']};
         font:{style['font_size']}px "{style['font_family']}"; text-shadow:none;
     }}

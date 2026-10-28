@@ -22,8 +22,10 @@ class XetalTheme final : public QObject, public QPlatformTheme {
         return QJsonDocument::fromJson(file.readAll()).object();
     }
     void load() {
-        mode = read(config).value("mode").toString("dark");
+        const auto state = read(config);
+        mode = state.value("mode").toString("dark");
         auto all = read(QFileInfo(config).dir().filePath("palettes.json"));
+        if (state.value("design").toString("raw") == "modern") all = all.value("modern").toObject();
         auto values = all.value(mode).toObject();
         if (values.isEmpty()) { mode = "dark"; values = all.value(mode).toObject(); }
         colors = QPalette(QColor(values.value("Window").toString("#171b22")));

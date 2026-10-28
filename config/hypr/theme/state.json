@@ -1,4 +1,6 @@
 {
-  "version": 1,
-  "mode": "dark"
+  "version": 2,
+  "mode": "dark",
+  "design": "modern",
+  "avatar": "assets/account.gif"
 }

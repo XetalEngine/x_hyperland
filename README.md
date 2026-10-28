@@ -30,7 +30,7 @@ Arch/CachyOS is the tested build environment. Package recipes are also provided 
 | Hotkeys | Capture/edit shortcuts, searchable categories, pending-change log, Apply/Discard, remove confirmation, validation, history and rollback. |
 | Audio | Output/microphone controls and an embedded mixer with horizontally scrolling columns for each app, playback/recording, mute and routing. |
 | Displays | Drag monitor rectangles; configure resolution, refresh, scaling, rotation and mirroring with timed Keep/Revert protection. |
-| Theme | Dark, Light and High contrast palettes, live Qt 5/6 theme plugins, matching GTK appearance, window effects and per-monitor wallpapers. |
+| Theme | Xetal Raw and Xetal Modern, each with Dark, Light and High contrast colors. Live Qt 5/6 palettes, matching bar and notifications, window effects and per-monitor wallpapers. |
 | Wallpaper | The exact included image, monitor previews, individual assignments, fit modes, and image-picker previews/file properties. |
 | Startup | Five-second login delay, then the staggered Fastfetch, Matrix, clock and Xetal companion consoles. Click the companion to switch between animated ASCII and the static original PNG mascot; your choice survives login. |
 | App switcher | Super+Tab across all monitors/workspaces; release Super to focus the selected app on its original monitor. |
@@ -49,6 +49,12 @@ The complete original three-monitor configuration is retained in [`profiles/xeta
 Installation is scoped to `~/.config/hypr` and private backups under `~/.local/state/xetal-hyprland`. It preserves shared KDE/Plasma settings, shell profiles, application associations outside this session, and system autostart. It does not restart portal/audio services, close your applications, or change your login manager. Package installation uses your distribution's package manager and its normal administrator permissions.
 
 Right-click the wallpaper for the desktop context menu. **Control desk → Context Menu** provides a visual editor for shortcuts, submenus, dividers, spacers, columns, icons, global hotkeys and appearance, with Apply/Discard and JSON presets.
+
+Choose **Control desk → Theme → Design** to switch between **Xetal Raw**, the original cyan desktop, and **Xetal Modern**, with soft blue accents, rounded cards, an icon rail and a Home overview. Choose a design and color mode, then **Apply theme**. Modern is the included default; Raw remains available at any time. The themes share the same engine, hotkeys, favorite groups, tile positions and workspace behavior.
+
+Modern uses your account image or a selected image/GIF, with your current wallpaper behind the profile card. Click the account picture in Apps to open Home. Home provides player controls, the clock, resource usage and links to the existing settings pages. The bar, notifications, desktop context menu, launcher, floating tools, startup terminal colors and lock screen follow the selected design. Explicit Window effects settings continue to override design defaults. Qt applications using system colors pick up the selected palette; applications with their own themes keep those choices, and older open applications may need reopening. The settings stay inside this Hyprland profile.
+
+The Modern layout takes visual inspiration from [Noctalia](https://github.com/noctalia-dev/noctalia); it uses our existing Xetal implementation and does not install or replace the shell with Noctalia.
 
 The bundled Fira Code Nerd Font is loaded by this session's font configuration. Papirus and Noto are installed as dependencies. Your existing shell and prompt stay available in Kitty.
 

@@ -31,6 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'theme'))
 import runtime as theme_runtime
 from editor import ShortcutEditor
 from window_chrome import close_button
+from identity import ProfileCard
 
 STYLE = '''
 QWidget { color: #e6edf8; font-family: "Noto Sans"; font-size: 13px; background: transparent; }
@@ -124,15 +125,20 @@ class Tiles(QStyledItemDelegate):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         box = QRectF(rect.adjusted(5, 4, -5, -4))
         gradient = QLinearGradient(box.topLeft(), box.bottomRight())
-        if theme_runtime.mode() == 'light':
+        modern=theme_runtime.design()=='modern'
+        if modern:
+            colors=theme_runtime.colors()
+            surface=colors['Button'] if selected or opacity else colors['AlternateBase']
+            gradient.setColorAt(0,QColor(surface));gradient.setColorAt(1,QColor(surface))
+        elif theme_runtime.mode() == 'light':
             gradient.setColorAt(0, QColor('#d7e8eb' if selected else '#edf3f9'))
             gradient.setColorAt(1, QColor('#dbe8f1'))
         else:
             gradient.setColorAt(0, QColor(55, 83, 111, int(85 + opacity * 65 + selected * 40)))
             gradient.setColorAt(1, QColor(20, 34, 52, 130))
         painter.setBrush(gradient)
-        painter.setPen(QPen(QColor(113, 218, 205, 155 if selected else int(25 + opacity * 70)), 1))
-        painter.drawRoundedRect(box, 10, 10)
+        painter.setPen(QPen(QColor(colors['Accent'] if selected else colors['Midlight']) if modern else QColor(113, 218, 205, 155 if selected else int(25 + opacity * 70)), 1))
+        painter.drawRoundedRect(box, 15 if modern else 10, 15 if modern else 10)
         if small:
             size = 27 + round(opacity * 2)
             icon.paint(painter, round(box.center().x() - size / 2), round(box.center().y() - size / 2), size, size)
@@ -152,9 +158,9 @@ class Tiles(QStyledItemDelegate):
             text=painter.fontMetrics().elidedText(text,Qt.TextElideMode.ElideRight,int(box.width()-20))
             badge=QRectF(box.left()+8,box.top()+85,box.width()-16,16)
             light=theme_runtime.mode()=='light'
-            painter.setBrush(QColor('#cce6e5' if light else '#233c48') if bindings else Qt.BrushStyle.NoBrush)
+            painter.setBrush(QColor(colors['Button'] if modern else '#cce6e5' if light else '#233c48') if bindings else Qt.BrushStyle.NoBrush)
             painter.setPen(Qt.PenStyle.NoPen);painter.drawRoundedRect(badge,5,5)
-            painter.setPen(QColor(('#236b66' if light else '#91e2d8') if bindings else ('#516579' if light else '#8c9fb4')))
+            painter.setPen(QColor(colors['Accent'] if bindings else colors['PlaceholderText']) if modern else QColor(('#236b66' if light else '#91e2d8') if bindings else ('#516579' if light else '#8c9fb4')))
             painter.drawText(badge,Qt.AlignmentFlag.AlignCenter,text)
         painter.restore()
 
@@ -200,7 +206,7 @@ class Menu(QWidget):
         self.layout_error = ''
         self.page = 'Favorites'
         self.filter_category = ''
-        outer = QHBoxLayout(self)
+        outer = QHBoxLayout(self);self.outer=outer
         outer.setContentsMargins(24, 26, 24, 20)
         outer.setSpacing(20)
         sidebar_widget = QWidget()
@@ -208,8 +214,10 @@ class Menu(QWidget):
         sidebar = QVBoxLayout(sidebar_widget)
         sidebar.setContentsMargins(0, 0, 0, 0)
         sidebar.setSpacing(6)
-        sidebar.addWidget(label('X E T A L', 'brand'))
-        sidebar.addWidget(label('YOUR WORKSPACE', 'eyebrow'))
+        self.raw_brand=label('X E T A L', 'brand');sidebar.addWidget(self.raw_brand)
+        self.raw_eyebrow=label('YOUR WORKSPACE', 'eyebrow');sidebar.addWidget(self.raw_eyebrow)
+        self.profile=ProfileCard(compact=True);self.profile.setMaximumHeight(145);sidebar.addWidget(self.profile)
+        self.profile.avatar.clicked.connect(lambda:self.run_command([catalog.ROOT/'scripts/control-center.sh','--tab','home']))
         sidebar.addSpacing(24)
         self.sidebar_scroll = QScrollArea()
         self.sidebar_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
@@ -227,6 +235,7 @@ class Menu(QWidget):
                            ('Media', 'applications-multimedia'), ('Games', 'applications-games'),
                            ('Utilities', 'applications-utilities')]:
             button = QPushButton(QIcon.fromTheme(icon), '  ' + name)
+            button.setObjectName('launcherNav')
             button.setCheckable(True)
             button.setFixedWidth(180)
             button.clicked.connect(lambda checked=False, n=name: self.select_page(n))
@@ -239,14 +248,15 @@ class Menu(QWidget):
             ('Control desk', 'preferences-system', [catalog.ROOT/'scripts/control-center.sh', '--tab', 'hotkeys']),
             ('Session & power', 'system-shutdown', [catalog.ROOT/'scripts/control-center.sh', '--tab', 'system'])]:
             button = QPushButton(QIcon.fromTheme(icon), '  ' + name)
+            button.setObjectName('launcherNav')
             button.setFixedWidth(180)
             button.clicked.connect(lambda checked=False, c=command: self.run_command(c))
             navigation.addWidget(button)
         self.sidebar_scroll.setWidget(navigation_widget)
         sidebar.addWidget(self.sidebar_scroll, 1)
         sidebar.addSpacing(10)
-        sidebar.addWidget(label('●  ' + os.environ.get('USER', 'xetal'), 'eyebrow'))
-        sidebar.addWidget(label('Hyprland session', 'muted'))
+        self.raw_account=label('●  ' + os.environ.get('USER', 'xetal'), 'eyebrow');sidebar.addWidget(self.raw_account)
+        self.raw_session=label('Hyprland session', 'muted');sidebar.addWidget(self.raw_session)
         outer.addWidget(sidebar_widget)
         main = QVBoxLayout()
         main.setSpacing(16)
@@ -325,11 +335,25 @@ class Menu(QWidget):
         self.fade = None
         self.select_page('Favorites')
         self.hotkeys.changed.connect(self.update_hotkeys)
+        self.apply_design()
+        if hasattr(QApplication.instance(),'hypr_theme'):QApplication.instance().hypr_theme.changed.connect(self.apply_design)
         QTimer.singleShot(100, self.search.setFocus)
+
+    def apply_design(self):
+        modern=theme_runtime.design()=='modern'
+        self.profile.setVisible(modern);self.profile.refresh()
+        for widget in (self.raw_brand,self.raw_eyebrow,self.raw_account,self.raw_session):widget.setVisible(not modern)
+        self.outer.setContentsMargins(*(18,18,18,16) if modern else (24,26,24,20))
+        self.outer.setSpacing(18 if modern else 20)
+        self.update();self.grid.viewport().update();self.favorites_board.viewport().update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        if theme_runtime.design()=='modern':
+            colors=theme_runtime.colors();painter.setBrush(QColor(colors['Window']));painter.setPen(QPen(QColor(colors['Midlight']),1))
+            painter.drawRoundedRect(QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),20,20)
+            return
         gradient = QLinearGradient(0, 0, self.width(), self.height())
         if theme_runtime.mode() == 'light':
             gradient.setColorAt(0, QColor(246, 250, 255, 250))

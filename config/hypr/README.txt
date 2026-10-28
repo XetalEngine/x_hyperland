@@ -317,3 +317,10 @@ https://github.com/swaywm/wlr-protocols
 
 
 See the repository README.md for installation, compatibility, validation and restore instructions.
+
+Xetal designs
+Choose Control desk > Theme > Design for Xetal Raw (original cyan) or Xetal Modern
+(rounded blue cards, account GIF and Home overview). Each supports Dark, Light and
+High contrast. Apply theme keeps the same hotkeys, favorites and desktop engine.
+Click your account picture in Apps to open Home. Change the image/GIF on the
+Design page. Reopen older applications if they have not picked up the palette.

@@ -94,9 +94,9 @@ class PreviewCard(QAbstractButton):
         if not self.pixmap.isNull():
             live=time.monotonic()-self.updated<3
             badge=QRectF(area.x()+8,area.y()+8,54 if live else 73,21)
-            p.setPen(Qt.PenStyle.NoPen); p.setBrush(QColor(10,19,28,225)); p.drawRoundedRect(badge,8,8)
-            p.setBrush(QColor('#76ddd0' if live else '#91a3bd'));p.drawEllipse(QPointF(badge.x()+10,badge.center().y()),2.5,2.5)
-            p.setPen(QColor('#e6f0f9'));p.setFont(QFont('Noto Sans',8));p.drawText(badge.adjusted(18,0,0,0),Qt.AlignmentFlag.AlignVCenter,'LIVE' if live else 'PAUSED')
+            p.setPen(Qt.PenStyle.NoPen); p.setBrush(theme_runtime.qcolor(10,19,28,225)); p.drawRoundedRect(badge,8,8)
+            p.setBrush(theme_runtime.qcolor('#76ddd0' if live else '#91a3bd'));p.drawEllipse(QPointF(badge.x()+10,badge.center().y()),2.5,2.5)
+            p.setPen(theme_runtime.qcolor('#e6f0f9'));p.setFont(QFont('Noto Sans',8));p.drawText(badge.adjusted(18,0,0,0),Qt.AlignmentFlag.AlignVCenter,'LIVE' if live else 'PAUSED')
         title=self.source.get('title',self.source['name'])
         p.setFont(QFont('Noto Sans',11,QFont.Weight.DemiBold));p.setPen(color('#e6effc'))
         p.drawText(QRectF(14,self.height()-59,self.width()-48,23),Qt.AlignmentFlag.AlignVCenter,
@@ -157,7 +157,7 @@ class RegionCanvas(PreviewCard):
         super().paintEvent(event)
         if self.region:
             p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing)
-            p.setPen(QPen(color('#76ddd0'),2));p.setBrush(QColor(118,221,208,45));p.drawRect(self.region)
+            p.setPen(QPen(color('#76ddd0'),2));p.setBrush(theme_runtime.qcolor(118,221,208,45));p.drawRect(self.region)
 
 
 class PreviewQueue:

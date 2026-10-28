@@ -13,7 +13,7 @@ import subprocess
 import sys
 import uuid
 
-from PyQt6.QtCore import Qt, QTimer, QRunnable, QThreadPool, QObject, pyqtSignal, QPropertyAnimation, QEasingCurve, QFileSystemWatcher, QStandardPaths
+from PyQt6.QtCore import Qt, QTimer, QRunnable, QThreadPool, QObject, pyqtSignal, QPropertyAnimation, QEasingCurve, QFileSystemWatcher, QStandardPaths, QSize
 from PyQt6.QtGui import QFont, QKeySequence, QShortcut, QColor, QPalette, QTextCharFormat
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
@@ -33,6 +33,9 @@ from page import ThemePage
 from audio_page import AudioPage, STYLE as AUDIO_STYLE
 from context_menu_page import ContextMenuPage, STYLE as CONTEXT_STYLE
 from window_chrome import close_button
+from home_page import HomePage
+from identity import Avatar
+from icons import icon as navigation_icon
 
 STYLE = '''
 QWidget { background: #171b22; color: #d8e0ec; font-family: "DejaVu Sans"; font-size: 12px; }
@@ -219,7 +222,7 @@ class Hotkeys(QWidget):
         self.bindings_table.itemSelectionChanged.connect(self.selection)
         self.bindings_table.itemChanged.connect(self.checked)
         split.addWidget(self.bindings_table)
-        self.inspector = QGroupBox('BINDING INSPECTOR')
+        self.inspector = QGroupBox('BINDING INSPECTOR');self.inspector.setObjectName('bindingInspector')
         form = QFormLayout(self.inspector)
         form.setVerticalSpacing(10)
         self.fields = {}
@@ -1112,16 +1115,16 @@ class Window(QMainWindow):
         self.setWindowTitle('Xetal / Session tools')
         self.resize(1230, 790)
         self.setMinimumSize(1040, 650)
-        root = QWidget()
+        root = QWidget();root.setObjectName('controlRoot')
         layout = QVBoxLayout(root)
         layout.setContentsMargins(18, 16, 18, 14)
         header = QHBoxLayout()
         titles = QVBoxLayout()
-        titles.addWidget(label('XETAL  /  SESSION TOOLS', 'eyebrow'))
-        titles.addWidget(label('Control desk', 'brand'))
+        self.eyebrow=label('XETAL  /  SESSION TOOLS', 'eyebrow');titles.addWidget(self.eyebrow)
+        self.brand=label('Control desk', 'brand');titles.addWidget(self.brand)
         header.addLayout(titles)
         header.addStretch()
-        header.addWidget(label('LIVE CONFIGURATION\nSuper + K', 'muted'))
+        self.header_hint=label('LIVE CONFIGURATION\nSuper + K', 'muted');header.addWidget(self.header_hint)
         self.close_button=close_button(self,title='Close Control desk')
         header.addSpacing(12);header.addWidget(self.close_button)
         layout.addLayout(header)
@@ -1134,10 +1137,27 @@ class Window(QMainWindow):
         for name, page in self.pages.items():
             self.tabs.addTab(page, name.replace('-', ' ').title())
         self.tabs.currentChanged.connect(self.changed)
-        layout.addWidget(self.tabs, 1)
+        content=QHBoxLayout();content.setSpacing(16)
+        self.modern_rail=QWidget();self.modern_rail.setObjectName('modernRail');self.modern_rail.setFixedWidth(66)
+        rail=QVBoxLayout(self.modern_rail);rail.setContentsMargins(8,12,8,12);rail.setSpacing(4)
+        self.rail_avatar=Avatar(46);self.rail_avatar.clicked.connect(lambda:self.switch('home'));rail.addWidget(self.rail_avatar)
+        self.rail_buttons={}
+        for name in ['home',*self.pages]:
+            caption=name.replace('-',' ').title();control=QPushButton();control.setObjectName('railButton');control.setCheckable(True)
+            control.setFixedSize(48,42);control.setIconSize(QSize(22,22));control.setToolTip(caption);control.setAccessibleName(caption)
+            control.clicked.connect(lambda _,n=name:self.switch(n));rail.addWidget(control);self.rail_buttons[name]=control
+        rail.addStretch();content.addWidget(self.modern_rail);content.addWidget(self.tabs,1);layout.addLayout(content,1)
+        self.home=HomePage(self.switch,async_run,launch)
+        self.home.setParent(self.tabs);self.home.hide()
+        self.pages['home']=self.home
         self.setCentralWidget(root)
         self.hints = None
         self.fade = None
+        self.changing_design=False
+        self.apply_design()
+        if hasattr(QApplication.instance(),'hypr_theme'):QApplication.instance().hypr_theme.changed.connect(self.apply_design)
+        # Release pages, timers and signal callbacks while Qt is still alive.
+        QApplication.instance().aboutToQuit.connect(self.deleteLater)
         if visible:
             self.switch(tab)
 
@@ -1153,7 +1173,10 @@ class Window(QMainWindow):
         self.activateWindow()
 
     def changed(self, *_):
+        if getattr(self,'changing_design',False):return
         page = self.tabs.currentWidget()
+        if page is None:return
+        self.update_navigation()
         if hasattr(page, 'refresh'):
             page.refresh()
         if self.fade:
@@ -1166,6 +1189,27 @@ class Window(QMainWindow):
         self.fade.setEndValue(1.0)
         self.fade.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.fade.start()
+
+    def update_navigation(self):
+        modern=theme_runtime.design()=='modern';current=self.tabs.currentWidget()
+        name=next((name for name,page in self.pages.items() if page is current),'hotkeys')
+        if modern:self.brand.setText(name.replace('-',' ').title())
+        for key,control in self.rail_buttons.items():
+            selected=key==name;control.setChecked(selected)
+            control.setIcon(navigation_icon(key,theme_runtime.colors()['HighlightedText' if selected else 'Accent']))
+
+    def apply_design(self):
+        self.changing_design=True
+        modern=theme_runtime.design()=='modern';current=self.tabs.currentWidget()
+        if modern and self.tabs.indexOf(self.home)<0:self.tabs.insertTab(0,self.home,'Home')
+        elif not modern and self.tabs.indexOf(self.home)>=0:
+            if current is self.home:current=self.pages['hotkeys']
+            self.tabs.removeTab(self.tabs.indexOf(self.home));self.home.hide()
+        if current:self.tabs.setCurrentWidget(current)
+        self.modern_rail.setVisible(modern);self.tabs.tabBar().setVisible(not modern)
+        self.eyebrow.setVisible(not modern);self.header_hint.setVisible(not modern)
+        if not modern:self.brand.setText('Control desk')
+        self.rail_avatar.refresh();self.home.update_design();self.update_navigation();self.changing_design=False
 
     def toggle_hints(self):
         if self.hints and self.hints.isVisible():
@@ -1202,7 +1246,7 @@ class Window(QMainWindow):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--tab', choices=['hotkeys', 'audio', 'network', 'bluetooth', 'displays', 'input', 'theme', 'context-menu', 'calendar', 'system'], default='hotkeys')
+    parser.add_argument('--tab', choices=['home', 'hotkeys', 'audio', 'network', 'bluetooth', 'displays', 'input', 'theme', 'context-menu', 'calendar', 'system'], default='hotkeys')
     parser.add_argument('--preview', help='Render the initial window to a PNG and exit')
     parser.add_argument('--window-hints', action='store_true')
     args = parser.parse_args()

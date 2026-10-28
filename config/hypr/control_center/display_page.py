@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QL
     QComboBox, QCheckBox, QSpinBox, QDoubleSpinBox, QFormLayout, QScrollArea, QDialog, QMessageBox)
 
 import desktop_settings as settings
+import runtime as theme_runtime
 
 
 def label(text, name=''):
@@ -50,8 +51,8 @@ class Arrangement(QWidget):
 
     def paintEvent(self, event):
         p = QPainter(self); p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.fillRect(self.rect(), QColor('#101821'))
-        p.setPen(QPen(QColor('#192630'), 1))
+        p.fillRect(self.rect(), theme_runtime.qcolor('#101821'))
+        p.setPen(QPen(theme_runtime.qcolor('#192630'), 1))
         for x in range(0, self.width(), 24): p.drawLine(x, 0, x, self.height())
         for y in range(0, self.height(), 24): p.drawLine(0, y, self.width(), y)
         self.rects = []; scale, ox, oy = self.view(); parked = 0
@@ -64,24 +65,24 @@ class Arrangement(QWidget):
             self.rects.append((m, rect))
             active = m['name'] == self.current
             gradient = QLinearGradient(rect.topLeft(), rect.bottomRight())
-            gradient.setColorAt(0, QColor('#264e58' if active else '#243240'))
-            gradient.setColorAt(1, QColor('#182d38' if active else '#17232f'))
-            p.setBrush(gradient); p.setPen(QPen(QColor('#78e4d2' if active else '#546a7d'), 2 if active else 1))
+            gradient.setColorAt(0, theme_runtime.qcolor('#264e58' if active else '#243240'))
+            gradient.setColorAt(1, theme_runtime.qcolor('#182d38' if active else '#17232f'))
+            p.setBrush(gradient); p.setPen(QPen(theme_runtime.qcolor('#78e4d2' if active else '#546a7d'), 2 if active else 1))
             p.drawRoundedRect(rect, 9, 9)
-            p.setPen(QColor('#e6f5f5')); p.setFont(QFont('DejaVu Sans', 19 if rect.height() > 95 else 13, QFont.Weight.Bold))
+            p.setPen(theme_runtime.qcolor('#e6f5f5')); p.setFont(QFont('DejaVu Sans', 19 if rect.height() > 95 else 13, QFont.Weight.Bold))
             top = rect.top()+max(4, (rect.height()-85)/2)
             p.drawText(QRectF(rect.left()+5, top, rect.width()-10, 30), Qt.AlignmentFlag.AlignCenter, str(m['number']))
             p.setFont(QFont('DejaVu Sans', 10, QFont.Weight.Bold))
             p.drawText(QRectF(rect.left()+4, top+30, rect.width()-8, 22), Qt.AlignmentFlag.AlignCenter, m['name'])
             if rect.height() > 95:
-                p.setPen(QColor('#a5becb')); p.setFont(QFont('DejaVu Sans', 8))
+                p.setPen(theme_runtime.qcolor('#a5becb')); p.setFont(QFont('DejaVu Sans', 8))
                 text = f"{m['width']} × {m['height']}  ·  {m['rate']:g} Hz\n{m['scale']*100:g}%  ·  {m['x']}, {m['y']}"
                 p.drawText(rect.adjusted(4, top-rect.top()+54, -4, -5), Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, text)
             elif not m['enabled'] or m['mirror']:
-                p.setFont(QFont('DejaVu Sans', 8)); p.setPen(QColor('#9bb1c4'))
+                p.setFont(QFont('DejaVu Sans', 8)); p.setPen(theme_runtime.qcolor('#9bb1c4'))
                 p.drawText(rect.adjusted(3, 47, -3, -2), Qt.AlignmentFlag.AlignCenter, 'Disabled' if not m['enabled'] else 'Mirrors '+m['mirror'])
         if not self.models:
-            p.setPen(QColor('#9bb1c4')); p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, 'Loading connected displays…')
+            p.setPen(theme_runtime.qcolor('#9bb1c4')); p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, 'Loading connected displays…')
 
     def mousePressEvent(self, event):
         if event.button() != Qt.MouseButton.LeftButton: return

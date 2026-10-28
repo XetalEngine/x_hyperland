@@ -17,6 +17,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'control_center'))
 import desktop_settings as settings
 import keys
 import runtime
+import designs
 
 ROOT=runtime.ROOT.parent
 WALLPAPER=ROOT/'wallpaper'
@@ -89,9 +90,10 @@ def apply_wallpapers(draft, expected):
         return read_wallpapers()
 
 
-def kde_colors(value):
-    colors=runtime.colors(value); cfg=configparser.ConfigParser(interpolation=None); cfg.optionxform=str
-    cfg['General']={'Name':'Xetal '+runtime.MODES[value], 'ColorScheme':'Xetal'+value.title()}
+def kde_colors(value,design=None):
+    design=design or runtime.design()
+    colors=runtime.colors(value,design); cfg=configparser.ConfigParser(interpolation=None); cfg.optionxform=str
+    cfg['General']={'Name':runtime.DESIGNS[design]+' '+runtime.MODES[value], 'ColorScheme':'Xetal'+design.title()+value.title()}
     for group in ['Window','View','Button','Selection','Tooltip','Complementary','Header']:
         selected=group=='Selection'; base=colors['Highlight'] if selected else colors['Base'] if group=='View' else colors['Button'] if group in ('Button','Header') else colors['Window']
         foreground=colors['HighlightedText'] if selected else colors['Text']
@@ -102,15 +104,19 @@ def kde_colors(value):
                 'DecorationFocus':colors['Accent'],'DecorationHover':colors['Accent']}
         cfg['Colors:'+group]={key:','.join(str(int(color[i:i+2],16)) for i in (1,3,5)) for key,color in values.items()}
     cfg['ColorEffects:Disabled']={'Enable':'false'}; cfg['ColorEffects:Inactive']={'Enable':'false'}
-    output=io.StringIO(); cfg.write(output,space_around_delimiters=False); return output.getvalue()
+    output=io.StringIO(); cfg.write(output,space_around_delimiters=False); return output.getvalue().rstrip()+'\n'
 
 
 def theme_token():
-    return settings.Store('theme').load()[1], hashlib.sha256(runtime.STATE.read_bytes()).hexdigest()
+    extra=hashlib.sha256()
+    for name in ('hyprlock.conf','startup/kitty.conf'):
+        path=ROOT/name
+        extra.update(path.read_bytes() if path.is_file() else b'missing')
+    return settings.Store('theme').load()[1], hashlib.sha256(runtime.STATE.read_bytes()).hexdigest(),extra.hexdigest()
 
 
-def kitty_colors(value):
-    colors=runtime.colors(value)
+def kitty_colors(value,design=None):
+    colors=runtime.colors(value,design)
     ansi={
         'dark':['#192130','#ee8196','#78d7b6','#d8ce99','#82aef0','#b7a2e4','#73d4d1','#d1dbec',
                 '#70829a','#ff96ad','#9de6c5','#eadeaf','#a5c5fb','#d2baf6','#a5efeb','#eff6ff'],
@@ -129,11 +135,12 @@ def kitty_colors(value):
     return '# Managed by Hyprland Theme.\n'+''.join(f'{key} {color}\n' for key,color in options.items())
 
 
-def reload_kitty(proc_root=Path('/proc')):
+def reload_kitty(proc_root=Path('/proc'),include_startup=False):
     """Reload only terminals using this profile in the current compositor session."""
     session=os.environ.get('HYPRLAND_INSTANCE_SIGNATURE')
     if not session: return []
-    profile=str(ROOT/'kitty.conf').encode(); marker=b'HYPRLAND_INSTANCE_SIGNATURE='+session.encode()
+    profiles={str(ROOT/'kitty.conf').encode()}; marker=b'HYPRLAND_INSTANCE_SIGNATURE='+session.encode()
+    if include_startup:profiles.add(str(ROOT/'startup/kitty.conf').encode())
     reloaded=[]
     for item in proc_root.iterdir():
         if not item.name.isdigit(): continue
@@ -143,14 +150,106 @@ def reload_kitty(proc_root=Path('/proc')):
             if not command or Path(os.fsdecode(command[0])).name!='kitty': continue
             configs=[command[i+1] for i,arg in enumerate(command[:-1]) if arg in (b'--config',b'-c')]
             configs += [arg.split(b'=',1)[1] for arg in command[1:] if arg.startswith(b'--config=')]
-            if profile not in configs or marker not in (item/'environ').read_bytes().split(b'\0'): continue
+            if not profiles.intersection(configs) or marker not in (item/'environ').read_bytes().split(b'\0'): continue
             os.kill(int(item.name),signal.SIGUSR1); reloaded.append(int(item.name))
         except (OSError,ValueError): continue
     return reloaded
 
 
-def apply_mode(value,expected):
+def modern_lock(colors):
+    def rgb(name):return 'rgb('+colors[name][1:]+')'
+    return f'''# Xetal Modern. Authentication and lock shortcuts are unchanged.
+$font = Noto Sans
+general {{
+    hide_cursor = false
+}}
+animations {{
+    enabled = true
+    bezier = linear, 1, 1, 0, 0
+    animation = fadeIn, 1, 5, linear
+    animation = fadeOut, 1, 5, linear
+    animation = inputFieldDots, 1, 2, linear
+}}
+background {{
+    monitor =
+    path = screenshot
+    blur_passes = 3
+}}
+input-field {{
+    monitor =
+    size = 360, 58
+    outline_thickness = 2
+    inner_color = {rgb('Window')}
+    outer_color = {rgb('Accent')}
+    check_color = {rgb('Link')}
+    fail_color = rgb(ea9bab)
+    font_color = {rgb('Text')}
+    fade_on_empty = false
+    rounding = 18
+    font_family = $font
+    placeholder_text = Password
+    fail_text = $PAMFAIL$FPRINTFAIL
+    dots_spacing = 0.3
+    position = 0, -60
+    halign = center
+    valign = center
+}}
+label {{
+    monitor =
+    text = $TIME
+    color = {rgb('Text')}
+    font_size = 80
+    font_family = $font
+    position = 0, 130
+    halign = center
+    valign = center
+}}
+label {{
+    monitor =
+    text = cmd[update:60000] date +"%A, %d %B"
+    color = {rgb('Link')}
+    font_size = 20
+    font_family = $font
+    position = 0, 55
+    halign = center
+    valign = center
+}}
+label {{
+    monitor =
+    text = $USER
+    color = {rgb('Text')}
+    font_size = 16
+    font_family = $font
+    position = 0, -130
+    halign = center
+    valign = center
+}}
+label {{
+    monitor =
+    text = $LAYOUT[en,ru]
+    color = {rgb('Link')}
+    font_size = 14
+    onclick = hyprctl switchxkblayout all next
+    position = 0, -175
+    halign = center
+    valign = center
+}}
+'''
+
+
+def apply_mode(value,expected,design=None,avatar=None):
     if value not in runtime.MODES: raise ValueError('Choose an available theme.')
+    design=design or runtime.design()
+    if design not in runtime.DESIGNS:raise ValueError('Choose Xetal Raw or Xetal Modern.')
+    previous=runtime.state()
+    avatar=previous.get('avatar','auto') if avatar is None else avatar
+    if not isinstance(avatar,str) or any(c in avatar for c in '\r\n\0'):
+        raise ValueError('Choose a valid account image.')
+    if avatar!='auto':
+        from PIL import Image
+        image=Path(avatar).expanduser()
+        if not image.is_absolute():image=runtime.ROOT/image
+        with Image.open(image) as picture:picture.verify()
     from build import build
     build()
     store=settings.Store('theme')
@@ -158,26 +257,41 @@ def apply_mode(value,expected):
     env=runtime.environment({'HYPRLAND_INSTANCE_SIGNATURE':'preview'},value)
     content='# Managed by Hyprland Theme; only this compositor inherits these values.\n'
     content+='\n'.join('env = '+key+','+val for key,val in env.items() if key!='HYPRLAND_INSTANCE_SIGNATURE')+'\n'
+    colors=runtime.colors(value,design)
+    if design=='modern':
+        content+='\n# Xetal Modern defaults; Window effects can override these below.\n'
+        content+=f"general:col.active_border = rgb({colors['Accent'][1:]})\ngeneral:col.inactive_border = rgb({colors['Midlight'][1:]})\n"
+        content+='general:border_size = 1\ndecoration:rounding = 18\n'
     store.check(content,expected[0])
-    scheme=kde_colors(value)
+    scheme=kde_colors(value,design)
     isolated=ROOT/'dolphin/config/kdeglobals'
     cfg=configparser.ConfigParser(interpolation=None,strict=False); cfg.optionxform=str; cfg.read(isolated)
     new=configparser.ConfigParser(interpolation=None); new.optionxform=str; new.read_string(scheme)
     for section in new.sections():
         if section.startswith(('Colors:','ColorEffects:')): cfg[section]=dict(new[section])
     if 'General' not in cfg: cfg['General']={}
-    cfg['General']['ColorScheme']='Xetal'+value.title()
+    cfg['General']['ColorScheme']='Xetal'+design.title()+value.title()
     stream=io.StringIO(); cfg.write(stream,space_around_delimiters=False)
-    colors=runtime.colors(value)
     css='/* Hyprland-only notification colors. Retain the packaged layout and animations. */\n'
     css+='@define-color cc-bg '+colors['Window']+';\n@define-color noti-bg '+colors['Window']+';\n'
     css+='@define-color noti-bg-hover '+colors['Button']+';\n@define-color text-color '+colors['Text']+';\n'
     css+='@define-color text-color-disabled '+colors['Disabled']+';\n@define-color noti-border-color '+colors['Midlight']+';\n'
-    files={runtime.STATE:(json.dumps({'version':1,'mode':value},indent=2)+'\n').encode(),
-           runtime.ROOT/'current.colors':scheme.encode(),runtime.ROOT/'kitty-colors.conf':kitty_colors(value).encode(),
-           isolated:stream.getvalue().encode(),
-           ROOT/'waybar/style.css':runtime.stylesheet((runtime.ROOT/'waybar-dark.css').read_text(),value).encode(),
+    if design=='modern':css+=designs.notification_style(colors)
+    bar=runtime.stylesheet((runtime.ROOT/'waybar-dark.css').read_text(),value,design,qt=False)
+    if design=='modern':bar+=designs.waybar_style(colors)
+    files={runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,'avatar':avatar},indent=2)+'\n').encode(),
+           runtime.ROOT/'current.colors':scheme.encode(),runtime.ROOT/'kitty-colors.conf':kitty_colors(value,design).encode(),
+           isolated:(stream.getvalue().rstrip()+'\n').encode(),
+           ROOT/'waybar/style.css':bar.encode(),
            ROOT/'swaync/style.css':css.encode()}
+    for target,template in [('hyprlock.conf','hyprlock-raw.conf'),('startup/kitty.conf','startup-raw.conf')]:
+        path=ROOT/target;saved=runtime.ROOT/template
+        if not path.exists() or not saved.exists():continue
+        raw=saved.read_bytes()
+        if runtime.design()=='raw':
+            raw=path.read_bytes()
+            if design=='modern':files[saved]=raw
+        files[path]=(modern_lock(colors).encode() if target=='hyprlock.conf' else raw+b'\n'+kitty_colors(value,design).encode()) if design=='modern' else raw
     old={path:path.read_bytes() if path.exists() else None for path in files}
     settings.STATE.mkdir(parents=True,exist_ok=True,mode=0o700)
     with (settings.STATE/'theme-files.lock').open('a') as lock:
@@ -192,7 +306,7 @@ def apply_mode(value,expected):
                     if data is None: path.unlink()
                     else: keys.atomic_write(path,data)
             raise
-    reload_kitty()
+    reload_kitty(include_startup=True)
     # Reload only our notification daemon, never a notification server from KDE.
     for item in Path('/proc').iterdir():
         if not item.name.isdigit(): continue

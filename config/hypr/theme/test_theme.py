@@ -66,10 +66,21 @@ class PaletteTests(unittest.TestCase):
             rgb=[int(color[i:i+2],16)/255 for i in (1,3,5)]
             linear=[c/12.92 if c<=.04045 else ((c+.055)/1.055)**2.4 for c in rgb]
             return sum(c*w for c,w in zip(linear,[.2126,.7152,.0722]))
-        for mode in runtime.MODES:
-            p=runtime.colors(mode)
-            for fg,bg in [('Text','Base'),('WindowText','Window'),('ButtonText','Button'),('HighlightedText','Highlight')]:
-                a,b=sorted([luminance(p[fg]),luminance(p[bg])]);self.assertGreaterEqual((b+.05)/(a+.05),4.5,(mode,fg,bg))
+        for design in runtime.DESIGNS:
+            for mode in runtime.MODES:
+                p=runtime.colors(mode,design)
+                for fg,bg in [('Text','Base'),('WindowText','Window'),('ButtonText','Button'),('HighlightedText','Highlight'),('PlaceholderText','Window')]:
+                    a,b=sorted([luminance(p[fg]),luminance(p[bg])]);self.assertGreaterEqual((b+.05)/(a+.05),4.5,(design,mode,fg,bg))
+
+    def test_legacy_design_and_raw_styles_remain_unchanged(self):
+        with patch.object(runtime,'state',return_value={'mode':'dark'}):self.assertEqual(runtime.design(),'raw')
+        with patch.object(runtime,'state',return_value={'design':'unknown'}):self.assertEqual(runtime.design(),'raw')
+        source='QWidget {background:#171b22; color:#ffffff;}'
+        self.assertEqual(runtime.stylesheet(source,'dark','raw'),source)
+        self.assertIn('QPushButton#railButton',runtime.stylesheet(source,'dark','modern'))
+        gtk=runtime.stylesheet('window {background:#171b22;}','dark','modern',qt=False)
+        self.assertNotIn('QPushButton',gtk)
+        self.assertIn(runtime.colors('dark','modern')['Window'],gtk)
     def test_environment_is_confined_to_hyprland(self):
         self.assertEqual(runtime.environment({'DESKTOP_SESSION':'plasma'}),{'DESKTOP_SESSION':'plasma'})
         env=runtime.environment({'HYPRLAND_INSTANCE_SIGNATURE':'unit-test'},'light')
@@ -128,7 +139,41 @@ class ThemeTransactionTests(unittest.TestCase):
         with patch.object(backend.Path,'iterdir',return_value=iter(())):
             backend.apply_mode('light',backend.theme_token())
         self.assertIn('background #ffffff\n',(runtime.ROOT/'kitty-colors.conf').read_text())
-        self.reload.assert_called_once_with()
+        self.reload.assert_called_once_with(include_startup=True)
+
+    def add_raw_profiles(self):
+        (self.root/'startup').mkdir()
+        for target,template in [('hyprlock.conf','hyprlock-raw.conf'),('startup/kitty.conf','startup-raw.conf')]:
+            (self.root/target).write_text('personal raw '+target+'\n')
+            (runtime.ROOT/template).write_text('packaged raw '+target+'\n')
+        (self.root/'keybindings.conf').write_text('unchanged hotkeys\n')
+        (self.root/'favorites.json').write_text('unchanged favorites\n')
+        self.files={p:p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
+
+    def test_both_designs_round_trip_without_touching_personal_settings(self):
+        self.add_raw_profiles();self.store.save.side_effect=None
+        with patch.object(backend.Path,'iterdir',return_value=iter(())):
+            backend.apply_mode('dark',backend.theme_token(),'modern')
+            self.assertEqual(runtime.design(),'modern')
+            self.assertIn('Xetal Modern',(self.root/'hyprlock.conf').read_text())
+            self.assertIn('rounding = 18',self.store.save.call_args.args[0])
+            backend.apply_mode('dark',backend.theme_token(),'raw')
+        for name in ('hyprlock.conf','startup/kitty.conf','keybindings.conf','favorites.json'):
+            self.assertEqual((self.root/name).read_bytes(),self.files[self.root/name])
+        self.assertNotIn('rounding',self.store.save.call_args.args[0])
+        self.assertEqual(runtime.design(),'raw')
+
+    def test_failed_design_change_restores_raw_backups_too(self):
+        self.add_raw_profiles()
+        with self.assertRaisesRegex(ValueError,'reload failed'):backend.apply_mode('dark',backend.theme_token(),'modern')
+        for path,original in self.files.items():self.assertEqual(path.read_bytes(),original,path)
+
+    def test_external_lock_edit_stops_theme_change(self):
+        self.add_raw_profiles();token=backend.theme_token()
+        (self.root/'hyprlock.conf').write_text('user edited lock\n')
+        with self.assertRaisesRegex(ValueError,'changed elsewhere'):backend.apply_mode('dark',token,'modern')
+        self.store.save.assert_not_called()
+        self.assertEqual((self.root/'hyprlock.conf').read_text(),'user edited lock\n')
 
 
 if __name__=='__main__':unittest.main()
