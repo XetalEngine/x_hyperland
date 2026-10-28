@@ -153,4 +153,12 @@ duration, time step, defaults and a disposable preview window. The native adapte
 is built locally for supported Hyprland 0.56.2 installations; incompatible versions
 keep their normal close animation. See the [Burn guide](config/hypr/effects/burn/README.md).
 
+**Desktop Cube & 3D Windows** share a second **Theme → Window effects** tab.
+Hold **Ctrl + Alt + left mouse** and drag to rotate the cube on that monitor;
+release to select a workspace, or press Escape to cancel. Configure wall opacity,
+zoom, ceiling/floor artwork, a static background or moving sky, and raised window
+spacing/thickness. Each output keeps its own workspaces. Complete native source,
+controls, default hotkey and optional installer build are included, with the same
+tested Hyprland ABI boundary as Burn. See the [Cube guide](config/hypr/effects/cube/README.md).
+
 Browser profiles, credentials, caches, recent-file history, private bookmarks, session logs and compiled build artifacts are excluded. The wallpaper, mascot and font assets have checksums in [`assets-manifest.json`](assets-manifest.json).

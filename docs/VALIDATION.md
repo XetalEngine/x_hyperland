@@ -93,6 +93,31 @@ The bundled wallpaper's SHA-256 matches the original desktop image byte for byte
 
 ## Reproduce
 
+Desktop Cube / 3D follow-up (28 October 2026): **383 desktop checks and 16
+installer checks passed**. The complete prepare build compiled both Burn and
+Cube from the copied source and passed full Hyprland configuration validation.
+Cube coverage includes strict option/image validation, portable artwork,
+transaction rollback, external edits, controls at reduced height, and compiled
+workspace isolation, face selection, geometry and window-layer calculations.
+The hotkey regression verifies the narrow Ctrl+Alt mouse exception, conflict
+checks, and continued protection of application keyboard shortcuts.
+
+A disposable nested Wayland Hyprland with two outputs and real virtual pointer/
+keyboard events verified repeated Ctrl+Alt drags, release-to-select, Escape,
+unchanged cursor position during rotation, per-output workspace selection, and
+creating an empty face without taking another monitor's workspace. Visual checks
+covered custom ceiling/floor artwork, panorama and fitted-image backgrounds,
+three raised windows, and a rotated output at 1.25 scale. Mode changes and output
+removal cancelled the scene. Disabling, unloading while active, and reloading
+were checked. Burn was loaded alongside Cube and a disposable client was closed
+while the cube was visible. The nested compositor exited normally; Xwayland was
+disabled in this test session.
+
+The controls were rendered with the BreakPoint theme; Apply/Discard remain
+outside the scroll area. These checks target the documented Hyprland 0.56.2
+OpenGL adapter; they do not establish compatibility with other compositor ABIs
+or every GPU/color-management mode.
+
 ```bash
 ./x_hyperinstall.sh --check
 python3 -m unittest discover -s tests -v

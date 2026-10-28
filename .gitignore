@@ -17,3 +17,5 @@ config/hypr/assets/font-cache/
 .xetal-install.json
 .DS_Store
 config/hypr/effects/burn/.build/
+config/hypr/effects/cube/.build/
+config/hypr/effects/cube/cache/

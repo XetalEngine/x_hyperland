@@ -125,11 +125,12 @@ def build(stage):
 
     # The optional compositor adapter has a deliberately narrow ABI boundary.
     # An unsupported Hyprland must not prevent installing the desktop profile.
-    result = subprocess.run([sys.executable,str(stage/'effects/burn/build.py')],capture_output=True,text=True)
-    if result.returncode:
-        print('Optional Burn effect unavailable: '+result.stderr.strip(),flush=True)
-    else:
-        print('Built Compiz Burn for the installed Hyprland.',flush=True)
+    for effect,label in [('burn','Burn'),('cube','Desktop Cube & 3D Windows')]:
+        result = subprocess.run([sys.executable,str(stage/'effects'/effect/'build.py')],capture_output=True,text=True)
+        if result.returncode:
+            print('Optional '+label+' effect unavailable: '+result.stderr.strip(),flush=True)
+        else:
+            print('Built '+label+' for the installed Hyprland.',flush=True)
 
 
 def validate(stage):

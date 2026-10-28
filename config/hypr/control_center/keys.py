@@ -204,6 +204,11 @@ def protect_typing(bindings, values):
         mods = trigger(b, values)[0]
         dedicated = b.key.startswith('XF86') or b.key.lower() in ('print', 'pause')
         dedicated = dedicated or bool(re.fullmatch(r'F([1-9]|[12][0-9]|3[0-5])', b.key, re.I))
+        # The cube is an explicit Ctrl+Alt pointer gesture, not a keyboard grab.
+        # Keep the exception narrow so ordinary application shortcuts stay safe.
+        dedicated = dedicated or (b.dispatcher == 'event' and b.args == 'xetal-cube:rotate'
+                                  and b.key in ('mouse:272', 'mouse:273', 'mouse:274')
+                                  and {'CTRL', 'ALT'}.issubset(mods))
         if 'SUPER' not in mods and not dedicated:
             raise ConfigError(f'"{b.label}": use SUPER for global shortcuts. '
                               'Plain keys and Ctrl/Shift combinations are reserved for applications; '
@@ -228,6 +233,10 @@ def validate_fields(bindings):
             raise ConfigError(f'"{b.label}": invalid flags or submap.')
         if re.search(r'(?<!#)#(?!#)', b.args):
             raise ConfigError('Escape literal # characters in commands as ## (Hyprland syntax).')
+        if b.dispatcher == 'event' and b.args == 'xetal-cube:rotate':
+            if b.key not in ('mouse:272', 'mouse:273', 'mouse:274') or b.flags:
+                raise ConfigError('Desktop Cube needs a mouse button press: mouse:272 (left), '
+                                  'mouse:273 (right) or mouse:274 (middle), without flags.')
 
 
 def command(argv, timeout=15):

@@ -138,14 +138,15 @@ class InstallerTests(unittest.TestCase):
             self.assertFalse(forbidden.intersection(p.parts),str(p))
             self.assertNotIn(p.suffix,{'.so','.o','.a'},str(p))
 
-    def test_optional_burn_failure_keeps_the_desktop_installable(self):
+    def test_optional_native_effect_failure_keeps_the_desktop_installable(self):
         def command(args,**kwargs):
-            optional=str(args[-1]).endswith('/effects/burn/build.py')
+            optional=any(str(args[-1]).endswith('/effects/'+name+'/build.py') for name in ('burn','cube'))
             return install.subprocess.CompletedProcess(args,1 if optional else 0,stdout='',stderr='Unsupported compositor ABI' if optional else '')
         with patch.object(install.subprocess,'run',side_effect=command) as run,patch('builtins.print') as message:
             install.build(self.stage)
-        self.assertEqual(run.call_count,6)
+        self.assertEqual(run.call_count,7)
         self.assertTrue(any('Optional Burn effect unavailable' in str(call) for call in message.call_args_list))
+        self.assertTrue(any('Optional Desktop Cube & 3D Windows effect unavailable' in str(call) for call in message.call_args_list))
 
     def test_every_shipped_wallpaper_matches_manifest(self):
         import hashlib

@@ -1,0 +1,56 @@
+compiz-core/plugins/cube.c
+
+/*
+ * Copyright © 2005 Novell, Inc.
+ *
+ * Permission to use, copy, modify, distribute, and sell this software
+ * and its documentation for any purpose is hereby granted without
+ * fee, provided that the above copyright notice appear in all copies
+ * and that both that copyright notice and this permission notice
+ * appear in supporting documentation, and that the name of
+ * Novell, Inc. not be used in advertising or publicity pertaining to
+ * distribution of the software without specific, written prior permission.
+ * Novell, Inc. makes no representations about the suitability of this
+ * software for any purpose. It is provided "as is" without express or
+ * implied warranty.
+ *
+ * NOVELL, INC. DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+ * INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN
+ * NO EVENT SHALL NOVELL, INC. BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+ * CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+ * OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ * Author: David Reveman <davidr@novell.com>
+ *         Mirco Müller <macslow@bangang.de> (Skydome support)
+ */
+
+compiz-plugins-extra/src/3d/3d.c
+
+/*
+ *
+ * Compiz 3d plugin
+ *
+ * 3d.c
+ *
+ * Copyright : (C) 2006 by Roi Cohen
+ * E-mail    : roico12@gmail.com
+ *
+ * Modified by : Dennis Kasprzyk <onestone@compiz.org>
+ *               Danny Baumann <dannybaumann@web.de>
+ *               Robert Carr <racarr@canonical.com>
+ *               Diogo Ferreira <diogo@underdev.org>
+ *		 Kevin Lange <klange@ogunderground.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ */

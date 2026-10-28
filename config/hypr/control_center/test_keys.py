@@ -64,6 +64,24 @@ class StorageTests(unittest.TestCase):
                                       'submap = hypr-control-capture\n'
                                       'bind = , Escape, submap, reset\n'), {})
 
+    def test_cube_gesture_preserves_keyboard_shortcut_protection(self):
+        gesture = keys.parse('bind = CTRL ALT, mouse:272, event, xetal-cube:rotate\n')[0]
+        keys.protect_typing([gesture], {})
+        keys.validate_fields([gesture])
+        self.assertFalse(keys.conflicts([gesture], {}))
+        keyboard = copy.deepcopy(gesture)
+        keyboard.key = 'C'
+        with self.assertRaises(keys.ConfigError):
+            keys.validate_fields([keyboard])
+        for command, modifiers in [('other-event', 'CTRL ALT'), ('xetal-cube:rotate', 'CTRL')]:
+            bad = copy.deepcopy(gesture)
+            bad.args, bad.mods = command, modifiers
+            with self.assertRaises(keys.ConfigError):
+                keys.protect_typing([bad], {})
+        duplicate = copy.deepcopy(gesture)
+        duplicate.id = 'duplicate-cube'
+        self.assertTrue(keys.conflicts([gesture, duplicate], {}))
+
     def test_apply_keeps_exact_backup_and_reloads(self):
         self.bindings[0].key = 'T'
         result, backup = self.store().apply(self.bindings, keys.digest(self.original))

@@ -318,6 +318,12 @@ https://github.com/swaywm/wlr-protocols
 
 See the repository README.md for installation, compatibility, validation and restore instructions.
 
+Desktop Cube and 3D Windows share Theme > Window effects > Desktop Cube + 3D.
+Hold Ctrl+Alt and the left mouse button to rotate the cube on that monitor.
+Release to select a workspace; Escape cancels. Controls include wall opacity,
+zoom, cap artwork, a static background or moving sky, and 3D window spacing/depth.
+See effects/cube/README.md for compatibility, settings and source attribution.
+
 Xetal designs
 Choose Control desk > Theme > Design for Xetal Raw (original cyan) or Xetal Modern
 (rounded blue cards, account GIF and Home overview). Each supports Dark, Light and
