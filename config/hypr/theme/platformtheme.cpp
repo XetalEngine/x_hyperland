@@ -25,7 +25,12 @@ class XetalTheme final : public QObject, public QPlatformTheme {
         const auto state = read(config);
         mode = state.value("mode").toString("dark");
         auto all = read(QFileInfo(config).dir().filePath("palettes.json"));
-        if (state.value("design").toString("raw") == "modern") all = all.value("modern").toObject();
+        auto design = state.value("design").toString("raw");
+        if (auto app = QCoreApplication::instance()) {
+            const auto local = app->property("xetalThemeDesign").toString();
+            if (local == "raw" || local == "modern") design = local;
+        }
+        if (design == "modern") all = all.value("modern").toObject();
         auto values = all.value(mode).toObject();
         if (values.isEmpty()) { mode = "dark"; values = all.value(mode).toObject(); }
         colors = QPalette(QColor(values.value("Window").toString("#171b22")));

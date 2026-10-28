@@ -19,6 +19,49 @@ QT=QApplication.instance() or QApplication([])
 
 
 class DesignTests(unittest.TestCase):
+    def test_menu_choice_previews_and_edits_its_own_surfaces_and_survives_reopening(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state=Path(directory)/'theme.json'
+            state.write_text(json.dumps({'design':'modern','mode':'dark','avatar':'auto'}))
+            def save(mode,token,design,avatar,enabled,background,surfaces,launcher_style):
+                state.write_text(json.dumps({'design':design,'mode':mode,'avatar':avatar,
+                    'launcher_wallpaper':enabled,'launcher_background':background,
+                    'launcher_surfaces':surfaces,'launcher_style':launcher_style}))
+                return 'new-token'
+            with patch.object(runtime,'STATE',state),patch.object(theme_page.backend,'theme_token',return_value='token'),patch.object(theme_page.backend,'apply_mode',side_effect=save):
+                page=app.ThemePage(lambda fn,done,failed:done(fn()))
+                try:
+                    page.refresh()
+                    page.launcher_style.setCurrentIndex(page.launcher_style.findData('raw'))
+                    self.assertTrue(page.apply.isEnabled())
+                    self.assertEqual(page.design.currentData(),'modern')
+                    self.assertEqual(page.design_page.surface_preview.design,'raw')
+                    for card in page.design_page.cards.values():self.assertEqual(card.launcher_design,'raw')
+                    page.design_page.opacity_controls['tile_opacity'][0].setValue(12)
+                    page.set_surface('group_image','backgrounds/custom.gif')
+                    self.assertEqual(page.surfaces['raw']['tile_opacity'],12)
+                    self.assertEqual(page.surfaces['modern']['tile_opacity'],100)
+                    page.save_mode();self.assertFalse(page.dirty)
+                    page.design.setCurrentIndex(page.design.findData('raw'))
+                    page.launcher_style.setCurrentIndex(page.launcher_style.findData('modern'))
+                    self.assertEqual(page.design_page.surface_preview.design,'modern')
+                    page.reset_surfaces()
+                    self.assertEqual(page.surfaces['raw']['group_image'],'backgrounds/custom.gif')
+                    page.save_mode();self.assertFalse(page.dirty)
+                    reopened=app.ThemePage(lambda fn,done,failed:done(fn()))
+                    try:
+                        reopened.refresh()
+                        self.assertEqual(reopened.design.currentData(),'raw')
+                        self.assertEqual(reopened.launcher_style.currentData(),'modern')
+                        self.assertFalse(reopened.dirty)
+                    finally:reopened.deleteLater()
+                    page.launcher_style.setCurrentIndex(page.launcher_style.findData('follow'))
+                    self.assertEqual(page.design_page.surface_preview.design,'raw')
+                    for name,card in page.design_page.cards.items():self.assertEqual(card.launcher_design,name)
+                    page.design.setCurrentIndex(page.design.findData('modern'))
+                    self.assertEqual(page.design_page.surface_preview.design,'modern')
+                finally:page.deleteLater();QT.sendPostedEvents(None,QEvent.Type.DeferredDelete)
+
     def test_surfaces_remember_separate_drafts_and_saved_images_for_each_design(self):
         from PIL import Image
         with tempfile.TemporaryDirectory() as directory:
@@ -26,10 +69,10 @@ class DesignTests(unittest.TestCase):
             state.write_text(json.dumps({'design':'modern','mode':'dark','avatar':'auto'}))
             Image.new('RGB',(20,10),'red').save(gif,save_all=True,
                 append_images=[Image.new('RGB',(20,10),'blue')],duration=80,loop=0)
-            def save(mode,token,design,avatar,enabled,background,surfaces):
+            def save(mode,token,design,avatar,enabled,background,surfaces,launcher_style):
                 surfaces['raw']['group_image']='backgrounds/saved.gif'
                 state.write_text(json.dumps({'design':design,'mode':mode,'avatar':avatar,'launcher_wallpaper':enabled,
-                    'launcher_background':background,'launcher_surfaces':surfaces}))
+                    'launcher_background':background,'launcher_surfaces':surfaces,'launcher_style':launcher_style}))
                 return 'new-token'
             with patch.object(runtime,'STATE',state),patch.object(theme_page.backend,'theme_token',return_value='token'),patch.object(theme_page.backend,'apply_mode',side_effect=save):
                 page=app.ThemePage(lambda fn,done,failed:done(fn()))
@@ -66,8 +109,8 @@ class DesignTests(unittest.TestCase):
             state.write_text(json.dumps({'design':'modern','mode':'dark','avatar':'auto','launcher_wallpaper':False}))
             chosen=str(Path(directory)/'my-background.png');saved='backgrounds/saved-copy.png'
             def run(fn,done,failed):done(fn())
-            def save(mode,token,design,avatar,enabled,background,surfaces):
-                state.write_text(json.dumps({'design':design,'mode':mode,'avatar':avatar,'launcher_wallpaper':enabled,'launcher_background':saved,'launcher_surfaces':surfaces}))
+            def save(mode,token,design,avatar,enabled,background,surfaces,launcher_style):
+                state.write_text(json.dumps({'design':design,'mode':mode,'avatar':avatar,'launcher_wallpaper':enabled,'launcher_background':saved,'launcher_surfaces':surfaces,'launcher_style':launcher_style}))
                 return 'new-token'
             with patch.object(runtime,'STATE',state),patch.object(theme_page.backend,'theme_token',return_value='token'),patch.object(theme_page.backend,'apply_mode',side_effect=save) as apply:
                 page=app.ThemePage(run)
@@ -78,7 +121,7 @@ class DesignTests(unittest.TestCase):
                     self.assertEqual(page.avatar,'auto')
                     page.design.setCurrentIndex(page.design.findData('raw'))
                     self.assertTrue(page.dirty);page.save_mode()
-                    apply.assert_called_once_with('dark','token','raw','auto',True,chosen,runtime.launcher_surfaces())
+                    apply.assert_called_once_with('dark','token','raw','auto',True,chosen,runtime.launcher_surfaces(),'follow')
                     self.assertEqual(page.background,saved)
                     self.assertFalse(page.dirty)
                     page.set_background('')

@@ -2,6 +2,7 @@
   "version": 2,
   "mode": "dark",
   "design": "modern",
+  "launcher_style": "follow",
   "avatar": "assets/account.gif",
   "launcher_wallpaper": true,
   "launcher_background": ""

@@ -38,6 +38,10 @@ The hover-kill tests cover a pointer target different from keyboard focus, empty
 
 A disposable Qt window in an unopened special workspace also verified the real compositor signal path. It ignored a normal close, survived the helper's dry-run, and was removed by the force-kill helper. That check supplied a synthetic pointer over the disposable window; it did not target existing applications.
 
+Independent Start menu styles: **339 desktop checks and 15 installer checks passed**. Coverage includes both mixed combinations, the default following the desktop, persisted choices, per-menu transparency and artwork drafts, unchanged favorite positions, transaction rollback and invalid settings. The theme illustrations and both menu layouts were rendered and inspected. Both native Qt plugins rebuilt successfully; the palette regression was also run with the compiled Qt 6 plugin to verify that its live watcher respects the menu’s process-local style in Dark, Light and High contrast modes.
+
+Immediate search focus adds three regressions: the first keystroke reaches search in either menu style, immediate Down-arrow navigation retains focus, and showing the menu again restores search focus. These reproduced the initial sidebar focus and delayed focus theft before the fix.
+
 ## Native build and configuration validation
 
 Two complete `--prepare` builds succeeded: one with no compositor connection, exercising the automatic display fallback, and one reading the original desktop's three connected displays. Each built these components from the copied repository source:
@@ -66,6 +70,8 @@ The bundled wallpaper's SHA-256 matches the original desktop image byte for byte
 python3 -m unittest discover -s tests -v
 ./tests/run-desktop-tests.sh
 ./x_hyperinstall.sh --skip-packages --prepare /tmp/xetal-build-check
+# Exercise the live Qt palette watcher with the freshly built plugin as well.
+(cd config/hypr/theme && XETAL_TEST_PLUGIN_PATH=/tmp/xetal-build-check/theme/qt6 QT_QPA_PLATFORM=offscreen python3 -m unittest test_theme -v)
 ```
 
 Use a new destination for each prepare run. These checks cover packaging, native compilation and automated behavior; they are not a full login test on every distribution or GPU. Fedora and Debian/Ubuntu dependency recipes are included but have not been executed here. Their package versions must still pass the same checks before installation.

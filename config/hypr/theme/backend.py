@@ -273,11 +273,15 @@ def prepare_group_image(choice):
     return 'backgrounds/group-'+hashlib.sha256(data).hexdigest()[:24]+'.'+extension,data
 
 
-def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,launcher_background=None,launcher_surfaces=None):
+def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,launcher_background=None,launcher_surfaces=None,launcher_style=None):
     if value not in runtime.MODES: raise ValueError('Choose an available theme.')
     design=design or runtime.design()
     if design not in runtime.DESIGNS:raise ValueError('Choose Xetal Raw or Xetal Modern.')
     previous=runtime.state()
+    launcher_style=runtime.launcher_style() if launcher_style is None else launcher_style
+    if not isinstance(launcher_style,str) or launcher_style not in runtime.LAUNCHER_STYLES:
+        raise ValueError('Choose Follow desktop theme, Xetal Raw or Xetal Modern for the Start menu.')
+    menu_design=design if launcher_style=='follow' else launcher_style
     launcher_wallpaper=previous.get('launcher_wallpaper',False) if launcher_wallpaper is None else launcher_wallpaper
     if not isinstance(launcher_wallpaper,bool):raise ValueError('Choose whether to use a wallpaper behind Apps.')
     launcher_background=previous.get('launcher_background','') if launcher_background is None else launcher_background
@@ -292,7 +296,7 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     group_files={}
     for style,options in surfaces.items():
         choice=options['group_image']
-        if choice and (choice!=old_surfaces[style]['group_image'] or (style==design and options['group_opacity']>0)):
+        if choice and (choice!=old_surfaces[style]['group_image'] or (style==menu_design and options['group_opacity']>0)):
             options['group_image'],data=prepare_group_image(choice)
             group_files[runtime.ROOT/options['group_image']]=data
     avatar=previous.get('avatar','auto') if avatar is None else avatar
@@ -334,7 +338,7 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     if design=='modern':bar+=designs.waybar_style(colors)
     files={runtime.ROOT/launcher_background:background_data} if background_data is not None else {}
     files.update(group_files)
-    files.update({runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,'avatar':avatar,'launcher_wallpaper':launcher_wallpaper,'launcher_background':launcher_background,'launcher_surfaces':surfaces},indent=2)+'\n').encode(),
+    files.update({runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,'launcher_style':launcher_style,'avatar':avatar,'launcher_wallpaper':launcher_wallpaper,'launcher_background':launcher_background,'launcher_surfaces':surfaces},indent=2)+'\n').encode(),
            runtime.ROOT/'current.colors':scheme.encode(),runtime.ROOT/'kitty-colors.conf':kitty_colors(value,design).encode(),
            isolated:(stream.getvalue().rstrip()+'\n').encode(),
            ROOT/'waybar/style.css':bar.encode(),

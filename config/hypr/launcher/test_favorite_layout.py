@@ -191,6 +191,24 @@ class BoardTests(unittest.TestCase):
             self.menu.show();QTest.qWait(90)
             self.assertEqual(board.strip_image.movie.state(),QMovie.MovieState.Running)
 
+    def test_menu_mixes_both_styles_without_rearranging_favorites(self):
+        state=self.root/'theme.json';before=copy.deepcopy(self.menu.favorites_board.data)
+        for desktop,style in (('modern','raw'),('raw','modern'),('raw','follow'),('modern','follow')):
+            state.write_text(json.dumps({'design':desktop,'launcher_style':style,'mode':'dark',
+                'launcher_surfaces':{'raw':{'tile_opacity':12},'modern':{'tile_opacity':75}}}))
+            with self.subTest(desktop=desktop,style=style),patch.object(app.theme_runtime,'STATE',state):
+                self.menu.apply_design();QT.processEvents()
+                expected=desktop if style=='follow' else style
+                board=self.menu.favorites_board
+                self.assertEqual(board.design_name,expected)
+                self.assertEqual(board.colors,app.theme_runtime.colors('dark',expected))
+                self.assertEqual(board.surfaces['tile_opacity'],12 if expected=='raw' else 75)
+                self.assertEqual(self.menu.raw_header.isHidden(),expected!='raw')
+                self.assertEqual(self.menu.profile.isHidden(),expected!='modern')
+                self.assertEqual(self.menu.profile.detail.text(),app.theme_runtime.DESIGNS[expected])
+                self.assertEqual(board.data,before)
+                self.assertEqual(app.theme_runtime.design(),desktop)
+
     def add_group(self, title='Tools', column=1):
         item = layout.group(title, column)
         self.menu.change_layout(lambda data: data['groups'].append(item))

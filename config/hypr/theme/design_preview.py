@@ -32,9 +32,10 @@ class DesktopPreview:
         target=QRectF(0,0,image.width()*scale,image.height()*scale);target.moveCenter(box.center())
         p.drawPixmap(target,image,QRectF(image.rect()));p.restore()
 
-    def paint(self,p,box,design,mode,surfaces=None,group_image=None):
+    def paint(self,p,box,design,mode,surfaces=None,group_image=None,launcher_design=None):
         modern=design=='modern';colors=runtime.colors(mode,design)
-        surfaces=surfaces or DEFAULTS[design]
+        launcher_design=launcher_design or design
+        surfaces=surfaces or DEFAULTS[launcher_design]
         p.save();clip=QPainterPath();clip.addRoundedRect(box,10,10);p.setClipPath(clip)
         p.translate(box.topLeft());p.scale(box.width()/720,box.height()/240)
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
@@ -57,6 +58,7 @@ class DesktopPreview:
         text(575,2,140,18,'♪   ◉   100%    21:10',7)
 
         # Launcher: profile, navigation, group title and real application icons.
+        modern=launcher_design=='modern';colors=runtime.colors(mode,launcher_design)
         panel(14,37,389,190,'Window',13 if modern else 5,'Midlight')
         if self.show_background and not self.background.isNull():
             menu=QRectF(14,37,389,190);radius=13 if modern else 5
@@ -65,7 +67,7 @@ class DesktopPreview:
             p.setPen(QPen(QColor(colors['Midlight']),1));p.setBrush(shade);p.drawRoundedRect(menu,radius,radius)
         self.picture(p,self.avatar,QRectF(27,49,32,32),circle=True)
         text(66,49,98,17,'xetal' if modern else 'XETAL',10,'Text',True)
-        text(66,65,100,14,runtime.DESIGNS[design],7,'PlaceholderText')
+        text(66,65,100,14,runtime.DESIGNS[launcher_design],7,'PlaceholderText')
         for row,title in enumerate(('Favorites','All apps','Development','Media','Files')):
             y=94+row*23
             if row==0:panel(24,y,96,20,'Highlight',6 if modern else 2)
@@ -73,15 +75,16 @@ class DesktopPreview:
         text(137,45,200,22,'Favorites',11,'Text',True)
         panel(137,75,251,22,'Base',8 if modern else 3,'Midlight')
         text(146,75,240,22,'Search apps, tools, and favorites…',7,'PlaceholderText')
-        paint_group(p,QRectF(137,105,251,19),colors,design,surfaces['group_opacity'],group_image)
+        paint_group(p,QRectF(137,105,251,19),colors,launcher_design,surfaces['group_opacity'],group_image)
         text(143,105,240,19,'Xetal Engine                                      ⋯',8,'Text',True)
         for i,icon in enumerate(self.icons):
             x=139+(i%3)*84;y=131+(i//3)*43
-            paint_tile(p,QRectF(x,y,79,39),colors,design,mode,surfaces['tile_opacity'],radius=9 if modern else 3)
+            paint_tile(p,QRectF(x,y,79,39),colors,launcher_design,mode,surfaces['tile_opacity'],radius=9 if modern else 3)
             if not icon.isNull():p.drawPixmap(QRectF(x+29,y+4,21,21),icon,QRectF(icon.rect()))
             text(x+6,y+25,72,12,('Files','Browser','Terminal','Music','Settings','Calculator')[i],6)
 
         # The Control desk changes from Raw tabs to the Modern navigation rail.
+        modern=design=='modern';colors=runtime.colors(mode,design)
         panel(420,52,284,166,'Window',13 if modern else 5,'Midlight')
         if modern:
             panel(429,61,27,147,'AlternateBase',10)

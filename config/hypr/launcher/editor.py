@@ -52,7 +52,7 @@ class IconPicker(QDialog):
     def __init__(self, current, parent=None):
         super().__init__(parent)
         self.setWindowTitle('Choose shortcut icon')
-        self.setStyleSheet(shortcuts.theme_runtime.stylesheet(DIALOG_STYLE))
+        self.setStyleSheet(shortcuts.theme_runtime.stylesheet(DIALOG_STYLE,style=shortcuts.theme_runtime.launcher_design()))
         self.resize(710, 570)
         self.value = current
         layout = QVBoxLayout(self)
@@ -113,7 +113,7 @@ class ShortcutEditor(QDialog):
         super().__init__(parent)
         self.entry, self.duplicate = entry, duplicate
         self.setWindowTitle('New favorite shortcut' if duplicate or entry is None else 'Properties')
-        self.setStyleSheet(shortcuts.theme_runtime.stylesheet(DIALOG_STYLE))
+        self.setStyleSheet(shortcuts.theme_runtime.stylesheet(DIALOG_STYLE,style=shortcuts.theme_runtime.launcher_design()))
         self.resize(730, 670)
         self.fields = dict(entry.fields) if entry else {
             'name': '', 'command': '', 'icon': 'application-x-executable', 'directory': '',

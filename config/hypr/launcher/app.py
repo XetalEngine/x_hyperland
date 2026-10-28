@@ -126,7 +126,7 @@ class Tiles(QStyledItemDelegate):
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         box = QRectF(rect.adjusted(5, 4, -5, -4))
-        style=theme_runtime.design();modern=style=='modern';colors=theme_runtime.colors()
+        style=theme_runtime.launcher_design();modern=style=='modern';colors=theme_runtime.colors(style=style)
         paint_tile(painter,box,colors,style,theme_runtime.mode(),theme_runtime.launcher_surfaces()[style]['tile_opacity'],selected,opacity)
         if small:
             size = 27 + round(opacity * 2)
@@ -135,7 +135,7 @@ class Tiles(QStyledItemDelegate):
             return
         size = 38 + round(opacity * 3)
         icon.paint(painter, int(box.center().x() - size / 2), int(box.top() + 9 - opacity * 2), size, size)
-        painter.setPen(QColor(theme_runtime.colors()['Text']))
+        painter.setPen(QColor(colors['Text']))
         painter.setFont(QFont('Noto Sans', 9))
         text_box = QRectF(box.left() + 7, box.top() + 51, box.width() - 14, 31)
         if len(name) > 30:
@@ -204,14 +204,14 @@ class Menu(QWidget):
         sidebar.setContentsMargins(0, 0, 0, 0)
         sidebar.setSpacing(6)
         self.raw_header=QWidget();raw_row=QHBoxLayout(self.raw_header);raw_row.setContentsMargins(0,0,0,0);raw_row.setSpacing(10)
-        self.raw_avatar=Avatar(50);raw_row.addWidget(self.raw_avatar)
+        self.raw_avatar=Avatar(50,design=theme_runtime.launcher_design);raw_row.addWidget(self.raw_avatar)
         self.raw_avatar.clicked.connect(lambda:self.run_command([catalog.ROOT/'scripts/control-center.sh','--tab','theme']))
         raw_titles=QVBoxLayout();raw_titles.setSpacing(5)
         self.raw_brand=label('XETAL', 'brand');self.raw_brand.setStyleSheet('font-size:19px; letter-spacing:3px;');raw_titles.addWidget(self.raw_brand)
         self.raw_eyebrow=label('YOUR WORKSPACE', 'eyebrow');self.raw_eyebrow.setStyleSheet('font-size:8px; letter-spacing:1px;');raw_titles.addWidget(self.raw_eyebrow)
         raw_row.addLayout(raw_titles,1);sidebar.addWidget(self.raw_header)
-        self.profile=ProfileCard(compact=True,backdrop=False);self.profile.setMaximumHeight(145);sidebar.addWidget(self.profile)
-        self.profile.avatar.clicked.connect(lambda:self.run_command([catalog.ROOT/'scripts/control-center.sh','--tab','home']))
+        self.profile=ProfileCard(compact=True,backdrop=False,design=theme_runtime.launcher_design);self.profile.setMaximumHeight(145);sidebar.addWidget(self.profile)
+        self.profile.avatar.clicked.connect(lambda:self.run_command([catalog.ROOT/'scripts/control-center.sh','--tab','home' if theme_runtime.design()=='modern' else 'theme']))
         sidebar.addSpacing(24)
         self.sidebar_scroll = QScrollArea()
         self.sidebar_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
@@ -332,10 +332,10 @@ class Menu(QWidget):
         self.apply_design()
         if hasattr(QApplication.instance(),'hypr_theme'):QApplication.instance().hypr_theme.changed.connect(self.apply_design)
         QApplication.instance().aboutToQuit.connect(self.deleteLater)
-        QTimer.singleShot(100, self.search.setFocus)
+        self.setFocusProxy(self.search)
 
     def apply_design(self):
-        modern=theme_runtime.design()=='modern'
+        modern=theme_runtime.launcher_design()=='modern'
         self.profile.setVisible(modern);self.profile.refresh()
         self.raw_header.setVisible(not modern);self.raw_avatar.refresh()
         for widget in (self.raw_brand,self.raw_eyebrow,self.raw_account,self.raw_session):widget.setVisible(not modern)
@@ -348,20 +348,21 @@ class Menu(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        style=theme_runtime.launcher_design();colors=theme_runtime.colors(style=style)
         if getattr(self,'backdrop_image',None) and not self.backdrop_image.isNull():
             box=QRectF(self.rect()).adjusted(.5,.5,-.5,-.5)
-            path=QPainterPath();path.addRoundedRect(box,20 if theme_runtime.design()=='modern' else 17,20 if theme_runtime.design()=='modern' else 17)
+            path=QPainterPath();path.addRoundedRect(box,20 if style=='modern' else 17,20 if style=='modern' else 17)
             painter.save();painter.setClipPath(path);painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-            painter.fillRect(box,QColor(theme_runtime.colors()['Window']))
+            painter.fillRect(box,QColor(colors['Window']))
             picture=self.backdrop_image;scale=max(box.width()/picture.width(),box.height()/picture.height())
             target=QRectF(0,0,picture.width()*scale,picture.height()*scale);target.moveCenter(box.center())
             painter.drawPixmap(target,picture,QRectF(picture.rect()))
-            shade=QColor(theme_runtime.colors()['Window']);shade.setAlpha(236 if theme_runtime.mode()=='light' else 242 if theme_runtime.mode()=='contrast' else 210)
+            shade=QColor(colors['Window']);shade.setAlpha(236 if theme_runtime.mode()=='light' else 242 if theme_runtime.mode()=='contrast' else 210)
             painter.fillRect(box,shade);painter.restore()
-            painter.setBrush(Qt.BrushStyle.NoBrush);painter.setPen(QPen(QColor(theme_runtime.colors()['Midlight']),1));painter.drawPath(path)
+            painter.setBrush(Qt.BrushStyle.NoBrush);painter.setPen(QPen(QColor(colors['Midlight']),1));painter.drawPath(path)
             return
-        if theme_runtime.design()=='modern':
-            colors=theme_runtime.colors();painter.setBrush(QColor(colors['Window']));painter.setPen(QPen(QColor(colors['Midlight']),1))
+        if style=='modern':
+            painter.setBrush(QColor(colors['Window']));painter.setPen(QPen(QColor(colors['Midlight']),1))
             painter.drawRoundedRect(QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),20,20)
             return
         gradient = QLinearGradient(0, 0, self.width(), self.height())
@@ -387,6 +388,9 @@ class Menu(QWidget):
         self.update()
 
     def showEvent(self,event):
+        # Choose the keyboard target before the first visible frame. A delayed
+        # focus call drops early typing and can steal focus back from the tiles.
+        self.search.setFocus(Qt.FocusReason.ActiveWindowFocusReason)
         super().showEvent(event)
         if not getattr(self,'backdrop_screen_connected',False) and self.windowHandle():
             self.windowHandle().screenChanged.connect(self.refresh_backdrop);self.backdrop_screen_connected=True
@@ -931,7 +935,7 @@ def main():
     app = QApplication(sys.argv[:1])
     app.setApplicationName('xetal-launcher')
     app.setDesktopFileName('xetal-launcher')
-    theme_runtime.install(app, STYLE)
+    theme_runtime.install(app, STYLE, style=theme_runtime.launcher_design)
     QIcon.setThemeSearchPaths([str(Path.home()/'.local/share/icons'), '/usr/share/icons'])
     QIcon.setFallbackThemeName('hicolor')
     QIcon.setThemeName('Papirus-Light' if theme_runtime.mode() == 'light' else 'Papirus-Dark')

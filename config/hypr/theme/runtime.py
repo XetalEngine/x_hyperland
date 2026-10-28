@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parent
 STATE = ROOT/'state.json'
 MODES = {'dark':'Dark', 'light':'Light', 'contrast':'High contrast'}
 DESIGNS = designs.DESIGNS
+LAUNCHER_STYLES = {'follow':'Follow desktop theme', **DESIGNS}
 
 
 def state():
@@ -22,6 +23,16 @@ def state():
 def design():
     value=state().get('design','raw')
     return value if value in DESIGNS else 'raw'
+
+
+def launcher_style():
+    value=state().get('launcher_style','follow')
+    return value if isinstance(value,str) and value in LAUNCHER_STYLES else 'follow'
+
+
+def launcher_design():
+    value=launcher_style()
+    return design() if value=='follow' else value
 
 
 def launcher_wallpaper():
@@ -103,9 +114,9 @@ def qcolor(*args):
     return color
 
 
-def palette(value=None):
+def palette(value=None,style=None):
     from PyQt6.QtGui import QPalette,QColor
-    data = colors(value); result = QPalette(QColor(data['Window']))
+    data = colors(value,style); result = QPalette(QColor(data['Window']))
     for name,color in data.items():
         role = getattr(QPalette.ColorRole,name,None)
         if role is not None: result.setColor(QPalette.ColorGroup.All,role,QColor(color))
@@ -125,7 +136,7 @@ def style_calendar(widget):
         widget.setWeekdayTextFormat(day,style)
 
 
-def install(app, source=''):
+def install(app, source='', *, style=None):
     from PyQt6.QtCore import QFileSystemWatcher,QObject,pyqtSignal,QTimer,QSettings
     from PyQt6.QtGui import QIcon
     from PyQt6.QtWidgets import QCalendarWidget
@@ -137,7 +148,11 @@ def install(app, source=''):
             super().__init__(app); self.watcher=QFileSystemWatcher([str(ROOT)],self)
             self.watcher.directoryChanged.connect(self.apply); self.apply()
         def apply(self,*_):
-            app.setPalette(palette()); app.setStyleSheet(stylesheet(source))
+            selected=style() if callable(style) else style
+            # The native palette watcher must respect this process's menu style.
+            # An application property is not inherited by programs we launch.
+            app.setProperty('xetalThemeDesign',selected)
+            app.setPalette(palette(style=selected)); app.setStyleSheet(stylesheet(source,style=selected))
             QIcon.setThemeSearchPaths([str(Path.home()/'.local/share/icons'),'/usr/share/icons'])
             QIcon.setFallbackThemeName('hicolor'); QIcon.setThemeName('Papirus-Light' if mode()=='light' else 'Papirus-Dark')
             for widget in app.allWidgets():

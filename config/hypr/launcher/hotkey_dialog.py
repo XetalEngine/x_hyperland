@@ -43,7 +43,7 @@ QComboBox { background: #0d1622; color: #e2edf9; border: 1px solid #344b62; bord
 QComboBox QAbstractItemView { background: #14202f; selection-background-color: #315768; }
 QLabel#hotkeyPreview { color: #80e2d8; background: #182b38; border: 1px solid #315768; border-radius: 10px; font-size: 23px; font-weight: 600; padding: 17px; }
 QPushButton:disabled { color: #71859b; background: #202b39; }
-'''))
+''',style=shortcuts.theme_runtime.launcher_design()))
         layout=QVBoxLayout(self);layout.setContentsMargins(24,22,24,22);layout.setSpacing(14)
         heading=QHBoxLayout();icon=QLabel();icon.setPixmap(image_icon(entry.fields['icon']).pixmap(48,48));heading.addWidget(icon)
         titles=QVBoxLayout();name=QLabel(entry.get_display_name());name.setTextFormat(Qt.TextFormat.PlainText)

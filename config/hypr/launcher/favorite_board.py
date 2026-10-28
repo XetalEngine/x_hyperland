@@ -274,8 +274,8 @@ class Board(QScrollArea):
         self.refresh_surfaces()
 
     def refresh_surfaces(self):
-        self.design_name = theme_runtime.design()
-        self.colors = theme_runtime.colors()
+        self.design_name = theme_runtime.launcher_design()
+        self.colors = theme_runtime.colors(style=self.design_name)
         self.surfaces = theme_runtime.launcher_surfaces()[self.design_name]
         self.strip_image.load(self.surfaces['group_image'])
         self.strip_image.set_enabled(bool(self.headers) and self.surfaces['group_opacity'] > 0)

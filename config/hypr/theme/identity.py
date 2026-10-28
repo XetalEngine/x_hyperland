@@ -54,8 +54,9 @@ def launcher_background_path(connector=None,choice=None):
 class Avatar(QWidget):
     clicked = pyqtSignal()
 
-    def __init__(self, size=64, parent=None):
+    def __init__(self, size=64, parent=None, design=None):
         super().__init__(parent)
+        self.design=design or runtime.design
         self.setFixedSize(size, size)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.movie = None; self.picture = QPixmap(); self.path = None
@@ -97,7 +98,8 @@ class Avatar(QWidget):
         box = QRectF(self.rect()).adjusted(2, 2, -2, -2)
         path = QPainterPath(); path.addEllipse(box)
         painter.setClipPath(path)
-        painter.fillRect(box, QColor(runtime.colors()['Button']))
+        colors=runtime.colors(style=self.design())
+        painter.fillRect(box, QColor(colors['Button']))
         image = self.movie.currentPixmap() if self.movie else self.picture
         if not image.isNull():
             side = min(image.width(), image.height())
@@ -107,7 +109,7 @@ class Avatar(QWidget):
             painter.setPen(QColor(runtime.colors()['Text']))
             painter.drawText(box, Qt.AlignmentFlag.AlignCenter, getpass.getuser()[:1].upper())
         painter.setClipping(False); painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.setPen(QPen(QColor(runtime.colors()['Accent']), 2)); painter.drawEllipse(box)
+        painter.setPen(QPen(QColor(colors['Accent']), 2)); painter.drawEllipse(box)
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(event.position().toPoint()):
@@ -116,19 +118,20 @@ class Avatar(QWidget):
 
 
 class ProfileCard(QWidget):
-    def __init__(self, compact=False, parent=None, backdrop=True):
+    def __init__(self, compact=False, parent=None, backdrop=True, design=None):
         super().__init__(parent)
+        self.design=design or runtime.design
         self.compact = compact; self.backdrop=backdrop; self.background = QPixmap(); self.background_path = None
         self.setMinimumHeight(100 if compact else 190)
         layout = QVBoxLayout(self) if compact else QHBoxLayout(self)
         layout.setContentsMargins(14 if compact else 26, 14, 14 if compact else 26, 14)
         layout.setSpacing(8 if compact else 22)
-        self.avatar = Avatar(54 if compact else 98, self)
+        self.avatar = Avatar(54 if compact else 98, self, design=self.design)
         layout.addWidget(self.avatar, 0, Qt.AlignmentFlag.AlignLeft if compact else Qt.AlignmentFlag.AlignVCenter)
         text = QVBoxLayout(); text.setSpacing(4)
         self.name = QLabel(getpass.getuser()); self.name.setTextFormat(Qt.TextFormat.PlainText)
         text.addWidget(self.name)
-        detail = self.detail = QLabel(runtime.DESIGNS[runtime.design()] if compact else getpass.getuser()+'@'+socket.gethostname())
+        detail = self.detail = QLabel(runtime.DESIGNS[self.design()] if compact else getpass.getuser()+'@'+socket.gethostname())
         detail.setTextFormat(Qt.TextFormat.PlainText); detail.setWordWrap(True)
         text.addWidget(detail)
         if not compact:
@@ -140,10 +143,10 @@ class ProfileCard(QWidget):
 
     def refresh(self):
         self.avatar.refresh()
-        colors=runtime.colors()
+        colors=runtime.colors(style=self.design())
         self.name.setStyleSheet('background:transparent; color:'+('#e5eff9' if self.backdrop else colors['WindowText'])+'; font-size:'+('15' if self.compact else '23')+'px; font-weight:700;')
         self.detail.setStyleSheet('background:transparent; color:'+('#b2cee4' if self.backdrop else colors['PlaceholderText'])+'; font-size:12px;')
-        if self.compact:self.detail.setText(runtime.DESIGNS[runtime.design()])
+        if self.compact:self.detail.setText(runtime.DESIGNS[self.design()])
         path = wallpaper_path() if self.backdrop else None
         if path != self.background_path:
             self.background_path = path

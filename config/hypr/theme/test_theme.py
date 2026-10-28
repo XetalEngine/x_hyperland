@@ -2,6 +2,8 @@ import copy
 import json
 import os
 import signal
+import subprocess
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -50,6 +52,60 @@ class WallpaperTests(unittest.TestCase):
 
 
 class PaletteTests(unittest.TestCase):
+    def test_running_menu_updates_its_palette_and_styles_without_overriding_desktop(self):
+        script='''
+import json,os,sys
+from pathlib import Path
+from PyQt6.QtGui import QPalette
+from PyQt6.QtTest import QTest,QSignalSpy
+from PyQt6.QtWidgets import QApplication
+import runtime
+root=Path(sys.argv[1]);(root/'palettes.json').write_bytes((runtime.ROOT/'palettes.json').read_bytes())
+runtime.ROOT=root;runtime.STATE=root/'state.json'
+runtime.STATE.write_text(json.dumps({'design':'modern','mode':'dark','launcher_style':'raw'}))
+app=QApplication([])
+source='QWidget {background:#171b22; color:#ffffff;}'
+theme=runtime.install(app,source,style=runtime.launcher_design)
+QTest.qWait(80)
+assert app.palette().color(QPalette.ColorRole.Window).name()==runtime.colors('dark','raw')['Window']
+base={'HYPRLAND_INSTANCE_SIGNATURE':'test'};environment=runtime.environment(base)
+for mode in runtime.MODES:
+    for desktop,menu in (('modern','raw'),('raw','modern'),('modern','follow')):
+        changes=QSignalSpy(theme.changed)
+        pending=root/'pending.json'
+        pending.write_text(json.dumps({'design':desktop,'mode':mode,'launcher_style':menu}))
+        pending.replace(runtime.STATE)
+        QTest.qWait(80)
+        assert len(changes)>0,'Running menu missed saved settings'
+        expected=desktop if menu=='follow' else menu
+        assert app.palette().color(QPalette.ColorRole.Window).name()==runtime.colors(mode,expected)['Window']
+        assert app.styleSheet()==runtime.stylesheet(source,mode,expected)
+        assert runtime.design()==desktop
+        assert runtime.colors(mode)==runtime.colors(mode,desktop)
+        assert runtime.environment(base)['KDE_COLOR_SCHEME_PATH']==environment['KDE_COLOR_SCHEME_PATH']
+'''
+        native=os.environ.get('XETAL_TEST_PLUGIN_PATH','')
+        for platform in ('','xetal') if native else ('',):
+            with self.subTest(platform=platform),tempfile.TemporaryDirectory() as directory:
+                result=subprocess.run([sys.executable,'-c',script,directory],cwd=Path(__file__).parent,
+                    env={**os.environ,'QT_QPA_PLATFORM':'offscreen','QT_QPA_PLATFORMTHEME':platform,
+                        'QT_PLUGIN_PATH':native,'XETAL_THEME_CONFIG':str(Path(directory)/'state.json'),
+                        'HYPRLAND_INSTANCE_SIGNATURE':'theme-test'},capture_output=True,text=True,timeout=15)
+                self.assertEqual(result.returncode,0,result.stderr)
+
+    def test_start_menu_follows_legacy_settings_or_uses_its_own_style(self):
+        for desktop in runtime.DESIGNS:
+            for setting in (None,'follow','raw','modern','unknown',[],42):
+                with self.subTest(desktop=desktop,setting=setting),patch.object(runtime,'state',return_value={
+                        'design':desktop,'launcher_style':setting}):
+                    expected=setting if setting in ('raw','modern') else desktop
+                    self.assertEqual(runtime.launcher_design(),expected)
+                    self.assertEqual(runtime.design(),desktop)
+                    self.assertEqual(runtime.colors('dark'),runtime.colors('dark',desktop))
+        with patch.object(runtime,'state',return_value={'design':'modern'}):
+            self.assertEqual(runtime.launcher_style(),'follow')
+            self.assertEqual(runtime.launcher_design(),'modern')
+
     def test_folder_handler_paths_are_session_local_and_keep_existing_settings_locations(self):
         base={'XDG_CURRENT_DESKTOP':'KDE','XDG_CONFIG_HOME':'/keep/config','XDG_DATA_HOME':'/keep/data',
               'XDG_CONFIG_DIRS':'/custom/config:/etc/xdg','XDG_DATA_DIRS':'/flatpak/share:/usr/share'}
@@ -168,6 +224,44 @@ class ThemeTransactionTests(unittest.TestCase):
         self.add_raw_profiles()
         with self.assertRaisesRegex(ValueError,'reload failed'):backend.apply_mode('dark',backend.theme_token(),'modern')
         for path,original in self.files.items():self.assertEqual(path.read_bytes(),original,path)
+
+    def test_mixed_menu_style_persists_without_changing_desktop_or_personal_settings(self):
+        self.add_raw_profiles();self.store.save.side_effect=None
+        with patch.object(backend.Path,'iterdir',return_value=iter(())):
+            backend.apply_mode('dark',backend.theme_token(),'modern',launcher_style='raw')
+            self.assertEqual((runtime.design(),runtime.launcher_design()),('modern','raw'))
+            self.assertIn('Xetal Modern',(runtime.ROOT/'current.colors').read_text())
+            saved={p:p.read_bytes() for p in self.files if p!=runtime.STATE}
+            backend.apply_mode('dark',backend.theme_token(),launcher_style='modern')
+            for path,data in saved.items():self.assertEqual(path.read_bytes(),data,path)
+            backend.apply_mode('light',backend.theme_token(),'raw')
+            self.assertEqual((runtime.design(),runtime.launcher_design()),('raw','modern'))
+            backend.apply_mode('light',backend.theme_token(),launcher_style='follow')
+            self.assertEqual(runtime.launcher_style(),'follow')
+            self.assertEqual(runtime.launcher_design(),'raw')
+        for name in ('keybindings.conf','favorites.json'):
+            self.assertEqual((self.root/name).read_bytes(),self.files[self.root/name])
+
+    def test_menu_style_rolls_back_on_failure_and_rejects_invalid_choices(self):
+        with self.assertRaisesRegex(ValueError,'reload failed'):
+            backend.apply_mode('dark',backend.theme_token(),'modern',launcher_style='raw')
+        for path,original in self.files.items():self.assertEqual(path.read_bytes(),original,path)
+        for value in ('unknown',[],True):
+            with self.assertRaisesRegex(ValueError,'Start menu'):
+                backend.apply_mode('dark',backend.theme_token(),launcher_style=value)
+        self.assertEqual(runtime.launcher_style(),'follow')
+
+    def test_group_image_validation_uses_menu_style_in_a_mixed_theme(self):
+        surfaces=runtime.launcher_surfaces()
+        surfaces['raw'].update(group_image='backgrounds/missing.png',group_opacity=50)
+        runtime.STATE.write_text(json.dumps({'design':'modern','mode':'dark','launcher_surfaces':surfaces}))
+        before=runtime.STATE.read_bytes();self.store.save.side_effect=None
+        with self.assertRaises((ValueError,FileNotFoundError)):
+            backend.apply_mode('dark',backend.theme_token(),launcher_style='raw')
+        self.assertEqual(runtime.STATE.read_bytes(),before)
+        with patch.object(backend.Path,'iterdir',return_value=iter(())):
+            backend.apply_mode('dark',backend.theme_token(),launcher_style='modern')
+        self.assertEqual(runtime.launcher_design(),'modern')
 
     def test_wallpaper_option_survives_design_changes_and_can_be_disabled(self):
         self.add_raw_profiles();self.store.save.side_effect=None
