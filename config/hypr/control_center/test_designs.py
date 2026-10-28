@@ -19,14 +19,55 @@ QT=QApplication.instance() or QApplication([])
 
 
 class DesignTests(unittest.TestCase):
+    def test_surfaces_remember_separate_drafts_and_saved_images_for_each_design(self):
+        from PIL import Image
+        with tempfile.TemporaryDirectory() as directory:
+            state=Path(directory)/'theme.json';gif=Path(directory)/'strip.gif'
+            state.write_text(json.dumps({'design':'modern','mode':'dark','avatar':'auto'}))
+            Image.new('RGB',(20,10),'red').save(gif,save_all=True,
+                append_images=[Image.new('RGB',(20,10),'blue')],duration=80,loop=0)
+            def save(mode,token,design,avatar,enabled,background,surfaces):
+                surfaces['raw']['group_image']='backgrounds/saved.gif'
+                state.write_text(json.dumps({'design':design,'mode':mode,'avatar':avatar,'launcher_wallpaper':enabled,
+                    'launcher_background':background,'launcher_surfaces':surfaces}))
+                return 'new-token'
+            with patch.object(runtime,'STATE',state),patch.object(theme_page.backend,'theme_token',return_value='token'),patch.object(theme_page.backend,'apply_mode',side_effect=save):
+                page=app.ThemePage(lambda fn,done,failed:done(fn()))
+                try:
+                    page.refresh();original=page.baseline
+                    page.design_page.opacity_controls['tile_opacity'][0].setValue(30)
+                    page.design_page.opacity_controls['group_opacity'][0].setValue(40)
+                    page.design.setCurrentIndex(page.design.findData('raw'))
+                    self.assertEqual(page.design_page.opacity_controls['group_opacity'][0].value(),0)
+                    with patch.object(theme_page.ImagePicker,'choose',return_value=str(gif)):page.choose_group_image()
+                    self.assertEqual(page.surfaces['raw']['group_opacity'],100)
+                    self.assertIsNotNone(page.design_page.surface_preview.strip_image.movie)
+                    page.set_surface('tile_opacity',0)
+                    page.design.setCurrentIndex(page.design.findData('modern'))
+                    self.assertEqual(page.design_page.opacity_controls['tile_opacity'][1].text(),'30%')
+                    self.assertEqual(page.design_page.surface_preview.options['group_opacity'],40)
+                    self.assertEqual(page.baseline,original)
+                    self.assertTrue(page.dirty)
+                    page.save_mode();self.assertFalse(page.dirty)
+                    self.assertEqual(page.surfaces['raw']['group_image'],'backgrounds/saved.gif')
+                    self.assertEqual(page.surfaces['modern']['tile_opacity'],30)
+                    page.design.setCurrentIndex(page.design.findData('raw'))
+                    page.reset_surfaces()
+                    self.assertEqual(page.surfaces['raw']['group_image'],'')
+                    self.assertEqual(page.surfaces['modern']['tile_opacity'],30)
+                    before=page.choice()
+                    with patch.object(theme_page.ImagePicker,'choose',return_value=''):page.choose_group_image()
+                    self.assertEqual(page.choice(),before)
+                finally:page.deleteLater();QT.sendPostedEvents(None,QEvent.Type.DeferredDelete)
+
     def test_apps_background_picker_keeps_avatar_separate_and_tracks_saved_copy(self):
         with tempfile.TemporaryDirectory() as directory:
             state=Path(directory)/'theme.json'
             state.write_text(json.dumps({'design':'modern','mode':'dark','avatar':'auto','launcher_wallpaper':False}))
             chosen=str(Path(directory)/'my-background.png');saved='backgrounds/saved-copy.png'
             def run(fn,done,failed):done(fn())
-            def save(mode,token,design,avatar,enabled,background):
-                state.write_text(json.dumps({'design':design,'mode':mode,'avatar':avatar,'launcher_wallpaper':enabled,'launcher_background':saved}))
+            def save(mode,token,design,avatar,enabled,background,surfaces):
+                state.write_text(json.dumps({'design':design,'mode':mode,'avatar':avatar,'launcher_wallpaper':enabled,'launcher_background':saved,'launcher_surfaces':surfaces}))
                 return 'new-token'
             with patch.object(runtime,'STATE',state),patch.object(theme_page.backend,'theme_token',return_value='token'),patch.object(theme_page.backend,'apply_mode',side_effect=save) as apply:
                 page=app.ThemePage(run)
@@ -37,7 +78,7 @@ class DesignTests(unittest.TestCase):
                     self.assertEqual(page.avatar,'auto')
                     page.design.setCurrentIndex(page.design.findData('raw'))
                     self.assertTrue(page.dirty);page.save_mode()
-                    apply.assert_called_once_with('dark','token','raw','auto',True,chosen)
+                    apply.assert_called_once_with('dark','token','raw','auto',True,chosen,runtime.launcher_surfaces())
                     self.assertEqual(page.background,saved)
                     self.assertFalse(page.dirty)
                     page.set_background('')
@@ -90,7 +131,7 @@ runtime.STATE=Path(sys.argv[1])
 application=QApplication([])
 runtime.install(application,app.STYLE)
 app.async_run=lambda *args:None
-window=app.Window('home' if runtime.design()=='modern' else 'hotkeys')
+window=app.Window('theme')
 QTimer.singleShot(70,window.hide)
 QTimer.singleShot(100,window.show)
 QTimer.singleShot(200,application.quit)
@@ -99,7 +140,8 @@ sys.exit(application.exec())
         with tempfile.TemporaryDirectory() as directory:
             state=Path(directory)/'state.json'
             for design in ('raw','modern'):
-                state.write_text(json.dumps({'design':design,'mode':'dark','avatar':'assets/account.gif'}))
+                state.write_text(json.dumps({'design':design,'mode':'dark','avatar':'assets/account.gif',
+                    'launcher_surfaces':{name:{'group_image':'assets/account.gif','group_opacity':65} for name in runtime.DESIGNS}}))
                 result=subprocess.run([sys.executable,'-c',script,str(state)],cwd=Path(app.__file__).parent,
                     env={**os.environ,'QT_QPA_PLATFORM':'offscreen','QT_QPA_PLATFORMTHEME':'','GSETTINGS_BACKEND':'memory'},
                     capture_output=True,text=True,timeout=20)

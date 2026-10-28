@@ -7,8 +7,8 @@ import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
 
-from PyQt6.QtCore import Qt, QPoint, QPointF, QEvent
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QMouseEvent, QImage, QPainter
+from PyQt6.QtCore import Qt, QPoint, QPointF, QRect, QEvent
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QMouseEvent, QImage, QPainter, QIcon, QPixmap, QMovie
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication
 
@@ -168,6 +168,28 @@ class BoardTests(unittest.TestCase):
         QT.sendPostedEvents(None, QEvent.Type.DeferredDelete)
         for p in reversed(self.patches):p.stop()
         self.temp.cleanup()
+
+    def test_group_animation_is_shared_and_pauses_with_the_menu(self):
+        from PIL import Image
+        gif=self.root/'strip.gif'
+        Image.new('RGB',(32,16),'red').save(gif,save_all=True,
+            append_images=[Image.new('RGB',(32,16),'blue')],duration=60,loop=0)
+        state=self.root/'theme.json'
+        state.write_text(json.dumps({'design':'modern','mode':'dark','launcher_surfaces':{
+            'modern':{'group_opacity':60,'group_image':str(gif)}}}))
+        self.add_group('Another group')
+        with patch.object(app.theme_runtime,'STATE',state):
+            self.menu.apply_design();QTest.qWait(90)
+            board=self.menu.favorites_board
+            self.assertEqual(len(board.findChildren(QMovie)),1)
+            self.assertEqual(board.strip_image.movie.state(),QMovie.MovieState.Running)
+            for ident,header in board.headers.items():
+                self.assertIs(board.menus[ident].parentWidget(),header)
+                self.assertEqual(header.width(),layout.COLUMN_WIDTH)
+            self.menu.hide();QTest.qWait(90)
+            self.assertEqual(board.strip_image.movie.state(),QMovie.MovieState.Paused)
+            self.menu.show();QTest.qWait(90)
+            self.assertEqual(board.strip_image.movie.state(),QMovie.MovieState.Running)
 
     def add_group(self, title='Tools', column=1):
         item = layout.group(title, column)
@@ -341,6 +363,27 @@ class BoardTests(unittest.TestCase):
             self.menu.close_if_outside()
             close.assert_called_once_with()
         self.menu.preview = True
+
+
+class TileSurfaceTests(unittest.TestCase):
+    def test_transparent_cards_keep_their_icons_and_labels_opaque(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state=Path(directory)/'theme.json'
+            picture=QPixmap(48,48);picture.fill(Qt.GlobalColor.red);icon=QIcon(picture)
+            with patch.object(app.theme_runtime,'STATE',state):
+                for design in ('raw','modern'):
+                    for opacity in (0,100):
+                        state.write_text(json.dumps({'design':design,'mode':'dark',
+                            'launcher_surfaces':{design:{'tile_opacity':opacity}}}))
+                        canvas=QImage(142,114,QImage.Format.Format_ARGB32_Premultiplied);canvas.fill(0)
+                        painter=QPainter(canvas)
+                        app.Tiles.draw(painter,QRect(0,0,142,114),icon,'Example',[])
+                        painter.end()
+                        self.assertEqual(canvas.pixelColor(71,30).name(),'#ff0000')
+                        self.assertEqual(canvas.pixelColor(71,30).alpha(),255)
+                        self.assertEqual(canvas.pixelColor(20,45).alpha(),255 if opacity else 0)
+                        if not opacity:
+                            self.assertGreater(max(canvas.pixelColor(x,y).alpha() for x in range(20,120) for y in range(55,75)),240)
 
 
 if __name__ == '__main__':unittest.main()

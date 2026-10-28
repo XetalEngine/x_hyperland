@@ -240,6 +240,67 @@ class ThemeTransactionTests(unittest.TestCase):
         self.store.save.assert_not_called()
         self.assertEqual((self.root/'hyprlock.conf').read_text(),'user edited lock\n')
 
+    def test_strip_gif_and_per_design_opacity_survive_source_move_and_theme_switch(self):
+        self.add_raw_profiles();self.store.save.side_effect=None
+        source=self.root/'strip.gif'
+        Image.new('RGB',(32,16),'red').save(source,save_all=True,
+            append_images=[Image.new('RGB',(32,16),'blue')],duration=[60,140],loop=0)
+        original=source.read_bytes();surfaces=runtime.launcher_surfaces()
+        surfaces['raw'].update(tile_opacity=0,group_opacity=20,group_image=str(source))
+        surfaces['modern'].update(tile_opacity=35,group_opacity=75,group_image=str(source))
+        with patch.object(backend.Path,'iterdir',return_value=iter(())):
+            backend.apply_mode('dark',backend.theme_token(),'modern',launcher_surfaces=surfaces)
+            saved=runtime.launcher_surfaces();image=runtime.ROOT/saved['modern']['group_image']
+            self.assertEqual(image.read_bytes(),original)
+            self.assertEqual(image.stat().st_mode&0o777,0o600)
+            self.assertFalse(Path(saved['raw']['group_image']).is_absolute())
+            with Image.open(image) as gif:
+                self.assertEqual(gif.n_frames,2);self.assertEqual(gif.info['loop'],0)
+                self.assertEqual(gif.info['duration'],60);gif.seek(1);self.assertEqual(gif.info['duration'],140)
+            source.unlink()
+            backend.apply_mode('light',backend.theme_token(),'raw')
+            self.assertEqual(runtime.launcher_surfaces(),saved)
+            self.assertEqual(saved['raw']['tile_opacity'],0)
+            self.assertEqual(saved['modern']['tile_opacity'],35)
+            saved['raw']['group_image']=''
+            backend.apply_mode('dark',backend.theme_token(),'modern',launcher_surfaces=saved)
+            self.assertEqual(runtime.launcher_surfaces()['raw']['group_image'],'')
+            self.assertEqual(runtime.launcher_surfaces()['modern']['group_image'],str(image.relative_to(runtime.ROOT)))
+        for name in ('keybindings.conf','favorites.json'):
+            self.assertEqual((self.root/name).read_bytes(),self.files[self.root/name])
+
+    def test_invalid_opacity_or_strip_image_never_changes_theme(self):
+        for value in (-1,101,True,'50'):
+            with self.subTest(value=value):
+                surfaces=runtime.launcher_surfaces();surfaces['raw']['tile_opacity']=value
+                with self.assertRaisesRegex(ValueError,'Opacity'):
+                    backend.apply_mode('dark',backend.theme_token(),launcher_surfaces=surfaces)
+        source=self.root/'broken.gif';source.write_bytes(b'GIF89a broken')
+        surfaces=runtime.launcher_surfaces();surfaces['raw']['group_image']=str(source)
+        with self.assertRaisesRegex(ValueError,'group-strip image could not be read'):
+            backend.apply_mode('dark',backend.theme_token(),launcher_surfaces=surfaces)
+        self.store.save.assert_not_called()
+        for path,original in self.files.items():self.assertEqual(path.read_bytes(),original)
+
+    def test_failed_strip_apply_removes_copies_and_restores_original_settings(self):
+        source=self.root/'strip.gif'
+        Image.new('RGB',(16,12),'red').save(source,save_all=True,
+            append_images=[Image.new('RGB',(16,12),'blue')],duration=80,loop=0)
+        surfaces=runtime.launcher_surfaces();surfaces['modern']['group_image']=str(source)
+        with self.assertRaisesRegex(ValueError,'reload failed'):
+            backend.apply_mode('dark',backend.theme_token(),'modern',launcher_surfaces=surfaces)
+        for path,original in self.files.items():self.assertEqual(path.read_bytes(),original)
+        self.assertEqual(list((runtime.ROOT/'backgrounds').glob('*')),[])
+
+    def test_missing_strip_can_be_disabled_without_blocking_apply(self):
+        surfaces=runtime.launcher_surfaces()
+        surfaces['modern'].update(group_image='backgrounds/missing.gif',group_opacity=100)
+        runtime.STATE.write_text(json.dumps({'mode':'dark','design':'modern','launcher_surfaces':surfaces}))
+        surfaces['modern']['group_opacity']=0;self.store.save.side_effect=None
+        with patch.object(backend.Path,'iterdir',return_value=iter(())):
+            backend.apply_mode('dark',backend.theme_token(),'modern',launcher_surfaces=surfaces)
+        self.assertEqual(runtime.launcher_surfaces()['modern']['group_opacity'],0)
+
 
 class LauncherWallpaperTests(unittest.TestCase):
     def test_uses_the_current_monitors_wallpaper_with_a_portable_fallback(self):

@@ -33,6 +33,7 @@ import runtime as theme_runtime
 from editor import ShortcutEditor
 from window_chrome import close_button
 from identity import Avatar, ProfileCard, launcher_background_path
+from launcher_surfaces import paint_tile
 
 STYLE = '''
 QWidget { color: #e6edf8; font-family: "Noto Sans"; font-size: 13px; background: transparent; }
@@ -125,21 +126,8 @@ class Tiles(QStyledItemDelegate):
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         box = QRectF(rect.adjusted(5, 4, -5, -4))
-        gradient = QLinearGradient(box.topLeft(), box.bottomRight())
-        modern=theme_runtime.design()=='modern'
-        if modern:
-            colors=theme_runtime.colors()
-            surface=colors['Button'] if selected or opacity else colors['AlternateBase']
-            gradient.setColorAt(0,QColor(surface));gradient.setColorAt(1,QColor(surface))
-        elif theme_runtime.mode() == 'light':
-            gradient.setColorAt(0, QColor('#d7e8eb' if selected else '#edf3f9'))
-            gradient.setColorAt(1, QColor('#dbe8f1'))
-        else:
-            gradient.setColorAt(0, QColor(55, 83, 111, int(85 + opacity * 65 + selected * 40)))
-            gradient.setColorAt(1, QColor(20, 34, 52, 130))
-        painter.setBrush(gradient)
-        painter.setPen(QPen(QColor(colors['Accent'] if selected else colors['Midlight']) if modern else QColor(113, 218, 205, 155 if selected else int(25 + opacity * 70)), 1))
-        painter.drawRoundedRect(box, 15 if modern else 10, 15 if modern else 10)
+        style=theme_runtime.design();modern=style=='modern';colors=theme_runtime.colors()
+        paint_tile(painter,box,colors,style,theme_runtime.mode(),theme_runtime.launcher_surfaces()[style]['tile_opacity'],selected,opacity)
         if small:
             size = 27 + round(opacity * 2)
             icon.paint(painter, round(box.center().x() - size / 2), round(box.center().y() - size / 2), size, size)
@@ -354,6 +342,7 @@ class Menu(QWidget):
         self.outer.setContentsMargins(*(18,18,18,16) if modern else (24,26,24,20))
         self.outer.setSpacing(18 if modern else 20)
         self.refresh_backdrop()
+        self.favorites_board.refresh_surfaces()
         self.update();self.grid.viewport().update();self.favorites_board.viewport().update()
 
     def paintEvent(self, event):

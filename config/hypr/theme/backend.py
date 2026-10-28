@@ -253,7 +253,27 @@ def prepare_launcher_background(choice):
     return relative,data
 
 
-def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,launcher_background=None):
+def prepare_group_image(choice):
+    """Keep animation frames, timing and transparency when importing strip art."""
+    from PIL import Image,ImageOps
+    from launcher_surfaces import image_path
+    try:
+        data=image_path(choice).read_bytes()
+        with Image.open(io.BytesIO(data)) as picture:
+            if picture.format in ('GIF','WEBP') and getattr(picture,'is_animated',False):
+                extension=picture.format.lower()
+                for frame in range(picture.n_frames):
+                    picture.seek(frame);picture.load()
+            else:
+                output=io.BytesIO()
+                ImageOps.exif_transpose(picture).convert('RGBA').save(output,format='PNG')
+                data=output.getvalue();extension='png'
+    except (OSError,ValueError,Image.DecompressionBombError) as error:
+        raise ValueError('The group-strip image could not be read. Choose another image or GIF.') from error
+    return 'backgrounds/group-'+hashlib.sha256(data).hexdigest()[:24]+'.'+extension,data
+
+
+def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,launcher_background=None,launcher_surfaces=None):
     if value not in runtime.MODES: raise ValueError('Choose an available theme.')
     design=design or runtime.design()
     if design not in runtime.DESIGNS:raise ValueError('Choose Xetal Raw or Xetal Modern.')
@@ -266,6 +286,15 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     background_data=None
     if launcher_background and (launcher_wallpaper or launcher_background!=previous.get('launcher_background','')):
         launcher_background,background_data=prepare_launcher_background(launcher_background)
+    from launcher_surfaces import normalize
+    old_surfaces=normalize(previous.get('launcher_surfaces',{}))
+    surfaces=normalize(old_surfaces if launcher_surfaces is None else launcher_surfaces,strict=True)
+    group_files={}
+    for style,options in surfaces.items():
+        choice=options['group_image']
+        if choice and (choice!=old_surfaces[style]['group_image'] or (style==design and options['group_opacity']>0)):
+            options['group_image'],data=prepare_group_image(choice)
+            group_files[runtime.ROOT/options['group_image']]=data
     avatar=previous.get('avatar','auto') if avatar is None else avatar
     if not isinstance(avatar,str) or any(c in avatar for c in '\r\n\0'):
         raise ValueError('Choose a valid account image.')
@@ -304,7 +333,8 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     bar=runtime.stylesheet((runtime.ROOT/'waybar-dark.css').read_text(),value,design,qt=False)
     if design=='modern':bar+=designs.waybar_style(colors)
     files={runtime.ROOT/launcher_background:background_data} if background_data is not None else {}
-    files.update({runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,'avatar':avatar,'launcher_wallpaper':launcher_wallpaper,'launcher_background':launcher_background},indent=2)+'\n').encode(),
+    files.update(group_files)
+    files.update({runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,'avatar':avatar,'launcher_wallpaper':launcher_wallpaper,'launcher_background':launcher_background,'launcher_surfaces':surfaces},indent=2)+'\n').encode(),
            runtime.ROOT/'current.colors':scheme.encode(),runtime.ROOT/'kitty-colors.conf':kitty_colors(value,design).encode(),
            isolated:(stream.getvalue().rstrip()+'\n').encode(),
            ROOT/'waybar/style.css':bar.encode(),
@@ -323,7 +353,7 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
         fcntl.flock(lock,fcntl.LOCK_EX | fcntl.LOCK_NB)
         if theme_token()!=expected: raise ValueError('The theme changed elsewhere. Reload before applying.')
         try:
-            if background_data is not None:(runtime.ROOT/'backgrounds').mkdir(exist_ok=True,mode=0o700)
+            if background_data is not None or group_files:(runtime.ROOT/'backgrounds').mkdir(exist_ok=True,mode=0o700)
             for path,data in files.items(): keys.atomic_write(path,data)
             store.save(content,expected[0])
         except Exception:

@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 from PyQt6.QtCore import Qt,QRectF,pyqtSignal
 from PyQt6.QtGui import QPixmap,QImageReader,QPainter,QPainterPath,QColor,QPen,QFont
-from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QLayout,QLabel,QComboBox,QPushButton,QFileDialog,QTabWidget,QMessageBox,QFrame,QScrollArea,QCheckBox)
+from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QLayout,QLabel,QComboBox,QPushButton,QFileDialog,QTabWidget,QMessageBox,QFrame,QScrollArea,QCheckBox,QSlider)
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import backend
 import runtime
@@ -13,6 +13,7 @@ import desktop_settings as settings
 from preferences_page import PreferencesPage
 from identity import ProfileCard,launcher_background_path
 from design_preview import DesktopPreview
+from launcher_surfaces import DEFAULTS,StripImage,paint_group,paint_tile
 
 
 def label(text,name=''):
@@ -156,6 +157,8 @@ class DesignCard(QPushButton):
     def __init__(self,style,parent=None):
         super().__init__(parent);self.design=style;self.mode='dark';self.setCheckable(True);self.setMinimumSize(245,224)
         self.artwork=DesktopPreview()
+        self.surfaces=runtime.launcher_surfaces()[style]
+        self.strip_image=StripImage(self);self.strip_image.changed.connect(self.update)
         self.setAccessibleName(runtime.DESIGNS[style]);self.setCursor(Qt.CursorShape.PointingHandCursor)
     def paintEvent(self,event):
         p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -163,7 +166,7 @@ class DesignCard(QPushButton):
         box=QRectF(self.rect()).adjusted(2,2,-2,-2)
         p.setBrush(QColor(colors['Window']));p.setPen(QPen(QColor(colors['Accent'] if self.isChecked() else colors['Midlight']),2 if self.isChecked() else 1))
         p.drawRoundedRect(box,16,16)
-        self.artwork.paint(p,box.adjusted(14,14,-14,-58),self.design,self.mode)
+        self.artwork.paint(p,box.adjusted(14,14,-14,-58),self.design,self.mode,self.surfaces,self.strip_image.frame)
         p.setPen(QColor(colors['Text']));p.setFont(QFont('Noto Sans',12,QFont.Weight.DemiBold))
         p.drawText(QRectF(box.x()+16,box.bottom()-49,box.width()-32,23),Qt.AlignmentFlag.AlignVCenter,runtime.DESIGNS[self.design])
         p.setPen(QColor(colors['PlaceholderText']));p.setFont(QFont('Noto Sans',9))
@@ -194,6 +197,41 @@ class BackgroundPreview(QWidget):
         p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(QColor(colors['Midlight']),1));p.drawRoundedRect(box,10,10)
 
 
+class SurfacePreview(QWidget):
+    def __init__(self):
+        super().__init__();self.setMinimumSize(270,188);self.setMaximumWidth(426)
+        self.artwork=DesktopPreview();self.options=dict(DEFAULTS['modern']);self.design='modern';self.mode='dark'
+        self.strip_image=StripImage(self);self.strip_image.changed.connect(self.update)
+    def refresh(self,style,mode,options,background,backdrop):
+        self.design=style;self.mode=mode;self.options=dict(options)
+        self.artwork.refresh(background=background,enabled=backdrop)
+        self.strip_image.load(options['group_image']);self.strip_image.set_enabled(options['group_opacity']>0)
+        self.update()
+    def paintEvent(self,event):
+        p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing);p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        colors=runtime.colors(self.mode,self.design);box=QRectF(self.rect()).adjusted(1,1,-1,-1)
+        p.setBrush(QColor(colors['Window']));p.setPen(QPen(QColor(colors['Midlight']),1));p.drawRoundedRect(box,12,12)
+        if self.artwork.show_background and not self.artwork.background.isNull():
+            DesktopPreview.picture(p,self.artwork.background,box,12)
+            shade=QColor(colors['Window']);shade.setAlpha(236 if self.mode=='light' else 242 if self.mode=='contrast' else 210)
+            p.setBrush(shade);p.drawRoundedRect(box,12,12)
+        strip=QRectF(10,12,self.width()-20,34)
+        paint_group(p,strip,colors,self.design,self.options['group_opacity'],self.strip_image.frame)
+        p.setFont(QFont('Noto Sans',10,QFont.Weight.DemiBold));p.setPen(QColor(colors['Text']))
+        p.drawText(strip.adjusted(8,0,-8,0),Qt.AlignmentFlag.AlignVCenter,'⠿  Favorites')
+        p.drawText(strip.adjusted(8,0,-8,0),Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter,'⋯')
+        width=(self.width()-40)/3
+        for index,title in enumerate(('Files','Browser','Terminal')):
+            tile=QRectF(10+index*(width+10),54,width,118)
+            paint_tile(p,tile,colors,self.design,self.mode,self.options['tile_opacity'],selected=index==0)
+            picture=self.artwork.icons[index]
+            if not picture.isNull():p.drawPixmap(QRectF(tile.center().x()-17,tile.y()+12,34,34),picture,QRectF(picture.rect()))
+            p.setPen(QColor(colors['Text']));p.setFont(QFont('Noto Sans',9))
+            p.drawText(tile.adjusted(3,53,-3,-32),Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignTop,title)
+            p.setPen(QColor(colors['PlaceholderText']));p.setFont(QFont('Noto Sans',8))
+            p.drawText(tile.adjusted(3,93,-3,0),Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignTop,'No hotkey')
+
+
 class DesignPage(QWidget):
     def __init__(self,owner):
         super().__init__();self.owner=owner
@@ -219,6 +257,29 @@ class DesignPage(QWidget):
         actions=QHBoxLayout();actions.addWidget(button('Choose image…',owner.choose_background))
         actions.addWidget(button('Use desktop wallpaper',lambda:owner.set_background('')));actions.addStretch()
         background_controls.addLayout(actions);background.addLayout(background_controls,1);root.addLayout(background)
+        surface_heading=QHBoxLayout();surface_heading.addWidget(label('Apps tiles & groups','section'))
+        self.surface_style=label('','muted');self.surface_style.setWordWrap(False)
+        self.surface_style.setToolTip('Each design remembers its own opacity and group-strip artwork.')
+        surface_heading.addWidget(self.surface_style);surface_heading.addStretch()
+        surface_heading.addWidget(button('Reset surfaces',owner.reset_surfaces));root.addLayout(surface_heading)
+        surfaces=QHBoxLayout();surfaces.setSpacing(22);controls=QVBoxLayout();controls.setSpacing(8)
+        self.opacity_controls={}
+        for key,title in [('tile_opacity','Icon backgrounds'),('group_opacity','Group strips')]:
+            row=QHBoxLayout();row.addWidget(label(title));row.addStretch()
+            value=QLabel();value.setFixedWidth(54);value.setAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter)
+            value.setAccessibleName(title+' opacity');row.addWidget(value);controls.addLayout(row)
+            slider=QSlider(Qt.Orientation.Horizontal);slider.setRange(0,100);slider.setPageStep(10)
+            slider.setAccessibleName(title+' opacity');controls.addWidget(slider)
+            slider.valueChanged.connect(lambda number,k=key:owner.set_surface(k,number))
+            self.opacity_controls[key]=(slider,value)
+        controls.addWidget(label('0% transparent · 100% opaque','muted'))
+        row=QHBoxLayout();title=label('Group-strip background');title.setWordWrap(False);row.addWidget(title)
+        self.group_source=label('','muted');self.group_source.setWordWrap(False);row.addWidget(self.group_source);row.addStretch();controls.addLayout(row)
+        row=QHBoxLayout();row.addWidget(button('Choose image or GIF…',owner.choose_group_image))
+        self.remove_group_image=button('Remove image',lambda:owner.set_surface('group_image',''))
+        row.addWidget(self.remove_group_image);row.addStretch();controls.addLayout(row)
+        surfaces.addLayout(controls,1);self.surface_preview=SurfacePreview();surfaces.addWidget(self.surface_preview,1)
+        root.addLayout(surfaces)
         self.profile=ProfileCard();self.profile.setMinimumHeight(140);self.profile.setMaximumHeight(160);root.addWidget(self.profile)
         controls=QHBoxLayout();controls.addWidget(label('Your profile image','muted'));controls.addStretch()
         controls.addWidget(button('Choose image or GIF…',owner.choose_avatar))
@@ -232,6 +293,20 @@ class DesignPage(QWidget):
         self.background_source.setText('Custom image' if self.owner.background else 'Desktop wallpaper')
         for card in self.cards.values():
             card.artwork.refresh(self.owner.avatar,self.owner.background,self.owner.backdrop);card.update()
+        self.refresh_surfaces()
+    def refresh_surfaces(self):
+        style=self.owner.design.currentData();options=self.owner.surfaces[style]
+        self.surface_style.setText(runtime.DESIGNS[style]+' settings')
+        for key,(slider,value) in self.opacity_controls.items():
+            slider.blockSignals(True);slider.setValue(options[key]);slider.blockSignals(False)
+            value.setText(str(options[key])+'%')
+        choice=options['group_image']
+        self.group_source.setText('GIF background' if choice.lower().endswith('.gif') else 'Custom image' if choice else 'None')
+        self.group_source.setToolTip(choice);self.remove_group_image.setEnabled(bool(choice))
+        self.surface_preview.refresh(style,self.owner.mode.currentData(),options,self.owner.background,self.owner.backdrop)
+        for name,card in self.cards.items():
+            card.surfaces=dict(self.owner.surfaces[name]);card.strip_image.load(card.surfaces['group_image'])
+            card.strip_image.set_enabled(card.surfaces['group_opacity']>0);card.update()
     def refresh(self):
         self.profile.refresh();self.profile.avatar.refresh(self.owner.avatar)
         self.refresh_background()
@@ -243,7 +318,8 @@ class ThemePage(QWidget):
         self.avatar=runtime.state().get('avatar','assets/account.gif')
         self.backdrop=runtime.launcher_wallpaper()
         self.background=runtime.launcher_background()
-        self.baseline=(runtime.design(),runtime.mode(),self.avatar,self.backdrop,self.background)
+        self.surfaces=runtime.launcher_surfaces()
+        self.baseline=(runtime.design(),runtime.mode(),self.avatar,self.backdrop,self.background,copy.deepcopy(self.surfaces))
         root=QVBoxLayout(self);root.setContentsMargins(18,16,18,16)
         heading=QHBoxLayout();brand=label('Theme & wallpaper','brand');brand.setWordWrap(False);heading.addWidget(brand);heading.addStretch()
         self.design=QComboBox()
@@ -260,7 +336,7 @@ class ThemePage(QWidget):
         if filename:self.tabs.setCurrentWidget(self.wallpapers)
         self.design.currentIndexChanged.connect(self.changed);self.mode.currentIndexChanged.connect(self.changed)
         self.tabs.currentChanged.connect(lambda _:self.tabs.currentWidget().refresh());self.changed()
-    def choice(self):return self.design.currentData(),self.mode.currentData(),self.avatar,self.backdrop,self.background
+    def choice(self):return self.design.currentData(),self.mode.currentData(),self.avatar,self.backdrop,self.background,copy.deepcopy(self.surfaces)
     @property
     def dirty(self):return self.wallpapers.dirty or self.appearance.dirty or self.choice()!=self.baseline
     @property
@@ -270,7 +346,8 @@ class ThemePage(QWidget):
             self.avatar=runtime.state().get('avatar','assets/account.gif')
             self.backdrop=runtime.launcher_wallpaper()
             self.background=runtime.launcher_background()
-            self.baseline=(runtime.design(),runtime.mode(),self.avatar,self.backdrop,self.background)
+            self.surfaces=runtime.launcher_surfaces()
+            self.baseline=(runtime.design(),runtime.mode(),self.avatar,self.backdrop,self.background,copy.deepcopy(self.surfaces))
             self.design_page.wallpaper.blockSignals(True);self.design_page.wallpaper.setChecked(self.backdrop);self.design_page.wallpaper.blockSignals(False)
             self.mode.setCurrentIndex(self.mode.findData(self.baseline[1]));self.design.setCurrentIndex(self.design.findData(self.baseline[0]))
             self.token=backend.theme_token();self.changed()
@@ -280,6 +357,20 @@ class ThemePage(QWidget):
         self.mode.setEnabled(not self.applying);self.design.setEnabled(not self.applying);self.design_page.setEnabled(not self.applying)
         for style,card in self.design_page.cards.items():
             card.mode=self.mode.currentData();card.setChecked(style==self.design.currentData());card.update()
+        self.design_page.refresh_surfaces()
+    def set_surface(self,key,value):
+        self.surfaces[self.design.currentData()][key]=value
+        self.changed()
+    def reset_surfaces(self):
+        style=self.design.currentData();self.surfaces[style]=dict(DEFAULTS[style]);self.changed()
+    def choose_group_image(self):
+        filename=ImagePicker.choose(self,'Choose group-strip image or GIF',str(Path.home()/'Pictures'),
+            'Images (*.gif *.png *.jpg *.jpeg *.webp *.bmp *.tif *.tiff *.avif);;All files (*)',self.async_run)
+        if filename:
+            options=self.surfaces[self.design.currentData()]
+            options['group_image']=filename
+            if options['group_opacity']==0:options['group_opacity']=100
+            self.changed()
     def set_avatar(self,choice):
         self.avatar=choice;self.design_page.refresh();self.changed()
     def set_backdrop(self,enabled):
@@ -296,11 +387,12 @@ class ThemePage(QWidget):
         if picker.exec() and picker.selectedFiles():self.set_avatar(picker.selectedFiles()[0])
     def save_mode(self):
         if self.applying or not self.token:return
-        choice=self.choice();style,value,avatar,backdrop,background=choice;token=self.token;self.applying=True;self.changed();self.status.setText('Applying '+runtime.DESIGNS[style]+'…')
-        self.async_run(lambda:backend.apply_mode(value,token,style,avatar,backdrop,background),lambda token:self.saved(choice,token),self.failed)
+        choice=self.choice();style,value,avatar,backdrop,background,surfaces=choice;token=self.token;self.applying=True;self.changed();self.status.setText('Applying '+runtime.DESIGNS[style]+'…')
+        self.async_run(lambda:backend.apply_mode(value,token,style,avatar,backdrop,background,surfaces),lambda token:self.saved(choice,token),self.failed)
     def saved(self,value,token):
         self.background=runtime.launcher_background()
-        self.baseline=(*value[:4],self.background);self.token=token;self.applying=False;self.changed()
+        self.surfaces=runtime.launcher_surfaces()
+        self.baseline=(*value[:4],self.background,copy.deepcopy(self.surfaces));self.token=token;self.applying=False;self.changed()
         self.design_page.refresh()
         self.status.setText(runtime.DESIGNS[value[0]]+' applied. Reopen older applications to pick up the new appearance.')
     def failed(self,message):self.applying=False;self.changed();self.status.setText(message)

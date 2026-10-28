@@ -33,6 +33,11 @@ def launcher_background():
     return value if isinstance(value,str) else ''
 
 
+def launcher_surfaces():
+    from launcher_surfaces import normalize
+    return normalize(state().get('launcher_surfaces',{}))
+
+
 def mode():
     try:
         value = json.loads(STATE.read_text())['mode']

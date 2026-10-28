@@ -1,12 +1,17 @@
 """Fixed-column favorite tiles with native Qt drag/drop and keyboard navigation."""
 import json
 import uuid
+import sys
+from pathlib import Path
 
 from PyQt6.QtCore import Qt, QPoint, QRect, QRectF, QMimeData, QTimer, QPropertyAnimation, pyqtProperty, pyqtSignal
 from PyQt6.QtGui import QColor, QDrag, QPainter, QPen, QFont, QCursor, QPalette
 from PyQt6.QtWidgets import QApplication, QScrollArea, QWidget, QPushButton, QToolButton
 
 import favorite_layout as layout
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'theme'))
+import runtime as theme_runtime
+from launcher_surfaces import StripImage, paint_group
 
 MIME = 'application/x-xetal-favorite-layout'
 HEADER = 34
@@ -70,6 +75,20 @@ class Draggable(QPushButton):
             event.accept()
             return
         super().mouseDoubleClickEvent(event)
+
+
+class GroupHeader(Draggable):
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        paint_group(p, QRectF(self.rect()), self.board.colors, self.board.design_name,
+                    self.board.surfaces['group_opacity'], self.board.strip_image.frame,
+                    self.hasFocus(), self.underMouse())
+        font = QFont('Noto Sans'); font.setPixelSize(13); font.setWeight(QFont.Weight.DemiBold)
+        p.setFont(font); p.setPen(QColor(self.board.colors['Text']))
+        text = p.fontMetrics().elidedText(self.text().replace('&&', '&'), Qt.TextElideMode.ElideRight, self.width() - 44)
+        p.drawText(self.rect().adjusted(6, 0, -38, 0), Qt.AlignmentFlag.AlignVCenter, text)
 
 
 class Tile(Draggable):
@@ -250,6 +269,22 @@ class Board(QScrollArea):
         self.scroll_timer = QTimer(self)
         self.scroll_timer.setInterval(40)
         self.scroll_timer.timeout.connect(self.auto_scroll)
+        self.strip_image = StripImage(self)
+        self.strip_image.changed.connect(self.update_headers)
+        self.refresh_surfaces()
+
+    def refresh_surfaces(self):
+        self.design_name = theme_runtime.design()
+        self.colors = theme_runtime.colors()
+        self.surfaces = theme_runtime.launcher_surfaces()[self.design_name]
+        self.strip_image.load(self.surfaces['group_image'])
+        self.strip_image.set_enabled(bool(self.headers) and self.surfaces['group_opacity'] > 0)
+        self.update_headers()
+        for tile in self.tiles.values(): tile.update()
+
+    def update_headers(self):
+        for header in self.headers.values():
+            if header.isVisible(): header.update()
 
     def set_layout(self, data, items, selected=None):
         self.data, self.items = data, items
@@ -259,7 +294,7 @@ class Board(QScrollArea):
         self.tiles, self.headers, self.menus = {}, {}, {}
         for group in data['groups']:
             ident = group['id']
-            header = Draggable(self, 'group', ident, self.canvas)
+            header = GroupHeader(self, 'group', ident, self.canvas)
             header.setText('⠿  ' + group['title'].replace('&', '&&'))
             header.setAccessibleName(group['title'] + ' group; drag to move')
             header.setToolTip('Drag this title to move the group · Double-click to rename')
@@ -277,6 +312,7 @@ class Board(QScrollArea):
                     self.tiles[tile['app']] = Tile(self, tile['app'], tile['size'], self.canvas)
         self.selected = selected if selected in self.tiles else next(iter(self.tiles), None)
         self.relayout()
+        self.strip_image.set_enabled(bool(self.headers) and self.surfaces['group_opacity'] > 0)
 
     def update_items(self, items):
         self.items = items
