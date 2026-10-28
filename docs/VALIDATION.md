@@ -1,5 +1,33 @@
 # Validation
 
+## Compiz Burn — 28 October 2026
+
+The Burn port passed the **374-check desktop suite** and **15 installer checks**.
+Two additional regression cases then passed for a damaged Burn configuration and
+an unavailable optional adapter: the resulting suites contain **375 desktop
+checks and 16 installer checks**. The compiled engine tests compare the original
+particle-update math, RGBA channels, directions, constant-speed scaling, complete
+particle cleanup and valid duration/timestep boundary combinations. Python tests
+compare all defaults and ranges against the extracted Compiz metadata, exercise
+atomic rollback and external-edit protection, and check that controls fit.
+
+Native tests ran in disposable nested Hyprland 0.56.2 sessions before live
+activation. Captured frames were inspected for every direction, orange and custom
+blue fire, Mystical Fire, smoke, 1.25× scaling and a rotated monitor. Tests also
+covered Wayland and Xwayland clients, tiled and floating windows, the global
+animations switch, disabling during a burn, 10000 particles, active plugin
+unload/reload, dim-around bounds, display-mode changes and loader shutdown when
+its compositor exits. Visual checks found and corrected both GL scissor-cache
+restoration and the rotated-monitor particle transform.
+
+All three themes render the new controls. The installed Control desk's actual
+Preview Burn button opened a centered, floating **540×320** sample window; its
+close animation completed and released its snapshot. The full live Hyprland
+configuration validates. The audit of **582 existing protected paths** found
+no KDE/shared-setting changes. The original Compiz texture was verified byte for
+byte apart from the C++ array declaration (its extra string terminator is never
+uploaded). A fresh source checkout contains no prebuilt native objects.
+
 The initial package was checked on 26 October 2026 on the original Arch Linux desktop. Preparation and tests used disposable directories; the export did not replace or reload the running desktop's configuration.
 
 ## Automated checks

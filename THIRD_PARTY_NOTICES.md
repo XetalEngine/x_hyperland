@@ -1,6 +1,8 @@
 # Third-party notices
 
-The Xetal scripts, custom UI components, installer and configuration are supplied under the repository's MIT license. The following assets retain their own terms:
+The Xetal scripts, custom UI components, installer and configuration are supplied under the repository's MIT license unless otherwise stated. The following components and assets retain their own terms:
+
+- **Compiz Burn:** the native Burn port, particle sprite, native test and extracted option metadata in [`config/hypr/effects/burn`](config/hypr/effects/burn/README.md) are **GPL-2.0-or-later**, not MIT. Original animation code by Erkin Bahceci; particle system and texture by Dennis Kasprzyk. Their notices and the [GPL](config/hypr/effects/burn/COPYING) are included. Only this effect is ported from the owner's supplied `XetalCompiz_old` source. Binaries are built locally against the supported Hyprland version.
 
 - **Waybar CFFI interface definitions:** based on the [Waybar 0.15 CFFI API](https://github.com/Alexays/Waybar/tree/0.15.0/resources/custom_modules/cffi_example). The upstream MIT notice is preserved in [`LICENSES/Waybar-MIT.txt`](LICENSES/Waybar-MIT.txt).
 - **Wayland protocol definitions:** [`config/hypr/share-picker/protocols`](config/hypr/share-picker/protocols) contains upstream definitions from [hyprland-protocols](https://github.com/hyprwm/hyprland-protocols) and [wlr-protocols](https://github.com/swaywm/wlr-protocols). Their copyright/license notices are embedded in the XML files.

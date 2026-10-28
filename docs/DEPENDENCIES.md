@@ -16,6 +16,8 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 
 The custom Waybar modules use its CFFI v2 interface and its 0.15 workspace taskbar structure. Qt theme plugins use private APIs and are built against the installed Qt versions; session startup checks and rebuilds them after Qt changes. Their source is included.
 
+The optional **Compiz Burn** close effect supports Hyprland **0.56.2** at the tested commit documented in [its guide](../config/hypr/effects/burn/README.md), x86-64 and the OpenGL renderer. It needs a C++23 compiler, matching Hyprland development headers exposed through `pkg-config hyprland`, and GLESv2 development files. Its build and runtime ABI checks reject mismatched versions; unsupported installations retain normal closing animations and still install the rest of the desktop. Controls are in **Theme → Window effects → Burn**.
+
 Xetal Images uses the installed Qt image readers. Common image formats are included with Qt; additional readers such as HEIF, AVIF, camera RAW and PSD depend on the distribution's Qt image-format plugins.
 
 Xetal Files speaks the [KDE JobView interfaces](https://invent.kde.org/frameworks/kjobwidgets) used by Dolphin/KIO and Ark. It starts only for this Hyprland session and leaves any existing job-service owner in charge. Applications that draw their own progress windows independently of these interfaces retain their own UI. No KDE configuration or system service is replaced.

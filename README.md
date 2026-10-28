@@ -147,4 +147,10 @@ python3 config/hypr/waybar/options/test_options.py --native  # optional GTK chec
 
 See [validation notes](docs/VALIDATION.md), [dependencies](docs/DEPENDENCIES.md), [third-party notices](THIRD_PARTY_NOTICES.md), and the detailed [desktop guide](config/hypr/README.txt).
 
+**Compiz Burn** is available under **Control desk → Theme → Window effects → Burn**:
+the original particle flame, smoke, RGBA color picker, all nine Burn settings,
+duration, time step, defaults and a disposable preview window. The native adapter
+is built locally for supported Hyprland 0.56.2 installations; incompatible versions
+keep their normal close animation. See the [Burn guide](config/hypr/effects/burn/README.md).
+
 Browser profiles, credentials, caches, recent-file history, private bookmarks, session logs and compiled build artifacts are excluded. The wallpaper, mascot and font assets have checksums in [`assets-manifest.json`](assets-manifest.json).

@@ -1,0 +1,101 @@
+<compiz-burn-reference>
+  <option name="fire_particles" type="int">
+    <short>Number Of Fire Particles</short>
+    <long>Number of fire particles.</long>
+    <default>1000</default>
+    <min>100</min>
+    <max>10000</max>
+  </option>
+  <option name="fire_size" type="float">
+    <short>Fire Particle Size</short>
+    <long>Fire particle size.</long>
+    <default>5</default>
+    <min>0.1</min>
+    <max>20</max>
+    <precision>0.1</precision>
+  </option>
+  <option name="fire_slowdown" type="float">
+    <short>Fire Particle Slowdown</short>
+    <long>Fire particle slowdown.</long>
+    <default>0.5</default>
+    <min>0.1</min>
+    <max>10</max>
+    <precision>0.1</precision>
+  </option>
+  <option name="fire_life" type="float">
+    <short>Fire Particle Life</short>
+    <long>Fire particle life.</long>
+    <default>0.7</default>
+    <min>0.1</min>
+    <max>1</max>
+    <precision>0.1</precision>
+  </option>
+  <option name="fire_color" type="color">
+    <short>Fire Particle Color</short>
+    <long>Fire particle color.</long>
+    <default>
+      <red>0xffff</red>
+      <green>0x3333</green>
+      <blue>0x0555</blue>
+      <alpha>0xffff</alpha>
+    </default>
+  </option>
+  <option name="fire_direction" type="int">
+    <short>Fire direction</short>
+    <long>Fire direction.</long>
+    <default>0</default>
+    <min>0</min>
+    <max>5</max>
+    <desc>
+      <value>0</value>
+      <name>Down</name>
+    </desc>
+    <desc>
+      <value>1</value>
+      <name>Up</name>
+    </desc>
+    <desc>
+      <value>2</value>
+      <name>Left</name>
+    </desc>
+    <desc>
+      <value>3</value>
+      <name>Right</name>
+    </desc>
+    <desc>
+      <value>4</value>
+      <name>Random</name>
+    </desc>
+    <desc>
+      <value>5</value>
+      <name>Automatic</name>
+    </desc>
+  </option>
+  <option name="fire_constant_speed" type="bool">
+    <short>Fire constant speed</short>
+    <long>Make fire effect duration be dependent on window height.</long>
+    <default>false</default>
+  </option>
+  <option name="fire_smoke" type="bool">
+    <short>Fire Smoke</short>
+    <long>Fire smoke.</long>
+    <default>false</default>
+  </option>
+  <option name="fire_mystical" type="bool">
+    <short>Randomly Colored Fire</short>
+    <long>Have random colors for the fire effect, also known as Mystical Fire.</long>
+    <default>false</default>
+  </option>
+  <option name="time_step_intense" type="int">
+    <short>Animation Time Step For Intense Effects</short>
+    <long>The amount of time in milliseconds between each render of the intense animation (Ex. Burn, Beam). The higher the number, the jerkier the movements become.</long>
+    <default>30</default>
+    <min>1</min>
+    <max>400</max>
+  </option>
+  <option name="duration" type="int">
+    <default>200</default>
+    <min>50</min>
+    <max>4000</max>
+  </option>
+</compiz-burn-reference>

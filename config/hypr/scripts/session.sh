@@ -32,6 +32,11 @@ if ! python3 "$config_dir/theme/build.py" >"$instance_dir/theme-build.log" 2>&1;
     printf '%s\n' 'Theme plugin rebuild failed; see theme-build.log. Session tools will still start.' >&2
 fi
 
+# Optional native effects are private to this compositor. Unsupported versions
+# keep the normal close animation; building never delays the rest of the shell.
+python3 "$config_dir/effects/burn/controller.py" --session >"$instance_dir/burn.log" 2>&1 9>&- &
+children+=("$!")
+
 # A resident switcher receives ordered key events, including a very quick Super release.
 "$config_dir/scripts/app-switcher.sh" >"$instance_dir/switcher.log" 2>&1 9>&- &
 children+=("$!")

@@ -11,7 +11,8 @@ import runtime
 import draft as theme_draft
 from image_picker import ImagePicker
 import desktop_settings as settings
-from preferences_page import PreferencesPage
+sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
+from effects.burn.page import WindowEffectsPage
 from identity import ProfileCard,launcher_background_path
 from design_preview import DesktopPreview
 from launcher_surfaces import DEFAULTS,StripImage,paint_group,paint_tile
@@ -381,7 +382,7 @@ class ThemePage(QWidget):
         conflicts.addWidget(button('Keep my edits',lambda:self.resolve_conflicts('edited')))
         conflicts.addWidget(button('Use saved values',lambda:self.resolve_conflicts('saved')));conflicts.addStretch()
         self.conflict_actions.hide();root.addWidget(self.conflict_actions)
-        self.tabs=QTabWidget();self.wallpapers=WallpapersPage(async_run,filename);self.appearance=PreferencesPage('appearance',async_run)
+        self.tabs=QTabWidget();self.wallpapers=WallpapersPage(async_run,filename);self.appearance=WindowEffectsPage(async_run)
         self.design_page=DesignPage(self)
         self.tabs.addTab(self.design_page,'Design');self.tabs.addTab(self.wallpapers,'Wallpapers');self.tabs.addTab(self.appearance,'Window effects');root.addWidget(self.tabs,1)
         if filename:self.tabs.setCurrentWidget(self.wallpapers)

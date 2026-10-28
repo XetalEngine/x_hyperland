@@ -53,7 +53,7 @@ def render(stage, home, monitors, profile='auto', startup=True):
     safe_home(home)
     target=home/'.config/hypr'
     shutil.copytree(PAYLOAD,stage,dirs_exist_ok=True,
-                    ignore=shutil.ignore_patterns('__pycache__','*.pyc','*.so','*.o','*.lock','build',
+                    ignore=shutil.ignore_patterns('__pycache__','*.pyc','*.so','*.o','*.lock','build','.build',
                         'cache','state','font-cache','qt-settings','window-preview','version.txt'))
     for p in stage.rglob('*'):
         if not p.is_file():continue
@@ -122,6 +122,14 @@ def build(stage):
                  ['bash',str(stage/'share-picker/build.sh')]):
         print('Building '+str(Path(args[-1]).relative_to(stage)),flush=True)
         subprocess.run(args,check=True)
+
+    # The optional compositor adapter has a deliberately narrow ABI boundary.
+    # An unsupported Hyprland must not prevent installing the desktop profile.
+    result = subprocess.run([sys.executable,str(stage/'effects/burn/build.py')],capture_output=True,text=True)
+    if result.returncode:
+        print('Optional Burn effect unavailable: '+result.stderr.strip(),flush=True)
+    else:
+        print('Built Compiz Burn for the installed Hyprland.',flush=True)
 
 
 def validate(stage):
