@@ -6,6 +6,7 @@
 #include "../pins/waybar_cffi_module.h"
 #include "menu.h"
 #include <json-glib/json-glib.h>
+#include <gtk-layer-shell.h>
 #include <glib/gstdio.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -51,7 +52,7 @@ typedef struct {
 
 typedef struct {
     int refs;
-    gboolean alive, saving;
+    gboolean alive, saving, bottom;
     GtkWidget *root, *top, *menu;
     GtkGesture *gesture;
     GSList *slots;
@@ -62,7 +63,7 @@ typedef struct {
     XetalBarOptionsMenu bridge;
 } Options;
 
-typedef struct { char *path, *id; gboolean show, reset; } Change;
+typedef struct { char *path, *id, *edge; gboolean show, reset; } Change;
 
 static Options *retain(Options *o) { o->refs++; return o; }
 static void release(gpointer data) {
@@ -71,7 +72,8 @@ static void release(gpointer data) {
     g_hash_table_unref(o->hidden); g_free(o->path); g_free(o);
 }
 
-static GHashTable *read_hidden(const char *path, GError **error) {
+static GHashTable *read_options(const char *path, gboolean *bottom, GError **error) {
+    *bottom = FALSE;
     GHashTable *hidden = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
     char *data = NULL;
     GError *failure = NULL;
@@ -87,6 +89,12 @@ static GHashTable *read_hidden(const char *path, GError **error) {
     JsonNode *array = object ? json_object_get_member(object, "hidden") : NULL;
     valid = version && json_node_get_value_type(version) == G_TYPE_INT64 && json_node_get_int(version) == 1
             && array && JSON_NODE_HOLDS_ARRAY(array);
+    JsonNode *edge = object ? json_object_get_member(object, "position") : NULL;
+    if (valid && edge) {
+        const char *value = json_node_get_value_type(edge) == G_TYPE_STRING ? json_node_get_string(edge) : "";
+        valid = !strcmp(value, "top") || !strcmp(value, "bottom");
+        *bottom = !strcmp(value, "bottom");
+    }
     if (valid) {
         JsonArray *values = json_node_get_array(array);
         for (guint i = 0; i < json_array_get_length(values); i++) {
@@ -112,16 +120,24 @@ static gboolean write_change(Change *change, GError **error) {
         if (lock >= 0) close(lock);
         return FALSE;
     }
-    GHashTable *hidden = change->reset ? g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL)
-                                      : read_hidden(change->path, error);
+    gboolean bottom = FALSE;
+    GHashTable *hidden = read_options(change->path, &bottom, error);
+    if (change->reset) {
+        if (!hidden) {
+            g_clear_error(error); bottom = FALSE;
+            hidden = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+        } else g_hash_table_remove_all(hidden);
+    }
     if (!hidden) { close(lock); return FALSE; }
-    if (!change->reset) {
+    if (change->edge) bottom = !strcmp(change->edge, "bottom");
+    if (!change->reset && change->id) {
         if (change->show) g_hash_table_remove(hidden, change->id);
         else g_hash_table_add(hidden, g_strdup(change->id));
     }
     JsonBuilder *builder = json_builder_new();
     json_builder_begin_object(builder);
     json_builder_set_member_name(builder, "version"); json_builder_add_int_value(builder, 1);
+    json_builder_set_member_name(builder, "position"); json_builder_add_string_value(builder, bottom ? "bottom" : "top");
     json_builder_set_member_name(builder, "hidden"); json_builder_begin_array(builder);
     GList *keys = g_list_sort(g_hash_table_get_keys(hidden), (GCompareFunc)g_strcmp0);
     for (GList *it = keys; it; it = it->next) json_builder_add_string_value(builder, it->data);
@@ -144,10 +160,30 @@ static void apply_hidden(Options *o) {
     }
 }
 
+static void apply_position(Options *o) {
+    if (!o->top || !gtk_layer_is_layer_window(GTK_WINDOW(o->top))) return;
+    GtkWindow *window = GTK_WINDOW(o->top);
+    /* Changing the real layer anchors also moves the compositor's reserved
+     * workarea. GTK popups flip inward at either edge. No bar restart needed. */
+    if (gtk_layer_get_anchor(window, GTK_LAYER_SHELL_EDGE_TOP) != !o->bottom
+            || gtk_layer_get_anchor(window, GTK_LAYER_SHELL_EDGE_BOTTOM) != o->bottom) {
+        gtk_layer_set_anchor(window, o->bottom ? GTK_LAYER_SHELL_EDGE_TOP : GTK_LAYER_SHELL_EDGE_BOTTOM, FALSE);
+        gtk_layer_set_anchor(window, o->bottom ? GTK_LAYER_SHELL_EDGE_BOTTOM : GTK_LAYER_SHELL_EDGE_TOP, TRUE);
+        GtkStyleContext *style = gtk_widget_get_style_context(o->top);
+        gtk_style_context_remove_class(style, o->bottom ? "top" : "bottom");
+        gtk_style_context_add_class(style, o->bottom ? "bottom" : "top");
+        gtk_widget_queue_draw(o->top);
+    }
+}
+
 static void reload_options(Options *o) {
     GError *error = NULL;
-    GHashTable *hidden = read_hidden(o->path, &error);
-    if (hidden) { g_hash_table_unref(o->hidden); o->hidden = hidden; apply_hidden(o); }
+    gboolean bottom;
+    GHashTable *hidden = read_options(o->path, &bottom, &error);
+    if (hidden) {
+        g_hash_table_unref(o->hidden); o->hidden = hidden; o->bottom = bottom;
+        apply_hidden(o); apply_position(o);
+    }
     if (error) { g_warning("Xetal bar options: %s", error->message); g_error_free(error); }
 }
 
@@ -159,7 +195,7 @@ static void changed(GFileMonitor *monitor, GFile *file, GFile *other, GFileMonit
 }
 
 static void change_free(gpointer data) {
-    Change *change = data; g_free(change->path); g_free(change->id); g_free(change);
+    Change *change = data; g_free(change->path); g_free(change->id); g_free(change->edge); g_free(change);
 }
 
 static void save_thread(GTask *task, gpointer source, gpointer data, GCancellable *cancel) {
@@ -183,26 +219,49 @@ static void saved(GObject *source, GAsyncResult *result, gpointer data) {
     g_clear_error(&error); release(o);
 }
 
-static void save(Options *o, const char *id, gboolean show, gboolean reset) {
+static void save(Options *o, const char *id, gboolean show, gboolean reset, const char *edge) {
     if (!o->alive || o->saving) return;
     o->saving = TRUE;
     Change *change = g_new0(Change, 1);
     change->path = g_strdup(o->path); change->id = g_strdup(id); change->show = show; change->reset = reset;
+    change->edge = g_strdup(edge);
     GTask *task = g_task_new(NULL, NULL, saved, retain(o));
     g_task_set_task_data(task, change, change_free); g_task_run_in_thread(task, save_thread); g_object_unref(task);
 }
 
 static void toggled(GtkCheckMenuItem *item, gpointer data) {
-    save(data, g_object_get_data(G_OBJECT(item), "module-id"), gtk_check_menu_item_get_active(item), FALSE);
+    save(data, g_object_get_data(G_OBJECT(item), "module-id"), gtk_check_menu_item_get_active(item), FALSE, NULL);
 }
 
-static void reset(GtkMenuItem *item, gpointer data) { save(data, NULL, TRUE, TRUE); }
+static void reset(GtkMenuItem *item, gpointer data) { save(data, NULL, TRUE, TRUE, NULL); }
+
+static void edge_toggled(GtkCheckMenuItem *item, gpointer data) {
+    if (gtk_check_menu_item_get_active(item))
+        save(data, NULL, FALSE, FALSE, g_object_get_data(G_OBJECT(item), "bar-position"));
+}
 
 static GtkWidget *submenu(gpointer data) {
     Options *o = data; reload_options(o);
     GtkWidget *menu = gtk_menu_new();
     gtk_style_context_add_class(gtk_widget_get_style_context(menu), "xetal-bar-options");
     g_object_set_data_full(G_OBJECT(menu), "owner", retain(o), release);
+    GtkWidget *heading = gtk_menu_item_new_with_label("Taskbar position");
+    gtk_widget_set_sensitive(heading, FALSE);
+    gtk_style_context_add_class(gtk_widget_get_style_context(heading), "section");
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), heading);
+    GSList *edges = NULL;
+    for (int i = 0; i < 2; i++) {
+        GtkWidget *item = gtk_radio_menu_item_new_with_label(edges, i ? "Bottom" : "Top");
+        edges = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
+        gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), o->bottom == i);
+        gtk_widget_set_sensitive(item, !o->saving);
+        g_object_set_data(G_OBJECT(item), "bar-position", i ? "bottom" : "top");
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+    }
+    /* Connect after both initial states are set, so opening Options never saves. */
+    for (GSList *it = edges; it; it = it->next)
+        g_signal_connect(it->data, "toggled", G_CALLBACK(edge_toggled), o);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
     const char *group = NULL;
     for (guint i = 0; i < G_N_ELEMENTS(items); i++) {
         if (g_strcmp0(group, items[i].group)) {
@@ -387,7 +446,7 @@ static gboolean refresh(gpointer data) {
             o->slots = g_slist_delete_link(o->slots, it); slot_free(slot);
         }
     }
-    discover(o, top); return G_SOURCE_CONTINUE;
+    discover(o, top); apply_position(o); return G_SOURCE_CONTINUE;
 }
 
 void *wbcffi_init(const wbcffi_init_info *info, const wbcffi_config_entry *entries, size_t length) {

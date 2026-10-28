@@ -36,6 +36,14 @@ fi
 "$config_dir/scripts/app-switcher.sh" >"$instance_dir/switcher.log" 2>&1 9>&- &
 children+=("$!")
 
+# Plain left-drag near the top of floating windows; idle between click events.
+python3 "$config_dir/scripts/floating-drag.py" >"$instance_dir/floating-drag.log" 2>&1 9>&- &
+children+=("$!")
+
+# File-operation progress uses the standard job interface and ends with this session.
+"$config_dir/scripts/file-progress.sh" >"$instance_dir/file-progress.log" 2>&1 9>&- &
+children+=("$!")
+
 waybar --config "$config_dir/waybar/config.json" --style "$config_dir/waybar/style.css" \
     >"$instance_dir/waybar.log" 2>&1 9>&- &
 children+=("$!")

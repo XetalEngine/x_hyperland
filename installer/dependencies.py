@@ -61,7 +61,7 @@ def check():
     if not any(shutil.which(command) for command in ('deno','node','qjs')):
         errors.append('Install Deno, Node.js or QuickJS for YouTube downloads.')
     result=subprocess.run([sys.executable,'-c',
-        "import PyQt6.QtWidgets, PyQt6.QtNetwork; from PIL import Image; import gi; gi.require_version('Gtk','3.0'); gi.require_version('GtkLayerShell','0.1'); from gi.repository import Gio,Gtk,GtkLayerShell"],
+        "import PyQt6.QtWidgets, PyQt6.QtNetwork, PyQt6.QtDBus; from PIL import Image; import gi; gi.require_version('Gtk','3.0'); gi.require_version('GtkLayerShell','0.1'); from gi.repository import Gio,Gtk,GtkLayerShell"],
         capture_output=True,text=True)
     if result.returncode:errors.append('Python GUI/image dependencies: '+result.stderr.strip().splitlines()[-1])
     if shutil.which('pkg-config'):

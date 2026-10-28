@@ -1,0 +1,128 @@
+#!/usr/bin/env python3
+"""An invisible title grip for floating windows in this Hyprland session."""
+import fcntl
+import math
+import os
+from pathlib import Path
+import runpy
+import select
+import signal
+import socket
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT/'launcher'))
+from floating import Hypr
+
+# Use the same visible-window selection as the hover tools, including layers,
+# pinned windows and fullscreen coverage. Loading this module never runs a kill.
+target_at = runpy.run_path(str(ROOT/'scripts/kill-hovered.py'))['target_at']
+PRESS = 'custom>>xetal-floating-drag-press'
+RELEASE = 'custom>>xetal-floating-drag-release'
+
+
+def in_grip(window, cursor):
+    if not window or not window.get('floating') or window.get('fullscreen'):
+        return False
+    if not window.get('mapped') or window.get('hidden'): return False
+    x, y = cursor['x']-window['at'][0], cursor['y']-window['at'][1]
+    width, height = window['size']
+    # Leave resize edges and common left/right title-bar button clusters alone.
+    return min(48, width/5) <= x < width-min(96, width/4) and 5 <= y < min(32, height/3)
+
+
+class Drag:
+    def __init__(self, hypr):
+        self.hypr, self.candidate, self.dragging = hypr, None, False
+        self.last_position = None
+
+    def hovered(self):
+        cursor = self.hypr.query('cursorpos')
+        target = target_at(cursor, self.hypr.query('monitors'), self.hypr.query('clients'), self.hypr.query('layers'))
+        return cursor, target
+
+    def press(self, now):
+        self.release()
+        cursor, target = self.hovered()
+        if in_grip(target, cursor):
+            self.candidate = (target, cursor, now)
+
+    def tick(self, now):
+        if self.candidate is None: return
+        target, origin, started = self.candidate
+        if now-started > 30:
+            self.release(); return
+        cursor = self.hypr.query('cursorpos')
+        if self.dragging:
+            self.move(cursor); return
+        if math.hypot(cursor['x']-origin['x'], cursor['y']-origin['y']) < 8: return
+        cursor, current = self.hovered()
+        if (current is None or current.get('address') != target.get('address')
+                or current.get('pid') != target.get('pid') or not current.get('floating')
+                or current.get('fullscreen') or current['at'] != target['at']
+                or current['size'] != target['size']):
+            self.candidate = None
+            return  # A native title bar may already be handling this gesture.
+        # Direct, addressed movement also works on Hyprland versions whose
+        # legacy `mouse` dispatcher accepts presses only from real keybinds.
+        self.hypr.dispatch('tagwindow', '+xetal-title-drag,address:' + target['address'])
+        self.dragging = True
+        self.move(cursor)
+
+    def move(self, cursor):
+        target, origin, _ = self.candidate
+        position = (round(target['at'][0]+cursor['x']-origin['x']),
+                    round(target['at'][1]+cursor['y']-origin['y']))
+        if position != self.last_position:
+            self.hypr.dispatch('movewindowpixel', f'exact {position[0]} {position[1]},address:' + target['address'])
+            self.last_position = position
+
+    def release(self):
+        target = self.candidate[0] if self.candidate else None
+        self.candidate = None
+        self.last_position = None
+        if self.dragging:
+            self.dragging = False
+            try: self.hypr.dispatch('tagwindow', '-xetal-title-drag,address:' + target['address'])
+            except (OSError, ValueError): pass  # The window may have just closed.
+
+
+def main():
+    runtime, signature = os.environ.get('XDG_RUNTIME_DIR'), os.environ.get('HYPRLAND_INSTANCE_SIGNATURE')
+    if not runtime or not signature: return 1
+    instance = Path(runtime)/'hypr'/signature
+    with (instance/'floating-drag.lock').open('a') as lock, socket.socket(socket.AF_UNIX) as events:
+        try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError: return 0
+        events.connect(str(instance/'.socket2.sock'))
+        drag = Drag(Hypr(instance))
+        stopping = False
+        def stop(*_):
+            nonlocal stopping
+            stopping = True
+        for number in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP): signal.signal(number, stop)
+        pending = b''
+        try:
+            while not stopping:
+                if select.select([events], [], [], .016 if drag.candidate else 1)[0]:
+                    chunk = events.recv(65536)
+                    if not chunk: break
+                    pending += chunk
+                    while b'\n' in pending:
+                        line, pending = pending.split(b'\n', 1)
+                        event = line.decode(errors='replace')
+                        try:
+                            if event == PRESS: drag.press(time.monotonic())
+                            elif event == RELEASE or event.startswith(('submap>>', 'workspace>>', 'closewindow>>', 'changefloatingmode>>', 'fullscreen>>')):
+                                drag.release()
+                        except (OSError, ValueError, KeyError, TypeError): drag.release()
+                try: drag.tick(time.monotonic())
+                except (OSError, ValueError, KeyError, TypeError): drag.release()
+        finally:
+            try: drag.release()
+            except (OSError, ValueError): pass
+    return 0
+
+
+if __name__ == '__main__': raise SystemExit(main())

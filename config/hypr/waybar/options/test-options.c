@@ -11,15 +11,27 @@ static void change(const char *id, gboolean show, gboolean reset_all) {
 }
 
 static void state_tests(void) {
-    GError *error = NULL;
-    GHashTable *hidden = read_hidden(state, &error);
+    GError *error = NULL; gboolean bottom;
+    GHashTable *hidden = read_options(state, &bottom, &error);
     g_assert_no_error(error); g_assert_cmpuint(g_hash_table_size(hidden), ==, 0); g_hash_table_unref(hidden);
     change("cpu", FALSE, FALSE); change("custom/wifi", FALSE, FALSE);
     change("future/module", FALSE, FALSE); change("cpu", TRUE, FALSE);
-    hidden = read_hidden(state, &error); g_assert_no_error(error);
+    hidden = read_options(state, &bottom, &error); g_assert_no_error(error);
     g_assert_false(g_hash_table_contains(hidden, "cpu"));
     g_assert_true(g_hash_table_contains(hidden, "custom/wifi"));
     g_assert_true(g_hash_table_contains(hidden, "future/module")); g_hash_table_unref(hidden);
+    g_assert_false(bottom);
+    Change edge = {.path = state, .edge = "bottom"};
+    g_assert_true(write_change(&edge, &error)); g_assert_no_error(error);
+    change("memory", FALSE, FALSE);
+    hidden = read_options(state, &bottom, &error);
+    g_assert_true(bottom); g_assert_true(g_hash_table_contains(hidden, "future/module"));
+    g_assert_true(g_hash_table_contains(hidden, "memory")); g_hash_table_unref(hidden);
+    change(NULL, TRUE, TRUE);
+    hidden = read_options(state, &bottom, &error);
+    g_assert_true(bottom); g_assert_cmpuint(g_hash_table_size(hidden), ==, 0); g_hash_table_unref(hidden);
+    edge.edge = "top"; g_assert_true(write_change(&edge, &error));
+    hidden = read_options(state, &bottom, &error); g_assert_false(bottom); g_hash_table_unref(hidden);
     struct stat st; g_assert_cmpint(g_stat(state, &st), ==, 0); g_assert_cmpint(st.st_mode & 0777, ==, 0600);
 
     char *lock_path = g_strconcat(state, ".lock", NULL);
@@ -29,7 +41,7 @@ static void state_tests(void) {
     g_assert_false(write_change(&c, &error)); g_assert_error(error, G_IO_ERROR, G_IO_ERROR_BUSY);
     g_clear_error(&error); close(lock); g_free(lock_path);
 
-    const char *invalid[] = {"{", "[]", "{\"version\":2,\"hidden\":[]}",
+    const char *invalid[] = {"{", "[]", "{\"version\":2,\"hidden\":[]}", "{\"version\":1,\"hidden\":[],\"position\":\"left\"}",
         "{\"version\":1,\"hidden\":[false]}", "{\"version\":1,\"hidden\":[\"\"]}"};
     for (guint i = 0; i < G_N_ELEMENTS(invalid); i++) {
         g_assert_true(g_file_set_contents(state, invalid[i], -1, NULL));
@@ -39,7 +51,7 @@ static void state_tests(void) {
         g_assert_cmpstr(contents, ==, invalid[i]); g_free(contents);
     }
     change(NULL, TRUE, TRUE);
-    hidden = read_hidden(state, &error); g_assert_no_error(error);
+    hidden = read_options(state, &bottom, &error); g_assert_no_error(error);
     g_assert_cmpuint(g_hash_table_size(hidden), ==, 0); g_hash_table_unref(hidden);
     g_print("PASS: saved choices merge, unknown items survive, private atomic file, lock conflict, invalid-file protection and reset.\n");
 }
@@ -56,6 +68,8 @@ static Options *start(Bar *bar) {
 static Bar bar_new(void) {
     Bar bar = {0};
     bar.window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_layer_init_for_window(GTK_WINDOW(bar.window));
+    gtk_layer_set_anchor(GTK_WINDOW(bar.window), GTK_LAYER_SHELL_EDGE_TOP, TRUE);
     gtk_window_set_title(GTK_WINDOW(bar.window), "Xetal bar options test");
     bar.region = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
     gtk_style_context_add_class(gtk_widget_get_style_context(bar.region), "modules-right");
@@ -98,6 +112,18 @@ static void gui_tests(void) {
     g_assert_cmpuint(g_slist_length(a.options->slots), ==, 3);
     int full_width; gtk_widget_get_preferred_width(a.region, &full_width, NULL);
     GtkWidget *menu = g_object_ref_sink(submenu(a.options));
+    g_assert_false(a.options->saving);
+    GList *entries = gtk_container_get_children(GTK_CONTAINER(menu));
+    for (GList *it = entries; it; it = it->next) {
+        if (!g_strcmp0(g_object_get_data(G_OBJECT(it->data), "bar-position"), "bottom"))
+            gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(it->data), TRUE);
+    }
+    g_list_free(entries);
+    for (int i = 0; i < 100 && a.options->saving; i++) pump(10);
+    pump(350);
+    g_assert_true(gtk_layer_get_anchor(GTK_WINDOW(a.window), GTK_LAYER_SHELL_EDGE_BOTTOM));
+    g_assert_true(gtk_layer_get_anchor(GTK_WINDOW(b.window), GTK_LAYER_SHELL_EDGE_BOTTOM));
+    g_assert_false(gtk_layer_get_anchor(GTK_WINDOW(a.window), GTK_LAYER_SHELL_EDGE_TOP));
     gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(option(menu, "cpu")), FALSE);
     for (int i = 0; i < 100 && a.options->saving; i++) pump(10);
     g_assert_false(a.options->saving); pump(350);
@@ -122,6 +148,7 @@ static void gui_tests(void) {
     reset(NULL, a.options);
     for (int i = 0; i < 100 && a.options->saving; i++) pump(10);
     g_assert_cmpuint(g_hash_table_size(a.options->hidden), ==, 0);
+    g_assert_true(a.options->bottom);
 
     /* An external pin menu can outlive the module. Reload restores original packing. */
     menu = g_object_ref_sink(gtk_menu_new());

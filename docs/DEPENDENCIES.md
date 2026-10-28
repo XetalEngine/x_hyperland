@@ -5,7 +5,7 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 | Area | Required components |
 | --- | --- |
 | Desktop | Hyprland 0.56+, Hyprpaper 0.8+, Hyprlock, Waybar 0.15+, Kitty 0.49+, Dolphin, SwayNotificationCenter |
-| Python | Python 3.11+, PyQt6 Widgets/Network, PyGObject with Gio/GTK 3/GtkLayerShell, Pillow |
+| Python | Python 3.11+, PyQt6 Widgets/Network/DBus, PyGObject with Gio/GTK 3/GtkLayerShell, Pillow |
 | Native builds | C/C++17/20 compiler, pkg-config, GTK 3, gtk-layer-shell, json-glib, Wayland client/scanner; Qt 5 and 6 development tools and private QtGui/QtCore headers |
 | Capture | grim, slurp, wl-clipboard, xdg-desktop-portal-hyprland, GTK desktop portal |
 | Audio | PipeWire PulseAudio compatibility, pactl, WirePlumber/wpctl, playerctl |
@@ -17,6 +17,8 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 The custom Waybar modules use its CFFI v2 interface and its 0.15 workspace taskbar structure. Qt theme plugins use private APIs and are built against the installed Qt versions; session startup checks and rebuilds them after Qt changes. Their source is included.
 
 Xetal Images uses the installed Qt image readers. Common image formats are included with Qt; additional readers such as HEIF, AVIF, camera RAW and PSD depend on the distribution's Qt image-format plugins.
+
+Xetal Files speaks the [KDE JobView interfaces](https://invent.kde.org/frameworks/kjobwidgets) used by Dolphin/KIO and Ark. It starts only for this Hyprland session and leaves any existing job-service owner in charge. Applications that draw their own progress windows independently of these interfaces retain their own UI. No KDE configuration or system service is replaced.
 
 The media popup can update its private copy from the [official yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases), with SHA-256 verification and an atomic replacement. Current YouTube extraction also needs the [EJS scripts and a supported JavaScript runtime](https://github.com/yt-dlp/yt-dlp/wiki/EJS). The official update archive includes EJS; Deno, Node.js or QuickJS and FFmpeg remain distribution dependencies.
 

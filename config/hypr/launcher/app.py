@@ -924,6 +924,7 @@ def main():
     parser.add_argument('--preview')
     parser.add_argument('--from-bar',action='store_true',help='Toggle from the Apps button')
     parser.add_argument('--edit', help='Open the shortcut editor for this application ID')
+    parser.add_argument('--initial-size', type=int, nargs=2, help=argparse.SUPPRESS)
     args = parser.parse_args()
     if not args.preview and not os.environ.get('HYPRLAND_INSTANCE_SIGNATURE'):
         return 1
@@ -953,6 +954,9 @@ def main():
         if not server.listen(address):
             return 1
     window = Menu(bool(args.preview))
+    if args.initial_size and all(0 < value <= 16384 for value in args.initial_size):
+        window.setMinimumSize(*(min(base, value) for base, value in zip(geometry.MINIMUM, args.initial_size)))
+        window.resize(*args.initial_size)
     if server:
         def accept_request():
             peer = server.nextPendingConnection()
@@ -982,7 +986,7 @@ def main():
         watcher.readyRead.connect(lambda: window.handle_compositor_events(watcher))
         watcher.disconnected.connect(app.quit)
     window.show()
-    if window.screen():
+    if window.screen() and not args.initial_size:
         available = window.screen().availableGeometry()
         window.resize(min(window.width(), available.width() - 48), min(window.height(), available.height() - 70))
     if args.edit and args.edit in window.apps:

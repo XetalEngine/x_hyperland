@@ -14,7 +14,7 @@ def run(native=False):
     with tempfile.TemporaryDirectory(prefix="xetal-bar-options-build-") as temporary:
         binary = Path(temporary) / "test-options"
         flags = shlex.split(subprocess.check_output(
-            ["pkg-config", "--cflags", "--libs", "gtk+-3.0", "json-glib-1.0"], text=True))
+            ["pkg-config", "--cflags", "--libs", "gtk+-3.0", "gtk-layer-shell-0", "json-glib-1.0"], text=True))
         subprocess.run(["cc", "-g", "-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter",
                         str(ROOT / "test-options.c"), "-o", str(binary), *flags], check=True)
         subprocess.run([str(binary), *([] if native else ["--state-only"])], check=True,
