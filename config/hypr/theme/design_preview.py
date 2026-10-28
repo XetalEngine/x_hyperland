@@ -1,7 +1,7 @@
 """Small desktop illustrations using the selected palette and personal artwork."""
 from PyQt6.QtCore import Qt, QRectF
 from PyQt6.QtGui import QColor, QFont, QIcon, QPainter, QPainterPath, QPen, QPixmap
-from identity import avatar_path, wallpaper_path
+from identity import avatar_path, wallpaper_path,launcher_background_path
 import runtime
 
 
@@ -13,11 +13,12 @@ class DesktopPreview:
             'applications-multimedia','preferences-system','accessories-calculator')]
         self.refresh()
 
-    def refresh(self,avatar=None):
-        paths=(wallpaper_path(),avatar_path(avatar))
+    def refresh(self,avatar=None,background=None,enabled=None):
+        self.show_background=runtime.launcher_wallpaper() if enabled is None else enabled
+        paths=(wallpaper_path(),avatar_path(avatar),launcher_background_path(choice=background))
         if paths==self.paths:return
         self.paths=paths
-        self.wallpaper,self.avatar=[QPixmap(str(path)) if path else QPixmap() for path in paths]
+        self.wallpaper,self.avatar,self.background=[QPixmap(str(path)) if path else QPixmap() for path in paths]
 
     @staticmethod
     def picture(p,image,box,rounding=0,circle=False):
@@ -55,6 +56,11 @@ class DesktopPreview:
 
         # Launcher: profile, navigation, group title and real application icons.
         panel(14,37,389,190,'Window',13 if modern else 5,'Midlight')
+        if self.show_background and not self.background.isNull():
+            menu=QRectF(14,37,389,190);radius=13 if modern else 5
+            self.picture(p,self.background,menu,radius)
+            shade=QColor(colors['Window']);shade.setAlpha(236 if mode=='light' else 242 if mode=='contrast' else 210)
+            p.setPen(QPen(QColor(colors['Midlight']),1));p.setBrush(shade);p.drawRoundedRect(menu,radius,radius)
         self.picture(p,self.avatar,QRectF(27,49,32,32),circle=True)
         text(66,49,98,17,'xetal' if modern else 'XETAL',10,'Text',True)
         text(66,65,100,14,runtime.DESIGNS[design],7,'PlaceholderText')

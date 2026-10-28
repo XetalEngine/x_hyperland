@@ -13,11 +13,44 @@ from PyQt6.QtWidgets import QApplication
 import app
 import keys
 import runtime
+import page as theme_page
 
 QT=QApplication.instance() or QApplication([])
 
 
 class DesignTests(unittest.TestCase):
+    def test_apps_background_picker_keeps_avatar_separate_and_tracks_saved_copy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state=Path(directory)/'theme.json'
+            state.write_text(json.dumps({'design':'modern','mode':'dark','avatar':'auto','launcher_wallpaper':False}))
+            chosen=str(Path(directory)/'my-background.png');saved='backgrounds/saved-copy.png'
+            def run(fn,done,failed):done(fn())
+            def save(mode,token,design,avatar,enabled,background):
+                state.write_text(json.dumps({'design':design,'mode':mode,'avatar':avatar,'launcher_wallpaper':enabled,'launcher_background':saved}))
+                return 'new-token'
+            with patch.object(runtime,'STATE',state),patch.object(theme_page.backend,'theme_token',return_value='token'),patch.object(theme_page.backend,'apply_mode',side_effect=save) as apply:
+                page=app.ThemePage(run)
+                try:
+                    page.refresh()
+                    with patch.object(theme_page.ImagePicker,'choose',return_value=chosen):page.choose_background()
+                    self.assertTrue(page.design_page.wallpaper.isChecked())
+                    self.assertEqual(page.avatar,'auto')
+                    page.design.setCurrentIndex(page.design.findData('raw'))
+                    self.assertTrue(page.dirty);page.save_mode()
+                    apply.assert_called_once_with('dark','token','raw','auto',True,chosen)
+                    self.assertEqual(page.background,saved)
+                    self.assertFalse(page.dirty)
+                    page.set_background('')
+                    self.assertTrue(page.dirty)
+                    self.assertEqual(page.background,'')
+                    self.assertEqual(page.avatar,'auto')
+                    page.design_page.wallpaper.click()
+                    self.assertFalse(page.backdrop)
+                    choice=page.choice()
+                    with patch.object(theme_page.ImagePicker,'choose',return_value=''):page.choose_background()
+                    self.assertEqual(page.choice(),choice)
+                finally:page.deleteLater();QT.sendPostedEvents(None,QEvent.Type.DeferredDelete)
+
     def test_switch_preserves_hotkey_draft_and_original_navigation(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);state=root/'theme.json'

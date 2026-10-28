@@ -237,13 +237,35 @@ label {{
 '''
 
 
-def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None):
+def prepare_launcher_background(choice):
+    """Keep a portable, oriented PNG so moving the original never breaks Apps."""
+    from PIL import Image,ImageOps
+    source=Path(choice).expanduser()
+    if not source.is_absolute():source=runtime.ROOT/source
+    try:
+        with Image.open(source) as picture:
+            output=io.BytesIO()
+            ImageOps.exif_transpose(picture).convert('RGBA').save(output,format='PNG')
+    except (OSError,ValueError,Image.DecompressionBombError) as error:
+        raise ValueError('The Apps background could not be read. Choose another image.') from error
+    data=output.getvalue()
+    relative='backgrounds/'+hashlib.sha256(data).hexdigest()[:24]+'.png'
+    return relative,data
+
+
+def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,launcher_background=None):
     if value not in runtime.MODES: raise ValueError('Choose an available theme.')
     design=design or runtime.design()
     if design not in runtime.DESIGNS:raise ValueError('Choose Xetal Raw or Xetal Modern.')
     previous=runtime.state()
     launcher_wallpaper=previous.get('launcher_wallpaper',False) if launcher_wallpaper is None else launcher_wallpaper
     if not isinstance(launcher_wallpaper,bool):raise ValueError('Choose whether to use a wallpaper behind Apps.')
+    launcher_background=previous.get('launcher_background','') if launcher_background is None else launcher_background
+    if not isinstance(launcher_background,str) or any(c in launcher_background for c in '\r\n\0'):
+        raise ValueError('Choose a valid Apps background image.')
+    background_data=None
+    if launcher_background and (launcher_wallpaper or launcher_background!=previous.get('launcher_background','')):
+        launcher_background,background_data=prepare_launcher_background(launcher_background)
     avatar=previous.get('avatar','auto') if avatar is None else avatar
     if not isinstance(avatar,str) or any(c in avatar for c in '\r\n\0'):
         raise ValueError('Choose a valid account image.')
@@ -281,11 +303,12 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None):
     if design=='modern':css+=designs.notification_style(colors)
     bar=runtime.stylesheet((runtime.ROOT/'waybar-dark.css').read_text(),value,design,qt=False)
     if design=='modern':bar+=designs.waybar_style(colors)
-    files={runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,'avatar':avatar,'launcher_wallpaper':launcher_wallpaper},indent=2)+'\n').encode(),
+    files={runtime.ROOT/launcher_background:background_data} if background_data is not None else {}
+    files.update({runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,'avatar':avatar,'launcher_wallpaper':launcher_wallpaper,'launcher_background':launcher_background},indent=2)+'\n').encode(),
            runtime.ROOT/'current.colors':scheme.encode(),runtime.ROOT/'kitty-colors.conf':kitty_colors(value,design).encode(),
            isolated:(stream.getvalue().rstrip()+'\n').encode(),
            ROOT/'waybar/style.css':bar.encode(),
-           ROOT/'swaync/style.css':css.encode()}
+           ROOT/'swaync/style.css':css.encode()})
     for target,template in [('hyprlock.conf','hyprlock-raw.conf'),('startup/kitty.conf','startup-raw.conf')]:
         path=ROOT/target;saved=runtime.ROOT/template
         if not path.exists() or not saved.exists():continue
@@ -300,6 +323,7 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None):
         fcntl.flock(lock,fcntl.LOCK_EX | fcntl.LOCK_NB)
         if theme_token()!=expected: raise ValueError('The theme changed elsewhere. Reload before applying.')
         try:
+            if background_data is not None:(runtime.ROOT/'backgrounds').mkdir(exist_ok=True,mode=0o700)
             for path,data in files.items(): keys.atomic_write(path,data)
             store.save(content,expected[0])
         except Exception:

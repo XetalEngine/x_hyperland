@@ -11,7 +11,7 @@ import runtime
 from image_picker import ImagePicker
 import desktop_settings as settings
 from preferences_page import PreferencesPage
-from identity import ProfileCard
+from identity import ProfileCard,launcher_background_path
 from design_preview import DesktopPreview
 
 
@@ -170,6 +170,30 @@ class DesignCard(QPushButton):
         p.drawText(QRectF(box.x()+16,box.bottom()-25,box.width()-32,20),Qt.AlignmentFlag.AlignVCenter,'Soft cards · blue accents' if modern else 'Original layout · cyan accents')
 
 
+class BackgroundPreview(QWidget):
+    def __init__(self):
+        super().__init__();self.setFixedSize(144,92);self.path=None;self.picture=QPixmap();self.enabled=False
+    def refresh(self,choice,enabled):
+        path=launcher_background_path(choice=choice) if enabled else None
+        self.enabled=enabled
+        if path!=self.path:
+            self.path=path;self.picture=QPixmap()
+            if path:
+                reader=QImageReader(str(path));reader.setAutoTransform(True)
+                size=reader.size()
+                if size.isValid():reader.setScaledSize(size.scaled(288,184,Qt.AspectRatioMode.KeepAspectRatio))
+                self.picture=QPixmap.fromImage(reader.read())
+        self.update()
+    def paintEvent(self,event):
+        p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing);p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        box=QRectF(self.rect()).adjusted(.5,.5,-.5,-.5);colors=runtime.colors()
+        p.setBrush(QColor(colors['Base']));p.setPen(Qt.PenStyle.NoPen);p.drawRoundedRect(box,10,10)
+        if not self.picture.isNull():DesktopPreview.picture(p,self.picture,box,10)
+        else:
+            p.setPen(QColor(colors['PlaceholderText']));p.drawText(box,Qt.AlignmentFlag.AlignCenter,'No preview' if self.enabled else 'Theme background')
+        p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(QColor(colors['Midlight']),1));p.drawRoundedRect(box,10,10)
+
+
 class DesignPage(QWidget):
     def __init__(self,owner):
         super().__init__();self.owner=owner
@@ -184,17 +208,33 @@ class DesignPage(QWidget):
             card=DesignCard(style);card.clicked.connect(lambda _,s=style:owner.design.setCurrentIndex(owner.design.findData(s)))
             self.cards[style]=card;row.addWidget(card,1)
         root.addLayout(row)
-        self.wallpaper=QCheckBox('Use wallpaper behind Apps');self.wallpaper.setChecked(owner.backdrop)
-        self.wallpaper.setToolTip('Show the current monitor’s wallpaper behind the entire Apps menu in Xetal Raw and Xetal Modern.')
-        self.wallpaper.toggled.connect(owner.set_backdrop);root.addWidget(self.wallpaper)
+        background=QHBoxLayout();background.setSpacing(16)
+        self.background_preview=BackgroundPreview();background.addWidget(self.background_preview)
+        background_controls=QVBoxLayout();background_controls.setSpacing(5)
+        title=QHBoxLayout();title.addWidget(label('Apps background','section'))
+        self.background_source=label('','muted');title.addWidget(self.background_source);title.addStretch();background_controls.addLayout(title)
+        self.wallpaper=QCheckBox('Show background image');self.wallpaper.setChecked(owner.backdrop)
+        self.wallpaper.setToolTip('Show your chosen image behind the entire Apps menu in Xetal Raw and Xetal Modern.')
+        self.wallpaper.toggled.connect(owner.set_backdrop);background_controls.addWidget(self.wallpaper)
+        actions=QHBoxLayout();actions.addWidget(button('Choose image…',owner.choose_background))
+        actions.addWidget(button('Use desktop wallpaper',lambda:owner.set_background('')));actions.addStretch()
+        background_controls.addLayout(actions);background.addLayout(background_controls,1);root.addLayout(background)
         self.profile=ProfileCard();self.profile.setMinimumHeight(140);self.profile.setMaximumHeight(160);root.addWidget(self.profile)
         controls=QHBoxLayout();controls.addWidget(label('Your profile image','muted'));controls.addStretch()
         controls.addWidget(button('Choose image or GIF…',owner.choose_avatar))
-        controls.addWidget(button('Use account picture',lambda:owner.set_avatar('auto')))
+        account=button('Use account picture',lambda:owner.set_avatar('auto'))
+        account.setToolTip('Use your Linux account’s profile picture, or the bundled Xetal image if none is set. This changes the avatar shown here; it does not edit your account picture.')
+        controls.addWidget(account)
         root.addLayout(controls);root.addStretch()
+        self.refresh_background()
+    def refresh_background(self):
+        self.background_preview.refresh(self.owner.background,self.owner.backdrop)
+        self.background_source.setText('Custom image' if self.owner.background else 'Desktop wallpaper')
+        for card in self.cards.values():
+            card.artwork.refresh(self.owner.avatar,self.owner.background,self.owner.backdrop);card.update()
     def refresh(self):
         self.profile.refresh();self.profile.avatar.refresh(self.owner.avatar)
-        for card in self.cards.values():card.artwork.refresh(self.owner.avatar);card.update()
+        self.refresh_background()
 
 
 class ThemePage(QWidget):
@@ -202,7 +242,8 @@ class ThemePage(QWidget):
         super().__init__(); self.async_run=async_run; self.applying=False; self.token=None
         self.avatar=runtime.state().get('avatar','assets/account.gif')
         self.backdrop=runtime.launcher_wallpaper()
-        self.baseline=(runtime.design(),runtime.mode(),self.avatar,self.backdrop)
+        self.background=runtime.launcher_background()
+        self.baseline=(runtime.design(),runtime.mode(),self.avatar,self.backdrop,self.background)
         root=QVBoxLayout(self);root.setContentsMargins(18,16,18,16)
         heading=QHBoxLayout();brand=label('Theme & wallpaper','brand');brand.setWordWrap(False);heading.addWidget(brand);heading.addStretch()
         self.design=QComboBox()
@@ -219,7 +260,7 @@ class ThemePage(QWidget):
         if filename:self.tabs.setCurrentWidget(self.wallpapers)
         self.design.currentIndexChanged.connect(self.changed);self.mode.currentIndexChanged.connect(self.changed)
         self.tabs.currentChanged.connect(lambda _:self.tabs.currentWidget().refresh());self.changed()
-    def choice(self):return self.design.currentData(),self.mode.currentData(),self.avatar,self.backdrop
+    def choice(self):return self.design.currentData(),self.mode.currentData(),self.avatar,self.backdrop,self.background
     @property
     def dirty(self):return self.wallpapers.dirty or self.appearance.dirty or self.choice()!=self.baseline
     @property
@@ -228,7 +269,8 @@ class ThemePage(QWidget):
         if not self.applying and self.choice()==self.baseline:
             self.avatar=runtime.state().get('avatar','assets/account.gif')
             self.backdrop=runtime.launcher_wallpaper()
-            self.baseline=(runtime.design(),runtime.mode(),self.avatar,self.backdrop)
+            self.background=runtime.launcher_background()
+            self.baseline=(runtime.design(),runtime.mode(),self.avatar,self.backdrop,self.background)
             self.design_page.wallpaper.blockSignals(True);self.design_page.wallpaper.setChecked(self.backdrop);self.design_page.wallpaper.blockSignals(False)
             self.mode.setCurrentIndex(self.mode.findData(self.baseline[1]));self.design.setCurrentIndex(self.design.findData(self.baseline[0]))
             self.token=backend.theme_token();self.changed()
@@ -241,16 +283,24 @@ class ThemePage(QWidget):
     def set_avatar(self,choice):
         self.avatar=choice;self.design_page.refresh();self.changed()
     def set_backdrop(self,enabled):
-        self.backdrop=enabled;self.changed()
+        self.backdrop=enabled;self.design_page.refresh_background();self.changed()
+    def set_background(self,choice):
+        self.background=choice;self.backdrop=True
+        self.design_page.wallpaper.setChecked(True);self.design_page.refresh_background();self.changed()
+    def choose_background(self):
+        filename=ImagePicker.choose(self,'Choose Apps background',str(Path.home()/'Pictures'),
+            'Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif *.tif *.tiff *.avif);;All files (*)',self.async_run)
+        if filename:self.set_background(filename)
     def choose_avatar(self):
         picker=ImagePicker(self,'Choose profile image or GIF',str(Path.home()/'Pictures'),'Images (*.gif *.png *.jpg *.jpeg *.webp)',self.async_run)
         if picker.exec() and picker.selectedFiles():self.set_avatar(picker.selectedFiles()[0])
     def save_mode(self):
         if self.applying or not self.token:return
-        choice=self.choice();style,value,avatar,backdrop=choice;token=self.token;self.applying=True;self.changed();self.status.setText('Applying '+runtime.DESIGNS[style]+'…')
-        self.async_run(lambda:backend.apply_mode(value,token,style,avatar,backdrop),lambda token:self.saved(choice,token),self.failed)
+        choice=self.choice();style,value,avatar,backdrop,background=choice;token=self.token;self.applying=True;self.changed();self.status.setText('Applying '+runtime.DESIGNS[style]+'…')
+        self.async_run(lambda:backend.apply_mode(value,token,style,avatar,backdrop,background),lambda token:self.saved(choice,token),self.failed)
     def saved(self,value,token):
-        self.baseline=value;self.token=token;self.applying=False;self.changed()
-        self.design_page.profile.refresh()
+        self.background=runtime.launcher_background()
+        self.baseline=(*value[:4],self.background);self.token=token;self.applying=False;self.changed()
+        self.design_page.refresh()
         self.status.setText(runtime.DESIGNS[value[0]]+' applied. Reopen older applications to pick up the new appearance.')
     def failed(self,message):self.applying=False;self.changed();self.status.setText(message)

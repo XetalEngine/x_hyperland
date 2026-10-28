@@ -185,6 +185,54 @@ class ThemeTransactionTests(unittest.TestCase):
         self.assertEqual(runtime.STATE.read_bytes(),self.files[runtime.STATE])
         self.assertFalse(runtime.launcher_wallpaper())
 
+    def test_custom_apps_background_is_saved_independently_and_survives_moving_original(self):
+        self.add_raw_profiles();self.store.save.side_effect=None
+        source=self.root/'chosen background.jpg'
+        picture=Image.new('RGB',(24,16),'coral');exif=Image.Exif();exif[274]=6
+        picture.save(source,exif=exif)
+        wallpaper=self.root/'wallpaper/selection.json';wallpaper.parent.mkdir()
+        wallpaper.write_text('desktop wallpaper stays unchanged\n')
+        with patch.object(backend.Path,'iterdir',return_value=iter(())):
+            backend.apply_mode('dark',backend.theme_token(),'modern',launcher_wallpaper=True,launcher_background=str(source))
+            choice=runtime.launcher_background();saved=runtime.ROOT/choice
+            self.assertFalse(Path(choice).is_absolute())
+            self.assertEqual(identity.launcher_background_path(),saved)
+            with Image.open(saved) as result:self.assertEqual(result.size,(16,24))
+            source.unlink()
+            backend.apply_mode('light',backend.theme_token(),'raw')
+            self.assertEqual(runtime.launcher_background(),choice)
+            self.assertTrue(saved.is_file())
+            self.assertEqual(runtime.state()['avatar'],'auto')
+            backend.apply_mode('dark',backend.theme_token(),'modern',launcher_wallpaper=False)
+            self.assertEqual(runtime.launcher_background(),choice)
+            self.assertFalse(runtime.launcher_wallpaper())
+            backend.apply_mode('dark',backend.theme_token(),launcher_wallpaper=True,launcher_background='')
+            self.assertEqual(runtime.launcher_background(),'')
+        self.assertEqual(wallpaper.read_text(),'desktop wallpaper stays unchanged\n')
+        for name in ('keybindings.conf','favorites.json'):
+            self.assertEqual((self.root/name).read_bytes(),self.files[self.root/name])
+
+    def test_failed_custom_background_apply_removes_new_asset_and_restores_theme(self):
+        source=self.root/'image.webp';Image.new('RGB',(16,12),'gold').save(source)
+        with self.assertRaisesRegex(ValueError,'reload failed'):
+            backend.apply_mode('dark',backend.theme_token(),launcher_wallpaper=True,launcher_background=str(source))
+        for path,original in self.files.items():self.assertEqual(path.read_bytes(),original)
+        self.assertEqual(list((runtime.ROOT/'backgrounds').glob('*.png')),[])
+
+    def test_bad_background_does_not_write_any_theme_files(self):
+        source=self.root/'broken.png';source.write_text('not a picture')
+        with self.assertRaisesRegex(ValueError,'background could not be read'):
+            backend.apply_mode('dark',backend.theme_token(),launcher_wallpaper=True,launcher_background=str(source))
+        self.store.save.assert_not_called()
+        for path,original in self.files.items():self.assertEqual(path.read_bytes(),original)
+
+    def test_missing_custom_image_can_still_be_disabled(self):
+        runtime.STATE.write_text(json.dumps({'mode':'dark','launcher_wallpaper':True,'launcher_background':'backgrounds/missing.png'}))
+        self.store.save.side_effect=None
+        with patch.object(backend.Path,'iterdir',return_value=iter(())):
+            backend.apply_mode('dark',backend.theme_token(),launcher_wallpaper=False)
+        self.assertFalse(runtime.launcher_wallpaper())
+
     def test_external_lock_edit_stops_theme_change(self):
         self.add_raw_profiles();token=backend.theme_token()
         (self.root/'hyprlock.conf').write_text('user edited lock\n')
@@ -209,6 +257,15 @@ class LauncherWallpaperTests(unittest.TestCase):
                 self.assertEqual(identity.wallpaper_path('DP-2'),default)
                 selection.write_text('[]')
                 self.assertEqual(identity.wallpaper_path('DP-2'),default)
+
+    def test_custom_image_takes_priority_and_missing_image_falls_back_to_wallpaper(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);background=root/'backgrounds/picture.png';background.parent.mkdir();background.touch()
+            with patch.object(runtime,'ROOT',root),patch.object(runtime,'launcher_background',return_value='backgrounds/picture.png'),patch.object(identity,'wallpaper_path',return_value=Path('/wallpaper.png')):
+                self.assertEqual(identity.launcher_background_path('DP-2'),background)
+                self.assertEqual(identity.launcher_background_path('DP-2',choice=''),Path('/wallpaper.png'))
+                background.unlink()
+                self.assertEqual(identity.launcher_background_path('DP-2'),Path('/wallpaper.png'))
 
 
 if __name__=='__main__':unittest.main()

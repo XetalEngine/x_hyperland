@@ -28,6 +28,11 @@ def launcher_wallpaper():
     return state().get('launcher_wallpaper') is True
 
 
+def launcher_background():
+    value=state().get('launcher_background','')
+    return value if isinstance(value,str) else ''
+
+
 def mode():
     try:
         value = json.loads(STATE.read_text())['mode']

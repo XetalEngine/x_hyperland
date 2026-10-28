@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'theme'))
 import runtime as theme_runtime
 from editor import ShortcutEditor
 from window_chrome import close_button
-from identity import Avatar, ProfileCard, wallpaper_path
+from identity import Avatar, ProfileCard, launcher_background_path
 
 STYLE = '''
 QWidget { color: #e6edf8; font-family: "Noto Sans"; font-size: 13px; background: transparent; }
@@ -363,6 +363,7 @@ class Menu(QWidget):
             box=QRectF(self.rect()).adjusted(.5,.5,-.5,-.5)
             path=QPainterPath();path.addRoundedRect(box,20 if theme_runtime.design()=='modern' else 17,20 if theme_runtime.design()=='modern' else 17)
             painter.save();painter.setClipPath(path);painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+            painter.fillRect(box,QColor(theme_runtime.colors()['Window']))
             picture=self.backdrop_image;scale=max(box.width()/picture.width(),box.height()/picture.height())
             target=QRectF(0,0,picture.width()*scale,picture.height()*scale);target.moveCenter(box.center())
             painter.drawPixmap(target,picture,QRectF(picture.rect()))
@@ -391,7 +392,7 @@ class Menu(QWidget):
 
     def refresh_backdrop(self,*_):
         screen=self.screen()
-        path=wallpaper_path(screen.name() if screen else None) if theme_runtime.launcher_wallpaper() else None
+        path=launcher_background_path(screen.name() if screen else None) if theme_runtime.launcher_wallpaper() else None
         if path!=getattr(self,'backdrop_source',None) or not hasattr(self,'backdrop_image'):
             self.backdrop_source=path;self.backdrop_image=QPixmap(str(path)) if path else QPixmap()
         self.update()

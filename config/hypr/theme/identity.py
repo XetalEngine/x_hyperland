@@ -42,6 +42,15 @@ def wallpaper_path(connector=None):
     return None
 
 
+def launcher_background_path(connector=None,choice=None):
+    choice=runtime.launcher_background() if choice is None else choice
+    if choice:
+        path=Path(choice).expanduser()
+        if not path.is_absolute():path=runtime.ROOT/path
+        if path.is_file():return path
+    return wallpaper_path(connector)
+
+
 class Avatar(QWidget):
     clicked = pyqtSignal()
 
