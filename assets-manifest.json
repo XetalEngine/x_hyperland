@@ -6,5 +6,18 @@
   "config/hypr/startup/assets/xetal-mascot.png": "0dd8e0105f21533de911fb17840df0324dd3569066a094108acaaf71abbe3e75",
   "config/hypr/theme/assets/account.gif": "6d1051ace8d82e1dfaa79cf5b2a47df11aa29513438983ba3a2c18ce34d79e19",
   "config/hypr/theme/assets/check-dark.svg": "8a20194d13835d54ac85be9764b7ac594cf43ad61143c1ab11a62fc9b0a92842",
-  "config/hypr/theme/assets/check-light.svg": "2fa7dcaa3d0d747031ff21cd43e1b29a4eced9eb270af0e986506b6e019984b5"
+  "config/hypr/theme/assets/check-light.svg": "2fa7dcaa3d0d747031ff21cd43e1b29a4eced9eb270af0e986506b6e019984b5",
+  "config/hypr/assets/fonts/JetBrainsMono-Bold.ttf": "5590990c82e097397517f275f430af4546e1c45cff408bde4255dad142479dcb",
+  "config/hypr/assets/fonts/Inter-SemiBold.otf": "0a4d30778fa2dc239368d90fd854b88b27e7ede737450da72686a90eca66f02c",
+  "config/hypr/assets/fonts/Inter-Regular.otf": "d4f2b9e148059a15f014cb0f0b8fea8cd11bfa447dd483bedf1b0adc0e2ba799",
+  "config/hypr/assets/fonts/JetBrainsMono-OFL.txt": "60d55f23c6ce05a81099a762cb67ca2c9b6ea251c7912720998b4c89ebfd4faa",
+  "config/hypr/assets/fonts/Inter-LICENSE.txt": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a",
+  "config/hypr/assets/fonts/Inter-Bold.otf": "9fc6261e817d0b1b2bf1953d8799bb1c837d11aeebbf83ae352e7b4d6de6425d",
+  "config/hypr/assets/fonts/JetBrainsMono-Regular.ttf": "a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f",
+  "config/hypr/assets/fonts/JetBrainsMono-BoldItalic.ttf": "4039d5ce0ed225bf9c8b2c8c6436290ae2f356b7e90d70fa666227238324aa3b",
+  "config/hypr/assets/fonts/Inter-Medium.otf": "6c222ed2c3660524dd0c14fb745e00fee65c5361ab28f60fba6730bf4e648763",
+  "config/hypr/assets/fonts/JetBrainsMono-Italic.ttf": "9d0a1f7a708e6af183f1193b7e81d40da294f5c67682c085d8401c60aac8ded4",
+  "config/hypr/wallpaper/breakpoint/workstation-3.png": "dd84e5882560b662a1b0ab343d4bbb7f48af4efc5d8a60e9669bd2c88256dc6b",
+  "config/hypr/wallpaper/breakpoint/workstation-1.png": "d70fd3156869d3ffdfd97bdcdb17d73232e3b2aefefd0e28de6a297bf31e022c",
+  "config/hypr/wallpaper/breakpoint/workstation-2.png": "46f64d52ae3ee25ae3119e89917f2e387733fff8aac88bfa580d75cf3dc46da0"
 }

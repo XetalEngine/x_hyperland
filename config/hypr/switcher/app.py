@@ -78,11 +78,11 @@ class Card(QStyledItemDelegate):
         painter.drawRoundedRect(box, 13, 13)
         icon = index.data(Qt.ItemDataRole.DecorationRole)
         if icon: icon.paint(painter, int(box.center().x()-27), int(box.top()+17), 54, 54)
-        painter.setPen(color('#eff8ff')); painter.setFont(QFont('Noto Sans', 11, QFont.Weight.DemiBold))
+        painter.setPen(color('#eff8ff')); painter.setFont(QFont(theme_runtime.ui_font(), 11, QFont.Weight.DemiBold))
         title = index.data(Qt.ItemDataRole.DisplayRole)
         title = painter.fontMetrics().elidedText(title, Qt.TextElideMode.ElideRight, int(box.width()-24)*2)
         painter.drawText(box.adjusted(12, 80, -12, -43), Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap, title)
-        painter.setFont(QFont('Noto Sans', 9)); painter.setPen(color('#a8d9d6' if selected else '#98adc7'))
+        painter.setFont(QFont(theme_runtime.ui_font(), 9)); painter.setPen(color('#a8d9d6' if selected else '#98adc7'))
         painter.drawText(box.adjusted(8, box.height()-36, -8, -8), Qt.AlignmentFlag.AlignCenter,
                          index.data(Qt.ItemDataRole.UserRole+1))
         painter.restore()
@@ -115,6 +115,11 @@ class Switcher(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self); painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        if theme_runtime.design()=='breakpoint':
+            colors=theme_runtime.colors();fill=QColor(colors['Window']);fill.setAlpha(240)
+            painter.setBrush(fill);painter.setPen(QPen(QColor(colors['Accent']),2))
+            painter.drawRoundedRect(QRectF(self.rect()).adjusted(1,1,-1,-1),12,12)
+            return
         gradient = QLinearGradient(0, 0, self.width(), self.height())
         gradient.setColorAt(0, color('#182a3b')); gradient.setColorAt(1, color('#0e1825'))
         painter.setBrush(gradient); painter.setPen(QPen(color('#5aaea8'), 1.5))

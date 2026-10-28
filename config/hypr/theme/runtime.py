@@ -44,9 +44,19 @@ def launcher_background():
     return value if isinstance(value,str) else ''
 
 
+def launcher_background_visibility():
+    value=state().get('launcher_background_visibility',18)
+    return max(0,min(100,value)) if type(value) is int else 18
+
+
 def launcher_surfaces():
     from launcher_surfaces import normalize
     return normalize(state().get('launcher_surfaces',{}))
+
+
+def launcher_labels():
+    from launcher_labels import normalize
+    return normalize(state().get('launcher_labels',{}))
 
 
 def mode():
@@ -58,8 +68,13 @@ def mode():
 
 def colors(value=None,style=None):
     palettes=json.loads((ROOT/'palettes.json').read_text())
-    if (style or design())=='modern':palettes=palettes['modern']
+    selected=style or design()
+    if selected in DESIGNS and selected!='raw':palettes=palettes[selected]
     return palettes[value or mode()]
+
+
+def ui_font(style=None):
+    return 'Inter' if (style or design())=='breakpoint' else 'Noto Sans'
 
 
 def environment(base=None, value=None):
@@ -75,12 +90,14 @@ def environment(base=None, value=None):
     paths += [p for p in env.get('QT_PLUGIN_PATH','').split(':') if p and p not in paths]
     env.update(QT_QPA_PLATFORMTHEME='xetal', QT_STYLE_OVERRIDE='Fusion', QT_PLUGIN_PATH=':'.join(paths),
                XETAL_THEME_CONFIG=str(STATE), GTK_THEME={'dark':'Adwaita:dark','light':'Adwaita','contrast':'HighContrastInverse'}[value],
+               FONTCONFIG_FILE=str(ROOT.parent/'assets/fonts.conf'),
                KDE_COLOR_SCHEME_PATH=str(ROOT/'current.colors'))
     return env
 
 
 def recolor(color, value, style=None):
-    if (style or design())=='modern':return designs.recolor(color,colors(value,'modern'),value)
+    selected=style or design()
+    if selected!='raw':return designs.recolor(color,colors(value,selected),value)
     if value == 'dark': return color
     rgb = tuple(int(color[i:i+2],16)/255 for i in (1,3,5))
     hue, light, sat = colorsys.rgb_to_hls(*rgb)
@@ -103,13 +120,13 @@ def stylesheet(source, value=None, style=None, qt=True):
         r,g,b,alpha = match.groups(); transformed = recolor(f'#{int(r):02x}{int(g):02x}{int(b):02x}',value,style)
         return f'rgba({int(transformed[1:3],16)},{int(transformed[3:5],16)},{int(transformed[5:7],16)},{alpha})'
     source=re.sub(r'rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)',rgba,source)
-    return source+(designs.qt_style(colors(value,style)) if style=='modern' and qt else '')
+    return source+(designs.qt_style(colors(value,style),style) if style!='raw' and qt else '')
 
 
 def qcolor(*args):
     from PyQt6.QtGui import QColor
     color=QColor(*args)
-    if design()=='modern':
+    if design()!='raw':
         alpha=color.alpha();color=QColor(recolor(color.name(),mode()));color.setAlpha(alpha)
     return color
 
@@ -157,6 +174,7 @@ def install(app, source='', *, style=None):
             QIcon.setFallbackThemeName('hicolor'); QIcon.setThemeName('Papirus-Light' if mode()=='light' else 'Papirus-Dark')
             for widget in app.allWidgets():
                 if isinstance(widget,QCalendarWidget): style_calendar(widget)
+                if widget.objectName()=='windowClose':window_chrome.style_close(widget,selected or design())
                 widget.update()
             self.changed.emit()
     # QFileDialog normally remembers its folder in shared QtProject settings.

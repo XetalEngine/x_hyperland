@@ -70,7 +70,7 @@ QTest.qWait(80)
 assert app.palette().color(QPalette.ColorRole.Window).name()==runtime.colors('dark','raw')['Window']
 base={'HYPRLAND_INSTANCE_SIGNATURE':'test'};environment=runtime.environment(base)
 for mode in runtime.MODES:
-    for desktop,menu in (('modern','raw'),('raw','modern'),('modern','follow')):
+    for desktop,menu in (('modern','raw'),('raw','modern'),('modern','follow'),('breakpoint','follow'),('modern','breakpoint'),('breakpoint','raw')):
         changes=QSignalSpy(theme.changed)
         pending=root/'pending.json'
         pending.write_text(json.dumps({'design':desktop,'mode':mode,'launcher_style':menu}))
@@ -95,10 +95,10 @@ for mode in runtime.MODES:
 
     def test_start_menu_follows_legacy_settings_or_uses_its_own_style(self):
         for desktop in runtime.DESIGNS:
-            for setting in (None,'follow','raw','modern','unknown',[],42):
+            for setting in (None,'follow','raw','modern','breakpoint','unknown',[],42):
                 with self.subTest(desktop=desktop,setting=setting),patch.object(runtime,'state',return_value={
                         'design':desktop,'launcher_style':setting}):
-                    expected=setting if setting in ('raw','modern') else desktop
+                    expected=setting if setting in ('raw','modern','breakpoint') else desktop
                     self.assertEqual(runtime.launcher_design(),expected)
                     self.assertEqual(runtime.design(),desktop)
                     self.assertEqual(runtime.colors('dark'),runtime.colors('dark',desktop))
@@ -191,6 +191,21 @@ class ThemeTransactionTests(unittest.TestCase):
         for path,original in self.files.items():
             if path!=runtime.STATE:self.assertEqual(path.read_bytes(),original)
 
+    def test_global_launcher_labels_and_visibility_survive_design_changes(self):
+        self.store.save.side_effect=None
+        with patch.object(backend.Path,'iterdir',return_value=iter(())):
+            backend.apply_mode('dark',backend.theme_token(),launcher_labels={'names':False,'hotkeys':False},launcher_background_visibility=53)
+            for style in runtime.DESIGNS:
+                backend.apply_mode('dark',backend.theme_token(),style,launcher_style=style)
+                self.assertEqual(runtime.launcher_labels(),{'names':False,'hotkeys':False})
+                self.assertEqual(runtime.launcher_background_visibility(),53)
+
+    def test_invalid_labels_and_visibility_are_rejected_before_writes(self):
+        for options in ({'launcher_labels':{'names':'off'}},{'launcher_background_visibility':101},{'launcher_background_visibility':True}):
+            with self.assertRaises(ValueError):backend.apply_mode('dark',backend.theme_token(),**options)
+        self.store.save.assert_not_called()
+        for path,original in self.files.items():self.assertEqual(path.read_bytes(),original)
+
     def test_success_updates_terminal_palette_before_reload(self):
         self.store.save.side_effect=None
         with patch.object(backend.Path,'iterdir',return_value=iter(())):
@@ -223,6 +238,29 @@ class ThemeTransactionTests(unittest.TestCase):
     def test_failed_design_change_restores_raw_backups_too(self):
         self.add_raw_profiles()
         with self.assertRaisesRegex(ValueError,'reload failed'):backend.apply_mode('dark',backend.theme_token(),'modern')
+        for path,original in self.files.items():self.assertEqual(path.read_bytes(),original,path)
+
+    def test_breakpoint_round_trip_preserves_shortcuts_raw_profiles_and_menu_preferences(self):
+        self.add_raw_profiles();self.store.save.side_effect=None
+        with patch.object(backend.Path,'iterdir',return_value=iter(())):
+            backend.apply_mode('dark',backend.theme_token(),'breakpoint',launcher_style='raw')
+            self.assertEqual(runtime.design(),'breakpoint')
+            self.assertEqual(runtime.launcher_design(),'raw')
+            self.assertIn('font_family JetBrains Mono',(runtime.ROOT/'kitty-colors.conf').read_text())
+            self.assertIn('rgb(e53945)',self.store.save.call_args.args[0])
+            self.assertIn('rounding = 12',self.store.save.call_args.args[0])
+            self.assertIn('border-bottom-color:#e53945',(self.root/'waybar/style.css').read_text())
+            backend.apply_mode('dark',backend.theme_token(),'modern')
+            self.assertEqual(runtime.launcher_design(),'raw')
+            backend.apply_mode('dark',backend.theme_token(),'raw')
+        for name in ('hyprlock.conf','startup/kitty.conf','keybindings.conf','favorites.json'):
+            self.assertEqual((self.root/name).read_bytes(),self.files[self.root/name])
+        self.assertNotIn('breakpointEase',self.store.save.call_args.args[0])
+
+    def test_breakpoint_reload_failure_restores_all_previous_theme_files(self):
+        self.add_raw_profiles()
+        with self.assertRaisesRegex(ValueError,'reload failed'):
+            backend.apply_mode('dark',backend.theme_token(),'breakpoint',launcher_style='breakpoint')
         for path,original in self.files.items():self.assertEqual(path.read_bytes(),original,path)
 
     def test_mixed_menu_style_persists_without_changing_desktop_or_personal_settings(self):

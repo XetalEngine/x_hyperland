@@ -19,11 +19,51 @@ QT=QApplication.instance() or QApplication([])
 
 
 class DesignTests(unittest.TestCase):
+    def test_background_applies_after_external_update_without_losing_other_preferences(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state=Path(directory)/'theme.json'
+            state.write_text(json.dumps({'design':'breakpoint','mode':'dark','avatar':'auto'}))
+            def save(mode,token,design,avatar,enabled,background,surfaces,launcher_style,**options):
+                current=json.loads(state.read_text())
+                current.update(design=design,mode=mode,avatar=avatar,launcher_wallpaper=enabled,
+                    launcher_background=background,launcher_surfaces=surfaces,launcher_style=launcher_style,**options)
+                state.write_text(json.dumps(current));return 'after'
+            with patch.object(runtime,'STATE',state),patch.object(theme_page.backend,'theme_token',side_effect=lambda:state.read_text()),patch.object(theme_page.backend,'apply_mode',side_effect=save) as apply:
+                page=app.ThemePage(lambda fn,done,failed:done(fn()))
+                try:
+                    page.refresh();page.set_background('chosen.png');page.set_visibility(52)
+                    page.design_page.label_controls['names'].click();page.design_page.label_controls['hotkeys'].click()
+                    external=json.loads(state.read_text());external.update(design='modern',mode='light',unrelated='preserved')
+                    state.write_text(json.dumps(external));page.save_mode()
+                    self.assertEqual(apply.call_count,1);self.assertFalse(page.dirty)
+                    saved=json.loads(state.read_text())
+                    self.assertEqual(saved['launcher_background'],'chosen.png');self.assertEqual(saved['launcher_background_visibility'],52)
+                    self.assertEqual(saved['launcher_labels'],{'names':False,'hotkeys':False})
+                    self.assertEqual(saved['design'],'modern');self.assertEqual(saved['mode'],'light');self.assertEqual(saved['unrelated'],'preserved')
+                    for style in runtime.DESIGNS:
+                        page.design.setCurrentIndex(page.design.findData(style))
+                        self.assertEqual(page.labels,{'names':False,'hotkeys':False});self.assertEqual(page.visibility,52)
+                finally:page.deleteLater();QT.sendPostedEvents(None,QEvent.Type.DeferredDelete)
+
+    def test_conflicting_background_keeps_draft_until_user_resolves_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state=Path(directory)/'theme.json';state.write_text(json.dumps({'design':'breakpoint','mode':'dark'}))
+            with patch.object(runtime,'STATE',state),patch.object(theme_page.backend,'theme_token',side_effect=lambda:state.read_text()),patch.object(theme_page.backend,'apply_mode') as apply:
+                page=app.ThemePage(lambda fn,done,failed:done(fn()))
+                try:
+                    page.refresh();page.set_background('mine.png');page.set_visibility(42)
+                    saved=json.loads(state.read_text());saved['launcher_background']='other.png';state.write_text(json.dumps(saved))
+                    page.save_mode();apply.assert_not_called();self.assertEqual(page.background,'mine.png')
+                    self.assertFalse(page.conflict_actions.isHidden())
+                    page.resolve_conflicts('saved');self.assertEqual(page.background,'other.png');self.assertEqual(page.visibility,42)
+                    self.assertTrue(page.dirty);self.assertTrue(page.conflict_actions.isHidden())
+                finally:page.deleteLater();QT.sendPostedEvents(None,QEvent.Type.DeferredDelete)
+
     def test_menu_choice_previews_and_edits_its_own_surfaces_and_survives_reopening(self):
         with tempfile.TemporaryDirectory() as directory:
             state=Path(directory)/'theme.json'
             state.write_text(json.dumps({'design':'modern','mode':'dark','avatar':'auto'}))
-            def save(mode,token,design,avatar,enabled,background,surfaces,launcher_style):
+            def save(mode,token,design,avatar,enabled,background,surfaces,launcher_style,**options):
                 state.write_text(json.dumps({'design':design,'mode':mode,'avatar':avatar,
                     'launcher_wallpaper':enabled,'launcher_background':background,
                     'launcher_surfaces':surfaces,'launcher_style':launcher_style}))
@@ -69,7 +109,7 @@ class DesignTests(unittest.TestCase):
             state.write_text(json.dumps({'design':'modern','mode':'dark','avatar':'auto'}))
             Image.new('RGB',(20,10),'red').save(gif,save_all=True,
                 append_images=[Image.new('RGB',(20,10),'blue')],duration=80,loop=0)
-            def save(mode,token,design,avatar,enabled,background,surfaces,launcher_style):
+            def save(mode,token,design,avatar,enabled,background,surfaces,launcher_style,**options):
                 surfaces['raw']['group_image']='backgrounds/saved.gif'
                 state.write_text(json.dumps({'design':design,'mode':mode,'avatar':avatar,'launcher_wallpaper':enabled,
                     'launcher_background':background,'launcher_surfaces':surfaces,'launcher_style':launcher_style}))
@@ -109,7 +149,7 @@ class DesignTests(unittest.TestCase):
             state.write_text(json.dumps({'design':'modern','mode':'dark','avatar':'auto','launcher_wallpaper':False}))
             chosen=str(Path(directory)/'my-background.png');saved='backgrounds/saved-copy.png'
             def run(fn,done,failed):done(fn())
-            def save(mode,token,design,avatar,enabled,background,surfaces,launcher_style):
+            def save(mode,token,design,avatar,enabled,background,surfaces,launcher_style,**options):
                 state.write_text(json.dumps({'design':design,'mode':mode,'avatar':avatar,'launcher_wallpaper':enabled,'launcher_background':saved,'launcher_surfaces':surfaces,'launcher_style':launcher_style}))
                 return 'new-token'
             with patch.object(runtime,'STATE',state),patch.object(theme_page.backend,'theme_token',return_value='token'),patch.object(theme_page.backend,'apply_mode',side_effect=save) as apply:
@@ -121,7 +161,7 @@ class DesignTests(unittest.TestCase):
                     self.assertEqual(page.avatar,'auto')
                     page.design.setCurrentIndex(page.design.findData('raw'))
                     self.assertTrue(page.dirty);page.save_mode()
-                    apply.assert_called_once_with('dark','token','raw','auto',True,chosen,runtime.launcher_surfaces(),'follow')
+                    apply.assert_called_once_with('dark','token','raw','auto',True,chosen,runtime.launcher_surfaces(),'follow',launcher_labels={'names':True,'hotkeys':True},launcher_background_visibility=18)
                     self.assertEqual(page.background,saved)
                     self.assertFalse(page.dirty)
                     page.set_background('')

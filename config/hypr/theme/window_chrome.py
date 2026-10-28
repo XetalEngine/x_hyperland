@@ -3,14 +3,29 @@ from PyQt6.QtCore import Qt,QEvent,QObject
 from PyQt6.QtWidgets import QDialog,QHBoxLayout,QLabel,QToolButton,QWidget
 
 
+def style_close(button,design=None):
+    import runtime
+    if design=='breakpoint':
+        p=runtime.colors(style=design)
+        hover=f"background:{p['Highlight']}; color:{p['Text']}; border-color:{p['Accent']};"
+        pressed=f"background:{p['Mid']};"
+    else:
+        hover='background:#663544; color:#fff1f3; border-color:#b3687f;'
+        pressed='background:#8a4052;'
+    button.setStyleSheet('QToolButton {color:palette(window-text); background:transparent; border:1px solid transparent; '
+                        'border-radius:6px; padding:0; font-size:23px;} '
+                        'QToolButton:hover {'+hover+'} QToolButton:pressed {'+pressed+'} '
+                        'QToolButton:focus {border-color:palette(highlight);}')
+
+
 def close_button(window,callback=None,title=None):
     button=QToolButton(window);button.setObjectName('windowClose');button.setText('×');button.setFixedSize(32,32)
     caption=title or ('Close '+window.windowTitle()).strip()
     button.setToolTip(caption);button.setAccessibleName(caption);button.setCursor(Qt.CursorShape.PointingHandCursor)
-    button.setStyleSheet('QToolButton {color:palette(window-text); background:transparent; border:1px solid transparent; '
-                        'border-radius:6px; padding:0; font-size:23px;} '
-                        'QToolButton:hover {background:#663544; color:#fff1f3; border-color:#b3687f;} '
-                        'QToolButton:pressed {background:#8a4052;} QToolButton:focus {border-color:palette(highlight);}')
+    import runtime
+    from PyQt6.QtWidgets import QApplication
+    selected=QApplication.instance().property('xetalThemeDesign') or runtime.design()
+    style_close(button,selected)
     button.clicked.connect(callback or window.close)
     window.setProperty('xetalCloseButton',True)
     return button

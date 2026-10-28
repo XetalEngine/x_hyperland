@@ -102,6 +102,23 @@ class ShortcutIndex(QObject):
         except (OSError,ValueError,keys.ConfigError) as exc:records=[];values={};error=str(exc)
         changed=(records,values,error)!=(self.records,self.values,self.error)
         self.records,self.values,self.error=records,values,error
+        # Resolve each binding once per config revision, rather than once for
+        # every favorite, every tooltip and every repaint/search result.
+        self.by_id={};self.by_command={};self.command_cache={}
+        for index,binding in enumerate(records):
+            if binding.dispatcher!='exec' or binding.submap!='reset':continue
+            argv=tokens(binding.args,values);ident=wrapper_id(argv)
+            mapping,key=(self.by_id,ident) if ident is not None else (self.by_command,normalized(argv))
+            mapping.setdefault(key,[]).append((index,binding))
         if changed:self.changed.emit()
-    def bindings(self,entry):return matches(entry,self.records,self.values)
+    def bindings(self,entry):
+        found=list(self.by_id.get(entry.get_id(),()))
+        if not entry.fields['directory'] and not entry.fields['terminal'] and not entry.fields.get('floating'):
+            try:
+                argv=tuple(entry.argv())
+                if argv not in self.command_cache:self.command_cache[argv]=normalized(argv)
+                expected=self.command_cache[argv]
+                if expected:found.extend(self.by_command.get(expected,()))
+            except ValueError:pass
+        return [binding for _,binding in sorted(found,key=lambda item:item[0])]
     def labels(self,entry):return [display(b,self.values) for b in self.bindings(entry) if b.enabled]

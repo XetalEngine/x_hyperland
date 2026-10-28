@@ -116,6 +116,7 @@ def theme_token():
 
 
 def kitty_colors(value,design=None):
+    design=design or runtime.design()
     colors=runtime.colors(value,design)
     ansi={
         'dark':['#192130','#ee8196','#78d7b6','#d8ce99','#82aef0','#b7a2e4','#73d4d1','#d1dbec',
@@ -132,7 +133,8 @@ def kitty_colors(value,design=None):
              'active_tab_background':colors['Highlight'],'active_tab_foreground':colors['HighlightedText'],
              'inactive_tab_background':colors['Window'],'inactive_tab_foreground':colors['Text'],
              'tab_bar_background':colors['Base'],**{f'color{i}':color for i,color in enumerate(ansi)}}
-    return '# Managed by Hyprland Theme.\n'+''.join(f'{key} {color}\n' for key,color in options.items())
+    font='font_family JetBrains Mono\n' if design=='breakpoint' else ''
+    return '# Managed by Hyprland Theme.\n'+font+''.join(f'{key} {color}\n' for key,color in options.items())
 
 
 def reload_kitty(proc_root=Path('/proc'),include_startup=False):
@@ -156,10 +158,10 @@ def reload_kitty(proc_root=Path('/proc'),include_startup=False):
     return reloaded
 
 
-def modern_lock(colors):
+def modern_lock(colors,design='modern'):
     def rgb(name):return 'rgb('+colors[name][1:]+')'
-    return f'''# Xetal Modern. Authentication and lock shortcuts are unchanged.
-$font = Noto Sans
+    return f'''# {runtime.DESIGNS[design]}. Authentication and lock shortcuts are unchanged.
+$font = {runtime.ui_font(design)}
 general {{
     hide_cursor = false
 }}
@@ -185,7 +187,7 @@ input-field {{
     fail_color = rgb(ea9bab)
     font_color = {rgb('Text')}
     fade_on_empty = false
-    rounding = 18
+    rounding = {12 if design=='breakpoint' else 18}
     font_family = $font
     placeholder_text = Password
     fail_text = $PAMFAIL$FPRINTFAIL
@@ -273,14 +275,18 @@ def prepare_group_image(choice):
     return 'backgrounds/group-'+hashlib.sha256(data).hexdigest()[:24]+'.'+extension,data
 
 
-def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,launcher_background=None,launcher_surfaces=None,launcher_style=None):
+def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,launcher_background=None,launcher_surfaces=None,launcher_style=None,launcher_labels=None,launcher_background_visibility=None):
     if value not in runtime.MODES: raise ValueError('Choose an available theme.')
     design=design or runtime.design()
-    if design not in runtime.DESIGNS:raise ValueError('Choose Xetal Raw or Xetal Modern.')
+    if design not in runtime.DESIGNS:raise ValueError('Choose an available desktop design.')
     previous=runtime.state()
+    from launcher_labels import normalize as normalize_labels
+    labels=normalize_labels(previous.get('launcher_labels',{}) if launcher_labels is None else launcher_labels,strict=True)
+    visibility=runtime.launcher_background_visibility() if launcher_background_visibility is None else launcher_background_visibility
+    if type(visibility) is not int or not 0<=visibility<=100:raise ValueError('Background visibility must be between 0 and 100%.')
     launcher_style=runtime.launcher_style() if launcher_style is None else launcher_style
     if not isinstance(launcher_style,str) or launcher_style not in runtime.LAUNCHER_STYLES:
-        raise ValueError('Choose Follow desktop theme, Xetal Raw or Xetal Modern for the Start menu.')
+        raise ValueError('Choose an available Start menu style or Follow desktop theme.')
     menu_design=design if launcher_style=='follow' else launcher_style
     launcher_wallpaper=previous.get('launcher_wallpaper',False) if launcher_wallpaper is None else launcher_wallpaper
     if not isinstance(launcher_wallpaper,bool):raise ValueError('Choose whether to use a wallpaper behind Apps.')
@@ -319,6 +325,9 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
         content+='\n# Xetal Modern defaults; Window effects can override these below.\n'
         content+=f"general:col.active_border = rgb({colors['Accent'][1:]})\ngeneral:col.inactive_border = rgb({colors['Midlight'][1:]})\n"
         content+='general:border_size = 1\ndecoration:rounding = 18\n'
+    elif design=='breakpoint':
+        from breakpoint import compositor
+        content+=compositor(colors)
     store.check(content,expected[0])
     scheme=kde_colors(value,design)
     isolated=ROOT/'dolphin/config/kdeglobals'
@@ -333,12 +342,12 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     css+='@define-color cc-bg '+colors['Window']+';\n@define-color noti-bg '+colors['Window']+';\n'
     css+='@define-color noti-bg-hover '+colors['Button']+';\n@define-color text-color '+colors['Text']+';\n'
     css+='@define-color text-color-disabled '+colors['Disabled']+';\n@define-color noti-border-color '+colors['Midlight']+';\n'
-    if design=='modern':css+=designs.notification_style(colors)
+    if design!='raw':css+=designs.notification_style(colors,design)
     bar=runtime.stylesheet((runtime.ROOT/'waybar-dark.css').read_text(),value,design,qt=False)
-    if design=='modern':bar+=designs.waybar_style(colors)
+    if design!='raw':bar+=designs.waybar_style(colors,design)
     files={runtime.ROOT/launcher_background:background_data} if background_data is not None else {}
     files.update(group_files)
-    files.update({runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,'launcher_style':launcher_style,'avatar':avatar,'launcher_wallpaper':launcher_wallpaper,'launcher_background':launcher_background,'launcher_surfaces':surfaces},indent=2)+'\n').encode(),
+    files.update({runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,'launcher_style':launcher_style,'avatar':avatar,'launcher_wallpaper':launcher_wallpaper,'launcher_background':launcher_background,'launcher_surfaces':surfaces,'launcher_labels':labels,'launcher_background_visibility':visibility},indent=2)+'\n').encode(),
            runtime.ROOT/'current.colors':scheme.encode(),runtime.ROOT/'kitty-colors.conf':kitty_colors(value,design).encode(),
            isolated:(stream.getvalue().rstrip()+'\n').encode(),
            ROOT/'waybar/style.css':bar.encode(),
@@ -349,8 +358,8 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
         raw=saved.read_bytes()
         if runtime.design()=='raw':
             raw=path.read_bytes()
-            if design=='modern':files[saved]=raw
-        files[path]=(modern_lock(colors).encode() if target=='hyprlock.conf' else raw+b'\n'+kitty_colors(value,design).encode()) if design=='modern' else raw
+            if design!='raw':files[saved]=raw
+        files[path]=(modern_lock(colors,design).encode() if target=='hyprlock.conf' else raw+b'\n'+kitty_colors(value,design).encode()) if design!='raw' else raw
     old={path:path.read_bytes() if path.exists() else None for path in files}
     settings.STATE.mkdir(parents=True,exist_ok=True,mode=0o700)
     with (settings.STATE/'theme-files.lock').open('a') as lock:

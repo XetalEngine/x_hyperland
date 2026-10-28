@@ -1,8 +1,8 @@
-"""Presentation tokens shared by the two Xetal designs."""
+"""Presentation tokens shared by the Xetal designs."""
 import colorsys
 from pathlib import Path
 
-DESIGNS = {'raw': 'Xetal Raw', 'modern': 'Xetal Modern'}
+DESIGNS = {'raw': 'Xetal Raw', 'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint'}
 
 
 def recolor(color, palette, mode):
@@ -26,7 +26,10 @@ def recolor(color, palette, mode):
     return palette['Base']
 
 
-def qt_style(p):
+def qt_style(p,style='modern'):
+    if style=='breakpoint':
+        from breakpoint import qt_style as themed
+        return themed(p)
     check=Path(__file__).resolve().parent/'assets'/('check-light.svg' if p['HighlightedText']=='#ffffff' else 'check-dark.svg')
     return f'''
     QWidget {{color:{p['Text']}; font-family:"Noto Sans";}}
@@ -39,7 +42,7 @@ def qt_style(p):
     QLabel#status {{background:{p['AlternateBase']}; color:{p['Link']}; border:none; border-radius:10px; padding:10px 12px;}}
     QPushButton {{background:{p['Button']}; color:{p['ButtonText']}; border:1px solid transparent; border-radius:10px; padding:8px 13px;}}
     QPushButton:hover {{background:{p['Mid']}; border-color:{p['Midlight']};}}
-    QPushButton:focus {{border-color:{p['Accent']};}}
+    QPushButton:focus {{border:1px solid {p['Accent']}; padding:8px 13px;}}
     QPushButton:checked, QPushButton#primary {{background:{p['Highlight']}; color:{p['HighlightedText']}; border-color:{p['Highlight']}; font-weight:600;}}
     QPushButton#primary:hover {{background:{p['Link']}; border-color:{p['Link']};}}
     QPushButton#share, QPushButton#format:checked {{background:{p['Highlight']}; color:{p['HighlightedText']}; border-color:{p['Highlight']};}}
@@ -104,7 +107,10 @@ def qt_style(p):
     '''.rstrip()+'\n'
 
 
-def waybar_style(p):
+def waybar_style(p,style='modern'):
+    if style=='breakpoint':
+        from breakpoint import waybar_style as themed
+        return themed(p)
     return f'''
     /* Xetal Modern: the existing workspace, pin and device modules. */
     * {{font-family:"Noto Sans", "FiraCode Nerd Font", sans-serif;}}
@@ -127,7 +133,10 @@ def waybar_style(p):
     '''.rstrip()+'\n'
 
 
-def notification_style(p):
+def notification_style(p,style='modern'):
+    if style=='breakpoint':
+        from breakpoint import notification_style as themed
+        return themed(p)
     return f'''
     .control-center {{background:{p['Window']}; color:{p['Text']}; border:1px solid {p['Midlight']}; border-radius:18px; padding:12px;}}
     .notification {{background:{p['AlternateBase']}; color:{p['Text']}; border:1px solid {p['Midlight']}; border-radius:16px; margin:6px;}}

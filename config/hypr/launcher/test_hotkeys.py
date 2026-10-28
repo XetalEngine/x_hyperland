@@ -71,6 +71,19 @@ class HotkeyTests(unittest.TestCase):
         extra=copy.deepcopy(self.records[0]);extra.args+=' -e something-else'
         self.assertEqual(hotkeys.matches(terminal,[extra],self.values),[])
 
+    def test_index_caches_commands_and_refreshes_after_binding_and_shortcut_edits(self):
+        index=hotkeys.ShortcutIndex(store=self.store)
+        terminal=shortcuts.Entry('kitty.desktop',None,{'name':'Kitty','command':'kitty'})
+        with patch.object(hotkeys,'tokens',side_effect=AssertionError('Bindings must already be indexed')):
+            self.assertEqual(index.labels(terminal),['Super+Q','Super+Enter'])
+            terminal.fields['command']='unrelated-app'
+            self.assertEqual(index.labels(terminal),[])
+        terminal.fields['command']='kitty'
+        records,_=self.store.load();records[0].key='T'
+        hotkeys.keys.atomic_write(self.store.path,hotkeys.keys.serialize(records).encode());index.reload()
+        self.assertEqual(index.labels(terminal),['Super+T','Super+Enter'])
+        index.deleteLater()
+
     def test_encoded_identity_follows_shortcut_edits_without_matching_another_copy(self):
         self.entry.app_id='custom-$HOME#name, with spaces.desktop'
         b=hotkeys.edited(self.records,self.entry,None,'$mainMod CTRL','F8')[-1]

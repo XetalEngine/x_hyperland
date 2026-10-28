@@ -28,9 +28,10 @@ class XetalTheme final : public QObject, public QPlatformTheme {
         auto design = state.value("design").toString("raw");
         if (auto app = QCoreApplication::instance()) {
             const auto local = app->property("xetalThemeDesign").toString();
-            if (local == "raw" || local == "modern") design = local;
+            if (local == "raw" || local == "modern" || local == "breakpoint") design = local;
         }
-        if (design == "modern") all = all.value("modern").toObject();
+        if (design == "modern" || design == "breakpoint") all = all.value(design).toObject();
+        systemFont.setFamily(design == "breakpoint" ? "Inter" : "Noto Sans");
         auto values = all.value(mode).toObject();
         if (values.isEmpty()) { mode = "dark"; values = all.value(mode).toObject(); }
         colors = QPalette(QColor(values.value("Window").toString("#171b22")));

@@ -12,7 +12,7 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 | Media downloader | yt-dlp, FFmpeg/ffprobe, and a supported Deno, Node.js or QuickJS runtime; wl-paste for selected links |
 | Network | NetworkManager/nmcli, network-manager-applet, nm-connection-editor, BlueZ/bluetoothctl, Blueman |
 | Session/tools | libnotify/notify-send, GDBus, GNOME PolicyKit agent, xdg-utils, xdg-user-dirs, util-linux/flock, procps/pgrep, brightnessctl, Fastfetch, htop, sudo and xhost for elevated graphical tools |
-| Appearance | Papirus icon theme, Noto Sans, DejaVu Sans/Mono, Fontconfig; licensed Fira Code Nerd Font files are bundled |
+| Appearance | Papirus icon theme, Noto Sans, DejaVu Sans/Mono, Fontconfig; licensed Fira Code Nerd Font, Inter 4.1 and JetBrains Mono 2.304 files are bundled |
 
 The custom Waybar modules use its CFFI v2 interface and its 0.15 workspace taskbar structure. Qt theme plugins use private APIs and are built against the installed Qt versions; session startup checks and rebuilds them after Qt changes. Their source is included.
 

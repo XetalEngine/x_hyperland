@@ -10,7 +10,7 @@ import subprocess
 import sys
 import time
 
-from PyQt6.QtCore import Qt, QSize, QRectF, QTimer, QEvent, QEasingCurve, QPropertyAnimation, pyqtProperty, pyqtSignal
+from PyQt6.QtCore import Qt, QSize, QRect, QRectF, QTimer, QEvent, QEasingCurve, QPropertyAnimation, pyqtProperty, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPixmap, QLinearGradient, QPen, QIcon, QFont, QKeySequence, QShortcut
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (QApplication, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
@@ -35,6 +35,7 @@ from editor import ShortcutEditor
 from window_chrome import close_button
 from identity import Avatar, ProfileCard, launcher_background_path
 from launcher_surfaces import paint_tile
+from launcher_labels import positions as label_positions
 
 STYLE = '''
 QWidget { color: #e6edf8; font-family: "Noto Sans"; font-size: 13px; background: transparent; }
@@ -127,7 +128,7 @@ class Tiles(QStyledItemDelegate):
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         box = QRectF(rect.adjusted(5, 4, -5, -4))
-        style=theme_runtime.launcher_design();modern=style=='modern';colors=theme_runtime.colors(style=style)
+        style=theme_runtime.launcher_design();modern=style!='raw';colors=theme_runtime.colors(style=style)
         paint_tile(painter,box,colors,style,theme_runtime.mode(),theme_runtime.launcher_surfaces()[style]['tile_opacity'],selected,opacity)
         if small:
             size = 27 + round(opacity * 2)
@@ -135,22 +136,26 @@ class Tiles(QStyledItemDelegate):
             painter.restore()
             return
         size = 38 + round(opacity * 3)
-        icon.paint(painter, int(box.center().x() - size / 2), int(box.top() + 9 - opacity * 2), size, size)
+        labels=theme_runtime.launcher_labels()
+        painter.setFont(QFont(theme_runtime.ui_font(style), 9))
+        if len(name)>30:name=name[:28]+'…'
+        alignment=Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignTop|Qt.TextFlag.TextWordWrap
+        name_height=min(31,painter.fontMetrics().boundingRect(QRect(0,0,int(box.width()-14),100),alignment,name).height())
+        icon_y,name_y,hotkey_y=label_positions(box.height(),labels['names'],labels['hotkeys'] and bindings is not None,name_height)
+        icon.paint(painter, int(box.center().x() - size / 2), int(box.top() + icon_y - (size-38)/2), size, size)
         painter.setPen(QColor(colors['Text']))
-        painter.setFont(QFont('Noto Sans', 9))
-        text_box = QRectF(box.left() + 7, box.top() + 51, box.width() - 14, 31)
-        if len(name) > 30:
-            name = name[:28] + '…'
-        painter.drawText(text_box, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap, name)
-        if bindings is not None:
+        if name_y is not None:
+            text_box=QRectF(box.left()+7,box.top()+name_y,box.width()-14,31)
+            painter.drawText(text_box, alignment, name)
+        if hotkey_y is not None:
             text=bindings[0]+(f'  +{len(bindings)-1}' if len(bindings)>1 else '') if bindings else 'No hotkey'
-            painter.setFont(QFont('Noto Sans',8))
+            painter.setFont(QFont('JetBrains Mono' if style=='breakpoint' else 'Noto Sans',8))
             text=painter.fontMetrics().elidedText(text,Qt.TextElideMode.ElideRight,int(box.width()-20))
-            badge=QRectF(box.left()+8,box.top()+85,box.width()-16,16)
+            badge=QRectF(box.left()+8,box.top()+hotkey_y,box.width()-16,16)
             light=theme_runtime.mode()=='light'
             painter.setBrush(QColor(colors['Button'] if modern else '#cce6e5' if light else '#233c48') if bindings else Qt.BrushStyle.NoBrush)
             painter.setPen(Qt.PenStyle.NoPen);painter.drawRoundedRect(badge,5,5)
-            painter.setPen(QColor(colors['Accent'] if bindings else colors['PlaceholderText']) if modern else QColor(('#236b66' if light else '#91e2d8') if bindings else ('#516579' if light else '#8c9fb4')))
+            painter.setPen(QColor(colors['Text'] if style=='breakpoint' and bindings else colors['Accent'] if bindings else colors['PlaceholderText']) if modern else QColor(('#236b66' if light else '#91e2d8') if bindings else ('#516579' if light else '#8c9fb4')))
             painter.drawText(badge,Qt.AlignmentFlag.AlignCenter,text)
         painter.restore()
 
@@ -351,21 +356,25 @@ class Menu(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         style=theme_runtime.launcher_design();colors=theme_runtime.colors(style=style)
+        radius=12 if style=='breakpoint' else 20 if style=='modern' else 17
+        border=colors['Accent'] if style=='breakpoint' and self.isActiveWindow() else colors['Midlight']
         if getattr(self,'backdrop_image',None) and not self.backdrop_image.isNull():
             box=QRectF(self.rect()).adjusted(.5,.5,-.5,-.5)
-            path=QPainterPath();path.addRoundedRect(box,20 if style=='modern' else 17,20 if style=='modern' else 17)
+            path=QPainterPath();path.addRoundedRect(box,radius,radius)
             painter.save();painter.setClipPath(path);painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
             painter.fillRect(box,QColor(colors['Window']))
             picture=self.backdrop_image;scale=max(box.width()/picture.width(),box.height()/picture.height())
             target=QRectF(0,0,picture.width()*scale,picture.height()*scale);target.moveCenter(box.center())
             painter.drawPixmap(target,picture,QRectF(picture.rect()))
-            shade=QColor(colors['Window']);shade.setAlpha(236 if theme_runtime.mode()=='light' else 242 if theme_runtime.mode()=='contrast' else 210)
+            shade=QColor(colors['Window']);shade.setAlpha(round(255*(1-theme_runtime.launcher_background_visibility()/100)))
             painter.fillRect(box,shade);painter.restore()
-            painter.setBrush(Qt.BrushStyle.NoBrush);painter.setPen(QPen(QColor(colors['Midlight']),1));painter.drawPath(path)
+            painter.setBrush(Qt.BrushStyle.NoBrush);painter.setPen(QPen(QColor(border),2 if style=='breakpoint' else 1));painter.drawPath(path)
             return
-        if style=='modern':
-            painter.setBrush(QColor(colors['Window']));painter.setPen(QPen(QColor(colors['Midlight']),1))
-            painter.drawRoundedRect(QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),20,20)
+        if style!='raw':
+            fill=QColor(colors['Window'])
+            if style=='breakpoint':fill.setAlpha(240)
+            painter.setBrush(fill);painter.setPen(QPen(QColor(border),2 if style=='breakpoint' else 1))
+            painter.drawRoundedRect(QRectF(self.rect()).adjusted(1,1,-1,-1),radius,radius)
             return
         gradient = QLinearGradient(0, 0, self.width(), self.height())
         if theme_runtime.mode() == 'light':
@@ -452,6 +461,9 @@ class Menu(QWidget):
         self.populate()
         if self.fade:
             self.fade.stop()
+        # The compositor already animates opening. Only animate page changes;
+        # fading the first set of tiles adds a second, unnecessary opening delay.
+        if not self.isVisible():return
         self.fade_effect = QGraphicsOpacityEffect(self.views)
         self.views.setGraphicsEffect(self.fade_effect)
         self.fade = QPropertyAnimation(self.fade_effect, b'opacity', self)

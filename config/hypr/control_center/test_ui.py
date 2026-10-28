@@ -104,6 +104,23 @@ class EditorUITests(unittest.TestCase):
         self.assertGreaterEqual(self.page.hint.height(),self.page.hint.heightForWidth(self.page.hint.width()))
         self.page.grab().save('/tmp/hypr-hotkey-log-preview.png')
 
+    def test_inspector_footer_stays_visible_in_every_theme_and_short_window(self):
+        self.modify()
+        try:
+            for style in app.theme_runtime.DESIGNS:
+                self.page.setStyleSheet(app.theme_runtime.stylesheet(app.STYLE,'dark',style))
+                for height in (650,500):
+                    self.page.resize(1200,height);QT.processEvents()
+                    self.assertEqual(self.page.height(),height)
+                    for scroll_value in (0,self.page.inspector_scroll.verticalScrollBar().maximum()):
+                        self.page.inspector_scroll.verticalScrollBar().setValue(scroll_value);QT.processEvents()
+                        for button in (self.page.duplicate_button,self.page.remove_button):
+                            self.assertTrue(button.visibleRegion().contains(button.rect()),(style,height,button.text()))
+                    self.page.records[0].protected=True;self.page.selection()
+                    self.assertFalse(self.page.duplicate_button.isEnabled());self.assertFalse(self.page.remove_button.isEnabled())
+                    self.page.records[0].protected=False;self.page.selection()
+        finally:self.page.setStyleSheet('')
+
     def test_external_app_hotkey_updates_applications_without_changing_filter(self):
         self.page.categories.setCurrentIndex(2)
         external=self.records+[keys.Binding('new-app','Open Example','Applications',True,'SUPER','F8','exec','example')]

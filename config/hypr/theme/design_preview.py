@@ -9,6 +9,8 @@ from launcher_surfaces import DEFAULTS, paint_group, paint_tile
 class DesktopPreview:
     def __init__(self):
         self.paths=None
+        self.visibility=runtime.launcher_background_visibility();self.labels=runtime.launcher_labels()
+        self.breakpoint_wallpaper=QPixmap(str(runtime.ROOT.parent/'wallpaper/breakpoint/workstation-1.png'))
         self.icons=[QIcon.fromTheme(name).pixmap(48,48) for name in (
             'system-file-manager','internet-web-browser','utilities-terminal',
             'applications-multimedia','preferences-system','accessories-calculator')]
@@ -45,11 +47,11 @@ class DesktopPreview:
             p.setBrush(QColor(colors.get(fill,fill)));p.drawRoundedRect(QRectF(x,y,w,h),radius,radius)
 
         def text(x,y,w,h,value,size=11,color='Text',bold=False):
-            p.setFont(QFont('Noto Sans',size,QFont.Weight.DemiBold if bold else QFont.Weight.Normal))
+            p.setFont(QFont(runtime.ui_font(design),size,QFont.Weight.DemiBold if bold else QFont.Weight.Normal))
             p.setPen(QColor(colors.get(color,color)));p.drawText(QRectF(x,y,w,h),Qt.AlignmentFlag.AlignVCenter,value)
 
         panel(0,0,720,240,'Base')
-        self.picture(p,self.wallpaper,QRectF(0,0,720,240))
+        self.picture(p,self.breakpoint_wallpaper if design=='breakpoint' and not self.breakpoint_wallpaper.isNull() else self.wallpaper,QRectF(0,0,720,240))
         p.fillRect(QRectF(0,0,720,240),QColor(8,17,28,80))
         panel(0,0,720,23)
         panel(5,3,55,17,'Highlight',5 if modern else 2)
@@ -59,11 +61,12 @@ class DesktopPreview:
 
         # Launcher: profile, navigation, group title and real application icons.
         modern=launcher_design=='modern';colors=runtime.colors(mode,launcher_design)
-        panel(14,37,389,190,'Window',13 if modern else 5,'Midlight')
+        radius=12 if launcher_design=='breakpoint' else 13 if modern else 5
+        panel(14,37,389,190,'Window',radius,'Midlight')
         if self.show_background and not self.background.isNull():
-            menu=QRectF(14,37,389,190);radius=13 if modern else 5
+            menu=QRectF(14,37,389,190)
             self.picture(p,self.background,menu,radius)
-            shade=QColor(colors['Window']);shade.setAlpha(236 if mode=='light' else 242 if mode=='contrast' else 210)
+            shade=QColor(colors['Window']);shade.setAlpha(round(255*(1-self.visibility/100)))
             p.setPen(QPen(QColor(colors['Midlight']),1));p.setBrush(shade);p.drawRoundedRect(menu,radius,radius)
         self.picture(p,self.avatar,QRectF(27,49,32,32),circle=True)
         text(66,49,98,17,'xetal' if modern else 'XETAL',10,'Text',True)
@@ -80,8 +83,8 @@ class DesktopPreview:
         for i,icon in enumerate(self.icons):
             x=139+(i%3)*84;y=131+(i//3)*43
             paint_tile(p,QRectF(x,y,79,39),colors,launcher_design,mode,surfaces['tile_opacity'],radius=9 if modern else 3)
-            if not icon.isNull():p.drawPixmap(QRectF(x+29,y+4,21,21),icon,QRectF(icon.rect()))
-            text(x+6,y+25,72,12,('Files','Browser','Terminal','Music','Settings','Calculator')[i],6)
+            if not icon.isNull():p.drawPixmap(QRectF(x+29,y+(4 if self.labels['names'] else 9),21,21),icon,QRectF(icon.rect()))
+            if self.labels['names']:text(x+6,y+25,72,12,('Files','Browser','Terminal','Music','Settings','Calculator')[i],6)
 
         # The Control desk changes from Raw tabs to the Modern navigation rail.
         modern=design=='modern';colors=runtime.colors(mode,design)

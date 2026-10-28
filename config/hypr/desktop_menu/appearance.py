@@ -6,7 +6,7 @@ import runtime as theme_runtime
 
 
 def colors(style):
-    if style['palette']=='system' and theme_runtime.design()=='modern':
+    if style['palette']=='system' and theme_runtime.design()!='raw':
         p=theme_runtime.colors()
         return {'background':p['Window'],'background_end':p['Window'],'text':p['Text'],'border':p['Midlight'],
                 'accent':p['Accent'],'hover':p['Highlight'],'hover_text':p['HighlightedText'],'divider':p['Midlight']}
@@ -47,6 +47,9 @@ def rgba(value, opacity):
 def css(style):
     c = colors(style)
     rounding=max(16,style['rounding']) if style['palette']=='system' and theme_runtime.design()=='modern' else style['rounding']
+    breakpoint=style['palette']=='system' and theme_runtime.design()=='breakpoint'
+    if breakpoint:rounding=12
+    font='Inter' if breakpoint and style['font_family']=='Noto Sans' else style['font_family']
     return f'''
     window#xetal-desktop-background {{background:transparent; border:none; box-shadow:none;}}
     menu.desktop-context-menu {{
@@ -60,7 +63,7 @@ def css(style):
         min-width:0; min-height:0; padding:0; border:1px solid transparent;
         border-radius:{min(rounding, 9)}px;
         background:transparent; color:{c['text']};
-        font:{style['font_size']}px "{style['font_family']}"; text-shadow:none;
+        font:{style['font_size']}px "{font}"; text-shadow:none;
     }}
     menu.desktop-context-menu menuitem:hover {{background:{c['hover']}; border-color:{c['border']}; color:{c['hover_text']};}}
     menu.desktop-context-menu label, menu.desktop-context-menu image {{color:inherit; background:transparent;}}

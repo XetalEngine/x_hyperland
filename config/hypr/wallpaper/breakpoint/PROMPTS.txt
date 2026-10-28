@@ -1,0 +1,14 @@
+Created with the built-in image_gen tool. Original wallpapers are unchanged.
+workstation-1: first display, raised hand and extended leg.
+workstation-2: second display, arm behind head and two raised legs.
+workstation-3: third display, raised hand and one extended leg.
+
+Use case: identity-preserve.
+Asset type: a new 16:9 desktop wallpaper variant for XETAL BreakPoint, ideally 2560x1440 or larger.
+Input image 1 is the EDIT TARGET, the user's current monitor wallpaper. Input image 2 is ONLY a palette and room-lighting reference concept board; do not copy any UI, panels, captions or layout from that board.
+Edit image 1 non-destructively into a charcoal and crimson retro OllyDbg workstation. Preserve the SAME anime character, face, hairstyle and blue hair identity, exact pose, clothing, anatomy, framing and full composition. Change ONLY the surrounding room materials, monitor content, city lights and room lighting/color atmosphere.
+Make equipment dark graphite #090A0E / #12141B / #1B1E27, with restrained crimson #E53945 practical lamps and rim lights and silver #E6E8EF technical details. Preserve the night's calm mood and fine illustrated linework. The room should read dark charcoal rather than blue or purple. Keep skin natural under the crimson light; do not tint everything red.
+On the main CRT put a retro debugger display with a red OllyDbg-style asterisk emblem, silver disassembly/hex lines, a highlighted burgundy breakpoint row, and tasteful small XETAL / BREAKPOINT lettering. Use red/silver technical readouts on secondary screens. Preserve the window, desk, props, monitor positions and recognizability of the original room. No added people. No UI overlay, no desktop menu, no concept-board labels, no watermark. Output ONE full-bleed wallpaper only.
+
+Variant 2: Preserve the target's two raised legs and arm behind the head.
+Variant 3: Preserve the target's raised hand and one horizontally extended leg, with the other leg bent.

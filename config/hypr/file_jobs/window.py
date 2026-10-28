@@ -1,5 +1,9 @@
 """A compact, draggable file-operation card with an original vector animation."""
 import math
+from pathlib import Path
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'theme'))
+import runtime as theme_runtime
 
 from PyQt6.QtCore import QElapsedTimer, QPointF, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen, QRadialGradient
@@ -167,7 +171,7 @@ class ProgressWindow(QWidget):
         super().resizeEvent(event)
 
     def text(self, painter, rect, text, color, size=11, bold=False, alignment=Qt.AlignmentFlag.AlignLeft):
-        painter.setFont(QFont('Noto Sans', size, QFont.Weight.DemiBold if bold else QFont.Weight.Normal))
+        painter.setFont(QFont(theme_runtime.ui_font(), size, QFont.Weight.DemiBold if bold else QFont.Weight.Normal))
         painter.setPen(color)
         value = painter.fontMetrics().elidedText(text, Qt.TextElideMode.ElideMiddle, int(rect.width()))
         painter.drawText(rect, alignment | Qt.AlignmentFlag.AlignVCenter, value)
@@ -230,15 +234,17 @@ class ProgressWindow(QWidget):
         painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
         palette = QApplication.palette(); background = palette.window().color()
         accent = palette.highlight().color(); foreground = palette.windowText().color()
+        breakpoint=theme_runtime.design()=='breakpoint';radius=12 if breakpoint else 16
+        if breakpoint:accent=QColor(theme_runtime.colors()['Accent']);background.setAlpha(240)
         muted = palette.placeholderText().color()
         surface = QLinearGradient(0, 0, self.width(), self.height())
         surface.setColorAt(0, background.lighter(112)); surface.setColorAt(1, background.darker(110))
         painter.setBrush(surface); painter.setPen(QPen(alpha(accent, 135), 1))
-        painter.drawRoundedRect(QRectF(.5, .5, self.width()-1, self.height()-1), 16, 16)
+        painter.drawRoundedRect(QRectF(.5, .5, self.width()-1, self.height()-1), radius, radius)
         bloom = QRadialGradient(QPointF(self.width()/2, 75), 155)
         bloom.setColorAt(0, alpha(accent, 19)); bloom.setColorAt(1, alpha(accent, 0))
         painter.setPen(Qt.PenStyle.NoPen); painter.setBrush(bloom)
-        painter.drawRoundedRect(QRectF(2, 2, self.width()-4, self.height()-4), 15, 15)
+        painter.drawRoundedRect(QRectF(2, 2, self.width()-4, self.height()-4), radius-1, radius-1)
         self.text(painter, QRectF(16, 9, self.width()-134, 25), self.job.title, foreground, 11, True)
         percentage = self.job.percent
         value = '—' if percentage is None else f'{percentage:.0f}%'

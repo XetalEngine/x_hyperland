@@ -3,10 +3,12 @@ import json
 import os
 from pathlib import Path
 import shlex
+import socket
 import subprocess
 import sys
 
 import geometry
+import bar_toggle
 from floating import workarea
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,6 +49,8 @@ def selected_monitor(monitors, cursor):
 def main():
     command = ['python3', str(ROOT/'theme/run.py'), 'python3', str(ROOT/'launcher/app.py'), *sys.argv[1:]]
     if not any(arg == '--preview' or arg.startswith('--preview=') for arg in sys.argv) and os.environ.get('HYPRLAND_INSTANCE_SIGNATURE'):
+        if contact_existing(sys.argv[1:]):return 0
+        if '--from-bar' in sys.argv and '--edit' not in sys.argv and bar_toggle.consume():return 0
         try:
             def query(name):
                 return json.loads(subprocess.check_output(['hyprctl', '-j', name], text=True, timeout=1))
@@ -60,6 +64,23 @@ def main():
         except (OSError, ValueError, KeyError, TypeError, IndexError, subprocess.SubprocessError):
             pass
     os.execvp(command[0], command)
+
+
+def contact_existing(arguments):
+    """Toggle an open menu immediately, before starting Python/Qt a second time."""
+    runtime=os.environ.get('XDG_RUNTIME_DIR');signature=os.environ.get('HYPRLAND_INSTANCE_SIGNATURE')
+    if not runtime or not signature:return False
+    edit=None
+    for index,value in enumerate(arguments):
+        if value=='--edit' and index+1<len(arguments):edit=arguments[index+1]
+        elif value.startswith('--edit='):edit=value.partition('=')[2]
+    message=(json.dumps({'edit':edit})+'\n').encode() if edit else b'toggle\n'
+    try:
+        with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as peer:
+            peer.settimeout(.1);peer.connect(str(Path(runtime)/'hypr'/signature/'xetal-launcher.sock'))
+            peer.sendall(message)
+        bar_toggle.clear();return True
+    except OSError:return False
 
 
 if __name__ == '__main__': raise SystemExit(main())

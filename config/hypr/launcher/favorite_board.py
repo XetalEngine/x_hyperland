@@ -85,7 +85,7 @@ class GroupHeader(Draggable):
         paint_group(p, QRectF(self.rect()), self.board.colors, self.board.design_name,
                     self.board.surfaces['group_opacity'], self.board.strip_image.frame,
                     self.hasFocus(), self.underMouse())
-        font = QFont('Noto Sans'); font.setPixelSize(13); font.setWeight(QFont.Weight.DemiBold)
+        font = QFont(theme_runtime.ui_font(theme_runtime.launcher_design())); font.setPixelSize(13); font.setWeight(QFont.Weight.DemiBold)
         p.setFont(font); p.setPen(QColor(self.board.colors['Text']))
         text = p.fontMetrics().elidedText(self.text().replace('&&', '&'), Qt.TextElideMode.ElideRight, self.width() - 44)
         p.drawText(self.rect().adjusted(6, 0, -38, 0), Qt.AlignmentFlag.AlignVCenter, text)
@@ -171,7 +171,7 @@ class Canvas(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setFont(QFont('Noto Sans', 10))
+        painter.setFont(QFont(theme_runtime.ui_font(theme_runtime.launcher_design()), 10))
         palette = self.palette()
         outline = palette.color(QPalette.ColorRole.Mid)
         text = palette.color(QPalette.ColorRole.PlaceholderText)
