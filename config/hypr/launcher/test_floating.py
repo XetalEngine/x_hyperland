@@ -117,6 +117,8 @@ class FloatingTests(unittest.TestCase):
                          ('movewindowpixel', 'exact -1360 459,address:0x123')])
         self.assertEqual(calls[3][0], 'tagwindow')
         self.assertTrue(calls[-1][1].startswith('+xetal-float-' + KEY))
+        self.assertTrue(calls[-1][1].endswith(' address:0x123'))
+        self.assertNotIn(',', calls[-1][1])
 
     def test_slow_new_invocation_never_floats_an_existing_window(self):
         current = {**client(), 'floating': False, 'tags': []}
@@ -145,6 +147,49 @@ class FloatingTests(unittest.TestCase):
         self.path.write_text('{broken')
         with self.assertRaises(ValueError):self.store.save({KEY: [900, 700]})
         self.assertEqual(self.path.read_text(), '{broken')
+
+    def test_sudo_child_with_different_class_is_floated_without_touching_other_apps(self):
+        old = {**client(), 'tags': [], 'floating': False, 'pid': 100}
+        self.hypr.query.return_value = [old]
+        ticket = self.tracker.prepare(self.request, 0)
+        self.tracker.finish(ticket['token'], True, .1)
+        self.tracker.pending[ticket['token']]['process'] = (200, 'stamp')
+        other = {**client('0x789'), 'tags': [], 'floating': False, 'pid': 300}
+        child = {**client('0x456'), 'tags': [], 'floating': False, 'pid': 201, 'initialClass': 'Task Manager TMOG'}
+        with patch.object(floating, 'descendant', side_effect=lambda pid, anchor: pid == 201), \
+             patch.object(self.tracker, 'place_reused') as place:
+            # Also covers a password prompt that takes more than the old 12s timeout.
+            self.tracker.update([old, other, child], 30)
+            place.assert_called_once()
+            self.assertEqual(place.call_args.args[0]['address'], '0x456')
+            self.assertNotIn(ticket['token'], self.tracker.pending)
+
+    def test_process_ancestry_accepts_wrappers_but_rejects_reused_or_unreadable_pids(self):
+        proc = Path(self.temp.name) / 'proc'
+        def process(pid, parent, stamp):
+            folder = proc / str(pid); folder.mkdir(parents=True, exist_ok=True)
+            fields = ['S', str(parent), *(['0'] * 17), stamp]
+            (folder/'stat').write_text(f'{pid} (command with ) spaces) ' + ' '.join(fields))
+        process(100, 1, 'first'); process(101, 100, 'second'); process(102, 101, 'third')
+        self.assertTrue(floating.descendant(102, (100, 'first'), proc))
+        self.assertFalse(floating.descendant(102, (100, 'reused'), proc))
+        self.assertFalse(floating.descendant(999, (100, 'first'), proc))
+        self.assertFalse(floating.descendant(102, (100, None), proc))
+        process(101, 102, 'second')
+        self.assertFalse(floating.descendant(102, (100, 'first'), proc))
+
+    def test_password_dialog_neither_consumes_request_nor_replaces_remembered_size(self):
+        ticket = self.tracker.prepare(self.request, 0)
+        request = self.tracker.pending[ticket['token']]
+        request['process'] = (200, 'stamp')
+        self.tracker.finish(ticket['token'], True, .1)
+        dialog = {**client(), 'class': 'xetal-auth', 'tags': [request['tag']], 'pid': 201}
+        with patch.object(floating, 'descendant', return_value=True), \
+             patch.object(floating, 'process_stamp', return_value='stamp'):
+            for now in (2, 3): self.tracker.update([dialog], now)
+        self.assertIn(ticket['token'], self.tracker.pending)
+        self.hypr.dispatch.assert_not_called()
+        self.assertFalse(self.path.exists())
 
     def test_scaled_rotated_monitor_workarea(self):
         self.assertEqual(floating.workarea({'width': 2560, 'height': 1440, 'x': 0, 'y': -100,

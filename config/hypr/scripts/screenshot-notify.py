@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def action_command(action, path):
     path = Path(path).resolve(strict=True)
     if not path.is_file(): raise ValueError('The screenshot is no longer a file.')
-    if action == 'default': return ['xdg-open', str(path)]
+    if action == 'default': return [str(ROOT/'scripts/image-viewer.sh'), '--', str(path)]
     if action == 'folder-open': return [str(ROOT/'scripts/dolphin.sh'), '--select', str(path)]
     raise ValueError('Unknown notification action.')
 

@@ -68,6 +68,7 @@ def window_key(client):
 
 def eligible(client):
     return (client.get('mapped') and client.get('floating')
+            and normalized(client.get('class', '')) != 'xetalauth'
             and not client.get('fullscreen') and not client.get('fullscreenClient')
             and valid_size(client.get('size')))
 
@@ -81,6 +82,23 @@ def process_stamp(pid):
         fields = Path(f'/proc/{int(pid)}/stat').read_text().rsplit(') ', 1)[1].split()
         return fields[19] if fields[0] != 'Z' else None
     except (OSError, ValueError, IndexError):return None
+
+
+def descendant(pid, ancestor, proc=Path('/proc')):
+    """Follow real process parents, including sudo/AppImage wrappers, without
+    trusting an application's title or accidentally matching a reused PID."""
+    root_pid, root_stamp = ancestor
+    if not root_stamp:return False
+    seen = set()
+    while pid and pid not in seen and len(seen) < 64:
+        seen.add(pid)
+        try:
+            fields = (proc / str(int(pid)) / 'stat').read_text().rsplit(') ', 1)[1].split()
+            if fields[0] == 'Z':return False
+            if int(pid) == root_pid:return fields[19] == root_stamp
+            pid = int(fields[1])
+        except (OSError, ValueError, IndexError):return False
+    return False
 
 
 def matches(client, request):
@@ -137,7 +155,8 @@ class Tracker:
         token = uuid.uuid4().hex[:12]
         tag = 'xetal-float-' + request['key'] + '-' + token
         self.pending[token] = dict(request, tag=tag, size=saved, created=now, committed=None,
-                                   existing={c['address'] for c in clients if matches(c, request)})
+                                   existing={c['address'] for c in clients if matches(c, request)},
+                                   before={c['address'] for c in clients})
         rules = ['float on', 'center on', 'tag +' + tag]
         if saved:rules.append(f'size {saved[0]} {saved[1]}')
         return {'token': token, 'rules': '; '.join(rules)}
@@ -167,19 +186,32 @@ class Tracker:
             w, h = current['size']
             self.hypr.dispatch('movewindowpixel', f'exact {round(x+(width-w)/2)} {round(y+(height-h)/2)},' + address)
         for tag in current.get('tags', []):
-            if TAG.fullmatch(tag):self.hypr.dispatch('tagwindow', '-' + tag.removesuffix('*') + ',' + address)
-        self.hypr.dispatch('tagwindow', '+' + request['tag'] + ',' + address)
+            if TAG.fullmatch(tag):self.hypr.dispatch('tagwindow', '-' + tag.removesuffix('*') + ' ' + address)
+        self.hypr.dispatch('tagwindow', '+' + request['tag'] + ' ' + address)
 
     def update(self, clients, now):
         for token, request in list(self.pending.items()):
-            if any(request['tag'] in [tag.removesuffix('*') for tag in c.get('tags', [])] for c in clients):
+            if any(request['tag'] in [tag.removesuffix('*') for tag in c.get('tags', [])]
+                   and normalized(c.get('class', '')) != 'xetalauth' for c in clients):
                 del self.pending[token]
                 continue
-            if now - request['created'] > 12:
+            if now - request['created'] > 120:
                 del self.pending[token]
                 continue
             if request['committed'] is None or now - request['committed'] < 1:continue
             launched = request.get('process')
+            # Hyprland's exec rules can lose the app after an elevation or
+            # wrapper boundary. Claim only a newly mapped window descended
+            # from this exact launch; never guess by class or current focus.
+            largest_first = sorted(clients, key=lambda c: c.get('size', [0, 0])[0] * c.get('size', [0, 0])[1], reverse=True)
+            child = next((c for c in largest_first if c['address'] not in request['before']
+                          and normalized(c.get('class', '')) != 'xetalauth'
+                          and c.get('mapped') and not c.get('fullscreen') and not c.get('fullscreenClient')
+                          and launched and descendant(c.get('pid', 0), launched)), None)
+            if child:
+                self.place_reused(child, request)
+                del self.pending[token]
+                continue
             if not launched or not launched[1] or process_stamp(launched[0]) == launched[1]:continue
             # An app may activate its existing window instead of making one.
             # Wait for the new invocation to exit; a slow new window must not

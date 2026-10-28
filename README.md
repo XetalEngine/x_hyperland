@@ -25,7 +25,7 @@ Arch/CachyOS is the tested build environment. Package recipes are also provided 
 | Component | Included behavior |
 | --- | --- |
 | Apps menu | Resizable menu, search and categories, draggable favorite groups, medium/icon-only small tiles, custom icons/commands, terminal options, duplicate shortcuts, floating launch, and hotkey badges/editing. |
-| Top bar | Per-display workspaces, every app's icon, + to add a workspace, red × to remove an empty one, draggable pinned apps, media controls, device/status indicators and tray. |
+| Top bar | Per-display workspaces, every app's icon, + to add a workspace, red × to remove an empty one, draggable pinned apps, media controls, device/status indicators and tray. Right-click → Options to show or hide items. |
 | Control desk | Hotkeys, Audio, Network, Bluetooth, Displays, Input, Theme, Calendar and System tabs, with visible close controls. |
 | Hotkeys | Capture/edit shortcuts, searchable categories, pending-change log, Apply/Discard, remove confirmation, validation, history and rollback. |
 | Audio | Output/microphone controls and an embedded mixer with horizontally scrolling columns for each app, playback/recording, mute and routing. |
@@ -35,6 +35,7 @@ Arch/CachyOS is the tested build environment. Package recipes are also provided 
 | Startup | Five-second login delay, then the staggered Fastfetch, Matrix, clock and Xetal companion consoles. Click the companion to switch between animated ASCII and the static original PNG mascot; your choice survives login. |
 | App switcher | Super+Tab across all monitors/workspaces; release Super to focus the selected app on its original monitor. |
 | Dolphin | Separate themed profile, Places icons, image wallpaper action, and folder-link handling. |
+| Xetal Images | Default image viewer with mouse-wheel zoom, drag to pan, folder navigation, animated GIFs, and centered floating windows with size memory for each resolution and scale. |
 | Kitty | Animated cursor, themed colors and an interactive scrollback scrollbar. |
 | Screenshots | Area/all-display capture, clipboard copy, clickable notifications and Open containing folder with the image selected. |
 | Screen sharing | Custom Hyprland portal picker with updating monitor/window previews and region selection. |
@@ -69,6 +70,10 @@ The compact header puts the page title, **New group** and **New shortcut** above
 **Ctrl+click** an app in Favorites, categories or search results to launch it floating for that launch. Normal clicks keep the shortcut's saved preference, and Ctrl+drag still reorders favorites.
 
 Floating launches open centered, using the app's default size the first time and its last floating size afterwards. Resize a floating window once to remember that size across launches and logins. Tiling, maximizing and fullscreen do not replace the remembered floating size; deliberately tall floating windows retain their size. Size memory is local to this desktop profile, with separate preferences for app and terminal launches.
+
+Floating launches also follow child processes through script, sudo and AppImage wrappers. Password prompts stay separate from the application's size preference. For a graphical program requiring administrator access, use `~/.config/hypr/scripts/xsudo.sh command [arguments...]`; it preserves the display connection, asks for a password when needed, and removes any temporary root display access when the command exits.
+
+**Xetal Images** opens pictures and screenshot notifications in a centered floating window. Scroll to zoom around the pointer, drag to pan, double-click to switch between Fit and 100%, and use the arrows or Left/Right keys to browse the folder. GIFs include Play/Pause, F11 toggles fullscreen, and the folder button reveals the current image in Dolphin. Images remain unchanged. Each screen resolution and display scale remembers its own normal window size; the next launch fits that size inside the monitor's usable area, including its taskbar. Fullscreen and maximize do not replace the normal size. These preferences stay in `theme/qt-settings/Xetal/Images.conf` inside the private profile.
 
 ## Check, prepare, restore
 
@@ -111,6 +116,8 @@ Super+Shift+K is for stuck applications: it sends SIGKILL without a save prompt,
 
 The floating Media downloader captures selected YouTube links before taking focus and also supports Paste or manual entry. MP3 uses the best audio source and highest-quality MP3 encoding; MP4 merges the best video and audio without a resolution cap. Files go to your XDG Music/Videos folders. The popup includes progress, a live log, cancellation and file/folder actions. **Update yt-dlp** verifies and installs an official private copy for this popup under `~/.local/state/hyprland-media`; it does not upgrade system packages.
 
+Right-click the top bar and open **Options** to choose which items are visible: CPU, RAM, temperature, disk, Wi-Fi, LAN, VPN, media, audio, the clock and more. Changes apply immediately on every monitor and remain saved after login in `waybar/options.json`. **Show all items** restores the full bar. Tray icons keep their application menus; pinned apps include Options in their existing menu. The menu follows Xetal Raw/Modern and the selected color palette.
+
 ## Source and checks
 
 `config/hypr/` contains the complete desktop payload. `installer/` handles dependency checks, rendering, builds, installation and restore. Machine-specific original settings live under `profiles/`. Native modules are compiled locally, rather than distributing binaries tied to the author's Qt version or architecture.
@@ -118,6 +125,7 @@ The floating Media downloader captures selected YouTube links before taking focu
 ```bash
 python3 -m unittest discover -s tests -v
 ./tests/run-desktop-tests.sh
+python3 config/hypr/waybar/options/test_options.py --native  # optional GTK checks in a Wayland session
 ./x_hyperinstall.sh --skip-packages --prepare /tmp/xetal-build-check
 ```
 

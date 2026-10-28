@@ -82,6 +82,24 @@ menu { background: #1b232f; color: #88b6d9; border: 1px solid #3b5069; padding: 
 menuitem { border-radius: 3px; padding: 7px 12px; }
 menuitem:hover { background: #3b5069; color: #dce7f3; }
 
+/* Keep visibility choices legible in every palette, including plain GTK themes. */
+menu.xetal-bar-options menuitem { padding: 4px 10px; }
+menu.xetal-bar-options menuitem.section { color: inherit; font-weight: bold; opacity: 0.7; }
+menu.xetal-bar-options separator { min-height: 1px; margin: 4px 8px; background: alpha(currentColor, 0.2); }
+menu.xetal-bar-options check {
+    min-width: 14px; min-height: 14px; margin-right: 8px;
+    border: 1px solid alpha(currentColor, 0.5); border-radius: 3px;
+    background: transparent; color: inherit; -gtk-icon-source: none;
+}
+menu.xetal-bar-options check:checked {
+    background: alpha(currentColor, 0.15);
+    -gtk-icon-source: -gtk-icontheme("object-select-symbolic");
+}
+menuitem.xetal-bar-options-entry arrow {
+    min-width: 12px; min-height: 12px; margin-left: 12px;
+    -gtk-icon-source: -gtk-icontheme("pan-end-symbolic");
+}
+
 #custom-wifi { color: #88b6d9; }
 #custom-wifi.disconnected { color: #9fb6cc; }
 

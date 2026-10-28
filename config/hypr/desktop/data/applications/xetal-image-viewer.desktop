@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Xetal Images
+Comment=View pictures, zoom, and browse the images in a folder
+Exec=@HOME@/.config/hypr/scripts/image-viewer.sh -- %F
+Icon=image-x-generic
+Terminal=false
+Categories=Graphics;Viewer;Photography;
+StartupWMClass=xetal-image-viewer
+MimeType=image/avci;image/avif;image/bmp;image/gif;image/heic;image/heif;image/hej2k;image/jp2;image/jpeg;image/jpx;image/jxl;image/openraster;image/png;image/qoi;image/svg+xml;image/svg+xml-compressed;image/tiff;image/vnd.adobe.photoshop;image/vnd.microsoft.icon;image/vnd.ms-dds;image/vnd.radiance;image/vnd.wap.wbmp;image/vnd.zbrush.pcx;image/webp;image/x-adobe-dng;image/x-canon-cr2;image/x-canon-cr3;image/x-canon-crw;image/x-dds;image/x-epson-erf;image/x-exr;image/x-farbfeld;image/x-fuji-raf;image/x-hasselblad-3fr;image/x-hasselblad-fff;image/x-hdr;image/x-icns;image/x-icon;image/x-ilbm;image/x-jp2-codestream;image/x-kodak-dcr;image/x-kodak-k25;image/x-kodak-kdc;image/x-leaf-mos;image/x-mamiya-mef;image/x-minolta-mdc;image/x-minolta-mrw;image/x-ms-bmp;image/x-nikon-nef;image/x-nikon-nrw;image/x-olympus-orf;image/x-panasonic-raw;image/x-panasonic-rw2;image/x-pentax-pef;image/x-pfm;image/x-phaseone-iiq;image/x-phm;image/x-pic;image/x-portable-bitmap;image/x-portable-graymap;image/x-portable-pixmap;image/x-pxr;image/x-rgb;image/x-samsung-srw;image/x-sct;image/x-sigma-x3f;image/x-sinar-sti;image/x-sony-arw;image/x-sony-sr2;image/x-sony-srf;image/x-sun-raster;image/x-tga;image/x-tim;image/x-xbitmap;image/x-xcf;image/x-xpixmap;

@@ -5,6 +5,7 @@
   "spacing": 2,
   "reload_style_on_change": true,
   "modules-left": [
+    "cffi/bar-options",
     "custom/launcher",
     "hyprland/workspaces",
     "cffi/new-workspace",
@@ -32,6 +33,9 @@
     "clock",
     "custom/power"
   ],
+  "cffi/bar-options": {
+    "module_path": "@HOME@/.config/hypr/waybar/options/options.so"
+  },
   "custom/launcher": {
     "format": "\udb82\udcc7  Apps",
     "tooltip-format": "Application launcher \u00b7 Super + Space",

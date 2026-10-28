@@ -51,6 +51,25 @@ class InstallerTests(unittest.TestCase):
         self.assertRegex((self.stage/'wallpaper/hyprpaper.conf').read_text(),r'monitor =\s*\n')
         self.assertEqual(json.loads((self.stage/'wallpaper/selection.json').read_text()),{})
 
+    def test_bar_options_are_built_and_use_recipient_profile(self):
+        self.render()
+        bar=json.loads((self.stage/'waybar/config.json').read_text())
+        self.assertIn('cffi/bar-options',bar['modules-left'])
+        self.assertEqual(bar['cffi/bar-options']['module_path'],str(self.target/'waybar/options/options.so'))
+        self.assertEqual(json.loads((self.stage/'waybar/options.json').read_text()),{'version':1,'hidden':[]})
+        self.assertTrue((self.stage/'waybar/options/build.sh').is_file())
+
+    def test_image_viewer_and_image_associations_stay_in_recipient_profile(self):
+        self.render()
+        desktop=(self.stage/'desktop/data/applications/xetal-image-viewer.desktop').read_text()
+        self.assertIn(f'Exec={self.target}/scripts/image-viewer.sh -- %F',desktop)
+        associations=(self.stage/'desktop/config/mimeapps.list').read_text()
+        for kind in ('png','jpeg','gif','webp','tiff','avif','svg+xml'):
+            self.assertIn(f'image/{kind}=xetal-image-viewer.desktop;',associations)
+        self.assertIn('inode/directory=',associations)
+        self.assertFalse((self.home/'.config/mimeapps.list').exists())
+        self.assertTrue((self.stage/'image_viewer/window_size.py').is_file())
+
     def test_explicit_original_profile_retains_original_display_layout(self):
         self.render(profile='original')
         self.assertEqual((self.stage/'control_center/displays.conf').read_bytes(),(REPO/'profiles/xetal-original/displays.conf').read_bytes())

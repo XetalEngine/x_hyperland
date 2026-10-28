@@ -11,10 +11,12 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 | Audio | PipeWire PulseAudio compatibility, pactl, WirePlumber/wpctl, playerctl |
 | Media downloader | yt-dlp, FFmpeg/ffprobe, and a supported Deno, Node.js or QuickJS runtime; wl-paste for selected links |
 | Network | NetworkManager/nmcli, network-manager-applet, nm-connection-editor, BlueZ/bluetoothctl, Blueman |
-| Session/tools | libnotify/notify-send, GDBus, GNOME PolicyKit agent, xdg-utils, xdg-user-dirs, util-linux/flock, procps/pgrep, brightnessctl, Fastfetch, htop |
+| Session/tools | libnotify/notify-send, GDBus, GNOME PolicyKit agent, xdg-utils, xdg-user-dirs, util-linux/flock, procps/pgrep, brightnessctl, Fastfetch, htop, sudo and xhost for elevated graphical tools |
 | Appearance | Papirus icon theme, Noto Sans, DejaVu Sans/Mono, Fontconfig; licensed Fira Code Nerd Font files are bundled |
 
 The custom Waybar modules use its CFFI v2 interface and its 0.15 workspace taskbar structure. Qt theme plugins use private APIs and are built against the installed Qt versions; session startup checks and rebuilds them after Qt changes. Their source is included.
+
+Xetal Images uses the installed Qt image readers. Common image formats are included with Qt; additional readers such as HEIF, AVIF, camera RAW and PSD depend on the distribution's Qt image-format plugins.
 
 The media popup can update its private copy from the [official yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases), with SHA-256 verification and an atomic replacement. Current YouTube extraction also needs the [EJS scripts and a supported JavaScript runtime](https://github.com/yt-dlp/yt-dlp/wiki/EJS). The official update archive includes EJS; Deno, Node.js or QuickJS and FFmpeg remain distribution dependencies.
 

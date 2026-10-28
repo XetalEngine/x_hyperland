@@ -1,6 +1,7 @@
 /* Session-local, native Waybar app pins. GTK owns pointer/keyboard DnD;
  * the Python launcher owns shortcuts and atomically saves the shared order. */
 #include "waybar_cffi_module.h"
+#include "../options/menu.h"
 #include <json-glib/json-glib.h>
 #include <string.h>
 
@@ -204,6 +205,7 @@ static gboolean button_press(GtkWidget *widget, GdkEventButton *event, gpointer 
     add_action(menu, pin, "Move left", "left", TRUE);
     add_action(menu, pin, "Move right", "right", TRUE);
     add_action(menu, pin, "Unpin from bar", "unpin", TRUE);
+    xetal_append_bar_options(menu, widget, TRUE);
     g_signal_connect(menu, "selection-done", G_CALLBACK(menu_closed), p);
     gtk_widget_show_all(menu);
     gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);

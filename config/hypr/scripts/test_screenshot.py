@@ -20,7 +20,7 @@ class ScreenshotActionsTests(unittest.TestCase):
         self.assertEqual(args[5],['default','Open image','folder-open','📂  Show in folder'])
         self.assertIn('&amp;',args[4])
         self.actions.event('ActionInvoked',(41,'default'));self.actions.event('ActionInvoked',(41,'folder-open'))
-        self.assertEqual(self.commands,[['xdg-open',str(self.path)],[str(notify.ROOT/'scripts/dolphin.sh'),'--select',str(self.path)]])
+        self.assertEqual(self.commands,[[str(notify.ROOT/'scripts/image-viewer.sh'),'--',str(self.path)],[str(notify.ROOT/'scripts/dolphin.sh'),'--select',str(self.path)]])
     def test_expired_banner_remains_actionable_in_history(self):
         self.actions.event('NotificationClosed',(41,1));self.actions.event('ActionInvoked',(41,'default'))
         self.assertEqual(len(self.commands),1)

@@ -14,7 +14,7 @@ PACKAGES = {
         qt5-base qt5-wayland qt6-base qt6-wayland wayland wayland-protocols
         networkmanager network-manager-applet blueman bluez-utils pipewire-pulse wireplumber
         playerctl brightnessctl fastfetch htop libnotify polkit-gnome papirus-icon-theme noto-fonts ttf-dejavu
-        yt-dlp ffmpeg deno'''.split(),
+        yt-dlp ffmpeg deno sudo xorg-xhost'''.split(),
     'fedora': '''hyprland hyprpaper hyprlock waybar kitty dolphin SwayNotificationCenter grim slurp wl-clipboard
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
         python3 python3-qt6 python3-gobject python3-pillow gcc gcc-c++ pkgconf-pkg-config
@@ -23,7 +23,7 @@ PACKAGES = {
         NetworkManager NetworkManager-tui network-manager-applet nm-connection-editor blueman bluez
         pipewire-pulseaudio wireplumber pulseaudio-utils playerctl brightnessctl fastfetch htop
         libnotify polkit-gnome papirus-icon-theme google-noto-sans-fonts dejavu-sans-fonts dejavu-sans-mono-fonts
-        yt-dlp+default ffmpeg-free nodejs'''.split(),
+        yt-dlp+default ffmpeg-free nodejs sudo xhost'''.split(),
     'debian': '''hyprland hyprpaper hyprlock waybar kitty dolphin sway-notification-center grim slurp wl-clipboard
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
         python3 python3-pyqt6 python3-gi python3-pil gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1 build-essential pkg-config
@@ -31,12 +31,12 @@ PACKAGES = {
         qt6-base-dev qt6-base-dev-tools qt6-base-private-dev qt6-wayland libwayland-dev libwayland-bin wayland-protocols
         network-manager network-manager-gnome blueman bluez pipewire-pulse wireplumber pulseaudio-utils
         playerctl brightnessctl fastfetch htop libnotify-bin policykit-1-gnome papirus-icon-theme fonts-noto-core fonts-dejavu-core
-        yt-dlp ffmpeg nodejs'''.split(),
+        yt-dlp ffmpeg nodejs sudo x11-xserver-utils'''.split(),
 }
 COMMANDS = '''Hyprland hyprctl hyprpaper hyprlock waybar kitty dolphin swaync swaync-client grim slurp
     wl-copy wl-paste xdg-open xdg-user-dir nmcli nm-applet nm-connection-editor bluetoothctl blueman-manager
     pactl wpctl playerctl brightnessctl fastfetch htop notify-send gdbus pgrep flock
-    cc c++ pkg-config wayland-scanner fc-match yt-dlp ffmpeg ffprobe'''.split()
+    cc c++ pkg-config wayland-scanner fc-match yt-dlp ffmpeg ffprobe sudo xhost'''.split()
 LIBRARIES = ['gtk+-3.0','gtk-layer-shell-0','json-glib-1.0','Qt5Widgets','Qt6Widgets','wayland-client']
 MINIMUM = {'Hyprland':(0,56,0),'waybar':(0,15,0),'kitty':(0,49,0),'hyprpaper':(0,8,0)}
 

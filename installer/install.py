@@ -118,6 +118,7 @@ def build(stage):
     for args in ([sys.executable,str(stage/'theme/build.py')],
                  ['bash',str(stage/'waybar/pins/build.sh')],
                  ['bash',str(stage/'waybar/workspaces/build.sh')],
+                 ['bash',str(stage/'waybar/options/build.sh')],
                  ['bash',str(stage/'share-picker/build.sh')]):
         print('Building '+str(Path(args[-1]).relative_to(stage)),flush=True)
         subprocess.run(args,check=True)
@@ -137,7 +138,7 @@ def validate(stage):
         if result.returncode or 'config ok' not in result.stdout:
             raise RuntimeError('Full Hyprland validation failed:\n'+result.stdout[-4000:]+result.stderr[-1000:])
     for relative in ('theme/qt5/platformthemes/libxetaltheme.so','theme/qt6/platformthemes/libxetaltheme.so',
-                     'waybar/pins/pins.so','waybar/workspaces/controls.so','share-picker/window-preview'):
+                     'waybar/pins/pins.so','waybar/workspaces/controls.so','waybar/options/options.so','share-picker/window-preview'):
         if not (stage/relative).is_file():raise RuntimeError('Missing built component: '+relative)
 
 
@@ -199,7 +200,7 @@ def main():
         print('Restored. Replaced profile retained at '+str(saved)+'. Log out and back in to use it.');return 0
     errors=dependencies.check()
     if args.dry_run or args.check:
-        print('Profile: '+args.profile+'; build Qt 5/6 theme plugins, both Waybar modules, and screen-share preview helper.')
+        print('Profile: '+args.profile+'; build Qt 5/6 theme plugins, Waybar modules, and screen-share preview helper.')
         print('Include current wallpaper, licensed fonts, all session tools, backup and rollback. Activate at next Hyprland login.')
         for error in errors:print('  '+error)
         if not errors:print('All dependency and version checks passed.')
