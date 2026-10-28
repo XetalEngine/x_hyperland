@@ -32,6 +32,7 @@ Arch/CachyOS is the tested build environment. Package recipes are also provided 
 | Displays | Drag monitor rectangles; configure resolution, refresh, scaling, rotation and mirroring with timed Keep/Revert protection. |
 | Theme | Xetal Raw, Xetal Modern and BreakPoint, each with Dark, Light and High contrast colors. Live Qt 5/6 palettes, matching bar and notifications, window effects and per-monitor wallpapers. |
 | Wallpaper | The exact included image, monitor previews, individual assignments, fit modes, and image-picker previews/file properties. |
+| File pickers | Right-side image/text/folder previews in all Xetal tools, themed Qt 5/6 Widgets dialogs and standard GTK 3 choosers. [Coverage and installation](docs/FILE-PREVIEWS.md). |
 | Startup | Five-second login delay, then the staggered Fastfetch, Matrix, clock and Xetal companion consoles. Click the companion to switch between animated ASCII and the static original PNG mascot; your choice survives login. |
 | App switcher | Super+Tab across all monitors/workspaces; release Super to focus the selected app on its original monitor. |
 | Dolphin | Separate themed profile, Places icons, image wallpaper action, and folder-link handling. |

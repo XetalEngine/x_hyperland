@@ -93,6 +93,33 @@ The bundled wallpaper's SHA-256 matches the original desktop image byte for byte
 
 ## Reproduce
 
+File picker previews (28 October 2026): **390 desktop tests and 16 installer
+tests passed**. A complete prepare build compiled the GTK preview module,
+both Qt platform themes, the bar modules, sharing helper, Burn and Cube, and
+passed full Hyprland configuration validation. The 36 theme tests also passed
+with the newly compiled Qt 6 plugin, including live palette updates.
+
+Native Qt 5 and Qt 6 probes verified automatic panes, image aspect ratio,
+text selection, all dialog modes, static picker acceptance, closing during
+loading and reopening without duplicate panes. A private GTK Broadway display
+verified the GTK module's image/text updates, open/save/folder modes, repeated
+shows and preservation of an application's existing preview. Python regressions
+cover bounded text/folder reads, special-file rejection, stale background
+results, destruction during loading and filenames rendered as plain text.
+All three desktop designs were rendered, including the close-header integration.
+The pane scrolls independently of the dialog's acceptance buttons. Coverage
+limits for custom and portal dialogs are documented in [FILE-PREVIEWS.md](FILE-PREVIEWS.md).
+
+The native preview checks are reproducible with:
+
+```bash
+python3 tests/run-file-preview-checks.py
+```
+
+They build in temporary directories and use offscreen Qt plus a private local
+Broadway socket for GTK. The GTK runtime probe reports a skip if `broadwayd` is
+unavailable; the module build still runs. They never use or restart Xwayland.
+
 Desktop Cube / 3D follow-up (28 October 2026): **383 desktop checks and 16
 installer checks passed**. The complete prepare build compiled both Burn and
 Cube from the copied source and passed full Hyprland configuration validation.

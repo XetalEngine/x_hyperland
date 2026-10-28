@@ -10,6 +10,23 @@ import tempfile
 ROOT = Path(__file__).resolve().parent
 
 
+def build_gtk():
+    package = 'gtk+-3.0'
+    version = subprocess.check_output(['pkg-config', '--modversion', package], text=True).strip()
+    source = ROOT/'gtk_file_preview.c'
+    destination = ROOT/'gtk3'; destination.mkdir(exist_ok=True)
+    output = destination/'libxetal-file-preview.so'; stamp = destination/'version.txt'
+    if (output.exists() and stamp.exists() and stamp.read_text().strip() == version
+            and output.stat().st_mtime > source.stat().st_mtime): return version
+    flags = shlex.split(subprocess.check_output(['pkg-config', '--cflags', '--libs', package, 'gio-unix-2.0'], text=True))
+    with tempfile.TemporaryDirectory(prefix='.build-', dir=ROOT) as temporary:
+        subprocess.run(['cc', '-std=gnu11', '-O2', '-Wall', '-Wextra', '-Werror', '-fPIC', '-shared',
+                        str(source), '-o', temporary+'/preview.so', *flags], check=True)
+        os.replace(temporary+'/preview.so', output)
+    stamp.write_text(version+'\n')
+    return version
+
+
 def find_moc(major):
     candidates = []
     for variable in ('host_bins', 'libexecdir', 'bindir'):
@@ -30,7 +47,7 @@ def find_moc(major):
 
 
 def build():
-    versions = {}
+    versions = {'gtk3': build_gtk()}
     for major in (5, 6):
         moc = find_moc(major)
         package = f'Qt{major}Widgets'
@@ -39,11 +56,11 @@ def build():
         destination = ROOT/f'qt{major}/platformthemes'; destination.mkdir(parents=True, exist_ok=True)
         output = destination/'libxetaltheme.so'
         stamp = destination/'version.txt'
-        sources = [ROOT/'platformtheme.cpp', ROOT/'plugin.json']
+        sources = [ROOT/'platformtheme.cpp', ROOT/'plugin.json', ROOT/'file_preview.hpp']
         if (output.exists() and stamp.exists() and stamp.read_text().strip() == version
                 and output.stat().st_mtime > max(p.stat().st_mtime for p in sources)):
             versions[str(major)] = version; continue
-        flags = shlex.split(subprocess.check_output(['pkg-config', '--cflags', '--libs', package], text=True))
+        flags = shlex.split(subprocess.check_output(['pkg-config', '--cflags', '--libs', package, f'Qt{major}Concurrent'], text=True))
         private = []
         for module in ['QtGui', 'QtCore']:
             private += ['-I'+str(headers/module/version), '-I'+str(headers/module/version/module)]

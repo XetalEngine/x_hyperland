@@ -142,6 +142,11 @@ for mode in runtime.MODES:
         self.assertEqual(runtime.environment({'DESKTOP_SESSION':'plasma'}),{'DESKTOP_SESSION':'plasma'})
         env=runtime.environment({'HYPRLAND_INSTANCE_SIGNATURE':'unit-test'},'light')
         self.assertEqual(env['QT_QPA_PLATFORMTHEME'],'xetal');self.assertEqual(env['GTK_THEME'],'Adwaita');self.assertNotIn('XDG_CONFIG_HOME',env)
+        base={'HYPRLAND_INSTANCE_SIGNATURE':'test','GTK_MODULES':'keep-gtk2','GTK3_MODULES':'keep-gtk3'}
+        env=runtime.environment(base)
+        self.assertEqual(env['GTK_MODULES'],'keep-gtk2')
+        self.assertEqual(env['GTK3_MODULES'],str(runtime.ROOT/'gtk3/libxetal-file-preview.so')+':keep-gtk3')
+        self.assertEqual(runtime.environment(env)['GTK3_MODULES'],env['GTK3_MODULES'])
 
 
 class KittyReloadTests(unittest.TestCase):

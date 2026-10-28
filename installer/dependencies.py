@@ -37,7 +37,7 @@ COMMANDS = '''Hyprland hyprctl hyprpaper hyprlock waybar kitty dolphin swaync sw
     wl-copy wl-paste xdg-open xdg-user-dir nmcli nm-applet nm-connection-editor bluetoothctl blueman-manager
     pactl wpctl playerctl brightnessctl fastfetch htop notify-send gdbus pgrep flock
     cc c++ pkg-config wayland-scanner fc-match yt-dlp ffmpeg ffprobe sudo xhost'''.split()
-LIBRARIES = ['gtk+-3.0','gtk-layer-shell-0','json-glib-1.0','Qt5Widgets','Qt6Widgets','wayland-client']
+LIBRARIES = ['gtk+-3.0','gio-unix-2.0','gtk-layer-shell-0','json-glib-1.0','Qt5Widgets','Qt6Widgets','Qt5Concurrent','Qt6Concurrent','wayland-client']
 MINIMUM = {'Hyprland':(0,56,0),'waybar':(0,15,0),'kitty':(0,49,0),'hyprpaper':(0,8,0)}
 
 

@@ -6,7 +6,7 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 | --- | --- |
 | Desktop | Hyprland 0.56+, Hyprpaper 0.8+, Hyprlock, Waybar 0.15+, Kitty 0.49+, Dolphin, SwayNotificationCenter |
 | Python | Python 3.11+, PyQt6 Widgets/Network/DBus, PyGObject with Gio/GTK 3/GtkLayerShell, Pillow |
-| Native builds | C/C++17/20 compiler, pkg-config, GTK 3, gtk-layer-shell, json-glib, Wayland client/scanner; Qt 5 and 6 development tools and private QtGui/QtCore headers |
+| Native builds | C/C++17/20 compiler, pkg-config, GTK 3, gio-unix, gtk-layer-shell, json-glib, Wayland client/scanner; Qt 5 and 6 Widgets/Concurrent, development tools and private QtGui/QtCore headers |
 | Capture | grim, slurp, wl-clipboard, xdg-desktop-portal-hyprland, GTK desktop portal |
 | Audio | PipeWire PulseAudio compatibility, pactl, WirePlumber/wpctl, playerctl |
 | Media downloader | yt-dlp, FFmpeg/ffprobe, and a supported Deno, Node.js or QuickJS runtime; wl-paste for selected links |
@@ -15,6 +15,8 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 | Appearance | Papirus icon theme, Noto Sans, DejaVu Sans/Mono, Fontconfig; licensed Fira Code Nerd Font, Inter 4.1 and JetBrains Mono 2.304 files are bundled |
 
 The custom Waybar modules use its CFFI v2 interface and its 0.15 workspace taskbar structure. Qt theme plugins use private APIs and are built against the installed Qt versions; session startup checks and rebuilds them after Qt changes. Their source is included.
+
+The private GTK 3 preview module is built by the same theme builder. Qt previews use Qt Concurrent for background loading; both dependencies are supplied by the existing GTK/Qt development package recipes. See [file picker coverage](FILE-PREVIEWS.md).
 
 The optional **Compiz Burn** close effect supports Hyprland **0.56.2** at the tested commit documented in [its guide](../config/hypr/effects/burn/README.md), x86-64 and the OpenGL renderer. It needs a C++23 compiler, matching Hyprland development headers exposed through `pkg-config hyprland`, and GLESv2 development files. Its build and runtime ABI checks reject mismatched versions; unsupported installations retain normal closing animations and still install the rest of the desktop. Controls are in **Theme → Window effects → Burn**.
 

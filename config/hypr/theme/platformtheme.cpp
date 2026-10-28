@@ -11,6 +11,7 @@
 #include <QJsonObject>
 #include <QPalette>
 #include <QTimer>
+#include "file_preview.hpp"
 
 class XetalTheme final : public QObject, public QPlatformTheme {
     QPalette colors;
@@ -72,6 +73,7 @@ public:
             connect(watcher, &QFileSystemWatcher::directoryChanged, this, [this] { notify(); });
             connect(watcher, &QFileSystemWatcher::fileChanged, this, [this] { notify(); });
             notify();
+            XetalPreview::install();
         });
     }
     const QPalette *palette(Palette) const override { return &colors; }

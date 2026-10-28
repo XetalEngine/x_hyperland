@@ -8,6 +8,7 @@ config/hypr/share-picker/build/
 config/hypr/share-picker/window-preview
 config/hypr/theme/qt5/
 config/hypr/theme/qt6/
+config/hypr/theme/gtk3/
 config/hypr/theme/qt-settings/
 config/hypr/theme/backgrounds/
 config/hypr/dolphin/cache/

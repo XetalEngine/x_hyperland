@@ -92,6 +92,8 @@ def environment(base=None, value=None):
                XETAL_THEME_CONFIG=str(STATE), GTK_THEME={'dark':'Adwaita:dark','light':'Adwaita','contrast':'HighContrastInverse'}[value],
                FONTCONFIG_FILE=str(ROOT.parent/'assets/fonts.conf'),
                KDE_COLOR_SCHEME_PATH=str(ROOT/'current.colors'))
+    modules = [str(ROOT/'gtk3/libxetal-file-preview.so'), *filter(None, env.get('GTK3_MODULES', '').split(':'))]
+    env['GTK3_MODULES'] = ':'.join(dict.fromkeys(modules))
     return env
 
 
@@ -159,6 +161,8 @@ def install(app, source='', *, style=None):
     from PyQt6.QtWidgets import QCalendarWidget
     import window_chrome
     window_chrome.install(app)
+    import file_preview
+    file_preview.install(app)
     class LiveTheme(QObject):
         changed=pyqtSignal()
         def __init__(self):

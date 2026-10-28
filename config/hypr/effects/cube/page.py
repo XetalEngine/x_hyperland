@@ -5,7 +5,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor,QPixmap,QIcon
 from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,QFormLayout,
     QGroupBox,QScrollArea,QLabel,QCheckBox,QSpinBox,QDoubleSpinBox,QComboBox,
-    QPushButton,QColorDialog,QMessageBox,QFileDialog)
+    QPushButton,QColorDialog,QMessageBox)
 from . import model,controller
 
 
@@ -116,7 +116,8 @@ class CubePage(QWidget):
         if c.isValid():self.data[key]=list(c.getRgbF());self.update_art();self.edited()
 
     def choose_image(self,key):
-        name,_=QFileDialog.getOpenFileName(self,'Choose cube picture',str(Path.home()/'Pictures'),'Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif *.tif *.tiff);;All files (*)')
+        from image_picker import ImagePicker
+        name=ImagePicker.choose(self,'Choose cube picture',str(Path.home()/'Pictures'),'Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif *.tif *.tiff);;All files (*)')
         if not name:return
         self.busy=True;self.edited();self.status.setText('Preparing picture…')
         def ready(relative):

@@ -129,6 +129,13 @@ app switcher have a visible close button. Their Qt dialogs and file pickers also
 have a close header; normal cancel, discard-confirmation, and display-revert
 handlers still run when X is clicked.
 
+File pickers have a preview pane on the right: image thumbnails, text excerpts,
+folder contents and file properties. This covers all Xetal tools, including the
+Cube image choices, plus standard Qt 5/6 Widgets and GTK 3 dialogs launched in
+this Hyprland session. Reopen older applications after an upgrade. Custom app
+pickers and separate portal processes need their own integration. The installer
+builds the private native modules from source; shared desktop settings stay alone.
+
 Audio now includes its per-application mixer in the Audio tab. Playback and
 Recording show one column per application with its icon, vertical volume fader,
 mute, and device route. Multiple streams from one app stay together; channel and

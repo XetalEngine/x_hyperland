@@ -146,7 +146,7 @@ def validate(stage):
         result=subprocess.run(['Hyprland','--verify-config','--config',str(candidate)],capture_output=True,text=True)
         if result.returncode or 'config ok' not in result.stdout:
             raise RuntimeError('Full Hyprland validation failed:\n'+result.stdout[-4000:]+result.stderr[-1000:])
-    for relative in ('theme/qt5/platformthemes/libxetaltheme.so','theme/qt6/platformthemes/libxetaltheme.so',
+    for relative in ('theme/gtk3/libxetal-file-preview.so','theme/qt5/platformthemes/libxetaltheme.so','theme/qt6/platformthemes/libxetaltheme.so',
                      'waybar/pins/pins.so','waybar/workspaces/controls.so','waybar/options/options.so','share-picker/window-preview'):
         if not (stage/relative).is_file():raise RuntimeError('Missing built component: '+relative)
 
