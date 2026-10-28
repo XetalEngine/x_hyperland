@@ -29,6 +29,7 @@ Shortcuts (Super is the Windows key):
   Super + Ctrl + arrows   Resize a window by 40 pixels
   Super + Alt + Left/Right Move a window to the previous/next monitor
   Super + L               Lock screen
+  Super + M               Confirm logout (Cancel is selected by default)
   Print                   Capture a selected region; Esc cancels
   Shift + Print           Capture all displays
 

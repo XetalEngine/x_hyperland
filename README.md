@@ -84,6 +84,7 @@ The prepare destination must not already exist. The normal installer builds in a
 | Super+K | Control desk / Hotkeys |
 | Super+A | Audio mixer |
 | Super+Q / Super+Enter | Kitty |
+| Super+M | Log out after confirmation; Cancel is selected by default |
 | Super+E | Dolphin |
 | Super+Ctrl+P | YouTube MP3/MP4 downloader |
 | Super+Tab / Super+Shift+Tab | App switcher, forward/reverse |
