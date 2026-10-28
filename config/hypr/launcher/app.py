@@ -25,6 +25,7 @@ import hotkeys
 import favorite_layout
 import capture_guard
 import bar_toggle
+from activation import BarActivation
 from outside_click import CLICK_EVENT, check_pointer
 from favorite_board import Board
 from hotkey_dialog import HotkeyDialog
@@ -176,6 +177,7 @@ class Menu(QWidget):
         self.resize(*(geometry.DEFAULT if preview else geometry.size()))
         self.setMouseTracking(True)
         self.preview = preview
+        self.bar_activation = None
         self.size_grip = QSizeGrip(self)
         self.size_grip.setToolTip('Drag to resize the Apps menu')
         self.size_grip.setStyleSheet('background: transparent;')
@@ -876,6 +878,7 @@ class Menu(QWidget):
                 or QApplication.activePopupWidget() or QApplication.activeModalWidget())
 
     def pointer_clicked(self):
+        if self.bar_activation:self.bar_activation.cancel()
         self.pointer_generation += 1
         generation = self.pointer_generation
         self.pending_outside_click = False
@@ -915,6 +918,7 @@ class Menu(QWidget):
             event.ignore()
             return
         self.dismiss_timer.stop()
+        if self.bar_activation:self.bar_activation.cancel()
         self.pointer_generation += 1
         self.pending_outside_click = False
         if not self.preview:
@@ -990,6 +994,9 @@ def main():
         watcher.readyRead.connect(lambda: window.handle_compositor_events(watcher))
         watcher.disconnected.connect(app.quit)
     window.show()
+    if args.from_bar and not args.preview and not args.edit:
+        window.bar_activation=BarActivation(window)
+        window.bar_activation.start()
     if window.screen() and not args.initial_size:
         available = window.screen().availableGeometry()
         window.resize(min(window.width(), available.width() - 48), min(window.height(), available.height() - 70))
