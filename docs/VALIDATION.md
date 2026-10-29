@@ -1,5 +1,30 @@
 # Validation
 
+## Taskbar crash recovery — 28 October 2026
+
+A live Waybar 0.15.0 crash after `SIGUSR2` reload reached the media-player
+callback in `libplayerctl` and crashed while notifying a GLib dispatcher. Restoring the Waybar
+process restored all three monitor bars without restarting Hyprland or effects.
+Avoid module hot reloads with this build; CSS and taskbar options already update
+live. For module-configuration changes, restart the owned bar process instead.
+
+`scripts/waybar-session.py` now owns the bar. A crash triggers a fresh process;
+repeated failures back off from one to thirty seconds. A private per-instance
+lock prevents duplicate supervisors. Closing Hyprland's event socket or stopping
+the supervisor terminates only its owned bar, with no respawn after logout.
+
+Five real-process regression checks cover crash/restart, repeated-failure
+backoff, logout with stale socket files, duplicate owners, stopping a stubborn
+child without touching an unrelated process, and session closure before launch.
+They use private Unix sockets and fake bars, never the live desktop.
+
+The follow-up passed **44 session-helper checks, 22 updater checks and 17
+installer checks**. The update badge is empty while current/checking and stays
+visible for an available, preparing or ready update, including actionable update
+failures. A live capture verified the idle button disappears. Exactly one
+supervised bar mapped on each of the three monitors; all 582 protected setting
+hashes remained unchanged.
+
 ## Compiz Burn — 28 October 2026
 
 The Burn port passed the **374-check desktop suite** and **15 installer checks**.

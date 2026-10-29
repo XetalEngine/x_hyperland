@@ -4,7 +4,7 @@ Hyper Fusion watches `XetalEngine/x_hyperland` on GitHub, branch **main**. Every
 
 ## What users see
 
-An animated **UPDATE** badge appears beside **Keys** when a newer commit is available. The small refresh icon remains available when current. Click it for installed/latest revisions, the commit message, a preparation log, **Check now**, **Prepare update**, automatic-update preferences and **Roll back**. Right-click the taskbar → Options can hide the module without disabling checks.
+An animated **UPDATE** badge appears beside **Keys** when a newer commit is available. It stays completely hidden while the desktop is up to date or checking for updates, and remains visible while an update downloads or waits for the next login. Click it for installed/latest revisions, the commit message, a preparation log, **Check now**, **Prepare update**, automatic-update preferences and **Roll back**. Right-click the taskbar → Options can hide the module without disabling checks. To manage updates while the badge is hidden, run `~/.config/hypr/scripts/desktop-updates.sh`.
 
 ![Desktop updates](screenshots/desktop-updates.png)
 

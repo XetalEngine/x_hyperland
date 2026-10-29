@@ -70,8 +70,9 @@ children+=("$!")
 "$config_dir/scripts/file-progress.sh" >"$instance_dir/file-progress.log" 2>&1 9>&- &
 children+=("$!")
 
-waybar --config "$config_dir/waybar/config.json" --style "$config_dir/waybar/style.css" \
-    >"$instance_dir/waybar.log" 2>&1 9>&- &
+# Recover a crashed bar inside this session; logout stops the owner and its bar.
+python3 "$config_dir/scripts/waybar-session.py" \
+    >"$instance_dir/waybar-supervisor.log" 2>&1 9>&- &
 children+=("$!")
 
 # Wallpaper renderer belongs to this session and reads only the Hyprland profile.

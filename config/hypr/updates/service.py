@@ -51,7 +51,11 @@ def badge(value):
     phase = value.get('phase', 'current')
     labels = {'available': '↻ UPDATE', 'preparing': '↻ UPDATING', 'ready': '✓ UPDATE READY',
               'attention': '↻ UPDATE !', 'rollback': '↶ ROLLBACK'}
-    text = labels.get(phase, '↻')
+    text = labels.get(phase, '')
+    # No idle/checking icon, and no update notice for a connection error alone.
+    if phase == 'attention' and not (value.get('github', {}).get('relation') == 'ahead'
+                                    and value.get('latest') != value.get('current')):
+        text = ''
     message = value.get('message', 'Xetal desktop updates · Click to check and manage updates')
     if value.get('latest'): message += '\nGitHub main · '+value['latest'][:8]
     return {'text': text, 'class': phase, 'tooltip': html.escape(message)}

@@ -257,6 +257,7 @@
     "exec": "python3 $HOME/.config/hypr/updates/service.py --status",
     "return-type": "json",
     "format": "{text}",
+    "hide-empty-text": true,
     "interval": 5,
     "tooltip": true,
     "on-click": "$HOME/.config/hypr/scripts/desktop-updates.sh"

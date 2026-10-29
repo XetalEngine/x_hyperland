@@ -161,6 +161,21 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
         badge = service.badge({'phase':'available','message':'<b>not markup</b>'})
         self.assertEqual(badge['text'], '↻ UPDATE'); self.assertNotIn('<b>', badge['tooltip'])
 
+    def test_badge_is_hidden_until_an_update_exists(self):
+        for value in ({}, {'phase':'current'}, {'phase':'checking'},
+                      {'phase':'attention','message':'Network unavailable'},
+                      {'phase':'current','current':NEW,'latest':OLD,'github':{'relation':'behind'}},
+                      {'phase':'attention','current':NEW,'latest':NEW,'github':{'relation':'identical'}}):
+            with self.subTest(value=value):
+                self.assertEqual(service.badge(value)['text'], '')
+
+    def test_badge_keeps_update_progress_and_actionable_failures_visible(self):
+        for phase in ('available','preparing','ready','attention'):
+            with self.subTest(phase=phase):
+                value = {'phase':phase,'current':OLD,'latest':NEW,'github':{'relation':'ahead'}}
+                self.assertTrue(service.badge(value)['text'])
+        self.assertIn('ROLLBACK', service.badge({'phase':'rollback'})['text'])
+
     def test_download_checkout_is_exact_and_keeps_developer_clone_untouched(self):
         repository = self.root/'repo'; repository.mkdir()
         subprocess.run(['git','init','-q',str(repository)], check=True)

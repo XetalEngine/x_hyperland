@@ -104,7 +104,9 @@ The bar shows workspaces and app icons for each display. Add workspaces with **+
 
 **Right-click → Options** lets you move the bar between **Top and Bottom**, and show/hide CPU, RAM, temperature, disk, internet, LAN, Wi-Fi, VPN, Bluetooth, media playback, volume, microphone, notifications, tray, clock, power, Apps, workspaces, pins, and desktop updates. Popups and the Start menu open inward from the selected edge. Visibility settings survive login.
 
-The **animated UPDATE notice beside Keys** announces new commits on GitHub `main`. Automatic updates prepare in the background, preserve your personal settings, and activate at your **next Hyprland login**. Click it to check now, pause automatic updates, prepare manually, inspect the log, or queue a rollback. Updates never log you out. [How updates work →](docs/UPDATES.md)
+If the taskbar crashes, its session helper automatically brings it back. Your applications, workspaces and desktop effects keep running.
+
+The **animated UPDATE notice beside Keys** appears only when an update is available or pending, and stays hidden when you're up to date. Automatic updates prepare in the background, preserve your personal settings, and activate at your **next Hyprland login**. Click it to check now, pause automatic updates, prepare manually, inspect the log, or queue a rollback. Updates never log you out. [How updates work →](docs/UPDATES.md)
 
 ## Control desk
 
