@@ -45,9 +45,15 @@ class SettingsTests(unittest.TestCase):
 
     def test_malformed_and_out_of_range_configuration_is_rejected(self):
         for value in ([], {'version': True}, {'version': 2}, {'style': 'unknown'}, {'scope': []},
-                      {'duration': -1}, {'opacity': 101}, {'live_previews': 1}, {'profiles': []},
+                      {'duration': -1}, {'inactive_opacity': 101}, {'live_previews': 1}, {'profiles': []},
                       {'profiles': {'flip': {'flip_rotation': 90}}}):
             with self.subTest(value=value), self.assertRaises(ValueError): preferences.normalize(value)
+
+    def test_legacy_panel_opacity_is_ignored_without_resetting_saved_choices(self):
+        saved = preferences.normalize({'style': 'ring', 'duration': 315, 'opacity': 47,
+                                       'profiles': {'ring': {'ring_width': 82}}})
+        self.assertNotIn('opacity', saved)
+        self.assertEqual((saved['style'], saved['duration'], saved['profiles']['ring']['ring_width']), ('ring', 315, 82))
 
 
 class GeometryTests(unittest.TestCase):
@@ -145,10 +151,16 @@ class LifecycleTests(unittest.TestCase):
         self.options['scope'] = 'application'
         self.assertEqual([c['address'] for c in app.scoped(self.clients, self.options, self.active, self.monitor)], ['0x1'])
 
-    def test_narrow_monitor_does_not_force_title_bar_beyond_screen(self):
+    def test_narrow_monitor_keeps_overlay_on_screen(self):
         self.options['style'] = 'static'; self.monitor.update(width=640, height=480)
         self.window.begin(); QT.processEvents()
         self.assertLessEqual(self.window.width(), 616); self.assertLessEqual(self.window.height(), 424)
+
+    def test_empty_overlay_click_cancels_and_restores_original_window(self):
+        self.window.begin(); self.window.grab()
+        QTest.mouseClick(self.window.scene, Qt.MouseButton.LeftButton, pos=QPoint(3, 3))
+        self.assertFalse(self.window.isVisible())
+        self.assertEqual(self.calls[-1], ('dispatch', 'focuswindow', 'address:0x1'))
 
     def test_empty_session_does_not_show_or_capture(self):
         self.clients = []; self.active = {}; self.window.begin()

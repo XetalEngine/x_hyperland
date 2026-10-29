@@ -19,13 +19,15 @@ a window preview also selects it.
 
 ![Eight Task Switcher styles, using example windows and the Binary Knife theme](../../../docs/screenshots/task-switchers.png)
 
-Shared controls cover the window scope, animation duration, overall size, panel
-opacity, inactive window opacity, live previews, titles, and icons. Appearance
+Shared controls cover the window scope, animation duration, overall size,
+inactive window opacity, live previews, titles, and icons. Appearance
 follows all desktop themes and color modes. Each style keeps its own settings.
 Mouse-wheel gestures over the settings controls scroll the page without changing
 their values. The preview buttons operate on example windows; they never switch
-applications or save settings. Reload detects external edits, and Discard restores
-the last saved choices. Closing Fusion Settings includes these unsaved edits in
+applications or save settings. Cards float directly over the desktop, without a
+surrounding panel, header, footer, blur, or compositor shadow. Click empty space
+to cancel, including in the larger preview. Reload detects external edits, and
+Discard restores the last saved choices. Closing Fusion Settings includes these unsaved edits in
 its existing confirmation.
 
 All monitors/workspaces are included by default, including mapped hidden group

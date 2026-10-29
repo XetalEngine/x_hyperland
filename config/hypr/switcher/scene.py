@@ -17,6 +17,7 @@ from . import geometry, preferences
 class Scene(QWidget):
     activated = pyqtSignal(int)
     stepped = pyqtSignal(int)
+    dismissed = pyqtSignal()
 
     def __init__(self, parent=None, interactive=True):
         super().__init__(parent)
@@ -24,6 +25,8 @@ class Scene(QWidget):
         self.pictures = {}; self.hitboxes = []; self.interactive = interactive
         self.stack_from = {}; self.stack_progress = 1.
         self.setMinimumSize(180, 100); self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setAutoFillBackground(False)
+        self.setStyleSheet('background:transparent; border:none;')
         self.setAccessibleName('Task switcher window previews')
         self.animation = QVariantAnimation(self); self.animation.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.animation.valueChanged.connect(self.frame)
@@ -159,6 +162,7 @@ class Scene(QWidget):
             for index, polygon in reversed(self.hitboxes):
                 if polygon.containsPoint(event.position(), Qt.FillRule.OddEvenFill):
                     self.activated.emit(index); event.accept(); return
+            self.dismissed.emit(); event.accept(); return
         super().mouseReleaseEvent(event)
 
     def wheelEvent(self, event):

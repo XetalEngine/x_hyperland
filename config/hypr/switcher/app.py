@@ -7,30 +7,25 @@ import json
 import os
 from pathlib import Path
 import re
-import subprocess
 import sys
 import signal
 
 from functools import lru_cache
 
-from PyQt6.QtCore import Qt, QEvent, QRectF, QTimer
-from PyQt6.QtGui import QColor, QFont, QIcon, QPainter, QPen, QLinearGradient
+from PyQt6.QtCore import Qt, QEvent, QTimer
+from PyQt6.QtGui import QIcon
 from PyQt6.QtNetwork import QLocalSocket
-from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                            QSizePolicy)
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'control_center'))
 from desktop_settings import ctl
 sys.path.insert(0,str(ROOT/'theme'))
 import runtime as theme_runtime
-from window_chrome import close_button
 sys.path.insert(0, str(ROOT))
-from switcher import preferences
+from switcher import preferences, overlay
 from switcher.scene import Scene, sample_clients, sample_pictures
 from switcher.previews import PreviewQueue
-
-def color(value): return QColor(theme_runtime.recolor(value,theme_runtime.mode()))
 
 EXCLUDED = {'xetal-switcher', 'xetal-launcher', 'hypr-display-id'}
 
@@ -95,38 +90,19 @@ class Switcher(QWidget):
         self.preview = preview; self.original = ''; self.monitor = None; self.clients = []; self.index = 0
         self.options = preferences.current(); self.monitors = {}; self.generation = 0
         self.setWindowTitle('Switch applications')
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        overlay.configure(self)
         theme_runtime.install(QApplication.instance(),
             'QWidget { color:#e6eef9; font:13px "Noto Sans"; background:transparent; }')
-        root = QVBoxLayout(self); root.setContentsMargins(24, 18, 24, 18); root.setSpacing(8)
-        top = QHBoxLayout(); self.title = QLabel(); self.title.setStyleSheet('font-size:21px; font-weight:700;')
-        top.addWidget(self.title); top.addStretch(); self.count = QLabel(); top.addWidget(self.count)
-        self.title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-        self.count.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-        self.count.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        top.setStretch(0, 1); top.setStretch(1, 0); top.setStretch(2, 1)
-        self.close_button = close_button(self, self.cancel, 'Cancel app switching'); top.addWidget(self.close_button)
-        root.addLayout(top)
+        root = QVBoxLayout(self); root.setContentsMargins(12, 12, 12, 12)
         self.scene = Scene(); self.scene.activated.connect(self.choose); self.scene.stepped.connect(self.cycle)
+        self.scene.dismissed.connect(self.cancel)
         root.addWidget(self.scene, 1)
-        self.detail = QLabel(); self.detail.setWordWrap(False); root.addWidget(self.detail)
-        self.detail.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-        self.hint = QLabel('Hold Super · Tab / Shift+Tab to cycle · Release Super to open · Esc to cancel')
-        self.hint.setWordWrap(True); root.addWidget(self.hint)
         self.queue = PreviewQueue(self); self.queue.changed.connect(lambda _: self.scene.update())
         self.scene.pictures = self.queue.cache
         self.position_timer = QTimer(self); self.position_timer.setSingleShot(True)
         self.position_timer.timeout.connect(self.position)
-        for obj in (self, self.scene, self.close_button): obj.installEventFilter(self)
+        for obj in (self, self.scene): obj.installEventFilter(self)
         self.resize(1100, 640)
-
-    def paintEvent(self, event):
-        p = QPainter(self); p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        colors = theme_runtime.colors(); fill = QColor(colors['Window']); fill.setAlpha(round(self.options['opacity']*2.55))
-        p.setBrush(fill); p.setPen(QPen(QColor(colors['Accent']), 1.5))
-        radius = 4 if theme_runtime.design() == 'binaryknife' else 12
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), radius, radius)
 
     def begin(self, direction=1):
         if self.isVisible(): self.cycle(direction); return
@@ -153,7 +129,7 @@ class Switcher(QWidget):
         self.clients = [{**client, '_icon': client.get('_icon') or window_icon(client)} for client in clients]
         self.monitors = monitors or self.monitors
         self.scene.configure(self.options, self.clients); self.index = 0
-        self.title.setText(preferences.STYLES[self.options['style']]); self.describe()
+        self.describe()
 
     def fit_monitor(self):
         if not self.monitor: return
@@ -194,14 +170,13 @@ class Switcher(QWidget):
 
     def describe(self):
         total = len(self.clients)
-        self.count.setText(f'{self.index+1 if total else 0} / {total} · {preferences.SCOPES[self.options["scope"]]}')
-        if not total: self.detail.clear(); return
+        if not total: self.scene.setAccessibleDescription('No windows'); return
         client = self.clients[self.index]
         workspace = str(client.get('workspace', {}).get('name', '?')).removeprefix('special:')
         monitor = self.monitors.get(client.get('monitor'), ('?', '?'))[0]
         text = f'{client.get("title") or client.get("class", "Window")}  ·  Workspace {workspace}  ·  Monitor {monitor}'
-        self.detail.setToolTip(text)
-        self.detail.setText(self.detail.fontMetrics().elidedText(text, Qt.TextElideMode.ElideRight, max(100, self.width()-60)))
+        self.scene.setAccessibleDescription(f'{self.index+1} of {total} · {text}. '
+            'Tab to cycle, release Super to select, Escape or click empty space to cancel.')
 
     def remove_window(self, address):
         if not self.clients: return
@@ -259,7 +234,6 @@ def main():
         if args.style: window.options['style'] = args.style
         window.populate(sample_clients(), {0: (1, 'Left'), 1: (2, 'Center'), 2: (3, 'Right')})
         window.scene.pictures = sample_pictures(window.clients); window.select(1, False)
-        window.hint.setText('Example windows · Tab / arrows to explore · Esc to close')
         window.show(); window.scene.setFocus()
         if args.preview: QTimer.singleShot(150, lambda: (window.grab().save(args.preview), app.quit()))
         return app.exec()

@@ -4,7 +4,6 @@
   "scope": "all",
   "duration": 200,
   "size": 80,
-  "opacity": 94,
   "inactive_opacity": 80,
   "live_previews": true,
   "show_titles": true,

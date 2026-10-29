@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QFormL
     QFrame, QGroupBox, QHBoxLayout, QLabel, QMessageBox, QPushButton, QScrollArea,
     QSpinBox, QVBoxLayout, QWidget)
 
-from . import preferences
+from . import preferences, overlay
 from .scene import Scene, sample_clients, sample_pictures, theme_runtime
 
 
@@ -18,15 +18,16 @@ class PreviewDialog(QDialog):
     def __init__(self, options, parent):
         super().__init__(parent)
         self.setWindowTitle('Task Switcher · Preview'); self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        overlay.configure(self)
         root = QVBoxLayout(self)
-        root.addWidget(label(preferences.STYLES[options['style']], 'brand'))
-        root.addWidget(label('Example windows · Tab / arrows to explore · Esc to close'))
+        root.setContentsMargins(12, 12, 12, 12)
         self.scene = Scene(); self.scene.configure(options, sample_clients())
         self.scene.pictures = sample_pictures(self.scene.clients) if options['live_previews'] else {}
         self.scene.activated.connect(lambda i: self.scene.select(i)); self.scene.stepped.connect(self.step)
+        self.scene.dismissed.connect(self.close)
+        self.scene.setAccessibleDescription('Example windows. Tab or arrows to explore. Escape or click empty space to close.')
         root.addWidget(self.scene, 1)
-        close = QPushButton('Close preview'); close.clicked.connect(self.close); root.addWidget(close)
-        for obj in (self, self.scene, close): obj.installEventFilter(self)
+        for obj in (self, self.scene): obj.installEventFilter(self)
         available = self.screen().availableGeometry()
         self.resize(min(1100, available.width()-40), min(650, available.height()-60))
         self.scene.setFocus()
@@ -73,6 +74,7 @@ class TaskSwitcherPage(QWidget):
         self.next = QPushButton('Next →'); self.next.clicked.connect(lambda: self.step(1)); row.addWidget(self.next)
         self.play = QCheckBox('Animate preview'); self.play.setChecked(True); self.play.toggled.connect(self.update_timer); row.addWidget(self.play)
         row.addStretch(); self.popup = QPushButton('Larger preview'); self.popup.clicked.connect(self.open_preview); row.addWidget(self.popup)
+        self.popup.setToolTip('Preview floating cards over your desktop. Press Esc or click empty space to close.')
         preview_layout.addLayout(row); body.addWidget(preview_box)
         columns = QHBoxLayout(); columns.setSpacing(16)
         general = QGroupBox('Behavior and appearance'); form = QFormLayout(general); form.setSpacing(8)
@@ -81,11 +83,11 @@ class TaskSwitcherPage(QWidget):
         self.scope.currentIndexChanged.connect(lambda: self.edit('scope', self.scope.currentData()))
         form.addRow('Windows to include', self.scope)
         for key, title, suffix in [('duration', 'Animation duration', ' ms'), ('size', 'Switcher size', '%'),
-                                    ('opacity', 'Panel opacity', '%'), ('inactive_opacity', 'Inactive windows', '%')]:
+                                    ('inactive_opacity', 'Inactive windows', '%')]:
             self.add_number(form, key, title, suffix)
         for key, title in [('live_previews', 'Live window previews'), ('show_titles', 'Show window titles'), ('show_icons', 'Show app icons')]:
             self.add_check(form, key, title)
-        form.addRow(label('Release Super to open the selection. Esc returns to your original window. Duration 0 disables motion.'))
+        form.addRow(label('Cards float directly over the desktop. Release Super to select; Esc or click empty space to cancel. Duration 0 disables motion.'))
         columns.addWidget(general, 1)
         self.specific = QGroupBox(); self.specific_form = QFormLayout(self.specific); self.specific_form.setSpacing(8)
         columns.addWidget(self.specific, 1); body.addLayout(columns); body.addStretch()

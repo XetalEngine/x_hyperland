@@ -33,7 +33,7 @@ def close_button(window,callback=None,title=None):
 
 class DialogHeaders(QObject):
     def eventFilter(self,window,event):
-        if not isinstance(window,QDialog) or not window.isWindow():return False
+        if not isinstance(window,QDialog) or not window.isWindow() or window.property('xetalOverlay'):return False
         if event.type()==QEvent.Type.Show and not window.property('xetalCloseButton'):
             margins=window.contentsMargins()
             window.setContentsMargins(margins.left(),margins.top()+38,margins.right(),margins.bottom())
