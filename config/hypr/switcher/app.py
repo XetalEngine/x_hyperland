@@ -9,12 +9,15 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import signal
 
-from PyQt6.QtCore import Qt, QSize, QRectF, QTimer
+from functools import lru_cache
+
+from PyQt6.QtCore import Qt, QEvent, QRectF, QTimer
 from PyQt6.QtGui import QColor, QFont, QIcon, QPainter, QPen, QLinearGradient
 from PyQt6.QtNetwork import QLocalSocket
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                            QListWidget, QListWidgetItem, QListView, QStyledItemDelegate, QStyle)
+                            QSizePolicy)
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'control_center'))
@@ -22,6 +25,10 @@ from desktop_settings import ctl
 sys.path.insert(0,str(ROOT/'theme'))
 import runtime as theme_runtime
 from window_chrome import close_button
+sys.path.insert(0, str(ROOT))
+from switcher import preferences
+from switcher.scene import Scene, sample_clients, sample_pictures
+from switcher.previews import PreviewQueue
 
 def color(value): return QColor(theme_runtime.recolor(value,theme_runtime.mode()))
 
@@ -46,7 +53,11 @@ def focus(address):
 
 
 def window_icon(client):
-    name = client.get('class') or client.get('initialClass') or 'application-x-executable'
+    return icon_for_class(client.get('class') or client.get('initialClass') or 'application-x-executable')
+
+
+@lru_cache(maxsize=256)
+def icon_for_class(name):
     for candidate in (name, name.lower(), name.replace(' ', '-').lower()):
         icon = QIcon.fromTheme(candidate)
         if not icon.isNull(): return icon
@@ -65,150 +76,192 @@ def window_icon(client):
     return QIcon.fromTheme('application-x-executable')
 
 
-class Card(QStyledItemDelegate):
-    def sizeHint(self, option, index): return QSize(222, 180)
-    def paint(self, painter, option, index):
-        painter.save(); painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        box = QRectF(option.rect).adjusted(5, 5, -5, -5)
-        selected = bool(option.state & QStyle.StateFlag.State_Selected)
-        gradient = QLinearGradient(box.topLeft(), box.bottomRight())
-        gradient.setColorAt(0, color('#2e5b65' if selected else '#202e3e'))
-        gradient.setColorAt(1, color('#203f4b' if selected else '#172333'))
-        painter.setBrush(gradient); painter.setPen(QPen(color('#84ead7' if selected else '#34465b'), 2 if selected else 1))
-        painter.drawRoundedRect(box, 13, 13)
-        icon = index.data(Qt.ItemDataRole.DecorationRole)
-        if icon: icon.paint(painter, int(box.center().x()-27), int(box.top()+17), 54, 54)
-        painter.setPen(color('#eff8ff')); painter.setFont(QFont(theme_runtime.ui_font(), 11, QFont.Weight.DemiBold))
-        title = index.data(Qt.ItemDataRole.DisplayRole)
-        title = painter.fontMetrics().elidedText(title, Qt.TextElideMode.ElideRight, int(box.width()-24)*2)
-        painter.drawText(box.adjusted(12, 80, -12, -43), Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap, title)
-        painter.setFont(QFont(theme_runtime.ui_font(), 9)); painter.setPen(color('#a8d9d6' if selected else '#98adc7'))
-        painter.drawText(box.adjusted(8, box.height()-36, -8, -8), Qt.AlignmentFlag.AlignCenter,
-                         index.data(Qt.ItemDataRole.UserRole+1))
-        painter.restore()
+def scoped(clients, options, active, monitor):
+    ordered = windows(clients, active.get('address', ''))
+    scope = options['scope']
+    if scope == 'monitor':
+        return [c for c in ordered if c.get('monitor') == (monitor or {}).get('id')]
+    if scope == 'workspace':
+        workspace = active.get('workspace') or (monitor or {}).get('activeWorkspace', {})
+        return [c for c in ordered if c.get('workspace', {}).get('id') == workspace.get('id')]
+    if scope == 'application':
+        return [c for c in ordered if c.get('class') == active.get('class')] if active else ordered
+    return ordered
 
 
 class Switcher(QWidget):
     def __init__(self, preview=False):
         super().__init__()
-        self.preview = preview; self.original = ''; self.monitor = None
+        self.preview = preview; self.original = ''; self.monitor = None; self.clients = []; self.index = 0
+        self.options = preferences.current(); self.monitors = {}; self.generation = 0
         self.setWindowTitle('Switch applications')
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.dark_style = ('QWidget { color:#e6eef9; font:13px "Noto Sans"; background:transparent; } '
-                           'QListWidget {border:none; outline:0;} QScrollBar:vertical {width:7px; background:#172333;} '
-                           'QScrollBar::handle:vertical {background:#4c6b7e; min-height:25px;}')
-        theme_runtime.install(QApplication.instance(), self.dark_style)
-        layout = QVBoxLayout(self); layout.setContentsMargins(24, 22, 24, 18); layout.setSpacing(14)
-        top = QHBoxLayout(); title = QLabel('Switch applications'); title.setStyleSheet('font-size:23px; font-weight:700;')
-        top.addWidget(title); top.addStretch(); self.count = QLabel(); top.addWidget(self.count)
-        self.close_button=close_button(self,self.cancel,'Cancel app switching');top.addWidget(self.close_button);layout.addLayout(top)
-        self.list = QListWidget(); self.list.setViewMode(QListView.ViewMode.IconMode)
-        self.list.setResizeMode(QListView.ResizeMode.Adjust); self.list.setMovement(QListView.Movement.Static)
-        self.list.setSelectionMode(QListWidget.SelectionMode.SingleSelection); self.list.setSpacing(0)
-        self.list.setItemDelegate(Card(self.list)); self.list.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
-        self.list.itemClicked.connect(lambda _: self.commit()); self.list.currentRowChanged.connect(self.describe)
-        self.list.installEventFilter(self); layout.addWidget(self.list, 1)
-        self.detail = QLabel(); self.detail.setStyleSheet('color:#88dfcf;'); layout.addWidget(self.detail)
-        layout.addWidget(QLabel('Hold Super · Tab / Shift+Tab to cycle · Release Super to open · Esc to cancel'))
-        self.resize(950, 290)
+        theme_runtime.install(QApplication.instance(),
+            'QWidget { color:#e6eef9; font:13px "Noto Sans"; background:transparent; }')
+        root = QVBoxLayout(self); root.setContentsMargins(24, 18, 24, 18); root.setSpacing(8)
+        top = QHBoxLayout(); self.title = QLabel(); self.title.setStyleSheet('font-size:21px; font-weight:700;')
+        top.addWidget(self.title); top.addStretch(); self.count = QLabel(); top.addWidget(self.count)
+        self.title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.count.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.count.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        top.setStretch(0, 1); top.setStretch(1, 0); top.setStretch(2, 1)
+        self.close_button = close_button(self, self.cancel, 'Cancel app switching'); top.addWidget(self.close_button)
+        root.addLayout(top)
+        self.scene = Scene(); self.scene.activated.connect(self.choose); self.scene.stepped.connect(self.cycle)
+        root.addWidget(self.scene, 1)
+        self.detail = QLabel(); self.detail.setWordWrap(False); root.addWidget(self.detail)
+        self.detail.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.hint = QLabel('Hold Super · Tab / Shift+Tab to cycle · Release Super to open · Esc to cancel')
+        self.hint.setWordWrap(True); root.addWidget(self.hint)
+        self.queue = PreviewQueue(self); self.queue.changed.connect(lambda _: self.scene.update())
+        self.scene.pictures = self.queue.cache
+        self.position_timer = QTimer(self); self.position_timer.setSingleShot(True)
+        self.position_timer.timeout.connect(self.position)
+        for obj in (self, self.scene, self.close_button): obj.installEventFilter(self)
+        self.resize(1100, 640)
 
     def paintEvent(self, event):
-        painter = QPainter(self); painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        if theme_runtime.design() in ('breakpoint','binaryknife'):
-            colors=theme_runtime.colors();fill=QColor(colors['Window']);fill.setAlpha(240)
-            painter.setBrush(fill);painter.setPen(QPen(QColor(colors['Accent']),2))
-            radius=4 if theme_runtime.design()=='binaryknife' else 12
-            painter.drawRoundedRect(QRectF(self.rect()).adjusted(1,1,-1,-1),radius,radius)
-            return
-        gradient = QLinearGradient(0, 0, self.width(), self.height())
-        gradient.setColorAt(0, color('#182a3b')); gradient.setColorAt(1, color('#0e1825'))
-        painter.setBrush(gradient); painter.setPen(QPen(color('#5aaea8'), 1.5))
-        painter.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 19, 19)
+        p = QPainter(self); p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        colors = theme_runtime.colors(); fill = QColor(colors['Window']); fill.setAlpha(round(self.options['opacity']*2.55))
+        p.setBrush(fill); p.setPen(QPen(QColor(colors['Accent']), 1.5))
+        radius = 4 if theme_runtime.design() == 'binaryknife' else 12
+        p.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), radius, radius)
 
     def begin(self, direction=1):
         if self.isVisible(): self.cycle(direction); return
+        self.options = preferences.current()
         clients = json.loads(ctl('-j', 'clients'))
-        self.original = json.loads(ctl('-j', 'activewindow')).get('address', '')
+        active = json.loads(ctl('-j', 'activewindow')); self.original = active.get('address', '')
         monitors = json.loads(ctl('-j', 'monitors'))
         self.monitor = next((m for m in monitors if m.get('focused')), monitors[0] if monitors else None)
-        names = {m['id']: (i+1, m['name']) for i, m in enumerate(monitors)}
-        self.populate(windows(clients, self.original), names)
-        if not self.list.count(): return
-        self.list.setCurrentRow((direction if self.list.count() > 1 else 0) % self.list.count())
-        self.show(); self.raise_(); self.activateWindow(); self.list.setFocus()
-        QTimer.singleShot(30, self.position)
+        self.monitors = {m['id']: (i+1, m['name']) for i, m in enumerate(monitors)}
+        chosen = scoped(clients, self.options, active, self.monitor)
+        self.populate(chosen, self.monitors)
+        if not self.clients: return
+        # When the active window is excluded, start at the first candidate rather
+        # than skipping it. A backwards invocation starts at the last candidate.
+        starts_here = self.clients[0]['address'] == self.original
+        self.select((direction if starts_here else (0 if direction > 0 else -1)) % len(self.clients), False)
+        self.fit_monitor(); self.generation += 1
+        self.show(); self.raise_(); self.activateWindow(); self.scene.setFocus()
+        if self.options['live_previews'] and self.options['style'] != 'fusion':
+            self.queue.start(); self.request_previews()
+        self.position_timer.start(30)
 
-    def populate(self, clients, monitors):
-        self.list.clear()
-        for client in clients:
-            workspace = client.get('workspace', {}).get('name', '?').removeprefix('special:')
-            number, connector = monitors.get(client.get('monitor'), ('?', '?'))
-            item = QListWidgetItem(window_icon(client), client.get('title') or client.get('class', 'Window'))
-            item.setData(Qt.ItemDataRole.UserRole, client['address'])
-            item.setData(Qt.ItemDataRole.UserRole+1, f'{"Workspace " if workspace.isdigit() else ""}{workspace} · Monitor {number}')
-            item.setToolTip(f"{client.get('class', '')}\n{client.get('title', '')}\nWorkspace {workspace} · {connector}")
-            self.list.addItem(item)
-        self.count.setText(f'{len(clients)} windows · all workspaces')
-        self.resize(950, 530 if len(clients)>4 else 350)
+    def populate(self, clients, monitors=None):
+        self.clients = [{**client, '_icon': client.get('_icon') or window_icon(client)} for client in clients]
+        self.monitors = monitors or self.monitors
+        self.scene.configure(self.options, self.clients); self.index = 0
+        self.title.setText(preferences.STYLES[self.options['style']]); self.describe()
+
+    def fit_monitor(self):
+        if not self.monitor: return
+        m = self.monitor; scale = max(.25, m.get('scale', 1))
+        width, height = m['width']/scale, m['height']/scale
+        if m.get('transform', 0) % 2: width, height = height, width
+        left, top, right, bottom = (m.get('reserved') or [0, 0, 0, 0])
+        width, height = max(200, width-left-right-24), max(200, height-top-bottom-24)
+        size = self.options['size']/100
+        self.resize(round(min(width, max(480, width*size))), round(min(height, max(300, height*size))))
 
     def position(self):
         if not self.isVisible() or self.preview or not self.monitor: return
         try:
             own = next(c for c in json.loads(ctl('-j', 'clients')) if c.get('pid') == os.getpid())
-            m = self.monitor
-            width, height = m['width']/m['scale'], m['height']/m['scale']
+            m = self.monitor; width, height = m['width']/m['scale'], m['height']/m['scale']
             if m.get('transform', 0) % 2: width, height = height, width
-            x, y = round(m['x']+(width-self.width())/2), round(m['y']+(height-self.height())/2)
+            left, top, right, bottom = (m.get('reserved') or [0, 0, 0, 0])
+            x = round(m['x']+left+(width-left-right-self.width())/2)
+            y = round(m['y']+top+(height-top-bottom-self.height())/2)
             ctl('dispatch', 'movewindowpixel', f'exact {x} {y},address:'+own['address'])
             ctl('dispatch', 'focuswindow', 'address:'+own['address'])
-        except (ValueError, StopIteration): pass
+        except (ValueError, StopIteration, KeyError): pass
+
+    def select(self, index, animate=True):
+        if not self.clients: return
+        self.index = index % len(self.clients); self.scene.select(self.index, animate)
+        self.describe(); self.request_previews()
 
     def cycle(self, direction):
-        if self.list.count():
-            self.list.setCurrentRow((self.list.currentRow()+direction) % self.list.count())
-            self.list.scrollToItem(self.list.currentItem())
+        self.select(self.index+direction)
 
-    def describe(self, row):
-        item = self.list.item(row)
-        self.detail.setText(item.text() if item else '')
+    def request_previews(self):
+        if self.preview: return
+        # Capture the incoming selection immediately, then visible neighbors.
+        wanted = ([self.clients[self.index]['address']] if self.clients else [])+self.scene.visible_addresses()
+        self.queue.request(wanted)
+
+    def describe(self):
+        total = len(self.clients)
+        self.count.setText(f'{self.index+1 if total else 0} / {total} · {preferences.SCOPES[self.options["scope"]]}')
+        if not total: self.detail.clear(); return
+        client = self.clients[self.index]
+        workspace = str(client.get('workspace', {}).get('name', '?')).removeprefix('special:')
+        monitor = self.monitors.get(client.get('monitor'), ('?', '?'))[0]
+        text = f'{client.get("title") or client.get("class", "Window")}  ·  Workspace {workspace}  ·  Monitor {monitor}'
+        self.detail.setToolTip(text)
+        self.detail.setText(self.detail.fontMetrics().elidedText(text, Qt.TextElideMode.ElideRight, max(100, self.width()-60)))
+
+    def remove_window(self, address):
+        if not self.clients: return
+        chosen = self.clients[self.index]['address']
+        clients = [c for c in self.clients if c['address'] != address]
+        if len(clients) == len(self.clients): return
+        old_index = self.index
+        self.populate(clients)
+        if not clients: self.cancel(); return
+        self.select(next((i for i, c in enumerate(clients) if c['address'] == chosen), min(old_index, len(clients)-1)), False)
+
+    def choose(self, index):
+        self.select(index, False); self.commit()
 
     def commit(self):
         if not self.isVisible(): return
-        item = self.list.currentItem(); address = item.data(Qt.ItemDataRole.UserRole) if item else self.original
+        address = self.clients[self.index]['address'] if self.clients else self.original
         self.hide()
         if address and not self.preview:
             if not focus(address) and self.original: focus(self.original)
+        if self.preview: QApplication.instance().quit()
 
     def cancel(self):
-        self.hide()
-        if self.original and not self.preview: focus(self.original)
+        was_visible = self.isVisible(); self.hide()
+        if was_visible and self.original and not self.preview: focus(self.original)
+        if self.preview: QApplication.instance().quit()
+
+    def hideEvent(self, event):
+        self.generation += 1; self.position_timer.stop(); self.queue.stop(); self.scene.animation.stop()
+        super().hideEvent(event)
+
+    def closeEvent(self, event):
+        event.ignore(); self.cancel()
 
     def eventFilter(self, obj, event):
-        from PyQt6.QtCore import QEvent
         if event.type() == QEvent.Type.KeyPress:
-            if event.key() == Qt.Key.Key_Escape: self.cancel(); return True
-            if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter): self.commit(); return True
-            if event.key() in (Qt.Key.Key_Tab, Qt.Key.Key_Backtab):
-                self.cycle(-1 if event.modifiers() & Qt.KeyboardModifier.ShiftModifier else 1); return True
+            key = event.key()
+            if key == Qt.Key.Key_Escape: self.cancel(); return True
+            if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter): self.commit(); return True
+            if key in (Qt.Key.Key_Tab, Qt.Key.Key_Backtab, Qt.Key.Key_Left, Qt.Key.Key_Right, Qt.Key.Key_Up, Qt.Key.Key_Down):
+                reverse = key in (Qt.Key.Key_Backtab, Qt.Key.Key_Left, Qt.Key.Key_Up) or bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+                self.cycle(-1 if reverse else 1); return True
         return super().eventFilter(obj, event)
 
 
 def main():
-    parser = argparse.ArgumentParser(); parser.add_argument('--preview'); args = parser.parse_args()
+    parser = argparse.ArgumentParser(); parser.add_argument('--preview'); parser.add_argument('--demo', action='store_true')
+    parser.add_argument('--style', choices=preferences.STYLES); args = parser.parse_args()
     app = QApplication(sys.argv[:1]); app.setApplicationName('xetal-switcher'); app.setDesktopFileName('xetal-switcher')
     app.setQuitOnLastWindowClosed(False); app.setStyle('Fusion')
-    QIcon.setThemeSearchPaths([str(Path.home()/'.local/share/icons'),'/usr/share/icons'])
+    QIcon.setThemeSearchPaths([str(Path.home()/'.local/share/icons'), '/usr/share/icons'])
     QIcon.setFallbackThemeName('hicolor'); QIcon.setThemeName('Papirus-Dark')
-    window = Switcher(bool(args.preview))
-    if args.preview:
-        window.populate([{'address':f'0x{i+1:x}', 'title':title, 'class':kind, 'workspace':{'name':ws}, 'monitor':mon}
-                         for i,(title,kind,ws,mon) in enumerate([('Your project — Linux Studio','code','2',1),
-                            ('Chrome — reference tabs','google-chrome','magic',1), ('Discord — general','discord','magic',1),
-                            ('Pictures — Dolphin','org.kde.dolphin','3',2), ('Terminal','kitty','4',0)])],
-                        {0:(1,'DP-4'),1:(2,'DP-5'),2:(3,'DP-6')})
-        window.list.setCurrentRow(1); window.show()
-        QTimer.singleShot(150, lambda: (window.grab().save(args.preview), app.quit()))
+    window = Switcher(bool(args.preview or args.demo)); app.aboutToQuit.connect(window.queue.shutdown)
+    if args.preview or args.demo:
+        if args.style: window.options['style'] = args.style
+        window.populate(sample_clients(), {0: (1, 'Left'), 1: (2, 'Center'), 2: (3, 'Right')})
+        window.scene.pictures = sample_pictures(window.clients); window.select(1, False)
+        window.hint.setText('Example windows · Tab / arrows to explore · Esc to close')
+        window.show(); window.scene.setFocus()
+        if args.preview: QTimer.singleShot(150, lambda: (window.grab().save(args.preview), app.quit()))
         return app.exec()
     runtime = Path(os.environ['XDG_RUNTIME_DIR'])/'hypr'/os.environ['HYPRLAND_INSTANCE_SIGNATURE']
     lock = (runtime/'switcher.lock').open('a')
@@ -226,14 +279,15 @@ def main():
                 elif command == 'custom>>xetal-switcher:commit': window.commit()
                 elif command == 'custom>>xetal-switcher:cancel': window.cancel()
                 elif command.startswith('closewindow>>') and window.isVisible():
-                    address = '0x'+command.split('>>',1)[1].removeprefix('0x')
-                    for index in range(window.list.count()-1,-1,-1):
-                        if window.list.item(index).data(Qt.ItemDataRole.UserRole)==address: window.list.takeItem(index)
-                    if not window.list.count(): window.cancel()
-            except Exception as error: print('Switcher:', error, file=sys.stderr, flush=True); window.hide()
+                    window.remove_window('0x'+command.split('>>', 1)[1].removeprefix('0x'))
+            except Exception as error:
+                print('Switcher:', error, file=sys.stderr, flush=True); window.cancel()
     lifetime.readyRead.connect(read); lifetime.disconnected.connect(app.quit)
     lifetime.connectToServer(str(runtime/'.socket2.sock'))
     if not lifetime.waitForConnected(2000): return 1
+    signal.signal(signal.SIGTERM, lambda *_: app.quit()); signal.signal(signal.SIGINT, lambda *_: app.quit())
+    # Give Python's signal handlers a turn even while the resident UI is hidden.
+    signal_timer = QTimer(app); signal_timer.timeout.connect(lambda: None); signal_timer.start(500)
     return app.exec()
 
 

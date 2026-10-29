@@ -132,7 +132,7 @@ Press **Super+K** or click **Keys**. The desktop's controls live together, with 
 | **Network & Bluetooth** | Inspect and manage connections, Wi-Fi, VPNs and paired devices through the session's controls. |
 | **Displays** | Drag monitor rectangles; change resolution, refresh, scale, position, rotation and mirroring with timed **Keep/Revert** protection. |
 | **Input** | Adjust keyboard, mouse and touchpad preferences. |
-| **Theme** | Design, Start Menu, wallpapers, File Transfer, Burn, Cube + 3D Windows, borders, gaps, blur, shadows and animation settings. |
+| **Theme** | Design, Start Menu, Task Switcher, wallpapers, File Transfer, Burn, Cube + 3D Windows, borders, gaps, blur, shadows and animation settings. |
 | **Context Menu** | Build and style the wallpaper menu, including its actions and hotkeys. |
 | **Calendar & System** | Browse dates, inspect system information, lock and access session/power controls. Logout asks for confirmation. |
 | **Modern Home** | Profile image/GIF, media controls, clock, system cards and shortcuts to the same settings pages. |
@@ -171,7 +171,7 @@ See the [Burn guide](config/hypr/effects/burn/README.md) and [Cube guide](config
 | **MP3 / MP4 popup** | **Super+Ctrl+P** opens the downloader. Selected links can prefill the address; choose MP3 to Music or MP4 to Videos, highest available source quality, with logs, cancel and an update button for the private yt-dlp copy. |
 | **Screenshots** | Area/all-display capture, clipboard support, clickable notifications and reveal-in-folder. Print keeps Apps open during capture. |
 | **Screen sharing** | A custom Hyprland portal picker with updating monitor/window previews and region selection. |
-| **App switcher** | **Super+Tab** across all monitors/workspaces; release Super to focus the chosen app on its original monitor. |
+| **Task Switcher** | **Super+Tab** across monitors/workspaces with eight choices: Fusion Cards, Compiz Application, Static Application, Ring, Shift Cover, Shift Flip, Stack, and Scale overview. Live window previews, animation controls, per-style settings, and a preview in **Fusion Settings → Theme → Task Switcher**. Release Super to focus the chosen app on its original monitor. [Details and Compiz sources](config/hypr/switcher/README.md). |
 | **Dolphin & Kitty** | A separate themed file-manager profile, folder-link handling, Places icons and wallpaper actions; themed terminal colors, animated cursor and draggable scrollback scrollbar. |
 | **Session** | Matching notifications and lock screen, logout confirmation, and helpers that stop with Hyprland. |
 

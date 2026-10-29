@@ -1,0 +1,184 @@
+<?xml version="1.0"?>
+<compiz>
+    <plugin name="scale">
+	<short>Scale</short>
+	<long>Scale windows</long>
+	<category>Window Management</category>
+	<deps>
+	    <relation type="after">
+		<plugin>fade</plugin>
+	    </relation>
+	</deps>
+	<display>
+	    <option name="abi" type="int" read_only="true"/>
+	    <option name="index" type="int" read_only="true"/>
+	    <option name="relayout_slots" type="action" read_only="true"/>
+	    <group>
+		<short>Bindings</short>
+		<option name="key_bindings_toggle" type="bool">
+		    <short>Key Bindings Toggle Scale Mode</short>
+		    <long>Key bindings toggle scale mode instead of enabling it when pressed and disabling it when released.</long>
+		    <default>false</default>
+		</option>
+		<option name="button_bindings_toggle" type="bool">
+		    <short>Button Bindings Toggle Scale Mode</short>
+		    <long>Button bindings toggle scale mode instead of enabling it when pressed and disabling it when released.</long>
+		    <default>false</default>
+		</option>
+		<option name="initiate_edge" type="edge">
+		    <short>Initiate Window Picker</short>
+		    <long>Layout and start transforming windows</long>
+		    <default>
+			<edge name="TopRight"/>
+		    </default>
+		    <allowed edgednd="true"/>
+		</option>
+		<option name="initiate_key" type="key">
+		    <short>Initiate Window Picker</short>
+		    <long>Layout and start transforming windows</long>
+		    <default>&lt;Shift&gt;&lt;Alt&gt;Up</default>
+		</option>
+		<option name="initiate_button" type="button">
+		    <short>Initiate Window Picker</short>
+		    <long>Layout and start transforming windows</long>
+		</option>
+		<option name="initiate_all_edge" type="edge">
+		    <short>Initiate Window Picker For All Windows</short>
+		    <long>Layout and start transforming all windows</long>
+		    <allowed edgednd="true"/>
+		</option>
+		<option name="initiate_all_button" type="button">
+		    <short>Initiate Window Picker For All Windows</short>
+		    <long>Layout and start transforming all windows</long>
+		</option>
+		<option name="initiate_all_key" type="key">
+		    <short>Initiate Window Picker For All Windows</short>
+		    <long>Layout and start transforming all windows</long>
+		</option>
+		<option name="initiate_group_edge" type="edge">
+		    <short>Initiate Window Picker For Window Group</short>
+		    <long>Layout and start transforming window group</long>
+		    <allowed edgednd="true"/>
+		</option>
+		<option name="initiate_group_button" type="button">
+		    <short>Initiate Window Picker For Window Group</short>
+		    <long>Layout and start transforming window group</long>
+		</option>
+		<option name="initiate_group_key" type="key">
+		    <short>Initiate Window Picker For Window Group</short>
+		    <long>Layout and start transforming window group</long>
+		</option>
+		<option name="initiate_output_edge" type="edge">
+		    <short>Initiate Window Picker For Windows on Current Output</short>
+		    <long>Layout and start transforming windows on current output</long>
+		    <allowed edgednd="true"/>
+		</option>
+		<option name="initiate_output_button" type="button">
+		    <short>Initiate Window Picker For Windows on Current Output</short>
+		    <long>Layout and start transforming windows on current output</long>
+		</option>
+		<option name="initiate_output_key" type="key">
+		    <short>Initiate Window Picker For Windows on Current Output</short>
+		    <long>Layout and start transforming windows on current output</long>
+		</option>
+	    </group>
+	    <group>
+		<short>Behavior</short>
+		<option name="show_desktop" type="bool">
+		    <short>Click Desktop to Show Desktop</short>
+		    <long>Enter Show Desktop mode when Desktop is clicked during Scale</long>
+		    <default>true</default>
+		</option>
+	    </group>
+	</display>
+	<screen>
+	    <group>
+		<short>Appearance</short>
+		<option name="spacing" type="int">
+		    <short>Spacing</short>
+		    <long>Space between windows</long>
+		    <default>10</default>
+		    <min>0</min>
+		    <max>250</max>
+		</option>
+		<option name="speed" type="float">
+		    <short>Speed</short>
+		    <long>Scale speed</long>
+		    <default>1.5</default>
+		    <min>0.1</min>
+		    <max>50</max>
+		    <precision>0.1</precision>
+		</option>
+		<option name="timestep" type="float">
+		    <short>Timestep</short>
+		    <long>Scale timestep</long>
+		    <default>1.2</default>
+		    <min>0.1</min>
+		    <max>50</max>
+		    <precision>0.1</precision>
+		</option>
+		<option name="darken_back" type="bool">
+		    <short>Darken Background</short>
+		    <long>Darken background when scaling windows</long>
+		    <default>true</default>
+		</option>
+		<option name="opacity" type="int">
+		    <short>Opacity</short>
+		    <long>Amount of opacity in percent</long>
+		    <default>75</default>
+		    <min>0</min>
+		    <max>100</max>
+		</option>
+		<option name="overlay_icon" type="int">
+		    <short>Overlay Icon</short>
+		    <long>Overlay an icon on windows once they are scaled</long>
+		    <min>0</min>
+		    <max>2</max>
+		    <default>1</default>
+		    <desc>
+			<value>0</value>
+			<name>None</name>
+		    </desc>
+		    <desc>
+			<value>1</value>
+			<name>Emblem</name>
+		    </desc>
+		    <desc>
+			<value>2</value>
+			<name>Big</name>
+		    </desc>
+		</option>
+	    </group>
+	    <group>
+		<short>Behavior</short>
+		<option name="window_match" type="match">
+		    <short>Scale Windows</short>
+		    <long>Windows that should be scaled in scale mode</long>
+		    <default>Toolbar | Utility | Dialog | Normal | Unknown</default>
+		</option>
+		<option name="hover_time" type="int">
+		    <short>Hover Time</short>
+		    <long>Time (in ms) before scale mode is terminated when hovering over a window</long>
+		    <default>750</default>
+		    <min>50</min>
+		    <max>10000</max>
+		</option>
+		<option name="multioutput_mode" type="int">
+		    <short>Multi Output Mode</short>
+		    <long>Selects where windows are scaled if multiple output devices are used.</long>
+		    <min>0</min>
+		    <max>1</max>
+		    <default>0</default>
+		    <desc>
+			<value>0</value>
+			<name>On current output device</name>
+		    </desc>
+		    <desc>
+			<value>1</value>
+			<name>On all output devices</name>
+		    </desc>
+		</option>
+	    </group>
+	</screen>
+    </plugin>
+</compiz>

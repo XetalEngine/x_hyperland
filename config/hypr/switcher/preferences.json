@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "style": "fusion",
+  "scope": "all",
+  "duration": 200,
+  "size": 80,
+  "opacity": 94,
+  "inactive_opacity": 80,
+  "live_previews": true,
+  "show_titles": true,
+  "show_icons": true,
+  "profiles": {
+    "fusion": {
+      "columns": 4
+    },
+    "application": {
+      "thumb_width": 250,
+      "thumb_height": 200,
+      "icon_only": false
+    },
+    "static": {
+      "columns": 4,
+      "thumb_width": 250,
+      "thumb_height": 200
+    },
+    "ring": {
+      "ring_width": 70,
+      "ring_height": 60,
+      "thumb_width": 350,
+      "thumb_height": 250,
+      "min_scale": 40,
+      "min_brightness": 50,
+      "clockwise": false
+    },
+    "cover": {
+      "size": 50,
+      "cover_offset": 0,
+      "reflection": true,
+      "reflection_intensity": 40
+    },
+    "flip": {
+      "size": 50,
+      "flip_rotation": 30,
+      "reflection": true,
+      "reflection_intensity": 40
+    },
+    "stack": {
+      "tilt": 30,
+      "inactive_rotate": true
+    },
+    "scale": {
+      "spacing": 10
+    }
+  }
+}
