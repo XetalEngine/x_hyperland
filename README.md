@@ -49,7 +49,7 @@ The default install adapts to your monitors, resolution, placement and scale. Wi
 | [![Xetal Raw Apps](docs/screenshots/apps-raw.png)](docs/screenshots/apps-raw.png) | [![Xetal Modern Apps](docs/screenshots/apps-modern.png)](docs/screenshots/apps-modern.png) | [![BreakPoint Apps](docs/screenshots/apps-breakpoint.png)](docs/screenshots/apps-breakpoint.png) |
 | Original cyan accents and transparent surfaces | Soft blue cards and a Home overview | Charcoal glass, crimson focus, silver text |
 
-**Control desk → Theme → Design** is the home for appearance:
+**Control desk → Theme** keeps appearance organized: **Design** chooses the desktop theme, and the dedicated **Start Menu** tab beside it holds the launcher’s style, background, labels, surfaces, and profile image.
 
 - **Mix and match** any Start menu with any desktop theme, or choose **Follow desktop theme**.
 - Use **Dark, Light, or High contrast** colors. BreakPoint uses Inter for the interface and JetBrains Mono for technical text.
@@ -125,7 +125,7 @@ Press **Super+K** or click **Keys**. The desktop's controls live together, with 
 | **Network & Bluetooth** | Inspect and manage connections, Wi-Fi, VPNs and paired devices through the session's controls. |
 | **Displays** | Drag monitor rectangles; change resolution, refresh, scale, position, rotation and mirroring with timed **Keep/Revert** protection. |
 | **Input** | Adjust keyboard, mouse and touchpad preferences. |
-| **Theme** | Design, wallpaper, Burn, Cube + 3D Windows, borders, gaps, blur, shadows and animation settings. |
+| **Theme** | Design, Start Menu, wallpapers, File Transfer, Burn, Cube + 3D Windows, borders, gaps, blur, shadows and animation settings. |
 | **Context Menu** | Build and style the wallpaper menu, including its actions and hotkeys. |
 | **Calendar & System** | Browse dates, inspect system information, lock and access session/power controls. Logout asks for confirmation. |
 | **Modern Home** | Profile image/GIF, media controls, clock, system cards and shortcuts to the same settings pages. |

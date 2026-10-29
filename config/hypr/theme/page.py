@@ -267,7 +267,27 @@ class DesignPage(QWidget):
         for style in runtime.DESIGNS:
             card=DesignCard(style);card.clicked.connect(lambda _,s=style:owner.design.setCurrentIndex(owner.design.findData(s)))
             self.cards[style]=card;row.addWidget(card,1)
-        root.addLayout(row)
+        root.addLayout(row);root.addStretch()
+    def refresh(self):
+        style=self.owner.menu_design()
+        for name,card in self.cards.items():
+            card.mode=self.owner.mode.currentData();card.setChecked(name==self.owner.design.currentData())
+            card.artwork.labels=dict(self.owner.labels);card.artwork.visibility=self.owner.visibility
+            card.artwork.refresh(self.owner.avatar,self.owner.background,self.owner.backdrop)
+            card.launcher_design=name if self.owner.launcher_style.currentData()=='follow' else style
+            card.surfaces=dict(self.owner.surfaces[card.launcher_design]);card.strip_image.load(card.surfaces['group_image'])
+            card.strip_image.set_enabled(card.surfaces['group_opacity']>0);card.update()
+
+
+class StartMenuPage(QWidget):
+    def __init__(self,owner):
+        super().__init__();self.owner=owner
+        outer=QVBoxLayout(self);outer.setContentsMargins(0,0,0,0)
+        scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff);outer.addWidget(scroll)
+        body=QWidget();scroll.setWidget(body)
+        root=QVBoxLayout(body);root.setContentsMargins(6,12,6,6);root.setSpacing(16)
+        root.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         menu=QHBoxLayout();menu.addWidget(label('Start menu style','section'));menu.addStretch()
         owner.launcher_style=QComboBox();owner.launcher_style.setAccessibleName('Start menu style')
         for value,title in runtime.LAUNCHER_STYLES.items():owner.launcher_style.addItem(title,value)
@@ -334,9 +354,6 @@ class DesignPage(QWidget):
         self.background_source.setText('Custom image' if self.owner.background else 'Desktop wallpaper')
         self.visibility.blockSignals(True);self.visibility.setValue(self.owner.visibility);self.visibility.blockSignals(False)
         self.visibility.setEnabled(self.owner.backdrop);self.visibility_value.setText(str(self.owner.visibility)+'%')
-        for card in self.cards.values():
-            card.artwork.visibility=self.owner.visibility;card.artwork.labels=dict(self.owner.labels)
-            card.artwork.refresh(self.owner.avatar,self.owner.background,self.owner.backdrop);card.update()
         self.refresh_surfaces()
     def refresh_surfaces(self):
         style=self.owner.menu_design();options=self.owner.surfaces[style]
@@ -350,11 +367,6 @@ class DesignPage(QWidget):
         self.surface_preview.refresh(style,self.owner.mode.currentData(),options,self.owner.background,self.owner.backdrop,self.owner.labels,self.owner.visibility)
         for key,check in self.label_controls.items():
             check.blockSignals(True);check.setChecked(self.owner.labels[key]);check.blockSignals(False)
-        for name,card in self.cards.items():
-            card.artwork.labels=dict(self.owner.labels);card.artwork.visibility=self.owner.visibility
-            card.launcher_design=name if self.owner.launcher_style.currentData()=='follow' else style
-            card.surfaces=dict(self.owner.surfaces[card.launcher_design]);card.strip_image.load(card.surfaces['group_image'])
-            card.strip_image.set_enabled(card.surfaces['group_opacity']>0);card.update()
     def refresh(self):
         self.profile.refresh();self.profile.avatar.refresh(self.owner.avatar)
         self.refresh_background()
@@ -386,7 +398,9 @@ class ThemePage(QWidget):
         self.tabs=QTabWidget();self.wallpapers=WallpapersPage(async_run,filename);self.appearance=WindowEffectsPage(async_run)
         self.file_transfer=FileTransferPage(async_run)
         self.design_page=DesignPage(self)
-        self.tabs.addTab(self.design_page,'Design');self.tabs.addTab(self.wallpapers,'Wallpapers');self.tabs.addTab(self.file_transfer,'File Transfer');self.tabs.addTab(self.appearance,'Window effects');root.addWidget(self.tabs,1)
+        self.start_menu_page=StartMenuPage(self)
+        self.tabs.addTab(self.design_page,'Design');self.tabs.addTab(self.start_menu_page,'Start Menu')
+        self.tabs.addTab(self.wallpapers,'Wallpapers');self.tabs.addTab(self.file_transfer,'File Transfer');self.tabs.addTab(self.appearance,'Window effects');root.addWidget(self.tabs,1)
         if filename:self.tabs.setCurrentWidget(self.wallpapers)
         self.design.currentIndexChanged.connect(self.changed);self.mode.currentIndexChanged.connect(self.changed)
         self.launcher_style.currentIndexChanged.connect(self.changed)
@@ -413,8 +427,8 @@ class ThemePage(QWidget):
         self.surfaces=copy.deepcopy(surfaces);self.labels=dict(labels)
         for control,option in ((self.design,style),(self.mode,mode),(self.launcher_style,menu)):
             control.blockSignals(True);control.setCurrentIndex(control.findData(option));control.blockSignals(False)
-        self.design_page.wallpaper.blockSignals(True);self.design_page.wallpaper.setChecked(self.backdrop);self.design_page.wallpaper.blockSignals(False)
-        self.design_page.refresh()
+        self.start_menu_page.wallpaper.blockSignals(True);self.start_menu_page.wallpaper.setChecked(self.backdrop);self.start_menu_page.wallpaper.blockSignals(False)
+        self.design_page.refresh();self.start_menu_page.refresh()
     def resolve_conflicts(self,prefer):
         try:
             saved,token=self.read_saved();merged,_=theme_draft.merge(self.baseline,self.choice(),saved,prefer)
@@ -424,18 +438,16 @@ class ThemePage(QWidget):
     def changed(self,*_):
         self.apply.setEnabled(not self.applying and self.choice()!=self.baseline)
         if not self.applying and self.choice()!=self.baseline:
-            self.status.setText('Previewing Design changes. Apply theme to save them.')
-        self.mode.setEnabled(not self.applying);self.design.setEnabled(not self.applying);self.design_page.setEnabled(not self.applying)
-        for style,card in self.design_page.cards.items():
-            card.mode=self.mode.currentData();card.setChecked(style==self.design.currentData());card.update()
-        self.design_page.refresh_surfaces()
+            self.status.setText('Previewing appearance changes. Apply theme to save them.')
+        for control in (self.mode,self.design,self.design_page,self.start_menu_page):control.setEnabled(not self.applying)
+        self.design_page.refresh();self.start_menu_page.refresh_surfaces()
     def set_surface(self,key,value):
         self.surfaces[self.menu_design()][key]=value
         self.changed()
     def set_label(self,key,value):
         self.labels[key]=value;self.changed()
     def set_visibility(self,value):
-        self.visibility=value;self.design_page.refresh_background();self.changed()
+        self.visibility=value;self.start_menu_page.refresh_background();self.changed()
     def reset_surfaces(self):
         style=self.menu_design();self.surfaces[style]=dict(DEFAULTS[style]);self.changed()
     def choose_group_image(self):
@@ -447,12 +459,12 @@ class ThemePage(QWidget):
             if options['group_opacity']==0:options['group_opacity']=100
             self.changed()
     def set_avatar(self,choice):
-        self.avatar=choice;self.design_page.refresh();self.changed()
+        self.avatar=choice;self.start_menu_page.refresh();self.changed()
     def set_backdrop(self,enabled):
-        self.backdrop=enabled;self.design_page.refresh_background();self.changed()
+        self.backdrop=enabled;self.start_menu_page.refresh_background();self.changed()
     def set_background(self,choice):
         self.background=choice;self.backdrop=True
-        self.design_page.wallpaper.setChecked(True);self.design_page.refresh_background();self.changed()
+        self.start_menu_page.wallpaper.setChecked(True);self.start_menu_page.refresh_background();self.changed()
     def choose_background(self):
         filename=ImagePicker.choose(self,'Choose Apps background',str(Path.home()/'Pictures'),
             'Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif *.tif *.tiff *.avif);;All files (*)',self.async_run)
@@ -477,7 +489,7 @@ class ThemePage(QWidget):
         self.background=runtime.launcher_background()
         self.surfaces=runtime.launcher_surfaces()
         self.baseline=(*value[:4],self.background,copy.deepcopy(self.surfaces),dict(self.labels),self.visibility,value[-1]);self.token=token;self.applying=False;self.changed()
-        self.design_page.refresh()
+        self.design_page.refresh();self.start_menu_page.refresh()
         menu=value[0] if value[-1]=='follow' else value[-1]
         self.status.setText(runtime.DESIGNS[value[0]]+' desktop · '+runtime.DESIGNS[menu]+' Start menu applied. Older applications may need reopening.')
     def failed(self,message):self.applying=False;self.changed();self.status.setText(message)
