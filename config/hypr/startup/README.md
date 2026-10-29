@@ -12,8 +12,9 @@ pages on <https://www.xetal.net/community/site/>. Clicking, Enter or Space opens
 the selected page in the default browser after hiding the special workspace.
 Escape and the X hide the entire dashboard; Super+D shows it again.
 
-Icons are bundled unchanged from the supplied Xetal Community site. Their source
-and SHA-256 checksums are recorded in `assets/projects/SOURCE.json` and the root
+Icons are bundled unchanged from the supplied Xetal Community site, with Echo's
+newer silver/cyan icon taken from the Echo project's `echoicon_2.png`. Their
+sources and SHA-256 checksums are recorded in `assets/projects/SOURCE.json` and the root
 asset manifest. Displaying the showcase requires no website connection or files
 outside the installed profile. The installer includes the catalog, artwork and
 Python source; PyQt6 is already a desktop dependency.
