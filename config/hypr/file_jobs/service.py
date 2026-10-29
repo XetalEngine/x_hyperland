@@ -5,7 +5,10 @@ installed kf6_org.kde.JobView[Server,V2].xml interfaces. No KDE service is repla
 """
 from PyQt6.QtCore import QObject, QTimer, pyqtClassInfo, pyqtSignal, pyqtSlot
 from PyQt6.QtDBus import QDBusAbstractAdaptor, QDBusConnection, QDBusMessage, QDBusObjectPath, QDBusVariant
-from model import Job
+try:
+    from .model import Job
+except ImportError:
+    from model import Job
 
 NAMES = ('org.kde.JobViewServer', 'org.kde.kuiserver')
 ROOT = '/JobViewServer'

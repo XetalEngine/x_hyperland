@@ -1,5 +1,4 @@
 """A compact, draggable file-operation card with an original vector animation."""
-import math
 from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'theme'))
@@ -8,7 +7,12 @@ import runtime as theme_runtime
 from PyQt6.QtCore import QElapsedTimer, QPointF, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen, QRadialGradient
 from PyQt6.QtWidgets import QApplication, QMessageBox, QPushButton, QToolButton, QWidget
-from model import short_location
+try:
+    from .model import short_location, amount
+    from . import preferences, artwork
+except ImportError:
+    from model import short_location, amount
+    import preferences, artwork
 
 
 def alpha(color, value):
@@ -18,15 +22,16 @@ def alpha(color, value):
 class ProgressWindow(QWidget):
     dismissed = pyqtSignal()
 
-    def __init__(self, job):
-        super().__init__(None, Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint)
+    def __init__(self, job, *, options=None, preview=False, embedded=False):
+        super().__init__(None, Qt.WindowType.Widget if embedded else Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint)
         self.job = job
+        self.preview, self.embedded = preview, embedded
+        self.options = preferences.normalize(options if options is not None else preferences.current())
         self.setObjectName('FileOperation')
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setProperty('xetalCloseButton', True)
-        self.setFixedSize(448, 168)
-        self.setCursor(Qt.CursorShape.OpenHandCursor)
+        self.setCursor(Qt.CursorShape.ArrowCursor if embedded else Qt.CursorShape.OpenHandCursor)
         self.setAccessibleName('Xetal file operation')
         self.phase = 0.0
         self.display_percent = 0.0
@@ -48,17 +53,44 @@ class ProgressWindow(QWidget):
         self.details.hide()
         for button in (self.cancel, self.pause, self.close_button, self.details):
             button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet('''
-            QWidget#FileOperation {background:transparent;}
-            QPushButton,QToolButton {background:palette(button); color:palette(button-text);
-                border:1px solid palette(mid); border-radius:6px; padding:0; font:11px "Noto Sans";}
-            QPushButton:hover,QToolButton:hover {background:palette(highlight); color:palette(highlighted-text);}
-            QPushButton:disabled,QToolButton:disabled {color:palette(placeholder-text); background:transparent;}
-            QToolButton#closeOperation {background:transparent; border:none; font-size:22px;}
-            QToolButton#closeOperation:hover {background:#803b51; color:#fff1f4;}
-        ''')
+        self.set_options(self.options)
         self.job.changed.connect(self.refresh)
         self.job.finished.connect(self.completed)
+        if hasattr(QApplication.instance(), 'hypr_theme'):
+            QApplication.instance().hypr_theme.changed.connect(self.theme_changed)
+        self.refresh()
+
+    def theme_changed(self):
+        self.set_options(self.options)
+
+    def set_options(self, options):
+        previous = self.options['behavior']
+        self.options = preferences.normalize(options)
+        self.design = preferences.selected(self.options, theme_runtime.design())
+        self.appearance = self.options['profiles'][self.design]
+        self.colors = theme_runtime.colors(style=self.design)
+        self.accent = QColor(self.appearance['accent'] or self.colors['Accent'])
+        self.setPalette(theme_runtime.palette(style=self.design))
+        width, height = self.appearance['width'], self.appearance['height']
+        if not self.embedded and self.screen():
+            area = self.screen().availableGeometry()
+            width, height = min(width, max(240, area.width()-24)), min(height, max(148, area.height()-24))
+        self.setFixedSize(width, height)
+        p = self.colors
+        self.setStyleSheet(f'''
+            QWidget#FileOperation {{background:transparent;}}
+            QPushButton,QToolButton {{background:{p['Button']}; color:{p['ButtonText']};
+                border:1px solid {p['Midlight']}; border-radius:{9 if self.design == 'modern' else 6}px;
+                padding:0; font:11px "{theme_runtime.ui_font(self.design)}";}}
+            QPushButton:hover,QToolButton:hover {{background:{p['Highlight']}; color:{p['HighlightedText']}; border-color:{self.accent.name()};}}
+            QPushButton:disabled,QToolButton:disabled {{color:{p['Disabled']}; background:transparent;}}
+            QToolButton#closeOperation {{background:transparent; border:none; font-size:22px;}}
+            QToolButton#closeOperation:hover {{background:{p['Highlight']}; color:{p['Text']};}}
+        ''')
+        if not self.options['behavior']['auto_close']: self.dismiss_timer.stop()
+        elif (self.job.result is not None and self.job.result != 'failed' and not self.preview
+              and self.isVisible() and previous != self.options['behavior']):
+            self.dismiss_timer.start(self.options['behavior']['close_delay'])
         self.refresh()
 
     def refresh(self):
@@ -82,20 +114,23 @@ class ProgressWindow(QWidget):
         self.pause.setAccessibleName(self.pause.toolTip())
         self.details.setVisible(self.job.result == 'failed')
         self.layout_controls()
-        if self.isVisible() and self.job.running: self.animation.start()
-        elif done or not self.job.running: self.animation.stop()
+        if self.isVisible() and self.job.running and self.options['animation']['enabled']:
+            if not self.animation.isActive(): self.clock.restart(); self.animation.start()
+        else: self.animation.stop()
+        if not self.options['animation']['smooth'] or not self.animation.isActive():
+            self.display_percent = self.job.percent or 0
         self.update()
 
     def layout_controls(self):
         self.close_button.setGeometry(self.width()-40, 8, 28, 28)
-        self.cancel.setGeometry(self.width()-78, 130, 62, 24)
-        self.pause.setGeometry(self.width()-113, 130, 28, 24)
-        self.details.setGeometry(self.width()-139, 130, 54, 24)
+        self.cancel.setGeometry(self.width()-78, self.height()-38, 62, 24)
+        self.pause.setGeometry(self.width()-113, self.height()-38, 28, 24)
+        self.details.setGeometry(self.width()-139, self.height()-38, 54, 24)
 
     def showEvent(self, event):
         super().showEvent(event)
         self.clock.restart()
-        if self.job.running: self.animation.start()
+        self.refresh()
 
     def hideEvent(self, event):
         self.animation.stop()
@@ -103,21 +138,24 @@ class ProgressWindow(QWidget):
 
     def tick(self):
         elapsed = min(.1, self.clock.restart()/1000)
-        self.phase = (self.phase + elapsed / 2.1) % 1
+        self.phase = (self.phase + elapsed / 2.1 * self.options['animation']['speed']/100) % 1
         target = self.job.percent
         if target is not None:
-            self.display_percent += (target - self.display_percent) * min(1, elapsed*10)
+            self.display_percent = (self.display_percent + (target-self.display_percent)*min(1, elapsed*10)
+                                    if self.options['animation']['smooth'] else target)
         self.update()
 
     def completed(self):
         self.animation.stop()
-        if self.job.result == 'failed':
+        if self.preview:
+            self.display_percent = self.job.percent or 0
+        elif self.job.result == 'failed' or not self.options['behavior']['auto_close']:
             self.show()
         elif not self.isVisible():
             QTimer.singleShot(0, self.dismiss)
         else:
             self.display_percent = self.job.percent or 0
-            self.dismiss_timer.start(1600 if self.job.result == 'done' else 800)
+            self.dismiss_timer.start(self.options['behavior']['close_delay'])
         self.refresh()
 
     def toggle_pause(self):
@@ -141,6 +179,8 @@ class ProgressWindow(QWidget):
 
     def closeEvent(self, event):
         event.ignore()
+        if self.embedded: return
+        if self.preview: self.dismiss(); return
         if self.job.result is not None: self.dismiss()
         else: self.job.request('cancel')
 
@@ -150,7 +190,7 @@ class ProgressWindow(QWidget):
         else: super().keyPressEvent(event)
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton and not self.embedded:
             if self.windowHandle() and self.windowHandle().startSystemMove():
                 event.accept(); return
             self.drag_offset = event.globalPosition().toPoint() - self.pos()
@@ -171,7 +211,7 @@ class ProgressWindow(QWidget):
         super().resizeEvent(event)
 
     def text(self, painter, rect, text, color, size=11, bold=False, alignment=Qt.AlignmentFlag.AlignLeft):
-        painter.setFont(QFont(theme_runtime.ui_font(), size, QFont.Weight.DemiBold if bold else QFont.Weight.Normal))
+        painter.setFont(QFont(theme_runtime.ui_font(self.design), size, QFont.Weight.DemiBold if bold else QFont.Weight.Normal))
         painter.setPen(color)
         value = painter.fontMetrics().elidedText(text, Qt.TextElideMode.ElideMiddle, int(rect.width()))
         painter.drawText(rect, alignment | Qt.AlignmentFlag.AlignVCenter, value)
@@ -179,7 +219,7 @@ class ProgressWindow(QWidget):
     def folder(self, painter, center, accent, archive=False):
         painter.save(); painter.translate(center)
         glow = QRadialGradient(QPointF(0, 4), 34)
-        glow.setColorAt(0, alpha(accent, 72)); glow.setColorAt(1, alpha(accent, 0))
+        glow.setColorAt(0, alpha(accent, round(72*self.appearance['glow']/55))); glow.setColorAt(1, alpha(accent, 0))
         painter.setPen(Qt.PenStyle.NoPen); painter.setBrush(glow); painter.drawEllipse(QRectF(-34, -30, 68, 68))
         back = QPainterPath(); back.moveTo(-20, 13); back.lineTo(-20, -14)
         back.quadTo(-20, -17, -16, -17); back.lineTo(-7, -17); back.lineTo(-2, -12)
@@ -198,25 +238,35 @@ class ProgressWindow(QWidget):
         painter.restore()
 
     def transfer(self, painter, box, accent):
+        title = self.job.title.lower()
+        archive = any(word in title for word in ('compress', 'archiv'))
+        extracting = any(word in title for word in ('extract', 'unpack', 'decompress'))
+        if self.design != 'raw':
+            scene = artwork.modern if self.design == 'modern' else artwork.breakpoint
+            scene(painter, box, accent, QColor(self.colors['AlternateBase']), self.phase,
+                  self.options['animation']['density'], self.options['animation']['trails'],
+                  self.appearance['glow'], archive and not extracting, extracting, self.job.result)
+            return
         left, right = QPointF(box.left()+36, box.center().y()+5), QPointF(box.right()-36, box.center().y()+5)
         path = QPainterPath(left); path.cubicTo(left+QPointF(65, -27), right+QPointF(-65, -27), right)
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.setPen(QPen(alpha(accent, 25), 5)); painter.drawPath(path)
         painter.setPen(QPen(alpha(accent, 90), 1, Qt.PenStyle.DotLine)); painter.drawPath(path)
-        self.folder(painter, left, accent)
-        self.folder(painter, right, accent, any(word in self.job.title.lower() for word in ('compress', 'archiv')))
+        self.folder(painter, left, accent, extracting)
+        self.folder(painter, right, accent, archive and not extracting)
         if self.job.result == 'done':
             painter.setPen(QPen(QColor('#78d7b6'), 2.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
             mid = box.center(); painter.drawLine(mid+QPointF(-7, 0), mid+QPointF(-1, 6))
             painter.drawLine(mid+QPointF(-1, 6), mid+QPointF(11, -7)); return
         if self.job.result: return
-        for i in range(3):
-            progress = (self.phase + i/3) % 1
+        count = self.options['animation']['density']
+        for i in range(count):
+            progress = (self.phase + i/count) % 1
             opacity = min(1, progress*7, (1-progress)*7)
             point = path.pointAtPercent(progress)
             painter.save(); painter.setOpacity(opacity)
             painter.translate(point); painter.rotate(-14+28*progress)
-            for trail in range(3, 0, -1):
+            for trail in range(3 if self.options['animation']['trails'] else 0, 0, -1):
                 painter.setPen(Qt.PenStyle.NoPen); painter.setBrush(alpha(accent, 12*(4-trail)))
                 painter.drawRoundedRect(QRectF(-8-trail*4, -11+trail, 15, 20), 2, 2)
             page = QPainterPath(); page.moveTo(-7, -11); page.lineTo(3, -11)
@@ -227,46 +277,87 @@ class ProgressWindow(QWidget):
             for y in (-2, 2, 6): painter.drawLine(QPointF(-4, y), QPointF(4, y))
             painter.restore()
 
+    def summary(self):
+        if self.job.result or self.job.pending or self.job.data.get('suspended'):
+            return self.job.summary()
+        info, data, parts = self.options['information'], self.job.data, []
+        total, processed, speed = data.get('totalBytes', 0), data.get('processedBytes', 0), data.get('speed', 0)
+        if info['amount']:
+            if total: parts.append(f'{amount(processed)} / {amount(total)}')
+            elif data.get('totalFiles'): parts.append(f'{data.get("processedFiles", 0):,} / {data["totalFiles"]:,} files')
+        if info['speed'] and speed: parts.append(amount(speed)+'/s')
+        if info['remaining'] and total and speed:
+            seconds = max(0, round((total-processed)/speed))
+            remaining = f'{seconds//3600}h {(seconds%3600)//60}m' if seconds >= 3600 else (
+                f'{seconds//60}m {seconds%60}s' if seconds >= 60 else f'{seconds}s')
+            parts.append('~ '+remaining+' left')
+        return ' · '.join(parts) or (data.get('infoMessage', 'Working…') if any(info[k] for k in ('amount', 'speed', 'remaining')) else '')
+
     def paintEvent(self, event):
         painter = QPainter(self); painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
-        painter.fillRect(self.rect(), Qt.GlobalColor.transparent)
-        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
-        palette = QApplication.palette(); background = palette.window().color()
-        accent = palette.highlight().color(); foreground = palette.windowText().color()
-        breakpoint=theme_runtime.design()=='breakpoint';radius=12 if breakpoint else 16
-        if breakpoint:accent=QColor(theme_runtime.colors()['Accent']);background.setAlpha(240)
-        muted = palette.placeholderText().color()
+        if not self.embedded:
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
+            painter.fillRect(self.rect(), Qt.GlobalColor.transparent)
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+        background = alpha(QColor(self.colors['Window']), round(self.appearance['opacity']*2.55))
+        accent, foreground = self.accent, QColor(self.colors['Text'])
+        radius, muted = self.appearance['radius'], QColor(self.colors['PlaceholderText'])
+        w, h = self.width(), self.height()
         surface = QLinearGradient(0, 0, self.width(), self.height())
-        surface.setColorAt(0, background.lighter(112)); surface.setColorAt(1, background.darker(110))
-        painter.setBrush(surface); painter.setPen(QPen(alpha(accent, 135), 1))
-        painter.drawRoundedRect(QRectF(.5, .5, self.width()-1, self.height()-1), radius, radius)
-        bloom = QRadialGradient(QPointF(self.width()/2, 75), 155)
-        bloom.setColorAt(0, alpha(accent, 19)); bloom.setColorAt(1, alpha(accent, 0))
+        surface.setColorAt(0, background.lighter(112 if self.design == 'raw' else 104))
+        surface.setColorAt(1, background.darker(110 if self.design == 'raw' else 103))
+        painter.setBrush(surface)
+        border = self.appearance['border']
+        painter.setPen(QPen(alpha(accent, 135 if self.design != 'modern' else 90), border) if border else Qt.PenStyle.NoPen)
+        inset = max(.5, border/2)
+        painter.drawRoundedRect(QRectF(inset, inset, w-2*inset, h-2*inset), radius, radius)
+        bloom = QRadialGradient(QPointF(w/2, h/2), w*.4)
+        bloom.setColorAt(0, alpha(accent, round(self.appearance['glow']*.35))); bloom.setColorAt(1, alpha(accent, 0))
         painter.setPen(Qt.PenStyle.NoPen); painter.setBrush(bloom)
-        painter.drawRoundedRect(QRectF(2, 2, self.width()-4, self.height()-4), radius-1, radius-1)
-        self.text(painter, QRectF(16, 9, self.width()-134, 25), self.job.title, foreground, 11, True)
+        painter.drawRoundedRect(QRectF(2, 2, w-4, h-4), max(0, radius-1), max(0, radius-1))
+        if self.design == 'breakpoint':
+            painter.setPen(QPen(alpha(accent, 190), 2))
+            painter.drawLine(QPointF(18, 1.5), QPointF(min(w-18, 86), 1.5))
+        show_percent = self.options['information']['percentage']
+        self.text(painter, QRectF(16, 9, w-(134 if show_percent else 65), 25), self.job.title, foreground, 11, True)
         percentage = self.job.percent
         value = '—' if percentage is None else f'{percentage:.0f}%'
-        self.text(painter, QRectF(self.width()-112, 7, 65, 28), value, accent.lighter(125), 16, True,
-                  Qt.AlignmentFlag.AlignRight)
+        if show_percent:
+            if self.design == 'modern':
+                painter.setPen(Qt.PenStyle.NoPen); painter.setBrush(alpha(accent, 25))
+                painter.drawRoundedRect(QRectF(w-112, 8, 65, 27), 9, 9)
+            self.text(painter, QRectF(w-112, 7, 65, 28), value, accent, 14 if self.design == 'modern' else 16, True,
+                      Qt.AlignmentFlag.AlignCenter if self.design == 'modern' else Qt.AlignmentFlag.AlignRight)
         source, destination = self.job.paths
-        route = '  →  '.join(short_location(p) for p in (source, destination) if p)
-        self.text(painter, QRectF(16, 35, self.width()-32, 18), route or self.job.application, muted, 9)
+        path_style = self.options['information']['paths']
+        if path_style != 'hidden':
+            route = '  →  '.join(short_location(p) if path_style == 'names' else p for p in (source, destination) if p)
+            self.text(painter, QRectF(16, 35, w-32, 18), route or self.job.application, muted, 9)
+        scene_top = 55 if path_style != 'hidden' else 42
+        box = QRectF(16, scene_top, w-32, h-61-scene_top)
         if self.job.result == 'failed':
-            self.text(painter, QRectF(20, 61, self.width()-40, 37), self.job.summary(), QColor('#ee9aab'), 10)
+            painter.setPen(Qt.PenStyle.NoPen); painter.setBrush(alpha(QColor('#e53945'), 18))
+            painter.drawRoundedRect(box, 8, 8)
+            self.text(painter, box.adjusted(8, 0, -8, 0), self.job.summary(), QColor('#b53351' if theme_runtime.mode() == 'light' else '#ee9aab'), 10)
         else:
-            self.transfer(painter, QRectF(16, 55, self.width()-32, 52), accent)
-        track = QRectF(16, 114, self.width()-32, 5)
-        painter.setPen(Qt.PenStyle.NoPen); painter.setBrush(palette.base()); painter.drawRoundedRect(track, 2.5, 2.5)
-        painter.save(); clip = QPainterPath(); clip.addRoundedRect(track, 2.5, 2.5); painter.setClipPath(clip)
+            self.transfer(painter, box, accent)
+        thickness = self.appearance['track_height']
+        track = QRectF(16, h-54, w-32, thickness)
+        track_radius = 1 if self.design == 'breakpoint' else thickness/2
+        painter.setPen(Qt.PenStyle.NoPen); painter.setBrush(QColor(self.colors['Base']))
+        painter.drawRoundedRect(track, track_radius, track_radius)
+        painter.save(); clip = QPainterPath(); clip.addRoundedRect(track, track_radius, track_radius); painter.setClipPath(clip)
         if percentage is None and self.job.result is None:
-            fill = QRectF(track.left() + (track.width()+100)*self.phase-100, track.top(), 100, track.height())
+            position = self.phase if self.options['animation']['enabled'] else .5
+            fill = QRectF(track.left() + (track.width()+100)*position-100, track.top(), 100, track.height())
         else:
             current = percentage or 0 if not self.job.running else self.display_percent
             fill = QRectF(track.left(), track.top(), track.width()*current/100, track.height())
         beam = QLinearGradient(fill.topLeft(), fill.topRight())
-        beam.setColorAt(0, accent.darker(130)); beam.setColorAt(1, accent.lighter(150))
-        painter.setBrush(beam); painter.drawRect(fill); painter.restore()
-        reserved = 128 if self.pause.isVisible() or self.details.isVisible() else 94
-        self.text(painter, QRectF(16, 129, self.width()-reserved-16, 25), self.job.summary(), muted, 8)
+        beam.setColorAt(0, accent.darker(130)); beam.setColorAt(1, accent.lighter(120))
+        painter.setBrush(beam); painter.drawRect(fill)
+        if self.design == 'breakpoint':
+            for x in range(16, w-16, 12): painter.fillRect(QRectF(x, track.top(), 2, thickness), QColor(self.colors['Window']))
+        painter.restore()
+        reserved = 154 if self.details.isVisible() else 128 if self.pause.isVisible() else 94
+        self.text(painter, QRectF(16, h-39, w-reserved-16, 25), self.summary(), muted, 8)

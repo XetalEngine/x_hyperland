@@ -4,7 +4,8 @@ A tour of the real Xetal interface. Click any picture for its full resolution.
 Panel captures use an isolated copy of the author's Hyprland profile. The full
 Super+D scene was captured on the desktop over an empty temporary workspace,
 then the original workspace was restored. Applications shown in
-Favorites are installed separately. The file-progress card uses a sample job.
+Favorites are installed separately. The file-progress cards use sample jobs;
+their settings panel is captured from the installed interface without changing preferences.
 
 [Back to the README](../README.md) · [Watch the desktop video](https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d)
 
@@ -118,7 +119,13 @@ Favorites are installed separately. The file-progress card uses a sample job.
 
 ### File-operation progress
 
-[![Compact file-progress card, sample operation](screenshots/file-progress.png)](screenshots/file-progress.png)
+Mix any transfer style with any desktop theme, or follow the desktop automatically.
+
+| Xetal Raw | Xetal Modern | BreakPoint |
+| :---: | :---: | :---: |
+| [![Raw flying files, sample operation](screenshots/file-progress.png)](screenshots/file-progress.png) | [![Modern transfer card, sample operation](screenshots/file-progress-modern.png)](screenshots/file-progress-modern.png) | [![BreakPoint data packets, sample operation](screenshots/file-progress-breakpoint.png)](screenshots/file-progress-breakpoint.png) |
+
+[![File Transfer appearance, animation and behavior options](screenshots/file-transfer-settings.png)](screenshots/file-transfer-settings.png)
 
 ### MP3 / MP4 downloader
 

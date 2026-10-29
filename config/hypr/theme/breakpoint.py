@@ -1,11 +1,13 @@
 """Charcoal glass and restrained crimson accents for Xetal BreakPoint."""
 import re
+from pathlib import Path
 
 
 def qt_style(p):
     from designs import qt_style as base_style
     base=base_style(p).replace('"Noto Sans"','"Inter"')
     base=re.sub(r'border-radius:(1[3-9]|[2-9][0-9])px', 'border-radius:12px', base)
+    check=Path(__file__).with_name('assets')/'check-breakpoint.svg'
     return base+f'''
     /* Silver labels, burgundy selections, crimson only for focus and controls. */
     QLabel#eyebrow {{font-family:"JetBrains Mono"; color:{p['PlaceholderText']};}}
@@ -27,6 +29,11 @@ def qt_style(p):
     QMenu::item:selected {{background:{p['Highlight']}; color:{p['Text']};}}
     QToolTip {{background:{p['ToolTipBase']}; color:{p['Text']}; border-radius:8px;}}
     QProgressBar::chunk {{background:{p['Accent']};}}
+    QCheckBox::indicator:checked, QAbstractItemView::indicator:checked,
+    QTableView::indicator:checked, QTreeView::indicator:checked,
+    QListView::indicator:checked {{image:url("{check}"); background:{p['Highlight']};
+        border:1px solid {p['Accent']}; border-radius:4px; width:16px; height:16px;}}
+    QMenu::indicator:checked {{image:url("{check}"); width:16px; height:16px;}}
     '''
 
 
@@ -114,6 +121,6 @@ animations {{
     animation = workspacesIn, 1, 1.8, breakpointEase, slidefade 8%
     animation = workspacesOut, 1, 1.8, breakpointEase, slidefade 8%
 }}
-windowrule = match:class ^(xetal-launcher|xetal-switcher|xetal-share-picker|xetal-media|xetal-logout|xetal-image-viewer|xetal-auth|xetal-file-progress|hypr-control|hypr-theme)$, rounding 12
+windowrule = match:class ^(xetal-launcher|xetal-switcher|xetal-share-picker|xetal-media|xetal-logout|xetal-image-viewer|xetal-auth|hypr-control|hypr-theme)$, rounding 12
 layerrule = match:namespace ^(waybar|swaync-control-center|swaync-notification-window)$, blur on
 '''

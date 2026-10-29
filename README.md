@@ -158,13 +158,23 @@ See the [Burn guide](config/hypr/effects/burn/README.md) and [Cube guide](config
 | --- | --- |
 | **Xetal Images** | Pointer-centered wheel zoom, drag to pan, Fit/100%, previous/next pictures in the folder, GIF Play/Pause, F11 fullscreen, reveal in Dolphin, and per-resolution floating size memory. |
 | **File previews** | Right-side image, text and folder previews in Xetal dialogs, themed Qt 5/6 Widgets file pickers and standard GTK 3 choosers. [Coverage →](docs/FILE-PREVIEWS.md) |
-| **Xetal Files** | A compact **448 × 168** draggable progress card with glowing flying-file animation. Real copy/archive progress, pause/cancel where supported, and error details for Dolphin/KIO and Ark jobs. |
+| **Xetal Files** | Three interchangeable animated transfer cards: **Xetal Raw**, **Xetal Modern**, and **BreakPoint**. Compact **448 × 168** defaults, freely draggable, with real copy/archive progress, pause/cancel where supported, and error details for Dolphin/KIO and Ark jobs. |
 | **MP3 / MP4 popup** | **Super+Ctrl+P** opens the downloader. Selected links can prefill the address; choose MP3 to Music or MP4 to Videos, highest available source quality, with logs, cancel and an update button for the private yt-dlp copy. |
 | **Screenshots** | Area/all-display capture, clipboard support, clickable notifications and reveal-in-folder. Print keeps Apps open during capture. |
 | **Screen sharing** | A custom Hyprland portal picker with updating monitor/window previews and region selection. |
 | **App switcher** | **Super+Tab** across all monitors/workspaces; release Super to focus the chosen app on its original monitor. |
 | **Dolphin & Kitty** | A separate themed file-manager profile, folder-link handling, Places icons and wallpaper actions; themed terminal colors, animated cursor and draggable scrollback scrollbar. |
 | **Session** | Matching notifications and lock screen, logout confirmation, and helpers that stop with Hyprland. |
+
+**Control desk → Theme → File Transfer** lets the card follow your desktop or use any of the three designs independently. Each design remembers its own dimensions, corner radius, border, progress thickness, opacity, glow and accent color. Adjust animation speed, flying-file count, trails, progress smoothing, visible paths and statistics, estimated time remaining, display delay and automatic completion closing. Errors stay visible.
+
+| Xetal Raw · flying files | Xetal Modern · soft blue cards | BreakPoint · crimson packets |
+| :---: | :---: | :---: |
+| [![Raw file transfer](docs/screenshots/file-progress.png)](docs/screenshots/file-progress.png) | [![Modern file transfer](docs/screenshots/file-progress-modern.png)](docs/screenshots/file-progress-modern.png) | [![BreakPoint file transfer](docs/screenshots/file-progress-breakpoint.png)](docs/screenshots/file-progress-breakpoint.png) |
+
+The live preview includes copy, move, compression and extraction examples, plus paused, completed, error and unknown-size states. **Preview popup** opens a floating simulation without changing files. Applied preferences update open transfer cards while their operations continue.
+
+[![File Transfer designs and settings](docs/screenshots/file-transfer-settings.png)](docs/screenshots/file-transfer-settings.png)
 
 ## Super+D: your launch scene
 

@@ -13,6 +13,7 @@ from image_picker import ImagePicker
 import desktop_settings as settings
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 from effects.burn.page import WindowEffectsPage
+from file_jobs.page import FileTransferPage
 from identity import ProfileCard,launcher_background_path
 from design_preview import DesktopPreview
 from launcher_surfaces import DEFAULTS,StripImage,paint_group,paint_tile
@@ -383,8 +384,9 @@ class ThemePage(QWidget):
         conflicts.addWidget(button('Use saved values',lambda:self.resolve_conflicts('saved')));conflicts.addStretch()
         self.conflict_actions.hide();root.addWidget(self.conflict_actions)
         self.tabs=QTabWidget();self.wallpapers=WallpapersPage(async_run,filename);self.appearance=WindowEffectsPage(async_run)
+        self.file_transfer=FileTransferPage(async_run)
         self.design_page=DesignPage(self)
-        self.tabs.addTab(self.design_page,'Design');self.tabs.addTab(self.wallpapers,'Wallpapers');self.tabs.addTab(self.appearance,'Window effects');root.addWidget(self.tabs,1)
+        self.tabs.addTab(self.design_page,'Design');self.tabs.addTab(self.wallpapers,'Wallpapers');self.tabs.addTab(self.file_transfer,'File Transfer');self.tabs.addTab(self.appearance,'Window effects');root.addWidget(self.tabs,1)
         if filename:self.tabs.setCurrentWidget(self.wallpapers)
         self.design.currentIndexChanged.connect(self.changed);self.mode.currentIndexChanged.connect(self.changed)
         self.launcher_style.currentIndexChanged.connect(self.changed)
@@ -394,9 +396,9 @@ class ThemePage(QWidget):
         style=self.launcher_style.currentData()
         return self.design.currentData() if style=='follow' else style
     @property
-    def dirty(self):return self.wallpapers.dirty or self.appearance.dirty or self.choice()!=self.baseline
+    def dirty(self):return self.wallpapers.dirty or self.appearance.dirty or self.file_transfer.dirty or self.choice()!=self.baseline
     @property
-    def busy(self):return self.applying or self.wallpapers.busy or self.appearance.busy
+    def busy(self):return self.applying or self.wallpapers.busy or self.appearance.busy or self.file_transfer.busy
     def refresh(self):
         if not self.applying and self.choice()==self.baseline:
             self.baseline,self.token=self.read_saved();self.set_choice(self.baseline);self.changed()
