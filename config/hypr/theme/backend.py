@@ -1,6 +1,7 @@
 """Transactional theme/wallpaper settings. Never write shared desktop settings."""
 from __future__ import annotations
 import configparser
+from contextlib import ExitStack
 import copy
 import fcntl
 import hashlib
@@ -18,13 +19,16 @@ import desktop_settings as settings
 import keys
 import runtime
 import designs
+import wallpaper_sets
+import effect_colors
 
 ROOT=runtime.ROOT.parent
 WALLPAPER=ROOT/'wallpaper'
 
 
-def read_wallpapers():
-    state=json.loads((WALLPAPER/'selection.json').read_text())
+def read_wallpapers(root=None):
+    root=root or WALLPAPER
+    state=json.loads((root/'selection.json').read_text())
     if not isinstance(state,dict): raise ValueError('The wallpaper settings need repair; nothing was overwritten.')
     # Include changes made outside the picker instead of showing stale previews.
     try:
@@ -73,7 +77,8 @@ def apply_wallpapers(draft, expected):
             state[connector]={'path':str(saved),'original':choice.get('original',str(path)),'fit':choice['fit']}
         config=wallpaper_config(state)
         files={WALLPAPER/'hyprpaper.conf':config.encode(),WALLPAPER/'selection.json':(json.dumps(state,indent=2)+'\n').encode()}
-        oldfiles={path:path.read_bytes() for path in files}
+        files[WALLPAPER/'profiles.json']=wallpaper_sets.encode(wallpaper_sets.remember(WALLPAPER,runtime.design(),state))
+        oldfiles={path:path.read_bytes() if path.exists() else None for path in files}
         try:
             for connector in draft:
                 # Remember the attempted output even when its renderer reports an error.
@@ -85,7 +90,9 @@ def apply_wallpapers(draft, expected):
                     try: set_wallpaper(connector,previous[connector])
                     except Exception: pass
             for path,content in oldfiles.items():
-                if path.read_bytes()==files[path]: keys.atomic_write(path,content)
+                if path.exists() and path.read_bytes()==files[path]:
+                    if content is None:path.unlink()
+                    else:keys.atomic_write(path,content)
             raise
         return read_wallpapers()
 
@@ -133,7 +140,7 @@ def kitty_colors(value,design=None):
              'active_tab_background':colors['Highlight'],'active_tab_foreground':colors['HighlightedText'],
              'inactive_tab_background':colors['Window'],'inactive_tab_foreground':colors['Text'],
              'tab_bar_background':colors['Base'],**{f'color{i}':color for i,color in enumerate(ansi)}}
-    font='font_family JetBrains Mono\n' if design=='breakpoint' else ''
+    font='font_family JetBrains Mono\n' if design in ('breakpoint','binaryknife') else ''
     return '# Managed by Hyprland Theme.\n'+font+''.join(f'{key} {color}\n' for key,color in options.items())
 
 
@@ -187,7 +194,7 @@ input-field {{
     fail_color = rgb(ea9bab)
     font_color = {rgb('Text')}
     fade_on_empty = false
-    rounding = {12 if design=='breakpoint' else 18}
+    rounding = {4 if design=='binaryknife' else 12 if design=='breakpoint' else 18}
     font_family = $font
     placeholder_text = Password
     fail_text = $PAMFAIL$FPRINTFAIL
@@ -328,6 +335,9 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     elif design=='breakpoint':
         from breakpoint import compositor
         content+=compositor(colors)
+    elif design=='binaryknife':
+        from binaryknife import compositor
+        content+=compositor(colors)
     store.check(content,expected[0])
     scheme=kde_colors(value,design)
     isolated=ROOT/'dolphin/config/kdeglobals'
@@ -363,20 +373,50 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
             raw=path.read_bytes()
             if design!='raw':files[saved]=raw
         files[path]=(modern_lock(colors,design).encode() if target=='hyprlock.conf' else raw+b'\n'+kitty_colors(value,design).encode()) if design!='raw' else raw
-    old={path:path.read_bytes() if path.exists() else None for path in files}
     settings.STATE.mkdir(parents=True,exist_ok=True,mode=0o700)
-    with (settings.STATE/'theme-files.lock').open('a') as lock:
-        fcntl.flock(lock,fcntl.LOCK_EX | fcntl.LOCK_NB)
+    with ExitStack() as locks:
+        lock_paths=[settings.STATE/'theme-files.lock',settings.STATE/'wallpaper-save.lock']
+        for path in (ROOT/'effects/burn/settings.conf',ROOT/'effects/cube/settings.json'):
+            if path.exists():lock_paths.append(path.with_suffix('.lock'))
+        for path in lock_paths:
+            lock=locks.enter_context(path.open('a'))
+            fcntl.flock(lock,fcntl.LOCK_EX | fcntl.LOCK_NB)
         if theme_token()!=expected: raise ValueError('The theme changed elsewhere. Reload before applying.')
+        wallpaper_root=ROOT/'wallpaper'
+        old_wallpapers={};new_wallpapers={};connected=set();changed_outputs=[]
+        if design!=runtime.design() and (wallpaper_root/'sets.json').exists():
+            monitors=settings.monitors()
+            connected={monitor['name'] for monitor in wallpaper_sets.screens(monitors)}
+            old_wallpapers=read_wallpapers(wallpaper_root)
+            new_wallpapers,profiles=wallpaper_sets.switching(wallpaper_root,runtime.design(),design,old_wallpapers,monitors)
+            files.update({wallpaper_root/'selection.json':wallpaper_sets.encode(new_wallpapers),
+                          wallpaper_root/'hyprpaper.conf':wallpaper_config(new_wallpapers).encode(),
+                          wallpaper_root/'profiles.json':wallpaper_sets.encode(profiles)})
+        effect_files,effect_reloads=effect_colors.plan(ROOT,runtime.design(),design,colors)
+        files.update(effect_files)
+        old={path:path.read_bytes() if path.exists() else None for path in files}
+        effects_attempted=False
         try:
             if background_data is not None or group_files:(runtime.ROOT/'backgrounds').mkdir(exist_ok=True,mode=0o700)
             for path,data in files.items(): keys.atomic_write(path,data)
+            for connector,item in new_wallpapers.items():
+                if connector in connected and item!=old_wallpapers.get(connector):
+                    changed_outputs.append(connector);set_wallpaper(connector,item)
+            effects_attempted=True
+            effect_colors.reload_active(settings.ctl,effect_reloads)
             store.save(content,expected[0])
         except Exception:
             for path,data in old.items():
                 if path.exists() and path.read_bytes()==files[path]:
                     if data is None: path.unlink()
                     else: keys.atomic_write(path,data)
+            for connector in reversed(changed_outputs):
+                if connector in old_wallpapers:
+                    try:set_wallpaper(connector,old_wallpapers[connector])
+                    except Exception:pass
+            if effects_attempted:
+                try:effect_colors.reload_active(settings.ctl,effect_reloads)
+                except Exception:pass
             raise
     reload_kitty(include_startup=True)
     # Reload only our notification daemon, never a notification server from KDE.

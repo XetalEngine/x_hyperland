@@ -12,6 +12,7 @@ DEFAULTS = {
     'raw': {'tile_opacity': 45, 'group_opacity': 0, 'group_image': ''},
     'modern': {'tile_opacity': 100, 'group_opacity': 100, 'group_image': ''},
     'breakpoint': {'tile_opacity': 94, 'group_opacity': 0, 'group_image': ''},
+    'binaryknife': {'tile_opacity': 94, 'group_opacity': 32, 'group_image': ''},
 }
 
 
@@ -122,7 +123,7 @@ def paint_tile(p, box, colors, style, mode, opacity, selected=False, hover=0, ra
     gradient = QLinearGradient(box.topLeft(), box.bottomRight())
     modern = style != 'raw'
     if modern:
-        surface = (colors['Highlight'] if selected else colors['Mid'] if hover else colors['AlternateBase']) if style=='breakpoint' else (colors['Button'] if selected or hover else colors['AlternateBase'])
+        surface = (colors['Highlight'] if selected else colors['Mid'] if hover else colors['AlternateBase']) if style in ('breakpoint','binaryknife') else (colors['Button'] if selected or hover else colors['AlternateBase'])
         start = end = QColor(surface)
     elif mode == 'light':
         start, end = QColor('#d7e8eb' if selected else '#edf3f9'), QColor('#dbe8f1')
@@ -132,17 +133,17 @@ def paint_tile(p, box, colors, style, mode, opacity, selected=False, hover=0, ra
     start.setAlphaF(opacity / 100)
     end.setAlphaF(opacity / 100)
     gradient.setColorAt(0, start); gradient.setColorAt(1, end)
-    border = QColor(colors['Accent'] if selected or (style=='breakpoint' and hover) else colors['Midlight']) if modern else QColor(113, 218, 205)
+    border = QColor(colors['Accent'] if selected or (style in ('breakpoint','binaryknife') and hover) else colors['Midlight']) if modern else QColor(113, 218, 205)
     border.setAlphaF(1 if modern and selected else .61 if selected else max(.37 * hover, opacity / 100 * (1 if modern else .22)))
     p.setBrush(gradient); p.setPen(QPen(border, 1))
-    radius = (12 if style=='breakpoint' else 15 if modern else 10) if radius is None else radius
+    radius = (4 if style=='binaryknife' else 12 if style=='breakpoint' else 15 if modern else 10) if radius is None else radius
     p.drawRoundedRect(box, radius, radius)
     p.restore()
 
 
 def paint_group(p, box, colors, style, opacity, image=None, focused=False, hovered=False):
     p.save()
-    radius = 10 if style == 'modern' else 8
+    radius = 4 if style == 'binaryknife' else 10 if style == 'modern' else 8
     clip = QPainterPath(); clip.addRoundedRect(box, radius, radius)
     p.setClipPath(clip, Qt.ClipOperation.IntersectClip)
     p.setOpacity(p.opacity() * opacity / 100)

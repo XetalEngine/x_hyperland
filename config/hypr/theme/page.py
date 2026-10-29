@@ -4,10 +4,11 @@ from pathlib import Path
 import sys
 from PyQt6.QtCore import Qt,QRectF,pyqtSignal
 from PyQt6.QtGui import QPixmap,QImageReader,QPainter,QPainterPath,QColor,QPen,QFont
-from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QLayout,QLabel,QComboBox,QPushButton,QFileDialog,QTabWidget,QMessageBox,QFrame,QScrollArea,QCheckBox,QSlider)
+from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,QLayout,QLabel,QComboBox,QPushButton,QFileDialog,QTabWidget,QMessageBox,QFrame,QScrollArea,QCheckBox,QSlider)
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import backend
 import runtime
+import wallpaper_sets
 import draft as theme_draft
 from image_picker import ImagePicker
 import desktop_settings as settings
@@ -89,8 +90,13 @@ class WallpapersPage(QWidget):
         self.canvas=MonitorPictures(); self.canvas.selected.connect(self.select); root.addWidget(self.canvas,1)
         self.filename_label=label('Current wallpapers appear on each display.','muted'); root.addWidget(self.filename_label)
         row=QHBoxLayout(); self.choose=button('Choose image…',self.choose_image); row.addWidget(self.choose)
-        self.breakpoint_set=button('BreakPoint set',self.stage_breakpoint);row.addWidget(self.breakpoint_set)
-        self.breakpoint_set.setToolTip('Preview the three included wallpapers across your displays, from left to right. Apply to keep them.')
+        self.set_choice=QComboBox();self.set_choice.setAccessibleName('Wallpaper theme set')
+        for style in wallpaper_sets.catalog(runtime.ROOT.parent/'wallpaper'):
+            self.set_choice.addItem(runtime.DESIGNS.get(style,style),style)
+        self.set_choice.setCurrentIndex(max(0,self.set_choice.findData(runtime.design())))
+        row.addWidget(self.set_choice)
+        self.theme_set=button('Use set',self.stage_theme_set);row.addWidget(self.theme_set)
+        self.theme_set.setToolTip('Preview this theme’s three wallpapers across your displays, from left to right. Apply to keep them.')
         self.monitor=QComboBox(); self.monitor.currentIndexChanged.connect(self.sync); row.addWidget(self.monitor,1)
         self.fit=QComboBox()
         for title,value in [('Fill screen','cover'),('Fit whole image','contain'),('Stretch','fill'),('Tile','tile')]: self.fit.addItem(title,value)
@@ -112,7 +118,8 @@ class WallpapersPage(QWidget):
         for m in self.models:
             if m['enabled']: self.monitor.addItem(f"{m['number']} · {m['name']} · {m['label']}",m['name'])
         self.monitor.setCurrentIndex(max(0,self.monitor.findData(selected))); self.loading=False
-        self.canvas.models=self.models; self.sync(); self.update_state(); self.status.setText('Wallpapers stay separate for each monitor and are restored at login.')
+        self.set_choice.setCurrentIndex(max(0,self.set_choice.findData(runtime.design())))
+        self.canvas.models=self.models; self.sync(); self.update_state(); self.status.setText('Wallpapers are saved per theme and per monitor. Switching themes restores its own set.')
         if self.filename:
             filename,self.filename=self.filename,''; self.stage_image(filename)
     def targets(self):
@@ -137,15 +144,12 @@ class WallpapersPage(QWidget):
             for target in self.targets(): self.draft[target]={'path':str(Path(filename).resolve()),'original':str(Path(filename).resolve()),'fit':self.fit.currentData()}
             self.sync(); self.update_state()
         except Exception as exc:self.status.setText(str(exc))
-    def stage_breakpoint(self):
+    def stage_theme_set(self):
         if self.busy:return
-        screens=sorted((m for m in self.models if m['enabled'] and not m['mirror']),key=lambda m:(m['x'],m['y'],m['name']))
-        choices={}
-        for index,monitor in enumerate(screens):
-            path=runtime.ROOT.parent/'wallpaper/breakpoint'/f'workstation-{index%3+1}.png'
-            if self.canvas.pixmap(str(path)).isNull():
-                self.status.setText('A BreakPoint wallpaper is missing. Reinstall the included artwork.');return
-            choices[monitor['name']]={'path':str(path),'original':str(path),'fit':'cover'}
+        try:choices=wallpaper_sets.bundled(runtime.ROOT.parent/'wallpaper',self.set_choice.currentData(),self.models)
+        except (OSError,ValueError) as error:self.status.setText(str(error));return
+        if any(self.canvas.pixmap(item['path']).isNull() for item in choices.values()):
+            self.status.setText('A theme wallpaper could not be read. Reinstall the included artwork.');return
         self.draft.update(choices);self.sync();self.update_state()
     def change_fit(self,*_):
         if self.loading or self.busy:return
@@ -157,7 +161,7 @@ class WallpapersPage(QWidget):
         self.draft={k:v for k,v in self.draft.items() if v!=self.baseline.get(k)}
         self.dirty=bool(self.draft); self.pending.setVisible(self.dirty)
         self.pending.setText('WALLPAPER PREVIEW  ·  '+', '.join(self.draft)+'\nApply keeps these choices. Discard returns to your current wallpapers.')
-        for w in [self.choose,self.breakpoint_set,self.monitor,self.fit,self.reload,self.canvas]: w.setEnabled(not self.busy)
+        for w in [self.choose,self.theme_set,self.set_choice,self.monitor,self.fit,self.reload,self.canvas]: w.setEnabled(not self.busy)
         self.apply.setEnabled(self.dirty and not self.busy); self.discard.setEnabled(self.dirty and not self.busy)
     def reset(self):self.draft={};self.sync();self.update_state()
     def save(self):
@@ -181,12 +185,13 @@ class DesignCard(QPushButton):
         modern=self.design=='modern';colors=runtime.colors(self.mode,self.design)
         box=QRectF(self.rect()).adjusted(2,2,-2,-2)
         p.setBrush(QColor(colors['Window']));p.setPen(QPen(QColor(colors['Accent'] if self.isChecked() else colors['Midlight']),2 if self.isChecked() else 1))
-        p.drawRoundedRect(box,16,16)
+        radius=4 if self.design=='binaryknife' else 16
+        p.drawRoundedRect(box,radius,radius)
         self.artwork.paint(p,box.adjusted(14,14,-14,-58),self.design,self.mode,self.surfaces,self.strip_image.frame,self.launcher_design)
         p.setPen(QColor(colors['Text']));p.setFont(QFont(runtime.ui_font(),12,QFont.Weight.DemiBold))
         p.drawText(QRectF(box.x()+16,box.bottom()-49,box.width()-32,23),Qt.AlignmentFlag.AlignVCenter,runtime.DESIGNS[self.design])
         p.setPen(QColor(colors['PlaceholderText']));p.setFont(QFont(runtime.ui_font(),9))
-        p.drawText(QRectF(box.x()+16,box.bottom()-25,box.width()-32,20),Qt.AlignmentFlag.AlignVCenter,'Charcoal glass · crimson focus' if self.design=='breakpoint' else 'Soft cards · blue accents' if modern else 'Original layout · cyan accents')
+        p.drawText(QRectF(box.x()+16,box.bottom()-25,box.width()-32,20),Qt.AlignmentFlag.AlignVCenter,runtime.designs.DESCRIPTIONS[self.design])
 
 
 class BackgroundPreview(QWidget):
@@ -263,10 +268,11 @@ class DesignPage(QWidget):
         root=QVBoxLayout(body);root.setContentsMargins(6,12,6,6);root.setSpacing(16)
         root.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         root.addWidget(label('Desktop theme','section'))
-        self.cards={};row=QHBoxLayout();row.setSpacing(16)
-        for style in runtime.DESIGNS:
+        self.cards={};row=QGridLayout();row.setSpacing(16)
+        for index,style in enumerate(runtime.DESIGNS):
             card=DesignCard(style);card.clicked.connect(lambda _,s=style:owner.design.setCurrentIndex(owner.design.findData(s)))
-            self.cards[style]=card;row.addWidget(card,1)
+            self.cards[style]=card;row.addWidget(card,index//2,index%2)
+        row.setColumnStretch(0,1);row.setColumnStretch(1,1)
         root.addLayout(row);root.addStretch()
     def refresh(self):
         style=self.owner.menu_design()
@@ -474,6 +480,8 @@ class ThemePage(QWidget):
         if picker.exec() and picker.selectedFiles():self.set_avatar(picker.selectedFiles()[0])
     def save_mode(self):
         if self.applying:return
+        if self.design.currentData()!=runtime.design() and self.wallpapers.dirty:
+            self.status.setText('Apply or discard the wallpaper preview before switching desktop themes.');return
         try:
             saved,token=self.read_saved();choice,conflicts=theme_draft.merge(self.baseline,self.choice(),saved)
             if conflicts:
@@ -490,6 +498,7 @@ class ThemePage(QWidget):
         self.surfaces=runtime.launcher_surfaces()
         self.baseline=(*value[:4],self.background,copy.deepcopy(self.surfaces),dict(self.labels),self.visibility,value[-1]);self.token=token;self.applying=False;self.changed()
         self.design_page.refresh();self.start_menu_page.refresh()
+        if self.tabs.currentWidget() is self.wallpapers and not self.wallpapers.dirty:self.wallpapers.refresh()
         menu=value[0] if value[-1]=='follow' else value[-1]
         self.status.setText(runtime.DESIGNS[value[0]]+' desktop · '+runtime.DESIGNS[menu]+' Start menu applied. Older applications may need reopening.')
     def failed(self,message):self.applying=False;self.changed();self.status.setText(message)

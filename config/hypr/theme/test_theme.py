@@ -70,7 +70,7 @@ QTest.qWait(80)
 assert app.palette().color(QPalette.ColorRole.Window).name()==runtime.colors('dark','raw')['Window']
 base={'HYPRLAND_INSTANCE_SIGNATURE':'test'};environment=runtime.environment(base)
 for mode in runtime.MODES:
-    for desktop,menu in (('modern','raw'),('raw','modern'),('modern','follow'),('breakpoint','follow'),('modern','breakpoint'),('breakpoint','raw')):
+    for desktop,menu in (('modern','raw'),('raw','modern'),('modern','follow'),('breakpoint','follow'),('modern','breakpoint'),('breakpoint','raw'),('binaryknife','follow'),('breakpoint','binaryknife'),('binaryknife','modern')):
         changes=QSignalSpy(theme.changed)
         pending=root/'pending.json'
         pending.write_text(json.dumps({'design':desktop,'mode':mode,'launcher_style':menu}))
@@ -95,10 +95,10 @@ for mode in runtime.MODES:
 
     def test_start_menu_follows_legacy_settings_or_uses_its_own_style(self):
         for desktop in runtime.DESIGNS:
-            for setting in (None,'follow','raw','modern','breakpoint','unknown',[],42):
+            for setting in (None,'follow',*runtime.DESIGNS,'unknown',[],42):
                 with self.subTest(desktop=desktop,setting=setting),patch.object(runtime,'state',return_value={
                         'design':desktop,'launcher_style':setting}):
-                    expected=setting if setting in ('raw','modern','breakpoint') else desktop
+                    expected=setting if isinstance(setting,str) and setting in runtime.DESIGNS else desktop
                     self.assertEqual(runtime.launcher_design(),expected)
                     self.assertEqual(runtime.design(),desktop)
                     self.assertEqual(runtime.colors('dark'),runtime.colors('dark',desktop))

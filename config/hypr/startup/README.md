@@ -3,7 +3,7 @@
 Super+D shows the existing system, Matrix and clock consoles alongside **Try my
 other projects :D**. Six perspective-rendered cubes float above soft colored
 shadows. Hover tilts and highlights a cube; its name and click area stay still.
-The panel follows Xetal Raw, Xetal Modern and BreakPoint, including light and
+The panel follows Xetal Raw, Xetal Modern, BreakPoint and Binary Knife, including light and
 high-contrast colors. Narrow windows use fewer columns and scroll vertically.
 
 The catalog in `projects.json` links Echo, Linux Studio, Xetal BV (the website's

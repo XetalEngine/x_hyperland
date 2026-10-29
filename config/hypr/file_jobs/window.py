@@ -80,7 +80,7 @@ class ProgressWindow(QWidget):
         self.setStyleSheet(f'''
             QWidget#FileOperation {{background:transparent;}}
             QPushButton,QToolButton {{background:{p['Button']}; color:{p['ButtonText']};
-                border:1px solid {p['Midlight']}; border-radius:{9 if self.design == 'modern' else 6}px;
+                border:1px solid {p['Midlight']}; border-radius:{3 if self.design == 'binaryknife' else 9 if self.design == 'modern' else 6}px;
                 padding:0; font:11px "{theme_runtime.ui_font(self.design)}";}}
             QPushButton:hover,QToolButton:hover {{background:{p['Highlight']}; color:{p['HighlightedText']}; border-color:{self.accent.name()};}}
             QPushButton:disabled,QToolButton:disabled {{color:{p['Disabled']}; background:transparent;}}
@@ -242,7 +242,8 @@ class ProgressWindow(QWidget):
         archive = any(word in title for word in ('compress', 'archiv'))
         extracting = any(word in title for word in ('extract', 'unpack', 'decompress'))
         if self.design != 'raw':
-            scene = artwork.modern if self.design == 'modern' else artwork.breakpoint
+            scene = {'modern': artwork.modern, 'breakpoint': artwork.breakpoint,
+                     'binaryknife': artwork.binaryknife}[self.design]
             scene(painter, box, accent, QColor(self.colors['AlternateBase']), self.phase,
                   self.options['animation']['density'], self.options['animation']['trails'],
                   self.appearance['glow'], archive and not extracting, extracting, self.job.result)
@@ -315,7 +316,7 @@ class ProgressWindow(QWidget):
         bloom.setColorAt(0, alpha(accent, round(self.appearance['glow']*.35))); bloom.setColorAt(1, alpha(accent, 0))
         painter.setPen(Qt.PenStyle.NoPen); painter.setBrush(bloom)
         painter.drawRoundedRect(QRectF(2, 2, w-4, h-4), max(0, radius-1), max(0, radius-1))
-        if self.design == 'breakpoint':
+        if self.design in ('breakpoint','binaryknife'):
             painter.setPen(QPen(alpha(accent, 190), 2))
             painter.drawLine(QPointF(18, 1.5), QPointF(min(w-18, 86), 1.5))
         show_percent = self.options['information']['percentage']
@@ -343,7 +344,7 @@ class ProgressWindow(QWidget):
             self.transfer(painter, box, accent)
         thickness = self.appearance['track_height']
         track = QRectF(16, h-54, w-32, thickness)
-        track_radius = 1 if self.design == 'breakpoint' else thickness/2
+        track_radius = 1 if self.design in ('breakpoint','binaryknife') else thickness/2
         painter.setPen(Qt.PenStyle.NoPen); painter.setBrush(QColor(self.colors['Base']))
         painter.drawRoundedRect(track, track_radius, track_radius)
         painter.save(); clip = QPainterPath(); clip.addRoundedRect(track, track_radius, track_radius); painter.setClipPath(clip)

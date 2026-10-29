@@ -115,10 +115,11 @@ class Switcher(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self); painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        if theme_runtime.design()=='breakpoint':
+        if theme_runtime.design() in ('breakpoint','binaryknife'):
             colors=theme_runtime.colors();fill=QColor(colors['Window']);fill.setAlpha(240)
             painter.setBrush(fill);painter.setPen(QPen(QColor(colors['Accent']),2))
-            painter.drawRoundedRect(QRectF(self.rect()).adjusted(1,1,-1,-1),12,12)
+            radius=4 if theme_runtime.design()=='binaryknife' else 12
+            painter.drawRoundedRect(QRectF(self.rect()).adjusted(1,1,-1,-1),radius,radius)
             return
         gradient = QLinearGradient(0, 0, self.width(), self.height())
         gradient.setColorAt(0, color('#182a3b')); gradient.setColorAt(1, color('#0e1825'))

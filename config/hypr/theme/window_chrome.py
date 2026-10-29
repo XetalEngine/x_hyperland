@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import QDialog,QHBoxLayout,QLabel,QToolButton,QWidget
 
 def style_close(button,design=None):
     import runtime
-    if design=='breakpoint':
+    if design in ('breakpoint','binaryknife'):
         p=runtime.colors(style=design)
         hover=f"background:{p['Highlight']}; color:{p['Text']}; border-color:{p['Accent']};"
         pressed=f"background:{p['Mid']};"
@@ -13,7 +13,7 @@ def style_close(button,design=None):
         hover='background:#663544; color:#fff1f3; border-color:#b3687f;'
         pressed='background:#8a4052;'
     button.setStyleSheet('QToolButton {color:palette(window-text); background:transparent; border:1px solid transparent; '
-                        'border-radius:6px; padding:0; font-size:23px;} '
+                        'border-radius:'+('4' if design=='binaryknife' else '6')+'px; padding:0; font-size:23px;} '
                         'QToolButton:hover {'+hover+'} QToolButton:pressed {'+pressed+'} '
                         'QToolButton:focus {border-color:palette(highlight);}')
 

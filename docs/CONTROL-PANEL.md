@@ -44,7 +44,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 
 Package Repair, Shares, Firewall, Services and Startup Applications each have a dedicated entry. Yay and Paru keep their own helper controls. KDE Plasma tweaks and the old KVM interface are omitted from this Hyprland panel; their upstream source remains in the engine archive.
 
-The separate CachyOsTools Theme page is replaced by the **desktop master theme**. Raw, Modern and BreakPoint, including Dark/Light/High contrast, apply to the panel and its dialogs. Appearance preferences link to Fusion Settings. Hyper Fusion's updater supersedes the original application's self-updater.
+The separate CachyOsTools Theme page is replaced by the **desktop master theme**. Raw, Modern, BreakPoint and Binary Knife, including Dark/Light/High contrast, apply to the panel and its dialogs. Appearance preferences link to Fusion Settings. Hyper Fusion's updater supersedes the original application's self-updater.
 
 The backend targets **Arch Linux/CachyOS**. Package, kernel, boot and ISO tools retain their platform/dependency requirements; installing Hyper Fusion on another distribution does not translate these commands to another package manager. Existing confirmation and privilege prompts remain. Opening or searching the panel does not execute a system-changing operation.
 

@@ -103,3 +103,42 @@ def breakpoint(p, box, accent, surface, phase, count, trails, glow, archive, ext
                 p.setPen(Qt.PenStyle.NoPen); p.setBrush(alpha(accent, 55-offset*10))
                 p.drawRect(QRectF(x-10-offset*6, left.y()-5, 3, 10))
         p.translate(x, left.y()); paper(p, accent, technical=True); p.restore()
+
+
+def binaryknife(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Documents follow angular control-flow traces through a scanning gate."""
+    left, right = QPointF(box.left()+32, box.center().y()), QPointF(box.right()-32, box.center().y())
+    start, end = left.x()+32, right.x()-32
+    center = box.center()
+    routes = []
+    for offset in (-12, 12):
+        route = QPainterPath(QPointF(start, left.y()))
+        route.lineTo(start+18, left.y()); route.lineTo(start+30, left.y()+offset)
+        route.lineTo(end-30, left.y()+offset); route.lineTo(end-18, left.y()); route.lineTo(end, left.y())
+        p.setPen(QPen(alpha(accent, 60), 1)); p.setBrush(Qt.BrushStyle.NoBrush); p.drawPath(route)
+        routes.append(route)
+    folder(p, left, accent, surface, extracting, True)
+    folder(p, right, accent, surface, archive, True)
+    if result == 'done': success(p, center, accent); return
+    if result: return
+    scan = center.x()+math.sin(phase*math.tau)*8
+    beam = QLinearGradient(scan-9, 0, scan+9, 0)
+    beam.setColorAt(0, alpha(accent, 0)); beam.setColorAt(.5, alpha(accent, glow*1.5)); beam.setColorAt(1, alpha(accent, 0))
+    p.setPen(Qt.PenStyle.NoPen); p.setBrush(beam)
+    p.drawRect(QRectF(scan-9, center.y()-21, 18, 42))
+    p.setPen(QPen(alpha(accent.lighter(150), 170), 1))
+    p.drawLine(QPointF(scan, center.y()-19), QPointF(scan, center.y()+19))
+    for index in range(count):
+        t = (phase+index/count) % 1
+        route = routes[index%2]
+        point = route.pointAtPercent(t)
+        p.save(); p.setOpacity(min(1, t*8, (1-t)*8))
+        if trails:
+            for distance in (0.045, 0.09, 0.135):
+                trail = route.pointAtPercent(max(0, t-distance))
+                p.setPen(Qt.PenStyle.NoPen); p.setBrush(alpha(accent, 80-distance*400))
+                p.drawRect(QRectF(trail.x()-2, trail.y()-2, 4, 4))
+        p.translate(point); p.scale(.78, .78); paper(p, accent.lighter(115), technical=True); p.restore()
+    p.setBrush(accent.lighter(150)); p.setPen(Qt.PenStyle.NoPen)
+    for point in (QPointF(start, center.y()), QPointF(end, center.y())):
+        p.drawRect(QRectF(point.x()-2, point.y()-2, 4, 4))

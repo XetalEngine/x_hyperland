@@ -42,7 +42,7 @@ class SearchFocusTests(unittest.TestCase):
         return window
 
     def test_first_keystroke_goes_to_search_in_both_menu_styles(self):
-        for style in ('raw','modern','breakpoint'):
+        for style in ('raw','modern','breakpoint','binaryknife'):
             with self.subTest(style=style):
                 window=self.open(style)
                 self.assertIsNone(window.views.graphicsEffect(),'Opening must not add a second tile fade')

@@ -10,12 +10,13 @@ import tempfile
 
 PATH = Path(__file__).with_name('preferences.json')
 STYLES = {'follow': 'Follow desktop theme', 'raw': 'Xetal Raw',
-          'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint'}
+          'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint', 'binaryknife': 'Binary Knife'}
 APPEARANCE = dict(width=448, height=168, radius=16, opacity=100, glow=55,
                   border=1, track_height=5, accent='')
 PROFILES = {name: {**APPEARANCE, **values} for name, values in {
     'raw': {}, 'modern': dict(radius=20, glow=35, track_height=6),
-    'breakpoint': dict(radius=12, opacity=94, glow=25, track_height=4)}.items()}
+    'breakpoint': dict(radius=12, opacity=94, glow=25, track_height=4),
+    'binaryknife': dict(radius=4, opacity=97, glow=45, track_height=4)}.items()}
 DEFAULTS = dict(version=1, style='follow', profiles=PROFILES,
     animation=dict(enabled=True, speed=100, density=3, trails=True, smooth=True),
     information=dict(paths='names', percentage=True, amount=True, speed=True, remaining=False),

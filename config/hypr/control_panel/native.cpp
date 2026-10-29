@@ -89,7 +89,9 @@ public:
     }
     p.setBrush(fill);
     p.setPen(QPen(border, hasFocus() ? 1.5 : 1));
-    p.drawRoundedRect(bounds, 10, 10);
+    const auto corner = qApp->property("xetalPanelCardRadius");
+    const auto radius = corner.isValid() ? corner.toInt() : 10;
+    p.drawRoundedRect(bounds, radius, radius);
     QIcon::fromTheme(iconName, icon()).paint(&p, QRect(13, 14, 42, 42));
     auto f = font();
     f.setBold(true);
@@ -273,6 +275,7 @@ PanelController::PanelController(MainWindow *window)
           qApp->setPalette(palette);
           qApp->setFont(QFont(value["font"].toString("Noto Sans"), 10));
           QIcon::setThemeName(value["iconTheme"].toString("Papirus-Dark"));
+          qApp->setProperty("xetalPanelCardRadius", value["cardRadius"].toInt(10));
           qApp->setStyleSheet(value["stylesheet"].toString());
           owner->update();
         }

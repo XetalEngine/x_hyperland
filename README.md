@@ -16,7 +16,7 @@ https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d
 
 ![Hyper Fusion — olly_anime.png workstation wallpaper](docs/media/olly_anime.png)
 
-**Your desktop should feel like yours.** Hyper Fusion brings together a configurable Apps menu, native Fusion Settings, a flexible taskbar, matching tools, and original Compiz effects adapted to Hyprland. Three visual designs share one engine: **Xetal Raw**, **Xetal Modern**, and **BreakPoint**. Mix their Start menus, keep your shortcuts, and make the details your own.
+**Your desktop should feel like yours.** Hyper Fusion brings together a configurable Apps menu, native Fusion Settings, a flexible taskbar, matching tools, and original Compiz effects adapted to Hyprland. Four visual designs share one engine: **Xetal Raw**, **Xetal Modern**, **BreakPoint**, and **Binary Knife**. Mix their Start menus, keep your shortcuts, and make the details your own.
 
 The custom desktop components, installer, native effect sources, themes, fonts, and bundled wallpapers live in this repository. They build on the machine where you install them.
 
@@ -42,22 +42,29 @@ The installer checks dependencies, offers distribution packages, builds the nati
 
 The default install adapts to your monitors, resolution, placement and scale. Without a running compositor, it uses preferred modes and automatic placement. KDE/Plasma settings, shell profiles, shared application associations, and system autostart stay separate from this Hyprland profile.
 
-## Three looks. One desktop.
+## Four looks. One desktop.
 
-| Xetal Raw | Xetal Modern | BreakPoint |
-| :---: | :---: | :---: |
-| [![Xetal Raw Apps](docs/screenshots/apps-raw.png)](docs/screenshots/apps-raw.png) | [![Xetal Modern Apps](docs/screenshots/apps-modern.png)](docs/screenshots/apps-modern.png) | [![BreakPoint Apps](docs/screenshots/apps-breakpoint.png)](docs/screenshots/apps-breakpoint.png) |
-| Original cyan accents and transparent surfaces | Soft blue cards and a Home overview | Charcoal glass, crimson focus, silver text |
+| Xetal Raw | Xetal Modern |
+| :---: | :---: |
+| [![Xetal Raw Apps](docs/screenshots/apps-raw.png)](docs/screenshots/apps-raw.png) | [![Xetal Modern Apps](docs/screenshots/apps-modern.png)](docs/screenshots/apps-modern.png) |
+| Original cyan accents and transparent surfaces | Soft blue cards and a Home overview |
+
+| BreakPoint | Binary Knife |
+| :---: | :---: |
+| [![BreakPoint Apps](docs/screenshots/apps-breakpoint.png)](docs/screenshots/apps-breakpoint.png) | [![Binary Knife Apps](docs/screenshots/apps-binaryknife.png)](docs/screenshots/apps-binaryknife.png) |
+| Charcoal glass, crimson focus, silver text | Sharp graphite panels, electric blue edges, cool silver text |
+
+**Binary Knife** draws from the disassembler's precise blue interface: 4px corners, 2px focus borders, compact controls, blue Burn flames and a transfer animation with files travelling along illuminated circuit traces. Its three blue workstation wallpapers preserve the characters and compositions of the original artwork. The theme covers Apps, the taskbar, desktop context menus, Fusion Settings, Control Panel, file pickers, notifications, lock screen and session tools. [See the theme and its wallpapers →](docs/GALLERY.md#binary-knife)
 
 **Fusion Settings → Theme** keeps appearance organized: **Design** chooses the desktop theme, and the dedicated **Start Menu** tab beside it holds the launcher’s style, background, labels, surfaces, and profile image.
 
 - **Mix and match** any Start menu with any desktop theme, or choose **Follow desktop theme**.
-- Use **Dark, Light, or High contrast** colors. BreakPoint uses Inter for the interface and JetBrains Mono for technical text.
+- Use **Dark, Light, or High contrast** colors. BreakPoint and Binary Knife use Inter for the interface and JetBrains Mono for technical text.
 - Choose an account image or **animated GIF**. The account-picture button reads your existing Linux avatar; it does not change it.
 - Give the **entire Apps menu** its own background image, follow the desktop wallpaper, or use a plain background. Adjust **background visibility** with a slider.
 - Set **icon backgrounds and group strips** anywhere from transparent to opaque. Group strips support their own **image or animated GIF**, with preferences saved separately for each design.
 - **Show or hide shortcut names and hotkeys** globally. The remaining icon content centers automatically; small tiles stay icon-only.
-- Assign wallpapers separately to each monitor, choose their fit mode, or apply the included three-screen **BreakPoint workstation set**. The original artwork remains available.
+- Assign wallpapers separately to each monitor and each theme, choose their fit mode, or apply the included three-screen **BreakPoint** and **Binary Knife** workstation sets. Switching themes restores its saved wallpapers and effect colors, including custom flame colors. The original artwork remains available.
 
 | Theme design | Menu surfaces, artwork & profile |
 | :---: | :---: |
@@ -160,7 +167,7 @@ See the [Burn guide](config/hypr/effects/burn/README.md) and [Cube guide](config
 | --- | --- |
 | **Xetal Images** | Pointer-centered wheel zoom, drag to pan, Fit/100%, previous/next pictures in the folder, GIF Play/Pause, F11 fullscreen, reveal in Dolphin, and per-resolution floating size memory. |
 | **File previews** | Right-side image, text and folder previews in Xetal dialogs, themed Qt 5/6 Widgets file pickers and standard GTK 3 choosers. [Coverage →](docs/FILE-PREVIEWS.md) |
-| **Xetal Files** | Three interchangeable animated transfer cards: **Xetal Raw**, **Xetal Modern**, and **BreakPoint**. Compact **448 × 168** defaults, freely draggable, with real copy/archive progress, pause/cancel where supported, and error details for Dolphin/KIO and Ark jobs. |
+| **Xetal Files** | Four interchangeable animated transfer cards: **Xetal Raw**, **Xetal Modern**, **BreakPoint**, and **Binary Knife**. Compact **448 × 168** defaults, freely draggable, with real copy/archive progress, pause/cancel where supported, and error details for Dolphin/KIO and Ark jobs. |
 | **MP3 / MP4 popup** | **Super+Ctrl+P** opens the downloader. Selected links can prefill the address; choose MP3 to Music or MP4 to Videos, highest available source quality, with logs, cancel and an update button for the private yt-dlp copy. |
 | **Screenshots** | Area/all-display capture, clipboard support, clickable notifications and reveal-in-folder. Print keeps Apps open during capture. |
 | **Screen sharing** | A custom Hyprland portal picker with updating monitor/window previews and region selection. |
@@ -168,11 +175,13 @@ See the [Burn guide](config/hypr/effects/burn/README.md) and [Cube guide](config
 | **Dolphin & Kitty** | A separate themed file-manager profile, folder-link handling, Places icons and wallpaper actions; themed terminal colors, animated cursor and draggable scrollback scrollbar. |
 | **Session** | Matching notifications and lock screen, logout confirmation, and helpers that stop with Hyprland. |
 
-**Fusion Settings → Theme → File Transfer** lets the card follow your desktop or use any of the three designs independently. Each design remembers its own dimensions, corner radius, border, progress thickness, opacity, glow and accent color. Adjust animation speed, flying-file count, trails, progress smoothing, visible paths and statistics, estimated time remaining, display delay and automatic completion closing. Errors stay visible.
+**Fusion Settings → Theme → File Transfer** lets the card follow your desktop or use any of the four designs independently. Each design remembers its own dimensions, corner radius, border, progress thickness, opacity, glow and accent color. Adjust animation speed, flying-file count, trails, progress smoothing, visible paths and statistics, estimated time remaining, display delay and automatic completion closing. Errors stay visible.
 
 | Xetal Raw · flying files | Xetal Modern · soft blue cards | BreakPoint · crimson packets |
 | :---: | :---: | :---: |
 | [![Raw file transfer](docs/screenshots/file-progress.png)](docs/screenshots/file-progress.png) | [![Modern file transfer](docs/screenshots/file-progress-modern.png)](docs/screenshots/file-progress-modern.png) | [![BreakPoint file transfer](docs/screenshots/file-progress-breakpoint.png)](docs/screenshots/file-progress-breakpoint.png) |
+
+[![Binary Knife · blue circuit transfer animation](docs/screenshots/file-progress-binaryknife.png)](docs/screenshots/file-progress-binaryknife.png)
 
 The live preview includes copy, move, compression and extraction examples, plus paused, completed, error and unknown-size states. **Preview popup** opens a floating simulation without changing files. Applied preferences update open transfer cards while their operations continue.
 

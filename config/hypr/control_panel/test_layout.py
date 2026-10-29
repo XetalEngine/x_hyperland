@@ -24,7 +24,7 @@ class ScrollbarTests(unittest.TestCase):
 
     def test_horizontal_thumb_can_be_grabbed_and_moves_the_table(self):
         palettes = json.loads((bridge.ROOT/'theme/palettes.json').read_text())
-        for design in ('raw', 'modern', 'breakpoint'):
+        for design in runtime.DESIGNS:
             with self.subTest(design=design):
                 palette = palettes['dark'] if design == 'raw' else palettes[design]['dark']
                 with patch.object(runtime, 'design', return_value=design), patch.object(runtime, 'colors', return_value=palette):

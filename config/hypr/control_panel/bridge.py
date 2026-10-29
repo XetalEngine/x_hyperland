@@ -15,7 +15,7 @@ def theme():
     design=runtime.design();p=runtime.colors();style=qt_style(p,design)
     style+=f'''
       QWidget#hyperControlPanel, QScrollArea, QStackedWidget {{background:{p['Window']};}}
-      QWidget#hyperControlPanel {{border:1px solid {p['Midlight']}; border-radius:{12 if design=='breakpoint' else 16}px;}}
+      QWidget#hyperControlPanel {{border:1px solid {p['Midlight']}; border-radius:{4 if design=='binaryknife' else 12 if design=='breakpoint' else 16}px;}}
       QFrame#panelHeader {{background:transparent; border:none;}}
       QLabel#panelTitle {{font-size:21px; font-weight:600; padding:8px 0; color:{p['Text']};}}
       QGroupBox {{padding:8px; margin-top:16px; border:1px solid {p['Midlight']};}}
@@ -36,6 +36,7 @@ def theme():
       QPushButton {{padding:6px 10px;}}
     '''
     return {'stylesheet':style,'colors':p,'font':runtime.ui_font(),
+            'cardRadius':4 if design=='binaryknife' else 10,
             'iconTheme':'Papirus-Light' if runtime.mode()=='light' else 'Papirus-Dark'}
 
 

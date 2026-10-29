@@ -1,0 +1,30 @@
+Binary Knife wallpaper set
+Generated with the built-in imagegen tool. Non-destructive variants of the included BreakPoint workstations.
+Reference application: the user's Binary Knife screenshot.
+
+workstation-1.png
+Use case: lighting-weather / precise-object-edit.
+Asset type: finished 16:9 desktop wallpaper 1 of a coordinated three-monitor set for the Binary Knife theme.
+Input image 1 is the wallpaper edit target. Input image 2 is visual reference ONLY for the Binary Knife application, not a desktop layout to reproduce.
+Preserve the same clearly adult anime woman, her identity, blue hair, clothing, pose, anatomy, camera composition and illustrated rendering of input image 1. Preserve the workstation room, moonlit city window and recognizable objects. Do not add people. Change the environment's red lighting to crisp electric blue, azure and icy cyan on deep charcoal/graphite, with natural skin tones under soft blue rim light and rich shadow detail. No red atmospheric lighting.
+Replace OllyDbg asterisk logos and BreakPoint labels on screens, headphones and mugs with a small elegant silver/blue knife emblem. On the central monitor show a convincing dark Binary Knife disassembler interface: silver monospaced assembly instructions, blue selected instruction, compact function panels, cyan addresses, and an angular blue control flow graph. Small readable screen title: "BINARY KNIFE". Secondary screens show blue-on-charcoal hexadecimal and register views. Interface styling follows reference image 2.
+Palette: background #0C1115, panel #11181D, raised surface #18252E, electric blue #39A9FF, ice blue #8DD3FF, silver text #D9E5EF. Keep the image cinematic, clean, sharp and detailed. Blue illuminated city windows and blue desk equipment lights unify the scene.
+Keep the original full wide composition and all limbs inside the same framing. Produce one polished landscape wallpaper, ideally 3840x2160. No desktop panels, no UI overlay outside the physical computer screens, no collage, no watermark, no giant title.
+
+workstation-2.png
+Use case: lighting-weather / precise-object-edit.
+Asset type: finished 16:9 desktop wallpaper 2 of a coordinated three-monitor set for the Binary Knife theme.
+Input image 1 is the wallpaper edit target. Input image 2 is visual reference ONLY for the Binary Knife application, not a desktop layout to reproduce.
+Preserve the same clearly adult anime woman, her identity, blue hair, clothing, pose, anatomy, camera composition and illustrated rendering of input image 1. Preserve the workstation room, moonlit city window and recognizable objects. Do not add people. Change the environment's red lighting to crisp electric blue, azure and icy cyan on deep charcoal/graphite, with natural skin tones under soft blue rim light and rich shadow detail. No red atmospheric lighting.
+Replace OllyDbg asterisk logos and BreakPoint labels on screens, headphones and mugs with a small elegant silver/blue knife emblem. On the central monitor show a convincing dark Binary Knife disassembler interface: silver monospaced assembly instructions, blue selected instruction, compact function panels, cyan addresses, and an angular blue control flow graph. Small readable screen title: "BINARY KNIFE". Secondary screens show blue-on-charcoal hexadecimal and register views. Interface styling follows reference image 2.
+Palette: background #0C1115, panel #11181D, raised surface #18252E, electric blue #39A9FF, ice blue #8DD3FF, silver text #D9E5EF. Keep the image cinematic, clean, sharp and detailed. Blue illuminated city windows and blue desk equipment lights unify the scene.
+Keep the original full wide composition and all limbs inside the same framing. Produce one polished landscape wallpaper, ideally 3840x2160. No desktop panels, no UI overlay outside the physical computer screens, no collage, no watermark, no giant title.
+
+workstation-3.png
+Use case: lighting-weather / precise-object-edit.
+Asset type: finished 16:9 desktop wallpaper 3 of a coordinated three-monitor set for the Binary Knife theme.
+Input image 1 is the wallpaper edit target. Input image 2 is visual reference ONLY for the Binary Knife application, not a desktop layout to reproduce.
+Preserve the same clearly adult anime woman, her identity, blue hair, clothing, pose, anatomy, camera composition and illustrated rendering of input image 1. Preserve the workstation room, moonlit city window and recognizable objects. Do not add people. Change the environment's red lighting to crisp electric blue, azure and icy cyan on deep charcoal/graphite, with natural skin tones under soft blue rim light and rich shadow detail. No red atmospheric lighting.
+Replace OllyDbg asterisk logos and BreakPoint labels on screens, headphones and mugs with a small elegant silver/blue knife emblem. On the central monitor show a convincing dark Binary Knife disassembler interface: silver monospaced assembly instructions, blue selected instruction, compact function panels, cyan addresses, and an angular blue control flow graph. Small readable screen title: "BINARY KNIFE". Secondary screens show blue-on-charcoal hexadecimal and register views. Interface styling follows reference image 2.
+Palette: background #0C1115, panel #11181D, raised surface #18252E, electric blue #39A9FF, ice blue #8DD3FF, silver text #D9E5EF. Keep the image cinematic, clean, sharp and detailed. Blue illuminated city windows and blue desk equipment lights unify the scene.
+Keep the original full wide composition and all limbs inside the same framing. Produce one polished landscape wallpaper, ideally 3840x2160. No desktop panels, no UI overlay outside the physical computer screens, no collage, no watermark, no giant title.

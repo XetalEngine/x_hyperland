@@ -23,6 +23,24 @@ their settings panel is captured from the installed interface without changing p
 
 [![BreakPoint](screenshots/apps-breakpoint.png)](screenshots/apps-breakpoint.png)
 
+### Binary Knife
+
+Graphite surfaces, sharp blue outlines and silver labels, inspired by the Binary Knife disassembler. These captures use the real launcher layout and an isolated theme preview; the transfer card shows a sample copy operation.
+
+[![Binary Knife Apps](screenshots/apps-binaryknife.png)](screenshots/apps-binaryknife.png)
+
+| Control Panel | File picker |
+| :---: | :---: |
+| [![Binary Knife Control Panel](screenshots/control-panel-binaryknife.png)](screenshots/control-panel-binaryknife.png) | [![Binary Knife file picker and preview](screenshots/file-picker-binaryknife.png)](screenshots/file-picker-binaryknife.png) |
+
+Each monitor gets a different blue workstation. Themes remember their wallpaper selections separately; customized Burn and cube colors return when switching back.
+
+| Left workstation | Center workstation | Right workstation |
+| :---: | :---: | :---: |
+| [![Left Binary Knife wallpaper](../config/hypr/wallpaper/binaryknife/workstation-1.png)](../config/hypr/wallpaper/binaryknife/workstation-1.png) | [![Center Binary Knife wallpaper](../config/hypr/wallpaper/binaryknife/workstation-2.png)](../config/hypr/wallpaper/binaryknife/workstation-2.png) | [![Right Binary Knife wallpaper](../config/hypr/wallpaper/binaryknife/workstation-3.png)](../config/hypr/wallpaper/binaryknife/workstation-3.png) |
+
+Created with the built-in imagegen tool. [Wallpaper generation prompts](../config/hypr/wallpaper/binaryknife/PROMPTS.txt).
+
 ## Menus and shortcuts
 
 | Favorite context menu | Shortcut Properties |
@@ -124,6 +142,8 @@ Mix any transfer style with any desktop theme, or follow the desktop automatical
 | Xetal Raw | Xetal Modern | BreakPoint |
 | :---: | :---: | :---: |
 | [![Raw flying files, sample operation](screenshots/file-progress.png)](screenshots/file-progress.png) | [![Modern transfer card, sample operation](screenshots/file-progress-modern.png)](screenshots/file-progress-modern.png) | [![BreakPoint data packets, sample operation](screenshots/file-progress-breakpoint.png)](screenshots/file-progress-breakpoint.png) |
+
+[![Binary Knife files travelling along blue circuit traces](screenshots/file-progress-binaryknife.png)](screenshots/file-progress-binaryknife.png)
 
 [![File Transfer appearance, animation and behavior options](screenshots/file-transfer-settings.png)](screenshots/file-transfer-settings.png)
 

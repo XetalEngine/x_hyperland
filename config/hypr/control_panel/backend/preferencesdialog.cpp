@@ -331,7 +331,7 @@ void PreferencesDialog::buildGeneral() {
 
 void PreferencesDialog::buildAppearance() {
     int nativePage = addPage(tr("Appearance"), tr("Follows your Hyprland desktop theme."), "preferences-desktop-theme");
-    auto *nativeCard = addCard(nativePage, tr("Desktop appearance"), tr("Raw, Modern and BreakPoint are managed in Fusion Settings."));
+    auto *nativeCard = addCard(nativePage, tr("Desktop appearance"), tr("Desktop themes, including Binary Knife, are managed in Fusion Settings."));
     m_themePreview = new QWidget(nativeCard); m_themePreview->hide();
     auto *openTheme = new QPushButton(tr("Open Fusion Settings theme settings"), nativeCard);
     nativeCard->layout()->addWidget(openTheme);

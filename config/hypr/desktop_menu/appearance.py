@@ -48,8 +48,10 @@ def css(style):
     c = colors(style)
     rounding=max(16,style['rounding']) if style['palette']=='system' and theme_runtime.design()=='modern' else style['rounding']
     breakpoint=style['palette']=='system' and theme_runtime.design()=='breakpoint'
+    binaryknife=style['palette']=='system' and theme_runtime.design()=='binaryknife'
     if breakpoint:rounding=12
-    font='Inter' if breakpoint and style['font_family']=='Noto Sans' else style['font_family']
+    if binaryknife:rounding=4
+    font='Inter' if (breakpoint or binaryknife) and style['font_family']=='Noto Sans' else style['font_family']
     return f'''
     window#xetal-desktop-background {{background:transparent; border:none; box-shadow:none;}}
     menu.desktop-context-menu {{

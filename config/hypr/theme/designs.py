@@ -2,7 +2,9 @@
 import colorsys
 from pathlib import Path
 
-DESIGNS = {'raw': 'Xetal Raw', 'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint'}
+DESIGNS = {'raw': 'Xetal Raw', 'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint', 'binaryknife': 'Binary Knife'}
+DESCRIPTIONS = {'raw': 'Original layout · cyan accents', 'modern': 'Soft cards · blue accents',
+                'breakpoint': 'Charcoal glass · crimson focus', 'binaryknife': 'Sharp graphite · electric blue'}
 
 
 def recolor(color, palette, mode):
@@ -27,6 +29,9 @@ def recolor(color, palette, mode):
 
 
 def qt_style(p,style='modern'):
+    if style=='binaryknife':
+        from binaryknife import qt_style as themed
+        return themed(p)
     if style=='breakpoint':
         from breakpoint import qt_style as themed
         return themed(p)
@@ -108,6 +113,9 @@ def qt_style(p,style='modern'):
 
 
 def waybar_style(p,style='modern'):
+    if style=='binaryknife':
+        from binaryknife import waybar_style as themed
+        return themed(p)
     if style=='breakpoint':
         from breakpoint import waybar_style as themed
         return themed(p)
@@ -134,6 +142,9 @@ def waybar_style(p,style='modern'):
 
 
 def notification_style(p,style='modern'):
+    if style=='binaryknife':
+        from binaryknife import notification_style as themed
+        return themed(p)
     if style=='breakpoint':
         from breakpoint import notification_style as themed
         return themed(p)
