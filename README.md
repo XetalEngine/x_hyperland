@@ -44,7 +44,7 @@ Arch/CachyOS is the tested build environment. Package recipes are also provided 
 
 ## Your hardware and existing desktop
 
-The default install uses **your current monitor names, positions, resolutions and scaling**. Outside a running Hyprland session, it uses preferred modes and automatic placement. The startup scene uses the second display when available, and fits a single-display setup too. Click the companion artwork or press Space in its console to switch views. Network adapters and temperature sensors are detected at runtime.
+The default install uses **your current monitor names, positions, resolutions and scaling**. Outside a running Hyprland session, it uses preferred modes and automatic placement. The startup scene uses the second display when available, and fits a single-display setup too. The right-hand startup panel shows six floating project cubes using the community site’s original icons. Click a cube (or use Tab and Enter/Space) to open its project page. Super+D or the panel’s X hides the dashboard; cube animation pauses while it is hidden. Network adapters and temperature sensors are detected at runtime.
 
 The complete original three-monitor configuration is retained in [`profiles/xetal-original`](profiles/xetal-original). Use `--profile original` only for the original DP-4/DP-5/DP-6 arrangement and supported modes. You can otherwise arrange screens through Control desk → Displays.
 

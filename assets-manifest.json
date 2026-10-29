@@ -19,5 +19,11 @@
   "config/hypr/assets/fonts/JetBrainsMono-Italic.ttf": "9d0a1f7a708e6af183f1193b7e81d40da294f5c67682c085d8401c60aac8ded4",
   "config/hypr/wallpaper/breakpoint/workstation-3.png": "dd84e5882560b662a1b0ab343d4bbb7f48af4efc5d8a60e9669bd2c88256dc6b",
   "config/hypr/wallpaper/breakpoint/workstation-1.png": "d70fd3156869d3ffdfd97bdcdb17d73232e3b2aefefd0e28de6a297bf31e022c",
-  "config/hypr/wallpaper/breakpoint/workstation-2.png": "46f64d52ae3ee25ae3119e89917f2e387733fff8aac88bfa580d75cf3dc46da0"
+  "config/hypr/wallpaper/breakpoint/workstation-2.png": "46f64d52ae3ee25ae3119e89917f2e387733fff8aac88bfa580d75cf3dc46da0",
+  "config/hypr/startup/assets/projects/binaryknife.ico": "34444bf5945b70e98046614b5f84922a3da2edf7af4ab14a953d1b992bc1bde0",
+  "config/hypr/startup/assets/projects/CachyOsTools_icon.png": "b46164295f82ad4765611931c2490e11a10585b906989ac371e08f5b343b0ea6",
+  "config/hypr/startup/assets/projects/linuxstudio.png": "225d79a405c3559c2e6f50a12a101b6aeae62eac185e8ccc7883cc92a81c4949",
+  "config/hypr/startup/assets/projects/echo.png": "367ccbdca13a97fff765552b3105f83aa90cf66897f0ddfaca185d8aed5a129f",
+  "config/hypr/startup/assets/projects/xmusic.png": "16d76113239388a699927965a1c751e316599547c9a1d12bfff9e6af918733c2",
+  "config/hypr/startup/assets/projects/xvideo.png": "094f35803887930da5e34bd51e9887943f3b4afe3125408abf5dbb414124d8e5"
 }

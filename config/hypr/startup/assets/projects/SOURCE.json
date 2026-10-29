@@ -1,0 +1,12 @@
+{
+  "source": "Xetal Community website, site/assets; supplied by XetalEngine",
+  "website": "https://www.xetal.net/community/site/",
+  "sha256": {
+    "echo.png": "367ccbdca13a97fff765552b3105f83aa90cf66897f0ddfaca185d8aed5a129f",
+    "linuxstudio.png": "225d79a405c3559c2e6f50a12a101b6aeae62eac185e8ccc7883cc92a81c4949",
+    "binaryknife.ico": "34444bf5945b70e98046614b5f84922a3da2edf7af4ab14a953d1b992bc1bde0",
+    "CachyOsTools_icon.png": "b46164295f82ad4765611931c2490e11a10585b906989ac371e08f5b343b0ea6",
+    "xmusic.png": "16d76113239388a699927965a1c751e316599547c9a1d12bfff9e6af918733c2",
+    "xvideo.png": "094f35803887930da5e34bd51e9887943f3b4afe3125408abf5dbb414124d8e5"
+  }
+}

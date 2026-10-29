@@ -37,6 +37,16 @@ def ctl(*args, json_output=False):
     return json.loads(result.stdout) if json_output else result.stdout.strip()
 
 
+def command_for(mode, target):
+    if mode == 'projects':
+        return ['env', 'QT_QPA_PLATFORM=wayland', 'python3', str(ROOT/'projects.py')]
+    command=['kitty','--config',str(ROOT/'kitty.conf'),'--class','xetal-startup-'+mode,
+             '--title','Xetal / '+mode.title(),'python3',str(ROOT/'scene.py'),mode]
+    if target['width']/target['scale']<2200:
+        command[3:3]=['-o','font_size=10.5']
+    return command
+
+
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--toggle',action='store_true')
@@ -59,7 +69,7 @@ def main():
             return
         target=(monitors[min(1,len(monitors)-1)] if args.login else next((m for m in monitors if m.get('focused')),monitors[0]))
         clients=ctl('clients',json_output=True)
-        modes=['info','matrix','clock','hero']
+        modes=['info','matrix','clock','projects']
         existing={c['class']:c for c in clients if c.get('mapped') and c['class'].startswith('xetal-startup-')}
         ctl('dispatch','focusmonitor',target['name'])
         # Existing consoles are reused; closed ones are recreated in sequence.
@@ -71,10 +81,7 @@ def main():
                 cls='xetal-startup-'+mode
                 if cls in existing:
                     continue
-                command=['kitty','--config',str(ROOT/'kitty.conf'),'--class',cls,
-                         '--title','Xetal / '+mode.title(),'python3',str(ROOT/'scene.py'),mode]
-                if target['width']/target['scale']<2200:
-                    command[3:3]=['-o','font_size=10.5']
+                command=command_for(mode,target)
                 # Spawn via compositor to inherit its actual Wayland session environment.
                 ctl('dispatch','exec',shlex.join(command)+' >> '+shlex.quote(str(runtime/f'startup-{mode}.log'))+' 2>&1')
                 found=False
@@ -90,6 +97,11 @@ def main():
                     ctl('dispatch','togglespecialworkspace','xetal-startup')
                     visible=True
                 time.sleep(.5)
+            # Upgrade an already-open dashboard only after its replacement maps.
+            # These are our generated mascot consoles, not user terminal shells.
+            for client in clients:
+                if client.get('class')=='xetal-startup-hero' and client.get('mapped'):
+                    ctl('dispatch','closewindow','address:'+client['address'])
 
 
 if __name__=='__main__':main()

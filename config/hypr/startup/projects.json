@@ -1,0 +1,50 @@
+[
+  {
+    "id": "echo",
+    "name": "Echo",
+    "description": "Chat, voice & video",
+    "icon": "echo.png",
+    "accent": "#9670ff",
+    "url": "https://www.xetal.net/community/site/?p=echo"
+  },
+  {
+    "id": "linuxstudio",
+    "name": "Linux Studio",
+    "description": "Build, design & debug",
+    "icon": "linuxstudio.png",
+    "accent": "#7994ff",
+    "url": "https://www.xetal.net/community/site/?p=linuxstudio"
+  },
+  {
+    "id": "binaryknife",
+    "name": "Xetal BV",
+    "description": "Binary Knife \u00b7 Binary analysis",
+    "icon": "binaryknife.ico",
+    "accent": "#ef5364",
+    "url": "https://www.xetal.net/community/site/?p=binaryknife"
+  },
+  {
+    "id": "cachyostools",
+    "name": "CachyOsTools",
+    "description": "Your system, in your hands",
+    "icon": "CachyOsTools_icon.png",
+    "accent": "#65baff",
+    "url": "https://www.xetal.net/community/site/?p=cachyostools"
+  },
+  {
+    "id": "xmusic",
+    "name": "XMusic",
+    "description": "Your music. Your space.",
+    "icon": "xmusic.png",
+    "accent": "#efb85d",
+    "url": "https://www.xetal.net/community/site/?p=xmusic"
+  },
+  {
+    "id": "xvideo",
+    "name": "Xetal Video Editor",
+    "description": "From first cut to final frame",
+    "icon": "xvideo.png",
+    "accent": "#4edbbc",
+    "url": "https://www.xetal.net/community/site/?p=xvideo"
+  }
+]

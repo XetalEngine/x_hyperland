@@ -93,6 +93,19 @@ The bundled wallpaper's SHA-256 matches the original desktop image byte for byte
 
 ## Reproduce
 
+Startup project showcase (28 October 2026): **19 startup tests and 16 installer
+tests passed**. Offscreen checks cover bundled icon checksums, safe project URLs,
+keyboard activation, non-overlapping one/two/three-column layouts, animation
+controls and migration from the mascot console. Rendered previews were inspected
+in Raw, Modern and BreakPoint, including the full desktop panel size.
+
+A disposable Wayland compositor verified all four panels map, Super+D toggles
+reuse their existing windows, hidden cubes stop animating, Escape hides the
+dashboard, and a 600×500 resize reflows the gallery. A real Qt mouse click ran the
+navigation helper, hid the special workspace, and passed the exact Echo page URL
+to a test browser stub. Tests did not launch a browser into the working session.
+
+
 Cube background motion fix (28 October 2026): **9 Cube tests and 16 installer
 tests passed**. The new `tests/check-cube-sky.py` probe failed against the previous
 plugin because rotating with picture motion enabled left the background pixels
