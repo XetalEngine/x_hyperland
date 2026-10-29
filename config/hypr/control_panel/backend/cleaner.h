@@ -21,6 +21,7 @@
 #include <QFontMetrics>
 #include <QCoreApplication>
 #include <algorithm>
+#include "../disk_visualizer.h"
 
 // Shell-quotes a path for single-quoted context.
 static QString cleanQuote(const QString &s) {
@@ -259,7 +260,16 @@ bool MainWindow::isCleanablePath(const QString &path) const {
 void MainWindow::setupCleanerTab() {
     cleanerTab = new QWidget();
     cleanerTab->setObjectName("cleanerTab");
-    QVBoxLayout *root = new QVBoxLayout(cleanerTab);
+    auto *outer = new QVBoxLayout(cleanerTab);
+    outer->setContentsMargins(0, 0, 0, 0);
+    auto *tabs = new PanelTabs(cleanerTab);
+    tabs->setObjectName("cleanerSubTabs");
+    outer->addWidget(tabs);
+    auto *cleanup = new QWidget(tabs);
+    cleanup->setObjectName("cleanupTab");
+    tabs->addTab(cleanup, tr("Clean up"));
+    tabs->addTab(new DiskVisualizer([this] { return authenticateSudo(); }, tabs), tr("Disk Visualizer"));
+    QVBoxLayout *root = new QVBoxLayout(cleanup);
 
     // --- top bar ---------------------------------------------------------
     QHBoxLayout *bar = new QHBoxLayout();

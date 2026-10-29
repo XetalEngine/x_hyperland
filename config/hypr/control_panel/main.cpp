@@ -1,6 +1,7 @@
 #include "backend/mainwindow.h"
 #include "backend/window_enum_backend.h"
 #include "native.h"
+#include "disk_visualizer.h"
 #include "wheel_guard.h"
 #include <QJsonDocument>
 #include <QLocalServer>
@@ -74,6 +75,7 @@ int main(int argc, char **argv) {
   parser.addHelpOption();
   parser.addOption({"section", "Open a tool", "id"});
   parser.addOption({"smoke-size", "Override test window size (WIDTHxHEIGHT)", "size"});
+  parser.addOption({"smoke-disk-path", "Scan a disk fixture without sudo (only with --smoke-dir)", "path"});
   parser.addOption({"smoke-dir",
                     "Capture navigation and home in a test directory",
                     "directory"});
@@ -125,6 +127,13 @@ int main(int argc, char **argv) {
   window.show();
   if (parser.isSet("section"))
     controller.open(parser.value("section"));
+  if (smoke && parser.isSet("smoke-disk-path")) {
+    controller.open("cleaner");
+    if (auto *disk = window.findChild<DiskVisualizer *>()) {
+      window.findChild<QTabWidget *>("cleanerSubTabs")->setCurrentWidget(disk);
+      disk->scanFixture(parser.value("smoke-disk-path"));
+    }
+  }
   auto receive = [&] {
     while (auto *peer = commands.nextPendingConnection()) {
       auto read = [&, peer] {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Small desktop adapters; all system-management operations stay in C++."""
+"""Small desktop adapters for the native Control Panel."""
 import json
 import os
 from pathlib import Path
@@ -27,6 +27,9 @@ def theme():
       QTreeWidget#cleanCategoryTree, QTreeWidget#cleanSizeTree {{font-size:14px;}}
       QTreeWidget#cleanCategoryTree::item, QTreeWidget#cleanSizeTree::item {{padding:3px 6px; min-height:18px;}}
       QTreeWidget#cleanCategoryTree::indicator {{width:18px; height:18px;}}
+      QTreeWidget#diskTree, QTreeWidget#diskFolderPicker {{font-size:13px;}}
+      QTreeWidget#diskTree::item, QTreeWidget#diskFolderPicker::item {{padding:5px 3px; min-height:20px;}}
+      QLabel#diskDetails {{padding:6px 10px; background:{p['Base']}; border:1px solid {p['Midlight']}; border-radius:6px;}}
       QAbstractItemView::indicator:unchecked {{background:{p['Base']}; border:1px solid {p['Midlight']}; border-radius:4px; width:16px; height:16px;}}
       QTextEdit#logContentTextEdit {{font-family:"JetBrains Mono", monospace; font-size:12px;}}
       QScrollBar:horizontal {{height:10px; margin:0;}}

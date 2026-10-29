@@ -32,7 +32,10 @@ set(PROJECT_SOURCES
         ../main.cpp
         ../native.cpp
         ../native.h
-        ../wheel_guard.h
+    ../wheel_guard.h
+    ../disk_visualizer.cpp
+    ../disk_visualizer.h
+    ../disk_layout.h
         mainwindow.cpp
         mainwindow.h
         mainwindow.ui
@@ -154,6 +157,18 @@ endif()
 
 option(BUILD_PREFERENCES_TESTS "Build preferences dialog and persistence tests" OFF)
 option(BUILD_WHEEL_GUARD_TESTS "Build settings wheel interaction tests" OFF)
+option(BUILD_DISK_VISUALIZER_TESTS "Build disk map layout and UI tests" OFF)
+if(BUILD_DISK_VISUALIZER_TESTS)
+    enable_testing()
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(disk_visualizer_tests tests/disk_visualizer_tests.cpp
+        ../disk_visualizer.cpp ../disk_visualizer.h ../disk_layout.h)
+    target_include_directories(disk_visualizer_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    target_link_libraries(disk_visualizer_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets
+        Qt${QT_VERSION_MAJOR}::DBus Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME disk_visualizer COMMAND disk_visualizer_tests)
+    set_tests_properties(disk_visualizer PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
 if(BUILD_WHEEL_GUARD_TESTS)
     enable_testing()
     find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)

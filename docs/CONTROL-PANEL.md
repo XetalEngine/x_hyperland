@@ -30,7 +30,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | Package Updates | System upgrades, package checks and Arch news |
 | Package Repair | Mirrors, keyrings, locks, diagnostics and downgrades |
 | Installed Software | Package removal, orphans and caches |
-| System Cleaner | Review cache/disk usage and select cleanup operations |
+| System Cleaner | Curated cleanup plus a sudo disk visualizer with mounted-volume/folder picker, size tree, treemap, breadcrumbs and file actions |
 | Network | Interfaces, Wi-Fi, connections, bridges, libvirt networks and ports |
 | Firewall | UFW/firewalld rules and configuration |
 | Network Shares | Discovery, mounts, sharing and associated services |
@@ -58,6 +58,18 @@ The backend targets **Arch Linux/CachyOS**. Package, kernel, boot and ISO tools 
 - **Startup Applications → Xetal Engine startup screen** controls automatic login display. **Super+D** still opens or hides it manually. The preference defaults to on and is stored in the update-preserved `control_panel/state/startup-screen.json`.
 - User environment values are literal `NAME=value` lines in `control_panel/state/environment.env`, applied at the next Hyprland login. The explicit system pane still edits `/etc/environment` when requested.
 - The panel, shortcut editor and startup helper are tied to the active compositor connection.
+
+## Disk Visualizer
+
+Open **System Cleaner → Disk Visualizer**, choose a mounted partition, then **Choose folder…** to browse its directory tree. **Scan with sudo** reads protected folders through a separate helper; the Qt interface runs as your normal desktop user. The original **Clean up** tab retains its cache-only cleanup rules.
+
+The tree lists directories from largest to smallest and puts direct files in a separate **Files** group at the end of each directory. Expand that group to see its files, also largest first. Select a rectangle to inspect it, double-click a folder to zoom into its map, and use the clickable path buttons or **Alt+Up** to return. The splitter adjusts the space between tree and map.
+
+**Space on disk** uses allocated blocks; **Apparent file size** is useful for inspecting sparse VM images. Hard links count once, symbolic links are never followed, and scans stay on the selected filesystem by default, including bind-mount boundaries. The optional cross-filesystem setting still skips virtual kernel filesystems. Unreadable or changing entries are reported. Shared/compressed filesystem blocks can make these totals differ from a partition's used-space figure.
+
+Right-click a tree item or map tile to open its folder, copy its path, **Send to Trash**, or **Delete permanently…**. Removal requires confirmation of the selected path. Trash uses the desktop user's Trash and never falls back to permanent deletion when permission or filesystem support is missing. Permanent deletion checks the scanned item's identity and refuses scan roots, mount points and essential system folders. The map rescans after an operation. **Files** groups are navigational, not bulk-delete targets.
+
+Scans are cancellable. A private, disposable SQLite index keeps the full file list out of GUI memory; tree rows load on demand and map detail is bounded. Closing Control Panel or ending its compositor session closes the helper's pipe, stops work and removes the temporary index.
 
 ## System ISO
 
