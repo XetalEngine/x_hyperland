@@ -38,7 +38,7 @@ class CubePage(QWidget):
             (windows_form,'min_cube_size','Minimum cube size','%',1,'Compiz limits how much the cube shrinks to make room for raised windows.'),
             (windows_form,'window_space','Window separation','%',1,'Maximum space between successive window layers, as a percentage of cube size.'),
             (windows_form,'window_depth','Window thickness','',1,'Compiz depth value. Zero keeps raised windows flat.'),
-            (sky_form,'sky_speed','Sky drift',' °/s',1,'Optional slow panorama movement. Zero moves only when you rotate.'),
+            (sky_form,'sky_speed','Sky drift',' °/s',1,'Optional picture panning or panorama rotation, independent of the checkbox. Zero stops drift.'),
         ]:
             spin=QSpinBox() if type(model.DEFAULTS[key]) is int or scale==100 else QDoubleSpinBox()
             lo,hi=model.RANGES[key];spin.setRange(int(lo*scale) if isinstance(spin,QSpinBox) else lo,int(hi*scale) if isinstance(spin,QSpinBox) else hi)
@@ -49,6 +49,7 @@ class CubePage(QWidget):
         mode=QComboBox();mode.addItem('Gradient','gradient');mode.addItem('Background picture','image');mode.addItem('Panoramic sky','sky')
         mode.currentIndexChanged.connect(self.edited);self.fields['sky_mode']=mode;sky_form.insertRow(0,'Background',mode)
         motion=QCheckBox('Move sky with cube rotation');self.fields['sky_motion']=motion;sky_form.insertRow(1,motion)
+        motion.setToolTip('Pan a background picture or rotate a panoramic sky while you turn the cube. For a completely still background, also set Sky drift to zero.')
         for form,key,label in [(cube_form,'edge_color','Cube edge color'),(windows_form,'window_color','Window side color'),
                 (caps_form,'cap_color','Ceiling / floor color'),(sky_form,'sky_top','Gradient top'),(sky_form,'sky_bottom','Gradient bottom')]:
             button=QPushButton();button.clicked.connect(lambda _,k=key:self.choose_color(k));button.setAccessibleName(label)
@@ -106,6 +107,8 @@ class CubePage(QWidget):
         if self.loading:return
         self.dirty=self.values()!=self.baseline
         self.body.setEnabled(not self.busy);self.enabled.setEnabled(not self.busy)
+        for key in ('sky_motion','sky_speed'):
+            self.fields[key].setEnabled(self.fields['sky_mode'].currentData()!='gradient')
         self.apply.setEnabled(self.dirty and not self.busy and self.token is not None)
         self.discard.setEnabled(self.dirty and not self.busy)
         self.reload.setEnabled(not self.busy);self.defaults.setEnabled(not self.busy)

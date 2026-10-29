@@ -18,7 +18,7 @@
 #include <hyprland/src/config/shared/workspace/WorkspaceRuleManager.hpp>
 #include <hyprland/src/render/gl/GLFramebuffer.hpp>
 #include <hyprutils/utils/ScopeGuard.hpp>
-#include <json-glib/json-glib.h>
+#include "settings.hpp"
 #include <linux/input-event-codes.h>
 #include <fstream>
 #include <filesystem>
@@ -49,114 +49,8 @@ std::filesystem::path configPath() {
         throw std::runtime_error("No home directory for Desktop Cube");
     return std::filesystem::path(home) / ".config/hypr/effects/cube/settings.json";
 }
-struct Settings {
-    bool enabled = true, windows3d = true, skyMotion = true;
-    double opacity = .85, zoom = .64, sensitivity = .35, duration = 220, skySpeed = 0, windowDepth = .3;
-    int skyMode = 1, minimum = 60, spacing = 10;
-    Color top = {.035, .04, .065, 1}, bottom = {.14, .075, .095, 1}, cap = {.09, .10, .14, 1}, edge = {.898, .224, .271, 1},
-          windowColor = {.18, .19, .24, 1};
-    std::string topImage, bottomImage, skyImage;
-};
-Settings settings;
-Settings readSettings() {
-    auto parser = std::shared_ptr<JsonParser>(json_parser_new(), [](auto p) { g_object_unref(p); });
-    GError *error = nullptr;
-    if (!json_parser_load_from_file(parser.get(), configPath().c_str(), &error)) {
-        std::string message = error ? error->message : "Cannot read Desktop Cube settings";
-        g_clear_error(&error);
-        throw std::runtime_error(message);
-    }
-    auto root = json_parser_get_root(parser.get());
-    if (!JSON_NODE_HOLDS_OBJECT(root))
-        throw std::runtime_error("Invalid Desktop Cube settings");
-    auto j = json_node_get_object(root);
-    if (json_object_get_size(j) != 20)
-        throw std::runtime_error("Incomplete Desktop Cube settings");
-    auto member = [&](const char *key) {
-        if (!json_object_has_member(j, key))
-            throw std::runtime_error(std::string("Missing setting: ") + key);
-        return json_object_get_member(j, key);
-    };
-    auto string = [&](const char *key) {
-        auto n = member(key);
-        if (json_node_get_value_type(n) != G_TYPE_STRING)
-            throw std::runtime_error("Invalid cube string");
-        return std::string(json_node_get_string(n));
-    };
-    Settings s;
-    auto number = [&](const char *key, double lo, double hi) {
-        auto n = member(key);
-        auto type = json_node_get_value_type(n);
-        if (type != G_TYPE_INT64 && type != G_TYPE_DOUBLE)
-            throw std::runtime_error(std::string("Invalid number: ") + key);
-        double v = json_node_get_double(n);
-        if (!std::isfinite(v) || v < lo || v > hi)
-            throw std::runtime_error(std::string("Out of range: ") + key);
-        return v;
-    };
-    auto boolean = [&](const char *key) {
-        auto n = member(key);
-        if (json_node_get_value_type(n) != G_TYPE_BOOLEAN)
-            throw std::runtime_error("Invalid cube switch");
-        return bool(json_node_get_boolean(n));
-    };
-    auto integer = [&](const char *key, int lo, int hi) {
-        auto n = number(key, lo, hi);
-        if (n != std::floor(n))
-            throw std::runtime_error("Cube option requires a whole number");
-        return int(n);
-    };
-    auto color = [&](const char *key) {
-        auto node = member(key);
-        if (!JSON_NODE_HOLDS_ARRAY(node))
-            throw std::runtime_error("Invalid cube color");
-        auto v = json_node_get_array(node);
-        if (json_array_get_length(v) != 4)
-            throw std::runtime_error("Invalid cube color");
-        Color c;
-        for (int i = 0; i < 4; i++) {
-            auto value = json_array_get_element(v, i);
-            auto type = json_node_get_value_type(value);
-            if (type != G_TYPE_DOUBLE && type != G_TYPE_INT64)
-                throw std::runtime_error("Invalid cube color");
-            double n = json_node_get_double(value);
-            if (!std::isfinite(n) || n < 0 || n > 1)
-                throw std::runtime_error("Invalid cube color");
-            c[i] = n;
-        }
-        return c;
-    };
-    auto image = [&](const char *key) {
-        auto v = string(key);
-        if (!v.empty() && !std::regex_match(v, std::regex("images/[a-f0-9]{64}\\.png")))
-            throw std::runtime_error("Invalid cube artwork path");
-        return v;
-    };
-    s.enabled = boolean("enabled");
-    s.windows3d = boolean("windows_3d");
-    s.skyMotion = boolean("sky_motion");
-    s.opacity = number("wall_opacity", 0, 1);
-    s.zoom = number("zoom", .25, .95);
-    s.sensitivity = number("sensitivity", .05, 2);
-    s.duration = integer("duration", 0, 1000);
-    s.skySpeed = number("sky_speed", -20, 20);
-    s.minimum = integer("min_cube_size", 10, 100);
-    s.spacing = integer("window_space", 0, 50);
-    s.windowDepth = number("window_depth", 0, 1);
-    s.top = color("sky_top");
-    s.bottom = color("sky_bottom");
-    s.cap = color("cap_color");
-    s.edge = color("edge_color");
-    s.windowColor = color("window_color");
-    s.topImage = image("top_image");
-    s.bottomImage = image("bottom_image");
-    s.skyImage = image("sky_image");
-    auto mode = string("sky_mode");
-    if (mode != "gradient" && mode != "image" && mode != "sky")
-        throw std::runtime_error("Unknown cube background");
-    s.skyMode = mode == "sky" ? 3 : mode == "image" ? 2 : 1;
-    return s;
-}
+Cube::Settings settings;
+Cube::Settings readSettings() { return Cube::readSettings(configPath()); }
 
 using RenderWorkspaceFn = void (*)(IHyprRenderer *, PHLMONITOR, PHLWORKSPACE, const Time::steady_tp &, const CBox &);
 using RenderWindowFn = void (*)(IHyprRenderer *, PHLWINDOW, PHLMONITOR, const Time::steady_tp &, bool, eRenderPassMode, bool, bool);
@@ -559,8 +453,9 @@ void drawScene(Scene &s) {
     graphics.draw(Cube::flat(0, 0, 1, 1, nullptr, {settings.top[0], settings.top[1], settings.top[2], 1}));
     glUniform1i(graphics.skyMode, settings.skyMode);
     double seconds = std::chrono::duration<double>(Clock::now() - s.began).count();
-    glUniform2f(graphics.skyAngles, (settings.skyMotion ? s.yaw : 0) + seconds * settings.skySpeed * Cube::PI / 180,
-                settings.skyMotion ? s.pitch : 0);
+    const double skyYaw = (settings.skyMotion ? s.yaw : 0) + seconds * settings.skySpeed * Cube::PI / 180;
+    const double skyPitch = settings.skyMotion ? s.pitch : 0;
+    glUniform2f(graphics.skyAngles, skyYaw, skyPitch);
     glUniform1f(graphics.aspect, m->m_size.x / m->m_size.y);
     glUniform4fv(graphics.skyTop, 1, settings.top.data());
     glUniform4fv(graphics.skyBottom, 1, settings.bottom.data());
@@ -568,10 +463,10 @@ void drawScene(Scene &s) {
     if (s.sky && settings.skyMode == 2) {
         double screen = m->m_size.x / m->m_size.y, image = s.sky->m_size.x / s.sky->m_size.y;
         for (auto &v : sky.vertices) {
-            if (image > screen)
-                v.u = .5 + (v.u - .5) * screen / image;
-            else
-                v.v = .5 + (v.v - .5) * image / screen;
+            const auto uv = Cube::pictureUV(v.u, v.v, screen, image, skyYaw, skyPitch,
+                                            settings.skyMotion || settings.skySpeed != 0);
+            v.u = uv.u;
+            v.v = uv.v;
         }
     }
     graphics.draw(sky);
@@ -886,53 +781,29 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             return SDispatchResult{};
         });
         statusCommand = HyprlandAPI::registerHyprCtlCommand(handle, {"xetal-cube", true, [](eHyprCtlOutputFormat, std::string) {
-                                                                         auto b = json_builder_new();
-                                                                         json_builder_begin_object(b);
-                                                                         auto boolean = [&](const char *k, bool v) {
-                                                                             json_builder_set_member_name(b, k);
-                                                                             json_builder_add_boolean_value(b, v);
-                                                                         };
-                                                                         auto integer = [&](const char *k, int64_t v) {
-                                                                             json_builder_set_member_name(b, k);
-                                                                             json_builder_add_int_value(b, v);
-                                                                         };
-                                                                         auto text = [&](const char *k, const std::string &v) {
-                                                                             json_builder_set_member_name(b, k);
-                                                                             json_builder_add_string_value(b, v.c_str());
-                                                                         };
-                                                                         boolean("enabled", settings.enabled);
-                                                                         boolean("active", bool(scene));
-                                                                         integer("started", started);
-                                                                         integer("finished", finished);
-                                                                         integer("draws", draws);
-                                                                         text("error", lastError);
-                                                                         integer("consumed_buttons", consumedButtons.size());
-                                                                         if (scene) {
-                                                                             text("monitor", scene->monitor ? scene->monitor->m_name : "");
-                                                                             integer("selected", scene->selection);
-                                                                             integer("windows", scene->windows.size());
-                                                                             integer("held_button", scene->button);
-                                                                             boolean("settling", scene->settling);
-                                                                             json_builder_set_member_name(b, "yaw");
-                                                                             json_builder_add_double_value(b, scene->yaw);
-                                                                             json_builder_set_member_name(b, "workspaces");
-                                                                             json_builder_begin_array(b);
-                                                                             for (auto &f : scene->faces)
-                                                                                 json_builder_add_int_value(b, f.id);
-                                                                             json_builder_end_array(b);
-                                                                         }
-                                                                         json_builder_end_object(b);
-                                                                         auto root = json_builder_get_root(b);
-                                                                         auto gen = json_generator_new();
-                                                                         json_generator_set_root(gen, root);
-                                                                         auto data = json_generator_to_data(gen, nullptr);
-                                                                         std::string result = data;
-                                                                         g_free(data);
-                                                                         g_object_unref(gen);
-                                                                         json_node_free(root);
-                                                                         g_object_unref(b);
-                                                                         return result;
-                                                                     }});
+            Cube::Json root(json_object_new_object(), json_object_put);
+            auto add = [&](const char *key, json_object *value) { json_object_object_add(root.get(), key, value); };
+            add("enabled", json_object_new_boolean(settings.enabled));
+            add("active", json_object_new_boolean(bool(scene)));
+            add("started", json_object_new_int64(started));
+            add("finished", json_object_new_int64(finished));
+            add("draws", json_object_new_int64(draws));
+            add("error", json_object_new_string(lastError.c_str()));
+            add("consumed_buttons", json_object_new_int64(consumedButtons.size()));
+            if (scene) {
+                add("monitor", json_object_new_string(scene->monitor ? scene->monitor->m_name.c_str() : ""));
+                add("selected", json_object_new_int64(scene->selection));
+                add("windows", json_object_new_int64(scene->windows.size()));
+                add("held_button", json_object_new_int64(scene->button));
+                add("settling", json_object_new_boolean(scene->settling));
+                add("yaw", json_object_new_double(scene->yaw));
+                auto faces = json_object_new_array();
+                add("workspaces", faces);
+                for (auto &f : scene->faces)
+                    json_object_array_add(faces, json_object_new_int64(f.id));
+            }
+            return std::string(json_object_to_json_string_ext(root.get(), JSON_C_TO_STRING_PLAIN));
+        }});
     } catch (...) {
         for (auto h : hooks)
             h->unhook();

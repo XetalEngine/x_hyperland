@@ -55,7 +55,6 @@ struct GLState {
         gl->setCapStatus(GL_SCISSOR_TEST, scissoring);
     }
 };
-using Color = std::array<float, 4>;
 struct Vertex {
     float x, y, w, u, v;
 };

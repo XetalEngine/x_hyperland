@@ -10,10 +10,24 @@
 #include <set>
 
 namespace Cube {
+using Color = std::array<float, 4>;
 constexpr double PI = 3.14159265358979323846;
 struct V3 {
     double x = 0, y = 0, z = 0;
 };
+struct UV {
+    double u = 0, v = 0;
+};
+inline UV pictureUV(double u, double v, double screenAspect, double imageAspect, double yaw, double pitch, bool moving) {
+    // Keep ordinary pictures flat and aspect-correct. A moving picture gets
+    // a little overscan, with bounded panning instead of a seam or stretched
+    // edge when the cube makes a full turn. Static pictures retain their crop.
+    const double width = std::min(1.0, screenAspect / imageAspect);
+    const double height = std::min(1.0, imageAspect / screenAspect);
+    const double scale = moving ? .8 : 1;
+    return {.5 + width * ((u - .5) * scale + (moving ? .1 * std::sin(yaw) : 0)),
+            .5 + height * ((v - .5) * scale - (moving ? .1 * std::sin(pitch) : 0))};
+}
 inline V3 rotate(V3 p, double yaw, double pitch) {
     double x = p.x * std::cos(yaw) + p.z * std::sin(yaw), z = -p.x * std::sin(yaw) + p.z * std::cos(yaw);
     return {x, p.y * std::cos(pitch) - z * std::sin(pitch), p.y * std::sin(pitch) + z * std::cos(pitch)};

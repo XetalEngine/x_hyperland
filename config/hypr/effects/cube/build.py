@@ -31,11 +31,11 @@ def build(root=ROOT):
     if not shutil.which('g++') or not shutil.which('pkg-config'):
         raise RuntimeError('Desktop Cube needs a C++ compiler and pkg-config. Install the optional Desktop Cube build dependencies.')
     try:
-        flags = shlex.split(output(['pkg-config','--cflags','hyprland','json-glib-1.0','libeis-1.0']))
+        flags = shlex.split(output(['pkg-config','--cflags','hyprland','json-c','libeis-1.0']))
         headers = next(Path(arg[2:])/'src/version.h' for arg in flags
                        if arg.startswith('-I') and (Path(arg[2:])/'src/version.h').exists())
     except (RuntimeError, StopIteration) as error:
-        raise RuntimeError('Desktop Cube needs matching Hyprland, json-glib and libei development headers. See effects/cube/README.md.') from error
+        raise RuntimeError('Desktop Cube needs matching Hyprland, json-c and libei development headers. See effects/cube/README.md.') from error
     match = re.search(r'#define\s+GIT_COMMIT_HASH\s+"([a-f0-9]+)"', headers.read_text())
     if not match or match[1] != SUPPORTED_COMMIT:
         raise RuntimeError('Desktop Cube supports Hyprland 0.56.2. This version needs an updated Cube adapter; ordinary workspace switching remains available.')
@@ -55,7 +55,7 @@ def build(root=ROOT):
         try:
             cmd = ['g++','-std=c++23','-shared','-fPIC','-O2','-g','-Wall','-Wextra','-Wno-unused-parameter',
                    *flags,str(root/'native/plugin.cpp'),'-o',tmp,'-lGLESv2',
-                   *shlex.split(output(['pkg-config','--libs','json-glib-1.0']))]
+                   *shlex.split(output(['pkg-config','--libs','json-c']))]
             process = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True)
             try:
                 stdout,stderr = process.communicate(timeout=180)

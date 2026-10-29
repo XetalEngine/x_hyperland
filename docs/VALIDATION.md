@@ -93,6 +93,30 @@ The bundled wallpaper's SHA-256 matches the original desktop image byte for byte
 
 ## Reproduce
 
+Cube background motion fix (28 October 2026): **9 Cube tests and 16 installer
+tests passed**. The new `tests/check-cube-sky.py` probe failed against the previous
+plugin because rotating with picture motion enabled left the background pixels
+unchanged. The corrected build passed pixel comparisons for pictures and
+panoramas with motion on/off, independent drift, two monitors, a full turn, and
+a rotated output at 1.25 scale. Unrelated monitor backgrounds stayed unchanged.
+The existing nested Wayland integration also passed real Ctrl+Alt drag/release,
+Escape cancellation, workspace isolation, empty faces, 3D windows, Burn
+coexistence, disabling, output removal and unload/reload. Native geometry tests
+check aspect preservation, bounded sampling and continuity over complete turns.
+Native settings checks cover all sky modes, switches, drift, malformed JSON,
+invalid types/ranges, artwork paths and bounded input. The compositor reader now
+uses json-c: unloading json-glib had left registered types behind and stalled a
+live plugin update. The working session was recovered without restarting it;
+the revised build passed an old-to-new replacement and three further replacements
+at distinct paths in a disposable compositor.
+
+```bash
+python3 tests/check-cube-sky.py /path/to/xetal-cube.so /tmp/xetal-cube-sky-check
+```
+
+This probe creates and closes its own nested compositor with Xwayland disabled;
+the output directory must be new. It does not load into the working compositor.
+
 File picker previews (28 October 2026): **390 desktop tests and 16 installer
 tests passed**. A complete prepare build compiled the GTK preview module,
 both Qt platform themes, the bar modules, sharing helper, Burn and Cube, and

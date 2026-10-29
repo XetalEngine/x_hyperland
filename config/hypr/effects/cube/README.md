@@ -26,9 +26,9 @@ Cube** opens a tilted preview; Escape or a click closes it without switching.
 | Cube edge color | RGBA picker for the thin outlines |
 | Ceiling / floor pictures | Independent artwork for the two caps |
 | Ceiling / floor color | RGBA fallback; alpha also controls cap artwork opacity |
-| Background | Gradient, fitted static picture, or panoramic sky |
-| Move sky with cube rotation | Rotate the panorama with the cube, or keep it still |
-| Sky drift | Optional continuous panorama rotation; zero stops drift |
+| Background | Gradient, fitted picture, or panoramic sky |
+| Move sky with cube rotation | Pan a picture or rotate a panorama as you turn the cube |
+| Sky drift | Independent, gentle picture panning or continuous panorama rotation; zero stops drift |
 | Gradient top / bottom | Background colors when no picture is selected |
 | Raise windows above the cube | Enable/disable 3D window layers |
 | Minimum cube size | Compiz's lower limit on shrinking walls for window layers |
@@ -36,9 +36,13 @@ Cube** opens a tilted preview; Escape or a click closes it without switching.
 | Window thickness / side color | Depth and RGBA color of extruded window edges |
 
 A 2:1 equirectangular panorama works best for the sky. Choose **Background
-picture** to fit an ordinary image without wrapping it. Pictures are copied into
+picture** to fit an ordinary image without wrapping it. Motion adds a small zoom
+and pans within the picture so no empty or stretched edges appear. Turn off
+**Move sky with cube rotation** and set **Sky drift** to zero for a completely
+static picture or panorama. Motion controls are inactive for a plain gradient.
+Pictures are copied into
 `images/`; originals remain untouched. GIF imports use the first frame; moving
-sky means panorama rotation. Images are decoded outside the compositor, limited
+sky means picture panning or panorama rotation. Images are decoded outside the compositor, limited
 to 4096×2048, and cached as bounded RGBA data. The cache is rebuilt locally and
 excluded from the repository and installer payload.
 
@@ -64,9 +68,9 @@ gesture. Rendering/input hooks are removed on unload. Burn remains independent.
 The adapter is tested with **Hyprland 0.56.2**, commit
 `efb50993780079460b0cbed1363e2166a2de1d9f`, on x86-64 with its OpenGL renderer.
 Build requirements: C++23, matching Hyprland development headers, pkg-config,
-GLESv2, json-glib and libei development files (`hyprland`, `json-glib-1.0`,
+GLESv2, json-c and libei development files (`hyprland`, `json-c`,
 `libeis-1.0` pkg-config modules). On Arch, these are provided by Hyprland,
-json-glib, libei and libglvnd packages. Other distributions can require separate
+json-c, libei and libglvnd packages. Other distributions can require separate
 development packages. The installer attempts the build; the session loader can
 build on first use. Complete sources and controls are included; binaries are not.
 
@@ -75,6 +79,9 @@ version leaves ordinary workspace switching available and reports the optional
 effect's error in the session's `cube.log`. No replacement plugin is downloaded.
 Settings apply atomically, with external-edit checks and rollback. No shared
 KDE/Plasma settings, global environment or persistent services change.
+
+The native settings/status reader uses json-c so replacing or unloading a Cube
+build cannot leave GLib JSON type registrations pointing into an unloaded library.
 
 `hyprctl xetal-cube` reports enable state, scene state, workspace IDs, the selected
 face and lifecycle counters. Run automated checks from the repository:
@@ -85,7 +92,10 @@ QT_QPA_PLATFORM=offscreen python3 -B -m unittest discover -s config/hypr/effects
 
 Native changes must also be checked in a disposable nested Hyprland, including
 real press/motion/release input, repeated gestures, multiple monitors, custom
-images, scaled/rotated outputs, and plugin unload, before loading on a working desktop.
+images, scaled/rotated outputs, and replacement with a different plugin build,
+before loading on a working desktop. The pixel/replacement probe is
+`tests/check-cube-sky.py` at the repository root; its optional third argument is
+the previous plugin binary for checking an upgrade.
 
 ## Source and license
 

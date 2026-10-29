@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import os
+import shlex
 from pathlib import Path
 import struct
 import subprocess
@@ -15,6 +16,30 @@ from effects.cube import model,controller
 
 
 class CubeTests(unittest.TestCase):
+    def test_native_settings_preserve_values_and_reject_invalid_input(self):
+        with tempfile.TemporaryDirectory() as d:
+            binary=Path(d)/'settings';path=Path(d)/'settings.json'
+            flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','json-c'],text=True))
+            subprocess.run(['g++','-std=c++23','-Wall','-Wextra',str(ROOT/'native/test_settings.cpp'),'-o',str(binary),*flags],check=True,capture_output=True)
+            values=model.validate(model.DEFAULTS)
+            for mode,number in [('gradient',1),('image',2),('sky',3)]:
+                for motion in (False,True):
+                    values.update(sky_mode=mode,sky_motion=motion,sky_speed=-20)
+                    path.write_text(model.encode(values))
+                    result=subprocess.run([str(binary),str(path)],capture_output=True,text=True)
+                    self.assertEqual(result.returncode,0,result.stderr)
+                    self.assertEqual(result.stdout.strip(),f'{number} {int(motion)} -20')
+            for key,value in [('enabled',1),('zoom',True),('wall_opacity',float('nan')),('window_space',2.5),
+                              ('sky_motion',None),('sky_mode','invalid'),('sky_image','../../private.png'),
+                              ('sky_image','images/'+'a'*64+'.png\0'),('cap_color',[0,0,2,1]),('sky_top',[0,0,False,1])]:
+                with self.subTest(key=key,value=value):
+                    path.write_text(json.dumps(dict(values,**{key:value})))
+                    self.assertEqual(subprocess.run([str(binary),str(path)],capture_output=True).returncode,1)
+            good=model.encode(values).encode()
+            for bad in [good+b'{}',good+b'\0',good[:-8],b'{}',b'[]',b'x'*16385,good.replace(b'image',b'\xff',1)]:
+                path.write_bytes(bad)
+                self.assertEqual(subprocess.run([str(binary),str(path)],capture_output=True).returncode,1)
+
     def test_native_workspace_isolation_and_geometry(self):
         with tempfile.TemporaryDirectory() as d:
             binary=Path(d)/'geometry'
@@ -84,6 +109,22 @@ class CubeTests(unittest.TestCase):
             page=CubePage(lambda *a:None)
         page.fields['zoom'].setValue(50)
         self.assertFalse(page.apply.isEnabled());self.assertFalse(page.preview.isEnabled());page.close()
+
+    def test_background_motion_controls_cover_pictures_and_panoramas(self):
+        os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
+        from PyQt6.QtWidgets import QApplication
+        from effects.cube.page import CubePage
+        app=QApplication.instance() or QApplication([])
+        with patch.object(model,'load',return_value=(model.validate(model.DEFAULTS),'token')):
+            page=CubePage(lambda *a:None)
+        for mode in ('image','sky','gradient','image'):
+            page.fields['sky_mode'].setCurrentIndex(page.fields['sky_mode'].findData(mode))
+            for key in ('sky_motion','sky_speed'):
+                self.assertEqual(page.fields[key].isEnabled(),mode!='gradient')
+            self.assertTrue(page.values()['sky_motion'])
+        page.fields['sky_motion'].setChecked(False);page.fields['sky_speed'].setValue(4)
+        self.assertFalse(page.values()['sky_motion']);self.assertEqual(page.values()['sky_speed'],4)
+        self.assertTrue(page.dirty);self.assertTrue(page.apply.isEnabled());page.close()
 
 
 if __name__=='__main__':unittest.main()

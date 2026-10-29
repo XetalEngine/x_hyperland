@@ -20,7 +20,7 @@ The private GTK 3 preview module is built by the same theme builder. Qt previews
 
 The optional **Compiz Burn** close effect supports Hyprland **0.56.2** at the tested commit documented in [its guide](../config/hypr/effects/burn/README.md), x86-64 and the OpenGL renderer. It needs a C++23 compiler, matching Hyprland development headers exposed through `pkg-config hyprland`, and GLESv2 development files. Its build and runtime ABI checks reject mismatched versions; unsupported installations retain normal closing animations and still install the rest of the desktop. Controls are in **Theme → Window effects → Burn**.
 
-**Desktop Cube & 3D Windows** uses the same tested Hyprland ABI and C++23/OpenGL requirements as Burn, plus json-glib and libei development headers (`json-glib-1.0`, `libeis-1.0`). Its sources and optional build are included in the installer. A missing dependency or unsupported compositor leaves ordinary workspace switching available. See the [Cube guide](../config/hypr/effects/cube/README.md).
+**Desktop Cube & 3D Windows** uses the same tested Hyprland ABI and C++23/OpenGL requirements as Burn, plus json-c and libei development headers (`json-c`, `libeis-1.0`). Its sources and optional build are included in the installer. A missing dependency or unsupported compositor leaves ordinary workspace switching available. See the [Cube guide](../config/hypr/effects/cube/README.md).
 
 Xetal Images uses the installed Qt image readers. Common image formats are included with Qt; additional readers such as HEIF, AVIF, camera RAW and PSD depend on the distribution's Qt image-format plugins.
 
