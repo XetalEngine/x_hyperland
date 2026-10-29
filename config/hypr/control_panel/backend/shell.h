@@ -99,6 +99,8 @@ AliasEntry MainWindow::parseAliasLine(const QString &line, const QString &shell)
 
 void MainWindow::populateAliasTable()
 {
+    ui->aliasTable->verticalHeader()->setMinimumSectionSize(44);
+    ui->aliasTable->verticalHeader()->setDefaultSectionSize(44);
     ui->aliasTable->setRowCount(0);
     ui->aliasTable->setColumnCount(3);
     QStringList headers;
@@ -123,6 +125,7 @@ void MainWindow::populateAliasTable()
         connect(convertButton, &QPushButton::clicked, this, [this, entry]() {
             showAliasToDesktopDialog(entry);
         });
+        convertButton->setProperty("panelCellAction", true);
         ui->aliasTable->setCellWidget(row, 2, convertButton);
     }
 }

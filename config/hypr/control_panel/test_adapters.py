@@ -154,7 +154,7 @@ class CoverageTests(unittest.TestCase):
         original = {widget.attrib['name'] for widget in ui.find(".//widget[@name='tabWidget']").findall('widget')}
         tools = [tool for group in json.loads((root/'tools.json').read_text()) for tool in group['tools']]
         represented = {tool['path'][0] for tool in tools if tool['path']}
-        self.assertEqual(original - represented, {'themeTab'})
+        self.assertEqual(original - represented, {'themeTab', 'kvmTab'})
         self.assertIn('cleanerTab', represented)
         ids = [tool['id'] for tool in tools]
         start = ids.index('pacman')

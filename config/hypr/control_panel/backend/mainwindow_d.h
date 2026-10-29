@@ -144,12 +144,8 @@ shellConfigFiles["ksh"] = QStringList()
     logProcess = nullptr;
     setupLogFiles();
     populateLogComboBox();
-    connect(ui->refreshLogsButton, &QPushButton::clicked, this, &MainWindow::on_refreshLogsButton_clicked);
-    connect(ui->applyFilterButton, &QPushButton::clicked, this, &MainWindow::on_applyFilterButton_clicked);
-    connect(ui->copyLogButton, &QPushButton::clicked, this, &MainWindow::on_copyLogButton_clicked);
-    connect(ui->saveLogButton, &QPushButton::clicked, this, &MainWindow::on_saveLogButton_clicked);
-    connect(ui->logFileComboBox, &QComboBox::currentTextChanged, this, &MainWindow::on_logFileComboBox_currentTextChanged);
-    
+    // setupUi connects the named log slots once via connectSlotsByName.
+
     // Package Manager tab setup
     checkAurHelpers();
     
@@ -364,6 +360,8 @@ shellConfigFiles["ksh"] = QStringList()
             refreshConnectionsList();
             refreshWifiNetworks(false);
             refreshOpenPorts();
+        }
+        if (ui->tabWidget->widget(index) == sharesSubTab) {
             refreshNetworkShares();
         }
         if (ui->tabWidget->widget(index) == ui->dashboardTab) {
@@ -440,6 +438,7 @@ MainWindow::~MainWindow()
         delete currentProcess;
     }
     if (logProcess) {
+        logProcess->disconnect(this);
         if (logProcess->state() != QProcess::NotRunning) {
             logProcess->terminate();
             if (!logProcess->waitForFinished(2000)) { // wait 2 seconds

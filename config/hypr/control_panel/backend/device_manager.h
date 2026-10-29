@@ -73,6 +73,9 @@ void MainWindow::setupDeviceManagerTab() {
         << tr("Device") << tr("Vendor") << tr("Driver") << tr("Address") << tr("IRQ") << tr("Link / Speed"));
     devMgrTree->header()->setSectionResizeMode(QHeaderView::Interactive);
     devMgrTree->header()->setStretchLastSection(true);
+    const int widths[] = {330, 240, 120, 145, 55, 150};
+    for (int column = 0; column < 6; ++column) devMgrTree->setColumnWidth(column, widths[column]);
+    devMgrTree->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     devMgrTree->setAlternatingRowColors(true);
     devMgrTree->setContextMenuPolicy(Qt::CustomContextMenu);
     layout->addWidget(devMgrTree);
@@ -473,7 +476,7 @@ void MainWindow::refreshDeviceManager() {
                 }
 
                 devMgrTree->expandAll();
-                for (int c = 0; c < 5; ++c) devMgrTree->resizeColumnToContents(c);
+                // Keep the user-adjustable widths; long driver names have tooltips.
                 devMgrCountLabel->setText(tr("%1 PCI · %2 USB · %3 unclaimed")
                                           .arg(pciCount).arg(usbCount).arg(unclaimed));
                 if (!saved.isEmpty()) emit devMgrFilter->textChanged(saved);   // re-apply live filter

@@ -187,7 +187,7 @@ void MainWindow::setupAutostartTab() {
 
     QVBoxLayout *servicesRoot = new QVBoxLayout(ui->servicesTab);
     servicesRoot->setContentsMargins(0, 0, 0, 0);
-    QTabWidget *servicesTabs = new QTabWidget(ui->servicesTab);
+    QTabWidget *servicesTabs = new PanelTabs(ui->servicesTab);
     servicesTabs->setObjectName("servicesSubTabs");
     servicesTabs->addTab(servicesPage, tr("⚙️ Services"));
     servicesTabs->addTab(autostartTab, tr("🚀 Autostart"));

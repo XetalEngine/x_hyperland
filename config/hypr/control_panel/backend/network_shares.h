@@ -42,8 +42,7 @@ static bool isProtectedSharePath(const QString &path) {
 
 bool MainWindow::networkSharesVisible() const {
     return sharesSubTab && isVisible() && !isMinimized()
-        && ui->tabWidget->currentWidget() == ui->networkTab
-        && ui->networkTabWidget->currentWidget() == sharesSubTab;
+        && ui->tabWidget->currentWidget() == sharesSubTab;
 }
 
 // ============================================================

@@ -2,6 +2,7 @@
 #include <QDir>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QLayout>
 #include <QObject>
 #include <QString>
 #include <QTabBar>
@@ -34,11 +35,13 @@ public:
     return currentWidget() && currentWidget()->hasHeightForWidth();
   }
   int heightForWidth(int width) const override {
-    return currentWidget()
-               ? currentWidget()->heightForWidth(width - 4) +
-                     (tabBar()->isHidden() ? 4
-                                           : tabBar()->sizeHint().height() + 4)
-               : -1;
+    if (!currentWidget()) return -1;
+    // A scroll area's minimum height must not include a text editor's preferred
+    // 200px height. Let expanding outputs shrink while wrapped labels fit.
+    const auto *layout = currentWidget()->layout();
+    const int height = layout ? layout->minimumHeightForWidth(width - 4)
+                              : currentWidget()->heightForWidth(width - 4);
+    return height < 0 ? -1 : height + (tabBar()->isHidden() ? 4 : tabBar()->sizeHint().height() + 4);
   }
 };
 class MainWindow;
@@ -50,6 +53,8 @@ class QPushButton;
 class QProcess;
 class QWidget;
 class QEvent;
+class QScrollArea;
+class QCheckBox;
 namespace HyperPanel {
 inline QString root() {
   const auto value = qEnvironmentVariable("XETAL_HYPR_ROOT");
@@ -77,6 +82,9 @@ private:
   QStackedWidget *stack;
   QWidget *home;
   QWidget *isoActions;
+  QScrollArea *body;
+  QCheckBox *startupScreen;
+  QLabel *startupStatus;
   QLabel *crumb, *count;
   QLineEdit *search;
   QPushButton *back;
@@ -94,4 +102,6 @@ private:
   QString current;
   void arrange();
   void theme();
+  void prepareTools();
+  void loadStartupPreference();
 };

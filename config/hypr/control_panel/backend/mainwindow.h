@@ -187,7 +187,6 @@ private slots:
     void on_copyLogButton_clicked();
     void on_saveLogButton_clicked();
     void on_logFileComboBox_currentTextChanged(const QString &text);
-    void onLogProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void onProcessError(QProcess::ProcessError error);
     void refreshDrives();
@@ -544,6 +543,7 @@ private:
     void setupLogFiles();
     void populateLogComboBox();
     void loadLogContent();
+    void startLogReader(const QString &source, bool follow, int boot = 1);
     void clearLogFile(const QString &filePath);
     void searchLogFiles();
     void applyLogFilters();
@@ -740,7 +740,6 @@ private:
     QString themeAccent = "#27ae60";
     QString themeBg;
     QString themeText;
-    QProcess *journalFollowProcess = nullptr;
 
     // Cleaner tab: curated cache categories + a du size tree for manual hunting
     void setupCleanerTab();

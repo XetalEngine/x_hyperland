@@ -106,6 +106,7 @@ raise SystemExit(startup.session())
         for name in ('tools.json','bridge.py','aliases.py'):
             shutil.copy2(ROOT/name,panel/name)
         (profile/'theme').symlink_to(ROOT.parent/'theme',target_is_directory=True)
+        (profile/'startup').symlink_to(ROOT.parent/'startup',target_is_directory=True)
         self.env['XETAL_HYPR_ROOT']=str(profile)
         code='import os;os.execv('+repr(str(ROOT/'.build/xetal-control-panel'))+','+repr([str(ROOT/'.build/xetal-control-panel')])+')'
         process,connection=self.child(code)

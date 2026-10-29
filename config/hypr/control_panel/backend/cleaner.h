@@ -277,6 +277,8 @@ void MainWindow::setupCleanerTab() {
 
     // --- two panels ------------------------------------------------------
     QSplitter *split = new QSplitter(Qt::Horizontal, cleanerTab);
+    split->setObjectName("cleanerSplitter");
+    split->setChildrenCollapsible(false);
 
     QWidget *leftBox = new QWidget(split);
     QVBoxLayout *leftLay = new QVBoxLayout(leftBox);
@@ -284,6 +286,9 @@ void MainWindow::setupCleanerTab() {
     QLabel *leftTitle = new QLabel(tr("<b>What can go</b> — checked items are removed"), leftBox);
     leftLay->addWidget(leftTitle);
     cleanCatTree = new QTreeWidget(leftBox);
+    cleanCatTree->setObjectName("cleanCategoryTree");
+    cleanCatTree->setIconSize(QSize(22, 22));
+    cleanCatTree->setIndentation(24);
     cleanCatTree->setColumnCount(2);
     cleanCatTree->setHeaderLabels(QStringList() << tr("Item") << tr("Size"));
     cleanCatTree->header()->setStretchLastSection(false);
@@ -322,11 +327,13 @@ void MainWindow::setupCleanerTab() {
 
     const int headerRowHeight = qMax(folderBar->sizeHint().height(),
                                      leftTitle->sizeHint().height());
-    leftTitle->setFixedHeight(headerRowHeight);
-    rightHeader->setFixedHeight(headerRowHeight);
+    leftTitle->setMinimumHeight(qMax(42, headerRowHeight));
+    rightHeader->setMinimumHeight(qMax(42, headerRowHeight));
     leftTitle->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 
     cleanSizeTree = new QTreeWidget(rightBox);
+    cleanSizeTree->setObjectName("cleanSizeTree");
+    cleanSizeTree->setIconSize(QSize(22, 22));
     cleanSizeTree->setColumnCount(2);
     cleanSizeTree->setHeaderLabels(QStringList() << tr("Path") << tr("Size"));
     cleanSizeTree->header()->setStretchLastSection(false);
@@ -351,13 +358,14 @@ void MainWindow::setupCleanerTab() {
         hint->setStyleSheet("color:#888;");
         hint->setWordWrap(true);
         hint->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-        hint->setFixedHeight(QFontMetrics(hf).height() * 2 + 4);
+        hint->setMinimumHeight(QFontMetrics(hf).height() * 2 + 4);
     }
 
     split->addWidget(leftBox);
     split->addWidget(rightBox);
-    split->setStretchFactor(0, 1);
-    split->setStretchFactor(1, 1);
+    split->setStretchFactor(0, 11);
+    split->setStretchFactor(1, 9);
+    split->setSizes({660, 540});
     root->addWidget(split, 1);
 
     // --- bottom bar ------------------------------------------------------

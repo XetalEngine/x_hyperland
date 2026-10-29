@@ -71,6 +71,8 @@ void MainWindow::setupConfigFiles() {
 }
 
 void MainWindow::populateConfigTable() {
+    ui->configTable->verticalHeader()->setMinimumSectionSize(44);
+    ui->configTable->verticalHeader()->setDefaultSectionSize(44);
     ui->configTable->setRowCount(0);
     ui->configTable->setColumnCount(3);
     QStringList headers;
@@ -79,11 +81,12 @@ void MainWindow::populateConfigTable() {
     
     // Set column sizing behavior
     ui->configTable->horizontalHeader()->setStretchLastSection(false);
-    ui->configTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);  // File Path
+    ui->configTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Interactive);
+    ui->configTable->setColumnWidth(0, 360);  // File Path
     ui->configTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);  // Description stretches
     ui->configTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);  // Edit button fixed width
     
-    ui->configTable->setColumnWidth(2, 80); // Edit button width
+    ui->configTable->setColumnWidth(2, 110); // Edit button width
     
     for (const ConfigFileEntry &entry : configFileList) {
         int row = ui->configTable->rowCount();
@@ -101,6 +104,7 @@ void MainWindow::populateConfigTable() {
         connect(editButton, &QPushButton::clicked, [this, entry]() {
             editConfigFile(entry.filePath);
         });
+        editButton->setProperty("panelCellAction", true);
         ui->configTable->setCellWidget(row, 2, editButton);
     }
 }

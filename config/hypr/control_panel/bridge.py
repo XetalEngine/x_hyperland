@@ -22,6 +22,17 @@ def theme():
       QGroupBox::title {{color:{p['PlaceholderText']}; padding:0 6px;}}
       QTabWidget::pane {{border:none;}}
       QTableWidget, QTreeWidget {{font-size:12px;}}
+      QTableView::item {{padding:4px 6px;}}
+      QPushButton[panelCellAction="true"] {{padding:4px 8px; min-height:22px;}}
+      QTreeWidget#cleanCategoryTree, QTreeWidget#cleanSizeTree {{font-size:14px;}}
+      QTreeWidget#cleanCategoryTree::item, QTreeWidget#cleanSizeTree::item {{padding:3px 6px; min-height:18px;}}
+      QTreeWidget#cleanCategoryTree::indicator {{width:18px; height:18px;}}
+      QAbstractItemView::indicator:unchecked {{background:{p['Base']}; border:1px solid {p['Midlight']}; border-radius:4px; width:16px; height:16px;}}
+      QTextEdit#logContentTextEdit {{font-family:"JetBrains Mono", monospace; font-size:12px;}}
+      QScrollBar:horizontal {{height:10px; margin:0;}}
+      QScrollBar::handle:horizontal {{min-width:28px; min-height:0; background:{p['PlaceholderText']}; border-radius:4px;}}
+      QScrollBar::handle:vertical {{min-width:0; min-height:28px;}}
+      QScrollBar::handle:horizontal:hover {{background:{p['Accent']};}}
       QPushButton {{padding:6px 10px;}}
     '''
     return {'stylesheet':style,'colors':p,'font':runtime.ui_font(),
@@ -73,6 +84,10 @@ def main():
                 import aliases
                 result=aliases.load() if action=='aliases' else aliases.save(data,ROOT/'control_panel/state')
             elif action=='shortcut':result=shortcut(data)
+            elif action=='startup-screen':
+                sys.path.insert(0,str(ROOT/'startup'))
+                import login_settings
+                result={'enabled':login_settings.save(data['enabled']) if 'enabled' in data else login_settings.enabled()}
             else:raise ValueError('Unknown desktop adapter action.')
         print(json.dumps(result,ensure_ascii=False));return 0
     except (OSError,ValueError,KeyError) as error:

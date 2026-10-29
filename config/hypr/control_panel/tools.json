@@ -1,5 +1,5 @@
 [
-  {"title":"Files & recovery","tools":[
+  {"title": "Files & recovery","tools":[
     {"id":"iso","title":"System ISO","description":"Clone your system · bootable installer","icon":"media-optical","path":["isoCreatorTab"],"keywords":"snapshot exclusions offline compatibility USB archive restore dummy"},
     {"id":"backup","title":"System Backup","description":"Choose sources and backup drives","icon":"document-save-all","path":["backupTab"]},
     {"id":"restore","title":"System Restore","description":"Restore files from a backup","icon":"document-revert","path":["restoreTab"]},
@@ -7,7 +7,7 @@
     {"id":"snapshots","title":"Restore Points","description":"Snapper and Btrfs snapshots","icon":"edit-undo","path":["dashboardTab","restorePointsSubTab"]},
     {"id":"logs","title":"Logs & Reports","description":"Journals, boots and hardware reports","icon":"utilities-log-viewer","path":["logsTab"]}
   ]},
-  {"title":"System & hardware","tools":[
+  {"title": "System & hardware","tools":[
     {"id":"overview","title":"System Overview","description":"Health, usage and quick actions","icon":"computer","path":["dashboardTab","welcomeSubTab"]},
     {"id":"devices","title":"Device Manager","description":"Hardware, drivers and resources","icon":"cpu","path":["dashboardTab","deviceManagerSubTab"]},
     {"id":"sensors","title":"Sensors & Power","description":"Temperatures, fans and power profiles","icon":"utilities-system-monitor","path":["dashboardTab","sensorsPowerSubTab"]},
@@ -17,26 +17,26 @@
     {"id":"environment","title":"Environment Variables","description":"User and system environment values","icon":"preferences-system","path":["dashboardTab","envVarsSubTab"]},
     {"id":"windows","title":"Window Inspector","description":"Applications, processes and windows","icon":"preferences-system-windows","path":["dashboardTab","windowEnumSubTab"]}
   ]},
-  {"title":"Software & maintenance","tools":[
+  {"title": "Software & maintenance","tools":[
     {"id":"pacman","title":"Pacman","description":"Official packages, search and install","icon":"system-software-install","path":["packageManagerTab","pacmanTab"]},
     {"id":"paru","title":"Paru","description":"AUR packages and helper management","icon":"package-x-generic","path":["packageManagerTab","paruTab"]},
     {"id":"yay","title":"Yay","description":"AUR packages and helper management","icon":"applications-other","path":["packageManagerTab","yayTab"]},
+    {"id":"deb","title":"Install .deb","description":"Convert and install a Debian package","icon":"application-x-deb","path":["debInstallTab"],"keywords":"debtap local package"},
     {"id":"updates","title":"Package Updates","description":"System upgrades and Arch news","icon":"system-software-update","path":["packageManagerTab","updatesTab"]},
-    {"id":"repair","title":"Package Repair","description":"Mirrors, keyrings, locks and downgrades","icon":"tools-check-spelling","path":["packageManagerTab","pacmanTab","pacmanDoctorTab"]},
+    {"id":"repair","title":"Package Repair","description":"Mirrors, keyrings, locks and downgrades","icon":"tools-check-spelling","path":["pacmanDoctorTab"]},
     {"id":"remove","title":"Installed Software","description":"Remove packages, orphans and caches","icon":"edit-delete","path":["uninstallTab"]},
     {"id":"cleaner","title":"System Cleaner","description":"Review space usage before cleaning","icon":"edit-clear","path":["cleanerTab"]}
   ]},
-  {"title":"Network & connections","tools":[
+  {"title": "Network & connections","tools":[
     {"id":"network","title":"Network","description":"Wi-Fi, interfaces, bridges and ports","icon":"network-workgroup","path":["networkTab"]},
-    {"id":"firewall","title":"Firewall","description":"UFW and firewalld rules","icon":"security-high","path":["networkTab","firewallSubTab"]},
-    {"id":"shares","title":"Network Shares","description":"Discover, mount and share folders","icon":"folder-network","path":["networkTab","networkSharesSubTab"]}
+    {"id":"firewall","title":"Firewall","description":"UFW and firewalld rules","icon":"security-high","path":["firewallSubTab"]},
+    {"id":"shares","title":"Network Shares","description":"Discover, mount and share folders","icon":"folder-network","path":["networkSharesSubTab"]}
   ]},
-  {"title":"Session & advanced tools","tools":[
+  {"title": "Session & advanced tools","tools":[
     {"id":"shell","title":"Shell & Apps Shortcuts","description":"Your shell aliases and Apps favorites","icon":"utilities-terminal","path":["shellToolsTab"],"keywords":"bash zsh fish kitty terminal commands launcher floating"},
     {"id":"services","title":"Services","description":"System and user services, journals","icon":"preferences-system-services","path":["servicesTab","servicesMainSubTab"]},
-    {"id":"autostart","title":"Startup Applications","description":"Login applications and user units","icon":"system-run","path":["servicesTab","autostartSubTab"]},
-    {"id":"tweaks","title":"System Tweaks","description":"Performance, security and desktop tools","icon":"preferences-other","path":["tweaksTab"],"keywords":"zram trim swap governor KDE compatibility"},
-    {"id":"kvm","title":"KVM & GPU Passthrough","description":"Single and dual GPU workflows","icon":"computer-laptop","path":["kvmTab"],"keywords":"virtual machines vfio qemu"},
+    {"id":"autostart","title":"Startup Applications","description":"Login applications and user units","icon":"system-run","path":["servicesTab","autostartSubTab"],"keywords":"login animated dashboard Xetal Engine Super D startup screen"},
+    {"id":"tweaks","title":"System Tweaks","description":"Performance, security and desktop tools","icon":"preferences-other","path":["tweaksTab"],"keywords":"zram trim swap governor performance security"},
     {"id":"configuration","title":"System Configuration","description":"Configuration files and privileged editor","icon":"document-properties","path":["configTab"]},
     {"id":"preferences","title":"Panel Preferences","description":"Language, saved layout and tool defaults","icon":"configure","path":[]},
     {"id":"desktop-updates","title":"Hyper Fusion Updates","description":"Desktop releases and update options","icon":"view-refresh","path":[]}

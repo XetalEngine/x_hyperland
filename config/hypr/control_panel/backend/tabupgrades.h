@@ -402,53 +402,23 @@ QString MainWindow::colorizeLogLine(const QString &line) {
 
 void MainWindow::on_followLogButton_clicked() {
     if (ui->followLogButton->isChecked()) {
-        ui->logContentTextEdit->clear();
         ui->followLogButton->setText(tr("⏸ Stop Following"));
-        ui->logStatusLabel->setText(tr("Following journal (live)..."));
-
-        journalFollowProcess = new QProcess(this);
-        connect(journalFollowProcess, &QProcess::readyReadStandardOutput, this, [this]() {
-            if (!journalFollowProcess) return;
-            const QStringList lines = QString::fromUtf8(journalFollowProcess->readAllStandardOutput()).split('\n', Qt::SkipEmptyParts);
-            for (const QString &line : lines) {
-                ui->logContentTextEdit->append(colorizeLogLine(line));
-            }
-        });
-        journalFollowProcess->start("journalctl", QStringList() << "-f" << "-n" << "50" << "--no-pager");
+        startLogReader("/var/log/journal/", true, -ui->bootSelectCombo->currentIndex());
     } else {
         ui->followLogButton->setText(tr("▶ Follow Journal"));
-        ui->logStatusLabel->setText(tr("Stopped following."));
-        if (journalFollowProcess) {
-            journalFollowProcess->kill();
-            journalFollowProcess->deleteLater();
-            journalFollowProcess = nullptr;
+        if (logProcess) {
+            auto *old = logProcess;
+            logProcess = nullptr;
+            old->disconnect(this);
+            if (old->state() != QProcess::NotRunning) old->kill();
+            old->deleteLater();
         }
+        ui->logStatusLabel->setText(tr("Stopped following."));
     }
 }
 
 void MainWindow::on_bootSelectCombo_activated(int index) {
-    // Stop follow mode if running (it would interleave)
-    if (ui->followLogButton->isChecked()) {
-        ui->followLogButton->setChecked(false);
-        on_followLogButton_clicked();
-    }
-    ui->logStatusLabel->setText(tr("Loading journal..."));
-
-    QProcess *proc = new QProcess(this);
-    connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            [this, proc, index](int, QProcess::ExitStatus) {
-                const QStringList lines = QString::fromUtf8(proc->readAllStandardOutput()).split('\n');
-                ui->logContentTextEdit->clear();
-                QStringList html;
-                for (const QString &line : lines) {
-                    if (!line.isEmpty()) html << colorizeLogLine(line);
-                }
-                ui->logContentTextEdit->setHtml("<pre style=\"font-family:monospace;\">" + html.join("\n") + "</pre>");
-                ui->logStatusLabel->setText(QString("Journal for boot -%1 (%2 lines, errors red / warnings orange)").arg(index).arg(html.size()));
-                proc->deleteLater();
-            });
-    int lines = ui->logLinesSpinBox->value();
-    proc->start("journalctl", QStringList() << "-b" << QString::number(-index) << "-n" << QString::number(lines) << "--no-pager");
+    startLogReader("/var/log/journal/", ui->followLogButton->isChecked(), -index);
 }
 
 // ============================================================

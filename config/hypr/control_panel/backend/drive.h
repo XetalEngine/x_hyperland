@@ -46,18 +46,13 @@ void MainWindow::setupDriveTable()
     ui->drivesTable->horizontalHeader()->setStretchLastSection(false);
     ui->drivesTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
     
-    // Set column widths
-    ui->drivesTable->setColumnWidth(0, 120); // Device Name
-    ui->drivesTable->setColumnWidth(1, 150); // Device Path
-    ui->drivesTable->setColumnWidth(2, 60);  // Size (20% smaller: 100 * 0.8)
-    ui->drivesTable->setColumnWidth(3, 60);  // Type
-    ui->drivesTable->setColumnWidth(4, 130); // Label
-    ui->drivesTable->setColumnWidth(5, 120); // Mount Point (30% smaller: 200 * 0.7)
-    ui->drivesTable->setColumnWidth(6, 100);  // Status
-    ui->drivesTable->setColumnWidth(7, 400);  // Disk ID (wider to show full IDs)
-    
-    // Enable word wrap for long text
-    ui->drivesTable->setWordWrap(true);
+    // Bounded, adjustable columns: overflowing content scrolls inside the table.
+    const int widths[] = {110, 130, 85, 60, 140, 140, 110, 240};
+    for (int column = 0; column < 8; ++column)
+        ui->drivesTable->setColumnWidth(column, widths[column]);
+    ui->drivesTable->horizontalHeader()->setStretchLastSection(true);
+    ui->drivesTable->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    ui->drivesTable->setWordWrap(false);
     ui->drivesTable->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(ui->drivesTable, &QTableWidget::customContextMenuRequested,
             this, &MainWindow::showDriveContextMenu);

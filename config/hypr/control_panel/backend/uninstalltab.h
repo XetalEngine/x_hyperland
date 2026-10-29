@@ -72,12 +72,11 @@ void MainWindow::refreshUninstallList() {
     QStringList headers;
     headers << tr("Package Name") << tr("Version") << tr("Size") << tr("Source") << tr("Description") << tr("Installed");
     ui->uninstallTable->setHorizontalHeaderLabels(headers);
-    ui->uninstallTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    ui->uninstallTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
-    ui->uninstallTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
-    ui->uninstallTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    ui->uninstallTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+    const int widths[] = {220, 160, 100, 135, 260, 165};
+    for (int column = 0; column < 6; ++column) ui->uninstallTable->setColumnWidth(column, widths[column]);
     ui->uninstallTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch);
-    ui->uninstallTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::ResizeToContents);
+    ui->uninstallTable->setWordWrap(false);
 
     QString name, version, description, sizeStr, installDateStr;
     qint64 totalBytes = 0;

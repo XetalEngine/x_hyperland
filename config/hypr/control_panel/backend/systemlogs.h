@@ -1,3 +1,6 @@
+#include "log_reader.h"
+#include <memory>
+#include <QScrollBar>
 
 void MainWindow::setupLogFiles() {
     logFileList.clear();
@@ -76,97 +79,104 @@ void MainWindow::setupLogFiles() {
 }
 
 void MainWindow::populateLogComboBox() {
-    ui->logFileComboBox->clear();
-    
-    for (const LogFileEntry &entry : logFileList) {
-        if (entry.exists) {
-            QString displayText = QString("%1 (%2)").arg(entry.filePath, entry.description);
-            ui->logFileComboBox->addItem(displayText, entry.filePath);
-        }
+    const auto previous = ui->logFileComboBox->currentData();
+    {
+        QSignalBlocker guard(ui->logFileComboBox);
+        ui->logFileComboBox->clear();
+        for (const LogFileEntry &entry : logFileList)
+            if (entry.exists)
+                ui->logFileComboBox->addItem(QString("%1 (%2)").arg(entry.filePath, entry.description), entry.filePath);
+        const int index = ui->logFileComboBox->findData(previous);
+        ui->logFileComboBox->setCurrentIndex(index >= 0 ? index : 0);
     }
-    
-    if (ui->logFileComboBox->count() > 0) {
-        ui->logFileComboBox->setCurrentIndex(0);
-        loadLogContent();
-    }
+    loadLogContent();
 }
 
 void MainWindow::loadLogContent() {
-    QString selectedLog = ui->logFileComboBox->currentData().toString();
-    if (selectedLog.isEmpty()) return;
-    
-    ui->logStatusLabel->setText(tr("Loading..."));
-    
-    // Kill any existing log process (defensive)
-    if (logProcess) {
-        if (logProcess->state() != QProcess::NotRunning) {
-            logProcess->terminate();
-            if (!logProcess->waitForFinished(2000)) {
-                logProcess->kill();
-                logProcess->waitForFinished(1000);
-            }
-        }
-        delete logProcess;
-        logProcess = nullptr;
-    }
-    
-    logProcess = new QProcess(this);
-    connect(logProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, &MainWindow::onLogProcessFinished);
-    
-    QStringList args;
-    int lines = ui->logLinesSpinBox->value();
-    QString filter = ui->logFilterEdit->text();
-    
-    if (selectedLog == "/var/log/journal/") {
-        // Special handling for systemd journal
-        args << "-n" << QString::number(lines);
-        if (!filter.isEmpty()) {
-            args << "-g" << filter;
-        }
-        logProcess->start("journalctl", args);
-    } else if (selectedLog.startsWith("inxi")) {
-        // Special handling for inxi commands
-        QStringList inxiArgs = selectedLog.split(" ", Qt::SkipEmptyParts);
-        if (inxiArgs.size() > 1) {
-            // Remove "inxi" from the beginning and use the rest as arguments
-            inxiArgs.removeFirst();
-            logProcess->start("inxi", inxiArgs);
-        } else {
-            logProcess->start("inxi", QStringList());
-        }
-    } else {
-        // Regular log files
-        if (ui->tailLogCheckBox->isChecked()) {
-            args << "-f" << "-n" << QString::number(lines);
-        } else {
-            args << "-n" << QString::number(lines);
-        }
-        
-        if (!filter.isEmpty()) {
-            args << "grep" << filter;
-            logProcess->start("tail", args);
-        } else {
-            args << selectedLog;
-            logProcess->start("tail", args);
-        }
-    }
+    const QString source = ui->logFileComboBox->currentData().toString();
+    if (source.isEmpty()) return;
+    const bool journal = source.startsWith("/var/log/journal");
+    ui->followLogButton->setChecked(false);
+    ui->followLogButton->setText(tr("▶ Follow Journal"));
+    const auto plan = LogReader::command(source, ui->logLinesSpinBox->value(), true);
+    ui->tailLogCheckBox->setEnabled(plan.follow);
+    ui->clearLogButton->setEnabled(plan.program == "tail");
+    startLogReader(source, plan.follow && ui->tailLogCheckBox->isChecked(), journal ? -ui->bootSelectCombo->currentIndex() : 1);
 }
 
-void MainWindow::onLogProcessFinished(int exitCode, QProcess::ExitStatus exitStatus) {
-    QString output = QString::fromUtf8(logProcess->readAllStandardOutput());
-    QString error = QString::fromUtf8(logProcess->readAllStandardError());
-    
-    if (exitCode == 0 || !output.isEmpty()) {
-        ui->logContentTextEdit->setPlainText(output);
-        ui->logStatusLabel->setText(QString("Loaded %1 lines").arg(output.count('\n')));
-    } else {
-        ui->logContentTextEdit->setPlainText("Error loading log file or no content found.");
-        ui->logStatusLabel->setText(tr("Error"));
+void MainWindow::startLogReader(const QString &source, bool follow, int boot) {
+    if (logProcess) {
+        auto *old = logProcess;
+        logProcess = nullptr;
+        old->disconnect(this);
+        if (old->state() != QProcess::NotRunning) old->kill();
+        old->deleteLater();
     }
-    
-    delete logProcess;
-    logProcess = nullptr;
+    const auto plan = LogReader::command(source, ui->logLinesSpinBox->value(), follow, boot);
+    auto *view = ui->logContentTextEdit;
+    view->clear();
+    view->document()->setMaximumBlockCount(5000);
+    ui->logStatusLabel->setText(tr("Loading…"));
+    if (QStandardPaths::findExecutable(plan.program).isEmpty()) {
+        view->setPlainText(tr("The %1 reader is not installed. This report cannot be decoded as plain text.").arg(plan.program));
+        ui->logStatusLabel->setText(tr("Reader unavailable"));
+        return;
+    }
+    auto *proc = new QProcess(this);
+    logProcess = proc;
+    auto environment = QProcessEnvironment::systemEnvironment();
+    environment.insert("NO_COLOR", "1");
+    environment.insert("TERM", "dumb");
+    environment.insert("SYSTEMD_COLORS", "0");
+    environment.insert("SYSTEMD_URLIFY", "0");
+    proc->setProcessEnvironment(environment);
+    auto stream = std::make_shared<LogReader::Stream>(ui->logFilterEdit->text());
+    auto append = [view](const QString &text) {
+        if (text.isEmpty()) return;
+        auto *bar = view->verticalScrollBar();
+        const bool atBottom = bar->value() >= bar->maximum() - 2;
+        const int previous = bar->value();
+        QTextCursor cursor(view->document());
+        cursor.movePosition(QTextCursor::End);
+        const auto lines = text.split('\n');
+        for (int i = 0; i < lines.size(); ++i) {
+            QTextCharFormat format;
+            const QString lower = lines[i].toLower();
+            const QColor color = lower.contains("error") || lower.contains("failed") || lower.contains("fatal")
+                ? QColor("#e74c3c") : lower.contains("warn") ? QColor("#f39c12") : view->palette().color(QPalette::Text);
+            format.setForeground(color);
+            cursor.insertText(lines[i] + (i < lines.size() - 1 ? "\n" : ""), format);
+        }
+        bar->setValue(atBottom ? bar->maximum() : previous);
+    };
+    connect(proc, &QProcess::readyReadStandardOutput, this, [this, proc, stream, append, plan] {
+        if (logProcess != proc) return;
+        append(stream->take(proc->readAllStandardOutput()));
+        ui->logStatusLabel->setText(plan.follow ? tr("Following live · up to 5,000 lines") : tr("Reading…"));
+    });
+    connect(proc, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
+            [this, proc, stream, append](int code, QProcess::ExitStatus status) {
+        if (logProcess != proc) return;
+        append(stream->take(proc->readAllStandardOutput(), true));
+        const auto error = LogReader::plain(QString::fromUtf8(proc->readAllStandardError())).trimmed();
+        if (!error.isEmpty()) append("\n" + error + "\n");
+        const bool ok = code == 0 && status == QProcess::NormalExit;
+        if (ui->logContentTextEdit->toPlainText().isEmpty())
+            ui->logContentTextEdit->setPlainText(ok ? tr("No matching records.") : tr("The reader exited without a report."));
+        ui->logStatusLabel->setText(ok ? tr("Report loaded") : tr("Reader exited with status %1 — see details above").arg(code));
+        logProcess = nullptr;
+        proc->deleteLater();
+        ui->followLogButton->setChecked(false);
+        ui->followLogButton->setText(tr("▶ Follow Journal"));
+    });
+    connect(proc, &QProcess::errorOccurred, this, [this, proc](QProcess::ProcessError error) {
+        if (logProcess != proc || error != QProcess::FailedToStart) return;
+        ui->logContentTextEdit->setPlainText(proc->errorString());
+        ui->logStatusLabel->setText(tr("Could not start reader"));
+        logProcess = nullptr;
+        proc->deleteLater();
+    });
+    proc->start(plan.program, plan.arguments);
 }
 
 void MainWindow::clearLogFile(const QString &filePath) {

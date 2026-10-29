@@ -1188,7 +1188,7 @@ void MainWindow::on_installDebButton_clicked() {
         if (aurHelper.isEmpty()) {
             QMessageBox::warning(this, tr("debtap Not Installed"),
                 tr("Converting .deb files needs 'debtap' (AUR), and no AUR helper was found.\n\n"
-                   "Install Yay or Paru first (buttons above), then try again."));
+                   "Install Yay or Paru from its Control Panel page first, then try again."));
             return;
         }
         if (QMessageBox::question(this, tr("Install debtap?"),

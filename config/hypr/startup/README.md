@@ -12,6 +12,12 @@ pages on <https://www.xetal.net/community/site/>. Clicking, Enter or Space opens
 the selected page in the default browser after hiding the special workspace.
 Escape and the X hide the entire dashboard; Super+D shows it again.
 
+**Control Panel → Startup Applications → Xetal Engine startup screen** controls
+whether it appears automatically at login. The default is enabled. Turning it
+off skips both the login delay and pane creation; Super+D remains available.
+The private preference is saved in `control_panel/state/startup-screen.json`
+and survives desktop updates.
+
 Icons are bundled unchanged from the supplied Xetal Community site, with Echo's
 newer silver/cyan icon taken from the Echo project's `echoicon_2.png`. Their
 sources and SHA-256 checksums are recorded in `assets/projects/SOURCE.json` and the root

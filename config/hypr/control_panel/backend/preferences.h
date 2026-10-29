@@ -147,12 +147,16 @@ void MainWindow::saveTabVisibilityPreferences() {
 QMap<QString, QWidget *> MainWindow::preferenceTabWidgets() const {
     return {{"dashboardTab", ui->dashboardTab}, {"driveToolsTab", ui->driveToolsTab},
             {"shellToolsTab", ui->shellToolsTab}, {"servicesTab", ui->servicesTab},
-            {"tweaksTab", ui->tweaksTab}, {"kvmTab", ui->kvmTab},
+            {"tweaksTab", ui->tweaksTab},
             {"configTab", ui->configTab}, {"logsTab", ui->logsTab},
             {"backupTab", ui->backupTab}, {"restoreTab", ui->restoreTab},
             {"isoCreatorTab", ui->isoCreatorTab}, {"packageManagerTab", ui->packageManagerTab},
             {"uninstallTab", ui->uninstallTab}, {"cleanerTab", cleanerTab},
-            {"networkTab", ui->networkTab}, {"themeTab", ui->themeTab}};
+            {"networkTab", ui->networkTab}, {"themeTab", ui->themeTab},
+            {"pacmanDoctorTab", findChild<QWidget *>("pacmanDoctorTab")},
+            {"debInstallTab", findChild<QWidget *>("debInstallTab")},
+            {"firewallSubTab", findChild<QWidget *>("firewallSubTab")},
+            {"networkSharesSubTab", findChild<QWidget *>("networkSharesSubTab")}};
 }
 
 void MainWindow::applyTabVisibility() {

@@ -9,6 +9,7 @@ import shlex
 import socket
 import subprocess
 import time
+import login_settings
 
 ROOT = Path(__file__).resolve().parent
 WORKSPACE = 'special:xetal-startup'
@@ -52,11 +53,15 @@ def main():
     parser.add_argument('--toggle',action='store_true')
     parser.add_argument('--login',action='store_true',help='Wait five seconds before the login animation')
     args=parser.parse_args()
+    if args.login and not login_settings.enabled():
+        return
     sig=os.environ.get('HYPRLAND_INSTANCE_SIGNATURE','')
     if not sig:
         return
     runtime=Path(os.environ['XDG_RUNTIME_DIR'])/'hypr'/sig
     if args.login and not wait_for_login(runtime, 5.0):
+        return
+    if args.login and not login_settings.enabled():
         return
     with (runtime/'xetal-startup.lock').open('w') as lock:
         try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)

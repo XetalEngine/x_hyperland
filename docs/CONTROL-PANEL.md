@@ -16,7 +16,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | System Backup / System Restore | Source/destination drives, filesystem browsing, rsync backup and restore |
 | Drives & Storage | Filters, mounts, labels, formatting, ownership/permissions, SMART health, benchmarking and ISO to USB |
 | Restore Points | Snapper/Btrfs snapshot management |
-| Logs & Reports | Journal filters, boot selection, live following, service logs and reports |
+| Logs & Reports | Plain-text hardware reports, decoded login history, journal filters, boot selection and live following |
 | System Overview | Health, resource use, quick actions and language selection |
 | Device Manager | Hardware categories, drivers and device operations |
 | Sensors & Power | Temperatures, fans, power profiles and diagnostics |
@@ -26,6 +26,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | Environment Variables | System environment editor and separate Hyprland login environment |
 | Window Inspector | Window/process inspection, X11/Wayland backends and window actions |
 | **Pacman / Paru / Yay** | Three adjacent entries: installed packages, repository/AUR searches, details, installation and helper management |
+| Install .deb | Convert with debtap and install through pacman, with the original terminal review |
 | Package Updates | System upgrades, package checks and Arch news |
 | Package Repair | Mirrors, keyrings, locks, diagnostics and downgrades |
 | Installed Software | Package removal, orphans and caches |
@@ -35,12 +36,13 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | Network Shares | Discovery, mounts, sharing and associated services |
 | Shell & Apps Shortcuts | Alias add/edit/remove, shell configuration editor, terminal actions and Apps favorites |
 | Services | System/user service controls, failed services, journals and boot analysis |
-| Startup Applications | Add/edit, enable/disable, remove and run login applications; manage user units |
-| System Tweaks | Performance, security, network, storage, desktop and system settings; explicitly labeled KDE compatibility tools are retained |
-| KVM & GPU Passthrough | Single/dual-GPU tools and guides; upstream One-Click KVM retains its unfinished status |
+| Startup Applications | Choose whether Xetal Engine appears at login; add/edit, enable/disable, remove and run login applications; manage user units |
+| System Tweaks | Performance, security, network, storage, desktop and system settings |
 | System Configuration | Privileged editor and configuration catalog, extended with Hyprland and Kitty |
 | Panel Preferences | Language, visible tool families, startup page, size memory, autosave, drive/package/editor defaults, ISO defaults and debug preview |
 | Hyper Fusion Updates | The existing desktop updater, including Control Panel updates |
+
+Package Repair, Shares, Firewall, Services and Startup Applications each have a dedicated entry. Yay and Paru keep their own helper controls. KDE Plasma tweaks and the old KVM interface are omitted from this Hyprland panel; their upstream source remains in the engine archive.
 
 The separate CachyOsTools Theme page is replaced by the **desktop master theme**. Raw, Modern and BreakPoint, including Dark/Light/High contrast, apply to the panel and its dialogs. Appearance preferences link to Fusion Settings. Hyper Fusion's updater supersedes the original application's self-updater.
 
@@ -53,12 +55,15 @@ The backend targets **Arch Linux/CachyOS**. Package, kernel, boot and ISO tools 
 - **Add to Apps…** opens the existing shortcut editor, including command, directory, icon, terminal, keep-open and floating options. Saving creates a favorite in Apps.
 - Terminal operations use the private Kitty profile. Control Panel runs as the ordinary desktop user; individual administrative tools request privileges when used.
 - New login applications are saved in `control_panel/state/autostart` and run at the next Hyprland login. Shared desktop autostart files are not edited. Package entries require explicit opt-in; user systemd units remain separately identified.
+- **Startup Applications → Xetal Engine startup screen** controls automatic login display. **Super+D** still opens or hides it manually. The preference defaults to on and is stored in the update-preserved `control_panel/state/startup-screen.json`.
 - User environment values are literal `NAME=value` lines in `control_panel/state/environment.env`, applied at the next Hyprland login. The explicit system pane still edits `/etc/environment` when requested.
 - The panel, shortcut editor and startup helper are tied to the active compositor connection.
 
 ## System ISO
 
 ![System ISO with pinned build controls](screenshots/control-panel-iso.png)
+
+At the default 1280 × 800 size, the ISO settings fit above a compact, internally scrolling output area, with build actions pinned below. The window remains constrained to the current monitor. On smaller screens, the page can scroll to keep every control accessible.
 
 All original ISO scripts are embedded as Qt resources: builder, common helpers, installer/TUI, boot restoration, first-boot adjustments and dummy build. The adapted interface uses the existing generator and preserves these script bytes. **Panel Preferences → ISO → Debug ISO Creator** enables the dummy preview.
 

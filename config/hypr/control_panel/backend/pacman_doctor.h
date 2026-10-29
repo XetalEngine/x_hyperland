@@ -47,8 +47,7 @@ void MainWindow::scheduleStagedRecheck(const std::function<void()> &recheck) {
 
 bool MainWindow::pacmanDoctorVisible() const {
     return pacDocTab && isVisible() && !isMinimized()
-        && ui->tabWidget->currentWidget() == ui->packageManagerTab
-        && ui->pacmanTabWidget->currentWidget() == pacDocTab;
+        && ui->tabWidget->currentWidget() == pacDocTab;
 }
 
 // ============================================================
@@ -284,26 +283,10 @@ void MainWindow::setupPacmanDoctorTab() {
 
     root->addStretch();
     pacDocScroll->setWidget(content);
-    ui->pacmanTabWidget->addTab(pacDocTab, tr("🩺 Repair"));
-
-    // Every check here is read-only and unprivileged, so re-diagnose whenever the
-    // tab is opened rather than making the user press the button first.
-    connect(ui->pacmanTabWidget, &QTabWidget::currentChanged, this, [this](int index) {
-        if (ui->pacmanTabWidget->widget(index) == pacDocTab) refreshPacmanDoctor();
+    ui->tabWidget->addTab(pacDocTab, tr("Package Repair"));
+    connect(ui->tabWidget, &QTabWidget::currentChanged, this, [this](int index) {
+        if (ui->tabWidget->widget(index) == pacDocTab) refreshPacmanDoctor();
     });
-
-    // The shared package-output pane sits below the sub-tabs and belongs to the
-    // install/search pages — Repair never writes to it, and its 150px is exactly
-    // what the diagnosis needs to fit without scrolling. Give it back while
-    // Repair is on screen, restore it the moment anything else is.
-    auto syncOutputPane = [this]() {
-        const bool onRepair = ui->packageManagerTabWidget->currentWidget() == ui->pacmanTab
-                           && ui->pacmanTabWidget->currentWidget() == pacDocTab;
-        ui->packageOutputText->setVisible(!onRepair);
-    };
-    connect(ui->pacmanTabWidget, &QTabWidget::currentChanged, this, syncOutputPane);
-    connect(ui->packageManagerTabWidget, &QTabWidget::currentChanged, this, syncOutputPane);
-    syncOutputPane();
 
     // --- live re-diagnosis --------------------------------------------------
     // A fix runs in its own terminal window; we never learn when it finished.

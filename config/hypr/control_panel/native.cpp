@@ -116,7 +116,7 @@ PanelController::PanelController(MainWindow *window)
   owner->setWindowIcon(QIcon::fromTheme("preferences-system"));
   owner->setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
   owner->setMinimumSize(740, 520);
-  owner->resize(1110, 780);
+  owner->resize(1280, 800);
   auto *rootWidget = new QWidget(owner);
   rootWidget->setObjectName("hyperControlPanel");
   auto *layout = new QVBoxLayout(rootWidget);
@@ -188,7 +188,8 @@ PanelController::PanelController(MainWindow *window)
   homeLayout->addStretch();
   homeScroll->setWidget(home);
   stack->addWidget(homeScroll);
-  auto *body = new QScrollArea(stack);
+  body = new QScrollArea(stack);
+  body->setObjectName("panelBody");
   body->setFrameShape(QFrame::NoFrame);
   body->setWidgetResizable(true);
   body->setWidget(backend);
@@ -207,7 +208,7 @@ PanelController::PanelController(MainWindow *window)
   layout->addWidget(isoActions);
   isoActions->hide();
   for (const auto &name :
-       {"tabWidget", "dashSubTabs", "packageManagerTabWidget"})
+       {"tabWidget", "dashSubTabs", "packageManagerTabWidget", "servicesSubTabs"})
     if (auto *tabs = owner->findChild<QTabWidget *>(name))
       tabs->tabBar()->hide();
   auto *footer = new QHBoxLayout();
@@ -221,6 +222,7 @@ PanelController::PanelController(MainWindow *window)
   footer->addWidget(grip);
   layout->addLayout(footer);
   owner->setCentralWidget(rootWidget);
+  prepareTools();
   connect(back, &QPushButton::clicked, this, [this] { open(""); });
   connect(homeButton, &QPushButton::clicked, this, [this] { open(""); });
   connect(close, &QPushButton::clicked, owner, &QWidget::close);
@@ -288,6 +290,11 @@ PanelController::PanelController(MainWindow *window)
   if (settings.value("preferences/windowSizeEnabled", true).toBool() &&
       settings.contains("window/geometry"))
     owner->restoreGeometry(settings.value("window/geometry").toByteArray());
+  // Apply the roomier default once, then continue remembering user resizes.
+  if (settings.value("window/layoutVersion", 1).toInt() < 2) {
+    owner->resize(qMax(1280, owner->width()), qMax(800, owner->height()));
+    settings.setValue("window/layoutVersion", 2);
+  }
   if (auto *screen = owner->screen())
     owner->resize(owner->size().boundedTo(screen->availableGeometry().size() -
                                           QSize(24, 48)));
@@ -303,6 +310,121 @@ PanelController::PanelController(MainWindow *window)
     }
 startupDone:
   QTimer::singleShot(0, this, [this] { arrange(); });
+}
+
+void PanelController::prepareTools() {
+  auto *rootTabs = owner->findChild<QTabWidget *>("tabWidget");
+  auto promote = [this, rootTabs](const QString &name, const QString &title) {
+    auto *page = owner->findChild<QWidget *>(name);
+    if (!page) return;
+    auto *parent = page->parentWidget();
+    while (parent && !qobject_cast<QTabWidget *>(parent)) parent = parent->parentWidget();
+    if (auto *tabs = qobject_cast<QTabWidget *>(parent)) tabs->removeTab(tabs->indexOf(page));
+    rootTabs->addTab(page, title);
+  };
+  promote("firewallSubTab", "Firewall");
+  promote("networkSharesSubTab", "Network Shares");
+  if (auto *tabs = owner->findChild<QTabWidget *>("tweaksTabWidget")) {
+    for (int i = tabs->count() - 1; i >= 0; --i)
+      if (tabs->tabText(i).contains("KDE", Qt::CaseInsensitive))
+        tabs->removeTab(i);
+  }
+  if (auto *page = owner->findChild<QWidget *>("kvmTab"))
+    rootTabs->removeTab(rootTabs->indexOf(page));
+
+  // Keep helper management with the helper it manages, including future
+  // installed/not-installed status changes made by the C++ backend.
+  auto *shared = owner->findChild<QBoxLayout *>("packageTopLayout");
+  for (const auto &helper : {QString("yay"), QString("paru")}) {
+    auto *page = owner->findChild<QWidget *>(helper + "Tab");
+    auto *row = new QHBoxLayout;
+    for (const auto &suffix : {"StatusLabel", "InstallButton", "ReinstallButton", "UninstallButton"}) {
+      auto *widget = owner->findChild<QWidget *>(helper + suffix);
+      shared->removeWidget(widget);
+      const bool hidden = widget->isHidden();
+      row->addWidget(widget);
+      widget->setVisible(!hidden);
+    }
+    row->addStretch();
+    qobject_cast<QVBoxLayout *>(page->layout())->insertLayout(0, row);
+  }
+  shared->addStretch();
+  auto *deb = new QWidget(rootTabs);
+  deb->setObjectName("debInstallTab");
+  auto *debLayout = new QVBoxLayout(deb);
+  auto *title = new QLabel("Install a Debian package", deb);
+  title->setObjectName("panelTitle");
+  debLayout->addWidget(title);
+  auto *description = new QLabel(
+      "Choose a .deb file to convert with debtap and install with pacman. "
+      "You can review the conversion and installation in your terminal.", deb);
+  description->setWordWrap(true);
+  debLayout->addWidget(description);
+  auto *install = owner->findChild<QPushButton *>("installDebButton");
+  shared->removeWidget(install);
+  install->setText("Choose .deb package…");
+  install->setIcon(QIcon::fromTheme("application-x-deb"));
+  debLayout->addWidget(install, 0, Qt::AlignLeft);
+  install->show();
+  debLayout->addStretch();
+  rootTabs->addTab(deb, "Install .deb");
+
+  // Separate options from actions instead of making this one unbreakable row.
+  if (auto *actions = owner->findChild<QHBoxLayout *>("uninstallActionsLayout")) {
+    auto *page = owner->findChild<QWidget *>("uninstallTab");
+    auto *row = new QHBoxLayout;
+    while (actions->count() > 3) {
+      auto *item = actions->takeAt(3);
+      row->addItem(item);
+    }
+    actions->addStretch();
+    qobject_cast<QVBoxLayout *>(page->layout())->addLayout(row);
+  }
+  for (const auto &name : {"isoStatusLabel", "isoInfoText"}) {
+    auto *output = owner->findChild<QTextEdit *>(name);
+    output->setMinimumHeight(90);
+    output->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+  }
+  for (auto *view : owner->findChildren<QAbstractItemView *>()) {
+    view->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    view->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    view->setTextElideMode(Qt::ElideRight);
+    view->viewport()->installEventFilter(this);
+  }
+  auto *page = owner->findChild<QWidget *>("autostartSubTab");
+  auto *startup = new QGroupBox("Xetal Engine startup screen", page);
+  auto *startupLayout = new QVBoxLayout(startup);
+  startupScreen = new QCheckBox("Show the animated dashboard when I log in", startup);
+  startupScreen->setObjectName("startupScreenEnabled");
+  startupLayout->addWidget(startupScreen);
+  startupStatus = new QLabel("Super + D opens or hides the dashboard anytime.", startup);
+  startupStatus->setObjectName("muted");
+  startupStatus->setWordWrap(true);
+  startupLayout->addWidget(startupStatus);
+  qobject_cast<QVBoxLayout *>(page->layout())->insertWidget(0, startup);
+  loadStartupPreference();
+  connect(startupScreen, &QCheckBox::toggled, this, [this](bool checked) {
+    const auto result = HyperPanel::request("startup-screen", {{"enabled", checked}});
+    if (result.contains("error")) {
+      QSignalBlocker guard(startupScreen);
+      startupScreen->setChecked(!checked);
+      startupStatus->setText("Could not save: " + result["error"].toString());
+    } else {
+      startupStatus->setText("Saved. Super + D opens or hides the dashboard anytime.");
+    }
+  });
+}
+
+void PanelController::loadStartupPreference() {
+  const auto result = HyperPanel::request("startup-screen");
+  const QSignalBlocker guard(startupScreen);
+  startupScreen->setEnabled(!result.contains("error"));
+  if (result.contains("error"))
+    startupStatus->setText("Could not read startup preference: " + result["error"].toString());
+  else {
+    startupScreen->setChecked(result["enabled"].toBool(true));
+    startupStatus->setText("Super + D opens or hides the dashboard anytime.");
+  }
 }
 void PanelController::theme() {
   if (themeProcess->state() != QProcess::NotRunning)
@@ -389,6 +511,9 @@ void PanelController::open(const QString &id) {
           tabs->setCurrentWidget(page);
         }
         stack->setCurrentIndex(1);
+        body->verticalScrollBar()->setValue(0);
+        body->horizontalScrollBar()->setValue(0);
+        if (id == "autostart") loadStartupPreference();
         isoActions->setVisible(id == "iso");
         current = id;
         crumb->setText("›  " + tool.data["title"].toString());
@@ -409,8 +534,31 @@ QJsonObject PanelController::inventory() const {
       item.insert("hasIcon", QIcon::hasThemeIcon(item["icon"].toString()));
       tools.append(item);
     }
+  QJsonObject views, tabs, cells;
+  for (auto *view : owner->findChildren<QAbstractScrollArea *>()) {
+    if (!view->isVisible() || view->objectName().isEmpty()) continue;
+    views[view->objectName()] = QJsonObject{
+      {"width", view->width()}, {"height", view->height()},
+      {"horizontalRange", view->horizontalScrollBar()->maximum()},
+      {"verticalRange", view->verticalScrollBar()->maximum()}};
+  }
+  for (auto *tab : owner->findChildren<QTabWidget *>()) {
+    QJsonArray pages;
+    for (int i = 0; i < tab->count(); ++i) pages.append(tab->widget(i)->objectName());
+    tabs[tab->objectName()] = QJsonObject{{"pages", pages}, {"barVisible", tab->tabBar()->isVisible()}};
+  }
+  for (const auto &name : {"aliasTable", "configTable"}) {
+    auto *table = owner->findChild<QTableWidget *>(name);
+    if (table->isVisible() && table->rowCount() && table->cellWidget(0, 2)) {
+      auto *button = table->cellWidget(0, 2);
+      cells[name] = QJsonObject{{"height", button->height()}, {"width", button->width()},
+                                {"neededHeight", button->sizeHint().height()}};
+    }
+  }
   return {
       {"tools", tools},
+      {"views", views}, {"tabs", tabs}, {"cellActions", cells},
+      {"section", current}, {"startupScreen", startupScreen->isChecked()},
       {"settingsFile", QSettings("XetalHyperland", "ControlPanel").fileName()},
       {"title", owner->windowTitle()},
       {"width", owner->width()},
@@ -444,6 +592,19 @@ QJsonArray PanelController::verifyNavigation() {
   return errors;
 }
 bool PanelController::eventFilter(QObject *object, QEvent *event) {
+  if (event->type() == QEvent::ToolTip) {
+    auto *view = qobject_cast<QAbstractItemView *>(object->parent());
+    auto *help = static_cast<QHelpEvent *>(event);
+    if (view) {
+      const auto index = view->indexAt(help->pos());
+      if (index.isValid()) {
+        auto text = index.data(Qt::ToolTipRole).toString();
+        if (text.isEmpty()) text = index.data().toString();
+        QToolTip::showText(help->globalPos(), text, view);
+        return true;
+      }
+    }
+  }
   if (event->type() == QEvent::Resize)
     QTimer::singleShot(0, this, [this] {
       arrange();
