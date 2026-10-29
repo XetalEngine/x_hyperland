@@ -118,4 +118,63 @@ int main(int argc,char **argv) {
     def test_dummy_has_empty_snapshot_and_no_firstboot_changes(self): self.verify_variant(0,1,1)
     def test_dummy_can_prepare_an_offline_live_environment(self): self.verify_variant(1,0,1)
 
+    def verify_rsync_exclusion(self, name, directory):
+        if not shutil.which('rsync'):
+            self.skipTest('rsync is needed to verify exclusion behavior')
+        with tempfile.TemporaryDirectory(prefix='iso-exclude-') as tmp:
+            root = Path(tmp)
+            selected = root / name
+            if directory:
+                selected.mkdir()
+            else:
+                selected.write_text('selected file\n')
+            source, destination = root / 'source', root / 'copy'
+            relative = selected.relative_to('/')
+            excluded = source / relative
+            neighbor = excluded.with_name(excluded.name + '-keep')
+            neighbor.parent.mkdir(parents=True)
+            neighbor.write_text('keep neighboring files\n')
+            if directory:
+                for child in ('visible.txt', '.hidden', 'nested/deep.txt', '.hidden-dir/secret'):
+                    target = excluded / child
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text('excluded directory contents\n')
+            else:
+                excluded.write_text('excluded file\n')
+            env = dict(os.environ, QT_QPA_PLATFORM='offscreen', TMPDIR=tmp)
+            generated = subprocess.run(
+                [str(self.binary), '0', '0', str(selected), '0'], cwd=tmp, env=env,
+                capture_output=True, text=True, timeout=10)
+            self.assertEqual(generated.returncode, 0, generated.stderr)
+            script = Path(generated.stdout.strip())
+            # Execute only the generated user filters against a tiny mock root.
+            # Never enter the ISO builder or read the real filesystem root.
+            content = script.read_text().split('# Run the selected ISO build.', 1)[0]
+            content += '\nexcludes=()\nfor file in "${USER_EXCLUDES[@]}"; do excludes+=("--exclude=$file"); done\n'
+            content += 'rsync -a "${excludes[@]}" ' + shlex.quote(str(source) + '/') + ' ' + shlex.quote(str(destination) + '/') + '\n'
+            script.write_text(content)
+            copied = subprocess.run(['bash', str(script)], cwd=tmp, env=env,
+                                    capture_output=True, text=True, timeout=10)
+            self.assertEqual(copied.returncode, 0, copied.stderr)
+            result = destination / relative
+            if directory:
+                self.assertTrue(result.is_dir())
+                self.assertEqual(list(result.iterdir()), [])
+            else:
+                self.assertFalse(result.exists())
+            self.assertEqual((destination / neighbor.relative_to(source)).read_text(),
+                             'keep neighboring files\n')
+
+    def test_directory_exclusions_skip_all_contents_and_keep_neighbors(self):
+        for name in ('Desktop', 'folder with spaces', "quotes ' $(false) `id`", '[1]*?',
+                     'ユニコード', 'back\\slash', 'back\\slash[1]'):
+            with self.subTest(name=name):
+                self.verify_rsync_exclusion(name, directory=True)
+
+    def test_file_exclusions_match_literal_names_and_keep_neighbors(self):
+        for name in ('plain.txt', 'file with spaces', "quotes ' $(false) `id`", '[1]*?',
+                     'ユニコード', 'back\\slash', 'back\\slash[1]', 'trailing\\'):
+            with self.subTest(name=name):
+                self.verify_rsync_exclusion(name, directory=False)
+
 if __name__=='__main__': unittest.main()

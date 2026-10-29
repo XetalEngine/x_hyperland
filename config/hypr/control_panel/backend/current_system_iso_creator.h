@@ -301,9 +301,14 @@ QString MainWindow::createIsoScript(const QString &isoName, const QString &outpu
     out << "USER_EXCLUDES=(\n";
     for (const QString &path : excludePaths) {
         // Quote shell metacharacters and escape rsync pattern syntax in literal paths.
+        const bool directory = QFileInfo(path).isDir();
         QString pattern = path;
-        pattern.replace("\\", "\\\\").replace("*", "\\*").replace("?", "\\?").replace("[", "\\[");
-        if (QFileInfo(path).isDir()) pattern += "/*";
+        // rsync only interprets backslash escapes when the pattern has wildcards.
+        // Doubling them in a plain file path would match a different filename.
+        if (directory || path.contains('*') || path.contains('?') || path.contains('['))
+            pattern.replace("\\", "\\\\");
+        pattern.replace("*", "\\*").replace("?", "\\?").replace("[", "\\[");
+        if (directory) pattern += "/*";
         out << "  " << shQuote(pattern) << "\n";
     }
     out << ")\n" << scripts.value("common.sh") << "\n";
