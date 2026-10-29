@@ -1,6 +1,7 @@
 #include "backend/mainwindow.h"
 #include "backend/window_enum_backend.h"
 #include "native.h"
+#include "wheel_guard.h"
 #include <QJsonDocument>
 #include <QLocalServer>
 #include <QLocalSocket>
@@ -26,6 +27,7 @@ int main(int argc, char **argv) {
     return output.contains("error") ? 1 : 0;
   }
   QApplication app(argc, argv);
+  SettingsWheelGuard wheelGuard(&app);
   app.setApplicationName("Hyper Fusion Control Panel");
   app.setDesktopFileName("xetal-control-panel");
   auto iconPaths = QIcon::themeSearchPaths();

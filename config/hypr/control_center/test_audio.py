@@ -81,6 +81,7 @@ class BackendTests(unittest.TestCase):
 
 class MixerTests(unittest.TestCase):
     def setUp(self):
+        app.wheel_guard.install(QT)
         self.data=fixture();self.snapshot=patch.object(backend,'snapshot',side_effect=lambda:copy.deepcopy(self.data));self.snapshot.start()
         self.action=patch.object(backend,'apply_app',return_value=1);self.apply=self.action.start()
         self.device=patch.object(backend,'apply_device');self.change_device=self.device.start()
@@ -107,6 +108,16 @@ class MixerTests(unittest.TestCase):
         QTest.mouseClick(column.mute,Qt.MouseButton.LeftButton)
         self.assertEqual(self.apply.call_args.args[0]['name'],name)
         self.assertEqual(self.apply.call_args.args[1:],('mute',True))
+
+    def test_wheel_over_fader_scrolls_mixer_without_changing_audio(self):
+        column=next(iter(self.page.columns.values()));before=column.volume.value()
+        column.volume.setFocus();pos=QPointF(column.volume.rect().center())
+        event=QWheelEvent(pos,QPointF(column.volume.mapToGlobal(pos.toPoint())),QPoint(),QPoint(0,-120),
+                         Qt.MouseButton.NoButton,Qt.KeyboardModifier.NoModifier,Qt.ScrollPhase.NoScrollPhase,False)
+        QApplication.sendEvent(column.volume,event);QTest.qWait(160)
+        self.assertEqual(column.volume.value(),before)
+        self.assertGreater(self.page.scroll.horizontalScrollBar().value(),0)
+        self.apply.assert_not_called();self.change_device.assert_not_called()
 
     def test_refresh_preserves_drag_and_removes_closed_apps(self):
         key,column=next(iter(self.page.columns.items()));column.volume.setSliderDown(True);column.volume.setValue(72)

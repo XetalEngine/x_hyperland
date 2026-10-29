@@ -32,6 +32,7 @@ set(PROJECT_SOURCES
         ../main.cpp
         ../native.cpp
         ../native.h
+        ../wheel_guard.h
         mainwindow.cpp
         mainwindow.h
         mainwindow.ui
@@ -152,6 +153,16 @@ if(BUILD_WINDOW_ENUM_TESTS)
 endif()
 
 option(BUILD_PREFERENCES_TESTS "Build preferences dialog and persistence tests" OFF)
+option(BUILD_WHEEL_GUARD_TESTS "Build settings wheel interaction tests" OFF)
+if(BUILD_WHEEL_GUARD_TESTS)
+    enable_testing()
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(wheel_guard_tests tests/wheel_guard_tests.cpp ../wheel_guard.h)
+    target_include_directories(wheel_guard_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    target_link_libraries(wheel_guard_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME settings_wheel_guard COMMAND wheel_guard_tests)
+    set_tests_properties(settings_wheel_guard PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
 option(BUILD_LOG_READER_TESTS "Build plain text report/stream tests" OFF)
 if(BUILD_LOG_READER_TESTS)
     enable_testing()

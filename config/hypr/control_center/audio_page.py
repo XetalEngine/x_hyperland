@@ -102,7 +102,7 @@ class AppColumn(QFrame):
         self.percent=text('0%','audioLevel');self.percent.setAlignment(Qt.AlignmentFlag.AlignCenter);layout.addWidget(self.percent)
         fader=QHBoxLayout();fader.addStretch()
         self.volume=VolumeControl(Qt.Orientation.Vertical);self.volume.setFixedWidth(35);self.volume.setMinimumHeight(75)
-        self.volume.setAccessibleName(group['name']+' volume');self.volume.setToolTip('100% is the original level. Arrow keys and the mouse wheel also adjust volume.')
+        self.volume.setAccessibleName(group['name']+' volume');self.volume.setToolTip('100% is the original level. Drag the slider or use arrow keys to adjust volume. The mouse wheel scrolls the mixer.')
         fader.addWidget(self.volume);fader.addStretch();layout.addLayout(fader,1)
         self.mute=QPushButton('Mute');self.mute.setObjectName('audioMute');self.mute.setCheckable(True)
         self.mute.setAccessibleName('Mute '+group['name']);layout.addWidget(self.mute)

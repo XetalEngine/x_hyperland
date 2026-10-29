@@ -52,6 +52,8 @@ def shortcut(value):
     if not signature or not runtime_dir:raise ValueError('Open this editor inside Hyprland.')
     connection=socket.socket(socket.AF_UNIX);connection.connect(str(Path(runtime_dir)/'hypr'/signature/'.socket2.sock'));connection.setblocking(False)
     app=QApplication([]);app.setDesktopFileName('xetal-panel-shortcut');runtime.install(app,DIALOG_STYLE)
+    import wheel_guard
+    wheel_guard.install(app)
     notifier=QSocketNotifier(connection.fileno(),QSocketNotifier.Type.Read)
     def compositor_closed(*_):
         try:

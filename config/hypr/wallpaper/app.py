@@ -11,10 +11,12 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'control_center'))
 from app import STYLE, async_run, theme_runtime, ThemePage
 from window_chrome import close_button
+import wheel_guard
 
 class ThemeWindow(QWidget):
     def __init__(self,filename=''):
         super().__init__();self.setWindowTitle('Hyprland Theme');self.resize(1100,780);self.setMinimumSize(850,650)
+        wheel_guard.install(QApplication.instance())
         layout=QVBoxLayout(self);layout.setContentsMargins(0,0,0,0)
         self.page=ThemePage(async_run,filename);layout.addWidget(self.page);self.page.refresh()
         self.close_button=close_button(self,title='Close Theme')

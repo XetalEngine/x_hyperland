@@ -33,6 +33,7 @@ from page import ThemePage
 from audio_page import AudioPage, STYLE as AUDIO_STYLE
 from context_menu_page import ContextMenuPage, STYLE as CONTEXT_STYLE
 from window_chrome import close_button
+import wheel_guard
 from home_page import HomePage
 from identity import Avatar
 from icons import icon as navigation_icon
@@ -1119,6 +1120,7 @@ def hovered_window():
 class Window(QMainWindow):
     def __init__(self, tab='hotkeys', visible=True):
         super().__init__()
+        wheel_guard.install(QApplication.instance())
         self.setWindowTitle('Fusion Settings — Hyper Fusion')
         self.resize(1230, 790)
         self.setMinimumSize(1040, 650)
