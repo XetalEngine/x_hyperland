@@ -147,6 +147,10 @@ class InstallerTests(unittest.TestCase):
         forbidden={'mozilla','recently-used.xbel','places.sqlite','cookies.sqlite','.parentlock','user-places.xbel'}
         for p in install.PAYLOAD.rglob('*'):
             if '__pycache__' in p.parts:continue
+            if '.build' in p.parts:
+                result=install.subprocess.run(['git','check-ignore','--quiet',str(p)],cwd=REPO)
+                self.assertEqual(result.returncode,0,str(p))
+                continue
             self.assertFalse(forbidden.intersection(p.parts),str(p))
             self.assertNotIn(p.suffix,{'.so','.o','.a'},str(p))
 
@@ -156,7 +160,7 @@ class InstallerTests(unittest.TestCase):
             return install.subprocess.CompletedProcess(args,1 if optional else 0,stdout='',stderr='Unsupported compositor ABI' if optional else '')
         with patch.object(install.subprocess,'run',side_effect=command) as run,patch('builtins.print') as message:
             install.build(self.stage)
-        self.assertEqual(run.call_count,7)
+        self.assertEqual(run.call_count,8)
         self.assertTrue(any('Optional Burn effect unavailable' in str(call) for call in message.call_args_list))
         self.assertTrue(any('Optional Desktop Cube & 3D Windows effect unavailable' in str(call) for call in message.call_args_list))
 

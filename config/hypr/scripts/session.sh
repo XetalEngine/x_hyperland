@@ -58,6 +58,10 @@ children+=("$!")
 python3 "$config_dir/effects/cube/controller.py" --session >"$instance_dir/cube.log" 2>&1 9>&- &
 children+=("$!")
 
+# User-configured startup applications belong to this Hyprland session.
+python3 "$config_dir/control_panel/startup.py" --session >"$instance_dir/panel-startup.log" 2>&1 9>&- &
+children+=("$!")
+
 # A resident switcher receives ordered key events, including a very quick Super release.
 "$config_dir/scripts/app-switcher.sh" >"$instance_dir/switcher.log" 2>&1 9>&- &
 children+=("$!")

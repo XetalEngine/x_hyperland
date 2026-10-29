@@ -247,6 +247,7 @@ class Menu(QWidget):
             ('Files', 'folder', [catalog.ROOT/'scripts/dolphin.sh']),
             ('Theme', 'preferences-desktop-theme', [catalog.ROOT/'scripts/wallpaper.sh']),
             ('Control desk', 'preferences-system', [catalog.ROOT/'scripts/control-center.sh', '--tab', 'hotkeys']),
+            ('Control Panel', 'preferences-system', [catalog.ROOT/'scripts/control-panel.sh']),
             ('Session & power', 'system-shutdown', [catalog.ROOT/'scripts/control-center.sh', '--tab', 'system'])]:
             button = QPushButton(QIcon.fromTheme(icon), '  ' + name)
             button.setObjectName('launcherNav')

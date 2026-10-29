@@ -1,0 +1,21 @@
+<RCC>
+    <qresource prefix="/">
+        <file>images/XetalEngine.png</file>
+        <file>images/XetalLogo.bmp</file>
+        <file>images/flag_us.png</file>
+        <file>images/flag_br.png</file>
+        <file>images/flag_de.png</file>
+        <file>iso/common.sh</file>
+        <file>iso/build.sh</file>
+        <file>iso/dummy.sh</file>
+        <file>iso/installer.sh</file>
+        <file>iso/installer-ui.py</file>
+        <file>iso/installer-logo.txt</file>
+        <file>iso/restore-boot.sh</file>
+        <file>iso/firstboot.sh</file>
+        <file>iso/firstboot.service</file>
+        <file>window_enum/kwin.js</file>
+        <file>window_enum/gnome/metadata.json</file>
+        <file>window_enum/gnome/extension.js</file>
+    </qresource>
+</RCC>

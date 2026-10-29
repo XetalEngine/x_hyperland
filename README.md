@@ -20,6 +20,8 @@ https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d
 
 The custom desktop components, installer, native effect sources, themes, fonts, and bundled wallpapers live in this repository. They build on the machine where you install them.
 
+**New: Control Panel.** Open it directly below Control desk in Apps: a floating, searchable icon view powered by the complete CachyOsTools C++ engine. Its 32 entries cover system ISOs, backups, drives, hardware, services, networks, Shell and more, with separate **Pacman, Paru and Yay** icons. It follows your desktop theme, uses Kitty for terminal actions and creates shortcuts in Apps. CachyOsTools stays independent. See the [complete feature map and ISO details](docs/CONTROL-PANEL.md).
+
 ## Install
 
 From a recent Hyprland session, run these commands **as your regular desktop user**:

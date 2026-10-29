@@ -117,6 +117,7 @@ def render(stage, home, monitors, profile='auto', startup=True):
 
 def build(stage):
     for args in ([sys.executable,str(stage/'theme/build.py')],
+                 [sys.executable,str(stage/'control_panel/build.py')],
                  ['bash',str(stage/'waybar/pins/build.sh')],
                  ['bash',str(stage/'waybar/workspaces/build.sh')],
                  ['bash',str(stage/'waybar/options/build.sh')],
@@ -156,7 +157,7 @@ def validate(stage):
         if result.returncode or 'config ok' not in result.stdout:
             raise RuntimeError('Full Hyprland validation failed:\n'+result.stdout[-4000:]+result.stderr[-1000:])
     for relative in ('theme/gtk3/libxetal-file-preview.so','theme/qt5/platformthemes/libxetaltheme.so','theme/qt6/platformthemes/libxetaltheme.so',
-                     'waybar/pins/pins.so','waybar/workspaces/controls.so','waybar/options/options.so','share-picker/window-preview'):
+                     'waybar/pins/pins.so','waybar/workspaces/controls.so','waybar/options/options.so','share-picker/window-preview','control_panel/.build/xetal-control-panel'):
         if not (stage/relative).is_file():raise RuntimeError('Missing built component: '+relative)
 
 

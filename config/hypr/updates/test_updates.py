@@ -47,6 +47,21 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual((backup/'files/code.py').read_text(), 'old code\n')
         self.assertEqual(engine.installed(self.live)['revision'], NEW)
 
+    def test_control_panel_binary_is_updated_without_cmake_cache_or_personal_state(self):
+        settings=self.live/'control_panel/state/prefs.ini'
+        settings.parent.mkdir(parents=True);settings.write_text('personal setting')
+        expected=engine.merge_profile(self.live,self.upstream,self.stage,NEW)
+        output=self.stage/'control_panel/.build';output.mkdir(parents=True)
+        (output/'xetal-control-panel').write_bytes(b'new native program')
+        (output/'xetal-control-panel').chmod(0o755)
+        (output/'CMakeCache.txt').write_text('temporary build paths')
+        plan=engine.prepare_plan(self.live,self.stage,expected,NEW)
+        self.assertIn('control_panel/.build/xetal-control-panel',plan['changes'])
+        self.assertNotIn('control_panel/.build/CMakeCache.txt',plan['changes'])
+        engine.apply_plan(self.live,self.stage,plan,self.state)
+        self.assertEqual(settings.read_text(),'personal setting')
+        self.assertEqual((self.live/'control_panel/.build/xetal-control-panel').read_bytes(),b'new native program')
+
     def test_overlapping_code_edit_blocks_without_writing_live_files(self):
         (self.live/'code.py').write_text('my code\n'); (self.upstream/'code.py').write_text('new code\n')
         with self.assertRaisesRegex(RuntimeError, 'overlap'): self.prepare()

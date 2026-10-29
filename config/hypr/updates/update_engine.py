@@ -194,6 +194,7 @@ def prepare_plan(live, stage, expected, commit, automatic=True):
     for path in sorted(stage.rglob('*')):
         if not path.is_file() or path.is_symlink(): continue
         name = str(path.relative_to(stage))
+        if name.startswith('control_panel/.build/') and name != 'control_panel/.build/xetal-control-panel': continue
         if '__pycache__' in path.parts or path.suffix in ('.lock', '.pyc', '.o') or path.name == 'build.log': continue
         current = location(live, name); old = read(current); data = path.read_bytes()
         if data != old or (current.exists() and path.stat().st_mode & 0o777 != current.stat().st_mode & 0o777):

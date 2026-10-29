@@ -21,3 +21,5 @@ config/hypr/assets/font-cache/
 config/hypr/effects/burn/.build/
 config/hypr/effects/cube/.build/
 config/hypr/effects/cube/cache/
+config/hypr/control_panel/.build/
+config/hypr/control_panel/state/

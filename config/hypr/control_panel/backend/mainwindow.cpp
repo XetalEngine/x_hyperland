@@ -1,0 +1,58 @@
+#include "mainwindow.h"
+#include "./ui_mainwindow.h"
+#include "./ui_isoexclusionsdialog.h"
+#include "includes.h"
+#include "window_enum.h"
+
+#include "mainwindow_d.h"
+#include "drive.h"
+#include "executecommands.h"
+#include "../shell_adapter.h"
+#include "shell.h"
+#include "services.h"
+#include "tweaks.h"
+#include "kde_tweaks.h"
+#include "kde_fixes.h"
+#include "systemconfigs.h"
+#include "systemlogs.h"
+#include "systembackup.h"
+#include "systemrestore.h"
+#include "current_system_iso_creator.h"
+#include "isoexclusions.h"
+#include "dual_gpu_kvm.h"
+#include "single_gpu_kvm.h"
+#include "device_manager.h"
+#include "users_groups.h"
+#include "restore_points.h"
+#include "firewall_manager.h"
+#include "kernel_manager.h"
+#include "env_editor.h"
+#include "system_properties.h"
+#include "packagemanager.h"
+#include "uninstalltab.h"
+#include "tabupgrades.h"
+#include "thememanager.h"
+#include "dashboard.h"
+#include "cleaner.h"
+#include "preferences.h"
+#include "network.h"
+#include "pacman_doctor.h"
+#include "sensors_power.h"
+#include "network_shares.h"
+#include "autostart.h"
+
+void MainWindow::setNumlockSetting(bool enabled) {
+    QString value = enabled ? "1" : "0";
+    QProcess::startDetached("kwriteconfig5", QStringList() << "--file" << "kcminputrc" << "--group" << "Keyboard" << "--key" << "NumLock" << value);
+}
+
+// Helper to run a sudo command in a terminal
+void MainWindow::runSudoCommandInTerminal(const QString &cmd) {
+    QStringList terminals = {HyperPanel::terminal(), "kitty", "alacritty", "xterm"};
+    for (const QString &terminal : terminals) {
+        if (QProcess::startDetached(terminal, QStringList() << "-e" << "bash" << "-c" << cmd)) {
+            return;
+        }
+    }
+    QMessageBox::warning(this, tr("Terminal Not Found"), tr("Could not find a suitable terminal emulator. Please install one of: konsole, gnome-terminal, xterm, alacritty, or kitty"));
+}

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Control Panel
+Comment=System tools, packages, backups and bootable system ISOs
+Exec=@HOME@/.config/hypr/scripts/control-panel.sh
+Icon=preferences-system
+Categories=Settings;System;
+OnlyShowIn=Hyprland;
+Terminal=false
