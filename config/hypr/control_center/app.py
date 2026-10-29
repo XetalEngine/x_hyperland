@@ -1119,7 +1119,7 @@ def hovered_window():
 class Window(QMainWindow):
     def __init__(self, tab='hotkeys', visible=True):
         super().__init__()
-        self.setWindowTitle('Xetal / Session tools')
+        self.setWindowTitle('Fusion Settings — Hyper Fusion')
         self.resize(1230, 790)
         self.setMinimumSize(1040, 650)
         root = QWidget();root.setObjectName('controlRoot')
@@ -1128,11 +1128,11 @@ class Window(QMainWindow):
         header = QHBoxLayout()
         titles = QVBoxLayout()
         self.eyebrow=label('XETAL  /  SESSION TOOLS', 'eyebrow');titles.addWidget(self.eyebrow)
-        self.brand=label('Control desk', 'brand');titles.addWidget(self.brand)
+        self.brand=label('Fusion Settings', 'brand');titles.addWidget(self.brand)
         header.addLayout(titles)
         header.addStretch()
         self.header_hint=label('LIVE CONFIGURATION\nSuper + K', 'muted');header.addWidget(self.header_hint)
-        self.close_button=close_button(self,title='Close Control desk')
+        self.close_button=close_button(self,title='Close Fusion Settings')
         header.addSpacing(12);header.addWidget(self.close_button)
         layout.addLayout(header)
         self.tabs = QTabWidget()
@@ -1207,6 +1207,7 @@ class Window(QMainWindow):
 
     def apply_design(self):
         self.changing_design=True
+        self.setWindowIcon(navigation_icon('fusion-settings',theme_runtime.colors()['Accent']))
         modern=theme_runtime.design()=='modern';current=self.tabs.currentWidget()
         if modern and self.tabs.indexOf(self.home)<0:self.tabs.insertTab(0,self.home,'Home')
         elif not modern and self.tabs.indexOf(self.home)>=0:
@@ -1215,7 +1216,7 @@ class Window(QMainWindow):
         if current:self.tabs.setCurrentWidget(current)
         self.modern_rail.setVisible(modern);self.tabs.tabBar().setVisible(not modern)
         self.eyebrow.setVisible(not modern);self.header_hint.setVisible(not modern)
-        if not modern:self.brand.setText('Control desk')
+        if not modern:self.brand.setText('Fusion Settings')
         self.rail_avatar.refresh();self.home.update_design();self.update_navigation();self.changing_design=False
 
     def toggle_hints(self):
@@ -1227,7 +1228,7 @@ class Window(QMainWindow):
             self.hints = HintOverlay(client, bindings)
             self.hints.dismissed.connect(lambda: QApplication.instance().quit() if not self.isVisible() else None)
         def failed(message):
-            launch(['notify-send', '-a', 'Xetal Control desk', 'Window shortcuts', message])
+            launch(['notify-send', '-a', 'Fusion Settings', 'Window shortcuts', message])
             if not self.isVisible():
                 QApplication.instance().quit()
         async_run(lambda: (hovered_window(), keys.parse((keys.ROOT / 'keybindings.conf').read_text())), show, failed)

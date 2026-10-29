@@ -17,7 +17,7 @@ CONFIG = ROOT / 'desktop_menu' / 'config.json'
 KINDS = {'action': 'Shortcut', 'submenu': 'Submenu', 'heading': 'Section title',
          'separator': 'Divider', 'spacer': 'Spacer', 'column': 'Column split'}
 TARGETS = {'file_manager': 'File Manager', 'wallpaper': 'Wallpaper', 'displays': 'Display Settings',
-           'control_desk': 'Control desk', 'menu_settings': 'Context Menu settings',
+           'control_desk': 'Fusion Settings', 'menu_settings': 'Context Menu settings',
            'apps': 'Apps menu', 'terminal': 'Kitty terminal', 'application': 'Installed application',
            'command': 'Custom command', 'folder': 'Open folder', 'url': 'Open website'}
 LIMITS = {'width': (180, 640), 'row_height': (28, 96), 'icon_size': (12, 48),

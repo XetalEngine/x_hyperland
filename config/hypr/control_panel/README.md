@@ -1,6 +1,6 @@
 # Hyper Fusion Control Panel
 
-Native floating Qt/C++ panel, opened from Apps below Control desk. See the [feature map and integration guide](../../../docs/CONTROL-PANEL.md).
+Native floating Qt/C++ panel, opened from Apps above Fusion Settings. See the [feature map and integration guide](../../../docs/CONTROL-PANEL.md).
 
 - `backend/`: complete CachyOsTools source/resources at the revision in `UPSTREAM.json`, with desktop integration changes. The original checkout remains independent.
 - `native.*`, `main.cpp`, `tools.json`: icon navigation, responsive layout and shared appearance.

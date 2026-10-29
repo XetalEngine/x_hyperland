@@ -16,11 +16,11 @@ https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d
 
 ![Hyper Fusion — olly_anime.png workstation wallpaper](docs/media/olly_anime.png)
 
-**Your desktop should feel like yours.** Hyper Fusion brings together a configurable Apps menu, a native Control desk, a flexible taskbar, matching tools, and original Compiz effects adapted to Hyprland. Three visual designs share one engine: **Xetal Raw**, **Xetal Modern**, and **BreakPoint**. Mix their Start menus, keep your shortcuts, and make the details your own.
+**Your desktop should feel like yours.** Hyper Fusion brings together a configurable Apps menu, native Fusion Settings, a flexible taskbar, matching tools, and original Compiz effects adapted to Hyprland. Three visual designs share one engine: **Xetal Raw**, **Xetal Modern**, and **BreakPoint**. Mix their Start menus, keep your shortcuts, and make the details your own.
 
 The custom desktop components, installer, native effect sources, themes, fonts, and bundled wallpapers live in this repository. They build on the machine where you install them.
 
-**New: Control Panel.** Open it directly below Control desk in Apps: a floating, searchable icon view powered by the complete CachyOsTools C++ engine. Its 32 entries cover system ISOs, backups, drives, hardware, services, networks, Shell and more, with separate **Pacman, Paru and Yay** icons. It follows your desktop theme, uses Kitty for terminal actions and creates shortcuts in Apps. CachyOsTools stays independent. See the [complete feature map and ISO details](docs/CONTROL-PANEL.md).
+**New: Control Panel.** Open it directly above Fusion Settings in Apps: a floating, searchable icon view powered by the complete CachyOsTools C++ engine. Its 32 entries cover system ISOs, backups, drives, hardware, services, networks, Shell and more, with separate **Pacman, Paru and Yay** icons. It follows your desktop theme, uses Kitty for terminal actions and creates shortcuts in Apps. CachyOsTools stays independent. See the [complete feature map and ISO details](docs/CONTROL-PANEL.md).
 
 ## Install
 
@@ -49,7 +49,7 @@ The default install adapts to your monitors, resolution, placement and scale. Wi
 | [![Xetal Raw Apps](docs/screenshots/apps-raw.png)](docs/screenshots/apps-raw.png) | [![Xetal Modern Apps](docs/screenshots/apps-modern.png)](docs/screenshots/apps-modern.png) | [![BreakPoint Apps](docs/screenshots/apps-breakpoint.png)](docs/screenshots/apps-breakpoint.png) |
 | Original cyan accents and transparent surfaces | Soft blue cards and a Home overview | Charcoal glass, crimson focus, silver text |
 
-**Control desk → Theme** keeps appearance organized: **Design** chooses the desktop theme, and the dedicated **Start Menu** tab beside it holds the launcher’s style, background, labels, surfaces, and profile image.
+**Fusion Settings → Theme** keeps appearance organized: **Design** chooses the desktop theme, and the dedicated **Start Menu** tab beside it holds the launcher’s style, background, labels, surfaces, and profile image.
 
 - **Mix and match** any Start menu with any desktop theme, or choose **Follow desktop theme**.
 - Use **Dark, Light, or High contrast** colors. BreakPoint uses Inter for the interface and JetBrains Mono for technical text.
@@ -84,7 +84,7 @@ Click **Apps** or press **Super+Space** and start typing immediately. Search app
 
 ## A desktop menu you can design
 
-Right-click the uncovered wallpaper for a compact, themed menu. Start with **File Manager**, **Wallpaper**, and **Display Settings**, then open **Control desk → Context Menu** to make it yours.
+Right-click the uncovered wallpaper for a compact, themed menu. Start with **File Manager**, **Wallpaper**, and **Display Settings**, then open **Fusion Settings → Context Menu** to make it yours.
 
 Add commands, shortcuts, icons, headings, submenus, dividers, blank spacers and column splits. Assign global hotkeys, resize the menu and rows, tune its typography, rounding, opacity, colors, shadow and thin accent strip. Use the live preview, **Apply/Discard**, and **save/load JSON presets** to refine both its appearance and behavior.
 
@@ -110,7 +110,7 @@ If the taskbar crashes, its session helper automatically brings it back. Your ap
 
 The **animated UPDATE notice beside Keys** appears only when an update is available or pending, and stays hidden when you're up to date. Automatic updates prepare in the background, preserve your personal settings, and activate at your **next Hyprland login**. Click it to check now, pause automatic updates, prepare manually, inspect the log, or queue a rollback. Updates never log you out. [How updates work →](docs/UPDATES.md)
 
-## Control desk
+## Fusion Settings
 
 Press **Super+K** or click **Keys**. The desktop's controls live together, with matching colors and visible close buttons.
 
@@ -168,7 +168,7 @@ See the [Burn guide](config/hypr/effects/burn/README.md) and [Cube guide](config
 | **Dolphin & Kitty** | A separate themed file-manager profile, folder-link handling, Places icons and wallpaper actions; themed terminal colors, animated cursor and draggable scrollback scrollbar. |
 | **Session** | Matching notifications and lock screen, logout confirmation, and helpers that stop with Hyprland. |
 
-**Control desk → Theme → File Transfer** lets the card follow your desktop or use any of the three designs independently. Each design remembers its own dimensions, corner radius, border, progress thickness, opacity, glow and accent color. Adjust animation speed, flying-file count, trails, progress smoothing, visible paths and statistics, estimated time remaining, display delay and automatic completion closing. Errors stay visible.
+**Fusion Settings → Theme → File Transfer** lets the card follow your desktop or use any of the three designs independently. Each design remembers its own dimensions, corner radius, border, progress thickness, opacity, glow and accent color. Adjust animation speed, flying-file count, trails, progress smoothing, visible paths and statistics, estimated time remaining, display delay and automatic completion closing. Errors stay visible.
 
 | Xetal Raw · flying files | Xetal Modern · soft blue cards | BreakPoint · crimson packets |
 | :---: | :---: | :---: |
@@ -189,7 +189,7 @@ System information, Matrix rain and a large digital clock sit beside **six float
 | Shortcut | Action |
 | --- | --- |
 | **Super+Space / Super+R** | Apps, ready to type |
-| **Super+K** | Control desk / Hotkeys |
+| **Super+K** | Fusion Settings / Hotkeys |
 | **Super+A** | Audio mixer |
 | **Super+Q / Super+Enter** | Kitty |
 | **Super+E** | Dolphin |
@@ -209,7 +209,7 @@ System information, Matrix rain and a large digital clock sit beside **six float
 | **Super+M** | Log out **after confirmation** |
 | **Print / Shift+Print** | Capture an area / all displays |
 
-Force-kill is for stuck applications and can lose unsaved work. It targets the app's process, so other windows in that same process may also close. Use normal Close when possible. All bindings remain editable in Control desk.
+Force-kill is for stuck applications and can lose unsaved work. It targets the app's process, so other windows in that same process may also close. Use normal Close when possible. All bindings remain editable in Fusion Settings.
 
 <details>
 <summary><strong>Installer options, backups & portability</strong></summary>

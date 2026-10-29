@@ -86,7 +86,7 @@ class DesktopPreview:
             if not icon.isNull():p.drawPixmap(QRectF(x+29,y+(4 if self.labels['names'] else 9),21,21),icon,QRectF(icon.rect()))
             if self.labels['names']:text(x+6,y+25,72,12,('Files','Browser','Terminal','Music','Settings','Calculator')[i],6)
 
-        # The Control desk changes from Raw tabs to the Modern navigation rail.
+        # The Fusion Settings changes from Raw tabs to the Modern navigation rail.
         modern=design=='modern';colors=runtime.colors(mode,design)
         panel(420,52,284,166,'Window',13 if modern else 5,'Midlight')
         if modern:
@@ -109,7 +109,7 @@ class DesktopPreview:
                 if not icon.isNull():p.drawPixmap(QRectF(x+18,y+5,15,15),icon,QRectF(icon.rect()))
         else:
             text(432,61,246,12,'XETAL  /  SESSION TOOLS',6,'Accent')
-            text(432,75,246,23,'Control desk',12,'Text',True)
+            text(432,75,246,23,'Fusion Settings',12,'Text',True)
             panel(432,105,260,22,'Button')
             text(438,105,250,22,'Hotkeys   Audio   Displays   Theme',7)
             text(438,133,250,19,'Audio mixer',9,'Text',True)

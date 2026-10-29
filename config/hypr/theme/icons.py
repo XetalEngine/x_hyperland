@@ -1,4 +1,4 @@
-"""Small, consistent outline icons for the Modern navigation rail."""
+"""Small, consistent outline icons for desktop tools and navigation."""
 from PyQt6.QtCore import Qt, QRectF, QPointF
 from PyQt6.QtGui import QIcon, QPainter, QPainterPath, QPen, QPixmap, QColor
 
@@ -27,6 +27,11 @@ def icon(name, color, size=24):
         path=QPainterPath(QPointF(11,2));path.lineTo(18,8);path.lineTo(6,18);path.moveTo(11,2);path.lineTo(11,22);path.lineTo(18,16);path.lineTo(6,6);p.drawPath(path)
     elif name=='displays':
         p.drawRoundedRect(QRectF(2,3,20,14),2,2);line(12,17,12,21);line(8,21,16,21)
+    elif name=='fusion-settings':
+        p.drawRoundedRect(QRectF(2,3,20,14),2,2);line(12,17,12,21);line(8,21,16,21)
+        for x,y in ((7,9),(12,12),(17,8)):
+            line(x,6,x,y-1.4);line(x,y+1.4,x,14)
+            p.drawEllipse(QPointF(x,y),1.4,1.4)
     elif name=='input':
         p.drawRoundedRect(QRectF(6,2,12,20),6,6);line(12,5,12,9);line(6,11,18,11)
     elif name=='theme':

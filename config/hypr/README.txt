@@ -20,7 +20,7 @@ Shortcuts (Super is the Windows key):
   Super + V               Toggle floating
   Super + F               Fullscreen
   Super + J               Toggle tiling split
-  Super + K               Open the tabbed hotkey editor / control desk
+  Super + K               Open the tabbed hotkey editor / Fusion Settings
   Super + A               Audio levels, output/input device picker
   Super + N               Notification center
   Super + Ctrl + N        Wired / Wi-Fi / VPN controls
@@ -71,7 +71,7 @@ The native menu has a thin accent strip and follows the current desktop theme.
 It works on each monitor, stays below app windows until opened, closes on an
 outside click or Escape, and stops when this Hyprland session ends.
 
-Control desk → Context Menu edits its contents and appearance. Drag items to
+Fusion Settings → Context Menu edits its contents and appearance. Drag items to
 reorder them or into submenus; add app shortcuts, custom commands, folders,
 websites, section headings, dividers, spacers and column splits. Items can be
 disabled without deleting them. The appearance controls change column width,
@@ -86,7 +86,7 @@ After applying menu edits, Configure hotkey opens the shared shortcut recorder.
 These bindings appear in Hotkeys → Applications with the same validation,
 external-edit detection, recovery key and rollback as the rest of the desktop.
 
-The control desk has Hotkeys, Audio, Network, Bluetooth, Displays, Input, Theme,
+Fusion Settings has Hotkeys, Audio, Network, Bluetooth, Displays, Input, Theme,
 Context Menu, Calendar and System tabs.
 Hotkey categories include Window hover, Applications, Workspaces, Media & Devices,
 and System. Live shows every binding loaded by the compositor, including runtime
@@ -124,7 +124,7 @@ be lost. Empty desktop, top bars and notification surfaces do not target an app
 behind them. The helper rechecks the hovered window before sending the signal;
 it never substitutes the keyboard-focused window when there is no target.
 
-The window is branded Xetal / Session tools. Control desk, Apps, Theme, and the
+The window is branded Fusion Settings — Hyper Fusion. Fusion Settings, Apps, Theme, and the
 app switcher have a visible close button. Their Qt dialogs and file pickers also
 have a close header; normal cancel, discard-confirmation, and display-revert
 handlers still run when X is clicked.
@@ -176,8 +176,8 @@ indicates additional bindings; hovering lists them all. Right-click any app for
 Set/Change launch hotkey. Record a shortcut or enter its modifiers and key,
 enable/disable it, add another binding, or remove one after confirmation.
 These edits use the same validated keybindings.conf store and appear under
-Control desk -> Hotkeys -> Applications. Both views update when saved bindings
-change; an unsaved Control desk draft is preserved until Reload or Discard.
+Fusion Settings -> Hotkeys -> Applications. Both views update when saved bindings
+change; an unsaved Fusion Settings draft is preserved until Reload or Discard.
 New app hotkeys launch the saved shortcut by ID, retaining its current command,
 working folder and terminal preferences. Existing direct launch bindings are
 recognized by command, including the terminal and isolated Dolphin aliases.
@@ -332,7 +332,7 @@ zoom, cap artwork, a static background or moving sky, and 3D window spacing/dept
 See effects/cube/README.md for compatibility, settings and source attribution.
 
 Xetal designs
-Choose Control desk > Theme > Design for Xetal Raw (original cyan) or Xetal Modern
+Choose Fusion Settings > Theme > Design for Xetal Raw (original cyan) or Xetal Modern
 (rounded blue cards, account GIF and Home overview). Each supports Dark, Light and
 High contrast. Apply theme keeps the same hotkeys, favorites and desktop engine.
 Click your account picture in Apps to open Home. Change the image/GIF on the

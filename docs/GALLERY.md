@@ -41,7 +41,7 @@ their settings panel is captured from the installed interface without changing p
 
 [![Taskbar position and module visibility](screenshots/taskbar-options.png)](screenshots/taskbar-options.png)
 
-## Control desk
+## Fusion Settings
 
 ### Hotkeys
 

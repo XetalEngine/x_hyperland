@@ -1,6 +1,6 @@
 # Desktop Cube & 3D Windows
 
-Open **Control desk → Theme → Window effects → Desktop Cube + 3D**.
+Open **Fusion Settings → Theme → Window effects → Desktop Cube + 3D**.
 Hold **Ctrl + Alt + left mouse** and drag to rotate the cube on that monitor.
 Release the button to select the nearest face. **Escape** or a right click
 cancels. The pointer stays where the drag started.

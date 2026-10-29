@@ -409,7 +409,7 @@ static void pressed(GtkGestureMultiPress *gesture, gint count, gdouble x, gdoubl
         if (!strcmp(id, "custom/launcher")) {
             char *script = g_build_filename(g_get_home_dir(), ".config/hypr/scripts/control-center.sh", NULL);
             char *quoted = g_shell_quote(script), *command = g_strconcat(quoted, " --tab system", NULL);
-            add_action(menu, "Control desk", command);
+            add_action(menu, "Fusion Settings", command);
             g_object_set_data_full(G_OBJECT(menu), "control-command", command, g_free);
             g_free(quoted); g_free(script);
         }

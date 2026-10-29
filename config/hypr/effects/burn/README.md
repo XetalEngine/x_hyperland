@@ -1,6 +1,6 @@
 # Compiz Burn for Xetal
 
-Open **Control desk → Theme → Window effects → Burn**. Enable **Burn closing
+Open **Fusion Settings → Theme → Window effects → Burn**. Enable **Burn closing
 windows**, adjust the controls and choose **Apply Burn**. **Preview Burn** opens
 a disposable window; close it with its button or X. **Compiz defaults** restores
 the original settings while preserving your enable switch. The master Animations

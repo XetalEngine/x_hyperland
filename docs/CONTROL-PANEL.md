@@ -1,6 +1,6 @@
 # Control Panel
 
-Open **Apps → Control Panel**, immediately below Control desk. It opens as a centered floating window. Drag its header to move it, use the bottom-right grip to resize it, and search by name or purpose. **Alt+Left** returns to all tools; **Ctrl+F** searches. Window size and preferences are saved separately from CachyOsTools.
+Open **Apps → Control Panel**, immediately above Fusion Settings. It opens as a centered floating window. Drag its header to move it, use the bottom-right grip to resize it, and search by name or purpose. **Alt+Left** returns to all tools; **Ctrl+F** searches. Window size and preferences are saved separately from CachyOsTools.
 
 The minus button hides the panel while its work continues. Open Control Panel from Apps again to return to the same instance and tool.
 
@@ -42,7 +42,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | Panel Preferences | Language, visible tool families, startup page, size memory, autosave, drive/package/editor defaults, ISO defaults and debug preview |
 | Hyper Fusion Updates | The existing desktop updater, including Control Panel updates |
 
-The separate CachyOsTools Theme page is replaced by the **desktop master theme**. Raw, Modern and BreakPoint, including Dark/Light/High contrast, apply to the panel and its dialogs. Appearance preferences link to Control desk. Hyper Fusion's updater supersedes the original application's self-updater.
+The separate CachyOsTools Theme page is replaced by the **desktop master theme**. Raw, Modern and BreakPoint, including Dark/Light/High contrast, apply to the panel and its dialogs. Appearance preferences link to Fusion Settings. Hyper Fusion's updater supersedes the original application's self-updater.
 
 The backend targets **Arch Linux/CachyOS**. Package, kernel, boot and ISO tools retain their platform/dependency requirements; installing Hyper Fusion on another distribution does not translate these commands to another package manager. Existing confirmation and privilege prompts remain. Opening or searching the panel does not execute a system-changing operation.
 

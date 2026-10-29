@@ -36,6 +36,7 @@ from window_chrome import close_button
 from identity import Avatar, ProfileCard, launcher_background_path
 from launcher_surfaces import paint_tile
 from launcher_labels import positions as label_positions
+from icons import icon as desktop_icon
 
 STYLE = '''
 QWidget { color: #e6edf8; font-family: "Noto Sans"; font-size: 13px; background: transparent; }
@@ -246,12 +247,14 @@ class Menu(QWidget):
         for name, icon, command in [
             ('Files', 'folder', [catalog.ROOT/'scripts/dolphin.sh']),
             ('Theme', 'preferences-desktop-theme', [catalog.ROOT/'scripts/wallpaper.sh']),
-            ('Control desk', 'preferences-system', [catalog.ROOT/'scripts/control-center.sh', '--tab', 'hotkeys']),
             ('Control Panel', 'preferences-system', [catalog.ROOT/'scripts/control-panel.sh']),
+            ('Fusion Settings', 'fusion-settings', [catalog.ROOT/'scripts/control-center.sh', '--tab', 'hotkeys']),
             ('Session & power', 'system-shutdown', [catalog.ROOT/'scripts/control-center.sh', '--tab', 'system'])]:
             button = QPushButton(QIcon.fromTheme(icon), '  ' + name)
             button.setObjectName('launcherNav')
             button.setFixedWidth(180)
+            if icon=='fusion-settings':
+                self.fusion_settings_button=button;button.setIconSize(QSize(20,20))
             button.clicked.connect(lambda checked=False, c=command: self.run_command(c))
             navigation.addWidget(button)
         self.sidebar_scroll.setWidget(navigation_widget)
@@ -344,6 +347,7 @@ class Menu(QWidget):
 
     def apply_design(self):
         modern=theme_runtime.launcher_design()=='modern'
+        self.fusion_settings_button.setIcon(desktop_icon('fusion-settings',theme_runtime.colors(style=theme_runtime.launcher_design())['Accent'],20))
         self.profile.setVisible(modern);self.profile.refresh()
         self.raw_header.setVisible(not modern);self.raw_avatar.refresh()
         for widget in (self.raw_brand,self.raw_eyebrow,self.raw_account,self.raw_session):widget.setVisible(not modern)

@@ -1,4 +1,4 @@
-"""Configure an app launch shortcut through Control desk's validated binding store."""
+"""Configure an app launch shortcut through Fusion Settings's validated binding store."""
 from __future__ import annotations
 import copy
 import subprocess
@@ -59,7 +59,7 @@ QPushButton:disabled { color: #71859b; background: #202b39; }
         self.key=CaptureEdit();self.key.setPlaceholderText('For example: K, F8, Return')
         form.addRow('Modifiers',self.mods);form.addRow('Key',self.key);layout.addLayout(form)
         self.enabled=QCheckBox('Enable this hotkey');layout.addWidget(self.enabled)
-        hint=QLabel('Also shown in Control desk → Hotkeys → Applications.\nUse Super to keep ordinary typing shortcuts available to apps.')
+        hint=QLabel('Also shown in Fusion Settings → Hotkeys → Applications.\nUse Super to keep ordinary typing shortcuts available to apps.')
         hint.setObjectName('muted');hint.setWordWrap(True);layout.addWidget(hint)
         self.message=QLabel();self.message.setObjectName('error');self.message.setWordWrap(True);layout.addWidget(self.message)
         layout.addStretch()

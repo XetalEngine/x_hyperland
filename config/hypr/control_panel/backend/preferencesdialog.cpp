@@ -328,9 +328,9 @@ void PreferencesDialog::buildGeneral() {
 
 void PreferencesDialog::buildAppearance() {
     int nativePage = addPage(tr("Appearance"), tr("Follows your Hyprland desktop theme."), "preferences-desktop-theme");
-    auto *nativeCard = addCard(nativePage, tr("Desktop appearance"), tr("Raw, Modern and BreakPoint are managed in Control desk."));
+    auto *nativeCard = addCard(nativePage, tr("Desktop appearance"), tr("Raw, Modern and BreakPoint are managed in Fusion Settings."));
     m_themePreview = new QWidget(nativeCard); m_themePreview->hide();
-    auto *openTheme = new QPushButton(tr("Open Control desk theme settings"), nativeCard);
+    auto *openTheme = new QPushButton(tr("Open Fusion Settings theme settings"), nativeCard);
     nativeCard->layout()->addWidget(openTheme);
     connect(openTheme, &QPushButton::clicked, this, [] { QProcess::startDetached(HyperPanel::root()+"/scripts/control-center.sh", {"--tab", "theme"}); });
     return;
