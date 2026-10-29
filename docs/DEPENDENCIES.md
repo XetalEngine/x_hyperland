@@ -11,6 +11,7 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 | Audio | PipeWire PulseAudio compatibility, pactl, WirePlumber/wpctl, playerctl |
 | Media downloader | yt-dlp, FFmpeg/ffprobe, and a supported Deno, Node.js or QuickJS runtime; wl-paste for selected links |
 | Network | NetworkManager/nmcli, network-manager-applet, nm-connection-editor, BlueZ/bluetoothctl, Blueman |
+| Desktop updates | Git, Python standard-library HTTPS, access to the GitHub repository; native builds use the dependencies above. No automatic system-package installation. |
 | Session/tools | libnotify/notify-send, GDBus, GNOME PolicyKit agent, xdg-utils, xdg-user-dirs, util-linux/flock, procps/pgrep, brightnessctl, Fastfetch, htop, sudo and xhost for elevated graphical tools |
 | Appearance | Papirus icon theme, Noto Sans, DejaVu Sans/Mono, Fontconfig; licensed Fira Code Nerd Font, Inter 4.1 and JetBrains Mono 2.304 files are bundled |
 

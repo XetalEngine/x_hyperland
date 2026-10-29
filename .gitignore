@@ -16,6 +16,7 @@ config/hypr/dolphin/state/
 config/hypr/startup/state/
 config/hypr/assets/font-cache/
 .xetal-install.json
+.xetal-update.json
 .DS_Store
 config/hypr/effects/burn/.build/
 config/hypr/effects/cube/.build/

@@ -1,0 +1,179 @@
+"""Offline update fixtures. No user settings, network requests or live reloads."""
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import unittest
+from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import update_engine as engine
+import github
+import service
+
+OLD = '1'*40
+NEW = '2'*40
+
+
+class UpdateTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix='xetal-update-test-'); self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name); self.live = self.root/'live'; self.live.mkdir()
+        self.state = self.root/'state'; self.upstream = self.root/'incoming'; self.stage = self.root/'stage'
+        (self.live/'code.py').write_text('old code\n')
+        (self.live/'prefs.json').write_text(json.dumps({'theme': 'raw', 'apps': ['echo'], 'modules': ['apps','keys','pins']}))
+        engine.write_json(self.live/engine.META, engine.metadata(self.live, OLD))
+        shutil.copytree(self.live, self.upstream); (self.upstream/engine.META).unlink()
+
+    def prepare(self):
+        expected = engine.merge_profile(self.live, self.upstream, self.stage, NEW)
+        return engine.prepare_plan(self.live, self.stage, expected, NEW)
+
+    def test_updates_code_and_keeps_personal_preferences_and_unmanaged_files(self):
+        (self.upstream/'code.py').write_text('new code\n')
+        (self.live/'prefs.json').write_text(json.dumps({'theme':'breakpoint','apps':['echo','mine'],'modules':['apps','keys','pins','mine']}))
+        (self.upstream/'prefs.json').write_text(json.dumps({'theme':'modern','apps':['echo','new'],'modules':['apps','keys','updates','pins'],'extra':True}))
+        (self.live/'my-wallpaper.png').write_bytes(b'private artwork')
+        plan = self.prepare(); backup = engine.apply_plan(self.live, self.stage, plan, self.state)
+        values = json.loads((self.live/'prefs.json').read_text())
+        self.assertEqual(values['theme'], 'breakpoint'); self.assertEqual(values['apps'], ['echo','new','mine'])
+        self.assertEqual(values['modules'], ['apps','keys','updates','pins','mine']); self.assertTrue(values['extra'])
+        self.assertEqual((self.live/'code.py').read_text(), 'new code\n')
+        self.assertEqual((self.live/'my-wallpaper.png').read_bytes(), b'private artwork')
+        self.assertEqual((backup/'files/code.py').read_text(), 'old code\n')
+        self.assertEqual(engine.installed(self.live)['revision'], NEW)
+
+    def test_overlapping_code_edit_blocks_without_writing_live_files(self):
+        (self.live/'code.py').write_text('my code\n'); (self.upstream/'code.py').write_text('new code\n')
+        with self.assertRaisesRegex(RuntimeError, 'overlap'): self.prepare()
+        self.assertEqual((self.live/'code.py').read_text(), 'my code\n')
+        self.assertEqual(engine.installed(self.live)['revision'], OLD)
+
+    def test_nonoverlapping_code_edit_merges(self):
+        original = ''.join(f'line {i}\n' for i in range(40))
+        (self.live/'code.py').write_text(original)
+        engine.write_json(self.live/engine.META, engine.metadata(self.live, OLD))
+        (self.live/'code.py').write_text(original.replace('line 2\n','local monitor\n'))
+        (self.upstream/'code.py').write_text(original.replace('line 35\n','new functionality\n'))
+        plan = self.prepare(); engine.apply_plan(self.live, self.stage, plan, self.state)
+        self.assertIn('local monitor', (self.live/'code.py').read_text())
+        self.assertIn('new functionality', (self.live/'code.py').read_text())
+
+    def test_edits_after_preparation_prevent_activation(self):
+        (self.upstream/'code.py').write_text('new code\n'); plan = self.prepare()
+        (self.live/'prefs.json').write_text('{"theme":"my-new-theme"}')
+        with self.assertRaisesRegex(RuntimeError, 'changed after'): engine.apply_plan(self.live, self.stage, plan, self.state)
+        self.assertEqual((self.live/'code.py').read_text(), 'old code\n')
+
+    def test_integrity_failure_prevents_activation(self):
+        (self.upstream/'code.py').write_text('new code\n'); plan = self.prepare()
+        (self.stage/'code.py').write_text('damaged download\n')
+        with self.assertRaisesRegex(RuntimeError, 'integrity'): engine.apply_plan(self.live, self.stage, plan, self.state)
+        self.assertEqual(engine.installed(self.live)['revision'], OLD)
+
+    def test_symlinks_and_traversal_cannot_write_outside_profile(self):
+        other = self.root/'other'; other.mkdir(); (other/'keep').write_text('unchanged')
+        (self.live/'escape').symlink_to(other, target_is_directory=True)
+        for relative in ('../other/keep', '/etc/passwd', 'escape/keep'):
+            with self.assertRaises(ValueError): engine.location(self.live, relative)
+        self.assertEqual((other/'keep').read_text(), 'unchanged')
+
+    def test_disk_failure_rolls_back_all_written_files(self):
+        (self.upstream/'code.py').write_text('new code\n'); plan = self.prepare(); actual = engine.atomic
+        def failing(path, data, mode=0o600):
+            if path == self.live/'code.py' and data == b'new code\n': raise OSError('disk failed')
+            return actual(path, data, mode)
+        with patch.object(engine, 'atomic', side_effect=failing):
+            with self.assertRaisesRegex(OSError, 'disk failed'): engine.apply_plan(self.live, self.stage, plan, self.state)
+        self.assertEqual(engine.installed(self.live)['revision'], OLD)
+        self.assertFalse((self.state/'transaction.json').exists())
+
+    def test_process_death_recovers_on_next_start(self):
+        (self.upstream/'code.py').write_text('new code\n'); plan = self.prepare(); plan_path = self.root/'plan.json'; engine.write_json(plan_path, plan)
+        script = '''import os,sys,json
+from pathlib import Path
+import update_engine as e
+live,stage,state,plan=map(Path,sys.argv[1:]); actual=e.atomic
+def abrupt(path,data,mode=0o600):
+ actual(path,data,mode)
+ if path==live/'code.py':os._exit(19)
+e.atomic=abrupt
+e.apply_plan(live,stage,json.loads(plan.read_text()),state)
+'''
+        result = subprocess.run([sys.executable, '-c', script, str(self.live), str(self.stage), str(self.state), str(plan_path)],
+                                env={**os.environ, 'PYTHONPATH': str(Path(engine.__file__).parent)})
+        self.assertEqual(result.returncode, 19); self.assertTrue((self.state/'transaction.json').exists())
+        engine.recover(self.live, self.state)
+        self.assertEqual((self.live/'code.py').read_text(), 'old code\n'); self.assertEqual(engine.installed(self.live)['revision'], OLD)
+
+    def test_rollback_restores_files_but_refuses_to_clobber_later_edits(self):
+        (self.upstream/'code.py').write_text('new code\n'); (self.upstream/'new.py').write_text('new helper\n')
+        plan = self.prepare(); backup = engine.apply_plan(self.live, self.stage, plan, self.state)
+        rollback = engine.rollback_plan(self.live, backup)
+        (self.live/'code.py').write_text('later personal edit\n')
+        with self.assertRaises(RuntimeError): engine.check_plan(self.live, backup/'files', rollback)
+        (self.live/'code.py').write_text('new code\n')
+        engine.apply_plan(self.live, backup/'files', rollback, self.state)
+        self.assertFalse((self.live/'new.py').exists()); self.assertEqual(engine.installed(self.live)['revision'], OLD)
+
+    def test_completed_transaction_recovers_rollback_pointer(self):
+        (self.upstream/'code.py').write_text('new code\n'); plan = self.prepare()
+        backup = engine.apply_plan(self.live, self.stage, plan, self.state)
+        (self.state/'last-backup.json').unlink()
+        engine.write_json(self.state/'transaction.json', {'backup':str(backup)})
+        engine.recover(self.live,self.state)
+        self.assertEqual(engine.json_file(self.state/'last-backup.json')['backup'],str(backup))
+        self.assertEqual(engine.installed(self.live)['revision'],NEW)
+
+    def test_removed_upstream_file_is_deleted_only_if_unedited(self):
+        (self.upstream/'code.py').unlink(); (self.live/'code.py').write_text('keep my version\n')
+        plan = self.prepare(); engine.apply_plan(self.live, self.stage, plan, self.state)
+        self.assertEqual((self.live/'code.py').read_text(), 'keep my version\n')
+
+    def test_api_checks_new_commit_and_does_not_autodowngrade(self):
+        for relation in ('ahead', 'behind', 'diverged'):
+            responses = [([{'sha': NEW, 'commit': {'message':'Release'}}], 'etag'), ({'status':relation}, '')]
+            with patch.object(github, 'request', side_effect=responses): result = service.check(self.live, self.state)
+            self.assertEqual(result['phase'], 'available' if relation == 'ahead' else 'current')
+            (self.state/'status.json').unlink()
+
+    def test_conditional_api_check_and_rate_limit_keep_cached_release(self):
+        previous = {'sha': NEW, 'base':OLD, 'etag':'same', 'relation':'ahead', 'message':'Release'}
+        with patch.object(github, 'request', return_value=(None, 'same')) as call:
+            self.assertEqual(github.latest(OLD, previous)['sha'], NEW); self.assertEqual(call.call_count, 1)
+        service.publish(self.state, phase='available', latest=NEW, github=previous)
+        with patch.object(github, 'latest', side_effect=github.RetryLater('rate limited', time.time()+120)) as call:
+            service.check(self.live, self.state); value = service.check(self.live, self.state)
+            self.assertEqual(call.call_count, 1); self.assertEqual(value['latest'], NEW)
+
+    def test_paused_auto_update_does_not_activate_and_requests_are_consumed_once(self):
+        engine.write_json(self.state/'pending.json', {'automatic':True})
+        engine.write_json(self.state/'settings.json', {'automatic':False})
+        self.assertFalse(service.activate(self.live, self.state))
+        service.request('check', self.state); self.assertEqual(service.take_request(self.state), 'check')
+        self.assertIsNone(service.take_request(self.state))
+
+    def test_status_escapes_remote_markup(self):
+        badge = service.badge({'phase':'available','message':'<b>not markup</b>'})
+        self.assertEqual(badge['text'], '↻ UPDATE'); self.assertNotIn('<b>', badge['tooltip'])
+
+    def test_download_checkout_is_exact_and_keeps_developer_clone_untouched(self):
+        repository = self.root/'repo'; repository.mkdir()
+        subprocess.run(['git','init','-q',str(repository)], check=True)
+        (repository/'source.py').write_text('released\n')
+        subprocess.run(['git','-C',str(repository),'add','.'], check=True)
+        subprocess.run(['git','-C',str(repository),'-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-qm','release'], check=True)
+        commit = subprocess.check_output(['git','-C',str(repository),'rev-parse','HEAD'], text=True).strip()
+        (repository/'source.py').write_text('uncommitted developer work\n')
+        with patch.object(github, 'REPOSITORY', str(repository)):
+            copied = github.source(commit, self.root/'cache', self.root/'download')
+        self.assertEqual((copied/'source.py').read_text(), 'released\n')
+        self.assertEqual(subprocess.check_output(['git','-C',str(copied),'rev-parse','HEAD'],text=True).strip(), commit)
+        self.assertEqual((repository/'source.py').read_text(), 'uncommitted developer work\n')
+
+
+if __name__ == '__main__': unittest.main()

@@ -192,3 +192,19 @@ python3 -m unittest discover -s tests -v
 ```
 
 Use a new destination for each prepare run. These checks cover packaging, native compilation and automated behavior; they are not a full login test on every distribution or GPU. Fedora and Debian/Ubuntu dependency recipes are included but have not been executed here. Their package versions must still pass the same checks before installation.
+
+
+Hyper Fusion updater and presentation (28 October 2026): **419 desktop checks
+and 17 installer checks passed**. The 20 updater checks include real disposable
+Git histories, a private session socket, a network worker with a detached child,
+logout cleanup, killed-process transaction recovery, completed-journal recovery,
+rollback conflict protection, settings merges, exact source verification, rate
+limits and GTK badge CSS in all nine palette combinations.
+
+A disposable recipient profile completed source preparation, native builds, full
+Hyprland configuration validation, login activation and rollback. Personal theme
+choices, hotkeys, an unmanaged file and a separate KDE guard remained intact.
+The live profile received only the reviewed updater files and taskbar integration,
+with a backup and complete config validation before reload. README screenshots
+were captured from real widgets in a temporary copy of the profile; the file
+progress card uses a sample job. No tests close the user's real applications.

@@ -111,6 +111,7 @@ def render(stage, home, monitors, profile='auto', startup=True):
     user_dirs=home/'.config/user-dirs.dirs'
     if user_dirs.is_file():shutil.copy2(user_dirs,stage/'dolphin/config/user-dirs.dirs')
     for directory in ('dolphin/cache','dolphin/state','apps','assets/font-cache'):(stage/directory).mkdir(parents=True,exist_ok=True)
+    subprocess.run([sys.executable,str(stage/'theme/update_widget.py')],check=True)
     return target
 
 
@@ -131,6 +132,14 @@ def build(stage):
             print('Optional '+label+' effect unavailable: '+result.stderr.strip(),flush=True)
         else:
             print('Built '+label+' for the installed Hyprland.',flush=True)
+
+
+def register_updates(stage):
+    """Record the delivered defaults separately from future personal edits."""
+    sys.path.insert(0,str(PAYLOAD/'updates'))
+    import update_engine
+    commit=subprocess.check_output(['git','-C',str(REPO),'rev-parse','HEAD'],text=True).strip()
+    update_engine.write_json(stage/update_engine.META,update_engine.metadata(stage,commit))
 
 
 def validate(stage):
@@ -226,6 +235,7 @@ def main():
         if destination.exists():raise RuntimeError('--prepare destination must not exist.')
         destination.parent.mkdir(parents=True,exist_ok=True)
         render(destination,home,connected_monitors(),args.profile,not args.no_startup)
+        register_updates(destination)
         build(destination);validate(destination)
         print('Built and validated review copy: '+str(destination)+'. Live profile unchanged.');return 0
     target.parent.mkdir(parents=True,exist_ok=True)
@@ -236,6 +246,7 @@ def main():
         with tempfile.TemporaryDirectory(prefix='.xetal-hypr-',dir=target.parent) as temporary:
             stage=Path(temporary)/'hypr'
             render(stage,home,connected_monitors(),args.profile,not args.no_startup)
+            register_updates(stage)
             build(stage);validate(stage)
             print('All components built; full configuration validated. Your existing profile will be backed up.')
             if not args.yes and input('Install this prepared desktop? [y/N] ').strip().lower() not in ('y','yes'):

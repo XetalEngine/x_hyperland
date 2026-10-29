@@ -345,12 +345,15 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     if design!='raw':css+=designs.notification_style(colors,design)
     bar=runtime.stylesheet((runtime.ROOT/'waybar-dark.css').read_text(),value,design,qt=False)
     if design!='raw':bar+=designs.waybar_style(colors,design)
+    import update_widget
+    bar=update_widget.attach(bar)
     files={runtime.ROOT/launcher_background:background_data} if background_data is not None else {}
     files.update(group_files)
     files.update({runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,'launcher_style':launcher_style,'avatar':avatar,'launcher_wallpaper':launcher_wallpaper,'launcher_background':launcher_background,'launcher_surfaces':surfaces,'launcher_labels':labels,'launcher_background_visibility':visibility},indent=2)+'\n').encode(),
            runtime.ROOT/'current.colors':scheme.encode(),runtime.ROOT/'kitty-colors.conf':kitty_colors(value,design).encode(),
            isolated:(stream.getvalue().rstrip()+'\n').encode(),
            ROOT/'waybar/style.css':bar.encode(),
+           ROOT/'waybar/updates.css':update_widget.style(colors).encode(),
            ROOT/'swaync/style.css':css.encode()})
     for target,template in [('hyprlock.conf','hyprlock-raw.conf'),('startup/kitty.conf','startup-raw.conf')]:
         path=ROOT/target;saved=runtime.ROOT/template

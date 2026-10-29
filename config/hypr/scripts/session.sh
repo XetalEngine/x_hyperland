@@ -11,6 +11,20 @@ instance_dir="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE"
 exec 9>"$instance_dir/isolated-helpers.lock"
 flock -n 9 || exit 0
 config_dir="$HOME/.config/hypr"
+
+# Prepared updates activate before any session helper or native effect is loaded.
+# A replaced launcher is re-executed; applications are never logged out by updates.
+if [[ "${XETAL_UPDATE_ACTIVATED:-}" != 1 ]]; then
+    update_result=0
+    python3 "$config_dir/updates/service.py" --activate >"$instance_dir/update-activation.log" 2>&1 || update_result=$?
+    if [[ "$update_result" == 20 ]]; then
+        hyprctl reload >>"$instance_dir/update-activation.log" 2>&1 || true
+        exec 9>&-
+        export XETAL_UPDATE_ACTIVATED=1
+        exec bash "$config_dir/scripts/session.sh"
+    fi
+fi
+unset XETAL_UPDATE_ACTIVATED
 children=()
 
 cleanup() {
@@ -26,6 +40,9 @@ trap 'exit 0' INT TERM HUP
 export XDG_CURRENT_DESKTOP=Hyprland
 export XDG_SESSION_DESKTOP=Hyprland
 export XDG_SESSION_TYPE=wayland
+
+python3 "$config_dir/updates/service.py" --serve >"$instance_dir/desktop-updates.log" 2>&1 9>&- &
+children+=("$!")
 
 # Rebuild the profile-local palette plugins if the installed Qt version changed.
 if ! python3 "$config_dir/theme/build.py" >"$instance_dir/theme-build.log" 2>&1; then

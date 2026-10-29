@@ -1,0 +1,259 @@
+#!/usr/bin/env python3
+"""One session-owned update checker; Waybar only reads its cached status."""
+from __future__ import annotations
+import argparse
+import fcntl
+import html
+import json
+import os
+from pathlib import Path
+import random
+import select
+import signal
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+
+import github
+import update_engine as engine
+
+ROOT = Path(__file__).resolve().parents[1]
+STATE = Path.home()/'.local/state/xetal-hyprland/updates'
+CACHE = Path.home()/'.cache/xetal-hyprland/updates'
+NOTICE_DELAY = 30
+
+
+def preferences(state=None):
+    state = state or STATE
+    value = engine.json_file(state/'settings.json', {})
+    return {'automatic': value.get('automatic', True) is True,
+            'interval': max(300, min(86400, int(value.get('interval', 900))))}
+
+
+def status(state=None): return engine.json_file((state or STATE)/'status.json', {})
+
+
+def publish(state=None, **changes):
+    state = state or STATE
+    value = status(state); value.update(changes); engine.write_json(state/'status.json', value)
+    return value
+
+
+def request(action, state=None):
+    state = state or STATE
+    if action not in ('check', 'prepare', 'rollback'): raise ValueError('Unknown update action.')
+    engine.write_json(state/'request.json', {'action': action, 'time': time.time()})
+
+
+def badge(value):
+    phase = value.get('phase', 'current')
+    labels = {'available': '↻ UPDATE', 'preparing': '↻ UPDATING', 'ready': '✓ UPDATE READY',
+              'attention': '↻ UPDATE !', 'rollback': '↶ ROLLBACK'}
+    text = labels.get(phase, '↻')
+    message = value.get('message', 'Xetal desktop updates · Click to check and manage updates')
+    if value.get('latest'): message += '\nGitHub main · '+value['latest'][:8]
+    return {'text': text, 'class': phase, 'tooltip': html.escape(message)}
+
+
+def check(root=None, state=None):
+    root, state = root or ROOT, state or STATE
+    current = engine.installed(root)['revision']; value = status(state)
+    if time.time() < value.get('retry_at', 0): return value
+    try:
+        latest = github.latest(current, value.get('github'))
+        pending = engine.json_file(state/'pending.json')
+        phase = 'ready' if pending else 'available' if latest['relation'] == 'ahead' else 'current'
+        message = ('Update prepared. It will activate at your next Hyprland login.' if pending else
+                   'A new Xetal desktop update is available.' if phase == 'available' else
+                   'Your desktop is up to date.' if latest['relation'] == 'identical' else
+                   'This build is ahead of main or has a different history. Automatic downgrades are disabled.')
+        if pending and pending.get('rollback'): phase = 'rollback'; message = 'Rollback is queued for your next Hyprland login.'
+        elif not pending and value.get('failed_revision') == latest['sha']:
+            phase = 'attention'; message = value.get('message', 'Update preparation needs attention.')
+        return publish(state, phase=phase, current=current, latest=latest['sha'], title=latest['message'],
+                       github=latest, message=message, checked=time.time(), retry_at=0)
+    except Exception as error:
+        retry_at = getattr(error, 'retry_at', time.time()+900)
+        phase = value.get('phase', 'current')
+        if phase == 'checking': phase = 'available' if value.get('github', {}).get('relation') == 'ahead' else 'current'
+        return publish(state, message='Could not check GitHub: '+str(error), checked=time.time(), retry_at=retry_at,
+                       phase=phase)
+
+
+def worker(commit, manual=False):
+    os.nice(10)
+    with tempfile.TemporaryDirectory(prefix='download-', dir=STATE) as temporary:
+        print('Downloading GitHub main commit '+commit[:8]+'…', flush=True)
+        source = github.source(commit, CACHE, Path(temporary)/'source')
+        args = [sys.executable, str(source/'installer/update.py'), '--revision', commit]
+        if manual: args.append('--manual')
+        subprocess.run(args, check=True)
+
+
+def queue_rollback(root=None, state=None):
+    root, state = root or ROOT, state or STATE
+    with engine.locked(state):
+        record = engine.json_file(state/'last-backup.json')
+        if not record: raise RuntimeError('There is no completed update to roll back yet.')
+        backup = Path(record['backup']); plan = engine.rollback_plan(root, backup)
+        engine.check_plan(root, backup/'files', plan)
+        engine.write_json(state/'rollback-plan.json', plan)
+        engine.write_json(state/'pending.json', {'stage': str(backup/'files'), 'plan': str(state/'rollback-plan.json'),
+                                               'revision': plan['revision'], 'automatic': False, 'rollback': True})
+        settings = preferences(state); settings['automatic'] = False; engine.write_json(state/'settings.json', settings)
+        publish(state, phase='rollback', message='Rollback is queued for your next Hyprland login. Automatic updates are paused.')
+
+
+def activate(root=None, state=None):
+    root, state = root or ROOT, state or STATE
+    with engine.locked(state):
+        engine.recover(root, state)
+        pending = engine.json_file(state/'pending.json')
+        if not pending or (pending.get('automatic') and not preferences(state)['automatic']): return False
+        stage = Path(pending['stage'])
+        if not stage.resolve().is_relative_to(state.resolve()): raise ValueError('Prepared update is outside its private state directory.')
+        if engine.installed(root)['revision'] == pending['revision'] and not pending.get('rollback'):
+            (state/'pending.json').unlink(); return False
+        plan = engine.json_file(Path(pending.get('plan', str(stage/'plan.json'))))
+        try:
+            engine.check_plan(root, stage, plan)
+            if not pending.get('rollback'):
+                with tempfile.TemporaryDirectory(prefix='verify-', dir=state) as directory:
+                    candidate = Path(directory)/'hyprland.conf'
+                    candidate.write_text((stage/'hyprland.conf').read_text().replace('~/.config/hypr/', str(stage)+'/'))
+                    checked = subprocess.run(['Hyprland', '--verify-config', '--config', str(candidate)], capture_output=True, text=True, timeout=30)
+                    if checked.returncode or 'config ok' not in checked.stdout:
+                        raise RuntimeError('This update needs preparation for the current Hyprland version. Your desktop was kept.')
+        except RuntimeError as error:
+            (state/'pending.json').unlink()
+            publish(state, phase='attention', message=str(error), retry_prepare=True)
+            return False
+        backup = engine.apply_plan(root, stage, plan, state)
+        (state/'pending.json').unlink(missing_ok=True)
+        publish(state, phase='current', current=plan['revision'], installed=engine.now(),
+                message='Desktop update installed.' if not pending.get('rollback') else 'Previous desktop version restored.',
+                backup=str(backup), retry_prepare=False, failed_revision='')
+        return True
+
+
+def take_request(state=None):
+    state = state or STATE
+    path = state/'request-handled.json'
+    try: os.replace(state/'request.json', path)
+    except FileNotFoundError: return None
+    command = engine.json_file(path, {})
+    return command.get('action') if time.time()-command.get('time', 0) < 300 else None
+
+
+def stop_worker(process):
+    """Stop only this worker and its compiler descendants, even separate groups."""
+    if process is None or process.poll() is not None: return
+    handles = []
+    def freeze(pid):
+        try:
+            handle = os.pidfd_open(pid); signal.pidfd_send_signal(handle, signal.SIGSTOP)
+            handles.append(handle)
+            for child in (Path('/proc')/str(pid)/'task'/str(pid)/'children').read_text().split(): freeze(int(child))
+        except (OSError, ValueError): pass
+    freeze(process.pid)
+    for handle in reversed(handles):
+        try: signal.pidfd_send_signal(handle, signal.SIGKILL)
+        except OSError: pass
+        finally: os.close(handle)
+    try: process.wait(timeout=3)
+    except subprocess.TimeoutExpired: pass
+
+
+def serve():
+    signature = os.environ.get('HYPRLAND_INSTANCE_SIGNATURE', '')
+    if not signature: return
+    runtime = Path(os.environ.get('XDG_RUNTIME_DIR', '/tmp'))/'hypr'/signature
+    STATE.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with (STATE/'daemon.lock').open('a') as lock, socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as session:
+        try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError: return
+        session.connect(str(runtime/'.socket2.sock')); session.setblocking(False)
+        process = None; log = None; running_revision = ''; role = ''; started = time.time()
+        next_check = time.time()+random.uniform(35, 70); available_since = None
+        def stop(*_): raise KeyboardInterrupt
+        signal.signal(signal.SIGTERM, stop); signal.signal(signal.SIGINT, stop)
+        try:
+            while True:
+                ready, _, _ = select.select([session], [], [], 1)
+                if ready:
+                    try:
+                        if not session.recv(65536): break
+                    except BlockingIOError: pass
+                settings = preferences(); action = take_request()
+                if process and process.poll() is not None:
+                    code = process.returncode; process = None
+                    if log: log.close(); log = None
+                    if role == 'check':
+                        next_check = max(time.time()+settings['interval'], status().get('retry_at', 0))
+                    elif code == 0:
+                        publish(phase='ready', message='Update prepared. It will activate at your next Hyprland login.', failed_revision='')
+                    else:
+                        lines = (STATE/'update.log').read_text(errors='replace').strip().splitlines()
+                        detail = next((x for x in reversed(lines) if not x.startswith(('Traceback', '  File', 'subprocess.'))), 'See the update log.')
+                        publish(phase='attention', message='Update preparation stopped. '+detail[-800:], failed_revision=running_revision)
+                if process: continue
+                if action == 'rollback':
+                    try: queue_rollback()
+                    except Exception as error: publish(phase='attention', message=str(error))
+                    continue
+                value = status()
+                if action == 'check' or time.time() >= next_check:
+                    if time.time() < value.get('retry_at', 0):
+                        next_check = value['retry_at']
+                    else:
+                        role = 'check'; log = (STATE/'check.log').open('w')
+                        if value.get('phase', 'current') == 'current': publish(phase='checking', message='Checking GitHub…')
+                        process = subprocess.Popen([sys.executable, str(Path(__file__)), '--check'],
+                                                   stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+                        continue
+                pending = engine.json_file(STATE/'pending.json')
+                if pending: continue
+                eligible = value.get('github', {}).get('relation') == 'ahead' and value.get('latest')
+                if eligible and available_since is None: available_since = time.time()
+                if not eligible: available_since = None; continue
+                automatic = (settings['automatic'] and value.get('failed_revision') != value['latest']
+                             and value.get('checked', 0) >= started and time.time()-available_since >= NOTICE_DELAY)
+                if action == 'prepare' or automatic:
+                    role = 'prepare'
+                    running_revision = engine.revision(value['latest'])
+                    publish(phase='preparing', message='Downloading, merging and validating the new desktop…', retry_prepare=False)
+                    log = (STATE/'update.log').open('w')
+                    args = [sys.executable, str(Path(__file__)), '--worker', running_revision]
+                    if action == 'prepare': args.append('--manual')
+                    process = subprocess.Popen(args, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        except (KeyboardInterrupt, ConnectionError): pass
+        finally:
+            if process and process.poll() is None:
+                stop_worker(process)
+                publish(phase='available' if role == 'prepare' else 'current',
+                        message='Update work paused at logout. It will resume next session.')
+            if log: log.close()
+
+
+def main():
+    parser = argparse.ArgumentParser(); mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument('--serve', action='store_true'); mode.add_argument('--status', action='store_true')
+    mode.add_argument('--activate', action='store_true'); mode.add_argument('--worker')
+    mode.add_argument('--check', action='store_true'); parser.add_argument('--manual', action='store_true')
+    args = parser.parse_args()
+    try:
+        if args.status: print(json.dumps(badge(status()))); return 0
+        if args.serve: serve()
+        elif args.activate: return 20 if activate() else 0
+        elif args.worker: worker(engine.revision(args.worker), args.manual)
+        elif args.check: print(json.dumps(check(), indent=2))
+        return 0
+    except Exception as error:
+        print(str(error), file=sys.stderr)
+        if not args.status: publish(phase='attention', message=str(error))
+        return 1
+
+
+if __name__ == '__main__': sys.exit(main())

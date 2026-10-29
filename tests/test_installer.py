@@ -59,6 +59,18 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(json.loads((self.stage/'waybar/options.json').read_text()),{'version':1,'hidden':[]})
         self.assertTrue((self.stage/'waybar/options/build.sh').is_file())
 
+    def test_update_registration_tracks_delivered_defaults_and_bar_entry(self):
+        self.render(); install.register_updates(self.stage)
+        inventory=json.loads((self.stage/'.xetal-update.json').read_text())
+        self.assertEqual(len(inventory['revision']),40)
+        self.assertIn('launcher/favorites.json',inventory['files'])
+        self.assertIn('text',inventory['files']['launcher/favorites.json'])
+        self.assertNotIn('theme/qt6/libxetal.so',inventory['files'])
+        bar=json.loads((self.stage/'waybar/config.json').read_text())
+        self.assertEqual(bar['modules-left'][bar['modules-left'].index('custom/keys')+1],'custom/updates')
+        self.assertIn('updates.css',(self.stage/'waybar/style.css').read_text())
+        self.assertIn('updates/service.py" --activate',(self.stage/'scripts/session.sh').read_text())
+
     def test_image_viewer_and_image_associations_stay_in_recipient_profile(self):
         self.render()
         desktop=(self.stage/'desktop/data/applications/xetal-image-viewer.desktop').read_text()
