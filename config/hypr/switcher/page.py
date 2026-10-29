@@ -83,8 +83,9 @@ class TaskSwitcherPage(QWidget):
         self.scope.currentIndexChanged.connect(lambda: self.edit('scope', self.scope.currentData()))
         form.addRow('Windows to include', self.scope)
         for key, title, suffix in [('duration', 'Animation duration', ' ms'), ('size', 'Switcher size', '%'),
-                                    ('inactive_opacity', 'Inactive windows', '%')]:
+                                    ('inactive_opacity', 'Inactive windows', '%'), ('preview_fps', 'Window preview FPS', ' FPS')]:
             self.add_number(form, key, title, suffix)
+        self.fields['preview_fps'].setToolTip('Target FPS for each live window preview. Default: 60. Actual FPS depends on the application, monitor and capture workload.')
         for key, title in [('live_previews', 'Live window previews'), ('show_titles', 'Show window titles'), ('show_icons', 'Show app icons')]:
             self.add_check(form, key, title)
         form.addRow(label('Cards float directly over the desktop. Release Super to select; Esc or click empty space to cancel. Duration 0 disables motion.'))
@@ -161,6 +162,7 @@ class TaskSwitcherPage(QWidget):
             field.setEnabled(not self.busy)
         cfg = self.draft['profiles'][self.draft['style']]
         self.fields['live_previews'].setEnabled(not self.busy and self.draft['style'] != 'fusion')
+        self.fields['preview_fps'].setEnabled(not self.busy and self.draft['style'] != 'fusion' and self.draft['live_previews'])
         if 'reflection_intensity' in self.profile_fields:
             self.profile_fields['reflection_intensity'].setEnabled(not self.busy and cfg['reflection'])
         self.preview.configure(self.draft)

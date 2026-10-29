@@ -10,19 +10,21 @@ import struct
 ROOT = Path(__file__).resolve().parent
 PATH = ROOT / 'settings.json'
 DEFAULTS = dict(enabled=True, wall_opacity=0.85, zoom=0.64, sensitivity=0.35,
-                duration=220, sky_mode='gradient', sky_motion=True, sky_speed=0.0,
+                duration=220, preview_fps=60, sky_mode='gradient', sky_motion=True, sky_speed=0.0,
                 top_image='', bottom_image='', sky_image='',
                 sky_top=[0.035,0.04,0.065,1.0], sky_bottom=[0.14,0.075,0.095,1.0],
                 cap_color=[0.09,0.10,0.14,1.0], edge_color=[0.898,0.224,0.271,1.0],
                 windows_3d=True, min_cube_size=60, window_space=10, window_depth=0.3,
                 window_color=[0.18,0.19,0.24,1.0])
 RANGES = dict(wall_opacity=(0,1), zoom=(0.25,0.95), sensitivity=(0.05,2), duration=(0,1000),
-              sky_speed=(-20,20), min_cube_size=(10,100), window_space=(0,50), window_depth=(0,1))
+              preview_fps=(1,144), sky_speed=(-20,20), min_cube_size=(10,100), window_space=(0,50), window_depth=(0,1))
 IMAGES = ('top_image','bottom_image','sky_image')
 COLORS = ('sky_top','sky_bottom','cap_color','edge_color','window_color')
 
 
 def validate(values):
+    if isinstance(values,dict) and 'preview_fps' not in values:
+        values = dict(values,preview_fps=60)
     if set(values) != set(DEFAULTS):
         raise ValueError('Cube settings are incomplete or contain unknown options.')
     out = deepcopy(values)

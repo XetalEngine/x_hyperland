@@ -46,6 +46,7 @@ class SettingsTests(unittest.TestCase):
     def test_malformed_and_out_of_range_configuration_is_rejected(self):
         for value in ([], {'version': True}, {'version': 2}, {'style': 'unknown'}, {'scope': []},
                       {'duration': -1}, {'inactive_opacity': 101}, {'live_previews': 1}, {'profiles': []},
+                      {'preview_fps': 0}, {'preview_fps': 145}, {'preview_fps': True}, {'preview_fps': 59.5},
                       {'profiles': {'flip': {'flip_rotation': 90}}}):
             with self.subTest(value=value), self.assertRaises(ValueError): preferences.normalize(value)
 
@@ -224,15 +225,52 @@ class PageTests(unittest.TestCase):
 class CaptureTests(unittest.TestCase):
     def test_capture_is_bounded_async_and_cleared_on_hide(self):
         with tempfile.TemporaryDirectory() as tmp:
-            folder = Path(tmp); picture = QPixmap(80, 50); picture.fill(QColor('#336699')); picture.save(str(folder/'frame.png'))
-            helper = folder/'helper'; helper.write_text('#!/usr/bin/python3\nimport time,pathlib,sys\ntime.sleep(.03)\nsys.stdout.buffer.write(pathlib.Path(__file__).with_name("frame.png").read_bytes())\n'); helper.chmod(0o700)
-            queue = PreviewQueue(helper=helper); queue.request([f'0x{i:x}' for i in range(40)])
-            self.assertEqual(len(queue.wanted), 24); queue.start(); queue.tick()
-            self.assertEqual(len(queue.running), 2)
-            QTest.qWait(110); self.assertGreater(len(queue.cache), 0)
-            self.assertLessEqual(len(queue.running), 2); self.assertLessEqual(len(queue.cache), 24)
-            queue.stop(); self.assertEqual(len(queue.cache), 0); self.assertFalse(queue.timer.isActive())
-            QTest.qWait(100); self.assertEqual(len(queue.running), 0); queue.shutdown()
+            folder = Path(tmp)
+            helper = folder/'helper'; helper.write_text('''#!/usr/bin/python3
+import time, pathlib, sys, struct, select
+line = sys.stdin.readline().split()
+pathlib.Path(__file__).with_name('request.txt').write_text(' '.join(line))
+fps = int(line[0]); addresses = [int(v,16) for v in line[1:]]
+frame = 0
+while True:
+    for address in addresses:
+        pixels = bytes((frame%255,100,150,255))*80*50
+        packet = struct.pack('<4sQIII',b'XTPF',address,80,50,len(pixels))+pixels
+        sys.stdout.buffer.write(packet[:11]); sys.stdout.buffer.flush()
+        sys.stdout.buffer.write(packet[11:]); sys.stdout.buffer.flush()
+    frame += 1
+    time.sleep(1/fps)
+'''); helper.chmod(0o700)
+            queue = PreviewQueue(helper=helper)
+            try:
+                queue.request([f'0x{i:x}' for i in range(40)])
+                self.assertEqual(len(queue.wanted), 24); queue.start(30); queue.tick()
+                self.assertEqual(len(queue.workers), 1)
+                QTest.qWait(120); self.assertGreater(len(queue.cache), 0)
+                self.assertTrue((folder/'request.txt').read_text().startswith('30 '))
+                first = queue.cache['0x1'].toImage().pixelColor(0,0).blue()
+                QTest.qWait(110)
+                self.assertGreater(queue.cache['0x1'].toImage().pixelColor(0,0).blue(), first)
+                self.assertLessEqual(len(queue.cache), 24)
+                queue.stop(); self.assertEqual(len(queue.cache), 0); self.assertFalse(queue.timer.isActive())
+                QTest.qWait(80); self.assertEqual(len(queue.workers), 0)
+                queue.request(['0x1']); queue.start(60)
+                QTest.qWait(80); self.assertIn('0x1',queue.cache)
+            finally: queue.shutdown()
+
+    def test_corrupt_stream_is_rejected_and_reaped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            helper = Path(tmp)/'helper'
+            helper.write_text("#!/usr/bin/python3\nimport sys,time\nsys.stdin.readline()\nsys.stdout.buffer.write(b'BAD!'+b'x'*100);sys.stdout.buffer.flush()\ntime.sleep(4)\n")
+            helper.chmod(0o700); queue = PreviewQueue(helper=helper)
+            try:
+                queue.request(['0x1']); queue.start(); QTest.qWait(80)
+                self.assertEqual(len(queue.cache),0); self.assertEqual(len(queue.workers),0)
+            finally: queue.shutdown()
+
+    def test_legacy_preferences_default_to_60_fps(self):
+        self.assertEqual(preferences.normalize({'style':'ring'})['preview_fps'],60)
+        self.assertEqual(preferences.normalize({'preview_fps':120})['preview_fps'],120)
 
 
 if __name__ == '__main__': unittest.main()

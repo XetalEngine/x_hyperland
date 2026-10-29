@@ -47,14 +47,14 @@ def atomic(path, content):
         Path(temporary).unlink(missing_ok=True)
 
 
-def activate(values, target=None):
+def activate(values, target=None, previews=False):
     if values['enabled']:model.prepare_images(values)
     state = instance_dir()/'xetal-cube.json'
     loaded = any(p.get('name') == 'Xetal Desktop Cube' for p in json.loads(hypr('-j','plugin','list')))
     if loaded:
         # Finish any gesture before swapping saved settings and artwork.
         hypr('dispatch','xetalcube:reload')
-    elif values['enabled']:
+    elif values['enabled'] or previews:
         current = json.loads(hypr('-j','version'))
         if current.get('commit') != build.SUPPORTED_COMMIT:
             raise RuntimeError('Desktop Cube needs the supported Hyprland 0.56.2 session. Ordinary workspace switching remains available.')
@@ -63,7 +63,7 @@ def activate(values, target=None):
         if answer != 'ok':
             raise RuntimeError('Desktop Cube could not be loaded: '+answer)
         atomic(state,json.dumps({'path':str(target)}).encode())
-    if values['enabled'] or loaded:
+    if values['enabled'] or loaded or previews:
         status = json.loads(hypr('xetal-cube'))
         if status.get('enabled') != values['enabled']:
             raise RuntimeError('The compositor did not accept the Desktop Cube setting.')
@@ -94,8 +94,9 @@ def save(values, token, path=model.PATH):
 
 def start():
     values, _ = model.load()
-    if values['enabled']:
-        activate(values)
+    # The same native adapter wakes inactive-workspace windows while their
+    # task-switcher thumbnails are captured. Loading it does not enable Cube.
+    activate(values, previews=True)
 
 
 def session():

@@ -23,6 +23,8 @@ struct Capture {
     void* pixels = MAP_FAILED;
     size_t bytes = 0;
     uint32_t width = 0, height = 0, stride = 0, format = 0, flags = 0;
+    uint32_t bufferWidth = 0, bufferHeight = 0, bufferStride = 0, bufferFormat = 0;
+    size_t* streamBytes = nullptr;
     bool done = false, ready = false;
 };
 
@@ -48,26 +50,41 @@ static void ready(void* data, hyprland_toplevel_export_frame_v1*, uint32_t, uint
 }
 static void failed(void* data, hyprland_toplevel_export_frame_v1*) { static_cast<Capture*>(data)->done = true; }
 static void dmabuf(void*, hyprland_toplevel_export_frame_v1*, uint32_t, uint32_t, uint32_t) {}
+static void releaseBuffer(Capture& c) {
+    if (c.buffer) wl_buffer_destroy(c.buffer);
+    if (c.pixels != MAP_FAILED) munmap(c.pixels, c.bytes);
+    if (c.streamBytes && c.pixels != MAP_FAILED) *c.streamBytes -= c.bytes;
+    c.buffer = nullptr; c.pixels = MAP_FAILED; c.bytes = 0;
+}
 static void bufferDone(void* data, hyprland_toplevel_export_frame_v1*) {
     auto& c = *static_cast<Capture*>(data);
-    c.bytes = size_t(c.stride) * c.height;
+    const size_t bytes = size_t(c.stride) * c.height;
     if (!c.width || !c.height || c.width > 16384 || c.height > 16384 ||
-        c.stride < c.width * 4 || c.bytes > 256 * 1024 * 1024 || !c.shm) { c.done = true; return; }
+        c.stride < c.width * 4 || bytes > 256 * 1024 * 1024 || !c.shm) { c.done = true; return; }
+    if (c.buffer && c.bufferWidth == c.width && c.bufferHeight == c.height && c.bufferStride == c.stride && c.bufferFormat == c.format) {
+        hyprland_toplevel_export_frame_v1_copy(c.frame, c.buffer, 1);
+        return;
+    }
+    releaseBuffer(c);
+    if (c.streamBytes && *c.streamBytes + bytes > 256 * 1024 * 1024) { c.done = true; return; }
+    c.bytes = bytes;
     int fd = memfd_create("xetal-window-preview", MFD_CLOEXEC);
     if (fd < 0) { c.done = true; return; }
     if (ftruncate(fd, c.bytes)) { close(fd); c.done = true; return; }
     c.pixels = mmap(nullptr, c.bytes, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (c.pixels == MAP_FAILED) { close(fd); c.done = true; return; }
+    if (c.streamBytes) *c.streamBytes += c.bytes;
     auto pool = wl_shm_create_pool(c.shm, fd, c.bytes);
     c.buffer = wl_shm_pool_create_buffer(pool, 0, c.width, c.height, c.stride, c.format);
     wl_shm_pool_destroy(pool); close(fd);
+    c.bufferWidth = c.width; c.bufferHeight = c.height; c.bufferStride = c.stride; c.bufferFormat = c.format;
     hyprland_toplevel_export_frame_v1_copy(c.frame, c.buffer, 1);
 }
 static const hyprland_toplevel_export_frame_v1_listener frameListener{
     buffer, damage, flags, ready, failed, dmabuf, bufferDone
 };
 
-static QImage image(const Capture& c) {
+static QImage image(const Capture& c, bool live = false) {
     QImage::Format format;
     switch (c.format) {
     case WL_SHM_FORMAT_ARGB8888: format = QImage::Format_ARGB32_Premultiplied; break;
@@ -81,12 +98,15 @@ static QImage image(const Capture& c) {
     default: return {};
     }
     QImage result(static_cast<const uchar*>(c.pixels), c.width, c.height, c.stride, format);
-    result = result.scaled(640, 400, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    result = result.scaled(640, 400, Qt::KeepAspectRatio, live ? Qt::FastTransformation : Qt::SmoothTransformation);
     if (c.flags & 1) result = result.flipped(Qt::Vertical);
     return result;
 }
 
+#include "window-stream.h"
+
 int main(int argc, char** argv) {
+    if (argc == 2 && !strcmp(argv[1], "--stream")) return streamPreviews();
     if (argc != 2) return 2;
     char* end = nullptr;
     auto address = strtoull(argv[1], &end, 0);
@@ -108,8 +128,7 @@ int main(int argc, char** argv) {
         if (result.save(&output, "PNG") && fwrite(encoded.constData(), 1, encoded.size(), stdout) == size_t(encoded.size())) status = 0;
     }
     if (c.frame) hyprland_toplevel_export_frame_v1_destroy(c.frame);
-    if (c.buffer) wl_buffer_destroy(c.buffer);
-    if (c.pixels != MAP_FAILED) munmap(c.pixels, c.bytes);
+    releaseBuffer(c);
     hyprland_toplevel_export_manager_v1_destroy(c.manager);
     wl_shm_destroy(c.shm); wl_registry_destroy(registry); wl_display_disconnect(c.display);
     return status;

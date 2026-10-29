@@ -23,6 +23,7 @@ Cube** opens a tilted preview; Escape or a click closes it without switching.
 | Cube size | Zoom out to leave room for rotation and raised windows |
 | Mouse sensitivity | Rotation per unit of pointer movement |
 | Transition | Opening/settling duration; the global Animations switch also applies |
+| Window preview FPS | 1–144 FPS per window, default 60; independent of cube movement speed |
 | Cube edge color | RGBA picker for the thin outlines |
 | Ceiling / floor pictures | Independent artwork for the two caps |
 | Ceiling / floor color | RGBA fallback; alpha also controls cap artwork opacity |
@@ -55,10 +56,19 @@ Ctrl+Alt mouse gesture gets an exception to keyboard shortcut protection.
 
 This native Hyprland adaptation uses Compiz cube geometry and 3D window spacing.
 Actual application buffers are drawn on separate layers with perspective and
-depth testing. Other monitors render normally. Snapshots refresh during rotation,
-with a bounded texture budget and one window refreshed per tick; large window
-counts reduce each preview's refresh rate. Textures stay in GPU memory and are
-released when the gesture ends. Capturing never switches a workspace for preview.
+depth testing. Other monitors render normally. **Window preview FPS** controls
+the capture cadence for every window, rather than sharing one capture across
+all windows each tick. The default is **60 FPS**. Existing textures are reused
+within the bounded GPU texture budget. Wayland frame callbacks and temporary
+unsuspension keep inactive-workspace sources producing frames during the cube;
+normal suspension returns when the gesture ends. Capture does not switch or
+focus workspaces. Actual FPS remains limited by application output and GPU load.
+Textures are released when the gesture ends.
+
+The session also loads this adapter when Cube is disabled, so the task switcher
+can capture live windows on inactive workspaces. Only windows actually exported
+are temporarily woken; their normal suspend state returns within two seconds
+after capture stops. This does not enable the cube gesture or move/focus windows.
 
 Monitor removal, output mode/scale/position changes, an outside workspace change,
 session locking, disabling the effect, and plugin unload cancel the scene.
@@ -84,7 +94,8 @@ The native settings/status reader uses json-c so replacing or unloading a Cube
 build cannot leave GLib JSON type registrations pointing into an unloaded library.
 
 `hyprctl xetal-cube` reports enable state, scene state, workspace IDs, the selected
-face and lifecycle counters. Run automated checks from the repository:
+face, requested preview FPS, completed preview frames/window captures and
+lifecycle counters. Run automated checks from the repository:
 
 ```sh
 QT_QPA_PLATFORM=offscreen python3 -B -m unittest discover -s config/hypr/effects/cube -v
@@ -96,6 +107,9 @@ images, scaled/rotated outputs, and replacement with a different plugin build,
 before loading on a working desktop. The pixel/replacement probe is
 `tests/check-cube-sky.py` at the repository root; its optional third argument is
 the previous plugin binary for checking an upgrade.
+`tests/check-preview-fps.py` measures per-window capture at 10 and 60 FPS,
+checks that inactive-workspace clients produce new frames, verifies switcher
+previews with Cube disabled, and checks idle cleanup and one-shot PNG support.
 
 ## Source and license
 

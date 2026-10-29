@@ -122,7 +122,7 @@ class Switcher(QWidget):
         self.fit_monitor(); self.generation += 1
         self.show(); self.raise_(); self.activateWindow(); self.scene.setFocus()
         if self.options['live_previews'] and self.options['style'] != 'fusion':
-            self.queue.start(); self.request_previews()
+            self.queue.start(self.options['preview_fps']); self.request_previews()
         self.position_timer.start(30)
 
     def populate(self, clients, monitors=None):

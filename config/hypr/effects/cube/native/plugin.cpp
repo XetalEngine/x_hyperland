@@ -14,6 +14,7 @@
 #include <hyprland/src/managers/SessionLockManager.hpp>
 #include <hyprland/src/pointer/PointerManager.hpp>
 #include <hyprland/src/protocols/InputCapture.hpp>
+#include <hyprland/src/protocols/core/Compositor.hpp>
 #include <hyprland/src/config/ConfigValue.hpp>
 #include <hyprland/src/config/shared/workspace/WorkspaceRuleManager.hpp>
 #include <hyprland/src/render/gl/GLFramebuffer.hpp>
@@ -36,6 +37,7 @@ bool stopping = false, capturing = false;
 std::vector<CFunctionHook *> hooks;
 std::vector<CHyprSignalListener> listeners;
 SP<CEventLoopTimer> timer;
+SP<CEventLoopTimer> previewCleanup;
 SP<SHyprCtlCommand> statusCommand;
 uint64_t started = 0, finished = 0, draws = 0;
 std::set<uint32_t> consumedButtons, consumedKeys;
@@ -97,14 +99,67 @@ struct Scene {
     double yaw = 0, pitch = 0, zoom = 1, spread = 0, fromYaw = 0, fromPitch = 0, fromZoom = 1, fromSpread = 0, targetYaw = 0;
     bool settling = false, commit = false, preview = false;
     uint32_t button = 0;
-    Clock::time_point began = Clock::now(), settled = began, lastRefresh = began;
-    size_t refreshIndex = 0;
+    Clock::time_point began = Clock::now(), settled = began, nextRefresh = began;
+    uint64_t previewFrames = 0, windowCaptures = 0;
     ~Scene() {
         if (depthBuffer)
             glDeleteRenderbuffers(1, &depthBuffer);
     }
 };
 std::shared_ptr<Scene> scene;
+struct PreviewSource {
+    PHLWINDOWREF window;
+    Clock::time_point expires;
+};
+std::vector<PreviewSource> previewSources;
+
+bool cubeShows(PHLWINDOW window) {
+    return scene && std::any_of(scene->windows.begin(), scene->windows.end(),
+        [&](const auto &image) { return image.window == window; });
+}
+void restoreSuspension(PHLWINDOW window) {
+    if (window && window->m_isMapped && !cubeShows(window))
+        window->setSuspended(window->isHidden() || (!window->m_pinned &&
+            (!window->m_workspace || !window->m_workspace->isVisible())));
+}
+void expirePreviews(bool all = false) {
+    const auto now = Clock::now();
+    std::erase_if(previewSources, [&](const auto &source) {
+        if (!source.window)
+            return true;
+        if (!all && source.expires > now && !g_pSessionLockManager->isSessionLocked())
+            return false;
+        restoreSuspension(source.window.lock());
+        return true;
+    });
+}
+
+// Toplevel export already sends frame feedback, but it does not wake clients
+// suspended by an inactive workspace. Wake only windows actually being copied;
+// a short lease restores normal idling when capture stops or its helper exits.
+void previewWindowHook(IHyprRenderer *r, PHLWINDOW window, PHLMONITOR monitor,
+                       const Time::steady_tp &now, bool decorate, eRenderPassMode mode,
+                       bool ignorePosition, bool standalone) {
+    if (ignorePosition && standalone && window && window->m_isMapped && !window->isHidden() &&
+        !g_pSessionLockManager->isSessionLocked() && window->m_workspace && !window->m_workspace->isVisible()) {
+        const bool idle = previewSources.empty();
+        auto found = std::find_if(previewSources.begin(), previewSources.end(),
+            [&](const auto &source) { return source.window == window; });
+        const auto expires = Clock::now() + std::chrono::seconds(2);
+        if (found != previewSources.end())
+            found->expires = expires;
+        else if (previewSources.size() < 128)
+            previewSources.push_back({window, expires});
+        else {
+            renderWindow(r, window, monitor, now, decorate, mode, ignorePosition, standalone);
+            return;
+        }
+        window->setSuspended(false);
+        if (previewCleanup && idle)
+            previewCleanup->updateTimeout(std::chrono::milliseconds(250));
+    }
+    renderWindow(r, window, monitor, now, decorate, mode, ignorePosition, standalone);
+}
 
 std::vector<Cube::Workspace> workspaceList() {
     std::vector<Cube::Workspace> v;
@@ -122,7 +177,7 @@ bool usable(PHLMONITOR m) {
 
 // Offscreen rendering runs outside renderMonitor, with its own framebuffer and
 // projection. No workspace is made visible or focused just to obtain its image.
-SP<IFramebuffer> capture(PHLMONITOR m, PHLWINDOW window = nullptr, int limit = 1536) {
+SP<IFramebuffer> capture(PHLMONITOR m, PHLWINDOW window = nullptr, int limit = 1536, SP<IFramebuffer> reuse = nullptr) {
     auto r = g_pHyprRenderer.get();
     auto saved = r->m_renderData;
     r->glBackend()->makeEGLCurrent();
@@ -142,8 +197,9 @@ SP<IFramebuffer> capture(PHLMONITOR m, PHLWINDOW window = nullptr, int limit = 1
     auto box = window ? window->geometricBox(Desktop::View::IGeometric::GEOMETRIC_CURRENT) : CBox{0, 0, m->m_size.x, m->m_size.y};
     const double ratio = std::min(1.0, double(limit) / std::max(box.width * m->m_scale, box.height * m->m_scale));
     int w = std::max(1, int(std::ceil(box.width * m->m_scale * ratio))), h = std::max(1, int(std::ceil(box.height * m->m_scale * ratio)));
-    auto fb = r->createFB("Xetal cube snapshot");
-    fb->alloc(w, h, DRM_FORMAT_ABGR8888);
+    auto fb = reuse ? reuse : r->createFB("Xetal cube snapshot");
+    if (!fb->isAllocated() || fb->m_size != Vector2D(w, h))
+        fb->alloc(w, h, DRM_FORMAT_ABGR8888);
     fb->setImageDescription(m->workBufferImageDescription());
     if (!fb->isAllocated())
         throw std::runtime_error("Cannot allocate a cube preview texture");
@@ -247,6 +303,12 @@ void endScene(bool choose) {
         m->recheckSolitary();
         g_pHyprRenderer->damageMonitor(m);
     }
+    // Return temporarily visible cube sources to their ordinary suspend state.
+    for (auto &image : old->windows)
+        if (auto window = image.window.lock(); window &&
+            std::none_of(previewSources.begin(), previewSources.end(),
+                [&](const auto &source) { return source.window == window; }))
+            restoreSuspension(window);
     if (timer)
         timer->updateTimeout(std::nullopt);
 }
@@ -389,29 +451,48 @@ void tick(SP<CEventLoopTimer> self, void *) {
         s.zoom = 1 + (settings.zoom - 1) * t;
         s.spread = t;
     }
-    // Refresh actual application buffers during rotation without switching any
-    // workspace. Round-robin limits capture work to one window per frame.
-    if (!s.windows.empty() && std::chrono::duration<double>(now - s.lastRefresh).count() > .033) {
-        auto &w = s.windows[s.refreshIndex++ % s.windows.size()];
-        auto window = w.window.lock();
-        if (window && window->m_isMapped && !window->isHidden() && window->m_monitor == m) {
-            try {
-                w.fb = capture(m, window, s.textureLimit);
-                w.box = window->geometricBox(Desktop::View::IGeometric::GEOMETRIC_CURRENT).translate(-m->m_position);
-                w.workspace = window->workspaceID();
-            } catch (const std::exception &e) {
-                lastError = e.what();
-            }
-        } else
-            w.fb.reset();
-        s.lastRefresh = now;
+    // Every window receives the requested cadence. A shared round-robin budget
+    // divided the old 30 FPS rate by the number of open windows. Reuse the GPU
+    // textures and never advance workspaces just to keep their contents alive.
+    if (now >= s.nextRefresh) {
+        for (auto &w : s.windows) {
+            auto window = w.window.lock();
+            if (window && window->m_isMapped && !window->isHidden() && window->m_monitor == m) {
+                try {
+                    // Wayland clients may stop painting entirely after the
+                    // compositor marks an inactive workspace as suspended.
+                    window->setSuspended(false);
+                    w.fb = capture(m, window, s.textureLimit, w.fb);
+                    w.box = window->geometricBox(Desktop::View::IGeometric::GEOMETRIC_CURRENT).translate(-m->m_position);
+                    w.workspace = window->workspaceID();
+                    ++s.windowCaptures;
+                    // Snapshot rendering suppresses the ordinary surface pass.
+                    // Tell video clients (including subsurfaces) to submit their
+                    // next frame while the cube owns workspace rendering.
+                    if (auto surface = window->wlSurface()->resource())
+                        surface->breadthfirst([](SP<CWLSurfaceResource> sub, const Vector2D &, void *) {
+                            sub->frame(Time::steadyNow());
+                        }, nullptr);
+                } catch (const std::exception &e) {
+                    lastError = e.what();
+                }
+            } else
+                w.fb.reset();
+        }
+        ++s.previewFrames;
+        const auto period = std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(1.0 / settings.previewFps));
+        s.nextRefresh += period;
+        const auto completed = Clock::now();
+        if (s.nextRefresh <= completed)
+            s.nextRefresh = completed + period; // No catch-up storm if the GPU is saturated.
     }
     if (std::chrono::duration<double>(now - s.began).count() > 180) {
         endScene(false);
         return;
     }
     g_pHyprRenderer->damageMonitor(m);
-    self->updateTimeout(std::chrono::milliseconds(8));
+    const auto remaining = std::chrono::duration<double, std::milli>(s.nextRefresh - Clock::now()).count();
+    self->updateTimeout(std::chrono::milliseconds(std::clamp(int(std::ceil(remaining)), 1, 8)));
 }
 
 Cube::Polygon quad(Scene &s, const std::array<Cube::V3, 4> &corners, SP<ITexture> texture, Color tint, double facet = 0,
@@ -689,7 +770,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
     try {
         g_pHyprRenderer->glBackend()->makeEGLCurrent();
         graphics.init();
-        renderWindow = reinterpret_cast<RenderWindowFn>(find("renderWindow", "IHyprRenderer::renderWindow("));
+        hook("renderWindow", "IHyprRenderer::renderWindow(", (void *)previewWindowHook, renderWindow);
         renderLayer = reinterpret_cast<RenderLayerFn>(find("renderLayer", "IHyprRenderer::renderLayer("));
         renderBackground = reinterpret_cast<RenderBackgroundFn>(find("renderBackground", "IHyprRenderer::renderBackground("));
         hook("renderWorkspace", "IHyprRenderer::renderWorkspace(", (void *)workspaceHook, originalWorkspace);
@@ -699,6 +780,12 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         hook("isTearingBlocked", "CMonitor::isTearingBlocked(", (void *)tearingHook, originalTearing);
         timer = makeShared<CEventLoopTimer>(std::nullopt, tick, nullptr);
         g_pEventLoopManager->addTimer(timer);
+        previewCleanup = makeShared<CEventLoopTimer>(std::nullopt, [](SP<CEventLoopTimer> self, void *) {
+            expirePreviews();
+            if (!previewSources.empty())
+                self->updateTimeout(std::chrono::milliseconds(250));
+        }, nullptr);
+        g_pEventLoopManager->addTimer(previewCleanup);
         listeners.push_back(Event::bus()->m_events.input.mouse.button.listen(buttonEvent));
         listeners.push_back(Event::bus()->m_events.input.mouse.axis.listen([](IPointer::SAxisEvent, Event::SCallbackInfo &i) {
             if (scene)
@@ -784,13 +871,17 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             Cube::Json root(json_object_new_object(), json_object_put);
             auto add = [&](const char *key, json_object *value) { json_object_object_add(root.get(), key, value); };
             add("enabled", json_object_new_boolean(settings.enabled));
+            add("preview_fps", json_object_new_int(settings.previewFps));
             add("active", json_object_new_boolean(bool(scene)));
             add("started", json_object_new_int64(started));
             add("finished", json_object_new_int64(finished));
             add("draws", json_object_new_int64(draws));
             add("error", json_object_new_string(lastError.c_str()));
             add("consumed_buttons", json_object_new_int64(consumedButtons.size()));
+            add("preview_sources", json_object_new_int64(previewSources.size()));
             if (scene) {
+                add("preview_frames", json_object_new_int64(scene->previewFrames));
+                add("window_captures", json_object_new_int64(scene->windowCaptures));
                 add("monitor", json_object_new_string(scene->monitor ? scene->monitor->m_name.c_str() : ""));
                 add("selected", json_object_new_int64(scene->selection));
                 add("windows", json_object_new_int64(scene->windows.size()));
@@ -812,6 +903,9 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         if (timer)
             g_pEventLoopManager->removeTimer(timer);
         timer.reset();
+        if (previewCleanup)
+            g_pEventLoopManager->removeTimer(previewCleanup);
+        previewCleanup.reset();
         graphics.release();
         throw;
     }
@@ -821,6 +915,11 @@ APICALL EXPORT void PLUGIN_EXIT() {
     stopping = true;
     listeners.clear();
     endScene(false);
+    expirePreviews(true);
+    if (previewCleanup) {
+        g_pEventLoopManager->removeTimer(previewCleanup);
+        previewCleanup.reset();
+    }
     if (timer) {
         g_pEventLoopManager->removeTimer(timer);
         timer.reset();

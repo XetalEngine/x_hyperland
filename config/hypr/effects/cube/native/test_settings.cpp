@@ -7,7 +7,7 @@ int main(int argc, char **argv) {
         return 2;
     try {
         auto s = Cube::readSettings(argv[1]);
-        std::cout << s.skyMode << ' ' << s.skyMotion << ' ' << s.skySpeed << '\n';
+        std::cout << s.skyMode << ' ' << s.skyMotion << ' ' << s.skySpeed << ' ' << s.previewFps << '\n';
     } catch (const std::exception &e) {
         std::cerr << e.what() << '\n';
         return 1;

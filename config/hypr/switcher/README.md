@@ -20,7 +20,8 @@ a window preview also selects it.
 ![Eight Task Switcher styles, using example windows and the Binary Knife theme](../../../docs/screenshots/task-switchers.png)
 
 Shared controls cover the window scope, animation duration, overall size,
-inactive window opacity, live previews, titles, and icons. Appearance
+inactive window opacity, live previews, **Window preview FPS** (1–144, default
+**60**), titles, and icons. Appearance
 follows all desktop themes and color modes. Each style keeps its own settings.
 Mouse-wheel gestures over the settings controls scroll the page without changing
 their values. The preview buttons operate on example windows; they never switch
@@ -55,12 +56,23 @@ other windows. Animation duration replaces Compiz's frame-dependent spring
 speed/timestep; X11-only plugin options are not exposed as nonfunctional controls.
 
 Thumbnails use the already-bundled `share-picker/window-preview` helper and
-Hyprland's toplevel export protocol. Captures run asynchronously, two at a time,
-only while the switcher is visible, with a 2.2-second timeout. At most 24 scaled
+Hyprland's toplevel export protocol. A persistent helper keeps one Wayland
+connection and reuses up to eight asynchronous SHM capture buffers within a
+256 MiB budget. Raw thumbnail pixels avoid starting a process and encoding a
+PNG for each frame. Each visible window has its own target FPS deadline, with a
+2.2-second stalled-source timeout and bounded pipe output. At most 24 scaled
 previews are held in memory. Nothing is written to disk; hiding the switcher
-cancels capture and clears the cache. Missing or unavailable previews fall back
-to app icons. The helper is built by the existing installer. The switcher remains
-a single session-owned process and exits with the compositor.
+stops the stream and clears the cache. Missing or unavailable previews fall
+back to app icons. Actual FPS depends on source frames, monitor refresh and
+capture workload. The existing one-shot PNG mode remains available to the
+screen-share picker. The installer builds the helper; the switcher and its
+capture process exit with the compositor.
+
+The session's shared native Cube adapter also wakes exported windows on inactive
+workspaces, even when the Cube effect is disabled. Normal suspension returns
+within two seconds after capture stops; no workspace or focus changes are used.
+Its matching Hyprland headers/ABI are required for this inactive-window fix;
+the ordinary export stream still works when the optional adapter is unavailable.
 
 Settings are stored in `switcher/preferences.json` inside the Hyprland profile,
 using a locked, atomic write and external-edit detection. Missing settings use
@@ -78,6 +90,10 @@ copyrights, licenses, source paths, and SHA-256 hashes are in
 cd config/hypr/switcher
 QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME= python3 -m unittest test_switcher test_styles
 ```
+
+`tests/check-preview-fps.py` at the repository root runs a disposable compositor
+with three animated windows, including an inactive workspace, to measure live
+capture at 10/60 FPS and verify stream shutdown and native wake-state cleanup.
 
 For a standalone sample preview, run `app.py --demo --style ring`. To render an
 image without interacting with the desktop, use

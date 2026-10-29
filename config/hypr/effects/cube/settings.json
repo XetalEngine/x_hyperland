@@ -4,6 +4,7 @@
   "zoom": 0.64,
   "sensitivity": 0.35,
   "duration": 220,
+  "preview_fps": 60,
   "sky_mode": "gradient",
   "sky_motion": true,
   "sky_speed": 0.0,

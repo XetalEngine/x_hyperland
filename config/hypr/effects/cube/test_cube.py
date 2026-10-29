@@ -16,6 +16,12 @@ from effects.cube import model,controller
 
 
 class CubeTests(unittest.TestCase):
+    def test_preview_adapter_starts_without_enabling_cube(self):
+        values=dict(model.DEFAULTS,enabled=False)
+        with patch.object(model,'load',return_value=(values,'token')),patch.object(controller,'activate') as activate:
+            controller.start()
+        activate.assert_called_once_with(values,previews=True)
+
     def test_native_settings_preserve_values_and_reject_invalid_input(self):
         with tempfile.TemporaryDirectory() as d:
             binary=Path(d)/'settings';path=Path(d)/'settings.json'
@@ -28,10 +34,17 @@ class CubeTests(unittest.TestCase):
                     path.write_text(model.encode(values))
                     result=subprocess.run([str(binary),str(path)],capture_output=True,text=True)
                     self.assertEqual(result.returncode,0,result.stderr)
-                    self.assertEqual(result.stdout.strip(),f'{number} {int(motion)} -20')
+                    self.assertEqual(result.stdout.strip(),f'{number} {int(motion)} -20 60')
+            for fps in (1,30,60,144):
+                path.write_text(model.encode(dict(values,preview_fps=fps)))
+                self.assertTrue(subprocess.check_output([str(binary),str(path)],text=True).strip().endswith(f' {fps}'))
+            legacy=values.copy();legacy.pop('preview_fps');path.write_text(json.dumps(legacy))
+            self.assertTrue(subprocess.check_output([str(binary),str(path)],text=True).strip().endswith(' 60'))
+            self.assertEqual(model.load(path)[0]['preview_fps'],60)
             for key,value in [('enabled',1),('zoom',True),('wall_opacity',float('nan')),('window_space',2.5),
                               ('sky_motion',None),('sky_mode','invalid'),('sky_image','../../private.png'),
-                              ('sky_image','images/'+'a'*64+'.png\0'),('cap_color',[0,0,2,1]),('sky_top',[0,0,False,1])]:
+                              ('sky_image','images/'+'a'*64+'.png\0'),('cap_color',[0,0,2,1]),('sky_top',[0,0,False,1]),
+                              ('preview_fps',0),('preview_fps',145),('preview_fps',59.5),('preview_fps',True)]:
                 with self.subTest(key=key,value=value):
                     path.write_text(json.dumps(dict(values,**{key:value})))
                     self.assertEqual(subprocess.run([str(binary),str(path)],capture_output=True).returncode,1)

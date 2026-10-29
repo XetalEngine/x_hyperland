@@ -35,6 +35,7 @@ class CubePage(QWidget):
             (cube_form,'zoom','Cube size','%',100,'Zoom out for more space around the cube.'),
             (cube_form,'sensitivity','Mouse sensitivity','',1,'Degrees of rotation per mouse movement unit.'),
             (cube_form,'duration','Transition',' ms',1,'Duration of opening and returning to the selected workspace.'),
+            (windows_form,'preview_fps','Window preview FPS',' FPS',1,'Target refresh rate for every window on the cube. Default: 60. Actual FPS depends on the application, monitor and GPU workload.'),
             (windows_form,'min_cube_size','Minimum cube size','%',1,'Compiz limits how much the cube shrinks to make room for raised windows.'),
             (windows_form,'window_space','Window separation','%',1,'Maximum space between successive window layers, as a percentage of cube size.'),
             (windows_form,'window_depth','Window thickness','',1,'Compiz depth value. Zero keeps raised windows flat.'),

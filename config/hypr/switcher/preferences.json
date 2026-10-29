@@ -6,6 +6,7 @@
   "size": 80,
   "inactive_opacity": 80,
   "live_previews": true,
+  "preview_fps": 60,
   "show_titles": true,
   "show_icons": true,
   "profiles": {

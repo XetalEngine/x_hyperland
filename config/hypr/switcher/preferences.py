@@ -40,9 +40,9 @@ PROFILES = {
     'scale': dict(spacing=10),
 }
 DEFAULTS = dict(version=1, style='fusion', scope='all', duration=200, size=80,
-                inactive_opacity=80, live_previews=True,
+                inactive_opacity=80, live_previews=True, preview_fps=60,
                 show_titles=True, show_icons=True, profiles=PROFILES)
-RANGES = dict(duration=(0, 700), size=(30, 100), inactive_opacity=(20, 100),
+RANGES = dict(duration=(0, 700), size=(30, 100), inactive_opacity=(20, 100), preview_fps=(1, 144),
               columns=(2, 8), thumb_width=(100, 650), thumb_height=(80, 450),
               ring_width=(10, 100), ring_height=(10, 100), min_scale=(10, 100),
               min_brightness=(10, 100), cover_offset=(-40, 40),

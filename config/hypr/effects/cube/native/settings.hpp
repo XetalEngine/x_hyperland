@@ -17,7 +17,7 @@ using Json = std::unique_ptr<json_object, decltype(&json_object_put)>;
 struct Settings {
     bool enabled = true, windows3d = true, skyMotion = true;
     double opacity = .85, zoom = .64, sensitivity = .35, duration = 220, skySpeed = 0, windowDepth = .3;
-    int skyMode = 1, minimum = 60, spacing = 10;
+    int skyMode = 1, minimum = 60, spacing = 10, previewFps = 60;
     Color top = {.035, .04, .065, 1}, bottom = {.14, .075, .095, 1}, cap = {.09, .10, .14, 1}, edge = {.898, .224, .271, 1},
           windowColor = {.18, .19, .24, 1};
     std::string topImage, bottomImage, skyImage;
@@ -37,7 +37,9 @@ inline Settings readSettings(const std::filesystem::path &path) {
     if (json_tokener_get_error(parser.get()) != json_tokener_success || !json_object_is_type(root.get(), json_type_object))
         throw std::runtime_error("Invalid Desktop Cube JSON settings");
     auto j = root.get();
-    if (json_object_object_length(j) != 20)
+    json_object *fpsValue = nullptr;
+    const bool hasFps = json_object_object_get_ex(j, "preview_fps", &fpsValue);
+    if (json_object_object_length(j) != (hasFps ? 21 : 20))
         throw std::runtime_error("Incomplete Desktop Cube settings");
     auto member = [&](const char *key) {
         json_object *value = nullptr;
@@ -105,6 +107,8 @@ inline Settings readSettings(const std::filesystem::path &path) {
     s.zoom = number("zoom", .25, .95);
     s.sensitivity = number("sensitivity", .05, 2);
     s.duration = integer("duration", 0, 1000);
+    if (hasFps)
+        s.previewFps = integer("preview_fps", 1, 144);
     s.skySpeed = number("sky_speed", -20, 20);
     s.minimum = integer("min_cube_size", 10, 100);
     s.spacing = integer("window_space", 0, 50);
