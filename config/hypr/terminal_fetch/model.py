@@ -14,6 +14,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import unicodedata
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT.parent / 'theme'))
@@ -25,21 +26,21 @@ FIELDS = {'os': 'OS', 'kernel': 'Kernel', 'uptime': 'Uptime', 'cpu': 'CPU', 'gpu
 DEFAULTS = {'version': 1, 'enabled': True, 'logo': 'arch', 'show_user': True, 'show_palette': True,
             'fields': list(FIELDS)}
 ARCH = [
-    '              /\\              ',
-    '             /██\\             ',
-    '            /████\\            ',
-    '           /██████\\           ',
-    '          /████████\\          ',
-    '         /██████████\\         ',
-    '        /████████████\\        ',
-    '       /██████  ██████\\       ',
-    '      /██████    ██████\\      ',
-    '     /██████      ██████\\     ',
-    '    /██████        ██████\\    ',
-    '   /██████          ██████\\   ',
-    '  /█████              █████\\  ',
-    ' /███                    ███\\ ',
-    '/██                        ██\\',
+    '              ▄              ',
+    '             ▟█▙             ',
+    '            ▟███▙            ',
+    '           ▟█████▙           ',
+    '          ▟███████▙          ',
+    '         ▂▔▀███████▙         ',
+    '        ▟██▅▂▝▀█████▙        ',
+    '       ▟█████████████▙       ',
+    '      ▟██████▀▀▀██████▙      ',
+    '     ▟██████▏   ▕██████▙     ',
+    '    ▟███████     ███████▙    ',
+    '   ▟████████     █████████▙   ',
+    '  ▟██████▀▀       ▀▀██████▙  ',
+    ' ▟███▀▀               ▀▀███▙ ',
+    '▟▀▀                       ▀▀▙',
 ]
 FUSION = ['       ╱╲        ╱╲       ', '      ╱██╲      ╱██╲      ', '     ╱████╲    ╱████╲     ',
           '     ╲█████╲  ╱█████╱     ', '      ╲█████╳█████╱      ', '       ╲█████████╱       ',
@@ -122,30 +123,50 @@ def blend(a, b, fraction):
     return '#' + ''.join(f'{round(x + (y - x) * fraction):02x}' for x, y in zip(left, right))
 
 
+def cell_width(text):
+    return sum(0 if unicodedata.combining(c) else 2 if unicodedata.east_asian_width(c) in ('W','F') else 1 for c in text)
+
+
+def fit(text, columns):
+    """Fit whole terminal cells, including wide device names and combining marks."""
+    if cell_width(text) <= columns: return text
+    result='';remaining=max(0,columns-1)
+    for character in text:
+        size=cell_width(character)
+        if size>remaining:break
+        result+=character;remaining-=size
+    return result+'…' if columns else ''
+
+
 def rows(settings, data, width=110):
     colors = runtime.colors(); accent = colors['Accent']; text = colors['Text']; muted = colors['PlaceholderText']
+    edge=blend(accent,colors['Window'],.60)
     logo = ARCH if settings['logo'] == 'arch' else FUSION if settings['logo'] == 'fusion' else []
     # Narrow terminals retain readable values; no wrapping across the logo.
     if width < 72: logo = []
-    logo_width = max(map(len, logo), default=0)
-    content = [[('HYPER FUSION', accent), ('  /  ' + runtime.DESIGNS[runtime.design()], muted)]]
-    if settings['show_user']: content.append([(clean(getpass.getuser() + '@' + socket.gethostname()), text)])
-    content.append([('─' * min(38, max(8, width - logo_width - 8)), muted)])
+    logo_width = max(map(cell_width, logo), default=0)
+    info_width=max(1,width-4-(logo_width+4 if logo else 0))
+    heading=clean(getpass.getuser()+'@'+socket.gethostname()) if settings['show_user'] else 'HYPER FUSION'
+    content = [[(heading, accent)], [('HYPER FUSION  ·  '+runtime.DESIGNS[runtime.design()],muted)]]
+    content.append([('─' * min(42, info_width), edge)])
     for key in settings['fields']:
-        content.append([(FIELDS[key].ljust(9), accent), (data.get(key, '—'), text)])
+        content.append([(FIELDS[key].ljust(10), muted), (clean(data.get(key, '—')), text)])
     if settings['show_palette']:
-        content += [[], [('●  ', blend(accent, text, i / 6)) for i in range(7)]]
+        content += [[], [('▰ ', blend(accent, text, i / 9)) for i in range(7)]]
     result = []
     height = max(len(logo), len(content))
+    logo_offset=max(0,(height-len(logo))//2)
     for i in range(height):
-        line = []
+        line = [('  ',text)]
         if logo:
-            line.append(((logo[i] if i < len(logo) else '').ljust(logo_width) + '    ',
-                         blend(accent, text, .45 * i / max(1, height - 1))))
+            index=i-logo_offset
+            art=logo[index] if 0<=index<len(logo) else ''
+            line.append((art+' '*(logo_width-cell_width(art))+'    ',
+                         blend(accent, text, .42*(1-i/max(1,height-1)))))
         line += content[i] if i < len(content) else []
         remaining = max(1, width - 2); clipped = []
         for value, color in line:
-            value = value[:remaining]; clipped.append((value, color)); remaining -= len(value)
+            value = fit(value,remaining); clipped.append((value, color)); remaining -= cell_width(value)
             if remaining <= 0: break
         result.append(clipped)
     return result
