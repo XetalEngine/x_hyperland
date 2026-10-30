@@ -1,6 +1,6 @@
 # KVM Settings
 
-Open **Apps → KVM**, between Control Panel and Fusion Settings. The chip icon opens a large, floating, maximized window. It follows the active desktop colors, controls and dialogs; maximize restores its smaller size. Clicking KVM again focuses the existing window. Clicking X saves the setup and closes immediately, without a confirmation. Unapplied OpenCore edits are retained as a draft; closing never applies boot-file changes. A component install already in progress finishes in the background. Dialogs remain compact; only the main window starts maximized. It closes with the Hyprland session.
+Open **Apps → KVM**, between Control Panel and Fusion Settings. The chip icon opens a centered, floating 1560 × 850 window, reduced when necessary to fit the screen. It follows the active desktop colors, controls and dialogs; maximize and restore remain available. Clicking KVM again focuses the existing window. Clicking X saves the setup and closes immediately, without a confirmation. Unapplied OpenCore edits are retained as a draft; closing never applies boot-file changes. A component install already in progress finishes in the background. Dialogs remain compact. It closes with the Hyprland session.
 
 The integrated editor retains vmstart_2's Windows and Apple profiles: Single GPU, Virtual GPU, Dual GPU, CPU pinning and features, memory, disks, PCI/USB, machine/network, SMBIOS, TPM, Mac/OpenCore, boot arguments, launch hooks, command preview and saved presets. The original development checkout is not used at runtime.
 

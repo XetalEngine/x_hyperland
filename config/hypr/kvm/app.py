@@ -16,7 +16,7 @@ sys.path.insert(0,str(ROOT/'backend/lib'))
 import portable
 
 from PyQt6.QtCore import Qt,QTimer,QSize,QEvent
-from PyQt6.QtGui import QGuiApplication
+from PyQt6.QtGui import QCursor,QGuiApplication
 from PyQt6.QtNetwork import QLocalServer,QLocalSocket
 from PyQt6.QtWidgets import QApplication,QLabel,QPushButton,QMessageBox
 import vmstart2
@@ -40,9 +40,9 @@ class KVMSettings(VMStart2):
         self.setWindowTitle('KVM Settings · '+vmstart2.profiles.NAMES[self.profile_id])
 
     def _size_and_centre(self):
-        screen=QGuiApplication.screenAt(QGuiApplication.primaryScreen().availableGeometry().center()) or QApplication.primaryScreen()
+        screen=QGuiApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
         rect=screen.availableGeometry()
-        self.resize(min(1720,max(800,rect.width()-80)),min(1040,max(560,rect.height()-80)))
+        self.resize(min(1560,max(800,rect.width()-80)),min(850,max(560,rect.height()-80)))
 
     def __init__(self):
         super().__init__()
@@ -72,33 +72,10 @@ class KVMSettings(VMStart2):
         self.update()
 
     def _toggle_maximized(self):
-        self._opening_maximize=False
         self.showNormal() if self.isMaximized() else self.showMaximized()
 
     def show_for_session(self):
-        self._opening_maximize=True
-        self.showMaximized()
-        QTimer.singleShot(60,lambda:self._finish_opening_maximize(12))
-
-    def _finish_opening_maximize(self,attempts):
-        if not self._opening_maximize or not self.isVisible():return
-        # Hyprland 0.56 reports Qt windows as maximized to suppress CSD, and
-        # ignores pre-map maximize requests. A layer-surface focus grab can
-        # also defer the startup rule. Inspect our own mapped window, then
-        # request a toggle from Qt only if the compositor still has it small.
-        # Never dispatch fullscreen against the currently focused window.
-        try:
-            result=subprocess.run(['hyprctl','-j','clients'],capture_output=True,text=True,timeout=.3,check=True)
-            clients=json.loads(result.stdout)
-            own=next((c for c in clients if c.get('pid')==os.getpid()
-                      and c.get('class')==QApplication.applicationName()
-                      and c.get('title')==self.windowTitle() and c.get('mapped')),None)
-            if own:
-                self._opening_maximize=False
-                if not own.get('fullscreen'):self._toggle_maximized()
-                return
-        except (OSError,ValueError,subprocess.SubprocessError):pass
-        if attempts>1:QTimer.singleShot(60,lambda:self._finish_opening_maximize(attempts-1))
+        self.showNormal()
 
     def mouseDoubleClickEvent(self,event):
         if event.button()==Qt.MouseButton.LeftButton and event.position().y()<62:
