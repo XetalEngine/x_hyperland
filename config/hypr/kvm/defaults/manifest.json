@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "profiles": {
+    "windows": "8725c5c57a12ee6514c55e5f1b8aa0ccecde71b0465dd971e28d248f565ed319",
+    "macos": "38b89c653c24b083d63e8edd77e06d463f384d5969139fe3642f2261b234c6c6"
+  },
+  "assets": {
+    "smbios/smbios.bin": {
+      "size": 1857,
+      "sha256": "50acd126f284faf067598f8128d758e49e203ee04f08381558f59506902d6370"
+    },
+    "smbios/smbios_temp.bin": {
+      "size": 1889,
+      "sha256": "ff8561a6e0332d5e7ebf577baafab354532081ac9464dac33f3544b7e8893f2d"
+    },
+    "tpm-workspace/tpm_real_dump.env": {
+      "size": 564,
+      "sha256": "74fa1c0a69e95c44d9e3b378ff6697e9af77807de668c5d629d86fb0848df34e"
+    },
+    "acpi/ssdt2.aml": {
+      "size": 1009,
+      "sha256": "9b9454186bf66401a108559340bd14fd24035ec8bb4899bf43bc6f225f8f9c80"
+    },
+    "acpi/ssdt3.aml": {
+      "size": 34248,
+      "sha256": "bfe5bfe928baf99c5e16452d6dad4f4a585fb02fa6f1431214c26bb9d322d97f"
+    },
+    "acpi/ssdt4.aml": {
+      "size": 1745,
+      "sha256": "8da773d91c9d1539e7e348a21c8025fe46a77c0299c12faafd61b9fbc76f7c60"
+    },
+    "acpi/ssdt5.aml": {
+      "size": 1935,
+      "sha256": "bcd86a62a6118aae1758fe8529f4999a017659b6274c60e33034519345f067eb"
+    },
+    "acpi/ssdt6.aml": {
+      "size": 39441,
+      "sha256": "cc5decc49077f56cf8c9e6c6c9b617470a42cc218ea36d2a9879cdd527cbc0e0"
+    },
+    "acpi/ssdt7.aml": {
+      "size": 9520,
+      "sha256": "0b4cae0b5faa14c07be143880d2f25604f9b0dd410499c1ab56f07abb7057d3b"
+    },
+    "acpi/ssdt8.aml": {
+      "size": 1280,
+      "sha256": "ee054b866cef37b8d0e499d5765069726fc7f916f59b7610de6578000577b560"
+    },
+    "acpi/ssdt9.aml": {
+      "size": 1148,
+      "sha256": "553784c8b6fbb7ab61a120c45b62a5296e6ad779f744e09dbf7ad322d60c1cb1"
+    },
+    "acpi/ssdt10.aml": {
+      "size": 1102,
+      "sha256": "d594a83a2a0d6702a1d1dcbae9440aac3bb7db07792d7eec03f26f7992665dd6"
+    },
+    "acpi/ssdt11.aml": {
+      "size": 1904,
+      "sha256": "7c64fb087f52a0a6d2accc63f4d29538ece346606d793cff9d58a653803bcdef"
+    },
+    "acpi/wsmt.aml": {
+      "size": 40,
+      "sha256": "6071fb590a0ee9c23d56260643aab512589b5d715b10f80a17c835bc1793e4c8"
+    },
+    "acpi/spoofed_devices.aml": {
+      "size": 584,
+      "sha256": "42d115e7230fe8e073859915ec9bcacd732698ee283477703d4a54197e7bda93"
+    },
+    "roms/vbios-AD102GeForceRTX4090-20260812-005523.rom": {
+      "size": 150016,
+      "sha256": "255f9ad88bba8bac02ea7731c349fd25437d30b348d586a9e8fd3e6c4cdb3b0e"
+    },
+    "roms/raphael-asrock-3.06-vbios-gop.rom": {
+      "size": 128000,
+      "sha256": "a70259b6b92608d9d77696a9629d4a9f47c73a7aef17b753da762853f8c596eb"
+    },
+    "firmware/OVMF_VARS.fd": {
+      "size": 540672,
+      "sha256": "c5a60eedd5c1b3d99d75760968de68e7099ea9a044b9d764321443a504ab23aa"
+    },
+    "macos/firmware/OVMF_VARS.fd": {
+      "size": 540672,
+      "sha256": "2e971238a5da671dab72b94ba04498f2cc2b8d54d279c61d3e3cea845722b4ec"
+    }
+  }
+}

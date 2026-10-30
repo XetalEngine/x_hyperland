@@ -27,6 +27,13 @@ def icon(name, color, size=24):
         path=QPainterPath(QPointF(11,2));path.lineTo(18,8);path.lineTo(6,18);path.moveTo(11,2);path.lineTo(11,22);path.lineTo(18,16);path.lineTo(6,6);p.drawPath(path)
     elif name=='displays':
         p.drawRoundedRect(QRectF(2,3,20,14),2,2);line(12,17,12,21);line(8,21,16,21)
+    elif name=='chip':
+        p.drawRoundedRect(QRectF(5,5,14,14),2,2)
+        p.drawRect(QRectF(9,9,6,6))
+        for n in (8,12,16):
+            line(n,2,n,5);line(n,19,n,22);line(2,n,5,n);line(19,n,22,n)
+    elif name=='maximize':
+        p.drawRect(QRectF(4,4,16,16));line(4,8,20,8)
     elif name=='fusion-settings':
         p.drawRoundedRect(QRectF(2,3,20,14),2,2);line(12,17,12,21);line(8,21,16,21)
         for x,y in ((7,9),(12,12),(17,8)):

@@ -233,3 +233,12 @@ The live profile received only the reviewed updater files and taskbar integratio
 with a backup and complete config validation before reload. README screenshots
 were captured from real widgets in a temporary copy of the profile; the file
 progress card uses a sample job. No tests close the user's real applications.
+
+
+## KVM captured baseline and binary updates — 2026-10-30
+
+- Compared both captured profiles against the master's current vmstart_2 sessions, allowing relocated paths and first-run metadata. Included SMBIOS/template, 12 AML tables, two GPU ROMs, Windows/Mac NVRAM and public TPM identity properties. A fresh offline install resolved all managed runtime paths, verified asset hashes, and opened the configured Mac boot image.
+- Seventeen focused package, boot-edit, activity and setup checks passed. Eleven publisher/server checks passed, including a real localhost HTTP round trip and rejection of signed source inventories. OpenCore draft restoration preserved boot-image and NVRAM hashes.
+- The broader backend checks passed 140 cases initially; two wizard-progress assertions were updated for the Downloads step and passed on rerun. One existing upstream narrow-window test still expects 1100 pixels although the toolbar has a 1153-pixel minimum; the same failure was reproduced from the preceding commit.
+- On Hyprland, the main KVM window maximized, a child dialog remained 307×150, restore returned to 1720×1000, and close saved immediately without a confirmation. Full config verification passed, and all 133 recorded protected settings remained unchanged.
+- Published binary-only release 1.0.4, verified its signed public feed, and downloaded/installed OVMF from the public server into a disposable directory. No live guest boot, GPU handoff, kernel-module load or bootloader change was performed during these checks.

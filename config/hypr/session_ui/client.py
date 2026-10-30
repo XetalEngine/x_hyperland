@@ -31,6 +31,9 @@ def main():
         args, unknown = parser.parse_known_args(arguments)
         if not args.preview and not unknown and contact('.xpanel.sock', {'section': args.section, 'preload': args.preload}): return 0
         command = [sys.executable, str(ROOT / 'control_panel/launch.py'), *arguments]
+    elif kind == 'kvm':
+        if not arguments and contact('kvm-settings.sock', {}): return 0
+        command = [sys.executable, str(ROOT / 'theme/run.py'), sys.executable, str(ROOT / 'kvm/app.py'), *arguments]
     else:
         if kind == 'theme':
             parser.add_argument('filename', nargs='?', default='')

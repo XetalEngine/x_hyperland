@@ -1,0 +1,1053 @@
+{
+  "_meta": {
+    "argc": 165,
+    "profile": "windows",
+    "source": "Captured vmstart_2 baseline",
+    "binary": "${KVM_DATA}/components/qemu/current/bin/qemu-system-x86_64"
+  },
+  "order": [
+    [
+      "name",
+      null
+    ],
+    [
+      "S",
+      null
+    ],
+    [
+      "object",
+      0
+    ],
+    [
+      "blockdev",
+      0
+    ],
+    [
+      "blockdev",
+      1
+    ],
+    [
+      "blockdev",
+      2
+    ],
+    [
+      "machine",
+      null
+    ],
+    [
+      "accel",
+      null
+    ],
+    [
+      "cpu",
+      null
+    ],
+    [
+      "m",
+      null
+    ],
+    [
+      "object",
+      1
+    ],
+    [
+      "overcommit",
+      null
+    ],
+    [
+      "smp",
+      null
+    ],
+    [
+      "object",
+      2
+    ],
+    [
+      "object",
+      3
+    ],
+    [
+      "uuid",
+      null
+    ],
+    [
+      "display",
+      null
+    ],
+    [
+      "no-user-config",
+      null
+    ],
+    [
+      "nodefaults",
+      null
+    ],
+    [
+      "chardev",
+      0
+    ],
+    [
+      "mon",
+      null
+    ],
+    [
+      "rtc",
+      null
+    ],
+    [
+      "global",
+      0
+    ],
+    [
+      "no-shutdown",
+      null
+    ],
+    [
+      "global",
+      1
+    ],
+    [
+      "global",
+      2
+    ],
+    [
+      "boot",
+      null
+    ],
+    [
+      "device",
+      0
+    ],
+    [
+      "device",
+      1
+    ],
+    [
+      "device",
+      2
+    ],
+    [
+      "device",
+      3
+    ],
+    [
+      "device",
+      4
+    ],
+    [
+      "device",
+      5
+    ],
+    [
+      "device",
+      6
+    ],
+    [
+      "device",
+      7
+    ],
+    [
+      "device",
+      8
+    ],
+    [
+      "device",
+      9
+    ],
+    [
+      "device",
+      10
+    ],
+    [
+      "device",
+      11
+    ],
+    [
+      "netdev",
+      null
+    ],
+    [
+      "device",
+      12
+    ],
+    [
+      "chardev",
+      1
+    ],
+    [
+      "tpmdev",
+      null
+    ],
+    [
+      "device",
+      13
+    ],
+    [
+      "audiodev",
+      null
+    ],
+    [
+      "global",
+      3
+    ],
+    [
+      "watchdog-action",
+      null
+    ],
+    [
+      "acpitable",
+      0
+    ],
+    [
+      "acpitable",
+      1
+    ],
+    [
+      "acpitable",
+      2
+    ],
+    [
+      "acpitable",
+      3
+    ],
+    [
+      "acpitable",
+      4
+    ],
+    [
+      "acpitable",
+      5
+    ],
+    [
+      "acpitable",
+      6
+    ],
+    [
+      "acpitable",
+      7
+    ],
+    [
+      "acpitable",
+      8
+    ],
+    [
+      "acpitable",
+      9
+    ],
+    [
+      "acpitable",
+      10
+    ],
+    [
+      "acpitable",
+      11
+    ],
+    [
+      "global",
+      4
+    ],
+    [
+      "smbios",
+      null
+    ],
+    [
+      "qmp",
+      null
+    ],
+    [
+      "msg",
+      null
+    ]
+  ],
+  "simple": {
+    "name": "guest=win10,debug-threads=on",
+    "S": null,
+    "machine": "pc-q35-10.1,usb=off,vmport=off,smm=on,kernel_irqchip=on,i8042=off,dump-guest-core=off,memory-backend=pc.ram,pflash0=libvirt-pflash0-format,pflash1=libvirt-pflash1-storage,hpet=on,acpi=on",
+    "accel": "kvm",
+    "cpu": "host,migratable=off,svm=on,topoext=on,invtsc=on,vmx-vnmi=off,rdtscp=on,hypervisor=off,ssbd=off,amd-ssbd=off,virt-ssbd=off,rdpid=off,kvmclock=off,kvm=off,pmu=off,host-cache-info=on,l3-cache=off",
+    "m": "size=33554432k",
+    "overcommit": "mem-lock=off",
+    "smp": "16,sockets=1,dies=1,clusters=1,cores=8,threads=2",
+    "uuid": "55c996e0-0fe9-4489-b73b-3d8852573048",
+    "display": "none",
+    "no-user-config": null,
+    "nodefaults": null,
+    "mon": "chardev=charmonitor,id=monitor,mode=control",
+    "rtc": "base=localtime,driftfix=slew",
+    "no-shutdown": null,
+    "boot": "menu=on,strict=on",
+    "netdev": "{\"type\":\"tap\",\"fd\":\"33\",\"id\":\"hostnet0\"}",
+    "tpmdev": "emulator,id=tpm-tpm0,chardev=chrtpm",
+    "audiodev": "{\"id\":\"audio1\",\"driver\":\"none\"}",
+    "watchdog-action": "poweroff",
+    "smbios": "file=${KVM_DATA}/smbios/smbios.bin",
+    "qmp": "unix:${KVM_DATA}/run/qmp.sock,server,nowait",
+    "msg": "timestamp=on"
+  },
+  "objects": [
+    {
+      "qom-type": "secret",
+      "id": "masterKey0",
+      "format": "raw",
+      "_disabled": true
+    },
+    {
+      "qom-type": "memory-backend-file",
+      "id": "pc.ram",
+      "mem-path": "${KVM_DATA}/run/hugepages",
+      "x-use-canonical-path-for-ramblock-id": false,
+      "prealloc": true,
+      "size": 34359738368
+    },
+    {
+      "qom-type": "iothread",
+      "id": "iothread1"
+    },
+    {
+      "qom-type": "iothread",
+      "id": "iothread2"
+    }
+  ],
+  "blockdevs": [
+    {
+      "driver": "file",
+      "filename": "${KVM_DATA}/components/ovmf/current/OVMF_CODE.fd",
+      "node-name": "libvirt-pflash0-storage",
+      "auto-read-only": true,
+      "discard": "unmap"
+    },
+    {
+      "node-name": "libvirt-pflash0-format",
+      "read-only": true,
+      "driver": "raw",
+      "file": "libvirt-pflash0-storage"
+    },
+    {
+      "driver": "file",
+      "filename": "${KVM_DATA}/firmware/OVMF_VARS.fd",
+      "node-name": "libvirt-pflash1-storage",
+      "read-only": false
+    },
+    {
+      "driver": "host_device",
+      "filename": "/dev/disk/by-id/nvme-Samsung_SSD_970_EVO_Plus_2TB_S59CNZ0NB14011R",
+      "aio": "threads",
+      "node-name": "vmstart2-1-storage",
+      "read-only": false,
+      "discard": "unmap",
+      "cache": {
+        "direct": true,
+        "no-flush": false
+      }
+    },
+    {
+      "driver": "host_device",
+      "filename": "/dev/disk/by-id/nvme-Samsung_SSD_970_EVO_Plus_1TB_S6S1NG0R831425F",
+      "aio": "threads",
+      "node-name": "vmstart2-2-storage",
+      "read-only": false,
+      "discard": "unmap",
+      "cache": {
+        "direct": true,
+        "no-flush": false
+      }
+    },
+    {
+      "driver": "host_device",
+      "filename": "/dev/disk/by-id/nvme-Samsung_SSD_970_EVO_Plus_1TB_S59ANM0NB02263H",
+      "aio": "threads",
+      "node-name": "vmstart2-3-storage",
+      "read-only": false,
+      "discard": "unmap",
+      "cache": {
+        "direct": true,
+        "no-flush": false
+      }
+    },
+    {
+      "driver": "host_device",
+      "filename": "/dev/disk/by-id/nvme-Samsung_SSD_980_PRO_1TB_S5P2NU0X306628P",
+      "aio": "threads",
+      "node-name": "vmstart2-4-storage",
+      "read-only": false,
+      "discard": "unmap",
+      "cache": {
+        "direct": true,
+        "no-flush": false
+      }
+    },
+    {
+      "driver": "host_device",
+      "filename": "/dev/disk/by-id/nvme-Samsung_SSD_980_PRO_1TB_S5P2NU0X306646E",
+      "aio": "threads",
+      "node-name": "vmstart2-5-storage",
+      "read-only": false,
+      "discard": "unmap",
+      "cache": {
+        "direct": true,
+        "no-flush": false
+      }
+    },
+    {
+      "driver": "host_device",
+      "filename": "/dev/disk/by-id/ata-SATA_SSD_19043010242159",
+      "aio": "threads",
+      "node-name": "vmstart2-6-storage",
+      "read-only": false,
+      "discard": "unmap",
+      "cache": {
+        "direct": true,
+        "no-flush": false
+      }
+    },
+    {
+      "driver": "host_device",
+      "filename": "/dev/disk/by-id/ata-SATA_SSD_19043010240097",
+      "aio": "threads",
+      "node-name": "vmstart2-7-storage",
+      "read-only": false,
+      "discard": "unmap",
+      "cache": {
+        "direct": true,
+        "no-flush": false
+      }
+    }
+  ],
+  "devices": [
+    {
+      "driver": "pcie-root-port",
+      "port": 16,
+      "chassis": 1,
+      "id": "pci.1",
+      "bus": "pcie.0",
+      "multifunction": true,
+      "addr": "0x2"
+    },
+    {
+      "driver": "pcie-pci-bridge",
+      "id": "pci.2",
+      "bus": "pci.1",
+      "addr": "0x0"
+    },
+    {
+      "driver": "pcie-root-port",
+      "port": 17,
+      "chassis": 3,
+      "id": "pci.3",
+      "bus": "pcie.0",
+      "addr": "0x2.0x1"
+    },
+    {
+      "driver": "pcie-root-port",
+      "port": 18,
+      "chassis": 4,
+      "id": "pci.4",
+      "bus": "pcie.0",
+      "addr": "0x2.0x2"
+    },
+    {
+      "driver": "pcie-root-port",
+      "port": 19,
+      "chassis": 5,
+      "id": "pci.5",
+      "bus": "pcie.0",
+      "addr": "0x2.0x3"
+    },
+    {
+      "driver": "pcie-root-port",
+      "port": 20,
+      "chassis": 6,
+      "id": "pci.6",
+      "bus": "pcie.0",
+      "addr": "0x2.0x4"
+    },
+    {
+      "driver": "pcie-root-port",
+      "port": 8,
+      "chassis": 7,
+      "id": "pci.7",
+      "bus": "pcie.0",
+      "multifunction": true,
+      "addr": "0x1"
+    },
+    {
+      "driver": "pcie-root-port",
+      "port": 9,
+      "chassis": 8,
+      "id": "pci.8",
+      "bus": "pcie.0",
+      "addr": "0x1.0x1"
+    },
+    {
+      "driver": "pcie-root-port",
+      "port": 10,
+      "chassis": 9,
+      "id": "pci.9",
+      "bus": "pcie.0",
+      "addr": "0x1.0x2"
+    },
+    {
+      "driver": "pcie-root-port",
+      "port": 11,
+      "chassis": 10,
+      "id": "pci.10",
+      "bus": "pcie.0",
+      "addr": "0x1.0x3"
+    },
+    {
+      "driver": "pcie-root-port",
+      "port": 12,
+      "chassis": 11,
+      "id": "pci.11",
+      "bus": "pcie.0",
+      "addr": "0x1.0x4"
+    },
+    {
+      "driver": "qemu-xhci",
+      "p2": 15,
+      "p3": 15,
+      "id": "usb",
+      "bus": "pci.4",
+      "addr": "0x0"
+    },
+    {
+      "driver": "e1000e",
+      "netdev": "hostnet0",
+      "id": "net0",
+      "mac": "00:1e:8c:4b:ad:d1",
+      "bus": "pci.3",
+      "addr": "0x0"
+    },
+    {
+      "driver": "tpm-crb",
+      "tpmdev": "tpm-tpm0",
+      "id": "tpm0"
+    },
+    {
+      "driver": "vfio-pci",
+      "host": "0000:01:00.1",
+      "id": "hostdev6",
+      "bus": "pci.5",
+      "addr": "0x0",
+      "romfile": "${KVM_DATA}/roms/vbios-AD102GeForceRTX4090-20260812-005523.rom"
+    },
+    {
+      "driver": "vfio-pci",
+      "host": "0000:01:00.0",
+      "id": "hostdev7",
+      "bus": "pci.6",
+      "addr": "0x0",
+      "romfile": "${KVM_DATA}/roms/vbios-AD102GeForceRTX4090-20260812-005523.rom"
+    },
+    {
+      "driver": "usb-host",
+      "id": "hostdev8",
+      "bus": "usb.0",
+      "vendorid": 9610,
+      "productid": 22,
+      "port": "1"
+    },
+    {
+      "driver": "usb-host",
+      "id": "hostdev9",
+      "bus": "usb.0",
+      "vendorid": 1133,
+      "productid": 49291,
+      "port": "2"
+    },
+    {
+      "driver": "usb-host",
+      "id": "hostdev10",
+      "bus": "usb.0",
+      "vendorid": 1008,
+      "productid": 1931,
+      "port": "3"
+    },
+    {
+      "driver": "nvme",
+      "id": "nvme0",
+      "serial": "ESGDCR4A5XHP",
+      "bus": "pci.2",
+      "addr": "0x1"
+    },
+    {
+      "driver": "nvme-ns",
+      "bus": "nvme0",
+      "nsid": 1,
+      "drive": "vmstart2-1-storage",
+      "id": "vmstart2-disk1",
+      "write-cache": "on",
+      "uuid": "24762038-f90b-4b42-9d74-1dfd59106851",
+      "bootindex": 1
+    },
+    {
+      "driver": "ide-hd",
+      "bus": "ide.0",
+      "drive": "vmstart2-2-storage",
+      "id": "vmstart2-disk2",
+      "write-cache": "on",
+      "serial": "F79HGEX6EDK"
+    },
+    {
+      "driver": "ide-hd",
+      "bus": "ide.1",
+      "drive": "vmstart2-3-storage",
+      "id": "vmstart2-disk3",
+      "write-cache": "on",
+      "serial": "3BT64A5C8LW"
+    },
+    {
+      "driver": "ide-hd",
+      "bus": "ide.2",
+      "drive": "vmstart2-4-storage",
+      "id": "vmstart2-disk4",
+      "write-cache": "on",
+      "serial": "UVCAZUP2ND0"
+    },
+    {
+      "driver": "ide-hd",
+      "bus": "ide.3",
+      "drive": "vmstart2-5-storage",
+      "id": "vmstart2-disk5",
+      "write-cache": "on",
+      "serial": "V7PTX815NMO"
+    },
+    {
+      "driver": "ide-hd",
+      "bus": "ide.4",
+      "drive": "vmstart2-6-storage",
+      "id": "vmstart2-disk6",
+      "write-cache": "on",
+      "serial": "FBDVBYTDNPE"
+    },
+    {
+      "driver": "ide-hd",
+      "bus": "ide.5",
+      "drive": "vmstart2-7-storage",
+      "id": "vmstart2-disk7",
+      "write-cache": "on",
+      "serial": "XHSKEDIMA6A"
+    },
+    {
+      "driver": "vfio-pci",
+      "host": "0000:82:00.6",
+      "id": "hostdev0",
+      "bus": "pci.7",
+      "addr": "0x0"
+    }
+  ],
+  "chardevs": [
+    {
+      "_raw": "socket,id=charmonitor,path=${KVM_DATA}/run/monitor.sock,server=on,wait=off",
+      "_positional": [
+        "socket"
+      ],
+      "id": "charmonitor",
+      "server": "on",
+      "wait": "off",
+      "path": "${KVM_DATA}/run/monitor.sock"
+    },
+    {
+      "_raw": "socket,id=chrtpm,path=${KVM_DATA}/run/swtpm.sock",
+      "_positional": [
+        "socket"
+      ],
+      "id": "chrtpm",
+      "path": "${KVM_DATA}/run/swtpm.sock"
+    }
+  ],
+  "globals": [
+    "kvm-pit.lost_tick_policy=discard",
+    "ICH9-LPC.disable_s3=1",
+    "ICH9-LPC.disable_s4=1",
+    "ICH9-LPC.noreboot=off",
+    "host-x86_64-cpu.model-id=AMD Ryzen 7 7800X3D 8-Core Processor",
+    "ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off"
+  ],
+  "acpitables": [
+    "file=${KVM_DATA}/acpi/ssdt2.aml",
+    "file=${KVM_DATA}/acpi/ssdt3.aml",
+    "file=${KVM_DATA}/acpi/ssdt4.aml",
+    "file=${KVM_DATA}/acpi/ssdt5.aml",
+    "file=${KVM_DATA}/acpi/ssdt6.aml",
+    "file=${KVM_DATA}/acpi/ssdt7.aml",
+    "file=${KVM_DATA}/acpi/ssdt8.aml",
+    "file=${KVM_DATA}/acpi/ssdt9.aml",
+    "file=${KVM_DATA}/acpi/ssdt10.aml",
+    "file=${KVM_DATA}/acpi/ssdt11.aml",
+    "file=${KVM_DATA}/acpi/wsmt.aml",
+    "file=${KVM_DATA}/acpi/spoofed_devices.aml"
+  ],
+  "machine": {
+    "type": "pc-q35-10.1",
+    "opts": {
+      "usb": "off",
+      "vmport": "off",
+      "smm": "on",
+      "kernel_irqchip": "on",
+      "i8042": "off",
+      "dump-guest-core": "off",
+      "memory-backend": "pc.ram",
+      "pflash0": "libvirt-pflash0-format",
+      "pflash1": "libvirt-pflash1-storage",
+      "hpet": "on",
+      "acpi": "on"
+    }
+  },
+  "cpu": {
+    "model": "host",
+    "features": {
+      "svm": "on",
+      "topoext": "on",
+      "amd-ssbd": "on",
+      "virt-ssbd": "off",
+      "migratable": "off",
+      "invtsc": "on",
+      "rdtscp": "on",
+      "hypervisor": "off",
+      "rdpid": "off",
+      "kvmclock": "off",
+      "kvm": "off",
+      "pmu": "off",
+      "host-cache-info": "on",
+      "l3-cache": "off"
+    }
+  },
+  "smp": {
+    "vcpus": "16",
+    "topology": {
+      "sockets": "1",
+      "dies": "1",
+      "clusters": "1",
+      "cores": "8",
+      "threads": "2"
+    }
+  },
+  "pinning": {
+    "vcpus": 16,
+    "rt_runtime_us": 950000,
+    "cache_dies": 1,
+    "l3_topology": false,
+    "guest_cores": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "vcpupin": [
+      {
+        "vcpu": 0,
+        "cpuset": "0",
+        "core": 0
+      },
+      {
+        "vcpu": 1,
+        "cpuset": "16",
+        "core": 0
+      },
+      {
+        "vcpu": 2,
+        "cpuset": "1",
+        "core": 1
+      },
+      {
+        "vcpu": 3,
+        "cpuset": "17",
+        "core": 1
+      },
+      {
+        "vcpu": 4,
+        "cpuset": "2",
+        "core": 2
+      },
+      {
+        "vcpu": 5,
+        "cpuset": "18",
+        "core": 2
+      },
+      {
+        "vcpu": 6,
+        "cpuset": "3",
+        "core": 3
+      },
+      {
+        "vcpu": 7,
+        "cpuset": "19",
+        "core": 3
+      },
+      {
+        "vcpu": 8,
+        "cpuset": "4",
+        "core": 4
+      },
+      {
+        "vcpu": 9,
+        "cpuset": "20",
+        "core": 4
+      },
+      {
+        "vcpu": 10,
+        "cpuset": "5",
+        "core": 5
+      },
+      {
+        "vcpu": 11,
+        "cpuset": "21",
+        "core": 5
+      },
+      {
+        "vcpu": 12,
+        "cpuset": "6",
+        "core": 6
+      },
+      {
+        "vcpu": 13,
+        "cpuset": "22",
+        "core": 6
+      },
+      {
+        "vcpu": 14,
+        "cpuset": "7",
+        "core": 7
+      },
+      {
+        "vcpu": 15,
+        "cpuset": "23",
+        "core": 7
+      }
+    ],
+    "smt": true,
+    "emulatorpin": "30,31",
+    "iothreadpin": [
+      "29",
+      "28"
+    ],
+    "host_cpus": [
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31
+    ],
+    "vcpusched": {
+      "scheduler": "rr",
+      "priority": 1
+    },
+    "emulatorsched": {
+      "scheduler": "fifo",
+      "priority": 10
+    },
+    "iothreadsched": {
+      "scheduler": "fifo",
+      "priority": 10
+    }
+  },
+  "smbios": {
+    "template_blob": "${KVM_DATA}/smbios/smbios_temp.bin",
+    "output_blob": "${KVM_DATA}/smbios/smbios.bin",
+    "system_uuid": "48CD8C31-F129-43D9-A2AD-3E7C6B0A135A",
+    "patches": [
+      {
+        "enabled": true,
+        "label": "Manufacturer/Model",
+        "find_hex": "535244004d532d3343393646",
+        "replace_hex": "444b530049432d3841363245",
+        "find_ascii": "SRD\u0000MS-3C96F",
+        "replace_ascii": "DKS\u0000IC-8A62E"
+      },
+      {
+        "enabled": true,
+        "label": "Sku Number",
+        "find_hex": "41373932533337304f33",
+        "replace_hex": "4a333130573737395933",
+        "find_ascii": "A792S370O3",
+        "replace_ascii": "J310W779Y3"
+      },
+      {
+        "enabled": true,
+        "label": "Bios Serial Number",
+        "find_hex": "323039373737353535383931",
+        "replace_hex": "333037303434383131373232",
+        "find_ascii": "209777555891",
+        "replace_ascii": "307044811722"
+      },
+      {
+        "enabled": true,
+        "label": "Motherboard Serial",
+        "find_hex": "323039383031383330333138373535",
+        "replace_hex": "333834303735303839343631303938",
+        "find_ascii": "209801830318755",
+        "replace_ascii": "384075089461098"
+      },
+      {
+        "enabled": true,
+        "label": "Ram Serial Number",
+        "find_hex": "4446354444454635",
+        "replace_hex": "4358395651444a30",
+        "find_ascii": "DF5DDEF5",
+        "replace_ascii": "CX9VQDJ0"
+      },
+      {
+        "enabled": true,
+        "label": "Ram Serial Number",
+        "find_hex": "3538354231374646",
+        "replace_hex": "3939384f3731444a",
+        "find_ascii": "585B17FF",
+        "replace_ascii": "998O71DJ"
+      },
+      {
+        "enabled": true,
+        "label": "Chassis Serial",
+        "find_hex": "383036333342443244383145424242",
+        "replace_hex": "3433363632555a354535315a4e4555",
+        "find_ascii": "80633BD2D81EBBB",
+        "replace_ascii": "43662UZ5E51ZNEU"
+      },
+      {
+        "enabled": true,
+        "label": "??????????????",
+        "find_hex": "42303836533834365A35",
+        "replace_hex": "4c313638413437384233",
+        "find_ascii": "B086S846Z5",
+        "replace_ascii": "L168A478B3"
+      }
+    ]
+  },
+  "network": {
+    "mode": "tap",
+    "ifname": "vm2tap0",
+    "bridge": "br0"
+  },
+  "memory": {
+    "hugepages": true,
+    "pagesize": 2097152,
+    "mem_path": "${KVM_DATA}/run/hugepages"
+  },
+  "tools": {
+    "kvm_build": "${KVM_APP}/module-tool.sh",
+    "kvm_build_enabled": true,
+    "kvm_build_args": "",
+    "kvm_env": {
+      "KVM_INTERCEPT_CPUID": "1",
+      "KVM_INTERCEPT_VMMCALL": "0",
+      "KVM_CPUID_CLEAR_BUFFERS": "1",
+      "KVM_CPUID_BURST_MAX": "4096",
+      "KVM_PRIVATE_MSR_BURST": "1",
+      "KVM_PRIVATE_MSR_BURST_MAX": "4096",
+      "KVM_AVIC": "0",
+      "KVM_IPIV": "0",
+      "KVM_POSTED_IRQS": "0"
+    },
+    "qemu_build": "",
+    "ovmf_build": "",
+    "vmstealth_host": "${KVM_DATA}/components/kvm-amd/current/vmstealth75.sh",
+    "vmstealth_guest": "${KVM_DATA}/components/kvm-amd/current/vmstealth75.bat",
+    "tpm_reconstruct": "${KVM_DATA}/tpm-workspace/scripts/tpm-reconstruct.sh",
+    "swtpm_binary": "${KVM_DATA}/components/tpm/current/bin/swtpm",
+    "swtpm_state": "${KVM_DATA}/tpm-state",
+    "tpm_root": "${KVM_DATA}/tpm-workspace"
+  },
+  "tpm_chardev": "chrtpm",
+  "tpm_backend": "emulator",
+  "wizard": {
+    "step": 0,
+    "leave_cores": 8,
+    "complete": false,
+    "layout": 2,
+    "baseline_pci": {
+      "0000:01:00.1": {
+        "vendor": "0x10de",
+        "device": "0x22ba",
+        "subsystem_vendor": "0x1043",
+        "subsystem_device": "0x88e6"
+      },
+      "0000:01:00.0": {
+        "vendor": "0x10de",
+        "device": "0x2684",
+        "subsystem_vendor": "0x1043",
+        "subsystem_device": "0x88e6"
+      },
+      "0000:82:00.6": {
+        "vendor": "0x1022",
+        "device": "0x15e3",
+        "subsystem_vendor": "0x1849",
+        "subsystem_device": "0x6899"
+      }
+    }
+  },
+  "tpm_model_emulated": "tpm-crb",
+  "virtual_gpu": {
+    "model": "VGA",
+    "server": "spice",
+    "memory": "preset",
+    "network": "preset",
+    "port": 5930,
+    "width": 1920,
+    "height": 1080,
+    "auto_open": true,
+    "input": true,
+    "clipboard": true,
+    "file_transfer": true,
+    "audio": true,
+    "keep_usb": false,
+    "keep_pci": false,
+    "pinning": true,
+    "realtime": false,
+    "uefi_resolution": true
+  },
+  "dual_gpu": {
+    "gpu": "0000:82:00.0",
+    "gpu_identity": {
+      "vendor": "0x1002",
+      "device": "0x164e",
+      "subsystem_vendor": "0x1849",
+      "subsystem_device": "0x364e"
+    },
+    "gpu_audio": false,
+    "romfile": "${KVM_DATA}/roms/raphael-asrock-3.06-vbios-gop.rom",
+    "viewer": "looking-glass",
+    "auto_open": true,
+    "port": 5931,
+    "width": 1920,
+    "height": 1080,
+    "clipboard": true,
+    "file_transfer": true,
+    "audio": false,
+    "memory": "preset",
+    "network": "preset",
+    "pinning": true,
+    "input_mode": "evdev",
+    "evdev_keyboard": "/dev/input/by-id/usb-BY_Tech_Usb_Gaming_Keyboard-event-kbd",
+    "evdev_mouse": "/dev/input/by-id/usb-Logitech_G502_HERO_Gaming_Mouse_196C334B3338-event-mouse",
+    "evdev_toggle": "ctrl-ctrl",
+    "lg_capture": true,
+    "audio_mode": "spice",
+    "usb_devices": [],
+    "pci_devices": [
+      {
+        "identity": {
+          "device": "0x15e3",
+          "subsystem_device": "0x6899",
+          "subsystem_vendor": "0x1849",
+          "vendor": "0x1022"
+        },
+        "slot": "0000:82:00.6"
+      }
+    ]
+  }
+}

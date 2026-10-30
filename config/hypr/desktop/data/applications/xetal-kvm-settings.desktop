@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=KVM Settings
+Comment=Windows and Apple virtual machines for Xetal Hyprland
+Exec=@HYPR@/scripts/kvm-settings.sh
+Icon=@HYPR@/kvm/icon.svg
+Terminal=false
+Categories=System;Settings;
+StartupWMClass=xetal-kvm-settings
+OnlyShowIn=Hyprland;

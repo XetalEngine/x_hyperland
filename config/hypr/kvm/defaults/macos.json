@@ -1,0 +1,509 @@
+{
+  "_meta": {
+    "macos_release": "tahoe",
+    "macos_version": "26.6.2",
+    "opencore_memory_gib": 32,
+    "profile": "macos",
+    "source": "Captured vmstart_2 baseline",
+    "binary": "${KVM_DATA}/components/qemu/current/bin/qemu-system-x86_64"
+  },
+  "simple": {
+    "name": "guest=macOS-Tahoe,debug-threads=on",
+    "machine": "q35",
+    "accel": "kvm",
+    "cpu": "Skylake-Client",
+    "smp": "16",
+    "m": "size=33554432k",
+    "smbios": "type=2",
+    "uuid": "7333b940-bcfa-4ed8-81f0-4d5996cd0bba",
+    "netdev": "{\"type\": \"tap\", \"id\": \"hostnet0\", \"ifname\": \"vm2mac0\", \"script\": \"no\", \"downscript\": \"no\"}",
+    "display": "none",
+    "vga": "none",
+    "monitor": "none",
+    "overcommit": "mem-lock=off",
+    "qmp": "unix:${KVM_DATA}/macos/run/qmp.sock,server=on,wait=off"
+  },
+  "machine": {
+    "type": "q35",
+    "opts": {
+      "usb": "off",
+      "vmport": "off",
+      "memory-backend": "pc.ram",
+      "pflash0": "libvirt-pflash0-format",
+      "pflash1": "libvirt-pflash1-format"
+    }
+  },
+  "cpu": {
+    "model": "Skylake-Client",
+    "features": {
+      "kvm": "on",
+      "vendor": "GenuineIntel",
+      "invtsc": "on",
+      "vmware-cpuid-freq": "on",
+      "ssse3": "on",
+      "sse4.2": "on",
+      "popcnt": "on",
+      "aes": "on",
+      "xsave": "on",
+      "xsaveopt": "on",
+      "check": "on",
+      "hle": "off",
+      "rtm": "off",
+      "avx": "on",
+      "avx2": "on"
+    }
+  },
+  "smp": {
+    "vcpus": "16",
+    "topology": {
+      "sockets": "1",
+      "cores": "8",
+      "threads": "2"
+    }
+  },
+  "objects": [
+    {
+      "qom-type": "memory-backend-file",
+      "id": "pc.ram",
+      "size": 34359738368,
+      "prealloc": true,
+      "mem-path": "${KVM_DATA}/macos/run/hugepages"
+    }
+  ],
+  "blockdevs": [
+    {
+      "driver": "file",
+      "node-name": "libvirt-pflash0-storage",
+      "filename": "${KVM_DATA}/components/ovmf/current/OVMF_CODE.fd",
+      "read-only": true
+    },
+    {
+      "driver": "raw",
+      "node-name": "libvirt-pflash0-format",
+      "file": "libvirt-pflash0-storage",
+      "read-only": true
+    },
+    {
+      "driver": "file",
+      "node-name": "libvirt-pflash1-storage",
+      "filename": "${KVM_DATA}/macos/firmware/OVMF_VARS.fd",
+      "read-only": false
+    },
+    {
+      "driver": "raw",
+      "node-name": "libvirt-pflash1-format",
+      "file": "libvirt-pflash1-storage",
+      "read-only": false
+    },
+    {
+      "driver": "host_device",
+      "filename": "/dev/disk/by-id/ata-SATA_SSD_19043010240097",
+      "aio": "threads",
+      "node-name": "vmstart2-2-storage",
+      "read-only": false,
+      "discard": "unmap",
+      "cache": {
+        "direct": true,
+        "no-flush": false
+      }
+    },
+    {
+      "driver": "file",
+      "node-name": "opencore-boot-storage",
+      "filename": "${KVM_DATA}/macos/boot/OpenCore.img",
+      "read-only": false,
+      "aio": "threads",
+      "cache": {
+        "direct": false,
+        "no-flush": false
+      }
+    },
+    {
+      "driver": "file",
+      "node-name": "mac-graphics-tools-storage",
+      "filename": "${KVM_DATA}/components/opencore/current/support/VM2_SHARED_STORE_DRIVER-v1.iso",
+      "read-only": true,
+      "aio": "threads",
+      "discard": "unmap",
+      "cache": {
+        "direct": false,
+        "no-flush": false
+      }
+    }
+  ],
+  "devices": [
+    {
+      "driver": "isa-applesmc",
+      "id": "apple-smc",
+      "osk": "ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc"
+    },
+    {
+      "driver": "ich9-ahci",
+      "id": "sata"
+    },
+    {
+      "driver": "nec-usb-xhci",
+      "id": "xhci",
+      "p2": 8
+    },
+    {
+      "driver": "usb-kbd",
+      "id": "macos-keyboard",
+      "bus": "xhci.0"
+    },
+    {
+      "driver": "usb-tablet",
+      "id": "macos-pointer",
+      "bus": "xhci.0"
+    },
+    {
+      "driver": "vmxnet3",
+      "id": "net0",
+      "netdev": "hostnet0",
+      "mac": "52:54:00:54:41:48"
+    },
+    {
+      "driver": "ide-hd",
+      "bus": "ide.1",
+      "drive": "vmstart2-2-storage",
+      "id": "vmstart2-disk2",
+      "write-cache": "on",
+      "serial": "PWL19VPO64O",
+      "bootindex": 2
+    },
+    {
+      "driver": "usb-host",
+      "id": "hostdev3",
+      "bus": "xhci.0",
+      "vendorid": 1133,
+      "productid": 49291
+    },
+    {
+      "driver": "usb-host",
+      "id": "hostdev4",
+      "bus": "xhci.0",
+      "vendorid": 1008,
+      "productid": 1931
+    },
+    {
+      "driver": "usb-host",
+      "id": "hostdev5",
+      "bus": "xhci.0",
+      "vendorid": 9610,
+      "productid": 22
+    },
+    {
+      "driver": "vfio-pci",
+      "host": "0000:01:00.1",
+      "id": "hostdev0"
+    },
+    {
+      "driver": "vfio-pci",
+      "host": "0000:01:00.0",
+      "id": "hostdev1",
+      "romfile": "${KVM_DATA}/roms/vbios-AD102GeForceRTX4090-20260812-005523.rom"
+    },
+    {
+      "driver": "ide-hd",
+      "id": "opencore-boot",
+      "bus": "ide.0",
+      "drive": "opencore-boot-storage",
+      "serial": "VM2OCBOOT001",
+      "bootindex": 1,
+      "write-cache": "on"
+    },
+    {
+      "driver": "ide-cd",
+      "id": "mac-graphics-tools",
+      "drive": "mac-graphics-tools-storage",
+      "bus": "ide.2"
+    },
+    {
+      "driver": "vfio-pci",
+      "host": "0000:82:00.6",
+      "id": "hostdev2"
+    }
+  ],
+  "order": [
+    [
+      "name",
+      null
+    ],
+    [
+      "machine",
+      null
+    ],
+    [
+      "accel",
+      null
+    ],
+    [
+      "cpu",
+      null
+    ],
+    [
+      "smp",
+      null
+    ],
+    [
+      "m",
+      null
+    ],
+    [
+      "smbios",
+      null
+    ],
+    [
+      "uuid",
+      null
+    ],
+    [
+      "netdev",
+      null
+    ],
+    [
+      "display",
+      null
+    ],
+    [
+      "vga",
+      null
+    ],
+    [
+      "monitor",
+      null
+    ],
+    [
+      "overcommit",
+      null
+    ],
+    [
+      "qmp",
+      null
+    ]
+  ],
+  "chardevs": [],
+  "globals": [],
+  "acpitables": [],
+  "smbios": {
+    "template_blob": "",
+    "output_blob": "",
+    "system_uuid": "",
+    "patches": []
+  },
+  "network": {
+    "mode": "tap",
+    "ifname": "vm2mac0",
+    "bridge": "br0"
+  },
+  "memory": {
+    "hugepages": true,
+    "pagesize": 2097152,
+    "mem_path": "${KVM_DATA}/macos/run/hugepages",
+    "temporary": true
+  },
+  "pinning": {
+    "vcpus": 16,
+    "rt_runtime_us": null,
+    "cache_dies": 1,
+    "l3_topology": false,
+    "guest_cores": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "vcpupin": [
+      {
+        "vcpu": 0,
+        "cpuset": "0",
+        "core": 0
+      },
+      {
+        "vcpu": 1,
+        "cpuset": "16",
+        "core": 0
+      },
+      {
+        "vcpu": 2,
+        "cpuset": "1",
+        "core": 1
+      },
+      {
+        "vcpu": 3,
+        "cpuset": "17",
+        "core": 1
+      },
+      {
+        "vcpu": 4,
+        "cpuset": "2",
+        "core": 2
+      },
+      {
+        "vcpu": 5,
+        "cpuset": "18",
+        "core": 2
+      },
+      {
+        "vcpu": 6,
+        "cpuset": "3",
+        "core": 3
+      },
+      {
+        "vcpu": 7,
+        "cpuset": "19",
+        "core": 3
+      },
+      {
+        "vcpu": 8,
+        "cpuset": "4",
+        "core": 4
+      },
+      {
+        "vcpu": 9,
+        "cpuset": "20",
+        "core": 4
+      },
+      {
+        "vcpu": 10,
+        "cpuset": "5",
+        "core": 5
+      },
+      {
+        "vcpu": 11,
+        "cpuset": "21",
+        "core": 5
+      },
+      {
+        "vcpu": 12,
+        "cpuset": "6",
+        "core": 6
+      },
+      {
+        "vcpu": 13,
+        "cpuset": "22",
+        "core": 6
+      },
+      {
+        "vcpu": 14,
+        "cpuset": "7",
+        "core": 7
+      },
+      {
+        "vcpu": 15,
+        "cpuset": "23",
+        "core": 7
+      }
+    ],
+    "smt": true,
+    "emulatorpin": "30,31",
+    "iothreadpin": [],
+    "host_cpus": [
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31
+    ],
+    "vcpusched": {
+      "scheduler": "other",
+      "priority": 0
+    },
+    "emulatorsched": {
+      "scheduler": "other",
+      "priority": 0
+    },
+    "iothreadsched": {
+      "scheduler": "other",
+      "priority": 0
+    }
+  },
+  "single_gpu": {
+    "reboot_after": true,
+    "standalone": true
+  },
+  "virtual_gpu": {
+    "model": "VGA",
+    "server": "vnc",
+    "memory": "preset",
+    "network": "preset",
+    "input_controller": "xhci",
+    "port": 5901,
+    "width": 1280,
+    "height": 720,
+    "auto_open": true,
+    "remember_console_size": true,
+    "input": true,
+    "clipboard": false,
+    "file_transfer": false,
+    "audio": false,
+    "keep_usb": false,
+    "keep_pci": false,
+    "pinning": false,
+    "realtime": false,
+    "uefi_resolution": false
+  },
+  "dual_gpu": {
+    "memory": "preset",
+    "network": "preset",
+    "pinning": false,
+    "input_controller": "xhci"
+  },
+  "tools": {
+    "kvm_build_enabled": false,
+    "kvm_build": "${KVM_APP}/module-tool.sh",
+    "kvm_build_args": "",
+    "qemu_build": "",
+    "ovmf_build": "",
+    "vmstealth_host": "${KVM_DATA}/components/kvm-amd/current/vmstealth75.sh",
+    "vmstealth_guest": "${KVM_DATA}/components/kvm-amd/current/vmstealth75.bat",
+    "tpm_root": "${KVM_DATA}/tpm-workspace",
+    "tpm_reconstruct": "${KVM_DATA}/tpm-workspace/scripts/tpm-reconstruct.sh",
+    "swtpm_binary": "${KVM_DATA}/components/tpm/current/bin/swtpm",
+    "swtpm_state": "${KVM_DATA}/macos/tpm-state",
+    "kvm_env": {}
+  },
+  "wizard": {
+    "step": 0,
+    "complete": false,
+    "layout": 2,
+    "baseline_pci": {
+      "0000:01:00.1": {
+        "vendor": "0x10de",
+        "device": "0x22ba",
+        "subsystem_vendor": "0x1043",
+        "subsystem_device": "0x88e6"
+      },
+      "0000:01:00.0": {
+        "vendor": "0x10de",
+        "device": "0x2684",
+        "subsystem_vendor": "0x1043",
+        "subsystem_device": "0x88e6"
+      },
+      "0000:82:00.6": {
+        "vendor": "0x1022",
+        "device": "0x15e3",
+        "subsystem_vendor": "0x1849",
+        "subsystem_device": "0x6899"
+      }
+    }
+  },
+  "performance": {
+    "capture": true
+  }
+}

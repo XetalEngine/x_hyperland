@@ -1,0 +1,6 @@
+{
+  "version": "1.0.8",
+  "opencore_sha256": "9ef21f9d846a992c030fa5858736a6d9efa70a3b4ad88b8d747338bb457b14d4",
+  "ocvalidate_sha256": "3411f3b7e645f94c7ba602687d42ce6bf4e5ee560f50c3f2ca134e26dfe394ab",
+  "source": "https://github.com/acidanthera/OpenCorePkg/releases/tag/1.0.8"
+}

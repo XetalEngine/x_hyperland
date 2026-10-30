@@ -13,6 +13,12 @@ The Xetal scripts, custom UI components, installer and configuration are supplie
 - **Wallpaper:** the exact image supplied by the repository owner for this desktop is included under `config/hypr/wallpaper/images`. The code's MIT license does not grant a separate license to the artwork. No third-party authorship or artwork rights are asserted by the installer.
 - **BreakPoint wallpapers:** three variants of the owner’s existing desktop artwork, created at their request with the built-in image generator. They preserve the original characters and use new crimson workstation settings. [Prompts](config/hypr/wallpaper/breakpoint/PROMPTS.txt) are included. Original files are not replaced; the code license does not separately license artwork or depicted third-party marks.
 - **Xetal mascot:** the original transparent PNG supplied by the repository owner is included unchanged in `config/hypr/startup/assets/xetal-mascot.png`. As with the wallpaper, the code's MIT license does not grant a separate license to the artwork.
-- **System packages:** Hyprland, Qt, GTK, Kitty, Dolphin, Papirus and other dependencies are obtained from the recipient's distribution. Their licenses continue to apply; their executable binaries are not redistributed in this repository.
+- **Desktop system packages:** Hyprland, Qt, GTK, Kitty, Dolphin, Papirus and other desktop dependencies are obtained from the recipient's distribution. Their licenses continue to apply. Bundled KVM components are described separately below.
 
 The installer includes no browser profiles, account data, application credentials or copies of other personal application repositories.
+
+## KVM components
+
+The integrated vmstart_2 backend records its origin in `config/hypr/kvm/backend/ORIGIN.json`. The separately compressed components include their upstream license files and dependency notices. QEMU and the prepared Linux KVM sources retain their GPL notices; EDK II/OVMF, libtpms/swtpm and OpenCore retain their respective upstream notices. Looking Glass includes its GPL license and custom Linux client source. OpenCore's bundled validator carries its BSD 3-Clause license and a version/hash manifest.
+
+Component source packages and matching version metadata are distributed through the KVM release service. Guest OS installation media, personal TPM/firmware state, and the publisher's private signing key are not included in the desktop distribution.

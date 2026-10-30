@@ -250,6 +250,7 @@ class Menu(QWidget):
             ('Files', 'folder', [catalog.ROOT/'scripts/dolphin.sh']),
             ('Theme', 'preferences-desktop-theme', [catalog.ROOT/'scripts/wallpaper.sh']),
             ('Control Panel', 'preferences-system', [catalog.ROOT/'scripts/control-panel.sh']),
+            ('KVM', 'chip', [catalog.ROOT/'scripts/kvm-settings.sh']),
             ('Fusion Settings', 'fusion-settings', [catalog.ROOT/'scripts/control-center.sh', '--tab', 'hotkeys']),
             ('Session & power', 'system-shutdown', [catalog.ROOT/'scripts/control-center.sh', '--tab', 'system'])]:
             button = QPushButton(QIcon.fromTheme(icon), '  ' + name)
@@ -257,6 +258,9 @@ class Menu(QWidget):
             button.setFixedWidth(180)
             if icon=='fusion-settings':
                 self.fusion_settings_button=button;button.setIconSize(QSize(20,20))
+            if icon=='chip':
+                self.kvm_button=button;button.setIconSize(QSize(20,20))
+                button.setIcon(desktop_icon('chip',theme_runtime.colors(style=theme_runtime.launcher_design())['Accent'],20))
             button.clicked.connect(lambda checked=False, c=command: self.run_command(c))
             navigation.addWidget(button)
         self.sidebar_scroll.setWidget(navigation_widget)
@@ -384,6 +388,7 @@ class Menu(QWidget):
     def apply_design(self):
         modern=theme_runtime.launcher_design()=='modern'
         self.fusion_settings_button.setIcon(desktop_icon('fusion-settings',theme_runtime.colors(style=theme_runtime.launcher_design())['Accent'],20))
+        self.kvm_button.setIcon(desktop_icon('chip',theme_runtime.colors(style=theme_runtime.launcher_design())['Accent'],20))
         self.profile.setVisible(modern);self.profile.refresh()
         self.raw_header.setVisible(not modern);self.raw_avatar.refresh()
         for widget in (self.raw_brand,self.raw_eyebrow,self.raw_account,self.raw_session):widget.setVisible(not modern)
