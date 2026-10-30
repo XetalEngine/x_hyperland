@@ -18,6 +18,7 @@ META = '.xetal-update.json'
 IGNORE = {'__pycache__', 'cache', 'state', 'font-cache', 'qt-settings', 'mozilla', '.git', '.build', 'build'}
 # Outputs of the theme editor, and hardware state, belong to the recipient.
 KEEP = {'control_center/displays.conf', 'control_center/workspaces.conf',
+        'theme/custom-presets.json',
         'wallpaper/selection.json', 'wallpaper/hyprpaper.conf',
         'waybar/style.css', 'swaync/style.css', 'theme/current.colors',
         'theme/kitty-colors.conf', 'dolphin/config/kdeglobals',

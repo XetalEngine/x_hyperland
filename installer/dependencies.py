@@ -10,14 +10,14 @@ import sys
 PACKAGES = {
     'arch': '''git hyprland hyprpaper hyprlock waybar kitty dolphin swaync grim slurp wl-clipboard
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
-        python python-pyqt6 python-gobject python-pillow gcc cmake libxcb pkgconf gtk3 gtk-layer-shell json-glib json-c
+        python python-psutil python-pyqt6 python-gobject python-pillow gcc cmake libxcb pkgconf gtk3 gtk-layer-shell json-glib json-c
         qt5-base qt5-wayland qt6-base qt6-wayland qt6-svg qt6-tools wayland wayland-protocols
         networkmanager network-manager-applet blueman bluez-utils pipewire-pulse wireplumber
         playerctl brightnessctl fastfetch htop libnotify polkit-gnome papirus-icon-theme noto-fonts ttf-dejavu
         yt-dlp ffmpeg deno sudo xorg-xhost'''.split(),
     'fedora': '''git hyprland hyprpaper hyprlock waybar kitty dolphin SwayNotificationCenter grim slurp wl-clipboard
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
-        python3 python3-qt6 python3-gobject python3-pillow gcc gcc-c++ cmake libxcb-devel pkgconf-pkg-config
+        python3 python3-psutil python3-qt6 python3-gobject python3-pillow gcc gcc-c++ cmake libxcb-devel pkgconf-pkg-config
         gtk3-devel gtk-layer-shell-devel json-glib-devel json-c-devel qt5-qtbase-devel qt5-qtbase-private-devel
         qt5-qtwayland qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtwayland qt6-qtsvg qt6-qttools-devel qt6-linguist wayland-devel wayland-protocols-devel
         NetworkManager NetworkManager-tui network-manager-applet nm-connection-editor blueman bluez
@@ -26,7 +26,7 @@ PACKAGES = {
         yt-dlp+default ffmpeg-free nodejs sudo xhost'''.split(),
     'debian': '''git hyprland hyprpaper hyprlock waybar kitty dolphin sway-notification-center grim slurp wl-clipboard
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
-        python3 python3-pyqt6 python3-gi python3-pil gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1 build-essential cmake libxcb1-dev libxcb-res0-dev pkg-config
+        python3 python3-psutil python3-pyqt6 python3-gi python3-pil gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1 build-essential cmake libxcb1-dev libxcb-res0-dev pkg-config
         libgtk-3-dev libgtk-layer-shell-dev libjson-glib-dev libjson-c-dev qtbase5-dev qtbase5-private-dev qtwayland5
         qt6-base-dev qt6-base-dev-tools qt6-base-private-dev qt6-wayland libqt6svg6 qt6-tools-dev qt6-l10n-tools libwayland-dev libwayland-bin wayland-protocols
         network-manager network-manager-gnome blueman bluez pipewire-pulse wireplumber pulseaudio-utils
@@ -61,7 +61,7 @@ def check():
     if not any(shutil.which(command) for command in ('deno','node','qjs')):
         errors.append('Install Deno, Node.js or QuickJS for YouTube downloads.')
     result=subprocess.run([sys.executable,'-c',
-        "import PyQt6.QtWidgets, PyQt6.QtNetwork, PyQt6.QtDBus; from PIL import Image; import gi; gi.require_version('Gtk','3.0'); gi.require_version('GtkLayerShell','0.1'); from gi.repository import Gio,Gtk,GtkLayerShell"],
+        "import psutil; import PyQt6.QtWidgets, PyQt6.QtNetwork, PyQt6.QtDBus; from PIL import Image; import gi; gi.require_version('Gtk','3.0'); gi.require_version('GtkLayerShell','0.1'); from gi.repository import Gio,Gtk,GtkLayerShell"],
         capture_output=True,text=True)
     if result.returncode:errors.append('Python GUI/image dependencies: '+result.stderr.strip().splitlines()[-1])
     if shutil.which('pkg-config'):

@@ -18,6 +18,9 @@ from file_jobs.page import FileTransferPage
 from switcher.page import TaskSwitcherPage
 from identity import ProfileCard,launcher_background_path
 from design_preview import DesktopPreview
+from preset_page import LayoutPage,CustomPage,ComponentDialog
+import presets
+import layouts
 from launcher_surfaces import DEFAULTS,StripImage,paint_group,paint_tile
 from launcher_labels import positions as label_positions
 
@@ -387,7 +390,7 @@ class ThemePage(QWidget):
         self.background=runtime.launcher_background()
         self.surfaces=runtime.launcher_surfaces()
         self.labels=runtime.launcher_labels();self.visibility=runtime.launcher_background_visibility()
-        self.baseline=theme_draft.current()
+        self.baseline=theme_draft.current();self.layout_baseline=runtime.layout()
         root=QVBoxLayout(self);root.setContentsMargins(18,16,18,16)
         heading=QHBoxLayout();brand=label('Theme & wallpaper','brand');brand.setWordWrap(False);heading.addWidget(brand);heading.addStretch()
         self.design=QComboBox();self.design.setAccessibleName('Desktop theme')
@@ -406,12 +409,13 @@ class ThemePage(QWidget):
         self.file_transfer=FileTransferPage(async_run)
         self.task_switcher=TaskSwitcherPage(async_run)
         self.design_page=DesignPage(self)
+        self.layout_page=LayoutPage(self);self.custom_page=CustomPage(self)
         self.start_menu_page=StartMenuPage(self)
-        self.tabs.addTab(self.design_page,'Design');self.tabs.addTab(self.start_menu_page,'Start Menu')
+        self.tabs.addTab(self.design_page,'Presets');self.tabs.addTab(self.layout_page,'Design');self.tabs.addTab(self.custom_page,'Custom');self.tabs.addTab(self.start_menu_page,'Start Menu')
         self.tabs.addTab(self.task_switcher,'Task Switcher')
         self.tabs.addTab(self.wallpapers,'Wallpapers');self.tabs.addTab(self.file_transfer,'File Transfer');self.tabs.addTab(self.appearance,'Window effects');root.addWidget(self.tabs,1)
         if filename:self.tabs.setCurrentWidget(self.wallpapers)
-        self.design.currentIndexChanged.connect(self.changed);self.mode.currentIndexChanged.connect(self.changed)
+        self.design.currentIndexChanged.connect(self.preset_changed);self.mode.currentIndexChanged.connect(self.changed)
         self.launcher_style.currentIndexChanged.connect(self.changed)
         self.tabs.currentChanged.connect(lambda _:self.tabs.currentWidget().refresh());self.changed()
     def choice(self):return self.design.currentData(),self.mode.currentData(),self.avatar,self.backdrop,self.background,copy.deepcopy(self.surfaces),dict(self.labels),self.visibility,self.launcher_style.currentData()
@@ -419,12 +423,12 @@ class ThemePage(QWidget):
         style=self.launcher_style.currentData()
         return self.design.currentData() if style=='follow' else style
     @property
-    def dirty(self):return self.wallpapers.dirty or self.appearance.dirty or self.file_transfer.dirty or self.task_switcher.dirty or self.choice()!=self.baseline
+    def dirty(self):return self.wallpapers.dirty or self.appearance.dirty or self.file_transfer.dirty or self.task_switcher.dirty or self.choice()!=self.baseline or self.layout_page.choice.currentData()!=self.layout_baseline
     @property
     def busy(self):return self.applying or self.wallpapers.busy or self.appearance.busy or self.file_transfer.busy or self.task_switcher.busy
     def refresh(self):
-        if not self.applying and self.choice()==self.baseline:
-            self.baseline,self.token=self.read_saved();self.set_choice(self.baseline);self.changed()
+        if not self.applying and self.choice()==self.baseline and self.layout_page.choice.currentData()==self.layout_baseline:
+            self.baseline,self.token=self.read_saved();self.layout_baseline=runtime.layout();self.layout_page.choice.blockSignals(True);self.layout_page.choice.setCurrentIndex(self.layout_page.choice.findData(self.layout_baseline));self.layout_page.choice.blockSignals(False);self.set_choice(self.baseline);self.changed()
         self.tabs.currentWidget().refresh()
     def read_saved(self):
         for _ in range(3):
@@ -441,15 +445,22 @@ class ThemePage(QWidget):
     def resolve_conflicts(self,prefer):
         try:
             saved,token=self.read_saved();merged,_=theme_draft.merge(self.baseline,self.choice(),saved,prefer)
+            current_layout=runtime.layout()
+            if prefer=='saved' or self.layout_page.choice.currentData()==self.layout_baseline:
+                self.layout_page.choice.setCurrentIndex(self.layout_page.choice.findData(current_layout))
+            self.layout_baseline=current_layout
             self.baseline=saved;self.token=token;self.set_choice(merged);self.conflict_actions.hide();self.changed()
             self.status.setText('Choices updated. Apply theme to save your changes.')
         except (OSError,ValueError) as exc:self.failed(str(exc))
     def changed(self,*_):
-        self.apply.setEnabled(not self.applying and self.choice()!=self.baseline)
+        self.apply.setEnabled(not self.applying)
         if not self.applying and self.choice()!=self.baseline:
             self.status.setText('Previewing appearance changes. Apply theme to save them.')
-        for control in (self.mode,self.design,self.design_page,self.start_menu_page):control.setEnabled(not self.applying)
+        for control in (self.mode,self.design,self.tabs):control.setEnabled(not self.applying)
         self.design_page.refresh();self.start_menu_page.refresh_surfaces()
+    def preset_changed(self,*_):
+        self.layout_page.choice.setCurrentIndex(self.layout_page.choice.findData(layouts.default(self.design.currentData())))
+        self.changed()
     def set_surface(self,key,value):
         self.surfaces[self.menu_design()][key]=value
         self.changed()
@@ -481,21 +492,49 @@ class ThemePage(QWidget):
     def choose_avatar(self):
         picker=ImagePicker(self,'Choose profile image or GIF',str(Path.home()/'Pictures'),'Images (*.gif *.png *.jpg *.jpeg *.webp)',self.async_run)
         if picker.exec() and picker.selectedFiles():self.set_avatar(picker.selectedFiles()[0])
+    def pending_components(self):
+        return self.wallpapers.dirty or self.appearance.dirty or self.file_transfer.dirty or self.task_switcher.dirty
     def save_mode(self):
         if self.applying:return
-        if self.design.currentData()!=runtime.design() and self.wallpapers.dirty:
-            self.status.setText('Apply or discard the wallpaper preview before switching desktop themes.');return
+        if self.pending_components():
+            self.status.setText('Apply or discard pending edits in Wallpapers, File Transfer, Task Switcher or Window effects before applying a preset.');return
         try:
             saved,token=self.read_saved();choice,conflicts=theme_draft.merge(self.baseline,self.choice(),saved)
+            saved_layout=runtime.layout();edited_layout=self.layout_page.choice.currentData()
+            if edited_layout==self.layout_baseline:edited_layout=saved_layout
+            elif saved_layout!=self.layout_baseline and saved_layout!=edited_layout:conflicts.append('Navigation & controls')
             if conflicts:
                 self.status.setText('Also changed in another window: '+', '.join(conflicts)+'. Choose which values to keep.')
                 self.conflict_actions.show();return
-        except (OSError,ValueError) as exc:self.failed(str(exc));return
-        self.set_choice(choice);self.conflict_actions.hide()
-        style,value,avatar,backdrop,background,surfaces,labels,visibility,launcher_style=choice
-        self.applying=True;self.changed();self.status.setText('Applying '+runtime.DESIGNS[style]+'…')
-        self.async_run(lambda:backend.apply_mode(value,token,style,avatar,backdrop,background,surfaces,launcher_style,
-            launcher_labels=labels,launcher_background_visibility=visibility),lambda token:self.saved(choice,token),self.failed)
+            style,value,avatar,backdrop,background,surfaces,labels,visibility,launcher_style=choice
+            target=presets.builtin(style,value)
+            target['theme'].update(avatar=avatar,launcher_wallpaper=backdrop,launcher_background=background,
+                launcher_surfaces=surfaces,launcher_labels=labels,launcher_background_visibility=visibility,
+                launcher_style=launcher_style,layout=edited_layout)
+            selected=None
+            if style==runtime.design():
+                selected={'colors','layout','launcher','avatar'}
+            self.apply_target(runtime.DESIGNS[style],target,token,selected)
+        except (OSError,ValueError) as exc:self.failed(str(exc))
+    def apply_custom(self,item):
+        if self.busy:return
+        if self.dirty:
+            self.status.setText('Apply or discard your pending edits before loading a custom preset.');return
+        try:self.apply_target(item['name'],item['config'],backend.theme_token())
+        except (OSError,ValueError) as error:self.failed(str(error))
+    def apply_target(self,name,target,token,selected=None):
+        dialog=ComponentDialog(name,target,self,selected)
+        if not dialog.exec():return
+        selected=dialog.selection()
+        self.conflict_actions.hide();self.applying=True;self.changed();self.status.setText('Applying '+name+'…')
+        self.async_run(lambda:backend.apply_components(target,selected,token),lambda token:self.components_saved(name,selected,token),self.failed)
+    def components_saved(self,name,selected,token):
+        self.applying=False;self.layout_baseline=runtime.layout()
+        self.layout_page.choice.blockSignals(True);self.layout_page.choice.setCurrentIndex(self.layout_page.choice.findData(self.layout_baseline));self.layout_page.choice.blockSignals(False)
+        self.baseline=theme_draft.current();self.token=token;self.set_choice(self.baseline);self.changed();self.layout_page.refresh()
+        self.status.setText(name+' · applied '+', '.join(presets.COMPONENTS[k][0] for k in presets.COMPONENTS if k in selected)+'.')
+        self.custom_page.refresh()
+        for page in (self.file_transfer,self.task_switcher,self.appearance):page.refresh()
     def saved(self,value,token):
         self.background=runtime.launcher_background()
         self.surfaces=runtime.launcher_surfaces()

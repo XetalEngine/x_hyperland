@@ -56,7 +56,7 @@ The default install adapts to your monitors, resolution, placement and scale. Wi
 
 **Binary Knife** draws from the disassembler's precise blue interface: 4px corners, 2px focus borders, compact controls, blue Burn flames and a transfer animation with files travelling along illuminated circuit traces. Its three blue workstation wallpapers preserve the characters and compositions of the original artwork. The theme covers Apps, the taskbar, desktop context menus, Fusion Settings, Control Panel, file pickers, notifications, lock screen and session tools. [See the theme and its wallpapers →](docs/GALLERY.md#binary-knife)
 
-**Fusion Settings → Theme** keeps appearance organized: **Design** chooses the desktop theme, and the dedicated **Start Menu** tab beside it holds the launcher’s style, background, labels, surfaces, and profile image.
+**Fusion Settings → Theme** separates **Presets**, **Design**, and **Custom**. Presets chooses a color family; Design offers Classic tabs, a Modern icon rail, a Gallery sidebar with labeled icons and pill buttons, or a Studio ribbon. Use any layout with any palette. **Apply theme** opens a component picker for colors, layout, wallpapers, Start Menu, profile image, File Transfer, Task Switcher, effects and terminal welcome. Unchecked parts keep their current appearance. Save an applied combination under a name in Custom, with wallpaper previews, rename/remove actions and selective restoration.
 
 - **Mix and match** any Start menu with any desktop theme, or choose **Follow desktop theme**.
 - Use **Dark, Light, or High contrast** colors. BreakPoint and Binary Knife use Inter for the interface and JetBrains Mono for technical text.
@@ -64,7 +64,7 @@ The default install adapts to your monitors, resolution, placement and scale. Wi
 - Give the **entire Apps menu** its own background image, follow the desktop wallpaper, or use a plain background. Adjust **background visibility** with a slider.
 - Set **icon backgrounds and group strips** anywhere from transparent to opaque. Group strips support their own **image or animated GIF**, with preferences saved separately for each design.
 - **Show or hide shortcut names and hotkeys** globally. The remaining icon content centers automatically; small tiles stay icon-only.
-- Every theme includes its own three-screen wallpaper set: **Xetal Raw**, **Xetal Modern**, **BreakPoint** and **Binary Knife**. The twelve illustrations have corrected character anatomy, and Modern has three distinct new studio scenes. Assign custom wallpapers and fit modes per monitor; switching themes restores their saved artwork and effect colors, including custom flames. Fresh installations assign Modern's set in display order.
+- Every theme includes its own three-screen wallpaper set: **Xetal Raw**, **Xetal Modern**, **BreakPoint** and **Binary Knife**. The twelve illustrations have corrected character anatomy, and Modern has three distinct new studio scenes. Assign custom wallpapers and fit modes per monitor; selecting Wallpapers and Window effects when applying a preset restores its saved artwork and effect colors, including custom flames. Fresh installations assign Modern's set in display order.
 
 | Theme design | Menu surfaces, artwork & profile |
 | :---: | :---: |
@@ -132,10 +132,15 @@ Press **Super+K** or click **Keys**. The desktop's controls live together, with 
 | **Network & Bluetooth** | Inspect and manage connections, Wi-Fi, VPNs and paired devices through the session's controls. |
 | **Displays** | Drag monitor rectangles; change resolution, refresh, scale, position, rotation and mirroring with timed **Keep/Revert** protection. |
 | **Input** | Adjust keyboard, mouse and touchpad preferences. |
-| **Theme** | Design, Start Menu, Task Switcher, wallpapers, File Transfer, Burn, Cube + 3D Windows, borders, gaps, blur, shadows and animation settings. |
+| **Theme** | Presets, independent navigation Design, named Custom combinations, Start Menu, Task Switcher, wallpapers, File Transfer, Burn, Cube + 3D Windows, borders, gaps, blur, shadows and animation settings. |
 | **Context Menu** | Build and style the wallpaper menu, including its actions and hotkeys. |
 | **Calendar & System** | Browse dates, inspect system information, lock and access session/power controls. Logout asks for confirmation. |
+| **Terminal** | Choose an Arch or Fusion logo, information fields, username and palette for the Fastfetch-powered welcome. Colors follow the active desktop palette; aliases remain in your own shell configuration. |
 | **Modern Home** | Profile image/GIF, media controls, clock, system cards and shortcuts to the same settings pages. |
+
+Click the taskbar **clock** for a compact clock/calendar dropdown; right-click it or choose **Full calendar** for the full settings calendar. The **power button** opens a compact dashboard with your animated profile, uptime, CPU/RAM/disk gauges, temperature history, volume, laptop brightness and media controls. Laptops show their real battery level; desktops show **AC power · 100%**. Popups follow the clicked monitor and the top/bottom taskbar position.
+
+The separate Fusion Kitty profile loads your usual shell rc file and then the theme-colored welcome. Existing Neofetch startup lines can be guarded with `[[ -z ${XETAL_FUSION_TERMINAL:-} ]]` to avoid a second banner while retaining other desktop sessions.
 
 [**Open the full panel gallery →**](docs/GALLERY.md)
 

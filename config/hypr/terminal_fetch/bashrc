@@ -1,0 +1,2 @@
+[[ -r ~/.bashrc ]] && source ~/.bashrc
+python3 "$(dirname -- "${BASH_SOURCE[0]}")/model.py"

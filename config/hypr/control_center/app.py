@@ -18,7 +18,7 @@ from PyQt6.QtGui import QFont, QKeySequence, QShortcut, QColor, QPalette, QTextC
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
-    QLabel, QPushButton, QLineEdit, QComboBox, QCheckBox, QTabWidget, QTabBar,
+    QLabel, QPushButton, QToolButton, QBoxLayout, QLineEdit, QComboBox, QCheckBox, QTabWidget, QTabBar,
     QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QSplitter,
     QFormLayout, QGroupBox, QMessageBox, QTextEdit, QSlider, QCalendarWidget,
     QProgressBar, QListWidget, QFrame, QGraphicsOpacityEffect, QScrollArea, QFileDialog, QSizePolicy,
@@ -37,6 +37,7 @@ import wheel_guard
 from home_page import HomePage
 from identity import Avatar
 from icons import icon as navigation_icon
+from terminal_fetch.page import TerminalPage
 
 STYLE = '''
 QWidget { background: #171b22; color: #d8e0ec; font-family: "DejaVu Sans"; font-size: 12px; }
@@ -1142,17 +1143,17 @@ class Window(QMainWindow):
                       'bluetooth': BluetoothPage(), 'displays': DisplaysPage(async_run),
                       'input': PreferencesPage('input', async_run), 'theme': ThemePage(async_run),
                       'context-menu': ContextMenuPage(async_run),
-                      'calendar': CalendarPage(), 'system': SystemPage()}
+                      'calendar': CalendarPage(), 'system': SystemPage(), 'terminal': TerminalPage(async_run)}
         for name, page in self.pages.items():
             self.tabs.addTab(page, name.replace('-', ' ').title())
         self.tabs.currentChanged.connect(self.changed)
-        content=QHBoxLayout();content.setSpacing(16)
+        content=QBoxLayout(QBoxLayout.Direction.LeftToRight);content.setSpacing(16);self.content_layout=content
         self.modern_rail=QWidget();self.modern_rail.setObjectName('modernRail');self.modern_rail.setFixedWidth(66)
-        rail=QVBoxLayout(self.modern_rail);rail.setContentsMargins(8,12,8,12);rail.setSpacing(4)
+        rail=QBoxLayout(QBoxLayout.Direction.TopToBottom,self.modern_rail);self.rail_layout=rail;rail.setContentsMargins(8,12,8,12);rail.setSpacing(4)
         self.rail_avatar=Avatar(46);self.rail_avatar.clicked.connect(lambda:self.switch('home'));rail.addWidget(self.rail_avatar)
         self.rail_buttons={}
         for name in ['home',*self.pages]:
-            caption=name.replace('-',' ').title();control=QPushButton();control.setObjectName('railButton');control.setCheckable(True)
+            caption=name.replace('-',' ').title();control=QToolButton();control.setText(caption);control.setObjectName('railButton');control.setCheckable(True)
             control.setFixedSize(48,42);control.setIconSize(QSize(22,22));control.setToolTip(caption);control.setAccessibleName(caption)
             control.clicked.connect(lambda _,n=name:self.switch(n));rail.addWidget(control);self.rail_buttons[name]=control
         rail.addStretch();content.addWidget(self.modern_rail);content.addWidget(self.tabs,1);layout.addLayout(content,1)
@@ -1200,7 +1201,7 @@ class Window(QMainWindow):
         self.fade.start()
 
     def update_navigation(self):
-        modern=theme_runtime.design()=='modern';current=self.tabs.currentWidget()
+        modern=theme_runtime.layout()!='classic';current=self.tabs.currentWidget()
         name=next((name for name,page in self.pages.items() if page is current),'hotkeys')
         if modern:self.brand.setText(name.replace('-',' ').title())
         for key,control in self.rail_buttons.items():
@@ -1210,12 +1211,24 @@ class Window(QMainWindow):
     def apply_design(self):
         self.changing_design=True
         self.setWindowIcon(navigation_icon('fusion-settings',theme_runtime.colors()['Accent']))
-        modern=theme_runtime.design()=='modern';current=self.tabs.currentWidget()
+        modern=theme_runtime.layout()!='classic';current=self.tabs.currentWidget()
         if modern and self.tabs.indexOf(self.home)<0:self.tabs.insertTab(0,self.home,'Home')
         elif not modern and self.tabs.indexOf(self.home)>=0:
             if current is self.home:current=self.pages['hotkeys']
             self.tabs.removeTab(self.tabs.indexOf(self.home));self.home.hide()
         if current:self.tabs.setCurrentWidget(current)
+        choice=theme_runtime.layout();ribbon=choice=='ribbon';sidebar=choice=='sidebar'
+        self.content_layout.setDirection(QBoxLayout.Direction.TopToBottom if ribbon else QBoxLayout.Direction.LeftToRight)
+        self.rail_layout.setDirection(QBoxLayout.Direction.LeftToRight if ribbon else QBoxLayout.Direction.TopToBottom)
+        self.modern_rail.setMinimumSize(0,0);self.modern_rail.setMaximumSize(16777215,16777215)
+        if ribbon:self.modern_rail.setFixedHeight(78)
+        else:self.modern_rail.setFixedWidth(184 if sidebar else 66)
+        self.rail_avatar.setVisible(not ribbon)
+        for key,control in self.rail_buttons.items():
+            caption=key.replace('-',' ').title()
+            control.setText(' '+caption if sidebar else 'Menus' if ribbon and key=='context-menu' else caption)
+            control.setFixedSize(78 if ribbon else 166 if sidebar else 48,54 if ribbon else 40)
+            control.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon if ribbon else Qt.ToolButtonStyle.ToolButtonTextBesideIcon if sidebar else Qt.ToolButtonStyle.ToolButtonIconOnly)
         self.modern_rail.setVisible(modern);self.tabs.tabBar().setVisible(not modern)
         self.eyebrow.setVisible(not modern);self.header_hint.setVisible(not modern)
         if not modern:self.brand.setText('Fusion Settings')
@@ -1243,7 +1256,7 @@ class Window(QMainWindow):
         if not self.pages['displays'].can_close() or any(self.pages[name].busy for name in ('input','theme','context-menu')):
             event.ignore()
             return
-        unsaved = [name.replace('-', ' ').title() for name in ('displays','input','theme','context-menu') if self.pages[name].dirty]
+        unsaved = [name.replace('-', ' ').title() for name in ('displays','input','theme','context-menu','terminal') if self.pages[name].dirty]
         if unsaved and QMessageBox.question(self, 'Discard unsaved changes?',
                 'Discard the draft in '+', '.join(unsaved)+' and close?',
                 QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
@@ -1256,7 +1269,7 @@ class Window(QMainWindow):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--tab', choices=['home', 'hotkeys', 'audio', 'network', 'bluetooth', 'displays', 'input', 'theme', 'context-menu', 'calendar', 'system'], default='hotkeys')
+    parser.add_argument('--tab', choices=['home', 'hotkeys', 'audio', 'network', 'bluetooth', 'displays', 'input', 'theme', 'context-menu', 'calendar', 'system', 'terminal'], default='hotkeys')
     parser.add_argument('--preview', help='Render the initial window to a PNG and exit')
     parser.add_argument('--window-hints', action='store_true')
     args = parser.parse_args()

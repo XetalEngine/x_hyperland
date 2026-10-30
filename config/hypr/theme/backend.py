@@ -77,7 +77,7 @@ def apply_wallpapers(draft, expected):
             state[connector]={'path':str(saved),'original':choice.get('original',str(path)),'fit':choice['fit']}
         config=wallpaper_config(state)
         files={WALLPAPER/'hyprpaper.conf':config.encode(),WALLPAPER/'selection.json':(json.dumps(state,indent=2)+'\n').encode()}
-        files[WALLPAPER/'profiles.json']=wallpaper_sets.encode(wallpaper_sets.remember(WALLPAPER,runtime.design(),state))
+        files[WALLPAPER/'profiles.json']=wallpaper_sets.encode(wallpaper_sets.remember(WALLPAPER,runtime.state().get('wallpaper_theme',runtime.design()),state))
         oldfiles={path:path.read_bytes() if path.exists() else None for path in files}
         try:
             for connector in draft:
@@ -116,7 +116,7 @@ def kde_colors(value,design=None):
 
 def theme_token():
     extra=hashlib.sha256()
-    for name in ('hyprlock.conf','startup/kitty.conf'):
+    for name in ('hyprlock.conf','startup/kitty.conf','file_jobs/preferences.json','switcher/preferences.json','terminal_fetch/settings.json','effects/burn/settings.conf','effects/cube/settings.json','control_center/appearance.conf','wallpaper/selection.json'):
         path=ROOT/name
         extra.update(path.read_bytes() if path.is_file() else b'missing')
     return settings.Store('theme').load()[1], hashlib.sha256(runtime.STATE.read_bytes()).hexdigest(),extra.hexdigest()
@@ -282,11 +282,13 @@ def prepare_group_image(choice):
     return 'backgrounds/group-'+hashlib.sha256(data).hexdigest()[:24]+'.'+extension,data
 
 
-def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,launcher_background=None,launcher_surfaces=None,launcher_style=None,launcher_labels=None,launcher_background_visibility=None):
+def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,launcher_background=None,launcher_surfaces=None,launcher_style=None,launcher_labels=None,launcher_background_visibility=None,*,layout=None,components=None,bundle=None):
     if value not in runtime.MODES: raise ValueError('Choose an available theme.')
     design=design or runtime.design()
     if design not in runtime.DESIGNS:raise ValueError('Choose an available desktop design.')
     previous=runtime.state()
+    if layout is not None and layout not in runtime.layouts.LAYOUTS:raise ValueError('Choose a supported navigation layout.')
+    partial=components is not None
     from launcher_labels import normalize as normalize_labels
     labels=normalize_labels(previous.get('launcher_labels',{}) if launcher_labels is None else launcher_labels,strict=True)
     visibility=runtime.launcher_background_visibility() if launcher_background_visibility is None else launcher_background_visibility
@@ -338,6 +340,14 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     elif design=='binaryknife':
         from binaryknife import compositor
         content+=compositor(colors)
+    if partial:
+        old_content=store.load()[0]
+        if 'colors' not in components:content=old_content
+        elif 'effects' not in components:
+            # A palette-only change must not also replace animations, gaps, rounding or blur.
+            retained='\n'.join(line for line in old_content.splitlines() if not line.lstrip().startswith(('env =','general:col.active_border','general:col.inactive_border')))
+            content='\n'.join(line for line in content.splitlines() if line.lstrip().startswith('env ='))+'\n'+retained+'\n'
+            content+=f"general:col.active_border = rgb({colors['Accent'][1:]})\ngeneral:col.inactive_border = rgb({colors['Midlight'][1:]})\n"
     store.check(content,expected[0])
     scheme=kde_colors(value,design)
     isolated=ROOT/'dolphin/config/kdeglobals'
@@ -359,7 +369,7 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     bar=update_widget.attach(bar)
     files={runtime.ROOT/launcher_background:background_data} if background_data is not None else {}
     files.update(group_files)
-    files.update({runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,'launcher_style':launcher_style,'avatar':avatar,'launcher_wallpaper':launcher_wallpaper,'launcher_background':launcher_background,'launcher_surfaces':surfaces,'launcher_labels':labels,'launcher_background_visibility':visibility},indent=2)+'\n').encode(),
+    files.update({runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,**({'layout':layout} if layout is not None else {}),**({'wallpaper_theme':bundle.get('wallpaper_theme',design)} if partial and 'wallpaper' in components else {}),'launcher_style':launcher_style,'avatar':avatar,'launcher_wallpaper':launcher_wallpaper,'launcher_background':launcher_background,'launcher_surfaces':surfaces,'launcher_labels':labels,'launcher_background_visibility':visibility},indent=2)+'\n').encode(),
            runtime.ROOT/'current.colors':scheme.encode(),runtime.ROOT/'kitty-colors.conf':kitty_colors(value,design).encode(),
            isolated:(stream.getvalue().rstrip()+'\n').encode(),
            ROOT/'waybar/style.css':bar.encode(),
@@ -373,10 +383,13 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
             raw=path.read_bytes()
             if design!='raw':files[saved]=raw
         files[path]=(modern_lock(colors,design).encode() if target=='hyprlock.conf' else raw+b'\n'+kitty_colors(value,design).encode()) if design!='raw' else raw
+    if partial and 'colors' not in components:
+        for path in (runtime.ROOT/'current.colors',runtime.ROOT/'kitty-colors.conf',isolated,ROOT/'waybar/style.css',ROOT/'waybar/updates.css',ROOT/'swaync/style.css',ROOT/'hyprlock.conf',ROOT/'startup/kitty.conf',runtime.ROOT/'hyprlock-raw.conf',runtime.ROOT/'startup-raw.conf'):files.pop(path,None)
     settings.STATE.mkdir(parents=True,exist_ok=True,mode=0o700)
     with ExitStack() as locks:
         lock_paths=[settings.STATE/'theme-files.lock',settings.STATE/'wallpaper-save.lock']
-        for path in (ROOT/'effects/burn/settings.conf',ROOT/'effects/cube/settings.json'):
+        lock_paths.append(settings.STATE/'appearance-save.lock')
+        for path in (ROOT/'effects/burn/settings.conf',ROOT/'effects/cube/settings.json',ROOT/'file_jobs/preferences.json',ROOT/'switcher/preferences.json',ROOT/'terminal_fetch/settings.json'):
             if path.exists():lock_paths.append(path.with_suffix('.lock'))
         for path in lock_paths:
             lock=locks.enter_context(path.open('a'))
@@ -384,27 +397,47 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
         if theme_token()!=expected: raise ValueError('The theme changed elsewhere. Reload before applying.')
         wallpaper_root=ROOT/'wallpaper'
         old_wallpapers={};new_wallpapers={};connected=set();changed_outputs=[]
-        if design!=runtime.design() and (wallpaper_root/'sets.json').exists():
+        if ((not partial and design!=runtime.design()) or (partial and 'wallpaper' in components)) and (wallpaper_root/'sets.json').exists():
             monitors=settings.monitors()
             connected={monitor['name'] for monitor in wallpaper_sets.screens(monitors)}
             old_wallpapers=read_wallpapers(wallpaper_root)
-            new_wallpapers,profiles=wallpaper_sets.switching(wallpaper_root,runtime.design(),design,old_wallpapers,monitors)
+            previous_wallpaper=previous.get('wallpaper_theme',runtime.design())
+            wallpaper_design=bundle.get('wallpaper_theme',bundle['theme']['design']) if partial else design
+            new_wallpapers,profiles=wallpaper_sets.switching(wallpaper_root,previous_wallpaper,wallpaper_design,old_wallpapers,monitors)
+            if partial and bundle.get('wallpapers'):
+                from PIL import Image
+                choices=bundle['wallpapers'];fallback=list(choices.values())
+                for index,monitor in enumerate(wallpaper_sets.screens(monitors)):
+                    item=copy.deepcopy(choices.get(monitor['name'],fallback[index%len(fallback)]))
+                    path=Path(item['path']).expanduser().resolve(strict=True)
+                    with Image.open(path) as picture:picture.verify()
+                    item['path']=str(path);new_wallpapers[monitor['name']]=item
+                profiles['themes'][wallpaper_design]=copy.deepcopy(new_wallpapers)
             files.update({wallpaper_root/'selection.json':wallpaper_sets.encode(new_wallpapers),
                           wallpaper_root/'hyprpaper.conf':wallpaper_config(new_wallpapers).encode(),
                           wallpaper_root/'profiles.json':wallpaper_sets.encode(profiles)})
-        effect_files,effect_reloads=effect_colors.plan(ROOT,runtime.design(),design,colors)
+        effect_files,effect_reloads=({},[])
+        if not partial or 'effects' in components:
+            target_design=bundle['theme']['design'] if partial else design
+            effect_files,effect_reloads=effect_colors.plan(ROOT,runtime.design(),target_design,runtime.colors(value,target_design))
         files.update(effect_files)
+        if partial:
+            import presets
+            extra,reloads=presets.resources(ROOT,bundle,components,runtime.design())
+            files.update(extra);effect_reloads=list(dict.fromkeys([*effect_reloads,*reloads]))
         old={path:path.read_bytes() if path.exists() else None for path in files}
         effects_attempted=False
         try:
             if background_data is not None or group_files:(runtime.ROOT/'backgrounds').mkdir(exist_ok=True,mode=0o700)
-            for path,data in files.items(): keys.atomic_write(path,data)
+            for path,data in files.items():
+                path.parent.mkdir(parents=True,exist_ok=True);keys.atomic_write(path,data)
             for connector,item in new_wallpapers.items():
                 if connector in connected and item!=old_wallpapers.get(connector):
                     changed_outputs.append(connector);set_wallpaper(connector,item)
             effects_attempted=True
+            if partial and 'effects' in components:presets.activate_effects(bundle,settings.ctl)
             effect_colors.reload_active(settings.ctl,effect_reloads)
-            store.save(content,expected[0])
+            if not partial or 'colors' in components or 'effects' in components:store.save(content,expected[0])
         except Exception:
             for path,data in old.items():
                 if path.exists() and path.read_bytes()==files[path]:
@@ -418,7 +451,7 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
                 try:effect_colors.reload_active(settings.ctl,effect_reloads)
                 except Exception:pass
             raise
-    reload_kitty(include_startup=True)
+    if not partial or 'colors' in components:reload_kitty(include_startup=True)
     # Reload only our notification daemon, never a notification server from KDE.
     for item in Path('/proc').iterdir():
         if not item.name.isdigit(): continue
@@ -427,3 +460,15 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
         if command and Path(command[0].decode(errors='ignore')).name=='swaync' and str(ROOT/'swaync/config.json').encode() in command:
             subprocess.run(['swaync-client','--reload-css'],capture_output=True,timeout=5); break
     return theme_token()
+
+
+def apply_components(target,selected,expected):
+    import presets
+    target=presets.validate(target);selected=set(selected)
+    if not selected:raise ValueError('Select at least one component.')
+    state=presets.merged_theme(runtime.state(),target,selected)
+    return apply_mode(state['mode'],expected,state['design'],state.get('avatar','auto'),
+        state.get('launcher_wallpaper',False),state.get('launcher_background',''),state.get('launcher_surfaces'),
+        state.get('launcher_style','follow'),launcher_labels=state.get('launcher_labels'),
+        launcher_background_visibility=state.get('launcher_background_visibility',18),
+        layout=state['layout'],components=selected,bundle=target)

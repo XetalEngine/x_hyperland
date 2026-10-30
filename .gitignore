@@ -23,3 +23,4 @@ config/hypr/effects/cube/.build/
 config/hypr/effects/cube/cache/
 config/hypr/control_panel/.build/
 config/hypr/control_panel/state/
+config/hypr/theme/custom-presets.json

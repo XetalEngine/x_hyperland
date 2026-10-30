@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import re
 import designs
+import layouts
 
 ROOT = Path(__file__).resolve().parent
 STATE = ROOT/'state.json'
@@ -23,6 +24,14 @@ def state():
 def design():
     value=state().get('design','raw')
     return value if value in DESIGNS else 'raw'
+
+
+def layout():
+    value=state().get('layout','follow')
+    return value if isinstance(value,str) and value in layouts.LAYOUTS else layouts.default(design())
+
+
+def widget_design(): return layouts.widget_style(layout(),design())
 
 
 def launcher_style():
@@ -114,15 +123,19 @@ def recolor(color, value, style=None):
 
 
 def stylesheet(source, value=None, style=None, qt=True):
+    explicit=style is not None
     value = value or mode()
     style = style or design()
-    if value == 'dark' and style=='raw': return source
-    source = re.sub(r'#[0-9a-fA-F]{6}\b', lambda m: recolor(m[0],value,style), source)
+    if value != 'dark' or style!='raw':
+        source = re.sub(r'#[0-9a-fA-F]{6}\b', lambda m: recolor(m[0],value,style), source)
     def rgba(match):
         r,g,b,alpha = match.groups(); transformed = recolor(f'#{int(r):02x}{int(g):02x}{int(b):02x}',value,style)
         return f'rgba({int(transformed[1:3],16)},{int(transformed[3:5],16)},{int(transformed[5:7],16)},{alpha})'
-    source=re.sub(r'rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)',rgba,source)
-    return source+(designs.qt_style(colors(value,style),style) if style!='raw' and qt else '')
+    if value != 'dark' or style!='raw':source=re.sub(r'rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)',rgba,source)
+    shape=style if explicit else widget_design()
+    # A raw layout still needs a complete stylesheet when its colors come from another palette.
+    if shape=='raw' and style!='raw':shape='breakpoint'
+    return source+(designs.qt_style(colors(value,style),shape) if shape!='raw' and qt else '')+(layouts.stylesheet(colors(value,style),layout(),style) if qt and not explicit else '')
 
 
 def qcolor(*args):

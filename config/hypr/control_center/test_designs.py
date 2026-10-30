@@ -19,11 +19,15 @@ QT=QApplication.instance() or QApplication([])
 
 
 class DesignTests(unittest.TestCase):
+    def setUp(self):
+        # Existing persistence tests accept the new chooser; its selection/cancel behavior has separate coverage.
+        modal=patch.object(theme_page.ComponentDialog,'exec',return_value=1);modal.start();self.addCleanup(modal.stop)
     def test_background_applies_after_external_update_without_losing_other_preferences(self):
         with tempfile.TemporaryDirectory() as directory:
             state=Path(directory)/'theme.json'
             state.write_text(json.dumps({'design':'breakpoint','mode':'dark','avatar':'auto'}))
             def save(mode,token,design,avatar,enabled,background,surfaces,launcher_style,**options):
+                options.pop('bundle',None);options.pop('components',None)
                 current=json.loads(state.read_text())
                 current.update(design=design,mode=mode,avatar=avatar,launcher_wallpaper=enabled,
                     launcher_background=background,launcher_surfaces=surfaces,launcher_style=launcher_style,**options)
@@ -161,7 +165,10 @@ class DesignTests(unittest.TestCase):
                     self.assertEqual(page.avatar,'auto')
                     page.design.setCurrentIndex(page.design.findData('raw'))
                     self.assertTrue(page.dirty);page.save_mode()
-                    apply.assert_called_once_with('dark','token','raw','auto',True,chosen,runtime.launcher_surfaces(),'follow',launcher_labels={'names':True,'hotkeys':True},launcher_background_visibility=18)
+                    self.assertEqual(apply.call_count,1)
+                    self.assertEqual(apply.call_args.args,('dark','token','raw','auto',True,chosen,runtime.launcher_surfaces(),'follow'))
+                    self.assertEqual(apply.call_args.kwargs['launcher_labels'],{'names':True,'hotkeys':True})
+                    self.assertEqual(apply.call_args.kwargs['launcher_background_visibility'],18)
                     self.assertEqual(page.background,saved)
                     self.assertFalse(page.dirty)
                     page.set_background('')

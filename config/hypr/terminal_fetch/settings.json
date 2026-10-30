@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "enabled": true,
+  "logo": "arch",
+  "show_user": true,
+  "show_palette": true,
+  "fields": ["os", "kernel", "uptime", "cpu", "gpu", "memory", "disk", "shell", "terminal", "wm", "packages"]
+}

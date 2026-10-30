@@ -43,6 +43,8 @@ def icon(name, color, size=24):
     elif name=='calendar':
         p.drawRoundedRect(QRectF(3,5,18,17),2,2);line(3,10,21,10);line(8,2,8,7);line(16,2,16,7)
         for x in (8,12,16):p.drawPoint(QPointF(x,15))
+    elif name=='terminal':
+        p.drawRoundedRect(QRectF(2,4,20,16),2,2);line(6,8,10,12);line(10,12,6,16);line(13,16,18,16)
     elif name=='system':
         line(12,2,12,11);p.drawArc(QRectF(3,4,18,18),125*16,290*16)
     elif name=='microphone':

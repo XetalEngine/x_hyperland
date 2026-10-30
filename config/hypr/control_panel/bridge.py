@@ -12,7 +12,7 @@ def theme():
     sys.path.insert(0,str(ROOT/'theme'))
     import runtime
     from designs import qt_style
-    design=runtime.design();p=runtime.colors();style=qt_style(p,design)
+    design=runtime.widget_design();p=runtime.colors();style=qt_style(p,design)+runtime.layouts.stylesheet(p,runtime.layout(),runtime.design())
     style+=f'''
       QWidget#hyperControlPanel, QScrollArea, QStackedWidget {{background:{p['Window']};}}
       QWidget#hyperControlPanel {{border:1px solid {p['Midlight']}; border-radius:{4 if design=='binaryknife' else 12 if design=='breakpoint' else 16}px;}}

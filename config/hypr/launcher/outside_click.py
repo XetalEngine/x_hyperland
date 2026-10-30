@@ -10,7 +10,7 @@ from PyQt6.QtNetwork import QLocalSocket
 CLICK_EVENT = b'custom>>xetal-launcher-click'
 
 
-def outside_menu(payload, pid):
+def outside_menu(payload, pid, title='Xetal applications'):
     """Return None when the IPC reply cannot identify this menu reliably."""
     try:
         decoder = json.JSONDecoder()
@@ -18,7 +18,7 @@ def outside_menu(payload, pid):
         cursor, end = decoder.raw_decode(text)
         clients = json.loads(text[end:])
         menu = next(c for c in clients if c.get('pid') == pid
-                    and c.get('title') == 'Xetal applications' and c.get('mapped')
+                    and c.get('title') == title and c.get('mapped')
                     and not c.get('hidden'))
         x, y = cursor['x'], cursor['y']
         left, top = menu['at']
@@ -35,9 +35,9 @@ def outside_menu(payload, pid):
 class PointerCheck(QObject):
     finished = pyqtSignal(object)
 
-    def __init__(self, parent, callback):
+    def __init__(self, parent, callback, title='Xetal applications'):
         super().__init__(parent)
-        self.done = False
+        self.done = False; self.title=title
         self.payload = bytearray()
         self.socket = QLocalSocket(self)
         self.timeout = QTimer(self)
@@ -69,11 +69,11 @@ class PointerCheck(QObject):
         self.payload.extend(bytes(self.socket.readAll()))
         self.timeout.stop()
         self.socket.abort()
-        self.finished.emit(outside_menu(bytes(self.payload), os.getpid()) if valid else None)
+        self.finished.emit(outside_menu(bytes(self.payload), os.getpid(),self.title) if valid else None)
         self.deleteLater()
 
 
-def check_pointer(parent, callback):
+def check_pointer(parent, callback, title='Xetal applications'):
     # No process or polling loop: the existing compositor connection supplies
     # click events, and this short-lived socket reads geometry only on a click.
-    PointerCheck(parent, callback).start()
+    PointerCheck(parent, callback,title).start()

@@ -35,7 +35,9 @@ def qt_style(p,style='modern'):
     if style=='breakpoint':
         from breakpoint import qt_style as themed
         return themed(p)
-    check=Path(__file__).resolve().parent/'assets'/('check-light.svg' if p['HighlightedText']=='#ffffff' else 'check-dark.svg')
+    ink=p['HighlightedText']
+    bright=sum(int(ink[i:i+2],16) for i in (1,3,5))>420
+    check=Path(__file__).resolve().parent/'assets'/('check-light.svg' if bright else 'check-dark.svg')
     return f'''
     QWidget {{color:{p['Text']}; font-family:"Noto Sans";}}
     QMainWindow, QDialog, QMessageBox, QWidget#controlRoot {{background:{p['Window']};}}

@@ -212,12 +212,13 @@
       "on-scroll-up": "shift_up",
       "on-scroll-down": "shift_down"
     },
-    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab calendar"
+    "on-click": "$HOME/.config/hypr/scripts/quick-panel.sh clock",
+    "on-click-right": "$HOME/.config/hypr/scripts/control-center.sh --tab calendar"
   },
   "custom/power": {
     "format": "\u23fb",
     "tooltip-format": "Session and power controls",
-    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab system",
+    "on-click": "$HOME/.config/hypr/scripts/quick-panel.sh power",
     "on-click-right": "hyprlock --config $HOME/.config/hypr/hyprlock.conf"
   },
   "group/audio": {
