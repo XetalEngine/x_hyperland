@@ -327,90 +327,6 @@
       "filename": "${KVM_DATA}/firmware/OVMF_VARS.fd",
       "node-name": "libvirt-pflash1-storage",
       "read-only": false
-    },
-    {
-      "driver": "host_device",
-      "filename": "/dev/disk/by-id/nvme-Samsung_SSD_970_EVO_Plus_2TB_S59CNZ0NB14011R",
-      "aio": "threads",
-      "node-name": "vmstart2-1-storage",
-      "read-only": false,
-      "discard": "unmap",
-      "cache": {
-        "direct": true,
-        "no-flush": false
-      }
-    },
-    {
-      "driver": "host_device",
-      "filename": "/dev/disk/by-id/nvme-Samsung_SSD_970_EVO_Plus_1TB_S6S1NG0R831425F",
-      "aio": "threads",
-      "node-name": "vmstart2-2-storage",
-      "read-only": false,
-      "discard": "unmap",
-      "cache": {
-        "direct": true,
-        "no-flush": false
-      }
-    },
-    {
-      "driver": "host_device",
-      "filename": "/dev/disk/by-id/nvme-Samsung_SSD_970_EVO_Plus_1TB_S59ANM0NB02263H",
-      "aio": "threads",
-      "node-name": "vmstart2-3-storage",
-      "read-only": false,
-      "discard": "unmap",
-      "cache": {
-        "direct": true,
-        "no-flush": false
-      }
-    },
-    {
-      "driver": "host_device",
-      "filename": "/dev/disk/by-id/nvme-Samsung_SSD_980_PRO_1TB_S5P2NU0X306628P",
-      "aio": "threads",
-      "node-name": "vmstart2-4-storage",
-      "read-only": false,
-      "discard": "unmap",
-      "cache": {
-        "direct": true,
-        "no-flush": false
-      }
-    },
-    {
-      "driver": "host_device",
-      "filename": "/dev/disk/by-id/nvme-Samsung_SSD_980_PRO_1TB_S5P2NU0X306646E",
-      "aio": "threads",
-      "node-name": "vmstart2-5-storage",
-      "read-only": false,
-      "discard": "unmap",
-      "cache": {
-        "direct": true,
-        "no-flush": false
-      }
-    },
-    {
-      "driver": "host_device",
-      "filename": "/dev/disk/by-id/ata-SATA_SSD_19043010242159",
-      "aio": "threads",
-      "node-name": "vmstart2-6-storage",
-      "read-only": false,
-      "discard": "unmap",
-      "cache": {
-        "direct": true,
-        "no-flush": false
-      }
-    },
-    {
-      "driver": "host_device",
-      "filename": "/dev/disk/by-id/ata-SATA_SSD_19043010240097",
-      "aio": "threads",
-      "node-name": "vmstart2-7-storage",
-      "read-only": false,
-      "discard": "unmap",
-      "cache": {
-        "direct": true,
-        "no-flush": false
-      }
     }
   ],
   "devices": [
@@ -522,118 +438,6 @@
       "driver": "tpm-crb",
       "tpmdev": "tpm-tpm0",
       "id": "tpm0"
-    },
-    {
-      "driver": "vfio-pci",
-      "host": "0000:01:00.1",
-      "id": "hostdev6",
-      "bus": "pci.5",
-      "addr": "0x0",
-      "romfile": "${KVM_DATA}/roms/vbios-AD102GeForceRTX4090-20260812-005523.rom"
-    },
-    {
-      "driver": "vfio-pci",
-      "host": "0000:01:00.0",
-      "id": "hostdev7",
-      "bus": "pci.6",
-      "addr": "0x0",
-      "romfile": "${KVM_DATA}/roms/vbios-AD102GeForceRTX4090-20260812-005523.rom"
-    },
-    {
-      "driver": "usb-host",
-      "id": "hostdev8",
-      "bus": "usb.0",
-      "vendorid": 9610,
-      "productid": 22,
-      "port": "1"
-    },
-    {
-      "driver": "usb-host",
-      "id": "hostdev9",
-      "bus": "usb.0",
-      "vendorid": 1133,
-      "productid": 49291,
-      "port": "2"
-    },
-    {
-      "driver": "usb-host",
-      "id": "hostdev10",
-      "bus": "usb.0",
-      "vendorid": 1008,
-      "productid": 1931,
-      "port": "3"
-    },
-    {
-      "driver": "nvme",
-      "id": "nvme0",
-      "serial": "ESGDCR4A5XHP",
-      "bus": "pci.2",
-      "addr": "0x1"
-    },
-    {
-      "driver": "nvme-ns",
-      "bus": "nvme0",
-      "nsid": 1,
-      "drive": "vmstart2-1-storage",
-      "id": "vmstart2-disk1",
-      "write-cache": "on",
-      "uuid": "24762038-f90b-4b42-9d74-1dfd59106851",
-      "bootindex": 1
-    },
-    {
-      "driver": "ide-hd",
-      "bus": "ide.0",
-      "drive": "vmstart2-2-storage",
-      "id": "vmstart2-disk2",
-      "write-cache": "on",
-      "serial": "F79HGEX6EDK"
-    },
-    {
-      "driver": "ide-hd",
-      "bus": "ide.1",
-      "drive": "vmstart2-3-storage",
-      "id": "vmstart2-disk3",
-      "write-cache": "on",
-      "serial": "3BT64A5C8LW"
-    },
-    {
-      "driver": "ide-hd",
-      "bus": "ide.2",
-      "drive": "vmstart2-4-storage",
-      "id": "vmstart2-disk4",
-      "write-cache": "on",
-      "serial": "UVCAZUP2ND0"
-    },
-    {
-      "driver": "ide-hd",
-      "bus": "ide.3",
-      "drive": "vmstart2-5-storage",
-      "id": "vmstart2-disk5",
-      "write-cache": "on",
-      "serial": "V7PTX815NMO"
-    },
-    {
-      "driver": "ide-hd",
-      "bus": "ide.4",
-      "drive": "vmstart2-6-storage",
-      "id": "vmstart2-disk6",
-      "write-cache": "on",
-      "serial": "FBDVBYTDNPE"
-    },
-    {
-      "driver": "ide-hd",
-      "bus": "ide.5",
-      "drive": "vmstart2-7-storage",
-      "id": "vmstart2-disk7",
-      "write-cache": "on",
-      "serial": "XHSKEDIMA6A"
-    },
-    {
-      "driver": "vfio-pci",
-      "host": "0000:82:00.6",
-      "id": "hostdev0",
-      "bus": "pci.7",
-      "addr": "0x0"
     }
   ],
   "chardevs": [
@@ -969,26 +773,7 @@
     "leave_cores": 8,
     "complete": false,
     "layout": 2,
-    "baseline_pci": {
-      "0000:01:00.1": {
-        "vendor": "0x10de",
-        "device": "0x22ba",
-        "subsystem_vendor": "0x1043",
-        "subsystem_device": "0x88e6"
-      },
-      "0000:01:00.0": {
-        "vendor": "0x10de",
-        "device": "0x2684",
-        "subsystem_vendor": "0x1043",
-        "subsystem_device": "0x88e6"
-      },
-      "0000:82:00.6": {
-        "vendor": "0x1022",
-        "device": "0x15e3",
-        "subsystem_vendor": "0x1849",
-        "subsystem_device": "0x6899"
-      }
-    }
+    "baseline_pci": {}
   },
   "tpm_model_emulated": "tpm-crb",
   "virtual_gpu": {
@@ -1011,15 +796,10 @@
     "uefi_resolution": true
   },
   "dual_gpu": {
-    "gpu": "0000:82:00.0",
-    "gpu_identity": {
-      "vendor": "0x1002",
-      "device": "0x164e",
-      "subsystem_vendor": "0x1849",
-      "subsystem_device": "0x364e"
-    },
+    "gpu": "",
+    "gpu_identity": {},
     "gpu_audio": false,
-    "romfile": "${KVM_DATA}/roms/raphael-asrock-3.06-vbios-gop.rom",
+    "romfile": "",
     "viewer": "looking-glass",
     "auto_open": true,
     "port": 5931,
@@ -1032,22 +812,12 @@
     "network": "preset",
     "pinning": true,
     "input_mode": "evdev",
-    "evdev_keyboard": "/dev/input/by-id/usb-BY_Tech_Usb_Gaming_Keyboard-event-kbd",
-    "evdev_mouse": "/dev/input/by-id/usb-Logitech_G502_HERO_Gaming_Mouse_196C334B3338-event-mouse",
+    "evdev_keyboard": "",
+    "evdev_mouse": "",
     "evdev_toggle": "ctrl-ctrl",
     "lg_capture": true,
     "audio_mode": "spice",
     "usb_devices": [],
-    "pci_devices": [
-      {
-        "identity": {
-          "device": "0x15e3",
-          "subsystem_device": "0x6899",
-          "subsystem_vendor": "0x1849",
-          "vendor": "0x1022"
-        },
-        "slot": "0000:82:00.6"
-      }
-    ]
+    "pci_devices": []
   }
 }

@@ -173,7 +173,7 @@ class PassthroughTab(QScrollArea):
         gl.addWidget(self.gpu_combo, 0, 1, 1, 2)
 
         self.rom = QLineEdit()
-        self.rom.setPlaceholderText("optional vBIOS ROM file")
+        self.rom.setPlaceholderText("Auto-dump on Add GPU, or select a ROM")
         gl.addWidget(QLabel("ROM:"), 1, 0)
         gl.addWidget(self.rom, 1, 1)
         b = QPushButton("Browse...")
@@ -654,6 +654,15 @@ class PassthroughTab(QScrollArea):
             self.cfg.devices.append(dev)
         self.reload()
         self.changed.emit()
+        if not rom and getattr(self, 'capture_gpu_rom', None):
+            def apply(path):
+                if path:
+                    for dev in self.cfg.devices:
+                        if dev.get('driver') == 'vfio-pci' and dev.get('host') == slot and not dev.get('_disabled'):
+                            dev['romfile'] = path
+                    self.rom.setText(path)
+                    self.reload(); self.changed.emit()
+            self.capture_gpu_rom(slot, apply)
 
     def _add_usb(self):
         u = self.usb_new.currentData()
@@ -732,6 +741,7 @@ class PassthroughTab(QScrollArea):
                 msgs.append(f"{d.get('id')}: {hd} is gone; the device moved or was "
                             f"unplugged. Pass it by vendor:product id instead.")
 
+        self.problems = [m for m in msgs if 'is still bound to' not in m]
         self.warn.setPlainText("\n".join(msgs) if msgs else "No passthrough problems found.")
 
 

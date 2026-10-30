@@ -42,7 +42,7 @@ class KVMSettings(VMStart2):
     def _size_and_centre(self):
         screen=QGuiApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
         rect=screen.availableGeometry()
-        self.resize(min(1560,max(800,rect.width()-80)),min(850,max(560,rect.height()-80)))
+        self.resize(min(1820,max(800,rect.width()-80)),min(920,max(560,rect.height()-80)))
 
     def __init__(self):
         super().__init__()
@@ -64,11 +64,26 @@ class KVMSettings(VMStart2):
         QApplication.instance().hypr_theme.changed.connect(self._theme_changed)
         if not self.cfg.data.get('wizard',{}).get('complete'):
             self._select_tab_by_name('Wizard')
+        import health
+        health.install(self)
+
+    def _refresh_all(self):
+        super()._refresh_all()
+        if hasattr(self,'issue_delegate'):
+            import health
+            health.refresh(self)
+
+    def _page_changed(self,index):
+        super()._page_changed(index)
+        if hasattr(self,'issue_delegate'):
+            import health
+            health.refresh(self)
 
     def _theme_changed(self):
         self.setWindowIcon(icon('chip',desktop_theme.colors()['Accent']))
         self.chip.setPixmap(icon('chip',desktop_theme.colors()['Accent'],30).pixmap(30,30))
         self.maximize.setIcon(icon('maximize',desktop_theme.colors()['Text'],18))
+        self._fill_features()
         self.update()
 
     def _toggle_maximized(self):
@@ -101,6 +116,96 @@ class KVMSettings(VMStart2):
         self._mount_components(self.tab_wizard.component_host)
         self.tab_virtual.before_launch=self._ready
         self.tab_dual.before_launch=self._ready
+        self.tab_hw.capture_gpu_rom=self._capture_gpu_rom
+        self.tab_wizard.capture_gpu_rom=self._capture_gpu_rom
+        self.tab_dual.capture_gpu_rom=self._capture_gpu_rom
+        if hasattr(self.tab_tpm,'btn_repair'):
+            self.tab_tpm.btn_repair.clicked.connect(self._repair_tpm)
+            self.tab_tpm.checks_changed.connect(self._health_changed)
+        panel.active.connect(lambda busy:self.tab_tpm.btn_repair.setEnabled(not busy)
+                             if hasattr(self.tab_tpm,'btn_repair') else None)
+        self.use_system_kvm=QPushButton('Use system KVM')
+        self.use_system_kvm.setToolTip('Skip the custom module and use the running kernel’s standard KVM module.')
+        self.use_system_kvm.clicked.connect(self._use_system_kvm)
+        panel.layout().insertWidget(1,self.use_system_kvm)
+        self.use_system_kvm.setVisible(bool(self.cfg.data.get('tools',{}).get('kvm_build_enabled')))
+
+    def _health_changed(self):
+        if hasattr(self,'issue_delegate') and not getattr(self,'_checking_health',False):
+            import health
+            health.refresh(self)
+
+    def _use_system_kvm(self):
+        self.cfg.data.setdefault('tools',{})['kvm_build_enabled']=False
+        self.tab_paths.chk_kvm.setChecked(False)
+        self.use_system_kvm.hide()
+        self.status.setText('Using this kernel’s standard KVM module. The custom module will not be loaded.')
+        self._refresh_all()
+
+    def _capture_gpu_rom(self,slot,finished):
+        panel=self.package_panel
+        if panel.job or self._busy():
+            self.status.setText('Finish the component operation or shut down the VM before reading its GPU ROM.')
+            finished(None);return
+        import gpu_rom
+        self.status.setText('Reading the selected GPU ROM…')
+        def done(path):
+            finished(path)
+            self.status.setText('GPU ROM automatically dumped and assigned: '+path)
+            if self.isVisible():
+                QMessageBox.information(self,'GPU ROM ready','The GPU ROM was automatically dumped, validated and assigned.\n\n'+path)
+            else:
+                import checkpoint
+                checkpoint.save(self)
+        def failed(error):
+            finished(None)
+            self.status.setText('GPU ROM capture failed. Select a ROM manually or retry.')
+            panel.info.setText(error)
+            if self.isVisible():QMessageBox.warning(self,'GPU ROM capture failed',error)
+        panel.run(lambda progress:gpu_rom.capture(slot),done,failed)
+
+    def _repair_tpm(self):
+        panel=self.package_panel;tab=self.tab_tpm
+        if panel.job or self._busy():
+            self.status.setText('Finish the component operation or shut down the VM before initializing TPM state.');return
+        import packages,tpm_setup
+        tools=self.cfg.data.setdefault('tools',{})
+        binary=tools.get('swtpm_binary','')
+        state=tab.state_dir.text().strip()
+        banks=tab.pcr_banks.text().strip();ek=tab.ek_algo.currentData()
+        certificates=tab.chk_ekcert.isChecked() or tab.chk_platcert.isChecked()
+        lock_nvram=tab.chk_lock.isChecked()
+        def work(progress):
+            if not binary or not Path(binary).is_file():
+                release=panel.release or panel.store.check()
+                entry=release['components']['tpm']
+                archive=portable.ROOT/'bundled'/entry['file']
+                if archive.is_file():packages.install_archive('tpm',entry,archive)
+                else:panel.store.download('tpm',entry,progress)
+            portable.prepare_tpm_workspace()
+            selected=binary if binary and Path(binary).is_file() else str(portable.component_path('tpm')/'bin/swtpm')
+            blob=Path(state)/'tpm2-00.permall'
+            if blob.is_file():
+                try:blob.read_bytes()
+                except PermissionError:
+                    from uiutil import sudo_command
+                    command,env,available=sudo_command(['test','-r',str(blob)],'KVM Settings: check existing TPM state')
+                    if not available:raise RuntimeError('Administrator access is needed to read the existing TPM state.')
+                    subprocess.run(command,env=env,check=True,timeout=90,capture_output=True)
+                return selected,'Existing TPM state preserved. Checks refreshed; use the named action for any remaining issue.'
+            message=tpm_setup.initialize(state,selected,banks,ek,certificates,lock_nvram)
+            return selected,message
+        def done(result):
+            tools['swtpm_binary']=result[0]
+            tab.log.setPlainText(result[1]);tab.check_attestation()
+            panel.info.setText(result[1]);self.status.setText(result[1].splitlines()[0])
+            self._refresh_all()
+        def failed(error):
+            tab.log.setPlainText(error);panel.info.setText(error)
+            tab.check_attestation()
+            if self.isVisible():QMessageBox.warning(self,'TPM setup needs attention',error)
+        panel.info.setText('Installing / initializing private TPM state…')
+        panel.run(work,done,failed)
 
     def _rebuild_tabs(self):
         if hasattr(self,'package_panel') and self.package_panel.job:

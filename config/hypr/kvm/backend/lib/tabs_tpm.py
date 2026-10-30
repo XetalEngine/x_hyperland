@@ -219,6 +219,7 @@ def _from_ascii(text):
 
 class TpmTab(QScrollArea):
     changed = pyqtSignal()
+    checks_changed = pyqtSignal()
 
     def __init__(self, cfg):
         super().__init__()
@@ -389,7 +390,7 @@ class TpmTab(QScrollArea):
             decoded.setToolTip(tip)
 
             rb = QPushButton("Regen")
-            rb.setFixedWidth(60)
+            rb.setMinimumWidth(80)
             if key in STRUCTURAL:
                 rb.setEnabled(False)
                 rb.setText("spec")
@@ -484,6 +485,9 @@ class TpmTab(QScrollArea):
         f.setBold(True)
         self.verdict.setFont(f)
         status_row.addWidget(self.verdict, 1)
+        self.btn_repair = QPushButton('Install / initialize TPM')
+        self.btn_repair.setToolTip('Download missing TPM tools and initialize an empty private state directory. Existing keys are preserved.')
+        status_row.addWidget(self.btn_repair)
         rb2 = QPushButton("Re-check")
         rb2.clicked.connect(self.check_attestation)
         status_row.addWidget(rb2)
@@ -1245,59 +1249,46 @@ class TpmTab(QScrollArea):
                            f"not found at {binary or '(unset)'}; the start hook "
                            f"aborts before the VM launches"))
         else:
-            custom = "TPM_custom" in binary
+            from tpm_setup import packaged_binary
+            custom = packaged_binary(binary)
             checks.append(("PASS" if custom else "WARN", "swtpm binary",
                            binary + ("" if custom else
-                                     "  (distro build: it reports the stock "
-                                     "libtpms identity, not the one in section 2)")))
+                                     "  (external build: its compiled identity has not been verified)")))
 
         # --- state directory and its contents ---------------------------------
         d = self.state_dir.text().strip()
         blob = os.path.join(d, "tpm2-00.permall") if d else ""
-        rc, b64 = self._sudo(["base64", "-w0", blob]) if blob else (1, "")
         data = b""
-        if rc == 0:
-            import base64
+        if blob:
             try:
-                data = base64.b64decode(b64)
-            except Exception:
-                data = b""
+                with open(blob,'rb') as stream: data = stream.read(16*1024*1024)
+            except PermissionError:
+                rc, b64 = self._sudo(["base64", "-w0", blob])
+                if rc == 0:
+                    import base64
+                    try: data = base64.b64decode(b64)
+                    except ValueError: pass
+            except OSError: pass
         if not data:
             checks.append(("FAIL", "NV state readable",
                            f"cannot read {blob or '(no state dir set)'}"))
         else:
             checks.append(("PASS", "NV state readable", f"{len(data)} bytes"))
 
-            # EK certificate: the single thing that flips Ready For Attestation
-            has_cert = data.count(b"\x30\x82") > 0 and b"localca" in data.lower()
-            if has_cert:
-                checks.append(("PASS", "EK certificate in NV",
-                               "present; 'Ready For Attestation' will be True"))
-                checks.append(("WARN", "EK certificate issuer",
-                               "signed by swtpm's local CA, not a vendor CA. "
-                               "Windows accepts it; a check against vendor roots "
-                               "would not"))
-            else:
-                checks.append(("FAIL", "EK certificate in NV",
-                               "missing. Windows reports "
-                               "INFORMATION_EK_CERTIFICATE and 'Ready For "
-                               "Attestation' is False. Fix: tick EK certificate "
-                               "and press New EK + certificates"))
-
-            m = re.search(rb'\{"Name":.*?\}', data, re.S)
-            algs = ""
-            if m:
-                try:
-                    algs = json.loads(m.group(0).decode("utf-8", "replace")).get("Algorithms", "")
-                except Exception:
-                    algs = ""
-            banks = [h for h in ("sha1", "sha256", "sha384") if h in algs.split(",")]
-            if "sha256" in banks:
-                checks.append(("PASS", "sha256 PCR bank", ", ".join(banks)))
-            else:
-                checks.append(("FAIL", "sha256 PCR bank",
-                               "absent. Windows measures boot into sha256; "
-                               "without it attestation cannot verify"))
+            # Ask a disposable copy of the TPM. Searching raw NV bytes for
+            # JSON algorithm names falsely rejects valid modern state formats.
+            from tpm_setup import inspect_state
+            try:
+                banks,has_cert=inspect_state(binary,data,os.stat(binary).st_mtime_ns)
+                checks.append(("PASS" if has_cert else "FAIL", "EK certificate in NV",
+                               "Present" if has_cert else "Missing. Use New EK + certificates if this is a new guest, or restore its original TPM state."))
+                if has_cert and b"localca" in data.lower():
+                    checks.append(("WARN", "EK certificate issuer",
+                                   "Signed by the private local CA, not a hardware vendor CA. Services requiring vendor attestation may reject it."))
+                checks.append(("PASS" if "sha256" in banks else "FAIL", "sha256 PCR bank",
+                               ", ".join(banks) if "sha256" in banks else "Not allocated. Restore the guest's TPM state or reconfigure its PCR banks."))
+            except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
+                checks.append(("FAIL", "TPM capabilities", "Could not verify PCR banks and certificates: "+str(error)))
 
         # --- identity coherence ------------------------------------------------
         man = self.widgets["TPM_PT_MANUFACTURER"]["edit"].text().strip()
@@ -1325,7 +1316,11 @@ class TpmTab(QScrollArea):
             same = int(built or "0", 0) == int(want or "0", 0)
         except ValueError:
             same = False
-        if same:
+        from tpm_setup import packaged_binary
+        if packaged_binary(binary) and not os.path.isfile(p['header']):
+            checks.append(('PASS', 'Published TPM build',
+                           'Using the installed custom TPM component. Changing its compiled identity requires a matching custom build.'))
+        elif same:
             checks.append(("PASS", "header matches the fields above",
                            "no rebuild needed for the manufacturer"))
         else:
@@ -1392,6 +1387,7 @@ class TpmTab(QScrollArea):
         return checks
 
     def _render_checks(self, checks):
+        self.last_checks = checks
         fails = [c for c in checks if c[0] == "FAIL"]
         warns = [c for c in checks if c[0] == "WARN"]
         if fails:
@@ -1413,4 +1409,6 @@ class TpmTab(QScrollArea):
         width = max(len(c[1]) for c in checks)
         self.checks.setPlainText("\n".join(
             f"[{st:4}] {what:<{width}}  {why}" for st, what, why in checks))
+        self.btn_repair.setVisible(bool(fails) and not self.cfg.simple.get('tpmdev','').startswith('passthrough'))
+        self.checks_changed.emit()
         return checks

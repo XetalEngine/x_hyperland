@@ -123,6 +123,9 @@ class PageNavigation(QWidget):
         return super().eventFilter(obj, event)
 
     def select(self, key):
+        if key == "Wizard":
+            self.list.setCurrentRow(-1)
+            return
         if key in self.blocked_pages:
             return
         item = self.items.get(key)

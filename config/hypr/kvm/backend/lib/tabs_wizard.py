@@ -925,7 +925,7 @@ class WizardTab(QScrollArea):
         active = [d for d in self.cfg.devices if d.get('driver') == 'vfio-pci' and not d.get('_disabled')]
         functions = {f['slot'] for f in gpu['functions']}
         if functions.issubset({d.get('host') for d in active}) and all(
-                d.get('romfile', '') == rom for d in active if d.get('host') in functions):
+                d.get('romfile', '') == rom for d in active if d.get('host') == slot):
             return
         # Clear any GPU passthrough already in the config (the captured template
         # carries the other machine's card) so the wizard's choice is the only one.
@@ -940,9 +940,21 @@ class WizardTab(QScrollArea):
             dev = {"driver": "vfio-pci", "host": f["slot"],
                    "id": self._next_dev_id("hostdev"),
                    "bus": self._ensure_root_port(), "addr": "0x0"}
-            if rom:
+            if rom and f['slot'] == gpu['slot']:
                 dev["romfile"] = rom
             self.cfg.devices.append(dev)
+        if not rom and getattr(self, 'capture_gpu_rom', None):
+            self.btn_next.setEnabled(False)
+            def apply(path):
+                self.btn_next.setEnabled(True)
+                if path:
+                    for dev in self.cfg.devices:
+                        if dev.get('driver') == 'vfio-pci' and dev.get('host') == slot and not dev.get('_disabled'):
+                            dev['romfile'] = path
+                    self.gpu_rom.setText(path)
+                    self.changed.emit()
+            self.capture_gpu_rom(slot, apply)
+            return False
 
     # =====================================================================
     # Step 5: USB devices

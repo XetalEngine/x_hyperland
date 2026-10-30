@@ -99,6 +99,10 @@ class SetupTests(unittest.TestCase):
         with patch.object(hostinfo,'suggest_pinning',return_value=suggested):
             wizard._apply_pinning()
         self.assertEqual(cfg.data['pinning'],before)
+        cfg.devices.extend([
+            {'driver':'vfio-pci','id':'fixture-gpu','host':'0000:01:00.0','romfile':'/fixture/gpu.rom','x-vga':True},
+            {'driver':'vfio-pci','id':'fixture-audio','host':'0000:01:00.1'},
+        ])
         devices=copy.deepcopy(cfg.devices)
         active=[d for d in cfg.devices if d.get('driver')=='vfio-pci' and not d.get('_disabled')]
         slot=active[0]['host']
@@ -121,6 +125,53 @@ class SetupTests(unittest.TestCase):
         for block in cfg.blockdevs:
             if block.get('filename','').startswith('/dev/'):self.assertTrue(block.get('_disabled'))
         wizard.deleteLater()
+
+    def test_wizard_stays_out_of_sidebar(self):
+        self.window._open_wizard()
+        self.assertIs(self.window.tabs.currentWidget(),self.window.tab_wizard)
+        self.assertTrue(self.window.navigation.items['Wizard'].isHidden())
+
+    def test_add_gpu_assigns_captured_rom_only_to_graphics(self):
+        tab=self.window.tab_hw
+        tab.host_gpus=[dict(slot='0000:01:00.0',functions=[dict(slot='0000:01:00.0'),dict(slot='0000:01:00.1')])]
+        tab.gpu_combo.clear();tab.gpu_combo.addItem('Fixture GPU','0000:01:00.0')
+        captured=[]
+        def capture(slot,done):
+            captured.append(slot);done('/fixture/validated.rom')
+        tab.capture_gpu_rom=capture;tab._add_gpu()
+        devices={d['host']:d for d in self.window.cfg.devices if d.get('driver')=='vfio-pci'}
+        self.assertEqual(captured,['0000:01:00.0'])
+        self.assertEqual(devices['0000:01:00.0']['romfile'],'/fixture/validated.rom')
+        self.assertNotIn('romfile',devices['0000:01:00.1'])
+
+    def test_missing_tpm_highlights_page_and_offers_setup(self):
+        import health
+        health.refresh(self.window)
+        self.assertTrue(self.window.navigation.items['TPM'].data(health.ISSUE_ROLE))
+        self.assertFalse(self.window.tab_tpm.btn_repair.isHidden())
+        self.assertTrue(self.window.issue_delegate.timer.isActive())
+        self.window.tab_tpm.last_checks=[('PASS','TPM','Ready')]
+        health.refresh(self.window)
+        self.assertFalse(self.window.navigation.items['TPM'].data(health.ISSUE_ROLE))
+
+    def test_cpu_choices_fit_every_palette_and_layout(self):
+        from PyQt6.QtWidgets import QStyle,QStyleOptionComboBox
+        theme=self.kvm.desktop_theme
+        self.window.resize(1820,920);self.window._select_tab_by_name('CPU Features')
+        for design in ('raw','modern','breakpoint','binaryknife'):
+            for mode in ('dark','light'):
+                for layout in ('classic','modern','sidebar','ribbon'):
+                    with self.subTest(design=design,mode=mode,layout=layout),patch.object(theme,'state',return_value=dict(design=design,mode=mode,layout=layout)):
+                        self.application.hypr_theme.apply();self.application.processEvents()
+                        for table in (self.window.feat_amd,self.window.feat_intel,self.window.feat_uni):
+                            for row in range(table.rowCount()):
+                                combo=table.cellWidget(row,1)
+                                option=QStyleOptionComboBox();combo.initStyleOption(option)
+                                rect=combo.style().subControlRect(QStyle.ComplexControl.CC_ComboBox,option,QStyle.SubControl.SC_ComboBoxEditField,combo)
+                                width=max(combo.fontMetrics().horizontalAdvance(combo.itemText(i)) for i in range(combo.count()))
+                                self.assertGreaterEqual(rect.width(),width)
+                                self.assertGreaterEqual(rect.height(),combo.fontMetrics().height())
+        self.application.hypr_theme.apply()
 
 
 if __name__=='__main__':unittest.main()

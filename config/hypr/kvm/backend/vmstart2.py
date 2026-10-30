@@ -370,6 +370,11 @@ class VMStart2(QMainWindow):
         self.navigation.layout().addWidget(self.section_jump)
 
         self.tabs = QTabWidget()
+        self.issue_banner = QLabel()
+        self.issue_banner.setWordWrap(True)
+        self.issue_banner.setStyleSheet('color:#ef5350; padding:6px;')
+        self.issue_banner.hide()
+        page.addWidget(self.issue_banner)
         self.tabs.setObjectName("editorPages")
         self.tabs.tabBar().hide()
         page.addWidget(self.tabs, 1)
@@ -845,10 +850,12 @@ class VMStart2(QMainWindow):
     # -- cpu features -------------------------------------------------------
     def _make_feature_table(self):
         t = QTableWidget(0, 3)
+        t.setObjectName('cpuFeatureTable')
+        t.setStyleSheet('QTableWidget#cpuFeatureTable::item { padding: 0 8px; }')
         t.setHorizontalHeaderLabels(["Feature", "State", "What it does"])
         t.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         t.setColumnWidth(0, 130)
-        t.setColumnWidth(1, 90)
+        t.setColumnWidth(1, 150)
         t.verticalHeader().setVisible(False)
         t.verticalHeader().setMinimumSectionSize(34)
         t.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
@@ -1210,6 +1217,9 @@ class VMStart2(QMainWindow):
             combo.currentTextChanged.connect(
                 lambda val, n=name: self._set_feature(n, val))
             table.setCellWidget(r, 1, combo)
+            combo.ensurePolished()
+            table.setColumnWidth(1, max(table.columnWidth(1), combo.sizeHint().width() + 20))
+            table.verticalHeader().setMinimumSectionSize(max(34, combo.sizeHint().height() + 8))
             text = CPU_FEATURES.get(name, "")
             if self.cfg.profile == "macos":
                 text = {"svm": "Host AMD virtualization extension; keep the tested Mac guest CPU overrides.",

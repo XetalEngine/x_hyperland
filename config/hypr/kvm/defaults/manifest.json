@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "profiles": {
-    "windows": "8725c5c57a12ee6514c55e5f1b8aa0ccecde71b0465dd971e28d248f565ed319",
-    "macos": "38b89c653c24b083d63e8edd77e06d463f384d5969139fe3642f2261b234c6c6"
+    "windows": "e92988f7aa7f639e25080c1fecb71d6a286cba94e95b2718d1e37544001a639d",
+    "macos": "ec77b663dca4fbf476209d6446e52f529aae2a59674b298a976f8693aeddbb8b"
   },
   "assets": {
     "smbios/smbios.bin": {
@@ -81,5 +81,9 @@
       "size": 540672,
       "sha256": "2e971238a5da671dab72b94ba04498f2cc2b8d54d279c61d3e3cea845722b4ec"
     }
+  },
+  "previous_profile_content": {
+    "windows": "3e18878b5b4596329cf1023b573d133219ef4903af045fed2890fe180935dea6",
+    "macos": "98ee7c4643000f58531e0e68a01fd9fd8ae6a89e782d60a409a46f149ac973b3"
   }
 }

@@ -3,6 +3,7 @@ from pathlib import Path
 import json
 import os
 import shutil
+import hashlib
 
 ROOT = Path(__file__).resolve().parent
 
@@ -68,12 +69,31 @@ def prepare():
             (directory/child).mkdir(parents=True,exist_ok=True,mode=0o700)
         filename = 'win10-template.json' if profile=='windows' else 'macos-template.json'
         template = directory/'presets'/filename
-        if not template.exists():
-            _write_new(template,configuration(profile))
-        _write_new(directory/'settings_default.json',json.loads(template.read_text()))
+        _refresh_default(template, profile)
+        _refresh_default(directory/'settings_default.json', profile)
         _write_new(directory/'presets/smbios-default.json',configuration(profile)['smbios'])
         _write_new(directory/'settings_default.theme.json',dict(accent='',background='',text='',preset=0))
     prepare_firmware()
+
+
+def _refresh_default(path, profile):
+    """Upgrade untouched shipped defaults, preserving saved sessions and edits."""
+    current = configuration(profile)
+    if not path.exists():
+        _write_new(path, current)
+        return
+    previous = json.loads((ROOT/'defaults/manifest.json').read_text()).get('previous_profile_content', {}).get(profile)
+    old = json.loads(path.read_text())
+    def tokens(value):
+        if isinstance(value, dict): return {k:tokens(v) for k,v in value.items()}
+        if isinstance(value, list): return [tokens(v) for v in value]
+        if isinstance(value, str): return value.replace(str(data_root()), '${KVM_DATA}').replace(str(ROOT), '${KVM_APP}')
+        return value
+    digest = hashlib.sha256(json.dumps(tokens(old),sort_keys=True,separators=(',',':')).encode()).hexdigest()
+    if previous and digest == previous:
+        _copy_new(path, path.with_name(path.name+'.before-device-defaults'))
+        from packages import atomic_json
+        atomic_json(path, current)
 
 
 def _write_new(path,value):

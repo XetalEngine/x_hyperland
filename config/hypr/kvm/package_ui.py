@@ -78,13 +78,13 @@ class PackagesPanel(QGroupBox):
         self.table.setFixedHeight(self.table.horizontalHeader().height()+44*len(entries)+4)
         self.table.setVisible(bool(entries))
 
-    def run(self,work,finished):
+    def run(self,work,finished,failed=None):
         if self.job:return
         self.check.setEnabled(False);self.progress.show();self.progress.setRange(0,0)
         self.active.emit(True)
         job=Job(work,self);self.job=job
         job.progress.connect(lambda value,total:self._progress(value,total))
-        job.done.connect(finished);job.failed.connect(lambda error:self.info.setText(error))
+        job.done.connect(finished);job.failed.connect(failed or (lambda error:self.info.setText(error)))
         def release():
             self.job=None;self.check.setEnabled(True);self.progress.hide();self.refresh();job.deleteLater();self.active.emit(False)
         job.finished.connect(release);self.refresh();job.start()

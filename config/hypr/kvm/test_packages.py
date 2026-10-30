@@ -102,7 +102,7 @@ class PackageTests(unittest.TestCase):
                 self.assertNotIn('a_xetal_engine',text)
                 self.assertFalse(cfg['wizard']['complete'])
                 self.assertEqual(cfg['smp']['vcpus'],'16')
-                self.assertTrue(any(d['driver']=='vfio-pci' for d in cfg['devices']))
+                self.assertFalse(any(d['driver'] in ('vfio-pci','usb-host') for d in cfg['devices']))
                 self.assertEqual(cfg['tools']['kvm_build_enabled'],profile=='windows')
                 self.assertTrue(all('${' not in str(value) for value in cfg.values()))
             for file in (portable.ROOT/'defaults/assets').rglob('*'):

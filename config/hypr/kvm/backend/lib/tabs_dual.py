@@ -434,6 +434,13 @@ class DualGPUTab(QScrollArea):
             self.romfile.clear()
         self._changed()
         self._poll()
+        if selected and not self._loading and getattr(self,'capture_gpu_rom',None):
+            slot=selected['slot']
+            def apply(path):
+                if path and self.gpu.currentData()==slot:
+                    self.romfile.setText(path)
+                    self._changed()
+            self.capture_gpu_rom(slot,apply)
 
     def _audio_changed(self, *_):
         self.refresh_gpus()

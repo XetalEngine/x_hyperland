@@ -1128,5 +1128,6 @@ class DisksTab(QScrollArea):
         inactive = sum(bool(row.dev.get("_inactive")) for row in self.rows)
         self.lbl_count.setText(f"{len(self.rows) - inactive} active · {inactive} inactive"
                                if inactive else f"{len(self.rows)} disks")
+        self.problems = msgs
         self.warn.setPlainText("\n".join(msgs) if msgs else "No disk problems found.")
         self.warn.setFixedHeight(90 if msgs else self.warn.fontMetrics().lineSpacing() + 14)

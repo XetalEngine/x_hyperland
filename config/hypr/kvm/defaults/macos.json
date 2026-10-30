@@ -96,18 +96,6 @@
       "read-only": false
     },
     {
-      "driver": "host_device",
-      "filename": "/dev/disk/by-id/ata-SATA_SSD_19043010240097",
-      "aio": "threads",
-      "node-name": "vmstart2-2-storage",
-      "read-only": false,
-      "discard": "unmap",
-      "cache": {
-        "direct": true,
-        "no-flush": false
-      }
-    },
-    {
       "driver": "file",
       "node-name": "opencore-boot-storage",
       "filename": "${KVM_DATA}/macos/boot/OpenCore.img",
@@ -164,47 +152,6 @@
     },
     {
       "driver": "ide-hd",
-      "bus": "ide.1",
-      "drive": "vmstart2-2-storage",
-      "id": "vmstart2-disk2",
-      "write-cache": "on",
-      "serial": "PWL19VPO64O",
-      "bootindex": 2
-    },
-    {
-      "driver": "usb-host",
-      "id": "hostdev3",
-      "bus": "xhci.0",
-      "vendorid": 1133,
-      "productid": 49291
-    },
-    {
-      "driver": "usb-host",
-      "id": "hostdev4",
-      "bus": "xhci.0",
-      "vendorid": 1008,
-      "productid": 1931
-    },
-    {
-      "driver": "usb-host",
-      "id": "hostdev5",
-      "bus": "xhci.0",
-      "vendorid": 9610,
-      "productid": 22
-    },
-    {
-      "driver": "vfio-pci",
-      "host": "0000:01:00.1",
-      "id": "hostdev0"
-    },
-    {
-      "driver": "vfio-pci",
-      "host": "0000:01:00.0",
-      "id": "hostdev1",
-      "romfile": "${KVM_DATA}/roms/vbios-AD102GeForceRTX4090-20260812-005523.rom"
-    },
-    {
-      "driver": "ide-hd",
       "id": "opencore-boot",
       "bus": "ide.0",
       "drive": "opencore-boot-storage",
@@ -217,11 +164,6 @@
       "id": "mac-graphics-tools",
       "drive": "mac-graphics-tools-storage",
       "bus": "ide.2"
-    },
-    {
-      "driver": "vfio-pci",
-      "host": "0000:82:00.6",
-      "id": "hostdev2"
     }
   ],
   "order": [
@@ -482,26 +424,7 @@
     "step": 0,
     "complete": false,
     "layout": 2,
-    "baseline_pci": {
-      "0000:01:00.1": {
-        "vendor": "0x10de",
-        "device": "0x22ba",
-        "subsystem_vendor": "0x1043",
-        "subsystem_device": "0x88e6"
-      },
-      "0000:01:00.0": {
-        "vendor": "0x10de",
-        "device": "0x2684",
-        "subsystem_vendor": "0x1043",
-        "subsystem_device": "0x88e6"
-      },
-      "0000:82:00.6": {
-        "vendor": "0x1022",
-        "device": "0x15e3",
-        "subsystem_vendor": "0x1849",
-        "subsystem_device": "0x6899"
-      }
-    }
+    "baseline_pci": {}
   },
   "performance": {
     "capture": true
