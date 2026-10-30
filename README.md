@@ -103,6 +103,7 @@ Add commands, shortcuts, icons, headings, submenus, dividers, blank spacers and 
 
 - **Ctrl+click any app** in Favorites, categories or search results to launch it floating once. Or save **Always start floating** in its context menu or Properties.
 - Windows open **centered**, using the app's requested size initially and its **last floating size** afterwards. Tiled, maximized and fullscreen sizes do not overwrite that preference; intentionally tall floating windows remain tall.
+- Application **Maximize/Restore** buttons work for floating windows: maximize fills the monitor's usable workspace, and restore returns to that window's previous floating size and position.
 - Floating launch tracking follows child processes through **scripts, sudo wrappers and AppImages**. Password prompts keep their own sizing.
 - **Drag the upper area with the left mouse button**, like an invisible title bar, without holding Super. **Super+V** toggles floating; **Super+left drag** and **Super+right drag** remain available for moving and resizing.
 - **Xetal Images** remembers its size separately for each **screen resolution and scale**, fits inside that monitor's usable area, and opens centered.
