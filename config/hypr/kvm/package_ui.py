@@ -22,6 +22,7 @@ class Job(QThread):
 class PackagesPanel(QGroupBox):
     changed=pyqtSignal()
     active=pyqtSignal(bool)
+    message=pyqtSignal(str)
     def __init__(self,busy,parent=None):
         super().__init__('KVM components',parent)
         self.busy=busy;self.store=packages.Store();self.release=None;self.job=None

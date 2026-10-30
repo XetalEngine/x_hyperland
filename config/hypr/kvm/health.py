@@ -112,6 +112,6 @@ def refresh(window):
     elif not issues:delegate.timer.stop()
     nav.list.viewport().update()
     key=window.tabs.tabText(window.tabs.currentIndex())
-    messages=issues.get(key,[])
+    messages=[] if key=='TPM' else issues.get(key,[])  # TPM has its own status card.
     window.issue_banner.setText('\n'.join(messages[:3])+('\nMore details are shown on this page.' if len(messages)>3 else ''))
     window.issue_banner.setVisible(bool(messages))

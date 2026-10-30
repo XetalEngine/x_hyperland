@@ -154,6 +154,44 @@ class SetupTests(unittest.TestCase):
         health.refresh(self.window)
         self.assertFalse(self.window.navigation.items['TPM'].data(health.ISSUE_ROLE))
 
+    def wait_for_operation(self):
+        deadline=time.monotonic()+5
+        while self.window.package_panel.job and time.monotonic()<deadline:
+            self.application.processEvents();time.sleep(.01)
+        self.assertIsNone(self.window.package_panel.job)
+
+    def test_tpm_choice_applies_saves_and_undoes_without_questions(self):
+        import tpm_actions
+        from PyQt6.QtWidgets import QMessageBox
+        tab=self.window.tab_tpm;before=tpm_actions.snapshot(tab)
+        choice={**copy.deepcopy(before),'binary':'/fixture/new/swtpm','state':'/fixture/new/state','label':'Fixture identity'}
+        with patch.object(tpm_actions,'prepare',return_value=choice),patch.object(self.window,'_busy',return_value=False),patch.object(QMessageBox,'question',side_effect=AssertionError('One-click choice asked a question')):
+            self.window._tpm_action('bundled');self.wait_for_operation()
+            self.assertEqual(self.window.cfg.data['tools']['swtpm_binary'],choice['binary'])
+            saved=json.loads(self.window._paths().session.read_text())
+            self.assertEqual(saved['tpm_previous'],before)
+            self.assertEqual(saved['tpm_choice'],'Fixture identity')
+            self.window._tpm_action('undo');self.wait_for_operation()
+        self.assertEqual(tpm_actions.snapshot(tab),before)
+        self.assertNotIn('tpm_previous',self.window.cfg.data)
+
+    def test_tpm_choice_failure_leaves_selection_unchanged(self):
+        import tpm_actions
+        before=tpm_actions.snapshot(self.window.tab_tpm)
+        with patch.object(tpm_actions,'prepare',side_effect=RuntimeError('fixture build failed')),patch.object(self.window,'_busy',return_value=False):
+            self.window._tpm_action('random');self.wait_for_operation()
+        self.assertEqual(tpm_actions.snapshot(self.window.tab_tpm),before)
+        self.assertIn('Not applied',self.window.tab_tpm.action_status.text())
+        self.assertNotIn('tpm_previous',self.window.cfg.data)
+
+    def test_tpm_choices_keep_technical_fields_collapsed(self):
+        tab=self.window.tab_tpm
+        self.window.resize(1820,920);self.window._select_tab_by_name('TPM');self.application.processEvents()
+        self.assertTrue(tab.advanced.isHidden());self.assertEqual(len(tab.quick_buttons),8)
+        self.assertTrue(tab.quick_buttons['bundled'].isEnabled())
+        self.assertFalse(tab.quick_buttons['random'].isEnabled())  # No private builder in a fresh fixture.
+        tab.advanced_toggle.click();self.assertFalse(tab.advanced.isHidden())
+
     def test_cpu_choices_fit_every_palette_and_layout(self):
         from PyQt6.QtWidgets import QStyle,QStyleOptionComboBox
         theme=self.kvm.desktop_theme

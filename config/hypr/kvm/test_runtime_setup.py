@@ -86,5 +86,32 @@ class RuntimeSetupTests(unittest.TestCase):
         with patch.object(packages,'installed',return_value=entry),patch.object(subprocess,'check_output',side_effect=AssertionError('Must not inspect/load incompatible module')):
             with self.assertRaisesRegex(RuntimeError,'Requires kernel'):module_tool.check(Path('/fixture'))
 
+    def test_tpm_identity_builder_failure_restores_input_files(self):
+        import sys
+        sys.path.insert(0,str(portable.ROOT/'backend/lib'))
+        import tpm_actions
+        from tabs_tpm import PRESETS
+        with tempfile.TemporaryDirectory() as name:
+            root=Path(name)/'builder'
+            for rel in ('libtpms/build.sh','swtpm/build.sh','scripts/gen-tpm-vendor-identity-h.sh','scripts/relink-origin.py','libtpms/src/tpm_vendor_identity.h','tpm_real_dump.env'):
+                p=root/rel;p.parent.mkdir(parents=True,exist_ok=True);p.write_text('original')
+            saved={p:p.read_bytes() for p in (root/'tpm_real_dump.env',root/'libtpms/src/tpm_vendor_identity.h')}
+            with patch.object(subprocess,'run',return_value=subprocess.CompletedProcess([],1)):
+                with self.assertRaisesRegex(RuntimeError,'unchanged'):
+                    tpm_actions.build(root,next(iter(PRESETS.values())),Path(name)/'new',lambda text:None)
+            self.assertEqual(saved,{p:p.read_bytes() for p in saved})
+        bad={**next(iter(PRESETS.values())),'TPM_IDENT_MODEL_JSON_TPM2':'$(touch /tmp/unwanted)'}
+        with self.assertRaises(ValueError):tpm_actions.environment_text(bad)
+
+    def test_tpm_host_copy_normalizes_all_public_properties(self):
+        import sys
+        sys.path.insert(0,str(portable.ROOT/'backend/lib'))
+        import tpm_actions
+        from tabs_tpm import PRESETS
+        expected=next(iter(PRESETS.values()))
+        properties={number:int(expected[key],0) for key,number in tpm_actions.PROPERTIES.items()}
+        with patch.object(tpm_actions,'read_host',return_value=properties):result=tpm_actions.host_identity()
+        for key in tpm_actions.PROPERTIES:self.assertEqual(int(result[key],0),int(expected[key],0))
+
 
 if __name__=='__main__':unittest.main()

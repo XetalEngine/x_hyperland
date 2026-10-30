@@ -122,7 +122,9 @@ class KVMSettings(VMStart2):
         if hasattr(self.tab_tpm,'btn_repair'):
             self.tab_tpm.btn_repair.clicked.connect(self._repair_tpm)
             self.tab_tpm.checks_changed.connect(self._health_changed)
-        panel.active.connect(lambda busy:self.tab_tpm.btn_repair.setEnabled(not busy)
+            self.tab_tpm.action_requested.connect(self._tpm_action)
+            panel.message.connect(self.tab_tpm.action_status.setText)
+        panel.active.connect(lambda busy:self.tab_tpm.set_actions_busy(busy)
                              if hasattr(self.tab_tpm,'btn_repair') else None)
         self.use_system_kvm=QPushButton('Use system KVM')
         self.use_system_kvm.setToolTip('Skip the custom module and use the running kernel’s standard KVM module.')
@@ -205,6 +207,49 @@ class KVMSettings(VMStart2):
             tab.check_attestation()
             if self.isVisible():QMessageBox.warning(self,'TPM setup needs attention',error)
         panel.info.setText('Installing / initializing private TPM state…')
+        panel.run(work,done,failed)
+
+    def _tpm_action(self, action):
+        import copy,checkpoint,tpm_actions,packages
+        panel=self.package_panel;tab=self.tab_tpm
+        if panel.job or self._busy():
+            tab.action_status.setText('Finish the current operation and shut down the VM first.');return
+        previous=tpm_actions.snapshot(tab)
+        input_values={k:w['edit'].text() for k,w in tab.widgets.items()}
+        tools=copy.deepcopy(self.cfg.data.get('tools',{}))
+        old_undo=copy.deepcopy(self.cfg.data.get('tpm_previous'))
+        if action=='undo' and not old_undo:return
+        def ensure_package():
+            binary=portable.component_path('tpm')/'bin/swtpm'
+            if not binary.is_file() or not binary.with_name('swtpm_setup').is_file():
+                release=panel.release or panel.store.check();entry=release['components']['tpm']
+                archive=portable.ROOT/'bundled'/entry['file']
+                if archive.is_file():packages.install_archive('tpm',entry,archive)
+                else:panel.store.download('tpm',entry,lambda a,b:None)
+            portable.prepare_tpm_workspace()
+        def work(progress):
+            if action=='undo':
+                return old_undo
+            return tpm_actions.prepare(action,tools,input_values,ensure_package,panel.message.emit)
+        def done(choice):
+            try:
+                tpm_actions.activate(tab,choice)
+                if action=='undo':self.cfg.data.pop('tpm_previous',None)
+                else:self.cfg.data['tpm_previous']=previous
+                checkpoint.save(self)
+            except Exception as error:
+                tpm_actions.activate(tab,previous)
+                if old_undo is None:self.cfg.data.pop('tpm_previous',None)
+                else:self.cfg.data['tpm_previous']=old_undo
+                failed('Could not save the new selection: '+str(error));return
+            tab.check_attestation()
+            message=choice['label']+' applied and saved. Ready for the next VM start.'
+            tab.action_status.setText(message);self.status.setText(message)
+            self._refresh_all()
+        def failed(error):
+            tab.action_status.setText('Not applied. '+error)
+            tab.log.setPlainText(error);self.status.setText('TPM action stopped; the previous selection is unchanged.')
+        tab.action_status.setText('Preparing your TPM choice…')
         panel.run(work,done,failed)
 
     def _rebuild_tabs(self):

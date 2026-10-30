@@ -32,6 +32,10 @@ The captured SMBIOS binary/template, 12 AML tables, GPU ROMs, public TPM identit
 
 Pages with invalid settings pulse red and show their reasons. **TPM → Install / initialize TPM** downloads missing tools and creates keys/certificates only for an empty private state directory. Existing keys are preserved; replacement remains an explicit operation. Checks inspect a disposable copy of the NV state, leaving the live state alone. The local CA does not supply hardware-vendor attestation.
 
+The TPM page opens with eight choices: copy the host's public identity, generate an identity, use the published build, use the physical TPM, or apply AMD, Intel, Infineon and STMicroelectronics presets. Each action prepares, verifies and saves the selection for the next VM start. Identity changes use a separate runtime and new guest state; **Undo last TPM change** restores the previous selection without deleting its keys. Encrypted guests may require recovery after changing TPMs. Advanced fields and diagnostics remain available behind **Advanced settings** and **Details**. Host identity copying never copies private hardware keys or writes to the host TPM; physical passthrough is a separate explicit choice.
+
+Custom identities require the recipient's local TPM builder, configured in Paths & Tools; unavailable choices explain the missing capability. The developer workstation uses its private builder. Builds run in the background into a new private prefix, restore the builder's identity inputs, and verify the properties actually reported by the resulting TPM before activation. Published binaries still ship without source trees, and the published TPM option needs no builder.
+
 TPM runtime helper scripts are seeded into `tpm-workspace/` without replacing existing edits or identity. Source-dependent rebuilds are optional: provide your own local source/build paths in the editor. The published runtime packages need no compilation. No TPM state, libvirt encryption keys, guest system disks or private publisher keys are included. Matching Looking Glass guest components are still required.
 
 ## Development and verification

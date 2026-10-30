@@ -25,7 +25,7 @@ import time
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGroupBox,
                              QPushButton, QLineEdit, QScrollArea, QGridLayout,
                              QComboBox, QPlainTextEdit, QMessageBox, QFileDialog, QSplitter,
-                             QCheckBox, QRadioButton, QButtonGroup)
+                             QCheckBox, QRadioButton, QButtonGroup, QProgressBar)
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QFont
 
@@ -220,6 +220,7 @@ def _from_ascii(text):
 class TpmTab(QScrollArea):
     changed = pyqtSignal()
     checks_changed = pyqtSignal()
+    action_requested = pyqtSignal(str)
 
     def __init__(self, cfg):
         super().__init__()
@@ -259,17 +260,24 @@ class TpmTab(QScrollArea):
         w = QWidget()
         self.setWidget(w)
         outer = QVBoxLayout(w)
+        self._build_choices(outer)
+        self.advanced=QWidget()
+        self.advanced.hide()
+        outer.addWidget(self.advanced)
+        outer.addStretch(1)
+        outer=QVBoxLayout(self.advanced)
+        outer.setContentsMargins(0,0,0,0)
 
         # Keep the action that makes edited values effective above the fields.
         self.identity_actions = QWidget()
         actions = QHBoxLayout(self.identity_actions)
         actions.setContentsMargins(0, 0, 0, 0)
-        self.btn_apply_identity = QPushButton("Apply TPM Identity (rebuild)")
+        self.btn_apply_identity = QPushButton("Apply custom identity")
         self.btn_apply_identity.setObjectName("accent")
         self.btn_apply_identity.setToolTip(
             "Save the identity, regenerate the header and rebuild libtpms + swtpm. "
             "Takes several minutes; shut down the VM first.")
-        self.btn_apply_identity.clicked.connect(self._rebuild)
+        self.btn_apply_identity.clicked.connect(lambda:self.action_requested.emit('custom'))
         actions.addWidget(self.btn_apply_identity)
         for text, slot, tip in (
                 ("Save to .env only", self.save_env,
@@ -475,7 +483,7 @@ class TpmTab(QScrollArea):
         kg.setRowStretch(r + 2, 1)
 
         # ============================ verdict and details ====================
-        vbox = QGroupBox("TPM checks")
+        vbox = QGroupBox("Current TPM")
         vl = QVBoxLayout(vbox)
         vl.setContentsMargins(8, 4, 8, 6)
         status_row = QHBoxLayout()
@@ -511,7 +519,7 @@ class TpmTab(QScrollArea):
         il.setContentsMargins(8, 4, 8, 6)
         row = QGridLayout()
         for i, (text, slot) in enumerate((("Current NV state", self._show_state),
-                           ("Reload from .env", self.load_env),
+                           ("Reload from .env", lambda:self.load_env(from_file=True)),
                            ("Current header", self._show_header),
                            ("Installed swtpm", self._show_live),
                            ("Compare to real chip", self._verify_physical))):
@@ -527,7 +535,7 @@ class TpmTab(QScrollArea):
         il.addWidget(self.log)
 
         # ============================ assembly ===============================
-        outer.insertWidget(2, vbox)
+        self.summary_layout.addWidget(vbox)
         self._cards = (bbox, pbox, fbox, kbox, ibox)
         self._layout_mode = None
         self._arrange_cards()
@@ -540,6 +548,65 @@ class TpmTab(QScrollArea):
         self.rb_emulated.toggled.connect(self._on_backend_toggled)
         for e in (self.pt_path, self.pt_cancel):
             e.textEdited.connect(lambda _t: self._apply_backend())
+        self.set_actions_busy(False)
+
+    def _build_choices(self, outer):
+        title=QLabel('Choose your TPM');title.setObjectName('brand');outer.addWidget(title)
+        note=QLabel('One click prepares, verifies and saves your choice for the next VM start. Identity choices create new guest keys; Undo keeps your previous TPM available. Encrypted guests may ask for their recovery key.')
+        note.setWordWrap(True);note.setObjectName('muted');outer.addWidget(note)
+        self.summary_layout=QVBoxLayout();outer.addLayout(self.summary_layout)
+        self.quick_host=QWidget();self.quick_grid=QGridLayout(self.quick_host)
+        self.quick_grid.setContentsMargins(0,0,0,0);self.quick_grid.setSpacing(12)
+        outer.addWidget(self.quick_host)
+        self.quick_cards=[];self.quick_buttons={};self._quick_columns=0
+        choices=[
+            ('host','Copy host TPM','Copy this PC’s public vendor and firmware identity into a private guest TPM.','Copy host and apply'),
+            ('random','Random identity','Generate a new identity and private guest keys. Specification fields stay valid.','Generate and apply'),
+            ('bundled','Published TPM','Use the desktop’s custom TPM build. Downloads missing tools automatically.','Use published and apply'),
+            ('physical','Physical host TPM','Give the guest exclusive use of the actual chip. Guest changes also affect the host TPM.','Use physical TPM'),
+        ]
+        captions=('AMD fTPM','Intel PTT','Infineon SLB9665','STMicroelectronics ST33')
+        choices += [('preset:'+name,caption,'Create a private guest TPM using this preset identity.','Apply '+caption)
+                    for name,caption in zip(PRESETS,captions)]
+        for key,title,note,caption in choices:
+            card=QGroupBox(title);layout=QVBoxLayout(card)
+            label=QLabel(note);label.setWordWrap(True);label.setMinimumHeight(54);layout.addWidget(label,1)
+            button=QPushButton(caption);button.setMinimumHeight(36)
+            button.clicked.connect(lambda _=False,action=key:self.action_requested.emit(action))
+            layout.addWidget(button);self.quick_cards.append(card);self.quick_buttons[key]=button
+        self.availability=QLabel();self.availability.setWordWrap(True);self.availability.setObjectName('muted');outer.addWidget(self.availability)
+        self.action_status=QLabel();self.action_status.setWordWrap(True);outer.addWidget(self.action_status)
+        self.action_progress=QProgressBar();self.action_progress.setRange(0,0);self.action_progress.hide();outer.addWidget(self.action_progress)
+        row=QHBoxLayout();outer.addLayout(row)
+        self.advanced_toggle=QPushButton('Advanced settings');self.advanced_toggle.setCheckable(True)
+        self.advanced_toggle.toggled.connect(lambda shown:self.advanced.setVisible(shown));row.addWidget(self.advanced_toggle)
+        row.addStretch()
+        self.undo_button=QPushButton('Undo last TPM change')
+        self.undo_button.clicked.connect(lambda:self.action_requested.emit('undo'));row.addWidget(self.undo_button)
+        self._arrange_choices()
+
+    def _arrange_choices(self):
+        columns=4 if self.viewport().width()>=1250 else 2 if self.viewport().width()>=700 else 1
+        if columns==self._quick_columns:return
+        self._quick_columns=columns
+        while self.quick_grid.count():self.quick_grid.takeAt(0)
+        for index,card in enumerate(self.quick_cards):self.quick_grid.addWidget(card,index//columns,index%columns)
+        for column in range(4):self.quick_grid.setColumnStretch(column,1 if column<columns else 0)
+
+    def set_actions_busy(self, busy):
+        from pathlib import Path
+        from tpm_actions import builder_reason
+        self.actions_busy=busy
+        reason=builder_reason(self.cfg.data.get('tools',{}).get('tpm_root',TPM_ROOT))
+        for key,button in self.quick_buttons.items():
+            unavailable=reason if key not in ('bundled','physical') else ''
+            if key in ('host','physical') and not Path('/dev/tpm0').exists():unavailable='No host TPM was detected.'
+            button.setEnabled(not busy and not unavailable);button.setToolTip(unavailable)
+        self.availability.setText(reason);self.availability.setVisible(bool(reason))
+        self.undo_button.setVisible(bool(self.cfg.data.get('tpm_previous')))
+        self.undo_button.setEnabled(not busy)
+        self.advanced.setEnabled(not busy);self.btn_repair.setEnabled(not busy)
+        self.action_progress.setVisible(busy)
 
     def _toggle_checks(self, expanded):
         self.checks.setVisible(expanded)
@@ -547,6 +614,7 @@ class TpmTab(QScrollArea):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        if hasattr(self,'quick_grid'):self._arrange_choices()
         if hasattr(self, "_cards"):
             self._arrange_cards()
 
@@ -807,8 +875,13 @@ class TpmTab(QScrollArea):
         self.changed.emit()
 
     # ----------------------------------------------------------- env file ---
-    def load_env(self):
+    def load_env(self, from_file=False):
         p = self.paths()
+        saved=self.cfg.data.get('tpm_identity')
+        if saved and not from_file:
+            for key,w in self.widgets.items():
+                w['edit'].setText(saved.get(key,''));self._decode(key)
+            return
         if not os.path.isfile(p["env"]):
             self.log.setPlainText(f"no env file at {p['env']}")
             return
@@ -838,6 +911,7 @@ class TpmTab(QScrollArea):
             msg += (f"\n{len(from_hdr)} recovered from {os.path.basename(p['header'])}: "
                     + ", ".join(from_hdr))
         self.log.setPlainText(msg)
+        self.loaded_identity={key:w['edit'].text() for key,w in self.widgets.items()}
 
     def save_env(self):
         p = self.paths()
@@ -1249,11 +1323,7 @@ class TpmTab(QScrollArea):
                            f"not found at {binary or '(unset)'}; the start hook "
                            f"aborts before the VM launches"))
         else:
-            from tpm_setup import packaged_binary
-            custom = packaged_binary(binary)
-            checks.append(("PASS" if custom else "WARN", "swtpm binary",
-                           binary + ("" if custom else
-                                     "  (external build: its compiled identity has not been verified)")))
+            checks.append(("PASS", "swtpm binary", binary))
 
         # --- state directory and its contents ---------------------------------
         d = self.state_dir.text().strip()
@@ -1302,32 +1372,19 @@ class TpmTab(QScrollArea):
             checks.append(("WARN", "manufacturer is a real vendor",
                            f"{_to_ascii(man)} is not in the known vendor list; "
                            f"software that checks against one will not match it"))
-        if man and v1 and man != v1:
-            checks.append(("WARN", "vendor string matches manufacturer",
-                           f"{_to_ascii(man)} vs {_to_ascii(v1)}; real parts "
-                           f"normally repeat the manufacturer here"))
-
-        # --- has the identity actually been built ------------------------------
-        p = self.paths()
-        hdr = _parse_header(p["header"])
-        want = self.widgets["TPM_PT_MANUFACTURER"]["edit"].text().strip()
-        built = hdr.get("TPM_IDENT_MANUFACTURER_U32", "")
-        try:
-            same = int(built or "0", 0) == int(want or "0", 0)
-        except ValueError:
-            same = False
-        from tpm_setup import packaged_binary
-        if packaged_binary(binary) and not os.path.isfile(p['header']):
-            checks.append(('PASS', 'Published TPM build',
-                           'Using the installed custom TPM component. Changing its compiled identity requires a matching custom build.'))
-        elif same:
-            checks.append(("PASS", "header matches the fields above",
-                           "no rebuild needed for the manufacturer"))
-        else:
-            checks.append(("WARN", "header matches the fields above",
-                           f"header has {_to_ascii(built)}, fields say "
-                           f"{_to_ascii(want)}. Use Apply TPM Identity at the top; libtpms "
-                           f"must be rebuilt, before a guest sees the change"))
+        # Query the running software build on a copy of its state. A source
+        # header or a directory name cannot prove what a binary reports.
+        if data and binary and os.path.isfile(binary):
+            from tpm_actions import PROPERTIES
+            from tpm_setup import inspect_state
+            try:
+                actual=inspect_state(binary,data,os.stat(binary).st_mtime_ns,True)
+                different=[key for key,number in PROPERTIES.items()
+                           if int(self.widgets[key]['edit'].text() or '0',0)!=actual.get(number)]
+                checks.append(('WARN' if different else 'PASS','Guest identity',
+                               'Advanced identity edits are not applied yet.' if different else 'Verified from the TPM runtime.'))
+            except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
+                checks.append(('FAIL','Guest identity','Could not verify the runtime: '+str(error)))
 
         return self._render_checks(checks)
 
@@ -1391,21 +1448,16 @@ class TpmTab(QScrollArea):
         fails = [c for c in checks if c[0] == "FAIL"]
         warns = [c for c in checks if c[0] == "WARN"]
         if fails:
-            self.verdict.setText(f"WILL FAIL  -  {len(fails)} blocking problem"
-                                 f"{'s' if len(fails) != 1 else ''}")
+            self.verdict.setText('Needs setup')
             self.verdict.setStyleSheet("color: #e06c75;")
-        elif warns:
-            self.verdict.setText(f"SHOULD PASS  -  {len(warns)} thing"
-                                 f"{'s' if len(warns) != 1 else ''} to be aware of")
-            self.verdict.setStyleSheet("color: #e5c07b;")
         else:
-            self.verdict.setText("SHOULD PASS")
+            self.verdict.setText('Ready · '+self.cfg.data.get('tpm_choice','Physical TPM' if self.cfg.simple.get('tpmdev','').startswith('passthrough') else 'Private guest TPM'))
             self.verdict.setStyleSheet("color: #98c379;")
 
         issues = fails + warns
-        self.check_summary.setText("\n".join(
-            f"{what}: {why}" for _status, what, why in issues))
-        self.check_summary.setVisible(bool(issues))
+        self.check_summary.setText('Choose an option below, or use Install / initialize TPM to repair the current setup.' if fails else '')
+        self.check_summary.setVisible(bool(fails))
+        if not self.btn_check_details.isChecked():self.btn_check_details.setText('Details'+(' · '+str(len(warns))+(' note' if len(warns)==1 else ' notes') if warns else ''))
         width = max(len(c[1]) for c in checks)
         self.checks.setPlainText("\n".join(
             f"[{st:4}] {what:<{width}}  {why}" for st, what, why in checks))

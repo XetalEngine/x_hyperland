@@ -20,7 +20,7 @@ def packaged_binary(binary):
 
 
 @lru_cache(maxsize=4)
-def inspect_state(binary, data, binary_stamp):
+def inspect_state(binary, data, binary_stamp, identity=False):
     """Query public TPM capabilities on a disposable COPY, never the live state."""
     with tempfile.TemporaryDirectory(prefix='xetal-tpm-check-') as name:
         directory=Path(name);(directory/'tpm2-00.permall').write_bytes(data)
@@ -53,6 +53,10 @@ def inspect_state(binary, data, binary_stamp):
                     reply=read(size-10)
                     if struct.unpack('>I',reply[1:5])[0]!=kind:raise RuntimeError('Unexpected TPM capability')
                     return reply[5:]
+                if identity:
+                    properties=capability(6,0x100)
+                    count=struct.unpack('>I',properties[:4])[0]
+                    return dict(struct.unpack('>II',properties[4+8*i:12+8*i]) for i in range(count))
                 pcrs=capability(5,0);count=struct.unpack('>I',pcrs[:4])[0]
                 banks=[];offset=4;names={4:'sha1',11:'sha256',12:'sha384',13:'sha512'}
                 for _ in range(count):
@@ -70,7 +74,7 @@ def inspect_state(binary, data, binary_stamp):
             except subprocess.TimeoutExpired:process.kill();process.wait()
 
 
-def initialize(state, binary, banks='sha1,sha256', ek='rsa2048', certificates=True, lock_nvram=False):
+def initialize(state, binary, banks='sha1,sha256', ek='rsa2048', certificates=True, lock_nvram=False, setup_binary=None):
     state = Path(state).expanduser()
     root=portable.data_root().resolve()
     if not state.is_absolute() or not state.resolve().is_relative_to(root) or state.resolve()==root:
@@ -78,7 +82,7 @@ def initialize(state, binary, banks='sha1,sha256', ek='rsa2048', certificates=Tr
     if any(p.is_symlink() for p in (state, *state.parents)):
         raise ValueError('The TPM state directory must not be a symbolic link')
     state=state.resolve()
-    setup = Path(binary).parent/'swtpm_setup'
+    setup = Path(setup_binary) if setup_binary else Path(binary).parent/'swtpm_setup'
     if not setup.is_file(): raise RuntimeError('Install the Virtual TPM component first')
     if not banks or any(b not in ('sha1','sha256','sha384','sha512') for b in banks.split(',')):
         raise ValueError('Choose valid PCR banks, including sha256')
