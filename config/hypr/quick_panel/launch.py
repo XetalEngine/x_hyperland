@@ -4,7 +4,6 @@ import argparse
 import json
 import os
 from pathlib import Path
-import shlex
 import socket
 import subprocess
 import sys
@@ -30,10 +29,6 @@ def main():
             peer.settimeout(.15); peer.connect(str(address)); peer.sendall(json.dumps(request).encode() + b'\n'); return 0
     except OSError: pass
     command = ['python3', str(ROOT / 'theme/run.py'), 'python3', str(ROOT / 'quick_panel/app.py'), '--kind', args.kind, '--request', json.dumps(request)]
-    if 'monitor' in request:
-        rules = f"[float;noborder;monitor {request['monitor']};size {request['width']} {request['height']};move {request['relative_x']} {request['relative_y']}]"
-        result = subprocess.run(['hyprctl', 'dispatch', 'exec', rules + ' ' + shlex.join(command)], capture_output=True, text=True, timeout=2)
-        if not result.returncode and result.stdout.strip() == 'ok': return 0
     os.execvp(command[0], command)
 
 

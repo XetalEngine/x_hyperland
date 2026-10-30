@@ -58,7 +58,7 @@ def placement(monitor, kind, edge='top'):
     height = max(1, min(835 if kind == 'power' else 440, h / scale - top - bottom - 20))
     x = w / scale - right - width - 12
     y = top + 10 if edge == 'top' else h / scale - bottom - height - 10
-    return {'monitor': monitor['id'], 'x': round(monitor['x'] + x), 'y': round(monitor['y'] + y),
+    return {'monitor': monitor['id'], 'edge': edge, 'x': round(monitor['x'] + x), 'y': round(monitor['y'] + y),
             'relative_x': round(x), 'relative_y': round(y), 'width': round(width), 'height': round(height)}
 
 

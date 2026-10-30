@@ -231,6 +231,8 @@ class Hotkeys(QWidget):
         form = QFormLayout(fields_widget)
         form.setContentsMargins(0,0,6,0)
         form.setVerticalSpacing(10)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
         self.fields = {}
         for title, field in [('Name', 'label'), ('Category', 'category'), ('Modifiers', 'mods'),
                               ('Key', 'key'), ('Action', 'dispatcher'), ('Command / args', 'args'),
@@ -258,6 +260,10 @@ class Hotkeys(QWidget):
                 widget.textEdited.connect(lambda _text: self.edit(refresh=False))
                 widget.editingFinished.connect(self.edit)
             self.fields[field] = widget
+            widget.setMinimumWidth(160)
+            if isinstance(widget, QComboBox):
+                widget.setMinimumContentsLength(12)
+                widget.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
             form.addRow(title, widget)
         self.fields['mods'].setPlaceholderText('SUPER / SUPER SHIFT / SUPER CTRL')
         self.fields['args'].setPlaceholderText('Command to launch, or action arguments')
@@ -268,9 +274,6 @@ class Hotkeys(QWidget):
         self.enabled = QCheckBox('Enabled')
         self.enabled.stateChanged.connect(self.edit)
         form.addRow('', self.enabled)
-        self.hint = label('Edit a row, then Apply changes.\nGlobal shortcuts use Super to preserve typing.\nCommands run only when you use the shortcut.', 'muted')
-        self.hint.setWordWrap(True)
-        form.addRow(self.hint)
         self.inspector_scroll=QScrollArea()
         self.inspector_scroll.setWidgetResizable(True)
         self.inspector_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -288,7 +291,11 @@ class Hotkeys(QWidget):
         for widget in self.fields.values():
             widget.setEnabled(True)
         split.addWidget(self.inspector)
-        split.setSizes([770, 355])
+        self.inspector.setMinimumWidth(340)
+        split.setChildrenCollapsible(False)
+        split.setStretchFactor(0, 1)
+        split.setStretchFactor(1, 0)
+        split.setSizes([770, 390])
         layout.addWidget(split, 1)
         self.change_panel = QFrame()
         self.change_panel.setObjectName('changes')
@@ -1125,6 +1132,7 @@ class Window(QMainWindow):
         self.setWindowTitle('Fusion Settings — Hyper Fusion')
         self.resize(1230, 790)
         self.setMinimumSize(1040, 650)
+        self.navigation_width = 0
         root = QWidget();root.setObjectName('controlRoot')
         layout = QVBoxLayout(root)
         layout.setContentsMargins(18, 16, 18, 14)
@@ -1233,6 +1241,20 @@ class Window(QMainWindow):
         self.eyebrow.setVisible(not modern);self.header_hint.setVisible(not modern)
         if not modern:self.brand.setText('Fusion Settings')
         self.rail_avatar.refresh();self.home.update_design();self.update_navigation();self.changing_design=False
+        self.fit_navigation(choice)
+
+    def fit_navigation(self, choice):
+        """Give navigation its own space instead of taking it from every page."""
+        extra = 200 if choice == 'sidebar' else 82 if choice == 'modern' else 0
+        delta = extra - self.navigation_width
+        self.navigation_width = extra
+        screen = self.screen() or QApplication.primaryScreen()
+        available = screen.availableGeometry() if screen else None
+        limit = max(320, available.width() - 24) if available else 16777215
+        width = self.width()
+        self.setMinimumWidth(min(1040 + extra, limit))
+        if delta and not self.isMaximized() and not self.isFullScreen():
+            self.resize(min(max(self.minimumWidth(), width + delta), limit), self.height())
 
     def toggle_hints(self):
         if self.hints and self.hints.isVisible():

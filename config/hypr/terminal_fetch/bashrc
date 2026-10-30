@@ -1,2 +1,5 @@
 [[ -r ~/.bashrc ]] && source ~/.bashrc
+if [[ -n ${KITTY_INSTALLATION_DIR:-} && ${KITTY_SHELL_INTEGRATION:-} != disabled && -r $KITTY_INSTALLATION_DIR/shell-integration/bash/kitty.bash ]]; then
+    source "$KITTY_INSTALLATION_DIR/shell-integration/bash/kitty.bash"
+fi
 python3 "$(dirname -- "${BASH_SOURCE[0]}")/model.py"

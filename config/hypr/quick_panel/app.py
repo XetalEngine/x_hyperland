@@ -30,6 +30,7 @@ from outside_click import CLICK_EVENT,check_pointer
 import wheel_guard
 import model
 from protocol import Request
+from placement import prepare
 
 
 class Signals(QObject):
@@ -381,17 +382,28 @@ class Popup(QWidget):
         if kind not in self.pages: return
         if self.isVisible() and self.kind == kind: self.hide(); return
         if kind == self.kind and time.monotonic() - self.dismissed_at < .25: return
+        try:
+            if self.preview:
+                size = int(request['width']), int(request['height'])
+            else:
+                if 'monitor' not in request:
+                    monitors = json.loads(model.command(['hyprctl', '-j', 'monitors']))
+                    cursor = json.loads(model.command(['hyprctl', '-j', 'cursorpos']))
+                    options = json.loads((ROOT / 'waybar/options.json').read_text())
+                    request = dict(request, **model.placement(model.monitor_at(monitors, cursor), kind, options.get('position', 'top')))
+                size = prepare(request)
+        except (OSError, ValueError, TypeError, KeyError, RuntimeError, subprocess.SubprocessError) as error:
+            print(error, file=sys.stderr)
+            return
+        # A different page/output needs a fresh map so its static geometry rules
+        # apply again. Unmapping also lets the compositor take the Burn snapshot.
+        if self.isVisible(): self.hide()
         self.generation+=1;self.opened_at=time.monotonic()
         self.change_kind(kind); self.armed = False
-        self.resize(max(240, min(600, int(request.get('width', 420)))), max(260, min(1200, int(request.get('height', 835)))))
+        self.resize(*size)
         self.show(); self.raise_(); self.activateWindow()
         if not self.preview:
-            def place():
-                parts = [f'dispatch setfloating pid:{os.getpid()}',f'dispatch resizewindowpixel exact {int(request.get("width",self.width()))} {int(request.get("height",self.height()))},pid:{os.getpid()}']
-                if 'x' in request: parts += [f'dispatch movewindowpixel exact {int(request["x"])} {int(request["y"])},pid:{os.getpid()}']
-                subprocess.Popen(['hyprctl', '--batch', ';'.join(parts)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                self.activation = BarActivation(self); self.activation.start()
-            QTimer.singleShot(20, place)
+            self.activation = BarActivation(self); self.activation.start()
         self.clock_timer.start() if kind == 'clock' else self.clock_timer.stop()
         self.power_timer.start() if kind == 'power' else self.power_timer.stop()
         if kind == 'power': self.pages['power'].refresh()

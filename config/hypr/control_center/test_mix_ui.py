@@ -2,8 +2,9 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
-from PyQt6.QtCore import QEvent,Qt
+from PyQt6.QtCore import QEvent,Qt,QRect,QPoint
 from PyQt6.QtWidgets import QApplication
 import app
 import runtime
@@ -14,6 +15,30 @@ QT=QApplication.instance() or QApplication([])
 
 
 class MixUi(unittest.TestCase):
+    def test_sidebar_keeps_content_width_and_inspector_fields_inside_viewport(self):
+        with tempfile.TemporaryDirectory() as folder:
+            state=Path(folder)/'state.json'
+            state.write_text(json.dumps({'design':'binaryknife','mode':'dark','layout':'classic'}))
+            screen=SimpleNamespace(availableGeometry=lambda:QRect(0,0,1920,1080))
+            with patch.object(runtime,'STATE',state),patch.object(app,'async_run',lambda *args:None),patch.object(app.Window,'screen',return_value=screen):
+                runtime.install(QT,app.STYLE);window=app.Window('hotkeys')
+                try:
+                    QT.processEvents();baseline=window.pages['hotkeys'].width();width=window.width()
+                    state.write_text(json.dumps({'design':'binaryknife','mode':'dark','layout':'sidebar'}))
+                    QT.hypr_theme.apply();QT.processEvents()
+                    self.assertEqual(window.width(),width+200)
+                    self.assertEqual(window.pages['hotkeys'].width(),baseline)
+                    QT.hypr_theme.apply();QT.processEvents()
+                    self.assertEqual(window.width(),width+200)
+                    for size in (window.width(),window.minimumWidth()):
+                        window.resize(size,790);QT.processEvents()
+                        page=window.pages['hotkeys'];viewport=page.inspector_scroll.viewport()
+                        self.assertGreaterEqual(page.inspector.width(),340)
+                        for field in page.fields.values():
+                            self.assertGreaterEqual(field.width(),160)
+                            self.assertLessEqual(field.mapTo(viewport,QPoint(field.width(),0)).x(),viewport.width())
+                finally:window.deleteLater();QT.sendPostedEvents(None,QEvent.Type.DeferredDelete)
+
     def test_layouts_use_each_palette_and_preserve_page_drafts(self):
         with tempfile.TemporaryDirectory() as folder:
             state=Path(folder)/'state.json';state.write_text(json.dumps({'design':'binaryknife','mode':'dark','layout':'classic'}))
