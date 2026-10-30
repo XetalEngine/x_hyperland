@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import copy
 import html
 import json
@@ -38,6 +39,8 @@ from home_page import HomePage
 from identity import Avatar
 from icons import icon as navigation_icon
 from terminal_fetch.page import TerminalPage
+sys.path.append(str(keys.ROOT/'launcher'))
+from activation import BarActivation
 
 STYLE = '''
 QWidget { background: #171b22; color: #d8e0ec; font-family: "DejaVu Sans"; font-size: 12px; }
@@ -1155,6 +1158,8 @@ class Window(QMainWindow):
         for name, page in self.pages.items():
             self.tabs.addTab(page, name.replace('-', ' ').title())
         self.tabs.currentChanged.connect(self.changed)
+        self.refresh_timer=QTimer(self);self.refresh_timer.setSingleShot(True)
+        self.refresh_timer.timeout.connect(self.refresh_current)
         content=QBoxLayout(QBoxLayout.Direction.LeftToRight);content.setSpacing(16);self.content_layout=content
         self.modern_rail=QWidget();self.modern_rail.setObjectName('modernRail');self.modern_rail.setFixedWidth(66)
         rail=QBoxLayout(QBoxLayout.Direction.TopToBottom,self.modern_rail);self.rail_layout=rail;rail.setContentsMargins(8,12,8,12);rail.setSpacing(4)
@@ -1195,10 +1200,10 @@ class Window(QMainWindow):
         page = self.tabs.currentWidget()
         if page is None:return
         self.update_navigation()
-        if hasattr(page, 'refresh'):
-            page.refresh()
+        self.refresh_timer.start(0)
         if self.fade:
             self.fade.stop()
+            self.fade.deleteLater()
         effect = QGraphicsOpacityEffect(page)
         page.setGraphicsEffect(effect)
         self.fade = QPropertyAnimation(effect, b'opacity', self)
@@ -1207,6 +1212,26 @@ class Window(QMainWindow):
         self.fade.setEndValue(1.0)
         self.fade.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.fade.start()
+
+    def refresh_current(self):
+        page=self.tabs.currentWidget()
+        if page is not None and hasattr(page,'refresh'):page.refresh()
+
+    def request(self, request):
+        if request.get('preload'):return
+        name=request.get('tab','hotkeys')
+        if name not in self.pages and name!='window-hints':return
+        filename=request.get('wallpaper','')
+        if filename and isinstance(filename,str):
+            page=self.pages['theme'];page.wallpapers.filename=filename
+            page.tabs.setCurrentWidget(page.wallpapers)
+            if page.wallpapers.models:page.wallpapers.filename='';page.wallpapers.stage_image(filename)
+        self.switch(name)
+        if name!='window-hints' and QApplication.platformName()!='offscreen':
+            if hasattr(self,'activation'):self.activation.cancel();self.activation.deleteLater()
+            self.activation=BarActivation(self);self.activation.start()
+
+    def dismissal_protected(self):return QApplication.activeModalWidget() is not None
 
     def update_navigation(self):
         modern=theme_runtime.layout()!='classic';current=self.tabs.currentWidget()
@@ -1263,7 +1288,6 @@ class Window(QMainWindow):
         def show(data):
             client, bindings = data
             self.hints = HintOverlay(client, bindings)
-            self.hints.dismissed.connect(lambda: QApplication.instance().quit() if not self.isVisible() else None)
         def failed(message):
             launch(['notify-send', '-a', 'Fusion Settings', 'Window shortcuts', message])
             if not self.isVisible():
@@ -1287,6 +1311,9 @@ class Window(QMainWindow):
             return
         hotkeys.stop_capture(silent=True)
         super().closeEvent(event)
+        # Accepted "Discard" must not leave a draft in a resident window. The
+        # session owner rebuilds this uncommon case in the background.
+        if hotkeys.dirty or unsaved:QTimer.singleShot(0,QApplication.instance().quit)
 
 
 def main():
@@ -1294,12 +1321,15 @@ def main():
     parser.add_argument('--tab', choices=['home', 'hotkeys', 'audio', 'network', 'bluetooth', 'displays', 'input', 'theme', 'context-menu', 'calendar', 'system', 'terminal'], default='hotkeys')
     parser.add_argument('--preview', help='Render the initial window to a PNG and exit')
     parser.add_argument('--window-hints', action='store_true')
+    parser.add_argument('--preload', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--wallpaper', default='', help=argparse.SUPPRESS)
     args = parser.parse_args()
     app = QApplication(sys.argv[:1])
     app.setApplicationName('hypr-control')
     app.setDesktopFileName('hypr-control')
     theme_runtime.install(app, STYLE)
-    app.setQuitOnLastWindowClosed(True)
+    app.setQuitOnLastWindowClosed(False)
+    request={'tab':'window-hints' if args.window_hints else args.tab,'wallpaper':args.wallpaper,'preload':args.preload}
     address = None
     if not args.preview:
         instance = os.environ.get('HYPRLAND_INSTANCE_SIGNATURE')
@@ -1307,30 +1337,30 @@ def main():
             print('Launch Hyprland Control from the Hyprland bar or Super+K.', file=sys.stderr)
             return 1
         address = str(Path(os.environ['XDG_RUNTIME_DIR']) / 'hypr' / instance / 'control-center.sock')
+        start_lock=Path(address+'.startup-lock').open('a');fcntl.flock(start_lock,fcntl.LOCK_EX)
         connection = QLocalSocket()
         connection.connectToServer(address)
         if connection.waitForConnected(300):
-            connection.write(('window-hints' if args.window_hints else args.tab).encode())
+            connection.write(json.dumps(request).encode()+b'\n')
             connection.waitForBytesWritten(500)
             connection.disconnectFromServer()
             return 0
-    window = Window(args.tab, visible=not args.window_hints)
-    if args.window_hints:
-        QTimer.singleShot(0, window.toggle_hints)
+    window = Window(args.tab, visible=False)
     server = QLocalServer()
     if address:
         QLocalServer.removeServer(address)
         if not server.listen(address):
             raise RuntimeError(server.errorString())
+        start_lock.close()
         def incoming():
             connection = server.nextPendingConnection()
             def receive():
-                name = bytes(connection.readAll()).decode().strip()
-                window.switch(name)
-                # Wayland may deny a generic raise; ask this compositor to focus our app.
-                if name != 'window-hints':
-                    subprocess.Popen(['hyprctl', 'dispatch', 'focuswindow', 'class:^(hypr-control)$'],
-                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                if connection.bytesAvailable()>32768:connection.disconnectFromServer();return
+                if not connection.canReadLine():return
+                try:
+                    value=json.loads(bytes(connection.readLine()))
+                    if isinstance(value,dict):window.request(value)
+                except (ValueError,TypeError):pass
                 connection.disconnectFromServer()
             connection.readyRead.connect(receive)
             connection.disconnected.connect(connection.deleteLater)
@@ -1341,6 +1371,7 @@ def main():
         lifetime.connectToServer(str(Path(address).parent / '.socket2.sock'))
         lifetime.readyRead.connect(lambda: lifetime.readAll())
         lifetime.disconnected.connect(app.quit)
+    if not args.preload:window.request(request)
     if args.preview:
         def preview():
             window.grab().save(args.preview)

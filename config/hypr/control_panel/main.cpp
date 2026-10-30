@@ -73,6 +73,7 @@ int main(int argc, char **argv) {
 
   QCommandLineParser parser;
   parser.addHelpOption();
+  parser.addOption({"preload", "Keep the panel ready without opening a window"});
   parser.addOption({"section", "Open a tool", "id"});
   parser.addOption({"smoke-size", "Override test window size (WIDTHxHEIGHT)", "size"});
   parser.addOption({"smoke-disk-path", "Scan a disk fixture without sudo (only with --smoke-dir)", "path"});
@@ -81,6 +82,7 @@ int main(int argc, char **argv) {
                     "directory"});
   parser.process(app);
   bool smoke = parser.isSet("smoke-dir");
+  app.setQuitOnLastWindowClosed(smoke);
   QLocalSocket lifetime;
   QLocalServer commands;
   std::unique_ptr<QLockFile> instanceLock;
@@ -106,7 +108,7 @@ int main(int argc, char **argv) {
       if (!existing.waitForConnected(1500))
         return 1;
       existing.write(
-          QJsonDocument(QJsonObject{{"section", parser.value("section")}})
+          QJsonDocument(QJsonObject{{"section", parser.value("section")}, {"preload", parser.isSet("preload")}})
               .toJson(QJsonDocument::Compact) +
           "\n");
       if (!existing.waitForBytesWritten(1000))
@@ -124,8 +126,8 @@ int main(int argc, char **argv) {
     const auto size = parser.value("smoke-size").split('x');
     window.resize(size.size() == 2 ? QSize(size[0].toInt(), size[1].toInt()) : QSize(1280, 800));
   }
-  window.show();
-  if (parser.isSet("section"))
+  if (!parser.isSet("preload")) window.show();
+  if (parser.isSet("section") && !parser.isSet("preload"))
     controller.open(parser.value("section"));
   if (smoke && parser.isSet("smoke-disk-path")) {
     controller.open("cleaner");
@@ -141,12 +143,14 @@ int main(int argc, char **argv) {
           return;
         const auto request =
             QJsonDocument::fromJson(peer->readLine(4096)).object();
-        window.showNormal();
-        window.raise();
-        window.activateWindow();
-        const auto section = request["section"].toString();
-        if (!section.isEmpty())
-          controller.open(section);
+        if (!request["preload"].toBool()) {
+          const auto section = request["section"].toString();
+          if (!section.isEmpty()) controller.open(section);
+          if (window.isMinimized()) window.showNormal(); else window.show();
+          window.raise();
+          window.activateWindow();
+          QProcess::startDetached("hyprctl", {"dispatch", "focuswindow", "pid:" + QString::number(QCoreApplication::applicationPid())});
+        }
         peer->write("ok\n");
         peer->disconnectFromServer();
       };

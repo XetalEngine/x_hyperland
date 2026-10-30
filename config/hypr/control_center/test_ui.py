@@ -97,11 +97,12 @@ class EditorUITests(unittest.TestCase):
         self.page.discard();QTest.qWait(210)
         self.assertEqual(len(self.page.records),2)
 
-    def test_inspector_has_room_for_help_text_with_log_open(self):
+    def test_inspector_fields_fit_with_log_open(self):
         self.modify()
         scroll=self.page.findChild(QScrollArea)
         self.assertIsNotNone(scroll)
-        self.assertGreaterEqual(self.page.hint.height(),self.page.hint.heightForWidth(self.page.hint.width()))
+        self.assertFalse(hasattr(self.page,'hint'))
+        self.assertGreaterEqual(self.page.fields['args'].width(),160)
         self.page.grab().save('/tmp/hypr-hotkey-log-preview.png')
 
     def test_inspector_footer_stays_visible_in_every_theme_and_short_window(self):

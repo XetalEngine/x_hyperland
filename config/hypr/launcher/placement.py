@@ -2,14 +2,8 @@
 import json
 import os
 from pathlib import Path
-import shlex
 import socket
-import subprocess
 import sys
-
-import geometry
-import bar_toggle
-from floating import workarea
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -25,6 +19,7 @@ def bar_edge(path=None):
 
 
 def bounds(monitor, preferred, edge):
+    from floating import workarea
     x, y, available_width, available_height = workarea(monitor)
     width = max(1, min(preferred[0], available_width - 48))
     height = max(1, min(preferred[1], available_height - 28))
@@ -50,20 +45,22 @@ def main():
     command = ['python3', str(ROOT/'theme/run.py'), 'python3', str(ROOT/'launcher/app.py'), *sys.argv[1:]]
     if not any(arg == '--preview' or arg.startswith('--preview=') for arg in sys.argv) and os.environ.get('HYPRLAND_INSTANCE_SIGNATURE'):
         if contact_existing(sys.argv[1:]):return 0
+        import bar_toggle
         if '--from-bar' in sys.argv and '--edit' not in sys.argv and bar_toggle.consume():return 0
-        try:
-            def query(name):
-                return json.loads(subprocess.check_output(['hyprctl', '-j', name], text=True, timeout=1))
-            monitor = selected_monitor(query('monitors'), query('cursorpos'))
-            x, y, width, height = bounds(monitor, geometry.size(), bar_edge())
-            command += ['--initial-size', str(width), str(height)]
-            rules = f"[float;monitor {int(monitor['id'])};size {width} {height};move {x} {y}]"
-            result = subprocess.run(['hyprctl', 'dispatch', 'exec', rules + ' ' + shlex.join(command)],
-                                    capture_output=True, text=True, timeout=2)
-            if result.returncode == 0 and result.stdout.strip() == 'ok': return 0
-        except (OSError, ValueError, KeyError, TypeError, IndexError, subprocess.SubprocessError):
-            pass
     os.execvp(command[0], command)
+
+
+def prepare(preferred):
+    import subprocess
+    reply=subprocess.check_output(['hyprctl','-j','--batch','monitors;cursorpos'],text=True,timeout=1).strip()
+    monitors,end=json.JSONDecoder().raw_decode(reply)
+    monitor=selected_monitor(monitors,json.loads(reply[end:].strip()))
+    x,y,width,height=bounds(monitor,preferred,bar_edge())
+    values={'monitor':str(int(monitor['id'])),'size':f'{width} {height}','move':f'{x} {y}'}
+    result=subprocess.run(['hyprctl','--batch',';'.join(f'keyword windowrule[xetal-launcher]:{key} {value}' for key,value in values.items())],capture_output=True,text=True,timeout=2)
+    replies=[line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if result.returncode or replies!=['ok']*len(values):raise RuntimeError(result.stderr or result.stdout)
+    return width,height
 
 
 def contact_existing(arguments):
@@ -74,12 +71,12 @@ def contact_existing(arguments):
     for index,value in enumerate(arguments):
         if value=='--edit' and index+1<len(arguments):edit=arguments[index+1]
         elif value.startswith('--edit='):edit=value.partition('=')[2]
-    message=(json.dumps({'edit':edit})+'\n').encode() if edit else b'toggle\n'
+    message=b'preload\n' if '--preload' in arguments else (json.dumps({'edit':edit})+'\n').encode() if edit else b'toggle-bar\n' if '--from-bar' in arguments else b'toggle\n'
     try:
         with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as peer:
             peer.settimeout(.1);peer.connect(str(Path(runtime)/'hypr'/signature/'xetal-launcher.sock'))
             peer.sendall(message)
-        bar_toggle.clear();return True
+        return True
     except OSError:return False
 
 

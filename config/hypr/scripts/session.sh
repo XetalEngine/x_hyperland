@@ -62,6 +62,10 @@ children+=("$!")
 python3 "$config_dir/control_panel/startup.py" --session >"$instance_dir/panel-startup.log" 2>&1 9>&- &
 children+=("$!")
 
+# Preload Apps, Fusion Settings/Theme and Control Panel without mapping windows.
+python3 "$config_dir/session_ui/preload.py" >"$instance_dir/session-ui-preload.log" 2>&1 9>&- &
+children+=("$!")
+
 # A resident switcher receives ordered key events, including a very quick Super release.
 "$config_dir/scripts/app-switcher.sh" >"$instance_dir/switcher.log" 2>&1 9>&- &
 children+=("$!")

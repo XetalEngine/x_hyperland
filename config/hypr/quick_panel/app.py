@@ -403,6 +403,7 @@ class Popup(QWidget):
         self.resize(*size)
         self.show(); self.raise_(); self.activateWindow()
         if not self.preview:
+            if hasattr(self,'activation'):self.activation.cancel();self.activation.deleteLater()
             self.activation = BarActivation(self); self.activation.start()
         self.clock_timer.start() if kind == 'clock' else self.clock_timer.stop()
         self.power_timer.start() if kind == 'power' else self.power_timer.stop()

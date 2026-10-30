@@ -4,13 +4,14 @@ from pathlib import Path
 import argparse
 import copy
 import datetime
+import fcntl
 import json
 import os
 import subprocess
 import sys
 import time
 
-from PyQt6.QtCore import Qt, QSize, QRect, QRectF, QTimer, QEvent, QEasingCurve, QPropertyAnimation, pyqtProperty, pyqtSignal
+from PyQt6.QtCore import Qt, QSize, QRect, QRectF, QTimer, QEvent, QEasingCurve, QPropertyAnimation, pyqtProperty, pyqtSignal, QFileSystemWatcher
 from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPixmap, QLinearGradient, QPen, QIcon, QFont, QKeySequence, QShortcut
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (QApplication, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
@@ -25,6 +26,7 @@ import hotkeys
 import favorite_layout
 import capture_guard
 import bar_toggle
+import placement
 from activation import BarActivation
 from outside_click import CLICK_EVENT, check_pointer
 from favorite_board import Board
@@ -335,7 +337,7 @@ class Menu(QWidget):
         QShortcut(QKeySequence('Ctrl+N'), self).activated.connect(lambda: self.perform('new'))
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.tick)
-        self.timer.start(1000)
+        self.timer.setInterval(1000)
         self.tick()
         self.fade = None
         self.select_page('Favorites')
@@ -344,6 +346,40 @@ class Menu(QWidget):
         if hasattr(QApplication.instance(),'hypr_theme'):QApplication.instance().hypr_theme.changed.connect(self.apply_design)
         QApplication.instance().aboutToQuit.connect(self.deleteLater)
         self.setFocusProxy(self.search)
+        self.catalog_watch=QFileSystemWatcher(self)
+        self.catalog_delay=QTimer(self);self.catalog_delay.setSingleShot(True);self.catalog_delay.setInterval(200)
+        self.catalog_watch.directoryChanged.connect(lambda _:self.catalog_delay.start())
+        self.catalog_watch.fileChanged.connect(lambda _:self.catalog_delay.start())
+        self.catalog_delay.timeout.connect(self.catalog_changed)
+        self.watch_catalog()
+
+    def watch_catalog(self):
+        paths={catalog.ROOT/'launcher'}
+        for directory in [Path(os.environ.get('XDG_DATA_HOME',str(Path.home()/'.local/share')))/'applications',
+                          *(Path(p)/'applications' for p in os.environ.get('XDG_DATA_DIRS','/usr/local/share:/usr/share').split(':'))]:
+            if directory.is_dir():
+                paths.add(directory);paths.update(directory.rglob('*.desktop'))
+                paths.update(p for p in directory.rglob('*') if p.is_dir())
+        existing=set(self.catalog_watch.files()+self.catalog_watch.directories())
+        missing=[str(p) for p in paths if p.exists() and str(p) not in existing]
+        if missing:self.catalog_watch.addPaths(missing)
+
+    def catalog_changed(self):
+        if self.interaction_depth:self.catalog_delay.start(400);return
+        self.watch_catalog();self.refresh_apps()
+
+    def present(self):
+        if not self.preview:
+            try:
+                width,height=placement.prepare(geometry.size())
+                self.setMinimumSize(min(geometry.MINIMUM[0],width),min(geometry.MINIMUM[1],height))
+                self.resize(width,height)
+            except (OSError,ValueError,KeyError,TypeError,IndexError,RuntimeError,subprocess.SubprocessError) as error:
+                print('Could not place Apps:',error,file=sys.stderr);return
+        self.show();self.raise_();self.activateWindow()
+        if not self.preview:
+            if self.bar_activation:self.bar_activation.cancel();self.bar_activation.deleteLater()
+            self.bar_activation=BarActivation(self);self.bar_activation.start()
 
     def apply_design(self):
         modern=theme_runtime.launcher_design()=='modern'
@@ -408,10 +444,21 @@ class Menu(QWidget):
         # Choose the keyboard target before the first visible frame. A delayed
         # focus call drops early typing and can steal focus back from the tiles.
         self.search.setFocus(Qt.FocusReason.ActiveWindowFocusReason)
+        self.started=time.monotonic();self.timer.start();self.tick()
         super().showEvent(event)
         if not getattr(self,'backdrop_screen_connected',False) and self.windowHandle():
             self.windowHandle().screenChanged.connect(self.refresh_backdrop);self.backdrop_screen_connected=True
         self.refresh_backdrop()
+
+    def hideEvent(self,event):
+        self.timer.stop()
+        super().hideEvent(event)
+        QTimer.singleShot(0,self.reset_hidden_search)
+
+    def reset_hidden_search(self):
+        if not self.isVisible():
+            self.search.clear()
+            if self.page!='Favorites':self.select_page('Favorites')
 
     def resize_edges(self, point):
         edges = Qt.Edge(0)
@@ -949,6 +996,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--preview')
     parser.add_argument('--from-bar',action='store_true',help='Toggle from the Apps button')
+    parser.add_argument('--preload',action='store_true',help=argparse.SUPPRESS)
     parser.add_argument('--edit', help='Open the shortcut editor for this application ID')
     parser.add_argument('--initial-size', type=int, nargs=2, help=argparse.SUPPRESS)
     args = parser.parse_args()
@@ -957,6 +1005,7 @@ def main():
     app = QApplication(sys.argv[:1])
     app.setApplicationName('xetal-launcher')
     app.setDesktopFileName('xetal-launcher')
+    app.setQuitOnLastWindowClosed(False)
     theme_runtime.install(app, STYLE, style=theme_runtime.launcher_design)
     QIcon.setThemeSearchPaths([str(Path.home()/'.local/share/icons'), '/usr/share/icons'])
     QIcon.setFallbackThemeName('hicolor')
@@ -965,11 +1014,11 @@ def main():
     if not args.preview:
         instance = Path(os.environ['XDG_RUNTIME_DIR']) / 'hypr' / os.environ['HYPRLAND_INSTANCE_SIGNATURE']
         address = str(instance/'xetal-launcher.sock')
+        start_lock=(instance/'xetal-launcher.startup-lock').open('a');fcntl.flock(start_lock,fcntl.LOCK_EX)
         peer = QLocalSocket()
         peer.connectToServer(address)
         if peer.waitForConnected(100):
-            bar_toggle.clear()
-            peer.write((json.dumps({'edit': args.edit}) + '\n').encode() if args.edit else b'toggle\n')
+            peer.write(b'preload\n' if args.preload else (json.dumps({'edit': args.edit}) + '\n').encode() if args.edit else b'toggle-bar\n' if args.from_bar else b'toggle\n')
             peer.waitForBytesWritten(100)
             return 0
         if args.from_bar and not args.edit and bar_toggle.consume():
@@ -979,6 +1028,7 @@ def main():
         server = QLocalServer()
         if not server.listen(address):
             return 1
+        start_lock.close()
     window = Menu(bool(args.preview))
     if args.initial_size and all(0 < value <= 16384 for value in args.initial_size):
         window.setMinimumSize(*(min(base, value) for base, value in zip(geometry.MINIMUM, args.initial_size)))
@@ -987,35 +1037,36 @@ def main():
         def accept_request():
             peer = server.nextPendingConnection()
             def receive():
+                if peer.bytesAvailable()>32768:peer.disconnectFromServer();return
                 if not peer.canReadLine():
                     return
                 message = bytes(peer.readLine()).strip()
                 peer.disconnectFromServer()
                 peer.deleteLater()
-                if message == b'toggle':
-                    window.close()
+                if message in (b'toggle',b'toggle-bar'):
+                    if window.isVisible():window.close();bar_toggle.clear()
+                    elif message!=b'toggle-bar' or not bar_toggle.consume():bar_toggle.clear();window.present()
                     return
+                if message == b'preload':return
                 try:
                     ident = json.loads(message).get('edit')
                     if ident and not window.interaction_depth:
                         window.refresh_apps(ident)
                         if ident in window.apps:
-                            window.show(); window.activateWindow()
+                            window.present()
                             window.perform('edit', ident)
                 except (ValueError, AttributeError):
                     pass
             peer.readyRead.connect(receive)
+            peer.disconnected.connect(peer.deleteLater)
             receive()
         server.newConnection.connect(accept_request)
         watcher = QLocalSocket(app)
         watcher.connectToServer(str(instance/'.socket2.sock'))
         watcher.readyRead.connect(lambda: window.handle_compositor_events(watcher))
         watcher.disconnected.connect(app.quit)
-    window.show()
-    if args.from_bar and not args.preview and not args.edit:
-        window.bar_activation=BarActivation(window)
-        window.bar_activation.start()
-    if window.screen() and not args.initial_size:
+    if not args.preload:window.present()
+    if args.preview and window.screen() and not args.initial_size:
         available = window.screen().availableGeometry()
         window.resize(min(window.width(), available.width() - 48), min(window.height(), available.height() - 70))
     if args.edit and args.edit in window.apps:

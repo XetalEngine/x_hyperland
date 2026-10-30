@@ -22,6 +22,8 @@ The custom desktop components, installer, native effect sources, themes, fonts, 
 
 **New: Control Panel.** Open it directly above Fusion Settings in Apps: a floating, searchable icon view powered by the complete CachyOsTools C++ engine. Its 32 entries cover system ISOs, backups, drives, hardware, services, networks, Shell and more, with separate **Pacman, Paru, Yay and Install .deb** icons. Startup Applications also controls the animated login dashboard while keeping Super+D available. It follows your desktop theme, uses Kitty for terminal actions and creates shortcuts in Apps. CachyOsTools stays independent. See the [complete feature map and ISO details](docs/CONTROL-PANEL.md).
 
+Apps, Fusion Settings/Theme and Control Panel preload without opening windows and stay ready after closing. Theme opens the Theme page of the same Fusion Settings process. Apps watches application entries for changes, while hidden views pause their visible-only polling and animated avatars. A small session helper recovers exited interfaces; it and the cached applications stop with Hyprland. No shared desktop service is installed.
+
 ## Install
 
 From a recent Hyprland session, run these commands **as your regular desktop user**:

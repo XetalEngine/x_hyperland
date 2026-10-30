@@ -16,7 +16,7 @@ class PlacementTests(unittest.TestCase):
             self.assertFalse(contact_existing(['--from-bar']))
             with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as server:
                 server.bind(str(path/'xetal-launcher.sock'));server.listen(2);server.settimeout(1)
-                for arguments,expected in [(['--from-bar'],b'toggle\n'),(['--edit','test.desktop'],b'{"edit": "test.desktop"}\n')]:
+                for arguments,expected in [(['--from-bar'],b'toggle-bar\n'),([],b'toggle\n'),(['--preload'],b'preload\n'),(['--edit','test.desktop'],b'{"edit": "test.desktop"}\n')]:
                     self.assertTrue(contact_existing(arguments))
                     peer,_=server.accept()
                     with peer:self.assertEqual(peer.recv(1000),expected)

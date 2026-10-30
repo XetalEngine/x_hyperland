@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-exec python3 "$HOME/.config/hypr/theme/run.py" python3 "$HOME/.config/hypr/wallpaper/app.py" "$@"
+exec python3 "$HOME/.config/hypr/session_ui/client.py" theme "$@"
