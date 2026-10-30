@@ -84,14 +84,23 @@ def render(stage, home, monitors, profile='auto', startup=True):
         (stage/'control_center/workspaces.conf').write_text('\n'.join(lines)+'\n')
     choice=json.loads((stage/'wallpaper/default.json').read_text())
     wallpaper=str(target/'wallpaper'/choice['image'])
-    outputs=[m['name'] for m in active]
+    design=json.loads((stage/'theme/state.json').read_text()).get('design','modern')
+    sets=json.loads((stage/'wallpaper/sets.json').read_text())
+    artwork=sets.get(design,[choice['image']])
+    if not artwork or not all((stage/'wallpaper'/name).is_file() for name in artwork):
+        raise ValueError('The default theme wallpaper set is incomplete.')
+    outputs=[m['name'] for m in sorted(active,key=lambda m:(m.get('x',0),m.get('y',0),m['name']))]
     if profile=='original':outputs=list(json.loads((REPO/'profiles/xetal-original/selection.json').read_text()))
-    selection={name:{'path':wallpaper,'original':wallpaper,'fit':choice['fit']} for name in outputs}
+    selection={}
+    for index,name in enumerate(outputs):
+        path=str(target/'wallpaper'/artwork[index%len(artwork)])
+        selection[name]={'path':path,'original':path,'fit':choice['fit']}
     (stage/'wallpaper/selection.json').write_text(json.dumps(selection,indent=2)+'\n')
     # The wildcard also covers outputs connected after installation.
     lines=['ipc = true','splash = false','']
     for name in ['',*outputs]:
-        lines+=['wallpaper {',f'    monitor = {name}',f'    path = {wallpaper}',f'    fit_mode = {choice["fit"]}','}','']
+        path=selection[name]['path'] if name else wallpaper
+        lines+=['wallpaper {',f'    monitor = {name}',f'    path = {path}',f'    fit_mode = {choice["fit"]}','}','']
     (stage/'wallpaper/hyprpaper.conf').write_text('\n'.join(lines))
     if not startup:
         p=stage/'hyprland.conf';p.write_text(p.read_text().replace('exec-once = ~/.config/hypr/scripts/startup-scene.sh --login','# Login animation disabled by installer; Super+D remains available.'))

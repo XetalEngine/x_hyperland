@@ -64,7 +64,7 @@ The default install adapts to your monitors, resolution, placement and scale. Wi
 - Give the **entire Apps menu** its own background image, follow the desktop wallpaper, or use a plain background. Adjust **background visibility** with a slider.
 - Set **icon backgrounds and group strips** anywhere from transparent to opaque. Group strips support their own **image or animated GIF**, with preferences saved separately for each design.
 - **Show or hide shortcut names and hotkeys** globally. The remaining icon content centers automatically; small tiles stay icon-only.
-- Assign wallpapers separately to each monitor and each theme, choose their fit mode, or apply the included three-screen **BreakPoint** and **Binary Knife** workstation sets. Switching themes restores its saved wallpapers and effect colors, including custom flame colors. The original artwork remains available.
+- Every theme includes its own three-screen wallpaper set: **Xetal Raw**, **Xetal Modern**, **BreakPoint** and **Binary Knife**. The twelve illustrations have corrected character anatomy, and Modern has three distinct new studio scenes. Assign custom wallpapers and fit modes per monitor; switching themes restores their saved artwork and effect colors, including custom flames. Fresh installations assign Modern's set in display order.
 
 | Theme design | Menu surfaces, artwork & profile |
 | :---: | :---: |

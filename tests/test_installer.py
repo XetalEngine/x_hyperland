@@ -38,6 +38,8 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(set(state),{'HDMI-A-1','eDP-1'})
         self.assertTrue(state['eDP-1']['path'].startswith(str(self.target)))
         self.assertEqual(state['eDP-1']['path'],state['eDP-1']['original'])
+        self.assertTrue(state['HDMI-A-1']['path'].endswith('/modern/workstation-1.png'))
+        self.assertTrue(state['eDP-1']['path'].endswith('/modern/workstation-2.png'))
         for p in self.stage.rglob('*'):
             if not p.is_file():continue
             try:text=p.read_text()
@@ -147,7 +149,7 @@ class InstallerTests(unittest.TestCase):
         forbidden={'mozilla','recently-used.xbel','places.sqlite','cookies.sqlite','.parentlock','user-places.xbel'}
         for p in install.PAYLOAD.rglob('*'):
             if '__pycache__' in p.parts:continue
-            if '.build' in p.parts:
+            if any(part in ('.build','build') for part in p.parts) or p.suffix in {'.so','.o','.a'}:
                 result=install.subprocess.run(['git','check-ignore','--quiet',str(p)],cwd=REPO)
                 self.assertEqual(result.returncode,0,str(p))
                 continue

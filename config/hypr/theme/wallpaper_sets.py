@@ -58,14 +58,18 @@ def switching(root, previous_design, design, current, monitors):
     saved = value['themes'].get(design, {})
     if not isinstance(saved, dict): raise ValueError('The saved theme wallpaper selection is invalid.')
     defaults = bundled(root, design, monitors)
+    bundled_paths = {path.resolve() for path in catalog(root).get(design, [])}
     target = copy.deepcopy(saved)
     for monitor in screens(monitors):
         name = monitor['name']
         choice = saved.get(name, {})
         if not isinstance(choice, dict): raise ValueError('Invalid saved wallpaper choice.')
-        # Cached images are portable within this profile; retain the original as
-        # a fallback if a cache entry was removed manually.
-        available = next((choice.get(key) for key in ('path', 'original')
+        # Bundled artwork can be refreshed by an update. Do not resurrect an old
+        # imported copy of it; personal images still prefer their portable cache.
+        original = choice.get('original')
+        bundled_original = isinstance(original, str) and Path(original).resolve() in bundled_paths
+        order = ('original', 'path') if bundled_original else ('path', 'original')
+        available = next((choice.get(key) for key in order
                           if isinstance(choice.get(key), str) and Path(choice[key]).is_file()), None)
         if available:
             target[name] = {**choice, 'path': available}

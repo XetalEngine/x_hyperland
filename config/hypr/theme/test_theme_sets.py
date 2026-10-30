@@ -21,7 +21,7 @@ class ThemeSetTests(unittest.TestCase):
     def setUp(self):
         test_theme.ThemeTransactionTests.setUp(self)
         root=self.root/'wallpaper';root.mkdir()
-        catalog={design:[f'{design}/{i}.png' for i in range(3)] for design in ('breakpoint','binaryknife')}
+        catalog={design:[f'{design}/{i}.png' for i in range(3)] for design in ('raw','modern','breakpoint','binaryknife')}
         (root/'sets.json').write_text(json.dumps(catalog))
         for design,names in catalog.items():
             for name in names:
@@ -68,6 +68,31 @@ class ThemeSetTests(unittest.TestCase):
         ]
         assigned=wallpaper_sets.bundled(self.root/'wallpaper','binaryknife',monitors)
         self.assertEqual(list(assigned),['DP-1','DP-2','DP-3'])
+
+    def test_each_theme_restores_its_own_three_screen_set(self):
+        for design in ('raw','modern','breakpoint','binaryknife','raw'):
+            self.apply(design)
+            selection=json.loads((self.root/'wallpaper/selection.json').read_text())
+            self.assertEqual({item['path'] for item in selection.values()},
+                             {str(self.root/'wallpaper'/design/f'{i}.png') for i in range(3)})
+
+    def test_refreshed_bundle_takes_precedence_over_stale_import_cache(self):
+        root=self.root/'wallpaper'
+        cached=self.root/'old-cache.png';Image.new('RGB',(16,9),'red').save(cached)
+        saved=copy.deepcopy(self.original)
+        saved['DP-1']['path']=str(cached)
+        (root/'profiles.json').write_bytes(wallpaper_sets.encode({'version':1,'themes':{'breakpoint':saved}}))
+        target,_=wallpaper_sets.switching(root,'raw','breakpoint',{},self.monitors)
+        self.assertEqual(target['DP-1'],self.original['DP-1'])
+
+    def test_custom_wallpaper_still_prefers_its_cache(self):
+        root=self.root/'wallpaper'
+        cached=self.root/'custom-cache.png';Image.new('RGB',(16,9),'blue').save(cached)
+        original=self.root/'personal.png';Image.new('RGB',(16,9),'red').save(original)
+        choice={'path':str(cached),'original':str(original),'fit':'contain'}
+        (root/'profiles.json').write_bytes(wallpaper_sets.encode({'version':1,'themes':{'modern':{'DP-1':choice}}}))
+        target,_=wallpaper_sets.switching(root,'raw','modern',{},self.monitors)
+        self.assertEqual(target['DP-1'],choice)
 
     def test_round_trip_restores_custom_wallpapers_and_effect_colors(self):
         self.apply('binaryknife')
