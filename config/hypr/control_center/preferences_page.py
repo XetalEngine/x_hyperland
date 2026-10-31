@@ -12,6 +12,7 @@ INPUT = [
  ('Keyboard','input:kb_layout','Layout codes','text','us · us,ca · gb'),
  ('Keyboard','input:kb_variant','Layout variants','text','Optional, one per layout'),
  ('Keyboard','input:kb_options','Keyboard options','text','Optional XKB options, e.g. caps:escape'),
+ ('Keyboard','input:numlock_by_default','Num Lock on at login','bool',None),
  ('Keyboard','input:repeat_rate','Repeat rate','int',(1,100,' keys/s')),
  ('Keyboard','input:repeat_delay','Repeat delay','int',(100,2000,' ms')),
  ('Mouse','input:sensitivity','Pointer speed','float',(-1,1,.05)),

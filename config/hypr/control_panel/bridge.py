@@ -85,6 +85,22 @@ def shortcut(value):
     connection.close();return {'saved':dialog.result()==QDialog.DialogCode.Accepted}
 
 
+def numlock_startup(data):
+    sys.path.insert(0,str(ROOT/'control_center'))
+    import desktop_settings as settings
+    key = 'input:numlock_by_default'
+    if 'enabled' in data:
+        if type(data['enabled']) is not bool:
+            raise ValueError('Num Lock preference must be true or false.')
+        store = settings.Store('input', root=ROOT)
+        previous, token = store.load()
+        store.save(settings.option_config(previous, {key:data['enabled']}), token)
+    value = settings.read_options([key])[key]
+    if value not in (0, 1):
+        raise ValueError('Could not read the Num Lock startup preference.')
+    return {'enabled':bool(value)}
+
+
 def main():
     action=sys.argv[1] if len(sys.argv)>1 else ''
     try:
@@ -95,6 +111,7 @@ def main():
                 import aliases
                 result=aliases.load() if action=='aliases' else aliases.save(data,ROOT/'control_panel/state')
             elif action=='shortcut':result=shortcut(data)
+            elif action=='numlock-startup':result=numlock_startup(data)
             elif action=='startup-screen':
                 sys.path.insert(0,str(ROOT/'startup'))
                 import login_settings

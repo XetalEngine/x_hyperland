@@ -85,6 +85,8 @@ private:
   QScrollArea *body;
   QCheckBox *startupScreen;
   QLabel *startupStatus;
+  QCheckBox *numLockStartup;
+  QLabel *numLockStatus;
   QLabel *crumb, *count;
   QLineEdit *search;
   QPushButton *back;

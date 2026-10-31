@@ -397,8 +397,15 @@ void PanelController::prepareTools() {
     view->viewport()->installEventFilter(this);
   }
   auto *page = owner->findChild<QWidget *>("autostartSubTab");
-  auto *startup = new QGroupBox("Xetal Engine startup screen", page);
+  auto *startup = new QGroupBox("Desktop startup", page);
   auto *startupLayout = new QVBoxLayout(startup);
+  numLockStartup = new QCheckBox("Turn on Num Lock when I log in", startup);
+  numLockStartup->setObjectName("numLockStartupEnabled");
+  startupLayout->addWidget(numLockStartup);
+  numLockStatus = new QLabel("Use the Num Lock key to change it during your session.", startup);
+  numLockStatus->setObjectName("muted");
+  numLockStatus->setWordWrap(true);
+  startupLayout->addWidget(numLockStatus);
   startupScreen = new QCheckBox("Show the animated dashboard when I log in", startup);
   startupScreen->setObjectName("startupScreenEnabled");
   startupLayout->addWidget(startupScreen);
@@ -408,6 +415,17 @@ void PanelController::prepareTools() {
   startupLayout->addWidget(startupStatus);
   qobject_cast<QVBoxLayout *>(page->layout())->insertWidget(0, startup);
   loadStartupPreference();
+  connect(numLockStartup, &QCheckBox::toggled, this, [this](bool checked) {
+    const auto result = HyperPanel::request("numlock-startup", {{"enabled", checked}});
+    const QSignalBlocker guard(numLockStartup);
+    if (result.contains("error")) {
+      numLockStartup->setChecked(!checked);
+      numLockStatus->setText("Could not save: " + result["error"].toString());
+    } else {
+      numLockStartup->setChecked(result["enabled"].toBool());
+      numLockStatus->setText("Saved for future Hyprland logins. The Num Lock key still works normally.");
+    }
+  });
   connect(startupScreen, &QCheckBox::toggled, this, [this](bool checked) {
     const auto result = HyperPanel::request("startup-screen", {{"enabled", checked}});
     if (result.contains("error")) {
@@ -421,6 +439,15 @@ void PanelController::prepareTools() {
 }
 
 void PanelController::loadStartupPreference() {
+  const auto keyboard = HyperPanel::request("numlock-startup");
+  const QSignalBlocker keyboardGuard(numLockStartup);
+  numLockStartup->setEnabled(!keyboard.contains("error"));
+  if (keyboard.contains("error"))
+    numLockStatus->setText("Could not read Num Lock preference: " + keyboard["error"].toString());
+  else {
+    numLockStartup->setChecked(keyboard["enabled"].toBool());
+    numLockStatus->setText("Use the Num Lock key to change it during your session.");
+  }
   const auto result = HyperPanel::request("startup-screen");
   const QSignalBlocker guard(startupScreen);
   startupScreen->setEnabled(!result.contains("error"));

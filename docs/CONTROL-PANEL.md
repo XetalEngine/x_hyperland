@@ -36,7 +36,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | Network Shares | Discovery, mounts, sharing and associated services |
 | Shell & Apps Shortcuts | Alias add/edit/remove, shell configuration editor, terminal actions and Apps favorites |
 | Services | System/user service controls, failed services, journals and boot analysis |
-| Startup Applications | Choose whether Xetal Engine appears at login; add/edit, enable/disable, remove and run login applications; manage user units |
+| Startup Applications | Choose Num Lock and Xetal Engine behavior at login; add/edit, enable/disable, remove and run login applications; manage user units |
 | System Tweaks | Performance, security, network, storage, desktop and system settings |
 | System Configuration | Privileged editor and configuration catalog, extended with Hyprland and Kitty |
 | Panel Preferences | Language, visible tool families, startup page, size memory, autosave, drive/package/editor defaults, ISO defaults and debug preview |
@@ -55,7 +55,8 @@ The backend targets **Arch Linux/CachyOS**. Package, kernel, boot and ISO tools 
 - **Add to Apps…** opens the existing shortcut editor, including command, directory, icon, terminal, keep-open and floating options. Saving creates a favorite in Apps.
 - Terminal operations use the private Kitty profile. Control Panel runs as the ordinary desktop user; individual administrative tools request privileges when used.
 - New login applications are saved in `control_panel/state/autostart` and run at the next Hyprland login. Shared desktop autostart files are not edited. Package entries require explicit opt-in; user systemd units remain separately identified.
-- **Startup Applications → Xetal Engine startup screen** controls automatic login display. **Super+D** still opens or hides it manually. The preference defaults to on and is stored in the update-preserved `control_panel/state/startup-screen.json`.
+- **Startup Applications → Desktop startup** includes **Turn on Num Lock when I log in**, enabled by default. It shares `input:numlock_by_default` in `control_center/input.conf` with the Input page's **Num Lock on at login** option. Changes use the existing full-configuration validation, backup and rollback path; the Num Lock key still works normally during the session.
+- The same **Desktop startup** group controls whether the animated Xetal Engine dashboard appears at login. **Super+D** still opens or hides it manually. The preference defaults to on and is stored in the update-preserved `control_panel/state/startup-screen.json`.
 - User environment values are literal `NAME=value` lines in `control_panel/state/environment.env`, applied at the next Hyprland login. The explicit system pane still edits `/etc/environment` when requested.
 - The panel, shortcut editor and startup helper are tied to the active compositor connection.
 
