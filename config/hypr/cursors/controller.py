@@ -8,7 +8,7 @@ from effects.cube import controller as cube
 
 
 def prepare():
-    subprocess.run([sys.executable,str(model.PATH.with_name('build.py'))],
+    subprocess.run([sys.executable,str(model.PATH.with_name('build.py')),'--register'],
                    env={**os.environ,'QT_QPA_PLATFORM':'offscreen'},capture_output=True,text=True,check=True,timeout=120)
 
 

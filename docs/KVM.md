@@ -14,6 +14,8 @@ The integrated editor retains vmstart_2's Windows and Apple profiles: Single GPU
 
 Administrator access is requested when launching a VM. No permanent passwordless-sudo rule is installed. Single GPU can detach the host graphics card and end the desktop; its existing confirmation and recovery hooks remain part of that workflow.
 
+Virtual GPU and Dual GPU open their console/viewer as a floating window by default. The **Floating** checkbox beside the launch-page preview/setup buttons saves separately for each mode and profile; uncheck it to tile newly opened screens. It also applies to SPICE, VNC and Looking Glass opened while a guest is running. The rule belongs only to that viewer launch.
+
 ## Components and updates
 
 **Paths & Tools → KVM components** lists installed and available versions, compatibility, and individual Download/Update buttons. Downloads use the [community release service](https://www.xetal.net/community/site/kvm.php). A check does not replace components automatically. The first download registers this x_hyperland installation automatically, using a random installation ID and installed revision; the private access token stays in the user workspace. The website lists versions but offers no direct archive links. Anonymous archive URLs are denied. This gates the normal download flow; client registration is not hardware attestation and cannot prevent an installer from copying files. Hover over an available version for compressed and installed sizes; **Open components** opens the downloaded files.

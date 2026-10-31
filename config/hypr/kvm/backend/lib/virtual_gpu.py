@@ -43,7 +43,7 @@ def mac_input_controller(cfg):
 
 def options(cfg):
     defaults = dict(model="VGA", server="vnc", port=5901, width=1600, height=900,
-                    auto_open=True, remember_console_size=True, input=True, clipboard=False, file_transfer=False,
+                    auto_open=True, floating=True, remember_console_size=True, input=True, clipboard=False, file_transfer=False,
                     audio=False, keep_usb=False, keep_pci=False, memory="preset",
                     network="preset", pinning=True, realtime=False, uefi_resolution=True,
                     input_controller=mac_input_controller(cfg) if cfg.profile == "macos" else "xhci",
@@ -527,9 +527,8 @@ def open_viewer(opts, remember_size=False):
     if not cmd:
         raise RuntimeError("Install virt-viewer (remote-viewer) or spice-gtk (spicy) for SPICE; "
                            "use vncviewer / remote-viewer for VNC")
-    viewer = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                              stderr=subprocess.DEVNULL, start_new_session=True)
-    if remember_size:
+    viewer = console_window.launch(cmd, floating=opts.get('floating', True))
+    if remember_size and viewer is not None:
         try:
             console_window.observe(viewer.pid, Path(launcher.RUN_DIR) / f"virtual-console-{Path(cmd[0]).name}.json")
         except OSError:

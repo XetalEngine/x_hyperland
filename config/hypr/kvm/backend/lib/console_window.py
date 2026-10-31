@@ -9,11 +9,36 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+
+
+def launch(command, floating=True, log_path=None):
+    """Apply a rule to this launch before mapping, never to unrelated viewers."""
+    if os.environ.get('HYPRLAND_INSTANCE_SIGNATURE'):
+        # Preserve the app's private toolkit/cursor environment when Hyprland
+        # becomes the parent. No shared environment or permanent rule is edited.
+        keys = ('DISPLAY', 'WAYLAND_DISPLAY', 'XDG_CONFIG_HOME', 'XDG_CONFIG_DIRS',
+                'XDG_DATA_DIRS', 'GTK_THEME', 'GSETTINGS_BACKEND', 'QT_QPA_PLATFORMTHEME',
+                'QT_STYLE_OVERRIDE', 'QT_PLUGIN_PATH', 'XETAL_THEME_CONFIG',
+                'XCURSOR_THEME', 'XCURSOR_SIZE', 'XCURSOR_PATH', 'LD_LIBRARY_PATH')
+        args = ['env', *[key+'='+os.environ[key] for key in keys if key in os.environ], *command]
+        rule = 'float on; center on' if floating else 'float off'
+        redirect = ' >>'+shlex.quote(str(log_path))+' 2>&1' if log_path else ' >/dev/null 2>&1'
+        result = subprocess.run(['hyprctl', 'dispatch', 'exec', '['+rule+'] '+shlex.join(args)+redirect],
+                                capture_output=True, text=True, timeout=10)
+        if result.returncode or result.stdout.strip() != 'ok':
+            raise RuntimeError(result.stderr.strip() or result.stdout.strip() or 'Unable to open the VM console')
+        return None
+    if log_path:
+        with open(log_path, 'a') as output:
+            return subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=output, stderr=output, start_new_session=True)
+    return subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL, start_new_session=True)
 
 
 def unavailable_reason():

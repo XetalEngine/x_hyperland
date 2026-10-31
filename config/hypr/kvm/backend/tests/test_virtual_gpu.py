@@ -204,6 +204,7 @@ def test_spice_prefers_remote_viewer_when_both_clients_are_installed(monkeypatch
 
 
 def test_console_observer_is_optional_and_cannot_prevent_opening(monkeypatch, tmp_path):
+    monkeypatch.delenv('HYPRLAND_INSTANCE_SIGNATURE', raising=False)
     monkeypatch.setattr(vg.shutil, "which", lambda name: "/usr/bin/" + name)
     monkeypatch.setattr(launcher, "RUN_DIR", str(tmp_path))
     viewer = Mock(return_value=Mock(pid=12345))

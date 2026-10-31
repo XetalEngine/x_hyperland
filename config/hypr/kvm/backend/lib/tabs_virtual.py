@@ -52,6 +52,10 @@ class VirtualGPUTab(QScrollArea):
         preview = QPushButton("Preview command")
         preview.clicked.connect(self._preview)
         row.addWidget(preview)
+        self.floating = QCheckBox('Floating')
+        self.floating.setChecked(opts['floating'])
+        self.floating.setToolTip('Open the VM screen as a floating window. Uncheck to tile it. Applies when opening a console.')
+        row.addWidget(self.floating)
         row.addStretch()
         body.addLayout(row)
         controls = QHBoxLayout()
@@ -243,7 +247,7 @@ class VirtualGPUTab(QScrollArea):
             getattr(self, key).currentIndexChanged.connect(self._server_changed if key == "server" else self._changed)
         for key in ("port", "width", "height"):
             getattr(self, key).valueChanged.connect(self._changed)
-        for key in ("auto_open", "remember_console_size", "input", "clipboard", "file_transfer", "audio", "keep_usb", "keep_pci", "pinning", "realtime", "uefi_resolution"):
+        for key in ("auto_open", "floating", "remember_console_size", "input", "clipboard", "file_transfer", "audio", "keep_usb", "keep_pci", "pinning", "realtime", "uefi_resolution"):
             getattr(self, key).toggled.connect(self._changed)
         self._loading = False
         self._update_options()
@@ -258,7 +262,7 @@ class VirtualGPUTab(QScrollArea):
         data["model"] = data["model"] or "VGA"
         data.update({k: getattr(self, k).value() for k in ("port", "width", "height")})
         data.update({k: getattr(self, k).isChecked() for k in
-                     ("auto_open", "remember_console_size", "input", "clipboard", "file_transfer", "audio", "keep_usb", "keep_pci", "pinning", "realtime", "uefi_resolution")})
+                     ("auto_open", "floating", "remember_console_size", "input", "clipboard", "file_transfer", "audio", "keep_usb", "keep_pci", "pinning", "realtime", "uefi_resolution")})
         return data
 
     def _changed(self, *_):
@@ -446,7 +450,8 @@ class VirtualGPUTab(QScrollArea):
 
     def _open_console(self):
         try:
-            virtual_gpu.open_viewer(self.run.get("options") or self.settings(),
+            opts = dict(self.run.get('options') or self.settings(), floating=self.floating.isChecked())
+            virtual_gpu.open_viewer(opts,
                                     remember_size=self.remember_console_size.isChecked())
         except Exception as exc:
             QMessageBox.information(self, "Open console", str(exc))

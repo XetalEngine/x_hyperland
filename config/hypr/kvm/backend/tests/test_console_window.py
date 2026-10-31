@@ -154,3 +154,20 @@ def test_wayland_and_missing_tools_have_an_explanation(monkeypatch):
     assert "xdotool and xprop" in cw.unavailable_reason()
     monkeypatch.setattr(cw.shutil, "which", lambda name: "/usr/bin/" + name)
     assert cw.unavailable_reason() == ""
+
+
+@pytest.mark.parametrize('floating,rule', [(True,'float on; center on'),(False,'float off')])
+def test_hyprland_console_uses_a_scoped_launch_rule_and_quotes_arguments(monkeypatch, floating, rule):
+    import shlex
+    import subprocess
+    monkeypatch.setenv('HYPRLAND_INSTANCE_SIGNATURE','fixture-session')
+    monkeypatch.setenv('XCURSOR_THEME','Xetal-Cursor-cyan')
+    command=['/fixture/path with spaces/viewer', 'spice://127.0.0.1:5930', '$(must not run)']
+    dispatch=Mock(return_value=subprocess.CompletedProcess([],0,'ok\n',''))
+    monkeypatch.setattr(cw.subprocess,'run',dispatch)
+    assert cw.launch(command,floating=floating) is None
+    args=dispatch.call_args.args[0]
+    assert args[:3]==['hyprctl','dispatch','exec']
+    assert args[3].startswith('['+rule+'] ')
+    assert shlex.join(command) in args[3]
+    assert 'XCURSOR_THEME=Xetal-Cursor-cyan' in args[3]

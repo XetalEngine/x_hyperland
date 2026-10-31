@@ -58,6 +58,10 @@ class DualGPUTab(QScrollArea):
             button = QPushButton(title)
             button.clicked.connect(callback)
             row.addWidget(button)
+        self.floating = QCheckBox('Floating')
+        self.floating.setChecked(opts['floating'])
+        self.floating.setToolTip('Open the VM screen as a floating window. Uncheck to tile it. Applies to the viewer and setup console.')
+        row.addWidget(self.floating)
         row.addStretch()
         body.addLayout(row)
         row = QHBoxLayout()
@@ -290,7 +294,7 @@ class DualGPUTab(QScrollArea):
         for spin in (self.port, self.width, self.height):
             spin.valueChanged.connect(self._changed)
         for check in (self.auto_open, self.clipboard, self.file_transfer, self.audio, self.pinning,
-                      self.lg_capture):
+                      self.lg_capture, self.floating):
             check.toggled.connect(self._changed)
         for widget in (self.usb_devices, self.pci_devices):
             widget.itemChanged.connect(self._device_changed)
@@ -370,7 +374,7 @@ class DualGPUTab(QScrollArea):
                     evdev_toggle=self.evdev_toggle.currentData(), audio_mode=self.audio_mode.currentData(),
                     usb_devices=self._selected_devices(self.usb_devices),
                     pci_devices=self._selected_devices(self.pci_devices))
-        for key in ("auto_open", "clipboard", "file_transfer", "audio", "pinning", "lg_capture"):
+        for key in ("auto_open", "floating", "clipboard", "file_transfer", "audio", "pinning", "lg_capture"):
             opts[key] = getattr(self, key).isChecked()
         return opts
 
@@ -619,7 +623,8 @@ class DualGPUTab(QScrollArea):
 
     def _open_viewer(self):
         try:
-            dual_gpu.open_viewer(self.run)
+            run = dict(self.run, options=dict(self.run.get('options') or self.settings(), floating=self.floating.isChecked()))
+            dual_gpu.open_viewer(run)
         except Exception as exc:
             QMessageBox.information(self, "Open viewer", str(exc))
 
@@ -629,7 +634,7 @@ class DualGPUTab(QScrollArea):
             if not opts:
                 opts = self.settings()
                 opts["server"] = "vnc" if opts["viewer"] == "vnc" else "spice"
-            virtual_gpu.open_viewer(opts)
+            virtual_gpu.open_viewer(dict(opts, floating=self.floating.isChecked()))
         except Exception as exc:
             QMessageBox.information(self, "Setup console", str(exc))
 

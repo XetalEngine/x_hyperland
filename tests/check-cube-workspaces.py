@@ -117,6 +117,24 @@ xwayland {
             wait_for(lambda:status()['cursor_marks']==0)
             for style in cursors.STYLES:
                 cursorvalues['style']=style;cursorfile.write_bytes(cursors.encode(cursorvalues));dispatch('xetalcube:cursor')
+                assert status()['cursor_style']==style
+                # Verify the actual compositor cursor, not just saved settings.
+                run('grim','-c','-o',a['name'],str(root/('cursor-'+style+'.png')))
+                from cursors import art
+                edge=tuple(bytes.fromhex(art.STYLES[style][2][1:]))
+                shot=Image.open(root/('cursor-'+style+'.png')).convert('RGB')
+                pointer=json.loads(ctl('-j','cursorpos'))
+                x,y=pointer['x']-a['x'],pointer['y']-a['y']
+                pixels=shot.crop((x-8,y-8,x+65,y+65)).getdata()
+                assert sum(all(abs(p[i]-edge[i])<20 for i in range(3)) for p in pixels)>2,('Cursor artwork not applied',style)
+            # Launch rules must be effective on the first mapped VM screen.
+            for floating in (True,False):
+                command=['kitty','--config','/dev/null','-o','confirm_os_window_close=0','--class','xetal-vm-console-test','-e','sleep','120']
+                run(sys.executable,'-c',f"import sys;sys.path.insert(0,{str(REPO/'config/hypr/kvm/backend/lib')!r});import console_window;console_window.launch({command!r},floating={floating!r})")
+                def console():return next((c for c in json.loads(ctl('-j','clients')) if c['class']=='xetal-vm-console-test'),None)
+                wait_for(lambda:console() is not None)
+                console_client=console();assert console_client['floating']==floating,console_client
+                dispatch('closewindow','address:'+console_client['address']);wait_for(lambda:console() is None)
             # Prepare placement before mapping: no centered first-frame flash.
             from switcher import placement
             destination=next(m for m in monitors() if m['name']==b['name'])

@@ -507,11 +507,30 @@ def test_console_size_preference_applies_to_active_console_without_relaunch(wind
     viewer = Mock()
     monkeypatch.setattr(vmstart2.virtual_gpu, "open_viewer", viewer)
     tab._open_console()
-    viewer.assert_called_with(active, remember_size=True)
+    viewer.assert_called_with(dict(active, floating=True), remember_size=True)
     tab.remember_console_size.setChecked(False)
     tab._open_console()
-    viewer.assert_called_with(active, remember_size=False)
+    viewer.assert_called_with(dict(active, floating=True), remember_size=False)
     assert active == {"server": "spice", "port": 6123}
+
+
+@pytest.mark.parametrize('page,section', [('tab_virtual','virtual_gpu'),('tab_dual','dual_gpu')])
+def test_console_floating_defaults_and_changes_are_saved_separately(window, monkeypatch, page, section):
+    tab=getattr(window,page)
+    before=copy.deepcopy(window.cfg.data)
+    assert tab.floating.isChecked()
+    tab.floating.setChecked(False)
+    assert window.cfg.data[section]['floating'] is False
+    assert {k:v for k,v in window.cfg.data.items() if k!=section}=={k:v for k,v in before.items() if k!=section}
+    tab.run={'options':{'server':'spice','port':6123,'floating':True}}
+    original=copy.deepcopy(tab.run)
+    viewer=Mock();monkeypatch.setattr(vmstart2.virtual_gpu,'open_viewer',viewer)
+    tab._open_console()
+    assert viewer.call_args.args[0]['floating'] is False
+    assert viewer.call_args.args[0]['port']==6123
+    assert tab.run==original
+    window._rebuild_tabs()
+    assert not getattr(window,page).floating.isChecked()
 
 
 def test_virtual_launch_never_uses_single_gpu_launch_or_hooks(window, monkeypatch):

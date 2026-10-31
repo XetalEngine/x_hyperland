@@ -40,7 +40,7 @@ def looking_glass_client():
 
 def options(cfg):
     opts = dict(gpu="", gpu_identity={}, gpu_audio=False, romfile="",
-                viewer="spice", auto_open=True, port=5931,
+                viewer="spice", auto_open=True, floating=True, port=5931,
                 width=1920, height=1080, clipboard=False, file_transfer=False,
                 audio=False, memory="preset", network="preset", pinning=True,
                 input_mode="viewer", evdev_keyboard="", evdev_mouse="",
@@ -389,9 +389,8 @@ def open_viewer(run):
         raise RuntimeError("Choose Looking Glass before launch and install looking-glass-client on Linux. "
                            "The setup console is available while you configure the guest.")
     # Retain client errors for diagnostics; never run a desktop client as root.
-    with open(Path(run["workdir"]) / "viewer.log", "a") as output:
-        subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=output, stderr=output,
-                         start_new_session=True)
+    vg.console_window.launch(command, floating=run['options'].get('floating', True),
+                             log_path=Path(run['workdir'])/'viewer.log')
 
 
 def preview(cfg):

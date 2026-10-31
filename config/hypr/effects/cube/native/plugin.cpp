@@ -988,6 +988,8 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             add("preview_fps", json_object_new_int(settings.previewFps));
             add("cursor_marks", json_object_new_int64(cursorMarks.size()));
             add("cursor_trail", json_object_new_string(cursorOptions.trail.c_str()));
+            add("cursor_style", json_object_new_string(cursorOptions.style.c_str()));
+            add("cursor_size", json_object_new_int(cursorOptions.size));
             add("four_faces", json_object_new_boolean(true));
             add("workspace_animation", json_object_new_string(settings.rotateWorkspace ? "cube" : "standard"));
             add("active", json_object_new_boolean(bool(scene)));

@@ -9,7 +9,10 @@ default. Color, opacity and lifetime are adjustable; move and click inside the
 preview to try them. Custom theme presets save these settings as their own component.
 
 `art.py` contains original vector artwork. `build.py` generates both Hyprcursor
-and XCursor formats in the profile's ignored `.build/data/icons` directory. Setup
+and XCursor formats in the profile's ignored `.build/data/icons` directory. Its
+uniquely named `Xetal-Cursor-*` links in `~/.local/share/icons` make these private
+assets discoverable by a compositor that has already cached its search paths.
+Existing themes are never replaced, and no other desktop's selection is changed. Setup
 installs `hyprcursor-util`, `xcursorgen` and Qt SVG support, and builds the collection.
 No shared cursor theme, KDE preference, GSettings value or system icon directory
 is changed. Newly launched Hyprland applications receive the private XCursor path;

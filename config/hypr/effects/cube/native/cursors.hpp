@@ -60,7 +60,16 @@ void reloadCursors() {
     if (priorIcons.find(data.string())==std::string::npos) setenv("XCURSOR_PATH",((data/"icons").string()+":"+priorIcons).c_str(),1);
     setenv("XCURSOR_THEME",theme.c_str(),1);setenv("XCURSOR_SIZE",std::to_string(next.size).c_str(),1);
     setenv("HYPRCURSOR_THEME",theme.c_str(),1);setenv("HYPRCURSOR_SIZE",std::to_string(next.size).c_str(),1);
-    // Direct changeTheme deliberately avoids syncGsettings(), which would affect KDE.
+    // Refuse fallback: XCursor's loadTheme also synchronizes shared GSettings.
+    static auto useHyprcursor = CConfigValue<Config::INTEGER>("cursor:enable_hyprcursor");
+    if (!*useHyprcursor) throw std::runtime_error("Enable cursor:enable_hyprcursor to use these cursor styles.");
+    Hyprcursor::SManagerOptions options;
+    options.allowDefaultFallback = false;
+    Hyprcursor::CHyprcursorManager check(theme.c_str(), options);
+    if (!check.valid() || !check.loadThemeStyle({static_cast<unsigned int>(next.size)}) ||
+        check.getShape("left_ptr", {static_cast<unsigned int>(next.size)}).images.empty())
+        throw std::runtime_error("The selected cursor theme could not be loaded. Apply cursors again to rebuild its artwork.");
+    // Valid Hyprcursor themes avoid XCursor's shared-settings synchronization.
     Pointer::Cursor::mgr()->changeTheme(theme,next.size);
     Pointer::Cursor::mgr()->setCursorFromName("left_ptr");
     Pointer::Cursor::mgr()->setXWaylandCursor();

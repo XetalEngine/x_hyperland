@@ -9,6 +9,32 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from cursors import model,art,controller
 
 class CursorsTests(unittest.TestCase):
+    def test_staged_build_does_not_register_themes_until_explicitly_requested(self):
+        from cursors import build
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);cache=root/'.build';cache.mkdir()
+            fingerprint=build.hashlib.sha256((build.ROOT/'art.py').read_bytes()+(build.ROOT/'build.py').read_bytes()).hexdigest()
+            (cache/'version').write_text(fingerprint)
+            with patch.object(build,'register_themes') as register:
+                self.assertEqual(build.build(root),cache/'data')
+                register.assert_not_called()
+                build.build(root,register=True)
+                register.assert_called_once_with(cache/'data')
+
+    def test_private_artwork_is_discoverable_without_replacing_other_themes(self):
+        from cursors.build import register_themes
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);data=root/'profile/data';registry=root/'icons'
+            for style in art.STYLES:(data/'icons'/('Xetal-Cursor-'+style)).mkdir(parents=True)
+            register_themes(data,registry);register_themes(data,registry)
+            for style in art.STYLES:
+                target=registry/('Xetal-Cursor-'+style)
+                self.assertTrue(target.is_symlink());self.assertEqual(target.resolve(),data/'icons'/target.name)
+            target=registry/'Xetal-Cursor-cyan';target.unlink();target.mkdir()
+            marker=target/'user-file';marker.write_text('keep')
+            with self.assertRaises(RuntimeError):register_themes(data,registry)
+            self.assertEqual(marker.read_text(),'keep')
+
     def test_portable_defaults_validation_and_migration(self):
         self.assertEqual(model.validate({}),model.DEFAULTS)
         for key,value in [('size',8),('duration',-1),('intensity',True),('click_ripple',1),('style','../../elsewhere'),('color','#red'),('trail','unknown')]:

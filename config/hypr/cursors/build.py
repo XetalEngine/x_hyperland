@@ -14,12 +14,33 @@ sys.path.insert(0, str(ROOT))
 import art
 
 
-def build(root=ROOT):
+def register_themes(data, directory=None):
+    """Expose only our uniquely named assets; never select a shared desktop theme.
+
+    Hyprcursor snapshots XDG_DATA_DIRS before the session plugin is loaded.
+    Named links let it discover the profile's artwork even in a running session.
+    """
+    directory = directory or Path.home()/'.local/share/icons'
+    directory.mkdir(parents=True, exist_ok=True)
+    for style in art.STYLES:
+        name = 'Xetal-Cursor-'+style
+        source = (data/'icons'/name).absolute()
+        target = directory/name
+        if target.is_symlink() and target.resolve() == source.resolve():
+            continue
+        if target.exists() or target.is_symlink():
+            raise RuntimeError('A different cursor theme already occupies '+str(target))
+        target.symlink_to(source, target_is_directory=True)
+
+
+def build(root=ROOT, register=False):
     cache=root/'.build';cache.mkdir(parents=True,exist_ok=True)
     fingerprint=hashlib.sha256((ROOT/'art.py').read_bytes()+(ROOT/'build.py').read_bytes()).hexdigest()
     with (cache/'build.lock').open('w') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX)
-        if (cache/'version').exists() and (cache/'version').read_text()==fingerprint:return cache/'data'
+        if (cache/'version').exists() and (cache/'version').read_text()==fingerprint:
+            if register:register_themes(cache/'data')
+            return cache/'data'
         from PyQt6.QtCore import QByteArray, QRectF
         from PyQt6.QtGui import QImage,QPainter
         from PyQt6.QtSvg import QSvgRenderer
@@ -60,6 +81,7 @@ def build(root=ROOT):
             if (cache/'data').exists():os.replace(cache/'data',old)
             os.replace(tmp/'data',cache/'data');shutil.rmtree(old,ignore_errors=True)
             (cache/'version').write_text(fingerprint)
+        if register:register_themes(cache/'data')
     return cache/'data'
 
 if __name__=='__main__':
@@ -67,4 +89,4 @@ if __name__=='__main__':
     os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
     from PyQt6.QtGui import QGuiApplication
     app=QGuiApplication([])
-    print(build())
+    print(build(register='--register' in sys.argv))
