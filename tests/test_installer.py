@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -13,6 +14,57 @@ REPO=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(REPO/'installer'))
 import install
 import dependencies
+
+
+class DependencyEnvironmentTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix='xetal-dependency-test-')
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.bin = self.root / 'bin'
+        self.bin.mkdir()
+        self.perl_bin = self.root / 'core_perl'
+        for mock in (
+            patch.dict(os.environ, {'PATH': str(self.bin)}),
+            patch.object(dependencies, 'PERL_SCRIPT_DIRS', (str(self.perl_bin),)),
+            patch.object(dependencies, 'COMMANDS', ['pod2man']),
+        ):
+            mock.start()
+            self.addCleanup(mock.stop)
+
+    def write_tool(self, directory, output):
+        directory.mkdir(exist_ok=True)
+        tool = directory / 'pod2man'
+        tool.write_text('#!/bin/sh\nprintf "%s\\n" "' + output + '"\n')
+        tool.chmod(0o755)
+
+    def check_commands(self):
+        # Leave real PATH lookup intact; unrelated GUI/library probes are outside
+        # this regression. No package manager or installed profile is touched.
+        with patch.object(dependencies.subprocess, 'run',
+                          return_value=subprocess.CompletedProcess([], 0, '', '')):
+            return [error for error in dependencies.check() if error.startswith('Missing command:')]
+
+    def test_new_perl_install_is_found_without_a_new_shell_and_reaches_builds(self):
+        self.assertEqual(self.check_commands(), ['Missing command: pod2man'])
+        self.write_tool(self.perl_bin, 'installed Perl tool')
+        self.assertEqual(self.check_commands(), [])
+        self.assertEqual(subprocess.check_output(['pod2man'], text=True), 'installed Perl tool\n')
+        # The same environment is reused by initial, post-install and update checks.
+        self.assertEqual(self.check_commands(), [])
+        self.assertEqual(os.environ['PATH'].split(os.pathsep).count(str(self.perl_bin)), 1)
+
+    def test_existing_caller_tool_keeps_priority(self):
+        self.write_tool(self.bin, 'caller tool')
+        self.write_tool(self.perl_bin, 'system tool')
+        self.assertEqual(self.check_commands(), [])
+        self.assertEqual(subprocess.check_output(['pod2man'], text=True), 'caller tool\n')
+
+    def test_existing_directory_does_not_hide_a_missing_or_unusable_tool(self):
+        self.perl_bin.mkdir()
+        self.assertEqual(self.check_commands(), ['Missing command: pod2man'])
+        (self.perl_bin / 'pod2man').write_text('not executable')
+        self.assertEqual(self.check_commands(), ['Missing command: pod2man'])
 
 
 class InstallerTests(unittest.TestCase):

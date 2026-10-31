@@ -51,6 +51,7 @@ COMMANDS = '''git Hyprland hyprctl hyprpaper hyprlock waybar kitty dolphin swayn
 LIBRARIES = ['gtk+-3.0','gio-unix-2.0','gtk-layer-shell-0','json-glib-1.0','Qt5Widgets','Qt6Widgets','Qt5Concurrent','Qt6Concurrent','wayland-client','xcb','xcb-res',
              'openssl','libtasn1','gmp','glib-2.0','gnutls','libseccomp','fuse3','libeis-1.0','json-c']
 MINIMUM = {'Hyprland':(0,56,0),'waybar':(0,15,0),'kitty':(0,49,0),'hyprpaper':(0,8,0)}
+PERL_SCRIPT_DIRS = ('/usr/bin/site_perl', '/usr/bin/vendor_perl', '/usr/bin/core_perl')
 
 
 def distro():
@@ -66,7 +67,21 @@ def distro():
     return None
 
 
+def prepare_environment():
+    """Expose installed Perl scripts to checks and their subsequent build processes."""
+    # Arch adds these directories at login through /etc/profile.d/perlbin.sh.
+    # A fresh install can add Perl after this terminal was opened. Refresh before
+    # every check so the post-package-install check sees newly created directories.
+    # Keep caller overrides first and change only this process and its children.
+    paths = os.environ.get('PATH', os.defpath).split(os.pathsep)
+    for directory in PERL_SCRIPT_DIRS:
+        if directory not in paths and Path(directory).is_dir():
+            paths.append(directory)
+    os.environ['PATH'] = os.pathsep.join(paths)
+
+
 def check():
+    prepare_environment()
     errors=[]
     if sys.version_info < (3,11): errors.append('Python 3.11 or newer is required.')
     errors += ['Missing command: '+command for command in COMMANDS if not shutil.which(command)]
