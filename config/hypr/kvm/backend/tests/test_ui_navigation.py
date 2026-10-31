@@ -527,6 +527,30 @@ def test_virtual_launch_never_uses_single_gpu_launch_or_hooks(window, monkeypatc
     forbidden.assert_not_called()
 
 
+@pytest.mark.parametrize("page", ["tab_virtual", "tab_dual"])
+def test_launch_startup_failures_replace_waiting_and_disable_guest_controls(window, monkeypatch, page):
+    tab = getattr(window, page)
+    state = dict(state="pending", message="Starting the VM supervisor…")
+    monkeypatch.setattr(vmstart2.virtual_gpu, "status", lambda _: state)
+    monkeypatch.setattr(vmstart2.virtual_gpu, "read_log", lambda _: "ModuleNotFoundError: fixture failure")
+    viewer = Mock()
+    monkeypatch.setattr(tab, "_open_console", viewer)
+    tab._auto_open = True
+    tab._poll()
+    assert not tab.btn_launch.isEnabled()
+    state.update(state="failed", message="Launch failed before the VM supervisor reported readiness.")
+    tab._poll()
+    assert "Launch failed" in tab.state.text()
+    assert "ModuleNotFoundError" in tab.log.toPlainText()
+    assert "Launch failed" in tab.log.toPlainText()
+    assert not tab.btn_console.isEnabled()
+    assert not tab.btn_restart.isEnabled()
+    assert not tab._auto_open
+    if page == "tab_virtual":
+        assert tab.btn_launch.isEnabled()
+    viewer.assert_not_called()
+
+
 def test_spice_shortcut_sets_only_virtual_options_and_explains_guest_setup(window):
     tab = window.tab_virtual
     before = copy.deepcopy(window.cfg.data)

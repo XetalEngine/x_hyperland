@@ -8,6 +8,9 @@ from pathlib import Path
 import signal
 import sys
 
+# This entry point also runs outside the desktop app's Python environment.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import gpu_inventory as inventory
 from model import VMConfig
 from virtual_runtime import Runtime as DesktopRuntime

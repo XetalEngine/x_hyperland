@@ -335,7 +335,8 @@ def launch(cfg):
     subprocess.run(prefix + ["systemctl", "reset-failed", vg.UNIT], capture_output=True, timeout=10)
     result = subprocess.run(prefix + ["systemd-run", "--unit", vg.UNIT,
                             "--description=vmstart_2 dual GPU guest", "--property=KillMode=mixed",
-                            "--property=TimeoutStopSec=120", "--service-type=exec", sys.executable,
+                            "--property=TimeoutStopSec=120", "--service-type=exec",
+                            *vg.runtime_log_properties(workdir), sys.executable,
                             str(Path(__file__).with_name("dual_runtime.py")), str(payload)],
                             capture_output=True, text=True, timeout=20)
     if result.returncode:

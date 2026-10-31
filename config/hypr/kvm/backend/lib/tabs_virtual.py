@@ -1,6 +1,7 @@
 """Desktop-friendly launch controls and per-preset virtual display options."""
 
 from pathlib import Path
+import time
 
 from PyQt6.QtCore import QTimer, pyqtSignal
 from PyQt6.QtGui import QFont
@@ -22,6 +23,7 @@ class VirtualGPUTab(QScrollArea):
         self._loading = True
         self._auto_open = False
         self._last_output = None
+        self._submission_deadline = 0
         self.run = virtual_gpu.current_run()
         self.setWidgetResizable(True)
         content = QWidget()
@@ -397,10 +399,12 @@ class VirtualGPUTab(QScrollArea):
         try:
             self.run = virtual_gpu.launch(self.cfg)
             self._auto_open = self.auto_open.isChecked()
+            self._submission_deadline = time.monotonic() + 20
             self._last_output = None
             self.log.appendPlainText("\nLaunch submitted. Waiting for QEMU…")
             self.state.setText("Starting…")
         except Exception as exc:
+            self._submission_deadline = 0
             self.btn_launch.setEnabled(True)
             self.log.appendPlainText(f"\nLaunch failed: {exc}")
             QMessageBox.critical(self, "Virtual GPU launch failed", str(exc))
@@ -408,7 +412,11 @@ class VirtualGPUTab(QScrollArea):
             self._submitting = False
 
     def _poll(self):
+        if getattr(self, "_submitting", False):
+            return
         state = virtual_gpu.status(self.run)
+        if state.get("state") not in (None, "pending"):
+            self._submission_deadline = 0
         active = state.get("state") in ("starting", "running", "stopping")
         if active:
             try:
@@ -418,12 +426,16 @@ class VirtualGPUTab(QScrollArea):
             if not active:
                 state = dict(state="failed", message="VM supervisor is no longer running; check the output below")
         running = active and state.get("state") == "running"
-        self.btn_launch.setEnabled(not active)
+        pending = state.get("state") == "pending" or (not state and time.monotonic() < self._submission_deadline)
+        self.btn_launch.setEnabled(not (active or pending))
         for button in (self.btn_console, self.btn_shutdown, self.btn_restart, self.btn_stop, self.btn_integration):
             button.setEnabled(running)
         if state:
             self.state.setText(state.get("message", state.get("state", "")))
             output = virtual_gpu.read_log(self.run)
+            if state.get("state") == "failed":
+                self._auto_open = False
+                output = (output.rstrip() + "\n\n" + state["message"]).lstrip()
             if output != self._last_output:
                 self.log.setPlainText(output)
                 self.log.verticalScrollBar().setValue(self.log.verticalScrollBar().maximum())

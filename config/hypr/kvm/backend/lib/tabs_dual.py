@@ -578,7 +578,11 @@ class DualGPUTab(QScrollArea):
             self._submitting = False
 
     def _poll(self):
+        if getattr(self, "_submitting", False):
+            return
         state = virtual_gpu.status(self.run)
+        if state.get("state") not in (None, "pending"):
+            self._submission_deadline = 0
         active = state.get("state") in ("starting", "running", "stopping")
         if active:
             try:
@@ -587,7 +591,7 @@ class DualGPUTab(QScrollArea):
                 active = False
             if not active:
                 state = dict(state="failed", message="VM supervisor exited; check the log and GPU binding record")
-        pending = not state and time.monotonic() < self._submission_deadline
+        pending = state.get("state") == "pending" or (not state and time.monotonic() < self._submission_deadline)
         running = active and state.get("state") == "running"
         selected = next((g for g in self.inventory if g["slot"] == self.gpu.currentData()), None)
         self.btn_launch.setEnabled(not (active or pending) and bool(selected and selected["available"]))
@@ -599,6 +603,9 @@ class DualGPUTab(QScrollArea):
         if state:
             self.state.setText(state.get("message", state.get("state", "")))
             output = virtual_gpu.read_log(self.run)
+            if state.get("state") == "failed":
+                self._auto_open = False
+                output = (output.rstrip() + "\n\n" + state["message"]).lstrip()
             if output != self._last_output:
                 self.log.setPlainText(output)
                 self.log.verticalScrollBar().setValue(self.log.verticalScrollBar().maximum())

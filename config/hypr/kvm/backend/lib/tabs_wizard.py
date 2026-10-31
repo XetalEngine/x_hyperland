@@ -75,6 +75,9 @@ class WizardTab(QScrollArea):
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
+        self._gpu_rom_choices = {}
+        self._gpu_rom_config = cfg
+        self._gpu_dump_token = None
         self.setWidgetResizable(True)
         # Ordered list of (key, title). The body for each is built on entry so
         # it always reflects current host state (disks appear, IOMMU flips).
@@ -167,6 +170,8 @@ class WizardTab(QScrollArea):
         root.addLayout(nav)
 
     def _clear_body(self):
+        self._gpu_dump_token = None
+        self.btn_startover.setEnabled(True)
         self.component_page.emit(None)
         self.component_host = None
         while self.body.count():
@@ -187,6 +192,9 @@ class WizardTab(QScrollArea):
 
     # --------------------------------------------------------- navigation ---
     def go(self, index, remember=True):
+        if self._gpu_rom_config is not self.cfg:
+            self._gpu_rom_choices.clear()
+            self._gpu_rom_config = self.cfg
         index = max(0, min(index, len(self.steps) - 1))
         self.step = index
         if remember:
@@ -251,6 +259,7 @@ class WizardTab(QScrollArea):
             self.cfg.data.clear()
             self.cfg.data.update(fresh)
         self._state().clear()
+        self._gpu_rom_choices.clear()
         self._state()["step"] = 0
         self._state()['layout'] = 2
         self.go(0)
@@ -823,7 +832,7 @@ class WizardTab(QScrollArea):
             fns = ", ".join(f["slot"].rsplit(".", 1)[-1] for f in g["functions"])
             self.gpu_combo.addItem(f"{g['slot']}  {g['device']}   (functions {fns})",
                                    g["slot"])
-        gl.addWidget(self.gpu_combo, 0, 1, 1, 2)
+        gl.addWidget(self.gpu_combo, 0, 1, 1, 3)
 
         gl.addWidget(QLabel("Patched vBIOS:"), 1, 0)
         self.gpu_rom = QLineEdit()
@@ -835,15 +844,27 @@ class WizardTab(QScrollArea):
         for index in range(1, self.gpu_combo.count()):
             if self.gpu_combo.itemData(index).rsplit('.', 1)[0] == configured.get('host', '').rsplit('.', 1)[0]:
                 self.gpu_combo.setCurrentIndex(index)
-                self.gpu_rom.setText(configured.get('romfile', ''))
                 break
-        self.gpu_combo.currentIndexChanged.connect(lambda: self.gpu_rom.clear())
-        self.gpu_rom.setPlaceholderText("optional but recommended for NVIDIA — the "
-                                        "header-stripped .rom")
+        # Start empty instead of inheriting a captured/saved machine's ROM.
+        # Keep only choices made in this wizard when navigating Back/Next.
+        self.gpu_rom.setText(self._gpu_rom_choices.get(self.gpu_combo.currentData(), ''))
+        self.gpu_combo.currentIndexChanged.connect(self._gpu_rom_selection_changed)
+        self.gpu_rom.textChanged.connect(self._remember_gpu_rom)
+        self.gpu_rom.setPlaceholderText("Optional — Browse for a ROM or use AutoDump")
         gl.addWidget(self.gpu_rom, 1, 1)
-        b = QPushButton("Browse…")
-        b.clicked.connect(self._browse_rom)
-        gl.addWidget(b, 1, 2)
+        self.gpu_browse = QPushButton("Browse…")
+        self.gpu_browse.clicked.connect(self._browse_rom)
+        gl.addWidget(self.gpu_browse, 1, 2)
+        self.gpu_autodump = QPushButton("AutoDump")
+        self.gpu_autodump.setToolTip("Read and validate the selected GPU's vBIOS, strip any pre-header, and fill its ROM path.")
+        self.gpu_autodump.clicked.connect(self._auto_dump_rom)
+        gl.addWidget(self.gpu_autodump, 1, 3)
+        gl.setColumnStretch(1, 1)
+        self.gpu_rom_status = QLabel()
+        self.gpu_rom_status.setObjectName('muted')
+        self.gpu_rom_status.setWordWrap(True)
+        self.gpu_rom_status.hide()
+        gl.addWidget(self.gpu_rom_status, 2, 1, 1, 3)
         self._add(box)
 
         self.gpu_info = QPlainTextEdit()
@@ -858,6 +879,8 @@ class WizardTab(QScrollArea):
             self._note("No GPU found on this host.", "#e06c75")
 
         def commit():
+            if self._gpu_dump_token is not None:
+                return False
             slot = self.gpu_combo.currentData()
             if not slot:
                 for dev in self.cfg.devices:
@@ -881,6 +904,8 @@ class WizardTab(QScrollArea):
     def _gpu_refresh(self):
         slot = self.gpu_combo.currentData()
         g = next((x for x in self.host_gpus if x["slot"] == slot), None)
+        for widget in (self.gpu_rom, self.gpu_browse, self.gpu_autodump):
+            widget.setEnabled(bool(g) and self._gpu_dump_token is None)
         if not g:
             self.gpu_info.setPlainText("")
             return
@@ -912,11 +937,56 @@ class WizardTab(QScrollArea):
                           "pass."]
         self.gpu_info.setPlainText("\n".join(lines))
 
+    def _remember_gpu_rom(self, text):
+        slot = self.gpu_combo.currentData()
+        if slot:
+            self._gpu_rom_choices[slot] = text
+
+    def _gpu_rom_selection_changed(self):
+        self.gpu_rom.setText(self._gpu_rom_choices.get(self.gpu_combo.currentData(), ''))
+        self.gpu_rom_status.clear()
+        self.gpu_rom_status.hide()
+
     def _browse_rom(self):
         p, _ = QFileDialog.getOpenFileName(self, "Select patched vBIOS", os.path.expanduser("~"),
                                            "ROM (*.rom *.bin);;All files (*)")
         if p:
             self.gpu_rom.setText(p)
+
+    def _auto_dump_rom(self):
+        slot = self.gpu_combo.currentData()
+        if not slot or self._gpu_dump_token is not None:
+            return
+        capture = getattr(self, 'capture_gpu_rom', None)
+        self.gpu_rom_status.show()
+        if capture is None:
+            self.gpu_rom_status.setText('AutoDump is unavailable. Browse for a ROM instead.')
+            return
+        token = self._gpu_dump_token = object()
+        controls = (self.gpu_combo, self.gpu_rom, self.gpu_browse, self.gpu_autodump,
+                    self.btn_back, self.btn_next, self.btn_startover)
+        for widget in controls:
+            widget.setEnabled(False)
+        self.gpu_rom_status.setText('Reading and preparing this GPU’s vBIOS…')
+
+        def done(path):
+            # A rebuilt step/profile must never receive an old GPU's result.
+            if self._gpu_dump_token is not token:
+                return
+            self._gpu_dump_token = None
+            for widget in controls:
+                widget.setEnabled(True)
+            if path and self.gpu_combo.currentData() == slot:
+                self.gpu_rom.setText(path)
+                self.gpu_rom_status.setText('vBIOS automatically dumped and validated. Its path is ready for Next.')
+            else:
+                self.gpu_rom_status.setText('AutoDump did not complete. Retry or Browse for a ROM.')
+
+        try:
+            capture(slot, done)
+        except Exception as error:
+            done(None)
+            self.gpu_rom_status.setText(str(error))
 
     def _apply_gpu(self, slot, rom):
         gpu = next((g for g in self.host_gpus if g["slot"] == slot), None)
@@ -943,18 +1013,6 @@ class WizardTab(QScrollArea):
             if rom and f['slot'] == gpu['slot']:
                 dev["romfile"] = rom
             self.cfg.devices.append(dev)
-        if not rom and getattr(self, 'capture_gpu_rom', None):
-            self.btn_next.setEnabled(False)
-            def apply(path):
-                self.btn_next.setEnabled(True)
-                if path:
-                    for dev in self.cfg.devices:
-                        if dev.get('driver') == 'vfio-pci' and dev.get('host') == slot and not dev.get('_disabled'):
-                            dev['romfile'] = path
-                    self.gpu_rom.setText(path)
-                    self.changed.emit()
-            self.capture_gpu_rom(slot, apply)
-            return False
 
     # =====================================================================
     # Step 5: USB devices

@@ -17,6 +17,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 
 import launcher
@@ -551,7 +552,27 @@ def status(run=None):
     try:
         return json.loads((Path(run["workdir"]) / "status.json").read_text())
     except (KeyError, OSError, ValueError):
+        pass
+    if not run.get("workdir"):
         return {}
+    try:
+        submitted = (Path(run["workdir"]) / "plan.json").stat().st_mtime
+    except OSError:
+        return dict(state="failed", message="The previous launch files are no longer available. Launch again to create a new run.")
+    # A service can fail before Python creates status.json (for example, an
+    # import error). Never leave the desktop waiting indefinitely in that case.
+    if time.time() - submitted < 20:
+        return dict(state="pending", message="Starting the VM supervisor…")
+    if service_active():
+        return dict(state="pending", message="The launch service has not reported progress. Check the launch output below.")
+    return dict(state="failed", message="Launch failed before the VM supervisor reported readiness. See the launch output below.")
+
+
+def runtime_log_properties(workdir):
+    # Capture interpreter/import errors too, before the runtime redirects its
+    # own output. The submitting user already owns this private log file.
+    log = str(Path(workdir) / "output.log").replace('%', '%%')
+    return [f"--property=StandardOutput=append:{log}", f"--property=StandardError=append:{log}"]
 
 
 def read_log(run):
@@ -581,7 +602,7 @@ def launch(cfg):
     subprocess.run(prefix + ["systemctl", "reset-failed", UNIT], capture_output=True, timeout=10)
     result = subprocess.run(prefix + ["systemd-run", "--unit", UNIT,
                             "--description=vmstart_2 virtual GPU guest", "--property=KillMode=mixed",
-                            "--property=TimeoutStopSec=120", "--service-type=exec",
+                            "--property=TimeoutStopSec=120", "--service-type=exec", *runtime_log_properties(workdir),
                             sys.executable, runtime, str(payload)],
                             capture_output=True, text=True, timeout=20)
     if result.returncode:

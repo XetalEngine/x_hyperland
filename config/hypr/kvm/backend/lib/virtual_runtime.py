@@ -15,6 +15,9 @@ import subprocess
 import sys
 import time
 
+# systemd starts this file directly, without the desktop app's import paths.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 from virtual_gpu import QMP, pci_class, _slot
 import ovmf_display
 

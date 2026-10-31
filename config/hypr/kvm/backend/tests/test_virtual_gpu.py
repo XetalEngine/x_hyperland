@@ -324,6 +324,8 @@ def test_launch_uses_same_unit_and_never_touches_hooks(cfg, tmp_path, monkeypatc
     args = run_command.call_args_list[-1].args[0]
     assert args[args.index("--unit") + 1] == "vmstart2-vm"
     assert any(x.endswith("virtual_runtime.py") for x in args)
+    assert f"--property=StandardOutput=append:{tmp_path}/output.log" in args
+    assert f"--property=StandardError=append:{tmp_path}/output.log" in args
     payload = json.loads((tmp_path / "plan.json").read_text())
     assert not any(d.get("driver") == "vfio-pci" for d in payload["config"]["devices"])
     assert vg.current_run() == result
@@ -337,6 +339,54 @@ def test_busy_service_prevents_any_snapshot_or_launch(cfg, monkeypatch):
     with pytest.raises(RuntimeError, match="already running"):
         vg.launch(cfg)
     create.assert_not_called()
+
+
+def test_missing_startup_status_becomes_a_visible_failure(tmp_path, monkeypatch):
+    run = dict(workdir=str(tmp_path))
+    plan = tmp_path / "plan.json"
+    plan.write_text('{}')
+    submitted = plan.stat().st_mtime
+    monkeypatch.setattr(vg.time, "time", lambda: submitted + 1)
+    assert vg.status(run)["state"] == "pending"
+    monkeypatch.setattr(vg.time, "time", lambda: submitted + 21)
+    monkeypatch.setattr(vg, "service_active", lambda: True)
+    assert vg.status(run)["state"] == "pending"
+    monkeypatch.setattr(vg, "service_active", lambda: False)
+    state = vg.status(run)
+    assert state["state"] == "failed"
+    assert "before the VM supervisor" in state["message"]
+    (tmp_path / "output.log").write_text("ModuleNotFoundError: fixture startup failure\n")
+    assert "ModuleNotFoundError" in vg.read_log(run)
+    (tmp_path / "status.json").write_text(json.dumps(dict(state="stopped", message="Guest stopped")))
+    assert vg.status(run)["state"] == "stopped"
+    assert vg.status({}) == {}
+
+
+@pytest.mark.parametrize("script", ["virtual_runtime.py", "dual_runtime.py"])
+def test_runtime_entry_imports_work_without_the_desktop_environment(tmp_path, script):
+    # The intentionally absent plan proves imports completed without executing
+    # any VM setup, even from an unrelated systemd-style working directory.
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+    result = subprocess.run([sys.executable, "-E", "-s", str(Path(vr.__file__).with_name(script)),
+                             str(tmp_path / "absent-plan.json")], cwd=tmp_path, env=env,
+                            capture_output=True, text=True, timeout=10)
+    assert result.returncode != 0
+    assert "ModuleNotFoundError" not in result.stderr, result.stderr
+    assert "FileNotFoundError" in result.stderr and "absent-plan.json" in result.stderr
+
+
+def test_runtime_records_an_early_launch_failure_without_touching_host_resources(tmp_path):
+    plan = dict(workdir=str(tmp_path), uid=os.getuid(), gid=os.getgid(), config={},
+                argv=[str(tmp_path / "nonexistent-qemu")])
+    payload = tmp_path / "plan.json"
+    payload.write_text(json.dumps(plan))
+    result = subprocess.run([sys.executable, "-E", "-s", vr.__file__, str(payload)], cwd=tmp_path,
+                            capture_output=True, text=True, timeout=10)
+    run = dict(workdir=str(tmp_path))
+    assert result.returncode == 1, result.stderr
+    assert vg.status(run)["state"] == "failed"
+    assert "nonexistent-qemu" in vg.read_log(run)
 
 
 @pytest.mark.parametrize("failure", ["memory", "network", "tpm", "firmware_display", "start_guest", None])
@@ -479,8 +529,8 @@ def test_runtime_reports_readiness_restarts_and_shuts_down_an_empty_guest(tmp_pa
     path = tmp_path / "plan.json"
     path.write_text(json.dumps(plan))
     with open(tmp_path / "supervisor.log", "w+") as output:
-        child = subprocess.Popen([sys.executable, vr.__file__, str(path)], stdin=subprocess.DEVNULL,
-                                 stdout=output, stderr=output, start_new_session=True)
+        child = subprocess.Popen([sys.executable, "-E", "-s", vr.__file__, str(path)], cwd=tmp_path,
+                                 stdin=subprocess.DEVNULL, stdout=output, stderr=output, start_new_session=True)
         try:
             deadline = time.monotonic() + 10
             run = {"workdir": str(tmp_path), "qmp": plan["qmp"]}

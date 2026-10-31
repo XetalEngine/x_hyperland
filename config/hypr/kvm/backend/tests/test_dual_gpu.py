@@ -729,6 +729,8 @@ def test_launch_uses_global_vm_lock_and_no_single_gpu_hooks(cfg, tmp_path, monke
     argv = command.call_args.args[0]
     assert argv[argv.index("--unit") + 1] == "vmstart2-vm"
     assert any(s.endswith("dual_runtime.py") for s in argv)
+    assert f"--property=StandardOutput=append:{tmp_path}/output.log" in argv
+    assert f"--property=StandardError=append:{tmp_path}/output.log" in argv
     assert dg.current_run() == run
     assert not vg.current_path().exists()
     forbidden.assert_not_called()

@@ -144,6 +144,92 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(devices['0000:01:00.0']['romfile'],'/fixture/validated.rom')
         self.assertNotIn('romfile',devices['0000:01:00.1'])
 
+    def gpu_wizard_fixture(self):
+        import hostinfo
+        wizard=self.window.tab_wizard
+        gpus=[dict(slot=slot,device='Fixture GPU',functions=[dict(slot=slot),dict(slot=slot[:-1]+'1')])
+              for slot in ('0000:01:00.0','0000:02:00.0')]
+        self.window.cfg.devices.extend([
+            dict(driver='vfio-pci',host='0000:01:00.0',id='fixture-gpu',romfile='/old-machine/gpu.rom'),
+            dict(driver='vfio-pci',host='0000:01:00.1',id='fixture-audio'),
+        ])
+        for mock in (patch.object(hostinfo,'gpus',return_value=gpus),
+                     patch.object(hostinfo,'pci_devices',return_value=[]),
+                     patch.object(wizard,'_baseline_pci_matches',return_value=True)):
+            mock.start();self.addCleanup(mock.stop)
+        wizard.go(5)
+        return wizard
+
+    def test_wizard_rom_starts_empty_and_browse_choice_stays_with_its_gpu(self):
+        from PyQt6.QtWidgets import QFileDialog
+        wizard=self.gpu_wizard_fixture()
+        self.assertEqual(wizard.gpu_combo.currentData(),'0000:01:00.0')
+        self.assertEqual(wizard.gpu_rom.text(),'')
+        self.assertTrue(wizard.gpu_autodump.isEnabled())
+        devices=copy.deepcopy(self.window.cfg.devices)
+        with patch.object(QFileDialog,'getOpenFileName',return_value=('/chosen/gpu.rom','')):
+            wizard.gpu_browse.click()
+        wizard.gpu_combo.setCurrentIndex(2)
+        self.assertEqual(wizard.gpu_rom.text(),'')
+        wizard.gpu_combo.setCurrentIndex(1)
+        self.assertEqual(wizard.gpu_rom.text(),'/chosen/gpu.rom')
+        wizard.go(6);wizard.go(5)
+        self.assertEqual(wizard.gpu_rom.text(),'/chosen/gpu.rom')
+        wizard.gpu_combo.setCurrentIndex(0)
+        self.assertFalse(wizard.gpu_autodump.isEnabled())
+        self.assertEqual(self.window.cfg.devices,devices)
+
+    def test_wizard_autodump_uses_shared_worker_and_applies_only_on_next(self):
+        import gpu_rom
+        from PyQt6.QtWidgets import QMessageBox
+        wizard=self.gpu_wizard_fixture();before=copy.deepcopy(self.window.cfg.devices)
+        with patch.object(gpu_rom,'capture',return_value='/fixture/prepared.rom') as capture, \
+             patch.object(self.window,'_busy',return_value=False),patch.object(QMessageBox,'information'):
+            wizard.gpu_autodump.click();self.wait_for_operation()
+        capture.assert_called_once_with('0000:01:00.0')
+        self.assertEqual(wizard.gpu_rom.text(),'/fixture/prepared.rom')
+        self.assertIn('automatically dumped',wizard.gpu_rom_status.text())
+        self.assertTrue(wizard.btn_next.isEnabled())
+        self.assertEqual(self.window.cfg.devices,before)
+        wizard.next_action()
+        devices={d['host']:d for d in self.window.cfg.devices if d.get('driver')=='vfio-pci' and not d.get('_disabled')}
+        self.assertEqual(devices['0000:01:00.0']['romfile'],'/fixture/prepared.rom')
+        self.assertNotIn('romfile',devices['0000:01:00.1'])
+
+    def test_wizard_autodump_failure_restores_controls_and_preserves_path(self):
+        import gpu_rom
+        from PyQt6.QtWidgets import QMessageBox
+        wizard=self.gpu_wizard_fixture();wizard.gpu_rom.setText('/chosen/working.rom')
+        with patch.object(gpu_rom,'capture',side_effect=RuntimeError('ROM unavailable. Use Browse.')), \
+             patch.object(self.window,'_busy',return_value=False),patch.object(QMessageBox,'warning') as warning:
+            wizard.gpu_autodump.click();self.wait_for_operation()
+        warning.assert_called_once()
+        self.assertEqual(wizard.gpu_rom.text(),'/chosen/working.rom')
+        self.assertTrue(wizard.gpu_autodump.isEnabled())
+        self.assertTrue(wizard.btn_next.isEnabled())
+        self.assertIn('Retry or Browse',wizard.gpu_rom_status.text())
+
+    def test_wizard_empty_rom_does_not_dump_implicitly_on_next(self):
+        wizard=self.gpu_wizard_fixture()
+        with patch.object(wizard,'capture_gpu_rom',side_effect=AssertionError('Next unexpectedly dumped the GPU')):
+            self.assertTrue(wizard.next_action())
+        devices=[d for d in self.window.cfg.devices if d.get('driver')=='vfio-pci' and not d.get('_disabled')]
+        self.assertTrue(devices)
+        self.assertFalse(any(d.get('romfile') for d in devices))
+
+    def test_wizard_dump_cannot_advance_or_update_a_rebuilt_step(self):
+        wizard=self.gpu_wizard_fixture();callbacks=[]
+        with patch.object(wizard,'capture_gpu_rom',side_effect=lambda slot,done:callbacks.append(done)):
+            wizard.gpu_autodump.click()
+        self.assertFalse(wizard.btn_next.isEnabled())
+        self.assertFalse(wizard.gpu_combo.isEnabled())
+        self.assertFalse(wizard.next_action())
+        wizard.go(6);wizard.go(5)
+        self.application.sendPostedEvents(None,self.kvm.QEvent.Type.DeferredDelete)
+        callbacks[0]('/stale/another-gpu.rom')
+        self.assertEqual(wizard.gpu_rom.text(),'')
+        self.assertTrue(wizard.btn_next.isEnabled())
+
     def test_missing_tpm_highlights_page_and_offers_setup(self):
         import health
         health.refresh(self.window)
