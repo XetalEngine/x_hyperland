@@ -1,6 +1,9 @@
 [DetailsMode]
 RightPadding=0
 
+[Desktop Entry]
+DefaultProfile=Xetal-Dolphin.profile
+
 [General]
 Version=202
 

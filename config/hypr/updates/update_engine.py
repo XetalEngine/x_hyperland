@@ -22,7 +22,8 @@ KEEP = {'control_center/displays.conf', 'control_center/workspaces.conf',
         'wallpaper/selection.json', 'wallpaper/hyprpaper.conf',
         'waybar/style.css', 'waybar/updates.css', 'swaync/style.css', 'theme/current.colors',
         'theme/kitty-colors.conf', 'dolphin/config/kdeglobals',
-        'dolphin/data/user-places.xbel', 'dolphin/config/user-dirs.dirs'}
+        'dolphin/data/user-places.xbel', 'dolphin/config/user-dirs.dirs',
+        'dolphin/data/konsole/Xetal-Dolphin.profile', 'dolphin/data/konsole/Xetal-Dolphin.colorscheme'}
 
 
 def now(): return datetime.now(timezone.utc).isoformat()

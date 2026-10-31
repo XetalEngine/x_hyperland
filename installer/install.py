@@ -14,7 +14,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import xml.etree.ElementTree as ET
 
 import dependencies
 import runtime_install
@@ -23,6 +22,22 @@ REPO=Path(__file__).resolve().parents[1]
 PAYLOAD=REPO/'config/hypr'
 sys.path.insert(0, str(PAYLOAD/'compat'))
 import hypr_compat
+sys.path.insert(0, str(PAYLOAD))
+from dolphin import profile as dolphin_profile
+
+DOLPHIN_DEFAULTS = {'dolphin/config/dolphinrc', 'dolphin/config/kdeglobals',
+                    'dolphin/config/kservicemenurc',
+                    'dolphin/data/kio/servicemenus/hyprland-wallpaper.desktop'}
+
+
+def payload_ignored(directory, names):
+    ignored = set(shutil.ignore_patterns('__pycache__','*.pyc','*.so','*.o','*.lock','build','.build',
+                 'cache','state','font-cache','qt-settings','window-preview','version.txt')(directory, names))
+    relative = Path(directory).relative_to(PAYLOAD).as_posix()
+    if relative in ('dolphin/config', 'dolphin/data') or relative.startswith(('dolphin/config/', 'dolphin/data/')):
+        ignored.update(name for name in names if not any(
+            path == relative+'/'+name or path.startswith(relative+'/'+name+'/') for path in DOLPHIN_DEFAULTS))
+    return ignored
 
 
 def safe_home(home):
@@ -66,9 +81,7 @@ def render(stage, home, monitors, profile='auto', startup=True):
     safe_home(home)
     check_kvm_payload(PAYLOAD)
     target=home/'.config/hypr'
-    shutil.copytree(PAYLOAD,stage,dirs_exist_ok=True,
-                    ignore=shutil.ignore_patterns('__pycache__','*.pyc','*.so','*.o','*.lock','build','.build',
-                        'cache','state','font-cache','qt-settings','window-preview','version.txt'))
+    shutil.copytree(PAYLOAD,stage,dirs_exist_ok=True,ignore=payload_ignored)
     for p in stage.rglob('*'):
         if not p.is_file():continue
         try:text=p.read_text()
@@ -119,16 +132,8 @@ def render(stage, home, monitors, profile='auto', startup=True):
     if not startup:
         p=stage/'hyprland.conf';p.write_text(p.read_text().replace('exec-once = ~/.config/hypr/scripts/startup-scene.sh --login','# Login animation disabled by installer; Super+D remains available.'))
     # Portable Places; never publish the author's private paths or recent files.
-    places=ET.Element('xbel',{'version':'1.0'})
-    entries=[('Home',home,'user-home')]+[(name,home/name,icon) for name,icon in [
-        ('Desktop','user-desktop'),('Documents','folder-documents'),('Downloads','folder-download'),
-        ('Music','folder-music'),('Pictures','folder-pictures'),('Videos','folder-videos')]]
-    for label,path,icon in entries:
-        bookmark=ET.SubElement(places,'bookmark',{'href':path.as_uri()});ET.SubElement(bookmark,'title').text=label
-        metadata=ET.SubElement(ET.SubElement(bookmark,'info'),'metadata',{'owner':'http://freedesktop.org'})
-        ET.SubElement(metadata,'{http://www.freedesktop.org/standards/desktop-bookmarks}icon',{'name':icon})
-    directory=stage/'dolphin/data';directory.mkdir(parents=True,exist_ok=True)
-    ET.ElementTree(places).write(directory/'user-places.xbel',encoding='utf-8',xml_declaration=True)
+    dolphin_profile.write_changed(stage/'dolphin/data/user-places.xbel', dolphin_profile.default_places(home))
+    dolphin_profile.prepare_terminal(stage)
     # Copy the recipient's XDG directory locations, without invoking a shell or
     # creating/changing any of those folders.
     user_dirs=home/'.config/user-dirs.dirs'

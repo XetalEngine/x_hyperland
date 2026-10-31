@@ -13,6 +13,18 @@ config/hypr/theme/qt-settings/
 config/hypr/theme/backgrounds/
 config/hypr/dolphin/cache/
 config/hypr/dolphin/state/
+# Dolphin writes bookmarks, history, sessions and application data locally.
+# Only these portable defaults belong in a release.
+config/hypr/dolphin/config/*
+!config/hypr/dolphin/config/dolphinrc
+!config/hypr/dolphin/config/kdeglobals
+!config/hypr/dolphin/config/kservicemenurc
+config/hypr/dolphin/data/*
+!config/hypr/dolphin/data/kio/
+config/hypr/dolphin/data/kio/*
+!config/hypr/dolphin/data/kio/servicemenus/
+config/hypr/dolphin/data/kio/servicemenus/*
+!config/hypr/dolphin/data/kio/servicemenus/hyprland-wallpaper.desktop
 config/hypr/startup/state/
 config/hypr/assets/font-cache/
 .xetal-install.json

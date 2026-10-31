@@ -117,6 +117,7 @@ DecorationFocus=136,182,217
 DecorationHover=136,182,217
 
 [General]
+TerminalApplication=kitty --config @HYPR@/kitty.conf
 ColorScheme=XetalModernDark
 Name=Breeze Dark
 Name[ar]=نسيم داكن

@@ -3,6 +3,8 @@
 set -euo pipefail
 [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] || exit 1
 base="$HOME/.config/hypr/dolphin"
+# A color refresh must not prevent file access after an interrupted update.
+python3 "$base/profile.py" || true
 export XDG_CONFIG_HOME="$base/config"
 export XDG_DATA_HOME="$base/data"
 export XDG_STATE_HOME="$base/state"

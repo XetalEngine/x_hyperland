@@ -3,11 +3,13 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from unittest.mock import patch
 
 REPO=Path(__file__).resolve().parents[1]
@@ -104,6 +106,73 @@ class InstallerTests(unittest.TestCase):
         self.assertIn('monitor=,preferred,auto,auto',(self.stage/'hyprland.conf').read_text())
         self.assertRegex((self.stage/'wallpaper/hyprpaper.conf').read_text(),r'monitor =\s*\n')
         self.assertEqual(json.loads((self.stage/'wallpaper/selection.json').read_text()),{})
+
+    def test_places_use_recipient_folders_without_importing_private_bookmarks(self):
+        (self.home/'Desktop').mkdir()
+        (self.home/'Mes documents').mkdir()
+        (self.home/'.config/user-dirs.dirs').write_text(
+            'XDG_DOCUMENTS_DIR="$HOME/Mes documents"\nXDG_DOWNLOAD_DIR="$HOME"\n'
+            'XDG_MUSIC_DIR="/missing/music"\nXDG_VIDEOS_DIR="$(touch '+str(self.home/'unexpected')+')"\n')
+        personal=self.home/'.local/share/user-places.xbel';personal.parent.mkdir(parents=True)
+        personal.write_text('<xbel><bookmark href="file:///home/developer/private"><title>Author bookmark</title></bookmark></xbel>')
+        self.render()
+        places=ET.parse(self.stage/'dolphin/data/user-places.xbel').getroot()
+        self.assertEqual({item.get('href') for item in places.findall('bookmark')},
+                         {self.home.as_uri(),(self.home/'Desktop').as_uri(),(self.home/'Mes documents').as_uri(),'trash:/','remote:/'})
+        self.assertFalse((self.home/'unexpected').exists())
+        self.assertIn('Author bookmark',personal.read_text())
+
+    def test_private_dolphin_data_is_excluded_even_from_a_used_source_checkout(self):
+        source=self.root/'source'
+        shutil.copytree(install.PAYLOAD,source,ignore=shutil.ignore_patterns('__pycache__','.build','build'))
+        private=('dolphin/data/user-places.xbel','dolphin/data/user-places.xbel.bak',
+                 'dolphin/data/recently-used.xbel','dolphin/data/Trash/files/private.txt',
+                 'dolphin/data/konsole/Personal.profile','dolphin/config/browser/private.json')
+        for name in private:
+            path=source/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text('PRIVATE DEVELOPER DATA')
+        with patch.object(install,'PAYLOAD',source):self.render()
+        for name in private:
+            path=self.stage/name
+            if path.exists():self.assertNotIn('PRIVATE DEVELOPER DATA',path.read_text(),name)
+        self.assertTrue((self.stage/'dolphin/data/kio/servicemenus/hyprland-wallpaper.desktop').is_file())
+        self.assertTrue((self.stage/'dolphin/data/konsole/Xetal-Dolphin.profile').is_file())
+
+    def test_embedded_terminal_follows_kitty_colors_when_dolphin_opens(self):
+        import configparser
+        self.render()
+        colors=self.stage/'theme/kitty-colors.conf'
+        for background,foreground in (('#10191f','#e5f1f8'),('#ffffff','#1f3043'),('#000000','#ffffff')):
+            text=colors.read_text()
+            text=re.sub(r'^background .*$', 'background '+background, text, flags=re.M)
+            text=re.sub(r'^foreground .*$', 'foreground '+foreground, text, flags=re.M)
+            colors.write_text(text)
+            install.dolphin_profile.prepare_terminal(self.stage)
+            scheme=configparser.ConfigParser()
+            scheme.read(self.stage/'dolphin/data/konsole/Xetal-Dolphin.colorscheme')
+            for group,expected in (('Background',background),('Foreground',foreground)):
+                actual='#'+''.join(f'{int(channel):02x}' for channel in scheme[group]['Color'].split(','))
+                self.assertEqual(actual,expected)
+            for i in range(8):
+                for suffix in ('','Intense','Faint'):self.assertIn('Color',scheme['Color'+str(i)+suffix])
+        self.assertIn('DefaultProfile=Xetal-Dolphin.profile',(self.stage/'dolphin/config/dolphinrc').read_text())
+        self.assertIn('TerminalApplication=kitty --config '+str(self.target/'kitty.conf'),
+                      (self.stage/'dolphin/config/kdeglobals').read_text())
+
+    def test_existing_dolphin_profiles_receive_missing_defaults_without_losing_choices(self):
+        self.render()
+        config=self.stage/'dolphin/config/dolphinrc'
+        config.write_text('MenuBar=Disabled\n[General]\nVersion=202\n')
+        globals=self.stage/'dolphin/config/kdeglobals'
+        globals.write_text('[General]\nColorScheme=Personal\n[Icons]\nTheme=Personal\n')
+        install.dolphin_profile.prepare_terminal(self.stage)
+        self.assertIn('DefaultProfile=Xetal-Dolphin.profile',config.read_text())
+        self.assertIn('TerminalApplication=kitty --config '+str(self.stage/'kitty.conf'),globals.read_text())
+        config.write_text(config.read_text().replace('Xetal-Dolphin.profile','MyTerminal.profile'))
+        globals.write_text(globals.read_text().replace('TerminalApplication=kitty --config '+str(self.stage/'kitty.conf'),
+                                                     'TerminalApplication=alacritty'))
+        before=(config.read_bytes(),globals.read_bytes())
+        install.dolphin_profile.prepare_terminal(self.stage)
+        self.assertEqual(before,(config.read_bytes(),globals.read_bytes()))
 
     def test_kvm_runtime_payload_cannot_be_accidentally_shipped(self):
         source=self.root/'payload';(source/'kvm').mkdir(parents=True)
