@@ -38,6 +38,8 @@ You can also choose **Code → Download ZIP** on GitHub, extract the whole archi
 
 The installer checks dependencies, offers distribution packages, builds the native components, and validates the complete configuration. It backs up your existing `~/.config/hypr` before installation. **Log out and select Hyprland again** to start the complete desktop.
 
+Hyprland 0.57 uses Lua configuration. The installer selects the matching entry point automatically; settings pages, hotkeys and desktop commands support both 0.56.2 and 0.57.0. Burn and Cube still require their supported 0.56.2 native adapter.
+
 | Tested environment | Requirements |
 | --- | --- |
 | Arch Linux / CachyOS | Hyprland **0.56+**, Waybar **0.15+**, Kitty **0.49+**, Hyprpaper **0.8+**, Python **3.11+**, Git, Qt 5/6 development libraries, and the Hyprland portal |

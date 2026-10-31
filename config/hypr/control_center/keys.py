@@ -10,10 +10,13 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT/'compat'))
+import hypr_compat
 STATE = Path.home() / '.local/state/hyprland-control'
 CATEGORIES = ['Window hover', 'Applications', 'Workspaces', 'Media & Devices', 'System']
 SOURCE = 'source = ~/.config/hypr/keybindings.conf'
@@ -330,9 +333,11 @@ class Store:
             raise ConfigError('Expected one managed keybindings source in hyprland.conf; nothing was changed.')
         with tempfile.TemporaryDirectory(prefix='.hotkey-check-', dir=self.root) as temporary:
             test_keys = Path(temporary) / 'keybindings.conf'
-            test_main = Path(temporary) / 'hyprland.conf'
             test_keys.write_text(serialize(bindings))
-            test_main.write_text(main_text.replace(SOURCE, f'source = {test_keys}'))
+            try:
+                test_main = hypr_compat.candidate(self.root, temporary, main_text.replace(SOURCE, f'source = {test_keys}'))
+            except (ValueError, OSError) as error:
+                raise ConfigError('Hyprland rejected these changes:\n'+str(error)) from error
             result = self.run(['Hyprland', '--verify-config', '--config', str(test_main)])
             output = re.sub(r'\x1b\[[0-9;]*m', '', result.stdout + result.stderr)
             if result.returncode or 'config ok' not in output:

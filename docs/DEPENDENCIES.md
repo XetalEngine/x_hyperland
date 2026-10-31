@@ -17,6 +17,10 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 
 The custom Waybar modules use its CFFI v2 interface and its 0.15 workspace taskbar structure. Qt theme plugins use private APIs and are built against the installed Qt versions; session startup checks and rebuilds them after Qt changes. Their source is included.
 
+[Hyprland 0.57](https://github.com/hyprwm/Hyprland/releases/tag/v0.57.0) removed the hyprlang parser. On that version the installer supplies `hyprland.lua`, which reads the managed `.conf` settings through `compat/hypr_compat.py` and calls the native Lua API. The editors retain their metadata, conflict checks, backups and rollback. Configuration is validated using the installed compositor before activation or a settings save. Unsupported custom syntax produces an error with its source location instead of being dropped. Manual `.conf` edits require `hyprctl reload` on Lua sessions; the settings pages reload automatically.
+
+The compatibility `hyprctl` lives inside the profile and is inherited only by applications launched through this desktop's commands. It translates legacy desktop actions and live settings to Lua; native queries pass through. It does not replace `/usr/bin/hyprctl`, change shell profiles, or export its PATH to D-Bus/systemd. Hyprland 0.56.2 continues to use its native `.conf` entry point.
+
 The C++ [Control Panel](CONTROL-PANEL.md) builds from the included CachyOsTools engine. Its Arch-specific system/ISO tools retain their own runtime requirements. Qt SVG supplies its themed icons; translation build tools are packaged as `qt6-tools` on Arch, [qt6-qttools-devel/qt6-linguist on Fedora](https://packages.fedoraproject.org/pkgs/qt6-qttools/), and `qt6-tools-dev` plus [qt6-l10n-tools on Debian](https://packages.debian.org/sid/utils/qt6-l10n-tools).
 
 The private GTK 3 preview module is built by the same theme builder. Qt previews use Qt Concurrent for background loading; both dependencies are supplied by the existing GTK/Qt development package recipes. See [file picker coverage](FILE-PREVIEWS.md).

@@ -1,0 +1,10 @@
+#!/usr/bin/python3
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from hypr_compat import cli
+try:
+    sys.exit(cli(sys.argv[1:]))
+except (ValueError, OSError) as error:
+    print(str(error), file=sys.stderr)
+    sys.exit(1)

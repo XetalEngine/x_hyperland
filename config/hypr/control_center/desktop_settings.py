@@ -183,7 +183,7 @@ class Store:
         if main.count(self.source) != 1: raise ValueError('The settings source is missing or duplicated in hyprland.conf.')
         with tempfile.TemporaryDirectory(prefix='.settings-check-', dir=self.root) as directory:
             candidate = Path(directory)/'settings.conf'; candidate.write_text(content)
-            test = Path(directory)/'hyprland.conf'; test.write_text(main.replace(self.source, 'source = '+str(candidate)))
+            test = keys.hypr_compat.candidate(self.root, directory, main.replace(self.source, 'source = '+str(candidate)))
             result = self.run(['Hyprland', '--verify-config', '--config', str(test)])
             if 'config ok' not in result: raise ValueError('Hyprland rejected the settings:\n'+result[-4000:])
         if self.load()[1] != expected: raise ValueError('Configuration changed during validation. Reload before applying.')

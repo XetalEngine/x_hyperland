@@ -1,5 +1,33 @@
 # Validation
 
+## Hyprland 0.57 fresh installation — 31 October 2026
+
+The fresh Arch failure `unexpected symbol near '#'` came from 0.57 parsing
+the legacy `.conf` entry as Lua. The installer now selects the matching entry
+point and validates the actual staged Lua reader as well as its settings.
+The reader reports unsupported syntax rather than discarding it.
+
+Validation used the official Arch Hyprland 0.57.0 executable, extracted into
+a temporary directory without replacing the development desktop's 0.56.2.
+A clean recipient profile completed all native component builds and full
+configuration validation. Native libraries were built against this workstation's
+installed headers; Burn/Cube remain gated to their existing 0.56.2 ABI and were
+not loaded into 0.57.
+
+The installer/archive and compatibility checks passed (36 tests). The 30 hotkey
+and desktop-settings checks passed with both compositor versions. The 25 updater
+checks and 18 floating-window checks passed. Lua regression coverage includes
+complete sourced settings, candidate edits, rejection without writes, escaped
+commands, capture submaps and verification without running startup/reload commands.
+
+A disposable nested 0.57 session with a real Qt Wayland window also passed
+workspace switching, capture submap entry/exit, option updates, named-rule batches,
+floating launch rules, focus, move, resize, tags, silent workspace moves, close and
+reload. A batch containing quoted semicolons retained its command arguments.
+The test used a separate home/runtime directory, excluded DRM devices and disabled
+systemd/D-Bus environment updates. All 133 recorded shared/KDE hashes and both
+saved KVM profile hashes remained unchanged. No VM was launched.
+
 ## Taskbar crash recovery — 28 October 2026
 
 A live Waybar 0.15.0 crash after `SIGUSR2` reload reached the media-player

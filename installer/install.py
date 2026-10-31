@@ -20,6 +20,8 @@ import dependencies
 
 REPO=Path(__file__).resolve().parents[1]
 PAYLOAD=REPO/'config/hypr'
+sys.path.insert(0, str(PAYLOAD/'compat'))
+import hypr_compat
 
 
 def safe_home(home):
@@ -132,6 +134,7 @@ def render(stage, home, monitors, profile='auto', startup=True):
     if user_dirs.is_file():shutil.copy2(user_dirs,stage/'dolphin/config/user-dirs.dirs')
     for directory in ('dolphin/cache','dolphin/state','apps','assets/font-cache'):(stage/directory).mkdir(parents=True,exist_ok=True)
     subprocess.run([sys.executable,str(stage/'theme/update_widget.py')],check=True)
+    hypr_compat.install_entry(stage)
     return target
 
 
@@ -196,9 +199,7 @@ def validate(stage):
     # Validate every sourced file from the staged tree. The live config is never
     # borrowed and --verify-config does not run exec/exec-once commands.
     with tempfile.TemporaryDirectory(prefix='.verify-',dir=stage) as temporary:
-        candidate=Path(temporary)/'hyprland.conf'
-        text=(stage/'hyprland.conf').read_text().replace('~/.config/hypr/',str(stage)+'/')
-        candidate.write_text(text)
+        candidate=hypr_compat.candidate(stage, temporary)
         result=subprocess.run(['Hyprland','--verify-config','--config',str(candidate)],capture_output=True,text=True)
         if result.returncode or 'config ok' not in result.stdout:
             raise RuntimeError('Full Hyprland validation failed:\n'+result.stdout[-4000:]+result.stderr[-1000:])

@@ -143,12 +143,13 @@ def activate(root=None, state=None):
             engine.check_plan(root, stage, plan)
             if not pending.get('rollback'):
                 with tempfile.TemporaryDirectory(prefix='verify-', dir=state) as directory:
-                    candidate = Path(directory)/'hyprland.conf'
-                    candidate.write_text((stage/'hyprland.conf').read_text().replace('~/.config/hypr/', str(stage)+'/'))
+                    sys.path.insert(0, str(stage/'compat'))
+                    import hypr_compat
+                    candidate = hypr_compat.candidate(stage, directory)
                     checked = subprocess.run(['Hyprland', '--verify-config', '--config', str(candidate)], capture_output=True, text=True, timeout=30)
                     if checked.returncode or 'config ok' not in checked.stdout:
                         raise RuntimeError('This update needs preparation for the current Hyprland version. Your desktop was kept.')
-        except RuntimeError as error:
+        except (RuntimeError, ValueError, OSError, subprocess.SubprocessError) as error:
             (state/'pending.json').unlink()
             publish(state, phase='attention', message=str(error), retry_prepare=True)
             return False

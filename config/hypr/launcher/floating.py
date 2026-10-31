@@ -15,6 +15,9 @@ import tempfile
 import time
 import uuid
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'compat'))
+from hypr_compat import ipc as compatible_ipc
+
 STATE = Path(__file__).resolve().parent / 'floating-sizes.json'
 TAG = re.compile(r'^xetal-float-([0-9a-f]{24})-[0-9a-f]{12}\*?$')
 
@@ -124,6 +127,8 @@ class Hypr:
     def __init__(self, root):self.root = root
 
     def command(self, command):
+        if os.environ.get('XETAL_HYPRLAND_LUA') == '1':
+            command = compatible_ipc(command)
         with socket.socket(socket.AF_UNIX) as stream:
             stream.settimeout(2)
             stream.connect(str(self.root / '.socket.sock'))
