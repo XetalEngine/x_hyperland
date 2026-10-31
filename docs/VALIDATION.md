@@ -13,7 +13,7 @@ A complete separate profile built all native components with 32 available CPU
 threads for the Control Panel, including both Cube and Burn, and passed native
 Hyprland configuration validation. The installer, archive, compatibility and
 runtime suites ran **49 checks: 46 passed and three optional 0.57 binary checks
-were skipped**. All **29 updater tests passed**. Coverage includes checksum
+were skipped**. All **30 updater tests passed**. Coverage includes checksum
 rejection, hold preservation, signed-package recovery, same-revision compositor
 repair, background mismatch detection without package writes, activation gates,
 settings preservation, rollback and logout cleanup.

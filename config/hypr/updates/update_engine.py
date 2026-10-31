@@ -20,7 +20,7 @@ IGNORE = {'__pycache__', 'cache', 'state', 'font-cache', 'qt-settings', 'mozilla
 KEEP = {'control_center/displays.conf', 'control_center/workspaces.conf',
         'theme/custom-presets.json',
         'wallpaper/selection.json', 'wallpaper/hyprpaper.conf',
-        'waybar/style.css', 'swaync/style.css', 'theme/current.colors',
+        'waybar/style.css', 'waybar/updates.css', 'swaync/style.css', 'theme/current.colors',
         'theme/kitty-colors.conf', 'dolphin/config/kdeglobals',
         'dolphin/data/user-places.xbel', 'dolphin/config/user-dirs.dirs'}
 

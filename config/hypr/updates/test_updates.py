@@ -62,6 +62,17 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(settings.read_text(),'personal setting')
         self.assertEqual((self.live/'control_panel/.build/xetal-control-panel').read_bytes(),b'new native program')
 
+    def test_generated_badge_css_does_not_conflict_with_a_personal_palette(self):
+        (self.live/'waybar').mkdir()
+        path=self.live/'waybar/updates.css';path.write_text('color: blue;\nold selector\n')
+        engine.write_json(self.live/engine.META,engine.metadata(self.live,OLD))
+        path.write_text('color: cyan;\nold selector\n')
+        (self.upstream/'waybar').mkdir()
+        (self.upstream/'waybar/updates.css').write_text('color: orange;\nnew selector\n')
+        self.prepare()
+        # update.py regenerates this from the merged palette after compilation.
+        self.assertEqual((self.stage/'waybar/updates.css').read_bytes(),path.read_bytes())
+
     def test_overlapping_code_edit_blocks_without_writing_live_files(self):
         (self.live/'code.py').write_text('my code\n'); (self.upstream/'code.py').write_text('new code\n')
         with self.assertRaisesRegex(RuntimeError, 'overlap'): self.prepare()
