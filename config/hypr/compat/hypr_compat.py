@@ -112,6 +112,11 @@ def dispatcher(name, args=''):
         return call('dsp.window.float', options)
     if name in ('closewindow', 'killwindow'):
         return call('dsp.window.'+('close' if name == 'closewindow' else 'kill'), {'window': args})
+    if name == 'alterzorder':
+        values = args.split(',', 1)
+        options = {'mode': values[0].strip()}
+        if len(values)>1 and values[1].strip(): options['window'] = values[1].strip()
+        return call('dsp.window.alter_zorder', options)
     if name == 'fullscreen':
         values = args.split()
         return call('dsp.window.fullscreen', {'mode': 'maximized' if values and values[0] == '1' else 'fullscreen',

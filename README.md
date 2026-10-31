@@ -234,6 +234,8 @@ System information, Matrix rain and a large digital clock sit beside **six float
 | **Super+number** | Switch workspace |
 | **Super+Shift+number** | Move the focused app to that workspace |
 | **Super+V** | Toggle floating |
+| **Super+F / Super+B** | Bring the active window to front / send it to back |
+| **Super+Shift+F** | Toggle fullscreen |
 | **Ctrl+click an app** | Launch floating once |
 | **Super+C** | Close the focused window |
 | **Super+Shift+K** | Force-kill the app under the pointer |
@@ -246,6 +248,8 @@ System information, Matrix rain and a large digital clock sit beside **six float
 | **Print / Shift+Print** | Capture an area / all displays |
 
 Force-kill is for stuck applications and can lose unsaved work. It targets the app's process, so other windows in that same process may also close. Use normal Close when possible. All bindings remain editable in Fusion Settings.
+
+Front/back changes the stacking order of overlapping windows. It does not move or resize them; tiled windows keep their layout. The shortcuts are also listed in the window shortcut overlay.
 
 <details>
 <summary><strong>Installer options, backups & portability</strong></summary>
