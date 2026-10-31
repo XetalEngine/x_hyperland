@@ -20,6 +20,10 @@ def snapshot(occupied=False, active=5):
 
 
 class RemovalTests(unittest.TestCase):
+    def setUp(self):
+        environment=patch.dict('os.environ', {'HYPRLAND_INSTANCE_SIGNATURE':'test-no-live-session'})
+        environment.start();self.addCleanup(environment.stop)
+
     def test_active_empty_chooses_same_display_and_inactive_never_switches(self):
         target, fallback = remove.removal_target(5,'DP-1',*snapshot())
         self.assertEqual(fallback['id'],2)

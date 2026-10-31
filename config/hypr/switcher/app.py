@@ -23,7 +23,8 @@ from desktop_settings import ctl
 sys.path.insert(0,str(ROOT/'theme'))
 import runtime as theme_runtime
 sys.path.insert(0, str(ROOT))
-from switcher import preferences, overlay
+from switcher import preferences, overlay, placement
+import monitor_preferences
 from switcher.scene import Scene, sample_clients, sample_pictures
 from switcher.previews import PreviewQueue
 
@@ -113,6 +114,8 @@ class Switcher(QWidget):
         self.monitor = next((m for m in monitors if m.get('focused')), monitors[0] if monitors else None)
         self.monitors = {m['id']: (i+1, m['name']) for i, m in enumerate(monitors)}
         chosen = scoped(clients, self.options, active, self.monitor)
+        pointer = json.loads(ctl('-j', 'cursorpos')) if self.options['placement'] == 'pointer' else None
+        self.monitor = monitor_preferences.select(monitors, self.options['placement'], pointer=pointer)
         self.populate(chosen, self.monitors)
         if not self.clients: return
         # When the active window is excluded, start at the first candidate rather
@@ -120,6 +123,7 @@ class Switcher(QWidget):
         starts_here = self.clients[0]['address'] == self.original
         self.select((direction if starts_here else (0 if direction > 0 else -1)) % len(self.clients), False)
         self.fit_monitor(); self.generation += 1
+        if self.monitor: placement.prepare(self.monitor,self.width(),self.height(),ctl)
         self.show(); self.raise_(); self.activateWindow(); self.scene.setFocus()
         if self.options['live_previews'] and self.options['style'] != 'fusion':
             self.queue.start(self.options['preview_fps']); self.request_previews()

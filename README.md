@@ -135,7 +135,7 @@ Press **Super+K** or click **Keys**. The desktop's controls live together, with 
 | **Network & Bluetooth** | Inspect and manage connections, Wi-Fi, VPNs and paired devices through the session's controls. |
 | **Displays** | Drag monitor rectangles; change resolution, refresh, scale, position, rotation and mirroring with timed **Keep/Revert** protection. |
 | **Input** | Adjust keyboard, mouse and touchpad preferences. |
-| **Theme** | Presets, independent navigation Design, named Custom combinations, Start Menu, Task Switcher, wallpapers, File Transfer, Burn, Cube + 3D Windows, borders, gaps, blur, shadows and animation settings. |
+| **Theme** | Presets, independent navigation Design, named Custom combinations, Start Menu, Task Switcher, Cursors, wallpapers, File Transfer, Burn, Cube + 3D Windows, borders, gaps, blur, shadows and animation settings. |
 | **Context Menu** | Build and style the wallpaper menu, including its actions and hotkeys. |
 | **Calendar & System** | Browse dates, inspect system information, lock and access session/power controls. Logout asks for confirmation. |
 | **Terminal** | Choose an Arch or Fusion logo, information fields, username and palette for the Fastfetch-powered welcome. Colors follow the active desktop palette; aliases remain in your own shell configuration. |
@@ -152,6 +152,18 @@ The separate Fusion Kitty profile loads your usual shell rc file and then the th
 ### Burn
 
 Close a window and watch it burn away with the **original Compiz particle flame and smoke**. Configure the nine Burn options, RGBA flame color/opacity, direction, particle count, size, life, slowdown, constant speed, mystical fire, duration and time step. Toggle it, restore Compiz defaults, or try a disposable preview window.
+
+### Cursors and workspace navigation
+
+**Theme → Cursors** offers Pearl, Carbon, Neon Cyan, Orchid and Ember, with adjustable
+size, Comet / Soft glow / Stardust trails, and optional click ripples. Cursor artwork
+is built locally during installation. Effects default to off and stop rendering
+when idle. [Cursor guide](config/hypr/cursors/README.md).
+
+Cube defaults to four workspaces per monitor, each labeled 1–4. Workspace shortcuts
+follow the mouse. Turn Cube off to return to global workspace numbers; choose
+cube rotation or standard animation in the Cube page. Displays & Arrangement lets
+you select the primary monitor, which can also host the task switcher.
 
 ### Desktop Cube + 3D Windows
 

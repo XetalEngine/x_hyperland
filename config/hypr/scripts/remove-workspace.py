@@ -75,6 +75,9 @@ def monitor_at(monitors, x, y):
 
 
 def remove(number, x, y):
+    sys.path.insert(0,str(Path(__file__).resolve().parent))
+    from workspace import cube_enabled
+    if cube_enabled():raise ValueError('Desktop Cube uses four fixed workspaces on each monitor.')
     store = settings.Store('workspaces')
     store.state.mkdir(parents=True, exist_ok=True, mode=0o700)
     # Serialize + and × so a new workspace cannot reuse an ID mid-transaction.

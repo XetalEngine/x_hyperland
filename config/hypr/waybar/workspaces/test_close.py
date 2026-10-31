@@ -24,8 +24,9 @@ def run():
         flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','gtk+-3.0','gtk-layer-shell-0'],text=True))
         subprocess.run(['cc','-Wall','-Wextra','-Werror','-Wno-unused-parameter',str(ROOT/'test-close.c'),'-o',str(binary),*flags],check=True)
         with (root/'log').open('w+') as log:
+            runtime=root/'runtime';state=runtime/'hypr/test/xetal-cube-faces';state.parent.mkdir(parents=True)
             proc=subprocess.Popen([str(binary),temp],stdout=log,stderr=log,
-                                  env={**os.environ,'NO_AT_BRIDGE':'1'})
+                                  env={**os.environ,'NO_AT_BRIDGE':'1','XDG_RUNTIME_DIR':str(runtime),'HYPRLAND_INSTANCE_SIGNATURE':'test'})
             def xdo(*args):
                 return subprocess.check_output(['xdotool',*map(str,args)],text=True).strip()
             def geometry():
@@ -48,6 +49,16 @@ def run():
                 _,x,y,*_=geometry();click(x,y)
                 assert actions()[-1]=='remove-workspace.py 5',actions()
                 xdo('key','b');wait_for(lambda:geometry()[0]==1,'Module teardown/reload failed')
+                state.write_text('enabled\n2 1\n5 2\n')
+                def cube_state():
+                    try:return (root/'cube-state').read_text()
+                    except OSError:return ''
+                wait_for(lambda:cube_state()=='1 |2 |0|0', 'Cube labels or disabled add/remove controls are wrong')
+                _,_,_,bx,by=geometry();click(bx,by);assert actions()[-1]=='activate 5',actions()
+                xdo('key','b');time.sleep(.3)
+                assert cube_state()=='1 |2 |0|0',cube_state()
+                state.write_text('disabled\n')
+                wait_for(lambda:cube_state()=='2 |5 |1|1','Global workspace labels were not restored')
                 xdo('key','l');wait_for(lambda:geometry()[0]==0,'Last workspace must keep its number without a close button')
                 assert proc.poll() is None
                 print('PASS: real close click never activates workspace; number click works; occupied/last protection; live empty updates; destroy/recreate; module reload.')

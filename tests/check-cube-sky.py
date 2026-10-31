@@ -89,10 +89,13 @@ animations {
             time.sleep(.5)
             if len(sys.argv) > 3:
                 old = Path(sys.argv[3]).resolve(strict=True)
+                legacy=dict(values);legacy.pop('workspace_animation',None)
+                config.write_text(json.dumps(legacy))
                 assert run('hyprctl', 'plugin', 'load', str(old)) == 'ok'
                 assert status()['enabled']
                 begin(''); finish()
                 assert run('hyprctl', 'plugin', 'unload', str(old)) == 'ok'
+            config.write_text(model.encode(values))
             assert run('hyprctl', 'plugin', 'load', str(binary)) == 'ok'
             run('hyprctl', 'output', 'create', 'wayland'); time.sleep(.3)
             outputs = json.loads(run('hyprctl', '-j', 'monitors'))

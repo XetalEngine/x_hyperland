@@ -173,7 +173,8 @@ class InstallerTests(unittest.TestCase):
             return install.subprocess.CompletedProcess(args,1 if optional else 0,stdout='',stderr='Unsupported compositor ABI' if optional else '')
         with patch.object(install.subprocess,'run',side_effect=command) as run,patch('builtins.print') as message:
             install.build(self.stage)
-        self.assertEqual(run.call_count,8)
+        self.assertEqual(run.call_count,9)
+        self.assertTrue(any(str(call.args[0][-1]).endswith('/cursors/build.py') for call in run.call_args_list))
         self.assertTrue(any('Optional Burn effect unavailable' in str(call) for call in message.call_args_list))
         self.assertTrue(any('Optional Desktop Cube & 3D Windows effect unavailable' in str(call) for call in message.call_args_list))
 

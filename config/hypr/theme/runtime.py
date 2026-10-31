@@ -94,6 +94,14 @@ def environment(base=None, value=None):
         directory=str(ROOT.parent/'desktop'/subdir)
         paths=[directory,*filter(None,env.get(key,fallback).split(':'))]
         env[key]=':'.join(dict.fromkeys(paths))
+    import sys
+    sys.path.insert(0,str(ROOT.parent))
+    from cursors import model as cursor_model
+    try:
+        cursor = cursor_model.load()[0]
+        env.update(XCURSOR_THEME='Xetal-Cursor-'+cursor['style'], XCURSOR_SIZE=str(cursor['size']))
+        env['XCURSOR_PATH'] = str(ROOT.parent/'cursors/.build/data/icons')+':'+env.get('XCURSOR_PATH','/usr/share/icons')
+    except (OSError,ValueError): pass
     value = value or mode()
     paths = [str(ROOT/'qt6'), str(ROOT/'qt5')]
     paths += [p for p in env.get('QT_PLUGIN_PATH','').split(':') if p and p not in paths]

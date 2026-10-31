@@ -14,7 +14,7 @@ PACKAGES = {
         qt5-base qt5-wayland qt6-base qt6-wayland qt6-svg qt6-tools wayland wayland-protocols
         networkmanager network-manager-applet blueman bluez-utils pipewire-pulse wireplumber
         playerctl brightnessctl fastfetch htop libnotify polkit-gnome papirus-icon-theme noto-fonts ttf-dejavu
-        yt-dlp ffmpeg deno sudo xorg-xhost openssl virt-viewer gnutls
+        yt-dlp ffmpeg deno sudo xorg-xhost xorg-xcursorgen hyprcursor openssl virt-viewer gnutls
         base-devel autoconf automake libtool make perl gettext gawk expect socat
         libtasn1 gmp libseccomp fuse3 libei tpm2-tools dmidecode pciutils usbutils
         mtools dosfstools util-linux kmod'''.split(),
@@ -26,18 +26,18 @@ PACKAGES = {
         NetworkManager NetworkManager-tui network-manager-applet nm-connection-editor blueman bluez
         pipewire-pulseaudio wireplumber pulseaudio-utils playerctl brightnessctl fastfetch htop
         libnotify polkit-gnome papirus-icon-theme google-noto-sans-fonts dejavu-sans-fonts dejavu-sans-mono-fonts
-        yt-dlp+default ffmpeg-free nodejs sudo xhost openssl virt-viewer gnutls-utils
+        yt-dlp+default ffmpeg-free nodejs sudo xhost xcursorgen hyprcursor-util openssl virt-viewer gnutls-utils
         autoconf automake libtool make perl gettext gawk expect socat openssl-devel
         libtasn1-devel gmp-devel glib2-devel gnutls-devel libseccomp-devel fuse3-devel libei-devel
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod'''.split(),
     'debian': '''git hyprland hyprpaper hyprlock waybar kitty dolphin sway-notification-center grim slurp wl-clipboard
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
-        python3 python3-psutil python3-pyqt6 python3-gi python3-pil gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1 build-essential cmake libxcb1-dev libxcb-res0-dev pkg-config
+        python3 python3-psutil python3-pyqt6 python3-pyqt6.qtsvg python3-gi python3-pil gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1 build-essential cmake libxcb1-dev libxcb-res0-dev pkg-config
         libgtk-3-dev libgtk-layer-shell-dev libjson-glib-dev libjson-c-dev qtbase5-dev qtbase5-private-dev qtwayland5
         qt6-base-dev qt6-base-dev-tools qt6-base-private-dev qt6-wayland libqt6svg6 qt6-tools-dev qt6-l10n-tools libwayland-dev libwayland-bin wayland-protocols
         network-manager network-manager-gnome blueman bluez pipewire-pulse wireplumber pulseaudio-utils
         playerctl brightnessctl fastfetch htop libnotify-bin policykit-1-gnome papirus-icon-theme fonts-noto-core fonts-dejavu-core
-        yt-dlp ffmpeg nodejs sudo x11-xserver-utils openssl virt-viewer gnutls-bin
+        yt-dlp ffmpeg nodejs sudo x11-xserver-utils x11-apps hyprcursor-util openssl virt-viewer gnutls-bin
         autoconf automake libtool libtool-bin make perl gettext gawk expect socat libssl-dev
         libtasn1-6-dev libgmp-dev libglib2.0-dev libgnutls28-dev libseccomp-dev libfuse3-dev libei-dev
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod'''.split(),
@@ -45,7 +45,7 @@ PACKAGES = {
 COMMANDS = '''git Hyprland hyprctl hyprpaper hyprlock waybar kitty dolphin swaync swaync-client grim slurp
     wl-copy wl-paste xdg-open xdg-user-dir nmcli nm-applet nm-connection-editor bluetoothctl blueman-manager
     pactl wpctl playerctl brightnessctl fastfetch htop notify-send gdbus pgrep flock
-    cc c++ cmake pkg-config wayland-scanner fc-match yt-dlp ffmpeg ffprobe sudo xhost openssl remote-viewer certtool
+    xcursorgen hyprcursor-util cc c++ cmake pkg-config wayland-scanner fc-match yt-dlp ffmpeg ffprobe sudo xhost openssl remote-viewer certtool
     make autoconf autoreconf automake aclocal libtool libtoolize perl pod2man gettext gawk expect socat
     tpm2_getcap dmidecode lspci lsusb mcopy mtype fsck.fat losetup modinfo'''.split()
 LIBRARIES = ['gtk+-3.0','gio-unix-2.0','gtk-layer-shell-0','json-glib-1.0','Qt5Widgets','Qt6Widgets','Qt5Concurrent','Qt6Concurrent','wayland-client','xcb','xcb-res',

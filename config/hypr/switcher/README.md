@@ -4,7 +4,10 @@ New installations use **Ring Switcher** by default. Existing saved choices are p
 
 Open **Fusion Settings → Theme → Task Switcher**. Choose a style, adjust its
 preview, and press **Apply Task Switcher**. The next **Super+Tab** uses that choice;
-no compositor reload is required. Hold Super while cycling, use Shift+Tab for
+no compositor reload is required. **Show task switcher on** selects the active
+monitor, the primary monitor, or the monitor under the pointer. Set the primary
+monitor using its checkbox in **Displays & Arrangement**. The overlay is positioned
+before its first frame; this choice does not change which windows are included. Hold Super while cycling, use Shift+Tab for
 reverse order, and release Super to focus the selection. Escape cancels. Clicking
 a window preview also selects it.
 

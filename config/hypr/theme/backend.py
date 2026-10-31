@@ -116,7 +116,7 @@ def kde_colors(value,design=None):
 
 def theme_token():
     extra=hashlib.sha256()
-    for name in ('hyprlock.conf','startup/kitty.conf','file_jobs/preferences.json','switcher/preferences.json','terminal_fetch/settings.json','effects/burn/settings.conf','effects/cube/settings.json','control_center/appearance.conf','wallpaper/selection.json'):
+    for name in ('hyprlock.conf','startup/kitty.conf','file_jobs/preferences.json','switcher/preferences.json','terminal_fetch/settings.json','effects/burn/settings.conf','effects/cube/settings.json','cursors/settings.json','control_center/appearance.conf','wallpaper/selection.json'):
         path=ROOT/name
         extra.update(path.read_bytes() if path.is_file() else b'missing')
     return settings.Store('theme').load()[1], hashlib.sha256(runtime.STATE.read_bytes()).hexdigest(),extra.hexdigest()
@@ -389,7 +389,7 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     with ExitStack() as locks:
         lock_paths=[settings.STATE/'theme-files.lock',settings.STATE/'wallpaper-save.lock']
         lock_paths.append(settings.STATE/'appearance-save.lock')
-        for path in (ROOT/'effects/burn/settings.conf',ROOT/'effects/cube/settings.json',ROOT/'file_jobs/preferences.json',ROOT/'switcher/preferences.json',ROOT/'terminal_fetch/settings.json'):
+        for path in (ROOT/'effects/burn/settings.conf',ROOT/'effects/cube/settings.json',ROOT/'cursors/settings.json',ROOT/'file_jobs/preferences.json',ROOT/'switcher/preferences.json',ROOT/'terminal_fetch/settings.json'):
             if path.exists():lock_paths.append(path.with_suffix('.lock'))
         for path in lock_paths:
             lock=locks.enter_context(path.open('a'))
@@ -423,6 +423,9 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
         files.update(effect_files)
         if partial:
             import presets
+            if 'cursors' in components and 'cursors' in bundle:
+                from cursors import controller as cursor_controller
+                cursor_controller.prepare()
             extra,reloads=presets.resources(ROOT,bundle,components,runtime.design())
             files.update(extra);effect_reloads=list(dict.fromkeys([*effect_reloads,*reloads]))
         old={path:path.read_bytes() if path.exists() else None for path in files}

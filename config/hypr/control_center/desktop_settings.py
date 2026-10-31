@@ -13,6 +13,9 @@ import tempfile
 import time
 
 import keys
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import monitor_preferences
 
 ROOT = keys.ROOT
 STATE = keys.STATE
@@ -56,12 +59,14 @@ def display_models(raw):
                        'mirror': '' if item.get('mirrorOf', 'none') in ('none', '', None) else item['mirrorOf'],
                        'modes': modes, 'bitdepth': 10 if '2101010' in item.get('currentFormat', '') else 8,
                        'vrr': int(bool(item.get('vrr'))), 'cm': item.get('colorManagementPreset', 'srgb')})
+    chosen = monitor_preferences.select(raw, 'primary')
+    for m in result: m['primary'] = bool(chosen and m['name'] == chosen['name'])
     return result
 
 
 def layout_state(models):
     fields = ('name', 'enabled', 'width', 'height', 'rate', 'x', 'y', 'scale', 'transform', 'mirror')
-    return sorted([{k: m[k] for k in fields} for m in models], key=lambda m: m['name'])
+    return sorted([{**{k: m[k] for k in fields}, 'primary': m.get('primary', False)} for m in models], key=lambda m: m['name'])
 
 
 def logical_size(model):
@@ -100,6 +105,10 @@ def validate_displays(models, available):
             if source is None or source['mirror'] or source['name'] == m['name']:
                 raise ValueError('A mirrored display must use another enabled, extended display as its source.')
     independent = [m for m in active if not m['mirror']]
+    if any('primary' in m for m in models):
+        chosen = [m for m in models if m.get('primary')]
+        if len(chosen) != 1 or chosen[0] not in independent:
+            raise ValueError('Choose one enabled, extended display as the primary monitor.')
     for index, a in enumerate(independent):
         aw, ah = logical_size(a)
         for b in independent[index+1:]:
@@ -124,9 +133,12 @@ def display_config(models, previous=''):
     # Retain saved outputs that are currently disconnected, and all comments.
     retained = []
     for line in previous.splitlines():
+        if line.startswith(monitor_preferences.MARKER): continue
         match = re.match(r'\s*monitor\s*=\s*([^,]+),', line)
         if match and match[1].strip() in names: continue
         if line.strip() and not line.startswith('# Managed'): retained.append(line)
+    primary = next((m['name'] for m in models if m.get('primary')), '')
+    if primary: retained.append(monitor_preferences.MARKER + primary)
     return '\n'.join(['# Managed by the Hyprland Control desk. Saved only after Keep changes.', *retained,
                       *('monitor = ' + monitor_rule(m) for m in models), ''])
 

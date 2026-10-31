@@ -24,6 +24,7 @@ DESCRIPTIONS = {
     'stack': 'Compiz’s tilted window rows, with the selected window lifted from the stack.',
     'scale': 'Compiz’s Scale overview: see a grid of window previews and choose one directly.',
 }
+PLACEMENTS = {'active': 'Active monitor', 'primary': 'Primary monitor', 'pointer': 'Monitor under pointer'}
 SCOPES = {'all': 'All monitors and workspaces', 'monitor': 'Current monitor',
           'workspace': 'Current workspace', 'application': 'Current application'}
 # Visual defaults come from the bundled Compiz metadata. Timing uses milliseconds
@@ -39,7 +40,7 @@ PROFILES = {
     'stack': dict(tilt=30, inactive_rotate=True),
     'scale': dict(spacing=10),
 }
-DEFAULTS = dict(version=1, style='ring', scope='all', duration=200, size=80,
+DEFAULTS = dict(version=1, style='ring', scope='all', placement='active', duration=200, size=80,
                 inactive_opacity=80, live_previews=True, preview_fps=60,
                 show_titles=True, show_icons=True, profiles=PROFILES)
 RANGES = dict(duration=(0, 700), size=(30, 100), inactive_opacity=(20, 100), preview_fps=(1, 144),
@@ -69,11 +70,14 @@ def normalize(value):
     style, scope = value.get('style', DEFAULTS['style']), value.get('scope', DEFAULTS['scope'])
     if not isinstance(style, str) or style not in STYLES or not isinstance(scope, str) or scope not in SCOPES:
         raise ValueError('Choose a supported switcher style and window scope.')
+    placement = value.get('placement', DEFAULTS['placement'])
+    if not isinstance(placement, str) or placement not in PLACEMENTS:
+        raise ValueError('Choose a supported task switcher monitor.')
     profiles = value.get('profiles', {})
     if not isinstance(profiles, dict):
         raise ValueError('Invalid Task Switcher style profiles.')
-    common = {k: v for k, v in DEFAULTS.items() if k not in ('version', 'style', 'scope', 'profiles')}
-    return dict(version=1, style=style, scope=scope, **section(value, common),
+    common = {k: v for k, v in DEFAULTS.items() if k not in ('version', 'style', 'scope', 'placement', 'profiles')}
+    return dict(version=1, style=style, scope=scope, placement=placement, **section(value, common),
                 profiles={k: section(profiles.get(k, {}), v) for k, v in PROFILES.items()})
 
 

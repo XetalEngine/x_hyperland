@@ -57,7 +57,14 @@ static gboolean state(gpointer unused) {
         gtk_widget_translate_coordinates(empty,window,8,gtk_widget_get_allocated_height(empty)/2,&bx,&by);
     }
     char *text=g_strdup_printf("%d %d %d %d %d",visible,x,y,bx,by);
-    g_file_set_contents(file,text,-1,NULL);g_free(text);g_free(file);return G_SOURCE_CONTINUE;
+    g_file_set_contents(file,text,-1,NULL);g_free(text);g_free(file);
+    if (occupied && empty) {
+        file=g_build_filename(directory,"cube-state",NULL);
+        GtkWidget *a=find_widget(occupied,"workspace-label",TRUE), *b=find_widget(empty,"workspace-label",TRUE);
+        text=g_strdup_printf("%s|%s|%d|%d",gtk_label_get_text(GTK_LABEL(a)),gtk_label_get_text(GTK_LABEL(b)),gtk_widget_get_sensitive(instance->button),visible);
+        g_file_set_contents(file,text,-1,NULL);g_free(text);g_free(file);
+    }
+    return G_SOURCE_CONTINUE;
 }
 int main(int argc,char **argv) {
     gtk_init(&argc,&argv);if(argc!=2)return 2;directory=argv[1];

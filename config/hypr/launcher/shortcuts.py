@@ -116,7 +116,7 @@ class Entry:
         environment = theme_runtime.environment()
         context = context or Gio.AppLaunchContext()
         for key in ('QT_QPA_PLATFORMTHEME','QT_STYLE_OVERRIDE','QT_PLUGIN_PATH','XETAL_THEME_CONFIG','GTK_THEME','KDE_COLOR_SCHEME_PATH',
-                    'XDG_CONFIG_DIRS','XDG_DATA_DIRS'):
+                    'XDG_CONFIG_DIRS','XDG_DATA_DIRS','XCURSOR_THEME','XCURSOR_SIZE','XCURSOR_PATH'):
             if key in environment: context.setenv(key, environment[key])
         in_terminal = self.fields['terminal'] if terminal is None else terminal
         in_float = self.fields['floating'] if floating is None else floating

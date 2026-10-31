@@ -15,6 +15,7 @@ namespace Cube {
 // safe when Hyprland unloads this shared library and loads a different build.
 using Json = std::unique_ptr<json_object, decltype(&json_object_put)>;
 struct Settings {
+    bool rotateWorkspace = true;
     bool enabled = true, windows3d = true, skyMotion = true;
     double opacity = .85, zoom = .64, sensitivity = .35, duration = 220, skySpeed = 0, windowDepth = .3;
     int skyMode = 1, minimum = 60, spacing = 10, previewFps = 60;
@@ -39,7 +40,9 @@ inline Settings readSettings(const std::filesystem::path &path) {
     auto j = root.get();
     json_object *fpsValue = nullptr;
     const bool hasFps = json_object_object_get_ex(j, "preview_fps", &fpsValue);
-    if (json_object_object_length(j) != (hasFps ? 21 : 20))
+    json_object *animationValue = nullptr;
+    const bool hasAnimation = json_object_object_get_ex(j, "workspace_animation", &animationValue);
+    if (json_object_object_length(j) != 20 + int(hasFps) + int(hasAnimation))
         throw std::runtime_error("Incomplete Desktop Cube settings");
     auto member = [&](const char *key) {
         json_object *value = nullptr;
@@ -100,6 +103,11 @@ inline Settings readSettings(const std::filesystem::path &path) {
             throw std::runtime_error("Invalid cube artwork path");
         return v;
     };
+    if (hasAnimation) {
+        auto animation = string("workspace_animation");
+        if (animation != "cube" && animation != "standard") throw std::runtime_error("Unknown workspace animation");
+        s.rotateWorkspace = animation == "cube";
+    }
     s.enabled = boolean("enabled");
     s.windows3d = boolean("windows_3d");
     s.skyMotion = boolean("sky_motion");

@@ -13,6 +13,7 @@
 #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
 #include <hyprland/src/managers/SessionLockManager.hpp>
 #include <hyprland/src/pointer/PointerManager.hpp>
+#include <hyprland/src/pointer/cursor/CursorManager.hpp>
 #include <hyprland/src/protocols/InputCapture.hpp>
 #include <hyprland/src/protocols/core/Compositor.hpp>
 #include <hyprland/src/config/ConfigValue.hpp>
@@ -25,6 +26,7 @@
 #include <filesystem>
 #include <regex>
 #include <chrono>
+#include <map>
 #include "graphics.hpp"
 
 namespace {
@@ -97,6 +99,7 @@ struct Scene {
     SP<ITexture> ceiling, floor, sky, label, help;
     int initial = 0, selection = 0, maxWindows = 0;
     double yaw = 0, pitch = 0, zoom = 1, spread = 0, fromYaw = 0, fromPitch = 0, fromZoom = 1, fromSpread = 0, targetYaw = 0;
+    bool automatic = false;
     bool settling = false, commit = false, preview = false;
     uint32_t button = 0;
     Clock::time_point began = Clock::now(), settled = began, nextRefresh = began;
@@ -174,6 +177,8 @@ bool usable(PHLMONITOR m) {
     return m && !m->isMirror() && m->m_output && m->m_pixelSize.x > 0 && m->m_pixelSize.y > 0 && m->m_activeWorkspace &&
            !m->m_activeSpecialWorkspace && !g_pSessionLockManager->isSessionLocked() && g_pCompositor->m_sessionActive;
 }
+
+#include "workspaces.hpp"
 
 // Offscreen rendering runs outside renderMonitor, with its own framebuffer and
 // projection. No workspace is made visible or focused just to obtain its image.
@@ -269,6 +274,7 @@ void endScene(bool choose) {
     if (!scene)
         return;
     auto old = scene;
+    if (choose && old->automatic) old->selection = Cube::selected(old->targetYaw, old->initial, old->faces.size());
     auto m = old->monitor.lock();
     scene.reset();
     ++finished;
@@ -329,8 +335,8 @@ void settle(bool commit) {
         s.selection = s.initial;
 }
 
-void begin(PHLMONITOR m, uint32_t button, bool preview = false) {
-    if (scene || !settings.enabled || !usable(m) || g_pInputManager->isConstrained() || g_pInputManager->hasHeldButtons() ||
+void begin(PHLMONITOR m, uint32_t button, bool preview = false, bool automatic = false) {
+    if (scene || !settings.enabled || !usable(m) || g_pInputManager->isConstrained() || (!automatic && g_pInputManager->hasHeldButtons()) ||
         PROTO::inputCapture->isCaptured())
         return;
     auto s = std::make_shared<Scene>();
@@ -341,9 +347,10 @@ void begin(PHLMONITOR m, uint32_t button, bool preview = false) {
     s->transform = m->m_transform;
     s->button = button;
     s->preview = preview;
-    for (auto id : Cube::faces(workspaceList(), m->m_id, m->activeWorkspaceID())) {
+    s->automatic = automatic;
+    for (auto id : faceIDs(m)) {
         auto w = id ? State::workspaceState()->query().id(id).run() : nullptr;
-        s->faces.push_back({id, w, w ? "Workspace " + w->m_name : "New workspace"});
+        s->faces.push_back({id, w, "Workspace " + std::to_string(s->faces.size()+1)});
         if (id == m->activeWorkspaceID())
             s->initial = s->faces.size() - 1;
     }
@@ -438,7 +445,13 @@ void tick(SP<CEventLoopTimer> self, void *) {
     double duration = *animations ? settings.duration : 0;
     auto elapsed = std::chrono::duration<double, std::milli>(now - (s.settling ? s.settled : s.began)).count();
     double t = duration > 0 ? Cube::smooth(elapsed / duration) : 1;
-    if (s.settling) {
+    if (s.automatic) {
+        s.yaw = s.targetYaw * t;
+        s.zoom = 1 + (settings.zoom-1) * std::sin(Cube::PI*t);
+        s.spread = std::sin(Cube::PI*t);
+        updateLabel(s);
+        if (t >= 1) { endScene(true); return; }
+    } else if (s.settling) {
         s.yaw = s.fromYaw + (s.targetYaw - s.fromYaw) * t;
         s.pitch = s.fromPitch * (1 - t);
         s.zoom = s.fromZoom + (1 - s.fromZoom) * t;
@@ -672,6 +685,8 @@ class CubePass : public IPassElement {
         return {};
     }
 };
+#include "cursors.hpp"
+
 void workspaceHook(IHyprRenderer *r, PHLMONITOR m, PHLWORKSPACE w, const Time::steady_tp &now, const CBox &geometry) {
     if (scene && active(m.get()) && !capturing && !g_pSessionLockManager->isSessionLocked())
         r->addPassElement(makeUnique<CubePass>(scene));
@@ -679,7 +694,7 @@ void workspaceHook(IHyprRenderer *r, PHLMONITOR m, PHLWORKSPACE w, const Time::s
         originalWorkspace(r, m, w, now, geometry);
 }
 void motionHook(CInputManager *input, IPointer::SMotionEvent event) {
-    if (scene && !scene->preview) {
+    if (scene && !scene->preview && !scene->automatic) {
         if (!scene->settling)
             turn(event.delta.x, event.delta.y);
         input->m_lastCursorMovement.reset();
@@ -689,14 +704,14 @@ void motionHook(CInputManager *input, IPointer::SMotionEvent event) {
 }
 uint32_t solitaryHook(Monitor::CMonitor *m, bool full) {
     auto result = originalSolitary(m, full);
-    return active(m) ? result | Monitor::CMonitor::SC_WORKSPACES : result;
+    return (active(m) || cursorVisible(State::monitorState()->query().id(m->m_id).run())) ? result | Monitor::CMonitor::SC_WORKSPACES : result;
 }
 bool scanoutHook(const Monitor::CMonitor *m) {
-    return active(const_cast<Monitor::CMonitor *>(m)) ? false : originalScanout(m);
+    return active(const_cast<Monitor::CMonitor *>(m)) || cursorVisible(State::monitorState()->query().id(m->m_id).run()) ? false : originalScanout(m);
 }
 uint8_t tearingHook(Monitor::CMonitor *m, bool full) {
     auto result = originalTearing(m, full);
-    return active(m) ? result | Monitor::CMonitor::TC_ZOOM : result;
+    return (active(m) || cursorVisible(State::monitorState()->query().id(m->m_id).run())) ? result | Monitor::CMonitor::TC_ZOOM : result;
 }
 
 bool matchesGesture(uint32_t button) {
@@ -717,6 +732,7 @@ void buttonEvent(IPointer::SButtonEvent e, Event::SCallbackInfo &info) {
     }
     if (info.cancelled)
         return;
+    if (scene && scene->automatic) { if (e.state == WL_POINTER_BUTTON_STATE_PRESSED) endScene(true); return; }
     if (scene) {
         info.cancelled = true;
         if (e.state == WL_POINTER_BUTTON_STATE_PRESSED) {
@@ -739,6 +755,67 @@ void buttonEvent(IPointer::SButtonEvent e, Event::SCallbackInfo &info) {
         lastError = error.what();
         endScene(false);
     }
+}
+
+SDispatchResult switchWorkspace(std::string arg) {
+    if (!settings.enabled || reconcilingFaces || stopping || arg.starts_with("special")) return ordinaryWorkspace(arg);
+    if (scene) endScene(scene->automatic);
+    reconcileFaces();
+    auto m = State::monitorState()->query().vec(Pointer::mgr()->position()).run();
+    PHLWORKSPACE target;
+    if (arg.starts_with("name:")) target = State::workspaceState()->query().name(arg.substr(5)).run();
+    try {
+        size_t end = 0; auto id = std::stoll(arg, &end);
+        if (end == arg.size()) target = State::workspaceState()->query().id(id).run();
+    } catch (...) {}
+    if (target && target->m_monitor) m = target->m_monitor.lock();
+    if (!m || m->m_activeSpecialWorkspace) return ordinaryWorkspace(arg);
+    auto ids = faceIDs(m);
+    auto current = std::find(ids.begin(), ids.end(), m->activeWorkspaceID());
+    if (!target) {
+        if (arg == "e+1" || arg == "e-1") {
+            int index = current == ids.end() ? 0 : current-ids.begin();
+            target = State::workspaceState()->query().id(ids[(index+(arg=="e+1"?1:3))%4]).run();
+        } else return ordinaryWorkspace(arg);
+    }
+    if (std::find(ids.begin(), ids.end(), target->m_id) == ids.end()) target = State::workspaceState()->query().id(ids.back()).run();
+    if (!settings.rotateWorkspace || !usable(m) || target == m->m_activeWorkspace || !settings.duration)
+        return ordinaryWorkspace(workspaceAddress(target));
+    try {
+        begin(m, 0, false, true);
+        if (!scene) return ordinaryWorkspace(workspaceAddress(target));
+        int index = std::find(ids.begin(), ids.end(), target->m_id)-ids.begin();
+        int delta = (index-scene->initial+4)%4;
+        if (delta > 2) delta -= 4;
+        scene->targetYaw = -delta * Cube::PI/2;
+        scene->help.reset();
+        return SDispatchResult{};
+    } catch (const std::exception &e) {
+        lastError = e.what(); endScene(false);
+        return ordinaryWorkspace(workspaceAddress(target));
+    }
+}
+SDispatchResult localWorkspace(std::string arg) {
+    std::istringstream in(arg); std::string action, number; in >> action >> number;
+    bool move = action == "move";
+    if (action != "switch" && !move) return {.success=false, .error="Expected switch or move and a workspace"};
+    if (!settings.enabled) return move ? g_pKeybindManager->m_dispatchers["movetoworkspace"](number) : ordinaryWorkspace(number);
+    if (scene) endScene(scene->automatic);
+    reconcileFaces();
+    auto m = State::monitorState()->query().vec(Pointer::mgr()->position()).run();
+    if (!m) return {.success=false, .error="No monitor under the pointer"};
+    auto ids = faceIDs(m); int index = -1;
+    if (number == "e+1" || number == "e-1") {
+        auto active = std::find(ids.begin(), ids.end(), m->activeWorkspaceID());
+        index = ((active == ids.end() ? 0 : active-ids.begin())+(number=="e+1"?1:3))%4;
+    } else if (number.size() == 1 && number[0] >= '1' && number[0] <= '4') index = number[0]-'1';
+    if (index < 0 || index >= int(ids.size())) return SDispatchResult{}; // 5–0 are intentionally inactive in Cube mode.
+    auto target = workspaceAddress(State::workspaceState()->query().id(ids[index]).run());
+    if (move) {
+        auto result = ordinaryMove(target);
+        if (!result.success) return result;
+    }
+    return switchWorkspace(target);
 }
 
 void *find(const std::string &name, const std::string &signature) {
@@ -786,13 +863,49 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
                 self->updateTimeout(std::chrono::milliseconds(250));
         }, nullptr);
         g_pEventLoopManager->addTimer(previewCleanup);
+        ordinaryWorkspace = g_pKeybindManager->m_dispatchers.at("workspace");
+        ordinaryMove = g_pKeybindManager->m_dispatchers.at("movetoworkspacesilent");
+        faceTimer = makeShared<CEventLoopTimer>(std::nullopt, [](SP<CEventLoopTimer>, void *) { reconcileFaces(); }, nullptr);
+        g_pEventLoopManager->addTimer(faceTimer);
+        listeners.push_back(Event::bus()->m_events.monitor.layoutChanged.listen([] { scheduleFaces(); }));
+        listeners.push_back(Event::bus()->m_events.workspace.created.listen([](PHLWORKSPACEREF) { scheduleFaces(); }));
+        listeners.push_back(Event::bus()->m_events.workspace.moveToMonitor.listen([](PHLWORKSPACE, PHLMONITOR) { scheduleFaces(); }));
+        listeners.push_back(Event::bus()->m_events.config.reloaded.listen([] { scheduleFaces(); }));
+        HyprlandAPI::addDispatcherV2(handle, "xetalcube:workspace", localWorkspace);
+        g_pKeybindManager->m_dispatchers["workspace"] = switchWorkspace;
+        scheduleFaces();
+        cursorTimer = makeShared<CEventLoopTimer>(std::nullopt, [](SP<CEventLoopTimer> self, void *) {
+            damageMarks();
+            if (g_pSessionLockManager->isSessionLocked() || g_pInputManager->isConstrained() || PROTO::inputCapture->isCaptured()) { clearMarks(); return; }
+            auto now=Clock::now();
+            std::erase_if(cursorMarks,[&](auto &mark){ return std::chrono::duration<double,std::milli>(now-mark.born).count()>=cursorOptions.duration; });
+            if (!cursorMarks.empty()) self->updateTimeout(std::chrono::milliseconds(16));
+            else for(auto m:State::monitorState()->monitors())m->recheckSolitary();
+        },nullptr);
+        g_pEventLoopManager->addTimer(cursorTimer);
+        listeners.push_back(Event::bus()->m_events.input.mouse.move.listen([](Vector2D pos, Event::SCallbackInfo &info) {
+            if (!info.cancelled) addCursorMark(pos,false);
+        }));
+        listeners.push_back(Event::bus()->m_events.input.mouse.button.listen([](IPointer::SButtonEvent e, Event::SCallbackInfo &info) {
+            if (!info.cancelled && e.state==WL_POINTER_BUTTON_STATE_PRESSED) addCursorMark(Pointer::mgr()->position(),true);
+        }));
+        listeners.push_back(Event::bus()->m_events.render.stage.listen([](eRenderStage stage) {
+            if(stage!=RENDER_LAST_MOMENT || capturing || g_pHyprRenderer->m_bRenderingSnapshot) return;
+            auto m=g_pHyprRenderer->m_renderData.pMonitor.lock();
+            if(cursorVisible(m)) g_pHyprRenderer->addPassElement(makeUnique<CursorPass>(m));
+        }));
+        HyprlandAPI::addDispatcherV2(handle,"xetalcube:cursor",[](std::string) {
+            try { reloadCursors(); return SDispatchResult{}; }
+            catch(const std::exception &e) { return SDispatchResult{.success=false,.error=e.what()}; }
+        });
+        try { reloadCursors(); } catch(const std::exception &e) { lastError=e.what(); }
         listeners.push_back(Event::bus()->m_events.input.mouse.button.listen(buttonEvent));
         listeners.push_back(Event::bus()->m_events.input.mouse.axis.listen([](IPointer::SAxisEvent, Event::SCallbackInfo &i) {
             if (scene)
                 i.cancelled = true;
         }));
         listeners.push_back(Event::bus()->m_events.input.mouse.move.listen([](Vector2D, Event::SCallbackInfo &i) {
-            if (scene && !scene->preview)
+            if (scene && !scene->preview && !scene->automatic)
                 i.cancelled = true;
         }));
         listeners.push_back(Event::bus()->m_events.input.keyboard.key.listen([](IKeyboard::SKeyEvent e, Event::SCallbackInfo &i) {
@@ -800,7 +913,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
                 i.cancelled = true;
                 return;
             }
-            if (!scene || i.cancelled)
+            if (!scene || i.cancelled || scene->automatic)
                 return;
             if (e.keycode == KEY_ESC) {
                 i.cancelled = true;
@@ -836,6 +949,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
                 auto next = readSettings();
                 endScene(false);
                 settings = next;
+                reconcileFaces();
                 return SDispatchResult{};
             } catch (const std::exception &e) {
                 return SDispatchResult{.success = false, .error = e.what()};
@@ -872,6 +986,10 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             auto add = [&](const char *key, json_object *value) { json_object_object_add(root.get(), key, value); };
             add("enabled", json_object_new_boolean(settings.enabled));
             add("preview_fps", json_object_new_int(settings.previewFps));
+            add("cursor_marks", json_object_new_int64(cursorMarks.size()));
+            add("cursor_trail", json_object_new_string(cursorOptions.trail.c_str()));
+            add("four_faces", json_object_new_boolean(true));
+            add("workspace_animation", json_object_new_string(settings.rotateWorkspace ? "cube" : "standard"));
             add("active", json_object_new_boolean(bool(scene)));
             add("started", json_object_new_int64(started));
             add("finished", json_object_new_int64(finished));
@@ -896,6 +1014,11 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             return std::string(json_object_to_json_string_ext(root.get(), JSON_C_TO_STRING_PLAIN));
         }});
     } catch (...) {
+        if (ordinaryWorkspace) g_pKeybindManager->m_dispatchers["workspace"] = ordinaryWorkspace;
+        if (faceTimer) { g_pEventLoopManager->removeTimer(faceTimer); faceTimer.reset(); }
+    clearMarks();
+    if (cursorTimer) { g_pEventLoopManager->removeTimer(cursorTimer); cursorTimer.reset(); }
+        releaseFaces();
         for (auto h : hooks)
             h->unhook();
         hooks.clear();
@@ -913,7 +1036,12 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
 }
 APICALL EXPORT void PLUGIN_EXIT() {
     stopping = true;
+    if (ordinaryWorkspace) g_pKeybindManager->m_dispatchers["workspace"] = ordinaryWorkspace;
+    if (faceTimer) { g_pEventLoopManager->removeTimer(faceTimer); faceTimer.reset(); }
+    clearMarks();
+    if (cursorTimer) { g_pEventLoopManager->removeTimer(cursorTimer); cursorTimer.reset(); }
     listeners.clear();
+    releaseFaces();
     endScene(false);
     expirePreviews(true);
     if (previewCleanup) {
@@ -928,6 +1056,7 @@ APICALL EXPORT void PLUGIN_EXIT() {
         h->unhook();
     hooks.clear();
     g_pHyprRenderer->m_renderPass.removeAllOfType("XetalCube");
+    g_pHyprRenderer->m_renderPass.removeAllOfType("XetalCursorEffects");
     g_pHyprRenderer->glBackend()->makeEGLCurrent();
     graphics.release();
 }

@@ -82,6 +82,10 @@ class TaskSwitcherPage(QWidget):
         for key, title in preferences.SCOPES.items(): self.scope.addItem(title, key)
         self.scope.currentIndexChanged.connect(lambda: self.edit('scope', self.scope.currentData()))
         form.addRow('Windows to include', self.scope)
+        self.placement = QComboBox(); self.placement.setAccessibleName('Show task switcher on')
+        for key, title in preferences.PLACEMENTS.items(): self.placement.addItem(title, key)
+        self.placement.currentIndexChanged.connect(lambda: self.edit('placement', self.placement.currentData()))
+        form.addRow('Show task switcher on', self.placement)
         for key, title, suffix in [('duration', 'Animation duration', ' ms'), ('size', 'Switcher size', '%'),
                                     ('inactive_opacity', 'Inactive windows', '%'), ('preview_fps', 'Window preview FPS', ' FPS')]:
             self.add_number(form, key, title, suffix)
@@ -146,6 +150,7 @@ class TaskSwitcherPage(QWidget):
         self.loading = True
         self.style.setCurrentIndex(self.style.findData(self.draft['style']))
         self.scope.setCurrentIndex(self.scope.findData(self.draft['scope']))
+        self.placement.setCurrentIndex(self.placement.findData(self.draft['placement']))
         self.build_specific()
         for fields, values in ((self.fields, self.draft), (self.profile_fields, self.draft['profiles'][self.draft['style']])):
             for key, field in fields.items():
@@ -158,7 +163,7 @@ class TaskSwitcherPage(QWidget):
         self.dirty = self.draft != self.baseline
         self.apply.setEnabled(self.dirty and not self.busy and not self.invalid)
         self.discard.setEnabled(self.dirty and not self.busy)
-        for field in [self.style, self.scope, self.defaults, self.reload_button, *self.fields.values(), *self.profile_fields.values()]:
+        for field in [self.style, self.scope, self.placement, self.defaults, self.reload_button, *self.fields.values(), *self.profile_fields.values()]:
             field.setEnabled(not self.busy)
         cfg = self.draft['profiles'][self.draft['style']]
         self.fields['live_previews'].setEnabled(not self.busy and self.draft['style'] != 'fusion')

@@ -93,6 +93,10 @@ def save(values, token, path=model.PATH):
 
 
 def start():
+    from cursors.controller import prepare
+    try: prepare()
+    except (OSError,subprocess.SubprocessError) as error:
+        print('Cursor artwork: '+str(error),file=sys.stderr)
     values, _ = model.load()
     # The same native adapter wakes inactive-workspace windows while their
     # task-switcher thumbnails are captured. Loading it does not enable Cube.

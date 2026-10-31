@@ -136,7 +136,8 @@ def render(stage, home, monitors, profile='auto', startup=True):
 
 
 def build(stage):
-    for args in ([sys.executable,str(stage/'theme/build.py')],
+    for args in ([sys.executable,str(stage/'cursors/build.py')],
+                 [sys.executable,str(stage/'theme/build.py')],
                  [sys.executable,str(stage/'control_panel/build.py')],
                  ['bash',str(stage/'waybar/pins/build.sh')],
                  ['bash',str(stage/'waybar/workspaces/build.sh')],

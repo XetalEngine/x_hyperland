@@ -27,3 +27,4 @@ config/hypr/theme/custom-presets.json
 config/hypr/kvm/bundled/
 config/hypr/kvm/defaults/assets/
 config/hypr/kvm/backend/assets/opencore-validators/
+config/hypr/cursors/.build/

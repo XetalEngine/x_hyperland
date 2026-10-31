@@ -10,7 +10,7 @@ import struct
 ROOT = Path(__file__).resolve().parent
 PATH = ROOT / 'settings.json'
 DEFAULTS = dict(enabled=True, wall_opacity=0.85, zoom=0.64, sensitivity=0.35,
-                duration=220, preview_fps=60, sky_mode='gradient', sky_motion=True, sky_speed=0.0,
+                duration=220, workspace_animation='cube', preview_fps=60, sky_mode='gradient', sky_motion=True, sky_speed=0.0,
                 top_image='', bottom_image='', sky_image='',
                 sky_top=[0.035,0.04,0.065,1.0], sky_bottom=[0.14,0.075,0.095,1.0],
                 cap_color=[0.09,0.10,0.14,1.0], edge_color=[0.898,0.224,0.271,1.0],
@@ -25,6 +25,8 @@ COLORS = ('sky_top','sky_bottom','cap_color','edge_color','window_color')
 def validate(values):
     if isinstance(values,dict) and 'preview_fps' not in values:
         values = dict(values,preview_fps=60)
+    if isinstance(values,dict) and 'workspace_animation' not in values:
+        values = dict(values,workspace_animation='cube')
     if set(values) != set(DEFAULTS):
         raise ValueError('Cube settings are incomplete or contain unknown options.')
     out = deepcopy(values)
@@ -36,6 +38,8 @@ def validate(values):
         elif key in COLORS:
             if not isinstance(value,list) or len(value)!=4 or any(type(c) not in (int,float) or not math.isfinite(c) or not 0<=c<=1 for c in value):
                 raise ValueError('Cube colors need four RGBA components between 0 and 1.')
+        elif key == 'workspace_animation':
+            if value not in ('cube','standard'):raise ValueError('Unknown workspace animation.')
         elif key == 'sky_mode':
             if value not in ('gradient','image','sky'):raise ValueError('Unknown cube background mode.')
         elif type(default) is bool:

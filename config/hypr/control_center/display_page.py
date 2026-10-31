@@ -33,7 +33,7 @@ class Arrangement(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.models = []; self.current = ''; self.drag = None; self.rects = []
+        self.models = []; self.current = ''; self.drag = None; self.rects = []; self.primary_boxes = {}
         self.setMinimumSize(400, 270)
         self.setMouseTracking(True)
         self.setToolTip('Drag displays to match their physical positions. Edges snap together.')
@@ -55,6 +55,7 @@ class Arrangement(QWidget):
         p.setPen(QPen(theme_runtime.qcolor('#192630'), 1))
         for x in range(0, self.width(), 24): p.drawLine(x, 0, x, self.height())
         for y in range(0, self.height(), 24): p.drawLine(0, y, self.width(), y)
+        for check in self.primary_boxes.values(): check.hide()
         self.rects = []; scale, ox, oy = self.view(); parked = 0
         for m in self.models:
             if not m['enabled'] or m['mirror']:
@@ -63,6 +64,17 @@ class Arrangement(QWidget):
                 w, h = settings.logical_size(m)
                 rect = QRectF(m['x']*scale+ox, m['y']*scale+oy, w*scale, h*scale).adjusted(2, 2, -2, -2)
             self.rects.append((m, rect))
+            check = self.primary_boxes.get(m['name'])
+            if check is None:
+                check = QCheckBox('Primary', self)
+                check.setAccessibleName('Use '+m['name']+' as primary monitor')
+                check.clicked.connect(lambda _, name=m['name']: self.choose_primary(name))
+                self.primary_boxes[m['name']] = check
+            check.setChecked(m.get('primary', False))
+            check.setEnabled(m['enabled'] and not m['mirror'])
+            check.adjustSize()
+            check.move(round(rect.left()+8), round(rect.top()+5))
+            check.setVisible(rect.width() > check.width()+12 and m['enabled'] and not m['mirror'])
             active = m['name'] == self.current
             gradient = QLinearGradient(rect.topLeft(), rect.bottomRight())
             gradient.setColorAt(0, theme_runtime.qcolor('#264e58' if active else '#243240'))
@@ -70,7 +82,7 @@ class Arrangement(QWidget):
             p.setBrush(gradient); p.setPen(QPen(theme_runtime.qcolor('#78e4d2' if active else '#546a7d'), 2 if active else 1))
             p.drawRoundedRect(rect, 9, 9)
             p.setPen(theme_runtime.qcolor('#e6f5f5')); p.setFont(QFont('DejaVu Sans', 19 if rect.height() > 95 else 13, QFont.Weight.Bold))
-            top = rect.top()+max(4, (rect.height()-85)/2)
+            top = rect.top()+max(28, (rect.height()-85)/2)
             p.drawText(QRectF(rect.left()+5, top, rect.width()-10, 30), Qt.AlignmentFlag.AlignCenter, str(m['number']))
             p.setFont(QFont('DejaVu Sans', 10, QFont.Weight.Bold))
             p.drawText(QRectF(rect.left()+4, top+30, rect.width()-8, 22), Qt.AlignmentFlag.AlignCenter, m['name'])
@@ -83,6 +95,10 @@ class Arrangement(QWidget):
                 p.drawText(rect.adjusted(3, 47, -3, -2), Qt.AlignmentFlag.AlignCenter, 'Disabled' if not m['enabled'] else 'Mirrors '+m['mirror'])
         if not self.models:
             p.setPen(theme_runtime.qcolor('#9bb1c4')); p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, 'Loading connected displays…')
+
+    def choose_primary(self, name):
+        for m in self.models: m['primary'] = m['name'] == name
+        self.edited.emit(); self.update()
 
     def mousePressEvent(self, event):
         if event.button() != Qt.MouseButton.LeftButton: return
@@ -266,6 +282,9 @@ class DisplaysPage(QWidget):
                  transform=self.rotation.currentData(), mirror=self.mirror.currentData() or '', x=self.x.value(), y=self.y.value())
         for widget in [self.resolution, self.rate, self.scale, self.rotation, self.mirror, self.x, self.y]: widget.setEnabled(m['enabled'])
         self.x.setEnabled(m['enabled'] and not m['mirror']); self.y.setEnabled(m['enabled'] and not m['mirror'])
+        if not any(v.get('primary') and v['enabled'] and not v['mirror'] for v in self.models):
+            replacement = next((v for v in self.models if v['enabled'] and not v['mirror']), None)
+            for v in self.models: v['primary'] = v is replacement
         self.canvas.update(); self.update_state()
 
     def canvas_changed(self): self.sync_form(); self.update_state()

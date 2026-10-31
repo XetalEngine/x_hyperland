@@ -16,6 +16,7 @@ from switcher import preferences as switcher
 from terminal_fetch import model as terminal
 from effects.burn import model as burn
 from effects.cube import model as cube
+from cursors import model as cursors
 
 COMPONENTS = {
     'colors': ('Colors', 'Desktop palette, taskbar accents, terminal and application colors'),
@@ -26,13 +27,14 @@ COMPONENTS = {
     'transfer': ('File Transfer', 'Transfer window, animation and information choices'),
     'switcher': ('Task Switcher', 'Switcher style, preview FPS and layout options'),
     'effects': ('Window effects', 'Burn, cube, effect colors and window appearance'),
+    'cursors': ('Cursors', 'Cursor style, size, trails and click feedback'),
     'terminal': ('Terminal welcome', 'Logo and information fields; aliases remain untouched'),
 }
 THEME_FIELDS = {
     'colors': ('design', 'mode'), 'layout': ('layout',), 'avatar': ('avatar',),
     'launcher': ('launcher_style', 'launcher_wallpaper', 'launcher_background', 'launcher_surfaces', 'launcher_labels', 'launcher_background_visibility'),
 }
-RESOURCE_PATHS = {'transfer': 'file_jobs/preferences.json', 'switcher': 'switcher/preferences.json',
+RESOURCE_PATHS = {'cursors': 'cursors/settings.json', 'transfer': 'file_jobs/preferences.json', 'switcher': 'switcher/preferences.json',
     'terminal': 'terminal_fetch/settings.json', 'burn': 'effects/burn/settings.conf', 'cube': 'effects/cube/settings.json'}
 
 
@@ -44,7 +46,7 @@ def current(root=None):
     state = copy.deepcopy(runtime.state()); state['layout'] = runtime.layout()
     state.setdefault('design',runtime.design());state.setdefault('mode',runtime.mode())
     value = {'version': 1, 'theme': state, 'wallpaper_theme': state.get('wallpaper_theme',state['design'])}
-    for key, reader in [('transfer', transfer.load), ('switcher', switcher.load), ('burn', burn.load), ('cube', cube.load)]:
+    for key, reader in [('transfer', transfer.load), ('switcher', switcher.load), ('burn', burn.load), ('cube', cube.load), ('cursors', cursors.load)]:
         path = root / RESOURCE_PATHS[key]
         if path.exists(): value[key] = reader(path)[0]
     value['terminal'] = terminal.load(root / RESOURCE_PATHS['terminal'])
@@ -63,7 +65,7 @@ def validate(value):
     state['layout'] = state.get('layout', layouts.default(state['design']))
     if not isinstance(state['layout'],str) or state['layout'] not in layouts.LAYOUTS: raise ValueError('Invalid preset layout.')
     if 'wallpaper_theme' in value and (not isinstance(value['wallpaper_theme'],str) or value['wallpaper_theme'] not in runtime.DESIGNS):raise ValueError('Invalid wallpaper theme.')
-    for key, normalizer in [('transfer', transfer.normalize), ('switcher', switcher.normalize), ('terminal', terminal.validate), ('burn', burn.validate), ('cube', cube.validate)]:
+    for key, normalizer in [('transfer', transfer.normalize), ('switcher', switcher.normalize), ('terminal', terminal.validate), ('burn', burn.validate), ('cube', cube.validate), ('cursors', cursors.validate)]:
         if key in value: value[key] = normalizer(value[key])
     if 'wallpapers' in value:
         if not isinstance(value['wallpapers'], dict): raise ValueError('Invalid preset wallpapers.')
@@ -111,13 +113,15 @@ def merged_theme(previous, target, selected):
 def resources(root, target, selected, previous_design):
     """Return validated bytes; the backend writes and rolls them back in one transaction."""
     files, reloads = {}, []
-    for component in ('transfer', 'switcher', 'terminal'):
+    for component in ('transfer', 'switcher', 'terminal', 'cursors'):
         if component in selected and component in target:
             files[root / RESOURCE_PATHS[component]] = encode(target[component])
     if 'colors' in selected and 'transfer' not in selected and target['theme']['design'] != previous_design:
         existing, _ = transfer.load(root / RESOURCE_PATHS['transfer'])
         if existing['style'] == 'follow':
             existing['style'] = previous_design; files[root / RESOURCE_PATHS['transfer']] = encode(existing)
+    if 'cursors' in selected and 'cursors' in target:
+        reloads.append(('Xetal Desktop Cube', 'xetalcube:cursor'))
     if 'effects' in selected:
         for key, plugin, dispatcher in [('burn', 'Xetal Burn', 'xetalburn:reload'), ('cube', 'Xetal Desktop Cube', 'xetalcube:reload')]:
             if key in target:
