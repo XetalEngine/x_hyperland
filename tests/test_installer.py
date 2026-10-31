@@ -184,6 +184,9 @@ class InstallerTests(unittest.TestCase):
         self.render()
         self.assertFalse((self.stage/'kvm/bundled').exists())
         self.assertTrue((self.stage/'kvm/catalog.json').is_file())
+        guest = self.stage/'kvm/guest/vmstealth75.bat'
+        self.assertTrue(guest.is_file(), 'Guest script must ship independently of the optional kernel module')
+        self.assertIn('HOST_LOGIN=YOUR_LINUX_USER@YOUR_LINUX_HOST', guest.read_text())
 
     def test_bar_options_are_built_and_use_recipient_profile(self):
         self.render()
@@ -198,6 +201,7 @@ class InstallerTests(unittest.TestCase):
         inventory=json.loads((self.stage/'.xetal-update.json').read_text())
         self.assertEqual(len(inventory['revision']),40)
         self.assertIn('launcher/favorites.json',inventory['files'])
+        self.assertIn('kvm/guest/vmstealth75.bat',inventory['files'])
         self.assertIn('text',inventory['files']['launcher/favorites.json'])
         self.assertNotIn('theme/qt6/libxetal.so',inventory['files'])
         bar=json.loads((self.stage/'waybar/config.json').read_text())

@@ -180,9 +180,10 @@ class PathsTab(QScrollArea):
             if not t["kvm_build_enabled"]:
                 t.pop("kvm_env", None)
             return t
-        from portable import tool_defaults
+        from portable import tool_defaults, upgrade_guest_script
         for key, value in tool_defaults().items():
             t.setdefault(key, value)
+        upgrade_guest_script(t)
         return t
 
     def _blockdev(self, node):
@@ -497,7 +498,9 @@ class PathsTab(QScrollArea):
         # ---- helper scripts ---------------------------------------------------------
         g, box = _group("Stealth helpers")
         hdr = QLabel("Run by hand, not by launch: the CPUID drop must happen after "
-                     "Windows has finished enumerating topology.")
+                     "Windows has finished enumerating topology. The Windows guest script is included "
+                     "with the desktop. Set its SSH login before use; it requires the matching "
+                     "custom AMD KVM module and host helper.")
         hdr.setWordWrap(True)
         g.addWidget(hdr, 0, 0)
         self._add(g, 1, "Host script",
@@ -507,7 +510,7 @@ class PathsTab(QScrollArea):
         self._add(g, 2, "Guest script",
                   lambda: t.get("vmstealth_guest", ""),
                   self._set_guest_batch_path,
-                  tip="vmstealth75.bat, the copy handed to the guest.")
+                  tip="Included Windows .bat template. Copy it into the guest, then edit HOST_LOGIN and any custom paths before running.")
         pairs2.addWidget(box, 0, 0, Qt.AlignmentFlag.AlignTop)
 
         # ---- memory / sockets ----------------------------------------------------------

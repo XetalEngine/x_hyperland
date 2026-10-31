@@ -1,0 +1,47 @@
+{
+  "project": "Simple Icons",
+  "revision": "90646e4bf7f3b89df6c37e65baf3e7bc759a517c",
+  "license": "CC0-1.0",
+  "modifications": "Added the upstream brand color as the SVG fill; paths unchanged.",
+  "icons": [
+    {
+      "file": "archlinux.svg",
+      "title": "Arch Linux",
+      "upstream": "https://raw.githubusercontent.com/simple-icons/simple-icons/90646e4bf7f3b89df6c37e65baf3e7bc759a517c/icons/archlinux.svg",
+      "source": "https://www.archlinux.org/art",
+      "hex": "1793D1",
+      "brand_guidelines": "https://wiki.archlinux.org/index.php/DeveloperWiki:TrademarkPolicy#Logo_Usage_Guidelines",
+      "license": "CC0-1.0; brand trademark rights remain separate"
+    },
+    {
+      "file": "cachyos.svg",
+      "title": "CachyOS",
+      "upstream": "https://raw.githubusercontent.com/simple-icons/simple-icons/90646e4bf7f3b89df6c37e65baf3e7bc759a517c/icons/cachyos.svg",
+      "source": "https://commons.wikimedia.org/wiki/File:CachyOS_Logo.svg",
+      "hex": "00AA88",
+      "brand_guidelines": null,
+      "license": "CC0-1.0; brand trademark rights remain separate"
+    },
+    {
+      "file": "manjaro.svg",
+      "title": "Manjaro",
+      "upstream": "https://raw.githubusercontent.com/simple-icons/simple-icons/90646e4bf7f3b89df6c37e65baf3e7bc759a517c/icons/manjaro.svg",
+      "source": "https://manjaro.org",
+      "hex": "35BFA4",
+      "brand_guidelines": null,
+      "license": "CC0-1.0; brand trademark rights remain separate"
+    },
+    {
+      "file": "fedora.svg",
+      "title": "Fedora",
+      "upstream": "https://raw.githubusercontent.com/simple-icons/simple-icons/90646e4bf7f3b89df6c37e65baf3e7bc759a517c/icons/fedora.svg",
+      "source": "https://docs.fedoraproject.org/en-US/project/brand/",
+      "hex": "51A2DA",
+      "brand_guidelines": "https://fedoraproject.org/wiki/Legal:Trademark_guidelines",
+      "license": {
+        "type": "custom",
+        "url": "https://docs.fedoraproject.org/en-US/project/brand/"
+      }
+    }
+  ]
+}

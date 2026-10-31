@@ -20,6 +20,32 @@ def rom_image(vendor=0x10de,device=0x2684,uefi=True,last=True):
 
 
 class RuntimeSetupTests(unittest.TestCase):
+    def test_guest_script_is_available_without_any_downloaded_components(self):
+        import shutil
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name); app = root/'relocated-app'; data = root/'new-user'
+            shutil.copytree(portable.ROOT/'defaults', app/'defaults')
+            shutil.copytree(portable.ROOT/'guest', app/'guest')
+            with patch.object(portable, 'ROOT', app), patch.dict(os.environ, {'XETAL_KVM_DATA':str(data)}):
+                script = Path(portable.tool_defaults()['vmstealth_guest'])
+                self.assertEqual(script, app/'guest/vmstealth75.bat')
+                self.assertTrue(script.is_file())
+                text = script.read_text()
+                self.assertIn('YOUR_LINUX_USER@YOUR_LINUX_HOST', text)
+                self.assertNotIn('/home/xetal', text)
+                self.assertNotIn('192.168.1.130', text)
+                self.assertFalse((data/'components').exists())
+
+    def test_old_guest_script_default_migrates_but_custom_choices_are_preserved(self):
+        with tempfile.TemporaryDirectory() as name, patch.dict(os.environ, {'XETAL_KVM_DATA':name}):
+            tools = {'vmstealth_guest':str(portable.component_path('kvm-amd')/'vmstealth75.bat')}
+            portable.upgrade_guest_script(tools)
+            self.assertEqual(tools['vmstealth_guest'], portable.tool_defaults()['vmstealth_guest'])
+            for choice in ('', str(Path(name)/'personal helper.bat')):
+                tools['vmstealth_guest'] = choice
+                portable.upgrade_guest_script(tools)
+                self.assertEqual(tools['vmstealth_guest'], choice)
+
     def test_only_untouched_default_snapshots_are_upgraded(self):
         with tempfile.TemporaryDirectory() as name:
             root=Path(name);app=root/'app';(app/'defaults').mkdir(parents=True)

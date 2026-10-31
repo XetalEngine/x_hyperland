@@ -1,32 +1,51 @@
-<!-- The original 1440p recording is linked here; GitHub's inline player is above the title. -->
-https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d
-
-<p align="center"><sub>48-second desktop recording · Original 1440p video</sub></p>
-
 <h1 align="center">Hyper Fusion</h1>
-<p align="center"><strong>A complete Xetal desktop for Hyprland.</strong><br>Beautiful menus. Personal workspaces. A little Compiz nostalgia.</p>
+
+<p align="center"><strong>Your workspace. Your colors. Your kind of Linux desktop.</strong><br>A complete Xetal desktop for Hyprland, with native settings, custom menus, KVM tools and a little Compiz nostalgia.</p>
+
 <p align="center">
   <a href="#install">Install</a> ·
-  <a href="#make-apps-your-own">Apps & menus</a> ·
-  <a href="#float-the-way-you-want">Floating windows</a> ·
-  <a href="#compiz-spirit-hyprland-desktop">Desktop effects</a> ·
-  <a href="docs/GALLERY.md">Full gallery</a> ·
-  <a href="docs/UPDATES.md">Updates</a>
+  <a href="#tested-on">Tested on</a> ·
+  <a href="#four-looks-one-desktop">Themes</a> ·
+  <a href="#compiz-spirit-hyprland-desktop">Effects</a> ·
+  <a href="#kvm-settings">KVM</a> ·
+  <a href="docs/GALLERY.md">Gallery</a> ·
+  <a href="#documentation">Documentation</a>
 </p>
 
-![Hyper Fusion — olly_anime.png workstation wallpaper](docs/media/olly_anime.png)
+[![Hyper Fusion desktop with system information, Matrix rain, clock and interactive project cubes](docs/screenshots/startup-dashboard.png)](docs/GALLERY.md)
 
-**Your desktop should feel like yours.** Hyper Fusion brings together a configurable Apps menu, native Fusion Settings, a flexible taskbar, matching tools, and original Compiz effects adapted to Hyprland. Four visual designs share one engine: **Xetal Raw**, **Xetal Modern**, **BreakPoint**, and **Binary Knife**. Mix their Start menus, keep your shortcuts, and make the details your own.
+<!-- GitHub renders this attachment as an inline video player. -->
+https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d
 
-The custom desktop components, installer, native effect sources, themes, fonts, and bundled wallpapers live in this repository. They build on the machine where you install them.
+<p align="center"><sub>48-second desktop tour · Original 1440p recording · <a href="docs/GALLERY.md">Explore the full gallery</a></sub></p>
 
-**New: Control Panel.** Open it directly above Fusion Settings in Apps: a floating, searchable icon view powered by the complete CachyOsTools C++ engine. Its 32 entries cover system ISOs, backups, drives, hardware, services, networks, Shell and more, with separate **Pacman, Paru, Yay and Install .deb** icons. Startup Applications also controls the animated login dashboard while keeping Super+D available. It follows your desktop theme, uses Kitty for terminal actions and creates shortcuts in Apps. CachyOsTools stays independent. See the [complete feature map and ISO details](docs/CONTROL-PANEL.md).
+Hyper Fusion brings the whole desktop together: a launcher you can arrange yourself, four coordinated visual styles, a configurable taskbar, native settings, themed file tools, virtual-machine management and original Compiz effects adapted to Hyprland. The graphical installer builds the included desktop components for your system, and the updater keeps your personal choices between releases.
 
-Apps, Fusion Settings/Theme and Control Panel preload without opening windows and stay ready after closing. Theme opens the Theme page of the same Fusion Settings process. Apps watches application entries for changes, while hidden views pause their visible-only polling and animated avatars. A small session helper recovers exited interfaces; it and the cached applications stop with Hyprland. No shared desktop service is installed.
+## Tested on
+
+<table>
+  <tr>
+    <td align="center" width="25%"><a href="https://archlinux.org/"><img src="docs/media/distros/archlinux.svg" width="52" height="52" alt="Arch Linux"><br><strong>Arch Linux</strong></a></td>
+    <td align="center" width="25%"><a href="https://cachyos.org/"><img src="docs/media/distros/cachyos.svg" width="52" height="52" alt="CachyOS"><br><strong>CachyOS</strong></a></td>
+    <td align="center" width="25%"><a href="https://manjaro.org/"><img src="docs/media/distros/manjaro.svg" width="52" height="52" alt="Manjaro"><br><strong>Manjaro</strong></a></td>
+    <td align="center" width="25%"><a href="https://fedoraproject.org/"><img src="docs/media/distros/fedora.svg" width="52" height="52" alt="Fedora"><br><strong>Fedora</strong></a></td>
+  </tr>
+</table>
+
+| Distribution | Current testing and installation scope |
+| --- | --- |
+| **Arch Linux** | Development desktop and fresh-install testing; automatic setup on x86-64. |
+| **CachyOS** | Fresh-install testing; automatic x86-64 setup, with repository checks for v3/v4 packages. |
+| **Manjaro** | Project-reported testing and stable-repository compatibility checks; uses the Arch-family setup path. |
+| **Fedora 44** | Native x86-64 RPM setup, desktop build and recovery checks; graphical VM testing is ongoing. Targets mutable Workstation/KDE installations. |
+
+These notes describe project testing, not certification of every release or GPU. Setup checks the recipient's repositories and dependencies before changing the compositor. Fedora Atomic/OSTree editions and automatic Debian/Ubuntu installation are outside the current supported setup paths. See [dependencies and compatibility](docs/DEPENDENCIES.md) for the exact scope.
+
+> **Control Panel compatibility:** Some features currently work **only on Arch-based systems, until further notice**. These include Pacman/Paru/Yay, Arch package repair and kernel-management tools. Fedora desktop support does not provide Fedora equivalents for these features.
 
 ## Install
 
-From a recent Hyprland session, run these commands **as your regular desktop user**:
+Open a terminal in your graphical Linux session and run as your **regular desktop user**:
 
 ```bash
 git clone --depth 1 https://github.com/XetalEngine/x_hyperland.git
@@ -34,248 +53,189 @@ cd x_hyperland
 ./x_hyperinstall.sh
 ```
 
-You can also choose **Code → Download ZIP** on GitHub, extract the whole archive, and open a terminal inside `x_hyperland-main`. Run `bash ./x_hyperinstall.sh` there. ZIP and tar downloads include their exact source revision in `installer/source-revision.txt`; keep that file with the installer. No Git checkout is needed for this installation method.
+Prefer a ZIP? Choose **Code → Download ZIP**, extract the entire archive, open a terminal in `x_hyperland-main`, and run `bash ./x_hyperinstall.sh`. A Git checkout is not required. When testing a newer download, extract it into a new folder.
 
-When retrying after an update, download the ZIP again and extract it into a new folder. The installer prints its source revision and checks the configuration before compilation. The Control Panel builds with all available CPU threads.
+**Hyper Fusion Setup** guides you through Welcome → Your setup → Review → Install → Ready.
 
-The command opens the graphical **Hyper Fusion Setup** wizard. It reviews your setup, requests administrator authentication for packages, shows build progress and keeps an installation log. It backs up your existing `~/.config/hypr` before installation. **Log out and select Hyprland again** to start the complete desktop. Use `--cli` for terminal installation.
+- Adapts monitor resolution, placement and scale to your computer.
+- Lets you keep existing desktop/startup preferences or install the current defaults.
+- Installs required packages with a separate administrator-password prompt and builds native components locally. The Control Panel uses all available CPU threads.
+- Shows an expanded installation log that grows with the window; **Installing…** stays disabled until the operation finishes. Failed steps show their useful diagnostic and a **Retry** action.
+- Backs up the existing profile and validates the complete configuration before replacement. Package recovery is prepared before changing the compositor.
 
-**Setup uses the development desktop's tested Hyprland 0.56.2.** Arch-based x86-64 systems use the signed official **0.56.2-4** package (51.3 MB). **Fedora 44 x86-64** uses a separate signed **0.56.2-6.fc44** bundle with matching libraries and development headers (55.9 MB), from giperborey/Hyprland on Fedora COPR. Both are included in the repository and Download ZIP; no COPR repository is enabled. Fedora's corresponding LGPL source archives are included separately, and every file is below 100 MB. Setup verifies the packages, installs or downgrades the runtime, and holds its versions through the distribution's package manager. Cube and Burn must build successfully before installation completes. Future version changes go through the same foreground installer/update flow. [Installer and recovery details →](docs/INSTALLER.md)
+When Setup finishes, **log out, select Hyprland and sign in again**. Your current session is not forcibly restarted. The desktop keeps its themes, Dolphin profile and startup helpers separate from KDE/Plasma and shared desktop preferences.
 
-| Tested environment | Requirements |
+### One tested compositor version
+
+This release uses **Hyprland 0.56.2** and its exact tested source commit so the desktop, **Cube** and **Burn** stay compatible. Setup installs or downgrades to that version and applies the appropriate package holds.
+
+| Included runtime | Download ZIP contains |
 | --- | --- |
-| Arch Linux / CachyOS | Exact **Hyprland 0.56.2** selected by Setup, Waybar **0.15+**, Kitty **0.49+**, Hyprpaper **0.8+**, Python **3.11+**, Git, Qt 5/6 development libraries, and the Hyprland portal |
-| Other distributions | Install the exact required compositor manually before using the included dependency recipes. Automatic compositor installation targets Arch x86-64. See [dependencies](docs/DEPENDENCIES.md). |
-| Burn & Cube | Required local builds for the tested **Hyprland 0.56.2 ABI**, x86-64 and OpenGL. Their effects can be enabled or disabled in settings. |
+| **Arch family** | Signed official Hyprland **0.56.2-4** package — **51.3 MB**. |
+| **Fedora 44** | Signed **0.56.2-6.fc44** runtime, matching libraries and headers — **55.9 MB**; corresponding LGPL source RPMs add **55.4 MB** separately. |
 
-The default install adapts to your monitors, resolution, placement and scale. Without a running compositor, it uses preferred modes and automatic placement. KDE/Plasma settings, shell profiles, shared application associations, and system autostart stay separate from this Hyprland profile.
+Each bundled package is below 100 MB. Fedora packages come from the documented giperborey/Hyprland COPR publisher; Setup verifies them without enabling a COPR repository. Other desktop dependencies still download as needed. Future compositor changes go through foreground Setup together with matching desktop/effect builds. [Installer, signatures and recovery →](docs/INSTALLER.md)
+
+<details>
+<summary><strong>Terminal options and troubleshooting</strong></summary>
+
+```bash
+./x_hyperinstall.sh --cli                          # Use the terminal installer
+./x_hyperinstall.sh --check                        # Check dependencies and versions
+./x_hyperinstall.sh --dry-run                      # Preview the installation plan
+./x_hyperinstall.sh --skip-packages                # Use dependencies already installed
+./x_hyperinstall.sh --prepare /tmp/fusion-review   # Build/validate a new review directory
+./x_hyperinstall.sh --no-startup                   # Keep the Welcome dashboard manual
+./x_hyperinstall.sh --restore /path/to/backup       # Use the backup path printed by Setup
+```
+
+The installation log is `~/.local/state/xetal-hyprland/setup.log`. Include the source revision and the first compiler/package error when reporting a failure. Setup keeps the existing desktop profile if preparation fails. If it changed the compositor, its recovery path restores the previous runtime; successfully installed ordinary dependencies remain available for a retry.
+
+On 0.56.2, the brief `.conf` deprecation notice refers to a future Hyprland format change. The pinned release still supports this configuration. [Compatibility notes →](docs/DEPENDENCIES.md)
+
+</details>
 
 ## Four looks. One desktop.
 
 | Xetal Raw | Xetal Modern |
 | :---: | :---: |
-| [![Xetal Raw Apps](docs/screenshots/apps-raw.png)](docs/screenshots/apps-raw.png) | [![Xetal Modern Apps](docs/screenshots/apps-modern.png)](docs/screenshots/apps-modern.png) |
-| Original cyan accents and transparent surfaces | Soft blue cards and a Home overview |
+| [![Xetal Raw Apps menu](docs/screenshots/apps-raw.png)](docs/screenshots/apps-raw.png) | [![Xetal Modern Apps menu](docs/screenshots/apps-modern.png)](docs/screenshots/apps-modern.png) |
+| Cyan accents and transparent surfaces | Soft blue cards and a Home overview |
 
 | BreakPoint | Binary Knife |
 | :---: | :---: |
-| [![BreakPoint Apps](docs/screenshots/apps-breakpoint.png)](docs/screenshots/apps-breakpoint.png) | [![Binary Knife Apps](docs/screenshots/apps-binaryknife.png)](docs/screenshots/apps-binaryknife.png) |
-| Charcoal glass, crimson focus, silver text | Sharp graphite panels, electric blue edges, cool silver text |
+| [![BreakPoint Apps menu](docs/screenshots/apps-breakpoint.png)](docs/screenshots/apps-breakpoint.png) | [![Binary Knife Apps menu](docs/screenshots/apps-binaryknife.png)](docs/screenshots/apps-binaryknife.png) |
+| Charcoal glass and crimson highlights | Graphite panels and electric blue edges |
 
-**Binary Knife** draws from the disassembler's precise blue interface: 4px corners, 2px focus borders, compact controls, blue Burn flames and a transfer animation with files travelling along illuminated circuit traces. Its three blue workstation wallpapers preserve the characters and compositions of the original artwork. The theme covers Apps, the taskbar, desktop context menus, Fusion Settings, Control Panel, file pickers, notifications, lock screen and session tools. [See the theme and its wallpapers →](docs/GALLERY.md#binary-knife)
+Colors follow you through Apps, the taskbar, Fusion Settings, Control Panel, KVM, file pickers, notifications, lock screen and session tools. Choose **Dark**, **Light** or **High contrast**, with a separate wallpaper for each monitor.
 
-**Fusion Settings → Theme** separates **Presets**, **Design**, and **Custom**. Presets chooses a color family; Design offers Classic tabs, a Modern icon rail, a Gallery sidebar with labeled icons and pill buttons, or a Studio ribbon. Use any layout with any palette. **Apply theme** opens a component picker for colors, layout, wallpapers, Start Menu, profile image, File Transfer, Task Switcher, effects and terminal welcome. Unchecked parts keep their current appearance. Save an applied combination under a name in Custom, with wallpaper previews, rename/remove actions and selective restoration.
+**Fusion Settings → Theme** lets you mix the pieces: any Start menu with any palette, Classic/Modern/Gallery/Studio navigation, an account picture or animated GIF, menu backgrounds and transparency, custom cursors, task switchers and transfer animations. **Apply theme** lets you choose which components change. Save your combination as a named **Custom** preset and restore it selectively later.
 
-- **Mix and match** any Start menu with any desktop theme, or choose **Follow desktop theme**.
-- Use **Dark, Light, or High contrast** colors. BreakPoint and Binary Knife use Inter for the interface and JetBrains Mono for technical text.
-- Choose an account image or **animated GIF**. The account-picture button reads your existing Linux avatar; it does not change it.
-- Give the **entire Apps menu** its own background image, follow the desktop wallpaper, or use a plain background. Adjust **background visibility** with a slider.
-- Set **icon backgrounds, group strips and the left menu** anywhere from transparent to opaque. The left-menu surface covers Favorites through Session & power while keeping text and icons opaque. Group strips support their own **image or animated GIF**, with preferences saved separately for each design.
-- **Show or hide shortcut names and hotkeys** globally. The remaining icon content centers automatically; small tiles stay icon-only.
-- Every theme includes its own three-screen wallpaper set: **Xetal Raw**, **Xetal Modern**, **BreakPoint** and **Binary Knife**. The twelve illustrations have corrected character anatomy, and Modern has three distinct new studio scenes. Assign custom wallpapers and fit modes per monitor; selecting Wallpapers and Window effects when applying a preset restores its saved artwork and effect colors, including custom flames. Fresh installations assign Modern's set in display order.
+Each theme includes its own three-screen wallpaper set. The [gallery](docs/GALLERY.md) shows all four designs, their tools and artwork.
 
-| Theme design | Menu surfaces, artwork & profile |
-| :---: | :---: |
-| [![Theme picker with graphical previews](docs/screenshots/theme-design.png)](docs/screenshots/theme-design.png) | [![Start menu appearance controls](docs/screenshots/menu-design.png)](docs/screenshots/menu-design.png) |
+## Make the desktop yours
 
-## Make Apps your own
+### Apps, favorites and shortcuts
 
-Click **Apps** or press **Super+Space** and start typing immediately. Search applications or browse categories; click Apps again, click outside the menu, or press Escape to close it. The launcher reuses its application and hotkey indexes for quick access.
+Press **Super+Space** and start typing. Arrange favorites into named groups, drag them into place, and mix medium tiles with compact icons. Resize the menu without losing your layout. Right-click an app to pin it to Favorites or the taskbar, assign a global hotkey, edit its command/icon, or choose terminal and floating behavior.
 
-**Favorites are a canvas.** Create titled groups, drag their headers to reorder them, double-click to rename, and move shortcuts between groups. Use medium tiles or icon-only small tiles: **four small tiles fit in one medium slot**. Place small icons above, below, or beside each other without filling a row first. Each column holds three medium tiles across. Widening the menu reveals more columns; narrowing it hides them without rearranging your layout. Resize its height independently; the tiles and sidebar scroll when needed.
+**Ctrl+click** launches an app floating once. Floating windows remember their size, open centered, and support Maximize/Restore. **Super+F** brings the active window to the front; **Super+B** sends it behind overlapping windows. These actions preserve its size and position.
 
-**Right-click a shortcut** to access its tools:
+### Settings and desktop menus
 
-| Launch | Organize | Customize |
-| --- | --- | --- |
-| Open normally, **Launch floating**, or open in a terminal | Pin/unpin Favorites or the taskbar; duplicate a shortcut; choose tile size; move it to another group | Set/change its global launch hotkey; choose an icon; toggle **Always run in terminal** or **Always start floating** |
-| **Ctrl+click** for a floating launch this time | Drag pinned taskbar apps to reorder them | Copy its command, reveal its desktop file, restore original settings, or delete a custom copy |
+**Super+K** opens Fusion Settings: editable hotkeys with validation and recovery, per-application audio routing, network/Bluetooth controls, keyboard/mouse/touchpad options, calendar, session controls and display arrangement with timed **Keep/Revert** protection.
 
-**Properties** is the last item. Edit the name, command and arguments, working folder, icon, description, terminal behavior, keep-terminal-open option, and floating preference. Right-click **empty space** for **New shortcut** and **New favorite group**; the shortcut menu stays focused on that app.
+Right-click the wallpaper for your desktop menu. Its editor supports commands, icons, headings, submenus, hotkeys, multiple columns and live styling previews. Save/load presets to reuse a layout.
 
-| Favorite context menu | Shortcut Properties |
-| :---: | :---: |
-| [![Favorite shortcut context menu](docs/screenshots/shortcut-context.png)](docs/screenshots/shortcut-context.png) | [![Shortcut Properties and floating option](docs/screenshots/shortcut-properties.png)](docs/screenshots/shortcut-properties.png) |
+### A taskbar for each display
 
-## A desktop menu you can design
+Workspaces, running apps, draggable pins and your chosen status modules stay close to the screen where you work. **Right-click → Options** moves the bar to the top or bottom and shows/hides individual modules. The clock opens a calendar; power opens a compact system dashboard. A session helper restores the bar if it exits unexpectedly.
 
-Right-click the uncovered wallpaper for a compact, themed menu. Start with **File Manager**, **Wallpaper**, and **Display Settings**, then open **Fusion Settings → Context Menu** to make it yours.
+### Welcome and startup
 
-Add commands, shortcuts, icons, headings, submenus, dividers, blank spacers and column splits. Assign global hotkeys, resize the menu and rows, tune its typography, rounding, opacity, colors, shadow and thin accent strip. Use the live preview, **Apply/Discard**, and **save/load JSON presets** to refine both its appearance and behavior.
+**Super+D** opens or hides the four-window Welcome dashboard: system information, Matrix rain, a large clock and six interactive project cubes. The taskbar groups it as **Welcome**, without four duplicate app icons.
 
-[![Desktop context-menu editor and live preview](docs/screenshots/context-menu.png)](docs/screenshots/context-menu.png)
-
-## Float the way you want
-
-- **Ctrl+click any app** in Favorites, categories or search results to launch it floating once. Or save **Always start floating** in its context menu or Properties.
-- Windows open **centered**, using the app's requested size initially and its **last floating size** afterwards. Tiled, maximized and fullscreen sizes do not overwrite that preference; intentionally tall floating windows remain tall.
-- Application **Maximize/Restore** buttons work for floating windows: maximize fills the monitor's usable workspace, and restore returns to that window's previous floating size and position.
-- Floating launch tracking follows child processes through **scripts, sudo wrappers and AppImages**. Password prompts keep their own sizing.
-- **Drag the upper area with the left mouse button**, like an invisible title bar, without holding Super. **Super+V** toggles floating; **Super+left drag** and **Super+right drag** remain available for moving and resizing.
-- **Xetal Images** remembers its size separately for each **screen resolution and scale**, fits inside that monitor's usable area, and opens centered.
-
-For elevated graphical tools, the included `~/.config/hypr/scripts/xsudo.sh command [arguments...]` preserves the display connection, prompts when needed, and removes its temporary root display access afterwards.
-
-## A taskbar that works where you do
-
-The bar shows workspaces and app icons for each display. Add workspaces with **+**, remove empty ones with **×**, switch without moving the mouse, and keep favorite apps pinned beside **Keys**.
-
-**Right-click → Options** lets you move the bar between **Top and Bottom**, and show/hide CPU, RAM, temperature, disk, internet, LAN, Wi-Fi, VPN, Bluetooth, media playback, volume, microphone, notifications, tray, clock, power, Apps, workspaces, pins, and desktop updates. Popups and the Start menu open inward from the selected edge. Visibility settings survive login.
-
-If the taskbar crashes, its session helper automatically brings it back. Your applications, workspaces and desktop effects keep running.
-
-The **animated UPDATE notice beside Keys** appears when an update is available or pending, and stays hidden when you're up to date. Automatic updates prepare in the background, preserve your personal settings, and activate at your **next Hyprland login**. A compositor mismatch shows **SETUP REQUIRED**; its button opens the graphical installer to coordinate the system package and desktop. Click the badge to check now, pause automatic updates, inspect the log, or queue a rollback. Updates never log you out. [How updates work →](docs/UPDATES.md)
-
-## Fusion Settings
-
-Press **Super+K** or click **Keys**. The desktop's controls live together, with matching colors and visible close buttons.
-
-| Hotkeys | Modern Home |
-| :---: | :---: |
-| [![Hotkey editor](docs/screenshots/hotkeys.png)](docs/screenshots/hotkeys.png) | [![Modern Home overview](docs/screenshots/modern-home.png)](docs/screenshots/modern-home.png) |
-
-| Panel | What you can do |
-| --- | --- |
-| **Hotkeys** | Search/filter bindings, record combinations, inspect commands, enable/disable, duplicate/remove, validate and apply changes, restore defaults, save/load preset files, and recover from backup history. |
-| **Audio** | Control output and microphone levels, mute, choose devices, and use the embedded per-application mixer with playback/recording routing. |
-| **Network & Bluetooth** | Inspect and manage connections, Wi-Fi, VPNs and paired devices through the session's controls. |
-| **Displays** | Drag monitor rectangles; change resolution, refresh, scale, position, rotation and mirroring with timed **Keep/Revert** protection. |
-| **Input** | Adjust keyboard, mouse and touchpad preferences. |
-| **Theme** | Presets, independent navigation Design, named Custom combinations, Start Menu, Task Switcher, Cursors, wallpapers, File Transfer, Burn, Cube + 3D Windows, borders, gaps, blur, shadows and animation settings. |
-| **Context Menu** | Build and style the wallpaper menu, including its actions and hotkeys. |
-| **Calendar & System** | Browse dates, inspect system information, lock and access session/power controls. Logout asks for confirmation. |
-| **Terminal** | Choose the neon, mecha-inspired Arch emblem, a text Arch/Fusion logo, information fields, username and palette for the Fastfetch-powered welcome. The emblem follows the desktop colors and scrolls with the text in Kitty; other terminals retain a text fallback. |
-| **Modern Home** | Profile image/GIF, media controls, clock, system cards and shortcuts to the same settings pages. |
-
-Click the taskbar **clock** for a compact clock/calendar dropdown; right-click it or choose **Full calendar** for the full settings calendar. The **power button** opens a compact dashboard with your animated profile, uptime, CPU/RAM/disk gauges, temperature history, volume, laptop brightness and media controls. Laptops show their real battery level; desktops show **AC power · 100%**. Popups follow the clicked monitor and the top/bottom taskbar position.
-
-The separate Fusion Kitty profile loads your usual shell rc file and then the theme-colored welcome. Existing Neofetch startup lines can be guarded with `[[ -z ${XETAL_FUSION_TERMINAL:-} ]]` to avoid a second banner while retaining other desktop sessions.
-
-[**Open the full panel gallery →**](docs/GALLERY.md)
+Uncheck **Show this dashboard at login** right on the dashboard to disable all four startup windows. Re-enable it in **Control Panel → Startup Applications**; Super+D continues to work manually. **Num Lock starts on by default**, with a matching switch in Startup Applications and Fusion Settings → Input.
 
 ## Compiz spirit. Hyprland desktop.
 
-### Burn
-
-Close a window and watch it burn away with the **original Compiz particle flame and smoke**. Configure the nine Burn options, RGBA flame color/opacity, direction, particle count, size, life, slowdown, constant speed, mystical fire, duration and time step. Toggle it, restore Compiz defaults, or try a disposable preview window.
-
-### Cursors and workspace navigation
-
-**Theme → Cursors** offers Pearl, Carbon, Neon Cyan, Orchid and Ember, with adjustable
-size, Comet / Soft glow / Stardust trails, and optional click ripples. Cursor artwork
-is built locally during installation. Effects default to off and stop rendering
-when idle. [Cursor guide](config/hypr/cursors/README.md).
-
-Cube defaults to four workspaces per monitor, each labeled 1–4. Workspace shortcuts
-follow the mouse. Turn Cube off to return to global workspace numbers; choose
-cube rotation or standard animation in the Cube page. Displays & Arrangement lets
-you select the primary monitor, which can also host the task switcher.
-
-### Desktop Cube + 3D Windows
-
-**One cube per monitor.** Hold **Ctrl+Alt+left mouse** and drag to rotate; release to choose a workspace or press **Escape** to cancel. Each monitor keeps its own workspaces.
-
-Tune wall transparency, cube zoom, mouse sensitivity, transition timing, edge colors, ceiling and floor pictures, and a static background or moving sky. Add raised **3D Windows** with adjustable separation, thickness, side colors and activation size. Both effects have their complete native source and controls included.
-
-| Burn controls | Cube + 3D Windows |
+| Burn | Desktop Cube + 3D Windows |
 | :---: | :---: |
-| [![Compiz Burn controls](docs/screenshots/burn.png)](docs/screenshots/burn.png) | [![Desktop Cube and 3D Windows controls](docs/screenshots/cube.png)](docs/screenshots/cube.png) |
+| [![Burn effect controls](docs/screenshots/burn.png)](docs/screenshots/burn.png) | [![Desktop Cube and 3D Windows controls](docs/screenshots/cube.png)](docs/screenshots/cube.png) |
 
-See the [Burn guide](config/hypr/effects/burn/README.md) and [Cube guide](config/hypr/effects/cube/README.md) for the tested compositor ABI, build requirements, controls and licensing.
+**Burn** closes windows with the original Compiz particle flame and smoke. Tune the color, direction, particle count, size, lifetime and timing, or try a disposable preview window.
 
-## The tools belong to the desktop, too
+**Desktop Cube + 3D Windows** gives each monitor its own four workspace faces. Hold **Ctrl+Alt+left mouse** and drag to rotate; release to select or press Escape to cancel. Adjust transparency, edge colors, ceiling/floor artwork, a moving sky, and raised windows with depth and spacing. **Standard animation is the default for ordinary workspace switching**; automatic cube rotation is an option. The drag gesture works with either choice.
 
-| Xetal Images | File picker with previews |
+**Super+Tab** uses Ring Switcher by default, with seven alternatives: Fusion Cards, Application, Static Application, Shift Cover, Shift Flip, Stack and Scale overview. Live previews follow your selected monitor and style. [Task switcher guide →](config/hypr/switcher/README.md)
+
+Five cursor designs add optional Comet, Soft glow or Stardust trails and click ripples. Cursor effects start disabled and stop rendering when idle. [Cursor guide →](config/hypr/cursors/README.md)
+
+The native [Burn](config/hypr/effects/burn/README.md) and [Cube](config/hypr/effects/cube/README.md) sources and Compiz attribution are included. Setup builds them against the pinned **0.56.2 x86-64/OpenGL** runtime; their effects remain individually configurable.
+
+## KVM Settings
+
+Open **Apps → KVM** for the integrated Windows/Mac VM editor and setup wizard.
+
+- **Single GPU, Virtual GPU and Dual GPU** launch modes, with floating console/viewer controls.
+- CPU pinning/features, RAM, disks, PCI/USB passthrough, UEFI firmware, TPM, SMBIOS, OpenCore settings, command previews and saved presets.
+- A first-run wizard that downloads missing components and walks through the recipient computer's hardware.
+- **Create Bridge** for a suitable wired NetworkManager connection, preserving IP/DNS settings with recovery checkpoints. **NAT** shares the host connection and also works over Wi-Fi.
+- Signed downloads for QEMU, OVMF, TPM, OpenCore, Looking Glass and support files. **Paths & Tools pulses red** for missing required components or a newer compatible installed-component release; updates remain an explicit action.
+- Private disks, TPM state and writable NVRAM stay separate from component and desktop updates.
+
+The **Custom KVM module · Ultra AMD Stealth Interceptor** is **optional** and appears last in Downloads. It requires the published matching AMD CPU/kernel combination; standard system KVM remains available when it does not match. The built-in Windows guest-script preview and **Copy** action are available before downloading that module; using the script still requires a compatible custom host module and SSH setup.
+
+Runtime components download inside KVM Settings; they are not bundled with the desktop. Supply your own guest installation media and disks. Physical GPU passthrough and guest behavior still depend on the host hardware. [KVM setup, components and recovery →](docs/KVM.md)
+
+## Tools that fit the desktop
+
+| Control Panel | File picker with previews |
 | :---: | :---: |
-| [![Xetal Images displaying olly_anime.png](docs/screenshots/image-viewer.png)](docs/screenshots/image-viewer.png) | [![File picker with right-side preview](docs/screenshots/file-picker.png)](docs/screenshots/file-picker.png) |
+| [![Hyper Fusion Control Panel](docs/screenshots/control-panel-binaryknife.png)](docs/CONTROL-PANEL.md) | [![Themed file picker with Places and preview pane](docs/screenshots/file-picker-binaryknife.png)](docs/FILE-PREVIEWS.md) |
 
-| Tool | Included behavior |
+| Tool | What you get |
 | --- | --- |
-| **Xetal Images** | Pointer-centered wheel zoom, drag to pan, Fit/100%, previous/next pictures in the folder, GIF Play/Pause, F11 fullscreen, reveal in Dolphin, and per-resolution floating size memory. |
-| **File previews** | Right-side image, text and folder previews in Xetal dialogs, themed Qt 5/6 Widgets file pickers and standard GTK 3 choosers. [Coverage →](docs/FILE-PREVIEWS.md) |
-| **Xetal Files** | Four interchangeable animated transfer cards: **Xetal Raw**, **Xetal Modern**, **BreakPoint**, and **Binary Knife**. Compact **448 × 168** defaults, freely draggable, with real copy/archive progress, pause/cancel where supported, and error details for Dolphin/KIO and Ark jobs. |
-| **MP3 / MP4 popup** | **Super+Ctrl+P** opens the downloader. Selected links can prefill the address; choose MP3 to Music or MP4 to Videos, highest available source quality, with logs, cancel and an update button for the private yt-dlp copy. |
-| **Screenshots** | Area/all-display capture, clipboard support, clickable notifications and reveal-in-folder. Print keeps Apps open during capture. |
-| **Screen sharing** | A custom Hyprland portal picker with updating monitor/window previews and region selection. |
-| **KVM Settings** | Theme-aware Windows and Apple VM editor with first-run setup, Single/Virtual/Dual GPU modes, CPU/memory/disks, TPM, firmware and signed component downloads. Opens in a large floating window from **Apps → KVM**. Runtime components download inside the app. [Setup and updates](docs/KVM.md). |
-| **Task Switcher** | **Ring Switcher is the default. Super+Tab** across monitors/workspaces with eight choices: Fusion Cards, Compiz Application, Static Application, Ring, Shift Cover, Shift Flip, Stack, and Scale overview. Cards float directly over the desktop with live window previews and no surrounding panel. Animation controls, per-style settings, and a preview in **Fusion Settings → Theme → Task Switcher**. Release Super to focus the chosen app on its original monitor. [Details and Compiz sources](config/hypr/switcher/README.md). |
-| **Dolphin & Kitty** | A separate themed file-manager profile, folder-link handling, Places icons and wallpaper actions; themed terminal colors, animated cursor and draggable scrollback scrollbar. |
-| **Session** | Matching notifications and lock screen, logout confirmation, and helpers that stop with Hyprland. |
-
-**Fusion Settings → Theme → File Transfer** lets the card follow your desktop or use any of the four designs independently. Each design remembers its own dimensions, corner radius, border, progress thickness, opacity, glow and accent color. Adjust animation speed, flying-file count, trails, progress smoothing, visible paths and statistics, estimated time remaining, display delay and automatic completion closing. Errors stay visible.
-
-| Xetal Raw · flying files | Xetal Modern · soft blue cards | BreakPoint · crimson packets |
-| :---: | :---: | :---: |
-| [![Raw file transfer](docs/screenshots/file-progress.png)](docs/screenshots/file-progress.png) | [![Modern file transfer](docs/screenshots/file-progress-modern.png)](docs/screenshots/file-progress-modern.png) | [![BreakPoint file transfer](docs/screenshots/file-progress-breakpoint.png)](docs/screenshots/file-progress-breakpoint.png) |
-
-[![Binary Knife · blue circuit transfer animation](docs/screenshots/file-progress-binaryknife.png)](docs/screenshots/file-progress-binaryknife.png)
-
-The live preview includes copy, move, compression and extraction examples, plus paused, completed, error and unknown-size states. **Preview popup** opens a floating simulation without changing files. Applied preferences update open transfer cards while their operations continue.
-
-[![File Transfer designs and settings](docs/screenshots/file-transfer-settings.png)](docs/screenshots/file-transfer-settings.png)
-
-## Super+D: your launch scene
-
-System information, Matrix rain and a large digital clock sit beside **six floating, clickable project cubes**: Echo, Linux Studio, Xetal BV, CachyOsTools, XMusic and Xetal Video Editor. Click a cube or navigate with Tab and Enter/Space to visit its project. **Super+D** toggles the dashboard; hidden animations pause. It appears after a short login delay, or stays manual with `--no-startup`.
-
-[![Super+D dashboard with the current Echo icon and project cubes](docs/screenshots/startup-dashboard.png)](docs/screenshots/startup-dashboard.png)
+| **Control Panel** | A searchable native interface built from CachyOsTools: hardware, storage, services, startup apps, backups, system tools and shortcuts. **Some features remain Arch-only until further notice**, including Pacman/Paru/Yay and Arch package repair/kernel tools. [Feature map and platform requirements →](docs/CONTROL-PANEL.md) |
+| **RAM Cleaner** | Manual **Normal** and **Aggressive** cache cleanup with before/after readings. It keeps applications running and does not reclaim their active memory. Linux already reclaims cache when needed; this is an occasional troubleshooting tool. |
+| **Disk Visualizer** | A directory-size tree and treemap, folder navigation, allocated/apparent sizes, and confirmed file actions inside System Cleaner. |
+| **Dolphin** | Recipient-specific **Places**, no developer bookmarks, and the redundant Folders tree hidden by default. The bottom terminal starts open using Konsole's embedded component; **Kitty** remains the external terminal. F4 toggles the terminal, F7 toggles Folders. |
+| **File pickers** | Matching Places and image/text/folder previews in Xetal, Qt Widgets and standard GTK 3 dialogs. Custom application and portal pickers have their own integration limits. [Coverage →](docs/FILE-PREVIEWS.md) |
+| **Xetal Files** | Four animated transfer-card designs for Dolphin/KIO and Ark, with real progress, pause/cancel where supported, error details and appearance controls. |
+| **Xetal Images** | Pointer-centered zoom, pan, Fit/100%, folder navigation, GIF playback, fullscreen and remembered window sizing. |
+| **Capture and sharing** | Area/all-display screenshots, clipboard support and a custom Hyprland screen-share picker with live monitor/window previews and region selection. |
+| **Media downloader** | **Super+Ctrl+P** opens an MP3/MP4 popup with progress, cancellation and updates for its private yt-dlp copy. |
+| **Kitty** | Matching colors, animated cursor, a draggable scrollback scrollbar and a configurable Fastfetch welcome. |
 
 ## Shortcuts at a glance
 
 | Shortcut | Action |
 | --- | --- |
-| **Super+Space / Super+R** | Apps, ready to type |
-| **Super+K** | Fusion Settings / Hotkeys |
-| **Super+A** | Audio mixer |
+| **Super+Space / Super+R** | Open Apps and search |
+| **Super+K / Super+A** | Fusion Settings / audio mixer |
 | **Super+Q / Super+Enter** | Kitty |
 | **Super+E** | Dolphin |
-| **Super+Ctrl+P** | MP3 / MP4 downloader |
-| **Super+Tab / Super+Shift+Tab** | App switcher, forward/reverse |
-| **Super+number** | Switch workspace |
-| **Super+Shift+number** | Move the focused app to that workspace |
+| **Super+D** | Show/hide Welcome |
+| **Super+Tab / Super+Shift+Tab** | Switch applications forward/backward |
+| **Super+1–4** | Select a cube workspace on the monitor under the pointer |
+| **Super+Shift+1–4** | Move the focused window to that workspace |
+| **Ctrl+Alt+left mouse drag** | Rotate this monitor's cube |
 | **Super+V** | Toggle floating |
-| **Super+F / Super+B** | Bring the active window to front / send it to back |
+| **Super+F / Super+B** | Bring to front / send to back |
 | **Super+Shift+F** | Toggle fullscreen |
-| **Ctrl+click an app** | Launch floating once |
+| **Super+left / right mouse drag** | Move / resize a window |
 | **Super+C** | Close the focused window |
-| **Super+Shift+K** | Force-kill the app under the pointer |
-| **Super+/** | Window shortcut overlay |
-| **Super+D** | Show/hide the startup dashboard |
-| **Ctrl+Alt+left mouse drag** | Rotate this monitor's cube, when enabled |
-| **Super+Shift+S / Super+S** | Send to / show the Magic workspace |
-| **Super+L** | Lock |
-| **Super+M** | Log out **after confirmation** |
+| **Super+/** | Show window shortcut hints |
+| **Super+Ctrl+P** | MP3/MP4 downloader |
 | **Print / Shift+Print** | Capture an area / all displays |
+| **Super+L / Super+M** | Lock / confirm logout |
 
-Force-kill is for stuck applications and can lose unsaved work. It targets the app's process, so other windows in that same process may also close. Use normal Close when possible. All bindings remain editable in Fusion Settings.
+Turn Cube off for global workspace numbering and add/remove controls. All bindings remain editable in Fusion Settings.
 
-Front/back changes the stacking order of overlapping windows. It does not move or resize them; tiled windows keep their layout. The shortcuts are also listed in the window shortcut overlay.
+## Updates that keep your settings
 
-<details>
-<summary><strong>Installer options, backups & portability</strong></summary>
+The taskbar's **UPDATE** badge announces a newer desktop release. Automatic updates prepare in the background, merge personal settings, build native components and validate the result. **UPDATE READY** activates at the next Hyprland login, without forcing you to log out.
 
-```bash
-./x_hyperinstall.sh --cli                           # Terminal installer instead of the default GUI
-./x_hyperinstall.sh --check                         # Dependency/version checks; no writes
-./x_hyperinstall.sh --dry-run                       # Installation plan; no writes
-./x_hyperinstall.sh --skip-packages                 # Use installed dependencies
-./x_hyperinstall.sh --prepare /tmp/xetal-review      # Build/validate a separate review copy
-./x_hyperinstall.sh --no-startup                    # Dashboard available only on demand
-./x_hyperinstall.sh --profile original              # Original DP-4 / DP-5 / DP-6 arrangement
-./x_hyperinstall.sh --yes                           # Accept package/install prompts
-./x_hyperinstall.sh --restore /path/printed/backup  # Restore the previous configuration
-```
+Click the badge to inspect progress, check now, pause automatic updates or queue a rollback. A changed compositor requirement shows **SETUP REQUIRED** and opens the graphical installer so the system runtime and desktop move together. KVM component updates are managed separately in Paths & Tools.
 
-Use a new destination for `--prepare`. The normal installer checks for edits made during preparation before replacing the profile. Restore retains the replaced profile separately, including later personal changes. A previous symlinked profile is backed up/restored as a symlink without changing its target.
+Your hotkeys, monitor arrangement, chosen wallpapers, private Dolphin Places and startup preferences are preserved. Conflicting edits stop an update for review. [Update behavior and recovery →](docs/UPDATES.md)
 
-Normal installation uses your hardware; [`profiles/xetal-original`](profiles/xetal-original) is explicitly optional. Network adapters and temperature sensors are detected at runtime. Older distro packages may need upgrading before the desktop can be installed.
+## Documentation
 
-The Apps screenshots show the author's installed applications. **Separate projects and programs—Echo, XMusic, CachyOsTools, Linux Studio, Discord, GitHub Desktop and others—are installed separately.** Their binaries and separate source repositories are not bundled here. Portable favorites appear when the corresponding app is installed.
-
-</details>
+| Guide | Details |
+| --- | --- |
+| [Full gallery](docs/GALLERY.md) | Themes, panels, menus, transfer cards and wallpapers |
+| [Installer](docs/INSTALLER.md) | GUI choices, pinned runtimes, backups and recovery |
+| [Dependencies](docs/DEPENDENCIES.md) | Distro scope, required tools and compatibility checks |
+| [Desktop updates](docs/UPDATES.md) | Settings preservation, activation and rollback |
+| [KVM Settings](docs/KVM.md) | VM setup, downloads, networking and private state |
+| [Control Panel](docs/CONTROL-PANEL.md) | Administration tools, RAM Cleaner and Disk Visualizer |
+| [File previews](docs/FILE-PREVIEWS.md) | Supported applications, Places and preview behavior |
+| [Validation](docs/VALIDATION.md) | Test suites and the limits of automated coverage |
+| [Desktop reference](config/hypr/README.txt) | Configuration and component layout |
 
 <details>
-<summary><strong>Source, validation & credits</strong></summary>
+<summary><strong>Development checks</strong></summary>
 
 ```bash
 python3 -m unittest discover -s tests -v
@@ -283,12 +243,16 @@ python3 -m unittest discover -s tests -v
 python3 tests/run-file-preview-checks.py
 ```
 
-Read the [validation notes](docs/VALIDATION.md), [dependency guide](docs/DEPENDENCIES.md), [update architecture](docs/UPDATES.md), [desktop reference](config/hypr/README.txt), and [third-party notices](THIRD_PARTY_NOTICES.md).
-
-Compiz effect provenance and licenses are retained with their source. Modern takes visual inspiration from [Noctalia](https://github.com/noctalia-dev/noctalia) while using the Xetal implementation. Bundled fonts stay within this profile. Wallpaper and font checksums are recorded in [`assets-manifest.json`](assets-manifest.json).
-
-Private browser profiles, credentials, caches, recent-file history, bookmarks, session logs and compiled binaries are excluded. Native components build locally against the recipient's libraries. Automated validation does not imply testing on every GPU or distribution.
+The [installer compatibility workflow](.github/workflows/installer-compatibility.yml) checks Arch-family repositories and runs Fedora installation, native builds and recovery in a disposable container. Graphical login, GPU/driver and physical passthrough testing remain separate.
 
 </details>
 
-<p align="center"><strong>Hyper Fusion · Made by Xetal</strong><br><a href="https://www.xetal.net/community/site/">Explore the other projects</a> · <a href="docs/GALLERY.md">Explore every panel</a></p>
+## Credits and licenses
+
+Made by **Xetal**, on [Hyprland](https://github.com/hyprwm/Hyprland), with Qt, GTK, Waybar, Kitty, Dolphin and the wider Linux desktop community. Compiz effects retain their original authorship and licenses; the Control Panel includes the CachyOsTools engine. Modern takes visual inspiration from [Noctalia](https://github.com/noctalia-dev/noctalia).
+
+See the [repository license](LICENSE), [third-party notices](THIRD_PARTY_NOTICES.md), [asset manifest](assets-manifest.json) and [distro icon sources](docs/media/distros/README.md). Distribution names and logos identify tested environments and do not imply endorsement.
+
+Screenshots may show separately installed applications. Echo, XMusic, Linux Studio, Xetal BV and other featured projects are available separately; their presence in the launcher or Welcome dashboard does not install them. Personal bookmarks, credentials, browser profiles and runtime caches are excluded from this repository.
+
+<p align="center"><strong>Hyper Fusion · Made for your workspace.</strong><br><a href="https://www.xetal.net/community/site/">Explore Xetal's other projects</a> · <a href="docs/GALLERY.md">See every panel</a></p>

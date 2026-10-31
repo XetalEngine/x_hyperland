@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "profiles": {
-    "windows": "e92988f7aa7f639e25080c1fecb71d6a286cba94e95b2718d1e37544001a639d",
-    "macos": "ec77b663dca4fbf476209d6446e52f529aae2a59674b298a976f8693aeddbb8b"
+    "windows": "212995016dd2937d3786a6a1b37e122464952fa0882d6161f862f305cf877fb6",
+    "macos": "8a19c4aff38703013959959a4e9273fa94b65c8ab308ab5c3875ac3638af9c0e"
   },
   "assets": {
     "smbios/smbios.bin": {

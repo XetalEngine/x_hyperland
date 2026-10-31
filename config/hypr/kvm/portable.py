@@ -20,6 +20,13 @@ def tool_defaults():
     return configuration('windows')['tools']
 
 
+def upgrade_guest_script(tools):
+    """Move the old managed default out of the optional module download."""
+    previous = str(component_path('kvm-amd')/'vmstealth75.bat')
+    if tools.get('vmstealth_guest') == previous:
+        tools['vmstealth_guest'] = str(ROOT/'guest/vmstealth75.bat')
+
+
 def configuration(profile):
     """Resolve the captured profile's paths for this installation."""
     if profile not in ('windows', 'macos'):

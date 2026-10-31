@@ -188,6 +188,20 @@ class SetupTests(unittest.TestCase):
         request.assert_not_called()
         self.assertIn('shut down the VM',self.window.status.text())
 
+    def test_guest_script_preview_and_copy_work_before_module_download(self):
+        w = self.window
+        self.assertFalse(portable.component_path('kvm-amd').exists())
+        # Upgrade a saved preset with the previous managed component path.
+        w.cfg.data['tools']['vmstealth_guest'] = str(portable.component_path('kvm-amd')/'vmstealth75.bat')
+        tab = w.tab_paths
+        tab.tools(); tab.refresh()
+        self.assertTrue(Path(w.cfg.data['tools']['vmstealth_guest']).is_file())
+        self.assertTrue(tab.guest_batch_copy.isEnabled())
+        self.assertIn('YOUR_LINUX_USER@YOUR_LINUX_HOST', tab.guest_batch_preview.toPlainText())
+        tab.guest_batch_copy.click()
+        self.assertEqual(self.application.clipboard().text(), tab._guest_batch_text)
+        self.assertIn('HOST_LOGIN', self.application.clipboard().text())
+
     def test_add_gpu_assigns_captured_rom_only_to_graphics(self):
         tab=self.window.tab_hw
         tab.host_gpus=[dict(slot='0000:01:00.0',functions=[dict(slot='0000:01:00.0'),dict(slot='0000:01:00.1')])]
