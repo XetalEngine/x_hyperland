@@ -15,7 +15,7 @@ namespace Cube {
 // safe when Hyprland unloads this shared library and loads a different build.
 using Json = std::unique_ptr<json_object, decltype(&json_object_put)>;
 struct Settings {
-    bool rotateWorkspace = true;
+    bool rotateWorkspace = false;
     bool enabled = true, windows3d = true, skyMotion = true;
     double opacity = .85, zoom = .64, sensitivity = .35, duration = 220, skySpeed = 0, windowDepth = .3;
     int skyMode = 1, minimum = 60, spacing = 10, previewFps = 60;

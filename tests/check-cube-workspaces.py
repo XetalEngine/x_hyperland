@@ -19,7 +19,7 @@ def main():
     binary=Path(sys.argv[1]).resolve(strict=True)
     root=Path(sys.argv[2]);root.mkdir(parents=True,exist_ok=False)
     profile=root/'profile';config=profile/'effects/cube/settings.json';config.parent.mkdir(parents=True)
-    values=model.validate(model.DEFAULTS);values['duration']=450;config.write_text(model.encode(values))
+    values=model.validate(dict(model.DEFAULTS,duration=450,workspace_animation='cube'));config.write_text(model.encode(values))
     cursorfile=profile/'cursors/settings.json';cursorfile.parent.mkdir()
     cursorvalues=dict(cursors.DEFAULTS,trail='comet',click_ripple=True)
     cursorfile.write_bytes(cursors.encode(cursorvalues))

@@ -16,8 +16,8 @@ on its fourth face. Disabling Cube restores those windows to their original
 workspaces if they have not since been moved manually. All of this state belongs
 to the running compositor; no saved workspace rules are rewritten.
 
-**Workspace switching** selects **Rotate cube to destination** or **Standard
-animation** for taskbar clicks and workspace shortcuts. The Ctrl+Alt drag gesture
+**Workspace switching** defaults to **Standard animation** for taskbar clicks
+and workspace shortcuts; **Rotate cube to destination** is optional. The Ctrl+Alt drag gesture
 remains available with either choice. Other monitors stay unchanged.
 
 ## Controls

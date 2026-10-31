@@ -10,7 +10,7 @@ import struct
 ROOT = Path(__file__).resolve().parent
 PATH = ROOT / 'settings.json'
 DEFAULTS = dict(enabled=True, wall_opacity=0.85, zoom=0.64, sensitivity=0.35,
-                duration=220, workspace_animation='cube', preview_fps=60, sky_mode='gradient', sky_motion=True, sky_speed=0.0,
+                duration=220, workspace_animation='standard', preview_fps=60, sky_mode='gradient', sky_motion=True, sky_speed=0.0,
                 top_image='', bottom_image='', sky_image='',
                 sky_top=[0.035,0.04,0.065,1.0], sky_bottom=[0.14,0.075,0.095,1.0],
                 cap_color=[0.09,0.10,0.14,1.0], edge_color=[0.898,0.224,0.271,1.0],
@@ -26,7 +26,7 @@ def validate(values):
     if isinstance(values,dict) and 'preview_fps' not in values:
         values = dict(values,preview_fps=60)
     if isinstance(values,dict) and 'workspace_animation' not in values:
-        values = dict(values,workspace_animation='cube')
+        values = dict(values,workspace_animation=DEFAULTS['workspace_animation'])
     if set(values) != set(DEFAULTS):
         raise ValueError('Cube settings are incomplete or contain unknown options.')
     out = deepcopy(values)
