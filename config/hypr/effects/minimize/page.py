@@ -33,7 +33,7 @@ class MinimizePage(QWidget):
         body = QWidget(); columns = QHBoxLayout(body); columns.setContentsMargins(0, 12, 8, 12); columns.setSpacing(22)
         general = QGroupBox('Movement & color'); form = QFormLayout(general); form.setSpacing(14)
         self.effect = QComboBox()
-        self.effect.addItem('Fireball', 'fireball'); self.effect.addItem('Splat · living slime', 'splat')
+        self.effect.addItem('Fireball', 'fireball'); self.effect.addItem('Splat', 'splat')
         form.addRow('Minimize effect', self.effect)
         self.duration = QSpinBox(); self.duration.setRange(*model.RANGES['duration']); self.duration.setSuffix(' ms')
         self.duration.setKeyboardTracking(False); form.addRow('Travel time', self.duration)
@@ -51,6 +51,9 @@ class MinimizePage(QWidget):
         self.splat_options = QWidget(); self.splat_options.setObjectName("minimizeSplatOptions")
         self.splat_options.setStyleSheet("QWidget#minimizeSplatOptions { background: transparent; }")
         splat = QFormLayout(self.splat_options); splat.setContentsMargins(0, 12, 0, 0); splat.setSpacing(14)
+        self.surface = QComboBox()
+        for value, title in model.SURFACES.items(): self.surface.addItem(title, value)
+        splat.addRow('Surface', self.surface)
         self.shape = QComboBox()
         for value, title in model.SHAPES.items(): self.shape.addItem(title, value)
         splat.addRow('Silhouette', self.shape)
@@ -77,13 +80,13 @@ class MinimizePage(QWidget):
         root.addLayout(row)
         self.enabled.toggled.connect(self.edited); self.effect.currentIndexChanged.connect(self.edited)
         for field in (self.duration, self.size, self.speed, self.bubbles): field.valueChanged.connect(self.edited)
-        self.follow_theme.toggled.connect(self.edited); self.shape.currentIndexChanged.connect(self.edited)
+        self.follow_theme.toggled.connect(self.edited); self.shape.currentIndexChanged.connect(self.edited); self.surface.currentIndexChanged.connect(self.edited)
         self.reset()
 
     def values(self):
         return model.validate(dict(enabled=self.enabled.isChecked(), effect=self.effect.currentData(),
                                    duration=self.duration.value(), size=self.size.value(), follow_theme=self.follow_theme.isChecked(),
-                                   color=self.color, shape=self.shape.currentData(), speed=self.speed.value(), bubbles=self.bubbles.value()))
+                                   color=self.color, surface=self.surface.currentData(), shape=self.shape.currentData(), speed=self.speed.value(), bubbles=self.bubbles.value()))
 
     def reset(self):
         self.fill(self.baseline)
@@ -98,6 +101,7 @@ class MinimizePage(QWidget):
         self.duration.setValue(values['duration']); self.size.setValue(values['size'])
         self.follow_theme.setChecked(values['follow_theme']); self.color = values['color']
         self.shape.setCurrentIndex(self.shape.findData(values['shape']))
+        self.surface.setCurrentIndex(self.surface.findData(values['surface']))
         self.speed.setValue(values['speed']); self.bubbles.setValue(values['bubbles'])
         self.loading = False; self.edited()
 
@@ -109,13 +113,17 @@ class MinimizePage(QWidget):
         if self.loading:
             return
         self.dirty = self.values() != self.baseline
-        for field in (self.enabled, self.effect, self.duration, self.size, self.speed, self.bubbles, self.follow_theme, self.shape, self.defaults, self.reload, self.restore):
+        for field in (self.enabled, self.effect, self.duration, self.size, self.speed, self.bubbles, self.follow_theme, self.shape, self.surface, self.defaults, self.reload, self.restore):
             field.setEnabled(not self.busy)
         self.color_button.setEnabled(not self.busy and not self.follow_theme.isChecked())
         self.color_button.setText('Choose… ' + self.color)
         swatch = QPixmap(18, 18); swatch.fill(QColor(self.color)); self.color_button.setIcon(QIcon(swatch))
         is_splat = self.effect.currentData() == 'splat'; self.splat_options.setVisible(is_splat)
-        self.effect_note.setText('Glossy, living slime with rippling skin, swelling bubbles and scattered droplets.' if is_splat else
+        self.effect_note.setText({
+            'slime': 'Glossy, living slime with rippling skin, swelling bubbles and scattered droplets.',
+            'membrane': 'Dark, soft pockets joined by bright living veins, with wet ridges and swollen droplets.',
+            'paint': 'Rich liquid color, a smooth surface and broad wet highlights. Add bubbles for a boiling paint effect.',
+        }[self.surface.currentData()] if is_splat else
                                 'Soft, rising flames with bright cores and drifting wisps. The fire keeps burning while your window is minimized.')
         self.apply.setEnabled(self.dirty and not self.busy and self.token is not None)
         self.discard.setEnabled(self.dirty and not self.busy)

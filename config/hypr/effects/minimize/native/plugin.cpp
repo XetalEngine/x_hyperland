@@ -47,6 +47,7 @@ SP<CEventLoopTimer> timer;
 SP<SHyprCtlCommand> statusCommand;
 std::vector<CHyprSignalListener> listeners;
 std::vector<CFunctionHook*> hooks;
+std::function<SDispatchResult(std::string)> ordinaryFocus;
 std::map<MONITORID,int> scroll;
 std::set<uint32_t> consumedButtons;
 struct Pending { PHLWINDOWREF window; bool minimize; };
@@ -190,15 +191,15 @@ void minimize(PHLWINDOW w) {
     r->fullscreen=Fullscreen::controller()->getFullscreenModes(w);r->pinned=w->m_pinned;r->floating=w->m_isFloating;
     r->members=w->m_group?w->m_group->windows():std::vector<PHLWINDOWREF>{w};
     r->snapshot=capture(w);r->born=Clock::now();
-    // Share a hidden workspace per output; one special workspace per window
-    // would exhaust Hyprland's finite special-workspace ID range.
-    for(auto& existing:records)if(existing->stash && existing->stash->m_monitor==m && !existing->stash->inert()){
+    // Share a hidden workspace per original workspace, so the taskbar can
+    // group minimized apps by their home workspace. Never allocate per window.
+    for(auto& existing:records)if(existing->stash && existing->stash->m_monitor==m && existing->original==r->original && !existing->stash->inert()){
         r->stash=existing->stash;break;
     }
     if(!r->stash){
         const auto id=State::workspaceState()->newSpecialID();
         if(!State::workspaceState()->isSpecial(id))return;
-        r->stash=State::workspaceState()->create(id,m->m_id,"special:xetal-minimized-"+std::to_string(r->id));
+        r->stash=State::workspaceState()->create(id,m->m_id,"special:xetal-minimized-ws-"+std::to_string(r->original->m_id));
     }
     if(!r->stash)return;
     records.push_back(r);
@@ -300,7 +301,7 @@ class MinimizePass:public IPassElement {
             fire.x=dest.x+dest.w/2-fire.w/2;fire.y=dest.y+dest.h/2-fire.h*(settings.effect=="splat"?.53:.72);
             fire.y+=r->settled?std::sin(seconds*2.2+r->id)*2:0;
             const bool hover=box(fire).containsPoint(pointer);
-            if(settings.effect=="splat")graphics.splat(m,fire,r->effectTime,r->seed,settings.shape,settings.bubbles/100.F,settings.rgb,float(burn),hover);
+            if(settings.effect=="splat")graphics.splat(m,fire,r->effectTime,r->seed,settings.shape,settings.surface,settings.bubbles/100.F,settings.rgb,float(burn),hover);
             else graphics.fire(m,fire,r->fire,settings.rgb,float(burn),hover);
             snapshot(*r,m,dest,float(1-burn*.25));
             ++draws;
@@ -388,6 +389,7 @@ void tick(SP<CEventLoopTimer> self,void*) {
 }
 void cleanup() {
     stopping=true;listeners.clear();pending.clear();
+    if(ordinaryFocus)g_pKeybindManager->m_dispatchers["focuswindow"]=ordinaryFocus;
     Order::stop();
     if(timer){timer->cancel();g_pEventLoopManager->removeTimer(timer);timer.reset();}
     restoreAll();
@@ -411,6 +413,14 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         hook("attemptDirectScanout","CMonitor::attemptDirectScanout(",(void*)scanoutHook,originalScanout);
         hook("postEvent","CEventManager::postEvent(",(void*)eventHook,originalEvent);
         Order::init();
+        ordinaryFocus=g_pKeybindManager->m_dispatchers.at("focuswindow");
+        g_pKeybindManager->m_dispatchers["focuswindow"]=[](std::string args){
+            auto w=Desktop::viewState()->query().selector(args).runWindow();
+            // Restore the requested taskbar icon before the core opens the
+            // shared stash and briefly focuses its other minimized clients.
+            if(w && recordFor(w)){enqueue(w,false);return SDispatchResult{};}
+            return ordinaryFocus(args);
+        };
         listeners.push_back(Event::bus()->m_events.render.stage.listen([](eRenderStage stage){
             if(stage!=RENDER_LAST_MOMENT || capturing || g_pHyprRenderer->m_bRenderingSnapshot)return;
             auto m=g_pHyprRenderer->m_renderData.pMonitor.lock();if(visible(m))g_pHyprRenderer->addPassElement(makeUnique<MinimizePass>(m));
@@ -446,7 +456,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             std::string items;for(auto& r:records){auto b=slot(*r);if(!items.empty())items+=",";
                 items+=std::format("{{\"id\":{},\"workspace\":{},\"restoring\":{},\"visible\":{},\"box\":[{},{},{},{}]}}",r->id,r->original?r->original->m_id:0,r->restoring,b.has_value(),b?b->x:0,b?b->y:0,b?b->w:0,b?b->h:0);
             }
-            return std::format("{{\"enabled\":{},\"effect\":\"{}\",\"shape\":{},\"color\":[{},{},{}],\"active\":{},\"minimized\":{},\"restored\":{},\"draws\":{},\"windows\":[{}]}}",settings.enabled,settings.effect,settings.shape,settings.rgb[0],settings.rgb[1],settings.rgb[2],records.size(),requests,restored,draws,items);
+            return std::format("{{\"enabled\":{},\"effect\":\"{}\",\"shape\":{},\"surface\":{},\"color\":[{},{},{}],\"active\":{},\"minimized\":{},\"restored\":{},\"draws\":{},\"windows\":[{}]}}",settings.enabled,settings.effect,settings.shape,settings.surface,settings.rgb[0],settings.rgb[1],settings.rgb[2],records.size(),requests,restored,draws,items);
         }});
     }catch(...){cleanup();throw;}
     return {"Xetal Minimize","Fireball and living Splat minimize effects","XetalEngine","1.1"};

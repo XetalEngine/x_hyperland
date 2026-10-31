@@ -13,6 +13,7 @@ typedef struct {
     gint margin;
     long number;
     int face;
+    gboolean minimized;
     char *original_label;
     gulong destroy_handler, label_handler;
 } Decoration;
@@ -141,12 +142,32 @@ static long workspace_number(GtkWidget *button) {
     return valid ? number : 0;
 }
 
+/* The stash name carries the original workspace ID, never a window sequence.
+ * Cube's face map translates that ID to the same 1–4 shown by the main pills. */
+static long minimized_workspace(GtkWidget *button) {
+    if (!gtk_style_context_has_class(gtk_widget_get_style_context(button), "special")) return 0;
+    GtkWidget *label = find_widget(button, "workspace-label", TRUE);
+    if (!GTK_IS_LABEL(label)) return 0;
+    const char *prefix = "xetal-minimized-ws-", *text = gtk_label_get_text(GTK_LABEL(label));
+    if (!g_str_has_prefix(text, prefix)) return 0;
+    char *end = NULL;long number = strtol(text + strlen(prefix), &end, 10);
+    if (end == text + strlen(prefix)) return 0;
+    while (g_ascii_isspace(*end)) ++end;
+    return !*end && number && number >= G_MININT && number <= G_MAXINT ? number : 0;
+}
+
+static char *display_label(const Decoration *d) {
+    if (d->minimized) return g_strdup_printf("M%ld ", d->face ? (long)d->face : d->number);
+    if (d->face) return g_strdup_printf("%d ", d->face);
+    return d->number < 0 ? g_strdup(d->original_label) : g_strdup_printf("%ld ",d->number);
+}
+
 static void label_changed(GObject *label, GParamSpec *property, gpointer data) {
     Decoration *d = data;
-    if (!d->face) return;
+    if (!d->face && !d->minimized) return;
     /* Waybar rewrites this label during workspace and window updates. Correct
      * it in the same GTK notification, before layout/paint, not on our timer. */
-    char *text = g_strdup_printf("%d ", d->face);
+    char *text = display_label(d);
     if (g_strcmp0(text, gtk_label_get_text(GTK_LABEL(label))))
         gtk_label_set_text(GTK_LABEL(label), text);
     g_free(text);
@@ -231,23 +252,31 @@ static gboolean refresh(gpointer data) {
             }
         }
         Decoration *d = g_object_get_data(G_OBJECT(button), "xetal-workspace-decoration");
-        if (!d && number) d = decorate(owner, button);
+        long minimized = minimized_workspace(button);
+        if (!d && (number || minimized)) {
+            d = decorate(owner, button);
+            if (d && minimized) { d->minimized = TRUE; d->number = minimized; }
+        }
         if (!d) continue;
         if (!d->number) d->number = number;
         number = d->number;
         int face = GPOINTER_TO_INT(g_hash_table_lookup(faces, GSIZE_TO_POINTER(number)));
         d->face = cube ? face : 0;
-        gtk_widget_set_visible(button, !cube || face > 0);
+        gtk_widget_set_visible(button, d->minimized || !cube || face > 0);
         GtkWidget *label = find_widget(button, "workspace-label", TRUE);
         watch_label(d, GTK_IS_LABEL(label) ? label : NULL);
         if (GTK_IS_LABEL(label)) {
-            char *text = !cube && number < 0 ? g_strdup(d->original_label) : g_strdup_printf("%ld ", cube && face ? (long)face : number);
+            char *text = display_label(d);
             if (g_strcmp0(text, gtk_label_get_text(GTK_LABEL(label)))) gtk_label_set_text(GTK_LABEL(label), text);
             g_free(text);
         }
-        gboolean removable = !cube && number > 0 && count > 1 && gtk_style_context_has_class(gtk_widget_get_style_context(button), "empty");
+        gboolean removable = !d->minimized && !cube && number > 0 && count > 1 && gtk_style_context_has_class(gtk_widget_get_style_context(button), "empty");
         gtk_widget_set_margin_end(d->content, d->margin + (removable ? 16 : 0));
         gtk_widget_set_visible(d->close, removable);
+        if (d->minimized) {
+            char *tip = g_strdup_printf("Minimized from workspace %ld · Click an app icon to restore", d->face ? (long)d->face : number);
+            gtk_widget_set_tooltip_text(button, tip);g_free(tip);
+        }
         if (removable) {
             char *tip = g_strdup_printf("Remove empty workspace %ld", number);
             gtk_widget_set_tooltip_text(d->close, tip);
@@ -296,7 +325,7 @@ void wbcffi_deinit(void *instance) {
         if (d->button) {
             GtkWidget *label = find_widget(d->button, "workspace-label", TRUE);
             if (GTK_IS_LABEL(label) && d->number) {
-                char *text = d->number < 0 ? g_strdup(d->original_label) : g_strdup_printf("%ld ", d->number);
+                char *text = d->minimized || d->number < 0 ? g_strdup(d->original_label) : g_strdup_printf("%ld ", d->number);
                 gtk_label_set_text(GTK_LABEL(label), text); g_free(text);
             }
             g_signal_handler_disconnect(d->button, d->destroy_handler);

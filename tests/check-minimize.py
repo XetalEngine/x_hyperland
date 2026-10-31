@@ -158,11 +158,29 @@ debug {
             dispatch('xetalminimize:reload');time.sleep(.35)
             assert status()['active']==1
             shot('shape-'+shape)
+        for surface in model.SURFACES:
+            for shape in ('bloom','web','droplets'):
+                values=dict(model.DEFAULTS,effect='splat',surface=surface,shape=shape,size=160,
+                            follow_theme=False,color='#c939ce' if surface=='membrane' else '#ff126a' if surface=='paint' else '#64e18b')
+                config.write_text(model.encode(values));dispatch('xetalminimize:reload');time.sleep(.3)
+                assert status()['surface']==list(model.SURFACES).index(surface)
+                shot(surface+'-'+shape)
+        # Record a short crop of the moving membrane for visual review.
+        config.write_text(model.encode(dict(model.DEFAULTS,effect='splat',surface='membrane',size=160,
+                                           shape='web',follow_theme=False,color='#c939ce')))
+        dispatch('xetalminimize:reload')
+        frames=[]
+        for i in range(24):
+            path=root/'animation-frame.png';run('grim','-o',output_name,str(path))
+            x,y,w,h=map(int,status()['windows'][0]['box'])
+            frames.append(Image.open(path).crop((max(0,x-8),max(0,y-8),x+w+8,y+h+8)).convert('RGB'))
+            time.sleep(.08)
+        frames[0].save(root/'membrane.gif',save_all=True,append_images=frames[1:],duration=100,loop=0)
         # The frame must evolve while the window remains minimized.
         run('grim','-o',output_name,str(root/'splat-a.png'));time.sleep(.3)
         run('grim','-o',output_name,str(root/'splat-b.png'))
         assert (root/'splat-a.png').read_bytes()!=(root/'splat-b.png').read_bytes()
-        canvas=Image.new('RGB',(6*200,3*210),'#0f181f');draw=ImageDraw.Draw(canvas)
+        canvas=Image.new('RGB',(6*200,((len(shots)+5)//6)*210),'#0f181f');draw=ImageDraw.Draw(canvas)
         for i,(name,picture) in enumerate(shots):
             x=(i%6)*200;y=(i//6)*210;canvas.paste(picture,(x+10,y+6));draw.text((x+10,y+185),name,fill='white')
         canvas.save(root/'gallery.png')
@@ -171,7 +189,7 @@ debug {
         assert 'Duplicate' in ctl('dispatch','xetalminimize:reload')
         assert status()['effect']=='splat' and status()['active']==1
         config.write_text(model.encode(model.DEFAULTS));dispatch('xetalminimize:reload')
-        print('Live Fireball/Splat, six shapes, palette-follow, custom color and rejected reload: passed',flush=True)
+        print('Live Fireball/Splat, eight shapes, three surfaces, palette-follow, custom color and rejected reload: passed',flush=True)
         click_or_scroll(status()['windows'][0]); wait(lambda: status()['active'] == 0)
         wait(lambda: restored('Wayland', ws))
         after = client('Wayland'); assert after['at'] == before['at'] and after['size'] == before['size'], (before, after)
@@ -184,6 +202,24 @@ debug {
         wayland('min', 'Wayland'); wait(lambda: status()['active'] == 1)
         wayland('close', 'Wayland'); wait(lambda: status()['active'] == 0)
         print('Repeated minimize, disable recovery, closing minimized app: passed', flush=True)
+
+        homes={}
+        for name,workspace in (('Home3A',3),('Home3B',3),('Home4',4)):
+            dispatch('workspace',str(workspace));wayland('add',name)
+            wait(lambda:any(c['title']==name for c in clients()));time.sleep(.1)
+            homes[name]=client(name)['workspace']['id'];wayland('min',name)
+            wait(lambda:client(name)['workspace']['name'].startswith('special:xetal-minimized-ws-'))
+            assert client(name)['workspace']['name']=='special:xetal-minimized-ws-'+str(homes[name])
+        assert client('Home3A')['workspace']['id']==client('Home3B')['workspace']['id']
+        assert client('Home3A')['workspace']['id']!=client('Home4')['workspace']['id']
+        # App-icon focus restores only that app, not all the windows in its group.
+        dispatch('focuswindow','address:'+client('Home3A')['address'])
+        wait(lambda:status()['active']==2);assert restored('Home3A',homes['Home3A'])
+        dispatch('xetalminimize:restoreall');wait(lambda:status()['active']==0)
+        for name,workspace in homes.items():
+            assert restored(name,workspace);wayland('close',name)
+        dispatch('workspace','1')
+        print('Minimized groups keep original workspace IDs; app-icon focus restores only its app: passed',flush=True)
 
         wayland('add', 'Activate'); wait(lambda: any(c['title'] == 'Activate' for c in clients()))
         ws = client('Activate')['workspace']['id']

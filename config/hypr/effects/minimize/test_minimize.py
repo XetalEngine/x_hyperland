@@ -14,7 +14,7 @@ from effects.minimize import model, controller
 class SettingsTests(unittest.TestCase):
     def test_invalid_input_never_reaches_compositor(self):
         for change in ({'enabled': 1}, {'effect': 'unknown'}, {'size': 0}, {'duration': 1.5},
-                       {'follow_theme': 1}, {'color': 'red'}, {'shape': 'alien'}, {'speed': 0}, {'bubbles': 101}):
+                       {'follow_theme': 1}, {'color': 'red'}, {'shape': 'alien'}, {'speed': 0}, {'bubbles': 101}, {'surface': 'unknown'}):
             with patch.object(controller, 'hypr') as hypr, self.assertRaises(ValueError):
                 controller.save(dict(model.DEFAULTS, **change), 'unused')
             hypr.assert_not_called()
@@ -24,6 +24,9 @@ class SettingsTests(unittest.TestCase):
     def test_legacy_migration_preserves_preferences_and_new_fields_round_trip(self):
         old = model.decode('enabled=0\neffect=fireball\nduration=650\nsize=100\n')
         self.assertEqual(old, dict(model.DEFAULTS, enabled=False, duration=650, size=100))
+        previous={k:v for k,v in model.DEFAULTS.items() if k!='surface'}
+        text=''.join(f'{k}={int(v) if type(v) is bool else v}\n' for k,v in previous.items())
+        self.assertEqual(model.decode(text),model.DEFAULTS)
         for shape in model.SHAPES:
             new = dict(old, effect='splat', shape=shape, follow_theme=False, color='#aabbcc', bubbles=0)
             self.assertEqual(model.decode(model.encode(new)), new)
@@ -134,11 +137,13 @@ class ControlsTests(unittest.TestCase):
         from effects.minimize.page import MinimizePage
         page = MinimizePage(lambda *args: None)
         page.effect.setCurrentIndex(page.effect.findData('splat'))
+        page.surface.setCurrentIndex(page.surface.findData('membrane'))
         page.follow_theme.setChecked(False); page.color = '#61e897'
         page.shape.setCurrentIndex(page.shape.findData('claw')); page.bubbles.setValue(95)
         page.edited()
         self.assertTrue(page.dirty); self.assertTrue(page.color_button.isEnabled())
         self.assertFalse(page.preview.isEnabled()); self.assertEqual(page.values()['shape'], 'claw')
+        self.assertEqual(page.values()['surface'],'membrane')
         page.reset(); self.assertFalse(page.dirty)
         page.close()
 

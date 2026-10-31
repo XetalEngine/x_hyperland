@@ -158,7 +158,7 @@ struct Graphics {
         glUniform1f(glGetUniformLocation(fireProgram,"alphaScale"),1.F);
         glBlendFunc(GL_SRC_ALPHA,GL_ONE);draw(vertices.size());
     }
-    void splat(PHLMONITOR m,Rect b,double seconds,uint32_t seed,int shape,float bubbles,
+    void splat(PHLMONITOR m,Rect b,double seconds,uint32_t seed,int shape,int surface,float bubbles,
                const std::array<float,3>& rgb,float alpha,bool hover) {
         GLState restore;prepare(m,splatProgram);
         auto uniform=[&](const char* name){return glGetUniformLocation(splatProgram,name);};
@@ -166,7 +166,7 @@ struct Graphics {
         glUniform1f(uniform("time"),seconds);glUniform1f(uniform("opacity"),alpha);
         glUniform1f(uniform("emphasis"),hover?1:0);glUniform1f(uniform("seed"),seed%8192);
         glUniform1f(uniform("outlineSeed"),shape<0?seed%8192:shape*17+11);
-        glUniform1i(uniform("shape"),shape<0?seed%6:shape);glUniform1f(uniform("bubbles"),bubbles);
+        glUniform1i(uniform("shape"),shape<0?seed%8:shape);glUniform1f(uniform("bubbles"),bubbles);glUniform1i(uniform("surface"),surface);
         glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
         std::vector<Vertex> vertices;quad(vertices,m,b,{1,1,1,1});upload(vertices);draw(vertices.size());
     }

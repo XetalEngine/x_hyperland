@@ -17,7 +17,7 @@ static GSubprocess *capture_spawn(const gchar *const *argv, GSubprocessFlags fla
 #include "button.c"
 #undef g_subprocess_newv
 
-static GtkWidget *window, *host, *workspace_box, *empty, *occupied;
+static GtkWidget *window, *host, *workspace_box, *empty, *occupied, *minimized;
 static Workspaces *instance;
 static GtkContainer *get_root(wbcffi_module *unused) { return GTK_CONTAINER(host); }
 static gboolean activated(GtkWidget *widget, GdkEventButton *event, gpointer data) {
@@ -53,6 +53,9 @@ static gboolean keyboard(GtkWidget *widget, GdkEventKey *event, gpointer data) {
         /* Waybar sets markup on every workspace/window update. Read back in
          * this same event: a later timeout must not hide a visible flicker. */
         for (int i=0; i<25; ++i) {
+            GtkWidget *m=find_widget(minimized,"workspace-label",TRUE);
+            gtk_label_set_markup(GTK_LABEL(m),"xetal-minimized-ws-5 ");
+            g_assert_cmpstr(gtk_label_get_text(GTK_LABEL(m)),==,instance->cube?"M2 ":"M5 ");
             gtk_label_set_markup(GTK_LABEL(a),"<b>2</b> ");
             gtk_label_set_markup(GTK_LABEL(b),"5 ");
             char *text=g_strdup_printf("labels %s|%s",gtk_label_get_text(GTK_LABEL(a)),gtk_label_get_text(GTK_LABEL(b)));
@@ -61,6 +64,7 @@ static gboolean keyboard(GtkWidget *widget, GdkEventKey *event, gpointer data) {
     }
     if (event->keyval==GDK_KEY_b) {
         wbcffi_deinit(instance);
+        g_assert_cmpstr(gtk_label_get_text(GTK_LABEL(find_widget(minimized,"workspace-label",TRUE))),==,"xetal-minimized-ws-5 ");
         g_assert(GTK_IS_BOX(gtk_bin_get_child(GTK_BIN(empty))));
         wbcffi_init_info info={.get_root_widget=get_root};instance=wbcffi_init(&info,NULL,0);
     }
@@ -88,6 +92,14 @@ static gboolean state(gpointer unused) {
         ay+gtk_widget_get_allocated_height(instance->button)/2,ax,blocked,nx,gtk_widget_get_allocated_width(window),
         tip);
     g_file_set_contents(file,text,-1,NULL);g_free(tip);g_free(text);g_free(file);
+    if (minimized) {
+        Decoration *md=g_object_get_data(G_OBJECT(minimized),"xetal-workspace-decoration");
+        if(md){
+            g_assert_true(gtk_widget_get_visible(minimized));g_assert_false(gtk_widget_get_visible(md->close));
+            g_assert_cmpstr(gtk_label_get_text(GTK_LABEL(md->label)),==,instance->cube?"M2 ":"M5 ");
+            g_assert_nonnull(find_widget(minimized,"minimized-app-icon",FALSE));
+        }
+    }
     if (occupied && empty) {
         file=g_build_filename(directory,"cube-state",NULL);
         GtkWidget *a=find_widget(occupied,"workspace-label",TRUE), *b=find_widget(empty,"workspace-label",TRUE);
@@ -106,6 +118,10 @@ int main(int argc,char **argv) {
     occupied=workspace("2 ",FALSE,"activate 2");empty=workspace("5 ",TRUE,"activate 5");
     GtkWidget *special=workspace("xetal-startup ",FALSE,"special");
     gtk_style_context_add_class(gtk_widget_get_style_context(special),"special");
+    minimized=workspace("xetal-minimized-ws-5 ",FALSE,"minimized 5");
+    gtk_style_context_add_class(gtk_widget_get_style_context(minimized),"special");
+    GtkWidget *icon=gtk_image_new_from_icon_name("web-browser",GTK_ICON_SIZE_MENU);gtk_widget_set_name(icon,"minimized-app-icon");
+    gtk_box_pack_start(GTK_BOX(gtk_bin_get_child(GTK_BIN(minimized))),icon,FALSE,FALSE,0);
     host=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,0);gtk_box_pack_start(GTK_BOX(bar),host,FALSE,FALSE,0);
     GtkCssProvider *css=gtk_css_provider_new();
     char *css_path=g_build_filename(g_get_home_dir(),".config/hypr/waybar/style.css",NULL);

@@ -11,7 +11,7 @@
 namespace Minimize {
 struct Settings {
     bool enabled=true, followTheme=true;
-    int duration=420, size=76, shape=-1, speed=100, bubbles=70;
+    int duration=420, size=76, shape=-1, speed=100, bubbles=70, surface=0;
     std::string effect="fireball", color="#39a9ff";
     std::array<float,3> rgb{.224F,.663F,1.F};
 };
@@ -28,9 +28,14 @@ inline Settings readSettings(const std::filesystem::path& path, const std::files
             next.effect=value;continue;
         }
         if(key=="shape") {
-            const std::map<std::string,int> shapes{{"random",-1},{"bloom",0},{"star",1},{"spill",2},{"claw",3},{"wide",4},{"coral",5}};
+            const std::map<std::string,int> shapes{{"random",-1},{"bloom",0},{"star",1},{"spill",2},{"claw",3},{"wide",4},{"coral",5},{"web",6},{"droplets",7}};
             if(!shapes.contains(value))throw std::runtime_error("Unknown Splat shape");
             next.shape=shapes.at(value);continue;
+        }
+        if(key=="surface") {
+            const std::map<std::string,int> surfaces{{"slime",0},{"membrane",1},{"paint",2}};
+            if(!surfaces.contains(value))throw std::runtime_error("Unknown Splat surface");
+            next.surface=surfaces.at(value);continue;
         }
         if(key=="color") {
             if(value.size()!=7 || value[0]!='#' || value.substr(1).find_first_not_of("0123456789abcdefABCDEF")!=std::string::npos)
@@ -48,7 +53,8 @@ inline Settings readSettings(const std::filesystem::path& path, const std::files
     }
     const std::set<std::string> legacy{"enabled","effect","duration","size"};
     auto all=legacy;for(const auto* k:{"follow_theme","color","shape","speed","bubbles"})all.insert(k);
-    if(seen!=legacy && seen!=all)throw std::runtime_error("Incomplete Minimize settings");
+    auto previous=all;all.insert("surface");
+    if(seen!=legacy && seen!=previous && seen!=all)throw std::runtime_error("Incomplete Minimize settings");
     for(int i=0;i<3;++i)next.rgb[i]=std::stoi(next.color.substr(1+i*2,2),nullptr,16)/255.F;
     // Only our profile's palette, never KDE's shared color settings.
     if(next.followTheme) {

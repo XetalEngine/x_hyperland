@@ -3,7 +3,10 @@
 Press **Super+Z** or use an application's minimize button to send its window
 to the left edge of that monitor. Click its effect to restore the window.
 Windows form one column; scroll over it when the column fills up. Apps keep
-running, and grouped windows travel together.
+running, and grouped windows travel together. The taskbar groups minimized
+apps under **M3**, for example, followed by their app icons: “M” means minimized,
+and “3” is their original workspace. Cube uses its local 1–4 face number.
+Clicking an app icon restores that specific app.
 
 **Fusion Settings → Theme → Window effects → Minimize** controls the effect,
 travel time, size, animation speed and color. **Follow the active theme accent**
@@ -14,10 +17,14 @@ Closing a window still uses the separate Burn effect.
 - **Fireball** uses the original Compiz particle sprite and motion, adapted to
   continuously emit soft rising flames while the window is minimized.
 - **Splat** has a glossy, moving surface with swelling bubbles, bursts and
-  ripples. Choose Bloom, Starburst, Spill, Tendrils, Wide splash or Coral, or
+  ripples. Choose Bloom, Starburst, Spill, Tendrils, Wide splash, Coral, Webbed
+  splash or Heavy droplets, or
   choose **Random per window**. Fixed silhouettes are consistent across windows;
   random shapes stay with each window until it is restored. Boiling intensity
   controls the bubbles independently of animation speed.
+- Splat has three surfaces: **Living slime**, **Alien membrane** (dark pockets,
+  bright veins and wet ridges), and **Glossy paint** (smooth liquid color and
+  broad highlights). All three can follow the theme or use a custom color.
 - Theme changes recolor existing minimized windows immediately, including
   colors-only presets. Custom colors and effect settings stay intact. Custom
   theme presets can also save the Minimize settings.
