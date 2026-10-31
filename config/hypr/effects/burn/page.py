@@ -154,13 +154,16 @@ class WindowEffectsPage(QWidget):
         super().__init__()
         from preferences_page import PreferencesPage
         from effects.cube.page import CubePage
+        from effects.minimize.page import MinimizePage
         self.burn = BurnPage(async_run);self.cube = CubePage(async_run);self.appearance = PreferencesPage('appearance',async_run)
+        self.minimize = MinimizePage(async_run)
         layout = QVBoxLayout(self);layout.setContentsMargins(0,8,0,0)
         self.tabs = QTabWidget();self.tabs.addTab(self.burn,'Burn');self.tabs.addTab(self.cube,'Desktop Cube + 3D');self.tabs.addTab(self.appearance,'Window appearance');layout.addWidget(self.tabs)
+        self.tabs.insertTab(2,self.minimize,'Minimize')
         self.tabs.currentChanged.connect(lambda _:self.refresh())
 
     @property
-    def dirty(self):return self.burn.dirty or self.cube.dirty or self.appearance.dirty
+    def dirty(self):return self.burn.dirty or self.cube.dirty or self.minimize.dirty or self.appearance.dirty
     @property
-    def busy(self):return self.burn.busy or self.cube.busy or self.appearance.busy
+    def busy(self):return self.burn.busy or self.cube.busy or self.minimize.busy or self.appearance.busy
     def refresh(self):self.tabs.currentWidget().refresh()

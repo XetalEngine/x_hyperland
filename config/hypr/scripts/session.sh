@@ -58,6 +58,10 @@ children+=("$!")
 python3 "$config_dir/effects/cube/controller.py" --session >"$instance_dir/cube.log" 2>&1 9>&- &
 children+=("$!")
 
+# Native minimize requests and fireballs belong to this compositor only.
+python3 "$config_dir/effects/minimize/controller.py" --session >"$instance_dir/minimize.log" 2>&1 9>&- &
+children+=("$!")
+
 # User-configured startup applications belong to this Hyprland session.
 python3 "$config_dir/control_panel/startup.py" --session >"$instance_dir/panel-startup.log" 2>&1 9>&- &
 children+=("$!")

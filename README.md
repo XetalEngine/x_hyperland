@@ -145,13 +145,15 @@ Uncheck **Show this dashboard at login** right on the dashboard to disable all f
 
 **Burn** closes windows with the original Compiz particle flame and smoke. Tune the color, direction, particle count, size, lifetime and timing, or try a disposable preview window.
 
+**Fireball Minimize** turns an app's minimized window into a floating, burning fireball on the left edge of its screen. Click to restore; scroll the single column when it fills up. Apps keep running. Change the effect size and travel time, disable minimizing, or restore all windows in **Theme → Window effects → Minimize**. [Minimize guide →](config/hypr/effects/minimize/README.md)
+
 **Desktop Cube + 3D Windows** gives each monitor its own four workspace faces. Hold **Ctrl+Alt+left mouse** and drag to rotate; release to select or press Escape to cancel. Adjust transparency, edge colors, ceiling/floor artwork, a moving sky, and raised windows with depth and spacing. **Standard animation is the default for ordinary workspace switching**; automatic cube rotation is an option. The drag gesture works with either choice.
 
 **Super+Tab** uses Ring Switcher by default, with seven alternatives: Fusion Cards, Application, Static Application, Shift Cover, Shift Flip, Stack and Scale overview. Live previews follow your selected monitor and style. [Task switcher guide →](config/hypr/switcher/README.md)
 
 Five cursor designs add optional Comet, Soft glow or Stardust trails and click ripples. Cursor effects start disabled and stop rendering when idle. [Cursor guide →](config/hypr/cursors/README.md)
 
-The native [Burn](config/hypr/effects/burn/README.md) and [Cube](config/hypr/effects/cube/README.md) sources and Compiz attribution are included. Setup builds them against the pinned **0.56.2 x86-64/OpenGL** runtime; their effects remain individually configurable.
+The native [Burn](config/hypr/effects/burn/README.md), [Cube](config/hypr/effects/cube/README.md) and [Minimize](config/hypr/effects/minimize/README.md) sources are included, along with Compiz attribution for Burn and Cube. Setup builds them against the pinned **0.56.2 x86-64/OpenGL** runtime; their effects remain individually configurable. Front/Back also handles floating windows above maximized windows and preserves their order across workspace switches.
 
 ## KVM Settings
 

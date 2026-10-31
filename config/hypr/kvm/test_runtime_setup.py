@@ -32,7 +32,7 @@ class RuntimeSetupTests(unittest.TestCase):
                 self.assertTrue(script.is_file())
                 text = script.read_text()
                 self.assertIn('YOUR_LINUX_USER@YOUR_LINUX_HOST', text)
-                self.assertNotIn('/home/xetal', text)
+                self.assertNotIn(str(Path.home()), text)
                 self.assertNotIn('192.168.1.130', text)
                 self.assertFalse((data/'components').exists())
 

@@ -189,7 +189,7 @@ def merge_profile(live, upstream, stage, commit):
     expected[META] = sha(read(live/META))
     # Reuse compiler caches only inside the review tree. Builders check source
     # and installed-library fingerprints before accepting these binaries.
-    for relative in ('theme/qt5', 'theme/qt6', 'theme/gtk3', 'effects/burn/.build', 'effects/cube/.build'):
+    for relative in ('theme/qt5', 'theme/qt6', 'theme/gtk3', 'effects/burn/.build', 'effects/cube/.build', 'effects/minimize/.build'):
         source = live/relative
         if source.is_dir() and not source.is_symlink():
             shutil.copytree(source, stage/relative, dirs_exist_ok=True,

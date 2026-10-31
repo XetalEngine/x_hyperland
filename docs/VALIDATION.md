@@ -1,5 +1,26 @@
 # Validation
 
+## Fireball Minimize and window ordering — 31 October 2026
+
+The native adapter was compiled against the pinned Hyprland 0.56.2 ABI and tested
+in a disposable nested compositor with Cube and Burn loaded. Actual Qt Wayland
+and XWayland minimize requests, virtual-pointer fireball clicks, repeated
+minimize, external activation, column scrolling, groups, closing a minimized
+app, disabling the effect, restore-all and plugin unload passed. Floating
+geometry, maximized/fullscreen state and pins survived restoration. Removing
+an output returned its minimized app before normal workspace migration.
+
+A maximized viewer and a floating settings window reproduced the relevant
+stacking arrangement. Front/Back changed the floating-over-fullscreen state,
+and three workspace round-trips kept the chosen order. No VM was used or changed.
+Reduced-motion recovery also passed. See `tests/check-minimize.py` for the
+reproducible integration check.
+
+Seven settings/UI/native-math checks, 33 updater checks, 31 installer/source
+checks and the Burn controls suite passed. The socket lifecycle test needs an
+environment that permits local Unix sockets. Full installed-profile
+`Hyprland --verify-config` validation passed before activation.
+
 ## Pinned compositor and graphical Setup — 31 October 2026
 
 The current release requires the development machine's Hyprland **0.56.2**,

@@ -1,0 +1,262 @@
+#!/usr/bin/env python3
+"""Real Wayland/X11 requests, pointer input and recovery in a disposable compositor.
+
+Usage: check-minimize.py /absolute/path/xetal-minimize.so /tmp/new-test-directory
+Requires a parent Wayland session, PyQt6, grim, wayland-scanner and a C compiler.
+It never loads the plugin into the parent compositor or launches a real VM.
+"""
+import json
+import os
+from pathlib import Path
+import shlex
+import subprocess
+import sys
+import tempfile
+import time
+
+REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO/'config/hypr'))
+from effects.minimize import model
+from effects.cube import model as cube_model, build as cube_build
+from effects.burn import model as burn_model, build as burn_build
+
+
+def main():
+    binary = Path(sys.argv[1]).resolve(strict=True)
+    root = Path(sys.argv[2]); root.mkdir(parents=True, exist_ok=False)
+    config = root/'minimize.conf'; config.write_text(model.encode(model.DEFAULTS))
+    cube = root/'cube.json'; cube.write_text(cube_model.encode(dict(cube_model.DEFAULTS, enabled=True)))
+    burn = root/'burn.conf'; burn.write_text(burn_model.encode(dict(burn_model.DEFAULTS, enabled=True)))
+    protocol = REPO/'tests/minimize/wlr-virtual-pointer-unstable-v1.xml'
+    subprocess.run(['wayland-scanner', 'client-header', str(protocol), str(root/'virtual-pointer.h')], check=True)
+    subprocess.run(['wayland-scanner', 'private-code', str(protocol), str(root/'virtual-pointer.c')], check=True)
+    flags = shlex.split(subprocess.check_output(['pkg-config', '--cflags', '--libs', 'wayland-client'], text=True))
+    pointer = root/'pointer'
+    subprocess.run(['cc', '-I'+str(root), str(REPO/'tests/minimize/pointer.c'), str(root/'virtual-pointer.c'), '-o', str(pointer), *flags], check=True)
+    conf = root/'hyprland.conf'
+    conf.write_text('''monitor = ,1280x800@60,auto,1
+misc {
+ disable_hyprland_logo = true
+ disable_splash_rendering = true
+ focus_on_activate = true
+}
+input {
+ follow_mouse = 1
+}
+debug {
+ disable_logs = false
+}
+''')
+    runtime = Path(tempfile.mkdtemp(prefix='xm-', dir='/tmp'))
+    parent = os.environ['WAYLAND_DISPLAY']
+    if not parent.startswith('/'):
+        parent = str(Path(os.environ['XDG_RUNTIME_DIR'])/parent)
+    env = dict(os.environ, XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=parent,
+               GSETTINGS_BACKEND='memory', XETAL_MINIMIZE_CONFIG=str(config),
+               XETAL_CUBE_CONFIG=str(cube), XETAL_BURN_CONFIG=str(burn))
+    env.pop('HYPRLAND_INSTANCE_SIGNATURE', None)
+    children = []
+    logs = []
+
+    def spawn(args, **kwargs):
+        process = subprocess.Popen(args, **kwargs); children.append(process); return process
+
+    def run(*args):
+        result = subprocess.run(args, env=env, text=True, capture_output=True, timeout=20)
+        if result.returncode:
+            raise RuntimeError(str(args)+': '+result.stdout+result.stderr)
+        return result.stdout.strip()
+
+    def ctl(*args): return run('hyprctl', *args)
+    def dispatch(*args):
+        answer = ctl('dispatch', *args); assert answer == 'ok', (args, answer)
+    def status(): return json.loads(ctl('xetal-minimize'))
+    def clients(): return json.loads(ctl('-j', 'clients'))
+    def client(name): return next(c for c in clients() if c['title'] == name)
+    def wait(predicate):
+        for _ in range(120):
+            if predicate(): return
+            time.sleep(.04)
+        raise AssertionError('Timed out waiting for transition')
+    def begin_app(platform):
+        logs.append((root/(platform+'.log')).open('w'))
+        child_env = dict(env, QT_QPA_PLATFORM=platform)
+        if platform == 'xcb':
+            # Ask a child of the nested compositor for its own X server.
+            display_file = root/'display'
+            dispatch('exec', 'sh -c '+shlex.quote('printf "%s" "$DISPLAY" > '+shlex.quote(str(display_file))))
+            wait(lambda: display_file.exists() and bool(display_file.read_text()))
+            child_env['DISPLAY'] = display_file.read_text()
+        app = spawn([sys.executable, str(REPO/'tests/minimize/client.py')], env=child_env,
+                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=logs[-1], text=True)
+        def command(op, name):
+            app.stdin.write(json.dumps(dict(op=op, name=name))+'\n'); app.stdin.flush()
+            assert app.stdout.readline().strip() == 'ok', (op, name)
+        return command
+    def click_or_scroll(item, kind='click'):
+        b = item['box']; monitors = json.loads(ctl('-j', 'monitors')); m = monitors[0]
+        run(str(pointer), str(int(b[0]+b[2]/2)), str(int(b[1]+b[3]/2)),
+            str(m['width']), str(m['height']), kind)
+    def restored(name, ws):
+        c = client(name); return c['workspace']['id'] == ws and not c['hidden'] and c['mapped']
+
+    try:
+        logs.append((root/'compositor.log').open('w'))
+        compositor = spawn(['Hyprland', '-c', str(conf)], env=env, stdout=logs[-1], stderr=logs[-1], start_new_session=True)
+        for _ in range(100):
+            assert compositor.poll() is None, 'Nested compositor exited'
+            try:
+                instance = next((i for i in json.loads(run('hyprctl', '-j', 'instances')) if i['pid'] == compositor.pid), None)
+            except ValueError:
+                instance = None
+            if instance and (runtime/'hypr'/instance['instance']/'.socket.sock').exists():
+                env.update(HYPRLAND_INSTANCE_SIGNATURE=instance['instance'], WAYLAND_DISPLAY=instance['wl_socket']); break
+            time.sleep(.1)
+        else:
+            raise RuntimeError('No disposable compositor')
+        time.sleep(.6)
+        # Use the Wayland backend: a headless output needs a GBM allocator that
+        # is not available on every host. Let the parent's initial resize settle.
+        time.sleep(1)
+        output = json.loads(ctl('-j', 'monitors'))[0]
+        output_name = output['name']
+        dispatch('focusmonitor', output_name); dispatch('workspace', '1')
+        for path in (cube_build.build(), burn_build.build(), binary):
+            assert ctl('plugin', 'load', str(path)) == 'ok', path
+        print('Cube, Burn and Minimize loaded together', flush=True)
+        wayland = begin_app('wayland')
+        wayland('add', 'Wayland'); wait(lambda: any(c['title'] == 'Wayland' for c in clients()))
+        dispatch('setfloating', 'address:'+client('Wayland')['address'])
+        dispatch('resizewindowpixel', 'exact 680 420,address:'+client('Wayland')['address'])
+        dispatch('movewindowpixel', 'exact 220 160,address:'+client('Wayland')['address'])
+        time.sleep(.6); before = client('Wayland'); ws = before['workspace']['id']
+        wayland('min', 'Wayland'); wait(lambda: status()['active'] == 1)
+        time.sleep(.15); run('grim', '-o', output_name, str(root/'flying.png'))
+        time.sleep(.6); run('grim', '-o', output_name, str(root/'fireball.png'))
+        click_or_scroll(status()['windows'][0]); wait(lambda: status()['active'] == 0)
+        wait(lambda: restored('Wayland', ws))
+        after = client('Wayland'); assert after['at'] == before['at'] and after['size'] == before['size'], (before, after)
+        print('Wayland minimize button, pointer restore, geometry: passed', flush=True)
+        wayland('min', 'Wayland'); wait(lambda: status()['active'] == 1)
+        config.write_text(model.encode(dict(model.DEFAULTS, enabled=False)))
+        dispatch('xetalminimize:reload'); wait(lambda: status()['active'] == 0)
+        assert restored('Wayland', ws)
+        config.write_text(model.encode(model.DEFAULTS)); dispatch('xetalminimize:reload')
+        wayland('min', 'Wayland'); wait(lambda: status()['active'] == 1)
+        wayland('close', 'Wayland'); wait(lambda: status()['active'] == 0)
+        print('Repeated minimize, disable recovery, closing minimized app: passed', flush=True)
+
+        wayland('add', 'Activate'); wait(lambda: any(c['title'] == 'Activate' for c in clients()))
+        ws = client('Activate')['workspace']['id']
+        wayland('min', 'Activate'); wait(lambda: status()['active'] == 1)
+        dispatch('focuswindow', 'address:'+client('Activate')['address'])
+        wait(lambda: status()['active'] == 0)
+        assert restored('Activate', ws)
+        wayland('close', 'Activate')
+        print('External window activation restores the original workspace: passed', flush=True)
+
+        x11 = begin_app('xcb'); x11('add', 'X11'); wait(lambda: any(c['title'] == 'X11' for c in clients()))
+        assert client('X11')['xwayland']
+        ws = client('X11')['workspace']['id']; x11('min', 'X11'); wait(lambda: status()['active'] == 1)
+        click_or_scroll(status()['windows'][0]); wait(lambda: status()['active'] == 0)
+        assert restored('X11', ws); x11('close', 'X11')
+        print('XWayland minimize and restore: passed', flush=True)
+
+        count = int(output['height'] / output['scale'] / (model.DEFAULTS['size']+12)) + 3
+        for i in range(count):
+            name = f'Window {i}'; wayland('add', name); wait(lambda: any(c['title'] == name for c in clients()))
+            time.sleep(.08); wayland('min', name); wait(lambda: status()['active'] == i+1)
+        time.sleep(.6); items = status()['windows']; assert not items[0]['visible'] and items[-1]['visible']
+        for _ in range(count):
+            item = next(w for w in status()['windows'] if w['visible']); click_or_scroll(item, '-1')
+        assert status()['windows'][0]['visible']
+        run('grim', '-o', output_name, str(root/'column.png'))
+        dispatch('xetalminimize:restoreall'); assert status()['active'] == 0
+        for i in range(count):
+            assert not client(f'Window {i}')['hidden']; wayland('close', f'Window {i}')
+        print('Single-column overflow and restore-all: passed', flush=True)
+
+        wayland('add', 'Group A'); wait(lambda: any(c['title'] == 'Group A' for c in clients()))
+        dispatch('focuswindow', 'address:'+client('Group A')['address']); dispatch('togglegroup')
+        wayland('add', 'Group B'); wait(lambda: any(c['title'] == 'Group B' for c in clients()))
+        assert len(client('Group B')['grouped']) == 2, clients()
+        ws = client('Group B')['workspace']['id']
+        wayland('min', 'Group B'); wait(lambda: status()['active'] == 1)
+        assert client('Group A')['workspace']['id'] == client('Group B')['workspace']['id'] != ws
+        click_or_scroll(status()['windows'][0]); wait(lambda: status()['active'] == 0)
+        # Hyprland fades inactive tabs and blocks their input; it does not set
+        # the generic "hidden" property for inactive group members.
+        assert restored('Group B', ws) and client('Group B')['acceptsInput'] and not client('Group A')['acceptsInput'], clients()
+        assert len(client('Group B')['grouped']) == 2
+        wayland('close', 'Group A'); wayland('close', 'Group B')
+        wait(lambda: not clients())
+        print('Grouped windows minimize and return together: passed', flush=True)
+
+        wayland('add', 'Viewer'); wayland('add', 'KVM settings'); wait(lambda: len(clients()) == 2)
+        for name in ('Viewer', 'KVM settings'):
+            dispatch('setfloating', 'address:'+client(name)['address'])
+        time.sleep(.6)
+        viewer_normal = client('Viewer')
+        dispatch('focuswindow', 'address:'+client('Viewer')['address']); dispatch('fullscreenstate', '1 1')
+        wait(lambda: client('Viewer')['fullscreen'] == 1)
+        dispatch('focuswindow', 'address:'+client('KVM settings')['address'])
+        assert client('KVM settings')['allowedOverFullscreen']
+        dispatch('focuswindow', 'address:'+client('Viewer')['address']); dispatch('alterzorder', 'top,active')
+        assert not client('KVM settings')['allowedOverFullscreen']
+        ws = client('Viewer')['workspace']['id']
+        for _ in range(3):
+            dispatch('workspace', '2'); dispatch('workspace', str(ws)); time.sleep(.15)
+            assert not client('KVM settings')['allowedOverFullscreen']
+        dispatch('focuswindow', 'address:'+client('Viewer')['address']); dispatch('alterzorder', 'bottom,active')
+        assert client('KVM settings')['allowedOverFullscreen']
+        assert json.loads(ctl('-j', 'activewindow'))['title'] == 'KVM settings'
+        dispatch('workspace', '2'); dispatch('workspace', str(ws))
+        assert client('KVM settings')['allowedOverFullscreen']
+        dispatch('focuswindow', 'address:'+client('KVM settings')['address']); dispatch('alterzorder', 'bottom,active')
+        assert not client('KVM settings')['allowedOverFullscreen']
+        assert json.loads(ctl('-j', 'activewindow'))['title'] == 'Viewer'
+        wayland('min', 'Viewer'); wait(lambda: status()['active'] == 1)
+        click_or_scroll(status()['windows'][0]); wait(lambda: status()['active'] == 0)
+        assert client('Viewer')['fullscreen'] == 1
+        dispatch('fullscreenstate', '0 0')
+        time.sleep(.6)
+        assert client('Viewer')['size'] == viewer_normal['size'], (viewer_normal, client('Viewer'))
+        print('Maximized viewer ordering, workspace round-trips, fullscreen restore: passed', flush=True)
+        dispatch('fullscreenstate', '2 2')
+        wayland('min', 'Viewer'); wait(lambda: status()['active'] == 1)
+        dispatch('xetalminimize:restoreall'); assert client('Viewer')['fullscreen'] == 2
+        dispatch('focuswindow', 'address:'+client('Viewer')['address']); dispatch('fullscreenstate', '0 0')
+        ctl('keyword', 'animations:enabled', 'false')
+        wayland('min', 'Viewer'); wait(lambda: status()['active'] == 1)
+        click_or_scroll(status()['windows'][0]); wait(lambda: status()['active'] == 0)
+        ctl('keyword', 'animations:enabled', 'true')
+        print('Fullscreen and reduced-motion recovery: passed', flush=True)
+
+        ctl('output', 'create', 'wayland', 'MINIMIZE-SECOND')
+        wait(lambda: len(json.loads(ctl('-j', 'monitors'))) == 2)
+        second = next(m for m in json.loads(ctl('-j', 'monitors')) if m['name'] != output_name)
+        dispatch('focuswindow', 'address:'+client('Viewer')['address'])
+        dispatch('movewindow', 'mon:'+second['name'])
+        time.sleep(.6); wayland('min', 'Viewer'); wait(lambda: status()['active'] == 1)
+        ctl('output', 'remove', second['name']); wait(lambda: status()['active'] == 0)
+        assert client('Viewer')['monitor'] == json.loads(ctl('-j', 'monitors'))[0]['id'] and not client('Viewer')['hidden']
+        print('Disconnecting an output restores apps before workspace migration: passed', flush=True)
+        dispatch('focuswindow', 'address:'+client('KVM settings')['address']); dispatch('pin')
+        wayland('min', 'KVM settings'); wait(lambda: status()['active'] == 1)
+        assert ctl('plugin', 'unload', str(binary)) == 'ok'
+        assert client('KVM settings')['pinned'] and not client('KVM settings')['hidden']
+        assert not any(c['workspace']['name'].startswith('special:xetal-minimized-') for c in clients())
+        assert compositor.poll() is None
+        print('Pinned window and plugin-unload recovery: passed', flush=True)
+        print('PASS', flush=True)
+    finally:
+        for child in reversed(children):
+            if child.poll() is None:
+                child.terminate()
+                try: child.wait(timeout=5)
+                except subprocess.TimeoutExpired: child.kill(); child.wait()
+        for log in logs: log.close()
+
+
+if __name__ == '__main__':
+    main()

@@ -35,6 +35,8 @@ The **Compiz Burn** close effect supports Hyprland **0.56.2** at the tested comm
 
 **Desktop Cube & 3D Windows** uses the same tested Hyprland ABI and C++23/OpenGL requirements as Burn, plus json-c and libei development headers (`json-c`, `libeis-1.0`). Its sources and required build are included in the installer. A missing dependency or failed build stops the new installation before replacing the profile. See the [Cube guide](../config/hypr/effects/cube/README.md).
 
+**Fireball Minimize** uses the same pinned ABI, OpenGL renderer and `libeis-1.0` headers. Its required adapter also supplies workspace-aware Front/Back ordering. See the [Minimize guide](../config/hypr/effects/minimize/README.md).
+
 Xetal Images uses the installed Qt image readers. Common image formats are included with Qt; additional readers such as HEIF, AVIF, camera RAW and PSD depend on the distribution's Qt image-format plugins.
 
 Xetal Files speaks the [KDE JobView interfaces](https://invent.kde.org/frameworks/kjobwidgets) used by Dolphin/KIO and Ark. It starts only for this Hyprland session and leaves any existing job-service owner in charge. Applications that draw their own progress windows independently of these interfaces retain their own UI. No KDE configuration or system service is replaced.
