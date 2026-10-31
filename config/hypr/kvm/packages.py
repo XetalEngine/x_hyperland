@@ -120,6 +120,13 @@ def installed(name, root=None):
     return read_json((root or data_root())/'components'/name/'current/.component.json',{})
 
 
+def update_available(name, entry, current):
+    """Only advertise installed components that can actually be upgraded."""
+    return bool(current and current.get('sha256') != entry['sha256']
+                and version(entry['version']) > version(current['version'])
+                and not compatibility(name, entry))
+
+
 def safe_members(archive, maximum):
     members=[];seen=set();total=0
     for item in archive:

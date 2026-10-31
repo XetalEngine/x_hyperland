@@ -1,4 +1,4 @@
-"""Page-level diagnostics and a visible, slow pulse for invalid settings."""
+"""Page-level diagnostics and a slow pulse for problems or component updates."""
 from collections import defaultdict
 from pathlib import Path
 from PyQt6.QtCore import Qt,QTimer
@@ -65,6 +65,9 @@ def collect(window):
             issues['Machine'].append(f'Bridge {bridge or "(not selected)"} is missing. Choose Create Bridge or NAT networking.')
     if not packages.installed('baseline'):
         issues['Paths && Tools'].append('VM support files are missing. Install / download missing components.')
+    panel=getattr(window,'package_panel',None)
+    if panel:
+        issues['Paths && Tools'].extend(panel.update_messages())
     if tools.get('kvm_build_enabled') and Path(tools.get('kvm_build',''))==portable.ROOT/'module-tool.sh':
         entry=packages.installed('kvm-amd')
         reason=packages.compatibility('kvm-amd',entry) if entry else 'Custom KVM module is missing'

@@ -21,6 +21,7 @@ class Job(QThread):
 
 class PackagesPanel(QGroupBox):
     changed=pyqtSignal()
+    inventory_changed=pyqtSignal()
     active=pyqtSignal(bool)
     message=pyqtSignal(str)
     def __init__(self,busy,parent=None):
@@ -66,7 +67,10 @@ class PackagesPanel(QGroupBox):
             current=packages.installed(name);reason=packages.compatibility(name,entry)
             same=current.get('sha256')==entry['sha256']
             newer=bool(current) and packages.version(current['version'])>packages.version(entry['version'])
-            status=reason or ('Current' if same else 'Newer local version' if newer else 'UPDATE AVAILABLE' if current else 'Ready to download')
+            update=packages.update_available(name,entry,current)
+            conflict=bool(current) and not same and current['version']==entry['version']
+            status=reason or ('Current' if same else 'Newer local version' if newer else
+                             'Version conflict' if conflict else 'UPDATE AVAILABLE' if update else 'Ready to download')
             for col,text in enumerate((entry['label'],current.get('version','—'),entry['version'],status)):
                 item=QTableWidgetItem(text)
                 item.setToolTip(text+(f'\n{entry["size"]/1024**2:.1f} MiB download · {entry["unpacked_size"]/1024**2:.1f} MiB installed' if col==2 else ''))
@@ -74,12 +78,25 @@ class PackagesPanel(QGroupBox):
             button=QPushButton('Installed' if same or newer else 'Update' if current else 'Download')
             button.setFixedHeight(30)
             button.setStyleSheet('padding: 0 10px; margin: 0; min-height: 0;')
-            button.setEnabled(not (same or newer or reason or self.job))
+            button.setEnabled(not self.job and (update or not current and not reason))
+            if conflict:
+                button.setToolTip('This version has different files than the installed component. A newer version is required.')
             button.clicked.connect(lambda _,n=name,e=entry:self.download(n,e))
             cell=QWidget();buttons=QHBoxLayout(cell);buttons.setContentsMargins(6,4,6,4);buttons.addWidget(button)
             self.table.setCellWidget(row,4,cell);self.table.setRowHeight(row,44)
         self.table.setFixedHeight(self.table.horizontalHeader().height()+44*len(entries)+4)
         self.table.setVisible(bool(entries))
+        self.inventory_changed.emit()
+
+    def update_messages(self):
+        # The release is already signature-verified. Health refreshes read only
+        # local metadata, so an external install also clears its notification.
+        messages=[]
+        for name,entry in (self.release or {}).get('components',{}).items():
+            current=packages.installed(name)
+            if packages.update_available(name,entry,current):
+                messages.append(f'{entry["label"]} update available: {current["version"]} → {entry["version"]}.')
+        return messages
 
     def run(self,work,finished,failed=None):
         if self.job:return
@@ -131,7 +148,8 @@ class PackagesPanel(QGroupBox):
     def bootstrap(self):
         # Opening settings checks metadata only. Downloads are explicit and all
         # runtime programs and supporting binary assets come from the server.
-        if self.busy():
-            self.info.setText('VM is running. Shut it down before preparing component files.');return
-        portable.prepare_firmware();portable.prepare_tpm_workspace()
-        self.changed.emit();self.check_updates()
+        if not self.busy():
+            portable.prepare_firmware();portable.prepare_tpm_workspace()
+            self.changed.emit()
+        # Reading release metadata is safe while a guest is running, too.
+        self.check_updates()

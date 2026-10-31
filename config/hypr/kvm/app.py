@@ -106,6 +106,7 @@ class KVMSettings(VMStart2):
     def _decorate_pages(self):
         panel=PackagesPanel(self._busy,self.tab_paths)
         panel.changed.connect(self._refresh_all)
+        panel.inventory_changed.connect(self._health_changed)
         self.tab_paths.widget().layout().insertWidget(0,panel)
         self.package_panel=panel
         if not getattr(self,'_wizard_connected',False):

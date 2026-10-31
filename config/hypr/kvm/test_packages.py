@@ -89,6 +89,32 @@ class PackageTests(unittest.TestCase):
         self.assertIn('AMD',packages.compatibility('kvm-amd',entry,kernel=entry['kernel'],cpu='intel',arch='x86_64'))
         self.assertIn('kernel',packages.compatibility('kvm-amd',entry,kernel='other',cpu='amd',arch='x86_64'))
 
+    def test_update_notice_requires_newer_installed_component(self):
+        current={'version':'1.0.9','sha256':'a'*64}
+        entry={'version':'1.0.10','sha256':'b'*64,'cpu':'amd','kernel':'fixture-kernel'}
+        with patch.object(packages.platform,'machine',return_value='x86_64'), \
+             patch.object(packages.platform,'release',return_value='fixture-kernel'), \
+             patch.object(packages,'cpu_vendor',return_value='amd'):
+            for name in packages.IDS:
+                with self.subTest(component=name):
+                    self.assertTrue(packages.update_available(name,entry,current))
+                    for installed in ({}, entry, dict(current,version='2.0.0'),
+                                      dict(current,version=entry['version']),
+                                      dict(current,sha256=entry['sha256'])):
+                        self.assertFalse(packages.update_available(name,entry,installed))
+
+    def test_update_notice_ignores_incompatible_module(self):
+        current={'version':'1.0.0','sha256':'a'*64}
+        entry={'version':'1.0.1','sha256':'b'*64,'cpu':'amd','kernel':'fixture-kernel'}
+        with patch.object(packages.platform,'machine',return_value='x86_64'):
+            with patch.object(packages,'cpu_vendor',return_value='intel'):
+                self.assertFalse(packages.update_available('kvm-amd',entry,current))
+            with patch.object(packages,'cpu_vendor',return_value='amd'), \
+                 patch.object(packages.platform,'release',return_value='other-kernel'):
+                self.assertFalse(packages.update_available('kvm-amd',entry,current))
+        with patch.object(packages.platform,'machine',return_value='aarch64'):
+            self.assertFalse(packages.update_available('qemu',entry,current))
+
     def test_captured_profiles_are_relocatable_and_assets_are_private_copies(self):
         import sys
         import shutil

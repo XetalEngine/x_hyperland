@@ -296,6 +296,69 @@ class SetupTests(unittest.TestCase):
         health.refresh(self.window)
         self.assertFalse(self.window.navigation.items['TPM'].data(health.ISSUE_ROLE))
 
+    def test_component_check_pulses_paths_and_clears_after_updates(self):
+        import health
+        import packages
+        w=self.window;panel=w.package_panel;item=w.navigation.items['Paths && Tools']
+        installed=copy.deepcopy(panel.release['components'])
+        release=copy.deepcopy(panel.release)
+        for name in ('qemu','ovmf'):
+            release['components'][name].update(version='2.0.0',sha256='b'*64)
+        # Isolate update notices from the missing files in this test workspace.
+        w.cfg.data['_meta']['binary']=sys.executable
+        w.cfg.data['tools']['kvm_build_enabled']=False
+        with patch.object(w.cfg,'validate',return_value=[]), \
+             patch.object(packages,'installed',side_effect=lambda name:installed.get(name,{})), \
+             patch.object(panel.store,'check',return_value=release), \
+             patch.object(panel.store,'download') as download, \
+             patch.object(portable,'prepare_firmware') as firmware, \
+             patch.object(portable,'prepare_tpm_workspace') as tpm:
+            panel.refresh()
+            self.assertFalse(item.data(health.ISSUE_ROLE))
+            panel.check_updates();self.wait_for_operation()
+            self.assertTrue(item.data(health.ISSUE_ROLE))
+            self.assertTrue(w.issue_delegate.timer.isActive())
+            for name in ('qemu','ovmf'):
+                expected=f'{installed[name]["label"]} update available: {installed[name]["version"]} → 2.0.0.'
+                self.assertIn(expected,item.toolTip())
+                row=list(release['components']).index(name)
+                self.assertEqual(panel.table.item(row,3).text(),'UPDATE AVAILABLE')
+            w._select_tab_by_name('Paths & Tools')
+            self.assertIn('update available',w.issue_banner.text())
+            # A failed later check must not discard previously verified updates.
+            with patch.object(panel.store,'check',side_effect=RuntimeError('Offline fixture')):
+                panel.check_updates();self.wait_for_operation()
+            self.assertTrue(item.data(health.ISSUE_ROLE))
+            self.assertIn('Offline fixture',panel.info.text())
+            # Installing one component clears only its own notice.
+            installed['qemu']=copy.deepcopy(release['components']['qemu'])
+            panel.refresh()
+            self.assertTrue(item.data(health.ISSUE_ROLE))
+            self.assertNotIn(installed['qemu']['label']+' update available',item.toolTip())
+            self.assertIn(installed['ovmf']['label']+' update available',item.toolTip())
+            # An external component update also clears on the next health tick.
+            installed['ovmf']=copy.deepcopy(release['components']['ovmf'])
+            health.refresh(w)
+            self.assertFalse(item.data(health.ISSUE_ROLE))
+            self.assertEqual(item.toolTip(),w.issue_tooltips['Paths && Tools'])
+            self.assertTrue(w.issue_banner.isHidden())
+            self.assertTrue(w.navigation.items['TPM'].data(health.ISSUE_ROLE))
+            download.assert_not_called();firmware.assert_not_called();tpm.assert_not_called()
+
+    def test_component_version_conflict_is_not_an_update(self):
+        import packages
+        from PyQt6.QtWidgets import QPushButton
+        panel=self.window.package_panel
+        installed=copy.deepcopy(panel.release['components'])
+        panel.release=copy.deepcopy(panel.release)
+        panel.release['components']['qemu']['sha256']='b'*64
+        with patch.object(packages,'installed',side_effect=lambda name:installed.get(name,{})):
+            panel.refresh()
+            self.assertEqual(panel.update_messages(),[])
+            row=list(panel.release['components']).index('qemu')
+            self.assertEqual(panel.table.item(row,3).text(),'Version conflict')
+            self.assertFalse(panel.table.cellWidget(row,4).findChild(QPushButton).isEnabled())
+
     def wait_for_operation(self):
         deadline=time.monotonic()+5
         while self.window.package_panel.job and time.monotonic()<deadline:

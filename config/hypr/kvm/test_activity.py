@@ -2,7 +2,7 @@
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from types import SimpleNamespace
 
 from activity import supervisor_active
@@ -29,11 +29,12 @@ class ActivityTests(unittest.TestCase):
 
     def test_opening_panel_does_not_update_a_running_guest(self):
         from package_ui import PackagesPanel
-        message=[]
-        panel=SimpleNamespace(busy=lambda:True,info=SimpleNamespace(setText=message.append))
-        # No run/job attributes: starting installation here would fail the test.
-        PackagesPanel.bootstrap(panel)
-        self.assertIn('VM is running',message[0])
+        panel=SimpleNamespace(busy=lambda:True,check_updates=Mock())
+        with patch('portable.prepare_firmware') as firmware, \
+             patch('portable.prepare_tpm_workspace') as tpm:
+            PackagesPanel.bootstrap(panel)
+        firmware.assert_not_called();tpm.assert_not_called()
+        panel.check_updates.assert_called_once_with()
 
 
 if __name__=='__main__':unittest.main()
