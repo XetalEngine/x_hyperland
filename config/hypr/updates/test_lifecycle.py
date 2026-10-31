@@ -12,9 +12,30 @@ from unittest.mock import patch
 
 import github
 import service
+import update_engine as engine
 
 
 class LifecycleTests(unittest.TestCase):
+    def test_unpublished_developer_revision_does_not_offer_an_old_remote_release(self):
+        with tempfile.TemporaryDirectory(prefix='xetal-unpublished-test-') as directory:
+            root=Path(directory);origin=root/'origin';origin.mkdir()
+            def git(repo,*args):
+                return subprocess.check_output(['git','-C',str(repo),'-c','user.name=Fixture',
+                    '-c','user.email=fixture@example.invalid',*args],text=True,stderr=subprocess.PIPE).strip()
+            git(origin,'init','-q','-b','main');(origin/'code').write_text('published')
+            git(origin,'add','.');git(origin,'commit','-qm','Published')
+            published=git(origin,'rev-parse','HEAD')
+            clone=root/'developer';git(origin,'clone','-q',str(origin),str(clone))
+            (clone/'code').write_text('new local work');git(clone,'commit','-qam','Unpublished')
+            current=git(clone,'rev-parse','HEAD')
+            with patch.object(github,'REPOSITORY',str(origin)):
+                value=github.git_latest(current,cache=root/'cache')
+            self.assertEqual(value['sha'],published);self.assertEqual(value['relation'],'unknown')
+            live=root/'profile';live.mkdir()
+            engine.write_json(live/engine.META,engine.metadata(live,current))
+            with patch.object(github,'latest',return_value=value):status=service.check(live,root/'state')
+            self.assertEqual(service.badge(status)['text'],'')
+
     def test_logout_stops_network_worker_and_detached_descendant(self):
         with tempfile.TemporaryDirectory(prefix='xetal-session-test-') as directory:
             root = Path(directory); runtime = root/'hypr/fixture'; runtime.mkdir(parents=True)

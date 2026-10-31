@@ -187,6 +187,22 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
         badge = service.badge({'phase':'available','message':'<b>not markup</b>'})
         self.assertEqual(badge['text'], '↻ UPDATE'); self.assertNotIn('<b>', badge['tooltip'])
 
+    def test_cached_ancestry_for_another_install_cannot_show_an_update_badge(self):
+        service.publish(self.state,phase='available',current=OLD,latest=NEW,
+                        github={'sha':NEW,'base':'3'*40,'relation':'ahead'})
+        value=service.status(self.state,self.live)
+        self.assertEqual(service.badge(value)['text'],'')
+        self.assertEqual(value['github']['relation'],'unknown')
+
+    def test_public_api_missing_local_commit_keeps_development_build_unadvertised(self):
+        from urllib.error import HTTPError
+        responses=[([{'sha':NEW,'commit':{'message':'Published release'}}],'etag'),
+                   HTTPError('https://example.invalid/compare',404,'Not Found',{},None)]
+        with patch.object(github,'request',side_effect=responses):
+            result=service.check(self.live,self.state)
+        self.assertEqual(result['github']['relation'],'unknown')
+        self.assertEqual(service.badge(result)['text'],'')
+
     def test_runtime_mismatch_cannot_activate_prepared_desktop(self):
         (self.upstream/'runtime').mkdir()
         shutil.copyfile(service.ROOT/'runtime/manifest.json',self.upstream/'runtime/manifest.json')

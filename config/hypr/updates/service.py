@@ -52,6 +52,11 @@ def status(state=None, root=None):
         value.update(phase='current', current=current, failed_revision='', retry_prepare=False,
                      message='Local desktop revision changed. Checking GitHub will refresh its status.')
         value['github'] = {**value.get('github', {}), 'relation':'unknown'}
+    elif (value.get('phase') in ('available','attention') and value.get('github', {}).get('base')
+          and value['github']['base'] != current):
+        value.update(phase='current', failed_revision='', retry_prepare=False,
+                     message='The local desktop changed. Checking GitHub will compare this revision.')
+        value['github'] = {**value['github'], 'relation':'unknown'}
     return value
 
 
@@ -115,7 +120,9 @@ def check(root=None, state=None):
     except Exception as error:
         retry_at = getattr(error, 'retry_at', time.time()+900)
         phase = value.get('phase', 'current')
-        if phase == 'checking': phase = 'available' if value.get('github', {}).get('relation') == 'ahead' else 'current'
+        if phase == 'checking':
+            verified_ahead = value.get('github', {}).get('relation') == 'ahead' and value['github'].get('base') == current
+            phase = 'available' if verified_ahead else 'current'
         return publish(state, message='Could not check GitHub: '+str(error), checked=time.time(), retry_at=retry_at,
                        phase=phase)
 
@@ -197,7 +204,8 @@ def activate(root=None, state=None):
         (state/'runtime-required.json').unlink(missing_ok=True)
         publish(state, phase='current', current=plan['revision'], installed=engine.now(),
                 message='Desktop update installed.' if not pending.get('rollback') else 'Previous desktop version restored.',
-                backup=str(backup), retry_prepare=False, failed_revision='')
+                backup=str(backup), retry_prepare=False, failed_revision='',
+                github={**status(state).get('github',{}),'base':'','relation':'unknown'})
         return True
 
 

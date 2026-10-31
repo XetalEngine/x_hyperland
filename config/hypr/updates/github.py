@@ -36,14 +36,22 @@ def git_latest(current, previous=None, cache=None):
     output = subprocess.check_output(['git', 'ls-remote', '--exit-code', REPOSITORY, 'refs/heads/main'],
                                      env=env, text=True, timeout=30, stderr=subprocess.PIPE)
     commit = revision(output.split()[0])
-    if previous.get('sha') == commit and previous.get('base') == current:
+    if previous.get('sha') == commit and previous.get('base') == current and previous.get('relation') != 'unknown':
         return {**previous, 'transport': 'git'}
     value = {'sha':commit, 'base':current, 'etag':'', 'transport':'git',
              'relation':'identical', 'message':'Current GitHub main version'}
     if commit == current: return value
     _, command = git_cache(cache or Path.home()/'.cache/xetal-hyprland/updates')
-    subprocess.run([*command, 'fetch', '--depth=256', '--no-tags', REPOSITORY, commit, current],
+    subprocess.run([*command, 'fetch', '--depth=256', '--no-tags', REPOSITORY, commit],
                    env=env, check=True, timeout=300, capture_output=True)
+    present = subprocess.run([*command, 'cat-file', '-e', current+'^{commit}'], env=env, capture_output=True)
+    if present.returncode:
+        try:
+            subprocess.run([*command, 'fetch', '--depth=256', '--no-tags', REPOSITORY, current],
+                           env=env, check=True, timeout=300, capture_output=True)
+        except subprocess.CalledProcessError:
+            return {**value, 'relation':'unknown',
+                    'message':'This local desktop revision is not available from GitHub. Automatic downgrades are disabled.'}
     def ancestor(a, b):
         result = subprocess.run([*command, 'merge-base', '--is-ancestor', a, b], env=env, capture_output=True)
         if result.returncode > 1: raise RuntimeError('Could not verify the update history.')
@@ -97,10 +105,15 @@ def latest(current, previous=None):
         item = data[0]
         result = {'sha': revision(item['sha']), 'message': str(item['commit']['message'])[:4000], 'etag': etag}
     if result['sha'] == current: result['relation'] = 'identical'
-    elif previous.get('base') == current and previous.get('sha') == result['sha'] and previous.get('relation'):
+    elif (previous.get('base') == current and previous.get('sha') == result['sha'] and
+          previous.get('relation') in ('ahead', 'behind', 'diverged', 'identical')):
         result['relation'] = previous['relation']
     else:
-        comparison, _ = request('/compare/'+current+'...'+result['sha'])
+        try: comparison, _ = request('/compare/'+current+'...'+result['sha'])
+        except HTTPError as error:
+            if error.code != 404: raise
+            return {**result,'base':current,'relation':'unknown',
+                    'message':'This local desktop revision is not available from GitHub. Automatic downgrades are disabled.'}
         result['relation'] = comparison['status']
         if result['relation'] not in ('ahead', 'behind', 'diverged', 'identical'):
             raise ValueError('GitHub returned an unknown commit relationship.')
