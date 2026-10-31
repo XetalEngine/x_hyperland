@@ -37,6 +37,9 @@ def prepare(home, commit, automatic=True, allow_runtime=False, checkpoint=lambda
     if errors and allow_runtime:
         dependencies.install(yes=True); checkpoint(); errors = dependencies.check()
     if errors: raise RuntimeError('Dependencies need attention; no desktop files changed:\n'+'\n'.join(errors))
+    if allow_runtime:
+        dependencies.prepare_account()
+        checkpoint()
     with engine.locked(state):
         engine.recover(live, state)
         with tempfile.TemporaryDirectory(prefix='prepare-', dir=state) as temporary:

@@ -349,6 +349,9 @@ def main():
         build(destination,checkpoint);validate(destination)
         runtime_install.rollback()
         print('Built and validated review copy: '+str(destination)+'. Live profile unchanged.');return 0
+    if not args.skip_packages:
+        dependencies.prepare_account()
+        checkpoint()
     target.parent.mkdir(parents=True,exist_ok=True)
     state.mkdir(parents=True,exist_ok=True,mode=0o700)
     with (state/'install.lock').open('a') as lock:

@@ -43,18 +43,26 @@ A disposable Fedora 44 test environment completed package signature/dependency c
 Debian installations can have a separate root account and a desktop user without
 sudo access. Graphical Setup uses the existing desktop authentication agent via
 [`pkexec`](https://www.freedesktop.org/software/polkit/docs/latest/pkexec.1.html)
-for package operations and recovery. Authenticate using the account named in
-that dialog; it may require the root password. Setup stays under the desktop
-user, and only package commands run as root. It does not change account groups,
-sudoers or PolicyKit rules. Missing `pkexec` falls back to sudo, which requires
-an authorized account. Terminal Setup continues to use sudo.
+for package operations, recovery and account setup. Authenticate using the account
+named in that dialog; it may require the root password. A desktop user's password
+alone cannot authorize administrative changes if that account lacks permission.
 
-If an older build reports **“not in the sudoers file”**, an administrator can
-add the desktop user to Debian's `sudo` group, then restart that user's session.
-See [Debian's account and group instructions](https://www.debian.org/doc/manuals/debian-reference/ch01.en.html#_permissions_for_groups_of_users_group).
-Continue running Setup as the desktop user, since its profile belongs in that
-user's home directory. Authentication denial or cancellation is reported
-separately from package repository failures.
+After dependencies are ready, foreground Setup automatically adds the installing
+local desktop user to Debian's standard `sudo` group if needed, preserving all
+existing groups. The privileged helper identifies the user from the authentication
+tool, and verifies the membership after changing it. Setup continues immediately
+using administrator authentication; other applications pick up the group at the
+next sign-in. Existing members are left unchanged. This persistent account setup
+is limited to Debian 13; checks, review-only builds, `--skip-packages` and background
+updates do not enroll accounts. It is retained if a later desktop build fails,
+just like ordinary dependency packages. No sudoers or PolicyKit rules are changed,
+and no passwordless access is granted. See
+[Debian's account and group instructions](https://www.debian.org/doc/manuals/debian-reference/ch01.en.html#_permissions_for_groups_of_users_group).
+
+Keep running Setup as the desktop user; only system operations run as root.
+Missing `pkexec` falls back to sudo, which requires an authorized account.
+Terminal Setup continues to use sudo. Authentication denial or cancellation is
+reported separately from package repository failures.
 
 The bundle combines documented local Debian 13 backports with unmodified trixie-backports packages. These local builds are not official Debian binary releases. Setup verifies the trusted release manifest's SHA-256 hashes, archive contents and DEB identities before passing root-owned copies to APT. Ordinary dependencies still come from configured Debian repositories with normal APT authentication. No testing/backports repository is enabled on the recipient's machine.
 

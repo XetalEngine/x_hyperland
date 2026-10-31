@@ -109,7 +109,13 @@ class Wizard:
         g.toggle_button_set_active(self.startup, 1); g.box_pack_start(page, self.startup, 0, 0, 0)
         if update:
             self.label(page, 'Uncheck to use the current desktop and startup defaults.\nYour existing profile will be backed up.', 'copy')
-        self.label(page, 'Desktop and build dependencies are installed as needed.\nAn administrator password may be requested in a separate window.\nKVM components download separately from KVM Settings.', 'copy')
+        packages = ('Debian: Setup installs packages and enables administrator access if needed.\n'
+                    'Use the root or administrator password when prompted.'
+                    if runtime_install.policy.debian_host() else
+                    'Desktop and build dependencies are installed as needed.\n'
+                    'An administrator password may be requested in a separate window.')
+        self.label(page, packages+
+                   '\nKVM components download separately from KVM Settings.', 'copy')
         page = self.page('Ready when you are.', 'Review your setup, then let us handle the rest.')
         card = self.box(page, spacing=12, name='card')
         self.review = self.label(card, '')

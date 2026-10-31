@@ -155,6 +155,13 @@ def prepare_repositories():
         debian_runtime.refresh()
 
 
+def prepare_account():
+    """Finish Debian administrator setup after its sudo dependency is installed."""
+    if runtime_install.policy.debian_host(distribution()):
+        import debian_administrator
+        debian_administrator.prepare()
+
+
 def prepare_environment():
     """Expose installed Perl scripts to checks and their subsequent build processes."""
     # Arch adds these directories at login through /etc/profile.d/perlbin.sh.
