@@ -1,5 +1,7 @@
 # Task Switcher
 
+New installations use **Ring Switcher** by default. Existing saved choices are preserved.
+
 Open **Fusion Settings → Theme → Task Switcher**. Choose a style, adjust its
 preview, and press **Apply Task Switcher**. The next **Super+Tab** uses that choice;
 no compositor reload is required. Hold Super while cycling, use Shift+Tab for

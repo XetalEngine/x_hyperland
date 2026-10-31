@@ -53,6 +53,17 @@ class InstallerTests(unittest.TestCase):
         self.assertRegex((self.stage/'wallpaper/hyprpaper.conf').read_text(),r'monitor =\s*\n')
         self.assertEqual(json.loads((self.stage/'wallpaper/selection.json').read_text()),{})
 
+    def test_kvm_runtime_payload_cannot_be_accidentally_shipped(self):
+        source=self.root/'payload';(source/'kvm').mkdir(parents=True)
+        for name,body in [('runtime.tar.xz',b'archive'),('OVMF_CODE.fd',b'firmware'),('swtpm',b'\x7fELFfixture')]:
+            file=source/'kvm'/name;file.write_bytes(body)
+            with self.subTest(name=name), self.assertRaisesRegex(RuntimeError,'must be downloaded'):
+                install.check_kvm_payload(source)
+            file.unlink()
+        self.render()
+        self.assertFalse((self.stage/'kvm/bundled').exists())
+        self.assertTrue((self.stage/'kvm/catalog.json').is_file())
+
     def test_bar_options_are_built_and_use_recipient_profile(self):
         self.render()
         bar=json.loads((self.stage/'waybar/config.json').read_text())

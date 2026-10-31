@@ -224,7 +224,7 @@ class BackgroundPreview(QWidget):
 
 class SurfacePreview(QWidget):
     def __init__(self):
-        super().__init__();self.setMinimumSize(270,188);self.setMaximumWidth(426)
+        super().__init__();self.setMinimumSize(330,188);self.setMaximumWidth(426)
         self.artwork=DesktopPreview();self.options=dict(DEFAULTS['modern']);self.design='modern';self.mode='dark'
         self.labels=runtime.launcher_labels();self.visibility=runtime.launcher_background_visibility()
         self.strip_image=StripImage(self);self.strip_image.changed.connect(self.update)
@@ -243,14 +243,19 @@ class SurfacePreview(QWidget):
             DesktopPreview.picture(p,self.artwork.background,box,12)
             shade=QColor(colors['Window']);shade.setAlpha(round(255*(1-self.visibility/100)))
             p.setBrush(shade);p.drawRoundedRect(box,12,12)
-        strip=QRectF(10,12,self.width()-20,34)
+        navigation=QRectF(10,12,76,160)
+        paint_group(p,navigation,colors,self.design,self.options['sidebar_opacity'])
+        p.setFont(QFont(runtime.ui_font(),7));p.setPen(QColor(colors['Text']))
+        for row,title in enumerate(('★ Favorites','▦ All apps','⌘ Media','▱ Files','⚙ Settings','⏻ Power')):
+            p.drawText(QRectF(16,16+row*25,66,22),Qt.AlignmentFlag.AlignVCenter,title)
+        strip=QRectF(96,12,self.width()-106,34)
         paint_group(p,strip,colors,self.design,self.options['group_opacity'],self.strip_image.frame)
         p.setFont(QFont(runtime.ui_font(),10,QFont.Weight.DemiBold));p.setPen(QColor(colors['Text']))
         p.drawText(strip.adjusted(8,0,-8,0),Qt.AlignmentFlag.AlignVCenter,'⠿  Favorites')
         p.drawText(strip.adjusted(8,0,-8,0),Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter,'⋯')
-        width=(self.width()-40)/3
+        width=(self.width()-126)/3
         for index,title in enumerate(('Files','Browser','Terminal')):
-            tile=QRectF(10+index*(width+10),54,width,118)
+            tile=QRectF(96+index*(width+10),54,width,118)
             paint_tile(p,tile,colors,self.design,self.mode,self.options['tile_opacity'],selected=index==0)
             picture=self.artwork.icons[index]
             p.setFont(QFont(runtime.ui_font(),9))
@@ -328,14 +333,14 @@ class StartMenuPage(QWidget):
             check.toggled.connect(lambda enabled,k=key:owner.set_label(k,enabled));labels.addWidget(check);self.label_controls[key]=check
         root.addLayout(labels)
         root.addWidget(label('Applies to every Start menu style. Small tiles always show only their icon.','muted'))
-        surface_heading=QHBoxLayout();surface_heading.addWidget(label('Apps tiles & groups','section'))
+        surface_heading=QHBoxLayout();surface_heading.addWidget(label('Apps backgrounds','section'))
         self.surface_style=label('','muted');self.surface_style.setWordWrap(False)
         self.surface_style.setToolTip('Each design remembers its own opacity and group-strip artwork.')
         surface_heading.addWidget(self.surface_style);surface_heading.addStretch()
         surface_heading.addWidget(button('Reset surfaces',owner.reset_surfaces));root.addLayout(surface_heading)
         surfaces=QHBoxLayout();surfaces.setSpacing(22);controls=QVBoxLayout();controls.setSpacing(8)
         self.opacity_controls={}
-        for key,title in [('tile_opacity','Icon backgrounds'),('group_opacity','Group strips')]:
+        for key,title in [('tile_opacity','Icon backgrounds'),('group_opacity','Group strips'),('sidebar_opacity','Left menu')]:
             row=QHBoxLayout();row.addWidget(label(title));row.addStretch()
             value=QLabel();value.setFixedWidth(54);value.setAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter)
             value.setAccessibleName(title+' opacity');row.addWidget(value);controls.addLayout(row)

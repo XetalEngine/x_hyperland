@@ -22,7 +22,8 @@ import zlib
 APPLE_GUID = "7C436110-AB2A-4BBB-A880-FE41995C9F82"
 ESP_GUID = uuid.UUID("C12A7328-F81F-11D2-BA4B-00A0C93EC93B").bytes_le
 CONFIG = "EFI/OC/config.plist"
-BUNDLES = Path(__file__).resolve().parents[1] / "assets/opencore-validators"
+from portable import component_path
+BUNDLES = component_path('opencore') / 'validators'
 
 
 def sha(path):

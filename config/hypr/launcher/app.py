@@ -36,7 +36,7 @@ import runtime as theme_runtime
 from editor import ShortcutEditor
 from window_chrome import close_button
 from identity import Avatar, ProfileCard, launcher_background_path
-from launcher_surfaces import paint_tile
+from launcher_surfaces import paint_tile, paint_group
 from launcher_labels import positions as label_positions
 from icons import icon as desktop_icon
 
@@ -176,6 +176,14 @@ class LaunchGrid(QListWidget):
             self.clickedApp.emit(item, bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier))
 
 
+class NavigationSurface(QWidget):
+    def paintEvent(self, event):
+        painter=QPainter(self);painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        style=theme_runtime.launcher_design()
+        paint_group(painter,QRectF(self.rect()),theme_runtime.colors(style=style),style,
+                    theme_runtime.launcher_surfaces()[style]['sidebar_opacity'])
+
+
 class Menu(QWidget):
     def __init__(self, preview=False):
         super().__init__(None, Qt.WindowType.FramelessWindowHint)
@@ -228,7 +236,7 @@ class Menu(QWidget):
         self.sidebar_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.sidebar_scroll.setWidgetResizable(True)
         self.sidebar_scroll.setStyleSheet('QScrollArea {background:transparent; border:0;}')
-        navigation_widget = QWidget()
+        navigation_widget = self.navigation_surface = NavigationSurface()
         navigation = QVBoxLayout(navigation_widget)
         navigation.setContentsMargins(0, 0, 0, 0)
         navigation.setSpacing(6)
@@ -264,6 +272,7 @@ class Menu(QWidget):
             button.clicked.connect(lambda checked=False, c=command: self.run_command(c))
             navigation.addWidget(button)
         self.sidebar_scroll.setWidget(navigation_widget)
+        navigation_widget.setAutoFillBackground(False)
         sidebar.addWidget(self.sidebar_scroll, 1)
         sidebar.addSpacing(10)
         self.raw_account=label('●  ' + os.environ.get('USER', 'xetal'), 'eyebrow');sidebar.addWidget(self.raw_account)
@@ -396,6 +405,7 @@ class Menu(QWidget):
         self.outer.setSpacing(18 if modern else 20)
         self.refresh_backdrop()
         self.favorites_board.refresh_surfaces()
+        self.navigation_surface.update()
         self.update();self.grid.viewport().update();self.favorites_board.viewport().update()
 
     def paintEvent(self, event):

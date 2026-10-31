@@ -39,7 +39,7 @@ PROFILES = {
     'stack': dict(tilt=30, inactive_rotate=True),
     'scale': dict(spacing=10),
 }
-DEFAULTS = dict(version=1, style='fusion', scope='all', duration=200, size=80,
+DEFAULTS = dict(version=1, style='ring', scope='all', duration=200, size=80,
                 inactive_opacity=80, live_previews=True, preview_fps=60,
                 show_titles=True, show_icons=True, profiles=PROFILES)
 RANGES = dict(duration=(0, 700), size=(30, 100), inactive_opacity=(20, 100), preview_fps=(1, 144),
@@ -66,7 +66,7 @@ def section(value, defaults):
 def normalize(value):
     if not isinstance(value, dict) or type(value.get('version', 1)) is not int or value.get('version', 1) != 1:
         raise ValueError('Unsupported Task Switcher settings format.')
-    style, scope = value.get('style', 'fusion'), value.get('scope', 'all')
+    style, scope = value.get('style', DEFAULTS['style']), value.get('scope', DEFAULTS['scope'])
     if not isinstance(style, str) or style not in STYLES or not isinstance(scope, str) or scope not in SCOPES:
         raise ValueError('Choose a supported switcher style and window scope.')
     profiles = value.get('profiles', {})

@@ -23,7 +23,7 @@ from portable import ROOT, data_root
 
 SITE = 'https://www.xetal.net/community/site'
 KEY = ROOT/'update-public.pem'
-IDS = {'qemu','ovmf','tpm','kvm-amd','opencore','looking-glass'}
+IDS = {'qemu','ovmf','tpm','kvm-amd','opencore','looking-glass','baseline'}
 LEGACY_SOURCES = {'sources-qemu','sources-ovmf','sources-tpm','sources-kvm'}
 MAX_MANIFEST = 512*1024
 MAX_ARCHIVE = 8*1024**3
@@ -194,7 +194,7 @@ class Store:
                 raw=stream.read(MAX_MANIFEST+1)
         except urllib.error.HTTPError as error:
             if error.code==404:
-                raise RuntimeError('No online release is published yet. Bundled components remain available.') from None
+                raise RuntimeError('No online KVM release is published yet. Try checking for updates later.') from None
             raise
         release=decode(raw,self.key)
         cached=self.cached()
@@ -222,7 +222,8 @@ class Store:
             if shutil.disk_usage(cache).free<entry['size']+entry['unpacked_size']+64*1024**2: raise OSError('Not enough free space for download and extraction')
             partial=target.with_suffix('.part')
             try:
-                with self._open(self.site+'/Downloads/kvm/'+urllib.parse.quote(entry['file'])) as stream, partial.open('wb') as output:
+                from download_access import open_component
+                with open_component(self.site,self.root,entry['file']) as stream, partial.open('wb') as output:
                     size=0
                     while chunk:=stream.read(1024*1024):
                         size+=len(chunk)
@@ -233,20 +234,3 @@ class Store:
                 os.replace(partial,target)
             finally: partial.unlink(missing_ok=True)
             return install_archive(name,entry,target,self.root)
-
-
-def install_bundled(root=None):
-    """Install shipped archives offline; preserve newer versions and user state."""
-    root=root or data_root();bundle=ROOT/'bundled';manifest=bundle/'release.json'
-    if not manifest.is_file(): return []
-    release=decode(manifest.read_bytes());changed=[]
-    for name,entry in release['components'].items():
-        file=bundle/entry['file'];old=installed(name,root)
-        if not file.is_file() or compatibility(name,entry): continue
-        if old and version(old['version'])>=version(entry['version']): continue
-        if install_archive(name,entry,file,root): changed.append(name)
-    cached=root/'release.json'
-    previous=decode(cached.read_bytes(),local_legacy=True) if cached.is_file() else None
-    if previous is None or version(release['version'])>version(previous['version']):
-        atomic_json(cached,json.loads(manifest.read_bytes()))
-    return changed

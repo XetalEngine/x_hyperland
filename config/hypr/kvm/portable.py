@@ -36,7 +36,7 @@ def configuration(profile):
 
 def seed_assets():
     """Each guest owns its writable copy; updates never replace edited assets."""
-    assets = ROOT/'defaults/assets'
+    assets = component_path('baseline')/'assets'
     for source in assets.rglob('*'):
         if source.is_file():
             _copy_new(source, data_root()/source.relative_to(assets))

@@ -48,7 +48,7 @@ class SetupTests(unittest.TestCase):
     def test_downloads_first_and_one_panel_survives_navigation(self):
         w=self.window;wizard=w.tab_wizard;panel=w.package_panel
         self.assertEqual(wizard.steps[wizard.step][0],'components')
-        self.assertEqual(panel.table.rowCount(),6)
+        self.assertEqual(panel.table.rowCount(),7)
         self.assertIs(panel.parentWidget(),wizard.component_host)
         self.assertFalse(w._components_ready())
         w._select_tab_by_name('Paths & Tools')
@@ -58,7 +58,7 @@ class SetupTests(unittest.TestCase):
         wizard.go(0)
         self.application.sendPostedEvents(None,self.kvm.QEvent.Type.DeferredDelete)
         self.assertIs(panel.parentWidget(),wizard.component_host)
-        self.assertEqual(panel.table.rowCount(),6)
+        self.assertEqual(panel.table.rowCount(),7)
 
     def test_close_saves_without_a_confirmation_or_applying_opencore(self):
         from PyQt6.QtWidgets import QMessageBox

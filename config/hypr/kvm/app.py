@@ -181,9 +181,7 @@ class KVMSettings(VMStart2):
             if not binary or not Path(binary).is_file():
                 release=panel.release or panel.store.check()
                 entry=release['components']['tpm']
-                archive=portable.ROOT/'bundled'/entry['file']
-                if archive.is_file():packages.install_archive('tpm',entry,archive)
-                else:panel.store.download('tpm',entry,progress)
+                panel.store.download('tpm',entry,progress)
             portable.prepare_tpm_workspace()
             selected=binary if binary and Path(binary).is_file() else str(portable.component_path('tpm')/'bin/swtpm')
             blob=Path(state)/'tpm2-00.permall'
@@ -223,9 +221,7 @@ class KVMSettings(VMStart2):
             binary=portable.component_path('tpm')/'bin/swtpm'
             if not binary.is_file() or not binary.with_name('swtpm_setup').is_file():
                 release=panel.release or panel.store.check();entry=release['components']['tpm']
-                archive=portable.ROOT/'bundled'/entry['file']
-                if archive.is_file():packages.install_archive('tpm',entry,archive)
-                else:panel.store.download('tpm',entry,lambda a,b:None)
+                panel.store.download('tpm',entry,lambda a,b:None)
             portable.prepare_tpm_workspace()
         def work(progress):
             if action=='undo':
@@ -276,7 +272,7 @@ class KVMSettings(VMStart2):
         panel=self.package_panel
         if panel.job:
             panel.info.setText('Please wait for component installation to finish.');return False
-        required=['qemu','ovmf','opencore' if self.profile_id=='macos' else 'tpm']
+        required=['baseline','qemu','ovmf','opencore' if self.profile_id=='macos' else 'tpm']
         tools=self.cfg.data.get('tools',{})
         if tools.get('kvm_build_enabled'):
             entry=(panel.release or {}).get('components',{}).get('kvm-amd')

@@ -41,7 +41,7 @@ class RuntimeSetupTests(unittest.TestCase):
                 data=portable.configuration(profile)
                 self.assertFalse(any(d.get('driver') in ('vfio-pci','usb-host') for d in data['devices']))
                 self.assertFalse(any(str(b.get('filename','')).startswith('/dev/') for b in data['blockdevs']))
-                self.assertNotIn('/home/xetal',json.dumps(data['tools']).replace(str(portable.ROOT),'APP'))
+                self.assertNotIn(str(Path.home()),json.dumps(data['tools']).replace(str(portable.ROOT),'APP'))
                 self.assertTrue(data['_meta']['binary'].startswith('/home/recipient/'))
                 names={b['node-name'] for b in data['blockdevs']}
                 self.assertTrue(all(d.get('drive') in names for d in data['devices'] if d.get('drive')))

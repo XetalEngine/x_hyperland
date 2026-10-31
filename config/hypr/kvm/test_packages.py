@@ -105,11 +105,14 @@ class PackageTests(unittest.TestCase):
                 self.assertFalse(any(d['driver'] in ('vfio-pci','usb-host') for d in cfg['devices']))
                 self.assertEqual(cfg['tools']['kvm_build_enabled'],profile=='windows')
                 self.assertTrue(all('${' not in str(value) for value in cfg.values()))
-            for file in (portable.ROOT/'defaults/assets').rglob('*'):
-                if file.is_file():
-                    installed=portable.data_root()/file.relative_to(portable.ROOT/'defaults/assets')
-                    self.assertEqual(file.read_bytes(),installed.read_bytes())
             bios=portable.data_root()/'smbios/smbios.bin'
+            self.assertFalse(bios.exists(), 'First run must not install bundled binary assets')
+            asset,entry=self.artifact(name='baseline',files={'assets/smbios/smbios.bin':b'baseline',
+                'assets/acpi/dsdt.aml':b'table', 'assets/firmware/OVMF_VARS.fd':b'variables'})
+            packages.install_archive('baseline',entry,asset,portable.data_root())
+            portable.prepare_firmware()
+            self.assertEqual(bios.read_bytes(),b'baseline')
+            self.assertEqual((portable.data_root()/'acpi/dsdt.aml').read_bytes(),b'table')
             bios.write_bytes(b'personal edit');portable.prepare()
             self.assertEqual(bios.read_bytes(),b'personal edit')
 

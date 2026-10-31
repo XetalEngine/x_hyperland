@@ -24,3 +24,6 @@ config/hypr/effects/cube/cache/
 config/hypr/control_panel/.build/
 config/hypr/control_panel/state/
 config/hypr/theme/custom-presets.json
+config/hypr/kvm/bundled/
+config/hypr/kvm/defaults/assets/
+config/hypr/kvm/backend/assets/opencore-validators/

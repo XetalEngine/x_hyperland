@@ -49,8 +49,19 @@ def connected_monitors():
     except (OSError,ValueError,subprocess.SubprocessError):return []
 
 
+def check_kvm_payload(root):
+    """Runtime payloads belong on the component server, never in an install."""
+    binary_suffixes={'.xz','.gz','.zip','.tar','.bin','.fd','.rom','.aml','.ko','.so','.a','.o','.iso','.img','.efi'}
+    for path in (root/'kvm').rglob('*'):
+        if not path.is_file():continue
+        with path.open('rb') as stream:magic=stream.read(4)
+        if path.suffix.lower() in binary_suffixes or magic==b'\x7fELF':
+            raise RuntimeError('KVM binaries must be downloaded in KVM Settings: '+str(path.relative_to(root)))
+
+
 def render(stage, home, monitors, profile='auto', startup=True):
     safe_home(home)
+    check_kvm_payload(PAYLOAD)
     target=home/'.config/hypr'
     shutil.copytree(PAYLOAD,stage,dirs_exist_ok=True,
                     ignore=shutil.ignore_patterns('__pycache__','*.pyc','*.so','*.o','*.lock','build','.build',

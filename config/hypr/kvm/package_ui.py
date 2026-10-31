@@ -51,8 +51,10 @@ class PackagesPanel(QGroupBox):
         note.setWordWrap(True);note.setObjectName('muted');layout.addWidget(note)
         try:
             self.release=self.store.cached()
-            if self.release is None and (portable.ROOT/'bundled/release.json').is_file():
-                self.release=packages.decode((portable.ROOT/'bundled/release.json').read_bytes())
+            if (portable.ROOT/'catalog.json').is_file():
+                catalog=packages.decode((portable.ROOT/'catalog.json').read_bytes())
+                if self.release is None or packages.version(catalog['version'])>packages.version(self.release['version']):
+                    self.release=catalog
         except Exception as error:self.info.setText(str(error))
         self.refresh()
 
@@ -118,9 +120,7 @@ class PackagesPanel(QGroupBox):
         def work(progress):
             changed=[]
             for name,entry in entries:
-                archive=portable.ROOT/'bundled'/entry['file']
-                if archive.is_file(): packages.install_archive(name,entry,archive)
-                else: self.store.download(name,entry,progress)
+                self.store.download(name,entry,progress)
                 changed.append(name)
             return changed
         def done(changed):
@@ -129,12 +129,7 @@ class PackagesPanel(QGroupBox):
         self.run(work,done)
 
     def bootstrap(self):
-        if self.busy():
-            self.info.setText('A VM is running. Shut it down before installing bundled updates.')
-            return
-        def done(changed):
-            portable.prepare_firmware();portable.prepare_tpm_workspace();self.release=self.store.cached();self.refresh();self.changed.emit()
-            self.info.setText('Bundled components ready. Check for updates whenever you want.')
-            QTimer.singleShot(100,self.check_updates)
-        self.info.setText('Preparing the bundled components…')
-        self.run(lambda progress:packages.install_bundled(),done)
+        # Opening settings checks metadata only. Downloads are explicit and all
+        # runtime programs and supporting binary assets come from the server.
+        portable.prepare_firmware();portable.prepare_tpm_workspace()
+        self.changed.emit();self.check_updates()

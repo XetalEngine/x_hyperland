@@ -9,10 +9,10 @@ from PyQt6.QtWidgets import QApplication
 import runtime
 
 DEFAULTS = {
-    'raw': {'tile_opacity': 45, 'group_opacity': 0, 'group_image': ''},
-    'modern': {'tile_opacity': 100, 'group_opacity': 100, 'group_image': ''},
-    'breakpoint': {'tile_opacity': 94, 'group_opacity': 0, 'group_image': ''},
-    'binaryknife': {'tile_opacity': 94, 'group_opacity': 32, 'group_image': ''},
+    'raw': {'tile_opacity': 45, 'group_opacity': 0, 'sidebar_opacity': 45, 'group_image': ''},
+    'modern': {'tile_opacity': 100, 'group_opacity': 100, 'sidebar_opacity': 100, 'group_image': ''},
+    'breakpoint': {'tile_opacity': 94, 'group_opacity': 0, 'sidebar_opacity': 45, 'group_image': ''},
+    'binaryknife': {'tile_opacity': 94, 'group_opacity': 32, 'sidebar_opacity': 60, 'group_image': ''},
 }
 
 

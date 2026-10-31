@@ -76,6 +76,7 @@ class DesktopPreview:
         self.picture(p,self.avatar,QRectF(27,49,32,32),circle=True)
         text(66,49,98,17,'xetal' if modern else 'XETAL',10,'Text',True)
         text(66,65,100,14,runtime.DESIGNS[launcher_design],7,'PlaceholderText')
+        paint_group(p,QRectF(24,92,100,118),colors,launcher_design,surfaces['sidebar_opacity'])
         for row,title in enumerate(('Favorites','All apps','Development','Media','Files')):
             y=94+row*23
             if row==0:panel(24,y,96,20,'Highlight',6 if modern else 2)
