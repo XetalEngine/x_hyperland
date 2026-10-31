@@ -42,7 +42,7 @@ class DebianAdministratorTests(unittest.TestCase):
 
     def test_authenticated_user_is_enrolled_with_existing_groups_preserved(self):
         self.run.side_effect = self.enroll
-        for variable in ('PKEXEC_UID', 'SUDO_UID'):
+        for variable in ('PKEXEC_UID', 'SUDO_UID', 'XETAL_SETUP_SU_UID'):
             with self.subTest(variable=variable), patch.dict(os.environ, {variable: '1000', 'USER': 'root'}, clear=True):
                 self.group.gr_mem.clear()
                 self.assertTrue(admin.enable())
@@ -60,6 +60,14 @@ class DebianAdministratorTests(unittest.TestCase):
         self.run.assert_not_called()
         self.group = grp.struct_group(('sudo', 'x', 1000, []))
         self.assertTrue(admin.sudo_member(self.account))
+
+    def test_new_group_membership_does_not_assume_the_login_session_has_refreshed(self):
+        self.group.gr_mem.append('desktop')
+        with patch.object(admin.os, 'getgid', return_value=1000), patch.object(admin.os, 'getgroups', return_value=[1000]):
+            self.assertTrue(admin.sudo_member(self.account))
+            self.assertFalse(admin.sudo_session())
+        with patch.object(admin.os, 'getgid', return_value=1000), patch.object(admin.os, 'getgroups', return_value=[1000, 27]):
+            self.assertTrue(admin.sudo_session())
 
     def test_non_debian_and_unprivileged_helpers_are_rejected_before_changes(self):
         with patch.object(admin.os, 'geteuid', return_value=1000):

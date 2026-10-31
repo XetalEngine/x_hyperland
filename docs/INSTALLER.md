@@ -12,7 +12,7 @@ Fresh profiles show **Places** on the left and hide the redundant **Folders** tr
 
 During installation, the forward button is disabled, gray and labeled **Installing…**. It becomes **Finish** after success, or **Retry** if setup stops.
 
-Python and GTK 3 can be bootstrapped from Arch, Fedora or Debian packages if missing. The wizard itself does not need PyQt or PyGObject before starting. On Debian 13, graphical Setup uses the desktop's administrator dialog through `pkexec` when available. Other systems, or Debian without `pkexec`, use a separate password window through `sudo -A`. Passwords go only to the authentication tool and are never included in the installation log. Details are saved to `~/.local/state/xetal-hyprland/setup.log`.
+Python and GTK 3 can be bootstrapped from Arch, Fedora or Debian packages if missing. The wizard itself does not need PyQt or PyGObject before starting. On Debian 13, graphical Setup uses the desktop's administrator dialog through `pkexec` when available, with a root-password fallback for accounts without sudo access. Existing sudo-authorized users can use a separate password window through `sudo -A`. Passwords go only to the authentication tool and are never included in the installation log. Details are saved to `~/.local/state/xetal-hyprland/setup.log`.
 
 ## Tested compositor
 
@@ -60,9 +60,19 @@ and no passwordless access is granted. See
 [Debian's account and group instructions](https://www.debian.org/doc/manuals/debian-reference/ch01.en.html#_permissions_for_groups_of_users_group).
 
 Keep running Setup as the desktop user; only system operations run as root.
-Missing `pkexec` falls back to sudo, which requires an authorized account.
-Terminal Setup continues to use sudo. Authentication denial or cancellation is
-reported separately from package repository failures.
+If `pkexec` is missing, sessions with active Debian `sudo` membership use their
+user password. For a user without sudo access, graphical Setup instead opens a clearly
+labeled **root password** dialog before the first APT operation. It submits that
+password to Debian's normal [`su`/PAM authentication](https://manpages.debian.org/trixie/util-linux/su.1.en.html)
+through a private terminal with password echo disabled. The password is never
+passed in a command argument, environment variable, file or installation log.
+Cancelling stops the operation, and a wrong password cannot run the command.
+The same authentication path remains available through package installation,
+account setup and recovery, even if those packages install `pkexec` during Setup.
+This requires the root password chosen during Debian installation; it does not
+reset or bypass authentication. Terminal Setup continues to use sudo.
+Authentication denial or cancellation is reported separately from package
+repository failures.
 
 The bundle combines documented local Debian 13 backports with unmodified trixie-backports packages. These local builds are not official Debian binary releases. Setup verifies the trusted release manifest's SHA-256 hashes, archive contents and DEB identities before passing root-owned copies to APT. Ordinary dependencies still come from configured Debian repositories with normal APT authentication. No testing/backports repository is enabled on the recipient's machine.
 

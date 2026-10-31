@@ -33,11 +33,20 @@ def sudo_member(account):
     return account.pw_gid == group.gr_gid or account.pw_name in group.gr_mem
 
 
+def sudo_session():
+    """Newly granted membership may not be active in the current login yet."""
+    try:
+        group = grp.getgrnam('sudo')
+    except KeyError:
+        return False
+    return group.gr_gid in {os.getgid(), *os.getgroups()}
+
+
 def enable():
-    """Root helper: derive the target only from sudo/pkexec authentication."""
+    """Root helper: derive the target only from the authenticated command runner."""
     if os.geteuid() != 0 or not runtime.policy.debian_host():
         raise RuntimeError('Administrator account setup is only available through Setup on Debian 13.')
-    identities = {os.environ[key] for key in ('PKEXEC_UID', 'SUDO_UID') if key in os.environ}
+    identities = {os.environ[key] for key in ('PKEXEC_UID', 'SUDO_UID', 'XETAL_SETUP_SU_UID') if key in os.environ}
     if len(identities) != 1:
         raise RuntimeError('Cannot identify the authenticated installing user. Open Setup as your desktop user.')
     value = identities.pop()

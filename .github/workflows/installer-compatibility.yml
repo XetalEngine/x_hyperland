@@ -25,7 +25,9 @@ jobs:
       - name: Debian administrator account setup
         env:
           XETAL_DISPOSABLE_DEBIAN: '1'
-        run: python3 tests/debian_administrator_container.py
+        run: |
+          python3 tests/debian_administrator_container.py
+          python3 tests/debian_root_auth_container.py
       - name: Install native runtime, build desktop and exercise recovery
         env:
           XETAL_DISPOSABLE_DEBIAN: '1'

@@ -10,9 +10,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'installer'))
 import runtime_install as runtime
 import debian_runtime as debian
 import dependencies
+import debian_administrator
 
 
 class AdministratorTests(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(patch.object(runtime, 'DEBIAN_USE_SU', False))
+
     def test_debian_gui_uses_system_authentication_without_sudo_or_askpass(self):
         with patch.dict(os.environ, {'XETAL_SETUP_GUI': '1'}, clear=True), \
              patch.object(runtime.policy, 'debian_host', return_value=True), \
@@ -48,6 +52,57 @@ class AdministratorTests(unittest.TestCase):
              patch.object(dependencies.Path, 'exists', return_value=False), \
              patch.object(runtime.shutil, 'which', side_effect=lambda name: None if name == 'sudo' else '/usr/bin/'+name):
             self.assertEqual(dependencies.platform_problems(), [])
+
+    def test_fresh_debian_without_pkexec_uses_root_dialog_before_the_first_apt_command(self):
+        for sudo_installed in (False, True):
+            with self.subTest(sudo=sudo_installed), patch.dict(os.environ, {'XETAL_SETUP_GUI': '1'}, clear=True), \
+                 patch.object(runtime, 'DEBIAN_USE_SU', False), \
+                 patch.object(runtime.policy, 'debian_host', return_value=True), \
+                 patch.object(debian_administrator, 'sudo_session', return_value=False), \
+                 patch.object(runtime.shutil, 'which', side_effect=lambda name: '/usr/bin/'+name if name == 'su' or (sudo_installed and name == 'sudo') else None), \
+                 patch.object(debian.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, '', '')) as run:
+                debian.refresh()
+                command = run.call_args.args[0]
+                self.assertEqual(command[:3], ['/usr/bin/python3', str(runtime.ROOT/'installer/debian_su.py'), '/usr/bin/apt-get'])
+                self.assertNotIn('sudo', command)
+                self.assertEqual(command[-1], 'update')
+                # Installing pkexec later must not switch away from the working
+                # authentication path before group setup or rollback finishes.
+                with patch.object(runtime.shutil, 'which', side_effect=lambda name: '/usr/bin/'+name):
+                    self.assertEqual(runtime.administrator(), command[:2])
+
+    def test_existing_debian_sudo_member_keeps_user_password_authentication(self):
+        with patch.dict(os.environ, {'XETAL_SETUP_GUI': '1'}, clear=True), \
+             patch.object(runtime.policy, 'debian_host', return_value=True), \
+             patch.object(debian_administrator, 'sudo_session', return_value=True), \
+             patch.object(runtime.shutil, 'which', side_effect=lambda name: None if name == 'pkexec' else '/usr/bin/'+name):
+            self.assertEqual(runtime.administrator(), ['sudo', '-A'])
+
+    def test_debian_platform_accepts_su_when_both_sudo_and_pkexec_are_absent(self):
+        with patch.dict(os.environ, {'XETAL_SETUP_GUI': '1'}), \
+             patch.object(dependencies, 'distribution', return_value=dict(ID='debian', VERSION_ID='13')), \
+             patch.object(dependencies.platform, 'machine', return_value='x86_64'), \
+             patch.object(dependencies.platform, 'system', return_value='Linux'), \
+             patch.object(dependencies.Path, 'exists', return_value=False), \
+             patch.object(runtime.shutil, 'which', side_effect=lambda name: None if name in ('sudo', 'pkexec') else '/usr/bin/'+name):
+            self.assertEqual(dependencies.platform_problems(), [])
+
+    def test_root_dialog_errors_are_not_reported_as_apt_errors(self):
+        prefix = ['/usr/bin/python3', str(runtime.ROOT/'installer/debian_su.py')]
+        with self.assertRaisesRegex(RuntimeError, 'cancelled'):
+            runtime.check_administrator_result(prefix, runtime.DEBIAN_AUTH_CANCELLED)
+        with self.assertRaisesRegex(RuntimeError, 'root password'):
+            runtime.check_administrator_result(prefix, runtime.DEBIAN_AUTH_FAILED)
+        runtime.check_administrator_result(prefix, 1)
+        runtime.check_administrator_result(prefix, 100)
+
+    def test_dependency_install_reports_root_authentication_error(self):
+        prefix = ['/usr/bin/python3', str(runtime.ROOT/'installer/debian_su.py')]
+        with patch.object(dependencies, 'distro', return_value='debian'), \
+             patch.object(runtime, 'administrator', return_value=prefix), \
+             patch.object(dependencies.subprocess, 'run', return_value=subprocess.CompletedProcess([], runtime.DEBIAN_AUTH_FAILED)):
+            with self.assertRaisesRegex(RuntimeError, 'root password'):
+                dependencies.install(yes=True)
 
     def test_refresh_distinguishes_denied_cancelled_and_repository_failures(self):
         cases = [(['sudo', '-A'], 1, 'xetal is not in the sudoers file.\n', 'not authorized to use sudo'),

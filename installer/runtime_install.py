@@ -20,6 +20,10 @@ PIN = Path('/etc/pacman.d/xetal-hyprland.conf')
 BUNDLED = ROOT/'installer/packages'
 TRANSACTION = None
 TRANSACTION_BACKEND = 'arch'
+# Reserve these for the Debian authentication wrapper, outside APT's exit codes.
+DEBIAN_AUTH_CANCELLED = 200
+DEBIAN_AUTH_FAILED = 201
+DEBIAN_USE_SU = False
 
 
 def graphical_administrator(data=None):
@@ -29,6 +33,15 @@ def graphical_administrator(data=None):
 
 
 def administrator():
+    global DEBIAN_USE_SU
+    if os.environ.get('XETAL_SETUP_GUI') == '1' and policy.debian_host():
+        if not DEBIAN_USE_SU and not shutil.which('pkexec') and shutil.which('su'):
+            import debian_administrator
+            DEBIAN_USE_SU = not shutil.which('sudo') or not debian_administrator.sudo_session()
+        if DEBIAN_USE_SU:
+            # Keep this backend for the whole worker, including recovery, even
+            # if package installation supplies pkexec midway through Setup.
+            return ['/usr/bin/python3', str(ROOT/'installer/debian_su.py')]
     if graphical_administrator():
         # Use the desktop's existing authentication agent. Do not hang waiting
         # for a terminal agent on the wizard's output pipe if none is running.
@@ -46,6 +59,12 @@ def administrator():
 def check_administrator_result(prefix, code, output=''):
     """Recognize authentication failures before reporting a package failure."""
     tool = Path(prefix[0]).name if prefix else ''
+    if prefix and str(ROOT/'installer/debian_su.py') in prefix:
+        if code == DEBIAN_AUTH_CANCELLED:
+            raise RuntimeError('Debian root authentication was cancelled. Retry Setup when ready.')
+        if code == DEBIAN_AUTH_FAILED:
+            raise RuntimeError('Debian root authentication failed. Enter the root password set during Debian installation. '
+                               'Your desktop account password cannot authorize this step yet.')
     if tool == 'pkexec' and code == 126:
         raise RuntimeError('Administrator authentication was cancelled. Retry Setup and authenticate '
                            'using the account shown in the system password dialog.')
