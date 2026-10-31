@@ -16,6 +16,8 @@ Automatic updates are enabled by default. One session helper checks roughly ever
 
 The installer records the delivered revision and defaults in `~/.config/hypr/.xetal-update.json`. That baseline distinguishes upstream changes from personal edits.
 
+Git checkouts use their own commit. GitHub ZIP and tar downloads use `installer/source-revision.txt`, populated by Git's [`export-subst` archive attribute](https://git-scm.com/docs/gitattributes#Documentation/gitattributes.adoc-export-subst). Registration works offline and does not substitute the current GitHub head for an older download. If an old or incomplete archive has no revision, the installer stops before replacing the profile and asks for a fresh download. The update builder uses the same source identification and still rejects any revision that differs from the announced update.
+
 - JSON preferences merge with new defaults; overlapping choices retain the user's value.
 - Hotkeys and other text configuration use a three-way merge. Conflicting edits stop the update and identify the file.
 - Monitor arrangements, selected wallpapers, generated theme colors, personal taskbar CSS and the private Dolphin profile are retained.

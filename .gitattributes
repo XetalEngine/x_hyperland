@@ -1,0 +1,2 @@
+# Include the exact commit in GitHub ZIP/tar downloads without a .git directory.
+installer/source-revision.txt export-subst

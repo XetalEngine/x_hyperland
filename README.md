@@ -34,6 +34,8 @@ cd x_hyperland
 ./x_hyperinstall.sh
 ```
 
+You can also choose **Code → Download ZIP** on GitHub, extract the whole archive, and open a terminal inside `x_hyperland-main`. Run `bash ./x_hyperinstall.sh` there. ZIP and tar downloads include their exact source revision in `installer/source-revision.txt`; keep that file with the installer. No Git checkout is needed for this installation method.
+
 The installer checks dependencies, offers distribution packages, builds the native components, and validates the complete configuration. It backs up your existing `~/.config/hypr` before installation. **Log out and select Hyprland again** to start the complete desktop.
 
 | Tested environment | Requirements |

@@ -18,7 +18,7 @@ import update_engine as engine
 def prepare(home, commit, automatic=True):
     if os.geteuid() == 0: raise RuntimeError('Updates run as your desktop user, without sudo.')
     install.safe_home(home); engine.revision(commit)
-    actual = subprocess.check_output(['git', '-C', str(install.REPO), 'rev-parse', 'HEAD'], text=True).strip()
+    actual = install.source_revision()
     if actual != commit: raise RuntimeError('Downloaded source does not match the announced commit.')
     errors = dependencies.check()
     if errors: raise RuntimeError('Dependencies need attention; no files changed:\n'+'\n'.join(errors))

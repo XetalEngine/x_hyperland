@@ -156,11 +156,36 @@ def build(stage):
             print('Built '+label+' for the installed Hyprland.',flush=True)
 
 
-def register_updates(stage):
+def source_revision(root=None):
+    """Identify this checkout or exported archive without guessing a remote head."""
+    root = Path(root) if root is not None else REPO
+    if (root/'.git').exists():
+        # Require this directory's own Git metadata. A ZIP extracted inside an
+        # unrelated checkout must never inherit that parent's commit instead.
+        try:
+            commit = subprocess.check_output(
+                ['git', '-C', str(root), 'rev-parse', '--verify', 'HEAD^{commit}'],
+                text=True, stderr=subprocess.PIPE, timeout=10).strip()
+        except (OSError, subprocess.SubprocessError) as error:
+            raise RuntimeError('Could not read this Git checkout. Use a complete clone or a fresh GitHub ZIP download.') from error
+    else:
+        # .gitattributes export-subst fills this in when GitHub/git archive makes
+        # the download. It remains valid offline even when main has moved on.
+        try:
+            commit = (root/'installer/source-revision.txt').read_text().strip()
+        except (FileNotFoundError, UnicodeDecodeError):
+            commit = ''
+    if not re.fullmatch(r'[0-9a-f]{40}', commit):
+        raise RuntimeError('Could not identify this source version. Download a fresh ZIP from GitHub and extract it completely, '
+                           'including installer/source-revision.txt, or use a Git clone.')
+    return commit
+
+
+def register_updates(stage, commit=None):
     """Record the delivered defaults separately from future personal edits."""
     sys.path.insert(0,str(PAYLOAD/'updates'))
     import update_engine
-    commit=subprocess.check_output(['git','-C',str(REPO),'rev-parse','HEAD'],text=True).strip()
+    if commit is None:commit=source_revision()
     update_engine.write_json(stage/update_engine.META,update_engine.metadata(stage,commit))
 
 
@@ -240,6 +265,8 @@ def main():
         print('Restored. Replaced profile retained at '+str(saved)+'. Log out and back in to use it.');return 0
     errors=dependencies.check()
     if args.dry_run or args.check:
+        try:source_revision()
+        except RuntimeError as error:errors.append(str(error))
         print('Profile: '+args.profile+'; build Qt 5/6 theme plugins, Waybar modules, and screen-share preview helper.')
         print('Include current wallpaper, licensed fonts, all session tools, backup and rollback. Activate at next Hyprland login.')
         for error in errors:print('  '+error)
@@ -252,12 +279,13 @@ def main():
         dependencies.install(args.yes)
         errors=dependencies.check()
         if errors:raise RuntimeError('Dependencies still need attention; profile unchanged:\n'+'\n'.join(errors))
+    commit=source_revision()
     if args.prepare:
         destination=args.prepare.absolute()
         if destination.exists():raise RuntimeError('--prepare destination must not exist.')
         destination.parent.mkdir(parents=True,exist_ok=True)
         render(destination,home,connected_monitors(),args.profile,not args.no_startup)
-        register_updates(destination)
+        register_updates(destination,commit)
         build(destination);validate(destination)
         print('Built and validated review copy: '+str(destination)+'. Live profile unchanged.');return 0
     target.parent.mkdir(parents=True,exist_ok=True)
@@ -268,7 +296,7 @@ def main():
         with tempfile.TemporaryDirectory(prefix='.xetal-hypr-',dir=target.parent) as temporary:
             stage=Path(temporary)/'hypr'
             render(stage,home,connected_monitors(),args.profile,not args.no_startup)
-            register_updates(stage)
+            register_updates(stage,commit)
             build(stage);validate(stage)
             print('All components built; full configuration validated. Your existing profile will be backed up.')
             if not args.yes and input('Install this prepared desktop? [y/N] ').strip().lower() not in ('y','yes'):
