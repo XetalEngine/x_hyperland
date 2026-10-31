@@ -40,7 +40,7 @@ PACKAGES = {
         qt6-base-dev qt6-base-dev-tools qt6-base-private-dev qt6-wayland libqt6svg6 qt6-tools-dev qt6-l10n-tools libwayland-dev libwayland-bin wayland-protocols
         network-manager network-manager-gnome blueman bluez pipewire-pulse wireplumber pulseaudio-utils
         playerctl brightnessctl fastfetch htop libnotify-bin hyprpolkitagent papirus-icon-theme fonts-noto-core fonts-dejavu-core
-        yt-dlp ffmpeg nodejs sudo x11-xserver-utils x11-apps hyprcursor-util openssl virt-viewer python3-virt-firmware gnutls-bin
+        yt-dlp ffmpeg nodejs sudo pkexec x11-xserver-utils x11-apps hyprcursor-util openssl virt-viewer python3-virt-firmware gnutls-bin
         autoconf automake libtool libtool-bin make perl gettext gawk expect socat libssl-dev
         libtasn1-6-dev libgmp-dev libglib2.0-dev libgnutls28-dev libseccomp-dev libfuse3-dev libei-dev libeis-dev
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod'''.split(),
@@ -98,8 +98,11 @@ def platform_problems(auto_packages=True):
         if Path('/run/ostree-booted').exists():
             problems.append('Automatic package installation is unavailable on an immutable OSTree desktop.')
         tools={'arch':('pacman','pacman-conf','pacman-key','sudo'),
-               'fedora':('dnf','rpm','rpmkeys','sudo'),'debian':('apt-get','dpkg-query','dpkg-deb','sudo')}.get(family,())
+               'fedora':('dnf','rpm','rpmkeys','sudo'),'debian':('apt-get','dpkg-query','dpkg-deb')}.get(family,())
         problems.extend('Required package tool is missing: '+tool for tool in tools if not shutil.which(tool))
+        if family == 'debian' and not runtime_install.graphical_administrator(data) and not shutil.which('sudo'):
+            problems.append('Administrator authentication is unavailable. Install pkexec for graphical '
+                            'Debian Setup, or install sudo and authorize your desktop account.')
     return problems
 
 

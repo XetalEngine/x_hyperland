@@ -107,9 +107,14 @@ def refresh():
     print('Refreshing Debian package lists from the configured repositories…', flush=True)
     # APT normally succeeds even if some downloads fail and stale lists remain.
     # Setup must report that failure before resolving or changing the runtime.
-    result = subprocess.run([*runtime.administrator(), *APT,
+    prefix = runtime.administrator()
+    result = subprocess.run([*prefix, *APT,
                              '-o', 'APT::Update::Error-Mode=any',
-                             '-o', 'Acquire::Retries=2', 'update'])
+                             '-o', 'Acquire::Retries=2', 'update'],
+                            stderr=subprocess.PIPE, text=True, env={**os.environ, 'LC_ALL': 'C'})
+    if result.stderr:
+        print(result.stderr, end='' if result.stderr.endswith('\n') else '\n', flush=True)
+    runtime.check_administrator_result(prefix, result.returncode, result.stderr or '')
     if result.returncode:
         raise RuntimeError('Debian package lists could not be refreshed. Check the network and the APT '
                            'repository errors above. A Debian 13 (trixie) network mirror is required; '
@@ -131,7 +136,8 @@ def ensure(yes=False):
     print('Installing the native Debian 13 Hyprland runtime and desktop dependencies, with exact-version recovery.', flush=True)
     if not yes and input('Install the Debian runtime and its package pins? [y/N] ').strip().lower() not in ('y', 'yes'):
         raise RuntimeError('Compositor setup cancelled.')
-    args = [*runtime.administrator(), '/usr/bin/python3', str(runtime.ROOT/'installer/system_debian_runtime.py')]
+    prefix = runtime.administrator()
+    args = [*prefix, '/usr/bin/python3', str(runtime.ROOT/'installer/system_debian_runtime.py')]
     with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True) as process:
         try:
             for line in process.stdout:
@@ -144,6 +150,7 @@ def ensure(yes=False):
         except KeyboardInterrupt:
             process.wait()
             raise
+    runtime.check_administrator_result(prefix, code)
     if code:
         raise RuntimeError('Debian runtime setup failed. See the package details above.')
     runtime.policy.require()

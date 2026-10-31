@@ -22,13 +22,48 @@ TRANSACTION = None
 TRANSACTION_BACKEND = 'arch'
 
 
+def graphical_administrator(data=None):
+    """Debian may use a separate root account instead of a sudo-enabled user."""
+    return (os.environ.get('XETAL_SETUP_GUI') == '1' and policy.debian_host(data)
+            and bool(shutil.which('pkexec')))
+
+
 def administrator():
+    if graphical_administrator():
+        # Use the desktop's existing authentication agent. Do not hang waiting
+        # for a terminal agent on the wizard's output pipe if none is running.
+        return ['pkexec', '--disable-internal-agent']
     if not shutil.which('sudo'):
-        raise RuntimeError('Setup needs sudo for system packages. Install sudo and run Setup as your desktop user.')
+        raise RuntimeError('Setup needs administrator authentication for system packages. '
+                           'On Debian, install pkexec and use graphical Setup, or use an account '
+                           'authorized to run sudo. Run Setup as your desktop user.')
     if os.environ.get('XETAL_SETUP_GUI') == '1':
         os.environ['SUDO_ASKPASS'] = str(ROOT/'installer/askpass.py')
         return ['sudo', '-A']
     return ['sudo']
+
+
+def check_administrator_result(prefix, code, output=''):
+    """Recognize authentication failures before reporting a package failure."""
+    tool = Path(prefix[0]).name if prefix else ''
+    if tool == 'pkexec' and code == 126:
+        raise RuntimeError('Administrator authentication was cancelled. Retry Setup and authenticate '
+                           'using the account shown in the system password dialog.')
+    if tool == 'pkexec' and code == 127:
+        raise RuntimeError('Administrator access was not granted. Retry from your graphical desktop '
+                           'and authenticate with an administrator account or the root password. '
+                           'If no password dialog appears, check that the desktop authentication agent is running.')
+    if tool == 'sudo' and code and any(message in output.lower() for message in
+            ('not in the sudoers', 'not in sudoers', 'not allowed to run sudo', 'not allowed to execute')):
+        raise RuntimeError('Your account is not authorized to use sudo. On Debian, use graphical '
+                           'Setup with pkexec installed to authenticate as an administrator, '
+                           'or ask the system administrator to grant this account sudo access and sign in again. '
+                           'Keep running Setup as your desktop user.')
+    if tool == 'sudo' and code and any(message in output.lower() for message in
+            ('a password is required', 'no password was provided', 'incorrect password',
+             'authentication failure', 'unable to read password', 'no askpass program', 'a terminal is required')):
+        raise RuntimeError('Administrator authentication failed or was cancelled. Retry Setup and '
+                           'authenticate with a sudo-authorized account. See the authentication details above.')
 
 
 def pinned(target=None):
