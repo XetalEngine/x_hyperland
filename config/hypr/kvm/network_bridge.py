@@ -20,6 +20,7 @@ SETTINGS = ROOT + '/Settings'
 DEVICE = NM + '.Device'
 ACTIVE = NM + '.Connection.Active'
 CONNECTION = NM + '.Settings.Connection'
+DISCONNECT_NEW_DEVICES = 0x04
 NAT_HELP = 'Use NAT networking instead, or connect a wired Ethernet adapter and retry.'
 
 
@@ -73,10 +74,14 @@ class NetworkManager:
         return [self.settings(path) for path in
                 self.call(SETTINGS, NM + '.Settings', 'ListConnections').unpack()[0]]
 
-    def checkpoint(self, device):
-        # Disconnect newly created devices on automatic rollback. Do not use
-        # DELETE_NEW_CONNECTIONS: another application might create a profile.
-        return self.call(ROOT, NM, 'CheckpointCreate', '(aouu)', [device], 150, 4).unpack()[0]
+    def checkpoint(self):
+        # DISCONNECT_NEW_DEVICES requires an empty list (all current devices).
+        # This also lets NetworkManager disconnect the new bridge on automatic
+        # rollback if this worker exits before cleanup. A checkpoint restricted
+        # to the Ethernet port cannot protect a bridge that does not exist yet.
+        # Do not delete unrelated new profiles or replace existing checkpoints.
+        return self.call(ROOT, NM, 'CheckpointCreate', '(aouu)', [], 150,
+                         DISCONNECT_NEW_DEVICES).unpack()[0]
 
     def add(self, settings):
         return self.call(SETTINGS, NM + '.Settings', 'AddConnectionUnsaved',
@@ -185,7 +190,7 @@ def create_bridge(name, nm=None, timeout=90):
     if plan['existing']:
         return {'bridge': name, 'message': f'Existing bridge {name} selected.'}
     bridge, port = bridge_profiles(plan)
-    checkpoint = nm.checkpoint(device['path'])  # refuse any mutation without recovery
+    checkpoint = nm.checkpoint()  # refuse any mutation without recovery
     created = []
     try:
         bridge_path = nm.add(bridge); created.append(bridge_path)

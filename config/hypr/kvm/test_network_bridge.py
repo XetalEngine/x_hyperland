@@ -1,6 +1,6 @@
 """Bridge transactions use a fake NetworkManager; never change host networking."""
 import unittest
-from gi.repository import GLib
+from gi.repository import Gio, GLib
 import network_bridge as bridge
 
 V = GLib.Variant
@@ -26,8 +26,8 @@ class FakeNM:
         self.nic = ethernet(); self.events = []; self.added = {}; self.fail = fail
     def devices(self): return [self.nic]
     def profiles(self): return [self.nic['settings']]
-    def checkpoint(self, device):
-        self.events.append(('checkpoint',device))
+    def checkpoint(self):
+        self.events.append(('checkpoint',))
         if self.fail == 'checkpoint': raise RuntimeError('Recovery unavailable')
         return '/checkpoint/1'
     def add(self, settings):
@@ -83,7 +83,7 @@ class BridgeTests(unittest.TestCase):
         nm = FakeNM('checkpoint')
         with self.assertRaisesRegex(RuntimeError, 'Recovery unavailable'):
             bridge.create_bridge('br0', nm)
-        self.assertEqual(nm.events, [('checkpoint','/device/eth0')])
+        self.assertEqual(nm.events, [('checkpoint',)])
 
     def test_existing_active_bridge_is_selected_without_mutation(self):
         nm = FakeNM(); nm.nic.update(Interface='br0', DeviceType=13)
@@ -120,6 +120,30 @@ class BridgeTests(unittest.TestCase):
         self.assertTrue(nm.ready('/active/bridge','/active/port',ethernet()))
         active['State'] = 4
         with self.assertRaisesRegex(RuntimeError,'activate'): nm.ready('/active/bridge','/active/port',ethernet())
+
+
+class CheckpointRequestTests(unittest.TestCase):
+    def test_real_adapter_requests_recovery_for_existing_and_new_devices(self):
+        calls = []
+        self_test = self
+        class Bus:
+            def call_sync(self, service, path, interface, method, args, *unused):
+                calls.append((service, path, interface, method))
+                self_test.assertEqual(args.get_type_string(), '(aouu)')
+                devices, timeout, flags = args.unpack()
+                # NetworkManager rejects this flag with an explicit device list.
+                # Exercise the actual adapter/serialization, not FakeNM.checkpoint.
+                if devices and flags & 0x04:
+                    raise RuntimeError('the DISCONNECT_NEW_DEVICES flag can only be used with an empty device list')
+                self_test.assertFalse(devices)
+                self_test.assertGreater(timeout, 90)
+                self_test.assertTrue(flags & 0x04, 'A new bridge must be disconnected on automatic recovery')
+                self_test.assertEqual(flags & ~0x04, 0, 'Do not delete unrelated profiles or checkpoints')
+                return V('(o)', ('/checkpoint/1',))
+        nm = object.__new__(bridge.NetworkManager)
+        nm.GLib, nm.Gio, nm.bus = GLib, Gio, Bus()
+        self.assertEqual(nm.checkpoint(), '/checkpoint/1')
+        self.assertEqual(calls, [(bridge.NM, bridge.ROOT, bridge.NM, 'CheckpointCreate')])
 
 
 if __name__ == '__main__': unittest.main()

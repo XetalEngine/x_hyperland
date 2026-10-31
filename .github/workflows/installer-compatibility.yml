@@ -28,6 +28,8 @@ jobs:
         run: python3 tests/fedora_container.py > fedora-build.log 2>&1
       - name: Qt vendor header warning regressions
         run: python3 -m unittest discover -s tests -p test_theme_build.py -v
+      - name: KVM bridge recovery regressions
+        run: python3 -m unittest discover -s config/hypr/kvm -p test_network_bridge.py -v
       - uses: actions/upload-artifact@v4
         if: always()
         with:
