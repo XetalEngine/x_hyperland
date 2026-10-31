@@ -131,6 +131,12 @@ Right-click the wallpaper for your desktop menu. Its editor supports commands, i
 
 Workspaces, running apps, draggable pins and your chosen status modules stay close to the screen where you work. **Right-click → Options** moves the bar to the top or bottom and shows/hides individual modules. The clock opens a calendar; power opens a compact system dashboard. A session helper restores the bar if it exits unexpectedly.
 
+### Wallpaper carousel
+
+**Super+W** opens a flowing ribbon of wallpaper cards, with search, collections and a slideshow preview. All twelve bundled wallpapers are included. Add or remove your own folders directly in the browser; folder choices stay on your computer and removing a folder never deletes its images.
+
+Click an image to choose its display from a preview of your real monitor arrangement. A single display applies immediately. **Bloom**, **Crossfade** and **Silk sweep** transitions run behind your apps, with an Instant option and support for reduced motion. Choices are saved per monitor and theme, and also appear in Fusion Settings. [Wallpaper guide →](config/hypr/wallpaper/README.md)
+
 ### Welcome and startup
 
 **Super+D** opens or hides the four-window Welcome dashboard: system information, Matrix rain, a large clock and six interactive project cubes. The taskbar groups it as **Welcome**, without four duplicate app icons.
@@ -145,7 +151,7 @@ Uncheck **Show this dashboard at login** right on the dashboard to disable all f
 
 **Burn** closes windows with the original Compiz particle flame and smoke. Tune the color, direction, particle count, size, lifetime and timing, or try a disposable preview window.
 
-**Super+Z** minimizes the active window into **Fireball** or **Splat** on the left edge of its screen. Fireball uses Compiz's particle flames; Splat is living, glossy slime with boiling bubbles, eight fixed or randomized silhouettes, and Living slime, Alien membrane and Glossy paint surfaces. Both follow the theme accent, with an optional custom color. Click to restore; scroll the single column when it fills up. The taskbar shows minimized apps as **M3 + app icons**, using their original workspace number. Apps keep running. Adjust size, travel time, animation speed and boiling intensity, or restore all windows in **Theme → Window effects → Minimize**. [Minimize guide →](config/hypr/effects/minimize/README.md)
+**Super+Z** minimizes the active window into **Fireball** or **Splat** at the bottom-left of its screen, stacking upward. Choose either screen edge and either stacking direction in Minimize settings. Fireball uses Compiz's particle flames; Splat is living, glossy slime with boiling bubbles, eight fixed or randomized silhouettes, and Living slime, Alien membrane and Glossy paint surfaces. Both follow the theme accent, with an optional custom color. Click to restore; scroll the single column when it fills up. The taskbar shows minimized apps as **M3 + app icons**, using their original workspace number. Apps keep running. Adjust size, travel time, animation speed and boiling intensity, or restore all windows in **Theme → Window effects → Minimize**. [Minimize guide →](config/hypr/effects/minimize/README.md)
 
 **Desktop Cube + 3D Windows** gives each monitor its own four workspace faces. Hold **Ctrl+Alt+left mouse** and drag to rotate; release to select or press Escape to cancel. Adjust transparency, edge colors, ceiling/floor artwork, a moving sky, and raised windows with depth and spacing. **Standard animation is the default for ordinary workspace switching**; automatic cube rotation is an option. The drag gesture works with either choice.
 
@@ -198,6 +204,7 @@ Runtime components download inside KVM Settings; they are not bundled with the d
 | **Super+Q / Super+Enter** | Kitty |
 | **Super+E** | Dolphin |
 | **Super+D** | Show/hide Welcome |
+| **Super+W** | Wallpaper carousel, slideshow preview and display picker |
 | **Super+Tab / Super+Shift+Tab** | Switch applications forward/backward |
 | **Super+1–4** | Select a cube workspace on the monitor under the pointer |
 | **Super+Shift+1–4** | Move the focused window to that workspace |

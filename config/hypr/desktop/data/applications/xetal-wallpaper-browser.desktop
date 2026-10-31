@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Wallpapers
+Comment=Browse wallpaper collections and choose a display
+Icon=preferences-desktop-wallpaper
+Exec=python3 @HYPR@/wallpaper/launch.py
+Terminal=false
+Categories=Settings;DesktopSettings;
+StartupWMClass=xetal-wallpaper-browser

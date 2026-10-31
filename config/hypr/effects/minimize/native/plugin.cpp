@@ -108,7 +108,8 @@ double progress(const Record& r) {
 }
 Minimize::Column column(PHLMONITOR m) {
     int count=std::ranges::count_if(records,[&](const auto& r){return r->monitor.lock()==m;});
-    Minimize::Column c(m->m_size.x,m->m_size.y,m->m_reservedArea.left(),m->m_reservedArea.top(),m->m_reservedArea.bottom(),settings.size,count,scroll[m->m_id]);
+    Minimize::Column c(m->m_size.x,m->m_size.y,m->m_reservedArea.left(),m->m_reservedArea.top(),m->m_reservedArea.right(),m->m_reservedArea.bottom(),
+                       settings.size,count,scroll[m->m_id],settings.rightEdge,settings.bottomToTop);
     scroll[m->m_id]=c.offset; return c;
 }
 std::optional<Rect> slot(const Record& r) {
@@ -237,7 +238,8 @@ void restore(const std::shared_ptr<Record>& r, bool animate=true, bool focus=tru
     auto dock=r->monitor.lock();auto m=r->original?r->original->m_monitor.lock():nullptr;
     if(!online(m))m=fallback();
     if(!m)return; // retain the record until an output returns
-    Rect origin=slot(*r).value_or(Rect{8,m->m_reservedArea.top()+12,double(settings.size),double(settings.size)});
+    auto c=column(m);
+    Rect origin=slot(*r).value_or(c.box(c.offset));
     if(!r->settled)origin=Minimize::travel(r->flight,thumbnail(origin,*r),progress(*r));
     else origin=thumbnail(origin,*r);
     r->restoring=true;r->settled=false;r->flight=origin;r->monitor=m;
@@ -456,7 +458,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             std::string items;for(auto& r:records){auto b=slot(*r);if(!items.empty())items+=",";
                 items+=std::format("{{\"id\":{},\"workspace\":{},\"restoring\":{},\"visible\":{},\"box\":[{},{},{},{}]}}",r->id,r->original?r->original->m_id:0,r->restoring,b.has_value(),b?b->x:0,b?b->y:0,b?b->w:0,b?b->h:0);
             }
-            return std::format("{{\"enabled\":{},\"effect\":\"{}\",\"shape\":{},\"surface\":{},\"color\":[{},{},{}],\"active\":{},\"minimized\":{},\"restored\":{},\"draws\":{},\"windows\":[{}]}}",settings.enabled,settings.effect,settings.shape,settings.surface,settings.rgb[0],settings.rgb[1],settings.rgb[2],records.size(),requests,restored,draws,items);
+            return std::format("{{\"enabled\":{},\"effect\":\"{}\",\"edge\":\"{}\",\"order\":\"{}\",\"shape\":{},\"surface\":{},\"color\":[{},{},{}],\"active\":{},\"minimized\":{},\"restored\":{},\"draws\":{},\"windows\":[{}]}}",settings.enabled,settings.effect,settings.rightEdge?"right":"left",settings.bottomToTop?"bottom-to-top":"top-to-bottom",settings.shape,settings.surface,settings.rgb[0],settings.rgb[1],settings.rgb[2],records.size(),requests,restored,draws,items);
         }});
     }catch(...){cleanup();throw;}
     return {"Xetal Minimize","Fireball and living Splat minimize effects","XetalEngine","1.1"};

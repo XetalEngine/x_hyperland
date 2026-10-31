@@ -14,7 +14,8 @@ from effects.minimize import model, controller
 class SettingsTests(unittest.TestCase):
     def test_invalid_input_never_reaches_compositor(self):
         for change in ({'enabled': 1}, {'effect': 'unknown'}, {'size': 0}, {'duration': 1.5},
-                       {'follow_theme': 1}, {'color': 'red'}, {'shape': 'alien'}, {'speed': 0}, {'bubbles': 101}, {'surface': 'unknown'}):
+                       {'follow_theme': 1}, {'color': 'red'}, {'shape': 'alien'}, {'speed': 0}, {'bubbles': 101}, {'surface': 'unknown'},
+                       {'edge': 'center'}, {'order': 'sideways'}):
             with patch.object(controller, 'hypr') as hypr, self.assertRaises(ValueError):
                 controller.save(dict(model.DEFAULTS, **change), 'unused')
             hypr.assert_not_called()
@@ -24,9 +25,10 @@ class SettingsTests(unittest.TestCase):
     def test_legacy_migration_preserves_preferences_and_new_fields_round_trip(self):
         old = model.decode('enabled=0\neffect=fireball\nduration=650\nsize=100\n')
         self.assertEqual(old, dict(model.DEFAULTS, enabled=False, duration=650, size=100))
-        previous={k:v for k,v in model.DEFAULTS.items() if k!='surface'}
-        text=''.join(f'{k}={int(v) if type(v) is bool else v}\n' for k,v in previous.items())
-        self.assertEqual(model.decode(text),model.DEFAULTS)
+        for missing in ({'surface','edge','order'}, {'edge','order'}):
+            previous={k:v for k,v in model.DEFAULTS.items() if k not in missing}
+            text=''.join(f'{k}={int(v) if type(v) is bool else v}\n' for k,v in previous.items())
+            self.assertEqual(model.decode(text),model.DEFAULTS)
         for shape in model.SHAPES:
             new = dict(old, effect='splat', shape=shape, follow_theme=False, color='#aabbcc', bubbles=0)
             self.assertEqual(model.decode(model.encode(new)), new)
@@ -92,11 +94,19 @@ int main(int argc,char** argv){
             source.write_text('''#include "motion.hpp"
 #include <cassert>
 int main(){
- Minimize::Column c(1280,800,0,40,0,76,20,999);
+ Minimize::Column c(1280,800,0,40,0,0,76,20,999,false,false);
  assert(c.capacity==8 && c.offset==12 && !c.visible(11) && c.visible(19));
  assert(c.box(12).x==8 && c.box(12).y==52);
  assert(c.box(19).y+76<800);
- Minimize::Column small(320,120,0,36,0,120,2,-9);
+ for(bool right:{false,true})for(bool up:{false,true}){
+   Minimize::Column column(1280,800,32,40,56,28,76,20,999,right,up);
+   auto first=column.box(column.offset),last=column.box(column.offset+column.capacity-1);
+   assert(first.x==(right?1140:40));
+   assert(first.y==(up?684:52));
+   assert((up && last.y<first.y) || (!up && last.y>first.y));
+   assert(last.y>=40 && last.y+last.h<=772);
+ }
+ Minimize::Column small(320,120,0,36,0,0,120,2,-9);
  assert(small.capacity==1 && small.offset==0 && small.box(0).y+small.size<=120);
  Minimize::Rect a{100,200,800,600},b{8,50,76,76};
  auto start=Minimize::travel(a,b,0),end=Minimize::travel(a,b,1);
@@ -140,10 +150,12 @@ class ControlsTests(unittest.TestCase):
         page.surface.setCurrentIndex(page.surface.findData('membrane'))
         page.follow_theme.setChecked(False); page.color = '#61e897'
         page.shape.setCurrentIndex(page.shape.findData('claw')); page.bubbles.setValue(95)
+        page.edge.setCurrentIndex(page.edge.findData('right')); page.order.setCurrentIndex(page.order.findData('top-to-bottom'))
         page.edited()
         self.assertTrue(page.dirty); self.assertTrue(page.color_button.isEnabled())
         self.assertFalse(page.preview.isEnabled()); self.assertEqual(page.values()['shape'], 'claw')
         self.assertEqual(page.values()['surface'],'membrane')
+        self.assertEqual(page.values()['edge'],'right'); self.assertEqual(page.values()['order'],'top-to-bottom')
         page.reset(); self.assertFalse(page.dirty)
         page.close()
 

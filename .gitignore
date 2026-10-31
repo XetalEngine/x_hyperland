@@ -41,3 +41,5 @@ config/hypr/kvm/bundled/
 config/hypr/kvm/defaults/assets/
 config/hypr/kvm/backend/assets/opencore-validators/
 config/hypr/cursors/.build/
+config/hypr/wallpaper/.build/
+config/hypr/wallpaper/state/

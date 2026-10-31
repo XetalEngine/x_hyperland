@@ -7,8 +7,11 @@ SHAPES = {'random': 'Random per window', 'bloom': 'Bloom', 'star': 'Starburst',
           'spill': 'Spill', 'claw': 'Tendrils', 'wide': 'Wide splash', 'coral': 'Coral',
           'web': 'Webbed splash', 'droplets': 'Heavy droplets'}
 SURFACES = {'slime': 'Living slime', 'membrane': 'Alien membrane', 'paint': 'Glossy paint'}
+EDGES = {'left': 'Left', 'right': 'Right'}
+ORDERS = {'bottom-to-top': 'Bottom to top', 'top-to-bottom': 'Top to bottom'}
 DEFAULTS = dict(enabled=True, effect='fireball', duration=420, size=76,
-                follow_theme=True, color='#39a9ff', shape='random', speed=100, bubbles=70, surface='slime')
+                follow_theme=True, color='#39a9ff', shape='random', speed=100, bubbles=70, surface='slime',
+                edge='left', order='bottom-to-top')
 RANGES = dict(duration=(150, 1200), size=(48, 160), speed=(25, 200), bubbles=(0, 100))
 LEGACY = {'enabled', 'effect', 'duration', 'size'}
 PATH = Path(__file__).resolve().with_name('settings.conf')
@@ -25,6 +28,8 @@ def validate(values):
         raise ValueError('Choose a valid effect color.')
     if not isinstance(values['surface'], str) or values['surface'] not in SURFACES:
         raise ValueError('Choose a supported Splat surface.')
+    if values['edge'] not in EDGES or values['order'] not in ORDERS:
+        raise ValueError('Choose a screen edge and stacking direction.')
     for key, (lo, hi) in RANGES.items():
         if type(values[key]) is not int or not lo <= values[key] <= hi:
             raise ValueError(f'{key} must be a whole number between {lo} and {hi}.')
@@ -53,7 +58,7 @@ def decode(text):
             value = int(value)
         values[key] = value
     # Upgrade the original four-field format without discarding preferences.
-    if set(values) in (LEGACY, set(DEFAULTS)-{'surface'}):
+    if set(values) in (LEGACY, set(DEFAULTS)-{'surface', 'edge', 'order'}, set(DEFAULTS)-{'edge', 'order'}):
         values = dict(DEFAULTS, **values)
     return validate(values)
 

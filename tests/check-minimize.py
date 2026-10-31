@@ -246,6 +246,21 @@ debug {
             item = next(w for w in status()['windows'] if w['visible']); click_or_scroll(item, '-1')
         assert status()['windows'][0]['visible']
         run('grim', '-o', output_name, str(root/'column.png'))
+        # Changing placement moves existing effects and their input hitboxes.
+        for edge in model.EDGES:
+            for order in model.ORDERS:
+                config.write_text(model.encode(dict(model.DEFAULTS,edge=edge,order=order)))
+                dispatch('xetalminimize:reload');time.sleep(.2)
+                state=status();assert (state['edge'],state['order'])==(edge,order)
+                boxes=[item['box'] for item in state['windows'] if item['visible']]
+                assert len(boxes)>1
+                assert (boxes[0][0]<output['width']/output['scale']/2)==(edge=='left')
+                assert (boxes[0][1]>boxes[1][1])==(order=='bottom-to-top')
+                assert all(b[1]>=0 and b[1]+b[3]<=output['height']/output['scale'] for b in boxes)
+        click_or_scroll(next(w for w in status()['windows'] if w['visible']))
+        wait(lambda:status()['active']==count-1)
+        config.write_text(model.encode(model.DEFAULTS));dispatch('xetalminimize:reload')
+        print('Left/right, upward/downward placement, overflow and moved hitboxes: passed',flush=True)
         dispatch('xetalminimize:restoreall'); assert status()['active'] == 0
         for i in range(count):
             assert not client(f'Window {i}')['hidden']; wayland('close', f'Window {i}')

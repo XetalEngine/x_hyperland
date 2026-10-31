@@ -27,7 +27,7 @@ class MinimizePage(QWidget):
         self.enabled = QCheckBox('Enable minimizing'); heading.addWidget(self.enabled)
         root.addLayout(heading)
         description = QLabel('Super + Z minimizes the active window. Click its effect to bring it back. '
-                             'Scroll over the left-edge column when it fills up.')
+                             'Scroll over the column when it fills up.')
         description.setWordWrap(True); description.setObjectName('muted'); root.addWidget(description)
         scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         body = QWidget(); columns = QHBoxLayout(body); columns.setContentsMargins(0, 12, 8, 12); columns.setSpacing(22)
@@ -35,6 +35,12 @@ class MinimizePage(QWidget):
         self.effect = QComboBox()
         self.effect.addItem('Fireball', 'fireball'); self.effect.addItem('Splat', 'splat')
         form.addRow('Minimize effect', self.effect)
+        self.edge = QComboBox()
+        for value, title in model.EDGES.items(): self.edge.addItem(title, value)
+        form.addRow('Screen edge', self.edge)
+        self.order = QComboBox()
+        for value, title in model.ORDERS.items(): self.order.addItem(title, value)
+        form.addRow('Stack direction', self.order)
         self.duration = QSpinBox(); self.duration.setRange(*model.RANGES['duration']); self.duration.setSuffix(' ms')
         self.duration.setKeyboardTracking(False); form.addRow('Travel time', self.duration)
         self.size = QSpinBox(); self.size.setRange(*model.RANGES['size']); self.size.setSuffix(' px')
@@ -79,12 +85,14 @@ class MinimizePage(QWidget):
         self.apply = QPushButton('Apply Minimize'); self.apply.setObjectName('primary'); self.apply.clicked.connect(self.save); row.addWidget(self.apply)
         root.addLayout(row)
         self.enabled.toggled.connect(self.edited); self.effect.currentIndexChanged.connect(self.edited)
+        self.edge.currentIndexChanged.connect(self.edited); self.order.currentIndexChanged.connect(self.edited)
         for field in (self.duration, self.size, self.speed, self.bubbles): field.valueChanged.connect(self.edited)
         self.follow_theme.toggled.connect(self.edited); self.shape.currentIndexChanged.connect(self.edited); self.surface.currentIndexChanged.connect(self.edited)
         self.reset()
 
     def values(self):
         return model.validate(dict(enabled=self.enabled.isChecked(), effect=self.effect.currentData(),
+                                   edge=self.edge.currentData(), order=self.order.currentData(),
                                    duration=self.duration.value(), size=self.size.value(), follow_theme=self.follow_theme.isChecked(),
                                    color=self.color, surface=self.surface.currentData(), shape=self.shape.currentData(), speed=self.speed.value(), bubbles=self.bubbles.value()))
 
@@ -98,6 +106,7 @@ class MinimizePage(QWidget):
         self.loading = True
         self.enabled.setChecked(values['enabled'])
         self.effect.setCurrentIndex(self.effect.findData(values['effect']))
+        self.edge.setCurrentIndex(self.edge.findData(values['edge'])); self.order.setCurrentIndex(self.order.findData(values['order']))
         self.duration.setValue(values['duration']); self.size.setValue(values['size'])
         self.follow_theme.setChecked(values['follow_theme']); self.color = values['color']
         self.shape.setCurrentIndex(self.shape.findData(values['shape']))
@@ -113,7 +122,7 @@ class MinimizePage(QWidget):
         if self.loading:
             return
         self.dirty = self.values() != self.baseline
-        for field in (self.enabled, self.effect, self.duration, self.size, self.speed, self.bubbles, self.follow_theme, self.shape, self.surface, self.defaults, self.reload, self.restore):
+        for field in (self.enabled, self.effect, self.edge, self.order, self.duration, self.size, self.speed, self.bubbles, self.follow_theme, self.shape, self.surface, self.defaults, self.reload, self.restore):
             field.setEnabled(not self.busy)
         self.color_button.setEnabled(not self.busy and not self.follow_theme.isChecked())
         self.color_button.setText('Choose… ' + self.color)
@@ -174,7 +183,7 @@ class MinimizePage(QWidget):
         preview = QDialog(self.window()); preview.setWindowTitle('Minimize preview'); preview.setModal(False)
         preview.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose); preview.resize(520, 300)
         layout = QVBoxLayout(preview); layout.setContentsMargins(28, 24, 28, 24)
-        text = QLabel('Send this window to the left edge. Click its effect to bring it back, or press Super + Z to minimize it.'); text.setWordWrap(True)
+        text = QLabel('Send this window to your chosen screen edge. Click its effect to bring it back, or press Super + Z to minimize it.'); text.setWordWrap(True)
         layout.addWidget(text); layout.addStretch()
         minimize = QPushButton('Minimize this window'); minimize.setObjectName('primary'); minimize.clicked.connect(preview.showMinimized)
         layout.addWidget(minimize)

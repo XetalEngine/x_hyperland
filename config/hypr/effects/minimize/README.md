@@ -1,7 +1,7 @@
 # Minimize: Fireball & Splat
 
 Press **Super+Z** or use an application's minimize button to send its window
-to the left edge of that monitor. Click its effect to restore the window.
+to the bottom-left of that monitor, filling upward by default. Click its effect to restore the window.
 Windows form one column; scroll over it when the column fills up. Apps keep
 running, and grouped windows travel together. The taskbar groups minimized
 apps under **M3**, for example, followed by their app icons: “M” means minimized,
@@ -9,7 +9,9 @@ and “3” is their original workspace. Cube uses its local 1–4 face number.
 Clicking an app icon restores that specific app.
 
 **Fusion Settings → Theme → Window effects → Minimize** controls the effect,
-travel time, size, animation speed and color. **Follow the active theme accent**
+screen edge (Left/Right), stack direction (Bottom to top/Top to bottom),
+travel time, size, animation speed and color. Placement changes move existing
+effects immediately and respect the monitor’s reserved panel space. **Follow the active theme accent**
 is on by default, or you can choose a custom color. The effect starts enabled. Turning it off or
 choosing **Restore all windows** returns minimized apps to their workspaces.
 Closing a window still uses the separate Burn effect.

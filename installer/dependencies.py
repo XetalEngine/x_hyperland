@@ -13,7 +13,7 @@ import runtime_install
 PACKAGES = {
     'arch': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole swaync grim slurp wl-clipboard
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
-        python python-psutil python-pyqt6 python-gobject python-pillow gcc cmake libxcb pkgconf gtk3 gtk-layer-shell json-glib json-c
+        python python-psutil python-pyqt6 python-gobject python-pillow gcc cmake libxcb pkgconf gtk3 gtk-layer-shell libepoxy json-glib json-c
         qt5-base qt5-wayland qt6-base qt6-wayland qt6-svg qt6-tools wayland wayland-protocols
         networkmanager network-manager-applet blueman bluez-utils pipewire-pulse wireplumber
         playerctl brightnessctl fastfetch htop libnotify polkit-gnome papirus-icon-theme noto-fonts ttf-dejavu
@@ -24,7 +24,7 @@ PACKAGES = {
     'fedora': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole konsole-part SwayNotificationCenter grim slurp wl-clipboard
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
         python3 python3-psutil python3-pyqt6 python3-gobject python3-pillow gcc gcc-c++ cmake libxcb-devel pkgconf-pkg-config procps-ng glslang-devel
-        gtk3-devel gtk-layer-shell-devel json-glib-devel json-c-devel qt5-qtbase-devel qt5-qtbase-private-devel
+        gtk3-devel gtk-layer-shell-devel libepoxy-devel json-glib-devel json-c-devel qt5-qtbase-devel qt5-qtbase-private-devel
         qt5-qtwayland qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtwayland qt6-qtsvg qt6-qttools-devel qt6-linguist wayland-devel wayland-protocols-devel
         NetworkManager NetworkManager-tui network-manager-applet nm-connection-editor blueman bluez
         pipewire-pulseaudio wireplumber pulseaudio-utils playerctl brightnessctl fastfetch htop SDL3
@@ -36,7 +36,7 @@ PACKAGES = {
     'debian': '''git gvfs gvfs-backends gvfs-fuse hyprpaper hyprlock waybar kitty dolphin konsole konsole-kpart sway-notification-center grim slurp wl-clipboard
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
         python3 python3-psutil python3-pyqt6 python3-pyqt6.qtsvg python3-gi python3-pil gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1 build-essential cmake libxcb1-dev libxcb-res0-dev pkg-config
-        libgtk-3-dev libgtk-layer-shell-dev libjson-glib-dev libjson-c-dev qtbase5-dev qtbase5-private-dev qtwayland5
+        libgtk-3-dev libgtk-layer-shell-dev libepoxy-dev libjson-glib-dev libjson-c-dev qtbase5-dev qtbase5-private-dev qtwayland5
         qt6-base-dev qt6-base-dev-tools qt6-base-private-dev qt6-wayland libqt6svg6 qt6-tools-dev qt6-l10n-tools libwayland-dev libwayland-bin wayland-protocols
         network-manager network-manager-gnome blueman bluez pipewire-pulse wireplumber pulseaudio-utils
         playerctl brightnessctl fastfetch htop libnotify-bin policykit-1-gnome papirus-icon-theme fonts-noto-core fonts-dejavu-core
@@ -51,7 +51,7 @@ COMMANDS = '''git Hyprland hyprctl hyprpaper hyprlock waybar kitty dolphin konso
     xcursorgen hyprcursor-util cc c++ cmake pkg-config wayland-scanner fc-match yt-dlp ffmpeg ffprobe sudo xhost openssl remote-viewer virt-fw-vars certtool
     make autoconf autoreconf automake aclocal libtool libtoolize perl pod2man gettext gawk expect socat
     tpm2_getcap dmidecode lspci lsusb mcopy mtype fsck.fat losetup modinfo'''.split()
-LIBRARIES = ['gtk+-3.0','gio-unix-2.0','gtk-layer-shell-0','json-glib-1.0','Qt5Widgets','Qt6Widgets','Qt5Concurrent','Qt6Concurrent','wayland-client','xcb','xcb-res',
+LIBRARIES = ['gtk+-3.0','gio-unix-2.0','gtk-layer-shell-0','epoxy','json-glib-1.0','Qt5Widgets','Qt6Widgets','Qt5Concurrent','Qt6Concurrent','wayland-client','xcb','xcb-res',
              'openssl','libtasn1','gmp','glib-2.0','gnutls','libseccomp','fuse3','libeis-1.0','json-c']
 # Hyprland comes from the exact, signed package selected by Setup.
 MINIMUM = {'waybar':(0,15,0),'kitty':(0,49,0),'hyprpaper':(0,8,0)}

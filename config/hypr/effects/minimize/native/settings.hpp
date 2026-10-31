@@ -10,7 +10,7 @@
 #include <string>
 namespace Minimize {
 struct Settings {
-    bool enabled=true, followTheme=true;
+    bool enabled=true, followTheme=true, rightEdge=false, bottomToTop=true;
     int duration=420, size=76, shape=-1, speed=100, bubbles=70, surface=0;
     std::string effect="fireball", color="#39a9ff";
     std::array<float,3> rgb{.224F,.663F,1.F};
@@ -23,6 +23,14 @@ inline Settings readSettings(const std::filesystem::path& path, const std::files
         auto pos=line.find('=');if(pos==std::string::npos)throw std::runtime_error("Invalid Minimize setting");
         auto key=line.substr(0,pos),value=line.substr(pos+1);
         if(!seen.insert(key).second)throw std::runtime_error("Duplicate Minimize setting");
+        if(key=="edge") {
+            if(value!="left" && value!="right")throw std::runtime_error("Unknown minimize edge");
+            next.rightEdge=value=="right";continue;
+        }
+        if(key=="order") {
+            if(value!="bottom-to-top" && value!="top-to-bottom")throw std::runtime_error("Unknown minimize order");
+            next.bottomToTop=value=="bottom-to-top";continue;
+        }
         if(key=="effect") {
             if(value!="fireball" && value!="splat")throw std::runtime_error("Unknown minimize effect");
             next.effect=value;continue;
@@ -53,8 +61,8 @@ inline Settings readSettings(const std::filesystem::path& path, const std::files
     }
     const std::set<std::string> legacy{"enabled","effect","duration","size"};
     auto all=legacy;for(const auto* k:{"follow_theme","color","shape","speed","bubbles"})all.insert(k);
-    auto previous=all;all.insert("surface");
-    if(seen!=legacy && seen!=previous && seen!=all)throw std::runtime_error("Incomplete Minimize settings");
+    auto previous=all;all.insert("surface");auto materials=all;all.insert("edge");all.insert("order");
+    if(seen!=legacy && seen!=previous && seen!=materials && seen!=all)throw std::runtime_error("Incomplete Minimize settings");
     for(int i=0;i<3;++i)next.rgb[i]=std::stoi(next.color.substr(1+i*2,2),nullptr,16)/255.F;
     // Only our profile's palette, never KDE's shared color settings.
     if(next.followTheme) {
