@@ -51,10 +51,10 @@ class LibraryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as name:
             path=Path(name)/'browser.json'
             path.write_text(json.dumps({'version':1,'folders':[],'bundled':True,'transition':'fade'}))
-            before=library.read(path); self.assertEqual(before['style'],'window')
-            library.save({**before,'style':'overlay'},before,path,fields=('style',))
+            before=library.read(path); self.assertEqual(before['style'],'overlay')
+            library.save({**before,'style':'window'},before,path,fields=('style',))
             folder=library.save({**before,'folders':[name]},before,path,fields=('folders','bundled'))
-            self.assertEqual(folder['style'],'overlay'); self.assertEqual(folder['transition'],'fade')
+            self.assertEqual(folder['style'],'window'); self.assertEqual(folder['transition'],'fade')
             with self.assertRaisesRegex(ValueError,'elsewhere'):
                 library.save(before,before,path,fields=('style',))
 
@@ -85,7 +85,7 @@ class BrowserTests(unittest.TestCase):
     def setUp(self):
         self.prefs=patch.object(library,'read',return_value=library.normalize(library.DEFAULTS)); self.prefs.start()
         self.scan=patch.object(Browser,'scan'); self.scan.start()
-        self.window=Browser(preview=True)
+        self.window=Browser(preview=True,style='window')
         self.window.pictures=[library.Picture(str(library.ROOT/'modern'/f'workstation-{i}.png'),'Modern') for i in (1,2,3)]
         self.window.filter(); self.window.show(); QTest.qWait(30)
 
@@ -153,6 +153,7 @@ class SelectorTests(unittest.TestCase):
             expected=library.read(); library.save({**expected,'transition':'sweep','folders':[name]},expected)
             control=SelectorSettings(run)
             try:
+                control.style.setCurrentIndex(control.style.findData('window'))
                 control.style.setCurrentIndex(control.style.findData('overlay'))
                 saved=library.read(); self.assertEqual(saved['style'],'overlay')
                 self.assertEqual(saved['transition'],'sweep'); self.assertEqual(saved['folders'],[name])

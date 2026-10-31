@@ -10,12 +10,12 @@ ROOT = Path(__file__).resolve().parent
 PREFERENCES = ROOT/'state/browser.json'
 EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.bmp', '.avif'}
 TRANSITIONS = {'bloom': 'Bloom', 'fade': 'Crossfade', 'sweep': 'Silk sweep', 'none': 'Instant'}
-STYLES = {'window': 'Gallery window', 'overlay': 'Floating cards'}
+STYLES = {'overlay': 'Floating cards', 'window': 'Gallery window'}
 DESCRIPTIONS = {
     'window': 'The original gallery with a soft backdrop, reflections and a flowing wallpaper ribbon.',
     'overlay': 'Wallpaper cards float directly over your desktop, with compact controls and no background window.',
 }
-DEFAULTS = {'version': 1, 'folders': [], 'bundled': True, 'transition': 'bloom', 'style': 'window'}
+DEFAULTS = {'version': 1, 'folders': [], 'bundled': True, 'transition': 'bloom', 'style': 'overlay'}
 
 
 @dataclass(frozen=True)
@@ -37,7 +37,7 @@ def normalize(value):
     if len(folders) > 64:
         raise ValueError('Choose up to 64 wallpaper folders.')
     transition = value.get('transition', 'bloom')
-    style = value.get('style', 'window')
+    style = value.get('style', DEFAULTS['style'])
     if (not isinstance(transition, str) or transition not in TRANSITIONS or
             not isinstance(style, str) or style not in STYLES or type(value.get('bundled', True)) is not bool):
         raise ValueError('Invalid wallpaper browser settings.')

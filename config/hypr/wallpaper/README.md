@@ -5,8 +5,8 @@ Left/Right to browse. Click any image or press Enter to select it. Search and
 collection filters help find a picture; **Slideshow** previews images without
 changing your desktop until you choose one.
 
-Open **Theme → Wallpapers → Wallpaper Selector** to choose **Gallery window**
-(the original design) or **Floating cards**. Floating cards shows the ribbon and
+Open **Theme → Wallpapers → Wallpaper Selector** to choose **Floating cards**
+(the default) or **Gallery window** (the original design). Floating cards shows the ribbon and
 compact controls directly over your desktop, with no enclosing window, blur or
 shadow. The style saves automatically and is used by Super+W. **Open Wallpaper
 Selector** also brings an existing selector forward using the saved style.
