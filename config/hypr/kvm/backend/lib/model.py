@@ -707,7 +707,7 @@ class VMConfig:
             spec = json.loads(raw)
         except Exception:
             return raw
-        if spec.get("type") != "tap" or "fd" not in spec:
+        if spec.get("type") != "tap":
             return raw
         net = self.network
         spec.pop("fd", None)

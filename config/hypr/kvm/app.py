@@ -84,6 +84,7 @@ class KVMSettings(VMStart2):
         self.chip.setPixmap(icon('chip',desktop_theme.colors()['Accent'],30).pixmap(30,30))
         self.maximize.setIcon(icon('maximize',desktop_theme.colors()['Text'],18))
         self._fill_features()
+        self._fill_smbios()
         self.update()
 
     def _toggle_maximized(self):
@@ -119,6 +120,8 @@ class KVMSettings(VMStart2):
         self.tab_hw.capture_gpu_rom=self._capture_gpu_rom
         self.tab_wizard.capture_gpu_rom=self._capture_gpu_rom
         self.tab_dual.capture_gpu_rom=self._capture_gpu_rom
+        self.tab_machine.create_bridge.connect(self._create_bridge)
+        self.tab_wizard.create_bridge.connect(self._create_bridge)
         if hasattr(self.tab_tpm,'btn_repair'):
             self.tab_tpm.btn_repair.clicked.connect(self._repair_tpm)
             self.tab_tpm.checks_changed.connect(self._health_changed)
@@ -165,6 +168,35 @@ class KVMSettings(VMStart2):
             panel.info.setText(error)
             if self.isVisible():QMessageBox.warning(self,'GPU ROM capture failed',error)
         panel.run(lambda progress:gpu_rom.capture(slot),done,failed)
+
+    def _create_bridge(self, name):
+        panel = self.package_panel
+        if panel.job or self._busy():
+            self.status.setText('Finish the current operation and shut down the VM before changing its host network.')
+            return
+        import network_bridge
+        from network_config import configure
+        self.status.setText(f'Creating bridge {name}… The wired connection may briefly reconnect.')
+        self.tab_machine.net_status.setText(self.status.text())
+        def done(result):
+            configure(self.cfg, 'tap', result['bridge'])
+            self.host['bridges'] = vmstart2.hostinfo.net_bridges()
+            self.tab_machine._load_net()
+            wizard = self.tab_wizard
+            if wizard.step == len(wizard.steps) - 1:
+                wizard.go(wizard.step)
+            self._refresh_all()
+            self.status.setText(result['message'])
+            panel.info.setText(result['message'])
+            import checkpoint
+            checkpoint.save(self)
+        def failed(error):
+            self.status.setText('Bridge setup stopped. Use NAT or review the network connection.')
+            self.tab_machine.net_status.setText(error)
+            panel.info.setText(error)
+            if self.isVisible():
+                QMessageBox.warning(self, 'Bridge setup needs attention', error)
+        panel.run(lambda progress:network_bridge.request(name), done, failed)
 
     def _repair_tpm(self):
         panel=self.package_panel;tab=self.tab_tpm

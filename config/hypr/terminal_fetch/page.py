@@ -3,6 +3,8 @@ import copy
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QCheckBox, QComboBox, QPushButton, QTextBrowser, QApplication)
 from . import model
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QPixmap
 
 
 class TerminalPage(QWidget):
@@ -10,12 +12,12 @@ class TerminalPage(QWidget):
         super().__init__(); self.async_run = async_run; self.data = {}; self.loading = False
         root = QVBoxLayout(self); root.setContentsMargins(18, 16, 18, 16)
         title = QLabel('Terminal welcome'); title.setObjectName('brand'); root.addWidget(title)
-        note = QLabel('A theme-colored Arch or Fusion logo, powered by Fastfetch. Your shell, aliases and prompt stay yours.')
+        note = QLabel('A luminous Arch emblem with anime-inspired facets and light trails, colored by your desktop theme. System information comes from Fastfetch.')
         note.setWordWrap(True); note.setObjectName('muted'); root.addWidget(note)
         row = QHBoxLayout(); self.enabled = QCheckBox('Show when a Fusion terminal opens'); row.addWidget(self.enabled)
         row.addStretch(); row.addWidget(QLabel('Logo'))
         self.logo = QComboBox()
-        for caption, value in [('Arch Linux', 'arch'), ('Hyper Fusion', 'fusion'), ('Text only', 'none')]: self.logo.addItem(caption, value)
+        for caption, value in [('Arch · Neon', 'arch'), ('Arch · Text', 'arch-ascii'), ('Hyper Fusion', 'fusion'), ('Text only', 'none')]: self.logo.addItem(caption, value)
         row.addWidget(self.logo); root.addLayout(row)
         row = QHBoxLayout(); self.user = QCheckBox('Username and hostname'); self.palette = QCheckBox('Color palette')
         row.addWidget(self.user); row.addWidget(self.palette); row.addStretch(); root.addLayout(row)
@@ -24,7 +26,11 @@ class TerminalPage(QWidget):
             box = QCheckBox(title); grid.addWidget(box, i // 6, i % 6); self.fields[key] = box
             box.toggled.connect(self.preview)
         root.addLayout(grid)
-        self.display = QTextBrowser(); self.display.setMinimumHeight(250); root.addWidget(self.display, 1)
+        preview = QHBoxLayout()
+        self.emblem = QLabel(); self.emblem.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.emblem.setFixedWidth(250); preview.addWidget(self.emblem)
+        self.display = QTextBrowser(); self.display.setMinimumHeight(300); preview.addWidget(self.display, 1)
+        root.addLayout(preview, 1)
         self.status = QLabel(); self.status.setWordWrap(True); self.status.setObjectName('muted'); root.addWidget(self.status)
         row = QHBoxLayout()
         for text, action in [('Refresh information', self.refresh_data), ('Reset choices', lambda: self.set_value(model.DEFAULTS))]:
@@ -61,7 +67,17 @@ class TerminalPage(QWidget):
         self.data = data; self.preview(); self.status.setText('Colors follow your active palette. New terminals use your saved choices.')
     def preview(self, *_):
         if self.loading: return
-        self.display.setHtml(model.render(self.value(), self.data, width=108, markup=True))
+        value = self.value(); graphic = False
+        if value['logo'] == 'arch':
+            try:
+                from . import artwork
+                self.emblem.setPixmap(QPixmap(str(artwork.png(model.runtime.colors()))).scaled(
+                    240, 240, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+                graphic = True
+            except (ImportError, OSError, ValueError): pass
+        self.emblem.setVisible(graphic)
+        self.display.setHtml(model.render({**value, 'logo':'none'} if graphic else value,
+                                         self.data, width=76 if graphic else 108, markup=True))
         self.apply.setEnabled(self.dirty)
     def save(self):
         try:

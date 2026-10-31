@@ -749,6 +749,7 @@ class MachineTab(QScrollArea):
     """-machine options, -global overrides and the loose top-level flags."""
 
     changed = pyqtSignal()
+    create_bridge = pyqtSignal(str)
 
     def __init__(self, cfg):
         super().__init__()
@@ -840,11 +841,16 @@ class MachineTab(QScrollArea):
         # ---- networking -------------------------------------------------------
         nbox = QGroupBox("Networking")
         nf = QFormLayout(nbox)
-        nf.addRow(QLabel(
-            "libvirt created the tap device and passed QEMU an inherited file "
-            "descriptor. This launcher creates it by name instead, so the tap "
-            "and the bridge are set here."))
+        description = QLabel('Bridged Ethernet puts the guest on your wired network. NAT shares the host connection and also works over Wi-Fi.')
+        description.setWordWrap(True)
+        nf.addRow(description)
         net = self.cfg.network
+        self.net_mode = QComboBox()
+        self.net_mode.addItem('Bridged Ethernet', 'tap')
+        self.net_mode.addItem('NAT — share the host connection', 'user')
+        self.net_mode.setCurrentIndex(self.net_mode.findData(net.get('mode', 'tap')))
+        self.net_mode.currentIndexChanged.connect(self._push_net)
+        nf.addRow('Connection:', self.net_mode)
         self.net_if = QLineEdit(net.get("ifname", ""))
         self.net_if.setToolTip("Tap device created by the start hook and removed "
                                "by revert.")
@@ -856,10 +862,18 @@ class MachineTab(QScrollArea):
         for b in hostinfo.net_bridges():
             self.net_br.addItem(b, b)
         self.net_br.setEditText(net.get("bridge", ""))
-        self.net_br.setToolTip("Host bridge the tap is enslaved to. Blank leaves "
-                               "the tap unbridged and the guest with no network.")
+        self.net_br.setToolTip('The host bridge used by the guest, usually br0.')
         self.net_br.currentTextChanged.connect(self._push_net)
-        nf.addRow("Host bridge:", self.net_br)
+        bridge_row = QHBoxLayout()
+        bridge_row.addWidget(self.net_br, 1)
+        self.btn_create_bridge = QPushButton('Create Bridge')
+        self.btn_create_bridge.setToolTip('Create a bridge from the connected Ethernet adapter. Preserves its IP/DNS settings and rolls back if activation fails.')
+        self.btn_create_bridge.clicked.connect(lambda: self.create_bridge.emit(self.net_br.currentText().strip() or 'br0'))
+        bridge_row.addWidget(self.btn_create_bridge)
+        nf.addRow('Host bridge:', bridge_row)
+        self.net_status = QLabel()
+        self.net_status.setWordWrap(True)
+        nf.addRow(self.net_status)
 
         self.net_mac = QLineEdit()
         self.net_mac.setToolTip("Guest NIC MAC. The first three bytes are the "
@@ -1042,18 +1056,43 @@ class MachineTab(QScrollArea):
         return None
 
     def _load_net(self):
+        loading = self._loading
+        self._loading = True
+        net = self.cfg.network
+        self.net_mode.setCurrentIndex(self.net_mode.findData(net.get('mode', 'tap')))
+        self.net_if.setText(net.get('ifname') or 'vm2tap0')
+        self.net_br.setEditText(net.get('bridge') or 'br0')
         nic = self._nic() or {}
         self.net_mac.setText(str(nic.get("mac", "")))
         self.net_model.setText(str(nic.get("driver", "")))
+        self._loading = loading
         self._refresh_netdev()
+        self._network_status()
+
+    def _network_status(self):
+        bridged = self.net_mode.currentData() == 'tap'
+        bridge = self.net_br.currentText().strip() or 'br0'
+        missing = bridge not in hostinfo.net_bridges()
+        self.net_if.setEnabled(bridged)
+        self.net_br.setEnabled(bridged)
+        self.btn_create_bridge.setVisible(bridged and missing)
+        self.net_status.setText(
+            f'Bridge {bridge} is missing. Create Bridge will configure your connected Ethernet adapter and select it here.'
+            if bridged and missing else f'Using host bridge {bridge}.' if bridged else
+            'NAT is ready. No host bridge or network changes are needed.')
 
     def _push_net(self, *_):
         if self._loading:
             return
-        net = self.cfg.network
-        net["ifname"] = self.net_if.text().strip()
-        net["bridge"] = self.net_br.currentText().strip()
+        from network_config import configure
+        try:
+            configure(self.cfg, self.net_mode.currentData(),
+                      self.net_br.currentText().strip() or 'br0', self.net_if.text().strip())
+        except ValueError as error:
+            self.net_status.setText(str(error))
+            return
         self._refresh_netdev()
+        self._network_status()
         self.changed.emit()
 
     def _refresh_netdev(self):

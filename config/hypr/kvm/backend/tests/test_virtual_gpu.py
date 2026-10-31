@@ -325,6 +325,7 @@ def test_launch_uses_same_unit_and_never_touches_hooks(cfg, tmp_path, monkeypatc
     args = run_command.call_args_list[-1].args[0]
     assert args[args.index("--unit") + 1] == "vmstart2-vm"
     assert any(x.endswith("virtual_runtime.py") for x in args)
+    assert '--setenv=XETAL_KVM_DATA=' + str(vg.data_root()) in args
     assert f"--property=StandardOutput=append:{tmp_path}/output.log" in args
     assert f"--property=StandardError=append:{tmp_path}/output.log" in args
     payload = json.loads((tmp_path / "plan.json").read_text())

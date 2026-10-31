@@ -71,6 +71,7 @@ class WizardTab(QScrollArea):
     config_reloaded = pyqtSignal()    # wizard rewrote enough that tabs must rebuild
     finished = pyqtSignal()
     component_page = pyqtSignal(object)
+    create_bridge = pyqtSignal(str)
 
     def __init__(self, cfg):
         super().__init__()
@@ -1454,6 +1455,22 @@ class WizardTab(QScrollArea):
         summary.setPlainText("\n".join(lines))
         self._add(summary)
 
+        network = self.cfg.data.get('network', {})
+        bridge = network.get('bridge', '')
+        self.use_nat = None
+        if network.get('mode') == 'tap' and bridge and bridge not in hostinfo.net_bridges():
+            self.bridge_notice = QLabel(f'Bridge {bridge} is missing. Create it from your connected Ethernet adapter, or use NAT below.')
+            self.bridge_notice.setWordWrap(True)
+            self._add(self.bridge_notice)
+            self.btn_create_bridge = QPushButton('Create Bridge')
+            self.btn_create_bridge.setToolTip('Preserves the wired connection’s IP/DNS settings and restores it if bridge activation fails.')
+            self.btn_create_bridge.clicked.connect(lambda: self.create_bridge.emit(bridge))
+            self._add(self.btn_create_bridge)
+            self.use_nat = QCheckBox(f'Use NAT networking — bridge {bridge} is unavailable on this PC')
+            self.use_nat.setChecked(True)
+            self._add(self.use_nat)
+            self._note('Shares the host internet connection without creating a bridge. You can change it later under Machine & network.')
+
         problems = self.cfg.validate()
         if problems:
             p = QPlainTextEdit()
@@ -1477,6 +1494,9 @@ class WizardTab(QScrollArea):
 
         self.btn_next.setText("Finish")
         def finish():
+            if self.use_nat is not None and self.use_nat.isChecked():
+                from network_config import configure
+                configure(self.cfg, 'user')
             self._state()["complete"] = True
             self.finished.emit()
             return True

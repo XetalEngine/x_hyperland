@@ -57,6 +57,12 @@ def collect(window):
     binary=cfg.data.get('_meta',{}).get('binary','')
     if not binary or not Path(binary).is_file():issues['Paths && Tools'].append('QEMU is missing. Install / download missing components.')
     tools=cfg.data.get('tools',{})
+    network = cfg.data.get('network', {})
+    if network.get('mode') == 'tap':
+        import hostinfo
+        bridge = network.get('bridge', '')
+        if not bridge or bridge not in hostinfo.net_bridges():
+            issues['Machine'].append(f'Bridge {bridge or "(not selected)"} is missing. Choose Create Bridge or NAT networking.')
     if not packages.installed('baseline'):
         issues['Paths && Tools'].append('VM support files are missing. Install / download missing components.')
     if tools.get('kvm_build_enabled') and Path(tools.get('kvm_build',''))==portable.ROOT/'module-tool.sh':

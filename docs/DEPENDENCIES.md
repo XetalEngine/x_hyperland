@@ -5,7 +5,7 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 | Area | Required components |
 | --- | --- |
 | Desktop | Hyprland 0.56+, Hyprpaper 0.8+, Hyprlock, Waybar 0.15+, Kitty 0.49+, Dolphin, SwayNotificationCenter |
-| Python | Python 3.11+, PyQt6 Widgets/Network/DBus, PyGObject with Gio/GTK 3/GtkLayerShell, Pillow |
+| Python | Python 3.11+, PyQt6 Widgets/Network/DBus/SVG, PyGObject with Gio/GTK 3/GtkLayerShell, Pillow |
 | Native builds | C/C++17/20 compiler, CMake, pkg-config, GTK 3, gio-unix, gtk-layer-shell, json-glib, Wayland client/scanner; Qt 5 and 6 Widgets/Concurrent, Qt Network/DBus/Linguist, development tools and private QtGui/QtCore headers; XCB and XCB-RES |
 | Capture | grim, slurp, wl-clipboard, xdg-desktop-portal-hyprland, GTK desktop portal |
 | Audio | PipeWire PulseAudio compatibility, pactl, WirePlumber/wpctl, playerctl |
@@ -41,4 +41,6 @@ Upstream references: [Waybar](https://github.com/Alexays/Waybar), [Hyprpaper](ht
 
 Font package references: [Arch DejaVu](https://archlinux.org/packages/extra/any/ttf-dejavu/), [Fedora DejaVu](https://packages.fedoraproject.org/pkgs/dejavu-fonts/), [Debian DejaVu](https://packages.debian.org/en/stable/fonts-dejavu-core).
 
-KVM Settings uses OpenSSL for signed package verification, `remote-viewer` (virt-viewer) for SPICE/VNC consoles, and GnuTLS `certtool` for private TPM certificate generation. These are included in the distribution recipes, together with GCC/C++, make, CMake, autoconf/automake/libtool, Perl, gettext, gawk, expect, socat, OpenSSL/GnuTLS, libtasn1, GMP, GLib, libseccomp, FUSE and libei development packages. Hardware and image tools include tpm2-tools, dmidecode, pciutils, usbutils, mtools, dosfstools, util-linux and kmod. Capability checks verify these tools before installation. Downloaded KVM runtime components do not require rebuilding. Custom source rebuilds still require the matching source checkout; private development trees are not shipped. The published custom kernel module supports only its listed AMD/kernel combination.
+KVM Settings uses OpenSSL for signed package verification, `remote-viewer` (virt-viewer) for SPICE/VNC consoles, `virt-fw-vars` for UEFI display preferences, and GnuTLS `certtool` for private TPM certificate generation. These are included in the distribution recipes, together with GCC/C++, make, CMake, autoconf/automake/libtool, Perl, gettext, gawk, expect, socat, OpenSSL/GnuTLS, libtasn1, GMP, GLib, libseccomp, FUSE and libei development packages. Hardware and image tools include tpm2-tools, dmidecode, pciutils, usbutils, mtools, dosfstools, util-linux and kmod. Capability checks verify these tools before installation. Downloaded KVM runtime components do not require rebuilding. Custom source rebuilds still require the matching source checkout; private development trees are not shipped. The published custom kernel module supports only its listed AMD/kernel combination.
+
+`virt-fw-vars` is provided by `virt-firmware` on Arch and `python3-virt-firmware` on [Fedora](https://packages.fedoraproject.org/pkgs/python-virt-firmware/python3-virt-firmware/) and [Debian](https://ftp.debian.org/debian/pool/main/v/virt-firmware/). The terminal emblem uses the same Qt SVG bindings already used by the desktop; rendered PNGs are cached in the recipient's cache directory.

@@ -131,5 +131,7 @@ class PackagesPanel(QGroupBox):
     def bootstrap(self):
         # Opening settings checks metadata only. Downloads are explicit and all
         # runtime programs and supporting binary assets come from the server.
+        if self.busy():
+            self.info.setText('VM is running. Shut it down before preparing component files.');return
         portable.prepare_firmware();portable.prepare_tpm_workspace()
         self.changed.emit();self.check_updates()

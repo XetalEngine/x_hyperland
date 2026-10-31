@@ -834,6 +834,7 @@ def test_preflight_explains_custom_ivshmem_ids(cfg, monkeypatch):
         "devices": {"vfio-pci", "pcie-root-port", "ivshmem-plain"}})
     monkeypatch.setattr(dg, "ivshmem_ids", lambda _: {"vendor": 0x1022, "device": 0x1110})
     monkeypatch.setattr(dg.shutil, "which", lambda _: None)
+    monkeypatch.setattr(dg, "looking_glass_client", lambda: None)
     checks = dg.preflight(plan)
     assert any("1022:1110" in message and "will not bind" in message for _, message in checks)
     assert any("not installed" in message for _, message in checks)

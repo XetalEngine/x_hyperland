@@ -131,6 +131,62 @@ class SetupTests(unittest.TestCase):
         self.assertIs(self.window.tabs.currentWidget(),self.window.tab_wizard)
         self.assertTrue(self.window.navigation.items['Wizard'].isHidden())
 
+    def test_finish_offers_nat_when_recipient_has_no_baseline_bridge(self):
+        import hostinfo
+        wizard=self.window.tab_wizard
+        before=copy.deepcopy(self.window.cfg.data)
+        with patch.object(hostinfo,'net_bridges',return_value=[]):wizard.go(len(wizard.steps)-1)
+        self.assertTrue(wizard.use_nat.isChecked())
+        self.assertEqual(self.window.cfg.data['network'],before['network'])
+        wizard.next_action()
+        self.assertEqual(self.window.cfg.network['mode'],'user')
+        self.assertEqual(json.loads(self.window.cfg.simple['netdev'])['type'],'user')
+        self.assertEqual(json.loads(self.window.cfg.simple['netdev'])['id'],json.loads(before['simple']['netdev'])['id'])
+
+    def test_finish_preserves_available_bridge(self):
+        import hostinfo
+        wizard=self.window.tab_wizard;before=copy.deepcopy(self.window.cfg.data['network'])
+        with patch.object(hostinfo,'net_bridges',return_value=[before['bridge']]):wizard.go(len(wizard.steps)-1)
+        self.assertIsNone(wizard.use_nat)
+        wizard.next_action()
+        self.assertEqual(self.window.cfg.data['network'],before)
+
+    def test_create_bridge_selects_it_for_wizard_and_all_launch_modes(self):
+        import hostinfo, network_bridge
+        from network_config import configure
+        w = self.window
+        with patch.object(hostinfo,'net_bridges',return_value=[]):
+            w.tab_wizard.go(len(w.tab_wizard.steps)-1)
+            self.assertTrue(w.tab_wizard.use_nat.isChecked())
+            self.assertEqual(w.tab_wizard.btn_create_bridge.text(),'Create Bridge')
+        calls=[]
+        def run(work, done, failed=None):
+            calls.append('run');done(work(lambda *_:None))
+        with patch.object(w,'_busy',return_value=False), patch.object(w.package_panel,'run',side_effect=run), \
+             patch.object(network_bridge,'request',return_value={'bridge':'br0','message':'Bridge ready'}) as request, \
+             patch.object(hostinfo,'net_bridges',return_value=['br0']):
+            w.tab_wizard.btn_create_bridge.click()
+        request.assert_called_once_with('br0')
+        self.assertIsNone(w.tab_wizard.use_nat)
+        self.assertFalse(w.tab_machine.btn_create_bridge.isVisible())
+        self.assertEqual(w.cfg.network['bridge'],'br0')
+        argv=w.cfg.to_argv(True);netdev=json.loads(argv[argv.index('-netdev')+1])
+        self.assertEqual(netdev['type'],'tap')
+        self.assertEqual(netdev['ifname'],w.cfg.network['ifname'])
+        self.assertNotIn('fd',netdev)
+        mac=next(d['mac'] for d in w.cfg.devices if d.get('netdev'))
+        w.tab_machine.net_mode.setCurrentIndex(w.tab_machine.net_mode.findData('user'))
+        self.assertEqual(w.cfg.network['mode'],'user')
+        self.assertEqual(next(d['mac'] for d in w.cfg.devices if d.get('netdev')),mac)
+        self.assertEqual(json.loads(w.cfg.simple['netdev'])['type'],'user')
+
+    def test_bridge_creation_is_blocked_while_guest_is_running(self):
+        import network_bridge
+        with patch.object(self.window,'_busy',return_value=True), patch.object(network_bridge,'request') as request:
+            self.window._create_bridge('br0')
+        request.assert_not_called()
+        self.assertIn('shut down the VM',self.window.status.text())
+
     def test_add_gpu_assigns_captured_rom_only_to_graphics(self):
         tab=self.window.tab_hw
         tab.host_gpus=[dict(slot='0000:01:00.0',functions=[dict(slot='0000:01:00.0'),dict(slot='0000:01:00.1')])]
@@ -295,6 +351,38 @@ class SetupTests(unittest.TestCase):
                                 width=max(combo.fontMetrics().horizontalAdvance(combo.itemText(i)) for i in range(combo.count()))
                                 self.assertGreaterEqual(rect.width(),width)
                                 self.assertGreaterEqual(rect.height(),combo.fontMetrics().height())
+        self.application.hypr_theme.apply()
+
+    def test_smbios_regenerate_buttons_fit_themes_and_change_only_their_field(self):
+        from PyQt6.QtWidgets import QPushButton,QStyle,QStyleOptionButton
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+        theme=self.kvm.desktop_theme;w=self.window
+        w.resize(1820,920);w._select_tab_by_name('SMBIOS')
+        for design in ('raw','modern','breakpoint','binaryknife'):
+            for mode in ('dark','light'):
+                with self.subTest(design=design,mode=mode),patch.object(theme,'state',return_value=dict(design=design,mode=mode,layout='sidebar')):
+                    self.application.hypr_theme.apply();self.application.processEvents()
+                    table=w.smbios_table
+                    w.tab_smbios.ensureWidgetVisible(table)
+                    self.application.processEvents()
+                    for row in range(table.rowCount()):
+                        button=table.cellWidget(row,4).findChild(QPushButton)
+                        option=QStyleOptionButton();button.initStyleOption(option)
+                        rect=button.style().subElementRect(QStyle.SubElement.SE_PushButtonContents,option,button)
+                        self.assertGreaterEqual(rect.width(),button.fontMetrics().horizontalAdvance('Regenerate'))
+                        self.assertGreaterEqual(rect.height(),button.fontMetrics().height())
+                    before=copy.deepcopy(w.cfg.smbios['patches']);row=min(2,len(before)-1)
+                    table.scrollToItem(table.item(row,1));self.application.processEvents()
+                    button=table.cellWidget(row,4).findChild(QPushButton)
+                    replacement='Z'*len(before[row]['find_ascii'])
+                    with patch.object(self.kvm.vmstart2.randomize,'like',return_value=replacement):
+                        QTest.mouseClick(button,Qt.MouseButton.LeftButton)
+                    after=w.cfg.smbios['patches']
+                    self.assertEqual(after[row]['replace_ascii'],replacement)
+                    self.assertEqual(after[row]['replace_hex'],replacement.encode().hex())
+                    self.assertEqual(after[:row]+after[row+1:],before[:row]+before[row+1:])
+                    self.assertEqual(after[row]['find_ascii'],before[row]['find_ascii'])
         self.application.hypr_theme.apply()
 
 

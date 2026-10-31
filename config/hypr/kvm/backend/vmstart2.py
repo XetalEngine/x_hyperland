@@ -1314,8 +1314,18 @@ class VMStart2(QMainWindow):
 
             b = QPushButton("Regenerate")
             b.setToolTip("New random value, same length and shape")
+            b.setAccessibleName('Regenerate ' + p.get('label', 'SMBIOS field'))
             b.clicked.connect(lambda _, i=r: self._smbios_regen(i))
-            self.smbios_table.setCellWidget(r, 4, b)
+            cell = QWidget()
+            controls = QHBoxLayout(cell)
+            controls.setContentsMargins(4, 3, 4, 3)
+            controls.addWidget(b)
+            self.smbios_table.setCellWidget(r, 4, cell)
+            b.ensurePolished()
+            b.setMinimumSize(b.sizeHint())
+            # Table rows do not grow to a cell widget's styled minimum height.
+            # Account for the actual theme padding before giving it a rectangle.
+            self.smbios_table.setRowHeight(r, max(34, b.sizeHint().height() + 8))
             widest = max(widest, b.sizeHint().width())
         # Width the column from the text itself. A button's sizeHint is not
         # trustworthy here -- it still reports the old metrics until Qt polishes
@@ -1324,6 +1334,7 @@ class VMStart2(QMainWindow):
         # only as a floor for styles whose padding exceeds the allowance.
         label = self.smbios_table.fontMetrics().horizontalAdvance("Regenerate")
         self.smbios_table.setColumnWidth(4, max(label + 44, widest + 16))
+        self.smbios_table.doItemsLayout()
         self.smbios_table.blockSignals(False)
         self._fill_manufacturer_model()
 
@@ -1440,6 +1451,7 @@ class VMStart2(QMainWindow):
         p["replace_ascii"] = new
         p["replace_hex"] = randomize.hex_of(new)
         self._fill_smbios()
+        self._update_modified()
         self.status.setText(f"regenerated {p.get('label','field')}")
 
     def _smbios_regen_all(self):
@@ -1450,6 +1462,7 @@ class VMStart2(QMainWindow):
                 self._smbios_regen_quiet(i)
                 n += 1
         self._fill_smbios()
+        self._update_modified()
         self.status.setText(f"regenerated {n} SMBIOS fields")
 
     def _smbios_regen_quiet(self, index):
@@ -1462,6 +1475,7 @@ class VMStart2(QMainWindow):
         u = randomize.uuid4()
         self._smbios_cfg()["system_uuid"] = u
         self.ed_uuid.setText(u)
+        self._update_modified()
         self.status.setText(f"new System UUID {u}")
 
     def _smbios_reload_defaults(self):

@@ -10,6 +10,10 @@ import json
 import os
 from pathlib import Path
 import re
+import sys
+
+# This helper also runs directly under the privileged launch service.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from model import _parse_size
 

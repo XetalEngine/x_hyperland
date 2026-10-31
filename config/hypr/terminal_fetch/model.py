@@ -55,7 +55,7 @@ def validate(value):
     for key in ('enabled', 'show_user', 'show_palette'):
         if type(value.get(key, result[key])) is not bool: raise ValueError('Invalid ' + key + ' option.')
         result[key] = value.get(key, result[key])
-    if value.get('logo', 'arch') not in ('arch', 'fusion', 'none'): raise ValueError('Choose a supported logo.')
+    if value.get('logo', 'arch') not in ('arch', 'arch-ascii', 'fusion', 'none'): raise ValueError('Choose a supported logo.')
     result['logo'] = value.get('logo', 'arch')
     fields = value.get('fields', list(FIELDS))
     if not isinstance(fields, list) or any(not isinstance(f, str) or f not in FIELDS for f in fields) or len(fields) != len(set(fields)):
@@ -138,10 +138,11 @@ def fit(text, columns):
     return result+'…' if columns else ''
 
 
-def rows(settings, data, width=110):
+def rows(settings, data, width=110, image_logo=None):
     colors = runtime.colors(); accent = colors['Accent']; text = colors['Text']; muted = colors['PlaceholderText']
     edge=blend(accent,colors['Window'],.60)
-    logo = ARCH if settings['logo'] == 'arch' else FUSION if settings['logo'] == 'fusion' else []
+    logo = ARCH if settings['logo'] in ('arch', 'arch-ascii') else FUSION if settings['logo'] == 'fusion' else []
+    if image_logo: logo = image_logo[0]
     # Narrow terminals retain readable values; no wrapping across the logo.
     if width < 72: logo = []
     logo_width = max(map(cell_width, logo), default=0)
@@ -162,7 +163,7 @@ def rows(settings, data, width=110):
             index=i-logo_offset
             art=logo[index] if 0<=index<len(logo) else ''
             line.append((art+' '*(logo_width-cell_width(art))+'    ',
-                         blend(accent, text, .42*(1-i/max(1,height-1)))))
+                         image_logo[1] if image_logo else blend(accent, text, .42*(1-i/max(1,height-1)))))
         line += content[i] if i < len(content) else []
         remaining = max(1, width - 2); clipped = []
         for value, color in line:
@@ -172,9 +173,9 @@ def rows(settings, data, width=110):
     return result
 
 
-def render(settings, data, *, width=110, markup=False, colored=True):
+def render(settings, data, *, width=110, markup=False, colored=True, image_logo=None):
     result = []
-    for line in rows(settings, data, width):
+    for line in rows(settings, data, width, image_logo):
         if markup:
             result.append(''.join(f'<span style="color:{color}">{html.escape(text)}</span>' for text, color in line))
         elif colored:
@@ -189,8 +190,20 @@ def main():
     try: settings = load()
     except (OSError, ValueError): settings = copy.deepcopy(DEFAULTS)
     if not settings['enabled'] and not args.force: return 0
-    print('\n' + render(settings, system_data(), width=shutil.get_terminal_size((110, 24)).columns,
-                        colored=not args.plain and sys.stdout.isatty()) + '\n')
+    width = shutil.get_terminal_size((110, 24)).columns
+    colored = not args.plain and sys.stdout.isatty()
+    prefix = ''; image_logo = None
+    if (colored and settings['logo'] == 'arch' and width >= 72
+            and os.environ.get('TERM') == 'xterm-kitty'
+            and not os.environ.get('TMUX') and not os.environ.get('STY')):
+        try:
+            import artwork
+            prefix, lines, color = artwork.kitty_image(runtime.colors())
+            image_logo = (lines, color)
+        except (ImportError, OSError, ValueError):
+            pass  # Keep a readable theme-colored text logo if graphics fail.
+    print(prefix + '\n' + render(settings, system_data(), width=width,
+                                colored=colored, image_logo=image_logo) + '\n')
     return 0
 
 

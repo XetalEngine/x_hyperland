@@ -14,7 +14,7 @@ PACKAGES = {
         qt5-base qt5-wayland qt6-base qt6-wayland qt6-svg qt6-tools wayland wayland-protocols
         networkmanager network-manager-applet blueman bluez-utils pipewire-pulse wireplumber
         playerctl brightnessctl fastfetch htop libnotify polkit-gnome papirus-icon-theme noto-fonts ttf-dejavu
-        yt-dlp ffmpeg deno sudo xorg-xhost xorg-xcursorgen hyprcursor openssl virt-viewer gnutls
+        yt-dlp ffmpeg deno sudo xorg-xhost xorg-xcursorgen hyprcursor openssl virt-viewer virt-firmware gnutls
         base-devel autoconf automake libtool make perl gettext gawk expect socat
         libtasn1 gmp libseccomp fuse3 libei tpm2-tools dmidecode pciutils usbutils
         mtools dosfstools util-linux kmod'''.split(),
@@ -26,7 +26,7 @@ PACKAGES = {
         NetworkManager NetworkManager-tui network-manager-applet nm-connection-editor blueman bluez
         pipewire-pulseaudio wireplumber pulseaudio-utils playerctl brightnessctl fastfetch htop
         libnotify polkit-gnome papirus-icon-theme google-noto-sans-fonts dejavu-sans-fonts dejavu-sans-mono-fonts
-        yt-dlp+default ffmpeg-free nodejs sudo xhost xcursorgen hyprcursor-util openssl virt-viewer gnutls-utils
+        yt-dlp+default ffmpeg-free nodejs sudo xhost xcursorgen hyprcursor-util openssl virt-viewer python3-virt-firmware gnutls-utils
         autoconf automake libtool make perl gettext gawk expect socat openssl-devel
         libtasn1-devel gmp-devel glib2-devel gnutls-devel libseccomp-devel fuse3-devel libei-devel
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod'''.split(),
@@ -37,7 +37,7 @@ PACKAGES = {
         qt6-base-dev qt6-base-dev-tools qt6-base-private-dev qt6-wayland libqt6svg6 qt6-tools-dev qt6-l10n-tools libwayland-dev libwayland-bin wayland-protocols
         network-manager network-manager-gnome blueman bluez pipewire-pulse wireplumber pulseaudio-utils
         playerctl brightnessctl fastfetch htop libnotify-bin policykit-1-gnome papirus-icon-theme fonts-noto-core fonts-dejavu-core
-        yt-dlp ffmpeg nodejs sudo x11-xserver-utils x11-apps hyprcursor-util openssl virt-viewer gnutls-bin
+        yt-dlp ffmpeg nodejs sudo x11-xserver-utils x11-apps hyprcursor-util openssl virt-viewer python3-virt-firmware gnutls-bin
         autoconf automake libtool libtool-bin make perl gettext gawk expect socat libssl-dev
         libtasn1-6-dev libgmp-dev libglib2.0-dev libgnutls28-dev libseccomp-dev libfuse3-dev libei-dev
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod'''.split(),
@@ -45,7 +45,7 @@ PACKAGES = {
 COMMANDS = '''git Hyprland hyprctl hyprpaper hyprlock waybar kitty dolphin swaync swaync-client grim slurp
     wl-copy wl-paste xdg-open xdg-user-dir nmcli nm-applet nm-connection-editor bluetoothctl blueman-manager
     pactl wpctl playerctl brightnessctl fastfetch htop notify-send gdbus pgrep flock
-    xcursorgen hyprcursor-util cc c++ cmake pkg-config wayland-scanner fc-match yt-dlp ffmpeg ffprobe sudo xhost openssl remote-viewer certtool
+    xcursorgen hyprcursor-util cc c++ cmake pkg-config wayland-scanner fc-match yt-dlp ffmpeg ffprobe sudo xhost openssl remote-viewer virt-fw-vars certtool
     make autoconf autoreconf automake aclocal libtool libtoolize perl pod2man gettext gawk expect socat
     tpm2_getcap dmidecode lspci lsusb mcopy mtype fsck.fat losetup modinfo'''.split()
 LIBRARIES = ['gtk+-3.0','gio-unix-2.0','gtk-layer-shell-0','json-glib-1.0','Qt5Widgets','Qt6Widgets','Qt5Concurrent','Qt6Concurrent','wayland-client','xcb','xcb-res',
@@ -73,7 +73,7 @@ def check():
     if not any(shutil.which(command) for command in ('deno','node','qjs')):
         errors.append('Install Deno, Node.js or QuickJS for YouTube downloads.')
     result=subprocess.run([sys.executable,'-c',
-        "import psutil; import PyQt6.QtWidgets, PyQt6.QtNetwork, PyQt6.QtDBus; from PIL import Image; import gi; gi.require_version('Gtk','3.0'); gi.require_version('GtkLayerShell','0.1'); from gi.repository import Gio,Gtk,GtkLayerShell"],
+        "import psutil; import PyQt6.QtWidgets, PyQt6.QtNetwork, PyQt6.QtDBus, PyQt6.QtSvg; from PIL import Image; import gi; gi.require_version('Gtk','3.0'); gi.require_version('GtkLayerShell','0.1'); from gi.repository import Gio,Gtk,GtkLayerShell"],
         capture_output=True,text=True)
     if result.returncode:errors.append('Python GUI/image dependencies: '+result.stderr.strip().splitlines()[-1])
     if shutil.which('pkg-config'):

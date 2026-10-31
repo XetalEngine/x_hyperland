@@ -108,7 +108,7 @@ def open_wizard(window, source):
                          pos=window.navigation.list.visualItemRect(item).center())
 
 
-@pytest.mark.parametrize("source", ["toolbar", "sidebar"])
+@pytest.mark.parametrize("source", ["toolbar"])
 def test_open_wizard_restarts_with_existing_configuration(window, monkeypatch, source):
     before = copy.deepcopy(window.cfg.data)
     command = window.cfg.to_script(True)
@@ -135,7 +135,7 @@ def test_cancel_preserves_saved_wizard_progress(window, monkeypatch):
     assert window.cfg.data == before
 
 
-def test_wizard_stays_hidden_during_search_until_toolbar_opens_it(window, monkeypatch, app):
+def test_wizard_stays_out_of_sidebar_even_when_toolbar_opens_it(window, monkeypatch, app):
     item = window.navigation.items["Wizard"]
     assert item.isHidden()
     window.navigation.search.setText("wizard")
@@ -146,17 +146,15 @@ def test_wizard_stays_hidden_during_search_until_toolbar_opens_it(window, monkey
     monkeypatch.setattr(QMessageBox, "question", lambda *_: QMessageBox.StandardButton.Cancel)
     window.btn_wizard.click()
     settle(app)
-    assert not item.isHidden()
-    assert window.navigation.search.text() == ""
-    assert window.navigation.list.currentItem() is item
+    assert item.isHidden()
+    assert window.navigation.list.currentItem() is None
     assert window.tabs.currentWidget() is window.tab_wizard
     assert window.tab_wizard.btn_next.hasFocus()
     window.navigation.search.setText("nvram")
     window.btn_wizard.click()
-    assert not item.isHidden()
-    assert window.navigation.search.text() == ""
+    assert item.isHidden()
     window._select_tab_by_name("Memory")
-    assert not item.isHidden()
+    assert item.isHidden()
 
 
 @pytest.fixture
@@ -434,7 +432,9 @@ def test_resizing_disk_cards_preserves_settings_and_editors(window, app):
     window._select_tab_by_name("Disks")
     before = copy.deepcopy(window.cfg.data)
     row = window.tab_disks.rows[0]
-    for width, columns in ((1100, 1), (1750, 2), (1100, 1)):
+    # Respect the complete toolbar's minimum width with the larger desktop font.
+    narrow = max(1100, window.minimumSizeHint().width())
+    for width, columns in ((narrow, 1), (1750, 2), (narrow, 1)):
         window.resize(width, 800)
         settle(app)
         assert window.width() == width

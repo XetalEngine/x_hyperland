@@ -25,6 +25,7 @@ import console_window
 import ovmf_display
 import smbios
 from model import VMConfig
+from portable import data_root
 
 UNIT = "vmstart2-vm"
 MODELS = {
@@ -601,6 +602,7 @@ def launch(cfg):
     subprocess.run(prefix + ["systemctl", "reset-failed", UNIT], capture_output=True, timeout=10)
     result = subprocess.run(prefix + ["systemd-run", "--unit", UNIT,
                             "--description=vmstart_2 virtual GPU guest", "--property=KillMode=mixed",
+                            "--setenv=XETAL_KVM_DATA=" + str(data_root()),
                             "--property=TimeoutStopSec=120", "--service-type=exec", *runtime_log_properties(workdir),
                             sys.executable, runtime, str(payload)],
                             capture_output=True, text=True, timeout=20)

@@ -17,12 +17,14 @@ import re
 import shlex
 import subprocess
 import sys
+from pathlib import Path
 
 import smbios
 import mac_memory
 
 from portable import data_root
 APP_DIR = str(data_root())
+SOURCE_DIR = Path(__file__).resolve().parents[1]
 RUN_DIR = os.path.join(APP_DIR, "run")
 SCRIPT = os.path.join(RUN_DIR, "launch.sh")
 LOG = os.path.join(RUN_DIR, "launch.log")
@@ -50,10 +52,10 @@ def preflight(cfg, pinning):
 
     for sev, msg in cfg.validate():
         out.append((sev, msg))
-    if cfg.profile == "macos" and not any(d.get("driver") == "vfio-pci"
+    if not any(d.get("driver") == "vfio-pci"
             and not d.get("_disabled") for d in cfg.devices):
-        out.append(("error", "Select the Mac profile's GPU passthrough devices before a Single GPU launch. "
-                    "Use Virtual GPU to open Recovery in a window."))
+        out.append(("error", "Select this profile's GPU passthrough devices before a Single GPU launch. "
+                    "Use Virtual GPU to run a guest in a window."))
 
     # --- qemu binary ---------------------------------------------------
     binary = cfg.data["_meta"]["binary"]
@@ -117,8 +119,8 @@ def preflight(cfg, pinning):
         out.append(("warn", "vfio-pci is not loaded; the script will modprobe it"))
     if not os.path.exists("/sys/kernel/iommu_groups") or \
             not os.listdir("/sys/kernel/iommu_groups"):
-        out.append(("error", "no IOMMU groups. Enable IOMMU/SVM in firmware and add "
-                             "amd_iommu=on to the kernel command line."))
+        out.append(("error", "No IOMMU groups. Enable IOMMU (AMD-Vi or Intel VT-d) in firmware "
+                             "and use the setup wizard's IOMMU step to configure this host."))
     else:
         out.append(("ok", "IOMMU active"))
 
@@ -322,11 +324,15 @@ def preflight(cfg, pinning):
     # --- networking ---------------------------------------------------------
     net = cfg.data.get("network") or {}
     raw_netdev = cfg.simple.get("netdev", "")
-    if '"fd"' in raw_netdev:
+    try:
+        netdev = json.loads(raw_netdev)
+    except (ValueError, TypeError):
+        netdev = {}
+    if isinstance(netdev, dict) and netdev.get('type') == 'tap':
         if net.get("mode") == "tap" and net.get("ifname"):
             br = net.get("bridge") or ""
-            if br and not os.path.isdir(f"/sys/class/net/{br}"):
-                out.append(("error", f"bridge {br} does not exist on this host"))
+            if br and not os.path.isdir(f"/sys/class/net/{br}/bridge"):
+                out.append(("error", f"bridge {br} does not exist on this host. Choose Create Bridge or NAT in Machine & network."))
             else:
                 out.append(("ok", f"tap {net['ifname']} on {br or 'no bridge'} "
                                   f"(created by the start hook, replacing libvirt's "
@@ -583,7 +589,7 @@ def _mac_memory_guard(cfg):
     """Read-only runtime recheck before any existing handoff hook runs."""
     if cfg.profile != "macos":
         return []
-    command = shlex.join([sys.executable, os.path.join(APP_DIR, "lib", "mac_memory.py"),
+    command = shlex.join([sys.executable, str(SOURCE_DIR / "lib/mac_memory.py"),
                           "--spec", json.dumps(mac_memory.spec(cfg), separators=(",", ":"))])
     return [command + " || exit 1"]
 
@@ -592,20 +598,18 @@ def _mac_temporary_memory(cfg):
     return cfg.profile == "macos" and mac_memory.temporary(cfg.data)
 
 
-def _mac_memory_prepare(cfg):
+def _mac_memory_prepare(cfg, own_trap=True):
     """Own temporary pages in launch.sh; leave the GPU hooks' work unchanged."""
     if not _mac_temporary_memory(cfg):
         return []
-    helper = shlex.join([sys.executable, os.path.join(APP_DIR, "lib", "mac_hugepages.py")])
+    helper = shlex.join([sys.executable, str(SOURCE_DIR / "lib/mac_hugepages.py")])
     spec = shlex.quote(json.dumps(mac_memory.spec(cfg), separators=(",", ":")))
     return [
         'MAC_HP_TOKEN="$$-$(date +%s%N)"',
         'mac_hp_release() {',
         f'    {helper} --release --token "$MAC_HP_TOKEN" || log "Hugepage cleanup needs a retry; see macos/run/.temporary-hugepages.json"',
         '}',
-        'trap mac_hp_release EXIT',
-        "trap 'exit 130' INT",
-        "trap 'exit 143' TERM",
+        *(['trap mac_hp_release EXIT', "trap 'exit 130' INT", "trap 'exit 143' TERM"] if own_trap else []),
         f'{helper} --prepare --spec {spec} --token "$MAC_HP_TOKEN" --owner "$$" || exit 1',
     ]
 
@@ -628,7 +632,7 @@ def build_start(cfg, pinning):
     a("# until the display manager section below, so an early failure is free.")
     a("set -uo pipefail")
     a("")
-    a('DM_SERVICE="${DM_SERVICE:-sddm.service}"')
+    a('DM_SERVICE="${DM_SERVICE:-display-manager.service}"')
     a('log() { echo "[$(date +%H:%M:%S)] [start] $*"; }')
     a("")
     L.extend(_mac_memory_guard(cfg))
@@ -861,22 +865,67 @@ def build_start(cfg, pinning):
         # Without it revert would rip the GPU away from a desktop that start.sh
         # never touched, turning an early, harmless abort into a black screen.
         a(f'mkdir -p {shlex.quote(RUN_DIR)}')
+        a(f'HOST_STATE={shlex.quote(os.path.join(RUN_DIR, "host-handoff"))}')
+        a('mkdir -p "$HOST_STATE"')
+        a(': > "$HOST_STATE/modules"; : > "$HOST_STATE/services"')
+        a('NEEDS_NVIDIA=0')
+        for slot in slots:
+            a('DRIVER=""')
+            a(f'if [[ -L /sys/bus/pci/devices/{slot}/driver ]]; then DRIVER=$(basename "$(readlink -f /sys/bus/pci/devices/{slot}/driver)"); fi')
+            a(f'printf "%s\\n" "$DRIVER" > "$HOST_STATE/{slot}"')
+            a('[[ "$DRIVER" == nvidia || "$DRIVER" == nouveau ]] && NEEDS_NVIDIA=1')
+        a('SHARED_NVIDIA=0')
+        a('for card in /sys/bus/pci/drivers/nvidia/????:??:??.? /sys/bus/pci/drivers/nouveau/????:??:??.?; do')
+        a('    [[ -e "$card" ]] || continue')
+        a('    case "${card##*/}" in')
+        a('        ' + '|'.join(slots) + ') ;;')
+        a('        *) SHARED_NVIDIA=1 ;;')
+        a('    esac')
+        a('done')
+        # End only the initiating login. Never kill arbitrary desktop/Xwayland
+        # processes or all users of /dev/nvidia* across the host.
+        a(f'SESSION_ID={shlex.quote(os.environ.get("XDG_SESSION_ID", ""))}')
+        a(f'SESSION_UID={os.getuid()}')
+        a('if [[ -n "$SESSION_ID" ]] && [[ "$(loginctl show-session "$SESSION_ID" -p User --value 2>/dev/null)" != "$SESSION_UID" ]]; then')
+        a('    log "the initiating login session changed; aborting before GPU handoff"; exit 1')
+        a('fi')
+        a('SESSIONS=$(loginctl list-sessions --no-legend --no-pager) || { log "cannot check login sessions; GPU handoff stopped"; exit 1; }')
+        a('while read -r other _; do')
+        a('    [[ -n "$other" && "$other" != "$SESSION_ID" ]] || continue')
+        a('    kind=$(loginctl show-session "$other" -p Type --value 2>/dev/null)')
+        a('    class=$(loginctl show-session "$other" -p Class --value 2>/dev/null)')
+        a('    if [[ "$class" == user* && ( "$kind" == wayland || "$kind" == x11 ) ]]; then')
+        a('        log "another graphical login is active ($other); close it or use Virtual / Dual GPU"; exit 1')
+        a('    fi')
+        a('done <<< "$SESSIONS"')
         a(f'touch {shlex.quote(os.path.join(RUN_DIR, ".handover"))}')
         a('log "stopping display manager"')
         a('systemctl stop "$DM_SERVICE" || true')
+        a('if [[ -n "$SESSION_ID" ]] && [[ "$(loginctl show-session "$SESSION_ID" -p User --value 2>/dev/null)" == "$SESSION_UID" ]]; then')
+        a('    loginctl terminate-session "$SESSION_ID" || true')
+        a('fi')
         a("sleep 1")
-        a("killall -9 kwin_x11 kwin_wayland plasmashell Xorg Xwayland gnome-shell picom 2>/dev/null || true")
-        a("systemctl stop nvidia-persistenced.service nvidia-powerd.service 2>/dev/null || true")
-        a("fuser -k /dev/nvidia* 2>/dev/null || true")
-        a("sleep 1")
+        a('if [[ "$NEEDS_NVIDIA" == 1 && "$SHARED_NVIDIA" == 0 ]]; then')
+        a('    for service in nvidia-persistenced.service nvidia-powerd.service; do')
+        a('        if systemctl is-active --quiet "$service"; then')
+        a('            echo "$service" >> "$HOST_STATE/services"')
+        a('            systemctl stop "$service" || true')
+        a('        fi')
+        a('    done')
+        a('    for module in nvidia nvidia_modeset nvidia_uvm nvidia_drm nouveau; do')
+        a('        [[ -d "/sys/module/$module" ]] && echo "$module" >> "$HOST_STATE/modules"')
+        a('    done')
+        a('fi')
         a('log "unbinding consoles and framebuffer"')
         a("echo 0 > /sys/class/vtconsole/vtcon0/bind 2>/dev/null || true")
         a("echo 0 > /sys/class/vtconsole/vtcon1/bind 2>/dev/null || true")
         a("echo efi-framebuffer.0 > /sys/bus/platform/drivers/efi-framebuffer/unbind 2>/dev/null || true")
         a("sleep 2")
-        a('log "unloading NVIDIA modules"')
-        a("modprobe -r nvidia_drm nvidia_modeset nvidia_uvm nvidia 2>/dev/null || true")
-        a("modprobe -r nouveau 2>/dev/null || true")
+        a('if [[ "$NEEDS_NVIDIA" == 1 && "$SHARED_NVIDIA" == 0 ]]; then')
+        a('    log "releasing selected NVIDIA drivers"')
+        a("    modprobe -r nvidia_drm nvidia_modeset nvidia_uvm nvidia 2>/dev/null || true")
+        a("    modprobe -r nouveau 2>/dev/null || true")
+        a('fi')
         a("sleep 1")
         a('log "loading vfio"')
         a("modprobe vfio || true")
@@ -924,7 +973,7 @@ def build_revert(cfg, reboot_after=True):
     a("set -uo pipefail")
     a("")
     a('REASON="${1:-ok}"')
-    a('DM_SERVICE="${DM_SERVICE:-sddm.service}"')
+    a('DM_SERVICE="${DM_SERVICE:-display-manager.service}"')
     a('NO_REBOOT="${NO_REBOOT:-/etc/libvirt/hooks/NO_REBOOT_AFTER_VM}"')
     a('log() { echo "[$(date +%H:%M:%S)] [revert] $*"; }')
     a("")
@@ -1011,13 +1060,17 @@ def build_revert(cfg, reboot_after=True):
     # Only failed starts and explicit desktop-restore requests reach this path.
     a("# ------------------------------------------------- restore the host --")
     a('log "rebinding GPU to host drivers"')
+    a(f'HOST_STATE={shlex.quote(os.path.join(RUN_DIR, "host-handoff"))}')
     for slot in slots:
         # Only take a device back off vfio-pci. If it is on nvidia it is
         # driving the host display right now.
-        a(f'CUR=$(basename "$(readlink -f /sys/bus/pci/devices/{slot}/driver 2>/dev/null)" 2>/dev/null)')
-        a(f'if [[ "$CUR" == "vfio-pci" ]]; then')
+        a('CUR=""')
+        a(f'if [[ -L /sys/bus/pci/devices/{slot}/driver ]]; then CUR=$(basename "$(readlink -f /sys/bus/pci/devices/{slot}/driver)"); fi')
+        a(f'if [[ "$CUR" == "vfio-pci" || -z "$CUR" ]]; then')
         a(f'    echo "" > /sys/bus/pci/devices/{slot}/driver_override 2>/dev/null || true')
-        a(f'    echo {slot} > /sys/bus/pci/devices/{slot}/driver/unbind 2>/dev/null || true')
+        a(f'    if [[ "$CUR" == "vfio-pci" ]]; then echo {slot} > /sys/bus/pci/devices/{slot}/driver/unbind 2>/dev/null || true; fi')
+        a(f'    ORIGINAL=$(cat "$HOST_STATE/{slot}" 2>/dev/null || true)')
+        a('    if [[ "$ORIGINAL" =~ ^[a-zA-Z0-9_-]+$ && "$ORIGINAL" != vfio-pci ]]; then modprobe "$ORIGINAL" 2>/dev/null || true; fi')
         a("else")
         a(f'    log "  {slot} is on ${{CUR:-nothing}}, not vfio-pci; leaving it alone"')
         a("fi")
@@ -1026,11 +1079,16 @@ def build_revert(cfg, reboot_after=True):
         a(f'echo {slot} > /sys/bus/pci/drivers_probe 2>/dev/null || true')
     a("echo 1 > /sys/bus/pci/rescan 2>/dev/null || true")
     a("sleep 1")
-    a('log "loading NVIDIA modules"')
-    a("modprobe nvidia 2>/dev/null || true")
-    a("modprobe nvidia_modeset 2>/dev/null || true")
-    a("modprobe nvidia_uvm 2>/dev/null || true")
-    a("modprobe nvidia_drm 2>/dev/null || true")
+    a('if [[ -f "$HOST_STATE/modules" ]]; then')
+    a('    while read -r module; do')
+    a('        case "$module" in nvidia|nvidia_modeset|nvidia_uvm|nvidia_drm|nouveau) modprobe "$module" 2>/dev/null || true ;; esac')
+    a('    done < "$HOST_STATE/modules"')
+    a('fi')
+    a('if [[ -f "$HOST_STATE/services" ]]; then')
+    a('    while read -r service; do')
+    a('        case "$service" in nvidia-persistenced.service|nvidia-powerd.service) systemctl start "$service" 2>/dev/null || true ;; esac')
+    a('    done < "$HOST_STATE/services"')
+    a('fi')
     a("sleep 1")
     a('log "rebinding consoles"')
     a("echo 1 > /sys/class/vtconsole/vtcon0/bind 2>/dev/null || true")
@@ -1175,9 +1233,8 @@ def build_script(cfg, pinning, standalone=True, reboot_after=True):
     a('echo ""')
     a('echo "=============== VM STARTED $(date "+%d %m %y %H:%M") ==========================="')
     a('log "config: $(hostname) | $(uname -r)"')
+    a(f'export XETAL_KVM_DATA={shlex.quote(str(data_root()))}')
     a("")
-    L.extend(_mac_memory_prepare(cfg))
-    L.extend(_mac_memory_guard(cfg))
     a("REVERTED=0")
     a("do_revert() {")
     a('    [[ "$REVERTED" == 1 ]] && return')
@@ -1190,6 +1247,26 @@ def build_script(cfg, pinning, standalone=True, reboot_after=True):
     a('        log "revert hook missing: $REVERT"')
     a("    fi")
     a("}")
+    a("")
+    a('owned_child() { local owned; for owned in $(jobs -pr); do [[ "$owned" == "$1" ]] && return 0; done; return 1; }')
+    a("cleanup_on_exit() {")
+    a('    [[ "$REVERTED" == 1 ]] && return')
+    a("    trap '' INT TERM")
+    a('    for child in "${WATCHER:-}" "${PERFORMANCE_PID:-}" "${QEMU_PID:-}"; do')
+    a('        [[ -n "$child" ]] || continue')
+    a('        owned_child "$child" || continue')
+    a('        kill -TERM "$child" 2>/dev/null || true')
+    a('        for _ in $(seq 1 50); do kill -0 "$child" 2>/dev/null || break; sleep 0.1; done')
+    a('        owned_child "$child" && kill -KILL "$child" 2>/dev/null || true')
+    a('        wait "$child" 2>/dev/null || true')
+    a("    done")
+    a("    do_revert failed")
+    a("}")
+    a("trap cleanup_on_exit EXIT")
+    a("trap 'exit 130' INT")
+    a("trap 'exit 143' TERM")
+    L.extend(_mac_memory_prepare(cfg, own_trap=False))
+    L.extend(_mac_memory_guard(cfg))
     a("")
     a("# ------------------------------------------------------------- start --")
     a('if [[ ! -x "$START" ]]; then')
@@ -1345,7 +1422,7 @@ def build_script(cfg, pinning, standalone=True, reboot_after=True):
     capture = cfg.profile == "macos" and cfg.data.get("performance", {}).get("capture", False)
     if capture:
         owner = os.stat(cfg.root if os.path.isdir(cfg.root) else os.path.expanduser("~"))
-        recorder = [sys.executable, os.path.join(APP_DIR, "scripts", "mac_performance_capture.py"),
+        recorder = [sys.executable, str(SOURCE_DIR / "scripts/mac_performance_capture.py"),
                     "--owner-uid", str(owner.st_uid), "--owner-gid", str(owner.st_gid),
                     "--expected-pins", json.dumps({str(p["vcpu"]): p["cpuset"]
                                                     for p in pinning.get("vcpupin", [])})]
@@ -1425,13 +1502,14 @@ def launch(cfg, pinning, **kw):
                    capture_output=True)
     command = ["sudo", "-n", "systemd-run", "--unit", unit,
          "--description=vmstart_2 guest",
+         "--setenv=XETAL_KVM_DATA=" + str(data_root()),
          "--property=KillMode=mixed",
          "--property=TimeoutStopSec=120",
          "--service-type=simple"]
     if _mac_temporary_memory(cfg):
         # Runs after the service's QEMU children stop, including an interrupted
         # launch. The helper refuses cleanup if another lease owner is alive.
-        cleanup = shlex.join([sys.executable, os.path.join(APP_DIR, "lib", "mac_hugepages.py"), "--release"])
+        cleanup = shlex.join([sys.executable, str(SOURCE_DIR / "lib/mac_hugepages.py"), "--release"])
         command.append("--property=ExecStopPost=" + cleanup)
     command.extend(["/usr/bin/env", "bash", path])
     r = subprocess.run(command, capture_output=True, text=True)

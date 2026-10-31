@@ -138,7 +138,7 @@ Press **Super+K** or click **Keys**. The desktop's controls live together, with 
 | **Theme** | Presets, independent navigation Design, named Custom combinations, Start Menu, Task Switcher, Cursors, wallpapers, File Transfer, Burn, Cube + 3D Windows, borders, gaps, blur, shadows and animation settings. |
 | **Context Menu** | Build and style the wallpaper menu, including its actions and hotkeys. |
 | **Calendar & System** | Browse dates, inspect system information, lock and access session/power controls. Logout asks for confirmation. |
-| **Terminal** | Choose an Arch or Fusion logo, information fields, username and palette for the Fastfetch-powered welcome. Colors follow the active desktop palette; aliases remain in your own shell configuration. |
+| **Terminal** | Choose the neon, mecha-inspired Arch emblem, a text Arch/Fusion logo, information fields, username and palette for the Fastfetch-powered welcome. The emblem follows the desktop colors and scrolls with the text in Kitty; other terminals retain a text fallback. |
 | **Modern Home** | Profile image/GIF, media controls, clock, system cards and shortcuts to the same settings pages. |
 
 Click the taskbar **clock** for a compact clock/calendar dropdown; right-click it or choose **Full calendar** for the full settings calendar. The **power button** opens a compact dashboard with your animated profile, uptime, CPU/RAM/disk gauges, temperature history, volume, laptop brightness and media controls. Laptops show their real battery level; desktops show **AC power · 100%**. Popups follow the clicked monitor and the top/bottom taskbar position.
