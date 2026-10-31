@@ -148,7 +148,7 @@ def preflight():
 
 
 def prepare_repositories():
-    """Foreground Setup refreshes Debian's lists before its read-only preflight."""
+    """Foreground Setup prepares Debian sources/lists before its read-only preflight."""
     if runtime_install.policy.debian_host(distribution()):
         problems = platform_problems()
         if problems:

@@ -61,17 +61,14 @@ class DebianTests(unittest.TestCase):
             dependencies.preflight()
             check.assert_called_once_with(dependencies.PACKAGES['debian'])
 
-    def test_foreground_preparation_refreshes_debian_metadata_only(self):
+    def test_foreground_preparation_uses_debian_source_helper_only(self):
         with patch.object(dependencies, 'distribution', return_value=dict(ID='debian', VERSION_ID='13')), \
              patch.object(dependencies, 'platform_problems', return_value=[]), \
              patch.object(runtime, 'administrator', return_value=['sudo', '-A']), \
              patch.object(debian.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0)) as run:
             dependencies.prepare_repositories()
             command = run.call_args.args[0]
-            self.assertEqual(command[:3], ['sudo', '-A', '/usr/bin/apt-get'])
-            self.assertEqual(command[-1], 'update')
-            self.assertIn('APT::Update::Error-Mode=any', command)
-            self.assertIn('APT::Get::AllowUnauthenticated=false', command)
+            self.assertEqual(command, ['sudo', '-A', '/usr/bin/python3', str(ROOT/'installer/debian_sources.py')])
             self.assertNotIn('install', command)
             self.assertNotIn('upgrade', command)
         for data in (dict(ID='arch'), dict(ID='fedora', VERSION_ID='44'), dict(ID='debian', VERSION_ID='12'),
@@ -83,10 +80,10 @@ class DebianTests(unittest.TestCase):
     def test_refresh_failure_reports_repository_problem_before_resolution(self):
         with patch.object(runtime, 'administrator', return_value=['sudo']), \
              patch.object(debian.subprocess, 'run', return_value=subprocess.CompletedProcess([], 100)) as run:
-            with self.assertRaisesRegex(RuntimeError, 'network mirror is required'):
+            with self.assertRaisesRegex(RuntimeError, 'repository errors'):
                 debian.refresh()
             self.assertEqual(run.call_count, 1)
-            self.assertEqual(run.call_args.args[0][-1], 'update')
+            self.assertEqual(run.call_args.args[0][-1], str(ROOT/'installer/debian_sources.py'))
 
     def test_apt_plan_retains_exact_versions_and_detects_removals(self):
         plan, removed = debian.parse_plan('Inst hyprland (0.56.2+ds-3~xetal13.1 local-deb [amd64])\n'

@@ -21,7 +21,13 @@ jobs:
         run: apt-get update && apt-get install -y --no-install-recommends python3 sudo util-linux passwd git ca-certificates
       - uses: actions/checkout@v4
       - name: Debian runtime and administrator regressions
-        run: python3 -m unittest discover -s tests -p 'test_debian*.py' -v
+        run: |
+          python3 -m unittest discover -s tests -p 'test_debian*.py' -v
+          python3 -m unittest discover -s tests -p test_administrator.py -v
+      - name: Repair a DVD-only Debian source list and resolve dependencies
+        env:
+          XETAL_DISPOSABLE_DEBIAN: '1'
+        run: python3 tests/debian_sources_container.py > debian-sources.log 2>&1
       - name: Debian administrator account setup
         env:
           XETAL_DISPOSABLE_DEBIAN: '1'
@@ -36,7 +42,9 @@ jobs:
         if: always()
         with:
           name: debian-13-build
-          path: debian-build.log
+          path: |
+            debian-build.log
+            debian-sources.log
   fedora:
     runs-on: ubuntu-latest
     container: fedora:44

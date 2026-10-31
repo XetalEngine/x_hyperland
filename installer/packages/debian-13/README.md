@@ -10,8 +10,8 @@ This is a Hyper Fusion bundle. Packages with `~xetal13.1` versions are local
 backports built on Debian 13 with its GCC 14 and glibc 2.41, using Debian source
 packages. The remaining packages are unmodified Debian trixie-backports DEBs.
 These local builds are **not official Debian binary releases**. They do not
-install an Arch package, upgrade the system to Debian testing, or add a package
-repository. Other dependencies come from the recipient's configured Debian
+install an Arch package, upgrade the system to Debian testing, or add a third-party
+package repository. Other dependencies come from the recipient's configured Debian
 repositories with APT's normal authentication checks.
 
 The [manifest](../../../config/hypr/runtime/debian-13.json) records exact package
@@ -68,7 +68,11 @@ anything, downloads the selected dependencies, and records the transaction in
 restores replaced versions and removes only newly introduced runtime packages
 and their newly introduced dependants. Ordinary dependencies may remain installed. It refuses unrelated removals or externally changed versions.
 Package pins live in the dedicated `/etc/apt/preferences.d/xetal-hyprland` file;
-other APT preferences and repositories are preserved.
+other APT preferences are preserved. On DVD-only installations, Setup automatically
+backs up and disables active installation-media sources and supplies the official
+Debian 13 online mirrors. The proposed sources must pass an authenticated refresh
+before they are saved. Existing online mirrors and unrelated sources are preserved;
+see [Debian setup](../../../docs/INSTALLER.md#debian-13).
 
 The portable QEMU binary and EDK II firmware are unchanged. The SDL3 backport
 supplies the host library required by QEMU's bundled SDL compatibility layer.

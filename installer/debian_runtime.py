@@ -103,22 +103,17 @@ def package_args(paths, required, packages):
 
 
 def refresh():
-    """Refresh metadata before resolution; never install packages or edit sources."""
-    print('Refreshing Debian package lists from the configured repositories…', flush=True)
-    # APT normally succeeds even if some downloads fail and stale lists remain.
-    # Setup must report that failure before resolving or changing the runtime.
+    """Repair DVD-only Debian sources and refresh metadata before resolution."""
+    print('Preparing Debian repositories and refreshing package lists…', flush=True)
     prefix = runtime.administrator()
-    result = subprocess.run([*prefix, *APT,
-                             '-o', 'APT::Update::Error-Mode=any',
-                             '-o', 'Acquire::Retries=2', 'update'],
+    result = subprocess.run([*prefix, '/usr/bin/python3', str(runtime.ROOT/'installer/debian_sources.py')],
                             stderr=subprocess.PIPE, text=True, env={**os.environ, 'LC_ALL': 'C'})
     if result.stderr:
         print(result.stderr, end='' if result.stderr.endswith('\n') else '\n', flush=True)
     runtime.check_administrator_result(prefix, result.returncode, result.stderr or '')
     if result.returncode:
-        raise RuntimeError('Debian package lists could not be refreshed. Check the network and the APT '
-                           'repository errors above. A Debian 13 (trixie) network mirror is required; '
-                           'an installation DVD alone is not enough. No packages have been changed.')
+        raise RuntimeError('Debian repositories could not be prepared. Check the network and the APT '
+                           'repository errors above, then retry. No packages have been changed.')
 
 
 def preflight(packages):

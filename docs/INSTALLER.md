@@ -76,12 +76,23 @@ repository failures.
 
 The bundle combines documented local Debian 13 backports with unmodified trixie-backports packages. These local builds are not official Debian binary releases. Setup verifies the trusted release manifest's SHA-256 hashes, archive contents and DEB identities before passing root-owned copies to APT. Ordinary dependencies still come from configured Debian repositories with normal APT authentication. No testing/backports repository is enabled on the recipient's machine.
 
-Foreground installation and runtime updates refresh Debian's package lists
-before resolving dependencies. A failed refresh stops setup before any package
-changes and shows APT's repository/network error. An enabled Debian 13 network
-mirror is required; a DVD-only source list cannot supply all dependencies.
-Setup preserves the existing repository configuration. The empty-package-list
-case is covered by the disposable Debian test.
+Foreground installation and runtime updates prepare Debian's package sources
+and refresh its lists before resolving dependencies. On DVD-only installations,
+Setup disables active CD-ROM entries in both `.list` and `.sources` files and
+adds the [official Debian 13 online repositories](https://www.debian.org/releases/trixie/release-notes/upgrading.en.html#adding-apt-internet-sources)
+for `trixie`, `trixie-updates` and `trixie-security`, using the Debian archive
+keyring. Existing base mirrors, third-party sources and disabled entries are
+preserved. If a security or updates mirror already exists, it is not duplicated.
+
+Setup first verifies the proposed sources with an authenticated APT refresh.
+Network or repository errors stop setup without changing the original source
+files or any packages. Successful changes are saved after backing up the original
+files under `/var/lib/xetal-hyprland/apt-sources/`; the backup's `record.json`
+identifies new files and records original permissions. Repeating Setup does not
+add duplicate repositories. An Internet connection is required for downloads.
+The [DVD-only regression test](../tests/debian_sources_container.py) reproduces
+the installation-media error and verifies repair, dependency resolution, retries
+and failed-refresh behavior with real APT in a disposable Debian container.
 
 Setup resolves the full transaction without removing existing applications, saves exact previous packages and downloads dependencies before installation. It records recovery under `/var/lib/xetal-hyprland/debian-runtime/`. Dedicated version pins in `/etc/apt/preferences.d/xetal-hyprland` keep the compositor and its native libraries/headers together. Other preferences and package holds are preserved. If a previous package is unavailable for recovery, installation stops before changes.
 

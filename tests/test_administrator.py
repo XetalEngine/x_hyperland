@@ -63,9 +63,9 @@ class AdministratorTests(unittest.TestCase):
                  patch.object(debian.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, '', '')) as run:
                 debian.refresh()
                 command = run.call_args.args[0]
-                self.assertEqual(command[:3], ['/usr/bin/python3', str(runtime.ROOT/'installer/debian_su.py'), '/usr/bin/apt-get'])
+                self.assertEqual(command, ['/usr/bin/python3', str(runtime.ROOT/'installer/debian_su.py'),
+                                           '/usr/bin/python3', str(runtime.ROOT/'installer/debian_sources.py')])
                 self.assertNotIn('sudo', command)
-                self.assertEqual(command[-1], 'update')
                 # Installing pkexec later must not switch away from the working
                 # authentication path before group setup or rollback finishes.
                 with patch.object(runtime.shutil, 'which', side_effect=lambda name: '/usr/bin/'+name):
@@ -117,7 +117,7 @@ class AdministratorTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, message):
                     debian.refresh()
                 self.assertEqual(run.call_count, 1)  # Never rerun an unsuccessful APT operation.
-                self.assertEqual(run.call_args.args[0][-1], 'update')
+                self.assertEqual(run.call_args.args[0][-1], str(runtime.ROOT/'installer/debian_sources.py'))
                 self.assertEqual(run.call_args.kwargs['env']['LC_ALL'], 'C')
 
     def test_package_failures_are_not_misreported_as_authentication(self):
