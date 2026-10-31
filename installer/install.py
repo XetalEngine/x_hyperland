@@ -3,6 +3,7 @@
 from __future__ import annotations
 import argparse
 import ast
+from collections import deque
 from datetime import datetime, timezone
 import fcntl
 import hashlib
@@ -145,6 +146,32 @@ def render(stage, home, monitors, profile='auto', startup=True):
     return target
 
 
+def run_build(args, label):
+    """Stream progress and keep useful diagnostics through package recovery."""
+    tail = deque(maxlen=60)
+    diagnostic = ''
+    with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                          text=True, errors='replace', bufsize=1) as process:
+        try:
+            for line in process.stdout:
+                print(line, end='', flush=True)
+                tail.append(line.rstrip()[:2000])
+                if not diagnostic and any(token in line.lower() for token in
+                        ('error:', 'fatal error', 'not found', 'no such file', 'killed signal')):
+                    diagnostic = line.strip()[:1000]
+            code = process.wait()
+        except BaseException:
+            process.kill()
+            process.wait()
+            raise
+    if code:
+        summary = f'Build failed: {label} (exit {code}).'
+        if diagnostic:
+            summary += ' ' + diagnostic
+        details = '\n'.join(tail).strip()
+        raise RuntimeError(summary + ('\nBuild output:\n' + details if details else ''))
+
+
 def build(stage, checkpoint=lambda:None):
     for args in ([sys.executable,str(stage/'cursors/build.py')],
                  [sys.executable,str(stage/'theme/build.py')],
@@ -153,9 +180,10 @@ def build(stage, checkpoint=lambda:None):
                  ['bash',str(stage/'waybar/workspaces/build.sh')],
                  ['bash',str(stage/'waybar/options/build.sh')],
                  ['bash',str(stage/'share-picker/build.sh')]):
-        print('Building '+str(Path(args[-1]).relative_to(stage)),flush=True)
+        label = str(Path(args[-1]).relative_to(stage))
+        print('Building '+label,flush=True)
         checkpoint()
-        subprocess.run(args,check=True)
+        run_build(args, label)
 
     # A complete desktop requires the adapters matched by the runtime manifest.
     for effect,label in [('burn','Burn'),('cube','Desktop Cube & 3D Windows')]:

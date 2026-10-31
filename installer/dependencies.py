@@ -1,5 +1,6 @@
 """Distribution packages and capability checks. No installation at import time."""
 from pathlib import Path
+from ctypes.util import find_library
 import os
 import platform
 import re
@@ -26,7 +27,7 @@ PACKAGES = {
         gtk3-devel gtk-layer-shell-devel json-glib-devel json-c-devel qt5-qtbase-devel qt5-qtbase-private-devel
         qt5-qtwayland qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtwayland qt6-qtsvg qt6-qttools-devel qt6-linguist wayland-devel wayland-protocols-devel
         NetworkManager NetworkManager-tui network-manager-applet nm-connection-editor blueman bluez
-        pipewire-pulseaudio wireplumber pulseaudio-utils playerctl brightnessctl fastfetch htop
+        pipewire-pulseaudio wireplumber pulseaudio-utils playerctl brightnessctl fastfetch htop SDL3
         libnotify hyprpolkitagent papirus-icon-theme papirus-icon-theme-dark google-noto-sans-fonts dejavu-sans-fonts dejavu-sans-mono-fonts
         yt-dlp+default ffmpeg-free nodejs sudo xhost xcursorgen hyprcursor openssl virt-viewer python3-virt-firmware gnutls-utils
         autoconf automake libtool make perl gettext gawk expect socat openssl-devel
@@ -165,6 +166,8 @@ def check(runtime=True):
         if message:errors.append(message)
     if sys.version_info < (3,11): errors.append('Python 3.11 or newer is required.')
     errors += ['Missing command: '+command for command in COMMANDS if not shutil.which(command)]
+    if runtime_install.policy.fedora_host(distribution()) and not find_library('SDL3'):
+        errors.append('QEMU needs the SDL3 runtime: install SDL3.')
     if not konsole_part_available():
         errors.append('Dolphin terminal component is missing: install Konsole (konsole-part on Fedora, konsole-kpart on Debian).')
     if not any(shutil.which(command) for command in ('deno','node','qjs')):

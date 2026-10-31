@@ -49,6 +49,16 @@ def cpu_count():
     except (AttributeError, OSError): return os.cpu_count() or 1
 
 
+def failure_message(lines):
+    # The build summary is printed again after recovery, followed by its compiler
+    # output. Keep that summary visible instead of the last traceback line.
+    for line in reversed(lines):
+        if line.startswith(('Installation stopped:', 'Build failed:')):
+            return line[:500]
+    return next((line[-350:] for line in reversed(lines) if line.strip()),
+                'Setup stopped. See installation details.')
+
+
 class Wizard:
     def __init__(self, update=False):
         self.update = update
@@ -230,8 +240,7 @@ class Wizard:
                                'Installation log: '+str(self.log_path))
                     self.g.label_set_text(self.complete, message.encode()); self.show(4)
                 else:
-                    message = next((line for line in reversed(self.lines) if line.strip()), 'Setup stopped. See installation details.')
-                    self.g.label_set_text(self.error, message[-350:].encode())
+                    self.g.label_set_text(self.error, failure_message(self.lines).encode())
                     self.g.label_set_text(self.status, ('Setup stopped. Details: '+str(self.log_path)).encode())
                     self.g.expander_set_expanded(self.expander, 1)
                     self.g.widget_set_sensitive(self.back, 0); self.g.widget_set_sensitive(self.next, 1)

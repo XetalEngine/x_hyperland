@@ -19,6 +19,7 @@ def build_gtk():
     if (output.exists() and stamp.exists() and stamp.read_text().strip() == version
             and output.stat().st_mtime > max(source.stat().st_mtime, (ROOT/'gtk_file_places.h').stat().st_mtime)): return version
     flags = shlex.split(subprocess.check_output(['pkg-config', '--cflags', '--libs', package, 'gio-unix-2.0', 'json-glib-1.0'], text=True))
+    print('Theme: building GTK '+version+' file chooser integration.', flush=True)
     with tempfile.TemporaryDirectory(prefix='.build-', dir=ROOT) as temporary:
         subprocess.run(['cc', '-std=gnu11', '-O2', '-Wall', '-Wextra', '-Werror', '-fPIC', '-shared',
                         str(source), '-o', temporary+'/preview.so', *flags], check=True)
@@ -61,6 +62,7 @@ def build():
                 and output.stat().st_mtime > max(p.stat().st_mtime for p in sources)):
             versions[str(major)] = version; continue
         flags = shlex.split(subprocess.check_output(['pkg-config', '--cflags', '--libs', package, f'Qt{major}Concurrent'], text=True))
+        print(f'Theme: building Qt {version} integration; moc: {moc}; headers: {headers}', flush=True)
         private = []
         for module in ['QtGui', 'QtCore']:
             private += ['-I'+str(headers/module/version), '-I'+str(headers/module/version/module)]

@@ -292,11 +292,13 @@ class InstallerTests(unittest.TestCase):
         def command(args,**kwargs):
             optional=any(str(args[-1]).endswith('/effects/'+name+'/build.py') for name in ('burn','cube'))
             return install.subprocess.CompletedProcess(args,1 if optional else 0,stdout='',stderr='Unsupported compositor ABI' if optional else '')
-        with patch.object(install.subprocess,'run',side_effect=command) as run:
+        with patch.object(install,'run_build') as builds, \
+             patch.object(install.subprocess,'run',side_effect=command) as run:
             with self.assertRaisesRegex(RuntimeError,'Burn could not be built'):
                 install.build(self.stage)
-        self.assertEqual(run.call_count,8)
-        self.assertTrue(any(str(call.args[0][-1]).endswith('/cursors/build.py') for call in run.call_args_list))
+        self.assertEqual(run.call_count,1)
+        self.assertEqual(builds.call_count,7)
+        self.assertTrue(any(str(call.args[0][-1]).endswith('/cursors/build.py') for call in builds.call_args_list))
 
     def test_invalid_config_stops_before_compilation_in_both_install_modes(self):
         self.target.mkdir()

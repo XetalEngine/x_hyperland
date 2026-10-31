@@ -95,6 +95,16 @@ class FedoraTests(unittest.TestCase):
             dependencies.preflight()
             preflight.assert_called_once_with(dependencies.PACKAGES['fedora'])
 
+    def test_missing_sdl3_is_reported_even_when_other_desktop_tools_exist(self):
+        with patch.object(dependencies, 'distribution', return_value=dict(ID='fedora', VERSION_ID='44')), \
+             patch.object(dependencies, 'find_library', return_value=None), \
+             patch.object(dependencies.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, '', '')):
+            self.assertIn('QEMU needs the SDL3 runtime: install SDL3.', dependencies.check(runtime=False))
+        with patch.object(dependencies, 'distribution', return_value=dict(ID='fedora', VERSION_ID='44')), \
+             patch.object(dependencies, 'find_library', return_value='libSDL3.so.0'), \
+             patch.object(dependencies.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, '', '')):
+            self.assertNotIn('QEMU needs the SDL3 runtime: install SDL3.', dependencies.check(runtime=False))
+
     def test_dnf_plan_cannot_erase_unrelated_apps_or_expand_recovery(self):
         plan = self.root/'plan'; plan.mkdir()
         for action in ['Remove','Install','Upgrade']:
