@@ -32,7 +32,24 @@ def preferences(state=None):
             'interval': max(300, min(86400, int(value.get('interval', 900))))}
 
 
-def status(state=None): return engine.json_file((state or STATE)/'status.json', {})
+def status(state=None, root=None):
+    state = state or STATE
+    value = engine.json_file(state/'status.json', {})
+    # Direct development installs update the inventory while the session checker
+    # stays alive. The installed revision wins over its cached failure/status.
+    if root is None and state != STATE: return value
+    try: current = engine.installed(root or ROOT)['revision']
+    except (OSError, ValueError, RuntimeError): return value
+    if value.get('phase') == 'rollback': return value
+    if current == value.get('latest') and value.get('phase') != 'checking':
+        value.update(phase='current', current=current, failed_revision='', retry_prepare=False,
+                     message='Your desktop is up to date.')
+        value['github'] = {**value.get('github', {}), 'base':current, 'relation':'identical'}
+    elif current != value.get('current'):
+        value.update(phase='current', current=current, failed_revision='', retry_prepare=False,
+                     message='Local desktop revision changed. Checking GitHub will refresh its status.')
+        value['github'] = {**value.get('github', {}), 'relation':'unknown'}
+    return value
 
 
 def publish(state=None, **changes):
@@ -63,7 +80,7 @@ def badge(value):
 
 def check(root=None, state=None):
     root, state = root or ROOT, state or STATE
-    current = engine.installed(root)['revision']; value = status(state)
+    current = engine.installed(root)['revision']; value = status(state, root)
     if time.time() < value.get('retry_at', 0): return value
     try:
         latest = github.latest(current, value.get('github'))
@@ -74,10 +91,11 @@ def check(root=None, state=None):
                    'Your desktop is up to date.' if latest['relation'] == 'identical' else
                    'This build is ahead of main or has a different history. Automatic downgrades are disabled.')
         if pending and pending.get('rollback'): phase = 'rollback'; message = 'Rollback is queued for your next Hyprland login.'
-        elif not pending and value.get('failed_revision') == latest['sha']:
+        elif not pending and latest['relation'] == 'ahead' and value.get('failed_revision') == latest['sha']:
             phase = 'attention'; message = value.get('message', 'Update preparation needs attention.')
         return publish(state, phase=phase, current=current, latest=latest['sha'], title=latest['message'],
-                       github=latest, message=message, checked=time.time(), retry_at=0)
+                       github=latest, message=message, checked=time.time(), retry_at=0,
+                       failed_revision=value.get('failed_revision','') if phase=='attention' else '')
     except Exception as error:
         retry_at = getattr(error, 'retry_at', time.time()+900)
         phase = value.get('phase', 'current')

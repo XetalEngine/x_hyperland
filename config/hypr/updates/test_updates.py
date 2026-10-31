@@ -176,6 +176,18 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
         badge = service.badge({'phase':'available','message':'<b>not markup</b>'})
         self.assertEqual(badge['text'], '↻ UPDATE'); self.assertNotIn('<b>', badge['tooltip'])
 
+    def test_development_install_supersedes_cached_update_failure(self):
+        service.publish(self.state, phase='attention', current=NEW, latest=OLD,
+                        failed_revision=OLD, github={'relation':'ahead'}, message='Old failure')
+        value=service.status(self.state,self.live)
+        self.assertEqual(value['phase'],'current')
+        self.assertEqual(value['failed_revision'],'')
+        self.assertEqual(service.badge(value)['text'],'')
+        with patch.object(github,'latest',return_value={'sha':OLD,'relation':'identical','message':'Current'}):
+            value=service.check(self.live,self.state)
+        self.assertEqual(value['phase'],'current')
+        self.assertEqual(value['failed_revision'],'')
+
     def test_badge_is_hidden_until_an_update_exists(self):
         for value in ({}, {'phase':'current'}, {'phase':'checking'},
                       {'phase':'attention','message':'Network unavailable'},
@@ -183,6 +195,15 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
                       {'phase':'attention','current':NEW,'latest':NEW,'github':{'relation':'identical'}}):
             with self.subTest(value=value):
                 self.assertEqual(service.badge(value)['text'], '')
+
+    def test_status_keeps_active_check_and_handles_unregistered_profile(self):
+        service.publish(self.state, phase='checking', current=OLD, latest=OLD,
+                        message='Checking GitHub…')
+        value=service.status(self.state,self.live)
+        self.assertEqual(value['phase'],'checking')
+        self.assertEqual(value['message'],'Checking GitHub…')
+        (self.live/engine.META).unlink()
+        self.assertEqual(service.status(self.state,self.live),value)
 
     def test_badge_keeps_update_progress_and_actionable_failures_visible(self):
         for phase in ('available','preparing','ready','attention'):
