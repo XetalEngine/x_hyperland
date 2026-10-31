@@ -74,6 +74,11 @@ reset or bypass authentication. Terminal Setup continues to use sudo.
 Authentication denial or cancellation is reported separately from package
 repository failures.
 
+After installation, Setup verifies Hyprland's version and source commit as the
+authenticated desktop user. This works with sudo, [PolicyKit's invoking-user identity](https://www.freedesktop.org/software/polkit/docs/latest/pkexec.1.html#pkexec-security-notes),
+and the Debian root-password fallback. A failed version command reports its
+actual diagnostic instead of labelling an installed compositor as missing.
+
 The bundle combines documented local Debian 13 backports with unmodified trixie-backports packages. These local builds are not official Debian binary releases. Setup verifies the trusted release manifest's SHA-256 hashes, archive contents and DEB identities before passing root-owned copies to APT. Ordinary dependencies still come from configured Debian repositories with normal APT authentication. No testing/backports repository is enabled on the recipient's machine.
 
 Foreground installation and runtime updates prepare Debian's package sources

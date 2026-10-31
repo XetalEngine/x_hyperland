@@ -22,7 +22,10 @@ def main():
     try: account = pwd.getpwnam('tester')
     except KeyError:
         subprocess.run(['useradd', '-m', 'tester'], check=True); account = pwd.getpwnam('tester')
-    os.environ['SUDO_UID'] = str(account.pw_uid)
+    # Exercise the fresh-Debian root-password backend, not just a sudo fixture.
+    os.environ.pop('SUDO_UID', None)
+    os.environ.pop('PKEXEC_UID', None)
+    os.environ['XETAL_SETUP_SU_UID'] = str(account.pw_uid)
     directory = Path('/run/user')/str(account.pw_uid); directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chown(directory, account.pw_uid, account.pw_gid)
     user = ['runuser', '-u', 'tester', '--', 'env', 'XDG_RUNTIME_DIR='+str(directory),
@@ -40,6 +43,13 @@ def main():
     system.install()
     backup = max(p for p in system.STATE.iterdir() if p.is_dir())
     assert debian.pinned()
+    # Every administrator backend must recognize the real installed compositor
+    # while dropping back to the desktop UID for its --version invocation.
+    base_env = {key: value for key, value in os.environ.items()
+                if key not in ('SUDO_UID', 'PKEXEC_UID', 'XETAL_SETUP_SU_UID')}
+    for key in ('SUDO_UID', 'PKEXEC_UID', 'XETAL_SETUP_SU_UID'):
+        with patch.dict(os.environ, {**base_env, key: str(account.pw_uid)}, clear=True):
+            runtime.policy.require()
     subprocess.run([*user, sys.executable, str(ROOT/'installer/install.py'), '--skip-packages', '--yes',
                     '--prepare', str(Path(account.pw_dir)/'debian-review')], check=True)
     system.restore(backup)
@@ -56,7 +66,7 @@ def main():
     assert all(restored.get(key) == value for key, value in before_failure.items())
     assert all(key not in restored for key in bundled if key not in before_failure)
     print(json.dumps(dict(distribution='Debian 13', install=True, build=True, configuration=True,
-                          rollback=True, failed_install_recovery=True)))
+                          administrator_probes=True, rollback=True, failed_install_recovery=True)))
 
 
 if __name__ == '__main__': main()

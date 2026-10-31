@@ -25,22 +25,41 @@ def manifest(root=ROOT):
     return data
 
 
+def authenticated_account():
+    """Recover the desktop identity supplied by Setup's administrator backend."""
+    identities = {os.environ[key] for key in ('SUDO_UID', 'PKEXEC_UID', 'XETAL_SETUP_SU_UID') if key in os.environ}
+    if len(identities) != 1:
+        raise ValueError('Cannot identify the authenticated desktop user. Open Setup as your desktop user.')
+    value = identities.pop()
+    if not value.isascii() or not value.isdecimal() or int(value) <= 0:
+        raise ValueError('Cannot identify the authenticated desktop user. Open Setup as your desktop user.')
+    try:
+        return pwd.getpwuid(int(value))
+    except KeyError:
+        raise ValueError('The authenticated desktop account no longer exists.') from None
+
+
 def installed(binary='Hyprland'):
     try:
         options = {}
         if os.geteuid() == 0:
             # Hyprland needs XDG_RUNTIME_DIR even for --version. Probe as the
             # authenticated desktop user, never as the privileged package helper.
-            uid = int(os.environ.get('SUDO_UID', '0'))
-            if uid <= 0: raise ValueError('A desktop user is required for the compositor probe.')
-            account = pwd.getpwuid(uid)
+            account = authenticated_account()
+            uid = account.pw_uid
             options = {'user':uid, 'group':account.pw_gid, 'extra_groups':[],
                        'env':{**os.environ, 'XDG_RUNTIME_DIR':'/run/user/'+str(uid),
                               'HOME':account.pw_dir, 'USER':account.pw_name, 'LOGNAME':account.pw_name}}
             if binary == 'Hyprland': binary = '/usr/bin/Hyprland'
         result = subprocess.run([binary, '--version'], capture_output=True, text=True, timeout=10, **options)
-    except (OSError, ValueError, KeyError, subprocess.SubprocessError):
+    except FileNotFoundError:
         return {'version': 'not installed', 'commit': ''}
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        return {'version': 'unavailable', 'commit': '', 'error': str(error)}
+    if result.returncode:
+        diagnostic = ' '.join((result.stderr or result.stdout).split())[:500] or 'no diagnostic output'
+        return {'version': 'unavailable', 'commit': '',
+                'error': 'Hyprland --version failed (exit '+str(result.returncode)+'): '+diagnostic}
     text = result.stdout+result.stderr
     version = re.search(r'Hyprland\s+(\d+\.\d+\.\d+)', text)
     commit = re.search(r'\bcommit ([a-f0-9]{40})\b', text)
@@ -49,6 +68,8 @@ def installed(binary='Hyprland'):
 
 def problem(root=ROOT, binary='Hyprland'):
     target, actual = manifest(root), installed(binary)
+    if actual.get('error'):
+        return 'Could not verify Hyprland: '+actual['error']
     if actual['version'] == target['hyprland'] and actual['commit'] == target['commit']:
         fedora = fedora_manifest(root)
         if fedora and fedora_host():
