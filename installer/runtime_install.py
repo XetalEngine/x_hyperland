@@ -1,11 +1,15 @@
-"""Download the tested Arch compositor and request normal administrator auth."""
+"""Prepare verified compositor packages and request normal administrator auth."""
+import base64
 import hashlib
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import subprocess
 import sys
+from urllib.error import HTTPError
+from urllib.parse import urlparse
 from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,6 +17,7 @@ sys.path.insert(0, str(ROOT/'config/hypr/runtime'))
 import runtime_policy as policy
 
 PIN = Path('/etc/pacman.d/xetal-hyprland.conf')
+BUNDLED = ROOT/'installer/packages'
 TRANSACTION = None
 
 
@@ -39,16 +44,29 @@ def pin_text(target):
     return '# Managed by Xetal Setup: Hyprland '+target['hyprland']+'\nIgnorePkg = hyprland\n'
 
 
+def pacman_config(*args):
+    result = subprocess.run(['pacman-conf', *args], capture_output=True, text=True, timeout=10)
+    return result.stdout.splitlines() if result.returncode == 0 else []
+
+
+def package_caches():
+    return [Path(p) for p in pacman_config('CacheDir')] or [Path('/var/cache/pacman/pkg')]
+
+
 def download(target, cache):
     cache.mkdir(parents=True, exist_ok=True)
+    sources = [BUNDLED, *package_caches()]
     for suffix, key in [('', 'package_sha256'), ('.sig', 'signature_sha256')]:
         destination = cache/(policy.filename(target)+suffix)
         if destination.is_file() and hashlib.sha256(destination.read_bytes()).hexdigest() == target[key]:
             continue
-        local = Path('/var/cache/pacman/pkg')/destination.name
+        local = next((directory/destination.name for directory in sources
+                      if (directory/destination.name).is_file()
+                      and hashlib.sha256((directory/destination.name).read_bytes()).hexdigest() == target[key]), None)
         temporary = destination.with_suffix(destination.suffix+'.part')
         try:
-            if local.is_file() and hashlib.sha256(local.read_bytes()).hexdigest() == target[key]:
+            if local:
+                print('Using '+('bundled package: ' if local.parent == BUNDLED else 'cached package: ')+local.name, flush=True)
                 shutil.copyfile(local, temporary)
             else:
                 print('Downloading '+destination.name, flush=True)
@@ -62,28 +80,79 @@ def download(target, cache):
     return cache/policy.filename(target)
 
 
-def previous_package(cache):
-    """Keep a signed recovery package before replacing an existing compositor."""
-    result = subprocess.run(['pacman', '-Q', 'hyprland'], capture_output=True, text=True)
-    if result.returncode: return None
-    name, version = result.stdout.split()
-    import re
-    if name != 'hyprland' or not re.fullmatch(r'[0-9][A-Za-z0-9.+_-]*', version):
-        raise RuntimeError('Cannot identify the installed compositor package for recovery.')
-    filename = 'hyprland-'+version+'-x86_64.pkg.tar.zst'
+def save_recovery(cache, filename, local_dirs, url=None, signature=b''):
+    """Copy/download only; the privileged helper verifies signatures and identity."""
     for suffix in ('', '.sig'):
         output = cache/(filename+suffix)
-        local = Path('/var/cache/pacman/pkg')/output.name
-        if local.is_file(): shutil.copyfile(local, output)
-        elif not output.exists():
-            print('Saving the previous compositor for recovery: '+output.name, flush=True)
-            temporary = output.with_suffix(output.suffix+'.part')
-            try:
-                with urlopen('https://archive.archlinux.org/packages/h/hyprland/'+output.name, timeout=90) as src, temporary.open('wb') as dst:
+        if output.is_file(): continue
+        local = next((directory/output.name for directory in local_dirs if (directory/output.name).is_file()), None)
+        temporary = output.with_suffix(output.suffix+'.part')
+        try:
+            if local: shutil.copyfile(local, temporary)
+            elif suffix and signature: temporary.write_bytes(signature)
+            elif url:
+                print('Saving the previous compositor for recovery: '+output.name, flush=True)
+                with urlopen(url+suffix, timeout=45) as src, temporary.open('wb') as dst:
                     shutil.copyfileobj(src, dst)
-                os.replace(temporary, output)
-            finally: temporary.unlink(missing_ok=True)
+            else: raise FileNotFoundError('No cached '+output.name)
+            os.replace(temporary, output)
+        finally: temporary.unlink(missing_ok=True)
     return cache/filename
+
+
+def previous_package(cache):
+    """Preserve the exact installed package, including CachyOS architecture builds."""
+    result = subprocess.run(['pacman', '-Q', 'hyprland'], capture_output=True, text=True, timeout=10)
+    if result.returncode: return None
+    name, version = result.stdout.split()
+    if name != 'hyprland' or not re.fullmatch(r'[0-9][A-Za-z0-9.+_:-]*', version):
+        raise RuntimeError('Cannot identify the installed compositor package for recovery.')
+    details = subprocess.run(['pacman', '-Qi', 'hyprland'], capture_output=True, text=True,
+                             env={**os.environ, 'LC_ALL':'C'}, timeout=10)
+    arch = re.search(r'^Architecture\s*:\s*([A-Za-z0-9_]+)\s*$', details.stdout, re.M)
+    if details.returncode or not arch:
+        raise RuntimeError('Cannot identify the installed compositor architecture for recovery.')
+    architecture = arch[1]
+    # Epochs belong in the package version, not its archive filename.
+    filename = 'hyprland-'+version.split(':')[-1]+'-'+architecture+'.pkg.tar.zst'
+    cache.mkdir(parents=True, exist_ok=True)
+    local_dirs = package_caches()
+    try:
+        return save_recovery(cache, filename, local_dirs)
+    except FileNotFoundError:
+        pass
+    # --print only queries pacman's configured repositories. It never changes
+    # packages or refreshes databases. %g also covers caches without a .sig file.
+    result = subprocess.run(['pacman', '-Spdd', '--noconfirm', '--print-format',
+                             '%n|%v|%a|%f|%l|%g', 'hyprland='+version],
+                            capture_output=True, text=True, timeout=15)
+    sources = []
+    if result.returncode == 0:
+        for line in result.stdout.splitlines():
+            fields = line.split('|')
+            if len(fields) != 6: continue
+            pkg, candidate_version, candidate_arch, file, url, encoded = fields
+            if (pkg, candidate_version, candidate_arch, file) != ('hyprland', version, architecture, filename):
+                continue
+            if urlparse(url).scheme not in ('https', 'http', 'file'): continue
+            try: signature = base64.b64decode(encoded, validate=True)
+            except ValueError: signature = b''
+            sources.append((url, signature))
+    # Try other configured mirrors when the preferred mirror lacks the file.
+    for repo in pacman_config('--repo-list'):
+        for server in pacman_config('--repo', repo, 'Server')[:3]:
+            if urlparse(server).scheme in ('https', 'http', 'file'):
+                sources.append((server.rstrip('/')+'/'+filename, b''))
+    sources.append(('https://archive.archlinux.org/packages/h/hyprland/'+filename, b''))
+    errors = []
+    for url, signature in dict.fromkeys(sources):
+        try: return save_recovery(cache, filename, local_dirs, url, signature)
+        except OSError as error:
+            errors.append(str(error))
+            if isinstance(error, HTTPError): error.close()
+    raise RuntimeError('Could not save the installed Hyprland '+version+' ('+architecture+
+                       ') for recovery from the package cache or configured repositories. '+
+                       'No compositor changes were made. Last download error: '+errors[-1])
 
 
 def complete():

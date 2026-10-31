@@ -12,7 +12,7 @@ Python and GTK 3 can be bootstrapped from Arch packages if missing. The wizard i
 
 ## Tested compositor
 
-`config/hypr/runtime/manifest.json` selects Hyprland **0.56.2**, commit `efb50993780079460b0cbed1363e2166a2de1d9f`, official Arch package **0.56.2-4** for x86-64. Setup compares both the version and commit. When necessary, it downloads the package and detached signature from the official Arch Linux Archive, verifies their recorded SHA-256 hashes and verifies the signature with the system Arch keyring. Files already present in the pacman cache can be reused after verification.
+`config/hypr/runtime/manifest.json` selects Hyprland **0.56.2**, commit `efb50993780079460b0cbed1363e2166a2de1d9f`, official Arch package **0.56.2-4** for x86-64. Setup compares both the version and commit. The unmodified package (51.3 MB / 48.9 MiB) and detached signature are included in `installer/packages/`, including GitHub ZIP downloads. Setup prefers this bundle, reuses verified pacman cache files, and falls back to the official Arch Linux Archive if needed. It verifies both recorded SHA-256 hashes and the package signature with the system Arch keyring. Other dependencies may still need downloads.
 
 The package operation retains pacman's dependency and conflict checks. It never forces a dependency-incompatible downgrade. Its dedicated `/etc/pacman.d/xetal-hyprland.conf` supplies `IgnorePkg = hyprland`, included in the options section of `/etc/pacman.conf`; existing repository configuration and other holds remain intact. This uses pacman's documented [IgnorePkg and Include settings](https://man.archlinux.org/man/pacman.conf.5.en).
 
@@ -20,7 +20,7 @@ Only Hyprland is held. Other desktop/build dependencies use the distribution pac
 
 ## Cancellation and recovery
 
-Before replacing an installed compositor, Setup preserves its signed package for recovery. Package/configuration backups live under `/var/lib/xetal-hyprland/runtime/`. The existing Hyprland profile is backed up under `~/.local/state/xetal-hyprland/backups/` before replacement.
+Before replacing an installed compositor, Setup preserves its signed package for recovery. It uses the exact installed version and architecture, including CachyOS `x86_64_v3` / `x86_64_v4` builds. It checks the configured package caches, asks pacman for the matching repository URL and signature, and tries the configured mirrors before the Arch archive fallback. It never substitutes a different version for recovery or bypasses signature verification. If the exact package is unavailable, Setup stops before changing the compositor and explains the recovery-package failure. Package/configuration backups live under `/var/lib/xetal-hyprland/runtime/`. The existing Hyprland profile is backed up under `~/.local/state/xetal-hyprland/backups/` before replacement.
 
 **Stop after this step** waits for the current package transaction or build command to finish, then stops before installing the desktop profile. If the compositor changed, Setup restores the prior package and hold on cancellation or failure. Dependencies already installed remain available for a retry. A successful install leaves the matching compositor held and the profile ready for the next login. The current graphical session is never forcibly restarted.
 

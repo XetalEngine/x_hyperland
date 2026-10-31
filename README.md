@@ -40,7 +40,7 @@ When retrying after an update, download the ZIP again and extract it into a new 
 
 The command opens the graphical **Hyper Fusion Setup** wizard. It reviews your setup, requests administrator authentication for packages, shows build progress and keeps an installation log. It backs up your existing `~/.config/hypr` before installation. **Log out and select Hyprland again** to start the complete desktop. Use `--cli` for terminal installation.
 
-**Setup uses the development desktop's tested Hyprland 0.56.2.** On Arch x86-64 it installs or downgrades to the signed official package **0.56.2-4**, verifies its checksum and signature, and adds a dedicated pacman hold. Cube and Burn must both build successfully before installation completes. Future desktop releases can change the required version through the same installer and updater flow. [Installer and recovery details →](docs/INSTALLER.md)
+**Setup uses the development desktop's tested Hyprland 0.56.2.** The signed official package **0.56.2-4** (51.3 MB) and its signature are included in the repository and Download ZIP. On Arch-based x86-64 systems, Setup installs or downgrades to this package, verifies its checksum and signature, and adds a dedicated pacman hold. Cube and Burn must both build successfully before installation completes. Future desktop releases can change the required version through the same installer and updater flow. [Installer and recovery details →](docs/INSTALLER.md)
 
 | Tested environment | Requirements |
 | --- | --- |
