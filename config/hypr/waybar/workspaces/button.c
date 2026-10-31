@@ -20,7 +20,9 @@ typedef struct {
 typedef struct {
     GtkWidget *button;
     GSList *decorations;
-    guint timer;
+    guint timer, feedback_tick;
+    gint64 feedback_started;
+    gboolean cube;
 } Workspaces;
 
 static void invoke(GtkWidget *widget, long number) {
@@ -63,7 +65,51 @@ static gboolean cube_faces(GHashTable *faces, GHashTable *names) {
     g_free(data); return enabled;
 }
 
-static void clicked(GtkButton *button, gpointer unused) { if (!cube_faces(NULL, NULL)) invoke(GTK_WIDGET(button), 0); }
+static void stop_feedback(Workspaces *owner) {
+    if (owner->feedback_tick) gtk_widget_remove_tick_callback(owner->button, owner->feedback_tick);
+    owner->feedback_tick = 0;
+    gtk_style_context_remove_class(gtk_widget_get_style_context(owner->button), "cube-blocked");
+    gtk_widget_set_margin_start(owner->button, 3);
+    gtk_widget_set_margin_end(owner->button, 3);
+}
+
+static gboolean feedback_frame(GtkWidget *button, GdkFrameClock *clock, gpointer data) {
+    Workspaces *owner = data;
+    gint64 elapsed = gdk_frame_clock_get_frame_time(clock) - owner->feedback_started;
+    if (elapsed >= 550000) {
+        owner->feedback_tick = 0;
+        stop_feedback(owner);
+        return G_SOURCE_REMOVE;
+    }
+    static const int offsets[] = {0, -3, 3, -3, 3, -2, 2, -1, 1, 0};
+    guint step = MAX(elapsed, 0) / 40000;
+    int offset = step < G_N_ELEMENTS(offsets) ? offsets[step] : 0;
+    /* Constant total margin: shake only this button, never its neighbours. */
+    gtk_widget_set_margin_start(button, 3 + offset);
+    gtk_widget_set_margin_end(button, 3 - offset);
+    return G_SOURCE_CONTINUE;
+}
+
+static void update_add_button(Workspaces *owner, gboolean cube) {
+    owner->cube = cube;
+    const char *tip = cube ? "Not available with 3D Cube on" : "New empty workspace on this display";
+    GtkStyleContext *context = gtk_widget_get_style_context(owner->button);
+    if (cube) gtk_style_context_add_class(context, "cube-unavailable");
+    else { gtk_style_context_remove_class(context, "cube-unavailable"); stop_feedback(owner); }
+    gtk_widget_set_tooltip_text(owner->button, tip);
+    atk_object_set_description(gtk_widget_get_accessible(owner->button), tip);
+}
+
+static void clicked(GtkButton *button, gpointer data) {
+    Workspaces *owner = data;
+    gboolean cube = cube_faces(NULL, NULL);
+    if (cube != owner->cube) update_add_button(owner, cube);
+    if (!cube) { invoke(GTK_WIDGET(button), 0); return; }
+    owner->feedback_started = g_get_monotonic_time();
+    gtk_style_context_add_class(gtk_widget_get_style_context(owner->button), "cube-blocked");
+    if (!owner->feedback_tick)
+        owner->feedback_tick = gtk_widget_add_tick_callback(owner->button, feedback_frame, owner, NULL);
+}
 
 static void remove_clicked(GtkButton *button, gpointer data) {
     Decoration *d = data;
@@ -160,8 +206,7 @@ static gboolean refresh(gpointer data) {
     GHashTable *faces = g_hash_table_new(g_direct_hash, g_direct_equal);
     GHashTable *names = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
     gboolean cube = cube_faces(faces, names);
-    gtk_widget_set_sensitive(owner->button, !cube);
-    gtk_widget_set_tooltip_text(owner->button, cube ? "Cube uses four workspaces on each monitor" : "New empty workspace on this display");
+    if (cube != owner->cube) update_add_button(owner, cube);
     for (GSList *it = owner->decorations, *next; it; it = next) {
         next = it->next;
         Decoration *d = it->data;
@@ -220,9 +265,23 @@ void *wbcffi_init(const wbcffi_init_info *info, const wbcffi_config_entry *entri
     GtkWidget *button = gtk_button_new_with_label("+");
     owner->button = button;
     gtk_widget_set_name(button, "new-workspace");
-    gtk_widget_set_tooltip_text(button, "New empty workspace on this display\nStays here after you switch away");
+    atk_object_set_name(gtk_widget_get_accessible(button), "New workspace");
+    gtk_widget_set_margin_start(button, 3);
+    gtk_widget_set_margin_end(button, 3);
+    /* Widget-local feedback survives theme changes without editing shared CSS. */
+    GtkCssProvider *feedback = gtk_css_provider_new();
+    gtk_css_provider_load_from_data(feedback,
+        "#new-workspace.cube-unavailable {opacity:0.65;}"
+        "#new-workspace.cube-unavailable:hover {opacity:1;}"
+        "#new-workspace.cube-blocked {background-image:none; background-color:#b42338;"
+        " color:#ffffff; border-color:#ff6b78; box-shadow:inset 0 0 0 1px #ff6b78;"
+        " opacity:1; transition:none;}" , -1, NULL);
+    gtk_style_context_add_provider(gtk_widget_get_style_context(button), GTK_STYLE_PROVIDER(feedback),
+                                   GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1);
+    g_object_unref(feedback);
+    update_add_button(owner, cube_faces(NULL, NULL));
     gtk_container_add(info->get_root_widget(info->obj), button);
-    g_signal_connect(button, "clicked", G_CALLBACK(clicked), NULL);
+    g_signal_connect(button, "clicked", G_CALLBACK(clicked), owner);
     gtk_widget_show_all(button);
     owner->timer = g_timeout_add(200, refresh, owner);
     return owner;
@@ -230,6 +289,7 @@ void *wbcffi_init(const wbcffi_init_info *info, const wbcffi_config_entry *entri
 void wbcffi_deinit(void *instance) {
     Workspaces *owner = instance;
     if (owner->timer) g_source_remove(owner->timer);
+    stop_feedback(owner);
     for (GSList *it = owner->decorations; it; it = it->next) {
         Decoration *d = it->data;
         watch_label(d, NULL);

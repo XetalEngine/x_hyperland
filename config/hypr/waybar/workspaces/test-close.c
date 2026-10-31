@@ -39,6 +39,15 @@ static gboolean keyboard(GtkWidget *widget, GdkEventKey *event, gpointer data) {
     if (event->keyval==GDK_KEY_r) { gtk_widget_destroy(empty);empty=NULL; }
     if (event->keyval==GDK_KEY_n) empty=workspace("5 ",TRUE,"activate 5");
     if (event->keyval==GDK_KEY_l) { gtk_widget_destroy(occupied);occupied=NULL; }
+    if (event->keyval==GDK_KEY_p) {
+        GdkPixbuf *image=gdk_pixbuf_get_from_window(gtk_widget_get_window(window),0,0,
+            gtk_widget_get_allocated_width(window),gtk_widget_get_allocated_height(window));
+        char *file=g_build_filename(directory,"feedback.png",NULL);
+        char *temporary=g_strconcat(file,".tmp",NULL);
+        g_assert_true(gdk_pixbuf_save(image,temporary,"png",NULL,NULL));
+        g_assert_cmpint(rename(temporary,file),==,0);
+        g_object_unref(image);g_free(temporary);g_free(file);
+    }
     if (event->keyval==GDK_KEY_u) {
         GtkWidget *a=find_widget(occupied,"workspace-label",TRUE), *b=find_widget(empty,"workspace-label",TRUE);
         /* Waybar sets markup on every workspace/window update. Read back in
@@ -69,6 +78,16 @@ static gboolean state(gpointer unused) {
     }
     char *text=g_strdup_printf("%d %d %d %d %d",visible,x,y,bx,by);
     g_file_set_contents(file,text,-1,NULL);g_free(text);g_free(file);
+    gint ax=0,ay=0,nx=0,ny=0;
+    gtk_widget_translate_coordinates(instance->button,window,0,0,&ax,&ay);
+    gtk_widget_translate_coordinates(workspace_box,window,0,0,&nx,&ny);
+    gboolean blocked=gtk_style_context_has_class(gtk_widget_get_style_context(instance->button),"cube-blocked");
+    file=g_build_filename(directory,"add-state",NULL);
+    char *tip=gtk_widget_get_tooltip_text(instance->button);
+    text=g_strdup_printf("%d %d %d %d %d %d\n%s",ax+gtk_widget_get_allocated_width(instance->button)/2,
+        ay+gtk_widget_get_allocated_height(instance->button)/2,ax,blocked,nx,gtk_widget_get_allocated_width(window),
+        tip);
+    g_file_set_contents(file,text,-1,NULL);g_free(tip);g_free(text);g_free(file);
     if (occupied && empty) {
         file=g_build_filename(directory,"cube-state",NULL);
         GtkWidget *a=find_widget(occupied,"workspace-label",TRUE), *b=find_widget(empty,"workspace-label",TRUE);
