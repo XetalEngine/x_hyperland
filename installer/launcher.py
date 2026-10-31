@@ -27,9 +27,10 @@ def main():
                 return subprocess.call([terminal, '--title', 'Xetal Setup prerequisites', sys.executable, str(__file__), '--gui', *(['--update'] if '--update' in args else [])])
             raise RuntimeError('GTK 3 is required. Run x_hyperinstall.sh in a terminal to install it.')
         import dependencies
-        if dependencies.distro() != 'arch': raise RuntimeError('Install the GTK 3 runtime, then open Setup again.')
+        command = {'arch':['pacman','-S','--needed','gtk3'], 'fedora':['dnf','install','gtk3']}.get(dependencies.distro())
+        if command is None: raise RuntimeError('Install the GTK 3 runtime, then open Setup again.')
         if input('Install GTK 3 to open the graphical installer? [Y/n] ').strip().lower() not in ('','y','yes'): return 1
-        subprocess.run(['sudo','pacman','-S','--needed','gtk3'], check=True)
+        subprocess.run(['sudo',*command], check=True)
     from wizard import main as wizard
     existing = (Path.home()/'.config/hypr/.xetal-update.json').is_file()
     return wizard(update='--update' in args or existing)

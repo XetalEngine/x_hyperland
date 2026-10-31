@@ -206,6 +206,7 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
     def test_runtime_mismatch_cannot_activate_prepared_desktop(self):
         (self.upstream/'runtime').mkdir()
         shutil.copyfile(service.ROOT/'runtime/manifest.json',self.upstream/'runtime/manifest.json')
+        shutil.copyfile(service.ROOT/'runtime/fedora-44.json',self.upstream/'runtime/fedora-44.json')
         plan=self.prepare()
         staged=self.state/'prepared';shutil.copytree(self.stage,staged)
         engine.write_json(staged/'plan.json',plan)
@@ -220,6 +221,7 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
     def test_current_source_with_wrong_system_compositor_offers_repair(self):
         (self.live/'runtime').mkdir()
         shutil.copyfile(service.ROOT/'runtime/manifest.json',self.live/'runtime/manifest.json')
+        shutil.copyfile(service.ROOT/'runtime/fedora-44.json',self.live/'runtime/fedora-44.json')
         latest={'sha':OLD,'base':OLD,'relation':'identical','message':'Current desktop'}
         with patch.object(github,'latest',return_value=latest), \
              patch.object(service.runtime_policy,'installed',return_value={'version':'0.57.0','commit':'a'*40}):
@@ -232,6 +234,7 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
         from types import SimpleNamespace
         (self.upstream/'runtime').mkdir()
         shutil.copyfile(service.ROOT/'runtime/manifest.json',self.upstream/'runtime/manifest.json')
+        shutil.copyfile(service.ROOT/'runtime/fedora-44.json',self.upstream/'runtime/fedora-44.json')
         (self.upstream/'code.py').write_text('rebuilt for the matching compositor\n')
         expected=engine.merge_profile(self.live,self.upstream,self.stage,OLD)
         plan=engine.prepare_plan(self.live,self.stage,expected,OLD,automatic=False)

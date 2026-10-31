@@ -111,10 +111,11 @@ if [[ "$owner" == '(false,)' ]]; then
 fi
 
 # Do not replace an authentication agent that is already running.
-if ! pgrep -u "$UID" -f '^/usr/(lib|libexec)/(polkit-gnome/polkit-gnome-authentication-agent-1|polkit-kde-authentication-agent-1)( |$)' >/dev/null; then
+if ! pgrep -u "$UID" -f '^/usr/(lib|libexec)/(polkit-gnome/polkit-gnome-authentication-agent-1|polkit-gnome-authentication-agent-1|policykit-1-gnome/polkit-gnome-authentication-agent-1|polkit-kde-authentication-agent-1|kf6/polkit-kde-authentication-agent-1|hyprpolkitagent)( |$)' >/dev/null; then
     for agent in /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 \
                  /usr/libexec/polkit-gnome-authentication-agent-1 \
-                 /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1; do
+                 /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1 \
+                 /usr/libexec/hyprpolkitagent; do
         if [[ -x "$agent" ]]; then
             "$agent" >"$instance_dir/polkit-agent.log" 2>&1 9>&- &
             children+=("$!")

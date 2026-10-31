@@ -92,6 +92,8 @@ class Wizard:
         self.label(card, 'COMPOSITOR', 'eyebrow')
         self.label(card, 'Detected '+self.actual['version']+'   →   Required '+self.target['hyprland'])
         self.label(card, 'Setup installs the tested version and holds its package.\nFuture desktop releases manage changes to this requirement.', 'copy')
+        if runtime_install.policy.fedora_host():
+            self.label(card, 'Fedora 44: includes signed packages from giperborey/Hyprland (COPR).\nThe matching libraries are held too; no third-party repository is enabled.', 'copy')
         self.startup = g.check_button_new_with_label(b'Keep my existing desktop and startup preferences' if update else
                                                    b'Show the animated dashboard when I sign in')
         g.toggle_button_set_active(self.startup, 1); g.box_pack_start(page, self.startup, 0, 0, 0)

@@ -101,7 +101,12 @@ def metadata(root, commit):
         files[str(path.relative_to(root))] = entry
     result = {'version': 1, 'repository': REPOSITORY, 'branch': BRANCH,
               'revision': revision(commit), 'installed': now(), 'files': files}
-    if (root/'runtime/manifest.json').is_file(): result['runtime'] = json_file(root/'runtime/manifest.json')
+    if (root/'runtime/manifest.json').is_file():
+        result['runtime'] = json_file(root/'runtime/manifest.json')
+        fedora = result['runtime'].get('fedora_manifest')
+        if fedora:
+            data = json_file(location(root, 'runtime/'+fedora))
+            result['runtime']['fedora_packages'] = {p['name']:p['evr']+'.'+p['architecture'] for p in data['packages']}
     return result
 
 

@@ -22,15 +22,15 @@ PACKAGES = {
         mtools dosfstools util-linux kmod'''.split(),
     'fedora': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole konsole-part SwayNotificationCenter grim slurp wl-clipboard
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
-        python3 python3-psutil python3-qt6 python3-gobject python3-pillow gcc gcc-c++ cmake libxcb-devel pkgconf-pkg-config
+        python3 python3-psutil python3-pyqt6 python3-gobject python3-pillow gcc gcc-c++ cmake libxcb-devel pkgconf-pkg-config procps-ng glslang-devel
         gtk3-devel gtk-layer-shell-devel json-glib-devel json-c-devel qt5-qtbase-devel qt5-qtbase-private-devel
         qt5-qtwayland qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtwayland qt6-qtsvg qt6-qttools-devel qt6-linguist wayland-devel wayland-protocols-devel
         NetworkManager NetworkManager-tui network-manager-applet nm-connection-editor blueman bluez
         pipewire-pulseaudio wireplumber pulseaudio-utils playerctl brightnessctl fastfetch htop
-        libnotify polkit-gnome papirus-icon-theme google-noto-sans-fonts dejavu-sans-fonts dejavu-sans-mono-fonts
-        yt-dlp+default ffmpeg-free nodejs sudo xhost xcursorgen hyprcursor-util openssl virt-viewer python3-virt-firmware gnutls-utils
+        libnotify hyprpolkitagent papirus-icon-theme papirus-icon-theme-dark google-noto-sans-fonts dejavu-sans-fonts dejavu-sans-mono-fonts
+        yt-dlp+default ffmpeg-free nodejs sudo xhost xcursorgen hyprcursor openssl virt-viewer python3-virt-firmware gnutls-utils
         autoconf automake libtool make perl gettext gawk expect socat openssl-devel
-        libtasn1-devel gmp-devel glib2-devel gnutls-devel libseccomp-devel fuse3-devel libei-devel
+        libtasn1-devel gmp-devel glib2-devel gnutls-devel libseccomp-devel fuse3-devel libei-devel libeis-devel
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod'''.split(),
     'debian': '''git gvfs gvfs-backends gvfs-fuse hyprpaper hyprlock waybar kitty dolphin konsole konsole-kpart sway-notification-center grim slurp wl-clipboard
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
@@ -74,6 +74,11 @@ def distro(data=None):
     return None
 
 
+def minimum_versions():
+    # Fedora's Kitty 0.47 supports the dashboard, PNG graphics and theme config.
+    return {**MINIMUM, 'kitty':(0,47,1)} if runtime_install.policy.fedora_host(distribution()) else MINIMUM
+
+
 def platform_problems(auto_packages=True):
     problems=[];data=distribution();family=distro(data)
     name=data.get('PRETTY_NAME',data.get('ID','Linux'))
@@ -85,13 +90,13 @@ def platform_problems(auto_packages=True):
         if family not in PACKAGES:
             problems.append(name+' has no automatic package installer in this release. '+
                             'Use --skip-packages only after supplying the exact compositor and all dependencies.')
-        elif family != 'arch' and runtime_install.policy.problem():
+        elif family != 'arch' and not runtime_install.policy.fedora_host(data) and runtime_install.policy.problem():
             problems.append(name+' needs a native installation of the exact Hyprland version first. '+
                             'The bundled Arch package cannot be installed on this distribution.')
         if Path('/run/ostree-booted').exists():
             problems.append('Automatic package installation is unavailable on an immutable OSTree desktop.')
         tools={'arch':('pacman','pacman-conf','pacman-key','sudo'),
-               'fedora':('dnf','sudo'),'debian':('apt-get','sudo')}.get(family,())
+               'fedora':('dnf','rpm','rpmkeys','sudo'),'debian':('apt-get','sudo')}.get(family,())
         problems.extend('Required package tool is missing: '+tool for tool in tools if not shutil.which(tool))
     return problems
 
@@ -102,7 +107,7 @@ def package_version_problems(output):
         fields=line.split()
         if len(fields)==2: versions[fields[0]]=fields[1]
     problems=[]
-    for name,minimum in MINIMUM.items():
+    for name,minimum in minimum_versions().items():
         value=versions.get(name,'')
         match=re.search(r'(\d+)\.(\d+)\.(\d+)',value.split(':')[-1])
         if not match or tuple(map(int,match.groups()))<minimum:
@@ -117,6 +122,10 @@ def preflight():
     print('Checking distribution: '+data.get('PRETTY_NAME',data.get('ID','Linux'))+' ('+platform.machine()+')',flush=True)
     problems=platform_problems()
     if problems: raise RuntimeError('\n'.join(problems))
+    if runtime_install.policy.fedora_host(data):
+        import fedora_runtime
+        fedora_runtime.preflight(PACKAGES['fedora'])
+        return
     if distro(data) != 'arch': return
     result=subprocess.run(['pacman','-Sp','--noconfirm','--print-format','%n %v',*PACKAGES['arch']],
                           capture_output=True,text=True,timeout=60)
@@ -173,7 +182,7 @@ def check(runtime=True):
             headers=subprocess.run(['pkg-config','--variable=includedir',package],capture_output=True,text=True).stdout.strip()
             if version and not (Path(headers)/f'QtGui/{version}/QtGui/qpa/qplatformtheme.h').is_file():
                 errors.append(f'Qt {major} private development headers are missing.')
-    for command,minimum in MINIMUM.items():
+    for command,minimum in minimum_versions().items():
         if not shutil.which(command):continue
         result=subprocess.run([command,'--version'],capture_output=True,text=True,timeout=10)
         match=re.search(r'(?<!\d)(\d+)\.(\d+)\.(\d+)',result.stdout+result.stderr)
@@ -182,7 +191,8 @@ def check(runtime=True):
     if not any(Path(p).is_file() for p in ['/usr/lib/xdg-desktop-portal-hyprland','/usr/libexec/xdg-desktop-portal-hyprland']):
         errors.append('The Hyprland desktop portal backend is missing.')
     if not any(Path(p).is_file() for p in ['/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1',
-        '/usr/libexec/polkit-gnome-authentication-agent-1','/usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1']):
+        '/usr/libexec/polkit-gnome-authentication-agent-1','/usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1',
+        '/usr/libexec/hyprpolkitagent']):
         errors.append('The graphical PolicyKit authentication agent is missing.')
     if not Path('/usr/share/icons/Papirus-Dark/index.theme').is_file():errors.append('Papirus icon theme is missing.')
     if shutil.which('fc-match'):

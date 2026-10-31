@@ -12,7 +12,7 @@ Fresh profiles show **Places** on the left and hide the redundant **Folders** tr
 
 During installation, the forward button is disabled, gray and labeled **Installing…**. It becomes **Finish** after success, or **Retry** if setup stops.
 
-Python and GTK 3 can be bootstrapped from Arch packages if missing. The wizard itself does not need PyQt or PyGObject before starting. Package authentication uses a separate password window through `sudo -A`; passwords are passed only to sudo and are never included in the installation log. Details are saved to `~/.local/state/xetal-hyprland/setup.log`.
+Python and GTK 3 can be bootstrapped from Arch or Fedora packages if missing. The wizard itself does not need PyQt or PyGObject before starting. Package authentication uses a separate password window through `sudo -A`; passwords are passed only to sudo and are never included in the installation log. Details are saved to `~/.local/state/xetal-hyprland/setup.log`.
 
 ## Tested compositor
 
@@ -20,7 +20,21 @@ Python and GTK 3 can be bootstrapped from Arch packages if missing. The wizard i
 
 The package operation retains pacman's dependency and conflict checks. It never forces a dependency-incompatible downgrade. Its dedicated `/etc/pacman.d/xetal-hyprland.conf` supplies `IgnorePkg = hyprland`, included in the options section of `/etc/pacman.conf`; existing repository configuration and other holds remain intact. This uses pacman's documented [IgnorePkg and Include settings](https://man.archlinux.org/man/pacman.conf.5.en).
 
-Only Hyprland is held. Other desktop/build dependencies use the distribution package manager normally. Setup builds the included native sources on the recipient computer, using all available CPU threads for the Control Panel. Cube and Burn builds are required, and the complete configuration is checked before and after compilation. KVM runtime binaries remain separate downloads inside KVM Settings.
+On Arch, only Hyprland is held. Other desktop/build dependencies use the distribution package manager normally. Setup builds the included native sources on the recipient computer, using all available CPU threads for the Control Panel. Cube and Burn builds are required, and the complete configuration is checked before and after compilation. KVM runtime binaries remain separate downloads inside KVM Settings.
+
+## Fedora 44
+
+Mutable **Fedora 44 x86-64**, including KDE and Workstation installations, has a native RPM path selected from `/etc/os-release`. It uses the exact same Hyprland source commit as Arch. Other Fedora releases, derivatives and immutable OSTree variants are not covered by this bundle.
+
+[`runtime/fedora-44.json`](../config/hypr/runtime/fedora-44.json) pins 19 unmodified signed packages from **giperborey/Hyprland on Fedora COPR**. The runtime totals **55,923,257 bytes (55.9 MB)**. Matching Hyprland and Hyprlang source RPMs add 55.4 MB separately for the bundled LGPL components. Every individual file is below GitHub's 100 MB limit; actual RPMs, not LFS pointers, are included in Download ZIP. Other desktop/build dependencies still download from the recipient's configured Fedora repositories. [Bundle provenance, key and licenses](../installer/packages/fedora-44/README.md).
+
+Setup checks SHA-256 hashes, RPM identities, and signatures against an isolated key database containing only the pinned COPR key. It then imports that verified public key into RPM's trust database and uses normal DNF signature/dependency checks. No COPR repository is added or enabled. A read-only DNF resolution precedes package changes. The privileged helper stores and checks the resolved transaction before replay, including copies of the verified local RPMs; it does not use `--allowerasing`, `--nodeps`, or `--nogpgcheck`.
+
+The bundle's compositor, libraries, tools and headers receive exact version/architecture locks in a marked section of `/etc/dnf/versionlock.toml`. Unrelated locks are preserved; overlapping user-owned locks require review. This keeps native effects paired with their libraries. Standard desktop packages remain managed normally. Fedora's package recipe includes PyQt6, the dark Papirus icons, shader/input development headers and its authentication agent. The session launches the agent as an owned child process; it does not enable its systemd service. Fedora's stock Kitty 0.47.1 is accepted after testing the three animated dashboard terminals.
+
+Before replacing a bundled component, Setup saves its exact signed installed RPM from the package cache, an earlier Setup record, or configured repositories. If it cannot obtain that exact recovery RPM, it stops before replacing packages. On failure or cancellation it restores the old bundled components and locks, or removes the bundle if none was previously installed. Standard dependency packages remain installed. Recovery refuses external runtime changes and any resolved removal of unrelated applications. Records live in `/var/lib/xetal-hyprland/fedora-runtime/`; manual recovery uses `sudo python3 installer/system_fedora_runtime.py --restore RECORD`.
+
+A disposable Fedora 44 test environment completed package signature/dependency checks, the complete native desktop build, configuration validation, Kitty dashboard rendering, successful runtime rollback, a real 0.57 → 0.56.2 downgrade with exact 0.57 recovery, DNF lock-file rewrites, and recovery from an injected post-install failure. The Fedora CI job repeats installation, builds and recovery. These checks do not replace a graphical VM login or tests of each GPU/driver combination.
 
 ## Cancellation and recovery
 
@@ -34,4 +48,4 @@ For a manual compositor recovery, the recorded root-owned backup can be passed t
 
 Update the runtime manifest only after validating the new compositor, native effect adapters and complete desktop together. Keep the package/signature hashes and commit in agreement. The updater compares the incoming requirement before building and again before activation. A system package change goes through foreground Setup; ordinary background updates continue without sudo. A compositor upgrade or downgrade therefore carries the matching profile and rebuilt plugins with it.
 
-Arch-based x86-64 is the automatic compositor installation target. Other distributions must install the exact required compositor themselves before using the remaining dependency recipes. Pinning Hyprland does not pin the complete operating system; dependency checks and native builds remain necessary on every recipient machine.
+Arch-based x86-64 and mutable Fedora 44 x86-64 have automatic compositor installation paths. Other distributions must install the exact required native compositor themselves before using their remaining dependency recipes. Pinning Hyprland does not pin the complete operating system; dependency checks and native builds remain necessary on every recipient machine.

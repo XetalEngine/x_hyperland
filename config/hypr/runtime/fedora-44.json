@@ -1,0 +1,200 @@
+{
+  "schema": 1,
+  "distribution": "fedora",
+  "release": "44",
+  "architecture": "x86_64",
+  "hyprland": "0.56.2",
+  "commit": "efb50993780079460b0cbed1363e2166a2de1d9f",
+  "publisher": "giperborey/Hyprland (Fedora COPR)",
+  "key_file": "copr-key.gpg",
+  "key_sha256": "36b2afea9ceb28e460dea1cee1f7ce4ad7fa056b80f192d92cac301d4da5cff2",
+  "key_fingerprint": "199F98CA56F2AE4B77E6C7190357FF4CE7B95988",
+  "key_url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/pubkey.gpg",
+  "packages": [
+    {
+      "name": "hyprland",
+      "evr": "0:0.56.2-6.fc44",
+      "architecture": "x86_64",
+      "file": "hyprland-0.56.2-6.fc44.x86_64.rpm",
+      "bytes": 52512202,
+      "sha256": "64576d59f24758bb2e3b35a5fa1ecc7218f8f9609fcda1237af21ba2cadc280d",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/h/hyprland-0.56.2-6.fc44.x86_64.rpm"
+    },
+    {
+      "name": "hyprland-devel",
+      "evr": "0:0.56.2-6.fc44",
+      "architecture": "x86_64",
+      "file": "hyprland-devel-0.56.2-6.fc44.x86_64.rpm",
+      "bytes": 274920,
+      "sha256": "17b33374cbddf6ad929183588cabd70df0016347c77faf5ab55c04fae1ed94d7",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/h/hyprland-devel-0.56.2-6.fc44.x86_64.rpm"
+    },
+    {
+      "name": "aquamarine",
+      "evr": "0:0.15.1-3.fc44",
+      "architecture": "x86_64",
+      "file": "aquamarine-0.15.1-3.fc44.x86_64.rpm",
+      "bytes": 486467,
+      "sha256": "ecdc4f28ee169952f5434455b3cf1a9fd577507196425da4b10ce0581212cd1c",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/a/aquamarine-0.15.1-3.fc44.x86_64.rpm"
+    },
+    {
+      "name": "aquamarine-devel",
+      "evr": "0:0.15.1-3.fc44",
+      "architecture": "x86_64",
+      "file": "aquamarine-devel-0.15.1-3.fc44.x86_64.rpm",
+      "bytes": 33833,
+      "sha256": "bd45af2d436f9865d362760efe669824bbff3c9a51b1c24d41bf5961edb54a92",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/a/aquamarine-devel-0.15.1-3.fc44.x86_64.rpm"
+    },
+    {
+      "name": "hyprutils",
+      "evr": "0:0.14.3-1.fc44",
+      "architecture": "x86_64",
+      "file": "hyprutils-0.14.3-1.fc44.x86_64.rpm",
+      "bytes": 203404,
+      "sha256": "5c62d6d089f57c90c42354f8f223352cd95248350b1f3b6dca30cc7c5d486f44",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/h/hyprutils-0.14.3-1.fc44.x86_64.rpm"
+    },
+    {
+      "name": "hyprutils-devel",
+      "evr": "0:0.14.3-1.fc44",
+      "architecture": "x86_64",
+      "file": "hyprutils-devel-0.14.3-1.fc44.x86_64.rpm",
+      "bytes": 36609,
+      "sha256": "4d795b52b6c1b6a74edca60bec81686ede8e8f8063a1b5976dc023cce6b2f736",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/h/hyprutils-devel-0.14.3-1.fc44.x86_64.rpm"
+    },
+    {
+      "name": "hyprgraphics",
+      "evr": "0:0.5.1-7.fc44",
+      "architecture": "x86_64",
+      "file": "hyprgraphics-0.5.1-7.fc44.x86_64.rpm",
+      "bytes": 104423,
+      "sha256": "e6007fd5681ac4e726a2b8fb6c07ae225fb1d331ab6c19a33cac01191cdca09b",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/h/hyprgraphics-0.5.1-7.fc44.x86_64.rpm"
+    },
+    {
+      "name": "hyprgraphics-devel",
+      "evr": "0:0.5.1-7.fc44",
+      "architecture": "x86_64",
+      "file": "hyprgraphics-devel-0.5.1-7.fc44.x86_64.rpm",
+      "bytes": 12950,
+      "sha256": "0eebf73e311786e77572fe6c2fa1a649367945d0003f46f0b1779097f79965ea",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/h/hyprgraphics-devel-0.5.1-7.fc44.x86_64.rpm"
+    },
+    {
+      "name": "hyprlang",
+      "evr": "0:0.6.8-7.fc44",
+      "architecture": "x86_64",
+      "file": "hyprlang-0.6.8-7.fc44.x86_64.rpm",
+      "bytes": 128221,
+      "sha256": "797d6dbcceebaf5499217813029e64d3ce1400c8b4f28f4ad1e5a5acdb3dcdf7",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/h/hyprlang-0.6.8-7.fc44.x86_64.rpm"
+    },
+    {
+      "name": "hyprlang-devel",
+      "evr": "0:0.6.8-7.fc44",
+      "architecture": "x86_64",
+      "file": "hyprlang-devel-0.6.8-7.fc44.x86_64.rpm",
+      "bytes": 11705,
+      "sha256": "82ed7ffa3815a9a3f3d68adb2f541bbda21d0c1d6087d09e582bf8549cdd923f",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/h/hyprlang-devel-0.6.8-7.fc44.x86_64.rpm"
+    },
+    {
+      "name": "hyprcursor",
+      "evr": "0:0.1.13-9.fc44",
+      "architecture": "x86_64",
+      "file": "hyprcursor-0.1.13-9.fc44.x86_64.rpm",
+      "bytes": 243985,
+      "sha256": "78517f0ff87ace88a92ff04a13a9682e05aa3f4c1c102630376a2730c5b2989d",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/h/hyprcursor-0.1.13-9.fc44.x86_64.rpm"
+    },
+    {
+      "name": "hyprcursor-devel",
+      "evr": "0:0.1.13-9.fc44",
+      "architecture": "x86_64",
+      "file": "hyprcursor-devel-0.1.13-9.fc44.x86_64.rpm",
+      "bytes": 10920,
+      "sha256": "3319b106e4b757d08e89c5ecbb113dd651abdbfb3de80e3791444dc16b5f4a09",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/h/hyprcursor-devel-0.1.13-9.fc44.x86_64.rpm"
+    },
+    {
+      "name": "hyprwire",
+      "evr": "0:0.3.1-5.fc44",
+      "architecture": "x86_64",
+      "file": "hyprwire-0.3.1-5.fc44.x86_64.rpm",
+      "bytes": 150697,
+      "sha256": "b327c3fe012bc48dff60825b9c50a931141783f51643b11353d675d089764e64",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/h/hyprwire-0.3.1-5.fc44.x86_64.rpm"
+    },
+    {
+      "name": "hyprwire-devel",
+      "evr": "0:0.3.1-5.fc44",
+      "architecture": "x86_64",
+      "file": "hyprwire-devel-0.3.1-5.fc44.x86_64.rpm",
+      "bytes": 100639,
+      "sha256": "1ecc1fca98a3c0b16b6fc4b33a05117adefd3103a248d5f62542e0b4eda9dc7e",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/h/hyprwire-devel-0.3.1-5.fc44.x86_64.rpm"
+    },
+    {
+      "name": "hyprpaper",
+      "evr": "0:0.8.4-11.fc44",
+      "architecture": "x86_64",
+      "file": "hyprpaper-0.8.4-11.fc44.x86_64.rpm",
+      "bytes": 171525,
+      "sha256": "20bca33445168ae5ec7d90d56c59474f0ad5dab2e1e3172b2ec8e88085683afe",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/h/hyprpaper-0.8.4-11.fc44.x86_64.rpm"
+    },
+    {
+      "name": "hyprlock",
+      "evr": "0:0.9.6-4.fc44",
+      "architecture": "x86_64",
+      "file": "hyprlock-0.9.6-4.fc44.x86_64.rpm",
+      "bytes": 343323,
+      "sha256": "6644e96904de8f5443d735080ebfdbf2b6caa3b17ee3daaf2a336ea419206f75",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/h/hyprlock-0.9.6-4.fc44.x86_64.rpm"
+    },
+    {
+      "name": "xdg-desktop-portal-hyprland",
+      "evr": "1:1.5.0-1.fc44",
+      "architecture": "x86_64",
+      "file": "xdg-desktop-portal-hyprland-1.5.0-1.fc44.x86_64.rpm",
+      "bytes": 409554,
+      "sha256": "b3b8a17b038f47845078b2b137418ba304abe7101e09c7db89660e26df9723d1",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/x/xdg-desktop-portal-hyprland-1.5.0-1.fc44.x86_64.rpm"
+    },
+    {
+      "name": "hyprtoolkit",
+      "evr": "0:0.6.0-4.fc44",
+      "architecture": "x86_64",
+      "file": "hyprtoolkit-0.6.0-4.fc44.x86_64.rpm",
+      "bytes": 553774,
+      "sha256": "90de44e67669514c0efdb5b797c0249752e30244411f66bd631be7e89c6f05f6",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/h/hyprtoolkit-0.6.0-4.fc44.x86_64.rpm"
+    },
+    {
+      "name": "hyprpolkitagent",
+      "evr": "0:0.2.0-2.fc44",
+      "architecture": "x86_64",
+      "file": "hyprpolkitagent-0.2.0-2.fc44.x86_64.rpm",
+      "bytes": 134106,
+      "sha256": "a50f2823d6bca284c09ac0b92e87c55331003bc3c96b28a55d2b5f89497acbe8",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/h/hyprpolkitagent-0.2.0-2.fc44.x86_64.rpm"
+    }
+  ],
+  "sources": [
+    {
+      "file": "sources/hyprland-0.56.2-6.fc44.src.rpm",
+      "bytes": 55368829,
+      "sha256": "cc327b26b53d17a14ebb9b20a6fc43b0c7f27cd991416aa20513145cf3a26e76",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/h/hyprland-0.56.2-6.fc44.src.rpm"
+    },
+    {
+      "file": "sources/hyprlang-0.6.8-7.fc44.src.rpm",
+      "bytes": 76274,
+      "sha256": "77b77d410c5ef5a65cfb51bf20c42d927582dfe5ce701da5219a737956e1391e",
+      "url": "https://download.copr.fedorainfracloud.org/results/giperborey/Hyprland/fedora-44-x86_64/Packages/h/hyprlang-0.6.8-7.fc44.src.rpm"
+    }
+  ]
+}

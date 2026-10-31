@@ -2,9 +2,9 @@ name: Installer compatibility
 
 on:
   push:
-    paths: ['installer/**', 'tests/**', 'config/hypr/runtime/**', '.github/workflows/installer-compatibility.yml']
+    paths: ['installer/**', 'tests/**', 'config/hypr/**', 'x_hyperinstall.sh', '.github/workflows/installer-compatibility.yml']
   pull_request:
-    paths: ['installer/**', 'tests/**', 'config/hypr/runtime/**', '.github/workflows/installer-compatibility.yml']
+    paths: ['installer/**', 'tests/**', 'config/hypr/**', 'x_hyperinstall.sh', '.github/workflows/installer-compatibility.yml']
   schedule:
     - cron: '17 6 * * 1'
   workflow_dispatch:
@@ -13,6 +13,24 @@ permissions:
   contents: read
 
 jobs:
+  fedora:
+    runs-on: ubuntu-latest
+    container: fedora:44
+    steps:
+      - name: Prepare disposable Fedora container
+        run: dnf -y install python3 sudo util-linux shadow-utils git
+      - uses: actions/checkout@v4
+      - name: Fedora runtime regressions
+        run: python3 -m unittest discover -s tests -p test_fedora_runtime.py -v
+      - name: Install signed runtime, build desktop and exercise recovery
+        env:
+          XETAL_DISPOSABLE_FEDORA: '1'
+        run: python3 tests/fedora_container.py > fedora-build.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fedora-44-build
+          path: fedora-build.log
   repositories:
     runs-on: ubuntu-latest
     container: archlinux:base

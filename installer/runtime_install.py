@@ -19,6 +19,7 @@ import runtime_policy as policy
 PIN = Path('/etc/pacman.d/xetal-hyprland.conf')
 BUNDLED = ROOT/'installer/packages'
 TRANSACTION = None
+TRANSACTION_BACKEND = 'arch'
 
 
 def administrator():
@@ -175,14 +176,19 @@ def rollback():
     global TRANSACTION
     if not TRANSACTION: return
     print('Restoring the previous compositor because desktop setup did not finish.', flush=True)
-    subprocess.run([*administrator(), '/usr/bin/python3', str(ROOT/'installer/system_runtime.py'),
+    helper = 'system_fedora_runtime.py' if TRANSACTION_BACKEND == 'fedora' else 'system_runtime.py'
+    subprocess.run([*administrator(), '/usr/bin/python3', str(ROOT/'installer'/helper),
                     '--restore', str(TRANSACTION)], check=True)
     TRANSACTION = None
 
 
 def ensure(yes=False):
-    global TRANSACTION
+    global TRANSACTION, TRANSACTION_BACKEND
     import dependencies
+    if policy.fedora_host(dependencies.distribution()):
+        import fedora_runtime
+        return fedora_runtime.ensure(yes)
+    TRANSACTION_BACKEND = 'arch'
     target = policy.manifest()
     message = policy.problem()
     if not message and (dependencies.distro() != 'arch' or pinned(target)):

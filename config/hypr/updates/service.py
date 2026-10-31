@@ -147,8 +147,7 @@ def queue_rollback(root=None, state=None):
         if not record: raise RuntimeError('There is no completed update to roll back yet.')
         backup = Path(record['backup']); plan = engine.rollback_plan(root, backup)
         required = plan.get('runtime')
-        if required and (runtime_policy.installed()['version'] != required['hyprland'] or
-                         runtime_policy.installed()['commit'] != required['commit']):
+        if required and not runtime_policy.matches_requirement(required):
             raise RuntimeError('This backup requires Hyprland '+required['hyprland']+'. Use Setup for that desktop release to restore the compositor and profile together.')
         engine.check_plan(root, backup/'files', plan)
         engine.write_json(state/'rollback-plan.json', plan)
@@ -173,8 +172,7 @@ def activate(root=None, state=None):
         try:
             if pending.get('rollback'):
                 required = plan.get('runtime')
-                actual = runtime_policy.installed()
-                if required and (actual['version'] != required['hyprland'] or actual['commit'] != required['commit']):
+                if required and not runtime_policy.matches_requirement(required):
                     raise RuntimeError('The queued backup requires a different compositor. Use Setup to restore its matching version.')
             elif (stage/'runtime/manifest.json').exists():
                 message = runtime_policy.problem(stage)

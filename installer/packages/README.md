@@ -18,3 +18,5 @@ and inside the package. [Upstream source](https://github.com/hyprwm/Hyprland/tre
 When changing the tested runtime, replace the bundle and signature together with
 the runtime manifest after validating the desktop and native effects. Do not
 accumulate previous compositor versions here.
+
+Fedora 44 has a separate [native RPM bundle](fedora-44/README.md), including its own matching libraries, headers, pinned signing key and corresponding source archives. The Arch package is never passed to DNF.
