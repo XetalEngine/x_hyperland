@@ -46,6 +46,19 @@ windowrule {
  size = 1200 720
  center = on
 }
+windowrule {
+ name = fusion-wallpaper-overlay
+ match:class = ^(xetal-wallpaper-browser)$
+ match:title = ^Wallpapers · Floating cards$
+ float = on
+ border_size = 0
+ rounding = 0
+ no_blur = on
+ no_shadow = on
+ no_anim = on
+ size = 1200 720
+ center = on
+}
 layerrule = no_anim on, match:namespace ^xetal-wallpaper-transition$
 ''')
     pictures=root/'pictures'; pictures.mkdir()
@@ -155,12 +168,28 @@ layerrule = no_anim on, match:namespace ^xetal-wallpaper-transition$
         print('Fractional-scale portrait output transition: passed',flush=True)
         # App-level single-instance toggle with the actual launcher and lifetime socket.
         log=(root/'singleton.log').open('w');logs.append(log)
-        for _ in range(3):
+        for style in ('window','overlay'):
+            preferences=profile/'wallpaper/state/browser.json'
+            options=json.loads(preferences.read_text());options['style']=style;preferences.write_text(json.dumps(options))
+            desktop=shot('desktop-'+style,name)
             app=spawn([sys.executable,str(profile/'wallpaper/launch.py')],env=env,stdout=log,stderr=log)
             wait(lambda:any(c['class']=='xetal-wallpaper-browser' for c in json.loads(ctl('-j','clients'))))
+            time.sleep(.5)
+            client=next(c for c in json.loads(ctl('-j','clients')) if c['class']=='xetal-wallpaper-browser')
+            assert client['floating'],client
+            view=shot('selector-'+style,name);x,y=client['at'];point=(x+2,y+2)
+            assert (view.getpixel(point)==desktop.getpixel(point))==(style=='overlay'), (style,point)
+            run(sys.executable,str(profile/'wallpaper/launch.py'),'--show');assert app.poll() is None
+            # Settings can switch an open selector without toggling it closed.
+            options['style']='window' if style=='overlay' else 'overlay';preferences.write_text(json.dumps(options))
+            run(sys.executable,str(profile/'wallpaper/launch.py'),'--show')
+            title='Wallpapers' if options['style']=='window' else 'Wallpapers · Floating cards'
+            wait(lambda:any(c['title']==title for c in json.loads(ctl('-j','clients'))))
+            assert app.poll() is None
+            assert len([c for c in json.loads(ctl('-j','clients')) if c['class']=='xetal-wallpaper-browser'])==1
             run(sys.executable,str(profile/'wallpaper/launch.py'));assert app.wait(timeout=5)==0
             assert not any(c['class']=='xetal-wallpaper-browser' for c in json.loads(ctl('-j','clients')))
-        print('Actual launcher toggle and clean session UI exit: passed',flush=True)
+        print('Both styles, transparent desktop, Settings show/switch, singleton toggle and clean exit: passed',flush=True)
         print('WALLPAPER INTEGRATION PASS',flush=True)
     finally:
         for child in reversed(children):

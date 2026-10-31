@@ -60,7 +60,7 @@ class Carousel(QWidget):
 
     def __init__(self, thumbnails, parent=None):
         super().__init__(parent); self.thumbnails = thumbnails; self.pictures = []; self.position = 0.; self.index = 0; self.boxes = []
-        self.press = None; self.dragged = False; self.start_position = 0.; self.reduced_motion = False
+        self.press = None; self.dragged = False; self.start_position = 0.; self.reduced_motion = False; self.backdrop = True
         self.setMinimumHeight(250); self.setFocusPolicy(Qt.FocusPolicy.StrongFocus); self.setMouseTracking(True)
         self.setAccessibleName('Wallpaper carousel'); self.setAccessibleDescription('Use Left and Right to browse. Enter selects a wallpaper. Scroll or drag to browse.')
         self.animation = QVariantAnimation(self); self.animation.setDuration(430); self.animation.setEasingCurve(QEasingCurve.Type.OutCubic)
@@ -103,9 +103,10 @@ class Carousel(QWidget):
         w, h = self.width(), self.height()
         hero = min(640., w*.47); small = min(190., w*.145); height = min(h*.79, hero*.74)
         center_y = h*.46
-        glow = QRadialGradient(QPointF(w/2, center_y+height/2), hero*.85)
-        glow.setColorAt(0, color('Accent', 45)); glow.setColorAt(1, color('Accent', 0))
-        painter.fillRect(self.rect(), glow)
+        if self.backdrop:
+            glow = QRadialGradient(QPointF(w/2, center_y+height/2), hero*.85)
+            glow.setColorAt(0, color('Accent', 45)); glow.setColorAt(1, color('Accent', 0))
+            painter.fillRect(self.rect(), glow)
         cards = []
         first = math.floor(self.position)-min(5,(len(self.pictures)-1)//2)
         for i in range(first, first+min(11,len(self.pictures))):

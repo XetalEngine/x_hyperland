@@ -14,7 +14,8 @@ def main():
         if runtime and signature:
             try:
                 with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as peer:
-                    peer.settimeout(.2); peer.connect(str(Path(runtime)/'hypr'/signature/'wallpaper.sock')); peer.sendall(b'toggle\n')
+                    peer.settimeout(.2); peer.connect(str(Path(runtime)/'hypr'/signature/'wallpaper.sock'))
+                    peer.sendall(b'show\n' if '--show' in sys.argv else b'toggle\n')
                 return 0
             except OSError: pass
     os.execv(sys.executable,[sys.executable,str(ROOT/'theme/run.py'),sys.executable,str(ROOT/'wallpaper/browser.py'),*sys.argv[1:]])

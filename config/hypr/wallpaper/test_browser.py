@@ -12,6 +12,7 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(ROOT),str(ROOT/'theme'),str(ROOT/'control_center')]
 from wallpaper import library, transitions
 from wallpaper.browser import Browser, ScreenPicker, sample_monitors
+from wallpaper.page import SelectorSettings
 from PyQt6.QtWidgets import QApplication, QDialog
 from PyQt6.QtTest import QTest
 from PyQt6.QtCore import Qt, QPoint
@@ -43,8 +44,19 @@ class LibraryTests(unittest.TestCase):
             self.assertEqual(image.read_bytes(),b'keep'); self.assertEqual(path.stat().st_mode & 0o777,0o600)
 
     def test_relative_folders_and_unknown_effects_rejected(self):
-        for changes in ({'folders':['../Pictures']},{'transition':'bad'},{'bundled':'yes'}):
+        for changes in ({'folders':['../Pictures']},{'transition':'bad'},{'bundled':'yes'},{'style':'bad'}):
             with self.assertRaises(ValueError): library.normalize({**library.DEFAULTS,**changes})
+
+    def test_selector_preferences_migrate_and_merge_independent_controls(self):
+        with tempfile.TemporaryDirectory() as name:
+            path=Path(name)/'browser.json'
+            path.write_text(json.dumps({'version':1,'folders':[],'bundled':True,'transition':'fade'}))
+            before=library.read(path); self.assertEqual(before['style'],'window')
+            library.save({**before,'style':'overlay'},before,path,fields=('style',))
+            folder=library.save({**before,'folders':[name]},before,path,fields=('folders','bundled'))
+            self.assertEqual(folder['style'],'overlay'); self.assertEqual(folder['transition'],'fade')
+            with self.assertRaisesRegex(ValueError,'elsewhere'):
+                library.save(before,before,path,fields=('style',))
 
     def test_physical_layout_preserves_scale_rotation_and_negative_offsets(self):
         monitors=sample_monitors(); monitors[0]['x']=-2560; monitors[1]['x']=0; monitors[0]['scale']=2
@@ -115,6 +127,41 @@ class BrowserTests(unittest.TestCase):
     def test_monitor_picker_returns_only_clicked_screen(self):
         dialog=ScreenPicker(sample_monitors(),{},self.window.pictures[0],self.window.thumbnails,self.window)
         dialog.choose(sample_monitors()[1]); self.assertEqual(dialog.selected['name'],'DP-2'); self.assertEqual(dialog.result(),QDialog.DialogCode.Accepted)
+
+    def test_floating_style_keeps_empty_desktop_space_transparent(self):
+        floating=Browser(preview=True,style='overlay')
+        try:
+            floating.pictures=self.window.pictures; floating.filter(); floating.show(); QTest.qWait(30)
+            surface=floating.grab().toImage()
+            self.assertEqual(surface.pixelColor(0,0).alpha(),0)
+            # The space between the floating toolbar and cards must be clear too.
+            point=floating.carousel.pos()+QPoint(floating.carousel.width()//2,2)
+            self.assertEqual(surface.pixelColor(point).alpha(),0)
+            self.assertGreater(self.window.grab().toImage().pixelColor(0,0).alpha(),250)
+            self.assertTrue(floating.search.isVisible()); self.assertTrue(floating.folder_button.isVisible())
+        finally:
+            floating.hide(); floating.shutdown(); floating.deleteLater(); self.app.processEvents()
+
+
+class SelectorTests(unittest.TestCase):
+    def test_theme_control_saves_the_style_and_preserves_the_gallery_collection(self):
+        app=QApplication.instance() or QApplication([])
+        def run(fn, done, failed):
+            try: done(fn())
+            except (OSError, ValueError) as error: failed(str(error))
+        with tempfile.TemporaryDirectory() as name, patch.object(library,'PREFERENCES',Path(name)/'browser.json'):
+            expected=library.read(); library.save({**expected,'transition':'sweep','folders':[name]},expected)
+            control=SelectorSettings(run)
+            try:
+                control.style.setCurrentIndex(control.style.findData('overlay'))
+                saved=library.read(); self.assertEqual(saved['style'],'overlay')
+                self.assertEqual(saved['transition'],'sweep'); self.assertEqual(saved['folders'],[name])
+                with patch('wallpaper.page.subprocess.Popen') as start:
+                    control.open.click(); self.assertIn('--show',start.call_args.args[0])
+                library.save({**saved,'style':'window'},saved,fields=('style',)); control.refresh()
+                self.assertEqual(control.style.currentData(),'window')
+            finally:
+                control.deleteLater(); app.processEvents()
 
 
 if __name__=='__main__': unittest.main()

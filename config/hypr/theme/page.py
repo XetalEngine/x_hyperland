@@ -17,6 +17,7 @@ from effects.burn.page import WindowEffectsPage
 from cursors.page import CursorsPage
 from file_jobs.page import FileTransferPage
 from switcher.page import TaskSwitcherPage
+from wallpaper.page import SelectorSettings
 from identity import ProfileCard,launcher_background_path
 from design_preview import DesktopPreview
 from preset_page import LayoutPage,CustomPage,ComponentDialog
@@ -90,6 +91,7 @@ class WallpapersPage(QWidget):
         super().__init__(); self.async_run=async_run; self.filename=filename; self.models=[]; self.baseline={}; self.draft={}
         self.busy=False; self.loading=False; self.dirty=False
         root=QVBoxLayout(self); root.setContentsMargins(16,16,16,16)
+        self.selector=SelectorSettings(async_run); root.addWidget(self.selector)
         root.addWidget(label('Your screens, your backdrop','brand'))
         root.addWidget(label('Click a screen to set its wallpaper, or choose All displays. The preview follows your monitor arrangement.','muted'))
         self.canvas=MonitorPictures(); self.canvas.selected.connect(self.select); root.addWidget(self.canvas,1)

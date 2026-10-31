@@ -10,7 +10,12 @@ ROOT = Path(__file__).resolve().parent
 PREFERENCES = ROOT/'state/browser.json'
 EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.bmp', '.avif'}
 TRANSITIONS = {'bloom': 'Bloom', 'fade': 'Crossfade', 'sweep': 'Silk sweep', 'none': 'Instant'}
-DEFAULTS = {'version': 1, 'folders': [], 'bundled': True, 'transition': 'bloom'}
+STYLES = {'window': 'Gallery window', 'overlay': 'Floating cards'}
+DESCRIPTIONS = {
+    'window': 'The original gallery with a soft backdrop, reflections and a flowing wallpaper ribbon.',
+    'overlay': 'Wallpaper cards float directly over your desktop, with compact controls and no background window.',
+}
+DEFAULTS = {'version': 1, 'folders': [], 'bundled': True, 'transition': 'bloom', 'style': 'window'}
 
 
 @dataclass(frozen=True)
@@ -32,10 +37,12 @@ def normalize(value):
     if len(folders) > 64:
         raise ValueError('Choose up to 64 wallpaper folders.')
     transition = value.get('transition', 'bloom')
-    if transition not in TRANSITIONS or type(value.get('bundled', True)) is not bool:
+    style = value.get('style', 'window')
+    if (not isinstance(transition, str) or transition not in TRANSITIONS or
+            not isinstance(style, str) or style not in STYLES or type(value.get('bundled', True)) is not bool):
         raise ValueError('Invalid wallpaper browser settings.')
     return {'version': 1, 'folders': list(dict.fromkeys(str(Path(p).resolve()) for p in folders)),
-            'bundled': value.get('bundled', True), 'transition': transition}
+            'bundled': value.get('bundled', True), 'transition': transition, 'style': style}
 
 
 def read(path=None):
@@ -43,15 +50,20 @@ def read(path=None):
     return normalize(json.loads(path.read_text()) if path.exists() else DEFAULTS)
 
 
-def save(value, expected, path=None):
+def save(value, expected, path=None, fields=None):
+    """Merge named controls so the gallery and Settings can save independently."""
     import fcntl
     path = path or PREFERENCES
     value = normalize(value)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     with path.with_suffix('.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        if read(path) != expected:
-            raise ValueError('Wallpaper folders changed elsewhere. Reopen Folders and try again.')
+        current = read(path); expected = normalize(expected)
+        fields = tuple(fields) if fields is not None else tuple(DEFAULTS)
+        if any(key not in DEFAULTS for key in fields): raise ValueError('Unknown wallpaper setting.')
+        if any(current[key] != expected[key] for key in fields):
+            raise ValueError('Wallpaper settings changed elsewhere. Reopen these controls and try again.')
+        value = normalize({**current, **{key: value[key] for key in fields}})
         fd, name = tempfile.mkstemp(prefix='.browser-', dir=path.parent)
         try:
             with os.fdopen(fd, 'w') as stream:

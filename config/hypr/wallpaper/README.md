@@ -5,6 +5,13 @@ Left/Right to browse. Click any image or press Enter to select it. Search and
 collection filters help find a picture; **Slideshow** previews images without
 changing your desktop until you choose one.
 
+Open **Theme → Wallpapers → Wallpaper Selector** to choose **Gallery window**
+(the original design) or **Floating cards**. Floating cards shows the ribbon and
+compact controls directly over your desktop, with no enclosing window, blur or
+shadow. The style saves automatically and is used by Super+W. **Open Wallpaper
+Selector** also brings an existing selector forward using the saved style.
+Both styles share your folders, slideshow and monitor selection.
+
 All bundled theme wallpapers appear by default. **Add / remove folders** adds
 personal folders, including their subfolders, or hides the bundled collection.
 Removing a folder only removes it from this browser; it never deletes images.
@@ -44,4 +51,5 @@ python3 tests/check-wallpaper.py /tmp/new-wallpaper-check
 
 The integration check uses a separate compositor, hyprpaper instance and saved
 preferences. It checks real intermediate animation frames, one/two-display
-selection, cancel, disconnect handling and repeated launcher toggles.
+selection, cancel, disconnect handling, transparent overlay rendering, switching
+styles from Settings and repeated launcher toggles.

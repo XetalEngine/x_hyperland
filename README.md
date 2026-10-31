@@ -137,6 +137,8 @@ Workspaces, running apps, draggable pins and your chosen status modules stay clo
 
 **Super+W** opens a flowing ribbon of wallpaper cards, with search, collections and a slideshow preview. All twelve bundled wallpapers are included. Add or remove your own folders directly in the browser; folder choices stay on your computer and removing a folder never deletes its images.
 
+**Theme → Wallpapers → Wallpaper Selector** offers the original **Gallery window** and **Floating cards**, which places the carousel and compact controls directly over your desktop. Your chosen style is used by Super+W, and both styles share your collection.
+
 Click an image to choose its display from a preview of your real monitor arrangement. A single display applies immediately. **Bloom**, **Crossfade** and **Silk sweep** transitions run behind your apps, with an Instant option and support for reduced motion. Choices are saved per monitor and theme, and also appear in Fusion Settings. [Wallpaper guide →](config/hypr/wallpaper/README.md)
 
 ### Welcome and startup
