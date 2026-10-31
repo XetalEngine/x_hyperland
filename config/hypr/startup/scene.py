@@ -18,7 +18,6 @@ import time
 import tty
 
 from PIL import Image, ImageDraw
-import numpy as np
 from companion import Artwork, Choice, Input, MOUSE_ON, MOUSE_OFF, pixel_size
 
 ROOT = Path(__file__).resolve().parent
@@ -148,12 +147,15 @@ def mascot(t, width, height):
     d.line((225,202+bob,239,200+bob),fill=(179,120,156),width=3)
     d.arc((169,201+bob,190,217+bob),10,170,fill=(45,60,82),width=2)
     d.polygon([(128,224+bob),(179,236+bob),(232,222+bob),(226,242+bob),(180,253+bob),(137,243+bob)],fill=(44,135,148),outline=(151,224,221),width=3)
-    grid=np.asarray(im.resize((width,height),Image.Resampling.LANCZOS))
+    # Pillow is already part of setup; the three dashboard consoles must not
+    # depend on an extra array library used only by this legacy mascot view.
+    grid=im.resize((width,height),Image.Resampling.LANCZOS).load()
     alphabet=' .,:;=+*#%@'
     output=[]
-    for row in grid:
+    for y in range(height):
         line='';previous=None
-        for pixel in row:
+        for x in range(width):
+            pixel=grid[x,y]
             brightness=int(max(pixel))
             if brightness<14:
                 line+=' ';continue

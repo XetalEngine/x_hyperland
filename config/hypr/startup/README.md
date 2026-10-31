@@ -12,7 +12,7 @@ pages on <https://www.xetal.net/community/site/>. Clicking, Enter or Space opens
 the selected page in the default browser after hiding the special workspace.
 Escape and the X hide the entire dashboard; Super+D shows it again.
 
-**Control Panel → Startup Applications → Xetal Engine startup screen** controls
+**Control Panel → Startup Applications → Desktop startup** controls
 whether it appears automatically at login. The default is enabled. Turning it
 off skips both the login delay and pane creation; Super+D remains available.
 The private preference is saved in `control_panel/state/startup-screen.json`
@@ -24,6 +24,10 @@ sources and SHA-256 checksums are recorded in `assets/projects/SOURCE.json` and 
 asset manifest. Displaying the showcase requires no website connection or files
 outside the installed profile. The installer includes the catalog, artwork and
 Python source; PyQt6 is already a desktop dependency.
+
+The three terminal consoles use Python, Pillow, Kitty and Fastfetch from the
+installer's dependency list. The legacy ASCII mascot also uses Pillow directly;
+none of the console modes requires NumPy or packages from the developer's PC.
 
 Compositor events pause cube animation while the dashboard is hidden. The window
 exits when its Hyprland session ends. Repeated Super+D toggles reuse the window.
