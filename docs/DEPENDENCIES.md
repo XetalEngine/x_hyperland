@@ -23,6 +23,8 @@ The compatibility `hyprctl` lives inside the profile and is inherited only by ap
 
 The C++ [Control Panel](CONTROL-PANEL.md) builds from the included CachyOsTools engine. Its Arch-specific system/ISO tools retain their own runtime requirements. Qt SVG supplies its themed icons; translation build tools are packaged as `qt6-tools` on Arch, [qt6-qttools-devel/qt6-linguist on Fedora](https://packages.fedoraproject.org/pkgs/qt6-qttools/), and `qt6-tools-dev` plus [qt6-l10n-tools on Debian](https://packages.debian.org/sid/utils/qt6-l10n-tools).
 
+The Control Panel build uses every CPU available to the installer, including logical threads, and prints the parallel job count. The installer also prints its source revision and checks the complete configuration before compilation, then validates the built profile again before activation.
+
 The private GTK 3 preview module is built by the same theme builder. Qt previews use Qt Concurrent for background loading; both dependencies are supplied by the existing GTK/Qt development package recipes. See [file picker coverage](FILE-PREVIEWS.md).
 
 The optional **Compiz Burn** close effect supports Hyprland **0.56.2** at the tested commit documented in [its guide](../config/hypr/effects/burn/README.md), x86-64 and the OpenGL renderer. It needs a C++23 compiler, matching Hyprland development headers exposed through `pkg-config hyprland`, and GLESv2 development files. Its build and runtime ABI checks reject mismatched versions; unsupported installations retain normal closing animations and still install the rest of the desktop. Controls are in **Theme → Window effects → Burn**.

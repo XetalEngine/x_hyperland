@@ -1,5 +1,17 @@
 # Validation
 
+## Installer retries and CPU usage — 31 October 2026
+
+The Control Panel no longer caps compilation at two jobs. Its builder used all
+32 CPUs available to this process and completed an incremental native build.
+The installer prints its source revision and validates the configuration before
+compilation, retaining the final validation before activation. The 27 installer
+and archive checks, 10 compatibility checks, and the 22 installer checks repeated
+with the real Hyprland 0.57 executable passed. Invalid configurations stopped
+both installation modes before compilation and preserved the existing profile.
+The `5e4cea8` source ZIP was also extracted afresh: its unmodified installer
+selected `hyprland.lua`, and the resulting profile passed native 0.57 validation.
+
 ## Hyprland 0.57 fresh installation — 31 October 2026
 
 The fresh Arch failure `unexpected symbol near '#'` came from 0.57 parsing

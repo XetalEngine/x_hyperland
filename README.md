@@ -36,6 +36,8 @@ cd x_hyperland
 
 You can also choose **Code → Download ZIP** on GitHub, extract the whole archive, and open a terminal inside `x_hyperland-main`. Run `bash ./x_hyperinstall.sh` there. ZIP and tar downloads include their exact source revision in `installer/source-revision.txt`; keep that file with the installer. No Git checkout is needed for this installation method.
 
+When retrying after an update, download the ZIP again and extract it into a new folder. The installer prints its source revision and checks the configuration before compilation. The Control Panel builds with all available CPU threads.
+
 The installer checks dependencies, offers distribution packages, builds the native components, and validates the complete configuration. It backs up your existing `~/.config/hypr` before installation. **Log out and select Hyprland again** to start the complete desktop.
 
 Hyprland 0.57 uses Lua configuration. The installer selects the matching entry point automatically; settings pages, hotkeys and desktop commands support both 0.56.2 and 0.57.0. Burn and Cube still require their supported 0.56.2 native adapter.

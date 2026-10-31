@@ -192,17 +192,22 @@ def register_updates(stage, commit=None):
     update_engine.write_json(stage/update_engine.META,update_engine.metadata(stage,commit))
 
 
-def validate(stage):
-    for p in stage.rglob('*.py'):ast.parse(p.read_text(),filename=str(p))
-    for p in stage.rglob('*.json'):json.loads(p.read_text())
-    for p in stage.rglob('*.sh'):subprocess.run(['bash','-n',str(p)],check=True)
+def validate_config(stage):
     # Validate every sourced file from the staged tree. The live config is never
     # borrowed and --verify-config does not run exec/exec-once commands.
     with tempfile.TemporaryDirectory(prefix='.verify-',dir=stage) as temporary:
         candidate=hypr_compat.candidate(stage, temporary)
+        print('Checking Hyprland configuration: '+candidate.name,flush=True)
         result=subprocess.run(['Hyprland','--verify-config','--config',str(candidate)],capture_output=True,text=True)
         if result.returncode or 'config ok' not in result.stdout:
             raise RuntimeError('Full Hyprland validation failed:\n'+result.stdout[-4000:]+result.stderr[-1000:])
+
+
+def validate(stage):
+    for p in stage.rglob('*.py'):ast.parse(p.read_text(),filename=str(p))
+    for p in stage.rglob('*.json'):json.loads(p.read_text())
+    for p in stage.rglob('*.sh'):subprocess.run(['bash','-n',str(p)],check=True)
+    validate_config(stage)
     for relative in ('theme/gtk3/libxetal-file-preview.so','theme/qt5/platformthemes/libxetaltheme.so','theme/qt6/platformthemes/libxetaltheme.so',
                      'waybar/pins/pins.so','waybar/workspaces/controls.so','waybar/options/options.so','share-picker/window-preview','control_panel/.build/xetal-control-panel'):
         if not (stage/relative).is_file():raise RuntimeError('Missing built component: '+relative)
@@ -266,7 +271,7 @@ def main():
         print('Restored. Replaced profile retained at '+str(saved)+'. Log out and back in to use it.');return 0
     errors=dependencies.check()
     if args.dry_run or args.check:
-        try:source_revision()
+        try:print('Installer source: '+source_revision(),flush=True)
         except RuntimeError as error:errors.append(str(error))
         print('Profile: '+args.profile+'; build Qt 5/6 theme plugins, Waybar modules, and screen-share preview helper.')
         print('Include current wallpaper, licensed fonts, all session tools, backup and rollback. Activate at next Hyprland login.')
@@ -281,12 +286,14 @@ def main():
         errors=dependencies.check()
         if errors:raise RuntimeError('Dependencies still need attention; profile unchanged:\n'+'\n'.join(errors))
     commit=source_revision()
+    print('Installer source: '+commit,flush=True)
     if args.prepare:
         destination=args.prepare.absolute()
         if destination.exists():raise RuntimeError('--prepare destination must not exist.')
         destination.parent.mkdir(parents=True,exist_ok=True)
         render(destination,home,connected_monitors(),args.profile,not args.no_startup)
         register_updates(destination,commit)
+        validate_config(destination)
         build(destination);validate(destination)
         print('Built and validated review copy: '+str(destination)+'. Live profile unchanged.');return 0
     target.parent.mkdir(parents=True,exist_ok=True)
@@ -298,6 +305,7 @@ def main():
             stage=Path(temporary)/'hypr'
             render(stage,home,connected_monitors(),args.profile,not args.no_startup)
             register_updates(stage,commit)
+            validate_config(stage)
             build(stage);validate(stage)
             print('All components built; full configuration validated. Your existing profile will be backed up.')
             if not args.yes and input('Install this prepared desktop? [y/N] ').strip().lower() not in ('y','yes'):

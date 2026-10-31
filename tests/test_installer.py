@@ -230,6 +230,27 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue(any('Optional Burn effect unavailable' in str(call) for call in message.call_args_list))
         self.assertTrue(any('Optional Desktop Cube & 3D Windows effect unavailable' in str(call) for call in message.call_args_list))
 
+    def test_invalid_config_stops_before_compilation_in_both_install_modes(self):
+        self.target.mkdir()
+        (self.target/'keep.txt').write_text('existing desktop')
+        original=install.tree_digest(self.target)
+        def invalid_profile(stage,*args):
+            stage.mkdir(parents=True)
+            (stage/'hyprland.conf').write_text('general:setting_does_not_exist = 1\n')
+        for mode in ([],['--prepare',str(self.stage)]):
+            with self.subTest(mode=mode), \
+                 patch.object(sys,'argv',['install.py','--yes','--skip-packages',*mode]), \
+                 patch.object(Path,'home',return_value=self.home), \
+                 patch.object(dependencies,'check',return_value=[]), \
+                 patch.object(install,'connected_monitors',return_value=[]), \
+                 patch.object(install,'render',side_effect=invalid_profile), \
+                 patch.object(install,'register_updates'), \
+                 patch.object(install,'build') as build:
+                with self.assertRaisesRegex(RuntimeError,'Full Hyprland validation failed'):
+                    install.main()
+                build.assert_not_called()
+                self.assertEqual(install.tree_digest(self.target),original)
+
     def test_every_shipped_wallpaper_matches_manifest(self):
         import hashlib
         manifest=json.loads((REPO/'assets-manifest.json').read_text())
