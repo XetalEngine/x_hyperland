@@ -29,7 +29,7 @@ Apps, Fusion Settings/Theme and Control Panel preload without opening windows an
 From a recent Hyprland session, run these commands **as your regular desktop user**:
 
 ```bash
-git clone https://github.com/XetalEngine/x_hyperland.git
+git clone --depth 1 https://github.com/XetalEngine/x_hyperland.git
 cd x_hyperland
 ./x_hyperinstall.sh
 ```
