@@ -27,7 +27,8 @@ def main():
                 return subprocess.call([terminal, '--title', 'Xetal Setup prerequisites', sys.executable, str(__file__), '--gui', *(['--update'] if '--update' in args else [])])
             raise RuntimeError('GTK 3 is required. Run x_hyperinstall.sh in a terminal to install it.')
         import dependencies
-        command = {'arch':['pacman','-S','--needed','gtk3'], 'fedora':['dnf','install','gtk3']}.get(dependencies.distro())
+        command = {'arch':['pacman','-S','--needed','gtk3'], 'fedora':['dnf','install','gtk3'],
+                   'debian':['apt-get','install','libgtk-3-0t64']}.get(dependencies.distro())
         if command is None: raise RuntimeError('Install the GTK 3 runtime, then open Setup again.')
         if input('Install GTK 3 to open the graphical installer? [Y/n] ').strip().lower() not in ('','y','yes'): return 1
         subprocess.run(['sudo',*command], check=True)

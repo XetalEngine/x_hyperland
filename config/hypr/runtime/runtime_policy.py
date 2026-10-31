@@ -55,6 +55,11 @@ def problem(root=ROOT, binary='Hyprland'):
             expected = {p['name']: p['evr']+'.'+p['architecture'] for p in fedora['packages']}
             if rpm_versions(expected) != expected:
                 return 'The Fedora compositor packages differ from this desktop release. Open Setup to install the matching runtime and rebuild its effects.'
+        debian = debian_manifest(root)
+        if debian and debian_host():
+            expected = {p['name']+':'+p['architecture']: p['version'] for p in debian['packages']}
+            if deb_versions(expected) != expected:
+                return 'The Debian compositor packages differ from this desktop release. Open Setup to install the matching runtime and rebuild its effects.'
         return ''
     return ('This desktop requires Hyprland '+target['hyprland']+' ('+target['commit'][:8]+
             '); found '+actual['version']+'. Open Setup to install the matching compositor before applying this desktop.')
@@ -69,7 +74,9 @@ def matches_requirement(required):
     actual = installed()
     if actual['version'] != required['hyprland'] or actual['commit'] != required['commit']: return False
     packages = required.get('fedora_packages')
-    return not packages or not fedora_host() or rpm_versions(packages) == packages
+    if packages and fedora_host() and rpm_versions(packages) != packages: return False
+    packages = required.get('debian_packages')
+    return not packages or not debian_host() or deb_versions(packages) == packages
 
 
 def filename(target):
@@ -119,5 +126,48 @@ def rpm_versions(names):
                                 env={**os.environ, 'LC_ALL':'C'})
         return dict(line.split() for line in result.stdout.splitlines()
                     if len(line.split()) == 2 and line.split()[0] in names)
+    except (OSError, subprocess.SubprocessError):
+        return {}
+
+
+def debian_host(data=None):
+    if data is None:
+        try: data = platform.freedesktop_os_release()
+        except OSError: return False
+    return data.get('ID') == 'debian' and data.get('VERSION_ID') == '13'
+
+
+def debian_manifest(root=ROOT):
+    target = manifest(root)
+    name = target.get('debian_manifest')
+    if name is None: return None
+    if name != 'debian-13.json': raise ValueError('Unsupported Debian runtime manifest.')
+    data = json.loads((Path(root)/'runtime'/name).read_text())
+    if (data.get('schema'), data.get('distribution'), data.get('release'), data.get('architecture'),
+        data.get('hyprland'), data.get('commit')) != (1, 'debian', '13', 'amd64', target['hyprland'], target['commit']):
+        raise ValueError('Debian and desktop compositor requirements differ.')
+    if (data.get('file') != 'debian-13-runtime.zip' or not re.fullmatch(r'[a-f0-9]{64}', data.get('sha256', ''))
+            or not 0 < data.get('bytes', 0) < 100_000_000):
+        raise ValueError('Invalid Debian runtime archive.')
+    names = set()
+    for package in data['packages']:
+        name, version, arch = package['name'], package['version'], package['architecture']
+        if (name in names or not re.fullmatch(r'[a-z0-9][a-z0-9+.-]*', name)
+            or not re.fullmatch(r'[0-9][A-Za-z0-9.+~:-]*', version) or arch not in ('amd64', 'all')
+            or not re.fullmatch(r'[A-Za-z0-9+._~%:-]+\.deb', package['file'])
+            or not re.fullmatch(r'[a-f0-9]{64}', package['sha256']) or not 0 < package['bytes'] < 100_000_000):
+            raise ValueError('Invalid Debian package manifest: '+name)
+        names.add(name)
+    if not {'hyprland', 'hyprland-dev', 'waybar', 'kitty', 'libsdl3-0'} <= names or sum(p['bytes'] for p in data['packages']) >= 100_000_000:
+        raise ValueError('Incomplete or oversized Debian runtime bundle.')
+    return data
+
+
+def deb_versions(names):
+    try:
+        result = subprocess.run(['/usr/bin/dpkg-query', '-W', '-f=${Package}:${Architecture} ${Version} ${db:Status-Status}\n',
+                                 *names], capture_output=True, text=True, timeout=15, env={**os.environ, 'LC_ALL': 'C'})
+        return {f[0]: f[1] for line in result.stdout.splitlines()
+                if len(f := line.split()) == 3 and f[0] in names and f[2] == 'installed'}
     except (OSError, subprocess.SubprocessError):
         return {}

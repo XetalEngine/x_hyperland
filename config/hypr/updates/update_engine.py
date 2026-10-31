@@ -107,6 +107,10 @@ def metadata(root, commit):
         if fedora:
             data = json_file(location(root, 'runtime/'+fedora))
             result['runtime']['fedora_packages'] = {p['name']:p['evr']+'.'+p['architecture'] for p in data['packages']}
+        debian = result['runtime'].get('debian_manifest')
+        if debian:
+            data = json_file(location(root, 'runtime/'+debian))
+            result['runtime']['debian_packages'] = {p['name']+':'+p['architecture']:p['version'] for p in data['packages']}
     return result
 
 

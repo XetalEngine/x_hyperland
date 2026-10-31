@@ -13,6 +13,24 @@ permissions:
   contents: read
 
 jobs:
+  debian:
+    runs-on: ubuntu-latest
+    container: debian:13
+    steps:
+      - name: Prepare disposable Debian container
+        run: apt-get update && apt-get install -y --no-install-recommends python3 sudo util-linux passwd git ca-certificates
+      - uses: actions/checkout@v4
+      - name: Debian runtime regressions
+        run: python3 -m unittest discover -s tests -p test_debian_runtime.py -v
+      - name: Install native runtime, build desktop and exercise recovery
+        env:
+          XETAL_DISPOSABLE_DEBIAN: '1'
+        run: python3 tests/debian_container.py > debian-build.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: debian-13-build
+          path: debian-build.log
   fedora:
     runs-on: ubuntu-latest
     container: fedora:44

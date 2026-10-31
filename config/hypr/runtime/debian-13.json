@@ -1,0 +1,534 @@
+{
+  "schema": 1,
+  "distribution": "debian",
+  "release": "13",
+  "architecture": "amd64",
+  "hyprland": "0.56.2",
+  "commit": "efb50993780079460b0cbed1363e2166a2de1d9f",
+  "file": "debian-13-runtime.zip",
+  "publisher": "Hyper Fusion local Debian backports and Debian trixie-backports",
+  "packages": [
+    {
+      "name": "hyprcursor-util",
+      "version": "0.1.13-2~bpo13+1",
+      "architecture": "amd64",
+      "file": "hyprcursor-util_0.1.13-2~bpo13+1_amd64.deb",
+      "bytes": 106012,
+      "sha256": "7d0f756b34d51bca81435ae264f29797b8e1573d9b57fd3a8af44a79608e9791",
+      "source": "hyprcursor"
+    },
+    {
+      "name": "hyprland-dev",
+      "version": "0.56.2+ds-3~xetal13.1",
+      "architecture": "amd64",
+      "file": "hyprland-dev_0.56.2+ds-3~xetal13.1_amd64.deb",
+      "bytes": 212856,
+      "sha256": "6b2230dad358c9d4d33e138525ce5349ce2da2153a5b8f2dcf3e3478fd958dde",
+      "source": "hyprland"
+    },
+    {
+      "name": "hyprland-protocols",
+      "version": "0.7.1-2~bpo13+1",
+      "architecture": "all",
+      "file": "hyprland-protocols_0.7.1-2~bpo13+1_all.deb",
+      "bytes": 10828,
+      "sha256": "40e501d21a58d5ecb979e368e1f4e7e80169fd49032ea3631eaa9d62bb505d52",
+      "source": "hyprland-protocols"
+    },
+    {
+      "name": "hyprland",
+      "version": "0.56.2+ds-3~xetal13.1",
+      "architecture": "amd64",
+      "file": "hyprland_0.56.2+ds-3~xetal13.1_amd64.deb",
+      "bytes": 4845884,
+      "sha256": "42136a0360643ee92f56f1a7f8c14deb8578d33ca852002d188dde72de114bc1",
+      "source": "hyprland"
+    },
+    {
+      "name": "hyprlock",
+      "version": "0.9.6-1~bpo13+1",
+      "architecture": "amd64",
+      "file": "hyprlock_0.9.6-1~bpo13+1_amd64.deb",
+      "bytes": 326196,
+      "sha256": "f2bd72e799621e37046d745901235057d29864364bfc8131a96ce496c2682ed0",
+      "source": "hyprlock"
+    },
+    {
+      "name": "hyprpaper",
+      "version": "0.8.4-1~bpo13+1",
+      "architecture": "amd64",
+      "file": "hyprpaper_0.8.4-1~bpo13+1_amd64.deb",
+      "bytes": 147000,
+      "sha256": "a96c256bbaa40dd8b0109f8ffb65cfbb73a415406a360992546b08b99b66363f",
+      "source": "hyprpaper"
+    },
+    {
+      "name": "hyprpolkitagent",
+      "version": "0.1.3-2~bpo13+1",
+      "architecture": "amd64",
+      "file": "hyprpolkitagent_0.1.3-2~bpo13+1_amd64.deb",
+      "bytes": 61572,
+      "sha256": "960150d7d0cf68b75425e0ad22e5def6ece498c18ee0f0b944482c03c71aa383",
+      "source": "hyprpolkitagent"
+    },
+    {
+      "name": "hyprwayland-scanner",
+      "version": "0.4.6-1~bpo13+1",
+      "architecture": "amd64",
+      "file": "hyprwayland-scanner_0.4.6-1~bpo13+1_amd64.deb",
+      "bytes": 75572,
+      "sha256": "372e7a912e719ba6a8b76e34ea943087298275b67e691b9a97dc0009a14076e4",
+      "source": "hyprwayland-scanner"
+    },
+    {
+      "name": "hyprwire-scanner",
+      "version": "0.3.1-3~bpo13+1",
+      "architecture": "amd64",
+      "file": "hyprwire-scanner_0.3.1-3~bpo13+1_amd64.deb",
+      "bytes": 64948,
+      "sha256": "81ccc9dcb944a7e458ac5f9096e4f03c5c43e6eddc4aa7f8ec493fc64712d8ae",
+      "source": "hyprwire"
+    },
+    {
+      "name": "kitty-shell-integration",
+      "version": "0.48.2-1.1~xetal13.1",
+      "architecture": "all",
+      "file": "kitty-shell-integration_0.48.2-1.1~xetal13.1_all.deb",
+      "bytes": 113444,
+      "sha256": "a4a3d4ec2df8246dee1c5db812888d9896bb4d7cd5d6a1cd8e256a6f3fd0d4ad",
+      "source": "kitty"
+    },
+    {
+      "name": "kitty-terminfo",
+      "version": "0.48.2-1.1~xetal13.1",
+      "architecture": "all",
+      "file": "kitty-terminfo_0.48.2-1.1~xetal13.1_all.deb",
+      "bytes": 92088,
+      "sha256": "9113bad049dddf6e5a7615fac90193198ed8ebb5dd0d2d147a1468f72e1da2f7",
+      "source": "kitty"
+    },
+    {
+      "name": "kitty",
+      "version": "0.48.2-1.1~xetal13.1",
+      "architecture": "amd64",
+      "file": "kitty_0.48.2-1.1~xetal13.1_amd64.deb",
+      "bytes": 9818992,
+      "sha256": "4228c8dcd4f464beebaa491422334cae26cfcc3c06d903815751203715e7cd49",
+      "source": "kitty"
+    },
+    {
+      "name": "libaquamarine-dev",
+      "version": "0.15.1-1~bpo13+1",
+      "architecture": "amd64",
+      "file": "libaquamarine-dev_0.15.1-1~bpo13+1_amd64.deb",
+      "bytes": 20956,
+      "sha256": "326220651265f30a24399a5dd4c29a032296f8e73fdafdaddf9f3c394b37bf0a",
+      "source": "aquamarine"
+    },
+    {
+      "name": "libaquamarine14",
+      "version": "0.15.1-1~bpo13+1",
+      "architecture": "amd64",
+      "file": "libaquamarine14_0.15.1-1~bpo13+1_amd64.deb",
+      "bytes": 405204,
+      "sha256": "cad58c910c0586b73473210dd707db70fb76bc94673a6e84272107aeded46616",
+      "source": "aquamarine"
+    },
+    {
+      "name": "libaquamarine9",
+      "version": "0.10.0-2~bpo13+1",
+      "architecture": "amd64",
+      "file": "libaquamarine9_0.10.0-2~bpo13+1_amd64.deb",
+      "bytes": 352328,
+      "sha256": "b330960b28f3bd7189dde99d68a8786461f149c46aef36080f2d8d442cc68d89",
+      "source": "aquamarine"
+    },
+    {
+      "name": "libglaze-dev",
+      "version": "8.4.0-1~bpo13+1",
+      "architecture": "all",
+      "file": "libglaze-dev_8.4.0-1~bpo13+1_all.deb",
+      "bytes": 623248,
+      "sha256": "c8864feddabe7e30d3b204ebe83557fbe4d42d94e8c39a5e48b87cc919e4ca7e",
+      "source": "glaze"
+    },
+    {
+      "name": "libhyprcursor-dev",
+      "version": "0.1.13-2~bpo13+1",
+      "architecture": "amd64",
+      "file": "libhyprcursor-dev_0.1.13-2~bpo13+1_amd64.deb",
+      "bytes": 6316,
+      "sha256": "06593928a3060e0d54e88d671ec24ef2a4e1b8ca94fa126f79eb1d352db76187",
+      "source": "hyprcursor"
+    },
+    {
+      "name": "libhyprcursor0",
+      "version": "0.1.13-2~bpo13+1",
+      "architecture": "amd64",
+      "file": "libhyprcursor0_0.1.13-2~bpo13+1_amd64.deb",
+      "bytes": 134812,
+      "sha256": "f3407906d442348d33fbce57dce16ab23ff9c99dc7854f8c2084caa838662e2f",
+      "source": "hyprcursor"
+    },
+    {
+      "name": "libhyprgraphics-dev",
+      "version": "0.5.1-2~bpo13+1",
+      "architecture": "amd64",
+      "file": "libhyprgraphics-dev_0.5.1-2~bpo13+1_amd64.deb",
+      "bytes": 6768,
+      "sha256": "08a90b81c0ed5fd6a5f512dbb157cecbe67868045863f0ee7d8c4bd6382de4aa",
+      "source": "hyprgraphics"
+    },
+    {
+      "name": "libhyprgraphics4",
+      "version": "0.5.1-2~bpo13+1",
+      "architecture": "amd64",
+      "file": "libhyprgraphics4_0.5.1-2~bpo13+1_amd64.deb",
+      "bytes": 81820,
+      "sha256": "a23b1674166b4200b65e7624efb7c10c1769b7681c355a04b01635257ff7b611",
+      "source": "hyprgraphics"
+    },
+    {
+      "name": "libhyprlang-dev",
+      "version": "0.6.8-4~bpo13+1",
+      "architecture": "amd64",
+      "file": "libhyprlang-dev_0.6.8-4~bpo13+1_amd64.deb",
+      "bytes": 7116,
+      "sha256": "df73a8a26b540e593bcabf831f10740991ac146278ad36e39564ae31efbd0b87",
+      "source": "hyprlang"
+    },
+    {
+      "name": "libhyprlang2",
+      "version": "0.6.8-4~bpo13+1",
+      "architecture": "amd64",
+      "file": "libhyprlang2_0.6.8-4~bpo13+1_amd64.deb",
+      "bytes": 89292,
+      "sha256": "d98538b86c7ab8314b33ef3feac5a92f0e60136bc019f1ab37fc09aac2000f74",
+      "source": "hyprlang"
+    },
+    {
+      "name": "libhyprtoolkit5",
+      "version": "0.5.3-1~bpo13+1",
+      "architecture": "amd64",
+      "file": "libhyprtoolkit5_0.5.3-1~bpo13+1_amd64.deb",
+      "bytes": 410248,
+      "sha256": "499092020d099c8e7d16a1d0bbc5cc05084c26e33d3223d01dc0130f18e176db",
+      "source": "hyprtoolkit"
+    },
+    {
+      "name": "libhyprutils-dev",
+      "version": "0.14.2-1~bpo13+1",
+      "architecture": "amd64",
+      "file": "libhyprutils-dev_0.14.2-1~bpo13+1_amd64.deb",
+      "bytes": 26384,
+      "sha256": "d1c3374385485dcaab1de223e0b1d0c4ab9ec62af8175cdf90fdef1b08700f72",
+      "source": "hyprutils"
+    },
+    {
+      "name": "libhyprutils10",
+      "version": "0.11.1-1~bpo13+1",
+      "architecture": "amd64",
+      "file": "libhyprutils10_0.11.1-1~bpo13+1_amd64.deb",
+      "bytes": 143504,
+      "sha256": "3b19469c5565653a6847063ced9691d6744c228c77a3e00f4cba0d88ff295c92",
+      "source": "hyprutils"
+    },
+    {
+      "name": "libhyprutils12",
+      "version": "0.13.1-2~bpo13+1",
+      "architecture": "amd64",
+      "file": "libhyprutils12_0.13.1-2~bpo13+1_amd64.deb",
+      "bytes": 150064,
+      "sha256": "5d6b145146e2c733bc95468c282673cab87c9977e8c707dceff2808f4f0dbe1d",
+      "source": "hyprutils"
+    },
+    {
+      "name": "libhyprutils13",
+      "version": "0.14.2-1~bpo13+1",
+      "architecture": "amd64",
+      "file": "libhyprutils13_0.14.2-1~bpo13+1_amd64.deb",
+      "bytes": 190052,
+      "sha256": "2fc2db66f7de63460ebd5b63176194613b023897278fa0a2bcc19f8f95872f1e",
+      "source": "hyprutils"
+    },
+    {
+      "name": "libhyprwire-dev",
+      "version": "0.3.1-3~bpo13+1",
+      "architecture": "amd64",
+      "file": "libhyprwire-dev_0.3.1-3~bpo13+1_amd64.deb",
+      "bytes": 6032,
+      "sha256": "7c89fa437e56b100c055a82e0c99fc45a831d3cc27b186794d8e264698fe2cbb",
+      "source": "hyprwire"
+    },
+    {
+      "name": "libhyprwire3",
+      "version": "0.3.1-3~bpo13+1",
+      "architecture": "amd64",
+      "file": "libhyprwire3_0.3.1-3~bpo13+1_amd64.deb",
+      "bytes": 130596,
+      "sha256": "b9be3de72a4e5005dc04d4d50aa48c1886b2b191022a7c10cc575312fd6c933d",
+      "source": "hyprwire"
+    },
+    {
+      "name": "libinput-bin",
+      "version": "1.31.3-1~xetal13.1",
+      "architecture": "amd64",
+      "file": "libinput-bin_1.31.3-1~xetal13.1_amd64.deb",
+      "bytes": 29468,
+      "sha256": "af805db77bf7aa4ef416c0b5ca0ab3c8f1f4470f7b80c806bc972789b87ac416",
+      "source": "libinput"
+    },
+    {
+      "name": "libinput-dev",
+      "version": "1.31.3-1~xetal13.1",
+      "architecture": "amd64",
+      "file": "libinput-dev_1.31.3-1~xetal13.1_amd64.deb",
+      "bytes": 38472,
+      "sha256": "04b775520e1414dad8dcfbff7cde38549cf2531773be0f4dd77d6923e861d03a",
+      "source": "libinput"
+    },
+    {
+      "name": "libinput10",
+      "version": "1.31.3-1~xetal13.1",
+      "architecture": "amd64",
+      "file": "libinput10_1.31.3-1~xetal13.1_amd64.deb",
+      "bytes": 159596,
+      "sha256": "e0655ab3901576572c8047dbdf09225bb76e31eb6ea2c7509b37e5946d49bffd",
+      "source": "libinput"
+    },
+    {
+      "name": "liblua5.5-0",
+      "version": "5.5.1-2~xetal13.1",
+      "architecture": "amd64",
+      "file": "liblua5.5-0_5.5.1-2~xetal13.1_amd64.deb",
+      "bytes": 155920,
+      "sha256": "26a5f58ac0b79ff8225af2d554ffd2941d4fb9b3080f9edb06cbe880f0dfbe1e",
+      "source": "lua5.5"
+    },
+    {
+      "name": "liblua5.5-dev",
+      "version": "5.5.1-2~xetal13.1",
+      "architecture": "amd64",
+      "file": "liblua5.5-dev_5.5.1-2~xetal13.1_amd64.deb",
+      "bytes": 186524,
+      "sha256": "d7a1480251d8bee1967d5ff6c255aa983125aa1825b9075c8fee4a0d7bdbcc0b",
+      "source": "lua5.5"
+    },
+    {
+      "name": "libsdl3-0",
+      "version": "3.4.18+ds-1~xetal13.1",
+      "architecture": "amd64",
+      "file": "libsdl3-0_3.4.18+ds-1~xetal13.1_amd64.deb",
+      "bytes": 1060908,
+      "sha256": "5ddaffed5b4bc854c53701a57cafb32597fbbf6fe4230fe0f2bcacc33041707c",
+      "source": "libsdl3"
+    },
+    {
+      "name": "libwayland-bin",
+      "version": "1.26.0-1~xetal13.1",
+      "architecture": "amd64",
+      "file": "libwayland-bin_1.26.0-1~xetal13.1_amd64.deb",
+      "bytes": 22444,
+      "sha256": "0c166ee5d8c5c8d12b24cded2d6da55a45f86887bf83ab12afb70609d29c6309",
+      "source": "wayland"
+    },
+    {
+      "name": "libwayland-client0",
+      "version": "1.26.0-1~xetal13.1",
+      "architecture": "amd64",
+      "file": "libwayland-client0_1.26.0-1~xetal13.1_amd64.deb",
+      "bytes": 29952,
+      "sha256": "981aea070c6ec0c1f1f50497bc19c1b95a348f9a597b522c1e50352bc620578a",
+      "source": "wayland"
+    },
+    {
+      "name": "libwayland-cursor0",
+      "version": "1.26.0-1~xetal13.1",
+      "architecture": "amd64",
+      "file": "libwayland-cursor0_1.26.0-1~xetal13.1_amd64.deb",
+      "bytes": 12404,
+      "sha256": "eba0e46f08cb9fe774b562c77a71767f67b0d0c73a5f596149a8da3b7714fd82",
+      "source": "wayland"
+    },
+    {
+      "name": "libwayland-dev",
+      "version": "1.26.0-1~xetal13.1",
+      "architecture": "amd64",
+      "file": "libwayland-dev_1.26.0-1~xetal13.1_amd64.deb",
+      "bytes": 78600,
+      "sha256": "bfe868f146d555987e1fd4d3ef59415f18ebf25e2bffc227d7ef487fe4c37217",
+      "source": "wayland"
+    },
+    {
+      "name": "libwayland-egl-backend-dev",
+      "version": "1.26.0-1~xetal13.1",
+      "architecture": "amd64",
+      "file": "libwayland-egl-backend-dev_1.26.0-1~xetal13.1_amd64.deb",
+      "bytes": 5264,
+      "sha256": "4ef2f2267c1a31e0f31be05053a98fdd1fcf012d7dd4f068e03f789d09698b66",
+      "source": "wayland"
+    },
+    {
+      "name": "libwayland-egl1",
+      "version": "1.26.0-1~xetal13.1",
+      "architecture": "amd64",
+      "file": "libwayland-egl1_1.26.0-1~xetal13.1_amd64.deb",
+      "bytes": 6352,
+      "sha256": "259ec5f2b64d5ebd0921a794196542baba66d758e8784cb886ef1afb430164bf",
+      "source": "wayland"
+    },
+    {
+      "name": "libwayland-server0",
+      "version": "1.26.0-1~xetal13.1",
+      "architecture": "amd64",
+      "file": "libwayland-server0_1.26.0-1~xetal13.1_amd64.deb",
+      "bytes": 36972,
+      "sha256": "96c03ac99a39e4a63a5ada31ee7de6e0cef30a0d453f62007adce1c2090cce24",
+      "source": "wayland"
+    },
+    {
+      "name": "libxkbcommon-dev",
+      "version": "1.13.1-1~bpo13+1",
+      "architecture": "amd64",
+      "file": "libxkbcommon-dev_1.13.1-1~bpo13+1_amd64.deb",
+      "bytes": 60244,
+      "sha256": "a28bbbbcfdeb31df5cf3bcb9bd6ae1b1289ef9c7a9bdb84b02e8dae4fe589154",
+      "source": "libxkbcommon"
+    },
+    {
+      "name": "libxkbcommon-x11-0",
+      "version": "1.13.1-1~bpo13+1",
+      "architecture": "amd64",
+      "file": "libxkbcommon-x11-0_1.13.1-1~bpo13+1_amd64.deb",
+      "bytes": 21000,
+      "sha256": "9640dcdbd1c6e225992e0fff78b504276cf51376e2a15ae0133f02592943966e",
+      "source": "libxkbcommon"
+    },
+    {
+      "name": "libxkbcommon-x11-dev",
+      "version": "1.13.1-1~bpo13+1",
+      "architecture": "amd64",
+      "file": "libxkbcommon-x11-dev_1.13.1-1~bpo13+1_amd64.deb",
+      "bytes": 7252,
+      "sha256": "65d2974aa4717b8ef8521ec058348eccd0180d6e57930c14cd69f20f3b2f3d07",
+      "source": "libxkbcommon"
+    },
+    {
+      "name": "libxkbcommon0",
+      "version": "1.13.1-1~bpo13+1",
+      "architecture": "amd64",
+      "file": "libxkbcommon0_1.13.1-1~bpo13+1_amd64.deb",
+      "bytes": 147124,
+      "sha256": "55c94c70edbf695e26de90841c39af2a4c47f0796fdb25a461cdb2017540f3cd",
+      "source": "libxkbcommon"
+    },
+    {
+      "name": "libxkbregistry-dev",
+      "version": "1.13.1-1~bpo13+1",
+      "architecture": "amd64",
+      "file": "libxkbregistry-dev_1.13.1-1~bpo13+1_amd64.deb",
+      "bytes": 9820,
+      "sha256": "29eb7d573c9b09927ebd353f3c37db6586ca20dae2f32bbfd2a561fe8c74291d",
+      "source": "libxkbcommon"
+    },
+    {
+      "name": "libxkbregistry0",
+      "version": "1.13.1-1~bpo13+1",
+      "architecture": "amd64",
+      "file": "libxkbregistry0_1.13.1-1~bpo13+1_amd64.deb",
+      "bytes": 17296,
+      "sha256": "875aae743015fc40e18d26f801e79d61898c0322e33392e38c90faf37ec74124",
+      "source": "libxkbcommon"
+    },
+    {
+      "name": "qml6-module-org-hyprland-style",
+      "version": "0.1.0-1~bpo13+1",
+      "architecture": "amd64",
+      "file": "qml6-module-org-hyprland-style_0.1.0-1~bpo13+1_amd64.deb",
+      "bytes": 86516,
+      "sha256": "aca0301a76ac92b7bb99b70e23c68f888315514f56202f9a625baddb94b6b6e7",
+      "source": "hyprland-qt-support"
+    },
+    {
+      "name": "waybar",
+      "version": "0.15.0-1~xetal13.1",
+      "architecture": "amd64",
+      "file": "waybar_0.15.0-1~xetal13.1_amd64.deb",
+      "bytes": 1064424,
+      "sha256": "a82c13d40c2061c517b7aa4a606227ec4eebdb80e86c3d284ed7178746f8e3a0",
+      "source": "waybar"
+    },
+    {
+      "name": "wayland-protocols",
+      "version": "1.49-1~xetal13.1",
+      "architecture": "all",
+      "file": "wayland-protocols_1.49-1~xetal13.1_all.deb",
+      "bytes": 136472,
+      "sha256": "f5e7571240726009e982345df8909c32e2e4ef75bf4d5c4c0d1767c252e3201e",
+      "source": "wayland-protocols"
+    },
+    {
+      "name": "xdg-desktop-portal-hyprland",
+      "version": "1.4.1-1~bpo13+1",
+      "architecture": "amd64",
+      "file": "xdg-desktop-portal-hyprland_1.4.1-1~bpo13+1_amd64.deb",
+      "bytes": 291860,
+      "sha256": "d7941051e2fd114467707bd29d5faf60ed2e3417ffab6bd717fea60fbc1f731d",
+      "source": "xdg-desktop-portal-hyprland"
+    }
+  ],
+  "bytes": 22333414,
+  "sha256": "a9b44d403a55acefa8feb7cbca3be5bca8ee36d3e6766a866048b9cbbedd79f1",
+  "sources": [
+    {
+      "file": "sources/build-inputs.json",
+      "bytes": 1846,
+      "sha256": "2924ee468f897b6052cef3a5878a5e6e8297a3d1deec9e5413e0aaed39b3e91c"
+    },
+    {
+      "file": "sources/debian-backports-sources.tar.xz",
+      "bytes": 5365420,
+      "sha256": "d1072b68ce05c421d2bfcc401c98dc37e33bd8f55464d6b6dbf42256f7a34801"
+    },
+    {
+      "file": "sources/hyprland-source-source.tar.xz",
+      "bytes": 49640892,
+      "sha256": "ae0de38e570d569093f64fce616ffa6cc823232f76ce2ad285bf7084c57ba146"
+    },
+    {
+      "file": "sources/kitty-0.48.2-source.tar.xz",
+      "bytes": 13547808,
+      "sha256": "1c429ddb2b8df036936ebe3eba5d3b99ba66c3d453490bab67c660eb23ebba61"
+    },
+    {
+      "file": "sources/libinput-1.31.3-source.tar.xz",
+      "bytes": 1162820,
+      "sha256": "f1bc158d1578097bc8467a5582c45ec701b6197103cac91f1e928d72e8247910"
+    },
+    {
+      "file": "sources/libsdl3-3.4.18+ds-source.tar.xz",
+      "bytes": 11617252,
+      "sha256": "49f691016fd02e47bce7bb247f92104a7a5def54eeb2ad1b978abe1a48624b02"
+    },
+    {
+      "file": "sources/lua5.5-5.5.1-source.tar.xz",
+      "bytes": 650268,
+      "sha256": "491cb99ec2bcdbd2c93a25e8d840d126a5141f289ad32d2307c57cb98553ad36"
+    },
+    {
+      "file": "sources/waybar-0.15.0-source.tar.xz",
+      "bytes": 364088,
+      "sha256": "425324a745f4e930123fd9598321d5ffaae7572f64fb86963b1e649c1e58590d"
+    },
+    {
+      "file": "sources/wayland-1.26.0-source.tar.xz",
+      "bytes": 630592,
+      "sha256": "ed9e4b4382a0b1a2bc1c9c5176ae0dc621cd6ffe279ea14311f2ba03fac7fafb"
+    },
+    {
+      "file": "sources/wayland-protocols-1.49-source.tar.xz",
+      "bytes": 162968,
+      "sha256": "f8e151981a0cabde7e7e8d1d3cc5088c140a2538776330058df86abd20d91272"
+    }
+  ]
+}

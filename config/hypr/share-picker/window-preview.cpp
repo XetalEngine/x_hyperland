@@ -99,7 +99,13 @@ static QImage image(const Capture& c, bool live = false) {
     }
     QImage result(static_cast<const uchar*>(c.pixels), c.width, c.height, c.stride, format);
     result = result.scaled(640, 400, Qt::KeepAspectRatio, live ? Qt::FastTransformation : Qt::SmoothTransformation);
-    if (c.flags & 1) result = result.flipped(Qt::Vertical);
+    if (c.flags & 1) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+        result = result.flipped(Qt::Vertical);
+#else
+        result = result.mirrored(false, true);
+#endif
+    }
     return result;
 }
 

@@ -12,7 +12,7 @@ Fresh profiles show **Places** on the left and hide the redundant **Folders** tr
 
 During installation, the forward button is disabled, gray and labeled **Installing…**. It becomes **Finish** after success, or **Retry** if setup stops.
 
-Python and GTK 3 can be bootstrapped from Arch or Fedora packages if missing. The wizard itself does not need PyQt or PyGObject before starting. Package authentication uses a separate password window through `sudo -A`; passwords are passed only to sudo and are never included in the installation log. Details are saved to `~/.local/state/xetal-hyprland/setup.log`.
+Python and GTK 3 can be bootstrapped from Arch, Fedora or Debian packages if missing. The wizard itself does not need PyQt or PyGObject before starting. Package authentication uses a separate password window through `sudo -A`; passwords are passed only to sudo and are never included in the installation log. Details are saved to `~/.local/state/xetal-hyprland/setup.log`.
 
 ## Tested compositor
 
@@ -36,11 +36,23 @@ Before replacing a bundled component, Setup saves its exact signed installed RPM
 
 A disposable Fedora 44 test environment completed package signature/dependency checks, the complete native desktop build, configuration validation, Kitty dashboard rendering, successful runtime rollback, a real 0.57 → 0.56.2 downgrade with exact 0.57 recovery, DNF lock-file rewrites, and recovery from an injected post-install failure. The Fedora CI job repeats installation, builds and recovery. These checks do not replace a graphical VM login or tests of each GPU/driver combination.
 
+## Debian 13
+
+**Debian 13 (trixie) amd64** has a native DEB path selected from `/etc/os-release`. The [runtime ZIP](../installer/packages/debian-13/README.md) contains 52 packages totaling **22.3 MB**: Hyprland 0.56.2, matching headers/libraries, Waybar 0.15, Kitty 0.48.2 and SDL3 3.4.18. Corresponding sources and a rebuild helper are included separately; every individual archive is below 100 MB. Ubuntu, Debian 12/14 and derivatives are not accepted by this bundle.
+
+The bundle combines documented local Debian 13 backports with unmodified trixie-backports packages. These local builds are not official Debian binary releases. Setup verifies the trusted release manifest's SHA-256 hashes, archive contents and DEB identities before passing root-owned copies to APT. Ordinary dependencies still come from configured Debian repositories with normal APT authentication. No testing/backports repository is enabled on the recipient's machine.
+
+Setup resolves the full transaction without removing existing applications, saves exact previous packages and downloads dependencies before installation. It records recovery under `/var/lib/xetal-hyprland/debian-runtime/`. Dedicated version pins in `/etc/apt/preferences.d/xetal-hyprland` keep the compositor and its native libraries/headers together. Other preferences and package holds are preserved. If a previous package is unavailable for recovery, installation stops before changes.
+
+Recovery restores replaced versions and the old pins. It removes newly introduced runtime packages and their newly introduced dependants when needed, while retaining ordinary dependencies such as system services. It refuses to remove pre-existing applications or overwrite externally changed package versions or pins. Manual recovery uses `sudo python3 installer/system_debian_runtime.py --restore RECORD`.
+
+The native runtime has passed installation from a clean Debian root using standard repositories, rollback that preserves pre-existing packages, and recovery from a forced failure after a real compositor installation. The full desktop and all three effects built successfully on the Debian build root, and full configuration validation passed. The clean-root check identified a missing `libeis-dev` declaration, which is now in the package recipe. The existing QEMU binary starts unchanged with the bundled SDL3 backport; EDK II firmware remains unchanged. Graphical VM login, VM launches and GPU passthrough require separate testing. The Debian CI job repeats native installation, builds and recovery on a fresh container.
+
 ## Cancellation and recovery
 
 Before replacing an installed compositor, Setup preserves its signed package for recovery. It uses the exact installed version and architecture, including CachyOS `x86_64_v3` / `x86_64_v4` builds. It checks the configured package caches, asks pacman for the matching repository URL and signature, and tries the configured mirrors before the Arch archive fallback. It never substitutes a different version for recovery or bypasses signature verification. If the exact package is unavailable, Setup stops before changing the compositor and explains the recovery-package failure. Package/configuration backups live under `/var/lib/xetal-hyprland/runtime/`. The existing Hyprland profile is backed up under `~/.local/state/xetal-hyprland/backups/` before replacement.
 
-**Stop after this step** waits for the current package transaction or build command to finish, then stops before installing the desktop profile. If the compositor changed, Setup restores the prior package and hold on cancellation or failure. Dependencies already installed remain available for a retry. A successful install leaves the matching compositor held and the profile ready for the next login. The current graphical session is never forcibly restarted.
+**Stop after this step** waits for the current package transaction or build command to finish, then stops before installing the desktop profile. If the compositor changed, Setup restores the prior package and hold on cancellation or failure. Ordinary dependencies already installed may remain available for a retry; Debian recovery also removes newly introduced dependants when restoring its native runtime. A successful install leaves the matching compositor held and the profile ready for the next login. The current graphical session is never forcibly restarted.
 
 For a manual compositor recovery, the recorded root-owned backup can be passed to `sudo python3 installer/system_runtime.py --restore /var/lib/xetal-hyprland/runtime/RECORD`. It verifies the saved package and refuses to overwrite a compositor changed by another operation. Restore the associated desktop profile using the installer backup command printed at completion. Profile restoration refuses a declared compositor mismatch.
 
@@ -48,4 +60,4 @@ For a manual compositor recovery, the recorded root-owned backup can be passed t
 
 Update the runtime manifest only after validating the new compositor, native effect adapters and complete desktop together. Keep the package/signature hashes and commit in agreement. The updater compares the incoming requirement before building and again before activation. A system package change goes through foreground Setup; ordinary background updates continue without sudo. A compositor upgrade or downgrade therefore carries the matching profile and rebuilt plugins with it.
 
-Arch-based x86-64 and mutable Fedora 44 x86-64 have automatic compositor installation paths. Other distributions must install the exact required native compositor themselves before using their remaining dependency recipes. Pinning Hyprland does not pin the complete operating system; dependency checks and native builds remain necessary on every recipient machine.
+Arch-based x86-64, mutable Fedora 44 x86-64 and Debian 13 amd64 have automatic compositor installation paths. Other distributions must install the exact required native compositor themselves before using their remaining dependency recipes. Pinning Hyprland does not pin the complete operating system; dependency checks and native builds remain necessary on every recipient machine.

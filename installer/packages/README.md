@@ -20,3 +20,5 @@ the runtime manifest after validating the desktop and native effects. Do not
 accumulate previous compositor versions here.
 
 Fedora 44 has a separate [native RPM bundle](fedora-44/README.md), including its own matching libraries, headers, pinned signing key and corresponding source archives. The Arch package is never passed to DNF.
+
+Debian 13 has a separate [native DEB runtime ZIP](debian-13/README.md), including matching headers/libraries, Waybar, Kitty and SDL3. Its runtime ZIP is 22.3 MB; exact corresponding source archives are included separately. It is restricted to Debian 13 amd64.

@@ -176,7 +176,7 @@ def rollback():
     global TRANSACTION
     if not TRANSACTION: return
     print('Restoring the previous compositor because desktop setup did not finish.', flush=True)
-    helper = 'system_fedora_runtime.py' if TRANSACTION_BACKEND == 'fedora' else 'system_runtime.py'
+    helper = {'fedora':'system_fedora_runtime.py', 'debian':'system_debian_runtime.py', 'arch':'system_runtime.py'}[TRANSACTION_BACKEND]
     subprocess.run([*administrator(), '/usr/bin/python3', str(ROOT/'installer'/helper),
                     '--restore', str(TRANSACTION)], check=True)
     TRANSACTION = None
@@ -188,6 +188,9 @@ def ensure(yes=False):
     if policy.fedora_host(dependencies.distribution()):
         import fedora_runtime
         return fedora_runtime.ensure(yes)
+    if policy.debian_host(dependencies.distribution()):
+        import debian_runtime
+        return debian_runtime.ensure(yes)
     TRANSACTION_BACKEND = 'arch'
     target = policy.manifest()
     message = policy.problem()

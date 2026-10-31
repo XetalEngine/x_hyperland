@@ -33,16 +33,16 @@ PACKAGES = {
         autoconf automake libtool make perl gettext gawk expect socat openssl-devel
         libtasn1-devel gmp-devel glib2-devel gnutls-devel libseccomp-devel fuse3-devel libei-devel libeis-devel
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod'''.split(),
-    'debian': '''git gvfs gvfs-backends gvfs-fuse hyprpaper hyprlock waybar kitty dolphin konsole konsole-kpart sway-notification-center grim slurp wl-clipboard
+    'debian': '''git gvfs gvfs-backends gvfs-fuse hyprpaper hyprlock waybar kitty dolphin konsole konsole-kpart sway-notification-center grim slurp wl-clipboard xwayland
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
-        python3 python3-psutil python3-pyqt6 python3-pyqt6.qtsvg python3-gi python3-pil gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1 build-essential cmake libxcb1-dev libxcb-res0-dev pkg-config
+        python3 python3-psutil python3-pyqt6 python3-pyqt6.qtsvg python3-gi python3-pil gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1 build-essential cmake libxcb1-dev libxcb-res0-dev pkg-config glslang-dev libsdl3-0
         libgtk-3-dev libgtk-layer-shell-dev libepoxy-dev libjson-glib-dev libjson-c-dev qtbase5-dev qtbase5-private-dev qtwayland5
         qt6-base-dev qt6-base-dev-tools qt6-base-private-dev qt6-wayland libqt6svg6 qt6-tools-dev qt6-l10n-tools libwayland-dev libwayland-bin wayland-protocols
         network-manager network-manager-gnome blueman bluez pipewire-pulse wireplumber pulseaudio-utils
-        playerctl brightnessctl fastfetch htop libnotify-bin policykit-1-gnome papirus-icon-theme fonts-noto-core fonts-dejavu-core
+        playerctl brightnessctl fastfetch htop libnotify-bin hyprpolkitagent papirus-icon-theme fonts-noto-core fonts-dejavu-core
         yt-dlp ffmpeg nodejs sudo x11-xserver-utils x11-apps hyprcursor-util openssl virt-viewer python3-virt-firmware gnutls-bin
         autoconf automake libtool libtool-bin make perl gettext gawk expect socat libssl-dev
-        libtasn1-6-dev libgmp-dev libglib2.0-dev libgnutls28-dev libseccomp-dev libfuse3-dev libei-dev
+        libtasn1-6-dev libgmp-dev libglib2.0-dev libgnutls28-dev libseccomp-dev libfuse3-dev libei-dev libeis-dev
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod'''.split(),
 }
 COMMANDS = '''git Hyprland hyprctl hyprpaper hyprlock waybar kitty dolphin konsole swaync swaync-client grim slurp
@@ -77,6 +77,7 @@ def distro(data=None):
 
 def minimum_versions():
     # Fedora's Kitty 0.47 supports the dashboard, PNG graphics and theme config.
+    if runtime_install.policy.debian_host(distribution()): return {**MINIMUM, 'kitty':(0,48,2)}
     return {**MINIMUM, 'kitty':(0,47,1)} if runtime_install.policy.fedora_host(distribution()) else MINIMUM
 
 
@@ -91,13 +92,13 @@ def platform_problems(auto_packages=True):
         if family not in PACKAGES:
             problems.append(name+' has no automatic package installer in this release. '+
                             'Use --skip-packages only after supplying the exact compositor and all dependencies.')
-        elif family != 'arch' and not runtime_install.policy.fedora_host(data) and runtime_install.policy.problem():
+        elif family != 'arch' and not runtime_install.policy.fedora_host(data) and not runtime_install.policy.debian_host(data) and runtime_install.policy.problem():
             problems.append(name+' needs a native installation of the exact Hyprland version first. '+
                             'The bundled Arch package cannot be installed on this distribution.')
         if Path('/run/ostree-booted').exists():
             problems.append('Automatic package installation is unavailable on an immutable OSTree desktop.')
         tools={'arch':('pacman','pacman-conf','pacman-key','sudo'),
-               'fedora':('dnf','rpm','rpmkeys','sudo'),'debian':('apt-get','sudo')}.get(family,())
+               'fedora':('dnf','rpm','rpmkeys','sudo'),'debian':('apt-get','dpkg-query','dpkg-deb','sudo')}.get(family,())
         problems.extend('Required package tool is missing: '+tool for tool in tools if not shutil.which(tool))
     return problems
 
@@ -126,6 +127,10 @@ def preflight():
     if runtime_install.policy.fedora_host(data):
         import fedora_runtime
         fedora_runtime.preflight(PACKAGES['fedora'])
+        return
+    if runtime_install.policy.debian_host(data):
+        import debian_runtime
+        debian_runtime.preflight(PACKAGES['debian'])
         return
     if distro(data) != 'arch': return
     result=subprocess.run(['pacman','-Sp','--noconfirm','--print-format','%n %v',*PACKAGES['arch']],
@@ -168,6 +173,8 @@ def check(runtime=True):
     errors += ['Missing command: '+command for command in COMMANDS if not shutil.which(command)]
     if runtime_install.policy.fedora_host(distribution()) and not find_library('SDL3'):
         errors.append('QEMU needs the SDL3 runtime: install SDL3.')
+    if runtime_install.policy.debian_host(distribution()) and not find_library('SDL3'):
+        errors.append('QEMU needs the SDL3 runtime: install libsdl3-0 from the matching Debian bundle.')
     if not konsole_part_available():
         errors.append('Dolphin terminal component is missing: install Konsole (konsole-part on Fedora, konsole-kpart on Debian).')
     if not any(shutil.which(command) for command in ('deno','node','qjs')):

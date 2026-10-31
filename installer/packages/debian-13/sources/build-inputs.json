@@ -1,0 +1,50 @@
+[
+  {
+    "directory": "hyprland-source",
+    "archive": "hyprland-source-source.tar.xz",
+    "original": "hyprland_0.56.2+ds.orig.tar.xz",
+    "original_sha256": "6544435b9680e86380b7ab663063f773ae930c7ff0ac607a8fdb0aba16556287"
+  },
+  {
+    "directory": "lua5.5-5.5.1",
+    "archive": "lua5.5-5.5.1-source.tar.xz",
+    "original": "lua5.5_5.5.1.orig.tar.gz",
+    "original_sha256": "1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373dce"
+  },
+  {
+    "directory": "libinput-1.31.3",
+    "archive": "libinput-1.31.3-source.tar.xz",
+    "original": "libinput_1.31.3.orig.tar.gz",
+    "original_sha256": "1c37348cf34cc1ac85c94f41a978ec6a81613f7146bf994c9457137c4a85a249"
+  },
+  {
+    "directory": "wayland-1.26.0",
+    "archive": "wayland-1.26.0-source.tar.xz",
+    "original": "wayland_1.26.0.orig.tar.xz",
+    "original_sha256": "64176eaa46e4969903e286f8e5ef8331affc17fdf03ac9b58381d2b23162b7a3"
+  },
+  {
+    "directory": "wayland-protocols-1.49",
+    "archive": "wayland-protocols-1.49-source.tar.xz",
+    "original": "wayland-protocols_1.49.orig.tar.xz",
+    "original_sha256": "ec4c8f74942d6dff7ace8b4ce4764f0ef9ff618a935d974ea77edee2ad240b14"
+  },
+  {
+    "directory": "waybar-0.15.0",
+    "archive": "waybar-0.15.0-source.tar.xz",
+    "original": "waybar_0.15.0.orig.tar.gz",
+    "original_sha256": "4171a5deb3e7e20f234041044b4c089ec46804ab6c0cc8bea3bb9179f92feaec"
+  },
+  {
+    "directory": "kitty-0.48.2",
+    "archive": "kitty-0.48.2-source.tar.xz",
+    "original": "kitty_0.48.2.orig.tar.gz",
+    "original_sha256": "c45d39fb54949a93b83ae5430022f02df6d93d3bd31fcc63ffb80b6b5babd073"
+  },
+  {
+    "directory": "libsdl3-3.4.18+ds",
+    "archive": "libsdl3-3.4.18+ds-source.tar.xz",
+    "original": "libsdl3_3.4.18+ds.orig.tar.xz",
+    "original_sha256": "993c78dc028d879e86ec9faa6a7f8c97c73921ad4d52902da6778baf98f1fea8"
+  }
+]

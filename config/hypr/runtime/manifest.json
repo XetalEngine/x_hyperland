@@ -6,5 +6,6 @@
   "architecture": "x86_64",
   "package_sha256": "163bc740241880192d90027fad39ddb809b1705b04800a1f0185a58f3ce0884a",
   "signature_sha256": "a885f28848fd22ca02cb9cb92d4d33feb5ae4de729409ef0900ec354dfcf095b",
-  "fedora_manifest": "fedora-44.json"
+  "fedora_manifest": "fedora-44.json",
+  "debian_manifest": "debian-13.json"
 }

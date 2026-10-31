@@ -38,10 +38,11 @@ Hyper Fusion brings the whole desktop together: a launcher you can arrange yours
 | **CachyOS** | Fresh-install testing; automatic x86-64 setup, with repository checks for v3/v4 packages. |
 | **Manjaro** | Project-reported testing and stable-repository compatibility checks; uses the Arch-family setup path. |
 | **Fedora 44** | Native x86-64 RPM setup, desktop build and recovery checks; graphical VM testing is ongoing. Targets mutable Workstation/KDE installations. |
+| **Debian 13 (trixie)** | Native x86-64 DEB bundle, clean-container installation and complete desktop build; graphical VM login testing is pending. |
 
-These notes describe project testing, not certification of every release or GPU. Setup checks the recipient's repositories and dependencies before changing the compositor. Fedora Atomic/OSTree editions and automatic Debian/Ubuntu installation are outside the current supported setup paths. See [dependencies and compatibility](docs/DEPENDENCIES.md) for the exact scope.
+These notes describe project testing, not certification of every release or GPU. Setup checks the recipient's repositories and dependencies before changing the compositor. Fedora Atomic/OSTree editions, Ubuntu and other Debian releases are outside the current automatic setup paths. See [dependencies and compatibility](docs/DEPENDENCIES.md) for the exact scope.
 
-> **Control Panel compatibility:** Some features currently work **only on Arch-based systems, until further notice**. These include Pacman/Paru/Yay, Arch package repair and kernel-management tools. Fedora desktop support does not provide Fedora equivalents for these features.
+> **Control Panel compatibility:** Some features currently work **only on Arch-based systems, until further notice**. These include Pacman/Paru/Yay, Arch package repair and kernel-management tools. Fedora and Debian desktop support do not provide distribution-specific equivalents for these features.
 
 ## Install
 
@@ -67,12 +68,13 @@ When Setup finishes, **log out, select Hyprland and sign in again**. Your curren
 
 ### One tested compositor version
 
-This release uses **Hyprland 0.56.2** and its exact tested source commit so the desktop, **Cube** and **Burn** stay compatible. Setup installs or downgrades to that version and applies the appropriate package holds.
+This release uses **Hyprland 0.56.2** and its exact tested source commit so the desktop, **Cube**, **Burn** and **Minimize** stay compatible. Setup installs or downgrades to that version and applies the appropriate package holds.
 
 | Included runtime | Download ZIP contains |
 | --- | --- |
 | **Arch family** | Signed official Hyprland **0.56.2-4** package — **51.3 MB**. |
 | **Fedora 44** | Signed **0.56.2-6.fc44** runtime, matching libraries and headers — **55.9 MB**; corresponding LGPL source RPMs add **55.4 MB** separately. |
+| **Debian 13** | Native **0.56.2** runtime, matching headers/libraries, Waybar, Kitty and SDL3 — **22.3 MB ZIP**; corresponding sources are included separately. |
 
 Each bundled package is below 100 MB. Fedora packages come from the documented giperborey/Hyprland COPR publisher; Setup verifies them without enabling a COPR repository. Other desktop dependencies still download as needed. Future compositor changes go through foreground Setup together with matching desktop/effect builds. [Installer, signatures and recovery →](docs/INSTALLER.md)
 
@@ -253,7 +255,7 @@ python3 -m unittest discover -s tests -v
 python3 tests/run-file-preview-checks.py
 ```
 
-The [installer compatibility workflow](.github/workflows/installer-compatibility.yml) checks Arch-family repositories and runs Fedora installation, native builds and recovery in a disposable container. Graphical login, GPU/driver and physical passthrough testing remain separate.
+The [installer compatibility workflow](.github/workflows/installer-compatibility.yml) checks Arch-family repositories and runs Fedora and Debian installation, native builds and recovery in disposable containers. Graphical login, GPU/driver and physical passthrough testing remain separate.
 
 </details>
 
