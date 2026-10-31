@@ -26,6 +26,7 @@ class GTK:
             'gtk_label_new': (p, s), 'gtk_label_set_text': (None, p, s),
             'gtk_label_set_markup': (None, p, s), 'gtk_label_set_xalign': (None, p, C.c_float),
             'gtk_label_set_line_wrap': (None, p, i), 'gtk_label_set_max_width_chars': (None, p, i),
+            'gtk_label_set_lines': (None, p, i), 'gtk_label_set_ellipsize': (None, p, i),
             'gtk_label_set_selectable': (None, p, i),
             'gtk_button_new_with_label': (p, s), 'gtk_button_set_label': (None, p, s),
             'gtk_entry_new': (p,), 'gtk_entry_set_text': (None, p, s), 'gtk_entry_get_text': (s, p),

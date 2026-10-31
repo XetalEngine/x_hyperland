@@ -10,6 +10,20 @@ import tempfile
 ROOT = Path(__file__).resolve().parent
 
 
+def system_includes(flags):
+    """Keep vendor headers out of project-only warning checks, like CMake does."""
+    result = []
+    args = iter(flags)
+    for flag in args:
+        if flag == '-I':
+            result += ['-isystem', next(args)]
+        elif flag.startswith('-I'):
+            result += ['-isystem', flag[2:]]
+        else:
+            result.append(flag)
+    return result
+
+
 def build_gtk():
     package = 'gtk+-3.0'
     version = subprocess.check_output(['pkg-config', '--modversion', package], text=True).strip()
@@ -57,7 +71,7 @@ def build():
         destination = ROOT/f'qt{major}/platformthemes'; destination.mkdir(parents=True, exist_ok=True)
         output = destination/'libxetaltheme.so'
         stamp = destination/'version.txt'
-        sources = [ROOT/'platformtheme.cpp', ROOT/'plugin.json', ROOT/'file_preview.hpp', ROOT/'file_places.hpp']
+        sources = [ROOT/'platformtheme.cpp', ROOT/'plugin.json', ROOT/'file_preview.hpp', ROOT/'file_places.hpp', Path(__file__)]
         if (output.exists() and stamp.exists() and stamp.read_text().strip() == version
                 and output.stat().st_mtime > max(p.stat().st_mtime for p in sources)):
             versions[str(major)] = version; continue
@@ -69,8 +83,12 @@ def build():
         with tempfile.TemporaryDirectory(prefix='.build-', dir=ROOT) as temporary:
             includes = [flag for flag in flags if flag.startswith(('-I', '-D'))]
             subprocess.run([moc, *includes, *private, str(ROOT/'platformtheme.cpp'), '-o', temporary+'/platformtheme.moc'], check=True)
+            # GCC 16 diagnoses Qt 6.10's incomplete-type SFINAE in its own
+            # headers. Keep -Werror on our sources, with Qt's public/private
+            # headers correctly classified as system headers for the compiler.
             subprocess.run(['c++', '-std=c++17', '-O2', '-Wall', '-Wextra', '-Werror', '-fPIC', '-shared',
-                            '-I'+temporary, *private, str(ROOT/'platformtheme.cpp'), '-o', temporary+'/plugin.so', *flags], check=True)
+                            '-I'+temporary, *system_includes(private), str(ROOT/'platformtheme.cpp'),
+                            '-o', temporary+'/plugin.so', *system_includes(flags)], check=True)
             os.replace(temporary+'/plugin.so', output)
         stamp.write_text(version+'\n'); versions[str(major)] = version
     return versions

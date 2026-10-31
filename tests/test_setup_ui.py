@@ -14,7 +14,9 @@ REPO=Path(__file__).resolve().parents[1]
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--mode',choices=('fresh','fresh-no-startup','keep','defaults'),default='fresh')
-    mode=parser.parse_args().mode
+    parser.add_argument('--large',action='store_true',help='Check log expansion in a 1600x960 installer.')
+    parser.add_argument('--compiler-error',action='store_true',help='Show a long compiler diagnostic after the first build.')
+    options=parser.parse_args();mode=options.mode
     update=mode in ('keep','defaults');selected=mode in ('fresh','keep')
     sys.path.insert(0,str(REPO/'installer'))
     import wizard
@@ -28,6 +30,11 @@ def main():
     g.lib.gtk_button_get_label.argtypes=[C.c_void_p];g.lib.gtk_button_get_label.restype=C.c_char_p
     g.lib.gtk_widget_get_allocated_width.argtypes=[C.c_void_p];g.lib.gtk_widget_get_allocated_width.restype=C.c_int
     g.lib.gtk_widget_get_allocated_height.argtypes=[C.c_void_p];g.lib.gtk_widget_get_allocated_height.restype=C.c_int
+    if options.large:
+        g.lib.gtk_window_resize.argtypes=[C.c_void_p,C.c_int,C.c_int]
+        g.lib.gtk_window_move.argtypes=[C.c_void_p,C.c_int,C.c_int]
+        g.lib.gtk_window_resize(app.window,1600,960)
+        g.lib.gtk_window_move(app.window,0,0)
     phase=0;commands=[];failures=[];started=time.monotonic()
     class FakeProcess:
         def __init__(self,args,**kwargs):
@@ -42,15 +49,23 @@ def main():
             self.stdout=self.output()
         def output(self):
             yield 'Building Control Panel with 32 parallel jobs.\n'
+            for row in range(80):yield f'Build output line {row+1:02d}: checking desktop components and libraries.\n'
             if self.attempt==1:
                 while not app.cancel_file.exists() and time.monotonic()-started<20:time.sleep(.01)
-                yield 'Setup cancelled after completing the current step.\n'
+                if options.compiler_error:
+                    yield ('Installation stopped: Build failed: theme/build.py (exit 1). '
+                           '/usr/include/qt6/QtCore/qregularexpression.h:31:21: error: defining QRegularExpression, '
+                           'which previously failed to be complete in a SFINAE context [-Werror=sfinae-incomplete=]\n')
+                    yield 'Build output:\ncc1plus: all warnings being treated as errors\n'
+                else:
+                    yield 'Setup cancelled after completing the current step.\n'
         def wait(self):return 1 if self.attempt==1 else 0
     def capture(name):
         window=subprocess.check_output(['xdotool','search','--onlyvisible','--name','Hyper Fusion / Setup'],text=True).splitlines()[0]
-        subprocess.run(['import','-window',window,str(output/(mode+'-'+name+'.png'))],check=True,timeout=5)
-        assert g.lib.gtk_widget_get_allocated_width(app.window)<=1100
-        assert g.lib.gtk_widget_get_allocated_height(app.window)<=760
+        subprocess.run(['import','-window',window,str(output/(mode+('-large' if options.large else '')+'-'+name+'.png'))],check=True,timeout=5)
+        size=(g.lib.gtk_widget_get_allocated_width(app.window),g.lib.gtk_widget_get_allocated_height(app.window))
+        assert size[0]<=(1650 if options.large else 1100),(name,size)
+        assert size[1]<=(1000 if options.large else 760),(name,size)
     def tick(_):
         nonlocal phase
         try:
@@ -78,11 +93,16 @@ def main():
                 assert app.busy
                 assert not g.lib.gtk_widget_get_sensitive(app.next)
                 assert g.lib.gtk_button_get_label(app.next).decode()=='Installing…'
+                log_height=g.lib.gtk_widget_get_allocated_height(app.log_scroll)
+                assert log_height >= (520 if options.large else 260),log_height
                 capture('progress');app.close()
                 assert app.cancel_file.exists()
             elif phase==5:
                 if app.busy:return 1
-                assert not app.success;capture('cancelled');app.advance()
+                assert not app.success
+                if options.compiler_error:
+                    assert 'QRegularExpression' in g.lib.gtk_label_get_text(app.error).decode()
+                capture('failed' if options.compiler_error else 'cancelled');app.advance()
             elif phase==6:
                 if app.busy:return 1
                 assert app.success and app.index==4;capture('complete');app.close();return 0

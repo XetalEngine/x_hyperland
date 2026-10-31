@@ -114,19 +114,25 @@ class Wizard:
         card = self.box(page, spacing=12, name='card')
         self.review = self.label(card, '')
         self.label(page, 'Your current desktop is backed up before replacement.\nThe finished desktop starts at your next Hyprland login.', 'copy')
-        page = self.page('Building your workspace.', 'You can follow each step here.')
+        page = self.page('Building your workspace.', 'You can follow each step here.', spacing=12)
         self.status = self.label(page, 'Preparing…')
         self.progress = g.progress_bar_new(); g.box_pack_start(page, self.progress, 0, 0, 8)
         self.detail_caption = self.label(page, 'Package setup → Build → Validate → Install', 'copy')
         self.expander = g.expander_new(b'Installation details'); g.box_pack_start(page, self.expander, 1, 1, 0)
-        scroll = g.scrolled_window_new(None, None); g.scrolled_window_set_policy(scroll, 1, 1)
-        g.widget_set_size_request(scroll, -1, 190); g.container_add(self.expander, scroll)
+        g.widget_set_vexpand(self.expander, 1); g.expander_set_expanded(self.expander, 1)
+        self.log_scroll = scroll = g.scrolled_window_new(None, None); g.scrolled_window_set_policy(scroll, 1, 1)
+        g.widget_set_size_request(scroll, -1, 260); g.widget_set_vexpand(scroll, 1)
+        g.container_add(self.expander, scroll)
         self.log_view = g.text_view_new(); g.text_view_set_editable(self.log_view, 0)
+        g.widget_set_vexpand(self.log_view, 1)
         g.text_view_set_monospace(self.log_view, 1); g.text_view_set_wrap_mode(self.log_view, 2)
         self.log_buffer = g.text_view_get_buffer(self.log_view); g.container_add(scroll, self.log_view)
         page = self.page('Your next login starts here.', 'Your workspace is ready.')
         self.complete = self.label(page, '', 'copy')
         self.error = self.label(main, '', 'error')
+        # The complete diagnostic stays in the scrollable log; a long summary
+        # must not push Retry/Close below a small laptop display.
+        g.label_set_ellipsize(self.error, 3); g.label_set_lines(self.error, 3)
         footer = self.box(main, vertical=False, spacing=10, name='footer')
         self.cancel = self.button(footer, 'Cancel', self.close)
         spacer = self.box(footer); g.widget_set_hexpand(spacer, 1)
@@ -159,8 +165,8 @@ class Wizard:
         self.g.box_pack_start(parent, widget, 0, 0, 0); self.g.connect(widget, 'clicked', action)
         return widget
 
-    def page(self, title, subtitle):
-        page = self.g.box_new(1, 20)
+    def page(self, title, subtitle, spacing=20):
+        page = self.g.box_new(1, spacing)
         self.label(page, title, 'title'); self.label(page, subtitle, 'copy')
         self.g.stack_add_named(self.stack, page, str(len(self.pages)).encode()); self.pages.append(page)
         return page
