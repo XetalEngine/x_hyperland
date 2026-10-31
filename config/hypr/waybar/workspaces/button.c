@@ -9,11 +9,12 @@
 const size_t wbcffi_version = 2;
 
 typedef struct {
-    GtkWidget *button, *overlay, *content, *close;
+    GtkWidget *button, *overlay, *content, *close, *label;
     gint margin;
     long number;
+    int face;
     char *original_label;
-    gulong destroy_handler;
+    gulong destroy_handler, label_handler;
 } Decoration;
 
 typedef struct {
@@ -94,8 +95,34 @@ static long workspace_number(GtkWidget *button) {
     return valid ? number : 0;
 }
 
+static void label_changed(GObject *label, GParamSpec *property, gpointer data) {
+    Decoration *d = data;
+    if (!d->face) return;
+    /* Waybar rewrites this label during workspace and window updates. Correct
+     * it in the same GTK notification, before layout/paint, not on our timer. */
+    char *text = g_strdup_printf("%d ", d->face);
+    if (g_strcmp0(text, gtk_label_get_text(GTK_LABEL(label))))
+        gtk_label_set_text(GTK_LABEL(label), text);
+    g_free(text);
+}
+
+static void watch_label(Decoration *d, GtkWidget *label) {
+    if (d->label == label) return;
+    if (d->label) {
+        g_signal_handler_disconnect(d->label, d->label_handler);
+        g_object_remove_weak_pointer(G_OBJECT(d->label), (gpointer *)&d->label);
+    }
+    d->label = label;
+    d->label_handler = 0;
+    if (label) {
+        g_object_add_weak_pointer(G_OBJECT(label), (gpointer *)&d->label);
+        d->label_handler = g_signal_connect(label, "notify::label", G_CALLBACK(label_changed), d);
+    }
+}
+
 static void workspace_destroyed(GtkWidget *widget, gpointer data) {
     Decoration *d = data;
+    watch_label(d, NULL);
     d->button = d->overlay = d->content = d->close = NULL;
 }
 
@@ -164,8 +191,10 @@ static gboolean refresh(gpointer data) {
         if (!d->number) d->number = number;
         number = d->number;
         int face = GPOINTER_TO_INT(g_hash_table_lookup(faces, GSIZE_TO_POINTER(number)));
+        d->face = cube ? face : 0;
         gtk_widget_set_visible(button, !cube || face > 0);
         GtkWidget *label = find_widget(button, "workspace-label", TRUE);
+        watch_label(d, GTK_IS_LABEL(label) ? label : NULL);
         if (GTK_IS_LABEL(label)) {
             char *text = !cube && number < 0 ? g_strdup(d->original_label) : g_strdup_printf("%ld ", cube && face ? (long)face : number);
             if (g_strcmp0(text, gtk_label_get_text(GTK_LABEL(label)))) gtk_label_set_text(GTK_LABEL(label), text);
@@ -203,6 +232,7 @@ void wbcffi_deinit(void *instance) {
     if (owner->timer) g_source_remove(owner->timer);
     for (GSList *it = owner->decorations; it; it = it->next) {
         Decoration *d = it->data;
+        watch_label(d, NULL);
         if (d->button) {
             GtkWidget *label = find_widget(d->button, "workspace-label", TRUE);
             if (GTK_IS_LABEL(label) && d->number) {

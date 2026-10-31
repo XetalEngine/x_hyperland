@@ -54,14 +54,19 @@ def run():
                     try:return (root/'cube-state').read_text()
                     except OSError:return ''
                 wait_for(lambda:cube_state()=='1 |2 |0|0', 'Cube labels or disabled add/remove controls are wrong')
+                xdo('key','u')
+                labels=[line for line in actions() if line.startswith('labels ')]
+                assert labels==['labels 1 |2 ']*25, 'Internal workspace numbers escaped before refresh: '+repr(labels)
                 _,_,_,bx,by=geometry();click(bx,by);assert actions()[-1]=='activate 5',actions()
                 xdo('key','b');time.sleep(.3)
                 assert cube_state()=='1 |2 |0|0',cube_state()
                 state.write_text('disabled\n')
                 wait_for(lambda:cube_state()=='2 |5 |1|1','Global workspace labels were not restored')
+                xdo('key','u')
+                assert actions()[-25:]==['labels 2 |5 ']*25,actions()[-25:]
                 xdo('key','l');wait_for(lambda:geometry()[0]==0,'Last workspace must keep its number without a close button')
                 assert proc.poll() is None
-                print('PASS: real close click never activates workspace; number click works; occupied/last protection; live empty updates; destroy/recreate; module reload.')
+                print('PASS: real close click never activates workspace; number click works; occupied/last protection; live empty updates; destroy/recreate; module reload; cube labels stay local during synchronous Waybar rewrites.')
             finally:
                 proc.terminate();proc.wait(timeout=4);log.seek(0);errors=log.read()
                 assert not any(word in errors for word in ['CRITICAL','WARNING','ERROR']),errors

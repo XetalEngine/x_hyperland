@@ -39,6 +39,17 @@ static gboolean keyboard(GtkWidget *widget, GdkEventKey *event, gpointer data) {
     if (event->keyval==GDK_KEY_r) { gtk_widget_destroy(empty);empty=NULL; }
     if (event->keyval==GDK_KEY_n) empty=workspace("5 ",TRUE,"activate 5");
     if (event->keyval==GDK_KEY_l) { gtk_widget_destroy(occupied);occupied=NULL; }
+    if (event->keyval==GDK_KEY_u) {
+        GtkWidget *a=find_widget(occupied,"workspace-label",TRUE), *b=find_widget(empty,"workspace-label",TRUE);
+        /* Waybar sets markup on every workspace/window update. Read back in
+         * this same event: a later timeout must not hide a visible flicker. */
+        for (int i=0; i<25; ++i) {
+            gtk_label_set_markup(GTK_LABEL(a),"<b>2</b> ");
+            gtk_label_set_markup(GTK_LABEL(b),"5 ");
+            char *text=g_strdup_printf("labels %s|%s",gtk_label_get_text(GTK_LABEL(a)),gtk_label_get_text(GTK_LABEL(b)));
+            record(text);g_free(text);
+        }
+    }
     if (event->keyval==GDK_KEY_b) {
         wbcffi_deinit(instance);
         g_assert(GTK_IS_BOX(gtk_bin_get_child(GTK_BIN(empty))));
