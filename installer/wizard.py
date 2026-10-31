@@ -94,12 +94,13 @@ class Wizard:
         self.startup = g.check_button_new_with_label(b'Keep my existing desktop and startup preferences' if update else
                                                    b'Show the animated dashboard when I sign in')
         g.toggle_button_set_active(self.startup, 1); g.box_pack_start(page, self.startup, 0, 0, 0)
-        if update: g.widget_set_sensitive(self.startup, 0)
+        if update:
+            self.label(page, 'Uncheck to use the current desktop and startup defaults.\nYour existing profile will be backed up.', 'copy')
         self.label(page, 'Desktop and build dependencies are installed as needed.\nAn administrator password may be requested in a separate window.\nKVM components download separately from KVM Settings.', 'copy')
         page = self.page('Ready when you are.', 'Review your setup, then let us handle the rest.')
         card = self.box(page, spacing=12, name='card')
         self.review = self.label(card, '')
-        self.label(page, 'Your current desktop is backed up before replacement.\n'+('Updates merge your personal settings.' if update else 'The finished desktop starts at your next Hyprland login.'), 'copy')
+        self.label(page, 'Your current desktop is backed up before replacement.\nThe finished desktop starts at your next Hyprland login.', 'copy')
         page = self.page('Building your workspace.', 'You can follow each step here.')
         self.status = self.label(page, 'Preparing…')
         self.progress = g.progress_bar_new(); g.box_pack_start(page, self.progress, 0, 0, 8)
@@ -168,20 +169,28 @@ class Wizard:
         if self.busy: return
         if self.index == 4: self.close(); return
         if self.index == 1:
+            selected = bool(self.g.toggle_button_get_active(self.startup))
+            preferences = ('Keep existing desktop and startup preferences' if selected else
+                           'Use current desktop and startup defaults') if self.update else (
+                           'Startup dashboard: on' if selected else 'Startup dashboard: off')
             text = ('Desktop folder\n'+str(Path.home()/'.config/hypr')+'\n\nHyprland '+self.target['hyprland']+
-                    '  ·  Cube and Burn included\nUse all '+str(cpu_count())+' available CPU threads for compilation\n\nSource '+self.revision[:8])
+                    '  ·  Cube and Burn included\nUse all '+str(cpu_count())+' available CPU threads for compilation\n\n'+
+                    preferences+'\n\nSource '+self.revision[:8])
             self.g.label_set_text(self.review, text.encode())
         if self.index == 2:
             self.busy = True; self.lines = []; self.cancel_file.unlink(missing_ok=True)
             self.g.widget_set_sensitive(self.cancel, 1); self.g.label_set_text(self.error, b'')
             self.g.progress_bar_set_fraction(self.progress, 0.03); self.show(3)
-            self.startup_enabled = bool(self.g.toggle_button_get_active(self.startup))
+            selected = bool(self.g.toggle_button_get_active(self.startup))
+            self.preserve_preferences = self.update and selected
+            # Resetting an existing desktop restores its startup default too.
+            self.startup_enabled = self.update or selected
             threading.Thread(target=self.worker, daemon=True).start()
         else: self.show(self.index+1)
 
     def worker(self):
         try:
-            if self.update:
+            if self.preserve_preferences:
                 args = [sys.executable, str(install.REPO/'installer/update.py'), '--revision', self.revision,
                         '--manual', '--runtime', '--activate', '--cancel-file', str(self.cancel_file)]
             else:
