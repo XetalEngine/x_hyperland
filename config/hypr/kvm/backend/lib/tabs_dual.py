@@ -26,6 +26,7 @@ class DualGPUTab(QScrollArea):
         self.cfg = cfg
         self._loading = True
         self._auto_open = False
+        self._auto_minimize = False
         self._last_output = None
         self._submission_deadline = 0
         self.run = dual_gpu.current_run()
@@ -564,10 +565,12 @@ class DualGPUTab(QScrollArea):
             QMessageBox.critical(self, "Cannot launch", "\n\n".join(errors[:8]))
             return
         self.btn_launch.setEnabled(False)
+        self._auto_minimize = False
         self._submitting = True
         QApplication.processEvents()
         try:
             self.run = dual_gpu.launch(self.cfg)
+            self._auto_minimize = True
             self._auto_open = self.auto_open.isChecked() and self.viewer.currentData() != "physical"
             self._submission_deadline = time.monotonic() + 20
             self._last_output = None
@@ -614,19 +617,31 @@ class DualGPUTab(QScrollArea):
                 self.log.setPlainText(output)
                 self.log.verticalScrollBar().setValue(self.log.verticalScrollBar().maximum())
                 self._last_output = output
+        if not (active or pending) or state.get("state") == "stopping":
+            self._auto_minimize = False
+        minimize = running and self._auto_minimize
+        # Consume the launch action before a viewer error can enter a modal loop.
+        if running:
+            self._auto_minimize = False
+        opened = True
         if running and self._auto_open:
             self._auto_open = False
             if viewer == "looking-glass" and not dual_gpu.viewer_command(self.run):
-                self._open_console()
+                opened = self._open_console()
             else:
-                self._open_viewer()
+                opened = self._open_viewer()
+        if minimize and opened:
+            # Target Settings itself: the viewer may already have keyboard focus.
+            self.window().showMinimized()
 
     def _open_viewer(self):
         try:
             run = dict(self.run, options=dict(self.run.get('options') or self.settings(), floating=self.floating.isChecked()))
             dual_gpu.open_viewer(run)
+            return True
         except Exception as exc:
             QMessageBox.information(self, "Open viewer", str(exc))
+            return False
 
     def _open_console(self):
         try:
@@ -635,8 +650,10 @@ class DualGPUTab(QScrollArea):
                 opts = self.settings()
                 opts["server"] = "vnc" if opts["viewer"] == "vnc" else "spice"
             virtual_gpu.open_viewer(dict(opts, floating=self.floating.isChecked()))
+            return True
         except Exception as exc:
             QMessageBox.information(self, "Setup console", str(exc))
+            return False
 
     def _control(self, command):
         if command == "system_reset" and QMessageBox.warning(self, "Restart guest",

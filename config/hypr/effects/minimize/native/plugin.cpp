@@ -41,7 +41,7 @@ using Rect=Minimize::Rect;
 HANDLE handle;
 Minimize::Settings settings;
 Minimize::Graphics graphics;
-bool stopping=false, mutating=false, capturing=false;
+bool stopping=false, mutating=false, capturing=false, effectsHidden=false;
 uint64_t sequence=0, requests=0, restored=0, draws=0;
 SP<CEventLoopTimer> timer;
 SP<SHyprCtlCommand> statusCommand;
@@ -91,7 +91,7 @@ PHLMONITOR fallback() {
     return nullptr;
 }
 bool visible(PHLMONITOR m) {
-    return !stopping && online(m) && g_pCompositor->m_sessionActive &&
+    return !stopping && !effectsHidden && online(m) && g_pCompositor->m_sessionActive &&
         !g_pSessionLockManager->isSessionLocked() && !PROTO::inputCapture->isCaptured() &&
         std::ranges::any_of(records,[&](const auto& r){return r->monitor.lock()==m;});
 }
@@ -262,11 +262,26 @@ void restore(const std::shared_ptr<Record>& r, bool animate=true, bool focus=tru
         else {m->setSpecialWorkspace(nullptr);m->changeWorkspace(destination,false,true,true);}
     }
     if(dock && dock!=m)g_pHyprRenderer->damageMonitor(dock);
-    if(!animate || !focus || !r->snapshot || dock!=m)finish(r,focus);
+    if(!animate || effectsHidden || !focus || !r->snapshot || dock!=m)finish(r,focus);
     else {damage();arm();}
 }
 void restoreAll() {
     auto copy=records;for(auto& r:copy)restore(r,false,false);
+}
+void toggleVisibility() {
+    effectsHidden=!effectsHidden;
+    // Finish any restore already in flight: its real window must become visible
+    // even when the snapshot animation has just been hidden.
+    auto copy=records;
+    for(auto& r:copy){
+        r->lastFrame=Clock::now();
+        if(effectsHidden && r->restoring)finish(r,true);
+    }
+    // Damage explicitly when hiding, since damage() only visits visible effects.
+    for(auto& m:State::monitorState()->monitors())if(online(m)){
+        g_pHyprRenderer->damageMonitor(m);m->recheckSolitary();
+    }
+    arm();
 }
 
 void snapshot(const Record& r, PHLMONITOR m, Rect destination, float alpha) {
@@ -387,7 +402,8 @@ void tick(SP<CEventLoopTimer> self,void*) {
         else if(progress(*r)>=1)r->settled=true;
     }
     damage(false);
-    if(!records.empty() || !pending.empty())self->updateTimeout(std::chrono::milliseconds(16));
+    if(!pending.empty() || std::ranges::any_of(records,[](const auto& r){return !effectsHidden || !r->settled;}))
+        self->updateTimeout(std::chrono::milliseconds(16));
 }
 void cleanup() {
     stopping=true;listeners.clear();pending.clear();
@@ -404,7 +420,7 @@ void cleanup() {
 
 APICALL EXPORT std::string PLUGIN_API_VERSION(){return HYPRLAND_API_VERSION;}
 APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
-    handle=h;stopping=false;
+    handle=h;stopping=false;effectsHidden=false;
     if(std::string(__hyprland_api_get_hash())!=__hyprland_api_get_client_hash())throw std::runtime_error("Rebuild Minimize for this Hyprland ABI");
     if(g_pHyprRenderer->type()!=Render::IHyprRenderer::RT_GL)throw std::runtime_error("Minimize needs the OpenGL renderer");
     settings=readSettings();
@@ -445,6 +461,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         // normal workspace migration then keeps every app reachable on return.
         listeners.push_back(Event::bus()->m_events.monitor.preRemoved.listen([](PHLMONITOR){restoreAll();}));
         HyprlandAPI::addDispatcherV2(handle,"xetalminimize:minimize",[](std::string){enqueue(Desktop::focusState()->window(),true);return SDispatchResult{};});
+        HyprlandAPI::addDispatcherV2(handle,"xetalminimize:togglevisibility",[](std::string){toggleVisibility();return SDispatchResult{};});
         HyprlandAPI::addDispatcherV2(handle,"xetalminimize:restoreall",[](std::string){restoreAll();return SDispatchResult{};});
         HyprlandAPI::addDispatcherV2(handle,"xetalminimize:restore",[](std::string id){
             for(auto& r:records)if(id==std::to_string(r->id)){enqueue(member(*r),false);return SDispatchResult{};}
@@ -456,11 +473,11 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         });
         statusCommand=HyprlandAPI::registerHyprCtlCommand(handle,{"xetal-minimize",true,[](eHyprCtlOutputFormat,std::string){
             std::string items;for(auto& r:records){auto b=slot(*r);if(!items.empty())items+=",";
-                items+=std::format("{{\"id\":{},\"workspace\":{},\"restoring\":{},\"visible\":{},\"box\":[{},{},{},{}]}}",r->id,r->original?r->original->m_id:0,r->restoring,b.has_value(),b?b->x:0,b?b->y:0,b?b->w:0,b?b->h:0);
+                items+=std::format("{{\"id\":{},\"workspace\":{},\"restoring\":{},\"visible\":{},\"box\":[{},{},{},{}]}}",r->id,r->original?r->original->m_id:0,r->restoring,visible(r->monitor.lock()) && b.has_value(),b?b->x:0,b?b->y:0,b?b->w:0,b?b->h:0);
             }
-            return std::format("{{\"enabled\":{},\"effect\":\"{}\",\"edge\":\"{}\",\"order\":\"{}\",\"shape\":{},\"surface\":{},\"color\":[{},{},{}],\"active\":{},\"minimized\":{},\"restored\":{},\"draws\":{},\"windows\":[{}]}}",settings.enabled,settings.effect,settings.rightEdge?"right":"left",settings.bottomToTop?"bottom-to-top":"top-to-bottom",settings.shape,settings.surface,settings.rgb[0],settings.rgb[1],settings.rgb[2],records.size(),requests,restored,draws,items);
+            return std::format("{{\"enabled\":{},\"hidden\":{},\"effect\":\"{}\",\"edge\":\"{}\",\"order\":\"{}\",\"shape\":{},\"surface\":{},\"color\":[{},{},{}],\"active\":{},\"minimized\":{},\"restored\":{},\"draws\":{},\"windows\":[{}]}}",settings.enabled,effectsHidden,settings.effect,settings.rightEdge?"right":"left",settings.bottomToTop?"bottom-to-top":"top-to-bottom",settings.shape,settings.surface,settings.rgb[0],settings.rgb[1],settings.rgb[2],records.size(),requests,restored,draws,items);
         }});
     }catch(...){cleanup();throw;}
-    return {"Xetal Minimize","Fireball and living Splat minimize effects","XetalEngine","1.1"};
+    return {"Xetal Minimize","Fireball and living Splat minimize effects","XetalEngine","1.2"};
 }
 APICALL EXPORT void PLUGIN_EXIT(){cleanup();}

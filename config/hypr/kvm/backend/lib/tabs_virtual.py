@@ -22,6 +22,7 @@ class VirtualGPUTab(QScrollArea):
         self.cfg = cfg
         self._loading = True
         self._auto_open = False
+        self._auto_minimize = False
         self._last_output = None
         self._submission_deadline = 0
         self.run = virtual_gpu.current_run()
@@ -398,10 +399,12 @@ class VirtualGPUTab(QScrollArea):
                     QMessageBox.StandardButton.Cancel) != QMessageBox.StandardButton.Yes:
                 return
         self.btn_launch.setEnabled(False)
+        self._auto_minimize = False
         self._submitting = True
         QApplication.processEvents()
         try:
             self.run = virtual_gpu.launch(self.cfg)
+            self._auto_minimize = True
             self._auto_open = self.auto_open.isChecked()
             self._submission_deadline = time.monotonic() + 20
             self._last_output = None
@@ -444,17 +447,29 @@ class VirtualGPUTab(QScrollArea):
                 self.log.setPlainText(output)
                 self.log.verticalScrollBar().setValue(self.log.verticalScrollBar().maximum())
                 self._last_output = output
+        if not (active or pending) or state.get("state") == "stopping":
+            self._auto_minimize = False
+        minimize = running and self._auto_minimize
+        # Consume the launch action before a viewer error can enter a modal loop.
+        if running:
+            self._auto_minimize = False
+        opened = True
         if running and self._auto_open:
             self._auto_open = False
-            self._open_console()
+            opened = self._open_console()
+        if minimize and opened:
+            # Target Settings itself: the viewer may already have keyboard focus.
+            self.window().showMinimized()
 
     def _open_console(self):
         try:
             opts = dict(self.run.get('options') or self.settings(), floating=self.floating.isChecked())
             virtual_gpu.open_viewer(opts,
                                     remember_size=self.remember_console_size.isChecked())
+            return True
         except Exception as exc:
             QMessageBox.information(self, "Open console", str(exc))
+            return False
 
     def _control(self, command):
         if command == "system_reset" and QMessageBox.warning(self, "Restart guest",

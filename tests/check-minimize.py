@@ -194,6 +194,48 @@ debug {
         wait(lambda: restored('Wayland', ws))
         after = client('Wayland'); assert after['at'] == before['at'] and after['size'] == before['size'], (before, after)
         print('Wayland minimize button, pointer restore, geometry: passed', flush=True)
+        # Minimize a particular Qt window while a separate viewer has focus.
+        # This is the same native request used by KVM Settings after launch.
+        wayland('add', 'Viewer'); wait(lambda: any(c['title'] == 'Viewer' for c in clients()))
+        dispatch('setfloating', 'address:'+client('Viewer')['address'])
+        dispatch('resizewindowpixel', 'exact 420 260,address:'+client('Viewer')['address'])
+        dispatch('centerwindow')
+        dispatch('focuswindow', 'address:'+client('Viewer')['address'])
+        wayland('min', 'Wayland'); wait(lambda: status()['active'] == 1)
+        assert restored('Viewer', ws)
+        assert client('Wayland')['workspace']['name'].startswith('special:xetal-minimized-ws-')
+        # An ordinary underlying window must still receive pointer input when
+        # effects are hidden, and rendering must stop for both effect types.
+        wayland('add', 'Underlay'); wait(lambda: any(c['title'] == 'Underlay' for c in clients()))
+        dispatch('fullscreen', '1')
+        for effect in ('fireball', 'splat'):
+            config.write_text(model.encode(dict(model.DEFAULTS, effect=effect)))
+            dispatch('xetalminimize:reload'); time.sleep(.6)
+            item = status()['windows'][0]
+            dispatch('focuswindow', 'address:'+client('Viewer')['address'])
+            dispatch('xetalminimize:togglevisibility'); time.sleep(.15)
+            hidden = status(); assert hidden['hidden'] and not hidden['windows'][0]['visible']
+            run('grim', '-o', output_name, str(root/(effect+'-hidden.png')))
+            time.sleep(.2); assert status()['draws'] == hidden['draws']
+            click_or_scroll(item)
+            click_or_scroll(item, '1')
+            assert status()['active'] == 1  # Hidden effects cannot steal input.
+            assert json.loads(ctl('-j','activewindow'))['title'] == 'Underlay'
+            dispatch('xetalminimize:togglevisibility')
+            wait(lambda: status()['draws'] > hidden['draws'])
+            assert status()['windows'][0]['visible']
+        dispatch('xetalminimize:togglevisibility')
+        wayland('min', 'Viewer'); wait(lambda: status()['active'] == 2)
+        assert all(not item['visible'] for item in status()['windows'])
+        dispatch('focuswindow', 'address:'+client('Viewer')['address'])
+        wait(lambda: status()['active'] == 1)
+        assert restored('Viewer', ws) and status()['hidden']
+        dispatch('xetalminimize:restoreall'); wait(lambda: status()['active'] == 0)
+        assert restored('Wayland', ws)
+        dispatch('xetalminimize:togglevisibility')
+        wayland('close', 'Viewer'); wayland('close', 'Underlay')
+        config.write_text(model.encode(model.DEFAULTS)); dispatch('xetalminimize:reload')
+        print('Targeted Qt minimize; Fireball/Splat hide, render pause, pointer pass-through and hidden restore: passed', flush=True)
         wayland('min', 'Wayland'); wait(lambda: status()['active'] == 1)
         config.write_text(model.encode(dict(model.DEFAULTS, enabled=False)))
         dispatch('xetalminimize:reload'); wait(lambda: status()['active'] == 0)

@@ -547,6 +547,82 @@ def test_virtual_launch_never_uses_single_gpu_launch_or_hooks(window, monkeypatc
 
 
 @pytest.mark.parametrize("page", ["tab_virtual", "tab_dual"])
+@pytest.mark.parametrize("auto_open", [False, True])
+def test_successful_launch_minimizes_settings_once_after_readiness(window, monkeypatch, page, auto_open):
+    from PyQt6.QtWidgets import QWidget
+    tab = getattr(window, page)
+    backend = vmstart2.virtual_gpu if page == "tab_virtual" else dual_gpu
+    state = dict(state="running", pid=os.getpid(),
+                 process_start=Path(f"/proc/{os.getpid()}/stat").read_text().split()[21])
+    monkeypatch.setattr(vmstart2.virtual_gpu, "status", lambda _: state)
+    monkeypatch.setattr(vmstart2.virtual_gpu, "read_log", lambda _: "")
+    monkeypatch.setattr(tab, "before_launch", lambda: True)
+    monkeypatch.setattr(tab, "_preflight", lambda: [("ok", "ready")])
+    monkeypatch.setattr(backend, "launch", lambda _: {"options": {"viewer": "spice"}})
+    tab._poll()  # Opening Settings for an existing guest must not minimize it.
+    assert not window.isMinimized()
+    tab.auto_open.setChecked(auto_open)
+    viewer = QWidget()
+    try:
+        def open_viewer():
+            viewer.show()
+            viewer.activateWindow()
+            return True
+        monkeypatch.setattr(tab, "_open_console", open_viewer)
+        if page == "tab_dual":
+            monkeypatch.setattr(tab, "_open_viewer", open_viewer)
+        state["state"] = "pending"
+        tab._launch()
+        tab._poll()
+        assert not window.isMinimized()
+        state["state"] = "starting"
+        tab._poll()
+        assert not window.isMinimized()
+        state["state"] = "running"
+        tab._poll()
+        assert window.isMinimized()
+        assert not viewer.isMinimized()
+        window.showNormal()
+        tab._poll()
+        assert not window.isMinimized()  # Restoring Settings stays restored.
+    finally:
+        viewer.close()
+
+
+@pytest.mark.parametrize("page", ["tab_virtual", "tab_dual"])
+@pytest.mark.parametrize("failure", ["preflight", "submission", "supervisor", "viewer"])
+def test_launch_errors_keep_settings_visible(window, monkeypatch, page, failure):
+    tab = getattr(window, page)
+    backend = vmstart2.virtual_gpu if page == "tab_virtual" else dual_gpu
+    state = dict(state="pending")
+    monkeypatch.setattr(vmstart2.virtual_gpu, "status", lambda _: state)
+    monkeypatch.setattr(vmstart2.virtual_gpu, "read_log", lambda _: "")
+    monkeypatch.setattr(tab, "before_launch", lambda: True)
+    monkeypatch.setattr(tab, "_preflight", lambda: [("error", "failed")] if failure == "preflight" else [])
+    monkeypatch.setattr(QMessageBox, "critical", Mock())
+    monkeypatch.setattr(QMessageBox, "information", Mock())
+    launch = Mock(return_value={"options": {"viewer": "spice"}})
+    if failure == "submission":
+        launch.side_effect = RuntimeError("submission failed")
+    monkeypatch.setattr(backend, "launch", launch)
+    monkeypatch.setattr(vmstart2.virtual_gpu, "open_viewer", Mock(side_effect=RuntimeError("viewer failed")))
+    if page == "tab_dual":
+        monkeypatch.setattr(dual_gpu, "open_viewer", Mock(side_effect=RuntimeError("viewer failed")))
+    tab.auto_open.setChecked(True)
+    tab._launch()
+    if failure == "supervisor":
+        state.update(state="failed", message="QEMU failed")
+        tab._poll()
+        assert not tab._auto_minimize
+    else:
+        state.update(state="running", pid=os.getpid(),
+                     process_start=Path(f"/proc/{os.getpid()}/stat").read_text().split()[21])
+        tab._poll()
+    assert not window.isMinimized()
+    assert not tab._auto_minimize
+
+
+@pytest.mark.parametrize("page", ["tab_virtual", "tab_dual"])
 def test_launch_startup_failures_replace_waiting_and_disable_guest_controls(window, monkeypatch, page):
     tab = getattr(window, page)
     state = dict(state="pending", message="Starting the VM supervisor…")

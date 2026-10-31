@@ -14,6 +14,12 @@ The integrated editor retains vmstart_2's Windows and Apple profiles: Single GPU
 
 Administrator access is requested when launching a VM. No permanent passwordless-sudo rule is installed. Single GPU can detach the host graphics card and end the desktop; its existing confirmation and recovery hooks remain part of that workflow.
 
+After a **Virtual GPU** or **Dual GPU** launch reports that the guest is running,
+KVM Settings minimizes itself once. The viewer stays open. Failed starts or
+viewer-launch errors leave Settings visible, and restoring Settings does not
+minimize it again. **Super+Ctrl+Z** hides or shows the minimized effects while
+apps keep running; the taskbar icons can still restore them.
+
 Virtual GPU and Dual GPU open their console/viewer as a floating window by default. The **Floating** checkbox beside the launch-page preview/setup buttons saves separately for each mode and profile; uncheck it to tile newly opened screens. It also applies to SPICE, VNC and Looking Glass opened while a guest is running. The rule belongs only to that viewer launch.
 
 **Machine & network → Create Bridge** appears when the selected host bridge is missing. One click selects the connected Ethernet adapter, requests administrator authentication, preserves its IP/DNS settings, and selects the new bridge for the guest. NetworkManager checkpoints recover the original connection if setup fails; the original Ethernet profile is retained. Existing bridges are reused. Ambiguous, Wi-Fi-only or complex enterprise connections explain the alternative instead of guessing. **NAT — share the host connection** works without a bridge, including on Wi-Fi. The wizard offers both choices at Finish and defaults to NAT when the baseline bridge is unavailable. Host network changes are blocked while a guest is running.

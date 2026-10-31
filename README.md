@@ -215,6 +215,7 @@ Runtime components download inside KVM Settings; they are not bundled with the d
 | **Ctrl+Alt+left mouse drag** | Rotate this monitor's cube |
 | **Super+V** | Toggle floating |
 | **Super+Z** | Minimize the active window |
+| **Super+Ctrl+Z** | Hide/show minimized Fireball and Splat effects |
 | **Super+F / Super+B** | Bring to front / send to back |
 | **Super+Shift+F** | Toggle fullscreen |
 | **Super+left / right mouse drag** | Move / resize a window |

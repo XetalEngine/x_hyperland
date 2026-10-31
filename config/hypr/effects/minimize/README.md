@@ -8,6 +8,11 @@ apps under **M3**, for example, followed by their app icons: “M” means minim
 and “3” is their original workspace. Cube uses its local 1–4 face number.
 Clicking an app icon restores that specific app.
 
+**Super+Ctrl+Z** hides or shows all minimized effects for this session. Apps
+stay minimized and running; their taskbar icons can still restore them. Hidden
+effects do not draw or intercept clicks or scrolling. This works for both
+Fireball and Splat, including windows minimized while the effects are hidden.
+
 **Fusion Settings → Theme → Window effects → Minimize** controls the effect,
 screen edge (Left/Right), stack direction (Bottom to top/Top to bottom),
 travel time, size, animation speed and color. Placement changes move existing
@@ -63,7 +68,9 @@ hyprctl dispatch xetalminimize:restoreall
 bounded to 1024 pixels on their longest side. Visible effects update at up to 60 FPS and damage only their small screen
 region. Fire uses a fixed 30 ms physics step and a bounded 384-particle pool
 per window; offscreen effects skip simulation and rendering. There is no frame
-timer when no windows are minimized.
+timer when no windows are minimized, or when all effects are hidden and travel
+has finished. `hyprctl dispatch xetalminimize:togglevisibility` also toggles
+visibility, and `hyprctl xetal-minimize` reports the session's `hidden` state.
 
 ## Development checks
 
