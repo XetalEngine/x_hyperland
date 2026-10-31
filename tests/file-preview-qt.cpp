@@ -12,6 +12,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QTreeWidget>
 #include <cstdio>
 #include <functional>
 
@@ -30,6 +31,14 @@ int main(int argc, char **argv) {
     // Show before processing the platform theme's startup callback.
     auto first=new QFileDialog(nullptr,"Choose cube picture",files.path());
     first->setOption(QFileDialog::DontUseNativeDialog);first->show();
+    waitFor([&]{return first->property("xetalFilePlaces").toBool();});
+    auto *places = first->findChild<QTreeWidget *>("xetalPlacesSidebar"); check(places,"Places sidebar");
+    waitFor([&]{return !places->findItems("My Dolphin Places",Qt::MatchExactly).isEmpty();});
+    auto *bookmark = places->findItems("My Dolphin Places",Qt::MatchExactly).first();
+    const auto target = QUrl(bookmark->data(0,Qt::UserRole).toMap()["url"].toString()).toLocalFile();
+    QTest::mouseClick(places->viewport(),Qt::LeftButton,Qt::NoModifier,places->visualItemRect(bookmark).center());
+    check(first->directory().absolutePath()==target,"Dolphin bookmark navigation");
+
     waitFor([&]{return first->property("xetalFilePreview").toBool();});
     check(first->findChildren<QScrollArea *>("xetalFilePreviewPane").size()==1,"one preview pane");
     first->currentChanged(picture);

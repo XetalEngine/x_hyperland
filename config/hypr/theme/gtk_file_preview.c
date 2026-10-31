@@ -5,6 +5,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "gtk_file_places.h"
+
 #define KEY "xetal-file-preview"
 typedef struct {
     GtkWidget *pane, *image, *name, *message, *details, *text;
@@ -137,6 +139,7 @@ static GtkWidget *label(GtkWidget *box, const gchar *text) {
 static gboolean mapped(GSignalInvocationHint *hint, guint n, const GValue *values, gpointer user) {
     (void)hint; (void)n; (void)user; GtkWidget *widget = g_value_get_object(values);
     if (!GTK_IS_FILE_CHOOSER(widget) || g_object_get_data(G_OBJECT(widget), KEY)) return TRUE;
+    places_attach(widget);
     GtkFileChooser *chooser = GTK_FILE_CHOOSER(widget);
     // Keep application-supplied previews and avoid attaching to both a dialog
     // and its internal chooser, which forward the same preview-widget property.

@@ -312,35 +312,13 @@
          <number>6</number>
         </property>
         <item>
-         <widget class="QGroupBox" name="filterGroupBox">
-          <property name="title">
-           <string>Filters</string>
-          </property>
+         <widget class="QFrame" name="filterGroupBox">
           <layout class="QHBoxLayout" name="filterLayout">
-          <item>
-           <widget class="QCheckBox" name="diskFilterCheckBox">
-            <property name="text">
-             <string>Disk</string>
-            </property>
-            <property name="checked">
-             <bool>false</bool>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QCheckBox" name="partitionFilterCheckBox">
-            <property name="text">
-             <string>Partition</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
+<property name="leftMargin"><number>10</number></property><property name="rightMargin"><number>10</number></property><property name="topMargin"><number>4</number></property><property name="bottomMargin"><number>4</number></property>
           <item>
            <widget class="QCheckBox" name="minSizeFilterCheckBox">
             <property name="text">
-             <string>Min Size</string>
+             <string>Minimum size</string>
             </property>
             <property name="checked">
              <bool>true</bool>
@@ -349,6 +327,7 @@
           </item>
           <item>
            <widget class="QSpinBox" name="minSizeSpinBox">
+<property name="maximumSize"><size><width>140</width><height>16777215</height></size></property>
             <property name="minimum">
              <number>1</number>
             </property>
@@ -376,23 +355,21 @@
             </property>
            </spacer>
           </item>
+<item><widget class="QLabel" name="driveSummary"><property name="text"><string>Expand a disk to see its partitions</string></property></widget></item>
          </layout>
          </widget>
         </item>
         <item>
-         <widget class="QGroupBox" name="drivesGroupBox">
-          <property name="title">
-           <string>Available Drives &amp; Partitions</string>
-          </property>
+         <widget class="QWidget" name="drivesGroupBox">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
             <horstretch>0</horstretch>
             <verstretch>3</verstretch>
            </sizepolicy>
           </property>
-          <layout class="QVBoxLayout" name="verticalLayout_drives">
+          <layout class="QVBoxLayout" name="verticalLayout_drives"><property name="leftMargin"><number>0</number></property><property name="rightMargin"><number>0</number></property><property name="topMargin"><number>0</number></property><property name="bottomMargin"><number>0</number></property>
            <item>
-            <widget class="QTableWidget" name="drivesTable">
+            <widget class="DriveTree" name="drivesTable">
           <property name="alternatingRowColors">
            <bool>true</bool>
           </property>
@@ -6416,7 +6393,7 @@ PRIVACY
    </property>
   </action>
  </widget>
- <customwidgets><customwidget><class>PanelTabs</class><extends>QTabWidget</extends><header>native.h</header><container>1</container></customwidget></customwidgets>
+ <customwidgets><customwidget><class>PanelTabs</class><extends>QTabWidget</extends><header>native.h</header><container>1</container></customwidget><customwidget><class>DriveTree</class><extends>QTreeWidget</extends><header>drive_tree.h</header></customwidget></customwidgets>
  <resources />
  <connections />
 </ui>

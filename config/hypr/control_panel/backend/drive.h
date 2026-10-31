@@ -31,30 +31,8 @@
 
 void MainWindow::setupDriveTable()
 {
-    // Set up table headers
-    QStringList headers;
-    headers << tr("Device Name") << tr("Device Path") << tr("Size") << tr("Type") << tr("Label") << tr("Mount Point") << tr("Status") << tr("Disk ID");
-    ui->drivesTable->setColumnCount(headers.size());
-    ui->drivesTable->setHorizontalHeaderLabels(headers);
-    
-    // Set table properties
-    ui->drivesTable->setAlternatingRowColors(true);
-    ui->drivesTable->setSelectionBehavior(QAbstractItemView::SelectRows);
-    ui->drivesTable->setSelectionMode(QAbstractItemView::SingleSelection);
-    ui->drivesTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    ui->drivesTable->setSortingEnabled(true);
-    ui->drivesTable->horizontalHeader()->setStretchLastSection(false);
-    ui->drivesTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
-    
-    // Bounded, adjustable columns: overflowing content scrolls inside the table.
-    const int widths[] = {110, 130, 85, 60, 140, 140, 110, 240};
-    for (int column = 0; column < 8; ++column)
-        ui->drivesTable->setColumnWidth(column, widths[column]);
-    ui->drivesTable->horizontalHeader()->setStretchLastSection(true);
-    ui->drivesTable->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
-    ui->drivesTable->setWordWrap(false);
     ui->drivesTable->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui->drivesTable, &QTableWidget::customContextMenuRequested,
+    connect(ui->drivesTable, &QTreeWidget::customContextMenuRequested,
             this, &MainWindow::showDriveContextMenu);
     ui->openDriveButton->setIcon(QIcon::fromTheme("system-file-manager",
                                                 style()->standardIcon(QStyle::SP_DirOpenIcon)));
@@ -62,10 +40,9 @@ void MainWindow::setupDriveTable()
 
 void MainWindow::showDriveContextMenu(const QPoint &position)
 {
-    const auto index = ui->drivesTable->indexAt(position);
-    if (!index.isValid()) return;
-    ui->drivesTable->setCurrentCell(index.row(), index.column());
-    ui->drivesTable->selectRow(index.row());
+    auto *item = ui->drivesTable->itemAt(position);
+    if (!item) return;
+    ui->drivesTable->setCurrentItem(item);
     updateButtonStates();
 
     const QString device = getSelectedDrive();
@@ -158,14 +135,10 @@ void MainWindow::showDriveContextMenu(const QPoint &position)
     }
     // A refresh or sort can run while the menu is open. Find the same device
     // again instead of operating on whichever partition inherited its row.
-    for (int row = 0; row < ui->drivesTable->rowCount(); ++row) {
-        if (ui->drivesTable->item(row, 1)->text() != device) continue;
-        ui->drivesTable->setCurrentCell(row, 1);
-        ui->drivesTable->selectRow(row);
+    if (ui->drivesTable->selectDevice(device)) {
         updateButtonStates();
         if (chosen == mount) ui->mountButton->click();
         else if (chosen == unmount) ui->unmountButton->click();
-        break;
     }
 }
 
@@ -207,10 +180,11 @@ void MainWindow::openDriveInDolphin(const QString &device)
 
 void MainWindow::refreshDrives()
 {
+    updateButtonStates();
     logMessage("🔄 Refreshing drive list...");
 
     QStringList lsblkArgs;
-    lsblkArgs << "-o" << "NAME,SIZE,TYPE,LABEL,MOUNTPOINT,MODEL,SERIAL,UUID,FSTYPE" << "--noheadings" << "--pairs";
+    lsblkArgs << "-o" << "NAME,PATH,PKNAME,SIZE,TYPE,LABEL,MOUNTPOINT,MODEL,SERIAL,UUID,FSTYPE" << "--bytes" << "--paths" << "--pairs";
 
     // Unprivileged lsblk depends on udev's cached metadata, which can be missing
     // labels after boot. Root lsblk reads filesystem superblocks directly, so use
@@ -293,256 +267,21 @@ void MainWindow::on_unmountButton_clicked()
 
 QList<DriveInfo> MainWindow::parseDriveList(const QString &output)
 {
-    QList<DriveInfo> allDrives;
-    QMap<QString, QString> diskIdMap; // device path -> disk ID
-    QStringList lines = output.split('\n', Qt::SkipEmptyParts);
-    
-    for (const QString &line : lines) {
-        DriveInfo drive;
-        QString devName;
-        
-        // Parse pairs format: KEY="VALUE" KEY2="VALUE2" ...
-        // Handle quoted values that may contain spaces
-        QRegularExpression pairRe("(\\w+)=\"([^\"]*)\"");
-        QRegularExpressionMatchIterator i = pairRe.globalMatch(line);
-        while (i.hasNext()) {
-            QRegularExpressionMatch match = i.next();
-            QString key = match.captured(1);
-            QString value = DriveLabel::decodeLsblkValue(match.captured(2));
-            
-            if (key == "NAME") devName = value;
-            else if (key == "SIZE") drive.size = value;
-            else if (key == "TYPE") drive.type = value;
-            else if (key == "LABEL") drive.label = value;
-            else if (key == "MOUNTPOINT") drive.mountPoint = value;
-            else if (key == "MODEL") drive.model = value;
-            else if (key == "SERIAL") drive.serial = value;
-            else if (key == "UUID") drive.uuid = value;
-            else if (key == "FSTYPE") drive.filesystem = value;
-        }
-        if (!devName.isEmpty()) {
-            drive.device = "/dev/" + devName;
-            drive.isMounted = !drive.mountPoint.isEmpty();
-            
-            // Get disk ID from /dev/disk/by-id/ symlinks (matches system format)
-            if (drive.type == "disk") {
-                // Determine prefix based on device type
-                QString prefix = devName.startsWith("nvme") ? "nvme" : (devName.startsWith("sd") ? "sata" : "ata");
-                
-                // Use find to locate the symlink pointing to this device
-                QProcess proc;
-                QString cmd = QString("find /dev/disk/by-id/ -type l -name '%1-*' ! -name '*eui*' ! -name '*wwn*' ! -name '*part*' -exec sh -c 'target=$(readlink -f \"$1\"); if [ \"$target\" = \"%2\" ]; then basename \"$1\"; fi' _ {} \\; | head -1").arg(prefix, drive.device);
-                proc.start("sh", QStringList() << "-c" << cmd);
-                proc.waitForFinished(5000); // 5 second timeout
-                
-                QString output = QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
-                QString error = QString::fromUtf8(proc.readAllStandardError());
-                
-                if (!output.isEmpty() && output != prefix + "-") {
-                    drive.diskId = output;
-                    diskIdMap[drive.device] = output; // Store for partitions
-                    logMessage(QString("Disk ID for %1: %2").arg(drive.device, drive.diskId));
-                } else {
-                    logMessage(QString("Disk ID lookup failed for %1. Output: '%2', Error: '%3'").arg(drive.device, output, error));
-                }
-            }
-            
-            allDrives.append(drive);
-        }
-    }
-    
-    // Second pass: assign disk IDs to partitions based on parent disk
-    for (DriveInfo &drive : allDrives) {
-        if (drive.type == "part" && drive.diskId.isEmpty()) {
-            // Find parent disk by matching device name prefix
-            QString devName = QFileInfo(drive.device).fileName();
-            QString parentDevice;
-            
-            // Extract parent disk name (e.g., nvme3n1p1 -> nvme3n1)
-            QRegularExpression parentRe("^(nvme\\d+n\\d+|sd[a-z]+)");
-            QRegularExpressionMatch match = parentRe.match(devName);
-            if (match.hasMatch()) {
-                parentDevice = "/dev/" + match.captured(1);
-                
-                // Look up disk ID from map
-                if (diskIdMap.contains(parentDevice)) {
-                    drive.diskId = diskIdMap[parentDevice];
-                } else {
-                    // If not in map, try to find it now
-                    QString prefix = devName.startsWith("nvme") ? "nvme" : "sata";
-                    QProcess proc;
-                    QString cmd = QString("find /dev/disk/by-id/ -type l -name '%1-*' ! -name '*eui*' ! -name '*wwn*' ! -name '*part*' -exec sh -c 'readlink -f \"$1\" | grep -q \"^%2$\" && basename \"$1\"' _ {} \\; | head -1").arg(prefix, parentDevice);
-                    proc.start("sh", QStringList() << "-c" << cmd);
-                    proc.waitForFinished(5000);
-                    QString output = QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
-                    if (!output.isEmpty()) {
-                        drive.diskId = output;
-                        diskIdMap[parentDevice] = output;
-                    }
-                }
-            }
-        }
-        
-    }
-    
-    // Build final list
-    QList<DriveInfo> drives;
-    for (const DriveInfo &drive : allDrives) {
-        if (drive.type == "disk" || drive.type == "part") {
-            drives.append(drive);
-        }
-    }
-    
-    return drives;
-}
-
-// Helper function to convert size string to MB
-qint64 MainWindow::parseSizeToMB(const QString &sizeStr)
-{
-    QString size = sizeStr.trimmed();
-    qint64 value = 0;
-    
-    if (size.endsWith("G", Qt::CaseInsensitive)) {
-        value = size.left(size.length() - 1).toDouble() * 1024;
-    } else if (size.endsWith("M", Qt::CaseInsensitive)) {
-        value = size.left(size.length() - 1).toDouble();
-    } else if (size.endsWith("K", Qt::CaseInsensitive)) {
-        value = size.left(size.length() - 1).toDouble() / 1024;
-    } else if (size.endsWith("B", Qt::CaseInsensitive)) {
-        value = size.left(size.length() - 1).toDouble() / (1024 * 1024);
-    } else {
-        // Try to parse as number (assume MB)
-        value = size.toDouble();
-    }
-    
-    return value;
+    return DriveTree::parse(output);
 }
 
 void MainWindow::populateDriveTable()
 {
-    const QString selectedDevice = getSelectedDrive();
-    const bool sorting = ui->drivesTable->isSortingEnabled();
-    const QSignalBlocker selectionBlocker(ui->drivesTable->selectionModel());
-    // Sorting while inserting individual cells can move a half-built row and
-    // associate a label with the wrong device. Restore sorting after all cells.
-    ui->drivesTable->setSortingEnabled(false);
-    ui->drivesTable->setRowCount(0);
-    
-    bool showDisks = ui->diskFilterCheckBox->isChecked();
-    bool showPartitions = ui->partitionFilterCheckBox->isChecked();
-    bool useMinSizeFilter = ui->minSizeFilterCheckBox->isChecked();
-    qint64 minSizeMB = ui->minSizeSpinBox->value();
-    
-    for (const DriveInfo &drive : drivesList) {
-        // Apply type filters
-        bool shouldShow = false;
-        if (drive.type == "disk" && showDisks) {
-            shouldShow = true;
-        } else if (drive.type == "part" && showPartitions) {
-            shouldShow = true;
-        }
-        
-        if (!shouldShow) {
-            continue;
-        }
-        
-        // Apply size filter
-        if (useMinSizeFilter) {
-            qint64 driveSizeMB = parseSizeToMB(drive.size);
-            if (driveSizeMB < minSizeMB) {
-                continue;
-            }
-        }
-        
-        int row = ui->drivesTable->rowCount();
-        ui->drivesTable->insertRow(row);
-        // Device Name
-        QTableWidgetItem *nameItem = new QTableWidgetItem(QFileInfo(drive.device).fileName());
-        nameItem->setToolTip(drive.device);
-        ui->drivesTable->setItem(row, 0, nameItem);
-        
-        // Device Path
-        QTableWidgetItem *pathItem = new QTableWidgetItem(drive.device);
-        pathItem->setToolTip(QString("UUID: %1\nFilesystem: %2").arg(drive.uuid, drive.filesystem));
-        ui->drivesTable->setItem(row, 1, pathItem);
-        
-        // Size
-        QTableWidgetItem *sizeItem = new QTableWidgetItem(drive.size);
-        sizeItem->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        ui->drivesTable->setItem(row, 2, sizeItem);
-        
-        // Type
-        QTableWidgetItem *typeItem = new QTableWidgetItem(drive.type);
-        typeItem->setTextAlignment(Qt::AlignCenter);
-        if (drive.type == "disk") {
-            typeItem->setForeground(QColor(70, 130, 180)); // Steel blue
-        } else {
-            typeItem->setForeground(QColor(100, 149, 237)); // Cornflower blue
-        }
-        ui->drivesTable->setItem(row, 3, typeItem);
-        
-        // Label
-        QString labelText = drive.label.isEmpty() ? "-" : drive.label;
-        QTableWidgetItem *labelItem = new QTableWidgetItem(labelText);
-        if (!drive.model.isEmpty()) {
-            labelItem->setToolTip(QString("Model: %1\nSerial: %2").arg(drive.model, drive.serial));
-        }
-        ui->drivesTable->setItem(row, 4, labelItem);
-        
-        // Mount Point
-        QString mountText = drive.mountPoint.isEmpty() ? tr("Not mounted") : drive.mountPoint;
-        QTableWidgetItem *mountItem = new QTableWidgetItem(mountText);
-        if (!drive.mountPoint.isEmpty()) {
-            mountItem->setForeground(QColor(34, 139, 34)); // Forest green
-        }
-        ui->drivesTable->setItem(row, 5, mountItem);
-        
-        // Status
-        QString status = drive.isMounted ? tr("✓ Mounted") : tr("✗ Unmounted");
-        QTableWidgetItem *statusItem = new QTableWidgetItem(status);
-        statusItem->setData(Qt::UserRole, drive.isMounted); // logic reads this, never the display text
-        statusItem->setTextAlignment(Qt::AlignCenter);
-        if (drive.isMounted) {
-            statusItem->setForeground(QColor(0, 150, 0)); // Green
-        } else {
-            statusItem->setForeground(QColor(200, 0, 0)); // Red
-        }
-        ui->drivesTable->setItem(row, 6, statusItem);
-        
-        // Disk ID
-        QString diskIdText = drive.diskId.isEmpty() ? "-" : drive.diskId;
-        QTableWidgetItem *diskIdItem = new QTableWidgetItem(diskIdText);
-        diskIdItem->setToolTip(diskIdText); // Show full ID in tooltip
-        diskIdItem->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-        ui->drivesTable->setItem(row, 7, diskIdItem);
-    }
-    ui->drivesTable->setSortingEnabled(sorting);
-    for (int row = 0; row < ui->drivesTable->rowCount(); ++row) {
-        if (ui->drivesTable->item(row, 1)->text() == selectedDevice) {
-            ui->drivesTable->selectRow(row);
-            break;
-        }
-    }
+    ui->minSizeSpinBox->setEnabled(ui->minSizeFilterCheckBox->isChecked());
+    ui->drivesTable->setDrives(drivesList, ui->minSizeFilterCheckBox->isChecked()
+        ? quint64(ui->minSizeSpinBox->value()) * 1024 * 1024 : 0);
+    ui->driveSummary->setText(ui->drivesTable->summary());
     updateButtonStates();
 }
 
 QString MainWindow::getSelectedDrive()
 {
-    QList<QTableWidgetItem*> selectedItems = ui->drivesTable->selectedItems();
-    if (selectedItems.isEmpty()) {
-        return QString();
-    }
-    
-    int row = selectedItems.first()->row();
-    if (row >= 0 && row < ui->drivesTable->rowCount()) {
-        // Get the device path from the table directly
-        QTableWidgetItem *devicePathItem = ui->drivesTable->item(row, 1); // Column 1 is Device Path
-        if (devicePathItem) {
-            return devicePathItem->text();
-        }
-    }
-    
-    return QString();
+    return ui->drivesTable->selectedDevice();
 }
 
 void MainWindow::on_ejectButton_clicked() {
@@ -552,8 +291,7 @@ void MainWindow::on_ejectButton_clicked() {
         return;
     }
     
-    int row = ui->drivesTable->currentRow();
-    QString driveType = ui->drivesTable->item(row, 3)->text(); // Type column
+    const QString driveType = ui->drivesTable->selectedType();
     
     if (driveType != "disk") {
         QMessageBox::warning(this, tr("Invalid Selection"), tr("Eject can only be used on disk devices, not partitions."));
@@ -579,11 +317,9 @@ void MainWindow::on_formatButton_clicked() {
         return;
     }
     
-    int row = ui->drivesTable->currentRow();
-    QString driveType = ui->drivesTable->item(row, 3)->text(); // Type column
-    // Data role, not display text: "✗ Unmounted" contains "Mounted", so the old
-    // text check reported every drive as mounted and always blocked formatting.
-    bool isMounted = ui->drivesTable->item(row, 6)->data(Qt::UserRole).toBool();
+    const QString driveType = ui->drivesTable->selectedType();
+    // Include mounted descendants, even when collapsed or filtered out.
+    const bool isMounted = ui->drivesTable->selectedInUse();
     
     if (isMounted) {
         QMessageBox::warning(this, tr("Drive Mounted"), tr("Please unmount the drive before formatting."));
@@ -660,8 +396,7 @@ void MainWindow::on_smartInfoButton_clicked() {
         return;
     }
     
-    int row = ui->drivesTable->currentRow();
-    QString driveType = ui->drivesTable->item(row, 3)->text(); // Type column
+    const QString driveType = ui->drivesTable->selectedType();
     
     if (driveType != "disk") {
         QMessageBox::warning(this, tr("Invalid Selection"), tr("SMART information is only available for disk devices, not partitions."));
@@ -727,22 +462,29 @@ void MainWindow::on_smartInfoButton_clicked() {
 
 void MainWindow::updateButtonStates()
 {
-    QString selectedDrive = getSelectedDrive();
-    bool hasSelection = !selectedDrive.isEmpty();
+    const QString device = getSelectedDrive();
     const auto drive = std::find_if(drivesList.cbegin(), drivesList.cend(),
-                                   [&selectedDrive](const DriveInfo &item) { return item.device == selectedDrive; });
-    const bool mounted = drive != drivesList.cend() && drive->isMounted;
-    
-    ui->mountButton->setEnabled(hasSelection && !mounted);
-    ui->forceMountButton->setEnabled(hasSelection);
-    ui->unmountButton->setEnabled(hasSelection && mounted);
-    ui->openDriveButton->setEnabled(hasSelection && mounted && !drive->mountPoint.isEmpty() && drive->mountPoint != "[SWAP]");
-    ui->ejectButton->setEnabled(hasSelection);
-    ui->formatButton->setEnabled(hasSelection);
-    ui->smartInfoButton->setEnabled(hasSelection);
-    ui->mount777Button->setEnabled(hasSelection);
-    ui->takeOwnershipButton->setEnabled(hasSelection);
-    ui->setDriveLabelButton->setEnabled(hasSelection);
+        [&device](const DriveInfo &item) { return item.device == device; });
+    const bool selected = drive != drivesList.cend();
+    const bool disk = selected && drive->type == "disk";
+    const bool children = std::any_of(drivesList.cbegin(), drivesList.cend(),
+        [&device](const DriveInfo &item) { return item.parent == device; });
+    const bool volume = selected && (drive->type == "part" || (disk && !children && !drive->filesystem.isEmpty()));
+    const bool mounted = selected && drive->isMounted;
+    const bool browsable = mounted && drive->mountPoint.startsWith('/');
+    const bool inUse = ui->drivesTable->selectedInUse();
+    ui->mountButton->setEnabled(volume && !inUse);
+    ui->forceMountButton->setEnabled(volume && !inUse);
+    ui->unmountButton->setEnabled(volume && mounted);
+    ui->openDriveButton->setEnabled(browsable);
+    ui->ejectButton->setEnabled(disk && !inUse);
+    ui->formatButton->setEnabled(selected && !inUse);
+    ui->smartInfoButton->setEnabled(disk);
+    ui->driveHealthButton->setEnabled(disk);
+    ui->burnIsoButton->setEnabled(disk && !inUse);
+    ui->mount777Button->setEnabled(volume && !inUse);
+    ui->takeOwnershipButton->setEnabled(browsable);
+    ui->setDriveLabelButton->setEnabled(volume);
 }
 
 void MainWindow::logMessage(const QString &message)
@@ -816,20 +558,8 @@ void MainWindow::on_mount777Button_clicked()
 
 void MainWindow::on_takeOwnershipButton_clicked()
 {
-    QList<QTableWidgetItem*> selectedItems = ui->drivesTable->selectedItems();
-    if (selectedItems.isEmpty()) {
-        QMessageBox::warning(this, tr("No Drive Selected"), tr("Please select a drive to take ownership of."));
-        return;
-    }
-    
-    int row = selectedItems.first()->row();
-    if (row < 0 || row >= ui->drivesTable->rowCount()) {
-        QMessageBox::warning(this, tr("No Drive Selected"), tr("Please select a drive to take ownership of."));
-        return;
-    }
-    
-    QString mountPoint = ui->drivesTable->item(row, 5) ? ui->drivesTable->item(row, 5)->text() : ""; // Column 5 is Mount Point
-    if (mountPoint.isEmpty() || mountPoint == "Unmounted") {
+    const QString mountPoint = ui->drivesTable->selectedMount();
+    if (!mountPoint.startsWith('/')) {
         QMessageBox::warning(this, tr("Not Mounted"), tr("The selected drive is not mounted."));
         return;
     }
@@ -855,17 +585,9 @@ void MainWindow::on_takeOwnershipButton_clicked()
     }
 }
 
-void MainWindow::on_diskFilterCheckBox_stateChanged(int state)
-{
-    Q_UNUSED(state)
-    populateDriveTable();
-}
 
-void MainWindow::on_partitionFilterCheckBox_stateChanged(int state)
-{
-    Q_UNUSED(state)
-    populateDriveTable();
-}
+
+
 
 void MainWindow::on_minSizeFilterCheckBox_stateChanged(int state)
 {

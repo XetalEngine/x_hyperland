@@ -61,7 +61,6 @@ QVariantMap AppPreferences::defaults() {
         {"preferences/debugIsoCreatorEnabled", false}, {"preferences/startupTab", "home"},
         {"language/code", "en"}, {"theme/preset", 0}, {"theme/accent", "#27ae60"},
         {"theme/background", ""}, {"theme/text", ""},
-        {"defaults/drives/showDisks", false}, {"defaults/drives/showPartitions", true},
         {"defaults/drives/minimumEnabled", true}, {"defaults/drives/minimumMB", 500},
         {"defaults/config/editor", "nano"}, {"defaults/packages/searchMode", 2},
         {"defaults/packages/searchType", 1},
@@ -427,9 +426,7 @@ void PreferencesDialog::buildWorkspace() {
 
 void PreferencesDialog::buildTools() {
     int page = addPage(tr("Tool defaults"), tr("Set the starting options for everyday tasks. Each tool still lets you adjust them."), "configure");
-    auto *drives = addCard(page, tr("Drive list"), tr("Choose the devices and minimum size shown in Drives."));
-    addCheck(drives, "defaults/drives/showDisks", tr("Show whole disks"));
-    addCheck(drives, "defaults/drives/showPartitions", tr("Show partitions"));
+    auto *drives = addCard(page, tr("Drive list"), tr("Disks expand to show their partitions. Choose the minimum size shown in Drives."));
     addCheck(drives, "defaults/drives/minimumEnabled", tr("Filter small devices"));
     addSpin(drives, "defaults/drives/minimumMB", tr("Minimum size"), 1, 999999);
     auto *editor = addCard(page, tr("Configuration editor"), tr("Used when opening files from System Config. The selected editor must be installed."));

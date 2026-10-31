@@ -17,8 +17,8 @@ def build_gtk():
     destination = ROOT/'gtk3'; destination.mkdir(exist_ok=True)
     output = destination/'libxetal-file-preview.so'; stamp = destination/'version.txt'
     if (output.exists() and stamp.exists() and stamp.read_text().strip() == version
-            and output.stat().st_mtime > source.stat().st_mtime): return version
-    flags = shlex.split(subprocess.check_output(['pkg-config', '--cflags', '--libs', package, 'gio-unix-2.0'], text=True))
+            and output.stat().st_mtime > max(source.stat().st_mtime, (ROOT/'gtk_file_places.h').stat().st_mtime)): return version
+    flags = shlex.split(subprocess.check_output(['pkg-config', '--cflags', '--libs', package, 'gio-unix-2.0', 'json-glib-1.0'], text=True))
     with tempfile.TemporaryDirectory(prefix='.build-', dir=ROOT) as temporary:
         subprocess.run(['cc', '-std=gnu11', '-O2', '-Wall', '-Wextra', '-Werror', '-fPIC', '-shared',
                         str(source), '-o', temporary+'/preview.so', *flags], check=True)
@@ -56,7 +56,7 @@ def build():
         destination = ROOT/f'qt{major}/platformthemes'; destination.mkdir(parents=True, exist_ok=True)
         output = destination/'libxetaltheme.so'
         stamp = destination/'version.txt'
-        sources = [ROOT/'platformtheme.cpp', ROOT/'plugin.json', ROOT/'file_preview.hpp']
+        sources = [ROOT/'platformtheme.cpp', ROOT/'plugin.json', ROOT/'file_preview.hpp', ROOT/'file_places.hpp']
         if (output.exists() and stamp.exists() and stamp.read_text().strip() == version
                 and output.stat().st_mtime > max(p.stat().st_mtime for p in sources)):
             versions[str(major)] = version; continue

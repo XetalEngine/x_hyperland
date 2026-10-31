@@ -1,4 +1,4 @@
-# File picker previews
+# File picker Places and previews
 
 File pickers show a preview pane on the right. Select a file with the mouse or
 keyboard to update it. Images retain their aspect ratio; animated images show
@@ -11,6 +11,21 @@ Unsupported files still have a details pane. Large images are limited before
 loading, and loading happens in the background. The pane scrolls when necessary
 so the Open, Save and Cancel buttons remain accessible. Selecting a file never
 executes it. Device files, pipes and sockets are not read for previews.
+
+## Dolphin Places
+
+Standard pickers also use the bookmarks from this Hyprland profile's Dolphin
+(`dolphin/data/user-places.xbel`), including their names, icons and hidden groups.
+Changes appear while the picker is open. Missing profile bookmarks fall back to
+the current user's standard folders, without hardcoded usernames.
+
+Live devices come from GVfs. A drive is mounted or unlocked only when clicked;
+opening the picker never mounts anything. Authentication uses the normal desktop
+dialog. Qt and GTK share `theme/places.py`, with toolkit-native sidebars.
+Network shares use GVfs; virtual KDE views (Network, Trash, administrative and
+search locations) open in the profile's Dolphin because a local-file picker
+cannot navigate a KIO virtual filesystem. No shared bookmarks are rewritten.
+The installer includes GVfs and network-share support.
 
 ## Coverage
 

@@ -74,9 +74,7 @@ void MainWindow::applyPreferenceValues(const QVariantMap &values, const QVariant
     // Only changed defaults replace a tool's current choices. Saving an
     // unrelated preference must not reset work in progress in another tab.
     bool drivesChanged = false;
-    for (auto pair : {qMakePair(QString("defaults/drives/showDisks"), ui->diskFilterCheckBox),
-                      qMakePair(QString("defaults/drives/showPartitions"), ui->partitionFilterCheckBox),
-                      qMakePair(QString("defaults/drives/minimumEnabled"), ui->minSizeFilterCheckBox)}) {
+    for (auto pair : {qMakePair(QString("defaults/drives/minimumEnabled"), ui->minSizeFilterCheckBox)}) {
         if (!changed(pair.first)) continue;
         QSignalBlocker blocker(pair.second);
         pair.second->setChecked(values.value(pair.first).toBool());

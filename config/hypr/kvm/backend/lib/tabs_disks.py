@@ -15,9 +15,9 @@ import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGroupBox,
                              QCheckBox, QComboBox, QSpinBox, QPushButton, QLineEdit,
                              QScrollArea, QGridLayout, QFormLayout, QFileDialog,
-                             QPlainTextEdit, QSizePolicy, QMessageBox)
-from PyQt6.QtCore import pyqtSignal, Qt, QTimer
-from PyQt6.QtGui import QFont
+                             QPlainTextEdit, QSizePolicy, QMessageBox, QStyleOptionGroupBox, QStyle)
+from PyQt6.QtCore import pyqtSignal, Qt, QTimer, QRectF
+from PyQt6.QtGui import QFont, QPainter, QColor, QPen
 
 import hostinfo
 from uiutil import guard_all
@@ -93,6 +93,28 @@ class DiskRow(QGroupBox):
         self._retitle()
         guard_all(self)
 
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if not self.active.isChecked():
+            return
+        # Paint inside the card so the glow stays visible at the scroll edges.
+        # The widgets keep their normal theme and their normal hit targets.
+        option = QStyleOptionGroupBox()
+        self.initStyleOption(option)
+        frame = QGroupBox.style(self).subControlRect(
+            QStyle.ComplexControl.CC_GroupBox, option,
+            QStyle.SubControl.SC_GroupBoxFrame, self)
+        rect = QRectF(frame).adjusted(1, 1, -1, -1)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        for inset, alpha in ((6, 8), (5, 12), (4, 18), (3, 26), (2, 40)):
+            painter.setPen(QPen(QColor(48, 164, 255, alpha), 2.0))
+            painter.drawRoundedRect(rect.adjusted(inset, inset, -inset, -inset), 12, 12)
+        painter.setPen(QPen(QColor(48, 164, 255, 220), 1.5))
+        painter.drawRoundedRect(rect, 15, 15)
+        painter.end()
+
     # ------------------------------------------------------------- build ---
     def _build(self):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
@@ -128,6 +150,7 @@ class DiskRow(QGroupBox):
             "Include this disk in the VM. Uncheck to keep its settings at the end "
             "of this page. Check again to use the last active slot on its controller.")
         self.active.toggled.connect(self._on_active)
+        self.active.toggled.connect(self.update)
 
         self.btn_remove = QPushButton("Remove")
         self.btn_remove.setFixedWidth(64)

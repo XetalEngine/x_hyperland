@@ -22,6 +22,11 @@ def theme():
       QGroupBox::title {{color:{p['PlaceholderText']}; padding:0 6px;}}
       QTabWidget::pane {{border:none;}}
       QTableWidget, QTreeWidget {{font-size:12px;}}
+      QFrame#filterGroupBox {{background:{p['AlternateBase']}; border:1px solid {p['Midlight']}; border-radius:6px;}}
+      QSpinBox#minSizeSpinBox {{padding:3px 8px; min-height:22px;}}
+      QLabel#driveSummary {{color:{p['PlaceholderText']};}}
+      QTreeWidget#drivesTable {{font-size:13px;}}
+      QTreeWidget#drivesTable::item {{padding:5px 6px; min-height:22px;}}
       QTableView::item {{padding:4px 6px;}}
       QPushButton[panelCellAction="true"] {{padding:4px 8px; min-height:22px;}}
       QTreeWidget#cleanCategoryTree, QTreeWidget#cleanSizeTree {{font-size:14px;}}

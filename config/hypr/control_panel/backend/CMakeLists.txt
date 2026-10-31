@@ -51,6 +51,8 @@ set(PROJECT_SOURCES
         env_editor.h
         system_properties.h
         drive.h
+        drive_tree.h
+        drive_tree.cpp
         drivelabel.h
         drivelabel.cpp
         mainwindow_d.h
@@ -261,4 +263,15 @@ install(TARGETS CachyOsTools
 
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(CachyOsTools)
+endif()
+
+option(BUILD_DRIVE_TREE_TESTS "Build disk tree and window-size checks" OFF)
+if(BUILD_DRIVE_TREE_TESTS)
+    enable_testing()
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(drive_tree_tests tests/drive_tree_tests.cpp drive_tree.cpp drivelabel.cpp)
+    target_include_directories(drive_tree_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(drive_tree_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::DBus Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME drive_tree COMMAND drive_tree_tests)
+    set_tests_properties(drive_tree PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()

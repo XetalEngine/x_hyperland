@@ -18,8 +18,10 @@ def run(args, **kwargs):
 def main():
     with tempfile.TemporaryDirectory(prefix='xetal-file-previews-') as directory:
         root = Path(directory); theme = root/'theme'; theme.mkdir()
+        bookmark = root/'user-places.xbel'
+        bookmark.write_text('<xbel><bookmark href="'+root.as_uri()+'"><title>My Dolphin Places</title></bookmark></xbel>')
         for name in ('build.py', 'platformtheme.cpp', 'file_preview.hpp', 'gtk_file_preview.c',
-                     'plugin.json', 'palettes.json', 'state.json'):
+                     'file_places.hpp', 'gtk_file_places.h', 'places.py', 'plugin.json', 'palettes.json', 'state.json'):
             shutil.copy2(REPO/'config/hypr/theme'/name, theme/name)
         run(['python3', str(theme/'build.py')])
         for major in (5, 6):
@@ -30,7 +32,7 @@ def main():
                  str(REPO/'tests/file-preview-qt.cpp'), '-o', str(binary), *flags])
             env = {**os.environ, 'QT_QPA_PLATFORM': 'offscreen', 'QT_QPA_PLATFORMTHEME': 'xetal',
                    'QT_PLUGIN_PATH': str(theme/f'qt{major}'), 'XETAL_THEME_CONFIG': str(theme/'state.json'),
-                   'HYPRLAND_INSTANCE_SIGNATURE': 'preview-test'}
+                   'HYPRLAND_INSTANCE_SIGNATURE': 'preview-test', 'XETAL_PLACES_FILE': str(bookmark)}
             run([str(binary)], env=env)
         if not shutil.which('broadwayd'):
             print('GTK display probe skipped: broadwayd is not installed. Module build passed.')
@@ -40,7 +42,7 @@ def main():
                'XDG_DATA_HOME': str(root/'data'), 'GSETTINGS_BACKEND': 'memory', 'GIO_USE_VFS': 'local',
                'GDK_BACKEND': 'broadway', 'BROADWAY_DISPLAY': ':7', 'NO_AT_BRIDGE': '1',
                'GTK3_MODULES': str(theme/'gtk3/libxetal-file-preview.so'),
-               'HYPRLAND_INSTANCE_SIGNATURE': 'preview-test', 'XETAL_THEME_CONFIG': str(theme/'state.json')}
+               'HYPRLAND_INSTANCE_SIGNATURE': 'preview-test', 'XETAL_THEME_CONFIG': str(theme/'state.json'), 'XETAL_PLACES_FILE': str(bookmark)}
         env.pop('GTK_MODULES', None)
         with (root/'broadway.log').open('w') as log:
             daemon = subprocess.Popen(['broadwayd', '--unixsocket='+str(root/'http.sock'), ':7'],

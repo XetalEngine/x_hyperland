@@ -165,6 +165,8 @@ class PreviewPane(QScrollArea):
 
 
 def attach(dialog):
+    import file_places
+    file_places.attach(dialog)
     if dialog.property(MARKER): return
     grid = dialog.layout()
     if not isinstance(grid, QGridLayout): return

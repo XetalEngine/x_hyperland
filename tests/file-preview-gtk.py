@@ -32,6 +32,13 @@ with tempfile.TemporaryDirectory() as directory:
         dialog.add_buttons('Cancel', Gtk.ResponseType.CANCEL, 'Choose', Gtk.ResponseType.ACCEPT)
         dialog.set_current_folder(directory); dialog.show_all()
         wait_for(lambda: dialog.get_preview_widget() is not None)
+        wait_for(lambda: any(w.get_name() == 'xetalPlacesSidebar' for w in children(dialog)))
+        sidebar = next(w for w in children(dialog) if w.get_name() == 'xetalPlacesSidebar')
+        wait_for(lambda: sidebar.get_model() is not None and any(row[0] == 'My Dolphin Places' for row in sidebar.get_model()))
+        row = next(row for row in sidebar.get_model() if row[0] == 'My Dolphin Places')
+        sidebar.row_activated(row.path, sidebar.get_column(0))
+        wait_for(lambda: dialog.get_current_folder() == str(Path(os.environ['XETAL_PLACES_FILE']).parent))
+        dialog.set_current_folder(directory)
         pane = dialog.get_preview_widget()
         assert pane.get_name() == 'xetalFilePreviewPane'
         assert dialog.get_action() == action

@@ -1,6 +1,8 @@
 // Shared QFileDialog previews for external Qt 5/6 applications in this session.
 #pragma once
 #include <QApplication>
+#include <QStyle>
+#include "file_places.hpp"
 #include <QDateTime>
 #include <QDirIterator>
 #include <QFileDialog>
@@ -152,6 +154,7 @@ public:
     }
 };
 inline void attach(QFileDialog *dialog) {
+    XetalPlaces::attach(dialog);
     if (dialog->property(marker).toBool()) return;
     auto grid = qobject_cast<QGridLayout *>(dialog->layout()); if (!grid) return;
     dialog->setProperty(marker, true);

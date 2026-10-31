@@ -1,4 +1,5 @@
 #include "native.h"
+#include "window_sizing.h"
 #include "backend/mainwindow.h"
 #include <QFileSystemWatcher>
 #include <QJsonArray>
@@ -118,7 +119,8 @@ PanelController::PanelController(MainWindow *window)
   owner->setWindowIcon(QIcon::fromTheme("preferences-system"));
   owner->setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
   owner->setMinimumSize(740, 520);
-  owner->resize(1280, 800);
+  qApp->installEventFilter(new HyperPanel::WindowSizing(owner));
+  owner->resize(1650, 910);
   auto *rootWidget = new QWidget(owner);
   rootWidget->setObjectName("hyperControlPanel");
   auto *layout = new QVBoxLayout(rootWidget);
@@ -294,9 +296,9 @@ PanelController::PanelController(MainWindow *window)
       settings.contains("window/geometry"))
     owner->restoreGeometry(settings.value("window/geometry").toByteArray());
   // Apply the roomier default once, then continue remembering user resizes.
-  if (settings.value("window/layoutVersion", 1).toInt() < 2) {
-    owner->resize(qMax(1280, owner->width()), qMax(800, owner->height()));
-    settings.setValue("window/layoutVersion", 2);
+  if (settings.value("window/layoutVersion", 1).toInt() < 3) {
+    owner->resize(1650, 910);
+    settings.setValue("window/layoutVersion", 3);
   }
   if (auto *screen = owner->screen())
     owner->resize(owner->size().boundedTo(screen->availableGeometry().size() -
