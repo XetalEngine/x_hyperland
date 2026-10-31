@@ -31,6 +31,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | Package Repair | Mirrors, keyrings, locks, diagnostics and downgrades |
 | Installed Software | Package removal, orphans and caches |
 | System Cleaner | Curated cleanup plus a sudo disk visualizer with mounted-volume/folder picker, size tree, treemap, breadcrumbs and file actions |
+| RAM Cleaner | Live memory readings, Normal/Aggressive manual cache cleanup and observed before/after results; keeps applications running |
 | Network | Interfaces, Wi-Fi, connections, bridges, libvirt networks and ports |
 | Firewall | UFW/firewalld rules and configuration |
 | Network Shares | Discovery, mounts, sharing and associated services |
@@ -56,9 +57,17 @@ The backend targets **Arch Linux/CachyOS**. Package, kernel, boot and ISO tools 
 - Terminal operations use the private Kitty profile. Control Panel runs as the ordinary desktop user; individual administrative tools request privileges when used.
 - New login applications are saved in `control_panel/state/autostart` and run at the next Hyprland login. Shared desktop autostart files are not edited. Package entries require explicit opt-in; user systemd units remain separately identified.
 - **Startup Applications → Desktop startup** includes **Turn on Num Lock when I log in**, enabled by default. It shares `input:numlock_by_default` in `control_center/input.conf` with the Input page's **Num Lock on at login** option. Changes use the existing full-configuration validation, backup and rollback path; the Num Lock key still works normally during the session.
-- The same **Desktop startup** group controls whether the animated Xetal Engine dashboard appears at login. **Super+D** still opens or hides it manually. The preference defaults to on and is stored in the update-preserved `control_panel/state/startup-screen.json`.
+- The same **Desktop startup** group controls whether the animated Xetal Engine dashboard appears at login. The dashboard also has a **Show this dashboard at login** checkbox linked to this setting; turning it off skips all four windows. **Super+D** still opens or hides it manually. The preference defaults to on and is stored in the update-preserved `control_panel/state/startup-screen.json`.
 - User environment values are literal `NAME=value` lines in `control_panel/state/environment.env`, applied at the next Hyprland login. The explicit system pane still edits `/etc/environment` when requested.
 - The panel, shortcut editor and startup helper are tied to the active compositor connection.
+
+## RAM Cleaner
+
+Open **Software & maintenance → RAM Cleaner**. **Normal** releases clean file cache; **Aggressive** also releases reclaimable filesystem metadata. Both finish pending disk writes first. Authentication is requested only after **Clean RAM**, and the panel stays responsive while it works. Cancelling authentication leaves memory alone. The tool never signals applications, deletes files, disables swap, compacts memory or changes persistent settings. Cleanup is manual, with no scheduled or login action.
+
+Linux already reclaims caches when needed. **Available RAM** includes reclaimable memory, so reducing cache does not necessarily increase the memory available for a VM. Active application/VM memory is not reclaimable by this tool. Reading files may be slower while caches rebuild; this is an occasional troubleshooting tool, not a background performance booster. See the [kernel's cache reclamation documentation](https://docs.kernel.org/admin-guide/sysctl/vm.html#drop-caches).
+
+The page reports file cache excluding shared/tmpfs memory, reclaimable metadata, swap usage and observed before/after changes. The numbers can move in either direction while other applications run. They are not a promised amount of memory freed. Only the short-lived helper runs as root, and it accepts two fixed modes writing to the single kernel cache-reclamation endpoint.
 
 ## Disk Visualizer
 

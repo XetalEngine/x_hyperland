@@ -12,9 +12,11 @@ pages on <https://www.xetal.net/community/site/>. Clicking, Enter or Space opens
 the selected page in the default browser after hiding the special workspace.
 Escape and the X hide the entire dashboard; Super+D shows it again.
 
-**Control Panel → Startup Applications → Desktop startup** controls
-whether it appears automatically at login. The default is enabled. Turning it
-off skips both the login delay and pane creation; Super+D remains available.
+**Show this dashboard at login** at the bottom of the project showcase controls
+whether all four windows appear automatically at login. The same option is in
+**Control Panel → Startup Applications → Desktop startup**. The default is enabled.
+Turning it off skips both the login delay and pane creation; Super+D remains
+available to open the dashboard and turn startup back on.
 The private preference is saved in `control_panel/state/startup-screen.json`
 and survives desktop updates.
 

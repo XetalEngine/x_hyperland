@@ -74,6 +74,24 @@ class GalleryTests(unittest.TestCase):
         from PyQt6.QtWidgets import QApplication
         cls.app=QApplication.instance() or QApplication([])
 
+    def test_login_checkbox_shares_startup_setting_and_rolls_back_failed_saves(self):
+        import projects
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, XETAL_HYPR_ROOT=directory):
+            window=projects.Dashboard(model.catalog())
+            self.assertTrue(window.login_toggle.isChecked())
+            window.login_toggle.setChecked(False)
+            self.assertFalse(projects.login_settings.enabled())
+            with patch.object(sys,'argv',['launch.py','--login']),patch.object(launch,'ctl') as ctl:
+                launch.main();ctl.assert_not_called()
+            projects.login_settings.save(True)  # The existing Control Panel toggle.
+            window.set_motion(True)
+            self.assertTrue(window.login_toggle.isChecked())
+            with patch.object(projects.login_settings,'save',side_effect=OSError('Read-only settings')):
+                window.login_toggle.setChecked(False)
+            self.assertTrue(window.login_toggle.isChecked())
+            self.assertIn('Could not save',window.login_status.text())
+            window.close()
+
     def test_all_icons_render_and_small_layout_scrolls_without_overlap(self):
         import projects
         from PyQt6.QtCore import Qt

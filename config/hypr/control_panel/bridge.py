@@ -18,6 +18,13 @@ def theme():
       QWidget#hyperControlPanel {{border:1px solid {p['Midlight']}; border-radius:{4 if design=='binaryknife' else 12 if design=='breakpoint' else 16}px;}}
       QFrame#panelHeader {{background:transparent; border:none;}}
       QLabel#panelTitle {{font-size:21px; font-weight:600; padding:8px 0; color:{p['Text']};}}
+      QFrame#ramMetric, QFrame#ramMode {{background:{p['Base']}; border:1px solid {p['Midlight']}; border-radius:8px;}}
+      QFrame#ramMode[selected="true"] {{border-color:{p['Accent']};}}
+      QWidget#ramCleanerTab QRadioButton::indicator {{width:16px; height:16px; border:1px solid {p['PlaceholderText']}; border-radius:8px; background:{p['Base']};}}
+      QWidget#ramCleanerTab QRadioButton::indicator:checked {{background:{p['Highlight']}; border:2px solid {p['Accent']};}}
+      QLabel[ramValue="true"] {{font-size:22px; font-weight:600; color:{p['Accent']};}}
+      QPushButton#ramCleanButton {{background:{p['Highlight']}; color:{p['HighlightedText']}; font-weight:600; padding:10px 22px;}}
+      QPushButton#ramCleanButton:disabled {{background:{p['AlternateBase']}; color:{p['Disabled']};}}
       QGroupBox {{padding:8px; margin-top:16px; border:1px solid {p['Midlight']};}}
       QGroupBox::title {{color:{p['PlaceholderText']}; padding:0 6px;}}
       QTabWidget::pane {{border:none;}}

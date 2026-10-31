@@ -36,6 +36,8 @@ set(PROJECT_SOURCES
     ../disk_visualizer.cpp
     ../disk_visualizer.h
     ../disk_layout.h
+    ../ram_cleaner.cpp
+    ../ram_cleaner.h
         mainwindow.cpp
         mainwindow.h
         mainwindow.ui
@@ -160,6 +162,16 @@ endif()
 option(BUILD_PREFERENCES_TESTS "Build preferences dialog and persistence tests" OFF)
 option(BUILD_WHEEL_GUARD_TESTS "Build settings wheel interaction tests" OFF)
 option(BUILD_DISK_VISUALIZER_TESTS "Build disk map layout and UI tests" OFF)
+option(BUILD_RAM_CLEANER_TESTS "Build isolated RAM cleaner interaction tests" OFF)
+if(BUILD_RAM_CLEANER_TESTS)
+    enable_testing()
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(ram_cleaner_tests tests/ram_cleaner_tests.cpp ../ram_cleaner.cpp ../ram_cleaner.h)
+    target_include_directories(ram_cleaner_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    target_link_libraries(ram_cleaner_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME ram_cleaner COMMAND ram_cleaner_tests)
+    set_tests_properties(ram_cleaner PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
 if(BUILD_DISK_VISUALIZER_TESTS)
     enable_testing()
     find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)

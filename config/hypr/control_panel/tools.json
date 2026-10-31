@@ -25,7 +25,8 @@
     {"id":"updates","title":"Package Updates","description":"System upgrades and Arch news","icon":"system-software-update","path":["packageManagerTab","updatesTab"]},
     {"id":"repair","title":"Package Repair","description":"Mirrors, keyrings, locks and downgrades","icon":"tools-check-spelling","path":["pacmanDoctorTab"]},
     {"id":"remove","title":"Installed Software","description":"Remove packages, orphans and caches","icon":"edit-delete","path":["uninstallTab"]},
-    {"id":"cleaner","title":"System Cleaner","description":"Clean up and explore your disk map","icon":"edit-clear","path":["cleanerTab"],"keywords":"disk visualizer treemap space folders files trash sudo partitions"}
+    {"id":"cleaner","title":"System Cleaner","description":"Clean up and explore your disk map","icon":"edit-clear","path":["cleanerTab"],"keywords":"disk visualizer treemap space folders files trash sudo partitions"},
+    {"id":"ram-cleaner","title":"RAM Cleaner","description":"Reclaim unused caches without closing apps","icon":"media-flash","path":["ramCleanerTab"],"keywords":"memory ram cache normal aggressive cleanup reclaim"}
   ]},
   {"title": "Network & connections","tools":[
     {"id":"network","title":"Network","description":"Wi-Fi, interfaces, bridges and ports","icon":"network-workgroup","path":["networkTab"]},

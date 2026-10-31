@@ -9,12 +9,13 @@ import socket
 import sys
 import time
 
-from PyQt6.QtCore import Qt, QPointF, QRectF, QTimer, QProcess, QObject, QSocketNotifier, pyqtSignal
+from PyQt6.QtCore import Qt, QPointF, QRectF, QTimer, QProcess, QObject, QSocketNotifier, QSignalBlocker, pyqtSignal
 from PyQt6.QtGui import (QColor, QFont, QPainter, QPainterPath, QPalette, QPen, QPolygonF,
                          QIcon, QTransform, QLinearGradient, QRadialGradient, QKeySequence, QShortcut)
 from PyQt6.QtWidgets import (QApplication, QAbstractButton, QWidget, QLabel, QVBoxLayout,
-                            QHBoxLayout, QGridLayout, QScrollArea, QSizePolicy)
+                            QHBoxLayout, QGridLayout, QScrollArea, QSizePolicy, QCheckBox)
 from projects_model import catalog, hide_dashboard, open_project, WORKSPACE
+import login_settings
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT.parent/'theme'))
@@ -171,6 +172,13 @@ class Dashboard(QWidget):
         self.scroll=QScrollArea();self.scroll.setObjectName('projectScroll');self.scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.scroll.setWidgetResizable(True);self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.gallery=Gallery(projects);self.scroll.setWidget(self.gallery);layout.addWidget(self.scroll,1)
+        self.login_toggle=QCheckBox('Show this dashboard at login');self.login_toggle.setObjectName('dashboardLoginEnabled')
+        self.login_toggle.setToolTip('Start all four dashboard windows when you log in. Super + D always opens them manually.')
+        layout.addWidget(self.login_toggle)
+        self.login_status=QLabel();self.login_status.setObjectName('projectMuted');self.login_status.setFont(font(11));self.login_status.setWordWrap(True)
+        layout.addWidget(self.login_status)
+        self.login_saved=True;self.refresh_login_preference()
+        self.login_toggle.toggled.connect(self.save_login_preference)
         footer=QHBoxLayout();self.message=QLabel('Made by Xetal');self.message.setObjectName('projectMuted');self.message.setFont(font(11,mono=True));footer.addWidget(self.message,1)
         site=QLabel('xetal.net  ↗');site.setObjectName('projectMuted');site.setFont(font(12));footer.addWidget(site);layout.addLayout(footer)
         self.worker=QProcess(self);self.worker.finished.connect(self.opened);self.worker.errorOccurred.connect(lambda _:self.message.setText('Could not open the project page.'))
@@ -189,8 +197,25 @@ class Dashboard(QWidget):
             'QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical {height:0;}')
         self.update()
 
+    def refresh_login_preference(self):
+        with QSignalBlocker(self.login_toggle):
+            try:
+                self.login_saved=login_settings.enabled();self.login_toggle.setChecked(self.login_saved);self.login_toggle.setEnabled(True)
+                self.login_status.setText('Super + D opens or hides all four windows anytime.')
+            except (OSError,ValueError) as error:
+                self.login_toggle.setEnabled(False);self.login_status.setText('Could not read startup preference: '+str(error))
+
+    def save_login_preference(self,enabled):
+        try:
+            login_settings.save(enabled);self.login_saved=enabled
+            self.login_status.setText('Saved. All four windows will open at login.' if enabled else
+                                     'Saved. All four windows will stay closed at login. Super + D still opens them.')
+        except (OSError,ValueError) as error:
+            with QSignalBlocker(self.login_toggle):self.login_toggle.setChecked(self.login_saved)
+            self.login_status.setText('Could not save startup preference: '+str(error))
+
     def set_motion(self,visible):
-        if visible:self.motion.start()
+        if visible:self.refresh_login_preference();self.motion.start()
         else:self.motion.stop()
 
     def animate(self):
