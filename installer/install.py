@@ -328,6 +328,7 @@ def main():
     if args.skip_packages:
         runtime_install.policy.require()
     else:
+        dependencies.prepare_repositories()
         dependencies.preflight()
         runtime_install.ensure(args.yes)
         checkpoint()

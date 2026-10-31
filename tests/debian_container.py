@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT/'installer'))
 import debian_runtime as debian
 import runtime_install as runtime
 import system_debian_runtime as system
+import dependencies
 
 
 def main():
@@ -29,6 +30,12 @@ def main():
     # Existing desktop applications and older libraries must survive rollback.
     subprocess.run([*debian.APT, '-y', 'install', 'kitty', 'waybar', 'dolphin', 'libwayland-dev', 'libsdl3-0'], check=True)
     before = system.versions()
+    # Reproduce fresh DVD installs whose repository lists have not been fetched.
+    # This deletion is confined to the disposable container guarded above.
+    for path in Path('/var/lib/apt/lists').iterdir():
+        if path.is_file() and path.name != 'lock':
+            path.unlink()
+    dependencies.prepare_repositories()
     subprocess.run([*user, sys.executable, '-c', f'import sys;sys.path.insert(0,{str(ROOT/"installer")!r});import dependencies;dependencies.preflight()'], check=True)
     system.install()
     backup = max(p for p in system.STATE.iterdir() if p.is_dir())

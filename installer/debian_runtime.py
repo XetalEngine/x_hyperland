@@ -87,7 +87,9 @@ def simulate(args, allow_remove=()):
                              *([] if allow_remove else ['--no-remove']), 'install', *map(str, args)],
                             capture_output=True, text=True, timeout=300, env=ENV)
     if result.returncode:
-        raise RuntimeError('Debian dependencies cannot be resolved. No packages have been changed.\n'+
+        raise RuntimeError('Debian dependencies cannot be resolved. No packages have been changed. '
+                           'Check that APT has an enabled Debian 13 (trixie) network mirror, '
+                           'not only the installation DVD, and that its package lists refreshed successfully.\n'+
                            (result.stdout+'\n'+result.stderr).strip())
     plan, removed = parse_plan(result.stdout)
     if not removed <= set(allow_remove):
@@ -98,6 +100,20 @@ def simulate(args, allow_remove=()):
 def package_args(paths, required, packages):
     bundled = {p['name'] for p in required['packages']}
     return [*map(str, paths), *[p for p in packages if p not in bundled]]
+
+
+def refresh():
+    """Refresh metadata before resolution; never install packages or edit sources."""
+    print('Refreshing Debian package lists from the configured repositories…', flush=True)
+    # APT normally succeeds even if some downloads fail and stale lists remain.
+    # Setup must report that failure before resolving or changing the runtime.
+    result = subprocess.run([*runtime.administrator(), *APT,
+                             '-o', 'APT::Update::Error-Mode=any',
+                             '-o', 'Acquire::Retries=2', 'update'])
+    if result.returncode:
+        raise RuntimeError('Debian package lists could not be refreshed. Check the network and the APT '
+                           'repository errors above. A Debian 13 (trixie) network mirror is required; '
+                           'an installation DVD alone is not enough. No packages have been changed.')
 
 
 def preflight(packages):

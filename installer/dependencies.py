@@ -142,6 +142,16 @@ def preflight():
     if problems: raise RuntimeError('\n'.join(problems)+'\nNo packages or desktop settings have been changed.')
 
 
+def prepare_repositories():
+    """Foreground Setup refreshes Debian's lists before its read-only preflight."""
+    if runtime_install.policy.debian_host(distribution()):
+        problems = platform_problems()
+        if problems:
+            raise RuntimeError('\n'.join(problems))
+        import debian_runtime
+        debian_runtime.refresh()
+
+
 def prepare_environment():
     """Expose installed Perl scripts to checks and their subsequent build processes."""
     # Arch adds these directories at login through /etc/profile.d/perlbin.sh.

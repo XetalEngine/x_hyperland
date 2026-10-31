@@ -81,19 +81,42 @@ class DistributionTests(unittest.TestCase):
             administrator.assert_not_called();backup.assert_not_called()
 
     def test_install_and_foreground_update_preflight_before_any_package_changes(self):
+        actions=[]
+        def preflight():
+            actions.append('resolve')
+            raise RuntimeError('Repository mismatch')
         with tempfile.TemporaryDirectory(prefix='xetal-distro-test-') as temporary, \
              patch.object(install.os,'geteuid',return_value=1000), \
              patch.object(install.Path,'home',return_value=Path(temporary)), \
              patch.object(install,'source_revision',return_value='a'*40), \
              patch.object(deps,'check',return_value=[]), \
              patch.object(runtime.policy,'problem',return_value='Version mismatch'), \
-             patch.object(deps,'preflight',side_effect=RuntimeError('Repository mismatch')), \
+             patch.object(deps,'prepare_repositories',side_effect=lambda:actions.append('refresh')), \
+             patch.object(deps,'preflight',side_effect=preflight), \
              patch.object(runtime,'ensure') as ensure,patch.object(deps,'install') as packages:
             with patch.object(sys,'argv',['install.py','--yes']):
                 with self.assertRaisesRegex(RuntimeError,'Repository mismatch'):install.main()
             with self.assertRaisesRegex(RuntimeError,'Repository mismatch'):
                 update.prepare(Path(temporary),'a'*40,automatic=False,allow_runtime=True)
             ensure.assert_not_called();packages.assert_not_called()
+            self.assertEqual(actions,['refresh','resolve','refresh','resolve'])
+            self.assertFalse((Path(temporary)/'.config').exists())
+
+    def test_refresh_failure_stops_foreground_setup_before_any_package_changes(self):
+        with tempfile.TemporaryDirectory(prefix='xetal-distro-test-') as temporary, \
+             patch.object(install.os,'geteuid',return_value=1000), \
+             patch.object(install.Path,'home',return_value=Path(temporary)), \
+             patch.object(install,'source_revision',return_value='a'*40), \
+             patch.object(deps,'check',return_value=[]), \
+             patch.object(runtime.policy,'problem',return_value='Version mismatch'), \
+             patch.object(deps,'prepare_repositories',side_effect=RuntimeError('Repository refresh failed')), \
+             patch.object(deps,'preflight') as preflight, patch.object(runtime,'ensure') as ensure, \
+             patch.object(deps,'install') as packages:
+            with patch.object(sys,'argv',['install.py','--yes']):
+                with self.assertRaisesRegex(RuntimeError,'Repository refresh failed'):install.main()
+            with self.assertRaisesRegex(RuntimeError,'Repository refresh failed'):
+                update.prepare(Path(temporary),'a'*40,automatic=False,allow_runtime=True)
+            preflight.assert_not_called();ensure.assert_not_called();packages.assert_not_called()
             self.assertFalse((Path(temporary)/'.config').exists())
 
 

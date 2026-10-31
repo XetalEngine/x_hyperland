@@ -42,6 +42,13 @@ A disposable Fedora 44 test environment completed package signature/dependency c
 
 The bundle combines documented local Debian 13 backports with unmodified trixie-backports packages. These local builds are not official Debian binary releases. Setup verifies the trusted release manifest's SHA-256 hashes, archive contents and DEB identities before passing root-owned copies to APT. Ordinary dependencies still come from configured Debian repositories with normal APT authentication. No testing/backports repository is enabled on the recipient's machine.
 
+Foreground installation and runtime updates refresh Debian's package lists
+before resolving dependencies. A failed refresh stops setup before any package
+changes and shows APT's repository/network error. An enabled Debian 13 network
+mirror is required; a DVD-only source list cannot supply all dependencies.
+Setup preserves the existing repository configuration. The empty-package-list
+case is covered by the disposable Debian test.
+
 Setup resolves the full transaction without removing existing applications, saves exact previous packages and downloads dependencies before installation. It records recovery under `/var/lib/xetal-hyprland/debian-runtime/`. Dedicated version pins in `/etc/apt/preferences.d/xetal-hyprland` keep the compositor and its native libraries/headers together. Other preferences and package holds are preserved. If a previous package is unavailable for recovery, installation stops before changes.
 
 Recovery restores replaced versions and the old pins. It removes newly introduced runtime packages and their newly introduced dependants when needed, while retaining ordinary dependencies such as system services. It refuses to remove pre-existing applications or overwrite externally changed package versions or pins. Manual recovery uses `sudo python3 installer/system_debian_runtime.py --restore RECORD`.
