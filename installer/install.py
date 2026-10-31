@@ -134,6 +134,7 @@ def render(stage, home, monitors, profile='auto', startup=True):
     # Portable Places; never publish the author's private paths or recent files.
     dolphin_profile.write_changed(stage/'dolphin/data/user-places.xbel', dolphin_profile.default_places(home))
     dolphin_profile.prepare_terminal(stage)
+    dolphin_profile.prepare_layout(stage)
     # Copy the recipient's XDG directory locations, without invoking a shell or
     # creating/changing any of those folders.
     user_dirs=home/'.config/user-dirs.dirs'
@@ -293,9 +294,12 @@ def main():
         if family:print('Package recipe ('+family+'): '+' '.join(dependencies.PACKAGES[family]))
         return 1 if errors and args.check else 0
     checkpoint()
+    commit=source_revision()
+    print('Installer source: '+commit,flush=True)
     if args.skip_packages:
         runtime_install.policy.require()
     else:
+        dependencies.preflight()
         runtime_install.ensure(args.yes)
         checkpoint()
         errors=dependencies.check()
@@ -305,8 +309,6 @@ def main():
         checkpoint()
         errors=dependencies.check()
         if errors:raise RuntimeError('Dependencies still need attention; profile unchanged:\n'+'\n'.join(errors))
-    commit=source_revision()
-    print('Installer source: '+commit,flush=True)
     if args.prepare:
         destination=args.prepare.absolute()
         if destination.exists():raise RuntimeError('--prepare destination must not exist.')

@@ -33,6 +33,7 @@ button:disabled { color: #6c8290; background: #192730; border-color: #243742; }
 button:focus { outline: 2px solid #9ce7ff; outline-offset: 2px; }
 #primary { background: #37baff; color: #071c28; border-color: #7ad8ff; font-weight: bold; }
 #primary:hover { background: #73d4ff; }
+#primary:disabled { background: #192730; color: #6c8290; border-color: #243742; }
 checkbutton { color: #dcecf7; padding: 8px 0; }
 check { background: #14232e; border: 1px solid #60859b; border-radius: 4px; }
 check:checked { background: #37baff; color: #071c28; }
@@ -156,7 +157,7 @@ class Wizard:
         self.index = index; g = self.g
         g.stack_set_visible_child_name(self.stack, str(index).encode())
         g.widget_set_sensitive(self.back, index in (1, 2)); g.widget_set_sensitive(self.next, index != 3)
-        g.button_set_label(self.next, {0:b'Get started', 2:b'Install desktop', 4:b'Finish'}.get(index, b'Continue'))
+        g.button_set_label(self.next, {0:b'Get started', 2:b'Install desktop', 3:'Installing…'.encode(), 4:b'Finish'}.get(index, b'Continue'))
         g.button_set_label(self.cancel, b'Stop after this step' if index == 3 else b'Close' if index == 4 else b'Cancel')
         names = ('Welcome', 'Your setup', 'Review', 'Install', 'Ready')
         text = '\n\n'.join('<b>●  '+name+'</b>' if i == index else '○  '+name for i, name in enumerate(names))

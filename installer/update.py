@@ -29,6 +29,7 @@ def prepare(home, commit, automatic=True, allow_runtime=False, checkpoint=lambda
             (state/'pending.json').unlink(missing_ok=True)
         raise RuntimeError(message)
     if allow_runtime:
+        dependencies.preflight()
         install.runtime_install.ensure(yes=True)
         checkpoint()
     errors = dependencies.check()

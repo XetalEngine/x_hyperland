@@ -49,6 +49,7 @@ class SetupTests(unittest.TestCase):
         w=self.window;wizard=w.tab_wizard;panel=w.package_panel
         self.assertEqual(wizard.steps[wizard.step][0],'components')
         self.assertEqual(panel.table.rowCount(),7)
+        self.assertIn('Ultra AMD Stealth Interceptor (optional)',panel.table.item(6,0).text())
         self.assertIs(panel.parentWidget(),wizard.component_host)
         self.assertFalse(w._components_ready())
         w._select_tab_by_name('Paths & Tools')
@@ -321,7 +322,7 @@ class SetupTests(unittest.TestCase):
             for name in ('qemu','ovmf'):
                 expected=f'{installed[name]["label"]} update available: {installed[name]["version"]} → 2.0.0.'
                 self.assertIn(expected,item.toolTip())
-                row=list(release['components']).index(name)
+                row=next(r for r in range(panel.table.rowCount()) if panel.table.item(r,0).text()==release['components'][name]['label'])
                 self.assertEqual(panel.table.item(row,3).text(),'UPDATE AVAILABLE')
             w._select_tab_by_name('Paths & Tools')
             self.assertIn('update available',w.issue_banner.text())
@@ -355,7 +356,7 @@ class SetupTests(unittest.TestCase):
         with patch.object(packages,'installed',side_effect=lambda name:installed.get(name,{})):
             panel.refresh()
             self.assertEqual(panel.update_messages(),[])
-            row=list(panel.release['components']).index('qemu')
+            row=next(r for r in range(panel.table.rowCount()) if panel.table.item(r,0).text()==panel.release['components']['qemu']['label'])
             self.assertEqual(panel.table.item(row,3).text(),'Version conflict')
             self.assertFalse(panel.table.cellWidget(row,4).findChild(QPushButton).isEnabled())
 

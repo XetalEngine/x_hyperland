@@ -44,7 +44,10 @@
     "on-click-right": "$HOME/.config/hypr/scripts/control-center.sh --tab system"
   },
   "hyprland/workspaces": {
-    "format": "{name} {windows}",
+    "format": "{icon} {windows}",
+    "format-icons": {
+      "xetal-startup": "Welcome"
+    },
     "all-outputs": false,
     "show-special": true,
     "special-visible-only": false,
@@ -59,7 +62,7 @@
         "Papirus-Dark",
         "Adwaita"
       ],
-      "ignore-list": [],
+      "ignore-list": ["^xetal-startup-(info|matrix|clock|hero|projects)$"],
       "active-window-position": "none"
     },
     "active-only": false,

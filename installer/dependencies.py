@@ -1,6 +1,7 @@
 """Distribution packages and capability checks. No installation at import time."""
 from pathlib import Path
 import os
+import platform
 import re
 import shlex
 import shutil
@@ -19,7 +20,7 @@ PACKAGES = {
         base-devel autoconf automake libtool make perl gettext gawk expect socat
         libtasn1 gmp libseccomp fuse3 libei tpm2-tools dmidecode pciutils usbutils
         mtools dosfstools util-linux kmod'''.split(),
-    'fedora': '''git gvfs gvfs-smb hyprland hyprpaper hyprlock waybar kitty dolphin konsole konsole-part SwayNotificationCenter grim slurp wl-clipboard
+    'fedora': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole konsole-part SwayNotificationCenter grim slurp wl-clipboard
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
         python3 python3-psutil python3-qt6 python3-gobject python3-pillow gcc gcc-c++ cmake libxcb-devel pkgconf-pkg-config
         gtk3-devel gtk-layer-shell-devel json-glib-devel json-c-devel qt5-qtbase-devel qt5-qtbase-private-devel
@@ -31,7 +32,7 @@ PACKAGES = {
         autoconf automake libtool make perl gettext gawk expect socat openssl-devel
         libtasn1-devel gmp-devel glib2-devel gnutls-devel libseccomp-devel fuse3-devel libei-devel
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod'''.split(),
-    'debian': '''git gvfs gvfs-backends gvfs-fuse hyprland hyprpaper hyprlock waybar kitty dolphin konsole konsole-kpart sway-notification-center grim slurp wl-clipboard
+    'debian': '''git gvfs gvfs-backends gvfs-fuse hyprpaper hyprlock waybar kitty dolphin konsole konsole-kpart sway-notification-center grim slurp wl-clipboard
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
         python3 python3-psutil python3-pyqt6 python3-pyqt6.qtsvg python3-gi python3-pil gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1 build-essential cmake libxcb1-dev libxcb-res0-dev pkg-config
         libgtk-3-dev libgtk-layer-shell-dev libjson-glib-dev libjson-c-dev qtbase5-dev qtbase5-private-dev qtwayland5
@@ -56,17 +57,74 @@ MINIMUM = {'waybar':(0,15,0),'kitty':(0,49,0),'hyprpaper':(0,8,0)}
 PERL_SCRIPT_DIRS = ('/usr/bin/site_perl', '/usr/bin/vendor_perl', '/usr/bin/core_perl')
 
 
-def distro():
-    data = {}
-    for line in Path('/etc/os-release').read_text().splitlines():
-        if '=' in line:
-            key,value=line.split('=',1);data[key]=value.strip('"')
+def distribution():
+    # The standard reader handles quoted values, ID_LIKE and /usr/lib fallback
+    # without executing the file as a shell script.
+    try: return platform.freedesktop_os_release()
+    except OSError: return {'ID':'linux','PRETTY_NAME':'Unidentified Linux distribution'}
+
+
+def distro(data=None):
+    data = distribution() if data is None else data
     values=[data.get('ID',''),*data.get('ID_LIKE','').split()]
     for name in values:
         if name in ('arch','cachyos','manjaro','endeavouros'):return 'arch'
         if name in ('fedora','rhel'):return 'fedora'
         if name in ('debian','ubuntu','linuxmint','pop'):return 'debian'
     return None
+
+
+def platform_problems(auto_packages=True):
+    problems=[];data=distribution();family=distro(data)
+    name=data.get('PRETTY_NAME',data.get('ID','Linux'))
+    if platform.system() != 'Linux':
+        return ['Hyper Fusion requires Linux.']
+    if platform.machine() != runtime_install.policy.manifest()['architecture']:
+        problems.append('This release requires x86-64; detected '+platform.machine()+'.')
+    if auto_packages:
+        if family not in PACKAGES:
+            problems.append(name+' has no automatic package installer in this release. '+
+                            'Use --skip-packages only after supplying the exact compositor and all dependencies.')
+        elif family != 'arch' and runtime_install.policy.problem():
+            problems.append(name+' needs a native installation of the exact Hyprland version first. '+
+                            'The bundled Arch package cannot be installed on this distribution.')
+        if Path('/run/ostree-booted').exists():
+            problems.append('Automatic package installation is unavailable on an immutable OSTree desktop.')
+        tools={'arch':('pacman','pacman-conf','pacman-key','sudo'),
+               'fedora':('dnf','sudo'),'debian':('apt-get','sudo')}.get(family,())
+        problems.extend('Required package tool is missing: '+tool for tool in tools if not shutil.which(tool))
+    return problems
+
+
+def package_version_problems(output):
+    versions={}
+    for line in output.splitlines():
+        fields=line.split()
+        if len(fields)==2: versions[fields[0]]=fields[1]
+    problems=[]
+    for name,minimum in MINIMUM.items():
+        value=versions.get(name,'')
+        match=re.search(r'(\d+)\.(\d+)\.(\d+)',value.split(':')[-1])
+        if not match or tuple(map(int,match.groups()))<minimum:
+            problems.append(f'The configured repositories offer {name} {value or "(unknown)"}; '+
+                            '.'.join(map(str,minimum))+' or newer is required.')
+    return problems
+
+
+def preflight():
+    """Resolve packages without sudo, installation or refreshing host databases."""
+    data=distribution()
+    print('Checking distribution: '+data.get('PRETTY_NAME',data.get('ID','Linux'))+' ('+platform.machine()+')',flush=True)
+    problems=platform_problems()
+    if problems: raise RuntimeError('\n'.join(problems))
+    if distro(data) != 'arch': return
+    result=subprocess.run(['pacman','-Sp','--noconfirm','--print-format','%n %v',*PACKAGES['arch']],
+                          capture_output=True,text=True,timeout=60)
+    if result.returncode:
+        raise RuntimeError('Desktop packages cannot be resolved from this system’s configured repositories. '+
+                           'No packages or desktop settings have been changed.\n'+(result.stderr or result.stdout).strip())
+    problems=package_version_problems(result.stdout)
+    if problems: raise RuntimeError('\n'.join(problems)+'\nNo packages or desktop settings have been changed.')
 
 
 def prepare_environment():
@@ -92,7 +150,7 @@ def konsole_part_available():
 
 def check(runtime=True):
     prepare_environment()
-    errors=[]
+    errors=platform_problems(auto_packages=False)
     if runtime:
         message=runtime_install.policy.problem()
         if message:errors.append(message)

@@ -25,6 +25,7 @@ def main():
     g=app.g;g.lib.gtk_button_clicked.argtypes=[C.c_void_p]
     g.lib.gtk_widget_get_sensitive.argtypes=[C.c_void_p];g.lib.gtk_widget_get_sensitive.restype=C.c_int
     g.lib.gtk_label_get_text.argtypes=[C.c_void_p];g.lib.gtk_label_get_text.restype=C.c_char_p
+    g.lib.gtk_button_get_label.argtypes=[C.c_void_p];g.lib.gtk_button_get_label.restype=C.c_char_p
     g.lib.gtk_widget_get_allocated_width.argtypes=[C.c_void_p];g.lib.gtk_widget_get_allocated_width.restype=C.c_int
     g.lib.gtk_widget_get_allocated_height.argtypes=[C.c_void_p];g.lib.gtk_widget_get_allocated_height.restype=C.c_int
     phase=0;commands=[];failures=[];started=time.monotonic()
@@ -74,7 +75,10 @@ def main():
                 assert bool(g.toggle_button_get_active(app.startup))==selected
                 app.advance();app.advance()
             elif phase==4:
-                assert app.busy;capture('progress');app.close()
+                assert app.busy
+                assert not g.lib.gtk_widget_get_sensitive(app.next)
+                assert g.lib.gtk_button_get_label(app.next).decode()=='Installing…'
+                capture('progress');app.close()
                 assert app.cancel_file.exists()
             elif phase==5:
                 if app.busy:return 1

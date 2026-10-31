@@ -270,6 +270,7 @@ class RuntimeTests(unittest.TestCase):
         with patch.object(runtime.policy,'problem',return_value='Version mismatch'), \
              patch.object(dependencies,'distro',return_value='arch'), \
              patch.object(runtime,'download',return_value=self.root/'package'), \
+             patch.object(runtime,'check_transaction'), \
              patch.object(runtime,'previous_package',return_value=None), \
              patch.object(runtime,'administrator',return_value=[]),patch.object(runtime.subprocess,'Popen',side_effect=helper):
             with self.assertRaisesRegex(RuntimeError,'package setup failed'):runtime.ensure(yes=True)

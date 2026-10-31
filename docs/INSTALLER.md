@@ -8,6 +8,10 @@ Dolphin Places are generated for the recipient: Home, existing standard XDG fold
 
 Dolphin's bottom terminal opens by default and uses Konsole's embedded component, which Setup installs and checks. Kitty remains the standalone terminal, including Dolphin's external-terminal action. The embedded terminal uses a private profile whose colors follow the Hyprland Kitty theme when Dolphin is opened; shared KDE/Konsole preferences are not changed. F4 hides or shows the panel, and Dolphin remembers subsequent layout changes.
 
+Fresh profiles show **Places** on the left and hide the redundant **Folders** tree. Existing saved layouts are preserved; F7 hides or shows Folders. The dashboard's taskbar entry reads **Welcome**, without icons for its four companion windows. Super+D continues to open or hide all four together.
+
+During installation, the forward button is disabled, gray and labeled **Installing…**. It becomes **Finish** after success, or **Retry** if setup stops.
+
 Python and GTK 3 can be bootstrapped from Arch packages if missing. The wizard itself does not need PyQt or PyGObject before starting. Package authentication uses a separate password window through `sudo -A`; passwords are passed only to sudo and are never included in the installation log. Details are saved to `~/.local/state/xetal-hyprland/setup.log`.
 
 ## Tested compositor

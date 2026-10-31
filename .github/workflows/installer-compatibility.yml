@@ -1,0 +1,35 @@
+name: Installer compatibility
+
+on:
+  push:
+    paths: ['installer/**', 'tests/**', 'config/hypr/runtime/**', '.github/workflows/installer-compatibility.yml']
+  pull_request:
+    paths: ['installer/**', 'tests/**', 'config/hypr/runtime/**', '.github/workflows/installer-compatibility.yml']
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repositories:
+    runs-on: ubuntu-latest
+    container: archlinux:base
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [arch, cachyos-v3, cachyos-v4, endeavouros, manjaro]
+    steps:
+      - name: Prepare disposable CI container
+        run: pacman -Syu --noconfirm python git
+      - uses: actions/checkout@v4
+      - name: Distribution preflight regressions
+        run: python -m unittest discover -s tests -p test_distribution_support.py -v
+      - name: Resolve desktop and pinned compositor against current repositories
+        run: python tests/repository_matrix.py --distro '${{ matrix.distro }}' --output repository-report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: repository-${{ matrix.distro }}
+          path: repository-report.json

@@ -63,7 +63,7 @@ class PackagesPanel(QGroupBox):
         entries=(self.release or {}).get('components',{})
         self.missing.setEnabled(not self.job and any(not packages.installed(n) and not packages.compatibility(n,e) for n,e in entries.items()))
         self.table.setRowCount(len(entries))
-        for row,(name,entry) in enumerate(entries.items()):
+        for row,(name,entry) in enumerate(sorted(entries.items(),key=lambda item:item[0]=='kvm-amd')):
             current=packages.installed(name);reason=packages.compatibility(name,entry)
             same=current.get('sha256')==entry['sha256']
             newer=bool(current) and packages.version(current['version'])>packages.version(entry['version'])
@@ -71,7 +71,9 @@ class PackagesPanel(QGroupBox):
             conflict=bool(current) and not same and current['version']==entry['version']
             status=reason or ('Current' if same else 'Newer local version' if newer else
                              'Version conflict' if conflict else 'UPDATE AVAILABLE' if update else 'Ready to download')
-            for col,text in enumerate((entry['label'],current.get('version','—'),entry['version'],status)):
+            label=('Custom KVM module · Ultra AMD Stealth Interceptor (optional) · '+entry['kernel']
+                   if name=='kvm-amd' else entry['label'])
+            for col,text in enumerate((label,current.get('version','—'),entry['version'],status)):
                 item=QTableWidgetItem(text)
                 item.setToolTip(text+(f'\n{entry["size"]/1024**2:.1f} MiB download · {entry["unpacked_size"]/1024**2:.1f} MiB installed' if col==2 else ''))
                 self.table.setItem(row,col,item)
@@ -83,8 +85,8 @@ class PackagesPanel(QGroupBox):
                 button.setToolTip('This version has different files than the installed component. A newer version is required.')
             button.clicked.connect(lambda _,n=name,e=entry:self.download(n,e))
             cell=QWidget();buttons=QHBoxLayout(cell);buttons.setContentsMargins(6,4,6,4);buttons.addWidget(button)
-            self.table.setCellWidget(row,4,cell);self.table.setRowHeight(row,44)
-        self.table.setFixedHeight(self.table.horizontalHeader().height()+44*len(entries)+4)
+            self.table.setCellWidget(row,4,cell);self.table.setRowHeight(row,64 if name=='kvm-amd' else 44)
+        self.table.setFixedHeight(self.table.horizontalHeader().height()+sum(self.table.rowHeight(r) for r in range(len(entries)))+4)
         self.table.setVisible(bool(entries))
         self.inventory_changed.emit()
 

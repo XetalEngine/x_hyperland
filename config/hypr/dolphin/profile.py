@@ -106,5 +106,19 @@ def prepare_terminal(root):
                 'kitty --config '+str(root/'kitty.conf'))
 
 
+def prepare_layout(root):
+    """Seed Places + terminal, with Folders hidden, only before a layout is saved."""
+    root = Path(root)
+    state = root/'dolphin/state/dolphinstaterc'
+    # Older Dolphin versions save the same Qt layout in dolphinrc. Let KDE
+    # migrate it, and preserve any layout the recipient has already chosen.
+    for path in (state, root/'dolphin/config/dolphinrc'):
+        if path.is_file() and re.search(r'^State(?:\[\$[ei]\])*\s*=', path.read_text(), re.M):
+            return
+    layout = (root/'dolphin/default-layout.state').read_text().strip()
+    set_default(state, 'State', 'State', layout)
+
+
 if __name__ == '__main__':
     prepare_terminal(Path(__file__).resolve().parents[1])
+    prepare_layout(Path(__file__).resolve().parents[1])

@@ -160,6 +160,17 @@ def complete():
     TRANSACTION = None
 
 
+def check_transaction(package):
+    # Pacman's print mode prepares dependency/conflict resolution without taking
+    # the package lock or changing installed packages. Keep dependency checks on.
+    result = subprocess.run(['pacman', '-Up', '--noconfirm', '--print-format', '%n %v', str(package)],
+                            capture_output=True, text=True, timeout=60)
+    if result.returncode:
+        raise RuntimeError('The required Hyprland package is incompatible with the installed packages or '+
+                           'configured repositories. The current compositor has not been changed.\n'+
+                           (result.stderr or result.stdout).strip())
+
+
 def rollback():
     global TRANSACTION
     if not TRANSACTION: return
@@ -185,6 +196,7 @@ def ensure(yes=False):
         raise RuntimeError('Compositor setup cancelled.')
     cache = Path.home()/'.cache/xetal-hyprland/runtime'/target['arch_package']
     package = download(target, cache) if message else None
+    if package: check_transaction(package)
     args = [*administrator(), '/usr/bin/python3', str(ROOT/'installer/system_runtime.py')]
     if package:
         previous = previous_package(cache)
