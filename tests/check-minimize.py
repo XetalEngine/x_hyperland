@@ -25,6 +25,7 @@ def main():
     binary = Path(sys.argv[1]).resolve(strict=True)
     root = Path(sys.argv[2]); root.mkdir(parents=True, exist_ok=False)
     config = root/'minimize.conf'; config.write_text(model.encode(model.DEFAULTS))
+    palette = root/'current.colors'; palette.write_text('[Colors:Window]\nDecorationFocus=57,169,255\n')
     cube = root/'cube.json'; cube.write_text(cube_model.encode(dict(cube_model.DEFAULTS, enabled=True)))
     burn = root/'burn.conf'; burn.write_text(burn_model.encode(dict(burn_model.DEFAULTS, enabled=True)))
     protocol = REPO/'tests/minimize/wlr-virtual-pointer-unstable-v1.xml'
@@ -52,7 +53,7 @@ debug {
     if not parent.startswith('/'):
         parent = str(Path(os.environ['XDG_RUNTIME_DIR'])/parent)
     env = dict(os.environ, XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=parent,
-               GSETTINGS_BACKEND='memory', XETAL_MINIMIZE_CONFIG=str(config),
+               GSETTINGS_BACKEND='memory', XETAL_MINIMIZE_CONFIG=str(config), XETAL_MINIMIZE_COLORS=str(palette),
                XETAL_CUBE_CONFIG=str(cube), XETAL_BURN_CONFIG=str(burn))
     env.pop('HYPRLAND_INSTANCE_SIGNATURE', None)
     children = []
@@ -133,6 +134,44 @@ debug {
         wayland('min', 'Wayland'); wait(lambda: status()['active'] == 1)
         time.sleep(.15); run('grim', '-o', output_name, str(root/'flying.png'))
         time.sleep(.6); run('grim', '-o', output_name, str(root/'fireball.png'))
+        # Change effects on an already minimized window, including palette-only
+        # reloads. No restore/re-minimize is allowed during these changes.
+        from PIL import Image, ImageDraw
+        shots = []
+        def shot(label):
+            path = root/(label+'.png'); run('grim', '-o', output_name, str(path))
+            b = status()['windows'][0]['box']; x,y,w,h = map(int,b)
+            picture = Image.open(path).crop((max(0,x-8),max(0,y-8),x+w+8,y+h+8)).convert('RGB')
+            shots.append((label,picture))
+        for effect in ('fireball','splat'):
+            config.write_text(model.encode(dict(model.DEFAULTS, effect=effect, size=160)))
+            dispatch('xetalminimize:reload'); time.sleep(.4)
+            assert status()['active']==1 and status()['effect']==effect
+            for i,rgb in enumerate(((57,169,255),(225,72,33),(101,224,118))):
+                palette.write_text('[Colors:Window]\nDecorationFocus='+','.join(map(str,rgb))+'\n')
+                dispatch('xetalminimize:reload'); time.sleep(.4)
+                assert all(abs(a-b/255)<.001 for a,b in zip(status()['color'],rgb))
+                shot(effect+'-'+str(i))
+        for shape in model.SHAPES:
+            config.write_text(model.encode(dict(model.DEFAULTS, effect='splat', shape=shape, size=160,
+                                               follow_theme=False, color='#64e18b')))
+            dispatch('xetalminimize:reload');time.sleep(.35)
+            assert status()['active']==1
+            shot('shape-'+shape)
+        # The frame must evolve while the window remains minimized.
+        run('grim','-o',output_name,str(root/'splat-a.png'));time.sleep(.3)
+        run('grim','-o',output_name,str(root/'splat-b.png'))
+        assert (root/'splat-a.png').read_bytes()!=(root/'splat-b.png').read_bytes()
+        canvas=Image.new('RGB',(6*200,3*210),'#0f181f');draw=ImageDraw.Draw(canvas)
+        for i,(name,picture) in enumerate(shots):
+            x=(i%6)*200;y=(i//6)*210;canvas.paste(picture,(x+10,y+6));draw.text((x+10,y+185),name,fill='white')
+        canvas.save(root/'gallery.png')
+        # Malformed live preferences must not strand or recolor a window.
+        config.write_text(model.encode(model.DEFAULTS)+'shape=invalid\n')
+        assert 'Duplicate' in ctl('dispatch','xetalminimize:reload')
+        assert status()['effect']=='splat' and status()['active']==1
+        config.write_text(model.encode(model.DEFAULTS));dispatch('xetalminimize:reload')
+        print('Live Fireball/Splat, six shapes, palette-follow, custom color and rejected reload: passed',flush=True)
         click_or_scroll(status()['windows'][0]); wait(lambda: status()['active'] == 0)
         wait(lambda: restored('Wayland', ws))
         after = client('Wayland'); assert after['at'] == before['at'] and after['size'] == before['size'], (before, after)

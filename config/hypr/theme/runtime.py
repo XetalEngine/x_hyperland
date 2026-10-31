@@ -100,7 +100,8 @@ def environment(base=None, value=None):
     try:
         cursor = cursor_model.load()[0]
         env.update(XCURSOR_THEME='Xetal-Cursor-'+cursor['style'], XCURSOR_SIZE=str(cursor['size']))
-        env['XCURSOR_PATH'] = str(ROOT.parent/'cursors/.build/data/icons')+':'+env.get('XCURSOR_PATH','/usr/share/icons')
+        cursor_paths = [str(ROOT.parent/'cursors/.build/data/icons'), *filter(None, env.get('XCURSOR_PATH','/usr/share/icons').split(':'))]
+        env['XCURSOR_PATH'] = ':'.join(dict.fromkeys(cursor_paths))
     except (OSError,ValueError): pass
     value = value or mode()
     paths = [str(ROOT/'qt6'), str(ROOT/'qt5')]

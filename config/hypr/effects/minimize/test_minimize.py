@@ -13,12 +13,50 @@ from effects.minimize import model, controller
 
 class SettingsTests(unittest.TestCase):
     def test_invalid_input_never_reaches_compositor(self):
-        for change in ({'enabled': 1}, {'effect': 'unknown'}, {'size': 0}, {'duration': 1.5}):
+        for change in ({'enabled': 1}, {'effect': 'unknown'}, {'size': 0}, {'duration': 1.5},
+                       {'follow_theme': 1}, {'color': 'red'}, {'shape': 'alien'}, {'speed': 0}, {'bubbles': 101}):
             with patch.object(controller, 'hypr') as hypr, self.assertRaises(ValueError):
                 controller.save(dict(model.DEFAULTS, **change), 'unused')
             hypr.assert_not_called()
         with self.assertRaises(ValueError):
             model.decode(model.encode(model.DEFAULTS)+'enabled=0\n')
+
+    def test_legacy_migration_preserves_preferences_and_new_fields_round_trip(self):
+        old = model.decode('enabled=0\neffect=fireball\nduration=650\nsize=100\n')
+        self.assertEqual(old, dict(model.DEFAULTS, enabled=False, duration=650, size=100))
+        for shape in model.SHAPES:
+            new = dict(old, effect='splat', shape=shape, follow_theme=False, color='#aabbcc', bubbles=0)
+            self.assertEqual(model.decode(model.encode(new)), new)
+        with self.assertRaises(ValueError):
+            model.decode('enabled=1\neffect=splat\nduration=420\n')
+
+    def test_native_settings_theme_colors_and_fixed_step_particles(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); config = root/'settings.conf'; palette = root/'current.colors'
+            config.write_text(model.encode(dict(model.DEFAULTS, effect='splat', shape='coral')))
+            palette.write_text('[Colors:Selection]\nDecorationFocus=1,2,3\n[Colors:Window]\nDecorationFocus=57,169,255\n')
+            source = root/'check.cpp'; binary = root/'check'
+            source.write_text('''#include "settings.hpp"
+#include "fire.hpp"
+#include <cassert>
+#include <cmath>
+int main(int argc,char** argv){
+ auto s=Minimize::readSettings(argv[1],argv[2]);
+ assert(s.effect=="splat" && s.shape==5);
+ assert(std::abs(s.rgb[0]-57.F/255)<.001 && s.rgb[2]==1);
+ Minimize::Fire a(42),b(42);
+ for(int i=0;i<100;++i){a.advance(.016);b.advance(.008);b.advance(.008);}
+ assert(a.particles.size()==384);
+ int live=0;for(size_t i=0;i<a.particles.size();++i){
+   auto& p=a.particles[i];assert(std::isfinite(p.x) && std::isfinite(p.y));
+   assert(p.life==b.particles[i].life && p.x==b.particles[i].x);
+   if(p.life>0)++live;
+ }
+ assert(live>80 && live<384);
+ a.advance(3600); // A resumed session must not replay thousands of frames.
+}''')
+            subprocess.run(['g++', '-std=c++23', '-I'+str(ROOT/'native'), str(source), '-o', str(binary)], check=True, capture_output=True)
+            subprocess.run([str(binary), str(config), str(palette)], check=True, timeout=10)
 
     def test_failed_activation_restores_file_and_keeps_draft(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -90,6 +128,18 @@ class ControlsTests(unittest.TestCase):
         with patch.object(model, 'load', side_effect=ValueError('bad setting')):
             page = MinimizePage(lambda *args: None)
         self.assertIn('Cannot read', page.status.text()); self.assertFalse(page.preview.isEnabled())
+        page.close()
+
+    def test_splat_controls_keep_custom_color_and_draft_until_apply(self):
+        from effects.minimize.page import MinimizePage
+        page = MinimizePage(lambda *args: None)
+        page.effect.setCurrentIndex(page.effect.findData('splat'))
+        page.follow_theme.setChecked(False); page.color = '#61e897'
+        page.shape.setCurrentIndex(page.shape.findData('claw')); page.bubbles.setValue(95)
+        page.edited()
+        self.assertTrue(page.dirty); self.assertTrue(page.color_button.isEnabled())
+        self.assertFalse(page.preview.isEnabled()); self.assertEqual(page.values()['shape'], 'claw')
+        page.reset(); self.assertFalse(page.dirty)
         page.close()
 
 

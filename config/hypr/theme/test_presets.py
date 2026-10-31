@@ -67,5 +67,32 @@ class PresetTests(unittest.TestCase):
         with self.assertRaises(ValueError):presets.validate({**target,'wallpapers':{'bad\nexec':{'path':'x','fit':'cover'}}})
         with self.assertRaises(ValueError):presets.save('\n',target,path=self.root/'bad.json')
 
+    def test_minimize_color_follow_and_rollback_without_replacing_preferences(self):
+        path=self.root/'effects/minimize/settings.conf';path.parent.mkdir(parents=True)
+        values=dict(presets.minimize.DEFAULTS,effect='splat',shape='claw',color='#65dd44',size=110)
+        path.write_text(presets.minimize.encode(values));before=path.read_bytes()
+        target=presets.builtin('modern','light',self.root)
+        self.assertNotIn('minimize',target)
+        seen=[]
+        palette=self.root/'theme/current.colors';old_palette=palette.read_bytes()
+        def ctl(*args):
+            if args==('-j','plugin','list'):return '[{"name":"Xetal Minimize"}]'
+            if args==('dispatch','xetalminimize:reload'):
+                seen.append(palette.read_bytes());return 'ok'
+            return ''
+        self.store.save.side_effect=ValueError('reload failed')
+        with patch.object(backend.settings,'ctl',side_effect=ctl),self.assertRaisesRegex(ValueError,'reload failed'):
+            backend.apply_components(target,{'colors'},backend.theme_token())
+        self.assertEqual(len(seen),2);self.assertNotEqual(seen[0],old_palette);self.assertEqual(seen[1],old_palette)
+        self.assertEqual(path.read_bytes(),before)
+        self.store.save.side_effect=None;seen.clear()
+        with patch.object(backend.settings,'ctl',side_effect=ctl),patch.object(backend.Path,'iterdir',return_value=iter(())):
+            backend.apply_components(target,{'colors'},backend.theme_token())
+        self.assertEqual(len(seen),1);self.assertEqual(path.read_bytes(),before)
+        snapshot=presets.current(self.root);self.assertEqual(snapshot['minimize'],values)
+        files,reloads=presets.resources(self.root,snapshot,{'effects'},'modern')
+        self.assertEqual(files[path],before);self.assertIn(('Xetal Minimize','xetalminimize:reload'),reloads)
+        self.assertNotIn(path,presets.resources(self.root,snapshot,{'layout'},'modern')[0])
+
 
 if __name__=='__main__':unittest.main()

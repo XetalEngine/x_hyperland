@@ -41,7 +41,8 @@ def build(root=ROOT):
         raise RuntimeError('Minimize supports Hyprland 0.56.2. This version needs an updated Minimize adapter; minimized windows are unavailable until the adapter is updated.')
     versions = output(['pkg-config','--modversion','hyprland','aquamarine','hyprutils','hyprgraphics','hyprcursor','hyprlang'])
     signature = hashlib.sha256((versions+str(flags)+output(['g++','-dumpfullversion'])).encode())
-    for source in sorted((root/'native').glob('*')):
+    sources = [*(root/'native').glob('*'), root.parent/'burn/native/engine.hpp', root.parent/'burn/native/fire_texture.hpp']
+    for source in sorted(sources):
         signature.update(source.name.encode()); signature.update(source.read_bytes())
     build_dir = root/'.build'/signature.hexdigest()[:20]
     build_dir.mkdir(parents=True, exist_ok=True)

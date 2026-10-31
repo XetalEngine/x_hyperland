@@ -1,14 +1,29 @@
-# Fireball Minimize
+# Minimize: Fireball & Splat
 
-Use an application's minimize button to send its window to a burning fireball
-on the left edge of that monitor. Click the fireball to restore the window.
+Press **Super+Z** or use an application's minimize button to send its window
+to the left edge of that monitor. Click its effect to restore the window.
 Windows form one column; scroll over it when the column fills up. Apps keep
 running, and grouped windows travel together.
 
 **Fusion Settings → Theme → Window effects → Minimize** controls the effect,
-travel time and fireball size. The effect starts enabled. Turning it off or
+travel time, size, animation speed and color. **Follow the active theme accent**
+is on by default, or you can choose a custom color. The effect starts enabled. Turning it off or
 choosing **Restore all windows** returns minimized apps to their workspaces.
 Closing a window still uses the separate Burn effect.
+
+- **Fireball** uses the original Compiz particle sprite and motion, adapted to
+  continuously emit soft rising flames while the window is minimized.
+- **Splat** has a glossy, moving surface with swelling bubbles, bursts and
+  ripples. Choose Bloom, Starburst, Spill, Tendrils, Wide splash or Coral, or
+  choose **Random per window**. Fixed silhouettes are consistent across windows;
+  random shapes stay with each window until it is restored. Boiling intensity
+  controls the bubbles independently of animation speed.
+- Theme changes recolor existing minimized windows immediately, including
+  colors-only presets. Custom colors and effect settings stay intact. Custom
+  theme presets can also save the Minimize settings.
+
+The original four-field settings file is upgraded when you next save. Existing
+size, timing and enabled preferences are preserved.
 
 The same native handler fixes **Super+F / Super+B** ordering for floating windows
 above a maximized/fullscreen window and remembers the order across workspace
@@ -22,8 +37,8 @@ switches. That part remains active when the minimize effect is disabled.
   `libeis-1.0` development headers and GLESv2. Setup builds the adapter; the
   session owns its loader. No shared desktop services are changed.
 - Handles Wayland xdg-shell, XWayland and foreign-toplevel minimize requests.
-  Apps without a minimize button can use a custom hotkey calling
-  `xetalminimize:minimize`.
+  Apps without a minimize button can use **Super+Z**. A custom hotkey can run
+  `hyprctl dispatch xetalminimize:minimize` with the `exec` dispatcher.
 - Restore preserves workspace, floating geometry, maximized/fullscreen and
   pinned state. Plugin unload and monitor disconnect restore apps first.
 - Effects do not render or receive input over the session lock or while input
@@ -36,8 +51,10 @@ hyprctl dispatch xetalminimize:restoreall
 ```
 
 `hyprctl xetal-minimize` reports active records and their IDs. Previews are
-bounded to 1024 pixels on their longest side. Settled fireballs update at 30 FPS
-and damage only their small screen region; there is no frame timer when idle.
+bounded to 1024 pixels on their longest side. Visible effects update at up to 60 FPS and damage only their small screen
+region. Fire uses a fixed 30 ms physics step and a bounded 384-particle pool
+per window; offscreen effects skip simulation and rendering. There is no frame
+timer when no windows are minimized.
 
 ## Development checks
 
@@ -49,4 +66,13 @@ python3 tests/check-minimize.py /absolute/path/to/xetal-minimize.so /tmp/new-min
 
 The integration check uses a disposable nested compositor and test apps,
 including a maximized viewer stand-in. It never starts or alters a VM.
-Code is licensed under GPL-2.0-or-later; see `COPYING`.
+The integration check also produces a color/shape gallery and checks live
+palette changes, custom colors and rejected settings reloads.
+
+## Attribution
+
+Code is licensed under GPL-2.0-or-later; see `COPYING`. Fire reuses
+[`../burn/native/engine.hpp`](../burn/native/engine.hpp), ported from Compiz
+animationaddon by Erkin Bahceci and Dennis Kasprzyk (2006), and Dennis Kasprzyk's
+original [`fire_texture.hpp`](../burn/native/fire_texture.hpp) particle sprite.
+The persistent emitter, Splat shader and Hyprland integration are by XetalEngine.

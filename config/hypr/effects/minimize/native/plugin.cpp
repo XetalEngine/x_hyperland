@@ -33,12 +33,13 @@
 #include <set>
 #include <map>
 #include "graphics.hpp"
+#include "settings.hpp"
 
 namespace {
 using Clock=std::chrono::steady_clock;
 using Rect=Minimize::Rect;
 HANDLE handle;
-struct Settings { bool enabled=true; int duration=420, size=76; } settings;
+Minimize::Settings settings;
 Minimize::Graphics graphics;
 bool stopping=false, mutating=false, capturing=false;
 uint64_t sequence=0, requests=0, restored=0, draws=0;
@@ -63,6 +64,10 @@ struct Record {
     Vector2D snapshotScreen;
     SP<Render::IFramebuffer> snapshot;
     Clock::time_point born;
+    uint32_t seed=uint32_t(Clock::now().time_since_epoch().count()) ^ uint32_t(sequence*2654435761U);
+    Minimize::Fire fire{seed};
+    Clock::time_point lastFrame=Clock::now();
+    double effectTime=0;
 };
 std::vector<std::shared_ptr<Record>> records;
 
@@ -115,8 +120,8 @@ std::optional<Rect> slot(const Record& r) {
     return {};
 }
 Rect thumbnail(Rect b, const Record& r) {
-    double w=b.w*.42,h=std::min(b.h*.27,w*r.source.h/std::max(1.0,r.source.w));
-    return {b.x+(b.w-w)/2,b.y+b.h*.66-h/2,w,h};
+    double w=b.w*.29,h=std::min(b.h*.19,w*r.source.h/std::max(1.0,r.source.w));
+    return {b.x+(b.w-w)/2,b.y+b.h*(settings.effect=="splat"?.53:.72)-h/2,w,h};
 }
 void damage(bool full=true) {
     for(auto& r:records)if(auto m=r->monitor.lock();visible(m)){
@@ -292,9 +297,11 @@ class MinimizePass:public IPassElement {
             double burn=r->restoring?1-Minimize::ease(t):Minimize::ease(t);
             // Flames travel with the shrinking window and keep burning at rest.
             Rect fire=b.value_or(Rect{r->flight.x,r->flight.y,double(settings.size),double(settings.size)});
-            fire.x=dest.x+dest.w/2-fire.w/2;fire.y=dest.y+dest.h/2-fire.h*.66;
+            fire.x=dest.x+dest.w/2-fire.w/2;fire.y=dest.y+dest.h/2-fire.h*(settings.effect=="splat"?.53:.72);
             fire.y+=r->settled?std::sin(seconds*2.2+r->id)*2:0;
-            graphics.fire(m,fire,seconds+double(r->id)*3,float(burn),box(fire).containsPoint(pointer));
+            const bool hover=box(fire).containsPoint(pointer);
+            if(settings.effect=="splat")graphics.splat(m,fire,r->effectTime,r->seed,settings.shape,settings.bubbles/100.F,settings.rgb,float(burn),hover);
+            else graphics.fire(m,fire,r->fire,settings.rgb,float(burn),hover);
             snapshot(*r,m,dest,float(1-burn*.25));
             ++draws;
         }
@@ -342,25 +349,11 @@ template<typename T> void hook(const std::string& name,const std::string& signat
 
 #include "stacking.hpp"
 
-Settings readSettings() {
+Minimize::Settings readSettings() {
     const char* overridePath=std::getenv("XETAL_MINIMIZE_CONFIG");
     auto path=overridePath?std::filesystem::path(overridePath):std::filesystem::path(std::getenv("HOME"))/".config/hypr/effects/minimize/settings.conf";
-    std::ifstream file(path);if(!file)throw std::runtime_error("Cannot read Minimize settings: "+path.string());
-    Settings next;std::set<std::string> seen;std::string line;
-    while(std::getline(file,line)) {
-        if(line.empty() || line[0]=='#')continue;
-        auto pos=line.find('=');if(pos==std::string::npos)throw std::runtime_error("Invalid Minimize setting");
-        auto key=line.substr(0,pos),value=line.substr(pos+1);
-        if(!seen.insert(key).second)throw std::runtime_error("Duplicate Minimize setting");
-        if(key=="effect") {if(value!="fireball")throw std::runtime_error("Unknown minimize effect");continue;}
-        size_t used=0;int number=std::stoi(value,&used);if(used!=value.size())throw std::runtime_error("Invalid Minimize value");
-        if(key=="enabled" && (number==0 || number==1))next.enabled=number;
-        else if(key=="duration" && number>=150 && number<=1200)next.duration=number;
-        else if(key=="size" && number>=48 && number<=120)next.size=number;
-        else throw std::runtime_error("Unknown or out-of-range Minimize setting: "+key);
-    }
-    if(seen!=std::set<std::string>{"enabled","effect","duration","size"})throw std::runtime_error("Incomplete Minimize settings");
-    return next;
+    const char* colors=std::getenv("XETAL_MINIMIZE_COLORS");
+    return Minimize::readSettings(path,colors?std::filesystem::path(colors):path.parent_path().parent_path().parent_path()/"theme/current.colors");
 }
 std::shared_ptr<Record> hit(Vector2D position) {
     if(g_pInputManager->isConstrained() || g_pInputManager->hasHeldButtons())return nullptr;
@@ -378,13 +371,20 @@ void tick(SP<CEventLoopTimer> self,void*) {
     }
     auto copy=records;
     for(auto& r:copy){
+        const auto now=Clock::now();
+        const double dt=std::chrono::duration<double>(now-r->lastFrame).count();r->lastFrame=now;
+        if(visible(r->monitor.lock()) && (slot(*r) || !r->settled)) {
+            const double step=std::clamp(dt,0.0,.1)*settings.speed/100.0;
+            r->effectTime+=step;
+            if(settings.effect=="fireball")r->fire.advance(step);
+        }
         if(!member(*r)){finish(r,false);continue;}
         if(!online(r->monitor.lock())){r->monitor=fallback();r->settled=true;}
         if(r->restoring && progress(*r)>=1)finish(r,true);
         else if(progress(*r)>=1)r->settled=true;
     }
     damage(false);
-    if(!records.empty() || !pending.empty())self->updateTimeout(std::chrono::milliseconds(33));
+    if(!records.empty() || !pending.empty())self->updateTimeout(std::chrono::milliseconds(16));
 }
 void cleanup() {
     stopping=true;listeners.clear();pending.clear();
@@ -446,9 +446,9 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             std::string items;for(auto& r:records){auto b=slot(*r);if(!items.empty())items+=",";
                 items+=std::format("{{\"id\":{},\"workspace\":{},\"restoring\":{},\"visible\":{},\"box\":[{},{},{},{}]}}",r->id,r->original?r->original->m_id:0,r->restoring,b.has_value(),b?b->x:0,b?b->y:0,b?b->w:0,b?b->h:0);
             }
-            return std::format("{{\"enabled\":{},\"active\":{},\"minimized\":{},\"restored\":{},\"draws\":{},\"windows\":[{}]}}",settings.enabled,records.size(),requests,restored,draws,items);
+            return std::format("{{\"enabled\":{},\"effect\":\"{}\",\"shape\":{},\"color\":[{},{},{}],\"active\":{},\"minimized\":{},\"restored\":{},\"draws\":{},\"windows\":[{}]}}",settings.enabled,settings.effect,settings.shape,settings.rgb[0],settings.rgb[1],settings.rgb[2],records.size(),requests,restored,draws,items);
         }});
     }catch(...){cleanup();throw;}
-    return {"Xetal Minimize","Fireball minimize and restore","XetalEngine","1.0"};
+    return {"Xetal Minimize","Fireball and living Splat minimize effects","XetalEngine","1.1"};
 }
 APICALL EXPORT void PLUGIN_EXIT(){cleanup();}

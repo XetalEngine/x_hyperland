@@ -145,7 +145,7 @@ Uncheck **Show this dashboard at login** right on the dashboard to disable all f
 
 **Burn** closes windows with the original Compiz particle flame and smoke. Tune the color, direction, particle count, size, lifetime and timing, or try a disposable preview window.
 
-**Fireball Minimize** turns an app's minimized window into a floating, burning fireball on the left edge of its screen. Click to restore; scroll the single column when it fills up. Apps keep running. Change the effect size and travel time, disable minimizing, or restore all windows in **Theme → Window effects → Minimize**. [Minimize guide →](config/hypr/effects/minimize/README.md)
+**Super+Z** minimizes the active window into **Fireball** or **Splat** on the left edge of its screen. Fireball uses Compiz's particle flames; Splat is living, glossy slime with boiling bubbles and six fixed or randomized silhouettes. Both follow the theme accent, with an optional custom color. Click to restore; scroll the single column when it fills up. Apps keep running. Adjust size, travel time, animation speed and boiling intensity, or restore all windows in **Theme → Window effects → Minimize**. [Minimize guide →](config/hypr/effects/minimize/README.md)
 
 **Desktop Cube + 3D Windows** gives each monitor its own four workspace faces. Hold **Ctrl+Alt+left mouse** and drag to rotate; release to select or press Escape to cancel. Adjust transparency, edge colors, ceiling/floor artwork, a moving sky, and raised windows with depth and spacing. **Standard animation is the default for ordinary workspace switching**; automatic cube rotation is an option. The drag gesture works with either choice.
 
@@ -153,7 +153,7 @@ Uncheck **Show this dashboard at login** right on the dashboard to disable all f
 
 Five cursor designs add optional Comet, Soft glow or Stardust trails and click ripples. Cursor effects start disabled and stop rendering when idle. [Cursor guide →](config/hypr/cursors/README.md)
 
-The native [Burn](config/hypr/effects/burn/README.md), [Cube](config/hypr/effects/cube/README.md) and [Minimize](config/hypr/effects/minimize/README.md) sources are included, along with Compiz attribution for Burn and Cube. Setup builds them against the pinned **0.56.2 x86-64/OpenGL** runtime; their effects remain individually configurable. Front/Back also handles floating windows above maximized windows and preserves their order across workspace switches.
+The native [Burn](config/hypr/effects/burn/README.md), [Cube](config/hypr/effects/cube/README.md) and [Minimize](config/hypr/effects/minimize/README.md) sources are included, along with Compiz attribution for Burn, Cube and the minimize flame. Setup builds them against the pinned **0.56.2 x86-64/OpenGL** runtime; their effects remain individually configurable. Front/Back also handles floating windows above maximized windows and preserves their order across workspace switches.
 
 ## KVM Settings
 
@@ -203,6 +203,7 @@ Runtime components download inside KVM Settings; they are not bundled with the d
 | **Super+Shift+1–4** | Move the focused window to that workspace |
 | **Ctrl+Alt+left mouse drag** | Rotate this monitor's cube |
 | **Super+V** | Toggle floating |
+| **Super+Z** | Minimize the active window |
 | **Super+F / Super+B** | Bring to front / send to back |
 | **Super+Shift+F** | Toggle fullscreen |
 | **Super+left / right mouse drag** | Move / resize a window |

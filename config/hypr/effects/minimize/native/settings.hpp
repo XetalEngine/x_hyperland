@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#pragma once
+#include <array>
+#include <filesystem>
+#include <fstream>
+#include <map>
+#include <set>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+namespace Minimize {
+struct Settings {
+    bool enabled=true, followTheme=true;
+    int duration=420, size=76, shape=-1, speed=100, bubbles=70;
+    std::string effect="fireball", color="#39a9ff";
+    std::array<float,3> rgb{.224F,.663F,1.F};
+};
+inline Settings readSettings(const std::filesystem::path& path, const std::filesystem::path& palette) {
+    std::ifstream file(path);if(!file)throw std::runtime_error("Cannot read Minimize settings: "+path.string());
+    Settings next;std::set<std::string> seen;std::string line;
+    while(std::getline(file,line)) {
+        if(line.empty() || line[0]=='#')continue;
+        auto pos=line.find('=');if(pos==std::string::npos)throw std::runtime_error("Invalid Minimize setting");
+        auto key=line.substr(0,pos),value=line.substr(pos+1);
+        if(!seen.insert(key).second)throw std::runtime_error("Duplicate Minimize setting");
+        if(key=="effect") {
+            if(value!="fireball" && value!="splat")throw std::runtime_error("Unknown minimize effect");
+            next.effect=value;continue;
+        }
+        if(key=="shape") {
+            const std::map<std::string,int> shapes{{"random",-1},{"bloom",0},{"star",1},{"spill",2},{"claw",3},{"wide",4},{"coral",5}};
+            if(!shapes.contains(value))throw std::runtime_error("Unknown Splat shape");
+            next.shape=shapes.at(value);continue;
+        }
+        if(key=="color") {
+            if(value.size()!=7 || value[0]!='#' || value.substr(1).find_first_not_of("0123456789abcdefABCDEF")!=std::string::npos)
+                throw std::runtime_error("Invalid Minimize color");
+            next.color=value;continue;
+        }
+        size_t used=0;int n=std::stoi(value,&used);if(used!=value.size())throw std::runtime_error("Invalid Minimize value");
+        if(key=="enabled" && (n==0 || n==1))next.enabled=n;
+        else if(key=="follow_theme" && (n==0 || n==1))next.followTheme=n;
+        else if(key=="duration" && n>=150 && n<=1200)next.duration=n;
+        else if(key=="size" && n>=48 && n<=160)next.size=n;
+        else if(key=="speed" && n>=25 && n<=200)next.speed=n;
+        else if(key=="bubbles" && n>=0 && n<=100)next.bubbles=n;
+        else throw std::runtime_error("Unknown or out-of-range Minimize setting: "+key);
+    }
+    const std::set<std::string> legacy{"enabled","effect","duration","size"};
+    auto all=legacy;for(const auto* k:{"follow_theme","color","shape","speed","bubbles"})all.insert(k);
+    if(seen!=legacy && seen!=all)throw std::runtime_error("Incomplete Minimize settings");
+    for(int i=0;i<3;++i)next.rgb[i]=std::stoi(next.color.substr(1+i*2,2),nullptr,16)/255.F;
+    // Only our profile's palette, never KDE's shared color settings.
+    if(next.followTheme) {
+        std::ifstream colors(palette);bool window=false;
+        while(std::getline(colors,line)) {
+            if(line.starts_with('[')){window=line=="[Colors:Window]";continue;}
+            if(!window || !line.starts_with("DecorationFocus="))continue;
+            std::istringstream input(line.substr(16));int r,g,b;char c,d;
+            if(input>>r>>c>>g>>d>>b && c==',' && d==',' && r>=0 && r<=255 && g>=0 && g<=255 && b>=0 && b<=255)
+                next.rgb={r/255.F,g/255.F,b/255.F};
+        }
+    }
+    return next;
+}
+}
