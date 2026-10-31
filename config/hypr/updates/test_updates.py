@@ -176,6 +176,61 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
         badge = service.badge({'phase':'available','message':'<b>not markup</b>'})
         self.assertEqual(badge['text'], '↻ UPDATE'); self.assertNotIn('<b>', badge['tooltip'])
 
+    def test_runtime_mismatch_cannot_activate_prepared_desktop(self):
+        (self.upstream/'runtime').mkdir()
+        shutil.copyfile(service.ROOT/'runtime/manifest.json',self.upstream/'runtime/manifest.json')
+        plan=self.prepare()
+        staged=self.state/'prepared';shutil.copytree(self.stage,staged)
+        engine.write_json(staged/'plan.json',plan)
+        engine.write_json(self.state/'pending.json',{'revision':NEW,'stage':str(staged),'automatic':True})
+        with patch.object(service.runtime_policy,'installed',return_value={'version':'0.57.0','commit':'a'*40}):
+            self.assertFalse(service.activate(self.live,self.state))
+        self.assertEqual(engine.installed(self.live)['revision'],OLD)
+        self.assertEqual((self.live/'code.py').read_text(),'old code\n')
+        self.assertEqual(service.status(self.state,self.live)['phase'],'runtime-required')
+        self.assertEqual(engine.json_file(self.state/'runtime-required.json')['revision'],NEW)
+
+    def test_current_source_with_wrong_system_compositor_offers_repair(self):
+        (self.live/'runtime').mkdir()
+        shutil.copyfile(service.ROOT/'runtime/manifest.json',self.live/'runtime/manifest.json')
+        latest={'sha':OLD,'base':OLD,'relation':'identical','message':'Current desktop'}
+        with patch.object(github,'latest',return_value=latest), \
+             patch.object(service.runtime_policy,'installed',return_value={'version':'0.57.0','commit':'a'*40}):
+            value=service.check(self.live,self.state)
+        self.assertEqual(value['phase'],'runtime-required')
+        self.assertEqual(service.status(self.state,self.live)['phase'],'runtime-required')
+        self.assertEqual(service.badge(value)['text'],'↻ SETUP REQUIRED')
+
+    def test_same_revision_setup_can_activate_components_rebuilt_for_correct_runtime(self):
+        from types import SimpleNamespace
+        (self.upstream/'runtime').mkdir()
+        shutil.copyfile(service.ROOT/'runtime/manifest.json',self.upstream/'runtime/manifest.json')
+        (self.upstream/'code.py').write_text('rebuilt for the matching compositor\n')
+        expected=engine.merge_profile(self.live,self.upstream,self.stage,OLD)
+        plan=engine.prepare_plan(self.live,self.stage,expected,OLD,automatic=False)
+        staged=self.state/'prepared';shutil.copytree(self.stage,staged)
+        engine.write_json(staged/'plan.json',plan)
+        engine.write_json(self.state/'pending.json',{'revision':OLD,'stage':str(staged),
+                                                   'automatic':False,'runtime_setup':True})
+        compatibility=SimpleNamespace(candidate=lambda *args: staged/'hyprland.conf')
+        with patch.dict(sys.modules,{'hypr_compat':compatibility}), \
+             patch.object(service.runtime_policy,'problem',return_value=''), \
+             patch.object(service.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'config ok','')):
+            self.assertTrue(service.activate(self.live,self.state))
+        self.assertEqual((self.live/'code.py').read_text(),'rebuilt for the matching compositor\n')
+        self.assertEqual(engine.installed(self.live)['revision'],OLD)
+        service.request('setup',self.state)
+        self.assertEqual(service.take_request(self.state),'setup')
+
+    def test_newer_release_supersedes_ready_status_without_claiming_it_was_built(self):
+        pending='3'*40
+        engine.write_json(self.state/'pending.json',{'revision':pending,'stage':str(self.stage),'automatic':True})
+        latest={'sha':NEW,'base':OLD,'relation':'ahead','message':'New release'}
+        with patch.object(github,'latest',return_value=latest): value=service.check(self.live,self.state)
+        self.assertEqual(value['phase'],'available');self.assertEqual(value['prepared'],pending)
+        self.assertIn(pending[:8],service.badge(value)['tooltip'])
+        self.assertEqual(engine.json_file(self.state/'pending.json')['revision'],pending)
+
     def test_development_install_supersedes_cached_update_failure(self):
         service.publish(self.state, phase='attention', current=NEW, latest=OLD,
                         failed_revision=OLD, github={'relation':'ahead'}, message='Old failure')

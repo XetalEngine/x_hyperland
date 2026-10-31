@@ -35,6 +35,13 @@ class UpdateUiTests(unittest.TestCase):
                         self.assertFalse(service.preferences()['automatic'])
                         service.publish(phase='preparing'); window.refresh(); app.processEvents()
                         self.assertFalse(window.prepare.isEnabled()); self.assertTrue(window.progress.isVisible())
+                        service.publish(phase='runtime-required',current='2'*40,latest='2'*40)
+                        window.refresh(); app.processEvents()
+                        self.assertTrue(window.prepare.isEnabled())
+                        self.assertEqual(window.prepare.text(),'Open compositor setup')
+                        with patch('app.subprocess.Popen'):
+                            window.prepare.click()
+                        self.assertEqual(service.take_request(),'setup')
                         window.close(); window.deleteLater(); service.publish(phase='available')
 
     def test_gtk_badge_animation_parses_in_all_palettes(self):

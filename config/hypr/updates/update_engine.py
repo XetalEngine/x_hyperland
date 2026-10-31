@@ -98,8 +98,10 @@ def metadata(root, commit):
             try: entry['text'] = data.decode('utf-8')
             except UnicodeDecodeError: pass
         files[str(path.relative_to(root))] = entry
-    return {'version': 1, 'repository': REPOSITORY, 'branch': BRANCH,
-            'revision': revision(commit), 'installed': now(), 'files': files}
+    result = {'version': 1, 'repository': REPOSITORY, 'branch': BRANCH,
+              'revision': revision(commit), 'installed': now(), 'files': files}
+    if (root/'runtime/manifest.json').is_file(): result['runtime'] = json_file(root/'runtime/manifest.json')
+    return result
 
 
 def installed(root):
@@ -277,4 +279,4 @@ def rollback_plan(live, backup):
     expected = {name: (entry['sha256'] if entry else None) for name, entry in record['after'].items()}
     previous = json_file(backup/'files'/META)
     return {'version': 1, 'revision': revision(previous['revision']), 'created': now(),
-            'automatic': False, 'expected': expected, 'changes': record['before']}
+            'automatic': False, 'expected': expected, 'changes': record['before'], 'runtime': previous.get('runtime')}

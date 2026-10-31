@@ -219,16 +219,15 @@ class InstallerTests(unittest.TestCase):
             self.assertFalse(forbidden.intersection(p.parts),str(p))
             self.assertNotIn(p.suffix,{'.so','.o','.a'},str(p))
 
-    def test_optional_native_effect_failure_keeps_the_desktop_installable(self):
+    def test_native_effect_failure_prevents_an_incomplete_desktop_install(self):
         def command(args,**kwargs):
             optional=any(str(args[-1]).endswith('/effects/'+name+'/build.py') for name in ('burn','cube'))
             return install.subprocess.CompletedProcess(args,1 if optional else 0,stdout='',stderr='Unsupported compositor ABI' if optional else '')
-        with patch.object(install.subprocess,'run',side_effect=command) as run,patch('builtins.print') as message:
-            install.build(self.stage)
-        self.assertEqual(run.call_count,9)
+        with patch.object(install.subprocess,'run',side_effect=command) as run:
+            with self.assertRaisesRegex(RuntimeError,'Burn could not be built'):
+                install.build(self.stage)
+        self.assertEqual(run.call_count,8)
         self.assertTrue(any(str(call.args[0][-1]).endswith('/cursors/build.py') for call in run.call_args_list))
-        self.assertTrue(any('Optional Burn effect unavailable' in str(call) for call in message.call_args_list))
-        self.assertTrue(any('Optional Desktop Cube & 3D Windows effect unavailable' in str(call) for call in message.call_args_list))
 
     def test_invalid_config_stops_before_compilation_in_both_install_modes(self):
         self.target.mkdir()

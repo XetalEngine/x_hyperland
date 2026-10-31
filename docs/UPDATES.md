@@ -10,7 +10,9 @@ An animated **UPDATE** badge appears beside **Keys** when a newer commit is avai
 
 Automatic updates are enabled by default. One session helper checks roughly every 15 minutes, with a short startup delay. After showing the notice for at least 30 seconds, it downloads the advertised commit, merges the new defaults with personal settings, builds native components and validates the complete Hyprland configuration.
 
-**Activation happens at the next Hyprland login, before the session helpers and native effects load.** No forced logout, app termination or compositor-plugin replacement occurs while you are working. The badge changes to **UPDATE READY** after preparation. Pausing automatic updates also postpones activation of an already prepared automatic update; a manually requested preparation remains explicit.
+**Ordinary automatic updates activate at the next Hyprland login, before the session helpers and native effects load.** No forced logout or compositor-plugin replacement occurs while you are working. The badge changes to **UPDATE READY** after preparation. Pausing automatic updates also postpones activation of an already prepared automatic update; a manually requested preparation remains explicit. If a newer release appears while an older one is prepared, the badge offers that newer release and identifies the prepared revision separately.
+
+Each release declares its required compositor in `runtime/manifest.json`. A different installed version or source commit shows **SETUP REQUIRED**, with an **Open compositor setup** button. Background updates never elevate privileges. This foreground wizard downloads the release's signed Arch package, requests administrator authentication, builds and validates the matching desktop, and installs the merged profile in the same operation. Log out and back in afterward to start that pair together. The same path repairs a compositor mismatch even when the desktop source revision is already current.
 
 ## Keeping personal settings
 
@@ -32,7 +34,7 @@ Preparation works in a separate directory. Missing packages, merge conflicts, fa
 
 Activation has a journal, per-file atomic writes and a backup of changed files. The next startup recovers an interrupted transaction. **Roll back** queues the previous completed version for next login and pauses automatic updates. It refuses to overwrite files edited since that update; inspect the message before resolving any difference.
 
-The supported native Burn/Cube ABI is checked by their builders. On unsupported Hyprland versions the normal desktop remains installable and those optional effects remain unavailable.
+The required native Burn/Cube ABI is checked by their builders. A missing adapter or failed build blocks the prepared desktop. Foreground Setup retains a signed copy of the previous compositor before replacement and restores it if preparation fails or is cancelled. A queued profile is checked against the installed compositor again at activation. Rollback refuses a backup requiring a different compositor; use that release's Setup to restore the matching pair. [Package pin and recovery details](INSTALLER.md).
 
 ## Files and session ownership
 

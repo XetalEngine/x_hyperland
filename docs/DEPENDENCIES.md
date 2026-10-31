@@ -4,9 +4,9 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 
 | Area | Required components |
 | --- | --- |
-| Desktop | Hyprland 0.56+, Hyprpaper 0.8+, Hyprlock, Waybar 0.15+, Kitty 0.49+, Dolphin, SwayNotificationCenter |
+| Desktop | Exact Hyprland 0.56.2 and commit from the runtime manifest; Hyprpaper 0.8+, Hyprlock, Waybar 0.15+, Kitty 0.49+, Dolphin, SwayNotificationCenter |
 | Python | Python 3.11+, PyQt6 Widgets/Network/DBus/SVG, PyGObject with Gio/GTK 3/GtkLayerShell, Pillow |
-| Native builds | C/C++17/20 compiler, CMake, pkg-config, GTK 3, gio-unix, gtk-layer-shell, json-glib, Wayland client/scanner; Qt 5 and 6 Widgets/Concurrent, Qt Network/DBus/Linguist, development tools and private QtGui/QtCore headers; XCB and XCB-RES |
+| Native builds | C/C++23 compiler, matching Hyprland headers, GLESv2, json-c, libei, CMake, pkg-config, GTK 3, gio-unix, gtk-layer-shell, json-glib, Wayland client/scanner; Qt 5 and 6 Widgets/Concurrent, Qt Network/DBus/Linguist, development tools and private QtGui/QtCore headers; XCB and XCB-RES |
 | Capture | grim, slurp, wl-clipboard, xdg-desktop-portal-hyprland, GTK desktop portal |
 | Audio | PipeWire PulseAudio compatibility, pactl, WirePlumber/wpctl, playerctl |
 | Media downloader | yt-dlp, FFmpeg/ffprobe, and a supported Deno, Node.js or QuickJS runtime; wl-paste for selected links |
@@ -17,7 +17,9 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 
 The custom Waybar modules use its CFFI v2 interface and its 0.15 workspace taskbar structure. Qt theme plugins use private APIs and are built against the installed Qt versions; session startup checks and rebuilds them after Qt changes. Their source is included.
 
-[Hyprland 0.57](https://github.com/hyprwm/Hyprland/releases/tag/v0.57.0) removed the hyprlang parser. On that version the installer supplies `hyprland.lua`, which reads the managed `.conf` settings through `compat/hypr_compat.py` and calls the native Lua API. The editors retain their metadata, conflict checks, backups and rollback. Configuration is validated using the installed compositor before activation or a settings save. Unsupported custom syntax produces an error with its source location instead of being dropped. Manual `.conf` edits require `hyprctl reload` on Lua sessions; the settings pages reload automatically.
+The current release pins **Hyprland 0.56.2**, commit `efb50993780079460b0cbed1363e2166a2de1d9f`. Setup installs the official signed Arch `0.56.2-4` package when needed, including a downgrade from 0.57, and holds it through `/etc/pacman.d/xetal-hyprland.conf`. Normal dependency installation excludes Hyprland so it cannot immediately undo the pin. Package dependency checks remain enabled; incompatible system libraries stop installation. See [Setup and recovery](INSTALLER.md).
+
+The earlier [0.57 Lua compatibility layer](https://github.com/hyprwm/Hyprland/releases/tag/v0.57.0) remains in the source for future adapter work. Its presence does not make 0.57 an accepted compositor for this release. Native effects and configuration must all validate against the manifest's exact version before activation.
 
 The compatibility `hyprctl` lives inside the profile and is inherited only by applications launched through this desktop's commands. It translates legacy desktop actions and live settings to Lua; native queries pass through. It does not replace `/usr/bin/hyprctl`, change shell profiles, or export its PATH to D-Bus/systemd. Hyprland 0.56.2 continues to use its native `.conf` entry point.
 
@@ -27,9 +29,9 @@ The Control Panel build uses every CPU available to the installer, including log
 
 The private GTK 3 preview module is built by the same theme builder. Qt previews use Qt Concurrent for background loading; both dependencies are supplied by the existing GTK/Qt development package recipes. See [file picker coverage](FILE-PREVIEWS.md).
 
-The optional **Compiz Burn** close effect supports Hyprland **0.56.2** at the tested commit documented in [its guide](../config/hypr/effects/burn/README.md), x86-64 and the OpenGL renderer. It needs a C++23 compiler, matching Hyprland development headers exposed through `pkg-config hyprland`, and GLESv2 development files. Its build and runtime ABI checks reject mismatched versions; unsupported installations retain normal closing animations and still install the rest of the desktop. Controls are in **Theme → Window effects → Burn**.
+The **Compiz Burn** close effect supports Hyprland **0.56.2** at the tested commit documented in [its guide](../config/hypr/effects/burn/README.md), x86-64 and the OpenGL renderer. It needs a C++23 compiler, matching Hyprland development headers exposed through `pkg-config hyprland`, and GLESv2 development files. Its build and runtime ABI checks reject mismatched versions. Setup requires a successful build; the effect itself remains configurable in **Theme → Window effects → Burn**.
 
-**Desktop Cube & 3D Windows** uses the same tested Hyprland ABI and C++23/OpenGL requirements as Burn, plus json-c and libei development headers (`json-c`, `libeis-1.0`). Its sources and optional build are included in the installer. A missing dependency or unsupported compositor leaves ordinary workspace switching available. See the [Cube guide](../config/hypr/effects/cube/README.md).
+**Desktop Cube & 3D Windows** uses the same tested Hyprland ABI and C++23/OpenGL requirements as Burn, plus json-c and libei development headers (`json-c`, `libeis-1.0`). Its sources and required build are included in the installer. A missing dependency or failed build stops the new installation before replacing the profile. See the [Cube guide](../config/hypr/effects/cube/README.md).
 
 Xetal Images uses the installed Qt image readers. Common image formats are included with Qt; additional readers such as HEIF, AVIF, camera RAW and PSD depend on the distribution's Qt image-format plugins.
 
@@ -37,7 +39,7 @@ Xetal Files speaks the [KDE JobView interfaces](https://invent.kde.org/framework
 
 The media popup can update its private copy from the [official yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases), with SHA-256 verification and an atomic replacement. Current YouTube extraction also needs the [EJS scripts and a supported JavaScript runtime](https://github.com/yt-dlp/yt-dlp/wiki/EJS). The official update archive includes EJS; Deno, Node.js or QuickJS and FFmpeg remain distribution dependencies.
 
-Automatic package recipes cover Arch derivatives, Fedora, and Debian/Ubuntu. Repository availability and versions differ by release. The installer does not add third-party package repositories, run an AUR helper, install pip packages into system Python, or silently downgrade the desktop's features. If a recipe cannot satisfy the requirements, install compatible packages through your distribution and rerun with `--skip-packages`. Other distributions use this same manual-dependency path.
+Automatic compositor installation supports Arch-based x86-64 systems. Other distributions must supply the exact manifest version and commit themselves; Fedora and Debian/Ubuntu recipes remain available for the other dependencies. Repository availability differs by release. Setup uses the official Arch archive and normal signature/dependency checks, without adding a third-party package repository or forcing incompatible libraries. Manual dependency installations can use `--skip-packages` after satisfying the same checks.
 
 Recent rolling distributions are the easiest match. Older stable distribution releases may ship Hyprland/Waybar/Kitty versions below the requirements. A successful package-manager command alone does not bypass the subsequent version and build checks.
 

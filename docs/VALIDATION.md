@@ -1,5 +1,32 @@
 # Validation
 
+## Pinned compositor and graphical Setup — 31 October 2026
+
+The current release requires the development machine's Hyprland **0.56.2**,
+commit `efb50993780079460b0cbed1363e2166a2de1d9f`. The official Arch
+`0.56.2-4` package and signature matched the manifest checksums, and the
+system Arch keyring accepted the package signature. The developer computer
+already had this version; the new helper successfully installed and verified
+its dedicated pacman hold, with a backup of the previous package configuration.
+
+A complete separate profile built all native components with 32 available CPU
+threads for the Control Panel, including both Cube and Burn, and passed native
+Hyprland configuration validation. The installer, archive, compatibility and
+runtime suites ran **49 checks: 46 passed and three optional 0.57 binary checks
+were skipped**. All **29 updater tests passed**. Coverage includes checksum
+rejection, hold preservation, signed-package recovery, same-revision compositor
+repair, background mismatch detection without package writes, activation gates,
+settings preservation, rollback and logout cleanup.
+
+The GTK installer also passed an isolated Xvfb interaction run covering welcome,
+downgrade review, back/forward navigation, progress, cancellation, retry and
+completion. Its welcome and review screens were visually inspected. These
+checks did not replace the local compositor with 0.57 or perform a remote
+downgrade on the recipient PC; that downgrade runs when its user opens Setup.
+
+The older 0.57 results below describe the retained compatibility layer. They
+do not override the current release's exact compositor requirement.
+
 ## Installer retries and CPU usage — 31 October 2026
 
 The Control Panel no longer caps compilation at two jobs. Its builder used all

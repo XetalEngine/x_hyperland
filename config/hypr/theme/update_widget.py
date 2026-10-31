@@ -18,7 +18,7 @@ def style(colors):
   transition: background-color 180ms ease;
 }
 #custom-updates:hover { background: alpha(ACCENT, 0.24); }
-#custom-updates.available, #custom-updates.ready, #custom-updates.preparing {
+#custom-updates.available, #custom-updates.ready, #custom-updates.preparing, #custom-updates.runtime-required {
   animation: xetal-update-pulse 2.4s ease-in-out infinite;
 }
 #custom-updates.attention { color: TEXT; border-color: ACCENT; }

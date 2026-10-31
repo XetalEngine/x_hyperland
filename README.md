@@ -38,15 +38,15 @@ You can also choose **Code → Download ZIP** on GitHub, extract the whole archi
 
 When retrying after an update, download the ZIP again and extract it into a new folder. The installer prints its source revision and checks the configuration before compilation. The Control Panel builds with all available CPU threads.
 
-The installer checks dependencies, offers distribution packages, builds the native components, and validates the complete configuration. It backs up your existing `~/.config/hypr` before installation. **Log out and select Hyprland again** to start the complete desktop.
+The command opens the graphical **Hyper Fusion Setup** wizard. It reviews your setup, requests administrator authentication for packages, shows build progress and keeps an installation log. It backs up your existing `~/.config/hypr` before installation. **Log out and select Hyprland again** to start the complete desktop. Use `--cli` for terminal installation.
 
-Hyprland 0.57 uses Lua configuration. The installer selects the matching entry point automatically; settings pages, hotkeys and desktop commands support both 0.56.2 and 0.57.0. Burn and Cube still require their supported 0.56.2 native adapter.
+**Setup uses the development desktop's tested Hyprland 0.56.2.** On Arch x86-64 it installs or downgrades to the signed official package **0.56.2-4**, verifies its checksum and signature, and adds a dedicated pacman hold. Cube and Burn must both build successfully before installation completes. Future desktop releases can change the required version through the same installer and updater flow. [Installer and recovery details →](docs/INSTALLER.md)
 
 | Tested environment | Requirements |
 | --- | --- |
-| Arch Linux / CachyOS | Hyprland **0.56+**, Waybar **0.15+**, Kitty **0.49+**, Hyprpaper **0.8+**, Python **3.11+**, Git, Qt 5/6 development libraries, and the Hyprland portal |
-| Other distributions | Fedora and Debian/Ubuntu package recipes are included; their versions must pass the same checks. These recipes have not been execution-tested here. See [dependencies](docs/DEPENDENCIES.md). |
-| Optional Burn & Cube | Locally built adapters for the tested **Hyprland 0.56.2 ABI**, x86-64 and OpenGL. Unsupported versions keep normal animations and workspace switching. |
+| Arch Linux / CachyOS | Exact **Hyprland 0.56.2** selected by Setup, Waybar **0.15+**, Kitty **0.49+**, Hyprpaper **0.8+**, Python **3.11+**, Git, Qt 5/6 development libraries, and the Hyprland portal |
+| Other distributions | Install the exact required compositor manually before using the included dependency recipes. Automatic compositor installation targets Arch x86-64. See [dependencies](docs/DEPENDENCIES.md). |
+| Burn & Cube | Required local builds for the tested **Hyprland 0.56.2 ABI**, x86-64 and OpenGL. Their effects can be enabled or disabled in settings. |
 
 The default install adapts to your monitors, resolution, placement and scale. Without a running compositor, it uses preferred modes and automatic placement. KDE/Plasma settings, shell profiles, shared application associations, and system autostart stay separate from this Hyprland profile.
 
@@ -124,7 +124,7 @@ The bar shows workspaces and app icons for each display. Add workspaces with **+
 
 If the taskbar crashes, its session helper automatically brings it back. Your applications, workspaces and desktop effects keep running.
 
-The **animated UPDATE notice beside Keys** appears only when an update is available or pending, and stays hidden when you're up to date. Automatic updates prepare in the background, preserve your personal settings, and activate at your **next Hyprland login**. Click it to check now, pause automatic updates, prepare manually, inspect the log, or queue a rollback. Updates never log you out. [How updates work →](docs/UPDATES.md)
+The **animated UPDATE notice beside Keys** appears when an update is available or pending, and stays hidden when you're up to date. Automatic updates prepare in the background, preserve your personal settings, and activate at your **next Hyprland login**. A compositor mismatch shows **SETUP REQUIRED**; its button opens the graphical installer to coordinate the system package and desktop. Click the badge to check now, pause automatic updates, inspect the log, or queue a rollback. Updates never log you out. [How updates work →](docs/UPDATES.md)
 
 ## Fusion Settings
 
@@ -251,6 +251,7 @@ Force-kill is for stuck applications and can lose unsaved work. It targets the a
 <summary><strong>Installer options, backups & portability</strong></summary>
 
 ```bash
+./x_hyperinstall.sh --cli                           # Terminal installer instead of the default GUI
 ./x_hyperinstall.sh --check                         # Dependency/version checks; no writes
 ./x_hyperinstall.sh --dry-run                       # Installation plan; no writes
 ./x_hyperinstall.sh --skip-packages                 # Use installed dependencies

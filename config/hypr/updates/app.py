@@ -50,7 +50,8 @@ class Window(QWidget):
         note = QLabel('Updates activate at your next Hyprland login. Your apps stay open,\nand personal settings are preserved. Checks run every 15 minutes.')
         note.setObjectName('muted'); note.setWordWrap(True); layout.addWidget(note)
         row = QHBoxLayout(); self.check = QPushButton('Check now'); self.check.clicked.connect(lambda:self.action('check'))
-        self.prepare = QPushButton('Prepare update'); self.prepare.setObjectName('primary'); self.prepare.clicked.connect(lambda:self.action('prepare'))
+        self.prepare = QPushButton('Prepare update'); self.prepare.setObjectName('primary')
+        self.prepare.clicked.connect(lambda:self.action('setup' if service.status().get('phase') == 'runtime-required' else 'prepare'))
         self.rollback = QPushButton('Roll back…'); self.rollback.clicked.connect(self.restore)
         row.addWidget(self.check); row.addWidget(self.rollback); row.addStretch(); row.addWidget(self.prepare); layout.addLayout(row)
         QShortcut(QKeySequence('Escape'), self, activated=self.close)
@@ -84,11 +85,14 @@ class Window(QWidget):
         self.version.setText('Installed '+current[:8]+'   ·   GitHub / main'+('   ·   Latest '+value['latest'][:8] if value.get('latest') else ''))
         self.message.setText(value.get('message', 'Ready to check for desktop updates.'))
         busy = phase in ('preparing', 'checking'); self.progress.setVisible(busy); self.check.setEnabled(not busy)
-        self.prepare.setEnabled(not busy and not (service.STATE/'pending.json').exists() and value.get('github', {}).get('relation') == 'ahead')
+        pending = engine.json_file(service.STATE/'pending.json', {})
+        self.prepare.setText('Open compositor setup' if phase == 'runtime-required' else 'Prepare update')
+        self.prepare.setEnabled(not busy and (phase == 'runtime-required' or
+            (pending.get('revision') != value.get('latest') and value.get('github', {}).get('relation') == 'ahead')))
         self.rollback.setEnabled(not busy and (service.STATE/'last-backup.json').exists())
         self.automatic.blockSignals(True); self.automatic.setChecked(service.preferences()['automatic']); self.automatic.blockSignals(False)
         text = value.get('title', 'Updates are published from XetalEngine/x_hyperland on GitHub.')
-        if phase in ('preparing', 'attention', 'ready') and (service.STATE/'update.log').is_file():
+        if phase in ('preparing', 'attention', 'ready', 'runtime-required') and (service.STATE/'update.log').is_file():
             with (service.STATE/'update.log').open('rb') as stream:
                 stream.seek(max(0, stream.seek(0, 2)-24000)); text += '\n\n'+stream.read().decode(errors='replace')
         if text != self.details.toPlainText(): self.details.setPlainText(text)

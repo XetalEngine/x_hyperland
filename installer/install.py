@@ -17,6 +17,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 import dependencies
+import runtime_install
 
 REPO=Path(__file__).resolve().parents[1]
 PAYLOAD=REPO/'config/hypr'
@@ -138,7 +139,7 @@ def render(stage, home, monitors, profile='auto', startup=True):
     return target
 
 
-def build(stage):
+def build(stage, checkpoint=lambda:None):
     for args in ([sys.executable,str(stage/'cursors/build.py')],
                  [sys.executable,str(stage/'theme/build.py')],
                  [sys.executable,str(stage/'control_panel/build.py')],
@@ -147,16 +148,17 @@ def build(stage):
                  ['bash',str(stage/'waybar/options/build.sh')],
                  ['bash',str(stage/'share-picker/build.sh')]):
         print('Building '+str(Path(args[-1]).relative_to(stage)),flush=True)
+        checkpoint()
         subprocess.run(args,check=True)
 
-    # The optional compositor adapter has a deliberately narrow ABI boundary.
-    # An unsupported Hyprland must not prevent installing the desktop profile.
+    # A complete desktop requires the adapters matched by the runtime manifest.
     for effect,label in [('burn','Burn'),('cube','Desktop Cube & 3D Windows')]:
         result = subprocess.run([sys.executable,str(stage/'effects'/effect/'build.py')],capture_output=True,text=True)
         if result.returncode:
-            print('Optional '+label+' effect unavailable: '+result.stderr.strip(),flush=True)
+            raise RuntimeError(label+' could not be built for the required compositor:\n'+result.stderr.strip())
         else:
             print('Built '+label+' for the installed Hyprland.',flush=True)
+        checkpoint()
 
 
 def source_revision(root=None):
@@ -235,6 +237,7 @@ def restore(backup,target,state):
     if record.get('version')!=1 or record.get('target')!=str(target):raise RuntimeError('Backup does not belong to this Hyprland profile.')
     previous=backup/'hypr'
     if record['had_previous'] and not (previous.exists() or previous.is_symlink()):raise RuntimeError('The previous profile is missing or already restored.')
+    if (previous/'runtime/manifest.json').is_file(): runtime_install.policy.require(previous)
     saved=state/'replaced'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
     saved.parent.mkdir(parents=True,exist_ok=True)
     current=target.exists() or target.is_symlink()
@@ -257,8 +260,12 @@ def main():
     mode.add_argument('--prepare',type=Path,help='Build and validate a review copy here without installing it.')
     parser.add_argument('--profile',choices=['auto','original'],default='auto',help='Adapt to this computer, or use the author\'s three-display layout.')
     parser.add_argument('--no-startup',action='store_true',help='Keep the animated dashboard available with Super+D without opening it at login.')
+    parser.add_argument('--cancel-file',type=Path,help=argparse.SUPPRESS)
     mode.add_argument('--restore',type=Path,help='Restore a previous installer backup; retain the replaced profile separately.')
     args=parser.parse_args()
+    def checkpoint():
+        if args.cancel_file and args.cancel_file.exists():
+            raise RuntimeError('Setup cancelled after completing the current step. The desktop profile was not replaced.')
     if os.geteuid()==0:raise RuntimeError('Run as your desktop user, without sudo. The installer asks sudo only for packages.')
     home=Path.home();safe_home(home);target=home/'.config/hypr';state=home/'.local/state/xetal-hyprland'
     print('Xetal / Hyprland desktop\nTarget: '+str(target),flush=True)
@@ -280,9 +287,17 @@ def main():
         family=dependencies.distro()
         if family:print('Package recipe ('+family+'): '+' '.join(dependencies.PACKAGES[family]))
         return 1 if errors and args.check else 0
+    checkpoint()
+    if args.skip_packages:
+        runtime_install.policy.require()
+    else:
+        runtime_install.ensure(args.yes)
+        checkpoint()
+        errors=dependencies.check()
     if errors:
         if args.skip_packages:raise RuntimeError('\n'.join(errors))
         dependencies.install(args.yes)
+        checkpoint()
         errors=dependencies.check()
         if errors:raise RuntimeError('Dependencies still need attention; profile unchanged:\n'+'\n'.join(errors))
     commit=source_revision()
@@ -294,7 +309,8 @@ def main():
         render(destination,home,connected_monitors(),args.profile,not args.no_startup)
         register_updates(destination,commit)
         validate_config(destination)
-        build(destination);validate(destination)
+        build(destination,checkpoint);validate(destination)
+        runtime_install.rollback()
         print('Built and validated review copy: '+str(destination)+'. Live profile unchanged.');return 0
     target.parent.mkdir(parents=True,exist_ok=True)
     state.mkdir(parents=True,exist_ok=True,mode=0o700)
@@ -306,11 +322,14 @@ def main():
             render(stage,home,connected_monitors(),args.profile,not args.no_startup)
             register_updates(stage,commit)
             validate_config(stage)
-            build(stage);validate(stage)
+            build(stage,checkpoint);validate(stage)
+            checkpoint()
             print('All components built; full configuration validated. Your existing profile will be backed up.')
             if not args.yes and input('Install this prepared desktop? [y/N] ').strip().lower() not in ('y','yes'):
+                runtime_install.rollback()
                 print('Cancelled; your current profile is unchanged.');return 0
             backup=activate(stage,target,state,expected)
+            runtime_install.complete()
     print('Installed. Backup: '+str(backup))
     print('Log out and select Hyprland again. This starts the complete desktop and the portal picker together.')
     print('Restore: '+str(REPO/'x_hyperinstall.sh')+' --restore '+str(backup))
@@ -320,6 +339,8 @@ def main():
 if __name__=='__main__':
     try:raise SystemExit(main())
     except (KeyboardInterrupt,EOFError):
+        runtime_install.rollback()
         print('\nCancelled. Use --yes for a noninteractive installation.',file=sys.stderr);raise SystemExit(130)
     except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
+        runtime_install.rollback()
         print('Installation stopped: '+str(error),file=sys.stderr);raise SystemExit(1)

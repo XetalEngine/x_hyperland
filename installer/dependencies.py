@@ -6,9 +6,10 @@ import shlex
 import shutil
 import subprocess
 import sys
+import runtime_install
 
 PACKAGES = {
-    'arch': '''git gvfs gvfs-smb hyprland hyprpaper hyprlock waybar kitty dolphin swaync grim slurp wl-clipboard
+    'arch': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin swaync grim slurp wl-clipboard
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
         python python-psutil python-pyqt6 python-gobject python-pillow gcc cmake libxcb pkgconf gtk3 gtk-layer-shell json-glib json-c
         qt5-base qt5-wayland qt6-base qt6-wayland qt6-svg qt6-tools wayland wayland-protocols
@@ -50,7 +51,8 @@ COMMANDS = '''git Hyprland hyprctl hyprpaper hyprlock waybar kitty dolphin swayn
     tpm2_getcap dmidecode lspci lsusb mcopy mtype fsck.fat losetup modinfo'''.split()
 LIBRARIES = ['gtk+-3.0','gio-unix-2.0','gtk-layer-shell-0','json-glib-1.0','Qt5Widgets','Qt6Widgets','Qt5Concurrent','Qt6Concurrent','wayland-client','xcb','xcb-res',
              'openssl','libtasn1','gmp','glib-2.0','gnutls','libseccomp','fuse3','libeis-1.0','json-c']
-MINIMUM = {'Hyprland':(0,56,0),'waybar':(0,15,0),'kitty':(0,49,0),'hyprpaper':(0,8,0)}
+# Hyprland comes from the exact, signed package selected by Setup.
+MINIMUM = {'waybar':(0,15,0),'kitty':(0,49,0),'hyprpaper':(0,8,0)}
 PERL_SCRIPT_DIRS = ('/usr/bin/site_perl', '/usr/bin/vendor_perl', '/usr/bin/core_perl')
 
 
@@ -80,9 +82,12 @@ def prepare_environment():
     os.environ['PATH'] = os.pathsep.join(paths)
 
 
-def check():
+def check(runtime=True):
     prepare_environment()
     errors=[]
+    if runtime:
+        message=runtime_install.policy.problem()
+        if message:errors.append(message)
     if sys.version_info < (3,11): errors.append('Python 3.11 or newer is required.')
     errors += ['Missing command: '+command for command in COMMANDS if not shutil.which(command)]
     if not any(shutil.which(command) for command in ('deno','node','qjs')):
@@ -123,8 +128,7 @@ def install(yes=False):
     family=distro()
     if family not in PACKAGES:
         raise RuntimeError('No automatic package recipe for this distribution. Install the dependencies in docs/DEPENDENCIES.md, then use --skip-packages.')
-    prefix=['sudo'] if shutil.which('sudo') else ['doas'] if shutil.which('doas') else None
-    if prefix is None:raise RuntimeError('Install the dependency packages as administrator, then run with --skip-packages.')
+    prefix=runtime_install.administrator()
     command={'arch':['pacman','-S','--needed'], 'fedora':['dnf','install'], 'debian':['apt-get','install']}[family]
     if yes:command+=['--noconfirm' if family=='arch' else '-y']
     command=prefix+command+PACKAGES[family]
