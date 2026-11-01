@@ -53,12 +53,17 @@ the installed KIO protocol workers and their authentication dialogs.
 The view selector provides small, medium and large icons, a compact list and
 details. Right-click the details header to choose columns; drag columns to
 reorder and resize them. The folder filter matches names in the current folder.
-The optional preview pane displays local images, text excerpts and metadata;
+The preview pane is enabled for fresh profiles and displays local images, text excerpts and metadata;
 remote selections display metadata without downloading their full contents.
+Local picture thumbnails are enabled on file icons by default. Open **⋮ →
+Configure Fusion Files…** to turn thumbnails, the preview pane, hidden files or
+the Trash animation on or off. Saved choices survive reopening and updates;
+the new defaults do not replace an existing preview preference. Remote folders
+keep their file-type icons instead of downloading pictures for thumbnails.
 
 ## File actions
 
-Copy, move, drag-and-drop, rename, Trash, restore and undo use KDE KIO jobs.
+Ordinary copy, move, drag-and-drop, rename, Trash, restore and undo use KDE KIO jobs.
 Copies use the existing Fusion transfer-progress service, including the selected
 File Transfer style, pause, resume and cancellation. Pasting keeps both files
 without a name-conflict dialog: `photo.png` becomes `photo_copy1.png`, then
@@ -71,13 +76,35 @@ provide Trash reports the error; it never silently substitutes permanent deletio
 Permanent deletion always asks for confirmation. Pending tracked file jobs keep
 the application process alive after its last browser window closes.
 
-Executable files and shell scripts have **Execute** first. Shell scripts open in
+On a local permission failure, Fusion Files opens the desktop's administrator
+authentication dialog for the selected action. Only the bounded Python helper
+runs with privileges; the browser stays unprivileged. It checks the selected
+items' identities, refuses system roots and nested mounts, and does not follow
+directory symlinks. Protected Trash moves retain original permissions and
+standard Trash records; they never become permanent deletion. Restoring or
+permanently removing protected top-level Trash items can authenticate too.
+Restoration refuses to overwrite an existing destination. Cancelling
+authentication leaves the remaining protected items in place. Successful
+ordinary KIO operations retain their Undo integration; protected items can be
+recovered through **Trash → Restore**.
+
+After a successful Trash move, the selected file icons curve and shrink toward
+the sidebar's Trash icon with the current theme accent. Failed/cancelled moves
+do not animate as successes. The effect is a non-interactive overlay and can be
+disabled in Configure Fusion Files.
+
+Executable files and shell scripts have **Execute** first. Double-click or Enter
+runs a recognized local executable with executable permission, including shell
+installers with a shebang. Shell scripts open in
 a terminal with their output kept visible, using their declared interpreter (or
-Bash for a `.sh` script without one). This requires an explicit Execute action;
-ordinary opening still uses the associated app or chooser. Script permissions
-are not changed. The regular Open action names its default application when one is available.
-**Open with…** offers the installed application chooser, a custom executable and
+Bash for a `.sh` script without one). Non-executable scripts can still be run
+through the explicit Execute action; permissions are not changed. The context
+menu's **Open with [app]** always opens the associated app, even for an executable.
+**Open with…** offers a searchable list of installed applications, a custom command/program and
 the option to remember a file-type association, including for unknown file types.
+Discovery uses the shared Gio application inventory and does not require a
+Plasma application-menu definition. Recommended/default apps appear first,
+and default saves reuse Control Panel's guarded MIME-association backend.
 Cut, Copy and Paste are available
 in file menus. In This PC, select a mounted volume and use Ctrl+V or **Paste into
 drive** to paste into its root folder; copied and cut files retain their usual

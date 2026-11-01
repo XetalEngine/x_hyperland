@@ -107,10 +107,17 @@ def session():
                 while connection.recv(65536):pass
             finally:os.kill(os.getpid(),signal.SIGTERM)
         watcher=threading.Thread(target=watch,daemon=True);watcher.start()
-        try:start()
-        except (RuntimeError,ValueError,OSError,subprocess.TimeoutExpired) as error:
-            print('Minimize: '+str(error),file=sys.stderr,flush=True)
-        watcher.join()
+        icons = subprocess.Popen([sys.executable, str(Path(__file__).with_name('icons.py'))],
+                                 env=dict(os.environ, QT_QPA_PLATFORM='offscreen', QT_QPA_PLATFORMTHEME=''))
+        try:
+            try:start()
+            except (RuntimeError,ValueError,OSError,subprocess.TimeoutExpired) as error:
+                print('Minimize: '+str(error),file=sys.stderr,flush=True)
+            watcher.join()
+        finally:
+            icons.terminate()
+            try:icons.wait(timeout=3)
+            except subprocess.TimeoutExpired:icons.kill(); icons.wait()
 
 
 if __name__ == '__main__':

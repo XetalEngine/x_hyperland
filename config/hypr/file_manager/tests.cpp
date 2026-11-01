@@ -1,10 +1,13 @@
 #include "../control_panel/backend/volume_commands.h"
 #include "drive_properties.h"
 #include "window.h"
+#include "applications.h"
+#include "removal.h"
 #include <KApplicationTrader>
 #include <KIO/RenameDialog>
 #include <KIO/Paste>
 #include <KIO/RenameFileDialog>
+#include <KIO/StatJob>
 #include <KUrlComboBox>
 #include <QDBusConnection>
 #include <QScopeGuard>
@@ -908,6 +911,179 @@ private slots:
     QCOMPARE(QJsonDocument::fromJson(args.readAll()).array(),
              QJsonArray({"mount", "-b", "/dev/fusion-test-only"}));
   }
+  void applicationChooserAndExplicitOpen() {
+    const QString sample = folder + "/app-chooser";
+    QDir().mkpath(sample);
+    const auto file = QUrl::fromLocalFile(sample + "/open # % literal.txt");
+    write(file.toLocalFile());
+    const QString log = sample + "/opened.json";
+    const QString program = sample + "/editor.py";
+    write(program, "import json,sys\nfrom pathlib import Path\nPath(" + QJsonDocument(QJsonArray{log}).toJson(QJsonDocument::Compact).mid(1).chopped(1) + ").write_text(json.dumps(sys.argv[1:]))\n");
+    write(qEnvironmentVariable("XDG_DATA_HOME") + "/applications/fusion-test-editor.desktop",
+          "[Desktop Entry]\nType=Application\nName=Fusion Test Editor\nExec=/usr/bin/python3 \"" + program.toUtf8() + "\" %F\nIcon=text-editor\nMimeType=text/plain;\n");
+    QCOMPARE(QProcess::execute("kbuildsycoca6", {"--noincremental"}), 0);
+    FilesWindow window(QUrl::fromLocalFile(sample), false, temporary.path() + "/chooser.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false); window.show();
+    auto *tab = window.browser();
+    QTRY_VERIFY(tab->model->indexForUrl(file).isValid());
+    clickFile(tab, file);
+    // An explicit menu action must work while an address/search editor owns focus.
+    tab->filter->setFocus();
+    window.runAction("open");
+    QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(log), 10000);
+    QFile opened(log); QVERIFY(opened.open(QIODevice::ReadOnly));
+    QCOMPARE(QJsonDocument::fromJson(opened.readAll()).array(), QJsonArray{file.toLocalFile()});
+    Fusion::ApplicationDialog chooser({KFileItem(file)}, &window);
+    chooser.show();
+    auto *list = chooser.findChild<QListWidget *>("applicationList");
+    auto *search = chooser.findChild<QLineEdit *>("applicationSearch");
+    QVERIFY(list && search);
+    QTRY_VERIFY_WITH_TIMEOUT(list->count() > 0, 10000);
+    search->setFocus(); QTest::keyClicks(search, "Fusion Test Editor");
+    QCOMPARE(search->text(), QString("Fusion Test Editor"));
+    QTRY_COMPARE(list->count(), 1);
+    QCOMPARE(chooser.request().value("app").toString(), QString("fusion-test-editor.desktop"));
+    QVERIFY(!chooser.request().value("remember").toBool());
+    const auto capture = qEnvironmentVariable("FUSION_FILES_CAPTURE");
+    if (!capture.isEmpty()) chooser.grab().save(capture + "-open-with.png");
+    chooser.reject(); window.close();
+  }
+  void executableDoubleClickRunsWithoutChangingPermissions() {
+    const QString sample = folder + "/executable-click";
+    QDir().mkpath(sample + "/bin");
+    const QString log = sample + "/executed";
+    const auto script = QUrl::fromLocalFile(sample + "/test installer.run");
+    write(script.toLocalFile(), "#!/usr/bin/python3\nfrom pathlib import Path\nPath(" + QJsonDocument(QJsonArray{log}).toJson(QJsonDocument::Compact).mid(1).chopped(1) + ").write_text('executed')\n");
+    QFile::setPermissions(script.toLocalFile(), QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+    // A test-only terminal launches the harmless fixture; no desktop terminal opens.
+    const QString kitty = sample + "/bin/kitty";
+    write(kitty, "#!/usr/bin/python3\nimport os,sys\na=sys.argv[sys.argv.index('-e')+1:];os.execvp(a[0],a)\n");
+    QFile::setPermissions(kitty, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+    const auto previousPath = qgetenv("PATH");
+    qputenv("PATH", QFile::encodeName(sample + "/bin:") + previousPath);
+    auto resetPath = qScopeGuard([&] { qputenv("PATH", previousPath); });
+    const auto permissions = QFileInfo(script.toLocalFile()).permissions();
+    FilesWindow window(QUrl::fromLocalFile(sample), false, temporary.path() + "/execute.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false); window.show();
+    auto *tab = window.browser();
+    QTRY_VERIFY(tab->model->indexForUrl(script).isValid());
+    clickFile(tab, script);
+    const auto index = tab->proxy->mapFromSource(tab->model->indexForUrl(script));
+    QTest::mouseDClick(tab->view()->viewport(), Qt::LeftButton, Qt::NoModifier, tab->view()->visualRect(index).center());
+    QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(log), 10000);
+    QCOMPARE(QFileInfo(script.toLocalFile()).permissions(), permissions);
+    window.close();
+  }
+  void thumbnailsConfigurationAndTrashAnimation() {
+    const QString sample = folder + "/thumbnails";
+    QDir().mkpath(sample);
+    const auto file = QUrl::fromLocalFile(sample + "/red picture.png");
+    QImage image(160, 100, QImage::Format_RGB32); image.fill(QColor("#eb425a")); QVERIFY(image.save(file.toLocalFile()));
+    const QString settings = temporary.path() + "/thumbnails.ini";
+    FilesWindow window(QUrl::fromLocalFile(sample), false, settings);
+    window.setAttribute(Qt::WA_DeleteOnClose, false); window.show();
+    auto *tab = window.browser();
+    auto *preview = window.findChild<QAction *>("previewPaneAction");
+    QVERIFY(preview && preview->isChecked());
+    QTRY_VERIFY(tab->model->indexForUrl(file).isValid());
+    auto pixel = [&] {
+      const auto index = tab->proxy->mapFromSource(tab->model->indexForUrl(file));
+      const auto pixmap = qvariant_cast<QIcon>(index.data(Qt::DecorationRole)).pixmap(80, 80).toImage();
+      return pixmap.isNull() ? QColor() : pixmap.pixelColor(pixmap.width()/2, pixmap.height()/2);
+    };
+    QTRY_VERIFY_WITH_TIMEOUT(pixel().red() > 210 && pixel().green() < 100, 15000);
+    clickFile(tab, file); focus(tab);
+    QSignalSpy finished(&window, &FilesWindow::operationFinished);
+    QTest::keyClick(tab->view(), Qt::Key_Delete);
+    QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 10000);
+    QCOMPARE(finished.last().first().toInt(), 0);
+    QVERIFY(!QFileInfo::exists(file.toLocalFile()));
+    QVERIFY(window.findChild<QWidget *>("trashFlight"));
+    const auto capture = qEnvironmentVariable("FUSION_FILES_CAPTURE");
+    if (!capture.isEmpty()) { QTest::qWait(260); window.grab().save(capture + "-trash-flight.png"); }
+    QTRY_VERIFY_WITH_TIMEOUT(!window.findChild<QWidget *>("trashFlight"), 2000);
+    bool configured = false;
+    QTimer::singleShot(0, &window, [&] {
+      auto *dialog = window.findChild<QDialog *>("filesConfiguration");
+      if (!dialog) return;
+      dialog->findChild<QCheckBox *>("configureThumbnails")->setChecked(false);
+      dialog->findChild<QCheckBox *>("configurePreview")->setChecked(false);
+      dialog->findChild<QCheckBox *>("configureTrashAnimation")->setChecked(false);
+      if (!capture.isEmpty()) dialog->grab().save(capture + "-configuration.png");
+      configured = true; dialog->accept();
+    });
+    auto *action = window.findChild<QAction *>("configureFiles"); QVERIFY(action); action->trigger();
+    QVERIFY(configured);
+    QVERIFY(!preview->isChecked());
+    QCOMPARE(window.preferences.settings.value("thumbnails").toBool(), false);
+    window.close();
+    FilesWindow reopened(QUrl::fromLocalFile(sample), false, settings);
+    reopened.setAttribute(Qt::WA_DeleteOnClose, false);
+    QVERIFY(!reopened.findChild<QAction *>("previewPaneAction")->isChecked());
+    QCOMPARE(reopened.preferences.settings.value("trashAnimation").toBool(), false);
+  }
+  void permissionFailureRequestsAuthenticationAndCancellationKeepsFile() {
+    const QString sample = folder + "/permission-retry", bin = sample + "/bin", protectedFolder = sample + "/protected";
+    QDir().mkpath(bin); QDir().mkpath(protectedFolder);
+    const auto file = QUrl::fromLocalFile(protectedFolder + "/keep.txt");
+    write(file.toLocalFile());
+    const QString request = sample + "/request.json";
+    write(bin + "/pkexec", "#!/usr/bin/python3\nimport sys\nfrom pathlib import Path\nPath(" + QJsonDocument(QJsonArray{request}).toJson(QJsonDocument::Compact).mid(1).chopped(1) + ").write_text(sys.stdin.read())\nsys.exit(126)\n");
+    QFile::setPermissions(bin + "/pkexec", QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+    const auto previousPath = qgetenv("PATH"); qputenv("PATH", QFile::encodeName(bin + ':') + previousPath);
+    auto restore = qScopeGuard([&] { qputenv("PATH", previousPath); QFile::setPermissions(protectedFolder, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner); });
+    QFile::setPermissions(protectedFolder, QFile::ReadOwner | QFile::ExeOwner);
+    auto *job = new Fusion::RemovalJob({file}, false, nullptr);
+    QSignalSpy finished(job, &KJob::result);
+    int error = -1; connect(job, &KJob::result, this, [&](KJob *job) { error = job->error(); });
+    QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+    QVERIFY(QFileInfo::exists(file.toLocalFile()));
+    QFile record(request); QVERIFY(record.open(QIODevice::ReadOnly));
+    const auto data = QJsonDocument::fromJson(record.readAll()).object();
+    QCOMPARE(data.value("operation").toString(), QString("trash"));
+    QCOMPARE(data.value("items").toArray().first().toObject().value("path").toString(), file.toLocalFile());
+    QCOMPARE(error, int(KIO::ERR_USER_CANCELED));
+  }
+  void protectedRestoreUsesTrashMetadataAndKeepsCancelledItem() {
+    const QString sample = folder + "/restore-retry", bin = sample + "/bin", destination = sample + "/protected";
+    QDir().mkpath(bin); QDir().mkpath(destination);
+    const QString trash = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/Trash";
+    QDir().mkpath(trash + "/files"); QDir().mkpath(trash + "/info");
+    const QString name = "fusion-restore-fixture.txt", original = destination + "/original # name.txt";
+    write(trash + "/files/" + name);
+    write(trash + "/info/" + name + ".trashinfo", "[Trash Info]\nPath=" + QUrl::toPercentEncoding(original, "/") + "\nDeletionDate=2026-01-01T12:00:00\n");
+    const auto url = QUrl("trash:/0-" + name);
+    auto *stat = KIO::stat(url); stat->setAutoDelete(false);
+    QVERIFY2(stat->exec(), qPrintable(stat->errorString()));
+    const KFileItem item(stat->statResult(), url); delete stat;
+    QCOMPARE(item.localPath(), trash + "/files/" + name);
+    const QString request = sample + "/request.json";
+    write(bin + "/pkexec", "#!/usr/bin/python3\nimport sys\nfrom pathlib import Path\nPath(" + QJsonDocument(QJsonArray{request}).toJson(QJsonDocument::Compact).mid(1).chopped(1) + ").write_text(sys.stdin.read())\nsys.exit(126)\n");
+    QFile::setPermissions(bin + "/pkexec", QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+    const auto previousPath = qgetenv("PATH"); qputenv("PATH", QFile::encodeName(bin + ':') + previousPath);
+    auto reset = qScopeGuard([&] { qputenv("PATH", previousPath); QFile::setPermissions(destination, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner); });
+    QFile::setPermissions(destination, QFile::ReadOwner | QFile::ExeOwner);
+    auto *job = new Fusion::RemovalJob(KFileItemList{item}, QString("restore"), nullptr);
+    QSignalSpy finished(job, &KJob::result);
+    int error = -1; connect(job, &KJob::result, this, [&](KJob *result) { error = result->error(); });
+    QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 15000);
+    QCOMPARE(error, int(KIO::ERR_USER_CANCELED));
+    QVERIFY(QFileInfo::exists(item.localPath())); QVERIFY(!QFileInfo::exists(original));
+    QFile record(request); QVERIFY(record.open(QIODevice::ReadOnly));
+    const auto data = QJsonDocument::fromJson(record.readAll()).object();
+    QCOMPARE(data.value("operation").toString(), QString("restore"));
+    const auto selection = data.value("items").toArray().first().toObject();
+    QCOMPARE(selection.value("path").toString(), item.localPath());
+    QCOMPARE(selection.value("restoreTo").toString(), original);
+    QVERIFY(selection.value("fromTrash").toBool());
+    QFile::setPermissions(destination, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+    auto *retry = new Fusion::RemovalJob(KFileItemList{item}, QString("restore"), nullptr);
+    QSignalSpy restored(retry, &KJob::result);
+    connect(retry, &KJob::result, this, [&](KJob *result) { error = result->error(); });
+    QTRY_VERIFY_WITH_TIMEOUT(!restored.isEmpty(), 15000);
+    QCOMPARE(error, 0); QVERIFY(QFileInfo::exists(original));
+    QVERIFY(!QFileInfo::exists(item.localPath()));
+  }
   void viewsAndScreenshots() {
     const QString sample = folder + "/preview";
     QDir().mkpath(sample + "/Projects");
@@ -947,7 +1123,7 @@ private slots:
     if (!capture.isEmpty()) {
       tab->setView(2);
       tab->selectUrl(QUrl::fromLocalFile(sample + "/Sunset.png"));
-      window.runAction("preview");
+      if (!window.findChild<QAction *>("previewPaneAction")->isChecked()) window.runAction("preview");
       QTest::qWait(700);
       QVERIFY(window.grab().save(capture + "-folder.png"));
       window.openLocation(Fusion::computerUrl());

@@ -125,7 +125,7 @@ Each theme includes its own three-screen wallpaper set. The [gallery](docs/GALLE
 
 Press **Super+Space** and start typing. Arrange favorites into named groups, drag them into place, and mix medium tiles with compact icons. Resize the menu without losing your layout. Right-click an app to pin it to Favorites or the taskbar, assign a global hotkey, edit its command/icon, or choose terminal and floating behavior.
 
-Fresh installs start with **Kitty** and the bundled **Calculator** as the only supplied favorites. Your existing KDE favorites can also appear; the developer's pins and shortcut copies are never imported. While dragging a favorite, a small trash icon appears beside **Favorites**. Drop the tile there to unpin it; the application remains installed. Updates keep your own pins and layout.
+Fresh installs start with **My Computer**, **Kitty** and the bundled **Calculator** as the supplied favorites. My Computer opens Fusion Files at This PC. Your existing KDE favorites can also appear; the developer's pins and shortcut copies are never imported. While dragging a favorite, a small trash icon appears beside **Favorites**. Drop the tile there to unpin it; the application remains installed. Updates keep your own pins and layout.
 
 **Calculator** includes exact integer arithmetic, DEC/HEX conversion, selectable word sizes, bit operations, optional live results and session history. It runs locally and saves its preferences inside the Hyprland profile.
 
@@ -258,6 +258,7 @@ Your hotkeys, monitor arrangement, chosen wallpapers, private Dolphin Places and
 
 | Guide | Details |
 | --- | --- |
+| [Start here: project and AI guide](IA_START_HERE.html) | Offline architecture map, source/live paths, development, privacy, testing and releases; open the HTML in a browser or read its source |
 | [Full gallery](docs/GALLERY.md) | Themes, panels, menus, transfer cards and wallpapers |
 | [Installer](docs/INSTALLER.md) | GUI choices, pinned runtimes, backups and recovery |
 | [Dependencies](docs/DEPENDENCIES.md) | Distro scope, required tools and compatibility checks |

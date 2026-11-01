@@ -181,17 +181,20 @@ QStringList executionCommand(const QUrl &url) {
   if (!info.isFile())
     return {};
   const auto type = QMimeDatabase().mimeTypeForFile(info).name();
+  QFile script(info.absoluteFilePath());
+  QString first;
+  if (script.open(QIODevice::ReadOnly))
+    first = QString::fromUtf8(script.readLine(4096)).trimmed();
   const bool shell = type == "application/x-shellscript" ||
                      type == "text/x-shellscript" ||
-                     QStringList{"sh", "bash", "zsh", "ksh"}.contains(info.suffix());
+                     QStringList{"sh", "bash", "zsh", "ksh"}.contains(info.suffix()) ||
+                     (info.isExecutable() && first.startsWith("#!"));
   if (shell) {
     // Run scripts explicitly in a terminal, keeping output visible. Never
     // change executable permissions or interpolate a filename into a shell.
     QStringList command;
-    QFile script(info.absoluteFilePath());
-    if (!script.open(QIODevice::ReadOnly))
+    if (!script.isOpen())
       return {};
-    const auto first = QString::fromUtf8(script.readLine(4096)).trimmed();
     if (first.startsWith("#!"))
       command = QProcess::splitCommand(first.mid(2).trimmed());
     if (command.isEmpty())

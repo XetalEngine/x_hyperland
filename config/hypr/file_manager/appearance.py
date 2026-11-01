@@ -58,6 +58,13 @@ def appearance():
     QTabBar::tab {{padding:9px 18px; min-width:90px;}}
     QTabBar::tab:selected {{border-bottom:2px solid {p['Accent']};}}
     QScrollArea#filePreview {{background:{p['Base']}; border:none;}}
+    QLabel#settingsHeading {{font-size:22px; font-weight:600;}}
+    QDialog#applicationChooser QLineEdit, QDialog#filesConfiguration QLineEdit {{background:{p['Base']}; color:{p['Text']}; selection-background-color:{p['Highlight']}; selection-color:{p['HighlightedText']}; padding:9px;}}
+    QListWidget#applicationList {{background:{p['Base']}; color:{p['Text']}; border:1px solid {p['Midlight']}; border-radius:{radius}px; padding:5px;}}
+    QListWidget#applicationList::item {{padding:4px 10px; border-radius:{radius}px;}}
+    QListWidget#applicationList::item:selected {{background:{p['Highlight']}; color:{p['HighlightedText']};}}
+    QDialog#filesConfiguration QGroupBox {{padding:18px 14px 10px; margin-top:15px; border:1px solid {p['Midlight']}; border-radius:{radius}px;}}
+    QDialog#filesConfiguration QGroupBox::title {{subcontrol-origin:margin; left:14px; padding:0 5px; color:{p['Accent']};}}
     '''
     return dict(colors=p, stylesheet=style, font=runtime.ui_font(),
                 iconTheme='Papirus-Light' if runtime.mode() == 'light' else 'Papirus-Dark')

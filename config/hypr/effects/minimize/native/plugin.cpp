@@ -34,6 +34,9 @@
 #include <map>
 #include "graphics.hpp"
 #include "settings.hpp"
+#include "icons.hpp"
+#include <hyprgraphics/image/Image.hpp>
+#include <drm_fourcc.h>
 
 namespace {
 using Clock=std::chrono::steady_clock;
@@ -64,6 +67,9 @@ struct Record {
     Rect geometry, source, target, flight;
     Vector2D snapshotScreen;
     SP<Render::IFramebuffer> snapshot;
+    SP<Render::ITexture> appIcon;
+    std::filesystem::file_time_type iconStamp{};
+    Clock::time_point iconCheck{};
     Clock::time_point born;
     uint32_t seed=uint32_t(Clock::now().time_since_epoch().count()) ^ uint32_t(sequence*2654435761U);
     Minimize::Fire fire{seed};
@@ -122,8 +128,35 @@ std::optional<Rect> slot(const Record& r) {
     return {};
 }
 Rect thumbnail(Rect b, const Record& r) {
+    if(r.appIcon){const double size=b.w*.43;return {b.x+(b.w-size)/2,b.y+b.h*(settings.effect=="splat"?.53:.72)-size/2,size,size};}
     double w=b.w*.29,h=std::min(b.h*.19,w*r.source.h/std::max(1.0,r.source.w));
     return {b.x+(b.w-w)/2,b.y+b.h*(settings.effect=="splat"?.53:.72)-h/2,w,h};
+}
+void refreshIcon(Record& r) {
+    if(Clock::now()<r.iconCheck)return;
+    r.iconCheck=Clock::now()+std::chrono::seconds(1);
+    const auto window=member(r);const char* runtime=std::getenv("XDG_RUNTIME_DIR");
+    if(!window || !runtime)return;
+    const auto directory=std::filesystem::path(runtime)/"hypr"/g_pCompositor->m_instanceSignature/"xetal-minimize-icons";
+    for(const auto& name:{window->m_class,window->m_initialClass}){
+        if(name.empty())continue;
+        std::error_code error;
+        const auto path=directory/Minimize::iconKey(name);
+        if(!std::filesystem::is_regular_file(path,error) || error)continue;
+        const auto stamp=std::filesystem::last_write_time(path,error);
+        if(error)continue;
+        if(r.appIcon && stamp==r.iconStamp)return;
+        const auto bytes=std::filesystem::file_size(path,error);
+        if(error || bytes>1024*1024)continue;
+        Hyprgraphics::CImage image(path.string());
+        if(!image.success())continue;
+        auto surface=image.cairoSurface();
+        if(!surface || surface->size().x>512 || surface->size().y>512)continue;
+        g_pHyprRenderer->glBackend()->makeEGLCurrent();
+        r.appIcon=g_pHyprRenderer->createTexture(DRM_FORMAT_ARGB8888,surface->data(),surface->stride(),surface->size());
+        r.iconStamp=stamp;return;
+    }
+    r.appIcon.reset();
 }
 void damage(bool full=true) {
     for(auto& r:records)if(auto m=r->monitor.lock();visible(m)){
@@ -191,7 +224,7 @@ void minimize(PHLWINDOW w) {
     if(r->source.w<=0 || r->source.h<=0)return;
     r->fullscreen=Fullscreen::controller()->getFullscreenModes(w);r->pinned=w->m_pinned;r->floating=w->m_isFloating;
     r->members=w->m_group?w->m_group->windows():std::vector<PHLWINDOWREF>{w};
-    r->snapshot=capture(w);r->born=Clock::now();
+    r->snapshot=capture(w);refreshIcon(*r);r->born=Clock::now();
     // Share a hidden workspace per original workspace, so the taskbar can
     // group minimized apps by their home workspace. Never allocate per window.
     for(auto& existing:records)if(existing->stash && existing->stash->m_monitor==m && existing->original==r->original && !existing->stash->inert()){
@@ -320,7 +353,14 @@ class MinimizePass:public IPassElement {
             const bool hover=box(fire).containsPoint(pointer);
             if(settings.effect=="splat")graphics.splat(m,fire,r->effectTime,r->seed,settings.shape,settings.surface,settings.bubbles/100.F,settings.rgb,float(burn),hover);
             else graphics.fire(m,fire,r->fire,settings.rgb,float(burn),hover);
-            snapshot(*r,m,dest,float(1-burn*.25));
+            const double iconBlend=r->appIcon?std::clamp((burn-.5)*2.0,0.0,1.0):0;
+            snapshot(*r,m,dest,float((1-burn*.25)*(1-iconBlend)));
+            if(r->appIcon && iconBlend>0){
+                const double size=std::min(dest.w,dest.h);
+                CTexPassElement::SRenderData data;data.tex=r->appIcon;data.a=iconBlend;
+                data.box=box({dest.x+(dest.w-size)/2,dest.y+(dest.h-size)/2,size,size}).scale(m->m_scale);
+                g_pHyprRenderer->draw(data,g_pHyprRenderer->m_renderData.damage);
+            }
             ++draws;
         }
         return {};
@@ -389,6 +429,7 @@ void tick(SP<CEventLoopTimer> self,void*) {
     }
     auto copy=records;
     for(auto& r:copy){
+        refreshIcon(*r);
         const auto now=Clock::now();
         const double dt=std::chrono::duration<double>(now-r->lastFrame).count();r->lastFrame=now;
         if(visible(r->monitor.lock()) && (slot(*r) || !r->settled)) {
@@ -473,7 +514,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         });
         statusCommand=HyprlandAPI::registerHyprCtlCommand(handle,{"xetal-minimize",true,[](eHyprCtlOutputFormat,std::string){
             std::string items;for(auto& r:records){auto b=slot(*r);if(!items.empty())items+=",";
-                items+=std::format("{{\"id\":{},\"workspace\":{},\"restoring\":{},\"visible\":{},\"box\":[{},{},{},{}]}}",r->id,r->original?r->original->m_id:0,r->restoring,visible(r->monitor.lock()) && b.has_value(),b?b->x:0,b?b->y:0,b?b->w:0,b?b->h:0);
+                items+=std::format("{{\"id\":{},\"workspace\":{},\"restoring\":{},\"visible\":{},\"icon\":{},\"box\":[{},{},{},{}]}}",r->id,r->original?r->original->m_id:0,r->restoring,visible(r->monitor.lock()) && b.has_value(),bool(r->appIcon),b?b->x:0,b?b->y:0,b?b->w:0,b?b->h:0);
             }
             return std::format("{{\"enabled\":{},\"hidden\":{},\"effect\":\"{}\",\"edge\":\"{}\",\"order\":\"{}\",\"shape\":{},\"surface\":{},\"color\":[{},{},{}],\"active\":{},\"minimized\":{},\"restored\":{},\"draws\":{},\"windows\":[{}]}}",settings.enabled,effectsHidden,settings.effect,settings.rightEdge?"right":"left",settings.bottomToTop?"bottom-to-top":"top-to-bottom",settings.shape,settings.surface,settings.rgb[0],settings.rgb[1],settings.rgb[2],records.size(),requests,restored,draws,items);
         }});

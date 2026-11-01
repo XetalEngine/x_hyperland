@@ -31,6 +31,7 @@ public:
   void refresh();
   void setView(int mode);
   void setHidden(bool hidden);
+  void setThumbnails(bool enabled);
   void selectUrl(const QUrl &url);
   void saveView();
   void editAddress();

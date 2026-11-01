@@ -1,5 +1,8 @@
 #include "window.h"
 #include "transfers.h"
+#include "applications.h"
+#include "removal.h"
+#include "trash_animation.h"
 #include "../theme/file_preview.hpp"
 #include <KAbstractFileItemActionPlugin>
 #include <KApplicationTrader>
@@ -19,7 +22,6 @@
 #include <KIO/RenameFileDialog>
 #include <KIO/RestoreJob>
 #include <KJobWidgets>
-#include <KOpenWithDialog>
 #include <KPluginFactory>
 #include <KPluginMetaData>
 #include <KPropertiesDialog>
@@ -130,15 +132,18 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
     updatePreview();
   });
   previewAction->setCheckable(true);
+  previewAction->setObjectName("previewPaneAction");
   previewAction->setChecked(
-      preferences.settings.value("preview", false).toBool());
+      preferences.settings.value("preview", true).toBool());
   auto *menuButton = new QToolButton;
   menuButton->setProperty("fusionIcon", "application-menu");
   menuButton->setIcon(Fusion::icon("application-menu"));
   menuButton->setToolTip("File manager options");
+  menuButton->setObjectName("fileOptions");
   menuButton->setPopupMode(QToolButton::InstantPopup);
   auto *menu = new QMenu(menuButton);
   menuButton->setMenu(menu);
+  menu->setObjectName("fileOptionsMenu");
   toolbar->addWidget(menuButton);
   menu->addAction("New tab", this, [this] { runAction("newTab"); });
   menu->addAction("New window", this, [this] { runAction("newWindow"); });
@@ -155,6 +160,7 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
       static_cast<Browser *>(tabs->widget(i))->setHidden(value);
   });
   menu->addAction("Customize context menu…", this, &FilesWindow::customizeMenu);
+  menu->addAction(Fusion::icon("configure"), "Configure Fusion Files…", this, &FilesWindow::configure)->setObjectName("configureFiles");
   undoAction = menu->addAction("Undo", this, [this] { runAction("undo"); });
   undoAction->setEnabled(false);
   menu->addSeparator();
@@ -587,7 +593,17 @@ void FilesWindow::bind(const QString &id, const QString &key) {
   action->setShortcut(QKeySequence(key));
   addAction(action);
   shortcuts[id] = action;
-  connect(action, &QAction::triggered, this, [this, id] { runAction(id); });
+  connect(action, &QAction::triggered, this, [this, id] {
+    // Only keyboard shortcuts defer to a focused text editor. An explicit
+    // context-menu action must work even when the address bar retains focus.
+    if (isTextEditing() && QStringList{"trash", "delete", "open", "copy", "cut", "paste", "selectAll", "undo"}.contains(id))
+      return;
+    if (id == "open" && browser() && !Fusion::isComputer(browser()->location())) {
+      for (const auto &item : browser()->selectedItems()) openItem(item);
+      return;
+    }
+    runAction(id);
+  });
 }
 void FilesWindow::track(KJob *job) {
   if (!job)
@@ -602,6 +618,7 @@ void FilesWindow::track(KJob *job) {
       message(result->errorString());
     emit operationFinished(result->error());
   });
+  connect(job, &KJob::infoMessage, this, [this](KJob *, const QString &text) { message(text); });
 }
 void FilesWindow::openItem(const KFileItem &item, bool newTab) {
   if (item.isNull())
@@ -610,13 +627,41 @@ void FilesWindow::openItem(const KFileItem &item, bool newTab) {
     openLocation(item.url(), newTab);
     return;
   }
-  auto *job = new KIO::OpenUrlJob(item.url(), item.mimetype());
-  job->setUiDelegate(KIO::createDefaultJobUiDelegate(
-      KJobUiDelegate::AutoHandlingEnabled, this));
-  job->setRunExecutables(false);
-  job->setShowOpenOrExecuteDialog(true);
+  if (item.url().isLocalFile() && QFileInfo(item.url().toLocalFile()).isExecutable() &&
+      !Fusion::executionCommand(item.url()).isEmpty()) {
+    execute(item.url());
+    return;
+  }
+  openAssociated({item});
+}
+void FilesWindow::execute(const QUrl &url) {
+  auto command = Fusion::executionCommand(url);
+  if (command.isEmpty()) return;
+  const auto program = command.takeFirst();
+  auto *job = new KIO::CommandLauncherJob(program, command);
+  job->setWorkingDirectory(QFileInfo(url.toLocalFile()).absolutePath());
+  job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingDisabled, this));
   track(job);
   job->start();
+}
+void FilesWindow::openAssociated(const KFileItemList &items) {
+  for (const auto &item : items) {
+    if (item.isDir()) { openLocation(item.url()); continue; }
+    const auto preferred = KApplicationTrader::preferredService(item.mimetype());
+    if (!preferred) { chooseApplication({item}); continue; }
+    track(Fusion::launchApplication({{"app", preferred->storageId()}, {"mime", item.mimetype()},
+                                    {"urls", QJsonArray{item.url().toString(QUrl::FullyEncoded)}}}, this));
+  }
+}
+void FilesWindow::chooseApplication(const KFileItemList &items) {
+  if (items.isEmpty()) return;
+  Fusion::ApplicationDialog dialog(items, this);
+  if (dialog.exec() != QDialog::Accepted) return;
+  auto request = dialog.request();
+  QJsonArray urls;
+  for (const auto &item : items) urls.append(item.url().toString(QUrl::FullyEncoded));
+  request["urls"] = urls;
+  track(Fusion::launchApplication(request, this));
 }
 void FilesWindow::runAction(const QString &id) {
   auto *tab = browser();
@@ -687,10 +732,6 @@ void FilesWindow::runAction(const QString &id) {
       openLocation(Fusion::userUrl(address));
     return;
   }
-  if (isTextEditing() &&
-      (id == "trash" || id == "delete" || id == "open" || id == "copy" ||
-       id == "cut" || id == "paste" || id == "selectAll" || id == "undo"))
-    return;
   if (id == "copy" || id == "cut" || id == "paste") {
     if (places->hasFocus() && places->currentItem() &&
         places->currentItem()->data(0, VolumeRole).isValid()) {
@@ -717,23 +758,14 @@ void FilesWindow::runAction(const QString &id) {
     return;
   }
   if (id == "execute") {
-    if (urls.size() != 1)
-      return;
-    auto command = Fusion::executionCommand(urls.first());
-    if (command.isEmpty())
-      return;
-    const auto program = command.takeFirst();
-    auto *job = new KIO::CommandLauncherJob(program, command);
-    job->setWorkingDirectory(QFileInfo(urls.first().toLocalFile()).absolutePath());
-    job->setUiDelegate(KIO::createDefaultJobUiDelegate(
-        KJobUiDelegate::AutoHandlingDisabled, this));
-    track(job);
-    job->start();
+    if (urls.size() == 1) execute(urls.first());
     return;
   }
   if (id == "open" || id == "openTab") {
     if (Fusion::isComputer(location) && !tab->selectedVolume().device.isEmpty())
       drives->operate(tab->selectedVolume(), "open", this);
+    else if (id == "open")
+      openAssociated(items);
     else
       for (const auto &item : items)
         openItem(item, id == "openTab");
@@ -781,18 +813,7 @@ void FilesWindow::runAction(const QString &id) {
     return;
   }
   if (id == "openWith") {
-    if (urls.isEmpty())
-      return;
-    KOpenWithDialog dialog(urls, this);
-    dialog.setSaveNewApplications(true);
-    if (dialog.exec() == QDialog::Accepted && dialog.service()) {
-      auto *job = new KIO::ApplicationLauncherJob(dialog.service());
-      job->setUrls(urls);
-      job->setUiDelegate(KIO::createDefaultJobUiDelegate(
-          KJobUiDelegate::AutoHandlingEnabled, this));
-      track(job);
-      job->start();
-    }
+    chooseApplication(items);
     return;
   }
   if (id == "cut" || id == "copy") {
@@ -851,7 +872,8 @@ void FilesWindow::runAction(const QString &id) {
   if (id == "trash" || id == "delete") {
     if (urls.isEmpty())
       return;
-    if (id == "delete") {
+    const bool permanent = id == "delete" || location.scheme() == "trash";
+    if (permanent) {
       if (QMessageBox::warning(this, "Delete permanently",
                                QString("Permanently delete %1 selected "
                                        "item(s)?\nThis cannot be undone.")
@@ -859,17 +881,46 @@ void FilesWindow::runAction(const QString &id) {
                                QMessageBox::Yes | QMessageBox::Cancel,
                                QMessageBox::Cancel) != QMessageBox::Yes)
         return;
-      track(KIO::del(urls));
-    } else {
-      auto *job = KIO::trash(urls);
-      KIO::FileUndoManager::self()->recordCopyJob(job);
-      track(job);
     }
+    QList<Fusion::TrashIcon> artwork;
+    if (!permanent && preferences.settings.value("trashAnimation", true).toBool()) {
+      for (const auto &item : items) {
+        const auto index = tab->proxy->mapFromSource(tab->model->indexForUrl(item.url()));
+        const auto rect = tab->view()->visualRect(index);
+        if (!rect.intersects(tab->view()->viewport()->rect())) continue;
+        const int size = qBound(22, tab->view()->iconSize().width(), 80);
+        auto icon = qvariant_cast<QIcon>(index.data(Qt::DecorationRole));
+        if (icon.isNull()) icon = Fusion::icon(item.iconName());
+        const auto center = mapFromGlobal(tab->view()->viewport()->mapToGlobal(rect.topLeft() + QPoint(rect.width()/2, size/2 + 8)));
+        artwork.append({item.url(), icon.pixmap(size, size), QRectF(center.x()-size/2, center.y()-size/2, size, size)});
+        if (artwork.size() == 8) break;
+      }
+    }
+    auto *job = new Fusion::RemovalJob(items, permanent ? "delete" : "trash", this);
+    connect(job, &Fusion::RemovalJob::removed, this, [this, artwork, location](const QList<QUrl> &removed) {
+      if (!browser() || browser()->location() != location) return;
+      QList<Fusion::TrashIcon> succeeded;
+      for (const auto &icon : artwork) if (removed.contains(icon.url)) succeeded << icon;
+      QPoint target(places->viewport()->width()/2, places->viewport()->height()-24);
+      for (int i = 0; i < places->topLevelItemCount(); ++i) {
+        auto *item = places->topLevelItem(i);
+        if (QUrl(item->data(0, UrlRole).toString()).scheme() == "trash") {
+          const auto rect = places->visualItemRect(item);
+          if (rect.intersects(places->viewport()->rect())) target = QPoint(rect.left()+20, rect.center().y());
+        }
+      }
+      Fusion::animateTrash(this, succeeded, mapFromGlobal(places->viewport()->mapToGlobal(target)));
+      browser()->refresh();
+    });
+    track(job);
     return;
   }
   if (id == "restore") {
-    if (!urls.isEmpty())
-      track(KIO::restoreFromTrash(urls));
+    if (!urls.isEmpty()) {
+      auto *job = new Fusion::RemovalJob(items, QString("restore"), this);
+      connect(job, &Fusion::RemovalJob::removed, this, [tab = QPointer<Browser>(tab)] { if (tab) tab->refresh(); });
+      track(job);
+    }
     return;
   }
   if (id == "terminal") {
@@ -1126,6 +1177,7 @@ void FilesWindow::fileMenu(const QPoint &point) {
                      [](const KFileItem &item) { return item.isDir(); }))
       continue;
     QString label = entry["name"].toString(), icon = entry["icon"].toString();
+    if (id == "trash" && location.scheme() == "trash") label = "Delete permanently…";
     if (id == "open" && preferred && label == "Open") {
       label = "Open with " + QString(preferred->name()).replace('&', "&&");
       if (icon == "document-open" && !preferred->icon().isEmpty())
@@ -1283,6 +1335,61 @@ void FilesWindow::customizeMenu() {
     }
     preferences.setMenu(entries);
   }
+}
+void FilesWindow::configure() {
+  QDialog dialog(this);
+  dialog.setObjectName("filesConfiguration");
+  dialog.setWindowTitle("Configure Fusion Files");
+  dialog.resize(530, 420);
+  auto *layout = new QVBoxLayout(&dialog);
+  layout->setContentsMargins(24, 22, 24, 20);
+  layout->setSpacing(14);
+  auto *heading = new QLabel("Your files, your way");
+  heading->setObjectName("settingsHeading");
+  layout->addWidget(heading);
+  auto *intro = new QLabel("Choose what appears while you browse. These settings are saved for your desktop.");
+  intro->setWordWrap(true);
+  layout->addWidget(intro);
+  auto *display = new QGroupBox("Browsing");
+  auto *displayLayout = new QVBoxLayout(display);
+  auto *pane = new QCheckBox("Show the preview pane");
+  pane->setObjectName("configurePreview");
+  pane->setChecked(previewAction->isChecked());
+  displayLayout->addWidget(pane);
+  auto *thumbnails = new QCheckBox("Show picture thumbnails on file icons");
+  thumbnails->setObjectName("configureThumbnails");
+  thumbnails->setChecked(preferences.settings.value("thumbnails", true).toBool());
+  displayLayout->addWidget(thumbnails);
+  auto *hint = new QLabel("Local pictures only. Remote folders keep file-type icons.");
+  hint->setObjectName("muted");
+  displayLayout->addWidget(hint);
+  auto *hidden = new QCheckBox("Show hidden files and folders");
+  hidden->setChecked(hiddenAction->isChecked());
+  displayLayout->addWidget(hidden);
+  layout->addWidget(display);
+  auto *behavior = new QGroupBox("File actions");
+  auto *behaviorLayout = new QVBoxLayout(behavior);
+  auto *animation = new QCheckBox("Animate files moving to Trash");
+  animation->setObjectName("configureTrashAnimation");
+  animation->setChecked(preferences.settings.value("trashAnimation", true).toBool());
+  behaviorLayout->addWidget(animation);
+  auto *menu = new QPushButton("Customize context menu…");
+  connect(menu, &QPushButton::clicked, this, &FilesWindow::customizeMenu);
+  behaviorLayout->addWidget(menu);
+  layout->addWidget(behavior);
+  layout->addStretch();
+  auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);
+  layout->addWidget(buttons);
+  connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+  connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+  if (dialog.exec() != QDialog::Accepted) return;
+  preferences.settings.setValue("thumbnails", thumbnails->isChecked());
+  preferences.settings.setValue("trashAnimation", animation->isChecked());
+  if (pane->isChecked() != previewAction->isChecked()) previewAction->trigger();
+  hiddenAction->setChecked(hidden->isChecked());
+  for (int i = 0; i < tabs->count(); ++i)
+    static_cast<Browser *>(tabs->widget(i))->setThumbnails(thumbnails->isChecked());
+  preferences.settings.sync();
 }
 void FilesWindow::showShortcuts() {
   QMessageBox::information(

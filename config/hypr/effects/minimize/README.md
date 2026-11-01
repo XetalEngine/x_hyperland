@@ -8,6 +8,15 @@ apps under **M3**, for example, followed by their app icons: “M” means minim
 and “3” is their original workspace. Cube uses its local 1–4 face number.
 Clicking an app icon restores that specific app.
 
+The center of a Fireball or Splat shows the application's icon when one is
+available. Apps without an identifiable icon retain the small window preview.
+The shrinking/restoring window blends into/out of the icon during travel.
+`icons.py` resolves desktop IDs, executable names and StartupWMClass through
+the installed app/icon inventory outside the compositor. The session controller
+owns this helper; its bounded PNG cache lives inside the current Hyprland
+instance's `xetal-minimize-icons/` runtime directory. It follows new windows,
+installed apps and the light/dark icon theme. No personal icon cache is shipped.
+
 **Super+Ctrl+Z** hides or shows all minimized effects for this session. Apps
 stay minimized and running; their taskbar icons can still restore them. Hidden
 effects do not draw or intercept clicks or scrolling. This works for both
@@ -65,6 +74,7 @@ hyprctl dispatch xetalminimize:restoreall
 ```
 
 `hyprctl xetal-minimize` reports active records and their IDs. Previews are
+also identified by an `icon` flag in each window record. Window snapshots are
 bounded to 1024 pixels on their longest side. Visible effects update at up to 60 FPS and damage only their small screen
 region. Fire uses a fixed 30 ms physics step and a bounded 384-particle pool
 per window; offscreen effects skip simulation and rendering. There is no frame

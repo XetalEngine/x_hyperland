@@ -137,6 +137,22 @@ debug {
         # Change effects on an already minimized window, including palette-only
         # reloads. No restore/re-minimize is allowed during these changes.
         from PIL import Image, ImageDraw
+        # Unknown applications retain the window preview. A real cached icon
+        # is picked up without restoring/re-minimizing the window.
+        from effects.minimize.icons import key as icon_key
+        assert status()['windows'][0]['icon'] is False
+        icon_dir = runtime/'hypr'/env['HYPRLAND_INSTANCE_SIGNATURE']/'xetal-minimize-icons'
+        icon_dir.mkdir(mode=0o700)
+        icon_path = icon_dir/icon_key(before['class'])
+        Image.new('RGBA', (128,128), (20,235,95,255)).save(icon_path)
+        wait(lambda: status()['windows'][0]['icon'] is True)
+        time.sleep(.2)
+        run('grim', '-o', output_name, str(root/'fireball-app-icon.png'))
+        b = status()['windows'][0]['box']; x,y,w,h = map(int,b)
+        pixels = Image.open(root/'fireball-app-icon.png').crop((x,y,x+w,y+h)).convert('RGB')
+        assert sum(g>180 and r<60 and blue<150 for r,g,blue in pixels.getdata()) > 100, 'App icon was not rendered'
+        icon_path.unlink()
+        wait(lambda: status()['windows'][0]['icon'] is False)
         shots = []
         def shot(label):
             path = root/(label+'.png'); run('grim', '-o', output_name, str(path))

@@ -247,8 +247,8 @@ def atomic_write(path, content, mode=0o600):
             temporary.unlink()
 
 
-def apply_choice(data):
-    apps = installed()
+def apply_choice(data, *, applications=None):
+    apps = installed() if applications is None else applications
     ident = data.get('app', '')
     if not isinstance(ident, str) or not APP_ID.fullmatch(ident) or ident not in apps:
         raise ValueError('That app is no longer installed. Refresh the list and choose another app.')

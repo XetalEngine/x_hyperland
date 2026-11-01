@@ -51,9 +51,13 @@ private:
   void addArkActions(QMenu *menu, const KFileItemList &items, bool compress,
                      bool extract, const std::function<bool()> &guard = {});
   void customizeMenu();
+  void configure();
   void updateCurrent();
   void updatePreview();
   void openItem(const KFileItem &item, bool newTab = false);
+  void openAssociated(const KFileItemList &items);
+  void chooseApplication(const KFileItemList &items);
+  void execute(const QUrl &url);
   void track(KJob *job);
   void reloadTheme();
   void archive(bool extract);

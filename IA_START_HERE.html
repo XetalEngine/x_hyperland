@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Hyper Fusion project guide: architecture, source map, installation, updates, private state and development handoff for a fresh AI context.">
+  <title>Start here · Hyper Fusion</title>
+  <style>
+    :root{--bg:#090e15;--surface:#101923;--surface2:#152230;--line:#253649;--text:#e5eef7;--muted:#9db0c4;--accent:#46c3ff;--mint:#69e0c7;--amber:#f3c47b;--sidebar:264px;--radius:16px;--mono:"JetBrains Mono","SFMono-Regular",Consolas,monospace}
+    *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:32px}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.75 Inter,"Segoe UI",system-ui,sans-serif}a{color:var(--accent);text-decoration:none;text-underline-offset:3px}a:hover{text-decoration:underline}button,input{font:inherit}button,a,input,summary{-webkit-tap-highlight-color:transparent}button{cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px}::selection{background:#23658c;color:#fff}[hidden]{display:none!important}
+    .skip{position:fixed;left:16px;top:-70px;z-index:20;background:var(--accent);color:#081019;padding:8px 16px;border-radius:8px}.skip:focus{top:12px}.sidebar{position:fixed;inset:0 auto 0 0;width:var(--sidebar);padding:29px 22px 20px;background:#0d141e;border-right:1px solid var(--line);display:flex;flex-direction:column;z-index:5}.brand{display:flex;align-items:center;gap:12px;color:var(--text);font-weight:700;letter-spacing:-.4px}.brand:hover{text-decoration:none}.mark{width:40px;height:40px;display:grid;place-items:center;background:linear-gradient(145deg,#1c4967,#132738);border:1px solid #37708f;border-radius:11px;color:#a5e3ff;font-size:15px;letter-spacing:-1px;box-shadow:0 0 24px #149aff12}.brand small{display:block;color:var(--muted);font-size:10px;letter-spacing:2.1px;font-weight:500;text-transform:uppercase;margin-top:1px}.search-box{margin:28px 0 14px}.search-box label{display:block;font-size:11px;color:var(--muted);margin:0 0 7px 2px;letter-spacing:1px;text-transform:uppercase}.search-field{position:relative}.search-field svg{position:absolute;left:12px;top:13px;width:17px;height:17px;color:var(--muted);pointer-events:none}#search{width:100%;border:1px solid var(--line);border-radius:9px;background:#090f17;color:var(--text);padding:10px 30px 10px 37px;font-size:12px;line-height:22px}#search::placeholder{color:#8c9eb2}#search:focus{border-color:var(--accent);outline-offset:2px}#search-status{min-height:20px;color:var(--muted);font-size:11px;margin:5px 2px}.toc{overflow:auto;flex:1;scrollbar-width:thin;scrollbar-color:#33485e transparent}.toc a{display:flex;align-items:baseline;gap:12px;padding:7px 10px;border-radius:7px;color:#b6c7d8;font-size:12px;margin:2px 0;border:1px solid transparent;line-height:1.65}.toc a span{font:10px var(--mono);color:#7390a9;min-width:16px}.toc a:hover{background:#142232;text-decoration:none;color:#fff}.toc a.active{background:#163044;border-color:#25485e;color:#c3ecff}.toc a.active span{color:var(--accent)}.sidebar-foot{padding:16px 4px 0;margin-top:18px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}.status-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--mint);margin-right:6px}.sidebar-foot a{display:inline-block;margin-top:6px}.mobile-bar{display:none}
+    main{margin-left:var(--sidebar);max-width:1530px;padding:45px clamp(25px,4vw,66px) 32px}.topline{display:flex;align-items:center;justify-content:space-between;gap:15px;font:10px var(--mono);letter-spacing:1.5px;color:var(--muted);margin-bottom:27px}.topline .crumb{color:#c5d5e7}.topline button{background:none;border:0;color:var(--muted);font-size:11px;padding:4px;letter-spacing:0}.hero{position:relative;isolation:isolate;border:1px solid #2b4c64;border-radius:22px;padding:clamp(26px,3.5vw,48px);overflow:hidden;background:radial-gradient(ellipse at 95% 0%,#173a50 0%,transparent 57%),linear-gradient(135deg,#142332,#0e1721)}.hero:after{content:"";position:absolute;z-index:-1;inset:0;opacity:.2;background-image:linear-gradient(#41759833 1px,transparent 1px),linear-gradient(90deg,#41759833 1px,transparent 1px);background-size:36px 36px;mask-image:linear-gradient(100deg,transparent 30%,#000)}.eyebrow{font:10px var(--mono);text-transform:uppercase;letter-spacing:2px;color:var(--accent);display:flex;align-items:center;gap:8px}.eyebrow:before{content:"";width:19px;height:2px;background:currentColor}.hero h1{font-size:clamp(33px,3.6vw,53px);line-height:1.15;letter-spacing:-2px;font-weight:700;margin:20px 0}.hero h1 em{font-style:normal;color:#83d9ff}.hero .intro{color:#b6cada;max-width:690px;font-size:15px;line-height:1.85;margin:0 0 24px}.actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.button{display:inline-flex;gap:8px;align-items:center;justify-content:center;min-height:40px;padding:8px 15px;border:1px solid #3b5b73;border-radius:9px;background:#152737;color:#deedf8;font-size:12px;font-weight:600;line-height:1.6;text-decoration:none}.button:hover{background:#1d3448;text-decoration:none}.button.primary{background:#51c7ff;color:#071823;border-color:#51c7ff;box-shadow:0 4px 22px #37b9ff16}.button.primary:hover{background:#83d7ff}.button svg{width:15px;height:15px}.hero-bottom{display:flex;flex-wrap:wrap;gap:10px 25px;border-top:1px solid #2b4458;margin-top:30px;padding-top:18px;color:#a2b8cc;font:10px/1.8 var(--mono)}.hero-bottom b{font-weight:500;color:#d4e5f3}.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:15px}.stat{padding:17px 20px;border:1px solid var(--line);border-radius:12px;background:#0f1923}.stat span{display:block;font:10px var(--mono);letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:7px}.stat strong{font-size:14px;font-weight:600}.stat code{font-size:11px;background:none;border:0;padding:0;color:#bdd9ef}
+    section{padding-top:50px;scroll-margin-top:10px}section+section{margin-top:12px}.section-heading{display:flex;gap:15px;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:23px}.section-number{color:var(--accent);font:11px var(--mono)}h2{font-size:25px;line-height:1.35;font-weight:650;letter-spacing:-.7px;margin:0}h3{font-size:17px;line-height:1.5;letter-spacing:-.25px;margin:28px 0 11px}h4{font-size:14px;margin:0 0 8px;line-height:1.6}p{margin:0 0 15px}.lead{font-size:16px;color:#b6c9dc;max-width:850px}.muted{color:var(--muted)}strong{font-weight:650;color:#eff6fc}code{font-family:var(--mono);font-size:.82em;background:#13202e;border:1px solid #243448;border-radius:4px;padding:2px 5px;color:#c9e4fa;overflow-wrap:anywhere}a code{color:var(--accent)}pre{background:#080f17;border:1px solid var(--line);border-radius:10px;padding:18px 20px;overflow:auto;white-space:pre;font:12px/1.85 var(--mono);color:#cce4f5;margin:15px 0 20px;tab-size:2}pre code{font:inherit;white-space:inherit;overflow-wrap:normal;background:none;border:0;padding:0}.code-label{display:block;font:10px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:20px}.code-label+pre{margin-top:8px}.comment{color:#7996ad}ul,ol{padding-left:22px;margin:12px 0 19px}li{padding-left:3px;margin:6px 0}li::marker{color:#64b8e4}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin:20px 0}.card{border:1px solid var(--line);border-radius:var(--radius);padding:23px;background:linear-gradient(140deg,#13202c,#0f1721)}.card h3{margin:0 0 10px;font-size:17px}.card p{color:#b5c7d8;font-size:13px;margin-bottom:10px}.card p:last-child{margin-bottom:0}.tag{display:inline-block;border:1px solid #2e5266;border-radius:5px;padding:2px 7px;margin-bottom:15px;color:#8ad9ff;background:#123042;font:10px/1.6 var(--mono);letter-spacing:.4px}.tag.mint{color:#8ee8d1;background:#113029;border-color:#275348}.tag.amber{color:#f6d6a4;background:#30291f;border-color:#59482f}.callout{border:1px solid #2a4c63;border-left:3px solid var(--accent);border-radius:0 10px 10px 0;background:#101f2c;padding:17px 20px;margin:20px 0;font-size:13px;color:#c4d7e6}.callout p:last-child{margin-bottom:0}.callout.warm{background:#211e1b;border-color:#5a4932;border-left-color:var(--amber);color:#dacdbb}.callout strong{color:inherit}.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin:18px 0 24px;scrollbar-width:thin}table{border-collapse:collapse;width:100%;text-align:left;font-size:12px}th{padding:12px 16px;background:#152330;color:#acbdcf;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px}td{padding:13px 16px;vertical-align:top;border-top:1px solid #213142;line-height:1.8}td:first-child{color:#dcebf5;font-weight:550;width:22%}td code{font-size:11px}td p{margin:0 0 5px}tbody tr:nth-child(even){background:#111b252e}tbody tr:hover{background:#16273566}.path{display:block;margin:3px 0;font-weight:400}.component-table td:first-child{width:26%}.component-table td:last-child{width:35%;color:#a7bdcf}.flow{display:grid;grid-template-columns:1fr 24px 1fr 24px 1fr;align-items:stretch;gap:8px;margin:25px 0}.flow-node{padding:20px;border:1px solid var(--line);border-radius:12px;background:#111d28}.flow-node strong{font-size:14px}.flow-node code{display:block;margin:13px 0 9px;font-size:10px;line-height:1.8}.flow-node p{font-size:12px;line-height:1.7;color:var(--muted);margin:0}.flow-arrow{display:grid;place-items:center;color:var(--accent);font-size:20px}.step-list{counter-reset:steps;list-style:none;padding:0;margin:20px 0}.step-list li{counter-increment:steps;position:relative;padding:0 0 20px 48px;margin:0;min-height:55px}.step-list li:before{content:counter(steps,decimal-leading-zero);position:absolute;left:0;top:0;width:29px;height:29px;display:grid;place-items:center;font:10px var(--mono);border:1px solid #31546a;border-radius:8px;color:var(--accent);background:#142a39}.step-list li:after{content:"";position:absolute;left:14px;top:36px;bottom:6px;width:1px;background:var(--line)}.step-list li:last-child:after{display:none}.step-list li p{color:#aec2d4;font-size:13px;margin:4px 0 0}kbd{display:inline-block;white-space:nowrap;font:11px/1.5 var(--mono);color:#cfdfec;border:1px solid #3a5063;border-bottom-width:2px;background:#152331;border-radius:4px;padding:2px 5px}.doc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0}.doc-link{display:block;border:1px solid var(--line);border-radius:11px;padding:17px;color:#d1e9f7;background:#111c27;font-size:13px}.doc-link span{display:block;font-size:11px;line-height:1.7;color:var(--muted);margin-top:5px}.doc-link:hover{border-color:#47708c;text-decoration:none;background:#182937}.handoff{white-space:pre-wrap;line-height:1.9;color:#bcd5e7;font-size:12px}.footer{margin-top:48px;padding:24px 0 0;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:15px;color:#8fa7bd;font-size:11px}.empty{padding:50px 20px;border:1px dashed var(--line);text-align:center;border-radius:12px;margin-top:30px}.empty button{margin-top:10px}#notice{position:fixed;bottom:24px;left:calc(var(--sidebar) + 24px);right:24px;max-width:480px;z-index:15;border:1px solid #416780;background:#142b3d;color:#dceffb;box-shadow:0 10px 35px #0006;border-radius:10px;padding:12px 18px;font-size:12px}.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+    @media(min-width:1800px){main{margin-right:auto;margin-left:calc(var(--sidebar) + (100vw - 1800px)/2)}}
+    @media(max-width:1100px){:root{--sidebar:230px}.sidebar{padding:24px 15px 16px}main{padding:30px 26px}.flow{grid-template-columns:1fr;gap:6px}.flow-node{display:grid;grid-template-columns:160px 1fr;gap:5px 16px;align-items:start}.flow-node code{grid-row:1 / 3;grid-column:2;margin:0;align-self:center}.flow-node p{grid-column:1}.flow-arrow{height:18px;transform:rotate(90deg)}.stats{gap:8px}.stat{padding:14px 12px}.stat strong{font-size:12px}.doc-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.component-table{min-width:620px}}
+    @media(max-width:760px){:root{--sidebar:0px}html{scroll-padding-top:78px}.sidebar{position:static;width:auto;padding:20px 20px 10px;border-right:0;border-bottom:1px solid var(--line)}.brand{font-size:16px}.search-box{margin:20px 0 3px}#search{font-size:14px}.sidebar-foot{display:none}.toc{display:none;max-height:280px;margin-top:8px}.toc.open{display:block}.mobile-bar{display:block;position:absolute;right:20px;top:24px;background:#162838;border:1px solid #35506a;color:var(--text);padding:7px 12px;border-radius:7px;font-size:12px}.toc a{font-size:13px}main{margin-left:0;padding:24px 20px}.topline{font-size:9px;letter-spacing:.7px}.hero{padding:27px 24px;border-radius:16px}.hero h1{letter-spacing:-1.2px;font-size:36px}.hero .intro{font-size:14px}.hero-bottom{gap:6px 16px}.stats{grid-template-columns:1fr}.stat{display:flex;align-items:center;justify-content:space-between;gap:14px}.stat span{margin:0;min-width:87px}.stat strong{font-size:12px}.grid{grid-template-columns:1fr}.card{padding:20px}.flow-node{grid-template-columns:1fr;gap:5px}.flow-node code,.flow-node p{grid-column:auto;grid-row:auto}.flow-node code{margin:6px 0}.doc-grid{grid-template-columns:1fr 1fr}h2{font-size:22px}section{padding-top:36px}.section-heading{gap:12px}.footer{display:block}.footer a{display:block;margin-top:12px}pre{padding:15px;font-size:11px}.table-wrap table{min-width:560px}#notice{left:16px;right:16px;bottom:16px}.step-list li{padding-left:42px}}
+    @media(max-width:420px){main{padding:21px 15px}.hero h1{font-size:31px}.hero{padding:25px 20px}.doc-grid{grid-template-columns:1fr}.topline{align-items:flex-start}.topline .crumb{max-width:180px;line-height:1.8}.stat strong{font-size:11px}.stat code{font-size:10px}.button{padding:8px 12px;font-size:11px}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+    @media print{*{box-shadow:none!important;text-shadow:none!important}html{scroll-behavior:auto}body{background:#fff;color:#17202a;font-size:10pt}.sidebar,.topline,.actions,.stats,.footer a,#notice,.empty{display:none!important}main{margin:0;padding:0;max-width:none}section[hidden]{display:block!important}section{padding-top:25px;margin:0;scroll-margin:0}.hero{padding:20px;background:none;border-color:#bbc8d4}.hero:after{display:none}.hero h1{font-size:28pt}.hero h1 em{color:#17628b}.hero .intro,.hero-bottom,.lead,.muted,.card p,.flow-node p,.step-list li p,.doc-link span{color:#394d60}.hero-bottom b,strong,td:first-child{color:#14293b}.eyebrow,.section-number,a{color:#185c84}h2{font-size:18pt}h3{font-size:12pt}.section-heading{break-after:avoid}.card,.flow-node,.stat,.callout,.doc-link,pre,code,th{background:#f4f7f9!important;color:#1b3349!important;border-color:#bfccd7}.table-wrap{overflow:visible;border-color:#bfccd7}table{font-size:8.5pt}td{border-color:#cbd4dc}.grid{gap:10px}.card,.flow-node,pre,.doc-link{break-inside:avoid}.doc-grid{grid-template-columns:repeat(2,1fr)}pre{white-space:pre-wrap;font-size:8pt}.flow{display:block}.flow-node{margin:8px 0}.flow-arrow{display:none}.footer{color:#34495c}.handoff{white-space:pre-wrap}a{text-decoration:underline}#search-status{display:none}}
+  </style>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to project guide</a>
+  <aside class="sidebar" aria-label="Guide navigation">
+    <a class="brand" href="#overview"><span class="mark" aria-hidden="true">HF</span><span>Hyper Fusion<small>Project guide</small></span></a>
+    <button class="mobile-bar" id="menu-toggle" type="button" aria-controls="toc" aria-expanded="false">Contents</button>
+    <div class="search-box">
+      <label for="search">Find your starting point</label>
+      <div class="search-field">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="6.5"/><path d="m15 15 5 5"/></svg>
+        <input id="search" type="search" placeholder="Search this guide…" autocomplete="off" aria-describedby="search-status">
+      </div>
+      <p id="search-status" role="status" aria-live="polite">Press / to search · Esc to clear</p>
+    </div>
+    <nav class="toc" id="toc" aria-label="Contents">
+      <a href="#overview" class="active"><span>01</span>The project in one minute</a>
+      <a href="#orientation"><span>02</span>A fresh context starts here</a>
+      <a href="#architecture"><span>03</span>From source to session</a>
+      <a href="#components"><span>04</span>Where everything lives</a>
+      <a href="#theme"><span>05</span>One visual language</a>
+      <a href="#files"><span>06</span>Fusion Files &amp; transfers</a>
+      <a href="#default-apps"><span>07</span>Default Apps &amp; routing</a>
+      <a href="#install"><span>08</span>Setup &amp; runtime</a>
+      <a href="#updates"><span>09</span>How public updates work</a>
+      <a href="#development"><span>10</span>Making a change</a>
+      <a href="#validation"><span>11</span>Build &amp; verify</a>
+      <a href="#privacy"><span>12</span>Public source, private state</a>
+      <a href="#troubleshooting"><span>13</span>Trace a problem</a>
+      <a href="#handoff"><span>14</span>Docs &amp; AI handoff</a>
+    </nav>
+    <div class="sidebar-foot"><span class="status-dot" aria-hidden="true"></span>Offline · self-contained HTML<br>Source checked 01 Nov 2026<br><a href="README.md">Repository README ↗</a></div>
+  </aside>
+  <main id="content">
+    <div class="topline"><span class="crumb">XETAL / x_hyperland / IA_START_HERE.html</span><button type="button" id="print-guide">Print / save PDF ↗</button></div>
+    <header class="hero">
+      <div class="eyebrow">The context lives here</div>
+      <h1>A beautiful desktop.<br><em>A clear starting point.</em></h1>
+      <p class="intro">Hyper Fusion is an integrated Hyprland desktop built by Xetal. This guide connects the source, the running desktop and the release system, so a fresh AI session can continue the work with the right context.</p>
+      <div class="actions">
+        <a class="button primary" href="#orientation">Start with the essentials <span aria-hidden="true">↗</span></a>
+        <button class="button" type="button" data-copy-handoff><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 8V3H3v13h5"/></svg>Copy AI handoff</button>
+      </div>
+      <div class="hero-bottom"><span>PRODUCT <b>Hyper Fusion</b></span><span>REPOSITORY <b>x_hyperland</b></span><span>CHECKED <b>01 Nov 2026</b></span></div>
+    </header>
+    <div class="stats" aria-label="Three essential locations">
+      <div class="stat"><span>Source</span><strong><code>~/Desktop/x_hyperland</code></strong></div>
+      <div class="stat"><span>Live desktop</span><strong><code>~/.config/hypr</code></strong></div>
+      <div class="stat"><span>Release branch</span><strong>GitHub · main</strong></div>
+    </div>
+    <div class="empty" id="no-results" hidden><strong>No matching sections.</strong><p class="muted">Try “file manager”, “theme”, “install” or a source filename.</p><button class="button" id="clear-search" type="button">Show the whole guide</button></div>
+
+    <section id="overview" data-search-section>
+      <div class="section-heading"><span class="section-number">01</span><h2>The project in one minute</h2></div>
+      <p class="lead">This repository contains a complete desktop experience, its installer and its updater. The existing implementation is the starting point for new work.</p>
+      <div class="grid">
+        <article class="card"><span class="tag">The experience</span><h3>Polished, coherent, practical</h3><p>A Windows-familiar launcher and file browser, a per-display taskbar, coordinated themes, a Control Panel, settings, wallpaper tools, file-transfer popups, recording, native effects and KVM management.</p><p>The design goal is rich functionality with clear everyday controls. New surfaces should feel like part of the same desktop and follow its active theme.</p></article>
+        <article class="card"><span class="tag mint">The implementation</span><h3>Native tools working together</h3><p>Hyprland handles windows and workspaces. Python/PyQt6 powers much of the shell; Qt/C++ powers Control Panel and Fusion Files. KDE KIO handles ordinary file jobs; a bounded authenticated helper handles protected removal and restore. GTK powers Setup; Bash ties launchers and session helpers together.</p><p>Shared theme, runtime and update code keep these separate applications coordinated.</p></article>
+      </div>
+      <p>The development computer also runs this desktop. Public changes belong in <code>config/hypr/</code> and the appropriate installer/docs/tests directories. The running copy under <code>~/.config/hypr/</code> contains personal state as well as installed code. A change in either copy does not automatically change the other.</p>
+      <div class="callout"><strong>Scope of this guide:</strong> a source-based handoff checked on 1 November 2026, including the file-manager and minimize-icon improvements. Read current code, manifests, Git status and the user's latest request before editing. This page is a map, not a claim that all tests have just run or that every future checkout matches this snapshot.</div>
+    </section>
+
+    <section id="orientation" data-search-section>
+      <div class="section-heading"><span class="section-number">02</span><h2>A fresh context starts here</h2></div>
+      <ol class="step-list">
+        <li><strong>Locate the checkout and see what is already changing.</strong><p>The usual workspace is <code>~/Desktop/x_hyperland</code>. Check for applicable <code>AGENTS.md</code> instructions, then inspect Git status and recent commits. Preserve work already present.</p></li>
+        <li><strong>Identify the application and its actual entry point.</strong><p>Use the map below. “Fusion Settings” is <code>control_center/</code>; “Control Panel” is <code>control_panel/</code>. Fusion Files is <code>file_manager/</code>; file-transfer windows are <code>file_jobs/</code>.</p></li>
+        <li><strong>Compare source and installed behavior.</strong><p>A running preloaded UI can still contain old code. Follow its wrapper, binary and session owner before concluding that a source edit failed. Keep a backup before changing the live copy.</p></li>
+        <li><strong>Carry the change through the full path.</strong><p>Consider appearance, behavior, saved state, fresh-install defaults, update ownership and relevant tests. Record what was changed and verified for the next session.</p></li>
+      </ol>
+      <span class="code-label">Read-only orientation · run from the checkout</span>
+      <pre><code>cd ~/Desktop/x_hyperland
+git status --short
+git log -5 --oneline
+git diff --stat
+rg --files -g AGENTS.md -g SKILL.md
+rg -n 'file-manager|files.sh|SUPER.*E' config/hypr/scripts config/hypr/keybindings.conf</code></pre>
+      <p class="muted">Also check instructions in parent directories; a repository-only search cannot find them. Read only the relevant source and private settings needed for the task.</p>
+      <div class="callout warm"><strong>A push to <code>main</code> is a desktop release.</strong> Users are notified and may automatically prepare it. Editing locally, installing locally, committing and publishing are distinct steps; report which ones were actually completed.</div>
+    </section>
+
+    <section id="architecture" data-search-section>
+      <div class="section-heading"><span class="section-number">03</span><h2>From source to session</h2></div>
+      <div class="flow" aria-label="Public source is rendered and built, then installed as a user-specific desktop">
+        <div class="flow-node"><strong>01 · Public source</strong><code>x_hyperland/config/hypr/</code><p>Portable code, templates, assets and defaults.</p></div><div class="flow-arrow" aria-hidden="true">→</div>
+        <div class="flow-node"><strong>02 · Prepared profile</strong><code>installer/install.py<br>updates/update_engine.py</code><p>Render paths, preserve preferences, compile and validate.</p></div><div class="flow-arrow" aria-hidden="true">→</div>
+        <div class="flow-node"><strong>03 · Live desktop</strong><code>~/.config/hypr/</code><p>Installed applications plus this user's configuration and state.</p></div>
+      </div>
+      <h3>What happens when Hyprland starts</h3>
+      <ol>
+        <li><a href="config/hypr/hyprland.conf"><code>hyprland.conf</code></a> loads the desktop environment, keybindings, display/input/workspace settings, appearance and startup window rules. Its main helper entry point is <a href="config/hypr/scripts/session.sh"><code>scripts/session.sh</code></a>. The Welcome scene has a separate <code>exec-once</code> entry.</li>
+        <li><code>session.sh</code> takes a per-instance lock and activates an already prepared update before starting its helpers or native effects. If code was replaced, it reloads configuration and re-executes the session helper.</li>
+        <li>It starts the update watcher, theme rebuild check, effect controllers, startup applications, cached UIs, switcher, drag helper, transfer service, taskbar supervisor, wallpaper renderer and desktop menu. Notification, network and authentication helpers respect existing owners.</li>
+        <li><a href="config/hypr/session_ui/preload.py"><code>session_ui/preload.py</code></a> keeps Apps, Fusion Settings and Control Panel ready without mapping their windows. Requests reveal or focus these instances. Closing a panel can hide it while its process remains alive.</li>
+        <li>Helpers follow the current compositor's IPC connection. Logout or a compositor exit ends owned processes. The desktop does not depend on an always-running global helper service.</li>
+      </ol>
+      <h3>Theme and desktop isolation</h3>
+      <p><a href="config/hypr/desktop/environment.conf"><code>desktop/environment.conf</code></a> and <a href="config/hypr/theme/runtime.py"><code>theme/runtime.py</code></a> provide profile-local application data, Qt plugins, fonts, colors and cursors. Launch through the existing <code>scripts/</code> wrappers and theme runner so applications receive the correct environment. Shared KDE/Plasma settings are normally left alone.</p>
+      <p>Two deliberate exceptions are user-requested <a href="#default-apps">account-wide Default Apps changes</a> and explicitly selected administrative operations such as optional Fusion sign-in. A new decorative UI should not require global theme changes.</p>
+    </section>
+
+    <section id="components" data-search-section>
+      <div class="section-heading"><span class="section-number">04</span><h2>Where everything lives</h2></div>
+      <p>Paths in this map are relative to the repository root. Most runtime paths have the same suffix below <code>~/.config/hypr/</code>. Click a path to open the source beside this guide.</p>
+      <div class="table-wrap"><table class="component-table"><thead><tr><th scope="col">Area</th><th scope="col">Start with these files</th><th scope="col">Responsibility</th></tr></thead><tbody>
+        <tr><td>Setup &amp; distribution</td><td><a class="path" href="x_hyperinstall.sh">x_hyperinstall.sh</a><a class="path" href="installer/launcher.py">installer/launcher.py</a><a class="path" href="installer/wizard.py">installer/wizard.py</a><a class="path" href="installer/install.py">installer/install.py</a></td><td>GTK wizard, CLI, profile rendering, native builds, validation, backup and activation. Package recipes live in <a href="installer/dependencies.py">dependencies.py</a>.</td></tr>
+        <tr><td>Session &amp; shortcuts</td><td><a class="path" href="config/hypr/hyprland.conf">config/hypr/hyprland.conf</a><a class="path" href="config/hypr/keybindings.conf">config/hypr/keybindings.conf</a><a class="path" href="config/hypr/scripts/session.sh">config/hypr/scripts/session.sh</a></td><td>Compositor configuration and owned helper lifecycle. <code># @hotkey</code> metadata connects bindings to the settings editor; preserve it when changing hotkeys.</td></tr>
+        <tr><td>Apps / Start menu</td><td><a class="path" href="config/hypr/launcher/app.py">config/hypr/launcher/app.py</a><a class="path" href="config/hypr/launcher/catalog.py">config/hypr/launcher/catalog.py</a><a class="path" href="config/hypr/launcher/editor.py">config/hypr/launcher/editor.py</a></td><td>Application discovery, favorites, groups, shortcuts, launch modes and taskbar pins. Separate helpers handle layout, floating geometry and activation.</td></tr>
+        <tr><td>Fusion Settings</td><td><a class="path" href="config/hypr/control_center/app.py">config/hypr/control_center/app.py</a><a class="path" href="config/hypr/control_center/desktop_settings.py">config/hypr/control_center/desktop_settings.py</a><a class="path" href="config/hypr/control_center/display_page.py">config/hypr/control_center/display_page.py</a></td><td>PyQt6 settings for hotkeys, audio, network, Bluetooth, displays, input, theme, calendar, capture and more. Display edits use a timed Keep/Revert guard.</td></tr>
+        <tr><td>Control Panel</td><td><a class="path" href="config/hypr/control_panel/native.cpp">config/hypr/control_panel/native.cpp</a><a class="path" href="config/hypr/control_panel/tools.json">config/hypr/control_panel/tools.json</a><a class="path" href="config/hypr/control_panel/backend/">config/hypr/control_panel/backend/</a></td><td>Qt/C++ administration UI and integrated CachyOsTools engine. Native pages include storage, System Cleaner, RAM Cleaner, Default Apps and GRUB tools. Some backend operations remain Arch-specific.</td></tr>
+        <tr><td>Shared appearance</td><td><a class="path" href="config/hypr/theme/runtime.py">config/hypr/theme/runtime.py</a><a class="path" href="config/hypr/theme/backend.py">config/hypr/theme/backend.py</a><a class="path" href="config/hypr/theme/state.json">config/hypr/theme/state.json</a><a class="path" href="config/hypr/theme/palettes.json">config/hypr/theme/palettes.json</a></td><td>Theme state, palettes, design/layout selection, Qt styling, generated application colors and component application.</td></tr>
+        <tr><td>Fusion Files</td><td><a class="path" href="config/hypr/file_manager/window.cpp">config/hypr/file_manager/window.cpp</a><a class="path" href="config/hypr/file_manager/browser.cpp">config/hypr/file_manager/browser.cpp</a><a class="path" href="config/hypr/file_manager/drives.cpp">config/hypr/file_manager/drives.cpp</a><a class="path" href="config/hypr/file_manager/transfers.cpp">config/hypr/file_manager/transfers.cpp</a></td><td>Native file browser, This PC, tabs, navigation, views, selection, context actions, drives and KIO transfers. See the dedicated section below.</td></tr>
+        <tr><td>Transfer progress</td><td><a class="path" href="config/hypr/file_jobs/service.py">config/hypr/file_jobs/service.py</a><a class="path" href="config/hypr/file_jobs/window.py">config/hypr/file_jobs/window.py</a><a class="path" href="config/hypr/file_jobs/preferences.py">config/hypr/file_jobs/preferences.py</a></td><td>KDE JobView service and themed progress popups. Pause/resume/cancel requests go to the operation owner; this UI is not the file-copy engine.</td></tr>
+        <tr><td>Default Apps</td><td><a class="path" href="config/hypr/control_panel/default_apps.cpp">config/hypr/control_panel/default_apps.cpp</a><a class="path" href="config/hypr/control_panel/default_apps.py">config/hypr/control_panel/default_apps.py</a><a class="path" href="config/hypr/scripts/file-manager.sh">config/hypr/scripts/file-manager.sh</a></td><td>App cards, MIME/protocol chooser, transactional association changes and generic folder-opening dispatch.</td></tr>
+        <tr><td>Taskbar</td><td><a class="path" href="config/hypr/waybar/">config/hypr/waybar/</a><a class="path" href="config/hypr/scripts/waybar-session.py">config/hypr/scripts/waybar-session.py</a><a class="path" href="config/hypr/launcher/bar.py">config/hypr/launcher/bar.py</a></td><td>Per-display Waybar, workspaces, pins, options, updates, module actions and session-owned crash recovery. Native modules have their own build scripts.</td></tr>
+        <tr><td>Wallpaper, cursors &amp; menus</td><td><a class="path" href="config/hypr/wallpaper/">config/hypr/wallpaper/</a><a class="path" href="config/hypr/cursors/">config/hypr/cursors/</a><a class="path" href="config/hypr/desktop_menu/">config/hypr/desktop_menu/</a><a class="path" href="config/hypr/quick_panel/">config/hypr/quick_panel/</a></td><td>Wallpaper carousel/gallery and transitions, cursor generation, desktop right-click actions and quick controls. Wallpaper selection is per output and private to the recipient.</td></tr>
+        <tr><td>Welcome &amp; terminals</td><td><a class="path" href="config/hypr/startup/README.md">config/hypr/startup/</a><a class="path" href="config/hypr/terminal_fetch/">config/hypr/terminal_fetch/</a><a class="path" href="config/hypr/kitty.conf">config/hypr/kitty.conf</a></td><td>Animated Welcome/dashboard and companion windows, project cards, shell greeting and private Kitty appearance. Login visibility is a saved startup preference.</td></tr>
+        <tr><td>Switcher &amp; effects</td><td><a class="path" href="config/hypr/switcher/README.md">config/hypr/switcher/</a><a class="path" href="config/hypr/effects/burn/README.md">config/hypr/effects/burn/</a><a class="path" href="config/hypr/effects/cube/README.md">config/hypr/effects/cube/</a><a class="path" href="config/hypr/effects/minimize/README.md">config/hypr/effects/minimize/</a></td><td>Task-switcher styles, Burn close animation, Cube / 3D windows and Fireball/Splat minimize. Native plugins must match the compositor ABI. Minimized effects show an app icon when available, with a window-preview fallback; <code>effects/minimize/icons.py</code> prepares the per-session icon cache outside the compositor.</td></tr>
+        <tr><td>Capture, previews &amp; media</td><td><a class="path" href="config/hypr/recording/README.md">config/hypr/recording/</a><a class="path" href="config/hypr/scripts/screenshot.sh">config/hypr/scripts/screenshot.sh</a><a class="path" href="config/hypr/share-picker/">config/hypr/share-picker/</a><a class="path" href="config/hypr/image_viewer/">config/hypr/image_viewer/</a><a class="path" href="config/hypr/media/">config/hypr/media/</a></td><td>Recording, screenshot actions, sharing previews, image viewing and media downloads. Shared Qt/GTK file-dialog previews are implemented under <code>theme/</code>.</td></tr>
+        <tr><td>KVM Settings</td><td><a class="path" href="config/hypr/kvm/app.py">config/hypr/kvm/app.py</a><a class="path" href="config/hypr/kvm/backend/">config/hypr/kvm/backend/</a><a class="path" href="config/hypr/kvm/catalog.json">config/hypr/kvm/catalog.json</a><a class="path" href="config/hypr/kvm/packages.py">config/hypr/kvm/packages.py</a></td><td>Integrated vmstart_2 editor, Windows/Mac profiles, component downloads and launch helpers. Guest state and runtime components are separate from desktop releases.</td></tr>
+        <tr><td>Runtime &amp; compatibility</td><td><a class="path" href="config/hypr/runtime/manifest.json">config/hypr/runtime/manifest.json</a><a class="path" href="config/hypr/runtime/runtime_policy.py">config/hypr/runtime/runtime_policy.py</a><a class="path" href="config/hypr/compat/hypr_compat.py">config/hypr/compat/hypr_compat.py</a></td><td>Exact compositor requirement, distro manifests and configuration/IPC compatibility. Compatibility code for a newer syntax is not permission to change the pinned release.</td></tr>
+        <tr><td>Desktop updates</td><td><a class="path" href="config/hypr/updates/service.py">config/hypr/updates/service.py</a><a class="path" href="config/hypr/updates/update_engine.py">config/hypr/updates/update_engine.py</a><a class="path" href="config/hypr/updates/file_policy.py">config/hypr/updates/file_policy.py</a></td><td>Revision checks, notifications, prepared releases, settings merges, activation, backups and rollback.</td></tr>
+        <tr><td>Optional sign-in &amp; boot</td><td><a class="path" href="config/hypr/login/">config/hypr/login/</a><a class="path" href="installer/system_login.py">installer/system_login.py</a><a class="path" href="config/hypr/grub/README.md">config/hypr/grub/README.md</a></td><td>Opt-in greetd-based Fusion login with backup/recovery. The optional GRUB artwork is a separate repo tool; normal Hyprland installation excludes it.</td></tr>
+        <tr><td>Supporting apps &amp; integrations</td><td><a class="path" href="config/hypr/calculator/README.md">config/hypr/calculator/</a><a class="path" href="config/hypr/dolphin/profile.py">config/hypr/dolphin/profile.py</a><a class="path" href="config/hypr/swaync/">config/hypr/swaync/</a><a class="path" href="config/hypr/desktop/data/applications/">config/hypr/desktop/data/applications/</a></td><td>Programmer calculator, isolated Dolphin integration, notifications and profile-local desktop entries. Dolphin remains an available alternative to Fusion Files.</td></tr>
+        <tr><td>Tests, assets &amp; provenance</td><td><a class="path" href="tests/">tests/</a><a class="path" href=".github/workflows/installer-compatibility.yml">.github/workflows/installer-compatibility.yml</a><a class="path" href="assets-manifest.json">assets-manifest.json</a><a class="path" href="THIRD_PARTY_NOTICES.md">THIRD_PARTY_NOTICES.md</a></td><td>Root tests, distro checks, asset origins and licenses. Most components also keep their own <code>test_*.py</code> files or native tests beside the implementation.</td></tr>
+      </tbody></table></div>
+      <p><code>profiles/xetal-original/</code> is an explicit optional original display profile; fresh installs normally detect the recipient's displays. A local ignored <code>local/</code> toolbox may exist on the development machine, but it is not the tracked install payload. Use <code>git ls-files</code> to distinguish shipped source from local artifacts.</p>
+    </section>
+
+    <section id="theme" data-search-section>
+      <div class="section-heading"><span class="section-number">05</span><h2>One visual language</h2></div>
+      <p class="lead">Appearance is shared infrastructure. Use it when adding a window, menu, dialog or progress surface.</p>
+      <div class="grid">
+        <article class="card"><span class="tag">Design + palette</span><h3>Four designs, three modes</h3><p>Xetal Raw <code>raw</code>, Xetal Modern <code>modern</code>, BreakPoint <code>breakpoint</code> and Binary Knife <code>binaryknife</code>, each with Dark, Light and High contrast modes.</p><p>Navigation layout is separate: Classic tabs, Modern icon rail, Gallery sidebar or Studio ribbon. Components such as Start menu, switcher and transfer cards can follow the desktop or use a chosen style.</p></article>
+        <article class="card"><span class="tag mint">Read → draft → apply</span><h3>State is more than a stylesheet</h3><p><code>theme/state.json</code> selects the look. <code>palettes.json</code>, <code>designs.py</code> and <code>layouts.py</code> define it. <code>draft.py</code> and <code>backend.py</code> manage edited choices and apply selected components.</p><p><code>runtime.py</code>, <code>run.py</code> and the native Qt theme plugins carry colors, fonts and environment into applications. Generated output is not the first place to implement a new theme rule.</p></article>
+      </div>
+      <p>For Python widgets, follow neighboring components' use of the shared runtime and window chrome. For C++ windows, follow the existing palette and appearance integration; Fusion Files has <a href="config/hypr/file_manager/appearance.py"><code>appearance.py</code></a> and live theme refresh. Keep layout, hover, selection, disabled text and icon contrast readable in all supported modes.</p>
+      <p><a href="config/hypr/theme/build.py"><code>theme/build.py</code></a> builds the local Qt/GTK integrations. Wallpaper, cursor, taskbar, terminal and notification outputs also have their own generation paths. Check <a href="config/hypr/updates/file_policy.py"><code>file_policy.py</code></a> before treating a generated color file as release-owned source.</p>
+    </section>
+
+    <section id="files" data-search-section>
+      <div class="section-heading"><span class="section-number">06</span><h2>Fusion Files &amp; file transfers</h2></div>
+      <p class="lead">The custom file manager already exists. It is Qt/C++ with KDE Frameworks 6 KIO, built as <code>file_manager/.build/xetal-files</code>. Extend this implementation.</p>
+      <h3>The intended experience</h3>
+      <ul>
+        <li><strong>My Computer</strong> is a fresh-install favorite with a Linux/penguin computer icon. It opens <strong>This PC</strong>. The main area has mounted internal disks first, USB devices second, unmounted internal volumes last. Mounted partitions share a row per physical disk; USB includes mounted and unmounted devices.</li>
+        <li>The sidebar shows mounted volumes below This PC, standard XDG folders and custom quick-access pins, Network and Trash, then unmounted drives. Group expansion, splitters and layout persist.</li>
+        <li>An accurate address bar supports breadcrumbs and typed/copied paths, including spaces, Unicode, <code>#</code> and <code>%</code>. Tabs, a folder filter, a preview pane enabled on fresh installs, optional picture thumbnails, three icon sizes, list and configurable details views are implemented.</li>
+        <li>Menus expose the default app name, Open with…, Execute for scripts/executables, Cut/Copy/Paste, rename, Trash, properties and Ark compression/extraction plugins. Users can reorder, hide, relabel or add actions.</li>
+        <li>Drive properties show used/free/reserved space, capacity and device details in a compact themed window. <strong>System Cleaner</strong> opens the Control Panel cleaner page; it does not start cleanup.</li>
+      </ul>
+      <div class="table-wrap"><table><thead><tr><th scope="col">Files</th><th scope="col">What to change here</th></tr></thead><tbody>
+        <tr><td><a href="config/hypr/file_manager/browser.cpp">browser.cpp / .h</a></td><td>KIO directory model, views, selected items, filtering, preview, detail columns. Icon and detail views share selection behavior.</td></tr>
+        <tr><td><a href="config/hypr/file_manager/window.cpp">window.cpp / .h</a></td><td>Tabs, toolbar, sidebar, menus, keyboard actions, Open With, Ark integration and execution actions.</td></tr>
+        <tr><td><a href="config/hypr/file_manager/pathbar.cpp">pathbar.cpp / .h</a></td><td>Breadcrumbs and full editable location. Preserve literal URL/path handling.</td></tr>
+        <tr><td><a href="config/hypr/file_manager/core.cpp">core.cpp / .h</a></td><td>Private preferences, URL helpers, menu defaults and argument-safe custom/execute commands.</td></tr>
+        <tr><td><a href="config/hypr/file_manager/drives.cpp">drives.cpp / .h</a><br><a href="config/hypr/file_manager/drive_properties.cpp">drive_properties.cpp / .h</a></td><td>Asynchronous disk discovery, grouping, mount operations and drive details. Reuse <a href="config/hypr/control_panel/backend/volume_commands.h">control_panel/backend/volume_commands.h</a> for mount command construction.</td></tr>
+        <tr><td><a href="config/hypr/file_manager/transfers.cpp">transfers.cpp / .h</a></td><td>KIO paste, automatic numbered destinations, clipboard/Undo integration and job lifetime.</td></tr>
+        <tr><td><a href="config/hypr/file_manager/main.cpp">main.cpp</a><br><a href="config/hypr/file_manager/launch.py">launch.py</a></td><td>Startup, desktop identity, command arguments and FileManager1 D-Bus integration. The service respects an existing owner.</td></tr>
+      </tbody></table></div>
+      <h3>Copy/paste behavior that must survive future changes</h3>
+      <p>Copy then paste into an occupied destination automatically keeps both: <code>photo.png</code> becomes <code>photo_copy1.png</code>, then <code>photo_copy2.png</code>. Directories, dotfiles and compound extensions are handled too. Folders get a new numbered directory rather than silently merging. Cut/paste preserves an existing destination. Ordinary collisions do not open a naming dialog; actual transfer errors still report failures.</p>
+      <p>A paste remains a KIO job with clipboard integration and one Undo operation. Large jobs appear through <code>file_jobs/service.py</code> using the user's File Transfer style, with pause, resume and cancel. Closing the last browser window keeps tracked jobs alive. Avoid replacing this path with a separate raw file-copy loop that bypasses KIO.</p>
+      <div class="callout"><strong>Selection regression to remember:</strong> a real click in the icon view selects the name cell, not a complete multi-column row. The old use of <code>selectedRows(0)</code> made menus and F2/Delete/Ctrl+C appear broken. The current selection path uses the selected name-column indexes. Test with actual mouse clicks and keyboard events in each view; selecting an item programmatically can miss this bug.</div>
+      <p><strong>Execution and app opening:</strong> double-click or Enter runs recognized local executables with executable permission, including shebang-based installers. The context menu’s Open with [app] always uses that app. Scripts also have an explicit Execute action and run via their declared interpreter or the <code>.sh</code> fallback in a terminal that retains output. Permissions are not silently changed. The searchable chooser in <code>applications.cpp/.py</code> uses Gio discovery and shares Default Apps’ guarded association saves; custom commands do not use shell expansion.</p>
+      <p><strong>Preferences and deletion:</strong> the ⋮ menu includes Configure Fusion Files for thumbnails, the preview pane, hidden files and Trash animation. <code>removal.cpp</code> coordinates ordinary KIO operations and authenticated permission retries through <code>privileged.py</code>. Protected items retain standard Trash records and can be restored with authentication; permanent deletion remains explicit. <code>trash_animation.cpp</code> animates only successful moves. Private settings remain under <code>file_manager/state/</code>.</p>
+      <p><strong>Storage:</strong> discovery never mounts disks. Mounting, force mounting and permanent deletion retain their explicit action/error paths. Trash failure must not become silent permanent deletion. Paste into a drive verifies that it is still mounted; encrypted and unformatted volumes remain visible for management.</p>
+      <div class="table-wrap"><table><thead><tr><th scope="col">Shortcut</th><th scope="col">Expected action</th><th scope="col">Shortcut</th><th scope="col">Expected action</th></tr></thead><tbody>
+        <tr><td><kbd>F2</kbd></td><td>Rename</td><td><kbd>Delete</kbd></td><td>Move to Trash</td></tr>
+        <tr><td><kbd>Ctrl+C / X / V</kbd></td><td>Copy / cut / paste</td><td><kbd>Shift+Delete</kbd></td><td>Confirm permanent deletion</td></tr>
+        <tr><td><kbd>Ctrl+L</kbd> / <kbd>Alt+D</kbd></td><td>Edit full location</td><td><kbd>Ctrl+Z</kbd></td><td>Undo supported operation</td></tr>
+        <tr><td><kbd>Ctrl+Shift+N</kbd></td><td>New folder</td><td><kbd>Alt+P</kbd></td><td>Preview pane</td></tr>
+        <tr><td><kbd>Ctrl+T / W</kbd></td><td>New / close tab</td><td><kbd>Alt+Enter</kbd></td><td>Properties</td></tr>
+      </tbody></table></div>
+      <p>Complete behavior and shortcuts: <a href="docs/FILES.md">docs/FILES.md</a>. Regression coverage: <a href="config/hypr/file_manager/tests.cpp">tests.cpp</a>, <a href="config/hypr/file_manager/test.py">test.py</a> and its isolated <a href="config/hypr/file_manager/test_progress.py">transfer integration check</a>.</p>
+    </section>
+
+    <section id="default-apps" data-search-section>
+      <div class="section-heading"><span class="section-number">07</span><h2>Default Apps &amp; folder routing</h2></div>
+      <p>Control Panel → Software &amp; maintenance → <strong>Default Apps</strong> is implemented in <code>default_apps.cpp/.h</code>, with <code>default_apps.py</code> as the Gio/MIME backend. Its tile is registered in <code>tools.json</code> and its native page is connected through <code>native.cpp</code>.</p>
+      <p>Twelve everyday categories cover browser, email, file manager, music, video, images, PDF, text, archives, documents, spreadsheets and presentations. A separate searchable view covers individual file types and link protocols. The chooser offers recommended and all installed apps; changes require the user's Use app action. Cancelling or just opening the page leaves associations unchanged.</p>
+      <div class="grid">
+        <article class="card"><span class="tag">Follow the user's choice</span><h3>Generic “open folder”</h3><p><code>scripts/file-manager.sh</code> → <code>default_apps.py open-folder</code> → chosen handler, with Fusion Files as fallback. Super+E, Apps → Files and desktop folder actions use this path.</p><p>A fresh profile selects Fusion Files. A later explicit choice of Dolphin or another manager should remain effective.</p></article>
+        <article class="card"><span class="tag mint">Open a specific product</span><h3>Explicit Fusion Files</h3><p><code>scripts/files.sh</code> → <code>file_manager/launch.py</code> → <code>.build/xetal-files</code>. My Computer passes <code>--this-pc</code>; the explicit Fusion Files app always opens this browser.</p><p><code>scripts/dolphin.sh</code> opens Dolphin's isolated profile. These explicit launchers should not recursively route through the generic default.</p></article>
+      </div>
+      <p>Explicit changes update standard account-level MIME associations, normally <code>~/.config/mimeapps.list</code>, along with the relevant existing profile fallbacks. Browser selection coordinates HTTP, HTTPS and HTML; media categories cover registered formats. Applications with their own internal overrides may still use those preferences.</p>
+      <p>The backend preserves unrelated associations, detects concurrent edits, uses locks/atomic writes and supports Undo. Undo refuses to overwrite later external changes. Its private change record lives in <code>control_panel/state/default-apps/</code>. Never ship the developer's selected apps or Undo history as public defaults.</p>
+    </section>
+
+    <section id="install" data-search-section>
+      <div class="section-heading"><span class="section-number">08</span><h2>Setup &amp; the pinned runtime</h2></div>
+      <p><code>x_hyperinstall.sh</code> runs as the ordinary desktop user. It opens the GTK wizard by default in a graphical session; <code>--cli</code> selects the terminal flow. Privileged package/login work uses separate helpers. A complete clone or extracted source ZIP is required.</p>
+      <p><code>installer/install.py</code> renders <code>@HOME@</code>/<code>@HYPR@</code> paths, detects monitors, seeds clean launcher defaults and recipient Places, compiles native components and verifies the full configuration before activation. Existing profiles are backed up. Graphical Setup detects a registered installation and offers preservation of existing preferences; retain that choice for normal desktop updates.</p>
+      <div class="callout"><strong>Fresh-install favorites:</strong> My Computer, Kitty and Calculator. The code authority is <code>installer/install.py → LAUNCHER_DEFAULTS</code>. Personal favorite layouts, shortcuts and pins are not copied from the development desktop. Updates preserve users' existing choices.</div>
+      <h3>Runtime compatibility is intentional</h3>
+      <p>At this snapshot, <a href="config/hypr/runtime/manifest.json"><code>runtime/manifest.json</code></a> selects <strong>Hyprland 0.56.2</strong>, exact commit <code>efb50993780079460b0cbed1363e2166a2de1d9f</code>; the Arch package is <code>0.56.2-4</code>. Read the current manifest before a runtime change. Native effects depend on matching headers and ABI, not just a similar version number.</p>
+      <div class="table-wrap"><table><thead><tr><th scope="col">Distribution path</th><th scope="col">What the repository supports</th></tr></thead><tbody>
+        <tr><td>Arch family · x86-64</td><td>Arch, CachyOS and Manjaro recipes/checks, pinned signed Arch compositor package, ordinary distribution dependencies. Arch and CachyOS have fresh-install testing; consult current validation records for each environment.</td></tr>
+        <tr><td>Fedora 44 · mutable x86-64</td><td><a href="config/hypr/runtime/fedora-44.json">RPM manifest</a>, signed bundled runtime and exact version locks. Container install/build/recovery coverage does not establish every graphical/GPU scenario. Atomic/OSTree is outside this automatic path.</td></tr>
+        <tr><td>Debian 13 · trixie amd64</td><td><a href="config/hypr/runtime/debian-13.json">DEB manifest</a>, bundled backports, package pins and recovery. Native container builds are covered; graphical login, VM boot and passthrough need their own validation. Other Debian releases/Ubuntu are not equivalent targets.</td></tr>
+      </tbody></table></div>
+      <p>The package layer verifies bundle identity/signatures and preserves recovery material. It does not force dependency-incompatible replacements. Some Control Panel package/kernel tools remain Arch-specific even where the desktop has a Fedora or Debian install path. <code>compat/</code> retains newer Lua/IPC compatibility code, while the selected supported release remains governed by the runtime manifest.</p>
+      <span class="code-label">Inspect dependencies without installing</span>
+      <pre><code>./x_hyperinstall.sh --check
+./x_hyperinstall.sh --dry-run</code></pre>
+      <span class="code-label">Build a review profile · existing dependencies required · new destination</span>
+      <pre><code>./x_hyperinstall.sh --skip-packages --prepare /tmp/fusion-profile-review</code></pre>
+      <p class="muted">The review command writes and builds that destination; it does not activate the live profile. The directory must not already exist. <code>--skip-packages</code> still requires the exact installed runtime and dependencies. Without it, preparation can enter package setup, so <code>--prepare</code> alone is not a read-only command.</p>
+      <h3>Optional sign-in and recovery</h3>
+      <p>Fusion sign-in is a separate, initially disabled opt-in using greetd, PAM and an unprivileged greeter. It changes system login configuration only when selected, with backups and a recovery path. It is distinct from the Welcome dashboard. The installer labels sign-in as tested on Arch with SDDM only; consult <a href="docs/INSTALLER.md">INSTALLER.md</a> for the exact changed paths and recovery procedure.</p>
+      <p>Profile backups and Setup logs live under <code>~/.local/state/xetal-hyprland/</code>. Privileged runtime recovery records use <code>/var/lib/xetal-hyprland/</code>; Fusion sign-in has its own <code>/var/lib/xetal-fusion-login/</code> backups. Restore the recorded compatible profile/runtime pair rather than guessing at replacement package versions.</p>
+    </section>
+
+    <section id="updates" data-search-section>
+      <div class="section-heading"><span class="section-number">09</span><h2>How public desktop updates work</h2></div>
+      <p class="lead">The updater watches <strong>XetalEngine/x_hyperland → main</strong>. Every eligible new descendant commit can become a desktop update; a GitHub Release tag is not required.</p>
+      <ol class="step-list">
+        <li><strong>Check and notify.</strong><p>The session watcher checks about every 15 minutes after a startup delay. Automatic updates are enabled by default. The available-update badge is shown for at least 30 seconds before automatic preparation begins.</p></li>
+        <li><strong>Prepare the exact announced revision.</strong><p>Download into a private cache, apply file ownership rules, merge preferences, rebuild native components and validate the candidate. The updater does not pull/reset the developer's working clone.</p></li>
+        <li><strong>Show ready, or require foreground Setup.</strong><p>A prepared desktop shows UPDATE READY. A mismatched compositor/runtime shows SETUP REQUIRED instead; background updating does not elevate privileges or replace system packages.</p></li>
+        <li><strong>Activate at the next Hyprland login.</strong><p>Activation runs before session helpers and native effects. It checks for settings changed since preparation, writes a journal and backup, and applies the prepared transaction. It does not automatically reboot or force logout.</p></li>
+        <li><strong>Recover or roll back when needed.</strong><p>Interrupted activation is recoverable. A requested rollback is queued for login, pauses automatic updates and checks for newer edits/runtime incompatibility before restoration.</p></li>
+      </ol>
+      <div class="table-wrap"><table><thead><tr><th scope="col">File ownership</th><th scope="col">Update behavior</th></tr></thead><tbody>
+        <tr><td>Release files</td><td>Application source, scripts, templates, build inputs, assets and manifests follow the incoming release, including permissions. Changed/missing release files can be repaired; retired files are backed up before removal.</td></tr>
+        <tr><td>Declared preferences</td><td>JSON/text preferences use the defined merge rules. Text settings use a three-way merge; local conflict choices are reported and the resulting configuration must still validate.</td></tr>
+        <tr><td>Kept / generated files</td><td>Monitor/workspace choices, wallpaper selection, personal launcher layouts and designated generated theme output are retained. Fresh-install favorites are not imposed again.</td></tr>
+        <tr><td>Private state / unknown files</td><td>Excluded state and cache directories stay private. Unrelated files absent from both release inventories are preserved rather than adopted merely because they live in the profile.</td></tr>
+      </tbody></table></div>
+      <p><a href="config/hypr/updates/file_policy.py"><code>updates/file_policy.py</code></a> is the ownership authority. Add a new editable preference file to the appropriate policy, or put runtime state in the established private state directory. New settings also need sensible fresh-install defaults and preservation behavior.</p>
+      <p>The installed <code>.xetal-update.json</code> records the delivered revision, rendered defaults and ownership information. Clone installs use their actual checkout commit; ZIP installs use exported source revision metadata. The delivered revision must not be replaced with the remote's latest HEAD merely to clear an update badge.</p>
+      <div class="callout"><strong>Local development and update records:</strong> copying a few files into the live profile is not a complete registered release. Use the normal installer/update flow where appropriate. If a coordinated development deployment is required, back up and verify the actual delivered files before updating its inventory; a newer checkout hash alone is insufficient.</div>
+      <p>Updater settings, status, prepared state and backups: <code>~/.local/state/xetal-hyprland/updates/</code>. Downloads: <code>~/.cache/xetal-hyprland/updates/</code>. Details: <a href="docs/UPDATES.md">UPDATES.md</a>. KVM component updates are a separate system.</p>
+    </section>
+
+    <section id="development" data-search-section>
+      <div class="section-heading"><span class="section-number">10</span><h2>Making a change that reaches users correctly</h2></div>
+      <h3>The usual working loop</h3>
+      <ol>
+        <li><strong>Inspect:</strong> reproduce the issue, find its wrapper/model/UI and read the nearby tests. Check both source and live versions. Record existing changes before editing.</li>
+        <li><strong>Implement:</strong> edit the tracked portable source; reuse shared theme, command dispatch and existing operation engines. Keep paths recipient-relative and preserve state formats or migrate them deliberately.</li>
+        <li><strong>Validate:</strong> run checks matching the affected behavior. Exercise real selection, keyboard, D-Bus and job lifetimes where relevant. Inspect the UI at practical sizes and in the relevant themes.</li>
+        <li><strong>Integrate:</strong> update the installer build/dependency list, default entries and update ownership if needed. Document behavior changes. A new favorite should be a clean install default, not an overwrite of every existing user's pins.</li>
+        <li><strong>Deploy when in scope:</strong> retain a private backup, update the required live files/build outputs, restart only the relevant idle helpers and verify the running result. Preserve user preferences and ongoing work.</li>
+        <li><strong>Review and publish when requested:</strong> inspect the exact staged diff and assets for private data. Finish required validation before pushing a release commit to <code>main</code>. Report local work, installation and publication separately.</li>
+      </ol>
+      <div class="grid">
+        <article class="card"><span class="tag">A new Control Panel tool</span><h3>Connect the card to real behavior</h3><p>Start at <code>tools.json</code> and <code>native.cpp</code>. Add the page/backend under <code>control_panel/</code>, wire it into the backend CMake build and reuse its theme/window sizing helpers.</p><p>Administrative work belongs in a narrowly scoped helper with the existing authentication flow, not in a root-running GUI. Opening a tool should not execute its maintenance action.</p></article>
+        <article class="card"><span class="tag mint">A new setting or shell action</span><h3>Follow the whole route</h3><p>Find the owning Settings page, wrapper and persistent file. Preserve hotkey metadata, command quoting and session ownership. Update <code>file_policy.py</code> if the new saved file is a user preference.</p><p>Use generic folder dispatch when respecting Default Apps; use <code>files.sh</code> only when the action specifically requests Fusion Files.</p></article>
+      </div>
+      <h3>Restarting a running UI</h3>
+      <p>Apps, Settings and Control Panel may be preloaded and hidden. Rebuilding a binary or changing Python source does not replace code already loaded in that process. Identify the owning instance and ensure it is idle before restarting it. File copies, disk scans, package transactions and VM operations must be allowed to finish or use their normal cancellation path.</p>
+      <p>For compositor effects, use the supported session lifecycle instead of swapping native plugins mid-session. After local deployment, launch through the real wrapper and verify the actual running UI, not just an offscreen test window.</p>
+    </section>
+
+    <section id="validation" data-search-section>
+      <div class="section-heading"><span class="section-number">11</span><h2>Build &amp; verify</h2></div>
+      <p>These are entry points, not a requirement to run every expensive suite for every small edit. Run commands from the repository root with the documented dependencies installed. Native output and private test fixtures must stay out of commits.</p>
+      <span class="code-label">Focused native builds · outputs stay beside the component</span>
+      <pre><code>python3 config/hypr/file_manager/build.py
+python3 config/hypr/control_panel/build.py
+python3 config/hypr/theme/build.py</code></pre>
+      <p class="muted">Fusion Files builds <code>file_manager/.build/xetal-files</code>. Control Panel builds its backend and installs the local launcher binary <code>control_panel/.build/xetal-control-panel</code>. Control Panel's builder uses available CPUs; Fusion Files currently caps parallel build jobs at four. The installer additionally builds cursors, wallpaper, Waybar modules, sharing previews and all three native effects.</p>
+      <span class="code-label">Fusion Files · native interaction + actual themed transfer jobs</span>
+      <pre><code>python3 config/hypr/file_manager/test.py</code></pre>
+      <p>This wrapper creates disposable XDG directories and a private D-Bus session. It tests native interactions, then real large-folder copy completion and cancellation through the themed progress service, including pause/resume. It deliberately keeps fixtures on the user's home filesystem for Trash behavior. Run <code>test_progress.py</code> through this wrapper; it is not a standalone test against the active desktop bus.</p>
+      <span class="code-label">Focused Python component checks · example: Default Apps</span>
+      <pre><code>QT_QPA_PLATFORM=offscreen python3 -m unittest discover \
+  -s config/hypr/control_panel -p 'test_default_apps.py' -v</code></pre>
+      <span class="code-label">Broader desktop / installer regression checks</span>
+      <pre><code>python3 -m unittest discover -s tests -v
+./tests/run-desktop-tests.sh
+python3 tests/run-file-preview-checks.py</code></pre>
+      <p>The desktop script runs component <code>test_*.py</code> suites with offscreen Qt and in-memory GSettings. The separate Fusion Files wrapper above is needed for its native interaction/transfer coverage. Native Control Panel pages also have CMake test targets; inspect <a href="config/hypr/control_panel/backend/CMakeLists.txt">backend/CMakeLists.txt</a> for the appropriate build option and target.</p>
+      <p>Some checks need Unix sockets, D-Bus or a disposable nested compositor. A sandbox or missing display can prevent those checks without proving an application defect. Offscreen widgets do not validate actual Wayland input, graphical login, monitor layouts, GPU drivers or physical VM passthrough.</p>
+      <p><a href=".github/workflows/installer-compatibility.yml">CI</a> covers repository/package compatibility and distro container install/build/recovery. <a href="docs/VALIDATION.md">VALIDATION.md</a> records scope and limitations; historical passing rows are not evidence of a new change passing. Report the checks actually performed.</p>
+    </section>
+
+    <section id="privacy" data-search-section>
+      <div class="section-heading"><span class="section-number">12</span><h2>Public source, private state</h2></div>
+      <p class="lead">The development machine is personal. The release payload is portable. Keep that separation explicit whenever moving files between them.</p>
+      <div class="table-wrap"><table><thead><tr><th scope="col">Location / class</th><th scope="col">Meaning and handling</th></tr></thead><tbody>
+        <tr><td><code>config/hypr/</code> in Git</td><td>Portable source, defaults, licensed assets and templates. Use <code>Path.home()</code>, component-relative roots or installer placeholders as appropriate. No developer-specific absolute paths.</td></tr>
+        <tr><td><code>~/.config/hypr/</code></td><td>The live installation. It combines delivered code, rendered paths, personalized configuration, generated files and private state. Never copy the entire tree back into the public checkout.</td></tr>
+        <tr><td><code>file_manager/state/</code></td><td>Bookmarks, custom menu actions, columns, sidebar state and geometry in <code>settings.ini</code>. Keep private, exclude from new installs, preserve across updates.</td></tr>
+        <tr><td><code>control_panel/state/</code></td><td>Startup preferences/apps, environment values, alias backups, Default Apps change history and other local state. These can expose personal commands and paths.</td></tr>
+        <tr><td>Launcher / Dolphin / theme</td><td>Personal pins, custom shortcut commands/icons, favorite layout, saved window sizes, Places, recent paths and custom presets. Some have portable tracked defaults but live values belong to the user.</td></tr>
+        <tr><td><code>~/.local/share/xetal-kvm/</code></td><td>Private VM workspace, separate Mac profile, downloaded components, access credentials, writable guest firmware/TPM state and configuration. Guest disks, device assignments and identities are not desktop source.</td></tr>
+        <tr><td><code>~/.local/state/xetal-hyprland/</code></td><td>Setup logs, profile/update backups and prepared state. Development backups can also live here. These are local diagnostics, not release assets.</td></tr>
+        <tr><td><code>~/.cache/xetal-hyprland/</code></td><td>Private caches, including updater downloads. Build directories, CMake output, caches and temporary tests are excluded from source distribution.</td></tr>
+        <tr><td>Images / reports / screenshots</td><td>Review visible home paths, usernames, drive labels/UUIDs, network names, VM data and app contents before publishing. Prefer disposable fixtures for demonstrations.</td></tr>
+      </tbody></table></div>
+      <p><a href=".gitignore"><code>.gitignore</code></a> is one boundary. <a href="installer/install.py"><code>installer/install.py → payload_ignored()</code></a> separately excludes runtime data from copies; it also regenerates clean launcher defaults even if source was used as a desktop. <code>updates/file_policy.py</code> and the update engine define preservation. Check all relevant paths when adding a new writable file.</p>
+      <h3>KVM has a separate delivery model</h3>
+      <p>The repo contains the integrated editor/backend, portable defaults and signed component metadata. QEMU, firmware, TPM, OpenCore, Looking Glass, custom module and baseline support packages are downloaded through KVM Settings when requested. Their signatures, sizes and hashes are checked before extraction; writable guest state is seeded separately and preserved. A desktop update does not replace a user's VM disk or identity.</p>
+      <p>The component service's private token and publisher signing keys never belong in this repo. Physical disks, PCI/USB passthrough and GPU ROM choices are recipient-specific. See <a href="docs/KVM.md">KVM.md</a> for compatibility, network/GPU behavior and actual-host testing requirements.</p>
+      <h3>Assets and source provenance</h3>
+      <p>The project has an MIT license, while bundled components retain their own terms. The CachyOsTools backend records its revision and GPL license in <a href="config/hypr/control_panel/UPSTREAM.json"><code>control_panel/UPSTREAM.json</code></a>; KVM records its backend origin separately. Artwork, fonts, native effects and packaged runtimes have their own notices. Preserve <a href="THIRD_PARTY_NOTICES.md">third-party notices</a>, <a href="LICENSES/">licenses</a> and <a href="assets-manifest.json">asset provenance</a> when moving or adding resources.</p>
+      <p>Some signed distribution runtime bundles are intentionally tracked. That does not make arbitrary generated binaries or local KVM runtime payloads appropriate release files. Inspect exact staged paths rather than adding a whole live directory.</p>
+    </section>
+
+    <section id="troubleshooting" data-search-section>
+      <div class="section-heading"><span class="section-number">13</span><h2>Trace a problem to its owner</h2></div>
+      <div class="table-wrap"><table><thead><tr><th scope="col">Symptom</th><th scope="col">Useful first checks</th></tr></thead><tbody>
+        <tr><td>“My edit did nothing”</td><td>Is the process using the checkout or <code>~/.config/hypr</code>? Was the native component rebuilt? Is a hidden preloaded UI still running old code? Trace the wrapper and executable before restarting anything.</td></tr>
+        <tr><td>Wrong or light theme</td><td>Check the launch wrapper, <code>theme/runtime.py</code>, theme state, generated Qt plugins and profile-local environment. Dolphin also selects its private color scheme. Avoid fixing it by overwriting shared KDE settings.</td></tr>
+        <tr><td>File actions / hotkeys missing</td><td>Check real selection from mouse clicks, focused view and shortcut scope. Review the name-column selection regression, menu visibility preferences and installed Ark plugins. Test unknown files and scripts as well as folders.</td></tr>
+        <tr><td>Copy works, progress missing</td><td>Check that KIO owns the job and which process owns <code>org.kde.JobViewServer</code> / <code>org.kde.kuiserver</code>. Inspect the session's <code>file-progress.log</code>. Run the isolated progress integration wrapper.</td></tr>
+        <tr><td>Super+E opens another manager</td><td>Check the Default Apps choice, directory MIME association and <code>scripts/file-manager.sh</code>. My Computer intentionally uses the explicit Fusion Files launcher.</td></tr>
+        <tr><td>UPDATE keeps returning</td><td>Compare installed revision/inventory, prepared state and actual live files. Confirm source revision metadata and current runtime. Do not stamp a new commit onto an unverified partial install.</td></tr>
+        <tr><td>Effect fails after package changes</td><td>Compare the installed compositor version/commit with the manifest and rebuilt plugin headers/ABI. Use the foreground Setup compatibility/recovery path; do not force-load a mismatched plugin.</td></tr>
+        <tr><td>Missing logs / runtime space</td><td>Inspect <code>scripts/runtime-log-guard.py</code> and Control Panel's log preferences. The guard bounds selected session logs; “Disable session logs to file” applies at next login. Save relevant diagnostics before cleanup.</td></tr>
+        <tr><td>A distribution “is supported” but a tool fails</td><td>Separate desktop install coverage from tool-specific dependencies. Arch-only maintenance commands, real graphical login, GPU effects and KVM passthrough need their own environment checks.</td></tr>
+      </tbody></table></div>
+      <p>Session helper logs normally live under <code>$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/</code>. Common files include <code>session-ui-preload.log</code>, <code>desktop-updates.log</code>, <code>update-activation.log</code>, <code>file-progress.log</code> and <code>waybar-supervisor.log</code>. The session script defines the current names; the log preference may route output to <code>/dev/null</code>.</p>
+      <p>Setup's persistent log is <code>~/.local/state/xetal-hyprland/setup.log</code>. Keep logs and diagnostic output private until reviewed; they can contain paths and hardware details.</p>
+    </section>
+
+    <section id="handoff" data-search-section>
+      <div class="section-heading"><span class="section-number">14</span><h2>Keep the next context useful</h2></div>
+      <p>The linked documents provide deeper component behavior. This HTML contains all its text directly in the source, so an AI can read it without running JavaScript. A browser adds navigation, section search, copying and printing. No network resources are needed.</p>
+      <div class="doc-grid">
+        <a class="doc-link" href="README.md">Project overview ↗<span>Features, supported scope and user entry points.</span></a>
+        <a class="doc-link" href="docs/INSTALLER.md">Installer &amp; recovery ↗<span>Runtime bundles, setup choices and sign-in.</span></a>
+        <a class="doc-link" href="docs/DEPENDENCIES.md">Dependencies ↗<span>Package recipes and compatibility requirements.</span></a>
+        <a class="doc-link" href="docs/UPDATES.md">Desktop updates ↗<span>Preparation, ownership, activation and rollback.</span></a>
+        <a class="doc-link" href="docs/FILES.md">Fusion Files ↗<span>Navigation, actions, shortcuts and private state.</span></a>
+        <a class="doc-link" href="docs/CONTROL-PANEL.md">Control Panel ↗<span>Default Apps, cleaner, storage and system tools.</span></a>
+        <a class="doc-link" href="docs/KVM.md">KVM Settings ↗<span>Downloads, VM state and host integration.</span></a>
+        <a class="doc-link" href="docs/FILE-PREVIEWS.md">File previews ↗<span>Qt/GTK file dialogs and Places integration.</span></a>
+        <a class="doc-link" href="docs/GRUB-BOOT-EDITOR.md">GRUB Boot Editor ↗<span>Boot-entry editing and recovery behavior.</span></a>
+        <a class="doc-link" href="docs/GALLERY.md">Visual gallery ↗<span>Existing styles and application surfaces.</span></a>
+        <a class="doc-link" href="docs/VALIDATION.md">Validation record ↗<span>What was tested and where coverage stops.</span></a>
+        <a class="doc-link" href="config/hypr/README.txt">Desktop reference ↗<span>Runtime component and configuration notes.</span></a>
+      </div>
+      <h3>A ready-to-paste prompt for the next AI session</h3>
+      <pre class="handoff" id="handoff-text">We are developing Hyper Fusion, Xetal's custom Hyprland desktop.
+
+Read IA_START_HERE.html in the root of ~/Desktop/x_hyperland first, then inspect the current code, applicable AGENTS.md instructions, Git status and recent commits. The guide is a source snapshot; current files and my latest request take precedence.
+
+The public source is ~/Desktop/x_hyperland/config/hypr. The live desktop is ~/.config/hypr. They are separate copies. Keep personal paths, credentials, bookmarks, app choices, VM data, logs and runtime state out of the public repository. Preserve existing work and preferences.
+
+Fusion Settings is control_center/ (PyQt6). Control Panel is control_panel/ (Qt/C++ and the integrated CachyOsTools backend). Fusion Files is file_manager/ (Qt/C++ with KIO). Its themed transfer UI is file_jobs/. Default Apps is control_panel/default_apps.*; generic folder actions use scripts/file-manager.sh, while scripts/files.sh explicitly opens Fusion Files.
+
+Use the shared theme/runtime and existing launch wrappers. Check fresh-install defaults, update file ownership and relevant tests when changing behavior. File actions need tests using real selections and hotkeys; copy/paste must keep both names automatically and retain themed KIO progress/Undo.
+
+The runtime manifest pins the compositor and native effects must match it. The updater watches XetalEngine/x_hyperland main, prepares the exact commit and activates at the next Hyprland login. A main-branch push reaches users. Do not publish or perform unrelated system changes unless requested.
+
+Continue the task I describe next. Explain what changed, what was tested, whether it was deployed locally, and whether anything was published.</pre>
+      <div class="actions"><button class="button primary" type="button" data-copy-handoff>Copy AI handoff</button><a class="button" href="#overview">Back to the beginning ↑</a></div>
+      <div class="callout"><strong>Maintain this map:</strong> when architecture, paths, default behavior or release policy changes, update the relevant section and the date checked. Keep unfinished-task notes and machine-specific deployment receipts in a private handoff, not in this public guide.</div>
+    </section>
+    <footer class="footer"><span>HYPER FUSION · Built by Xetal<br>IA_START_HERE.html · Source guide checked 1 November 2026</span><a href="THIRD_PARTY_NOTICES.md">Source, assets &amp; third-party notices ↗</a></footer>
+  </main>
+  <div id="notice" role="status" aria-live="polite" hidden></div>
+  <script>
+    (() => {
+      'use strict';
+      const input = document.getElementById('search');
+      const sections = [...document.querySelectorAll('[data-search-section]')];
+      const status = document.getElementById('search-status');
+      const empty = document.getElementById('no-results');
+      const normalize = text => text.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const entries = sections.map(section => ({section, text: normalize(section.textContent)}));
+      function filter() {
+        const terms = normalize(input.value.trim()).split(/\s+/).filter(Boolean);
+        let count = 0;
+        for (const {section, text} of entries) {
+          section.hidden = !terms.every(term => text.includes(term));
+          if (!section.hidden) count++;
+        }
+        empty.hidden = count > 0;
+        status.textContent = terms.length ? `${count} of ${sections.length} sections match` : 'Press / to search · Esc to clear';
+      }
+      input.addEventListener('input', filter);
+      document.getElementById('clear-search').addEventListener('click', () => {input.value = ''; filter(); input.focus();});
+      document.addEventListener('keydown', event => {
+        const editing = event.target instanceof Element && (event.target.matches('input,textarea,select') || event.target.isContentEditable);
+        if (event.key === '/' && !editing && !event.ctrlKey && !event.altKey && !event.metaKey) {event.preventDefault(); input.focus();}
+        if (event.key === 'Escape' && document.activeElement === input) {input.value = ''; filter(); input.blur();}
+      });
+      const toc = document.getElementById('toc');
+      const toggle = document.getElementById('menu-toggle');
+      toggle.addEventListener('click', () => {const open = toc.classList.toggle('open'); toggle.setAttribute('aria-expanded', String(open));});
+      for (const link of document.querySelectorAll('a[href^="#"]')) {
+        link.addEventListener('click', () => {
+          if (input.value) {input.value = ''; filter();}
+          toc.classList.remove('open'); toggle.setAttribute('aria-expanded', 'false');
+        });
+      }
+      if ('IntersectionObserver' in window) {
+        const navLinks = [...toc.querySelectorAll('a')];
+        const observer = new IntersectionObserver(changes => {
+          const visible = changes.filter(entry => entry.isIntersecting);
+          if (!visible.length) return;
+          const id = visible[0].target.id;
+          for (const link of navLinks) {
+            const active = link.getAttribute('href') === '#' + id;
+            link.classList.toggle('active', active);
+            if (active) link.setAttribute('aria-current', 'location'); else link.removeAttribute('aria-current');
+          }
+        }, {rootMargin: '-5% 0px -70% 0px', threshold: 0});
+        sections.forEach(section => observer.observe(section));
+      }
+      let noticeTimer;
+      function notify(message) {
+        const notice = document.getElementById('notice');
+        notice.textContent = message; notice.hidden = false;
+        window.clearTimeout(noticeTimer);
+        noticeTimer = window.setTimeout(() => {notice.hidden = true;}, 6000);
+      }
+      async function copyHandoff(event) {
+        const text = document.getElementById('handoff-text').textContent.trim();
+        const focus = event.currentTarget;
+        try {
+          if (!navigator.clipboard || !window.isSecureContext) throw new Error('Use local-file fallback');
+          await navigator.clipboard.writeText(text);
+        } catch (_) {
+          const field = document.createElement('textarea');
+          field.value = text; field.setAttribute('readonly', '');
+          field.style.cssText = 'position:fixed;top:0;left:-9999px';
+          document.body.appendChild(field); field.select();
+          let copied = false;
+          try {copied = document.execCommand('copy');} catch (_) { /* Manual selection remains available. */ }
+          field.remove(); focus.focus({preventScroll:true});
+          if (!copied) {
+            input.value = ''; filter();
+            const target = document.getElementById('handoff-text');
+            target.scrollIntoView({block:'center'});
+            const selection = window.getSelection(); const range = document.createRange();
+            range.selectNodeContents(target); selection.removeAllRanges(); selection.addRange(range);
+            notify('The handoff is selected. Press Ctrl+C or use your browser’s Copy action.');
+            return;
+          }
+        }
+        notify('AI handoff copied. Paste it into your next context.');
+      }
+      document.querySelectorAll('[data-copy-handoff]').forEach(button => button.addEventListener('click', copyHandoff));
+      document.getElementById('print-guide').addEventListener('click', () => window.print());
+    })();
+  </script>
+</body>
+</html>

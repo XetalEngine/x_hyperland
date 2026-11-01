@@ -6,6 +6,8 @@
 #include <KIO/DropJob>
 #include <KIO/FileUndoManager>
 #include <KIO/Job>
+#include <KIO/PreviewJob>
+#include <KPluginMetaData>
 #include <KJobWidgets>
 #include <KUrlComboBox>
 
@@ -203,8 +205,16 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
             });
     stack->addWidget(view);
   }
+  // KFilePreviewGenerator disables previews if constructed without an icon
+  // size. Later updateIcons() alone cannot turn them back on.
+  icons->setIconSize({80, 80});
   previews = new KFilePreviewGenerator(icons);
-  previews->setPreviewShown(true);
+  QStringList imagePlugins;
+  for (const auto &plugin : KIO::PreviewJob::availableThumbnailerPlugins())
+    for (const auto &type : plugin.mimeTypes())
+      if (type.startsWith("image/")) { imagePlugins << plugin.pluginId(); break; }
+  previews->setEnabledPlugins(imagePlugins);
+  setThumbnails(preferences->settings.value("thumbnails", true).toBool());
   connect(icons->selectionModel(), &QItemSelectionModel::selectionChanged, this,
           [this] {
             emit selectionChanged();
@@ -274,6 +284,7 @@ void Browser::load(const QUrl &url) {
   notice->hide();
   filter->clear();
   icons->clearSelection();
+  setThumbnails(preferences->settings.value("thumbnails", true).toBool());
   if (Fusion::isComputer(url)) {
     model->dirLister()->stop();
     stack->setCurrentWidget(computer);
@@ -316,6 +327,10 @@ void Browser::setView(int mode) {
 void Browser::setHidden(bool value) {
   model->dirLister()->setShowHiddenFiles(value);
   model->dirLister()->emitChanges();
+}
+void Browser::setThumbnails(bool enabled) {
+  previews->setPreviewShown(enabled && location().isLocalFile());
+  previews->updateIcons();
 }
 void Browser::selectUrl(const QUrl &url) {
   const auto index = proxy->mapFromSource(model->indexForUrl(url));
