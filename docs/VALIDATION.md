@@ -368,3 +368,41 @@ passed validation, and My Computer was added without replacing existing
 favorites. No real volume was mounted, unmounted or repaired during validation;
 live network-share authentication and file operations remain untested. Fedora
 and Debian package recipes were reviewed but not installed on those systems.
+
+The This PC follow-up passed **16 native checks** plus all design/palette
+combinations. Mounted internal partitions group by their physical disk; mounted
+and unmounted USB volumes occupy the middle section, including USB SSDs with
+`RM=0`. Checks cover sidebar placement, divider dragging and persistence,
+selection and scrolling during refresh, mount-state transitions, drive properties
+and Alt+Enter. Property figures distinguish used, available and filesystem-reserved
+space, and unmounted/disconnected volumes never report fabricated free space.
+
+Real copy and cut/paste jobs into disposable directories were initiated from the
+This PC USB cards and the drive context menu. Stale/unmounted targets rejected
+paste. The file menu displayed a private fixture's default application name,
+Open with, Cut, Copy and Paste. Ark's installed plugin supplied the archive
+options and created a ZIP through its menu action; Python read back the archive
+and verified its contents. These checks use a private D-Bus session and desktop
+configuration; they do not mount or alter physical drives. The updated local
+preview and penguin artwork were installed with a private backup.
+
+The compact properties/sidebar follow-up passed **18 native checks**, the
+**33 installer checks**, all design/palette appearance combinations and both
+session UI routing checks. New interaction coverage reopens windows after
+collapsing sidebar sections, disconnects/reconnects the drive inventory, and
+clicks System Cleaner against a private command fixture to verify the exact
+Control Panel section arguments. Copy/cut/paste, Ark archive creation and the
+existing drive interactions remain covered by the same native run.
+
+The updated dialog was inspected on the live desktop at 560 × 624 pixels with
+the active theme. The System Cleaner route opened the correct Control Panel
+page without running a scan or cleanup. The live Hyprland configuration passed
+validation and reloaded without errors; the active Super+E binding points at
+`scripts/files.sh` and the directory MIME default reports `xetal-files.desktop`.
+The installer checks verify that fresh profiles retain these defaults and the
+file-manager service entry. Development backups and screenshots stay outside
+the repository.
+
+The tab strip also suppresses Qt's document-mode baseline, which drew a stray
+line at a different height beneath the new-tab corner button. The targeted
+native view check passed and its current-theme capture shows a clean tab edge.

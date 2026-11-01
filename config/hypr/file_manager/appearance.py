@@ -26,12 +26,35 @@ def appearance():
     QTreeView#details::item:selected, QListView#files::item:selected {{background:{p['Highlight']}; color:{p['HighlightedText']};}}
     QHeaderView::section {{background:{p['Window']}; color:{p['Text']}; border:none; border-bottom:1px solid {p['Midlight']}; padding:8px;}}
     QWidget#computerPage {{background:{p['Base']};}}
+    QScrollArea#mountedDrives, QWidget#mountedDriveRows, QWidget#mountedDiskGroup {{background:{p['Base']}; border:none;}}
     QLabel#computerTitle {{font-size:25px; font-weight:600; padding:8px 2px;}}
+    QLabel#driveSectionTitle {{font-size:14px; font-weight:600; padding:4px 2px;}}
+    QLabel#driveRowTitle {{font-weight:600; padding:4px 6px 0 6px;}}
+    QLabel#driveRowDescription {{color:{p['PlaceholderText']}; padding:0 6px;}}
     QLabel#muted {{color:{p['PlaceholderText']};}}
     QLineEdit#folderFilter {{min-width:120px; max-width:220px; padding:7px 10px;}}
     QFrame#addressRow {{background:{p['Window']}; border-bottom:1px solid {p['Midlight']};}}
     QStatusBar {{background:{p['Window']}; border-top:1px solid {p['Midlight']}; padding:3px;}}
     QSplitter::handle {{background:{p['Midlight']}; width:1px;}}
+    QSplitter#driveSections::handle {{background:{p['Window']}; border-top:1px solid {p['Midlight']}; border-bottom:1px solid {p['Midlight']};}}
+    QSplitter#driveSections::handle:hover {{background:{p['Highlight']};}}
+    QDialog#driveProperties {{background:{p['Window']};}}
+    QLabel#volumeArtwork {{background:{p['AlternateBase']}; border:1px solid {p['Midlight']}; border-radius:{radius+4}px;}}
+    QLabel#volumeHeading {{font-size:22px; font-weight:600;}}
+    QLabel#volumeStatus, QLabel#usageHint, QLabel[muted="true"] {{color:{p['PlaceholderText']};}}
+    QLabel#usageHint {{font-size:11px; padding:0 3px;}}
+    QLabel[exactBytes="true"] {{font-size:11px;}}
+    QFrame#storageSummary {{background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 {p['AlternateBase']},stop:1 {p['Base']}); border:1px solid {p['Midlight']}; border-radius:{radius+4}px;}}
+    QFrame#capacityRow {{background:transparent; border:none; border-top:1px solid {p['Midlight']};}}
+    QLabel[storageValue="true"] {{font-size:17px; font-weight:600;}}
+    QFrame#volumeDetails {{background:{p['Base']}; border:1px solid {p['Midlight']}; border-radius:{radius}px;}}
+    QPushButton#systemCleaner {{text-align:left; padding:0; background:{p['Highlight']}; border:1px solid {p['Midlight']}; border-radius:{radius}px;}}
+    QPushButton#systemCleaner:hover, QPushButton#systemCleaner:focus {{border-color:{p['Accent']};}}
+    QPushButton#systemCleaner:pressed {{background:{p['AlternateBase']};}}
+    QPushButton#systemCleaner QLabel {{background:transparent; color:{p['HighlightedText']};}}
+    QLabel#cleanerTitle {{font-size:14px; font-weight:600;}}
+    QLabel#cleanerDescription {{font-size:11px;}}
+    QLabel#cleanerArrow {{font-size:22px;}}
     QTabBar::tab {{padding:9px 18px; min-width:90px;}}
     QTabBar::tab:selected {{border-bottom:2px solid {p['Accent']};}}
     QScrollArea#filePreview {{background:{p['Base']}; border:none;}}

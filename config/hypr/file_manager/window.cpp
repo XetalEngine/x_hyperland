@@ -1,7 +1,9 @@
 #include "window.h"
 #include "../theme/file_preview.hpp"
+#include <KAbstractFileItemActionPlugin>
 #include <KApplicationTrader>
 #include <KFileItemActions>
+#include <KFileItemListProperties>
 #include <KIO/ApplicationLauncherJob>
 #include <KIO/CopyJob>
 #include <KIO/DeleteJob>
@@ -16,12 +18,14 @@
 #include <KIO/RestoreJob>
 #include <KJobWidgets>
 #include <KOpenWithDialog>
+#include <KPluginFactory>
+#include <KPluginMetaData>
 #include <KPropertiesDialog>
 #include <KService>
 #include <memory>
 
 namespace {
-enum PlaceRole { UrlRole = Qt::UserRole, PinRole, VolumeRole };
+enum PlaceRole { UrlRole = Qt::UserRole, PinRole, VolumeRole, SectionRole };
 class PlacesTree : public QTreeWidget {
 public:
   using QTreeWidget::QTreeWidget;
@@ -81,6 +85,8 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   if (preferences.settings.contains("geometry"))
     restoreGeometry(preferences.settings.value("geometry").toByteArray());
   drives = new Drives(this, scanDrives);
+  connect(drives, &Drives::populateFileMenu, this,
+          &FilesWindow::addVolumeActions);
   auto *toolbar = addToolBar("Navigation");
   toolbar->setMovable(false);
   toolbar->setIconSize({20, 20});
@@ -180,7 +186,11 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
     }
   };
   tabs = new QTabWidget;
-  tabs->setDocumentMode(true);
+  // The shared theme supplies the tab borders. Qt's document frame draws a
+  // second baseline at a different height beneath the corner (+) button.
+  tabs->setDocumentMode(false);
+  tabs->tabBar()->setDrawBase(false);
+  tabs->tabBar()->setExpanding(false);
   tabs->setTabsClosable(true);
   tabs->setMovable(true);
   tabs->setTabBarAutoHide(false);
@@ -238,6 +248,15 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
           });
   connect(places, &QWidget::customContextMenuRequested, this,
           &FilesWindow::placeMenu);
+  auto saveExpansion = [this](QTreeWidgetItem *item) {
+    const auto section = item->data(0, SectionRole).toString();
+    if (!section.isEmpty()) {
+      preferences.settings.setValue("sidebar/" + section, item->isExpanded());
+      preferences.settings.sync();
+    }
+  };
+  connect(places, &QTreeWidget::itemExpanded, this, saveExpansion);
+  connect(places, &QTreeWidget::itemCollapsed, this, saveExpansion);
   connect(drives, &Drives::changed, this, &FilesWindow::rebuildPlaces);
   connect(drives, &Drives::message, this, &FilesWindow::message);
   connect(drives, &Drives::browse, this,
@@ -304,6 +323,8 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
               palette.setColor(QPalette::Disabled, role,
                                QColor(colors["Disabled"].toString()));
             qApp->setPalette(palette);
+            qApp->setProperty("fusionAccent",
+                              QColor(colors["Accent"].toString()));
             qApp->setFont(QFont(value["font"].toString("Noto Sans"), 10));
             QIcon::setThemeName(value["iconTheme"].toString());
             qApp->setStyleSheet(value["stylesheet"].toString());
@@ -351,6 +372,8 @@ void FilesWindow::addTab(const QUrl &url) {
       updatePreview();
   });
   connect(tab, &Browser::contextRequested, this, &FilesWindow::fileMenu);
+  connect(tab, &Browser::computerContextRequested, this,
+          &FilesWindow::computerMenu);
   connect(tab, &Browser::openRequested, this, &FilesWindow::openItem);
   connect(tab, &Browser::jobStarted, this, &FilesWindow::track);
   connect(tab, &Browser::statusChanged, this, [this, tab](const QString &text) {
@@ -426,12 +449,16 @@ void FilesWindow::rebuildPlaces() {
   const QUrl current = browser() ? browser()->location() : QUrl();
   QSignalBlocker blocker(places);
   const int scroll = places->verticalScrollBar()->value();
-  bool expanded = true, quickExpanded = true;
-  if (places->topLevelItemCount()) {
-    expanded = places->topLevelItem(0)->isExpanded();
-    if (places->topLevelItemCount() > 1)
-      quickExpanded = places->topLevelItem(1)->isExpanded();
-  }
+  const bool expanded =
+      preferences.settings.value("sidebar/computer", true).toBool();
+  const bool quickExpanded =
+      preferences.settings.value("sidebar/quickAccess", true).toBool();
+  const bool unmountedExpanded =
+      preferences.settings.value("sidebar/unmounted", true).toBool();
+  const QString selectedDrive =
+      places->currentItem()
+          ? places->currentItem()->data(0, VolumeRole).value<Volume>().device
+          : QString();
   places->clear();
   auto add = [&](QTreeWidgetItem *parent, const QString &name,
                  const QString &icon, const QUrl &url) {
@@ -447,20 +474,25 @@ void FilesWindow::rebuildPlaces() {
     return item;
   };
   auto *pc = add(nullptr, "This PC", "fusion-computer", Fusion::computerUrl());
-  pc->setExpanded(expanded);
-  for (const auto &volume : drives->volumes) {
+  pc->setData(0, SectionRole, "computer");
+  auto addVolume = [&](QTreeWidgetItem *parent, const Volume &volume) {
     auto *item =
-        add(pc, volume.name,
-            volume.removable ? "drive-removable-media-usb" : "drive-harddisk",
+        add(parent, volume.name,
+            volume.usb() ? "drive-removable-media-usb" : "drive-harddisk",
             volume.mounted() ? QUrl::fromLocalFile(volume.mount) : QUrl());
     item->setData(0, VolumeRole, QVariant::fromValue(volume));
     item->setToolTip(0, volume.device + "\n" +
                             (volume.mounted() ? volume.mount : "Not mounted"));
     if (!volume.mounted())
       item->setForeground(0, palette().color(QPalette::PlaceholderText));
-  }
+    if (volume.device == selectedDrive)
+      places->setCurrentItem(item);
+  };
+  for (const auto &volume : drives->volumes)
+    if (volume.mounted())
+      addVolume(pc, volume);
   quickRoot = add(nullptr, "Quick access", "bookmarks", {});
-  quickRoot->setExpanded(quickExpanded);
+  quickRoot->setData(0, SectionRole, "quickAccess");
   auto list = preferences.places();
   for (int i = 0; i < list.size(); ++i) {
     const auto &entry = list[i];
@@ -473,6 +505,19 @@ void FilesWindow::rebuildPlaces() {
   }
   add(nullptr, "Network", "network-workgroup", QUrl("remote:/"));
   add(nullptr, "Trash", "user-trash", QUrl("trash:/"));
+  QTreeWidgetItem *unmounted = nullptr;
+  for (const auto &volume : drives->volumes)
+    if (!volume.mounted()) {
+      if (!unmounted) {
+        unmounted = add(nullptr, "Unmounted drives", "drive-harddisk", {});
+        unmounted->setData(0, SectionRole, "unmounted");
+      }
+      addVolume(unmounted, volume);
+    }
+  pc->setExpanded(expanded);
+  quickRoot->setExpanded(quickExpanded);
+  if (unmounted)
+    unmounted->setExpanded(unmountedExpanded);
   places->verticalScrollBar()->setValue(scroll);
 }
 void FilesWindow::pin(const QUrl &url) {
@@ -644,6 +689,22 @@ void FilesWindow::runAction(const QString &id) {
       (id == "trash" || id == "delete" || id == "open" || id == "copy" ||
        id == "cut" || id == "paste" || id == "selectAll" || id == "undo"))
     return;
+  if (id == "copy" || id == "cut" || id == "paste") {
+    if (places->hasFocus() && places->currentItem() &&
+        places->currentItem()->data(0, VolumeRole).isValid()) {
+      volumeAction(places->currentItem()->data(0, VolumeRole).value<Volume>(),
+                   id);
+      return;
+    }
+    if (Fusion::isComputer(location)) {
+      const auto volume = tab->selectedVolume();
+      if (!volume.device.isEmpty())
+        volumeAction(volume, id);
+      else if (id == "paste")
+        computerMenu(QCursor::pos());
+      return;
+    }
+  }
   if (id == "selectAll") {
     tab->selectAll();
     return;
@@ -654,10 +715,8 @@ void FilesWindow::runAction(const QString &id) {
     return;
   }
   if (id == "open" || id == "openTab") {
-    if (Fusion::isComputer(location) && tab->cards->currentItem())
-      drives->operate(
-          tab->cards->currentItem()->data(Qt::UserRole).value<Volume>(), "open",
-          this);
+    if (Fusion::isComputer(location) && !tab->selectedVolume().device.isEmpty())
+      drives->operate(tab->selectedVolume(), "open", this);
     else
       for (const auto &item : items)
         openItem(item, id == "openTab");
@@ -682,6 +741,18 @@ void FilesWindow::runAction(const QString &id) {
     return;
   }
   if (id == "properties") {
+    if (places->hasFocus() && places->currentItem() &&
+        places->currentItem()->data(0, VolumeRole).isValid()) {
+      drives->showProperties(
+          places->currentItem()->data(0, VolumeRole).value<Volume>(), this);
+      return;
+    }
+    if (Fusion::isComputer(location)) {
+      const auto volume = tab->selectedVolume();
+      if (!volume.device.isEmpty())
+        drives->showProperties(volume, this);
+      return;
+    }
     auto *dialog = items.isEmpty() ? new KPropertiesDialog(location, this)
                                    : new KPropertiesDialog(items, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
@@ -816,10 +887,197 @@ void FilesWindow::archive(bool extract) {
   if (!QProcess::startDetached("ark", args))
     message("Ark could not be started.");
 }
+void FilesWindow::addArkActions(QMenu *menu, const KFileItemList &items,
+                                bool compress, bool extract,
+                                const std::function<bool()> &guard) {
+  if (items.isEmpty() || (!compress && !extract))
+    return;
+  const bool archiveSelected =
+      std::any_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
+        const auto type = item.mimetype();
+        return type.contains("zip") || type.contains("tar") ||
+               type.contains("rar") || type.contains("compressed") ||
+               type.contains("7z") || type.contains("archive");
+      });
+  auto *ark = menu->addMenu(Fusion::icon("ark", "package-x-generic"), "Ark");
+  ark->setObjectName("arkMenu");
+  std::function<void(QMenu *, QAction *)> append = [&](QMenu *target,
+                                                       QAction *original) {
+    if (original->isSeparator()) {
+      target->addSeparator();
+      return;
+    }
+    if (original->menu()) {
+      auto *child = target->addMenu(original->icon(), original->text());
+      for (auto *action : original->menu()->actions())
+        append(child, action);
+      return;
+    }
+    auto *copy = target->addAction(original->icon(), original->text());
+    copy->setEnabled(original->isEnabled());
+    connect(copy, &QAction::triggered, this,
+            [original = QPointer<QAction>(original), guard] {
+              if (original && (!guard || guard()))
+                original->trigger();
+            });
+  };
+  for (const auto &metadata :
+       KPluginMetaData::findPlugins("kf6/kfileitemaction")) {
+    const auto id = metadata.pluginId();
+    if (!((id == "compressfileitemaction" && compress) ||
+          (id == "extractfileitemaction" && extract && archiveSelected)))
+      continue;
+    auto *plugin = arkPlugins.value(id);
+    if (!plugin) {
+      plugin = KPluginFactory::instantiatePlugin<KAbstractFileItemActionPlugin>(
+                   metadata, this)
+                   .plugin;
+      if (!plugin)
+        continue;
+      arkPlugins.insert(id, plugin);
+      connect(plugin, &KAbstractFileItemActionPlugin::error, this,
+              &FilesWindow::message);
+    }
+    const auto actions = plugin->actions(KFileItemListProperties(items), ark);
+    if (!ark->actions().isEmpty() && !actions.isEmpty())
+      ark->addSeparator();
+    for (auto *action : actions) {
+      if (action->menu())
+        for (auto *option : action->menu()->actions())
+          append(ark, option);
+      else
+        append(ark, action);
+    }
+  }
+  if (ark->actions().isEmpty()) {
+    // Some distributions ship the executable separately from its menu plugins.
+    auto fallback = [&](bool unpack) {
+      auto *action = ark->addAction(unpack ? "Extract archive…" : "Compress…");
+      action->setEnabled(!QStandardPaths::findExecutable("ark").isEmpty());
+      connect(action, &QAction::triggered, this, [this, items, guard, unpack] {
+        if (guard && !guard())
+          return;
+        QStringList args =
+            unpack ? QStringList{"--batch", "--dialog", "--autosubfolder"}
+                   : QStringList{"--add", "--dialog"};
+        if (unpack && browser()->location().isLocalFile())
+          args << "--destination" << browser()->location().toLocalFile();
+        args << "--";
+        for (const auto &item : items)
+          args << (item.url().isLocalFile() ? item.url().toLocalFile()
+                                            : item.url().toString());
+        if (!QProcess::startDetached("ark", args))
+          message("Ark could not be started.");
+      });
+    };
+    if (compress)
+      fallback(false);
+    if (extract && archiveSelected)
+      fallback(true);
+    if (ark->isEmpty())
+      ark->menuAction()->setVisible(false);
+  }
+}
+void FilesWindow::volumeAction(const Volume &volume, const QString &id) {
+  if (id == "cut") {
+    message("Open the drive and select files to cut. A mounted drive itself "
+            "cannot be moved.");
+    return;
+  }
+  const auto location = drives->mountedLocation(volume);
+  if (!location.isValid() || location.isEmpty())
+    return;
+  if (id == "copy") {
+    auto *data = new QMimeData;
+    data->setUrls({location});
+    KIO::setClipboardDataCut(data, false);
+    QApplication::clipboard()->setMimeData(data);
+  } else if (id == "paste") {
+    if (volume.readOnly) {
+      message("This drive is read only.");
+      return;
+    }
+    const auto *data = QApplication::clipboard()->mimeData();
+    if (KIO::canPasteMimeData(data))
+      track(KIO::paste(data, location));
+  }
+}
+void FilesWindow::addVolumeActions(QMenu *menu, const Volume &volume) {
+  menu->addSeparator();
+  QHash<QString, QVariantMap> configured;
+  for (const auto &entry : preferences.menu())
+    configured.insert(entry["id"].toString(), entry);
+  for (const auto &entry : QList<QStringList>{
+           {"cut", "Cut", "edit-cut", "Ctrl+X"},
+           {"copy", "Copy", "edit-copy", "Ctrl+C"},
+           {"paste", "Paste into drive", "edit-paste", "Ctrl+V"}}) {
+    const auto settings = configured.value(entry[0]);
+    if (!settings.value("enabled", true).toBool())
+      continue;
+    QString name = settings.value("name", entry[1]).toString();
+    if (entry[0] == "paste" && name == "Paste")
+      name = "Paste into drive";
+    auto *action = menu->addAction(
+        Fusion::icon(settings.value("icon", entry[2]).toString()), name);
+    action->setObjectName(entry[0]);
+    action->setShortcut(QKeySequence(entry[3]));
+    action->setEnabled(
+        volume.mounted() && entry[0] != "cut" &&
+        (entry[0] != "paste" ||
+         (!volume.readOnly &&
+          KIO::canPasteMimeData(QApplication::clipboard()->mimeData()))));
+    if (entry[0] == "cut")
+      action->setToolTip("Open the drive to cut files or folders inside it.");
+    connect(action, &QAction::triggered, this,
+            [this, volume, id = entry[0]] { volumeAction(volume, id); });
+  }
+  if (volume.mounted()) {
+    const KFileItemList items{KFileItem(QUrl::fromLocalFile(volume.mount),
+                                        "inode/directory", S_IFDIR)};
+    addArkActions(
+        menu, items,
+        configured.value("compress").value("enabled", true).toBool(), false,
+        [this, volume] { return !drives->mountedLocation(volume).isEmpty(); });
+  }
+}
+void FilesWindow::computerMenu(const QPoint &point) {
+  QMenu menu(this);
+  menu.setObjectName("computerContextMenu");
+  auto *paste = menu.addMenu(Fusion::icon("edit-paste"), "Paste into…");
+  paste->setEnabled(
+      KIO::canPasteMimeData(QApplication::clipboard()->mimeData()));
+  for (const auto &volume : drives->volumes)
+    if (volume.mounted() && !volume.readOnly)
+      paste->addAction(Fusion::icon(volume.usb() ? "drive-removable-media-usb"
+                                                 : "drive-harddisk"),
+                       volume.name + " · " + volume.mount, this,
+                       [this, volume] { volumeAction(volume, "paste"); });
+  if (paste->isEmpty())
+    paste->setEnabled(false);
+  menu.addAction(Fusion::icon("view-refresh"), "Refresh", this,
+                 [this] { drives->refresh(); });
+  menu.exec(point);
+}
 void FilesWindow::fileMenu(const QPoint &point) {
   const auto items = browser()->selectedItems();
   const auto location = browser()->location();
   QMenu menu(this);
+  menu.setObjectName("fileContextMenu");
+  bool compress = false, extract = false, arkAdded = false;
+  for (const auto &entry : preferences.menu()) {
+    if (entry["id"] == "compress")
+      compress = entry.value("enabled", true).toBool();
+    if (entry["id"] == "extract")
+      extract = entry.value("enabled", true).toBool();
+  }
+  KService::Ptr preferred;
+  if (!items.isEmpty() && !items.first().isDir()) {
+    const auto type = items.first().mimetype();
+    if (std::all_of(items.cbegin(), items.cend(), [&](const KFileItem &item) {
+          return !item.isDir() && item.mimetype() == type;
+        }))
+      preferred = KApplicationTrader::preferredService(type);
+  }
   if (location.scheme() == "trash" && !items.isEmpty())
     menu.addAction(Fusion::icon("edit-undo"), "Restore", this,
                    [this] { runAction("restore"); });
@@ -827,25 +1085,34 @@ void FilesWindow::fileMenu(const QPoint &point) {
     if (!entry.value("enabled", true).toBool())
       continue;
     const QString id = entry["id"].toString();
+    if (id == "compress" || id == "extract") {
+      if (!arkAdded && !items.isEmpty()) {
+        addArkActions(&menu, items, compress, extract);
+        arkAdded = true;
+      }
+      continue;
+    }
+    if (id == "openTab" && !items.isEmpty() &&
+        !std::all_of(items.cbegin(), items.cend(),
+                     [](const KFileItem &item) { return item.isDir(); }))
+      continue;
     if (items.isEmpty() &&
         QStringList{"open", "openTab", "openWith", "cut", "copy", "rename",
                     "trash", "delete", "compress", "extract"}
             .contains(id))
       continue;
-    if (id == "extract" &&
-        !std::any_of(items.begin(), items.end(), [](const KFileItem &item) {
-          const auto type = item.mimetype();
-          return type.contains("zip") || type.contains("tar") ||
-                 type.contains("rar") || type.contains("compressed") ||
-                 type.contains("7z") || type.contains("archive");
-        }))
-      continue;
     if (id == "pin" && !items.isEmpty() &&
         !std::all_of(items.begin(), items.end(),
                      [](const KFileItem &item) { return item.isDir(); }))
       continue;
-    auto *action = menu.addAction(Fusion::icon(entry["icon"].toString()),
-                                  entry["name"].toString());
+    QString label = entry["name"].toString(), icon = entry["icon"].toString();
+    if (id == "open" && preferred && label == "Open") {
+      label = "Open with " + QString(preferred->name()).replace('&', "&&");
+      if (icon == "document-open" && !preferred->icon().isEmpty())
+        icon = preferred->icon();
+    }
+    auto *action = menu.addAction(Fusion::icon(icon), label);
+    action->setObjectName(id);
     if (shortcuts.contains(id))
       action->setShortcut(shortcuts[id]->shortcut());
     if (id == "paste")

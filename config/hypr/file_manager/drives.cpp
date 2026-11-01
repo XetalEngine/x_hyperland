@@ -1,54 +1,87 @@
 #include "drives.h"
 #include "../control_panel/backend/volume_commands.h"
 #include "core.h"
+#include "drive_properties.h"
 #include <QStorageInfo>
 
 QList<Volume> Drives::parse(const QByteArray &data) {
   const auto document = QJsonDocument::fromJson(data);
   QList<Volume> result;
-  QSet<QString> seen;
-  std::function<void(QJsonObject, bool)> visit = [&](QJsonObject item,
-                                                     bool parentRemovable) {
-    const auto children = item["children"].toArray();
-    const QString type = item["type"].toString(),
-                  filesystem = item["fstype"].toString();
-    const bool removable =
-        item["rm"].toBool() || item["rm"].toInt() == 1 || parentRemovable;
-    QStringList mounts;
-    for (auto mount : item["mountpoints"].toArray())
-      if (!mount.toString().isEmpty() && mount.toString() != "[SWAP]")
-        mounts << mount.toString();
-    if (mounts.isEmpty() && item["mountpoint"].isString() &&
-        item["mountpoint"].toString() != "[SWAP]")
-      mounts << item["mountpoint"].toString();
-    if (type != "loop" && type != "zram" &&
-        (children.isEmpty() || !filesystem.isEmpty())) {
-      Volume volume;
-      volume.device = item["path"].toString();
-      if (volume.device.isEmpty())
-        volume.device = "/dev/" + item["name"].toString();
-      volume.name = item["label"].toString();
-      if (volume.name.isEmpty())
-        volume.name = mounts.contains("/")
-                          ? "Linux system"
-                          : QFileInfo(volume.device).fileName();
-      volume.filesystem = filesystem;
-      volume.mount = mounts.contains("/") ? "/" : mounts.value(0);
-      volume.type = type;
-      volume.uuid = item["uuid"].toString();
-      volume.size = item["size"].toVariant().toULongLong();
-      volume.removable = removable;
-      volume.readOnly = item["ro"].toBool() || item["ro"].toInt() == 1;
-      if (!seen.contains(volume.device) && volume.device.startsWith("/dev/")) {
-        seen.insert(volume.device);
-        result << volume;
-      }
-    }
-    for (auto child : children)
-      visit(child.toObject(), removable);
+  QHash<QString, int> seen;
+  struct PhysicalDisk {
+    QString device, model, transport;
+    quint64 size = 0;
   };
+  std::function<void(QJsonObject, bool, PhysicalDisk)> visit =
+      [&](QJsonObject item, bool parentRemovable, PhysicalDisk disk) {
+        const auto children = item["children"].toArray();
+        const QString type = item["type"].toString(),
+                      filesystem = item["fstype"].toString();
+        const bool removable =
+            item["rm"].toBool() || item["rm"].toInt() == 1 || parentRemovable;
+        QString device = item["path"].toString();
+        if (device.isEmpty())
+          device = "/dev/" + item["name"].toString();
+        if (type == "disk") {
+          disk = {device, item["model"].toString().trimmed(),
+                  item["tran"].toString(),
+                  item["size"].toVariant().toULongLong()};
+        }
+        QStringList mounts;
+        for (auto mount : item["mountpoints"].toArray())
+          if (!mount.toString().isEmpty() && mount.toString() != "[SWAP]")
+            mounts << mount.toString();
+        if (mounts.isEmpty() && item["mountpoint"].isString() &&
+            item["mountpoint"].toString() != "[SWAP]")
+          mounts << item["mountpoint"].toString();
+        if (type != "loop" && type != "zram" &&
+            (children.isEmpty() || !filesystem.isEmpty())) {
+          Volume volume;
+          volume.device = device;
+          volume.name = item["label"].toString();
+          if (volume.name.isEmpty())
+            volume.name = mounts.contains("/")
+                              ? "Linux system"
+                              : QFileInfo(volume.device).fileName();
+          volume.filesystem = filesystem;
+          volume.mount = mounts.contains("/") ? "/" : mounts.value(0);
+          volume.type = type;
+          volume.uuid = item["uuid"].toString();
+          volume.size = item["size"].toVariant().toULongLong();
+          volume.removable = removable;
+          volume.readOnly = item["ro"].toBool() || item["ro"].toInt() == 1;
+          volume.driveDevice = disk.device;
+          if (volume.driveDevice.isEmpty()) {
+            const auto parent = item["pkname"].toString();
+            volume.driveDevice = parent.isEmpty()         ? device
+                                 : parent.startsWith('/') ? parent
+                                                          : "/dev/" + parent;
+          }
+          volume.driveModel = disk.model;
+          volume.transport = disk.transport;
+          volume.driveSize = disk.size;
+          if (!seen.contains(volume.device) &&
+              volume.device.startsWith("/dev/")) {
+            seen.insert(volume.device, result.size());
+            result << volume;
+          } else if (seen.contains(volume.device)) {
+            auto &existing = result[seen.value(volume.device)];
+            if (existing.driveDevice != volume.driveDevice) {
+              // Shared RAID/LVM nodes have multiple backing disks; keep their
+              // logical device together rather than claiming one physical
+              // parent.
+              existing.driveDevice = existing.device;
+              existing.driveModel = "Multiple backing disks";
+              existing.driveSize = existing.size;
+              existing.transport.clear();
+            }
+          }
+        }
+        for (auto child : children)
+          visit(child.toObject(), removable, disk);
+      };
   for (auto item : document.object()["blockdevices"].toArray())
-    visit(item.toObject(), false);
+    visit(item.toObject(), false, {});
   std::stable_sort(result.begin(), result.end(),
                    [](const Volume &a, const Volume &b) {
                      if ((a.mount == "/") != (b.mount == "/"))
@@ -77,6 +110,8 @@ Drives::Drives(QObject *parent, bool automatic) : QObject(parent) {
             if (storage.isValid() && storage.isReady()) {
               volume.total = qMax<qint64>(0, storage.bytesTotal());
               volume.available = qMax<qint64>(0, storage.bytesAvailable());
+              volume.freeBytes = qMax<qint64>(0, storage.bytesFree());
+              volume.spaceKnown = true;
             }
           }
         emit changed();
@@ -127,9 +162,9 @@ void Drives::refresh() {
     refreshAgain = true;
     return;
   }
-  scan.start("lsblk",
-             {"--json", "--bytes", "--output",
-              "PATH,NAME,TYPE,FSTYPE,LABEL,SIZE,MOUNTPOINTS,RO,RM,UUID"});
+  scan.start("lsblk", {"--json", "--bytes", "--output",
+                       "PATH,NAME,TYPE,FSTYPE,LABEL,SIZE,MOUNTPOINTS,RO,RM,"
+                       "UUID,PKNAME,MODEL,TRAN"});
 }
 Drives::~Drives() {
   timer.stop();
@@ -161,16 +196,9 @@ void Drives::operate(const Volume &snapshot, const QString &action,
   }
   const Volume volume = *found;
   if (action == "open" && volume.mounted()) {
-    QStorageInfo storage(volume.mount);
-    const auto actual =
-        QFileInfo(QString::fromLocal8Bit(storage.device())).canonicalFilePath();
-    if (!storage.isReady() ||
-        actual != QFileInfo(volume.device).canonicalFilePath()) {
-      emit message("This drive's mount changed. Refresh and try again.");
-      refresh();
-      return;
-    }
-    emit browse(QUrl::fromLocalFile(volume.mount));
+    const auto location = mountedLocation(volume);
+    if (!location.isEmpty())
+      emit browse(location);
     return;
   }
   if ((action == "mount" || action == "force" || action == "open") &&
@@ -200,7 +228,7 @@ void Drives::operate(const Volume &snapshot, const QString &action,
     args = FusionVolumes::mount(volume.device, action == "force");
     if (action == "open")
       openAfterMount = volume.device;
-  } else if (action == "eject" && volume.removable && !volume.mounted()) {
+  } else if (action == "eject" && volume.usb() && !volume.mounted()) {
     args = {"power-off", "-b", volume.device};
   } else
     return;
@@ -210,9 +238,12 @@ void Drives::operate(const Volume &snapshot, const QString &action,
 void Drives::menu(const Volume &volume, const QPoint &position,
                   QWidget *parent) {
   QMenu menu(parent);
+  menu.setObjectName("volumeContextMenu");
   auto *open = menu.addAction(Fusion::icon("document-open"),
                               volume.mounted() ? "Open" : "Mount and open");
   open->setEnabled(volume.mounted() || volume.mountable());
+  emit populateFileMenu(&menu, volume);
+  menu.addSeparator();
   auto *mount = menu.addAction(Fusion::icon("media-mount"), "Mount");
   mount->setEnabled(!volume.mounted() && volume.mountable());
   auto *unmount = menu.addAction(Fusion::icon("media-eject"), "Unmount");
@@ -221,16 +252,17 @@ void Drives::menu(const Volume &volume, const QPoint &position,
                       !volume.mount.startsWith("/boot"));
   auto *force = menu.addAction("Force mount…");
   force->setEnabled(mount->isEnabled());
-  auto *eject = volume.removable ? menu.addAction(Fusion::icon("media-eject"),
-                                                  "Safely remove drive")
-                                 : nullptr;
+  auto *eject = volume.usb() ? menu.addAction(Fusion::icon("media-eject"),
+                                              "Safely remove drive")
+                             : nullptr;
   if (eject) {
     eject->setEnabled(!volume.mounted());
     eject->setToolTip("Unmount this drive's volumes before removing it.");
   }
   menu.addSeparator();
   auto *copy = menu.addAction("Copy device path");
-  auto *properties = menu.addAction("Drive details");
+  auto *properties =
+      menu.addAction(Fusion::icon("document-properties"), "Properties…");
   const auto *chosen = menu.exec(position);
   if (chosen == open)
     operate(volume, "open", parent);
@@ -245,16 +277,34 @@ void Drives::menu(const Volume &volume, const QPoint &position,
   else if (chosen == copy)
     QApplication::clipboard()->setText(volume.device);
   else if (chosen == properties)
-    QMessageBox::information(
-        parent, volume.name,
-        QString("Device: %1\nFilesystem: %2\nCapacity: %3\nLocation: "
-                "%4\nAccess: %5")
-            .arg(volume.device,
-                 volume.filesystem.isEmpty() ? "Unformatted / unknown"
-                                             : volume.filesystem,
-                 QLocale().formattedDataSize(volume.size),
-                 volume.mounted() ? volume.mount : "Not mounted",
-                 volume.readOnly ? "Read only" : "Read/write"));
+    showProperties(volume, parent);
+}
+QUrl Drives::mountedLocation(const Volume &snapshot) {
+  const auto found =
+      std::find_if(volumes.cbegin(), volumes.cend(), [&](const Volume &v) {
+        return v.device == snapshot.device && v.uuid == snapshot.uuid &&
+               v.mount == snapshot.mount;
+      });
+  if (found == volumes.cend() || !found->mounted()) {
+    emit message("Mount this volume before accessing its files.");
+    return {};
+  }
+  QStorageInfo storage(found->mount);
+  const auto actual =
+      QFileInfo(QString::fromLocal8Bit(storage.device())).canonicalFilePath();
+  const auto expected = QFileInfo(found->device).canonicalFilePath();
+  if (!storage.isReady() || actual.isEmpty() || expected.isEmpty() ||
+      actual != expected) {
+    emit message("This drive's mount changed. Refresh and try again.");
+    refresh();
+    return {};
+  }
+  return QUrl::fromLocalFile(found->mount);
+}
+void Drives::showProperties(const Volume &volume, QWidget *parent) {
+  auto *dialog = new DriveProperties(volume, this, parent);
+  dialog->setAttribute(Qt::WA_DeleteOnClose);
+  dialog->show();
 }
 void DriveDelegate::paint(QPainter *p, const QStyleOptionViewItem &o,
                           const QModelIndex &index) const {
@@ -273,8 +323,7 @@ void DriveDelegate::paint(QPainter *p, const QStyleOptionViewItem &o,
                  1));
   p->setBrush(background);
   p->drawRoundedRect(box, 9, 9);
-  Fusion::icon(volume.removable ? "drive-removable-media-usb"
-                                : "drive-harddisk")
+  Fusion::icon(volume.usb() ? "drive-removable-media-usb" : "drive-harddisk")
       .paint(p, box.adjusted(14, 20, 0, 0).topLeft().x(), box.y() + 22, 54, 54);
   const QColor text =
       o.palette.color(selected ? QPalette::HighlightedText : QPalette::Text);

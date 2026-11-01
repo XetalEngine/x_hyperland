@@ -1,14 +1,28 @@
 #include "../control_panel/backend/volume_commands.h"
+#include "drive_properties.h"
 #include "window.h"
+#include <KApplicationTrader>
 #include <KIO/RenameDialog>
 #include <KIO/RenameFileDialog>
 #include <KUrlComboBox>
+#include <QDBusConnection>
+#include <QScopeGuard>
+#include <QStorageInfo>
 #include <QtTest>
+
+class TestFileManager : public QObject {
+  Q_OBJECT
+  Q_CLASSINFO("D-Bus Interface", "org.freedesktop.FileManager1")
+public slots:
+  void ShowItems(const QStringList &, const QString &) {}
+  void ShowFolders(const QStringList &, const QString &) {}
+};
 
 class FileTests : public QObject {
   Q_OBJECT
   QTemporaryDir temporary;
   QString folder;
+  TestFileManager fileManager;
   static void write(const QString &path,
                     const QByteArray &bytes = "fixture data\n") {
     QFile file(path);
@@ -20,12 +34,37 @@ class FileTests : public QObject {
     tab->view()->setFocus();
     QTest::qWait(40);
   }
+  static QList<Volume> computerVolumes() {
+    auto volumes = Drives::parse(R"({"blockdevices":[
+      {"path":"/dev/fusion-a","name":"fusion-a","type":"disk","model":"Fusion NVMe","tran":"nvme","size":1000000000000,"children":[
+        {"path":"/dev/fusion-a1","type":"part","fstype":"vfat","label":"EFI","size":512000000,"mountpoints":["/boot/efi"]},
+        {"path":"/dev/fusion-a2","type":"part","fstype":"ext4","label":"Linux system","size":512000000000,"mountpoints":["/"]},
+        {"path":"/dev/fusion-a3","type":"part","fstype":"ntfs","label":"Windows","size":480000000000,"mountpoints":[null]}]},
+      {"path":"/dev/fusion-b","name":"fusion-b","type":"disk","model":"Project SSD","tran":"sata","size":2000000000000,"children":[
+        {"path":"/dev/fusion-b1","type":"part","fstype":"ext4","label":"Projects","size":2000000000000,"mountpoints":["/media/Projects"]}]},
+      {"path":"/dev/fusion-c","name":"fusion-c","type":"disk","model":"Portable SSD","tran":"usb","rm":false,"size":64000000000,"children":[
+        {"path":"/dev/fusion-c1","type":"part","fstype":"exfat","label":"USB files","size":32000000000,"mountpoints":["/media/USB"]},
+        {"path":"/dev/fusion-c2","type":"part","fstype":"exfat","label":"USB backup","size":32000000000,"mountpoints":[null]}]}
+    ]})");
+    for (auto &volume : volumes)
+      if (volume.mounted()) {
+        volume.total = volume.size;
+        volume.available = volume.total * 63 / 100;
+        volume.freeBytes = volume.available;
+        volume.spaceKnown = true;
+      }
+    return volumes;
+  }
 private slots:
   void initTestCase() {
     QVERIFY(temporary.isValid());
     folder = temporary.path() + "/files";
     QVERIFY(QDir().mkpath(folder));
     qApp->setQuitOnLastWindowClosed(false);
+    auto bus = QDBusConnection::sessionBus();
+    QVERIFY(bus.registerService("org.freedesktop.FileManager1"));
+    QVERIFY(bus.registerObject("/org/freedesktop/FileManager1", &fileManager,
+                               QDBusConnection::ExportAllSlots));
   }
   void pathsPreserveLiteralCharacters() {
     const QString path = folder + "/deep path/# 100% café %u.txt";
@@ -97,6 +136,438 @@ private slots:
     Fusion::Preferences restored(path);
     QCOMPARE(restored.places(), bookmarks);
     QCOMPARE(restored.menu(), menu);
+  }
+  void physicalDriveAncestry() {
+    const auto volumes = computerVolumes();
+    QCOMPARE(volumes.size(), 6);
+    for (const auto &volume : volumes) {
+      QVERIFY(!volume.driveKey().isEmpty());
+      if (volume.device.startsWith("/dev/fusion-a")) {
+        QCOMPARE(volume.driveKey(), QString("/dev/fusion-a"));
+        QCOMPARE(volume.driveModel, QString("Fusion NVMe"));
+        QCOMPARE(volume.driveSize, 1000000000000ULL);
+      }
+      if (volume.device == "/dev/fusion-c1") {
+        QVERIFY(volume.usb());
+        QVERIFY(!volume.removable);
+        QCOMPARE(volume.transport, QString("usb"));
+      }
+    }
+    const auto shared = Drives::parse(R"({"blockdevices":[
+      {"path":"/dev/a","type":"disk","children":[{"path":"/dev/md0","type":"raid1","fstype":"ext4","mountpoints":["/mnt/data"]}]},
+      {"path":"/dev/b","type":"disk","children":[{"path":"/dev/md0","type":"raid1","fstype":"ext4","mountpoints":["/mnt/data"]}]}
+    ]})");
+    QCOMPARE(shared.size(), 1);
+    QCOMPARE(shared.first().driveKey(), QString("/dev/md0"));
+    QCOMPARE(shared.first().driveModel, QString("Multiple backing disks"));
+  }
+  void mountedRowsSidebarAndSplitter() {
+    FilesWindow window(Fusion::computerUrl(), false,
+                       temporary.path() + "/drive-layout.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(1000, 900);
+    window.show();
+    window.drives->volumes = computerVolumes();
+    emit window.drives->changed();
+    auto *tab = window.browser();
+    auto group = [tab](const QString &key) -> QWidget * {
+      for (auto *widget : tab->findChildren<QWidget *>("mountedDiskGroup"))
+        if (widget->property("driveKey").toString() == key)
+          return widget;
+      return nullptr;
+    };
+    QTRY_VERIFY(group("/dev/fusion-a"));
+    QCOMPARE(tab->findChildren<QWidget *>("mountedDiskGroup").size(), 2);
+    auto *row = group("/dev/fusion-a")->findChild<QListWidget *>();
+    QCOMPARE(row->count(), 2);
+    QVERIFY(!row->isWrapping());
+    QCOMPARE(tab->cards->count(), 1);
+    QCOMPARE(tab->usbCards->count(), 2);
+    for (int i = 0; i < tab->cards->count(); ++i)
+      QVERIFY(
+          !tab->cards->item(i)->data(Qt::UserRole).value<Volume>().mounted());
+    auto *places = window.findChild<QTreeWidget *>("places");
+    auto sidebar = [places](const QString &name) -> QTreeWidgetItem * {
+      for (int i = 0; i < places->topLevelItemCount(); ++i)
+        if (places->topLevelItem(i)->text(0) == name)
+          return places->topLevelItem(i);
+      return nullptr;
+    };
+    QVERIFY(sidebar("This PC"));
+    QCOMPARE(sidebar("This PC")->childCount(), 4);
+    QVERIFY(sidebar("Unmounted drives"));
+    QCOMPARE(sidebar("Unmounted drives")->childCount(), 2);
+    QVERIFY(sidebar("Unmounted drives")->isExpanded());
+    QVERIFY(places->indexOfTopLevelItem(sidebar("Unmounted drives")) >
+            places->indexOfTopLevelItem(sidebar("Trash")));
+    sidebar("Unmounted drives")->setExpanded(false);
+    row->setCurrentRow(0);
+    row->setFocus();
+    const auto selected = tab->selectedVolume().device;
+    emit window.drives->changed();
+    QCOMPARE(group("/dev/fusion-a")->findChild<QListWidget *>(), row);
+    QCOMPARE(tab->selectedVolume().device, selected);
+    QVERIFY(!sidebar("Unmounted drives")->isExpanded());
+    auto *splitter = tab->findChild<QSplitter *>("driveSections");
+    QCOMPARE(splitter->orientation(), Qt::Vertical);
+    QTest::qWait(100);
+    auto *handle = splitter->handle(1);
+    const auto middle = handle->rect().center();
+    QTest::mousePress(handle, Qt::LeftButton, Qt::NoModifier, middle);
+    QTest::mouseMove(handle, middle + QPoint(0, 35), 20);
+    QTest::mouseRelease(handle, Qt::LeftButton, Qt::NoModifier,
+                        middle + QPoint(0, 35));
+    QVERIFY(!window.preferences.settings.value("computerSections")
+                 .toByteArray()
+                 .isEmpty());
+    const auto sizes = splitter->sizes();
+    emit window.drives->changed();
+    QCOMPARE(splitter->sizes(), sizes);
+    window.resize(800, 900);
+    QTRY_VERIFY(row->horizontalScrollBar()->maximum() > 0);
+    QCOMPARE(row->visualItemRect(row->item(0)).y(),
+             row->visualItemRect(row->item(1)).y());
+    row->horizontalScrollBar()->setValue(80);
+    emit window.drives->changed();
+    QTest::qWait(30);
+    QCOMPARE(row->horizontalScrollBar()->value(), 80);
+    window.activateWindow();
+    row->setFocus();
+    QTest::keyClick(row, Qt::Key_Return, Qt::AltModifier);
+    QTRY_VERIFY(window.findChild<DriveProperties *>());
+    auto *properties = window.findChild<DriveProperties *>();
+    QCOMPARE(properties->findChild<QLabel *>("volumeDevice")->text(), selected);
+    properties->close();
+    QTRY_VERIFY(!window.findChild<DriveProperties *>());
+    places->setCurrentItem(sidebar("This PC")->child(0));
+    window.activateWindow();
+    places->setFocus();
+    QTRY_VERIFY(window.isActiveWindow());
+    QTRY_VERIFY(places->hasFocus());
+    QTest::keyClick(places, Qt::Key_Return, Qt::AltModifier);
+    QTRY_VERIFY(window.findChild<DriveProperties *>());
+    window.findChild<DriveProperties *>()->close();
+    QTRY_VERIFY(!window.findChild<DriveProperties *>());
+    for (auto &volume : window.drives->volumes)
+      if (volume.device == "/dev/fusion-a3")
+        volume.mount = "/media/Windows";
+    emit window.drives->changed();
+    QCOMPARE(row->count(), 3);
+    QCOMPARE(tab->cards->count(), 0);
+    QCOMPARE(sidebar("This PC")->childCount(), 5);
+    for (auto &volume : window.drives->volumes)
+      if (volume.driveKey() == "/dev/fusion-a")
+        volume.mount.clear();
+    emit window.drives->changed();
+    QVERIFY(!group("/dev/fusion-a"));
+    QCOMPARE(tab->cards->count(), 3);
+    QCOMPARE(sidebar("This PC")->childCount(), 2);
+    window.drives->volumes.clear();
+    emit window.drives->changed();
+    QCOMPARE(tab->findChildren<QWidget *>("mountedDiskGroup").size(), 0);
+    QCOMPARE(tab->cards->count(), 0);
+    QCOMPARE(tab->usbCards->count(), 0);
+    QVERIFY(!sidebar("Unmounted drives"));
+    window.close();
+  }
+  void sidebarExpansionSurvivesReopenAndReconnect() {
+    const auto settings = temporary.path() + "/sidebar.ini";
+    const QStringList names{"This PC", "Quick access", "Unmounted drives"};
+    auto sections = [](FilesWindow &window) {
+      QMap<QString, QTreeWidgetItem *> result;
+      auto *tree = window.findChild<QTreeWidget *>("places");
+      for (int i = 0; i < tree->topLevelItemCount(); ++i)
+        result.insert(tree->topLevelItem(i)->text(0), tree->topLevelItem(i));
+      return result;
+    };
+    {
+      FilesWindow window(Fusion::computerUrl(), false, settings);
+      window.setAttribute(Qt::WA_DeleteOnClose, false);
+      window.drives->volumes = computerVolumes();
+      emit window.drives->changed();
+      for (const auto &name : names) {
+        QVERIFY(sections(window).value(name));
+        QVERIFY(sections(window).value(name)->isExpanded());
+        sections(window).value(name)->setExpanded(false);
+      }
+      window.drives->volumes.clear();
+      emit window.drives->changed();
+      QVERIFY(!sections(window).contains("Unmounted drives"));
+      window.drives->volumes = computerVolumes();
+      emit window.drives->changed();
+      for (const auto &name : names)
+        QVERIFY(!sections(window).value(name)->isExpanded());
+      window.close();
+    }
+    {
+      FilesWindow reopened(Fusion::computerUrl(), false, settings);
+      reopened.setAttribute(Qt::WA_DeleteOnClose, false);
+      reopened.drives->volumes = computerVolumes();
+      emit reopened.drives->changed();
+      for (const auto &name : names)
+        QVERIFY(!sections(reopened).value(name)->isExpanded());
+      sections(reopened).value("Quick access")->setExpanded(true);
+      reopened.close();
+    }
+    FilesWindow reopened(Fusion::computerUrl(), false, settings);
+    reopened.drives->volumes = computerVolumes();
+    emit reopened.drives->changed();
+    QVERIFY(sections(reopened).value("Quick access")->isExpanded());
+    QVERIFY(!sections(reopened).value("This PC")->isExpanded());
+    QVERIFY(!sections(reopened).value("Unmounted drives")->isExpanded());
+  }
+  void propertiesOpenSystemCleaner() {
+    const auto originalRoot = qgetenv("XETAL_FILES_ROOT");
+    const auto result = temporary.path() + "/cleaner-arguments";
+    const auto root = temporary.path() + "/cleaner-profile";
+    QVERIFY(QDir().mkpath(root + "/scripts"));
+    const auto script = root + "/scripts/control-panel.sh";
+    write(
+        script,
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$FUSION_CLEANER_TEST_RESULT\"\n");
+    QVERIFY(QFile::setPermissions(script, QFile::ReadOwner | QFile::WriteOwner |
+                                              QFile::ExeOwner));
+    const auto restore = qScopeGuard([&] {
+      qputenv("XETAL_FILES_ROOT", originalRoot);
+      qunsetenv("FUSION_CLEANER_TEST_RESULT");
+    });
+    qputenv("FUSION_CLEANER_TEST_RESULT", result.toUtf8());
+    Drives drives(nullptr, false);
+    DriveProperties dialog(computerVolumes().first(), &drives);
+    dialog.show();
+    qputenv("XETAL_FILES_ROOT", root.toUtf8());
+    auto *button = dialog.findChild<QPushButton *>("systemCleaner");
+    QVERIFY(button);
+    QTest::mouseClick(button, Qt::LeftButton);
+    QTRY_VERIFY(QFileInfo::exists(result));
+    QFile arguments(result);
+    QVERIFY(arguments.open(QIODevice::ReadOnly));
+    QCOMPARE(arguments.readAll(), QByteArray("--section\ncleaner\n"));
+  }
+  void propertiesUsageAndUnavailableSpace() {
+    Drives drives(nullptr, false);
+    auto volume = computerVolumes().first();
+    volume.name = "Projects <b> & 100% %10 backups";
+    volume.size = volume.total = 1000;
+    volume.available = 200;
+    volume.freeBytes = 300;
+    volume.spaceKnown = true;
+    drives.volumes = {volume};
+    DriveProperties dialog(volume, &drives);
+    dialog.show();
+    auto value = [&dialog](const QString &name) {
+      return dialog.findChild<QLabel *>(name);
+    };
+    QCOMPARE(value("volumeHeading")->textFormat(), Qt::PlainText);
+    QCOMPARE(value("volumeHeading")->text(), volume.name);
+    QCOMPARE(value("usedBytes")->text(), QString("700 bytes"));
+    QCOMPARE(value("freeBytes")->text(), QString("200 bytes"));
+    QCOMPARE(value("reservedBytes")->text(), QString("100 bytes"));
+    QCOMPARE(value("capacityBytes")->text(),
+             QLocale().toString(1000) + " bytes");
+    QVERIFY(dialog.findChild<QPushButton *>("openVolume")->isVisible());
+    QVERIFY(dialog.findChild<QWidget *>("storageChart")
+                ->accessibleDescription()
+                .contains("700 bytes"));
+    drives.volumes[0].available = 400;
+    drives.volumes[0].freeBytes = 450;
+    emit drives.changed();
+    QCOMPARE(value("usedBytes")->text(), QString("550 bytes"));
+    QCOMPARE(value("freeBytes")->text(), QString("400 bytes"));
+    drives.volumes[0].mount.clear();
+    drives.volumes[0].total = 0;
+    emit drives.changed();
+    QCOMPARE(value("usedValue")->text(), QString("—"));
+    QCOMPARE(value("freeBytes")->text(), QString("Unavailable"));
+    QCOMPARE(value("capacityBytes")->text(),
+             QLocale().toString(1000) + " bytes");
+    QVERIFY(value("usageHint")->text().contains("Mount this volume"));
+    QVERIFY(!dialog.findChild<QPushButton *>("openVolume")->isVisible());
+    drives.volumes.clear();
+    emit drives.changed();
+    QCOMPARE(value("volumeStatus")->text(), QString("Disconnected"));
+    for (auto *button : dialog.findChildren<QPushButton *>())
+      if (button->text() == "Copy details") {
+        QTest::mouseClick(button, Qt::LeftButton);
+        QVERIFY(
+            QApplication::clipboard()->text().startsWith(volume.name + '\n'));
+        QVERIFY(QApplication::clipboard()->text().contains("Device: " +
+                                                           volume.device));
+      }
+    dialog.close();
+  }
+  void computerClipboardAndDriveMenu() {
+    const QString source = folder + "/usb-source",
+                  destination = folder + "/usb-target";
+    QDir().mkpath(source);
+    QDir().mkpath(destination);
+    write(source + "/copy # 100%.txt", "copied safely\n");
+    write(source + "/move.txt", "moved safely\n");
+    write(source + "/menu.txt", "pasted from the menu\n");
+    QStorageInfo storage(destination);
+    Volume usb;
+    usb.device = QString::fromLocal8Bit(storage.device());
+    usb.name = "Test USB";
+    usb.mount = destination;
+    usb.filesystem = "ext4";
+    usb.transport = "usb"; // USB SSDs often report RM=0.
+    usb.uuid = "test-only";
+    QVERIFY(QFileInfo::exists(usb.device));
+    FilesWindow window(QUrl::fromLocalFile(source), false,
+                       temporary.path() + "/usb-copy.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.drives->volumes = {usb};
+    emit window.drives->changed();
+    window.show();
+    auto *tab = window.browser();
+    QTRY_COMPARE(tab->proxy->rowCount(), 3);
+    tab->selectUrl(QUrl::fromLocalFile(source + "/copy # 100%.txt"));
+    focus(tab);
+    QTest::keyClick(tab->view(), Qt::Key_C, Qt::ControlModifier);
+    QCOMPARE(QApplication::clipboard()->mimeData()->urls().size(), 1);
+    window.openLocation(Fusion::computerUrl());
+    QCOMPARE(tab->usbCards->count(), 1);
+    auto selectDrive = [&] {
+      tab->usbCards->setCurrentRow(0);
+      window.activateWindow();
+      tab->usbCards->setFocus();
+      QTest::qWait(30);
+    };
+    selectDrive();
+    QTest::keyClick(tab->usbCards, Qt::Key_V, Qt::ControlModifier);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        QFileInfo::exists(destination + "/copy # 100%.txt"), 10000);
+    QVERIFY(QFileInfo::exists(source + "/copy # 100%.txt"));
+    window.openLocation(QUrl::fromLocalFile(source));
+    QTRY_COMPARE(tab->proxy->rowCount(), 3);
+    tab->selectUrl(QUrl::fromLocalFile(source + "/move.txt"));
+    focus(tab);
+    QTest::keyClick(tab->view(), Qt::Key_X, Qt::ControlModifier);
+    window.openLocation(Fusion::computerUrl());
+    selectDrive();
+    QTest::keyClick(tab->usbCards, Qt::Key_V, Qt::ControlModifier);
+    QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(destination + "/move.txt"),
+                             10000);
+    QTRY_VERIFY(!QFileInfo::exists(source + "/move.txt"));
+    QTest::keyClick(tab->usbCards, Qt::Key_C, Qt::ControlModifier);
+    QCOMPARE(QApplication::clipboard()->mimeData()->urls(),
+             QList<QUrl>{QUrl::fromLocalFile(destination)});
+    auto *data = new QMimeData;
+    data->setUrls({QUrl::fromLocalFile(source + "/menu.txt")});
+    QApplication::clipboard()->setMimeData(data);
+    bool copyEnabled = false, cutDisabled = false, pasteEnabled = false,
+         arkPresent = false;
+    QTimer::singleShot(0, &window, [&] {
+      auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+      if (!menu)
+        return;
+      auto *copy = menu->findChild<QAction *>("copy");
+      auto *cut = menu->findChild<QAction *>("cut");
+      auto *paste = menu->findChild<QAction *>("paste");
+      copyEnabled = copy && copy->isEnabled();
+      cutDisabled = cut && !cut->isEnabled();
+      pasteEnabled = paste && paste->isEnabled();
+      arkPresent = menu->findChild<QMenu *>("arkMenu");
+      if (paste)
+        paste->trigger();
+      menu->close();
+    });
+    window.drives->menu(usb, window.mapToGlobal(QPoint(30, 30)), &window);
+    QVERIFY(copyEnabled && cutDisabled && pasteEnabled && arkPresent);
+    QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(destination + "/menu.txt"),
+                             10000);
+    write(source + "/disconnected.txt");
+    data = new QMimeData;
+    data->setUrls({QUrl::fromLocalFile(source + "/disconnected.txt")});
+    QApplication::clipboard()->setMimeData(data);
+    window.drives->volumes[0].mount.clear();
+    emit window.drives->changed();
+    selectDrive();
+    QTest::keyClick(tab->usbCards, Qt::Key_V, Qt::ControlModifier);
+    QTest::qWait(100);
+    QVERIFY(!QFileInfo::exists(destination + "/disconnected.txt"));
+    QVERIFY(window.drives->mountedLocation(usb).isEmpty());
+    QFile copied(destination + "/copy # 100%.txt");
+    QVERIFY(copied.open(QIODevice::ReadOnly));
+    QCOMPARE(copied.readAll(), QByteArray("copied safely\n"));
+    window.close();
+  }
+  void defaultApplicationAndArkMenu() {
+    const QString applications =
+        qEnvironmentVariable("XDG_DATA_HOME") + "/applications";
+    QDir().mkpath(applications);
+    write(applications + "/fusion-test-editor.desktop",
+          "[Desktop Entry]\nType=Application\nName=Fusion Test "
+          "Editor\nExec=/bin/true %U\nMimeType=text/plain;\n");
+    write(qEnvironmentVariable("XDG_CONFIG_HOME") + "/mimeapps.list",
+          "[Default Applications]\ntext/plain=fusion-test-editor.desktop;\n");
+    QCOMPARE(QProcess::execute("kbuildsycoca6", {"--noincremental"}), 0);
+    const QString sample = folder + "/archive-menu";
+    QDir().mkpath(sample);
+    write(sample + "/archive me.txt", "archive fixture\n");
+    FilesWindow window(QUrl::fromLocalFile(sample), false,
+                       temporary.path() + "/menu.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.show();
+    auto *tab = window.browser();
+    QTRY_COMPARE(tab->proxy->rowCount(), 1);
+    tab->selectUrl(QUrl::fromLocalFile(sample + "/archive me.txt"));
+    bool openNamed = false, chooser = false, copy = false, cut = false,
+         paste = false;
+    QStringList compression;
+    QTimer::singleShot(0, &window, [&] {
+      auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+      if (!menu)
+        return;
+      auto *open = menu->findChild<QAction *>("open");
+      openNamed = open && open->text() == "Open with Fusion Test Editor";
+      chooser = menu->findChild<QAction *>("openWith");
+      copy = menu->findChild<QAction *>("copy");
+      cut = menu->findChild<QAction *>("cut");
+      paste = menu->findChild<QAction *>("paste");
+      if (auto *ark = menu->findChild<QMenu *>("arkMenu"))
+        for (auto *action : ark->actions())
+          if (!action->isSeparator())
+            compression << action->text();
+      const auto capture = qEnvironmentVariable("FUSION_FILES_CAPTURE");
+      if (!capture.isEmpty())
+        menu->grab().save(capture + "-menu.png");
+      menu->close();
+    });
+    emit tab->contextRequested(window.mapToGlobal(QPoint(40, 80)));
+    QVERIFY(openNamed && chooser && copy && cut && paste);
+    QVERIFY2(compression.size() >= 2, qPrintable(compression.join(" | ")));
+    QVERIFY2(std::any_of(compression.cbegin(), compression.cend(),
+                         [](const QString &text) {
+                           return text.contains("zip", Qt::CaseInsensitive);
+                         }),
+             qPrintable(compression.join(" | ")));
+    QTimer::singleShot(0, &window, [&] {
+      auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+      if (!menu)
+        return;
+      if (auto *ark = menu->findChild<QMenu *>("arkMenu"))
+        for (auto *action : ark->actions())
+          if (action->text().contains("zip", Qt::CaseInsensitive)) {
+            action->trigger();
+            break;
+          }
+      menu->close();
+    });
+    emit tab->contextRequested(window.mapToGlobal(QPoint(40, 80)));
+    QTRY_COMPARE_WITH_TIMEOUT(
+        QDir(sample).entryList({"*.zip"}, QDir::Files).size(), 1, 15000);
+    const QString archive = QDir(sample).filePath(
+        QDir(sample).entryList({"*.zip"}, QDir::Files).first());
+    QProcess verify;
+    verify.start("python3",
+                 {"-c",
+                  "import sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); assert "
+                  "z.read('archive me.txt') == b'archive fixture\\n'",
+                  archive});
+    QVERIFY(verify.waitForFinished(5000));
+    QCOMPARE(verify.exitCode(), 0);
+    window.close();
   }
   void keyboardAndOperations() {
     const QString source = folder + "/source", dest = folder + "/destination",
@@ -339,20 +810,26 @@ private slots:
       QTest::qWait(700);
       QVERIFY(window.grab().save(capture + "-folder.png"));
       window.openLocation(Fusion::computerUrl());
-      window.drives->volumes = {
-          {"/dev/fixture1", "Linux system", "ext4", "/", "part", "one",
-           512000000000ULL, 186000000000ULL, 512000000000ULL, false, false},
-          {"/dev/fixture2", "Projects", "ext4", "/media/Projects", "part",
-           "two", 1000000000000ULL, 740000000000ULL, 1000000000000ULL, false,
-           false},
-          {"/dev/fixture3", "Windows", "ntfs", "", "part", "three",
-           512000000000ULL, 0, 0, false, false},
-          {"/dev/fixture4", "USB drive", "exfat", "", "part", "four",
-           64000000000ULL, 0, 0, true, false}};
+      window.drives->volumes = computerVolumes();
       emit window.drives->changed();
       window.runAction("preview");
+      window.resize(1280, 1120);
       QTest::qWait(150);
       QVERIFY(window.grab().save(capture + "-computer.png"));
+      auto system = *std::find_if(
+          window.drives->volumes.cbegin(), window.drives->volumes.cend(),
+          [](const Volume &v) { return v.mount == "/"; });
+      system.available = system.total * 31 / 100;
+      system.freeBytes = system.total * 36 / 100;
+      system.uuid = "01234567-89ab-cdef-0123-456789abcdef";
+      DriveProperties properties(system, window.drives, &window);
+      properties.show();
+      QTest::qWait(100);
+      QVERIFY(properties.grab().save(capture + "-properties.png"));
+      QVERIFY(Fusion::icon("fusion-computer")
+                  .pixmap(256, 256)
+                  .save(capture + "-icon.png"));
+      properties.close();
     }
     window.close();
   }

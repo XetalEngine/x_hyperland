@@ -4,6 +4,7 @@ namespace XetalPreview {
 class Pane;
 }
 class KJob;
+class KAbstractFileItemActionPlugin;
 
 class FilesWindow : public QMainWindow {
   Q_OBJECT
@@ -38,11 +39,17 @@ private:
   QProcess theme;
   QTimer themeDebounce;
   QHash<QString, QAction *> shortcuts;
+  QHash<QString, KAbstractFileItemActionPlugin *> arkPlugins;
   void addTab(const QUrl &url);
   void rebuildPlaces();
   void pin(const QUrl &url);
   void placeMenu(const QPoint &point);
   void fileMenu(const QPoint &point);
+  void computerMenu(const QPoint &point);
+  void addVolumeActions(QMenu *menu, const Volume &volume);
+  void volumeAction(const Volume &volume, const QString &id);
+  void addArkActions(QMenu *menu, const KFileItemList &items, bool compress,
+                     bool extract, const std::function<bool()> &guard = {});
   void customizeMenu();
   void updateCurrent();
   void updatePreview();

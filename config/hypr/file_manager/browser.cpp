@@ -44,20 +44,81 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
   auto *title = new QLabel("This PC");
   title->setObjectName("computerTitle");
   homeLayout->addWidget(title);
-  auto *subtitle = new QLabel("Devices & drives");
-  subtitle->setObjectName("muted");
-  homeLayout->addWidget(subtitle);
+  driveSplitter = new QSplitter(Qt::Vertical);
+  driveSplitter->setObjectName("driveSections");
+  driveSplitter->setChildrenCollapsible(false);
+  driveSplitter->setHandleWidth(9);
+  auto *mountedPanel = new QWidget;
+  mountedPanel->setMinimumHeight(145);
+  auto *mountedPanelLayout = new QVBoxLayout(mountedPanel);
+  mountedPanelLayout->setContentsMargins(0, 0, 0, 9);
+  auto *mountedTitle = new QLabel("Mounted drives");
+  mountedTitle->setObjectName("driveSectionTitle");
+  mountedPanelLayout->addWidget(mountedTitle);
+  mountedScroll = new QScrollArea;
+  mountedScroll->setObjectName("mountedDrives");
+  mountedScroll->setWidgetResizable(true);
+  mountedScroll->setFrameShape(QFrame::NoFrame);
+  mountedScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  auto *mountedBody = new QWidget;
+  mountedBody->setObjectName("mountedDriveRows");
+  mountedLayout = new QVBoxLayout(mountedBody);
+  mountedLayout->setContentsMargins(0, 0, 0, 0);
+  mountedLayout->setSpacing(14);
+  mountedEmpty = new QLabel("No mounted internal drives.");
+  mountedEmpty->setObjectName("muted");
+  mountedLayout->addWidget(mountedEmpty);
+  mountedLayout->addStretch();
+  mountedScroll->setWidget(mountedBody);
+  mountedPanelLayout->addWidget(mountedScroll, 1);
+  driveSplitter->addWidget(mountedPanel);
+  auto *usbPanel = new QWidget;
+  usbPanel->setObjectName("usbDrivePanel");
+  usbPanel->setMinimumHeight(95);
+  auto *usbLayout = new QVBoxLayout(usbPanel);
+  usbLayout->setContentsMargins(0, 9, 0, 9);
+  auto *usbTitle = new QLabel("USB devices");
+  usbTitle->setObjectName("driveSectionTitle");
+  usbLayout->addWidget(usbTitle);
+  usbEmpty = new QLabel("No USB devices connected.");
+  usbEmpty->setObjectName("muted");
+  usbLayout->addWidget(usbEmpty);
+  usbCards = new QListWidget;
+  configureCards(usbCards);
+  usbLayout->addWidget(usbCards, 1);
+  driveSplitter->addWidget(usbPanel);
+  auto *unmountedPanel = new QWidget;
+  unmountedPanel->setMinimumHeight(175);
+  auto *unmountedLayout = new QVBoxLayout(unmountedPanel);
+  unmountedLayout->setContentsMargins(0, 12, 0, 0);
+  auto *unmountedTitle = new QLabel("Unmounted drives");
+  unmountedTitle->setObjectName("driveSectionTitle");
+  unmountedLayout->addWidget(unmountedTitle);
+  unmountedEmpty = new QLabel("No unmounted internal drives.");
+  unmountedEmpty->setObjectName("muted");
+  unmountedLayout->addWidget(unmountedEmpty);
   cards = new QListWidget;
-  cards->setObjectName("driveCards");
-  cards->setViewMode(QListView::IconMode);
-  cards->setResizeMode(QListView::Adjust);
-  cards->setMovement(QListView::Static);
-  cards->setSpacing(2);
-  cards->setGridSize({328, 116});
-  cards->setMouseTracking(true);
-  cards->setItemDelegate(new DriveDelegate(cards));
-  cards->setContextMenuPolicy(Qt::CustomContextMenu);
-  homeLayout->addWidget(cards, 1);
+  configureCards(cards);
+  unmountedLayout->addWidget(cards, 1);
+  driveSplitter->addWidget(unmountedPanel);
+  driveSplitter->setStretchFactor(0, 0);
+  driveSplitter->setStretchFactor(1, 0);
+  driveSplitter->setStretchFactor(2, 1);
+  driveSplitter->setSizes({235, 155, 250});
+  driveSplitter->handle(1)->setToolTip(
+      "Drag to resize mounted drives and USB devices");
+  driveSplitter->handle(2)->setToolTip(
+      "Drag to resize USB devices and unmounted drives");
+  if (preferences->settings.contains("computerSections")) {
+    driveLayoutReady = driveSplitter->restoreState(
+        preferences->settings.value("computerSections").toByteArray());
+  }
+  connect(driveSplitter, &QSplitter::splitterMoved, this, [this] {
+    driveLayoutReady = true;
+    preferences->settings.setValue("computerSections",
+                                   driveSplitter->saveState());
+  });
+  homeLayout->addWidget(driveSplitter, 1);
   auto *hint = new QLabel(
       "Double-click a drive to open it. Right-click for mount options.");
   hint->setObjectName("muted");
@@ -186,18 +247,6 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
   connect(proxy, &QAbstractItemModel::rowsRemoved, this,
           [this] { updateStatus(); });
   connect(drives, &Drives::changed, this, &Browser::updateCards);
-  connect(cards, &QListWidget::itemDoubleClicked, this,
-          [this](QListWidgetItem *item) {
-            drives->operate(item->data(Qt::UserRole).value<Volume>(), "open",
-                            this);
-          });
-  cards->installEventFilter(this);
-  connect(cards, &QWidget::customContextMenuRequested, this,
-          [this](const QPoint &point) {
-            if (auto *item = cards->itemAt(point))
-              drives->menu(item->data(Qt::UserRole).value<Volume>(),
-                           cards->viewport()->mapToGlobal(point), this);
-          });
   model->dirLister()->setShowHiddenFiles(
       preferences->settings.value("hidden", false).toBool());
   setView(preferences->settings.value("view", 2).toInt());
@@ -308,33 +357,197 @@ QList<QUrl> Browser::selectedUrls() const {
   return urls;
 }
 void Browser::selectAll() {
-  if (Fusion::isComputer(location()))
-    cards->selectAll();
-  else
+  if (Fusion::isComputer(location())) {
+    for (auto *list : driveLists)
+      if (list->hasFocus()) {
+        list->selectAll();
+        return;
+      }
+  } else
     view()->selectAll();
 }
+Volume Browser::selectedVolume() const {
+  for (auto *list : driveLists)
+    if (!list->selectedItems().isEmpty())
+      return list->selectedItems().first()->data(Qt::UserRole).value<Volume>();
+  return {};
+}
+void Browser::configureCards(QListWidget *list) {
+  list->setObjectName("driveCards");
+  list->setViewMode(QListView::IconMode);
+  list->setResizeMode(QListView::Adjust);
+  list->setMovement(QListView::Static);
+  list->setSpacing(2);
+  list->setGridSize({328, 116});
+  list->setMouseTracking(true);
+  list->setFrameShape(QFrame::NoFrame);
+  list->setItemDelegate(new DriveDelegate(list));
+  list->setContextMenuPolicy(Qt::CustomContextMenu);
+  list->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+  list->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+  list->installEventFilter(this);
+  driveLists.append(list);
+  connect(list, &QListWidget::itemSelectionChanged, this, [this, list] {
+    if (list->selectedItems().isEmpty())
+      return;
+    for (auto *other : driveLists)
+      if (other != list) {
+        QSignalBlocker blocker(other);
+        other->clearSelection();
+      }
+  });
+  connect(list, &QListWidget::itemDoubleClicked, this,
+          [this](QListWidgetItem *item) {
+            drives->operate(item->data(Qt::UserRole).value<Volume>(), "open",
+                            this);
+          });
+  connect(list, &QWidget::customContextMenuRequested, this,
+          [this, list](const QPoint &point) {
+            if (auto *item = list->itemAt(point)) {
+              list->setCurrentItem(item);
+              drives->menu(item->data(Qt::UserRole).value<Volume>(),
+                           list->viewport()->mapToGlobal(point), this);
+            } else
+              emit computerContextRequested(
+                  list->viewport()->mapToGlobal(point));
+          });
+}
 void Browser::updateCards() {
-  const int scroll = cards->verticalScrollBar()->value();
-  QString selected;
-  if (cards->currentItem())
-    selected = cards->currentItem()->data(Qt::UserRole).value<Volume>().device;
-  cards->clear();
-  for (const auto &volume : drives->volumes) {
-    auto *item = new QListWidgetItem(cards);
-    item->setData(Qt::UserRole, QVariant::fromValue(volume));
-    item->setText(volume.name);
-    item->setToolTip(volume.name + "\n" + volume.device +
-                     (volume.mount.isEmpty() ? "" : "\n" + volume.mount));
-    if (volume.device == selected)
-      cards->setCurrentItem(item);
+  const QString selected = selectedVolume().device;
+  const int mountedPosition = mountedScroll->verticalScrollBar()->value();
+  QMap<QString, QList<Volume>> groups;
+  QStringList order;
+  QList<Volume> unmounted, usb;
+  for (const auto &volume : drives->volumes)
+    if (volume.usb())
+      usb << volume;
+    else if (volume.mounted()) {
+      const QString key = volume.driveKey();
+      if (!groups.contains(key))
+        order << key;
+      groups[key] << volume;
+    } else
+      unmounted << volume;
+  for (const auto &key : mountedGroups.keys())
+    if (!groups.contains(key)) {
+      auto *group = mountedGroups.take(key);
+      auto *list = group->findChild<QListWidget *>();
+      driveLists.removeAll(list);
+      mountedLayout->removeWidget(group);
+      delete group;
+    }
+  auto populate = [&](QListWidget *list, const QList<Volume> &volumes) {
+    const int vertical = list->verticalScrollBar()->value();
+    const int horizontal = list->horizontalScrollBar()->value();
+    QSignalBlocker blocker(list);
+    // Update matching items in place, so a periodic space refresh cannot
+    // interrupt a click, keyboard focus or a horizontally scrolled row.
+    for (int i = 0; i < volumes.size(); ++i) {
+      const auto &volume = volumes[i];
+      QListWidgetItem *item = i < list->count() ? list->item(i) : nullptr;
+      if (!item ||
+          item->data(Qt::UserRole).value<Volume>().device != volume.device) {
+        int found = -1;
+        for (int j = i + 1; j < list->count(); ++j)
+          if (list->item(j)->data(Qt::UserRole).value<Volume>().device ==
+              volume.device) {
+            found = j;
+            break;
+          }
+        item = found >= 0 ? list->takeItem(found) : new QListWidgetItem;
+        list->insertItem(i, item);
+      }
+      item->setData(Qt::UserRole, QVariant::fromValue(volume));
+      item->setText(volume.name);
+      item->setToolTip(volume.name + "\n" + volume.device +
+                       (volume.mount.isEmpty() ? "" : "\n" + volume.mount));
+      if (volume.device == selected)
+        list->setCurrentItem(item);
+    }
+    while (list->count() > volumes.size())
+      delete list->takeItem(list->count() - 1);
+    list->verticalScrollBar()->setValue(vertical);
+    list->horizontalScrollBar()->setValue(horizontal);
+  };
+  for (int i = 0; i < order.size(); ++i) {
+    const auto &key = order[i];
+    const auto &volumes = groups[key];
+    QWidget *group = mountedGroups.value(key);
+    if (!group) {
+      group = new QWidget;
+      group->setObjectName("mountedDiskGroup");
+      group->setProperty("driveKey", key);
+      auto *layout = new QVBoxLayout(group);
+      layout->setContentsMargins(0, 0, 0, 0);
+      layout->setSpacing(3);
+      auto *heading = new QLabel;
+      heading->setObjectName("driveRowTitle");
+      heading->setTextFormat(Qt::PlainText);
+      heading->setWordWrap(true);
+      auto *description = new QLabel;
+      description->setObjectName("driveRowDescription");
+      description->setTextFormat(Qt::PlainText);
+      description->setWordWrap(true);
+      layout->addWidget(heading);
+      layout->addWidget(description);
+      auto *list = new QListWidget;
+      configureCards(list);
+      list->setProperty("driveKey", key);
+      list->setWrapping(false);
+      list->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+      list->setFixedHeight(140);
+      layout->addWidget(list);
+      mountedGroups.insert(key, group);
+    }
+    mountedLayout->insertWidget(i, group);
+    const auto &disk = volumes.first();
+    group->findChild<QLabel *>("driveRowTitle")
+        ->setText(disk.driveModel.isEmpty() ? QFileInfo(key).fileName()
+                                            : disk.driveModel);
+    QStringList description{key};
+    if (disk.driveSize)
+      description << QLocale().formattedDataSize(disk.driveSize);
+    description << QString("%1 mounted %2")
+                       .arg(volumes.size())
+                       .arg(volumes.size() == 1 ? "partition" : "partitions");
+    group->findChild<QLabel *>("driveRowDescription")
+        ->setText(description.join(" · "));
+    populate(group->findChild<QListWidget *>(), volumes);
   }
-  cards->verticalScrollBar()->setValue(scroll);
+  populate(cards, unmounted);
+  std::stable_sort(usb.begin(), usb.end(),
+                   [](const Volume &a, const Volume &b) {
+                     return a.mounted() && !b.mounted();
+                   });
+  populate(usbCards, usb);
+  mountedEmpty->setVisible(groups.isEmpty());
+  unmountedEmpty->setVisible(unmounted.isEmpty());
+  usbEmpty->setVisible(usb.isEmpty());
+  usbCards->parentWidget()->setMinimumHeight(usb.isEmpty() ? 95 : 175);
+  mountedScroll->verticalScrollBar()->setValue(mountedPosition);
+  if (!driveLayoutReady && !drives->volumes.isEmpty()) {
+    driveLayoutReady = true;
+    QTimer::singleShot(0, this, [this] {
+      const int available = driveSplitter->height();
+      const int wanted =
+          mountedGroups.isEmpty() ? 145 : mountedGroups.size() * 190 + 38;
+      const int top = qMin(wanted, qMax(145, int(available * .5)));
+      const int middle = usbCards->count() ? 170 : 95;
+      driveSplitter->setSizes(
+          {top, middle, qMax(145, available - top - middle)});
+    });
+  }
   if (Fusion::isComputer(location()))
     updateStatus();
 }
 void Browser::updateStatus() {
   if (Fusion::isComputer(location())) {
-    emit statusChanged(QString("%1 volumes").arg(drives->volumes.size()));
+    const int mounted =
+        std::count_if(drives->volumes.cbegin(), drives->volumes.cend(),
+                      [](const Volume &v) { return v.mounted(); });
+    emit statusChanged(QString("%1 mounted · %2 unmounted")
+                           .arg(mounted)
+                           .arg(drives->volumes.size() - mounted));
     return;
   }
   const auto items = selectedItems();
@@ -368,14 +581,18 @@ KFileItem Browser::itemAt(QAbstractItemView *view,
   return model->itemForIndex(proxy->mapToSource(view->indexAt(position)));
 }
 bool Browser::eventFilter(QObject *watched, QEvent *event) {
+  if (!icons || !details)
+    return QWidget::eventFilter(watched, event);
   if (event->type() == QEvent::KeyPress) {
     auto *key = static_cast<QKeyEvent *>(event);
     if (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter) {
-      if (watched == cards && cards->currentItem())
-        drives->operate(
-            cards->currentItem()->data(Qt::UserRole).value<Volume>(), "open",
-            this);
-      else
+      if (auto *list = qobject_cast<QListWidget *>(watched);
+          driveLists.contains(list)) {
+        if (list->currentItem())
+          drives->operate(
+              list->currentItem()->data(Qt::UserRole).value<Volume>(), "open",
+              this);
+      } else
         for (const auto &item : selectedItems())
           emit openRequested(item, false);
       return true;
