@@ -234,6 +234,21 @@ static void toggled(GtkCheckMenuItem *item, gpointer data) {
     save(data, g_object_get_data(G_OBJECT(item), "module-id"), gtk_check_menu_item_get_active(item), FALSE, NULL);
 }
 
+static void ready_toggled(GtkCheckMenuItem *item, gpointer data) {
+    save(data, "custom/updates#ready", !gtk_check_menu_item_get_active(item), FALSE, NULL);
+}
+
+static GtkWidget *ready_option(Options *o) {
+    GtkWidget *item = gtk_check_menu_item_new_with_label("Hide Update Ready");
+    gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), g_hash_table_contains(o->hidden, "custom/updates#ready"));
+    gtk_widget_set_sensitive(item, !o->saving);
+    gtk_widget_set_tooltip_text(item, "Hide the update-ready and restart notices. Update checks, new updates and errors stay visible.");
+    g_object_set_data(G_OBJECT(item), "module-id", "custom/updates#ready");
+    g_object_set_data_full(G_OBJECT(item), "owner", retain(o), release);
+    g_signal_connect(item, "toggled", G_CALLBACK(ready_toggled), o);
+    return item;
+}
+
 static void reset(GtkMenuItem *item, gpointer data) { save(data, NULL, TRUE, TRUE, NULL); }
 
 static void edge_toggled(GtkCheckMenuItem *item, gpointer data) {
@@ -262,6 +277,8 @@ static GtkWidget *submenu(gpointer data) {
     /* Connect after both initial states are set, so opening Options never saves. */
     for (GSList *it = edges; it; it = it->next)
         g_signal_connect(it->data, "toggled", G_CALLBACK(edge_toggled), o);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), ready_option(o));
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
     const char *group = NULL;
     for (guint i = 0; i < G_N_ELEMENTS(items); i++) {
@@ -392,6 +409,8 @@ static void pressed(GtkGestureMultiPress *gesture, gint count, gdouble x, gdoubl
     gtk_gesture_set_state(GTK_GESTURE(gesture), GTK_EVENT_SEQUENCE_CLAIMED);
     GtkWidget *menu = gtk_menu_new(); o->menu = menu;
     xetal_append_bar_options(menu, o->root, FALSE);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), ready_option(o));
     if (!strcmp(id, "group/audio") || !strcmp(id, "pulseaudio#microphone") || !strcmp(id, "mpris")
             || !strcmp(id, "custom/notifications") || !strcmp(id, "cpu") || !strcmp(id, "custom/launcher") || !strcmp(id, "custom/power")) {
         gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());

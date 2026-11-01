@@ -1,6 +1,7 @@
 #include "native.h"
 #include "window_sizing.h"
 #include "ram_cleaner.h"
+#include "grub_editor.h"
 #include "backend/mainwindow.h"
 #include <QFileSystemWatcher>
 #include <QJsonArray>
@@ -330,6 +331,7 @@ startupDone:
 void PanelController::prepareTools() {
   auto *rootTabs = owner->findChild<QTabWidget *>("tabWidget");
   rootTabs->addTab(new RamCleaner(HyperPanel::root() + "/control_panel/ram_cleaner.py", rootTabs), "RAM Cleaner");
+  rootTabs->addTab(new GrubEditor(HyperPanel::root() + "/control_panel/grub_editor.py", rootTabs), "GRUB Boot Editor");
   auto promote = [this, rootTabs](const QString &name, const QString &title) {
     auto *page = owner->findChild<QWidget *>(name);
     if (!page) return;

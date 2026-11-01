@@ -38,6 +38,8 @@ set(PROJECT_SOURCES
     ../disk_layout.h
     ../ram_cleaner.cpp
     ../ram_cleaner.h
+    ../grub_editor.cpp
+    ../grub_editor.h
         mainwindow.cpp
         mainwindow.h
         mainwindow.ui
@@ -122,6 +124,17 @@ else()
             ${PROJECT_SOURCES}
         )
     endif()
+endif()
+
+option(BUILD_GRUB_EDITOR_TESTS "Build isolated GRUB editor interface checks" OFF)
+if(BUILD_GRUB_EDITOR_TESTS)
+    enable_testing()
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(grub_editor_tests tests/grub_editor_tests.cpp ../grub_editor.cpp ../grub_editor.h)
+    target_include_directories(grub_editor_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    target_link_libraries(grub_editor_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME grub_editor COMMAND grub_editor_tests)
+    set_tests_properties(grub_editor PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
 
 target_link_libraries(CachyOsTools PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Network Qt${QT_VERSION_MAJOR}::DBus)

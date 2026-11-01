@@ -15,6 +15,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | System ISO | Full system clone, exclusions, online/offline packages, archive selection/verification, first-boot hardware/identity changes, output, restore guide, dependency checks and dummy installer preview |
 | System Backup / System Restore | Source/destination drives, filesystem browsing, rsync backup and restore |
 | Drives & Storage | Filters, mounts, labels, formatting, ownership/permissions, SMART health, benchmarking and ISO to USB |
+| GRUB Boot Editor | Select a drive, automatically find Windows/Linux boot files, name and add an entry; rename, remove, backups and undo. [Guide →](GRUB-BOOT-EDITOR.md) |
 | Restore Points | Snapper/Btrfs snapshot management |
 | Logs & Reports | Plain-text hardware reports, decoded login history, journal filters, boot selection and live following |
 | System Overview | Health, resource use, quick actions and language selection |

@@ -134,6 +134,21 @@ static void gui_tests(void) {
     g_assert_cmpint(hidden_width, <, full_width);
     gtk_widget_show_all(a.region);
     g_assert_false(gtk_widget_get_visible(slot(a.options, "cpu")->wrapper));
+
+    /* The ready-only choice persists across bars without hiding other updates. */
+    GtkWidget *ready = option(menu, "custom/updates#ready");
+    g_assert_false(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(ready)));
+    gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(ready), TRUE);
+    for (int i = 0; i < 100 && a.options->saving; i++) pump(10);
+    pump(350);
+    g_assert_true(g_hash_table_contains(a.options->hidden, "custom/updates#ready"));
+    g_assert_true(g_hash_table_contains(b.options->hidden, "custom/updates#ready"));
+    g_assert_false(g_hash_table_contains(a.options->hidden, "custom/updates"));
+    g_assert_true(g_hash_table_contains(a.options->hidden, "cpu"));
+    GtkWidget *other_menu = g_object_ref_sink(submenu(b.options));
+    g_assert_true(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(option(other_menu, "custom/updates#ready"))));
+    g_assert_false(b.options->saving);
+    gtk_widget_destroy(other_menu); g_object_unref(other_menu);
     gtk_widget_destroy(menu); g_object_unref(menu);
 
     /* Showing a naturally unavailable module must not create a blank placeholder. */
@@ -149,6 +164,15 @@ static void gui_tests(void) {
     for (int i = 0; i < 100 && a.options->saving; i++) pump(10);
     g_assert_cmpuint(g_hash_table_size(a.options->hidden), ==, 0);
     g_assert_true(a.options->bottom);
+    menu = g_object_ref_sink(submenu(a.options));
+    ready = option(menu, "custom/updates#ready");
+    g_assert_false(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(ready)));
+    gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(ready), TRUE);
+    for (int i = 0; i < 100 && a.options->saving; i++) pump(10);
+    gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(ready), FALSE);
+    for (int i = 0; i < 100 && a.options->saving; i++) pump(10);
+    g_assert_false(g_hash_table_contains(a.options->hidden, "custom/updates#ready"));
+    gtk_widget_destroy(menu); g_object_unref(menu);
 
     /* An external pin menu can outlive the module. Reload restores original packing. */
     menu = g_object_ref_sink(gtk_menu_new());

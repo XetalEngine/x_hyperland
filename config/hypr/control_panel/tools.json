@@ -4,6 +4,7 @@
     {"id":"backup","title":"System Backup","description":"Choose sources and backup drives","icon":"document-save-all","path":["backupTab"]},
     {"id":"restore","title":"System Restore","description":"Restore files from a backup","icon":"document-revert","path":["restoreTab"]},
     {"id":"drives","title":"Drives & Storage","description":"Mounts, labels, SMART and ISO to USB","icon":"drive-harddisk","path":["driveToolsTab"],"keywords":"format permissions ownership partitions"},
+    {"id":"grub","title":"GRUB Boot Editor","description":"Add a Windows or Linux drive to your boot menu","icon":"system-reboot","path":["grubEditorTab"],"keywords":"bootloader dual boot multiboot EFI UEFI BIOS EasyBCD windows linux drive partition"},
     {"id":"snapshots","title":"Restore Points","description":"Snapper and Btrfs snapshots","icon":"edit-undo","path":["dashboardTab","restorePointsSubTab"]},
     {"id":"logs","title":"Logs & Reports","description":"Journals, boots and hardware reports","icon":"utilities-log-viewer","path":["logsTab"]}
   ]},

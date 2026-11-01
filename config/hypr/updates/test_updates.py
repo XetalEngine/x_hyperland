@@ -365,6 +365,37 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
                 self.assertTrue(service.badge(value)['text'])
         self.assertIn('ROLLBACK', service.badge({'phase':'rollback'})['text'])
 
+    def test_bar_choice_hides_only_ready_and_restart_notices(self):
+        options = self.live/'waybar/options.json'
+        engine.write_json(options, {'version':1, 'position':'bottom', 'hidden':['cpu','custom/updates#ready']})
+        service.publish(self.state, phase='ready', current=OLD, latest=NEW)
+        engine.write_json(self.state/'settings.json', {'automatic':True, 'interval':900})
+        before = {p:p.read_bytes() for p in (options,self.state/'status.json',self.state/'settings.json')}
+        self.assertEqual(service.badge({'phase':'ready'},self.live)['text'],'')
+        with patch.dict(os.environ, {'HYPRLAND_INSTANCE_SIGNATURE':'this-session'}):
+            value = {'phase':'current', 'current':NEW, 'restart_revision':NEW, 'restart_session':'this-session'}
+            self.assertEqual(service.badge(value,self.live)['text'],'')
+            engine.write_json(options, {'version':1, 'hidden':['cpu']})
+            self.assertEqual(service.badge(value,self.live)['text'],'↻ RESTART')
+        engine.atomic(options,before[options])
+        for phase in ('available','preparing','attention','runtime-required','rollback'):
+            with self.subTest(phase=phase):
+                value = {'phase':phase,'current':OLD,'latest':NEW,'github':{'relation':'ahead'}}
+                self.assertTrue(service.badge(value,self.live)['text'])
+        for path, data in before.items(): self.assertEqual(path.read_bytes(),data)
+        engine.write_json(options, {'version':1, 'hidden':['cpu']})
+        self.assertEqual(service.badge({'phase':'ready'},self.live)['text'],'✓ UPDATE READY')
+
+    def test_missing_or_invalid_bar_choices_keep_ready_notice_visible(self):
+        options = self.live/'waybar/options.json'
+        self.assertEqual(service.badge({'phase':'ready'},self.live)['text'],'✓ UPDATE READY')
+        options.parent.mkdir()
+        for contents in ('{','null','[]','{"version":2,"hidden":["custom/updates#ready"]}',
+                         '{"version":1,"hidden":"custom/updates#ready"}'):
+            with self.subTest(contents=contents):
+                options.write_text(contents)
+                self.assertEqual(service.badge({'phase':'ready'},self.live)['text'],'✓ UPDATE READY')
+
     def test_download_checkout_is_exact_and_keeps_developer_clone_untouched(self):
         repository = self.root/'repo'; repository.mkdir()
         subprocess.run(['git','init','-q',str(repository)], check=True)

@@ -135,7 +135,7 @@ Right-click the wallpaper for your desktop menu. Its editor supports commands, i
 
 ### A taskbar for each display
 
-Workspaces, running apps, draggable pins and your chosen status modules stay close to the screen where you work. **Right-click → Options** moves the bar to the top or bottom and shows/hides individual modules. The clock opens a calendar; power opens a compact system dashboard. A session helper restores the bar if it exits unexpectedly.
+Workspaces, running apps, draggable pins and your chosen status modules stay close to the screen where you work. **Right-click → Options** moves the bar to the top or bottom and shows/hides individual modules. **Hide Update Ready** hides the ready/restart notice while updates keep checking normally. The clock opens a calendar; power opens a compact system dashboard. A session helper restores the bar if it exits unexpectedly.
 
 ### Wallpaper carousel
 
@@ -199,6 +199,7 @@ Runtime components download inside KVM Settings; they are not bundled with the d
 | Tool | What you get |
 | --- | --- |
 | **Control Panel** | A searchable native interface built from CachyOsTools: hardware, storage, services, startup apps, backups, system tools and shortcuts. **Some features remain Arch-only until further notice**, including Pacman/Paru/Yay and Arch package repair/kernel tools. [Feature map and platform requirements →](docs/CONTROL-PANEL.md) |
+| **GRUB Boot Editor** | Select a drive, let Hyper Fusion detect Windows or Linux, give it a name and add it to your boot menu. Includes rename, removal, backups and undo while keeping your existing theme and entries. [Boot editor →](docs/GRUB-BOOT-EDITOR.md) |
 | **System ISO** | Create an Arch-based system clone, then restore through a graphical Hyper Fusion wizard with drive cards, review and progress, plus an automatic console fallback. Choose whether the ISO requires a fresh administrator account or preserves existing accounts. Try **Control Panel → System ISO → Preview installer…** with sample drives first. [Restore wizard →](docs/CONTROL-PANEL.md#system-iso) |
 | **RAM Cleaner** | Manual **Normal** and **Aggressive** cache cleanup with before/after readings. It keeps applications running and does not reclaim their active memory. Linux already reclaims cache when needed; this is an occasional troubleshooting tool. |
 | **Disk Visualizer** | A directory-size tree and treemap, folder navigation, allocated/apparent sizes, and confirmed file actions inside System Cleaner. |

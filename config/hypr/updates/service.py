@@ -105,12 +105,20 @@ def request(action, state=None):
     engine.write_json(state/'request.json', {'action': action, 'time': time.time()})
 
 
-def badge(value):
+def badge(value, root=None):
     phase = value.get('phase', 'current')
     labels = {'available': '↻ UPDATE', 'preparing': '↻ UPDATING', 'ready': '✓ UPDATE READY',
               'attention': '↻ UPDATE !', 'runtime-required': '↻ SETUP REQUIRED', 'rollback': '↶ ROLLBACK'}
     text = labels.get(phase, '')
     if restart_ready(value): text = '↻ RESTART'
+    if phase == 'ready' or restart_ready(value):
+        try:
+            options = engine.json_file((root or ROOT)/'waybar/options.json', {})
+        except (OSError, ValueError):
+            options = {}
+        if (isinstance(options, dict) and options.get('version') == 1
+                and isinstance(options.get('hidden'), list) and 'custom/updates#ready' in options['hidden']):
+            text = ''
     # No idle/checking icon, and no update notice for a connection error alone.
     if phase == 'attention' and not (value.get('github', {}).get('relation') == 'ahead'
                                     and value.get('latest') != value.get('current')):
