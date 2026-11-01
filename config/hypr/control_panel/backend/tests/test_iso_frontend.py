@@ -108,7 +108,7 @@ class FrontendTests(unittest.TestCase):
 
     def test_account_fields_mask_password_and_return_only_a_hash(self):
         with terminal(['account','--dummy']) as tty:
-            tty.send(b' \t\t\x15charlie\tPrivate password!\tPrivate password!\t\t\r')
+            tty.send(b'charlie\tPrivate password!\tPrivate password!\t\t\r')
             code,out,err=tty.finish();self.assertEqual((code,err),(0,''))
             plan=json.loads(out)
             self.assertEqual((plan['original'],plan['username']),('fusion','charlie'))
@@ -116,12 +116,15 @@ class FrontendTests(unittest.TestCase):
             self.assertNotIn('Private password!',out)
             self.assertNotIn(b'Private password!',tty.output)
 
-    def test_account_keep_defaults_and_validation_can_be_navigated_by_mouse(self):
+    def test_required_account_and_validation_can_be_navigated_by_mouse(self):
         with terminal(['account','--dummy']) as tty:
             self.click(tty,94,28)
-            self.assertEqual(json.loads(tty.finish()[1]),{'change':False})
+            self.assertIsNone(tty.process.poll())
+            tty.send(b'charlie\tx\tx')
+            self.click(tty,94,28)
+            self.assertEqual(json.loads(tty.finish()[1])['username'],'charlie')
         with terminal(['account','--dummy']) as tty:
-            tty.send(b' \t\t\x15-invalid\r')
+            tty.send(b'-invalid\r')
             self.assertIsNone(tty.process.poll())
             self.assertIn(b'lowercase',tty.output)
             tty.send(b'\x1b');self.assertEqual(tty.finish()[0],ui.BACK)

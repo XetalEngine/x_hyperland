@@ -36,7 +36,7 @@ void MainWindow::startIsoCreation(bool dummy)
     // Use default values
     QString isoName = dummy ? "xetal-dummy" : "cachyos-system-clone";
     QString outputDir = QDir::homePath() + "/iso/xiso/output";
-    const QFileInfo dummyCache(QDir::homePath() + "/iso/xiso/dummy-cache-v2/live-base.iso");
+    const QFileInfo dummyCache(QDir::homePath() + "/iso/xiso/dummy-cache-v3/live-base.iso");
     const bool reuseDummy = dummy && dummyCache.isFile() && dummyCache.isReadable() && dummyCache.size() > 0;
 
     // Create output directory if it doesn't exist
@@ -70,7 +70,7 @@ void MainWindow::startIsoCreation(bool dummy)
         QStringList opts;
         if (firstBoot.fixNetwork) opts << "network";
         if (firstBoot.fixGpu) opts << "GPU";
-        if (firstBoot.changeUser) opts << "account page during installation";
+        if (firstBoot.changeUser) opts << "new administrator account required during installation";
         if (firstBoot.regenSsh) opts << "SSH keys";
         if (firstBoot.regenMachineId) opts << "NEW machine-id";
         excludeSummary += QString("• Installation and first-boot options: %1\n").arg(opts.join(", "));
@@ -273,7 +273,7 @@ QString MainWindow::createIsoScript(const QString &isoName, const QString &outpu
                                     const QStringList &excludePaths, const IsoFirstBootOptions &firstBoot, bool dummy)
 {
     QMap<QString, QString> scripts;
-    const QStringList names = {"common.sh", "build.sh", "dummy.sh", "installer.sh", "installer-ui.py", "installer_account.py", "installer_mouse.py", "installer-logo.cells.json", "installer-logo.txt", "restore-boot.sh",
+    const QStringList names = {"common.sh", "build.sh", "dummy.sh", "installer.sh", "installer-ui.py", "installer-graphical.py", "installer-session.py", "installer_protocol.py", "installer_account.py", "installer_mouse.py", "installer-logo.cells.json", "installer-logo.txt", "restore-boot.sh",
                                "firstboot.sh", "firstboot.service"};
     for (const QString &name : names) {
         QFile resource(":/iso/" + name);
@@ -296,7 +296,7 @@ QString MainWindow::createIsoScript(const QString &isoName, const QString &outpu
     out << "RELENG=/usr/share/archiso/configs/releng\n";
     out << "ISO_OFFLINE=" << (offlineMode ? "1" : "0") << "\n";
     out << "ISO_DUMMY=" << (dummy ? "1" : "0") << "\n";
-    out << "DUMMY_CACHE=\"$BASE/xiso/dummy-cache-v2/live-base.iso\"\n";
+    out << "DUMMY_CACHE=\"$BASE/xiso/dummy-cache-v3/live-base.iso\"\n";
     out << "OFFLINE_PACKAGE=" << shQuote(QFileInfo(offlinePackagePath).absoluteFilePath()) << "\n";
     out << "USER_EXCLUDES=(\n";
     for (const QString &path : excludePaths) {
@@ -320,7 +320,7 @@ QString MainWindow::createIsoScript(const QString &isoName, const QString &outpu
         out << "base64 --decode > \"$PROFILE/airootfs/opt/clone/logo.png\" <<'XETAL_LOGO'\n";
         out << logo.readAll().toBase64() << "\nXETAL_LOGO\n";
     }
-    const QStringList payloads = {"common.sh", "installer.sh", "installer-ui.py", "installer_account.py", "installer_mouse.py", "installer-logo.cells.json", "installer-logo.txt", "restore-boot.sh", "firstboot.sh", "firstboot.service"};
+    const QStringList payloads = {"common.sh", "installer.sh", "installer-ui.py", "installer-graphical.py", "installer-session.py", "installer_protocol.py", "installer_account.py", "installer_mouse.py", "installer-logo.cells.json", "installer-logo.txt", "restore-boot.sh", "firstboot.sh", "firstboot.service"};
     for (const QString &name : payloads) {
         const QString target = name == "installer.sh" ? "/usr/local/bin/installer.sh" : "/opt/clone/" + name;
         out << "cat > \"$PROFILE/airootfs" << target << "\" <<'XETAL_PAYLOAD'\n";
@@ -338,7 +338,7 @@ QString MainWindow::createIsoScript(const QString &isoName, const QString &outpu
     out << R"ISO_STAGE(
 cat > "$PROFILE/airootfs/xetal.sh" <<'XETAL_WRAPPER'
 #!/usr/bin/env bash
-exec bash /usr/local/bin/installer.sh "$@"
+exec python /opt/clone/installer-session.py "$@"
 XETAL_WRAPPER
 mkdir -p "$PROFILE/airootfs/etc/systemd/system/getty@tty1.service.d" "$PROFILE/airootfs/root"
 # Console mouse support belongs to this live image, never the build host.

@@ -31,7 +31,7 @@ console_mouse = None
 BACK = 10
 UNAVAILABLE = 2
 ACTIONS = {
-    "wipe": ("Restore drive", "Erase whole disk",
+    "wipe": ("Install ISO — Erase Full Disk", "Install your snapshot on a whole drive",
              "Restore the snapshot onto a whole drive. The selected drive will "
              "be erased and recreated with a new ext4 filesystem.",
              "Choose drive", "Review target", "Confirm restore"),
@@ -141,6 +141,14 @@ def print_logo(width, height, colors):
 def emblem(width, height, colors):
     """Render the transparent PNG as terminal cells, including on a Linux VT."""
     if height < 3: return []
+    # A Linux VT has only eight base colors, and its font may not contain
+    # half-block glyphs. Quantizing a shaded PNG there produces a broken mark.
+    # Use a deliberately drawn, symmetric silhouette with ordinary characters.
+    if colors < 256:
+        art = ['          /\\', '         /  \\', '        /    \\',
+               '       /      \\', '      /   /\\   \\', '     /   /  \\   \\',
+               '    /   /    \\   \\', '   /___/      \\___\\', '', '         ARCH']
+        return [[(c, 6, 0) for c in row[:width]] for row in art[:height]]
     image = Path(__file__).with_name('logo.png')
     if not image.exists(): image = Path(__file__).with_name('installer-logo.png')
     try:
@@ -252,10 +260,9 @@ class InstallerUI:
         self.hits = []
         self.pressed = None
         self.focus = 'list'
-        self.change_account = False
         self.user_index = 0
         self.error = ''
-        self.account_focus = 'change'
+        self.account_focus = 'username'
         self.fields = {'username': '', 'password': '', 'confirm': ''}
         self.carets = dict.fromkeys(self.fields, 0)
         self.users = []
@@ -264,7 +271,6 @@ class InstallerUI:
             account_file = Path(args.clone_dir)/'accounts.tsv'
             if account_file.is_file(): self.users = installer_account.accounts(account_file)
             elif args.dummy: self.users = [dict(name='fusion', uid=1000, gid=1000, home='/home/fusion')]
-            if self.users: self.fields['username'] = self.users[0]['name']
             reserved = Path(args.clone_dir)/'account-names.txt'
             if reserved.is_file(): self.reserved_names = set(reserved.read_text().splitlines())
         self.progress_state = '0'
@@ -338,7 +344,7 @@ class InstallerUI:
                     for j, (char, fg, bg) in enumerate(row):
                         self.put(y+1+i, x+2+j, char, p.attr(fg, bg))
             start = y+len(art)+2
-            self.put(start, x+2, 'MADE FOR YOUR WORKSPACE', p.attr(p.muted, p.panel), left-4)
+            self.put(start, x+2, 'YOUR WORKSPACE.', p.attr(p.muted, p.panel), left-4)
             for i, label in enumerate(labels):
                 active = i == step
                 self.put(start+2+i*2, x+2, f'{i+1:02d}  '+label,
@@ -431,23 +437,21 @@ class InstallerUI:
     def draw_account(self,y,x,height,width):
         p=self.palette
         self.put(y+1,x+2,'Make it yours.',p.attr(bg=p.panel,bold=True),width-4)
-        label=('☑' if self.change_account else '☐')+' Change username or password'
-        self.put(y+3,x+2,label,p.attr(p.accent if self.account_focus=='change' else p.fg,p.panel),width-4)
-        self.hit(y+3,x+2,1,width-4,('field','change'))
+        self.put(y+3,x+2,'Create a new administrator account.',p.attr(p.fg,p.panel),width-4)
         user=self.users[self.user_index]['name'] if self.users else 'No regular accounts in this snapshot'
-        self.put(y+5,x+2,'Account: '+user+('  ‹ ›' if len(self.users)>1 else ''),p.attr(p.accent if self.account_focus=='user' else p.muted,p.panel),width-4)
+        self.put(y+5,x+2,'Desktop from: '+user+('  ‹ ›' if len(self.users)>1 else ''),p.attr(p.accent if self.account_focus=='user' else p.muted,p.panel),width-4)
         self.hit(y+5,x+2,1,width-4,('field','user'))
         for offset,(key,label) in enumerate([('username','Username'),('password','New password'),('confirm','Confirm password')]):
             row=y+7+offset*2
-            self.put(row,x+2,label,p.attr(p.fg if self.change_account else p.muted,p.panel),18)
+            self.put(row,x+2,label,p.attr(p.fg,p.panel),18)
             value=self.fields[key] if key=='username' else '•'*len(self.fields[key])
-            if not value:value='Keep current password' if key=='password' else ('Repeat new password' if key=='confirm' else '')
-            active=self.change_account and self.account_focus==key
-            attr=p.attr(p.fg if self.change_account else p.muted,p.raised,reverse=active)
+            if not value:value='Choose a new password' if key=='password' else ('Repeat new password' if key=='confirm' else 'Choose a new username')
+            active=self.account_focus==key
+            attr=p.attr(p.fg,p.raised,reverse=active)
             self.put(row,x+21,' '*(width-24),attr)
             self.put(row,x+22,value[-max(1,width-26):],attr,width-26)
-            if self.change_account:self.hit(row,x+20,1,width-22,('field',key))
-        note=self.error or ('Files and groups are kept. Leave passwords blank to keep the current password.' if self.change_account else 'Keep existing accounts and passwords. Click Next to continue.')
+            self.hit(row,x+20,1,width-22,('field',key))
+        note=self.error or 'New username and password required. Any password strength. Files and desktop transfer to your new account.'
         self.paragraph(y+height-3,x+2,note,width-4,2,p.attr(p.warning if self.error else p.muted,p.panel))
 
     def draw_progress(self,y,x,height,width):
@@ -469,7 +473,7 @@ class InstallerUI:
         if kind=='confirm':return 0 if self.button==1 else BACK
         if kind=='account':
             try:
-                plan=installer_account.choice(self.users,self.user_index,self.fields['username'],self.fields['password'],self.fields['confirm'],self.reserved_names) if self.change_account else {'change':False}
+                plan=installer_account.choice(self.users,self.user_index,self.fields['username'],self.fields['password'],self.fields['confirm'],self.reserved_names)
                 self.result=json.dumps(plan)
                 self.fields['password']=self.fields['confirm']=''
                 return 0
@@ -504,28 +508,26 @@ class InstallerUI:
                 if self.args.kind=='home':self.mode=self.actions[self.index]
             elif action[0]=='field':
                 self.account_focus=action[1]
-                if action[1]=='change' and self.users:self.change_account=not self.change_account
-                elif action[1]=='user' and len(self.users)>1:
+                if action[1]=='user' and len(self.users)>1:
                     self.user_index=(self.user_index+1)%len(self.users)
-                    self.fields.update(username=self.users[self.user_index]['name'],password='',confirm='')
+                    self.fields.update(username='',password='',confirm='')
                 elif action[1] in self.fields:self.carets[action[1]]=len(self.fields[action[1]])
             break
         return None
 
     def account_key(self,key):
-        fields=['change']+(['user','username','password','confirm'] if self.change_account else [])+['back','next']
+        fields=(['user'] if len(self.users)>1 else [])+['username','password','confirm','back','next']
         current=self.account_focus
         if key in (9,curses.KEY_BTAB,curses.KEY_DOWN,curses.KEY_UP):
             i=fields.index(current) if current in fields else 0
             self.account_focus=fields[(i+(-1 if key in (curses.KEY_BTAB,curses.KEY_UP) else 1))%len(fields)]
             self.focus='back' if self.account_focus=='back' else 'next'
             if self.account_focus in self.fields:self.carets[self.account_focus]=len(self.fields[self.account_focus])
-        elif current=='change' and key in (32,10,13) and self.users:self.change_account=not self.change_account
         elif current=='user' and key in (32,10,13,curses.KEY_LEFT,curses.KEY_RIGHT) and self.users:
             self.user_index=(self.user_index+1)%len(self.users)
-            self.fields.update(username=self.users[self.user_index]['name'],password='',confirm='')
+            self.fields.update(username='',password='',confirm='')
         elif key in (10,13):return BACK if current=='back' else self.accept()
-        elif current in self.fields and self.change_account:
+        elif current in self.fields:
             value=self.fields[current];pos=min(self.carets[current],len(value))
             if key in (curses.KEY_BACKSPACE,127,8):
                 if pos:value=value[:pos-1]+value[pos:];pos-=1
@@ -535,8 +537,9 @@ class InstallerUI:
             elif key==curses.KEY_HOME:pos=0
             elif key==curses.KEY_END:pos=len(value)
             elif key==21:value='';pos=0
-            elif 32<=key<=0x10ffff and chr(key).isprintable() and len(value)<256:
-                value=value[:pos]+chr(key)+value[pos:];pos+=1
+            elif 32<=key<=0x10ffff and chr(key).isprintable():
+                char=chr(key).lower() if current=='username' else chr(key)
+                value=value[:pos]+char+value[pos:];pos+=len(char)
             self.fields[current]=value;self.carets[current]=pos;self.error=''
         return None
     def handle(self, key, usable=True):
@@ -702,7 +705,7 @@ def preview(screen, args):
         kind=stages[index]
         options=argparse.Namespace(**vars(args));options.kind=kind;options.dummy=True;options.uefi=True;options.mode=mode
         options.items=[]
-        if kind=='home':options.items=['wipe','Restore drive','free','Use free space','parts','Use partitions']
+        if kind=='home':options.items=['wipe',ACTIONS['wipe'][0],'free','Use free space','parts','Use partitions']
         if kind=='menu':
             options.title='Choose your drive';options.text='Sample drives for this preview. Nothing will be erased.'
             options.items=['Preview SSD','1 TB · Fusion NVMe · sample drive','Preview USB','256 GB · USB SSD · sample drive']
@@ -718,7 +721,7 @@ def preview(screen, args):
         if kind=='menu':drive=ui.result
         if kind=='account':
             plan=json.loads(ui.result)
-            account=('Account: '+plan['original']+' → '+plan['username']+'. '+('New password.' if plan['password_hash'] else 'Keep current password.')) if plan['change'] else 'Keep existing accounts and passwords.'
+            account='New administrator: '+plan['username']+'. New login and sudo password. Desktop inherited from '+plan['original']+'.'
         if index==len(stages)-1:return 0
         index+=1
 
@@ -726,6 +729,18 @@ def preview(screen, args):
 def main(argv=None):
     global console_mouse
     args = arguments(argv)
+    if os.environ.get('XETAL_INSTALLER_SOCKET') and args.kind != 'logo':
+        import installer_protocol
+        try:
+            answer = installer_protocol.request(os.environ['XETAL_INSTALLER_SOCKET'], vars(args))
+            if answer.get('status') == 0 and answer.get('result'):
+                print(answer['result'])
+            return answer['status']
+        except (OSError, ValueError, RuntimeError) as error:
+            # An interrupted graphical confirmation is never an approval or
+            # a request to fall through to another frontend.
+            print('Installer interface disconnected: '+str(error), file=sys.stderr)
+            return 1
     if args.kind == "logo":
         print_logo(args.width, args.height, args.colors)
         return 0

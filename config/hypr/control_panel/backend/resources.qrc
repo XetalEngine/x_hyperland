@@ -10,6 +10,9 @@
         <file>iso/dummy.sh</file>
         <file>iso/installer.sh</file>
         <file>iso/installer-ui.py</file>
+        <file>iso/installer-graphical.py</file>
+        <file>iso/installer-session.py</file>
+        <file>iso/installer_protocol.py</file>
         <file>iso/installer_account.py</file>
         <file>iso/installer_mouse.py</file>
         <file>iso/installer-logo.png</file>

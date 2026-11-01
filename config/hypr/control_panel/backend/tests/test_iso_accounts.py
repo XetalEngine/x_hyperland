@@ -20,23 +20,41 @@ class AccountTests(unittest.TestCase):
         (self.target/'etc/passwd').write_text('root:x:0:0:root:/root:/bin/bash\nalice:x:1000:1000:Alice:/home/alice:/bin/bash\nbob:x:1001:1001:Bob:/home/bob:/bin/bash\n')
         (self.target/'etc/group').write_text('root:x:0:\nalice:x:1000:\nbob:x:1001:\nwheel:x:10:alice\n')
         self.users=[dict(name='alice',uid=1000,gid=1000,home='/home/alice')]
-        self.plan=dict(change=True,original='alice',uid=1000,username='charlie',password_hash='')
+        self.plan=dict(change=True,original='alice',uid=1000,username='charlie',password_hash='$6$salt$'+'a'*86)
 
-    def test_password_is_hashed_over_stdin_and_not_returned(self):
+    def test_password_is_hashed_privately_and_not_returned(self):
         with patch.object(account.subprocess,'run',wraps=subprocess.run) as run:
             plan=account.choice(self.users,0,'charlie','Keep this private!','Keep this private!')
         self.assertTrue(account.HASH.fullmatch(plan['password_hash']))
         self.assertNotIn('Keep this private!',json.dumps(plan))
-        self.assertNotIn('Keep this private!',repr(run.call_args.args))
-        self.assertEqual(run.call_args.kwargs['input'],'Keep this private!\n')
-        self.assertEqual(account.choice(self.users,0,'alice','','')['change'],False)
+        run.assert_not_called()
+        for name,password in [('alice','x'),('charlie','')]:
+            with self.assertRaises(ValueError):account.choice(self.users,0,name,password,password)
 
     def test_invalid_names_passwords_and_reserved_names_are_rejected(self):
-        for name in ('root','wheel','-root','Alice','x:y','a/b','a'*33):
+        for name in ('root','wheel','-root','x:y','a/b','a'*33):
             with self.subTest(name=name),self.assertRaises(ValueError):
-                account.choice(self.users,0,name,'','',{'root','wheel'})
-        for a,b in [('one','two'),('line\nbreak','line\nbreak'),('a'*513,'a'*513)]:
-            with self.assertRaises(ValueError):account.choice(self.users,0,'alice',a,b)
+                account.choice(self.users,0,name,'x','x',{'root','wheel'})
+        for a,b in [('one','two'),('nul\x00character','nul\x00character')]:
+            with self.assertRaises(ValueError):account.choice(self.users,0,'charlie',a,b)
+
+    def test_fresh_account_cannot_keep_source_login_or_password(self):
+        for changes in ({'change':False},{'username':'alice'},{'password_hash':''}):
+            with self.subTest(changes=changes),self.assertRaises(ValueError):account.require_fresh(self.plan|changes)
+
+    def test_uppercase_username_and_user_chosen_passwords(self):
+        for password in ('phphph','x',' ','111111','é🙂', 'a'*300):
+            with self.subTest(length=len(password)):
+                plan=account.choice(self.users,0,'Valdemar',password,password)
+                self.assertEqual(plan['username'],'valdemar')
+                self.assertTrue(account.HASH.fullmatch(plan['password_hash']))
+                library=account.ctypes.CDLL('libcrypt.so.2')
+                library.crypt_rn.argtypes=[account.ctypes.c_char_p,account.ctypes.c_char_p,account.ctypes.c_void_p,account.ctypes.c_int]
+                library.crypt_rn.restype=account.ctypes.c_char_p
+                buffer=account.ctypes.create_string_buffer(32768)
+                self.assertEqual(library.crypt_rn(password.encode(),plan['password_hash'].encode(),buffer,len(buffer)).decode(),plan['password_hash'])
+                if len(password)>256:
+                    self.assertNotEqual(library.crypt_rn(password[:256].encode(),plan['password_hash'].encode(),buffer,len(buffer)).decode(),plan['password_hash'])
 
     def test_source_metadata_filters_system_and_invalid_accounts(self):
         p=self.target/'accounts.tsv';p.write_text('root\t0\t0\t/root\nalice\t1000\t1000\t/home/alice\nnobody\t65534\t65534\t/\nbad!\t1001\t1001\t/home/bad\n')
@@ -52,13 +70,17 @@ class AccountTests(unittest.TestCase):
         with self.assertRaises(ValueError):account.apply(self.plan,self.target)
         with self.assertRaises(ValueError):account.apply(self.plan,Path('/'))
         encoded='$6$salt$'+'a'*86
-        with patch.object(Path,'is_mount',return_value=True),patch.object(account.subprocess,'run',return_value=subprocess.CompletedProcess([],0)) as run:
+        with patch.object(Path,'is_mount',return_value=True),patch.object(account.subprocess,'run',return_value=subprocess.CompletedProcess([],0)) as run,patch.object(account,'ensure_administrator') as administrator:
             account.apply(self.plan|{'password_hash':encoded},self.target)
+        self.assertEqual(administrator.call_args.args[:3],(self.target,'charlie',1000))
         calls=run.call_args_list
-        self.assertEqual(calls[0].args[0],['arch-chroot',str(self.target),'usermod','--login','charlie','--home','/home/charlie','--move-home','alice'])
+        self.assertEqual(calls[0].args[0],['arch-chroot',str(self.target),'visudo','--check'])
         self.assertEqual(calls[1].args[0],['arch-chroot',str(self.target),'groupmod','--new-name','charlie','alice'])
-        self.assertEqual(calls[2].args[0],['arch-chroot',str(self.target),'chpasswd','--encrypted'])
-        self.assertEqual(calls[2].kwargs['input'],'charlie:'+encoded+'\n')
+        self.assertEqual(calls[2].args[0],['arch-chroot',str(self.target),'userdel','alice'])
+        self.assertEqual(calls[3].args[0],['arch-chroot',str(self.target),'useradd','--uid','1000','--gid','1000',
+            '--home-dir','/home/charlie','--shell','/bin/bash','--comment','charlie','--no-user-group','--create-home','--groups','wheel','charlie'])
+        self.assertEqual(calls[4].args[0],['arch-chroot',str(self.target),'chpasswd','--encrypted'])
+        self.assertEqual(calls[4].kwargs['input'],'charlie:'+encoded+'\n')
         with patch.object(Path,'is_mount',return_value=True),patch.object(account.subprocess,'run') as run:
             account.apply({'change':False},self.target);run.assert_not_called()
 

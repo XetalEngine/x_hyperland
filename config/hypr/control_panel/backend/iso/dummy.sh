@@ -24,7 +24,7 @@ if [[ ! -r $payload ]]; then
     exit 1
 fi
 tar --no-same-owner -xf "$payload" -C /
-exec bash /usr/local/bin/installer.sh "$@"
+exec python /opt/clone/installer-session.py "$@"
 XETAL_DUMMY_LAUNCHER
 }
 
@@ -59,7 +59,7 @@ file_permissions+=(['/xetal.sh']='0:0:755' ['/usr/local/bin/installer.sh']='0:0:
 EOF
     # Use the same releng profile and installer dependencies as a full clone.
     for tool in arch-install-scripts bash util-linux coreutils rsync tar zstd grub \
-        efibootmgr parted e2fsprogs dosfstools dialog chafa python gpm openssl; do
+        efibootmgr parted e2fsprogs dosfstools dialog chafa python python-pyqt6 ttf-dejavu libxcrypt gpm openssl; do
         printf '%s\n' "$tool" >> "$PROFILE/packages.x86_64"
     done
     if (( ISO_OFFLINE )); then

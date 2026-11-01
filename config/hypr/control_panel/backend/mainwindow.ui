@@ -4383,12 +4383,13 @@ Details and failures are saved to /var/log/xetal-firstboot.log.</string>
              <item>
               <widget class="QCheckBox" name="isoCompatUserCheck">
                <property name="text">
-                <string>Offer account setup in the installer ❓</string>
+                <string>Require a fresh account in the installer ❓</string>
                </property>
                <property name="toolTip">
-                <string>Adds an optional account page to the restore wizard, before installation.
-Choose an existing account, a new username and an optional password, or keep the current details.
-Changes are applied to the restored system before its first login; files and groups are kept.</string>
+                <string>When checked, installation requires a new administrator username and password.
+The selected source login is replaced; its desktop, files and groups transfer to the new account.
+The new password is used for both login and sudo. Any password strength is allowed.
+When unchecked, the existing accounts and passwords are preserved.</string>
                </property>
               </widget>
              </item>

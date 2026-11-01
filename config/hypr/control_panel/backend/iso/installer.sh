@@ -104,8 +104,10 @@ installer_reset_firstboot() {
 # available for old cached live environments and limited terminal setups.
 installer_ui() {
     local kind=$1 title=$2 prompt=$3; shift 3
-    [[ ${XETAL_TUI:-auto} != dialog && -t 0 && ${TERM:-dumb} != dumb &&
-       -r /opt/clone/installer-ui.py ]] || return 2
+    if [[ -z ${XETAL_INSTALLER_SOCKET:-} ]]; then
+        [[ ${XETAL_TUI:-auto} != dialog && -t 0 && ${TERM:-dumb} != dumb &&
+           -r /opt/clone/installer-ui.py ]] || return 2
+    fi
     command -v python >/dev/null 2>&1 || return 2
     python -c 'import curses' >/dev/null 2>&1 || return 2
     local -a options=(--mode "${INSTALL_MODE:-wipe}" --snapshot "${SNAPSHOT_CHECK:-not checked}")
@@ -135,10 +137,11 @@ installer_account_choice() {
     if ACCOUNT_PLAN=$(installer_ui account 'Your account' ''); then
         ACCOUNT_SUMMARY=$(printf '%s' "$ACCOUNT_PLAN" | python -c '
 import json,sys
+sys.path.insert(0,"/opt/clone")
+from installer_account import require_fresh
 p=json.load(sys.stdin)
-if p.get("change"):
-    print("Account: "+p["original"]+" → "+p["username"]+". "+("New password." if p["password_hash"] else "Keep current password."))
-else: print("Keep existing accounts and passwords.")') || return 1
+require_fresh(p)
+print("New administrator: "+p["username"]+". New login and sudo password. Desktop and files transferred from "+p["original"]+".")') || return 1
         return 0
     else status=$?; fi
     if (( status == 2 )); then
@@ -154,11 +157,20 @@ installer_progress() {
 }
 
 installer_progress_start() {
-    [[ ${XETAL_TUI:-auto} != dialog && -t 0 && ${TERM:-dumb} != dumb && -r /opt/clone/installer-ui.py ]] || return 0
+    if [[ -z ${XETAL_INSTALLER_SOCKET:-} ]]; then
+        [[ ${XETAL_TUI:-auto} != dialog && -t 0 && ${TERM:-dumb} != dumb && -r /opt/clone/installer-ui.py ]] || return 0
+    fi
     PROGRESS_DIR=$(mktemp -d /run/xetal-progress-XXXXXX) || return 0
     installer_progress 0 'Preparing the confirmed target…'
-    python /opt/clone/installer-ui.py progress --progress-file "$PROGRESS_DIR/state" \
-        < /dev/tty > /dev/tty 2>/dev/null &
+    local -a progress_options=(--mode "${INSTALL_MODE:-wipe}" --snapshot "${SNAPSHOT_CHECK:-not checked}")
+    [[ ! -d /sys/firmware/efi ]] || progress_options+=(--uefi)
+    if [[ -n ${XETAL_INSTALLER_SOCKET:-} ]]; then
+        python /opt/clone/installer-ui.py progress "${progress_options[@]}" --progress-file "$PROGRESS_DIR/state" \
+            < /dev/null > /dev/null 2>/dev/null &
+    else
+        python /opt/clone/installer-ui.py progress "${progress_options[@]}" --progress-file "$PROGRESS_DIR/state" \
+            < /dev/tty > /dev/tty 2>/dev/null &
+    fi
     PROGRESS_PID=$!
 }
 
@@ -230,7 +242,7 @@ installer_choose_mode() {
     if [[ -f /opt/clone/dummy-iso ]]; then
         preview='DUMMY ISO: preview only; target disk changes are simulated.\n\n'
     fi
-    local -a items=(wipe 'Restore entire hard drive (erase selected drive)'
+    local -a items=(wipe 'Install ISO - Erase Full Disk'
         verify 'Check snapshot integrity (optional)')
     if [[ -d /sys/firmware/efi ]]; then
         items+=(free 'Use unused space - devvz (PR #7)'
@@ -665,7 +677,9 @@ installer_main() {
     mkfs.fat -F32 "$esp"
     mkfs.ext4 -F "$root_device"
     echo '[3/6] Mounting the target...'
-    mount "$root_device" "$TARGET"
+    # These filesystems were created above. Do not probe ext2/ext3 first:
+    # their rejected feature checks otherwise write warnings over the console.
+    mount -t ext4 "$root_device" "$TARGET"
     echo '[4/6] Restoring snapshot...'
     installer_progress 2 'Restoring your files and applications. This may take a while.'
     tar --xattrs --xattrs-include='*' --acls --numeric-owner --sparse -I zstd \
@@ -682,7 +696,7 @@ installer_main() {
     printf '# Source mappings saved in /etc/xetal-source/crypttab.initramfs\n' > "$TARGET/etc/crypttab.initramfs"
     if [[ -L $TARGET/efi ]]; then mv "$TARGET/efi" "$TARGET/etc/xetal-source/efi-link"; fi
     mkdir -p "$TARGET/efi"
-    mount "$esp" "$TARGET/efi"
+    mount -t vfat "$esp" "$TARGET/efi"
     genfstab -U "$TARGET" > "$TARGET/etc/fstab"
     root_uuid=$(blkid -s UUID -o value "$root_device")
     [[ $root_uuid =~ ^[a-fA-F0-9-]+$ ]] || return 1
