@@ -36,6 +36,8 @@ def payload_ignored(directory, names):
     ignored = set(shutil.ignore_patterns('__pycache__','*.pyc','*.so','*.o','*.lock','build','.build',
                  'cache','state','font-cache','qt-settings','window-preview','version.txt')(directory, names))
     relative = Path(directory).relative_to(PAYLOAD).as_posix()
+    if relative == '.':
+        ignored.add('grub')  # Optional boot theme stays in the repo; never install it with Hyprland.
     if relative in ('dolphin/config', 'dolphin/data') or relative.startswith(('dolphin/config/', 'dolphin/data/')):
         ignored.update(name for name in names if not any(
             path == relative+'/'+name or path.startswith(relative+'/'+name+'/') for path in DOLPHIN_DEFAULTS))

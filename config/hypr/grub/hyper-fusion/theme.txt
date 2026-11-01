@@ -1,0 +1,67 @@
+# Hyper Fusion / Modern dark. Optional GRUB presentation only.
+desktop-image: "background.png"
+desktop-image-scale-method: "stretch"
+desktop-color: "#151d29"
+
+message-font: "Fusion Detail Regular 17"
+message-color: "#e4edf6"
+message-bg-color: "#151d29"
+terminal-font: "Fusion Detail Regular 17"
+
++ label {
+  left = 7%
+  top = 20%
+  width = 54%
+  height = 8%
+  text = "HYPER FUSION"
+  font = "Fusion Heading Bold 44"
+  color = "#e4edf6"
+}
+
++ label {
+  left = 7%
+  top = 28%
+  width = 54%
+  height = 4%
+  text = "Choose a system to start"
+  font = "Fusion Detail Regular 17"
+  color = "#9fb6cc"
+}
+
++ boot_menu {
+  left = 7%
+  top = 36%
+  width = 43%
+  height = 43%
+  item_font = "Fusion Menu Regular 22"
+  selected_item_font = "Fusion Selected Regular 22"
+  item_color = "#dce7f3"
+  selected_item_color = "#11273a"
+  item_height = 48
+  item_padding = 16
+  item_spacing = 8
+  icon_width = 0
+  icon_height = 0
+  selected_item_pixmap_style = "select_*.png"
+  scrollbar = false
+}
+
++ label {
+  left = 7%
+  top = 82%
+  width = 70%
+  height = 4%
+  text = "@KEYMAP_MIDDLE@"
+  font = "Fusion Detail Regular 17"
+  color = "#9fb6cc"
+}
+
++ label {
+  id = "__timeout__"
+  left = 7%
+  top = 89%
+  width = 70%
+  height = 4%
+  font = "Fusion Detail Regular 17"
+  color = "#88b6d9"
+}
