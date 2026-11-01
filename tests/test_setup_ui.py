@@ -16,6 +16,7 @@ def main():
     parser.add_argument('--mode',choices=('fresh','fresh-no-startup','keep','defaults'),default='fresh')
     parser.add_argument('--large',action='store_true',help='Check log expansion in a 1600x960 installer.')
     parser.add_argument('--compiler-error',action='store_true',help='Show a long compiler diagnostic after the first build.')
+    parser.add_argument('--fusion-login',action='store_true',help='Exercise the optional sign-in checkbox and conditional warning.')
     options=parser.parse_args();mode=options.mode
     update=mode in ('keep','defaults');selected=mode in ('fresh','keep')
     sys.path.insert(0,str(REPO/'installer'))
@@ -41,6 +42,7 @@ def main():
             commands.append(args);self.attempt=len(commands)
             assert Path(args[1]).name==('update.py' if mode=='keep' else 'install.py'),args
             assert ('--no-startup' in args)==(mode=='fresh-no-startup'),args
+            assert ('--fusion-login' in args)==options.fusion_login,args
             assert kwargs['env']['XETAL_SETUP_GUI']=='1'
             assert kwargs['start_new_session']
             if mode=='keep':
@@ -74,6 +76,14 @@ def main():
                 assert app.index==0;capture('welcome');app.advance()
             elif phase==1:
                 assert app.index==1 and g.lib.gtk_widget_get_sensitive(app.startup)
+                g.lib.gtk_widget_get_visible.argtypes=[C.c_void_p];g.lib.gtk_widget_get_visible.restype=C.c_int
+                assert not g.lib.gtk_widget_get_visible(app.login_warning)
+                assert not g.toggle_button_get_active(app.fusion_login)
+                g.lib.gtk_button_clicked(app.fusion_login)
+                assert g.lib.gtk_widget_get_visible(app.login_warning)
+                if not options.fusion_login:
+                    g.lib.gtk_button_clicked(app.fusion_login)
+                    assert not g.lib.gtk_widget_get_visible(app.login_warning)
                 assert g.toggle_button_get_active(app.startup)
                 g.lib.gtk_button_clicked(app.startup)
                 assert not g.toggle_button_get_active(app.startup)

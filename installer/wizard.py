@@ -14,6 +14,18 @@ from string import Template
 from gtk_ui import GTK
 import install
 import runtime_install
+import login_setup
+
+LOGIN_WARNING = '''Changing the login service can leave you at a text console if setup fails.
+
+Changes: /etc/xetal-fusion-login/; /etc/pam.d/greetd; /etc/systemd/system/{display-manager.service,default.target,xetal-fusion-login.service} and their enablement links; /usr/local/lib/xetal-fusion-login/.
+Existing /etc/greetd/config.toml and /etc/X11/default-display-manager are backed up. Fusion's previous getty@tty1.service.d/99-xetal-autologin.conf and marked ~/.zprofile block are backed up and removed if present. A temporary /run/systemd/system/greetd.service mask prevents startup during package installation. Installs greetd/keyring/X11 helpers and creates a dedicated greeter account.
+
+Backups: /var/lib/xetal-fusion-login/backups/
+Recovery from a console (Ctrl+Alt+F2):
+sudo /usr/local/lib/xetal-fusion-login/system_setup.py --restore original
+
+Please take a picture of this screen for safety!'''
 
 CSS = b'''
 window { background: #10191f; color: #e5f1f8; font-family: Sans; font-size: 14px; }
@@ -25,6 +37,8 @@ window { background: #10191f; color: #e5f1f8; font-family: Sans; font-size: 14px
 #copy { color: #a4bdcc; }
 #card { background: #182c38; border: 1px solid #284858; border-radius: 12px; padding: 18px; }
 #error { color: #ffba9d; }
+#login-tested { color: #ffda9e; font-size: 12px; font-weight: bold; }
+#login-warning { background: #30271c; color: #ffda9e; border: 1px solid #80613b; border-radius: 10px; padding: 14px; font-size: 12px; }
 #footer { border-top: 1px solid #263c48; padding-top: 16px; }
 button { background: #20323e; color: #e6f5ff; border: 1px solid #355264;
          border-radius: 8px; padding: 10px 18px; box-shadow: none; text-shadow: none; }
@@ -98,6 +112,9 @@ class Wizard:
         self.label(card, 'Hyprland '+self.target['hyprland']+'  ·  Cube + Burn')
         self.label(card, 'The same compositor used on the development desktop.\nSetup builds the effects and tools against its matching headers.', 'copy')
         page = self.page('Make yourself at home.', 'Setup adapts to your monitors and your account.')
+        setup_scroll = g.scrolled_window_new(None, None); g.scrolled_window_set_policy(setup_scroll, 2, 1)
+        g.box_pack_start(page, setup_scroll, 1, 1, 0)
+        page = g.box_new(1, 10); g.container_add(setup_scroll, page)
         card = self.box(page, spacing=8, name='card')
         self.label(card, 'COMPOSITOR', 'eyebrow')
         self.label(card, 'Detected '+self.actual['version']+'   →   Required '+self.target['hyprland'])
@@ -109,6 +126,19 @@ class Wizard:
         g.toggle_button_set_active(self.startup, 1); g.box_pack_start(page, self.startup, 0, 0, 0)
         if update:
             self.label(page, 'Uncheck to use the current desktop and startup defaults.\nYour existing profile will be backed up.', 'copy')
+        self.login_was_enabled = login_setup.enabled()
+        self.label(page, 'Tested on Arch with SDDM only', 'login-tested')
+        self.fusion_login = g.check_button_new_with_label(b'Use Fusion sign-in at boot instead of my current login screen')
+        g.toggle_button_set_active(self.fusion_login, self.login_was_enabled)
+        g.box_pack_start(page, self.fusion_login, 0, 0, 0)
+        self.label(page, 'Sign in with your theme and animated account photo.\nChoose Hyprland, KDE, XFCE or another installed desktop.', 'copy')
+        self.login_warning = self.label(page, LOGIN_WARNING, 'login-warning')
+        g.label_set_selectable(self.login_warning, 1)
+        g.label_set_line_wrap_mode(self.login_warning, 2)
+        g.widget_set_no_show_all(self.login_warning, 1)
+        g.widget_set_visible(self.login_warning, self.login_was_enabled)
+        g.connect(self.fusion_login, 'toggled', lambda: g.widget_set_visible(
+            self.login_warning, g.toggle_button_get_active(self.fusion_login)))
         packages = ('Debian: Setup installs packages and enables administrator access if needed.\n'
                     'Use the root or administrator password when prompted.'
                     if runtime_install.policy.debian_host() else
@@ -200,7 +230,10 @@ class Wizard:
                            'Startup dashboard: on' if selected else 'Startup dashboard: off')
             text = ('Desktop folder\n'+str(Path.home()/'.config/hypr')+'\n\nHyprland '+self.target['hyprland']+
                     '  ·  Cube and Burn included\nUse all '+str(cpu_count())+' available CPU threads for compilation\n\n'+
-                    preferences+'\n\nSource '+self.revision[:8])
+                    preferences+'\n'+('Login: Fusion sign-in · installed desktop selector · system backups' if
+                    self.g.toggle_button_get_active(self.fusion_login) else
+                    'Login: restore previous login screen' if self.login_was_enabled else 'Login: keep current login screen')+
+                    '\n\nSource '+self.revision[:8])
             self.g.label_set_text(self.review, text.encode())
         if self.index == 2:
             self.busy = True; self.lines = []; self.cancel_file.unlink(missing_ok=True)
@@ -210,6 +243,8 @@ class Wizard:
             self.preserve_preferences = self.update and selected
             # Resetting an existing desktop restores its startup default too.
             self.startup_enabled = self.update or selected
+            selected_login = bool(self.g.toggle_button_get_active(self.fusion_login))
+            self.login_choice = True if selected_login else False if self.login_was_enabled else None
             threading.Thread(target=self.worker, daemon=True).start()
         else: self.show(self.index+1)
 
@@ -221,6 +256,8 @@ class Wizard:
             else:
                 args = [sys.executable, str(install.REPO/'installer/install.py'), '--yes', '--cancel-file', str(self.cancel_file)]
                 if not self.startup_enabled: args.append('--no-startup')
+            if self.login_choice is not None:
+                args.append('--fusion-login' if self.login_choice else '--no-fusion-login')
             self.log_path.parent.mkdir(parents=True, exist_ok=True)
             with self.log_path.open('w') as log:
                 process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
@@ -247,8 +284,9 @@ class Wizard:
             else:
                 self.busy = False; self.success = value == 0; self.g.widget_set_sensitive(self.cancel, 1)
                 if self.success:
-                    message = ('Hyprland '+self.target['hyprland']+' and your desktop are installed.\n\n'
-                               'Log out, then select Hyprland and sign in again.\nYour Cube, effects and desktop tools will start together.\n\n'
+                    message = ('Hyprland '+self.target['hyprland']+' and your desktop are installed.\n\n'+
+                               ('Reboot to use Fusion sign-in. Choose your account and desktop.\nWelcome opens after signing in if it is enabled.\n\n' if self.login_choice else
+                                'Log out, then select Hyprland and sign in again.\nYour Cube, effects and desktop tools will start together.\n\n')+
                                'Installation log: '+str(self.log_path))
                     self.g.label_set_text(self.complete, message.encode()); self.show(4)
                 else:

@@ -11,6 +11,7 @@ import tempfile
 
 import install
 import dependencies
+import login_setup
 sys.path.insert(0, str(install.PAYLOAD/'updates'))
 import update_engine as engine
 
@@ -75,12 +76,17 @@ if __name__ == '__main__':
     parser.add_argument('--manual', action='store_true')
     parser.add_argument('--runtime', action='store_true', help='Open administrator authentication for the matching compositor.')
     parser.add_argument('--activate', action='store_true', help='Activate a reviewed coordinated update before the next login.')
+    login = parser.add_mutually_exclusive_group()
+    login.add_argument('--fusion-login', dest='fusion_login', action='store_true', default=None)
+    login.add_argument('--no-fusion-login', dest='fusion_login', action='store_false')
     parser.add_argument('--cancel-file', type=Path); args = parser.parse_args()
     def checkpoint():
         if args.cancel_file and args.cancel_file.exists(): raise RuntimeError('Update cancelled after completing the current step.')
     try:
         if (args.runtime or args.activate) and not args.manual: raise ValueError('Compositor changes require a foreground Setup request.')
         if args.runtime and not args.activate: raise ValueError('A compositor change must activate its matching desktop in the same Setup run.')
+        if args.fusion_login is not None and not (args.manual and args.activate):
+            raise ValueError('Changing the login screen requires foreground Setup with activation.')
         prepare(Path.home(), args.revision, not args.manual, args.runtime, checkpoint)
         if args.activate:
             checkpoint()
@@ -88,7 +94,9 @@ if __name__ == '__main__':
             if not service.activate(Path.home()/'.config/hypr'):
                 raise RuntimeError('Update was prepared but could not be activated. Open Desktop Updates for details.')
             install.runtime_install.complete()
-            print('Installed. Log out and sign in again to start the matching compositor and desktop.', flush=True)
+            login_setup.apply(args.fusion_login, Path.home()/'.config/hypr')
+            print('Installed. Reboot to use Fusion sign-in and choose your desktop.' if args.fusion_login else
+                  'Installed. Log out and sign in again to start the matching compositor and desktop.', flush=True)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError, KeyboardInterrupt) as error:
         install.runtime_install.rollback()
         print(str(error), file=sys.stderr); sys.exit(1)

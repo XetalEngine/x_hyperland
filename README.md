@@ -61,6 +61,7 @@ Prefer a ZIP? Choose **Code → Download ZIP**, extract the entire archive, open
 
 - Adapts monitor resolution, placement and scale to your computer.
 - Lets you keep existing desktop/startup preferences or install the current defaults.
+- Offers an **optional Fusion sign-in screen** with your theme, animated account photo, account selector and installed desktop sessions, including Hyprland, KDE Plasma and XFCE. It is off by default; selecting it reveals a warning with the changed files, backup location and console recovery command. Take a picture of that warning before continuing.
 - Installs required packages with a separate administrator-password prompt and builds native components locally. The Control Panel uses all available CPU threads.
 - Shows an expanded installation log that grows with the window; **Installing…** stays disabled until the operation finishes. Failed steps show their useful diagnostic and a **Retry** action.
 - Backs up the existing profile and validates the complete configuration before replacement. Package recovery is prepared before changing the compositor.
@@ -89,6 +90,8 @@ Each bundled package is below 100 MB. Fedora packages come from the documented g
 ./x_hyperinstall.sh --skip-packages                # Use dependencies already installed
 ./x_hyperinstall.sh --prepare /tmp/fusion-review   # Build/validate a new review directory
 ./x_hyperinstall.sh --no-startup                   # Keep the Welcome dashboard manual
+./x_hyperinstall.sh --fusion-login                 # Opt in to Fusion sign-in; back up system login settings
+./x_hyperinstall.sh --no-fusion-login              # Restore the login settings saved before opting in
 ./x_hyperinstall.sh --restore /path/to/backup       # Use the backup path printed by Setup
 ```
 

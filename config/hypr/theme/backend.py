@@ -467,6 +467,14 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
         except OSError: continue
         if command and Path(command[0].decode(errors='ignore')).name=='swaync' and str(ROOT/'swaync/config.json').encode() in command:
             subprocess.run(['swaync-client','--reload-css'],capture_output=True,timeout=5); break
+    # Only opted-in installs have a public artwork directory. Never publish passwords.
+    try:
+        if ROOT.resolve() == (Path.home()/'.config/hypr').resolve():
+            sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+            from login.profile import publish
+            publish(ROOT)
+    except (ImportError, OSError) as error:
+        print('Fusion sign-in artwork could not be refreshed: '+str(error), file=sys.stderr)
     return theme_token()
 
 

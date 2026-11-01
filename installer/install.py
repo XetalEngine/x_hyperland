@@ -18,6 +18,7 @@ import tempfile
 
 import dependencies
 import runtime_install
+import login_setup
 
 REPO=Path(__file__).resolve().parents[1]
 PAYLOAD=REPO/'config/hypr'
@@ -267,12 +268,12 @@ def activate(stage,target,state,expected):
     return backup
 
 
-def restore(backup,target,state):
+def restore(backup,target,state,runtime_check=True):
     record=json.loads((backup/'install.json').read_text())
     if record.get('version')!=1 or record.get('target')!=str(target):raise RuntimeError('Backup does not belong to this Hyprland profile.')
     previous=backup/'hypr'
     if record['had_previous'] and not (previous.exists() or previous.is_symlink()):raise RuntimeError('The previous profile is missing or already restored.')
-    if (previous/'runtime/manifest.json').is_file(): runtime_install.policy.require(previous)
+    if runtime_check and (previous/'runtime/manifest.json').is_file(): runtime_install.policy.require(previous)
     saved=state/'replaced'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
     saved.parent.mkdir(parents=True,exist_ok=True)
     current=target.exists() or target.is_symlink()
@@ -295,6 +296,11 @@ def main():
     mode.add_argument('--prepare',type=Path,help='Build and validate a review copy here without installing it.')
     parser.add_argument('--profile',choices=['auto','original'],default='auto',help='Adapt to this computer, or use the author\'s three-display layout.')
     parser.add_argument('--no-startup',action='store_true',help='Keep the animated dashboard available with Super+D without opening it at login.')
+    login = parser.add_mutually_exclusive_group()
+    login.add_argument('--fusion-login', dest='fusion_login', action='store_true', default=None,
+                       help='Opt in to themed Fusion sign-in with an installed-desktop selector; backs up system login settings.')
+    login.add_argument('--no-fusion-login', dest='fusion_login', action='store_false',
+                       help='Restore the login settings backed up before Fusion sign-in was enabled.')
     parser.add_argument('--cancel-file',type=Path,help=argparse.SUPPRESS)
     mode.add_argument('--restore',type=Path,help='Restore a previous installer backup; retain the replaced profile separately.')
     args=parser.parse_args()
@@ -317,6 +323,8 @@ def main():
         except RuntimeError as error:errors.append(str(error))
         print('Profile: '+args.profile+'; build Qt 5/6 theme plugins, Waybar modules, and screen-share preview helper.')
         print('Include current wallpaper, licensed fonts, all session tools, backup and rollback. Activate at next Hyprland login.')
+        if args.fusion_login is not None:
+            print('Login: '+('enable Fusion sign-in; system backups in /var/lib/xetal-fusion-login/backups/' if args.fusion_login else 'restore previous login configuration'))
         for error in errors:print('  '+error)
         if not errors:print('All dependency and version checks passed.')
         family=dependencies.distro()
@@ -369,9 +377,17 @@ def main():
                 runtime_install.rollback()
                 print('Cancelled; your current profile is unchanged.');return 0
             backup=activate(stage,target,state,expected)
+            try:
+                login_setup.apply(args.fusion_login, target, args.skip_packages)
+            except BaseException:
+                # Keep the old desktop paired with any compositor recovery.
+                # The enclosing error handler also recovers this transaction's runtime.
+                restore(backup, target, state, runtime_check=False)
+                raise
             runtime_install.complete()
     print('Installed. Backup: '+str(backup))
-    print('Log out and select Hyprland again. This starts the complete desktop and the portal picker together.')
+    print('Reboot to use Fusion sign-in and choose your desktop.' if args.fusion_login else
+          'Log out and select Hyprland again. This starts the complete desktop and the portal picker together.')
     print('Restore: '+str(REPO/'x_hyperinstall.sh')+' --restore '+str(backup))
     return 0
 

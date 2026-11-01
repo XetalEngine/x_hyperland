@@ -125,3 +125,37 @@ For a manual compositor recovery, the recorded root-owned backup can be passed t
 Update the runtime manifest only after validating the new compositor, native effect adapters and complete desktop together. Keep the package/signature hashes and commit in agreement. The updater compares the incoming requirement before building and again before activation. A system package change goes through foreground Setup; ordinary background updates continue without sudo. A compositor upgrade or downgrade therefore carries the matching profile and rebuilt plugins with it.
 
 Arch-based x86-64, mutable Fedora 44 x86-64 and Debian 13 amd64 have automatic compositor installation paths. Other distributions must install the exact required native compositor themselves before using their remaining dependency recipes. Pinning Hyprland does not pin the complete operating system; dependency checks and native builds remain necessary on every recipient machine.
+## Optional Fusion sign-in
+
+The **Use Fusion sign-in at boot instead of my current login screen** checkbox is off by default on a new install. Leaving it off does not change system login services, PAM, SDDM, GDM or LightDM. Updates keep the existing choice. The Welcome/dashboard checkbox is independent.
+
+An always-visible note above the checkbox states **Tested on Arch with SDDM only**, including before the option is selected.
+
+When selected, Setup shows a warning **below that checkbox**, including the changed paths, backup directory, recovery command and a request to **take a picture of the screen for safety**. The options page scrolls so the entire warning is accessible on small displays.
+
+Fusion runs its sign-in UI in a dedicated, unprivileged Hyprland greeter session. `greetd` authenticates the selected account with the distribution's PAM stack and then starts that account's selected desktop. The user's desktop, startup applications and optional Welcome dashboard do not run before authentication. There is no automatic login into a person's desktop behind the password field. Passwords are sent only to greetd's Unix socket and are never written to disk or logs.
+
+Installed sessions are discovered from `/usr/share/wayland-sessions/*.desktop` and `/usr/share/xsessions/*.desktop`. Hyprland, KDE Plasma, XFCE and other installed desktops retain their own session commands. Wayland sessions start directly; X11 sessions use `startx` on the authenticated user's console. The greeter remembers the selected desktop separately for each account. PAM also unlocks GNOME Keyring and an installed KDE Wallet PAM module with the login password.
+
+The four themes, Dark/Light/High contrast modes, and GIF/PNG/JPG account images come from each person's Fusion profile. Public copies of account artwork are kept in `/var/lib/xetal-fusion-login/profiles/<uid>/`; the greeter does not need access to private home directories. Applying a Fusion theme refreshes those copies without administrator access.
+
+Before changing settings, Setup creates a dated, root-only backup under **`/var/lib/xetal-fusion-login/backups/`**. The backup records original contents, modes, owners, symbolic links and paths that did not previously exist. Relevant paths are:
+
+- `/etc/xetal-fusion-login/greetd.toml` and `hyprland.conf`.
+- `/etc/pam.d/greetd` and existing `/etc/greetd/config.toml`.
+- `/etc/X11/default-display-manager`, if supplied by the distribution.
+- `/etc/systemd/system/xetal-fusion-login.service`, `display-manager.service`, `default.target`, and affected service enablement links.
+- `/usr/local/lib/xetal-fusion-login/` (the system-owned greeter code).
+- When migrating the earlier VM setup: `/etc/systemd/system/getty@tty1.service.d/99-xetal-autologin.conf` and the marked Fusion autostart block in the installing user's `~/.zprofile`.
+- A temporary `/run/systemd/system/greetd.service` installation guard, restored immediately after package installation.
+
+Only opting in installs the additional greetd/keyring/X11 helpers and creates the `fusion-greeter` system account. It enables `xetal-fusion-login.service` for the **next boot**, sets `graphical.target`, and disables the previous login manager without stopping the current session. A setup failure restores the backed-up configuration automatically. Installed packages and the dedicated system account remain available after recovery.
+
+If sign-in fails after reboot, press **Ctrl+Alt+F2**, log in normally and run:
+
+```bash
+sudo /usr/local/lib/xetal-fusion-login/system_setup.py --restore original
+sudo systemctl reboot
+```
+
+The original backup remains available across later Fusion sign-in updates. A specific dated backup can also be supplied to `--restore`. Unchecking the option in a later foreground Setup restores the original login configuration. Neither choosing another desktop nor disabling the Welcome dashboard changes this opt-in setting.

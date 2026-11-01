@@ -41,6 +41,9 @@ export XDG_CURRENT_DESKTOP=Hyprland
 export XDG_SESSION_DESKTOP=Hyprland
 export XDG_SESSION_TYPE=wayland
 
+# Opt-in sign-in artwork is a public copy; private home settings stay private.
+python3 "$config_dir/login/profile.py" >"$instance_dir/sign-in-artwork.log" 2>&1 || true
+
 python3 "$config_dir/updates/service.py" --serve >"$instance_dir/desktop-updates.log" 2>&1 9>&- &
 children+=("$!")
 
