@@ -44,3 +44,8 @@ config/hypr/kvm/backend/assets/opencore-validators/
 config/hypr/cursors/.build/
 config/hypr/wallpaper/.build/
 config/hypr/wallpaper/state/
+# Personal launcher arrangements and imported shortcut artwork.
+config/hypr/launcher/favorite-layout.json
+config/hypr/launcher/floating-sizes.json
+config/hypr/launcher/icons/
+config/hypr/calculator/state/

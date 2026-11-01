@@ -17,7 +17,9 @@ The Xetal scripts, custom UI components, installer and configuration are supplie
 - **Fedora runtime:** unmodified signed RPMs from giperborey/Hyprland on Fedora COPR are included under [`installer/packages/fedora-44`](installer/packages/fedora-44/README.md). They retain their embedded license notices. Hyprland contains BSD/MIT-family and LGPL-2.1-or-later components; Hyprlang is LGPL-3.0-only. Exact corresponding source RPMs are included in the `sources/` subdirectory. The bundle manifest records hashes, package versions, publisher and source URLs. Other Hyprland ecosystem components retain their BSD-3-Clause/MIT notices; see the bundle inventory.
 - **Other desktop system packages:** Qt, GTK, Kitty, Dolphin, Papirus and other desktop dependencies are obtained from the recipient's distribution. Their licenses continue to apply. Bundled KVM components are described separately below.
 
-The installer includes no browser profiles, account data, application credentials or copies of other personal application repositories.
+The owner-provided **Programmer Calculator** source and SVG artwork are integrated under `config/hypr/calculator`, adapted from the owner's `WindowsCalculatorClone` project to the desktop's PyQt6 runtime. This is an independent implementation, not Microsoft's Windows Calculator source. Its personal settings and history are not distributed.
+
+The installer includes no browser profiles, account data or application credentials.
 
 ## KVM components
 

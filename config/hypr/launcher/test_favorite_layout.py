@@ -292,7 +292,10 @@ class BoardTests(unittest.TestCase):
                 self.calls.clear()
                 depths = []
                 drag = MagicMock()
-                drag.exec.side_effect = lambda action: depths.append(self.menu.interaction_depth)
+                def dragging(action):
+                    depths.append(self.menu.interaction_depth)
+                    self.assertTrue(self.menu.favorite_trash.isVisible())
+                drag.exec.side_effect = dragging
                 QTest.mousePress(tile, Qt.MouseButton.LeftButton, modifiers, pos=QPoint(20, 20))
                 event = QMouseEvent(QEvent.Type.MouseMove, QPointF(60, 60), QPointF(tile.mapToGlobal(QPoint(60, 60))),
                                     Qt.MouseButton.NoButton, Qt.MouseButton.LeftButton, modifiers)
@@ -301,8 +304,70 @@ class BoardTests(unittest.TestCase):
                 self.assertEqual(self.calls, [])
                 self.assertEqual(depths, [1])
                 self.assertEqual(self.menu.interaction_depth, 0)
+                self.assertTrue(self.menu.favorite_trash.isHidden())
                 QTest.mouseClick(tile, Qt.MouseButton.LeftButton, pos=tile.rect().center())
                 self.assertEqual(self.calls, [(self.ids[0],)])
+
+    def test_trash_drop_unpins_after_drag_and_keeps_app_shortcut_and_bar_pin(self):
+        board, trash = self.menu.favorites_board, self.menu.favorite_trash
+        ident = self.ids[0]
+        preferences = self.root/'favorites.json'
+        preferences.write_text(json.dumps({'add': self.ids, 'hide': []}))
+        original = preferences.read_bytes()
+        shortcut_state = self.root/'shortcuts.json'
+        shortcut_state.write_text('{"version":1,"copies":{"mine":{}},"overrides":{}}')
+        bar_state = self.root/'bar-pins.json'
+        bar_state.write_text(json.dumps({'version': 1, 'pins': [ident]}))
+        before = (shortcut_state.read_bytes(), bar_state.read_bytes())
+        with (patch.object(catalog, 'LOCAL', preferences),
+              patch.object(shortcuts, 'STATE', shortcut_state),
+              patch.object(app.pins, 'STATE', bar_state),
+              patch.object(catalog, 'favorites', side_effect=lambda: [
+                  i for i in self.ids if i not in catalog.local_preferences()['hide']])):
+            board.begin_drag('tile', ident)
+            self.assertTrue(trash.isVisible())
+            self.assertGreaterEqual(trash.x(), self.menu.heading.geometry().right())
+            mime = board.mime('tile', ident)
+            enter = QDragEnterEvent(QPoint(16, 16), Qt.DropAction.MoveAction, mime,
+                                   Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
+            QT.sendEvent(trash, enter)
+            self.assertTrue(enter.isAccepted()); self.assertTrue(trash.highlighted)
+            drop = QDropEvent(QPointF(16, 16), Qt.DropAction.MoveAction, mime,
+                              Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
+            QT.sendEvent(trash, drop)
+            self.assertTrue(drop.isAccepted())
+            self.assertEqual(preferences.read_bytes(), original)
+            board.end_drag()
+            self.assertTrue(trash.isHidden())
+            self.assertNotIn(ident, catalog.favorites())
+            self.assertNotIn(ident, board.tiles)
+            self.assertIn(ident, self.menu.apps)
+            self.assertEqual((shortcut_state.read_bytes(), bar_state.read_bytes()), before)
+            self.assertEqual(self.calls, [])
+            self.menu.refresh_apps()
+            self.assertNotIn(ident, board.tiles)
+            self.assertEqual(self.menu.interaction_depth, 0)
+
+    def test_trash_hides_for_group_drags_and_rejects_foreign_or_stale_tiles(self):
+        board, trash = self.menu.favorites_board, self.menu.favorite_trash
+        group = next(iter(board.headers))
+        board.begin_drag('group', group)
+        self.assertTrue(trash.isHidden())
+        board.end_drag()
+        board.begin_drag('tile', self.ids[0])
+        foreign = board.mime('tile', self.ids[0])
+        data = json.loads(bytes(foreign.data(favorite_board.MIME)))
+        data['token'] = 'another menu'
+        foreign.setData(favorite_board.MIME, json.dumps(data).encode())
+        for mime in (foreign, board.mime('group', group), board.mime('tile', self.ids[1])):
+            event = QDragEnterEvent(QPoint(16, 16), Qt.DropAction.MoveAction, mime,
+                                   Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
+            QT.sendEvent(trash, event)
+            self.assertFalse(event.isAccepted())
+        board.end_drag()
+        self.assertIsNone(board.pending_unpin)
+        self.assertTrue(trash.isHidden())
+        self.assertEqual(self.calls, [])
 
     def test_group_creation_rename_and_keyboard_navigation(self):
         with patch.object(app.QInputDialog, 'getText', return_value=('My tools', True)):

@@ -25,7 +25,8 @@ class UpdateTests(unittest.TestCase):
         self.root = Path(self.temp.name); self.live = self.root/'live'; self.live.mkdir()
         self.state = self.root/'state'; self.upstream = self.root/'incoming'; self.stage = self.root/'stage'
         (self.live/'code.py').write_text('old code\n')
-        (self.live/'prefs.json').write_text(json.dumps({'theme': 'raw', 'apps': ['echo'], 'modules': ['apps','keys','pins']}))
+        (self.live/'theme').mkdir()
+        (self.live/'theme/state.json').write_text(json.dumps({'theme': 'raw', 'apps': ['echo'], 'modules': ['apps','keys','pins']}))
         engine.write_json(self.live/engine.META, engine.metadata(self.live, OLD))
         shutil.copytree(self.live, self.upstream); (self.upstream/engine.META).unlink()
 
@@ -35,11 +36,11 @@ class UpdateTests(unittest.TestCase):
 
     def test_updates_code_and_keeps_personal_preferences_and_unmanaged_files(self):
         (self.upstream/'code.py').write_text('new code\n')
-        (self.live/'prefs.json').write_text(json.dumps({'theme':'breakpoint','apps':['echo','mine'],'modules':['apps','keys','pins','mine']}))
-        (self.upstream/'prefs.json').write_text(json.dumps({'theme':'modern','apps':['echo','new'],'modules':['apps','keys','updates','pins'],'extra':True}))
+        (self.live/'theme/state.json').write_text(json.dumps({'theme':'breakpoint','apps':['echo','mine'],'modules':['apps','keys','pins','mine']}))
+        (self.upstream/'theme/state.json').write_text(json.dumps({'theme':'modern','apps':['echo','new'],'modules':['apps','keys','updates','pins'],'extra':True}))
         (self.live/'my-wallpaper.png').write_bytes(b'private artwork')
         plan = self.prepare(); backup = engine.apply_plan(self.live, self.stage, plan, self.state)
-        values = json.loads((self.live/'prefs.json').read_text())
+        values = json.loads((self.live/'theme/state.json').read_text())
         self.assertEqual(values['theme'], 'breakpoint'); self.assertEqual(values['apps'], ['echo','new','mine'])
         self.assertEqual(values['modules'], ['apps','keys','updates','pins','mine']); self.assertTrue(values['extra'])
         self.assertEqual((self.live/'code.py').read_text(), 'new code\n')
@@ -73,25 +74,28 @@ class UpdateTests(unittest.TestCase):
         # update.py regenerates this from the merged palette after compilation.
         self.assertEqual((self.stage/'waybar/updates.css').read_bytes(),path.read_bytes())
 
-    def test_overlapping_code_edit_blocks_without_writing_live_files(self):
+    def test_overlapping_code_edit_is_replaced_with_backup(self):
         (self.live/'code.py').write_text('my code\n'); (self.upstream/'code.py').write_text('new code\n')
-        with self.assertRaisesRegex(RuntimeError, 'overlap'): self.prepare()
+        plan = self.prepare()
         self.assertEqual((self.live/'code.py').read_text(), 'my code\n')
         self.assertEqual(engine.installed(self.live)['revision'], OLD)
+        backup = engine.apply_plan(self.live, self.stage, plan, self.state)
+        self.assertEqual((self.live/'code.py').read_text(), 'new code\n')
+        self.assertEqual((backup/'files/code.py').read_text(), 'my code\n')
 
-    def test_nonoverlapping_code_edit_merges(self):
+    def test_nonoverlapping_personal_configuration_edit_merges(self):
         original = ''.join(f'line {i}\n' for i in range(40))
-        (self.live/'code.py').write_text(original)
+        (self.live/'hyprland.conf').write_text(original)
         engine.write_json(self.live/engine.META, engine.metadata(self.live, OLD))
-        (self.live/'code.py').write_text(original.replace('line 2\n','local monitor\n'))
-        (self.upstream/'code.py').write_text(original.replace('line 35\n','new functionality\n'))
+        (self.live/'hyprland.conf').write_text(original.replace('line 2\n','local monitor\n'))
+        (self.upstream/'hyprland.conf').write_text(original.replace('line 35\n','new functionality\n'))
         plan = self.prepare(); engine.apply_plan(self.live, self.stage, plan, self.state)
-        self.assertIn('local monitor', (self.live/'code.py').read_text())
-        self.assertIn('new functionality', (self.live/'code.py').read_text())
+        self.assertIn('local monitor', (self.live/'hyprland.conf').read_text())
+        self.assertIn('new functionality', (self.live/'hyprland.conf').read_text())
 
     def test_edits_after_preparation_prevent_activation(self):
         (self.upstream/'code.py').write_text('new code\n'); plan = self.prepare()
-        (self.live/'prefs.json').write_text('{"theme":"my-new-theme"}')
+        (self.live/'theme/state.json').write_text('{"theme":"my-new-theme"}')
         with self.assertRaisesRegex(RuntimeError, 'changed after'): engine.apply_plan(self.live, self.stage, plan, self.state)
         self.assertEqual((self.live/'code.py').read_text(), 'old code\n')
 
@@ -155,10 +159,11 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
         self.assertEqual(engine.json_file(self.state/'last-backup.json')['backup'],str(backup))
         self.assertEqual(engine.installed(self.live)['revision'],NEW)
 
-    def test_removed_upstream_file_is_deleted_only_if_unedited(self):
+    def test_removed_application_file_is_retired_even_when_edited(self):
         (self.upstream/'code.py').unlink(); (self.live/'code.py').write_text('keep my version\n')
-        plan = self.prepare(); engine.apply_plan(self.live, self.stage, plan, self.state)
-        self.assertEqual((self.live/'code.py').read_text(), 'keep my version\n')
+        plan = self.prepare(); backup = engine.apply_plan(self.live, self.stage, plan, self.state)
+        self.assertFalse((self.live/'code.py').exists())
+        self.assertEqual((backup/'files/code.py').read_text(), 'keep my version\n')
 
     def test_api_checks_new_commit_and_does_not_autodowngrade(self):
         for relation in ('ahead', 'behind', 'diverged'):

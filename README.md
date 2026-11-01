@@ -125,6 +125,10 @@ Each theme includes its own three-screen wallpaper set. The [gallery](docs/GALLE
 
 Press **Super+Space** and start typing. Arrange favorites into named groups, drag them into place, and mix medium tiles with compact icons. Resize the menu without losing your layout. Right-click an app to pin it to Favorites or the taskbar, assign a global hotkey, edit its command/icon, or choose terminal and floating behavior.
 
+Fresh installs start with **Kitty** and the bundled **Calculator** as the only supplied favorites. Your existing KDE favorites can also appear; the developer's pins and shortcut copies are never imported. While dragging a favorite, a small trash icon appears beside **Favorites**. Drop the tile there to unpin it; the application remains installed. Updates keep your own pins and layout.
+
+**Calculator** includes exact integer arithmetic, DEC/HEX conversion, selectable word sizes, bit operations, optional live results and session history. It runs locally and saves its preferences inside the Hyprland profile.
+
 **Ctrl+click** launches an app floating once. Floating windows remember their size, open centered, and support Maximize/Restore. **Super+F** brings the active window to the front; **Super+B** sends it behind overlapping windows. These actions preserve its size and position.
 
 ### Settings and desktop menus

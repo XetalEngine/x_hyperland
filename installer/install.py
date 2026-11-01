@@ -31,6 +31,15 @@ DOLPHIN_DEFAULTS = {'dolphin/config/dolphinrc', 'dolphin/config/kdeglobals',
                     'dolphin/config/kservicemenurc',
                     'dolphin/data/kio/servicemenus/hyprland-wallpaper.desktop'}
 
+# A source checkout may also have been used as a desktop. Seed portable
+# launcher settings explicitly instead of copying its owner's saved pins.
+LAUNCHER_DEFAULTS = {
+    'favorites.json': {'add': ['kitty.desktop', 'xetal-calculator.desktop'], 'hide': []},
+    'shortcuts.json': {'version': 1, 'overrides': {}, 'copies': {}},
+    'bar-pins.json': {'version': 1, 'pins': []},
+    'window.json': {'width': 980, 'height': 720},
+}
+
 
 def payload_ignored(directory, names):
     ignored = set(shutil.ignore_patterns('__pycache__','*.pyc','*.so','*.o','*.lock','build','.build',
@@ -38,6 +47,8 @@ def payload_ignored(directory, names):
     relative = Path(directory).relative_to(PAYLOAD).as_posix()
     if relative == '.':
         ignored.add('grub')  # Optional boot theme stays in the repo; never install it with Hyprland.
+    if relative == 'launcher':
+        ignored.update((*LAUNCHER_DEFAULTS, 'favorite-layout.json', 'floating-sizes.json', 'icons'))
     if relative in ('dolphin/config', 'dolphin/data') or relative.startswith(('dolphin/config/', 'dolphin/data/')):
         ignored.update(name for name in names if not any(
             path == relative+'/'+name or path.startswith(relative+'/'+name+'/') for path in DOLPHIN_DEFAULTS))
@@ -86,6 +97,8 @@ def render(stage, home, monitors, profile='auto', startup=True):
     check_kvm_payload(PAYLOAD)
     target=home/'.config/hypr'
     shutil.copytree(PAYLOAD,stage,dirs_exist_ok=True,ignore=payload_ignored)
+    for name, defaults in LAUNCHER_DEFAULTS.items():
+        (stage/'launcher'/name).write_text(json.dumps(defaults, indent=2)+'\n')
     for p in stage.rglob('*'):
         if not p.is_file():continue
         try:text=p.read_text()
@@ -137,6 +150,7 @@ def render(stage, home, monitors, profile='auto', startup=True):
         p=stage/'hyprland.conf';p.write_text(p.read_text().replace('exec-once = ~/.config/hypr/scripts/startup-scene.sh --login','# Login animation disabled by installer; Super+D remains available.'))
     # Portable Places; never publish the author's private paths or recent files.
     dolphin_profile.write_changed(stage/'dolphin/data/user-places.xbel', dolphin_profile.default_places(home))
+    dolphin_profile.prepare_colors(stage)
     dolphin_profile.prepare_terminal(stage)
     dolphin_profile.prepare_layout(stage)
     # Copy the recipient's XDG directory locations, without invoking a shell or

@@ -50,7 +50,7 @@ class Draggable(QPushButton):
             drag.setPixmap(self.grab())
             drag.setHotSpot(self.origin)
             self.origin = None
-            self.board.begin_drag()
+            self.board.begin_drag(self.kind, self.ident)
             try:
                 drag.exec(Qt.DropAction.MoveAction)
             finally:
@@ -236,6 +236,82 @@ class Canvas(QWidget):
             event.ignore()
 
 
+class TrashTarget(QWidget):
+    """Unpin a tile from this board; never delete its app or shortcut."""
+    def __init__(self, board, parent=None):
+        super().__init__(parent)
+        self.board = board
+        self.highlighted = False
+        self.setFixedSize(32, 32)
+        self.setAcceptDrops(True)
+        self.setAccessibleName('Remove from Favorites')
+        self.setToolTip('Drop here to remove from Favorites')
+        board.dragStateChanged.connect(self.drag_state)
+        self.hide()
+
+    def drag_state(self, active):
+        self.highlighted = False
+        self.setVisible(active and self.board.drag_kind == 'tile')
+        self.update()
+
+    def tile(self, event):
+        payload = self.board.payload(event.mimeData())
+        if (self.board.dragging and self.board.drag_kind == 'tile' and payload
+                and payload['kind'] == 'tile' and payload['id'] == self.board.drag_id):
+            return payload
+        return None
+
+    def dragEnterEvent(self, event):
+        self.dragMoveEvent(event)
+
+    def dragMoveEvent(self, event):
+        self.highlighted = bool(self.tile(event))
+        if self.highlighted:
+            self.board.clear_drop()
+            event.setDropAction(Qt.DropAction.MoveAction)
+            event.accept()
+        else:
+            event.ignore()
+        self.update()
+
+    def dragLeaveEvent(self, event):
+        self.highlighted = False
+        self.update()
+        event.accept()
+
+    def dropEvent(self, event):
+        payload = self.tile(event)
+        self.highlighted = False
+        self.update()
+        if not payload:
+            event.ignore()
+            return
+        # Wait until QDrag returns before rebuilding/deleting the source tile.
+        self.board.pending_drop = None
+        self.board.pending_unpin = payload['id']
+        self.board.clear_drop()
+        event.setDropAction(Qt.DropAction.MoveAction)
+        event.accept()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        color = self.palette().color(QPalette.ColorRole.Text)
+        if self.highlighted:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(self.palette().color(QPalette.ColorRole.Highlight))
+            painter.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 7, 7)
+            color = self.palette().color(QPalette.ColorRole.HighlightedText)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setPen(QPen(color, 1.6, Qt.PenStyle.SolidLine,
+                            Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        painter.drawRoundedRect(QRectF(10, 11, 12, 14), 2, 2)
+        painter.drawLine(8, 11, 24, 11)
+        painter.drawRoundedRect(QRectF(13, 7, 6, 4), 1, 1)
+        painter.drawLine(14, 15, 14, 21)
+        painter.drawLine(18, 15, 18, 21)
+
+
 class Board(QScrollArea):
     activated = pyqtSignal(str, bool)
     selectedChanged = pyqtSignal(str)
@@ -246,6 +322,7 @@ class Board(QScrollArea):
     renameRequested = pyqtSignal(str)
     dropped = pyqtSignal(object, object)
     dragStateChanged = pyqtSignal(bool)
+    unpinRequested = pyqtSignal(str)
 
     def __init__(self, draw_tile, parent=None):
         super().__init__(parent)
@@ -256,6 +333,7 @@ class Board(QScrollArea):
         self.regions, self.empty_columns = [], {}
         self.selected = self.selected_group = None
         self.dragging = False
+        self.drag_kind = self.drag_id = self.pending_unpin = None
         self.pending_drop = self.drop_hint = self.drag_payload = None
         self.visible_columns = 1
         self.canvas = Canvas(self)
@@ -446,8 +524,10 @@ class Board(QScrollArea):
         self.drop_hint = self.drag_payload = None
         self.canvas.update()
 
-    def begin_drag(self):
+    def begin_drag(self, kind=None, ident=None):
         self.dragging = True
+        self.drag_kind, self.drag_id = kind, ident
+        self.pending_unpin = None
         self.pending_drop = None
         self.dragStateChanged.emit(True)
         self.scroll_timer.start()
@@ -458,9 +538,14 @@ class Board(QScrollArea):
         self.clear_drop()
         self.flush_drop()
         self.dragStateChanged.emit(False)
+        self.drag_kind = self.drag_id = None
 
     def flush_drop(self):
-        if self.pending_drop:
+        if self.pending_unpin:
+            ident = self.pending_unpin
+            self.pending_unpin = self.pending_drop = None
+            self.unpinRequested.emit(ident)
+        elif self.pending_drop:
             payload, target = self.pending_drop
             self.pending_drop = None
             self.dropped.emit(payload, target)

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Calculator
+GenericName=Programmer Calculator
+Comment=Calculate with DEC and HEX, bit operations, and history
+Exec=python3 @HYPR@/calculator/app.py
+Icon=@HYPR@/calculator/programmer_calculator/assets/calculator.svg
+Terminal=false
+Categories=Utility;Calculator;
+Keywords=calculator;programmer;decimal;hexadecimal;binary;math;
+StartupWMClass=xetal-calculator

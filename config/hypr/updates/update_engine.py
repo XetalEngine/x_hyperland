@@ -12,18 +12,12 @@ import shutil
 import subprocess
 import tempfile
 
+from file_policy import KEEP, policy
+
 REPOSITORY = 'https://github.com/XetalEngine/x_hyperland.git'
 BRANCH = 'main'
 META = '.xetal-update.json'
 IGNORE = {'__pycache__', 'cache', 'state', 'font-cache', 'qt-settings', 'mozilla', '.git', '.build', 'build'}
-# Outputs of the theme editor, and hardware state, belong to the recipient.
-KEEP = {'control_center/displays.conf', 'control_center/workspaces.conf',
-        'theme/custom-presets.json',
-        'wallpaper/selection.json', 'wallpaper/hyprpaper.conf',
-        'waybar/style.css', 'waybar/updates.css', 'swaync/style.css', 'theme/current.colors',
-        'theme/kitty-colors.conf', 'dolphin/config/kdeglobals',
-        'dolphin/data/user-places.xbel', 'dolphin/config/user-dirs.dirs',
-        'dolphin/data/konsole/Xetal-Dolphin.profile', 'dolphin/data/konsole/Xetal-Dolphin.colorscheme'}
 
 
 def now(): return datetime.now(timezone.utc).isoformat()
@@ -94,7 +88,8 @@ def source_files(root):
 def metadata(root, commit):
     files = {}
     for path in source_files(root):
-        data = path.read_bytes(); entry = {'sha256': sha(data), 'mode': path.stat().st_mode & 0o777}
+        data = path.read_bytes(); entry = {'sha256': sha(data), 'mode': path.stat().st_mode & 0o777,
+                                         'policy': policy(str(path.relative_to(root)))}
         if len(data) <= 2_000_000 and b'\0' not in data:
             try: entry['text'] = data.decode('utf-8')
             except UnicodeDecodeError: pass
@@ -148,28 +143,39 @@ def merge_json(base, local, remote):
 
 
 def merge_file(name, base, local, remote):
-    if name in KEEP and local is not None: return local
+    ownership = policy(name)
+    # Always deliver a complete release, including when the local copy is
+    # unregistered, modified, deleted, or unchanged in the incoming commit.
+    if ownership == 'release': return remote
+    if local is None: return remote
+    if ownership == 'keep' or remote is None: return local
     old_hash = base.get('sha256') if base else None
     if sha(local) == old_hash or local == remote: return remote
     if sha(remote) == old_hash: return local
-    if remote is None or local is None: return local
-    if base is None: raise RuntimeError('A new update file already exists locally: '+name)
-    ancestor = base.get('text')
-    if ancestor is not None:
-        try:
-            a, b = local.decode('utf-8'), remote.decode('utf-8')
-            if name.endswith('.json'):
-                return (json.dumps(merge_json(json.loads(ancestor), json.loads(a), json.loads(b)), indent=2)+'\n').encode()
+    ancestor = base.get('text') if base else None
+    try:
+        a, b = local.decode('utf-8'), remote.decode('utf-8')
+        if name.endswith('.json'):
+            # An older/copied profile can have preferences before registration.
+            # Retain its choices while filling new defaults, without Git history.
+            local_json, remote_json = json.loads(a), json.loads(b)
+            original = json.loads(ancestor) if ancestor is not None else (
+                {} if isinstance(remote_json, dict) else [] if isinstance(remote_json, list) else None)
+            return (json.dumps(merge_json(original, local_json, remote_json), indent=2)+'\n').encode()
+        if ancestor is not None:
             with tempfile.TemporaryDirectory(prefix='xetal-merge-') as temp:
                 paths = [Path(temp)/s for s in ('local', 'base', 'update')]
                 for path, text in zip(paths, (a, ancestor, b)): path.write_text(text)
                 result = subprocess.run(['git', 'merge-file', '-p', *map(str, paths)], capture_output=True)
                 if result.returncode == 0: return result.stdout
-        except (UnicodeDecodeError, ValueError): pass
-    raise RuntimeError('Local edits overlap this update: '+name+'. Your files were kept. Resolve the difference before retrying.')
+    except (UnicodeDecodeError, ValueError): pass
+    # User configuration wins a genuine preference conflict. The complete
+    # staged configuration must still validate before anything is activated.
+    print('Keeping personal configuration: '+name+' (overlapping changes or no merge baseline).', flush=True)
+    return local
 
 
-def merge_profile(live, upstream, stage, commit, known_release_file=None):
+def merge_profile(live, upstream, stage, commit):
     old = installed(live); new = metadata(upstream, commit)
     stage.mkdir(parents=True)
     # Build a review tree of managed files and custom Hyprland includes only.
@@ -185,18 +191,14 @@ def merge_profile(live, upstream, stage, commit, known_release_file=None):
         current = location(live, name); local = read(current); incoming = read(location(upstream, name))
         expected[name] = sha(local)
         base = old['files'].get(name)
-        try:
-            merged = merge_file(name, base, local, incoming)
-        except RuntimeError:
-            # Recognize exact released files or explicitly fingerprinted
-            # standalone predecessors, without accepting unknown local edits.
-            if (local is None or incoming is None or not known_release_file
-                    or not known_release_file(name, local)): raise
-            print('Recognized earlier desktop file; updating with rollback backup: '+name, flush=True)
-            merged = incoming
+        merged = merge_file(name, base, local, incoming)
+        if (policy(name) == 'release' and local is not None and local != incoming
+                and (base is None or sha(local) != base['sha256'])):
+            print('Replacing local application file: '+name+' (original saved at activation).', flush=True)
         destination = location(stage, name)
         if merged is None: destination.unlink(missing_ok=True); continue
-        mode = (current.stat().st_mode & 0o777) if local is not None else new['files'][name]['mode']
+        mode = (new['files'][name]['mode'] if policy(name) == 'release' or local is None
+                else current.stat().st_mode & 0o777)
         atomic(destination, merged, mode)
     write_json(stage/META, new)
     expected[META] = sha(read(live/META))
@@ -217,6 +219,7 @@ def prepare_plan(live, stage, expected, commit, automatic=True):
     for path in sorted(stage.rglob('*')):
         if not path.is_file() or path.is_symlink(): continue
         name = str(path.relative_to(stage))
+        if (IGNORE - {'.build', 'build'}).intersection(Path(name).parts): continue
         if name.startswith('control_panel/.build/') and name != 'control_panel/.build/xetal-control-panel': continue
         if '__pycache__' in path.parts or path.suffix in ('.lock', '.pyc', '.o') or path.name == 'build.log': continue
         current = location(live, name); old = read(current); data = path.read_bytes()
@@ -225,7 +228,8 @@ def prepare_plan(live, stage, expected, commit, automatic=True):
             changes[name] = {'sha256': sha(data), 'mode': path.stat().st_mode & 0o777}
     new = installed(stage)
     for name, entry in installed(live)['files'].items():
-        if name not in new['files'] and not (stage/name).exists() and sha(read(location(live, name))) == entry['sha256']:
+        if (name not in new['files'] and not (stage/name).exists()
+                and (policy(name) == 'release' or sha(read(location(live, name))) == entry['sha256'])):
             changes[name] = None
     return {'version': 1, 'revision': revision(commit), 'created': now(), 'automatic': automatic,
             'expected': expected, 'changes': changes}

@@ -139,6 +139,39 @@ class InstallerTests(unittest.TestCase):
         self.assertRegex((self.stage/'wallpaper/hyprpaper.conf').read_text(),r'monitor =\s*\n')
         self.assertEqual(json.loads((self.stage/'wallpaper/selection.json').read_text()),{})
 
+    def test_fresh_favorites_are_only_kitty_and_the_bundled_calculator(self):
+        self.render()
+        expected = {'add': ['kitty.desktop', 'xetal-calculator.desktop'], 'hide': []}
+        self.assertEqual(json.loads((self.stage/'launcher/favorites.json').read_text()), expected)
+        self.assertEqual(json.loads((install.PAYLOAD/'launcher/favorites.json').read_text()), expected)
+        self.assertEqual(json.loads((self.stage/'launcher/shortcuts.json').read_text()),
+                         {'version': 1, 'overrides': {}, 'copies': {}})
+        desktop = (self.stage/'desktop/data/applications/xetal-calculator.desktop').read_text()
+        self.assertIn(f'Exec=python3 {self.target}/calculator/app.py', desktop)
+        self.assertIn(f'Icon={self.target}/calculator/programmer_calculator/assets/calculator.svg', desktop)
+        self.assertTrue((self.stage/'calculator/app.py').is_file())
+        self.assertTrue((self.stage/'calculator/programmer_calculator/assets/calculator.svg').is_file())
+        self.assertIn('from PyQt6.QtWidgets', (self.stage/'calculator/programmer_calculator/window.py').read_text())
+
+    def test_used_checkout_cannot_seed_personal_launcher_data(self):
+        source = self.root/'source'
+        shutil.copytree(install.PAYLOAD, source, ignore=shutil.ignore_patterns('__pycache__', '.build', 'build'))
+        for name in install.LAUNCHER_DEFAULTS:
+            (source/'launcher'/name).write_text('{"developer_only": true}')
+        private = ('launcher/favorite-layout.json', 'launcher/floating-sizes.json',
+                   'launcher/icons/private.png', 'calculator/state/preferences.ini')
+        for name in private:
+            path = source/name; path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('PRIVATE DEVELOPER DATA')
+        kde = self.home/'.config/kactivitymanagerd-statsrc'
+        kde.write_text('[Favorites-instance-1-global]\nordering=applications:recipient.desktop\n')
+        before = kde.read_bytes()
+        with patch.object(install, 'PAYLOAD', source): self.render()
+        for name in private: self.assertFalse((self.stage/name).exists(), name)
+        for name, expected in install.LAUNCHER_DEFAULTS.items():
+            self.assertEqual(json.loads((self.stage/'launcher'/name).read_text()), expected)
+        self.assertEqual(kde.read_bytes(), before)
+
     def test_places_use_recipient_folders_without_importing_private_bookmarks(self):
         (self.home/'Desktop').mkdir()
         (self.home/'Mes documents').mkdir()
@@ -189,6 +222,30 @@ class InstallerTests(unittest.TestCase):
         self.assertIn('DefaultProfile=Xetal-Dolphin.profile',(self.stage/'dolphin/config/dolphinrc').read_text())
         self.assertIn('TerminalApplication=kitty --config '+str(self.target/'kitty.conf'),
                       (self.stage/'dolphin/config/kdeglobals').read_text())
+
+    def test_dolphin_first_install_selects_private_dark_scheme_without_changing_kde(self):
+        import configparser
+        shared = self.home/'.config/kdeglobals'
+        shared.write_text('[General]\nColorScheme=BreezeLight\n')
+        self.render()
+        config = configparser.ConfigParser(); config.read(self.stage/'dolphin/config/dolphinrc')
+        self.assertEqual(config['UiSettings']['ColorScheme'], 'HyperFusion')
+        scheme = configparser.ConfigParser()
+        scheme.read(self.stage/'dolphin/data/color-schemes/HyperFusion.colors')
+        self.assertEqual(scheme['General']['Name'], 'HyperFusion')
+        self.assertTrue(all(int(value) < 80 for value in scheme['Colors:Window']['BackgroundNormal'].split(',')))
+        self.assertEqual(shared.read_text(), '[General]\nColorScheme=BreezeLight\n')
+        launcher = (self.stage/'desktop/data/applications/org.kde.dolphin.desktop').read_text()
+        self.assertIn('Exec='+str(self.target/'scripts/dolphin.sh')+' %U', launcher)
+        self.assertIn('DBusActivatable=false', launcher)
+
+    def test_dolphin_scheme_refresh_keeps_an_explicit_user_selection(self):
+        self.render()
+        config = self.stage/'dolphin/config/dolphinrc'
+        config.write_text(config.read_text().replace('ColorScheme=HyperFusion', 'ColorScheme=MyFavorite'))
+        before = config.read_bytes()
+        install.dolphin_profile.prepare_colors(self.stage)
+        self.assertEqual(config.read_bytes(), before)
 
     def test_existing_dolphin_profiles_receive_missing_defaults_without_losing_choices(self):
         self.render()

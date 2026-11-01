@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Dolphin
+GenericName=File Manager
+Comment=Browse files with the Hyper Fusion Dolphin profile
+Exec=@HYPR@/scripts/dolphin.sh %U
+Icon=system-file-manager
+Terminal=false
+DBusActivatable=false
+MimeType=inode/directory;
+Categories=Qt;KDE;System;FileTools;FileManager;
+StartupWMClass=org.kde.dolphin

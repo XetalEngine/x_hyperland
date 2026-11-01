@@ -29,7 +29,7 @@ import bar_toggle
 import placement
 from activation import BarActivation
 from outside_click import CLICK_EVENT, check_pointer
-from favorite_board import Board
+from favorite_board import Board, TrashTarget
 from hotkey_dialog import HotkeyDialog
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'theme'))
 import runtime as theme_runtime
@@ -285,6 +285,9 @@ class Menu(QWidget):
         self.close_button=close_button(self,title='Close Apps')
         self.heading = label('Favorites', 'section')
         greeting.addWidget(self.heading)
+        self.favorites_board = Board(Tiles.draw)
+        self.favorite_trash = TrashTarget(self.favorites_board)
+        greeting.addWidget(self.favorite_trash)
         greeting.addStretch()
         self.add_group_button = QPushButton('+ New group')
         self.add_group_button.setStyleSheet('padding:5px 8px; color:palette(link);')
@@ -324,7 +327,6 @@ class Menu(QWidget):
         self.grid.clickedApp.connect(self.open_app)
         self.grid.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.grid.customContextMenuRequested.connect(self.context_menu)
-        self.favorites_board = Board(Tiles.draw)
         self.favorites_board.activated.connect(
             lambda ident, floating: self.launch_app(ident, floating=True if floating else None))
         self.favorites_board.selectedChanged.connect(self.select_favorite)
@@ -335,6 +337,7 @@ class Menu(QWidget):
         self.favorites_board.renameRequested.connect(self.rename_group)
         self.favorites_board.dropped.connect(self.move_favorite)
         self.favorites_board.dragStateChanged.connect(self.drag_state)
+        self.favorites_board.unpinRequested.connect(lambda ident: self.perform('unpin', ident))
         self.views = QStackedWidget()
         self.views.addWidget(self.grid)
         self.views.addWidget(self.favorites_board)
@@ -875,9 +878,10 @@ class Menu(QWidget):
             elif action in ('open', 'terminal', 'open-floating'):
                 self.launch_app(app_id, True if action == 'terminal' else None,
                                 True if action=='open-floating' else None)
-            elif action == 'pin':
-                catalog.pin(app_id, app_id not in self.pinned)
+            elif action in ('pin', 'unpin'):
+                catalog.pin(app_id, action == 'pin' and app_id not in self.pinned)
                 self.refresh_apps(app_id)
+                if action == 'unpin': self.report('Removed from Favorites.')
             elif action == 'bar-pin':
                 enabled = app_id not in pins.pinned()
                 pins.pin(app_id, enabled)

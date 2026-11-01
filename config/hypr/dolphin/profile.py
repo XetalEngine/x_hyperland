@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Portable Dolphin defaults, confined to this Hyprland profile."""
 from pathlib import Path
+import configparser
+import io
 import os
 import re
 import tempfile
@@ -106,6 +108,22 @@ def prepare_terminal(root):
                 'kitty --config '+str(root/'kitty.conf'))
 
 
+def prepare_colors(root):
+    """Give Dolphin a real, private scheme instead of the non-KDE light default."""
+    root = Path(root)
+    scheme = configparser.ConfigParser(interpolation=None)
+    scheme.optionxform = str
+    scheme.read_string((root/'theme/current.colors').read_text())
+    if not scheme.has_section('General'): scheme.add_section('General')
+    # Matching ID and display name also supports KDE versions that stored the
+    # scheme's name instead of its ID. Later user selections remain untouched.
+    scheme['General']['Name'] = 'HyperFusion'
+    scheme['General']['ColorScheme'] = 'HyperFusion'
+    stream = io.StringIO(); scheme.write(stream, space_around_delimiters=False)
+    write_changed(root/'dolphin/data/color-schemes/HyperFusion.colors', stream.getvalue().encode())
+    set_default(root/'dolphin/config/dolphinrc', 'UiSettings', 'ColorScheme', 'HyperFusion')
+
+
 def prepare_layout(root):
     """Seed Places + terminal, with Folders hidden, only before a layout is saved."""
     root = Path(root)
@@ -120,5 +138,6 @@ def prepare_layout(root):
 
 
 if __name__ == '__main__':
+    prepare_colors(Path(__file__).resolve().parents[1])
     prepare_terminal(Path(__file__).resolve().parents[1])
     prepare_layout(Path(__file__).resolve().parents[1])

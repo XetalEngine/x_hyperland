@@ -1,27 +1,7 @@
 {
   "add": [
-    "cachyostools-cachyostools.desktop",
-    "cachyostools-xetal_bv.desktop",
-    "cachyostools-ls26.desktop",
-    "cachyostools-vmstart2.desktop",
-    "cachyostools-startecho.desktop",
-    "cachyostools-echo_remote.desktop",
-    "discord.desktop",
-    "github-desktop.desktop",
-    "cachyostools-taskman.desktop",
-    "cachyostools-xmusic.desktop",
-    "com.obsproject.Studio.desktop",
-    "filezilla.desktop",
-    "com.anydesk.Anydesk.desktop",
-    "org.remmina.Remmina.desktop",
-    "cachyostools-calc.desktop",
-    "cachyostools-xproton.desktop",
     "kitty.desktop",
-    "org.kde.dolphin.desktop",
-    "firefox.desktop",
-    "org.gnome.Calculator.desktop"
+    "xetal-calculator.desktop"
   ],
-  "hide": [
-    "blueman-manager.desktop"
-  ]
+  "hide": []
 }

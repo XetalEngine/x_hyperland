@@ -18,16 +18,16 @@ Each release declares its required compositor in `runtime/manifest.json`. A diff
 
 ## Keeping personal settings
 
-The installer records the delivered revision and defaults in `~/.config/hypr/.xetal-update.json`. That baseline distinguishes upstream changes from personal edits.
+The installer records the delivered revision, defaults and file ownership in `~/.config/hypr/.xetal-update.json`. The incoming release supplies application files; personal settings use the rules in `updates/file_policy.py`. Older installation records without ownership fields remain supported.
 
 Git checkouts use their own commit. GitHub ZIP and tar downloads use `installer/source-revision.txt`, populated by Git's [`export-subst` archive attribute](https://git-scm.com/docs/gitattributes#Documentation/gitattributes.adoc-export-subst). Registration works offline and does not substitute the current GitHub head for an older download. If an old or incomplete archive has no revision, the installer stops before replacing the profile and asks for a fresh download. The update builder uses the same source identification and still rejects any revision that differs from the announced update.
 
-- JSON preferences merge with new defaults; overlapping choices retain the user's value.
-- Hotkeys and other text configuration use a three-way merge. Conflicting edits stop the update and identify the file.
-- A file copied into a development profile or clone ISO before update registration can be recognized when it exactly matches that path in the incoming release's recent history (up to 64 commits). The installer then adopts and updates it through the normal backup transaction. Unknown or edited local files still stop preparation; this never overwrites arbitrary files or pretends the entire profile is current. History is fetched into the updater's private cache only when needed, without changing a developer checkout.
-- The original standalone `scripts/runtime-log-guard.py` repair also migrates automatically when its SHA-256 is exactly `ed51960b5d3298f2dd4bf948e735b5a74d30e71563cf454a30d85afae25550c6`. That version predates the Git history, so release matching alone could not recognize it. The update stages the integrated guard and saves the original in the normal rollback backup when activated. Other contents or filenames still receive the usual conflict checks. Publish this fix, then use **Check now → Update!** on the affected VM; this conflict does not require reinstalling the desktop or deleting the helper manually.
+- Shipped application code, scripts, build inputs, templates, assets and runtime manifests are replaced with the exact incoming versions and permissions. This also repairs modified or missing files when their upstream content has not changed. A copied standalone helper at a newly shipped path is replaced through the same transaction, without fingerprint exceptions or additional Git history lookups. Retired application files are removed, including modified copies, with originals in the rollback backup.
+- Declared JSON preferences merge with new defaults; overlapping choices retain the user's value. When an older profile has no baseline for a preference file, existing values are retained and missing defaults are added.
+- Hotkeys and other declared text settings use a three-way merge. Overlapping changes keep the local configuration and are reported in the update log. The resulting complete configuration must still pass validation before activation.
 - Monitor arrangements, selected wallpapers, generated theme colors, personal taskbar CSS and the private Dolphin profile are retained.
-- Unknown user files stay in place. A removed upstream file is deleted only if it was unedited.
+- Launcher favorites, shortcut copies, taskbar pins, groups and window sizes belong to the recipient. Fresh-install defaults (Kitty and Calculator) do not repin removed apps or replace those choices during an update.
+- Unrelated files absent from both release inventories stay in place. Private state, caches and personal Dolphin data are excluded; temporary state created while building an update is never installed over the user's state. Settings retained from a retired preference file stay in place.
 - The prepared plan records hashes. If settings change before login, activation stops and the update is prepared again.
 
 The updater does not pull, reset, stash or rewrite a developer's clone. Its own exact-commit checkout lives in a private cache. A local build ahead of `main`, a rewritten branch or unrelated history does not trigger an automatic downgrade.
@@ -36,7 +36,7 @@ For direct development installs, finish by registering the delivered commit and 
 
 ## Failure and recovery
 
-Preparation works in a separate directory. Missing packages, merge conflicts, failed builds or invalid configuration leave the current desktop installed. Automatic updates never run `sudo` or change system packages; dependency problems are shown for the user to resolve.
+Preparation works in a separate directory. A differing application file no longer blocks an update or needs a manual reinstall. Missing packages, failed builds, invalid configuration or files changed during preparation still leave the current desktop installed. Automatic updates never run `sudo` or change system packages; dependency problems are shown for the user to resolve.
 
 Activation has a journal, per-file atomic writes and a backup of changed files. The next startup recovers an interrupted transaction. **Roll back** queues the previous completed version for next login and pauses automatic updates. It refuses to overwrite files edited since that update; inspect the message before resolving any difference.
 
@@ -63,4 +63,6 @@ python3 -m unittest discover -s tests -v
 ./tests/run-desktop-tests.sh
 ```
 
-The updater tests cover merge conflicts, unregistered copies of released files, preference preservation, source integrity, interrupted writes, rollback, rate limits, commit ancestry, singleton ownership, logout cleanup and all three theme palettes. A disposable-profile integration run also built the native components, validated the complete config, activated a new revision and restored the previous revision.
+The updater tests cover application-file replacement, overlapping preferences, source integrity, interrupted writes, rollback, rate limits, commit ancestry, singleton ownership, logout cleanup and all three theme palettes. A disposable profile based on release `2f75086` with unregistered and modified helpers also completed a full native build, complete configuration validation, activation using that older release's transaction engine, and rollback to the original files.
+
+When adding an editable settings file, declare it in `updates/file_policy.py`; files supplied by a release otherwise belong to the application. Keep personal values in these settings or private state directories rather than editing application source. Replacement tests cover multiple unknown helper collisions, modified code, restored executable permissions, removed application files, missing baselines, rollback originals, disk failures and concurrent edits.
