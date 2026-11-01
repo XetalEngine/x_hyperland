@@ -366,7 +366,7 @@ struct DiskVisualizer::Impl {
     return item;
   }
   void resetTree() {
-    ++viewSequence; tree->clear(); items.clear();
+    ++scanSequence; ++selectionSequence; ++viewSequence; tree->clear(); items.clear();
     summary->setText(bytes(root[metric()].toDouble()) + " · " + QLocale().toString(qint64(root["files"].toDouble())) + " files");
     auto *top = append(nullptr,root); top->setText(0,scannedPath); top->setExpanded(true);
   }
@@ -472,22 +472,33 @@ struct DiskVisualizer::Impl {
       question.setTextFormat(Qt::PlainText);
       auto *accept = question.addButton(permanent ? "Delete permanently" : "Send to Trash",QMessageBox::DestructiveRole); question.setDefaultButton(QMessageBox::Cancel);
       question.exec(); if (question.clickedButton() != accept) return;
+      ++scanSequence; ++selectionSequence; ++viewSequence;
       setBusy(true); cancelButton->setEnabled(false); status->setText(permanent ? "Deleting selected item…" : "Moving selected item to Trash…");
-      auto finished = [this](QString error) {
+      auto rescan = [this](QString error) {
         setBusy(false);
         if (!error.isEmpty()) QMessageBox::warning(q,"File operation",error + "\n\nThe map will be rescanned to show the current contents.");
         folder->setText(scannedPath); startScan();
       };
       if (permanent) {
-        send({{"op","delete"},{"node",id(node)}},[finished](QJsonObject result){ finished(result["ok"].toBool() ? QString() : result["error"].toString()); });
-      } else {
-        const auto gio = QStandardPaths::findExecutable("gio");
-        if (gio.isEmpty()) { finished("The gio Trash helper is unavailable. Install glib2; nothing was deleted."); return; }
-        QObject::disconnect(&trash,nullptr,q,nullptr);
-        QObject::connect(&trash,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),q,[this,finished](int code,QProcess::ExitStatus state){
-          finished(code == 0 && state == QProcess::NormalExit ? QString() : "Could not move this item to your Trash. No permanent-delete fallback was used.\n" + QString::fromUtf8(trash.readAllStandardError()));
+        send({{"op","delete"},{"node",id(node)},{"view",id(focus)}},[this,rescan](QJsonObject result){
+          if (!result["ok"].toBool()) { rescan(result["error"].toString()); return; }
+          root = result["root"].toObject(); selection = {}; focus = {};
+          map->setMap({},metric()); clearCrumbs(); up->setEnabled(false);
+          setBusy(false);
+          status->setText(QString("%1 entries · Item deleted · Map updated without rescanning")
+                           .arg(QLocale().toString(qint64(result["entries"].toDouble()))));
+          resetTree(); showView(qint64(result["view"].toDouble()));
         });
-        QObject::connect(&trash,&QProcess::errorOccurred,q,[finished](QProcess::ProcessError error){ if (error == QProcess::FailedToStart) finished("Could not start the Trash helper. Nothing was deleted."); });
+      } else {
+        // Trash may move the bytes into another folder inside the scanned
+        // tree. Subtracting them would incorrectly report reclaimed space.
+        const auto gio = QStandardPaths::findExecutable("gio");
+        if (gio.isEmpty()) { rescan("The gio Trash helper is unavailable. Install glib2; nothing was deleted."); return; }
+        QObject::disconnect(&trash,nullptr,q,nullptr);
+        QObject::connect(&trash,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),q,[this,rescan](int code,QProcess::ExitStatus state){
+          rescan(code == 0 && state == QProcess::NormalExit ? QString() : "Could not move this item to your Trash. No permanent-delete fallback was used.\n" + QString::fromUtf8(trash.readAllStandardError()));
+        });
+        QObject::connect(&trash,&QProcess::errorOccurred,q,[rescan](QProcess::ProcessError error){ if (error == QProcess::FailedToStart) rescan("Could not start the Trash helper. Nothing was deleted."); });
         trash.start(gio,{"trash","--",node["path"].toString()}); // Always the desktop user, never root's Trash.
       }
     });

@@ -114,7 +114,8 @@ class DiskIndex:
                     kind TEXT, size INTEGER, allocated INTEGER, files INTEGER,
                     dirs INTEGER, dev TEXT, ino TEXT, mtime TEXT, mode INTEGER,
                     status TEXT, direct_size INTEGER DEFAULT 0,
-                    direct_allocated INTEGER DEFAULT 0, direct_files INTEGER DEFAULT 0);
+                    direct_allocated INTEGER DEFAULT 0, direct_files INTEGER DEFAULT 0,
+                    own_allocated INTEGER DEFAULT 0, linked INTEGER DEFAULT 0);
             """)
 
             def problem(path, error):
@@ -133,17 +134,19 @@ class DiskIndex:
                 if not isdir and not stat.S_ISREG(entry_stat.st_mode) and kind != "link":
                     size = allocated = 0
                     note = "Special file"
-                if stat.S_ISREG(entry_stat.st_mode) and entry_stat.st_nlink > 1:
+                linked = stat.S_ISREG(entry_stat.st_mode) and entry_stat.st_nlink > 1
+                if linked:
                     if identity in seen_links:
                         size = allocated = 0
                         note = "Hard link · space counted once"
                     seen_links.add(identity)
                 row = db.execute("""INSERT INTO nodes
-                    (parent,name,path,kind,size,allocated,files,dirs,dev,ino,mtime,mode,status)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (parent,name,path,kind,size,allocated,files,dirs,dev,ino,mtime,mode,status,own_allocated,linked)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (parent, os.path.basename(path) or b"/", path, kind, size, allocated,
                      0 if isdir else 1, 0, str(entry_stat.st_dev), str(entry_stat.st_ino),
-                     str(entry_stat.st_mtime_ns), entry_stat.st_mode, note))
+                     str(entry_stat.st_mtime_ns), entry_stat.st_mode, note,
+                     allocated if isdir else 0, linked))
                 ident = row.lastrowid
                 self.count += 1
                 now = time.monotonic()
@@ -191,7 +194,7 @@ class DiskIndex:
                                 # A mount belongs to its own filesystem, not its parent's usage.
                                 if status.startswith("Mounted filesystem"):
                                     ca = 0
-                                    db.execute("UPDATE nodes SET allocated=0 WHERE id=?", (child_id,))
+                                    db.execute("UPDATE nodes SET allocated=0,own_allocated=0 WHERE id=?", (child_id,))
                                 size += cs
                                 allocated += ca
                                 files += cf
@@ -219,6 +222,7 @@ class DiskIndex:
                 CREATE INDEX parent_size ON nodes(parent,kind,size DESC);
                 CREATE INDEX parent_allocated ON nodes(parent,kind,allocated DESC);
                 CREATE UNIQUE INDEX node_path ON nodes(path);
+                CREATE INDEX linked_inode ON nodes(dev,ino) WHERE linked=1;
             """)
             db.commit()
             self.ready = True
@@ -320,7 +324,74 @@ class DiskIndex:
                 row["dev"], row["ino"], row["mode"], row["mtime"]):
             raise ValueError("This item changed since the scan. Scan again before removing it.")
 
-    def remove(self, db, ident):
+    @staticmethod
+    def adjust_totals(db, parent, size=0, allocated=0, files=0, dirs=0):
+        """Only touch the ancestors of the changed branch, not their siblings."""
+        db.execute("""WITH RECURSIVE ancestors(id) AS (
+            SELECT ? UNION ALL
+            SELECT nodes.parent FROM nodes JOIN ancestors ON nodes.id=ancestors.id
+                WHERE nodes.parent IS NOT NULL)
+            UPDATE nodes SET size=size+?,allocated=allocated+?,files=files+?,dirs=dirs+?
+                WHERE id IN ancestors""", (parent, size, allocated, files, dirs))
+
+    def forget_removed(self, db, row, parent_info, view):
+        """Remove a successfully deleted branch from the existing scan."""
+        parent = db.execute("SELECT * FROM nodes WHERE id=?", (row["parent"],)).fetchone()
+        if (parent["dev"], parent["ino"], parent["mode"]) != (
+                str(parent_info.st_dev), str(parent_info.st_ino), parent_info.st_mode):
+            raise ValueError("Parent folder changed during deletion. Scan again.")
+        with db:
+            db.execute("CREATE TEMP TABLE removed_nodes(id INTEGER PRIMARY KEY)")
+            try:
+                db.execute("""WITH RECURSIVE branch(id) AS (
+                    SELECT ? UNION ALL
+                    SELECT nodes.id FROM nodes JOIN branch ON nodes.parent=branch.id)
+                    INSERT INTO removed_nodes SELECT id FROM branch""", (row["id"],))
+                # If the counted hard link was removed, its bytes still belong
+                # to a surviving alias in the scan. Transfer them before dropping
+                # the branch; never count that inode twice or pretend it is free.
+                owners = db.execute("""SELECT * FROM nodes WHERE id IN removed_nodes
+                    AND linked=1 AND (size>0 OR allocated>0)""")
+                for owner in owners:
+                    survivor = db.execute("""SELECT id,parent FROM nodes
+                        WHERE linked=1 AND dev=? AND ino=? AND id NOT IN removed_nodes
+                        ORDER BY id LIMIT 1""", (owner["dev"], owner["ino"])).fetchone()
+                    if survivor is None:
+                        continue
+                    db.execute("UPDATE nodes SET size=?,allocated=?,status='' WHERE id=?",
+                               (owner["size"], owner["allocated"], survivor["id"]))
+                    db.execute("""UPDATE nodes SET direct_size=direct_size+?,
+                        direct_allocated=direct_allocated+? WHERE id=?""",
+                               (owner["size"], owner["allocated"], survivor["parent"]))
+                    self.adjust_totals(db, survivor["parent"], owner["size"], owner["allocated"])
+
+                self.adjust_totals(db, row["parent"], -row["size"], -row["allocated"],
+                                   -row["files"], -row["dirs"] - int(row["kind"] == "dir"))
+                if row["kind"] != "dir":
+                    db.execute("""UPDATE nodes SET direct_size=direct_size-?,
+                        direct_allocated=direct_allocated-?,direct_files=direct_files-1 WHERE id=?""",
+                               (row["size"], row["allocated"], row["parent"]))
+                db.execute("DELETE FROM nodes WHERE id IN removed_nodes")
+
+                # Deleting an entry changes its parent's mtime and may shrink
+                # directory metadata. Refresh just that open directory, so the
+                # user can subsequently delete the parent without a new scan.
+                allocated = parent_info.st_blocks * 512
+                self.adjust_totals(db, row["parent"], allocated=allocated - parent["own_allocated"])
+                db.execute("UPDATE nodes SET mtime=?,own_allocated=? WHERE id=?",
+                           (str(parent_info.st_mtime_ns), allocated, row["parent"]))
+            finally:
+                db.execute("DROP TABLE removed_nodes")
+        root = self.node(db, 1)
+        self.count = root["files"] + root["dirs"] + 1
+        viewed = db.execute("SELECT direct_files FROM nodes WHERE id=?", (abs(view),)).fetchone()
+        if viewed is None:
+            view = row["parent"]
+        elif view < 0 and not viewed["direct_files"]:
+            view = abs(view)
+        return {"deleted": True, "root": root, "entries": self.count, "view": view}
+
+    def remove(self, db, ident, view=1):
         row = self.validate_target(db, ident)
         mounts = mount_points()
         parent = open_directory(os.path.dirname(row["path"]))
@@ -354,8 +425,13 @@ class DiskIndex:
 
         try:
             remove_at(parent, row["path"], row)
+            return self.forget_removed(db, row, os.fstat(parent), view)
+        except BaseException:
+            # A partial deletion or an index failure must not leave a usable,
+            # misleading snapshot. The UI rescans only on this failure path.
+            self.ready = False
+            raise
         finally:
-            self.ready = False  # Even a partially successful deletion needs a fresh scan.
             os.close(parent)
 
 
@@ -413,8 +489,7 @@ def serve():
                         index.validate_target(db, ident)
                         result = {"node": index.node(db, ident)}
                     elif operation == "delete":
-                        index.remove(db, ident)
-                        result = {"deleted": True}
+                        result = index.remove(db, ident, int(request.get("view", 1)))
                     else:
                         raise ValueError("Unknown disk operation.")
             working.clear()

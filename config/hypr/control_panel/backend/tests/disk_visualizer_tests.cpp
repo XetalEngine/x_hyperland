@@ -88,6 +88,92 @@ private slots:
       }
     }
   }
+  void deletionUpdatesCachedMapAndKeepsCurrentFolder() {
+    const auto profile = QDir(QFileInfo(QStringLiteral(__FILE__)).absolutePath()).absoluteFilePath("../../..");
+    qputenv("XETAL_HYPR_ROOT",profile.toUtf8());
+    QTemporaryDir fixture;
+    QVERIFY(fixture.isValid());
+    auto put = [&](const QString &name,int size) {
+      const auto path = fixture.path() + "/" + name;
+      QDir().mkpath(QFileInfo(path).absolutePath());
+      QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly));
+      QCOMPARE(file.write(QByteArray(size,'x')),qint64(size));
+    };
+    put("parent/remove/nested/file",50000);
+    put("parent/stay",123);
+    put("unrelated/keep",200);
+    DiskVisualizer panel([]{ return false; });
+    panel.resize(1220,650); panel.show();
+    QSignalSpy ready(&panel,&DiskVisualizer::viewReady);
+    panel.scanFixture(fixture.path());
+    QTRY_VERIFY_WITH_TIMEOUT(ready.count() > 0,10000);
+    auto *tree = panel.findChild<QTreeWidget *>("diskTree"); QVERIFY(tree);
+    auto findItem = [&](const QString &relative) -> QTreeWidgetItem * {
+      for (QTreeWidgetItemIterator it(tree); *it; ++it)
+        if ((*it)->data(0,Qt::UserRole).toJsonObject()["path"] == fixture.path() + "/" + relative)
+          return *it;
+      return nullptr;
+    };
+    QTRY_VERIFY(findItem("parent"));
+    findItem("parent")->setExpanded(true);
+    QTRY_VERIFY(findItem("parent/remove"));
+    int before = ready.count();
+    tree->setCurrentItem(findItem("parent/remove"));
+    QTest::mouseClick(tree->viewport(),Qt::LeftButton,Qt::NoModifier,
+                     tree->visualItemRect(findItem("parent/remove")).center());
+    QTest::mouseDClick(tree->viewport(),Qt::LeftButton,Qt::NoModifier,
+                      tree->visualItemRect(findItem("parent/remove")).center());
+    QTRY_VERIFY(ready.count() > before);
+
+    // A rescan would pick up this new file. An incremental delete must leave
+    // unrelated cached branches alone and keep their original IDs and totals.
+    put("unrelated/not-in-snapshot",9999);
+    QPushButton *remove = nullptr;
+    for (auto *button : panel.findChildren<QPushButton *>())
+      if (button->text() == "Delete permanently…") remove = button;
+    QVERIFY(remove); QVERIFY(remove->isEnabled());
+    auto answerConfirmation = [&](bool accept) {
+      bool answered = false;
+      QTimer answer;
+      connect(&answer,&QTimer::timeout,&panel,[&] {
+        auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+        if (!box) return;
+        QCOMPARE(box->windowTitle(),QString("Delete permanently"));
+        for (auto *button : box->buttons()) {
+          if (box->buttonRole(button) != (accept ? QMessageBox::DestructiveRole : QMessageBox::RejectRole)) continue;
+          answer.stop(); answered = true; button->click(); break;
+        }
+      });
+      answer.start(10);
+      remove->click();
+      QTRY_VERIFY_WITH_TIMEOUT(answered,5000);
+    };
+    answerConfirmation(false);
+    QVERIFY(QFileInfo::exists(fixture.path() + "/parent/remove/nested/file"));
+    before = ready.count();
+    answerConfirmation(true);
+    QTRY_VERIFY_WITH_TIMEOUT(ready.count() > before,5000);
+    QVERIFY(!QFileInfo::exists(fixture.path() + "/parent/remove"));
+    QVERIFY(QFileInfo::exists(fixture.path() + "/parent/stay"));
+    QTRY_VERIFY(findItem("parent"));
+    QCOMPARE(tree->topLevelItem(0)->data(0,Qt::UserRole).toJsonObject()["size"].toInt(),323);
+    QCOMPARE(tree->topLevelItem(0)->data(0,Qt::UserRole).toJsonObject()["files"].toInt(),2);
+    QVERIFY(panel.findChild<QLabel *>("diskDetails")->text().startsWith(fixture.path() + "/parent\n"));
+    QVERIFY(!findItem("parent/remove"));
+    bool updated = false;
+    for (auto *label : panel.findChildren<QLabel *>()) updated |= label->text().contains("Map updated without rescanning");
+    QVERIFY(updated);
+
+    // The parent's scanned identity must be refreshed after removing its child.
+    tree->setCurrentItem(findItem("parent"));
+    before = ready.count();
+    answerConfirmation(true);
+    QTRY_VERIFY_WITH_TIMEOUT(ready.count() > before,5000);
+    QVERIFY(!QFileInfo::exists(fixture.path() + "/parent"));
+    QCOMPARE(tree->topLevelItem(0)->data(0,Qt::UserRole).toJsonObject()["size"].toInt(),200);
+    QVERIFY(QFileInfo::exists(fixture.path() + "/unrelated/not-in-snapshot"));
+    QVERIFY(panel.findChild<QLabel *>("diskDetails")->text().startsWith(fixture.path() + "\n"));
+  }
 };
 QTEST_MAIN(DiskVisualizerTests)
 #include "disk_visualizer_tests.moc"

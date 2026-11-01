@@ -37,6 +37,18 @@ class DiskScanTests(unittest.TestCase):
     def ident(self, path):
         return self.db.execute("SELECT id FROM nodes WHERE path=?", (os.fsencode(path),)).fetchone()[0]
 
+    def assert_matches_fresh_scan(self):
+        fresh = DiskIndex()
+        self.addCleanup(fresh.close)
+        fresh.scan(str(self.path))
+        other = fresh.connect()
+        self.addCleanup(other.close)
+        query = """SELECT path,size,allocated,files,dirs,direct_size,direct_allocated,
+            direct_files,own_allocated,mtime FROM nodes ORDER BY path"""
+        self.assertEqual([tuple(row) for row in self.db.execute(query)],
+                         [tuple(row) for row in other.execute(query)])
+        self.assertEqual(self.index.count, fresh.count)
+
     def test_folders_largest_first_files_bucket_always_last(self):
         self.file("small/a", 20)
         self.file("big/b", 10000)
@@ -119,7 +131,100 @@ class DiskScanTests(unittest.TestCase):
         self.index.remove(self.db, self.ident(gone.parents[1]))
         self.assertFalse(gone.parents[1].exists())
         self.assertTrue(keep.exists())
+        self.assertTrue(self.index.ready)
+        self.assert_matches_fresh_scan()
+
+    def test_removal_reuses_scan_and_preserves_unaffected_ids(self):
+        gone = self.file("remove/nested/file", 50)
+        keep = self.file("keep/file", 17)
+        before = self.scan()
+        kept_id = self.ident(keep)
+        # The incremental update must not walk an unrelated branch again.
+        self.file("keep/created-after-scan", 999)
+        with patch("disk_scan.os.scandir", side_effect=AssertionError("unexpected scan")):
+            result = self.index.remove(self.db, self.ident(gone.parents[1]))
+            self.index.map(self.db, 1, "allocated")
+        self.assertEqual(result["root"]["size"], 17)
+        self.assertEqual(result["entries"], before["entries"] - 3)
+        self.assertEqual(self.ident(keep), kept_id)
+        self.assertEqual(self.index.node(self.db, kept_id)["size"], 17)
+        self.assertTrue((keep.parent / "created-after-scan").exists())
+
+    def test_repeated_deletions_update_files_groups_and_parent_identity(self):
+        first = self.file("parent/first", 99)
+        last = self.file("parent/last", 15)
+        self.file("keep", 9)
+        self.scan()
+        parent_id = self.ident(first.parent)
+        self.index.remove(self.db, self.ident(first), view=-parent_id)
+        self.assertEqual(self.index.node(self.db, -parent_id)["files"], 1)
+        self.assert_matches_fresh_scan()
+        result = self.index.remove(self.db, self.ident(last), view=-parent_id)
+        self.assertEqual(result["view"], parent_id)  # Empty Files group goes back to its folder.
+        self.assertFalse(self.index.node(self.db, parent_id)["children"])
+        self.assert_matches_fresh_scan()
+        result = self.index.remove(self.db, parent_id, view=parent_id)
+        self.assertEqual(result["view"], 1)
+        self.assert_matches_fresh_scan()
+
+    def test_deleting_ancestor_of_current_view_returns_surviving_parent(self):
+        nested = self.file("parent/remove/deep/file", 10)
+        self.file("parent/keep", 11)
+        self.scan()
+        parent_id = self.ident(nested.parents[2])
+        result = self.index.remove(self.db, self.ident(nested.parents[1]), view=-self.ident(nested.parent))
+        self.assertEqual(result["view"], parent_id)
+        self.assert_matches_fresh_scan()
+
+    def test_hard_link_bytes_transfer_until_last_alias_is_removed(self):
+        source = self.file("first/owner", 9000)
+        (self.path / "second").mkdir()
+        os.link(source, self.path / "first/alias")
+        os.link(source, self.path / "second/survivor")
+        self.scan()
+        # Select whichever branch holds the counted link, regardless of readdir order.
+        owner = self.db.execute("SELECT parent FROM nodes WHERE linked=1 AND size>0").fetchone()[0]
+        result = self.index.remove(self.db, owner)
+        self.assertEqual(result["root"]["size"], 9000)
+        self.assert_matches_fresh_scan()
+        while survivor := self.db.execute("SELECT id FROM nodes WHERE linked=1 AND size>0").fetchone():
+            self.index.remove(self.db, survivor[0])
+            self.assert_matches_fresh_scan()
+        self.assertEqual(self.index.node(self.db, 1)["size"], 0)
+
+    def test_removing_uncounted_hard_link_keeps_counted_bytes(self):
+        source = self.file("source", 9000)
+        os.link(source, self.path / "alias")
+        self.scan()
+        alias = self.db.execute("SELECT id FROM nodes WHERE linked=1 AND size=0").fetchone()[0]
+        result = self.index.remove(self.db, alias)
+        self.assertEqual(result["root"]["size"], 9000)
+        self.assertEqual(result["root"]["files"], 1)
+        self.assert_matches_fresh_scan()
+
+    def test_partial_deletion_invalidates_index_instead_of_subtracting_entire_branch(self):
+        first = self.file("remove/one", 11)
+        last = self.file("remove/two", 22)
+        before = self.scan()
+        unlink = os.unlink
+        listdir = os.listdir
+
+        def fail_second(name, **kwargs):
+            if name == b"two":
+                raise PermissionError("fixture deletion failure")
+            return unlink(name, **kwargs)
+
+        with patch("disk_scan.os.unlink", side_effect=fail_second), \
+                patch("disk_scan.os.listdir", side_effect=lambda fd: sorted(listdir(fd))):
+            with self.assertRaises(PermissionError):
+                self.index.remove(self.db, self.ident(first.parent))
+        self.assertFalse(first.exists())
+        self.assertTrue(last.exists())
         self.assertFalse(self.index.ready)
+        self.assertEqual(self.index.node(self.db, 1), before["root"])
+        refreshed = self.index.scan(str(self.path))
+        self.assertEqual(refreshed["root"]["size"], 22)
+        self.assertEqual(refreshed["root"]["files"], 1)
 
     def test_new_child_blocks_recursive_removal(self):
         old = self.file("selected/old", 5)
@@ -208,7 +313,7 @@ class DiskScanTests(unittest.TestCase):
         requests = [{"op": "scan", "request": 1, "path": str(self.path)},
                     {"op": "children", "request": 2, "node": 1},
                     {"op": "view", "request": 3, "node": 1}]
-        for request in requests:
+        def exchange(request):
             proc.stdin.write(json.dumps(request).encode() + b"\n")
             proc.stdin.flush()
             while True:
@@ -216,8 +321,21 @@ class DiskScanTests(unittest.TestCase):
                 response = json.loads(proc.stdout.readline())
                 if "event" not in response:
                     break
+                self.assertEqual(request["op"], "scan", "Deletion must not start another scan")
             self.assertEqual(response["request"], request["request"])
             self.assertTrue(response["ok"], response)
+            return response
+
+        for request in requests:
+            response = exchange(request)
+            if request["op"] == "children":
+                folder_id = response["nodes"][0]["id"]
+        removed = exchange({"op": "delete", "request": 4, "node": folder_id, "view": folder_id})
+        self.assertEqual(removed["root"]["files"], 0)
+        self.assertEqual(removed["entries"], 1)
+        self.assertEqual(removed["view"], 1)
+        self.assertEqual(exchange({"op": "children", "request": 5, "node": 1})["nodes"], [])
+        self.assertEqual(exchange({"op": "view", "request": 6, "node": 1})["map"]["size"], 0)
         proc.stdin.close()
         self.assertEqual(proc.wait(timeout=5), 0)
         self.assertEqual(proc.stderr.read(), b"")
