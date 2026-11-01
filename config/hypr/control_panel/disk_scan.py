@@ -14,7 +14,7 @@ import sys
 import tempfile
 import threading
 import time
-from contextlib import closing
+from contextlib import closing, suppress
 
 VIRTUAL = {b"proc", b"sysfs", b"devtmpfs", b"devpts", b"cgroup", b"cgroup2",
            b"securityfs", b"debugfs", b"tracefs", b"pstore", b"configfs",
@@ -399,27 +399,47 @@ class DiskIndex:
         def remove_at(parent_fd, path, expected):
             self.check_cancel()
             name = os.path.basename(path)
-            current = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            # Temporary files (including GPG sockets) can disappear while we
+            # walk the selected branch. Ignore only absence at each filesystem
+            # operation; a broad catch could skip the rest of a live directory.
+            try:
+                current = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                return
             self.verify_identity(expected, current)
             if path in mounts:
                 raise ValueError("A mounted filesystem cannot be deleted.")
             if not stat.S_ISDIR(current.st_mode):
-                os.unlink(name, dir_fd=parent_fd)
+                with suppress(FileNotFoundError):
+                    os.unlink(name, dir_fd=parent_fd)
                 return
-            fd = os.open(name, OPEN_DIR, dir_fd=parent_fd)
+            try:
+                fd = os.open(name, OPEN_DIR, dir_fd=parent_fd)
+            except FileNotFoundError:
+                return
             try:
                 self.verify_identity(expected, os.fstat(fd))
-                for child in os.listdir(fd):
+                try:
+                    children = os.listdir(fd)
+                except FileNotFoundError:
+                    # An opened directory can be unlinked too. Still check its
+                    # name below so a replacement is never accepted as deleted.
+                    children = []
+                for child in children:
                     child_path = os.path.join(path, os.fsencode(child))
                     snapshot = db.execute("SELECT * FROM nodes WHERE path=?", (child_path,)).fetchone()
                     if snapshot is None:
                         raise ValueError("New files appeared in this folder. Scan again.")
                     remove_at(fd, child_path, snapshot)
                 # Verify the directory entry still names the opened inode.
-                current_name = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+                try:
+                    current_name = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+                except FileNotFoundError:
+                    return
                 if (current_name.st_dev, current_name.st_ino) != (current.st_dev, current.st_ino):
                     raise ValueError("Folder changed during deletion. Scan again.")
-                os.rmdir(name, dir_fd=parent_fd)
+                with suppress(FileNotFoundError):
+                    os.rmdir(name, dir_fd=parent_fd)
             finally:
                 os.close(fd)
 

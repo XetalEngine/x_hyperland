@@ -226,6 +226,91 @@ class DiskScanTests(unittest.TestCase):
         self.assertEqual(refreshed["root"]["size"], 22)
         self.assertEqual(refreshed["root"]["files"], 1)
 
+    def test_disappearing_child_is_already_removed(self):
+        for operation in ("stat", "unlink"):
+            with self.subTest(operation=operation):
+                temporary = self.file("selected/gnupg/S.gpg-agent.browser", 0)
+                self.file("selected/keep-deleting", 25)
+                outside = self.file("outside/keep", 11)
+                self.scan()
+                original = getattr(os, operation)
+                unlink = os.unlink
+                disappeared = False
+
+                def disappear(name, *args, **kwargs):
+                    nonlocal disappeared
+                    if name == b"S.gpg-agent.browser" and not disappeared:
+                        disappeared = True
+                        unlink(name, dir_fd=kwargs["dir_fd"])
+                    return original(name, *args, **kwargs)
+
+                with patch("disk_scan.os." + operation, side_effect=disappear):
+                    result = self.index.remove(self.db, self.ident(temporary.parents[1]))
+                self.assertTrue(disappeared)
+                self.assertFalse(temporary.parents[1].exists())
+                self.assertTrue(outside.exists())
+                self.assertTrue(result["deleted"])
+                self.assertTrue(self.index.ready)
+                self.assert_matches_fresh_scan()
+
+    def test_disappearing_directory_is_already_removed(self):
+        for operation in ("open", "listdir", "stat", "rmdir"):
+            with self.subTest(operation=operation):
+                gone = self.path / "selected/ephemeral"
+                gone.mkdir(parents=True)
+                self.file("selected/keep-deleting", 25)
+                self.file("outside/keep", 11)
+                self.scan()
+                original = getattr(os, operation)
+                rmdir = os.rmdir
+                inode = gone.stat().st_ino
+                disappeared = False
+                stat_calls = 0
+
+                def disappear(name, *args, **kwargs):
+                    nonlocal disappeared, stat_calls
+                    match = (os.fstat(name).st_ino == inode if operation == "listdir"
+                             else name == b"ephemeral")
+                    if match and operation == "stat":
+                        stat_calls += 1
+                        match = stat_calls == 2  # After visiting the opened directory.
+                    if match and not disappeared:
+                        disappeared = True
+                        rmdir(gone)
+                        if operation == "listdir":
+                            raise FileNotFoundError("Directory removed after open")
+                    return original(name, *args, **kwargs)
+
+                with patch("disk_scan.os." + operation, side_effect=disappear):
+                    self.index.remove(self.db, self.ident(gone.parent))
+                self.assertTrue(disappeared)
+                self.assertFalse(gone.parent.exists())
+                self.assertTrue(self.index.ready)
+                self.assert_matches_fresh_scan()
+
+    def test_replaced_child_is_not_treated_as_missing(self):
+        temporary = self.file("selected/temporary", 12)
+        self.file("selected/keep", 25)
+        self.scan()
+        original = os.listdir
+        replaced = False
+
+        def replace(fd):
+            nonlocal replaced
+            entries = original(fd)
+            if not replaced:
+                replaced = True
+                temporary.rename(self.path / "saved-original")
+                temporary.write_text("a replacement that must survive")
+            return entries
+
+        with patch("disk_scan.os.listdir", side_effect=replace):
+            with self.assertRaisesRegex(ValueError, "changed since"):
+                self.index.remove(self.db, self.ident(temporary.parent))
+        self.assertEqual(temporary.read_text(), "a replacement that must survive")
+        self.assertTrue((self.path / "saved-original").exists())
+        self.assertFalse(self.index.ready)
+
     def test_new_child_blocks_recursive_removal(self):
         old = self.file("selected/old", 5)
         self.scan()
