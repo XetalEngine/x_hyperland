@@ -17,6 +17,7 @@
     "mpris"
   ],
   "modules-right": [
+    "custom/recording",
     "cpu",
     "memory",
     "custom/temperature",
@@ -265,5 +266,12 @@
     "interval": 5,
     "tooltip": true,
     "on-click": "$HOME/.config/hypr/scripts/desktop-updates.sh"
+  },
+  "custom/recording": {
+      "exec": "python3 ~/.config/hypr/recording/service.py --bar",
+      "return-type": "json",
+      "interval": 1,
+      "on-click": "python3 ~/.config/hypr/recording/service.py --stop",
+      "on-click-right": "~/.config/hypr/scripts/control-center.sh --tab capture"
   }
 }

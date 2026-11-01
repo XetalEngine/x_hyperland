@@ -7,7 +7,7 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 | Desktop | Exact Hyprland 0.56.2 and commit from the runtime manifest; Hyprpaper 0.8+, Hyprlock, Waybar 0.15+, Kitty 0.49+ (0.47.1+ on Fedora 44, 0.48.2+ on Debian 13), Dolphin, Konsole's Qt 6 embedded terminal, SwayNotificationCenter |
 | Python | Python 3.11+, PyQt6 Widgets/Network/DBus/SVG, PyGObject with Gio/GTK 3/GtkLayerShell, Pillow |
 | Native builds | C/C++23 compiler, matching Hyprland headers, GLESv2, json-c, libei, CMake, pkg-config, GTK 3, gio-unix, gtk-layer-shell, json-glib, Wayland client/scanner; Qt 5 and 6 Widgets/Concurrent, Qt Network/DBus/Linguist, development tools and private QtGui/QtCore headers; XCB and XCB-RES |
-| Capture | grim, slurp, wl-clipboard, xdg-desktop-portal-hyprland, GTK desktop portal |
+| Capture | grim, slurp, wl-clipboard, wf-recorder, FFmpeg/ffprobe, xdg-desktop-portal-hyprland, GTK desktop portal |
 | Audio | PipeWire PulseAudio compatibility, pactl, WirePlumber/wpctl, playerctl |
 | Media downloader | yt-dlp, FFmpeg/ffprobe, and a supported Deno, Node.js or QuickJS runtime; wl-paste for selected links |
 | Network | NetworkManager/nmcli, network-manager-applet, nm-connection-editor, BlueZ/bluetoothctl, Blueman |

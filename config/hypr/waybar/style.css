@@ -135,3 +135,7 @@ menuitem.xetal-bar-options-entry arrow {
     tooltip, menu {background:#1b232f; color:#dce7f3; border:1px solid #3b5069; border-radius:12px;}
     menuitem {border-radius:8px;}
     menuitem:hover {background:#88b6d9; color:#11273a;}
+
+/* The recording control is visible only during capture, saving or an error. */
+#custom-recording { padding: 0 9px; margin: 1px 2px; border-radius: 5px; color: #ff707d; background: alpha(currentColor, 0.12); font-weight: bold; }
+#custom-recording.saving, #custom-recording.stopping { color: #edc574; }

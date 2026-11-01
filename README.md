@@ -196,7 +196,7 @@ Runtime components download inside KVM Settings; they are not bundled with the d
 | **File pickers** | Matching Places and image/text/folder previews in Xetal, Qt Widgets and standard GTK 3 dialogs. Custom application and portal pickers have their own integration limits. [Coverage →](docs/FILE-PREVIEWS.md) |
 | **Xetal Files** | Four animated transfer-card designs for Dolphin/KIO and Ark, with real progress, pause/cancel where supported, error details and appearance controls. |
 | **Xetal Images** | Pointer-centered zoom, pan, Fit/100%, folder navigation, GIF playback, fullscreen and remembered window sizing. |
-| **Capture and sharing** | Area/all-display screenshots, clipboard support and a custom Hyprland screen-share picker with live monitor/window previews and region selection. |
+| **Capture and sharing** | Alt+F9 screen recording with audio, 64 FPS MP4 saved to Videos by default, area/all-display screenshots, clipboard support and a custom Hyprland screen-share picker. Recording options live in Fusion Settings → Capture. |
 | **Media downloader** | **Super+Ctrl+P** opens an MP3/MP4 popup with progress, cancellation and updates for its private yt-dlp copy. |
 | **Kitty** | Matching colors, animated cursor, a draggable scrollback scrollbar and a configurable Fastfetch welcome. |
 
@@ -224,6 +224,7 @@ Runtime components download inside KVM Settings; they are not bundled with the d
 | **Super+/** | Show window shortcut hints |
 | **Super+Ctrl+P** | MP3/MP4 downloader |
 | **Print / Shift+Print** | Capture an area / all displays |
+| **Alt+F9** | Start/stop recording the monitor under the pointer; save an MP4 with desktop audio |
 | **Super+L / Super+M** | Lock / confirm logout |
 
 Turn Cube off for global workspace numbering and add/remove controls. All bindings remain editable in Fusion Settings.

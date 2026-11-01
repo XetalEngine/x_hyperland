@@ -27,6 +27,10 @@ def icon(name, color, size=24):
         path=QPainterPath(QPointF(11,2));path.lineTo(18,8);path.lineTo(6,18);path.moveTo(11,2);path.lineTo(11,22);path.lineTo(18,16);path.lineTo(6,6);p.drawPath(path)
     elif name=='displays':
         p.drawRoundedRect(QRectF(2,3,20,14),2,2);line(12,17,12,21);line(8,21,16,21)
+    elif name=='capture':
+        p.drawRoundedRect(QRectF(2,5,14,14),2,2)
+        path=QPainterPath(QPointF(16,9));path.lineTo(22,6);path.lineTo(22,18);path.lineTo(16,15);p.drawPath(path)
+        p.drawEllipse(QPointF(9,12),3,3)
     elif name=='chip':
         p.drawRoundedRect(QRectF(5,5,14,14),2,2)
         p.drawRect(QRectF(9,9,6,6))

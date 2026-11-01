@@ -116,3 +116,7 @@ menuitem.xetal-bar-options-entry arrow {
 }
 #workspaces button.workspace-remove:hover { color: #ffffff; background: #a23d50; }
 #workspaces button.workspace-remove:focus { box-shadow: inset 0 0 0 1px #f08a95; }
+
+/* The recording control is visible only during capture, saving or an error. */
+#custom-recording { padding: 0 9px; margin: 1px 2px; border-radius: 5px; color: #ff707d; background: alpha(currentColor, 0.12); font-weight: bold; }
+#custom-recording.saving, #custom-recording.stopping { color: #edc574; }
