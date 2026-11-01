@@ -160,14 +160,19 @@ class CoverageTests(unittest.TestCase):
         start = ids.index('pacman')
         self.assertEqual(ids[start:start+3], ['pacman', 'paru', 'yay'])
 
-    def test_iso_payloads_match_the_copied_upstream_revision(self):
+    def test_iso_payloads_preserve_upstream_provenance_and_document_adaptations(self):
         import hashlib
         root = Path(__file__).resolve().parent
         provenance = json.loads((root/'UPSTREAM.json').read_text())
         for relative, expected in provenance['files'].items():
             if relative.startswith('iso/'):
                 with self.subTest(file=relative):
-                    self.assertEqual(hashlib.sha256((root/'backend'/relative).read_bytes()).hexdigest(), expected)
+                    actual = hashlib.sha256((root/'backend'/relative).read_bytes()).hexdigest()
+                    if relative in provenance.get('local_adaptations', {}):
+                        self.assertTrue(provenance['local_adaptations'][relative].strip())
+                        self.assertNotEqual(actual, expected)
+                    else:
+                        self.assertEqual(actual, expected)
 
 
 if __name__ == '__main__':

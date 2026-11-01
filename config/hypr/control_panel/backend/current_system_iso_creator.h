@@ -36,7 +36,7 @@ void MainWindow::startIsoCreation(bool dummy)
     // Use default values
     QString isoName = dummy ? "xetal-dummy" : "cachyos-system-clone";
     QString outputDir = QDir::homePath() + "/iso/xiso/output";
-    const QFileInfo dummyCache(QDir::homePath() + "/iso/xiso/dummy-cache-v1/live-base.iso");
+    const QFileInfo dummyCache(QDir::homePath() + "/iso/xiso/dummy-cache-v2/live-base.iso");
     const bool reuseDummy = dummy && dummyCache.isFile() && dummyCache.isReadable() && dummyCache.size() > 0;
 
     // Create output directory if it doesn't exist
@@ -70,10 +70,10 @@ void MainWindow::startIsoCreation(bool dummy)
         QStringList opts;
         if (firstBoot.fixNetwork) opts << "network";
         if (firstBoot.fixGpu) opts << "GPU";
-        if (firstBoot.changeUser) opts << "user/password";
+        if (firstBoot.changeUser) opts << "account page during installation";
         if (firstBoot.regenSsh) opts << "SSH keys";
         if (firstBoot.regenMachineId) opts << "NEW machine-id";
-        excludeSummary += QString("• First-boot hardware adaptation: %1\n").arg(opts.join(", "));
+        excludeSummary += QString("• Installation and first-boot options: %1\n").arg(opts.join(", "));
     } else {
         excludeSummary += "• Preserve users and identity (no first-boot changes)\n";
     }
@@ -273,7 +273,7 @@ QString MainWindow::createIsoScript(const QString &isoName, const QString &outpu
                                     const QStringList &excludePaths, const IsoFirstBootOptions &firstBoot, bool dummy)
 {
     QMap<QString, QString> scripts;
-    const QStringList names = {"common.sh", "build.sh", "dummy.sh", "installer.sh", "installer-ui.py", "installer-logo.txt", "restore-boot.sh",
+    const QStringList names = {"common.sh", "build.sh", "dummy.sh", "installer.sh", "installer-ui.py", "installer_account.py", "installer_mouse.py", "installer-logo.cells.json", "installer-logo.txt", "restore-boot.sh",
                                "firstboot.sh", "firstboot.service"};
     for (const QString &name : names) {
         QFile resource(":/iso/" + name);
@@ -296,7 +296,7 @@ QString MainWindow::createIsoScript(const QString &isoName, const QString &outpu
     out << "RELENG=/usr/share/archiso/configs/releng\n";
     out << "ISO_OFFLINE=" << (offlineMode ? "1" : "0") << "\n";
     out << "ISO_DUMMY=" << (dummy ? "1" : "0") << "\n";
-    out << "DUMMY_CACHE=\"$BASE/xiso/dummy-cache-v1/live-base.iso\"\n";
+    out << "DUMMY_CACHE=\"$BASE/xiso/dummy-cache-v2/live-base.iso\"\n";
     out << "OFFLINE_PACKAGE=" << shQuote(QFileInfo(offlinePackagePath).absoluteFilePath()) << "\n";
     out << "USER_EXCLUDES=(\n";
     for (const QString &path : excludePaths) {
@@ -314,13 +314,13 @@ QString MainWindow::createIsoScript(const QString &isoName, const QString &outpu
     out << ")\n" << scripts.value("common.sh") << "\n";
     out << "stage_iso_payload() {\n";
     out << "mkdir -p \"$PROFILE/airootfs/usr/local/bin\" \"$PROFILE/airootfs/opt/clone\"\n";
-    // Keep the original installer logo inside each generated build script.
-    QFile logo(":/images/XetalEngine.png");
+    // Hyper Fusion's transparent Arch emblem; the original app is unchanged.
+    QFile logo(":/iso/installer-logo.png");
     if (logo.open(QIODevice::ReadOnly)) {
         out << "base64 --decode > \"$PROFILE/airootfs/opt/clone/logo.png\" <<'XETAL_LOGO'\n";
         out << logo.readAll().toBase64() << "\nXETAL_LOGO\n";
     }
-    const QStringList payloads = {"common.sh", "installer.sh", "installer-ui.py", "installer-logo.txt", "restore-boot.sh", "firstboot.sh", "firstboot.service"};
+    const QStringList payloads = {"common.sh", "installer.sh", "installer-ui.py", "installer_account.py", "installer_mouse.py", "installer-logo.cells.json", "installer-logo.txt", "restore-boot.sh", "firstboot.sh", "firstboot.service"};
     for (const QString &name : payloads) {
         const QString target = name == "installer.sh" ? "/usr/local/bin/installer.sh" : "/opt/clone/" + name;
         out << "cat > \"$PROFILE/airootfs" << target << "\" <<'XETAL_PAYLOAD'\n";
@@ -341,7 +341,13 @@ cat > "$PROFILE/airootfs/xetal.sh" <<'XETAL_WRAPPER'
 exec bash /usr/local/bin/installer.sh "$@"
 XETAL_WRAPPER
 mkdir -p "$PROFILE/airootfs/etc/systemd/system/getty@tty1.service.d" "$PROFILE/airootfs/root"
+# Console mouse support belongs to this live image, never the build host.
+mkdir -p "$PROFILE/airootfs/etc/systemd/system/multi-user.target.wants"
+ln -sfn /usr/lib/systemd/system/gpm.service "$PROFILE/airootfs/etc/systemd/system/multi-user.target.wants/gpm.service"
 cat > "$PROFILE/airootfs/etc/systemd/system/getty@tty1.service.d/override.conf" <<'XETAL_GETTY'
+[Unit]
+Wants=gpm.service
+After=gpm.service
 [Service]
 ExecStart=
 ExecStart=-/sbin/agetty --autologin root --noclear %I $TERM

@@ -147,5 +147,12 @@
     "window_enum_controller.cpp": "cd5c791c693cf993142604634795ed2478d06957af8bdd345449ad917c29688b",
     "window_enum_wayland.cpp": "6f72a29a338c10182fa47a4835acf6d717a7c9d77b043c7f517510a10c734ab3",
     "window_enum_x11.cpp": "05f823c26b2d60645af566c58c3eb61642d44b0454f6ebf5213a3ed8d0252723"
+  },
+  "local_adaptations": {
+    "iso/build.sh": "Export optional account-page metadata; include live-console mouse support.",
+    "iso/dummy.sh": "Include mouse support in the disposable preview environment.",
+    "iso/installer.sh": "Hyper Fusion wizard, account preferences and progress integration; existing target checks retained.",
+    "iso/installer-ui.py": "Mouse-friendly Hyper Fusion restore wizard and safe desktop preview.",
+    "iso/firstboot.sh": "Account changes happen inside the restore installer; no first-boot password prompt."
   }
 }

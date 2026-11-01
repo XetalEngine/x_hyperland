@@ -84,7 +84,7 @@ airootfs_image_tool_options=('-comp' 'zstd' '-Xcompression-level' '6' '-b' '1M')
 file_permissions+=(['/xetal.sh']='0:0:755' ['/usr/local/bin/installer.sh']='0:0:755')
 EOF
     for tool in arch-install-scripts bash util-linux coreutils rsync tar zstd grub \
-        efibootmgr parted e2fsprogs dosfstools dialog chafa python; do
+        efibootmgr parted e2fsprogs dosfstools dialog chafa python gpm openssl; do
         printf '%s\n' "$tool" >> "$PROFILE/packages.x86_64"
     done
     if (( ISO_OFFLINE )); then
@@ -131,6 +131,12 @@ EOF
     iso_initramfs_tool "$SNAPDIR" >/dev/null
     snapshot_bytes=$(run_sudo du -sx --apparent-size --block-size=1 "$SNAPDIR" | cut -f1)
     mkdir -p "$PROFILE/airootfs/opt/clone"
+    # Only public account metadata is exported; no passwords or shadow hashes.
+    run_sudo awk -F: '$3>=1000 && $3<60000 && $1!="nobody" {printf "%s\t%s\t%s\t%s\n",$1,$3,$4,$6}' \
+        "$SNAPDIR/etc/passwd" > "$PROFILE/airootfs/opt/clone/accounts.tsv"
+    { run_sudo awk -F: '{print $1}' "$SNAPDIR/etc/passwd" "$SNAPDIR/etc/group"
+      run_sudo find "$SNAPDIR/home" -mindepth 1 -maxdepth 1 -printf '%f\n'
+    } | sort -u > "$PROFILE/airootfs/opt/clone/account-names.txt"
     archive="$PROFILE/airootfs/opt/clone/rootfs-snapshot.tar.zst"
     echo '[*] Packing snapshot...'
     run_sudo tar --xattrs --acls --numeric-owner --sparse -C "$SNAPDIR" -I 'zstd -6 -T0' -cpf "$archive" .

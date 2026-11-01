@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # A reusable Arch live environment plus a small, replaceable installer payload.
-# Bump dummy-cache-v1 in the Qt generator when this bootstrap contract changes.
+# Bump the dummy cache in the Qt generator when this bootstrap contract changes.
 
 iso_dummy_snapshot() {
     local clone="$PROFILE/airootfs/opt/clone"
@@ -59,7 +59,7 @@ file_permissions+=(['/xetal.sh']='0:0:755' ['/usr/local/bin/installer.sh']='0:0:
 EOF
     # Use the same releng profile and installer dependencies as a full clone.
     for tool in arch-install-scripts bash util-linux coreutils rsync tar zstd grub \
-        efibootmgr parted e2fsprogs dosfstools dialog chafa python; do
+        efibootmgr parted e2fsprogs dosfstools dialog chafa python gpm openssl; do
         printf '%s\n' "$tool" >> "$PROFILE/packages.x86_64"
     done
     if (( ISO_OFFLINE )); then

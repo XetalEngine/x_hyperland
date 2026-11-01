@@ -28,6 +28,8 @@ Git checkouts use their own commit. GitHub ZIP and tar downloads use `installer/
 
 The updater does not pull, reset, stash or rewrite a developer's clone. Its own exact-commit checkout lives in a private cache. A local build ahead of `main`, a rewritten branch or unrelated history does not trigger an automatic downgrade.
 
+For direct development installs, finish by registering the delivered commit and its rendered defaults in `.xetal-update.json`, after validating the deployed files. Copying individual fixes without advancing that inventory leaves the checker comparing an older release and can produce a repeated UPDATE notice or merge failure. Do not mark the desktop current from a checkout's HEAD alone: verify the delivered profile first, preserve personal settings and keep a backup. The normal installer/update transaction maintains this record automatically.
+
 ## Failure and recovery
 
 Preparation works in a separate directory. Missing packages, merge conflicts, failed builds or invalid configuration leave the current desktop installed. Automatic updates never run `sudo` or change system packages; dependency problems are shown for the user to resolve.

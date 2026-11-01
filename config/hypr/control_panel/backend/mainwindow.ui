@@ -4350,7 +4350,7 @@ Test the ISO in a VM before relying on it for recovery.</string>
              <item>
               <widget class="QLabel" name="isoCompatLabel">
                <property name="text">
-                <string>Optional first-boot changes for different hardware:</string>
+                <string>Optional installation and first-boot changes:</string>
                </property>
                <property name="wordWrap">
                 <bool>true</bool>
@@ -4383,12 +4383,12 @@ Details and failures are saved to /var/log/xetal-firstboot.log.</string>
              <item>
               <widget class="QCheckBox" name="isoCompatUserCheck">
                <property name="text">
-                <string>Offer username and password change ❓</string>
+                <string>Offer account setup in the installer ❓</string>
                </property>
                <property name="toolTip">
-                <string>On first boot, offers to rename the user account and set a new password —
-useful when handing the cloned system to someone else.
-Home directory and group memberships are migrated to the new name.</string>
+                <string>Adds an optional account page to the restore wizard, before installation.
+Choose an existing account, a new username and an optional password, or keep the current details.
+Changes are applied to the restored system before its first login; files and groups are kept.</string>
                </property>
               </widget>
              </item>

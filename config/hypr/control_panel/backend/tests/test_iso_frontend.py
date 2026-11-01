@@ -3,6 +3,7 @@ from contextlib import contextmanager
 import fcntl
 import hashlib
 import importlib.util
+import json
 import os
 from pathlib import Path
 import select
@@ -86,6 +87,55 @@ def terminal(args, size=(30, 100), term='xterm-256color', locale='C.UTF-8', comm
 
 
 class FrontendTests(unittest.TestCase):
+    def click(self, tty, x, y):
+        tty.send(f'\x1b[<0;{x};{y}M'.encode())
+        tty.send(f'\x1b[<0;{x};{y}m'.encode())
+
+    def test_mouse_selects_drive_and_next_returns_only_that_drive(self):
+        with terminal(MENU) as tty:
+            self.click(tty,10,13)
+            self.assertIsNone(tty.process.poll())
+            self.click(tty,94,28)
+            self.assertEqual(tty.finish(),(0,'/dev/test-b\n',''))
+
+    def test_mouse_confirmation_requires_a_click_on_the_confirm_button(self):
+        with terminal(['confirm','--text','Erase the selected sample disk?','--accept','Confirm install']) as tty:
+            tty.send(b'\x1b[<0;4;28M')
+            tty.send(b'\x1b[<0;90;28m')
+            self.assertIsNone(tty.process.poll())
+            self.click(tty,90,28)
+            self.assertEqual(tty.finish(),(0,'',''))
+
+    def test_account_fields_mask_password_and_return_only_a_hash(self):
+        with terminal(['account','--dummy']) as tty:
+            tty.send(b' \t\t\x15charlie\tPrivate password!\tPrivate password!\t\t\r')
+            code,out,err=tty.finish();self.assertEqual((code,err),(0,''))
+            plan=json.loads(out)
+            self.assertEqual((plan['original'],plan['username']),('fusion','charlie'))
+            self.assertTrue(plan['password_hash'].startswith('$6$'))
+            self.assertNotIn('Private password!',out)
+            self.assertNotIn(b'Private password!',tty.output)
+
+    def test_account_keep_defaults_and_validation_can_be_navigated_by_mouse(self):
+        with terminal(['account','--dummy']) as tty:
+            self.click(tty,94,28)
+            self.assertEqual(json.loads(tty.finish()[1]),{'change':False})
+        with terminal(['account','--dummy']) as tty:
+            tty.send(b' \t\t\x15-invalid\r')
+            self.assertIsNone(tty.process.poll())
+            self.assertIn(b'lowercase',tty.output)
+            tty.send(b'\x1b');self.assertEqual(tty.finish()[0],ui.BACK)
+
+    def test_progress_cannot_be_dismissed_until_backend_finishes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'progress';path.write_text('2\nRestoring your files')
+            with terminal(['progress','--progress-file',str(path)]) as tty:
+                tty.send(b'\x1b\r');self.assertIsNone(tty.process.poll())
+                path.write_text('done\nYour workspace is ready.');time.sleep(.2);tty.drain()
+                self.assertIn(b'Welcome home.',tty.output)
+                self.click(tty,94,28)
+                self.assertEqual(tty.finish(),(0,'',''))
+
     def test_navigation_returns_only_the_selected_tag(self):
         with terminal(HOME) as tty:
             self.assertIn(b'ACTIONS', tty.output)
@@ -96,11 +146,11 @@ class FrontendTests(unittest.TestCase):
             tty.send(b'j\r')
             self.assertEqual(tty.finish(), (0, '/dev/test-b\n', ''))
 
-    def test_right_arrow_opens_action_and_left_tab_escape_return_to_actions(self):
+    def test_right_arrow_opens_action_and_back_navigation(self):
         with terminal(HOME) as tty:
             tty.send(b'\x1bOC')
             self.assertEqual(tty.finish()[:2], (0, 'wipe\n'))
-        for key in (b'\x1bOD', b'\t', b'\x1b'):
+        for key in (b'\x1bOD', b'\t\r', b'\x1b'):
             with self.subTest(key=key), terminal(MENU) as tty:
                 tty.send(key)
                 self.assertEqual(tty.finish()[:2], (ui.BACK, ''))
@@ -176,6 +226,8 @@ class FrontendTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root/'installer-ui.py').write_bytes(FRONTEND.read_bytes())
+            (root/'installer_account.py').write_bytes((FRONTEND.parent/'installer_account.py').read_bytes())
+            (root/'installer_mouse.py').write_bytes((FRONTEND.parent/'installer_mouse.py').read_bytes())
             installer = root/'installer.sh'
             installer.write_text((REPO/'iso/installer.sh').read_text().replace('/opt/clone', tmp))
             code = '''source "$1"

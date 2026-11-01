@@ -87,11 +87,19 @@ Scans are cancellable. A private, disposable SQLite index keeps the full file li
 
 At the default 1280 × 800 size, the ISO settings fit above a compact, internally scrolling output area, with build actions pinned below. The window remains constrained to the current monitor. On smaller screens, the page can scroll to keep every control accessible.
 
-All original ISO scripts are embedded as Qt resources: builder, common helpers, installer/TUI, boot restoration, first-boot adjustments and dummy build. The adapted interface uses the existing generator and preserves these script bytes. **Panel Preferences → ISO → Debug ISO Creator** enables the dummy preview.
+The embedded restore installer has a dark Hyper Fusion wizard with the blue Arch emblem, clickable drive choices, Back/Next buttons, review screens and installation progress. Choose drives by their model and capacity; no device name or erase phrase needs to be typed. The final **Confirm install** button remains an explicit destructive confirmation. Kitty displays the transparent PNG directly using its [graphics protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/). On a Linux console it becomes colored terminal cells; the live image includes GPM mouse support. Keyboard navigation remains available.
+
+![Hyper Fusion restore wizard](screenshots/system-iso-wizard.png)
+
+**Preview installer…** opens the same wizard in a terminal with sample drives and simulated progress. It does not build an ISO or touch disks. For boot testing, **Panel Preferences → ISO → Debug ISO Creator** enables the dummy ISO. Its new live-base cache includes mouse support; the first build downloads that base again.
+
+Enable **Offer account setup in the installer** when creating the ISO to offer an optional account page during restore. Select an existing regular account, change its username and/or enter a new password twice. Leaving the option off keeps existing accounts; leaving both password fields blank keeps the current password. Account changes apply inside the restored system, before completion. The UID, file ownership and memberships are kept; a matching home directory and private group are renamed, and Hyper Fusion paths and display-manager autologin names are adjusted. Other applications with hard-coded home paths may need adjustment afterward. Passwords are masked and never written to command arguments or logs. First boot handles the selected hardware/identity adjustments without an account text prompt.
+
+The builder, common helpers, installer, boot restoration and first-boot adjustments remain embedded Qt resources. `UPSTREAM.json` retains their original hashes and identifies the Hyper Fusion adaptations. The original CachyOsTools application is unchanged.
 
 Read the retained [compatibility notes](../config/hypr/control_panel/backend/docs/ISO_COMPATIBILITY.md) and [validation guide](../config/hypr/control_panel/backend/docs/ISO_VALIDATION.md). The ISO remains a file-based snapshot with the original exclusions and restoration behavior. The interface retains its snapshot/target-disk confirmations. Closing Control Panel is blocked during an ISO build; Home and Minimize remain available.
 
-Integration validation includes all 151 upstream ISO regression checks, resource-hash comparisons, isolated shell/startup tests, native navigation checks and the desktop/installer suites. This is not a new end-to-end physical-machine restore test. Test a generated recovery ISO in a VM before depending on it.
+Integration validation covers the upstream ISO regression suite, mouse/keyboard navigation, account validation, resource provenance, isolated shell/startup tests and native navigation. This is not a new end-to-end physical-machine restore test. Test a generated recovery ISO in a VM before depending on it.
 
 ## Building and updating
 

@@ -205,6 +205,16 @@ PanelController::PanelController(MainWindow *window)
   auto *actions =
       owner->findChild<QHBoxLayout *>("horizontalLayout_iso_buttons");
   if (actions) {
+    auto *preview = new QPushButton("Preview installer…", isoActions);
+    preview->setObjectName("isoPreviewButton");
+    preview->setToolTip("Explore the restore wizard with sample drives. No ISO build or disk changes.");
+    actions->insertWidget(1, preview);
+    connect(preview, &QPushButton::clicked, owner, [this] {
+      const auto script = HyperPanel::root() + "/control_panel/backend/iso/installer-ui.py";
+      if (!QProcess::startDetached(HyperPanel::terminal(),
+                                  {"-e", "python3", script, "preview"}))
+        QMessageBox::warning(owner, "Installer preview", "Could not open the terminal preview.");
+    });
     owner->findChild<QWidget *>("isoCreatorTab")->layout()->removeItem(actions);
     actions->setParent(nullptr);
     isoActions->setLayout(actions);

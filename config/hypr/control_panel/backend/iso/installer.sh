@@ -3,7 +3,7 @@ set -Eeuo pipefail
 # Partition modes adapted from devvz: https://github.com/XetalEngine/CachyOsTools/pull/7
 
 installer_show_logo() {
-    local title='XETAL ENGINE - System Installer'
+    local title='HYPER FUSION - System Restore'
     if [[ ! -t 1 || ${TERM:-dumb} == dumb ]]; then
         printf '%s\n\n' "$title"
         return 0
@@ -66,7 +66,9 @@ installer_cleanup() {
     fi
     if (( status != 0 )); then
         printf '[ERROR] Installation did not complete. See /var/log/xetal-installer.log.\n' >&2
+        installer_progress_finish failed 'The restore did not finish. See /var/log/xetal-installer.log for details. Do not boot this target until the restore succeeds.'
     fi
+    unset ACCOUNT_PLAN
     exit "$status"
 }
 
@@ -98,7 +100,7 @@ installer_reset_firstboot() {
     rm -rf -- "$target/var/lib/xetal-firstboot/done"
 }
 
-# The optional curses frontend never discovers or modifies disks. Keep dialog
+# The curses frontend never discovers or modifies disks. Keep dialog
 # available for old cached live environments and limited terminal setups.
 installer_ui() {
     local kind=$1 title=$2 prompt=$3; shift 3
@@ -117,10 +119,55 @@ installer_ui() {
         if [[ $title == *FINAL* ]]; then
             if (( preview )); then options+=(--accept 'Confirm preview'); else options+=(--accept 'Confirm install'); fi
         else
-            options+=(--accept 'Review warning')
+            options+=(--accept 'Next →')
         fi
     fi
     python /opt/clone/installer-ui.py "$kind" "${options[@]}" --title "$title" --text "$prompt" -- "$@"
+}
+
+installer_account_choice() {
+    ACCOUNT_PLAN='{"change":false}'
+    ACCOUNT_SUMMARY='Keep existing accounts and passwords.'
+    if [[ ${dummy:-0} != 1 || ! -r /opt/clone/installer_account.py ]]; then
+        [[ -f /opt/clone/firstboot.conf ]] && grep -qx 'CHANGE_USER=1' /opt/clone/firstboot.conf || return 0
+    fi
+    local status
+    if ACCOUNT_PLAN=$(installer_ui account 'Your account' ''); then
+        ACCOUNT_SUMMARY=$(printf '%s' "$ACCOUNT_PLAN" | python -c '
+import json,sys
+p=json.load(sys.stdin)
+if p.get("change"):
+    print("Account: "+p["original"]+" → "+p["username"]+". "+("New password." if p["password_hash"] else "Keep current password."))
+else: print("Keep existing accounts and passwords.")') || return 1
+        return 0
+    else status=$?; fi
+    if (( status == 2 )); then
+        iso_die 'Account setup needs the Hyper Fusion wizard and a terminal of at least 70 x 24. Rebuild with the current System ISO creator.'
+    fi
+    return "$status"
+}
+
+installer_progress() {
+    [[ -n ${PROGRESS_DIR:-} ]] || return 0
+    printf '%s\n%s' "$1" "$2" > "$PROGRESS_DIR/state.new"
+    mv -- "$PROGRESS_DIR/state.new" "$PROGRESS_DIR/state"
+}
+
+installer_progress_start() {
+    [[ ${XETAL_TUI:-auto} != dialog && -t 0 && ${TERM:-dumb} != dumb && -r /opt/clone/installer-ui.py ]] || return 0
+    PROGRESS_DIR=$(mktemp -d /run/xetal-progress-XXXXXX) || return 0
+    installer_progress 0 'Preparing the confirmed target…'
+    python /opt/clone/installer-ui.py progress --progress-file "$PROGRESS_DIR/state" \
+        < /dev/tty > /dev/tty 2>/dev/null &
+    PROGRESS_PID=$!
+}
+
+installer_progress_finish() {
+    [[ -n ${PROGRESS_PID:-} ]] || return 0
+    installer_progress "$1" "$2"
+    wait "$PROGRESS_PID" || true
+    rm -rf -- "$PROGRESS_DIR"
+    unset PROGRESS_PID PROGRESS_DIR
 }
 
 installer_confirm_disk() {
@@ -130,6 +177,7 @@ installer_confirm_disk() {
     prompt="Install the cloned system to:"$'\n\n'"$disk  ($dinfo)"$'\n\n'
     prompt+='This PERMANENTLY ERASES everything on that disk.'$'\n\n'
     prompt+='The target is recreated as unencrypted ext4 plus an EFI partition.'
+    prompt+=$'\n\n'"${ACCOUNT_SUMMARY:-Keep existing accounts and passwords.}"
     if installer_ui confirm 'Confirm target' "$prompt"; then
         installer_ui confirm 'FINAL WARNING' "LAST CHANCE: wipe $disk and install the cloned system?" || return "$?"
         return 0
@@ -197,7 +245,7 @@ installer_dummy_complete() {
     text="The installer menus and confirmations completed successfully."$'\n\n'"$1"$'\n\n'
     text+='This is a dummy ISO with an empty snapshot. No disks were partitioned, formatted or restored.'$'\n\n'
     text+='Run /xetal.sh to explore the TUI again.'
-    if installer_ui message 'Dummy preview complete' "$text"; then return 0; else status=$?; fi
+    if installer_ui progress 'Dummy preview complete' "$text"; then return 0; else status=$?; fi
     (( status == 2 )) || return "$status"
     installer_show_logo
     printf '[DUMMY ISO] Simulating installation. No target disks will be changed.\n\n'
@@ -526,6 +574,10 @@ installer_main() {
             printf '\n[dry-run] Plan:\n%s\n\n[dry-run] No changes were made.\n' "$summary"
             return 0
         fi
+        installer_account_choice || {
+            navigation_status=$?; (( navigation_status == 10 )) && continue; return "$navigation_status";
+        }
+        summary+=$'\n\n'"$ACCOUNT_SUMMARY"
         identity=$(installer_target_identity "$install_mode" "$disk") || return 1
         [[ -n $identity ]] || { iso_die 'Cannot identify the selected devices.'; return 1; }
         if [[ $install_mode == wipe ]]; then
@@ -568,9 +620,15 @@ installer_main() {
     trap installer_cleanup EXIT
     trap 'exit 130' INT
     trap 'exit 143' TERM
-    exec > >(tee -a /var/log/xetal-installer.log) 2>&1
+    installer_progress_start
+    if [[ -n ${PROGRESS_PID:-} ]]; then
+        exec >> /var/log/xetal-installer.log 2>&1
+    else
+        exec > >(tee -a /var/log/xetal-installer.log) 2>&1
+    fi
 
     local esp root_device
+    installer_progress 0 'Preparing the selected drive…'
     case $install_mode in
     wipe)
         echo '[1/6] Partitioning the confirmed disk...'
@@ -603,11 +661,13 @@ installer_main() {
     esac
     [[ -b $esp && -b $root_device ]] || { iso_die 'New partitions did not appear.'; return 1; }
     echo '[2/6] Formatting...'
+    installer_progress 1 'Creating the filesystems…'
     mkfs.fat -F32 "$esp"
     mkfs.ext4 -F "$root_device"
     echo '[3/6] Mounting the target...'
     mount "$root_device" "$TARGET"
     echo '[4/6] Restoring snapshot...'
+    installer_progress 2 'Restoring your files and applications. This may take a while.'
     tar --xattrs --xattrs-include='*' --acls --numeric-owner --sparse -I zstd \
         -xpf /opt/clone/rootfs-snapshot.tar.zst -C "$TARGET"
     loader=$(iso_bootloader "$TARGET" "$mode") || return 1
@@ -655,9 +715,16 @@ When = PostTransaction
 Exec = /usr/local/sbin/xetal-update-boot
 HOOK
     installer_reset_firstboot "$TARGET"
+    installer_progress 3 'Applying your account preferences…'
+    if [[ -n ${ACCOUNT_PLAN:-} && $ACCOUNT_PLAN != '{"change":false}' ]]; then
+        printf '%s' "$ACCOUNT_PLAN" | python /opt/clone/installer_account.py "$TARGET"
+    fi
+    unset ACCOUNT_PLAN
     if [[ -f /opt/clone/firstboot.conf ]]; then
         install -Dm755 /opt/clone/firstboot.sh "$TARGET/usr/local/bin/xetal-firstboot.sh"
         install -Dm644 /opt/clone/firstboot.conf "$TARGET/etc/xetal-firstboot.conf"
+        # User choices have already been applied before the first login.
+        sed -i '/^CHANGE_USER=/d' "$TARGET/etc/xetal-firstboot.conf"
         install -Dm644 /opt/clone/firstboot.service "$TARGET/etc/systemd/system/xetal-firstboot.service"
         if grep -qx 'REGEN_MACHINE_ID=1' /opt/clone/firstboot.conf; then
             rm -f "$TARGET/etc/machine-id" "$TARGET/var/lib/dbus/machine-id"
@@ -668,6 +735,7 @@ HOOK
     fi
     rm -f "$TARGET/var/lib/systemd/random-seed"
     echo '[5/6] Regenerating boot files for the restored system...'
+    installer_progress 4 'Preparing boot files for this computer…'
     arch-chroot "$TARGET" /usr/local/sbin/xetal-update-boot
     local sb_sign=$sign_boot sb_file
     if [[ $loader == grub ]]; then
@@ -712,6 +780,7 @@ HOOK
         installer_register_efi "$esp" || echo '[WARN] Firmware registration failed. The fallback bootloader is installed; select EFI/BOOT/BOOTX64.EFI on the new EFI partition in firmware.'
     fi
     sync
+    installer_progress 5 'Finishing and safely unmounting the restored system…'
     umount -R "$TARGET"
     if [[ $install_mode != wipe ]]; then
         echo "[i] The restored system boots from its own EFI partition ($esp)."
@@ -721,6 +790,7 @@ HOOK
         if (( ! sb_sign )); then echo '[i] Secure Boot has to remain disabled for this unsigned bootloader.'; fi
     fi
     echo '[6/6] Installation complete. Remove the USB and reboot when ready.'
+    installer_progress_finish done 'Your system is ready. Remove the installation USB and restart when you are ready.'
 }
 
 if [[ ${BASH_SOURCE[0]} == "$0" ]]; then installer_main "$@"; fi

@@ -70,33 +70,16 @@ firstboot_gpu() {
     echo '[gpu] Existing drivers configured. No repositories or package versions were changed.'
 }
 
-firstboot_user() {
-    local user newuser group
-    user=$(awk -F: '$3>=1000 && $3<60000 && $1!="nobody" {print $1; exit}' /etc/passwd)
-    [[ -n $user ]] || return 1
-    read -rp "New username (Enter keeps $user): " newuser || return 1
-    if [[ -n $newuser && $newuser != "$user" ]]; then
-        [[ $newuser =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo '[user] Invalid username.'; return 1; }
-        ! id "$newuser" >/dev/null 2>&1 || { echo '[user] That account already exists.'; return 1; }
-        group=$(id -gn "$user") || return 1
-        usermod --login "$newuser" --home "/home/$newuser" --move-home "$user" || return 1
-        if [[ $group == "$user" ]]; then groupmod --new-name "$newuser" "$group" || return 1; fi
-        user=$newuser
-        echo '[user] Review any application paths or autologin settings that referred to the old username.'
-    fi
-    passwd "$user"
-}
-
 firstboot_main() {
     [[ -f /etc/xetal-firstboot.conf ]] || return 0
     source /etc/xetal-firstboot.conf
     exec > >(tee -a /var/log/xetal-firstboot.log) 2>&1
     local step flag failed=0
     mkdir -p /var/lib/xetal-firstboot/done || return 1
-    for step in ssh network gpu user; do
+    for step in ssh network gpu; do
         case "$step" in
             ssh) flag=${REGEN_SSH:-0} ;; network) flag=${FIX_NETWORK:-0} ;;
-            gpu) flag=${FIX_GPU:-0} ;; user) flag=${CHANGE_USER:-0} ;;
+            gpu) flag=${FIX_GPU:-0} ;;
         esac
         [[ $flag == 1 && ! -f /var/lib/xetal-firstboot/done/$step ]] || continue
         if "firstboot_$step"; then

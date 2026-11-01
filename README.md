@@ -196,6 +196,7 @@ Runtime components download inside KVM Settings; they are not bundled with the d
 | Tool | What you get |
 | --- | --- |
 | **Control Panel** | A searchable native interface built from CachyOsTools: hardware, storage, services, startup apps, backups, system tools and shortcuts. **Some features remain Arch-only until further notice**, including Pacman/Paru/Yay and Arch package repair/kernel tools. [Feature map and platform requirements →](docs/CONTROL-PANEL.md) |
+| **System ISO** | Create an Arch-based system clone, then restore through a mouse-friendly Hyper Fusion wizard with drive selection, review, progress and optional username/password setup. Try **Control Panel → System ISO → Preview installer…** with sample drives first. [Restore wizard →](docs/CONTROL-PANEL.md#system-iso) |
 | **RAM Cleaner** | Manual **Normal** and **Aggressive** cache cleanup with before/after readings. It keeps applications running and does not reclaim their active memory. Linux already reclaims cache when needed; this is an occasional troubleshooting tool. |
 | **Disk Visualizer** | A directory-size tree and treemap, folder navigation, allocated/apparent sizes, and confirmed file actions inside System Cleaner. |
 | **Dolphin** | Recipient-specific **Places**, no developer bookmarks, and the redundant Folders tree hidden by default. The bottom terminal starts open using Konsole's embedded component; **Kitty** remains the external terminal. F4 toggles the terminal, F7 toggles Folders. |

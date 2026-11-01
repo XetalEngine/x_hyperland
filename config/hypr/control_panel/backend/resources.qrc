@@ -10,6 +10,10 @@
         <file>iso/dummy.sh</file>
         <file>iso/installer.sh</file>
         <file>iso/installer-ui.py</file>
+        <file>iso/installer_account.py</file>
+        <file>iso/installer_mouse.py</file>
+        <file>iso/installer-logo.png</file>
+        <file>iso/installer-logo.cells.json</file>
         <file>iso/installer-logo.txt</file>
         <file>iso/restore-boot.sh</file>
         <file>iso/firstboot.sh</file>

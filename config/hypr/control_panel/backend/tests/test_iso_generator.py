@@ -90,12 +90,17 @@ int main(int argc,char **argv) {
             staged=subprocess.run(['bash',str(staging_script)],cwd=tmp,env=env,capture_output=True,text=True,timeout=10)
             self.assertEqual(staged.returncode,0,staged.stderr)
             self.assertFalse(injected.exists())
-            for name in ('common.sh','installer-ui.py','restore-boot.sh','firstboot.sh','firstboot.service'):
+            for name in ('common.sh','installer-ui.py','installer_account.py','installer_mouse.py','installer-logo.cells.json','restore-boot.sh','firstboot.sh','firstboot.service'):
                 path=profile/'airootfs/opt/clone'/name
                 self.assertEqual(path.read_text().strip(),(REPO/'iso'/name).read_text().strip())
             # Dollar signs, backslashes and whitespace must survive shell staging.
             self.assertEqual((profile/'airootfs/opt/clone/installer-logo.txt').read_bytes(),
                              (REPO/'iso/installer-logo.txt').read_bytes())
+            self.assertEqual((profile/'airootfs/opt/clone/logo.png').read_bytes(),
+                             (REPO/'iso/installer-logo.png').read_bytes())
+            self.assertEqual(os.readlink(profile/'airootfs/etc/systemd/system/multi-user.target.wants/gpm.service'),
+                             '/usr/lib/systemd/system/gpm.service')
+            self.assertIn('dummy-cache-v2',content)
             self.assertEqual((profile/'airootfs/usr/local/bin/installer.sh').read_text().strip(),(REPO/'iso/installer.sh').read_text().strip())
             self.assertEqual((profile/'airootfs/opt/clone/firstboot.conf').exists(),bool(compat and not dummy))
             if dummy:

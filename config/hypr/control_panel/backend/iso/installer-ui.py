@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""Portable, keyboard-only presentation for installer.sh.
+"""Mouse and keyboard restore wizard for Hyper Fusion's System ISO.
 
 The shell owns device discovery, validation and all writes. This process only
 returns a supplied menu tag, a confirmation, or a read-only checksum result.
 Exit 10 means return to Actions; exit 2 asks the shell to use dialog instead.
-No graphics protocols, terminal probes, custom fonts or third-party Python libs.
+The read-only preview uses sample devices and never discovers or writes disks.
 """
 import argparse
+import base64
 import curses
 import functools
+import json
 import locale
 import os
 from pathlib import Path
@@ -16,7 +18,14 @@ import re
 import subprocess
 import sys
 import textwrap
+import time
 import unicodedata
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import installer_account
+import installer_mouse
+
+console_mouse = None
 
 
 BACK = 10
@@ -115,19 +124,79 @@ def ascii_logo():
 
 
 def print_logo(width, height, colors):
-    """Use the same branding for the shell's installation progress screen."""
+    """Keep shell fallback branding aligned with the restore wizard."""
     utf8 = "UTF-8" in locale.getencoding().upper().replace("UTF8", "UTF-8")
-    art = logo(max(1, width), max(1, height), utf8)
-    for row in art:
-        if not row:
-            print()
-            continue
-        shade = row[0][1]
-        text = "".join(c for c, _, _ in row)
-        if colors >= 8:
-            code = f"1;{30 + shade % 8}" if shade >= 8 or row[0][2] else str(30 + shade)
-            text = f"\x1b[{code}m{text}\x1b[0m"
-        print(text)
+    if not utf8 or colors < 8:
+        print("HYPER FUSION"[:max(1,width)])
+        return
+    for row in emblem(min(22,width), min(11,height), colors):
+        text=' '*max(0,(width-len(row))//2)
+        for char,fg,bg in row:
+            if colors>=256:text+=f'\x1b[38;5;{fg};48;5;{bg}m'+char
+            else:text+=f'\x1b[{30+fg%8};{40+bg%8}m'+char
+        print(text+'\x1b[0m')
+
+
+@functools.lru_cache(maxsize=12)
+def emblem(width, height, colors):
+    """Render the transparent PNG as terminal cells, including on a Linux VT."""
+    if height < 3: return []
+    image = Path(__file__).with_name('logo.png')
+    if not image.exists(): image = Path(__file__).with_name('installer-logo.png')
+    try:
+        output = subprocess.run(['chafa', '--format=symbols', '--symbols=vhalf',
+            '--colors='+('256' if colors >= 256 else '16'), '--size='+str(width)+'x'+str(height),
+            '--bg=#101820', '--animate=off', '--polite=on', '--probe=off', '--optimize=0', str(image)],
+            capture_output=True, text=True, timeout=3, check=True).stdout
+        fg, bg, result = 7, 234 if colors >= 256 else 0, []
+        for line in output.splitlines()[:height]:
+            row = []
+            for part in re.split(r'(\x1b\[[0-9;]*m)', line):
+                if part.startswith('\x1b['):
+                    codes = [int(n or 0) for n in part[2:-1].split(';')]
+                    i=0
+                    while i<len(codes):
+                        c=codes[i]
+                        if c in (38,48) and codes[i+1:i+2]==[5] and i+2<len(codes):
+                            if c==38:fg=codes[i+2]
+                            else:bg=codes[i+2]
+                            i+=2
+                        elif 30<=c<=37:fg=c-30
+                        elif 90<=c<=97:fg=c-90+8
+                        elif 40<=c<=47:bg=c-40
+                        elif 100<=c<=107:bg=c-100+8
+                        elif c==39:fg=7
+                        elif c==49:bg=234 if colors>=256 else 0
+                        elif c==0:fg,bg=7,234 if colors>=256 else 0
+                        i+=1
+                else: row.extend((c,fg,bg) for c in clean(part))
+            result.append(row[:width])
+        if result:return result
+    except (OSError,subprocess.SubprocessError):pass
+    # Pre-rendered from the same transparent PNG for desktop previews without
+    # chafa. The live ISO always carries chafa for terminal-specific rendering.
+    if colors >= 256:
+        try:
+            cells=json.loads(Path(__file__).with_name('installer-logo.cells.json').read_text())
+            return [row[:width] for row in cells[:height]]
+        except (OSError,ValueError):pass
+    art=['       /\\','      /  \\', '     / /\\ \\', '    / /  \\ \\', '   /_/    \\_\\', '      ARCH']
+    return [[(c,6,0) for c in row[:width]] for row in art[:height]]
+
+
+def png_logo(position=None):
+    """Full transparent PNG in Kitty; Linux VTs use the colored-cell emblem."""
+    if os.environ.get('TERM') != 'xterm-kitty' or not os.isatty(1): return
+    identity=1900000000+os.getpid()%1000000
+    sequence=f'\x1b_Ga=d,d=I,i={identity},q=2\x1b\\'
+    if position:
+        y,x,width,height=position
+        path=Path(__file__).with_name('logo.png')
+        if not path.exists():path=Path(__file__).with_name('installer-logo.png')
+        if path.is_file():
+            name=base64.b64encode(os.fsencode(path)).decode('ascii')
+            sequence+=f'\x1b7\x1b[{y+1};{x+1}H\x1b_Ga=T,t=f,f=100,i={identity},q=2,C=1,c={width},r={height};{name}\x1b\\\x1b8'
+    sys.stdout.write(sequence);sys.stdout.flush()
 
 
 class Palette:
@@ -135,11 +204,11 @@ class Palette:
         self.colors = curses.COLORS if curses.has_colors() else 0
         self.pairs = {}
         self.bg = 233 if self.colors >= 256 else 0
-        self.panel = 235 if self.colors >= 256 else 0
-        self.raised = 237 if self.colors >= 256 else 0
+        self.panel = 234 if self.colors >= 256 else 0
+        self.raised = 236 if self.colors >= 256 else 0
         self.fg = 252 if self.colors >= 256 else 7
         self.muted = 245 if self.colors >= 256 else 7
-        self.accent = 84 if self.colors >= 256 else 2
+        self.accent = 75 if self.colors >= 256 else 6
         self.warning = 215 if self.colors >= 256 else 3
 
     def attr(self, fg=None, bg=None, bold=False, reverse=False):
@@ -153,10 +222,11 @@ class Palette:
         if fg >= self.colors:
             fg %= 8
             attr |= curses.A_BOLD
+        if bg >= self.colors: bg %= 8
         key = (fg, bg)
         if key not in self.pairs:
             number = len(self.pairs) + 1
-            if number >= min(curses.COLOR_PAIRS, 256):
+            if number >= curses.COLOR_PAIRS:
                 return attr
             curses.init_pair(number, fg, bg)
             self.pairs[key] = number
@@ -179,6 +249,27 @@ class InstallerUI:
         self.max_scroll = 0
         self.page = 1
         self.result = ""
+        self.hits = []
+        self.pressed = None
+        self.focus = 'list'
+        self.change_account = False
+        self.user_index = 0
+        self.error = ''
+        self.account_focus = 'change'
+        self.fields = {'username': '', 'password': '', 'confirm': ''}
+        self.carets = dict.fromkeys(self.fields, 0)
+        self.users = []
+        self.reserved_names = set()
+        if args.kind == 'account':
+            account_file = Path(args.clone_dir)/'accounts.tsv'
+            if account_file.is_file(): self.users = installer_account.accounts(account_file)
+            elif args.dummy: self.users = [dict(name='fusion', uid=1000, gid=1000, home='/home/fusion')]
+            if self.users: self.fields['username'] = self.users[0]['name']
+            reserved = Path(args.clone_dir)/'account-names.txt'
+            if reserved.is_file(): self.reserved_names = set(reserved.read_text().splitlines())
+        self.progress_state = '0'
+        self.progress_text = 'Preparing your installation…'
+        self.preview_started = time.monotonic()
 
     def put(self, y, x, text, attr=0, width=None):
         rows, cols = self.screen.getmaxyx()
@@ -204,128 +295,102 @@ class InstallerUI:
             self.put(y + i, x, line, attr, width)
         return min(len(wrapped), max(0, limit))
 
+    def hit(self, y, x, height, width, action):
+        self.hits.append((y, x, height, width, action))
+
+    def button_at(self, y, x, label, action, active=False):
+        p = self.palette
+        text = '  '+label+'  '
+        fg, bg = (0, p.accent) if active and p.colors else (p.fg, p.raised)
+        self.put(y, x, text, p.attr(fg, bg, bold=True, reverse=active and not p.colors))
+        self.hit(y, x, 1, len(text), action)
+
     def draw(self):
         p = self.palette
         rows, cols = self.screen.getmaxyx()
-        self.screen.bkgd(" ", p.attr())
-        self.screen.erase()
-        if cols < 40 or rows < 20:
-            self.put(1, 1, "XETAL ENGINE", p.attr(p.accent, bold=True))
-            self.put(3, 1, "Resize to at least 40 x 20.")
-            self.put(5, 1, "Esc: back / exit")
-            self.screen.refresh()
-            return False
-        width = min(cols - 4, 170)
-        x = (cols - width) // 2
-        tall = rows >= 30 and width >= 76
-        if tall:
-            # Reserve at least 14 rows for controls. Never crop or reflow the
-            # supplied artwork to make room for the caption or a shorter screen.
-            artwork = logo(width, rows - 23, self.utf8)
-            for y, row in enumerate(artwork, 1):
-                for column, (char, color, bold) in enumerate(row):
-                    self.put(y, x + column, char, p.attr(color, bold=bold))
-            top = len(artwork) + 2
-            if max(map(len, artwork)) + 34 <= width:
-                self.put(2, x + width - 30, "SYSTEM INSTALLER", p.attr(p.accent, bold=True))
-                self.put(4, x + width - 30, "Your system. A new beginning.", p.attr(p.muted))
-        else:
-            self.put(1, x, "XETAL ENGINE", p.attr(p.accent, bold=True))
-            self.put(1, x + 16, "/ SYSTEM INSTALLER", p.attr(p.muted))
-            top = 3
-        firmware = "UEFI" if self.args.uefi else "BIOS"
-        status = f"{firmware}  /  Snapshot: {self.args.snapshot}"
-        if width < 64:
-            status = f"{firmware} / {self.args.snapshot}"
-        badge = "DUMMY PREVIEW" if self.args.dummy else "SYSTEM RESTORE"
-        self.put(top, x, status, p.attr(p.muted), width - len(badge) - 2)
-        self.put(top, x + width - len(badge), badge, p.attr(p.warning if self.args.dummy else p.accent, bold=True))
-        self.put(top + 1, x, "-" * width, p.attr(p.accent))
-        y, height = top + 3, rows - top - 7
-        self.split = width >= 76
-        self.content = (y, x, height, width)
+        self.hits = []
+        logo_position=None
+        self.screen.bkgd(' ', p.attr()); self.screen.erase()
+        if cols < 40 or rows < 20 or (self.args.kind == 'account' and (cols < 70 or rows < 24)):
+            self.put(1, 2, 'HYPER FUSION', p.attr(p.accent, bold=True))
+            self.put(3, 2, 'Make this terminal larger to continue.')
+            self.put(5, 2, 'Account setup needs 70 x 24; other pages need 40 x 20.')
+            self.put(7, 2, 'Esc: back / exit')
+            self.screen.refresh(); png_logo(); return False
+        width = min(cols-4, 150); x = (cols-width)//2
+        self.put(1, x, 'HYPER FUSION  /  SYSTEM RESTORE', p.attr(p.accent, bold=True), width)
+        badge = 'PREVIEW · no disk changes' if self.args.dummy else ('UEFI' if self.args.uefi else 'BIOS')
+        if width > 80: self.put(1, x+width-len(badge), badge, p.attr(p.muted))
+        if width > 80: self.put(2, x+width-30, 'Snapshot: '+self.args.snapshot, p.attr(p.muted), 30)
+        step = {'home': 0, 'menu': 1, 'account': 2, 'confirm': 3, 'verify': 0, 'progress': 4, 'message': 5}[self.args.kind]
+        if self.args.kind == 'progress' and self.progress_state in ('done','failed'): step = 5
+        labels = ['Welcome', 'Your drive', 'Your account', 'Review', 'Install', 'Done']
+        y, height = 4, rows-8
+        self.split = width >= 100 and rows >= 30
         if self.split:
-            left = 26 if width >= 104 else 22
+            left = 26
             self.fill(y, x, height, left, p.panel)
-            self.draw_actions(y, x, height, left)
-            if p.colors < 256:
-                for row in range(y + 1, y + height - 1):
-                    self.put(row, x + left, "|", p.attr(p.muted))
-            self.content = (y, x + left + 2, height, width - left - 2)
-        elif self.args.kind == "home":
-            self.fill(y, x, height, width, p.panel)
-            self.draw_actions(y, x, height, width)
-        cy, cx, ch, cw = self.content
-        if self.split or self.args.kind != "home":
-            self.fill(cy, cx, ch, cw, p.panel)
-            if self.args.kind == "home":
-                self.draw_overview(cy, cx, ch, cw)
-            elif self.args.kind == "menu":
-                self.draw_menu(cy, cx, ch, cw)
+            art = emblem(22, min(11, height-17), p.colors) if height >= 25 else []
+            if art and os.environ.get('TERM')=='xterm-kitty' and os.isatty(1):
+                logo_position=(y+1,x+2,22,len(art))
             else:
-                self.draw_text(cy, cx, ch, cw)
-        if self.args.kind == "home":
-            hint = "Up/Down  Choose action    Enter/Right  Open    Esc  Shell"
-        elif self.args.kind == "menu":
-            hint = "Up/Down  Choose    Enter  Select    Left/Tab/Esc  Actions"
-        elif self.args.kind == "confirm":
-            hint = "Left/Right/Tab  Buttons    Enter  Select    Up/Down  Scroll    Esc  Back"
-        elif self.args.kind == "verify":
-            hint = "Checking snapshot...    Esc  Cancel check"
+                for i, row in enumerate(art):
+                    for j, (char, fg, bg) in enumerate(row):
+                        self.put(y+1+i, x+2+j, char, p.attr(fg, bg))
+            start = y+len(art)+2
+            self.put(start, x+2, 'MADE FOR YOUR WORKSPACE', p.attr(p.muted, p.panel), left-4)
+            for i, label in enumerate(labels):
+                active = i == step
+                self.put(start+2+i*2, x+2, f'{i+1:02d}  '+label,
+                         p.attr(p.accent if active else p.muted, p.panel, bold=active), left-4)
+            self.content = (y, x+left+2, height, width-left-2)
         else:
-            hint = "Enter  Continue    Up/Down  Scroll"
-        if width < 70:
-            hint = {"home": "Up/Down: choose  Enter: open  Esc: shell",
-                    "menu": "Up/Down: choose  Enter: select  Esc: back",
-                    "confirm": "Tab: button  Enter: select  Esc: back"}.get(self.args.kind, "Enter: continue  Up/Down: scroll")
-        self.put(rows - 2, x, hint, p.attr(p.muted), width)
-        self.screen.refresh()
+            self.put(2, x, f'STEP {step+1} / 6  ·  '+labels[step], p.attr(p.muted), width)
+            self.content = (y, x, height, width)
+        cy,cx,ch,cw = self.content
+        self.fill(cy,cx,ch,cw,p.panel)
+        if self.args.kind == 'home': self.draw_home(cy,cx,ch,cw)
+        elif self.args.kind == 'menu': self.draw_menu(cy,cx,ch,cw)
+        elif self.args.kind == 'account': self.draw_account(cy,cx,ch,cw)
+        elif self.args.kind == 'progress': self.draw_progress(cy,cx,ch,cw)
+        else: self.draw_text(cy,cx,ch,cw)
+        footer = rows-3
+        busy = self.args.kind == 'verify' or (self.args.kind == 'progress' and self.progress_state not in ('done','failed'))
+        if not busy:
+            back = 'Exit' if self.args.kind == 'home' else 'Back'
+            if self.args.kind not in ('message','progress'):
+                active = self.button == 0 if self.args.kind == 'confirm' else self.focus == 'back'
+                self.button_at(footer,x,back,'back',active)
+            next_label = self.args.accept if self.args.kind == 'confirm' else ('Done' if self.args.kind in ('message','progress') else 'Next →')
+            active = self.button == 1 if self.args.kind == 'confirm' else self.focus != 'back'
+            self.button_at(footer,x+width-len(next_label)-4,next_label,'next',active)
+        self.put(rows-1,x,'Click to choose · Tab / arrows to navigate · Enter to continue',p.attr(p.muted),width)
+        self.screen.refresh(); png_logo(logo_position)
+        if console_mouse:console_mouse.draw_pointer(rows,cols)
         return True
 
-    def draw_actions(self, y, x, height, width):
-        p = self.palette
-        attr = p.attr(p.muted, p.panel)
-        self.put(y + 1, x + 2, "01 / ACTIONS", attr)
-        step = 3 if height >= 18 else (2 if height >= 12 else 1)
-        for i, tag in enumerate(self.actions):
-            row = y + 3 + i * step
-            if row >= y + height - 1:
-                break
-            selected = tag == self.mode
-            active = selected and self.args.kind == "home"
-            fg, bg = (0, p.accent) if active and p.colors else (p.accent if selected else p.fg, p.panel)
-            a = p.attr(fg, bg, bold=selected, reverse=active and not p.colors)
-            self.put(row, x + 1, " " * (width - 2), a)
-            self.put(row, x + 2, ("> " if selected else "  ") + ACTIONS[tag][0], a, width - 4)
-            if step == 3:
-                self.put(row + 1, x + 4, ACTIONS[tag][1], attr, width - 5)
-        if height >= 23:
-            self.put(y + height - 4, x + 2, "KEYBOARD CONTROL", attr, width - 4)
-            hint = "Enter to open  >" if self.args.kind == "home" else "<  Esc to actions"
-            self.put(y + height - 2, x + 2, hint, p.attr(p.accent, p.panel), width - 4)
-
-    def draw_overview(self, y, x, height, width):
-        p = self.palette
-        action = ACTIONS[self.mode]
-        title = "VERIFY INSTALLATION MEDIA" if self.mode == "verify" else "02 / CONFIGURE & REVIEW"
-        self.put(y + 1, x + 2, title, p.attr(p.accent, p.panel), width - 4)
-        self.put(y + 3, x + 2, action[0], p.attr(bg=p.panel, bold=True), width - 4)
-        used = self.paragraph(y + 5, x + 2, action[2], min(width - 4, 76), max(1, height - 10), p.attr(bg=p.panel))
-        start = y + 6 + used
-        if height >= 20:
-            for i, step in enumerate(action[3:]):
-                self.put(start + i * 2, x + 3, f"0{i + 1}  {step}", p.attr(p.muted, p.panel), width - 6)
-        note = "Preview mode: disk changes are simulated." if self.args.dummy else "Review the target before confirming changes."
-        self.put(y + height - 3, x + 2, note, p.attr(p.warning, p.panel), width - 4)
-        if self.mode in ("free", "parts"):
-            note = "Partition modes by devvz (PR #7)"
-        else:
-            note = "Snapshot verification is optional."
-        self.put(y + height - 2, x + 2, note, p.attr(p.muted, p.panel), width - 4)
+    def draw_home(self,y,x,height,width):
+        p=self.palette
+        self.put(y+1,x+2,'Your system. A fresh start.',p.attr(bg=p.panel,bold=True),width-4)
+        self.put(y+3,x+2,'Choose how to restore your snapshot.',p.attr(p.muted,p.panel),width-4)
+        self.put(y+4,x+2,'ACTIONS',p.attr(p.muted,p.panel),width-4)
+        step=3 if height>=20 else 2
+        self.page=max(1,(height-7)//step)
+        first=max(0,self.index-self.page+1)
+        for i in range(first,min(len(self.actions),first+self.page)):
+            tag=self.actions[i]
+            row=y+6+(i-first)*step
+            if row>=y+height-1:break
+            active=i==self.index
+            fg,bg=(0,p.accent) if active and p.colors else (p.fg,p.raised)
+            self.put(row,x+2,' '*(width-4),p.attr(fg,bg))
+            self.put(row,x+3,('● ' if active else '○ ')+ACTIONS[tag][0],p.attr(fg,bg,bold=active),width-6)
+            self.hit(row,x+2,step,width-4,('select',i))
+            if step==3:self.put(row+1,x+5,ACTIONS[tag][1],p.attr(p.muted,p.panel),width-8)
 
     def draw_menu(self, y, x, height, width):
         p = self.palette
-        self.put(y + 1, x + 2, "02 / " + clean(self.args.title).strip().upper(), p.attr(p.accent, p.panel), width - 4)
+        self.put(y + 1, x + 2, clean(self.args.title).strip().upper(), p.attr(p.accent, p.panel), width - 4)
         used = self.paragraph(y + 3, x + 2, self.args.text, width - 4, min(3, max(1, height - 7)), p.attr(p.muted, p.panel))
         start = y + 4 + used
         step = 3 if height >= 20 else 2
@@ -344,8 +409,9 @@ class InstallerUI:
             a = p.attr(fg, bg, bold=selected, reverse=selected and not p.colors)
             self.put(row, x + 1, " " * (width - 2), a)
             self.put(row, x + 2, ("> " if selected else "  ") + tag, a, width - 4)
+            self.hit(row, x + 1, step, width - 2, ("select", i))
             self.put(row + 1, x + 4, description, p.attr(p.fg if selected else p.muted, p.panel), width - 6)
-        self.put(y + height - 1, x + 2, f"{self.index + 1} / {len(self.items)}   Enter to review selection", p.attr(p.muted, p.panel), width - 4)
+        self.put(y + height - 1, x + 2, f"{self.index + 1} / {len(self.items)}   Select a drive, then Next", p.attr(p.muted, p.panel), width - 4)
 
     def draw_text(self, y, x, height, width):
         p = self.palette
@@ -361,22 +427,129 @@ class InstallerUI:
             self.put(y + height - 4, x + 2, f"Text {self.scroll + 1}-{min(len(text), self.scroll + self.page)} / {len(text)}   Up/Down to scroll", p.attr(p.muted, p.panel), width - 4)
         if self.args.kind == "verify":
             return
-        buttons = ["Back", self.args.accept] if warning else ["Continue"]
-        bx = x + 2
-        for i, label in enumerate(buttons):
-            active = i == self.button
-            fg, bg = (0, p.accent) if active and p.colors else (p.fg, p.raised)
-            text = f"[ {label} ]"
-            self.put(y + height - 2, bx, text, p.attr(fg, bg, bold=active, reverse=active and not p.colors), width - (bx - x) - 1)
-            bx += len(text) + 3
 
+    def draw_account(self,y,x,height,width):
+        p=self.palette
+        self.put(y+1,x+2,'Make it yours.',p.attr(bg=p.panel,bold=True),width-4)
+        label=('☑' if self.change_account else '☐')+' Change username or password'
+        self.put(y+3,x+2,label,p.attr(p.accent if self.account_focus=='change' else p.fg,p.panel),width-4)
+        self.hit(y+3,x+2,1,width-4,('field','change'))
+        user=self.users[self.user_index]['name'] if self.users else 'No regular accounts in this snapshot'
+        self.put(y+5,x+2,'Account: '+user+('  ‹ ›' if len(self.users)>1 else ''),p.attr(p.accent if self.account_focus=='user' else p.muted,p.panel),width-4)
+        self.hit(y+5,x+2,1,width-4,('field','user'))
+        for offset,(key,label) in enumerate([('username','Username'),('password','New password'),('confirm','Confirm password')]):
+            row=y+7+offset*2
+            self.put(row,x+2,label,p.attr(p.fg if self.change_account else p.muted,p.panel),18)
+            value=self.fields[key] if key=='username' else '•'*len(self.fields[key])
+            if not value:value='Keep current password' if key=='password' else ('Repeat new password' if key=='confirm' else '')
+            active=self.change_account and self.account_focus==key
+            attr=p.attr(p.fg if self.change_account else p.muted,p.raised,reverse=active)
+            self.put(row,x+21,' '*(width-24),attr)
+            self.put(row,x+22,value[-max(1,width-26):],attr,width-26)
+            if self.change_account:self.hit(row,x+20,1,width-22,('field',key))
+        note=self.error or ('Files and groups are kept. Leave passwords blank to keep the current password.' if self.change_account else 'Keep existing accounts and passwords. Click Next to continue.')
+        self.paragraph(y+height-3,x+2,note,width-4,2,p.attr(p.warning if self.error else p.muted,p.panel))
+
+    def draw_progress(self,y,x,height,width):
+        p=self.palette
+        title={'done':'Welcome home.', 'failed':'Installation needs attention.'}.get(self.progress_state,'Building your workspace.')
+        self.put(y+1,x+2,title,p.attr(bg=p.panel,bold=True),width-4)
+        self.paragraph(y+3,x+2,self.progress_text,width-4,4,p.attr(p.warning if self.progress_state=='failed' else p.fg,p.panel))
+        stages=['Prepare drive','Create filesystems','Restore files','Account preferences','Make bootable','Finish']
+        stage=int(self.progress_state) if self.progress_state.isdecimal() else (6 if self.progress_state=='done' else 0)
+        if height>=17:
+            for i,label in enumerate(stages):
+                self.put(y+8+i,x+3,('✓ ' if i<stage else '· ')+label,p.attr(p.accent if i<stage else p.muted,p.panel),width-6)
+        count=max(1,width-6);filled=count*min(stage,6)//6
+        self.put(y+height-2,x+3,'━'*filled,p.attr(p.accent,p.panel),count)
+        self.put(y+height-2,x+3+filled,'─'*(count-filled),p.attr(p.raised,p.panel),count-filled)
+
+    def accept(self):
+        kind=self.args.kind
+        if kind=='confirm':return 0 if self.button==1 else BACK
+        if kind=='account':
+            try:
+                plan=installer_account.choice(self.users,self.user_index,self.fields['username'],self.fields['password'],self.fields['confirm'],self.reserved_names) if self.change_account else {'change':False}
+                self.result=json.dumps(plan)
+                self.fields['password']=self.fields['confirm']=''
+                return 0
+            except (ValueError,IndexError,OSError,subprocess.SubprocessError) as error:
+                self.error=str(error);return None
+        if kind in ('home','menu'):
+            self.result=self.actions[self.index] if kind=='home' else self.items[self.index][0]
+        if kind=='progress' and self.progress_state not in ('done','failed'):return None
+        return 0
+
+    def mouse(self, event=None):
+        try:_,mx,my,_,state=event if event is not None else curses.getmouse()
+        except curses.error:return None
+        if state & curses.BUTTON4_PRESSED:return self.handle(curses.KEY_UP)
+        if state & getattr(curses,'BUTTON5_PRESSED',0):return self.handle(curses.KEY_DOWN)
+        target=next((action for y,x,h,w,action in self.hits if y<=my<y+h and x<=mx<x+w),None)
+        if state & curses.BUTTON1_PRESSED:
+            self.pressed=target
+            return None
+        if state & curses.BUTTON1_RELEASED:
+            pressed,self.pressed=self.pressed,None
+            if target is None or pressed!=target:return None
+        if not state & (curses.BUTTON1_CLICKED|curses.BUTTON1_RELEASED):return None
+        for y,x,h,w,action in reversed(self.hits):
+            if not (y<=my<y+h and x<=mx<x+w):continue
+            if action=='back':return 1 if self.args.kind=='home' else BACK
+            if action=='next':
+                self.button=1
+                return self.accept()
+            if action[0]=='select':
+                self.index=action[1];self.focus='list'
+                if self.args.kind=='home':self.mode=self.actions[self.index]
+            elif action[0]=='field':
+                self.account_focus=action[1]
+                if action[1]=='change' and self.users:self.change_account=not self.change_account
+                elif action[1]=='user' and len(self.users)>1:
+                    self.user_index=(self.user_index+1)%len(self.users)
+                    self.fields.update(username=self.users[self.user_index]['name'],password='',confirm='')
+                elif action[1] in self.fields:self.carets[action[1]]=len(self.fields[action[1]])
+            break
+        return None
+
+    def account_key(self,key):
+        fields=['change']+(['user','username','password','confirm'] if self.change_account else [])+['back','next']
+        current=self.account_focus
+        if key in (9,curses.KEY_BTAB,curses.KEY_DOWN,curses.KEY_UP):
+            i=fields.index(current) if current in fields else 0
+            self.account_focus=fields[(i+(-1 if key in (curses.KEY_BTAB,curses.KEY_UP) else 1))%len(fields)]
+            self.focus='back' if self.account_focus=='back' else 'next'
+            if self.account_focus in self.fields:self.carets[self.account_focus]=len(self.fields[self.account_focus])
+        elif current=='change' and key in (32,10,13) and self.users:self.change_account=not self.change_account
+        elif current=='user' and key in (32,10,13,curses.KEY_LEFT,curses.KEY_RIGHT) and self.users:
+            self.user_index=(self.user_index+1)%len(self.users)
+            self.fields.update(username=self.users[self.user_index]['name'],password='',confirm='')
+        elif key in (10,13):return BACK if current=='back' else self.accept()
+        elif current in self.fields and self.change_account:
+            value=self.fields[current];pos=min(self.carets[current],len(value))
+            if key in (curses.KEY_BACKSPACE,127,8):
+                if pos:value=value[:pos-1]+value[pos:];pos-=1
+            elif key==curses.KEY_DC:value=value[:pos]+value[pos+1:]
+            elif key==curses.KEY_LEFT:pos=max(0,pos-1)
+            elif key==curses.KEY_RIGHT:pos=min(len(value),pos+1)
+            elif key==curses.KEY_HOME:pos=0
+            elif key==curses.KEY_END:pos=len(value)
+            elif key==21:value='';pos=0
+            elif 32<=key<=0x10ffff and chr(key).isprintable() and len(value)<256:
+                value=value[:pos]+chr(key)+value[pos:];pos+=1
+            self.fields[current]=value;self.carets[current]=pos;self.error=''
+        return None
     def handle(self, key, usable=True):
-        if key in (27, ord("q")):
+        if isinstance(key,str):key=ord(key)
+        if self.args.kind=='progress' and self.progress_state not in ('done','failed'):return None
+        if key == 27 or (key==ord('q') and self.args.kind!='account'):
             if self.args.kind == "message":
                 return 0
             return 1 if self.args.kind == "home" else BACK
         if not usable:
             return None
+        if key==curses.KEY_MOUSE:return self.mouse()
+        if self.args.kind=='account':return self.account_key(key)
         up, down = key in (curses.KEY_UP, ord("k")), key in (curses.KEY_DOWN, ord("j"))
         enter = key in (10, 13, curses.KEY_ENTER)
         if self.args.kind in ("home", "menu"):
@@ -387,11 +560,13 @@ class InstallerUI:
                 self.index = min(count - 1, max(0, self.index + (self.page if key == curses.KEY_NPAGE else -self.page)))
             elif key in (curses.KEY_HOME, curses.KEY_END):
                 self.index = 0 if key == curses.KEY_HOME else count - 1
-            elif self.args.kind == "menu" and key in (curses.KEY_LEFT, 9, curses.KEY_BTAB):
+            elif self.args.kind == "menu" and key == curses.KEY_LEFT:
                 return BACK
-            elif enter or (self.args.kind == "home" and key in (curses.KEY_RIGHT, 9)):
-                self.result = self.actions[self.index] if self.args.kind == "home" else self.items[self.index][0]
-                return 0
+            elif key in (9,curses.KEY_BTAB):
+                order=['list','back','next'];self.focus=order[(order.index(self.focus)+(1 if key==9 else -1))%3]
+            elif enter or (self.args.kind == "home" and key == curses.KEY_RIGHT):
+                if self.focus=='back':return 1 if self.args.kind=='home' else BACK
+                return self.accept()
             if self.args.kind == "home":
                 self.mode = self.actions[self.index]
         else:
@@ -402,7 +577,7 @@ class InstallerUI:
             elif self.args.kind == "confirm" and key in (9, curses.KEY_BTAB, curses.KEY_LEFT, curses.KEY_RIGHT):
                 self.button = 1 - self.button
             elif enter:
-                return 0 if self.args.kind == "message" or self.button == 1 else BACK
+                return self.accept()
         return None
 
     def verify(self):
@@ -451,20 +626,53 @@ class InstallerUI:
         except curses.error:
             pass
         curses.set_escdelay(40)
+        curses.mouseinterval(0)
+        native_mouse=console_mouse is not None and console_mouse.fd>=0
+        if not native_mouse:curses.mousemask(curses.ALL_MOUSE_EVENTS)
         if self.args.kind == "confirm":
             curses.flushinp()  # Do not carry Enter/typeahead across warnings.
         if self.args.kind == "verify":
             self.verify()
+        # Kitty can finish its initial terminal-mode switch after the first
+        # frame. Refresh once when idle so the PNG survives that switch, then
+        # block normally instead of continuously repainting an idle menu.
+        warmup=True
+        self.screen.timeout(50 if native_mouse else 100 if self.args.kind=='progress' else 150)
+        redraw=True
         while True:
-            usable = self.draw()
-            status = self.handle(self.screen.getch(), usable)
+            if self.args.kind=='progress':
+                if self.args.progress_file:
+                    try:
+                        record=Path(self.args.progress_file).read_text().split('\n',1)
+                        if len(record)==2:self.progress_state,self.progress_text=record
+                    except OSError:pass
+                elif self.args.dummy:
+                    stage=min(6,int((time.monotonic()-self.preview_started)/.45))
+                    self.progress_state=str(stage) if stage<6 else 'done'
+                    self.progress_text='Preview only. Your disks and accounts are unchanged.' if stage==6 else 'Simulating the restore steps…'
+                redraw=True
+            if redraw:usable = self.draw();redraw=False
+            try:key=self.screen.get_wch()
+            except curses.error:
+                event=console_mouse.read() if native_mouse else None
+                if event is not None:
+                    status=self.mouse(event) if usable else None
+                    if status is not None:return status
+                    redraw=True
+                if warmup:
+                    warmup=False
+                    redraw=True
+                    if self.args.kind!='progress' and not native_mouse:self.screen.timeout(-1)
+                continue
+            redraw=True
+            status = self.handle(key, usable)
             if status is not None:
                 return status
 
 
 def arguments(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("kind", choices=("home", "menu", "confirm", "message", "verify", "logo"))
+    parser.add_argument("kind", choices=("home", "menu", "confirm", "message", "verify", "logo", "account", "progress", "preview"))
     parser.add_argument("--mode", choices=tuple(ACTIONS), default="wipe")
     parser.add_argument("--uefi", action="store_true")
     parser.add_argument("--dummy", action="store_true")
@@ -476,6 +684,7 @@ def arguments(argv=None):
     parser.add_argument("--width", type=int, default=110)
     parser.add_argument("--height", type=int, default=11)
     parser.add_argument("--colors", type=int, default=0)
+    parser.add_argument('--progress-file',default='')
     parser.add_argument("items", nargs="*")
     args = parser.parse_args(argv)
     if args.kind in ("home", "menu") and (not args.items or len(args.items) % 2):
@@ -485,7 +694,37 @@ def arguments(argv=None):
     return args
 
 
+def preview(screen, args):
+    """Exercise the actual wizard widgets with sample data and no disk tools."""
+    stages=['home','menu','account','confirm','confirm','progress']
+    index=0;mode='wipe';drive='Preview SSD';account='Keep existing accounts and passwords.'
+    while True:
+        kind=stages[index]
+        options=argparse.Namespace(**vars(args));options.kind=kind;options.dummy=True;options.uefi=True;options.mode=mode
+        options.items=[]
+        if kind=='home':options.items=['wipe','Restore drive','free','Use free space','parts','Use partitions']
+        if kind=='menu':
+            options.title='Choose your drive';options.text='Sample drives for this preview. Nothing will be erased.'
+            options.items=['Preview SSD','1 TB · Fusion NVMe · sample drive','Preview USB','256 GB · USB SSD · sample drive']
+        if kind=='confirm':
+            options.title='Ready to restore?' if index==4 else 'Review your choices'
+            options.text='Target: '+drive+'\n\n'+account+'\n\nThis is a design preview. Real restores show the selected drive and exactly what will be erased.\n\nYour disks, files and accounts are unchanged.'
+            options.accept='Confirm preview' if index==4 else 'Next →'
+        ui=InstallerUI(screen,options);status=ui.run()
+        if status in (BACK,1):
+            if index==0:return 0
+            index-=1;continue
+        if kind=='home':mode=ui.result
+        if kind=='menu':drive=ui.result
+        if kind=='account':
+            plan=json.loads(ui.result)
+            account=('Account: '+plan['original']+' → '+plan['username']+'. '+('New password.' if plan['password_hash'] else 'Keep current password.')) if plan['change'] else 'Keep existing accounts and passwords.'
+        if index==len(stages)-1:return 0
+        index+=1
+
+
 def main(argv=None):
+    global console_mouse
     args = arguments(argv)
     if args.kind == "logo":
         print_logo(args.width, args.height, args.colors)
@@ -498,6 +737,7 @@ def main(argv=None):
     except (OSError, locale.Error):
         return UNAVAILABLE
     result_fd = os.dup(1)
+    console_mouse = installer_mouse.ConsoleMouse()
     try:
         # stdout is normally a Bash command substitution. Draw only on the TTY;
         # send the selected tag, and nothing else, back through the original fd.
@@ -507,11 +747,12 @@ def main(argv=None):
 
         def run(screen):
             nonlocal ui
+            if args.kind=='preview':return preview(screen,args)
             ui = InstallerUI(screen, args)
             return ui.run()
 
         status = curses.wrapper(run)
-        if status == 0 and ui.result:
+        if status == 0 and ui is not None and ui.result:
             os.write(result_fd, (ui.result + "\n").encode("utf-8"))
         return status
     except KeyboardInterrupt:
@@ -519,6 +760,8 @@ def main(argv=None):
     except (curses.error, OSError, ValueError):
         return UNAVAILABLE
     finally:
+        console_mouse.close()
+        png_logo()
         os.dup2(result_fd, 1)
         os.close(result_fd)
         os.close(tty)
