@@ -236,10 +236,9 @@ class Wizard(QWidget):
             self.phase_labels=[]
             for text in PHASES:
                 item=label('○  '+text, 'muted'); self.body.addWidget(item); self.phase_labels.append(item)
-            self.details_button=QPushButton('Show installation details'); self.details_button.setObjectName('link'); self.details_button.setCheckable(True)
-            self.details=QPlainTextEdit(); self.details.setReadOnly(True); self.details.setMinimumHeight(150); self.details.hide()
-            self.details_button.toggled.connect(self.details.setVisible)
-            self.body.addWidget(self.details_button); self.body.addWidget(self.details)
+            self.body.addWidget(label('Installation details', 'muted'))
+            self.details=QPlainTextEdit(); self.details.setReadOnly(True); self.details.setMinimumHeight(150)
+            self.body.addWidget(self.details)
             self.progress_started=time.monotonic(); self.progress_state=''; self.last_stage=0; self.busy=True
             self.back.hide(); self.next.setEnabled(False); self.next.setText('Installing…')
             self.status.setText('Keep this computer connected to power.')
@@ -378,7 +377,7 @@ class Wizard(QWidget):
         if done:
             self.set_step(5); self.next.setEnabled(True); self.next.setText('Done')
             self.title.setText('Your system is ready.' if state=='done' and not self.preview and not self.current.get('dummy') else 'Preview complete.' if state=='done' else 'Installation stopped.')
-            if state=='failed':self.percentage.setText('Stopped');self.details_button.setChecked(True)
+            if state=='failed':self.percentage.setText('Stopped')
             self.subtitle.setText('You can close the installer now.'); self.status.clear()
 
     def start_verify(self):

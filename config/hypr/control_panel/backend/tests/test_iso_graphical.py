@@ -90,11 +90,12 @@ class GraphicalTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path=Path(tmp)/'progress';path.write_text('3\nApplying account preferences')
             w=self.window;w.preview=False
-            w.show_page(dict(kind='progress',progress_file=str(path),uefi=True));w.tick()
+            w.show_page(dict(kind='progress',progress_file=str(path),uefi=True));self.app.processEvents();w.tick()
             self.assertEqual(w.badge.text(),'UEFI');self.assertEqual(w.progress.value(),50)
+            self.assertTrue(w.details.isVisible())
             path.write_text('failed\nThe account update failed');w.tick()
             self.assertEqual(w.progress.value(),50);self.assertEqual(w.percentage.text(),'Stopped')
-            self.assertTrue(w.details_button.isChecked());self.assertTrue(w.next.isEnabled())
+            self.assertTrue(w.details.isVisible());self.assertTrue(w.next.isEnabled())
 
     def test_shell_client_receives_only_selected_tag_without_a_terminal(self):
         with tempfile.TemporaryDirectory(prefix='iso-gui-protocol-') as tmp:
