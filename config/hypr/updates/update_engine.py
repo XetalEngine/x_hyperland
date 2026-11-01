@@ -221,6 +221,7 @@ def prepare_plan(live, stage, expected, commit, automatic=True):
         name = str(path.relative_to(stage))
         if (IGNORE - {'.build', 'build'}).intersection(Path(name).parts): continue
         if name.startswith('control_panel/.build/') and name != 'control_panel/.build/xetal-control-panel': continue
+        if name.startswith('file_manager/.build/') and name != 'file_manager/.build/xetal-files': continue
         if '__pycache__' in path.parts or path.suffix in ('.lock', '.pyc', '.o') or path.name == 'build.log': continue
         current = location(live, name); old = read(current); data = path.read_bytes()
         if data != old or (current.exists() and path.stat().st_mode & 0o777 != current.stat().st_mode & 0o777):

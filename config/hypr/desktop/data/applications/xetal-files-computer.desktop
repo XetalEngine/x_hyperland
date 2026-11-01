@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=My Computer
+Comment=This PC — browse all connected drives in Fusion Files
+Exec=@HYPR@/scripts/files.sh --this-pc
+Icon=@HYPR@/file_manager/computer.svg
+Categories=System;FileTools;FileManager;
+StartupNotify=true
+StartupWMClass=xetal-files
+Terminal=false

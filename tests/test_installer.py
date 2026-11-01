@@ -139,13 +139,19 @@ class InstallerTests(unittest.TestCase):
         self.assertRegex((self.stage/'wallpaper/hyprpaper.conf').read_text(),r'monitor =\s*\n')
         self.assertEqual(json.loads((self.stage/'wallpaper/selection.json').read_text()),{})
 
-    def test_fresh_favorites_are_only_kitty_and_the_bundled_calculator(self):
+    def test_fresh_favorites_include_my_computer_and_bundled_apps(self):
         self.render()
-        expected = {'add': ['kitty.desktop', 'xetal-calculator.desktop'], 'hide': []}
+        expected = {'add': ['xetal-files-computer.desktop', 'kitty.desktop', 'xetal-calculator.desktop'], 'hide': []}
         self.assertEqual(json.loads((self.stage/'launcher/favorites.json').read_text()), expected)
         self.assertEqual(json.loads((install.PAYLOAD/'launcher/favorites.json').read_text()), expected)
         self.assertEqual(json.loads((self.stage/'launcher/shortcuts.json').read_text()),
                          {'version': 1, 'overrides': {}, 'copies': {}})
+        computer = (self.stage/'desktop/data/applications/xetal-files-computer.desktop').read_text()
+        self.assertIn('Name=My Computer', computer)
+        self.assertIn(f'Exec={self.target}/scripts/files.sh --this-pc', computer)
+        self.assertIn(f'Icon={self.target}/file_manager/computer.svg', computer)
+        self.assertTrue((self.stage/'file_manager/computer.svg').is_file())
+        self.assertIn('inode/directory=xetal-files.desktop;', (self.stage/'desktop/config/mimeapps.list').read_text())
         desktop = (self.stage/'desktop/data/applications/xetal-calculator.desktop').read_text()
         self.assertIn(f'Exec=python3 {self.target}/calculator/app.py', desktop)
         self.assertIn(f'Icon={self.target}/calculator/programmer_calculator/assets/calculator.svg', desktop)
@@ -159,7 +165,8 @@ class InstallerTests(unittest.TestCase):
         for name in install.LAUNCHER_DEFAULTS:
             (source/'launcher'/name).write_text('{"developer_only": true}')
         private = ('launcher/favorite-layout.json', 'launcher/floating-sizes.json',
-                   'launcher/icons/private.png', 'calculator/state/preferences.ini')
+                   'launcher/icons/private.png', 'calculator/state/preferences.ini',
+                   'file_manager/state/settings.ini')
         for name in private:
             path = source/name; path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text('PRIVATE DEVELOPER DATA')
@@ -390,7 +397,7 @@ class InstallerTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,'Burn could not be built'):
                 install.build(self.stage)
         self.assertEqual(run.call_count,1)
-        self.assertEqual(builds.call_count,9)
+        self.assertEqual(builds.call_count,10)
         self.assertTrue(any(str(call.args[0][-1]).endswith('/runtime/notices/build.py') for call in builds.call_args_list))
         self.assertTrue(any(str(call.args[0][-1]).endswith('/cursors/build.py') for call in builds.call_args_list))
 

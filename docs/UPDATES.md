@@ -26,7 +26,7 @@ Git checkouts use their own commit. GitHub ZIP and tar downloads use `installer/
 - Declared JSON preferences merge with new defaults; overlapping choices retain the user's value. When an older profile has no baseline for a preference file, existing values are retained and missing defaults are added.
 - Hotkeys and other declared text settings use a three-way merge. Overlapping changes keep the local configuration and are reported in the update log. The resulting complete configuration must still pass validation before activation.
 - Monitor arrangements, selected wallpapers, generated theme colors, personal taskbar CSS and the private Dolphin profile are retained.
-- Launcher favorites, shortcut copies, taskbar pins, groups and window sizes belong to the recipient. Fresh-install defaults (Kitty and Calculator) do not repin removed apps or replace those choices during an update.
+- Launcher favorites, shortcut copies, taskbar pins, groups and window sizes belong to the recipient. Fresh-install defaults (My Computer, Kitty and Calculator) do not repin removed apps or replace those choices during an update. Fusion Files bookmarks, custom menu actions and view preferences remain in its private state directory.
 - Unrelated files absent from both release inventories stay in place. Private state, caches and personal Dolphin data are excluded; temporary state created while building an update is never installed over the user's state. Settings retained from a retired preference file stay in place.
 - The prepared plan records hashes. If settings change before login, activation stops and the update is prepared again.
 

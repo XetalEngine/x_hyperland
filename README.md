@@ -151,7 +151,7 @@ The center card opens on the current wallpaper for the display hosting the selec
 
 ### Screen recording
 
-**Alt+F9** records the monitor under your pointer, with **64 FPS MP4**, **desktop audio**, and automatic saving to **Videos** by default. Press the shortcut again or click the taskbar's **REC** timer to stop and save. The **Recording saved** notification has a **📂 Show in folder** button that opens Dolphin with the video selected; the action also works from notification history during the same desktop session.
+**Alt+F9** records the monitor under your pointer, with **64 FPS MP4**, **desktop audio**, and automatic saving to **Videos** by default. Press the shortcut again or click the taskbar's **REC** timer to stop and save. The **Recording saved** notification has a **📂 Show in folder** button that opens Fusion Files with the video selected; the action also works from notification history during the same desktop session.
 
 Choose frame rate, quality, encoding, desktop/microphone/no audio and the save folder in **Fusion Settings → Capture**. [Screen recording guide →](config/hypr/recording/README.md)
 
@@ -208,9 +208,10 @@ Runtime components download inside KVM Settings; they are not bundled with the d
 | **System ISO** | Create an Arch-based system clone, then restore through a graphical Hyper Fusion wizard with drive cards, review and progress, plus an automatic console fallback. Choose whether the ISO requires a fresh administrator account or preserves existing accounts. Try **Control Panel → System ISO → Preview installer…** with sample drives first. [Restore wizard →](docs/CONTROL-PANEL.md#system-iso) |
 | **RAM Cleaner** | Manual **Normal** and **Aggressive** cache cleanup with before/after readings. It keeps applications running and does not reclaim their active memory. Linux already reclaims cache when needed; this is an occasional troubleshooting tool. |
 | **Disk Visualizer** | A directory-size tree and treemap, folder navigation, allocated/apparent sizes, and confirmed file actions inside System Cleaner. |
-| **Dolphin** | Recipient-specific **Places**, no developer bookmarks, and the redundant Folders tree hidden by default. The bottom terminal starts open using Konsole's embedded component; **Kitty** remains the external terminal. F4 toggles the terminal, F7 toggles Folders. |
+| **[Fusion Files](docs/FILES.md)** | **My Computer** in Favorites opens **This PC**, with mounted and unmounted drives. Quick access, editable breadcrumbs, tabs, five views, configurable columns and context menus, previews, Ark and standard keyboard shortcuts follow the desktop theme. |
+| **Dolphin** | Available separately with recipient-specific **Places** and an embedded terminal; its private profile remains independent of KDE/Plasma. |
 | **File pickers** | Matching Places and image/text/folder previews in Xetal, Qt Widgets and standard GTK 3 dialogs. Custom application and portal pickers have their own integration limits. [Coverage →](docs/FILE-PREVIEWS.md) |
-| **Xetal Files** | Four animated transfer-card designs for Dolphin/KIO and Ark, with real progress, pause/cancel where supported, error details and appearance controls. |
+| **File transfers** | Four animated transfer-card designs for Fusion Files, Dolphin/KIO and Ark, with real progress, pause/cancel where supported, error details and appearance controls. |
 | **Xetal Images** | Pointer-centered zoom, pan, Fit/100%, folder navigation, GIF playback, fullscreen and remembered window sizing. |
 | **Capture and sharing** | Alt+F9 screen recording with audio, 64 FPS MP4 saved to Videos by default, area/all-display screenshots, clipboard support and a custom Hyprland screen-share picker. Recording options live in Fusion Settings → Capture. |
 | **Media downloader** | **Super+Ctrl+P** opens an MP3/MP4 popup with progress, cancellation and updates for its private yt-dlp copy. |
@@ -223,7 +224,7 @@ Runtime components download inside KVM Settings; they are not bundled with the d
 | **Super+Space / Super+R** | Open Apps and search |
 | **Super+K / Super+A** | Fusion Settings / audio mixer |
 | **Super+Q / Super+Enter** | Kitty |
-| **Super+E** | Dolphin |
+| **Super+E** | Fusion Files |
 | **Super+D** | Show/hide Welcome |
 | **Super+W** | Wallpaper carousel, slideshow preview and display picker |
 | **Super+Tab / Super+Shift+Tab** | Switch applications forward/backward |

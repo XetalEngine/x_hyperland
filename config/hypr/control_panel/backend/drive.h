@@ -1,5 +1,7 @@
 #ifndef DRIVE_H
 #define DRIVE_H
+#include "volume_commands.h"
+#include "file_manager.h"
 
 #include <QDialog>
 #include <QComboBox>
@@ -108,7 +110,7 @@ void MainWindow::showDriveContextMenu(const QPoint &position)
     menu.addAction(heading);
     menu.addSeparator();
 
-    auto *open = menu.addAction(ui->openDriveButton->icon(), tr("Open in Dolphin"));
+    auto *open = menu.addAction(ui->openDriveButton->icon(), tr("Open in file manager"));
     open->setEnabled(ui->openDriveButton->isEnabled());
     open->setToolTip(open->isEnabled() ? drive.mountPoint : tr("Mount this partition to browse its files."));
     menu.addSeparator();
@@ -165,17 +167,12 @@ void MainWindow::openDriveInDolphin(const QString &device)
         }
     }
     if (mountPoint.isEmpty()) {
-        QMessageBox::information(this, tr("Not Mounted"), tr("Mount the selected partition before opening it in Dolphin."));
+        QMessageBox::information(this, tr("Not Mounted"), tr("Mount the selected partition before browsing its files."));
         refreshDrives();
         return;
     }
-    // Pass the path as one argument, preserving spaces and special characters.
-    if (!QProcess::startDetached("dolphin", QStringList{"--", mountPoint})) {
-        QMessageBox::warning(this, tr("Could Not Open Dolphin"),
-                             tr("Dolphin could not be started. Make sure it is installed, then try again."));
-        return;
-    }
-    logMessage(tr("📂 Opened %1 in Dolphin").arg(mountPoint.toHtmlEscaped()));
+    FileManager::openFolder(this, mountPoint);
+    logMessage(tr("📂 Opening %1 in the file manager").arg(mountPoint.toHtmlEscaped()));
 }
 
 void MainWindow::refreshDrives()
@@ -231,7 +228,7 @@ void MainWindow::on_mountButton_clicked()
     }
     logMessage("📁 Mounting " + selectedDrive);
     logMessage("⏳ Waiting for sudo password in terminal...");
-    executeCommand("udisksctl", QStringList() << "mount" << "-b" << selectedDrive);
+    executeCommand("udisksctl", FusionVolumes::mount(selectedDrive));
 }
 
 void MainWindow::on_forceMountButton_clicked()
@@ -243,7 +240,7 @@ void MainWindow::on_forceMountButton_clicked()
     }
     logMessage("⚡ Force mounting " + selectedDrive);
     logMessage("⏳ Waiting for sudo password in terminal...");
-    executeCommand("udisksctl", QStringList() << "mount" << "-o" << "force" << "-b" << selectedDrive);
+    executeCommand("udisksctl", FusionVolumes::mount(selectedDrive, true));
 }
 
 void MainWindow::on_unmountButton_clicked()
@@ -255,7 +252,7 @@ void MainWindow::on_unmountButton_clicked()
     }
     logMessage("📤 Unmounting " + selectedDrive);
     logMessage("⏳ Waiting for sudo password in terminal...");
-    executeCommand("udisksctl", QStringList() << "unmount" << "-b" << selectedDrive);
+    executeCommand("udisksctl", FusionVolumes::unmount(selectedDrive));
 }
 
 

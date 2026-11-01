@@ -34,7 +34,7 @@ DOLPHIN_DEFAULTS = {'dolphin/config/dolphinrc', 'dolphin/config/kdeglobals',
 # A source checkout may also have been used as a desktop. Seed portable
 # launcher settings explicitly instead of copying its owner's saved pins.
 LAUNCHER_DEFAULTS = {
-    'favorites.json': {'add': ['kitty.desktop', 'xetal-calculator.desktop'], 'hide': []},
+    'favorites.json': {'add': ['xetal-files-computer.desktop', 'kitty.desktop', 'xetal-calculator.desktop'], 'hide': []},
     'shortcuts.json': {'version': 1, 'overrides': {}, 'copies': {}},
     'bar-pins.json': {'version': 1, 'pins': []},
     'window.json': {'width': 980, 'height': 720},
@@ -195,6 +195,7 @@ def build(stage, checkpoint=lambda:None):
                  [sys.executable,str(stage/'theme/build.py')],
                  [sys.executable,str(stage/'wallpaper/build.py')],
                  [sys.executable,str(stage/'control_panel/build.py')],
+                 [sys.executable,str(stage/'file_manager/build.py')],
                  ['bash',str(stage/'waybar/pins/build.sh')],
                  ['bash',str(stage/'waybar/workspaces/build.sh')],
                  ['bash',str(stage/'waybar/options/build.sh')],
@@ -265,7 +266,8 @@ def validate(stage):
     validate_config(stage)
     for relative in ('runtime/notices/.build/xetal-startup-notices.so',
                      'theme/gtk3/libxetal-file-preview.so','theme/qt5/platformthemes/libxetaltheme.so','theme/qt6/platformthemes/libxetaltheme.so',
-                     'waybar/pins/pins.so','waybar/workspaces/controls.so','waybar/options/options.so','share-picker/window-preview','control_panel/.build/xetal-control-panel'):
+                     'waybar/pins/pins.so','waybar/workspaces/controls.so','waybar/options/options.so','share-picker/window-preview','control_panel/.build/xetal-control-panel',
+                     'file_manager/.build/xetal-files'):
         if not (stage/relative).is_file():raise RuntimeError('Missing built component: '+relative)
 
 

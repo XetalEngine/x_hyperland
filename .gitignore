@@ -49,3 +49,5 @@ config/hypr/launcher/favorite-layout.json
 config/hypr/launcher/floating-sizes.json
 config/hypr/launcher/icons/
 config/hypr/calculator/state/
+config/hypr/file_manager/.build/
+config/hypr/file_manager/state/

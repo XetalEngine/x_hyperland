@@ -88,7 +88,7 @@ class FilePolicyTests(unittest.TestCase):
         personal = '{"add":["my-app.desktop"],"hide":["kitty.desktop","xetal-calculator.desktop"]}'
         self.write(self.live, favorites, personal)
         self.write(self.upstream, favorites,
-                   '{"add":["kitty.desktop","xetal-calculator.desktop"],"hide":[]}')
+                   '{"add":["xetal-files-computer.desktop","kitty.desktop","xetal-calculator.desktop"],"hide":[]}')
         saved = {'launcher/bar-pins.json': '{"version":1,"pins":["my-app.desktop"]}',
                  'launcher/shortcuts.json': '{"version":1,"overrides":{},"copies":{"mine":{"name":"My tool"}}}',
                  'launcher/favorite-layout.json': '{"version":1,"groups":[]}',
@@ -99,6 +99,24 @@ class FilePolicyTests(unittest.TestCase):
         plan = self.prepare(); engine.apply_plan(self.live, self.stage, plan, self.state)
         self.assertEqual((self.live/favorites).read_text(), personal)
         for name, data in saved.items(): self.assertEqual((self.live/name).read_text(), data)
+
+    def test_file_manager_update_delivers_executable_and_keeps_private_preferences(self):
+        self.write(self.live, 'file_manager/state/settings.ini', 'private bookmarks and columns\n')
+        self.write(self.upstream, 'file_manager/main.cpp', 'new application\n')
+        self.write(self.upstream, 'desktop/data/applications/xetal-files-computer.desktop', 'My Computer launcher\n')
+        expected = engine.merge_profile(self.live, self.upstream, self.stage, NEW)
+        self.write(self.stage, 'file_manager/.build/xetal-files', 'built executable', 0o755)
+        self.write(self.stage, 'file_manager/.build/CMakeCache.txt', '/private/build/path')
+        self.write(self.stage, 'file_manager/.build/files-tests', 'test executable')
+        self.write(self.stage, 'file_manager/state/settings.ini', 'temporary settings')
+        plan = engine.prepare_plan(self.live, self.stage, expected, NEW)
+        self.assertIn('file_manager/.build/xetal-files', plan['changes'])
+        self.assertNotIn('file_manager/.build/CMakeCache.txt', plan['changes'])
+        self.assertNotIn('file_manager/.build/files-tests', plan['changes'])
+        self.assertNotIn('file_manager/state/settings.ini', plan['changes'])
+        engine.apply_plan(self.live, self.stage, plan, self.state)
+        self.assertEqual((self.live/'file_manager/state/settings.ini').read_text(), 'private bookmarks and columns\n')
+        self.assertEqual((self.live/'file_manager/.build/xetal-files').stat().st_mode & 0o777, 0o755)
 
     def test_personal_text_conflict_is_preserved_without_blocking_release_files(self):
         self.write(self.live, 'keybindings.conf', 'bind = SUPER, Q, exec, old-terminal\n')

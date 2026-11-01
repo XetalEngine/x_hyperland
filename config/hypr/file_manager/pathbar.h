@@ -1,0 +1,41 @@
+#pragma once
+#include <KUrlComboBox>
+#include <QtWidgets>
+class KUrlCompletion;
+
+// A location bar whose history includes our virtual This PC view without
+// trying to stat it through a filesystem worker.
+class PathBar : public QWidget {
+  Q_OBJECT
+public:
+  explicit PathBar(QWidget *parent = nullptr);
+  QUrl locationUrl() const;
+  void setLocationUrl(const QUrl &url);
+  bool goBack();
+  bool goForward();
+  bool goUp();
+  int historyIndex() const { return position; }
+  int historySize() const { return history.size(); }
+  bool isUrlEditable() const;
+  void setUrlEditable(bool value);
+  KUrlComboBox *editor() const { return input; }
+signals:
+  void urlChanged(const QUrl &url);
+  void editableStateChanged(bool value);
+  void historyChanged();
+  void tabRequested(const QUrl &url);
+
+protected:
+  bool eventFilter(QObject *, QEvent *) override;
+
+private:
+  QList<QUrl> history;
+  int position = 0;
+  QStackedWidget *stack;
+  QScrollArea *scroll;
+  QWidget *crumbs;
+  QHBoxLayout *trail;
+  KUrlComboBox *input = nullptr;
+  KUrlCompletion *completion;
+  void render();
+};

@@ -1,0 +1,21 @@
+[Desktop Entry]
+Type=Application
+Name=Fusion Files
+GenericName=File Manager
+Comment=Browse files, drives and network locations
+Exec=@HYPR@/scripts/files.sh %U
+Icon=@HYPR@/file_manager/computer.svg
+MimeType=inode/directory;
+Categories=System;FileTools;FileManager;
+StartupNotify=true
+StartupWMClass=xetal-files
+Terminal=false
+Actions=Computer;Home;
+
+[Desktop Action Computer]
+Name=This PC
+Exec=@HYPR@/scripts/files.sh --this-pc
+
+[Desktop Action Home]
+Name=Home
+Exec=@HYPR@/scripts/files.sh @HOME@

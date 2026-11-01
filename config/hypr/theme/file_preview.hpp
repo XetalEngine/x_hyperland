@@ -109,7 +109,7 @@ class Pane final : public QScrollArea {
 protected:
     void resizeEvent(QResizeEvent *event) override { QScrollArea::resizeEvent(event); renderImage(); }
 public:
-    explicit Pane(QFileDialog *dialog) : QScrollArea(dialog) {
+    explicit Pane(QWidget *parent) : QScrollArea(parent) {
         setObjectName("xetalFilePreviewPane"); setWidgetResizable(true);
         setMinimumWidth(240); setMaximumWidth(300); setFrameShape(QFrame::StyledPanel);
         setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -138,12 +138,14 @@ public:
             const QStringList fields{data.type, data.dimensions, data.size, data.modified, data.created};
             for (int i = 0; i < fields.size(); ++i) values[i]->setText(fields[i]);
         });
-        connect(dialog, &QFileDialog::currentChanged, this, [this](const QString &path) { select(path); });
-        connect(dialog, &QFileDialog::directoryEntered, this, [this](const QString &path) { select(path); });
-        connect(dialog, &QFileDialog::finished, this, [this] { ++generation; latest.clear(); timer.stop(); });
-        if (auto edit = dialog->findChild<QLineEdit *>("fileNameEdit"))
-            connect(edit, &QLineEdit::textEdited, this, [this, dialog] { select(dialog->selectedFiles().value(0)); });
-        select(dialog->selectedFiles().value(0));
+        if (auto *dialog = qobject_cast<QFileDialog *>(parent)) {
+            connect(dialog, &QFileDialog::currentChanged, this, [this](const QString &path) { select(path); });
+            connect(dialog, &QFileDialog::directoryEntered, this, [this](const QString &path) { select(path); });
+            connect(dialog, &QFileDialog::finished, this, [this] { ++generation; latest.clear(); timer.stop(); });
+            if (auto edit = dialog->findChild<QLineEdit *>("fileNameEdit"))
+                connect(edit, &QLineEdit::textEdited, this, [this, dialog] { select(dialog->selectedFiles().value(0)); });
+            select(dialog->selectedFiles().value(0));
+        } else select({});
     }
     void select(const QString &path) {
         latest = path; ++generation; image = QImage(); preview->clear();

@@ -339,3 +339,32 @@ progress card uses a sample job. No tests close the user's real applications.
 - The SMBIOS row buttons were measured and clicked in eight design/light-dark combinations. Each changed only its selected guest field, with the original template value preserved. Existing navigation tests were corrected for the toolbar-only wizard and the actual toolbar minimum width.
 - **18 installer checks and three terminal checks passed**. The theme-colored Arch SVG rendered through Qt SVG and was inspected in a real Kitty window using scrolling Unicode image placements. ASCII and narrow-terminal fallbacks remain available.
 - Generated Single GPU shell scripts were executed against inert hooks and disposable process/sysfs fixtures for success, failed preparation, failed QEMU, termination and restoration of an unbound AMD device. No physical GPU was detached, no real guest disk was opened, and no kernel module, bootloader or host network settings were changed by these tests. Physical handoff and guest operating-system startup still require testing on the target PC.
+
+## Fusion Files — 2026-11-01
+
+Fusion Files and Control Panel compiled successfully with the shared volume
+command helper. The native file manager suite passed 11 checks in a private
+D-Bus session with disposable files, configuration and Trash. Coverage includes
+F2 rename, copy and cut/paste, Trash and undo, cancelling overwrite and permanent
+deletion, literal paths, address-bar navigation, tabs, view and column settings,
+private bookmarks, and mount arguments exercised against mock executables.
+LUKS and BitLocker volumes remain visible without offering direct mount.
+
+All 33 installer checks and 59 updater checks passed. The launcher suite passed
+120 checks initially; its two favorite-default expectations were updated for
+My Computer and passed on rerun. Ten desktop-menu and seven screenshot-action
+checks passed. Native Qt 5, Qt 6 and GTK preview probes still passed after the
+shared preview pane gained a generic parent-widget constructor. Appearance
+checks cover every Fusion design in dark, light and high contrast.
+
+The broader root suite ran 188 checks with three skips and one existing failure:
+the legacy Hyprland 0.57 Lua converter rejects the packaged `layerrule` setting.
+The same error was reproduced using the unchanged baseline configuration; this
+does not affect the pinned 0.56.2 configuration or the file manager checks.
+
+The local development preview opened on Hyprland with the active BreakPoint
+palette and discovered mounted and unmounted volumes. Both desktop entries
+passed validation, and My Computer was added without replacing existing
+favorites. No real volume was mounted, unmounted or repaired during validation;
+live network-share authentication and file operations remain untested. Fedora
+and Debian package recipes were reviewed but not installed on those systems.

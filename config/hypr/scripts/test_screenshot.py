@@ -20,7 +20,7 @@ class ScreenshotActionsTests(unittest.TestCase):
         self.assertEqual(args[5],['default','Open image','folder-open','📂  Show in folder'])
         self.assertIn('&amp;',args[4])
         self.actions.event('ActionInvoked',(41,'default'));self.actions.event('ActionInvoked',(41,'folder-open'))
-        self.assertEqual(self.commands,[[str(notify.ROOT/'scripts/image-viewer.sh'),'--',str(self.path)],[str(notify.ROOT/'scripts/dolphin.sh'),'--select',str(self.path)]])
+        self.assertEqual(self.commands,[[str(notify.ROOT/'scripts/image-viewer.sh'),'--',str(self.path)],[str(notify.ROOT/'scripts/files.sh'),'--select',str(self.path)]])
     def test_expired_banner_remains_actionable_in_history(self):
         self.actions.event('NotificationClosed',(41,1));self.actions.event('ActionInvoked',(41,'default'))
         self.assertEqual(len(self.commands),1)
@@ -42,7 +42,7 @@ class ScreenshotActionsTests(unittest.TestCase):
         self.assertNotIn('image-path',args[6])
         self.assertIn('Display disconnected.\n',args[4]);self.assertIn('&lt;final&gt;',args[4])
         self.actions.event('ActionInvoked',(42,'folder-open'));self.actions.event('ActionInvoked',(42,'default'))
-        expected=[str(notify.ROOT/'scripts/dolphin.sh'),'--select',str(video)]
+        expected=[str(notify.ROOT/'scripts/files.sh'),'--select',str(video)]
         self.assertEqual(self.commands,[expected,expected])
         # Sharing the broker must not change a screenshot's default action.
         self.actions.event('ActionInvoked',(41,'default'))
@@ -56,11 +56,11 @@ class ScreenshotActionsTests(unittest.TestCase):
         self.bus.call_sync.return_value=GLib.Variant('(u)',(43,))
         self.actions.show(self.path,'Screenshot saved')
         self.actions.event('ActionInvoked',(42,'folder-open'))
-        self.assertEqual(self.commands,[[str(notify.ROOT/'scripts/dolphin.sh'),'--select',str(video)]])
+        self.assertEqual(self.commands,[[str(notify.ROOT/'scripts/files.sh'),'--select',str(video)]])
         self.actions.event('NotificationClosed',(42,2));self.actions.event('ActionInvoked',(42,'folder-open'))
         self.assertEqual(len(self.commands),1)
 
-    def test_removed_recording_reports_error_without_launching_dolphin(self):
+    def test_removed_recording_reports_error_without_launching_file_manager(self):
         self.actions.show(self.path,'Recording saved',kind='recording')
         self.path.unlink();self.actions.event('ActionInvoked',(41,'folder-open'))
         self.assertEqual(self.commands[0][:4],['notify-send','-a','Hyper Fusion Recorder','Cannot open recording'])

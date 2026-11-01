@@ -1,0 +1,27 @@
+#pragma once
+#include <QIcon>
+#include <QtCore>
+
+namespace Fusion {
+QString root();
+QUrl computerUrl();
+bool isComputer(const QUrl &url);
+QUrl userUrl(const QString &text, const QUrl &base = QUrl());
+QString displayPath(const QUrl &url);
+QString title(const QUrl &url);
+QIcon icon(const QString &name, const QString &fallback = "folder");
+QList<QVariantMap> defaultPlaces();
+QList<QVariantMap> menuDefaults();
+QStringList expandCommand(const QString &command, const QList<QUrl> &urls);
+bool validName(const QString &name);
+
+class Preferences {
+public:
+  explicit Preferences(const QString &path = {});
+  QSettings settings;
+  QList<QVariantMap> places() const;
+  void setPlaces(const QList<QVariantMap> &places);
+  QList<QVariantMap> menu() const;
+  void setMenu(const QList<QVariantMap> &entries);
+};
+} // namespace Fusion

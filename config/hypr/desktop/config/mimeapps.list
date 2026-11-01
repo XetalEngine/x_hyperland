@@ -1,5 +1,5 @@
 [Default Applications]
-inode/directory=xetal-dolphin.desktop;
+inode/directory=xetal-files.desktop;
 image/avci=xetal-image-viewer.desktop;
 image/avif=xetal-image-viewer.desktop;
 image/bmp=xetal-image-viewer.desktop;
@@ -78,7 +78,7 @@ image/x-xcf=xetal-image-viewer.desktop;
 image/x-xpixmap=xetal-image-viewer.desktop;
 
 [Added Associations]
-inode/directory=xetal-dolphin.desktop;
+inode/directory=xetal-files.desktop;xetal-dolphin.desktop;
 image/avci=xetal-image-viewer.desktop;
 image/avif=xetal-image-viewer.desktop;
 image/bmp=xetal-image-viewer.desktop;

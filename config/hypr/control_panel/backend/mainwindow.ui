@@ -482,10 +482,10 @@
                 </size>
                </property>
                <property name="text">
-                <string>Open in Dolphin</string>
+                <string>Open in file manager</string>
                </property>
                <property name="toolTip">
-                <string>Browse the selected mounted partition in Dolphin.</string>
+                <string>Browse the selected mounted partition in the desktop file manager.</string>
                </property>
               </widget>
              </item>

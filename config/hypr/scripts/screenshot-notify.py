@@ -18,7 +18,7 @@ def action_command(action, path, kind='screenshot'):
     path = Path(path).resolve(strict=True)
     if not path.is_file(): raise ValueError('The saved file is no longer available.')
     if action == 'folder-open' or (action == 'default' and kind == 'recording'):
-        return [str(ROOT/'scripts/dolphin.sh'), '--select', str(path)]
+        return [str(ROOT/'scripts/files.sh'), '--select', str(path)]
     if action == 'default' and kind == 'screenshot':
         return [str(ROOT/'scripts/image-viewer.sh'), '--', str(path)]
     raise ValueError('Unknown notification action.')

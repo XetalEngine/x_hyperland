@@ -68,7 +68,7 @@ class MenuTests(unittest.TestCase):
     def test_runtime_resolves_current_action_and_never_uses_directory_mime_handler(self):
         launch=Mock()
         run.execute('file-manager',self.store,launch)
-        argv=launch.call_args.args[0];self.assertTrue(argv[0].endswith('/scripts/dolphin.sh'))
+        argv=launch.call_args.args[0];self.assertTrue(argv[0].endswith('/scripts/files.sh'))
         self.assertNotIn('xdg-open',argv)
         self.document['items'][0].update(target='command',value='/usr/bin/printf "%s" "a b; $(do-not-run)"',directory=str(self.root),terminal=True)
         self.store.save(self.document,self.saved);run.execute('file-manager',self.store,launch)
