@@ -92,7 +92,8 @@ class MediaTests(unittest.TestCase):
     def setUp(self):
         if 'libx264' not in backend.encoders(): self.skipTest('Synthetic fixture needs libx264')
         self.tmp = tempfile.TemporaryDirectory(); self.root = Path(self.tmp.name)
-        self.recorder = backend.Recorder(notify_fn=lambda *_: None)
+        self.notifications = Mock()
+        self.recorder = backend.Recorder(notify_fn=self.notifications)
 
     def tearDown(self):
         if hasattr(self, 'recorder'): self.recorder.shutdown(); self.tmp.cleanup()
@@ -128,6 +129,7 @@ class MediaTests(unittest.TestCase):
         self.assertTrue(any(s['codec_type']=='audio' for s in streams))
         subprocess.run(['ffmpeg', '-v', 'error', '-i', str(r.destination), '-f', 'null', '-'], check=True, capture_output=True)
         self.assertFalse(r.workspace.exists())
+        self.notifications.assert_called_once_with('Recording saved', str(r.destination), r.destination)
 
     @staticmethod
     def fixture_path_move(source, target): source.rename(target); return target
@@ -137,12 +139,16 @@ class MediaTests(unittest.TestCase):
         r.begin_save(); self.finish()
         self.assertEqual(r.state['phase'], 'error'); self.assertTrue(r.capture.exists())
         self.assertEqual(r.destination.read_bytes(), b'Existing recording')
+        self.assertTrue(self.notifications.called)
+        self.assertTrue(all(len(call.args)==2 for call in self.notifications.call_args_list))
 
     def test_capture_failure_retains_diagnostic_and_no_final_movie(self):
         self.prepare_save(); r = self.recorder; r.capture.write_bytes(b'bad')
         r.begin_save()
         self.assertEqual(r.state['phase'], 'error'); self.assertFalse(r.destination.exists())
         self.assertTrue((self.root/'capture.log').exists())
+        self.assertTrue(self.notifications.called)
+        self.assertTrue(all(len(call.args)==2 for call in self.notifications.call_args_list))
 
 
 if __name__ == '__main__': unittest.main()

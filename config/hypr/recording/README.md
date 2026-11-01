@@ -2,6 +2,8 @@
 
 **Alt+F9** starts recording the monitor under the pointer. Press it again, or click the **REC** timer in the bar, to stop and save. Moving the pointer or changing workspaces does not change the recorded monitor. Disconnecting that monitor ends and saves the recording.
 
+The **Recording saved** notification includes **📂 Show in folder**. Click it to open Dolphin with that exact MP4 selected. Clicking the notification body does the same. The action remains available in notification history for the current desktop session, until the notification is dismissed. It is offered only after the MP4 has been checked and saved successfully.
+
 The defaults are **64 FPS**, **desktop audio**, **high quality**, and **MP4** in your XDG Videos folder (`~/Videos` when no folder is configured). Fusion Settings → Capture offers frame rate, quality, automatic/software encoding, desktop/microphone/no audio and a custom save folder. Changes apply to the next recording. The shortcut is editable in Hotkeys.
 
 Automatic encoding probes available NVIDIA NVENC and VA-API encoders before using the CPU. Actual capture throughput depends on the GPU, display refresh rate, resolution and load; 64 FPS is the encoded output rate, and frames may repeat when the display updates more slowly. Audio uses the default output's monitor source, or the default microphone, selected at recording start. It does not change audio routing or mix the microphone into desktop audio.

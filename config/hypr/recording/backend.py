@@ -9,6 +9,7 @@ import re
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import time
 from datetime import datetime
@@ -179,7 +180,17 @@ def media_streams(path):
     return json.loads(run(['ffprobe', '-v', 'error', '-show_streams', '-of', 'json', str(path)], timeout=15))['streams']
 
 
-def notify(title, message):
+def notify(title, message, path=None):
+    if path is not None:
+        try:
+            # The session-owned broker listens for actions after the banner
+            # expires, without blocking capture or the next recording.
+            subprocess.Popen([sys.executable, str(ROOT.parent/'scripts/screenshot-notify.py'),
+                str(path), title, '--recording', '--body', message],
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                start_new_session=True)
+            return
+        except (OSError, subprocess.SubprocessError): pass
     try:
         subprocess.run(['notify-send', '-a', 'Hyper Fusion Recorder', '-i', 'media-record', title, message],
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3)
@@ -291,7 +302,7 @@ class Recorder:
                 os.link(self.movie, self.destination)
                 self.close_log(); shutil.rmtree(self.workspace)
                 self.state = {**self.state, 'phase': 'saved', 'message': self.reason}
-                self.notify('Recording saved', (self.reason+'\n' if self.reason else '')+str(self.destination))
+                self.notify('Recording saved', (self.reason+'\n' if self.reason else '')+str(self.destination), self.destination)
             except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
                 self.fail(str(error))
 

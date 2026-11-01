@@ -142,6 +142,12 @@ Workspaces, running apps, draggable pins and your chosen status modules stay clo
 
 Click an image to choose its display from a preview of your real monitor arrangement. A single display applies immediately. **Bloom**, **Crossfade** and **Silk sweep** transitions run behind your apps, with an Instant option and support for reduced motion. Choices are saved per monitor and theme, and also appear in Fusion Settings. [Wallpaper guide →](config/hypr/wallpaper/README.md)
 
+### Screen recording
+
+**Alt+F9** records the monitor under your pointer, with **64 FPS MP4**, **desktop audio**, and automatic saving to **Videos** by default. Press the shortcut again or click the taskbar's **REC** timer to stop and save. The **Recording saved** notification has a **📂 Show in folder** button that opens Dolphin with the video selected; the action also works from notification history during the same desktop session.
+
+Choose frame rate, quality, encoding, desktop/microphone/no audio and the save folder in **Fusion Settings → Capture**. [Screen recording guide →](config/hypr/recording/README.md)
+
 ### Welcome and startup
 
 **Super+D** opens or hides the four-window Welcome dashboard: system information, Matrix rain, a large clock and six interactive project cubes. The taskbar groups it as **Welcome**, without four duplicate app icons.
@@ -247,6 +253,7 @@ Your hotkeys, monitor arrangement, chosen wallpapers, private Dolphin Places and
 | [Desktop updates](docs/UPDATES.md) | Settings preservation, activation and rollback |
 | [KVM Settings](docs/KVM.md) | VM setup, downloads, networking and private state |
 | [Control Panel](docs/CONTROL-PANEL.md) | Administration tools, RAM Cleaner and Disk Visualizer |
+| [Screen recording](config/hypr/recording/README.md) | Alt+F9, audio, video settings and saved-recording notifications |
 | [File previews](docs/FILE-PREVIEWS.md) | Supported applications, Places and preview behavior |
 | [Validation](docs/VALIDATION.md) | Test suites and the limits of automated coverage |
 | [Desktop reference](config/hypr/README.txt) | Configuration and component layout |
