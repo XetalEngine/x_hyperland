@@ -14,6 +14,7 @@ import dependencies
 import login_setup
 sys.path.insert(0, str(install.PAYLOAD/'updates'))
 import update_engine as engine
+from release_files import ReleaseFiles
 
 
 def prepare(home, commit, automatic=True, allow_runtime=False, checkpoint=lambda:None):
@@ -47,7 +48,8 @@ def prepare(home, commit, automatic=True, allow_runtime=False, checkpoint=lambda
             root = Path(temporary); upstream = root/'upstream'; stage = root/'profile'
             print('Merging the new desktop with your settings…', flush=True)
             install.render(upstream, home, install.connected_monitors())
-            expected = engine.merge_profile(live, upstream, stage, commit)
+            expected = engine.merge_profile(live, upstream, stage, commit,
+                                            known_release_file=ReleaseFiles(install.REPO, commit, home))
             # These paths are not source-controlled and are created by the initial installer.
             for directory in ('dolphin/cache', 'dolphin/state', 'apps', 'assets/font-cache'):
                 (stage/directory).mkdir(parents=True, exist_ok=True)

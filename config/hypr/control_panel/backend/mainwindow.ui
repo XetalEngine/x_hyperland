@@ -4383,7 +4383,7 @@ Details and failures are saved to /var/log/xetal-firstboot.log.</string>
              <item>
               <widget class="QCheckBox" name="isoCompatUserCheck">
                <property name="text">
-                <string>Require a fresh account in the installer ❓</string>
+                <string>Require a fresh account in the installer (Will require manual visudo work, etc.) ❓</string>
                </property>
                <property name="toolTip">
                 <string>When checked, installation requires a new administrator username and password.

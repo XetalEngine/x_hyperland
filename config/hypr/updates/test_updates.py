@@ -410,5 +410,17 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
         self.assertEqual(subprocess.check_output(['git','-C',str(copied),'rev-parse','HEAD'],text=True).strip(), commit)
         self.assertEqual((repository/'source.py').read_text(), 'uncommitted developer work\n')
 
+    def test_preparation_failure_keeps_installer_reason_instead_of_raw_command(self):
+        self.state.mkdir()
+        with patch.object(service, 'STATE', self.state), patch.object(service.os, 'nice'), \
+             patch.object(service.github, 'source', return_value=self.root/'source'), \
+             patch.object(service.subprocess, 'run', return_value=subprocess.CompletedProcess([], 1)) as run:
+            self.assertEqual(service.worker(NEW, manual=True), 1)
+        self.assertNotIn('check', run.call_args.kwargs)
+        with patch.object(sys, 'argv', ['service.py', '--worker', NEW]), \
+             patch.object(service, 'worker', return_value=1), patch.object(service, 'publish') as publish:
+            self.assertEqual(service.main(), 1)
+            publish.assert_not_called()
+
 
 if __name__ == '__main__': unittest.main()

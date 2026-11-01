@@ -169,7 +169,7 @@ def merge_file(name, base, local, remote):
     raise RuntimeError('Local edits overlap this update: '+name+'. Your files were kept. Resolve the difference before retrying.')
 
 
-def merge_profile(live, upstream, stage, commit):
+def merge_profile(live, upstream, stage, commit, known_release_file=None):
     old = installed(live); new = metadata(upstream, commit)
     stage.mkdir(parents=True)
     # Build a review tree of managed files and custom Hyprland includes only.
@@ -184,7 +184,16 @@ def merge_profile(live, upstream, stage, commit):
     for name in sorted(names):
         current = location(live, name); local = read(current); incoming = read(location(upstream, name))
         expected[name] = sha(local)
-        merged = merge_file(name, old['files'].get(name), local, incoming)
+        base = old['files'].get(name)
+        try:
+            merged = merge_file(name, base, local, incoming)
+        except RuntimeError:
+            # A developer/ISO copied an exact release file without registering
+            # it. Do not weaken conflict checks for unknown or customized files.
+            if (local is None or incoming is None or not known_release_file
+                    or not known_release_file(name, local)): raise
+            print('Recognized previously copied release file: '+name, flush=True)
+            merged = incoming
         destination = location(stage, name)
         if merged is None: destination.unlink(missing_ok=True); continue
         mode = (current.stat().st_mode & 0o777) if local is not None else new['files'][name]['mode']

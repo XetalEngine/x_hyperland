@@ -145,7 +145,7 @@ def source(commit, cache, destination):
             target.chmod(0o755 if member.mode & 0o111 else 0o644)
     # The installer verifies this revision as well. Keep a minimal local Git view
     # pointing at our private object store, never the developer's working clone.
-    subprocess.run(['git', 'init', str(destination)], check=True, env=env, timeout=30)
+    subprocess.run(['git', 'init', '--quiet', '--initial-branch=main', str(destination)], check=True, env=env, timeout=30)
     objects = destination/'.git/objects/info/alternates'; objects.parent.mkdir(parents=True, exist_ok=True)
     objects.write_text(str(bare.resolve()/'objects')+'\n')
     (destination/'.git/HEAD').write_text(commit+'\n')

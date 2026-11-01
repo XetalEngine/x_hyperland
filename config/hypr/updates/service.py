@@ -181,7 +181,9 @@ def worker(commit, manual=False, setup=False):
         else:
             args = [sys.executable, str(source/'installer/update.py'), '--revision', commit]
             if manual: args.append('--manual')
-        subprocess.run(args, check=True)
+        # The installer has already printed the useful failure reason. Preserve
+        # it as the log's last line instead of adding a raw command traceback.
+        return subprocess.run(args).returncode
 
 
 def queue_rollback(root=None, state=None):
@@ -370,7 +372,7 @@ def main():
         if args.status: print(json.dumps(badge(status()))); return 0
         if args.serve: serve()
         elif args.activate: return 20 if activate() else 0
-        elif args.worker: worker(engine.revision(args.worker), args.manual, args.setup)
+        elif args.worker: return worker(engine.revision(args.worker), args.manual, args.setup)
         elif args.check: print(json.dumps(check(), indent=2))
         return 0
     except Exception as error:

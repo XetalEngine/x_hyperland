@@ -24,6 +24,7 @@ Git checkouts use their own commit. GitHub ZIP and tar downloads use `installer/
 
 - JSON preferences merge with new defaults; overlapping choices retain the user's value.
 - Hotkeys and other text configuration use a three-way merge. Conflicting edits stop the update and identify the file.
+- A file copied into a development profile or clone ISO before update registration can be recognized when it exactly matches that path in the incoming release's recent history (up to 64 commits). The installer then adopts and updates it through the normal backup transaction. Unknown or edited local files still stop preparation; this never overwrites arbitrary files or pretends the entire profile is current. History is fetched into the updater's private cache only when needed, without changing a developer checkout.
 - Monitor arrangements, selected wallpapers, generated theme colors, personal taskbar CSS and the private Dolphin profile are retained.
 - Unknown user files stay in place. A removed upstream file is deleted only if it was unedited.
 - The prepared plan records hashes. If settings change before login, activation stops and the update is prepared again.
@@ -61,4 +62,4 @@ python3 -m unittest discover -s tests -v
 ./tests/run-desktop-tests.sh
 ```
 
-The updater tests cover merge conflicts, preference preservation, source integrity, interrupted writes, rollback, rate limits, commit ancestry, singleton ownership, logout cleanup and all three theme palettes. A disposable-profile integration run also built the native components, validated the complete config, activated a new revision and restored the previous revision.
+The updater tests cover merge conflicts, unregistered copies of released files, preference preservation, source integrity, interrupted writes, rollback, rate limits, commit ancestry, singleton ownership, logout cleanup and all three theme palettes. A disposable-profile integration run also built the native components, validated the complete config, activated a new revision and restored the previous revision.
