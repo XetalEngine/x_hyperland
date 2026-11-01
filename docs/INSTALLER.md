@@ -79,6 +79,13 @@ authenticated desktop user. This works with sudo, [PolicyKit's invoking-user ide
 and the Debian root-password fallback. A failed version command reports its
 actual diagnostic instead of labelling an installed compositor as missing.
 
+Setup also includes installed system-tool directories in its own command search
+path. Debian desktop sessions can omit `/usr/sbin`, which otherwise makes
+installed tools such as `dmidecode`, `fsck.fat`, `losetup` and `modinfo` appear
+missing. The same lookup applies to Hyprland's launched desktop tools, including
+KVM Settings. Existing command overrides keep priority; this does not edit shell
+profiles or shared desktop settings.
+
 The bundle combines documented local Debian 13 backports with unmodified trixie-backports packages. These local builds are not official Debian binary releases. Setup verifies the trusted release manifest's SHA-256 hashes, archive contents and DEB identities before passing root-owned copies to APT. Ordinary dependencies still come from configured Debian repositories with normal APT authentication. No testing/backports repository is enabled on the recipient's machine.
 
 Foreground installation and runtime updates prepare Debian's package sources

@@ -25,6 +25,8 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_debian*.py' -v
           python3 -m unittest discover -s tests -p test_administrator.py -v
           python3 -m unittest discover -s tests -p test_runtime_probe.py -v
+          python3 -m unittest discover -s tests -p test_desktop_command_paths.py -v
+          PYTHONPATH=tests python3 -m unittest test_installer.DependencyEnvironmentTests -v
       - name: Repair a DVD-only Debian source list and resolve dependencies
         env:
           XETAL_DISPOSABLE_DEBIAN: '1'

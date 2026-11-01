@@ -29,6 +29,7 @@ def main():
     directory = Path('/run/user')/str(account.pw_uid); directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chown(directory, account.pw_uid, account.pw_gid)
     user = ['runuser', '-u', 'tester', '--', 'env', 'XDG_RUNTIME_DIR='+str(directory),
+            'PATH=/usr/local/bin:/usr/bin:/bin',
             'GIT_CONFIG_COUNT=1', 'GIT_CONFIG_KEY_0=safe.directory', 'GIT_CONFIG_VALUE_0='+str(ROOT)]
     # Existing desktop applications and older libraries must survive rollback.
     subprocess.run([*debian.APT, '-y', 'install', 'kitty', 'waybar', 'dolphin', 'libwayland-dev', 'libsdl3-0'], check=True)
@@ -50,6 +51,25 @@ def main():
     for key in ('SUDO_UID', 'PKEXEC_UID', 'XETAL_SETUP_SU_UID'):
         with patch.dict(os.environ, {**base_env, key: str(account.pw_uid)}, clear=True):
             runtime.policy.require()
+    # Use a desktop user's PATH, not the root container's sbin-inclusive PATH.
+    # Both the installer's checks/builds and applications launched afterward must
+    # resolve the real Debian utilities without changing the login environment.
+    probe = '''import json, os, shutil, subprocess, sys
+assert os.geteuid() != 0
+commands = ('dmidecode', 'fsck.fat', 'losetup', 'modinfo')
+assert all(shutil.which(name) is None for name in commands)
+sys.path.insert(0, sys.argv[1]+'/installer')
+import dependencies
+errors = dependencies.check()
+assert not errors, errors
+assert all(shutil.which(name) for name in commands)
+print(json.dumps({name: shutil.which(name) for name in commands}))
+'''
+    subprocess.run([*user, sys.executable, '-c', probe, str(ROOT)], check=True)
+    subprocess.run([*user, 'env', 'HYPRLAND_INSTANCE_SIGNATURE=command-path-test', sys.executable,
+                    str(ROOT/'config/hypr/theme/run.py'), sys.executable, '-c',
+                    "import shutil; assert all(shutil.which(name) for name in ('dmidecode','fsck.fat','losetup','modinfo'))"],
+                   check=True)
     subprocess.run([*user, sys.executable, str(ROOT/'installer/install.py'), '--skip-packages', '--yes',
                     '--prepare', str(Path(account.pw_dir)/'debian-review')], check=True)
     system.restore(backup)

@@ -4,10 +4,14 @@ import json
 import os
 from pathlib import Path
 import re
+import sys
 import designs
 import layouts
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT.parent/'runtime'))
+import command_paths
+
 STATE = ROOT/'state.json'
 MODES = {'dark':'Dark', 'light':'Light', 'contrast':'High contrast'}
 DESIGNS = designs.DESIGNS
@@ -89,12 +93,12 @@ def ui_font(style=None):
 def environment(base=None, value=None):
     env = dict(os.environ if base is None else base)
     if not env.get('HYPRLAND_INSTANCE_SIGNATURE'): return env
+    env['PATH'] = command_paths.extended_path(env.get('PATH', os.defpath))
     for key,subdir,fallback in (('XDG_CONFIG_DIRS','config','/etc/xdg'),
                                ('XDG_DATA_DIRS','data','/usr/local/share:/usr/share')):
         directory=str(ROOT.parent/'desktop'/subdir)
         paths=[directory,*filter(None,env.get(key,fallback).split(':'))]
         env[key]=':'.join(dict.fromkeys(paths))
-    import sys
     sys.path.insert(0,str(ROOT.parent))
     from cursors import model as cursor_model
     try:

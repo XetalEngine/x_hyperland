@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import runtime_install
+import command_paths
 
 PACKAGES = {
     'arch': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole swaync grim slurp wl-clipboard
@@ -55,7 +56,6 @@ LIBRARIES = ['gtk+-3.0','gio-unix-2.0','gtk-layer-shell-0','epoxy','json-glib-1.
              'openssl','libtasn1','gmp','glib-2.0','gnutls','libseccomp','fuse3','libeis-1.0','json-c']
 # Hyprland comes from the exact, signed package selected by Setup.
 MINIMUM = {'waybar':(0,15,0),'kitty':(0,49,0),'hyprpaper':(0,8,0)}
-PERL_SCRIPT_DIRS = ('/usr/bin/site_perl', '/usr/bin/vendor_perl', '/usr/bin/core_perl')
 
 
 def distribution():
@@ -165,16 +165,8 @@ def prepare_account():
 
 
 def prepare_environment():
-    """Expose installed Perl scripts to checks and their subsequent build processes."""
-    # Arch adds these directories at login through /etc/profile.d/perlbin.sh.
-    # A fresh install can add Perl after this terminal was opened. Refresh before
-    # every check so the post-package-install check sees newly created directories.
-    # Keep caller overrides first and change only this process and its children.
-    paths = os.environ.get('PATH', os.defpath).split(os.pathsep)
-    for directory in PERL_SCRIPT_DIRS:
-        if directory not in paths and Path(directory).is_dir():
-            paths.append(directory)
-    os.environ['PATH'] = os.pathsep.join(paths)
+    """Expose installed tools to checks and their subsequent build processes."""
+    os.environ['PATH'] = command_paths.extended_path(os.environ.get('PATH', os.defpath))
 
 
 def konsole_part_available():

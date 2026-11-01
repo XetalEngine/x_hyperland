@@ -28,15 +28,16 @@ class DependencyEnvironmentTests(unittest.TestCase):
         self.perl_bin = self.root / 'core_perl'
         for mock in (
             patch.dict(os.environ, {'PATH': str(self.bin)}),
-            patch.object(dependencies, 'PERL_SCRIPT_DIRS', (str(self.perl_bin),)),
+            patch.object(dependencies.command_paths, 'PERL_SCRIPT_DIRS', (str(self.perl_bin),)),
+            patch.object(dependencies.command_paths, 'SYSTEM_TOOL_DIRS', ()),
             patch.object(dependencies, 'COMMANDS', ['pod2man']),
         ):
             mock.start()
             self.addCleanup(mock.stop)
 
-    def write_tool(self, directory, output):
+    def write_tool(self, directory, output, name='pod2man'):
         directory.mkdir(exist_ok=True)
-        tool = directory / 'pod2man'
+        tool = directory / name
         tool.write_text('#!/bin/sh\nprintf "%s\\n" "' + output + '"\n')
         tool.chmod(0o755)
 
@@ -67,6 +68,37 @@ class DependencyEnvironmentTests(unittest.TestCase):
         self.assertEqual(self.check_commands(), ['Missing command: pod2man'])
         (self.perl_bin / 'pod2man').write_text('not executable')
         self.assertEqual(self.check_commands(), ['Missing command: pod2man'])
+
+    def test_debian_system_tools_are_found_and_available_to_child_processes(self):
+        commands = ['dmidecode', 'fsck.fat', 'losetup', 'modinfo']
+        sbin = self.root/'sbin'
+        with patch.object(dependencies, 'COMMANDS', commands), \
+             patch.object(dependencies.command_paths, 'SYSTEM_TOOL_DIRS', (str(sbin),)):
+            self.assertEqual(self.check_commands(), ['Missing command: '+name for name in commands])
+            for name in commands:
+                self.write_tool(sbin, 'installed '+name, name)
+            self.assertEqual(self.check_commands(), [])
+            for name in commands:
+                self.assertEqual(subprocess.check_output([name], text=True), 'installed '+name+'\n')
+            self.assertEqual(self.check_commands(), [])
+            self.assertEqual(os.environ['PATH'].split(os.pathsep).count(str(sbin)), 1)
+
+    def test_system_tools_preserve_existing_path_priority(self):
+        sbin = self.root/'sbin'
+        self.write_tool(self.bin, 'caller tool', 'modinfo')
+        self.write_tool(sbin, 'system tool', 'modinfo')
+        with patch.object(dependencies, 'COMMANDS', ['modinfo']), \
+             patch.object(dependencies.command_paths, 'SYSTEM_TOOL_DIRS', (str(sbin),)):
+            self.assertEqual(self.check_commands(), [])
+            self.assertEqual(subprocess.check_output(['modinfo'], text=True), 'caller tool\n')
+
+    def test_system_directories_do_not_hide_genuinely_missing_tools(self):
+        sbin = self.root/'sbin'
+        sbin.mkdir()
+        (sbin/'modinfo').write_text('not executable')
+        with patch.object(dependencies, 'COMMANDS', ['modinfo', 'dmidecode']), \
+             patch.object(dependencies.command_paths, 'SYSTEM_TOOL_DIRS', (str(sbin),)):
+            self.assertEqual(self.check_commands(), ['Missing command: modinfo', 'Missing command: dmidecode'])
 
 
 class InstallerTests(unittest.TestCase):
