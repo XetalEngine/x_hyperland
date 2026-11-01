@@ -142,7 +142,7 @@ def preflight():
                           capture_output=True,text=True,timeout=60)
     if result.returncode:
         raise RuntimeError('Desktop packages cannot be resolved from this system’s configured repositories. '+
-                           'No packages or desktop settings have been changed.\n'+(result.stderr or result.stdout).strip())
+                           'No packages or desktop settings have been changed.\n'+runtime_install.package_error_output(result))
     problems=package_version_problems(result.stdout)
     if problems: raise RuntimeError('\n'.join(problems)+'\nNo packages or desktop settings have been changed.')
 

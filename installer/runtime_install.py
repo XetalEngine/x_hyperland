@@ -215,6 +215,13 @@ def complete():
     TRANSACTION = None
 
 
+def package_error_output(result):
+    # Pacman can write the dependency names to stdout and only its generic
+    # "could not satisfy dependencies" summary to stderr. Keep both streams.
+    return '\n'.join(text.strip() for text in (result.stdout, result.stderr)
+                     if text and text.strip())
+
+
 def check_transaction(package):
     # Pacman's print mode prepares dependency/conflict resolution without taking
     # the package lock or changing installed packages. Keep dependency checks on.
@@ -223,7 +230,7 @@ def check_transaction(package):
     if result.returncode:
         raise RuntimeError('The required Hyprland package is incompatible with the installed packages or '+
                            'configured repositories. The current compositor has not been changed.\n'+
-                           (result.stderr or result.stdout).strip())
+                           package_error_output(result))
 
 
 def rollback():

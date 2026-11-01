@@ -61,7 +61,7 @@ def resolve(name):
         def plan(operation,targets):
             result=subprocess.run([*prefix,operation,'--noconfirm','--print-format','%n %v',*targets],
                                   capture_output=True,text=True,timeout=120,env={**os.environ,'LC_ALL':'C'})
-            if result.returncode:raise RuntimeError((result.stderr or result.stdout).strip())
+            if result.returncode:raise RuntimeError(runtime_install.package_error_output(result))
             return result.stdout
         desktop=plan('-Sp',dependencies.PACKAGES['arch'])
         problems=dependencies.package_version_problems(desktop)

@@ -1,8 +1,12 @@
 """Distribution and package preflight tests never change the host packages."""
 from contextlib import ExitStack
+import io
+import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -72,6 +76,65 @@ class DistributionTests(unittest.TestCase):
         with patch.object(runtime.subprocess,'run',return_value=subprocess.CompletedProcess([],1,'','unsatisfied libaquamarine.so dependency')) as run:
             with self.assertRaisesRegex(RuntimeError,'has not been changed'):runtime.check_transaction(Path('/tmp/package'))
             self.assertEqual(run.call_args.args[0],['pacman','-Up','--noconfirm','--print-format','%n %v','/tmp/package'])
+
+    def test_package_failures_keep_the_conflict_details_and_error_summary(self):
+        detail=":: installing fixture-lib (2.0-1) breaks dependency 'fixture-lib=1.0' required by fixture-app"
+        summary='error: failed to prepare transaction (could not satisfy dependencies)'
+        for stdout,stderr in ((detail,summary),(summary,detail),('',detail),(detail,'')):
+            with self.subTest(stdout=stdout,stderr=stderr),self.host(), \
+                 patch.object(runtime.subprocess,'run',return_value=subprocess.CompletedProcess([],1,stdout,stderr)), \
+                 patch.object(runtime,'administrator') as administrator:
+                for check in (deps.preflight,lambda:runtime.check_transaction(Path('/tmp/package'))):
+                    with self.assertRaises(RuntimeError) as raised:check()
+                    self.assertIn(detail,str(raised.exception))
+                    if summary in stdout+stderr:self.assertIn(summary,str(raised.exception))
+                administrator.assert_not_called()
+
+    @unittest.skipUnless(shutil.which('pacman'),'A real pacman is needed for the isolated repository fixture')
+    def test_real_pacman_dependency_details_reach_setup_without_changing_packages(self):
+        # Reproduce a partially updated library with a reverse dependency. All
+        # databases, repositories, root and cache are disposable; no sudo or -Sy.
+        with tempfile.TemporaryDirectory(prefix='xetal-pacman-conflict-') as temporary:
+            root=Path(temporary)
+            for directory in ('db/local','db/sync','cache','root'):(root/directory).mkdir(parents=True)
+            (root/'db/local/ALPM_DB_VERSION').write_text('9\n')
+            def desc(name,version,depends=()):
+                fields={'NAME':name,'VERSION':version,'ARCH':'x86_64','DESC':'Fixture',
+                        'FILENAME':name+'-'+version+'-x86_64.pkg.tar.zst'}
+                text=''.join('%'+key+'%\n'+value+'\n\n' for key,value in fields.items())
+                if depends:text+='%DEPENDS%\n'+'\n'.join(depends)+'\n\n'
+                return text
+            for name,depends in (('fixture-lib',()),('fixture-app',('fixture-lib=1.0',))):
+                entry=root/'db/local'/(name+'-1.0-1');entry.mkdir()
+                (entry/'desc').write_text(desc(name,'1.0-1',depends))
+                (entry/'files').write_text('%FILES%\n\n')
+            data=desc('fixture-lib','2.0-1').encode()
+            with tarfile.open(root/'db/sync/fixture.db','w:gz') as archive:
+                info=tarfile.TarInfo('fixture-lib-2.0-1/desc');info.size=len(data)
+                archive.addfile(info,io.BytesIO(data))
+            config=root/'pacman.conf'
+            config.write_text('[options]\nArchitecture = x86_64\nSigLevel = Never\n\n[fixture]\nServer = file://'+str(root/'empty-repository')+'\n')
+            original={str(p.relative_to(root/'db')):p.read_bytes() for p in (root/'db').rglob('*') if p.is_file()}
+            execute=subprocess.run
+            results=[]
+            def resolve(argv,**kwargs):
+                self.assertEqual(argv[:2],['pacman','-Sp'])
+                result=execute([argv[0],'--config',str(config),'--dbpath',str(root/'db'),
+                                '--root',str(root/'root'),'--cachedir',str(root/'cache'),
+                                '--logfile',str(root/'pacman.log'),*argv[1:]],
+                               **kwargs,env={**os.environ,'LC_ALL':'C'})
+                results.append(result)
+                return result
+            with self.host(),patch.dict(deps.PACKAGES,{'arch':['fixture-lib']}), \
+                 patch.object(deps.subprocess,'run',side_effect=resolve):
+                with self.assertRaises(RuntimeError) as raised:deps.preflight()
+            self.assertIn("required by fixture-app",results[0].stdout)
+            self.assertIn('could not satisfy dependencies',results[0].stderr)
+            self.assertIn("required by fixture-app",str(raised.exception))
+            self.assertIn('could not satisfy dependencies',str(raised.exception))
+            self.assertEqual({str(p.relative_to(root/'db')):p.read_bytes() for p in (root/'db').rglob('*') if p.is_file()},original)
+            self.assertEqual(list((root/'root').iterdir()),[])
+            self.assertEqual(list((root/'cache').iterdir()),[])
 
     def test_incompatible_compositor_does_not_request_administrator_or_backup(self):
         with self.host(),patch.object(runtime,'download',return_value=Path('/tmp/package')), \
