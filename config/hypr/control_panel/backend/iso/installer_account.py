@@ -162,6 +162,42 @@ def migrate_autologin(target, old, new):
         if updated != text: path.write_text(updated)
 
 
+def check_sudo_policy(target, run):
+    """Repair only permission mismatches reported by the target's own validator."""
+    report = run('visudo', '--check', check=False)
+    if report.returncode == 0: return
+    # Let visudo discover includes (including explicit .conf files), rather than
+    # guessing which files in sudoers.d are policy and which are ignored backups.
+    mismatches = re.findall(r'^(/[^\r\n]+): bad permissions, should be mode (0[0-7]{3})$',
+                            report.stderr or '', re.MULTILINE)
+    descriptors, repairs, changed = [], [], []
+    try:
+        for relative, expected in dict.fromkeys(mismatches):
+            mode = int(expected, 8)
+            if mode not in (0o400, 0o440): continue
+            path = confined(target, relative)
+            descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            descriptors.append(descriptor)
+            metadata = os.fstat(descriptor)
+            original = stat.S_IMODE(metadata.st_mode)
+            if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != 0
+                    or metadata.st_nlink != 1 or original & 0o7022):
+                raise ValueError('Cannot repair an untrusted or linked restored sudo policy: '+relative)
+            repairs.append((descriptor, original, mode, relative))
+        for descriptor, original, mode, relative in repairs:
+            os.fchmod(descriptor, mode); changed.append((descriptor, original))
+        # Ownership, syntax and every included rule still have to pass. Any
+        # unrelated error restores the original modes before account changes.
+        run('visudo', '--check')
+        for _, _, mode, relative in repairs:
+            print('Restored sudo policy permissions corrected: '+relative+' ('+format(mode, '04o')+').')
+    except Exception:
+        for descriptor, original in reversed(changed): os.fchmod(descriptor, original)
+        raise
+    finally:
+        for descriptor in descriptors: os.close(descriptor)
+
+
 def ensure_administrator(target, username, uid, run):
     """Grant the chosen account sudo in the restored OS, including name-only policies."""
     sudoers = confined(target, 'etc/sudoers')
@@ -208,7 +244,7 @@ def ensure_administrator(target, username, uid, run):
         replace(policy, contents.encode(), 0o440, 0, 0)
         if updated != original:
             replace(sudoers, updated, stat.S_IMODE(metadata.st_mode), metadata.st_uid, metadata.st_gid)
-        run('visudo', '--check')  # Check the complete policy and all includes.
+        check_sudo_policy(target, run)  # Check the complete policy and all includes.
     except Exception:
         if updated != original:
             replace(sudoers, original, stat.S_IMODE(metadata.st_mode), metadata.st_uid, metadata.st_gid)
@@ -224,17 +260,18 @@ def apply(plan, target):
     details = validate(plan, target)
     if details is None: return
     old, new, home, new_home, private, encoded, gid, shell, memberships = details
-    def run(*args, input=None):
+    def run(*args, input=None, check=True):
         result = subprocess.run(['arch-chroot', str(target), *args], input=input,
-                                text=True, capture_output=True)
-        if result.returncode:
+                                text=True, capture_output=True, env={**os.environ, 'LC_ALL':'C'})
+        if result.returncode and check:
             # The account tools' errors help diagnose a failed rename. Never
             # include password-tool output or its encrypted input in a log.
             detail = result.stderr.strip() if args[0] != 'chpasswd' else ''
             message = 'Restored account update failed: '+args[0]+' (exit '+str(result.returncode)+').'
             if detail: message += ' '+detail[:1200]
             raise RuntimeError(message)
-    run('visudo', '--check')
+        return result
+    check_sudo_policy(target, run)
     # Recreate the login and shadow entry instead of retaining the source
     # account's password/expiry state. Keep its numeric ownership so the cloned
     # desktop and files belong to the new user without a filesystem-wide chown.
