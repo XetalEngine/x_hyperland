@@ -40,6 +40,8 @@ set(PROJECT_SOURCES
     ../ram_cleaner.h
     ../grub_editor.cpp
     ../grub_editor.h
+    ../runtime_log_guard.cpp
+    ../runtime_log_guard.h
         mainwindow.cpp
         mainwindow.h
         mainwindow.ui
@@ -135,6 +137,17 @@ if(BUILD_GRUB_EDITOR_TESTS)
     target_link_libraries(grub_editor_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
     add_test(NAME grub_editor COMMAND grub_editor_tests)
     set_tests_properties(grub_editor PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
+
+option(BUILD_RUNTIME_LOG_GUARD_TESTS "Build isolated session log guard interface checks" OFF)
+if(BUILD_RUNTIME_LOG_GUARD_TESTS)
+    enable_testing()
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(runtime_log_guard_tests tests/runtime_log_guard_tests.cpp ../runtime_log_guard.cpp ../runtime_log_guard.h)
+    target_include_directories(runtime_log_guard_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    target_link_libraries(runtime_log_guard_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME runtime_log_guard COMMAND runtime_log_guard_tests)
+    set_tests_properties(runtime_log_guard PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
 
 target_link_libraries(CachyOsTools PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Network Qt${QT_VERSION_MAJOR}::DBus)

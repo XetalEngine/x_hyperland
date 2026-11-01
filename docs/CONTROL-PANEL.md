@@ -39,7 +39,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | Shell & Apps Shortcuts | Alias add/edit/remove, shell configuration editor, terminal actions and Apps favorites |
 | Services | System/user service controls, failed services, journals and boot analysis |
 | Startup Applications | Choose Num Lock and Xetal Engine behavior at login; add/edit, enable/disable, remove and run login applications; manage user units |
-| System Tweaks | Performance, security, network, storage, desktop and system settings |
+| System Tweaks | Hyprland session log guard, performance, security, network, storage, desktop and system settings |
 | System Configuration | Privileged editor and configuration catalog, extended with Hyprland and Kitty |
 | Panel Preferences | Language, visible tool families, startup page, size memory, autosave, drive/package/editor defaults, ISO defaults and debug preview |
 | Hyper Fusion Updates | The existing desktop updater, including Control Panel updates |
@@ -61,6 +61,14 @@ The backend targets **Arch Linux/CachyOS**. Package, kernel, boot and ISO tools 
 - The same **Desktop startup** group controls whether the animated Xetal Engine dashboard appears at login. The dashboard also has a **Show this dashboard at login** checkbox linked to this setting; turning it off skips all four windows. **Super+D** still opens or hides it manually. The preference defaults to on and is stored in the update-preserved `control_panel/state/startup-screen.json`.
 - User environment values are literal `NAME=value` lines in `control_panel/state/environment.env`, applied at the next Hyprland login. The explicit system pane still edits `/etc/environment` when requested.
 - The panel, shortcut editor and startup helper are tied to the active compositor connection.
+
+## Hyprland log guard
+
+**System Tweaks → Hyprland log guard** protects session runtime space by default. At login and once a minute, it checks Hyprland's log and an explicit list of Hyper Fusion session logs, including the cached Control Panel, Apps, Settings and Waybar logs. Files exceeding **64 MiB** are emptied in place, so their existing writers can continue logging and the space is released. Cleared log contents are discarded; save diagnostics elsewhere first when investigating a problem. The threshold is checked periodically, rather than imposing a hard filesystem quota.
+
+The checkbox takes effect during the current session and persists for future logins and desktop updates. **Check logs now** performs the same oversized-log cleanup immediately, including while automatic protection is paused. The page shows managed log usage and free runtime space. Only logs inside the current user's current Hyprland instance are eligible; symlinks, hardlinks, special files, other sessions and unrelated files are excluded. The helper follows the compositor's live IPC connection and exits at logout. No system service or administrator password is needed.
+
+Preferences live in `control_panel/state/runtime-log-guard.json`; the last cleanup's time, filenames and reclaimed bytes are recorded alongside it. For a manual check from the session's terminal, run `python3 ~/.config/hypr/scripts/runtime-log-guard.py --once`. This is space protection, not a repair for a graphics driver error. Hyprland's [debugging documentation](https://wiki.hypr.land/crashes-and-bugs/) describes collecting diagnostics and warns that verbose logging can produce large files.
 
 ## RAM Cleaner
 
