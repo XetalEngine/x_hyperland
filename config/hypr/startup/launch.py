@@ -8,10 +8,13 @@ from pathlib import Path
 import shlex
 import socket
 import subprocess
+import sys
 import time
 import login_settings
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT.parent/'scripts'))
+from session_logging import log_path
 WORKSPACE = 'special:xetal-startup'
 
 
@@ -81,14 +84,15 @@ def main():
         if not visible and existing:
             ctl('dispatch','togglespecialworkspace','xetal-startup')
             visible=True
-        with (runtime/'startup-scene.log').open('a') as log:
+        with log_path(runtime, 'startup-scene.log').open('a') as log:
             for mode in modes:
                 cls='xetal-startup-'+mode
                 if cls in existing:
                     continue
                 command=command_for(mode,target)
                 # Spawn via compositor to inherit its actual Wayland session environment.
-                ctl('dispatch','exec',shlex.join(command)+' >> '+shlex.quote(str(runtime/f'startup-{mode}.log'))+' 2>&1')
+                destination = log_path(runtime, f'startup-{mode}.log')
+                ctl('dispatch','exec',shlex.join(command)+' >> '+shlex.quote(str(destination))+' 2>&1')
                 found=False
                 for _ in range(50):
                     time.sleep(.08)
@@ -96,7 +100,8 @@ def main():
                         found=True;break
                 if not found:
                     log.write(f'{time.time():.3f} failed to map {cls}\n');log.flush()
-                    raise RuntimeError('A startup console did not open; see '+str(runtime/f'startup-{mode}.log'))
+                    raise RuntimeError('A startup console did not open.' +
+                                       (' File logging is disabled.' if destination == Path(os.devnull) else ' See '+str(destination)))
                 log.write(f'{time.time():.3f} mapped {cls}\n');log.flush()
                 if not visible:
                     ctl('dispatch','togglespecialworkspace','xetal-startup')

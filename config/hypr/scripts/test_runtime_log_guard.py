@@ -25,6 +25,7 @@ class LogGuardTests(unittest.TestCase):
         self.instance = self.root/'hypr/session'; self.instance.mkdir(parents=True)
         self.profile = self.root/'profile'; (self.profile/'scripts').mkdir(parents=True)
         shutil.copy2(SOURCE, self.profile/'scripts/runtime-log-guard.py')
+        shutil.copy2(SOURCE.with_name('session_logging.py'), self.profile/'scripts/session_logging.py')
         self.server = socket.socket(socket.AF_UNIX)
         self.server.bind(str(self.instance/'.socket2.sock')); self.server.listen(); self.server.settimeout(3)
         self.addCleanup(self.server.close)
@@ -119,6 +120,46 @@ class LogGuardTests(unittest.TestCase):
         with patch.dict(os.environ,self.env): result = guard.status(self.profile)
         self.assertTrue(result['enabled']); self.assertTrue(result['active']); self.assertFalse(result['running'])
         self.assertEqual(log.stat().st_size,4096); self.assertFalse(guard.setting_path(self.profile).exists())
+
+    def test_file_logging_choice_is_pending_until_next_login_and_preserves_guard(self):
+        helper = self.profile/'scripts/runtime-log-guard.py'
+        for action, choice in (('--disable-file-logs', True), ('--enable-file-logs', False)):
+            result = subprocess.run([sys.executable, str(helper), action], env=self.env, capture_output=True, timeout=3)
+            self.assertEqual(result.returncode, 0, result.stdout)
+            status = json.loads(result.stdout)
+            self.assertTrue(status['enabled'])
+            self.assertEqual(status['file_logs_disabled'], choice)
+            self.assertEqual(status['logging_pending'], choice)
+            self.assertFalse(status['session_file_logs_disabled'])
+            self.assertFalse((self.instance/'session-logging.json').exists())
+
+    def test_compositor_errors_are_reported_without_losing_the_log_policy(self):
+        guard.write_json(self.instance/'session-logging.json', {'version': 1, 'disabled': True})
+        failure = subprocess.CompletedProcess([], 1, 'unknown option', '')
+        with patch.object(guard.subprocess, 'run', return_value=failure): guard.apply_logging(self.instance)
+        with patch.dict(os.environ, self.env): result = guard.status(self.profile)
+        self.assertIn('unknown option', result['logging_error'])
+        self.assertTrue(result['session_file_logs_disabled'])
+        success = subprocess.CompletedProcess([], 0, 'ok\n', '')
+        with patch.object(guard.subprocess, 'run', return_value=success): guard.apply_logging(self.instance)
+        self.assertFalse(guard.session_logging.current(self.instance).get('error'))
+
+    def test_disabled_logging_is_reapplied_on_reload_even_when_cleanup_is_paused(self):
+        guard.session_logging.save('enabled', False, self.profile)
+        guard.write_json(self.instance/'session-logging.json', {'version': 1, 'disabled': True})
+        calls = self.root/'hyprctl-calls'
+        executable = self.root/'hyprctl'
+        executable.write_text('#!'+sys.executable+'\nimport sys\nfrom pathlib import Path\n'
+                              f'with Path({str(calls)!r}).open("a") as log: log.write(" ".join(sys.argv[1:])+"\\n")\n'
+                              'print("ok")\n')
+        executable.chmod(0o700)
+        with patch.dict(os.environ, {'PATH': str(self.root)+os.pathsep+os.environ['PATH']}):
+            process, connection = self.launch()
+        self.until(lambda: calls.exists() and len(calls.read_text().splitlines()) == 1)
+        connection.sendall(b'configreload'); time.sleep(.04); connection.sendall(b'ed>>\n')
+        self.until(lambda: len(calls.read_text().splitlines()) == 2)
+        self.assertEqual(calls.read_text().splitlines(), ['keyword debug:disable_logs true']*2)
+        self.assertIsNone(process.poll())
 
 
 if __name__ == '__main__': unittest.main()

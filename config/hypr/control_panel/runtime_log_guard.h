@@ -17,12 +17,13 @@ protected:
   void hideEvent(QHideEvent *event) override;
 private:
   QString helper, action;
-  QCheckBox *enabled;
-  QLabel *summary, *message;
+  QCheckBox *enabled, *disableFiles;
+  QLabel *summary, *message, *loggingStatus;
   QPushButton *check;
   QProcess *process;
   QTimer *refresh, *timeout;
   bool previousEnabled = true;
+  bool previousDisableFiles = false;
   void request(const QString &command);
   void finish(int code);
 };

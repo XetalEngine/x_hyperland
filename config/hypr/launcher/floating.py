@@ -17,6 +17,8 @@ import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'compat'))
 from hypr_compat import ipc as compatible_ipc
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'scripts'))
+from session_logging import log_path
 
 STATE = Path(__file__).resolve().parent / 'floating-sizes.json'
 TAG = re.compile(r'^xetal-float-([0-9a-f]{24})-[0-9a-f]{12}\*?$')
@@ -273,14 +275,16 @@ def prepare(entry, terminal, environment):
                'name': entry.get_display_name()}
     try:return exchange(root, request)
     except (FileNotFoundError, ConnectionRefusedError):pass
-    with (root / 'floating-geometry.log').open('a') as log:
+    destination = log_path(root, 'floating-geometry.log')
+    with destination.open('a') as log:
         subprocess.Popen([sys.executable, str(Path(__file__).resolve()), '--watch'], env=environment,
                          stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
     deadline = time.monotonic() + 3
     while time.monotonic() < deadline:
         try:return exchange(root, request)
         except (FileNotFoundError, ConnectionRefusedError):time.sleep(.03)
-    raise ValueError('Floating window size memory could not start; check floating-geometry.log.')
+    raise ValueError('Floating window size memory could not start.' +
+                     (' File logging is disabled.' if destination == Path(os.devnull) else ' Check floating-geometry.log.'))
 
 
 def finish(ticket, success, environment):

@@ -7,7 +7,11 @@ import select
 import signal
 import socket
 import subprocess
+import sys
 import time
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from session_logging import log_path
 
 
 def stop_child(child):
@@ -68,10 +72,10 @@ def supervise(instance, command, *, interval=.25, delays=(1, 2, 4, 8, 15, 30), s
                     print(f'Waybar exited ({code}); restarting in {delay:g}s.', flush=True)
                 if child is None and now >= next_start:
                     try:
-                        log_path = instance/'waybar.log'
-                        if log_path.exists() and log_path.stat().st_size > 5*1024*1024:
-                            os.replace(log_path, instance/'waybar.log.1')
-                        with log_path.open('ab') as log:
+                        destination = log_path(instance, 'waybar.log')
+                        if destination != Path(os.devnull) and destination.exists() and destination.stat().st_size > 5*1024*1024:
+                            os.replace(destination, instance/'waybar.log.1')
+                        with destination.open('ab') as log:
                             child = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT)
                         started = now
                         print(f'Waybar started: {child.pid}.', flush=True)

@@ -12,10 +12,16 @@ private slots:
 from pathlib import Path
 root=Path(__file__).parent
 setting=root/'enabled'
+files=root/'file-logs'
 action=sys.argv[1]
+if (root/'fail').exists(): print(json.dumps(dict(error='Fixture failure')));sys.exit(1)
 if action=='--disable': setting.write_text('no')
 if action=='--enable': setting.write_text('yes')
-state=dict(enabled=not setting.exists() or setting.read_text()=='yes',active=True,running=True,used=4096,runtime_free=1024**3)
+if action=='--disable-file-logs': files.write_text('disabled')
+if action=='--enable-file-logs': files.write_text('normal')
+disabled=files.exists() and files.read_text()=='disabled'
+state=dict(enabled=not setting.exists() or setting.read_text()=='yes',active=True,running=True,used=4096,runtime_free=1024**3,
+           file_logs_disabled=disabled,session_file_logs_disabled=False,logging_pending=disabled)
 if action=='--once':
     if (root/'fail').exists(): print(json.dumps(dict(error='Fixture failure')));sys.exit(1)
     state['checked']=dict(cleared=['hyprland.log'],freed=100*1024**2,errors=[])
@@ -25,6 +31,8 @@ print(json.dumps(state))
     RuntimeLogGuard widget(helper.fileName()); widget.resize(1000, 220); widget.show();
     auto *enabled = widget.findChild<QCheckBox *>("logGuardEnabled");
     auto *check = widget.findChild<QPushButton *>("logGuardCheck");
+    auto *disabled = widget.findChild<QCheckBox *>("sessionFileLogsDisabled");
+    auto *loggingStatus = widget.findChild<QLabel *>("sessionFileLogsStatus");
     auto *status = widget.findChild<QLabel *>("logGuardStatus");
     auto *message = widget.findChild<QLabel *>("logGuardMessage");
     QTRY_VERIFY(enabled->isEnabled()); QVERIFY(enabled->isChecked());
@@ -32,11 +40,22 @@ print(json.dumps(state))
     enabled->click(); QTRY_VERIFY(enabled->isEnabled());
     QVERIFY(!enabled->isChecked()); QVERIFY(status->text().startsWith("Paused"));
     enabled->click(); QTRY_VERIFY(enabled->isEnabled()); QVERIFY(enabled->isChecked());
+    QVERIFY(!disabled->isChecked());
+    disabled->click(); QTRY_VERIFY(disabled->isEnabled()); QVERIFY(disabled->isChecked());
+    QVERIFY(enabled->isChecked()); QVERIFY(loggingStatus->text().contains("next Hyprland login"));
+    enabled->click(); QTRY_VERIFY(enabled->isEnabled());
+    QVERIFY(!enabled->isChecked()); QVERIFY(disabled->isChecked());
+    disabled->click(); QTRY_VERIFY(disabled->isEnabled()); QVERIFY(!disabled->isChecked());
+    QVERIFY(!enabled->isChecked());
+    enabled->click(); QTRY_VERIFY(enabled->isEnabled()); QVERIFY(enabled->isChecked());
     check->click(); QTRY_VERIFY(check->isEnabled());
     QVERIFY(message->text().contains("100.0 MiB"));
     QFile failure(directory.filePath("fail")); QVERIFY(failure.open(QIODevice::WriteOnly)); failure.close();
     check->click(); QTRY_VERIFY(check->isEnabled());
     QCOMPARE(message->text(), QString("Fixture failure")); QVERIFY(enabled->isChecked());
+    disabled->click(); QTRY_VERIFY(disabled->isEnabled());
+    QVERIFY(!disabled->isChecked()); QVERIFY(enabled->isChecked());
+    QCOMPARE(message->text(), QString("Fixture failure"));
   }
 };
 QTEST_MAIN(RuntimeLogGuardTests)

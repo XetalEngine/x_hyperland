@@ -41,6 +41,7 @@ else
 fi
 flock --unlock "$screenshot_guard_fd"
 exec {screenshot_guard_fd}>&-
+notification_log=$(python3 "$HOME/.config/hypr/scripts/session_logging.py" --path screenshot-notify.log)
 python3 "$HOME/.config/hypr/scripts/screenshot-notify.py" "$file" "$summary" \
-    </dev/null >"$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/screenshot-notify.log" 2>&1 &
+    </dev/null >"$notification_log" 2>&1 &
 printf '%s\n' "$file"

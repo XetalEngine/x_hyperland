@@ -343,13 +343,17 @@ void PanelController::prepareTools() {
   };
   promote("firewallSubTab", "Firewall");
   promote("networkSharesSubTab", "Network Shares");
-  if (auto *page = owner->findChild<QWidget *>("tweaksTab"))
-    if (auto *layout = qobject_cast<QVBoxLayout *>(page->layout()))
-      layout->insertWidget(1, new RuntimeLogGuard(HyperPanel::root() + "/scripts/runtime-log-guard.py", page));
   if (auto *tabs = owner->findChild<QTabWidget *>("tweaksTabWidget")) {
     for (int i = tabs->count() - 1; i >= 0; --i)
       if (tabs->tabText(i).contains("KDE", Qt::CaseInsensitive))
         tabs->removeTab(i);
+    auto *hyprland = new QWidget(tabs);
+    hyprland->setObjectName("hyprlandTweaksTab");
+    auto *layout = new QVBoxLayout(hyprland);
+    layout->addWidget(new RuntimeLogGuard(HyperPanel::root() + "/scripts/runtime-log-guard.py", hyprland));
+    layout->addStretch();
+    tabs->insertTab(0, hyprland, "Hyprland");
+    tabs->setCurrentWidget(hyprland);
   }
   if (auto *page = owner->findChild<QWidget *>("kvmTab"))
     rootTabs->removeTab(rootTabs->indexOf(page));

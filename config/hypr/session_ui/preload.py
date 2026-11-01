@@ -7,9 +7,12 @@ import select
 import signal
 import socket
 import subprocess
+import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT/'scripts'))
+from session_logging import log_path
 
 
 def alive(path):
@@ -45,7 +48,7 @@ def main():
                     if time.monotonic() < retry.get(name, 0): continue
                     retry[name] = time.monotonic() + 5
                     if alive(instance / endpoint): continue
-                    if name not in logs: logs[name] = (instance / ('cached-' + name + '.log')).open('a')
+                    if name not in logs: logs[name] = log_path(instance, 'cached-' + name + '.log').open('a')
                     children[name] = subprocess.Popen([str(command), '--preload'], stdout=logs[name], stderr=logs[name])
                 readable, _, _ = select.select([lifetime], [], [], 1)
                 if readable and not lifetime.recv(65536): break

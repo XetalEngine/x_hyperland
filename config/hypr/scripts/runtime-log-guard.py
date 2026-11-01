@@ -13,8 +13,11 @@ import stat
 import struct
 import subprocess
 import sys
-import tempfile
 import time
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import session_logging
+from session_logging import setting_path, write_json
 
 ROOT = Path(__file__).resolve().parents[1]
 LIMIT = 64 * 1024 * 1024
@@ -32,26 +35,8 @@ LOGS = ('hyprland.log', 'cached-apps.log', 'cached-settings.log', 'cached-panel.
         'screenshot-notify.log')
 
 
-def setting_path(root=ROOT):
-    return root / 'control_panel/state/runtime-log-guard.json'
-
-
 def enabled(root=ROOT):
-    try: value = json.loads(setting_path(root).read_text())
-    except FileNotFoundError: return True
-    if not isinstance(value, dict) or value.get('version') != 1 or type(value.get('enabled')) is not bool:
-        raise ValueError('The log guard setting is invalid. Switch protection on or off to save it again.')
-    return value['enabled']
-
-
-def write_json(path, value):
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    fd, temporary = tempfile.mkstemp(prefix='.'+path.name, dir=path.parent)
-    try:
-        with os.fdopen(fd, 'w') as stream:
-            json.dump(value, stream); stream.write('\n'); stream.flush(); os.fsync(stream.fileno())
-        os.replace(temporary, path)
-    finally: Path(temporary).unlink(missing_ok=True)
+    return session_logging.preferences(root)['enabled']
 
 
 def instance_path(env=None):
@@ -81,11 +66,29 @@ def session(instance):
     finally: os.close(directory)
 
 
-def connected(events):
+def connected(events, receive=None):
     if select.select([events], [], [], 0)[0]:
-        try: return bool(events.recv(65536))
+        try:
+            data = events.recv(65536)
+            if data and receive: receive(data)
+            return bool(data)
         except BlockingIOError: pass
     return True
+
+
+def apply_logging(instance):
+    value = session_logging.current(instance)
+    if not value['disabled']: return
+    error = ''
+    try:
+        result = subprocess.run(['hyprctl', 'keyword', 'debug:disable_logs', 'true'],
+                                capture_output=True, text=True, timeout=2)
+        if result.returncode or result.stdout.strip() != 'ok':
+            error = 'Could not disable Hyprland file logging: ' + (result.stderr or result.stdout).strip()[:300]
+    except (OSError, subprocess.TimeoutExpired) as exc: error = str(exc)
+    if value.get('error', '') != error:
+        value['error'] = error
+        write_json(instance/'session-logging.json', value)
 
 
 def safe_info(fd):
@@ -141,16 +144,21 @@ def check(directory, root=ROOT, limit=LIMIT):
 
 
 def status(root=ROOT):
-    value = {'enabled': enabled(root), 'limit': LIMIT, 'interval': INTERVAL,
-             'active': False, 'running': False, 'logs': []}
+    settings = session_logging.preferences(root)
+    value = {'enabled': settings['enabled'], 'file_logs_disabled': settings['disable_file_logs'],
+             'session_file_logs_disabled': False, 'logging_pending': False,
+             'limit': LIMIT, 'interval': INTERVAL, 'active': False, 'running': False, 'logs': []}
     try:
         instance = instance_path()
         with session(instance) as (directory, events):
             if not connected(events): return value
             rows, errors = logs(directory)
             space = os.fstatvfs(directory)
+            policy = session_logging.current(instance)
             value.update(active=True, running=running(directory), logs=rows, errors=errors,
-                         used=sum(row['bytes'] for row in rows), runtime_free=space.f_bavail*space.f_frsize)
+                         used=sum(row['bytes'] for row in rows), runtime_free=space.f_bavail*space.f_frsize,
+                         session_file_logs_disabled=policy['disabled'], logging_error=policy.get('error', ''),
+                         logging_pending=policy['disabled'] != settings['disable_file_logs'])
     except (OSError, RuntimeError) as error: value['message'] = str(error)
     try: value['last'] = json.loads((root/'control_panel/state/runtime-log-guard-last.json').read_text())
     except (OSError, ValueError): pass
@@ -173,10 +181,21 @@ def serve(instance, root=ROOT, interval=INTERVAL, limit=LIMIT):
                 stopping = True
             previous = {s: signal.signal(s, stop) for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)}
             deadline = time.monotonic()+interval
+            pending = b''
+            def refresh_logging():
+                # A failed status write or compositor option must not stop the
+                # guard from reclaiming space (especially on a full tmpfs).
+                try: apply_logging(instance)
+                except (OSError, ValueError) as error: print(str(error), file=sys.stderr, flush=True)
+            def receive(data):
+                nonlocal pending
+                lines = (pending+data).split(b'\n'); pending = lines.pop()[-4096:]
+                if any(line.startswith(b'configreloaded>>') for line in lines): refresh_logging()
             try:
+                refresh_logging()
                 while not stopping:
                     select.select([events], [], [], min(1, max(0, deadline-time.monotonic())))
-                    if not connected(events): break
+                    if not connected(events, receive): break
                     if time.monotonic() >= deadline:
                         try:
                             if enabled(root): check(directory, root, limit)
@@ -207,6 +226,13 @@ def main():
     try:
         args = sys.argv[1:]
         if args == ['--session']: return serve(instance_path())
+        if args == ['--begin-session']:
+            instance = instance_path()
+            with session(instance) as (_, events):
+                if not connected(events): raise RuntimeError('This Hyprland session has ended.')
+                policy = session_logging.begin(instance)
+                apply_logging(instance)
+            print(int(policy['disabled'])); return 0
         if args == ['--status']: value = status()
         elif args == ['--once']:
             with session(instance_path()) as (directory, events):
@@ -215,10 +241,13 @@ def main():
             value = {**status(), 'checked': result}
         elif args in (['--enable'], ['--disable']):
             choice = args == ['--enable']
-            write_json(setting_path(), {'version': 1, 'enabled': choice})
+            session_logging.save('enabled', choice)
             if choice: start(instance_path())
             value = status()
-        else: raise ValueError('Use --status, --once, --enable, --disable or --session.')
+        elif args in (['--disable-file-logs'], ['--enable-file-logs']):
+            session_logging.save('disable_file_logs', args == ['--disable-file-logs'])
+            value = status()
+        else: raise ValueError('Use --status, --once, --enable, --disable, --disable-file-logs, --enable-file-logs or --session.')
         print(json.dumps(value)); return 0
     except (OSError, ValueError, RuntimeError) as error:
         print(json.dumps({'error': str(error)})); return 1

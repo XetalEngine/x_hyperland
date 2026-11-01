@@ -31,6 +31,7 @@ class WaybarSessionTests(unittest.TestCase):
         self.child_script.write_text('''import json,os,signal,time
 from pathlib import Path
 root=Path(__file__).parent
+print('Fixture bar output',flush=True)
 with (root/'starts.jsonl').open('a') as f:
  f.write(json.dumps({'pid':os.getpid(),'time':time.monotonic()})+'\\n')
 if (root/'stubborn').exists():signal.signal(signal.SIGTERM,signal.SIG_IGN)
@@ -147,6 +148,18 @@ while True:time.sleep(.05)
         process.communicate(timeout=4)
         self.assertEqual(process.returncode, 0)
         self.assertEqual(self.starts(), [])
+
+    def test_disabled_file_logging_survives_bar_restarts(self):
+        (self.root/'session-logging.json').write_text(json.dumps({'version': 1, 'disabled': True}))
+        log = self.root/'waybar.log'; log.write_text('Keep earlier diagnostics')
+        process, connection = self.start()
+        self.until(lambda: len(self.starts()) == 1)
+        os.kill(self.starts()[0]['pid'], signal.SIGKILL)
+        self.until(lambda: len(self.starts()) == 2)
+        connection.close(); process.communicate(timeout=4)
+        self.assertEqual(process.returncode, 0)
+        self.assertEqual(log.read_text(), 'Keep earlier diagnostics')
+        self.assertFalse((self.root/'waybar.log.1').exists())
 
 
 if __name__ == '__main__':

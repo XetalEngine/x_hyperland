@@ -38,7 +38,7 @@
     {"id":"shell","title":"Shell & Apps Shortcuts","description":"Your shell aliases and Apps favorites","icon":"utilities-terminal","path":["shellToolsTab"],"keywords":"bash zsh fish kitty terminal commands launcher floating"},
     {"id":"services","title":"Services","description":"System and user services, journals","icon":"preferences-system-services","path":["servicesTab","servicesMainSubTab"]},
     {"id":"autostart","title":"Startup Applications","description":"Desktop startup, login applications and user units","icon":"system-run","path":["servicesTab","autostartSubTab"],"keywords":"login animated dashboard Xetal Engine Super D startup screen keyboard Num Lock numlock"},
-    {"id":"tweaks","title":"System Tweaks","description":"Performance, log protection and desktop tools","icon":"preferences-other","path":["tweaksTab"],"keywords":"zram trim swap governor performance security log guard runtime temporary space full GPU logs"},
+    {"id":"tweaks","title":"System Tweaks","description":"Hyprland, performance, log protection and desktop tools","icon":"preferences-other","path":["tweaksTab","hyprlandTweaksTab"],"keywords":"zram trim swap governor performance security Hyprland Hyperland log guard runtime temporary space full GPU logs disable file logging"},
     {"id":"configuration","title":"System Configuration","description":"Configuration files and privileged editor","icon":"document-properties","path":["configTab"]},
     {"id":"preferences","title":"Panel Preferences","description":"Language, saved layout and tool defaults","icon":"configure","path":[]},
     {"id":"desktop-updates","title":"Hyper Fusion Updates","description":"Desktop releases and update options","icon":"view-refresh","path":[]}
