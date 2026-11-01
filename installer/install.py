@@ -176,7 +176,8 @@ def run_build(args, label):
 
 
 def build(stage, checkpoint=lambda:None):
-    for args in ([sys.executable,str(stage/'cursors/build.py')],
+    for args in ([sys.executable,str(stage/'runtime/notices/build.py')],
+                 [sys.executable,str(stage/'cursors/build.py')],
                  [sys.executable,str(stage/'theme/build.py')],
                  [sys.executable,str(stage/'wallpaper/build.py')],
                  [sys.executable,str(stage/'control_panel/build.py')],
@@ -248,7 +249,8 @@ def validate(stage):
     for p in stage.rglob('*.json'):json.loads(p.read_text())
     for p in stage.rglob('*.sh'):subprocess.run(['bash','-n',str(p)],check=True)
     validate_config(stage)
-    for relative in ('theme/gtk3/libxetal-file-preview.so','theme/qt5/platformthemes/libxetaltheme.so','theme/qt6/platformthemes/libxetaltheme.so',
+    for relative in ('runtime/notices/.build/xetal-startup-notices.so',
+                     'theme/gtk3/libxetal-file-preview.so','theme/qt5/platformthemes/libxetaltheme.so','theme/qt6/platformthemes/libxetaltheme.so',
                      'waybar/pins/pins.so','waybar/workspaces/controls.so','waybar/options/options.so','share-picker/window-preview','control_panel/.build/xetal-control-panel'):
         if not (stage/relative).is_file():raise RuntimeError('Missing built component: '+relative)
 

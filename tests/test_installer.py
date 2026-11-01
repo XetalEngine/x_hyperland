@@ -333,7 +333,8 @@ class InstallerTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,'Burn could not be built'):
                 install.build(self.stage)
         self.assertEqual(run.call_count,1)
-        self.assertEqual(builds.call_count,8)
+        self.assertEqual(builds.call_count,9)
+        self.assertTrue(any(str(call.args[0][-1]).endswith('/runtime/notices/build.py') for call in builds.call_args_list))
         self.assertTrue(any(str(call.args[0][-1]).endswith('/cursors/build.py') for call in builds.call_args_list))
 
     def test_invalid_config_stops_before_compilation_in_both_install_modes(self):

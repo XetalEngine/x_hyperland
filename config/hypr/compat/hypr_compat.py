@@ -172,6 +172,7 @@ def binding(key, value):
 
 def keyword(key, value):
     if key.startswith('bind'): return binding(key, value)
+    if key == 'plugin': return call('plugin.load', value)
     if key in ('env', 'envd'):
         name, value = value.split(',', 1)
         return call('env', name.strip(), value.strip(), key == 'envd')
@@ -302,7 +303,7 @@ def candidate(root, directory, main_text=None, overrides=None, modern=None):
         overrides = {**(overrides or {}), root/'hyprland.conf': text}
         path.write_text(Renderer(root, overrides).render())
     else:
-        path.write_text(text.replace('~/.config/hypr/', str(root)+'/'))
+        path.write_text(text.replace('~/.config/hypr/', str(root)+'/').replace('@HYPR@', str(root)))
     return path
 
 
