@@ -25,6 +25,39 @@ ROOT = Path(__file__).resolve().parents[1]
 STATE = Path.home()/'.local/state/xetal-hyprland/updates'
 CACHE = Path.home()/'.cache/xetal-hyprland/updates'
 NOTICE_DELAY = 30
+READY_MESSAGE = 'Update ready. Restart to finish updating.'
+
+
+def restart_ready(value, pending=None):
+    """A completed update can restart; a download or failed build cannot."""
+    phase = value.get('phase', 'current')
+    if phase in ('ready', 'rollback'):
+        return bool(pending and pending.get('revision') and
+                    (pending.get('rollback') if phase == 'rollback' else
+                     pending['revision'] == (value.get('prepared') or value.get('latest'))))
+    signature = os.environ.get('HYPRLAND_INSTANCE_SIGNATURE')
+    return bool(phase == 'current' and signature and value.get('restart_session') == signature
+                and value.get('restart_revision') == value.get('current'))
+
+
+def prepare_restart(root=None, state=None):
+    """An explicit Restart also applies a prepared update when auto updates pause."""
+    root, state = root or ROOT, state or STATE
+    with engine.locked(state):
+        pending = engine.json_file(state/'pending.json')
+        if not restart_ready(status(state, root), pending):
+            raise RuntimeError('The update is not ready to restart. Check its progress and try again.')
+        if pending:
+            stage = Path(pending['stage'])
+            plan_path = Path(pending.get('plan', str(stage/'plan.json')))
+            if not stage.resolve().is_relative_to(state.resolve()) or not plan_path.resolve().is_relative_to(state.resolve()):
+                raise ValueError('The prepared update is outside its private state directory.')
+            plan = engine.json_file(plan_path, {})
+            if not stage.is_dir() or plan.get('revision') != pending['revision']:
+                raise RuntimeError('The prepared update is missing. Run Update! again before restarting.')
+            # Full integrity/configuration validation still runs at activation.
+            pending['automatic'] = False
+            engine.write_json(state/'pending.json', pending)
 
 
 def preferences(state=None):
@@ -44,9 +77,9 @@ def status(state=None, root=None):
     except (OSError, ValueError, RuntimeError): return value
     if value.get('phase') == 'rollback': return value
     if value.get('phase') == 'runtime-required' and current == value.get('current'): return value
-    if current == value.get('latest') and value.get('phase') != 'checking':
+    if current == value.get('latest') and value.get('phase') not in ('checking', 'preparing'):
         value.update(phase='current', current=current, failed_revision='', retry_prepare=False,
-                     message='Your desktop is up to date.')
+                     message=READY_MESSAGE if restart_ready(value) else 'Your desktop is up to date.')
         value['github'] = {**value.get('github', {}), 'base':current, 'relation':'identical'}
     elif current != value.get('current'):
         value.update(phase='current', current=current, failed_revision='', retry_prepare=False,
@@ -77,6 +110,7 @@ def badge(value):
     labels = {'available': '↻ UPDATE', 'preparing': '↻ UPDATING', 'ready': '✓ UPDATE READY',
               'attention': '↻ UPDATE !', 'runtime-required': '↻ SETUP REQUIRED', 'rollback': '↶ ROLLBACK'}
     text = labels.get(phase, '')
+    if restart_ready(value): text = '↻ RESTART'
     # No idle/checking icon, and no update notice for a connection error alone.
     if phase == 'attention' and not (value.get('github', {}).get('relation') == 'ahead'
                                     and value.get('latest') != value.get('current')):
@@ -96,7 +130,7 @@ def check(root=None, state=None):
         pending = engine.json_file(state/'pending.json')
         prepared = pending and (pending.get('revision') == latest['sha'] or latest['relation'] != 'ahead')
         phase = 'ready' if prepared else 'available' if latest['relation'] == 'ahead' else 'current'
-        message = ('Update prepared. It will activate at your next Hyprland login.' if prepared else
+        message = (READY_MESSAGE if prepared else
                    'A new Xetal desktop update is available.' if phase == 'available' else
                    'Your desktop is up to date.' if latest['relation'] == 'identical' else
                    'This build is ahead of main or has a different history. Automatic downgrades are disabled.')
@@ -113,6 +147,8 @@ def check(root=None, state=None):
                 (state/'runtime-required.json').unlink(missing_ok=True); required = {}
         if required.get('revision') == latest['sha']:
             phase = 'runtime-required'; message = required['message']
+        if phase == 'current' and restart_ready({**value, 'phase': phase, 'current': current}):
+            message = READY_MESSAGE
         return publish(state, phase=phase, current=current, latest=latest['sha'], title=latest['message'],
                        github=latest, message=message, checked=time.time(), retry_at=0,
                        prepared=pending.get('revision','') if pending else '',
@@ -263,9 +299,10 @@ def serve():
                         next_check = max(time.time()+settings['interval'], status().get('retry_at', 0))
                     elif code == 0:
                         if engine.installed(ROOT)['revision'] == running_revision:
-                            publish(phase='current', current=running_revision, message='Desktop installed. Log out and sign in to start it.', failed_revision='', prepared='')
+                            publish(phase='current', current=running_revision, message=READY_MESSAGE, failed_revision='', prepared='',
+                                    restart_revision=running_revision, restart_session=signature)
                         else:
-                            publish(phase='ready', message='Update prepared. It will activate at your next Hyprland login.', failed_revision='', prepared=running_revision)
+                            publish(phase='ready', message=READY_MESSAGE, failed_revision='', prepared=running_revision)
                     else:
                         lines = (STATE/'update.log').read_text(errors='replace').strip().splitlines()
                         detail = next((x for x in reversed(lines) if not x.startswith(('Traceback', '  File', 'subprocess.'))), 'See the update log.')
@@ -280,7 +317,7 @@ def serve():
                     except Exception as error: publish(phase='attention', message=str(error))
                     continue
                 value = status()
-                if action == 'check' or time.time() >= next_check:
+                if action == 'check' or (time.time() >= next_check and action not in ('prepare', 'setup')):
                     if time.time() < value.get('retry_at', 0):
                         next_check = value['retry_at']
                     else:

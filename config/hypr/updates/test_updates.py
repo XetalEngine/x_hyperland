@@ -183,6 +183,67 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
         service.request('check', self.state); self.assertEqual(service.take_request(self.state), 'check')
         self.assertIsNone(service.take_request(self.state))
 
+    def test_explicit_restart_enables_pending_update_without_enabling_automatic_updates(self):
+        from types import SimpleNamespace
+        (self.upstream/'code.py').write_text('new code\n')
+        plan = self.prepare(); staged = self.state/'prepared'; shutil.copytree(self.stage, staged)
+        engine.write_json(staged/'plan.json', plan)
+        engine.write_json(self.state/'pending.json', {'revision':NEW, 'stage':str(staged), 'automatic':True})
+        engine.write_json(self.state/'settings.json', {'automatic':False})
+        service.publish(self.state, phase='ready', current=OLD, latest=NEW, prepared=NEW)
+        self.assertFalse(service.activate(self.live, self.state))
+        service.prepare_restart(self.live, self.state)
+        self.assertFalse(service.preferences(self.state)['automatic'])
+        self.assertFalse(engine.json_file(self.state/'pending.json')['automatic'])
+        compatibility = SimpleNamespace(candidate=lambda *args: staged/'hyprland.conf')
+        with patch.dict(sys.modules, {'hypr_compat':compatibility}), \
+             patch.object(service.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'config ok','')):
+            self.assertTrue(service.activate(self.live, self.state))
+        self.assertEqual((self.live/'code.py').read_text(), 'new code\n')
+
+    def test_incomplete_update_never_becomes_restartable(self):
+        pending = {'revision': NEW, 'stage': str(self.stage), 'automatic':True}
+        engine.write_json(self.state/'pending.json', pending)
+        for phase in ('available', 'checking', 'preparing', 'attention', 'runtime-required'):
+            service.publish(self.state, phase=phase, current=OLD, latest=NEW)
+            with self.subTest(phase=phase), self.assertRaisesRegex(RuntimeError, 'not ready'):
+                service.prepare_restart(self.live, self.state)
+        self.assertEqual(engine.json_file(self.state/'pending.json'), pending)
+
+    def test_installed_update_requests_restart_only_in_its_original_session(self):
+        service.publish(self.state, phase='current', current=OLD, latest=OLD,
+                        restart_revision=OLD, restart_session='test-session')
+        with patch.dict(os.environ, {'HYPRLAND_INSTANCE_SIGNATURE':'test-session'}):
+            value = service.status(self.state, self.live)
+            self.assertTrue(service.restart_ready(value))
+            self.assertEqual(value['message'], service.READY_MESSAGE)
+            self.assertEqual(service.badge(value)['text'], '↻ RESTART')
+            service.prepare_restart(self.live, self.state)
+            with patch.object(github, 'latest', return_value={'sha':OLD, 'relation':'identical', 'message':'Current'}):
+                self.assertTrue(service.restart_ready(service.check(self.live, self.state)))
+        with patch.dict(os.environ, {'HYPRLAND_INSTANCE_SIGNATURE':'next-login'}):
+            value = service.status(self.state, self.live)
+            self.assertFalse(service.restart_ready(value))
+            self.assertEqual(service.badge(value)['text'], '')
+
+    def test_manual_update_is_not_consumed_by_a_due_background_check(self):
+        service.publish(self.state, phase='available', current=OLD, latest=NEW, github={'relation':'ahead'})
+        service.request('prepare', self.state)
+        with patch.object(service, 'STATE', self.state), patch.object(service, 'ROOT', self.live), \
+             patch.dict(os.environ, {'HYPRLAND_INSTANCE_SIGNATURE':'test-session', 'XDG_RUNTIME_DIR':str(self.root)}), \
+             patch.object(service.random, 'uniform', return_value=0), \
+             patch.object(service.socket, 'socket') as socket_factory, \
+             patch.object(service.select, 'select') as select_socket, \
+             patch.object(service.subprocess, 'Popen') as popen, patch.object(service, 'stop_worker'):
+            session = socket_factory.return_value.__enter__.return_value
+            session.recv.return_value = b''
+            select_socket.side_effect = [([], [], []), ([session], [], [])]
+            service.serve()
+        popen.assert_called_once()
+        self.assertIn('--worker', popen.call_args.args[0])
+        self.assertIn('--manual', popen.call_args.args[0])
+        self.assertNotIn('--check', popen.call_args.args[0])
+
     def test_status_escapes_remote_markup(self):
         badge = service.badge({'phase':'available','message':'<b>not markup</b>'})
         self.assertEqual(badge['text'], '↻ UPDATE'); self.assertNotIn('<b>', badge['tooltip'])
@@ -290,6 +351,10 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
         value=service.status(self.state,self.live)
         self.assertEqual(value['phase'],'checking')
         self.assertEqual(value['message'],'Checking GitHub…')
+        service.publish(self.state, phase='preparing', message='Updating…')
+        value=service.status(self.state,self.live)
+        self.assertEqual(value['phase'],'preparing')
+        self.assertEqual(value['message'],'Updating…')
         (self.live/engine.META).unlink()
         self.assertEqual(service.status(self.state,self.live),value)
 
