@@ -1,7 +1,8 @@
-"""Recognize exact release files copied into a profile before registration.
+"""Recognize released files and explicitly identified standalone predecessors.
 
-Unknown local contents remain a conflict. Only ancestors of the exact incoming
-commit are consulted, and no developer checkout or installed inventory is edited.
+Unknown local contents remain a conflict. History lookups consult only ancestors
+of the exact incoming commit; standalone migrations require a path and SHA-256
+match. No developer checkout or installed inventory is edited.
 """
 from pathlib import Path
 import subprocess
@@ -11,6 +12,15 @@ import update_engine as engine
 
 DEPTH = 64
 MAX_TEXT = 2_000_000
+# The original VM log-space repair was installed directly, before this helper
+# existed in Git. Its contents and fingerprint were supplied by the affected
+# user. Accept only this exact predecessor at its original path; replacement
+# still uses the normal staged update, concurrent-edit checks and rollback copy.
+STANDALONE_PREDECESSORS = {
+    'scripts/runtime-log-guard.py': frozenset({
+        'ed51960b5d3298f2dd4bf948e735b5a74d30e71563cf454a30d85afae25550c6',
+    }),
+}
 
 
 class ReleaseFiles:
@@ -50,6 +60,8 @@ class ReleaseFiles:
         if len(local) > MAX_TEXT or b'\0' in local: return False
         try: local.decode('utf-8')
         except UnicodeDecodeError: return False
+        if engine.sha(local) in STANDALONE_PREDECESSORS.get(name, ()):
+            return True
         path = 'config/hypr/'+name
         seen = set()
         for commit in self.history():

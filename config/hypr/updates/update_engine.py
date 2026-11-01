@@ -188,11 +188,11 @@ def merge_profile(live, upstream, stage, commit, known_release_file=None):
         try:
             merged = merge_file(name, base, local, incoming)
         except RuntimeError:
-            # A developer/ISO copied an exact release file without registering
-            # it. Do not weaken conflict checks for unknown or customized files.
+            # Recognize exact released files or explicitly fingerprinted
+            # standalone predecessors, without accepting unknown local edits.
             if (local is None or incoming is None or not known_release_file
                     or not known_release_file(name, local)): raise
-            print('Recognized previously copied release file: '+name, flush=True)
+            print('Recognized earlier desktop file; updating with rollback backup: '+name, flush=True)
             merged = incoming
         destination = location(stage, name)
         if merged is None: destination.unlink(missing_ok=True); continue

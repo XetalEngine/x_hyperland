@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 
 import github
+import release_files
 from release_files import ReleaseFiles
 import update_engine as engine
 
@@ -116,6 +117,92 @@ class ReleaseFileTests(unittest.TestCase):
         plan = self.prepare()
         self.assertEqual((self.stage/'scripts/guard.py').read_bytes(), self.incoming)
         self.assertEqual(plan['expected']['scripts/guard.py'], engine.sha(self.earlier))
+
+
+class StandaloneMigrationTests(unittest.TestCase):
+    """The VM predecessor is absent from Git; exercise the normal transaction."""
+    NAME = 'scripts/runtime-log-guard.py'
+    VM_DIGEST = 'ed51960b5d3298f2dd4bf948e735b5a74d30e71563cf454a30d85afae25550c6'
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix='fusion-standalone-migration-')
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.home = self.root/'user'
+        self.live = self.home/'.config/hypr'; self.live.mkdir(parents=True)
+        self.stage = self.root/'stage'; self.state = self.root/'state'
+        self.upstream = self.root/'incoming'; self.upstream.mkdir()
+        self.old = '1'*40; self.new = '2'*40
+        engine.write_json(self.live/engine.META, engine.metadata(self.live, self.old))
+        self.inventory = (self.live/engine.META).read_bytes()
+        # Fixture bytes stand in for the screenshot-only standalone script.
+        # Pinning their hash exercises the same exact-content migration gate.
+        self.legacy = b'#!/usr/bin/env python3\n# Standalone log-space repair.\n'
+        self.incoming = b'#!/usr/bin/env python3\n# Integrated log guard.\n'
+        (self.live/'scripts').mkdir(); (self.upstream/'scripts').mkdir()
+        (self.live/self.NAME).write_bytes(self.legacy)
+        (self.live/self.NAME).chmod(0o755)
+        (self.upstream/self.NAME).write_bytes(self.incoming)
+        self.resolver = ReleaseFiles(self.root/'source-with-no-history', self.new, self.home)
+        self.pins = patch.dict(release_files.STANDALONE_PREDECESSORS,
+                               {self.NAME: frozenset({engine.sha(self.legacy)})})
+        self.pins.start(); self.addCleanup(self.pins.stop)
+
+    def prepare(self):
+        expected = engine.merge_profile(self.live, self.upstream, self.stage, self.new,
+                                        known_release_file=self.resolver)
+        return engine.prepare_plan(self.live, self.stage, expected, self.new)
+
+    def test_standalone_migration_stages_then_backs_up_and_rolls_back(self):
+        settings = self.live/'control_panel/state/runtime-log-guard.json'
+        settings.parent.mkdir(parents=True)
+        settings.write_text('{"enabled":false}\n')
+        personal = self.live/'personal.conf'; personal.write_text('# keep my settings\n')
+        with patch.object(self.resolver, 'history', side_effect=AssertionError('No history lookup needed')):
+            plan = self.prepare()
+        self.assertEqual((self.stage/self.NAME).read_bytes(), self.incoming)
+        self.assertEqual((self.live/self.NAME).read_bytes(), self.legacy)
+        self.assertEqual((self.live/engine.META).read_bytes(), self.inventory)
+        self.assertEqual(plan['expected'][self.NAME], engine.sha(self.legacy))
+        backup = engine.apply_plan(self.live, self.stage, plan, self.state)
+        self.assertEqual((self.live/self.NAME).read_bytes(), self.incoming)
+        self.assertEqual((backup/'files'/self.NAME).read_bytes(), self.legacy)
+        self.assertEqual((backup/'files'/self.NAME).stat().st_mode & 0o777, 0o755)
+        self.assertEqual(engine.installed(self.live)['revision'], self.new)
+        rollback = engine.rollback_plan(self.live, backup)
+        engine.apply_plan(self.live, backup/'files', rollback, self.state)
+        self.assertEqual((self.live/self.NAME).read_bytes(), self.legacy)
+        self.assertEqual((self.live/engine.META).read_bytes(), self.inventory)
+        self.assertEqual(settings.read_text(), '{"enabled":false}\n')
+        self.assertEqual(personal.read_text(), '# keep my settings\n')
+
+    def test_standalone_edit_after_preparation_blocks_activation(self):
+        plan = self.prepare()
+        edited = self.legacy+b'# changed after preparation\n'
+        (self.live/self.NAME).write_bytes(edited)
+        with self.assertRaisesRegex(RuntimeError, 'changed after'):
+            engine.apply_plan(self.live, self.stage, plan, self.state)
+        self.assertEqual((self.live/self.NAME).read_bytes(), edited)
+        self.assertEqual((self.live/engine.META).read_bytes(), self.inventory)
+
+    def test_modified_standalone_and_different_filename_are_not_adopted(self):
+        edited = self.legacy+b'# personal edit\n'
+        (self.live/self.NAME).write_bytes(edited)
+        with patch.object(self.resolver, 'history', return_value=[]):
+            self.assertFalse(self.resolver('scripts/unrelated.py', self.legacy))
+            with self.assertRaisesRegex(RuntimeError, 'already exists locally'):
+                self.prepare()
+        self.assertEqual((self.live/self.NAME).read_bytes(), edited)
+        self.assertEqual((self.live/engine.META).read_bytes(), self.inventory)
+
+    def test_reported_vm_digest_is_pinned_to_only_the_guard(self):
+        self.pins.stop()
+        # The actual VM supplied a digest and a screenshot, not a file fixture.
+        with patch.object(engine, 'sha', return_value=self.VM_DIGEST):
+            with patch.object(self.resolver, 'history', return_value=[]) as history:
+                self.assertTrue(self.resolver(self.NAME, self.legacy))
+                history.assert_not_called()
+                self.assertFalse(self.resolver('scripts/unrelated.py', self.legacy))
 
 
 if __name__ == '__main__': unittest.main()
