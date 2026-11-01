@@ -15,8 +15,9 @@ brand-specific references.
 | [CachyOS](cachyos.svg) | [CachyOS](https://cachyos.org/) |
 | [Manjaro](manjaro.svg) | [Manjaro](https://manjaro.org/) |
 | [Fedora](fedora.svg) | [Fedora brand guidelines](https://docs.fedoraproject.org/en-US/project/brand/) |
+| [Debian](debian.svg) | [Debian logos and usage](https://www.debian.org/logos/) · Open Use Logo, [CC-BY-SA-3.0](https://creativecommons.org/licenses/by-sa/3.0/) |
 
 Simple Icons is distributed under [CC0-1.0](LICENSE.txt). Brand artwork and
 trademarks retain their respective rights and guidelines, including Fedora's
-brand-specific terms recorded by Simple Icons. Their use here describes testing
+brand-specific terms and Debian's logo license recorded by Simple Icons. Their use here describes testing
 and compatibility; it does not imply affiliation or endorsement.

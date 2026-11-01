@@ -25,10 +25,11 @@ Hyper Fusion brings the whole desktop together: a launcher you can arrange yours
 
 <table>
   <tr>
-    <td align="center" width="25%"><a href="https://archlinux.org/"><img src="docs/media/distros/archlinux.svg" width="52" height="52" alt="Arch Linux"><br><strong>Arch Linux</strong></a></td>
-    <td align="center" width="25%"><a href="https://cachyos.org/"><img src="docs/media/distros/cachyos.svg" width="52" height="52" alt="CachyOS"><br><strong>CachyOS</strong></a></td>
-    <td align="center" width="25%"><a href="https://manjaro.org/"><img src="docs/media/distros/manjaro.svg" width="52" height="52" alt="Manjaro"><br><strong>Manjaro</strong></a></td>
-    <td align="center" width="25%"><a href="https://fedoraproject.org/"><img src="docs/media/distros/fedora.svg" width="52" height="52" alt="Fedora"><br><strong>Fedora</strong></a></td>
+    <td align="center" width="20%"><a href="https://archlinux.org/"><img src="docs/media/distros/archlinux.svg" width="52" height="52" alt="Arch Linux"><br><strong>Arch Linux</strong></a></td>
+    <td align="center" width="20%"><a href="https://cachyos.org/"><img src="docs/media/distros/cachyos.svg" width="52" height="52" alt="CachyOS"><br><strong>CachyOS</strong></a></td>
+    <td align="center" width="20%"><a href="https://manjaro.org/"><img src="docs/media/distros/manjaro.svg" width="52" height="52" alt="Manjaro"><br><strong>Manjaro</strong></a></td>
+    <td align="center" width="20%"><a href="https://fedoraproject.org/"><img src="docs/media/distros/fedora.svg" width="52" height="52" alt="Fedora"><br><strong>Fedora</strong></a></td>
+    <td align="center" width="20%"><a href="https://www.debian.org/"><img src="docs/media/distros/debian.svg" width="52" height="52" alt="Debian"><br><strong>Debian</strong></a></td>
   </tr>
 </table>
 
