@@ -343,7 +343,12 @@ KFileItemList Browser::selectedItems() const {
   KFileItemList items;
   if (Fusion::isComputer(location()))
     return items;
-  for (const auto &index : icons->selectionModel()->selectedRows(0)) {
+  // Icon/list views select the name cell, while Details selects whole rows.
+  // selectedRows() requires every model column to be selected, so an ordinary
+  // icon click used to look like an empty selection to every file action.
+  for (const auto &index : view()->selectionModel()->selectedIndexes()) {
+    if (index.column() != KDirModel::Name)
+      continue;
     const auto item = model->itemForIndex(proxy->mapToSource(index));
     if (!item.isNull())
       items << item;

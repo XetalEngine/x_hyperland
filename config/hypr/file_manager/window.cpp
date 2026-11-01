@@ -1,4 +1,5 @@
 #include "window.h"
+#include "transfers.h"
 #include "../theme/file_preview.hpp"
 #include <KAbstractFileItemActionPlugin>
 #include <KApplicationTrader>
@@ -6,6 +7,7 @@
 #include <KFileItemListProperties>
 #include <KIO/ApplicationLauncherJob>
 #include <KIO/CopyJob>
+#include <KIO/CommandLauncherJob>
 #include <KIO/DeleteJob>
 #include <KIO/FileUndoManager>
 #include <KIO/JobUiDelegate>
@@ -714,6 +716,21 @@ void FilesWindow::runAction(const QString &id) {
     KIO::FileUndoManager::self()->undo();
     return;
   }
+  if (id == "execute") {
+    if (urls.size() != 1)
+      return;
+    auto command = Fusion::executionCommand(urls.first());
+    if (command.isEmpty())
+      return;
+    const auto program = command.takeFirst();
+    auto *job = new KIO::CommandLauncherJob(program, command);
+    job->setWorkingDirectory(QFileInfo(urls.first().toLocalFile()).absolutePath());
+    job->setUiDelegate(KIO::createDefaultJobUiDelegate(
+        KJobUiDelegate::AutoHandlingDisabled, this));
+    track(job);
+    job->start();
+    return;
+  }
   if (id == "open" || id == "openTab") {
     if (Fusion::isComputer(location) && !tab->selectedVolume().device.isEmpty())
       drives->operate(tab->selectedVolume(), "open", this);
@@ -790,7 +807,7 @@ void FilesWindow::runAction(const QString &id) {
   if (Fusion::isComputer(location))
     return;
   if (id == "paste") {
-    track(KIO::paste(QApplication::clipboard()->mimeData(), location));
+    track(Fusion::pasteFiles(location, this));
     return;
   }
   if (id == "rename") {
@@ -999,7 +1016,7 @@ void FilesWindow::volumeAction(const Volume &volume, const QString &id) {
     }
     const auto *data = QApplication::clipboard()->mimeData();
     if (KIO::canPasteMimeData(data))
-      track(KIO::paste(data, location));
+      track(Fusion::pasteFiles(location, this));
   }
 }
 void FilesWindow::addVolumeActions(QMenu *menu, const Volume &volume) {
@@ -1085,6 +1102,9 @@ void FilesWindow::fileMenu(const QPoint &point) {
     if (!entry.value("enabled", true).toBool())
       continue;
     const QString id = entry["id"].toString();
+    if (id == "execute" &&
+        (items.size() != 1 || Fusion::executionCommand(items.first().url()).isEmpty()))
+      continue;
     if (id == "compress" || id == "extract") {
       if (!arkAdded && !items.isEmpty()) {
         addArkActions(&menu, items, compress, extract);

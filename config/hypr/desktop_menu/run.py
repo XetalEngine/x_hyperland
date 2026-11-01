@@ -16,7 +16,7 @@ def invocation(item, root=ROOT):
     target, value = item['target'], item['value']
     scripts = root/'scripts'
     builtins = {
-        'file_manager': [str(scripts/'files.sh'), str(Path.home())],
+        'file_manager': [str(scripts/'file-manager.sh'), str(Path.home())],
         'wallpaper': [str(scripts/'wallpaper.sh')],
         'displays': [str(scripts/'control-center.sh'), '--tab', 'displays'],
         'control_desk': [str(scripts/'control-center.sh')],
@@ -32,7 +32,7 @@ def invocation(item, root=ROOT):
         folder = Path(value).expanduser()
         if not folder.is_dir():
             raise ValueError('Folder does not exist: '+str(folder))
-        return [str(scripts/'files.sh'), str(folder)], None
+        return [str(scripts/'file-manager.sh'), str(folder)], None
     if target == 'url':
         return ['xdg-open', value], None
     if target != 'command':

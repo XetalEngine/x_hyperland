@@ -152,7 +152,9 @@ class InstallerTests(unittest.TestCase):
         self.assertIn(f'Icon={self.target}/file_manager/computer.svg', computer)
         self.assertTrue((self.stage/'file_manager/computer.svg').is_file())
         self.assertIn('inode/directory=xetal-files.desktop;', (self.stage/'desktop/config/mimeapps.list').read_text())
-        self.assertIn('$fileManager = ~/.config/hypr/scripts/files.sh', (self.stage/'hyprland.conf').read_text())
+        self.assertIn('$fileManager = ~/.config/hypr/scripts/file-manager.sh', (self.stage/'hyprland.conf').read_text())
+        self.assertTrue((self.stage/'control_panel/default_apps.py').is_file())
+        self.assertIn('"defaultAppsTab"', (self.stage/'control_panel/tools.json').read_text())
         self.assertIn('bind = $mainMod, E, exec, $fileManager', (self.stage/'keybindings.conf').read_text())
         self.assertIn(f'Exec={self.target}/scripts/files.sh --service',
                       (self.stage/'desktop/data/dbus-1/services/org.freedesktop.FileManager1.service').read_text())

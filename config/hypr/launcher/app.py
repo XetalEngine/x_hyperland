@@ -255,7 +255,7 @@ class Menu(QWidget):
             self.nav.append((name, button))
         navigation.addStretch()
         for name, icon, command in [
-            ('Files', 'folder', [catalog.ROOT/'scripts/files.sh']),
+            ('Files', 'folder', [catalog.ROOT/'scripts/file-manager.sh']),
             ('Theme', 'preferences-desktop-theme', [catalog.ROOT/'scripts/wallpaper.sh']),
             ('Control Panel', 'preferences-system', [catalog.ROOT/'scripts/control-panel.sh']),
             ('KVM', 'chip', [catalog.ROOT/'scripts/kvm-settings.sh']),
@@ -906,7 +906,7 @@ class Menu(QWidget):
                 QApplication.clipboard().setText(entry.get_commandline())
                 self.report('Command copied.')
             elif action == 'show-file':
-                self.run_command([catalog.ROOT/'scripts/files.sh', '--select', entry.source])
+                self.run_command([catalog.ROOT/'scripts/file-manager.sh', '--select', entry.source])
             elif action == 'reset':
                 shortcuts.reset(entry)
                 self.refresh_apps(app_id)

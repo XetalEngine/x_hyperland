@@ -18,6 +18,21 @@ def theme():
       QWidget#hyperControlPanel {{border:1px solid {p['Midlight']}; border-radius:{4 if design=='binaryknife' else 12 if design=='breakpoint' else 16}px;}}
       QFrame#panelHeader {{background:transparent; border:none;}}
       QLabel#panelTitle {{font-size:21px; font-weight:600; padding:8px 0; color:{p['Text']};}}
+      QFrame#defaultsHero {{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {p['AlternateBase']},stop:1 {p['Base']}); border:1px solid {p['Midlight']}; border-radius:{4 if design=='binaryknife' else 14}px;}}
+      QLabel#defaultsEyebrow {{font-size:10px; letter-spacing:2px; color:{p['Accent']}; font-weight:600;}}
+      QLabel#defaultsTitle {{font-size:28px; font-weight:600; color:{p['Text']};}}
+      QLabel#defaultsSubtitle, QLabel#defaultsStatus {{color:{p['PlaceholderText']};}}
+      QLabel#defaultsStatus[error="true"] {{color:{p['Text']};}}
+      QWidget#defaultAppsTab QToolButton {{padding:9px 16px; border:1px solid {p['Midlight']}; border-radius:6px; color:{p['Text']}; background:{p['Base']};}}
+      QWidget#defaultAppsTab QToolButton:checked {{background:{p['Highlight']}; border-color:{p['Accent']}; color:{p['HighlightedText']};}}
+      QTreeWidget#defaultsTypes {{font-size:13px; background:{p['Base']}; alternate-background-color:{p['AlternateBase']};}}
+      QTreeWidget#defaultsTypes::item {{padding:7px 8px; min-height:24px;}}
+      QDialog#defaultAppPicker {{background:{p['Window']};}}
+      QLabel#defaultsPickerTitle {{font-size:23px; font-weight:600;}}
+      QListWidget#defaultsAppList {{background:{p['Base']}; border:1px solid {p['Midlight']}; border-radius:8px; outline:none;}}
+      QListWidget#defaultsAppList::item {{padding:6px 12px; border-radius:5px;}}
+      QListWidget#defaultsAppList::item:selected {{background:{p['Highlight']}; color:{p['HighlightedText']};}}
+      QPushButton#defaultsUseApp {{background:{p['Highlight']}; color:{p['HighlightedText']}; border:1px solid {p['Accent']}; font-weight:600;}}
       QFrame#ramMetric, QFrame#ramMode {{background:{p['Base']}; border:1px solid {p['Midlight']}; border-radius:8px;}}
       QFrame#ramMode[selected="true"] {{border-color:{p['Accent']};}}
       QWidget#ramCleanerTab QRadioButton::indicator {{width:16px; height:16px; border:1px solid {p['PlaceholderText']}; border-radius:8px; background:{p['Base']};}}

@@ -19,6 +19,7 @@
     {"id":"windows","title":"Window Inspector","description":"Applications, processes and windows","icon":"preferences-system-windows","path":["dashboardTab","windowEnumSubTab"]}
   ]},
   {"title": "Software & maintenance","tools":[
+    {"id":"default-apps","title":"Default Apps","description":"Choose what opens your files and links","icon":"preferences-desktop-default-applications","path":["defaultAppsTab"],"keywords":"browser music audio video player images photos PDF text editor file manager folders Super E email archives associations MIME extensions protocols"},
     {"id":"pacman","title":"Pacman","description":"Official packages, search and install","icon":"system-software-install","path":["packageManagerTab","pacmanTab"]},
     {"id":"paru","title":"Paru","description":"AUR packages and helper management","icon":"package-x-generic","path":["packageManagerTab","paruTab"]},
     {"id":"yay","title":"Yay","description":"AUR packages and helper management","icon":"applications-other","path":["packageManagerTab","yayTab"]},

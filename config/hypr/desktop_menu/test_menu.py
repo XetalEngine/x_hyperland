@@ -65,10 +65,10 @@ class MenuTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'changed elsewhere'):self.store.save(self.document,self.saved)
         self.assertEqual(self.store.load()[1],new_hash)
 
-    def test_runtime_resolves_current_action_and_never_uses_directory_mime_handler(self):
+    def test_runtime_resolves_current_action_through_the_default_folder_launcher(self):
         launch=Mock()
         run.execute('file-manager',self.store,launch)
-        argv=launch.call_args.args[0];self.assertTrue(argv[0].endswith('/scripts/files.sh'))
+        argv=launch.call_args.args[0];self.assertTrue(argv[0].endswith('/scripts/file-manager.sh'))
         self.assertNotIn('xdg-open',argv)
         self.document['items'][0].update(target='command',value='/usr/bin/printf "%s" "a b; $(do-not-run)"',directory=str(self.root),terminal=True)
         self.store.save(self.document,self.saved);run.execute('file-manager',self.store,launch)

@@ -38,6 +38,8 @@ set(PROJECT_SOURCES
     ../disk_layout.h
     ../ram_cleaner.cpp
     ../ram_cleaner.h
+    ../default_apps.cpp
+    ../default_apps.h
     ../grub_editor.cpp
     ../grub_editor.h
     ../runtime_log_guard.cpp
@@ -189,6 +191,16 @@ option(BUILD_PREFERENCES_TESTS "Build preferences dialog and persistence tests" 
 option(BUILD_WHEEL_GUARD_TESTS "Build settings wheel interaction tests" OFF)
 option(BUILD_DISK_VISUALIZER_TESTS "Build disk map layout and UI tests" OFF)
 option(BUILD_RAM_CLEANER_TESTS "Build isolated RAM cleaner interaction tests" OFF)
+option(BUILD_DEFAULT_APPS_TESTS "Build isolated default-app interaction tests" OFF)
+if(BUILD_DEFAULT_APPS_TESTS)
+    enable_testing()
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(default_apps_tests tests/default_apps_tests.cpp ../default_apps.cpp ../default_apps.h)
+    target_include_directories(default_apps_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    target_link_libraries(default_apps_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME default_apps COMMAND default_apps_tests)
+    set_tests_properties(default_apps PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
 if(BUILD_RAM_CLEANER_TESTS)
     enable_testing()
     find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)

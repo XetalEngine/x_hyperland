@@ -3,6 +3,7 @@
 #include "window.h"
 #include <KApplicationTrader>
 #include <KIO/RenameDialog>
+#include <KIO/Paste>
 #include <KIO/RenameFileDialog>
 #include <KUrlComboBox>
 #include <QDBusConnection>
@@ -34,6 +35,15 @@ class FileTests : public QObject {
     tab->view()->setFocus();
     QTest::qWait(40);
   }
+  static void clickFile(Browser *tab, const QUrl &url,
+                        Qt::KeyboardModifiers modifiers = Qt::NoModifier) {
+    const auto index = tab->proxy->mapFromSource(tab->model->indexForUrl(url));
+    QVERIFY(index.isValid());
+    tab->view()->scrollTo(index);
+    QTRY_VERIFY(tab->view()->visualRect(index).isValid());
+    QTest::mouseClick(tab->view()->viewport(), Qt::LeftButton, modifiers,
+                      tab->view()->visualRect(index).center());
+  }
   static QList<Volume> computerVolumes() {
     auto volumes = Drives::parse(R"({"blockdevices":[
       {"path":"/dev/fusion-a","name":"fusion-a","type":"disk","model":"Fusion NVMe","tran":"nvme","size":1000000000000,"children":[
@@ -61,6 +71,7 @@ private slots:
     folder = temporary.path() + "/files";
     QVERIFY(QDir().mkpath(folder));
     qApp->setQuitOnLastWindowClosed(false);
+    qApp->setDesktopFileName("xetal-files");
     auto bus = QDBusConnection::sessionBus();
     QVERIFY(bus.registerService("org.freedesktop.FileManager1"));
     QVERIFY(bus.registerObject("/org/freedesktop/FileManager1", &fileManager,
@@ -511,7 +522,7 @@ private slots:
     window.show();
     auto *tab = window.browser();
     QTRY_COMPARE(tab->proxy->rowCount(), 1);
-    tab->selectUrl(QUrl::fromLocalFile(sample + "/archive me.txt"));
+    clickFile(tab, QUrl::fromLocalFile(sample + "/archive me.txt"));
     bool openNamed = false, chooser = false, copy = false, cut = false,
          paste = false;
     QStringList compression;
@@ -584,7 +595,7 @@ private slots:
     window.show();
     auto *tab = window.browser();
     QTRY_COMPARE_WITH_TIMEOUT(tab->proxy->rowCount(), 1, 10000);
-    tab->selectUrl(QUrl::fromLocalFile(original));
+    clickFile(tab, QUrl::fromLocalFile(original));
     focus(tab);
     QTest::keyClick(tab->view(), Qt::Key_F2);
     QTRY_VERIFY(window.findChild<KIO::RenameFileDialog *>());
@@ -597,7 +608,7 @@ private slots:
     QVERIFY(!QFileInfo::exists(original));
     QTRY_VERIFY_WITH_TIMEOUT(
         tab->model->indexForUrl(QUrl::fromLocalFile(renamed)).isValid(), 10000);
-    tab->selectUrl(QUrl::fromLocalFile(renamed));
+    clickFile(tab, QUrl::fromLocalFile(renamed));
     focus(tab);
     QTest::keyClick(tab->view(), Qt::Key_C, Qt::ControlModifier);
     QCOMPARE(QApplication::clipboard()->mimeData()->urls(),
@@ -612,7 +623,7 @@ private slots:
     QVERIFY(QFileInfo::exists(renamed));
     QTRY_VERIFY_WITH_TIMEOUT(
         tab->model->indexForUrl(QUrl::fromLocalFile(copy)).isValid(), 10000);
-    tab->selectUrl(QUrl::fromLocalFile(copy));
+    clickFile(tab, QUrl::fromLocalFile(copy));
     focus(tab);
     QCOMPARE(tab->selectedUrls(), QList<QUrl>{QUrl::fromLocalFile(copy)});
     QSignalSpy trashKey(window.findChild<QAction *>("trash"),
@@ -626,7 +637,7 @@ private slots:
     window.openLocation(QUrl::fromLocalFile(source));
     QTRY_VERIFY_WITH_TIMEOUT(
         tab->model->indexForUrl(QUrl::fromLocalFile(renamed)).isValid(), 10000);
-    tab->selectUrl(QUrl::fromLocalFile(renamed));
+    clickFile(tab, QUrl::fromLocalFile(renamed));
     focus(tab);
     QTest::keyClick(tab->view(), Qt::Key_X, Qt::ControlModifier);
     window.openLocation(QUrl::fromLocalFile(deep));
@@ -659,41 +670,171 @@ private slots:
     QVERIFY(finished.count() >= 3);
     window.close();
   }
-  void cancelledConflictKeepsBothFiles() {
-    const QString a = folder + "/conflict-a", b = folder + "/conflict-b";
-    QDir().mkpath(a);
-    QDir().mkpath(b);
-    write(a + "/same.txt", "original source");
-    write(b + "/same.txt", "original destination");
-    FilesWindow window(QUrl::fromLocalFile(a), false,
-                       temporary.path() + "/conflict.ini");
+  void mouseSelectionInEveryView() {
+    const QString base = folder + "/mouse-selection";
+    QDir().mkpath(base);
+    write(base + "/first.txt");
+    write(base + "/second.unknown-format", QByteArray(32, '\0'));
+    FilesWindow window(QUrl::fromLocalFile(base), false,
+                       temporary.path() + "/mouse.ini");
     window.setAttribute(Qt::WA_DeleteOnClose, false);
     window.show();
     auto *tab = window.browser();
-    QTRY_COMPARE_WITH_TIMEOUT(tab->proxy->rowCount(), 1, 10000);
-    tab->selectUrl(QUrl::fromLocalFile(a + "/same.txt"));
+    QTRY_COMPARE(tab->proxy->rowCount(), 2);
+    for (int mode = 0; mode < 5; ++mode) {
+      tab->setView(mode);
+      focus(tab);
+      tab->view()->clearSelection();
+      clickFile(tab, QUrl::fromLocalFile(base + "/first.txt"));
+      QCOMPARE(tab->selectedUrls(), QList<QUrl>{QUrl::fromLocalFile(base + "/first.txt")});
+      clickFile(tab, QUrl::fromLocalFile(base + "/second.unknown-format"), Qt::ControlModifier);
+      QCOMPARE(tab->selectedUrls().size(), 2);
+      QTest::keyClick(tab->view(), Qt::Key_C, Qt::ControlModifier);
+      QCOMPARE(QApplication::clipboard()->mimeData()->urls().size(), 2);
+      QTest::keyClick(tab->view(), Qt::Key_A, Qt::ControlModifier);
+      QCOMPARE(tab->selectedItems().size(), 2);
+    }
+    window.close();
+  }
+  void unknownFilesAndScriptMenus() {
+    const QString base = folder + "/script-menus";
+    QDir().mkpath(base);
+    const auto script = QUrl::fromLocalFile(base + "/a ; $(literal) # 100%.sh");
+    const auto unknown = QUrl::fromLocalFile(base + "/data.unknown-format");
+    write(script.toLocalFile(), "#!/usr/bin/env bash\nprintf 'fixture only'\n");
+    write(unknown.toLocalFile(), QByteArray(32, '\0'));
+    const auto command = Fusion::executionCommand(script);
+    QCOMPARE(command, QStringList({"kitty", "--hold", "--directory", base, "-e",
+                                  "/usr/bin/env", "bash", script.toLocalFile()}));
+    QVERIFY(!QFileInfo(script.toLocalFile()).isExecutable());
+    QVERIFY(Fusion::executionCommand(unknown).isEmpty());
+    FilesWindow window(QUrl::fromLocalFile(base), false,
+                       temporary.path() + "/scripts.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.show();
+    auto *tab = window.browser();
+    QTRY_COMPARE(tab->proxy->rowCount(), 2);
+    for (const auto &url : {unknown, script}) {
+      clickFile(tab, url);
+      QStringList actions;
+      QTimer::singleShot(0, &window, [&] {
+        auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+        if (!menu) return;
+        for (auto *action : menu->actions()) actions << action->objectName();
+        menu->close();
+      });
+      const auto index = tab->proxy->mapFromSource(tab->model->indexForUrl(url));
+      // Use the view's real right-click path, including hit testing.
+      emit tab->view()->customContextMenuRequested(tab->view()->visualRect(index).center());
+      for (const auto &id : {"open", "openWith", "copy", "cut", "paste", "rename", "trash"})
+        QVERIFY2(actions.contains(id), id);
+      if (url == script) QCOMPARE(actions.first(), QString("execute"));
+      else QVERIFY(!actions.contains("execute"));
+    }
+    window.close();
+  }
+  void numberedPastesKeepBothAndSupportUndo() {
+    const QString a = folder + "/numbered-a", b = folder + "/numbered-b";
+    QDir().mkpath(a + "/project.v1/nested");
+    QDir().mkpath(b);
+    write(a + "/same.txt", "original source");
+    write(a + "/.env", "dotfile");
+    write(a + "/backup.tar.gz", "compound extension");
+    write(a + "/project.v1/nested/data", "nested content");
+    write(b + "/same.txt", "original destination");
+    QVERIFY(QFile::link(a + "/missing", a + "/link"));
+    FilesWindow window(QUrl::fromLocalFile(a), false,
+                       temporary.path() + "/numbered.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.show();
+    auto *tab = window.browser();
+    tab->setHidden(true);
+    QTRY_COMPARE_WITH_TIMEOUT(tab->proxy->rowCount(), 5, 10000);
+    bool popup = false;
+    QTimer rejectConflicts;
+    connect(&rejectConflicts, &QTimer::timeout, &window, [&] {
+      for (auto *widget : QApplication::topLevelWidgets())
+        if (auto *dialog = qobject_cast<QDialog *>(widget); dialog && dialog->isVisible()) {
+          popup = true;
+          dialog->reject();
+        }
+    });
+    rejectConflicts.start(10);
     focus(tab);
-    window.runAction("cut");
+    QTest::keyClick(tab->view(), Qt::Key_A, Qt::ControlModifier);
+    QTest::keyClick(tab->view(), Qt::Key_C, Qt::ControlModifier);
+    QSignalSpy finished(&window, &FilesWindow::operationFinished);
+    for (int number = 1; number <= 2; ++number) {
+      const auto suffix = "_copy" + QString::number(number);
+      QTest::keyClick(tab->view(), Qt::Key_V, Qt::ControlModifier);
+      QTRY_COMPARE_WITH_TIMEOUT(finished.count(), number, 15000);
+      QCOMPARE(finished.last().first().toInt(), 0);
+      for (const auto &name : {"same" + suffix + ".txt", ".env" + suffix,
+                               "backup" + suffix + ".tar.gz", "project.v1" + suffix + "/nested/data"})
+        QVERIFY2(QFileInfo::exists(a + "/" + name), qPrintable(name));
+      QVERIFY(QFileInfo(a + "/link" + suffix).isSymbolicLink());
+      QVERIFY(!popup);
+    }
+    // Cut to an occupied name also keeps the destination; Undo restores source.
+    focus(tab);
+    clickFile(tab, QUrl::fromLocalFile(a + "/same.txt"));
+    QTest::keyClick(tab->view(), Qt::Key_X, Qt::ControlModifier);
+    QCOMPARE(QApplication::clipboard()->mimeData()->urls(), QList<QUrl>{QUrl::fromLocalFile(a + "/same.txt")});
+    QVERIFY(KIO::isClipboardDataCut(QApplication::clipboard()->mimeData()));
     window.openLocation(QUrl::fromLocalFile(b));
+    QTRY_COMPARE(tab->proxy->rowCount(), 1);
+    focus(tab);
+    QTest::keyClick(tab->view(), Qt::Key_V, Qt::ControlModifier);
+    QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 3, 15000);
+    QCOMPARE(finished.last().first().toInt(), 0);
+    QVERIFY(!QFileInfo::exists(a + "/same.txt"));
+    QFile moved(b + "/same_copy1.txt"), existing(b + "/same.txt");
+    QVERIFY(moved.open(QIODevice::ReadOnly));
+    QVERIFY(existing.open(QIODevice::ReadOnly));
+    QCOMPARE(moved.readAll(), QByteArray("original source"));
+    QCOMPARE(existing.readAll(), QByteArray("original destination"));
+    moved.close(); existing.close();
+    focus(tab);
+    QTest::keyClick(tab->view(), Qt::Key_Z, Qt::ControlModifier);
+    QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(a + "/same.txt"), 10000);
+    QVERIFY(!QFileInfo::exists(b + "/same_copy1.txt"));
+    QVERIFY(!popup);
+    window.close();
+  }
+  void transferProgress() {
+    if (!qEnvironmentVariableIsSet("FUSION_FILES_PROGRESS_CHECK"))
+      QSKIP("Run by test_progress.py with the real Fusion JobView service.");
+    const auto source = folder + "/Transfer source";
+    const auto target = folder + "/Transfer target";
+    QDir().mkpath(source);
+    QDir().mkpath(target);
+    for (int n = 0; n < 1024; ++n)
+      write(source + "/file-" + QString::number(n), QByteArray(65536, char(n % 127)));
+    FilesWindow window(QUrl::fromLocalFile(folder), false,
+                       temporary.path() + "/progress.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.show();
+    auto *tab = window.browser();
+    QTRY_VERIFY(tab->model->indexForUrl(QUrl::fromLocalFile(source)).isValid());
+    clickFile(tab, QUrl::fromLocalFile(source));
+    focus(tab);
+    QTest::keyClick(tab->view(), Qt::Key_C, Qt::ControlModifier);
+    window.openLocation(QUrl::fromLocalFile(target));
     focus(tab);
     QSignalSpy finished(&window, &FilesWindow::operationFinished);
-    window.runAction("paste");
-    KIO::RenameDialog *conflict = nullptr;
-    QTRY_VERIFY_WITH_TIMEOUT(
-        ([&] {
-          for (auto *widget : QApplication::topLevelWidgets())
-            if ((conflict = qobject_cast<KIO::RenameDialog *>(widget)))
-              return true;
-          return false;
-        })(),
-        10000);
-    conflict->reject();
-    QTRY_VERIFY_WITH_TIMEOUT(!finished.isEmpty(), 10000);
-    QFile source(a + "/same.txt"), dest(b + "/same.txt");
-    QVERIFY(source.open(QIODevice::ReadOnly));
-    QVERIFY(dest.open(QIODevice::ReadOnly));
-    QCOMPARE(source.readAll(), QByteArray("original source"));
-    QCOMPARE(dest.readAll(), QByteArray("original destination"));
+    QTest::keyClick(tab->view(), Qt::Key_V, Qt::ControlModifier);
+    QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 1, 30000);
+    if (qEnvironmentVariableIsSet("FUSION_FILES_PROGRESS_CANCEL")) {
+      QCOMPARE(finished.first().first().toInt(), int(KIO::ERR_USER_CANCELED));
+      QCOMPARE(QDir(source).entryList(QDir::Files).size(), 1024);
+      window.close();
+      return;
+    }
+    QCOMPARE(finished.first().first().toInt(), 0);
+    QCOMPARE(QDir(target + "/Transfer source").entryList(QDir::Files).size(), 1024);
+    QFile last(target + "/Transfer source/file-1023");
+    QVERIFY(last.open(QIODevice::ReadOnly));
+    QCOMPARE(last.readAll(), QByteArray(65536, char(1023 % 127)));
     window.close();
   }
   void newFolderAndPermanentDeleteCancellation() {

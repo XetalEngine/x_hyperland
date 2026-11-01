@@ -26,6 +26,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | System Properties | Hardware, identity and hostname |
 | Environment Variables | System environment editor and separate Hyprland login environment |
 | Window Inspector | Window/process inspection, X11/Wayland backends and window actions |
+| Default Apps | Browser, email, file manager, music, video, images, PDF, text, archives and office defaults; searchable individual file types and links; Undo |
 | **Pacman / Paru / Yay** | Three adjacent entries: installed packages, repository/AUR searches, details, installation and helper management |
 | Install .deb | Convert with debtap and install through pacman, with the original terminal review |
 | Package Updates | System upgrades, package checks and Arch news |
@@ -71,6 +72,28 @@ The backend targets **Arch Linux/CachyOS**. Package, kernel, boot and ISO tools 
 **Disable session logs to file** is a separate, initially unchecked preference. It applies at the **next Hyprland login**, and the panel shows when a change is pending. It sends Hyper Fusion session helper output to `/dev/null`, including cached UIs, Waybar, effects, startup windows and screenshot notifications, and requests `debug:disable_logs = true` from Hyprland. That compositor option is reapplied after configuration reloads. Unchecking restores normal logging on the following login; it does not force verbose compositor logging. Existing files are kept, running helpers are not restarted, and the cleanup checkbox is unchanged. Startup/driver diagnostics that bypass Hyprland's normal logging switch can still be bounded by the guard. Installer, update-job and application diagnostics outside the managed session logs remain available.
 
 Preferences live in `control_panel/state/runtime-log-guard.json`; the last cleanup's time, filenames and reclaimed bytes are recorded alongside it. `scripts/session_logging.py` shares the file logging choice across helpers and records the policy for each login in that instance's `session-logging.json`. For a manual check from the session's terminal, run `python3 ~/.config/hypr/scripts/runtime-log-guard.py --once`. This is space protection, not a repair for a graphics driver error. Hyprland's [debugging documentation](https://wiki.hypr.land/crashes-and-bugs/) describes collecting diagnostics and warns that verbose logging can produce large files.
+
+## Default Apps
+
+Open **Software & maintenance → Default Apps**. The themed **Everyday apps**
+cards show the current application for twelve categories. Choose a card, select
+an installed application and click **Use app**. Recommended applications appear
+first; **Show all installed apps** includes other choices. Cancelling leaves
+defaults unchanged. **File types & links** lets you search extensions such as
+`.png`, MIME types, protocols or application names and change individual types.
+
+Choices apply throughout the current desktop account using standard MIME
+associations. The browser card updates HTTP, HTTPS and HTML together; music,
+video and image cards cover their registered formats. Existing application
+preferences that explicitly override desktop defaults remain application
+preferences. **Undo** restores the last change unless another program has since
+changed those settings. Unrelated associations are preserved.
+
+The file-manager choice is also used by Super+E, Apps → Files, desktop folder
+actions and screenshot **Show in folder**. **My Computer** and the explicit
+**Fusion Files** application continue to open Fusion Files. A fresh installation
+uses Fusion Files as the folder default. The updater includes this page and
+its helper without distributing the developer's application choices or history.
 
 ## RAM Cleaner
 

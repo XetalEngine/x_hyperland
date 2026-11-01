@@ -1,5 +1,33 @@
 # Validation
 
+## Default Apps and file selection — 1 November 2026
+
+The new Control Panel page passed eleven association-helper checks with real Gio
+and `xdg-mime` queries in disposable homes. Coverage includes grouped browser and
+media associations, individual MIME types, desktop-specific overrides, literal
+folder paths, unrelated-setting preservation, stale-write rejection, atomic
+failure recovery and Undo. Eight native Qt checks passed in all twelve design
+and palette combinations. The complete panel found all 35 tool routes, including
+Default Apps, with no navigation errors. The installed Binary Knife page was
+visually inspected without changing the account's defaults during testing.
+
+Fusion Files passed twenty native checks using mouse selection in all five
+views, F2, Delete, copy/cut/paste, Undo, unknown-file and script menus, and Ark's
+actual ZIP action. Numbered pastes preserve existing files, nested directories,
+dotfiles, compound extensions and dangling symlinks. Separate private D-Bus
+checks sent a real 64 MiB folder copy through Fusion's Binary Knife JobView UI:
+progress, pause/resume, successful completion and cancellation all passed;
+cancellation preserved the source files. The progress-specific native case is
+skipped in the ordinary suite and run by these two dedicated checks.
+
+The 33 installer checks, 15 Control Panel adapter checks, 10 desktop-menu checks,
+seven screenshot-action checks, 23 transfer model/preferences checks and shared
+scrollbar layout check passed. Native Hyprland configuration validation passed
+before deployment; the live reload reported no errors and Super+E resolved to
+the selected-file-manager helper. Installation used private backups and kept
+unrelated local settings. Test screenshots, app inventories and default-app
+history are excluded from the public changes.
+
 ## Fireball Minimize and window ordering — 31 October 2026
 
 The native adapter was compiled against the pinned Hyprland 0.56.2 ABI and tested

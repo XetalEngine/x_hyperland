@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parent
@@ -12,7 +13,8 @@ if __name__ == '__main__':
     with tempfile.TemporaryDirectory(prefix='fusion-files-checks-', dir=cache) as directory:
         base = Path(directory)
         env = dict(os.environ, QT_QPA_PLATFORM='offscreen', QT_QPA_PLATFORMTHEME='',
-                   XETAL_FILES_ROOT=str(ROOT.parent), XDG_DATA_DIRS='/usr/local/share:/usr/share', TMPDIR=str(base))
+                   XETAL_FILES_ROOT=str(ROOT.parent), XDG_DATA_DIRS='/usr/local/share:/usr/share',
+                   FUSION_FILES_ISOLATED='1', TMPDIR=str(base))
         for key, name in [('XDG_CONFIG_HOME', 'config'), ('XDG_DATA_HOME', 'data'),
                           ('XDG_CACHE_HOME', 'cache'), ('XDG_STATE_HOME', 'state'),
                           ('XDG_RUNTIME_DIR', 'runtime')]:
@@ -22,3 +24,7 @@ if __name__ == '__main__':
                         '-DBUILD_TESTING=ON', '-DCMAKE_BUILD_TYPE=Debug'], check=True, env=env)
         subprocess.run(['cmake', '--build', str(build), '--parallel', '4'], check=True, env=env)
         subprocess.run(['dbus-run-session', '--', str(build/'files-tests')], check=True, env=env)
+        subprocess.run(['dbus-run-session', '--', sys.executable, str(ROOT/'test_progress.py'),
+                        str(build/'files-tests')], check=True, env=env)
+        subprocess.run(['dbus-run-session', '--', sys.executable, str(ROOT/'test_progress.py'),
+                        str(build/'files-tests'), '--cancel'], check=True, env=env)

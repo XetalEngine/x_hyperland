@@ -113,6 +113,7 @@ QList<QVariantMap> defaultPlaces() {
 QList<QVariantMap> menuDefaults() {
   QList<QVariantMap> entries;
   const QList<QStringList> definitions{
+      {"execute", "Execute", "system-run"},
       {"open", "Open", "document-open"},
       {"openTab", "Open in new tab", "tab-new"},
       {"openWith", "Open with…", "application-x-executable"},
@@ -173,6 +174,38 @@ bool validName(const QString &name) {
   return !name.isEmpty() && name != "." && name != ".." &&
          !name.contains('/') && !name.contains(QChar::Null);
 }
+QStringList executionCommand(const QUrl &url) {
+  if (!url.isLocalFile())
+    return {};
+  const QFileInfo info(url.toLocalFile());
+  if (!info.isFile())
+    return {};
+  const auto type = QMimeDatabase().mimeTypeForFile(info).name();
+  const bool shell = type == "application/x-shellscript" ||
+                     type == "text/x-shellscript" ||
+                     QStringList{"sh", "bash", "zsh", "ksh"}.contains(info.suffix());
+  if (shell) {
+    // Run scripts explicitly in a terminal, keeping output visible. Never
+    // change executable permissions or interpolate a filename into a shell.
+    QStringList command;
+    QFile script(info.absoluteFilePath());
+    if (!script.open(QIODevice::ReadOnly))
+      return {};
+    const auto first = QString::fromUtf8(script.readLine(4096)).trimmed();
+    if (first.startsWith("#!"))
+      command = QProcess::splitCommand(first.mid(2).trimmed());
+    if (command.isEmpty())
+      command << (info.suffix() == "zsh" ? "zsh" : info.suffix() == "ksh" ? "ksh" : "bash");
+    command << info.absoluteFilePath();
+    return QStringList{"kitty", "--hold", "--directory", info.absolutePath(), "-e"} + command;
+  }
+  if (info.isExecutable() && (type == "application/x-executable" ||
+                              type == "application/x-pie-executable" ||
+                              type == "application/x-appimage" ||
+                              type.startsWith("text/x-")))
+    return {info.absoluteFilePath()};
+  return {};
+}
 Preferences::Preferences(const QString &path)
     : settings(path.isEmpty() ? root() + "/file_manager/state/settings.ini"
                               : path,
@@ -207,7 +240,17 @@ void Preferences::setPlaces(const QList<QVariantMap> &places) {
   writeList(settings, "places", places);
 }
 QList<QVariantMap> Preferences::menu() const {
-  return readList(settings, "menu", menuDefaults());
+  auto entries = readList(settings, "menu", menuDefaults());
+  if (std::none_of(entries.cbegin(), entries.cend(), [](const auto &entry) {
+        return entry.value("id").toString() == "execute";
+      })) {
+    auto execute = menuDefaults().first();
+    for (const auto &entry : entries)
+      if (entry.value("id").toString() == "open")
+        execute["enabled"] = entry.value("enabled", true);
+    entries.prepend(execute);
+  }
+  return entries;
 }
 void Preferences::setMenu(const QList<QVariantMap> &entries) {
   writeList(settings, "menu", entries);

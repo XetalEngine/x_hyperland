@@ -156,6 +156,9 @@ class CoverageTests(unittest.TestCase):
         represented = {tool['path'][0] for tool in tools if tool['path']}
         self.assertEqual(original - represented, {'themeTab', 'kvmTab'})
         self.assertIn('cleanerTab', represented)
+        self.assertIn('defaultAppsTab', represented)
+        software = next(group for group in json.loads((root/'tools.json').read_text()) if group['title'] == 'Software & maintenance')
+        self.assertIn('default-apps', [tool['id'] for tool in software['tools']])
         ids = [tool['id'] for tool in tools]
         start = ids.index('pacman')
         self.assertEqual(ids[start:start+3], ['pacman', 'paru', 'yay'])

@@ -14,6 +14,7 @@ QList<QVariantMap> defaultPlaces();
 QList<QVariantMap> menuDefaults();
 QStringList expandCommand(const QString &command, const QList<QUrl> &urls);
 bool validName(const QString &name);
+QStringList executionCommand(const QUrl &url);
 
 class Preferences {
 public:

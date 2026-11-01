@@ -20,7 +20,7 @@ class ScreenshotActionsTests(unittest.TestCase):
         self.assertEqual(args[5],['default','Open image','folder-open','📂  Show in folder'])
         self.assertIn('&amp;',args[4])
         self.actions.event('ActionInvoked',(41,'default'));self.actions.event('ActionInvoked',(41,'folder-open'))
-        self.assertEqual(self.commands,[[str(notify.ROOT/'scripts/image-viewer.sh'),'--',str(self.path)],[str(notify.ROOT/'scripts/files.sh'),'--select',str(self.path)]])
+        self.assertEqual(self.commands,[['xdg-open',str(self.path)],[str(notify.ROOT/'scripts/file-manager.sh'),'--select',str(self.path)]])
     def test_expired_banner_remains_actionable_in_history(self):
         self.actions.event('NotificationClosed',(41,1));self.actions.event('ActionInvoked',(41,'default'))
         self.assertEqual(len(self.commands),1)
@@ -42,11 +42,11 @@ class ScreenshotActionsTests(unittest.TestCase):
         self.assertNotIn('image-path',args[6])
         self.assertIn('Display disconnected.\n',args[4]);self.assertIn('&lt;final&gt;',args[4])
         self.actions.event('ActionInvoked',(42,'folder-open'));self.actions.event('ActionInvoked',(42,'default'))
-        expected=[str(notify.ROOT/'scripts/files.sh'),'--select',str(video)]
+        expected=[str(notify.ROOT/'scripts/file-manager.sh'),'--select',str(video)]
         self.assertEqual(self.commands,[expected,expected])
         # Sharing the broker must not change a screenshot's default action.
         self.actions.event('ActionInvoked',(41,'default'))
-        self.assertEqual(self.commands[-1][0],str(notify.ROOT/'scripts/image-viewer.sh'))
+        self.assertEqual(self.commands[-1],['xdg-open',str(self.path)])
 
     def test_recording_history_keeps_the_original_video_after_more_captures(self):
         video=Path(self.temp.name)/'first.mp4';video.write_bytes(b'video')
@@ -56,7 +56,7 @@ class ScreenshotActionsTests(unittest.TestCase):
         self.bus.call_sync.return_value=GLib.Variant('(u)',(43,))
         self.actions.show(self.path,'Screenshot saved')
         self.actions.event('ActionInvoked',(42,'folder-open'))
-        self.assertEqual(self.commands,[[str(notify.ROOT/'scripts/files.sh'),'--select',str(video)]])
+        self.assertEqual(self.commands,[[str(notify.ROOT/'scripts/file-manager.sh'),'--select',str(video)]])
         self.actions.event('NotificationClosed',(42,2));self.actions.event('ActionInvoked',(42,'folder-open'))
         self.assertEqual(len(self.commands),1)
 

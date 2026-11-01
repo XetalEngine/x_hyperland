@@ -1,6 +1,7 @@
 #include "native.h"
 #include "window_sizing.h"
 #include "ram_cleaner.h"
+#include "default_apps.h"
 #include "grub_editor.h"
 #include "runtime_log_guard.h"
 #include "backend/mainwindow.h"
@@ -260,6 +261,10 @@ PanelController::PanelController(MainWindow *window)
   connect(goHome, &QShortcut::activated, this, [this] { open(""); });
   auto *find = new QShortcut(QKeySequence::Find, owner);
   connect(find, &QShortcut::activated, this, [this] {
+    if (current == "default-apps") {
+      owner->findChild<DefaultApps *>()->focusSearch();
+      return;
+    }
     open("");
     search->setFocus();
   });
@@ -332,6 +337,7 @@ startupDone:
 void PanelController::prepareTools() {
   auto *rootTabs = owner->findChild<QTabWidget *>("tabWidget");
   rootTabs->addTab(new RamCleaner(HyperPanel::root() + "/control_panel/ram_cleaner.py", rootTabs), "RAM Cleaner");
+  rootTabs->addTab(new DefaultApps(HyperPanel::root() + "/control_panel/default_apps.py", rootTabs), "Default Apps");
   rootTabs->addTab(new GrubEditor(HyperPanel::root() + "/control_panel/grub_editor.py", rootTabs), "GRUB Boot Editor");
   auto promote = [this, rootTabs](const QString &name, const QString &title) {
     auto *page = owner->findChild<QWidget *>(name);

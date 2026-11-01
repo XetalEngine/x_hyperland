@@ -3,7 +3,8 @@
 Fusion Files is Hyper Fusion's native Qt file manager. Fresh installations put
 **My Computer** in Apps → Favorites. That shortcut opens **This PC**; **Fusion
 Files** is also available in All apps. Apps → Files, the desktop's file-manager
-action, and the default Super+E binding open Fusion Files. Dolphin remains
+action, and the default Super+E binding follow the file manager chosen in
+**Control Panel → Default Apps**, initially Fusion Files. Dolphin remains
 available as a separate application.
 
 ## Navigation and layout
@@ -58,15 +59,26 @@ remote selections display metadata without downloading their full contents.
 ## File actions
 
 Copy, move, drag-and-drop, rename, Trash, restore and undo use KDE KIO jobs.
-Copies use the existing Fusion transfer-progress service. Conflict handling and
-cancellation are provided by the underlying jobs. A filesystem that cannot
+Copies use the existing Fusion transfer-progress service, including the selected
+File Transfer style, pause, resume and cancellation. Pasting keeps both files
+without a name-conflict dialog: `photo.png` becomes `photo_copy1.png`, then
+`photo_copy2.png`. Folder names, dotfiles and compound extensions are preserved;
+folders are copied into a new numbered folder instead of merging contents.
+Cut/paste also keeps an existing destination under its original name. Each paste
+remains one transfer and one Undo operation. Permission and transfer failures
+still report errors. A filesystem that cannot
 provide Trash reports the error; it never silently substitutes permanent deletion.
 Permanent deletion always asks for confirmation. Pending tracked file jobs keep
 the application process alive after its last browser window closes.
 
-The first file-menu action names its default application when one is available.
+Executable files and shell scripts have **Execute** first. Shell scripts open in
+a terminal with their output kept visible, using their declared interpreter (or
+Bash for a `.sh` script without one). This requires an explicit Execute action;
+ordinary opening still uses the associated app or chooser. Script permissions
+are not changed. The regular Open action names its default application when one is available.
 **Open with…** offers the installed application chooser, a custom executable and
-the option to remember a file-type association. Cut, Copy and Paste are available
+the option to remember a file-type association, including for unknown file types.
+Cut, Copy and Paste are available
 in file menus. In This PC, select a mounted volume and use Ctrl+V or **Paste into
 drive** to paste into its root folder; copied and cut files retain their usual
 copy/move behavior. **Copy** on a mounted volume copies its folder location.
@@ -132,6 +144,9 @@ python3 config/hypr/file_manager/test.py
 ```
 
 Native tests use a private D-Bus session and disposable configuration, files and
-Trash. They do not mount real drives. `--select /path/to/file` reveals a file in
+Trash. Checks click icons in all five views, exercise keyboard file operations,
+numbered copy/move collisions, script/unknown-file menus and a real 64 MiB folder
+copy through the themed JobView service with pause/resume. They do not mount
+real drives. `--select /path/to/file` reveals a file in
 its parent folder. The application also exposes the standard
 `org.freedesktop.FileManager1` interface when that service name is available.
