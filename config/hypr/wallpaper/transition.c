@@ -33,17 +33,32 @@ static const char *fragment_source =
     "if(fit!=2){float factor=fit==1?min(screenSize.x/size.x,screenSize.y/size.y):max(screenSize.x/size.x,screenSize.y/size.y);"
     "q=(q-.5)*screenSize/(size*factor)+.5;}"
     "if(any(lessThan(q,vec2(0)))||any(greaterThan(q,vec2(1))))return vec4(0,0,0,1);return texture(tex,q);}"
-    "void main(){float t=clamp(progress,0.,1.),p=t*t*(3.-2.*t);float a=p;vec2 q=uv;"
+    "void main(){float t=clamp(progress,0.,1.),p=t*t*(3.-2.*t);float a=p,shade=0.;vec2 q=uv,r=uv;"
     "if(effect==1){vec2 d=(uv-.5)*vec2(screenSize.x/screenSize.y,1);"
     "float radius=length(d)/length(vec2(screenSize.x/screenSize.y,1)*.5);"
     "float field=radius*.90+noise(uv*11.)*.07+noise(uv*27.)*.03;"
     "a=1.-smoothstep(p*1.18-.13,p*1.18+.03,field);"
     "q+=normalize(d+vec2(.0001))*sin(radius*32.-p*9.)*.004*sin(t*3.14159)*(1.-a)*smoothstep(0.,.05,min(min(uv.x,1.-uv.x),min(uv.y,1.-uv.y)));"
     "}else if(effect==2){float field=uv.x*.8+uv.y*.2+.025*sin(uv.y*8.+p*4.);"
-    "a=1.-smoothstep(p*1.25-.15,p*1.25+.08,field);}"
+    "a=1.-smoothstep(p*1.25-.15,p*1.25+.08,field);"
+    "}else if(effect==3){vec2 aspect=vec2(screenSize.x/screenSize.y,1.),d=(uv-.5)*aspect;"
+    "float radius=length(d)/length(aspect*.5),delta=radius-(p*1.2-.1);"
+    "float ring=exp(-delta*delta*110.),wave=sin(delta*48.)*ring*.022*sin(t*3.14159);"
+    "float border=smoothstep(0.,.08,min(min(uv.x,1.-uv.x),min(uv.y,1.-uv.y)));"
+    "vec2 bend=normalize(d+vec2(.0001))/aspect*wave*border;"
+    "q+=bend;r-=bend*.65;a=1.-smoothstep(-.07,.07,delta);"
+    "}else if(effect==4){vec2 d=(uv-.5)*vec2(screenSize.x/screenSize.y,1.);"
+    "float radius=length(d)/length(vec2(screenSize.x/screenSize.y,1.)*.5);"
+    "float angle=atan(d.y+.00001,d.x+.00001)+p*.55,blade=cos(mod(angle+0.523599,1.047198)-0.523599);"
+    "a=1.-smoothstep(p*1.2-.09,p*1.2-.045,radius*blade);"
+    "q=(uv-.5)*(1.-.06*p)+.5;r=(uv-.5)*(.92+.08*p)+.5;"
+    "shade=.15*sin(t*3.14159)*a*(1.-a);"
+    "}else if(effect==5){float edge=1.-p;"
+    "a=smoothstep(edge-.012,edge+.012,uv.x);q.x+=p*.18;r.x=clamp(uv.x-edge,0.,1.);"
+    "shade=.16*sin(t*3.14159)*exp(-abs(uv.x-edge)*24.)*(1.-a);}"
     "if(t<=0.)a=0.;if(t>=1.)a=1.;"
-    "vec4 b=picture(beforeImage,beforeSize,beforeFit,q),c=picture(afterImage,afterSize,afterFit,uv);"
-    "frag=vec4(mix(b.rgb,c.rgb,a),1.);}";
+    "vec4 b=picture(beforeImage,beforeSize,beforeFit,q),c=picture(afterImage,afterSize,afterFit,r);"
+    "frag=vec4(mix(b.rgb,c.rgb,a)*(1.-shade),1.);}";
 
 static GLuint shader(GLenum kind, const char *source) {
     GLuint s = glCreateShader(kind); glShaderSource(s, 1, &source, NULL); glCompileShader(s);
@@ -143,7 +158,8 @@ int main(int argc, char **argv) {
         if (!images[i]) return 5;
         const char *fit=argv[6+i*2]; fits[i]=!strcmp(fit,"contain")?1:!strcmp(fit,"fill")?2:!strcmp(fit,"tile")?3:0;
     }
-    style=!strcmp(argv[9],"bloom")?1:!strcmp(argv[9],"sweep")?2:0;
+    style=!strcmp(argv[9],"bloom")?1:!strcmp(argv[9],"sweep")?2:!strcmp(argv[9],"ripple")?3:
+          !strcmp(argv[9],"iris")?4:!strcmp(argv[9],"glide")?5:0;
     window=gtk_window_new(GTK_WINDOW_TOPLEVEL); gtk_widget_set_app_paintable(window,TRUE);
     gtk_layer_init_for_window(GTK_WINDOW(window)); gtk_layer_set_namespace(GTK_WINDOW(window),"xetal-wallpaper-transition");
     gtk_layer_set_layer(GTK_WINDOW(window),GTK_LAYER_SHELL_LAYER_BOTTOM); gtk_layer_set_monitor(GTK_WINDOW(window),selected);

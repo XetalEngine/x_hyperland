@@ -63,7 +63,7 @@ layerrule = no_anim on, match:namespace ^xetal-wallpaper-transition$
 ''')
     pictures=root/'pictures'; pictures.mkdir()
     for name,color in [('red','#c03040'),('blue','#2040d0'),('green','#30b070')]: Image.new('RGB',(1280,800),color).save(pictures/(name+'.png'))
-    (profile/'wallpaper/state').mkdir(); (profile/'wallpaper/state/browser.json').write_text(json.dumps({'version':1,'folders':[str(pictures)],'bundled':True,'transition':'bloom'}))
+    (profile/'wallpaper/state').mkdir(); (profile/'wallpaper/state/browser.json').write_text(json.dumps({'version':1,'folders':[str(pictures)],'bundled':True,'transition':'random'}))
     (profile/'wallpaper/selection.json').write_text('{}\n')
     paper_config=root/'hyprpaper.conf'; paper_config.write_text(f'ipc = true\nsplash = false\nwallpaper {{\n monitor =\n path = {pictures/"red.png"}\n fit_mode = cover\n}}\n')
     children=[]; logs=[]
@@ -111,7 +111,7 @@ layerrule = no_anim on, match:namespace ^xetal-wallpaper-transition$
         time.sleep(1); assert paper.poll() is None
         binary=run(sys.executable,str(profile/'wallpaper/build.py'))
         assert not ctl('configerrors').strip()
-        for style in ('bloom','fade','sweep'):
+        for style in ('bloom','fade','sweep','ripple','iris','glide'):
             ctl('hyprpaper','wallpaper',f'{name},{pictures/"red.png"},cover'); time.sleep(.2)
             child=helper(first,style)
             before=shot(style+'-before',name); point=(before.width//2,before.height//2)
@@ -124,7 +124,7 @@ layerrule = no_anim on, match:namespace ^xetal-wallpaper-transition$
             child.stdin.close();child.wait(timeout=2);time.sleep(.1)
             after=shot(style+'-after',name);assert after.getpixel(point)[2]>150,after.getpixel(point)
             assert middle.tobytes()!=before.tobytes() and middle.tobytes()!=after.tobytes()
-        print('GPU Bloom, Crossfade, Sweep: real intermediate frames and seamless hyprpaper handoff passed',flush=True)
+        print('All six GPU transitions: real intermediate frames and seamless hyprpaper handoff passed',flush=True)
         # EOF/crash cleanup removes only the temporary layer.
         child=helper(first); child.stdin.close();child.wait(timeout=2)
         assert 'xetal-wallpaper-transition' not in ctl('-j','layers')
@@ -137,6 +137,8 @@ layerrule = no_anim on, match:namespace ^xetal-wallpaper-transition$
             assert select.select([browser.stdout],[],[],10)[0], 'UI timeout'
             reply=json.loads(browser.stdout.readline());assert not isinstance(reply,dict) or 'error' not in reply,reply;return reply
         wait(lambda:command('status')['pictures']==15)
+        assert command('status')['selected']==str(pictures/'blue.png')
+        assert command('status')['monitor']==name
         time.sleep(.8)
         command('grab',path=str(root/'browser.png'))
         command('choose',path=str(pictures/'green.png'));wait(lambda:command('status')['completed'])
@@ -153,6 +155,18 @@ layerrule = no_anim on, match:namespace ^xetal-wallpaper-transition$
         command('select',name=second['name']);wait(lambda:command('status')['completed'])
         saved2=json.loads((profile/'wallpaper/selection.json').read_text());assert saved2[name]==saved[name];assert saved2[second['name']]['original']==str(pictures/'blue.png')
         print('Two-display arrangement, cancel, apply only clicked output: passed',flush=True)
+        # Each fresh opening follows the hosting output, including cached sources.
+        for monitor,expected in ((first,'green'),(second,'blue')):
+            command('quit');assert browser.wait(timeout=5)==0
+            monitor=next(m for m in json.loads(ctl('-j','monitors')) if m['name']==monitor['name'])
+            ctl('dispatch','movecursor',str(monitor['x']+100),str(monitor['y']+100))
+            browser=spawn([sys.executable,str(REPO/'tests/wallpaper-client.py'),str(profile)],env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=log,text=True)
+            wait(lambda:command('status')['pictures']==15)
+            assert command('status')['monitor']==monitor['name'],command('status')
+            assert command('status')['selected']==str(pictures/(expected+'.png')),command('status')
+            client=next(c for c in json.loads(ctl('-j','clients')) if c['class']=='xetal-wallpaper-browser')
+            assert client['monitor']==monitor['id'],client
+        print('Current wallpaper centered independently on both hosting displays: passed',flush=True)
         # Reject a stale target without replacing either saved choice.
         command('show');command('choose',path=str(pictures/'red.png'));wait(lambda:command('status')['dialog']=='ScreenPicker')
         ctl('output','remove',second['name']);command('select',name=second['name']);wait(lambda:not command('status')['busy'])

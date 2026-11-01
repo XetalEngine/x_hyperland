@@ -20,7 +20,8 @@ def read():
         data=json.loads(line); op=data['op']; answer='ok'
         if op=='status':
             answer={'busy':window.busy,'visible':window.isVisible(),'completed':window.completed,'pictures':len(window.pictures),
-                    'dialog':type(window.dialog).__name__ if window.dialog else '', 'status':window.status.text()}
+                    'dialog':type(window.dialog).__name__ if window.dialog else '', 'status':window.status.text(),
+                    'monitor':window.monitor_name,'selected':window.carousel.current().path if window.carousel.current() else ''}
         elif op=='choose':
             picture=next(p for p in window.pictures if p.path==data['path']); QTimer.singleShot(0,lambda:window.choose(picture))
         elif op=='select':

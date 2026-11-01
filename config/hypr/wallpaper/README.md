@@ -5,6 +5,11 @@ Left/Right to browse. Click any image or press Enter to select it. Search and
 collection filters help find a picture; **Slideshow** previews images without
 changing your desktop until you choose one.
 
+The center card starts with the current wallpaper of the display where the
+selector opens. Cached copies resolve back to their source image in your
+collection. If that image is outside your selected folders, it appears as
+**Current wallpaper** for that opening without changing your folder choices.
+
 Open **Theme → Wallpapers → Wallpaper Selector** to choose **Floating cards**
 (the default) or **Gallery window** (the original design). Floating cards shows the ribbon and
 compact controls directly over your desktop, with no enclosing window, blur or
@@ -23,9 +28,12 @@ screens, scaling and offsets. Hover a display to preview your choice. Cancel
 returns to browsing without changing any wallpaper. Selections are shared with
 Fusion Settings and saved per monitor and theme.
 
-Choose **Bloom**, **Crossfade**, **Silk sweep** or **Instant**. Animations run
+Choose **Bloom**, **Crossfade**, **Silk sweep**, **Ripple**, **Iris**, **Glide** or
+**Instant**. **Random** chooses one of the six animated effects each time you
+apply a wallpaper. Ripple adds a liquid wave, Iris opens a rotating aperture,
+and Glide slides the new image over the outgoing wallpaper. Animations run
 behind applications on the selected display. Disabling compositor animations
-also disables wallpaper transitions and carousel motion.
+also disables wallpaper transitions, including Random, and carousel motion.
 
 ## Implementation and checks
 

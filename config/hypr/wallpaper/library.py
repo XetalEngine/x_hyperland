@@ -9,7 +9,9 @@ import tempfile
 ROOT = Path(__file__).resolve().parent
 PREFERENCES = ROOT/'state/browser.json'
 EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.bmp', '.avif'}
-TRANSITIONS = {'bloom': 'Bloom', 'fade': 'Crossfade', 'sweep': 'Silk sweep', 'none': 'Instant'}
+TRANSITIONS = {'random': 'Random', 'bloom': 'Bloom', 'fade': 'Crossfade', 'sweep': 'Silk sweep',
+               'ripple': 'Ripple', 'iris': 'Iris', 'glide': 'Glide', 'none': 'Instant'}
+ANIMATED_TRANSITIONS = tuple(key for key in TRANSITIONS if key not in ('random', 'none'))
 STYLES = {'overlay': 'Floating cards', 'window': 'Gallery window'}
 DESCRIPTIONS = {
     'window': 'The original gallery with a soft backdrop, reflections and a flowing wallpaper ribbon.',
@@ -22,10 +24,30 @@ DEFAULTS = {'version': 1, 'folders': [], 'bundled': True, 'transition': 'bloom',
 class Picture:
     path: str
     collection: str
+    caption: str = ''
 
     @property
     def title(self):
-        return Path(self.path).stem.replace('_', ' ').replace('-', ' ').strip().title()
+        return self.caption or Path(self.path).stem.replace('_', ' ').replace('-', ' ').strip().title()
+
+
+def include_current(pictures, current):
+    """Find the source of a cached wallpaper, or include it for this opening only."""
+    candidates = []
+    for key in ('original', 'path'):
+        value = current.get(key)
+        if not isinstance(value, str) or not value: continue
+        try:
+            path = Path(value).resolve(strict=True)
+            if path.is_file(): candidates.append(str(path))
+        except (OSError, RuntimeError): pass
+    available = {picture.path for picture in pictures}
+    for path in candidates:
+        if path in available: return pictures, path
+    if candidates:
+        path = candidates[0]
+        return [Picture(path, 'Current wallpaper', 'Current wallpaper'), *pictures], path
+    return pictures, ''
 
 
 def normalize(value):

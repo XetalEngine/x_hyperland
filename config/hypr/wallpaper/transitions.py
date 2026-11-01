@@ -1,10 +1,11 @@
 """Temporary background layer; hyprpaper remains the persistent renderer."""
 import os
 from pathlib import Path
+import random
 import select
 import subprocess
 import time
-from wallpaper import build
+from wallpaper import build, library
 
 
 class Transition:
@@ -37,6 +38,7 @@ class Transition:
 
 def prepare(monitor, before, after, style):
     if style == 'none': return None
+    if style == 'random': style = random.choice(library.ANIMATED_TRANSITIONS)
     transition = None
     try:
         binary = build.build()

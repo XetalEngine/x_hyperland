@@ -67,6 +67,37 @@ class LibraryTests(unittest.TestCase):
         for x,y,w,h in boxes.values(): self.assertGreaterEqual(x,0); self.assertGreaterEqual(y,0); self.assertLessEqual(x+w,1000); self.assertLessEqual(y+h,600)
         monitors[1]['mirror']='DP-1'; self.assertEqual(len(library.screen_rectangles(monitors,1000,600)),1)
 
+    def test_current_wallpaper_matches_its_source_without_duplicating_cached_copy(self):
+        with tempfile.TemporaryDirectory() as name:
+            root=Path(name); source=root/'landscape.png'; source.touch(); cached=root/'cached.png'; cached.touch()
+            alias=root/'alias.png'; alias.symlink_to(source)
+            pictures=[library.Picture(str(source),'Favorites')]
+            result,selected=library.include_current(pictures,{'path':str(cached),'original':str(alias)})
+            self.assertEqual(result,pictures); self.assertEqual(selected,str(source))
+
+    def test_current_wallpaper_remains_available_when_its_folder_or_source_is_gone(self):
+        with tempfile.TemporaryDirectory() as name:
+            root=Path(name); cached=root/'cached.png'; cached.touch()
+            pictures=[library.Picture('/another/wallpaper.png','Favorites')]
+            result,selected=library.include_current(pictures,{'original':str(root/'missing.png'),'path':str(cached)})
+            self.assertEqual(selected,str(cached)); self.assertEqual(result[0].title,'Current wallpaper')
+            self.assertEqual(result[1:],pictures); self.assertEqual(len(pictures),1)
+            cached.unlink()
+            self.assertEqual(library.include_current(pictures,{'path':str(cached)}),(pictures,''))
+
+    def test_random_is_saved_as_a_choice_and_resolved_afresh_for_each_animation(self):
+        with tempfile.TemporaryDirectory() as name:
+            path=Path(name)/'browser.json'; before=library.read(path)
+            library.save({**before,'transition':'random'},before,path,fields=('transition',))
+            for effect in library.ANIMATED_TRANSITIONS:
+                with patch.object(transitions.random,'choice',return_value=effect) as choose, \
+                     patch.object(transitions.build,'build',return_value=Path('/test/transition')), \
+                     patch.object(transitions.subprocess,'Popen') as spawn, patch.object(transitions,'Transition'):
+                    transitions.prepare(sample_monitors()[0],{}, {'path':'/test/image.png','fit':'cover'},library.read(path)['transition'])
+                    self.assertEqual(spawn.call_args.args[0][-1],effect)
+                    self.assertNotIn('none',choose.call_args.args[0]); self.assertNotIn('random',choose.call_args.args[0])
+            self.assertEqual(library.read(path)['transition'],'random')
+
     def test_transition_cover_is_removed_on_commit_failure(self):
         overlay=Mock()
         with self.assertRaisesRegex(ValueError,'disconnected'):
@@ -123,6 +154,24 @@ class BrowserTests(unittest.TestCase):
         carousel=self.window.carousel; carousel.reduced_motion=True; carousel.step(-1)
         self.assertEqual(carousel.current(),self.window.pictures[-1]); self.assertEqual(carousel.position,-1.)
         carousel.step(1); self.assertEqual(carousel.current(),self.window.pictures[0])
+
+    def test_open_centers_current_wallpaper_but_browsing_and_rescans_keep_user_selection(self):
+        pictures=self.window.pictures; selected=pictures[2]
+        self.window.scanned(self.window.cancel_scan,(pictures,[],selected.path))
+        self.assertEqual(self.window.carousel.current(),selected)
+        self.assertEqual(self.window.carousel.position,2.)
+        self.window.carousel.go(1)
+        self.window.filter()
+        self.assertEqual(self.window.carousel.current(),pictures[1])
+        self.window.scanned(self.window.cancel_scan,(pictures,[],selected.path))
+        self.assertEqual(self.window.carousel.current(),pictures[1])
+
+    def test_reduced_motion_bypasses_even_random_animation(self):
+        self.window.preview=False; self.window.reduced_motion=True; self.window.options['transition']='random'
+        with patch.object(self.window.jobs,'run') as jobs, patch.object(transitions,'prepare') as prepare:
+            self.window.begin_apply(self.window.pictures[0],sample_monitors()[0],{})
+            jobs.call_args.args[0]()
+            self.assertEqual(prepare.call_args.args[-1],'none')
 
     def test_monitor_picker_returns_only_clicked_screen(self):
         dialog=ScreenPicker(sample_monitors(),{},self.window.pictures[0],self.window.thumbnails,self.window)

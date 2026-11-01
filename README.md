@@ -140,7 +140,7 @@ Workspaces, running apps, draggable pins and your chosen status modules stay clo
 
 **Theme → Wallpapers → Wallpaper Selector** defaults to **Floating cards**, which places the carousel and compact controls directly over your desktop. The original **Gallery window** is also available. Your chosen style is used by Super+W, and both styles share your collection.
 
-Click an image to choose its display from a preview of your real monitor arrangement. A single display applies immediately. **Bloom**, **Crossfade** and **Silk sweep** transitions run behind your apps, with an Instant option and support for reduced motion. Choices are saved per monitor and theme, and also appear in Fusion Settings. [Wallpaper guide →](config/hypr/wallpaper/README.md)
+The center card opens on the current wallpaper for the display hosting the selector, even if its image is outside your selected folders. Click an image to choose its display from a preview of your real monitor arrangement. A single display applies immediately. **Bloom**, **Crossfade**, **Silk sweep**, **Ripple**, **Iris** and **Glide** transitions run behind your apps. **Random** picks an animated effect each time; **Instant** and reduced-motion settings skip the animation. Choices are saved per monitor and theme, and also appear in Fusion Settings. [Wallpaper guide →](config/hypr/wallpaper/README.md)
 
 ### Screen recording
 

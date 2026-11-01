@@ -136,6 +136,7 @@ class ScreenPicker(QDialog):
 class Browser(QWidget):
     def __init__(self, preview=False, style=None):
         super().__init__(); self.preview = preview; self.pictures = []; self.busy = False; self.cancel_scan = threading.Event(); self.scanning = False
+        self.monitor_name = ''; self.center_current = True
         self.background = None; self.previous_background = None; self.background_mix = 1.; self.dialog = None; self.reduced_motion = False; self.compact = None; self.narrow = False
         error = ''; self.error_options = False
         try: self.options = library.read()
@@ -236,21 +237,31 @@ class Browser(QWidget):
 
     def scan(self):
         self.cancel_scan.set(); token=threading.Event(); self.cancel_scan=token; self.scanning=True; self.count.setText('Finding wallpapers…')
-        self.jobs.run(lambda:library.scan(self.options,cancelled=token.is_set),lambda result:self.scanned(token,result),self.failure)
+        options=copy.deepcopy(self.options); monitor=self.monitor_name
+        def collect():
+            pictures,notices=library.scan(options,cancelled=token.is_set); selected=''
+            if monitor and not self.preview and not token.is_set():
+                try:
+                    current=backend.read_wallpapers()
+                    pictures,selected=library.include_current(pictures,current.get(monitor,current.get('',{})))
+                except (OSError,ValueError): pass
+            return pictures,notices,selected
+        self.jobs.run(collect,lambda result:self.scanned(token,result),self.failure)
 
     def scanned(self, token, result):
         if token is not self.cancel_scan or token.is_set(): return
-        self.scanning=False; self.pictures,notices=result
+        self.scanning=False; self.pictures,notices,selected=result
         previous=self.collection.currentData(); self.collection.blockSignals(True); self.collection.clear(); self.collection.addItem('All collections','')
         for name in dict.fromkeys(p.collection for p in self.pictures): self.collection.addItem(name,name)
-        self.collection.setCurrentIndex(max(0,self.collection.findData(previous))); self.collection.blockSignals(False); self.filter()
+        self.collection.setCurrentIndex(max(0,self.collection.findData(previous))); self.collection.blockSignals(False)
+        self.filter(initial=selected if self.center_current else ''); self.center_current=False
         if notices: self.status.setText(notices[0]); self.status.setToolTip('\n'.join(notices))
 
-    def filter(self, *_):
+    def filter(self, *_, initial=''):
         if self.busy: return
         self.pause(); search=self.search.text().strip().casefold(); collection=self.collection.currentData()
         pictures=[p for p in self.pictures if (not collection or p.collection==collection) and (not search or search in (p.title+' '+p.collection+' '+Path(p.path).name).casefold())]
-        current=self.carousel.current(); self.carousel.populate(pictures,current.path if current else '')
+        current=self.carousel.current(); self.carousel.populate(pictures,initial or (current.path if current else ''))
         self.count.setText(f'{len(pictures)} wallpapers  /  {len(set(p.collection for p in pictures))} collections')
         self.apply.setEnabled(bool(pictures)); self.play.setEnabled(len(pictures)>1)
         self.previous.setEnabled(len(pictures)>1); self.next.setEnabled(len(pictures)>1)
@@ -375,6 +386,7 @@ def place(window):
     reply=settings.ctl('--batch',';'.join(f'keyword windowrule[{rule}]:{key} {value}' for key,value in values.items()))
     if any(line.strip()!='ok' for line in reply.splitlines() if line.strip()): raise ValueError('Could not position the wallpaper browser: '+reply)
     window.fit_layout(width,height); window.resize(width,height)
+    window.monitor_name=monitor['name']
     try: window.reduced_motion=json.loads(settings.ctl('-j','getoption','animations:enabled')).get('int')==0
     except (OSError,ValueError): pass
     window.carousel.reduced_motion=window.reduced_motion
