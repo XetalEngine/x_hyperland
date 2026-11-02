@@ -32,7 +32,7 @@ LOGS = ('hyprland.log', 'cached-apps.log', 'cached-settings.log', 'cached-panel.
         'swaync.log', 'polkit-agent.log', 'sign-in-artwork.log',
         'startup-scene.log', 'startup-projects.log', 'startup-clock.log',
         'startup-matrix.log', 'startup-info.log', 'floating-geometry.log',
-        'screenshot-notify.log')
+        'screenshot-notify.log', 'xwayland-session.log')
 
 
 def enabled(root=ROOT):

@@ -12,7 +12,7 @@ import runtime_install
 import command_paths
 
 PACKAGES = {
-    'arch': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole kio kio-extras kio-admin ark udisks2 swaync grim slurp wf-recorder wl-clipboard
+    'arch': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole kio kio-extras kio-admin ark udisks2 swaync grim slurp wf-recorder wl-clipboard xorg-xwayland
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
         python python-psutil python-pyqt6 python-gobject python-pillow gcc cmake libxcb pkgconf gtk3 gtk-layer-shell libepoxy json-glib json-c
         qt5-base qt5-wayland qt6-base qt6-wayland qt6-svg qt6-tools wayland wayland-protocols
@@ -22,7 +22,7 @@ PACKAGES = {
         base-devel autoconf automake libtool make perl gettext gawk expect socat
         libtasn1 gmp libseccomp fuse3 libei tpm2-tools dmidecode pciutils usbutils
         mtools dosfstools util-linux kmod'''.split(),
-    'fedora': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole konsole-part kf6-kio-devel kio-extras kio-admin ark udisks2 SwayNotificationCenter grim slurp wf-recorder wl-clipboard
+    'fedora': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole konsole-part kf6-kio-devel kio-extras kio-admin ark udisks2 SwayNotificationCenter grim slurp wf-recorder wl-clipboard xorg-x11-server-Xwayland
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
         python3 python3-psutil python3-pyqt6 python3-gobject python3-pillow gcc gcc-c++ cmake libxcb-devel pkgconf-pkg-config procps-ng glslang-devel
         gtk3-devel gtk-layer-shell-devel libepoxy-devel json-glib-devel json-c-devel qt5-qtbase-devel qt5-qtbase-private-devel
@@ -46,7 +46,7 @@ PACKAGES = {
         libtasn1-6-dev libgmp-dev libglib2.0-dev libgnutls28-dev libseccomp-dev libfuse3-dev libei-dev libeis-dev
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod'''.split(),
 }
-COMMANDS = '''git Hyprland hyprctl hyprpaper hyprlock waybar kitty dolphin konsole ark udisksctl lsblk swaync swaync-client grim slurp wf-recorder
+COMMANDS = '''git Hyprland hyprctl Xwayland hyprpaper hyprlock waybar kitty dolphin konsole ark udisksctl lsblk swaync swaync-client grim slurp wf-recorder
     wl-copy wl-paste xdg-open xdg-user-dir nmcli nm-applet nm-connection-editor bluetoothctl blueman-manager
     pactl wpctl playerctl brightnessctl fastfetch htop notify-send gdbus pgrep flock
     xcursorgen hyprcursor-util cc c++ cmake pkg-config wayland-scanner fc-match yt-dlp ffmpeg ffprobe sudo xhost openssl remote-viewer virt-fw-vars certtool

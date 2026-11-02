@@ -5,6 +5,7 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 | Area | Required components |
 | --- | --- |
 | Desktop | Exact Hyprland 0.56.2 and commit from the runtime manifest; Hyprpaper 0.8+, Hyprlock, Waybar 0.15+, Kitty 0.49+ (0.47.1+ on Fedora 44, 0.48.2+ on Debian 13), Dolphin, Konsole's Qt 6 embedded terminal, SwayNotificationCenter |
+| X11 application compatibility | XWayland, explicitly installed and checked as `Xwayland`: `xorg-xwayland` on Arch, `xorg-x11-server-Xwayland` on Fedora, `xwayland` on Debian. Qt 5/6 Wayland support remains installed for native applications. |
 | Python | Python 3.11+, PyQt6 Widgets/Network/DBus/SVG, PyGObject with Gio/GTK 3/GtkLayerShell, Pillow |
 | Native builds | C/C++23 compiler, matching Hyprland headers, GLESv2, json-c, libei, CMake, pkg-config, GTK 3, gio-unix, gtk-layer-shell, json-glib, Wayland client/scanner; Qt 5 and 6 Widgets/Concurrent, Qt Network/DBus/Linguist, development tools and private QtGui/QtCore headers; XCB and XCB-RES |
 | Capture | grim, slurp, wl-clipboard, wf-recorder, FFmpeg/ffprobe, xdg-desktop-portal-hyprland, GTK desktop portal |
@@ -30,6 +31,16 @@ The C++ [Control Panel](CONTROL-PANEL.md) builds from the included CachyOsTools 
 The Control Panel build uses every CPU available to the installer, including logical threads, and prints the parallel job count. The installer also prints its source revision and checks the complete configuration before compilation, then validates the built profile again before activation.
 
 The private GTK 3 preview module is built by the same theme builder. Qt previews use Qt Concurrent for background loading; both dependencies are supplied by the existing GTK/Qt development package recipes. See [file picker coverage](FILE-PREVIEWS.md).
+
+### XWayland and VLC startup
+
+VLC 3.0.24's [Qt interface checks X11 before opening and selects the xcb backend](https://github.com/videolan/vlc/blob/3.0.24/modules/gui/qt/qt.cpp). A working native Wayland desktop does not prove that this X11 compatibility connection works. Do not force `QT_QPA_PLATFORM=xcb` globally to fix one application.
+
+The [session helper](../config/hypr/scripts/xwayland-session.py) watches this compositor's X11 socket. With abstract sockets disabled, [Hyprland 0.56.2 creates both `X<N>` and `X<N>_`](https://github.com/hyprwm/Hyprland/blob/v0.56.2/src/xwayland/Server.cpp). If the standard pathname disappears but the backup listener is alive, the helper restores access with a relative symlink. It checks the display lock, ownership, file types, socket identity and peer credentials against the live compositor IPC connection. It never replaces existing files or sockets, restarts XWayland, changes access-control rules, or changes another desktop's environment. It exits when the compositor disconnects; no persistent user service is installed.
+
+Run `python3 ~/.config/hypr/scripts/xwayland-session.py --check` for a read-only diagnosis. The helper's transition log is `xwayland-session.log` in the current Hyprland runtime directory, subject to the existing session logging preference. If both listeners are lost, this helper reports the problem; it cannot recreate the server's listening descriptors without restarting the session. Save work before logging out in that situation.
+
+Tests must use offscreen Qt, disposable sockets outside `/tmp/.X11-unix`, or a nested compositor with XWayland disabled. Never unlink or rename the active display's sockets or locks to make room for a test display. Socket recovery tests exercise missing paths, conflicting entries, stale listeners, mismatched ownership/identity and session shutdown entirely in a temporary directory.
 
 The **Compiz Burn** close effect supports Hyprland **0.56.2** at the tested commit documented in [its guide](../config/hypr/effects/burn/README.md), x86-64 and the OpenGL renderer. It needs a C++23 compiler, matching Hyprland development headers exposed through `pkg-config hyprland`, and GLESv2 development files. Its build and runtime ABI checks reject mismatched versions. Setup requires a successful build; the effect itself remains configurable in **Theme → Window effects → Burn**.
 

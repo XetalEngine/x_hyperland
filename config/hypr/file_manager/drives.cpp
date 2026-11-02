@@ -347,20 +347,38 @@ void DriveDelegate::paint(QPainter *p, const QStyleOptionViewItem &o,
               QFontMetrics(o.font).elidedText(description, Qt::ElideMiddle,
                                               content.width()));
   if (volume.mounted() && volume.total) {
-    QRect bar(content.x(), content.y() + 51, content.width(), 5);
+    const QRectF bar(content.x(), content.y() + 51, content.width(), 6);
     p->setPen(Qt::NoPen);
     QColor track = text;
     track.setAlpha(35);
     p->setBrush(track);
-    p->drawRoundedRect(bar, 2, 2);
+    p->drawRoundedRect(bar, 3, 3);
     const qreal used =
         1.0 - qMin<qreal>(1, qreal(volume.available) / volume.total);
-    p->setBrush(used > .9  ? QColor("#e66b68")
-                : selected ? text
-                           : o.palette.color(QPalette::Highlight));
-    QRect fill = bar;
-    fill.setWidth(qMax(2, int(bar.width() * used)));
-    p->drawRoundedRect(fill, 2, 2);
+    QColor accent = qApp->property("fusionAccent").value<QColor>();
+    if (!accent.isValid())
+      accent = o.palette.color(QPalette::Accent);
+    if (used > .9)
+      accent = QColor("#ff6868");
+    if (used > 0) {
+      QRectF fill = bar;
+      fill.setWidth(qMax<qreal>(2, bar.width() * used));
+      // Keep the luminous accent even when the card is selected. Highlight
+      // is the deliberately subdued selection surface in our desktop themes.
+      for (int spread = 3; spread > 0; --spread) {
+        QColor halo = accent;
+        halo.setAlpha(10 + (3 - spread) * 9);
+        p->setBrush(halo);
+        p->drawRoundedRect(fill.adjusted(-spread, -spread, spread, spread),
+                           3 + spread, 3 + spread);
+      }
+      QLinearGradient light(fill.topLeft(), fill.bottomLeft());
+      light.setColorAt(0, accent.lighter(135));
+      light.setColorAt(.45, accent);
+      light.setColorAt(1, accent.darker(110));
+      p->setBrush(light);
+      p->drawRoundedRect(fill, 3, 3);
+    }
     p->setPen(muted);
     p->drawText(content.adjusted(0, 61, 0, 4), Qt::AlignLeft | Qt::AlignTop,
                 QLocale().formattedDataSize(volume.available) + " free of " +
