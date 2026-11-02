@@ -1,0 +1,43 @@
+# Text-safe floating header dragging
+
+`scripts/floating-drag.py` provides the small invisible grip near the top of a
+floating window. `scripts/drag_cursor.py` now permits that gesture only with an
+ordinary pointer. Text-selection, resize, link and unknown cursors stay with the
+application. A press that starts over text remains excluded until mouse release,
+even after leaving the field. An already started header drag continues normally.
+Super-drag uses the existing compositor binding and is unaffected.
+
+Hyprland's standard IPC does not expose the current cursor shape. This small
+read-only native adapter adds `hyprctl xetal-cursor`: the current shape, a snapshot
+at left-button press, the button state and a gesture serial. It reads the
+compositor's cursor metadata and cursor-only CPU image cache. It never captures
+window pixels or text, modifies cursor images, cancels input or patches functions.
+
+Named Wayland shapes distinguish an arrow from `text` and `vertical-text`.
+Clients using cursor images, including legacy Wayland and XWayland clients, are
+allowed only when their bitmap exactly matches installed Xcursor arrow artwork.
+The Python helper reads bounded cursor files from the private Fusion cursor
+directory and standard icon paths, including animated frames and sizes. The
+catalog refreshes when files change. Unknown, unavailable or custom unmatched
+cursors deliberately keep the gesture with the application; Super-drag remains
+available. No OCR, hotspot guessing or application-title exceptions are used.
+
+The installer and updater compile this adapter with the existing pinned-runtime
+development dependencies. The helper loads it once for its compositor session;
+it rejects mismatched ABI versions. Each build has a unique hashed path and no
+mapped library is overwritten. Missing probe information disables only the
+automatic title grip. The helper exits with the Hyprland session and uses no
+persistent service. Source updates to a loaded probe take effect at next login.
+
+Checks:
+
+```
+python3 -m unittest discover -s config/hypr/scripts -p 'test_*drag*.py' -v
+python3 tests/check-floating-text-drag.py /tmp/fusion-text-drag-check
+```
+
+The second command uses a new output directory, a private nested compositor with
+XWayland disabled, a private D-Bus session and a frameless text-field fixture. It
+tests real selection, leaving the field while holding the mouse, empty-header
+dragging and Super-drag with both named and bitmap cursors. Test input goes only
+to that nested compositor.

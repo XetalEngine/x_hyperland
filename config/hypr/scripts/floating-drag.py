@@ -8,10 +8,13 @@ import runpy
 import select
 import signal
 import socket
+import subprocess
 import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT/'scripts'))
+from drag_cursor import CursorGuard, ensure_probe
 sys.path.insert(0, str(ROOT/'launcher'))
 from floating import Hypr
 
@@ -33,9 +36,11 @@ def in_grip(window, cursor):
 
 
 class Drag:
-    def __init__(self, hypr):
+    def __init__(self, hypr, guard=None):
         self.hypr, self.candidate, self.dragging = hypr, None, False
         self.last_position = None
+        self.guard = guard if guard is not None else CursorGuard(hypr)
+        self.press_serial = None
 
     def hovered(self):
         cursor = self.hypr.query('cursorpos')
@@ -46,7 +51,9 @@ class Drag:
         self.release()
         cursor, target = self.hovered()
         if in_grip(target, cursor):
-            self.candidate = (target, cursor, now)
+            self.press_serial = self.guard.allowed()
+            if self.press_serial is not None:
+                self.candidate = (target, cursor, now)
 
     def tick(self, now):
         if self.candidate is None: return
@@ -56,6 +63,10 @@ class Drag:
         cursor = self.hypr.query('cursorpos')
         if self.dragging:
             self.move(cursor); return
+        # Latch rejection until release, even if the pointer leaves the text
+        # field. Recheck before the threshold for delayed client cursor updates.
+        if self.guard.allowed(self.press_serial) is None:
+            self.release(); return
         if math.hypot(cursor['x']-origin['x'], cursor['y']-origin['y']) < 8: return
         cursor, current = self.hovered()
         if (current is None or current.get('address') != target.get('address')
@@ -82,6 +93,7 @@ class Drag:
         target = self.candidate[0] if self.candidate else None
         self.candidate = None
         self.last_position = None
+        self.press_serial = None
         if self.dragging:
             self.dragging = False
             try: self.hypr.dispatch('tagwindow', '-xetal-title-drag,address:' + target['address'])
@@ -96,7 +108,16 @@ def main():
         try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError: return 0
         events.connect(str(instance/'.socket2.sock'))
-        drag = Drag(Hypr(instance))
+        hypr = Hypr(instance)
+        # A first-login compile belongs to this helper. Interrupting it must
+        # also stop its compiler group; the builder cleans up on SystemExit.
+        def cancel_start(*_): raise SystemExit(0)
+        for number in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP): signal.signal(number, cancel_start)
+        try: ensure_probe(hypr)
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+            print('Floating drag: '+str(error), file=sys.stderr, flush=True)
+        drag = Drag(hypr)
+        drag.guard.refresh()
         stopping = False
         def stop(*_):
             nonlocal stopping

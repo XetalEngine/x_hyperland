@@ -272,6 +272,7 @@ rg -n 'file-manager|files.sh|SUPER.*E' config/hypr/scripts config/hypr/keybindin
       </div>
       <h3>Restarting a running UI</h3>
       <p>Apps, Settings and Control Panel may be preloaded and hidden. Rebuilding a binary or changing Python source does not replace code already loaded in that process. Identify the owning instance and ensure it is idle before restarting it. File copies, disk scans, package transactions and VM operations must be allowed to finish or use their normal cancellation path.</p>
+      <p><strong>Floating header dragging:</strong> <code>scripts/floating-drag.py</code> owns the invisible top grip. Its <code>drag_cursor.py</code> guard leaves text selection with the application, including when a held gesture leaves the field. The read-only <a href="config/hypr/runtime/cursor_probe/README.md">runtime/cursor_probe adapter</a> supplies named cursor shapes and fingerprints of legacy cursor images through <code>hyprctl xetal-cursor</code>. Only recognized ordinary pointers permit the grip; unavailable or unknown cursors defer to the app. Super-drag keeps working. Build this adapter for the pinned runtime, and run <code>tests/check-floating-text-drag.py</code> for real selection/header-drag coverage in an isolated compositor.</p>
       <p>For compositor effects, use the supported session lifecycle instead of swapping native plugins mid-session. After local deployment, launch through the real wrapper and verify the actual running UI, not just an offscreen test window.</p>
     </section>
 

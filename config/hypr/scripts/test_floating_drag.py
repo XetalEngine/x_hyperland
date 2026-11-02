@@ -13,7 +13,9 @@ class FloatingDragTests(unittest.TestCase):
                            floating=True, fullscreen=0, at=[-1000, 200], size=[800, 600])
         self.point = dict(x=-700, y=220)
         self.hypr = Mock()
-        self.drag = Drag(self.hypr)
+        self.guard = Mock()
+        self.guard.allowed.return_value = 1
+        self.drag = Drag(self.hypr, self.guard)
         self.drag.hovered = Mock(return_value=(self.point, self.window))
         self.hypr.query.return_value = self.point
 
@@ -61,6 +63,35 @@ class FloatingDragTests(unittest.TestCase):
         self.drag.release()
         self.assertIsNone(self.drag.candidate)
         self.assertFalse(self.drag.dragging)
+
+    def test_text_press_never_becomes_a_window_drag_after_leaving_field(self):
+        self.guard.allowed.return_value = None
+        self.drag.press(0)
+        self.guard.allowed.return_value = 1
+        self.hypr.query.return_value = dict(x=-550,y=220)
+        self.drag.tick(.1)
+        self.assertIsNone(self.drag.candidate)
+        self.hypr.dispatch.assert_not_called()
+
+    def test_delayed_text_cursor_cancels_before_movement_threshold(self):
+        self.drag.press(0)
+        self.guard.allowed.return_value = None
+        self.drag.tick(.01)
+        self.guard.allowed.return_value = 1
+        self.hypr.query.return_value = dict(x=-550,y=220)
+        self.drag.tick(.1)
+        self.hypr.dispatch.assert_not_called()
+
+    def test_started_header_drag_continues_over_text(self):
+        self.drag.press(0)
+        self.hypr.query.return_value = dict(x=-680,y=222)
+        self.drag.hovered.return_value = (dict(x=-680,y=222), self.window)
+        self.drag.tick(.1)
+        self.guard.allowed.return_value = None
+        self.hypr.query.return_value = dict(x=-660,y=222)
+        self.drag.tick(.2)
+        self.assertTrue(self.drag.dragging)
+        self.hypr.dispatch.assert_called_with('movewindowpixel','exact -960 202,address:0x123')
 
 
 if __name__ == '__main__': unittest.main()

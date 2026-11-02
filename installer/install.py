@@ -191,6 +191,7 @@ def run_build(args, label):
 
 def build(stage, checkpoint=lambda:None):
     for args in ([sys.executable,str(stage/'runtime/notices/build.py')],
+                 [sys.executable,str(stage/'runtime/cursor_probe/build.py')],
                  [sys.executable,str(stage/'cursors/build.py')],
                  [sys.executable,str(stage/'theme/build.py')],
                  [sys.executable,str(stage/'wallpaper/build.py')],
