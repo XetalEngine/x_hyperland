@@ -83,12 +83,12 @@ with (root/'calls.jsonl').open('a') as log:
                     time.sleep(.025)
                 raise RuntimeError('Folder request did not reach the selected handler.')
             invoke('ShowItems', [uri, 'relative-path-is-not-a-uri'], 'request-token')
-            assert calls(1)==[dict(choice='Fusion Files',arguments=['--select',uri],
+            assert calls(1)==[dict(choice='Fusion Files',arguments=['--external','--select',uri],
                                    token='request-token',startup='request-token')]
             (root/'choice').write_text('Another file manager')
             invoke('ShowFolders', [root.as_uri(), 'smb://server/share/folder%20name'])
             assert calls(2)[-1]==dict(choice='Another file manager',
-                arguments=[root.as_uri(),'smb://server/share/folder%20name'], token='', startup='')
+                arguments=['--external',root.as_uri(),'smb://server/share/folder%20name'], token='', startup='')
             duplicate, duplicate_connection = start()
             assert duplicate.wait(timeout=5)==0
             assert owner_pid()==process.pid
@@ -106,7 +106,7 @@ with (root/'calls.jsonl').open('a') as log:
             dbus('ReleaseName', '(s)', (name,), '(u)')
             wait_for(lambda: owner_pid()==process.pid, 'The queued service did not acquire the name.')
             invoke('ShowItems', [uri])
-            assert calls(3)[-1]['arguments']==['--select',uri]
+            assert calls(3)[-1]['arguments']==['--external','--select',uri]
             logout(process, connection)
             wait_for(lambda: not owns_name(), 'The queued service survived logout.')
 

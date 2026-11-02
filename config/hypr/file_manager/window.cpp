@@ -79,15 +79,25 @@ bool isTextEditing() {
 } // namespace
 FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
                          const QString &settingsPath, const QString &geometryKey)
-    : preferences(settingsPath), geometryKey(geometryKey) {
+    : preferences(settingsPath), geometryKey(geometryKey.isEmpty()
+          ? (qApp->desktopFileName() == "xetal-files-external" ? "external/geometry" : "geometry")
+          : geometryKey) {
   setObjectName("fusionFiles");
   setAttribute(Qt::WA_DeleteOnClose);
   setWindowTitle("Fusion Files");
   setWindowIcon(Fusion::icon("fusion-computer"));
   resize(1180, 760);
   setMinimumSize(760, 450);
-  if (preferences.settings.contains(geometryKey))
-    restoreGeometry(preferences.settings.value(geometryKey).toByteArray());
+  // Ordinary launches follow tiling or the launcher's explicit Ctrl-click
+  // rules. Restoring a Qt geometry blob here can request maximization before
+  // those rules run. External folder requests remember only their own size;
+  // placement and mode come from the compositor's first-map rule.
+  if (this->geometryKey == "external/geometry") {
+    const auto size = preferences.settings.value("external/size").toSize();
+    if (size.isValid() && size.width() <= 32768 && size.height() <= 32768)
+      resize(size.expandedTo(minimumSize()));
+  } else if (this->geometryKey != "geometry" && preferences.settings.contains(this->geometryKey))
+    restoreGeometry(preferences.settings.value(this->geometryKey).toByteArray());
   drives = new Drives(this, scanDrives);
   connect(drives, &Drives::populateFileMenu, this,
           &FilesWindow::addVolumeActions);
@@ -1451,7 +1461,10 @@ void FilesWindow::message(const QString &text) {
 void FilesWindow::closeEvent(QCloseEvent *event) {
   if (browser())
     browser()->saveView();
-  preferences.settings.setValue(geometryKey, saveGeometry());
+  if (geometryKey == "external/geometry")
+    preferences.settings.setValue("external/size", size());
+  else if (geometryKey != "geometry")
+    preferences.settings.setValue(geometryKey, saveGeometry());
   preferences.settings.setValue("splitter", splitter->saveState());
   preferences.settings.sync();
   QMainWindow::closeEvent(event);

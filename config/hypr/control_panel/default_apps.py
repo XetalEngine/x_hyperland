@@ -344,12 +344,17 @@ def prepare_session_environment():
 
 def open_folder(arguments):
     """Use the chosen folder handler; the Fusion desktop entry stays direct."""
-    select = bool(arguments and arguments[0] == '--select')
-    if select:
-        arguments = arguments[1:]
+    arguments = list(arguments)
+    select = external = False
+    while arguments and arguments[0] in ('--select', '--external'):
+        option = arguments.pop(0)
+        select |= option == '--select'
+        external |= option == '--external'
+    external |= select
     app = Gio.AppInfo.get_default_for_type('inode/directory', False)
     if not app or app.get_id() == 'xetal-files.desktop':
-        command = [str(ROOT/'scripts/files.sh'), *(['--select'] if select else []), *arguments]
+        command = [str(ROOT/'scripts/files.sh'), *(['--external'] if external else []),
+                   *(['--select'] if select else []), *arguments]
         os.execv(command[0], command)
     if select and app.get_id() in ('org.kde.dolphin.desktop', 'xetal-dolphin.desktop'):
         # An explicit alternative should retain Show in folder's selection.

@@ -190,7 +190,7 @@ class DefaultAppsTests(unittest.TestCase):
                                  'open-folder', '--select', literal],
                                 env=self.env, text=True, capture_output=True, timeout=15)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(result.stdout), {'arguments':['--select', literal]})
+        self.assertEqual(json.loads(result.stdout), {'arguments':['--external', '--select', literal]})
 
     def test_folder_launcher_uses_selected_app_and_keeps_literal_paths(self):
         class App:
@@ -201,13 +201,16 @@ class DefaultAppsTests(unittest.TestCase):
         app = App()
         literal = str(self.base/"a ; $(not-a-command) # 100% folder"/'file.txt')
         with patch.object(defaults.Gio.AppInfo, 'get_default_for_type', return_value=app):
-            self.assertEqual(defaults.open_folder(['--select', literal]), 0)
+            self.assertEqual(defaults.open_folder(['--external', '--select', literal]), 0)
             self.assertEqual(app.paths, [str(Path(literal).parent)])
         with patch.object(defaults.Gio.AppInfo, 'get_default_for_type', return_value=None), patch.object(defaults.os, 'execv') as execute:
             # execv never returns in production.
             execute.side_effect = SystemExit
             with self.assertRaises(SystemExit): defaults.open_folder([])
             self.assertTrue(execute.call_args.args[0].endswith('/scripts/files.sh'))
+            self.assertEqual(execute.call_args.args[1], [execute.call_args.args[0]])
+            with self.assertRaises(SystemExit): defaults.open_folder(['--external', literal])
+            self.assertEqual(execute.call_args.args[1][1:], ['--external', literal])
 
 
 if __name__ == '__main__':

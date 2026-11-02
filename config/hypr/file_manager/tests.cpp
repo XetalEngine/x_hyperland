@@ -108,6 +108,39 @@ private slots:
     QVERIFY(!Fusion::validName(".."));
     QVERIFY(Fusion::validName("100% # résumé.txt"));
   }
+  void launchGeometrySeparatesNormalAndExternalWindows() {
+    const auto path = temporary.path() + "/launch-geometry.ini";
+    const auto restore = qScopeGuard([] { qApp->setDesktopFileName("xetal-files"); });
+    QWidget previous;
+    previous.resize(1600, 1000);
+    previous.setWindowState(Qt::WindowMaximized);
+    Fusion::Preferences settings(path);
+    settings.settings.setValue("geometry", previous.saveGeometry());
+    settings.settings.setValue("external/size", QSize(940, 610));
+    settings.settings.sync();
+    {
+      FilesWindow normal(Fusion::computerUrl(), false, path);
+      QCOMPARE(normal.windowState(), Qt::WindowNoState);
+      QCOMPARE(normal.size(), QSize(1180, 760));
+    }
+    qApp->setDesktopFileName("xetal-files-external");
+    {
+      FilesWindow external(Fusion::computerUrl(), false, path);
+      external.setAttribute(Qt::WA_DeleteOnClose, false);
+      QCOMPARE(external.windowState(), Qt::WindowNoState);
+      QCOMPARE(external.size(), QSize(940, 610));
+      external.resize(1020, 680); external.close();
+    }
+    {
+      FilesWindow external(Fusion::computerUrl(), false, path);
+      QCOMPARE(external.size(), QSize(1020, 680));
+      QCOMPARE(external.windowState(), Qt::WindowNoState);
+    }
+    qApp->setDesktopFileName("xetal-files");
+    FilesWindow normal(Fusion::computerUrl(), false, path);
+    QCOMPARE(normal.size(), QSize(1180, 760));
+    QCOMPARE(normal.windowState(), Qt::WindowNoState);
+  }
   void transferAccessUsesOnlyNecessaryPrivileges() {
     if (geteuid() == 0) QSKIP("Permission routing is checked as the desktop user.");
     const auto base = folder + "/access";

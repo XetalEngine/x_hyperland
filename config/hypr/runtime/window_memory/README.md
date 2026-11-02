@@ -13,9 +13,12 @@ overwrite or unload a native library already mapped by a running compositor.
 
 Restoration separates mode, geometry and fullscreen into different compositor
 frames; changing floating state replaces the layout target. Normal floating
-size is preserved when maximizing. Tiled sizes scale to the current work area
-and remain subject to the tiling layout. Floating sizes stay within the current
-monitor and application constraints. Layer-shell surfaces and unmapped/hidden
+size is preserved when maximizing. Tiled windows retain their remembered mode,
+but their sizes belong to the current shared layout. Never restore a saved
+tiled pixel size: it changes sibling splits and can squeeze a new window into
+a narrow strip. Older tiled-size records remain readable and are ignored for
+geometry restoration. Floating sizes stay within the current monitor and
+application constraints. Layer-shell surfaces and unmapped/hidden
 windows are not ordinary managed windows. Explicit launcher floating requests
 retain `launcher/floating.py`'s per-shortcut memory.
 
@@ -23,7 +26,16 @@ Fusion pickers keep their more recent, synchronous actual-size record in
 `file_manager/state/settings.ini`; the memory helper does not override it.
 The picker class rule makes every open/save request floating from its first map.
 
+Fusion Files main windows (`xetal-files` and `xetal-files-external`) also skip
+generic restoration. Ordinary launches tile; explicit launcher floating requests
+use their exec rules and per-shortcut size; external folder/reveal requests use
+a floating/centered class rule and the Files `external/size` preference before
+mapping. Files child dialogs still restore independently. This prevents older
+generic or Qt maximize state from changing these launch modes after opening.
+
 Run `python3 -m unittest discover -s config/hypr/runtime/window_memory` and the
 real compositor check `tests/check-file-picker.py OUTPUT_DIR FILES_BUILD`.
+Append `--memory-only` to check floating/maximized restoration and balanced
+tiles when reopening two windows quickly or mixing applications.
 The latter uses private settings, a private D-Bus and disabled XWayland; input
 never reaches the parent desktop.

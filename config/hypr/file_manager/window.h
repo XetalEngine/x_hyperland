@@ -12,7 +12,7 @@ public:
   explicit FilesWindow(const QUrl &initial = Fusion::computerUrl(),
                        bool scanDrives = true,
                        const QString &settingsPath = {},
-                       const QString &geometryKey = "geometry");
+                       const QString &geometryKey = {});
   ~FilesWindow() override;
   Browser *browser() const;
   void openLocation(const QUrl &url, bool newTab = false);

@@ -7,6 +7,21 @@ action, and the default Super+E binding follow the file manager chosen in
 **Control Panel → Default Apps**, initially Fusion Files. Dolphin remains
 available as a separate application.
 
+Normal Favorites/All apps launches and **Super+E** open tiled. **Ctrl-click** an
+Apps icon, or enable its **Start this shortcut in a floating window** property,
+to open centered and floating with the launcher's remembered floating size.
+Chrome's **Show in folder**, other FileManager1 folder requests, screenshot
+reveal actions and desktop folder associations open centered and floating from
+their first frame, with a separate remembered size. They keep the requested
+file selected. Open/save pickers also remain floating and remember their own
+per-application sizes.
+
+Files does not restore the old general Qt geometry/maximize record or let the
+general window-memory helper change its main window after it appears. This
+prevents a tiled → floating → resized sequence and keeps ordinary launches
+independent from external requests. Files' child dialogs retain their normal
+window memory.
+
 ## Navigation and layout
 
 This PC has up to three sections separated by draggable horizontal dividers:
@@ -197,7 +212,13 @@ interface throughout the Hyprland login, including while no Files windows are
 open. Chrome's **Show in folder** portal (`OpenURI.OpenDirectory`) forwards to
 this same interface. ShowItems and ShowFolders resolve the current Default Apps
 handler through the folder launcher on every request; ShowItems retains selection
-and forwards the request's activation token.
+and forwards the request's activation token. The `--external` flag reaches Fusion
+only; alternative file managers receive their usual arguments. Fusion assigns
+the `xetal-files-external` application ID before creating its window, so the
+Hyprland class rule floats and centers it on its first map. Its actual size is
+saved under `external/size` in the private Files settings. The desktop entry's
+`--from-desktop` flag distinguishes a supplied folder URI from an ordinary app
+icon launch with no URI.
 
 This explicit startup matters: the shared user bus does not inherit Hyprland's
 profile-local D-Bus activation search path, so a service file alone can still

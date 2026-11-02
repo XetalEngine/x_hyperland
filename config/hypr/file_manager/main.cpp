@@ -26,13 +26,13 @@ public:
     return active;
   }
   void openWithDefault(const QStringList &uris, bool select, const QString &startupId) {
-    QStringList arguments;
+    QStringList arguments{"--external"};
     if (select) arguments << "--select";
     for (const auto &uri : uris) {
       const QUrl url(uri);
       if (url.isValid() && !url.scheme().isEmpty()) arguments << url.toString(QUrl::FullyEncoded);
     }
-    if (arguments.size() <= (select ? 1 : 0)) return;
+    if (arguments.size() <= (select ? 2 : 1)) return;
     // The service can outlive a Default Apps change. Resolve the current
     // choice for each request instead of permanently claiming folder actions.
     // The direct Fusion launcher does not call this interface, so no loop.
@@ -83,12 +83,19 @@ int main(int argc, char **argv) {
   parser.addOption(
       {"select", "Select the specified file in its parent folder."});
   parser.addOption({"new-window", "Open a new window."});
+  parser.addOption({"external", "Open a centered floating folder window for another application."});
+  parser.addOption({"from-desktop", "Treat locations supplied by a desktop association as external requests."});
   parser.addOption({"service", "Activate the desktop file-manager service."});
   parser.addOption({"picker", "Open a file chooser using a JSON request on standard input."});
   parser.addPositionalArgument("locations", "Paths or URLs to open.",
                                "[locations…]");
   parser.process(app);
   if (parser.isSet("picker")) return runPicker(app);
+  // Establish the role before any native window is created. The compositor
+  // applies its floating/centering rule on the first map, never after showing.
+  if (parser.isSet("external") || parser.isSet("select") ||
+      (parser.isSet("from-desktop") && !parser.positionalArguments().isEmpty()))
+    app.setDesktopFileName("xetal-files-external");
   const bool sessionService = parser.isSet("service");
   QLocalSocket lifetime;
   std::unique_ptr<QLockFile> serviceLock;

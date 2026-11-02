@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Exercise portal/Qt pickers and general size memory in a private compositor.
 
-Usage: python3 tests/check-file-picker.py NEW_OUTPUT_DIRECTORY FILES_BUILD
+Usage: python3 tests/check-file-picker.py NEW_OUTPUT_DIRECTORY FILES_BUILD [--memory-only]
 No test input reaches the parent session; XWayland is disabled in the fixture.
 """
 import json
@@ -34,7 +34,8 @@ def main():
     runtime = Path(tempfile.mkdtemp(prefix='ft-'))
     home = root/'home';home.mkdir()
     profile = home/'.config/hypr'
-    for part in ('theme', 'cursors', 'file_manager', 'desktop/data/xdg-desktop-portal', 'desktop/data/dbus-1'):
+    for part in ('theme', 'cursors', 'file_manager', 'control_panel', 'launcher', 'compat', 'scripts',
+                 'desktop/config', 'desktop/data/applications', 'desktop/data/xdg-desktop-portal', 'desktop/data/dbus-1'):
         shutil.copytree(REPO/'config/hypr'/part, profile/part, ignore=shutil.ignore_patterns('.build', '__pycache__', 'state', 'qt-settings'))
     (profile/'runtime').mkdir()
     shutil.copyfile(REPO/'config/hypr/runtime/command_paths.py', profile/'runtime/command_paths.py')
@@ -47,6 +48,8 @@ def main():
     (profile/'assets').mkdir()
     shutil.copyfile(REPO/'config/hypr/assets/fonts.conf', profile/'assets/fonts.conf')
     for path in (profile/'desktop/data/dbus-1').rglob('*.service'):
+        path.write_text(path.read_text().replace('@HYPR@', str(profile)).replace('@HOME@', str(home)))
+    for path in (profile/'desktop/data/applications').glob('*.desktop'):
         path.write_text(path.read_text().replace('@HYPR@', str(profile)).replace('@HOME@', str(home)))
     parent = os.environ['WAYLAND_DISPLAY']
     if not parent.startswith('/'): parent = str(Path(os.environ['XDG_RUNTIME_DIR'])/parent)
@@ -84,12 +87,14 @@ misc:disable_splash_rendering=true
 misc:disable_hyprland_guiutils_check=true
 animations:enabled=false
 xwayland:enabled=false
+general:layout=dwindle
 bindm=SUPER,mouse:272,movewindow
 bindn=,mouse:272,event,xetal-floating-drag-press
 bindinr=,mouse:272,event,xetal-floating-drag-release
 windowrule=match:tag ^xetal-title-drag$,no_anim on
 plugin={plugin}
 windowrule=match:class ^xetal-file-picker.*$,float on,center on
+windowrule=match:class ^xetal-files-external$,float on,center on
 ''')
     compositor=spawn(['Hyprland','--config',str(conf)],start_new_session=True)
     try:
@@ -162,6 +167,126 @@ app.exec()
         record('tiled reopen',size=find('memory-fixture')['size'])
         dispatch('closewindow','address:'+find('memory-fixture')['address']);regular.wait(timeout=5)
         assert memory.poll() is None, 'Memory service stopped'
+        # A per-app pixel size must never resize a shared tile split. First let
+        # one window record the whole work area, then open another of the same
+        # app (the two-terminals case), followed by a different application.
+        tiled=[]
+        warmup=spawn([sys.executable,str(fixture),'tile-memory-fixture'])
+        wait(lambda:find('tile-memory-fixture'),'record full-area tile');time.sleep(1.6)
+        dispatch('closewindow','address:'+find('tile-memory-fixture')['address']);warmup.wait(timeout=5)
+        time.sleep(.4)
+        first=spawn([sys.executable,str(fixture),'tile-memory-fixture']);tiled.append(first)
+        wait(lambda:find('tile-memory-fixture'),'first full-area tile')
+        second=spawn([sys.executable,str(fixture),'tile-memory-fixture']);tiled.append(second)
+        wait(lambda:len([c for c in clients() if c['class']=='tile-memory-fixture'])==2,'second tile')
+        time.sleep(1.6)
+        def tile_area(window):return window['size'][0]*window['size'][1]
+        pair=[c for c in clients() if c['class']=='tile-memory-fixture']
+        assert all(not c['floating'] and not c['fullscreen'] for c in pair),pair
+        assert min(map(tile_area,pair)) / max(map(tile_area,pair)) > .7, ('Uneven two-window split',pair)
+        record('two windows share the layout after full-area memory',sizes=[c['size'] for c in pair])
+        third=spawn([sys.executable,str(fixture),'other-tile-fixture']);tiled.append(third)
+        wait(lambda:find('other-tile-fixture'),'third mixed-app tile');time.sleep(1.6)
+        mixed=[c for c in clients() if c['class'] in ('tile-memory-fixture','other-tile-fixture')]
+        assert min(map(tile_area,mixed))/sum(map(tile_area,mixed))>.18, ('Squeezed mixed-app tile',mixed)
+        record('mixed applications keep usable tiles',sizes=[c['size'] for c in mixed])
+        for window in mixed:dispatch('closewindow','address:'+window['address'])
+        for process in tiled:process.wait(timeout=5)
+        time.sleep(.4)
+        first=spawn([sys.executable,str(fixture),'tile-memory-fixture'])
+        wait(lambda:find('tile-memory-fixture'),'reopen tile after partial-size memory');time.sleep(1.4)
+        second=spawn([sys.executable,str(fixture),'other-tile-fixture'])
+        wait(lambda:find('other-tile-fixture'),'reopen second app');time.sleep(1.6)
+        pair=[c for c in clients() if c['class'] in ('tile-memory-fixture','other-tile-fixture')]
+        assert min(map(tile_area,pair))/max(map(tile_area,pair))>.7, ('Old partial tile size changed the new layout',pair)
+        record('reopening after small tiles preserves the new layout',sizes=[c['size'] for c in pair])
+        for window in pair:dispatch('closewindow','address:'+window['address'])
+        first.wait(timeout=5);second.wait(timeout=5)
+        if '--memory-only' in sys.argv[3:]:
+            print(json.dumps(results,indent=2),flush=True)
+            return
+        # Files has explicit launch modes. Observe from the first mapped frame,
+        # through the time where generic memory used to change mode and size.
+        (root/'files').mkdir();(root/'files/existing.txt').write_text('Test file; stays local.\n')
+        seed = root/'seed-files.py'
+        seed.write_text('''from PyQt6.QtCore import QSettings,QSize,Qt
+from PyQt6.QtWidgets import QApplication,QWidget
+import sys
+app=QApplication([]);window=QWidget();window.resize(1600,1000);window.setWindowState(Qt.WindowState.WindowMaximized)
+settings=QSettings(sys.argv[1],QSettings.Format.IniFormat)
+settings.setValue('geometry',window.saveGeometry());settings.setValue('external/size',QSize(940,610));settings.sync()
+''')
+        subprocess.run([sys.executable,str(seed),str(profile/'file_manager/state/settings.ini')],
+                       env=dict(env,QT_QPA_PLATFORM='offscreen'),check=True)
+        def observe_files(app, floating, size=None):
+            seen=[]; deadline=time.monotonic()+6; first=None
+            while time.monotonic()<deadline:
+                window=next((c for c in clients() if c['class']==app),None)
+                if window:
+                    first=first or time.monotonic()
+                    sample=(window['floating'],window['fullscreen'],tuple(window['size']),tuple(window['at']))
+                    if not seen or seen[-1]!=sample: seen.append(sample)
+                    assert window['floating']==floating and window['fullscreen']==0, (app,seen)
+                    if size: assert window['size']==size, (app,seen)
+                    if time.monotonic()-first>1.5: break
+                time.sleep(.02)
+            assert first, 'Files window did not map: '+app
+            assert len(seen)==1, ('Files changed placement after mapping',app,seen)
+            if floating:
+                x,y=window['at'];w,h=window['size']
+                area=json.loads(ctl('-j','monitors'))[0]
+                left,top,right,bottom=area.get('reserved',[0,0,0,0])
+                assert abs(x-(area['x']+left+(round(area['width']/area['scale'])-left-right-w)/2))<=2, window
+                assert abs(y-(area['y']+top+(round(area['height']/area['scale'])-top-bottom-h)/2))<=2, window
+            record('Files first-map placement',app=app,floating=floating,samples=seen)
+            return window
+        def close_files(window):
+            dispatch('closewindow','address:'+window['address'])
+            wait(lambda:not any(c['address']==window['address'] for c in clients()),'Files closed')
+        files_binary=str(profile/'file_manager/.build/xetal-files')
+        normal=spawn([files_binary,'--this-pc'])
+        window=observe_files('xetal-files',False)
+        # Leave deliberately stale generic floating/maximized memory behind.
+        dispatch('setfloating','address:'+window['address'])
+        dispatch('resizewindowpixel','exact 900 600,address:'+window['address'])
+        time.sleep(.8)
+        assert ctl('xetal-window-state',window['address'],'1','1')=='ok'
+        time.sleep(1)
+        close_files(window);normal.wait(timeout=5);time.sleep(.3)
+        normal=spawn([str(profile/'scripts/file-manager.sh')]) # Same route as Super+E.
+        close_files(observe_files('xetal-files',False));normal.wait(timeout=5)
+        router=spawn([files_binary,'--service']);time.sleep(.3)
+        reveal=root/'reveal.py'
+        reveal.write_text('''from gi.repository import Gio,GLib
+import sys
+bus=Gio.bus_get_sync(Gio.BusType.SESSION,None)
+bus.call_sync('org.freedesktop.FileManager1','/org/freedesktop/FileManager1','org.freedesktop.FileManager1','ShowItems',
+              GLib.Variant('(ass)',([sys.argv[1]],'')),None,Gio.DBusCallFlags.NONE,3000,None)
+''')
+        subprocess.run([sys.executable,str(reveal),(root/'files/existing.txt').as_uri()],env=env,check=True)
+        window=observe_files('xetal-files-external',True,[940,610])
+        dispatch('resizewindowpixel','exact 980 620,address:'+window['address']);time.sleep(.1)
+        close_files(window)
+        external=spawn([files_binary,'--from-desktop',str(root/'files')])
+        close_files(observe_files('xetal-files-external',True,[980,620]));external.wait(timeout=5)
+        # The actual launcher path used by Ctrl-click and the floating checkbox.
+        floating_launch=root/'floating-files.py'
+        floating_launch.write_text('''import sys
+from pathlib import Path
+sys.path.insert(0,str(Path(sys.argv[1])/'launcher'))
+from shortcuts import Entry
+entry=Entry('files-fixture',None,dict(name='Files fixture',command=str(Path(sys.argv[1])/'scripts/files.sh')+' --this-pc'),custom=True)
+entry.launch(floating=True)
+''')
+        subprocess.run([sys.executable,str(floating_launch),str(profile)],env=env,check=True)
+        window=observe_files('xetal-files',True)
+        dispatch('resizewindowpixel','exact 960 640,address:'+window['address']);time.sleep(.8)
+        close_files(window)
+        subprocess.run([sys.executable,str(floating_launch),str(profile)],env=env,check=True)
+        close_files(observe_files('xetal-files',True,[960,640]))
+        normal=spawn([files_binary,'--from-desktop']) # Ordinary application icon, no URI.
+        close_files(observe_files('xetal-files',False));normal.wait(timeout=5)
+        record('normal Files, Super+E, external reveal, MIME folders and Ctrl-click remain independent')
         # Let D-Bus activate the backend from the profile's service definition.
         client_script = root/'request.py'
         client_script.write_text('''import json,sys
@@ -179,7 +304,6 @@ handle=bus.call_sync('org.freedesktop.portal.Desktop','/org/freedesktop/portal/d
 (root/(name+'.handle')).write_text(handle)
 GLib.timeout_add_seconds(25,lambda:(loop.quit(),False)[1]);loop.run()
 ''')
-        (root/'files').mkdir();(root/'files/existing.txt').write_text('Test file; stays local.\n')
         time.sleep(1)
         caller = spawn([sys.executable,str(client_script),str(root),'SaveFile','save'])
         wait(lambda: find('xetal-file-picker'), 'portal Fusion picker')

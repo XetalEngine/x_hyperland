@@ -86,6 +86,12 @@ class Tracker:
 
     def restore(self, client, meta, saved, monitor, phase=0):
         address = client['address']
+        # Fusion Files chooses its mode at launch: ordinary windows tile,
+        # external requests use a first-map floating rule and their own size,
+        # and Ctrl-click uses the launcher's exec rules. A later generic restore
+        # would visibly switch modes and mix these independent workflows.
+        if client.get('class') in ('xetal-files', 'xetal-files-external') and not meta.get('dialog'):
+            return False
         picker = is_picker(client)
         # Fusion's chooser saves its actual size synchronously at acceptance /
         # cancellation. It is more recent than a polling sample on a quick close.
@@ -107,19 +113,19 @@ class Tracker:
             # The layout target changes on the next compositor frame. Resizing
             # in the same turn can otherwise resize the old tiled target.
             return True
-        if phase == 1 and monitor and not meta.get('fixed'):
+        # A tiled window's pixel size describes one position in a shared
+        # layout, not a reusable app preference. Restoring it changes sibling
+        # splits: reopening two full-area windows can crush one into a strip.
+        # Also require the live target to be floating before resizing it.
+        if phase == 1 and floating and client.get('floating') and monitor and not meta.get('fixed'):
             x, y, width, height = workarea(monitor)
-            size = (saved.get('floating_size' if floating else 'tiled_size', saved['size'])
-                    if saved else client['size'])
-            if saved and not floating:
-                size = [round(size[0]*width/saved['area'][0]), round(size[1]*height/saved['area'][1])]
+            size = saved.get('floating_size', saved['size']) if saved else client['size']
             w, h = max(1, min(size[0], width-16)), max(1, min(size[1], height-16))
             self.hypr.dispatch('resizewindowpixel', f'exact {w} {h},address:{address}')
-            if floating:
-                left, top = client.get('at', [x, y])
-                if picker: left, top = x+(width-w)//2, y+(height-h)//2
-                else: left, top = min(max(left, x), x+width-w), min(max(top, y), y+height-h)
-                self.hypr.dispatch('movewindowpixel', f'exact {left} {top},address:{address}')
+            left, top = client.get('at', [x, y])
+            if picker: left, top = x+(width-w)//2, y+(height-h)//2
+            else: left, top = min(max(left, x), x+width-w), min(max(top, y), y+height-h)
+            self.hypr.dispatch('movewindowpixel', f'exact {left} {top},address:{address}')
         if phase == 2 and (fullscreen or client_fs):
             self.hypr.command(f'xetal-window-state {address} {fullscreen} {client_fs}')
         return True
