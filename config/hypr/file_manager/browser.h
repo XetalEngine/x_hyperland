@@ -32,6 +32,7 @@ public:
   void setView(int mode);
   void setHidden(bool hidden);
   void setThumbnails(bool enabled);
+  void setPickerFilter(const QJsonArray &patterns, bool directoriesOnly);
   void selectUrl(const QUrl &url);
   void saveView();
   void editAddress();

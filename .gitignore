@@ -37,6 +37,8 @@ config/hypr/effects/minimize/.build/
 config/hypr/effects/window_close/.build/
 config/hypr/runtime/notices/.build/
 config/hypr/runtime/cursor_probe/.build/
+config/hypr/runtime/window_memory/.build/
+config/hypr/runtime/window_memory/state/
 config/hypr/control_panel/.build/
 config/hypr/control_panel/state/
 config/hypr/theme/custom-presets.json

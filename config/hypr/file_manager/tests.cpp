@@ -929,6 +929,9 @@ private slots:
     QSignalSpy finished(&window, &FilesWindow::operationFinished);
     for (int number = 1; number <= 2; ++number) {
       const auto suffix = "_copy" + QString::number(number);
+      // Offscreen KIO job windows can take activation after the first paste.
+      // Deliver each keyboard gesture to the file view as a real focused click would.
+      focus(tab);
       QTest::keyClick(tab->view(), Qt::Key_V, Qt::ControlModifier);
       QTRY_COMPARE_WITH_TIMEOUT(finished.count(), number, 15000);
       QCOMPARE(finished.last().first().toInt(), 0);

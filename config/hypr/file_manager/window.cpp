@@ -78,16 +78,16 @@ bool isTextEditing() {
 }
 } // namespace
 FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
-                         const QString &settingsPath)
-    : preferences(settingsPath) {
+                         const QString &settingsPath, const QString &geometryKey)
+    : preferences(settingsPath), geometryKey(geometryKey) {
   setObjectName("fusionFiles");
   setAttribute(Qt::WA_DeleteOnClose);
   setWindowTitle("Fusion Files");
   setWindowIcon(Fusion::icon("fusion-computer"));
   resize(1180, 760);
   setMinimumSize(760, 450);
-  if (preferences.settings.contains("geometry"))
-    restoreGeometry(preferences.settings.value("geometry").toByteArray());
+  if (preferences.settings.contains(geometryKey))
+    restoreGeometry(preferences.settings.value(geometryKey).toByteArray());
   drives = new Drives(this, scanDrives);
   connect(drives, &Drives::populateFileMenu, this,
           &FilesWindow::addVolumeActions);
@@ -1451,8 +1451,19 @@ void FilesWindow::message(const QString &text) {
 void FilesWindow::closeEvent(QCloseEvent *event) {
   if (browser())
     browser()->saveView();
-  preferences.settings.setValue("geometry", saveGeometry());
+  preferences.settings.setValue(geometryKey, saveGeometry());
   preferences.settings.setValue("splitter", splitter->saveState());
   preferences.settings.sync();
   QMainWindow::closeEvent(event);
+}
+
+void FilesWindow::preparePicker() {
+  tabs->setTabsClosable(false);
+  tabs->tabBar()->setTabButton(0, QTabBar::RightSide, nullptr);
+  if (auto *button = findChild<QToolButton *>("newTabButton")) button->hide();
+  for (const auto &id : {"newTab", "newWindow", "closeTab", "nextTab", "previousTab"})
+    if (shortcuts.contains(id)) shortcuts[id]->setEnabled(false);
+  if (auto *menu = findChild<QMenu *>("fileOptionsMenu"))
+    for (auto *action : menu->actions())
+      if (action->text() == "New tab" || action->text() == "New window") action->setVisible(false);
 }

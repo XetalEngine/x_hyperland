@@ -38,6 +38,9 @@ def appearance():
     QLineEdit#folderFilter {{min-width:120px; max-width:220px; padding:7px 10px;}}
     QFrame#addressRow {{background:{p['Window']}; border-bottom:1px solid {p['Midlight']};}}
     QStatusBar {{background:{p['Window']}; border-top:1px solid {p['Midlight']}; padding:3px;}}
+    QFrame#pickerActions {{background:{p['Window']}; border-top:1px solid {p['Midlight']};}}
+    QPushButton#pickerAccept {{background:{p['Highlight']}; color:{p['HighlightedText']}; border:1px solid {p['Accent']}; padding:8px 22px; border-radius:{radius}px;}}
+    QPushButton#pickerAccept:hover {{background:{p['AlternateBase']};}}
     QSplitter::handle {{background:{p['Midlight']}; width:1px;}}
     QSplitter#driveSections::handle {{background:{p['Window']}; border-top:1px solid {p['Midlight']}; border-bottom:1px solid {p['Midlight']};}}
     QSplitter#driveSections::handle:hover {{background:{p['Highlight']};}}

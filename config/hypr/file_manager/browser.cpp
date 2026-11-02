@@ -12,6 +12,52 @@
 #include <KJobWidgets>
 #include <KUrlComboBox>
 
+class FilesFilter : public KDirSortFilterProxyModel {
+public:
+  using KDirSortFilterProxyModel::KDirSortFilterProxyModel;
+  QJsonArray patterns;
+  bool directoriesOnly = false;
+  void update(const QJsonArray &value, bool dirs) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    beginFilterChange();
+#endif
+    patterns = value;
+    directoriesOnly = dirs;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    endFilterChange(Direction::Rows);
+#else
+    invalidateFilter();
+#endif
+  }
+protected:
+  bool filterAcceptsRow(int row, const QModelIndex &parent) const override {
+    if (!KDirSortFilterProxyModel::filterAcceptsRow(row, parent)) return false;
+    const auto *model = static_cast<KDirModel *>(sourceModel());
+    const auto item = model->itemForIndex(model->index(row, 0, parent));
+    if (item.isDir()) return true;
+    if (directoriesOnly) return false;
+    if (patterns.isEmpty()) return true;
+    for (const auto &entry : patterns) {
+      const auto pair = entry.toArray();
+      if (pair.size() != 2) continue;
+      const QString value = pair[1].toString();
+      if (pair[0].toInt() == 0) {
+        const auto expression = QRegularExpression::wildcardToRegularExpression(value);
+        if (QRegularExpression(expression).match(item.name()).hasMatch()) return true;
+      } else if (pair[0].toInt() == 1) {
+        const auto mime = QMimeDatabase().mimeTypeForName(item.mimetype());
+        if (mime.name() == value || mime.inherits(value) ||
+            (value.endsWith("/*") && mime.name().startsWith(value.left(value.size()-1)))) return true;
+      }
+    }
+    return false;
+  }
+};
+
+void Browser::setPickerFilter(const QJsonArray &patterns, bool directoriesOnly) {
+  static_cast<FilesFilter *>(proxy)->update(patterns, directoriesOnly);
+}
+
 Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
                  QWidget *parent)
     : QWidget(parent), preferences(settings), drives(volumes) {
@@ -130,7 +176,7 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
   model = new KDirModel(this);
   model->setDropsAllowed(KDirModel::DropOnDirectory);
   model->dirLister()->setAutoErrorHandlingEnabled(false);
-  proxy = new KDirSortFilterProxyModel(this);
+  proxy = new FilesFilter(this);
   proxy->setSourceModel(model);
   proxy->setSortFoldersFirst(true);
   proxy->setSortCaseSensitivity(Qt::CaseInsensitive);

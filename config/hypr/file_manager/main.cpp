@@ -1,4 +1,5 @@
 #include "window.h"
+#include "picker.h"
 #include <KPropertiesDialog>
 #include <QDBusAbstractAdaptor>
 #include <QDBusConnection>
@@ -65,9 +66,11 @@ int main(int argc, char **argv) {
       {"select", "Select the specified file in its parent folder."});
   parser.addOption({"new-window", "Open a new window."});
   parser.addOption({"service", "Activate the desktop file-manager service."});
+  parser.addOption({"picker", "Open a file chooser using a JSON request on standard input."});
   parser.addPositionalArgument("locations", "Paths or URLs to open.",
                                "[locations…]");
   parser.process(app);
+  if (parser.isSet("picker")) return runPicker(app);
   QObject owner;
   FileManagerService service(&owner);
   auto bus = QDBusConnection::sessionBus();

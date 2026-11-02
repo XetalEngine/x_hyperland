@@ -52,6 +52,12 @@ export XDG_CURRENT_DESKTOP=Hyprland
 export XDG_SESSION_DESKTOP=Hyprland
 export XDG_SESSION_TYPE=wayland
 
+# File dialogs and geometry memory belong to this login, never a user service.
+python3 "$config_dir/file_manager/portal.py" >"$(session_log file-picker.log)" 2>&1 9>&- &
+children+=("$!")
+python3 "$config_dir/runtime/window_memory/service.py" >"$(session_log window-memory.log)" 2>&1 9>&- &
+children+=("$!")
+
 # Keep new X11 clients working if this compositor's primary socket pathname
 # disappears. The helper verifies its backup listener and stops at logout.
 python3 "$config_dir/scripts/xwayland-session.py" --session >"$(session_log xwayland-session.log)" 2>&1 9>&- &

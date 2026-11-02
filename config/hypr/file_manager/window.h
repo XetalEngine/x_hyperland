@@ -11,7 +11,8 @@ class FilesWindow : public QMainWindow {
 public:
   explicit FilesWindow(const QUrl &initial = Fusion::computerUrl(),
                        bool scanDrives = true,
-                       const QString &settingsPath = {});
+                       const QString &settingsPath = {},
+                       const QString &geometryKey = "geometry");
   ~FilesWindow() override;
   Browser *browser() const;
   void openLocation(const QUrl &url, bool newTab = false);
@@ -24,8 +25,11 @@ signals:
 
 protected:
   void closeEvent(QCloseEvent *) override;
+  virtual void openItem(const KFileItem &item, bool newTab = false);
+  void preparePicker();
 
 private:
+  QString geometryKey;
   QTabWidget *tabs;
   QTreeWidget *places;
   QTreeWidgetItem *quickRoot;
@@ -54,7 +58,6 @@ private:
   void configure();
   void updateCurrent();
   void updatePreview();
-  void openItem(const KFileItem &item, bool newTab = false);
   void openAssociated(const KFileItemList &items);
   void chooseApplication(const KFileItemList &items);
   void execute(const QUrl &url);

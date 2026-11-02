@@ -112,7 +112,7 @@ def environment(base=None, value=None):
     paths += [p for p in env.get('QT_PLUGIN_PATH','').split(':') if p and p not in paths]
     env.update(QT_QPA_PLATFORMTHEME='xetal', QT_STYLE_OVERRIDE='Fusion', QT_PLUGIN_PATH=':'.join(paths),
                XETAL_THEME_CONFIG=str(STATE), GTK_THEME={'dark':'Adwaita:dark','light':'Adwaita','contrast':'HighContrastInverse'}[value],
-               FONTCONFIG_FILE=str(ROOT.parent/'assets/fonts.conf'),
+               FONTCONFIG_FILE=str(ROOT.parent/'assets/fonts.conf'), GTK_USE_PORTAL='1',
                KDE_COLOR_SCHEME_PATH=str(ROOT/'current.colors'))
     modules = [str(ROOT/'gtk3/libxetal-file-preview.so'), *filter(None, env.get('GTK3_MODULES', '').split(':'))]
     env['GTK3_MODULES'] = ':'.join(dict.fromkeys(modules))

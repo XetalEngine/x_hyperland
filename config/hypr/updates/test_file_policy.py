@@ -102,6 +102,7 @@ class FilePolicyTests(unittest.TestCase):
 
     def test_file_manager_update_delivers_executable_and_keeps_private_preferences(self):
         self.write(self.live, 'file_manager/state/settings.ini', 'private bookmarks and columns\n')
+        self.write(self.live, 'runtime/window_memory/state/windows.json', 'private geometry\n')
         self.write(self.upstream, 'file_manager/main.cpp', 'new application\n')
         self.write(self.upstream, 'desktop/data/applications/xetal-files-computer.desktop', 'My Computer launcher\n')
         expected = engine.merge_profile(self.live, self.upstream, self.stage, NEW)
@@ -109,13 +110,16 @@ class FilePolicyTests(unittest.TestCase):
         self.write(self.stage, 'file_manager/.build/CMakeCache.txt', '/private/build/path')
         self.write(self.stage, 'file_manager/.build/files-tests', 'test executable')
         self.write(self.stage, 'file_manager/state/settings.ini', 'temporary settings')
+        self.write(self.stage, 'runtime/window_memory/state/windows.json', 'temporary geometry')
         plan = engine.prepare_plan(self.live, self.stage, expected, NEW)
         self.assertIn('file_manager/.build/xetal-files', plan['changes'])
         self.assertNotIn('file_manager/.build/CMakeCache.txt', plan['changes'])
         self.assertNotIn('file_manager/.build/files-tests', plan['changes'])
         self.assertNotIn('file_manager/state/settings.ini', plan['changes'])
+        self.assertNotIn('runtime/window_memory/state/windows.json', plan['changes'])
         engine.apply_plan(self.live, self.stage, plan, self.state)
         self.assertEqual((self.live/'file_manager/state/settings.ini').read_text(), 'private bookmarks and columns\n')
+        self.assertEqual((self.live/'runtime/window_memory/state/windows.json').read_text(), 'private geometry\n')
         self.assertEqual((self.live/'file_manager/.build/xetal-files').stat().st_mode & 0o777, 0o755)
 
     def test_personal_text_conflict_is_preserved_without_blocking_release_files(self):

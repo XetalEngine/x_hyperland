@@ -12,6 +12,7 @@
 #include <QPalette>
 #include <QTimer>
 #include "file_preview.hpp"
+#include "file_picker.hpp"
 
 class XetalTheme final : public QObject, public QPlatformTheme {
     QPalette colors;
@@ -78,6 +79,14 @@ public:
     }
     const QPalette *palette(Palette) const override { return &colors; }
     const QFont *font(Font) const override { return &systemFont; }
+    bool usePlatformNativeDialog(DialogType type) const override {
+        return type == FileDialog && qEnvironmentVariable("XETAL_FILE_PICKER") != "1" &&
+            QFileInfo::exists(QFileInfo(config).dir().filePath("../file_manager/.build/xetal-files"));
+    }
+    QPlatformDialogHelper *createPlatformDialogHelper(DialogType type) const override {
+        if (!usePlatformNativeDialog(type)) return nullptr;
+        return new XetalFilePicker(QFileInfo(config).dir().absoluteFilePath(".."));
+    }
     QVariant themeHint(ThemeHint hint) const override {
         if (hint == StyleNames) return QStringList{"Fusion"};
         if (hint == SystemIconThemeName) return mode == "light" ? "Papirus-Light" : "Papirus-Dark";

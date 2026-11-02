@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=org.freedesktop.impl.portal.desktop.fusion
+Exec=/usr/bin/python3 @HYPR@/file_manager/portal.py

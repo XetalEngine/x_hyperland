@@ -172,7 +172,7 @@ class InstallerTests(unittest.TestCase):
             (source/'launcher'/name).write_text('{"developer_only": true}')
         private = ('launcher/favorite-layout.json', 'launcher/floating-sizes.json',
                    'launcher/icons/private.png', 'calculator/state/preferences.ini',
-                   'file_manager/state/settings.ini')
+                   'file_manager/state/settings.ini', 'runtime/window_memory/state/windows.json')
         for name in private:
             path = source/name; path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text('PRIVATE DEVELOPER DATA')
@@ -403,9 +403,10 @@ class InstallerTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,'Burn could not be built'):
                 install.build(self.stage)
         self.assertEqual(run.call_count,1)
-        self.assertEqual(builds.call_count,11)
+        self.assertEqual(builds.call_count,12)
         self.assertTrue(any(str(call.args[0][-1]).endswith('/runtime/notices/build.py') for call in builds.call_args_list))
         self.assertTrue(any(str(call.args[0][-1]).endswith('/runtime/cursor_probe/build.py') for call in builds.call_args_list))
+        self.assertTrue(any(str(call.args[0][-1]).endswith('/runtime/window_memory/build.py') for call in builds.call_args_list))
         self.assertTrue(any(str(call.args[0][-1]).endswith('/cursors/build.py') for call in builds.call_args_list))
 
     def test_invalid_config_stops_before_compilation_in_both_install_modes(self):
