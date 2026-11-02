@@ -5,6 +5,10 @@ Left/Right to browse. Click any image or press Enter to select it. Search and
 collection filters help find a picture; **Slideshow** previews images without
 changing your desktop until you choose one.
 
+**Esc** closes either browser style, including while the search box or toolbar
+has focus. If a folder or display dialog is open, Esc cancels that dialog first.
+An active wallpaper apply finishes before the browser can close.
+
 The center card starts with the current wallpaper of the display where the
 selector opens. Cached copies resolve back to their source image in your
 collection. If that image is outside your selected folders, it appears as

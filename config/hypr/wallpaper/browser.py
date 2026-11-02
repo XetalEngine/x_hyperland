@@ -197,7 +197,9 @@ class Browser(QWidget):
         else:
             layout.addLayout(info); layout.addSpacing(6); layout.addLayout(bottom)
         self.slideshow = QTimer(self); self.slideshow.setInterval(3500); self.slideshow.timeout.connect(self.advance)
-        self.shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape),self); self.shortcut.activated.connect(self.escape)
+        # Handle Escape before focused editors/combo boxes or another shortcut
+        # can consume it. Limit the filter to this browser and its own children.
+        QApplication.instance().installEventFilter(self)
         self.focus_search = QShortcut(QKeySequence('Ctrl+F'),self); self.focus_search.activated.connect(self.search.setFocus)
         self.space = QShortcut(QKeySequence(Qt.Key.Key_Space),self.carousel); self.space.setContext(Qt.ShortcutContext.WidgetShortcut); self.space.activated.connect(self.toggle_play)
         if error: self.status.setText(error)
@@ -336,6 +338,16 @@ class Browser(QWidget):
         self.set_busy(False); self.status.setText(message); self.status.setToolTip(message)
         if not self.isVisible(): self.show(); self.raise_(); self.activateWindow()
 
+    def eventFilter(self, watched, event):
+        if self.isVisible() and event.type() in (QEvent.Type.ShortcutOverride, QEvent.Type.KeyPress):
+            belongs = watched is self or watched is self.windowHandle() or (
+                isinstance(watched, QWidget) and self.isAncestorOf(watched))
+            if belongs and event.key() == Qt.Key.Key_Escape:
+                event.accept()
+                if event.type() == QEvent.Type.KeyPress: self.escape()
+                return True
+        return super().eventFilter(watched, event)
+
     def escape(self):
         if self.dialog: self.dialog.reject()
         elif not self.busy: self.close()
@@ -345,6 +357,7 @@ class Browser(QWidget):
         self.cancel_scan.set(); self.pause(); self.background_animation.stop(); self.carousel.animation.stop(); event.accept(); QApplication.instance().quit()
 
     def shutdown(self):
+        QApplication.instance().removeEventFilter(self)
         self.cancel_scan.set(); self.pause(); self.background_animation.stop(); self.carousel.animation.stop()
         # Let any wallpaper transaction finish before tearing down its Qt owner.
         self.jobs.shutdown(); self.thumbnails.jobs.shutdown(cancel_queued=True)

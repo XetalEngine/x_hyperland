@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Drive discovery and transactional, additive GRUB menu editing.
+"""Drive discovery and transactional GRUB menu editing.
 
 The GUI owns the authenticated helper through its stdin pipe. Foreign disks are
 only read; this never installs a bootloader, changes a partition or writes EFI
-variables. Only our grub.d generator, its generated block and private journal
-are written. All disk selections are re-discovered before saving.
+variables. Current-menu edits preserve surrounding configuration; Fusion-added
+entries also update our own generator. Every write is journaled and checked.
+All disk selections are re-discovered before saving.
 """
 from __future__ import annotations
 
@@ -19,6 +20,7 @@ from pathlib import Path, PurePosixPath
 import platform
 import re
 import select
+import shlex
 import shutil
 import stat
 import struct
@@ -422,7 +424,10 @@ def render_entry(entry):
         if kind == 'legacy-windows': lines += ['        insmod drivemap', '        drivemap -s (hd0) ${root}']
         lines += ['        chainloader '+('+1' if kind == 'legacy-windows' else quote(loader))]
     lines += ['    else', "        echo 'The selected drive is not connected.'", '        sleep --interruptible 5', '    fi']
-    return '\n'.join(lines+['}', ''])
+    rendered = '\n'.join(lines+['}', ''])
+    if 'commands' in entry:
+        rendered = edit_menu(rendered, menu_entries(rendered)[0]['id'], name=name, commands=entry['commands'])
+    return rendered
 
 
 def render(entries):
@@ -461,6 +466,132 @@ def atomic(path, data, mode=0o600):
         try: os.fsync(directory)
         finally: os.close(directory)
     finally: Path(temporary).unlink(missing_ok=True)
+
+
+def menu_tokens(text):
+    """Locate GRUB words/braces without interpreting or executing the script."""
+    tokens = []
+    i = 0
+    while i < len(text):
+        if text[i] in ' \t\r': i += 1; continue
+        if text[i] == '#':
+            end = text.find('\n', i); i = len(text) if end < 0 else end; continue
+        start = i
+        if text[i] in '{};\n':
+            tokens.append((text[i], start, i+1, text[i])); i += 1; continue
+        dynamic = False
+        quote_char = ''
+        while i < len(text):
+            ch = text[i]
+            if ch == '\\' and quote_char != "'": i += min(2, len(text)-i); continue
+            if quote_char:
+                if ch == quote_char: quote_char = ''
+                elif ch == '$' and quote_char == '"': dynamic = True
+                i += 1; continue
+            if ch in "'\"": quote_char = ch; i += 1; continue
+            if ch == '$':
+                dynamic = True
+                if text[i:i+2] == '${':
+                    end = text.find('}', i+2)
+                    if end < 0: raise ValueError('The GRUB menu has an unfinished variable.')
+                    i = end+1; continue
+            if ch in ' \t\r\n{};': break
+            i += 1
+        if quote_char: raise ValueError('The GRUB menu has an unfinished quoted string.')
+        raw = text[start:i]
+        try:
+            decoded = shlex.split(raw, posix=True)
+            value = decoded[0] if len(decoded) == 1 and not dynamic else None
+        except ValueError: value = None
+        tokens.append(('word', start, i, value))
+    return tokens
+
+
+def menu_entries(text):
+    """Read literal menu entries, retaining exact source ranges for small edits.
+
+    Variable-built titles remain visible but read-only. Submenus are represented
+    separately, so removing an entry cannot accidentally remove its neighbors.
+    """
+    tokens = menu_tokens(text)
+    pairs, braces = {}, []
+    for index, (kind, _start, _end, _value) in enumerate(tokens):
+        if kind == '{': braces.append(index)
+        elif kind == '}':
+            if not braces: raise ValueError('The GRUB menu has an unmatched closing brace.')
+            pairs[braces.pop()] = index
+    if braces: raise ValueError('The GRUB menu has an unfinished entry.')
+    markers = [(m.start(), m.group(2) if m.group(1) == 'BEGIN' else '')
+               for m in re.finditer(r'^### (BEGIN|END) (.+) ###[ \t]*$', text, re.M)]
+    entries, parents, counts = [], [], {}
+    for index, token in enumerate(tokens):
+        kind, start, end, value = token
+        if kind != 'word' or text[start:end] not in ('menuentry', 'submenu'): continue
+        if index and tokens[index-1][0] not in ('\n', ';', '{', '}') and tokens[index-1][3] not in ('then', 'else'): continue
+        if index+1 >= len(tokens) or tokens[index+1][0] != 'word': continue
+        opening = index+2
+        while opening < len(tokens) and tokens[opening][0] in ('word', '\n'): opening += 1
+        if opening >= len(tokens) or tokens[opening][0] != '{': continue
+        closing = pairs[opening]
+        title = tokens[index+1]
+        while parents and start > parents[-1]['end']: parents.pop()
+        # A menuentry in a function/entry body is not a separate startup choice.
+        if parents and parents[-1]['kind'] == 'menuentry': continue
+        parent = parents[-1] if parents else None
+        parent_id = parent['id'] if parent else ''
+        ordinal = counts.get(parent_id, 0); counts[parent_id] = ordinal+1
+        path = [*(parent['index_path'] if parent else []), ordinal]
+        menu_id = ''
+        for offset in range(index+2, opening):
+            option = tokens[offset][3] or text[tokens[offset][1]:tokens[offset][2]]
+            if option in ('--id', '$menuentry_id_option', '${menuentry_id_option}') and offset+1 < opening:
+                menu_id = tokens[offset+1][3] or ''
+            elif option.startswith('--id='): menu_id = option[5:]
+        source = next((source for position, source in reversed(markers) if position <= start), '')
+        entry = dict(id='current-'+digest(encoded([source, path, menu_id]))[:24],
+                     name=title[3] if title[3] is not None else text[title[1]:title[2]],
+                     kind=value, menu_id=menu_id, source=source, parent_id=parent_id,
+                     index_path=path, depth=len(path)-1, editable=title[3] is not None,
+                     managed_id=menu_id if source == GENERATOR and menu_id.startswith('fusion-') else '',
+                     start=start, end=tokens[closing][2], title_start=title[1], title_end=title[2],
+                     body_start=tokens[opening][2], body_end=tokens[closing][1])
+        entry['commands'] = text[entry['body_start']:entry['body_end']]
+        entry['bootable'] = value == 'menuentry' and bool(re.search(
+            r'(?m)(?:^|[;\n])\s*(?:linux(?:efi|16)?|chainloader|configfile|multiboot2?|xnu_kernel|kfreebsd)\s', entry['commands']))
+        entries.append(entry); parents.append(entry)
+    return entries
+
+
+def public_menu(text):
+    private = {'start', 'end', 'title_start', 'title_end', 'body_start', 'body_end'}
+    return [{key: value for key, value in entry.items() if key not in private} for entry in menu_entries(text)]
+
+
+def edit_menu(text, identity, *, name=None, commands=None, remove=False):
+    entries = menu_entries(text)
+    selected = next((entry for entry in entries if entry['id'] == identity), None)
+    if selected is None: raise RuntimeError('That entry no longer exists. Reload the current menu.')
+    if not selected['editable']: raise ValueError('This entry uses a generated title and cannot be edited here.')
+    if remove:
+        kept = [e for e in entries if not selected['start'] <= e['start'] < selected['end']]
+        if not any(e['kind'] == 'menuentry' for e in kept):
+            raise ValueError('Keep at least one boot entry in the menu.')
+        if any(e['bootable'] for e in entries) and not any(e['bootable'] for e in kept):
+            raise ValueError('Keep at least one operating-system boot entry; firmware tools cannot start your system.')
+        return text[:selected['start']] + text[selected['end']:]
+    replacements = [(selected['title_start'], selected['title_end'], quote(title_text(name)))]
+    if commands is not None:
+        if selected['kind'] == 'submenu': raise ValueError('Edit the boot commands of an individual entry, not a submenu.')
+        if not isinstance(commands, str) or len(commands.encode()) > 32768 or '\0' in commands:
+            raise ValueError('Boot commands must be text shorter than 32 KiB.')
+        fragment = "menuentry 'Check' {\n" + commands.strip('\n') + '\n}'
+        checked = menu_entries(fragment)
+        if len(checked) != 1 or checked[0]['end'] != len(fragment):
+            raise ValueError('Boot commands must stay inside this entry.')
+        replacements.append((selected['body_start'], selected['body_end'], '\n'+commands.strip('\n')+'\n'))
+    for start, end, replacement in sorted(replacements, reverse=True):
+        text = text[:start]+replacement+text[end:]
+    return text
 
 
 class Store:
@@ -513,7 +644,9 @@ class Store:
         return value['entries']
 
     def status(self):
+        text = self.config.read_text()
         return {'config': str(self.config), 'entries': self.entries(), 'revision': self.revision(),
+                'current_entries': public_menu(text), 'menu_revision': digest(text.encode()),
                 'can_undo': (self.state/'last.json').is_file()}
 
     def check(self, text):
@@ -572,6 +705,39 @@ class Store:
         targets = {'generator': (('#!/bin/sh\nexec tail -n +3 "$0"\n'+body).encode(), 0o755),
                    'config': (revised.encode(), stat.S_IMODE(self.config.stat().st_mode)),
                    'entries': (encoded({'version': 1, 'entries': entries}), 0o600)}
+        return self.publish(targets, expected, alive)
+
+    def edit_current(self, request, alive=lambda: None):
+        expected = self.revision()
+        config = self.config.read_text()
+        if request.get('menu_revision') != digest(config.encode()) or (
+                request.get('revision') and request['revision'] != expected):
+            raise RuntimeError('GRUB changed since you opened this page. Reload before saving.')
+        self.check(config)
+        selected = next((e for e in menu_entries(config) if e['id'] == request.get('id')), None)
+        if selected is None: raise RuntimeError('That entry no longer exists. Reload the current menu.')
+        remove = request['action'] == 'remove-current'
+        revised = edit_menu(config, selected['id'], name=request.get('name'),
+                            commands=request.get('commands'), remove=remove)
+        self.check(revised)
+        if selected['managed_id']:
+            entries = self.entries()
+            item = next((e for e in entries if e['id'] == selected['managed_id']), None)
+            if item is None: raise RuntimeError('This Fusion entry has no saved record. Its backup needs recovery before editing.')
+            if remove: entries.remove(item)
+            else:
+                item['name'] = title_text(request.get('name'))
+                if request.get('commands') is not None and request['commands'].strip('\n') != selected['commands'].strip('\n'):
+                    item['commands'] = request['commands']
+            return self.commit(entries, expected, alive)
+        # The current generated menu is edited in place. Vendor generators stay
+        # intact; the UI explains that a later grub-mkconfig can recreate it.
+        targets = {key: (read_optional(path), stat.S_IMODE(path.stat().st_mode) if path.exists() else 0o600)
+                   for key, path in self.files().items()}
+        targets['config'] = (revised.encode(), stat.S_IMODE(self.config.stat().st_mode))
+        return self.publish(targets, expected, alive)
+
+    def publish(self, targets, expected, alive):
         alive()
         record = self.snapshot(targets)
         if expected != self.revision():
@@ -581,7 +747,10 @@ class Store:
             # Publish the complete validated configuration last. No source disk
             # writes, grub-install, firmware edits or third-party scripts run.
             for key in ('generator', 'entries', 'config'):
-                data, mode = targets[key]; atomic(self.files()[key], data, mode)
+                data, mode = targets[key]; path = self.files()[key]
+                if data is None: path.unlink(missing_ok=True)
+                elif data != read_optional(path) or stat.S_IMODE(path.stat().st_mode) != mode:
+                    atomic(path, data, mode)
             atomic(self.state/'last.json', encoded(record))
             (self.state/'pending.json').unlink()
         except BaseException:
@@ -610,12 +779,19 @@ def client_alive():
 
 def status_payload():
     payload = {'mode': firmware(), 'secure_boot': secure_boot(), 'drives': [drive_summary(d) for d in inventory()]}
+    store = None
     try:
         store = Store()
         payload.update(store.status(), supported=True)
     except PermissionError:
         payload.update(supported=True, entries=[], revision='', can_undo=False,
-                       message='Select a drive to inspect it with administrator authentication.')
+                       message='Choose an entry to edit, or use Add Entry to detect another system.')
+        try:
+            if store is None: raise PermissionError('The current menu needs authentication.')
+            text = store.config.read_text()
+            payload.update(config=str(store.config), current_entries=public_menu(text), menu_revision=digest(text.encode()))
+        except PermissionError:
+            payload.update(message='Select Load current menu to authenticate and read your GRUB entries.')
     except (OSError, ValueError, RuntimeError) as error:
         payload.update(supported=False, message=str(error), entries=[], revision='', can_undo=False)
     return payload
@@ -656,6 +832,10 @@ class Session:
                 if len(matches) != 1: raise RuntimeError('That entry no longer exists. Refresh the boot menu.')
                 if action == 'rename': matches[0]['name'] = title_text(request.get('name'))
                 else: entries.remove(matches[0])
+            elif action in ('edit-current', 'remove-current'):
+                backup = self.store.edit_current(request, client_alive)
+                return {**self.store.status(), 'backup': backup,
+                        'message': 'Saved. Your current GRUB menu is ready for the next restart.'}
             elif action == 'undo':
                 self.store.undo(request.get('revision'), client_alive)
                 return {**self.store.status(), 'message': 'The last GRUB change was undone.'}

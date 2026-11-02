@@ -52,6 +52,11 @@ export XDG_CURRENT_DESKTOP=Hyprland
 export XDG_SESSION_DESKTOP=Hyprland
 export XDG_SESSION_TYPE=wayland
 
+# Own standard folder/reveal requests before startup apps can activate another
+# manager on the shared user bus. Closing Files windows keeps this router alive.
+"$config_dir/scripts/files.sh" --service >"$(session_log file-manager.log)" 2>&1 9>&- &
+children+=("$!")
+
 # File dialogs and geometry memory belong to this login, never a user service.
 python3 "$config_dir/file_manager/portal.py" >"$(session_log file-picker.log)" 2>&1 9>&- &
 children+=("$!")

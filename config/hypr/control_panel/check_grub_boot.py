@@ -29,7 +29,8 @@ def boot(root, name, drives, marker, firmware=(), qemu=None):
     try:
         until=time.monotonic()+35
         while time.monotonic()<until:
-            if log.exists() and marker in log.read_text(errors='replace'):
+            markers = [marker] if isinstance(marker, str) else marker
+            if log.exists() and all(value in log.read_text(errors='replace') for value in markers):
                 print('PASS:',name,flush=True);return
             if process.poll() is not None:break
             time.sleep(.1)
@@ -91,10 +92,24 @@ def main():
         boot(root,'UEFI Linux menu',['-drive',f'file={fat},format=raw','-drive',f'file={linux},format=raw'],
              'FUSION_LINUX_MENU_REACHED',
              ['-drive',f'if=pflash,format=raw,readonly=on,file={ovmf}','-drive',f'if=pflash,format=raw,file={variables}'])
-        (iso_root/'boot/grub/grub.cfg').write_text(SERIAL+'set default=0\nset timeout=0\n'+grub.render_entry(item))
+        # Exercise Current Grub's exact-range removal and command editing in
+        # real GRUB, keeping the independently maintained target menu bootable.
+        edited = SERIAL+'set default=0\nset timeout=0\n'+"menuentry 'Obsolete' { echo obsolete; halt; }\n"+grub.render_entry(item)
+        edited = grub.edit_menu(edited, grub.menu_entries(edited)[0]['id'], remove=True)
+        target_entry = grub.menu_entries(edited)[0]
+        edited = grub.edit_menu(edited, target_entry['id'], name='Renamed Linux',
+                                commands='echo FUSION_CURRENT_EDIT_APPLIED\n'+target_entry['commands'])
+        start.write_text(edited); run('grub-script-check', start)
+        run('grub-mkstandalone','-O','x86_64-efi','-o',first,'boot/grub/grub.cfg='+str(start))
+        run('mcopy','-o','-i',fat,first,'::/EFI/BOOT/BOOTX64.EFI')
+        shutil.copyfile(vars_source,variables)
+        boot(root,'UEFI edited current menu',['-drive',f'file={fat},format=raw','-drive',f'file={linux},format=raw'],
+             ['FUSION_CURRENT_EDIT_APPLIED', 'FUSION_LINUX_MENU_REACHED'],
+             ['-drive',f'if=pflash,format=raw,readonly=on,file={ovmf}','-drive',f'if=pflash,format=raw,file={variables}'])
+        (iso_root/'boot/grub/grub.cfg').write_text(edited)
         iso=root/'start.iso';run('grub-mkrescue','-d','/usr/lib/grub/i386-pc','-o',iso,iso_root)
         bios=next((Path(p) for p in ('/usr/share/qemu/bios-256k.bin','/usr/share/seabios/bios.bin') if Path(p).is_file()),None)
-        boot(root,'BIOS Linux menu',['-cdrom',str(iso),'-boot','d','-drive',f'file={linux},format=raw'], 'FUSION_LINUX_MENU_REACHED',
+        boot(root,'BIOS edited current menu',['-cdrom',str(iso),'-boot','d','-drive',f'file={linux},format=raw'], ['FUSION_CURRENT_EDIT_APPLIED', 'FUSION_LINUX_MENU_REACHED'],
              ['-bios',str(bios)] if bios else [], qemu=shutil.which('qemu-system-i386'))
 
 

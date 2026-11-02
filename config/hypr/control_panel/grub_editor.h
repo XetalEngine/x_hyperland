@@ -1,5 +1,6 @@
 #pragma once
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QWidget>
 
 class QTreeWidget;
@@ -10,6 +11,7 @@ class QListWidget;
 class QProcess;
 class QProgressBar;
 class QPushButton;
+class QTabWidget;
 
 class GrubEditor final : public QWidget {
   Q_OBJECT
@@ -20,16 +22,18 @@ protected:
   void showEvent(QShowEvent *event) override;
   void resizeEvent(QResizeEvent *event) override;
 private:
-  QString helper, revision, operation;
+  QString helper, revision, menuRevision, operation;
   QProcess *reader, *worker;
   QByteArray output, errors;
   QJsonObject pending;
+  QJsonArray managedEntries;
   QBoxLayout *choicesLayout;
-  QTreeWidget *drives;
-  QListWidget *systems, *entries;
+  QTabWidget *tabs;
+  QTreeWidget *drives, *entries;
+  QListWidget *systems;
   QLineEdit *name;
   QPushButton *refresh, *detect, *properties, *add, *load, *rename, *remove, *undo;
-  QLabel *status, *mode, *selection, *saved, *notes, *driveCount;
+  QLabel *status, *mode, *selection, *saved, *notes, *driveCount, *entryDetails;
   QProgressBar *progress;
   bool busy = false, supported = false, loaded = false, canUndo = false;
   void refreshDrives();
@@ -42,6 +46,8 @@ private:
   void scanDrive();
   void showDriveProperties(const QJsonObject &drive);
   void chooseSystem();
+  void editEntry();
+  void chooseEntry();
   QJsonObject drive() const;
   QJsonObject system() const;
   QJsonObject entry() const;

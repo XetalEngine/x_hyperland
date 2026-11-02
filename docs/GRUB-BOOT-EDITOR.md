@@ -2,13 +2,25 @@
 
 Open **Control Panel → Files & recovery → GRUB Boot Editor**.
 
+## Current Grub
+
+The first tab reads the installed boot menu, including distribution entries, firmware tools, submenus and entries added with Fusion. Select an entry and choose **Edit entry…** to change its name. Enable **Edit boot commands (advanced)** to edit that entry's commands. Submenus can be renamed; edit their individual entries to change boot commands.
+
+**Remove from menu…** removes the selected entry, or a submenu and its children. It keeps the operating system and drive intact. The editor refuses to remove the last operating-system boot entry. **Undo last change** restores the previous saved menu when it has not changed since that save.
+
+Fusion entries are also updated in the editor's generator, so their changes survive normal GRUB regeneration. **Changes to system-generated entries affect the current menu; regenerating GRUB, including during some system updates, can restore their original names, commands or entries.** The editor leaves the distribution's generator scripts intact and explains this distinction beside the selection and in the edit/remove dialogs.
+
+The list parses literal `menuentry` and `submenu` declarations in the main configuration without executing it. Variable-generated titles are shown for reference; entries produced at boot by external scripts or configurations are not expanded. If the configuration requires administrator access to read, choose **Load current menu**.
+
+## Add Entry
+
 1. Select a drive by its model and capacity, then click **Detect bootable systems**. Authenticate when prompted. Mounted and unmounted disks are both listed; right-click **Properties…** to inspect the disk and all its partitions without authentication.
 2. The editor finds its Windows or Linux bootloader and selects it. If the drive contains several systems, choose one from the list.
 3. Keep the suggested name or enter the name you want in the menu, then click **Add to GRUB**.
 
 The entry is saved for the next restart. No partition names, UUIDs, boot commands or mount paths need to be typed. The entry uses your existing GRUB theme, with a Windows or Linux icon where that theme provides one. Your default operating system stays selected. A hidden or zero-second menu becomes visible so you can choose the new entry.
 
-**Rename**, **Remove from menu…**, and **Undo last change** manage entries created by this editor. Removing an entry keeps the operating system and its drive intact. Existing entries from your distribution or other tools remain in place.
+After saving, the editor switches to **Current Grub** and selects the new entry. Adding an entry preserves the existing entries from your distribution and other tools.
 
 ## Automatic detection
 
@@ -25,7 +37,7 @@ The editor searches the selected drive's partitions, including unmounted Linux f
 
 Filesystem UUIDs identify entries even when Linux device names change. Cloned UUIDs, an incompatible EFI architecture, the current bootloader, and a disconnected or replaced drive are rejected. The boot files are checked again when saving.
 
-This first version requires an existing GRUB installation with one configuration at `/boot/grub/grub.cfg` or `/boot/grub2/grub.cfg`. It adds existing bootable systems; it does not repair a missing bootloader, convert BIOS to UEFI, unlock encrypted volumes, or install GRUB. Secure Boot continues to enforce the firmware's trust policy; finding a valid EFI program does not certify that its signature is trusted. Unusual RAID, encrypted boot partitions and distribution-specific BIOS modules may need manual setup outside this tool.
+The editor requires an existing GRUB installation with one configuration at `/boot/grub/grub.cfg` or `/boot/grub2/grub.cfg`. It does not repair a missing bootloader, convert BIOS to UEFI, unlock encrypted volumes, or install GRUB. Secure Boot continues to enforce the firmware's trust policy; finding a valid EFI program does not certify that its signature is trusted. Unusual RAID, encrypted boot partitions and distribution-specific BIOS modules may need manual setup outside this tool.
 
 ## Saving and recovery
 
@@ -33,16 +45,16 @@ Drive inspection uses private read-only mounts, including options that suppress 
 
 Changes are confined to:
 
-- `/etc/grub.d/42_hyper_fusion`: the editor's own generator, included by future regular GRUB regeneration.
-- The corresponding marked section in the current `grub.cfg`: everything outside this section is preserved.
+- `/etc/grub.d/42_hyper_fusion`: the editor's own generator, included by future regular GRUB regeneration; updated only for Fusion entries.
+- The current `grub.cfg`: Fusion changes replace its marked section; other current-menu edits replace only the selected title, command body or entry. Surrounding configuration is preserved.
 - `/var/lib/hyper-fusion/grub-editor`: root-only entry records, transaction journals and timestamped backups.
 
-The complete configuration passes `grub-script-check` before replacement. Saves use atomic file replacement, check for external changes, and retain the previous configuration. A failed save rolls back; an interrupted transaction is recovered the next time the authenticated editor opens. **Undo last change** refuses to overwrite intervening changes from a kernel update or another boot tool. Use **Remove from menu…** in that case to preserve those updates.
+The complete configuration passes `grub-script-check` before replacement. Saves use atomic file replacement, check for external changes, and retain the previous configuration. Syntax validation does not prove that manually edited boot commands will start the intended system. A failed save rolls back; an interrupted transaction is recovered the next time the authenticated editor opens. **Undo last change** refuses to overwrite intervening changes from a kernel update or another boot tool. Reload the menu before making a new edit in that case.
 
-Opening the page only lists drives. Its authenticated helper belongs to the open panel, times out when idle and exits when its connection closes. The GUI itself runs as the desktop user.
+Opening the page reads the current menu and lists drives without writing or requesting authentication. Saving, undoing and inspecting unmounted boot files use the authenticated helper. It belongs to the open panel, times out when idle and exits when its connection closes. The GUI itself runs as the desktop user.
 
 ## Development checks
 
-`test_grub_editor.py` covers mounted/unmounted inventory, detection, shared EFI references, stale devices, duplicate UUIDs, literal menu names, configuration validation, external changes, rollback and recovery using temporary fixtures. Native `grub_editor_tests` cover properties, selection, naming, save responses and cancelled authentication. `check_grub_boot.py` explicitly boots disposable QEMU images to check UEFI chainloading, missing drives and Linux configuration handoff under UEFI and BIOS; it attaches no host disks. These checks do not replace testing a particular Windows/Linux installation on its intended hardware.
+`test_grub_editor.py` covers mounted/unmounted inventory, detection, shared EFI references, stale devices, duplicate UUIDs, nested current-menu parsing, name/command editing, removal, the last-OS guard, configuration validation, external changes, rollback and recovery using temporary fixtures. Native `grub_editor_tests` cover both tabs, properties, selection, advanced editing, removal, save responses and cancelled authentication. `check_grub_boot.py` boots disposable QEMU images to check UEFI chainloading, missing drives, Linux configuration handoff, and edited current menus under UEFI and BIOS; it attaches no host disks. These checks do not replace testing a particular Windows/Linux installation on its intended hardware.
 
 The boot methods follow GNU GRUB's [chainloading](https://www.gnu.org/software/grub/manual/grub/html_node/Chain_002dloading.html) and [configfile](https://www.gnu.org/software/grub/manual/grub/html_node/configfile.html) commands. Filesystem inspection follows the kernel's [ext4 mount guidance](https://docs.kernel.org/admin-guide/ext4.html) and the [NTFS-3G manual](https://github.com/tuxera/ntfs-3g/wiki/Manual).

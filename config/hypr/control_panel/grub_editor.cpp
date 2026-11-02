@@ -38,12 +38,20 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
   heading->addWidget(label("GRUB Boot Editor", this, "panelTitle"), 1);
   mode = label("", this, "muted"); heading->addWidget(mode);
   layout->addLayout(heading);
-  layout->addWidget(label("Your drives. One boot menu.\nChoose a drive, name its system, and add it to GRUB.", this));
+  tabs = new QTabWidget(this); tabs->setObjectName("grubTabs");
+  auto *currentPage = new QWidget(tabs);
+  auto *currentLayout = new QVBoxLayout(currentPage); currentLayout->setSpacing(14);
+  auto *addPage = new QWidget(tabs);
+  auto *addLayout = new QVBoxLayout(addPage); addLayout->setSpacing(14);
+  tabs->addTab(currentPage, "Current Grub"); tabs->addTab(addPage, "Add Entry");
+  layout->addWidget(tabs, 1);
+  currentLayout->addWidget(label("Your current boot menu. Select an entry to edit its name or boot commands, or remove it from the menu.", currentPage));
+  addLayout->addWidget(label("Choose a drive, detect its bootable systems, and add the one you want to your current GRUB menu.", addPage));
 
   choicesLayout = new QBoxLayout(QBoxLayout::TopToBottom);
   choicesLayout->setContentsMargins(0, 0, 0, 0); choicesLayout->setSpacing(14);
-  layout->addLayout(choicesLayout);
-  auto *driveBox = new QGroupBox("1  Choose a drive", this);
+  addLayout->addLayout(choicesLayout);
+  auto *driveBox = new QGroupBox("1  Choose a drive", addPage);
   auto *driveLayout = new QVBoxLayout(driveBox);
   driveLayout->setSizeConstraint(QLayout::SetMinimumSize);
   auto *driveRow = new QHBoxLayout;
@@ -73,7 +81,7 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
   driveLayout->addLayout(driveActions);
   choicesLayout->addWidget(driveBox, 1);
 
-  auto *systemBox = new QGroupBox("2  Boot partition to add", this);
+  auto *systemBox = new QGroupBox("2  Boot partition to add", addPage);
   auto *systemLayout = new QVBoxLayout(systemBox);
   systemLayout->setSizeConstraint(QLayout::SetMinimumSize);
   systems = new QListWidget(systemBox); systems->setObjectName("grubSystems");
@@ -93,27 +101,39 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
   systemLayout->addLayout(nameRow);
   systemLayout->addStretch(1);
   choicesLayout->addWidget(systemBox, 1);
+  addLayout->addStretch(1);
 
   progress = new QProgressBar(this); progress->setRange(0, 0);
   progress->setTextVisible(false); progress->setFixedHeight(6); progress->hide(); layout->addWidget(progress);
-  status = label("Choose the drive you want to add. Administrator authentication is requested when needed.", this, "grubStatus");
+  status = label("Reading your current boot menu…", this, "grubStatus");
   status->setTextInteractionFlags(Qt::TextSelectableByMouse); layout->addWidget(status);
 
-  auto *savedBox = new QGroupBox("Entries added with this editor", this);
+  auto *savedBox = new QGroupBox("Boot menu entries", currentPage);
   auto *savedLayout = new QVBoxLayout(savedBox);
-  entries = new QListWidget(savedBox); entries->setObjectName("grubEntries");
+  entries = new QTreeWidget(savedBox); entries->setObjectName("grubEntries");
+  entries->setHeaderLabels({"Name in GRUB", "Type", "Source"});
+  entries->setAlternatingRowColors(true); entries->setSelectionMode(QAbstractItemView::SingleSelection);
+  entries->setSelectionBehavior(QAbstractItemView::SelectRows);
+  entries->setEditTriggers(QAbstractItemView::NoEditTriggers);
+  entries->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+  entries->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+  entries->header()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
   entries->setMinimumHeight(70); savedLayout->addWidget(entries, 1);
-  saved = label("Your existing GRUB entries are kept.", savedBox, "grubSaved");
+  entryDetails = label("Select a boot entry to see its details.", savedBox, "grubEntryDetails");
+  savedLayout->addWidget(entryDetails);
+  saved = label("Reading the current menu…", savedBox, "grubSaved");
   saved->setWordWrap(false); savedLayout->addWidget(saved);
   auto *savedActions = new QHBoxLayout;
-  load = new QPushButton("Load saved entries", savedBox); load->setObjectName("grubLoad");
-  rename = new QPushButton("Rename…", savedBox); rename->setObjectName("grubRename");
+  load = new QPushButton("Load current menu", savedBox); load->setObjectName("grubLoad");
+  load->setIcon(QIcon::fromTheme("view-refresh"));
+  rename = new QPushButton("Edit entry…", savedBox); rename->setObjectName("grubEdit");
+  rename->setIcon(QIcon::fromTheme("document-edit"));
   remove = new QPushButton("Remove from menu…", savedBox); remove->setObjectName("grubRemove");
   undo = new QPushButton("Undo last change", savedBox); undo->setObjectName("grubUndo");
   savedActions->addWidget(load); savedActions->addWidget(rename); savedActions->addWidget(remove);
   savedActions->addStretch(); savedActions->addWidget(undo);
-  savedLayout->addLayout(savedActions); layout->addWidget(savedBox, 1);
-  layout->addWidget(label("Each change is backed up and checked before saving. Your current GRUB theme and default system are kept.", this, "muted"));
+  savedLayout->addLayout(savedActions); currentLayout->addWidget(savedBox, 1);
+  layout->addWidget(label("Each change is backed up and checked before saving. Your GRUB theme is kept.", this, "muted"));
 
   reader = new QProcess(this); worker = new QProcess(this);
   connect(refresh, &QPushButton::clicked, this, &GrubEditor::refreshDrives);
@@ -129,27 +149,27 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
     if (menu.exec(drives->viewport()->mapToGlobal(point)) == action) showDriveProperties(metadata);
   });
   connect(systems, &QListWidget::currentRowChanged, this, &GrubEditor::chooseSystem);
-  connect(entries, &QListWidget::currentRowChanged, this, &GrubEditor::updateActions);
+  connect(entries, &QTreeWidget::currentItemChanged, this, &GrubEditor::chooseEntry);
+  connect(entries, &QTreeWidget::itemActivated, this, &GrubEditor::editEntry);
   connect(name, &QLineEdit::textChanged, this, &GrubEditor::updateActions);
-  connect(load, &QPushButton::clicked, this, [this] { request({{"action", "refresh"}}); });
+  connect(load, &QPushButton::clicked, this, [this] {
+    if (menuRevision.isEmpty()) request({{"action", "refresh"}});
+    else refreshDrives();
+  });
   connect(add, &QPushButton::clicked, this, [this] {
     const auto target = system(); if (!target.value("available").toBool()) return;
     request({{"action", "add"}, {"drive", target["drive"]}, {"drive_token", target["drive_token"]},
              {"candidate", target["id"]}, {"loader_hash", target["loader_hash"]}, {"name", name->text().trimmed()}});
   });
-  connect(rename, &QPushButton::clicked, this, [this] {
-    const auto item = entry(); if (item.isEmpty()) return;
-    bool ok = false;
-    const auto title = QInputDialog::getText(this, "Rename boot entry", "Name in GRUB", QLineEdit::Normal,
-                                            item["name"].toString(), &ok);
-    if (ok && !title.trimmed().isEmpty()) request({{"action", "rename"}, {"id", item["id"]}, {"name", title}});
-  });
+  connect(rename, &QPushButton::clicked, this, &GrubEditor::editEntry);
   connect(remove, &QPushButton::clicked, this, [this] {
     const auto item = entry(); if (item.isEmpty()) return;
-    if (QMessageBox::question(this, "Remove boot entry?", "Remove “"+item["name"].toString()+
-        "” from the GRUB menu?\nThe system and its drive stay intact.", QMessageBox::Yes | QMessageBox::Cancel,
+    QString message = "Remove “"+item["name"].toString()+"” from the GRUB menu?\nThe system and its drive stay intact.";
+    if (item["kind"] == "submenu") message += "\nThe entries inside this submenu will also be removed.";
+    if (item["managed_id"].toString().isEmpty()) message += "\nRegenerating GRUB can restore entries created by system generators.";
+    if (QMessageBox::question(this, "Remove boot entry?", message, QMessageBox::Yes | QMessageBox::Cancel,
         QMessageBox::Cancel) == QMessageBox::Yes)
-      request({{"action", "remove"}, {"id", item["id"]}});
+      request({{"action", "remove-current"}, {"id", item["id"]}});
   });
   connect(undo, &QPushButton::clicked, this, [this] {
     if (QMessageBox::question(this, "Undo last GRUB change?", "Restore the boot menu from before your last saved change?",
@@ -198,7 +218,9 @@ void GrubEditor::resizeEvent(QResizeEvent *event) {
   choicesLayout->setDirection(width() >= 1100 ? QBoxLayout::LeftToRight : QBoxLayout::TopToBottom);
 }
 QJsonObject GrubEditor::system() const { return itemData(systems); }
-QJsonObject GrubEditor::entry() const { return itemData(entries); }
+QJsonObject GrubEditor::entry() const {
+  return entries->currentItem() ? entries->currentItem()->data(0, Qt::UserRole).toJsonObject() : QJsonObject();
+}
 QJsonObject GrubEditor::drive() const {
   return drives->currentItem() ? drives->currentItem()->data(0, Qt::UserRole).toJsonObject() : QJsonObject();
 }
@@ -209,11 +231,12 @@ void GrubEditor::updateActions() {
   properties->setEnabled(!drive().isEmpty());
   systems->setEnabled(!busy); name->setEnabled(!busy && system().value("available").toBool());
   add->setEnabled(!busy && supported && system().value("available").toBool() && !name->text().trimmed().isEmpty() && !revision.isEmpty());
-  load->setEnabled(!busy && supported); rename->setEnabled(!busy && !entry().isEmpty());
-  remove->setEnabled(!busy && !entry().isEmpty()); undo->setEnabled(!busy && canUndo);
+  entries->setEnabled(!busy);
+  load->setEnabled(!busy && supported); rename->setEnabled(!busy && entry()["editable"].toBool());
+  remove->setEnabled(!busy && entry()["editable"].toBool()); undo->setEnabled(!busy && canUndo);
   bool existing = false;
-  for (int i = 0; i < entries->count(); ++i)
-    if (entries->item(i)->data(Qt::UserRole).toJsonObject()["id"] == system()["id"]) existing = true;
+  for (const auto &item : managedEntries)
+    if (item.toObject()["id"] == system()["id"]) existing = true;
   add->setText(existing ? "Save name" : "Add to GRUB");
 }
 void GrubEditor::refreshDrives() {
@@ -314,9 +337,60 @@ void GrubEditor::chooseSystem() {
         (target["detail"].toString().isEmpty() ? QString() : "\n"+target["detail"].toString()) : target["reason"].toString());
   updateActions();
 }
+void GrubEditor::chooseEntry() {
+  const auto selected = entry();
+  QString detail = selected.isEmpty() ? "Select a boot entry to see its details." :
+      selected["managed_id"].toString().isEmpty() ?
+        "System-generated entry · Changes affect the current menu. Regenerating GRUB can restore the original." :
+        "Fusion entry · Changes are also saved for future GRUB generation.";
+  if (!selected.isEmpty() && !selected["editable"].toBool())
+    detail = "This entry has a variable-generated name and is shown for reference.";
+  entryDetails->setText(detail); updateActions();
+}
+void GrubEditor::editEntry() {
+  const auto selected = entry();
+  if (busy || !selected["editable"].toBool()) return;
+  QDialog dialog(this); dialog.setObjectName("grubEditDialog");
+  dialog.setWindowTitle("Edit boot entry"); dialog.resize(720, 330);
+  auto *layout = new QVBoxLayout(&dialog); layout->setSpacing(14);
+  layout->addWidget(label("Name in GRUB", &dialog));
+  auto *title = new QLineEdit(selected["name"].toString(), &dialog);
+  title->setObjectName("grubEditName"); title->setMaxLength(100); layout->addWidget(title);
+  QGroupBox *advanced = nullptr;
+  QPlainTextEdit *commands = nullptr;
+  if (selected["kind"] != "submenu") {
+    advanced = new QGroupBox("Edit boot commands (advanced)", &dialog);
+    advanced->setObjectName("grubAdvanced"); advanced->setCheckable(true); advanced->setChecked(false);
+    auto *body = new QVBoxLayout(advanced);
+    commands = new QPlainTextEdit(advanced); commands->setObjectName("grubCommands");
+    commands->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    commands->setLineWrapMode(QPlainTextEdit::NoWrap); commands->setMinimumHeight(240);
+    QString text = selected["commands"].toString();
+    if (text.startsWith('\n')) text.remove(0, 1);
+    if (text.endsWith('\n')) text.chop(1);
+    commands->setPlainText(text); commands->hide(); body->addWidget(commands);
+    connect(advanced, &QGroupBox::toggled, commands, &QWidget::setVisible);
+    connect(advanced, &QGroupBox::toggled, &dialog, [&dialog] { dialog.adjustSize(); });
+    layout->addWidget(advanced);
+  }
+  layout->addWidget(label(selected["managed_id"].toString().isEmpty() ?
+      "Changes apply to your current boot menu. Regenerating GRUB can restore this system-generated entry." :
+      "This Fusion entry is also updated in the saved menu generator.", &dialog, "muted"));
+  auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, &dialog);
+  layout->addWidget(buttons);
+  auto *save = buttons->button(QDialogButtonBox::Save);
+  save->setEnabled(!title->text().trimmed().isEmpty());
+  connect(title, &QLineEdit::textChanged, save, [save](const QString &text) { save->setEnabled(!text.trimmed().isEmpty()); });
+  connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+  connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+  if (dialog.exec() != QDialog::Accepted) return;
+  QJsonObject change{{"action", "edit-current"}, {"id", selected["id"]}, {"name", title->text().trimmed()}};
+  if (advanced && advanced->isChecked()) change["commands"] = commands->toPlainText();
+  request(change);
+}
 void GrubEditor::request(const QJsonObject &data) {
   if (busy) return;
-  pending = data; pending["revision"] = revision;
+  pending = data; pending["revision"] = revision; pending["menu_revision"] = menuRevision;
   operation = data["action"].toString();
   status->setText(operation == "scan" ? "Detecting the system. Authenticate if prompted…" : "Working on your boot menu…");
   setBusy(true);
@@ -361,17 +435,37 @@ void GrubEditor::result(const QJsonObject &data) {
     else if (operation == "refresh") selection->setText("Select Detect bootable systems to inspect this drive’s partitions.");
   }
   if (data.contains("revision")) revision = data["revision"].toString();
+  if (data.contains("menu_revision")) menuRevision = data["menu_revision"].toString();
   if (data.contains("can_undo")) canUndo = data["can_undo"].toBool();
-  if (data.contains("entries")) {
+  if (data.contains("entries")) managedEntries = data["entries"].toArray();
+  if (data.contains("current_entries")) {
+    const auto previous = entry()["id"].toString();
+    QHash<QString, QTreeWidgetItem *> rows;
+    const QSignalBlocker guard(entries);
     entries->clear();
-    for (const auto &value : data["entries"].toArray()) {
+    int count = 0;
+    for (const auto &value : data["current_entries"].toArray()) {
       const auto item = value.toObject();
-      auto *row = new QListWidgetItem(QIcon::fromTheme(item["title"].toString().startsWith("Windows") ? "computer" : "distributor-logo"), item["name"].toString(), entries);
-      row->setData(Qt::UserRole, item); row->setToolTip(item["title"].toString()+" · "+item["drive"].toString());
+      const bool submenu = item["kind"] == "submenu";
+      if (!submenu) ++count;
+      const auto source = item["managed_id"].toString().isEmpty() ? QFileInfo(item["source"].toString()).fileName() : "Fusion";
+      auto *row = new QTreeWidgetItem({item["name"].toString(), submenu ? "Submenu" : "Boot entry", source.isEmpty() ? "Current menu" : source});
+      row->setIcon(0, QIcon::fromTheme(submenu ? "folder" : "computer"));
+      row->setData(0, Qt::UserRole, item); row->setToolTip(0, item["menu_id"].toString());
+      if (auto *parent = rows.value(item["parent_id"].toString())) parent->addChild(row);
+      else entries->addTopLevelItem(row);
+      rows.insert(item["id"].toString(), row);
+      if (item["id"].toString() == previous || (operation == "add" && item["managed_id"] == system()["id"]))
+        entries->setCurrentItem(row);
     }
-    if (entries->count()) entries->setCurrentRow(0);
-    saved->setText(entries->count() ? QString("%1 saved %2 · Existing entries are kept.").arg(entries->count()).arg(entries->count() == 1 ? "entry" : "entries") : "No entries added with this editor yet. Existing GRUB entries are kept.");
-    load->setVisible(revision.isEmpty());
+    entries->expandAll();
+    if (!entries->currentItem() && entries->topLevelItemCount()) entries->setCurrentItem(entries->topLevelItem(0));
+    saved->setText(count ? QString("%1 boot %2 · %3").arg(count).arg(count == 1 ? "entry" : "entries").arg(data["config"].toString()) : "No literal boot entries were found in the current menu.");
+    load->setText("Reload menu"); chooseEntry();
+    if (operation == "add" || operation == "edit-current" || operation == "remove-current") tabs->setCurrentIndex(0);
+  } else if (menuRevision.isEmpty()) {
+    saved->setText("Load your current menu to see its boot entries.");
+    load->setText("Load current menu");
   }
   if (data.contains("candidates")) {
     systems->clear();
@@ -392,6 +486,6 @@ void GrubEditor::result(const QJsonObject &data) {
     for (const auto &note : data["notes"].toArray()) messages.append(note.toString());
     notes->setText(messages.join('\n')); notes->setVisible(!messages.isEmpty());
     status->setText(first >= 0 ? "Detected. Choose the name you want in GRUB, then Add to GRUB." : "Choose another drive or check the detection details above.");
-  } else status->setText(data.value("message").toString("Choose a drive to add its system to GRUB."));
+  } else status->setText(data.value("message").toString("Select an entry to edit, or open Add Entry to add another system."));
   if (data.contains("backup")) saved->setToolTip("Backup: "+data["backup"].toString());
 }

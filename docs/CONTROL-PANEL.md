@@ -15,7 +15,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | System ISO | Full system clone, exclusions, online/offline packages, archive selection/verification, first-boot hardware/identity changes, output, restore guide, dependency checks and dummy installer preview |
 | System Backup / System Restore | Source/destination drives, filesystem browsing, rsync backup and restore |
 | Drives & Storage | Filters, mounts, labels, formatting, ownership/permissions, SMART health, benchmarking and ISO to USB |
-| GRUB Boot Editor | Select a drive, automatically find Windows/Linux boot files, name and add an entry; rename, remove, backups and undo. [Guide →](GRUB-BOOT-EDITOR.md) |
+| GRUB Boot Editor | Current Grub: edit names or boot commands and remove existing entries. Add Entry: detect and add another drive's Windows/Linux bootloader. Backups and undo; system-generated edits can be replaced by GRUB regeneration. [Guide →](GRUB-BOOT-EDITOR.md) |
 | Restore Points | Snapper/Btrfs snapshot management |
 | Logs & Reports | Plain-text hardware reports, decoded login history, journal filters, boot selection and live following |
 | System Overview | Health, resource use, quick actions and language selection |
@@ -81,8 +81,10 @@ folder** actions. It shares the Control Panel backend, supports app search and
 Undo, and links to the full file-type and protocol editor. Background helpers
 resolve the Hyprland profile's app defaults even when started with older session
 environment values. Fusion Files and Dolphin receive `--select` for reveal actions.
-The standard ShowItems and ShowFolders interface also follows this choice when
-Fusion Files owns the session's file-manager service.
+The Hyprland session starts a resident folder service so standard ShowItems and
+ShowFolders calls, including Chrome's **Show in folder** portal requests, follow
+this choice even when all Fusion Files windows are closed. The service exits at
+logout and does not change KDE's service configuration.
 
 Open **Software & maintenance → Default Apps**. The themed **Everyday apps**
 cards show the current application for twelve categories. Choose a card, select

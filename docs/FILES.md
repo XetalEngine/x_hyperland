@@ -191,11 +191,24 @@ Trash. Checks click icons in all five views, exercise keyboard file operations,
 numbered copy/move collisions, access routing, drag-and-drop, script/unknown-file menus and a real 64 MiB folder
 copy through the themed JobView service with pause/resume. They do not mount
 real drives. `--select /path/to/file` reveals a file in
-its parent folder. The application also exposes the standard
-`org.freedesktop.FileManager1` interface when that service name is available.
-Its ShowItems and ShowFolders requests resolve the current Default Apps handler
-through the same folder launcher on every request; ShowItems retains selection.
-`test_service.py` checks that routing on a private bus with a temporary handler.
+its parent folder. `scripts/session.sh` starts a resident `--service` instance
+before startup applications. It owns the standard `org.freedesktop.FileManager1`
+interface throughout the Hyprland login, including while no Files windows are
+open. Chrome's **Show in folder** portal (`OpenURI.OpenDirectory`) forwards to
+this same interface. ShowItems and ShowFolders resolve the current Default Apps
+handler through the folder launcher on every request; ShowItems retains selection
+and forwards the request's activation token.
+
+This explicit startup matters: the shared user bus does not inherit Hyprland's
+profile-local D-Bus activation search path, so a service file alone can still
+activate Dolphin. The resident service follows the compositor's event socket and
+releases its name at logout. A per-instance lock prevents duplicate helpers. An
+ordinary Fusion window yields its temporary registration to the resident service;
+another manager that refuses replacement is left running, with Fusion queued
+until it releases the name. No shared activation environment or KDE service
+configuration is changed. `test_service.py` checks routing, changing defaults,
+tokens, competing owners, duplicate startup and logout on a private bus with a
+temporary handler and simulated compositor socket.
 The separately gated `administratorTransfers` native check requires root,
 `FUSION_FILES_ADMIN_CHECK=1`, a private D-Bus session and temporary XDG directories;
 it exercises the installed administrator worker only on disposable fixtures.

@@ -13,7 +13,8 @@ sys.path[:0]=[str(ROOT),str(ROOT/'theme'),str(ROOT/'control_center')]
 from wallpaper import library, transitions
 from wallpaper.browser import Browser, ScreenPicker, sample_monitors
 from wallpaper.page import SelectorSettings
-from PyQt6.QtWidgets import QApplication, QDialog
+from PyQt6.QtWidgets import QApplication, QDialog, QLineEdit
+from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtTest import QTest
 from PyQt6.QtCore import Qt, QPoint
 
@@ -127,6 +128,32 @@ class BrowserTests(unittest.TestCase):
     def test_single_display_applies_without_opening_picker(self):
         with patch.object(self.window,'begin_apply') as apply,patch('wallpaper.browser.ScreenPicker') as picker:
             self.window.pick_screen(self.window.pictures[0],(sample_monitors()[:1],{})); picker.assert_not_called(); apply.assert_called_once()
+
+    def test_escape_closes_from_each_control_and_with_competing_shortcut(self):
+        for style in ('window', 'overlay'):
+            for control in ('carousel', 'search', 'collection', 'transition', 'apply'):
+                with self.subTest(style=style, control=control):
+                    window = Browser(preview=True, style=style)
+                    try:
+                        window.show(); window.activateWindow(); QTest.qWait(20)
+                        target = getattr(window, control); target.setFocus()
+                        competing = QShortcut(QKeySequence(Qt.Key.Key_Escape), window)
+                        QTest.keyClick(target, Qt.Key.Key_Escape)
+                        self.assertFalse(window.isVisible())
+                    finally:
+                        window.hide(); window.shutdown(); window.deleteLater(); self.app.processEvents()
+
+    def test_escape_cancels_own_dialog_first_and_ignores_other_windows(self):
+        other = QLineEdit(); other.show()
+        try:
+            QTest.keyClick(other, Qt.Key.Key_Escape)
+            self.assertTrue(self.window.isVisible())
+            dialog = QDialog(self.window); self.window.dialog = dialog; dialog.show()
+            QTest.keyClick(dialog, Qt.Key.Key_Escape)
+            self.assertFalse(dialog.isVisible()); self.assertTrue(self.window.isVisible())
+            self.window.dialog = None; dialog.deleteLater()
+        finally:
+            other.close(); other.deleteLater(); self.app.processEvents()
 
     def test_multiple_displays_wait_for_selection_and_cancel_writes_nothing(self):
         with patch.object(self.window,'begin_apply') as apply,patch('wallpaper.browser.ScreenPicker') as picker:

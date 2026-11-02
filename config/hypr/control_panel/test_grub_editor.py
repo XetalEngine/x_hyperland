@@ -345,5 +345,107 @@ class TransactionTests(Fixtures):
             request.update(candidate='untrusted',revision=result['revision'])
             with self.assertRaisesRegex(RuntimeError,'no longer available'):session.handle(request)
 
+    def current_request(self, action, identity=None, **values):
+        menu = self.store.status()
+        return dict(action=action, id=identity or menu['current_entries'][0]['id'],
+                    revision=menu['revision'], menu_revision=menu['menu_revision'], **values)
+
+    def test_current_menu_edit_rename_remove_and_undo_preserve_other_bytes(self):
+        self.store.config.write_text(self.original+"menuentry 'Second' --id second { echo second; }\n")
+        original = self.store.config.read_bytes()
+        with self.store.locked():
+            self.store.edit_current(self.current_request('edit-current', name="Bob's Linux"))
+        changed = self.store.config.read_text()
+        self.assertEqual(grub.menu_entries(changed)[0]['name'], "Bob's Linux")
+        self.assertIn("menuentry 'Second' --id second { echo second; }\n", changed)
+        self.assertFalse(self.store.generator.exists())
+        with self.store.locked(): self.store.undo(self.store.revision())
+        self.assertEqual(self.store.config.read_bytes(), original)
+        with self.store.locked(): self.store.edit_current(self.current_request('remove-current'))
+        self.assertEqual(len(self.store.status()['current_entries']), 1)
+        self.assertEqual(self.store.status()['current_entries'][0]['name'], 'Second')
+
+    def test_current_commands_are_checked_and_cannot_escape_the_entry(self):
+        original = self.store.config.read_bytes()
+        for commands in ("}\nmenuentry 'Injected' { echo bad; }\n#", 'if true; then\n echo unfinished', 'echo bad\0'):
+            with self.subTest(commands=commands), self.store.locked(), self.assertRaises((ValueError, RuntimeError)):
+                self.store.edit_current(self.current_request('edit-current', name='Changed', commands=commands))
+            self.assertEqual(self.store.config.read_bytes(), original)
+        with self.store.locked():
+            self.store.edit_current(self.current_request('edit-current', name='Changed', commands=' echo changed;'))
+        self.assertIn(' echo changed;', self.store.status()['current_entries'][0]['commands'])
+
+    def test_current_menu_refuses_stale_selection_and_last_operating_system_removal(self):
+        request = self.current_request('edit-current', name='Changed')
+        self.store.config.write_text(self.original+'# another program\n')
+        with self.store.locked(), self.assertRaisesRegex(RuntimeError, 'changed'):
+            self.store.edit_current(request)
+        text = "menuentry 'Linux' { linux /vmlinuz root=UUID=abc; }\nmenuentry 'Firmware' { fwsetup; }\n"
+        self.store.config.write_text(text)
+        with self.store.locked(), self.assertRaisesRegex(ValueError, 'operating-system'):
+            self.store.edit_current(self.current_request('remove-current'))
+        self.assertEqual(self.store.config.read_text(), text)
+
+    def test_current_fusion_entry_updates_its_generator_and_saved_commands(self):
+        self.save([self.item])
+        entry = next(e for e in self.store.status()['current_entries'] if e['managed_id'])
+        with self.store.locked():
+            self.store.edit_current(self.current_request('edit-current', entry['id'], name='Custom Windows',
+                                                         commands=' chainloader /EFI/Microsoft/Boot/bootmgfw.efi'))
+        output = subprocess.check_output(['sh', str(self.store.generator)], text=True)
+        self.assertIn("menuentry 'Custom Windows'", output)
+        self.assertIn(' chainloader /EFI/Microsoft/Boot/bootmgfw.efi', output)
+        self.assertEqual(self.store.entries()[0]['name'], 'Custom Windows')
+        self.save(self.store.entries())
+        self.assertIn(' chainloader /EFI/Microsoft/Boot/bootmgfw.efi', self.store.config.read_text())
+
+    def test_current_edit_failure_rolls_back_without_creating_a_generator(self):
+        original = self.store.config.read_bytes()
+        actual = grub.atomic
+        def fail(path, data, mode=0o600):
+            if path == self.store.state/'last.json': raise OSError('fixture disk full')
+            return actual(path, data, mode)
+        with self.store.locked(), patch.object(grub, 'atomic', side_effect=fail), self.assertRaises(OSError):
+            self.store.edit_current(self.current_request('edit-current', name='Changed'))
+        self.assertEqual(self.store.config.read_bytes(), original)
+        self.assertFalse(self.store.generator.exists())
+
+
+class CurrentMenuTests(unittest.TestCase):
+    def test_nested_menus_quotes_variables_comments_and_multiline_headers(self):
+        text = '''# menuentry 'Not real' { }
+### BEGIN /etc/grub.d/10_linux ###
+menuentry "Linux {primary}" --id main {
+    echo "${root} is not a brace" # } ignored
+    linux /vmlinuz root=UUID=abc
+}
+submenu 'Advanced options' $menuentry_id_option 'advanced'
+{
+    menuentry 'Fallback' --id fallback { linux /fallback; }
+    menuentry "${generated_name}" { echo dynamic; }
+}
+### END /etc/grub.d/10_linux ###
+menuentry 'Manual' { echo manual; }
+'''
+        entries = grub.menu_entries(text)
+        self.assertEqual([e['name'] for e in entries], ['Linux {primary}', 'Advanced options', 'Fallback', '"${generated_name}"', 'Manual'])
+        self.assertEqual(entries[2]['parent_id'], entries[1]['id'])
+        self.assertEqual(entries[2]['index_path'], [1, 0])
+        self.assertEqual(entries[1]['menu_id'], 'advanced')
+        self.assertFalse(entries[3]['editable'])
+        self.assertEqual(entries[4]['source'], '')
+        changed = grub.edit_menu(text, entries[2]['id'], name='Fallback renamed')
+        self.assertEqual(changed, text.replace("'Fallback'", "'Fallback renamed'"))
+        removed = grub.edit_menu(text, entries[1]['id'], remove=True)
+        self.assertEqual([e['name'] for e in grub.menu_entries(removed)], ['Linux {primary}', 'Manual'])
+        self.assertNotIn('start', grub.public_menu(text)[0])
+
+    def test_dynamic_titles_and_malformed_blocks_are_not_rewritten(self):
+        text = 'menuentry "$name" { echo dynamic; }\n'
+        with self.assertRaisesRegex(ValueError, 'generated title'):
+            grub.edit_menu(text, grub.menu_entries(text)[0]['id'], name='Changed')
+        for damaged in ("menuentry 'Bad' {", "menuentry 'Bad { }", "menuentry 'Bad' { echo ${root; }"):
+            with self.subTest(damaged=damaged), self.assertRaises(ValueError): grub.menu_entries(damaged)
+
 
 if __name__=='__main__':unittest.main()
