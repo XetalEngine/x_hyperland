@@ -196,7 +196,7 @@ class DesignCard(QPushButton):
         modern=self.design=='modern';colors=runtime.colors(self.mode,self.design)
         box=QRectF(self.rect()).adjusted(2,2,-2,-2)
         p.setBrush(QColor(colors['Window']));p.setPen(QPen(QColor(colors['Accent'] if self.isChecked() else colors['Midlight']),2 if self.isChecked() else 1))
-        radius=4 if self.design=='binaryknife' else 16
+        radius=2 if self.design=='porcelainink' else 4 if self.design=='binaryknife' else 16
         p.drawRoundedRect(box,radius,radius)
         self.artwork.paint(p,box.adjusted(14,14,-14,-58),self.design,self.mode,self.surfaces,self.strip_image.frame,self.launcher_design)
         p.setPen(QColor(colors['Text']));p.setFont(QFont(runtime.ui_font(),12,QFont.Weight.DemiBold))
@@ -245,11 +245,12 @@ class SurfacePreview(QWidget):
     def paintEvent(self,event):
         p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing);p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         colors=runtime.colors(self.mode,self.design);box=QRectF(self.rect()).adjusted(1,1,-1,-1)
-        p.setBrush(QColor(colors['Window']));p.setPen(QPen(QColor(colors['Midlight']),1));p.drawRoundedRect(box,12,12)
+        radius=2 if self.design=='porcelainink' else 12
+        p.setBrush(QColor(colors['Window']));p.setPen(QPen(QColor(colors['Midlight']),1));p.drawRoundedRect(box,radius,radius)
         if self.artwork.show_background and not self.artwork.background.isNull():
-            DesktopPreview.picture(p,self.artwork.background,box,12)
+            DesktopPreview.picture(p,self.artwork.background,box,radius)
             shade=QColor(colors['Window']);shade.setAlpha(round(255*(1-self.visibility/100)))
-            p.setBrush(shade);p.drawRoundedRect(box,12,12)
+            p.setBrush(shade);p.drawRoundedRect(box,radius,radius)
         navigation=QRectF(10,12,76,160)
         paint_group(p,navigation,colors,self.design,self.options['sidebar_opacity'])
         p.setFont(QFont(runtime.ui_font(),7));p.setPen(QColor(colors['Text']))
@@ -297,7 +298,7 @@ class DesignPage(QWidget):
             row.setColumnStretch(0,1);row.setColumnStretch(1,1)
             root.addLayout(row)
             if collection=='atmospheres':
-                root.addWidget(label('Tidal Glass · Three coordinated ocean views · Light, dark & high contrast','muted'))
+                root.addWidget(label('Three coordinated wallpapers per theme · Light, dark & high contrast','muted'))
             root.addStretch()
     def refresh(self):
         style=self.owner.menu_design()
@@ -491,7 +492,7 @@ class ThemePage(QWidget):
         preferred=runtime.designs.DEFAULT_MODES.get(design)
         if preferred and self.mode.currentData()!='contrast':
             self.mode.setCurrentIndex(self.mode.findData(preferred))
-        if design=='tidalglass':
+        if design in ('tidalglass','porcelainink'):
             if self.launcher_style.currentData() in ('follow',self.baseline[0]):
                 self.launcher_style.setCurrentIndex(self.launcher_style.findData('follow'))
         self.changed()

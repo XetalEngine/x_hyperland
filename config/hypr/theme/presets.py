@@ -95,6 +95,8 @@ def builtin(design, mode, root=None):
     value.pop('burn', None); value.pop('cube', None); value.pop('minimize', None); value.pop('appearance', None)
     if design == 'tidalglass':
         value['cursors'].update(style='pearl',color='#65dced',trail='glow',intensity=30)
+    elif design == 'porcelainink':
+        value['cursors'].update(style='sumi',color='#ab3429',trail='none',intensity=20)
     return value
 
 

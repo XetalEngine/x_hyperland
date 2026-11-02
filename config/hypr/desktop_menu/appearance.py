@@ -8,7 +8,7 @@ import runtime as theme_runtime
 def colors(style):
     if style['palette']=='system' and theme_runtime.design()!='raw':
         p=theme_runtime.colors()
-        return {'background':p['Light'] if theme_runtime.design()=='tidalglass' else p['Window'],'background_end':p['Window'],'text':p['Text'],'border':p['Midlight'],
+        return {'background':p['Light'] if theme_runtime.design() in ('tidalglass','porcelainink') else p['Window'],'background_end':p['Window'],'text':p['Text'],'border':p['Midlight'],
                 'accent':p['Accent'],'hover':p['Highlight'],'hover_text':p['HighlightedText'],'divider':p['Midlight']}
     return {key: (theme_runtime.recolor(value, theme_runtime.mode())
                   if style['palette'] == 'system' else style[key])
@@ -53,7 +53,9 @@ def css(style):
     if breakpoint:rounding=12
     if binaryknife:rounding=4
     if tidalglass:rounding=20
-    font='Inter' if (breakpoint or binaryknife or tidalglass) and style['font_family']=='Noto Sans' else style['font_family']
+    porcelainink=style['palette']=='system' and theme_runtime.design()=='porcelainink'
+    if porcelainink:rounding=2
+    font='Inter' if (breakpoint or binaryknife or tidalglass or porcelainink) and style['font_family']=='Noto Sans' else style['font_family']
     return f'''
     window#xetal-desktop-background {{background:transparent; border:none; box-shadow:none;}}
     menu.desktop-context-menu {{

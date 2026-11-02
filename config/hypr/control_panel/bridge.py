@@ -73,8 +73,17 @@ def theme():
           QFrame#defaultsHero, QFrame#ramMetric, QFrame#ramMode, QFrame#filterGroupBox {{background:{gradient(p,'Base','AlternateBase')}; border-top-color:{p['Light']}; border-radius:14px;}}
           QWidget#defaultAppsTab QToolButton {{border-radius:13px;}}
         '''
+    if design=='porcelainink':
+        from porcelainink import paper
+        style+=f'''
+          QWidget#hyperControlPanel {{background:{paper(p)}; border-radius:2px;}}
+          QScrollArea, QStackedWidget {{background:transparent;}}
+          QFrame#defaultsHero, QFrame#ramMetric, QFrame#ramMode, QFrame#filterGroupBox {{background:{p['Base']}; border-radius:2px;}}
+          QWidget#defaultAppsTab QToolButton, QListWidget#defaultsAppList, QListWidget#defaultsAppList::item, QLabel#diskDetails {{border-radius:2px;}}
+          QLabel#panelTitle, QLabel#defaultsTitle {{font-family:"Noto Serif"; font-weight:500;}}
+        '''
     return {'stylesheet':style,'colors':p,'font':runtime.ui_font(),
-            'cardRadius':16 if design=='tidalglass' else 4 if design=='binaryknife' else 10,
+            'cardRadius':2 if design=='porcelainink' else 16 if design=='tidalglass' else 4 if design=='binaryknife' else 10,
             'iconTheme':'Papirus-Light' if runtime.mode()=='light' else 'Papirus-Dark'}
 
 

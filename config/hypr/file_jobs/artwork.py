@@ -90,6 +90,42 @@ def tidalglass(p, box, accent, surface, phase, count, trails, glow, archive, ext
     p.restore()
 
 
+def porcelainink(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Folded sheets follow a brushstroke between two outlined document trays."""
+    p.save()
+    left,right=QPointF(box.left()+32,box.center().y()),QPointF(box.right()-32,box.center().y())
+    ink=QColor('#292521' if surface.lightness()>128 else '#e8dfd1')
+    start,end=left+QPointF(30,0),right-QPointF(30,0)
+    route=QPainterPath(start);route.cubicTo(start+QPointF(40,-9),end-QPointF(40,-9),end)
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    p.setPen(QPen(alpha(ink,35),1));p.drawPath(route)
+    for center,zipped in ((left,extracting),(right,archive)):
+        p.save();p.translate(center)
+        tray=QPainterPath();tray.moveTo(-21,14);tray.lineTo(-21,-12)
+        tray.lineTo(-5,-12);tray.lineTo(0,-7);tray.lineTo(21,-7);tray.lineTo(21,14);tray.closeSubpath()
+        p.setBrush(surface);p.setPen(QPen(ink,1.2));p.drawPath(tray)
+        p.setPen(QPen(accent,2));p.drawLine(QPointF(-17,9),QPointF(17,9))
+        if zipped:
+            p.setPen(QPen(ink,1.5))
+            for y in range(-4,8,4):p.drawLine(QPointF(-2,y),QPointF(2,y))
+        p.restore()
+    if result=='done':success(p,box.center(),accent)
+    elif not result:
+        for index in range(count):
+            t=(phase+index/count)%1
+            p.save();p.setOpacity(min(1,t*8,(1-t)*8));p.translate(route.pointAtPercent(t))
+            if trails:
+                p.setPen(QPen(alpha(ink,45),.7));p.drawLine(QPointF(-19,0),QPointF(-11,0))
+            p.rotate(math.sin(t*math.pi)*-5)
+            page=QPainterPath();page.moveTo(-7,-10);page.lineTo(2,-10);page.lineTo(8,-4);page.lineTo(8,10);page.lineTo(-7,10);page.closeSubpath()
+            p.setBrush(surface);p.setPen(QPen(ink,1));p.drawPath(page)
+            p.drawLine(QPointF(2,-10),QPointF(2,-4));p.drawLine(QPointF(2,-4),QPointF(8,-4))
+            for y in (-1,3):p.drawLine(QPointF(-4,y),QPointF(4,y))
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(accent);p.drawRect(QRectF(1,5,4,3))
+            p.restore()
+    p.restore()
+
+
 def breakpoint(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     left, right = QPointF(box.left()+36, box.center().y()), QPointF(box.right()-36, box.center().y())
     start, end = left.x()+38, right.x()-38

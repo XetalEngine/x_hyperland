@@ -9,7 +9,7 @@ import shlex
 import shutil
 
 DESIGNS = {'raw': 'Xetal Raw', 'modern': 'Xetal Modern',
-           'breakpoint': 'BreakPoint', 'binaryknife': 'Binary Knife', 'tidalglass': 'Tidal Glass'}
+           'breakpoint': 'BreakPoint', 'binaryknife': 'Binary Knife', 'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink'}
 PROFILES = Path('/var/lib/xetal-fusion-login/profiles')
 SESSION_DIRS = (('wayland', Path('/usr/share/wayland-sessions')),
                 ('x11', Path('/usr/share/xsessions')))

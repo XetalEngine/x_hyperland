@@ -85,7 +85,7 @@ class Scene(QWidget):
     def paintEvent(self, event):
         p = QPainter(self); p.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform)
         self.paint_colors = theme_runtime.colors(); self.interface_font = theme_runtime.ui_font()
-        self.corner_radius = 16 if theme_runtime.design() == 'tidalglass' else 3 if theme_runtime.design() == 'binaryknife' else 8
+        self.corner_radius = 2 if theme_runtime.design() == 'porcelainink' else 16 if theme_runtime.design() == 'tidalglass' else 3 if theme_runtime.design() == 'binaryknife' else 8
         self.hitboxes = []; tiles = self.tiles()
         if not tiles: return
         shapes = [(t, QPolygonF([QPointF(x, y) for x, y in t.polygon()])) for t in tiles]

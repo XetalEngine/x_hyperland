@@ -195,7 +195,7 @@ input-field {{
     fail_color = rgb(ea9bab)
     font_color = {rgb('Text')}
     fade_on_empty = false
-    rounding = {4 if design=='binaryknife' else 12 if design=='breakpoint' else 18}
+    rounding = {2 if design=='porcelainink' else 4 if design=='binaryknife' else 12 if design=='breakpoint' else 18}
     font_family = $font
     placeholder_text = Password
     fail_text = $PAMFAIL$FPRINTFAIL
@@ -343,6 +343,9 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
         content+=compositor(colors)
     elif design=='tidalglass':
         from tidalglass import compositor
+        content+=compositor(colors)
+    elif design=='porcelainink':
+        from porcelainink import compositor
         content+=compositor(colors)
     if partial:
         old_content=store.load()[0]

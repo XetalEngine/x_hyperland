@@ -5,6 +5,7 @@ STYLES = {
     'cyan': ('Neon Cyan', '#173848', '#5ce8ff', '#13c8ff'),
     'orchid': ('Orchid', '#372547', '#e2acff', '#ad65ff'),
     'ember': ('Ember', '#48291f', '#ffd491', '#ff7952'),
+    'sumi': ('Sumi Ink', '#242321', '#f6efe3', '#ab3429'),
 }
 # Canonical cursor names with toolkit aliases. Every functional shape is drawn.
 ALIASES = {

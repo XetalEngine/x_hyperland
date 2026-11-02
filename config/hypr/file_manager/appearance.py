@@ -11,7 +11,7 @@ from designs import qt_style
 def appearance():
     p = runtime.colors()
     design = runtime.widget_design()
-    radius = 14 if design == 'tidalglass' else 3 if design == 'binaryknife' else 8 if design == 'breakpoint' else 10
+    radius = 2 if design == 'porcelainink' else 14 if design == 'tidalglass' else 3 if design == 'binaryknife' else 8 if design == 'breakpoint' else 10
     accent_rgb = ','.join(str(int(p['Accent'][i:i+2], 16)) for i in (1, 3, 5))
     style = qt_style(p, design) + runtime.layouts.stylesheet(p, runtime.layout(), runtime.design())
     style += f'''
@@ -88,6 +88,17 @@ def appearance():
         QGroupBox#drivePartitionCard {{background:{gradient(p,'Base','AlternateBase')}; border-top-color:{p['Light']};}}
         QFrame#pickerActions, QStatusBar {{background:{p['AlternateBase']};}}
         QTabBar::tab:selected {{border:1px solid {p['Midlight']}; border-bottom:2px solid {p['Accent']};}}
+        '''
+    if design == 'porcelainink':
+        from porcelainink import paper
+        style += f'''
+        QMainWindow, QWidget#filesBody, QToolBar, QFrame#addressRow {{background:{paper(p)};}}
+        QTreeWidget#places {{background:{p['AlternateBase']}; border-right:1px solid {p['Midlight']};}}
+        QTreeWidget#places::item {{border-left:2px solid transparent;}}
+        QTreeWidget#places::item:selected {{border-left-color:{p['Accent']};}}
+        QGroupBox#drivePartitionCard {{background:{p['Base']};}}
+        QLabel#volumeArtwork, QFrame#storageSummary {{border-radius:2px;}}
+        QFrame#pickerActions, QStatusBar {{background:{p['AlternateBase']};}}
         '''
     return dict(colors=p, stylesheet=style, font=runtime.ui_font(),
                 iconTheme='Papirus-Light' if runtime.mode() == 'light' else 'Papirus-Dark')

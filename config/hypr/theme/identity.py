@@ -135,7 +135,7 @@ class ProfileCard(QWidget):
         detail.setTextFormat(Qt.TextFormat.PlainText); detail.setWordWrap(True)
         text.addWidget(detail)
         if not compact:
-            caption = QLabel('Your desktop. Your space.')
+            caption = self.caption = QLabel('Your desktop. Your space.')
             caption.setStyleSheet('background:transparent; color:#c6d8e8; font-size:13px;')
             text.addWidget(caption); text.addStretch()
         layout.addLayout(text, 1)
@@ -146,6 +146,11 @@ class ProfileCard(QWidget):
         colors=runtime.colors(style=self.design())
         self.name.setStyleSheet('background:transparent; color:'+('#e5eff9' if self.backdrop else colors['WindowText'])+'; font-size:'+('15' if self.compact else '23')+'px; font-weight:700;')
         self.detail.setStyleSheet('background:transparent; color:'+('#b2cee4' if self.backdrop else colors['PlaceholderText'])+'; font-size:12px;')
+        if self.design()=='porcelainink':
+            self.name.setStyleSheet('background:transparent; color:'+colors['WindowText']+'; font-family:"Noto Serif"; font-size:'+('15' if self.compact else '23')+'px; font-weight:500;')
+            self.detail.setStyleSheet('background:transparent; color:'+colors['PlaceholderText']+'; font-size:12px;')
+        if not self.compact:
+            self.caption.setStyleSheet('background:transparent; color:'+(colors['PlaceholderText'] if self.design()=='porcelainink' else '#c6d8e8')+'; font-size:13px;')
         if self.compact:self.detail.setText(runtime.DESIGNS[self.design()])
         path = wallpaper_path() if self.backdrop else None
         if path != self.background_path:
@@ -157,13 +162,20 @@ class ProfileCard(QWidget):
         if not self.backdrop:return
         p = QPainter(self); p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        box = QRectF(self.rect()); clip = QPainterPath(); clip.addRoundedRect(box, 18, 18); p.setClipPath(clip)
+        ink=self.design()=='porcelainink';colors=runtime.colors(style=self.design())
+        radius=2 if ink else 18
+        box = QRectF(self.rect()); clip = QPainterPath(); clip.addRoundedRect(box, radius, radius); p.setClipPath(clip)
         p.fillRect(box, QColor('#203247'))
         if not self.background.isNull():
             ratio=max(box.width()/self.background.width(), box.height()/self.background.height())
             target=QRectF(0,0,self.background.width()*ratio,self.background.height()*ratio);target.moveCenter(box.center())
             p.drawPixmap(target,self.background,QRectF(self.background.rect()))
         overlay=QLinearGradient(box.topLeft(),box.bottomRight())
-        overlay.setColorAt(0,QColor(16,29,44,235 if self.compact else 225))
-        overlay.setColorAt(1,QColor(16,29,44,180 if self.compact else 135))
+        if ink:
+            start=QColor(colors['Window']);start.setAlpha(240)
+            end=QColor(colors['Window']);end.setAlpha(195)
+            overlay.setColorAt(0,start);overlay.setColorAt(1,end)
+        else:
+            overlay.setColorAt(0,QColor(16,29,44,235 if self.compact else 225))
+            overlay.setColorAt(1,QColor(16,29,44,180 if self.compact else 135))
         p.fillRect(box,overlay)

@@ -80,7 +80,7 @@ class ProgressWindow(QWidget):
         self.setStyleSheet(f'''
             QWidget#FileOperation {{background:transparent;}}
             QPushButton,QToolButton {{background:{p['Button']}; color:{p['ButtonText']};
-                border:1px solid {p['Midlight']}; border-radius:{3 if self.design == 'binaryknife' else 9 if self.design == 'modern' else 6}px;
+                border:1px solid {p['Midlight']}; border-radius:{2 if self.design == 'porcelainink' else 3 if self.design == 'binaryknife' else 9 if self.design == 'modern' else 6}px;
                 padding:0; font:11px "{theme_runtime.ui_font(self.design)}";}}
             QPushButton:hover,QToolButton:hover {{background:{p['Highlight']}; color:{p['HighlightedText']}; border-color:{self.accent.name()};}}
             QPushButton:disabled,QToolButton:disabled {{color:{p['Disabled']}; background:transparent;}}
@@ -243,7 +243,7 @@ class ProgressWindow(QWidget):
         extracting = any(word in title for word in ('extract', 'unpack', 'decompress'))
         if self.design != 'raw':
             scene = {'modern': artwork.modern, 'breakpoint': artwork.breakpoint,
-                     'binaryknife': artwork.binaryknife, 'tidalglass': artwork.tidalglass}[self.design]
+                     'binaryknife': artwork.binaryknife, 'tidalglass': artwork.tidalglass, 'porcelainink': artwork.porcelainink}[self.design]
             scene(painter, box, accent, QColor(self.colors['AlternateBase']), self.phase,
                   self.options['animation']['density'], self.options['animation']['trails'],
                   self.appearance['glow'], archive and not extracting, extracting, self.job.result)
@@ -314,6 +314,9 @@ class ProgressWindow(QWidget):
         painter.drawRoundedRect(QRectF(inset, inset, w-2*inset, h-2*inset), radius, radius)
         if self.design == 'tidalglass':
             from tidalglass import paint_surface
+            paint_surface(painter,QRectF(inset,inset,w-2*inset,h-2*inset),self.colors,radius,self.appearance['opacity'])
+        if self.design == 'porcelainink':
+            from porcelainink import paint_surface
             paint_surface(painter,QRectF(inset,inset,w-2*inset,h-2*inset),self.colors,radius,self.appearance['opacity'])
         bloom = QRadialGradient(QPointF(w/2, h/2), w*.4)
         bloom.setColorAt(0, alpha(accent, round(self.appearance['glow']*.35))); bloom.setColorAt(1, alpha(accent, 0))
