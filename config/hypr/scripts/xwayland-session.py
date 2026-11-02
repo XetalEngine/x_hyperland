@@ -3,7 +3,9 @@
 
 Hyprland creates X<N> and, with abstract sockets disabled, X<N>_. Losing the
 first pathname breaks new X11 clients even while the server and old clients
-remain alive. Never replace an existing entry, restart XWayland, or guess N.
+remain alive. Restore a socket hard link: protected_symlinks prevents root GUI
+apps from following a user-owned symlink in the root-owned sticky X11 folder.
+Only a verified legacy link to this exact backup may be migrated.
 """
 from contextlib import contextmanager
 import argparse
@@ -67,12 +69,17 @@ def recover(number, compositor, *, repair=False, socket_dir=Path('/tmp/.X11-unix
                 current = os.stat(name, dir_fd=directory, follow_symlinks=False)
             except FileNotFoundError:
                 current = None
+            legacy = False
             if current is not None:
                 if current.st_uid != uid or not (stat.S_ISSOCK(current.st_mode) or stat.S_ISLNK(current.st_mode)):
                     return 'unavailable', 'The display pathname is occupied; it was left untouched.'
-                if same_listener(public, compositor):
+                legacy = (stat.S_ISLNK(current.st_mode)
+                          and os.readlink(name, dir_fd=directory) in (alternate, str(socket_dir/alternate))
+                          and same_listener(public, compositor))
+                if not legacy and same_listener(public, compositor):
                     return 'healthy', f'Display :{number} accepts connections to this compositor.'
-                return 'unavailable', 'The existing display endpoint is not responding as this compositor.'
+                if not legacy:
+                    return 'unavailable', 'The existing display endpoint is not responding as this compositor.'
             candidate = os.stat(alternate, dir_fd=directory, follow_symlinks=False)
             if not stat.S_ISSOCK(candidate.st_mode) or candidate.st_uid != uid:
                 return 'unavailable', 'No owned backup XWayland socket is available.'
@@ -82,11 +89,19 @@ def recover(number, compositor, *, repair=False, socket_dir=Path('/tmp/.X11-unix
             if (candidate.st_dev, candidate.st_ino) != (after.st_dev, after.st_ino):
                 return 'unavailable', 'The backup socket changed during inspection.'
             if not repair:
+                if legacy:
+                    return 'recoverable', f'Display :{number} uses a legacy symlink that blocks elevated applications.'
                 return 'recoverable', f'Display :{number} is missing its pathname; its verified backup listener is alive.'
+            if legacy:
+                latest = os.stat(name, dir_fd=directory, follow_symlinks=False)
+                if (latest.st_dev, latest.st_ino) != (current.st_dev, current.st_ino):
+                    return 'unavailable', 'The legacy display link changed during recovery.'
+                os.unlink(name, dir_fd=directory)
             # Atomic, no clobber: a concurrently created entry always wins.
-            # A relative link remains confined to this display's socket pair.
+            # A socket hard link also works with Linux protected_symlinks=1.
             try:
-                os.symlink(alternate, name, dir_fd=directory)
+                os.link(alternate, name, src_dir_fd=directory, dst_dir_fd=directory,
+                        follow_symlinks=False)
             except FileExistsError:
                 return 'unavailable', 'The display pathname changed during recovery; it was left untouched.'
             return 'recovered', f'Restored display :{number} through its verified backup listener.'

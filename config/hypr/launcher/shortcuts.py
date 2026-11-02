@@ -19,7 +19,7 @@ sys.path.insert(0,str(ROOT/'theme'))
 import runtime as theme_runtime
 STATE = ROOT / 'launcher/shortcuts.json'
 ICONS = ROOT / 'launcher/icons'
-FIELDS = ('name', 'command', 'icon', 'directory', 'description', 'terminal', 'keep_open', 'floating')
+FIELDS = ('name', 'command', 'icon', 'directory', 'description', 'terminal', 'keep_open', 'floating', 'administrator')
 
 
 def leave_dashboard():
@@ -61,7 +61,7 @@ def fields_for(info):
     return {'name': info.get_display_name() or '', 'command': info.get_commandline() or '',
             'icon': info.get_string('Icon') or '', 'directory': info.get_string('Path') or '',
             'description': info.get_description() or '', 'terminal': info.get_boolean('Terminal'),
-            'keep_open': True, 'floating': False}
+            'keep_open': True, 'floating': False, 'administrator': False}
 
 
 class Entry:
@@ -70,7 +70,7 @@ class Entry:
         self.origin = origin or app_id
         self.changes = changes or {}
         self.fields = fields_for(info) if info else dict.fromkeys(FIELDS, '')
-        self.fields.update({'terminal': False, 'keep_open': True, 'floating': False} if not info else {})
+        self.fields.update({'terminal': False, 'keep_open': True, 'floating': False, 'administrator': False} if not info else {})
         self.fields.update({k: v for k, v in self.changes.items() if k in FIELDS})
         self.source = info.get_filename() if info else None
 
@@ -120,7 +120,7 @@ class Entry:
             if key in environment: context.setenv(key, environment[key])
         in_terminal = self.fields['terminal'] if terminal is None else terminal
         in_float = self.fields['floating'] if floating is None else floating
-        launch_changes = any(k in self.changes for k in ('command', 'directory', 'terminal'))
+        launch_changes = any(k in self.changes for k in ('command', 'directory', 'terminal', 'administrator'))
         if (self.base and not self.custom and not launch_changes and not in_terminal and not in_float
                 and terminal is not False and self.origin not in ('org.kde.dolphin.desktop', 'kitty.desktop')):
             return self.base.launch(files or [], context)
@@ -135,6 +135,8 @@ class Entry:
         directory = self.fields['directory'] or None
         if directory and not Path(directory).is_dir():
             raise ValueError('The working folder no longer exists: ' + directory)
+        if self.fields['administrator']:
+            argv = [str(ROOT / 'scripts/xsudo.sh'), *argv]
         if in_terminal:
             prefix = ['kitty', '--config', str(ROOT / 'kitty.conf'), '--title', self.fields['name']]
             if self.fields['keep_open']:
@@ -208,6 +210,7 @@ def validate(fields):
     cleaned['terminal'] = bool(fields.get('terminal'))
     cleaned['keep_open'] = bool(fields.get('keep_open', True))
     cleaned['floating'] = bool(fields.get('floating', False))
+    cleaned['administrator'] = bool(fields.get('administrator', False))
     if not cleaned['name']:
         raise ValueError('Give this shortcut a name.')
     argv = command_argv(cleaned['command'], cleaned)

@@ -197,6 +197,7 @@ class Hotkeys(QWidget):
         self.search.setPlaceholderText('Search shortcuts, actions, commands…')
         self.search.textChanged.connect(self.render)
         tools.addWidget(self.search, 1)
+        tools.addWidget(button('Window close…', self.window_close))
         tools.addWidget(button('+ New binding', self.add))
         tools.addWidget(button('Reload', self.reload))
         self.apply_button = button('Apply changes  ·  Ctrl+S', self.apply, True)
@@ -342,6 +343,13 @@ class Hotkeys(QWidget):
         self.file_watcher.fileChanged.connect(lambda _:self.file_delay.start())
         self.file_delay.timeout.connect(self.external_change)
         self.watch_files()
+
+    def window_close(self):
+        from effects.window_close.page import Dialog
+        try:
+            Dialog(self).exec()
+        except (OSError, ValueError) as error:
+            self.tell(str(error), True)
 
     def watch_files(self):
         for path in (self.store.path,self.store.main):

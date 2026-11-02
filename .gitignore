@@ -34,6 +34,7 @@ config/hypr/effects/burn/.build/
 config/hypr/effects/cube/.build/
 config/hypr/effects/cube/cache/
 config/hypr/effects/minimize/.build/
+config/hypr/effects/window_close/.build/
 config/hypr/runtime/notices/.build/
 config/hypr/control_panel/.build/
 config/hypr/control_panel/state/

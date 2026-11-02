@@ -809,6 +809,56 @@ private slots:
     }
     window.close();
   }
+  void dragAndDropAcrossViews() {
+    const QString base = folder + "/drag-views";
+    QDir().mkpath(base + "/Destination");
+    const auto first = QUrl::fromLocalFile(base + "/photo # 100% café.png");
+    const auto second = QUrl::fromLocalFile(base + "/notes.txt");
+    write(first.toLocalFile());
+    write(second.toLocalFile());
+    FilesWindow window(QUrl::fromLocalFile(base), false,
+                       temporary.path() + "/drag-views.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.show();
+    auto *tab = window.browser();
+    QTRY_COMPARE_WITH_TIMEOUT(tab->proxy->rowCount(), 3, 10000);
+    // Exercise both initial construction and changing back from compact mode.
+    int sequence = 0;
+    for (int mode : {2, 3, 0, 1, 4, 2}) {
+      tab->setView(mode);
+      focus(tab);
+      QVERIFY2(tab->view()->dragEnabled(), "View changes must not disable file dragging");
+      QVERIFY(tab->view()->viewport()->acceptDrops());
+      clickFile(tab, first);
+      clickFile(tab, second, Qt::ControlModifier);
+      const auto indexes = tab->view()->selectionModel()->selectedIndexes();
+      std::unique_ptr<QMimeData> outgoing(tab->proxy->mimeData(indexes));
+      QVERIFY(outgoing);
+      QVERIFY(outgoing->hasFormat("text/uri-list"));
+      QCOMPARE(outgoing->urls().size(), 2);
+      QVERIFY(outgoing->urls().contains(first));
+      QVERIFY(outgoing->urls().contains(second));
+      const auto destination = tab->proxy->mapFromSource(
+          tab->model->indexForUrl(QUrl::fromLocalFile(base + "/Destination")));
+      QVERIFY(destination.flags().testFlag(Qt::ItemIsDropEnabled));
+      const QString incoming = temporary.path() + "/incoming-" + QString::number(++sequence) + ".txt";
+      write(incoming, "dropped file contents\n");
+      QMimeData mime;
+      mime.setUrls({QUrl::fromLocalFile(incoming)});
+      const auto point = tab->view()->visualRect(destination).center();
+      QDragEnterEvent enter(point, Qt::CopyAction, &mime, Qt::LeftButton, Qt::ControlModifier);
+      QApplication::sendEvent(tab->view()->viewport(), &enter);
+      QVERIFY(enter.isAccepted());
+      QSignalSpy jobs(tab, &Browser::jobStarted);
+      QDropEvent drop(point, Qt::CopyAction, &mime, Qt::LeftButton, Qt::ControlModifier);
+      QApplication::sendEvent(tab->view()->viewport(), &drop);
+      QVERIFY(drop.isAccepted());
+      QCOMPARE(jobs.size(), 1);
+      QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(base + "/Destination/" + QFileInfo(incoming).fileName()), 10000);
+      QVERIFY(QFileInfo::exists(incoming));
+    }
+    window.close();
+  }
   void unknownFilesAndScriptMenus() {
     const QString base = folder + "/script-menus";
     QDir().mkpath(base);

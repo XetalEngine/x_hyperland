@@ -100,6 +100,27 @@ class ShortcutTests(unittest.TestCase):
         with patch.object(shortcuts.subprocess, 'Popen') as spawn: saved.launch()
         self.assertEqual(spawn.call_args.args[0], [str(shortcuts.ROOT/'scripts/dolphin.sh')])
 
+    def test_administrator_property_persists_and_wraps_literal_command(self):
+        fields = {**self.entry.fields, 'administrator': True,
+                  'command': '/usr/bin/printf "literal $HOME; `id`"'}
+        shortcuts.save(self.entry, fields)
+        saved = catalog.applications()[self.entry.get_id()]
+        dialog = ShortcutEditor(saved)
+        self.assertTrue(dialog.administrator.isChecked())
+        with patch.object(shortcuts.subprocess, 'Popen') as spawn:
+            saved.launch()
+        self.assertEqual(spawn.call_args.args[0], [str(shortcuts.ROOT/'scripts/xsudo.sh'),
+                         '/usr/bin/printf', 'literal $HOME; `id`'])
+        with patch.object(shortcuts.subprocess, 'Popen') as spawn:
+            saved.launch(terminal=True)
+        argv = spawn.call_args.args[0]
+        self.assertEqual(argv[argv.index('-e')+1:], [str(shortcuts.ROOT/'scripts/xsudo.sh'),
+                         '/usr/bin/printf', 'literal $HOME; `id`'])
+        dialog.administrator.setChecked(False); dialog.accept()
+        self.assertFalse(dialog.fields['administrator'])
+        shortcuts.reset(saved)
+        self.assertFalse(catalog.applications()[self.entry.get_id()].fields['administrator'])
+
     def test_kitty_app_and_favorite_copy_use_hyprland_profile(self):
         desktop=self.root/'kitty.desktop'
         desktop.write_text('[Desktop Entry]\nType=Application\nName=Kitty\nExec=kitty\nTerminal=false\n')

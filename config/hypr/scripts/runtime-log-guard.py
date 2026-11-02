@@ -25,7 +25,7 @@ INTERVAL = 60
 # Explicitly owned log files only: never walk /run, other sessions or app data.
 LOGS = ('hyprland.log', 'cached-apps.log', 'cached-settings.log', 'cached-panel.log',
         'update-activation.log', 'desktop-updates.log', 'theme-build.log',
-        'burn.log', 'cube.log', 'minimize.log', 'panel-startup.log',
+        'burn.log', 'cube.log', 'minimize.log', 'window-close.log', 'panel-startup.log',
         'session-ui-preload.log', 'switcher.log', 'floating-drag.log',
         'file-progress.log', 'waybar-supervisor.log', 'waybar.log', 'waybar.log.1',
         'hyprpaper.log', 'desktop-menu.log', 'network-applet.log',

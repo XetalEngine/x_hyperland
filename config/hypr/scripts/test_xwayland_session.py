@@ -3,6 +3,7 @@ import importlib.util
 import os
 from pathlib import Path
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -55,9 +56,37 @@ class XWaylandSessionTests(unittest.TestCase):
     def test_missing_path_is_repaired_and_new_clients_reach_same_listener(self):
         self.listener(self.alternate)
         self.assertEqual(self.recover()[0], 'recovered')
-        self.assertEqual(os.readlink(self.public), 'X42_')
+        self.assertFalse(self.public.is_symlink())
+        self.assertTrue(stat.S_ISSOCK(self.public.stat().st_mode))
+        self.assertEqual(self.public.stat().st_ino, self.alternate.stat().st_ino)
         self.assertTrue(guard.same_listener(self.public, self.identity))
         self.assertEqual(self.recover()[0], 'healthy')
+
+    def test_verified_legacy_symlink_is_migrated_without_restarting_listener(self):
+        self.listener(self.alternate)
+        for target in ('X42_', str(self.alternate)):
+            with self.subTest(target=target):
+                self.public.symlink_to(target)
+                self.assertEqual(self.recover(repair=False)[0], 'recoverable')
+                self.assertTrue(self.public.is_symlink())
+                self.assertEqual(self.recover()[0], 'recovered')
+                self.assertFalse(self.public.is_symlink())
+                self.assertEqual(self.public.stat().st_ino, self.alternate.stat().st_ino)
+                self.assertTrue(guard.same_listener(self.public, self.identity))
+                self.public.unlink()
+
+    def test_changed_legacy_link_is_not_removed(self):
+        self.listener(self.alternate)
+        self.public.symlink_to('X42_')
+        original = guard.same_listener
+        def change(path, identity):
+            result = original(path, identity)
+            if path == self.alternate:
+                self.public.unlink(); self.public.write_text('keep this replacement')
+            return result
+        with patch.object(guard, 'same_listener', side_effect=change):
+            self.assertEqual(self.recover()[0], 'unavailable')
+        self.assertEqual(self.public.read_text(), 'keep this replacement')
 
     def test_check_diagnoses_recoverable_path_without_writing(self):
         self.listener(self.alternate)
@@ -128,7 +157,7 @@ class XWaylandSessionTests(unittest.TestCase):
         def create(*args, **kwargs):
             self.public.write_text('another owner won')
             raise FileExistsError()
-        with patch.object(guard.os, 'symlink', side_effect=create):
+        with patch.object(guard.os, 'link', side_effect=create):
             self.assertEqual(self.recover()[0], 'unavailable')
         self.assertEqual(self.public.read_text(), 'another owner won')
 
@@ -158,9 +187,10 @@ class XWaylandSessionTests(unittest.TestCase):
         self.addCleanup(stop_child)
         connection, _ = compositor.accept(); self.addCleanup(connection.close)
         deadline = time.monotonic()+3
-        while not self.public.is_symlink() and time.monotonic() < deadline:
+        while not self.public.exists() and time.monotonic() < deadline:
             time.sleep(.01)
-        self.assertTrue(self.public.is_symlink())
+        self.assertTrue(self.public.exists())
+        self.assertFalse(self.public.is_symlink())
         connection.close()
         output, error = child.communicate(timeout=3)
         self.assertEqual(child.returncode, 0, error.decode())

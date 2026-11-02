@@ -117,7 +117,7 @@ class ShortcutEditor(QDialog):
         self.resize(730, 670)
         self.fields = dict(entry.fields) if entry else {
             'name': '', 'command': '', 'icon': 'application-x-executable', 'directory': '',
-            'description': '', 'terminal': False, 'keep_open': True, 'floating': False}
+            'description': '', 'terminal': False, 'keep_open': True, 'floating': False, 'administrator': False}
         if duplicate:
             self.fields['name'] += ' (copy)'
         layout = QVBoxLayout(self)
@@ -162,6 +162,13 @@ class ShortcutEditor(QDialog):
         self.floating.setChecked(self.fields['floating'])
         self.floating.setToolTip('New windows start above the tiled layout. Super+V toggles any focused window.')
         layout.addWidget(self.floating)
+        self.administrator = QCheckBox('Run as administrator')
+        self.administrator.setChecked(self.fields.get('administrator', False))
+        self.administrator.setToolTip('Ask for authentication when needed and allow the app to use this display until it exits.')
+        layout.addWidget(self.administrator)
+        admin_hint = QLabel('Use the program itself in Command; authentication and display access are handled for you.')
+        admin_hint.setObjectName('muted'); admin_hint.setWordWrap(True)
+        layout.addWidget(admin_hint)
         self.error = QLabel(); self.error.setObjectName('error'); self.error.setWordWrap(True)
         layout.addWidget(self.error); layout.addStretch()
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
@@ -195,7 +202,8 @@ class ShortcutEditor(QDialog):
     def accept(self):
         try:
             values = {key: field.text() for key, field in self.inputs.items()}
-            values.update(terminal=self.terminal.isChecked(), keep_open=self.keep_open.isChecked(),floating=self.floating.isChecked())
+            values.update(terminal=self.terminal.isChecked(), keep_open=self.keep_open.isChecked(),
+                          floating=self.floating.isChecked(), administrator=self.administrator.isChecked())
             self.fields = shortcuts.validate(values)
             icon = self.fields['icon']
             if icon and image_icon(icon).isNull():

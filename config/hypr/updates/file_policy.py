@@ -29,6 +29,7 @@ PREFERENCES = frozenset({
     'desktop/config/mimeapps.list', 'desktop/environment.conf',
     'dolphin/config/dolphinrc', 'dolphin/config/kservicemenurc',
     'effects/burn/settings.conf', 'effects/cube/settings.json', 'effects/minimize/settings.conf',
+    'effects/window_close/settings.conf',
     'file_jobs/preferences.json',
     'recording/settings.json',
     'startup/fastfetch.jsonc', 'startup/kitty.conf', 'startup/projects.json', 'startup/window-rules.conf',

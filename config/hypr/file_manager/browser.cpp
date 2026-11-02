@@ -128,6 +128,7 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
   homeLayout->addWidget(hint);
   stack->addWidget(computer);
   model = new KDirModel(this);
+  model->setDropsAllowed(KDirModel::DropOnDirectory);
   model->dirLister()->setAutoErrorHandlingEnabled(false);
   proxy = new KDirSortFilterProxyModel(this);
   proxy->setSourceModel(model);
@@ -316,6 +317,10 @@ void Browser::setView(int mode) {
   details->setIconSize({20, 20});
   const bool compact = mode == 3;
   icons->setViewMode(compact ? QListView::ListMode : QListView::IconMode);
+  // QListView resets these when changing view mode with Static movement.
+  // Keep the arranged grid, but allow native URI drags to folders and apps.
+  icons->setDragEnabled(true);
+  icons->setAcceptDrops(true);
   icons->setFlow(compact ? QListView::TopToBottom : QListView::LeftToRight);
   icons->setWrapping(true);
   icons->setWordWrap(!compact);

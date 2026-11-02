@@ -86,6 +86,10 @@ children+=("$!")
 python3 "$config_dir/effects/minimize/controller.py" --session >"$(session_log minimize.log)" 2>&1 9>&- &
 children+=("$!")
 
+# A modifier-held close button complements applications without title bars.
+python3 "$config_dir/effects/window_close/controller.py" --session >"$(session_log window-close.log)" 2>&1 9>&- &
+children+=("$!")
+
 # User-configured startup applications belong to this Hyprland session.
 python3 "$config_dir/control_panel/startup.py" --session >"$(session_log panel-startup.log)" 2>&1 9>&- &
 children+=("$!")

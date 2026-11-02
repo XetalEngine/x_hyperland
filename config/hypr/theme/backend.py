@@ -433,6 +433,8 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
         # again after rollback so the renderer sees the restored palette too.
         if runtime.ROOT/'current.colors' in files and (ROOT/'effects/minimize/settings.conf').exists():
             effect_reloads=list(dict.fromkeys([*effect_reloads,('Xetal Minimize','xetalminimize:reload')]))
+        if runtime.ROOT/'current.colors' in files and (ROOT/'effects/window_close/settings.conf').exists():
+            effect_reloads=list(dict.fromkeys([*effect_reloads,('Xetal Window Close','xetalwindowclose:reload')]))
         old={path:path.read_bytes() if path.exists() else None for path in files}
         effects_attempted=False
         try:
