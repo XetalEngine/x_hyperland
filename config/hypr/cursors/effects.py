@@ -12,6 +12,11 @@ STYLES = {
     'ink': ('porcelainink','Living ink','#bb3b30','#f0e4cc','A tapered brush stroke scatters vermilion petals and ink flecks.'),
 }
 THEMES = {value[0]:key for key,value in STYLES.items()}
+GENERAL = {
+    'comet': ('Comet', 'The original trail of fading dots, in your chosen color.'),
+    'glow': ('Soft glow', 'The original soft luminous wake. Choose any accent color.'),
+    'sparkle': ('Stardust', 'The original sparkling trail. Independent of every desktop theme.'),
+}
 
 def current_theme():
     try:return json.loads((Path(__file__).resolve().parents[1]/'theme/state.json').read_text()).get('design','raw')

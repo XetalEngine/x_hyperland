@@ -7,6 +7,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'theme'))
 import runtime
 from designs import qt_style
+import selection_marker
 
 def appearance():
     p = runtime.colors()
@@ -84,7 +85,6 @@ def appearance():
         QMainWindow, QWidget#filesBody, QToolBar, QFrame#addressRow {{background:{gradient(p)};}}
         QTreeWidget#places {{background:{gradient(p,'Button','Window')}; padding:12px 7px;}}
         QTreeWidget#places::item {{min-height:34px; border:1px solid transparent;}}
-        QTreeWidget#places::item:selected {{border-left:3px solid {p['Accent']}; background:{p['Highlight']};}}
         QGroupBox#drivePartitionCard {{background:{gradient(p,'Base','AlternateBase')}; border-top-color:{p['Light']};}}
         QFrame#pickerActions, QStatusBar {{background:{p['AlternateBase']};}}
         QTabBar::tab:selected {{border:1px solid {p['Midlight']}; border-bottom:2px solid {p['Accent']};}}
@@ -94,12 +94,11 @@ def appearance():
         style += f'''
         QMainWindow, QWidget#filesBody, QToolBar, QFrame#addressRow {{background:{paper(p)};}}
         QTreeWidget#places {{background:{p['AlternateBase']}; border-right:1px solid {p['Midlight']};}}
-        QTreeWidget#places::item {{border-left:2px solid transparent;}}
-        QTreeWidget#places::item:selected {{border-left-color:{p['Accent']};}}
         QGroupBox#drivePartitionCard {{background:{p['Base']};}}
         QLabel#volumeArtwork, QFrame#storageSummary {{border-radius:2px;}}
         QFrame#pickerActions, QStatusBar {{background:{p['AlternateBase']};}}
         '''
+    style += selection_marker.stylesheet(p, runtime.selection_marker())
     return dict(colors=p, stylesheet=style, font=runtime.ui_font(),
                 iconTheme='Papirus-Light' if runtime.mode() == 'light' else 'Papirus-Dark')
 

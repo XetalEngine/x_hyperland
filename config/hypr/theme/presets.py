@@ -10,6 +10,7 @@ import sys
 import uuid
 import runtime
 import layouts
+import selection_marker
 sys.path.insert(0, str(runtime.ROOT.parent))
 from file_jobs import preferences as transfer
 from switcher import preferences as switcher
@@ -24,6 +25,7 @@ from cursors import effects as mouse_effects
 COMPONENTS = {
     'colors': ('Colors', 'Desktop palette, taskbar accents, terminal and application colors'),
     'layout': ('Navigation & controls', 'Tabs, icon rail, sidebar or ribbon; button and menu shapes'),
+    'selection': ('Selection marker', 'Optional accent edge beside the selected folder in Fusion Files'),
     'wallpaper': ('Wallpapers', 'The wallpaper selection for each display'),
     'launcher': ('Start menu', 'Menu style, background, tiles, groups and shortcut labels'),
     'avatar': ('Profile image', 'Your account image or animated GIF'),
@@ -35,6 +37,7 @@ COMPONENTS = {
 }
 THEME_FIELDS = {
     'colors': ('design', 'mode'), 'layout': ('layout',), 'avatar': ('avatar',),
+    'selection': ('selection_marker',),
     'launcher': ('launcher_style', 'launcher_wallpaper', 'launcher_background', 'launcher_surfaces', 'launcher_labels', 'launcher_background_visibility'),
 }
 RESOURCE_PATHS = {'cursors': 'cursors/settings.json', 'transfer': 'file_jobs/preferences.json', 'switcher': 'switcher/preferences.json',
@@ -67,6 +70,7 @@ def validate(value):
         raise ValueError('Invalid preset colors.')
     state['layout'] = state.get('layout', layouts.default(state['design']))
     if not isinstance(state['layout'],str) or state['layout'] not in layouts.LAYOUTS: raise ValueError('Invalid preset layout.')
+    state['selection_marker']=selection_marker.validate(state.get('selection_marker',selection_marker.DEFAULT))
     if 'wallpaper_theme' in value and (not isinstance(value['wallpaper_theme'],str) or value['wallpaper_theme'] not in runtime.DESIGNS):raise ValueError('Invalid wallpaper theme.')
     for key, normalizer in [('transfer', transfer.normalize), ('switcher', switcher.normalize), ('terminal', terminal.validate), ('burn', burn.validate), ('cube', cube.validate), ('minimize', minimize.validate), ('wobbly', wobbly.validate), ('cursors', cursors.validate)]:
         if key in value: value[key] = normalizer(value[key])
@@ -91,7 +95,8 @@ def validate(value):
 
 def builtin(design, mode=None, root=None):
     mode = mode or runtime.designs.DEFAULT_MODES[design]
-    value = current(root); value['theme'].update(design=design, mode=mode, layout=layouts.default(design), launcher_style=design)
+    value = current(root); value['theme'].update(design=design, mode=mode, layout=layouts.default(design), launcher_style=design,
+                                               selection_marker=selection_marker.DEFAULT)
     value['transfer']['style'] = design
     # Built-in presets supply their visual language, while keeping timing and hardware preferences.
     value.pop('wallpapers', None); value['wallpaper_theme'] = design

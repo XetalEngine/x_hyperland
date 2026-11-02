@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (QWidget, QDialog, QVBoxLayout, QHBoxLayout, QGridLa
 import runtime
 import layouts
 import presets
+import selection_marker
 
 
 def label(text, name=''):
@@ -69,7 +70,9 @@ class LayoutCard(QPushButton):
 
 class LayoutPage(QWidget):
     def __init__(self,owner):
-        super().__init__();self.owner=owner;root=QVBoxLayout(self)
+        super().__init__();self.owner=owner;outer=QVBoxLayout(self);outer.setContentsMargins(0,0,0,0)
+        scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.Shape.NoFrame)
+        body=QWidget();root=QVBoxLayout(body);scroll.setWidget(body);outer.addWidget(scroll)
         root.addWidget(label('Navigation & controls','section'))
         root.addWidget(label('Choose the structure independently of your colors. These shapes also carry through dialogs and Control Panel controls.','muted'))
         self.choice=QComboBox()
@@ -78,11 +81,20 @@ class LayoutPage(QWidget):
         grid=QGridLayout();grid.setSpacing(14);self.cards={}
         for i,key in enumerate(layouts.LAYOUTS):
             card=LayoutCard(key);card.clicked.connect(lambda _,k=key:self.choice.setCurrentIndex(self.choice.findData(k)));self.cards[key]=card;grid.addWidget(card,i//2,i%2)
-        root.addLayout(grid,1);root.addStretch()
+        root.addLayout(grid,1)
+        row=QHBoxLayout();row.addWidget(label('Fusion Files selection marker','section'))
+        self.marker=QComboBox();self.marker.setAccessibleName('Fusion Files selection marker');self.marker.setMaximumWidth(360)
+        for key,title in selection_marker.STYLES.items():self.marker.addItem(title,key)
+        self.marker.setCurrentIndex(self.marker.findData(runtime.selection_marker()))
+        row.addWidget(self.marker,1);root.addLayout(row)
+        root.addWidget(label('An optional accent edge beside the selected folder. Off is the default in every theme. Apply theme to keep your choice.','muted'))
+        self.marker_preview=selection_marker.preview();root.addWidget(self.marker_preview);root.addStretch()
+        self.marker.currentIndexChanged.connect(lambda:(self.refresh(),owner.changed()))
         self.choice.currentIndexChanged.connect(lambda: (self.refresh(),owner.changed()))
         self.refresh()
     def refresh(self):
         for key,card in self.cards.items():card.setChecked(key==self.choice.currentData());card.update()
+        selection_marker.style_preview(self.marker_preview,self.marker.currentData())
 
 
 class CustomPage(QWidget):

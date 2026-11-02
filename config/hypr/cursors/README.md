@@ -17,10 +17,12 @@ interactive preview. **Follow desktop theme** is the fresh-install default:
 | Porcelain Ink | Living ink — tapered ink strokes and vermilion petals |
 
 Every effect can be selected with any desktop theme. Follow uses the effect's
-own palette; selecting a particular effect also allows a custom accent. Off
-disables the trail. Opacity, lifetime and optional click ripples are independent
-of cursor artwork and size. Comet, Soft glow and Stardust remain available.
-The Cursors page and Mouse effects page share one validated preference store;
+own palette; selecting a particular effect also allows a custom accent.
+Uncheck **Enable mouse trail**, or select **Off**, then apply to disable the trail.
+Opacity, lifetime and optional click ripples are independent of cursor artwork
+and size. The **General effects** gallery contains the original **Comet**,
+**Soft glow** and **Stardust** effects, independent of every theme.
+The Cursors, Mouse effects and **Theme → Mix & match** pages share one validated preference store;
 conflicting drafts must be reloaded before applying. Theme snapshots include
 these choices in their Cursors component. Built-in presets select Follow while
 preserving personal timing and opacity.

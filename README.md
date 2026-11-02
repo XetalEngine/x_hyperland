@@ -117,6 +117,8 @@ Colors follow you through Apps, the taskbar, Fusion Settings, Control Panel, KVM
 
 **Fusion Settings → Theme** lets you mix the pieces: any Start menu with any palette, Classic/Modern/Gallery/Studio navigation, an account picture or animated GIF, menu backgrounds and transparency, custom cursors, task switchers and transfer animations. **Apply theme** lets you choose which components change. Save your combination as a named **Custom** preset and restore it selectively later.
 
+**Mix & match** brings the independent styles together in one quick editor. Its applied choices persist and stay synchronized with the detailed tabs, without creating another preset. Fusion Files' optional **Selection marker** starts **Off** in every theme; choose a Glass curve or Ink line in **Design** or **Mix & match**. Mouse effects include a separate **General effects** gallery and an **Enable mouse trail** switch.
+
 Each theme includes its own three-screen wallpaper set. The [gallery](docs/GALLERY.md) shows all four designs, their tools and artwork.
 
 ## Make the desktop yours

@@ -11,6 +11,22 @@ from cursors import model,effects
 
 
 class EffectsTests(unittest.TestCase):
+    def test_general_effects_have_visible_cards_and_are_not_tied_to_a_theme(self):
+        from PyQt6.QtWidgets import QApplication
+        from cursors.mouse_page import MouseEffectsPage
+        app=QApplication.instance() or QApplication([])
+        with patch.object(model,'load',return_value=(dict(model.DEFAULTS),'token')):
+            page=MouseEffectsPage(lambda *args:None)
+            for effect in effects.GENERAL:
+                self.assertIn(effect,page.cards);page.cards[effect].click()
+                self.assertEqual(page.draft['trail'],effect);self.assertTrue(page.color.isEnabled())
+                for theme in effects.THEMES:self.assertEqual(effects.resolve(effect,theme),effect)
+            page.enabled.setChecked(False)
+            self.assertEqual(page.draft['trail'],'none');self.assertEqual(page.trail.currentData(),'none')
+            page.enabled.setChecked(True)
+            self.assertEqual(page.draft['trail'],'sparkle')
+            self.assertEqual(set(effects.GENERAL)&set(effects.THEMES.values()),set())
+            page.close()
     def test_every_theme_has_a_distinct_trail_and_mixing_is_independent(self):
         from theme.designs import DESIGNS
         self.assertEqual(set(effects.THEMES),set(DESIGNS))

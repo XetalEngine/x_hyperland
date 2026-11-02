@@ -283,11 +283,13 @@ def prepare_group_image(choice):
     return 'backgrounds/group-'+hashlib.sha256(data).hexdigest()[:24]+'.'+extension,data
 
 
-def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,launcher_background=None,launcher_surfaces=None,launcher_style=None,launcher_labels=None,launcher_background_visibility=None,*,layout=None,components=None,bundle=None):
+def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,launcher_background=None,launcher_surfaces=None,launcher_style=None,launcher_labels=None,launcher_background_visibility=None,*,layout=None,components=None,bundle=None,selection_marker=None):
     if value not in runtime.MODES: raise ValueError('Choose an available theme.')
     design=design or runtime.design()
     if design not in runtime.DESIGNS:raise ValueError('Choose an available desktop design.')
     previous=runtime.state()
+    from selection_marker import validate as validate_marker
+    selection_marker=validate_marker(runtime.selection_marker() if selection_marker is None else selection_marker)
     if layout is not None and layout not in runtime.layouts.LAYOUTS:raise ValueError('Choose a supported navigation layout.')
     partial=components is not None
     from launcher_labels import normalize as normalize_labels
@@ -376,7 +378,7 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     bar=update_widget.attach(bar)
     files={runtime.ROOT/launcher_background:background_data} if background_data is not None else {}
     files.update(group_files)
-    files.update({runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,**({'layout':layout} if layout is not None else {}),**({'wallpaper_theme':bundle.get('wallpaper_theme',design)} if partial and 'wallpaper' in components else {}),'launcher_style':launcher_style,'avatar':avatar,'launcher_wallpaper':launcher_wallpaper,'launcher_background':launcher_background,'launcher_surfaces':surfaces,'launcher_labels':labels,'launcher_background_visibility':visibility},indent=2)+'\n').encode(),
+    files.update({runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,**({'layout':layout} if layout is not None else {}),**({'wallpaper_theme':bundle.get('wallpaper_theme',design)} if partial and 'wallpaper' in components else {}),'selection_marker':selection_marker,'launcher_style':launcher_style,'avatar':avatar,'launcher_wallpaper':launcher_wallpaper,'launcher_background':launcher_background,'launcher_surfaces':surfaces,'launcher_labels':labels,'launcher_background_visibility':visibility},indent=2)+'\n').encode(),
            runtime.ROOT/'current.colors':scheme.encode(),runtime.ROOT/'kitty-colors.conf':kitty_colors(value,design).encode(),
            isolated:(stream.getvalue().rstrip()+'\n').encode(),
            ROOT/'waybar/style.css':bar.encode(),
@@ -498,4 +500,4 @@ def apply_components(target,selected,expected):
         state.get('launcher_wallpaper',False),state.get('launcher_background',''),state.get('launcher_surfaces'),
         state.get('launcher_style','follow'),launcher_labels=state.get('launcher_labels'),
         launcher_background_visibility=state.get('launcher_background_visibility',18),
-        layout=state['layout'],components=selected,bundle=target)
+        layout=state['layout'],components=selected,bundle=target,selection_marker=state.get('selection_marker','none'))

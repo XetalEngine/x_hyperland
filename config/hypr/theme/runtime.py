@@ -38,6 +38,12 @@ def layout():
 def widget_design(): return layouts.widget_style(layout(),design())
 
 
+def selection_marker():
+    import selection_marker as marker
+    value=state().get('selection_marker',marker.DEFAULT)
+    return value if isinstance(value,str) and value in marker.STYLES else marker.DEFAULT
+
+
 def launcher_style():
     value=state().get('launcher_style','follow')
     return value if isinstance(value,str) and value in LAUNCHER_STYLES else 'follow'

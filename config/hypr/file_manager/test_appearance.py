@@ -9,6 +9,16 @@ appearance = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(appearance)
 
 class AppearanceTests(unittest.TestCase):
+    def test_marker_is_off_by_default_and_independent_of_every_theme(self):
+        runtime=appearance.runtime
+        for design in runtime.DESIGNS:
+            for marker in ('none','line','curve'):
+                with self.subTest(design=design,marker=marker),patch.object(runtime,'state',return_value={'design':design,'mode':'dark','selection_marker':marker}):
+                    style=appearance.appearance()['stylesheet']
+                    self.assertTrue(style.endswith(appearance.selection_marker.stylesheet(runtime.colors(),marker)))
+            with patch.object(runtime,'state',return_value={'design':design,'mode':'dark'}):
+                self.assertEqual(runtime.selection_marker(),'none')
+                self.assertIn('item:selected {border-left:0px solid transparent;}',appearance.appearance()['stylesheet'])
     def test_every_desktop_design_and_palette_supplies_native_colors(self):
         runtime = appearance.runtime
         for design in runtime.DESIGNS:
