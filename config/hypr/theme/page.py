@@ -292,7 +292,7 @@ class DesignPage(QWidget):
             root.addWidget(label('Desktop theme' if collection=='xetal-world' else 'A different world at your desk','section'))
             row=QGridLayout();row.setSpacing(16)
             for index,style in enumerate(styles):
-                card=DesignCard(style);card.clicked.connect(lambda _,s=style:owner.design.setCurrentIndex(owner.design.findData(s)))
+                card=DesignCard(style);card.clicked.connect(lambda _,s=style:owner.select_preset(s))
                 self.cards[style]=card;self.collection_for[style]=scroll
                 row.addWidget(card,index//2,index%2,1,2 if len(styles)==1 else 1)
             row.setColumnStretch(0,1);row.setColumnStretch(1,1)
@@ -486,11 +486,14 @@ class ThemePage(QWidget):
             self.status.setText('Previewing appearance changes. Apply theme to save them.')
         for control in (self.mode,self.design,self.tabs):control.setEnabled(not self.applying)
         self.design_page.refresh();self.start_menu_page.refresh_surfaces()
+    def select_preset(self,design):
+        if self.design.currentData()==design:self.preset_changed()
+        else:self.design.setCurrentIndex(self.design.findData(design))
     def preset_changed(self,*_):
         design=self.design.currentData()
         self.layout_page.choice.setCurrentIndex(self.layout_page.choice.findData(layouts.default(design)))
         preferred=runtime.designs.DEFAULT_MODES.get(design)
-        if preferred and self.mode.currentData()!='contrast':
+        if preferred:
             self.mode.setCurrentIndex(self.mode.findData(preferred))
         if design in ('tidalglass','porcelainink'):
             if self.launcher_style.currentData() in ('follow',self.baseline[0]):

@@ -36,7 +36,7 @@ PACKAGES = {
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod'''.split(),
     'debian': '''git gvfs gvfs-backends gvfs-fuse hyprpaper hyprlock waybar kitty dolphin konsole konsole-kpart libkf6kio-dev libkf6windowsystem-dev kio-extras kio-admin ark udisks2 sway-notification-center grim slurp wf-recorder wl-clipboard xwayland
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
-        python3 python3-psutil python3-pyqt6 python3-pyqt6.qtsvg python3-gi python3-pil gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1 build-essential cmake libxcb1-dev libxcb-res0-dev pkg-config glslang-dev libsdl3-0
+        python3 python3-psutil python3-pyqt6 python3-pyqt6.qtsvg python3-gi python3-pil gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1 build-essential cmake libxcb1-dev libxcb-res0-dev libxcb-xkb-dev pkg-config glslang-dev libsdl3-0
         libgtk-3-dev libgtk-layer-shell-dev libepoxy-dev libjson-glib-dev libjson-c-dev qtbase5-dev qtbase5-private-dev qtwayland5
         qt6-base-dev qt6-base-dev-tools qt6-base-private-dev qt6-wayland libqt6svg6 qt6-tools-dev qt6-l10n-tools libwayland-dev libwayland-bin wayland-protocols
         network-manager network-manager-gnome blueman bluez pipewire-pulse wireplumber pulseaudio-utils
@@ -53,7 +53,7 @@ COMMANDS = '''git Hyprland hyprctl Xwayland hyprpaper hyprlock waybar kitty dolp
     make autoconf autoreconf automake aclocal libtool libtoolize perl pod2man gettext gawk expect socat
     tpm2_getcap dmidecode lspci lsusb mcopy mtype fsck.fat losetup modinfo'''.split()
 LIBRARIES = ['gtk+-3.0','gio-unix-2.0','gtk-layer-shell-0','epoxy','json-glib-1.0','Qt5Widgets','Qt6Widgets','Qt5Concurrent','Qt6Concurrent','wayland-client','xcb','xcb-res',
-             'openssl','libtasn1','gmp','glib-2.0','gnutls','libseccomp','fuse3','libeis-1.0','json-c']
+             'openssl','libtasn1','gmp','glib-2.0','gnutls','libseccomp','fuse3','libeis-1.0','json-c','xcb-xkb']
 # Hyprland comes from the exact, signed package selected by Setup.
 MINIMUM = {'waybar':(0,15,0),'kitty':(0,49,0),'hyprpaper':(0,8,0)}
 

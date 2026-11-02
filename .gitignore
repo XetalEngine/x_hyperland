@@ -55,3 +55,5 @@ config/hypr/launcher/icons/
 config/hypr/calculator/state/
 config/hypr/file_manager/.build/
 config/hypr/file_manager/state/
+
+config/hypr/effects/wobbly/.build/

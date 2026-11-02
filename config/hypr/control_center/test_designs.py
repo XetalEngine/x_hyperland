@@ -19,7 +19,7 @@ QT=QApplication.instance() or QApplication([])
 
 
 class DesignTests(unittest.TestCase):
-    def test_atmospheres_select_without_applying_or_losing_contrast(self):
+    def test_every_preset_selects_dark_without_applying(self):
         with tempfile.TemporaryDirectory() as directory:
             state=Path(directory)/'theme.json'
             state.write_text(json.dumps({'design':'breakpoint','mode':'dark','avatar':'auto'}))
@@ -33,21 +33,25 @@ class DesignTests(unittest.TestCase):
                     self.assertTrue(all(1<=len(names)<=4 for _,names in runtime.designs.COLLECTIONS.values()))
                     collections.setCurrentIndex(1);page.design_page.refresh()
                     self.assertEqual(collections.currentIndex(),1)
-                    for design in runtime.designs.COLLECTIONS['atmospheres'][1]:
+                    for design in runtime.DESIGNS:
                         with self.subTest(design=design):
-                            page.mode.setCurrentIndex(page.mode.findData('dark'))
+                            page.mode.setCurrentIndex(page.mode.findData('light'))
                             page.design_page.cards[design].click()
                             self.assertEqual(page.design.currentData(),design)
-                            self.assertEqual(page.mode.currentData(),'light')
-                            self.assertEqual(page.layout_page.choice.currentData(),'sidebar')
+                            self.assertEqual(page.mode.currentData(),'dark')
+                            self.assertEqual(page.layout_page.choice.currentData(),theme_page.layouts.default(design))
                             self.assertEqual(page.menu_design(),design)
-                            self.assertTrue(page.dirty);apply.assert_not_called()
+                            apply.assert_not_called()
                             self.assertEqual(json.loads(state.read_text())['design'],'breakpoint')
                             page.design.setCurrentIndex(page.design.findData('raw'))
                             self.assertEqual(collections.currentIndex(),0)
                             page.mode.setCurrentIndex(page.mode.findData('contrast'))
                             page.design_page.cards[design].click()
-                            self.assertEqual(page.mode.currentData(),'contrast')
+                            self.assertEqual(page.mode.currentData(),'dark')
+                            page.mode.setCurrentIndex(page.mode.findData('light'))
+                            self.assertEqual(page.mode.currentData(),'light')
+                            page.design_page.cards[design].click()
+                            self.assertEqual(page.mode.currentData(),'dark')
                             page.design.setCurrentIndex(page.design.findData('raw'))
                 finally:page.deleteLater();QT.sendPostedEvents(None,QEvent.Type.DeferredDelete)
 

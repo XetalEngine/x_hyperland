@@ -1,0 +1,17 @@
+{
+  "enabled": false,
+  "snap_key": "<Shift>",
+  "snap_inverted": false,
+  "shiver": false,
+  "friction": 3.0,
+  "spring_k": 8.0,
+  "grid_resolution": 8,
+  "min_grid_size": 8,
+  "map_effect": 0,
+  "focus_effect": 0,
+  "map_window_match": "Splash | DropdownMenu | PopupMenu | Tooltip | Notification | Combo | Dnd | Unknown",
+  "focus_window_match": "",
+  "grab_window_match": "",
+  "move_window_match": "Toolbar | Menu | Utility | Dialog | Normal | Unknown",
+  "maximize_effect": true
+}

@@ -10,7 +10,8 @@ DESCRIPTIONS = {'raw': 'Original layout · cyan accents', 'modern': 'Soft cards 
                 'porcelainink': 'Warm porcelain · charcoal & vermilion'}
 COLLECTIONS = {'xetal-world': ('Xetal World', ('raw', 'modern', 'breakpoint', 'binaryknife')),
                'atmospheres': ('Atmospheres', ('tidalglass', 'porcelainink'))}
-DEFAULT_MODES = {'tidalglass': 'light', 'porcelainink': 'light'}
+# Every built-in skin starts dark, including future additions to the catalog.
+DEFAULT_MODES = {design: 'dark' for design in DESIGNS}
 
 
 def recolor(color, palette, mode):

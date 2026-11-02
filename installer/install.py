@@ -208,7 +208,7 @@ def build(stage, checkpoint=lambda:None):
         run_build(args, label)
 
     # A complete desktop requires the adapters matched by the runtime manifest.
-    for effect,label in [('burn','Burn'),('cube','Desktop Cube & 3D Windows'),('minimize','Fireball Minimize')]:
+    for effect,label in [('burn','Burn'),('cube','Desktop Cube & 3D Windows'),('minimize','Fireball Minimize'),('wobbly','Compiz Wobbly Windows')]:
         result = subprocess.run([sys.executable,str(stage/'effects'/effect/'build.py')],capture_output=True,text=True)
         if result.returncode:
             raise RuntimeError(label+' could not be built for the required compositor:\n'+result.stderr.strip())

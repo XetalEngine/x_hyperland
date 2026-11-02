@@ -31,6 +31,23 @@ class PresetTests(unittest.TestCase):
         for path,data in before.items():
             self.assertEqual(path.read_bytes(),data,path)
         self.store.save.assert_not_called();self.reload.assert_not_called()
+
+    def test_all_builtin_presets_default_dark_and_preserve_explicit_mode(self):
+        for design in runtime.DESIGNS:
+            self.assertEqual(presets.builtin(design,root=self.root)['theme']['mode'],'dark')
+            self.assertEqual(presets.builtin(design,'light',self.root)['theme']['mode'],'light')
+
+    def test_wobbly_snapshot_and_skin_switch_preserve_physics(self):
+        path=self.root/'effects/wobbly/settings.json';path.parent.mkdir(parents=True)
+        values=dict(presets.wobbly.DEFAULTS,enabled=True,friction=5,snap_inverted=True)
+        path.write_text(presets.wobbly.encode(values));before=path.read_bytes()
+        target=presets.builtin('modern',root=self.root);self.assertNotIn('wobbly',target)
+        self.assertNotIn(path,presets.resources(self.root,target,{'effects'},'raw')[0])
+        snapshot=presets.current(self.root);self.assertEqual(snapshot['wobbly'],values)
+        files,reloads=presets.resources(self.root,snapshot,{'effects'},'raw')
+        self.assertEqual(json.loads(files[path]),values)
+        self.assertIn(('Xetal Wobbly Windows','xetalwobbly:reload'),reloads)
+        self.assertEqual(path.read_bytes(),before)
     def test_colors_do_not_replace_layout_wallpapers_effects_or_followed_menu(self):
         target=presets.builtin('modern','light',self.root)
         with patch.object(backend.Path,'iterdir',return_value=iter(())),patch.object(backend,'set_wallpaper') as wallpaper,patch.object(backend.effect_colors,'plan') as effects:

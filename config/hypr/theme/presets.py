@@ -17,6 +17,7 @@ from terminal_fetch import model as terminal
 from effects.burn import model as burn
 from effects.cube import model as cube
 from effects.minimize import model as minimize
+from effects.wobbly import model as wobbly
 from cursors import model as cursors
 
 COMPONENTS = {
@@ -27,7 +28,7 @@ COMPONENTS = {
     'avatar': ('Profile image', 'Your account image or animated GIF'),
     'transfer': ('File Transfer', 'Transfer window, animation and information choices'),
     'switcher': ('Task Switcher', 'Switcher style, preview FPS and layout options'),
-    'effects': ('Window effects', 'Burn, cube, minimizing, effect colors and window appearance'),
+    'effects': ('Window effects', 'Burn, cube, wobbly windows, minimizing, effect colors and window appearance'),
     'cursors': ('Cursors', 'Cursor style, size, trails and click feedback'),
     'terminal': ('Terminal welcome', 'Logo and information fields; aliases remain untouched'),
 }
@@ -36,7 +37,7 @@ THEME_FIELDS = {
     'launcher': ('launcher_style', 'launcher_wallpaper', 'launcher_background', 'launcher_surfaces', 'launcher_labels', 'launcher_background_visibility'),
 }
 RESOURCE_PATHS = {'cursors': 'cursors/settings.json', 'transfer': 'file_jobs/preferences.json', 'switcher': 'switcher/preferences.json',
-    'terminal': 'terminal_fetch/settings.json', 'burn': 'effects/burn/settings.conf', 'cube': 'effects/cube/settings.json', 'minimize': 'effects/minimize/settings.conf'}
+    'terminal': 'terminal_fetch/settings.json', 'burn': 'effects/burn/settings.conf', 'cube': 'effects/cube/settings.json', 'minimize': 'effects/minimize/settings.conf', 'wobbly': 'effects/wobbly/settings.json'}
 
 
 def encode(value): return (json.dumps(value, indent=2, ensure_ascii=False) + '\n').encode()
@@ -47,7 +48,7 @@ def current(root=None):
     state = copy.deepcopy(runtime.state()); state['layout'] = runtime.layout()
     state.setdefault('design',runtime.design());state.setdefault('mode',runtime.mode())
     value = {'version': 1, 'theme': state, 'wallpaper_theme': state.get('wallpaper_theme',state['design'])}
-    for key, reader in [('transfer', transfer.load), ('switcher', switcher.load), ('burn', burn.load), ('cube', cube.load), ('minimize', minimize.load), ('cursors', cursors.load)]:
+    for key, reader in [('transfer', transfer.load), ('switcher', switcher.load), ('burn', burn.load), ('cube', cube.load), ('minimize', minimize.load), ('wobbly', wobbly.load), ('cursors', cursors.load)]:
         path = root / RESOURCE_PATHS[key]
         if path.exists(): value[key] = reader(path)[0]
     value['terminal'] = terminal.load(root / RESOURCE_PATHS['terminal'])
@@ -66,7 +67,7 @@ def validate(value):
     state['layout'] = state.get('layout', layouts.default(state['design']))
     if not isinstance(state['layout'],str) or state['layout'] not in layouts.LAYOUTS: raise ValueError('Invalid preset layout.')
     if 'wallpaper_theme' in value and (not isinstance(value['wallpaper_theme'],str) or value['wallpaper_theme'] not in runtime.DESIGNS):raise ValueError('Invalid wallpaper theme.')
-    for key, normalizer in [('transfer', transfer.normalize), ('switcher', switcher.normalize), ('terminal', terminal.validate), ('burn', burn.validate), ('cube', cube.validate), ('minimize', minimize.validate), ('cursors', cursors.validate)]:
+    for key, normalizer in [('transfer', transfer.normalize), ('switcher', switcher.normalize), ('terminal', terminal.validate), ('burn', burn.validate), ('cube', cube.validate), ('minimize', minimize.validate), ('wobbly', wobbly.validate), ('cursors', cursors.validate)]:
         if key in value: value[key] = normalizer(value[key])
     if 'wallpapers' in value:
         if not isinstance(value['wallpapers'], dict): raise ValueError('Invalid preset wallpapers.')
@@ -87,15 +88,18 @@ def validate(value):
     return value
 
 
-def builtin(design, mode, root=None):
+def builtin(design, mode=None, root=None):
+    mode = mode or runtime.designs.DEFAULT_MODES[design]
     value = current(root); value['theme'].update(design=design, mode=mode, layout=layouts.default(design), launcher_style=design)
     value['transfer']['style'] = design
     # Built-in presets supply their visual language, while keeping timing and hardware preferences.
     value.pop('wallpapers', None); value['wallpaper_theme'] = design
-    value.pop('burn', None); value.pop('cube', None); value.pop('minimize', None); value.pop('appearance', None)
+    value.pop('burn', None); value.pop('cube', None); value.pop('minimize', None); value.pop('wobbly', None); value.pop('appearance', None)
     if design == 'tidalglass':
+        value.setdefault('cursors',copy.deepcopy(cursors.DEFAULTS))
         value['cursors'].update(style='pearl',color='#65dced',trail='glow',intensity=30)
     elif design == 'porcelainink':
+        value.setdefault('cursors',copy.deepcopy(cursors.DEFAULTS))
         value['cursors'].update(style='sumi',color='#ab3429',trail='none',intensity=20)
     return value
 
@@ -128,7 +132,7 @@ def resources(root, target, selected, previous_design):
     if 'cursors' in selected and 'cursors' in target:
         reloads.append(('Xetal Desktop Cube', 'xetalcube:cursor'))
     if 'effects' in selected:
-        for key, plugin, dispatcher in [('burn', 'Xetal Burn', 'xetalburn:reload'), ('cube', 'Xetal Desktop Cube', 'xetalcube:reload'), ('minimize', 'Xetal Minimize', 'xetalminimize:reload')]:
+        for key, plugin, dispatcher in [('burn', 'Xetal Burn', 'xetalburn:reload'), ('cube', 'Xetal Desktop Cube', 'xetalcube:reload'), ('minimize', 'Xetal Minimize', 'xetalminimize:reload'), ('wobbly', 'Xetal Wobbly Windows', 'xetalwobbly:reload')]:
             if key in target:
                 files[root / RESOURCE_PATHS[key]] = burn.encode(target[key]).encode() if key == 'burn' else minimize.encode(target[key]).encode() if key == 'minimize' else encode(target[key])
                 reloads.append((plugin, dispatcher))
@@ -138,14 +142,15 @@ def resources(root, target, selected, previous_design):
 
 def activate_effects(target,ctl):
     """A saved enabled effect should work immediately, including when currently unloaded."""
-    if not any(target.get(key,{}).get('enabled') for key in ('burn','cube','minimize')):return
+    if not any(target.get(key,{}).get('enabled') for key in ('burn','cube','minimize','wobbly')):return
     loaded={item.get('name') for item in json.loads(ctl('-j','plugin','list'))}
-    for key,name in (('burn','Xetal Burn'),('cube','Xetal Desktop Cube'),('minimize','Xetal Minimize')):
+    for key,name in (('burn','Xetal Burn'),('cube','Xetal Desktop Cube'),('minimize','Xetal Minimize'),('wobbly','Xetal Wobbly Windows')):
         value=target.get(key,{})
         if value.get('enabled') and name not in loaded:
             if key=='burn':from effects.burn import controller
             elif key=='cube':from effects.cube import controller
-            else:from effects.minimize import controller
+            elif key=='minimize':from effects.minimize import controller
+            else:from effects.wobbly import controller
             controller.activate(value)
 
 
