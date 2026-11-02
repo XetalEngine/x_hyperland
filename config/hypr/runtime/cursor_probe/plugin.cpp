@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Read-only cursor metadata for the session's floating-title drag helper.
+// Cursor metadata and native movement for the text-safe floating-title grip.
 #include <hyprland/src/plugins/PluginAPI.hpp>
 #include <hyprland/src/event/EventBus.hpp>
 #include <hyprland/src/managers/SeatManager.hpp>
@@ -8,6 +8,13 @@
 #include <hyprland/src/protocols/core/DataDevice.hpp>
 #include <hyprland/src/protocols/core/Seat.hpp>
 #include <hyprland/src/render/Renderer.hpp>
+#include <hyprland/src/Compositor.hpp>
+#include <hyprland/src/desktop/state/WindowState.hpp>
+#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/layout/LayoutManager.hpp>
+#include <hyprland/src/managers/SessionLockManager.hpp>
+#include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
+#include <sstream>
 #include <drm_fourcc.h>
 #include <linux/input-event-codes.h>
 
@@ -17,6 +24,12 @@ CHyprSignalListener buttonListener;
 bool down = false;
 uint64_t serial = 0;
 std::string press = "{}";
+PHLWINDOWREF grip;
+void endGrip() {
+    auto target=g_layoutManager->dragController()->target();
+    if(auto w=grip.lock();w&&target&&target->window()==w)g_layoutManager->dragController()->dragEnd();
+    grip.reset();
+}
 
 std::string cursor() {
     const auto& data = g_pHyprRenderer->m_lastCursorData;
@@ -70,10 +83,33 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         if (event.button != BTN_LEFT) return;
         down = event.state == WL_POINTER_BUTTON_STATE_PRESSED && !info.cancelled;
         if (down) { ++serial; press = cursor(); }
+        else endGrip();
     });
+    HyprlandAPI::addDispatcherV2(handle,"xetaldrag:begin",[](std::string args) {
+        std::istringstream input(args);std::string address,extra;uint64_t token=0;
+        if(!(input>>address>>token)||(input>>extra)||!down||token!=serial||
+           !g_pCompositor->m_sessionActive||g_pSessionLockManager->isSessionLocked()||
+           PROTO::data->dndActive()||g_layoutManager->dragController()->target())
+            return SDispatchResult{.success=false,.error="The title grip is no longer available"};
+        for(auto& w:Desktop::windowState()->windows()) {
+            if(std::format("0x{:x}",reinterpret_cast<uintptr_t>(w.get()))!=address)continue;
+            if(!w->m_isMapped||w->isHidden()||!w->m_isFloating||!w->m_workspace||
+               Fullscreen::controller()->getFullscreenModes(w).internal!=Fullscreen::FSMODE_NONE)
+                return SDispatchResult{.success=false,.error="The window cannot be dragged"};
+            // The helper already checked the press AND current cursor artwork.
+            // Pointer motion now goes directly through the compositor, at the
+            // display/input cadence, rather than 16 ms IPC position updates.
+            g_layoutManager->beginDragTarget(w->layoutTarget(),MBIND_MOVE,std::nullopt,true);
+            if(g_layoutManager->dragController()->target()!=w->layoutTarget())
+                return SDispatchResult{.success=false,.error="The title grip could not start"};
+            grip=w;return SDispatchResult{};
+        }
+        return SDispatchResult{.success=false,.error="The window has closed"};
+    });
+    HyprlandAPI::addDispatcherV2(handle,"xetaldrag:end",[](std::string){endGrip();return SDispatchResult{};});
     command = HyprlandAPI::registerHyprCtlCommand(handle, {"xetal-cursor", true, [](eHyprCtlOutputFormat, std::string) {
-        return std::format("{{\"current\":{},\"press\":{},\"down\":{},\"serial\":{}}}", cursor(), press, down, serial);
+        return std::format("{{\"current\":{},\"press\":{},\"down\":{},\"serial\":{},\"native_drag\":true,\"dragging\":{}}}", cursor(), press, down, serial,!grip.expired());
     }});
     return {"Xetal Cursor Probe", "Cursor metadata for text-safe floating drags", "XetalEngine", "1.0"};
 }
-APICALL EXPORT void PLUGIN_EXIT() { buttonListener.reset(); }
+APICALL EXPORT void PLUGIN_EXIT() { buttonListener.reset();endGrip(); }

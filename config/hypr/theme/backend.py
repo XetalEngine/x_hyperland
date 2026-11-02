@@ -442,6 +442,8 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
             effect_reloads=list(dict.fromkeys([*effect_reloads,('Xetal Minimize','xetalminimize:reload')]))
         if runtime.ROOT/'current.colors' in files and (ROOT/'effects/window_close/settings.conf').exists():
             effect_reloads=list(dict.fromkeys([*effect_reloads,('Xetal Window Close','xetalwindowclose:reload')]))
+        if runtime.STATE in files and (ROOT/'cursors/settings.json').exists() and (not partial or 'colors' in components):
+            effect_reloads=list(dict.fromkeys([*effect_reloads,('Xetal Desktop Cube','xetalcube:cursor')]))
         old={path:path.read_bytes() if path.exists() else None for path in files}
         effects_attempted=False
         try:

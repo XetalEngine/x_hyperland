@@ -16,19 +16,27 @@ from effects.wobbly import model,controller
 class OptionsTests(unittest.TestCase):
     def test_all_original_options_defaults_and_ranges(self):
         options=list(ET.parse(ROOT/'compiz-options.xml').iter('option'))
-        self.assertEqual({o.get('name') for o in options},set(model.DEFAULTS)-{'enabled'})
+        self.assertEqual({o.get('name') for o in options},set(model.COMPIZ_DEFAULTS)-{'enabled'})
         for o in options:
             key=o.get('name');kind=o.get('type');value=o.findtext('default') or ''
             if kind in ('bool','bell'):value=value=='true'
             elif kind in ('float','int'):value=float(value)
-            self.assertEqual(model.DEFAULTS[key],value,key)
+            self.assertEqual(model.COMPIZ_DEFAULTS[key],value,key)
             if key in model.RANGES:self.assertEqual(model.RANGES[key],(float(o.findtext('min')),float(o.findtext('max'))))
     def test_round_trip_and_invalid_settings(self):
         self.assertEqual(model.decode(model.encode(model.DEFAULTS)),model.DEFAULTS)
         for key,value in [('friction',float('nan')),('spring_k',11),('grid_resolution',1.5),('min_grid_size',3),
                           ('shiver','yes'),('snap_key','<Shift><Shift>'),('snap_key','Q'),('move_window_match','Normal &'),('map_window_match','(Normal')]:
             with self.subTest(key=key),self.assertRaises(ValueError):model.validate(dict(model.DEFAULTS,**{key:value}))
-        with self.assertRaises(ValueError):model.decode(model.encode(model.DEFAULTS).replace('"enabled": false','"enabled": false, "enabled": true'))
+        with self.assertRaises(ValueError):model.decode(model.encode(model.DEFAULTS).replace('"enabled": true','"enabled": false, "enabled": true'))
+    def test_system_defaults_and_legacy_migration(self):
+        self.assertEqual(model.load(ROOT/'settings.json')[0],model.DEFAULTS)
+        self.assertEqual([model.DEFAULTS[k] for k in ('enabled','spring_k','grid_resolution','focus_effect','hotkey_drag','normal_drag')],
+                         [True,3.0,3,1,True,True])
+        legacy=dict(model.COMPIZ_DEFAULTS,friction=6.5)
+        self.assertEqual(model.validate(legacy),dict(legacy,**model.DRAG_DEFAULTS))
+        for changes in ({'hotkey_drag':False},{'unknown':True}):
+            with self.assertRaises(ValueError):model.validate(dict(legacy,**changes))
     def test_original_and_extended_window_matches(self):
         for value in ('','Any','Normal | Dialog','Normal & !class=kitty','(Normal | Dialog) & title=*Settings*','xid=0x1234','state=maximized'):
             self.assertEqual(model.validate_match(value),value)
@@ -38,14 +46,14 @@ class OptionsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'settings.json';path.write_text(model.encode(model.DEFAULTS));before=path.read_bytes();values,token=model.load(path)
             values['friction']=6
-            with patch.object(controller,'instance_dir',return_value=Path(directory)),patch.object(controller,'activate',side_effect=RuntimeError('load failed')):
+            with patch.object(controller,'instance_dir',return_value=Path(directory)),patch.object(controller.build,'build',return_value=None),patch.object(controller,'activate',side_effect=RuntimeError('load failed')):
                 with self.assertRaisesRegex(RuntimeError,'load failed'):controller.save(values,token,path)
             self.assertEqual(path.read_bytes(),before)
     def test_external_change_is_not_overwritten(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'settings.json';path.write_text(model.encode(model.DEFAULTS));values,token=model.load(path)
             path.write_text(model.encode(dict(values,friction=6)))
-            with patch.object(controller,'instance_dir',return_value=Path(directory)),self.assertRaisesRegex(ValueError,'elsewhere'):controller.save(values,token,path)
+            with patch.object(controller,'instance_dir',return_value=Path(directory)),patch.object(controller.build,'build',return_value=None),self.assertRaisesRegex(ValueError,'elsewhere'):controller.save(values,token,path)
             self.assertEqual(model.load(path)[0]['friction'],6)
     def test_original_physics_and_native_matcher(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -72,7 +80,18 @@ class ControlsTests(unittest.TestCase):
         page=self.page();self.assertEqual(set(page.fields),set(model.DEFAULTS))
         page.fields['friction'].setValue(6);page.fields['snap_key'].setEditText('<Control><Shift>')
         self.assertTrue(page.dirty);self.assertEqual(page.values()['snap_key'],'<Control><Shift>')
-        page.reset_defaults();self.assertEqual(page.values(),model.DEFAULTS);page.close()
+        page.reset_defaults();self.assertEqual(page.values(),dict(model.COMPIZ_DEFAULTS,**model.DRAG_DEFAULTS,enabled=True))
+        page.system_defaults.click();self.assertEqual(page.values(),model.DEFAULTS);page.close()
+    def test_help_covers_every_supported_type(self):
+        from effects.wobbly.help import TYPE_HELP,window_help
+        self.assertEqual(set(TYPE_HELP),set(model.TYPES))
+        self.assertIn('floating=',window_help())
+        page=self.page();dialog=page.show_help();self.assertTrue(dialog.isVisible());dialog.close();page.close()
+    def test_hotkey_label_tracks_saved_binding(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/'hyprland.conf').write_text('$mainMod = ALT\n')
+            (root/'keybindings.conf').write_text('bindm = $mainMod, mouse:272, movewindow\n')
+            self.assertEqual(model.drag_shortcut(root),'ALT + Left drag')
     def test_invalid_match_blocks_save_without_breaking_editor(self):
         page=self.page();page.fields['move_window_match'].setText('Normal &')
         self.assertTrue(page.dirty);self.assertFalse(page.apply.isEnabled());self.assertFalse(page.preview.isEnabled())

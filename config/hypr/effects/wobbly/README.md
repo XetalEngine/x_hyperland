@@ -48,7 +48,22 @@ windows; they do not receive their own spring lattice. XWayland window types are
 read from their EWMH atoms. Fullscreen windows, hidden workspaces, session locks
 and disabled compositor animations suspend deformation.
 
-The enable switch is initially off for new installations. Physics preferences
+New installations enable Wobbly, with friction 3, spring K 3, grid resolution 3,
+minimum grid size 8, focus effect Shiver, and both drag modes on. The empty Focus
+windows match is preserved, so focus shivering requires selecting windows first.
+**System defaults** restores these choices; **Compiz defaults** restores the
+original table above while keeping the enable switch. Both require Apply.
+The **Help** button documents every supported window type and predicate.
+
+Hotkey drags and normal drags have independent switches. The hotkey label follows
+the Hotkeys configuration. Native application title bars and the text-safe
+floating-window top grip use the compositor's native movement path, so neither
+is limited to the grip helper's polling cadence. The close affordance remains
+hidden during either drag. Each visible monitor samples the lattice on its own
+presentation callbacks using one shared elapsed-time clock. A window spanning
+different refresh rates neither locks to the slower display nor runs its physics
+twice as fast. A monitor transfer retains the clock and spring state instead of
+ending the wobble. Physics preferences
 are personal settings: applying a built-in skin preserves them, while custom
 theme snapshots can save and restore them. Disabling detaches the mesh at once.
 The helper belongs to the Hyprland session and does not install a service or alter

@@ -38,7 +38,8 @@ int main(int argc,char **argv) {
     char line[100],command[20];int a,b;unsigned serial=1;
     while(fgets(line,sizeof(line),stdin)) {
         a=b=0;sscanf(line,"%19s %d %d",command,&a,&b);
-        if(!strcmp(command,"move"))zwlr_virtual_pointer_v1_motion_absolute(p,serial++,a,b,width,height);
+        if(!strcmp(command,"extent")){assert(a>0&&b>0);width=a;height=b;}
+        else if(!strcmp(command,"move"))zwlr_virtual_pointer_v1_motion_absolute(p,serial++,a,b,width,height);
         else if(!strcmp(command,"down"))zwlr_virtual_pointer_v1_button(p,serial++,a,1);
         else if(!strcmp(command,"up"))zwlr_virtual_pointer_v1_button(p,serial++,a,0);
         else if(!strcmp(command,"bell")){assert(bell);xdg_system_bell_v1_ring(bell,NULL);}

@@ -5,12 +5,15 @@ import math
 from pathlib import Path
 import re
 
-DEFAULTS = dict(enabled=False, snap_key='<Shift>', snap_inverted=False, shiver=False,
+COMPIZ_DEFAULTS = dict(enabled=False, snap_key='<Shift>', snap_inverted=False, shiver=False,
     friction=3.0, spring_k=8.0, grid_resolution=8, min_grid_size=8,
     map_effect=0, focus_effect=0,
     map_window_match='Splash | DropdownMenu | PopupMenu | Tooltip | Notification | Combo | Dnd | Unknown',
     focus_window_match='', grab_window_match='',
     move_window_match='Toolbar | Menu | Utility | Dialog | Normal | Unknown', maximize_effect=True)
+DRAG_DEFAULTS = dict(hotkey_drag=True, normal_drag=True)
+DEFAULTS = dict(COMPIZ_DEFAULTS, **DRAG_DEFAULTS, enabled=True, spring_k=3.0,
+                grid_resolution=3, focus_effect=1)
 RANGES = dict(friction=(0.1,10), spring_k=(0.1,10), grid_resolution=(1,64), min_grid_size=(4,128),
               map_effect=(0,1), focus_effect=(0,1))
 TYPES = ('Normal','Dialog','Utility','Toolbar','Menu','Splash','DropdownMenu','PopupMenu',
@@ -61,6 +64,9 @@ def validate_match(expression):
 
 
 def validate(values):
+    # Existing installations and saved theme snapshots predate the drag switches.
+    if isinstance(values,dict) and set(values)==set(COMPIZ_DEFAULTS):
+        values=dict(values,**DRAG_DEFAULTS)
     if not isinstance(values,dict) or set(values)!=set(DEFAULTS):
         raise ValueError('Wobbly settings are incomplete or contain unknown options.')
     result={}
@@ -99,3 +105,15 @@ def decode(content):
 def load(path=PATH):
     content=path.read_bytes() if path.exists() else b''
     return (decode(content.decode()) if content else validate(DEFAULTS)),hashlib.sha256(content).hexdigest()
+
+
+def drag_shortcut(root=None):
+    from control_center import keys
+    root=root or PATH.parents[2]
+    try:
+        bindings,_=keys.Store(root=root).load()
+        variables=keys.variables((root/'hyprland.conf').read_text())
+        labels=[b.shortcut(variables) for b in bindings if b.enabled and b.submap=='reset'
+                and 'm' in b.flags and b.dispatcher=='movewindow']
+        return ' / '.join(dict.fromkeys(labels)) or 'configured drag hotkey'
+    except (OSError,ValueError):return 'configured drag hotkey'

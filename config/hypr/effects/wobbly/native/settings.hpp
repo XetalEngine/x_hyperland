@@ -77,9 +77,9 @@ class Match {
     bool matches(const WindowInfo& w)const{return eval(root,w);}
 };
 struct Settings {
-    bool enabled=false,snap_inverted=false,shiver=false,maximize_effect=true;
-    double friction=3,spring_k=8;
-    int grid_resolution=8,min_grid_size=8,map_effect=0,focus_effect=0;
+    bool enabled=true,snap_inverted=false,shiver=false,maximize_effect=true,hotkey_drag=true,normal_drag=true;
+    double friction=3,spring_k=3;
+    int grid_resolution=3,min_grid_size=8,map_effect=0,focus_effect=1;
     uint32_t snapModifiers=1;
     Match map_window_match{"Splash | DropdownMenu | PopupMenu | Tooltip | Notification | Combo | Dnd | Unknown"};
     Match focus_window_match,grab_window_match;
@@ -90,7 +90,9 @@ inline Settings readSettings(const std::filesystem::path& path){
     std::ifstream f(path);std::string content((std::istreambuf_iterator<char>(f)),{});
     if(content.size()>32768)throw std::runtime_error("Wobbly settings are too large");
     std::unique_ptr<json_object,decltype(&json_object_put)> root(json_tokener_parse(content.c_str()),json_object_put);
-    if(!root||!json_object_is_type(root.get(),json_type_object)||json_object_object_length(root.get())!=15)throw std::runtime_error("Invalid Wobbly settings");
+    if(!root||!json_object_is_type(root.get(),json_type_object))throw std::runtime_error("Invalid Wobbly settings");
+    const auto count=json_object_object_length(root.get());
+    if(count!=15&&count!=17)throw std::runtime_error("Invalid Wobbly settings");
     auto get=[&](const char* name,json_type type){json_object* v=nullptr;if(!json_object_object_get_ex(root.get(),name,&v)||!json_object_is_type(v,type))throw std::runtime_error(std::string("Invalid Wobbly option: ")+name);return v;};
     auto boolean=[&](const char* k){return bool(json_object_get_boolean(get(k,json_type_boolean)));};
     auto number=[&](const char* k,double lo,double hi,bool integer){
@@ -98,6 +100,7 @@ inline Settings readSettings(const std::filesystem::path& path){
         double n=json_object_get_double(v);if(!std::isfinite(n)||n<lo||n>hi||(integer&&std::floor(n)!=n))throw std::runtime_error(std::string("Out of range: ")+k);return n;};
     auto string=[&](const char* k){auto v=get(k,json_type_string);return std::string(json_object_get_string(v),json_object_get_string_len(v));};
     s.enabled=boolean("enabled");s.snap_inverted=boolean("snap_inverted");s.shiver=boolean("shiver");s.maximize_effect=boolean("maximize_effect");
+    if(count==17){s.hotkey_drag=boolean("hotkey_drag");s.normal_drag=boolean("normal_drag");}
     s.friction=number("friction",.1,10,false);s.spring_k=number("spring_k",.1,10,false);
     s.grid_resolution=number("grid_resolution",1,64,true);s.min_grid_size=number("min_grid_size",4,128,true);
     s.map_effect=number("map_effect",0,1,true);s.focus_effect=number("focus_effect",0,1,true);

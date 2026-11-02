@@ -62,7 +62,23 @@ int main(int argc,char** argv){
     assert(Match("Normal & class=ki*").matches(w));assert(!Match("Normal & !class=kitty").matches(w));
     assert(Match("Dialog | (Normal & floating=1)").matches(w));assert(!Match("").matches(w));
     for(auto s:{"Normal &", "(Normal", "bogus", "class=", "floating=2", "Normal || Dialog"}){bool bad=false;try{Match m(s);}catch(...){bad=true;}assert(bad);}
-    if(argc>1){auto settings=readSettings(argv[1]);assert(settings.friction==3 && settings.spring_k==8 && settings.snapModifiers==1);}
+    // The same elapsed time produces the same springs on 60/120/144/240 Hz
+    // outputs. Mixed cadence models moving a window between those monitors.
+    auto simulate=[](const std::vector<double>& frames){
+        Engine e({0,0,600,400});e.grab(50,20,true);e.geometry({160,80,600,400},false,210,100);e.release();
+        for(auto ms:frames)e.step(ms,3,3);
+        return e.renderPoints();
+    };
+    auto cadence=[](int hz,double seconds){std::vector<double> v(int(hz*seconds),1000./hz);return v;};
+    auto expected=simulate(cadence(60,.5));
+    for(int hz:{120,144,240}){
+        auto actual=simulate(cadence(hz,.5));
+        for(int i=0;i<16;++i){assert(std::abs(actual[i].x-expected[i].x)<.01);assert(std::abs(actual[i].y-expected[i].y)<.01);}
+    }
+    auto mixed=cadence(60,.25);auto high=cadence(144,.25);mixed.insert(mixed.end(),high.begin(),high.end());
+    auto switched=simulate(mixed);for(int i=0;i<16;++i)assert(std::abs(switched[i].x-expected[i].x)<.01);
+    if(argc>1){auto settings=readSettings(argv[1]);assert(settings.enabled && settings.friction==3 && settings.spring_k==3 && settings.snapModifiers==1);
+        assert(settings.grid_resolution==3 && settings.focus_effect==1 && settings.hotkey_drag && settings.normal_drag);}
     std::cout<<"Original Compiz spring forces, fixed steps, Bezier mesh, edge snapping, resize and matches passed\n";
     if(argc>2 && std::string(argv[2])=="--benchmark"){
         Engine large({100,100,1600,1000});Mesh cached;Box screen{0,0,2560,1440};

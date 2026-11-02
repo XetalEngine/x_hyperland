@@ -4,10 +4,12 @@ import json
 from pathlib import Path
 import re
 from .art import STYLES
+from . import effects
 
 PATH=Path(__file__).with_name('settings.json')
-DEFAULTS=dict(style='pearl',size=32,trail='none',click_ripple=False,color='#38bdf8',duration=420,intensity=65)
-TRAILS={'none':'Off','comet':'Comet','glow':'Soft glow','sparkle':'Stardust'}
+DEFAULTS=dict(style='pearl',size=32,trail='follow',click_ripple=False,color='#38bdf8',duration=560,intensity=65)
+TRAILS={'none':'Off','follow':'Follow desktop theme',**{k:v[1] for k,v in effects.STYLES.items()},
+        'comet':'Comet','glow':'Soft glow','sparkle':'Stardust'}
 
 def validate(value):
     if not isinstance(value,dict) or set(value)-set(DEFAULTS):raise ValueError('Invalid cursor settings')

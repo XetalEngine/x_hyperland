@@ -1,7 +1,7 @@
 """Compiz Wobbly Windows controls for Theme → Window effects."""
 from PyQt6.QtCore import Qt, QTimer, QTime
 from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,QFormLayout,QGroupBox,
-    QScrollArea,QLabel,QCheckBox,QSpinBox,QDoubleSpinBox,QComboBox,QLineEdit,QPushButton,QMessageBox,QDialog)
+    QScrollArea,QLabel,QCheckBox,QSpinBox,QDoubleSpinBox,QComboBox,QLineEdit,QPushButton,QMessageBox,QDialog,QTextBrowser)
 from . import model,controller
 
 
@@ -37,12 +37,16 @@ class WobblyPage(QWidget):
         for form,name,label,tip in (
             (s,'snap_inverted','Invert snapping','Snap without the modifier; hold the modifier to release snapping.'),
             (s,'shiver','Shiver on application bell','Shiver when a Wayland or XWayland application rings its system bell.'),
+            (m,'hotkey_drag','Wobble on '+model.drag_shortcut(),'Bend while moving or resizing through a configured mouse binding. Turning this off still lets you move windows.'),
+            (m,'normal_drag','Wobble on normal drag','Bend when using an application title bar or the floating-window top grip. Text selection stays with the application.'),
             (m,'maximize_effect','Wobble when maximizing or restoring','Keep the corners anchored while the spring mesh catches up with the new size.')):
             field=QCheckBox(label);field.setToolTip(tip);field.toggled.connect(self.edited);self.fields[name]=field;form.addRow(field)
         for key,label,tip in (('map_effect','Map effect','Effect when a matching window opens.'),('focus_effect','Focus effect','Effect when a matching window gains focus.')):
             field=QComboBox();field.addItems(('None','Shiver'));field.setToolTip(tip);field.currentIndexChanged.connect(self.edited);self.fields[key]=field;s.addRow(label,field)
         grid.addWidget(motion,0,0);grid.addWidget(snap,0,1)
         matches=QGroupBox('Which windows?');f=QFormLayout(matches)
+        help_row=QHBoxLayout();help_row.addStretch()
+        self.help=QPushButton('Help');self.help.clicked.connect(self.show_help);help_row.addWidget(self.help);f.addRow(help_row)
         for key,label,tip in (
             ('move_window_match','Move windows','Windows that bend while moving or resizing.'),
             ('grab_window_match','Grab windows','Windows given an extra spring impulse when grabbed. Empty means no extra impulse.'),
@@ -56,6 +60,7 @@ class WobblyPage(QWidget):
         scroll.setWidget(self.body);root.addWidget(scroll,1)
         self.status=QLabel('Apply, then move or resize a floating window.');self.status.setObjectName('muted');self.status.setWordWrap(True);root.addWidget(self.status)
         row=QHBoxLayout()
+        self.system_defaults=QPushButton('System defaults');self.system_defaults.clicked.connect(lambda:self.set_values(model.DEFAULTS));row.addWidget(self.system_defaults)
         self.defaults=QPushButton('Compiz defaults');self.defaults.clicked.connect(self.reset_defaults);row.addWidget(self.defaults)
         self.preview=QPushButton('Try Wobbly');self.preview.clicked.connect(self.show_preview);row.addWidget(self.preview);row.addStretch()
         self.reload=QPushButton('Reload');self.reload.clicked.connect(lambda:self.refresh(True));row.addWidget(self.reload)
@@ -99,13 +104,14 @@ class WobblyPage(QWidget):
         except ValueError as exc:self.dirty=True;valid=False;self.status.setText(str(exc))
         self.body.setEnabled(not self.busy);self.enabled.setEnabled(not self.busy)
         self.apply.setEnabled(valid and self.dirty and not self.busy);self.discard.setEnabled(self.dirty and not self.busy)
-        for button in (self.reload,self.defaults):button.setEnabled(not self.busy)
+        for button in (self.reload,self.defaults,self.system_defaults):button.setEnabled(not self.busy)
         self.preview.setEnabled(not self.busy and not self.dirty and self.baseline['enabled'])
         self.preview.setToolTip('Enable and apply Wobbly, then open a sample window to drag, resize or shiver.')
 
     def reset(self):self.set_values(self.baseline)
-    def reset_defaults(self):self.set_values(dict(model.DEFAULTS,enabled=self.enabled.isChecked()))
+    def reset_defaults(self):self.set_values(dict(model.COMPIZ_DEFAULTS,**model.DRAG_DEFAULTS,enabled=self.enabled.isChecked()))
     def refresh(self,force=False):
+        self.fields['hotkey_drag'].setText('Wobble on '+model.drag_shortcut())
         if self.busy or self.dirty and not force:return
         if self.dirty and QMessageBox.question(self,'Discard Wobbly edits?','Reload saved settings and discard these edits?',QMessageBox.StandardButton.Discard|QMessageBox.StandardButton.Cancel,QMessageBox.StandardButton.Cancel)!=QMessageBox.StandardButton.Discard:return
         try:self.baseline,self.token=model.load();self.reset()
@@ -120,6 +126,15 @@ class WobblyPage(QWidget):
         self.baseline,self.token=result;self.busy=False;self.reset()
         self.status.setText('Wobbly Windows is on and saved for future logins.' if self.baseline['enabled'] else 'Wobbly is off. Normal window movement is restored.')
     def failed(self,message):self.busy=False;self.edited();self.status.setText(str(message))
+    def show_help(self):
+        from .help import window_help
+        if getattr(self,'help_dialog',None) is not None:
+            self.help_dialog.show();self.help_dialog.raise_();return self.help_dialog
+        dialog=QDialog(self.window());dialog.setWindowTitle('Wobbly Windows — window matching');dialog.resize(740,650)
+        self.help_dialog=dialog
+        layout=QVBoxLayout(dialog);text=QTextBrowser();text.setHtml(window_help());layout.addWidget(text)
+        close=QPushButton('Close');close.clicked.connect(dialog.close);layout.addWidget(close)
+        dialog.show();return dialog
     def show_preview(self):
         self.busy=True;self.edited();self.async_run(lambda:controller.activate(self.baseline),self.preview_ready,self.failed)
     def preview_ready(self,_):

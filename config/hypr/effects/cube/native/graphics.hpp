@@ -95,6 +95,10 @@ struct Graphics {
             uniform int skyMode;uniform vec2 skyAngles;uniform vec4 skyTop,skyBottom;uniform float aspect;
             in vec2 texcoord;out vec4 fragColor;
             void main(){
+                if(skyMode==5){
+                    float alpha=clamp(texcoord.x,0.0,1.0)*tint.a;
+                    fragColor=vec4(tint.rgb*alpha,alpha);return;
+                }
                 if(skyMode==4){
                     float r=length(texcoord*2.0-1.0);
                     float alpha=exp(-r*r*4.0)*tint.a*(1.0-smoothstep(.8,1.0,r));

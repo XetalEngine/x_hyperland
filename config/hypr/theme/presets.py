@@ -19,6 +19,7 @@ from effects.cube import model as cube
 from effects.minimize import model as minimize
 from effects.wobbly import model as wobbly
 from cursors import model as cursors
+from cursors import effects as mouse_effects
 
 COMPONENTS = {
     'colors': ('Colors', 'Desktop palette, taskbar accents, terminal and application colors'),
@@ -95,12 +96,15 @@ def builtin(design, mode=None, root=None):
     # Built-in presets supply their visual language, while keeping timing and hardware preferences.
     value.pop('wallpapers', None); value['wallpaper_theme'] = design
     value.pop('burn', None); value.pop('cube', None); value.pop('minimize', None); value.pop('wobbly', None); value.pop('appearance', None)
+    value.setdefault('cursors',copy.deepcopy(cursors.DEFAULTS))
+    effect=mouse_effects.STYLES[mouse_effects.THEMES.get(design,'plasma')]
+    value['cursors'].update(trail='follow',color=effect[2])
     if design == 'tidalglass':
         value.setdefault('cursors',copy.deepcopy(cursors.DEFAULTS))
-        value['cursors'].update(style='pearl',color='#65dced',trail='glow',intensity=30)
+        value['cursors'].update(style='pearl')
     elif design == 'porcelainink':
         value.setdefault('cursors',copy.deepcopy(cursors.DEFAULTS))
-        value['cursors'].update(style='sumi',color='#ab3429',trail='none',intensity=20)
+        value['cursors'].update(style='sumi')
     return value
 
 

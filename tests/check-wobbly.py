@@ -13,6 +13,7 @@ from effects.window_close import build as close_build, model as close_model
 from effects.cube import model as cube_model, build as cube_build
 from effects.burn import model as burn_model, build as burn_build
 from effects.minimize import model as minimize_model, build as minimize_build
+from cursors import model as cursor_model,effects as mouse_effects,build as cursor_build
 
 
 def main():
@@ -24,6 +25,12 @@ def main():
     cube=root/'cube.json';cube.write_text(cube_model.encode(dict(cube_model.DEFAULTS,enabled=True)))
     burn=root/'burn.conf';burn.write_text(burn_model.encode(dict(burn_model.DEFAULTS,enabled=True)))
     minimize=root/'minimize.conf';minimize.write_text(minimize_model.encode(minimize_model.DEFAULTS))
+    cursor_config=home/'.config/hypr/cursors/settings.json';cursor_config.parent.mkdir(parents=True)
+    cursor_values=dict(cursor_model.DEFAULTS,trail='none');cursor_config.write_bytes(cursor_model.encode(cursor_values))
+    cursor_data=cursor_config.parent/'.build';cursor_data.mkdir()
+    (cursor_data/'data').symlink_to(cursor_build.build(),target_is_directory=True)
+    cursor_build.register_themes(cursor_data/'data',home/'.local/share/icons')
+    theme_state=home/'.config/hypr/theme/state.json';theme_state.parent.mkdir();theme_state.write_text('{"design":"tidalglass"}')
     sources=[]
     for name,protocol in [('virtual-pointer',REPO/'tests/minimize/wlr-virtual-pointer-unstable-v1.xml'),
                           ('virtual-keyboard',REPO/'tests/native/virtual-keyboard-unstable-v1.xml'),
@@ -58,7 +65,7 @@ windowrule=match:class ^wobbly-test$,float on
     env=dict(os.environ,HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_CACHE_HOME=str(home/'.cache'),XDG_DATA_HOME=str(home/'.local/share'),
              XDG_STATE_HOME=str(home/'.local/state'),XDG_RUNTIME_DIR=str(runtime),WAYLAND_DISPLAY=parent,AQ_BACKENDS='wayland',
              HYPRLAND_NO_SD_VARS='1',HYPRLAND_NO_SD_NOTIFY='1',XETAL_WOBBLY_CONFIG=str(config),QT_QPA_PLATFORM='wayland',QT_QPA_PLATFORMTHEME='',
-             QT_WAYLAND_DISABLE_WINDOWDECORATION='1',QT_PLUGIN_PATH='',GSETTINGS_BACKEND='memory',XETAL_CUBE_CONFIG=str(cube),XETAL_BURN_CONFIG=str(burn),XETAL_MINIMIZE_CONFIG=str(minimize))
+             QT_WAYLAND_DISABLE_WINDOWDECORATION='1',QT_PLUGIN_PATH='',GSETTINGS_BACKEND='memory',XETAL_CUBE_CONFIG=str(cube),XETAL_BURN_CONFIG=str(burn),XETAL_MINIMIZE_CONFIG=str(minimize),XETAL_CURSOR_CONFIG=str(cursor_config))
     for k in ('HYPRLAND_INSTANCE_SIGNATURE','DISPLAY','DBUS_SESSION_BUS_ADDRESS'):env.pop(k,None)
     children=[];logs=[]
     def spawn(args,**kwargs):
@@ -179,6 +186,24 @@ windowrule=match:class ^wobbly-test$,float on
         print('XWayland drag and XKB bell passed',flush=True)
         # All native effects must load together, regardless of hook installation order.
         for effect in (cube_build,burn_build,minimize_build):assert ctl('plugin','load',str(effect.build()))=='ok'
+        def mouse_status():return json.loads(ctl('xetal-cube'))
+        def mouse_style(style):
+            cursor_values['trail']=style
+            if style in mouse_effects.STYLES:cursor_values['color']=mouse_effects.STYLES[style][2]
+            cursor_config.write_bytes(cursor_model.encode(cursor_values));dispatch('xetalcube:cursor')
+        import math
+        for style in mouse_effects.STYLES:
+            mouse_style(style);before=mouse_status()['cursor_frames']
+            for step in range(70):point(f'move {250+step*8} {int(320+math.sin(step*.15)*40)}');time.sleep(.006)
+            screenshot('mouse-'+style);s=mouse_status()
+            assert s['cursor_effect']==style and s['cursor_frames']>before and s['cursor_marks']>0,s
+            wait(lambda:mouse_status()['cursor_marks']==0);frames=mouse_status()['cursor_frames'];time.sleep(.15)
+            assert mouse_status()['cursor_frames']==frames,'Mouse effect rendered while idle'
+        mouse_style('follow');assert mouse_status()['cursor_effect']=='tidal'
+        theme_state.write_text('{"design":"binaryknife"}');dispatch('xetalcube:cursor');assert mouse_status()['cursor_effect']=='circuit'
+        mouse_style('ink');theme_state.write_text('{"design":"raw"}');dispatch('xetalcube:cursor');assert mouse_status()['cursor_effect']=='ink'
+        mouse_style('none');point('move 500 300');assert mouse_status()['cursor_marks']==0
+        print('Six distinct native mouse trails, theme following, independent mixing, disabling and idle suspension passed',flush=True)
         dispatch('focuswindow',xa);dispatch('xetalwobbly:shiver');dispatch('xetalcube:preview')
         wait(lambda:json.loads(ctl('xetal-cube'))['active']);dispatch('xetalcube:turn','25 12');time.sleep(.2)
         screenshot('cube-with-wobbly');dispatch('xetalcube:finish','cancel');wait(lambda:not json.loads(ctl('xetal-cube'))['active'])
@@ -203,7 +228,7 @@ windowrule=match:class ^wobbly-test$,float on
         assert ctl('keyword','monitor',f'{m["name"]},{m["width"]}x{m["height"]}@60,0x0,1')=='ok'
         ctl('output','create','wayland');wait(lambda:len(json.loads(ctl('-j','monitors')))==2)
         second=next(output for output in json.loads(ctl('-j','monitors')) if output['name']!=m['name'])
-        assert ctl('keyword','monitor',f'{second["name"]},1000x800@60,{width}x0,1.25,transform,1')=='ok'
+        assert ctl('keyword','monitor',f'{second["name"]},1000x800@144,{width}x0,1.25,transform,1')=='ok'
         dispatch('movewindowpixel',f'exact {width-350} 180,'+address);time.sleep(.5)
         assert client('Map shiver')['monitor']==m['id'];dispatch('focuswindow',address)
         # Wait for the compositor's placement animation as well as the springs
@@ -212,7 +237,8 @@ windowrule=match:class ^wobbly-test$,float on
         screenshot('spanning-reference')
         before=status();dispatch('xetalwobbly:shiver');time.sleep(.18);screenshot('spanning-scaled-portrait')
         wait(lambda:status()['active']==0);after=status();screenshot('spanning-settled')
-        assert after['mesh_builds']-before['mesh_builds']>after['steps']-before['steps']+5,(before,after)
+        prior={o['id']:o['steps'] for o in before['outputs']}
+        assert all(o['steps']-prior.get(o['id'],0)>10 for o in after['outputs']),(before,after)
         assert not after['error']
         from PIL import Image,ImageFilter
         with Image.open(root/'spanning-reference.png') as reference, Image.open(root/'spanning-scaled-portrait.png') as animated:
@@ -230,6 +256,30 @@ windowrule=match:class ^wobbly-test$,float on
                 nearby=animated.crop(crop).convert('L').filter(ImageFilter.MaxFilter(11)).tobytes()
                 bright=sum(v>180 for v in glyphs)
                 assert bright>50 and sum(a>180 and b>180 for a,b in zip(glyphs,nearby))>.8*bright,area
+        # Cross the seam while held. Neither transfer may recreate or drop the
+        # lattice, and status must report the destination output's refresh rate.
+        save(map_effect=0,focus_effect=0)
+        outputs=json.loads(ctl('-j','monitors'))
+        right=max(o['x']+(o['height'] if o['transform']%2 else o['width'])/o['scale'] for o in outputs)
+        bottom=max(o['y']+(o['width'] if o['transform']%2 else o['height'])/o['scale'] for o in outputs)
+        point(f'extent {round(right)} {round(bottom)}')
+        dispatch('movewindowpixel',f'exact {width-650} 180,'+address);time.sleep(.4)
+        point(f'move {width-350} 240');point('key 125 1');point('down 272')
+        wait(lambda:status()['active']==1);started=status()['started']
+        for x in range(width-330,width+310,20):point(f'move {x} 240');time.sleep(.012)
+        wait(lambda:client('Map shiver')['monitor']==second['id'])
+        s=status();assert s['active']==1 and s['started']==started and s['windows'][0]['grabbed'],s
+        target=next(o for o in json.loads(ctl('-j','monitors')) if o['id']==second['id'])
+        assert s['windows'][0]['monitor']==target['id'] and abs(s['windows'][0]['refresh_hz']-target['refreshRate'])<.1,s
+        for x in range(width+300,width-350,-20):point(f'move {x} 240');time.sleep(.012)
+        wait(lambda:client('Map shiver')['monitor']==m['id'])
+        assert status()['active']==1 and status()['started']==started,status()
+        point('up 272');point('key 125 0');wait(lambda:status()['active']==0)
+        (root/'monitor-timing.json').write_text(json.dumps({'outputs':outputs,'transferred':s},indent=2))
+        print('Held drag transfer preserves the spring lattice; actual output rates:',[o['refreshRate'] for o in outputs],flush=True)
+        # Nested Wayland outputs may report 60 Hz regardless of requested mode.
+        # Rate invariance (60/120/144/240 Hz and rate changes) is also checked by
+        # native/test_engine.cpp; this checks actual per-output callbacks/transfer.
         ctl('output','remove',second['name'])
         dispatch('movewindowpixel','exact 170 150,'+address);time.sleep(.3)
         print('Window spanning a rotated fractional-scale output animates on both displays',flush=True)

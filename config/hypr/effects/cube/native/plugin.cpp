@@ -874,15 +874,21 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         HyprlandAPI::addDispatcherV2(handle, "xetalcube:workspace", localWorkspace);
         g_pKeybindManager->m_dispatchers["workspace"] = switchWorkspace;
         scheduleFaces();
-        cursorTimer = makeShared<CEventLoopTimer>(std::nullopt, [](SP<CEventLoopTimer> self, void *) {
-            damageMarks();
+        listeners.push_back(Event::bus()->m_events.render.pre.listen([](PHLMONITOR m) {
+            cursorRenderingMonitor=m;
             if (g_pSessionLockManager->isSessionLocked() || g_pInputManager->isConstrained() || PROTO::inputCapture->isCaptured()) { clearMarks(); return; }
-            auto now=Clock::now();
-            std::erase_if(cursorMarks,[&](auto &mark){ return std::chrono::duration<double,std::milli>(now-mark.born).count()>=cursorOptions.duration; });
-            if (!cursorMarks.empty()) self->updateTimeout(std::chrono::milliseconds(16));
-            else for(auto m:State::monitorState()->monitors())m->recheckSolitary();
-        },nullptr);
-        g_pEventLoopManager->addTimer(cursorTimer);
+            auto now=cursorNow();auto expired=[&](const auto& mark){return now-mark.born>=cursorOptions.duration/1000.;};
+            if(std::any_of(cursorMarks.begin(),cursorMarks.end(),expired)){
+                damageMarks();std::erase_if(cursorMarks,expired);
+                if(cursorMarks.empty())for(auto output:State::monitorState()->monitors())output->recheckSolitary();
+            }
+        }));
+        listeners.push_back(Event::bus()->m_events.monitor.layoutChanged.listen([] { clearMarks(); }));
+        listeners.push_back(Event::bus()->m_events.render.stage.listen([](eRenderStage stage) {
+            if(stage!=RENDER_POST)return;
+            auto m=cursorRenderingMonitor.lock();cursorRenderingMonitor.reset();
+            if(cursorVisible(m))damageMarks(m);
+        }));
         listeners.push_back(Event::bus()->m_events.input.mouse.move.listen([](Vector2D pos, Event::SCallbackInfo &info) {
             if (!info.cancelled) addCursorMark(pos,false);
         }));
@@ -988,6 +994,9 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             add("preview_fps", json_object_new_int(settings.previewFps));
             add("cursor_marks", json_object_new_int64(cursorMarks.size()));
             add("cursor_trail", json_object_new_string(cursorOptions.trail.c_str()));
+            add("cursor_effect", json_object_new_string(cursorOptions.effect.c_str()));
+            add("cursor_frames", json_object_new_int64(cursorFrames));
+            add("cursor_vertices", json_object_new_int64(cursorVertices));
             add("cursor_style", json_object_new_string(cursorOptions.style.c_str()));
             add("cursor_size", json_object_new_int(cursorOptions.size));
             add("four_faces", json_object_new_boolean(true));
@@ -1019,7 +1028,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         if (ordinaryWorkspace) g_pKeybindManager->m_dispatchers["workspace"] = ordinaryWorkspace;
         if (faceTimer) { g_pEventLoopManager->removeTimer(faceTimer); faceTimer.reset(); }
     clearMarks();
-    if (cursorTimer) { g_pEventLoopManager->removeTimer(cursorTimer); cursorTimer.reset(); }
+    cursorRenderingMonitor.reset();
         releaseFaces();
         for (auto h : hooks)
             h->unhook();
@@ -1041,7 +1050,7 @@ APICALL EXPORT void PLUGIN_EXIT() {
     if (ordinaryWorkspace) g_pKeybindManager->m_dispatchers["workspace"] = ordinaryWorkspace;
     if (faceTimer) { g_pEventLoopManager->removeTimer(faceTimer); faceTimer.reset(); }
     clearMarks();
-    if (cursorTimer) { g_pEventLoopManager->removeTimer(cursorTimer); cursorTimer.reset(); }
+    cursorRenderingMonitor.reset();
     listeners.clear();
     releaseFaces();
     endScene(false);

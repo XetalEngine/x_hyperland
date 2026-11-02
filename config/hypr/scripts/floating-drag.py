@@ -41,6 +41,7 @@ class Drag:
         self.last_position = None
         self.guard = guard if guard is not None else CursorGuard(hypr)
         self.press_serial = None
+        self.native = False
 
     def hovered(self):
         cursor = self.hypr.query('cursorpos')
@@ -60,6 +61,7 @@ class Drag:
         target, origin, started = self.candidate
         if now-started > 30:
             self.release(); return
+        if self.dragging and self.native:return
         cursor = self.hypr.query('cursorpos')
         if self.dragging:
             self.move(cursor); return
@@ -75,13 +77,20 @@ class Drag:
                 or current['size'] != target['size']):
             self.candidate = None
             return  # A native title bar may already be handling this gesture.
-        # Direct, addressed movement also works on Hyprland versions whose
-        # legacy `mouse` dispatcher accepts presses only from real keybinds.
+        # Older installed probes keep the addressed fallback until an update.
+        # A native grip uses exactly the same movement as an app title bar.
+        state=self.hypr.query('xetal-cursor')
+        native=isinstance(state,dict) and state.get('native_drag') is True
+        if native:
+            self.hypr.dispatch('xetaldrag:begin',target['address']+' '+str(self.press_serial))
+            self.native=True;self.dragging=True
+            return
         self.hypr.dispatch('tagwindow', '+xetal-title-drag,address:' + target['address'])
         self.dragging = True
         self.move(cursor)
 
     def move(self, cursor):
+        if self.native:return
         target, origin, _ = self.candidate
         position = (round(target['at'][0]+cursor['x']-origin['x']),
                     round(target['at'][1]+cursor['y']-origin['y']))
@@ -96,7 +105,10 @@ class Drag:
         self.press_serial = None
         if self.dragging:
             self.dragging = False
-            try: self.hypr.dispatch('tagwindow', '-xetal-title-drag,address:' + target['address'])
+            native,self.native=self.native,False
+            try:
+                if native:self.hypr.dispatch('xetaldrag:end','')
+                else:self.hypr.dispatch('tagwindow', '-xetal-title-drag,address:' + target['address'])
             except (OSError, ValueError): pass  # The window may have just closed.
 
 

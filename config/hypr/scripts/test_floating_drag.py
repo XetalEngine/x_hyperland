@@ -93,5 +93,15 @@ class FloatingDragTests(unittest.TestCase):
         self.assertTrue(self.drag.dragging)
         self.hypr.dispatch.assert_called_with('movewindowpixel','exact -960 202,address:0x123')
 
+    def test_native_grip_leaves_motion_to_compositor(self):
+        self.drag.press(0)
+        self.hypr.query.side_effect=lambda what: {'native_drag':True} if what=='xetal-cursor' else dict(x=-680,y=222)
+        self.drag.hovered.return_value=(dict(x=-680,y=222),self.window)
+        self.drag.tick(.1);self.drag.tick(.2)
+        self.hypr.dispatch.assert_called_once_with('xetaldrag:begin','0x123 1')
+        self.drag.release();self.drag.release()
+        self.assertEqual([c.args for c in self.hypr.dispatch.call_args_list],
+                         [('xetaldrag:begin','0x123 1'),('xetaldrag:end','')])
+
 
 if __name__ == '__main__': unittest.main()

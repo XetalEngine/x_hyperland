@@ -44,6 +44,7 @@ std::vector<CHyprSignalListener> listeners;
 std::vector<CFunctionHook*> hooks;
 bool stopping=false;
 uint64_t started=0,finished=0,draws=0,steps=0,grabs=0,shivers=0,meshBuilds=0;
+std::map<int64_t,uint64_t> outputSteps;
 double damagePixels=0,monitorPixels=0;
 std::string lastError;
 xcb_connection_t* bellConnection=nullptr;
@@ -90,10 +91,11 @@ struct Record {
     Wobbly::Engine engine;
     Wobbly::Mesh mesh;
     uint64_t meshRevision=0;
-    CBox lastDamage,meshViewport;
+    CBox meshViewport;
+    std::map<int64_t,CBox> lastDamage;
     bool meshDirty=true;
     Clock::time_point last=Clock::now();
-    bool resize=false,settlePosition=false;
+    bool resize=false,settlePosition=false,hotkey=false;
     Record(PHLWINDOW w):window(w),monitor(w->m_monitor),workspace(w->m_workspace),engine(box(w)){}
 };
 std::vector<std::shared_ptr<Record>> records;
@@ -103,20 +105,27 @@ CBox bounds(const std::shared_ptr<Record>& r){
     for(auto p:r->engine.renderPoints()){left=std::min(left,double(p.x));top=std::min(top,double(p.y));right=std::max(right,double(p.x));bottom=std::max(bottom,double(p.y));}
     return CBox{std::floor(left)-3,std::floor(top)-3,std::ceil(right)-std::floor(left)+6,std::ceil(bottom)-std::floor(top)+6};
 }
-void damage(const std::shared_ptr<Record>& r){
+bool touches(const std::shared_ptr<Record>& r,PHLMONITOR m){
+    if(!m)return false;
+    CRegion region(bounds(r));
+    if(auto w=r->window.lock())region.add(w->geometricBox(Geo::GEOMETRIC_CURRENT));
+    if(auto it=r->lastDamage.find(m->m_id);it!=r->lastDamage.end())region.add(it->second);
+    region.intersect(m->logicalBox());return !region.empty();
+}
+void damage(const std::shared_ptr<Record>& r,PHLMONITOR only=nullptr){
     const auto current=bounds(r);
-    CRegion global(current);if(!r->lastDamage.empty())global.add(r->lastDamage);
     for(auto& m:State::monitorState()->monitors()){
-        if(!m||!m->m_output||m->isMirror())continue;
-        CRegion region(global);
+        if(!m||!m->m_output||m->isMirror()||(only&&only!=m))continue;
+        CRegion region(current);
+        auto& previous=r->lastDamage[m->m_id];if(!previous.empty())region.add(previous);
         region.translate(-m->m_position).scale(m->m_scale);
         region.intersect(CBox{0,0,m->m_transformedSize.x,m->m_transformedSize.y});
-        if(region.empty())continue;
+        if(region.empty()){previous={};continue;}
         region.forEachRect([](const auto& b){damagePixels+=double(b.x2-b.x1)*(b.y2-b.y1);});
         monitorPixels+=m->m_transformedSize.x*m->m_transformedSize.y;
         m->addDamage(region);
+        previous=current;
     }
-    r->lastDamage=current;
 }
 
 class Transformer:public Render::IWindowTransformer {
@@ -261,9 +270,14 @@ void frame(PHLMONITOR monitor){
     if(stopping)return;
     auto now=Clock::now();const auto pointer=Pointer::mgr()->position();
     std::erase_if(records,[&](auto& r){
-        if(r->monitor!=monitor)return false;
         auto w=r->window.lock();
-        if(!usable(w)||w->m_workspace!=r->workspace.lock()||w->m_monitor!=r->monitor){detach(r);return true;}
+        if(!usable(w)){detach(r);return true;}
+        // Keep the lattice/clock across monitor and workspace transfers. Each
+        // visible output samples it on its own presentation, even when a window
+        // spans 60/144 Hz displays. One shared elapsed-time clock prevents the
+        // second output from advancing the physics twice as fast.
+        r->monitor=w->m_monitor;r->workspace=w->m_workspace;
+        if(!touches(r,monitor))return false;
         try{
             // Edge queries are only needed while magnetic snapping is active.
             std::unique_ptr<World> world;
@@ -277,7 +291,7 @@ void frame(PHLMONITOR monitor){
             }
             if(r->engine.snapping&&!world)world=std::make_unique<World>(w,r->engine);
             const float ms=std::chrono::duration<float,std::milli>(now-r->last).count();r->last=now;
-            bool moving=r->engine.step(ms,settings.friction,settings.spring_k);++steps;r->meshDirty=true;damage(r);
+            bool moving=r->engine.step(ms,settings.friction,settings.spring_k);++steps;++outputSteps[monitor->m_id];r->meshDirty=true;damage(r,monitor);
             if(!moving&&!r->engine.grabbed&&!w->positionAnimation()->isBeingAnimated()&&!w->sizeAnimation()->isBeingAnimated()){
                 // Compiz lets the released lattice come to rest, then moves the
                 // real input rectangle to that resting point. Only floats move.
@@ -317,9 +331,11 @@ bool mouseState(CKeybindManager* manager){return snapKeyEvent?false:originalMous
 void begin(Drag* drag,SP<Layout::ITarget> target,eMouseBindMode mode,std::optional<Layout::eRectCorner> edge,bool exclusive){
     originalBegin(drag,target,mode,edge,exclusive);
     if(stopping||!target||drag->target()!=target)return;
+    const bool hotkey=bool(g_pKeybindManager->m_currentKeybind);
+    if(hotkey?!settings.hotkey_drag:!settings.normal_drag)return;
     auto w=target->window();if(!usable(w)||!settings.move_window_match.matches(info(w)))return;
     if(auto r=ensure(w)){
-        auto p=Pointer::mgr()->position();r->resize=mode!=MBIND_MOVE;
+        auto p=Pointer::mgr()->position();r->resize=mode!=MBIND_MOVE;r->hotkey=hotkey;
         r->settlePosition=!r->resize;r->engine.grab(p.x,p.y,settings.grab_window_match.matches(info(w)));++grabs;
     }
 }
@@ -370,9 +386,9 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h){
             if(stage!=RENDER_POST||g_pHyprRenderer->m_bRenderingSnapshot)return;
             // endRender clears the renderer's pMonitor before RENDER_POST.
             auto m=renderingMonitor.lock();renderingMonitor.reset();
-            // Its owning output drives the next presentation. Damage also covers
-            // the part crossing a display edge, without waking unrelated outputs.
-            for(auto& r:records)if(r->monitor==m)damage(r);
+            // Rearm this output only. A faster neighboring output has its own
+            // presentation callback; neither forces the other's cadence.
+            for(auto& r:records)if(touches(r,m))damage(r,m);
         }));
         listeners.push_back(events.monitor.preRemoved.listen([](PHLMONITOR m){
             std::erase_if(records,[&](auto& r){if(r->monitor!=m)return false;detach(r);return true;});
@@ -395,13 +411,20 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h){
                 if(detail.size()>1)detail+=",";
                 auto w=r->window.lock();auto& e=r->engine;double deviation=0;
                 for(int i=0;i<16;++i)deviation=std::max(deviation,std::hypot(e.model->objects[i].position.x-e.box.x-(i%4)*e.box.w/3,e.model->objects[i].position.y-e.box.y-(i/4)*e.box.h/3));
-                detail+=std::format("{{\"grabbed\":{},\"flags\":{},\"deviation\":{},\"snapping\":{},\"position_animating\":{},\"size_animating\":{},\"box\":[{},{},{},{}]}}",
-                    e.grabbed,e.active,deviation,e.snapping,w&&w->positionAnimation()->isBeingAnimated(),w&&w->sizeAnimation()->isBeingAnimated(),e.box.x,e.box.y,e.box.w,e.box.h);
+                auto m=r->monitor.lock();
+                detail+=std::format("{{\"grabbed\":{},\"hotkey\":{},\"monitor\":{},\"refresh_hz\":{},\"flags\":{},\"deviation\":{},\"snapping\":{},\"position_animating\":{},\"size_animating\":{},\"box\":[{},{},{},{}]}}",
+                    e.grabbed,r->hotkey,m?m->m_id:-1,m?m->m_refreshRate:0,e.active,deviation,e.snapping,w&&w->positionAnimation()->isBeingAnimated(),w&&w->sizeAnimation()->isBeingAnimated(),e.box.x,e.box.y,e.box.w,e.box.h);
             }
             detail+="]";
+            std::string outputs="[";
+            for(auto& m:State::monitorState()->monitors()){
+                if(outputs.size()>1)outputs+=",";
+                outputs+=std::format("{{\"id\":{},\"refresh_hz\":{},\"steps\":{}}}",m->m_id,m->m_refreshRate,outputSteps[m->m_id]);
+            }
+            outputs+="]";
             auto error=json_object_new_string(lastError.c_str());std::string errorText=json_object_to_json_string_ext(error,JSON_C_TO_STRING_PLAIN);json_object_put(error);
-            return std::format("{{\"enabled\":{},\"active\":{},\"started\":{},\"finished\":{},\"draws\":{},\"steps\":{},\"mesh_builds\":{},\"damage_ratio\":{},\"grabs\":{},\"shivers\":{},\"x11_bell\":{},\"wayland_bell\":{},\"error\":{},\"windows\":{}}}",
-                settings.enabled,records.size(),started,finished,draws,steps,meshBuilds,monitorPixels?damagePixels/monitorPixels:0,grabs,shivers,bellSource!=nullptr,ipcSource!=nullptr,errorText,detail);
+            return std::format("{{\"enabled\":{},\"active\":{},\"started\":{},\"finished\":{},\"draws\":{},\"steps\":{},\"mesh_builds\":{},\"damage_ratio\":{},\"grabs\":{},\"shivers\":{},\"x11_bell\":{},\"wayland_bell\":{},\"error\":{},\"windows\":{},\"outputs\":{}}}",
+                settings.enabled,records.size(),started,finished,draws,steps,meshBuilds,monitorPixels?damagePixels/monitorPixels:0,grabs,shivers,bellSource!=nullptr,ipcSource!=nullptr,errorText,detail,outputs);
         }});
     }catch(...){cleanup();throw;}
     return {"Xetal Wobbly Windows","Original Compiz spring lattice, Bézier mesh and edge resistance","XetalEngine / David Reveman / Kristian Høgsberg","1.0"};

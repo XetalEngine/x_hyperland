@@ -7,7 +7,8 @@ from PyQt6.QtGui import QPainter,QColor,QPen,QPixmap,QIcon
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,QLabel,QPushButton,
     QGroupBox,QFormLayout,QComboBox,QSpinBox,QCheckBox,QColorDialog,QScrollArea)
-from . import model,art,controller
+from . import model,art,controller,effects
+from .mouse_preview import paint_trail
 
 
 class Preview(QWidget):
@@ -27,7 +28,9 @@ class Preview(QWidget):
     def paintEvent(self,event):
         p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing)
         now=time.monotonic();color=QColor(self.values['color']);lifetime=self.values['duration']/1000
-        for point,born in self.points:
+        themed=effects.resolve(self.values['trail']) in effects.STYLES
+        if themed:paint_trail(p,self.values,[(point,born,index,False) for index,(point,born) in enumerate(self.points)],now)
+        for point,born in ([] if themed else self.points):
             fade=max(0,1-(now-born)/lifetime);color.setAlphaF(fade*self.values['intensity']/100)
             p.setPen(Qt.PenStyle.NoPen);p.setBrush(color);radius=(10 if self.values['trail']=='glow' else 4)*fade
             if self.values['trail']=='sparkle':
@@ -90,7 +93,9 @@ class CursorsPage(QWidget):
     def changed(self):
         self.dirty=self.draft!=self.baseline;self.preview.values=deepcopy(self.draft);self.preview.update()
         for key,button in self.styles.items():button.setChecked(key==self.draft['style'])
-        self.color.setText(self.draft['color']);self.body.setEnabled(not self.busy)
+        follow=self.draft['trail']=='follow'
+        self.color.setText('From the effect’s palette' if follow else self.draft['color'])
+        self.color.setEnabled(not follow);self.body.setEnabled(not self.busy)
         self.apply.setEnabled(self.dirty and not self.busy);self.discard.setEnabled(self.dirty and not self.busy);self.reload.setEnabled(not self.busy)
     def refresh(self,force=False):
         if self.busy or (self.dirty and not force):return

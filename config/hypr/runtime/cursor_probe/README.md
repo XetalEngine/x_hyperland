@@ -8,10 +8,18 @@ even after leaving the field. An already started header drag continues normally.
 Super-drag uses the existing compositor binding and is unaffected.
 
 Hyprland's standard IPC does not expose the current cursor shape. This small
-read-only native adapter adds `hyprctl xetal-cursor`: the current shape, a snapshot
+native adapter adds `hyprctl xetal-cursor`: the current shape, a snapshot
 at left-button press, the button state and a gesture serial. It reads the
 compositor's cursor metadata and cursor-only CPU image cache. It never captures
 window pixels or text, modifies cursor images, cancels input or patches functions.
+
+After the Python helper validates both cursors and the movement threshold,
+`xetaldrag:begin ADDRESS SERIAL` starts a native compositor drag. A matching held
+left-button serial and a mapped floating window are required. Release or
+`xetaldrag:end` ends only that grip's drag. Movement now follows native pointer
+events instead of 16 ms IPC position changes. Wobbly recognizes it as normal
+dragging, and the Super-hover close button stays hidden until the drag ends.
+Older installed probes keep the addressed-movement fallback until updated.
 
 Named Wayland shapes distinguish an arrow from `text` and `vertical-text`.
 Clients using cursor images, including legacy Wayland and XWayland clients, are

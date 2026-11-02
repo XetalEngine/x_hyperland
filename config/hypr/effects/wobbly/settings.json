@@ -1,17 +1,19 @@
 {
-  "enabled": false,
+  "enabled": true,
   "snap_key": "<Shift>",
   "snap_inverted": false,
   "shiver": false,
   "friction": 3.0,
-  "spring_k": 8.0,
-  "grid_resolution": 8,
+  "spring_k": 3.0,
+  "grid_resolution": 3,
   "min_grid_size": 8,
   "map_effect": 0,
-  "focus_effect": 0,
+  "focus_effect": 1,
   "map_window_match": "Splash | DropdownMenu | PopupMenu | Tooltip | Notification | Combo | Dnd | Unknown",
   "focus_window_match": "",
   "grab_window_match": "",
   "move_window_match": "Toolbar | Menu | Utility | Dialog | Normal | Unknown",
-  "maximize_effect": true
+  "maximize_effect": true,
+  "hotkey_drag": true,
+  "normal_drag": true
 }

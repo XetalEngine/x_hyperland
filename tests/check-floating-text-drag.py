@@ -15,6 +15,8 @@ import tempfile
 import time
 
 REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(REPO/'config/hypr'))
+from effects.wobbly import model as wobble_model,build as wobble_build
 
 
 def main():
@@ -29,6 +31,7 @@ def main():
                     str(root/'virtual-keyboard.c'),'-o',str(root/'input'),*flags],check=True)
     runtime = Path(tempfile.mkdtemp(prefix='ft-'))
     home = root/'home';home.mkdir()
+    wobble=root/'wobbly.json';wobble_values=dict(wobble_model.DEFAULTS);wobble.write_text(wobble_model.encode(wobble_values))
     parent = os.environ['WAYLAND_DISPLAY']
     if not parent.startswith('/'): parent = str(Path(os.environ['XDG_RUNTIME_DIR'])/parent)
     env = dict(os.environ, HOME=str(home), XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=parent,
@@ -37,7 +40,7 @@ def main():
                AQ_BACKENDS='wayland', HYPRLAND_NO_SD_VARS='1', HYPRLAND_NO_SD_NOTIFY='1',
                QT_QPA_PLATFORM='wayland', QT_QPA_PLATFORMTHEME='', QT_PLUGIN_PATH='',
                QT_WAYLAND_DISABLE_WINDOWDECORATION='1', GSETTINGS_BACKEND='memory',
-               XCURSOR_THEME='Adwaita', XCURSOR_SIZE='24')
+               XCURSOR_THEME='Adwaita', XCURSOR_SIZE='24',XETAL_WOBBLY_CONFIG=str(wobble))
     for key in ('HYPRLAND_INSTANCE_SIGNATURE','DISPLAY','DBUS_SESSION_BUS_ADDRESS'): env.pop(key,None)
     children=[];logs=[];input_process=None;results=[]
     def spawn(args,**kwargs):
@@ -79,6 +82,7 @@ plugin={plugin}
         assert instance
         env.update(HYPRLAND_INSTANCE_SIGNATURE=instance['instance'],WAYLAND_DISPLAY=instance['wl_socket'])
         assert not ctl('configerrors'),ctl('configerrors')
+        assert ctl('plugin','load',str(wobble_build.build()))=='ok'
         log=(root/'dbus.log').open('w');logs.append(log)
         bus=subprocess.Popen(['dbus-daemon','--session','--nofork','--print-address=1'],env=env,stdout=subprocess.PIPE,stderr=log,text=True)
         children.append(bus);env['DBUS_SESSION_BUS_ADDRESS']=bus.stdout.readline().strip()
@@ -153,6 +157,22 @@ window.show();app.exec()
         before=client()['at'];gesture('key 125 1')
         drag([before[0]+200,before[1]+140],[before[0]+240,before[1]+180]);gesture('key 125 0')
         assert client()['at']!=before,'Super-drag must still work'
+        assert ctl('keyword','animations:enabled','true')=='ok'
+        def wobble_status():return json.loads(ctl('xetal-wobbly'))
+        for normal,hotkey in ((True,False),(False,True)):
+            wobble_values.update(normal_drag=normal,hotkey_drag=hotkey);wobble.write_text(wobble_model.encode(wobble_values));dispatch('xetalwobbly:reload')
+            dispatch('movewindowpixel','exact 80 100,'+address);time.sleep(.4)
+            x,y=client()['at'];grabs=wobble_status()['grabs'];before=[x,y]
+            drag([x+460,y+20],[x+500,y+60])
+            assert client()['at']!=before,('Normal drag must move with either toggle',normal,client(),cursor(),wobble_status())
+            assert wobble_status()['grabs']-grabs==int(normal),('Normal drag switch',normal,wobble_status())
+            wait(lambda:wobble_status()['active']==0,'normal wobble settles')
+            x,y=client()['at'];grabs=wobble_status()['grabs'];before=[x,y];gesture('key 125 1')
+            drag([x+150,y+100],[x+185,y+135]);gesture('key 125 0')
+            assert client()['at']!=before,'Hotkey drag must move with either toggle'
+            assert wobble_status()['grabs']-grabs==int(hotkey),('Hotkey drag switch',hotkey,wobble_status())
+            wait(lambda:wobble_status()['active']==0,'hotkey wobble settles')
+        print('Wobbly recognizes the text-safe native top grip; both drag switches act independently',flush=True)
         assert helper.poll() is None,'Drag helper crashed'
         (root/'results.json').write_text(json.dumps({'checks':results,'super_drag':True},indent=2)+'\n')
         print(json.dumps({'modes':[r['mode'] for r in results],'text_selection':True,'header_drag':True,'super_drag':True}),flush=True)
