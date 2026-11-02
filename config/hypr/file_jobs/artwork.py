@@ -71,6 +71,25 @@ def modern(p, box, accent, surface, phase, count, trails, glow, archive, extract
         paper(p, accent); p.restore()
 
 
+def tidalglass(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Pages drift along an illuminated current between two glass folders."""
+    p.save()
+    left, right=QPointF(box.left()+38,box.center().y()),QPointF(box.right()-38,box.center().y())
+    for offset in (-7,7):
+        wave=QPainterPath(left+QPointF(31,offset))
+        wave.cubicTo(QPointF(box.center().x()-40,left.y()+offset-14),
+                     QPointF(box.center().x()+40,right.y()+offset+14),right+QPointF(-31,offset))
+        p.setPen(QPen(alpha(accent,28),1));p.setBrush(Qt.BrushStyle.NoBrush);p.drawPath(wave)
+    modern(p,box,accent,surface,phase,count,trails,glow,archive,extracting,result)
+    if not result:
+        for index in range(count+2):
+            t=(phase*.7+index/(count+2))%1
+            center=QPointF(left.x()+48+t*(right.x()-left.x()-96),left.y()+12*math.sin(t*math.pi*2))
+            radius=2+(index%3)*.7
+            p.setPen(QPen(alpha(accent,80),.7));p.setBrush(alpha(surface,130));p.drawEllipse(center,radius,radius)
+    p.restore()
+
+
 def breakpoint(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     left, right = QPointF(box.left()+36, box.center().y()), QPointF(box.right()-36, box.center().y())
     start, end = left.x()+38, right.x()-38

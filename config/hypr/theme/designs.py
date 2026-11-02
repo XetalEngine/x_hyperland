@@ -2,9 +2,14 @@
 import colorsys
 from pathlib import Path
 
-DESIGNS = {'raw': 'Xetal Raw', 'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint', 'binaryknife': 'Binary Knife'}
+DESIGNS = {'raw': 'Xetal Raw', 'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint', 'binaryknife': 'Binary Knife',
+           'tidalglass': 'Tidal Glass'}
 DESCRIPTIONS = {'raw': 'Original layout · cyan accents', 'modern': 'Soft cards · blue accents',
-                'breakpoint': 'Charcoal glass · crimson focus', 'binaryknife': 'Sharp graphite · electric blue'}
+                'breakpoint': 'Charcoal glass · crimson focus', 'binaryknife': 'Sharp graphite · electric blue',
+                'tidalglass': 'Pearl glass · luminous ocean depths'}
+COLLECTIONS = {'xetal-world': ('Xetal World', ('raw', 'modern', 'breakpoint', 'binaryknife')),
+               'atmospheres': ('Atmospheres', ('tidalglass',))}
+DEFAULT_MODES = {'tidalglass': 'light'}
 
 
 def recolor(color, palette, mode):
@@ -29,6 +34,9 @@ def recolor(color, palette, mode):
 
 
 def qt_style(p,style='modern'):
+    if style=='tidalglass':
+        from tidalglass import qt_style as themed
+        return themed(p)
     if style=='binaryknife':
         from binaryknife import qt_style as themed
         return themed(p)
@@ -115,6 +123,9 @@ def qt_style(p,style='modern'):
 
 
 def waybar_style(p,style='modern'):
+    if style=='tidalglass':
+        from tidalglass import waybar_style as themed
+        return themed(p)
     if style=='binaryknife':
         from binaryknife import waybar_style as themed
         return themed(p)
@@ -144,6 +155,9 @@ def waybar_style(p,style='modern'):
 
 
 def notification_style(p,style='modern'):
+    if style=='tidalglass':
+        from tidalglass import notification_style as themed
+        return themed(p)
     if style=='binaryknife':
         from binaryknife import notification_style as themed
         return themed(p)

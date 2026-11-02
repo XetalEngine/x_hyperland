@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import QDialog,QHBoxLayout,QLabel,QToolButton,QWidget
 
 def style_close(button,design=None):
     import runtime
-    if design in ('breakpoint','binaryknife'):
+    if design in ('breakpoint','binaryknife','tidalglass'):
         p=runtime.colors(style=design)
         hover=f"background:{p['Highlight']}; color:{p['Text']}; border-color:{p['Accent']};"
         pressed=f"background:{p['Mid']};"

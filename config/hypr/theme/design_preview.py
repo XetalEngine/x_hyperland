@@ -56,7 +56,7 @@ class DesktopPreview:
         wallpaper=self.theme_wallpapers.get(design,self.wallpaper)
         if wallpaper.isNull():wallpaper=self.wallpaper
         self.picture(p,wallpaper,QRectF(0,0,720,240))
-        p.fillRect(QRectF(0,0,720,240),QColor(8,17,28,80))
+        p.fillRect(QRectF(0,0,720,240),QColor(8,17,28,15 if design=='tidalglass' else 80))
         panel(0,0,720,23)
         panel(5,3,55,17,'Highlight',5 if modern else 2)
         text(13,2,45,18,'Apps',8,'HighlightedText',True)
@@ -64,9 +64,12 @@ class DesktopPreview:
         text(575,2,140,18,'♪   ◉   100%    21:10',7)
 
         # Launcher: profile, navigation, group title and real application icons.
-        modern=launcher_design=='modern';colors=runtime.colors(mode,launcher_design)
+        modern=launcher_design in ('modern','tidalglass');colors=runtime.colors(mode,launcher_design)
         radius=4 if launcher_design=='binaryknife' else 12 if launcher_design=='breakpoint' else 13 if modern else 5
         panel(14,37,389,190,'Window',radius,'Midlight')
+        if launcher_design=='tidalglass':
+            from tidalglass import paint_surface
+            paint_surface(p,QRectF(14,37,389,190),colors,16,94)
         background=self.background if self.custom_background else wallpaper
         if self.show_background and not background.isNull():
             menu=QRectF(14,37,389,190)
@@ -95,7 +98,22 @@ class DesktopPreview:
         # The Fusion Settings changes from Raw tabs to the Modern navigation rail.
         modern=design=='modern';colors=runtime.colors(mode,design)
         panel(420,52,284,166,'Window',13 if modern else 5,'Midlight')
-        if modern:
+        if design=='tidalglass':
+            from tidalglass import paint_surface
+            paint_surface(p,QRectF(420,52,284,166),colors,16,97)
+            text(433,58,245,20,'Tidal Glass  /  Fusion Settings',9,'Text',True)
+            panel(429,84,76,122,'Button',10)
+            for row,title in enumerate(('Appearance','Workspaces','Windows','Audio','System')):
+                y=88+row*22
+                if row==0:panel(433,y,68,20,'Highlight',7)
+                text(439,y,65,20,title,6,'HighlightedText' if row==0 else 'Text')
+            text(517,86,173,22,'Audio',13,'Text',True)
+            text(517,110,173,16,'A little calm. A little clarity.',6,'PlaceholderText')
+            for i,caption in enumerate(('Speakers','Microphone')):
+                y=135+i*34;text(518,y,164,15,caption,7)
+                panel(518,y+19,160,4,'Midlight',2);panel(518,y+19,108-i*24,4,'Accent',2)
+                panel(620-i*24,y+15,12,12,'Base',6,'Accent')
+        elif modern:
             panel(429,61,27,147,'AlternateBase',10)
             for row,icon in enumerate(self.icons[:5]):
                 if row==0:panel(433,66,19,19,'Highlight',6)

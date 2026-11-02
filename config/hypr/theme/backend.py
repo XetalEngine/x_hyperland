@@ -124,12 +124,13 @@ def theme_token():
 
 def kitty_colors(value,design=None):
     design=design or runtime.design()
+    # Desktop light mode must never turn working terminals white. Use the
+    # design's dark palette for both text and ANSI colors so TUIs stay readable.
+    if value=='light':value='dark'
     colors=runtime.colors(value,design)
     ansi={
         'dark':['#192130','#ee8196','#78d7b6','#d8ce99','#82aef0','#b7a2e4','#73d4d1','#d1dbec',
                 '#70829a','#ff96ad','#9de6c5','#eadeaf','#a5c5fb','#d2baf6','#a5efeb','#eff6ff'],
-        'light':['#1f3043','#ae2444','#176442','#705400','#2756a6','#704599','#006973','#52647a',
-                 '#647286','#bb274b','#19734d','#806000','#335fba','#8050a9','#007581','#1f3043'],
         'contrast':['#52677a','#ff8ea4','#8aefbd','#ffe199','#a5c5ff','#dbb5ff','#8cfff0','#ffffff',
                     '#bbcbd8','#ffb4c6','#bcffd9','#fff2bb','#d0e0ff','#ecd5ff','#c6fff7','#ffffff']
     }[value]
@@ -339,6 +340,9 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
         content+=compositor(colors)
     elif design=='binaryknife':
         from binaryknife import compositor
+        content+=compositor(colors)
+    elif design=='tidalglass':
+        from tidalglass import compositor
         content+=compositor(colors)
     if partial:
         old_content=store.load()[0]

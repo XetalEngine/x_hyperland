@@ -292,7 +292,7 @@ class SignIn(QWidget):
         self.avatar.load(look['avatar'], user['name'], self.colors['Accent'])
         self.wallpaper = QPixmap(str(look['wallpaper'])) if look['wallpaper'] else QPixmap()
         self.theme_badge.setText('●   '+DESIGNS[design].upper())
-        font = 'Inter' if design in ('breakpoint', 'binaryknife') else 'Noto Sans'
+        font = 'Inter' if design in ('breakpoint', 'binaryknife', 'tidalglass') else 'Noto Sans'
         radius = 7 if design == 'binaryknife' else 16 if design == 'breakpoint' else 28 if design == 'modern' else 20
         p = self.colors
         self.setStyleSheet(f'''
@@ -313,7 +313,7 @@ class SignIn(QWidget):
             QPushButton#reveal {{background:transparent; border:0; color:{p['PlaceholderText']}; font-size:18px;}}
             QPushButton#reveal:hover {{color:{p['Accent']};}}
             QLabel#message {{font-size:11px; color:{p['PlaceholderText']};}}
-            QPushButton#enter {{background:{p['Accent']}; color:{p['HighlightedText']}; border:0; border-radius:{min(radius,12)}px; font-size:13px; font-weight:700;}}
+            QPushButton#enter {{background:{p['Highlight'] if design=='tidalglass' else p['Accent']}; color:{p['HighlightedText']}; border:0; border-radius:{min(radius,12)}px; font-size:13px; font-weight:700;}}
             QPushButton#enter:hover {{background:{p['Highlight']};}}
             QPushButton#enter:focus {{border:2px solid {p['Text']};}}
             QPushButton#enter:disabled {{background:{p['Button']}; color:{p['PlaceholderText']};}}

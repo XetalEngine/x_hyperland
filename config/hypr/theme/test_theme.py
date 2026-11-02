@@ -52,6 +52,15 @@ class WallpaperTests(unittest.TestCase):
 
 
 class PaletteTests(unittest.TestCase):
+    def test_kitty_stays_dark_in_every_desktop_mode(self):
+        for design in runtime.DESIGNS:
+            self.assertEqual(backend.kitty_colors('light',design),backend.kitty_colors('dark',design))
+            for mode in runtime.MODES:
+                options=dict(line.split(' ',1) for line in backend.kitty_colors(mode,design).splitlines() if line and not line.startswith('#'))
+                background=options['background'];foreground=options['foreground']
+                self.assertLess(max(int(background[i:i+2],16) for i in (1,3,5)),80,(design,mode))
+                self.assertGreater(min(int(foreground[i:i+2],16) for i in (1,3,5)),160,(design,mode))
+
     def test_running_menu_updates_its_palette_and_styles_without_overriding_desktop(self):
         script='''
 import json,os,sys
@@ -215,7 +224,7 @@ class ThemeTransactionTests(unittest.TestCase):
         self.store.save.side_effect=None
         with patch.object(backend.Path,'iterdir',return_value=iter(())):
             backend.apply_mode('light',backend.theme_token())
-        self.assertIn('background #ffffff\n',(runtime.ROOT/'kitty-colors.conf').read_text())
+        self.assertIn('background '+runtime.colors('dark')['Base']+'\n',(runtime.ROOT/'kitty-colors.conf').read_text())
         self.reload.assert_called_once_with(include_startup=True)
 
     def add_raw_profiles(self):

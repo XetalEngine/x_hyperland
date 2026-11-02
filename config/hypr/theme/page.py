@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 from PyQt6.QtCore import Qt,QRectF,pyqtSignal
 from PyQt6.QtGui import QPixmap,QImageReader,QPainter,QPainterPath,QColor,QPen,QFont
-from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,QLayout,QLabel,QComboBox,QPushButton,QFileDialog,QTabWidget,QMessageBox,QFrame,QScrollArea,QCheckBox,QSlider)
+from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,QLayout,QLabel,QComboBox,QPushButton,QFileDialog,QTabWidget,QMessageBox,QFrame,QScrollArea,QCheckBox,QSlider,QSizePolicy)
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import backend
 import runtime
@@ -187,6 +187,10 @@ class DesignCard(QPushButton):
         self.surfaces=runtime.launcher_surfaces()[style]
         self.strip_image=StripImage(self);self.strip_image.changed.connect(self.update)
         self.setAccessibleName(runtime.DESIGNS[style]);self.setCursor(Qt.CursorShape.PointingHandCursor)
+        policy=QSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Preferred)
+        policy.setHeightForWidth(True);self.setSizePolicy(policy)
+    def heightForWidth(self,width):
+        return max(224,round((width-32)/3)+78)
     def paintEvent(self,event):
         p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing)
         modern=self.design=='modern';colors=runtime.colors(self.mode,self.design)
@@ -274,27 +278,41 @@ class DesignPage(QWidget):
     def __init__(self,owner):
         super().__init__();self.owner=owner
         outer=QVBoxLayout(self);outer.setContentsMargins(0,0,0,0)
-        scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff);outer.addWidget(scroll)
-        body=QWidget();scroll.setWidget(body)
-        root=QVBoxLayout(body);root.setContentsMargins(6,12,6,6);root.setSpacing(16)
-        root.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
-        root.addWidget(label('Desktop theme','section'))
-        self.cards={};row=QGridLayout();row.setSpacing(16)
-        for index,style in enumerate(runtime.DESIGNS):
-            card=DesignCard(style);card.clicked.connect(lambda _,s=style:owner.design.setCurrentIndex(owner.design.findData(s)))
-            self.cards[style]=card;row.addWidget(card,index//2,index%2)
-        row.setColumnStretch(0,1);row.setColumnStretch(1,1)
-        root.addLayout(row);root.addStretch()
+        self.collections=QTabWidget();self.collections.setObjectName('themeCollections')
+        self.collections.setAccessibleName('Theme collections');outer.addWidget(self.collections)
+        self.cards={};self.collection_for={};self.selected_design=None
+        for collection,(title,styles) in runtime.designs.COLLECTIONS.items():
+            scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.Shape.NoFrame)
+            scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            self.collections.addTab(scroll,title)
+            body=QWidget();scroll.setWidget(body)
+            root=QVBoxLayout(body);root.setContentsMargins(6,12,6,6);root.setSpacing(16)
+            root.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+            root.addWidget(label('Desktop theme' if collection=='xetal-world' else 'A different world at your desk','section'))
+            row=QGridLayout();row.setSpacing(16)
+            for index,style in enumerate(styles):
+                card=DesignCard(style);card.clicked.connect(lambda _,s=style:owner.design.setCurrentIndex(owner.design.findData(s)))
+                self.cards[style]=card;self.collection_for[style]=scroll
+                row.addWidget(card,index//2,index%2,1,2 if len(styles)==1 else 1)
+            row.setColumnStretch(0,1);row.setColumnStretch(1,1)
+            root.addLayout(row)
+            if collection=='atmospheres':
+                root.addWidget(label('Tidal Glass · Three coordinated ocean views · Light, dark & high contrast','muted'))
+            root.addStretch()
     def refresh(self):
         style=self.owner.menu_design()
         for name,card in self.cards.items():
-            card.mode=self.owner.mode.currentData();card.setChecked(name==self.owner.design.currentData())
+            selected=name==self.owner.design.currentData()
+            card.mode=self.owner.mode.currentData() if selected else runtime.designs.DEFAULT_MODES.get(name,self.owner.mode.currentData())
+            card.setChecked(selected)
             card.artwork.labels=dict(self.owner.labels);card.artwork.visibility=self.owner.visibility
             card.artwork.refresh(self.owner.avatar,self.owner.background,self.owner.backdrop)
             card.launcher_design=name if self.owner.launcher_style.currentData()=='follow' else style
             card.surfaces=dict(self.owner.surfaces[card.launcher_design]);card.strip_image.load(card.surfaces['group_image'])
             card.strip_image.set_enabled(card.surfaces['group_opacity']>0);card.update()
+        current=self.owner.design.currentData()
+        if current!=self.selected_design:
+            self.selected_design=current;self.collections.setCurrentWidget(self.collection_for[current])
 
 
 class StartMenuPage(QWidget):
@@ -468,7 +486,14 @@ class ThemePage(QWidget):
         for control in (self.mode,self.design,self.tabs):control.setEnabled(not self.applying)
         self.design_page.refresh();self.start_menu_page.refresh_surfaces()
     def preset_changed(self,*_):
-        self.layout_page.choice.setCurrentIndex(self.layout_page.choice.findData(layouts.default(self.design.currentData())))
+        design=self.design.currentData()
+        self.layout_page.choice.setCurrentIndex(self.layout_page.choice.findData(layouts.default(design)))
+        preferred=runtime.designs.DEFAULT_MODES.get(design)
+        if preferred and self.mode.currentData()!='contrast':
+            self.mode.setCurrentIndex(self.mode.findData(preferred))
+        if design=='tidalglass':
+            if self.launcher_style.currentData() in ('follow',self.baseline[0]):
+                self.launcher_style.setCurrentIndex(self.launcher_style.findData('follow'))
         self.changed()
     def set_surface(self,key,value):
         self.surfaces[self.menu_design()][key]=value

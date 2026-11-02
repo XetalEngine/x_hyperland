@@ -19,6 +19,34 @@ QT=QApplication.instance() or QApplication([])
 
 
 class DesignTests(unittest.TestCase):
+    def test_collections_select_tidal_glass_without_applying_or_losing_contrast(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state=Path(directory)/'theme.json'
+            state.write_text(json.dumps({'design':'breakpoint','mode':'dark','avatar':'auto'}))
+            with patch.object(runtime,'STATE',state),patch.object(theme_page.backend,'apply_mode') as apply:
+                page=app.ThemePage(lambda *args:None)
+                try:
+                    collections=page.design_page.collections
+                    self.assertEqual([collections.tabText(i) for i in range(collections.count())],['Xetal World','Atmospheres'])
+                    styles=[s for _,names in runtime.designs.COLLECTIONS.values() for s in names]
+                    self.assertEqual(set(styles),set(runtime.DESIGNS));self.assertEqual(len(styles),len(set(styles)))
+                    self.assertTrue(all(1<=len(names)<=4 for _,names in runtime.designs.COLLECTIONS.values()))
+                    collections.setCurrentIndex(1);page.design_page.refresh()
+                    self.assertEqual(collections.currentIndex(),1)
+                    page.design_page.cards['tidalglass'].click()
+                    self.assertEqual(page.design.currentData(),'tidalglass')
+                    self.assertEqual(page.mode.currentData(),'light')
+                    self.assertEqual(page.layout_page.choice.currentData(),'sidebar')
+                    self.assertEqual(page.menu_design(),'tidalglass')
+                    self.assertTrue(page.dirty);apply.assert_not_called()
+                    self.assertEqual(json.loads(state.read_text())['design'],'breakpoint')
+                    page.design.setCurrentIndex(page.design.findData('raw'))
+                    self.assertEqual(collections.currentIndex(),0)
+                    page.mode.setCurrentIndex(page.mode.findData('contrast'))
+                    page.design_page.cards['tidalglass'].click()
+                    self.assertEqual(page.mode.currentData(),'contrast')
+                finally:page.deleteLater();QT.sendPostedEvents(None,QEvent.Type.DeferredDelete)
+
     def setUp(self):
         # Existing persistence tests accept the new chooser; its selection/cancel behavior has separate coverage.
         modal=patch.object(theme_page.ComponentDialog,'exec',return_value=1);modal.start();self.addCleanup(modal.stop)

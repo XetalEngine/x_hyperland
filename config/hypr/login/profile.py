@@ -33,7 +33,10 @@ def publish(root, destination=None, account=None):
     state = read(root/'theme/state.json')
     design = state.get('design', 'modern')
     mode = state.get('mode', 'dark')
-    data = {'design': design if design in ('raw', 'modern', 'breakpoint', 'binaryknife') else 'modern',
+    palettes = read(root/'theme/palettes.json')
+    supported = {'raw', 'modern', 'breakpoint', 'binaryknife'} | {
+        name for name, value in palettes.items() if isinstance(value,dict) and all(key in value for key in ('dark','light','contrast'))}
+    data = {'design': design if isinstance(design,str) and design in supported else 'modern',
             'mode': mode if mode in ('dark', 'light', 'contrast') else 'dark'}
     choice = state.get('avatar', 'assets/account.gif')
     avatar = Path(choice).expanduser() if isinstance(choice, str) and choice != 'auto' else None

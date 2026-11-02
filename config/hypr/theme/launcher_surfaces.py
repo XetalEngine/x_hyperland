@@ -13,6 +13,7 @@ DEFAULTS = {
     'modern': {'tile_opacity': 100, 'group_opacity': 100, 'sidebar_opacity': 100, 'group_image': ''},
     'breakpoint': {'tile_opacity': 94, 'group_opacity': 0, 'sidebar_opacity': 45, 'group_image': ''},
     'binaryknife': {'tile_opacity': 94, 'group_opacity': 32, 'sidebar_opacity': 60, 'group_image': ''},
+    'tidalglass': {'tile_opacity': 86, 'group_opacity': 22, 'sidebar_opacity': 38, 'group_image': ''},
 }
 
 
@@ -119,6 +120,10 @@ class StripImage(QObject):
 
 def paint_tile(p, box, colors, style, mode, opacity, selected=False, hover=0, radius=None):
     """Opacity affects the card only; icons, text and focus remain independent."""
+    if style=='tidalglass':
+        from tidalglass import paint_surface
+        paint_surface(p,box,colors,18 if radius is None else radius,opacity,selected or bool(hover))
+        return
     p.save()
     gradient = QLinearGradient(box.topLeft(), box.bottomRight())
     modern = style != 'raw'
@@ -143,7 +148,7 @@ def paint_tile(p, box, colors, style, mode, opacity, selected=False, hover=0, ra
 
 def paint_group(p, box, colors, style, opacity, image=None, focused=False, hovered=False):
     p.save()
-    radius = 4 if style == 'binaryknife' else 10 if style == 'modern' else 8
+    radius = 16 if style == 'tidalglass' else 4 if style == 'binaryknife' else 10 if style == 'modern' else 8
     clip = QPainterPath(); clip.addRoundedRect(box, radius, radius)
     p.setClipPath(clip, Qt.ClipOperation.IntersectClip)
     p.setOpacity(p.opacity() * opacity / 100)

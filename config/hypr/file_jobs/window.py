@@ -243,7 +243,7 @@ class ProgressWindow(QWidget):
         extracting = any(word in title for word in ('extract', 'unpack', 'decompress'))
         if self.design != 'raw':
             scene = {'modern': artwork.modern, 'breakpoint': artwork.breakpoint,
-                     'binaryknife': artwork.binaryknife}[self.design]
+                     'binaryknife': artwork.binaryknife, 'tidalglass': artwork.tidalglass}[self.design]
             scene(painter, box, accent, QColor(self.colors['AlternateBase']), self.phase,
                   self.options['animation']['density'], self.options['animation']['trails'],
                   self.appearance['glow'], archive and not extracting, extracting, self.job.result)
@@ -312,6 +312,9 @@ class ProgressWindow(QWidget):
         painter.setPen(QPen(alpha(accent, 135 if self.design != 'modern' else 90), border) if border else Qt.PenStyle.NoPen)
         inset = max(.5, border/2)
         painter.drawRoundedRect(QRectF(inset, inset, w-2*inset, h-2*inset), radius, radius)
+        if self.design == 'tidalglass':
+            from tidalglass import paint_surface
+            paint_surface(painter,QRectF(inset,inset,w-2*inset,h-2*inset),self.colors,radius,self.appearance['opacity'])
         bloom = QRadialGradient(QPointF(w/2, h/2), w*.4)
         bloom.setColorAt(0, alpha(accent, round(self.appearance['glow']*.35))); bloom.setColorAt(1, alpha(accent, 0))
         painter.setPen(Qt.PenStyle.NoPen); painter.setBrush(bloom)

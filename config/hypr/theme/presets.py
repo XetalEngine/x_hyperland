@@ -93,6 +93,8 @@ def builtin(design, mode, root=None):
     # Built-in presets supply their visual language, while keeping timing and hardware preferences.
     value.pop('wallpapers', None); value['wallpaper_theme'] = design
     value.pop('burn', None); value.pop('cube', None); value.pop('minimize', None); value.pop('appearance', None)
+    if design == 'tidalglass':
+        value['cursors'].update(style='pearl',color='#65dced',trail='glow',intensity=30)
     return value
 
 

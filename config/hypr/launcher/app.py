@@ -398,7 +398,7 @@ class Menu(QWidget):
             self.bar_activation=BarActivation(self);self.bar_activation.start()
 
     def apply_design(self):
-        modern=theme_runtime.launcher_design()=='modern'
+        modern=theme_runtime.launcher_design() in ('modern','tidalglass')
         self.fusion_settings_button.setIcon(desktop_icon('fusion-settings',theme_runtime.colors(style=theme_runtime.launcher_design())['Accent'],20))
         self.kvm_button.setIcon(desktop_icon('chip',theme_runtime.colors(style=theme_runtime.launcher_design())['Accent'],20))
         self.profile.setVisible(modern);self.profile.refresh()
@@ -415,7 +415,7 @@ class Menu(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         style=theme_runtime.launcher_design();colors=theme_runtime.colors(style=style)
-        radius=4 if style=='binaryknife' else 12 if style=='breakpoint' else 20 if style=='modern' else 17
+        radius=22 if style=='tidalglass' else 4 if style=='binaryknife' else 12 if style=='breakpoint' else 20 if style=='modern' else 17
         technical=style in ('breakpoint','binaryknife')
         border=colors['Accent'] if technical and self.isActiveWindow() else colors['Midlight']
         if getattr(self,'backdrop_image',None) and not self.backdrop_image.isNull():
@@ -427,10 +427,18 @@ class Menu(QWidget):
             target=QRectF(0,0,picture.width()*scale,picture.height()*scale);target.moveCenter(box.center())
             painter.drawPixmap(target,picture,QRectF(picture.rect()))
             shade=QColor(colors['Window']);shade.setAlpha(round(255*(1-theme_runtime.launcher_background_visibility()/100)))
-            painter.fillRect(box,shade);painter.restore()
+            if style=='tidalglass':
+                from tidalglass import paint_surface
+                paint_surface(painter,box,colors,radius,100-theme_runtime.launcher_background_visibility(),self.isActiveWindow())
+            else:painter.fillRect(box,shade)
+            painter.restore()
             painter.setBrush(Qt.BrushStyle.NoBrush);painter.setPen(QPen(QColor(border),2 if technical else 1));painter.drawPath(path)
             return
         if style!='raw':
+            if style=='tidalglass':
+                from tidalglass import paint_surface
+                paint_surface(painter,QRectF(self.rect()).adjusted(1,1,-1,-1),colors,radius,94,self.isActiveWindow())
+                return
             fill=QColor(colors['Window'])
             if technical:fill.setAlpha(247 if style=='binaryknife' else 240)
             painter.setBrush(fill);painter.setPen(QPen(QColor(border),2 if technical else 1))

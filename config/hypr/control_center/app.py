@@ -1141,10 +1141,13 @@ def hovered_window():
 class Window(QMainWindow):
     def __init__(self, tab='hotkeys', visible=True):
         super().__init__()
+        self.setObjectName('fusionSettingsWindow')
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         wheel_guard.install(QApplication.instance())
         self.setWindowTitle('Fusion Settings — Hyper Fusion')
-        self.resize(1230, 790)
+        self.resize(1460, 960)
         self.setMinimumSize(1040, 650)
+        self.initial_size_pending = True
         self.navigation_width = 0
         root = QWidget();root.setObjectName('controlRoot')
         layout = QVBoxLayout(root)
@@ -1203,9 +1206,24 @@ class Window(QMainWindow):
         if name in self.pages:
             self.tabs.setCurrentWidget(self.pages[name])
             self.changed()
+            if self.initial_size_pending:
+                self.initial_size_pending = False
+                self.size_for_first_open(name)
         self.show()
         self.raise_()
         self.activateWindow()
+
+    def size_for_first_open(self, page):
+        # A preloaded window has no chosen page yet. Size the first real
+        # request before mapping; later navigation retains the user's resize.
+        width, height = (1300, 970) if page == 'theme' else (1460, 960)
+        screen = self.screen() or QApplication.primaryScreen()
+        if screen:
+            available = screen.availableGeometry()
+            width = min(width, max(320, available.width() - 24))
+            height = min(height, max(320, available.height() - 24))
+            self.setMinimumHeight(min(650, height))
+        self.resize(width, height)
 
     def changed(self, *_):
         if getattr(self,'changing_design',False):return

@@ -21,7 +21,7 @@ class ThemeSetTests(unittest.TestCase):
     def setUp(self):
         test_theme.ThemeTransactionTests.setUp(self)
         root=self.root/'wallpaper';root.mkdir()
-        catalog={design:[f'{design}/{i}.png' for i in range(3)] for design in ('raw','modern','breakpoint','binaryknife')}
+        catalog={design:[f'{design}/{i}.png' for i in range(3)] for design in runtime.DESIGNS}
         (root/'sets.json').write_text(json.dumps(catalog))
         for design,names in catalog.items():
             for name in names:
@@ -70,7 +70,7 @@ class ThemeSetTests(unittest.TestCase):
         self.assertEqual(list(assigned),['DP-1','DP-2','DP-3'])
 
     def test_each_theme_restores_its_own_three_screen_set(self):
-        for design in ('raw','modern','breakpoint','binaryknife','raw'):
+        for design in (*runtime.DESIGNS,'raw'):
             self.apply(design)
             selection=json.loads((self.root/'wallpaper/selection.json').read_text())
             self.assertEqual({item['path'] for item in selection.values()},

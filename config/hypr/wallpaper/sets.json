@@ -1,6 +1,27 @@
 {
-  "raw": ["raw/workstation-1.png", "raw/workstation-2.png", "raw/workstation-3.png"],
-  "modern": ["modern/workstation-1.png", "modern/workstation-2.png", "modern/workstation-3.png"],
-  "breakpoint": ["breakpoint/workstation-1.png", "breakpoint/workstation-2.png", "breakpoint/workstation-3.png"],
-  "binaryknife": ["binaryknife/workstation-1.png", "binaryknife/workstation-2.png", "binaryknife/workstation-3.png"]
+  "raw": [
+    "raw/workstation-1.png",
+    "raw/workstation-2.png",
+    "raw/workstation-3.png"
+  ],
+  "modern": [
+    "modern/workstation-1.png",
+    "modern/workstation-2.png",
+    "modern/workstation-3.png"
+  ],
+  "breakpoint": [
+    "breakpoint/workstation-1.png",
+    "breakpoint/workstation-2.png",
+    "breakpoint/workstation-3.png"
+  ],
+  "binaryknife": [
+    "binaryknife/workstation-1.png",
+    "binaryknife/workstation-2.png",
+    "binaryknife/workstation-3.png"
+  ],
+  "tidalglass": [
+    "tidalglass/sanctuary.png",
+    "tidalglass/observatory.png",
+    "tidalglass/blue-hour.png"
+  ]
 }

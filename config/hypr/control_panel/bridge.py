@@ -65,8 +65,16 @@ def theme():
       QScrollBar::handle:horizontal:hover {{background:{p['Accent']};}}
       QPushButton {{padding:6px 10px;}}
     '''
+    if design=='tidalglass':
+        from tidalglass import gradient
+        style+=f'''
+          QWidget#hyperControlPanel {{background:{gradient(p)}; border-top-color:{p['Light']}; border-radius:20px;}}
+          QScrollArea, QStackedWidget {{background:transparent;}}
+          QFrame#defaultsHero, QFrame#ramMetric, QFrame#ramMode, QFrame#filterGroupBox {{background:{gradient(p,'Base','AlternateBase')}; border-top-color:{p['Light']}; border-radius:14px;}}
+          QWidget#defaultAppsTab QToolButton {{border-radius:13px;}}
+        '''
     return {'stylesheet':style,'colors':p,'font':runtime.ui_font(),
-            'cardRadius':4 if design=='binaryknife' else 10,
+            'cardRadius':16 if design=='tidalglass' else 4 if design=='binaryknife' else 10,
             'iconTheme':'Papirus-Light' if runtime.mode()=='light' else 'Papirus-Dark'}
 
 

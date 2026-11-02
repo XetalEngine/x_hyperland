@@ -8,6 +8,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QMovie
 from PyQt6.QtWidgets import QApplication, QLineEdit
 from app import Controller, SignIn
+from model import DESIGNS
 
 
 class LoginUiTests(unittest.TestCase):
@@ -57,7 +58,7 @@ class LoginUiTests(unittest.TestCase):
 
     def test_every_design_and_mode_has_a_valid_palette(self):
         controller, window = self.window()
-        for design in ('raw', 'modern', 'breakpoint', 'binaryknife'):
+        for design in DESIGNS:
             for mode in ('dark', 'light', 'contrast'):
                 controller.theme_override, controller.mode_override = design, mode
                 window.update_user(0)
