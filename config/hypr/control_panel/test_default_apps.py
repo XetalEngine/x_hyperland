@@ -172,6 +172,26 @@ class DefaultAppsTests(unittest.TestCase):
         self.assertIn('# comment', result)
         self.assertNotIn('Removed Associations', result)
 
+    def test_old_notification_environment_uses_profile_file_manager_and_selection(self):
+        applications = self.profile/'desktop/data/applications'
+        applications.mkdir(parents=True)
+        (applications/'xetal-files.desktop').write_text(
+            '[Desktop Entry]\nType=Application\nName=Fusion Files\nExec=/bin/true %U\nMimeType=inode/directory;\n')
+        with (self.profile/'desktop/config/mimeapps.list').open('a') as stream:
+            stream.write('inode/directory=xetal-files.desktop;\n')
+        scripts = self.profile/'scripts'
+        scripts.mkdir()
+        handler = scripts/'files.sh'
+        handler.write_text('#!/usr/bin/python3\nimport json,sys\nprint(json.dumps({"arguments":sys.argv[1:]}))\n')
+        handler.chmod(0o700)
+        self.env['XDG_CONFIG_DIRS'] = '/etc/xdg'
+        literal = str(self.base/'screen # 100% $(literal).png')
+        result = subprocess.run([sys.executable, '-c', self.runner, str(HERE), str(self.profile),
+                                 'open-folder', '--select', literal],
+                                env=self.env, text=True, capture_output=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), {'arguments':['--select', literal]})
+
     def test_folder_launcher_uses_selected_app_and_keeps_literal_paths(self):
         class App:
             def get_id(self): return 'fixture-new.desktop'

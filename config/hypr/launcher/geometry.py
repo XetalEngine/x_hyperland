@@ -6,7 +6,8 @@ import tempfile
 
 STATE = Path(__file__).resolve().parent / 'window.json'
 DEFAULT = (980, 720)
-MINIMUM = (740, 480)
+# One complete three-tile group, sidebar, margins and vertical scrollbar.
+MINIMUM = (690, 480)
 
 
 def size():

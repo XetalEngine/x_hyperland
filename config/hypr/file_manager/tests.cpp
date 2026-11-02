@@ -3,6 +3,8 @@
 #include "window.h"
 #include "applications.h"
 #include "removal.h"
+#include "transfers.h"
+#include <KIO/FileUndoManager>
 #include <KApplicationTrader>
 #include <KIO/RenameDialog>
 #include <KIO/Paste>
@@ -13,6 +15,8 @@
 #include <QScopeGuard>
 #include <QStorageInfo>
 #include <QtTest>
+#include <sys/stat.h>
+#include <unistd.h>
 
 class TestFileManager : public QObject {
   Q_OBJECT
@@ -94,6 +98,112 @@ private slots:
     QVERIFY(!Fusion::validName("../outside"));
     QVERIFY(!Fusion::validName(".."));
     QVERIFY(Fusion::validName("100% # résumé.txt"));
+  }
+  void transferAccessUsesOnlyNecessaryPrivileges() {
+    if (geteuid() == 0) QSKIP("Permission routing is checked as the desktop user.");
+    const auto base = folder + "/access";
+    QDir().mkpath(base + "/source/nested");
+    QDir().mkpath(base + "/destination");
+    const auto file = base + "/source/nested/protected # 100%.txt";
+    write(file);
+    const auto source = QUrl::fromLocalFile(base + "/source");
+    const auto destination = QUrl::fromLocalFile(base + "/destination");
+    const auto cancelled = std::make_shared<std::atomic_bool>(false);
+    auto plan = [&](QList<QUrl> items, Fusion::TransferOperation operation) {
+      return Fusion::transferAccess(items, destination, operation, cancelled);
+    };
+    const auto restore = qScopeGuard([&] {
+      ::chmod(QFile::encodeName(file), 0600);
+      ::chmod(QFile::encodeName(base + "/source"), 0700);
+      ::chmod(QFile::encodeName(base + "/destination"), 0700);
+    });
+    QVERIFY(!plan({source}, Fusion::TransferOperation::Copy).administrator);
+    QCOMPARE(::chmod(QFile::encodeName(file), 0000), 0);
+    auto copy = plan({source}, Fusion::TransferOperation::Copy);
+    QVERIFY(copy.administrator);
+    QCOMPARE(copy.sources.first().scheme(), "admin");
+    QCOMPARE(copy.destination, destination); // Normal destination stays user-owned.
+    QVERIFY(!plan({source}, Fusion::TransferOperation::Move).administrator); // Atomic rename.
+    const auto link = base + "/link";
+    QVERIFY(QFile::link(file, link));
+    QVERIFY(!plan({QUrl::fromLocalFile(link)}, Fusion::TransferOperation::Copy).administrator);
+    QCOMPARE(::chmod(QFile::encodeName(base + "/source"), 0500), 0);
+    const auto moved = plan({QUrl::fromLocalFile(base + "/source/nested")}, Fusion::TransferOperation::Move);
+    QVERIFY(moved.administrator);
+    QCOMPARE(moved.destination.scheme(), "admin");
+    QCOMPARE(::chmod(QFile::encodeName(base + "/destination"), 0500), 0);
+    copy = plan({QUrl::fromLocalFile(link)}, Fusion::TransferOperation::Copy);
+    QVERIFY(copy.administrator);
+    QCOMPARE(copy.destination.scheme(), "admin");
+    QCOMPARE(copy.sources.first().scheme(), "file");
+  }
+  void droppedFilesShareNumberedCopyAndMoveBehavior() {
+    const auto base = folder + "/dropped";
+    QDir().mkpath(base + "/source"); QDir().mkpath(base + "/target");
+    write(base + "/source/item.txt", "source");
+    write(base + "/target/item.txt", "existing");
+    QMimeData mime;
+    mime.setUrls({QUrl::fromLocalFile(base + "/source/item.txt")});
+    QWidget window;
+    for (auto modifier : {Qt::ControlModifier, Qt::ShiftModifier}) {
+      QDropEvent event(QPointF(1, 1), Qt::CopyAction | Qt::MoveAction, &mime, Qt::LeftButton, modifier);
+      auto *job = Fusion::dropFiles(&event, QUrl::fromLocalFile(base + "/target"), &window, QPoint());
+      int error = -1;
+      connect(job, &KJob::result, &window, [&](KJob *result) { error = result->error(); });
+      QTRY_COMPARE_WITH_TIMEOUT(error, 0, 10000);
+    }
+    QVERIFY(!QFileInfo::exists(base + "/source/item.txt"));
+    for (const auto &name : {"item_copy1.txt", "item_copy2.txt"}) {
+      QFile file(base + "/target/" + name); QVERIFY(file.open(QIODevice::ReadOnly));
+      QCOMPARE(file.readAll(), QByteArray("source"));
+    }
+  }
+  void cancelTransferBeforeStartingChangesNothing() {
+    const auto base = folder + "/cancel-before-start";
+    QDir().mkpath(base + "/target"); write(base + "/file", "untouched");
+    auto *job = Fusion::transferFiles({QUrl::fromLocalFile(base + "/file")},
+        QUrl::fromLocalFile(base + "/target"), Fusion::TransferOperation::Move, nullptr);
+    QVERIFY(job->kill());
+    QTest::qWait(80);
+    QVERIFY(QFileInfo::exists(base + "/file"));
+    QVERIFY(!QFileInfo::exists(base + "/target/file"));
+  }
+  void administratorTransfers() {
+    if (geteuid() != 0 || !qEnvironmentVariableIsSet("FUSION_FILES_ADMIN_CHECK"))
+      QSKIP("Explicit root-fixture check, using the installed admin worker on a private session bus.");
+    // Only the QTemporaryDir owned by this test is touched. No policy rules,
+    // desktop preferences, or real protected user files are changed.
+    const auto base = folder + "/administrator";
+    QDir().mkpath(base + "/source/private"); QDir().mkpath(base + "/target");
+    write(base + "/source/private/item # 100%.txt", "protected content");
+    ::chmod(QFile::encodeName(base + "/source/private"), 0700);
+    auto admin = [](const QString &path) { auto url = QUrl::fromLocalFile(path); url.setScheme("admin"); return url; };
+    QWidget window;
+    for (int n = 0; n < 2; ++n) {
+      auto *job = Fusion::transferFiles({admin(base + "/source/private")}, QUrl::fromLocalFile(base + "/target"),
+          Fusion::TransferOperation::Copy, &window);
+      int error = -1; QString message;
+      connect(job, &KJob::result, &window, [&](KJob *result) { error = result->error(); message = result->errorString(); });
+      QTRY_VERIFY_WITH_TIMEOUT(error != -1, 15000);
+      QVERIFY2(!error, qPrintable(message));
+    }
+    QFile copied(base + "/target/private_copy1/item # 100%.txt");
+    QVERIFY(copied.open(QIODevice::ReadOnly)); QCOMPARE(copied.readAll(), QByteArray("protected content")); copied.close();
+    write(base + "/source/move.txt", "move this"); write(base + "/target/move.txt", "keep this");
+    auto *mime = new QMimeData; mime->setUrls({QUrl::fromLocalFile(base + "/source/move.txt")});
+    KIO::setClipboardDataCut(mime, true); QApplication::clipboard()->setMimeData(mime);
+    auto *move = Fusion::pasteFiles(admin(base + "/target"), &window);
+    int error = -1; QString message;
+    connect(move, &KJob::result, &window, [&](KJob *result) { error = result->error(); message = result->errorString(); });
+    QTRY_VERIFY_WITH_TIMEOUT(error != -1, 15000);
+    QVERIFY2(!error, qPrintable(message));
+    QVERIFY(!QFileInfo::exists(base + "/source/move.txt"));
+    QVERIFY(QFileInfo::exists(base + "/target/move_copy1.txt"));
+    QCOMPARE(QApplication::clipboard()->mimeData()->urls(), QList<QUrl>{QUrl::fromLocalFile(base + "/target/move_copy1.txt")});
+    QVERIFY(!KIO::isClipboardDataCut(QApplication::clipboard()->mimeData()));
+    KIO::FileUndoManager::self()->undo();
+    QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(base + "/source/move.txt"), 15000);
+    QVERIFY(!QFileInfo::exists(base + "/target/move_copy1.txt"));
   }
   void customCommandsKeepFilenamesAsArguments() {
     const QString name = folder + "/a;$(touch sentinel) 'quote' %u.txt";

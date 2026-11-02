@@ -18,6 +18,9 @@ def appearance():
     QToolBar {{background:{p['Window']}; border:none; spacing:5px; padding:8px;}}
     QToolButton {{padding:6px; border-radius:{radius}px;}}
     QToolButton:checked {{background:{p['Highlight']}; color:{p['HighlightedText']};}}
+    QToolButton#previewToggle, QToolButton#newTabButton {{padding:0; margin:0; border:none; background:transparent;}}
+    QToolButton#previewToggle:hover, QToolButton#newTabButton:hover {{background:{p['Highlight']}; color:{p['HighlightedText']};}}
+    QToolButton#previewToggle:focus, QToolButton#newTabButton:focus {{border:1px solid {p['Accent']};}}
     QTreeWidget#places {{background:{p['Window']}; border:none; padding:8px 4px; outline:none;}}
     QTreeWidget#places::item {{min-height:30px; padding:2px 6px; border-radius:{radius}px;}}
     QTreeWidget#places::item:selected {{background:{p['Highlight']}; color:{p['HighlightedText']};}}

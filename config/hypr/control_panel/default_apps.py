@@ -29,7 +29,7 @@ ROLES = [
      ['x-scheme-handler/https', 'x-scheme-handler/http', 'text/html', 'application/xhtml+xml']),
     ('email', 'Email', 'Email links and messages', 'internet-mail',
      ['x-scheme-handler/mailto', 'message/rfc822']),
-    ('files', 'File manager', 'Folders and Super + E', 'system-file-manager', ['inode/directory']),
+    ('files', 'File manager', 'Folders, Super + E and Show in folder', 'system-file-manager', ['inode/directory']),
     ('music', 'Music', 'Songs, albums and audio files', 'audio-x-generic', ['audio/mpeg']),
     ('video', 'Video', 'Movies, clips and recordings', 'video-x-generic', ['video/mp4']),
     ('images', 'Images', 'Photos, screenshots and artwork', 'image-x-generic', ['image/png']),
@@ -328,6 +328,20 @@ def undo(data):
     return dict(ok=True, message='Your previous defaults were restored.')
 
 
+def prepare_session_environment():
+    """Give notification/IPC helpers the same app defaults as the desktop.
+
+    Old background processes can predate the session environment configuration.
+    Only this process is changed; user defaults still outrank profile fallbacks.
+    """
+    for variable, local, fallback in (
+        ('XDG_CONFIG_DIRS', ROOT/'desktop/config', '/etc/xdg'),
+        ('XDG_DATA_DIRS', ROOT/'desktop/data', '/usr/local/share:/usr/share'),
+    ):
+        paths = [str(local), *os.environ.get(variable, fallback).split(':')]
+        os.environ[variable] = ':'.join(dict.fromkeys(p for p in paths if p))
+
+
 def open_folder(arguments):
     """Use the chosen folder handler; the Fusion desktop entry stays direct."""
     select = bool(arguments and arguments[0] == '--select')
@@ -337,6 +351,12 @@ def open_folder(arguments):
     if not app or app.get_id() == 'xetal-files.desktop':
         command = [str(ROOT/'scripts/files.sh'), *(['--select'] if select else []), *arguments]
         os.execv(command[0], command)
+    if select and app.get_id() in ('org.kde.dolphin.desktop', 'xetal-dolphin.desktop'):
+        # An explicit alternative should retain Show in folder's selection.
+        import shutil
+        executable = str(ROOT/'scripts/dolphin.sh') if app.get_id() == 'xetal-dolphin.desktop' else shutil.which('dolphin')
+        if executable:
+            os.execv(executable, [executable, '--select', *arguments])
     files = [Gio.File.new_for_commandline_arg(a) for a in arguments] if arguments else [Gio.File.new_for_path(str(Path.home()))]
     if select:
         files = [f.get_parent() or f for f in files]
@@ -347,6 +367,7 @@ def open_folder(arguments):
 
 def main():
     try:
+        prepare_session_environment()
         action = sys.argv[1] if len(sys.argv) > 1 else 'snapshot'
         if action == 'open-folder':
             return open_folder(sys.argv[2:])

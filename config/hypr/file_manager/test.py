@@ -24,6 +24,8 @@ if __name__ == '__main__':
                         '-DBUILD_TESTING=ON', '-DCMAKE_BUILD_TYPE=Debug'], check=True, env=env)
         subprocess.run(['cmake', '--build', str(build), '--parallel', '4'], check=True, env=env)
         subprocess.run(['dbus-run-session', '--', str(build/'files-tests')], check=True, env=env)
+        subprocess.run(['dbus-run-session', '--', sys.executable, str(ROOT/'test_service.py'),
+                        str(build/'xetal-files')], check=True, env=env)
         subprocess.run(['dbus-run-session', '--', sys.executable, str(ROOT/'test_progress.py'),
                         str(build/'files-tests')], check=True, env=env)
         subprocess.run(['dbus-run-session', '--', sys.executable, str(ROOT/'test_progress.py'),

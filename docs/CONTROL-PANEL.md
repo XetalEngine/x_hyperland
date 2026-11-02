@@ -75,6 +75,15 @@ Preferences live in `control_panel/state/runtime-log-guard.json`; the last clean
 
 ## Default Apps
 
+**Fusion Settings → Default Apps** provides the same everyday app choices,
+including the file manager used by Super+E and screenshot/recording **Show in
+folder** actions. It shares the Control Panel backend, supports app search and
+Undo, and links to the full file-type and protocol editor. Background helpers
+resolve the Hyprland profile's app defaults even when started with older session
+environment values. Fusion Files and Dolphin receive `--select` for reveal actions.
+The standard ShowItems and ShowFolders interface also follows this choice when
+Fusion Files owns the session's file-manager service.
+
 Open **Software & maintenance → Default Apps**. The themed **Everyday apps**
 cards show the current application for twelve categories. Choose a card, select
 an installed application and click **Use app**. Recommended applications appear

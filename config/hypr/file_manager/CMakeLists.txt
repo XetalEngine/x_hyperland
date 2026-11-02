@@ -8,7 +8,7 @@ find_package(KF6KIO 6.13 REQUIRED)
 find_package(KF6Service REQUIRED)
 find_package(KF6JobWidgets REQUIRED)
 find_package(KF6CoreAddons REQUIRED)
-add_library(fusion-files-ui STATIC core.cpp drives.cpp drive_properties.cpp pathbar.cpp browser.cpp window.cpp transfers.cpp applications.cpp removal.cpp trash_animation.cpp)
+add_library(fusion-files-ui STATIC core.cpp drives.cpp drive_properties.cpp pathbar.cpp browser.cpp window.cpp transfers.cpp transfer_access.cpp applications.cpp removal.cpp trash_animation.cpp)
 target_link_libraries(fusion-files-ui PUBLIC Qt6::Widgets Qt6::DBus Qt6::Concurrent
     KF6::KIOCore KF6::KIOGui KF6::KIOWidgets KF6::KIOFileWidgets KF6::Service KF6::JobWidgets KF6::CoreAddons)
 target_include_directories(fusion-files-ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

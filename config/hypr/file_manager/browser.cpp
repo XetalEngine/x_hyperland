@@ -1,4 +1,5 @@
 #include "browser.h"
+#include "transfers.h"
 #include <KDirLister>
 #include <KFileItemDelegate>
 #include <KFilePreviewGenerator>
@@ -655,7 +656,7 @@ bool Browser::eventFilter(QObject *watched, QEvent *event) {
       return false;
     const auto item = itemAt(target, drop->position().toPoint());
     const QUrl dest = !item.isNull() && item.isDir() ? item.url() : location();
-    auto *job = KIO::drop(drop, dest);
+    auto *job = Fusion::dropFiles(drop, dest, window(), target->viewport()->mapToGlobal(drop->position().toPoint()));
     KJobWidgets::setWindow(job, window());
     emit jobStarted(job);
     drop->acceptProposedAction();

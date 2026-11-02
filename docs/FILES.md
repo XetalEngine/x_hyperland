@@ -55,6 +55,7 @@ details. Right-click the details header to choose columns; drag columns to
 reorder and resize them. The folder filter matches names in the current folder.
 The preview pane is enabled for fresh profiles and displays local images, text excerpts and metadata;
 remote selections display metadata without downloading their full contents.
+The small arrow above the new-tab (+) button hides or shows it and stays available when the pane is hidden.
 Local picture thumbnails are enabled on file icons by default. Open **⋮ →
 Configure Fusion Files…** to turn thumbnails, the preview pane, hidden files or
 the Trash animation on or off. Saved choices survive reopening and updates;
@@ -76,9 +77,17 @@ provide Trash reports the error; it never silently substitutes permanent deletio
 Permanent deletion always asks for confirmation. Pending tracked file jobs keep
 the application process alive after its last browser window closes.
 
-On a local permission failure, Fusion Files opens the desktop's administrator
-authentication dialog for the selected action. Only the bounded Python helper
-runs with privileges; the browser stays unprivileged. It checks the selected
+Protected copy and move operations, including drag-and-drop and protected
+destinations, use KIO's `admin:` worker after an asynchronous, read-only access
+check. `kio-admin` supplies the graphical PolicyKit prompt; the browser stays
+unprivileged. The normal themed transfer window, cancellation, numbered names
+and Undo remain available. Local moves use the same protocol at both ends to
+preserve atomic renames and ownership when possible. Symlink targets are not
+traversed by the access check. Permission failures appear in a visible dialog.
+
+On a local removal permission failure, Fusion Files opens the desktop's
+administrator authentication dialog for the selected action. The bounded
+Python helper checks the selected
 items' identities, refuses system roots and nested mounts, and does not follow
 directory symlinks. Protected Trash moves retain original permissions and
 standard Trash records; they never become permanent deletion. Restoring or
@@ -86,7 +95,9 @@ permanently removing protected top-level Trash items can authenticate too.
 Restoration refuses to overwrite an existing destination. Cancelling
 authentication leaves the remaining protected items in place. Successful
 ordinary KIO operations retain their Undo integration; protected items can be
-recovered through **Trash → Restore**.
+recovered through **Trash → Restore**. Existing account-owned Trash directories
+with permissive modes such as 755 are secured to 700 before use; they no longer
+cause a failure after successful authentication.
 
 After a successful Trash move, the selected file icons curve and shrink toward
 the sidebar's Trash icon with the current theme accent. Failed/cancelled moves
@@ -131,7 +142,7 @@ shell expansion; multiple-file placeholders must occupy a separate argument.
 | Ctrl+L / Alt+D | Edit the complete location |
 | Alt+Left / Alt+Right / Alt+Up | Back / forward / parent |
 | F5 | Refresh |
-| Ctrl+H | Show hidden files |
+| Alt+. / Ctrl+H | Show or hide hidden files |
 | Alt+P | Toggle preview pane |
 | Ctrl+F | Filter the current folder |
 | Ctrl+Shift+C | Copy complete selected path(s) |
@@ -157,7 +168,7 @@ favorites remain the recipient's choices; updates make My Computer available
 without replacing their favorite layout.
 
 The native file-operation dependencies are Qt 6 and KDE Frameworks 6 KIO.
-Setup installs KIO development files, KIO extras, Ark and UDisks on the supported
+Setup installs KIO development files, KIO extras, `kio-admin`, Ark and UDisks on the supported
 distributions. Normal mount and force-mount arguments are shared with Control
 Panel in `control_panel/backend/volume_commands.h`; the file manager does not
 perform filesystem repair or discard Windows hibernation files.
@@ -172,8 +183,14 @@ python3 config/hypr/file_manager/test.py
 
 Native tests use a private D-Bus session and disposable configuration, files and
 Trash. Checks click icons in all five views, exercise keyboard file operations,
-numbered copy/move collisions, script/unknown-file menus and a real 64 MiB folder
+numbered copy/move collisions, access routing, drag-and-drop, script/unknown-file menus and a real 64 MiB folder
 copy through the themed JobView service with pause/resume. They do not mount
 real drives. `--select /path/to/file` reveals a file in
 its parent folder. The application also exposes the standard
 `org.freedesktop.FileManager1` interface when that service name is available.
+Its ShowItems and ShowFolders requests resolve the current Default Apps handler
+through the same folder launcher on every request; ShowItems retains selection.
+`test_service.py` checks that routing on a private bus with a temporary handler.
+The separately gated `administratorTransfers` native check requires root,
+`FUSION_FILES_ADMIN_CHECK=1`, a private D-Bus session and temporary XDG directories;
+it exercises the installed administrator worker only on disposable fixtures.

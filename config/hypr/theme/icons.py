@@ -51,6 +51,10 @@ def icon(name, color, size=24):
     elif name=='context-menu':
         p.drawRoundedRect(QRectF(3,3,18,18),3,3)
         for y in (8,12,16):line(7,y,7.5,y);line(11,y,17,y)
+    elif name=='default-apps':
+        for x,y in ((3,3),(14,3),(3,14)):
+            p.drawRoundedRect(QRectF(x,y,7,7),1.4,1.4)
+        line(14,18,17,21);line(17,21,22,14)
     elif name=='calendar':
         p.drawRoundedRect(QRectF(3,5,18,17),2,2);line(3,10,21,10);line(8,2,8,7);line(16,2,16,7)
         for x in (8,12,16):p.drawPoint(QPointF(x,15))

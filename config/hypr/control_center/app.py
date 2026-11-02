@@ -40,6 +40,7 @@ from identity import Avatar
 from icons import icon as navigation_icon
 from terminal_fetch.page import TerminalPage
 from recording.page import CapturePage
+from default_apps_page import DefaultAppsPage
 sys.path.append(str(keys.ROOT/'launcher'))
 from activation import BarActivation
 
@@ -1155,6 +1156,7 @@ class Window(QMainWindow):
                       'bluetooth': BluetoothPage(), 'displays': DisplaysPage(async_run),
                       'input': PreferencesPage('input', async_run), 'theme': ThemePage(async_run),
                       'context-menu': ContextMenuPage(async_run),
+                      'default-apps': DefaultAppsPage(async_run, launch),
                       'calendar': CalendarPage(), 'capture': CapturePage(async_run),
                       'system': SystemPage(), 'terminal': TerminalPage(async_run)}
         for name, page in self.pages.items():
@@ -1320,7 +1322,7 @@ class Window(QMainWindow):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--tab', choices=['home', 'hotkeys', 'audio', 'network', 'bluetooth', 'displays', 'input', 'theme', 'context-menu', 'calendar', 'capture', 'system', 'terminal'], default='hotkeys')
+    parser.add_argument('--tab', choices=['home', 'hotkeys', 'audio', 'network', 'bluetooth', 'displays', 'input', 'theme', 'context-menu', 'default-apps', 'calendar', 'capture', 'system', 'terminal'], default='hotkeys')
     parser.add_argument('--preview', help='Render the initial window to a PNG and exit')
     parser.add_argument('--window-hints', action='store_true')
     parser.add_argument('--preload', action='store_true', help=argparse.SUPPRESS)

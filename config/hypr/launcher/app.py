@@ -512,6 +512,8 @@ class Menu(QWidget):
             self.size_grip.setGeometry(self.width() - 24, self.height() - 24, 18, 18)
             self.size_grip.raise_()
         if hasattr(self, 'clock'):
+            # Keep the group/shortcut buttons readable at a single-column width.
+            self.count.setVisible(self.width() >= 740)
             self.tick()
         self.started = time.monotonic()
 

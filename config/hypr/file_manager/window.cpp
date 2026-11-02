@@ -151,7 +151,11 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   menu->addAction("Connect to server…", this, [this] { runAction("connect"); });
   menu->addSeparator();
   hiddenAction = menu->addAction("Show hidden files");
+  hiddenAction->setObjectName("hiddenFilesAction");
   hiddenAction->setCheckable(true);
+  hiddenAction->setShortcuts({QKeySequence("Alt+."), QKeySequence("Ctrl+H")});
+  addAction(hiddenAction);
+  shortcuts["hidden"] = hiddenAction;
   hiddenAction->setChecked(
       preferences.settings.value("hidden", false).toBool());
   connect(hiddenAction, &QAction::toggled, this, [this](bool value) {
@@ -203,10 +207,31 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   tabs->setMovable(true);
   tabs->setTabBarAutoHide(false);
   splitter->addWidget(tabs);
+  auto *tabCorner = new QWidget;
+  auto *cornerLayout = new QVBoxLayout(tabCorner);
+  cornerLayout->setContentsMargins(0, 2, 2, 0);
+  cornerLayout->setSpacing(0);
+  auto *previewToggle = new QToolButton;
+  previewToggle->setObjectName("previewToggle");
+  previewToggle->setFixedSize(24, 20);
+  previewToggle->setAutoRaise(true);
+  auto updatePreviewToggle = [this, previewToggle] {
+    const bool visible = previewAction->isChecked();
+    previewToggle->setArrowType(visible ? Qt::RightArrow : Qt::LeftArrow);
+    previewToggle->setAccessibleName(visible ? "Hide preview pane" : "Show preview pane");
+    previewToggle->setToolTip(previewToggle->accessibleName() + " · Alt+P");
+  };
+  updatePreviewToggle();
+  connect(previewAction, &QAction::toggled, previewToggle, updatePreviewToggle);
+  connect(previewToggle, &QToolButton::clicked, previewAction, &QAction::trigger);
+  cornerLayout->addWidget(previewToggle, 0, Qt::AlignHCenter);
   auto *newTab = new QToolButton;
+  newTab->setObjectName("newTabButton");
   newTab->setText("+");
   newTab->setToolTip("New tab · Ctrl+T");
-  tabs->setCornerWidget(newTab);
+  newTab->setFixedSize(24, 20);
+  cornerLayout->addWidget(newTab, 0, Qt::AlignHCenter);
+  tabs->setCornerWidget(tabCorner);
   connect(newTab, &QToolButton::clicked, this,
           [this] { addTab(Fusion::computerUrl()); });
   previewStack = new QStackedWidget;
@@ -290,7 +315,6 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
                           {"back", "Alt+Left"},
                           {"forward", "Alt+Right"},
                           {"up", "Alt+Up"},
-                          {"hidden", "Ctrl+H"},
                           {"preview", "Alt+P"},
                           {"newTab", "Ctrl+T"},
                           {"closeTab", "Ctrl+W"},
@@ -614,8 +638,15 @@ void FilesWindow::track(KJob *job) {
   auto locker = std::make_shared<QEventLoopLocker>();
   connect(job, &KJob::result, qApp, [locker](KJob *) {});
   connect(job, &KJob::result, this, [this](KJob *result) {
-    if (result->error() && result->error() != KIO::ERR_USER_CANCELED)
+    if (result->error() && result->error() != KIO::ERR_USER_CANCELED) {
       message(result->errorString());
+      if (qobject_cast<Fusion::RemovalJob *>(result) || result->property("fusionTransfer").toBool()) {
+        auto *error = new QMessageBox(QMessageBox::Warning, "File operation could not finish",
+                                      result->errorString(), QMessageBox::Ok, this);
+        error->setAttribute(Qt::WA_DeleteOnClose);
+        error->open();
+      }
+    }
     emit operationFinished(result->error());
   });
   connect(job, &KJob::infoMessage, this, [this](KJob *, const QString &text) { message(text); });
@@ -1398,7 +1429,7 @@ void FilesWindow::showShortcuts() {
       "Move to Trash\nShift+Delete — Delete permanently (confirmation)\nCtrl+Z "
       "— Undo\nCtrl+Shift+N — New folder\nCtrl+A — Select all\nCtrl+L or Alt+D "
       "— Edit full path\nAlt+Left / Right / Up — Back / forward / parent\nF5 — "
-      "Refresh\nCtrl+H — Hidden files\nAlt+P — Preview pane\nCtrl+F — Filter "
+      "Refresh\nAlt+. / Ctrl+H — Hidden files\nAlt+P — Preview pane\nCtrl+F — Filter "
       "current folder\nCtrl+Shift+C — Copy full path\nCtrl+T / Ctrl+W — New / "
       "close tab\nCtrl+Tab / Ctrl+Shift+Tab — Switch tabs\nCtrl+N — New "
       "window\nAlt+Enter — Properties");

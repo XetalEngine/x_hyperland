@@ -38,6 +38,31 @@ class ProtectedRemovalTests(unittest.TestCase):
         self.assertEqual(info.stat().st_uid, os.getuid())
         self.assertEqual(stat.S_IMODE(info.stat().st_mode), 0o600)
 
+    def test_existing_readable_trash_is_secured_and_operation_completes(self):
+        folders = [self.data/'Trash', self.data/'Trash/files', self.data/'Trash/info']
+        for folder in folders:
+            folder.mkdir(parents=True, exist_ok=True); folder.chmod(0o755)
+        file = self.home/'protected'; file.write_text('keep contents'); file.chmod(0o400)
+        result = helper.perform(self.request(file), self.account)
+        self.assertTrue(result['ok'], result)
+        trashed = Path(result['completed'][0]['trash'])
+        self.assertEqual(trashed.read_text(), 'keep contents')
+        self.assertFalse(file.exists())
+        for folder in folders:
+            self.assertEqual(stat.S_IMODE(folder.stat().st_mode), 0o700)
+            folder.chmod(0o755)
+        result = helper.perform(self.request(trashed, 'restore'), self.account)
+        self.assertTrue(result['ok'], result)
+        self.assertEqual(file.read_text(), 'keep contents')
+
+    def test_foreign_trash_is_not_chmodded_or_used(self):
+        folder = self.data/'Trash'; folder.mkdir(parents=True); folder.chmod(0o755)
+        fd = os.open(folder, helper.OPEN_DIR)
+        try:
+            with self.assertRaises(ValueError):helper.secure_trash_directory(fd, os.getuid()+1)
+        finally:os.close(fd)
+        self.assertEqual(stat.S_IMODE(folder.stat().st_mode), 0o755)
+
     def test_directory_trash_and_delete_do_not_follow_symlinks(self):
         outside = self.root/'keep.txt'; outside.write_text('keep')
         directory = self.home/'folder'; directory.mkdir()

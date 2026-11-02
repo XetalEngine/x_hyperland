@@ -40,6 +40,16 @@ def rename_noreplace(source_fd, source, dest_fd, dest):
         raise OSError(error, os.strerror(error))
 
 
+def secure_trash_directory(fd, uid):
+    info = os.fstat(fd)
+    if info.st_uid != uid:
+        raise ValueError('Trash directories must be owned by your account.')
+    # Existing file managers can leave a user's Trash at 0755. Secure the
+    # directory we already opened without following links, then continue.
+    if stat.S_IMODE(info.st_mode) != 0o700:
+        os.fchmod(fd, 0o700)
+
+
 def private_child(parent, name, uid, gid):
     try:
         os.mkdir(name, 0o700, dir_fd=parent)
@@ -50,9 +60,7 @@ def private_child(parent, name, uid, gid):
     try:
         if created:
             os.fchown(fd, uid, gid)
-        info = os.fstat(fd)
-        if info.st_uid != uid or info.st_mode & 0o077:
-            raise ValueError('Trash directories must be private and owned by your account.')
+        secure_trash_directory(fd, uid)
         return fd
     except BaseException:
         os.close(fd)
@@ -175,10 +183,13 @@ def trash_record(path, data_home, account, mounts):
         raise ValueError('Select a top-level item in your Trash.')
     directory = open_directory(root)
     try:
-        info = os.fstat(directory)
-        if info.st_uid != account.pw_uid or info.st_mode & 0o077:
-            raise ValueError('This Trash does not belong to your account.')
+        secure_trash_directory(directory, account.pw_uid)
         infos = os.open(b'info', OPEN_DIR, dir_fd=directory)
+        try:
+            secure_trash_directory(infos, account.pw_uid)
+        except BaseException:
+            os.close(infos)
+            raise
     finally:
         os.close(directory)
     name = os.path.basename(path)+b'.trashinfo'

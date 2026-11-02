@@ -17,20 +17,26 @@ public:
     active->activateWindow();
     return active;
   }
+  void openWithDefault(const QStringList &uris, bool select) {
+    QStringList arguments;
+    if (select) arguments << "--select";
+    for (const auto &uri : uris) {
+      const QUrl url(uri);
+      if (url.isValid() && !url.scheme().isEmpty()) arguments << url.toString(QUrl::FullyEncoded);
+    }
+    if (arguments.size() <= (select ? 1 : 0)) return;
+    // The service can outlive a Default Apps change. Resolve the current
+    // choice for each request instead of permanently claiming folder actions.
+    // The direct Fusion launcher does not call this interface, so no loop.
+    if (!QProcess::startDetached(Fusion::root() + "/scripts/file-manager.sh", arguments))
+      QMessageBox::warning(window(), "Could not open folder", "The selected file manager could not be started.");
+  }
 public slots:
   void ShowFolders(const QStringList &uris, const QString &) {
-    for (const auto &uri : uris) {
-      const QUrl url(uri);
-      if (url.isValid() && !url.scheme().isEmpty())
-        window()->openLocation(url);
-    }
+    openWithDefault(uris, false);
   }
   void ShowItems(const QStringList &uris, const QString &) {
-    for (const auto &uri : uris) {
-      const QUrl url(uri);
-      if (url.isValid() && !url.scheme().isEmpty())
-        window()->reveal(url);
-    }
+    openWithDefault(uris, true);
   }
   void ShowItemProperties(const QStringList &uris, const QString &) {
     if (uris.isEmpty())

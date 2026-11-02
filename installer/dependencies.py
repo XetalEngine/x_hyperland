@@ -12,7 +12,7 @@ import runtime_install
 import command_paths
 
 PACKAGES = {
-    'arch': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole kio kio-extras ark udisks2 swaync grim slurp wf-recorder wl-clipboard
+    'arch': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole kio kio-extras kio-admin ark udisks2 swaync grim slurp wf-recorder wl-clipboard
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
         python python-psutil python-pyqt6 python-gobject python-pillow gcc cmake libxcb pkgconf gtk3 gtk-layer-shell libepoxy json-glib json-c
         qt5-base qt5-wayland qt6-base qt6-wayland qt6-svg qt6-tools wayland wayland-protocols
@@ -22,7 +22,7 @@ PACKAGES = {
         base-devel autoconf automake libtool make perl gettext gawk expect socat
         libtasn1 gmp libseccomp fuse3 libei tpm2-tools dmidecode pciutils usbutils
         mtools dosfstools util-linux kmod'''.split(),
-    'fedora': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole konsole-part kf6-kio-devel kio-extras ark udisks2 SwayNotificationCenter grim slurp wf-recorder wl-clipboard
+    'fedora': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole konsole-part kf6-kio-devel kio-extras kio-admin ark udisks2 SwayNotificationCenter grim slurp wf-recorder wl-clipboard
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
         python3 python3-psutil python3-pyqt6 python3-gobject python3-pillow gcc gcc-c++ cmake libxcb-devel pkgconf-pkg-config procps-ng glslang-devel
         gtk3-devel gtk-layer-shell-devel libepoxy-devel json-glib-devel json-c-devel qt5-qtbase-devel qt5-qtbase-private-devel
@@ -34,7 +34,7 @@ PACKAGES = {
         autoconf automake libtool make perl gettext gawk expect socat openssl-devel
         libtasn1-devel gmp-devel glib2-devel gnutls-devel libseccomp-devel fuse3-devel libei-devel libeis-devel
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod'''.split(),
-    'debian': '''git gvfs gvfs-backends gvfs-fuse hyprpaper hyprlock waybar kitty dolphin konsole konsole-kpart libkf6kio-dev kio-extras ark udisks2 sway-notification-center grim slurp wf-recorder wl-clipboard xwayland
+    'debian': '''git gvfs gvfs-backends gvfs-fuse hyprpaper hyprlock waybar kitty dolphin konsole konsole-kpart libkf6kio-dev kio-extras kio-admin ark udisks2 sway-notification-center grim slurp wf-recorder wl-clipboard xwayland
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
         python3 python3-psutil python3-pyqt6 python3-pyqt6.qtsvg python3-gi python3-pil gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1 build-essential cmake libxcb1-dev libxcb-res0-dev pkg-config glslang-dev libsdl3-0
         libgtk-3-dev libgtk-layer-shell-dev libepoxy-dev libjson-glib-dev libjson-c-dev qtbase5-dev qtbase5-private-dev qtwayland5
@@ -177,6 +177,14 @@ def konsole_part_available():
         return False
 
 
+def kio_admin_available():
+    try:
+        from PyQt6.QtCore import QLibraryInfo
+        return (Path(QLibraryInfo.path(QLibraryInfo.LibraryPath.PluginsPath))/'kf6/kio/admin.so').is_file()
+    except ImportError:
+        return False
+
+
 def check(runtime=True):
     prepare_environment()
     errors=platform_problems(auto_packages=False)
@@ -191,6 +199,8 @@ def check(runtime=True):
         errors.append('QEMU needs the SDL3 runtime: install libsdl3-0 from the matching Debian bundle.')
     if not konsole_part_available():
         errors.append('Dolphin terminal component is missing: install Konsole (konsole-part on Fedora, konsole-kpart on Debian).')
+    if not kio_admin_available():
+        errors.append('Administrator file operations are unavailable: install kio-admin.')
     if not any(shutil.which(command) for command in ('deno','node','qjs')):
         errors.append('Install Deno, Node.js or QuickJS for YouTube downloads.')
     result=subprocess.run([sys.executable,'-c',
