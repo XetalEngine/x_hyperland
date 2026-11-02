@@ -9,14 +9,19 @@ available as a separate application.
 
 ## Navigation and layout
 
-This PC has three sections separated by draggable horizontal dividers:
+This PC has up to three sections separated by draggable horizontal dividers:
 mounted internal drives, USB devices, and unmounted internal drives. The upper
-section has one row per physical disk, with its mounted partitions side by side.
+section contains disks with at least one mounted partition. Every section has
+one framed row per physical disk, with all its partitions side by side, largest
+to smallest. A partially mounted disk stays together in the mounted section.
 Long rows scroll horizontally without wrapping. USB devices appear together in
 the middle, whether mounted or unmounted; USB SSDs are recognized by their
 connection type even when their removable flag is unset. The lower section
-keeps unmounted internal volumes in a grid, including unmounted partitions of
-an otherwise mounted disk. Divider positions are remembered. Mounted volumes
+contains wholly unmounted internal drives. Frames use the theme's accent;
+frames and partition cards inherit its shared corner styling without a list
+of theme names. Divider positions are remembered.
+Empty sections and their extra dividers hide automatically and return when
+matching drives appear. Mounted volumes
 show available space; unmounted volumes show
 capacity and filesystem. In the sidebar, mounted volumes appear below This PC;
 the Unmounted drives group sits below Trash. Double-click a volume to open it,

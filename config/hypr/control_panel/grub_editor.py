@@ -37,7 +37,10 @@ VENDORS = {'ubuntu': 'Ubuntu', 'debian': 'Debian', 'fedora': 'Fedora',
            'arch': 'Arch Linux', 'archlinux': 'Arch Linux', 'cachyos': 'CachyOS',
            'opensuse': 'openSUSE', 'manjaro': 'Manjaro', 'linuxmint': 'Linux Mint',
            'endeavouros': 'EndeavourOS', 'systemd': 'Linux Boot Manager'}
-DEVICE_COLUMNS = 'NAME,PATH,TYPE,SIZE,MODEL,SERIAL,WWN,TRAN,FSTYPE,UUID,PARTUUID,PTTYPE,PARTTYPE,MOUNTPOINTS,MAJ:MIN,RO,RM'
+DEVICE_COLUMNS = 'NAME,PATH,TYPE,SIZE,MODEL,SERIAL,WWN,TRAN,FSTYPE,LABEL,UUID,PARTUUID,PTTYPE,PARTTYPE,MOUNTPOINTS,MAJ:MIN,RO,RM'
+LINUX_FS = {'ext2', 'ext3', 'ext4', 'btrfs', 'xfs'}
+RESERVED_PARTITIONS = {'21686148-6449-6e6f-744e-656564454649',  # BIOS boot area
+                       'e3c9e316-0b5c-4db8-817d-f92df00215ae'}  # Microsoft reserved
 
 
 def digest(data):
@@ -73,7 +76,9 @@ def descendants(node):
 
 def inventory():
     data = json.loads(command(['lsblk', '--json', '--bytes', '--paths', '--output', DEVICE_COLUMNS]))
-    return [item for item in data['blockdevices'] if item.get('type') == 'disk' and item.get('size', 0) > 0]
+    # Mount state must never decide whether a physical drive is offered.
+    return sorted((item for item in data['blockdevices']
+                   if item.get('type') == 'disk' and item.get('size', 0) > 0), key=lambda d: d['path'])
 
 
 def drive_token(drive):
@@ -81,10 +86,25 @@ def drive_token(drive):
 
 
 def drive_summary(drive):
+    paths = list(descendants(drive))
+    mounts = sorted({mount for p in paths for mount in p.get('mountpoints') or [] if mount})
+    disk_id = ''
+    for alias in sorted(Path('/dev/disk/by-id').glob('*')):
+        if '-part' in alias.name or alias.name.startswith(('wwn-', 'nvme-eui.')): continue
+        try:
+            if alias.resolve() == Path(drive['path']):
+                disk_id = alias.name; break
+        except OSError: pass
+    volumes = [{key: p.get(key) for key in ('path', 'type', 'size', 'fstype', 'label', 'uuid',
+                                           'partuuid', 'parttype', 'mountpoints', 'ro')}
+               for p in paths if p is not drive or drive.get('fstype')]
     return {'path': drive['path'], 'token': drive_token(drive), 'size': drive['size'],
             'model': (drive.get('model') or Path(drive['path']).name).strip(),
             'connection': drive.get('tran') or '', 'serial': drive.get('serial') or '',
-            'partitions': sum(1 for p in descendants(drive) if p.get('type') == 'part')}
+            'wwn': drive.get('wwn') or '', 'disk_id': disk_id, 'partition_table': drive.get('pttype') or '',
+            'read_only': bool(drive.get('ro')), 'removable': bool(drive.get('rm')),
+            'mountpoints': mounts, 'current_system': '/' in mounts, 'volumes': volumes,
+            'partitions': sum(1 for p in paths if p.get('type') == 'part')}
 
 
 def selected_drive(drives, path, token):
@@ -262,9 +282,9 @@ def detect(root, partition, mode, machine=None):
                 if key != 'linux': break  # Prefer shim to GRUB, one entry per installation.
         if any('/efi/boot/' not in c['loader'].lower() for c in result):
             result = [c for c in result if '/efi/boot/' not in c['loader'].lower()]
-    if mode == 'bios':
+    if partition['fstype'] in LINUX_FS:
         # Delegate Linux kernel selection, root flags and encryption to its own
-        # maintained GRUB menu, including separate /boot and Btrfs @ layouts.
+        # maintained GRUB menu, including UEFI, separate /boot and Btrfs @ layouts.
         prefixes = ('', '@/', '@rootfs/', 'root/') if partition['fstype'] == 'btrfs' else ('',)
         for prefix in prefixes:
             for name in ('boot/grub/grub.cfg', 'grub/grub.cfg', 'boot/grub2/grub.cfg', 'grub2/grub.cfg'):
@@ -279,10 +299,17 @@ def detect(root, partition, mode, machine=None):
                     if match: title = match[1]
                 except (OSError, ValueError): pass
                 item = candidate(partition, 'config', relative, title, data)
+                item['detail'] = 'Opens this installation’s own GRUB menu, which keeps its kernel and root settings.'
+                grub_platform = ('i386-pc' if mode == 'bios' else
+                                 {'aarch64': 'arm64-efi', 'i386': 'i386-efi', 'i686': 'i386-efi'}.get(
+                                     machine or platform.machine().lower(), 'x86_64-efi'))
                 if re.search(rb'^\s*blscfg\b', data, re.M) and not any(
-                        (Path(p)/'i386-pc/blscfg.mod').is_file() for p in ('/usr/lib/grub', '/usr/lib/grub2')):
+                        (Path(p)/grub_platform/'blscfg.mod').is_file() for p in ('/usr/lib/grub', '/usr/lib/grub2')):
                     item.update(available=False, reason='This Linux menu needs a GRUB boot module that is not installed on this computer.')
+                if mode == 'uefi' and re.search(rb'^\s*(linux16|initrd16)\s', data, re.M):
+                    item.update(available=False, reason='This Linux menu uses BIOS-only boot commands. A UEFI bootloader is needed.')
                 result.append(item)
+    if mode == 'bios':
         if partition['fstype'] in ('ntfs', 'ntfs3') and partition.get('pttype') == 'dos':
             files = {p.name.casefold(): p for p in root.iterdir()}
             try:
@@ -333,7 +360,8 @@ def scan_drive(drive, drives, mode, *, inspector=inspect_partition, current=None
     for partition, shared in probes:
         alive()
         if partition.get('fstype') not in READY_FS or not partition.get('uuid'): continue
-        if mode == 'uefi' and partition['fstype'] not in ('fat', 'vfat'): continue
+        if (partition.get('parttype') or '').lower() in RESERVED_PARTITIONS: continue
+        if mode == 'uefi' and partition['fstype'] not in LINUX_FS | {'fat', 'vfat'}: continue
         try:
             with inspector(partition) as root:
                 found = detect(root, partition, mode)
@@ -355,6 +383,9 @@ def scan_drive(drive, drives, mode, *, inspector=inspect_partition, current=None
             if not shared: notes.append(f"{Path(partition['path']).name}: {error}")
     if not candidates:
         notes.insert(0, 'No compatible Windows or Linux bootloader was found on this drive. Locked volumes, missing boot files and unsupported filesystems cannot be added automatically.')
+    # Prefer a named installation over an anonymous removable-media fallback.
+    # Both choices remain visible, with their actual partition and boot file.
+    candidates.sort(key=lambda c: (not c['available'], c['title'] in ('UEFI bootloader', 'Linux')))
     return {'candidates': candidates, 'notes': notes}
 
 
@@ -605,7 +636,7 @@ class Session:
                 emit({'progress': 'Detecting bootloaders on '+drive_summary(drive)['model']+'…'})
                 mode = firmware()
                 scanned = scan_drive(drive, drives, mode, current=current_efi(),
-                                     live_config=current_config(self.store.config) if mode == 'bios' else None,
+                                     live_config=current_config(self.store.config),
                                      alive=client_alive)
                 if action == 'scan': return {**scanned, **self.store.status()}
                 matches = [c for c in scanned['candidates'] if c['id'] == request.get('candidate') and c['available']]

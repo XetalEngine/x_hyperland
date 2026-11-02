@@ -12,6 +12,7 @@ def appearance():
     p = runtime.colors()
     design = runtime.widget_design()
     radius = 3 if design == 'binaryknife' else 8 if design == 'breakpoint' else 10
+    accent_rgb = ','.join(str(int(p['Accent'][i:i+2], 16)) for i in (1, 3, 5))
     style = qt_style(p, design) + runtime.layouts.stylesheet(p, runtime.layout(), runtime.design())
     style += f'''
     QMainWindow, QWidget#filesBody, QTabWidget::pane {{background:{p['Window']}; border:none;}}
@@ -29,11 +30,16 @@ def appearance():
     QTreeView#details::item:selected, QListView#files::item:selected {{background:{p['Highlight']}; color:{p['HighlightedText']};}}
     QHeaderView::section {{background:{p['Window']}; color:{p['Text']}; border:none; border-bottom:1px solid {p['Midlight']}; padding:8px;}}
     QWidget#computerPage {{background:{p['Base']};}}
-    QScrollArea#mountedDrives, QWidget#mountedDriveRows, QWidget#mountedDiskGroup {{background:{p['Base']}; border:none;}}
-    QLabel#computerTitle {{font-size:25px; font-weight:600; padding:8px 2px;}}
+    QScrollArea[driveSection="true"], QWidget#driveRows {{background:{p['Base']}; border:none;}}
+    /* Let the shared QGroupBox style supply the corners for every theme. */
+    QGroupBox[physicalDrive="true"] {{background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 rgba({accent_rgb},36),stop:1 rgba({accent_rgb},12)); border:1px solid rgba({accent_rgb},135); margin:0; padding:0;}}
+    QGroupBox[physicalDrive="true"] QListWidget#driveCards {{background:transparent;}}
+    QGroupBox#drivePartitionCard {{background:{p['AlternateBase']}; border:1px solid {p['Midlight']}; margin:0; padding:0;}}
+    QGroupBox#drivePartitionCard:hover {{border-color:{p['Accent']};}}
+    QGroupBox#drivePartitionCard:selected {{background:{p['Highlight']}; border-color:{p['Accent']};}}
     QLabel#driveSectionTitle {{font-size:14px; font-weight:600; padding:4px 2px;}}
-    QLabel#driveRowTitle {{font-weight:600; padding:4px 6px 0 6px;}}
-    QLabel#driveRowDescription {{color:{p['PlaceholderText']}; padding:0 6px;}}
+    QLabel#driveRowTitle {{font-weight:600; padding:0;}}
+    QLabel#driveRowDescription {{color:{p['PlaceholderText']}; padding:0;}}
     QLabel#muted {{color:{p['PlaceholderText']};}}
     QLineEdit#folderFilter {{min-width:120px; max-width:220px; padding:7px 10px;}}
     QFrame#addressRow {{background:{p['Window']}; border-bottom:1px solid {p['Midlight']};}}

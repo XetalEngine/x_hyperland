@@ -43,6 +43,53 @@ class Fixtures(unittest.TestCase):
 
 
 class DiscoveryTests(Fixtures):
+    def test_inventory_includes_unmounted_drives_and_partition_properties(self):
+        mounted = disk({**part(), 'mountpoints': ['/'], 'size': 10**9, 'label': 'System'})
+        other = {**disk({**part('/dev/other1', 'ext4', '1234-5678'),
+                        'mountpoints': [], 'size': 2*10**9, 'label': 'Other Linux'}),
+                 'path': '/dev/other', 'size': 2*10**12}
+        with patch.object(grub, 'command', return_value=json.dumps({'blockdevices': [other, mounted,
+                {'path': '/dev/loop0', 'type': 'loop', 'size': 1024}]}).encode()):
+            found = grub.inventory()
+        self.assertEqual({d['path'] for d in found}, {'/dev/fixture', '/dev/other'})
+        summary = grub.drive_summary(other)
+        self.assertEqual(summary['mountpoints'], [])
+        self.assertFalse(summary['current_system'])
+        self.assertEqual(summary['volumes'][0]['label'], 'Other Linux')
+        self.assertEqual(summary['volumes'][0]['fstype'], 'ext4')
+        self.assertEqual(summary['volumes'][0]['uuid'], '1234-5678')
+        self.assertTrue(grub.drive_summary(mounted)['current_system'])
+
+    def test_uefi_arch_on_unmounted_linux_partition_is_detected(self):
+        self.file('boot/grub/grub.cfg', "menuentry 'Arch' { linux /boot/vmlinuz-linux root=UUID=1234-5678; }\n")
+        self.file('etc/os-release', 'PRETTY_NAME="Arch Linux"\n')
+        partition = {**part(fs='ext4', uuid='1234-5678'), 'mountpoints': []}
+        drive = disk(partition)
+        @contextmanager
+        def inspect(p):
+            self.assertEqual(p['path'], partition['path']); yield self.root
+        result = grub.scan_drive(drive, [drive], 'uefi', inspector=inspect)
+        self.assertEqual(len(result['candidates']), 1)
+        item = result['candidates'][0]
+        self.assertEqual((item['title'], item['kind'], item['loader']),
+                         ('Arch Linux', 'config', '/boot/grub/grub.cfg'))
+        self.assertTrue(item['available'])
+        current = grub.scan_drive(drive, [drive], 'uefi', inspector=inspect,
+                                  live_config=(partition['uuid'], item['loader']))
+        self.assertFalse(current['candidates'][0]['available'])
+
+    def test_reserved_partition_with_stale_fat_signature_is_not_a_boot_choice(self):
+        self.file('EFI/debian/shimx64.efi', pe())
+        partition = {**part(), 'parttype': '21686148-6449-6e6f-744e-656564454649'}
+        drive = disk(partition)
+        def inspect(_): self.fail('A reserved BIOS area must not be mounted as a filesystem')
+        self.assertEqual(grub.scan_drive(drive, [drive], 'uefi', inspector=inspect)['candidates'], [])
+
+    def test_uefi_linux_menu_rejects_bios_only_boot_commands(self):
+        self.file('boot/grub/grub.cfg', "menuentry 'Linux' {\n linux16 /vmlinuz\n}\n")
+        item = grub.detect(self.root, part(fs='ext4'), 'uefi')[0]
+        self.assertFalse(item['available']); self.assertIn('BIOS-only', item['reason'])
+
     def test_windows_and_linux_detected_without_partition_input(self):
         self.file('EFI/Microsoft/Boot/bootmgfw.efi',pe())
         self.file('EFI/ubuntu/shimx64.efi',pe())

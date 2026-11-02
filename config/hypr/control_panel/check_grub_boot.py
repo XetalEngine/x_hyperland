@@ -75,7 +75,7 @@ def main():
              ['-drive',f'if=pflash,format=raw,readonly=on,file={ovmf}','-drive',f'if=pflash,format=raw,file={variables}'])
         # BIOS: load an independent Linux GRUB menu on another filesystem.
         tree=root/'linux';(tree/'boot/grub').mkdir(parents=True)
-        (tree/'boot/grub/grub.cfg').write_text(SERIAL+'echo FUSION_BIOS_LINUX_REACHED\nhalt\n')
+        (tree/'boot/grub/grub.cfg').write_text(SERIAL+'echo FUSION_LINUX_MENU_REACHED\nhalt\n')
         linux=root/'linux.img'
         with linux.open('wb') as stream:stream.truncate(64*1024*1024)
         fs_uuid='12121212-3434-5656-7878-909090909090'
@@ -83,10 +83,18 @@ def main():
         iso_root=root/'cd';(iso_root/'boot/grub').mkdir(parents=True)
         item.update(kind='config',uuid=fs_uuid,loader='/boot/grub/grub.cfg',filesystem='ext4',name='My Linux drive')
         item['id']=grub.entry_id(item)
+        # The same independent Linux menu must also load from the UEFI editor.
+        start.write_text(SERIAL+'set default=0\nset timeout=0\n'+grub.render_entry(item))
+        run('grub-mkstandalone','-O','x86_64-efi','-o',first,'boot/grub/grub.cfg='+str(start))
+        run('mcopy','-o','-i',fat,first,'::/EFI/BOOT/BOOTX64.EFI')
+        shutil.copyfile(vars_source,variables)
+        boot(root,'UEFI Linux menu',['-drive',f'file={fat},format=raw','-drive',f'file={linux},format=raw'],
+             'FUSION_LINUX_MENU_REACHED',
+             ['-drive',f'if=pflash,format=raw,readonly=on,file={ovmf}','-drive',f'if=pflash,format=raw,file={variables}'])
         (iso_root/'boot/grub/grub.cfg').write_text(SERIAL+'set default=0\nset timeout=0\n'+grub.render_entry(item))
         iso=root/'start.iso';run('grub-mkrescue','-d','/usr/lib/grub/i386-pc','-o',iso,iso_root)
         bios=next((Path(p) for p in ('/usr/share/qemu/bios-256k.bin','/usr/share/seabios/bios.bin') if Path(p).is_file()),None)
-        boot(root,'BIOS Linux menu',['-cdrom',str(iso),'-boot','d','-drive',f'file={linux},format=raw'], 'FUSION_BIOS_LINUX_REACHED',
+        boot(root,'BIOS Linux menu',['-cdrom',str(iso),'-boot','d','-drive',f'file={linux},format=raw'], 'FUSION_LINUX_MENU_REACHED',
              ['-bios',str(bios)] if bios else [], qemu=shutil.which('qemu-system-i386'))
 
 

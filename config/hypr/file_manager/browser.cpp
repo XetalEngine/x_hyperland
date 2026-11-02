@@ -90,74 +90,44 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
   computer->setObjectName("computerPage");
   auto *homeLayout = new QVBoxLayout(computer);
   homeLayout->setContentsMargins(24, 18, 20, 16);
-  auto *title = new QLabel("This PC");
-  title->setObjectName("computerTitle");
-  homeLayout->addWidget(title);
   driveSplitter = new QSplitter(Qt::Vertical);
   driveSplitter->setObjectName("driveSections");
   driveSplitter->setChildrenCollapsible(false);
   driveSplitter->setHandleWidth(9);
-  auto *mountedPanel = new QWidget;
-  mountedPanel->setMinimumHeight(145);
-  auto *mountedPanelLayout = new QVBoxLayout(mountedPanel);
-  mountedPanelLayout->setContentsMargins(0, 0, 0, 9);
-  auto *mountedTitle = new QLabel("Mounted drives");
-  mountedTitle->setObjectName("driveSectionTitle");
-  mountedPanelLayout->addWidget(mountedTitle);
-  mountedScroll = new QScrollArea;
-  mountedScroll->setObjectName("mountedDrives");
-  mountedScroll->setWidgetResizable(true);
-  mountedScroll->setFrameShape(QFrame::NoFrame);
-  mountedScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-  auto *mountedBody = new QWidget;
-  mountedBody->setObjectName("mountedDriveRows");
-  mountedLayout = new QVBoxLayout(mountedBody);
-  mountedLayout->setContentsMargins(0, 0, 0, 0);
-  mountedLayout->setSpacing(14);
-  mountedEmpty = new QLabel("No mounted internal drives.");
-  mountedEmpty->setObjectName("muted");
-  mountedLayout->addWidget(mountedEmpty);
-  mountedLayout->addStretch();
-  mountedScroll->setWidget(mountedBody);
-  mountedPanelLayout->addWidget(mountedScroll, 1);
-  driveSplitter->addWidget(mountedPanel);
-  auto *usbPanel = new QWidget;
-  usbPanel->setObjectName("usbDrivePanel");
-  usbPanel->setMinimumHeight(95);
-  auto *usbLayout = new QVBoxLayout(usbPanel);
-  usbLayout->setContentsMargins(0, 9, 0, 9);
-  auto *usbTitle = new QLabel("USB devices");
-  usbTitle->setObjectName("driveSectionTitle");
-  usbLayout->addWidget(usbTitle);
-  usbEmpty = new QLabel("No USB devices connected.");
-  usbEmpty->setObjectName("muted");
-  usbLayout->addWidget(usbEmpty);
-  usbCards = new QListWidget;
-  configureCards(usbCards);
-  usbLayout->addWidget(usbCards, 1);
-  driveSplitter->addWidget(usbPanel);
-  auto *unmountedPanel = new QWidget;
-  unmountedPanel->setMinimumHeight(175);
-  auto *unmountedLayout = new QVBoxLayout(unmountedPanel);
-  unmountedLayout->setContentsMargins(0, 12, 0, 0);
-  auto *unmountedTitle = new QLabel("Unmounted drives");
-  unmountedTitle->setObjectName("driveSectionTitle");
-  unmountedLayout->addWidget(unmountedTitle);
-  unmountedEmpty = new QLabel("No unmounted internal drives.");
-  unmountedEmpty->setObjectName("muted");
-  unmountedLayout->addWidget(unmountedEmpty);
-  cards = new QListWidget;
-  configureCards(cards);
-  unmountedLayout->addWidget(cards, 1);
-  driveSplitter->addWidget(unmountedPanel);
+  auto addSection = [this](DriveSection &section, const QString &title,
+                            const QString &id, int minimum) {
+    auto *panel = new QWidget;
+    panel->setMinimumHeight(minimum);
+    auto *layout = new QVBoxLayout(panel);
+    layout->setContentsMargins(0, 5, 0, 5);
+    auto *heading = new QLabel(title);
+    heading->setObjectName("driveSectionTitle");
+    layout->addWidget(heading);
+    section.scroll = new QScrollArea;
+    section.scroll->setObjectName(id);
+    section.scroll->setProperty("driveSection", true);
+    section.scroll->setWidgetResizable(true);
+    section.scroll->setFrameShape(QFrame::NoFrame);
+    section.scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    auto *body = new QWidget;
+    body->setObjectName("driveRows");
+    section.layout = new QVBoxLayout(body);
+    section.layout->setContentsMargins(0, 0, 4, 0);
+    section.layout->setSpacing(12);
+    section.layout->addStretch();
+    section.scroll->setWidget(body);
+    layout->addWidget(section.scroll, 1);
+    driveSplitter->addWidget(panel);
+  };
+  addSection(mountedSection, "Mounted drives", "mountedDrives", 145);
+  addSection(usbSection, "USB devices", "usbDrives", 175);
+  addSection(unmountedSection, "Unmounted drives", "unmountedDrives", 175);
   driveSplitter->setStretchFactor(0, 0);
   driveSplitter->setStretchFactor(1, 0);
   driveSplitter->setStretchFactor(2, 1);
   driveSplitter->setSizes({235, 155, 250});
-  driveSplitter->handle(1)->setToolTip(
-      "Drag to resize mounted drives and USB devices");
-  driveSplitter->handle(2)->setToolTip(
-      "Drag to resize USB devices and unmounted drives");
+  for (int i = 1; i < driveSplitter->count(); ++i)
+    driveSplitter->handle(i)->setToolTip("Drag to resize drive sections");
   if (preferences->settings.contains("computerSections")) {
     driveLayoutReady = driveSplitter->restoreState(
         preferences->settings.value("computerSections").toByteArray());
@@ -168,6 +138,10 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
                                    driveSplitter->saveState());
   });
   homeLayout->addWidget(driveSplitter, 1);
+  emptyDrives = new QLabel("No drives detected.");
+  emptyDrives->setObjectName("emptyDrives");
+  emptyDrives->setProperty("muted", true);
+  homeLayout->addWidget(emptyDrives, 1, Qt::AlignTop);
   auto *hint = new QLabel(
       "Double-click a drive to open it. Right-click for mount options.");
   hint->setObjectName("muted");
@@ -486,28 +460,59 @@ void Browser::configureCards(QListWidget *list) {
 }
 void Browser::updateCards() {
   const QString selected = selectedVolume().device;
-  const int mountedPosition = mountedScroll->verticalScrollBar()->value();
+  // Classify physical drives, not individual partitions: a partially mounted
+  // disk belongs in one row with all its partitions. USB devices stay together.
   QMap<QString, QList<Volume>> groups;
   QStringList order;
-  QList<Volume> unmounted, usb;
-  for (const auto &volume : drives->volumes)
-    if (volume.usb())
-      usb << volume;
-    else if (volume.mounted()) {
-      const QString key = volume.driveKey();
-      if (!groups.contains(key))
-        order << key;
-      groups[key] << volume;
-    } else
-      unmounted << volume;
-  for (const auto &key : mountedGroups.keys())
-    if (!groups.contains(key)) {
-      auto *group = mountedGroups.take(key);
-      auto *list = group->findChild<QListWidget *>();
-      driveLists.removeAll(list);
-      mountedLayout->removeWidget(group);
-      delete group;
+  for (const auto &volume : drives->volumes) {
+    const QString key = volume.driveKey();
+    if (!groups.contains(key))
+      order << key;
+    groups[key] << volume;
+  }
+  QMap<QString, DriveSection *> sections;
+  for (auto it = groups.begin(); it != groups.end(); ++it) {
+    auto &volumes = it.value();
+    const bool usb = std::any_of(volumes.cbegin(), volumes.cend(),
+                                [](const Volume &v) { return v.usb(); });
+    const bool mounted = std::any_of(volumes.cbegin(), volumes.cend(),
+                                    [](const Volume &v) { return v.mounted(); });
+    sections[it.key()] = usb ? &usbSection
+                            : mounted ? &mountedSection : &unmountedSection;
+    std::stable_sort(volumes.begin(), volumes.end(),
+                     [](const Volume &a, const Volume &b) {
+                       if (a.size != b.size)
+                         return a.size > b.size;
+                       return a.device < b.device;
+                     });
+  }
+  QMap<DriveSection *, int> positions, rowIndices;
+  QPointer<QWidget> rowFocus;
+  for (auto *section : {&mountedSection, &usbSection, &unmountedSection})
+    positions[section] = section->scroll->verticalScrollBar()->value();
+  for (auto *section : {&mountedSection, &usbSection, &unmountedSection}) {
+    for (const auto &key : section->groups.keys()) {
+      if (sections.value(key) == section)
+        continue;
+      auto *group = section->groups.take(key);
+      section->layout->removeWidget(group);
+      if (auto *destination = sections.value(key)) {
+        // Reparent an existing row when the drive mounts/unmounts. Selection,
+        // keyboard focus and the row's horizontal position stay intact.
+        const QPointer<QWidget> focused = QApplication::focusWidget();
+        const bool restoreFocus = focused && group->isAncestorOf(focused);
+        group->setParent(destination->scroll->widget());
+        destination->groups.insert(key, group);
+        destination->layout->insertWidget(0, group);
+        group->show();
+        if (restoreFocus)
+          rowFocus = focused;
+      } else {
+        driveLists.removeAll(group->findChild<QListWidget *>());
+        delete group;
+      }
     }
+  }
   auto populate = [&](QListWidget *list, const QList<Volume> &volumes) {
     const int vertical = list->verticalScrollBar()->value();
     const int horizontal = list->horizontalScrollBar()->value();
@@ -541,17 +546,28 @@ void Browser::updateCards() {
     list->verticalScrollBar()->setValue(vertical);
     list->horizontalScrollBar()->setValue(horizontal);
   };
-  for (int i = 0; i < order.size(); ++i) {
-    const auto &key = order[i];
+  for (const auto &key : order) {
+    auto *section = sections[key];
     const auto &volumes = groups[key];
-    QWidget *group = mountedGroups.value(key);
+    QGroupBox *group = section->groups.value(key);
     if (!group) {
-      group = new QWidget;
-      group->setObjectName("mountedDiskGroup");
+      // QGroupBox inherits the active theme's shape, including square corners.
+      group = new QGroupBox;
+      group->setObjectName("physicalDriveGroup");
       group->setProperty("driveKey", key);
+      group->setProperty("physicalDrive", true);
+      group->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
       auto *layout = new QVBoxLayout(group);
-      layout->setContentsMargins(0, 0, 0, 0);
-      layout->setSpacing(3);
+      layout->setContentsMargins(10, 10, 10, 4);
+      layout->setSpacing(5);
+      auto *header = new QHBoxLayout;
+      header->setContentsMargins(6, 0, 6, 0);
+      auto *art = new QLabel;
+      art->setObjectName("driveRowIcon");
+      art->setFixedSize(32, 32);
+      header->addWidget(art);
+      auto *identity = new QVBoxLayout;
+      identity->setSpacing(2);
       auto *heading = new QLabel;
       heading->setObjectName("driveRowTitle");
       heading->setTextFormat(Qt::PlainText);
@@ -560,53 +576,60 @@ void Browser::updateCards() {
       description->setObjectName("driveRowDescription");
       description->setTextFormat(Qt::PlainText);
       description->setWordWrap(true);
-      layout->addWidget(heading);
-      layout->addWidget(description);
+      identity->addWidget(heading);
+      identity->addWidget(description);
+      header->addLayout(identity, 1);
+      layout->addLayout(header);
       auto *list = new QListWidget;
       configureCards(list);
       list->setProperty("driveKey", key);
       list->setWrapping(false);
       list->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-      list->setFixedHeight(140);
+      list->setFixedHeight(136);
       layout->addWidget(list);
-      mountedGroups.insert(key, group);
+      section->groups.insert(key, group);
     }
-    mountedLayout->insertWidget(i, group);
+    section->layout->insertWidget(rowIndices[section]++, group);
     const auto &disk = volumes.first();
+    group->findChild<QLabel *>("driveRowIcon")->setPixmap(
+        Fusion::icon(section == &usbSection ? "drive-removable-media-usb"
+                                            : "drive-harddisk").pixmap(32, 32));
     group->findChild<QLabel *>("driveRowTitle")
         ->setText(disk.driveModel.isEmpty() ? QFileInfo(key).fileName()
-                                            : disk.driveModel);
+                                          : disk.driveModel);
     QStringList description{key};
     if (disk.driveSize)
       description << QLocale().formattedDataSize(disk.driveSize);
-    description << QString("%1 mounted %2")
+    const int mounted = std::count_if(volumes.cbegin(), volumes.cend(),
+                                      [](const Volume &v) { return v.mounted(); });
+    description << QString("%1 %2 · %3 mounted")
                        .arg(volumes.size())
-                       .arg(volumes.size() == 1 ? "partition" : "partitions");
+                       .arg(volumes.size() == 1 ? "volume" : "partitions")
+                       .arg(mounted);
     group->findChild<QLabel *>("driveRowDescription")
         ->setText(description.join(" · "));
     populate(group->findChild<QListWidget *>(), volumes);
   }
-  populate(cards, unmounted);
-  std::stable_sort(usb.begin(), usb.end(),
-                   [](const Volume &a, const Volume &b) {
-                     return a.mounted() && !b.mounted();
-                   });
-  populate(usbCards, usb);
-  mountedEmpty->setVisible(groups.isEmpty());
-  unmountedEmpty->setVisible(unmounted.isEmpty());
-  usbEmpty->setVisible(usb.isEmpty());
-  usbCards->parentWidget()->setMinimumHeight(usb.isEmpty() ? 95 : 175);
-  mountedScroll->verticalScrollBar()->setValue(mountedPosition);
+  for (auto *section : {&mountedSection, &usbSection, &unmountedSection}) {
+    // QSplitter also hides the adjacent handle and redistributes its space.
+    section->scroll->parentWidget()->setVisible(!section->groups.isEmpty());
+    section->scroll->verticalScrollBar()->setValue(positions[section]);
+  }
+  driveSplitter->setVisible(!groups.isEmpty());
+  emptyDrives->setVisible(groups.isEmpty());
+  if (rowFocus)
+    rowFocus->setFocus(Qt::OtherFocusReason);
   if (!driveLayoutReady && !drives->volumes.isEmpty()) {
     driveLayoutReady = true;
     QTimer::singleShot(0, this, [this] {
       const int available = driveSplitter->height();
-      const int wanted =
-          mountedGroups.isEmpty() ? 145 : mountedGroups.size() * 190 + 38;
-      const int top = qMin(wanted, qMax(145, int(available * .5)));
-      const int middle = usbCards->count() ? 170 : 95;
+      const int wanted = mountedSection.groups.size() * 215 + 38;
+      const int top = mountedSection.groups.isEmpty()
+                          ? 0 : qMin(wanted, qMax(145, int(available * .5)));
+      const int middle = usbSection.groups.isEmpty() ? 0 : 225;
       driveSplitter->setSizes(
-          {top, middle, qMax(145, available - top - middle)});
+          {top, middle, unmountedSection.groups.isEmpty()
+                            ? 0 : qMax(175, available - top - middle)});
     });
   }
   if (Fusion::isComputer(location()))

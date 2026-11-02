@@ -306,23 +306,28 @@ void Drives::showProperties(const Volume &volume, QWidget *parent) {
   dialog->setAttribute(Qt::WA_DeleteOnClose);
   dialog->show();
 }
+DriveDelegate::DriveDelegate(QWidget *parent) : QStyledItemDelegate(parent) {
+  // Paint with a real themed widget, so the shared theme owns card geometry.
+  // New themes (or live theme changes) need no special cases in the delegate.
+  cardStyle = new QGroupBox(parent);
+  cardStyle->setObjectName("drivePartitionCard");
+  cardStyle->hide();
+}
 void DriveDelegate::paint(QPainter *p, const QStyleOptionViewItem &o,
                           const QModelIndex &index) const {
   const auto volume = index.data(Qt::UserRole).value<Volume>();
   p->save();
   p->setRenderHint(QPainter::Antialiasing);
   QRect box = o.rect.adjusted(5, 5, -5, -5);
-  const bool selected = o.state & QStyle::State_Selected,
-             hover = o.state & QStyle::State_MouseOver;
-  QColor background =
-      o.palette.color(selected ? QPalette::Highlight : QPalette::AlternateBase);
-  if (hover && !selected)
-    background = background.lighter(110);
-  p->setPen(QPen(selected ? o.palette.color(QPalette::Highlight)
-                          : o.palette.color(QPalette::Midlight),
-                 1));
-  p->setBrush(background);
-  p->drawRoundedRect(box, 9, 9);
+  const bool selected = o.state & QStyle::State_Selected;
+  cardStyle->ensurePolished();
+  QStyleOptionGroupBox frame;
+  frame.initFrom(cardStyle);
+  frame.rect = box;
+  frame.state = o.state;
+  frame.subControls = QStyle::SC_GroupBoxFrame;
+  frame.lineWidth = 1;
+  cardStyle->style()->drawComplexControl(QStyle::CC_GroupBox, &frame, p, cardStyle);
   Fusion::icon(volume.usb() ? "drive-removable-media-usb" : "drive-harddisk")
       .paint(p, box.adjusted(14, 20, 0, 0).topLeft().x(), box.y() + 22, 54, 54);
   const QColor text =

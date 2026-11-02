@@ -51,6 +51,15 @@ class FileTests : public QObject {
     QTest::mouseClick(tab->view()->viewport(), Qt::LeftButton, modifiers,
                       tab->view()->visualRect(index).center());
   }
+  static QListWidget *driveRow(Browser *tab, const QString &key) {
+    for (auto *row : tab->findChildren<QListWidget *>("driveCards"))
+      if (row->property("driveKey").toString() == key)
+        return row;
+    return nullptr;
+  }
+  static QList<QGroupBox *> driveGroups(Browser *tab, const QString &section) {
+    return tab->findChild<QScrollArea *>(section)->findChildren<QGroupBox *>("physicalDriveGroup");
+  }
   static QList<Volume> computerVolumes() {
     auto volumes = Drives::parse(R"({"blockdevices":[
       {"path":"/dev/fusion-a","name":"fusion-a","type":"disk","model":"Fusion NVMe","tran":"nvme","size":1000000000000,"children":[
@@ -295,21 +304,22 @@ private slots:
     emit window.drives->changed();
     auto *tab = window.browser();
     auto group = [tab](const QString &key) -> QWidget * {
-      for (auto *widget : tab->findChildren<QWidget *>("mountedDiskGroup"))
+      for (auto *widget : driveGroups(tab, "mountedDrives"))
         if (widget->property("driveKey").toString() == key)
           return widget;
       return nullptr;
     };
     QTRY_VERIFY(group("/dev/fusion-a"));
-    QCOMPARE(tab->findChildren<QWidget *>("mountedDiskGroup").size(), 2);
+    QCOMPARE(driveGroups(tab, "mountedDrives").size(), 2);
     auto *row = group("/dev/fusion-a")->findChild<QListWidget *>();
-    QCOMPARE(row->count(), 2);
+    QCOMPARE(row->count(), 3);
     QVERIFY(!row->isWrapping());
-    QCOMPARE(tab->cards->count(), 1);
-    QCOMPARE(tab->usbCards->count(), 2);
-    for (int i = 0; i < tab->cards->count(); ++i)
-      QVERIFY(
-          !tab->cards->item(i)->data(Qt::UserRole).value<Volume>().mounted());
+    QCOMPARE(row->item(0)->data(Qt::UserRole).value<Volume>().device, QString("/dev/fusion-a2"));
+    QCOMPARE(row->item(1)->data(Qt::UserRole).value<Volume>().device, QString("/dev/fusion-a3"));
+    QCOMPARE(row->item(2)->data(Qt::UserRole).value<Volume>().device, QString("/dev/fusion-a1"));
+    QVERIFY(!row->item(1)->data(Qt::UserRole).value<Volume>().mounted());
+    QVERIFY(driveGroups(tab, "unmountedDrives").isEmpty());
+    QCOMPARE(driveRow(tab, "/dev/fusion-c")->count(), 2);
     auto *places = window.findChild<QTreeWidget *>("places");
     auto sidebar = [places](const QString &name) -> QTreeWidgetItem * {
       for (int i = 0; i < places->topLevelItemCount(); ++i)
@@ -377,20 +387,26 @@ private slots:
         volume.mount = "/media/Windows";
     emit window.drives->changed();
     QCOMPARE(row->count(), 3);
-    QCOMPARE(tab->cards->count(), 0);
+    QVERIFY(driveGroups(tab, "unmountedDrives").isEmpty());
     QCOMPARE(sidebar("This PC")->childCount(), 5);
+    window.activateWindow();
+    row->setFocus();
+    QTRY_VERIFY(row->hasFocus());
     for (auto &volume : window.drives->volumes)
       if (volume.driveKey() == "/dev/fusion-a")
         volume.mount.clear();
     emit window.drives->changed();
     QVERIFY(!group("/dev/fusion-a"));
-    QCOMPARE(tab->cards->count(), 3);
+    QCOMPARE(driveGroups(tab, "unmountedDrives").size(), 1);
+    QCOMPARE(driveRow(tab, "/dev/fusion-a"), row);
+    QCOMPARE(row->count(), 3);
+    QTRY_VERIFY(row->hasFocus());
     QCOMPARE(sidebar("This PC")->childCount(), 2);
     window.drives->volumes.clear();
     emit window.drives->changed();
-    QCOMPARE(tab->findChildren<QWidget *>("mountedDiskGroup").size(), 0);
-    QCOMPARE(tab->cards->count(), 0);
-    QCOMPARE(tab->usbCards->count(), 0);
+    QCOMPARE(driveGroups(tab, "mountedDrives").size(), 0);
+    QVERIFY(driveGroups(tab, "unmountedDrives").isEmpty());
+    QVERIFY(driveGroups(tab, "usbDrives").isEmpty());
     QVERIFY(!sidebar("Unmounted drives"));
     window.close();
   }
@@ -439,6 +455,64 @@ private slots:
     QVERIFY(sections(reopened).value("Quick access")->isExpanded());
     QVERIFY(!sections(reopened).value("This PC")->isExpanded());
     QVERIFY(!sections(reopened).value("Unmounted drives")->isExpanded());
+  }
+  void unmountedDriveRowsAndThemeShapes() {
+    Fusion::Preferences preferences(temporary.path() + "/physical-rows.ini");
+    Drives drives(nullptr, false);
+    Browser tab(&preferences, &drives);
+    tab.resize(1000, 1000);
+    tab.navigate(Fusion::computerUrl());
+    tab.show();
+    drives.volumes = computerVolumes();
+    drives.volumes.append(Drives::parse(R"({"blockdevices":[
+      {"path":"/dev/fusion-d","type":"disk","model":"Archive SSD","size":1000000000000,"children":[
+        {"path":"/dev/fusion-d1","type":"part","fstype":"vfat","size":512000000},
+        {"path":"/dev/fusion-d2","type":"part","fstype":"ext4","size":900000000000},
+        {"path":"/dev/fusion-d3","type":"part","fstype":"swap","size":8000000000}]},
+      {"path":"/dev/fusion-e","type":"disk","model":"Empty disk","size":2000000000000}
+    ]})"));
+    emit drives.changed();
+    QCOMPARE(driveGroups(&tab, "unmountedDrives").size(), 2);
+    auto *row = driveRow(&tab, "/dev/fusion-d");
+    QVERIFY(row);
+    QCOMPARE(row->count(), 3);
+    const QStringList expected{"/dev/fusion-d2", "/dev/fusion-d3", "/dev/fusion-d1"};
+    for (int i = 0; i < expected.size(); ++i) {
+      QCOMPARE(row->item(i)->data(Qt::UserRole).value<Volume>().device, expected[i]);
+      QTRY_COMPARE(row->visualItemRect(row->item(i)).y(), row->visualItemRect(row->item(0)).y());
+    }
+    QCOMPARE(driveRow(&tab, "/dev/fusion-e")->count(), 1);
+    auto *frame = qobject_cast<QGroupBox *>(row->parentWidget());
+    QVERIFY(frame);
+    auto theme = [&](int radius) {
+      // A new theme can supply any shape. Neither the disk frame nor its
+      // painted partition cards should need a theme-name special case.
+      tab.setStyleSheet(QString("QWidget {background:#101010;} QLabel {background:transparent;} "
+                               "QGroupBox {background:#345678; border:1px solid #44ddcc; border-radius:%1px; margin:0; padding:0;}")
+                           .arg(radius));
+      QApplication::processEvents();
+    };
+    theme(0);
+    const auto square = tab.grab().toImage();
+    const auto squareCard = row->viewport()->grab().toImage();
+    theme(24);
+    const auto rounded = tab.grab().toImage();
+    const auto roundedCard = row->viewport()->grab().toImage();
+    const auto frameCorner = frame->mapTo(&tab, QPoint(3, 3));
+    QVERIFY(square.pixelColor(frameCorner) != rounded.pixelColor(frameCorner));
+    const auto corner = row->visualItemRect(row->item(0)).topLeft() + QPoint(7, 7);
+    QVERIFY(squareCard.pixelColor(corner) != roundedCard.pixelColor(corner));
+    tab.resize(700, 1000);
+    QTRY_VERIFY(row->horizontalScrollBar()->maximum() > 0);
+    row->setCurrentRow(0);
+    row->horizontalScrollBar()->setValue(90);
+    std::reverse(drives.volumes.begin(), drives.volumes.end());
+    emit drives.changed();
+    QCOMPARE(driveRow(&tab, "/dev/fusion-d"), row);
+    QCOMPARE(tab.selectedVolume().device, expected.first());
+    QCOMPARE(row->horizontalScrollBar()->value(), 90);
+    for (int i = 0; i < expected.size(); ++i)
+      QCOMPARE(row->item(i)->data(Qt::UserRole).value<Volume>().device, expected[i]);
   }
   void propertiesOpenSystemCleaner() {
     const auto originalRoot = qgetenv("XETAL_FILES_ROOT");
@@ -550,15 +624,17 @@ private slots:
     QTest::keyClick(tab->view(), Qt::Key_C, Qt::ControlModifier);
     QCOMPARE(QApplication::clipboard()->mimeData()->urls().size(), 1);
     window.openLocation(Fusion::computerUrl());
-    QCOMPARE(tab->usbCards->count(), 1);
+    auto *usbRow = driveRow(tab, usb.driveKey());
+    QVERIFY(usbRow);
+    QCOMPARE(usbRow->count(), 1);
     auto selectDrive = [&] {
-      tab->usbCards->setCurrentRow(0);
+      usbRow->setCurrentRow(0);
       window.activateWindow();
-      tab->usbCards->setFocus();
+      usbRow->setFocus();
       QTest::qWait(30);
     };
     selectDrive();
-    QTest::keyClick(tab->usbCards, Qt::Key_V, Qt::ControlModifier);
+    QTest::keyClick(usbRow, Qt::Key_V, Qt::ControlModifier);
     QTRY_VERIFY_WITH_TIMEOUT(
         QFileInfo::exists(destination + "/copy # 100%.txt"), 10000);
     QVERIFY(QFileInfo::exists(source + "/copy # 100%.txt"));
@@ -569,11 +645,11 @@ private slots:
     QTest::keyClick(tab->view(), Qt::Key_X, Qt::ControlModifier);
     window.openLocation(Fusion::computerUrl());
     selectDrive();
-    QTest::keyClick(tab->usbCards, Qt::Key_V, Qt::ControlModifier);
+    QTest::keyClick(usbRow, Qt::Key_V, Qt::ControlModifier);
     QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(destination + "/move.txt"),
                              10000);
     QTRY_VERIFY(!QFileInfo::exists(source + "/move.txt"));
-    QTest::keyClick(tab->usbCards, Qt::Key_C, Qt::ControlModifier);
+    QTest::keyClick(usbRow, Qt::Key_C, Qt::ControlModifier);
     QCOMPARE(QApplication::clipboard()->mimeData()->urls(),
              QList<QUrl>{QUrl::fromLocalFile(destination)});
     auto *data = new QMimeData;
@@ -607,7 +683,7 @@ private slots:
     window.drives->volumes[0].mount.clear();
     emit window.drives->changed();
     selectDrive();
-    QTest::keyClick(tab->usbCards, Qt::Key_V, Qt::ControlModifier);
+    QTest::keyClick(usbRow, Qt::Key_V, Qt::ControlModifier);
     QTest::qWait(100);
     QVERIFY(!QFileInfo::exists(destination + "/disconnected.txt"));
     QVERIFY(window.drives->mountedLocation(usb).isEmpty());
@@ -778,7 +854,7 @@ private slots:
     focus(tab);
     QTest::keyClick(tab->view(), Qt::Key_T, Qt::ControlModifier);
     QCOMPARE(window.findChild<QTabWidget *>()->count(), 2);
-    QTest::keyClick(window.browser()->cards, Qt::Key_W, Qt::ControlModifier);
+    QTest::keyClick(window.browser(), Qt::Key_W, Qt::ControlModifier);
     QCOMPARE(window.findChild<QTabWidget *>()->count(), 1);
     QVERIFY(finished.count() >= 3);
     window.close();

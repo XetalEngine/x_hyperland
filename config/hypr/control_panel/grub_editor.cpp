@@ -13,7 +13,16 @@ QLabel *label(const QString &text, QWidget *parent, const char *name = "") {
   return value;
 }
 QString capacity(double size) {
-  return QString::number(size / (size >= 1e12 ? 1e12 : 1e9), 'f', 1) + (size >= 1e12 ? " TB" : " GB");
+  return QLocale().formattedDataSize(qint64(size), 1, QLocale::DataSizeIecFormat);
+}
+QString mountPoints(const QJsonValue &value) {
+  QStringList points;
+  for (const auto &point : value.toArray()) if (!point.toString().isEmpty()) points << point.toString();
+  return points.join(", ");
+}
+QString driveStatus(const QJsonObject &drive) {
+  if (drive["current_system"].toBool()) return "Current system";
+  return mountPoints(drive["mountpoints"]).isEmpty() ? "Not mounted" : "Mounted";
 }
 QJsonObject itemData(QListWidget *list) {
   return list->currentItem() ? list->currentItem()->data(Qt::UserRole).toJsonObject() : QJsonObject();
@@ -23,6 +32,7 @@ QJsonObject itemData(QListWidget *list) {
 GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent), helper(helper) {
   setObjectName("grubEditorTab");
   auto *layout = new QVBoxLayout(this);
+  layout->setSizeConstraint(QLayout::SetMinimumSize);
   layout->setSpacing(14);
   auto *heading = new QHBoxLayout;
   heading->addWidget(label("GRUB Boot Editor", this, "panelTitle"), 1);
@@ -30,21 +40,42 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
   layout->addLayout(heading);
   layout->addWidget(label("Your drives. One boot menu.\nChoose a drive, name its system, and add it to GRUB.", this));
 
+  choicesLayout = new QBoxLayout(QBoxLayout::TopToBottom);
+  choicesLayout->setContentsMargins(0, 0, 0, 0); choicesLayout->setSpacing(14);
+  layout->addLayout(choicesLayout);
   auto *driveBox = new QGroupBox("1  Choose a drive", this);
   auto *driveLayout = new QVBoxLayout(driveBox);
+  driveLayout->setSizeConstraint(QLayout::SetMinimumSize);
   auto *driveRow = new QHBoxLayout;
-  drives = new QComboBox(driveBox); drives->setObjectName("grubDrives");
-  drives->setMinimumContentsLength(28);
-  drives->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
-  driveRow->addWidget(drives, 1);
+  driveCount = label("All drives · mounted and unmounted", driveBox, "grubDriveCount");
+  driveCount->setWordWrap(false);
+  driveRow->addWidget(driveCount, 1);
   refresh = new QPushButton("Refresh drives", driveBox); refresh->setObjectName("grubRefresh");
   refresh->setIcon(QIcon::fromTheme("view-refresh")); driveRow->addWidget(refresh);
   driveLayout->addLayout(driveRow);
-  driveLayout->addWidget(label("Partitions and boot files are detected automatically.", driveBox, "muted"));
-  layout->addWidget(driveBox);
+  drives = new QTreeWidget(driveBox); drives->setObjectName("grubDrives");
+  drives->setHeaderLabels({"Drive", "Device", "Capacity", "Status"});
+  drives->setRootIsDecorated(false); drives->setUniformRowHeights(true);
+  drives->setAlternatingRowColors(true); drives->setSelectionMode(QAbstractItemView::SingleSelection);
+  drives->setSelectionBehavior(QAbstractItemView::SelectRows);
+  drives->setEditTriggers(QAbstractItemView::NoEditTriggers);
+  drives->setMinimumHeight(140); drives->setMaximumHeight(270);
+  drives->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+  for (int column = 1; column < 4; ++column) drives->header()->setSectionResizeMode(column, QHeaderView::ResizeToContents);
+  drives->setContextMenuPolicy(Qt::CustomContextMenu);
+  driveLayout->addWidget(drives);
+  auto *driveActions = new QHBoxLayout;
+  properties = new QPushButton("Properties…", driveBox); properties->setObjectName("grubProperties");
+  properties->setIcon(QIcon::fromTheme("document-properties")); driveActions->addWidget(properties);
+  driveActions->addStretch(1);
+  detect = new QPushButton("Detect bootable systems", driveBox); detect->setObjectName("grubDetect");
+  detect->setIcon(QIcon::fromTheme("system-search")); driveActions->addWidget(detect);
+  driveLayout->addLayout(driveActions);
+  choicesLayout->addWidget(driveBox, 1);
 
   auto *systemBox = new QGroupBox("2  Your system", this);
   auto *systemLayout = new QVBoxLayout(systemBox);
+  systemLayout->setSizeConstraint(QLayout::SetMinimumSize);
   systems = new QListWidget(systemBox); systems->setObjectName("grubSystems");
   systems->setMinimumHeight(78); systems->setMaximumHeight(150);
   systemLayout->addWidget(systems);
@@ -60,7 +91,8 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
   add->setProperty("primary", true); add->setIcon(QIcon::fromTheme("list-add"));
   nameRow->addWidget(add);
   systemLayout->addLayout(nameRow);
-  layout->addWidget(systemBox);
+  systemLayout->addStretch(1);
+  choicesLayout->addWidget(systemBox, 1);
 
   progress = new QProgressBar(this); progress->setRange(0, 0);
   progress->setTextVisible(false); progress->setFixedHeight(6); progress->hide(); layout->addWidget(progress);
@@ -71,7 +103,8 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
   auto *savedLayout = new QVBoxLayout(savedBox);
   entries = new QListWidget(savedBox); entries->setObjectName("grubEntries");
   entries->setMinimumHeight(70); savedLayout->addWidget(entries, 1);
-  saved = label("Your existing GRUB entries are kept.", savedBox, "grubSaved"); savedLayout->addWidget(saved);
+  saved = label("Your existing GRUB entries are kept.", savedBox, "grubSaved");
+  saved->setWordWrap(false); savedLayout->addWidget(saved);
   auto *savedActions = new QHBoxLayout;
   load = new QPushButton("Load saved entries", savedBox); load->setObjectName("grubLoad");
   rename = new QPushButton("Rename…", savedBox); rename->setObjectName("grubRename");
@@ -84,7 +117,17 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
 
   reader = new QProcess(this); worker = new QProcess(this);
   connect(refresh, &QPushButton::clicked, this, &GrubEditor::refreshDrives);
-  connect(drives, &QComboBox::currentIndexChanged, this, &GrubEditor::chooseDrive);
+  connect(drives, &QTreeWidget::currentItemChanged, this, &GrubEditor::chooseDrive);
+  connect(drives, &QTreeWidget::itemActivated, this, &GrubEditor::scanDrive);
+  connect(detect, &QPushButton::clicked, this, &GrubEditor::scanDrive);
+  connect(properties, &QPushButton::clicked, this, [this] { showDriveProperties(drive()); });
+  connect(drives, &QTreeWidget::customContextMenuRequested, this, [this](const QPoint &point) {
+    auto *row = drives->itemAt(point); if (!row) return;
+    const auto metadata = row->data(0, Qt::UserRole).toJsonObject();
+    QMenu menu(this);
+    auto *action = menu.addAction(QIcon::fromTheme("document-properties"), "Properties…");
+    if (menu.exec(drives->viewport()->mapToGlobal(point)) == action) showDriveProperties(metadata);
+  });
   connect(systems, &QListWidget::currentRowChanged, this, &GrubEditor::chooseSystem);
   connect(entries, &QListWidget::currentRowChanged, this, &GrubEditor::updateActions);
   connect(name, &QLineEdit::textChanged, this, &GrubEditor::updateActions);
@@ -132,7 +175,6 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
     if (busy) {
       status->setText(code == 126 ? "Administrator authentication was cancelled. Select the drive again to retry." :
                        "The GRUB helper stopped. "+QString::fromUtf8(errors).trimmed());
-      if (operation == "scan") { const QSignalBlocker guard(drives); drives->setCurrentIndex(0); }
       setBusy(false);
     }
   });
@@ -151,11 +193,20 @@ void GrubEditor::showEvent(QShowEvent *event) {
   QWidget::showEvent(event);
   if (!loaded) { loaded = true; refreshDrives(); }
 }
+void GrubEditor::resizeEvent(QResizeEvent *event) {
+  QWidget::resizeEvent(event);
+  choicesLayout->setDirection(width() >= 1100 ? QBoxLayout::LeftToRight : QBoxLayout::TopToBottom);
+}
 QJsonObject GrubEditor::system() const { return itemData(systems); }
 QJsonObject GrubEditor::entry() const { return itemData(entries); }
+QJsonObject GrubEditor::drive() const {
+  return drives->currentItem() ? drives->currentItem()->data(0, Qt::UserRole).toJsonObject() : QJsonObject();
+}
 void GrubEditor::setBusy(bool value) { busy = value; progress->setVisible(value); updateActions(); }
 void GrubEditor::updateActions() {
-  drives->setEnabled(!busy && supported); refresh->setEnabled(!busy);
+  drives->setEnabled(!busy); refresh->setEnabled(!busy);
+  detect->setEnabled(!busy && supported && !drive().isEmpty());
+  properties->setEnabled(!drive().isEmpty());
   systems->setEnabled(!busy); name->setEnabled(!busy && system().value("available").toBool());
   add->setEnabled(!busy && supported && system().value("available").toBool() && !name->text().trimmed().isEmpty() && !revision.isEmpty());
   load->setEnabled(!busy && supported); rename->setEnabled(!busy && !entry().isEmpty());
@@ -174,17 +225,92 @@ void GrubEditor::refreshDrives() {
   } else reader->start("python3", {helper, "status"});
 }
 void GrubEditor::chooseDrive() {
-  if (busy || drives->currentIndex() < 1) return;
-  const auto drive = drives->currentData().toJsonObject();
+  if (busy) return;
+  systems->clear(); name->clear(); notes->hide();
+  selection->setText(drive().isEmpty() ? "Select a drive above to find Windows or Linux." :
+      "Select Detect bootable systems to inspect this drive’s partitions.");
+  updateActions();
+}
+void GrubEditor::scanDrive() {
+  if (busy || !supported || drive().isEmpty()) return;
+  const auto selected = drive();
   systems->clear(); name->clear(); notes->hide();
   selection->setText("Finding bootable systems on this drive…");
-  request({{"action", "scan"}, {"drive", drive["path"]}, {"drive_token", drive["token"]}});
+  request({{"action", "scan"}, {"drive", selected["path"]}, {"drive_token", selected["token"]}});
+}
+void GrubEditor::showDriveProperties(const QJsonObject &metadata) {
+  if (metadata.isEmpty()) return;
+  QDialog dialog(this); dialog.setObjectName("grubDriveProperties");
+  dialog.setProperty("xetalWindowSized", true);
+  dialog.setWindowTitle("Drive properties · "+metadata["model"].toString());
+  auto *layout = new QVBoxLayout(&dialog); layout->setSpacing(14);
+  auto *hero = new QFrame(&dialog); hero->setObjectName("defaultsHero");
+  auto *heroLayout = new QHBoxLayout(hero); heroLayout->setContentsMargins(20, 16, 20, 16);
+  auto *icon = new QLabel(hero);
+  icon->setPixmap(QIcon::fromTheme("drive-harddisk").pixmap(56, 56)); heroLayout->addWidget(icon);
+  auto *identity = new QVBoxLayout;
+  identity->addWidget(label(metadata["model"].toString(), hero, "panelTitle"));
+  identity->addWidget(label(metadata["path"].toString()+" · "+driveStatus(metadata)+" · "+
+      QString::number(metadata["partitions"].toInt())+" partitions", hero, "muted"));
+  heroLayout->addLayout(identity, 1);
+  heroLayout->addWidget(label(capacity(metadata["size"].toDouble()), hero, "panelTitle"));
+  layout->addWidget(hero);
+  auto *details = new QGridLayout;
+  const QList<QPair<QString, QString>> fields = {
+      {"Device path", metadata["path"].toString()}, {"Connection", metadata["connection"].toString().toUpper()},
+      {"Disk ID", metadata["disk_id"].toString()}, {"Partition table", metadata["partition_table"].toString().toUpper()},
+      {"Serial number", metadata["serial"].toString()}, {"WWN", metadata["wwn"].toString()},
+      {"Mount points", mountPoints(metadata["mountpoints"])}, {"Access", metadata["read_only"].toBool() ? "Read-only" : "Read/write"},
+      {"Capacity in bytes", QLocale().toString(qint64(metadata["size"].toDouble()))},
+      {"Removable", metadata["removable"].toBool() ? "Yes" : "No"}};
+  for (int i = 0; i < fields.size(); ++i) {
+    const int row = i/2, column = (i%2)*2;
+    details->addWidget(label(fields[i].first, &dialog, "muted"), row, column);
+    auto *value = label(fields[i].second.isEmpty() ? "—" : fields[i].second, &dialog);
+    value->setTextInteractionFlags(Qt::TextSelectableByMouse); details->addWidget(value, row, column+1);
+  }
+  details->setColumnStretch(1, 1); details->setColumnStretch(3, 1);
+  details->setHorizontalSpacing(18); details->setVerticalSpacing(10); layout->addLayout(details);
+  layout->addWidget(label("Partitions & volumes", &dialog, "panelTitle"));
+  auto *volumes = new QTreeWidget(&dialog); volumes->setObjectName("grubVolumeDetails");
+  volumes->setHeaderLabels({"Device", "Device path", "Size", "Type", "File system", "Label", "Mount point", "Status", "Disk ID", "UUID", "Partition UUID", "Partition type"});
+  volumes->setRootIsDecorated(false); volumes->setAlternatingRowColors(true);
+  volumes->setSelectionBehavior(QAbstractItemView::SelectRows);
+  volumes->setEditTriggers(QAbstractItemView::NoEditTriggers);
+  volumes->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+  for (const auto &value : metadata["volumes"].toArray()) {
+    const auto volume = value.toObject();
+    const auto mount = mountPoints(volume["mountpoints"]);
+    const QStringList values = {QFileInfo(volume["path"].toString()).fileName(), volume["path"].toString(),
+        capacity(volume["size"].toDouble()), volume["type"].toString(), volume["fstype"].toString(),
+        volume["label"].toString(), mount, mount.isEmpty() ? "Not mounted" : "Mounted", metadata["disk_id"].toString(),
+        volume["uuid"].toString(), volume["partuuid"].toString(), volume["parttype"].toString()};
+    auto *row = new QTreeWidgetItem(volumes);
+    row->setIcon(0, QIcon::fromTheme("drive-harddisk"));
+    for (int i = 0; i < values.size(); ++i) {
+      row->setText(i, values[i].isEmpty() ? "—" : values[i]); row->setToolTip(i, values[i]);
+    }
+  }
+  volumes->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
+  volumes->setMinimumHeight(110); layout->addWidget(volumes, 1);
+  auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, &dialog);
+  auto *copy = buttons->addButton("Copy details", QDialogButtonBox::ActionRole);
+  copy->setIcon(QIcon::fromTheme("edit-copy"));
+  connect(copy, &QPushButton::clicked, &dialog, [metadata] {
+    QApplication::clipboard()->setText(QString::fromUtf8(QJsonDocument(metadata).toJson(QJsonDocument::Indented)));
+  });
+  connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+  layout->addWidget(buttons);
+  const auto available = screen()->availableGeometry().size();
+  dialog.resize(qMin(1100, available.width()-60), qMin(600, available.height()-60));
+  dialog.exec();
 }
 void GrubEditor::chooseSystem() {
   const auto target = system();
   name->setText(target["title"].toString());
   selection->setText(target.isEmpty() ? "Select a drive above to find Windows or Linux." :
     target.value("available").toBool() ? target["title"].toString()+" is ready to add. You can change its menu name below."+
+        "\n"+target["partition"].toString()+" · "+target["loader"].toString()+
         (target["detail"].toString().isEmpty() ? QString() : "\n"+target["detail"].toString()) : target["reason"].toString());
   updateActions();
 }
@@ -207,7 +333,6 @@ void GrubEditor::readWorker() {
     else if (data.contains("result")) { result(data["result"].toObject()); setBusy(false); }
     else if (data.contains("error")) {
       status->setText(data["error"].toString());
-      if (operation == "scan") { const QSignalBlocker guard(drives); drives->setCurrentIndex(0); }
       setBusy(false);
     }
   }
@@ -217,16 +342,23 @@ void GrubEditor::result(const QJsonObject &data) {
   if (data.contains("mode")) mode->setText(data["mode"] == "uefi" ?
       "UEFI" + QString(data["secure_boot"].toBool() ? " · Secure Boot" : "") : "Legacy BIOS");
   if (data.contains("drives")) {
-    const auto previous = operation == "refresh" ? QJsonObject() : drives->currentData().toJsonObject();
-    const QSignalBlocker guard(drives); drives->clear(); drives->addItem("Select a drive…");
+    const auto previous = drive();
+    const QSignalBlocker guard(drives); drives->clear();
     for (const auto &value : data["drives"].toArray()) {
-      const auto drive = value.toObject();
-      drives->addItem(QIcon::fromTheme("drive-harddisk"), drive["model"].toString()+" · "+
-          capacity(drive["size"].toDouble())+" · "+QFileInfo(drive["path"].toString()).fileName(), drive);
-      drives->setItemData(drives->count()-1, drive["path"].toString()+"\nSerial: "+drive["serial"].toString(), Qt::ToolTipRole);
-      if (drive["token"] == previous["token"]) drives->setCurrentIndex(drives->count()-1);
+      const auto metadata = value.toObject();
+      auto *row = new QTreeWidgetItem(drives, {metadata["model"].toString(), metadata["path"].toString(),
+          capacity(metadata["size"].toDouble()), driveStatus(metadata)});
+      row->setIcon(0, QIcon::fromTheme(metadata["removable"].toBool() ? "drive-removable-media" : "drive-harddisk"));
+      row->setData(0, Qt::UserRole, metadata);
+      row->setToolTip(0, metadata["path"].toString()+"\nSerial: "+metadata["serial"].toString());
+      if (metadata["token"] == previous["token"]) drives->setCurrentItem(row);
     }
-    if (drives->currentIndex() == 0) selection->setText("Select a drive above to find Windows or Linux.");
+    driveCount->setText(QString("%1 drives · mounted and unmounted").arg(drives->topLevelItemCount()));
+    const int rowHeight = drives->topLevelItemCount() ? drives->sizeHintForRow(0) : 24;
+    drives->setMinimumHeight(qBound(140, drives->header()->sizeHint().height()+
+        rowHeight*drives->topLevelItemCount()+8, 270));
+    if (!drives->currentItem()) selection->setText("Select a drive above to find Windows or Linux.");
+    else if (operation == "refresh") selection->setText("Select Detect bootable systems to inspect this drive’s partitions.");
   }
   if (data.contains("revision")) revision = data["revision"].toString();
   if (data.contains("can_undo")) canUndo = data["can_undo"].toBool();
@@ -246,7 +378,10 @@ void GrubEditor::result(const QJsonObject &data) {
     int first = -1;
     for (const auto &value : data["candidates"].toArray()) {
       const auto target = value.toObject();
-      auto *row = new QListWidgetItem(QIcon::fromTheme(target["title"].toString().startsWith("Windows") ? "computer" : "distributor-logo"), target["title"].toString(), systems);
+      const auto method = target["kind"] == "config" ? "GRUB menu" :
+          target["kind"] == "legacy-windows" ? "BIOS bootloader" : "UEFI bootloader";
+      auto *row = new QListWidgetItem(QIcon::fromTheme(target["title"].toString().startsWith("Windows") ? "computer" : "distributor-logo"),
+          target["title"].toString()+"  ·  "+method+"  ·  "+QFileInfo(target["partition"].toString()).fileName(), systems);
       row->setData(Qt::UserRole, target);
       row->setToolTip(target.value("available").toBool() ? target["loader"].toString() : target["reason"].toString());
       if (target.value("available").toBool() && first < 0) first = systems->count()-1;

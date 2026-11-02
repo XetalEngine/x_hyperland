@@ -20,8 +20,6 @@ public:
   KDirSortFilterProxyModel *proxy;
   QListView *icons = nullptr;
   QTreeView *details = nullptr;
-  QListWidget *cards;
-  QListWidget *usbCards;
   QLineEdit *filter;
   QLabel *notice;
   QStackedWidget *stack;
@@ -57,11 +55,14 @@ private:
   Fusion::Preferences *preferences;
   Drives *drives;
   QWidget *computer;
+  QLabel *emptyDrives;
   QSplitter *driveSplitter;
-  QScrollArea *mountedScroll;
-  QVBoxLayout *mountedLayout;
-  QLabel *mountedEmpty, *unmountedEmpty, *usbEmpty;
-  QMap<QString, QWidget *> mountedGroups;
+  struct DriveSection {
+    QScrollArea *scroll = nullptr;
+    QVBoxLayout *layout = nullptr;
+    QMap<QString, QGroupBox *> groups;
+  };
+  DriveSection mountedSection, usbSection, unmountedSection;
   QList<QListWidget *> driveLists;
   bool driveLayoutReady = false;
   KFilePreviewGenerator *previews;

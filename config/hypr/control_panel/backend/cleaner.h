@@ -30,6 +30,22 @@ static QString cleanQuote(const QString &s) {
     return "'" + q + "'";
 }
 
+// Sort each level using the measured bytes, never the formatted GB/MB text.
+static void sortCleanerTreeBySize(QTreeWidgetItem *root) {
+    QList<QTreeWidgetItem*> pending{root};
+    while (!pending.isEmpty()) {
+        QTreeWidgetItem *parent = pending.takeLast();
+        QList<QTreeWidgetItem*> children = parent->takeChildren();
+        std::stable_sort(children.begin(), children.end(),
+                         [](const QTreeWidgetItem *a, const QTreeWidgetItem *b) {
+            return a->data(1, Qt::UserRole).toLongLong()
+                 > b->data(1, Qt::UserRole).toLongLong();
+        });
+        parent->addChildren(children);
+        pending << children;
+    }
+}
+
 // The catalogue. Paths are bash patterns evaluated with nullglob set and $H
 // bound to the user's home, so globs work while a home with spaces still does.
 QList<CleanTarget> MainWindow::buildCleanTargets() const {
@@ -451,6 +467,7 @@ void MainWindow::rebuildCleanerCategoryTree() {
         item->setText(0, c.label + (c.system ? tr("  (system)") : QString()));
         item->setText(1, cleanScanDone ? formatSize(c.bytes) : QString("—"));
         item->setData(0, Qt::UserRole, c.id);
+        item->setData(1, Qt::UserRole, c.bytes);
         item->setToolTip(0, c.detail);
         item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
         item->setCheckState(0, cleanSelectedIds.contains(c.id) ? Qt::Checked : Qt::Unchecked);
@@ -465,6 +482,13 @@ void MainWindow::rebuildCleanerCategoryTree() {
 
     safeGroup->setText(1, cleanScanDone ? formatSize(safeTotal) : QString());
     costGroup->setText(1, cleanScanDone ? formatSize(costTotal) : QString());
+    if (cleanScanDone) {
+        // Keep the safety tiers together, with the biggest savings first in each.
+        sortCleanerTreeBySize(safeGroup);
+        sortCleanerTreeBySize(costGroup);
+        cleanCatTree->header()->setSortIndicator(1, Qt::DescendingOrder);
+        cleanCatTree->header()->setSortIndicatorShown(true);
+    }
     cleanCatTree->expandItem(safeGroup);
     cleanCatTree->expandItem(costGroup);
     cleanCatTree->blockSignals(false);
@@ -643,22 +667,9 @@ void MainWindow::rebuildCleanerSizeTree() {
     for (const QString &dir : dirs) makeItem(dir, cleanTreeDirSizes.value(dir), true);
     for (const auto &f : cleanTreeBigFiles) makeItem(f.first, f.second, false);
 
-    // Re-sort every level by size, biggest first (the tree was built path-sorted)
-    auto bySizeDesc = [](QTreeWidgetItem *a, QTreeWidgetItem *b) {
-        return a->data(1, Qt::UserRole).toLongLong() > b->data(1, Qt::UserRole).toLongLong();
-    };
-    QList<QTreeWidgetItem*> top;
-    while (cleanSizeTree->topLevelItemCount() > 0) top << cleanSizeTree->takeTopLevelItem(0);
-    std::stable_sort(top.begin(), top.end(), bySizeDesc);
-    for (QTreeWidgetItem *item : top) cleanSizeTree->addTopLevelItem(item);
-    QList<QTreeWidgetItem*> pending = top;
-    while (!pending.isEmpty()) {
-        QTreeWidgetItem *parent = pending.takeLast();
-        QList<QTreeWidgetItem*> kids = parent->takeChildren();
-        std::stable_sort(kids.begin(), kids.end(), bySizeDesc);
-        parent->addChildren(kids);
-        pending << kids;
-    }
+    sortCleanerTreeBySize(cleanSizeTree->invisibleRootItem());
+    cleanSizeTree->header()->setSortIndicator(1, Qt::DescendingOrder);
+    cleanSizeTree->header()->setSortIndicatorShown(true);
 
     cleanSizeTree->expandToDepth(0);
     cleanSizeTree->blockSignals(false);

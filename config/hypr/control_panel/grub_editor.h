@@ -2,7 +2,8 @@
 #include <QJsonObject>
 #include <QWidget>
 
-class QComboBox;
+class QTreeWidget;
+class QBoxLayout;
 class QLabel;
 class QLineEdit;
 class QListWidget;
@@ -17,16 +18,18 @@ public:
   ~GrubEditor() override;
 protected:
   void showEvent(QShowEvent *event) override;
+  void resizeEvent(QResizeEvent *event) override;
 private:
   QString helper, revision, operation;
   QProcess *reader, *worker;
   QByteArray output, errors;
   QJsonObject pending;
-  QComboBox *drives;
+  QBoxLayout *choicesLayout;
+  QTreeWidget *drives;
   QListWidget *systems, *entries;
   QLineEdit *name;
-  QPushButton *refresh, *add, *load, *rename, *remove, *undo;
-  QLabel *status, *mode, *selection, *saved, *notes;
+  QPushButton *refresh, *detect, *properties, *add, *load, *rename, *remove, *undo;
+  QLabel *status, *mode, *selection, *saved, *notes, *driveCount;
   QProgressBar *progress;
   bool busy = false, supported = false, loaded = false, canUndo = false;
   void refreshDrives();
@@ -36,7 +39,10 @@ private:
   void setBusy(bool value);
   void updateActions();
   void chooseDrive();
+  void scanDrive();
+  void showDriveProperties(const QJsonObject &drive);
   void chooseSystem();
+  QJsonObject drive() const;
   QJsonObject system() const;
   QJsonObject entry() const;
 };

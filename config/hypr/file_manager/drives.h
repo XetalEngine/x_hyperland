@@ -55,11 +55,13 @@ private:
 
 class DriveDelegate : public QStyledItemDelegate {
 public:
-  using QStyledItemDelegate::QStyledItemDelegate;
+  explicit DriveDelegate(QWidget *parent);
   QSize sizeHint(const QStyleOptionViewItem &,
                  const QModelIndex &) const override {
     return {320, 112};
   }
   void paint(QPainter *, const QStyleOptionViewItem &,
              const QModelIndex &) const override;
+private:
+  QGroupBox *cardStyle;
 };

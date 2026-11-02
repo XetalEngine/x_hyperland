@@ -2,7 +2,7 @@
 
 Open **Control Panel → Files & recovery → GRUB Boot Editor**.
 
-1. Select a drive by its model and capacity. Authenticate when prompted.
+1. Select a drive by its model and capacity, then click **Detect bootable systems**. Authenticate when prompted. Mounted and unmounted disks are both listed; right-click **Properties…** to inspect the disk and all its partitions without authentication.
 2. The editor finds its Windows or Linux bootloader and selects it. If the drive contains several systems, choose one from the list.
 3. Keep the suggested name or enter the name you want in the menu, then click **Add to GRUB**.
 
@@ -17,10 +17,11 @@ The entry is saved for the next restart. No partition names, UUIDs, boot command
 | UEFI | Windows Boot Manager | Chainload its existing `bootmgfw.efi` |
 | UEFI | Linux shim, GRUB or systemd-boot | Chainload its existing EFI program, preferring shim when available |
 | UEFI | Unified Linux kernel image | Chainload the EFI image in `EFI/Linux` |
+| UEFI | Linux with an existing compatible GRUB menu | Open that system's maintained GRUB configuration |
 | Legacy BIOS | Linux with an existing GRUB menu | Open that system's maintained GRUB configuration |
 | Legacy BIOS | Windows on an MBR disk | Chainload its existing partition boot sector; inspection requires `ntfs-3g` |
 
-The editor searches the selected drive's partitions. It also checks other EFI partitions when a Windows BCD or Linux GRUB configuration identifies the selected drive. This handles installations whose boot files live on another disk. A shared boot manager retains its own operating-system choices; it may show a second menu. That drive containing the boot files must remain connected.
+The editor searches the selected drive's partitions, including unmounted Linux filesystems and separate boot partitions. Reserved BIOS boot and Microsoft reserved areas are excluded. A named Linux installation's maintained GRUB menu is preferred to an unidentified fallback EFI loader. It also checks other EFI partitions when a Windows BCD or Linux GRUB configuration identifies the selected drive. This handles installations whose boot files live on another disk. A shared boot manager retains its own operating-system choices; it may show a second menu. That drive containing the boot files must remain connected.
 
 Filesystem UUIDs identify entries even when Linux device names change. Cloned UUIDs, an incompatible EFI architecture, the current bootloader, and a disconnected or replaced drive are rejected. The boot files are checked again when saving.
 
@@ -42,6 +43,6 @@ Opening the page only lists drives. Its authenticated helper belongs to the open
 
 ## Development checks
 
-`test_grub_editor.py` covers detection, shared EFI references, stale devices, duplicate UUIDs, literal menu names, configuration validation, external changes, rollback and recovery using temporary fixtures. Native `grub_editor_tests` cover selection, naming, save responses and cancelled authentication. `check_grub_boot.py` explicitly boots disposable QEMU images to check UEFI chainloading and BIOS configuration handoff; it attaches no host disks. These checks do not replace testing a particular Windows/Linux installation on its intended hardware.
+`test_grub_editor.py` covers mounted/unmounted inventory, detection, shared EFI references, stale devices, duplicate UUIDs, literal menu names, configuration validation, external changes, rollback and recovery using temporary fixtures. Native `grub_editor_tests` cover properties, selection, naming, save responses and cancelled authentication. `check_grub_boot.py` explicitly boots disposable QEMU images to check UEFI chainloading, missing drives and Linux configuration handoff under UEFI and BIOS; it attaches no host disks. These checks do not replace testing a particular Windows/Linux installation on its intended hardware.
 
 The boot methods follow GNU GRUB's [chainloading](https://www.gnu.org/software/grub/manual/grub/html_node/Chain_002dloading.html) and [configfile](https://www.gnu.org/software/grub/manual/grub/html_node/configfile.html) commands. Filesystem inspection follows the kernel's [ext4 mount guidance](https://docs.kernel.org/admin-guide/ext4.html) and the [NTFS-3G manual](https://github.com/tuxera/ntfs-3g/wiki/Manual).
