@@ -73,7 +73,7 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
   driveLayout->addLayout(driveActions);
   choicesLayout->addWidget(driveBox, 1);
 
-  auto *systemBox = new QGroupBox("2  Your system", this);
+  auto *systemBox = new QGroupBox("2  Boot partition to add", this);
   auto *systemLayout = new QVBoxLayout(systemBox);
   systemLayout->setSizeConstraint(QLayout::SetMinimumSize);
   systems = new QListWidget(systemBox); systems->setObjectName("grubSystems");
