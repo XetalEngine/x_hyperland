@@ -12,6 +12,13 @@ adapter supplies window geometry and renders the live window through that mesh.
 It does not substitute a rigid window animation or a static screenshot. Original
 attribution and license are in `NOTICE`; adapter licensing is in `COPYING`.
 
+Rendering follows the monitor's presentation frames. The original 15 ms physics
+steps are interpolated for smooth motion on high-refresh displays, while the
+grabbed point follows the pointer immediately. Mesh weights and triangle storage
+are cached; the color image and blur matte reuse the same uploaded geometry.
+Only the window's old and new deformed bounds are damaged, including portions on
+neighboring monitors. Once the effect settles it requests no further frames.
+
 All 14 options from `compiz-core/metadata/wobbly.xml.in` are present. The original
 metadata is included as `compiz-options.xml` and checked against the controls:
 
@@ -63,8 +70,9 @@ hyprctl xetal-wobbly
 hyprctl dispatch xetalwobbly:shiver
 ```
 
-The status command reports active lattices, render/physics counters and bell
-subscriptions. Once windows settle there is no animation timer running. Reload,
+The status command reports active lattices, render/physics counters, mesh builds,
+requested damage area as a fraction of the affected outputs, and bell
+subscriptions. There is no independent animation timer. Reload,
 disable, close, workspace changes and unload detach owned transformers. Snapping
 modifiers are allowed during a drag without Hyprland ending that drag; other
 keyboard and pointer bindings retain normal behavior.
@@ -77,7 +85,8 @@ python3 tests/check-wobbly.py /absolute/path/to/xetal-wobbly.so /tmp/new-test-di
 ```
 
 Unit checks cover original option defaults/ranges, actual spring forces,
-refresh-independent integration, snapping, extreme settings, matching, save
+refresh-independent integration, interpolated rendering, cached mesh accuracy,
+snapping, extreme settings, matching, save
 rollback and unsaved-edit guards. The integration check starts a disposable
 nested compositor and exercises real window/input/rendering behavior. It never
 loads a test binary into the parent session.

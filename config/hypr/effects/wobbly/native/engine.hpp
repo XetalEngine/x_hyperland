@@ -2,6 +2,7 @@
 #pragma once
 #include "compiz.hpp"
 #include <memory>
+#include <array>
 #include <stdexcept>
 
 namespace Wobbly {
@@ -13,9 +14,12 @@ class Engine {
     Box box;
     bool grabbed=false, snapping=false, maximized=false;
     int active=Compiz::WobblyInitial;
+    std::array<Compiz::Point,16> previous;
+    double remainder=0;
     Engine(Box b):box(b) {
         model=Compiz::createModel(b.x,b.y,b.w,b.h,15);
         if(!model)throw std::bad_alloc();
+        for(int i=0;i<16;++i)previous[i]=model->objects[i].position;
     }
     ~Engine(){std::free(model->objects);std::free(model);}
     Engine(const Engine&)=delete;
@@ -79,7 +83,10 @@ class Engine {
                 model->anchorObject->position.x+=next.x-box.x;
                 model->anchorObject->position.y+=next.y-box.y;
                 wake();
-            } else Compiz::modelMove(model,next.x-box.x,next.y-box.y);
+            } else {
+                Compiz::modelMove(model,next.x-box.x,next.y-box.y);
+                for(auto& p:previous){p.x+=next.x-box.x;p.y+=next.y-box.y;}
+            }
         }
         if(resized && grabbed){
             if(model->anchorObject)model->anchorObject->immobile=false;
@@ -90,10 +97,15 @@ class Engine {
         box=next;
     }
     bool step(float ms,float friction,float spring) {
-        // Keep original 15 ms integration even on high-refresh outputs. Bound
-        // catch-up after suspend, without changing the spring equations.
-        active=Compiz::modelStep(&window,model,friction,spring,std::clamp(ms,0.f,120.f));
-        if(active==Compiz::WobblyForce && !grabbed){Compiz::modelReduceEdgeEscapeVelocity(model);wake();}
+        // Keep Compiz's exact 15 ms solver. Store the two adjacent solved poses
+        // so a 120/144/240 Hz output can interpolate every presentation frame.
+        remainder+=std::clamp(ms,0.f,120.f);
+        while(remainder>=15){
+            for(int i=0;i<16;++i)previous[i]=model->objects[i].position;
+            active=Compiz::modelStep(&window,model,friction,spring,15);
+            if(active==Compiz::WobblyForce && !grabbed){Compiz::modelReduceEdgeEscapeVelocity(model);wake();}
+            remainder-=15;
+        }
         for(int i=0;i<model->numObjects;++i){
             const auto& p=model->objects[i].position;
             if(!std::isfinite(p.x)||!std::isfinite(p.y)||std::abs(p.x-box.x)>100000||std::abs(p.y-box.y)>100000)
@@ -103,6 +115,19 @@ class Engine {
     }
     Compiz::Point evaluate(float u,float v) const {
         Compiz::Point p;Compiz::bezierPatchEvaluate(model,u,v,&p.x,&p.y);return p;
+    }
+    std::array<Compiz::Point,16> renderPoints() const {
+        std::array<Compiz::Point,16> points;
+        const float alpha=remainder/15.;
+        for(int i=0;i<16;++i){
+            const auto& object=model->objects[i];
+            // The grabbed anchor/corners follow input immediately; springs are
+            // interpolated without advancing or altering the physical model.
+            points[i]=object.immobile?object.position:Compiz::Point{
+                previous[i].x+(object.position.x-previous[i].x)*alpha,
+                previous[i].y+(object.position.y-previous[i].y)*alpha};
+        }
+        return points;
     }
 };
 } // namespace Wobbly

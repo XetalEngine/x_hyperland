@@ -9,6 +9,7 @@ from pathlib import Path
 REPO=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(REPO/'config/hypr'))
 from effects.wobbly import model
+from effects.window_close import build as close_build, model as close_model
 from effects.cube import model as cube_model, build as cube_build
 from effects.burn import model as burn_model, build as burn_build
 from effects.minimize import model as minimize_model, build as minimize_build
@@ -17,6 +18,8 @@ from effects.minimize import model as minimize_model, build as minimize_build
 def main():
     binary=Path(sys.argv[1]).resolve(strict=True);root=Path(sys.argv[2]);root.mkdir(parents=True,exist_ok=False)
     home=root/'home';home.mkdir();config=root/'wobbly.json'
+    close_settings=home/'.config/hypr/effects/window_close/settings.conf';close_settings.parent.mkdir(parents=True)
+    close_settings.write_text(close_model.encode(close_model.DEFAULTS))
     values=dict(model.DEFAULTS,enabled=True);config.write_text(model.encode(values))
     cube=root/'cube.json';cube.write_text(cube_model.encode(dict(cube_model.DEFAULTS,enabled=True)))
     burn=root/'burn.conf';burn.write_text(burn_model.encode(dict(burn_model.DEFAULTS,enabled=True)))
@@ -43,6 +46,8 @@ decoration:rounding=15
 decoration:blur:enabled=true
 bindm=,mouse:272,movewindow
 bindm=,mouse:273,resizewindow
+bindm=SUPER,mouse:272,movewindow
+bindm=SUPER,mouse:273,resizewindow
 windowrule=match:class ^wobbly-test$,float on
 ''')
     verify=subprocess.run(['Hyprland','--verify-config','--config',str(conf)],capture_output=True,text=True)
@@ -86,6 +91,7 @@ windowrule=match:class ^wobbly-test$,float on
             except ValueError:return None
         i=wait(instance);env.update(HYPRLAND_INSTANCE_SIGNATURE=i['instance'],WAYLAND_DISPLAY=i['wl_socket']);time.sleep(1.5)
         assert ctl('plugin','load',str(binary))=='ok'
+        assert ctl('plugin','load',str(close_build.build()))=='ok'
         app=spawn([sys.executable,str(REPO/'tests/wobbly/client.py'),'-name','wobbly-test'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
         def command(op,name='Wayland wobble'):
             app.stdin.write(json.dumps(dict(op=op,name=name))+'\n');app.stdin.flush();assert app.stdout.readline().strip()=='ok'
@@ -101,7 +107,30 @@ windowrule=match:class ^wobbly-test$,float on
         point('up 272')
         wait(lambda:status()['active']==0);screenshot('settled')
         assert not status()['error'];assert client()['floating']
-        print('Live Wayland drag, deformation and settling passed',flush=True)
+        stats=status();assert stats['damage_ratio']<.5,stats
+        assert stats['mesh_builds']<=stats['steps']+1,stats
+        print('Live Wayland drag passed; damage ratio:',stats['damage_ratio'],'mesh builds/draws:',stats['mesh_builds'],stats['draws'],flush=True)
+        # Static content must keep animating without client redraws or a timer.
+        command('pause');time.sleep(.2);before=status()['steps'];dispatch('xetalwobbly:shiver')
+        wait(lambda:status()['steps']>before+10);wait(lambda:status()['active']==0)
+        counters=(status()['draws'],status()['steps']);time.sleep(.2)
+        assert (status()['draws'],status()['steps'])==counters
+        print('Static window schedules its own presentation frames and stops when settled',flush=True)
+        def close_status():return json.loads(ctl('xetal-windowclose'))
+        # The artificial close button is suppressed for native move AND resize,
+        # even if Wobbly is disabled. Releasing the drag restores Super-hover.
+        for effect_enabled in (True,False):
+            save(enabled=effect_enabled)
+            for mouse in (272,273):
+                c=client();x=c['at'][0]+100;y=c['at'][1]+50
+                point(f'move {x} {y}');point('key 125 1');wait(lambda:close_status()['visible'])
+                point(f'down {mouse}');wait(lambda:not close_status()['visible'])
+                for delta in (10,20,30):point(f'move {x+delta} {y+delta}');time.sleep(.02)
+                assert not close_status()['visible'];assert close_status()['closed']==0
+                point(f'up {mouse}');wait(lambda:close_status()['visible']);point('key 125 0')
+                wait(lambda:not close_status()['visible']);wait(lambda:status()['active']==0)
+        save(enabled=True)
+        print('Close button hides throughout move/resize and returns on release, with and without Wobbly',flush=True)
         # Resize uses the same original spring model with new rest lengths.
         c=client();x=c['at'][0]+c['size'][0]-25;y=c['at'][1]+c['size'][1]-25
         point(f'move {x} {y}');point('down 273');time.sleep(.04)
@@ -162,6 +191,48 @@ windowrule=match:class ^wobbly-test$,float on
         dispatch('workspace','2');wait(lambda:status()['active']==0);dispatch('workspace','1');time.sleep(.4)
         assert not status()['error'];assert compositor.poll() is None
         print('Cube/Burn/Minimize coexistence, minimize, close and workspace cleanup passed',flush=True)
+        command('add','Close button check');wait(lambda:client('Close button check'));time.sleep(.4)
+        c=client('Close button check');point(f"move {c['at'][0]+80} {c['at'][1]+50}");point('key 125 1');wait(lambda:close_status()['visible'])
+        b=close_status()['box'];point(f'move {int(b[0]+b[2]/2)} {int(b[1]+b[3]/2)}');point('down 272');point('up 272')
+        wait(lambda:not client('Close button check'));point('key 125 0');assert close_status()['closed']==1
+        print('Normal Super-click close still works',flush=True)
+        # A cached mesh must use each output's viewport, including rotated and
+        # fractional-scale neighbors. Damage must reach both halves of a window.
+        address='address:'+client('Map shiver')['address'];command('pause','Map shiver')
+        m=json.loads(ctl('-j','monitors'))[0];width=m['width']
+        assert ctl('keyword','monitor',f'{m["name"]},{m["width"]}x{m["height"]}@60,0x0,1')=='ok'
+        ctl('output','create','wayland');wait(lambda:len(json.loads(ctl('-j','monitors')))==2)
+        second=next(output for output in json.loads(ctl('-j','monitors')) if output['name']!=m['name'])
+        assert ctl('keyword','monitor',f'{second["name"]},1000x800@60,{width}x0,1.25,transform,1')=='ok'
+        dispatch('movewindowpixel',f'exact {width-350} 180,'+address);time.sleep(.5)
+        assert client('Map shiver')['monitor']==m['id'];dispatch('focuswindow',address)
+        # Wait for the compositor's placement animation as well as the springs
+        # before taking a reference, so text comparison measures orientation.
+        dispatch('xetalwobbly:shiver');wait(lambda:status()['active']==0)
+        screenshot('spanning-reference')
+        before=status();dispatch('xetalwobbly:shiver');time.sleep(.18);screenshot('spanning-scaled-portrait')
+        wait(lambda:status()['active']==0);after=status();screenshot('spanning-settled')
+        assert after['mesh_builds']-before['mesh_builds']>after['steps']-before['steps']+5,(before,after)
+        assert not after['error']
+        from PIL import Image,ImageFilter
+        with Image.open(root/'spanning-reference.png') as reference, Image.open(root/'spanning-scaled-portrait.png') as animated:
+            ratio=reference.width/(width+800/1.25)
+            pixel=(round((width+80)*ratio),round(380*ratio))
+            expected=reference.convert('RGB').getpixel(pixel);actual=animated.convert('RGB').getpixel(pixel)
+            assert max(expected)-min(expected)>20,expected
+            assert max(abs(a-b) for a,b in zip(expected,actual))<15,(expected,actual)
+            # Text remains upright and in place on both sides of the seam. A
+            # solid-color sample alone would miss a rotated/flipped workbuffer.
+            c=client('Map shiver');x,y=c['at'];cw,ch=c['size']
+            for area in ((x+15,y+12,width-12,y+55),(width+12,y+ch-55,x+cw-12,y+ch-12)):
+                crop=tuple(round(value*ratio) for value in area)
+                glyphs=reference.crop(crop).convert('L').tobytes()
+                nearby=animated.crop(crop).convert('L').filter(ImageFilter.MaxFilter(11)).tobytes()
+                bright=sum(v>180 for v in glyphs)
+                assert bright>50 and sum(a>180 and b>180 for a,b in zip(glyphs,nearby))>.8*bright,area
+        ctl('output','remove',second['name'])
+        dispatch('movewindowpixel','exact 170 150,'+address);time.sleep(.3)
+        print('Window spanning a rotated fractional-scale output animates on both displays',flush=True)
         # In-flight unload must detach every transformer before its code unloads.
         dispatch('focuswindow','title:^Map shiver$');dispatch('xetalwobbly:shiver');assert ctl('plugin','unload',str(binary))=='ok'
         time.sleep(.3);assert compositor.poll() is None;assert ctl('configerrors')==''
@@ -172,6 +243,11 @@ windowrule=match:class ^wobbly-test$,float on
         assert (status()['draws'],status()['steps'])==counters
         assert ctl('plugin','unload',str(binary))=='ok'
         print('Reload alongside existing effects and idle timer suspension passed',flush=True)
+    except Exception:
+        for name,args in [('status',('xetal-wobbly',)),('monitors',('-j','monitors')),('clients',('-j','clients'))]:
+            try:(root/('failure-'+name+'.json')).write_text(ctl(*args))
+            except Exception:pass
+        raise
     finally:
         for p in reversed(children):
             if p.poll() is None:p.terminate()

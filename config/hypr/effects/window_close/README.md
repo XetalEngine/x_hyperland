@@ -3,7 +3,9 @@
 Hold **Super** while pointing at a window to reveal a glowing × at its top-right
 corner. Click it to send the application's normal close request. Unsaved-work
 dialogs still work. Releasing the modifier hides the button; Super-drag elsewhere
-continues to move windows.
+continues to move windows. Moving or resizing a window hides the button until
+the drag ends, including when Wobbly is disabled. It returns on release if the
+modifier is still held and the pointer is over a window.
 
 Configure or disable it in **Fusion Settings → Hotkeys → Window close…**:
 enable switch, Super / Alt / Super+Shift, size, corner distance, and gentle pulse.

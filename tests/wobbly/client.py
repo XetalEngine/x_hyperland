@@ -18,6 +18,7 @@ def read(*_):
     elif op=='max':windows[name].showMaximized()
     elif op=='restore':windows[name].showNormal()
     elif op=='min':windows[name].showMinimized()
+    elif op=='pause':windows[name].findChild(QTimer).stop()
     elif op=='bell':app.beep()
     elif op=='quit':app.quit()
     print('ok',flush=True)

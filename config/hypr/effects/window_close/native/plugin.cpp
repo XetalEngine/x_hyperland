@@ -4,6 +4,7 @@
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/desktop/state/ViewState.hpp>
 #include <hyprland/src/managers/input/InputManager.hpp>
+#include <hyprland/src/layout/LayoutManager.hpp>
 #include <hyprland/src/managers/SessionLockManager.hpp>
 #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
 #include <hyprland/src/event/EventBus.hpp>
@@ -84,7 +85,8 @@ void readAccent() {
 void damage() {if(!button.empty())g_pHyprRenderer->damageBox(CBox(button).expand(button.width));}
 bool available() {
     return !stopping && settings.enabled && g_pCompositor->m_sessionActive &&
-        !g_pSessionLockManager->isSessionLocked() && !PROTO::inputCapture->isCaptured() && !PROTO::data->dndActive();
+        !g_pSessionLockManager->isSessionLocked() && !PROTO::inputCapture->isCaptured() && !PROTO::data->dndActive() &&
+        !g_layoutManager->dragController()->target();
 }
 void refresh() {
     damage();
@@ -175,6 +177,9 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         listeners.push_back(Event::bus()->m_events.window.close.listen([](PHLWINDOW){arm();}));
         listeners.push_back(Event::bus()->m_events.monitor.layoutChanged.listen([](){arm();}));
         listeners.push_back(Event::bus()->m_events.input.mouse.button.listen([](IPointer::SButtonEvent event,Event::SCallbackInfo& info){
+            // Recheck after the drag controller sees this press/release. This
+            // also restores the button after a drag with Super still held.
+            arm();
             if(event.button!=BTN_LEFT)return;
             if(event.state==WL_POINTER_BUTTON_STATE_RELEASED && captured){
                 captured=false;info.cancelled=true;refresh();
@@ -197,7 +202,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         });
         status=HyprlandAPI::registerHyprCtlCommand(handle,{"xetal-windowclose",true,[](eHyprCtlOutputFormat,std::string){
             return std::format("{{\"enabled\":{},\"held\":{},\"visible\":{},\"closed\":{},\"draws\":{},\"box\":[{},{},{},{}],\"color\":[{},{},{}]}}",
-                settings.enabled,held,bool(target.lock()),closed,draws,button.x,button.y,button.width,button.height,accent[0],accent[1],accent[2]);
+                settings.enabled,held,available()&&bool(target.lock()),closed,draws,button.x,button.y,button.width,button.height,accent[0],accent[1],accent[2]);
         }});
     }catch(...){cleanup();throw;}
     return {"Xetal Window Close","Theme-aware modifier-held close buttons","XetalEngine","1.0"};

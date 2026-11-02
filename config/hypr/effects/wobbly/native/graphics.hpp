@@ -2,6 +2,7 @@
 // Copyright (c) 2026 XetalEngine. Shared GL state discipline with Cube.
 #pragma once
 #include <hyprland/src/render/Renderer.hpp>
+#include "mesh.hpp"
 namespace Wobbly {
 struct GLState {
     GLint program, vao, buffer, active, texture, srcRGB, dstRGB, srcA, dstA, eqRGB, eqA;
@@ -57,10 +58,10 @@ struct GLState {
     }
 };
 
-struct Vertex {float x,y,u,v;};
 struct Graphics {
     GLuint program=0,vao=0,vbo=0;
     GLint projection=-1;
+    uint64_t uploaded=0;
     GLuint compile(GLenum type,const char* code){
         auto shader=glCreateShader(type);glShaderSource(shader,1,&code,nullptr);glCompileShader(shader);
         GLint ok;glGetShaderiv(shader,GL_COMPILE_STATUS,&ok);
@@ -71,7 +72,9 @@ struct Graphics {
         auto v=compile(GL_VERTEX_SHADER,R"(#version 300 es
             layout(location=0) in vec2 position;layout(location=1) in vec2 source;
             uniform mat3 projection;out vec2 uv;
-            void main(){vec3 p=projection*vec3(position,1.0);gl_Position=vec4(p.xy,0.0,1.0);
+            // Input workbuffers already contain the output transform. Return a
+            // logical, unrotated texture for Hyprland's final window draw.
+            void main(){gl_Position=vec4(position*2.0-1.0,0.0,1.0);
                 uv=(projection*vec3(source,1.0)).xy*.5+.5;}
         )");
         auto f=compile(GL_FRAGMENT_SHADER,R"(#version 300 es
@@ -86,7 +89,7 @@ struct Graphics {
         glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,sizeof(Vertex),nullptr);
         glVertexAttribPointer(1,2,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)(2*sizeof(float)));
     }
-    void draw(PHLMONITOR monitor,SP<Render::ITexture> texture,const std::vector<Vertex>& vertices){
+    void draw(PHLMONITOR monitor,SP<Render::ITexture> texture,const std::vector<Vertex>& vertices,uint64_t revision){
         GLState restore;auto gl=g_pHyprRenderer->glBackend();
         glUseProgram(program);glBindVertexArray(vao);glBindBuffer(GL_ARRAY_BUFFER,vbo);
         gl->setCapStatus(GL_BLEND,false);gl->setCapStatus(GL_DEPTH_TEST,false);gl->setCapStatus(GL_STENCIL_TEST,false);
@@ -101,7 +104,9 @@ struct Graphics {
         glActiveTexture(GL_TEXTURE0);texture->bind();
         texture->setTexParameter(GL_TEXTURE_MIN_FILTER,GL_LINEAR);texture->setTexParameter(GL_TEXTURE_MAG_FILTER,GL_LINEAR);
         texture->setTexParameter(GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);texture->setTexParameter(GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-        glBufferData(GL_ARRAY_BUFFER,vertices.size()*sizeof(Vertex),vertices.data(),GL_STREAM_DRAW);glDrawArrays(GL_TRIANGLES,0,vertices.size());
+        // The color image and blur matte share the same mesh in this frame.
+        if(uploaded!=revision){glBufferData(GL_ARRAY_BUFFER,vertices.size()*sizeof(Vertex),vertices.data(),GL_STREAM_DRAW);uploaded=revision;}
+        glDrawArrays(GL_TRIANGLES,0,vertices.size());
     }
     void release(){if(vbo)glDeleteBuffers(1,&vbo);if(vao)glDeleteVertexArrays(1,&vao);if(program)glDeleteProgram(program);vbo=vao=program=0;}
 };
