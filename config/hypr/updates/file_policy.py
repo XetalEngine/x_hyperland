@@ -17,6 +17,7 @@ KEEP = frozenset({
     'dolphin/data/konsole/Xetal-Dolphin.profile', 'dolphin/data/konsole/Xetal-Dolphin.colorscheme',
     'launcher/favorites.json', 'launcher/bar-pins.json', 'launcher/shortcuts.json',
     'launcher/favorite-layout.json', 'launcher/floating-sizes.json', 'launcher/window.json',
+    'effects/window_close/rules.json',
 })
 
 # Keep this list with the settings code: adding a new editable file requires

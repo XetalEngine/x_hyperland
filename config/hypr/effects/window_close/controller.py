@@ -12,9 +12,9 @@ import tempfile
 import threading
 
 if __package__:
-    from . import model, build
+    from . import model, build, rules
 else:
-    import model, build
+    import model, build, rules
 
 
 def hypr(*args):
@@ -93,6 +93,51 @@ def save(values, token, path=model.PATH):
 def start():
     values, _ = model.load()
     activate(values)
+
+
+def window_info(window_id):
+    if not str(window_id).isascii() or not str(window_id).isdecimal():
+        raise ValueError('Invalid window identity.')
+    result = json.loads(hypr('xetal-windowbuttons',str(window_id)))
+    if result.get('error'): raise ValueError(result['error'])
+    return result
+
+
+def rule_file(scope):
+    if scope == 'app': return rules.PATH, 'apps'
+    if scope == 'window': return instance_dir()/'xetal-windowbuttons-rules.json', 'windows'
+    raise ValueError('Choose this window or this application.')
+
+
+def save_rule(window_id, scope, rule, token):
+    info = window_info(window_id)
+    path, section = rule_file(scope)
+    key = info['app'] if scope == 'app' else str(window_id)
+    if not key: raise ValueError('This window has no application identity. Use a window-specific choice.')
+    if rule is not None: rule = rules.validate(rule)
+    path.parent.mkdir(parents=True,exist_ok=True)
+    with path.with_suffix('.lock').open('w') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX)
+        document, current = rules.load(path,section)
+        if current != token: raise ValueError('These choices changed elsewhere. Reload before applying.')
+        # Recheck after acquiring the lock; never apply an address recycled by
+        # another window. Stable IDs last for exactly this compositor session.
+        if window_info(window_id)['app'] != info['app']: raise ValueError('The application identity changed. Reopen its settings.')
+        old = path.read_bytes() if path.exists() else None
+        if rule is None: document[section].pop(key,None)
+        else: document[section][key] = rule
+        if scope == 'window':
+            live = set(json.loads(hypr('xetal-windowbuttons'))['windows'])
+            document[section] = {k:v for k,v in document[section].items() if k in live}
+        atomic(path,rules.encode(document,section).encode())
+        try: hypr('dispatch','xetalwindowclose:reload')
+        except Exception:
+            if old is None: path.unlink(missing_ok=True)
+            else: atomic(path,old)
+            try: hypr('dispatch','xetalwindowclose:reload')
+            except Exception: pass
+            raise
+    return rules.load(path,section)
 
 
 def session():

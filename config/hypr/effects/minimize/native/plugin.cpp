@@ -26,6 +26,7 @@
 #include <hyprland/src/protocols/InputCapture.hpp>
 #include <hyprland/src/xwayland/XSurface.hpp>
 #include <hyprland/src/render/gl/GLFramebuffer.hpp>
+#include <hyprland/src/render/ElementRenderer.hpp>
 #include <linux/input-event-codes.h>
 #include <hyprutils/utils/ScopeGuard.hpp>
 #include <fstream>
@@ -371,12 +372,77 @@ using StateFn=void (*)(Desktop::View::CWindow*);
 using RenderFn=bool (*)(Render::IHyprRenderer*,PHLWINDOW,PHLMONITOR);
 using ScanoutFn=bool (*)(Monitor::CMonitor*);
 using EventFn=void (*)(CEventManager*,const SHyprIPCEvent&);
+using ClientModeFn=void (*)(Fullscreen::CFullscreenController*,PHLWINDOW,Fullscreen::eFullscreenMode,bool);
+using UVFn=void (*)(Render::IElementRenderer*,PHLWINDOW,SP<CWLSurfaceResource>,PHLMONITOR,bool,const Vector2D&,const Vector2D&,bool);
 StateFn originalState;RenderFn originalRender;ScanoutFn originalScanout;EventFn originalEvent;
+ClientModeFn originalClientMode;
+UVFn originalUV;
+void uvHook(Render::IElementRenderer* renderer,PHLWINDOW w,SP<CWLSurfaceResource> surface,PHLMONITOR monitor,bool main,
+            const Vector2D& projected,const Vector2D& unscaled,bool fixMisaligned) {
+    originalUV(renderer,w,surface,monitor,main,projected,unscaled,fixMisaligned);
+    if(!main||!w||!w->m_xdgSurface||!surface)return;
+    const auto& state=surface->m_current;
+    const auto geom=w->m_xdgSurface->m_current.geometry;
+    const auto size=state.size;
+    // Restoring the real maximized state can restore client-side shadow
+    // padding. Core 0.56.2 deliberately skips xdg_geometry UV cropping because
+    // it pretends every client is maximized. Its input coordinates already
+    // include that geometry: crop the main surface to match them, rather than
+    // clipping the right/bottom buttons or stretching the shadow as content.
+    if(size.x<=0||size.y<=0||geom.w<=0||geom.h<=0||geom.x<0||geom.y<0||geom.x+geom.w>size.x||geom.y+geom.h>size.y)return;
+    if(geom.x==0&&geom.y==0&&geom.w==size.x&&geom.h==size.y)return;
+    Vector2D start{},end{1,1};
+    if(state.viewport.hasSource){
+        if(state.bufferSize.x<=0||state.bufferSize.y<=0)return;
+        start=state.viewport.source.pos()/state.bufferSize;
+        end=(state.viewport.source.pos()+state.viewport.source.size())/state.bufferSize;
+    }
+    const auto span=end-start;
+    g_pHyprRenderer->m_renderData.primarySurfaceUVTopLeft=start+(geom.pos()/size)*span;
+    g_pHyprRenderer->m_renderData.primarySurfaceUVBottomRight=start+((geom.pos()+geom.size())/size)*span;
+}
+void reportWindowState(PHLWINDOW w,Fullscreen::eFullscreenMode mode) {
+    if(!w)return;
+    if(auto xdg=w->m_xdgSurface.lock();xdg&&xdg->m_toplevel){
+        auto top=xdg->m_toplevel.lock();
+        // 0.56.2 initially marks every client maximized to suppress CSD, then
+        // updates only its fullscreen bit. Native title bars consequently keep
+        // sending restore, or stop sending it until a minimize/remap resets them.
+        top->setMaximized(mode==Fullscreen::FSMODE_MAXIMIZED);
+        // Keep the compositor's existing decoration/edge policy. Changing it
+        // here would also enable client shadows and alter window geometry.
+        top->setSize(top->m_pendingApply.size);
+    }else if(auto x11=w->m_xwaylandSurface.lock()){
+        x11->m_maximized=mode==Fullscreen::FSMODE_MAXIMIZED;
+        x11->setFullscreen(mode==Fullscreen::FSMODE_FULLSCREEN); // publishes both EWMH flags
+    }
+}
+void clientModeHook(Fullscreen::CFullscreenController* controller,PHLWINDOW w,Fullscreen::eFullscreenMode mode,bool layoutAware) {
+    originalClientMode(controller,w,mode,layoutAware);
+    reportWindowState(w,mode);
+}
 void stateHook(Desktop::View::CWindow* window) {
     std::optional<bool> request;
     if(window->m_xdgSurface && window->m_xdgSurface->m_toplevel)request=window->m_xdgSurface->m_toplevel->m_state.requestsMinimize;
     else if(window->m_xwaylandSurface)request=window->m_xwaylandSurface->m_state.requestsMinimize;
+    auto* maximize=window->m_xdgSurface&&window->m_xdgSurface->m_toplevel?
+        &window->m_xdgSurface->m_toplevel->m_state.requestsMaximize:
+        window->m_xwaylandSurface?&window->m_xwaylandSurface->m_state.requestsMaximize:nullptr;
+    const auto requested=maximize?*maximize:std::optional<bool>{};
+    // Preserve fullscreen/minimize processing while replacing only the core's
+    // maximize toggle. set_maximized/unset_maximized must be idempotent.
+    if(maximize)maximize->reset();
     originalState(window);
+    if(maximize)*maximize=requested;
+    auto w=window->m_self.lock();
+    if(requested.has_value()&&w&&w->m_isMapped) {
+        if(!(window->m_suppressedEvents&Desktop::View::SUPPRESS_MAXIMIZE)) {
+            if(window->m_suppressNextMaximize)window->m_suppressNextMaximize=false;
+            else if(Fullscreen::controller()->getFullscreenModes(w).client!=Fullscreen::FSMODE_FULLSCREEN)
+                Fullscreen::controller()->setFullscreenMode(w,std::nullopt,*requested?Fullscreen::FSMODE_MAXIMIZED:Fullscreen::FSMODE_NONE);
+        }
+        reportWindowState(w,Fullscreen::controller()->getFullscreenModes(w).client);
+    }
     if(request.has_value())enqueue(window->m_self.lock(),*request);
 }
 bool renderHook(Render::IHyprRenderer* renderer,PHLWINDOW window,PHLMONITOR monitor) {
@@ -468,10 +534,16 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
     try {
         graphics.init();timer=makeShared<CEventLoopTimer>(std::nullopt,tick,nullptr);g_pEventLoopManager->addTimer(timer);
         hook("onUpdateState","CWindow::onUpdateState(",(void*)stateHook,originalState);
+        hook("setWindowFullscreenModeClient","CFullscreenController::setWindowFullscreenModeClient(",(void*)clientModeHook,originalClientMode);
+        hook("calculateUVForSurface","IElementRenderer::calculateUVForSurface(",(void*)uvHook,originalUV);
         hook("shouldRenderWindow","CSharedPointer<Monitor::CMonitor>",(void*)renderHook,originalRender);
         hook("attemptDirectScanout","CMonitor::attemptDirectScanout(",(void*)scanoutHook,originalScanout);
         hook("postEvent","CEventManager::postEvent(",(void*)eventHook,originalEvent);
         Order::init();
+        auto report=[](PHLWINDOW w){if(w&&w->m_isMapped)reportWindowState(w,Fullscreen::controller()->getFullscreenModes(w).client);};
+        listeners.push_back(Event::bus()->m_events.window.openLate.listen(report));
+        listeners.push_back(Event::bus()->m_events.window.floating.listen(report));
+        for(const auto& w:Desktop::windowState()->windows())report(w);
         ordinaryFocus=g_pKeybindManager->m_dispatchers.at("focuswindow");
         g_pKeybindManager->m_dispatchers["focuswindow"]=[](std::string args){
             auto w=Desktop::viewState()->query().selector(args).runWindow();

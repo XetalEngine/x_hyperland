@@ -1,7 +1,7 @@
 # Window buttons
 
-Hold **Super** while pointing at a window to reveal minimize, maximize/restore,
-and close buttons at its top-right corner. Minimize uses Fusion's existing
+Hold **Super** while pointing at a window to reveal a gear, minimize,
+maximize/restore, and close buttons at its top-right corner. Minimize uses Fusion's existing
 Minimize effect and its restore icons. Close sends the application's normal
 close request, so unsaved-work dialogs still work.
 
@@ -14,12 +14,22 @@ initial size is not mistaken for an actual previous floating size. The existing
 per-application window-memory service and launcher's per-shortcut memory remain
 in charge of restoring geometry across launches.
 
-Releasing the modifier hides the buttons; Super-drag elsewhere continues to
+By default, releasing the modifier hides the buttons; Super-drag elsewhere continues to
 move windows. Moving or resizing hides the buttons until the drag and its final
 wobble/geometry animation have settled, including native motion blur. They then
-return at the final corner if the modifier is still held and the pointer is over
-that window. This follows the window's live animation state, with no fixed delay;
+return at the final corner when the window's chosen visibility mode calls for
+them. This follows the window's live animation state, with no fixed delay;
 unrelated settling windows do not hide the hovered window's controls.
+
+The **gear** opens an editor for this window or all windows of its application.
+Choose the modifier, always-visible, nearby-pointer, or Off display mode; adjust
+button size, six corner/edge positions, insets and nearby distance. The gear
+itself appears **only with Super held**, even in Off mode. An individual window
+override lasts until it closes; application choices persist across launches and
+logins. Window overrides take priority over app choices, then global settings.
+**Use inherited settings** removes the selected override. App matching uses the
+exact initial application class; live windows use compositor lifetime IDs, so
+closing one cannot transfer its override to a replacement window.
 
 Configure or disable them in **Fusion Settings → Hotkeys → Window buttons…**:
 enable switch, Super / Alt / Super+Shift, size, corner distance, and gentle pulse.
@@ -32,21 +42,25 @@ It does not replace application decorations or force unsupported decorations.
 
 `model.py` validates `settings.conf`; `controller.py` checks for external edits,
 saves atomically, activates the setting, and rolls back on failure. The updater
-treats the file as a personal preference. Fresh installations enable the button.
+treats it and `rules.json` as personal preferences. Fresh installations enable the controls.
 `page.py` supplies the themed Hotkeys dialog. `scripts/session.sh` starts the
 controller for this compositor session; there is no persistent system service.
+`window_settings.py` supplies the gear editor; `rules.py` and `native/policies.hpp`
+validate its overrides. Window-only overrides live under the compositor's runtime
+directory. Saves check for external edits and roll back if the native reload fails.
 
 `native/plugin.cpp` uses cancellable compositor input events and a render-pass
-overlay. Only a left-button press on a visible button is intercepted; release
-must still be over the same button and window with the modifier held. It uses weak window
+element inserted in the owning window's stack, so other windows and panels cover
+its controls naturally. Only a left-button press on a visible button is intercepted;
+release must still be over the same visible button and window. It uses weak window
 references, hides during locking, input capture and file drags, and sends
 `CWindow::sendClose()` rather than terminating a process. Its timer sleeps when
-the modifier is released. No Hyprland function hooks are patched.
+there are no visible controls or settling windows to follow. No Hyprland function hooks are patched.
 
 The native adapter currently supports x86-64 **Hyprland 0.56.2**, commit
 `efb50993780079460b0cbed1363e2166a2de1d9f`, and OpenGL. A mismatched compositor,
 headers, or renderer is rejected. Builds require the existing compositor
-development dependencies plus Cairo headers/library; each source/ABI build gets
+development dependencies plus Cairo and json-c headers/libraries; each source/ABI build gets
 a unique `.so` path so loaded libraries are never overwritten. Updating a loaded
 native adapter takes effect on the next login; settings apply immediately.
 
@@ -61,3 +75,8 @@ with XWayland disabled. It never targets the parent compositor with test input.
 maximization, screen fitting, addressed minimize/restore, cancelled clicks, and
 normal close requests in a disposable compositor. The native geometry unit
 checks include negative output coordinates, portrait work areas and size limits.
+Add `--rules-only` to exercise the real gear editor, all display modes, app/window
+inheritance, no-modifier actions, bounds, reload and window lifetime. Add
+`--native-only` to exercise Chrome's own maximize/restore button and title-bar
+double-click repeatedly without a minimize reset. All browser/toolkit preferences
+are isolated beneath the test's `/tmp` directory.

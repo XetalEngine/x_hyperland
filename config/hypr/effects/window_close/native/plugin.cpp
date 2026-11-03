@@ -2,6 +2,7 @@
 #include <hyprland/src/plugins/PluginAPI.hpp>
 #include <hyprland/src/Compositor.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/Workspace.hpp>
 #include <hyprland/src/desktop/state/ViewState.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
@@ -34,6 +35,7 @@
 #include <set>
 #include <sstream>
 #include "geometry.hpp"
+#include "policies.hpp"
 
 namespace {
 using Clock = std::chrono::steady_clock;
@@ -42,15 +44,18 @@ struct Settings { bool enabled=true, pulse=true; int modifier=64, size=34, inset
 std::array<double,3> accent{.224,.663,1};
 std::vector<CHyprSignalListener> listeners;
 SP<CEventLoopTimer> timer;
-SP<SHyprCtlCommand> status;
-enum Action { Minimize, Maximize, Close, None };
-std::array<SP<Render::ITexture>,4> textures;
+SP<SHyprCtlCommand> status,windowStatus;
+enum Action { Minimize, Maximize, Close, Gear, None };
+std::array<SP<Render::ITexture>,5> textures;
 PHLWINDOWREF target, pressed, pending;
 std::vector<PHLWINDOWREF> neverFloated;
-std::array<CBox,3> buttons;
+std::array<CBox,4> buttons;
+struct Row {PHLWINDOWREF window;std::array<CBox,4> boxes;WindowButtons::Rule rule;};
+std::vector<Row> rows;
+WindowButtons::Rules appRules,windowRules;
 Action pressedAction=None,pendingAction=None;
-bool held=false, captured=false, stopping=false;
-uint64_t closed=0, minimized=0, maximized=0, restored=0, floated=0, draws=0;
+bool held=false, superHeld=false,captured=false, stopping=false,waiting=false;
+uint64_t closed=0, minimized=0, maximized=0, restored=0, floated=0, draws=0,openedSettings=0;
 const auto epoch=Clock::now();
 
 std::filesystem::path root() {
@@ -85,6 +90,22 @@ Settings readSettings() {
         throw std::runtime_error("Incomplete window close settings");
     return next;
 }
+std::filesystem::path sessionRulesPath(){
+    const char* runtime=std::getenv("XDG_RUNTIME_DIR"),*instance=std::getenv("HYPRLAND_INSTANCE_SIGNATURE");
+    if(!runtime||!instance||std::string(instance).find('/')!=std::string::npos)throw std::runtime_error("Missing compositor session");
+    return std::filesystem::path(runtime)/"hypr"/instance/"xetal-windowbuttons-rules.json";
+}
+void load(){
+    auto next=readSettings();auto apps=WindowButtons::readRules(root()/"effects/window_close/rules.json","apps");
+    auto windows=WindowButtons::readRules(sessionRulesPath(),"windows");
+    settings=next;appRules=std::move(apps);windowRules=std::move(windows);
+}
+std::string appId(PHLWINDOW w){return w->m_initialClass.empty()?w->m_class:w->m_initialClass;}
+WindowButtons::Rule ruleFor(PHLWINDOW w){
+    if(auto it=windowRules.find(std::to_string(w->m_stableID));it!=windowRules.end())return it->second;
+    if(auto it=appRules.find(appId(w));it!=appRules.end())return it->second;
+    WindowButtons::Rule r;r.size=settings.size;r.x=r.y=settings.inset;return r;
+}
 void readAccent() {
     std::ifstream colors(root()/"theme/current.colors");std::string line;bool window=false;
     while(std::getline(colors,line)) {
@@ -95,8 +116,8 @@ void readAccent() {
             accent={r/255.,g/255.,b/255.};
     }
 }
-void damage() {for(const auto& button:buttons)if(!button.empty())g_pHyprRenderer->damageBox(CBox(button).expand(button.width));}
-Action hit(Vector2D point){for(int i=0;i<3;++i)if(!buttons[i].empty()&&buttons[i].containsPoint(point))return Action(i);return None;}
+void damage() {for(const auto& row:rows)for(const auto& button:row.boxes)if(!button.empty())g_pHyprRenderer->damageBox(CBox(button).expand(button.width));}
+Action hit(Vector2D point){for(int i=0;i<4;++i)if(!buttons[i].empty()&&buttons[i].containsPoint(point))return Action(i);return None;}
 bool restoring(PHLWINDOW w){return w&&(!w->m_isFloating||Fullscreen::controller()->getFullscreenModes(w).internal!=Fullscreen::FSMODE_NONE);}
 bool available() {
     return !stopping && settings.enabled && g_pCompositor->m_sessionActive &&
@@ -108,28 +129,57 @@ bool settled(PHLWINDOW w) {
     // lattice settles and the final input rectangle has been placed. Also
     // wait for native geometry/motion blur so these untransformed controls
     // never appear at a different position from the window they're acting on.
-    return w && w->m_transformers.empty() && !w->positionAnimation()->isBeingAnimated() && !w->sizeAnimation()->isBeingAnimated();
+    return w && w->m_transformers.empty() && !w->positionAnimation()->isBeingAnimated() && !w->sizeAnimation()->isBeingAnimated() &&
+        (!w->m_workspace||(!w->m_workspace->m_renderOffset->isBeingAnimated()&&!w->m_workspace->m_alpha->isBeingAnimated()));
 }
 void refresh() {
     damage();
-    held=available() && g_pInputManager->getModsFromAllKBs()==uint32_t(settings.modifier);
-    target.reset();buttons={};if(!held)return;
+    const auto mods=g_pInputManager->getModsFromAllKBs();
+    waiting=false;
+    superHeld=available()&&mods==64;
+    held=available() && (mods==uint32_t(settings.modifier)||superHeld);
+    target.reset();buttons={};rows.clear();
+    if(!available()){
+        waiting=settings.enabled&&g_pCompositor->m_sessionActive&&!g_pSessionLockManager->isSessionLocked()&&
+            bool(g_layoutManager->dragController()->target())&&(!appRules.empty()||!windowRules.empty());
+        return;
+    }
     const auto point=Pointer::mgr()->position();
-    auto window=Desktop::viewState()->hitTest().windowAt(point,Desktop::View::ALLOW_FLOATING);
-    if(!window || !window->m_isMapped || window->isHidden() || !settled(window))return;
-    const auto monitor=window->m_monitor.lock();if(!monitor)return;
-    Vector2D local;PHLLS layer;
-    // Panels, menus, and lock surfaces must never activate a window below them.
-    for(int i:{3,2})if(Desktop::viewState()->hitTest().layerSurfaceAt(point,&monitor->m_layerSurfaceLayers[i],&local,&layer))return;
-    if(Desktop::viewState()->hitTest().layerPopupSurfaceAt(point,monitor,&local,&layer))return;
-    auto box=window->geometricBox(Desktop::View::IGeometric::GEOMETRIC_CURRENT);
-    // Keep all three controls reachable when a window straddles an edge.
-    box=box.intersection(monitor->logicalBox());
-    const double gap=std::max(4,settings.size/6);
-    const double size=std::min({double(settings.size),(box.w-2*settings.inset-2*gap)/3.,box.h-2*settings.inset});
-    if(size<18)return;
-    for(int i=0;i<3;++i)buttons[i]={box.x+box.w-settings.inset-size-(2-i)*(size+gap),box.y+settings.inset,size,size};
-    target=window;damage();
+    auto hovered=Desktop::viewState()->hitTest().windowAt(point,Desktop::View::ALLOW_FLOATING);
+    if(hovered&&hovered->hasPopupAt(point))hovered.reset();
+    if(hovered){
+        Vector2D local;PHLLS layer;auto monitor=hovered->m_monitor.lock();
+        if(monitor){
+            for(int i:{3,2})if(Desktop::viewState()->hitTest().layerSurfaceAt(point,&monitor->m_layerSurfaceLayers[i],&local,&layer))hovered.reset();
+            if(Desktop::viewState()->hitTest().layerPopupSurfaceAt(point,monitor,&local,&layer))hovered.reset();
+        }
+    }
+    for(const auto& window:Desktop::windowState()->windows()){
+        if(!window->m_isMapped||window->isHidden()||window->isX11OverrideRedirect()||window->m_class=="fusion-window-buttons")continue;
+        const auto monitor=window->m_monitor.lock();
+        if(!monitor||!g_pHyprRenderer->shouldRenderWindow(window,monitor))continue;
+        auto rule=ruleFor(window);const bool isHovered=hovered==window;
+        if(rule.mode!="always"&&!isHovered)continue;
+        if(!settled(window)){waiting|=rule.mode=="always"||(isHovered&&(held||rule.mode=="nearby"));continue;}
+        if(window->popupsCount()>0){if(rule.mode=="always")rows.push_back({window,{},rule});continue;}
+        auto box=window->geometricBox(Desktop::View::IGeometric::GEOMETRIC_CURRENT).intersection(monitor->logicalBox());
+        const double gap=std::max(4,rule.size/6);
+        const double size=std::min({double(rule.size),(box.w-8-3*gap)/4.,box.h-8});
+        if(size<18)continue;
+        const double width=4*size+3*gap;
+        const double x=std::clamp(rule.anchor.ends_with("right")?box.x+box.w-width-rule.x:
+            rule.anchor.ends_with("center")?box.x+(box.w-width)/2+rule.x-8:box.x+rule.x,box.x+4,box.x+box.w-width-4);
+        const double y=std::clamp(rule.anchor.starts_with("bottom")?box.y+box.h-size-rule.y:box.y+rule.y,box.y+4,box.y+box.h-size-4);
+        Row row{window,{},rule};
+        const bool nearby=isHovered&&CBox{x,y,width,size}.expand(rule.proximity).containsPoint(point);
+        if(rule.mode!="off"&&((held&&isHovered)||rule.mode=="always"||(rule.mode=="nearby"&&nearby)))
+            for(int i=0;i<3;++i)row.boxes[i]={x+(i+1)*(size+gap),y,size,size};
+        if(superHeld&&isHovered)row.boxes[Gear]={x+size*.08,y+size*.08,size*.84,size*.84};
+        if(std::ranges::all_of(row.boxes,[](const CBox& b){return b.empty();}))continue;
+        if(isHovered){target=window;buttons=row.boxes;}
+        rows.push_back(row);
+    }
+    damage();
 }
 void arm(){if(timer)timer->updateTimeout(std::chrono::milliseconds(1));}
 void createTexture(int glyph) {
@@ -150,7 +200,12 @@ void createTexture(int glyph) {
     if(glyph==0){cairo_move_to(cr,26,36);cairo_line_to(cr,38,36);}
     else if(glyph==1)cairo_rectangle(cr,26.5,26.5,11,11);
     else if(glyph==2){cairo_move_to(cr,29,28);cairo_line_to(cr,29,24.5);cairo_line_to(cr,39.5,24.5);cairo_line_to(cr,39.5,35);cairo_line_to(cr,36,35);cairo_rectangle(cr,24.5,28,11.5,11.5);}
-    else {cairo_move_to(cr,27,27);cairo_line_to(cr,37,37);cairo_move_to(cr,37,27);cairo_line_to(cr,27,37);}
+    else if(glyph==3){cairo_move_to(cr,27,27);cairo_line_to(cr,37,37);cairo_move_to(cr,37,27);cairo_line_to(cr,27,37);}
+    else {
+        for(int i=0;i<=32;++i){const double a=i*M_PI/16.,r=(i%4==0||i%4==3)?9.:7.;
+            if(i==0)cairo_move_to(cr,32+r*std::cos(a),32+r*std::sin(a));else cairo_line_to(cr,32+r*std::cos(a),32+r*std::sin(a));}
+        cairo_close_path(cr);cairo_new_sub_path(cr);cairo_arc(cr,32,32,3.2,0,2*M_PI);
+    }
     cairo_set_line_cap(cr,CAIRO_LINE_CAP_ROUND);cairo_set_line_width(cr,2.5);
     cairo_set_source_rgb(cr,.96,.98,1);cairo_stroke(cr);cairo_destroy(cr);cairo_surface_flush(surface);
     g_pHyprRenderer->glBackend()->makeEGLCurrent();
@@ -160,26 +215,28 @@ void createTexture(int glyph) {
 }
 class ClosePass:public IPassElement {
     PHLMONITORREF monitor;
+    Row row;
 public:
-    explicit ClosePass(PHLMONITOR m):monitor(m){}
+    explicit ClosePass(PHLMONITOR m,const Row& r):monitor(m),row(r){}
     bool needsLiveBlur()override{return false;}
     bool needsPrecomputeBlur()override{return false;}
     const char* passName()override{return "FusionWindowClose";}
     ePassElementType type()override{return EK_CUSTOM;}
     bool disableSimplification()override{return true;}
     std::vector<UP<IPassElement>> draw()override {
-        auto m=monitor.lock();auto w=target.lock();
-        if(!m || !w || !held || !available() || !settled(w) || buttons[Close].empty())return {};
+        auto m=monitor.lock();auto w=row.window.lock();
+        if(!m || !w || !available() || !settled(w))return {};
         const double elapsed=std::chrono::duration<double>(Clock::now()-epoch).count();
-        for(int i=0;i<3;++i){
-            const auto& button=buttons[i];const int glyph=i==Close?3:i==Maximize&&restoring(w)?2:i;
+        for(int i=0;i<4;++i){
+            const auto& button=row.boxes[i];if(button.empty()||(i==Gear&&!superHeld))continue;
+            const int glyph=i==Gear?4:i==Close?3:i==Maximize&&restoring(w)?2:i;
             if(!textures[glyph])createTexture(glyph);
             const bool hover=button.containsPoint(Pointer::mgr()->position());
             CTexPassElement::SRenderData data;data.tex=textures[glyph];
             // Artwork's central 28/64 is the full hit area; halo sits outside it.
             const double margin=button.width*18/28.;
             data.box=CBox(button).expand(margin).translate(-m->m_position).scale(m->m_scale);
-            data.a=hover?1.F:settings.pulse?float(.82+.18*std::sin(elapsed*4.5)):.9F;
+            data.a=(hover?1.F:settings.pulse?float(.82+.18*std::sin(elapsed*4.5)):.9F)*w->effectiveAlpha();
             g_pHyprRenderer->draw(data,g_pHyprRenderer->m_renderData.damage);
         }
         ++draws;return {};
@@ -225,6 +282,15 @@ void maximizeOrRestore(PHLWINDOW w){
     if(wasTiled)++floated;else ++restored;
 }
 void perform(PHLWINDOW w,Action action){
+    if(action==Gear){
+        if(!superHeld)return;
+        std::string path=(root()/"effects/window_close/window_settings.py").string(),quoted="'";
+        for(char c:path)quoted+=c=='\''?"'\\''":std::string(1,c);
+        quoted+="'";
+        auto result=g_pKeybindManager->m_dispatchers.at("exec")("[float; size 560 610; center] python3 "+quoted+" --window-id "+std::to_string(w->m_stableID));
+        if(result.success)++openedSettings;
+        return;
+    }
     if(action==Close){w->sendClose();++closed;return;}
     if(action==Minimize){
         const auto it=g_pKeybindManager->m_dispatchers.find("xetalminimize:minimize");
@@ -242,12 +308,12 @@ void tick(SP<CEventLoopTimer> self,void*) {
     refresh();
     const auto w=pending.lock();const auto action=pendingAction;pending.reset();pendingAction=None;
     if(w && w->m_isMapped && !w->isHidden() && available() && settled(w)){perform(w,action);refresh();}
-    if(held || captured)self->updateTimeout(std::chrono::milliseconds(25));
+    if(held || captured || waiting || !rows.empty())self->updateTimeout(std::chrono::milliseconds(25));
 }
 void cleanup() {
     stopping=true;damage();listeners.clear();target.reset();pressed.reset();pending.reset();neverFloated.clear();
     if(timer){timer->cancel();g_pEventLoopManager->removeTimer(timer);timer.reset();}
-    g_pHyprRenderer->m_renderPass.removeAllOfType("FusionWindowClose");textures={};buttons={};
+    g_pHyprRenderer->m_renderPass.removeAllOfType("FusionWindowClose");textures={};buttons={};rows.clear();
 }
 }
 APICALL EXPORT std::string PLUGIN_API_VERSION(){return HYPRLAND_API_VERSION;}
@@ -255,19 +321,21 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
     handle=h;stopping=false;
     if(std::string(__hyprland_api_get_hash())!=__hyprland_api_get_client_hash())throw std::runtime_error("Rebuild window close for this compositor ABI");
     if(g_pHyprRenderer->type()!=Render::IHyprRenderer::RT_GL)throw std::runtime_error("Window close needs the OpenGL renderer");
-    settings=readSettings();
+    load();
     try {
         timer=makeShared<CEventLoopTimer>(std::nullopt,tick,nullptr);g_pEventLoopManager->addTimer(timer);
         listeners.push_back(Event::bus()->m_events.input.keyboard.key.listen([](IKeyboard::SKeyEvent,Event::SCallbackInfo&){arm();}));
         listeners.push_back(Event::bus()->m_events.input.mouse.move.listen([](Vector2D,Event::SCallbackInfo&){arm();}));
-        listeners.push_back(Event::bus()->m_events.window.openLate.listen([](PHLWINDOW w){if(!w->m_isFloating)neverFloated.emplace_back(w);}));
+        listeners.push_back(Event::bus()->m_events.window.openLate.listen([](PHLWINDOW w){if(!w->m_isFloating)neverFloated.emplace_back(w);arm();}));
         listeners.push_back(Event::bus()->m_events.window.floating.listen([](PHLWINDOW w){
             if(w->m_isFloating)std::erase_if(neverFloated,[&](const auto& weak){return !weak.lock()||weak.lock()==w;});
         }));
         listeners.push_back(Event::bus()->m_events.window.close.listen([](PHLWINDOW w){
-            std::erase_if(neverFloated,[&](const auto& weak){return !weak.lock()||weak.lock()==w;});arm();
+            std::erase_if(neverFloated,[&](const auto& weak){return !weak.lock()||weak.lock()==w;});windowRules.erase(std::to_string(w->m_stableID));arm();
         }));
         listeners.push_back(Event::bus()->m_events.monitor.layoutChanged.listen([](){arm();}));
+        listeners.push_back(Event::bus()->m_events.workspace.active.listen([](PHLWORKSPACE){arm();}));
+        listeners.push_back(Event::bus()->m_events.workspace.specialActive.listen([](PHLWORKSPACE,PHLMONITOR){arm();}));
         listeners.push_back(Event::bus()->m_events.input.mouse.button.listen([](IPointer::SButtonEvent event,Event::SCallbackInfo& info){
             // Recheck after the drag controller sees this press/release. This
             // also restores the button after a drag with Super still held.
@@ -275,7 +343,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             if(event.button!=BTN_LEFT)return;
             if(event.state==WL_POINTER_BUTTON_STATE_RELEASED && captured){
                 captured=false;info.cancelled=true;refresh();
-                if(held && pressed.lock()==target.lock() && hit(Pointer::mgr()->position())==pressedAction){pending=pressed;pendingAction=pressedAction;}
+                if(pressed.lock()==target.lock() && hit(Pointer::mgr()->position())==pressedAction){pending=pressed;pendingAction=pressedAction;}
                 pressed.reset();pressedAction=None;arm();return;
             }
             if(info.cancelled || event.state!=WL_POINTER_BUTTON_STATE_PRESSED)return;
@@ -284,12 +352,15 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             }
         }));
         listeners.push_back(Event::bus()->m_events.render.stage.listen([](eRenderStage stage){
-            if(stage!=RENDER_LAST_MOMENT || !held || !available() || g_pHyprRenderer->m_bRenderingSnapshot)return;
-            auto w=target.lock();auto m=g_pHyprRenderer->m_renderData.pMonitor.lock();
-            if(w && m && settled(w) && w->m_monitor.lock()==m)g_pHyprRenderer->addPassElement(makeUnique<ClosePass>(m));
+            if(stage!=RENDER_POST_WINDOW || !available() || g_pHyprRenderer->m_bRenderingSnapshot)return;
+            auto w=g_pHyprRenderer->m_renderData.currentWindow.lock();auto m=g_pHyprRenderer->m_renderData.pMonitor.lock();
+            // Draw in the owning window's stack, so another window or panel
+            // naturally covers its buttons. Never draw a desktop-wide overlay.
+            if(w&&m&&settled(w)&&w->m_monitor.lock()==m)
+                for(const auto& row:rows)if(row.window.lock()==w)g_pHyprRenderer->addPassElement(makeUnique<ClosePass>(m,row));
         }));
         HyprlandAPI::addDispatcherV2(handle,"xetalwindowclose:reload",[](std::string){
-            try{settings=readSettings();textures={};refresh();arm();return SDispatchResult{};}
+            try{load();textures={};refresh();arm();return SDispatchResult{};}
             catch(const std::exception& error){return SDispatchResult{.success=false,.error=error.what()};}
         });
         status=HyprlandAPI::registerHyprCtlCommand(handle,{"xetal-windowclose",true,[](eHyprCtlOutputFormat,std::string){
@@ -298,10 +369,26 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
                 const auto name=i==Close?"close":i==Minimize?"minimize":restoring(target.lock())?"restore":"maximize";
                 items+=std::format("{{\"action\":\"{}\",\"box\":[{},{},{},{}]}}",name,b.x,b.y,b.w,b.h);
             }
-            return std::format("{{\"enabled\":{},\"held\":{},\"visible\":{},\"closed\":{},\"draws\":{},\"box\":[{},{},{},{}],\"color\":[{},{},{}],\"buttons\":[{}],\"minimized\":{},\"maximized\":{},\"restored\":{},\"floated\":{}}}",
-                settings.enabled,held,available()&&settled(target.lock()),closed,draws,button.x,button.y,button.width,button.height,accent[0],accent[1],accent[2],items,minimized,maximized,restored,floated);
+            const auto& gear=buttons[Gear];
+            return std::format("{{\"enabled\":{},\"held\":{},\"visible\":{},\"closed\":{},\"draws\":{},\"box\":[{},{},{},{}],\"color\":[{},{},{}],\"buttons\":[{}],\"minimized\":{},\"maximized\":{},\"restored\":{},\"floated\":{},\"gear\":[{},{},{},{}],\"gear_visible\":{},\"settings_opened\":{}}}",
+                settings.enabled,held,available()&&settled(target.lock())&&!button.empty(),closed,draws,button.x,button.y,button.width,button.height,accent[0],accent[1],accent[2],items,minimized,maximized,restored,floated,
+                gear.x,gear.y,gear.w,gear.h,superHeld&&!gear.empty()&&settled(target.lock()),openedSettings);
         }});
+        windowStatus=HyprlandAPI::registerHyprCtlCommand(handle,{"xetal-windowbuttons",false,[](eHyprCtlOutputFormat,std::string input){
+            std::istringstream stream(input);std::string command,id,extra;stream>>command>>id;
+            if(id.empty()){
+                std::string ids;for(const auto& w:Desktop::windowState()->windows())if(w->m_isMapped){if(!ids.empty())ids+=",";ids+=WindowButtons::quoted(std::to_string(w->m_stableID));}
+                return "{\"windows\":["+ids+"]}";
+            }
+            if(!(stream>>extra))for(const auto& w:Desktop::windowState()->windows())if(w->m_isMapped&&id==std::to_string(w->m_stableID)){
+                auto rule=WindowButtons::ruleJson(ruleFor(w));
+                return std::format("{{\"id\":\"{}\",\"app\":{},\"address\":\"0x{:x}\",\"rule\":{},\"window_override\":{},\"app_override\":{}}}",
+                    id,WindowButtons::quoted(appId(w)),reinterpret_cast<uintptr_t>(w.get()),json_object_to_json_string_ext(rule.get(),JSON_C_TO_STRING_PLAIN),windowRules.contains(id),appRules.contains(appId(w)));
+            }
+            return std::string("{\"error\":\"This window has closed.\"}");
+        }});
+        arm();
     }catch(...){cleanup();throw;}
-    return {"Xetal Window Close","Theme-aware minimize, maximize/restore and close buttons","XetalEngine","1.1"};
+    return {"Xetal Window Close","Theme-aware window controls with per-app and per-window choices","XetalEngine","1.2"};
 }
 APICALL EXPORT void PLUGIN_EXIT(){cleanup();}

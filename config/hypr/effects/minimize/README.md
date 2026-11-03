@@ -52,6 +52,14 @@ The same native handler fixes **Super+F / Super+B** ordering for floating window
 above a maximized/fullscreen window and remembers the order across workspace
 switches. That part remains active when the minimize effect is disabled.
 
+It also keeps native maximize/restore requests and reported window state in
+sync for Wayland and XWayland. Chrome's title-bar double-click and native middle
+button can repeatedly maximize and restore without minimizing to reset them.
+Explicit maximize/unmaximize requests are idempotent. On this pinned compositor,
+the adapter also crops client decoration padding to the xdg window geometry so
+restored native buttons remain fully visible and match their input coordinates.
+These corrections remain active when the minimize animation is disabled.
+
 ## Compatibility and recovery
 
 - Hyprland **0.56.2**, commit `efb50993780079460b0cbed1363e2166a2de1d9f`,

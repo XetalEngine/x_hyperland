@@ -24,7 +24,8 @@ class Dialog(QDialog):
         title.setStyleSheet('font-size: 19px; font-weight: 700;'); layout.addWidget(title)
         hint = QLabel('Hold the modifier over a window to minimize, maximize or restore, and close. '
                       'Restore turns a tiled window into a floating window at its remembered size, '
-                      'fitted to the current screen. Close still lets applications ask you to save.')
+                      'fitted to the current screen. Hold Super and click the gear to choose always-on, '
+                      'nearby, or hidden controls, size and position for that window or app.')
         hint.setWordWrap(True); layout.addWidget(hint)
         self.enabled = QCheckBox('Show window buttons'); self.enabled.setChecked(self.values['enabled'])
         layout.addWidget(self.enabled)

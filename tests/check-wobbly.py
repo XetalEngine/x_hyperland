@@ -9,7 +9,7 @@ from pathlib import Path
 REPO=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(REPO/'config/hypr'))
 from effects.wobbly import model
-from effects.window_close import build as close_build, model as close_model
+from effects.window_close import build as close_build, model as close_model, rules as close_rules
 from effects.cube import model as cube_model, build as cube_build
 from effects.burn import model as burn_model, build as burn_build
 from effects.minimize import model as minimize_model, build as minimize_build
@@ -110,6 +110,10 @@ windowrule=match:class ^wobbly-test$,float on
             wait(lambda:next(o for o in json.loads(ctl('-j','monitors')) if o['name']==name)['width']==w)
         primary=wait(lambda:next(iter(json.loads(ctl('-j','monitors'))),None))
         size_output(primary['name'],1280,900)
+        devices=json.loads(ctl('-j','devices'))
+        for group in ('mice','keyboards'):
+            for device in devices[group]:
+                assert ctl('keyword',f'device[{device["name"]}]:enabled','false')=='ok'
         time.sleep(1.5)
         assert ctl('plugin','load',str(binary))=='ok'
         assert ctl('plugin','load',str(close_build.build()))=='ok'
@@ -210,6 +214,19 @@ windowrule=match:class ^wobbly-test$,float on
         for delta in (20,40,60):point(f'move {x+delta} {y+delta}');time.sleep(.015)
         point('up 272');assert status()['active'];point('key 125 0')
         wait(lambda:status()['active']==0);time.sleep(.1);assert not close_status()['visible']
+        # Persistent controls return after settling without another key/motion
+        # event, including when Super is released before the springs finish.
+        rule_path=close_settings.with_name('rules.json')
+        rule_path.write_text(close_rules.encode({'version':1,'apps':{client()['initialClass']:dict(close_rules.DEFAULTS,mode='always')}}))
+        dispatch('xetalwindowclose:reload');wait(lambda:close_status()['visible'])
+        c=client();x=c['at'][0]+100;y=c['at'][1]+50
+        point(f'move {x} {y}');point('key 125 1');point('down 272')
+        for delta in (20,40,60):point(f'move {x+delta} {y+delta}');time.sleep(.015)
+        point('up 272');assert status()['active'];point('key 125 0')
+        assert not close_status()['visible']
+        wait(lambda:status()['active']==0);wait(lambda:close_status()['visible'])
+        assert not close_status()['gear_visible']
+        rule_path.unlink();dispatch('xetalwindowclose:reload');wait(lambda:not close_status()['visible'])
         # Another window's wobble does not hide controls on this stable window.
         focus_effect=values['focus_effect'];save(focus_effect=0)
         command('add','Settling neighbor');wait(lambda:client('Settling neighbor'))
