@@ -6,6 +6,9 @@ except ImportError:
 
 OPERATIONS = {'copy': 'Copying files', 'move': 'Moving files',
               'compress': 'Compressing files', 'extract': 'Extracting files'}
+STATES = {'running': 'Running', 'unknown': 'Unknown size', 'paused': 'Paused',
+          'conflicts': 'Replace or skip files', 'file': 'Choose for each file',
+          'duplicate': 'Already in this folder', 'completed': 'Completed', 'error': 'Error'}
 
 
 def sample(operation='copy', state='running'):
@@ -20,4 +23,6 @@ def sample(operation='copy', state='running'):
     elif state == 'error': job.terminate(2, 'Preview: the destination is not writable.')
     elif state == 'unknown':
         job.data.pop('percent'); job.data.pop('totalBytes')
+    elif state in ('conflicts', 'file', 'duplicate'):
+        job.ask({'kind': state, 'source': source+'/Photo.png', 'destination': destination+'/Photo.png', 'replace_allowed': True})
     return job

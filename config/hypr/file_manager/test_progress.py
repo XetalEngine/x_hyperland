@@ -40,9 +40,13 @@ def main():
         observations['created'] = True
         window = windows.windows[job.path]
         observations['themed'] = window.options['style'] == 'binaryknife'
+        pause_scheduled = [False]
 
         def changed():
             observations['bytes'] |= job.data.get('totalBytes', 0) >= 64*1024*1024
+            if observations['bytes'] and not pause_scheduled[0]:
+                pause_scheduled[0] = True
+                QTimer.singleShot(150, lambda: job.request('suspend'))
             if job.data.get('suspended') and not observations['paused']:
                 observations['paused'] = True
                 capture = os.environ.get('FUSION_FILES_CAPTURE')
@@ -55,7 +59,8 @@ def main():
         job.finished.connect(lambda: observations.update(completed=job.result == ('canceled' if cancel else 'done')))
         # Wait for the client to receive requestView's reply and subscribe to
         # control signals, as a real click after the popup appears would.
-        QTimer.singleShot(150, lambda: job.request('suspend'))
+        # The card now exists during the access check, before KIO has counted
+        # the files. Exercise cancellation during an actual, measurable copy.
 
     service.created.connect(created)
     process = QProcess(app)

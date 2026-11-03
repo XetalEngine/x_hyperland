@@ -1,4 +1,5 @@
 #include "transfers.h"
+#include "transfer_view.h"
 #include <KIO/CopyJob>
 #include <KIO/DropJob>
 #include <KIO/FileUndoManager>
@@ -12,31 +13,50 @@
 #include <KUrlMimeData>
 #include <QApplication>
 #include <QClipboard>
+#include <QCheckBox>
+#include <QCommandLinkButton>
 #include <QFileInfo>
+#include <QDir>
 #include <QDropEvent>
 #include <QFutureWatcher>
-#include <QMenu>
+#include <QMessageBox>
 #include <QMimeData>
 #include <QMimeDatabase>
 #include <QPointer>
+#include <QPushButton>
 #include <QTimer>
+#include <QVBoxLayout>
+#include <QLabel>
 #include <QtConcurrent>
+#include <algorithm>
+#include <optional>
 
 namespace {
 // Keep KIO's single transfer, clipboard updates, Undo and JobView progress.
-// Only the name-conflict decision changes: keep both with a numbered name.
-class NumberedCopies : public KIO::WidgetsAskUserActionHandler {
+// Same-folder duplicates get numbered names. Other conflicts require a choice,
+// shared across both files and folders for this transfer only.
+class TransferConflicts : public KIO::WidgetsAskUserActionHandler {
 public:
-  explicit NumberedCopies(bool moving) : moving(moving) {}
+  explicit TransferConflicts(QWidget *window, bool moving, Fusion::TransferView *view)
+      : window(window), moving(moving), view(view) {}
   void askUserRename(KJob *job, const QString &, const QUrl &src,
                      const QUrl &dest, KIO::RenameDialog_Options options,
                      KIO::filesize_t, KIO::filesize_t, const QDateTime &,
                      const QDateTime &, const QDateTime &,
                      const QDateTime &) override {
-    if (moving && Fusion::ordinaryFileUrl(src).matches(Fusion::ordinaryFileUrl(dest), QUrl::StripTrailingSlash)) {
-      QTimer::singleShot(0, job, [this, job] {
-        emit askUserRenameResult(KIO::Result_Skip, {}, job);
-      });
+    const auto source = Fusion::ordinaryFileUrl(src).adjusted(QUrl::NormalizePathSegments);
+    const auto destination = Fusion::ordinaryFileUrl(dest).adjusted(QUrl::NormalizePathSegments);
+    const auto sourceParent = source.isLocalFile() ? QFileInfo(source.toLocalFile()).absoluteDir().canonicalPath() : QString();
+    const bool same = source.matches(destination, QUrl::StripTrailingSlash) ||
+        (!sourceParent.isEmpty() && source.fileName() == destination.fileName() && destination.isLocalFile() &&
+         sourceParent ==
+         QFileInfo(destination.toLocalFile()).absoluteDir().canonicalPath());
+    if (!same) {
+      askConflict(job, src, dest, options);
+      return;
+    }
+    if (moving) {
+      reply(job, KIO::Result_Skip);
       return;
     }
     QString name = src.adjusted(QUrl::StripTrailingSlash).fileName();
@@ -59,7 +79,139 @@ public:
   }
 
 private:
+  QPointer<QWidget> window;
   bool moving;
+  QPointer<Fusion::TransferView> view;
+  bool individual = false;
+  KIO::RenameDialog_Result all = KIO::Result_Cancel;
+  void reply(KJob *job, KIO::RenameDialog_Result result) {
+    QTimer::singleShot(0, job, [this, job, result] { emit askUserRenameResult(result, {}, job); });
+  }
+  void watchQuestion(KJob *job, QDialog *question) {
+    auto answered = std::make_shared<bool>(false);
+    connect(question, &QDialog::finished, this, [answered] { *answered = true; });
+    connect(question, &QObject::destroyed, this, [this, pending = QPointer<KJob>(job), answered] {
+      if (pending && !*answered) reply(pending, KIO::Result_Cancel);
+    });
+    connect(job, &KJob::finished, question, &QObject::deleteLater);
+  }
+  void askConflict(KJob *job, const QUrl &src, const QUrl &dest, KIO::RenameDialog_Options options) {
+    const bool canOverwrite = options.testFlag(KIO::RenameDialog_Overwrite) &&
+        !options.testFlag(KIO::RenameDialog_OverwriteItself);
+    // KIO's direct move/rename path omits SourceIsDirectory. It only allows
+    // overwriting a destination directory when the source is also a directory.
+    const bool directory = options.testFlag(KIO::RenameDialog_DestIsDirectory) && canOverwrite;
+    // Matching directories are containers, not file conflicts. Always enter
+    // them so "Skip these files" still transfers new descendants at any depth.
+    // KIO asks again for each conflicting file; this does not authorize replacing it.
+    if (directory && canOverwrite) {
+      reply(job, KIO::Result_Overwrite);
+      return;
+    }
+    if (all == KIO::Result_Skip || (all == KIO::Result_Overwrite && canOverwrite)) {
+      reply(job, all);
+      return;
+    }
+    if (!individual && canOverwrite) {
+      askSummary(job, src, dest, options);
+      return;
+    }
+    const auto pending = QPointer<KJob>(job);
+    auto local = [this, pending, src, dest, canOverwrite] {
+      if (pending) showIndividual(pending, src, dest, canOverwrite);
+    };
+    if (!view) { local(); return; }
+    view->ask({{"kind", "file"}, {"source", Fusion::ordinaryFileUrl(src).toDisplayString()},
+               {"destination", Fusion::ordinaryFileUrl(dest).toDisplayString()}, {"replace_allowed", canOverwrite}},
+        [this, pending, canOverwrite](const QVariantMap &answer) {
+          if (!pending) return;
+          const auto choice = answer.value("choice").toString();
+          const auto result = choice == "replace" && canOverwrite ? KIO::Result_Overwrite
+              : choice == "skip" ? KIO::Result_Skip : KIO::Result_Cancel;
+          if (answer.value("all").toBool() && result != KIO::Result_Cancel) all = result;
+          reply(pending, result);
+        }, local);
+  }
+  void showIndividual(KJob *job, const QUrl &src, const QUrl &dest, bool canOverwrite) {
+    auto *question = new QMessageBox(QMessageBox::Warning, "Replace or skip this file",
+        QString("\u201c%1\u201d already exists in the destination. %2")
+            .arg(dest.adjusted(QUrl::StripTrailingSlash).fileName(),
+                 canOverwrite ? "Replace it?" : "This file and folder conflict cannot be overwritten. Skip this item?"),
+        QMessageBox::No | QMessageBox::Cancel, window);
+    question->setTextFormat(Qt::PlainText);
+    question->setObjectName("transferConflictQuestion");
+    question->button(QMessageBox::No)->setText("Skip this file");
+    if (canOverwrite) {
+      question->addButton(QMessageBox::Yes)->setText("Replace this file");
+      question->setInformativeText("Replacing overwrites the destination file. Skipping keeps it and continues with the remaining files.");
+    }
+    question->setDetailedText("From: " + Fusion::ordinaryFileUrl(src).toDisplayString() +
+                             "\nTo: " + Fusion::ordinaryFileUrl(dest).toDisplayString());
+    auto *applyAll = new QCheckBox("Do this for all conflicts in this transfer, including subfolders", question);
+    applyAll->setObjectName("applyToAllConflicts");question->setCheckBox(applyAll);
+    question->setDefaultButton(QMessageBox::Cancel);question->setEscapeButton(QMessageBox::Cancel);
+    question->setAttribute(Qt::WA_DeleteOnClose);
+    watchQuestion(job, question);
+    connect(question, &QDialog::finished, this, [this, pending = QPointer<KJob>(job), applyAll, canOverwrite](int answer) {
+      if (!pending) return;
+      const auto result = answer == QMessageBox::Yes && canOverwrite ? KIO::Result_Overwrite
+          : answer == QMessageBox::No ? KIO::Result_Skip : KIO::Result_Cancel;
+      if (applyAll->isChecked() && result != KIO::Result_Cancel) all = result;
+      reply(pending, result);
+    });
+    question->open();
+  }
+  void askSummary(KJob *job, const QUrl &src, const QUrl &dest, KIO::RenameDialog_Options options) {
+    const auto pending = QPointer<KJob>(job);
+    auto local = [this, pending, src, dest, options] { if (pending) showSummary(pending, src, dest, options); };
+    if (!view) { local(); return; }
+    view->ask({{"kind", "conflicts"}, {"source", Fusion::ordinaryFileUrl(src).toDisplayString()},
+               {"destination", Fusion::ordinaryFileUrl(dest).toDisplayString()}, {"replace_allowed", true}},
+        [this, pending, src, dest, options](const QVariantMap &answer) {
+          if (!pending) return;
+          const auto choice = answer.value("choice").toString();
+          if (choice == "individual") { individual = true; askConflict(pending, src, dest, options); }
+          else if (choice == "replace" || choice == "skip") {
+            all = choice == "replace" ? KIO::Result_Overwrite : KIO::Result_Skip;
+            reply(pending, all);
+          } else reply(pending, KIO::Result_Cancel);
+        }, local);
+  }
+  void showSummary(KJob *job, const QUrl &src, const QUrl &dest, KIO::RenameDialog_Options options) {
+    auto *dialog=new QDialog(window);dialog->setWindowTitle("Replace or skip files");
+    dialog->setObjectName("transferConflictSummary");dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setMinimumWidth(480);
+    auto *layout=new QVBoxLayout(dialog);layout->setContentsMargins(24,20,24,20);layout->setSpacing(12);
+    auto *heading=new QLabel("The destination has files with the same names.");
+    auto font=heading->font();font.setPointSize(font.pointSize()+2);font.setBold(true);heading->setFont(font);
+    heading->setWordWrap(true);layout->addWidget(heading);
+    auto *context=new QLabel((moving?"Moving to: ":"Copying to: ")+
+        Fusion::ordinaryFileUrl(dest.adjusted(QUrl::RemoveFilename)).toDisplayString(QUrl::PreferLocalFile));
+    context->setTextFormat(Qt::PlainText);context->setWordWrap(true);layout->addWidget(context);
+    const auto add=[&](const QString &name,const QString &title,const QString &description,int result) {
+      auto *button=new QCommandLinkButton(title,description,dialog);button->setObjectName(name);
+      button->setAutoDefault(false);layout->addWidget(button);
+      connect(button,&QAbstractButton::clicked,dialog,[dialog,result]{dialog->done(result);});
+    };
+    add("replaceConflicts","Replace the files in the destination",
+        "Overwrite matching files throughout this transfer, including subfolders.",1);
+    add("skipConflicts","Skip these files",
+        "Keep existing files. Still transfer all new files, including those in matching folders.",2);
+    add("individualConflicts","Let me decide for each file",
+        "Choose which matching files to replace and which to skip.",3);
+    auto *cancel=new QPushButton("Cancel",dialog);cancel->setDefault(true);
+    layout->addWidget(cancel,0,Qt::AlignRight);connect(cancel,&QPushButton::clicked,dialog,&QDialog::reject);
+    watchQuestion(job, dialog);
+    connect(dialog,&QDialog::finished,this,[this,pending=QPointer<KJob>(job),src,dest,options](int answer) {
+      if (!pending) return;
+      if (answer==3) { individual=true;askConflict(pending,src,dest,options); }
+      else if (answer==1 || answer==2) {
+        all=answer==1?KIO::Result_Overwrite:KIO::Result_Skip;
+        reply(pending,all);
+      } else reply(pending,KIO::Result_Cancel);
+    });
+    dialog->open();
+  }
   void findName(QPointer<KJob> job, const QUrl &directory,
                 const QString &stem, const QString &suffix, quint64 number) {
     if (!job)
@@ -90,9 +242,9 @@ private:
 };
 class TransferDelegate : public KIO::JobUiDelegate {
 public:
-  TransferDelegate(QWidget *window, bool moving, bool administrator = false)
+  TransferDelegate(QWidget *window, bool moving, Fusion::TransferView *view, bool administrator = false)
       : JobUiDelegate(KJobUiDelegate::AutoHandlingDisabled, window,
-                      {new NumberedCopies(moving)}), administrator(administrator) {}
+                      {new TransferConflicts(window, moving, view)}), administrator(administrator) {}
   KIO::ClipboardUpdater *createClipboardUpdater(KIO::Job *job, ClipboardUpdaterMode mode) override {
     return administrator ? nullptr : JobUiDelegate::createClipboardUpdater(job, mode);
   }
@@ -110,6 +262,10 @@ public:
       : sources(sources), destination(destination), operation(operation), window(window) {
     setProperty("fusionTransfer", true);
     setCapabilities(Killable | Suspendable);
+    view = new Fusion::TransferView(this, {{"title", operation == Fusion::TransferOperation::Move ? "Moving files"
+        : operation == Fusion::TransferOperation::Link ? "Linking files" : "Copying files"},
+        {"descriptionValue1", sources.isEmpty() ? QString() : Fusion::ordinaryFileUrl(sources.first()).adjusted(QUrl::RemoveFilename).toDisplayString()},
+        {"descriptionValue2", Fusion::ordinaryFileUrl(destination).toDisplayString()}});
     if (!deferred) QTimer::singleShot(0, this, [this] { start(); });
   }
   ~TransferJob() override { cancelled->store(true); }
@@ -121,12 +277,22 @@ public:
     connect(watcher, &QFutureWatcher<Fusion::TransferAccess>::finished, this, [this, watcher] {
       const auto plan = watcher->result();
       watcher->deleteLater();
-      if (!cancelled->load()) begin(plan);
+      if (!cancelled->load()) {
+        if (isSuspended()) pausedPlan = plan;
+        else begin(plan);
+      }
     });
     watcher->setFuture(QtConcurrent::run(Fusion::transferAccess, sources, destination, operation, cancelled));
   }
   void choose(Fusion::TransferOperation choice) { operation = choice; start(); }
   void cancelChoice() { if (!started) finish(KIO::ERR_USER_CANCELED, {}); }
+  void askDuplicate(std::function<void()> fallback) {
+    view->ask({{"kind", "duplicate"}, {"destination", Fusion::ordinaryFileUrl(destination).toDisplayString()}},
+        [this](const QVariantMap &answer) {
+          if (answer.value("choice").toString() == "copy") choose(Fusion::TransferOperation::Copy);
+          else cancelChoice();
+        }, std::move(fallback));
+  }
 
 protected:
   bool doKill() override {
@@ -135,8 +301,19 @@ protected:
     if (active) active->kill(KJob::Quietly);
     return true;
   }
-  bool doSuspend() override { return active && active->suspend(); }
-  bool doResume() override { return active && active->resume(); }
+  bool doSuspend() override { return active ? active->suspend() : !finished; }
+  bool doResume() override {
+    if (active) return active->resume();
+    if (pausedPlan) {
+      const auto plan = *pausedPlan; pausedPlan.reset();
+      QTimer::singleShot(0, this, [this, plan] {
+        if (finished || cancelled->load()) return;
+        if (isSuspended()) pausedPlan = plan;
+        else begin(plan);
+      });
+    }
+    return !finished;
+  }
 
 private:
   QList<QUrl> sources;
@@ -144,6 +321,8 @@ private:
   Fusion::TransferOperation operation;
   QPointer<QWidget> window;
   QPointer<KJob> active;
+  QPointer<Fusion::TransferView> view;
+  std::optional<Fusion::TransferAccess> pausedPlan;
   std::shared_ptr<std::atomic_bool> cancelled = std::make_shared<std::atomic_bool>(false);
   bool started = false;
   bool finished = false;
@@ -182,14 +361,20 @@ private:
       originalClipboard = KUrlMimeData::urlsFromMimeData(mime, KUrlMimeData::PreferLocalUrls);
       originalCut = KIO::isClipboardDataCut(mime);
     }
-    KIO::CopyJob *copy = moving ? KIO::move(plan.sources, plan.destination)
-        : operation == Fusion::TransferOperation::Link ? KIO::link(plan.sources, plan.destination)
-        : KIO::copy(plan.sources, plan.destination);
+    KIO::CopyJob *copy = moving ? KIO::move(plan.sources, plan.destination, KIO::HideProgressInfo)
+        : operation == Fusion::TransferOperation::Link ? KIO::link(plan.sources, plan.destination, KIO::HideProgressInfo)
+        : KIO::copy(plan.sources, plan.destination, KIO::HideProgressInfo);
     active = copy;
-    copy->setUiDelegate(new TransferDelegate(window, moving, plan.administrator && moving));
+    copy->setUiDelegate(new TransferDelegate(window, moving, view, plan.administrator && moving));
     KJobWidgets::setWindow(copy, window);
     KIO::FileUndoManager::self()->recordCopyJob(copy);
     connect(copy, &KJob::infoMessage, this, [this](KJob *, const QString &text) { emit infoMessage(this, text); });
+    connect(copy, &KJob::description, this, [this](KJob *, const QString &title,
+        const QPair<QString, QString> &first, const QPair<QString, QString> &second) { emit description(this, title, first, second); });
+    connect(copy, &KJob::totalAmountChanged, this, [this](KJob *, KJob::Unit unit, qulonglong value) { setTotalAmount(unit, value); });
+    connect(copy, &KJob::processedAmountChanged, this, [this](KJob *, KJob::Unit unit, qulonglong value) { setProcessedAmount(unit, value); });
+    connect(copy, &KJob::percentChanged, this, [this](KJob *, unsigned long value) { setPercent(value); });
+    connect(copy, &KJob::speed, this, [this](KJob *, unsigned long value) { emitSpeed(value); });
     if (plan.administrator && moving) {
       // KIO sees admin: URLs; the user's clipboard must retain usable file:
       // URLs and the actual numbered destination, without clobbering new data.
@@ -226,38 +411,66 @@ KJob *Fusion::transferFiles(const QList<QUrl> &sources, const QUrl &destination,
   return new TransferJob(sources, destination, operation, window);
 }
 
+namespace {
+bool arkDrop(const QMimeData *mime) {
+  return mime && mime->hasFormat("application/x-kde-ark-dndextract-service") &&
+      mime->hasFormat("application/x-kde-ark-dndextract-path");
+}
+bool sameDirectory(const QUrl &source, const QUrl &destination) {
+  const auto parent = Fusion::ordinaryFileUrl(source).adjusted(QUrl::StripTrailingSlash).adjusted(QUrl::RemoveFilename | QUrl::NormalizePathSegments);
+  const auto target = Fusion::ordinaryFileUrl(destination).adjusted(QUrl::NormalizePathSegments);
+  if (parent.matches(target, QUrl::StripTrailingSlash)) return true;
+  if (!parent.isLocalFile() || !target.isLocalFile()) return false;
+  const auto canonical = QFileInfo(parent.toLocalFile()).canonicalFilePath();
+  return !canonical.isEmpty() && canonical == QFileInfo(target.toLocalFile()).canonicalFilePath();
+}
+}
+
+bool Fusion::acceptsFileDrop(const QMimeData *mime) {
+  return mime && (mime->hasUrls() || arkDrop(mime));
+}
+
+Qt::DropAction Fusion::fileDropAction(const QMimeData *mime, Qt::KeyboardModifiers modifiers,
+                                     Qt::DropActions possible) {
+  if (!acceptsFileDrop(mime)) return Qt::IgnoreAction;
+  const auto requested = arkDrop(mime) ? Qt::CopyAction
+      : modifiers.testFlag(Qt::ControlModifier) ? Qt::CopyAction : Qt::MoveAction;
+  if (possible.testFlag(requested)) return requested;
+  // Archives and read-only sources can offer only copying. Never turn a
+  // requested Ctrl-copy into a move when a source does not support copying.
+  return requested == Qt::MoveAction && possible.testFlag(Qt::CopyAction)
+      ? Qt::CopyAction : Qt::IgnoreAction;
+}
+
 KJob *Fusion::dropFiles(const QDropEvent *event, const QUrl &destination,
-                       QWidget *window, const QPoint &position) {
+                       QWidget *window, const QPoint &) {
   const auto *mime = event->mimeData();
   const auto urls = KUrlMimeData::urlsFromMimeData(mime, KUrlMimeData::PreferLocalUrls);
-  // Ark extraction and bookmarks have their own KIO drop protocols.
-  if (urls.isEmpty() || mime->hasFormat("application/x-kde-ark-dndextract-service") ||
+  // Ark advertises an extraction service, not file URLs. Keep its own
+  // asynchronous extraction (including passwords and conflict handling).
+  if (arkDrop(mime) || urls.isEmpty() ||
       mime->hasFormat("application/x-xbel")) return KIO::drop(event, destination);
-  const auto modifiers = event->modifiers();
-  if (modifiers & (Qt::ControlModifier | Qt::ShiftModifier)) {
-    const auto operation = modifiers.testFlag(Qt::ControlModifier)
-        ? (modifiers.testFlag(Qt::ShiftModifier) ? TransferOperation::Link : TransferOperation::Copy)
-        : TransferOperation::Move;
-    const auto action = operation == TransferOperation::Move ? Qt::MoveAction
-        : operation == TransferOperation::Link ? Qt::LinkAction : Qt::CopyAction;
-    if (!event->possibleActions().testFlag(action)) return KIO::drop(event, destination);
-    return transferFiles(urls, destination, operation, window);
-  }
+  const auto action = fileDropAction(mime, event->modifiers(), event->possibleActions());
+  if (action == Qt::IgnoreAction) return nullptr;
+  const bool duplicate = std::any_of(urls.begin(), urls.end(), [&](const QUrl &url) { return sameDirectory(url, destination); });
+  if (!duplicate)
+    return transferFiles(urls, destination, action == Qt::MoveAction ? TransferOperation::Move : TransferOperation::Copy, window);
   auto *job = new TransferJob(urls, destination, TransferOperation::Copy, window, true);
-  auto *menu = new QMenu(window);
-  menu->setAttribute(Qt::WA_DeleteOnClose);
-  const auto possible = event->possibleActions();
-  for (const auto &choice : {std::make_tuple("Move here", "edit-cut", Qt::MoveAction, TransferOperation::Move),
-                             std::make_tuple("Copy here", "edit-copy", Qt::CopyAction, TransferOperation::Copy),
-                             std::make_tuple("Link here", "emblem-symbolic-link", Qt::LinkAction, TransferOperation::Link)}) {
-    if (!possible.testFlag(std::get<2>(choice))) continue;
-    auto *action = menu->addAction(QIcon::fromTheme(std::get<1>(choice)), std::get<0>(choice));
-    QObject::connect(action, &QAction::triggered, job, [job, operation = std::get<3>(choice)] { job->choose(operation); });
-  }
-  menu->addSeparator();
-  menu->addAction("Cancel");
-  QObject::connect(menu, &QMenu::aboutToHide, job, [job] { QTimer::singleShot(0, job, [job] { job->cancelChoice(); }); });
-  QObject::connect(menu, &QObject::destroyed, job, [job] { job->cancelChoice(); });
-  QTimer::singleShot(0, menu, [menu, position] { menu->popup(position); });
+  const auto owner = QPointer<QWidget>(window);
+  job->askDuplicate([job, owner, urls] {
+  auto *question = new QMessageBox(QMessageBox::Question, "Already in this folder",
+      urls.size() == 1 ? "This file or folder already exists here. Copy it anyway?"
+                       : "Some of these files or folders already exist here. Copy the selection anyway?",
+      QMessageBox::Yes | QMessageBox::Cancel, owner);
+  question->setObjectName("duplicateDropQuestion");
+  question->setInformativeText("Copies get names ending in _copy1, _copy2, and so on. Existing files are kept.");
+  question->setDefaultButton(QMessageBox::Cancel);question->setAttribute(Qt::WA_DeleteOnClose);
+  QObject::connect(question, &QDialog::finished, job, [job](int result) {
+    if (result == QMessageBox::Yes) job->choose(TransferOperation::Copy);
+    else job->cancelChoice();
+  });
+  QObject::connect(question, &QObject::destroyed, job, [job] { job->cancelChoice(); });
+  QTimer::singleShot(0, question, [question] { question->open(); });
+  });
   return job;
 }

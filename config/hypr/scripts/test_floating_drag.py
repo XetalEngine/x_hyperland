@@ -15,7 +15,7 @@ class FloatingDragTests(unittest.TestCase):
         self.hypr = Mock()
         self.guard = Mock()
         self.guard.allowed.return_value = 1
-        self.drag = Drag(self.hypr, self.guard)
+        self.drag = Drag(self.hypr, self.guard, lambda: (dict(distance=2,hold_ms=120), "test"))
         self.drag.hovered = Mock(return_value=(self.point, self.window))
         self.hypr.query.return_value = self.point
 
@@ -29,14 +29,38 @@ class FloatingDragTests(unittest.TestCase):
     def test_click_and_small_movement_pass_through(self):
         self.drag.press(0)
         self.hypr.query.return_value = dict(x=-696,y=222)
-        self.drag.tick(.1); self.drag.release()
+        self.drag.tick(.08); self.drag.release()
         self.hypr.dispatch.assert_not_called()
+
+    def test_hold_and_distance_are_both_required(self):
+        self.drag.press(0)
+        self.hypr.query.return_value = dict(x=-699,y=220)
+        self.drag.tick(1)
+        self.hypr.dispatch.assert_not_called()
+        self.drag.release()
+        self.drag.press(2)
+        self.hypr.query.return_value = dict(x=-680,y=220)
+        self.drag.tick(2.08)
+        self.drag.release()
+        self.hypr.dispatch.assert_not_called()
+
+    def test_saved_thresholds_take_effect_on_next_press(self):
+        self.drag.settings_loader = lambda: (dict(distance=12,hold_ms=250), "custom")
+        self.drag.press(0)
+        self.hypr.query.return_value = dict(x=-690,y=220)
+        self.drag.tick(.3)
+        self.hypr.dispatch.assert_not_called()
+        self.hypr.query.return_value = dict(x=-680,y=220)
+        self.drag.hovered.return_value = (dict(x=-680,y=220), self.window)
+        self.drag.tick(.35)
+        self.assertTrue(self.drag.dragging)
+        self.drag.release()
 
     def test_drag_starts_once_and_release_ends_it(self):
         self.drag.press(0)
         self.hypr.query.return_value = dict(x=-680,y=222)
         self.drag.hovered.return_value = (dict(x=-680,y=222), self.window)
-        self.drag.tick(.1); self.drag.tick(.2)
+        self.drag.tick(.15); self.drag.tick(.2)
         self.assertEqual(self.hypr.dispatch.call_count, 2)
         self.drag.release(); self.drag.release()
         self.assertEqual([call.args for call in self.hypr.dispatch.call_args_list],
@@ -51,14 +75,14 @@ class FloatingDragTests(unittest.TestCase):
             self.drag.press(0)
             self.hypr.query.return_value = dict(x=-680,y=222)
             self.drag.hovered.return_value = (dict(x=-680,y=222), dict(self.window, **changes))
-            self.drag.tick(.1)
+            self.drag.tick(.15)
         self.hypr.dispatch.assert_not_called()
 
     def test_closed_window_during_release_does_not_stop_the_helper(self):
         self.drag.press(0)
         self.hypr.query.return_value = dict(x=-680,y=222)
         self.drag.hovered.return_value = (dict(x=-680,y=222), self.window)
-        self.drag.tick(.1)
+        self.drag.tick(.15)
         self.hypr.dispatch.side_effect = ValueError('Window no longer exists')
         self.drag.release()
         self.assertIsNone(self.drag.candidate)
@@ -69,7 +93,7 @@ class FloatingDragTests(unittest.TestCase):
         self.drag.press(0)
         self.guard.allowed.return_value = 1
         self.hypr.query.return_value = dict(x=-550,y=220)
-        self.drag.tick(.1)
+        self.drag.tick(.15)
         self.assertIsNone(self.drag.candidate)
         self.hypr.dispatch.assert_not_called()
 
@@ -79,14 +103,14 @@ class FloatingDragTests(unittest.TestCase):
         self.drag.tick(.01)
         self.guard.allowed.return_value = 1
         self.hypr.query.return_value = dict(x=-550,y=220)
-        self.drag.tick(.1)
+        self.drag.tick(.15)
         self.hypr.dispatch.assert_not_called()
 
     def test_started_header_drag_continues_over_text(self):
         self.drag.press(0)
         self.hypr.query.return_value = dict(x=-680,y=222)
         self.drag.hovered.return_value = (dict(x=-680,y=222), self.window)
-        self.drag.tick(.1)
+        self.drag.tick(.15)
         self.guard.allowed.return_value = None
         self.hypr.query.return_value = dict(x=-660,y=222)
         self.drag.tick(.2)
@@ -97,7 +121,7 @@ class FloatingDragTests(unittest.TestCase):
         self.drag.press(0)
         self.hypr.query.side_effect=lambda what: {'native_drag':True} if what=='xetal-cursor' else dict(x=-680,y=222)
         self.drag.hovered.return_value=(dict(x=-680,y=222),self.window)
-        self.drag.tick(.1);self.drag.tick(.2)
+        self.drag.tick(.15);self.drag.tick(.2)
         self.hypr.dispatch.assert_called_once_with('xetaldrag:begin','0x123 1')
         self.drag.release();self.drag.release()
         self.assertEqual([c.args for c in self.hypr.dispatch.call_args_list],

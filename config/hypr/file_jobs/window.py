@@ -4,15 +4,17 @@ import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'theme'))
 import runtime as theme_runtime
 
-from PyQt6.QtCore import QElapsedTimer, QPointF, QRectF, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QEasingCurve, QElapsedTimer, QPointF, QRectF, Qt, QTimer, QVariantAnimation, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen, QRadialGradient
-from PyQt6.QtWidgets import QApplication, QMessageBox, QPushButton, QToolButton, QWidget
+from PyQt6.QtWidgets import QApplication, QFrame, QMessageBox, QPushButton, QScrollArea, QToolButton, QWidget
 try:
     from .model import short_location, amount
     from . import preferences, artwork
+    from .questions import QuestionPanel
 except ImportError:
     from model import short_location, amount
     import preferences, artwork
+    from questions import QuestionPanel
 
 
 def alpha(color, value):
@@ -21,6 +23,7 @@ def alpha(color, value):
 
 class ProgressWindow(QWidget):
     dismissed = pyqtSignal()
+    geometry_changed = pyqtSignal()
 
     def __init__(self, job, *, options=None, preview=False, embedded=False):
         super().__init__(None, Qt.WindowType.Widget if embedded else Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint)
@@ -37,6 +40,20 @@ class ProgressWindow(QWidget):
         self.display_percent = 0.0
         self.closed = False
         self.drag_offset = None
+        self.base_height = 168
+        self.question_panel = None
+        self.question_scroll = QScrollArea(self)
+        self.question_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.question_scroll.setWidgetResizable(True)
+        self.question_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.question_scroll.setStyleSheet('QScrollArea {background:transparent;border:none;}')
+        self.question_scroll.viewport().setAutoFillBackground(False)
+        self.question_scroll.hide()
+        self.expansion = QVariantAnimation(self)
+        self.expansion.setDuration(190)
+        self.expansion.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.expansion.valueChanged.connect(lambda value: self.setFixedHeight(round(value)))
+        self.expansion.finished.connect(self.expansion_finished)
         self.clock = QElapsedTimer(); self.clock.start()
         self.animation = QTimer(self); self.animation.setInterval(33)
         self.animation.timeout.connect(self.tick)
@@ -56,9 +73,11 @@ class ProgressWindow(QWidget):
         self.set_options(self.options)
         self.job.changed.connect(self.refresh)
         self.job.finished.connect(self.completed)
+        self.job.question_changed.connect(self.refresh_question)
         if hasattr(QApplication.instance(), 'hypr_theme'):
             QApplication.instance().hypr_theme.changed.connect(self.theme_changed)
         self.refresh()
+        self.refresh_question(animate=False)
 
     def theme_changed(self):
         self.set_options(self.options)
@@ -70,12 +89,15 @@ class ProgressWindow(QWidget):
         self.appearance = self.options['profiles'][self.design]
         self.colors = theme_runtime.colors(style=self.design)
         self.accent = QColor(self.appearance['accent'] or self.colors['Accent'])
+        if self.question_panel: self.question_panel.accent = self.accent
         self.setPalette(theme_runtime.palette(style=self.design))
         width, height = self.appearance['width'], self.appearance['height']
         if not self.embedded and self.screen():
             area = self.screen().availableGeometry()
             width, height = min(width, max(240, area.width()-24)), min(height, max(148, area.height()-24))
-        self.setFixedSize(width, height)
+        self.base_height = height
+        self.setFixedWidth(width)
+        self.resize_question(animate=False)
         p = self.colors
         self.setStyleSheet(f'''
             QWidget#FileOperation {{background:transparent;}}
@@ -86,6 +108,15 @@ class ProgressWindow(QWidget):
             QPushButton:disabled,QToolButton:disabled {{color:{p['Disabled']}; background:transparent;}}
             QToolButton#closeOperation {{background:transparent; border:none; font-size:22px;}}
             QToolButton#closeOperation:hover {{background:{p['Highlight']}; color:{p['Text']};}}
+            QWidget#transferQuestion {{background:transparent;}}
+            QWidget#transferQuestion QLabel {{background:transparent; border:none; padding:0; color:{p['Text']};
+                font:11px "{theme_runtime.ui_font(self.design)}"; font-weight:normal;}}
+            QWidget#transferQuestion QLabel#questionHeading {{font-size:14px; font-weight:600;}}
+            QWidget#transferQuestion QLabel#choiceTitle {{font-size:12px; font-weight:600;}}
+            QWidget#transferQuestion QLabel#choiceDescription,QWidget#transferQuestion QLabel#questionPath {{color:{p['PlaceholderText']};}}
+            QPushButton#transferChoice {{background:{p['Button']}; padding:0; text-align:left;}}
+            QPushButton#transferChoice:hover,QPushButton#transferChoice:focus {{background:{p['AlternateBase']}; border-color:{self.accent.name()};}}
+            QCheckBox {{color:{p['Text']}; font:11px "{theme_runtime.ui_font(self.design)}"; spacing:7px;}}
         ''')
         if not self.options['behavior']['auto_close']: self.dismiss_timer.stop()
         elif (self.job.result is not None and self.job.result != 'failed' and not self.preview
@@ -107,7 +138,7 @@ class ProgressWindow(QWidget):
         self.cancel.setToolTip(caption); self.close_button.setToolTip(caption)
         self.close_button.setAccessibleName(caption)
         self.pause.setVisible(bool(self.job.capabilities & 2) and not done)
-        self.pause.setEnabled(not self.job.pending)
+        self.pause.setEnabled(not self.job.pending and not self.job.question)
         suspended = self.job.data.get('suspended', False)
         self.pause.setText('▶' if suspended else 'Ⅱ')
         self.pause.setToolTip('Resume operation' if suspended else 'Pause operation')
@@ -123,9 +154,45 @@ class ProgressWindow(QWidget):
 
     def layout_controls(self):
         self.close_button.setGeometry(self.width()-40, 8, 28, 28)
-        self.cancel.setGeometry(self.width()-78, self.height()-38, 62, 24)
-        self.pause.setGeometry(self.width()-113, self.height()-38, 28, 24)
-        self.details.setGeometry(self.width()-139, self.height()-38, 54, 24)
+        self.cancel.setGeometry(self.width()-78, self.base_height-38, 62, 24)
+        self.pause.setGeometry(self.width()-113, self.base_height-38, 28, 24)
+        self.details.setGeometry(self.width()-139, self.base_height-38, 54, 24)
+        self.question_scroll.setGeometry(8, self.base_height, self.width()-16, max(0, self.height()-self.base_height-8))
+
+    def refresh_question(self, animate=True):
+        if self.job.question:
+            old = self.question_scroll.takeWidget()
+            if old: old.hide(); old.deleteLater()
+            self.question_panel = QuestionPanel(self.job, self.accent)
+            self.question_scroll.setWidget(self.question_panel)
+            self.question_scroll.show()
+            self.dismiss_timer.stop()
+            if not self.embedded and not self.preview:
+                self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, False)
+                self.show(); self.raise_(); self.activateWindow()
+                self.cancel.setFocus(Qt.FocusReason.OtherFocusReason)
+        elif self.question_panel:
+            self.question_panel.setEnabled(False)
+        self.resize_question(animate)
+        self.refresh()
+
+    def resize_question(self, animate=True):
+        target = self.base_height
+        if self.job.question and self.question_panel:
+            self.question_panel.setFixedWidth(max(200, self.width()-32))
+            layout = self.question_panel.layout()
+            layout.activate()
+            target += max(layout.sizeHint().height(), layout.totalHeightForWidth(self.width()-32)) + 8
+            if not self.embedded and self.screen(): target = min(target, self.screen().availableGeometry().height()-24)
+        self.expansion.stop()
+        if animate and self.isVisible() and not self.embedded and self.options['animation']['enabled'] and self.height() != target:
+            self.expansion.setStartValue(float(self.height())); self.expansion.setEndValue(float(target)); self.expansion.start()
+        else:
+            self.setFixedHeight(target); self.expansion_finished()
+
+    def expansion_finished(self):
+        if not self.job.question: self.question_scroll.hide()
+        self.geometry_changed.emit()
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -172,7 +239,7 @@ class ProgressWindow(QWidget):
     def dismiss(self):
         if self.closed: return
         self.closed = True
-        self.dismiss_timer.stop(); self.animation.stop()
+        self.dismiss_timer.stop(); self.animation.stop(); self.expansion.stop()
         self.hide()
         self.dismissed.emit()
         self.deleteLater()
@@ -208,6 +275,7 @@ class ProgressWindow(QWidget):
 
     def resizeEvent(self, event):
         self.layout_controls()
+        self.geometry_changed.emit()
         super().resizeEvent(event)
 
     def text(self, painter, rect, text, color, size=11, bold=False, alignment=Qt.AlignmentFlag.AlignLeft):
@@ -280,7 +348,7 @@ class ProgressWindow(QWidget):
             painter.restore()
 
     def summary(self):
-        if self.job.result or self.job.pending or self.job.data.get('suspended'):
+        if self.job.result or self.job.pending or self.job.question or self.job.data.get('suspended'):
             return self.job.summary()
         info, data, parts = self.options['information'], self.job.data, []
         total, processed, speed = data.get('totalBytes', 0), data.get('processedBytes', 0), data.get('speed', 0)
@@ -332,6 +400,12 @@ class ProgressWindow(QWidget):
         if self.design in ('breakpoint','binaryknife'):
             painter.setPen(QPen(alpha(accent, 190), 2))
             painter.drawLine(QPointF(18, 1.5), QPointF(min(w-18, 86), 1.5))
+        # The original artwork, track and controls stay in place; questions
+        # unfold beneath them inside the same themed surface.
+        if h > self.base_height:
+            painter.setPen(QPen(alpha(accent, 70), 1))
+            painter.drawLine(QPointF(16, self.base_height), QPointF(w-16, self.base_height))
+        h = self.base_height
         show_percent = self.options['information']['percentage']
         self.text(painter, QRectF(16, 9, w-(134 if show_percent else 65), 25), self.job.title, foreground, 11, True)
         percentage = self.job.percent

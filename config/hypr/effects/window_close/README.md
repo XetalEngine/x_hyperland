@@ -74,6 +74,14 @@ closes; a bounded heartbeat lease also removes them if the editor crashes or sto
 responding. Preview updates are asynchronous and coalesce slider changes. Their
 buttons still respect window stacking, locking, dragging and Wobbly settlement.
 
+The **Floating title drag · all windows** section appears in both window-control
+editors. A normal click passes straight through to the application. A no-Super
+drag starts only after the left button has been held for 120 ms and moved at least
+2 logical pixels. The two sliders adjust these global thresholds; **Apply drag
+settings** saves them in `drag-settings.json` for the next gesture. The updater
+preserves this preference. Text selection, native title-bar dragging, Super-drag,
+and per-monitor Wobbly timing keep their existing paths.
+
 `native/background.hpp` samples before drawing the controls, in their owning
 window's render stack. It downsamples only the backing rectangle to 40×12 pixels,
 at most four times per second when stationary. Fenced pixel buffers are read only
@@ -119,3 +127,12 @@ are isolated beneath the test's `/tmp` directory.
 Add `--background-only` for real rendering and eyedropper checks: a contrasting
 toolbar/content fixture, bright native marks, changing dominant colors, covering
 gaps, preview/Apply/discard, picker cancellation and saved-color reload.
+
+Run `QT_QPA_PLATFORM=offscreen python3 config/hypr/effects/window_close/test_drag_settings.py`
+from the repository root for threshold persistence and slider checks.
+`tests/check-floating-text-drag.py` also checks stationary clicks, 1-pixel slips,
+fast moving taps, text selection, deliberate header drags, and both Wobbly switches.
+Add `--files-only` to `tests/check-file-drag-and-close.py` for file transfers,
+changing Ctrl mid-drag, replacement confirmation, view menus and real Ark ZIP/tar.gz
+extraction. Its host-facing input devices are disabled only in the private test
+compositor so ordinary desktop pointer movement cannot interfere with the checks.

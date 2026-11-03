@@ -26,6 +26,15 @@ public slots:
   void ShowFolders(const QStringList &, const QString &) {}
 };
 
+class TestArkExtract : public QObject {
+  Q_OBJECT
+  Q_CLASSINFO("D-Bus Interface", "org.kde.ark.DndExtract")
+public:
+  QString destination;
+public slots:
+  void extractSelectedFilesTo(const QString &path) { destination=path; }
+};
+
 class FileTests : public QObject {
   Q_OBJECT
   QTemporaryDir temporary;
@@ -267,26 +276,195 @@ print(json.dumps(rows))
     QCOMPARE(copy.destination.scheme(), "admin");
     QCOMPARE(copy.sources.first().scheme(), "file");
   }
-  void droppedFilesShareNumberedCopyAndMoveBehavior() {
-    const auto base = folder + "/dropped";
-    QDir().mkpath(base + "/source"); QDir().mkpath(base + "/target");
-    write(base + "/source/item.txt", "source");
-    write(base + "/target/item.txt", "existing");
-    QMimeData mime;
-    mime.setUrls({QUrl::fromLocalFile(base + "/source/item.txt")});
-    QWidget window;
-    for (auto modifier : {Qt::ControlModifier, Qt::ShiftModifier}) {
-      QDropEvent event(QPointF(1, 1), Qt::CopyAction | Qt::MoveAction, &mime, Qt::LeftButton, modifier);
-      auto *job = Fusion::dropFiles(&event, QUrl::fromLocalFile(base + "/target"), &window, QPoint());
-      int error = -1;
-      connect(job, &KJob::result, &window, [&](KJob *result) { error = result->error(); });
-      QTRY_COMPARE_WITH_TIMEOUT(error, 0, 10000);
+  void dropsMoveByDefaultAndCopyWithControl() {
+    const auto base=folder+"/direct-drop";
+    QDir().mkpath(base+"/copy");QDir().mkpath(base+"/move");QDir().mkpath(base+"/source/Folder");
+    write(base+"/source/Folder/child.txt","keep contents");
+    QMimeData mime;mime.setUrls({QUrl::fromLocalFile(base+"/source/Folder")});
+    QWidget owner;
+    for (auto modifier : {Qt::ControlModifier,Qt::NoModifier}) {
+      QDropEvent event(QPointF(1,1),Qt::MoveAction|Qt::CopyAction,&mime,Qt::LeftButton,modifier);
+      QCOMPARE(Fusion::fileDropAction(&mime,modifier,event.possibleActions()),modifier==Qt::ControlModifier?Qt::CopyAction:Qt::MoveAction);
+      const auto target=base+(modifier==Qt::ControlModifier?"/copy":"/move");
+      auto *job=Fusion::dropFiles(&event,QUrl::fromLocalFile(target),&owner,{});
+      QVERIFY(job);int error=-1;connect(job,&KJob::result,&owner,[&](KJob *j){error=j->error();});
+      QTRY_COMPARE_WITH_TIMEOUT(error,0,10000);
+      QCOMPARE(QFileInfo::exists(base+"/source/Folder/child.txt"),modifier==Qt::ControlModifier);
+      QVERIFY(QFileInfo::exists(target+"/Folder/child.txt"));
+      QVERIFY(!owner.findChild<QMessageBox *>("transferConflictQuestion"));
     }
-    QVERIFY(!QFileInfo::exists(base + "/source/item.txt"));
-    for (const auto &name : {"item_copy1.txt", "item_copy2.txt"}) {
-      QFile file(base + "/target/" + name); QVERIFY(file.open(QIODevice::ReadOnly));
-      QCOMPARE(file.readAll(), QByteArray("source"));
+    QCOMPARE(Fusion::fileDropAction(&mime,Qt::NoModifier,Qt::CopyAction),Qt::CopyAction);
+    QCOMPARE(Fusion::fileDropAction(&mime,Qt::ControlModifier,Qt::MoveAction),Qt::IgnoreAction);
+  }
+  void crossFolderConflictsAskBeforeOverwriting() {
+    for (const auto answer : {QMessageBox::Cancel,QMessageBox::No,QMessageBox::Yes}) {
+      const auto base=folder+"/conflict-"+QString::number(answer);
+      QDir().mkpath(base+"/source");QDir().mkpath(base+"/target");
+      write(base+"/source/item.txt","source");write(base+"/target/item.txt","destination");
+      QWidget owner;QMimeData mime;mime.setUrls({QUrl::fromLocalFile(base+"/source/item.txt")});
+      QDropEvent event(QPointF(1,1),Qt::MoveAction|Qt::CopyAction,&mime,Qt::LeftButton,Qt::NoModifier);
+      auto *job=Fusion::dropFiles(&event,QUrl::fromLocalFile(base+"/target"),&owner,{});
+      int error=-1;connect(job,&KJob::result,&owner,[&](KJob *j){error=j->error();});
+      QTRY_VERIFY(owner.findChild<QDialog *>("transferConflictSummary"));
+      auto *summary=owner.findChild<QDialog *>("transferConflictSummary");
+      QTRY_VERIFY(summary->isVisible());
+      QFile existing(base+"/target/item.txt");QVERIFY(existing.open(QIODevice::ReadOnly));
+      QCOMPARE(existing.readAll(),QByteArray("destination"));existing.close();
+      QVERIFY(QFileInfo::exists(base+"/source/item.txt"));
+      if (answer==QMessageBox::Cancel) summary->reject();
+      else {
+        summary->done(3); // Let me decide for each file.
+        QTRY_VERIFY(owner.findChild<QMessageBox *>("transferConflictQuestion"));
+        auto *question=owner.findChild<QMessageBox *>("transferConflictQuestion");
+        QTRY_VERIFY(question->isVisible());question->done(answer);
+      }
+      QTRY_COMPARE_WITH_TIMEOUT(error,answer==QMessageBox::Cancel?KIO::ERR_USER_CANCELED:0,10000);
+      QVERIFY(existing.open(QIODevice::ReadOnly));
+      QCOMPARE(existing.readAll(),answer==QMessageBox::Yes?QByteArray("source"):QByteArray("destination"));
+      QCOMPARE(QFileInfo::exists(base+"/source/item.txt"),answer!=QMessageBox::Yes);
+      QVERIFY(!QFileInfo::exists(base+"/target/item_copy1.txt"));
     }
+  }
+  void overwriteAllMergesRecursivelyForCopyAndMove() {
+    for (const auto operation : {Fusion::TransferOperation::Copy,Fusion::TransferOperation::Move}) {
+      const auto base=folder+"/overwrite-all-"+QString::number(int(operation));
+      for (const auto side : {"source","target"}) {
+        QDir().mkpath(base+"/"+side+"/Folder/nested/deeper");
+        for (const auto file : {"first.txt","Folder/a.txt","Folder/nested/deeper/b.txt"})
+          write(base+"/"+side+"/"+file,QByteArray(side));
+      }
+      write(base+"/target/Folder/keep.txt","keep destination only");
+      write(base+"/source/Folder/new.txt","new source only");
+      QWidget owner;int prompts=0;
+      QTimer answer;connect(&answer,&QTimer::timeout,&owner,[&]{
+        auto *question=owner.findChild<QDialog *>("transferConflictSummary");
+        if (!question || !question->isVisible()) return;
+        ++prompts;question->done(1);
+      });answer.start(10);
+      auto *job=Fusion::transferFiles({QUrl::fromLocalFile(base+"/source/first.txt"),QUrl::fromLocalFile(base+"/source/Folder")},
+          QUrl::fromLocalFile(base+"/target"),operation,&owner);
+      int error=-1;connect(job,&KJob::result,&owner,[&](KJob *j){error=j->error();});
+      QTRY_COMPARE_WITH_TIMEOUT(error,0,15000);QCOMPARE(prompts,1);
+      for (const auto file : {"first.txt","Folder/a.txt","Folder/nested/deeper/b.txt"}) {
+        QFile copied(base+"/target/"+file);QVERIFY(copied.open(QIODevice::ReadOnly));QCOMPARE(copied.readAll(),QByteArray("source"));
+        QCOMPARE(QFileInfo::exists(base+"/source/"+file),operation==Fusion::TransferOperation::Copy);
+      }
+      QVERIFY(QFileInfo::exists(base+"/target/Folder/keep.txt"));
+      QVERIFY(QFileInfo::exists(base+"/target/Folder/new.txt"));
+      QVERIFY(!QFileInfo::exists(base+"/target/Folder_copy1"));
+      QVERIFY(!QFileInfo::exists(base+"/target/first_copy1.txt"));
+    }
+  }
+  void skipConflictsStillTransfersNewFilesInsideMatchingFolders() {
+    for (const auto operation : {Fusion::TransferOperation::Copy,Fusion::TransferOperation::Move}) {
+      const auto base=folder+"/skip-conflicts-"+QString::number(int(operation));
+      for (const auto side : {"source","target"}) {
+        QDir().mkpath(base+"/"+side+"/Folder/nested/deeper");
+        for (const auto file : {"first.txt","Folder/a.txt","Folder/nested/deeper/b.txt"})
+          write(base+"/"+side+"/"+file,QByteArray(side));
+      }
+      write(base+"/source/Folder/new.txt","new source only");
+      write(base+"/source/Folder/nested/deeper/new.txt","new source only");
+      QWidget owner;int prompts=0;
+      QTimer answer;connect(&answer,&QTimer::timeout,&owner,[&]{
+        auto *question=owner.findChild<QDialog *>("transferConflictSummary");
+        if (question && question->isVisible()) { ++prompts;question->done(2); }
+      });answer.start(10);
+      auto *job=Fusion::transferFiles({QUrl::fromLocalFile(base+"/source/Folder"),QUrl::fromLocalFile(base+"/source/first.txt")},
+          QUrl::fromLocalFile(base+"/target"),operation,&owner);
+      int error=-1;connect(job,&KJob::result,&owner,[&](KJob *j){error=j->error();});
+      QTRY_COMPARE_WITH_TIMEOUT(error,0,15000);QCOMPARE(prompts,1);
+      for (const auto file : {"first.txt","Folder/a.txt","Folder/nested/deeper/b.txt"}) {
+        QFile existing(base+"/target/"+file);QVERIFY(existing.open(QIODevice::ReadOnly));QCOMPARE(existing.readAll(),QByteArray("target"));
+        QVERIFY(QFileInfo::exists(base+"/source/"+file));
+      }
+      for (const auto file : {"Folder/new.txt","Folder/nested/deeper/new.txt"}) {
+        QFile copied(base+"/target/"+file);QVERIFY(copied.open(QIODevice::ReadOnly));QCOMPARE(copied.readAll(),QByteArray("new source only"));
+        QCOMPARE(QFileInfo::exists(base+"/source/"+file),operation==Fusion::TransferOperation::Copy);
+      }
+      QVERIFY(!QFileInfo::exists(base+"/target/Folder_copy1"));
+    }
+  }
+  void sameFolderDropAsksAndKeepsNumberedCopies() {
+    const auto base=folder+"/duplicate-drop";QDir().mkpath(base+"/Folder");
+    write(base+"/Folder/inside.txt","inside");write(base+"/bundle.tar.gz","archive");
+    QMimeData mime;mime.setUrls({QUrl::fromLocalFile(base+"/Folder"),QUrl::fromLocalFile(base+"/bundle.tar.gz")});
+    QWidget owner;
+    for (int attempt=0;attempt<3;++attempt) {
+      QDropEvent event(QPointF(1,1),Qt::MoveAction|Qt::CopyAction,&mime,Qt::LeftButton,Qt::NoModifier);
+      auto *job=Fusion::dropFiles(&event,QUrl::fromLocalFile(base),&owner,{});
+      int error=-1;connect(job,&KJob::result,&owner,[&](KJob *j){error=j->error();});
+      QTRY_VERIFY(owner.findChild<QMessageBox *>("duplicateDropQuestion"));
+      auto *question=owner.findChild<QMessageBox *>("duplicateDropQuestion");
+      QTRY_VERIFY(question->isVisible());
+      question->done(attempt==0?QMessageBox::Cancel:QMessageBox::Yes);
+      QTRY_COMPARE_WITH_TIMEOUT(error,attempt==0?KIO::ERR_USER_CANCELED:0,10000);
+      QVERIFY(QFileInfo::exists(base+"/Folder/inside.txt"));QVERIFY(QFileInfo::exists(base+"/bundle.tar.gz"));
+      if (!attempt) QVERIFY(!QFileInfo::exists(base+"/Folder_copy1"));
+      else {
+        QVERIFY(QFileInfo::exists(base+"/Folder_copy"+QString::number(attempt)+"/inside.txt"));
+        QVERIFY(QFileInfo::exists(base+"/bundle_copy"+QString::number(attempt)+".tar.gz"));
+      }
+      QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
+    }
+  }
+  void arkServiceDropsReachFoldersWithoutUriLists() {
+    const auto base=folder+"/ark-drop";QDir().mkpath(base+"/Extract here");
+    TestArkExtract ark;auto bus=QDBusConnection::sessionBus();
+    QVERIFY(bus.registerObject("/FusionTestArk",&ark,QDBusConnection::ExportAllSlots));
+    auto cleanup=qScopeGuard([&]{bus.unregisterObject("/FusionTestArk");});
+    QMimeData mime;mime.setData("application/x-kde-ark-dndextract-service",bus.baseService().toUtf8());
+    mime.setData("application/x-kde-ark-dndextract-path","/FusionTestArk");QVERIFY(!mime.hasUrls());
+    FilesWindow window(QUrl::fromLocalFile(base),false,temporary.path()+"/ark-drop.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose,false);window.show();auto *tab=window.browser();
+    QTRY_COMPARE(tab->proxy->rowCount(),1);
+    for (int mode : {2,3,4}) {
+      tab->setView(mode);ark.destination.clear();
+      auto index=tab->proxy->index(0,0);const auto point=filePoint(tab,index);
+      QDragEnterEvent enter(point,Qt::CopyAction,&mime,Qt::LeftButton,Qt::NoModifier);
+      QApplication::sendEvent(tab->view()->viewport(),&enter);QVERIFY(enter.isAccepted());QCOMPARE(enter.dropAction(),Qt::CopyAction);
+      QDropEvent drop(point,Qt::CopyAction,&mime,Qt::LeftButton,Qt::NoModifier);
+      QApplication::sendEvent(tab->view()->viewport(),&drop);QVERIFY(drop.isAccepted());
+      QTRY_COMPARE(ark.destination,base+"/Extract here");
+    }
+  }
+  void folderViewMenuTracksTabsAndKeepsComputerCards() {
+    FilesWindow window(QUrl::fromLocalFile(folder),false,temporary.path()+"/view-menu.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose,false);window.show();
+    auto *button=window.findChild<QToolButton *>("viewMode");QVERIFY(button);QVERIFY(button->isEnabled());
+    QCOMPARE(button->menu()->actions().size(),5);
+    for (auto *action : button->menu()->actions()) {
+      action->trigger();QCOMPARE(window.browser()->viewMode,action->data().toInt());QVERIFY(action->isChecked());
+      QVERIFY(button->toolTip().contains(action->text()));
+    }
+    window.openLocation(Fusion::computerUrl(),true);QVERIFY(!button->isEnabled());
+    QVERIFY(window.browser()->findChild<QWidget *>("computerPage")->isVisible());
+    window.openLocation(QUrl::fromLocalFile(folder));QVERIFY(button->isEnabled());
+    QCOMPARE(window.browser()->viewMode,4);QVERIFY(window.browser()->details->isVisible());
+  }
+  void sidebarFolderDropsTransferInsteadOfPinning() {
+    const auto base=folder+"/sidebar-drop";QDir().mkpath(base+"/target");
+    write(base+"/item.txt","sidebar contents");
+    const auto preferences=temporary.path()+"/sidebar-drop.ini";
+    Fusion::Preferences settings(preferences);
+    auto bookmarks=settings.places();
+    bookmarks.append(QVariantMap{{"name","Drop target"},{"url",QUrl::fromLocalFile(base+"/target").toString()},{"icon","folder"}});
+    settings.setPlaces(bookmarks);
+    FilesWindow window(QUrl::fromLocalFile(base),false,preferences);
+    window.setAttribute(Qt::WA_DeleteOnClose,false);window.show();
+    auto *tree=window.findChild<QTreeWidget *>("places");
+    auto matches=tree->findItems("Drop target",Qt::MatchExactly|Qt::MatchRecursive);QCOMPARE(matches.size(),1);
+    tree->scrollToItem(matches.first());
+    const auto point=tree->visualItemRect(matches.first()).center();
+    QMimeData mime;mime.setUrls({QUrl::fromLocalFile(base+"/item.txt")});
+    QDragEnterEvent enter(QPointF(point),Qt::MoveAction|Qt::CopyAction,&mime,Qt::LeftButton,Qt::NoModifier);
+    QApplication::sendEvent(tree->viewport(),&enter);QVERIFY(enter.isAccepted());
+    QSignalSpy finished(&window,&FilesWindow::operationFinished);
+    QDropEvent drop(point,Qt::MoveAction|Qt::CopyAction,&mime,Qt::LeftButton,Qt::NoModifier);
+    QApplication::sendEvent(tree->viewport(),&drop);QVERIFY(drop.isAccepted());QCOMPARE(drop.dropAction(),Qt::MoveAction);
+    QTRY_COMPARE_WITH_TIMEOUT(finished.count(),1,10000);QCOMPARE(finished.first().first().toInt(),0);
+    QVERIFY(!QFileInfo::exists(base+"/item.txt"));QVERIFY(QFileInfo::exists(base+"/target/item.txt"));
+    QCOMPARE(Fusion::Preferences(preferences).places(),bookmarks);
   }
   void cancelTransferBeforeStartingChangesNothing() {
     const auto base = folder + "/cancel-before-start";
@@ -309,6 +487,10 @@ print(json.dumps(rows))
     ::chmod(QFile::encodeName(base + "/source/private"), 0700);
     auto admin = [](const QString &path) { auto url = QUrl::fromLocalFile(path); url.setScheme("admin"); return url; };
     QWidget window;
+    QTimer answer;connect(&answer,&QTimer::timeout,&window,[&]{
+      auto *question=window.findChild<QDialog *>("transferConflictSummary");
+      if (question && question->isVisible()) question->done(1);
+    });answer.start(10);
     for (int n = 0; n < 2; ++n) {
       auto *job = Fusion::transferFiles({admin(base + "/source/private")}, QUrl::fromLocalFile(base + "/target"),
           Fusion::TransferOperation::Copy, &window);
@@ -317,9 +499,9 @@ print(json.dumps(rows))
       QTRY_VERIFY_WITH_TIMEOUT(error != -1, 15000);
       QVERIFY2(!error, qPrintable(message));
     }
-    QFile copied(base + "/target/private_copy1/item # 100%.txt");
+    QFile copied(base + "/target/private/item # 100%.txt");
     QVERIFY(copied.open(QIODevice::ReadOnly)); QCOMPARE(copied.readAll(), QByteArray("protected content")); copied.close();
-    write(base + "/source/move.txt", "move this"); write(base + "/target/move.txt", "keep this");
+    write(base + "/source/move.txt", "move this"); write(base + "/target/other.txt", "keep this");
     auto *mime = new QMimeData; mime->setUrls({QUrl::fromLocalFile(base + "/source/move.txt")});
     KIO::setClipboardDataCut(mime, true); QApplication::clipboard()->setMimeData(mime);
     auto *move = Fusion::pasteFiles(admin(base + "/target"), &window);
@@ -328,12 +510,12 @@ print(json.dumps(rows))
     QTRY_VERIFY_WITH_TIMEOUT(error != -1, 15000);
     QVERIFY2(!error, qPrintable(message));
     QVERIFY(!QFileInfo::exists(base + "/source/move.txt"));
-    QVERIFY(QFileInfo::exists(base + "/target/move_copy1.txt"));
-    QCOMPARE(QApplication::clipboard()->mimeData()->urls(), QList<QUrl>{QUrl::fromLocalFile(base + "/target/move_copy1.txt")});
+    QVERIFY(QFileInfo::exists(base + "/target/move.txt"));
+    QCOMPARE(QApplication::clipboard()->mimeData()->urls(), QList<QUrl>{QUrl::fromLocalFile(base + "/target/move.txt")});
     QVERIFY(!KIO::isClipboardDataCut(QApplication::clipboard()->mimeData()));
     KIO::FileUndoManager::self()->undo();
     QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(base + "/source/move.txt"), 15000);
-    QVERIFY(!QFileInfo::exists(base + "/target/move_copy1.txt"));
+    QVERIFY(!QFileInfo::exists(base + "/target/move.txt"));
   }
   void customCommandsKeepFilenamesAsArguments() {
     const QString name = folder + "/a;$(touch sentinel) 'quote' %u.txt";
@@ -1162,7 +1344,7 @@ print(json.dumps(rows))
     write(a + "/.env", "dotfile");
     write(a + "/backup.tar.gz", "compound extension");
     write(a + "/project.v1/nested/data", "nested content");
-    write(b + "/same.txt", "original destination");
+    write(b + "/other.txt", "original destination");
     QVERIFY(QFile::link(a + "/missing", a + "/link"));
     FilesWindow window(QUrl::fromLocalFile(a), false,
                        temporary.path() + "/numbered.ini");
@@ -1199,7 +1381,7 @@ print(json.dumps(rows))
       QVERIFY(QFileInfo(a + "/link" + suffix).isSymbolicLink());
       QVERIFY(!popup);
     }
-    // Cut to an occupied name also keeps the destination; Undo restores source.
+    // A cross-folder cut keeps the original name; Undo restores the source.
     focus(tab);
     clickFile(tab, QUrl::fromLocalFile(a + "/same.txt"));
     QTest::keyClick(tab->view(), Qt::Key_X, Qt::ControlModifier);
@@ -1212,7 +1394,7 @@ print(json.dumps(rows))
     QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 3, 15000);
     QCOMPARE(finished.last().first().toInt(), 0);
     QVERIFY(!QFileInfo::exists(a + "/same.txt"));
-    QFile moved(b + "/same_copy1.txt"), existing(b + "/same.txt");
+    QFile moved(b + "/same.txt"), existing(b + "/other.txt");
     QVERIFY(moved.open(QIODevice::ReadOnly));
     QVERIFY(existing.open(QIODevice::ReadOnly));
     QCOMPARE(moved.readAll(), QByteArray("original source"));
@@ -1221,7 +1403,7 @@ print(json.dumps(rows))
     focus(tab);
     QTest::keyClick(tab->view(), Qt::Key_Z, Qt::ControlModifier);
     QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(a + "/same.txt"), 10000);
-    QVERIFY(!QFileInfo::exists(b + "/same_copy1.txt"));
+    QVERIFY(!QFileInfo::exists(b + "/same.txt"));
     QVERIFY(!popup);
     window.close();
   }
@@ -1260,6 +1442,61 @@ print(json.dumps(rows))
     QVERIFY(last.open(QIODevice::ReadOnly));
     QCOMPARE(last.readAll(), QByteArray(65536, char(1023 % 127)));
     window.close();
+  }
+  void transferQuestions() {
+    if (!qEnvironmentVariableIsSet("FUSION_FILES_QUESTIONS_CHECK"))
+      QSKIP("Run by test_questions.py with the real expanding Fusion transfer windows.");
+    QWidget owner;
+    for (const auto operation : {Fusion::TransferOperation::Copy, Fusion::TransferOperation::Move}) {
+      for (const auto mode : {"replace", "skip", "individual", "cancel"}) {
+        const auto base = folder + "/questions-" + mode + QString::number(int(operation));
+        for (const auto side : {"source", "target"}) {
+          QDir().mkpath(base+"/"+side+"/Folder/nested");
+          for (const auto name : {"a.txt", "Folder/b.txt", "Folder/nested/c.txt"})
+            write(base+"/"+side+"/"+name, QByteArray(side));
+        }
+        write(base+"/source/Folder/new.txt", "new file");
+        auto *job = Fusion::transferFiles({QUrl::fromLocalFile(base+"/source/a.txt"), QUrl::fromLocalFile(base+"/source/Folder")},
+            QUrl::fromLocalFile(base+"/target"), operation, &owner);
+        int error = -1; connect(job, &KJob::result, &owner, [&](KJob *j) { error = j->error(); });
+        QTRY_VERIFY_WITH_TIMEOUT(error != -1, 15000);
+        QCOMPARE(error, QByteArray(mode) == "cancel" ? KIO::ERR_USER_CANCELED : 0);
+        for (const auto name : {"a.txt", "Folder/b.txt", "Folder/nested/c.txt"}) {
+          const bool replaced = QByteArray(mode) == "replace" || (QByteArray(mode) == "individual" && QByteArray(name) == "a.txt");
+          QFile destination(base+"/target/"+name); QVERIFY(destination.open(QIODevice::ReadOnly));
+          QCOMPARE(destination.readAll(), replaced ? QByteArray("source") : QByteArray("target"));
+          QCOMPARE(QFileInfo::exists(base+"/source/"+name), operation == Fusion::TransferOperation::Copy || !replaced);
+        }
+        if (QByteArray(mode) != "cancel") QVERIFY(QFileInfo::exists(base+"/target/Folder/new.txt"));
+        QVERIFY(!owner.findChild<QDialog *>("transferConflictSummary"));
+        QVERIFY(!owner.findChild<QMessageBox *>("transferConflictQuestion"));
+      }
+    }
+    const auto base = folder+"/questions-duplicate"; QDir().mkpath(base);
+    write(base+"/a.txt", "original");
+    for (int n=1; n<=2; ++n) {
+      QMimeData mime; mime.setUrls({QUrl::fromLocalFile(base+"/a.txt")});
+      QDropEvent event(QPointF(1,1), Qt::MoveAction|Qt::CopyAction, &mime, Qt::LeftButton, Qt::NoModifier);
+      auto *job = Fusion::dropFiles(&event, QUrl::fromLocalFile(base), &owner, {});
+      int error = -1; connect(job, &KJob::result, &owner, [&](KJob *j) { error = j->error(); });
+      QTRY_COMPARE_WITH_TIMEOUT(error, 0, 15000);
+      QVERIFY(QFileInfo::exists(base+"/a_copy"+QString::number(n)+".txt"));
+      QVERIFY(!owner.findChild<QMessageBox *>("duplicateDropQuestion"));
+    }
+  }
+  void transferCanPauseBeforeAccessCheckCompletes() {
+    const auto base = folder+"/pause-before-access";
+    QDir().mkpath(base+"/source"); QDir().mkpath(base+"/target");
+    write(base+"/source/a.txt", "source");
+    QWidget owner;
+    auto *job = Fusion::transferFiles({QUrl::fromLocalFile(base+"/source/a.txt")},
+        QUrl::fromLocalFile(base+"/target"), Fusion::TransferOperation::Copy, &owner);
+    int error = -1; connect(job, &KJob::result, &owner, [&](KJob *j) { error = j->error(); });
+    QVERIFY(job->suspend()); QTest::qWait(200);
+    QVERIFY(job->isSuspended()); QCOMPARE(error, -1);
+    QVERIFY(!QFileInfo::exists(base+"/target/a.txt"));
+    QVERIFY(job->resume()); QTRY_COMPARE_WITH_TIMEOUT(error, 0, 10000);
+    QVERIFY(QFileInfo::exists(base+"/target/a.txt"));
   }
   void newFolderAndPermanentDeleteCancellation() {
     const QString base = folder + "/new-folder-test";

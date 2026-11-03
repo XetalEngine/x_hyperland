@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (QApplication, QCheckBox, QColorDialog, QComboBox, Q
     QMessageBox, QPushButton, QScrollArea, QSlider, QSpinBox, QVBoxLayout, QWidget)
 
 from . import preferences
-from .samples import OPERATIONS, sample
+from .samples import OPERATIONS, STATES, sample
 from .window import ProgressWindow, theme_runtime
 
 
@@ -65,6 +65,7 @@ class PreviewView(QGraphicsView):
         self.window = ProgressWindow(sample(operation, state), options=options, preview=True, embedded=True)
         self.window.phase = .37
         self._scene.addWidget(self.window); self.window.show()
+        self.window.geometry_changed.connect(self.fit)
         self.fit()
         if not self.isVisible(): self.window.animation.stop()
 
@@ -118,7 +119,7 @@ class FileTransferPage(QWidget):
         row = QHBoxLayout(); self.operation = QComboBox(); self.operation.setAccessibleName('Preview operation')
         for value, title in OPERATIONS.items(): self.operation.addItem(title, value)
         self.sample_state = QComboBox(); self.sample_state.setAccessibleName('Preview status')
-        for value, title in (('running', 'Running'), ('unknown', 'Unknown size'), ('paused', 'Paused'), ('completed', 'Completed'), ('error', 'Error')):
+        for value, title in STATES.items():
             self.sample_state.addItem(title, value)
         row.addWidget(self.operation, 1); row.addWidget(self.sample_state); left.addLayout(row)
         left.addWidget(self.preview, 1); left.addWidget(self.size_hint)
@@ -290,5 +291,6 @@ class FileTransferPage(QWidget):
         root = Path(__file__).resolve().parents[1]
         try:
             subprocess.Popen([sys.executable, str(root/'theme/run.py'), sys.executable, str(root/'file_jobs/app.py'),
-                              '--preview', json.dumps(preferences.normalize(self.draft)), '--operation', self.operation.currentData()])
+                              '--preview', json.dumps(preferences.normalize(self.draft)), '--operation', self.operation.currentData(),
+                              '--state', self.sample_state.currentData()])
         except OSError as error: self.status.setText(str(error))

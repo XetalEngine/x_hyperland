@@ -15,6 +15,9 @@ import subprocess
 import sys
 import tempfile
 import threading
+import tarfile
+import zipfile
+import io
 import time
 
 REPO=Path(__file__).resolve().parents[1]
@@ -113,6 +116,17 @@ plugin={plugin}
                              stdout=subprocess.PIPE,stderr=bus_log,text=True)
         children.append(bus);env['DBUS_SESSION_BUS_ADDRESS']=bus.stdout.readline().strip()
         assert env['DBUS_SESSION_BUS_ADDRESS'].startswith('unix:'),'Private D-Bus did not start'
+        # Disable host-facing devices in this private compositor before adding
+        # virtual test input. Parent desktop pointer motion must not interfere.
+        devices=json.loads(ctl('-j','devices'))
+        (root/'host-devices.json').write_text(json.dumps(devices,indent=2))
+        for kind in ('mice','keyboards'):
+            for device in devices.get(kind,[]):
+                result=ctl('keyword','device['+device['name']+']:enabled','false')
+                assert result=='ok',result
+        if not json.loads(ctl('-j','monitors')):ctl('output','create','headless','TEST')
+        monitor=json.loads(ctl('-j','monitors'))[0]
+        ctl('keyword','monitor',monitor['name']+',1700x1000@60,0x0,1');time.sleep(.6)
         monitor=json.loads(ctl('-j','monitors'))[0]
         width=round(monitor['width']/monitor['scale']);height=round(monitor['height']/monitor['scale'])
         input_process=subprocess.Popen([str(root/'input'),str(width),str(height)],env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
@@ -120,11 +134,46 @@ plugin={plugin}
             input_process.stdin.write(command+'\n');input_process.stdin.flush()
             assert input_process.stdout.readline().strip()=='ok';time.sleep(delay)
         def click():gesture('button 1');gesture('button 0')
-        def drag(a,b):
+        def drag(a,b,control=None):
             gesture(f'move {a[0]} {a[1]}');gesture('button 1')
-            for n in range(1,17):gesture(f'move {round(a[0]+(b[0]-a[0])*n/16)} {round(a[1]+(b[1]-a[1])*n/16)}',.04)
+            for n in range(1,17):
+                gesture(f'move {round(a[0]+(b[0]-a[0])*n/16)} {round(a[1]+(b[1]-a[1])*n/16)}',.04)
+                if n==10 and control is not None:gesture('key 29 '+str(control))
             time.sleep(.5)
+            run('grim','-c',str(root/'drag-feedback.png'))
             gesture('button 0',.3)
+        # Run the actual themed JobView UI on this private bus. Its questions
+        # expand inside the progress card; no separate overwrite dialog exists.
+        transfer_report=root/'transfer-windows.json'
+        fixture=root/'transfer-service.py'
+        fixture.write_text('''import json,sys
+from pathlib import Path
+from PyQt6.QtCore import QTimer
+from PyQt6.QtWidgets import QApplication
+sys.path.insert(0,sys.argv[1])
+from file_jobs.app import Windows
+from file_jobs.service import Service
+from file_jobs.questions import ChoiceButton
+from file_jobs import preferences
+app=QApplication([]);app.setQuitOnLastWindowClosed(False);app.setApplicationName('Fusion transfer probe')
+app.setDesktopFileName('fusion-transfer-probe')
+service=Service(parent=app);service.start();windows=Windows(service)
+windows.options=preferences.normalize({'style':'breakpoint','behavior':{'show_delay':100,'close_delay':500}})
+report=Path(sys.argv[2])
+def save():
+    values=[]
+    for window in list(windows.windows.values()):
+        if not window.job.question:continue
+        buttons={}
+        for button in window.question_panel.findChildren(ChoiceButton):
+            point=button.mapTo(window,button.rect().center());buttons[button.property('choice')]=[point.x(),point.y()]
+        values.append({'title':window.windowTitle(),'kind':window.job.question['kind'],'buttons':buttons,
+                       'height':window.height(),'base_height':window.base_height})
+    temp=report.with_suffix('.tmp');temp.write_text(json.dumps(values));temp.replace(report)
+timer=QTimer(app);timer.timeout.connect(save);timer.start(40);save();app.exec()
+''')
+        transfer_service=spawn([sys.executable,str(fixture),str(REPO/'config/hypr'),str(transfer_report)])
+        wait(transfer_report.exists,'themed transfer service')
         report=root/'positions.json'
         env['WAYLAND_DEBUG']='client'
         spawn([str(build/'files-drag-probe'),str(source),str(report)])
@@ -148,12 +197,61 @@ plugin={plugin}
         wait(lambda:uploads,'browser upload drop')
         assert uploads[-1]==[{'name':filename,'text':payload}],uploads
         assert (source/filename).exists()
-        gesture('key 29 1') # Ctrl: copy into the destination folder.
-        drag(file_point(filename),file_point('Destination'));gesture('key 29 0')
+        # Press Ctrl after the drag begins: both the action and badge must change.
+        drag(file_point(filename),file_point('Destination'),control=1);gesture('key 29 0')
+        shutil.copyfile(root/'drag-feedback.png',root/'copy-drag-feedback.png')
         wait(lambda:(source/'Destination'/filename).exists(),'folder copy')
         assert (source/'Destination'/filename).read_text()==payload
         assert (source/filename).exists()
         run('grim',str(root/'drag.png'))
+        print('Real file drag to browser and Ctrl-copy to folder passed',flush=True)
+        if '--files-only' in sys.argv:
+            # The first collision must wait for an explicit overwrite choice.
+            (source/'Destination'/filename).write_text('Previous destination contents')
+            gesture('key 29 1')
+            drag(file_point(filename),file_point('Destination'),control=0)
+            shutil.copyfile(root/'drag-feedback.png',root/'move-drag-feedback.png')
+            wait(lambda:bool(json.loads(transfer_report.read_text())),'expanded overwrite question')
+            assert (source/filename).exists()
+            assert (source/'Destination'/filename).read_text()=='Previous destination contents'
+            time.sleep(.3)
+            question=json.loads(transfer_report.read_text())[0]
+            dialog=next(c for c in clients() if c['pid']==transfer_service.pid and c['title']==question['title'])
+            assert question['height']>question['base_height']
+            button=question['buttons']['replace']
+            run('grim',str(root/'overwrite-question.png'))
+            gesture(f"move {dialog['at'][0]+button[0]} {dialog['at'][1]+button[1]}");click()
+            wait(lambda:not (source/filename).exists(),'confirmed drop moved source')
+            assert (source/'Destination'/filename).read_text()==payload
+            assert not (source/'Destination'/'photo # 100% café_copy1.txt').exists()
+            print('Plain drop moves after confirming an existing-file overwrite',flush=True)
+            point=file_point('_view');gesture(f'move {point[0]} {point[1]}');click()
+            run('grim',str(root/'folder-view-menu.png'))
+            gesture('key 1 1');gesture('key 1 0')
+            for extension in ('tar.gz','zip'):
+                member='Archive '+extension+'.txt';content=('Extracted '+extension+' contents').encode()
+                archive=root/('sample.'+extension)
+                if extension=='zip':
+                    with zipfile.ZipFile(archive,'w') as out:out.writestr(member,content)
+                else:
+                    with tarfile.open(archive,'w:gz') as out:
+                        item=tarfile.TarInfo(member);item.size=len(content);out.addfile(item,io.BytesIO(content))
+                ark=spawn(['ark',str(archive)])
+                wait(lambda:any(c['pid']==ark.pid for c in clients()),'Ark window')
+                ark_client=next(c for c in clients() if c['pid']==ark.pid)
+                ark_client=place(ark_client['title'],width-720,80,700,700)
+                address='address:'+ark_client['address'];dispatch('focuswindow',address)
+                time.sleep(.8);run('grim',str(root/('ark-'+extension+'-before.png')))
+                # Ark's first archive row, below its two toolbar/header rows.
+                a=ark_client['at'];gesture(f'move {a[0]+80} {a[1]+68}');click()
+                gesture('key 29 1');gesture('key 30 1');gesture('key 30 0');gesture('key 29 0')
+                drag([a[0]+80,a[1]+68],file_point('Destination'))
+                run('grim',str(root/('ark-'+extension+'-after.png')))
+                wait(lambda:(source/'Destination'/member).exists(),'Ark '+extension+' extraction')
+                assert (source/'Destination'/member).read_bytes()==content
+                assert archive.exists();dispatch('closewindow',address)
+                print('Real Ark '+extension+' drag extraction passed',flush=True)
+            return
         # CloseEvent deliberately refuses the first close, like an unsaved-work prompt.
         fixture=root/'close-fixture.py'
         fixture.write_text('''from PyQt6.QtWidgets import QApplication,QWidget,QLabel,QVBoxLayout

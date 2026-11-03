@@ -36,6 +36,7 @@ public:
   using QTreeWidget::QTreeWidget;
   std::function<void(const QUrl &)> pin;
   std::function<void(int, int)> reorder;
+  std::function<void(KJob *)> transfer;
 
 protected:
   void drawRow(QPainter *painter, const QStyleOptionViewItem &option,
@@ -66,12 +67,23 @@ protected:
     drag->exec(Qt::MoveAction | Qt::CopyAction);
   }
   void dragEnterEvent(QDragEnterEvent *event) override {
-    if (event->mimeData()->hasUrls())
+    if (event->mimeData()->hasFormat("application/x-fusion-place"))
       event->acceptProposedAction();
+    else if (Fusion::acceptsFileDrop(event->mimeData())) {
+      const auto action=Fusion::fileDropAction(event->mimeData(),event->modifiers(),event->possibleActions());
+      if (action!=Qt::IgnoreAction) { event->setDropAction(action);event->accept(); }
+    }
   }
   void dragMoveEvent(QDragMoveEvent *event) override {
-    if (event->mimeData()->hasUrls())
+    if (event->mimeData()->hasFormat("application/x-fusion-place"))
       event->acceptProposedAction();
+    else if (dropFolder(event->position().toPoint()).isValid()) {
+      const auto action=Fusion::fileDropAction(event->mimeData(),event->modifiers(),event->possibleActions());
+      if (action!=Qt::IgnoreAction) { event->setDropAction(action);event->accept(); }
+      else event->ignore();
+    } else if (pinArea(event->position().toPoint()) && event->mimeData()->hasUrls()) {
+      event->setDropAction(Qt::CopyAction);event->accept();
+    } else event->ignore();
   }
   void dropEvent(QDropEvent *event) override {
     if (event->source() == this &&
@@ -80,11 +92,37 @@ protected:
       if (item && item->data(0, PinRole).isValid())
         reorder(event->mimeData()->data("application/x-fusion-place").toInt(),
                 item->data(0, PinRole).toInt());
-    } else
+      event->acceptProposedAction();
+      return;
+    }
+    const auto target=dropFolder(event->position().toPoint());
+    if (target.isValid() && !event->mimeData()->hasFormat("application/x-fusion-place")) {
+      const auto action=Fusion::fileDropAction(event->mimeData(),event->modifiers(),event->possibleActions());
+      if (action==Qt::IgnoreAction) { event->ignore();return; }
+      if (auto *job=Fusion::dropFiles(event,target,window(),viewport()->mapToGlobal(event->position().toPoint()))) {
+        transfer(job);event->setDropAction(action);event->accept();
+      } else event->ignore();
+      return;
+    }
+    if (pinArea(event->position().toPoint()) || event->mimeData()->hasFormat("application/x-fusion-place")) {
       for (const auto &url : event->mimeData()->urls())
         if (url.isLocalFile() && QFileInfo(url.toLocalFile()).isDir())
           pin(url);
-    event->acceptProposedAction();
+      event->setDropAction(Qt::CopyAction);event->accept();
+    } else event->ignore();
+  }
+private:
+  bool pinArea(const QPoint &point) const {
+    const auto *item=itemAt(point);
+    return !item || item->data(0,SectionRole).toString()=="quickAccess";
+  }
+  QUrl dropFolder(const QPoint &point) const {
+    const auto *item=itemAt(point);
+    if (!item) return {};
+    const QUrl url(item->data(0,UrlRole).toString());
+    if (url.isEmpty() || Fusion::isComputer(url) || url.scheme()=="trash" || url.scheme()=="network") return {};
+    if (url.isLocalFile() && !QFileInfo(url.toLocalFile()).isDir()) return {};
+    return url;
   }
 };
 bool isTextEditing() {
@@ -146,11 +184,20 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   auto *folder =
       tool("folder-new", "New folder", [this] { runAction("newFolder"); });
   folder->setToolTip("New folder · Ctrl+Shift+N");
-  views = new QComboBox;
+  views = new QToolButton;
   views->setObjectName("viewMode");
-  views->addItems(
-      {"Small icons", "Medium icons", "Large icons", "List", "Details"});
-  views->setCurrentIndex(preferences.settings.value("view", 2).toInt());
+  views->setPopupMode(QToolButton::InstantPopup);
+  views->setToolButtonStyle(Qt::ToolButtonIconOnly);
+  views->setAccessibleName("Folder view");
+  auto *viewMenu = new QMenu(views);viewMenu->setObjectName("folderViewMenu");views->setMenu(viewMenu);
+  viewActions = new QActionGroup(this);viewActions->setExclusive(true);
+  const QStringList viewNames{"Small icons", "Medium icons", "Large icons", "List", "Details"};
+  for (int mode=0;mode<viewNames.size();++mode) {
+    const QString icon = mode==4 ? "view-list-details" : mode==3 ? "view-list-icons" : "view-grid";
+    auto *action=viewMenu->addAction(Fusion::icon(icon),viewNames[mode]);
+    action->setProperty("fusionIcon",icon);action->setObjectName("folderView"+QString::number(mode));
+    action->setData(mode);action->setCheckable(true);viewActions->addAction(action);
+  }
   toolbar->addWidget(views);
   previewAction = tool("view-preview", "Preview pane", [this] {
     previewStack->setVisible(previewAction->isChecked());
@@ -217,6 +264,7 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   places->setDropIndicatorShown(true);
   splitter->addWidget(places);
   tree->pin = [this](const QUrl &url) { pin(url); };
+  tree->transfer = [this](KJob *job) { track(job); };
   tree->reorder = [this](int from, int to) {
     auto list = preferences.places();
     if (from >= 0 && to >= 0 && from < list.size() && to < list.size()) {
@@ -295,9 +343,11 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
     tabs->removeTab(index);
     tab->deleteLater();
   });
-  connect(views, &QComboBox::currentIndexChanged, this, [this](int index) {
-    if (browser())
-      browser()->setView(index);
+  connect(viewActions, &QActionGroup::triggered, this, [this](QAction *action) {
+    if (browser()) {
+      browser()->setView(action->data().toInt());
+      updateCurrent();
+    }
   });
   connect(places, &QTreeWidget::itemClicked, this,
           [this](QTreeWidgetItem *item) {
@@ -474,8 +524,10 @@ void FilesWindow::updateCurrent() {
     return;
   const QUrl url = browser()->location();
   setWindowTitle(Fusion::title(url) + " — Fusion Files");
-  QSignalBlocker blocker(views);
-  views->setCurrentIndex(browser()->viewMode);
+  views->setEnabled(!Fusion::isComputer(url));
+  auto *viewAction=viewActions->actions().at(browser()->viewMode);viewAction->setChecked(true);
+  views->setProperty("fusionIcon",viewAction->property("fusionIcon"));views->setIcon(viewAction->icon());
+  views->setToolTip(Fusion::isComputer(url) ? "Folder view · open a folder to change its layout" : "Folder view · "+viewAction->text());
   const auto *navigator = browser()->navigator;
   backAction->setEnabled(navigator->historyIndex() + 1 <
                          navigator->historySize());

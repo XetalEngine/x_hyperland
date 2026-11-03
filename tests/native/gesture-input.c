@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <time.h>
 #include "virtual-pointer.h"
 #include "virtual-keyboard.h"
 static struct zwlr_virtual_pointer_manager_v1 *pm;
@@ -21,6 +22,10 @@ static void global(void *data,struct wl_registry *registry,uint32_t name,const c
 }
 static void removed(void *data,struct wl_registry *registry,uint32_t name) {}
 static const struct wl_registry_listener listener={global,removed};
+static uint32_t timestamp(void) {
+    struct timespec now;clock_gettime(CLOCK_MONOTONIC,&now);
+    return (uint32_t)((uint64_t)now.tv_sec*1000+now.tv_nsec/1000000);
+}
 int main(int argc,char **argv) {
     assert(argc==3);int width=atoi(argv[1]),height=atoi(argv[2]);
     struct wl_display *d=wl_display_connect(NULL);assert(d);
@@ -32,14 +37,14 @@ int main(int argc,char **argv) {
     struct xkb_state *state=xkb_state_new(map);char *keymap=xkb_keymap_get_as_string(map,XKB_KEYMAP_FORMAT_TEXT_V1);
     int fd=memfd_create("fusion-test-keymap",0);assert(fd>=0);size_t len=strlen(keymap)+1;assert(write(fd,keymap,len)==len);
     zwp_virtual_keyboard_v1_keymap(k,WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1,fd,len);close(fd);free(keymap);wl_display_roundtrip(d);
-    char line[100],command[20];int a,b;unsigned serial=1;
+    char line[100],command[20];int a,b;
     while(fgets(line,sizeof(line),stdin)) {
         a=b=0;sscanf(line,"%19s %d %d",command,&a,&b);
-        if(!strcmp(command,"move"))zwlr_virtual_pointer_v1_motion_absolute(p,serial++,a,b,width,height);
-        else if(!strcmp(command,"button"))zwlr_virtual_pointer_v1_button(p,serial++,272,a);
+        if(!strcmp(command,"move"))zwlr_virtual_pointer_v1_motion_absolute(p,timestamp(),a,b,width,height);
+        else if(!strcmp(command,"button"))zwlr_virtual_pointer_v1_button(p,timestamp(),272,a);
         else if(!strcmp(command,"key")) {
             xkb_state_update_key(state,a+8,b?XKB_KEY_DOWN:XKB_KEY_UP);
-            zwp_virtual_keyboard_v1_key(k,serial++,a,b);
+            zwp_virtual_keyboard_v1_key(k,timestamp(),a,b);
             zwp_virtual_keyboard_v1_modifiers(k,xkb_state_serialize_mods(state,XKB_STATE_MODS_DEPRESSED),
                 xkb_state_serialize_mods(state,XKB_STATE_MODS_LATCHED),xkb_state_serialize_mods(state,XKB_STATE_MODS_LOCKED),0);
         } else if(!strcmp(command,"quit"))break;

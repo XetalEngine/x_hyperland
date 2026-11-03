@@ -6,8 +6,12 @@ from unittest.mock import Mock
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QMouseEvent
 from PyQt6.QtWidgets import QApplication
+from PyQt6.QtTest import QTest
 from model import Job, amount, location, short_location
 from window import ProgressWindow
+from samples import sample
+from preferences import PROFILES
+from questions import ChoiceButton
 
 APPLICATION = QApplication.instance() or QApplication([])
 
@@ -105,6 +109,62 @@ class JobTests(unittest.TestCase):
         window.mousePressEvent(event)
         handle.startSystemMove.assert_called_once()
         self.assertTrue(event.isAccepted())
+
+    def test_questions_expand_in_every_style_and_collapse_after_a_real_button_click(self):
+        for style in PROFILES:
+            with self.subTest(style=style):
+                job = sample()
+                window = ProgressWindow(job, options={'style': style})
+                window.show(); APPLICATION.processEvents()
+                width, height, pause_y = window.width(), window.height(), window.pause.y()
+                answers = []; job.answered.connect(answers.append)
+                job.ask({'kind': 'conflicts', 'source': '/Source/a', 'destination': '/Target/a', 'replace_allowed': True})
+                QTest.qWait(230)
+                self.assertGreater(window.height(), height)
+                self.assertEqual(window.width(), width)
+                self.assertEqual(window.pause.y(), pause_y)
+                self.assertFalse(window.pause.isEnabled())
+                self.assertFalse(job.running)
+                buttons = window.question_panel.findChildren(ChoiceButton)
+                self.assertEqual([b.property('choice') for b in buttons], ['replace', 'skip', 'individual'])
+                QTest.mouseClick(buttons[1], Qt.MouseButton.LeftButton)
+                self.assertEqual(answers, [{'choice': 'skip', 'all': False}])
+                QTest.qWait(230)
+                self.assertEqual(window.height(), height)
+                self.assertFalse(window.question_scroll.isVisible())
+                self.assertTrue(job.running)
+                window.dismiss(); APPLICATION.processEvents()
+
+    def test_invalid_answers_never_authorize_overwrite_and_cancel_releases_question(self):
+        job = self.job(); answers = []; job.answered.connect(answers.append)
+        job.ask({'kind': 'file', 'destination': '/Target/folder', 'replace_allowed': False})
+        self.assertFalse(job.answer('replace', True))
+        self.assertFalse(job.answer('copy'))
+        self.assertIsNotNone(job.question)
+        self.assertFalse(job.request('suspend'))
+        job.request('cancel')
+        self.assertIsNone(job.question)
+        self.assertEqual(answers, [{'choice': 'cancel', 'all': False}])
+
+    def test_individual_apply_all_and_simultaneous_questions_remain_independent(self):
+        first, second = self.job(), self.job()
+        answers = []; first.answered.connect(answers.append)
+        first.ask({'kind': 'file', 'destination': '/Target/a', 'replace_allowed': True})
+        second.ask({'kind': 'duplicate', 'destination': '/Other'})
+        window = self.window(first)
+        window.question_panel.apply_all.setChecked(True)
+        window.question_panel.findChildren(ChoiceButton)[0].click()
+        self.assertEqual(answers, [{'choice': 'replace', 'all': True}])
+        self.assertEqual(second.question['kind'], 'duplicate')
+        second.terminate(2, 'Client disconnected')
+        self.assertIsNone(second.question)
+
+    def test_preview_questions_use_selected_style_without_mutating_preferences(self):
+        window = ProgressWindow(sample(state='conflicts'), options={'style': 'breakpoint'}, preview=True, embedded=True)
+        self.addCleanup(window.dismiss)
+        self.assertEqual(window.design, 'breakpoint')
+        self.assertGreater(window.height(), window.base_height)
+        self.assertEqual(len(window.question_panel.findChildren(ChoiceButton)), 3)
 
 
 if __name__ == '__main__': unittest.main()

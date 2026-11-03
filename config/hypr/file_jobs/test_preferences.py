@@ -215,7 +215,8 @@ class PageTests(unittest.TestCase):
             self.page.open_popup()
         argv = launch.call_args.args[0]
         self.assertEqual(json.loads(argv[argv.index('--preview')+1])['style'], 'breakpoint')
-        self.assertEqual(argv[-2:], ['--operation', 'compress'])
+        self.assertEqual(argv[argv.index('--operation')+1], 'compress')
+        self.assertEqual(argv[argv.index('--state')+1], self.page.sample_state.currentData())
         self.assertFalse(self.path.exists())
 
 

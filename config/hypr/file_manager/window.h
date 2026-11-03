@@ -37,7 +37,8 @@ private:
   XetalPreview::Pane *preview;
   QLabel *remotePreview;
   QStackedWidget *previewStack;
-  QComboBox *views;
+  QToolButton *views;
+  QActionGroup *viewActions;
   QAction *backAction, *forwardAction, *upAction, *previewAction, *hiddenAction,
       *undoAction;
   QProcess theme;

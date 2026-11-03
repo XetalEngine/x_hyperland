@@ -39,6 +39,37 @@ class ViewV3(Guarded):
         if self.accepted(message): self.parent().terminate(code, text)
 
 
+@pyqtClassInfo('D-Bus Interface', 'org.xetal.FileTransfer1')
+class TransferQuestions(Guarded):
+    """Questions belong to the exact JobView, and only its owner can ask them."""
+    def __init__(self, job):
+        super().__init__(job)
+        self.reply = None
+        job.answered.connect(self.answer)
+
+    @pyqtSlot('QVariantMap', QDBusMessage, result='QVariantMap')
+    def ask(self, values, message):
+        if not self.accepted(message): return {}
+        message.setDelayedReply(True)
+        if self.reply is not None:
+            self.parent().service.bus.send(message.createErrorReply(
+                'org.freedesktop.DBus.Error.LimitsExceeded', 'A question is already waiting for an answer.'))
+            return {}
+        self.reply = QDBusMessage(message)
+        try:
+            self.parent().ask(values)
+        except ValueError as error:
+            self.reply = None
+            self.parent().service.bus.send(message.createErrorReply(
+                'org.freedesktop.DBus.Error.InvalidArgs', str(error)))
+        return {}
+
+    def answer(self, values):
+        if self.reply is not None:
+            message, self.reply = self.reply, None
+            self.parent().service.bus.send(message.createReply([values]))
+
+
 @pyqtClassInfo('D-Bus Interface', 'org.kde.JobViewV2')
 class ViewV2(Guarded):
     cancelRequested = pyqtSignal()
@@ -146,7 +177,7 @@ class Service(QObject):
         path = ROOT + '/job' + str(self.serial)
         job = Job(path, owner, application, capabilities, hints, self)
         job.service, job.interface = self, interface
-        job.adaptors = [ViewV3(job), ViewV2(job)]
+        job.adaptors = [ViewV3(job), ViewV2(job), TransferQuestions(job)]
         if not self.bus.registerObject(path, job, QDBusConnection.RegisterOption.ExportAdaptors):
             job.deleteLater()
             return QDBusObjectPath('/')
@@ -168,11 +199,15 @@ class Service(QObject):
 
     def release(self, job):
         if self.jobs.pop(job.path, None) is not None:
+            if job.question: job.answer('cancel')
             self.bus.unregisterObject(job.path)
             job.deleteLater()
 
     def stop(self):
-        # Ending the desktop releases the UI. It never sends Cancel to jobs.
+        # Running operations remain independent. A question with no remaining
+        # UI receives Cancel, never an implicit permission to replace files.
+        for job in list(self.jobs.values()):
+            if job.question: job.answer('cancel')
         for name in self.names: self.bus.unregisterService(name)
         self.names.clear()
         self.bus.unregisterObject(ROOT, QDBusConnection.UnregisterMode.UnregisterTree)

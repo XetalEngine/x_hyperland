@@ -65,6 +65,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--preview', help='JSON preferences for a simulated file-operation popup')
     parser.add_argument('--operation', choices=['copy', 'move', 'compress', 'extract'], default='copy')
+    parser.add_argument('--state', choices=['running', 'unknown', 'paused', 'completed', 'error', 'conflicts', 'file', 'duplicate'], default='running')
     args = parser.parse_args()
     signature = os.environ.get('HYPRLAND_INSTANCE_SIGNATURE')
     runtime = os.environ.get('XDG_RUNTIME_DIR')
@@ -87,7 +88,7 @@ def main():
         except ImportError:
             from samples import sample
         options = preferences.normalize(json.loads(args.preview))
-        job = sample(args.operation)
+        job = sample(args.operation, args.state)
         job.data['title'] = 'Preview · '+job.title
         window = ProgressWindow(job, options=options, preview=True)
         window.dismissed.connect(app.quit)
@@ -95,7 +96,7 @@ def main():
         window.show()
         preview_timer = QTimer(app); preview_timer.setInterval(180)
         def advance():
-            if job.running:
+            if job.running and job.percent is not None and 'totalBytes' in job.data:
                 percent = (job.percent+1) % 96
                 job.update({'percent': percent, 'processedBytes': int(job.data['totalBytes']*percent/100)})
         preview_timer.timeout.connect(advance); preview_timer.start()

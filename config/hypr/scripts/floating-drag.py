@@ -13,6 +13,8 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT))
+from effects.window_close import drag_settings
 sys.path.insert(0, str(ROOT/'scripts'))
 from drag_cursor import CursorGuard, ensure_probe
 sys.path.insert(0, str(ROOT/'launcher'))
@@ -36,12 +38,14 @@ def in_grip(window, cursor):
 
 
 class Drag:
-    def __init__(self, hypr, guard=None):
+    def __init__(self, hypr, guard=None, settings_loader=drag_settings.load):
         self.hypr, self.candidate, self.dragging = hypr, None, False
         self.last_position = None
         self.guard = guard if guard is not None else CursorGuard(hypr)
         self.press_serial = None
         self.native = False
+        self.settings_loader=settings_loader
+        self.thresholds=dict(drag_settings.DEFAULTS)
 
     def hovered(self):
         cursor = self.hypr.query('cursorpos')
@@ -50,6 +54,8 @@ class Drag:
 
     def press(self, now):
         self.release()
+        try:self.thresholds,_=self.settings_loader()
+        except (OSError,ValueError):self.thresholds=dict(drag_settings.DEFAULTS)
         cursor, target = self.hovered()
         if in_grip(target, cursor):
             self.press_serial = self.guard.allowed()
@@ -69,7 +75,10 @@ class Drag:
         # field. Recheck before the threshold for delayed client cursor updates.
         if self.guard.allowed(self.press_serial) is None:
             self.release(); return
-        if math.hypot(cursor['x']-origin['x'], cursor['y']-origin['y']) < 8: return
+        # Never take over a quick press/release, even if the mouse slips across
+        # a tab's close button. Both deliberate hold and motion are required.
+        if now-started < self.thresholds['hold_ms']/1000: return
+        if math.hypot(cursor['x']-origin['x'], cursor['y']-origin['y']) < self.thresholds['distance']: return
         cursor, current = self.hovered()
         if (current is None or current.get('address') != target.get('address')
                 or current.get('pid') != target.get('pid') or not current.get('floating')

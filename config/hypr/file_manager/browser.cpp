@@ -11,6 +11,98 @@
 #include <KPluginMetaData>
 #include <KJobWidgets>
 #include <KUrlComboBox>
+#include <QBackingStore>
+#include <memory>
+
+namespace {
+// Qt keeps a snapshot of QDrag::pixmap() for the native drag surface. Paint
+// that same surface through QBackingStore when the requested action changes;
+// Hyprland overrides drag cursors, so a cursor-only badge is invisible there.
+// No native handles or Qt private headers are needed. If a platform uses a
+// different drag window, it retains the initial standard QDrag pixmap.
+class FileDragFeedback : public QObject {
+public:
+  FileDragFeedback(QDrag *drag, const QIcon &icon, int count, const QPalette &palette, qreal scale)
+      : icon(icon), count(count), palette(palette) {
+    action=QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier)?Qt::CopyAction:Qt::MoveAction;
+    drag->setPixmap(pixmap(scale));drag->setHotSpot({-12,-8});
+    qApp->installEventFilter(this);
+    // Some Wayland compositors never report source action changes. The Ctrl
+    // badge must still follow the key while crossing application boundaries.
+    connect(&modifiers,&QTimer::timeout,this,[this] {
+      const auto next=QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier)?Qt::CopyAction:Qt::MoveAction;
+      if (action==next) return;
+      action=next;paint();
+    });
+    modifiers.start(32); // Repaint only when the key changes, and only while dragging.
+  }
+  ~FileDragFeedback() override { qApp->removeEventFilter(this); }
+protected:
+  bool eventFilter(QObject *object,QEvent *event) override {
+    if (!window && event->type()==QEvent::Show && object->inherits("QShapedPixmapWindow")) {
+      window=qobject_cast<QWindow *>(object);
+      if (window) {
+        backing=std::make_unique<QBackingStore>(window);
+        connect(window,&QObject::destroyed,this,[this]{backing.reset();window=nullptr;});
+      }
+    }
+    if (object==window && backing) {
+      if (event->type()==QEvent::UpdateRequest) { paint();return true; }
+      if (event->type()==QEvent::Expose || event->type()==QEvent::Resize || event->type()==QEvent::DevicePixelRatioChange)
+        QTimer::singleShot(0,this,[this]{paint();});
+    }
+    return false;
+  }
+private:
+  QIcon icon;
+  int count;
+  QPalette palette;
+  Qt::DropAction action;
+  QTimer modifiers;
+  QPointer<QWindow> window;
+  std::unique_ptr<QBackingStore> backing;
+  QPixmap pixmap(qreal scale) const {
+    QPixmap image(QSize(64,64)*scale);image.setDevicePixelRatio(scale);image.fill(Qt::transparent);
+    QPainter painter(&image);painter.setRenderHint(QPainter::Antialiasing);
+    icon.paint(&painter,QRect(10,4,48,48));
+    if (count>1) {
+      painter.setPen(Qt::NoPen);painter.setBrush(palette.highlight());painter.drawRoundedRect(QRectF(38,0,26,20),8,8);
+      painter.setPen(palette.highlightedText().color());painter.drawText(QRect(38,0,26,20),Qt::AlignCenter,QString::number(count));
+    }
+    if (action==Qt::CopyAction) {
+      painter.setPen(QPen(Qt::white,1.5));painter.setBrush(QColor("#2468bb"));
+      painter.drawRoundedRect(QRectF(4,40,20,20),4,4);
+      painter.setPen(QPen(Qt::white,2));painter.drawLine(QPointF(9,50),QPointF(19,50));
+      painter.drawLine(QPointF(14,45),QPointF(14,55));
+    }
+    return image;
+  }
+  void paint() {
+    if (!window || !backing || !window->isExposed()) return;
+    const QRect rect(QPoint(),window->size());backing->resize(rect.size());backing->beginPaint(rect);
+    QPainter painter(backing->paintDevice());painter.setCompositionMode(QPainter::CompositionMode_Source);
+    painter.fillRect(rect,Qt::transparent);painter.drawPixmap(0,0,pixmap(window->devicePixelRatio()));painter.end();
+    backing->endPaint();backing->flush(rect);
+  }
+};
+void startFileDrag(QAbstractItemView *view, Qt::DropActions supported) {
+  QModelIndexList indexes;
+  for (const auto &index : view->selectionModel()->selectedIndexes())
+    if (index.column() == KDirModel::Name) indexes << index;
+  if (indexes.isEmpty()) return;
+  auto *drag = new QDrag(view);
+  drag->setMimeData(view->model()->mimeData(indexes));
+  FileDragFeedback feedback(drag,qvariant_cast<QIcon>(indexes.first().data(Qt::DecorationRole)),
+                            indexes.size(),view->palette(),view->devicePixelRatioF());
+  // KIO owns file removal and Undo; the view must not remove source rows when
+  // the destination reports Move before its asynchronous job completes.
+  drag->exec(supported & (Qt::CopyAction | Qt::MoveAction), Qt::MoveAction);
+}
+class FilesDetailsView : public QTreeView {
+protected:
+  void startDrag(Qt::DropActions actions) override { startFileDrag(this, actions); }
+};
+}
 
 class FilesIconView : public QListView {
 public:
@@ -28,6 +120,8 @@ public:
     // filename are file hits; its remaining space can start a rubber band.
     return delegate->shape(option, index).contains(position) ? index : QModelIndex();
   }
+protected:
+  void startDrag(Qt::DropActions actions) override { startFileDrag(this, actions); }
 };
 
 class FilesFilter : public KDirSortFilterProxyModel {
@@ -185,7 +279,7 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
   icons->setSpacing(5);
   icons->setSelectionRectVisible(true);
   icons->setItemDelegate(new KFileItemDelegate(icons));
-  details = new QTreeView;
+  details = new FilesDetailsView;
   details->setObjectName("details");
   details->setModel(proxy);
   details->setRootIsDecorated(false);
@@ -223,7 +317,7 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
     view->setDragEnabled(true);
     view->setAcceptDrops(true);
     view->setDragDropMode(QAbstractItemView::DragDrop);
-    view->setDefaultDropAction(Qt::CopyAction);
+    view->setDefaultDropAction(Qt::MoveAction);
     view->setDropIndicatorShown(true);
     view->setContextMenuPolicy(Qt::CustomContextMenu);
     view->viewport()->installEventFilter(this);
@@ -739,21 +833,23 @@ bool Browser::eventFilter(QObject *watched, QEvent *event) {
   }
   if (event->type() == QEvent::DragEnter || event->type() == QEvent::DragMove) {
     auto *drag = static_cast<QDragMoveEvent *>(event);
-    if (drag->mimeData()->hasUrls()) {
-      drag->acceptProposedAction();
-      return true;
-    }
+    const auto action = Fusion::fileDropAction(drag->mimeData(), drag->modifiers(), drag->possibleActions());
+    if (action == Qt::IgnoreAction) drag->ignore();
+    else { drag->setDropAction(action);drag->accept(); }
+    return true;
   }
   if (event->type() == QEvent::Drop) {
     auto *drop = static_cast<QDropEvent *>(event);
-    if (!drop->mimeData()->hasUrls())
-      return false;
+    const auto action = Fusion::fileDropAction(drop->mimeData(), drop->modifiers(), drop->possibleActions());
+    if (action == Qt::IgnoreAction) { drop->ignore();return true; }
     const auto item = itemAt(target, drop->position().toPoint());
     const QUrl dest = !item.isNull() && item.isDir() ? item.url() : location();
+    drop->setDropAction(action);
     auto *job = Fusion::dropFiles(drop, dest, window(), target->viewport()->mapToGlobal(drop->position().toPoint()));
+    if (!job) { drop->ignore();return true; }
     KJobWidgets::setWindow(job, window());
     emit jobStarted(job);
-    drop->acceptProposedAction();
+    drop->accept();
     return true;
   }
   return QWidget::eventFilter(watched, event);

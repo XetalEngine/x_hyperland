@@ -21,6 +21,24 @@ int main(int argc,char **argv) {
       const auto pos=tab->view()->viewport()->mapTo(&window,tab->view()->visualRect(index).center());
       data[item.name()]=QJsonArray{pos.x(),pos.y()};
     }
+    if (auto *question=window.findChild<QMessageBox *>("transferConflictQuestion"); question && question->isVisible()) {
+      QJsonObject buttons;
+      for (auto answer : {QMessageBox::Yes,QMessageBox::No,QMessageBox::Cancel}) {
+        auto *button=question->button(answer);if (!button) continue;
+        const auto point=button->mapTo(question,button->rect().center());
+        buttons[QString::number(answer)]=QJsonArray{point.x(),point.y()};
+      }
+      data["_conflict"]=buttons;
+    }
+    if (auto *summary=window.findChild<QDialog *>("transferConflictSummary"); summary && summary->isVisible()) {
+      auto *button=summary->findChild<QAbstractButton *>("replaceConflicts");
+      const auto point=button->mapTo(summary,button->rect().center());
+      data["_conflict"]=QJsonObject{{"16384",QJsonArray{point.x(),point.y()}}};
+    }
+    if (auto *button=window.findChild<QToolButton *>("viewMode")) {
+      const auto point=button->mapTo(&window,button->rect().center());
+      data["_view"]=QJsonArray{point.x(),point.y()};
+    }
     QSaveFile output(report);if(output.open(QIODevice::WriteOnly)){
       output.write(QJsonDocument(data).toJson());output.commit();
     }

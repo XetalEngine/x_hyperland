@@ -31,3 +31,5 @@ if __name__ == '__main__':
                         str(build/'files-tests')], check=True, env=env)
         subprocess.run(['dbus-run-session', '--', sys.executable, str(ROOT/'test_progress.py'),
                         str(build/'files-tests'), '--cancel'], check=True, env=env)
+        subprocess.run(['dbus-run-session', '--', sys.executable, str(ROOT/'test_questions.py'),
+                        str(build/'files-tests')], check=True, env=env)

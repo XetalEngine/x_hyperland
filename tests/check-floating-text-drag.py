@@ -87,7 +87,19 @@ plugin={plugin}
         bus=subprocess.Popen(['dbus-daemon','--session','--nofork','--print-address=1'],env=env,stdout=subprocess.PIPE,stderr=log,text=True)
         children.append(bus);env['DBUS_SESSION_BUS_ADDRESS']=bus.stdout.readline().strip()
         assert env['DBUS_SESSION_BUS_ADDRESS'].startswith('unix:')
+        # Disable host-facing devices in this private compositor before adding
+        # virtual test input. Parent desktop pointer motion must not interfere.
+        devices=json.loads(ctl('-j','devices'))
+        (root/'host-devices.json').write_text(json.dumps(devices,indent=2))
+        for kind in ('mice','keyboards'):
+            for device in devices.get(kind,[]):
+                result=ctl('keyword','device['+device['name']+']:enabled','false')
+                assert result=='ok',result
+        if not json.loads(ctl('-j','monitors')):ctl('output','create','headless','TEST')
         monitor=json.loads(ctl('-j','monitors'))[0]
+        ctl('keyword','monitor',monitor['name']+',1100x700@60,0x0,1');time.sleep(.6)
+        monitor=json.loads(ctl('-j','monitors'))[0]
+        (root/'input-monitor.json').write_text(json.dumps(monitor))
         input_process=subprocess.Popen([str(root/'input'),str(round(monitor['width']/monitor['scale'])),str(round(monitor['height']/monitor['scale']))],
                                        env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
         def gesture(command,delay=.1):
@@ -101,7 +113,7 @@ plugin={plugin}
             gesture('button 0',.2)
             return {'hover':initial,'press':pressed}
         fixture=root/'fixture.py'
-        fixture.write_text('''from PyQt6.QtWidgets import QApplication,QWidget,QLineEdit,QLabel
+        fixture.write_text('''from PyQt6.QtWidgets import QApplication,QWidget,QLineEdit,QLabel,QPushButton
 from PyQt6.QtCore import Qt,QTimer
 from PyQt6.QtGui import QImage,QPixmap,QCursor
 from pathlib import Path
@@ -110,6 +122,11 @@ root=Path(sys.argv[1]);app=QApplication([])
 window=QWidget();window.setWindowFlags(Qt.WindowType.FramelessWindowHint);window.setWindowTitle('Text drag fixture');window.resize(650,350)
 edit=QLineEdit('https://example.test/select-this-address',window);edit.setGeometry(80,6,280,24)
 label=QLabel('Drag the empty header; select the address text.',window);label.move(80,90)
+button=QPushButton('Close tab',window);button.setGeometry(420,6,100,26);clicks=0
+def clicked():
+ global clicks
+ clicks+=1
+button.clicked.connect(clicked)
 def bitmap(name):
  data=Path('/usr/share/icons/Adwaita/cursors/'+name).read_bytes();header=struct.unpack_from('<4I',data)
  for n in range(header[3]):
@@ -127,7 +144,7 @@ def update():
   mode=new
   window.setCursor(bitmap('left_ptr') if mode=='bitmap' else Qt.CursorShape.ArrowCursor)
   edit.setCursor(bitmap('xterm') if mode=='bitmap' else Qt.CursorShape.IBeamCursor)
- (root/'selection.tmp').write_text(json.dumps(dict(mode=mode,selection=edit.selectedText())))
+ (root/'selection.tmp').write_text(json.dumps(dict(mode=mode,selection=edit.selectedText(),clicks=clicks)))
  (root/'selection.tmp').replace(root/'selection.json')
 timer=QTimer();timer.timeout.connect(update);timer.start(30)
 window.show();app.exec()
@@ -140,6 +157,19 @@ window.show();app.exec()
         wait(lambda:(root/'selection.json').exists(),'selection report')
         assert helper.poll() is None,'Drag helper did not start'
         def selection(): return json.loads((root/'selection.json').read_text())
+        # Browser-style buttons in the invisible grip must receive complete
+        # clicks, including fast taps with pointer motion inside the button.
+        for dx in (0, 1, 10):
+            x,y=client()['at'];before=[x,y];count=selection()['clicks']
+            gesture(f'move {x+450} {y+18}',.65)
+            gesture('button 1',.025)
+            gesture(f'move {x+450+dx} {y+18}',.045)
+            gesture('button 0',.2)
+            (root/f'click-{dx}.json').write_text(json.dumps(dict(before=before,client=client(),cursor=cursor(),selection=selection(),pointer=json.loads(ctl('-j','cursorpos')),monitors=json.loads(ctl('-j','monitors')))))
+            subprocess.run(['grim',str(root/f'click-{dx}.png')],env=env,check=True)
+            assert selection()['clicks']==count+1,('Title button click was intercepted',dx,selection(),cursor())
+            assert client()['at']==before,('A quick click moved the window',dx)
+        print('Title buttons receive ordinary, 1-pixel and fast moving clicks',flush=True)
         for mode in ('named','bitmap'):
             (root/'mode').write_text(mode);wait(lambda:selection()['mode']==mode,'cursor mode')
             x,y=client()['at'];before=[x,y]

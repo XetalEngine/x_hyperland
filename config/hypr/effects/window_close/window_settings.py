@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT))
 sys.path.insert(0,str(ROOT/'theme'))
 from effects.window_close import model, rules, controller
+from effects.window_close.drag_page import DragSettings
 from PyQt6.QtCore import Qt, QTimer, QProcess, QObject, pyqtSignal
 from PyQt6.QtGui import QColor, QIcon, QImage, QPixmap
 from PyQt6.QtWidgets import (QApplication,QDialog,QVBoxLayout,QHBoxLayout,QLabel,QComboBox,
@@ -146,6 +147,7 @@ class RuleDialog(QDialog):
         background_hint=QLabel('Auto blends the solid background with the window underneath. '
                               'Manual covers it with your chosen color, including the gaps between buttons.')
         background_hint.setWordWrap(True);form.addRow(background_hint)
+        form.addRow(DragSettings(self))
         scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setWidget(form_widget);scroll.setMinimumHeight(160);layout.addWidget(scroll,1)
         self.picker=DesktopPicker(self);self.picker.picked.connect(self.set_color);self.picker.finished.connect(self.picker_finished)

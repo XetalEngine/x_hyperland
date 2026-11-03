@@ -57,8 +57,9 @@ starting cleanup.
 
 Quick access starts with the recipient's Home, Desktop, Documents, Downloads,
 Pictures, Music and Videos locations. Right-click a folder to pin it. Sidebar
-shortcuts can be renamed, removed and dragged to reorder; dropping local folders
-onto the sidebar pins them. This PC, Network and Trash are separate locations.
+shortcuts can be renamed, removed and dragged to reorder. Dropping local folders
+onto the Quick access heading or empty sidebar space pins them; dropping onto a
+folder row transfers them there. This PC, Network and Trash are separate locations.
 Expanded/collapsed states for This PC, Quick access and Unmounted drives are
 saved immediately in private preferences, including across restarts and drive
 disconnection/reconnection. Sidebar width and the main splitters are also saved.
@@ -70,8 +71,9 @@ names. Back, Forward and Up work across folder and This PC navigation. Network
 locations accept URLs such as `smb://server/share` and `sftp://host/path`, using
 the installed KIO protocol workers and their authentication dialogs.
 
-The view selector provides small, medium and large icons, a compact list and
-details. Right-click the details header to choose columns; drag columns to
+The folder-view icon opens a menu of small, medium and large icons, a compact
+list and details. It shows the current tab's selection and is disabled in This
+PC, where the drive cards keep their own layout. Right-click the details header to choose columns; drag columns to
 reorder and resize them. The folder filter matches names in the current folder.
 The preview pane is enabled for fresh profiles and displays local images, text excerpts and metadata;
 remote selections display metadata without downloading their full contents.
@@ -86,13 +88,33 @@ keep their file-type icons instead of downloading pictures for thumbnails.
 
 Ordinary copy, move, drag-and-drop, rename, Trash, restore and undo use KDE KIO jobs.
 Copies use the existing Fusion transfer-progress service, including the selected
-File Transfer style, pause, resume and cancellation. Pasting keeps both files
-without a name-conflict dialog: `photo.png` becomes `photo_copy1.png`, then
-`photo_copy2.png`. Folder names, dotfiles and compound extensions are preserved;
-folders are copied into a new numbered folder instead of merging contents.
-Cut/paste also keeps an existing destination under its original name. Each paste
-remains one transfer and one Undo operation. Permission and transfer failures
-still report errors. A filesystem that cannot
+File Transfer style, pause, resume and cancellation. Dragging into another
+folder moves immediately; hold Ctrl to copy instead. The dragged icon shows a
+bottom-left **+** while Ctrl is held, including when the key changes mid-drag.
+Folder targets in the sidebar use the same behavior.
+
+For existing destination files, **Replace or skip files** offers **Replace the
+files in the destination**, **Skip these files**, and **Let me decide for each
+file**. These choices expand downward inside the active animated transfer window,
+using its selected File Transfer style, then collapse after the answer. Theme →
+File Transfer's preview status menu includes the conflict, individual and duplicate
+questions. Replace applies throughout that transfer. Skip keeps existing files and
+still transfers new files, including new descendants inside matching folders.
+Matching directories merge; unrelated destination files are kept. Individual
+decisions offer Replace, Skip, Cancel, and an apply-to-all checkbox. Replacing a
+file does not retain its old contents for Undo.
+
+Questions are attached to their exact job, including when multiple transfers run
+at once. Only that job's client can ask or receive its answer. Cancel or loss of the
+question service never authorizes an overwrite. When Files is launched outside a
+Fusion session without the progress service, standalone confirmation dialogs are
+available as a fallback. Ark-owned extraction questions remain controlled by Ark.
+
+Dropping into the source folder asks whether to copy the selection anyway.
+Same-folder copies and pastes alone use names such as `photo_copy1.png`, then
+`photo_copy2.png`. Folder names, dotfiles and compound extensions are preserved.
+Each transfer remains one job with Undo for supported operations. Permission
+and transfer failures still report errors. A filesystem that cannot
 provide Trash reports the error; it never silently substitutes permanent deletion.
 Permanent deletion always asks for confirmation. Pending tracked file jobs keep
 the application process alive after its last browser window closes.
@@ -145,7 +167,10 @@ itself. Pasting checks that the target is still mounted. Right-click blank
 space in a drive grid for **Paste into…** with a list of mounted destinations.
 
 The **Ark** submenu uses Ark's own installed compression and extraction menu
-plugins, including their format shortcuts and options dialog. These actions are
+plugins, including their format shortcuts and options dialog. Dragging selected
+entries from an Ark ZIP or tar.gz window onto a folder or its background extracts
+them there. Ark retains control of extraction, passwords, and archive conflicts;
+the archive itself is kept. These actions are
 enabled by default. **Customize context menu…** controls
 action visibility, order, labels and icons. Custom actions accept `%f` / `%F` for
 local files and `%u` / `%U` for URLs. Commands execute as argument lists, without

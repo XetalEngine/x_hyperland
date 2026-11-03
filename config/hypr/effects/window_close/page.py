@@ -3,6 +3,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QFormLayout, QLabel, QCheckBox,
                             QComboBox, QSpinBox, QDialogButtonBox)
 from . import model, controller
+from .drag_page import DragSettings
 
 
 class Apply(QThread):
@@ -38,6 +39,7 @@ class Dialog(QDialog):
         form.addRow('Distance from the corner', self.inset); layout.addLayout(form)
         self.pulse = QCheckBox('Pulse gently in the theme accent'); self.pulse.setChecked(self.values['pulse'])
         layout.addWidget(self.pulse)
+        layout.addWidget(DragSettings(self))
         self.status = QLabel(''); self.status.setWordWrap(True); layout.addWidget(self.status)
         self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Apply | QDialogButtonBox.StandardButton.Close)
         self.buttons.button(QDialogButtonBox.StandardButton.Apply).clicked.connect(self.apply)
