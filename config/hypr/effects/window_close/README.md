@@ -21,13 +21,22 @@ return at the final corner when the window's chosen visibility mode calls for
 them. This follows the window's live animation state, with no fixed delay;
 unrelated settling windows do not hide the hovered window's controls.
 
-The **gear** opens an editor for this window or all windows of its application.
+The **gear** opens an editor populated from this window's effective settings.
+**All windows of this app · remembered** is the initial Apply-to destination;
+changing that destination keeps the values being edited. Applying an app choice
+also removes the edited window's old override so its saved result matches the
+preview; explicit overrides on other windows remain independent.
 Choose the modifier, always-visible, nearby-pointer, or Off display mode; adjust
-button size, six corner/edge positions, insets and nearby distance. The gear
-itself appears **only with Super held**, even in Off mode. An individual window
+button size, six corner/edge positions, insets and nearby distance with sliders
+and optional exact pixel values. While the editor is open, all four buttons stay
+visible **on the actual target window**, even with Super released or Off selected.
+The preview follows changes without saving them. Apply saves; Close discards
+unapplied changes. **Reset this window to defaults** previews the global defaults
+for this window only, and Apply keeps that reset. Outside the editor, the gear
+appears **only with Super held**, even in Off mode. An individual window
 override lasts until it closes; application choices persist across launches and
 logins. Window overrides take priority over app choices, then global settings.
-**Use inherited settings** removes the selected override. App matching uses the
+**Use inherited settings**, followed by Apply, removes the selected override. App matching uses the
 exact initial application class; live windows use compositor lifetime IDs, so
 closing one cannot transfer its override to a replacement window.
 
@@ -48,6 +57,10 @@ controller for this compositor session; there is no persistent system service.
 `window_settings.py` supplies the gear editor; `rules.py` and `native/policies.hpp`
 validate its overrides. Window-only overrides live under the compositor's runtime
 directory. Saves check for external edits and roll back if the native reload fails.
+Live previews exist only in compositor memory. They end when the editor or target
+closes; a bounded heartbeat lease also removes them if the editor crashes or stops
+responding. Preview updates are asynchronous and coalesce slider changes. Their
+buttons still respect window stacking, locking, dragging and Wobbly settlement.
 
 `native/plugin.cpp` uses cancellable compositor input events and a render-pass
 element inserted in the owning window's stack, so other windows and panels cover
@@ -77,6 +90,8 @@ normal close requests in a disposable compositor. The native geometry unit
 checks include negative output coordinates, portrait work areas and size limits.
 Add `--rules-only` to exercise the real gear editor, all display modes, app/window
 inheritance, no-modifier actions, bounds, reload and window lifetime. Add
+`--preview-only` to exercise the real editor's sliders, current-value loading,
+app Apply, window-only reset, discard, crash recovery and preview expiry. Add
 `--native-only` to exercise Chrome's own maximize/restore button and title-bar
 double-click repeatedly without a minimize reset. All browser/toolkit preferences
 are isolated beneath the test's `/tmp` directory.

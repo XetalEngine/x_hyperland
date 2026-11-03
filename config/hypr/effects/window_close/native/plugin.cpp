@@ -29,6 +29,9 @@
 #include <linux/input-event-codes.h>
 #include <array>
 #include <chrono>
+#include <csignal>
+#include <cerrno>
+#include <limits>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -50,9 +53,11 @@ std::array<SP<Render::ITexture>,5> textures;
 PHLWINDOWREF target, pressed, pending;
 std::vector<PHLWINDOWREF> neverFloated;
 std::array<CBox,4> buttons;
-struct Row {PHLWINDOWREF window;std::array<CBox,4> boxes;WindowButtons::Rule rule;};
+struct Row {PHLWINDOWREF window;std::array<CBox,4> boxes;WindowButtons::Rule rule;bool preview=false;};
 std::vector<Row> rows;
 WindowButtons::Rules appRules,windowRules;
+struct Preview {PHLWINDOWREF window;WindowButtons::Rule rule;pid_t owner;std::string token;Clock::time_point expires;};
+std::map<std::string,Preview> previews;
 Action pressedAction=None,pendingAction=None;
 bool held=false, superHeld=false,captured=false, stopping=false,waiting=false;
 uint64_t closed=0, minimized=0, maximized=0, restored=0, floated=0, draws=0,openedSettings=0;
@@ -106,6 +111,16 @@ WindowButtons::Rule ruleFor(PHLWINDOW w){
     if(auto it=appRules.find(appId(w));it!=appRules.end())return it->second;
     WindowButtons::Rule r;r.size=settings.size;r.x=r.y=settings.inset;return r;
 }
+Preview* previewFor(PHLWINDOW w){
+    if(!w)return nullptr;
+    auto it=previews.find(std::to_string(w->m_stableID));return it==previews.end()?nullptr:&it->second;
+}
+void prunePreviews(){
+    std::erase_if(previews,[](const auto& item){
+        const auto& preview=item.second;auto window=preview.window.lock();
+        return !window||!window->m_isMapped||Clock::now()>=preview.expires||(kill(preview.owner,0)<0&&errno==ESRCH);
+    });
+}
 void readAccent() {
     std::ifstream colors(root()/"theme/current.colors");std::string line;bool window=false;
     while(std::getline(colors,line)) {
@@ -134,6 +149,7 @@ bool settled(PHLWINDOW w) {
 }
 void refresh() {
     damage();
+    prunePreviews();
     const auto mods=g_pInputManager->getModsFromAllKBs();
     waiting=false;
     superHeld=available()&&mods==64;
@@ -141,7 +157,7 @@ void refresh() {
     target.reset();buttons={};rows.clear();
     if(!available()){
         waiting=settings.enabled&&g_pCompositor->m_sessionActive&&!g_pSessionLockManager->isSessionLocked()&&
-            bool(g_layoutManager->dragController()->target())&&(!appRules.empty()||!windowRules.empty());
+            bool(g_layoutManager->dragController()->target())&&(!appRules.empty()||!windowRules.empty()||!previews.empty());
         return;
     }
     const auto point=Pointer::mgr()->position();
@@ -158,10 +174,11 @@ void refresh() {
         if(!window->m_isMapped||window->isHidden()||window->isX11OverrideRedirect()||window->m_class=="fusion-window-buttons")continue;
         const auto monitor=window->m_monitor.lock();
         if(!monitor||!g_pHyprRenderer->shouldRenderWindow(window,monitor))continue;
-        auto rule=ruleFor(window);const bool isHovered=hovered==window;
-        if(rule.mode!="always"&&!isHovered)continue;
-        if(!settled(window)){waiting|=rule.mode=="always"||(isHovered&&(held||rule.mode=="nearby"));continue;}
-        if(window->popupsCount()>0){if(rule.mode=="always")rows.push_back({window,{},rule});continue;}
+        const auto preview=previewFor(window);const bool isPreview=preview!=nullptr;
+        auto rule=preview?preview->rule:ruleFor(window);const bool isHovered=hovered==window;
+        if(!isPreview&&rule.mode!="always"&&!isHovered)continue;
+        if(!settled(window)){waiting|=isPreview||rule.mode=="always"||(isHovered&&(held||rule.mode=="nearby"));continue;}
+        if(window->popupsCount()>0){if(isPreview||rule.mode=="always")rows.push_back({window,{},rule,isPreview});continue;}
         auto box=window->geometricBox(Desktop::View::IGeometric::GEOMETRIC_CURRENT).intersection(monitor->logicalBox());
         const double gap=std::max(4,rule.size/6);
         const double size=std::min({double(rule.size),(box.w-8-3*gap)/4.,box.h-8});
@@ -170,11 +187,11 @@ void refresh() {
         const double x=std::clamp(rule.anchor.ends_with("right")?box.x+box.w-width-rule.x:
             rule.anchor.ends_with("center")?box.x+(box.w-width)/2+rule.x-8:box.x+rule.x,box.x+4,box.x+box.w-width-4);
         const double y=std::clamp(rule.anchor.starts_with("bottom")?box.y+box.h-size-rule.y:box.y+rule.y,box.y+4,box.y+box.h-size-4);
-        Row row{window,{},rule};
+        Row row{window,{},rule,isPreview};
         const bool nearby=isHovered&&CBox{x,y,width,size}.expand(rule.proximity).containsPoint(point);
-        if(rule.mode!="off"&&((held&&isHovered)||rule.mode=="always"||(rule.mode=="nearby"&&nearby)))
+        if(isPreview||(rule.mode!="off"&&((held&&isHovered)||rule.mode=="always"||(rule.mode=="nearby"&&nearby))))
             for(int i=0;i<3;++i)row.boxes[i]={x+(i+1)*(size+gap),y,size,size};
-        if(superHeld&&isHovered)row.boxes[Gear]={x+size*.08,y+size*.08,size*.84,size*.84};
+        if(isPreview||(superHeld&&isHovered))row.boxes[Gear]={x+size*.08,y+size*.08,size*.84,size*.84};
         if(std::ranges::all_of(row.boxes,[](const CBox& b){return b.empty();}))continue;
         if(isHovered){target=window;buttons=row.boxes;}
         rows.push_back(row);
@@ -228,7 +245,7 @@ public:
         if(!m || !w || !available() || !settled(w))return {};
         const double elapsed=std::chrono::duration<double>(Clock::now()-epoch).count();
         for(int i=0;i<4;++i){
-            const auto& button=row.boxes[i];if(button.empty()||(i==Gear&&!superHeld))continue;
+            const auto& button=row.boxes[i];if(button.empty()||(i==Gear&&!superHeld&&!row.preview))continue;
             const int glyph=i==Gear?4:i==Close?3:i==Maximize&&restoring(w)?2:i;
             if(!textures[glyph])createTexture(glyph);
             const bool hover=button.containsPoint(Pointer::mgr()->position());
@@ -283,6 +300,13 @@ void maximizeOrRestore(PHLWINDOW w){
 }
 void perform(PHLWINDOW w,Action action){
     if(action==Gear){
+        if(auto preview=previewFor(w)){
+            for(const auto& editor:Desktop::windowState()->windows())
+                if(editor->m_isMapped&&!editor->isHidden()&&editor->m_class=="fusion-window-buttons"&&editor->getPID()==preview->owner){
+                    Desktop::focusState()->fullWindowFocus(editor,Desktop::FOCUS_REASON_CLICK);Desktop::windowState()->raise(editor);break;
+                }
+            return;
+        }
         if(!superHeld)return;
         std::string path=(root()/"effects/window_close/window_settings.py").string(),quoted="'";
         for(char c:path)quoted+=c=='\''?"'\\''":std::string(1,c);
@@ -308,12 +332,12 @@ void tick(SP<CEventLoopTimer> self,void*) {
     refresh();
     const auto w=pending.lock();const auto action=pendingAction;pending.reset();pendingAction=None;
     if(w && w->m_isMapped && !w->isHidden() && available() && settled(w)){perform(w,action);refresh();}
-    if(held || captured || waiting || !rows.empty())self->updateTimeout(std::chrono::milliseconds(25));
+    if(held || captured || waiting || !rows.empty() || !previews.empty())self->updateTimeout(std::chrono::milliseconds(25));
 }
 void cleanup() {
     stopping=true;damage();listeners.clear();target.reset();pressed.reset();pending.reset();neverFloated.clear();
     if(timer){timer->cancel();g_pEventLoopManager->removeTimer(timer);timer.reset();}
-    g_pHyprRenderer->m_renderPass.removeAllOfType("FusionWindowClose");textures={};buttons={};rows.clear();
+    g_pHyprRenderer->m_renderPass.removeAllOfType("FusionWindowClose");textures={};buttons={};rows.clear();previews.clear();
 }
 }
 APICALL EXPORT std::string PLUGIN_API_VERSION(){return HYPRLAND_API_VERSION;}
@@ -331,7 +355,9 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             if(w->m_isFloating)std::erase_if(neverFloated,[&](const auto& weak){return !weak.lock()||weak.lock()==w;});
         }));
         listeners.push_back(Event::bus()->m_events.window.close.listen([](PHLWINDOW w){
-            std::erase_if(neverFloated,[&](const auto& weak){return !weak.lock()||weak.lock()==w;});windowRules.erase(std::to_string(w->m_stableID));arm();
+            std::erase_if(neverFloated,[&](const auto& weak){return !weak.lock()||weak.lock()==w;});windowRules.erase(std::to_string(w->m_stableID));
+            // Closing either the edited window or its editor ends the preview.
+            std::erase_if(previews,[&](const auto& p){return p.second.window.lock()==w||(w->m_class=="fusion-window-buttons"&&p.second.owner==w->getPID());});arm();
         }));
         listeners.push_back(Event::bus()->m_events.monitor.layoutChanged.listen([](){arm();}));
         listeners.push_back(Event::bus()->m_events.workspace.active.listen([](PHLWORKSPACE){arm();}));
@@ -363,6 +389,31 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             try{load();textures={};refresh();arm();return SDispatchResult{};}
             catch(const std::exception& error){return SDispatchResult{.success=false,.error=error.what()};}
         });
+        HyprlandAPI::addDispatcherV2(handle,"xetalwindowclose:preview",[](std::string input){
+            try{
+                if(input.size()>4096)throw std::runtime_error("Window preview is too large");
+                auto doc=WindowButtons::parseJson(input);
+                auto string=[&](const char* name){return std::string(json_object_get_string(WindowButtons::field(doc.get(),name,json_type_string)));};
+                const auto id=string("id"),token=string("token"),action=string("action");
+                if(id.empty()||id.size()>20||!std::ranges::all_of(id,[](char c){return c>='0'&&c<='9';})||
+                   token.size()!=32||!std::ranges::all_of(token,[](char c){return (c>='0'&&c<='9')||(c>='a'&&c<='f');}))throw std::runtime_error("Invalid preview identity");
+                damage();prunePreviews();auto existing=previews.find(id);
+                if(action=="end"){
+                    if(existing!=previews.end()&&existing->second.token==token)previews.erase(existing);
+                }else if(action=="update"){
+                    auto owner=json_object_get_int64(WindowButtons::field(doc.get(),"owner",json_type_int));
+                    if(owner<1||owner>std::numeric_limits<pid_t>::max()||(kill(pid_t(owner),0)<0&&errno==ESRCH))throw std::runtime_error("The window editor has closed");
+                    if(existing!=previews.end()&&(existing->second.token!=token||existing->second.owner!=owner))throw std::runtime_error("This window is already being previewed in another editor");
+                    auto rule=WindowButtons::readRule(WindowButtons::field(doc.get(),"rule",json_type_object));
+                    PHLWINDOW window;
+                    for(const auto& w:Desktop::windowState()->windows())if(w->m_isMapped&&id==std::to_string(w->m_stableID)&&w->m_class!="fusion-window-buttons"){window=w;break;}
+                    if(!window)throw std::runtime_error("This window has closed");
+                    if(existing==previews.end()&&previews.size()>=64)throw std::runtime_error("Too many window previews");
+                    previews.insert_or_assign(id,Preview{window,rule,pid_t(owner),token,Clock::now()+std::chrono::seconds(4)});
+                }else throw std::runtime_error("Unknown preview action");
+                refresh();arm();return SDispatchResult{};
+            }catch(const std::exception& error){return SDispatchResult{.success=false,.error=error.what()};}
+        });
         status=HyprlandAPI::registerHyprCtlCommand(handle,{"xetal-windowclose",true,[](eHyprCtlOutputFormat,std::string){
             const auto& button=buttons[Close];std::string items;
             for(int i=0;i<3;++i){const auto& b=buttons[i];if(i)items+=",";
@@ -372,7 +423,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             const auto& gear=buttons[Gear];
             return std::format("{{\"enabled\":{},\"held\":{},\"visible\":{},\"closed\":{},\"draws\":{},\"box\":[{},{},{},{}],\"color\":[{},{},{}],\"buttons\":[{}],\"minimized\":{},\"maximized\":{},\"restored\":{},\"floated\":{},\"gear\":[{},{},{},{}],\"gear_visible\":{},\"settings_opened\":{}}}",
                 settings.enabled,held,available()&&settled(target.lock())&&!button.empty(),closed,draws,button.x,button.y,button.width,button.height,accent[0],accent[1],accent[2],items,minimized,maximized,restored,floated,
-                gear.x,gear.y,gear.w,gear.h,superHeld&&!gear.empty()&&settled(target.lock()),openedSettings);
+                gear.x,gear.y,gear.w,gear.h,available()&&!gear.empty()&&settled(target.lock()),openedSettings);
         }});
         windowStatus=HyprlandAPI::registerHyprCtlCommand(handle,{"xetal-windowbuttons",false,[](eHyprCtlOutputFormat,std::string input){
             std::istringstream stream(input);std::string command,id,extra;stream>>command>>id;
@@ -382,13 +433,19 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             }
             if(!(stream>>extra))for(const auto& w:Desktop::windowState()->windows())if(w->m_isMapped&&id==std::to_string(w->m_stableID)){
                 auto rule=WindowButtons::ruleJson(ruleFor(w));
-                return std::format("{{\"id\":\"{}\",\"app\":{},\"address\":\"0x{:x}\",\"rule\":{},\"window_override\":{},\"app_override\":{}}}",
-                    id,WindowButtons::quoted(appId(w)),reinterpret_cast<uintptr_t>(w.get()),json_object_to_json_string_ext(rule.get(),JSON_C_TO_STRING_PLAIN),windowRules.contains(id),appRules.contains(appId(w)));
+                auto preview=previewFor(w);auto previewRule=WindowButtons::ruleJson(preview?preview->rule:ruleFor(w));std::string boxes="[]";
+                for(const auto& row:rows)if(row.preview&&row.window.lock()==w){
+                    boxes="[";for(const auto& b:row.boxes){if(boxes.size()>1)boxes+=",";boxes+=std::format("[{},{},{},{}]",b.x,b.y,b.w,b.h);}boxes+="]";break;
+                }
+                const auto box=w->geometricBox(Desktop::View::IGeometric::GEOMETRIC_CURRENT);
+                return std::format("{{\"id\":\"{}\",\"app\":{},\"address\":\"0x{:x}\",\"rule\":{},\"window_override\":{},\"app_override\":{},\"size\":[{},{}],\"preview\":{},\"preview_rule\":{},\"preview_boxes\":{}}}",
+                    id,WindowButtons::quoted(appId(w)),reinterpret_cast<uintptr_t>(w.get()),json_object_to_json_string_ext(rule.get(),JSON_C_TO_STRING_PLAIN),windowRules.contains(id),appRules.contains(appId(w)),
+                    box.w,box.h,bool(preview),json_object_to_json_string_ext(previewRule.get(),JSON_C_TO_STRING_PLAIN),boxes);
             }
             return std::string("{\"error\":\"This window has closed.\"}");
         }});
         arm();
     }catch(...){cleanup();throw;}
-    return {"Xetal Window Close","Theme-aware window controls with per-app and per-window choices","XetalEngine","1.2"};
+    return {"Xetal Window Close","Theme-aware window controls with live per-window previews","XetalEngine","1.3"};
 }
 APICALL EXPORT void PLUGIN_EXIT(){cleanup();}

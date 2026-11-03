@@ -227,6 +227,23 @@ windowrule=match:class ^wobbly-test$,float on
         wait(lambda:status()['active']==0);wait(lambda:close_status()['visible'])
         assert not close_status()['gear_visible']
         rule_path.unlink();dispatch('xetalwindowclose:reload');wait(lambda:not close_status()['visible'])
+        # The editor's live preview also follows drag/settle visibility, even
+        # with saved controls Off and the pointer away from the target window.
+        ids=json.loads(ctl('xetal-windowbuttons'))['windows']
+        window_id=next(i for i in ids if json.loads(ctl('xetal-windowbuttons',i))['address']==client()['address'])
+        preview=dict(action='update',id=window_id,token='b'*32,owner=os.getpid(),rule=dict(close_rules.DEFAULTS,mode='off'))
+        dispatch('xetalwindowclose:preview',json.dumps(preview))
+        c=client();x=c['at'][0]+100;y=c['at'][1]+50
+        point(f'move {x} {y}');wait(lambda:close_status()['gear_visible']);point('down 272')
+        for delta in (20,40,60):point(f'move {x+delta} {y+delta}');time.sleep(.015)
+        point('up 272');assert status()['active'];assert not close_status()['visible']
+        point('move 20 20')
+        def preview_settled():
+            dispatch('xetalwindowclose:preview',json.dumps(preview))
+            return not status()['active'] and len(json.loads(ctl('xetal-windowbuttons',window_id))['preview_boxes'])==4
+        wait(preview_settled)
+        dispatch('xetalwindowclose:preview',json.dumps(dict(action='end',id=window_id,token='b'*32)))
+        assert not json.loads(ctl('xetal-windowbuttons',window_id))['preview']
         # Another window's wobble does not hide controls on this stable window.
         focus_effect=values['focus_effect'];save(focus_effect=0)
         command('add','Settling neighbor');wait(lambda:client('Settling neighbor'))

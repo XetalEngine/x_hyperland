@@ -221,8 +221,11 @@ bindm=SUPER,mouse:273,resizewindow
             gear=status()['gear'];point(f'move {round(gear[0]+gear[2]/2)} {round(gear[1]+gear[3]/2)}')
             point('down 272');point('up 272');wait(lambda:status()['settings_opened']==1);point('key 125 0')
             editor=wait(lambda:next((c for c in clients() if c['class']=='fusion-window-buttons'),None),12)
+            wait(lambda:info()['preview'] and len(info()['preview_boxes'])==4)
+            assert all(b[2]>0 for b in info()['preview_boxes'])
             time.sleep(.3);run('grim',str(root/'gear-settings.png'))
             dispatch('closewindow','address:'+editor['address']);wait(lambda:not any(c['class']=='fusion-window-buttons' for c in clients()))
+            wait(lambda:not info()['preview'])
             assert info()['rule']['mode']=='off'
             dispatch('focuswindow',address());save('window',dict(always,mode='nearby',anchor='bottom-left',size=48,x=20,y=20,proximity=40))
             c=client();point(f"move {c['at'][0]+c['size'][0]//2} {c['at'][1]+c['size'][1]//2}")
@@ -251,6 +254,65 @@ bindm=SUPER,mouse:273,resizewindow
 
         if '--rules-only' in sys.argv:
             click(1);wait(lambda:client()['floating']);check_rules();return
+
+        if '--preview-only' in sys.argv:
+            click(1);wait(lambda:client()['floating']);point('key 125 0')
+            dispatch('resizewindowpixel','exact 550 650,'+address());dispatch('movewindowpixel','exact 700 110,'+address())
+            window_id=next(i for i in json.loads(ctl('xetal-windowbuttons'))['windows'] if json.loads(ctl('xetal-windowbuttons',i))['address']==client()['address'])
+            def info():return json.loads(ctl('xetal-windowbuttons',window_id))
+            app_rules=settings.with_name('rules.json');app_key=info()['app']
+            app_choice=dict(rules.DEFAULTS,mode='nearby',size=40)
+            window_choice=dict(rules.DEFAULTS,mode='off',size=48,x=28,y=32)
+            app_rules.write_text(rules.encode({'version':1,'apps':{app_key:app_choice}}))
+            window_rules=runtime/'hypr'/env['HYPRLAND_INSTANCE_SIGNATURE']/'xetal-windowbuttons-rules.json'
+            window_rules.write_text(rules.encode({'version':1,'windows':{window_id:window_choice}},'windows'))
+            dispatch('xetalwindowclose:reload')
+            def start_editor():
+                process=spawn([sys.executable,str(REPO/'tests/window-buttons/editor.py'),str(home/'.config/hypr'),window_id],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
+                editor=wait(lambda:next((c for c in clients() if c['pid']==process.pid),None))
+                dispatch('setfloating','address:'+editor['address']);dispatch('movewindowpixel','exact 30 110,address:'+editor['address'])
+                wait(lambda:info()['preview'] and len(info()['preview_boxes'])==4)
+                return process
+            def edit(process,op,**values):
+                process.stdin.write(json.dumps(dict(op=op,**values))+'\n');process.stdin.flush()
+                return json.loads(process.stdout.readline())
+            original=(app_rules.read_bytes(),window_rules.read_bytes())
+            editor=start_editor();state=edit(editor,'state')
+            assert state['scope']=='app' and state['rule']==window_choice,state
+            point('move 80 180');assert not status()['held']
+            assert all(b[2]>0 for b in info()['preview_boxes'])
+            edit(editor,'slider',key='x',value=96);edit(editor,'slider',key='y',value=84);edit(editor,'slider',key='size',value=56)
+            wait(lambda:info()['preview_rule']['x']==96 and info()['preview_rule']['y']==84 and info()['preview_rule']['size']==56)
+            assert info()['rule']==window_choice and (app_rules.read_bytes(),window_rules.read_bytes())==original
+            run('grim',str(root/'live-preview.png'))
+            edit(editor,'close');editor.wait(timeout=5);wait(lambda:not info()['preview'])
+            assert (app_rules.read_bytes(),window_rules.read_bytes())==original
+            print('Current settings, remembered-app default, four live buttons, sliders and discard passed',flush=True)
+            editor=start_editor();edit(editor,'slider',key='size',value=52);edit(editor,'mode',value='always')
+            state=edit(editor,'apply');assert state['status'].startswith('Applied.'),state
+            saved=info()['rule'];assert saved['size']==52 and saved['mode']=='always' and not info()['window_override']
+            command('add','Same app');wait(lambda:client('Same app'))
+            ids=json.loads(ctl('xetal-windowbuttons'))['windows']
+            other=next(json.loads(ctl('xetal-windowbuttons',i)) for i in ids if json.loads(ctl('xetal-windowbuttons',i))['address']==client('Same app')['address'])
+            assert other['rule']==saved;command('close','Same app')
+            state=edit(editor,'reset');assert state['scope']=='window' and state['rule']==rules.DEFAULTS
+            assert info()['rule']==saved,'Reset should remain a draft until Apply'
+            edit(editor,'apply');assert info()['rule']==rules.DEFAULTS and info()['window_override']
+            assert json.loads(app_rules.read_text())['apps'][app_key]==saved
+            edit(editor,'close');editor.wait(timeout=5);wait(lambda:not info()['preview'])
+            print('App Apply replaces this window override; reset affects only this window after Apply',flush=True)
+            editor=start_editor();editor.kill();editor.wait(timeout=5);wait(lambda:not info()['preview'])
+            assert info()['rule']==rules.DEFAULTS
+            # A missing heartbeat expires even while the owning process lives.
+            token='f'*32
+            dispatch('xetalwindowclose:preview',json.dumps(dict(action='update',id=window_id,token=token,owner=os.getpid(),rule=window_choice)))
+            wait(lambda:info()['preview']);wait(lambda:not info()['preview'],seconds=6)
+            assert info()['rule']==rules.DEFAULTS
+            editor=start_editor();command('close');wait(lambda:not client())
+            edit(editor,'close');editor.wait(timeout=5)
+            assert not ctl('configerrors')
+            print('Editor crash, expired preview and closing target window clean up without saving drafts',flush=True)
+            return
 
         assert not client()['floating']
         reveal(); assert [b['action'] for b in status()['buttons']] == ['minimize', 'restore', 'close']

@@ -57,5 +57,30 @@ class RuleTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError,'rejected'):controller.save_rule('12','app',rules.DEFAULTS,token)
                 self.assertFalse(path.exists())
 
+    def test_app_editor_clears_only_its_window_override_atomically(self):
+        with tempfile.TemporaryDirectory() as directory:
+            app=Path(directory)/'app.json';windows=Path(directory)/'windows.json'
+            app.write_text(rules.encode({'version':1,'apps':{'fixture':rules.DEFAULTS}}))
+            off=dict(rules.DEFAULTS,mode='off')
+            windows.write_text(rules.encode({'version':1,'windows':{'12':off,'13':off}},'windows'))
+            _,app_token=rules.load(app);_,window_token=rules.load(windows,'windows')
+            def file(scope):return (app,'apps') if scope=='app' else (windows,'windows')
+            def ipc(*args,**kwargs):return '{"windows":["12","13"]}' if args==('xetal-windowbuttons',) else 'ok'
+            before=(app.read_bytes(),windows.read_bytes())
+            with patch.object(controller,'window_info',return_value={'app':'fixture'}),patch.object(controller,'rule_file',side_effect=file),patch.object(controller,'hypr',side_effect=ipc):
+                def reject(*args,**kwargs):
+                    if args[0]=='dispatch':raise RuntimeError('native rejected')
+                    return ipc(*args,**kwargs)
+                with patch.object(controller,'hypr',side_effect=reject):
+                    with self.assertRaisesRegex(RuntimeError,'native rejected'):
+                        controller.save_rule('12','app',dict(off,mode='always'),app_token,window_token=window_token)
+                self.assertEqual((app.read_bytes(),windows.read_bytes()),before)
+                with self.assertRaisesRegex(ValueError,'changed elsewhere'):
+                    controller.save_rule('12','app',off,app_token,window_token='stale')
+                self.assertEqual((app.read_bytes(),windows.read_bytes()),before)
+                controller.save_rule('12','app',dict(off,mode='always'),app_token,window_token=window_token)
+                self.assertEqual(rules.load(app)[0]['apps']['fixture']['mode'],'always')
+                self.assertEqual(rules.load(windows,'windows')[0]['windows'],{'13':off})
+
 
 if __name__=='__main__':unittest.main()
