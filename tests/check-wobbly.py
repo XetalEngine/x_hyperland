@@ -176,8 +176,8 @@ windowrule=match:class ^wobbly-test$,float on
         dispatch('movewindowpixel','exact 170 150,'+address);time.sleep(.4)
         print('Fast drags preserve the full window border at all four output edges',flush=True)
         def close_status():return json.loads(ctl('xetal-windowclose'))
-        # The artificial close button is suppressed for native move AND resize,
-        # even if Wobbly is disabled. Releasing the drag restores Super-hover.
+        # All three controls stay hidden through native move/resize AND the
+        # released spring's settling frames, then return at the final corner.
         for effect_enabled in (True,False):
             save(enabled=effect_enabled)
             for mouse in (272,273):
@@ -186,10 +186,44 @@ windowrule=match:class ^wobbly-test$,float on
                 point(f'down {mouse}');wait(lambda:not close_status()['visible'])
                 for delta in (10,20,30):point(f'move {x+delta} {y+delta}');time.sleep(.02)
                 assert not close_status()['visible'];assert close_status()['closed']==0
-                point(f'up {mouse}');wait(lambda:close_status()['visible']);point('key 125 0')
+                before=close_status()['draws'];point(f'up {mouse}');samples=[]
+                def controls_settled():
+                    first=status();controls=close_status();last=status()
+                    # Bracket the observation: settling may finish between IPC
+                    # reads, so only assert on frames known to remain active.
+                    if first['active'] and last['active']:
+                        assert not controls['visible'] and controls['draws']==before,controls
+                        samples.append(last['steps']);return False
+                    return controls['visible']
+                wait(controls_settled)
+                if effect_enabled:assert len(set(samples))>=2,('No released settling frames checked',samples)
+                c=client();boxes=[b['box'] for b in close_status()['buttons']]
+                assert len(boxes)==3 and boxes[0][0]<boxes[1][0]<boxes[2][0]
+                assert abs(boxes[2][0]+boxes[2][2]-(c['at'][0]+c['size'][0]-close_model.DEFAULTS['inset']))<2,(c,boxes)
+                point('key 125 0')
                 wait(lambda:not close_status()['visible']);wait(lambda:status()['active']==0)
         save(enabled=True)
-        print('Close button hides throughout move/resize and returns on release, with and without Wobbly',flush=True)
+        # Releasing Super during settling must not show delayed controls.
+        c=client();x=c['at'][0]+100;y=c['at'][1]+50
+        point(f'move {x} {y}');point('key 125 1');wait(lambda:close_status()['visible'])
+        point('down 272')
+        for delta in (20,40,60):point(f'move {x+delta} {y+delta}');time.sleep(.015)
+        point('up 272');assert status()['active'];point('key 125 0')
+        wait(lambda:status()['active']==0);time.sleep(.1);assert not close_status()['visible']
+        # Another window's wobble does not hide controls on this stable window.
+        focus_effect=values['focus_effect'];save(focus_effect=0)
+        command('add','Settling neighbor');wait(lambda:client('Settling neighbor'))
+        neighbor='address:'+client('Settling neighbor')['address']
+        dispatch('setfloating',neighbor);dispatch('movewindowpixel','exact 850 100,'+neighbor)
+        dispatch('focuswindow',address);dispatch('movewindowpixel','exact 100 180,'+address)
+        # focuswindow can warp the cursor: place it over the neighbor afterward.
+        point('move 1200 400');point('key 125 1');wait(lambda:close_status()['visible'])
+        dispatch('xetalwobbly:shiver');wait(lambda:status()['active'])
+        time.sleep(.1);assert close_status()['visible']
+        assert status()['active'],'Neighbor independence was not checked during wobble'
+        point('key 125 0');command('close','Settling neighbor');wait(lambda:status()['active']==0)
+        dispatch('focuswindow',address);save(focus_effect=focus_effect)
+        print('Window buttons wait through settling, align at rest, respect Super release and remain independent per window',flush=True)
         # Resize uses the same original spring model with new rest lengths.
         c=client();x=c['at'][0]+c['size'][0]-25;y=c['at'][1]+c['size'][1]-25
         point(f'move {x} {y}');point('down 273');time.sleep(.04)

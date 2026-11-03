@@ -15,9 +15,11 @@ per-application window-memory service and launcher's per-shortcut memory remain
 in charge of restoring geometry across launches.
 
 Releasing the modifier hides the buttons; Super-drag elsewhere continues to
-move windows. Moving or resizing a window hides the buttons until
-the drag ends, including when Wobbly is disabled. It returns on release if the
-modifier is still held and the pointer is over a window.
+move windows. Moving or resizing hides the buttons until the drag and its final
+wobble/geometry animation have settled, including native motion blur. They then
+return at the final corner if the modifier is still held and the pointer is over
+that window. This follows the window's live animation state, with no fixed delay;
+unrelated settling windows do not hide the hovered window's controls.
 
 Configure or disable them in **Fusion Settings → Hotkeys → Window buttons…**:
 enable switch, Super / Alt / Super+Shift, size, corner distance, and gentle pulse.

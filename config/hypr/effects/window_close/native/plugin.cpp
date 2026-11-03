@@ -103,13 +103,20 @@ bool available() {
         !g_pSessionLockManager->isSessionLocked() && !PROTO::inputCapture->isCaptured() && !PROTO::data->dndActive() &&
         !g_layoutManager->dragController()->target();
 }
+bool settled(PHLWINDOW w) {
+    // Wobbly keeps its transformer attached after mouse release until the
+    // lattice settles and the final input rectangle has been placed. Also
+    // wait for native geometry/motion blur so these untransformed controls
+    // never appear at a different position from the window they're acting on.
+    return w && w->m_transformers.empty() && !w->positionAnimation()->isBeingAnimated() && !w->sizeAnimation()->isBeingAnimated();
+}
 void refresh() {
     damage();
     held=available() && g_pInputManager->getModsFromAllKBs()==uint32_t(settings.modifier);
     target.reset();buttons={};if(!held)return;
     const auto point=Pointer::mgr()->position();
     auto window=Desktop::viewState()->hitTest().windowAt(point,Desktop::View::ALLOW_FLOATING);
-    if(!window || !window->m_isMapped || window->isHidden())return;
+    if(!window || !window->m_isMapped || window->isHidden() || !settled(window))return;
     const auto monitor=window->m_monitor.lock();if(!monitor)return;
     Vector2D local;PHLLS layer;
     // Panels, menus, and lock surfaces must never activate a window below them.
@@ -162,7 +169,7 @@ public:
     bool disableSimplification()override{return true;}
     std::vector<UP<IPassElement>> draw()override {
         auto m=monitor.lock();auto w=target.lock();
-        if(!m || !w || !held || !available() || buttons[Close].empty())return {};
+        if(!m || !w || !held || !available() || !settled(w) || buttons[Close].empty())return {};
         const double elapsed=std::chrono::duration<double>(Clock::now()-epoch).count();
         for(int i=0;i<3;++i){
             const auto& button=buttons[i];const int glyph=i==Close?3:i==Maximize&&restoring(w)?2:i;
@@ -234,7 +241,7 @@ void perform(PHLWINDOW w,Action action){
 void tick(SP<CEventLoopTimer> self,void*) {
     refresh();
     const auto w=pending.lock();const auto action=pendingAction;pending.reset();pendingAction=None;
-    if(w && w->m_isMapped && !w->isHidden() && available()){perform(w,action);refresh();}
+    if(w && w->m_isMapped && !w->isHidden() && available() && settled(w)){perform(w,action);refresh();}
     if(held || captured)self->updateTimeout(std::chrono::milliseconds(25));
 }
 void cleanup() {
@@ -279,7 +286,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         listeners.push_back(Event::bus()->m_events.render.stage.listen([](eRenderStage stage){
             if(stage!=RENDER_LAST_MOMENT || !held || !available() || g_pHyprRenderer->m_bRenderingSnapshot)return;
             auto w=target.lock();auto m=g_pHyprRenderer->m_renderData.pMonitor.lock();
-            if(w && m && w->m_monitor.lock()==m)g_pHyprRenderer->addPassElement(makeUnique<ClosePass>(m));
+            if(w && m && settled(w) && w->m_monitor.lock()==m)g_pHyprRenderer->addPassElement(makeUnique<ClosePass>(m));
         }));
         HyprlandAPI::addDispatcherV2(handle,"xetalwindowclose:reload",[](std::string){
             try{settings=readSettings();textures={};refresh();arm();return SDispatchResult{};}
@@ -292,7 +299,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
                 items+=std::format("{{\"action\":\"{}\",\"box\":[{},{},{},{}]}}",name,b.x,b.y,b.w,b.h);
             }
             return std::format("{{\"enabled\":{},\"held\":{},\"visible\":{},\"closed\":{},\"draws\":{},\"box\":[{},{},{},{}],\"color\":[{},{},{}],\"buttons\":[{}],\"minimized\":{},\"maximized\":{},\"restored\":{},\"floated\":{}}}",
-                settings.enabled,held,available()&&bool(target.lock()),closed,draws,button.x,button.y,button.width,button.height,accent[0],accent[1],accent[2],items,minimized,maximized,restored,floated);
+                settings.enabled,held,available()&&settled(target.lock()),closed,draws,button.x,button.y,button.width,button.height,accent[0],accent[1],accent[2],items,minimized,maximized,restored,floated);
         }});
     }catch(...){cleanup();throw;}
     return {"Xetal Window Close","Theme-aware minimize, maximize/restore and close buttons","XetalEngine","1.1"};
