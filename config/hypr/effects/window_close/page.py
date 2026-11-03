@@ -17,15 +17,16 @@ class Apply(QThread):
 class Dialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle('Window close button'); self.setMinimumWidth(460)
+        self.setWindowTitle('Window buttons'); self.setMinimumWidth(460)
         self.values, self.token = model.load(); self.worker = None
         layout = QVBoxLayout(self); layout.setContentsMargins(24,24,24,24); layout.setSpacing(16)
-        title = QLabel('A close button, right where you need it')
+        title = QLabel('Your window controls, one key away')
         title.setStyleSheet('font-size: 19px; font-weight: 700;'); layout.addWidget(title)
-        hint = QLabel('Hold the modifier while pointing at a window, then click its glowing ×. '
-                      'Applications can still ask you to save your work.')
+        hint = QLabel('Hold the modifier over a window to minimize, maximize or restore, and close. '
+                      'Restore turns a tiled window into a floating window at its remembered size, '
+                      'fitted to the current screen. Close still lets applications ask you to save.')
         hint.setWordWrap(True); layout.addWidget(hint)
-        self.enabled = QCheckBox('Show the window close button'); self.enabled.setChecked(self.values['enabled'])
+        self.enabled = QCheckBox('Show window buttons'); self.enabled.setChecked(self.values['enabled'])
         layout.addWidget(self.enabled)
         form = QFormLayout(); form.setSpacing(12)
         self.modifier = QComboBox(); self.modifier.addItems(['SUPER', 'ALT', 'SUPER+SHIFT'])

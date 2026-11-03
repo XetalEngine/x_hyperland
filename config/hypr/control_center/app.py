@@ -197,7 +197,7 @@ class Hotkeys(QWidget):
         self.search.setPlaceholderText('Search shortcuts, actions, commands…')
         self.search.textChanged.connect(self.render)
         tools.addWidget(self.search, 1)
-        tools.addWidget(button('Window close…', self.window_close))
+        tools.addWidget(button('Window buttons…', self.window_close))
         tools.addWidget(button('+ New binding', self.add))
         tools.addWidget(button('Reload', self.reload))
         self.apply_button = button('Apply changes  ·  Ctrl+S', self.apply, True)

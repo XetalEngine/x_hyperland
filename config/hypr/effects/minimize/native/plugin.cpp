@@ -501,7 +501,13 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         // Restore before the core removes outputs, including the last one. Its
         // normal workspace migration then keeps every app reachable on return.
         listeners.push_back(Event::bus()->m_events.monitor.preRemoved.listen([](PHLMONITOR){restoreAll();}));
-        HyprlandAPI::addDispatcherV2(handle,"xetalminimize:minimize",[](std::string){enqueue(Desktop::focusState()->window(),true);return SDispatchResult{};});
+        HyprlandAPI::addDispatcherV2(handle,"xetalminimize:minimize",[](std::string selector){
+            if(!settings.enabled)return SDispatchResult{.success=false,.error="Minimize is disabled"};
+            auto w=selector.empty()?Desktop::focusState()->window():Desktop::viewState()->query().selector(selector).runWindow();
+            if(!w||!w->m_isMapped||w->isHidden()||!w->m_workspace||!w->m_workspace->isVisible())
+                return SDispatchResult{.success=false,.error="No visible window to minimize"};
+            enqueue(w,true);return SDispatchResult{};
+        });
         HyprlandAPI::addDispatcherV2(handle,"xetalminimize:togglevisibility",[](std::string){toggleVisibility();return SDispatchResult{};});
         HyprlandAPI::addDispatcherV2(handle,"xetalminimize:restoreall",[](std::string){restoreAll();return SDispatchResult{};});
         HyprlandAPI::addDispatcherV2(handle,"xetalminimize:restore",[](std::string id){

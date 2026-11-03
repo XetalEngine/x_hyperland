@@ -1,12 +1,18 @@
 import tempfile
 from pathlib import Path
 import unittest
+import subprocess
 from unittest.mock import patch
 import model
 import controller
 
 
 class CloseSettingsTests(unittest.TestCase):
+    def test_restore_geometry_stays_inside_each_workarea(self):
+        with tempfile.TemporaryDirectory() as directory:
+            executable=Path(directory)/'geometry'
+            subprocess.run(['g++','-std=c++23','-O2',str(Path(__file__).parent/'native/test_geometry.cpp'),'-o',str(executable)],check=True,capture_output=True)
+            subprocess.run([str(executable)],check=True,capture_output=True)
     def test_switch_modifier_and_sizes_round_trip(self):
         for modifier in ('SUPER', 'ALT', 'SUPER+SHIFT'):
             values = dict(model.DEFAULTS, enabled=False, pulse=False, size=50, inset=16, modifier=modifier)
