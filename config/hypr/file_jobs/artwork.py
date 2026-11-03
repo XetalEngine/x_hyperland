@@ -126,6 +126,40 @@ def porcelainink(p, box, accent, surface, phase, count, trails, glow, archive, e
     p.restore()
 
 
+def shadowedge(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Sealed dispatches cross a silver cutting arc in a quiet rain of sparks."""
+    left=QPointF(box.left()+32,box.center().y());right=QPointF(box.right()-32,box.center().y())
+    start,end=left+QPointF(35,0),right-QPointF(35,0)
+    silver=QColor('#c9cfd8') if surface.lightnessF()<.5 else QColor('#515b69')
+    p.setPen(QPen(alpha(silver,45),1));p.drawLine(start,end)
+    folder(p,left,silver,surface,extracting,True);folder(p,right,silver,surface,archive,True)
+    if result=='done':success(p,box.center(),accent);return
+    if result:return
+    center=box.center()
+    arc=QPainterPath(center+QPointF(-15,22))
+    arc.cubicTo(center+QPointF(19,8),center+QPointF(27,-8),center+QPointF(14,-24))
+    p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(alpha(accent,75),3));p.drawPath(arc)
+    p.setPen(QPen(alpha(silver,210),1));p.drawPath(arc)
+    for i in range(count):
+        t=(phase+i/count)%1
+        pos=start+(end-start)*t+QPointF(0,-math.sin(t*math.pi)*5)
+        p.save();p.setOpacity(min(1,t*8,(1-t)*8));p.translate(pos)
+        if trails:
+            for dy,length in ((-7,22),(0,32),(7,17)):
+                p.setPen(QPen(alpha(accent,85 if dy==0 else 35),1))
+                p.drawLine(QPointF(-length,dy),QPointF(-10,dy))
+        p.rotate(-16+math.sin(t*math.pi)*25)
+        p.setPen(QPen(silver,1));p.setBrush(surface)
+        p.drawRect(QRectF(-9,-7,18,14))
+        p.drawLine(QPointF(-9,-7),QPointF(0,1));p.drawLine(QPointF(9,-7),QPointF(0,1))
+        p.setPen(Qt.PenStyle.NoPen);p.setBrush(accent);p.drawRect(QRectF(-2,-1,4,4))
+        p.restore()
+    if glow:
+        glint=QPointF(center.x()+8,center.y()-4)
+        shine=QRadialGradient(glint,12);shine.setColorAt(0,alpha(silver,glow));shine.setColorAt(1,alpha(silver,0))
+        p.setPen(Qt.PenStyle.NoPen);p.setBrush(shine);p.drawEllipse(glint,12,12)
+
+
 def candycloud(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     """Cloud couriers float envelopes along a satin ribbon between soft docks."""
     p.save()

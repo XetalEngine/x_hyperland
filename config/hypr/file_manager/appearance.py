@@ -12,7 +12,7 @@ import selection_marker
 def appearance():
     p = runtime.colors()
     design = runtime.widget_design()
-    radius = 16 if design == 'candycloud' else 3 if design == 'obsidianforge' else 2 if design == 'porcelainink' else 14 if design == 'tidalglass' else 3 if design == 'binaryknife' else 8 if design == 'breakpoint' else 10
+    radius = 2 if design == 'shadowedge' else 16 if design == 'candycloud' else 3 if design == 'obsidianforge' else 2 if design == 'porcelainink' else 14 if design == 'tidalglass' else 3 if design == 'binaryknife' else 8 if design == 'breakpoint' else 10
     accent_rgb = ','.join(str(int(p['Accent'][i:i+2], 16)) for i in (1, 3, 5))
     style = qt_style(p, design) + runtime.layouts.stylesheet(p, runtime.layout(), runtime.design())
     style += f'''
@@ -116,6 +116,18 @@ def appearance():
         QGroupBox#drivePartitionCard {{background:{satin(p,'Button','AlternateBase')}; border-top-color:{p['Light']};}}
         QFrame#pickerActions, QStatusBar {{background:{p['AlternateBase']};}}
         QTabBar::tab:selected {{border:1px solid {p['Midlight']}; border-top-color:{p['Accent']}; border-radius:15px;}}
+        '''
+    if design == 'shadowedge':
+        from shadowedge import smoke
+        style += f'''
+        QMainWindow, QWidget#filesBody, QToolBar, QFrame#addressRow {{background:{smoke(p)};}}
+        QTreeWidget#places {{background:{smoke(p,'AlternateBase','Window')}; padding:10px 7px; border-right:1px solid {p['Midlight']};}}
+        QTreeWidget#places::item {{min-height:32px; border:1px solid transparent;}}
+        QTreeWidget#places::item:selected {{background:{p['Highlight']}; border-top-color:{p['Light']};}}
+        QGroupBox#drivePartitionCard {{background:{smoke(p)}; border-top-color:{p['Light']};}}
+        QFrame#pickerActions, QStatusBar {{background:{p['Base']}; border-top:1px solid {p['Midlight']};}}
+        QLabel#volumeArtwork, QFrame#storageSummary {{border-radius:2px;}}
+        QTabBar::tab:selected {{background:{p['Highlight']}; border-top-color:{p['Link']}; border-bottom:2px solid {p['Accent']}; border-radius:1px;}}
         '''
     style += selection_marker.stylesheet(p, runtime.selection_marker())
     return dict(colors=p, stylesheet=style, font=runtime.ui_font(),

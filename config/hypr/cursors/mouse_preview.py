@@ -9,7 +9,7 @@ from . import model,effects
 def paint_trail(p,values,marks,now,design=None):
     style=effects.resolve(values['trail'],design)
     accent,secondary=effects.colors(values,design)
-    colors=[QColor(accent),QColor(secondary),QColor('#20252b' if style=='ink' else '#ffe1a3' if style=='cinder' else '#fff0d9' if style=='cloud' else '#f2ffff')]
+    colors=[QColor(accent),QColor(secondary),QColor('#20252b' if style=='ink' else '#ffe1a3' if style=='cinder' else '#fff0d9' if style=='cloud' else '#f4f6f9' if style=='blade' else '#f2ffff')]
     duration=values['duration']/1000;opacity=values['intensity']/100
     def color(index,alpha):
         c=QColor(colors[index]);c.setAlphaF(max(0,min(1,alpha*opacity)));return c
@@ -68,6 +68,17 @@ def paint_trail(p,values,marks,now,design=None):
             if seed%4:continue
             at=at+n*(math.sin(random)*age*24)+QPointF(age*8,age*14);a=random+age*2;tip=polar(a,4);side=polar(a+math.pi/2,1.8)
             p.setPen(Qt.PenStyle.NoPen);p.setBrush(color(0,fade));p.drawPolygon(QPolygonF([at+tip,at+side,at-tip,at-side]));disc(at+n*6,1.1,fade,2)
+        elif style=='blade':
+            if joined:line(previous,at,4,fade*.12);line(previous,at,.9,fade*.85,2)
+            if seed%6:continue
+            side=1 if seed%12 else -1
+            center=at+n*(side*age*14)-d*(age*14);r=3+age*13;rotation=angle+side*age*1.7
+            for j in range(8):
+                a=rotation+side*(-.8+j*1.5/8)
+                line(center+polar(a,r),center+polar(a+side*1.5/8,r),.4+math.sin(j*math.pi/8)*2*(1-age),fade*.8)
+            needle=at+n*(side*(4+age*24))+d*(age*6)
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(color(1,fade))
+            p.drawPolygon(QPolygonF([needle+d*5,needle-d*3+n*1.2,needle-d*3-n*1.2]))
         elif style=='cloud':
             if joined:line(previous,at,5,fade*.16,1);line(previous,at,1.3,fade*.7)
             if seed%5:continue

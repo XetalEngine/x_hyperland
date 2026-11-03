@@ -23,6 +23,7 @@ inline std::string resolve(std::string trail,const std::string& design){
     if(design=="porcelainink")return "ink";
     if(design=="obsidianforge")return "cinder";
     if(design=="candycloud")return "cloud";
+    if(design=="shadowedge")return "blade";
     return "plasma";
 }
 inline std::array<std::string,3> palette(const std::string& style){
@@ -33,6 +34,7 @@ inline std::array<std::string,3> palette(const std::string& style){
     if(style=="ink")return {"#bb3b30","#f0e4cc","#20252b"};
     if(style=="cinder")return {"#ff8a3d","#a84b23","#ffe1a3"};
     if(style=="cloud")return {"#f6a5d7","#c4a7ff","#fff0d9"};
+    if(style=="blade")return {"#c9cfd8","#e04459","#f4f6f9"};
     return {"#32e7ee","#c4ff76","#f1ffff"};
 }
 inline void triangle(Batch& out,Point a,Point b,Point c,double alpha,double beta=-1,double gamma=-1){
@@ -111,6 +113,22 @@ inline Art make(const std::string& style,const std::vector<Mark>& marks,double n
             double a=seed+age*2;Point tip=p+polar(a,4),side=polar(a+PI/2,1.8);
             triangle(out[0],tip,p+side,p-polar(a,4),fade);triangle(out[0],tip,p-polar(a,4),p-side,fade);
             disc(out[2],p+n*6,1.1,fade);
+        }else if(style=="blade"){
+            if(joined){
+                line(out[0],marks[i-1].p,p,4,oldFade*.12,fade*.12);
+                line(out[2],marks[i-1].p,p,.9,oldFade*.85,fade*.85);
+            }
+            if(m.seed%6)continue;
+            const double side=m.seed%12?1:-1;
+            const auto center=p+n*(side*age*14)-m.d*(age*14);
+            const double r=3+age*13,rotation=angle+side*age*1.7;
+            for(int j=0;j<8;++j){
+                const double a=rotation+side*(-.8+j*1.5/8);
+                line(out[0],center+polar(a,r),center+polar(a+side*1.5/8,r),
+                     .4+std::sin(j*PI/8)*2*(1-age),fade*.8);
+            }
+            const auto needle=p+n*(side*(4+age*24))+m.d*(age*6);
+            triangle(out[1],needle+m.d*5,needle-m.d*3+n*1.2,needle-m.d*3-n*1.2,fade);
         }else if(style=="cloud"){
             if(joined){
                 line(out[1],marks[i-1].p,p,5,oldFade*.16,fade*.16);

@@ -398,7 +398,7 @@ class Menu(QWidget):
             self.bar_activation=BarActivation(self);self.bar_activation.start()
 
     def apply_design(self):
-        modern=theme_runtime.launcher_design() in ('modern','tidalglass','porcelainink','obsidianforge','candycloud')
+        modern=theme_runtime.launcher_design() in ('modern','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge')
         self.fusion_settings_button.setIcon(desktop_icon('fusion-settings',theme_runtime.colors(style=theme_runtime.launcher_design())['Accent'],20))
         self.kvm_button.setIcon(desktop_icon('chip',theme_runtime.colors(style=theme_runtime.launcher_design())['Accent'],20))
         self.profile.setVisible(modern);self.profile.refresh()
@@ -415,7 +415,7 @@ class Menu(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         style=theme_runtime.launcher_design();colors=theme_runtime.colors(style=style)
-        radius=26 if style=='candycloud' else 3 if style=='obsidianforge' else 2 if style=='porcelainink' else 22 if style=='tidalglass' else 4 if style=='binaryknife' else 12 if style=='breakpoint' else 20 if style=='modern' else 17
+        radius=3 if style=='shadowedge' else 26 if style=='candycloud' else 3 if style=='obsidianforge' else 2 if style=='porcelainink' else 22 if style=='tidalglass' else 4 if style=='binaryknife' else 12 if style=='breakpoint' else 20 if style=='modern' else 17
         technical=style in ('breakpoint','binaryknife')
         border=colors['Accent'] if technical and self.isActiveWindow() else colors['Midlight']
         if getattr(self,'backdrop_image',None) and not self.backdrop_image.isNull():
@@ -435,6 +435,10 @@ class Menu(QWidget):
             painter.setBrush(Qt.BrushStyle.NoBrush);painter.setPen(QPen(QColor(border),2 if technical else 1));painter.drawPath(path)
             return
         if style!='raw':
+            if style=='shadowedge':
+                from shadowedge import paint_surface
+                paint_surface(painter,QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),colors,14,100,self.isActiveWindow())
+                return
             if style=='candycloud':
                 from candycloud import paint_surface
                 paint_surface(painter,QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),colors,radius,100,self.isActiveWindow())

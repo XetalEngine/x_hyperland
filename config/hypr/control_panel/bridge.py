@@ -98,8 +98,16 @@ def theme():
           QFrame#defaultsHero, QFrame#ramMetric, QFrame#ramMode, QFrame#filterGroupBox {{background:{satin(p,'Button','Window')}; border-top-color:{p['Light']}; border-radius:20px;}}
           QWidget#defaultAppsTab QToolButton, QListWidget#defaultsAppList, QListWidget#defaultsAppList::item, QLabel#diskDetails {{border-radius:15px;}}
         '''
+    if design=='shadowedge':
+        from shadowedge import smoke
+        style+=f'''
+          QWidget#hyperControlPanel {{background:{smoke(p)}; border-top-color:{p['Link']}; border-radius:3px;}}
+          QScrollArea, QStackedWidget {{background:transparent;}}
+          QFrame#defaultsHero, QFrame#ramMetric, QFrame#ramMode, QFrame#filterGroupBox {{background:{smoke(p)}; border-top-color:{p['Light']}; border-radius:3px;}}
+          QWidget#defaultAppsTab QToolButton, QListWidget#defaultsAppList, QListWidget#defaultsAppList::item, QLabel#diskDetails {{border-radius:2px;}}
+        '''
     return {'stylesheet':style,'colors':p,'font':runtime.ui_font(),
-            'cardRadius':24 if design=='candycloud' else 3 if design=='obsidianforge' else 2 if design=='porcelainink' else 16 if design=='tidalglass' else 4 if design=='binaryknife' else 10,
+            'cardRadius':3 if design=='shadowedge' else 24 if design=='candycloud' else 3 if design=='obsidianforge' else 2 if design=='porcelainink' else 16 if design=='tidalglass' else 4 if design=='binaryknife' else 10,
             'iconTheme':'Papirus-Light' if runtime.mode()=='light' else 'Papirus-Dark'}
 
 

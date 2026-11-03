@@ -107,6 +107,9 @@ def builtin(design, mode=None, root=None):
     if design == 'tidalglass':
         value.setdefault('cursors',copy.deepcopy(cursors.DEFAULTS))
         value['cursors'].update(style='pearl')
+    elif design == 'shadowedge':
+        value['cursors'].update(style='carbon')
+        value['theme']['launcher_wallpaper']=False
     elif design == 'candycloud':
         value['cursors'].update(style='orchid')
         value['theme']['launcher_wallpaper']=False

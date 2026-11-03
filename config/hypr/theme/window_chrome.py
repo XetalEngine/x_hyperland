@@ -28,7 +28,7 @@ class ControlButton(QToolButton):
 
 def style_close(button,design=None):
     import runtime
-    if design in ('breakpoint','binaryknife','tidalglass','porcelainink','obsidianforge','candycloud'):
+    if design in ('breakpoint','binaryknife','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge'):
         p=runtime.colors(style=design)
         hover=f"background:{p['Highlight']}; color:{p['Text']}; border-color:{p['Accent']};"
         pressed=f"background:{p['Mid']};"
@@ -36,7 +36,7 @@ def style_close(button,design=None):
         hover='background:#663544; color:#fff1f3; border-color:#b3687f;'
         pressed='background:#8a4052;'
     button.setStyleSheet('QToolButton {color:palette(window-text); background:transparent; border:1px solid transparent; '
-                        'border-radius:'+('16' if design=='candycloud' else '3' if design=='obsidianforge' else '2' if design=='porcelainink' else '4' if design=='binaryknife' else '6')+'px; padding:0; font-size:23px;} '
+                        'border-radius:'+('2' if design=='shadowedge' else '16' if design=='candycloud' else '3' if design=='obsidianforge' else '2' if design=='porcelainink' else '4' if design=='binaryknife' else '6')+'px; padding:0; font-size:23px;} '
                         'QToolButton:hover {'+hover+'} QToolButton:pressed {'+pressed+'} '
                         'QToolButton:focus {border-color:palette(highlight);}')
 

@@ -1,0 +1,18 @@
+{
+  "tool": "Built-in image_gen",
+  "reference": "Smoked glass ninja fusion.png",
+  "images": [
+    {
+      "file": "silent-approach.png",
+      "prompt": "Use case: stylized-concept. Asset type: 16:9 desktop wallpaper for the LEFT monitor of the Shadow Edge theme; render at 3840x2160 if available. Input image 1 is a STYLE AND WORLD REFERENCE ONLY, not an edit target. Create a new original cinematic composition of the same rain-soaked Japanese mountain fortress at midnight: glossy black temple roofs stepping down into a deep misty ravine, crimson maple boughs framing the far left, cold silver rain and small distant warm lanterns. Quiet mysterious approach to the fortress. Wet graphite, smoke, steel silver, tiny deep crimson details. Rich photographic detail and soft atmospheric depth; premium dark fantasy realism, no cartoon look. Keep midtones readable and dark areas nuanced, with calm central negative space for desktop icons. It must feel like the companion landscape to the reference. Full bleed landscape 16:9. NO user interface, NO panels, NO taskbar, NO dock, NO text, NO logo, NO border, NO watermark, NO character."
+    },
+    {
+      "file": "shadow-edge.png",
+      "prompt": "Use case: stylized-concept. Asset type: hero 16:9 desktop wallpaper for the CENTER monitor of the Shadow Edge theme; render at 3840x2160 if available. Input image 1 is a STYLE AND WORLD REFERENCE ONLY, not an edit target. Create a new original cinematic composition closely capturing its dramatic black-clad masked shinobi crouching on a rain-soaked Japanese rooftop, wet dark layered cloth and lacquered armor, silver katana held low diagonally through the lower composition. Place the shinobi on the LEFT THIRD facing right; moonlit fortress rooftops and mist recede to the right, bright silver moon high on right, crimson maple leaves framing the far upper left. Black smoked glass / wet graphite / silver moonlight / restrained crimson highlights. Atmospheric silver rain, tangible wet textures, premium photographic dark fantasy realism, highly detailed but not oversharpened. Broad peaceful misty center-right negative space. A beautiful coherent background, no violence. Full bleed landscape 16:9. NO desktop interface, NO windows, NO dock, NO taskbar, NO text, NO logos, NO border, NO watermark."
+    },
+    {
+      "file": "moonlit-watch.png",
+      "prompt": "Use case: stylized-concept. Asset type: 16:9 desktop wallpaper for the RIGHT monitor of the Shadow Edge theme; render at 3840x2160 if available. Input image 1 is a STYLE AND WORLD REFERENCE ONLY, not an edit target. Create a new original companion scene in the same midnight Japanese mountain fortress: a graceful high lookout pagoda on the RIGHT THIRD with wet black tiled eaves and small ember-red lanterns, a narrow stone bridge and crimson maple reflected in black water below, mist-filled valley fading to the LEFT, silver full moon veiled behind storm clouds. Streaking rain, smoked charcoal atmosphere, polished wet stone, fine blade-like silver highlights and very restrained crimson. Premium cinematic dark fantasy realism with gorgeous depth and material detail. Calm readable middle-dark negative space on the left and center for desktop use. Full bleed landscape 16:9. NO interface, NO panels, NO taskbar, NO dock, NO text, NO logo, NO border, NO watermark, NO character."
+    }
+  ]
+}

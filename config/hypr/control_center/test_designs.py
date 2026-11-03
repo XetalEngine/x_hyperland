@@ -27,7 +27,7 @@ class DesignTests(unittest.TestCase):
                 page=app.ThemePage(lambda *args:None)
                 try:
                     collections=page.design_page.collections
-                    self.assertEqual([collections.tabText(i) for i in range(collections.count())],['Xetal World','Atmospheres'])
+                    self.assertEqual([collections.tabText(i) for i in range(collections.count())],['Xetal World','Atmospheres','Shadow Edge'])
                     styles=[s for _,names in runtime.designs.COLLECTIONS.values() for s in names]
                     self.assertEqual(set(styles),set(runtime.DESIGNS));self.assertEqual(len(styles),len(set(styles)))
                     self.assertTrue(all(1<=len(names)<=4 for _,names in runtime.designs.COLLECTIONS.values()))

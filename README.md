@@ -125,6 +125,8 @@ Each theme includes its own three-screen wallpaper set. The [gallery](docs/GALLE
 
 Candy Cloud adds sculpted satin controls, pill-shaped navigation, a pearlescent taskbar, and three floating-island wallpapers: Sugar Sky, Cloud Palace, and Moon Ribbon, assigned left to right. Its Cloud nine trail releases small clouds and four-point stars, while cloud couriers carry envelopes along a ribbon during file transfers. These styles, its Orchid cursor, and its Start menu can be mixed independently through their detailed tabs or Mix & match. Every preset starts dark; Candy Cloud also includes pastel light and high-contrast modes. Kitty stays dark in every mode, and the optional selection marker starts Off. Wallpaper generation prompts are kept beside each atmosphere's artwork.
 
+**Presets → Shadow Edge** is a dedicated collection for smoked glass, silver edges, and crimson rain. Its ribbon navigation and cut-corner launcher accompany three original wallpapers, assigned left to right: Silent Approach, Shadow Edge, and Moonlit Watch. The Blade wake mouse trail sheds silver crescents and crimson needles; sealed dispatches cross a cutting arc during file transfers, including the expanding question panel. The menu, trail, and transfer style are independently mixable. Dark is the preset default, with steel-light and high-contrast variants; Kitty remains dark and selection markers start Off. [Artwork and built-in imagegen prompts](config/hypr/wallpaper/shadowedge/prompts.json) are included in the repository.
+
 ## Make the desktop yours
 
 ### Apps, favorites and shortcuts

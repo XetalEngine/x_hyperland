@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QApplication
 import runtime
 
 DEFAULTS = {
+    'shadowedge': {'tile_opacity': 100, 'group_opacity': 30, 'sidebar_opacity': 82, 'group_image': ''},
     'raw': {'tile_opacity': 45, 'group_opacity': 0, 'sidebar_opacity': 45, 'group_image': ''},
     'modern': {'tile_opacity': 100, 'group_opacity': 100, 'sidebar_opacity': 100, 'group_image': ''},
     'breakpoint': {'tile_opacity': 94, 'group_opacity': 0, 'sidebar_opacity': 45, 'group_image': ''},
@@ -123,6 +124,10 @@ class StripImage(QObject):
 
 def paint_tile(p, box, colors, style, mode, opacity, selected=False, hover=0, radius=None):
     """Opacity affects the card only; icons, text and focus remain independent."""
+    if style=='shadowedge':
+        from shadowedge import paint_tile as shadow_tile
+        shadow_tile(p,box,colors,opacity,selected,bool(hover))
+        return
     if style=='candycloud':
         from candycloud import paint_tile as cloud_tile
         cloud_tile(p,box,colors,opacity,selected,bool(hover))
@@ -163,7 +168,7 @@ def paint_tile(p, box, colors, style, mode, opacity, selected=False, hover=0, ra
 
 def paint_group(p, box, colors, style, opacity, image=None, focused=False, hovered=False):
     p.save()
-    radius = 22 if style == 'candycloud' else 3 if style == 'obsidianforge' else 2 if style == 'porcelainink' else 16 if style == 'tidalglass' else 4 if style == 'binaryknife' else 10 if style == 'modern' else 8
+    radius = 2 if style == 'shadowedge' else 22 if style == 'candycloud' else 3 if style == 'obsidianforge' else 2 if style == 'porcelainink' else 16 if style == 'tidalglass' else 4 if style == 'binaryknife' else 10 if style == 'modern' else 8
     clip = QPainterPath(); clip.addRoundedRect(box, radius, radius)
     p.setClipPath(clip, Qt.ClipOperation.IntersectClip)
     p.setOpacity(p.opacity() * opacity / 100)

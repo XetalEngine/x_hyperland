@@ -10,7 +10,7 @@ import tempfile
 
 PATH = Path(__file__).with_name('preferences.json')
 STYLES = {'follow': 'Follow desktop theme', 'raw': 'Xetal Raw',
-          'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint', 'binaryknife': 'Binary Knife', 'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud'}
+          'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint', 'binaryknife': 'Binary Knife', 'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud', 'shadowedge': 'Shadow Edge'}
 APPEARANCE = dict(width=448, height=168, radius=16, opacity=100, glow=55,
                   border=1, track_height=5, accent='')
 PROFILES = {name: {**APPEARANCE, **values} for name, values in {
@@ -20,6 +20,7 @@ PROFILES = {name: {**APPEARANCE, **values} for name, values in {
     'tidalglass': dict(radius=22, opacity=96, glow=70, track_height=6),
     'porcelainink': dict(radius=2, opacity=100, glow=0, track_height=4),
     'obsidianforge': dict(radius=3, opacity=100, glow=65, track_height=4),
+    'shadowedge': dict(radius=3, opacity=100, glow=18, track_height=4),
     'candycloud': dict(radius=26, opacity=100, glow=40, track_height=8)}.items()}
 DEFAULTS = dict(version=1, style='follow', profiles=PROFILES,
     animation=dict(enabled=True, speed=100, density=3, trails=True, smooth=True),

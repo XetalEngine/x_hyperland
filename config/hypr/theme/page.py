@@ -184,22 +184,51 @@ class WallpapersPage(QWidget):
 class DesignCard(QPushButton):
     def __init__(self,style,parent=None):
         super().__init__(parent);self.design=style;self.mode='dark';self.setCheckable(True);self.setMinimumSize(245,224)
+        if style=='shadowedge':self.setFixedHeight(310)
         self.artwork=DesktopPreview();self.launcher_design=style
         self.surfaces=runtime.launcher_surfaces()[style]
         self.strip_image=StripImage(self);self.strip_image.changed.connect(self.update)
         self.setAccessibleName(runtime.DESIGNS[style]);self.setCursor(Qt.CursorShape.PointingHandCursor)
         policy=QSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Preferred)
-        policy.setHeightForWidth(True);self.setSizePolicy(policy)
+        policy.setHeightForWidth(style!='shadowedge');self.setSizePolicy(policy)
     def heightForWidth(self,width):
+        if self.design=='shadowedge':return 310
         return max(224,round((width-32)/3)+78)
     def paintEvent(self,event):
         p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing)
         modern=self.design=='modern';colors=runtime.colors(self.mode,self.design)
         box=QRectF(self.rect()).adjusted(2,2,-2,-2)
         p.setBrush(QColor(colors['Window']));p.setPen(QPen(QColor(colors['Accent'] if self.isChecked() else colors['Midlight']),2 if self.isChecked() else 1))
-        radius=24 if self.design=='candycloud' else 3 if self.design=='obsidianforge' else 2 if self.design=='porcelainink' else 4 if self.design=='binaryknife' else 16
-        p.drawRoundedRect(box,radius,radius)
-        self.artwork.paint(p,box.adjusted(14,14,-14,-58),self.design,self.mode,self.surfaces,self.strip_image.frame,self.launcher_design)
+        radius=3 if self.design=='shadowedge' else 24 if self.design=='candycloud' else 3 if self.design=='obsidianforge' else 2 if self.design=='porcelainink' else 4 if self.design=='binaryknife' else 16
+        if self.design=='shadowedge':
+            from shadowedge import paint_surface
+            paint_surface(p,box,colors,14,100,self.isChecked() or self.underMouse())
+        else:p.drawRoundedRect(box,radius,radius)
+        if self.design=='shadowedge':
+            from PyQt6.QtCore import QPointF
+            from PyQt6.QtGui import QLinearGradient
+            from shadowedge import cut_path,paint_wallpaper
+            scene=box.adjusted(14,14,-14,-58)
+            picture=QRectF(scene.left(),scene.top(),scene.width()*.68,scene.height())
+            p.save();p.setClipPath(cut_path(scene,12))
+            paint_wallpaper(p,self.artwork.theme_wallpapers.get('shadowedge',QPixmap()),picture)
+            fade=QLinearGradient(picture.left()+picture.width()*.76,0,picture.right(),0)
+            transparent=QColor(colors['Base']);transparent.setAlpha(0)
+            fade.setColorAt(0,transparent);fade.setColorAt(1,QColor(colors['Base']))
+            p.fillRect(picture,fade);p.fillRect(QRectF(picture.right(),scene.top(),scene.width()-picture.width(),scene.height()),QColor(colors['Base']))
+            left=scene.left()+scene.width()*.69;width=scene.right()-left-18
+            font=QFont('Inter',max(17,min(27,round(width/13))),QFont.Weight.Light);font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing,4)
+            p.setFont(font);p.setPen(QColor(colors['Text']))
+            p.drawText(QRectF(left,scene.top()+30,width,45),Qt.AlignmentFlag.AlignVCenter,'SHADOW')
+            p.drawText(QRectF(left+24,scene.top()+70,width-24,45),Qt.AlignmentFlag.AlignVCenter,'EDGE')
+            p.setPen(QPen(QColor(colors['Accent']),2));p.drawLine(QPointF(left+4,scene.top()+112),QPointF(left+35,scene.top()+71))
+            p.setFont(QFont('Inter',9));p.setPen(QColor(colors['PlaceholderText']))
+            p.drawText(QRectF(left,scene.top()+133,width,50),Qt.TextFlag.TextWordWrap,'Smoked glass. Silver edges.\nA world after midnight.')
+            for i,key in enumerate(('Window','Midlight','Link','Accent')):
+                swatch=QRectF(left+i*34,scene.bottom()-24,23,12)
+                p.fillRect(swatch,QColor(colors[key]));p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(QColor(colors['Midlight']),.5));p.drawRect(swatch)
+            p.restore()
+        else:self.artwork.paint(p,box.adjusted(14,14,-14,-58),self.design,self.mode,self.surfaces,self.strip_image.frame,self.launcher_design)
         p.setPen(QColor(colors['Text']));p.setFont(QFont(runtime.ui_font(),12,QFont.Weight.DemiBold))
         p.drawText(QRectF(box.x()+16,box.bottom()-49,box.width()-32,23),Qt.AlignmentFlag.AlignVCenter,runtime.DESIGNS[self.design])
         p.setPen(QColor(colors['PlaceholderText']));p.setFont(QFont(runtime.ui_font(),9))
@@ -246,7 +275,7 @@ class SurfacePreview(QWidget):
     def paintEvent(self,event):
         p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing);p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         colors=runtime.colors(self.mode,self.design);box=QRectF(self.rect()).adjusted(1,1,-1,-1)
-        radius=24 if self.design=='candycloud' else 3 if self.design=='obsidianforge' else 2 if self.design=='porcelainink' else 12
+        radius=3 if self.design=='shadowedge' else 24 if self.design=='candycloud' else 3 if self.design=='obsidianforge' else 2 if self.design=='porcelainink' else 12
         p.setBrush(QColor(colors['Window']));p.setPen(QPen(QColor(colors['Midlight']),1));p.drawRoundedRect(box,radius,radius)
         if self.artwork.show_background and not self.artwork.background.isNull():
             DesktopPreview.picture(p,self.artwork.background,box,radius)
@@ -276,6 +305,27 @@ class SurfacePreview(QWidget):
             if hotkey_y is not None:p.drawText(QRectF(tile.x()+3,tile.y()+hotkey_y,tile.width()-6,16),Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignTop,'No hotkey')
 
 
+class ShadowEdgeGallery(QWidget):
+    """The dedicated collection shows the complete three-display landscape."""
+    def __init__(self):
+        super().__init__();self.mode='dark';self.setMinimumHeight(150)
+        self.setAccessibleName('Shadow Edge wallpapers: Silent Approach, Shadow Edge, Moonlit Watch')
+        paths=wallpaper_sets.catalog(runtime.ROOT.parent/'wallpaper').get('shadowedge',())
+        self.pictures=[QPixmap(str(p)) for p in paths] if paths else [QPixmap() for _ in range(3)]
+
+    def paintEvent(self,event):
+        from shadowedge import cut_path,paint_wallpaper
+        p=QPainter(self);p.setRenderHints(QPainter.RenderHint.Antialiasing|QPainter.RenderHint.SmoothPixmapTransform)
+        colors=runtime.colors(self.mode,'shadowedge');gap=14;width=(self.width()-2*gap)/3
+        for index,(title,picture) in enumerate(zip(('Silent Approach','Shadow Edge','Moonlit Watch'),self.pictures)):
+            box=QRectF(index*(width+gap),0,width,self.height()-28)
+            shape=cut_path(box.adjusted(1,1,-1,-1),12)
+            p.save();p.setClipPath(shape);paint_wallpaper(p,picture,box);p.restore()
+            p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(QColor(colors['Midlight']),1));p.drawPath(shape)
+            p.setPen(QColor(colors['Text']));p.setFont(QFont('Inter',9))
+            p.drawText(QRectF(box.left()+2,box.bottom()+5,width,22),Qt.AlignmentFlag.AlignVCenter,f'{index+1:02}   {title}')
+
+
 class DesignPage(QWidget):
     def __init__(self,owner):
         super().__init__();self.owner=owner
@@ -290,7 +340,9 @@ class DesignPage(QWidget):
             body=QWidget();scroll.setWidget(body)
             root=QVBoxLayout(body);root.setContentsMargins(6,12,6,6);root.setSpacing(16)
             root.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
-            root.addWidget(label('Desktop theme' if collection=='xetal-world' else 'A different world at your desk','section'))
+            root.addWidget(label('Move in silence.' if collection=='shadow-edge' else 'Desktop theme' if collection=='xetal-world' else 'A different world at your desk','section'))
+            if collection=='shadow-edge':
+                root.addWidget(label('SHADOW EDGE   /   Smoked glass, honed silver and crimson rain.','muted'))
             row=QGridLayout();row.setSpacing(16)
             for index,style in enumerate(styles):
                 card=DesignCard(style);card.clicked.connect(lambda _,s=style:owner.select_preset(s))
@@ -300,6 +352,9 @@ class DesignPage(QWidget):
             root.addLayout(row)
             if collection=='atmospheres':
                 root.addWidget(label('Three coordinated wallpapers per theme · Light, dark & high contrast','muted'))
+            if collection=='shadow-edge':
+                self.shadow_gallery=ShadowEdgeGallery();root.addWidget(self.shadow_gallery)
+                root.addWidget(label('Three displays, one midnight world. Blade wake mouse trail · Sealed-dispatch transfers · Cut-glass Start menu. Mix each part with any theme.','muted'))
             root.addStretch()
     def refresh(self):
         style=self.owner.menu_design()
@@ -312,6 +367,7 @@ class DesignPage(QWidget):
             card.launcher_design=name if self.owner.launcher_style.currentData()=='follow' else style
             card.surfaces=dict(self.owner.surfaces[card.launcher_design]);card.strip_image.load(card.surfaces['group_image'])
             card.strip_image.set_enabled(card.surfaces['group_opacity']>0);card.update()
+        self.shadow_gallery.mode=self.cards['shadowedge'].mode;self.shadow_gallery.update()
         current=self.owner.design.currentData()
         if current!=self.selected_design:
             self.selected_design=current;self.collections.setCurrentWidget(self.collection_for[current])
@@ -508,7 +564,7 @@ class ThemePage(QWidget):
         preferred=runtime.designs.DEFAULT_MODES.get(design)
         if preferred:
             self.mode.setCurrentIndex(self.mode.findData(preferred))
-        if design in ('tidalglass','porcelainink','obsidianforge','candycloud'):
+        if design in ('tidalglass','porcelainink','obsidianforge','candycloud','shadowedge'):
             if self.launcher_style.currentData() in ('follow',self.baseline[0]):
                 self.launcher_style.setCurrentIndex(self.launcher_style.findData('follow'))
         self.changed()

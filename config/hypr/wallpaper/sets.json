@@ -38,5 +38,10 @@
     "candycloud/sugar-sky.png",
     "candycloud/cloud-palace.png",
     "candycloud/moon-ribbon.png"
+  ],
+  "shadowedge": [
+    "shadowedge/silent-approach.png",
+    "shadowedge/shadow-edge.png",
+    "shadowedge/moonlit-watch.png"
   ]
 }

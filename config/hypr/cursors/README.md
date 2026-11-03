@@ -17,6 +17,7 @@ interactive preview. **Follow desktop theme** is the fresh-install default:
 | Porcelain Ink | Living ink — tapered ink strokes and vermilion petals |
 | Obsidian Forge | Cinder wake — cooling molten fissures and rising embers |
 | Candy Cloud | Cloud nine — satin cloud puffs and drifting four-point stars |
+| Shadow Edge | Blade wake — silver crescent cuts and drifting crimson needles |
 
 Every effect can be selected with any desktop theme. Follow uses the effect's
 own palette; selecting a particular effect also allows a custom accent.

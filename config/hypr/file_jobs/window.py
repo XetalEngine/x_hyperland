@@ -102,7 +102,7 @@ class ProgressWindow(QWidget):
         self.setStyleSheet(f'''
             QWidget#FileOperation {{background:transparent;}}
             QPushButton,QToolButton {{background:{p['Button']}; color:{p['ButtonText']};
-                border:1px solid {p['Midlight']}; border-radius:{14 if self.design == 'candycloud' else 3 if self.design == 'obsidianforge' else 2 if self.design == 'porcelainink' else 3 if self.design == 'binaryknife' else 9 if self.design == 'modern' else 6}px;
+                border:1px solid {p['Midlight']}; border-radius:{2 if self.design == 'shadowedge' else 14 if self.design == 'candycloud' else 3 if self.design == 'obsidianforge' else 2 if self.design == 'porcelainink' else 3 if self.design == 'binaryknife' else 9 if self.design == 'modern' else 6}px;
                 padding:0; font:11px "{theme_runtime.ui_font(self.design)}";}}
             QPushButton:hover,QToolButton:hover {{background:{p['Highlight']}; color:{p['HighlightedText']}; border-color:{self.accent.name()};}}
             QPushButton:disabled,QToolButton:disabled {{color:{p['Disabled']}; background:transparent;}}
@@ -312,7 +312,7 @@ class ProgressWindow(QWidget):
         if self.design != 'raw':
             scene = {'modern': artwork.modern, 'breakpoint': artwork.breakpoint,
                      'binaryknife': artwork.binaryknife, 'tidalglass': artwork.tidalglass, 'porcelainink': artwork.porcelainink,
-                     'obsidianforge': artwork.obsidianforge, 'candycloud': artwork.candycloud}[self.design]
+                     'obsidianforge': artwork.obsidianforge, 'candycloud': artwork.candycloud, 'shadowedge': artwork.shadowedge}[self.design]
             scene(painter, box, accent, QColor(self.colors['AlternateBase']), self.phase,
                   self.options['animation']['density'], self.options['animation']['trails'],
                   self.appearance['glow'], archive and not extracting, extracting, self.job.result)
@@ -380,13 +380,19 @@ class ProgressWindow(QWidget):
         border = self.appearance['border']
         painter.setPen(QPen(alpha(accent, 135 if self.design != 'modern' else 90), border) if border else Qt.PenStyle.NoPen)
         inset = max(.5, border/2)
-        painter.drawRoundedRect(QRectF(inset, inset, w-2*inset, h-2*inset), radius, radius)
+        if self.design != 'shadowedge':
+            painter.drawRoundedRect(QRectF(inset, inset, w-2*inset, h-2*inset), radius, radius)
         if self.design == 'tidalglass':
             from tidalglass import paint_surface
             paint_surface(painter,QRectF(inset,inset,w-2*inset,h-2*inset),self.colors,radius,self.appearance['opacity'])
         if self.design == 'porcelainink':
             from porcelainink import paint_surface
             paint_surface(painter,QRectF(inset,inset,w-2*inset,h-2*inset),self.colors,radius,self.appearance['opacity'])
+        if self.design == 'shadowedge':
+            from shadowedge import paint_surface,cut_path
+            box=QRectF(inset,inset,w-2*inset,h-2*inset)
+            paint_surface(painter,box,self.colors,radius,self.appearance['opacity'])
+            painter.setClipPath(cut_path(box,min(16,box.height()*.16)),Qt.ClipOperation.IntersectClip)
         if self.design == 'candycloud':
             from candycloud import paint_surface
             paint_surface(painter,QRectF(inset,inset,w-2*inset,h-2*inset),self.colors,radius,self.appearance['opacity'])

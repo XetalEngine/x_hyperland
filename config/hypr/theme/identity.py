@@ -149,11 +149,11 @@ class ProfileCard(QWidget):
         if self.design()=='porcelainink':
             self.name.setStyleSheet('background:transparent; color:'+colors['WindowText']+'; font-family:"Noto Serif"; font-size:'+('15' if self.compact else '23')+'px; font-weight:500;')
             self.detail.setStyleSheet('background:transparent; color:'+colors['PlaceholderText']+'; font-size:12px;')
-        if self.design() in ('obsidianforge','candycloud'):
+        if self.design() in ('obsidianforge','candycloud','shadowedge'):
             self.name.setStyleSheet('background:transparent; color:'+colors['WindowText']+'; font-size:'+('15' if self.compact else '23')+'px; font-weight:600; letter-spacing:1px;')
             self.detail.setStyleSheet('background:transparent; color:'+colors['PlaceholderText']+'; font-size:12px;')
         if not self.compact:
-            self.caption.setStyleSheet('background:transparent; color:'+(colors['PlaceholderText'] if self.design() in ('porcelainink','obsidianforge','candycloud') else '#c6d8e8')+'; font-size:13px;')
+            self.caption.setStyleSheet('background:transparent; color:'+(colors['PlaceholderText'] if self.design() in ('porcelainink','obsidianforge','candycloud','shadowedge') else '#c6d8e8')+'; font-size:13px;')
         if self.compact:self.detail.setText(runtime.DESIGNS[self.design()])
         path = wallpaper_path() if self.backdrop else None
         if path != self.background_path:
@@ -166,7 +166,7 @@ class ProfileCard(QWidget):
         p = QPainter(self); p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         ink=self.design()=='porcelainink';colors=runtime.colors(style=self.design())
-        radius=26 if self.design()=='candycloud' else 3 if self.design()=='obsidianforge' else 2 if ink else 18
+        radius=3 if self.design()=='shadowedge' else 26 if self.design()=='candycloud' else 3 if self.design()=='obsidianforge' else 2 if ink else 18
         box = QRectF(self.rect()); clip = QPainterPath(); clip.addRoundedRect(box, radius, radius); p.setClipPath(clip)
         p.fillRect(box, QColor('#203247'))
         if not self.background.isNull():
@@ -174,7 +174,7 @@ class ProfileCard(QWidget):
             target=QRectF(0,0,self.background.width()*ratio,self.background.height()*ratio);target.moveCenter(box.center())
             p.drawPixmap(target,self.background,QRectF(self.background.rect()))
         overlay=QLinearGradient(box.topLeft(),box.bottomRight())
-        if ink or self.design() in ('obsidianforge','candycloud'):
+        if ink or self.design() in ('obsidianforge','candycloud','shadowedge'):
             start=QColor(colors['Window']);start.setAlpha(240)
             end=QColor(colors['Window']);end.setAlpha(195)
             overlay.setColorAt(0,start);overlay.setColorAt(1,end)
