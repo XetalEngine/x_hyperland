@@ -19,7 +19,7 @@ class CloseSettingsTests(unittest.TestCase):
             self.assertEqual(model.decode(model.encode(values)), values)
 
     def test_rejects_unknown_modifiers_and_out_of_range_controls(self):
-        for changes in ({'modifier':'CTRL'}, {'size':12}, {'inset':100}, {'pulse':1}, {'unexpected':True}):
+        for changes in ({'modifier':'CTRL'}, {'size':9}, {'inset':100}, {'pulse':1}, {'unexpected':True}):
             with self.assertRaises(ValueError): model.validate(dict(model.DEFAULTS, **changes))
         with self.assertRaises(ValueError): model.decode(model.encode(model.DEFAULTS)+'enabled=0\n')
 

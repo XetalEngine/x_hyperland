@@ -98,7 +98,9 @@ class Tracker:
         if picker and client.get('floating') and not client.get('fullscreen') and not client.get('fullscreenClient'):
             return False
         if picker: saved = None
-        # Explicit launcher floating requests have their own per-shortcut memory.
+        # Both launcher modes are explicit first-map choices. Reapplying the
+        # app's previous mode here would cause tile → float/maximize → tile
+        # jumps. Still observe these windows below to preserve normal sizes.
         if window_key(client): return False
         floating = True if picker else saved['floating'] if saved else client.get('floating', False)
         fullscreen = 0 if picker else saved['fullscreen'] if saved else client.get('fullscreen', 0)

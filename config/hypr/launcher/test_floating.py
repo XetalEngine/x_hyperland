@@ -39,6 +39,33 @@ class FloatingTests(unittest.TestCase):
         self.assertNotIn('size ', ticket['rules'])
         self.assertFalse(self.path.exists())
 
+    def test_tiled_launch_ignores_old_mode_and_keeps_float_memory(self):
+        self.store.save({KEY:[830,610]}, {KEY:[120,140]})
+        ticket=self.tracker.prepare(dict(self.request,floating=False),0)
+        self.assertIn('float off',ticket['rules'])
+        self.assertIn('fullscreen_state 0 0',ticket['rules'])
+        self.assertNotIn('size ',ticket['rules'])
+        self.assertNotIn('center ',ticket['rules'])
+        tag=self.tracker.pending[ticket['token']]['tag']
+        tiled={**client(size=[1900,1040]),'floating':False,'tags':[tag+'*']}
+        self.assertEqual(floating.window_key(tiled),KEY)
+        for now in (0,.6):self.tracker.update([tiled],now)
+        self.assertEqual(self.store.read()[KEY],[830,610])
+        self.assertEqual(self.store.positions()[KEY],[120,140])
+
+    def test_position_memory_and_smaller_monitor_restore(self):
+        monitor=dict(id=0,x=-1920,y=200,width=1920,height=1080,focused=True,scale=1,reserved=[0,38,0,0])
+        self.hypr.query.return_value=[monitor]
+        c=dict(client(size=[900,650]),at=[-1700,400])
+        for now in (0,.6):self.tracker.update([c],now)
+        self.assertEqual(self.store.positions()[KEY],[220,162])
+        smaller=dict(monitor,x=0,y=0,width=800,height=600)
+        self.hypr.query.side_effect=[[],[smaller]]
+        ticket=self.tracker.prepare(self.request,2)
+        self.assertIn('size 768 530',ticket['rules'])
+        self.assertIn('move 16 54',ticket['rules'])
+        self.assertEqual(self.store.read()[KEY],[900,650],'Fitting a display must not overwrite saved geometry')
+
     def test_last_floating_size_survives_restart_and_is_used_on_next_launch(self):
         self.tracker.update([client()], 0)
         self.tracker.update([client()], .6)

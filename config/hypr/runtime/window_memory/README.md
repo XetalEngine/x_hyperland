@@ -9,7 +9,15 @@ monitor serials are persisted. `state/` is private and preserved by updates.
 The exact-ABI native adapter supplies transient/role metadata and addressed
 fullscreen changes without moving focus. Zero xdg-shell size limits mean
 unspecified, not fixed. Rebuild it with `build.py` for the pinned runtime. Never
-overwrite or unload a native library already mapped by a running compositor.
+overwrite a native library already mapped by a running compositor. A tested
+adapter update uses a new build path and a controlled plugin unload/load while
+the memory watcher is stopped; existing windows are only observed on restart.
+
+The adapter also aligns pointer hits and held-button motion with xdg window
+geometry when clients include invisible decoration padding. The Minimize
+adapter's render crop uses that same origin. First-map launcher fullscreen
+rules are released back to ordinary client/compositor state synchronization,
+so later native maximize/restore controls continue to work.
 
 Restoration separates mode, geometry and fullscreen into different compositor
 frames; changing floating state replaces the layout target. Normal floating
@@ -19,8 +27,12 @@ tiled pixel size: it changes sibling splits and can squeeze a new window into
 a narrow strip. Older tiled-size records remain readable and are ignored for
 geometry restoration. Floating sizes stay within the current monitor and
 application constraints. Layer-shell surfaces and unmapped/hidden
-windows are not ordinary managed windows. Explicit launcher floating requests
-retain `launcher/floating.py`'s per-shortcut memory.
+windows are not ordinary managed windows. Apps-menu launches explicitly choose
+tiling; Ctrl-click chooses floating. Both carry first-map launch tags and bypass
+later generic mode restoration, including stale maximized preferences. Floating
+launches retain `launcher/floating.py`'s per-shortcut normal size and position,
+fitted to the destination monitor. Saved floating geometry survives tiling and
+maximizing. Bar pins and launch hotkeys retain their explicit shortcut preference.
 
 Fusion pickers keep their more recent, synchronous actual-size record in
 `file_manager/state/settings.ini`; the memory helper does not override it.

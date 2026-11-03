@@ -386,8 +386,8 @@ void uvHook(Render::IElementRenderer* renderer,PHLWINDOW w,SP<CWLSurfaceResource
     const auto size=state.size;
     // Restoring the real maximized state can restore client-side shadow
     // padding. Core 0.56.2 deliberately skips xdg_geometry UV cropping because
-    // it pretends every client is maximized. Its input coordinates already
-    // include that geometry: crop the main surface to match them, rather than
+    // it pretends every client is maximized. Crop the main surface and apply
+    // the same geometry offset in the window-memory input adapter, rather than
     // clipping the right/bottom buttons or stretching the shadow as content.
     if(size.x<=0||size.y<=0||geom.w<=0||geom.h<=0||geom.x<0||geom.y<0||geom.x+geom.w>size.x||geom.y+geom.h>size.y)return;
     if(geom.x==0&&geom.y==0&&geom.w==size.x&&geom.h==size.y)return;

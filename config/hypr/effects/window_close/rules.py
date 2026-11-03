@@ -22,7 +22,7 @@ def validate(rule):
     rule = dict(DEFAULTS, **rule)  # Existing rules gain Auto without changing their saved geometry.
     if rule['mode'] not in MODES or rule['anchor'] not in ANCHORS:
         raise ValueError('Choose a supported display mode and position.')
-    for key, low, high in [('size',24,64), ('x',0,4000), ('y',0,4000), ('proximity',12,400)]:
+    for key, low, high in [('size',10,64), ('x',0,4000), ('y',0,4000), ('proximity',12,400)]:
         if type(rule[key]) is not int or not low <= rule[key] <= high:
             raise ValueError(f'{key} must be between {low} and {high}.')
     if rule['background'] not in BACKGROUNDS:

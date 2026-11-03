@@ -58,7 +58,7 @@
       "update-active-window": true,
       "format": "{icon}",
       "icon-size": 21,
-      "on-click-window": "hyprctl dispatch focuswindow address:{address}",
+      "on-click-window": "python3 $HOME/.config/hypr/scripts/activate-window.py {address}",
       "icon-theme": [
         "Papirus-Dark",
         "Adwaita"

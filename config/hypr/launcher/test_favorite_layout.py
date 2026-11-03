@@ -160,7 +160,7 @@ class BoardTests(unittest.TestCase):
         QTest.qWait(220)
         self.calls = []
         self.menu.launch_app = lambda ident, floating=None: self.calls.append(
-            (ident,) if floating is None else (ident, floating))
+            (ident,) if not floating else (ident, floating))
 
     def tearDown(self):
         self.menu.close()

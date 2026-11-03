@@ -35,7 +35,8 @@ class ShortcutTests(unittest.TestCase):
         self.original = '[Desktop Entry]\nType=Application\nName=Example\nExec=/usr/bin/printf "hello world" %U\nIcon=utilities-terminal\nTerminal=false\nCategories=Utility;\n'
         self.desktop.write_text(self.original)
         self.native = Gio.DesktopAppInfo.new_from_filename(str(self.desktop))
-        self.patches = [patch.object(shortcuts, 'STATE', self.root/'shortcuts.json'),
+        self.patches = [patch.dict(os.environ, {'HYPRLAND_INSTANCE_SIGNATURE':''}),
+                        patch.object(shortcuts, 'STATE', self.root/'shortcuts.json'),
                         patch.object(app.geometry, 'STATE', self.root/'window.json'),
                         patch.object(app.favorite_layout, 'STATE', self.root/'favorite-layout.json'),
                         patch.object(shortcuts.floating_windows, 'prepare', return_value={
@@ -156,6 +157,14 @@ class ShortcutTests(unittest.TestCase):
               patch.object(shortcuts.subprocess,'run',return_value=subprocess.CompletedProcess([],1,'','test rejection'))):
             with self.assertRaisesRegex(ValueError,'test rejection'):self.entry.launch(floating=True)
 
+    def test_ordinary_session_launch_has_explicit_tiled_rules(self):
+        with (patch.dict(os.environ,{'HYPRLAND_INSTANCE_SIGNATURE':'test'}),
+              patch.object(shortcuts.floating_windows,'prepare',return_value={'token':'test','rules':'float off; fullscreen_state 0 0'}) as prepare,
+              patch.object(shortcuts.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'ok\n','')) as dispatch):
+            self.entry.launch(floating=False)
+        self.assertFalse(prepare.call_args.kwargs['floating'])
+        self.assertTrue(dispatch.call_args.args[0][3].startswith('[float off; fullscreen_state 0 0] exec '))
+
     def test_floating_context_and_shortcut_editor_share_saved_flag(self):
         menu=app.Menu(preview=True)
         actions={action.data():action for action in menu.build_context_menu(self.entry.get_id()).actions()}
@@ -190,11 +199,11 @@ class ShortcutTests(unittest.TestCase):
                         launch.assert_called_once_with(terminal=None, floating=True)
                         launch.reset_mock()
                         QTest.mouseClick(target, Qt.MouseButton.LeftButton, pos=point)
-                        launch.assert_called_once_with(terminal=None, floating=None)
+                        launch.assert_called_once_with(terminal=None, floating=False)
                         launch.reset_mock()
                         QTest.keyClick(target if view in ('medium', 'small') else menu.grid,
                                        Qt.Key.Key_Return)
-                        launch.assert_called_once_with(terminal=None, floating=None)
+                        launch.assert_called_once_with(terminal=None, floating=False)
                         self.assertEqual(shortcuts.STATE.read_bytes(), saved)
             menu.close()
 

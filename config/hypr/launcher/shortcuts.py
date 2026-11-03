@@ -121,8 +121,9 @@ class Entry:
             if key in environment: context.setenv(key, environment[key])
         in_terminal = self.fields['terminal'] if terminal is None else terminal
         in_float = self.fields['floating'] if floating is None else floating
+        managed_launch = bool(environment.get('HYPRLAND_INSTANCE_SIGNATURE')) and not files
         launch_changes = any(k in self.changes for k in ('command', 'directory', 'terminal', 'administrator'))
-        if (self.base and not self.custom and not launch_changes and not in_terminal and not in_float
+        if (not managed_launch and self.base and not self.custom and not launch_changes and not in_terminal and not in_float
                 and terminal is not False and self.origin not in ('org.kde.dolphin.desktop', 'kitty.desktop')):
             return self.base.launch(files or [], context)
         argv = self.argv()
@@ -143,12 +144,12 @@ class Entry:
             if self.fields['keep_open']:
                 prefix.append('--hold')
             argv = [*prefix, '-e', *argv]
-        if in_float:
+        if in_float or managed_launch:
             if not environment.get('HYPRLAND_INSTANCE_SIGNATURE'):
                 raise ValueError('Floating launch is available in the Hyprland session.')
             # Use the app's requested size on its first floating launch; later
             # launches restore only sizes recorded while it was floating.
-            ticket = floating_windows.prepare(self, in_terminal, environment)
+            ticket = floating_windows.prepare(self, in_terminal, environment, floating=bool(in_float))
             command='exec '+shlex.join(['python3', str(ROOT/'launcher/floating.py'), '--exec-token', ticket['token'],
                                        '--', 'python3', str(ROOT/'theme/run.py'), *argv])
             if directory:command='cd '+shlex.quote(directory)+' && '+command

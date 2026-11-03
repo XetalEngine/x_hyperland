@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'scripts'))
 from session_logging import log_path
 
 STATE = Path(__file__).resolve().parent / 'floating-sizes.json'
-TAG = re.compile(r'^xetal-float-([0-9a-f]{24})-[0-9a-f]{12}\*?$')
+TAG = re.compile(r'^xetal-(float|tile)-([0-9a-f]{24})-[0-9a-f]{12}\*?$')
 
 
 def runtime(environment=None):
@@ -34,31 +34,47 @@ def valid_size(value):
             and all(type(n) is int and 1 <= n <= 32768 for n in value))
 
 
+def valid_position(value):
+    return (isinstance(value, list) and len(value) == 2
+            and all(type(n) is int and -32768 <= n <= 32768 for n in value))
+
+
 class Store:
     def __init__(self, path=None):
         self.path = Path(path or STATE)
 
-    def read(self):
-        if not self.path.exists():return {}
+    def document(self):
+        if not self.path.exists():return {'version':1,'sizes':{},'positions':{}}
         data = json.loads(self.path.read_text())
         if (not isinstance(data, dict) or data.get('version') != 1 or not isinstance(data.get('sizes'), dict)
                 or any(not re.fullmatch(r'[0-9a-f]{24}', key) or not valid_size(value)
                        for key, value in data['sizes'].items())):
             raise ValueError('Invalid floating window sizes; existing settings were left untouched.')
-        return data['sizes']
+        if (not isinstance(data.get('positions',{}),dict)
+                or any(not re.fullmatch(r'[0-9a-f]{24}',key) or not valid_position(value)
+                       for key,value in data.get('positions',{}).items())):
+            raise ValueError('Invalid floating window positions; existing settings were left untouched.')
+        return data
 
-    def save(self, changes):
-        if not changes:return
+    def read(self):return self.document()['sizes']
+
+    def positions(self):return self.document().get('positions',{})
+
+    def save(self, changes, positions=None):
+        positions=positions or {}
+        if not changes and not positions:return
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.with_suffix('.lock').open('a') as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
-            sizes = self.read()
-            if all(sizes.get(key) == value for key, value in changes.items()):return
+            data=self.document();sizes=data['sizes'];places=data.get('positions',{})
+            if (all(sizes.get(key) == value for key, value in changes.items())
+                    and all(places.get(key)==value for key,value in positions.items())):return
             sizes.update(changes)
+            places.update(positions)
             fd, name = tempfile.mkstemp(prefix='.floating-sizes-', dir=self.path.parent)
             try:
                 with os.fdopen(fd, 'w') as out:
-                    json.dump({'version': 1, 'sizes': sizes}, out, indent=2)
+                    json.dump({'version': 1, 'sizes': sizes, 'positions':places}, out, indent=2)
                     out.write('\n'); out.flush(); os.fsync(out.fileno())
                 os.replace(name, self.path)
             finally:
@@ -68,7 +84,7 @@ class Store:
 def window_key(client):
     for tag in client.get('tags', []):
         match = TAG.fullmatch(tag)
-        if match:return match[1]
+        if match:return match[2]
 
 
 def eligible(client):
@@ -150,6 +166,7 @@ class Tracker:
     def __init__(self, hypr, store):
         self.hypr, self.store = hypr, store
         self.pending, self.samples = {}, {}
+        self.positions = {}
 
     def prepare(self, request, now):
         clients = self.hypr.query('clients')
@@ -160,12 +177,36 @@ class Tracker:
             saved = current[0]['size']
             self.store.save({request['key']: saved})
         token = uuid.uuid4().hex[:12]
-        tag = 'xetal-float-' + request['key'] + '-' + token
-        self.pending[token] = dict(request, tag=tag, size=saved, created=now, committed=None,
+        floating = request.get('floating', True)
+        position = self.store.positions().get(request['key'])
+        monitor = None
+        if floating or current and valid_position(current[0].get('at')):
+            monitors = [m for m in self.hypr.query('monitors') if 'width' in m and 'height' in m]
+            monitor = next((m for m in monitors if m.get('focused')), monitors[0] if monitors else None)
+            if current and valid_position(current[0].get('at')):
+                old_monitor=next((m for m in monitors if m['id']==current[0].get('monitor')),None)
+                if old_monitor:
+                    x,y,_,_=workarea(old_monitor)
+                    position=[current[0]['at'][0]-x,current[0]['at'][1]-y]
+                    self.store.save({}, {request['key']:position})
+            if monitor and saved:
+                _,_,width,height=workarea(monitor)
+                saved=[min(saved[0],max(1,width-32)),min(saved[1],max(1,height-32))]
+        tag = ('xetal-float-' if floating else 'xetal-tile-') + request['key'] + '-' + token
+        self.pending[token] = dict(request, tag=tag, size=saved, position=position, created=now, committed=None,
                                    existing={c['address'] for c in clients if matches(c, request)},
                                    before={c['address'] for c in clients})
-        rules = ['float on', 'center on', 'tag +' + tag]
-        if saved:rules.append(f'size {saved[0]} {saved[1]}')
+        # These are first-map rules. Ordinary launches must never briefly
+        # restore a maximized/floating preference before entering the layout.
+        rules = ['float on' if floating else 'float off']
+        if floating:
+            if monitor and saved and position:
+                x,y,width,height=workarea(monitor)
+                dx=max(16,min(position[0],width-saved[0]-16));dy=max(16,min(position[1],height-saved[1]-16))
+                rules.append(f'move {x-monitor["x"]+dx} {y-monitor["y"]+dy}')
+            else:rules.append('center on')
+        rules += ['tag +' + tag, 'fullscreen_state 0 0']
+        if floating and saved:rules.append(f'size {saved[0]} {saved[1]}')
         return {'token': token, 'rules': '; '.join(rules)}
 
     def finish(self, token, success, now):
@@ -179,6 +220,13 @@ class Tracker:
 
     def place_reused(self, client, request):
         address = 'address:' + client['address']
+        if client.get('fullscreen') or client.get('fullscreenClient'):
+            answer=self.hypr.command(f"xetal-window-state {client['address']} 0 0").strip()
+            if answer != 'ok':raise ValueError(answer)
+        if not request.get('floating', True):
+            self.hypr.dispatch('settiled', address)
+            self.tag(client, request)
+            return
         self.hypr.dispatch('setfloating', address)
         if request['size']:
             width, height = request['size']
@@ -191,8 +239,15 @@ class Tracker:
         if monitor:
             x, y, width, height = workarea(monitor)
             w, h = current['size']
-            self.hypr.dispatch('movewindowpixel', f'exact {round(x+(width-w)/2)} {round(y+(height-h)/2)},' + address)
-        for tag in current.get('tags', []):
+            w,h=min(w,max(1,width-32)),min(h,max(1,height-32))
+            if [w,h]!=current['size']:self.hypr.dispatch('resizewindowpixel',f'exact {w} {h},'+address)
+            dx,dy=request.get('position') or [round((width-w)/2),round((height-h)/2)]
+            self.hypr.dispatch('movewindowpixel', f'exact {x+max(16,min(dx,width-w-16))} {y+max(16,min(dy,height-h-16))},' + address)
+        self.tag(current, request)
+
+    def tag(self, client, request):
+        address = 'address:' + client['address']
+        for tag in client.get('tags', []):
             if TAG.fullmatch(tag):self.hypr.dispatch('tagwindow', '-' + tag.removesuffix('*') + ' ' + address)
         self.hypr.dispatch('tagwindow', '+' + request['tag'] + ' ' + address)
 
@@ -230,27 +285,40 @@ class Tracker:
                 self.place_reused(active, request)
                 del self.pending[token]
 
-        changes, present, settled = {}, set(), []
+        changes, positions, present, settled = {}, {}, set(), []
+        monitors = None
         # If several windows settle together, the most recently focused wins.
         for client in sorted(clients, key=lambda c: c.get('focusHistoryID', 999), reverse=True):
             key, address = window_key(client), client['address']
             if not key or not eligible(client):continue
             present.add(address)
             size = client['size'][:]
+            place=None
+            if valid_position(client.get('at')):
+                if monitors is None:monitors={m['id']:m for m in self.hypr.query('monitors')}
+                if monitor:=monitors.get(client.get('monitor')):
+                    x,y,_,_=workarea(monitor)
+                    place=[client['at'][0]-x,client['at'][1]-y]
             previous = self.samples.get(address)
-            if previous is None or previous[0] != size:
+            if previous is None or previous[0] != size or self.positions.get(address)!=place:
                 self.samples[address] = (size, now, False, key)
+                self.positions[address]=place
             elif not previous[2] and now - previous[1] >= .5:
                 changes[key] = size
+                if place is not None:positions[key]=place
                 settled.append(address)
-        mapped = {c['address'] for c in clients if c.get('mapped')}
         for address, sample in self.samples.items():
-            if address not in mapped and not sample[2]:changes.setdefault(sample[3], sample[0])
-        self.store.save(changes)
+            # A quick tile/maximize is just as final as closing the normal
+            # rectangle. Save its last floating sample before dropping it.
+            if address not in present and not sample[2]:
+                changes.setdefault(sample[3], sample[0])
+                if self.positions.get(address) is not None:positions.setdefault(sample[3],self.positions[address])
+        self.store.save(changes,positions)
         for address in settled:
             size, since, _, key = self.samples[address]
             self.samples[address] = (size, since, True, key)
         self.samples = {address: sample for address, sample in self.samples.items() if address in present}
+        self.positions = {address:position for address,position in self.positions.items() if address in present}
 
 
 def exchange(root, payload):
@@ -263,7 +331,7 @@ def exchange(root, payload):
     return reply
 
 
-def prepare(entry, terminal, environment):
+def prepare(entry, terminal, environment, *, floating=True):
     root = runtime(environment)
     identity = entry.get_id() + ('\0terminal' if terminal else '\0application')
     classes = [entry.origin.removesuffix('.desktop'), Path(entry.argv()[0]).name]
@@ -272,7 +340,7 @@ def prepare(entry, terminal, environment):
         if wm_class:classes.append(wm_class)
     request = {'action': 'prepare', 'key': hashlib.sha256(identity.encode()).hexdigest()[:24],
                'classes': [normalized(value) for value in classes], 'terminal': bool(terminal),
-               'name': entry.get_display_name()}
+               'name': entry.get_display_name(), 'floating': bool(floating)}
     try:return exchange(root, request)
     except (FileNotFoundError, ConnectionRefusedError):pass
     destination = log_path(root, 'floating-geometry.log')

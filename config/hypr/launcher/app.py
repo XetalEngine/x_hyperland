@@ -328,7 +328,7 @@ class Menu(QWidget):
         self.grid.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.grid.customContextMenuRequested.connect(self.context_menu)
         self.favorites_board.activated.connect(
-            lambda ident, floating: self.launch_app(ident, floating=True if floating else None))
+            lambda ident, floating: self.launch_app(ident, floating=bool(floating)))
         self.favorites_board.selectedChanged.connect(self.select_favorite)
         self.favorites_board.appMenuRequested.connect(self.app_context_at)
         self.favorites_board.groupMenuRequested.connect(self.group_context_at)
@@ -765,9 +765,9 @@ class Menu(QWidget):
         if self.interaction_depth:
             return
         app_id = item.data(Qt.ItemDataRole.UserRole)
-        self.launch_app(app_id, floating=True if floating else None)
+        self.launch_app(app_id, floating=bool(floating))
 
-    def launch_app(self, app_id, terminal=None, floating=None):
+    def launch_app(self, app_id, terminal=None, floating=False):
         try:
             leave_dashboard()
             self.apps[app_id].launch(terminal=terminal,floating=floating)
@@ -835,7 +835,7 @@ class Menu(QWidget):
             check = add('Always run in terminal', 'utilities-terminal', 'toggle-terminal')
             check.setIcon(QIcon())
             check.setCheckable(True); check.setChecked(entry.fields['terminal'])
-            check=add('Always start floating','window-new','toggle-floating')
+            check=add('Float from bar pins and hotkeys','window-new','toggle-floating')
             check.setIcon(QIcon());check.setCheckable(True);check.setChecked(entry.fields['floating'])
             menu.addSeparator()
             add('Copy command', 'edit-copy', 'copy-command')
@@ -899,7 +899,7 @@ class Menu(QWidget):
                 self.new_group()
             elif action in ('open', 'terminal', 'open-floating'):
                 self.launch_app(app_id, True if action == 'terminal' else None,
-                                True if action=='open-floating' else None)
+                                action=='open-floating')
             elif action in ('pin', 'unpin'):
                 catalog.pin(app_id, action == 'pin' and app_id not in self.pinned)
                 self.refresh_apps(app_id)

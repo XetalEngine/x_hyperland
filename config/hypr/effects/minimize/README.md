@@ -6,7 +6,8 @@ Windows form one column; scroll over it when the column fills up. Apps keep
 running, and grouped windows travel together. The taskbar groups minimized
 apps under **M3**, for example, followed by their app icons: “M” means minimized,
 and “3” is their original workspace. Cube uses its local 1–4 face number.
-Clicking an app icon restores that specific app.
+Clicking an app icon restores that specific app, focuses it and raises it above
+the other windows using the same ordering operation as Super+F.
 
 The center of a Fireball or Splat shows the application's icon when one is
 available. Apps without an identifiable icon retain the small window preview.
@@ -57,7 +58,9 @@ sync for Wayland and XWayland. Chrome's title-bar double-click and native middle
 button can repeatedly maximize and restore without minimizing to reset them.
 Explicit maximize/unmaximize requests are idempotent. On this pinned compositor,
 the adapter also crops client decoration padding to the xdg window geometry so
-restored native buttons remain fully visible and match their input coordinates.
+restored native buttons remain fully visible. Pointer hit testing and held-button
+motion use the same geometry origin; Chrome's tab X no longer requires clicking
+below the visible button. Client popups and XWayland retain their existing paths.
 These corrections remain active when the minimize animation is disabled.
 
 ## Compatibility and recovery

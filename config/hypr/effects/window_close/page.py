@@ -23,7 +23,8 @@ class Dialog(QDialog):
         layout = QVBoxLayout(self); layout.setContentsMargins(24,24,24,24); layout.setSpacing(16)
         title = QLabel('Your window controls, one key away')
         title.setStyleSheet('font-size: 19px; font-weight: 700;'); layout.addWidget(title)
-        hint = QLabel('Hold the modifier over a window to minimize, maximize or restore, and close. '
+        hint = QLabel('Hold the modifier over a window to tile, minimize, maximize or restore, and close. '
+                      'Tile places it alongside the other tiled windows and adjusts the layout. '
                       'Restore turns a tiled window into a floating window at its remembered size, '
                       'fitted to the current screen. Hold Super and click the gear to choose always-on, '
                       'nearby, or hidden controls, size and position for that window or app.')
@@ -33,7 +34,7 @@ class Dialog(QDialog):
         form = QFormLayout(); form.setSpacing(12)
         self.modifier = QComboBox(); self.modifier.addItems(['SUPER', 'ALT', 'SUPER+SHIFT'])
         self.modifier.setCurrentText(self.values['modifier']); form.addRow('Hold to show', self.modifier)
-        self.size = QSpinBox(); self.size.setRange(24,64); self.size.setSuffix(' px'); self.size.setValue(self.values['size'])
+        self.size = QSpinBox(); self.size.setRange(10,64); self.size.setSuffix(' px'); self.size.setValue(self.values['size'])
         form.addRow('Button size', self.size)
         self.inset = QSpinBox(); self.inset.setRange(4,32); self.inset.setSuffix(' px'); self.inset.setValue(self.values['inset'])
         form.addRow('Distance from the corner', self.inset); layout.addLayout(form)

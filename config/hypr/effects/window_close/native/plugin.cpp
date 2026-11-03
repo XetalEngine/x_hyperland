@@ -49,12 +49,12 @@ std::array<double,3> accent{.224,.663,1};
 std::vector<CHyprSignalListener> listeners;
 SP<CEventLoopTimer> timer;
 SP<SHyprCtlCommand> status,windowStatus;
-enum Action { Minimize, Maximize, Close, Gear, None };
-std::array<SP<Render::ITexture>,5> textures;
+enum Action { Minimize, Maximize, Close, Tile, Gear, None };
+std::array<SP<Render::ITexture>,6> textures;
 PHLWINDOWREF target, pressed, pending;
 std::vector<PHLWINDOWREF> neverFloated;
-std::array<CBox,4> buttons;
-struct Row {PHLWINDOWREF window;std::array<CBox,4> boxes;WindowButtons::Rule rule;bool preview=false;};
+std::array<CBox,5> buttons;
+struct Row {PHLWINDOWREF window;std::array<CBox,5> boxes;WindowButtons::Rule rule;bool preview=false;};
 std::vector<Row> rows;
 WindowButtons::Rules appRules,windowRules;
 WindowButtons::Backgrounds backgrounds;
@@ -62,7 +62,7 @@ struct Preview {PHLWINDOWREF window;WindowButtons::Rule rule;pid_t owner;std::st
 std::map<std::string,Preview> previews;
 Action pressedAction=None,pendingAction=None;
 bool held=false, superHeld=false,captured=false, stopping=false,waiting=false;
-uint64_t closed=0, minimized=0, maximized=0, restored=0, floated=0, draws=0,openedSettings=0;
+uint64_t closed=0, minimized=0, maximized=0, restored=0, floated=0, tiled=0, draws=0,openedSettings=0;
 const auto epoch=Clock::now();
 
 std::filesystem::path root() {
@@ -89,7 +89,7 @@ Settings readSettings() {
         size_t used;int n=std::stoi(value,&used);if(used!=value.size())throw std::runtime_error("Invalid close value");
         if(key=="enabled" && (n==0 || n==1))next.enabled=n;
         else if(key=="pulse" && (n==0 || n==1))next.pulse=n;
-        else if(key=="size" && n>=24 && n<=64)next.size=n;
+        else if(key=="size" && n>=10 && n<=64)next.size=n;
         else if(key=="inset" && n>=4 && n<=32)next.inset=n;
         else throw std::runtime_error("Unknown or out-of-range close setting");
     }
@@ -134,7 +134,7 @@ void readAccent() {
     }
 }
 void damage() {for(const auto& row:rows)for(const auto& button:row.boxes)if(!button.empty())g_pHyprRenderer->damageBox(CBox(button).expand(button.width));}
-Action hit(Vector2D point){for(int i=0;i<4;++i)if(!buttons[i].empty()&&buttons[i].containsPoint(point))return Action(i);return None;}
+Action hit(Vector2D point){for(int i=0;i<5;++i)if(!buttons[i].empty()&&buttons[i].containsPoint(point))return Action(i);return None;}
 bool restoring(PHLWINDOW w){return w&&(!w->m_isFloating||Fullscreen::controller()->getFullscreenModes(w).internal!=Fullscreen::FSMODE_NONE);}
 bool available() {
     return !stopping && settings.enabled && g_pCompositor->m_sessionActive &&
@@ -182,17 +182,19 @@ void refresh() {
         if(!settled(window)){waiting|=isPreview||rule.mode=="always"||(isHovered&&(held||rule.mode=="nearby"));continue;}
         if(window->popupsCount()>0){if(isPreview||rule.mode=="always")rows.push_back({window,{},rule,isPreview});continue;}
         auto box=window->geometricBox(Desktop::View::IGeometric::GEOMETRIC_CURRENT).intersection(monitor->logicalBox());
-        const double gap=std::max(4,rule.size/6);
-        const double size=std::min({double(rule.size),(box.w-8-3*gap)/4.,box.h-8});
-        if(size<18)continue;
-        const double width=4*size+3*gap;
+        const double gap=std::max(2,rule.size/6);
+        const double size=std::min({double(rule.size),(box.w-8-4*gap)/5.,box.h-8});
+        if(size<10)continue;
+        const double width=5*size+4*gap;
         const double x=std::clamp(rule.anchor.ends_with("right")?box.x+box.w-width-rule.x:
             rule.anchor.ends_with("center")?box.x+(box.w-width)/2+rule.x-8:box.x+rule.x,box.x+4,box.x+box.w-width-4);
         const double y=std::clamp(rule.anchor.starts_with("bottom")?box.y+box.h-size-rule.y:box.y+rule.y,box.y+4,box.y+box.h-size-4);
         Row row{window,{},rule,isPreview};
         const bool nearby=isHovered&&CBox{x,y,width,size}.expand(rule.proximity).containsPoint(point);
-        if(isPreview||(rule.mode!="off"&&((held&&isHovered)||rule.mode=="always"||(rule.mode=="nearby"&&nearby))))
-            for(int i=0;i<3;++i)row.boxes[i]={x+(i+1)*(size+gap),y,size,size};
+        if(isPreview||(rule.mode!="off"&&((held&&isHovered)||rule.mode=="always"||(rule.mode=="nearby"&&nearby)))){
+            for(int i=0;i<3;++i)row.boxes[i]={x+(i+2)*(size+gap),y,size,size};
+            row.boxes[Tile]={x+size+gap,y,size,size};
+        }
         if(isPreview||(superHeld&&isHovered))row.boxes[Gear]={x+size*.08,y+size*.08,size*.84,size*.84};
         if(std::ranges::all_of(row.boxes,[](const CBox& b){return b.empty();}))continue;
         if(isHovered){target=window;buttons=row.boxes;}
@@ -220,7 +222,10 @@ void createTexture(int glyph) {
     else if(glyph==1)cairo_rectangle(cr,26.5,26.5,11,11);
     else if(glyph==2){cairo_move_to(cr,29,28);cairo_line_to(cr,29,24.5);cairo_line_to(cr,39.5,24.5);cairo_line_to(cr,39.5,35);cairo_line_to(cr,36,35);cairo_rectangle(cr,24.5,28,11.5,11.5);}
     else if(glyph==3){cairo_move_to(cr,27,27);cairo_line_to(cr,37,37);cairo_move_to(cr,37,27);cairo_line_to(cr,27,37);}
-    else {
+    else if(glyph==5){
+        cairo_rectangle(cr,24,25,16,14);cairo_move_to(cr,31,25);cairo_line_to(cr,31,39);
+        cairo_move_to(cr,31,32);cairo_line_to(cr,40,32);
+    } else {
         for(int i=0;i<=32;++i){const double a=i*M_PI/16.,r=(i%4==0||i%4==3)?9.:7.;
             if(i==0)cairo_move_to(cr,32+r*std::cos(a),32+r*std::sin(a));else cairo_line_to(cr,32+r*std::cos(a),32+r*std::sin(a));}
         cairo_close_path(cr);cairo_new_sub_path(cr);cairo_arc(cr,32,32,3.2,0,2*M_PI);
@@ -246,7 +251,7 @@ public:
         auto m=monitor.lock();auto w=row.window.lock();
         if(!m || !w || !available() || !settled(w))return {};
         CBox panel;
-        for(int i=0;i<4;++i){
+        for(int i=0;i<5;++i){
             const auto& button=row.boxes[i];if(button.empty()||(i==Gear&&!superHeld&&!row.preview))continue;
             if(panel.empty())panel=button;
             else {const double right=std::max(panel.x+panel.w,button.x+button.w),bottom=std::max(panel.y+panel.h,button.y+button.h);
@@ -266,9 +271,9 @@ public:
         backing.round=std::round(std::min(10.,row.rule.size*.25)*m->m_scale);
         g_pHyprRenderer->draw(backing,g_pHyprRenderer->m_renderData.damage);
         const double elapsed=std::chrono::duration<double>(Clock::now()-epoch).count();
-        for(int i=0;i<4;++i){
+        for(int i=0;i<5;++i){
             const auto& button=row.boxes[i];if(button.empty()||(i==Gear&&!superHeld&&!row.preview))continue;
-            const int glyph=i==Gear?4:i==Close?3:i==Maximize&&restoring(w)?2:i;
+            const int glyph=i==Gear?4:i==Tile?5:i==Close?3:i==Maximize&&restoring(w)?2:i;
             if(!textures[glyph])createTexture(glyph);
             const bool hover=button.containsPoint(Pointer::mgr()->position());
             CTexPassElement::SRenderData data;data.tex=textures[glyph];
@@ -348,7 +353,17 @@ void perform(PHLWINDOW w,Action action){
         return;
     }
     Desktop::focusState()->fullWindowFocus(w,Desktop::FOCUS_REASON_CLICK);
-    maximizeOrRestore(w);Desktop::windowState()->raise(w);
+    if(action==Tile){
+        // Tiling is a layout operation, separate from maximizing. Leave the
+        // normal floating rectangle intact for the next Restore action.
+        Fullscreen::controller()->setFullscreenMode(w,Fullscreen::FSMODE_NONE,Fullscreen::FSMODE_NONE);
+        if(auto t=w->layoutTarget();t&&t->floating()){
+            t->rememberFloatingSize(t->position().size());
+            g_layoutManager->changeFloatingMode(t);
+        }
+        ++tiled;
+    }else maximizeOrRestore(w);
+    Desktop::windowState()->raise(w);
 }
 void tick(SP<CEventLoopTimer> self,void*) {
     refresh();
@@ -440,14 +455,14 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         });
         status=HyprlandAPI::registerHyprCtlCommand(handle,{"xetal-windowclose",true,[](eHyprCtlOutputFormat,std::string){
             const auto& button=buttons[Close];std::string items;
-            for(int i=0;i<3;++i){const auto& b=buttons[i];if(i)items+=",";
-                const auto name=i==Close?"close":i==Minimize?"minimize":restoring(target.lock())?"restore":"maximize";
+            for(int i=0;i<4;++i){const auto& b=buttons[i];if(i)items+=",";
+                const auto name=i==Tile?"tile":i==Close?"close":i==Minimize?"minimize":restoring(target.lock())?"restore":"maximize";
                 items+=std::format("{{\"action\":\"{}\",\"box\":[{},{},{},{}]}}",name,b.x,b.y,b.w,b.h);
             }
             const auto& gear=buttons[Gear];
-            return std::format("{{\"enabled\":{},\"held\":{},\"visible\":{},\"closed\":{},\"draws\":{},\"box\":[{},{},{},{}],\"color\":[{},{},{}],\"buttons\":[{}],\"minimized\":{},\"maximized\":{},\"restored\":{},\"floated\":{},\"gear\":[{},{},{},{}],\"gear_visible\":{},\"settings_opened\":{}}}",
+            return std::format("{{\"enabled\":{},\"held\":{},\"visible\":{},\"closed\":{},\"draws\":{},\"box\":[{},{},{},{}],\"color\":[{},{},{}],\"buttons\":[{}],\"minimized\":{},\"maximized\":{},\"restored\":{},\"floated\":{},\"gear\":[{},{},{},{}],\"gear_visible\":{},\"settings_opened\":{},\"tiled\":{}}}",
                 settings.enabled,held,available()&&settled(target.lock())&&!button.empty(),closed,draws,button.x,button.y,button.width,button.height,accent[0],accent[1],accent[2],items,minimized,maximized,restored,floated,
-                gear.x,gear.y,gear.w,gear.h,available()&&!gear.empty()&&settled(target.lock()),openedSettings);
+                gear.x,gear.y,gear.w,gear.h,available()&&!gear.empty()&&settled(target.lock()),openedSettings,tiled);
         }});
         windowStatus=HyprlandAPI::registerHyprCtlCommand(handle,{"xetal-windowbuttons",false,[](eHyprCtlOutputFormat,std::string input){
             std::istringstream stream(input);std::string command,id,extra;stream>>command>>id;
@@ -471,6 +486,6 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         }});
         arm();
     }catch(...){cleanup();throw;}
-    return {"Xetal Window Close","Theme-aware window controls with live per-window previews","XetalEngine","1.4"};
+    return {"Xetal Window Close","Theme-aware window controls with live per-window previews","XetalEngine","1.5"};
 }
 APICALL EXPORT void PLUGIN_EXIT(){cleanup();}

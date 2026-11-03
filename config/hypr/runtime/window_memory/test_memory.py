@@ -6,6 +6,15 @@ from service import Store, Tracker, identity
 
 
 class MemoryTests(unittest.TestCase):
+    def test_explicit_launcher_choices_never_receive_a_later_restore(self):
+        hypr=Mock();tracker=Tracker(hypr,None)
+        saved=dict(floating=True,fullscreen=1,client_fullscreen=1,size=[1920,1080],area=[1920,1080])
+        monitor=dict(x=0,y=0,width=1920,height=1080,scale=1)
+        for mode in ('tile','float'):
+            client=dict(address='0x123',size=[950,1040],floating=mode=='float',tags=[f'xetal-{mode}-'+('a'*24)+'-'+('b'*12)+'*'],**{'class':'org.kde.kate'})
+            for phase in range(3):self.assertFalse(tracker.restore(client,{},saved,monitor,phase))
+        self.assertFalse(hypr.mock_calls)
+
     def test_tiled_memory_never_resizes_shared_splits(self):
         monitor = dict(x=0, y=0, width=1920, height=1080, scale=1)
         for size in ([1900, 1040], [90, 1040], [950, 520]):

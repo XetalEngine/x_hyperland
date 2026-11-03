@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -37,7 +38,7 @@ def main():
             if source.is_file() and source.suffix in ('.py','.json','.colors'):shutil.copy2(source,destination/source.name)
     theme_assets=REPO/'config/hypr/theme/assets'
     if theme_assets.exists():shutil.copytree(theme_assets,home/'.config/hypr/theme/assets')
-    if '--builtin-only' in sys.argv:
+    if '--builtin-only' in sys.argv or '--launch-only' in sys.argv:
         # All writable app/preferences paths belong to this private HOME. Copy
         # sources/configs only; compiled binaries stay in the build tree.
         for directory,subdirs,names in os.walk(REPO/'config/hypr'):
@@ -76,7 +77,7 @@ bindm=SUPER,mouse:273,resizewindow
 ''')
     verify = subprocess.run(['Hyprland', '--verify-config', '--config', str(conf)], capture_output=True, text=True)
     assert verify.returncode == 0, verify.stdout + verify.stderr
-    runtime = Path(tempfile.mkdtemp(prefix='xbuttons-', dir='/tmp'))
+    runtime = Path(tempfile.mkdtemp(prefix='wb-', dir='/tmp'))
     parent = os.environ.get('WAYLAND_DISPLAY', 'wayland-0')
     if not parent.startswith('/'): parent = str(Path(os.environ['XDG_RUNTIME_DIR']) / parent)
     env = dict(os.environ, HOME=str(home), XDG_CONFIG_HOME=str(home / '.config'), XDG_CACHE_HOME=str(home / '.cache'),
@@ -139,7 +140,13 @@ bindm=SUPER,mouse:273,resizewindow
                 assert ctl('keyword',f'device[{device["name"]}]:enabled','false')=='ok'
         minimize_binary = sys.argv[sys.argv.index('--minimize-plugin')+1] if '--minimize-plugin' in sys.argv else str(minimize_build.build())
         assert ctl('plugin', 'load', minimize_binary) == 'ok'
+        memory_binary=subprocess.check_output([sys.executable,str(REPO/'config/hypr/runtime/window_memory/build.py')],text=True).strip()
+        assert ctl('plugin','load',memory_binary)=='ok'
         assert ctl('plugin', 'load', str(binary)) == 'ok'
+        if '--launch-only' in sys.argv:
+            bus=spawn(['dbus-daemon','--session','--nofork','--print-address=1'],stdout=subprocess.PIPE,text=True)
+            env['DBUS_SESSION_BUS_ADDRESS']=bus.stdout.readline().strip()
+            assert env['DBUS_SESSION_BUS_ADDRESS'].startswith('unix:')
         fixture='tests/window-buttons/background_client.py' if '--background-only' in sys.argv else 'tests/wobbly/client.py'
         app = spawn([sys.executable, str(REPO / fixture), '-name', 'wobbly-test'],
                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
@@ -183,13 +190,51 @@ bindm=SUPER,mouse:273,resizewindow
             print('Isolated GTK preferences:',chrome_env['XDG_CONFIG_HOME'],'backend:',chrome_env['GSETTINGS_BACKEND'],flush=True)
             subprocess.run(['gsettings','set','org.gnome.desktop.wm.preferences','button-layout',':minimize,maximize,close'],env=chrome_env,check=True)
             spawn([browser, '--ozone-platform=wayland', '--no-first-run', '--no-default-browser-check',
-                   '--disable-background-networking', '--disable-sync', '--password-store=basic',
-                   '--user-data-dir='+str(root/'browser'), fixture.as_uri()], env=chrome_env)
+                   '--disable-background-networking', '--disable-sync', '--password-store=basic', '--disable-component-update',
+                   '--remote-debugging-port=0', '--user-data-dir='+str(root/'browser'), fixture.as_uri()], env=chrome_env)
             def chrome(): return next((c for c in clients() if c['class'].startswith(('google-chrome', 'chromium', 'chrome-'))), None)
             c = wait(chrome); addr = 'address:'+c['address']
             dispatch('setfloating', addr); dispatch('resizewindowpixel', 'exact 850 600,'+addr)
             dispatch('movewindowpixel', 'exact 120 100,'+addr); dispatch('focuswindow', addr); time.sleep(.6)
             run('grim', str(root/'chrome-before.png'))
+            if '--tabs-only' in sys.argv:
+                import urllib.request
+                probe=subprocess.check_output([sys.executable,str(REPO/'config/hypr/runtime/cursor_probe/build.py')],text=True).strip()
+                assert ctl('plugin','load',probe)=='ok'
+                assert ctl('keyword','bindn',',mouse:272,event,xetal-floating-drag-press')=='ok'
+                assert ctl('keyword','bindinr',',mouse:272,event,xetal-floating-drag-release')=='ok'
+                spawn([sys.executable,str(REPO/'config/hypr/scripts/floating-drag.py')])
+                port_file=root/'browser/DevToolsActivePort';wait(port_file.exists)
+                endpoint='http://127.0.0.1:'+port_file.read_text().splitlines()[0]
+                def pages():
+                    with urllib.request.urlopen(endpoint+'/json/list',timeout=3) as response:
+                        return [page for page in json.load(response) if page['type']=='page']
+                def add_tab():
+                    request=urllib.request.Request(endpoint+'/json/new?about:blank',method='PUT')
+                    with urllib.request.urlopen(request,timeout=3) as response:json.load(response)
+                    time.sleep(.5)
+                # Deliberately use only this throwaway profile's blank tabs.
+                add_tab();run('grim',str(root/'chrome-tabs.png'))
+                print('Chrome tab baseline',chrome()['at'],chrome()['size'],len(pages()),flush=True)
+                # Upper, center and lower parts of the *visible* X. Before
+                # the geometry fix, only the lower part received a click.
+                for dx,dy in ((254,16),(256,20),(258,24)):
+                    c=chrome();before=len(pages())
+                    point(f"move {c['at'][0]+dx} {c['at'][1]+dy}");time.sleep(.5)
+                    point('down 272');time.sleep(.04)
+                    # A one-pixel held motion takes the compositor's implicit
+                    # grab path; it must retain the same surface origin.
+                    point(f"move {c['at'][0]+dx+1} {c['at'][1]+dy}");point('up 272');time.sleep(.4)
+                    after=len(pages());assert after==before-1,('Tab X missed',dx,dy,before,after)
+                    add_tab()
+                print('Chrome tab X accepts upper, center, lower and held-motion clicks',flush=True)
+                before=(chrome()['at'],chrome()['size'])
+                assert ctl('plugin','unload',memory_binary)=='ok'
+                assert ctl('plugin','load',memory_binary)=='ok'
+                assert (chrome()['at'],chrome()['size'])==before
+                assert json.loads(ctl('xetal-windows'))
+                print('Input adapter reload keeps live windows and metadata intact',flush=True)
+                return
             for gesture in ('button', 'double-click'):
                 for cycle in range(4):
                     c = chrome(); expected = 0 if c['fullscreen'] == 1 else 1
@@ -204,8 +249,50 @@ bindm=SUPER,mouse:273,resizewindow
                 print('Chrome native '+gesture+' repeatedly maximizes/restores without minimizing', flush=True)
             dispatch('closewindow', addr); wait(lambda: not chrome())
 
-        if '--native-only' in sys.argv:
+        if '--native-only' in sys.argv or '--tabs-only' in sys.argv:
             check_chrome(); return
+
+        if '--launch-only' in sys.argv:
+            profile=home/'.config/hypr'
+            memory=spawn([sys.executable,str(REPO/'config/hypr/runtime/window_memory/service.py'),'--state',str(root/'windows.json')])
+            wait(lambda:any(p['name']=='Xetal Window Memory' for p in json.loads(ctl('-j','plugin','list'))))
+            # A desktop entry goes through the real launcher path, including
+            # first-map rules, size memory, and a private D-Bus for Kate.
+            driver=root/'launch.py'
+            driver.write_text('''import sys
+sys.path.insert(0,sys.argv[1]+'/launcher')
+from gi.repository import Gio
+from shortcuts import Entry
+entry=Entry('org.kde.kate.desktop',Gio.DesktopAppInfo.new_from_filename(sys.argv[2]))
+entry.launch(floating=sys.argv[3]=='float')
+''')
+            desktop=root/'kate.desktop'
+            desktop.write_text('[Desktop Entry]\nType=Application\nName=Kate fixture\nExec=kate --new --startanon\nTerminal=false\n')
+            def kate():return next((c for c in clients() if c['class']=='org.kde.kate'),None)
+            def launch_kate(mode):
+                p=spawn([sys.executable,str(driver),str(profile),str(desktop),mode]);assert p.wait(timeout=10)==0
+                c=wait(kate,seconds=15)
+                snapshots=[]
+                for _ in range(50):
+                    c=kate();snapshots.append(dict(floating=c['floating'],fullscreen=c['fullscreen'],size=c['size'],at=c['at']))
+                    assert c['floating']==(mode=='float') and c['fullscreen']==0 and c['fullscreenClient']==0,(mode,c)
+                    time.sleep(.04)
+                (root/(mode+'-launch.json')).write_text(json.dumps(snapshots,indent=2))
+                return 'address:'+c['address']
+            addr=launch_kate('float');dispatch('resizewindowpixel','exact 710 490,'+addr);dispatch('movewindowpixel','exact 150 170,'+addr)
+            time.sleep(1.3);dispatch('focuswindow',addr);dispatch('fullscreenstate','1 1');time.sleep(1.3)
+            assert kate()['fullscreen']==1
+            dispatch('closewindow',addr);wait(lambda:not kate());time.sleep(.4)
+            addr=launch_kate('tile')
+            assert not client()['floating'] and client()['size'][0]>300 and kate()['size'][0]>300
+            assert abs(client()['size'][0]-kate()['size'][0])<80,(client(),kate())
+            dispatch('closewindow',addr);wait(lambda:not kate());time.sleep(.4)
+            addr=launch_kate('float')
+            assert kate()['size']==[710,490],kate()
+            assert all(abs(a-b)<=3 for a,b in zip(kate()['at'],[150,170])),kate()
+            assert memory.poll() is None
+            print('Kate: maximized history → stable tiled launch; Ctrl launch restores normal size and position',flush=True)
+            return
 
         if '--builtin-only' in sys.argv:
             command('close');wait(lambda:not client())
@@ -264,7 +351,7 @@ bindm=SUPER,mouse:273,resizewindow
             def edit(op,**values):
                 editor.stdin.write(json.dumps(dict(op=op,**values))+'\n');editor.stdin.flush()
                 return json.loads(editor.stdout.readline())
-            wait(lambda:info()['preview'] and len(info()['preview_boxes'])==4)
+            wait(lambda:info()['preview'] and len(info()['preview_boxes'])==5)
             wait(lambda:info()['auto_background']['ready'])
             actual=info()['auto_background']['color'];assert same_color(actual,'#334a5a'),info()
             boxes=info()['preview_boxes'];x=round((boxes[0][0]+boxes[0][2]+boxes[1][0])/2);y=client()['at'][1]+25
@@ -343,7 +430,7 @@ bindm=SUPER,mouse:273,resizewindow
             gear=status()['gear'];point(f'move {round(gear[0]+gear[2]/2)} {round(gear[1]+gear[3]/2)}')
             point('down 272');point('up 272');wait(lambda:status()['settings_opened']==1);point('key 125 0')
             editor=wait(lambda:next((c for c in clients() if c['class']=='fusion-window-buttons'),None),12)
-            wait(lambda:info()['preview'] and len(info()['preview_boxes'])==4)
+            wait(lambda:info()['preview'] and len(info()['preview_boxes'])==5)
             assert all(b[2]>0 for b in info()['preview_boxes'])
             time.sleep(.3);run('grim',str(root/'gear-settings.png'))
             dispatch('closewindow','address:'+editor['address']);wait(lambda:not any(c['class']=='fusion-window-buttons' for c in clients()))
@@ -393,7 +480,7 @@ bindm=SUPER,mouse:273,resizewindow
                 process=spawn([sys.executable,str(REPO/'tests/window-buttons/editor.py'),str(home/'.config/hypr'),window_id],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
                 editor=wait(lambda:next((c for c in clients() if c['pid']==process.pid),None))
                 dispatch('setfloating','address:'+editor['address']);dispatch('movewindowpixel','exact 30 110,address:'+editor['address'])
-                wait(lambda:info()['preview'] and len(info()['preview_boxes'])==4)
+                wait(lambda:info()['preview'] and len(info()['preview_boxes'])==5)
                 return process
             def edit(process,op,**values):
                 process.stdin.write(json.dumps(dict(op=op,**values))+'\n');process.stdin.flush()
@@ -409,7 +496,7 @@ bindm=SUPER,mouse:273,resizewindow
             run('grim',str(root/'live-preview.png'))
             edit(editor,'close');editor.wait(timeout=5);wait(lambda:not info()['preview'])
             assert (app_rules.read_bytes(),window_rules.read_bytes())==original
-            print('Current settings, remembered-app default, four live buttons, sliders and discard passed',flush=True)
+            print('Current settings, remembered-app default, five live buttons, sliders and discard passed',flush=True)
             editor=start_editor();edit(editor,'slider',key='size',value=52);edit(editor,'mode',value='always')
             state=edit(editor,'apply');assert state['status'].startswith('Applied.'),state
             saved=info()['rule'];assert saved['size']==52 and saved['mode']=='always' and not info()['window_override']
@@ -437,7 +524,7 @@ bindm=SUPER,mouse:273,resizewindow
             return
 
         assert not client()['floating']
-        reveal(); assert [b['action'] for b in status()['buttons']] == ['minimize', 'restore', 'close']
+        reveal(); assert [b['action'] for b in status()['buttons']] == ['minimize', 'restore', 'close', 'tile']
         run('grim', str(root / 'tiled-buttons.png')); point('key 125 0')
         click(1); wait(lambda: client()['floating']); fits()
         assert client()['size'][0] < 1200 and client()['size'][1] < 840, client()
@@ -462,6 +549,25 @@ bindm=SUPER,mouse:273,resizewindow
         wait(lambda: client()['fullscreen'] == 0 and geometry() == saved)
         print('Tiled → remembered float → maximize → restore, including application maximize, passed', flush=True)
 
+        command('add','Tile sibling');wait(lambda:client('Tile sibling'))
+        dispatch('settiled',address('Tile sibling'));click(3)
+        wait(lambda:not client()['floating'] and client()['fullscreen']==0)
+        assert not client('Tile sibling')['floating']
+        assert abs(client()['size'][0]-client('Tile sibling')['size'][0])<80,(client(),client('Tile sibling'))
+        click(3);assert not client()['floating'],'Tile is idempotent'
+        click(1);wait(lambda:client()['floating'] and client()['size']==[710,490])
+        click(1);wait(lambda:client()['fullscreen']==1);click(3)
+        wait(lambda:not client()['floating'] and client()['fullscreen']==0)
+        click(1);wait(lambda:client()['floating'] and client()['size']==[710,490])
+        command('close','Tile sibling');wait(lambda:not client('Tile sibling'))
+        settings.write_text(model.encode(dict(model.DEFAULTS,size=10)));dispatch('xetalwindowclose:reload')
+        reveal();assert all(b['box'][2]==10 for b in status()['buttons']),status()
+        run('grim',str(root/'ten-pixel-buttons.png'));point('key 125 0')
+        click(3);wait(lambda:not client()['floating'])
+        settings.write_text(model.encode(model.DEFAULTS));dispatch('xetalwindowclose:reload');click(1)
+        wait(lambda:client()['floating'])
+        print('Tile joins the layout, keeps normal floating size, and all controls work down to 10px',flush=True)
+
         dispatch('resizewindowpixel', 'exact 1150 780,' + address()); wait(lambda: client()['size'] == [1150, 780])
         dispatch('settiled', address()); wait(lambda: not client()['floating'])
         size_output(850, 700); point('extent 850 700'); click(1)
@@ -476,6 +582,16 @@ bindm=SUPER,mouse:273,resizewindow
         command('add', 'Other'); wait(lambda: client('Other'))
         dispatch('setfloating', address('Other')); dispatch('resizewindowpixel', 'exact 530 400,' + address('Other'))
         dispatch('movewindowpixel', 'exact 730 150,' + address('Other')); dispatch('focuswindow', address('Other'))
+        def activate(name):
+            process=spawn([sys.executable,str(REPO/'config/hypr/scripts/activate-window.py'),client(name)['address']]);assert process.wait(timeout=5)==0
+            wait(lambda:client(name)['focusHistoryID']==0)
+            ordered=[c['address'] for c in clients()]
+            assert ordered.index(client(name)['address'])>ordered.index(client('Other' if name=='Buttons' else 'Buttons')['address'])
+        activate('Buttons');activate('Other')
+        dispatch('xetalminimize:minimize',address());wait(lambda:min_status()['active']==1)
+        activate('Buttons');wait(lambda:min_status()['active']==0)
+        activate('Other')
+        print('Workspace icon activation focuses, raises and restores the addressed window',flush=True)
         saved = geometry(); click(0)
         wait(lambda: min_status()['active'] == 1)
         assert client('Other')['workspace']['id'] > 0 and client()['workspace']['id'] < 0
@@ -523,6 +639,14 @@ bindm=SUPER,mouse:273,resizewindow
                 process.terminate()
                 try: process.wait(timeout=3)
                 except subprocess.TimeoutExpired: process.kill(); process.wait()
+        # Exec-launched apps and the size-memory watcher also belong only to
+        # this disposable compositor. Never signal any parent-session helper.
+        for path in Path('/proc').iterdir():
+            if not path.name.isdigit():continue
+            try:
+                if path.stat().st_uid==os.getuid() and ('XDG_RUNTIME_DIR='+str(runtime)).encode() in (path/'environ').read_bytes().split(b'\0'):
+                    os.kill(int(path.name),signal.SIGTERM)
+            except OSError:pass
         for log in logs: log.close()
 
 

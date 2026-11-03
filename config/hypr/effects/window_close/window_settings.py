@@ -129,7 +129,7 @@ class RuleDialog(QDialog):
         self.mode=QComboBox()
         for key,label in rules.MODES.items():self.mode.addItem(label,key)
         form.addRow('Show controls',self.mode)
-        self.size=SliderControl(24,64);form.addRow('Button size',self.size)
+        self.size=SliderControl(10,64);form.addRow('Button size',self.size)
         self.anchor=QComboBox()
         for key,label in rules.ANCHORS.items():self.anchor.addItem(label,key)
         form.addRow('Position',self.anchor)
@@ -153,7 +153,7 @@ class RuleDialog(QDialog):
         self.picker=DesktopPicker(self);self.picker.picked.connect(self.set_color);self.picker.finished.connect(self.picker_finished)
         self.live=QLabel();self.live.setWordWrap(True);self.live.setTextFormat(Qt.TextFormat.PlainText)
         layout.addWidget(self.live)
-        hint=QLabel('All four buttons stay visible on the window while you edit. '
+        hint=QLabel('All five buttons stay visible on the window while you edit: settings, tile, minimize, restore and close. '
                     'Move the sliders to preview changes; Apply saves them. '
                     'Your chosen visibility takes effect when you close this editor.')
         hint.setWordWrap(True);layout.addWidget(hint)
@@ -256,7 +256,7 @@ class RuleDialog(QDialog):
                 path,section=controller.rule_file(scope);data,self.tokens[scope]=rules.load(path,section)
                 self.documents[scope]=data[section]
             width,height=self.info.get('size',[1000,700])
-            self.x.setSliderMaximum(max(16,width-4*self.info['rule']['size']-24))
+            self.x.setSliderMaximum(max(16,width-5*self.info['rule']['size']-32))
             self.y.setSliderMaximum(max(16,height-self.info['rule']['size']-8))
             self.valid=True;self.remove_override=False
             # Apply-to selects the destination, never the source. Always show

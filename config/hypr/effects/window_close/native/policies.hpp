@@ -35,7 +35,7 @@ inline Rule readRule(json_object* value){
     if(!std::set<std::string>{"super","always","nearby","off"}.contains(r.mode)||
        !std::set<std::string>{"top-left","top-center","top-right","bottom-left","bottom-center","bottom-right"}.contains(r.anchor))throw std::runtime_error("Unknown button display mode or position");
     auto number=[&](const char* key,int lo,int hi){auto n=json_object_get_int64(field(value,key,json_type_int));if(n<lo||n>hi)throw std::runtime_error("Button rule value out of range");return int(n);};
-    r.size=number("size",24,64);r.x=number("x",0,4000);r.y=number("y",0,4000);r.proximity=number("proximity",12,400);
+    r.size=number("size",10,64);r.x=number("x",0,4000);r.y=number("y",0,4000);r.proximity=number("proximity",12,400);
     if(json_object_object_length(value)==8){
         r.background=json_object_get_string(field(value,"background",json_type_string));
         auto color=field(value,"background_color",json_type_string);

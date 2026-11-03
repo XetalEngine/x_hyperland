@@ -13,7 +13,7 @@ def validate(values):
         raise ValueError('Invalid window close switch.')
     if values['modifier'] not in ('SUPER', 'ALT', 'SUPER+SHIFT'):
         raise ValueError('Choose Super, Alt, or Super+Shift.')
-    for key, lo, hi in (('size', 24, 64), ('inset', 4, 32)):
+    for key, lo, hi in (('size', 10, 64), ('inset', 4, 32)):
         if type(values[key]) is not int or not lo <= values[key] <= hi:
             raise ValueError(f'{key} must be between {lo} and {hi}.')
     return dict(values)
