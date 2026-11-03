@@ -43,6 +43,26 @@ int main(int argc,char** argv){
         assert(near(v.x*viewport.w,x,.002) && near(v.y*viewport.h,y,.002));
     }
     auto allocation=mesh.vertices.data();mesh.update(smooth,8,8,viewport);assert(mesh.vertices.data()==allocation);
+    // Full-window captures have their own UV origin even when the original
+    // window is outside an output. A screen-sized source would discard these
+    // texels before the spring lattice can bend them back onto either output.
+    for(const auto box: {Box{-180,200,620,400},Box{1100,200,620,400},
+                         Box{250,-180,620,400},Box{250,800,620,400}}){
+        Engine edge(box);edge.grab(box.x+300,box.y+200,false);
+        edge.geometry({box.x+80,box.y+40,box.w,box.h},false,box.x+380,box.y+240);
+        edge.step(8,3,3);
+        const Box source{edge.box.x-2,edge.box.y-2,edge.box.w+4,edge.box.h+4};
+        for(const auto screen:{Box{0,0,1280,900},Box{1280,0,640,800}}){
+            Mesh complete;complete.update(edge,3,8,screen,source);
+            for(const auto v:complete.vertices){
+                assert(v.u>=0 && v.u<=1 && v.v>=0 && v.v<=1);
+                const auto point=edge.evaluate((v.u*source.w+source.x-edge.box.x)/edge.box.w,
+                                                (v.v*source.h+source.y-edge.box.y)/edge.box.h);
+                assert(near(v.x*screen.w+screen.x,point.x,.003));
+                assert(near(v.y*screen.h+screen.y,point.y,.003));
+            }
+        }
+    }
     Engine snap({30,100,300,200});Compiz::CompScreen screen;screen.outputDev.push_back({{0,0,1000,800}});
     snap.window.screen=&screen;snap.grab(30,100,false);snap.snap(true);snap.geometry({-10,100,300,200},false,-10,100);
     for(int i=0;i<35;++i)snap.step(15,3,8);

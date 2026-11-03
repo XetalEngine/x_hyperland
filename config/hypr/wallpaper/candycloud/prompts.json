@@ -1,0 +1,26 @@
+{
+  "theme": "Candy Cloud",
+  "generator": "Built-in imagegen",
+  "reference": "User-provided CandyCloud.png concept",
+  "created": "2026-11-02",
+  "assets": [
+    {
+      "id": "sugar-sky",
+      "position": "left",
+      "prompt": "Create a spectacular premium desktop wallpaper for a desktop theme called Candy Cloud. Landscape 16:9, ideally 3840 x 2160. Full bleed environment only: absolutely NO words, letters, logos, UI, windows, panels, dock, icons, frames or watermark. A luxurious pastel fantasy world, photoreal cinematic 3D environmental art with exquisite materials, not flat cartoon, not candy food. Floating alabaster islands, pink sakura-like trees, lush cushion clouds, pearlescent architecture, transparent iridescent ribbon pathways and thin luminous waterfalls. Sophisticated pink, peach, periwinkle, lilac and opal palette. Fine cloud detail, physically beautiful soft volumetric light, aerial perspective, sparkling pearly highlights. Wide composition with calm negative space through center for desktop windows. The three images in this series should feel like nearby districts in one cohesive beautiful world. This is SUGAR SKY, the left monitor scene. A spectacular tall floating terraced cloud garden at the LEFT edge, pink flowering trees and a small ivory pavilion atop it. A broad translucent pearlescent ribbon curls from near lower left up into the far center distance. Silky waterfalls pour into peach-tinted clouds below. Distant tiny floating islands towards the RIGHT, a tranquil luminous apricot sunset gradient sky, pale mauve cloud shadows. Detail concentrated in left third and bottom third, sweeping open sky in the middle. An airy dreamy panorama, soft warm afternoon, elegant not childish.",
+      "file": "sugar-sky.png"
+    },
+    {
+      "id": "cloud-palace",
+      "position": "center",
+      "prompt": "Create a spectacular premium desktop wallpaper for a desktop theme called Candy Cloud. Landscape 16:9, ideally 3840 x 2160. Full bleed environment only: absolutely NO words, letters, logos, UI, windows, panels, dock, icons, frames or watermark. A luxurious pastel fantasy world, photoreal cinematic 3D environmental art with exquisite materials, not flat cartoon, not candy food. Floating alabaster islands, pink sakura-like trees, lush cushion clouds, pearlescent architecture, transparent iridescent ribbon pathways and thin luminous waterfalls. Sophisticated pink, peach, periwinkle, lilac and opal palette. Fine cloud detail, physically beautiful soft volumetric light, aerial perspective, sparkling pearly highlights. Wide composition with calm negative space through center for desktop windows. The three images in this series should feel like nearby districts in one cohesive beautiful world. This is CLOUD PALACE, the central hero monitor scene. A magnificent floating ivory-and-rose palace on a large island slightly RIGHT of center, tall slender art nouveau arches and pearly towers, warm illuminated windows, flowering pink canopies, delicate waterfalls descending into a soft cloud ocean. A graceful opalescent ribbon bridge sweeps across the lower foreground and curves toward the palace, lavender shadowed cloud layers below, peach sunlight and lilac atmosphere. A small glowing pearl moon high LEFT, several remote tiny floating islands for scale. Rich depth and a coherent architectural focal point, a jaw-dropping serene cloud metropolis with spacious sky. No text.",
+      "file": "cloud-palace.png"
+    },
+    {
+      "id": "moon-ribbon",
+      "position": "right",
+      "prompt": "Create a spectacular premium desktop wallpaper for a desktop theme called Candy Cloud. Landscape 16:9, ideally 3840 x 2160. Full bleed environment only: absolutely NO words, letters, logos, UI, windows, panels, dock, icons, frames or watermark. A luxurious pastel fantasy world, photoreal cinematic 3D environmental art with exquisite materials, not flat cartoon, not candy food. Floating alabaster islands, pink sakura-like trees, lush cushion clouds, pearlescent architecture, transparent iridescent ribbon pathways and thin luminous waterfalls. Sophisticated pink, peach, periwinkle, lilac and opal palette. Fine cloud detail, physically beautiful soft volumetric light, aerial perspective, sparkling pearly highlights. Wide composition with calm negative space through center for desktop windows. The three images in this series should feel like nearby districts in one cohesive beautiful world. This is MOON RIBBON, the right monitor scene. Early blue-violet twilight, a huge soft opalescent moon in upper RIGHT over a sea of fluffy lavender and rose clouds, a floating island garden on RIGHT with a grove of pink blossom trees, ivory archways and shimmering long waterfalls. A luminous translucent candy-pink and periwinkle ribbon pathway does one elegant flowing loop across the lower half and recedes towards far LEFT islands. Tiny star-like specks just appearing, soft peach horizon glow echoes the other two scenes, luxurious moonlight edges. More periwinkle than the other scenes but still luminous pastel, not a dark night. Great spatial scale, beautiful polished iridescence, no objects shaped like food.",
+      "file": "moon-ribbon.png"
+    }
+  ]
+}

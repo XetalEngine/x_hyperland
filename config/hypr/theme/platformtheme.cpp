@@ -33,7 +33,7 @@ class XetalTheme final : public QObject, public QPlatformTheme {
             if (local == "raw" || all.value(local).isObject()) design = local;
         }
         if (design != "raw" && all.value(design).isObject()) all = all.value(design).toObject();
-        systemFont.setFamily(design == "breakpoint" || design == "binaryknife" || design == "tidalglass" || design == "porcelainink" || design == "obsidianforge" ? "Inter" : "Noto Sans");
+        systemFont.setFamily(design == "breakpoint" || design == "binaryknife" || design == "tidalglass" || design == "porcelainink" || design == "obsidianforge" || design == "candycloud" ? "Inter" : "Noto Sans");
         auto values = all.value(mode).toObject();
         if (values.isEmpty()) { mode = "dark"; values = all.value(mode).toObject(); }
         colors = QPalette(QColor(values.value("Window").toString("#171b22")));

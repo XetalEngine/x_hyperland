@@ -11,6 +11,7 @@ STYLES = {
     'tidal': ('tidalglass','Bioluminescence','#68dfed','#d2faff','A watery wake releases rising bubbles and luminous plankton.'),
     'ink': ('porcelainink','Living ink','#bb3b30','#f0e4cc','A tapered brush stroke scatters vermilion petals and ink flecks.'),
     'cinder': ('obsidianforge','Cinder wake','#ff8a3d','#a84b23','A molten fissure cools behind the pointer while hot embers lift into the air.'),
+    'cloud': ('candycloud','Cloud nine','#f6a5d7','#c4a7ff','Tiny satin clouds lift off a pearlescent ribbon and release spinning four-point stars.'),
 }
 THEMES = {value[0]:key for key,value in STYLES.items()}
 GENERAL = {

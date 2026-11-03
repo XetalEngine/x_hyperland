@@ -33,5 +33,10 @@
     "obsidianforge/basalt-reach.png",
     "obsidianforge/the-forge.png",
     "obsidianforge/ashen-observatory.png"
+  ],
+  "candycloud": [
+    "candycloud/sugar-sky.png",
+    "candycloud/cloud-palace.png",
+    "candycloud/moon-ribbon.png"
   ]
 }

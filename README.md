@@ -121,7 +121,9 @@ Colors follow you through Apps, the taskbar, Fusion Settings, Control Panel, KVM
 
 Each theme includes its own three-screen wallpaper set. The [gallery](docs/GALLERY.md) shows the original Xetal World designs, their tools and artwork.
 
-**Presets → Atmospheres** contains Tidal Glass, Porcelain Ink, and **Obsidian Forge**. Obsidian Forge pairs machined basalt panels and copper edges with three original volcanic wallpapers: Basalt Reach, The Forge, and Ashen Observatory. Its Cinder wake mouse trail lifts embers from a cooling fissure; its file-transfer animation carries glowing documents through basalt presses. Both can be selected independently in Mix & match. Built-in presets start dark, and Kitty keeps a dark background in every mode.
+**Presets → Atmospheres** contains Tidal Glass, Porcelain Ink, Obsidian Forge, and **Candy Cloud**. Obsidian Forge pairs machined basalt panels and copper edges with three original volcanic wallpapers: Basalt Reach, The Forge, and Ashen Observatory. Its Cinder wake mouse trail lifts embers from a cooling fissure; its file-transfer animation carries glowing documents through basalt presses.
+
+Candy Cloud adds sculpted satin controls, pill-shaped navigation, a pearlescent taskbar, and three floating-island wallpapers: Sugar Sky, Cloud Palace, and Moon Ribbon, assigned left to right. Its Cloud nine trail releases small clouds and four-point stars, while cloud couriers carry envelopes along a ribbon during file transfers. These styles, its Orchid cursor, and its Start menu can be mixed independently through their detailed tabs or Mix & match. Every preset starts dark; Candy Cloud also includes pastel light and high-contrast modes. Kitty stays dark in every mode, and the optional selection marker starts Off. Wallpaper generation prompts are kept beside each atmosphere's artwork.
 
 ## Make the desktop yours
 

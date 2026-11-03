@@ -44,6 +44,7 @@ def main():
 misc:disable_hyprland_logo=true
 misc:disable_splash_rendering=true
 misc:disable_hyprland_guiutils_check=true
+debug:disable_scale_checks=true
 debug:disable_logs=false
 input:follow_mouse=0
 animations:enabled=true
@@ -60,7 +61,7 @@ windowrule=match:class ^wobbly-test$,float on
     verify=subprocess.run(['Hyprland','--verify-config','--config',str(conf)],capture_output=True,text=True)
     assert verify.returncode==0,verify.stdout+verify.stderr
     runtime=Path(tempfile.mkdtemp(prefix='xw-',dir='/tmp'))
-    parent=os.environ['WAYLAND_DISPLAY']
+    parent=os.environ.get('WAYLAND_DISPLAY','wayland-0')
     if not parent.startswith('/'):parent=str(Path(os.environ['XDG_RUNTIME_DIR'])/parent)
     env=dict(os.environ,HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_CACHE_HOME=str(home/'.cache'),XDG_DATA_HOME=str(home/'.local/share'),
              XDG_STATE_HOME=str(home/'.local/state'),XDG_RUNTIME_DIR=str(runtime),WAYLAND_DISPLAY=parent,AQ_BACKENDS='wayland',
@@ -96,7 +97,20 @@ windowrule=match:class ^wobbly-test$,float on
             if compositor.poll() is not None:raise AssertionError('Nested compositor exited')
             try:return next((i for i in json.loads(ctl('-j','instances')) if i['pid']==compositor.pid),None)
             except ValueError:return None
-        i=wait(instance);env.update(HYPRLAND_INSTANCE_SIGNATURE=i['instance'],WAYLAND_DISPLAY=i['wl_socket']);time.sleep(1.5)
+        i=wait(instance);env.update(HYPRLAND_INSTANCE_SIGNATURE=i['instance'],WAYLAND_DISPLAY=i['wl_socket'])
+        def size_output(name, w, h):
+            # Only touch windows belonging to this disposable compositor. The
+            # parent must not tile/resize its output behind the virtual pointer.
+            def parent_clients():
+                return json.loads(subprocess.check_output(['hyprctl','-j','clients'],env=os.environ,text=True))
+            surface=wait(lambda:next((c for c in parent_clients() if c['pid']==compositor.pid and name in c['title']),None))
+            target='address:'+surface['address']
+            for action,arg in [('setfloating',target),('resizewindowpixel',f'exact {w} {h},'+target)]:
+                subprocess.run(['hyprctl','dispatch',action,arg],env=os.environ,check=True,capture_output=True)
+            wait(lambda:next(o for o in json.loads(ctl('-j','monitors')) if o['name']==name)['width']==w)
+        primary=wait(lambda:next(iter(json.loads(ctl('-j','monitors'))),None))
+        size_output(primary['name'],1280,900)
+        time.sleep(1.5)
         assert ctl('plugin','load',str(binary))=='ok'
         assert ctl('plugin','load',str(close_build.build()))=='ok'
         app=spawn([sys.executable,str(REPO/'tests/wobbly/client.py'),'-name','wobbly-test'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
@@ -123,6 +137,44 @@ windowrule=match:class ^wobbly-test$,float on
         counters=(status()['draws'],status()['steps']);time.sleep(.2)
         assert (status()['draws'],status()['steps'])==counters
         print('Static window schedules its own presentation frames and stops when settled',flush=True)
+        # The undeformed rectangle crosses the output edge first. Its trailing
+        # border must remain visible wherever the spring lattice is onscreen.
+        # Sampling the actual rendered boundary catches monitor-clipped source
+        # textures even when physics and draw counters are perfectly healthy.
+        from PIL import Image
+        for edge in ('left','right','top','bottom'):
+            dispatch('resizewindowpixel','exact 620 400,'+address)
+            x=100 if edge=='left' else width-820 if edge=='right' else 250
+            y=100 if edge=='top' else height-500 if edge=='bottom' else 200
+            dispatch('movewindowpixel',f'exact {x} {y},'+address);time.sleep(.4)
+            px=x+(500 if edge=='left' else 80);py=y+(300 if edge=='top' else 50)
+            dx=-280 if edge=='left' else 380 if edge=='right' else 0
+            dy=-280 if edge=='top' else 280 if edge=='bottom' else 0
+            point(f'move {px} {py}');point('down 272');time.sleep(.02)
+            assert status()['active']==1 and status()['windows'][0]['grabbed'],(edge,status())
+            for fraction in (.25,.5,.75,1):
+                point(f'move {round(px+dx*fraction)} {round(py+dy*fraction)}');time.sleep(.008)
+            screenshot('edge-'+edge)
+            actual=client();ax,ay=actual['at'];aw,ah=actual['size']
+            crosses={'left':ax<0,'right':ax+aw>width,'top':ay<0,'bottom':ay+ah>height}
+            assert crosses[edge],(edge,actual)
+            point('up 272');wait(lambda:status()['active']==0)
+            picture=Image.open(root/('edge-'+edge+'.png')).convert('RGB')
+            horizontal=edge in ('left','right');reverse=edge in ('right','bottom')
+            extent=picture.width if horizontal else picture.height
+            slices=range(y+80,y+320,8) if horizontal else range(x+80,x+540,8)
+            visible=bordered=0
+            for row in slices:
+                pixels=[picture.getpixel((col,row) if horizontal else (row,col)) for col in range(extent)]
+                colored=[col for col,(r,g,b) in enumerate(pixels) if b>r+18 and g>r+10]
+                if not colored:continue
+                boundary=colored[-1] if reverse else colored[0]
+                if boundary<12 or boundary>extent-12:continue
+                visible+=1
+                bordered+=any(g>140 and b>160 and g>r+40 for r,g,b in pixels[max(0,boundary-4):boundary+5])
+            assert visible>=8 and bordered>=visible*.8,(edge,visible,bordered,'Window source was clipped before deformation')
+        dispatch('movewindowpixel','exact 170 150,'+address);time.sleep(.4)
+        print('Fast drags preserve the full window border at all four output edges',flush=True)
         def close_status():return json.loads(ctl('xetal-windowclose'))
         # The artificial close button is suppressed for native move AND resize,
         # even if Wobbly is disabled. Releasing the drag restores Super-hover.
@@ -228,7 +280,18 @@ windowrule=match:class ^wobbly-test$,float on
         assert ctl('keyword','monitor',f'{m["name"]},{m["width"]}x{m["height"]}@60,0x0,1')=='ok'
         ctl('output','create','wayland');wait(lambda:len(json.loads(ctl('-j','monitors')))==2)
         second=next(output for output in json.loads(ctl('-j','monitors')) if output['name']!=m['name'])
+        size_output(second['name'],1000,800)
         assert ctl('keyword','monitor',f'{second["name"]},1000x800@144,{width}x0,1.25,transform,1')=='ok'
+        # A mode request can make the nested backend request maximization in
+        # its parent again. Restore only these two test surfaces afterward.
+        size_output(m['name'],width,900)
+        size_output(second['name'],1000,800)
+        wait(lambda:all(o['width']>0 and o['height']>0 for o in json.loads(ctl('-j','monitors'))))
+        time.sleep(1)
+        outputs=json.loads(ctl('-j','monitors'))
+        assert next(o for o in outputs if o['name']==second['name'])['scale']==1.25,outputs
+        m=next(o for o in outputs if o['name']==m['name']);width=m['width']
+        right=max(o['x']+(o['height'] if o['transform']%2 else o['width'])/o['scale'] for o in outputs)
         dispatch('movewindowpixel',f'exact {width-350} 180,'+address);time.sleep(.5)
         assert client('Map shiver')['monitor']==m['id'];dispatch('focuswindow',address)
         # Wait for the compositor's placement animation as well as the springs
@@ -242,7 +305,7 @@ windowrule=match:class ^wobbly-test$,float on
         assert not after['error']
         from PIL import Image,ImageFilter
         with Image.open(root/'spanning-reference.png') as reference, Image.open(root/'spanning-scaled-portrait.png') as animated:
-            ratio=reference.width/(width+800/1.25)
+            ratio=reference.width/right
             pixel=(round((width+80)*ratio),round(380*ratio))
             expected=reference.convert('RGB').getpixel(pixel);actual=animated.convert('RGB').getpixel(pixel)
             assert max(expected)-min(expected)>20,expected

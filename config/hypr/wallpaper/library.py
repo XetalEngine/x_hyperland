@@ -111,7 +111,7 @@ def scan(options, root=None, cancelled=lambda: False, limit=20000):
         except OSError: pass
 
     if options['bundled']:
-        names = {'raw': 'Original', 'modern': 'Xetal Modern', 'breakpoint': 'Breakpoint', 'binaryknife': 'Binary Knife', 'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge'}
+        names = {'raw': 'Original', 'modern': 'Xetal Modern', 'breakpoint': 'Breakpoint', 'binaryknife': 'Binary Knife', 'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud'}
         try:
             catalog = json.loads((root/'sets.json').read_text())
             for collection, paths in catalog.items():

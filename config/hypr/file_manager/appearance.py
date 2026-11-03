@@ -12,7 +12,7 @@ import selection_marker
 def appearance():
     p = runtime.colors()
     design = runtime.widget_design()
-    radius = 3 if design == 'obsidianforge' else 2 if design == 'porcelainink' else 14 if design == 'tidalglass' else 3 if design == 'binaryknife' else 8 if design == 'breakpoint' else 10
+    radius = 16 if design == 'candycloud' else 3 if design == 'obsidianforge' else 2 if design == 'porcelainink' else 14 if design == 'tidalglass' else 3 if design == 'binaryknife' else 8 if design == 'breakpoint' else 10
     accent_rgb = ','.join(str(int(p['Accent'][i:i+2], 16)) for i in (1, 3, 5))
     style = qt_style(p, design) + runtime.layouts.stylesheet(p, runtime.layout(), runtime.design())
     style += f'''
@@ -106,6 +106,16 @@ def appearance():
         QGroupBox#drivePartitionCard {{background:{basalt(p)}; border-top-color:{p['Light']};}}
         QFrame#pickerActions, QStatusBar {{background:{p['Base']}; border-top:1px solid {p['Midlight']};}}
         QLabel#volumeArtwork, QFrame#storageSummary {{border-radius:3px;}}
+        '''
+    if design == 'candycloud':
+        from candycloud import satin
+        style += f'''
+        QMainWindow, QWidget#filesBody, QToolBar, QFrame#addressRow {{background:{satin(p)};}}
+        QTreeWidget#places {{background:{satin(p,'Button','Window')}; padding:12px 7px;}}
+        QTreeWidget#places::item {{min-height:34px; border:1px solid transparent;}}
+        QGroupBox#drivePartitionCard {{background:{satin(p,'Button','AlternateBase')}; border-top-color:{p['Light']};}}
+        QFrame#pickerActions, QStatusBar {{background:{p['AlternateBase']};}}
+        QTabBar::tab:selected {{border:1px solid {p['Midlight']}; border-top-color:{p['Accent']}; border-radius:15px;}}
         '''
     style += selection_marker.stylesheet(p, runtime.selection_marker())
     return dict(colors=p, stylesheet=style, font=runtime.ui_font(),

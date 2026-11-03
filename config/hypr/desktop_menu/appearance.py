@@ -57,7 +57,9 @@ def css(style):
     if porcelainink:rounding=2
     forge=style['palette']=='system' and theme_runtime.design()=='obsidianforge'
     if forge:rounding=3
-    font='Inter' if (breakpoint or binaryknife or tidalglass or porcelainink or forge) and style['font_family']=='Noto Sans' else style['font_family']
+    candy=style['palette']=='system' and theme_runtime.design()=='candycloud'
+    if candy:rounding=24
+    font='Inter' if (breakpoint or binaryknife or tidalglass or porcelainink or forge or candy) and style['font_family']=='Noto Sans' else style['font_family']
     return f'''
     window#xetal-desktop-background {{background:transparent; border:none; box-shadow:none;}}
     menu.desktop-context-menu {{

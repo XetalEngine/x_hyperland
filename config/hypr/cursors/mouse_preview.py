@@ -9,7 +9,7 @@ from . import model,effects
 def paint_trail(p,values,marks,now,design=None):
     style=effects.resolve(values['trail'],design)
     accent,secondary=effects.colors(values,design)
-    colors=[QColor(accent),QColor(secondary),QColor('#20252b' if style=='ink' else '#ffe1a3' if style=='cinder' else '#f2ffff')]
+    colors=[QColor(accent),QColor(secondary),QColor('#20252b' if style=='ink' else '#ffe1a3' if style=='cinder' else '#fff0d9' if style=='cloud' else '#f2ffff')]
     duration=values['duration']/1000;opacity=values['intensity']/100
     def color(index,alpha):
         c=QColor(colors[index]);c.setAlphaF(max(0,min(1,alpha*opacity)));return c
@@ -68,6 +68,18 @@ def paint_trail(p,values,marks,now,design=None):
             if seed%4:continue
             at=at+n*(math.sin(random)*age*24)+QPointF(age*8,age*14);a=random+age*2;tip=polar(a,4);side=polar(a+math.pi/2,1.8)
             p.setPen(Qt.PenStyle.NoPen);p.setBrush(color(0,fade));p.drawPolygon(QPolygonF([at+tip,at+side,at-tip,at-side]));disc(at+n*6,1.1,fade,2)
+        elif style=='cloud':
+            if joined:line(previous,at,5,fade*.16,1);line(previous,at,1.3,fade*.7)
+            if seed%5:continue
+            at+=QPointF(math.sin(random+age*2)*age*12,-age*22);r=3.5+age*3
+            disc(at+QPointF(0,1),r*2.5,fade*.22,1,True)
+            disc(at+QPointF(-r*.8,r*.35),r*.75,fade*.7)
+            disc(at+QPointF(r*.85,r*.35),r*.8,fade*.7)
+            disc(at+QPointF(0,-r*.1),r,fade*.82)
+            line(at+QPointF(-r*.3,-r*.7),at+QPointF(r*.25,-r*.7),.9,fade*.8,2)
+            star=at+QPointF(math.sin(random)*15,9+age*13);rotation=random+age*1.8;size=2+math.sin(age*math.pi)*2
+            points=[star+polar(rotation+arm*math.pi/4,size if arm%2==0 else size*.26) for arm in range(8)]
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(color(2,fade));p.drawPolygon(QPolygonF(points))
         elif style=='cinder':
             if joined:
                 line(previous,at,8,fade*.18);line(previous,at,3,fade,1);line(previous,at,1.1,fade*(1-age),2)

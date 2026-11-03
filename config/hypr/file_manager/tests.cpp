@@ -116,6 +116,70 @@ private slots:
     QVERIFY(!Fusion::validName(".."));
     QVERIFY(Fusion::validName("100% # résumé.txt"));
   }
+  void sidebarSelectionKeepsIndentationClear() {
+    // Render the real PlacesTree with every shipped palette and marker. A
+    // second selected background in the branch gutter must not reappear.
+    QProcess styles;
+    styles.start("python3", {"-c", R"(
+import json,sys
+from unittest.mock import patch
+sys.path.insert(0,sys.argv[1]+'/file_manager')
+import appearance
+runtime=appearance.runtime
+rows=[]
+for design in runtime.DESIGNS:
+ for mode in runtime.MODES:
+  for marker in ('none','line','curve'):
+   with patch.object(runtime,'state',return_value=dict(design=design,mode=mode,selection_marker=marker)):
+    rows.append(dict(design=design,mode=mode,marker=marker,style=appearance.appearance()['stylesheet']))
+print(json.dumps(rows))
+)", Fusion::root()});
+    QVERIFY(styles.waitForFinished(15000));
+    QCOMPARE(styles.exitCode(), 0);
+    const auto variants = QJsonDocument::fromJson(styles.readAllStandardOutput()).array();
+    QVERIFY(variants.size() >= 72);
+    FilesWindow window(Fusion::computerUrl(), false, temporary.path()+"/sidebar.ini");
+    window.show();
+    QTRY_VERIFY(!qApp->styleSheet().isEmpty());
+    auto *tree = window.findChild<QTreeWidget *>("places");
+    QVERIFY(tree);
+    tree->clear();
+    auto *group = new QTreeWidgetItem(tree, {"Quick access"});
+    auto *child = new QTreeWidgetItem(group, {"Pictures"});
+    group->setExpanded(true);
+    for (const auto variant : variants) {
+      const auto row = variant.toObject();
+      tree->setStyleSheet(row["style"].toString());
+      for (auto direction : {Qt::LeftToRight, Qt::RightToLeft}) {
+        tree->setLayoutDirection(direction);
+        tree->clearSelection();
+        qApp->processEvents();
+        const auto bounds = tree->visualItemRect(child);
+        auto gutter = bounds;
+        if (direction == Qt::LeftToRight) gutter.setCoords(0,bounds.top(),bounds.left()-1,bounds.bottom());
+        else gutter.setCoords(bounds.right()+1,bounds.top(),tree->viewport()->width()-1,bounds.bottom());
+        QVERIFY(gutter.width() >= tree->indentation());
+        const auto plain = tree->viewport()->grab().toImage();
+        tree->setCurrentItem(child);
+        child->setSelected(true);
+        const auto selected = tree->viewport()->grab().toImage();
+        const auto name = row["design"].toString()+" / "+row["mode"].toString()+" / "+row["marker"].toString();
+        QVERIFY2(plain.copy(gutter) == selected.copy(gutter), qPrintable(name));
+        QVERIFY2(plain.copy(bounds) != selected.copy(bounds), qPrintable(name));
+        const auto capture = qEnvironmentVariable("FUSION_SIDEBAR_CAPTURE");
+        if (!capture.isEmpty() && direction == Qt::LeftToRight && row["mode"] == "dark")
+          tree->grab().save(capture+"/"+row["design"].toString()+"-"+row["marker"].toString()+".png");
+      }
+    }
+    tree->setLayoutDirection(Qt::LeftToRight);
+    tree->setCurrentItem(group);
+    const auto bounds = tree->visualItemRect(group);
+    const QPoint arrow(bounds.left()-tree->indentation()/2,bounds.center().y());
+    QTest::mouseClick(tree->viewport(),Qt::LeftButton,Qt::NoModifier,arrow);
+    QVERIFY(!group->isExpanded());
+    QTest::mouseClick(tree->viewport(),Qt::LeftButton,Qt::NoModifier,arrow);
+    QVERIFY(group->isExpanded());
+  }
   void launchGeometrySeparatesNormalAndExternalWindows() {
     const auto path = temporary.path() + "/launch-geometry.ini";
     const auto restore = qScopeGuard([] { qApp->setDesktopFileName("xetal-files"); });

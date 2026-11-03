@@ -197,7 +197,7 @@ class DesignCard(QPushButton):
         modern=self.design=='modern';colors=runtime.colors(self.mode,self.design)
         box=QRectF(self.rect()).adjusted(2,2,-2,-2)
         p.setBrush(QColor(colors['Window']));p.setPen(QPen(QColor(colors['Accent'] if self.isChecked() else colors['Midlight']),2 if self.isChecked() else 1))
-        radius=3 if self.design=='obsidianforge' else 2 if self.design=='porcelainink' else 4 if self.design=='binaryknife' else 16
+        radius=24 if self.design=='candycloud' else 3 if self.design=='obsidianforge' else 2 if self.design=='porcelainink' else 4 if self.design=='binaryknife' else 16
         p.drawRoundedRect(box,radius,radius)
         self.artwork.paint(p,box.adjusted(14,14,-14,-58),self.design,self.mode,self.surfaces,self.strip_image.frame,self.launcher_design)
         p.setPen(QColor(colors['Text']));p.setFont(QFont(runtime.ui_font(),12,QFont.Weight.DemiBold))
@@ -246,7 +246,7 @@ class SurfacePreview(QWidget):
     def paintEvent(self,event):
         p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing);p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         colors=runtime.colors(self.mode,self.design);box=QRectF(self.rect()).adjusted(1,1,-1,-1)
-        radius=3 if self.design=='obsidianforge' else 2 if self.design=='porcelainink' else 12
+        radius=24 if self.design=='candycloud' else 3 if self.design=='obsidianforge' else 2 if self.design=='porcelainink' else 12
         p.setBrush(QColor(colors['Window']));p.setPen(QPen(QColor(colors['Midlight']),1));p.drawRoundedRect(box,radius,radius)
         if self.artwork.show_background and not self.artwork.background.isNull():
             DesktopPreview.picture(p,self.artwork.background,box,radius)
@@ -508,7 +508,7 @@ class ThemePage(QWidget):
         preferred=runtime.designs.DEFAULT_MODES.get(design)
         if preferred:
             self.mode.setCurrentIndex(self.mode.findData(preferred))
-        if design in ('tidalglass','porcelainink','obsidianforge'):
+        if design in ('tidalglass','porcelainink','obsidianforge','candycloud'):
             if self.launcher_style.currentData() in ('follow',self.baseline[0]):
                 self.launcher_style.setCurrentIndex(self.launcher_style.findData('follow'))
         self.changed()

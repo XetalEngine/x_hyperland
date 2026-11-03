@@ -3,14 +3,15 @@ import colorsys
 from pathlib import Path
 
 DESIGNS = {'raw': 'Xetal Raw', 'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint', 'binaryknife': 'Binary Knife',
-           'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge'}
+           'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud'}
 DESCRIPTIONS = {'raw': 'Original layout · cyan accents', 'modern': 'Soft cards · blue accents',
                 'breakpoint': 'Charcoal glass · crimson focus', 'binaryknife': 'Sharp graphite · electric blue',
                 'tidalglass': 'Pearl glass · luminous ocean depths',
                 'porcelainink': 'Warm porcelain · charcoal & vermilion',
-                'obsidianforge': 'Machined basalt · molten copper & embers'}
+                'obsidianforge': 'Machined basalt · molten copper & embers',
+                'candycloud': 'Pearlescent pillows · clouds & starlight'}
 COLLECTIONS = {'xetal-world': ('Xetal World', ('raw', 'modern', 'breakpoint', 'binaryknife')),
-               'atmospheres': ('Atmospheres', ('tidalglass', 'porcelainink', 'obsidianforge'))}
+               'atmospheres': ('Atmospheres', ('tidalglass', 'porcelainink', 'obsidianforge', 'candycloud'))}
 # Every built-in skin starts dark, including future additions to the catalog.
 DEFAULT_MODES = {design: 'dark' for design in DESIGNS}
 
@@ -37,6 +38,9 @@ def recolor(color, palette, mode):
 
 
 def qt_style(p,style='modern'):
+    if style=='candycloud':
+        from candycloud import qt_style as themed
+        return themed(p)
     if style=='obsidianforge':
         from obsidianforge import qt_style as themed
         return themed(p)
@@ -132,6 +136,9 @@ def qt_style(p,style='modern'):
 
 
 def waybar_style(p,style='modern'):
+    if style=='candycloud':
+        from candycloud import waybar_style as themed
+        return themed(p)
     if style=='obsidianforge':
         from obsidianforge import waybar_style as themed
         return themed(p)
@@ -170,6 +177,9 @@ def waybar_style(p,style='modern'):
 
 
 def notification_style(p,style='modern'):
+    if style=='candycloud':
+        from candycloud import notification_style as themed
+        return themed(p)
     if style=='obsidianforge':
         from obsidianforge import notification_style as themed
         return themed(p)

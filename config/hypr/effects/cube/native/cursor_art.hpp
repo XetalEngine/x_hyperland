@@ -22,6 +22,7 @@ inline std::string resolve(std::string trail,const std::string& design){
     if(design=="tidalglass")return "tidal";
     if(design=="porcelainink")return "ink";
     if(design=="obsidianforge")return "cinder";
+    if(design=="candycloud")return "cloud";
     return "plasma";
 }
 inline std::array<std::string,3> palette(const std::string& style){
@@ -31,6 +32,7 @@ inline std::array<std::string,3> palette(const std::string& style){
     if(style=="tidal")return {"#68dfed","#d2faff","#f2ffff"};
     if(style=="ink")return {"#bb3b30","#f0e4cc","#20252b"};
     if(style=="cinder")return {"#ff8a3d","#a84b23","#ffe1a3"};
+    if(style=="cloud")return {"#f6a5d7","#c4a7ff","#fff0d9"};
     return {"#32e7ee","#c4ff76","#f1ffff"};
 }
 inline void triangle(Batch& out,Point a,Point b,Point c,double alpha,double beta=-1,double gamma=-1){
@@ -109,6 +111,26 @@ inline Art make(const std::string& style,const std::vector<Mark>& marks,double n
             double a=seed+age*2;Point tip=p+polar(a,4),side=polar(a+PI/2,1.8);
             triangle(out[0],tip,p+side,p-polar(a,4),fade);triangle(out[0],tip,p-polar(a,4),p-side,fade);
             disc(out[2],p+n*6,1.1,fade);
+        }else if(style=="cloud"){
+            if(joined){
+                line(out[1],marks[i-1].p,p,5,oldFade*.16,fade*.16);
+                line(out[0],marks[i-1].p,p,1.3,oldFade*.7,fade*.7);
+            }
+            if(m.seed%5)continue;
+            p=p+Point{std::sin(seed+age*2)*age*12,-age*22};
+            const double r=3.5+age*3;
+            // Three solid lobes form a little cloud, rather than a bubble ring.
+            disc(out[1],p+Point{0,1},r*2.5,fade*.22,true);
+            disc(out[0],p+Point{-r*.8,r*.35},r*.75,fade*.7);
+            disc(out[0],p+Point{r*.85,r*.35},r*.8,fade*.7);
+            disc(out[0],p+Point{0,-r*.1},r,fade*.82);
+            line(out[2],p+Point{-r*.3,-r*.7},p+Point{r*.25,-r*.7},.9,fade*.8);
+            const Point star=p+Point{std::sin(seed)*15,9+age*13};
+            const double rotation=seed+age*1.8,size=2+std::sin(age*PI)*2;
+            for(int arm=0;arm<4;++arm){double a=rotation+arm*PI/2;
+                triangle(out[2],star+polar(a,size),star+polar(a+PI/4,size*.26),star,fade);
+                triangle(out[2],star+polar(a,size),star,star+polar(a-PI/4,size*.26),fade);
+            }
         }else if(style=="cinder"){
             if(joined){auto before=marks[i-1].p;
                 line(out[0],before,p,8,oldFade*.18,fade*.18);

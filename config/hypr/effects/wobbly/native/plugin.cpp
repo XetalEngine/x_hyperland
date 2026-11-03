@@ -27,6 +27,7 @@
 #include "engine.hpp"
 #include "settings.hpp"
 #include "graphics.hpp"
+#include "capture.hpp"
 // xcb-xkb's generated C header uses the C++ keyword as a field name.
 #define explicit explicit_
 #include <xcb/xkb.h>
@@ -92,6 +93,8 @@ struct Record {
     Wobbly::Mesh mesh;
     uint64_t meshRevision=0;
     CBox meshViewport;
+    CBox meshSource;
+    std::map<int64_t,SP<Render::IFramebuffer>> sourceBuffers;
     std::map<int64_t,CBox> lastDamage;
     bool meshDirty=true;
     Clock::time_point last=Clock::now();
@@ -142,15 +145,77 @@ class Transformer:public Render::IWindowTransformer {
         if(stopping||!r||!m||!usable(r->window.lock())||renderer->m_bRenderingSnapshot)return in;
         auto out=m->resources()->getUnusedWorkBuffer();if(!out)return in;
         const auto viewport=m->logicalBox();
-        if(r->meshDirty||r->meshViewport!=viewport){
+        if(r->meshDirty||r->meshViewport!=viewport||r->meshSource!=viewport){
             r->mesh.update(r->engine,settings.grid_resolution,settings.min_grid_size,{viewport.x,viewport.y,viewport.w,viewport.h});
-            r->meshRevision=++meshBuilds;r->meshDirty=false;r->meshViewport=viewport;
+            r->meshRevision=++meshBuilds;r->meshDirty=false;r->meshViewport=viewport;r->meshSource=viewport;
         }
         auto guard=renderer->bindTempFB(out);
         graphics.draw(m,in->getTexture(),r->mesh.vertices,r->meshRevision);++draws;
         return out;
     }
 };
+
+// Hyprland's normal transformer input is an output-sized image. Offscreen
+// source pixels have already been lost there, even when the spring mesh bends
+// them back onscreen. Capture the full window in its own coordinate system.
+void drawElement(Render::IElementRenderer* elementRenderer,WP<IPassElement> element,const CRegion& damageRegion){
+    if(Wobbly::captureContext){Wobbly::drawCaptured(elementRenderer,element,damageRegion);return;}
+    auto renderer=g_pHyprRenderer.get();
+    auto transformed=element?dynamic_cast<CTransformedWindowPassElement*>(element.get()):nullptr;
+    auto r=transformed?record(transformed->m_data.window.lock()):nullptr;
+    auto m=renderer->m_renderData.pMonitor.lock();
+    if(stopping||!r||!m||!transformed->m_data.pass||renderer->m_bRenderingSnapshot||!usable(r->window.lock())){
+        Wobbly::originalElementDraw(elementRenderer,element,damageRegion);return;
+    }
+    auto& input=transformed->m_data;
+    const auto pixels=input.currentBox.copy().scale(m->m_scale);
+    const CBox source{std::floor(pixels.x)-2,std::floor(pixels.y)-2,
+        std::ceil(pixels.w)+5,std::ceil(pixels.h)+5};
+    GLint limit=0;glGetIntegerv(GL_MAX_TEXTURE_SIZE,&limit);
+    if(source.w<1||source.h<1||source.w>limit||source.h>limit){
+        Wobbly::originalElementDraw(elementRenderer,element,damageRegion);return;
+    }
+    // Different output scales need distinct reusable allocations. Fractional
+    // movement changes the origin, never the allocation's padded dimensions.
+    auto& sourceFB=r->sourceBuffers[m->m_id];
+    if(!sourceFB)sourceFB=renderer->createFB("Wobbly complete window");
+    if(!sourceFB->alloc(source.w,source.h,renderer->m_renderData.currentFB->m_drmFormat)){
+        Wobbly::originalElementDraw(elementRenderer,element,damageRegion);return;
+    }
+    sourceFB->setImageDescription(renderer->workBufferImageDescription());
+    const CBox viewport=m->logicalBox();
+    const CBox worldSource=source.copy().scale(1.0/m->m_scale).translate(m->m_position);
+    if(r->meshDirty||r->meshViewport!=viewport||r->meshSource!=worldSource){
+        r->mesh.update(r->engine,settings.grid_resolution,settings.min_grid_size,
+            {viewport.x,viewport.y,viewport.w,viewport.h},{worldSource.x,worldSource.y,worldSource.w,worldSource.h});
+        r->meshRevision=++meshBuilds;r->meshDirty=false;r->meshViewport=viewport;r->meshSource=worldSource;
+    }
+    const auto deform=[&]{
+        auto out=m->resources()->getUnusedWorkBuffer();
+        if(out){auto guard=renderer->bindTempFB(out);graphics.draw(m,sourceFB->getTexture(),r->mesh.vertices,r->meshRevision,true);++draws;}
+        return out;
+    };
+    Wobbly::captureWindow(sourceFB,m,source,[&](auto& data){
+        data.currentWindow=input.window;input.pass->render(CRegion{source});
+    });
+    auto color=deform();if(!color)return;
+    SP<Render::IFramebuffer> matte;
+    if(input.blur){
+        Wobbly::captureWindow(sourceFB,m,source,[&](auto& data){
+            // The same complete capture and mesh define the blur silhouette.
+            renderer->draw(CRectPassElement::SRectData{.box=input.blurBox,.color=CHyprColor(1,1,1,1),
+                .round=input.blurRound,.roundingPower=input.blurRoundingPower},CRegion{source});
+        });
+        matte=deform();
+    }
+    CTexPassElement::SRenderData output;
+    output.tex=color->getTexture();output.box={0,0,m->m_transformedSize.x,m->m_transformedSize.y};output.a=1.F;
+    if(input.blur&&matte){
+        output.blur=true;output.forceBlurBlend=true;output.blockBlurOptimization=true;output.blurA=input.blurA;
+        output.blurAlphaMatte=matte->getTexture();output.discardMode=0;
+    }
+    renderer->draw(output,damageRegion.copy().intersect(output.box));
+}
 
 void detach(const std::shared_ptr<Record>& r){
     if(auto w=r->window.lock())std::erase_if(w->m_transformers,[&](auto& t){auto p=dynamic_cast<Transformer*>(t.get());return p&&p->ref.lock()==r;});
@@ -380,6 +445,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h){
         hook("setFullscreenMode","CFullscreenController::setFullscreenMode(",(void*)fullscreen,originalFullscreen);
         hook("onKeyEvent","CKeybindManager::onKeyEvent(",(void*)keyEvent,originalKey);
         hook("ensureMouseBindState","CKeybindManager::ensureMouseBindState(",(void*)mouseState,originalMouseState);
+        hook("drawElement","IElementRenderer::drawElement(",(void*)drawElement,Wobbly::originalElementDraw);
         auto& events=Event::bus()->m_events;
         listeners.push_back(events.render.pre.listen([](PHLMONITOR m){renderingMonitor=m;frame(m);}));
         listeners.push_back(events.render.stage.listen([](eRenderStage stage){

@@ -15,7 +15,8 @@ class Mesh {
     static std::array<float,4> basis(float t){return {(1-t)*(1-t)*(1-t),3*t*(1-t)*(1-t),3*t*t*(1-t),t*t*t};}
   public:
     std::vector<Vertex> vertices;
-    void update(const Engine& engine,int resolution,int minimum,Box viewport){
+    void update(const Engine& engine,int resolution,int minimum,Box viewport,Box source={}){
+        if(source.w<=0||source.h<=0)source=viewport;
         const auto& b=engine.box;
         int gw=std::max(int(b.w/resolution),minimum),gh=std::max(int(b.h/resolution),minimum);
         if(b.w!=width||b.h!=height||gw!=cellW||gh!=cellH){
@@ -36,7 +37,7 @@ class Mesh {
             const auto& s=samples[i];float x=0,y=0;
             for(size_t j=0;j<16;++j){x+=control[j].x*s.weights[j];y+=control[j].y*s.weights[j];}
             points[i]={float((x-viewport.x)/viewport.w),float((y-viewport.y)/viewport.h),
-                float((b.x+s.u*b.w-viewport.x)/viewport.w),float((b.y+s.v*b.h-viewport.y)/viewport.h)};
+                float((b.x+s.u*b.w-source.x)/source.w),float((b.y+s.v*b.h-source.y)/source.h)};
         }
         for(size_t i=0;i<triangles.size();++i)vertices[i]=points[triangles[i]];
     }

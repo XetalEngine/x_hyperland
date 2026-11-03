@@ -126,6 +126,48 @@ def porcelainink(p, box, accent, surface, phase, count, trails, glow, archive, e
     p.restore()
 
 
+def candycloud(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Cloud couriers float envelopes along a satin ribbon between soft docks."""
+    p.save()
+    left,right=QPointF(box.left()+35,box.center().y()),QPointF(box.right()-35,box.center().y())
+    pearl=accent.lighter(155)
+    route=QPainterPath(left+QPointF(30,0))
+    route.cubicTo(left+QPointF(75,-28),right-QPointF(75,-18),right-QPointF(30,0))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    ribbon=QLinearGradient(left,right);ribbon.setColorAt(0,alpha(accent,75));ribbon.setColorAt(.5,alpha(pearl,110));ribbon.setColorAt(1,alpha(accent,75))
+    p.setPen(QPen(ribbon,6,Qt.PenStyle.SolidLine,Qt.PenCapStyle.RoundCap));p.drawPath(route)
+    p.setPen(QPen(alpha(pearl,140),1));p.drawPath(route)
+    for center,zipped in ((left,extracting),(right,archive)):
+        p.setPen(Qt.PenStyle.NoPen)
+        for dx,dy,radius in ((-15,11,14),(0,7,19),(16,12,13)):
+            p.setBrush(alpha(accent,65));p.drawEllipse(center+QPointF(dx,dy),radius,radius*.6)
+        folder(p,center-QPointF(0,4),accent,surface,zipped)
+    if result=='done':success(p,box.center(),accent)
+    elif not result:
+        for index in range(count):
+            t=(phase+index/count)%1
+            point=route.pointAtPercent(t)+QPointF(0,math.sin(t*math.tau+index)*3)
+            p.save();p.setOpacity(min(1,t*8,(1-t)*8));p.translate(point)
+            if glow:
+                light=QRadialGradient(QPointF(0,-7),22);light.setColorAt(0,alpha(accent,glow));light.setColorAt(1,alpha(accent,0))
+                p.setPen(Qt.PenStyle.NoPen);p.setBrush(light);p.drawEllipse(QPointF(0,-7),22,22)
+            # A rounded envelope is suspended from a tiny three-lobed cloud.
+            p.setPen(QPen(alpha(pearl,130),.8))
+            p.drawLine(QPointF(-6,-7),QPointF(-5,3));p.drawLine(QPointF(6,-7),QPointF(5,3))
+            p.setPen(Qt.PenStyle.NoPen)
+            for dx,dy,radius in ((-6,-10,5),(0,-13,6),(6,-10,5)):
+                fill=QLinearGradient(0,-19,0,-5);fill.setColorAt(0,pearl);fill.setColorAt(1,accent)
+                p.setBrush(fill);p.drawEllipse(QPointF(dx,dy),radius,radius)
+            p.setBrush(surface);p.setPen(QPen(accent,1.1));p.drawRoundedRect(QRectF(-9,2,18,13),4,4)
+            p.drawLine(QPointF(-8,4),QPointF(0,10));p.drawLine(QPointF(0,10),QPointF(8,4))
+            if trails:
+                p.setPen(QPen(alpha(pearl,160),1))
+                star=QPointF(-17,4+math.sin(t*math.tau)*4)
+                p.drawLine(star-QPointF(2,0),star+QPointF(2,0));p.drawLine(star-QPointF(0,3),star+QPointF(0,3))
+            p.restore()
+    p.restore()
+
+
 def obsidianforge(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     """Documents travel as hot metal plates through a pair of basalt presses."""
     p.save()

@@ -37,6 +37,21 @@ public:
   std::function<void(int, int)> reorder;
 
 protected:
+  void drawRow(QPainter *painter, const QStyleOptionViewItem &option,
+               const QModelIndex &index) const override {
+    // Qt paints the selected item background again in the indentation gutter.
+    // Keep the themed highlight/marker inside the item, then draw the tree's
+    // disclosure arrows separately over the unchanged sidebar background.
+    const auto item = visualRect(index);
+    painter->save();
+    painter->setClipRect(item, Qt::IntersectClip);
+    QTreeWidget::drawRow(painter, option, index);
+    painter->restore();
+    auto branches = option.rect;
+    if (isRightToLeft()) branches.setLeft(item.right() + 1);
+    else branches.setRight(item.left() - 1);
+    if (!branches.isEmpty()) QTreeWidget::drawBranches(painter, branches, index);
+  }
   void startDrag(Qt::DropActions) override {
     const auto *item = currentItem();
     if (!item || !item->data(0, PinRole).isValid())

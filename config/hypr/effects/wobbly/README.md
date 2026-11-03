@@ -18,6 +18,10 @@ grabbed point follows the pointer immediately. Mesh weights and triangle storage
 are cached; the color image and blur matte reuse the same uploaded geometry.
 Only the window's old and new deformed bounds are damaged, including portions on
 neighboring monitors. Once the effect settles it requests no further frames.
+The complete decorated window is captured before deformation, so fast dragging
+near a display edge cannot cut away pixels that the springs bend back onscreen.
+Capture buffers are reused separately for each display scale; rotated outputs
+use the same window coordinates for content, corners, borders and blur.
 
 All 14 options from `compiz-core/metadata/wobbly.xml.in` are present. The original
 metadata is included as `compiz-options.xml` and checked against the controls:
@@ -104,4 +108,5 @@ refresh-independent integration, interpolated rendering, cached mesh accuracy,
 snapping, extreme settings, matching, save
 rollback and unsaved-edit guards. The integration check starts a disposable
 nested compositor and exercises real window/input/rendering behavior. It never
-loads a test binary into the parent session.
+loads a test binary into the parent session. Pixel checks cover fast drags at
+all four edges and a window spanning a rotated, fractionally scaled display.
