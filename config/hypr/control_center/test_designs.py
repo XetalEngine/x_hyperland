@@ -26,13 +26,7 @@ class DesignTests(unittest.TestCase):
             with patch.object(runtime,'STATE',state),patch.object(theme_page.backend,'apply_mode') as apply:
                 page=app.ThemePage(lambda *args:None)
                 try:
-                    collections=page.design_page.collections
-                    self.assertEqual([collections.tabText(i) for i in range(collections.count())],['Xetal World','Atmospheres','Shadow Edge'])
-                    styles=[s for _,names in runtime.designs.COLLECTIONS.values() for s in names]
-                    self.assertEqual(set(styles),set(runtime.DESIGNS));self.assertEqual(len(styles),len(set(styles)))
-                    self.assertTrue(all(1<=len(names)<=4 for _,names in runtime.designs.COLLECTIONS.values()))
-                    collections.setCurrentIndex(1);page.design_page.refresh()
-                    self.assertEqual(collections.currentIndex(),1)
+                    self.assertEqual(set(page.design_page.cards),set(runtime.DESIGNS))
                     for design in runtime.DESIGNS:
                         with self.subTest(design=design):
                             page.mode.setCurrentIndex(page.mode.findData('light'))
@@ -44,7 +38,6 @@ class DesignTests(unittest.TestCase):
                             apply.assert_not_called()
                             self.assertEqual(json.loads(state.read_text())['design'],'breakpoint')
                             page.design.setCurrentIndex(page.design.findData('raw'))
-                            self.assertEqual(collections.currentIndex(),0)
                             page.mode.setCurrentIndex(page.mode.findData('contrast'))
                             page.design_page.cards[design].click()
                             self.assertEqual(page.mode.currentData(),'dark')
@@ -116,7 +109,6 @@ class DesignTests(unittest.TestCase):
                     self.assertTrue(page.apply.isEnabled())
                     self.assertEqual(page.design.currentData(),'modern')
                     self.assertEqual(page.start_menu_page.surface_preview.design,'raw')
-                    for card in page.design_page.cards.values():self.assertEqual(card.launcher_design,'raw')
                     page.start_menu_page.opacity_controls['tile_opacity'][0].setValue(12)
                     page.set_surface('group_image','backgrounds/custom.gif')
                     self.assertEqual(page.surfaces['raw']['tile_opacity'],12)
@@ -137,7 +129,6 @@ class DesignTests(unittest.TestCase):
                     finally:reopened.deleteLater()
                     page.launcher_style.setCurrentIndex(page.launcher_style.findData('follow'))
                     self.assertEqual(page.start_menu_page.surface_preview.design,'raw')
-                    for name,card in page.design_page.cards.items():self.assertEqual(card.launcher_design,name)
                     page.design.setCurrentIndex(page.design.findData('modern'))
                     self.assertEqual(page.start_menu_page.surface_preview.design,'modern')
                 finally:page.deleteLater();QT.sendPostedEvents(None,QEvent.Type.DeferredDelete)

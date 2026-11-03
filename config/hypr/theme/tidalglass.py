@@ -38,8 +38,6 @@ def qt_style(p):
     QTabBar::tab {{background:transparent; color:{p['PlaceholderText']}; border:1px solid transparent; border-radius:12px; padding:9px 14px;}}
     QTabBar::tab:selected {{background:{selection}; color:{p['HighlightedText']}; border:1px solid {p['Midlight']};}}
     QTabBar::tab:hover {{background:{p['AlternateBase']}; color:{p['Text']};}}
-    QTabWidget#themeCollections > QTabBar::tab {{font-size:14px; padding:10px 22px; margin:0 8px 10px 0;}}
-    QTabWidget#themeCollections > QTabBar::tab:selected {{border-color:{p['Accent']};}}
     QWidget#modernRail {{background:{gradient(p,'Button','AlternateBase')}; border:1px solid {p['Midlight']}; border-top-color:{p['Light']}; border-radius:20px;}}
     QToolButton#railButton, QPushButton#railButton, QPushButton#launcherNav {{background:transparent; color:{p['Text']}; border:1px solid transparent; border-radius:12px; text-align:left;}}
     QToolButton#railButton:checked, QPushButton#railButton:checked, QPushButton#launcherNav:checked {{background:{selection}; color:{p['HighlightedText']}; border:1px solid {p['Midlight']}; border-left:3px solid {p['Accent']};}}

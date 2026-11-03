@@ -7,9 +7,9 @@ import sys
 
 from PyQt6.QtCore import QRectF, Qt
 from PyQt6.QtGui import QColor, QFont, QIcon, QPainter, QPen, QPixmap
-from PyQt6.QtWidgets import (QApplication, QCheckBox, QColorDialog, QComboBox, QFormLayout, QFrame,
+from PyQt6.QtWidgets import (QApplication, QBoxLayout, QCheckBox, QColorDialog, QComboBox, QFormLayout, QFrame,
     QGraphicsScene, QGraphicsView, QGroupBox, QHBoxLayout, QLabel,
-    QMessageBox, QPushButton, QScrollArea, QSlider, QSpinBox, QVBoxLayout, QWidget)
+    QMessageBox, QPushButton, QScrollArea, QSizePolicy, QSlider, QSpinBox, QVBoxLayout, QWidget)
 
 from . import preferences
 from .samples import OPERATIONS, STATES, sample
@@ -88,6 +88,49 @@ class PreviewView(QGraphicsView):
         super().hideEvent(event)
 
 
+class StyleList(QScrollArea):
+    def __init__(self):
+        super().__init__(); self.current = None
+
+    def reveal(self, card):
+        self.current = card; self.ensureWidgetVisible(card, 0, 12)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self.current is not None: self.ensureWidgetVisible(self.current, 0, 12)
+
+
+class TransferDetails(QScrollArea):
+    """Keep a large preview alongside settings; stack them in narrow windows."""
+    def __init__(self, preview, options):
+        super().__init__()
+        self.preview_box = preview; self.options = options; self.stacked = None
+        self.setWidgetResizable(True); self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        content = QWidget(); self.columns = QBoxLayout(QBoxLayout.Direction.LeftToRight, content)
+        self.columns.setContentsMargins(0, 0, 0, 0); self.columns.setSpacing(14)
+        self.columns.addWidget(preview, 1); self.columns.addWidget(options, 1)
+        self.setWidget(content)
+
+    def arrange(self):
+        # Use the controls' real minimum width so translated text and fonts fit too.
+        needed = max(880, self.preview_box.minimumSizeHint().width()+self.options.minimumSizeHint().width()+28)
+        stacked = self.viewport().width() < needed
+        if self.stacked == stacked: return
+        self.stacked = stacked
+        self.columns.setDirection(QBoxLayout.Direction.TopToBottom if stacked else QBoxLayout.Direction.LeftToRight)
+        self.preview_box.setMinimumHeight(344 if stacked else 220)
+        self.preview_box.setMaximumHeight(344 if stacked else 16777215)
+        # In the stacked layout the outer scroll area handles the whole form.
+        self.options.setMinimumHeight(self.options.widget().minimumSizeHint().height()+4 if stacked else 220)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event); self.arrange()
+
+    def showEvent(self, event):
+        super().showEvent(event); self.arrange()
+
+
 class FileTransferPage(QWidget):
     def __init__(self, async_run):
         super().__init__()
@@ -104,14 +147,19 @@ class FileTransferPage(QWidget):
         self.style = QComboBox(); self.style.setAccessibleName('File Transfer style')
         for value, title in preferences.STYLES.items(): self.style.addItem(title, value)
         heading.addWidget(self.style); root.addLayout(heading)
-        outer = QScrollArea(); outer.setWidgetResizable(True); outer.setFrameShape(QFrame.Shape.NoFrame)
-        content = QWidget(); body = QVBoxLayout(content); body.setContentsMargins(0, 0, 2, 0); body.setSpacing(12)
-        cards = QHBoxLayout(); cards.setSpacing(10)
-        for name in preferences.PROFILES:
+        workspace = QHBoxLayout(); workspace.setSpacing(14)
+        self.style_scroll = StyleList(); self.style_scroll.setWidgetResizable(True)
+        self.style_scroll.setFrameShape(QFrame.Shape.NoFrame); self.style_scroll.setFixedWidth(212)
+        self.style_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.style_scroll.setAccessibleName('File Transfer styles')
+        styles = QWidget(); cards = QVBoxLayout(styles); cards.setContentsMargins(0, 2, 8, 2); cards.setSpacing(10)
+        for name in preferences.STYLES:
+            if name not in preferences.PROFILES: continue
             card = StyleCard(name); card.clicked.connect(lambda _, value=name: self.select_style(value))
-            cards.addWidget(card, 1); self.cards[name] = card
-        body.addLayout(cards)
-        columns = QHBoxLayout(); columns.setSpacing(14)
+            card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            cards.addWidget(card); self.cards[name] = card
+        cards.addStretch(); self.style_scroll.setWidget(styles); workspace.addWidget(self.style_scroll)
+        self._visible_style = None
         preview_box = QGroupBox('Live preview'); preview_box.setMinimumWidth(300)
         left = QVBoxLayout(preview_box); left.setContentsMargins(10, 14, 10, 12)
         self.preview = PreviewView()
@@ -126,9 +174,9 @@ class FileTransferPage(QWidget):
         self.popup = QPushButton('Preview popup'); self.popup.clicked.connect(self.open_popup)
         preview_note = label('Preview only · no files are changed.'); preview_note.setWordWrap(False)
         left.addWidget(preview_note)
-        columns.addWidget(preview_box, 1)
-        options_scroll = QScrollArea(); options_scroll.setMinimumWidth(320); options_scroll.setMinimumHeight(220)
+        options_scroll = QScrollArea(); options_scroll.setMinimumWidth(320)
         options_scroll.setWidgetResizable(True); options_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        options_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         panel = QWidget(); settings = QVBoxLayout(panel); settings.setContentsMargins(0, 0, 2, 0); settings.setSpacing(12)
         self.look_title = QGroupBox('Appearance'); appearance = QFormLayout(self.look_title); appearance.setSpacing(9)
         settings.addWidget(self.look_title)
@@ -160,8 +208,12 @@ class FileTransferPage(QWidget):
         self.check(form, 'behavior', 'auto_close', 'Close completed operations automatically')
         self.number(form, 'behavior', 'close_delay', 'Keep completion visible', ' ms')
         form.addRow(label('Errors stay visible until you close them. Pause and Cancel keep controlling the real operation.'))
-        settings.addStretch(); options_scroll.setWidget(panel); columns.addWidget(options_scroll, 1); body.addLayout(columns, 1)
-        outer.setWidget(content); root.addWidget(outer, 1)
+        for form in panel.findChildren(QFormLayout):
+            form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+            form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        settings.addStretch(); options_scroll.setWidget(panel)
+        self.details = TransferDetails(preview_box, options_scroll); workspace.addWidget(self.details, 1)
+        root.addLayout(workspace, 1)
         self.status = label('Choose any transfer style with any desktop theme.'); root.addWidget(self.status)
         actions = QHBoxLayout()
         self.defaults = QPushButton('Reset defaults'); self.defaults.clicked.connect(self.reset_defaults); actions.addWidget(self.defaults)
@@ -258,6 +310,13 @@ class FileTransferPage(QWidget):
         profile = self.draft['profiles'][self.design()]
         self.size_hint.setText(f"{preferences.STYLES[self.design()]} · {profile['width']} × {profile['height']} px")
         for card in self.cards.values(): card.refresh(self.draft, self.design())
+        if self._visible_style != self.design():
+            self._visible_style = self.design()
+            self.style_scroll.reveal(self.cards[self.design()])
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.style_scroll.reveal(self.cards[self.design()])
 
     def reset(self):
         self.draft = copy.deepcopy(self.baseline); self.load_controls(); self.changed()

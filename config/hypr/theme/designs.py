@@ -11,9 +11,6 @@ DESCRIPTIONS = {'raw': 'Original layout · cyan accents', 'modern': 'Soft cards 
                 'obsidianforge': 'Machined basalt · molten copper & embers',
                 'candycloud': 'Pearlescent pillows · clouds & starlight',
                 'shadowedge': 'Smoked glass · silver blades & crimson rain'}
-COLLECTIONS = {'xetal-world': ('Xetal World', ('raw', 'modern', 'breakpoint', 'binaryknife')),
-               'atmospheres': ('Atmospheres', ('tidalglass', 'porcelainink', 'obsidianforge', 'candycloud')),
-               'shadow-edge': ('Shadow Edge', ('shadowedge',))}
 # Every built-in skin starts dark, including future additions to the catalog.
 DEFAULT_MODES = {design: 'dark' for design in DESIGNS}
 

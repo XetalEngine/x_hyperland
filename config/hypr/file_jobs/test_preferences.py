@@ -219,5 +219,26 @@ class PageTests(unittest.TestCase):
         self.assertEqual(argv[argv.index('--state')+1], self.page.sample_state.currentData())
         self.assertFalse(self.path.exists())
 
+    def test_vertical_style_list_is_independent_and_details_adapt_without_clipping(self):
+        self.page.resize(1400, 700); self.page.show(); QT.processEvents()
+        self.assertFalse(self.page.details.stacked)
+        self.page.details.options.verticalScrollBar().setValue(120)
+        position = self.page.details.options.verticalScrollBar().value()
+        self.page.select_style('shadowedge'); QT.processEvents()
+        rail = self.page.style_scroll
+        self.assertGreater(rail.verticalScrollBar().maximum(), 0)
+        self.assertEqual(rail.horizontalScrollBar().maximum(), 0)
+        self.assertEqual(self.page.details.options.verticalScrollBar().value(), position)
+        for width in (960, 1400):
+            self.page.resize(width, 600); QT.processEvents()
+            self.assertEqual(self.page.details.stacked, width == 960)
+            self.assertEqual(self.page.details.horizontalScrollBar().maximum(), 0)
+            self.assertEqual(self.page.details.options.horizontalScrollBar().maximum(), 0)
+            card = self.page.cards['shadowedge']
+            self.assertTrue(rail.viewport().rect().contains(card.mapTo(rail.viewport(), QPoint(5, 5))))
+            self.assertTrue(rail.viewport().rect().contains(card.mapTo(rail.viewport(), QPoint(card.width()-5, card.height()-5))))
+        self.assertEqual(self.page.draft['style'], 'shadowedge')
+        self.assertFalse(self.path.exists())
+
 
 if __name__ == '__main__': unittest.main()

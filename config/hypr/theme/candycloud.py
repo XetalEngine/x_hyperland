@@ -30,7 +30,6 @@ def qt_style(p):
     QTabBar::tab {{background:transparent; color:{p['PlaceholderText']}; border:1px solid transparent; border-radius:15px; padding:9px 14px; margin:2px 3px 6px 0;}}
     QTabBar::tab:selected {{background:{p['Highlight']}; color:{p['HighlightedText']}; border:1px solid {p['Midlight']}; border-top-color:{p['Accent']};}}
     QTabBar::tab:hover {{background:{p['Button']}; color:{p['Text']};}}
-    QTabWidget#themeCollections > QTabBar::tab {{font-size:14px; padding:10px 22px; margin:0 8px 12px 0;}}
     QWidget#modernRail {{background:{satin(p,'Button','AlternateBase')}; border:1px solid {p['Midlight']}; border-top-color:{p['Light']}; border-radius:26px;}}
     QToolButton#railButton, QPushButton#railButton, QPushButton#launcherNav {{background:transparent; color:{p['Text']}; border:1px solid transparent; border-radius:15px; text-align:left;}}
     QToolButton#railButton:checked, QPushButton#railButton:checked, QPushButton#launcherNav:checked {{background:{p['Highlight']}; color:{p['HighlightedText']}; border:1px solid {p['Midlight']}; border-top-color:{p['Accent']};}}
