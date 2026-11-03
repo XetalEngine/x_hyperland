@@ -203,7 +203,7 @@ windowrule=match:class ^wobbly-test$,float on
         theme_state.write_text('{"design":"binaryknife"}');dispatch('xetalcube:cursor');assert mouse_status()['cursor_effect']=='circuit'
         mouse_style('ink');theme_state.write_text('{"design":"raw"}');dispatch('xetalcube:cursor');assert mouse_status()['cursor_effect']=='ink'
         mouse_style('none');point('move 500 300');assert mouse_status()['cursor_marks']==0
-        print('Six distinct native mouse trails, theme following, independent mixing, disabling and idle suspension passed',flush=True)
+        print('All themed native mouse trails, theme following, independent mixing, disabling and idle suspension passed',flush=True)
         dispatch('focuswindow',xa);dispatch('xetalwobbly:shiver');dispatch('xetalcube:preview')
         wait(lambda:json.loads(ctl('xetal-cube'))['active']);dispatch('xetalcube:turn','25 12');time.sleep(.2)
         screenshot('cube-with-wobbly');dispatch('xetalcube:finish','cancel');wait(lambda:not json.loads(ctl('xetal-cube'))['active'])

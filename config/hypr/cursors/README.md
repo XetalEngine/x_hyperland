@@ -1,7 +1,7 @@
 # Cursors
 
 Open **Theme → Cursors**, choose a style and size, then **Apply cursors**.
-Pearl, Carbon, Neon Cyan, Orchid and Ember include matching pointer, link, text,
+Pearl, Carbon, Neon Cyan, Orchid, Ember and Sumi Ink include matching pointer, link, text,
 resize, drag/drop, zoom, help, unavailable and animated busy shapes.
 
 Open **Theme → Window effects → Mouse effects** for the trail gallery and an
@@ -15,6 +15,7 @@ interactive preview. **Follow desktop theme** is the fresh-install default:
 | Binary Knife | Data stream — circuit traces and drifting binary digits |
 | Tidal Glass | Bioluminescence — rising bubbles and plankton |
 | Porcelain Ink | Living ink — tapered ink strokes and vermilion petals |
+| Obsidian Forge | Cinder wake — cooling molten fissures and rising embers |
 
 Every effect can be selected with any desktop theme. Follow uses the effect's
 own palette; selecting a particular effect also allows a custom accent.
@@ -48,4 +49,4 @@ change its lifetime. Monitor layout changes discard stale points.
 
 Tests: `QT_QPA_PLATFORM=offscreen python3 -m unittest discover -s config/hypr/cursors`.
 The disposable native regressions are `tests/check-cube-workspaces.py` and
-`tests/check-wobbly.py` (all six trails, theme following, mixing, disabling and idle).
+`tests/check-wobbly.py` (all themed trails, theme following, mixing, disabling and idle).

@@ -53,7 +53,11 @@ class AppearanceTests(unittest.TestCase):
                         change('blue',100);window.apply_design();QT.processEvents()
                         self.assertEqual(window.grab().toImage().pixelColor(12,190).name(),'#1040f0')
                         change('blue',0);window.apply_design();QT.processEvents()
-                        self.assertEqual(window.grab().toImage().pixelColor(12,190).name(),app.theme_runtime.colors(style=style)['Window'].lower())
+                        opaque=window.grab().toImage().pixelColor(12,190)
+                        # Opaque themes may use a material gradient. The image
+                        # underneath must disappear, regardless of its color.
+                        change('red',0);window.apply_design();QT.processEvents()
+                        self.assertEqual(window.grab().toImage().pixelColor(12,190),opaque)
                     finally:window.close();window.deleteLater();QT.sendPostedEvents(None,QEvent.Type.DeferredDelete)
 
 

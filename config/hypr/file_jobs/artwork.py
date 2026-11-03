@@ -126,6 +126,49 @@ def porcelainink(p, box, accent, surface, phase, count, trails, glow, archive, e
     p.restore()
 
 
+def obsidianforge(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Documents travel as hot metal plates through a pair of basalt presses."""
+    p.save()
+    left,right=QPointF(box.left()+31,box.center().y()),QPointF(box.right()-31,box.center().y())
+    start,end=left.x()+29,right.x()-29
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    for offset in (-14,14):
+        p.setPen(QPen(alpha(accent,55),1));p.drawLine(QPointF(start,left.y()+offset),QPointF(end,right.y()+offset))
+    for center,zipped in ((left,extracting),(right,archive)):
+        p.save();p.translate(center)
+        mold=QPainterPath();mold.moveTo(-23,-19);mold.lineTo(17,-19);mold.lineTo(23,-13)
+        mold.lineTo(23,19);mold.lineTo(-17,19);mold.lineTo(-23,13);mold.closeSubpath()
+        p.setBrush(surface);p.setPen(QPen(alpha(accent,130),1));p.drawPath(mold)
+        p.setPen(QPen(accent,2));p.drawLine(QPointF(-18,14),QPointF(18,14))
+        p.setPen(QPen(accent.lighter(145),1));p.drawLine(QPointF(-12,-10),QPointF(12,-10))
+        if zipped:
+            for y in (-5,0,5):p.drawLine(QPointF(-3,y),QPointF(3,y))
+        else:
+            p.drawLine(QPointF(-12,-10),QPointF(-12,7));p.drawLine(QPointF(12,-10),QPointF(12,7))
+        p.restore()
+    if result=='done':success(p,box.center(),accent)
+    elif not result:
+        for index in range(count):
+            t=(phase+index/count)%1;x=start+(end-start)*t;y=left.y()
+            p.save();p.setOpacity(min(1,t*8,(1-t)*8))
+            if glow:
+                heat=QRadialGradient(QPointF(x,y),24);heat.setColorAt(0,alpha(accent,glow*1.4));heat.setColorAt(1,alpha(accent,0))
+                p.setBrush(heat);p.setPen(Qt.PenStyle.NoPen);p.drawEllipse(QPointF(x,y),24,20)
+            if trails:
+                for spark in range(3):
+                    age=(phase*2+index*.23+spark*.3)%1
+                    ember=QPointF(x-age*15,y-7-age*14)
+                    p.setPen(QPen(alpha(accent.lighter(150),210*(1-age)),1.3))
+                    p.drawLine(ember,ember+QPointF(2,3))
+            p.translate(x,y)
+            page=QPainterPath();page.moveTo(-7,-10);page.lineTo(2,-10);page.lineTo(8,-4);page.lineTo(8,10);page.lineTo(-7,10);page.closeSubpath()
+            fill=QLinearGradient(0,-10,0,10);fill.setColorAt(0,accent.lighter(135));fill.setColorAt(1,accent.darker(170))
+            p.setBrush(fill);p.setPen(QPen(accent.lighter(170),1));p.drawPath(page)
+            p.setPen(QPen(surface,1));p.drawLine(QPointF(-4,0),QPointF(4,0));p.drawLine(QPointF(-4,4),QPointF(2,4))
+            p.restore()
+    p.restore()
+
+
 def breakpoint(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     left, right = QPointF(box.left()+36, box.center().y()), QPointF(box.right()-36, box.center().y())
     start, end = left.x()+38, right.x()-38

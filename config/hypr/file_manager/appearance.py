@@ -12,7 +12,7 @@ import selection_marker
 def appearance():
     p = runtime.colors()
     design = runtime.widget_design()
-    radius = 2 if design == 'porcelainink' else 14 if design == 'tidalglass' else 3 if design == 'binaryknife' else 8 if design == 'breakpoint' else 10
+    radius = 3 if design == 'obsidianforge' else 2 if design == 'porcelainink' else 14 if design == 'tidalglass' else 3 if design == 'binaryknife' else 8 if design == 'breakpoint' else 10
     accent_rgb = ','.join(str(int(p['Accent'][i:i+2], 16)) for i in (1, 3, 5))
     style = qt_style(p, design) + runtime.layouts.stylesheet(p, runtime.layout(), runtime.design())
     style += f'''
@@ -97,6 +97,15 @@ def appearance():
         QGroupBox#drivePartitionCard {{background:{p['Base']};}}
         QLabel#volumeArtwork, QFrame#storageSummary {{border-radius:2px;}}
         QFrame#pickerActions, QStatusBar {{background:{p['AlternateBase']};}}
+        '''
+    if design == 'obsidianforge':
+        from obsidianforge import basalt
+        style += f'''
+        QMainWindow, QWidget#filesBody, QToolBar, QFrame#addressRow {{background:{basalt(p)};}}
+        QTreeWidget#places {{background:{basalt(p,'AlternateBase','Base')}; border-right:1px solid {p['Midlight']};}}
+        QGroupBox#drivePartitionCard {{background:{basalt(p)}; border-top-color:{p['Light']};}}
+        QFrame#pickerActions, QStatusBar {{background:{p['Base']}; border-top:1px solid {p['Midlight']};}}
+        QLabel#volumeArtwork, QFrame#storageSummary {{border-radius:3px;}}
         '''
     style += selection_marker.stylesheet(p, runtime.selection_marker())
     return dict(colors=p, stylesheet=style, font=runtime.ui_font(),

@@ -21,6 +21,7 @@ inline std::string resolve(std::string trail,const std::string& design){
     if(design=="binaryknife")return "circuit";
     if(design=="tidalglass")return "tidal";
     if(design=="porcelainink")return "ink";
+    if(design=="obsidianforge")return "cinder";
     return "plasma";
 }
 inline std::array<std::string,3> palette(const std::string& style){
@@ -29,6 +30,7 @@ inline std::array<std::string,3> palette(const std::string& style){
     if(style=="circuit")return {"#32adff","#bcf1ff","#ffffff"};
     if(style=="tidal")return {"#68dfed","#d2faff","#f2ffff"};
     if(style=="ink")return {"#bb3b30","#f0e4cc","#20252b"};
+    if(style=="cinder")return {"#ff8a3d","#a84b23","#ffe1a3"};
     return {"#32e7ee","#c4ff76","#f1ffff"};
 }
 inline void triangle(Batch& out,Point a,Point b,Point c,double alpha,double beta=-1,double gamma=-1){
@@ -107,6 +109,18 @@ inline Art make(const std::string& style,const std::vector<Mark>& marks,double n
             double a=seed+age*2;Point tip=p+polar(a,4),side=polar(a+PI/2,1.8);
             triangle(out[0],tip,p+side,p-polar(a,4),fade);triangle(out[0],tip,p-polar(a,4),p-side,fade);
             disc(out[2],p+n*6,1.1,fade);
+        }else if(style=="cinder"){
+            if(joined){auto before=marks[i-1].p;
+                line(out[0],before,p,8,oldFade*.18,fade*.18);
+                line(out[1],before,p,3,oldFade,fade);
+                line(out[2],before,p,1.1,oldFade*(1-age),fade*(1-age));}
+            if(m.seed%4)continue;
+            double side=m.seed%8?1:-1;auto crack=p+n*(side*7)+m.d*3;
+            line(out[1],p,crack,1.2,fade*.6);line(out[0],crack,crack+n*(side*4)-m.d*4,.8,fade*.4);
+            auto ember=p+Point{std::sin(seed)*age*22,-age*(22+m.seed%14)};
+            disc(out[0],ember,6*(1-age)+1,fade*.45,true);
+            line(out[0],ember+Point{-age*2,3+age*3},ember,1.4,fade);
+            disc(out[2],ember,1.3*(1-age)+.3,fade);
         }else if(style=="sparkle"){
             line(out[0],p+Point{-4*fade,0},p+Point{4*fade,0},1.4,fade);
             line(out[0],p+Point{0,-4*fade},p+Point{0,4*fade},1.4,fade);

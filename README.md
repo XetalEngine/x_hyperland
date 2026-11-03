@@ -19,7 +19,7 @@ https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d
 
 <p align="center"><sub>48-second desktop tour · Original 1440p recording · <a href="docs/GALLERY.md">Explore the full gallery</a></sub></p>
 
-Hyper Fusion brings the whole desktop together: a launcher you can arrange yourself, four coordinated visual styles, a configurable taskbar, native settings, themed file tools, virtual-machine management and original Compiz effects adapted to Hyprland. The graphical installer builds the included desktop components for your system, and the updater keeps your personal choices between releases.
+Hyper Fusion brings the whole desktop together: a launcher you can arrange yourself, coordinated visual styles, a configurable taskbar, native settings, themed file tools, virtual-machine management and original Compiz effects adapted to Hyprland. The graphical installer builds the included desktop components for your system, and the updater keeps your personal choices between releases.
 
 ## Tested on
 
@@ -119,7 +119,9 @@ Colors follow you through Apps, the taskbar, Fusion Settings, Control Panel, KVM
 
 **Mix & match** brings the independent styles together in one quick editor. Its applied choices persist and stay synchronized with the detailed tabs, without creating another preset. Fusion Files' optional **Selection marker** starts **Off** in every theme; choose a Glass curve or Ink line in **Design** or **Mix & match**. Mouse effects include a separate **General effects** gallery and an **Enable mouse trail** switch.
 
-Each theme includes its own three-screen wallpaper set. The [gallery](docs/GALLERY.md) shows all four designs, their tools and artwork.
+Each theme includes its own three-screen wallpaper set. The [gallery](docs/GALLERY.md) shows the original Xetal World designs, their tools and artwork.
+
+**Presets → Atmospheres** contains Tidal Glass, Porcelain Ink, and **Obsidian Forge**. Obsidian Forge pairs machined basalt panels and copper edges with three original volcanic wallpapers: Basalt Reach, The Forge, and Ashen Observatory. Its Cinder wake mouse trail lifts embers from a cooling fissure; its file-transfer animation carries glowing documents through basalt presses. Both can be selected independently in Mix & match. Built-in presets start dark, and Kitty keeps a dark background in every mode.
 
 ## Make the desktop yours
 

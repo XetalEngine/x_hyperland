@@ -1,0 +1,24 @@
+{
+  "generator": "Built-in image_gen",
+  "reference": "User-provided Obsidian Forge concept",
+  "assets": [
+    {
+      "name": "Basalt Reach",
+      "file": "basalt-reach.png",
+      "monitor": "left",
+      "prompt": "Use case: stylized-concept. Asset type: premium Linux desktop wallpaper for the LEFT monitor in an Obsidian Forge three-screen collection. Finished cinematic environmental concept art in a wide 16:9 landscape, ideally 3840x2160. A vast volcanic chasm lined with massive vertical black basalt organ-pipe columns, a delicate molten-orange waterfall pouring down the cliff at left, lava glowing in narrow fractures on terraced obsidian ledges. Low camera overlooking the chasm, distant sawtooth mountain silhouettes fading through ash and charcoal fog toward the right. One exquisite glowing lava ribbon leads the eye through the lower third, upper half has dramatic but quiet dark cloud forms. Natural geological geometry, realistic glassy rock details mixed with matte basalt, almost monochrome black and graphite with precisely controlled copper-orange highlights and warm pale smoky horizon. Architectural, ominous, gorgeous, expensive photographic light, epic scale, readable deep shadow detail. Compose as a companion to an angular basalt forge citadel at center screen: this image is the natural canyon approach, not a repeated fortress. Only scenic wallpaper, absolutely NO text, letters, logos, menus, desktop UI, windows, frames, borders, collage, or people."
+    },
+    {
+      "name": "The Forge",
+      "file": "the-forge.png",
+      "monitor": "center",
+      "prompt": "Use case: stylized-concept. Asset type: premium Linux desktop wallpaper for the CENTER screen of a three-monitor Obsidian Forge theme. Generate a finished, extraordinary cinematic environment painting, 16:9 landscape, ideally 3840x2160. Scene: a monumental brutalist forge citadel built from jet-black fractured basalt, its single immense angular doorway lit deep within by molten orange metal. The fortress rises on the right third above a broad volcanic caldera, narrow incandescent lava channels winding through black rock terraces toward the left distance. Low charcoal storm clouds break to a faint pale warm horizon behind jagged peaks. Huge geological scale, subtle volcanic ash, razor-sharp obsidian strata, beautiful photographic material detail. Camera low on a dark basalt terrace, architecture on right, breathing room through center and upper left for desktop windows. Palette predominantly coal black and mineral gray with restrained vivid molten copper-orange seams; tiny amber sparks, no saturated red sea. Rich dark contrast but readable shadow detail, austere, architectural, mesmerizing. This is only environmental artwork: NO text, NO logos, NO title, NO UI, NO windows, NO taskbar, NO borders, NO collage, NO people. The basalt and orange forge concept should feel expensive and original, not a generic fantasy lava landscape."
+    },
+    {
+      "name": "Ashen Observatory",
+      "file": "ashen-observatory.png",
+      "monitor": "right",
+      "prompt": "Use case: stylized-concept. Asset type: premium Linux desktop wallpaper for the RIGHT monitor of the Obsidian Forge three-screen collection. Finished extraordinary cinematic landscape, wide 16:9 ideally 3840x2160. The Ashen Observatory: angular jet-black basalt monoliths on the edge of a huge elevated volcanic plateau, one tall fractured obelisk at left third carrying a fine vertical molten-copper seam. Beyond it a sweeping caldera and distant volcanic peaks sit beneath charcoal storm clouds and luminous silver ash haze, with dim warm sunset near far-right horizon. Thin orange lava channels meander toward the horizon across the bottom, rare glowing ember flecks drift above the fissures. Obsidian ledges, weathered geological strata, subtle specular reflections, generous dark open atmosphere through center and upper right for desktop windows. Palette mostly black, slate, smoke, burnished copper and restrained orange. Rich readable shadows, masterful lighting, austere monumental scale. Complement a center-screen black forge citadel and left-screen basalt canyon without repeating either composition. Wallpaper artwork ONLY: NO typography, NO logos, NO UI, NO title, NO desktop dock, NO inset panels, NO people, NO border, NO collage."
+    }
+  ]
+}

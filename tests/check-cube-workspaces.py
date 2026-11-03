@@ -154,9 +154,10 @@ xwayland {
             assert mapfile.read_text().startswith('disabled')
             restored=next(c for c in json.loads(ctl('-j','clients')) if c['address']==client['address'])
             assert restored['workspace']['id']==24,restored['workspace']
-            for effect in ('glow','sparkle','none'):
+            for effect in ('cinder','glow','sparkle','none'):
                 cursorvalues['trail']=effect;cursorfile.write_bytes(cursors.encode(cursorvalues));dispatch('xetalcube:cursor')
                 for x in range(200,500,25):dispatch('movecursor',f'{x} 300');time.sleep(.012)
+                assert status()['cursor_effect']==effect
                 if effect=='none':assert status()['cursor_marks']==0
                 else:
                     assert status()['cursor_marks']>0

@@ -82,8 +82,16 @@ def theme():
           QWidget#defaultAppsTab QToolButton, QListWidget#defaultsAppList, QListWidget#defaultsAppList::item, QLabel#diskDetails {{border-radius:2px;}}
           QLabel#panelTitle, QLabel#defaultsTitle {{font-family:"Noto Serif"; font-weight:500;}}
         '''
+    if design=='obsidianforge':
+        from obsidianforge import basalt
+        style+=f'''
+          QWidget#hyperControlPanel {{background:{basalt(p)}; border-radius:3px; border-top-color:{p['Accent']};}}
+          QScrollArea, QStackedWidget {{background:transparent;}}
+          QFrame#defaultsHero, QFrame#ramMetric, QFrame#ramMode, QFrame#filterGroupBox {{background:{basalt(p,'AlternateBase','Window')}; border-top-color:{p['Light']}; border-radius:3px;}}
+          QWidget#defaultAppsTab QToolButton, QListWidget#defaultsAppList, QListWidget#defaultsAppList::item, QLabel#diskDetails {{border-radius:3px;}}
+        '''
     return {'stylesheet':style,'colors':p,'font':runtime.ui_font(),
-            'cardRadius':2 if design=='porcelainink' else 16 if design=='tidalglass' else 4 if design=='binaryknife' else 10,
+            'cardRadius':3 if design=='obsidianforge' else 2 if design=='porcelainink' else 16 if design=='tidalglass' else 4 if design=='binaryknife' else 10,
             'iconTheme':'Papirus-Light' if runtime.mode()=='light' else 'Papirus-Dark'}
 
 

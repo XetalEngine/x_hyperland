@@ -10,6 +10,7 @@ STYLES = {
     'circuit': ('binaryknife','Data stream','#32adff','#bcf1ff','Right-angle circuit traces shed drifting binary digits.'),
     'tidal': ('tidalglass','Bioluminescence','#68dfed','#d2faff','A watery wake releases rising bubbles and luminous plankton.'),
     'ink': ('porcelainink','Living ink','#bb3b30','#f0e4cc','A tapered brush stroke scatters vermilion petals and ink flecks.'),
+    'cinder': ('obsidianforge','Cinder wake','#ff8a3d','#a84b23','A molten fissure cools behind the pointer while hot embers lift into the air.'),
 }
 THEMES = {value[0]:key for key,value in STYLES.items()}
 GENERAL = {

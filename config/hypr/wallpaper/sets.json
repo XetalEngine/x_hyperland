@@ -28,5 +28,10 @@
     "porcelainink/crane-harbor.png",
     "porcelainink/vermilion-dawn.png",
     "porcelainink/cedar-mist.png"
+  ],
+  "obsidianforge": [
+    "obsidianforge/basalt-reach.png",
+    "obsidianforge/the-forge.png",
+    "obsidianforge/ashen-observatory.png"
   ]
 }

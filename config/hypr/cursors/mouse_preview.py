@@ -1,4 +1,4 @@
-"""Interactive previews of the six procedural mouse trails."""
+"""Interactive previews of the procedural mouse trails."""
 import math
 import time
 from PyQt6.QtCore import Qt,QPointF,QRectF,QTimer
@@ -9,7 +9,7 @@ from . import model,effects
 def paint_trail(p,values,marks,now,design=None):
     style=effects.resolve(values['trail'],design)
     accent,secondary=effects.colors(values,design)
-    colors=[QColor(accent),QColor(secondary),QColor('#20252b' if style=='ink' else '#f2ffff')]
+    colors=[QColor(accent),QColor(secondary),QColor('#20252b' if style=='ink' else '#ffe1a3' if style=='cinder' else '#f2ffff')]
     duration=values['duration']/1000;opacity=values['intensity']/100
     def color(index,alpha):
         c=QColor(colors[index]);c.setAlphaF(max(0,min(1,alpha*opacity)));return c
@@ -68,6 +68,17 @@ def paint_trail(p,values,marks,now,design=None):
             if seed%4:continue
             at=at+n*(math.sin(random)*age*24)+QPointF(age*8,age*14);a=random+age*2;tip=polar(a,4);side=polar(a+math.pi/2,1.8)
             p.setPen(Qt.PenStyle.NoPen);p.setBrush(color(0,fade));p.drawPolygon(QPolygonF([at+tip,at+side,at-tip,at-side]));disc(at+n*6,1.1,fade,2)
+        elif style=='cinder':
+            if joined:
+                line(previous,at,8,fade*.18);line(previous,at,3,fade,1);line(previous,at,1.1,fade*(1-age),2)
+            if seed%4:continue
+            side=1 if seed%8 else -1
+            crack=at+n*(side*7)+d*3
+            line(at,crack,1.2,fade*.6,1);line(crack,crack+n*(side*4)-d*4,.8,fade*.4)
+            ember=at+QPointF(math.sin(random)*age*22,-age*(22+seed%14))
+            disc(ember,6*(1-age)+1,fade*.45,glow=True)
+            line(ember+QPointF(-age*2,3+age*3),ember,1.4,fade)
+            disc(ember,1.3*(1-age)+.3,fade,2)
         elif style=='sparkle':line(at+QPointF(-4*fade,0),at+QPointF(4*fade,0),1.4,fade);line(at+QPointF(0,-4*fade),at+QPointF(0,4*fade),1.4,fade)
         else:disc(at,(12 if style=='glow' else 4)*fade,fade,glow=style=='glow')
 

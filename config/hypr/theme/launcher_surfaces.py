@@ -14,6 +14,7 @@ DEFAULTS = {
     'breakpoint': {'tile_opacity': 94, 'group_opacity': 0, 'sidebar_opacity': 45, 'group_image': ''},
     'binaryknife': {'tile_opacity': 94, 'group_opacity': 32, 'sidebar_opacity': 60, 'group_image': ''},
     'tidalglass': {'tile_opacity': 86, 'group_opacity': 22, 'sidebar_opacity': 38, 'group_image': ''},
+    'obsidianforge': {'tile_opacity': 100, 'group_opacity': 62, 'sidebar_opacity': 90, 'group_image': ''},
     'porcelainink': {'tile_opacity': 24, 'group_opacity': 28, 'sidebar_opacity': 60, 'group_image': ''},
 }
 
@@ -121,6 +122,10 @@ class StripImage(QObject):
 
 def paint_tile(p, box, colors, style, mode, opacity, selected=False, hover=0, radius=None):
     """Opacity affects the card only; icons, text and focus remain independent."""
+    if style=='obsidianforge':
+        from obsidianforge import paint_tile as forge_tile
+        forge_tile(p,box,colors,opacity,selected,bool(hover))
+        return
     if style=='porcelainink':
         from porcelainink import paint_tile as ink_tile
         ink_tile(p,box,colors,opacity,selected,bool(hover))
@@ -153,7 +158,7 @@ def paint_tile(p, box, colors, style, mode, opacity, selected=False, hover=0, ra
 
 def paint_group(p, box, colors, style, opacity, image=None, focused=False, hovered=False):
     p.save()
-    radius = 2 if style == 'porcelainink' else 16 if style == 'tidalglass' else 4 if style == 'binaryknife' else 10 if style == 'modern' else 8
+    radius = 3 if style == 'obsidianforge' else 2 if style == 'porcelainink' else 16 if style == 'tidalglass' else 4 if style == 'binaryknife' else 10 if style == 'modern' else 8
     clip = QPainterPath(); clip.addRoundedRect(box, radius, radius)
     p.setClipPath(clip, Qt.ClipOperation.IntersectClip)
     p.setOpacity(p.opacity() * opacity / 100)

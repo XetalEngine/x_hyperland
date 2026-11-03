@@ -292,8 +292,8 @@ class SignIn(QWidget):
         self.avatar.load(look['avatar'], user['name'], self.colors['Accent'])
         self.wallpaper = QPixmap(str(look['wallpaper'])) if look['wallpaper'] else QPixmap()
         self.theme_badge.setText('●   '+DESIGNS[design].upper())
-        font = 'Inter' if design in ('breakpoint', 'binaryknife', 'tidalglass', 'porcelainink') else 'Noto Sans'
-        radius = 2 if design == 'porcelainink' else 7 if design == 'binaryknife' else 16 if design == 'breakpoint' else 28 if design == 'modern' else 20
+        font = 'Inter' if design in ('breakpoint', 'binaryknife', 'tidalglass', 'porcelainink', 'obsidianforge') else 'Noto Sans'
+        radius = 3 if design == 'obsidianforge' else 2 if design == 'porcelainink' else 7 if design == 'binaryknife' else 16 if design == 'breakpoint' else 28 if design == 'modern' else 20
         p = self.colors
         self.setStyleSheet(f'''
             QWidget {{ color:{p['Text']}; font-family:'{font}'; font-size:14px; background:transparent; }}
@@ -313,7 +313,7 @@ class SignIn(QWidget):
             QPushButton#reveal {{background:transparent; border:0; color:{p['PlaceholderText']}; font-size:18px;}}
             QPushButton#reveal:hover {{color:{p['Accent']};}}
             QLabel#message {{font-size:11px; color:{p['PlaceholderText']};}}
-            QPushButton#enter {{background:{p['Highlight'] if design in ('tidalglass','porcelainink') else p['Accent']}; color:{p['HighlightedText']}; border:0; border-radius:{min(radius,12)}px; font-size:13px; font-weight:700;}}
+            QPushButton#enter {{background:{p['Highlight'] if design in ('tidalglass','porcelainink','obsidianforge') else p['Accent']}; color:{p['HighlightedText']}; border:0; border-radius:{min(radius,12)}px; font-size:13px; font-weight:700;}}
             QPushButton#enter:hover {{background:{p['Highlight']};}}
             QPushButton#enter:focus {{border:2px solid {p['Text']};}}
             QPushButton#enter:disabled {{background:{p['Button']}; color:{p['PlaceholderText']};}}
