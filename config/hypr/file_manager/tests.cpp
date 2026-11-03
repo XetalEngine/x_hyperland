@@ -42,6 +42,14 @@ class FileTests : public QObject {
     tab->view()->setFocus();
     QTest::qWait(40);
   }
+  static QPoint filePoint(Browser *tab, const QModelIndex &index) {
+    const auto rect = tab->view()->visualRect(index);
+    if (tab->view() != tab->icons) return rect.center();
+    const auto icon = tab->icons->iconSize();
+    return tab->icons->viewMode() == QListView::IconMode
+        ? QPoint(rect.center().x(), rect.top() + icon.height() / 2 + 3)
+        : QPoint(rect.left() + icon.width() / 2 + 3, rect.center().y());
+  }
   static void clickFile(Browser *tab, const QUrl &url,
                         Qt::KeyboardModifiers modifiers = Qt::NoModifier) {
     const auto index = tab->proxy->mapFromSource(tab->model->indexForUrl(url));
@@ -49,7 +57,7 @@ class FileTests : public QObject {
     tab->view()->scrollTo(index);
     QTRY_VERIFY(tab->view()->visualRect(index).isValid());
     QTest::mouseClick(tab->view()->viewport(), Qt::LeftButton, modifiers,
-                      tab->view()->visualRect(index).center());
+                      filePoint(tab, index));
   }
   static QListWidget *driveRow(Browser *tab, const QString &key) {
     for (auto *row : tab->findChildren<QListWidget *>("driveCards"))
@@ -954,7 +962,7 @@ private slots:
       write(incoming, "dropped file contents\n");
       QMimeData mime;
       mime.setUrls({QUrl::fromLocalFile(incoming)});
-      const auto point = tab->view()->visualRect(destination).center();
+      const auto point = filePoint(tab, destination);
       QDragEnterEvent enter(point, Qt::CopyAction, &mime, Qt::LeftButton, Qt::ControlModifier);
       QApplication::sendEvent(tab->view()->viewport(), &enter);
       QVERIFY(enter.isAccepted());
@@ -965,6 +973,67 @@ private slots:
       QCOMPARE(jobs.size(), 1);
       QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(base + "/Destination/" + QFileInfo(incoming).fileName()), 10000);
       QVERIFY(QFileInfo::exists(incoming));
+    }
+    window.close();
+  }
+  void iconPaddingIsBackgroundForClicksAndBoxSelection_data() {
+    QTest::addColumn<bool>("longNames");
+    QTest::newRow("short filenames") << false;
+    QTest::newRow("wrapped screenshot filenames") << true;
+  }
+  void iconPaddingIsBackgroundForClicksAndBoxSelection() {
+    QFETCH(bool, longNames);
+    const QString base = folder + (longNames ? "/icon-hit-long" : "/icon-hit-short");
+    QDir().mkpath(base);
+    for (const auto &prefix : {"a", "b", "c", "d"})
+      write(base + "/" + prefix + (longNames ? "-Screenshot-2026-11-02_01-11-25-n9Bmq.png" : ".txt"));
+    FilesWindow window(QUrl::fromLocalFile(base), false, temporary.path() + "/icon-hit.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false);window.show();
+    auto *tab = window.browser();
+    QTRY_COMPARE(tab->proxy->rowCount(), 4);
+    for (int mode : {0, 1, 2, 3}) {
+      tab->setView(mode);focus(tab);
+      auto *view = tab->icons;
+      const auto first = tab->proxy->index(0, 0), last = tab->proxy->index(3, 0);
+      const QRect cell = view->visualRect(first);
+      const QPoint icon = filePoint(tab, first);
+      const QPoint padding = mode == 3 ? QPoint(cell.right() - 1, cell.center().y())
+                                       : QPoint(cell.left() + 1, icon.y());
+      // These coordinates used to hit the first file, even though they are
+      // visibly outside its icon and filename.
+      QCOMPARE(view->QListView::indexAt(padding), first);
+      QVERIFY2(!view->indexAt(padding).isValid(), qPrintable(QString("mode %1, cell %2,%3 %4x%5, padding %6,%7")
+          .arg(mode).arg(cell.x()).arg(cell.y()).arg(cell.width()).arg(cell.height()).arg(padding.x()).arg(padding.y())));
+      QCOMPARE(view->indexAt(icon), first);
+      const QPoint label = mode == 3 ? QPoint(cell.left() + view->iconSize().width() + 10, cell.center().y())
+                                     : QPoint(cell.center().x(), cell.bottom() - 8);
+      QCOMPARE(view->indexAt(label), first);
+      QTest::mouseClick(view->viewport(), Qt::LeftButton, Qt::NoModifier, label);
+      QCOMPARE(tab->selectedUrls().size(), 1);
+      tab->selectAll();QCOMPARE(tab->selectedUrls().size(), 4);
+      QTest::mouseClick(view->viewport(), Qt::LeftButton, Qt::NoModifier, padding);
+      QVERIFY(tab->selectedUrls().isEmpty());
+
+      // Starting inside a selected cell's padding must box-select, not export
+      // the selected files in a native drag. End on background as well.
+      tab->selectAll();
+      const QRect endCell = view->visualRect(last);
+      const QPoint end = mode == 3 ? QPoint(endCell.left() + 1, endCell.bottom() - 1)
+                                   : QPoint(endCell.right() - 1, endCell.bottom() - 1);
+      QTest::mousePress(view->viewport(), Qt::LeftButton, Qt::NoModifier, padding);
+      QTest::mouseMove(view->viewport(), end, 20);
+      QCOMPARE(tab->selectedUrls().size(), 4);
+      QTest::mouseRelease(view->viewport(), Qt::LeftButton, Qt::NoModifier, end);
+      QCOMPARE(tab->selectedUrls().size(), 4);
+      QSignalSpy opened(tab, &Browser::openRequested);
+      QTest::mouseDClick(view->viewport(), Qt::LeftButton, Qt::NoModifier, padding);
+      QCOMPARE(opened.size(), 0);
+      QTest::mouseRelease(view->viewport(), Qt::MiddleButton, Qt::NoModifier, padding);
+      QCOMPARE(opened.size(), 0);
+      QTest::mouseClick(view->viewport(), Qt::LeftButton, Qt::NoModifier, icon);
+      QCOMPARE(tab->selectedUrls().size(), 1);
+      QTest::mouseClick(view->viewport(), Qt::LeftButton, Qt::ShiftModifier, filePoint(tab, last));
+      QCOMPARE(tab->selectedUrls().size(), 4);
     }
     window.close();
   }
@@ -1241,7 +1310,7 @@ private slots:
     QTRY_VERIFY(tab->model->indexForUrl(script).isValid());
     clickFile(tab, script);
     const auto index = tab->proxy->mapFromSource(tab->model->indexForUrl(script));
-    QTest::mouseDClick(tab->view()->viewport(), Qt::LeftButton, Qt::NoModifier, tab->view()->visualRect(index).center());
+    QTest::mouseDClick(tab->view()->viewport(), Qt::LeftButton, Qt::NoModifier, filePoint(tab, index));
     QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(log), 10000);
     QCOMPARE(QFileInfo(script.toLocalFile()).permissions(), permissions);
     window.close();

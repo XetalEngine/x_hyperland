@@ -42,7 +42,9 @@ class MixMatchPage(QWidget):
             if i==0:
                 self.marker_preview=selection_marker.preview();column.addWidget(self.marker_preview)
                 column.addWidget(note('Selection marker adds an optional edge in Fusion Files. Off keeps the usual selection highlight.'))
-            elif i==1:column.addWidget(note('Choose any themed trail, a general effect, or Off. Cursor artwork is independent.'))
+            elif i==1:
+                self.active_trail=note('');column.addWidget(self.active_trail)
+                column.addWidget(note('Choose any themed trail, a general effect, or Off. Cursor artwork is independent.'))
             elif i==2:column.addWidget(note('The transfer style includes its animation design. Detailed timing, size and information choices are kept.'))
             else:column.addWidget(note('Change how your windows are arranged in the switcher. Its other options stay as you set them.'))
             column.addStretch();link=QPushButton('Open detailed settings');link.clicked.connect(lambda _,p=page:self.open_details(p));column.addWidget(link)
@@ -87,7 +89,11 @@ class MixMatchPage(QWidget):
         self.discard.setEnabled(self.dirty and not self.busy);self.reload.setEnabled(not self.busy)
         self.keep.setVisible(bool(self.conflicts));self.keep.setEnabled(not self.busy)
     def refresh(self,force=False):
-        if self.busy or (hasattr(self.owner,'mix_page') and self.owner.busy):return
+        if self.busy or (hasattr(self.owner,'mix_page') and self.owner.busy):
+            # Preset application refreshes other pages asynchronously. A file
+            # notification or tab change during that work must be retried.
+            if self.isVisible():self.refresh_timer.start()
+            return
         if force and self.dirty and QMessageBox.question(self,'Reload quick settings?','Discard these unapplied adjustments and reload the current settings?',QMessageBox.StandardButton.Discard|QMessageBox.StandardButton.Cancel,QMessageBox.StandardButton.Cancel)!=QMessageBox.StandardButton.Discard:return
         try:
             saved,token,_=quick_mix.read()
@@ -95,8 +101,13 @@ class MixMatchPage(QWidget):
             edited,conflicts=quick_mix.merge(self.baseline,self.draft,saved) if self.baseline and not force else (saved,[])
             if not force:conflicts=list(dict.fromkeys([*conflicts,*(k for k in self.conflicts if edited[k]!=saved[k])]))
             self.baseline,self.token=saved,token;self.conflicts=conflicts;self.fill(edited)
+            self.show_active_trail()
             self.status.setText('Also changed elsewhere: '+', '.join(quick_mix.FIELDS[k][0] for k in conflicts)+'. Reload or keep your choices.' if conflicts else 'Showing the current settings. Apply adjustments updates the same settings used by the detailed tabs.')
         except (ValueError,OSError) as exc:self.failed(str(exc))
+    def show_active_trail(self):
+        from cursors import effects,model
+        trail=self.baseline['trail'];design=runtime.design()
+        self.active_trail.setText('Active trail: '+model.TRAILS[effects.resolve(trail,design)]+(' · follows '+runtime.DESIGNS[design] if trail=='follow' else ''))
     def keep_choices(self):self.conflicts=[];self.changed();self.status.setText('Your choices are ready to apply.')
     def save(self):
         if self.owner.busy:return
@@ -109,6 +120,7 @@ class MixMatchPage(QWidget):
         self.owner.async_run(lambda:quick_mix.apply(values,baseline,token),self.saved,self.failed)
     def saved(self,result):
         self.baseline,self.token,selected=result;self.busy=False;self.conflicts=[];self.fill(self.baseline)
+        self.show_active_trail()
         self.owner.components_saved('Mix & match',selected,self.token)
         self.status.setText('Applied. These choices are shared with the detailed tabs; no separate preset was created.')
     def failed(self,error):

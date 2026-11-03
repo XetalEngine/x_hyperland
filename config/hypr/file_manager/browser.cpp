@@ -12,6 +12,24 @@
 #include <KJobWidgets>
 #include <KUrlComboBox>
 
+class FilesIconView : public QListView {
+public:
+  using QListView::QListView;
+  QModelIndex indexAt(const QPoint &position) const override {
+    const auto index = QListView::indexAt(position);
+    if (!index.isValid()) return {};
+    auto *delegate = qobject_cast<KFileItemDelegate *>(itemDelegateForIndex(index));
+    if (!delegate) return index;
+    QStyleOptionViewItem option;
+    initViewItemOption(&option);
+    option.rect = visualRect(index);
+    if (selectionModel()->isSelected(index)) option.state |= QStyle::State_Selected;
+    // The painted cell includes selection padding. Only the actual icon and
+    // filename are file hits; its remaining space can start a rubber band.
+    return delegate->shape(option, index).contains(position) ? index : QModelIndex();
+  }
+};
+
 class FilesFilter : public KDirSortFilterProxyModel {
 public:
   using KDirSortFilterProxyModel::KDirSortFilterProxyModel;
@@ -157,7 +175,7 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
   proxy->setFilterCaseSensitivity(Qt::CaseInsensitive);
   proxy->setFilterKeyColumn(0);
   proxy->sort(0);
-  icons = new QListView;
+  icons = new FilesIconView;
   icons->setObjectName("files");
   icons->setModel(proxy);
   icons->setMovement(QListView::Static);
@@ -165,6 +183,7 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
   icons->setUniformItemSizes(true);
   icons->setWordWrap(true);
   icons->setSpacing(5);
+  icons->setSelectionRectVisible(true);
   icons->setItemDelegate(new KFileItemDelegate(icons));
   details = new QTreeView;
   details->setObjectName("details");
@@ -673,7 +692,8 @@ void Browser::columnMenu(const QPoint &position) {
 }
 KFileItem Browser::itemAt(QAbstractItemView *view,
                           const QPoint &position) const {
-  return model->itemForIndex(proxy->mapToSource(view->indexAt(position)));
+  const auto index = view->indexAt(position);
+  return index.isValid() ? model->itemForIndex(proxy->mapToSource(index)) : KFileItem();
 }
 bool Browser::eventFilter(QObject *watched, QEvent *event) {
   if (!icons || !details)

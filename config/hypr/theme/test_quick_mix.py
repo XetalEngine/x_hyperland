@@ -100,5 +100,29 @@ class QuickMixTests(unittest.TestCase):
                 self.assertTrue(mix.trail_enabled.isChecked());self.assertEqual(page.cursors.draft['trail'],'glow')
             finally:page.deleteLater();qt.sendPostedEvents(None,QEvent.Type.DeferredDelete)
 
+    def test_busy_page_refresh_retries_after_a_preset_changes_the_trail(self):
+        from types import SimpleNamespace
+        from PyQt6.QtCore import QEvent,QTimer
+        from PyQt6.QtTest import QTest
+        from PyQt6.QtWidgets import QApplication,QWidget
+        from mix_page import MixMatchPage
+        qt=QApplication.instance() or QApplication([])
+        path=self.root/'cursors/settings.json';value,_=presets.cursors.load(path)
+        path.write_bytes(presets.cursors.encode(dict(value,trail='glow')))
+        owner=SimpleNamespace(busy=False,start_menu_page=QWidget(),appearance=QWidget(),file_transfer=QWidget(),task_switcher=QWidget())
+        mix=MixMatchPage(owner);owner.mix_page=mix;mix.show();QTest.qWait(10)
+        try:
+            self.assertEqual(mix.fields['trail'].currentData(),'glow')
+            owner.busy=True
+            with patch.object(backend.Path,'iterdir',return_value=iter(())),patch.object(backend.effect_colors,'reload_active'),patch('cursors.controller.prepare'):
+                backend.apply_components(presets.builtin('modern',root=self.root),{'colors','cursors','transfer'},backend.theme_token())
+            mix.refresh() # The preset callback and file watcher can both arrive while busy.
+            QTimer.singleShot(240,lambda:setattr(owner,'busy',False));QTest.qWait(450)
+            self.assertEqual(mix.fields['trail'].currentData(),'follow')
+            self.assertEqual(mix.fields['transfer'].currentData(),'modern')
+            self.assertTrue(mix.trail_enabled.isChecked());self.assertFalse(mix.dirty)
+            self.assertEqual(mix.active_trail.text(),'Active trail: Orbital bloom · follows Xetal Modern')
+        finally:mix.deleteLater();qt.sendPostedEvents(None,QEvent.Type.DeferredDelete)
+
 
 if __name__=='__main__':unittest.main()

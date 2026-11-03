@@ -587,7 +587,9 @@ class ThemePage(QWidget):
         self.baseline=theme_draft.current();self.token=token;self.set_choice(self.baseline);self.changed();self.layout_page.refresh()
         self.status.setText(name+' · applied '+', '.join(presets.COMPONENTS[k][0] for k in presets.COMPONENTS if k in selected)+'.')
         self.custom_page.refresh()
-        for page in (self.file_transfer,self.task_switcher,self.cursors,self.appearance,self.appearance.mouse,self.mix_page):page.refresh()
+        # Read the applied mix before starting asynchronous detailed-page loads.
+        self.mix_page.refresh()
+        for page in (self.file_transfer,self.task_switcher,self.cursors,self.appearance,self.appearance.mouse):page.refresh()
     def saved(self,value,token):
         self.background=runtime.launcher_background()
         self.surfaces=runtime.launcher_surfaces()
