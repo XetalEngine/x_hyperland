@@ -59,34 +59,36 @@ def shape(box, design):
 
 
 class WallpaperReveal(QPushButton):
-    """Hover/focus reveals; click pins. None of these actions selects a preset."""
+    """Preview while hovered or keyboard-focused, without a persistent open state."""
     def __init__(self, card):
         super().__init__(card)
         self.card = card; self.amount = 0.; self.hovered = False; self.pictures = None
-        self.setCheckable(True); self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus); self.setCursor(Qt.CursorShape.ArrowCursor)
         self.setAccessibleName(f'Preview {runtime.DESIGNS[card.design]} wallpapers')
         names = ', '.join(caption(path) for path in card.paths)
-        self.setAccessibleDescription(f'Wallpapers: {names}. Hover or focus to preview. Press Space to keep open; Escape to close. Does not apply the theme.')
+        self.setAccessibleDescription(f'Wallpapers: {names}. Hover or focus to preview. Move away, move focus away, or press Escape to close. Does not apply the theme.')
         self.animation = QVariantAnimation(self); self.animation.setDuration(160)
         self.animation.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.animation.valueChanged.connect(self.animate)
-        self.toggled.connect(self.reveal)
 
     def animate(self, value):
         self.amount = float(value); self.update()
 
     def reveal(self):
-        opened = self.hovered or self.hasFocus() or self.isChecked()
+        self.animation.stop()
+        if not self.isVisible():
+            self.animate(0.); return
+        opened = self.hovered or self.hasFocus()
         if opened and self.pictures is None:
             self.pictures = [picture(path, 540) for path in self.card.paths]
-        self.animation.stop(); self.animation.setStartValue(self.amount)
+        self.animation.setStartValue(self.amount)
         self.animation.setEndValue(1. if opened else 0.); self.animation.start()
 
     def enterEvent(self, event):
         self.hovered = True; self.reveal(); super().enterEvent(event)
 
     def leaveEvent(self, event):
-        self.hovered = False; self.reveal(); super().leaveEvent(event)
+        self.hovered = False; self.clearFocus(); self.reveal(); super().leaveEvent(event)
 
     def focusInEvent(self, event):
         self.reveal(); super().focusInEvent(event)
@@ -96,13 +98,12 @@ class WallpaperReveal(QPushButton):
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
-            self.setChecked(False); self.hovered = False
+            self.hovered = False
             self.card.setFocus(Qt.FocusReason.OtherFocusReason); self.reveal(); event.accept()
         else: super().keyPressEvent(event)
 
     def hideEvent(self, event):
         self.animation.stop(); self.amount = 0.; self.hovered = False
-        self.setChecked(False); self.animation.stop()
         super().hideEvent(event)
 
     def paintEvent(self, event):
@@ -141,9 +142,6 @@ class WallpaperReveal(QPushButton):
                 p.setFont(QFont('Inter', 8, QFont.Weight.DemiBold)); p.setPen(QColor('#ffffff'))
                 name = p.fontMetrics().elidedText(f'{i+1:02}   {caption(path)}', Qt.TextElideMode.ElideRight, int(box.width()-16))
                 p.drawText(box.adjusted(8, 0, -8, -5), Qt.AlignmentFlag.AlignBottom, name); p.restore()
-            p.setFont(QFont('Inter', 8)); p.setPen(QColor(colors['PlaceholderText']))
-            p.drawText(QRectF(area.left(), area.bottom()-18, area.width(), 18), Qt.AlignmentFlag.AlignVCenter,
-                       'Pinned · click to unpin' if self.isChecked() else 'Click to keep open')
             p.restore()
         if self.hasFocus():
             p.setPen(QPen(QColor(colors['Accent']), 1.5)); p.setBrush(Qt.BrushStyle.NoBrush)

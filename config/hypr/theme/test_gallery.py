@@ -50,21 +50,25 @@ class GalleryTests(unittest.TestCase):
         self.assertEqual(self.visible(), list(runtime.DESIGNS))
         self.assertFalse(self.page.empty.isVisible())
 
-    def test_wallpaper_hover_focus_pin_escape_and_hide_never_select_a_preset(self):
+    def test_wallpaper_preview_closes_on_leave_even_after_click_and_never_selects_a_preset(self):
         self.page.search.setText('shadow'); QT.processEvents()
         card = self.page.cards['shadowedge']; reveal = card.wallpapers
         self.assertIsNone(reveal.pictures)
         QT.sendEvent(reveal, QEnterEvent(QPointF(10, 10), QPointF(10, 10), QPointF(10, 10)))
         QTest.qWait(200); self.assertEqual(reveal.amount, 1.)
         self.assertEqual(len(reveal.pictures), 3); self.assertTrue(all(not p.isNull() for p in reveal.pictures))
+        QTest.mouseClick(reveal, Qt.MouseButton.LeftButton)
+        self.assertFalse(reveal.hasFocus()); self.assertFalse(reveal.isCheckable())
         QT.sendEvent(reveal, QEvent(QEvent.Type.Leave)); QTest.qWait(200); self.assertEqual(reveal.amount, 0.)
         reveal.setFocus(); QTest.qWait(200); self.assertEqual(reveal.amount, 1.)
-        QTest.keyClick(reveal, Qt.Key.Key_Space); self.assertTrue(reveal.isChecked())
-        self.page.search.setFocus(); QTest.qWait(200); self.assertEqual(reveal.amount, 1.)
+        QTest.keyClick(reveal, Qt.Key.Key_Space)
+        self.page.search.setFocus(); QTest.qWait(200); self.assertEqual(reveal.amount, 0.)
         reveal.setFocus(); QTest.keyClick(reveal, Qt.Key.Key_Escape); QTest.qWait(200)
-        self.assertFalse(reveal.isChecked()); self.assertEqual(reveal.amount, 0.)
-        reveal.click(); self.page.search.setText('ocean'); QT.processEvents()
-        self.assertFalse(reveal.isChecked()); self.assertFalse(reveal.animation.state().value)
+        self.assertEqual(reveal.amount, 0.)
+        reveal.setFocus(); QTest.qWait(200)
+        QT.sendEvent(reveal, QEvent(QEvent.Type.Leave)); QTest.qWait(200); self.assertEqual(reveal.amount, 0.)
+        reveal.setFocus(); self.page.search.setText('ocean'); QT.processEvents()
+        self.assertFalse(reveal.animation.state().value)
         self.owner.select_preset.assert_not_called()
         self.page.search.clear(); card.click(); self.owner.select_preset.assert_called_once_with('shadowedge')
 
