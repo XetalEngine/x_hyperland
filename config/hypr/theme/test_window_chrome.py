@@ -10,6 +10,24 @@ window_chrome.install(QT)
 
 
 class CloseTests(unittest.TestCase):
+    def test_native_controls_track_external_state_and_preserve_close_guard(self):
+        class Guarded(QWidget):
+            closes=0
+            def closeEvent(self,event):self.closes+=1;event.ignore()
+        window=Guarded();layout=QVBoxLayout(window);controls=window_chrome.window_controls(window);layout.addWidget(controls)
+        self.assertIs(window_chrome.window_controls(window),controls)
+        window.show();QTest.qWait(10)
+        for _ in range(3):
+            controls.maximize.click();QTest.qWait(10)
+            self.assertTrue(window.isMaximized());self.assertEqual(controls.maximize.accessibleName(),'Restore')
+            controls.maximize.click();QTest.qWait(10)
+            self.assertFalse(window.isMaximized());self.assertEqual(controls.maximize.accessibleName(),'Maximize')
+        window.showMaximized();QTest.qWait(10);self.assertEqual(controls.maximize.symbol,'restore')
+        controls.minimize.click();QTest.qWait(10);self.assertTrue(window.isMinimized());self.assertEqual(window.closes,0)
+        window.showNormal();QTest.qWait(10);self.assertEqual(controls.maximize.symbol,'maximize')
+        controls.close.click();self.assertEqual(window.closes,1);self.assertTrue(window.isVisible())
+        window.hide();window.deleteLater()
+
     def test_close_button_respects_a_windows_close_guard(self):
         class Guarded(QWidget):
             def closeEvent(self,event):event.ignore()

@@ -13,7 +13,7 @@ import service
 import update_engine as engine
 sys.path.insert(0, str(service.ROOT/'theme'))
 import runtime as theme_runtime
-from window_chrome import close_button
+from window_chrome import window_controls
 
 STYLE = '''
 QWidget {background:palette(window); color:palette(text); font-size:13px;}
@@ -38,7 +38,7 @@ class Window(QWidget):
         self.queued_action = None; self.restart_process = None; self.restarting = False
         layout = QVBoxLayout(self); layout.setContentsMargins(24, 20, 24, 22); layout.setSpacing(14)
         header = QHBoxLayout(); label = QLabel('XETAL  /  DESKTOP UPDATES'); label.setObjectName('eyebrow')
-        header.addWidget(label, 1); header.addWidget(close_button(self)); layout.addLayout(header)
+        header.addWidget(label, 1); header.addWidget(window_controls(self)); layout.addLayout(header)
         self.heading = QLabel('Your desktop, kept current.'); self.heading.setObjectName('brand'); layout.addWidget(self.heading)
         self.version = QLabel(); self.version.setObjectName('muted'); layout.addWidget(self.version)
         self.message = QLabel(); self.message.setWordWrap(True); self.message.setTextFormat(Qt.TextFormat.PlainText)

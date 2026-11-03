@@ -4,6 +4,7 @@
 #include "default_apps.h"
 #include "grub_editor.h"
 #include "runtime_log_guard.h"
+#include "../theme/window_chrome.hpp"
 #include "backend/mainwindow.h"
 #include <QFileSystemWatcher>
 #include <QJsonArray>
@@ -152,14 +153,7 @@ PanelController::PanelController(MainWindow *window)
   search->setClearButtonEnabled(true);
   search->setMaximumWidth(310);
   top->addWidget(search);
-  auto *minimize = new QPushButton("−", header);
-  minimize->setFixedSize(32, 32);
-  minimize->setToolTip("Minimize");
-  top->addWidget(minimize);
-  auto *close = new QPushButton("×", header);
-  close->setFixedSize(32, 32);
-  close->setToolTip("Close Control Panel");
-  top->addWidget(close);
+  top->addWidget(new FusionChrome::Controls(owner));
   layout->addWidget(header);
   stack = new QStackedWidget(rootWidget);
   layout->addWidget(stack, 1);
@@ -242,9 +236,6 @@ PanelController::PanelController(MainWindow *window)
   prepareTools();
   connect(back, &QPushButton::clicked, this, [this] { open(""); });
   connect(homeButton, &QPushButton::clicked, this, [this] { open(""); });
-  connect(close, &QPushButton::clicked, owner, &QWidget::close);
-  minimize->setToolTip("Hide panel · open Control Panel from Apps to return");
-  connect(minimize, &QPushButton::clicked, owner, &QWidget::hide);
   connect(about, &QPushButton::clicked, this, [this] {
     QMessageBox::about(
         owner, "Hyper Fusion Control Panel",
@@ -651,6 +642,11 @@ QJsonArray PanelController::verifyNavigation() {
   return errors;
 }
 bool PanelController::eventFilter(QObject *object, QEvent *event) {
+  if (object->objectName() == "panelHeader" && event->type() == QEvent::MouseButtonDblClick) {
+    if (static_cast<QMouseEvent *>(event)->button() == Qt::LeftButton) {
+      FusionChrome::toggleMaximized(owner);return true;
+    }
+  }
   if (event->type() == QEvent::ToolTip) {
     auto *view = qobject_cast<QAbstractItemView *>(object->parent());
     auto *help = static_cast<QHelpEvent *>(event);

@@ -40,6 +40,18 @@ logins. Window overrides take priority over app choices, then global settings.
 exact initial application class; live windows use compositor lifetime IDs, so
 closing one cannot transfer its override to a replacement window.
 
+**Button background** defaults to **Auto**, which matches the predominant color
+of the window directly beneath the controls. A continuous opaque backing covers
+native icons and text in the gaps as well as under the buttons; the glow still
+pulses above it. **Manual** provides a color dialog and **Pick from screen…**
+eyedropper. Both preview on the actual window before Apply. Cancelling a color
+dialog restores its previous draft color; Escape cancels a screen pick without
+changing it. Background choices follow the same app/window scope, inheritance,
+reset and save rules as position and size. Existing six-field rules automatically
+gain Auto without changing their other choices or rewriting their files on load.
+Screen picking uses `hyprpicker` when available, with the existing `slurp`/`grim`
+tools as a fallback. It does not copy colors to the clipboard or save screenshots.
+
 Configure or disable them in **Fusion Settings → Hotkeys → Window buttons…**:
 enable switch, Super / Alt / Super+Shift, size, corner distance, and gentle pulse.
 The accent follows `theme/current.colors`; theme application and rollback both
@@ -61,6 +73,15 @@ Live previews exist only in compositor memory. They end when the editor or targe
 closes; a bounded heartbeat lease also removes them if the editor crashes or stops
 responding. Preview updates are asynchronous and coalesce slider changes. Their
 buttons still respect window stacking, locking, dragging and Wobbly settlement.
+
+`native/background.hpp` samples before drawing the controls, in their owning
+window's render stack. It downsamples only the backing rectangle to 40×12 pixels,
+at most four times per second when stationary. Fenced pixel buffers are read only
+after completion, with zero-wait polling; no synchronous desktop screenshots or
+GPU wait are used for Auto. A quantized histogram groups similar background
+shades and rejects minority text/icon colors. Sampling accounts for output scale,
+rotation and the working framebuffer's color description. Temporary GL state is
+restored, caches are bounded and closing windows/unloading releases their buffers.
 
 `native/plugin.cpp` uses cancellable compositor input events and a render-pass
 element inserted in the owning window's stack, so other windows and panels cover
@@ -95,3 +116,6 @@ app Apply, window-only reset, discard, crash recovery and preview expiry. Add
 `--native-only` to exercise Chrome's own maximize/restore button and title-bar
 double-click repeatedly without a minimize reset. All browser/toolkit preferences
 are isolated beneath the test's `/tmp` directory.
+Add `--background-only` for real rendering and eyedropper checks: a contrasting
+toolbar/content fixture, bright native marks, changing dominant colors, covering
+gaps, preview/Apply/discard, picker cancellation and saved-color reload.

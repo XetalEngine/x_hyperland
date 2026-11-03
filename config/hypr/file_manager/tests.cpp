@@ -116,6 +116,22 @@ private slots:
     QVERIFY(!Fusion::validName(".."));
     QVERIFY(Fusion::validName("100% # résumé.txt"));
   }
+  void builtinWindowControlsUseNativeActions() {
+    FilesWindow window(Fusion::computerUrl(),false,temporary.path()+"/window-controls.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose,false);window.show();
+    auto *minimize=window.findChild<QToolButton *>("windowMinimize");
+    auto *maximize=window.findChild<QToolButton *>("windowMaximize");
+    auto *close=window.findChild<QToolButton *>("windowClose");
+    QVERIFY(minimize&&maximize&&close);
+    window.resize(760,450);QTRY_VERIFY(close->isVisibleTo(&window));
+    for(int i=0;i<3;++i){
+      maximize->click();QTRY_VERIFY(window.isMaximized());QCOMPARE(maximize->accessibleName(),QString("Restore"));
+      maximize->click();QTRY_VERIFY(!window.isMaximized());QCOMPARE(maximize->accessibleName(),QString("Maximize"));
+    }
+    minimize->click();QTRY_VERIFY(window.isMinimized());
+    window.showNormal();QTRY_VERIFY(!window.isMinimized());QVERIFY(window.isVisible());
+    close->click();QTRY_VERIFY(!window.isVisible());
+  }
   void sidebarSelectionKeepsIndentationClear() {
     // Render the real PlacesTree with every shipped palette and marker. A
     // second selected background in the branch gutter must not reappear.

@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from PyQt6.QtWidgets import QApplication
+from PyQt6.QtGui import QColor
 import window_settings as ui
 
 
@@ -56,6 +57,31 @@ class EditorTests(unittest.TestCase):
         self.dialog.scope.setCurrentIndex(self.dialog.scope.findData('window'));self.dialog.use_inherited()
         self.assertEqual(self.dialog.values(),self.app_rule);self.assertTrue(self.dialog.remove_override)
         self.dialog.load();self.assertEqual(self.dialog.values(),self.window_rule);self.assertFalse(self.dialog.remove_override)
+
+    def test_manual_color_preview_cancel_and_reset(self):
+        self.assertFalse(self.dialog.color_button.isEnabled())
+        self.dialog.background.setCurrentIndex(self.dialog.background.findData('manual'))
+        self.assertTrue(self.dialog.color_button.isEnabled())
+        self.dialog.set_color(QColor('#375a80'))
+        self.dialog.choose_color();picker=self.dialog.color_dialog
+        picker.setCurrentColor(QColor('#c85b42'))
+        self.assertEqual(self.dialog.values()['background_color'],'#c85b42')
+        picker.reject();self.assertEqual(self.dialog.values()['background_color'],'#375a80')
+        self.save.assert_not_called()
+        self.dialog.reset.click();self.assertEqual(self.dialog.values()['background'],'auto')
+        self.assertEqual(self.dialog.values()['background_color'],ui.rules.DEFAULTS['background_color'])
+
+    def test_screen_picker_is_async_and_editor_owns_its_lifetime(self):
+        self.dialog.background.setCurrentIndex(self.dialog.background.findData('manual'))
+        with patch.object(self.dialog.picker,'start') as start:
+            self.dialog.pick_color();start.assert_called_once()
+            self.assertFalse(self.dialog.pick_button.isEnabled())
+            self.dialog.picker.picked.emit(QColor('#123456'))
+            self.dialog.picker.finished.emit('Color previewed.')
+        self.assertEqual(self.dialog.values()['background_color'],'#123456')
+        self.assertTrue(self.dialog.pick_button.isEnabled());self.save.assert_not_called()
+        with patch.object(self.dialog.picker,'cancel') as cancel:
+            self.dialog.reject();cancel.assert_called_once()
 
 
 if __name__=='__main__':unittest.main()

@@ -27,7 +27,7 @@ sys.path.insert(0,str(ROOT.parent/'theme'))
 import runtime as desktop_theme
 import wheel_guard
 from icons import icon
-from window_chrome import close_button
+from window_chrome import window_controls,toggle_maximized
 from package_ui import PackagesPanel
 from activity import supervisor_active
 
@@ -54,11 +54,7 @@ class KVMSettings(VMStart2):
         brand.setStyleSheet('font-size:21px; font-weight:700;');brand.setFixedWidth(196)
         bar=self.centralWidget().layout().itemAt(0).layout()
         self.chip=QLabel();self.chip.setPixmap(icon('chip',desktop_theme.colors()['Accent'],30).pixmap(30,30));bar.insertWidget(0,self.chip)
-        self.maximize=QPushButton();self.maximize.setFixedSize(34,34);self.maximize.setToolTip('Maximize / restore')
-        self.maximize.setAccessibleName('Maximize / restore');self.maximize.setStyleSheet('padding:0; min-width:0; min-height:0;')
-        self.maximize.setIcon(icon('maximize',desktop_theme.colors()['Text'],18))
-        self.maximize.clicked.connect(self._toggle_maximized);bar.addWidget(self.maximize)
-        bar.addWidget(close_button(self))
+        self.window_controls=window_controls(self);bar.addWidget(self.window_controls)
         self._decorate_pages()
         self.setWindowIcon(icon('chip',desktop_theme.colors()['Accent']))
         QApplication.instance().hypr_theme.changed.connect(self._theme_changed)
@@ -82,13 +78,12 @@ class KVMSettings(VMStart2):
     def _theme_changed(self):
         self.setWindowIcon(icon('chip',desktop_theme.colors()['Accent']))
         self.chip.setPixmap(icon('chip',desktop_theme.colors()['Accent'],30).pixmap(30,30))
-        self.maximize.setIcon(icon('maximize',desktop_theme.colors()['Text'],18))
         self._fill_features()
         self._fill_smbios()
         self.update()
 
     def _toggle_maximized(self):
-        self.showNormal() if self.isMaximized() else self.showMaximized()
+        toggle_maximized(self)
 
     def show_for_session(self):
         self.showNormal()

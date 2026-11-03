@@ -210,7 +210,7 @@ def install(app, source='', *, style=None):
             QIcon.setFallbackThemeName('hicolor'); QIcon.setThemeName('Papirus-Light' if mode()=='light' else 'Papirus-Dark')
             for widget in app.allWidgets():
                 if isinstance(widget,QCalendarWidget): style_calendar(widget)
-                if widget.objectName()=='windowClose':window_chrome.style_close(widget,selected or design())
+                if widget.property('xetalWindowControl') or widget.objectName()=='windowClose':window_chrome.style_close(widget,selected or design())
                 widget.update()
             self.changed.emit()
     # QFileDialog normally remembers its folder in shared QtProject settings.

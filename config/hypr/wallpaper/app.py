@@ -10,7 +10,7 @@ from PyQt6.QtNetwork import QLocalSocket
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'control_center'))
 from app import STYLE, async_run, theme_runtime, ThemePage
-from window_chrome import close_button
+from window_chrome import window_controls
 import wheel_guard
 
 class ThemeWindow(QWidget):
@@ -19,8 +19,8 @@ class ThemeWindow(QWidget):
         wheel_guard.install(QApplication.instance())
         layout=QVBoxLayout(self);layout.setContentsMargins(0,0,0,0)
         self.page=ThemePage(async_run,filename);layout.addWidget(self.page);self.page.refresh()
-        self.close_button=close_button(self,title='Close Theme')
-        self.page.layout().itemAt(0).layout().addWidget(self.close_button)
+        self.window_controls=window_controls(self,title='Close Theme');self.close_button=self.window_controls.close
+        self.page.layout().itemAt(0).layout().addWidget(self.window_controls)
     def closeEvent(self,event):
         if self.page.busy:
             event.ignore();return

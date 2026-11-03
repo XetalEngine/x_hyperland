@@ -39,6 +39,7 @@
 #include <sstream>
 #include "geometry.hpp"
 #include "policies.hpp"
+#include "background.hpp"
 
 namespace {
 using Clock = std::chrono::steady_clock;
@@ -56,6 +57,7 @@ std::array<CBox,4> buttons;
 struct Row {PHLWINDOWREF window;std::array<CBox,4> boxes;WindowButtons::Rule rule;bool preview=false;};
 std::vector<Row> rows;
 WindowButtons::Rules appRules,windowRules;
+WindowButtons::Backgrounds backgrounds;
 struct Preview {PHLWINDOWREF window;WindowButtons::Rule rule;pid_t owner;std::string token;Clock::time_point expires;};
 std::map<std::string,Preview> previews;
 Action pressedAction=None,pendingAction=None;
@@ -243,6 +245,26 @@ public:
     std::vector<UP<IPassElement>> draw()override {
         auto m=monitor.lock();auto w=row.window.lock();
         if(!m || !w || !available() || !settled(w))return {};
+        CBox panel;
+        for(int i=0;i<4;++i){
+            const auto& button=row.boxes[i];if(button.empty()||(i==Gear&&!superHeld&&!row.preview))continue;
+            if(panel.empty())panel=button;
+            else {const double right=std::max(panel.x+panel.w,button.x+button.w),bottom=std::max(panel.y+panel.h,button.y+button.h);
+                panel.x=std::min(panel.x,button.x);panel.y=std::min(panel.y,button.y);panel.w=right-panel.x;panel.h=bottom-panel.y;}
+        }
+        if(panel.empty())return {};
+        panel=panel.expand(4).intersection(w->geometricBox(Desktop::View::IGeometric::GEOMETRIC_CURRENT));
+        panel=panel.intersection(m->logicalBox()).translate(-m->m_position).scale(m->m_scale);
+        CHyprColor color;
+        if(row.rule.background=="manual"){
+            const auto rgb=std::stoul(row.rule.backgroundColor.substr(1),nullptr,16);
+            color=CHyprColor{((rgb>>16)&255)/255.F,((rgb>>8)&255)/255.F,(rgb&255)/255.F,1};
+        }else color=backgrounds.sample(w->m_stableID,m,panel);
+        // The backing is solid, including the gaps. Only the artwork pulses;
+        // fading the backing would expose the native toolbar underneath again.
+        CRectPassElement::SRectData backing;backing.box=panel;backing.color=color;
+        backing.round=std::round(std::min(10.,row.rule.size*.25)*m->m_scale);
+        g_pHyprRenderer->draw(backing,g_pHyprRenderer->m_renderData.damage);
         const double elapsed=std::chrono::duration<double>(Clock::now()-epoch).count();
         for(int i=0;i<4;++i){
             const auto& button=row.boxes[i];if(button.empty()||(i==Gear&&!superHeld&&!row.preview))continue;
@@ -311,7 +333,7 @@ void perform(PHLWINDOW w,Action action){
         std::string path=(root()/"effects/window_close/window_settings.py").string(),quoted="'";
         for(char c:path)quoted+=c=='\''?"'\\''":std::string(1,c);
         quoted+="'";
-        auto result=g_pKeybindManager->m_dispatchers.at("exec")("[float; size 560 610; center] python3 "+quoted+" --window-id "+std::to_string(w->m_stableID));
+        auto result=g_pKeybindManager->m_dispatchers.at("exec")("[float; size 640 790; center] python3 "+quoted+" --window-id "+std::to_string(w->m_stableID));
         if(result.success)++openedSettings;
         return;
     }
@@ -337,7 +359,8 @@ void tick(SP<CEventLoopTimer> self,void*) {
 void cleanup() {
     stopping=true;damage();listeners.clear();target.reset();pressed.reset();pending.reset();neverFloated.clear();
     if(timer){timer->cancel();g_pEventLoopManager->removeTimer(timer);timer.reset();}
-    g_pHyprRenderer->m_renderPass.removeAllOfType("FusionWindowClose");textures={};buttons={};rows.clear();previews.clear();
+    g_pHyprRenderer->m_renderPass.removeAllOfType("FusionWindowClose");
+    g_pHyprRenderer->glBackend()->makeEGLCurrent();backgrounds.clear();textures={};buttons={};rows.clear();previews.clear();
 }
 }
 APICALL EXPORT std::string PLUGIN_API_VERSION(){return HYPRLAND_API_VERSION;}
@@ -355,6 +378,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             if(w->m_isFloating)std::erase_if(neverFloated,[&](const auto& weak){return !weak.lock()||weak.lock()==w;});
         }));
         listeners.push_back(Event::bus()->m_events.window.close.listen([](PHLWINDOW w){
+            g_pHyprRenderer->glBackend()->makeEGLCurrent();backgrounds.erase(w->m_stableID);
             std::erase_if(neverFloated,[&](const auto& weak){return !weak.lock()||weak.lock()==w;});windowRules.erase(std::to_string(w->m_stableID));
             // Closing either the edited window or its editor ends the preview.
             std::erase_if(previews,[&](const auto& p){return p.second.window.lock()==w||(w->m_class=="fusion-window-buttons"&&p.second.owner==w->getPID());});arm();
@@ -438,14 +462,15 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
                     boxes="[";for(const auto& b:row.boxes){if(boxes.size()>1)boxes+=",";boxes+=std::format("[{},{},{},{}]",b.x,b.y,b.w,b.h);}boxes+="]";break;
                 }
                 const auto box=w->geometricBox(Desktop::View::IGeometric::GEOMETRIC_CURRENT);
-                return std::format("{{\"id\":\"{}\",\"app\":{},\"address\":\"0x{:x}\",\"rule\":{},\"window_override\":{},\"app_override\":{},\"size\":[{},{}],\"preview\":{},\"preview_rule\":{},\"preview_boxes\":{}}}",
+                const auto sampled=std::format("{{\"ready\":{},\"color\":\"#{:06x}\"}}",backgrounds.ready(w->m_stableID),backgrounds.last(w->m_stableID).getAsHex()&0xffffff);
+                return std::format("{{\"id\":\"{}\",\"app\":{},\"address\":\"0x{:x}\",\"rule\":{},\"window_override\":{},\"app_override\":{},\"size\":[{},{}],\"preview\":{},\"preview_rule\":{},\"preview_boxes\":{},\"auto_background\":{}}}",
                     id,WindowButtons::quoted(appId(w)),reinterpret_cast<uintptr_t>(w.get()),json_object_to_json_string_ext(rule.get(),JSON_C_TO_STRING_PLAIN),windowRules.contains(id),appRules.contains(appId(w)),
-                    box.w,box.h,bool(preview),json_object_to_json_string_ext(previewRule.get(),JSON_C_TO_STRING_PLAIN),boxes);
+                    box.w,box.h,bool(preview),json_object_to_json_string_ext(previewRule.get(),JSON_C_TO_STRING_PLAIN),boxes,sampled);
             }
             return std::string("{\"error\":\"This window has closed.\"}");
         }});
         arm();
     }catch(...){cleanup();throw;}
-    return {"Xetal Window Close","Theme-aware window controls with live per-window previews","XetalEngine","1.3"};
+    return {"Xetal Window Close","Theme-aware window controls with live per-window previews","XetalEngine","1.4"};
 }
 APICALL EXPORT void PLUGIN_EXIT(){cleanup();}

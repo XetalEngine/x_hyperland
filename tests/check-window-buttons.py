@@ -37,6 +37,16 @@ def main():
             if source.is_file() and source.suffix in ('.py','.json','.colors'):shutil.copy2(source,destination/source.name)
     theme_assets=REPO/'config/hypr/theme/assets'
     if theme_assets.exists():shutil.copytree(theme_assets,home/'.config/hypr/theme/assets')
+    if '--builtin-only' in sys.argv:
+        # All writable app/preferences paths belong to this private HOME. Copy
+        # sources/configs only; compiled binaries stay in the build tree.
+        for directory,subdirs,names in os.walk(REPO/'config/hypr'):
+            subdirs[:]=[d for d in subdirs if not d.startswith('.') and d not in ('__pycache__','node_modules','wallpapers','assets','qt5','qt6','gtk3')]
+            for name in names:
+                source=Path(directory)/name
+                if source.suffix not in ('.py','.json','.conf','.colors','.css','.svg','.sh','.txt','.desktop'):continue
+                destination=home/'.config/hypr'/source.relative_to(REPO/'config/hypr')
+                destination.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(source,destination)
     minimize = root / 'minimize.conf'
     minimize_values = dict(minimize_model.DEFAULTS)
     minimize.write_text(minimize_model.encode(minimize_values))
@@ -130,7 +140,8 @@ bindm=SUPER,mouse:273,resizewindow
         minimize_binary = sys.argv[sys.argv.index('--minimize-plugin')+1] if '--minimize-plugin' in sys.argv else str(minimize_build.build())
         assert ctl('plugin', 'load', minimize_binary) == 'ok'
         assert ctl('plugin', 'load', str(binary)) == 'ok'
-        app = spawn([sys.executable, str(REPO / 'tests/wobbly/client.py'), '-name', 'wobbly-test'],
+        fixture='tests/window-buttons/background_client.py' if '--background-only' in sys.argv else 'tests/wobbly/client.py'
+        app = spawn([sys.executable, str(REPO / fixture), '-name', 'wobbly-test'],
                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         def command(op, name='Buttons', process=app):
             process.stdin.write(json.dumps(dict(op=op, name=name)) + '\n'); process.stdin.flush()
@@ -195,6 +206,117 @@ bindm=SUPER,mouse:273,resizewindow
 
         if '--native-only' in sys.argv:
             check_chrome(); return
+
+        if '--builtin-only' in sys.argv:
+            command('close');wait(lambda:not client())
+            profile=home/'.config/hypr'
+            app_env=dict(env,XETAL_FILES_ROOT=str(profile),XETAL_HYPR_ROOT=str(profile),XETAL_KVM_DATA=str(root/'kvm-data'))
+            for kind in ('files','panel','settings','theme','kvm'):
+                python=kind not in ('files','panel')
+                if python:
+                    process=spawn([sys.executable,str(REPO/'tests/window-buttons/builtin_client.py'),str(profile),kind],env=app_env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
+                else:
+                    executable=REPO/('config/hypr/file_manager/.build/xetal-files' if kind=='files' else 'config/hypr/control_panel/.build/xetal-control-panel')
+                    process=spawn([str(executable),*(['--this-pc'] if kind=='files' else [])],env=app_env)
+                def current():return next((c for c in clients() if c['pid']==process.pid),None)
+                c=wait(current,seconds=40);addr='address:'+c['address']
+                dispatch('setfloating',addr);dispatch('resizewindowpixel','exact 1220 760,'+addr);dispatch('movewindowpixel','exact 25 80,'+addr)
+                def controls():
+                    if python:
+                        process.stdin.write('state\n');process.stdin.flush();return json.loads(process.stdout.readline())
+                    w=current()['size'][0]
+                    offset,y=(20,18) if kind=='files' else (34,33)
+                    return {name:{'box':[w-offset-step*34-16,y-16,32,32]} for step,name in enumerate(('windowClose','windowMaximize','windowMinimize'))}
+                def native_click(name):
+                    x,y,w,h=controls()[name]['box'];c=current()
+                    point(f"move {round(c['at'][0]+x+w/2)} {round(c['at'][1]+y+h/2)}");point('down 272');point('up 272')
+                time.sleep(.6);run('grim',str(root/(kind+'-buttons.png')))
+                for cycle in range(3):
+                    native_click('windowMaximize');wait(lambda:current()['fullscreen']==1)
+                    if python:assert controls()['windowMaximize']['caption']=='Restore'
+                    native_click('windowMaximize');wait(lambda:current()['fullscreen']==0)
+                    if python:assert controls()['windowMaximize']['caption']=='Maximize'
+                geometry_before=[*current()['at'],*current()['size']]
+                native_click('windowMinimize');wait(lambda:min_status()['active']==1)
+                assert process.poll() is None
+                dispatch('xetalminimize:restoreall');wait(lambda:min_status()['active']==0)
+                wait(lambda:[*current()['at'],*current()['size']]==geometry_before)
+                native_click('windowClose');wait(lambda:not current())
+                if process.poll() is None:process.terminate();process.wait(timeout=8)
+                print(kind+': native minimize/restore, repeated maximize/restore, and close passed',flush=True)
+            assert not ctl('configerrors')
+            return
+
+        if '--background-only' in sys.argv:
+            from PIL import Image
+            dispatch('setfloating',address());dispatch('resizewindowpixel','exact 550 650,'+address())
+            dispatch('movewindowpixel','exact 700 110,'+address());point('move 800 300')
+            window_id=next(i for i in json.loads(ctl('xetal-windowbuttons'))['windows'] if json.loads(ctl('xetal-windowbuttons',i))['address']==client()['address'])
+            def info():return json.loads(ctl('xetal-windowbuttons',window_id))
+            def screenshot(name):
+                path=root/(name+'.png');run('grim',str(path));return Image.open(path).convert('RGB')
+            def same_color(actual,expected):
+                return all(abs(int(actual[i:i+2],16)-int(expected[i:i+2],16))<=3 for i in (1,3,5))
+            original=screenshot('background-before')
+            editor=spawn([sys.executable,str(REPO/'tests/window-buttons/editor.py'),str(home/'.config/hypr'),window_id],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
+            ed=wait(lambda:next((c for c in clients() if c['pid']==editor.pid),None))
+            dispatch('setfloating','address:'+ed['address']);dispatch('movewindowpixel','exact 30 60,address:'+ed['address'])
+            def edit(op,**values):
+                editor.stdin.write(json.dumps(dict(op=op,**values))+'\n');editor.stdin.flush()
+                return json.loads(editor.stdout.readline())
+            wait(lambda:info()['preview'] and len(info()['preview_boxes'])==4)
+            wait(lambda:info()['auto_background']['ready'])
+            actual=info()['auto_background']['color'];assert same_color(actual,'#334a5a'),info()
+            boxes=info()['preview_boxes'];x=round((boxes[0][0]+boxes[0][2]+boxes[1][0])/2);y=client()['at'][1]+25
+            assert min(original.getpixel((x,y)))>245,(x,y,original.getpixel((x,y)))
+            matched=screenshot('background-auto')
+            assert max(matched.getpixel((x,y)))<200,matched.getpixel((x,y))
+            time.sleep(.7);assert same_color(info()['auto_background']['color'],'#334a5a'),'Auto sampled its own backing'
+            app.stdin.write(json.dumps(dict(op='color',name='Buttons',color='#75402c'))+'\n');app.stdin.flush();assert app.stdout.readline().strip()=='ok'
+            wait(lambda:same_color(info()['auto_background']['color'],'#75402c'))
+            screenshot('background-auto-updated')
+            print('Auto samples the toolbar, ignores bright native marks, covers gaps, and follows content without feedback',flush=True)
+            output=json.loads(ctl('-j','monitors'))[0]['name']
+            for scale,transform,color in [('1.25',0,'#4e375a'),('1',1,'#294c37'),('1',0,'#75402c')]:
+                assert ctl('keyword','monitor',f'{output},preferred,auto,{scale},transform,{transform}')=='ok'
+                time.sleep(.3)
+                dispatch('resizewindowpixel','exact 450 550,'+address());dispatch('movewindowpixel','exact 420 110,'+address())
+                app.stdin.write(json.dumps(dict(op='color',name='Buttons',color=color))+'\n');app.stdin.flush();assert app.stdout.readline().strip()=='ok'
+                try:wait(lambda:same_color(info()['auto_background']['color'],color))
+                except AssertionError:
+                    screenshot('background-transform-failure');print('Transform failure:',scale,transform,color,info(),client(),ctl('-j','monitors'),flush=True);raise
+            dispatch('resizewindowpixel','exact 550 650,'+address());dispatch('movewindowpixel','exact 700 110,'+address())
+            print('Auto matches on fractional-scale and rotated outputs',flush=True)
+            edit('background',value='manual');edit('color',value='#654321')
+            wait(lambda:info()['preview_rule']['background_color']=='#654321' and info()['preview_rule']['background']=='manual')
+            assert info()['rule']['background']=='auto','Draft was persisted'
+            image=screenshot('background-manual');assert max(image.getpixel((x,y)))<200,image.getpixel((x,y))
+            edit('pick');time.sleep(.7);screenshot('background-picker-active')
+            point('move 950 350');point('down 272');point('up 272')
+            try:wait(lambda:edit('state')['rule']['background_color']=='#195b68')
+            except AssertionError:
+                print('Picker state:',edit('state'),flush=True);raise
+            wait(lambda:info()['preview_rule']['background_color']=='#195b68')
+            screenshot('background-picked')
+            picked=edit('apply');assert picked['status'].startswith('Applied.'),picked
+            assert info()['rule']['background_color']=='#195b68' and info()['rule']['background']=='manual'
+            # Escape cancels a desktop pick without overwriting the chosen color.
+            edit('pick');time.sleep(.5);point('key 1 1');point('key 1 0');time.sleep(.3)
+            assert edit('state')['rule']['background_color']=='#195b68'
+            print('Manual live preview, real desktop eyedropper, Apply and picker cancellation passed',flush=True)
+            edit('pick-fallback');time.sleep(.4);point('move 950 720');point('down 272');point('up 272')
+            wait(lambda:edit('state')['rule']['background_color']=='#cbca40')
+            print('Desktop eyedropper fallback works with slurp and grim, without hyprpicker',flush=True)
+            edit('background',value='auto');wait(lambda:info()['preview_rule']['background']=='auto')
+            wait(lambda:same_color(info()['auto_background']['color'],'#75402c'))
+            edit('close');editor.wait(timeout=5);wait(lambda:not info()['preview'])
+            assert info()['rule']['background']=='manual'
+            hidden=screenshot('background-hidden');assert min(hidden.getpixel((x,y)))>245,hidden.getpixel((x,y))
+            assert ctl('plugin','unload',str(binary))=='ok';assert ctl('plugin','load',str(binary))=='ok'
+            assert info()['rule']['background_color']=='#195b68'
+            assert not ctl('configerrors')
+            print('Close discards Auto draft, restores native toolbar, and saved background survives plugin reload',flush=True)
+            return
 
         def check_rules():
             def info(name='Buttons'):

@@ -1,6 +1,29 @@
-"""Consistent close controls for our floating tools and their Qt dialogs."""
-from PyQt6.QtCore import Qt,QEvent,QObject
-from PyQt6.QtWidgets import QDialog,QHBoxLayout,QLabel,QToolButton,QWidget
+"""Native Qt window actions, drawn consistently in Fusion's own headers."""
+from PyQt6.QtCore import Qt,QEvent,QObject,QRectF,QPointF
+from PyQt6.QtGui import QPainter,QPen,QPolygonF
+from PyQt6.QtWidgets import QDialog,QHBoxLayout,QLabel,QToolButton,QWidget,QSizePolicy,QStyleOptionToolButton
+import weakref
+
+
+class ControlButton(QToolButton):
+    def __init__(self,symbol,parent):
+        super().__init__(parent);self.symbol=symbol
+        self.setProperty('xetalWindowControl',True)
+
+    def paintEvent(self,event):
+        super().paintEvent(event)
+        option=QStyleOptionToolButton();self.initStyleOption(option)
+        painter=QPainter(self);painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.translate(self.width()/2,self.height()/2)
+        painter.setPen(QPen(option.palette.buttonText().color(),1.5,Qt.PenStyle.SolidLine,Qt.PenCapStyle.SquareCap))
+        if self.symbol=='minimize':painter.drawLine(QPointF(-5,3),QPointF(5,3))
+        elif self.symbol=='maximize':painter.drawRect(QRectF(-5,-5,10,10))
+        elif self.symbol=='restore':
+            painter.drawPolyline(QPolygonF([QPointF(-2,-4),QPointF(-2,-6),QPointF(6,-6),QPointF(6,2),QPointF(4,2)]))
+            painter.drawRect(QRectF(-5,-2,8,8))
+        else:
+            painter.drawLine(QPointF(-4.5,-4.5),QPointF(4.5,4.5))
+            painter.drawLine(QPointF(-4.5,4.5),QPointF(4.5,-4.5))
 
 
 def style_close(button,design=None):
@@ -19,7 +42,7 @@ def style_close(button,design=None):
 
 
 def close_button(window,callback=None,title=None):
-    button=QToolButton(window);button.setObjectName('windowClose');button.setText('×');button.setFixedSize(32,32)
+    button=ControlButton('close',window);button.setObjectName('windowClose');button.setFixedSize(32,32)
     caption=title or ('Close '+window.windowTitle()).strip()
     button.setToolTip(caption);button.setAccessibleName(caption);button.setCursor(Qt.CursorShape.PointingHandCursor)
     import runtime
@@ -29,6 +52,53 @@ def close_button(window,callback=None,title=None):
     button.clicked.connect(callback or window.close)
     window.setProperty('xetalCloseButton',True)
     return button
+
+
+def toggle_maximized(window):
+    # Native Qt state requests go through Wayland/X11 and the compositor. The
+    # current state is authoritative after external shortcuts or restore too.
+    window.showNormal() if window.isMaximized() or window.isFullScreen() else window.showMaximized()
+
+
+class WindowControls(QWidget):
+    def __init__(self,window,callback=None,title=None):
+        super().__init__(window);self.owner=weakref.ref(window)
+        self.setObjectName('windowControls');self.setSizePolicy(QSizePolicy.Policy.Fixed,QSizePolicy.Policy.Fixed)
+        self.setStyleSheet('QWidget#windowControls {background:transparent;}')
+        layout=QHBoxLayout(self);layout.setContentsMargins(0,0,0,0);layout.setSpacing(2)
+        self.minimize=ControlButton('minimize',self);self.maximize=ControlButton('maximize',self)
+        import runtime
+        from PyQt6.QtWidgets import QApplication
+        selected=QApplication.instance().property('xetalThemeDesign') or runtime.design()
+        for button,name,caption in ((self.minimize,'windowMinimize','Minimize'),(self.maximize,'windowMaximize','Maximize')):
+            button.setObjectName(name);button.setFixedSize(32,32);button.setToolTip(caption);button.setAccessibleName(caption)
+            button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            button.setCursor(Qt.CursorShape.PointingHandCursor);style_close(button,selected);layout.addWidget(button)
+        self.close=close_button(window,callback,title);self.close.setFocusPolicy(Qt.FocusPolicy.NoFocus);layout.addWidget(self.close)
+        self.minimize.clicked.connect(window.showMinimized)
+        self.maximize.clicked.connect(self.toggle)
+        window.installEventFilter(self);self.sync()
+
+    def sync(self):
+        owner=self.owner()
+        if owner is None:return
+        restore=owner.isMaximized() or owner.isFullScreen()
+        self.maximize.symbol='restore' if restore else 'maximize'
+        caption='Restore' if restore else 'Maximize'
+        self.maximize.setToolTip(caption);self.maximize.setAccessibleName(caption);self.maximize.update()
+
+    def toggle(self):
+        if (owner:=self.owner()) is not None:toggle_maximized(owner)
+
+    def eventFilter(self,window,event):
+        if event.type() in (QEvent.Type.WindowStateChange,QEvent.Type.Show):self.sync()
+        return False
+
+
+def window_controls(window,callback=None,title=None):
+    if not hasattr(window,'xetal_window_controls'):
+        window.xetal_window_controls=WindowControls(window,callback,title)
+    return window.xetal_window_controls
 
 
 class DialogHeaders(QObject):

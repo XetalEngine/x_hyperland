@@ -12,7 +12,7 @@
 
 namespace WindowButtons {
 struct Rule {
-    std::string mode="super",anchor="top-right";
+    std::string mode="super",anchor="top-right",background="auto",backgroundColor="#20242b";
     int size=34,x=8,y=8,proximity=80;
 };
 using Rules=std::map<std::string,Rule>;
@@ -30,12 +30,21 @@ inline Json parseJson(const std::string& text){
     return doc;
 }
 inline Rule readRule(json_object* value){
-    if(!json_object_is_type(value,json_type_object)||json_object_object_length(value)!=6)throw std::runtime_error("Incomplete window button rule");
+    if(!json_object_is_type(value,json_type_object)||(json_object_object_length(value)!=6&&json_object_object_length(value)!=8))throw std::runtime_error("Incomplete window button rule");
     Rule r;r.mode=json_object_get_string(field(value,"mode",json_type_string));r.anchor=json_object_get_string(field(value,"anchor",json_type_string));
     if(!std::set<std::string>{"super","always","nearby","off"}.contains(r.mode)||
        !std::set<std::string>{"top-left","top-center","top-right","bottom-left","bottom-center","bottom-right"}.contains(r.anchor))throw std::runtime_error("Unknown button display mode or position");
     auto number=[&](const char* key,int lo,int hi){auto n=json_object_get_int64(field(value,key,json_type_int));if(n<lo||n>hi)throw std::runtime_error("Button rule value out of range");return int(n);};
     r.size=number("size",24,64);r.x=number("x",0,4000);r.y=number("y",0,4000);r.proximity=number("proximity",12,400);
+    if(json_object_object_length(value)==8){
+        r.background=json_object_get_string(field(value,"background",json_type_string));
+        auto color=field(value,"background_color",json_type_string);
+        r.backgroundColor=std::string(json_object_get_string(color),json_object_get_string_len(color));
+        if((r.background!="auto"&&r.background!="manual")||r.backgroundColor.size()!=7||r.backgroundColor[0]!='#'||
+           !std::all_of(r.backgroundColor.begin()+1,r.backgroundColor.end(),[](char c){return (c>='0'&&c<='9')||(c>='a'&&c<='f')||(c>='A'&&c<='F');}))
+            throw std::runtime_error("Invalid window control background");
+        std::transform(r.backgroundColor.begin(),r.backgroundColor.end(),r.backgroundColor.begin(),[](unsigned char c){return std::tolower(c);});
+    }
     return r;
 }
 inline Rules readRules(const std::filesystem::path& path,const char* section){
@@ -60,6 +69,8 @@ inline Json ruleJson(const Rule& r){
     auto result=json(json_object_new_object());
     json_object_object_add(result.get(),"mode",json_object_new_string(r.mode.c_str()));
     json_object_object_add(result.get(),"anchor",json_object_new_string(r.anchor.c_str()));
+    json_object_object_add(result.get(),"background",json_object_new_string(r.background.c_str()));
+    json_object_object_add(result.get(),"background_color",json_object_new_string(r.backgroundColor.c_str()));
     for(auto [key,value]:{std::pair{"size",r.size},{"x",r.x},{"y",r.y},{"proximity",r.proximity}})
         json_object_object_add(result.get(),key,json_object_new_int(value));
     return result;

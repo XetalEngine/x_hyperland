@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 import tempfile
+import subprocess
 import unittest
 from unittest.mock import patch
 import model
@@ -9,6 +10,21 @@ import controller
 
 
 class RuleTests(unittest.TestCase):
+    def test_background_upgrade_and_native_color_selection(self):
+        legacy={key:rules.DEFAULTS[key] for key in rules.LEGACY_KEYS}
+        old={'version':1,'apps':{'fixture':dict(legacy,size=46)}}
+        upgraded=rules.validate_document(old)
+        self.assertEqual(upgraded['apps']['fixture'],dict(rules.DEFAULTS,size=46))
+        self.assertNotIn('background',old['apps']['fixture'])
+        for change in ({'background':'guess'},{'background_color':'#fff'},
+                       {'background_color':'#80ffffff'},{'background_color':'red'}):
+            with self.assertRaises(ValueError):rules.validate(dict(rules.DEFAULTS,**change))
+        self.assertEqual(rules.validate(dict(rules.DEFAULTS,background_color='#AABBCC'))['background_color'],'#aabbcc')
+        with tempfile.TemporaryDirectory() as directory:
+            executable=Path(directory)/'background'
+            subprocess.run(['g++','-std=c++23','-O2',str(Path(__file__).parent/'native/test_background.cpp'),'-ljson-c','-o',str(executable)],check=True,capture_output=True)
+            subprocess.run([str(executable)],check=True,capture_output=True)
+
     def test_inheritance_and_exact_application_identity(self):
         app=dict(rules.DEFAULTS,mode='always',anchor='bottom-left',size=42)
         window=dict(app,mode='off')

@@ -20,7 +20,7 @@ import login_settings
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT.parent/'theme'))
 import runtime as theme_runtime
-from window_chrome import close_button
+from window_chrome import window_controls
 
 
 def alpha(value, opacity):
@@ -166,7 +166,7 @@ class Dashboard(QWidget):
         layout=QVBoxLayout(self);layout.setContentsMargins(30,19,30,20);layout.setSpacing(7)
         top=QHBoxLayout();brand=QLabel('04 / XETAL ENGINE');brand.setObjectName('projectEyebrow');brand.setFont(font(12,QFont.Weight.DemiBold,True))
         top.addWidget(brand);top.addStretch();count=QLabel(f'{len(projects):02d} PROJECTS');count.setFont(font(11,mono=True));count.setObjectName('projectMuted');top.addWidget(count)
-        top.addWidget(close_button(self,self.hide_dashboard,'Hide dashboard'));layout.addLayout(top)
+        top.addWidget(window_controls(self,self.hide_dashboard,'Hide dashboard'));layout.addLayout(top)
         self.title=QLabel('Try my other projects :D');self.title.setObjectName('projectTitle');layout.addSpacing(13);layout.addWidget(self.title)
         self.subtitle=QLabel('Pick a cube. Discover something new.');self.subtitle.setObjectName('projectMuted');self.subtitle.setFont(font(14));layout.addWidget(self.subtitle)
         self.scroll=QScrollArea();self.scroll.setObjectName('projectScroll');self.scroll.setFrameShape(QScrollArea.Shape.NoFrame)

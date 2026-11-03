@@ -20,7 +20,7 @@ import backend
 
 sys.path.insert(0, str(backend.ROOT/'theme'))
 import runtime
-from window_chrome import close_button
+from window_chrome import window_controls
 
 STYLE = '''
 QWidget {background:#171c24; color:#e3ecf8; font-family:"Noto Sans"; font-size:13px;}
@@ -89,7 +89,7 @@ class Window(QWidget):
         header=QHBoxLayout(); titles=QVBoxLayout(); titles.setSpacing(3)
         eyebrow=QLabel('XETAL  /  MEDIA'); eyebrow.setObjectName('eyebrow'); titles.addWidget(eyebrow)
         title=QLabel('Media downloader'); title.setObjectName('title'); titles.addWidget(title)
-        header.addLayout(titles,1); header.addWidget(close_button(self),0,Qt.AlignmentFlag.AlignTop); layout.addLayout(header)
+        header.addLayout(titles,1); header.addWidget(window_controls(self),0,Qt.AlignmentFlag.AlignTop); layout.addLayout(header)
         hint=QLabel('A YouTube link. Your music or video. Best available quality.'); hint.setObjectName('muted'); layout.addWidget(hint)
         url_row=QHBoxLayout(); self.url=QLineEdit(initial); self.url.setMaxLength(8192)
         self.url.setPlaceholderText('Paste or type a YouTube address…'); self.url.setAccessibleName('YouTube address')

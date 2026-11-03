@@ -4,6 +4,7 @@
 #include "removal.h"
 #include "trash_animation.h"
 #include "../theme/file_preview.hpp"
+#include "../theme/window_chrome.hpp"
 #include <KAbstractFileItemActionPlugin>
 #include <KApplicationTrader>
 #include <KFileItemActions>
@@ -170,6 +171,8 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   menuButton->setMenu(menu);
   menu->setObjectName("fileOptionsMenu");
   toolbar->addWidget(menuButton);
+  toolbar->addSeparator();
+  toolbar->addWidget(new FusionChrome::Controls(this));
   menu->addAction("New tab", this, [this] { runAction("newTab"); });
   menu->addAction("New window", this, [this] { runAction("newWindow"); });
   menu->addAction("Open location…", this, [this] { browser()->editAddress(); });

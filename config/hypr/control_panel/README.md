@@ -2,6 +2,22 @@
 
 Native floating Qt/C++ panel, opened from Apps above Fusion Settings. See the [feature map and integration guide](../../../docs/CONTROL-PANEL.md).
 
+The header has built-in minimize, maximize/restore and close buttons on the home
+screen and every tool page. Minimize sends Qt's native minimize request, keeping
+the panel available through Fusion's Minimize effect; it no longer merely hides
+the window. The middle button tracks changes from keyboard shortcuts as well as
+clicks. Double-clicking empty header space also maximizes/restores. Close still
+honors the application's running-job and unsaved-work checks.
+
+`../theme/window_chrome.hpp` supplies the same native controls to Fusion Files.
+The Python counterpart supplies Fusion Settings, Theme, KVM Settings, Images,
+Media, Desktop Updates and Projects. These buttons belong to the app's layout
+and send ordinary Qt window requests. Calculator already has a native set;
+launch menus, overlays and confirmation dialogs retain their contextual controls.
+`tests/check-window-buttons.py PLUGIN OUTPUT_DIR --builtin-only` exercises real
+clicks on Files, Control Panel, Settings, Theme and KVM in a private compositor,
+including repeated maximize/restore and minimize without closing the process.
+
 - `backend/`: complete CachyOsTools source/resources at the revision in `UPSTREAM.json`, with desktop integration changes. The original checkout remains independent.
 - `native.*`, `main.cpp`, `tools.json`: icon navigation, responsive layout and shared appearance.
 - `bridge.py`, `shell_adapter.h`, `aliases.py`: shell settings and the existing Apps shortcut editor.

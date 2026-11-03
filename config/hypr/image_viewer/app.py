@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'theme'))
 import runtime as theme_runtime
 from image_picker import ImagePicker, background, readable_size
-from window_chrome import close_button
+from window_chrome import window_controls
 
 STYLE = '''
 QWidget {background:#171b22; color:#d8e0ec; font-family:"DejaVu Sans"; font-size:12px;}
@@ -164,7 +164,7 @@ class Viewer(QWidget):
         header.addWidget(self.button('Open…', 'Open image · Ctrl+O', self.choose))
         self.folder = self.button('↗', 'Show image in folder', self.show_folder)
         self.folder.setFixedWidth(36); self.folder.setEnabled(False); header.addWidget(self.folder)
-        header.addWidget(close_button(self)); layout.addLayout(header)
+        header.addWidget(window_controls(self)); layout.addLayout(header)
 
         toolbar = QFrame(); toolbar.setObjectName('toolbar')
         controls = QHBoxLayout(toolbar); controls.setContentsMargins(8, 6, 8, 6); controls.setSpacing(6)

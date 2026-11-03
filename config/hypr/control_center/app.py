@@ -33,7 +33,7 @@ from preferences_page import PreferencesPage
 from page import ThemePage
 from audio_page import AudioPage, STYLE as AUDIO_STYLE
 from context_menu_page import ContextMenuPage, STYLE as CONTEXT_STYLE
-from window_chrome import close_button
+from window_chrome import window_controls
 import wheel_guard
 from home_page import HomePage
 from identity import Avatar
@@ -1159,8 +1159,8 @@ class Window(QMainWindow):
         header.addLayout(titles)
         header.addStretch()
         self.header_hint=label('LIVE CONFIGURATION\nSuper + K', 'muted');header.addWidget(self.header_hint)
-        self.close_button=close_button(self,title='Close Fusion Settings')
-        header.addSpacing(12);header.addWidget(self.close_button)
+        self.window_controls=window_controls(self,title='Close Fusion Settings');self.close_button=self.window_controls.close
+        header.addSpacing(12);header.addWidget(self.window_controls)
         layout.addLayout(header)
         self.tabs = QTabWidget()
         self.pages = {'hotkeys': Hotkeys(), 'audio': AudioPage(async_run), 'network': NetworkPage(),
