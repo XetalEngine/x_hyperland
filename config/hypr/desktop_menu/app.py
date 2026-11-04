@@ -66,7 +66,7 @@ class DesktopSurface(Gtk.Window):
         self.menu = None
         owner.icons.attach(self)
 
-    def build_menu(self, items, desktop=False):
+    def build_menu(self, items, desktop=False, target=None):
         menu = Gtk.Menu()
         menu.get_style_context().add_class('desktop-context-menu')
         menu.set_reserve_toggle_size(False)
@@ -123,7 +123,7 @@ class DesktopSurface(Gtk.Window):
                 if col: item.get_style_context().add_class('after-split')
                 menu.attach(item, col, col+1, index, index+1)
         if desktop:
-            self.owner.icons.append_menu(menu, len(columns[0]) if columns else 0)
+            self.owner.icons.append_menu(menu, len(columns[0]) if columns else 0, target)
         elif not columns:
             empty = Gtk.MenuItem(label='Empty submenu'); empty.set_sensitive(False); menu.append(empty)
         menu.show_all()
@@ -141,7 +141,8 @@ class DesktopSurface(Gtk.Window):
             return False
         if self.menu:
             self.menu.destroy()
-        self.menu = self.build_menu(self.owner.config['items'], desktop=True)
+        target = self.owner.icons.pointer_target(self.owner.icons.canvases.get(self))
+        self.menu = self.build_menu(self.owner.config['items'], desktop=True, target=target)
         self.menu.attach_to_widget(self, None)
         self.menu.popup_at_pointer(event)
         return True

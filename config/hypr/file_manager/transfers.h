@@ -3,6 +3,7 @@
 #include <QUrl>
 #include <QPoint>
 #include <Qt>
+#include <functional>
 class QDropEvent;
 class QMimeData;
 class QWidget;
@@ -14,7 +15,8 @@ Qt::DropAction fileDropAction(const QMimeData *mime, Qt::KeyboardModifiers modif
                              Qt::DropActions possible);
 KJob *pasteFiles(const QUrl &destination, QWidget *window);
 KJob *transferFiles(const QList<QUrl> &sources, const QUrl &destination,
-                    TransferOperation operation, QWidget *window);
+                    TransferOperation operation, QWidget *window,
+                    std::function<void(const QUrl &)> destinationChanged = {});
 KJob *dropFiles(const QDropEvent *event, const QUrl &destination,
                 QWidget *window, const QPoint &menuPosition);
 }

@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+import uuid
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
@@ -313,7 +314,7 @@ class Canvas(Gtk.Layout):
             self.controller.copy(key.lower() == 'x')
         elif control and key.lower() == 'v': self.controller.paste()
         elif control and event.state & Gdk.ModifierType.SHIFT_MASK and key.lower() == 'n':
-            self.controller.files.call('NewFolder', '(s)', self.controller.uri())
+            self.controller.new_folder()
         elif alt and key in ('Return', 'KP_Enter') and selected:
             self.controller.files.call('Properties', '(as)', self.controller.urls())
         elif key in ('Return', 'KP_Enter') and selected:
@@ -349,6 +350,7 @@ class Canvas(Gtk.Layout):
         return True
 
     def file_menu(self, event):
+        target = self.controller.pointer_target(self)
         self.controller.owner.dismiss()
         self.controller.owner.refresh_style()
         menu = Gtk.Menu(); menu.get_style_context().add_class('desktop-context-menu')
@@ -362,7 +364,7 @@ class Canvas(Gtk.Layout):
         if real:
             action(menu, 'Cut', lambda: self.controller.copy(True, names))
             action(menu, 'Copy', lambda: self.controller.copy(False, names))
-            action(menu, 'Paste', lambda: self.controller.paste())
+            action(menu, 'Paste', lambda: self.controller.paste(target))
             menu.append(Gtk.SeparatorMenuItem())
             action(menu, 'Rename', lambda: self.tiles[real[0]].begin_rename(), len(names) == 1)
             action(menu, 'Move to Trash', lambda: self.controller.trash(self.controller.urls(real)))
@@ -442,7 +444,7 @@ class Canvas(Gtk.Layout):
                 self.controller.reposition(self.monitor, names, (x-offset[0], y-offset[1]), drag.get('anchor'))
             else:
                 if model.TRASH in urls: raise ValueError('Trash can be repositioned on the desktop, but cannot be moved into a folder.')
-                self.controller.files.transfer(urls, self.controller.uri(destination), copy)
+                self.controller.transfer(urls, self.controller.uri(destination), copy, (self.monitor, (x, y)))
             success = True
         except (ValueError, TypeError, KeyError, IndexError) as error:
             self.controller.error(str(error))
@@ -457,6 +459,7 @@ class Icons:
         self.store = model.Store()
         self.settings = model.defaults()
         self.entries, self.canvases, self.areas = {}, {}, {}
+        self.bounds, self.placements = {}, {}
         self.selected, self.anchor, self.drag = set(), None, {}
         self.monitor = None
         self.generation = 0
@@ -468,7 +471,8 @@ class Icons:
         self.pastes = {}
         self.flights = {}
         self.cancellable = Gio.Cancellable()
-        self.files = Files(self.error, self.trashed, self.trash_state, self.transferred, self.renamed)
+        self.files = Files(self.error, self.trashed, self.trash_state, self.transferred, self.renamed,
+                           self.placement_target, self.placement_finished)
         self.clipboard = Clipboard(self.clipboard_changed)
         self.accent = Gdk.RGBA(); self.accent.parse('#88b6d8')
         try: self.settings = self.store.load()
@@ -500,14 +504,74 @@ class Icons:
         urls = self.urls(names, real_only=True)
         if urls and not self.clipboard.write(urls, cut): self.error('Could not copy the selected files to the clipboard.')
 
-    def paste(self):
+    def pointer_target(self, fallback=None):
+        # Wayland does not expose a reliable global GDK pointer position.
+        # Hyprland reports logical coordinates, including negative origins.
+        try:
+            cursor = json.loads(subprocess.check_output(['hyprctl', '-j', 'cursorpos'],
+                                env=self.launch_env, timeout=1, stderr=subprocess.DEVNULL))
+            for canvas in self.canvases.values():
+                x, y, width, height = self.bounds.get(canvas.monitor, (0, 0, 0, 0))
+                if x <= cursor['x'] < x+width and y <= cursor['y'] < y+height:
+                    return canvas.monitor, (cursor['x']-x+canvas.get_hadjustment().get_value(),
+                                            cursor['y']-y+canvas.get_vadjustment().get_value())
+        except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError): pass
+        canvas = fallback or next(iter(self.canvases.values()), None)
+        return (canvas.monitor, self.areas.get(canvas.monitor, (16, 48))[:2]) if canvas else None
+
+    def begin_placement(self, target):
+        if target is None: return None
+        request = uuid.uuid4().hex
+        try: existing = {path.name for path in self.root.iterdir()}
+        except OSError: existing = set(self.entries)
+        self.placements[request] = dict(target=target, existing=existing, names=[], applied=set(), finished=False)
+        return request
+
+    def placement_target(self, request, destination):
+        pending = self.placements.get(request)
+        if pending is None: return
+        file = Gio.File.new_for_uri(destination)
+        parent = file.get_parent(); name = file.get_basename()
+        if (parent and parent.equal(Gio.File.new_for_path(str(self.root))) and model.valid_name(name)
+                and name not in pending['existing'] and name not in pending['names']):
+            pending['names'].append(name)
+            self.schedule_layout()
+
+    def placement_finished(self, request):
+        pending = self.placements.get(request)
+        if pending:
+            pending['finished'] = True
+            self.refresh()
+
+    def place_incoming(self):
+        for pending in self.placements.values():
+            names = [name for name in pending['names'] if name in self.entries and name not in pending['applied']]
+            if names and self.areas:
+                monitor, point = pending['target']
+                if self.change(lambda settings: model.place_new(settings, self.entries, self.areas, monitor, names, point)):
+                    pending['applied'].update(names)
+
+    def new_folder(self, target=None):
+        request = self.begin_placement(target or self.pointer_target())
+        self.files.call('NewFolderWithPlacement', '(ss)', self.uri(), request or '',
+                        on_reply=lambda accepted: None if accepted else self.placements.pop(request, None))
+
+    def transfer(self, urls, destination, copy, target=None):
+        if destination != self.uri():
+            self.files.transfer(urls, destination, copy); return
+        request = self.begin_placement(target or self.pointer_target())
+        self.files.call('TransferWithPlacement', '(assbs)', urls, destination, copy, request or '',
+                        on_reply=lambda accepted: None if accepted else self.placements.pop(request, None))
+
+    def paste(self, target=None):
         # The desktop is the current folder; selecting an icon does not change
         # Ctrl+V's destination. Open a folder to paste into it instead.
         destination = self.uri()
+        target = target or self.pointer_target()
         def received(urls, cut, generation):
             if not urls or not self.settings['enabled']: return
             if cut: self.pastes[(tuple(urls), destination)] = generation
-            self.files.transfer(urls, destination, not cut)
+            self.transfer(urls, destination, not cut, target)
         self.clipboard.read(received)
 
     def transferred(self, sources, destination, copy, success):
@@ -610,6 +674,7 @@ class Icons:
                                  env=self.launch_env, timeout=1, stderr=subprocess.DEVNULL))
         except (OSError, ValueError, subprocess.SubprocessError): monitors = []
         surfaces = []
+        self.bounds = {}
         for surface, canvas in self.canvases.items():
             monitor = surface.desktop_monitor
             geometry = monitor.get_geometry()
@@ -624,8 +689,10 @@ class Icons:
             area = (int(left+16), int(top+16), max(1, round(width/scale)-int(left+right)-32),
                     max(1, round(height/scale)-int(top+bottom)-32))
             x, y = match.get('x', geometry.x), match.get('y', geometry.y)
+            self.bounds[canvas.monitor] = (x, y, round(width/scale), round(height/scale))
             surfaces.append((x != 0 or y != 0, x, y, canvas.monitor, area))
         self.areas = {row[3]: row[4] for row in sorted(surfaces)}
+        if self.settings['enabled']: self.place_incoming()
         layout = model.layout(self.entries if self.settings['enabled'] else [], self.areas, self.settings)
         if (self.settings['enabled'] and self.areas and not self.settings['auto_arrange']
                 and any(name not in self.settings['positions'] for name in self.entries)):
@@ -666,7 +733,7 @@ class Icons:
     def reposition(self, monitor, names, point, anchor=None):
         self.change(lambda settings: model.move(settings, self.entries, self.areas, monitor, names, point, anchor))
 
-    def append_menu(self, menu, row):
+    def append_menu(self, menu, row, target=None):
         separator = Gtk.SeparatorMenuItem(); menu.attach(separator, 0, 1, row, row+1); row += 1
         show = style_item(Gtk.CheckMenuItem(label='Show Desktop icons'))
         show.set_active(self.settings['enabled'])
@@ -708,11 +775,12 @@ class Icons:
         arrange.set_submenu(submenu)
         menu.attach(arrange, 0, 1, row, row+1); row += 1
         if self.settings['enabled']:
+            target = target or self.pointer_target()
             paste = style_item(Gtk.MenuItem(label='Paste'))
-            paste.connect('activate', lambda *_: self.paste())
+            paste.connect('activate', lambda *_: self.paste(target))
             menu.attach(paste, 0, 1, row, row+1); row += 1
             new = style_item(Gtk.MenuItem(label='New folder…'))
-            new.connect('activate', lambda *_: self.files.call('NewFolder', '(s)', self.uri()))
+            new.connect('activate', lambda *_: self.new_folder(target))
             menu.attach(new, 0, 1, row, row+1)
 
     def start(self):
@@ -735,6 +803,7 @@ class Icons:
         if self.pending: GLib.source_remove(self.pending); self.pending = 0
         if self.monitor_poll: GLib.source_remove(self.monitor_poll); self.monitor_poll = 0
         self.trash_pending.clear()
+        self.placements.clear()
         for flights in self.flights.values(): flights.stop()
 
     def poll_monitors(self):
@@ -779,6 +848,8 @@ class Icons:
                     enumerator.close(None)
                     if self.settings['show_trash']: pending[model.TRASH] = self.trash_info()
                     self.entries = pending; self.selected.intersection_update(pending)
+                    self.place_incoming()
+                    self.placements = {key: value for key, value in self.placements.items() if not value['finished']}
                     self.schedule_layout()
             except GLib.Error as error:
                 if not error.matches(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED): self.error(error.message)

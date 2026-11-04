@@ -37,6 +37,27 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(model.layout(self.names, self.areas, saved)['SIDE'][self.names[0]], (210, 190))
         self.assertEqual(self.path.stat().st_mode & 0o777, 0o600)
 
+    def test_incoming_group_uses_requested_monitor_and_keeps_existing_icons(self):
+        model.capture(self.settings, self.names, self.areas)
+        before = model.layout(self.names, self.areas, self.settings)['MAIN']
+        incoming = ['new.txt', 'new folder', 'copied photo.png']
+        model.place_new(self.settings, self.names+incoming, self.areas, 'SIDE', incoming, (245, 175))
+        after = model.layout(self.names+incoming, self.areas, self.settings)
+        self.assertEqual(before, after['MAIN'])
+        self.assertEqual(after['SIDE']['new.txt'], (240, 162))
+        self.assertEqual(len(set(after['SIDE'].values())), 3)
+        self.store.change(lambda settings: settings.update(self.settings))
+        self.assertEqual(model.layout(self.names+incoming, self.areas, self.store.load()), after)
+
+    def test_incoming_free_and_arranged_placement_stays_on_target_monitor(self):
+        for arranged in (False, True):
+            with self.subTest(arranged=arranged):
+                settings = dict(model.defaults(), auto_align=False, auto_arrange=arranged)
+                model.place_new(settings, self.names+['new'], self.areas, 'SIDE', ['new'], (233, 190))
+                placed = model.layout(self.names+['new'], self.areas, settings)
+                self.assertEqual(placed['SIDE']['new'], (16, 48) if arranged else (233, 190))
+                self.assertEqual(set(placed['MAIN']), set(self.names))
+
     def test_auto_arrange_packs_and_reorders(self):
         self.settings['auto_arrange'] = True
         model.move(self.settings, self.names, self.areas, 'MAIN', ['video.mp4'], (16, 48))
@@ -293,9 +314,10 @@ class CanvasTests(unittest.TestCase):
                 lambda _clipboard, data, _extra: contents.append(bytes(data.get_data())), None)
             self.wait(lambda: contents); self.assertEqual(contents[0], wanted)
         self.controller.paste()
-        self.wait(lambda: self.fake_files.transfer.called)
+        self.wait(lambda: any(call.args[0] == 'TransferWithPlacement' for call in self.fake_files.call.call_args_list))
         urls = [self.controller.uri('notes # café.txt')]
-        self.fake_files.transfer.assert_called_once_with(urls, self.controller.uri(), False)
+        request = next(iter(self.controller.placements))
+        self.fake_files.call.assert_any_call('TransferWithPlacement', '(assbs)', urls, self.controller.uri(), False, request, on_reply=ANY)
         clipboard.clipboard.set_text('copied while transfer was running', -1)
         self.controller.transferred(urls, self.controller.uri(), False, True)
         texts = []; clipboard.clipboard.request_text(lambda _c, value, _d: texts.append(value), None)
@@ -310,6 +332,63 @@ class CanvasTests(unittest.TestCase):
         self.assertTrue(self.canvas.tiles['Folder link'].shortcut)
         self.assertTrue(self.canvas.tiles['Example.desktop'].shortcut)
         self.assertFalse(self.canvas.tiles['Folder'].shortcut)
+
+    def test_menu_creation_keeps_click_position_and_does_not_move_overwrites(self):
+        self.controller.setting('auto_align', False)
+        target = (self.canvas.monitor, (310, 220))
+        menu = self.Gtk.Menu(); self.controller.append_menu(menu, 0, target)
+        new = next(item for item in menu.get_children() if hasattr(item, 'get_label') and item.get_label() == 'New folder…')
+        with patch.object(self.controller, 'pointer_target', return_value=(self.canvas.monitor, (600, 450))):
+            new.activate()
+        request = next(iter(self.controller.placements))
+        self.fake_files.call.assert_any_call('NewFolderWithPlacement', '(ss)', self.controller.uri(), request, on_reply=ANY)
+        original = self.canvas.positions['Folder']
+        self.controller.placement_target(request, self.controller.uri('Folder'))
+        self.controller.placement_target(request, self.controller.uri('Created here'))
+        (self.controller.root/'Created here').mkdir()
+        self.controller.placement_finished(request)
+        self.wait(lambda: 'Created here' in self.canvas.positions)
+        self.assertEqual(self.canvas.positions['Created here'], (310, 220))
+        self.assertEqual(self.canvas.positions['Folder'], original)
+        self.assertFalse(self.controller.placements)
+        menu.destroy()
+
+    def test_parallel_operations_keep_separate_origins_and_cancel_cleanly(self):
+        self.controller.setting('auto_align', False)
+        a = self.controller.begin_placement((self.canvas.monitor, (280, 190)))
+        b = self.controller.begin_placement((self.canvas.monitor, (510, 330)))
+        self.controller.placement_target(b, self.controller.uri('b.txt'))
+        (self.controller.root/'b.txt').write_text('b')
+        self.controller.placement_finished(b)
+        self.wait(lambda: 'b.txt' in self.canvas.positions)
+        self.controller.placement_target(a, self.controller.uri('a_copy1.txt'))
+        (self.controller.root/'a_copy1.txt').write_text('a')
+        self.controller.placement_finished(a)
+        self.wait(lambda: 'a_copy1.txt' in self.canvas.positions)
+        self.assertEqual(self.canvas.positions['a_copy1.txt'], (280, 190))
+        self.assertEqual(self.canvas.positions['b.txt'], (510, 330))
+        cancelled = self.controller.begin_placement((self.canvas.monitor, (0, 0)))
+        self.controller.placement_target(cancelled, self.controller.uri('never created'))
+        self.controller.placement_finished(cancelled)
+        self.wait(lambda: not self.controller.placements)
+        self.assertNotIn('never created', self.store.load()['positions'])
+
+    def test_paste_snapshots_pointer_on_scaled_monitor_before_clipboard_reply(self):
+        second = Mock()
+        second.monitor = 'SIDE'
+        second.get_hadjustment.return_value.get_value.return_value = 0
+        second.get_vadjustment.return_value.get_value.return_value = 0
+        self.controller.canvases['fixture'] = second
+        self.addCleanup(lambda: self.controller.canvases.pop('fixture', None))
+        self.controller.bounds = {self.canvas.monitor: (-760, 40, 760, 560), 'SIDE': (0, 0, 800, 600)}
+        self.controller.areas['SIDE'] = (16, 48, 768, 536)
+        with patch.object(self.icons.subprocess, 'check_output', return_value=b'{"x":250,"y":190}'), \
+             patch.object(self.controller.clipboard, 'read') as read:
+            self.controller.paste()
+        with patch.object(self.icons.subprocess, 'check_output', return_value=b'{"x":-540,"y":200}'):
+            self.assertEqual(self.controller.pointer_target(), (self.canvas.monitor, (220, 160)))
+            read.call_args.args[0](['file:///tmp/received.txt'], False, 1)
+        self.assertEqual(next(iter(self.controller.placements.values()))['target'], ('SIDE', (250, 190)))
 
 
 if __name__ == '__main__': unittest.main()

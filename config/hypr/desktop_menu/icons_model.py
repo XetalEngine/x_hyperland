@@ -206,5 +206,27 @@ def align(settings, names, areas):
     capture(dict(settings, auto_align=True), names, areas)
 
 
+def place_new(settings, names, areas, monitor, created, point):
+    """Place incoming items near their operation's origin without shifting others."""
+    created = [name for name in created if name in names]
+    if not created or not areas: return
+    if monitor not in areas: monitor = next(iter(areas))
+    if settings['auto_arrange']:
+        move(settings, names, areas, monitor, created, point)
+        return
+    existing = [name for name in names if name not in created]
+    capture(settings, existing, areas)
+    area = areas[monitor]
+    width, height = cell(settings)
+    point = (max(area[0], min(point[0], area[0]+max(0, area[2]-width))),
+             max(area[1], min(point[1], area[1]+max(0, area[3]-height))))
+    occupied = list(layout(existing, areas, settings)[monitor].values())
+    order = max((p['order'] for p in settings['positions'].values()), default=-1)+1
+    for index, name in enumerate(created):
+        destination = snap(area, settings, point, occupied) if settings['auto_align'] or not available(point, occupied, settings) else point
+        remember(settings, monitor, area, name, destination, order+index)
+        occupied.append(destination)
+
+
 def arrange(settings, names, areas):
     capture(dict(settings, auto_arrange=True), names, areas)

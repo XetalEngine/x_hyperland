@@ -46,13 +46,32 @@ void DesktopActions::track(KJob *job) {
   });
 }
 bool DesktopActions::Transfer(const QStringList &sources, const QString &destination, bool copy) {
+  return TransferWithPlacement(sources, destination, copy, {});
+}
+bool DesktopActions::TransferWithPlacement(const QStringList &sources, const QString &destination, bool copy, const QString &request) {
   const auto from = urls(sources), to = urls({destination});
-  if (from.isEmpty() || to.size() != 1 || to.first().scheme() == "trash" ||
+  if (request.size() > 128 || from.isEmpty() || to.size() != 1 || to.first().scheme() == "trash" ||
       from.contains(QUrl("trash:/"))) return false;
+  std::function<void(const QUrl &)> placement;
+  if (!request.isEmpty()) {
+    placement = [this, request, directory = to.first()](const QUrl &url) {
+      const auto item = url.adjusted(QUrl::StripTrailingSlash);
+      if (item.adjusted(QUrl::RemoveFilename).matches(directory, QUrl::StripTrailingSlash))
+        emit PlacementTarget(request, item.toString(QUrl::FullyEncoded));
+    };
+    // Announce ordinary targets before filesystem notifications arrive. KIO
+    // reports actual renamed/numbered targets through the same callback.
+    for (const auto &source : from) {
+      auto target = to.first();
+      target.setPath(target.path() + (target.path().endsWith('/') ? "" : "/") + source.fileName());
+      placement(target);
+    }
+  }
   auto *job = Fusion::transferFiles(from, to.first(), copy ? Fusion::TransferOperation::Copy
-                                                         : Fusion::TransferOperation::Move, nullptr);
-  connect(job, &KJob::result, this, [this, sources, destination, copy](KJob *result) {
+                                                         : Fusion::TransferOperation::Move, nullptr, placement);
+  connect(job, &KJob::result, this, [this, sources, destination, copy, request](KJob *result) {
     emit TransferFinished(sources, destination, copy, !result->error());
+    if (!request.isEmpty()) emit PlacementFinished(request);
   });
   track(job);
   return true;
@@ -151,16 +170,31 @@ bool DesktopActions::RenameTo(const QString &source, const QString &name) {
   return true;
 }
 bool DesktopActions::NewFolder(const QString &directory) {
+  return NewFolderWithPlacement(directory, {});
+}
+bool DesktopActions::NewFolderWithPlacement(const QString &directory, const QString &request) {
   const auto paths = urls({directory});
-  if (paths.size() != 1) return false;
+  if (request.size() > 128 || paths.size() != 1) return false;
   auto *dialog = new QInputDialog;
   dialog->setWindowTitle("New folder"); dialog->setLabelText("Folder name:");
   dialog->setTextValue("New folder"); dialog->setAttribute(Qt::WA_DeleteOnClose);
-  connect(dialog, &QInputDialog::textValueSelected, this, [this, location = paths.first()](const QString &name) {
-    if (!Fusion::validName(name)) { error("Choose a name without /, and different from . or .."); return; }
+  connect(dialog, &QInputDialog::rejected, this, [this, request] {
+    if (!request.isEmpty()) emit PlacementFinished(request);
+  });
+  connect(dialog, &QInputDialog::textValueSelected, this, [this, request, location = paths.first()](const QString &name) {
+    if (!Fusion::validName(name)) {
+      error("Choose a name without /, and different from . or ..");
+      if (!request.isEmpty()) emit PlacementFinished(request);
+      return;
+    }
     auto destination = location;
     destination.setPath(location.path() + (location.path().endsWith('/') ? "" : "/") + name);
-    track(KIO::mkdir(destination));
+    if (!request.isEmpty()) emit PlacementTarget(request, destination.toString(QUrl::FullyEncoded));
+    auto *job = KIO::mkdir(destination);
+    connect(job, &KJob::result, this, [this, request] {
+      if (!request.isEmpty()) emit PlacementFinished(request);
+    });
+    track(job);
   });
   dialog->open();
   return true;

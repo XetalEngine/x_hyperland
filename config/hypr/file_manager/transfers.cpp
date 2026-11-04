@@ -258,8 +258,9 @@ private:
 class TransferJob : public KJob {
 public:
   TransferJob(const QList<QUrl> &sources, const QUrl &destination,
-              Fusion::TransferOperation operation, QWidget *window, bool deferred = false)
-      : sources(sources), destination(destination), operation(operation), window(window) {
+              Fusion::TransferOperation operation, QWidget *window, bool deferred = false,
+              std::function<void(const QUrl &)> destinationChanged = {})
+      : sources(sources), destination(destination), operation(operation), window(window), destinationChanged(std::move(destinationChanged)) {
     setProperty("fusionTransfer", true);
     setCapabilities(Killable | Suspendable);
     view = new Fusion::TransferView(this, {{"title", operation == Fusion::TransferOperation::Move ? "Moving files"
@@ -320,6 +321,7 @@ private:
   QUrl destination;
   Fusion::TransferOperation operation;
   QPointer<QWidget> window;
+  std::function<void(const QUrl &)> destinationChanged;
   QPointer<KJob> active;
   QPointer<Fusion::TransferView> view;
   std::optional<Fusion::TransferAccess> pausedPlan;
@@ -365,6 +367,14 @@ private:
         : operation == Fusion::TransferOperation::Link ? KIO::link(plan.sources, plan.destination, KIO::HideProgressInfo)
         : KIO::copy(plan.sources, plan.destination, KIO::HideProgressInfo);
     active = copy;
+    if (destinationChanged) {
+      auto report = [this](const QUrl &url) { destinationChanged(Fusion::ordinaryFileUrl(url)); };
+      connect(copy, &KIO::CopyJob::creatingDir, this, [report](KIO::Job *, const QUrl &to) { report(to); });
+      connect(copy, &KIO::CopyJob::renamed, this, [report](KIO::Job *, const QUrl &, const QUrl &to) { report(to); });
+      connect(copy, &KIO::CopyJob::copyingDone, this, [report](KIO::Job *, const QUrl &, const QUrl &to) { report(to); });
+      connect(copy, &KIO::CopyJob::copyingLinkDone, this,
+              [report](KIO::Job *, const QUrl &, const QString &, const QUrl &to) { report(to); });
+    }
     copy->setUiDelegate(new TransferDelegate(window, moving, view, plan.administrator && moving));
     KJobWidgets::setWindow(copy, window);
     KIO::FileUndoManager::self()->recordCopyJob(copy);
@@ -407,8 +417,9 @@ KJob *Fusion::pasteFiles(const QUrl &destination, QWidget *window) {
 }
 
 KJob *Fusion::transferFiles(const QList<QUrl> &sources, const QUrl &destination,
-                            TransferOperation operation, QWidget *window) {
-  return new TransferJob(sources, destination, operation, window);
+                            TransferOperation operation, QWidget *window,
+                            std::function<void(const QUrl &)> destinationChanged) {
+  return new TransferJob(sources, destination, operation, window, false, std::move(destinationChanged));
 }
 
 namespace {

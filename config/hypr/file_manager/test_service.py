@@ -114,12 +114,16 @@ with (root/'calls.jsonl').open('a') as log:
             target = root/'Target'; target.mkdir()
             filename = 'notes # 100% café.txt'
             (source/filename).write_text('desktop transfer fixture')
-            assert desktop('Transfer', '(assb)', ([(source/filename).as_uri()], target.as_uri(), True))
+            assert desktop('TransferWithPlacement', '(assbs)', ([(source/filename).as_uri()], target.as_uri(), True, 'copy-origin'))
             wait_for(lambda: (target/filename).exists(), 'Desktop copy did not reach the Files transfer engine.')
+            wait_for(lambda: ('PlacementFinished', ('copy-origin',)) in signals, 'Copy placement context was not completed.')
+            assert ('PlacementTarget', ('copy-origin', (target/filename).as_uri())) in signals
             assert (source/filename).read_text() == (target/filename).read_text()
             moved = root/'Moved'; moved.mkdir()
-            assert desktop('Transfer', '(assb)', ([(target/filename).as_uri()], moved.as_uri(), False))
+            assert desktop('TransferWithPlacement', '(assbs)', ([(target/filename).as_uri()], moved.as_uri(), False, 'move-origin'))
             wait_for(lambda: (moved/filename).exists() and not (target/filename).exists(), 'Desktop move did not complete.')
+            wait_for(lambda: ('PlacementFinished', ('move-origin',)) in signals, 'Move placement context was not completed.')
+            assert ('PlacementTarget', ('move-origin', (moved/filename).as_uri())) in signals
             assert not desktop('Transfer', '(assb)', (['not-a-uri'], target.as_uri(), False))
             assert desktop('Open', '(asb)', ([source.as_uri()], False))
             wait_for(lambda: (root/'desktop-calls.jsonl').exists(), 'Desktop folder did not launch Fusion Files.')

@@ -15,6 +15,12 @@ or Columns only rearranges existing icons while Auto arrange is enabled.
 Positions are remembered per monitor; disconnecting
 a display temporarily brings its icons onto the primary display, and reconnecting
 it restores their placement. Reserved panel space is kept clear.
+New folders appear at the right-click position. Paste uses the monitor and
+pointer position at invocation; a context-menu Paste uses that menu's original
+click. Incoming drops use the drop location. These positions survive dialogs,
+long transfers, and later pointer movement. Auto align chooses nearby empty grid
+cells; Auto arrange keeps incoming items packed on the chosen monitor. Replacing
+an existing file preserves its icon position.
 
 Double-click a folder to open a new floating Fusion Files window. Other files
 open with their associated application. Desktop icons support multiple

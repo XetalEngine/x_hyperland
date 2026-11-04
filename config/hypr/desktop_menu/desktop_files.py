@@ -8,14 +8,16 @@ OBJECT = '/org/xetal/FusionFiles/Desktop'
 
 
 class Files:
-    def __init__(self, error, trashed=None, trash_state=None, transferred=None, renamed=None):
+    def __init__(self, error, trashed=None, trash_state=None, transferred=None, renamed=None,
+                 placement_target=None, placement_finished=None):
         self.error = error
         self.bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
         digest = hashlib.sha256(os.environ.get('HYPRLAND_INSTANCE_SIGNATURE', '').encode()).hexdigest()[:24]
         self.name = 'org.xetal.FusionFiles.Desktop.s'+digest
         self.subscriptions = []
         for signal, callback in [('TrashFinished', trashed), ('TrashStateChanged', trash_state),
-                                 ('TransferFinished', transferred), ('RenameFinished', renamed)]:
+                                 ('TransferFinished', transferred), ('RenameFinished', renamed),
+                                 ('PlacementTarget', placement_target), ('PlacementFinished', placement_finished)]:
             if callback:
                 self.subscriptions.append(self.bus.signal_subscribe(self.name, INTERFACE, signal, OBJECT,
                     None, Gio.DBusSignalFlags.NONE,

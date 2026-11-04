@@ -192,9 +192,13 @@ windowrule=match:class ^xetal-files-external$,float on,center on
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         def gesture(command, delay=.08):
             if command.startswith('move '):
-                current=json.loads(ctl('-j','monitors'))[0]
-                input_process.stdin.write(f"size {round(current['width']/current['scale'])} {round(current['height']/current['scale'])}\n")
+                outputs=json.loads(ctl('-j','monitors'))
+                left=min(m['x'] for m in outputs); top=min(m['y'] for m in outputs)
+                right=max(m['x']+round(m['width']/m['scale']) for m in outputs)
+                bottom=max(m['y']+round(m['height']/m['scale']) for m in outputs)
+                input_process.stdin.write(f"size {right-left} {bottom-top}\n")
                 input_process.stdin.flush(); assert input_process.stdout.readline().strip() == 'ok'
+                _, x, y=command.split();command=f'move {round(float(x)-left)} {round(float(y)-top)}'
             input_process.stdin.write(command+'\n'); input_process.stdin.flush()
             assert input_process.stdout.readline().strip() == 'ok'; time.sleep(delay)
         def key(code): gesture(f'key {code} 1', .02); gesture(f'key {code} 0')
@@ -382,6 +386,47 @@ button.clicked.connect(copy);button.show();app.exec()
         wait(lambda:'6 notes # café.txt' not in positions(),'drop onto Trash')
         assert (home/'.local/share/Trash/files/6 notes # café.txt').exists()
         run('grim',str(root/'trash-full.png'))
+
+        # Create and paste on a second monitor. The destination survives the
+        # menu moving, a floating name dialog, and asynchronous clipboard I/O.
+        primary=json.loads(ctl('-j','monitors'))[0]['name']
+        assert ctl('output','create','wayland')=='ok'
+        wait(lambda:len(json.loads(ctl('-j','monitors')))==2,'second desktop output')
+        second=next(m['name'] for m in json.loads(ctl('-j','monitors')) if m['name']!=primary)
+        time.sleep(.8)
+        assert ctl('keyword','monitor',primary+',1280x900@60,0x0,1')=='ok'
+        assert ctl('keyword','monitor',second+',1280x900@60,1280x0,1')=='ok'
+        wait(lambda:len(state().get('surfaces',[]))==2,'second desktop layer')
+        def second_positions():
+            return next((s['positions'] for s in state().get('surfaces',[]) if s['monitor']==second),{})
+        time.sleep(.6)
+        secondary=next(m for m in json.loads(ctl('-j','monitors')) if m['name']==second)
+        sx,sy=secondary['x'],secondary['y']
+        click(sx+260,sy+240,'right');wait(lambda:state().get('menus'),'second-monitor menu')
+        key(102);select_menu('New folder…');key(28)
+        wait(folder,'native New folder dialog')
+        time.sleep(.3)
+        assert ctl('dispatch','focuswindow','address:'+folder()['address'])=='ok'
+        time.sleep(.2)
+        key(28)  # Keep the suggested "New folder" name.
+        wait(lambda:'New folder' in second_positions(),'new folder on clicked monitor')
+        a,b=second_positions()['New folder'];assert abs(a-260)<8 and abs(b-240)<8,(a,b)
+        assert 'New folder' not in positions()
+        run('grim',str(root/'second-monitor-new-folder.png'))
+
+        incoming=home/'second monitor.txt';incoming.write_text('second monitor clipboard fixture')
+        clipboard_source=spawn([sys.executable,str(probe),str(incoming)])
+        wait(probe_window,'second clipboard fixture');time.sleep(.4)
+        assert ctl('dispatch','focuswindow','address:'+probe_window()['address'])=='ok'
+        key(57);wait(lambda:Path(str(incoming)+'.copied').exists(),'second clipboard ready')
+        click(sx+520,sy+490)
+        gesture('key 29 1');key(47);gesture('key 29 0')
+        wait(lambda:incoming.name in second_positions(),'paste on pointer monitor')
+        a,b=second_positions()[incoming.name];assert abs(a-520)<8 and abs(b-490)<8,(a,b)
+        assert incoming.name not in positions() and not incoming.exists()
+        clipboard_source.terminate();clipboard_source.wait(timeout=5)
+        run('grim',str(root/'second-monitor-paste.png'))
+
         count=len(list(desktop.iterdir()))
         popup(); select_menu('Show Desktop icons'); key(28)
         wait(lambda: not positions() and not state()['settings']['enabled'], 'desktop icons hidden')
@@ -397,7 +442,7 @@ button.clicked.connect(copy);button.show();app.exec()
         # which is status 255 if it wins the race with the IPC shutdown event.
         service_status = service.wait(timeout=5)
         assert service_status in (0, 255), service_status
-        print('PASS: bottom layer, layouts, native drag, persistence, floating folders/Properties, clipboard exchange, inline rename, Trash open/drop/animation, hide and logout.')
+        print('PASS: bottom layer, layouts, native drag, persistence, floating folders/Properties, clipboard exchange, inline rename, Trash open/drop/animation, second-monitor creation/paste, hide and logout.')
     finally:
         if input_process:
             if input_process.poll() is None: input_process.terminate()
