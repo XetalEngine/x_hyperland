@@ -29,6 +29,7 @@ def appearance():
     QTreeView#details, QListView#files, QListWidget#driveCards {{background:{p['Base']}; border:none; outline:none;}}
     QTreeView#details::item {{min-height:28px; padding:2px 5px;}}
     QTreeView#details::item:selected, QListView#files::item:selected {{background:{p['Highlight']}; color:{p['HighlightedText']};}}
+    QTextEdit#inlineRename {{background:{p['Base']}; color:{p['Text']}; selection-background-color:{p['Highlight']}; selection-color:{p['HighlightedText']}; border:1px solid {p['Accent']}; border-radius:{min(radius, 3)}px; padding:0; margin:0; min-height:0;}}
     QHeaderView::section {{background:{p['Window']}; color:{p['Text']}; border:none; border-bottom:1px solid {p['Midlight']}; padding:8px;}}
     QWidget#computerPage {{background:{p['Base']};}}
     QScrollArea[driveSection="true"], QWidget#driveRows {{background:{p['Base']}; border:none;}}

@@ -26,12 +26,15 @@ def check(binary):
     def wait_for(predicate, description):
         deadline = time.monotonic()+8
         while time.monotonic()<deadline:
+            while GLib.MainContext.default().pending(): GLib.MainContext.default().iteration(False)
             if predicate(): return
             time.sleep(.025)
         raise RuntimeError(description)
     if owns_name():
         raise RuntimeError('Run this check on a fresh private D-Bus session.')
-    with tempfile.TemporaryDirectory(prefix='fusion-folder-routing-') as directory:
+    # Trashed fixtures and their private HOME must share a filesystem. Never
+    # let a temporary /tmp mount route fixtures into the user's real Trash.
+    with tempfile.TemporaryDirectory(prefix='fusion-folder-routing-', dir=Path.home()/'.cache') as directory:
         root = Path(directory)
         (root/'scripts').mkdir()
         (root/'file_manager').mkdir()
@@ -71,7 +74,7 @@ with (root/'calls.jsonl').open('a') as log:
         files_handler = root/'scripts/files.sh'
         files_handler.write_text(handler.read_text().replace("'calls.jsonl'", "'desktop-calls.jsonl'"))
         files_handler.chmod(0o700)
-        env = dict(os.environ, QT_QPA_PLATFORM='offscreen', QT_QPA_PLATFORMTHEME='',
+        env = dict(os.environ, HOME=str(root), QT_QPA_PLATFORM='offscreen', QT_QPA_PLATFORMTHEME='',
                    XETAL_FILES_ROOT=str(root), HYPRLAND_INSTANCE_SIGNATURE='fixture',
                    PATH=str(root/'commands')+os.pathsep+os.environ['PATH'],
                    XDG_ACTIVATION_TOKEN='stale-token', DESKTOP_STARTUP_ID='stale-startup')
@@ -99,6 +102,10 @@ with (root/'calls.jsonl').open('a') as log:
             wait_for(lambda: len(mounts())==1, 'Auto mount did not run with all Files windows closed.')
             assert mounts()[0]==['mount', '-b', '/dev/disk/by-uuid/fixture-usb']
             desktop_name = 'org.xetal.FusionFiles.Desktop.s'+hashlib.sha256(b'fixture').hexdigest()[:24]
+            signals = []
+            subscription = bus.signal_subscribe(desktop_name, 'org.xetal.FusionFiles.Desktop1', None,
+                '/org/xetal/FusionFiles/Desktop', None, Gio.DBusSignalFlags.NONE,
+                lambda _b,_s,_p,_i,signal,values,_d: signals.append((signal, values.unpack())), None)
             def desktop(method, signature, arguments):
                 return bus.call_sync(desktop_name, '/org/xetal/FusionFiles/Desktop',
                     'org.xetal.FusionFiles.Desktop1', method, GLib.Variant(signature, arguments),
@@ -118,6 +125,38 @@ with (root/'calls.jsonl').open('a') as log:
             wait_for(lambda: (root/'desktop-calls.jsonl').exists(), 'Desktop folder did not launch Fusion Files.')
             opened = json.loads((root/'desktop-calls.jsonl').read_text().splitlines()[0])
             assert opened['arguments'] == ['--external', '--new-window', source.as_uri()]
+            assert desktop('Open', '(asb)', (['trash:/'], False))
+            wait_for(lambda: len((root/'desktop-calls.jsonl').read_text().splitlines()) == 2, 'Trash did not open.')
+            assert json.loads((root/'desktop-calls.jsonl').read_text().splitlines()[1])['arguments'] == ['--external', '--new-window', 'trash:/']
+            assert not desktop('Trash', '(as)', (['trash:/'],))
+            assert not desktop('Transfer', '(assb)', (['trash:/'], target.as_uri(), False))
+            assert not desktop('RenameTo', '(ss)', ((source/filename).as_uri(), '../escape'))
+            renamed = source/'renamed # café.txt'
+            assert desktop('RenameTo', '(ss)', ((source/filename).as_uri(), renamed.name))
+            wait_for(lambda: renamed.exists(), 'Inline rename did not complete.')
+            assert renamed.read_text() == 'desktop transfer fixture'
+            (source/'existing.txt').write_text('keep destination')
+            assert desktop('RenameTo', '(ss)', (renamed.as_uri(), 'existing.txt'))
+            wait_for(lambda: any(s == 'RenameFinished' and v[0] == renamed.as_uri() for s,v in signals), 'Rename collision did not finish.')
+            assert any(s == 'RenameFinished' and v[0] == renamed.as_uri() and not v[2] for s,v in signals)
+            assert (source/'existing.txt').read_text() == 'keep destination' and renamed.exists()
+            assert desktop('Trash', '(as)', ([renamed.as_uri()],))
+            wait_for(lambda: any(s == 'TrashFinished' for s,v in signals), 'Trash completion signal missing.')
+            result = next(v for s,v in signals if s == 'TrashFinished')
+            assert result == ([renamed.as_uri()], [renamed.as_uri()], True), result
+            assert not renamed.exists()
+            trash = Path(env['XDG_DATA_HOME'])/'Trash'
+            assert (trash/'files'/renamed.name).read_text() == 'desktop transfer fixture'
+            wait_for(lambda: ('TrashStateChanged', (True,)) in signals, 'Full Trash state missing.')
+            (root/'file_manager/state').mkdir(exist_ok=True)
+            (root/'file_manager/state/settings.ini').write_text('[General]\ntrashAnimation=false\n')
+            signals.clear()
+            second = source/'existing.txt'
+            assert desktop('Trash', '(as)', ([second.as_uri()],))
+            wait_for(lambda: any(s == 'TrashFinished' for s,v in signals), 'Second Trash completion missing.')
+            assert next(v for s,v in signals if s == 'TrashFinished') == ([second.as_uri()], [second.as_uri()], False)
+            assert (trash/'files'/second.name).read_text() == 'keep destination'
+            bus.signal_unsubscribe(subscription)
             uri = (root/'screen # 100% $(literal).png').as_uri()
             def invoke(method, urls, token=''):
                 bus.call_sync(name, '/org/freedesktop/FileManager1',
@@ -179,7 +218,7 @@ with (root/'calls.jsonl').open('a') as log:
             outside = dict(env); outside.pop('HYPRLAND_INSTANCE_SIGNATURE')
             assert subprocess.run([str(binary), '--service'], env=outside, timeout=5).returncode==1
             assert not owns_name()
-            print('PASS: routing, desktop copy/move, floating folder requests, single-instance ownership, background Auto mount, USB reconnects, restart suppression and logout.')
+            print('PASS: routing, desktop copy/move, inline rename and collision protection, private Trash and success signals, animation preference, floating folder requests, service ownership, Auto mount and logout.')
         finally:
             for process in processes:
                 if process.poll() is None:

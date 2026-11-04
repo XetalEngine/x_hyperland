@@ -1124,6 +1124,56 @@ print(json.dumps(rows))
     QCOMPARE(verify.exitCode(), 0);
     window.close();
   }
+  void inlineRenameAcrossViews_data() {
+    QTest::addColumn<int>("mode");
+    for (int mode = 0; mode < 5; ++mode) QTest::newRow(qPrintable(QString::number(mode))) << mode;
+  }
+  void inlineRenameAcrossViews() {
+    QFETCH(int, mode);
+    const auto base = folder + "/inline-" + QString::number(mode);
+    QDir().mkpath(base + "/Folder.with.dots");
+    write(base + "/name.unknownext"); write(base + "/existing.txt", "keep this file");
+    FilesWindow window(QUrl::fromLocalFile(base), false, temporary.path()+"/inline.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false); window.show();
+    auto *tab = window.browser(); tab->setView(mode);
+    QTRY_COMPARE_WITH_TIMEOUT(tab->proxy->rowCount(), 3, 10000);
+    auto start = [&](const QString &name) {
+      clickFile(tab, QUrl::fromLocalFile(base+'/'+name)); focus(tab);
+      QTest::keyClick(tab->view(), Qt::Key_F2);
+    };
+    start("name.unknownext");
+    QTRY_VERIFY(tab->view()->findChild<QTextEdit *>("inlineRename"));
+    auto *edit = tab->view()->findChild<QTextEdit *>("inlineRename");
+    QCOMPARE(edit->textCursor().selectedText(), QString("name"));
+    QCOMPARE(edit->toPlainText(), QString("name.unknownext"));
+    QVERIFY(edit->viewport()->height() >= edit->fontMetrics().height());
+    const auto capture = qEnvironmentVariable("FUSION_FILES_CAPTURE");
+    if (!capture.isEmpty()) window.grab().save(capture + "-inline-" + QString::number(mode) + ".png");
+    edit->insertPlainText("typing");
+    const auto originalIndex = tab->model->indexForUrl(QUrl::fromLocalFile(base+"/name.unknownext"));
+    emit tab->model->dataChanged(originalIndex, originalIndex, {Qt::DecorationRole});
+    QCoreApplication::processEvents();
+    QCOMPARE(edit->toPlainText(), QString("typing.unknownext"));
+    edit->setPlainText("cancelled.txt"); QTest::keyClick(edit, Qt::Key_Escape);
+    QTRY_VERIFY(!tab->view()->findChild<QTextEdit *>("inlineRename"));
+    QVERIFY(QFileInfo::exists(base+"/name.unknownext")); QVERIFY(!QFileInfo::exists(base+"/cancelled.txt"));
+    start("name.unknownext");
+    QTRY_VERIFY(tab->view()->findChild<QTextEdit *>("inlineRename"));
+    edit = tab->view()->findChild<QTextEdit *>("inlineRename");
+    QSignalSpy finished(&window, &FilesWindow::operationFinished);
+    edit->setPlainText("existing.txt"); QTest::keyClick(edit, Qt::Key_Return);
+    QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 1, 10000);
+    QVERIFY(QFileInfo::exists(base+"/name.unknownext"));
+    QFile untouched(base+"/existing.txt"); QVERIFY(untouched.open(QIODevice::ReadOnly));
+    QCOMPARE(untouched.readAll(), QByteArray("keep this file"));
+    start("Folder.with.dots");
+    QTRY_VERIFY(tab->view()->findChild<QTextEdit *>("inlineRename"));
+    edit = tab->view()->findChild<QTextEdit *>("inlineRename");
+    QCOMPARE(edit->textCursor().selectedText(), QString("Folder.with.dots"));
+    edit->setPlainText("Renamed folder"); QTest::keyClick(edit, Qt::Key_Return);
+    QTRY_VERIFY_WITH_TIMEOUT(QFileInfo(base+"/Renamed folder").isDir(), 10000);
+    QVERIFY(!QFileInfo::exists(base+"/Folder.with.dots")); window.close();
+  }
   void keyboardAndOperations() {
     const QString source = folder + "/source", dest = folder + "/destination",
                   deep = folder + "/a folder/#percent%/leaf";
@@ -1142,11 +1192,12 @@ print(json.dumps(rows))
     clickFile(tab, QUrl::fromLocalFile(original));
     focus(tab);
     QTest::keyClick(tab->view(), Qt::Key_F2);
-    QTRY_VERIFY(window.findChild<KIO::RenameFileDialog *>());
-    auto *rename = window.findChild<KIO::RenameFileDialog *>();
-    auto *edit = rename->findChild<QLineEdit *>();
+    QTRY_VERIFY(tab->view()->findChild<QTextEdit *>("inlineRename"));
+    auto *edit = tab->view()->findChild<QTextEdit *>("inlineRename");
     QVERIFY(edit);
-    edit->setText(QFileInfo(renamed).fileName());
+    QCOMPARE(edit->textCursor().selectedText(), QString("original"));
+    QVERIFY(!window.findChild<KIO::RenameFileDialog *>());
+    edit->setPlainText(QFileInfo(renamed).fileName());
     QTest::keyClick(edit, Qt::Key_Return);
     QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(renamed), 10000);
     QVERIFY(!QFileInfo::exists(original));

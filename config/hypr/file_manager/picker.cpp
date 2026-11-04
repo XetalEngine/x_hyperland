@@ -23,6 +23,28 @@ QString label(QString text) {
   // Portal labels use GTK underscores; Qt uses ampersands for mnemonics.
   return text.replace('&', "&&").replace('_', '&');
 }
+QString globSuffix(const QString &pattern) {
+  if (!pattern.startsWith("*.")) return {};
+  QString suffix;
+  for (int i = 2; i < pattern.size(); ++i) {
+    auto letter = pattern.at(i);
+    if (letter == '[') {
+      // Chromium represents case-insensitive extensions as *.[pP][nN][gG].
+      // Only collapse a class when every member names the same character;
+      // a real choice/range such as [ab] or [0-9] has no unambiguous suffix.
+      const int end = pattern.indexOf(']', i+1);
+      if (end < i+2) return {};
+      const auto alternatives = pattern.mid(i+1, end-i-1).toLower();
+      letter = alternatives.front();
+      for (auto alternative : alternatives) if (alternative != letter) return {};
+      i = end;
+    }
+    if (!((letter >= 'a' && letter <= 'z') || (letter >= 'A' && letter <= 'Z') ||
+          letter.isDigit() || letter == '.' || letter == '_' || letter == '-')) return {};
+    suffix += letter;
+  }
+  return suffix;
+}
 }
 
 PickerWindow::PickerWindow(const QJsonObject &value, const QString &settingsPath, bool scanDrives)
@@ -163,8 +185,8 @@ QString PickerWindow::withExtension(const QString &path) const {
       // extensions and "All files". A different suffix is part of the name.
       if (QRegularExpression(QRegularExpression::wildcardToRegularExpression(pattern),
                              QRegularExpression::CaseInsensitiveOption).match(filename).hasMatch()) return path;
-      if (QRegularExpression("^\\*\\.[A-Za-z0-9._-]+$").match(pattern).hasMatch())
-        suffixes << pattern.mid(2);
+      const auto suffix = globSuffix(pattern);
+      if (!suffix.isEmpty()) suffixes << suffix;
     } else if (pair.at(0).toInt() == 1) {
       const auto type = QMimeDatabase().mimeTypeForName(pattern);
       if (!type.preferredSuffix().isEmpty()) suffixes << type.preferredSuffix();

@@ -12,10 +12,13 @@ gi.require_version('Gdk', '3.0')
 from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk, Pango
 import icons_model as model
 from desktop_files import Files
+from desktop_clipboard import Clipboard
+from trash_animation import Flights, snapshot
+import math
 
 TARGETS = [Gtk.TargetEntry.new('application/x-xetal-desktop-icons', Gtk.TargetFlags.SAME_APP, 0),
            Gtk.TargetEntry.new('text/uri-list', 0, 1)]
-ATTRIBUTES = 'standard::name,standard::display-name,standard::type,standard::icon,standard::is-hidden,thumbnail::path,thumbnail::is-valid'
+ATTRIBUTES = 'standard::name,standard::display-name,standard::type,standard::icon,standard::is-hidden,standard::is-symlink,thumbnail::path,thumbnail::is-valid'
 
 
 def style_item(item):
@@ -39,6 +42,8 @@ class Tile(Gtk.EventBox):
         super().__init__()
         self.canvas, self.name, self.info = canvas, name, info
         self.press = None
+        self.editor = None
+        self.renaming = False
         # Paint the themed selection/hover background on the tile's RGBA
         # window; an input-only EventBox would paint only the label color.
         self.set_visible_window(True); self.set_above_child(True)
@@ -48,6 +53,8 @@ class Tile(Gtk.EventBox):
         box.set_margin_top(7); box.set_margin_bottom(7)
         box.set_margin_start(4); box.set_margin_end(4)
         self.image = Gtk.Image.new_from_gicon(info.get_icon(), Gtk.IconSize.DIALOG)
+        self.shortcut = info.get_is_symlink() or name.casefold().endswith('.desktop')
+        if self.shortcut: self.image.connect_after('draw', self.draw_shortcut)
         box.pack_start(self.image, False, False, 0)
         label = Gtk.Label(label=info.get_display_name())
         label.set_justify(Gtk.Justification.CENTER)
@@ -55,6 +62,7 @@ class Tile(Gtk.EventBox):
         label.set_lines(2); label.set_ellipsize(Pango.EllipsizeMode.END)
         label.set_max_width_chars(16); label.set_xalign(.5); label.set_yalign(0)
         self.label = label
+        self.box = box
         box.pack_start(label, True, True, 0)
         self.add(box)
         self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK)
@@ -79,7 +87,69 @@ class Tile(Gtk.EventBox):
             except GLib.Error:
                 pass
 
+    def draw_shortcut(self, image, cr):
+        size = self.canvas.controller.settings['size']
+        badge = max(15, round(size*.30))
+        x, y = (image.get_allocated_width()-size)/2, (image.get_allocated_height()+size)/2-badge
+        cr.save(); cr.translate(x, y)
+        r = 4
+        for cx, cy, angle in [(badge-r,r,-90),(badge-r,badge-r,0),(r,badge-r,90),(r,r,180)]:
+            cr.arc(cx, cy, r, math.radians(angle), math.radians(angle+90))
+        cr.close_path(); cr.set_source_rgba(.06,.08,.11,.94); cr.fill_preserve()
+        color = self.canvas.controller.accent
+        cr.set_source_rgba(color.red, color.green, color.blue, 1); cr.set_line_width(1.2); cr.stroke()
+        cr.set_line_width(1.8); cr.set_line_cap(1); cr.set_line_join(1)
+        cr.move_to(badge*.26,badge*.72); cr.line_to(badge*.26,badge*.42)
+        cr.line_to(badge*.72,badge*.42); cr.move_to(badge*.53,badge*.24)
+        cr.line_to(badge*.73,badge*.42); cr.line_to(badge*.53,badge*.61); cr.stroke(); cr.restore()
+        return False
+
+    def begin_rename(self):
+        if self.name == model.TRASH or self.editor or self.renaming: return
+        self.canvas.controller.cancel_rename()
+        self.canvas.controller.select({self.name})
+        self.press = None
+        self.set_above_child(False)
+        self.label.hide(); self.label.set_no_show_all(True)
+        self.editor = Gtk.Entry()
+        self.editor.set_width_chars(1); self.editor.set_alignment(.5)
+        self.editor.set_text(self.name)
+        self.editor.get_style_context().add_class('desktop-rename')
+        self.box.pack_start(self.editor, False, False, 0)
+        self.editor.connect('activate', lambda *_: self.commit_rename())
+        self.editor.connect('key-press-event', self.rename_key)
+        self.editor.connect('focus-out-event', lambda *_: self.commit_rename())
+        self.editor.show(); self.editor.grab_focus()
+        end = len(self.name)
+        if self.info.get_file_type() != Gio.FileType.DIRECTORY and '.' in self.name[1:]: end = self.name.rfind('.')
+        self.editor.select_region(0, end)
+
+    def rename_key(self, _widget, event):
+        if event.keyval == Gdk.KEY_Escape:
+            self.end_rename(); self.canvas.grab_focus(); return True
+        return False
+
+    def commit_rename(self):
+        if not self.editor or self.renaming: return False
+        name = self.editor.get_text()
+        if name == self.name: self.end_rename(); return False
+        if not model.valid_name(name):
+            self.editor.set_tooltip_text('Choose a name without /, and different from . or ..')
+            self.editor.get_style_context().add_class('error'); self.editor.grab_focus(); return False
+        self.renaming = True; self.editor.set_editable(False)
+        self.canvas.controller.files.call('RenameTo', '(ss)', self.canvas.controller.uri(self.name), name,
+            on_reply=lambda accepted: None if accepted else self.end_rename())
+        return False
+
+    def end_rename(self, error=None):
+        editor, self.editor = self.editor, None
+        self.renaming = False
+        if editor: editor.destroy()
+        self.label.set_no_show_all(False); self.label.show(); self.set_above_child(True)
+        if error: self.canvas.controller.error(error)
+
     def pressed(self, _widget, event):
+        if self.editor: return False
         if event.button not in (1, 3): return False
         controller = self.canvas.controller
         self.canvas.grab_focus()
@@ -112,14 +182,16 @@ class Tile(Gtk.EventBox):
         return True
 
     def motion(self, _widget, event):
+        if self.editor: return False
         if not self.press or not event.state & Gdk.ModifierType.BUTTON1_MASK: return False
         if not self.drag_check_threshold(int(self.press[0]), int(self.press[1]), int(event.x), int(event.y)): return False
         controller = self.canvas.controller
         controller.drag = dict(names=controller.ordered_selection(), anchor=self.name,
                                offset=[self.press[0], self.press[1]])
         self.press = None
-        context = self.drag_begin_with_coordinates(Gtk.TargetList.new(TARGETS),
-            Gdk.DragAction.COPY | Gdk.DragAction.MOVE, 1, event, -1, -1)
+        virtual = model.TRASH in controller.drag['names']
+        context = self.drag_begin_with_coordinates(Gtk.TargetList.new(TARGETS[:1] if virtual else TARGETS),
+            Gdk.DragAction.MOVE if virtual else Gdk.DragAction.COPY | Gdk.DragAction.MOVE, 1, event, -1, -1)
         Gtk.drag_set_icon_gicon(context, self.info.get_icon(), 0, 0)
         return True
 
@@ -188,6 +260,8 @@ class Canvas(Gtk.Layout):
         for name, tile in self.tiles.items():
             context = tile.get_style_context()
             (context.add_class if name in self.controller.selected else context.remove_class)('selected')
+            tile.image.set_opacity(.45 if self.controller.clipboard.owned and self.controller.clipboard.cut
+                                   and self.controller.uri(name) in self.controller.clipboard.urls else 1)
         self.queue_draw()
 
     def hit(self, x, y):
@@ -231,15 +305,23 @@ class Canvas(Gtk.Layout):
         if not self.controller.settings['enabled']: return False
         key = Gdk.keyval_name(event.keyval)
         control = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
+        alt = bool(event.state & Gdk.ModifierType.MOD1_MASK)
         selected = self.controller.ordered_selection()
         if key == 'Escape': self.controller.select(set())
         elif control and key.lower() == 'a': self.controller.select(set(self.positions))
+        elif control and key.lower() in ('c', 'x'):
+            self.controller.copy(key.lower() == 'x')
+        elif control and key.lower() == 'v': self.controller.paste()
+        elif control and event.state & Gdk.ModifierType.SHIFT_MASK and key.lower() == 'n':
+            self.controller.files.call('NewFolder', '(s)', self.controller.uri())
+        elif alt and key in ('Return', 'KP_Enter') and selected:
+            self.controller.files.call('Properties', '(as)', self.controller.urls())
         elif key in ('Return', 'KP_Enter') and selected:
             self.controller.files.open(self.controller.urls())
         elif key == 'Delete' and selected:
-            self.controller.files.call('Trash', '(as)', self.controller.urls())
+            self.controller.trash(self.controller.urls(real_only=True))
         elif key == 'F2' and len(selected) == 1:
-            self.controller.files.call('Rename', '(s)', self.controller.uri(selected[0]))
+            if selected[0] in self.tiles: self.tiles[selected[0]].begin_rename()
         elif key == 'F5': self.controller.refresh()
         elif key in ('Menu', 'F10') and selected:
             self.file_menu(None)
@@ -271,12 +353,21 @@ class Canvas(Gtk.Layout):
         self.controller.owner.refresh_style()
         menu = Gtk.Menu(); menu.get_style_context().add_class('desktop-context-menu')
         names = self.controller.ordered_selection()
+        if not names: return
         action(menu, 'Open', lambda: self.controller.files.open(self.controller.urls(names)))
         if all(self.controller.entries[name].get_file_type() != Gio.FileType.DIRECTORY for name in names):
             action(menu, 'Open with…', lambda: self.controller.files.open(self.controller.urls(names), True))
         menu.append(Gtk.SeparatorMenuItem())
-        action(menu, 'Rename…', lambda: self.controller.files.call('Rename', '(s)', self.controller.uri(names[0])), len(names) == 1)
-        action(menu, 'Move to Trash', lambda: self.controller.files.call('Trash', '(as)', self.controller.urls(names)))
+        real = [name for name in names if name != model.TRASH]
+        if real:
+            action(menu, 'Cut', lambda: self.controller.copy(True, names))
+            action(menu, 'Copy', lambda: self.controller.copy(False, names))
+            action(menu, 'Paste', lambda: self.controller.paste())
+            menu.append(Gtk.SeparatorMenuItem())
+            action(menu, 'Rename', lambda: self.tiles[real[0]].begin_rename(), len(names) == 1)
+            action(menu, 'Move to Trash', lambda: self.controller.trash(self.controller.urls(real)))
+        if names == [model.TRASH]:
+            action(menu, 'Hide Trash', lambda: self.controller.setting('show_trash', False))
         menu.append(Gtk.SeparatorMenuItem())
         action(menu, 'Properties', lambda: self.controller.files.call('Properties', '(as)', self.controller.urls(names)))
         if self.surface.menu: self.surface.menu.destroy()
@@ -310,7 +401,11 @@ class Canvas(Gtk.Layout):
         selected = Gdk.DragAction.COPY if copy or not possible & Gdk.DragAction.MOVE else Gdk.DragAction.MOVE
         if not selected & possible: selected = Gdk.DragAction.COPY if possible & Gdk.DragAction.COPY else Gdk.DragAction(0)
         self.drop_action = selected
-        self.highlight(self.destination(x, y))
+        destination = self.destination(x, y)
+        if destination == model.TRASH: selected = Gdk.DragAction.MOVE if possible & Gdk.DragAction.MOVE else Gdk.DragAction(0)
+        if model.TRASH in self.controller.drag.get('names', []) and (destination or copy): selected = Gdk.DragAction(0)
+        self.drop_action = selected
+        self.highlight(destination)
         Gdk.drag_status(context, selected, timestamp)
         return bool(selected)
 
@@ -340,10 +435,13 @@ class Canvas(Gtk.Layout):
             # its new drag status is being committed. Use our accepted action.
             copy = self.drop_action == Gdk.DragAction.COPY
             destination = self.destination(x, y)
-            if destination is None and not copy and len(names) == len(urls):
+            if destination == model.TRASH:
+                self.controller.trash([url for url in urls if url != model.TRASH])
+            elif destination is None and not copy and len(names) == len(urls):
                 offset = drag.get('offset', [model.cell(self.controller.settings)[0]/2, 20])
                 self.controller.reposition(self.monitor, names, (x-offset[0], y-offset[1]), drag.get('anchor'))
             else:
+                if model.TRASH in urls: raise ValueError('Trash can be repositioned on the desktop, but cannot be moved into a folder.')
                 self.controller.files.transfer(urls, self.controller.uri(destination), copy)
             success = True
         except (ValueError, TypeError, KeyError, IndexError) as error:
@@ -365,8 +463,13 @@ class Icons:
         self.pending = 0
         self.layout_pending = 0
         self.monitor_poll = 0
+        self.trash_full = False
+        self.trash_pending = {}
+        self.pastes = {}
+        self.flights = {}
         self.cancellable = Gio.Cancellable()
-        self.files = Files(self.error)
+        self.files = Files(self.error, self.trashed, self.trash_state, self.transferred, self.renamed)
+        self.clipboard = Clipboard(self.clipboard_changed)
         self.accent = Gdk.RGBA(); self.accent.parse('#88b6d8')
         try: self.settings = self.store.load()
         except (OSError, ValueError) as error: self.error(str(error))
@@ -380,13 +483,94 @@ class Icons:
         except OSError: pass
 
     def uri(self, name=None):
+        if name == model.TRASH: return model.TRASH
         return Gio.File.new_for_path(str(self.root/name if name else self.root)).get_uri()
 
     def ordered_selection(self):
         return [name for canvas in self.canvases.values() for name in canvas.positions if name in self.selected]
 
-    def urls(self, names=None):
-        return [self.uri(name) for name in (self.ordered_selection() if names is None else names)]
+    def urls(self, names=None, real_only=False):
+        return [self.uri(name) for name in (self.ordered_selection() if names is None else names)
+                if not real_only or name != model.TRASH]
+
+    def clipboard_changed(self):
+        for canvas in self.canvases.values(): canvas.update_selection()
+
+    def copy(self, cut=False, names=None):
+        urls = self.urls(names, real_only=True)
+        if urls and not self.clipboard.write(urls, cut): self.error('Could not copy the selected files to the clipboard.')
+
+    def paste(self):
+        # The desktop is the current folder; selecting an icon does not change
+        # Ctrl+V's destination. Open a folder to paste into it instead.
+        destination = self.uri()
+        def received(urls, cut, generation):
+            if not urls or not self.settings['enabled']: return
+            if cut: self.pastes[(tuple(urls), destination)] = generation
+            self.files.transfer(urls, destination, not cut)
+        self.clipboard.read(received)
+
+    def transferred(self, sources, destination, copy, success):
+        generation = self.pastes.pop((tuple(sources), destination), None)
+        if success and not copy and generation is not None: self.clipboard.complete_move(sources, generation)
+
+    def cancel_rename(self):
+        for canvas in self.canvases.values():
+            for tile in canvas.tiles.values():
+                if tile.editor and not tile.renaming: tile.end_rename()
+
+    def renamed(self, source, destination, success, message):
+        name = Gio.File.new_for_uri(source).get_basename()
+        for canvas in self.canvases.values():
+            if name in canvas.tiles: canvas.tiles[name].end_rename(None if success else message)
+        if success: self.refresh()
+
+    def trash_info(self):
+        info = Gio.FileInfo(); info.set_name(model.TRASH); info.set_display_name('Trash')
+        info.set_is_symlink(False)
+        info.set_file_type(Gio.FileType.DIRECTORY)
+        info.set_icon(Gio.ThemedIcon.new('user-trash-full' if self.trash_full else 'user-trash'))
+        return info
+
+    def trash_state(self, full):
+        if full == self.trash_full: return
+        self.trash_full = full
+        if model.TRASH in self.entries:
+            self.entries[model.TRASH] = self.trash_info(); self.schedule_layout()
+
+    def trash(self, urls):
+        urls = [url for url in urls if url != model.TRASH and url not in self.trash_pending]
+        if not urls: return
+        for index, url in enumerate(urls):
+            image = None
+            for surface, canvas in (self.canvases.items() if index < 8 else []):
+                name = next((name for name in canvas.tiles if self.uri(name) == url), None)
+                if name:
+                    image = snapshot(canvas.tiles[name], surface, self.settings['size']); break
+            self.trash_pending[url] = image
+        def accepted(ok):
+            if not ok:
+                for url in urls: self.trash_pending.pop(url, None)
+        self.files.call('Trash', '(as)', urls, on_reply=accepted)
+
+    def trashed(self, requested, removed, animate):
+        images = [self.trash_pending[url] for url in removed if self.trash_pending.get(url)][:8]
+        for url in requested: self.trash_pending.pop(url, None)
+        target = None
+        for surface, canvas in self.canvases.items():
+            if model.TRASH in canvas.tiles:
+                captured = snapshot(canvas.tiles[model.TRASH], surface, self.settings['size'])
+                if captured: target = captured[1]; break
+        if images and not target:
+            # Keep the existing animation even when the optional Trash icon is
+            # hidden. Its destination is the source display's lower right edge.
+            for surface, canvas in self.canvases.items():
+                g = surface.desktop_monitor.get_geometry(); x, y = images[0][1]
+                if g.x <= x < g.x+g.width and g.y <= y < g.y+g.height:
+                    a = self.areas[canvas.monitor]; target = (g.x+a[0]+a[2]-32, g.y+a[1]+a[3]-32); break
+        if animate and images and target:
+            for flights in self.flights.values(): flights.fly(images, target)
+        self.refresh()
 
     def select(self, names):
         self.selected = set(names) & self.entries.keys()
@@ -398,7 +582,11 @@ class Icons:
         scroll.set_shadow_type(Gtk.ShadowType.NONE)
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scroll.get_style_context().add_class('desktop-icons')
-        scroll.add(canvas); surface.add(scroll)
+        overlay = Gtk.Overlay(); overlay.add(scroll)
+        flights = Flights(surface, lambda: self.accent)
+        overlay.add_overlay(flights); overlay.set_overlay_pass_through(flights, True)
+        scroll.add(canvas); surface.add(overlay)
+        self.flights[surface] = flights
         self.canvases[surface] = canvas
         surface.connect('size-allocate', lambda *_: self.schedule_layout())
         signal = surface.desktop_monitor.connect('notify::geometry', lambda *_: self.schedule_layout())
@@ -406,6 +594,8 @@ class Icons:
         self.schedule_layout()
 
     def detach(self, surface):
+        flights = self.flights.pop(surface, None)
+        if flights: flights.stop()
         self.canvases.pop(surface, None)
         self.schedule_layout()
 
@@ -470,6 +660,8 @@ class Icons:
         if self.settings['enabled'] and not was_enabled: self.start()
         elif was_enabled and not self.settings['enabled']:
             self.stop(); self.entries = {}; self.select(set())
+        elif key == 'show_trash' and self.settings['enabled']:
+            self.refresh(); self.files.refresh_trash()
 
     def reposition(self, monitor, names, point, anchor=None):
         self.change(lambda settings: model.move(settings, self.entries, self.areas, monitor, names, point, anchor))
@@ -480,6 +672,10 @@ class Icons:
         show.set_active(self.settings['enabled'])
         show.connect('toggled', lambda item: self.setting('enabled', item.get_active()))
         menu.attach(show, 0, 1, row, row+1); row += 1
+        trash = style_item(Gtk.CheckMenuItem(label='Show Trash'))
+        trash.set_active(self.settings['show_trash']); trash.set_sensitive(self.settings['enabled'])
+        trash.connect('toggled', lambda item: self.setting('show_trash', item.get_active()))
+        menu.attach(trash, 0, 1, row, row+1); row += 1
         arrange = style_item(Gtk.MenuItem(label='Arrange icons'))
         arrange.set_sensitive(self.settings['enabled'])
         submenu = Gtk.Menu(); submenu.get_style_context().add_class('desktop-context-menu')
@@ -512,6 +708,9 @@ class Icons:
         arrange.set_submenu(submenu)
         menu.attach(arrange, 0, 1, row, row+1); row += 1
         if self.settings['enabled']:
+            paste = style_item(Gtk.MenuItem(label='Paste'))
+            paste.connect('activate', lambda *_: self.paste())
+            menu.attach(paste, 0, 1, row, row+1); row += 1
             new = style_item(Gtk.MenuItem(label='New folder…'))
             new.connect('activate', lambda *_: self.files.call('NewFolder', '(s)', self.uri()))
             menu.attach(new, 0, 1, row, row+1)
@@ -526,6 +725,7 @@ class Icons:
                 # GTK allocation event. Keep the usable desktop bounds current.
                 self.monitor_poll = GLib.timeout_add_seconds(3, self.poll_monitors)
             self.refresh()
+            if self.settings['show_trash']: self.files.refresh_trash()
         except (OSError, GLib.Error) as error: self.error(str(error))
 
     def stop(self):
@@ -534,9 +734,12 @@ class Icons:
         if self.monitor: self.monitor.cancel(); self.monitor = None
         if self.pending: GLib.source_remove(self.pending); self.pending = 0
         if self.monitor_poll: GLib.source_remove(self.monitor_poll); self.monitor_poll = 0
+        self.trash_pending.clear()
+        for flights in self.flights.values(): flights.stop()
 
     def poll_monitors(self):
         self.schedule_layout()
+        if self.settings['show_trash']: self.files.refresh_trash()
         return True
 
     def changed(self, _monitor, source, other, event):
@@ -562,11 +765,19 @@ class Icons:
                 entries = enumerator.next_files_finish(result)
                 if generation != self.generation: enumerator.close(None); return
                 for entry in entries:
-                    if not entry.get_is_hidden() and model.valid_name(entry.get_name()): pending[entry.get_name()] = entry
+                    name = entry.get_name()
+                    if not entry.get_is_hidden() and model.valid_name(name):
+                        if name.casefold().endswith('.desktop'):
+                            launcher = Gio.DesktopAppInfo.new_from_filename(str(self.root/name))
+                            if launcher:
+                                entry.set_display_name(launcher.get_display_name())
+                                if launcher.get_icon(): entry.set_icon(launcher.get_icon())
+                        pending[name] = entry
                 if entries:
                     enumerator.next_files_async(128, GLib.PRIORITY_DEFAULT, self.cancellable, batch, None)
                 else:
                     enumerator.close(None)
+                    if self.settings['show_trash']: pending[model.TRASH] = self.trash_info()
                     self.entries = pending; self.selected.intersection_update(pending)
                     self.schedule_layout()
             except GLib.Error as error:
@@ -584,5 +795,6 @@ class Icons:
 
     def dispose(self):
         self.stop()
+        self.files.dispose(); self.clipboard.dispose()
         if self.layout_pending: GLib.source_remove(self.layout_pending); self.layout_pending = 0
         self.canvases.clear()

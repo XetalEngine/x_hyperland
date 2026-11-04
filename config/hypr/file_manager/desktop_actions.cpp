@@ -5,9 +5,16 @@
 #include "transfers.h"
 #include <KApplicationTrader>
 #include <KIO/MkdirJob>
+#include <KIO/CopyJob>
+#include <KIO/FileUndoManager>
+#include <KIO/OpenUrlJob>
+#include <KIO/JobUiDelegateFactory>
 #include <KIO/RenameFileDialog>
+#include <KIO/StatJob>
 #include <KPropertiesDialog>
 #include <QCryptographicHash>
+#include <algorithm>
+#include <memory>
 
 DesktopActions::DesktopActions(QObject *parent) : QDBusAbstractAdaptor(parent) {}
 QString DesktopActions::serviceName() {
@@ -40,9 +47,14 @@ void DesktopActions::track(KJob *job) {
 }
 bool DesktopActions::Transfer(const QStringList &sources, const QString &destination, bool copy) {
   const auto from = urls(sources), to = urls({destination});
-  if (from.isEmpty() || to.size() != 1) return false;
-  track(Fusion::transferFiles(from, to.first(), copy ? Fusion::TransferOperation::Copy
-                                                   : Fusion::TransferOperation::Move, nullptr));
+  if (from.isEmpty() || to.size() != 1 || to.first().scheme() == "trash" ||
+      from.contains(QUrl("trash:/"))) return false;
+  auto *job = Fusion::transferFiles(from, to.first(), copy ? Fusion::TransferOperation::Copy
+                                                         : Fusion::TransferOperation::Move, nullptr);
+  connect(job, &KJob::result, this, [this, sources, destination, copy](KJob *result) {
+    emit TransferFinished(sources, destination, copy, !result->error());
+  });
+  track(job);
   return true;
 }
 bool DesktopActions::Open(const QStringList &sources, bool choose) {
@@ -53,10 +65,17 @@ bool DesktopActions::Open(const QStringList &sources, bool choose) {
     KFileItemList selected;
     for (const auto &url : files) {
       const KFileItem item(url);
-      if (item.isDir()) {
+      if (item.isDir() || url == QUrl("trash:/")) {
         if (!QProcess::startDetached(Fusion::root()+"/scripts/files.sh",
                 {"--external", "--new-window", url.toString(QUrl::FullyEncoded)}))
           error("Could not open the folder in Fusion Files.");
+        continue;
+      }
+      if (!choose && item.mimetype() == "application/x-desktop") {
+        auto *job = new KIO::OpenUrlJob(url, item.mimetype());
+        job->setRunExecutables(true);
+        job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingDisabled, nullptr));
+        track(job); job->start();
         continue;
       }
       selected << item;
@@ -80,15 +99,55 @@ bool DesktopActions::Open(const QStringList &sources, bool choose) {
 }
 bool DesktopActions::Trash(const QStringList &sources) {
   const auto files = urls(sources);
-  if (files.isEmpty()) return false;
-  track(new Fusion::RemovalJob(files, false, nullptr));
+  if (files.isEmpty() || std::any_of(files.begin(), files.end(), [](const QUrl &url) {
+        return url.scheme() == "trash";
+      })) return false;
+  auto *job = new Fusion::RemovalJob(files, false, nullptr);
+  auto succeeded = std::make_shared<QStringList>();
+  connect(job, &Fusion::RemovalJob::removed, this, [succeeded](const QList<QUrl> &removed) {
+    for (const auto &url : removed) *succeeded << url.toString(QUrl::FullyEncoded);
+  });
+  connect(job, &KJob::result, this, [this, sources, succeeded] {
+    Fusion::Preferences preferences;
+    emit TrashFinished(sources, *succeeded, preferences.settings.value("trashAnimation", true).toBool());
+    RefreshTrash();
+  });
+  track(job);
+  return true;
+}
+bool DesktopActions::RefreshTrash() {
+  if (trashStatPending) return true;
+  trashStatPending = true;
+  auto *job = KIO::stat(QUrl("trash:/"), KIO::HideProgressInfo);
+  job->setParent(this); job->setUiDelegate(nullptr);
+  connect(job, &KJob::result, this, [this, job] {
+    trashStatPending = false;
+    if (!job->error()) emit TrashStateChanged(job->statResult().stringValue(KIO::UDSEntry::UDS_ICON_NAME) == "user-trash-full");
+  });
   return true;
 }
 bool DesktopActions::Rename(const QString &source) {
   const auto files = urls({source});
-  if (files.size() != 1) return false;
+  if (files.size() != 1 || files.first() == QUrl("trash:/")) return false;
   auto *dialog = new KIO::RenameFileDialog({KFileItem(files.first())}, nullptr);
   dialog->setAttribute(Qt::WA_DeleteOnClose); dialog->show();
+  return true;
+}
+bool DesktopActions::RenameTo(const QString &source, const QString &name) {
+  const auto files = urls({source});
+  if (files.size() != 1 || !files.first().isLocalFile() || !Fusion::validName(name)) return false;
+  const auto from = files.first();
+  auto to = from.adjusted(QUrl::RemoveFilename);
+  to.setPath(to.path() + name);
+  if (from == to) return false;
+  // Inline rename must never replace another file. Let the editor report the
+  // failure and keep the original label and selection in place.
+  auto *job = KIO::moveAs(from, to, KIO::HideProgressInfo);
+  job->setParent(this); job->setUiDelegate(nullptr);
+  KIO::FileUndoManager::self()->recordCopyJob(job);
+  connect(job, &KJob::result, this, [this, source, to](KJob *result) {
+    emit RenameFinished(source, to.toString(QUrl::FullyEncoded), !result->error(), result->errorString());
+  });
   return true;
 }
 bool DesktopActions::NewFolder(const QString &directory) {

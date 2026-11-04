@@ -39,6 +39,7 @@ public:
   Volume selectedVolume() const;
   QAbstractItemView *view() const;
   void selectAll();
+  void renameSelected();
 signals:
   void locationChanged(const QUrl &url);
   void selectionChanged();
@@ -75,4 +76,5 @@ private:
   void updateStatus();
   void columnMenu(const QPoint &position);
   KFileItem itemAt(QAbstractItemView *view, const QPoint &position) const;
+  void renameItem(const QModelIndex &index, const QString &name);
 };

@@ -774,7 +774,8 @@ class Menu(QWidget):
     def launch_app(self, app_id, terminal=None, floating=False):
         try:
             leave_dashboard()
-            self.apps[app_id].launch(terminal=terminal,floating=floating)
+            entry = self.apps[app_id]
+            entry.launch(terminal=terminal, floating=bool(floating or entry.fields.get('floating', False)))
             self.close()
         except Exception as exc:
             self.report('Could not open this app: ' + str(exc))
@@ -839,7 +840,7 @@ class Menu(QWidget):
             check = add('Always run in terminal', 'utilities-terminal', 'toggle-terminal')
             check.setIcon(QIcon())
             check.setCheckable(True); check.setChecked(entry.fields['terminal'])
-            check=add('Float from bar pins and hotkeys','window-new','toggle-floating')
+            check=add('Always start floating','window-new','toggle-floating')
             check.setIcon(QIcon());check.setCheckable(True);check.setChecked(entry.fields['floating'])
             menu.addSeparator()
             add('Copy command', 'edit-copy', 'copy-command')

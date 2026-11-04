@@ -945,6 +945,7 @@ void FilesWindow::runAction(const QString &id) {
   if (id == "rename") {
     if (items.isEmpty())
       return;
+    if (items.size() == 1) { tab->renameSelected(); return; }
     auto *dialog = new KIO::RenameFileDialog(items, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(dialog, &KIO::RenameFileDialog::renamingFinished, this,

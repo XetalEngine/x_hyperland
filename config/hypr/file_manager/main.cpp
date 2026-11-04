@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
   if (parser.isSet("picker")) return runPicker(app);
   // Establish the role before any native window is created. The compositor
   // applies its floating/centering rule on the first map, never after showing.
-  if (parser.isSet("external") || parser.isSet("select") ||
+  if (parser.isSet("external") || parser.isSet("select") || parser.isSet("service") ||
       (parser.isSet("from-desktop") && !parser.positionalArguments().isEmpty()))
     app.setDesktopFileName("xetal-files-external");
   const bool sessionService = parser.isSet("service");

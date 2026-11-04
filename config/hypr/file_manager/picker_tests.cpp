@@ -91,6 +91,14 @@ private slots:
     QTest::newRow("other extension") << "drawing.jpg" << png << "" << "drawing.jpg.png";
     QTest::newRow("already correct") << "drawing.png" << png << "" << "drawing.png";
     QTest::newRow("upper case") << "drawing.PNG" << png << "" << "drawing.PNG";
+    const QJsonArray chromiumPng{QJsonArray{0, "*.[pP][nN][gG]"}};
+    QTest::newRow("Chrome no extension") << "drawing" << chromiumPng << "" << "drawing.png";
+    QTest::newRow("Chrome incomplete extension") << "drawing.pn" << chromiumPng << "" << "drawing.pn.png";
+    QTest::newRow("Chrome already present") << "drawing.png" << chromiumPng << "" << "drawing.png";
+    QTest::newRow("Chrome mixed case") << "drawing.PnG" << chromiumPng << "" << "drawing.PnG";
+    QTest::newRow("Chrome compound") << "backup" << QJsonArray{QJsonArray{0,"*.[tT][aA][rR].[gG][zZ]"}} << "" << "backup.tar.gz";
+    QTest::newRow("ambiguous class") << "drawing" << QJsonArray{QJsonArray{0,"*.jp[eg]"}} << "" << "drawing";
+    QTest::newRow("range is not a suffix") << "drawing" << QJsonArray{QJsonArray{0,"*.[a-z]"}} << "" << "drawing";
     QTest::newRow("compound") << "backup.tar" << QJsonArray{QJsonArray{0,"*.tar.gz"}} << "" << "backup.tar.tar.gz";
     QTest::newRow("compound present") << "backup.tar.gz" << QJsonArray{QJsonArray{0,"*.tar.gz"}} << "" << "backup.tar.gz";
     QTest::newRow("alternate extension") << "drawing.jpeg" << QJsonArray{QJsonArray{0,"*.jpg"},QJsonArray{0,"*.jpeg"}} << "" << "drawing.jpeg";

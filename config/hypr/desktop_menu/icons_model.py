@@ -9,10 +9,11 @@ from pathlib import Path
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
+TRASH = 'trash:/'  # A virtual icon ID that cannot collide with a file basename.
 
 
 def defaults():
-    return dict(version=1, enabled=False, auto_align=True, auto_arrange=False,
+    return dict(version=1, enabled=False, show_trash=False, auto_align=True, auto_arrange=False,
                 flow='columns', size=56, positions={})
 
 
@@ -25,13 +26,13 @@ def validate(value):
         raise ValueError('Invalid desktop icon settings. The existing file was kept.')
     result = defaults()
     result.update(value)
-    if (type(result['enabled']) is not bool or type(result['auto_align']) is not bool
+    if (type(result['enabled']) is not bool or type(result['show_trash']) is not bool or type(result['auto_align']) is not bool
             or type(result['auto_arrange']) is not bool
             or result['flow'] not in ('columns', 'rows') or result['size'] not in (40, 56, 72)
             or not isinstance(result['positions'], dict) or len(result['positions']) > 50000):
         raise ValueError('Invalid desktop icon layout. The existing file was kept.')
     for name, position in result['positions'].items():
-        if (not valid_name(name) or not isinstance(position, dict)
+        if ((name != TRASH and not valid_name(name)) or not isinstance(position, dict)
                 or not isinstance(position.get('monitor'), str) or len(position['monitor']) > 256
                 or type(position.get('order')) is not int or not 0 <= position['order'] <= 100000
                 or any(type(position.get(key)) not in (float, int) or not math.isfinite(position[key])

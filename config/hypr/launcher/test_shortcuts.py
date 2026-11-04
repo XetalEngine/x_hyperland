@@ -199,11 +199,11 @@ class ShortcutTests(unittest.TestCase):
                         launch.assert_called_once_with(terminal=None, floating=True)
                         launch.reset_mock()
                         QTest.mouseClick(target, Qt.MouseButton.LeftButton, pos=point)
-                        launch.assert_called_once_with(terminal=None, floating=False)
+                        launch.assert_called_once_with(terminal=None, floating=saved_floating)
                         launch.reset_mock()
                         QTest.keyClick(target if view in ('medium', 'small') else menu.grid,
                                        Qt.Key.Key_Return)
-                        launch.assert_called_once_with(terminal=None, floating=False)
+                        launch.assert_called_once_with(terminal=None, floating=saved_floating)
                         self.assertEqual(shortcuts.STATE.read_bytes(), saved)
             menu.close()
 

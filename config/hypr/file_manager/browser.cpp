@@ -12,9 +12,47 @@
 #include <KJobWidgets>
 #include <KUrlComboBox>
 #include <QBackingStore>
+#include <functional>
 #include <memory>
 
 namespace {
+class FilesItemDelegate : public KFileItemDelegate {
+public:
+  using Rename = std::function<void(const QModelIndex &, const QString &)>;
+  FilesItemDelegate(QObject *parent, Rename rename) : KFileItemDelegate(parent), rename(std::move(rename)) {}
+  QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const override {
+    auto *editor = KFileItemDelegate::createEditor(parent, option, index);
+    editor->setObjectName("inlineRename");
+    if (auto *text = qobject_cast<QTextEdit *>(editor)) text->document()->setDocumentMargin(0);
+    return editor;
+  }
+  void setEditorData(QWidget *editor, const QModelIndex &index) const override {
+    auto *text = qobject_cast<QTextEdit *>(editor);
+    // Thumbnail/model refreshes must not replace a name already being edited.
+    if (!text || text->isEnabled()) return;
+    const auto alignment = text->alignment();
+    KFileItemDelegate::setEditorData(editor, index);
+    const auto item = index.data(KDirModel::FileItemRole).value<KFileItem>();
+    const auto name = item.name();
+    text->setPlainText(name); text->setAlignment(alignment);
+    const int dot = name.lastIndexOf('.');
+    const int end = !item.isDir() && dot > 0 ? dot : name.size();
+    auto cursor = text->textCursor(); cursor.setPosition(0);
+    cursor.setPosition(end, QTextCursor::KeepAnchor); text->setTextCursor(cursor);
+  }
+  void setModelData(QWidget *editor, QAbstractItemModel *, const QModelIndex &index) const override {
+    if (auto *text = qobject_cast<QTextEdit *>(editor)) rename(index, text->toPlainText());
+  }
+  void updateEditorGeometry(QWidget *editor, const QStyleOptionViewItem &option, const QModelIndex &index) const override {
+    KFileItemDelegate::updateEditorGeometry(editor, option, index);
+    auto rect = editor->geometry();
+    rect.setHeight(qMax(rect.height(), editor->fontMetrics().lineSpacing() + 4));
+    editor->setGeometry(rect);
+  }
+private:
+  Rename rename;
+};
+
 // Qt keeps a snapshot of QDrag::pixmap() for the native drag surface. Paint
 // that same surface through QBackingStore when the requested action changes;
 // Hyprland overrides drag cursors, so a cursor-only badge is invisible there.
@@ -282,10 +320,11 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
   icons->setWordWrap(true);
   icons->setSpacing(5);
   icons->setSelectionRectVisible(true);
-  icons->setItemDelegate(new KFileItemDelegate(icons));
+  icons->setItemDelegate(new FilesItemDelegate(icons, [this](const QModelIndex &index, const QString &name) { renameItem(index, name); }));
   details = new FilesDetailsView;
   details->setObjectName("details");
   details->setModel(proxy);
+  details->setItemDelegate(new FilesItemDelegate(details, [this](const QModelIndex &index, const QString &name) { renameItem(index, name); }));
   details->setRootIsDecorated(false);
   details->setItemsExpandable(false);
   details->setAllColumnsShowFocus(true);
@@ -539,6 +578,30 @@ void Browser::selectAll() {
       }
   } else
     view()->selectAll();
+}
+void Browser::renameSelected() {
+  const auto items = selectedItems();
+  if (items.size() != 1 || Fusion::isComputer(location())) return;
+  const auto index = proxy->mapFromSource(model->indexForUrl(items.first().url()));
+  if (!index.isValid()) return;
+  view()->setCurrentIndex(index); view()->scrollTo(index); view()->setFocus();
+  view()->edit(index);
+}
+void Browser::renameItem(const QModelIndex &index, const QString &name) {
+  const auto item = model->itemForIndex(proxy->mapToSource(index));
+  if (item.isNull() || name == item.name()) return;
+  if (!Fusion::validName(name)) {
+    notice->setText("Choose a name without /, and different from . or .."); notice->show(); return;
+  }
+  const auto from = item.url();
+  auto to = from.adjusted(QUrl::RemoveFilename); to.setPath(to.path() + name);
+  auto *job = KIO::moveAs(from, to, KIO::HideProgressInfo);
+  job->setUiDelegate(nullptr); // A rename collision is an error, never an overwrite.
+  KIO::FileUndoManager::self()->recordCopyJob(job);
+  connect(job, &KJob::result, this, [this, to, folder = location()](KJob *result) {
+    if (!result->error() && location() == folder) selectUrl(to);
+  });
+  emit jobStarted(job);
 }
 Volume Browser::selectedVolume() const {
   for (auto *list : driveLists)

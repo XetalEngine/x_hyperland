@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
-from unittest.mock import patch, Mock
+from unittest.mock import patch, Mock, ANY
 import icons_model as model
 
 
@@ -134,6 +134,16 @@ class LayoutTests(unittest.TestCase):
         other.change(lambda data: data.update(size=72))
         self.assertTrue(self.store.load()['enabled']); self.assertEqual(self.store.load()['size'], 72)
 
+    def test_optional_trash_has_persistent_position_without_a_fake_file(self):
+        self.assertFalse(self.settings['show_trash'])
+        self.assertFalse(model.valid_name(model.TRASH))
+        self.store.change(lambda data: data.update(show_trash=True))
+        names = [*self.names, model.TRASH]
+        self.store.change(lambda data: model.move(data, names, self.areas, 'SIDE', [model.TRASH], (240, 162)))
+        saved = self.store.load()
+        self.assertTrue(saved['show_trash'])
+        self.assertEqual(model.layout(names, self.areas, saved)['SIDE'][model.TRASH], (240, 162))
+
 
 @unittest.skipUnless(os.environ.get('FUSION_DESKTOP_TEST_GUI') == '1', 'Run on a private display with FUSION_DESKTOP_TEST_GUI=1')
 class CanvasTests(unittest.TestCase):
@@ -222,7 +232,84 @@ class CanvasTests(unittest.TestCase):
         key = self.Gdk.EventKey(); key.type = self.Gdk.EventType.KEY_PRESS
         key.keyval = self.Gdk.KEY_Delete; key.state = self.Gdk.ModifierType(0)
         self.canvas.key(self.canvas, key)
-        self.fake_files.call.assert_called_once_with('Trash', '(as)', [self.controller.uri('Folder')])
+        self.fake_files.call.assert_called_once_with('Trash', '(as)', [self.controller.uri('Folder')], on_reply=ANY)
+
+    def test_trash_icon_open_hide_and_success_animation(self):
+        before = dict(self.canvas.positions)
+        self.controller.setting('show_trash', True)
+        self.wait(lambda: model.TRASH in self.canvas.tiles)
+        self.assertEqual({name: self.canvas.positions[name] for name in before}, before)
+        self.assertFalse((self.controller.root/'Trash').exists())
+        self.controller.select({model.TRASH})
+        self.assertEqual(self.controller.urls(), ['trash:/'])
+        self.assertEqual(self.controller.urls(real_only=True), [])
+        self.controller.trash_state(True)
+        self.wait(lambda: 'user-trash-full' in self.canvas.tiles[model.TRASH].info.get_icon().get_names())
+        url = self.controller.uri('Folder')
+        self.controller.trash([url, model.TRASH])
+        self.assertFalse(self.controller.flights[self.window].batches)
+        self.controller.trashed([url], [], True)
+        self.assertFalse(self.controller.flights[self.window].batches)
+        self.assertFalse(self.controller.trash_pending)
+        self.controller.trash([url])
+        self.controller.trashed([url], [url], True)
+        self.assertTrue(self.controller.flights[self.window].batches)
+        self.wait(lambda: not self.controller.flights[self.window].batches)
+        self.controller.trash([url]); self.controller.trashed([url], [url], False)
+        self.assertFalse(self.controller.flights[self.window].batches)
+        self.controller.setting('show_trash', False)
+        self.wait(lambda: model.TRASH not in self.canvas.tiles)
+        self.assertEqual(self.canvas.positions, before)
+
+    def test_inline_rename_selects_stem_escape_cancels_enter_delegates(self):
+        tile = self.canvas.tiles['notes # café.txt']
+        tile.begin_rename()
+        self.assertEqual(tile.editor.get_selection_bounds(), (0, len('notes # café')))
+        tile.editor.set_text('changed.txt')
+        event = self.Gdk.EventKey(); event.keyval = self.Gdk.KEY_Escape
+        tile.rename_key(tile.editor, event)
+        self.assertIsNone(tile.editor); self.fake_files.call.assert_not_called()
+        tile.begin_rename(); tile.editor.set_text('../bad'); tile.commit_rename()
+        self.fake_files.call.assert_not_called(); self.assertIsNotNone(tile.editor)
+        tile.editor.set_text('changed.txt'); tile.commit_rename()
+        self.fake_files.call.assert_called_once_with('RenameTo', '(ss)', self.controller.uri(tile.name), 'changed.txt', on_reply=ANY)
+        self.controller.renamed(self.controller.uri(tile.name), self.controller.uri('changed.txt'), False, 'File exists')
+        self.assertIsNone(tile.editor)
+        self.assertEqual(tile.label.get_text(), tile.name)
+
+    def test_clipboard_formats_cut_feedback_paste_and_no_clobber(self):
+        from desktop_clipboard import GNOME, CUT
+        self.controller.select({'notes # café.txt'})
+        self.controller.copy(True)
+        clipboard = self.controller.clipboard
+        result = []
+        clipboard.read(lambda *values: result.append(values))
+        self.wait(lambda: result)
+        self.assertEqual(result[0][:2], ([self.controller.uri('notes # café.txt')], True))
+        self.assertAlmostEqual(self.canvas.tiles['notes # café.txt'].image.get_opacity(), .45, places=2)
+        for mime, wanted in [(CUT, b'1'), (GNOME, ('cut\n'+self.controller.uri('notes # café.txt')).encode())]:
+            contents = []
+            clipboard.clipboard.request_contents(self.Gdk.Atom.intern(mime, False),
+                lambda _clipboard, data, _extra: contents.append(bytes(data.get_data())), None)
+            self.wait(lambda: contents); self.assertEqual(contents[0], wanted)
+        self.controller.paste()
+        self.wait(lambda: self.fake_files.transfer.called)
+        urls = [self.controller.uri('notes # café.txt')]
+        self.fake_files.transfer.assert_called_once_with(urls, self.controller.uri(), False)
+        clipboard.clipboard.set_text('copied while transfer was running', -1)
+        self.controller.transferred(urls, self.controller.uri(), False, True)
+        texts = []; clipboard.clipboard.request_text(lambda _c, value, _d: texts.append(value), None)
+        self.wait(lambda: texts)
+        self.assertEqual(texts, ['copied while transfer was running'])
+        self.assertEqual(self.canvas.tiles['notes # café.txt'].image.get_opacity(), 1)
+
+    def test_shortcut_badge_only_for_links_and_launchers(self):
+        (self.controller.root/'Folder link').symlink_to(self.controller.root/'Folder', target_is_directory=True)
+        (self.controller.root/'Example.desktop').write_text('[Desktop Entry]\nType=Application\nName=Example\nExec=true\nIcon=folder\n')
+        self.wait(lambda: 'Example.desktop' in self.canvas.tiles and 'Folder link' in self.canvas.tiles)
+        self.assertTrue(self.canvas.tiles['Folder link'].shortcut)
+        self.assertTrue(self.canvas.tiles['Example.desktop'].shortcut)
+        self.assertFalse(self.canvas.tiles['Folder'].shortcut)
 
 
 if __name__ == '__main__': unittest.main()

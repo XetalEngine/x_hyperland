@@ -84,6 +84,7 @@ from pathlib import Path
 sys.path.insert(0,sys.argv[1]);import app
 from gi.repository import GLib,Gtk,Gdk
 from desktop_icons import Canvas,Tile
+from desktop_clipboard import Clipboard
 report=Path(sys.argv[2])
 def trace(kind,**values):
  with report.with_suffix('.input.jsonl').open('a') as stream:stream.write(json.dumps(dict(kind=kind,**values))+'\\n')
@@ -103,6 +104,21 @@ received=Canvas.received
 def data_received(self,widget,context,x,y,data,info,timestamp):
  trace('drop',selected=int(context.get_selected_action()));return received(self,widget,context,x,y,data,info,timestamp)
 Canvas.received=data_received
+canvas_pressed=Canvas.pressed
+def background_pressed(self,widget,event):
+ trace('background',x=event.x,y=event.y);return canvas_pressed(self,widget,event)
+Canvas.pressed=background_pressed
+canvas_key=Canvas.key
+def key_pressed(self,widget,event):
+ trace('key',key=Gdk.keyval_name(event.keyval),modifiers=int(event.state));return canvas_key(self,widget,event)
+Canvas.key=key_pressed
+clipboard_read=Clipboard.read
+def read_clipboard(self,callback):
+ trace('clipboard-request',generation=self.generation,owned=self.owned)
+ def received(*values):
+  trace('clipboard',values=values);callback(*values)
+ return clipboard_read(self,received)
+Clipboard.read=read_clipboard
 def labels(widget):
  if isinstance(widget,Gtk.Label):return [widget.get_text()]
  if isinstance(widget,Gtk.Container):return [label for child in widget.get_children() for label in labels(child)]
@@ -121,7 +137,9 @@ class Desktop(app.Desktop):
    while menu and menu.get_visible():
     selected=menu.get_selected_item();menus.append(dict(labels=labels(menu),selected=labels(selected) if selected else []))
     menu=selected.get_submenu() if selected else None
-  data=dict(settings=self.icons.settings,surfaces=surfaces,menus=menus,selected=list(self.icons.selected))
+  editors={name:tile.editor.get_text() for canvas in self.icons.canvases.values() for name,tile in canvas.tiles.items() if tile.editor}
+  data=dict(settings=self.icons.settings,surfaces=surfaces,menus=menus,selected=list(self.icons.selected),editors=editors,
+      flights=sum(len(layer.batches) for layer in self.icons.flights.values()),trash_full=self.icons.trash_full)
   temporary=report.with_suffix('.tmp');temporary.write_text(json.dumps(data));temporary.replace(report)
   return True
  def dispose(self):
@@ -273,9 +291,101 @@ windowrule=match:class ^xetal-files-external$,float on,center on
         gesture('key 29 0')
         wait(lambda: (desktop/'A folder/2 notes # café.txt').exists(), 'Ctrl-copy into a desktop folder')
         assert (desktop/'2 notes # café.txt').exists()
+
+        # Native desktop editing: F2 selects the stem, Escape leaves the file,
+        # and Enter performs a real KIO rename without moving the icon.
+        a,b=positions()['7 notes # café.txt']; click(a+35,b+30); key(60)
+        wait(lambda: state().get('editors'), 'inline rename editor')
+        run('grim', str(root/'inline-rename.png'))
+        key(1); wait(lambda: not state().get('editors'), 'rename cancelled')
+        assert (desktop/'7 notes # café.txt').exists()
+        key(60); wait(lambda: state().get('editors'), 'rename editor reopened')
+        for code in (19,18,49,30,50,18,32): key(code)  # renamed (keep .txt)
+        key(28)
+        wait(lambda: 'renamed.txt' in positions(), 'native inline rename')
+        assert positions()['renamed.txt']==[a,b]
+
+        # Copy from the GTK desktop and paste in the real Qt Files window.
+        a,b=positions()['3 notes # café.txt']; click(a+35,b+30)
+        gesture('key 29 1'); key(46); gesture('key 29 0')
+        a,b=positions()['A folder']; click(a+35,b+30); click(a+35,b+30)
+        wait(folder, 'floating folder for clipboard exchange')
+        assert ctl('dispatch','focuswindow','address:'+folder()['address'])=='ok'
+        gesture('key 29 1'); key(47); gesture('key 29 0')
+        wait(lambda: (desktop/'A folder/3 notes # café.txt').exists(), 'desktop-to-Files clipboard copy')
+        assert ctl('dispatch','closewindow','address:'+folder()['address'])=='ok'
+        wait(lambda:not folder(),'clipboard folder closed')
+
+        # Native Properties must map floating on its very first frame.
+        a,b=positions()['renamed.txt']; click(a+35,b+30)
+        gesture('key 56 1'); key(28); gesture('key 56 0')
+        wait(folder,'desktop Properties window')
+        properties=folder(); assert properties['floating'] and properties['pid']==service.pid,properties
+        run('grim',str(root/'floating-properties.png'))
+        assert ctl('dispatch','closewindow','address:'+properties['address'])=='ok'
+        wait(lambda:not folder(),'Properties closed')
+
+        # A real Qt clipboard source supplies KDE's cut marker to GTK. Its
+        # window remains alive until the transfer has completed.
+        incoming=home/'from Qt.txt'; incoming.write_text('native clipboard fixture')
+        probe=root/'clipboard.py'
+        probe.write_text('''import sys
+from pathlib import Path
+from PyQt6.QtCore import QMimeData,QUrl,Qt
+from PyQt6.QtWidgets import QApplication,QPushButton
+app=QApplication([]);app.setDesktopFileName('fusion-clipboard-fixture')
+button=QPushButton('Cut fixture');button.resize(250,80)
+def copy():
+ data=QMimeData();data.setUrls([QUrl.fromLocalFile(sys.argv[1])]);data.setData('application/x-kde-cutselection',b'1')
+ app.clipboard().setMimeData(data)
+ Path(sys.argv[1]+'.copied').touch()
+button.clicked.connect(copy);button.show();app.exec()
+''')
+        assert ctl('keyword','windowrule','match:class ^fusion-clipboard-fixture$, float on, size 250 80, move 850 700')=='ok'
+        clipboard_source=spawn([sys.executable,str(probe),str(incoming)])
+        def probe_window(): return next((c for c in json.loads(ctl('-j','clients')) if c['class']=='fusion-clipboard-fixture'),None)
+        wait(probe_window,'Qt clipboard fixture')
+        time.sleep(.4)
+        # Distribution first-run helpers can activate on the fixture's private
+        # D-Bus/HOME. Close only that disposable compositor's Welcome window so
+        # a blank-desktop click cannot hit it instead of the layer surface.
+        for client in json.loads(ctl('-j','clients')):
+            if client['class']=='org.kde.plasma-welcome':
+                assert ctl('dispatch','closewindow','address:'+client['address'])=='ok'
+        wait(lambda:not any(c['class']=='org.kde.plasma-welcome' for c in json.loads(ctl('-j','clients'))), 'fixture Welcome closed')
+        (root/'clipboard-source-clients.json').write_text(ctl('-j','clients'))
+        run('grim',str(root/'clipboard-source.png'))
+        c=probe_window();assert ctl('dispatch','focuswindow','address:'+c['address'])=='ok'
+        key(57)
+        wait(lambda: Path(str(incoming)+'.copied').exists(),'Qt clipboard source clicked')
+        click(550,650)
+        run('grim',str(root/'clipboard-paste.png'))
+        (root/'clipboard-clients.json').write_text(ctl('-j','clients'))
+        gesture('key 29 1');key(47);gesture('key 29 0')
+        wait(lambda: (desktop/incoming.name).exists() and not incoming.exists(),'Qt-to-desktop cut paste')
+        assert (desktop/incoming.name).read_text()=='native clipboard fixture'
+        clipboard_source.terminate();clipboard_source.wait(timeout=5)
+
+        popup();select_menu('Show Trash');key(28)
+        wait(lambda:'trash:/' in positions(),'Trash icon shown')
+        a,b=positions()['trash:/'];click(a+35,b+30);click(a+35,b+30)
+        wait(folder,'floating Trash folder');assert folder()['floating']
+        assert ctl('dispatch','closewindow','address:'+folder()['address'])=='ok'
+        wait(lambda:not folder(),'Trash folder closed')
+        a,b=positions()['renamed.txt'];click(a+35,b+30);key(111)
+        wait(lambda:state().get('flights',0)>0,'successful Trash flight')
+        run('grim',str(root/'trash-animation.png'))
+        wait(lambda:not state().get('flights') and 'renamed.txt' not in positions(),'Trash animation settled')
+        assert (home/'.local/share/Trash/files/renamed.txt').read_text()=='fixture 6\n'
+        wait(lambda:state().get('trash_full'),'full Trash icon')
+        a,b=positions()['trash:/'];drag('6 notes # café.txt',a+35,b+30)
+        wait(lambda:'6 notes # café.txt' not in positions(),'drop onto Trash')
+        assert (home/'.local/share/Trash/files/6 notes # café.txt').exists()
+        run('grim',str(root/'trash-full.png'))
+        count=len(list(desktop.iterdir()))
         popup(); select_menu('Show Desktop icons'); key(28)
         wait(lambda: not positions() and not state()['settings']['enabled'], 'desktop icons hidden')
-        assert len(list(desktop.iterdir())) == 8
+        assert len(list(desktop.iterdir())) == count
         assert service.poll() is None, 'Files service exited before logout'
         compositor.terminate(); compositor.wait(timeout=10)
         # GDK may observe the closed Wayland connection before Hyprland's IPC
@@ -287,7 +397,7 @@ windowrule=match:class ^xetal-files-external$,float on,center on
         # which is status 255 if it wins the race with the IPC shutdown event.
         service_status = service.wait(timeout=5)
         assert service_status in (0, 255), service_status
-        print('PASS: bottom layer, context toggle, columns/rows, native drag, free placement, persistence, floating folders, move/Ctrl-copy and logout.')
+        print('PASS: bottom layer, layouts, native drag, persistence, floating folders/Properties, clipboard exchange, inline rename, Trash open/drop/animation, hide and logout.')
     finally:
         if input_process:
             if input_process.poll() is None: input_process.terminate()

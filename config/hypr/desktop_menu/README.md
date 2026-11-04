@@ -18,8 +18,27 @@ it restores their placement. Reserved panel space is kept clear.
 
 Double-click a folder to open a new floating Fusion Files window. Other files
 open with their associated application. Desktop icons support multiple
-selection, a selection rectangle, keyboard navigation, rename, trash, properties,
-and drag and drop. Dropping onto another folder moves files; hold Ctrl to copy.
+selection, a selection rectangle, keyboard navigation, and drag and drop.
+**Ctrl+C / Ctrl+X / Ctrl+V** copy, cut and paste, including files copied in Fusion
+Files and other file managers. Cut icons fade until the clipboard changes. Paste
+targets the Desktop folder; selecting a folder does not redirect it. **F2** edits
+the name directly under the icon, selecting the filename without its extension.
+Enter saves, Escape cancels, and a rename never replaces an existing file.
+**Alt+Enter** and **Properties** open a floating Properties window. **Ctrl+Shift+N**
+creates a folder. Links and desktop launchers have a small accent-colored arrow
+badge at the bottom left of the icon; launchers display their own name and icon.
+
+**Show Trash** adds an optional, movable Trash icon without creating a file in
+`~/Desktop`. It remembers its position, reflects whether Trash contains files,
+and double-clicking opens Trash in a floating Fusion Files window. Delete,
+**Move to Trash**, and dropping files onto Trash use Fusion Files' removal engine.
+After successful removal, the icons follow the same animated flight into Trash
+as in Files. Failed or cancelled removals do not animate. This respects Files'
+**trashAnimation** preference and GTK's animation setting. With Trash hidden,
+the flight ends near the source monitor's lower right corner. Hiding desktop
+icons hides Trash too and preserves its preference.
+
+Dropping onto another folder moves files; hold Ctrl to copy.
 Fusion Files handles transfers and any conflict prompts. The desktop watches the
 folder for changes, so files saved or renamed elsewhere appear automatically.
 
@@ -33,6 +52,7 @@ The desktop uses the session's native Fusion Files service through
 `org.xetal.FusionFiles.Desktop1`. Folder launches use `--external --new-window`
 and the existing `xetal-files-external` floating rule. Transfer handling stays in
 the Files service so operations can continue when the icon surface refreshes.
+Desktop Properties and operation dialogs use that same floating application role.
 
 Validation:
 
@@ -47,4 +67,7 @@ From the repository root, `python3 tests/check-desktop-icons.py OUTPUT FILES_BUI
 runs actual input in an isolated nested Hyprland with a temporary Desktop, private
 D-Bus and virtual input. `OUTPUT` must be a new directory; `FILES_BUILD` must
 contain the built `xetal-files` executable. The check covers layout, persistence,
-floating folder launches, drag transfers, hiding icons, and session shutdown.
+floating folder/Properties launches, clipboard exchange with Qt, inline rename,
+Trash opening and removal animations, drag transfers, hiding icons and session
+shutdown. Use an output directory on the home filesystem to keep the fixture's
+Trash inside its private HOME.

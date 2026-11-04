@@ -71,6 +71,8 @@ def css(style):
     .desktop-icon.selected {{background:{rgba(c['hover'], 88)}; border-color:{c['accent']};}}
     .desktop-icon.selected label {{color:{c['hover_text']}; text-shadow:none;}}
     .desktop-icon.drop-target {{background:{rgba(c['accent'], 40)}; border-color:{c['accent']};}}
+    .desktop-icon entry.desktop-rename {{min-height:22px; padding:2px 3px; border:1px solid {c['accent']}; border-radius:4px; background:{c['background']}; color:{c['text']}; font:13px "{font}";}}
+    .desktop-icon entry.desktop-rename selection {{background:{c['hover']}; color:{c['hover_text']};}}
     menu.desktop-context-menu {{
         background:linear-gradient(to bottom right, {rgba(c['background'], style['opacity'])}, {rgba(c['background_end'], style['opacity'])});
         color:{c['text']}; border:1px solid {c['border']};
