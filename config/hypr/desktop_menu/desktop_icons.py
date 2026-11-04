@@ -437,6 +437,11 @@ class Icons:
             surfaces.append((x != 0 or y != 0, x, y, canvas.monitor, area))
         self.areas = {row[3]: row[4] for row in sorted(surfaces)}
         layout = model.layout(self.entries if self.settings['enabled'] else [], self.areas, self.settings)
+        if (self.settings['enabled'] and self.areas and not self.settings['auto_arrange']
+                and any(name not in self.settings['positions'] for name in self.entries)):
+            # New files get a vacant cell once. Removing an earlier file must
+            # leave a gap instead of implicitly arranging the remaining icons.
+            self.change(lambda settings: model.capture(settings, self.entries, self.areas, only_new=True))
         for canvas in self.canvases.values(): canvas.update(layout.get(canvas.monitor, {}))
         return False
 
@@ -454,11 +459,13 @@ class Icons:
             except OSError as error: self.error(str(error)); return
         was_enabled = self.settings['enabled']
         def update(settings):
-            if key == 'auto_align' and not value:
-                model.align(settings, self.entries, self.areas)
+            if key in ('auto_align', 'auto_arrange'):
+                model.capture(settings, self.entries, self.areas)
             settings[key] = value
-            if key == 'flow' and not settings['auto_align']:
+            if key == 'auto_align' and value:
                 model.align(settings, self.entries, self.areas)
+            elif key == 'auto_arrange' and value:
+                model.arrange(settings, self.entries, self.areas)
         if not self.change(update): return
         if self.settings['enabled'] and not was_enabled: self.start()
         elif was_enabled and not self.settings['enabled']:
@@ -484,10 +491,17 @@ class Icons:
             submenu.append(item)
         submenu.append(Gtk.SeparatorMenuItem())
         auto = style_item(Gtk.CheckMenuItem(label='Auto align'))
+        auto.set_tooltip_text('Snap icons to grid cells while keeping your chosen positions.')
         auto.set_active(self.settings['auto_align'])
         auto.connect('toggled', lambda item: self.setting('auto_align', item.get_active()))
         submenu.append(auto)
+        automatic = style_item(Gtk.CheckMenuItem(label='Auto arrange'))
+        automatic.set_tooltip_text('Keep icons packed together in the selected row or column order.')
+        automatic.set_active(self.settings['auto_arrange'])
+        automatic.connect('toggled', lambda item: self.setting('auto_arrange', item.get_active()))
+        submenu.append(automatic)
         action(submenu, 'Align now', lambda: self.change(lambda settings: model.align(settings, self.entries, self.areas)))
+        action(submenu, 'Arrange now', lambda: self.change(lambda settings: model.arrange(settings, self.entries, self.areas)))
         submenu.append(Gtk.SeparatorMenuItem())
         group = None
         for value, label in [(40, 'Small icons'), (56, 'Medium icons'), (72, 'Large icons')]:

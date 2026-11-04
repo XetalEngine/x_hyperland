@@ -12,7 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def defaults():
-    return dict(version=1, enabled=False, auto_align=True, flow='columns', size=56, positions={})
+    return dict(version=1, enabled=False, auto_align=True, auto_arrange=False,
+                flow='columns', size=56, positions={})
 
 
 def valid_name(name):
@@ -25,6 +26,7 @@ def validate(value):
     result = defaults()
     result.update(value)
     if (type(result['enabled']) is not bool or type(result['auto_align']) is not bool
+            or type(result['auto_arrange']) is not bool
             or result['flow'] not in ('columns', 'rows') or result['size'] not in (40, 56, 72)
             or not isinstance(result['positions'], dict) or len(result['positions']) > 50000):
         raise ValueError('Invalid desktop icon layout. The existing file was kept.')
@@ -96,6 +98,31 @@ def index_at(area, settings, x, y):
     return row*columns+min(col, columns-1)
 
 
+def available(point, occupied, settings):
+    width, height = cell(settings)
+    return not any(abs(point[0]-p[0]) < width and abs(point[1]-p[1]) < height for p in occupied)
+
+
+def first_free(area, settings, occupied):
+    index = 0
+    while not available(point := grid(area, settings, index), occupied, settings):
+        index += 1
+    return point
+
+
+def snap(area, settings, point, occupied=()):
+    """Nearest empty grid cell, leaving every other icon in its chosen cell."""
+    width, height = cell(settings)
+    columns, rows = max(1, int(area[2])//width), max(1, int(area[3])//height)
+    col = min(columns-1, max(0, round((point[0]-area[0])/width)))
+    row = min(rows-1, max(0, round((point[1]-area[1])/height)))
+    target = (area[0]+col*width, area[1]+row*height)
+    if available(target, occupied, settings): return target
+    candidates = (grid(area, settings, index) for index in range(columns*rows))
+    vacant = [p for p in candidates if available(p, occupied, settings)]
+    return min(vacant, key=lambda p: (p[0]-target[0])**2+(p[1]-target[1])**2) if vacant else first_free(area, settings, occupied)
+
+
 def layout(names, areas, settings):
     """Missing outputs fall back without discarding their saved positions."""
     result = {monitor: {} for monitor in areas}
@@ -104,6 +131,10 @@ def layout(names, areas, settings):
     primary = next(iter(areas))
     saved = settings['positions']
     ordered = sorted(names, key=lambda name: (saved.get(name, {}).get('order', 100001), name.casefold(), name))
+    if not settings['auto_arrange']:
+        # Reserve remembered cells before placing new files or icons from a
+        # disconnected output. They must not displace the existing layout.
+        ordered.sort(key=lambda name: saved.get(name, {}).get('monitor') not in areas)
     width, height = cell(settings)
     for name in ordered:
         position = saved.get(name, {})
@@ -113,15 +144,13 @@ def layout(names, areas, settings):
             monitor = primary
         area = areas[monitor]
         point = grid(area, settings, len(result[monitor]))
-        if not settings['auto_align'] and position and not missing:
+        if not settings['auto_arrange'] and position and not missing:
             point = (round(area[0]+position['x']*max(0, area[2]-width)),
                      round(area[1]+position['y']*max(0, area[3]-height)))
-        elif not settings['auto_align']:
-            # New icons get the next unused cell; existing free positions stay.
-            index = 0
-            while any(abs(point[0]-p[0]) < width and abs(point[1]-p[1]) < height
-                      for p in result[monitor].values()):
-                index += 1; point = grid(area, settings, index)
+            if settings['auto_align']:
+                point = snap(area, settings, point, result[monitor].values())
+        elif not settings['auto_arrange']:
+            point = first_free(area, settings, result[monitor].values())
         result[monitor][name] = point
     return result
 
@@ -133,6 +162,15 @@ def remember(settings, monitor, area, name, point, order):
         y=max(0., min(1., (point[1]-area[1])/max(1, area[3]-height))))
 
 
+def capture(settings, names, areas, only_new=False):
+    """Keep visible placement when switching modes and remember new icons."""
+    for monitor, positions in layout(names, areas, settings).items():
+        for index, (name, point) in enumerate(positions.items()):
+            saved = settings['positions'].get(name)
+            if saved and (only_new or saved['monitor'] not in areas): continue
+            remember(settings, monitor, areas[monitor], name, point, index)
+
+
 def move(settings, names, areas, monitor, selected, point, anchor=None):
     selected = [name for name in selected if name in names]
     if not selected or monitor not in areas:
@@ -140,24 +178,32 @@ def move(settings, names, areas, monitor, selected, point, anchor=None):
     positions = layout(names, areas, settings)
     target = positions[monitor]
     area = areas[monitor]
-    if settings['auto_align']:
+    if settings['auto_arrange']:
         ordered = [name for name in target if name not in selected]
         index = min(len(ordered), index_at(area, settings, *point))
         ordered[index:index] = selected
         for index, name in enumerate(ordered):
             remember(settings, monitor, area, name, grid(area, settings, index), index)
     else:
+        capture(settings, names, areas)
         original = {name: pos for group in positions.values() for name, pos in group.items()}
         start = original.get(anchor or selected[0], (0, 0))
+        occupied = [pos for name, pos in target.items() if name not in selected]
+        if settings['auto_align']:
+            point = snap(area, settings, point, occupied)
+            if anchor in selected: selected = [anchor, *[name for name in selected if name != anchor]]
         order = max((p['order'] for p in settings['positions'].values()), default=-1)+1
         for index, name in enumerate(selected):
             old = original.get(name, start)
-            remember(settings, monitor, area, name,
-                     (point[0]+old[0]-start[0], point[1]+old[1]-start[1]), order+index)
+            destination = (point[0]+old[0]-start[0], point[1]+old[1]-start[1])
+            if settings['auto_align']: destination = snap(area, settings, destination, occupied)
+            remember(settings, monitor, area, name, destination, order+index)
+            occupied.append(destination)
 
 
 def align(settings, names, areas):
-    aligned = dict(settings, auto_align=True)
-    for monitor, positions in layout(names, areas, aligned).items():
-        for index, (name, point) in enumerate(positions.items()):
-            remember(settings, monitor, areas[monitor], name, point, index)
+    capture(dict(settings, auto_align=True), names, areas)
+
+
+def arrange(settings, names, areas):
+    capture(dict(settings, auto_arrange=True), names, areas)

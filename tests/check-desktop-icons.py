@@ -184,6 +184,7 @@ windowrule=match:class ^xetal-files-external$,float on,center on
             gesture(f'move {round(x)} {round(y)}'); gesture(button+' 1', .03); gesture(button+' 0')
         def popup():
             current=json.loads(ctl('-j','monitors'))[0]
+            gesture(f"move {round(current['width']/current['scale'])-100} {round(current['height']/current['scale'])-100}")
             click(round(current['width']/current['scale'])-320, 90, 'right'); wait(lambda: state().get('menus'), 'desktop context menu')
             key(102)  # Home chooses the first enabled item.
         def select_menu(label):
@@ -225,11 +226,17 @@ windowrule=match:class ^xetal-files-external$,float on,center on
         assert '.hidden' not in positions()
         points = list(positions().values()); assert points[0][0] == points[1][0]
         run('grim', str(root/'columns.png'))
+        original = positions().copy()
         drag('A folder', 640, 470)
-        wait(lambda: 'A folder' in state()['settings']['positions'], 'saved dragged order')
+        wait(lambda: positions()['A folder'] == [576, 472], 'custom aligned grid cell')
+        assert not state()['settings']['auto_arrange']
+        assert all(positions()[name] == point for name,point in original.items() if name != 'A folder')
+        aligned = positions()['A folder']
+        run('grim', str(root/'custom-grid-position.png'))
         assert (desktop/'A folder').is_dir()
         arrange('Auto align')
         wait(lambda: not state()['settings']['auto_align'], 'free placement enabled')
+        assert positions()['A folder'] == aligned
         drag('A folder', 655, 340)
         wait(lambda: abs(positions()['A folder'][0]-615) < 8, 'free placement')
         free = positions()['A folder']; run('grim', str(root/'free-placement.png'))
@@ -247,7 +254,14 @@ windowrule=match:class ^xetal-files-external$,float on,center on
         time.sleep(.4)
         assert positions()['A folder'] == free
         arrange('Rows')
+        wait(lambda: state()['settings']['flow'] == 'rows', 'row preference')
+        assert positions()['A folder'] == free
+        arrange('Auto arrange')
         wait(lambda: len(set(point[1] for point in positions().values())) == 1, 'row arrangement')
+        packed = positions().copy()
+        arrange('Auto arrange')
+        wait(lambda: not state()['settings']['auto_arrange'], 'automatic arrangement disabled')
+        assert positions() == packed
         a, b = positions()['A folder']
         drag('1 notes # café.txt', a+40, b+30)
         wait(lambda: (desktop/'A folder/1 notes # café.txt').exists() and len(positions()) == 7,

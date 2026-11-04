@@ -21,6 +21,7 @@ class LayoutTests(unittest.TestCase):
 
     def test_opt_in_and_columns_are_fresh_defaults(self):
         self.assertFalse(self.settings['enabled']); self.assertTrue(self.settings['auto_align'])
+        self.assertFalse(self.settings['auto_arrange'])
         points = list(model.layout(self.names, self.areas, self.settings)['MAIN'].values())
         self.assertEqual(points[0][0], points[1][0]); self.assertGreater(points[1][1], points[0][1])
         self.settings['flow'] = 'rows'
@@ -36,11 +37,59 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(model.layout(self.names, self.areas, saved)['SIDE'][self.names[0]], (210, 190))
         self.assertEqual(self.path.stat().st_mode & 0o777, 0o600)
 
-    def test_auto_alignment_reorders_without_file_changes(self):
+    def test_auto_arrange_packs_and_reorders(self):
+        self.settings['auto_arrange'] = True
         model.move(self.settings, self.names, self.areas, 'MAIN', ['video.mp4'], (16, 48))
         arranged = model.layout(self.names, self.areas, self.settings)['MAIN']
         self.assertEqual(next(iter(arranged)), 'video.mp4')
         self.assertEqual(len(set(arranged.values())), len(self.names))
+
+    def test_auto_align_keeps_custom_grid_cells_and_gaps_after_restart(self):
+        before = model.layout(self.names, self.areas, self.settings)['MAIN']
+        self.store.change(lambda data: model.move(data, self.names, self.areas, 'MAIN', ['video.mp4'], (340, 260)))
+        settings = model.Store(self.path).load()
+        placed = model.layout(self.names, self.areas, settings)['MAIN']
+        self.assertEqual(placed['video.mp4'], (352, 276))
+        self.assertNotIn(before['video.mp4'], placed.values())
+        for name in self.names[:-1]: self.assertEqual(placed[name], before[name])
+        changed = model.layout([*self.names[1:], 'a new file.txt'], self.areas, settings)['MAIN']
+        for name in self.names[1:]: self.assertEqual(changed[name], placed[name])
+        self.assertEqual(changed['a new file.txt'], before['Folder'])
+
+    def test_auto_align_occupied_cell_keeps_the_other_icons_in_place(self):
+        before = model.layout(self.names, self.areas, self.settings)['MAIN']
+        model.move(self.settings, self.names, self.areas, 'MAIN', ['Folder'], before['photo.png'])
+        after = model.layout(self.names, self.areas, self.settings)['MAIN']
+        self.assertEqual(after['Folder'], (128, 276))
+        for name in self.names[1:]: self.assertEqual(after[name], before[name])
+        self.assertEqual(len(set(after.values())), len(self.names))
+
+    def test_auto_align_group_keeps_offsets_on_another_monitor(self):
+        before = model.layout(self.names, self.areas, self.settings)['MAIN']
+        model.move(self.settings, self.names, self.areas, 'SIDE', self.names[:2], (245, 175), 'Folder')
+        after = model.layout(self.names, self.areas, self.settings)['SIDE']
+        self.assertEqual(after['Folder'], (240, 162))
+        a, b = self.names[:2]
+        self.assertEqual((after[b][0]-after[a][0], after[b][1]-after[a][1]),
+                         (before[b][0]-before[a][0], before[b][1]-before[a][1]))
+
+    def test_align_now_preserves_gaps_and_arrange_now_compacts(self):
+        self.settings['auto_align'] = False
+        model.move(self.settings, self.names, self.areas, 'MAIN', ['video.mp4'], (340, 260))
+        model.align(self.settings, self.names, self.areas)
+        self.assertEqual(model.layout(self.names, self.areas, self.settings)['MAIN']['video.mp4'], (352, 276))
+        model.arrange(self.settings, self.names, self.areas)
+        self.assertEqual(set(model.layout(self.names, self.areas, self.settings)['MAIN'].values()),
+                         {model.grid(self.areas['MAIN'], self.settings, i) for i in range(len(self.names))})
+
+    def test_legacy_preferences_default_to_manual_grid_positions(self):
+        legacy = model.defaults(); legacy.pop('auto_arrange')
+        self.path.write_text(json.dumps(legacy))
+        before = self.path.read_bytes()
+        self.assertFalse(self.store.load()['auto_arrange'])
+        self.assertEqual(self.path.read_bytes(), before)
+        legacy['auto_arrange'] = 'yes'
+        with self.assertRaises(ValueError): model.validate(legacy)
 
     def test_free_group_placement_keeps_offsets(self):
         model.align(self.settings, self.names, self.areas)
@@ -146,9 +195,19 @@ class CanvasTests(unittest.TestCase):
         self.assertTrue(items['Show Desktop icons'].get_active())
         arrange = {item.get_label(): item for item in items['Arrange icons'].get_submenu().get_children() if hasattr(item, 'get_label')}
         self.assertTrue(arrange['Columns'].get_active())
+        self.assertTrue(arrange['Auto align'].get_active())
+        self.assertFalse(arrange['Auto arrange'].get_active())
+        before = dict(self.canvas.positions)
         arrange['Rows'].set_active(True)
         self.assertEqual(self.store.load()['flow'], 'rows')
+        self.wait(lambda: not self.controller.layout_pending)
+        self.assertEqual(self.canvas.positions, before)
+        arrange['Auto arrange'].set_active(True)
         self.wait(lambda: len(set(p[1] for p in self.canvas.positions.values())) == 1)
+        packed = dict(self.canvas.positions)
+        arrange['Auto arrange'].set_active(False)
+        self.wait(lambda: not self.controller.layout_pending)
+        self.assertEqual(self.canvas.positions, packed)
         items['Show Desktop icons'].set_active(False)
         self.wait(lambda: not self.canvas.tiles)
         self.assertFalse(self.store.load()['enabled'])

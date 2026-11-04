@@ -4,9 +4,15 @@ Right-click the wallpaper and enable **Show Desktop icons**. The transparent
 desktop surface displays files and folders directly from `~/Desktop`, beneath
 application windows and panels. Turning icons off only hides them.
 
-**Arrange icons** offers Columns (the default), Rows, Auto align, Align now, and
-three icon sizes. With Auto align on, dragging reorders icons in the grid. Turn
-it off to place icons freely. Positions are remembered per monitor; disconnecting
+**Arrange icons** offers Columns (the default), Rows, and three icon sizes.
+**Auto align** is on by default: drag an icon to any grid cell and it snaps there,
+keeping gaps and other icons in place. Turn it off for placement between grid
+cells. **Auto arrange** is a separate option, off by default, that keeps icons
+packed together in the selected row or column order. **Align now** snaps the
+current positions once; **Arrange now** packs them together once. Changing Rows
+or Columns only rearranges existing icons while Auto arrange is enabled.
+
+Positions are remembered per monitor; disconnecting
 a display temporarily brings its icons onto the primary display, and reconnecting
 it restores their placement. Reserved panel space is kept clear.
 
