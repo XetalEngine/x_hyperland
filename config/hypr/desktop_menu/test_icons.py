@@ -1,0 +1,169 @@
+"""Layouts use temporary files; GUI checks opt in on a private test display."""
+import copy
+import json
+import os
+from pathlib import Path
+import tempfile
+import time
+import unittest
+from unittest.mock import patch, Mock
+import icons_model as model
+
+
+class LayoutTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
+        self.path = Path(self.temp.name)/'icons.json'
+        self.store = model.Store(self.path)
+        self.settings = model.defaults()
+        self.areas = {'MAIN': (16, 48, 500, 380), 'SIDE': (16, 48, 700, 500)}
+        self.names = ['Folder', 'notes # 100% café.txt', 'photo.png', 'video.mp4']
+
+    def test_opt_in_and_columns_are_fresh_defaults(self):
+        self.assertFalse(self.settings['enabled']); self.assertTrue(self.settings['auto_align'])
+        points = list(model.layout(self.names, self.areas, self.settings)['MAIN'].values())
+        self.assertEqual(points[0][0], points[1][0]); self.assertGreater(points[1][1], points[0][1])
+        self.settings['flow'] = 'rows'
+        points = list(model.layout(self.names, self.areas, self.settings)['MAIN'].values())
+        self.assertEqual(points[0][1], points[1][1]); self.assertGreater(points[1][0], points[0][0])
+        self.assertFalse(self.path.exists())
+
+    def test_arrangement_and_settings_survive_restart(self):
+        self.store.change(lambda data: data.update(enabled=True, auto_align=False, flow='rows'))
+        self.store.change(lambda data: model.move(data, self.names, self.areas, 'SIDE', [self.names[0]], (210, 190)))
+        saved = model.Store(self.path).load()
+        self.assertTrue(saved['enabled']); self.assertFalse(saved['auto_align']); self.assertEqual(saved['flow'], 'rows')
+        self.assertEqual(model.layout(self.names, self.areas, saved)['SIDE'][self.names[0]], (210, 190))
+        self.assertEqual(self.path.stat().st_mode & 0o777, 0o600)
+
+    def test_auto_alignment_reorders_without_file_changes(self):
+        model.move(self.settings, self.names, self.areas, 'MAIN', ['video.mp4'], (16, 48))
+        arranged = model.layout(self.names, self.areas, self.settings)['MAIN']
+        self.assertEqual(next(iter(arranged)), 'video.mp4')
+        self.assertEqual(len(set(arranged.values())), len(self.names))
+
+    def test_free_group_placement_keeps_offsets(self):
+        model.align(self.settings, self.names, self.areas)
+        self.settings['auto_align'] = False
+        original = model.layout(self.names, self.areas, self.settings)['MAIN']
+        model.move(self.settings, self.names, self.areas, 'SIDE', self.names[:2], (200, 100))
+        moved = model.layout(self.names, self.areas, self.settings)['SIDE']
+        a, b = self.names[:2]
+        self.assertEqual((moved[b][0]-moved[a][0], moved[b][1]-moved[a][1]),
+                         (original[b][0]-original[a][0], original[b][1]-original[a][1]))
+
+    def test_missing_monitor_falls_back_and_returns_without_rewriting_memory(self):
+        self.settings['auto_align'] = False
+        model.move(self.settings, self.names, self.areas, 'SIDE', ['Folder'], (220, 180))
+        before = copy.deepcopy(self.settings)
+        fallback = model.layout(self.names, {'MAIN': self.areas['MAIN']}, self.settings)
+        self.assertIn('Folder', fallback['MAIN'])
+        self.assertEqual(self.settings, before)
+        self.assertEqual(model.layout(self.names, self.areas, self.settings)['SIDE']['Folder'], (220, 180))
+
+    def test_resize_keeps_free_positions_inside_workarea(self):
+        self.settings['auto_align'] = False
+        model.move(self.settings, self.names, self.areas, 'MAIN', ['Folder'], (10000, -50))
+        area = (10, 60, 200, 170)
+        x, y = model.layout(self.names, {'MAIN': area}, self.settings)['MAIN']['Folder']
+        width, height = model.cell(self.settings)
+        self.assertGreaterEqual(x, area[0]); self.assertGreaterEqual(y, area[1])
+        self.assertLessEqual(x+width, area[0]+area[2]); self.assertLessEqual(y+height, area[1]+area[3])
+
+    def test_invalid_settings_are_preserved(self):
+        self.path.write_text('{broken')
+        with self.assertRaises(ValueError): self.store.change(lambda data: data.update(enabled=True))
+        self.assertEqual(self.path.read_text(), '{broken')
+        for name, position in [('../escape', dict(monitor='MAIN', order=0, x=0, y=0)),
+                               ('File', dict(monitor='MAIN', order=0, x=float('nan'), y=0))]:
+            value = model.defaults(); value['positions'][name] = position
+            with self.assertRaises(ValueError): model.validate(value)
+
+    def test_separate_writers_keep_unrelated_settings(self):
+        other = model.Store(self.path)
+        self.store.change(lambda data: data.update(enabled=True))
+        other.change(lambda data: data.update(size=72))
+        self.assertTrue(self.store.load()['enabled']); self.assertEqual(self.store.load()['size'], 72)
+
+
+@unittest.skipUnless(os.environ.get('FUSION_DESKTOP_TEST_GUI') == '1', 'Run on a private display with FUSION_DESKTOP_TEST_GUI=1')
+class CanvasTests(unittest.TestCase):
+    def setUp(self):
+        import desktop_icons as icons
+        self.icons = icons
+        self.Gtk, self.Gdk, self.GLib = icons.Gtk, icons.Gdk, icons.GLib
+        self.assertTrue(self.Gtk.init_check()[0])
+        self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
+        root = Path(self.temp.name)
+        (root/'Desktop').mkdir()
+        (root/'Desktop/Folder').mkdir()
+        (root/'Desktop/notes # café.txt').write_text('fixture')
+        (root/'Desktop/.hidden').write_text('hidden')
+        self.owner = Mock()
+        self.fake_files = Mock()
+        self.store = model.Store(root/'icons.json')
+        with patch.object(icons.model, 'Store', return_value=self.store), patch.object(icons, 'Files', return_value=self.fake_files):
+            self.controller = icons.Icons(self.owner, {})
+        self.controller.root = root/'Desktop'
+        self.window = self.Gtk.Window(); self.window.desktop_monitor = self.Gdk.Display.get_default().get_monitor(0)
+        self.window.menu = None
+        self.window.set_default_size(760, 560)
+        self.controller.attach(self.window)
+        self.window.show_all()
+        self.addCleanup(self.finish)
+        self.controller.setting('enabled', True)
+        self.wait(lambda: len(self.controller.entries) == 2)
+        self.wait(lambda: len(next(iter(self.controller.canvases.values())).tiles) == 2)
+        self.canvas = self.controller.canvases[self.window]
+
+    def finish(self):
+        self.controller.dispose(); self.window.destroy()
+        while self.GLib.MainContext.default().pending(): self.GLib.MainContext.default().iteration(False)
+
+    def wait(self, predicate):
+        deadline = time.monotonic()+4
+        while time.monotonic() < deadline:
+            while self.GLib.MainContext.default().pending(): self.GLib.MainContext.default().iteration(False)
+            if predicate(): return
+            time.sleep(.01)
+        self.fail('Timed out waiting for the desktop view')
+
+    def test_real_files_watch_rename_and_saved_free_positions(self):
+        self.controller.setting('auto_align', False)
+        self.controller.reposition(self.canvas.monitor, ['Folder'], (230, 190))
+        self.wait(lambda: self.canvas.positions['Folder'] == (230, 190))
+        (self.controller.root/'Folder').rename(self.controller.root/'Renamed')
+        self.wait(lambda: 'Renamed' in self.canvas.positions and 'Folder' not in self.canvas.positions)
+        self.assertEqual(self.canvas.positions['Renamed'], (230, 190))
+        (self.controller.root/'new.txt').write_text('new')
+        self.wait(lambda: 'new.txt' in self.canvas.positions)
+        (self.controller.root/'new.txt').unlink()
+        self.wait(lambda: 'new.txt' not in self.canvas.positions)
+
+    def test_menu_toggle_and_layout_controls(self):
+        menu = self.Gtk.Menu(); self.controller.append_menu(menu, 0)
+        items = {item.get_label(): item for item in menu.get_children() if hasattr(item, 'get_label')}
+        self.assertTrue(items['Show Desktop icons'].get_active())
+        arrange = {item.get_label(): item for item in items['Arrange icons'].get_submenu().get_children() if hasattr(item, 'get_label')}
+        self.assertTrue(arrange['Columns'].get_active())
+        arrange['Rows'].set_active(True)
+        self.assertEqual(self.store.load()['flow'], 'rows')
+        self.wait(lambda: len(set(p[1] for p in self.canvas.positions.values())) == 1)
+        items['Show Desktop icons'].set_active(False)
+        self.wait(lambda: not self.canvas.tiles)
+        self.assertFalse(self.store.load()['enabled'])
+        menu.destroy()
+
+    def test_selection_opens_through_files_and_keyboard_trashes(self):
+        tile = self.canvas.tiles['Folder']
+        event = self.Gdk.EventButton(); event.type = self.Gdk.EventType.DOUBLE_BUTTON_PRESS
+        event.button = 1; event.x = 25; event.y = 25; event.state = self.Gdk.ModifierType(0)
+        self.controller.select({'Folder'}); tile.pressed(tile, event)
+        self.fake_files.open.assert_called_once_with([self.controller.uri('Folder')])
+        key = self.Gdk.EventKey(); key.type = self.Gdk.EventType.KEY_PRESS
+        key.keyval = self.Gdk.KEY_Delete; key.state = self.Gdk.ModifierType(0)
+        self.canvas.key(self.canvas, key)
+        self.fake_files.call.assert_called_once_with('Trash', '(as)', [self.controller.uri('Folder')])
+
+
+if __name__ == '__main__': unittest.main()

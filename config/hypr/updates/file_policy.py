@@ -26,7 +26,7 @@ KEEP = frozenset({
 PREFERENCES = frozenset({
     'hyprland.conf', 'hyprlock.conf', 'keybindings.conf', 'kitty.conf', 'xdph.conf',
     'control_center/appearance.conf', 'control_center/input.conf', 'control_center/theme.conf',
-    'cursors/settings.json', 'desktop_menu/config.json',
+    'cursors/settings.json', 'desktop_menu/config.json', 'desktop_menu/icons.json',
     'desktop/config/mimeapps.list', 'desktop/environment.conf',
     'dolphin/config/dolphinrc', 'dolphin/config/kservicemenurc',
     'effects/burn/settings.conf', 'effects/cube/settings.json', 'effects/minimize/settings.conf',

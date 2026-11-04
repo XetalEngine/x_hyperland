@@ -27,6 +27,7 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 gi.require_version('GtkLayerShell', '0.1')
 from gi.repository import Gdk, GLib, Gtk, GtkLayerShell, Pango
+from desktop_icons import Icons
 
 NAMESPACE = 'xetal-desktop-menu'
 def launch(ident):
@@ -39,6 +40,7 @@ class DesktopSurface(Gtk.Window):
     def __init__(self, monitor, owner):
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self.owner = owner
+        self.desktop_monitor = monitor
         self.set_name('xetal-desktop-background')
         self.set_title('Xetal desktop menu')
         self.set_decorated(False)
@@ -62,8 +64,9 @@ class DesktopSurface(Gtk.Window):
         self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
         self.connect('button-press-event', self.pressed)
         self.menu = None
+        owner.icons.attach(self)
 
-    def build_menu(self, items):
+    def build_menu(self, items, desktop=False):
         menu = Gtk.Menu()
         menu.get_style_context().add_class('desktop-context-menu')
         menu.set_reserve_toggle_size(False)
@@ -119,7 +122,9 @@ class DesktopSurface(Gtk.Window):
                     item.add(row)
                 if col: item.get_style_context().add_class('after-split')
                 menu.attach(item, col, col+1, index, index+1)
-        if not columns:
+        if desktop:
+            self.owner.icons.append_menu(menu, len(columns[0]) if columns else 0)
+        elif not columns:
             empty = Gtk.MenuItem(label='Empty submenu'); empty.set_sensitive(False); menu.append(empty)
         menu.show_all()
         return menu
@@ -132,11 +137,11 @@ class DesktopSurface(Gtk.Window):
             return False
         self.owner.dismiss()
         self.owner.refresh_style()
-        if not self.owner.config['enabled'] or not appearance.columns(self.owner.config['items']):
+        if not self.owner.config['enabled']:
             return False
         if self.menu:
             self.menu.destroy()
-        self.menu = self.build_menu(self.owner.config['items'])
+        self.menu = self.build_menu(self.owner.config['items'], desktop=True)
         self.menu.attach_to_widget(self, None)
         self.menu.popup_at_pointer(event)
         return True
@@ -163,6 +168,7 @@ class Desktop:
         self.config = menu_config.defaults()
         self.hotkeys = {}
         self.store = menu_config.Store()
+        self.icons = Icons(self, LAUNCH_ENV)
         self.provider = Gtk.CssProvider()
         Gtk.StyleContext.add_provider_for_screen(display.get_default_screen(), self.provider,
                                                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
@@ -179,6 +185,7 @@ class Desktop:
         except (OSError, ValueError, menu_hotkeys.keys.ConfigError) as error:
             print('Keeping the last valid desktop menu:', error, file=sys.stderr)
         self.provider.load_from_data(appearance.css(self.config['style']).encode())
+        self.icons.accent.parse(appearance.colors(self.config['style'])['accent'])
         settings = Gtk.Settings.get_default()
         settings.set_property('gtk-icon-theme-name',
                               'Papirus-Light' if theme_runtime.mode() == 'light' else 'Papirus-Dark')
@@ -192,6 +199,7 @@ class Desktop:
     def remove_monitor(self, _display, monitor):
         window = self.surfaces.pop(monitor, None)
         if window:
+            self.icons.detach(window)
             window.dispose()
 
     def dismiss(self):
@@ -212,12 +220,15 @@ class Desktop:
         self.events.extend(data)
         while b'\n' in self.events:
             line, _, self.events = self.events.partition(b'\n')
+            if line.startswith((b'monitoradded', b'monitorremoved', b'configreloaded')):
+                self.icons.schedule_layout()
             if line.startswith((b'workspacev2>>', b'focusedmonv2>>', b'activespecialv2>>')) or (
                     line.startswith(b'activewindowv2>>') and line.removeprefix(b'activewindowv2>>').strip()):
                 self.dismiss()
         return True
 
     def dispose(self):
+        self.icons.dispose()
         for identifier in self.monitor_signals:
             self.display.disconnect(identifier)
         for window in self.surfaces.values():

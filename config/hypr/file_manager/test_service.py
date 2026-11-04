@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check native FileManager1 routing on a private D-Bus session."""
 import json
+import hashlib
 import os
 from pathlib import Path
 import socket
@@ -67,6 +68,9 @@ with (root/'calls.jsonl').open('a') as log:
         token=os.environ.get('XDG_ACTIVATION_TOKEN',''),startup=os.environ.get('DESKTOP_STARTUP_ID','')))+'\\n')
 ''')
         handler.chmod(0o700)
+        files_handler = root/'scripts/files.sh'
+        files_handler.write_text(handler.read_text().replace("'calls.jsonl'", "'desktop-calls.jsonl'"))
+        files_handler.chmod(0o700)
         env = dict(os.environ, QT_QPA_PLATFORM='offscreen', QT_QPA_PLATFORMTHEME='',
                    XETAL_FILES_ROOT=str(root), HYPRLAND_INSTANCE_SIGNATURE='fixture',
                    PATH=str(root/'commands')+os.pathsep+os.environ['PATH'],
@@ -94,6 +98,26 @@ with (root/'calls.jsonl').open('a') as log:
             wait_for(lambda: owner_pid()==process.pid, 'The native folder service did not start.')
             wait_for(lambda: len(mounts())==1, 'Auto mount did not run with all Files windows closed.')
             assert mounts()[0]==['mount', '-b', '/dev/disk/by-uuid/fixture-usb']
+            desktop_name = 'org.xetal.FusionFiles.Desktop.s'+hashlib.sha256(b'fixture').hexdigest()[:24]
+            def desktop(method, signature, arguments):
+                return bus.call_sync(desktop_name, '/org/xetal/FusionFiles/Desktop',
+                    'org.xetal.FusionFiles.Desktop1', method, GLib.Variant(signature, arguments),
+                    GLib.VariantType.new('(b)'), Gio.DBusCallFlags.NONE, 3000, None).unpack()[0]
+            source = root/'Desktop'; source.mkdir()
+            target = root/'Target'; target.mkdir()
+            filename = 'notes # 100% café.txt'
+            (source/filename).write_text('desktop transfer fixture')
+            assert desktop('Transfer', '(assb)', ([(source/filename).as_uri()], target.as_uri(), True))
+            wait_for(lambda: (target/filename).exists(), 'Desktop copy did not reach the Files transfer engine.')
+            assert (source/filename).read_text() == (target/filename).read_text()
+            moved = root/'Moved'; moved.mkdir()
+            assert desktop('Transfer', '(assb)', ([(target/filename).as_uri()], moved.as_uri(), False))
+            wait_for(lambda: (moved/filename).exists() and not (target/filename).exists(), 'Desktop move did not complete.')
+            assert not desktop('Transfer', '(assb)', (['not-a-uri'], target.as_uri(), False))
+            assert desktop('Open', '(asb)', ([source.as_uri()], False))
+            wait_for(lambda: (root/'desktop-calls.jsonl').exists(), 'Desktop folder did not launch Fusion Files.')
+            opened = json.loads((root/'desktop-calls.jsonl').read_text().splitlines()[0])
+            assert opened['arguments'] == ['--external', '--new-window', source.as_uri()]
             uri = (root/'screen # 100% $(literal).png').as_uri()
             def invoke(method, urls, token=''):
                 bus.call_sync(name, '/org/freedesktop/FileManager1',
@@ -123,6 +147,7 @@ with (root/'calls.jsonl').open('a') as log:
             duplicate_connection.close()
             logout(process, connection)
             wait_for(lambda: not owns_name(), 'Logout did not release the folder service.')
+            assert not dbus('NameHasOwner', '(s)', (desktop_name,), '(b)')
 
             # Do not steal an existing manager's protected name or open a window
             # because registration failed. Queue, then take over when it exits.
@@ -154,7 +179,7 @@ with (root/'calls.jsonl').open('a') as log:
             outside = dict(env); outside.pop('HYPRLAND_INSTANCE_SIGNATURE')
             assert subprocess.run([str(binary), '--service'], env=outside, timeout=5).returncode==1
             assert not owns_name()
-            print('PASS: routing, activation tokens, single-instance ownership, background Auto mount, USB reconnects, restart suppression and logout.')
+            print('PASS: routing, desktop copy/move, floating folder requests, single-instance ownership, background Auto mount, USB reconnects, restart suppression and logout.')
         finally:
             for process in processes:
                 if process.poll() is None:

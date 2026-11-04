@@ -13,7 +13,7 @@ add_library(fusion-files-ui STATIC core.cpp drives.cpp automount.cpp drive_prope
 target_link_libraries(fusion-files-ui PUBLIC Qt6::Widgets Qt6::DBus Qt6::Concurrent
     KF6::KIOCore KF6::KIOGui KF6::KIOWidgets KF6::KIOFileWidgets KF6::Service KF6::JobWidgets KF6::CoreAddons KF6::WindowSystem)
 target_include_directories(fusion-files-ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-add_executable(xetal-files main.cpp)
+add_executable(xetal-files main.cpp desktop_actions.cpp)
 target_link_libraries(xetal-files PRIVATE fusion-files-ui)
 option(BUILD_TESTING "Build isolated Fusion Files checks" OFF)
 if(BUILD_TESTING)

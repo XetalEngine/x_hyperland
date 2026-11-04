@@ -56,5 +56,6 @@ config/hypr/calculator/state/
 config/hypr/file_manager/.build/
 config/hypr/file_manager/state/
 config/hypr/file_manager/automount.json
+config/hypr/desktop_menu/icons.json
 
 config/hypr/effects/wobbly/.build/

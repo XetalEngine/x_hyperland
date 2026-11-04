@@ -64,6 +64,13 @@ def css(style):
     font='Inter' if (shadow or breakpoint or binaryknife or tidalglass or porcelainink or forge or candy) and style['font_family']=='Noto Sans' else style['font_family']
     return f'''
     window#xetal-desktop-background {{background:transparent; border:none; box-shadow:none;}}
+    .desktop-icons, .desktop-icons viewport, .desktop-icons layout {{background:transparent; border:none; box-shadow:none;}}
+    .desktop-icon {{background:transparent; border:1px solid transparent; border-radius:9px; padding:0;}}
+    .desktop-icon label {{color:#ffffff; background:transparent; font:13px "{font}"; text-shadow:0 1px 3px #000000, 0 0 2px #000000;}}
+    .desktop-icon:hover {{background:{rgba(c['accent'], 16)}; border-color:{rgba(c['accent'], 45)};}}
+    .desktop-icon.selected {{background:{rgba(c['hover'], 88)}; border-color:{c['accent']};}}
+    .desktop-icon.selected label {{color:{c['hover_text']}; text-shadow:none;}}
+    .desktop-icon.drop-target {{background:{rgba(c['accent'], 40)}; border-color:{c['accent']};}}
     menu.desktop-context-menu {{
         background:linear-gradient(to bottom right, {rgba(c['background'], style['opacity'])}, {rgba(c['background_end'], style['opacity'])});
         color:{c['text']}; border:1px solid {c['border']};

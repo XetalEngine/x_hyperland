@@ -1,5 +1,6 @@
 #include "window.h"
 #include "picker.h"
+#include "desktop_actions.h"
 #include <KPropertiesDialog>
 #include <QDBusAbstractAdaptor>
 #include <QDBusConnection>
@@ -114,6 +115,9 @@ int main(int argc, char **argv) {
     serviceLock->setStaleLockTime(0);
     if (!serviceLock->tryLock(0)) return 0;
     app.setQuitOnLastWindowClosed(false);
+    // Completing a KIO job releases its quit lock. The resident desktop/file
+    // service must remain alive until its compositor connection closes.
+    app.setQuitLockEnabled(false);
     QObject::connect(&lifetime, &QLocalSocket::readyRead, &lifetime,
                      [&lifetime] { lifetime.readAll(); });
     QObject::connect(&lifetime, &QLocalSocket::disconnected, &app,
@@ -128,6 +132,13 @@ int main(int argc, char **argv) {
   QObject owner;
   FileManagerService service(&owner);
   auto bus = QDBusConnection::sessionBus();
+  QObject desktopOwner;
+  std::unique_ptr<DesktopActions> desktopActions;
+  if (sessionService) {
+    desktopActions = std::make_unique<DesktopActions>(&desktopOwner);
+    if (!bus.registerObject("/org/xetal/FusionFiles/Desktop", &desktopOwner, QDBusConnection::ExportAdaptors) ||
+        !bus.registerService(DesktopActions::serviceName())) return 1;
+  }
   if (!bus.registerObject("/org/freedesktop/FileManager1", &owner,
                           QDBusConnection::ExportAdaptors) && sessionService)
     return 1;

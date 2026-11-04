@@ -40,8 +40,10 @@ int main(int argc,char **argv) {
     char line[100],command[20];int a,b;
     while(fgets(line,sizeof(line),stdin)) {
         a=b=0;sscanf(line,"%19s %d %d",command,&a,&b);
-        if(!strcmp(command,"move"))zwlr_virtual_pointer_v1_motion_absolute(p,timestamp(),a,b,width,height);
+        if(!strcmp(command,"size")){width=a;height=b;}
+        else if(!strcmp(command,"move"))zwlr_virtual_pointer_v1_motion_absolute(p,timestamp(),a,b,width,height);
         else if(!strcmp(command,"button"))zwlr_virtual_pointer_v1_button(p,timestamp(),272,a);
+        else if(!strcmp(command,"right"))zwlr_virtual_pointer_v1_button(p,timestamp(),273,a);
         else if(!strcmp(command,"key")) {
             xkb_state_update_key(state,a+8,b?XKB_KEY_DOWN:XKB_KEY_UP);
             zwp_virtual_keyboard_v1_key(k,timestamp(),a,b);
