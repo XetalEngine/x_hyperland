@@ -102,7 +102,7 @@ class Tracker:
         # Both launcher modes are explicit first-map choices. Reapplying the
         # app's previous mode here would cause tile → float/maximize → tile
         # jumps. Still observe these windows below to preserve normal sizes.
-        if window_key(client): return False
+        if window_key(client) or any(tag.removesuffix('*') == 'fusion-managed-rule' for tag in client.get('tags', [])): return False
         floating = True if picker else saved['floating'] if saved else client.get('floating', False)
         fullscreen = 0 if picker else saved['fullscreen'] if saved else client.get('fullscreen', 0)
         client_fs = 0 if picker else saved['client_fullscreen'] if saved else client.get('fullscreenClient', 0)

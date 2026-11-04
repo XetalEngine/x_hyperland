@@ -43,5 +43,10 @@
     "shadowedge/silent-approach.png",
     "shadowedge/shadow-edge.png",
     "shadowedge/moonlit-watch.png"
+  ],
+  "hollowgrove": [
+    "hollowgrove/forgotten-arches.png",
+    "hollowgrove/hollow-grove.png",
+    "hollowgrove/moonlit-pool.png"
   ]
 }

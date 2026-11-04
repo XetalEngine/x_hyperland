@@ -1,3 +1,4 @@
+#include "../../../window_rules/buttons.hpp"
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include <hyprland/src/plugins/PluginAPI.hpp>
 #include <hyprland/src/Compositor.hpp>
@@ -104,11 +105,13 @@ std::filesystem::path sessionRulesPath(){
     if(!runtime||!instance||std::string(instance).find('/')!=std::string::npos)throw std::runtime_error("Missing compositor session");
     return std::filesystem::path(runtime)/"hypr"/instance/"xetal-windowbuttons-rules.json";
 }
+WindowRules::ButtonRules matchedRules;
 void load(){
     auto next=readSettings();auto apps=WindowButtons::readRules(root()/"effects/window_close/rules.json","apps");
     auto windows=WindowButtons::readRules(sessionRulesPath(),"windows");
     auto workspaces=WorkspaceRules::read();
-    settings=next;appRules=std::move(apps);windowRules=std::move(windows);workspaceRules=std::move(workspaces);
+    auto patterns=WindowRules::read(root()/"window_rules/rules.json");
+    matchedRules=std::move(patterns);settings=next;appRules=std::move(apps);windowRules=std::move(windows);workspaceRules=std::move(workspaces);
 }
 std::string appId(PHLWINDOW w){return w->m_initialClass.empty()?w->m_class:w->m_initialClass;}
 int64_t workspaceId(PHLWINDOW w){return w&&w->m_workspace?w->m_workspace->m_id:0;}
@@ -119,6 +122,7 @@ WindowButtons::Rule ruleFor(PHLWINDOW w){
     if(policy.controls=="on")return policy.rule;
     if(policy.controls=="off"){auto rule=policy.rule;rule.mode="off";return rule;}
     if(auto it=windowRules.find(std::to_string(w->m_stableID));it!=windowRules.end())return it->second;
+    if(auto rule=WindowRules::effective(matchedRules,appId(w),w->m_initialTitle))return *rule;
     if(auto it=appRules.find(appId(w));it!=appRules.end())return it->second;
     WindowButtons::Rule r;r.size=settings.size;r.x=r.y=settings.inset;return r;
 }

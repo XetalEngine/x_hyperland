@@ -356,22 +356,40 @@ class Canvas(Gtk.Layout):
         menu = Gtk.Menu(); menu.get_style_context().add_class('desktop-context-menu')
         names = self.controller.ordered_selection()
         if not names: return
-        action(menu, 'Open', lambda: self.controller.files.open(self.controller.urls(names)))
-        if all(self.controller.entries[name].get_file_type() != Gio.FileType.DIRECTORY for name in names):
-            action(menu, 'Open with…', lambda: self.controller.files.open(self.controller.urls(names), True))
-        menu.append(Gtk.SeparatorMenuItem())
-        real = [name for name in names if name != model.TRASH]
-        if real:
-            action(menu, 'Cut', lambda: self.controller.copy(True, names))
-            action(menu, 'Copy', lambda: self.controller.copy(False, names))
-            action(menu, 'Paste', lambda: self.controller.paste(target))
+        urls = self.controller.urls(names)
+        loading = action(menu, 'Loading file actions…', lambda: None, False)
+        def activate(entry):
+            identifier = entry.get('local')
+            if identifier == 'cut': self.controller.copy(True, names)
+            elif identifier == 'copy': self.controller.copy(False, names)
+            elif identifier == 'copyPath':
+                clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+                clipboard.set_text('\n'.join(Gio.File.new_for_uri(url).get_path() or url for url in urls), -1)
+            elif identifier == 'paste': self.controller.paste(target)
+            elif identifier == 'newFolder': self.controller.new_folder(target)
+            elif identifier == 'rename':
+                tile = self.tiles.get(names[0])
+                if tile: tile.begin_rename()
+            elif identifier == 'trash': self.controller.trash(urls)
+            else: self.controller.files.call('MenuAction', '(s)', entry['action'])
+        def populate(entries):
+            if self.surface.menu is not menu or not menu.get_visible(): return
+            for child in menu.get_children(): child.destroy()
+            def append(parent, entries):
+                for entry in entries:
+                    if entry.get('separator'):
+                        parent.append(Gtk.SeparatorMenuItem()); continue
+                    item = action(parent, entry['name'], lambda entry=entry: activate(entry), entry.get('enabled', True))
+                    if 'children' in entry:
+                        submenu = Gtk.Menu(); submenu.get_style_context().add_class('desktop-context-menu')
+                        append(submenu, entry['children']); item.set_submenu(submenu)
+            append(menu, entries)
+            if names == [model.TRASH]:
+                action(menu, 'Empty Trash…', lambda: self.controller.files.call('EmptyTrash', '()'))
+                action(menu, 'Hide Trash', lambda: self.controller.setting('show_trash', False))
             menu.append(Gtk.SeparatorMenuItem())
-            action(menu, 'Rename', lambda: self.tiles[real[0]].begin_rename(), len(names) == 1)
-            action(menu, 'Move to Trash', lambda: self.controller.trash(self.controller.urls(real)))
-        if names == [model.TRASH]:
-            action(menu, 'Hide Trash', lambda: self.controller.setting('show_trash', False))
-        menu.append(Gtk.SeparatorMenuItem())
-        action(menu, 'Properties', lambda: self.controller.files.call('Properties', '(as)', self.controller.urls(names)))
+            action(menu, 'Customize desktop file menu…', lambda: self.controller.files.call('ConfigureMenu', '()'))
+            menu.show_all()
         if self.surface.menu: self.surface.menu.destroy()
         self.surface.menu = menu
         menu.attach_to_widget(self, None); menu.show_all()
@@ -379,6 +397,7 @@ class Canvas(Gtk.Layout):
         else:
             tile = self.tiles.get(names[0])
             menu.popup_at_widget(tile or self, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST, None)
+        self.controller.files.menu(urls, populate)
 
     def highlight(self, name):
         if name == self.drop_name: return
@@ -774,6 +793,9 @@ class Icons:
             submenu.append(item)
         arrange.set_submenu(submenu)
         menu.attach(arrange, 0, 1, row, row+1); row += 1
+        configure = style_item(Gtk.MenuItem(label='Configure desktop file menu…'))
+        configure.connect('activate', lambda *_: self.files.call('ConfigureMenu', '()'))
+        menu.attach(configure, 0, 1, row, row+1); row += 1
         if self.settings['enabled']:
             target = target or self.pointer_target()
             paste = style_item(Gtk.MenuItem(label='Paste'))

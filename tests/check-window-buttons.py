@@ -35,7 +35,7 @@ def main():
     for source in (REPO/'config/hypr/workspaces').glob('*.py'):
         shutil.copy2(source,workspace_dir/source.name)
     # Small theme/config sources only; never adopt the real user's preferences.
-    for directory in ('theme','runtime','cursors'):
+    for directory in ('theme','runtime','cursors','window_rules'):
         destination=home/'.config/hypr'/directory;destination.mkdir(exist_ok=True)
         for source in (REPO/'config/hypr'/directory).iterdir():
             if source.is_file() and source.suffix in ('.py','.json','.colors'):shutil.copy2(source,destination/source.name)
@@ -207,6 +207,43 @@ bindm=SUPER,mouse:273,resizewindow
             policy(layout='off');dispatch('setfloating',address());assert client()['floating']
             dispatch('settiled',address());assert not client()['floating']
             print('PASS: existing/new/moved windows obey workspace layouts; Off restores normal mode changes.',flush=True)
+
+            # User rules can target an app plus a title, and later matches win.
+            # Workspace overrides remain stronger than every user rule.
+            from window_rules import model as window_rules
+            rule_path=home/'.config/hypr/window_rules/rules.json'
+            matched=dict(rules.DEFAULTS,mode='always',size=35)
+            specific=dict(rules.DEFAULTS,mode='nearby',size=19)
+            document=window_rules.validate({'version':1,'rules':[
+                dict(window_rules.DEFAULT, id='a'*32, name='App buttons', app='wobbly-*', controls=matched),
+                dict(window_rules.DEFAULT, id='b'*32, name='Title buttons', app='wobbly-*', title='But*', controls=specific),
+            ]})
+            rule_path.write_text(json.dumps(document));dispatch('xetalwindowclose:reload')
+            assert info()['rule']==specific and info('Other')['rule']==matched
+            policy(controls='on');assert info()['rule']==info('Other')['rule'] and info()['rule']['mode']=='always'
+            policy(controls='off');point('key 125 1');time.sleep(.1)
+            assert not status()['visible'];point('key 125 0')
+            policy(controls='individual');assert info()['rule']==specific and info('Other')['rule']==matched
+            rule_path.write_text('{"version":1,"rules":[]}');dispatch('xetalwindowclose:reload')
+            print('PASS: app/title window rules, last-match order, and workspace On/Off/Individual priority.',flush=True)
+
+            behavior=dict(window_rules.DEFAULT,id='c'*32,name='Window geometry',app='wobbly-*',
+                          title='User positioned',layout='floating',width=640,height=400,position='center')
+            rule_conf=rule_path.with_suffix('.conf')
+            rule_conf.write_text(window_rules.render({'version':1,'rules':[behavior]}))
+            conf.write_text(conf.read_text()+'source = '+str(rule_conf)+'\n')
+            assert ctl('reload')=='ok';assert not ctl('configerrors')
+            command('add','User positioned');wait(lambda:client('User positioned'))
+            positioned=client('User positioned')
+            assert positioned['floating'] and positioned['size']==[640,400],positioned
+            assert 'fusion-managed-rule' in [tag.removesuffix('*') for tag in positioned['tags']],positioned
+            fits('User positioned')
+            policy(layout='tile');wait(lambda:not client('User positioned')['floating'])
+            dispatch('setfloating',address('User positioned'));assert not client('User positioned')['floating']
+            command('close','User positioned');wait(lambda:not client('User positioned'))
+            rule_conf.write_text(window_rules.render({'version':1,'rules':[]}));assert ctl('reload')=='ok'
+            policy(layout='off')
+            print('PASS: generated app/title behavior applies floating geometry on first map; workspace tile still wins.',flush=True)
 
             app_rules=settings.with_name('rules.json');app_key=info()['app']
             individual=dict(rules.DEFAULTS,mode='nearby',size=42,x=20)

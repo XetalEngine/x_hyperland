@@ -12,6 +12,7 @@ import wallpaper_sets
 
 # Presentation only: selecting a banner still uses the normal component chooser.
 STORIES = {
+    'hollowgrove': ('HOLLOW\nGROVE', 'A quieter kind of magic.\nMoonlit sage. Silver blossoms.', 'forest green sage moon botanical fantasy mist nature'),
     'raw': ('XETAL\nRAW', 'Your original world.\nElectric nights. Open possibilities.', 'cyan neon original xetal world'),
     'modern': ('Xetal\nModern', 'Room to think.\nSoft surfaces. A clearer workspace.', 'blue calm cards xetal world'),
     'breakpoint': ('BREAK\nPOINT', 'Break the routine.\nCharcoal glass. A pulse of crimson.', 'red crimson cyberpunk xetal world'),
@@ -173,7 +174,7 @@ class DesignCard(QPushButton):
     def paintEvent(self, event):
         p = QPainter(self); p.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform)
         colors = runtime.colors(self.mode, self.design); box = QRectF(self.rect()).adjusted(2, 2, -2, -2)
-        if self.design in ('shadowedge', 'candycloud', 'obsidianforge', 'porcelainink', 'tidalglass'):
+        if self.design in ('shadowedge', 'candycloud', 'obsidianforge', 'porcelainink', 'tidalglass', 'hollowgrove'):
             importlib.import_module(self.design).paint_surface(p, box, colors, focused=self.isChecked())
         else:
             shade = QLinearGradient(box.topLeft(), box.bottomRight())

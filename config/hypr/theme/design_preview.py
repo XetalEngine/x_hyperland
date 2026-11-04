@@ -11,7 +11,7 @@ class DesktopPreview:
     def __init__(self):
         self.paths=None
         self.visibility=runtime.launcher_background_visibility();self.labels=runtime.launcher_labels()
-        self.theme_wallpapers={design:QPixmap(str(paths[1 if design in ('porcelainink','obsidianforge','candycloud','shadowedge') and len(paths)>1 else 0])) for design,paths in wallpaper_sets.catalog(runtime.ROOT.parent/'wallpaper').items()}
+        self.theme_wallpapers={design:QPixmap(str(paths[1 if design in ('porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove') and len(paths)>1 else 0])) for design,paths in wallpaper_sets.catalog(runtime.ROOT.parent/'wallpaper').items()}
         self.icons=[QIcon.fromTheme(name).pixmap(48,48) for name in (
             'system-file-manager','internet-web-browser','utilities-terminal',
             'applications-multimedia','preferences-system','accessories-calculator')]
@@ -57,7 +57,7 @@ class DesktopPreview:
         wallpaper=self.theme_wallpapers.get(design,self.wallpaper)
         if wallpaper.isNull():wallpaper=self.wallpaper
         self.picture(p,wallpaper,QRectF(0,0,720,240))
-        p.fillRect(QRectF(0,0,720,240),QColor(8,17,28,0 if design in ('porcelainink','obsidianforge','candycloud','shadowedge') else 15 if design=='tidalglass' else 80))
+        p.fillRect(QRectF(0,0,720,240),QColor(8,17,28,0 if design in ('porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove') else 15 if design=='tidalglass' else 80))
         panel(0,0,720,23)
         panel(5,3,55,17,'Highlight',5 if modern else 2)
         text(13,2,45,18,'Apps',8,'HighlightedText',True)
@@ -65,7 +65,7 @@ class DesktopPreview:
         text(575,2,140,18,'♪   ◉   100%    21:10',7)
 
         # Launcher: profile, navigation, group title and real application icons.
-        modern=launcher_design in ('modern','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge');colors=runtime.colors(mode,launcher_design)
+        modern=launcher_design in ('modern','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove');colors=runtime.colors(mode,launcher_design)
         radius=3 if launcher_design=='shadowedge' else 20 if launcher_design=='candycloud' else 3 if launcher_design=='obsidianforge' else 2 if launcher_design=='porcelainink' else 4 if launcher_design=='binaryknife' else 12 if launcher_design=='breakpoint' else 13 if modern else 5
         panel(14,37,389,190,'Window',radius,'Midlight')
         if launcher_design=='tidalglass':
@@ -73,6 +73,9 @@ class DesktopPreview:
             paint_surface(p,QRectF(14,37,389,190),colors,16,94)
         elif launcher_design=='porcelainink':
             from porcelainink import paint_surface
+            paint_surface(p,QRectF(14,37,389,190),colors)
+        elif launcher_design=='hollowgrove':
+            from hollowgrove import paint_surface
             paint_surface(p,QRectF(14,37,389,190),colors)
         elif launcher_design=='shadowedge':
             from shadowedge import paint_surface
@@ -111,8 +114,11 @@ class DesktopPreview:
         # The Fusion Settings changes from Raw tabs to the Modern navigation rail.
         modern=design=='modern';colors=runtime.colors(mode,design)
         panel(420,52,284,166,'Window',13 if modern else 5,'Midlight')
-        if design in ('tidalglass','porcelainink','obsidianforge','candycloud','shadowedge'):
-            if design=='shadowedge':
+        if design in ('tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove'):
+            if design=='hollowgrove':
+                from hollowgrove import paint_surface
+                paint_surface(p,QRectF(420,52,284,166),colors)
+            elif design=='shadowedge':
                 from shadowedge import paint_surface
                 paint_surface(p,QRectF(420,52,284,166),colors)
             elif design=='candycloud':
@@ -136,7 +142,7 @@ class DesktopPreview:
                     if design=='porcelainink':panel(433,y,2,20,'Accent')
                 text(439,y,65,20,title,6,'HighlightedText' if row==0 else 'Text')
             text(517,86,173,22,'Audio',13,'Text',True)
-            text(517,110,173,16,'Move in silence.' if design=='shadowedge' else 'Softer worlds. Higher focus.' if design=='candycloud' else 'Forged in the dark.' if design=='obsidianforge' else 'A quieter desktop.' if design=='porcelainink' else 'A little calm. A little clarity.',6,'PlaceholderText')
+            text(517,110,173,16,'A quieter kind of magic.' if design=='hollowgrove' else 'Move in silence.' if design=='shadowedge' else 'Softer worlds. Higher focus.' if design=='candycloud' else 'Forged in the dark.' if design=='obsidianforge' else 'A quieter desktop.' if design=='porcelainink' else 'A little calm. A little clarity.',6,'PlaceholderText')
             for i,caption in enumerate(('Speakers','Microphone')):
                 y=135+i*34;text(518,y,164,15,caption,7)
                 panel(518,y+19,160,4,'Midlight',2);panel(518,y+19,108-i*24,4,'Accent',2)

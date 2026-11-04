@@ -1,6 +1,8 @@
 #include "desktop_actions.h"
 #include "applications.h"
 #include "core.h"
+#include "context_actions.h"
+#include <QtWidgets>
 #include "removal.h"
 #include "transfers.h"
 #include <KApplicationTrader>
@@ -206,4 +208,114 @@ bool DesktopActions::Properties(const QStringList &sources) {
   auto *dialog = new KPropertiesDialog(items);
   dialog->setAttribute(Qt::WA_DeleteOnClose); dialog->show();
   return true;
+}
+
+bool DesktopActions::EmptyTrash() {
+  QTimer::singleShot(0, this, [this] { Fusion::emptyTrash(nullptr, [this] { RefreshTrash(); }); });
+  return true;
+}
+bool DesktopActions::ConfigureMenu() {
+  if (configuring) return true;
+  configuring = true;
+  QTimer::singleShot(0, this, [this] {
+    Fusion::Preferences preferences;
+    Fusion::customizeMenu(preferences, nullptr, "desktopMenu");
+    configuring = false;
+  });
+  return true;
+}
+bool DesktopActions::MenuAction(const QString &identity) {
+  const auto action = menuActions.value(identity);
+  if (!action || !action->isEnabled()) return false;
+  QTimer::singleShot(0, this, [action] { if (action) action->trigger(); });
+  return true;
+}
+QString DesktopActions::Menu(const QStringList &sources) {
+  const auto files = urls(sources);
+  if (files.isEmpty()) return "[]";
+  if (fileMenu) delete fileMenu;
+  fileMenu = new QMenu;
+  menuActions.clear();
+  Fusion::Preferences preferences;
+  const auto entries = preferences.menu("desktopMenu");
+  KFileItemList items;
+  for (const auto &file : files) items << KFileItem(file);
+  const bool trash = files.contains(QUrl("trash:/"));
+  const bool directories = std::all_of(items.begin(), items.end(), [](const KFileItem &item) { return item.isDir(); });
+  auto directory = QUrl::fromLocalFile(QStandardPaths::writableLocation(QStandardPaths::DesktopLocation));
+  bool compress = false, extract = false, addedArk = false;
+  for (const auto &entry : entries) {
+    if (entry["id"] == "compress") compress = entry.value("enabled", true).toBool();
+    if (entry["id"] == "extract") extract = entry.value("enabled", true).toBool();
+  }
+  for (const auto &entry : entries) {
+    if (!entry.value("enabled", true).toBool()) continue;
+    const auto id = entry["id"].toString();
+    if (trash && id != "open" && id != "properties") continue;
+    if (id == "execute" && (files.size() != 1 || Fusion::executionCommand(files.first()).isEmpty())) continue;
+    if ((id == "openTab" || id == "pin") && !directories) continue;
+    if (id == "openWith" && directories) continue;
+    if (id == "compress" || id == "extract") {
+      if (!addedArk) Fusion::addArkActions(fileMenu, items, compress, extract, this, arkPlugins, directory,
+                                         [this](const QString &text) { error(text); });
+      addedArk = true; continue;
+    }
+    auto *action = fileMenu->addAction(Fusion::icon(entry["icon"].toString()),
+        id == "openTab" ? "Open in floating window" : entry["name"].toString());
+    action->setProperty("desktopAction", id);
+    action->setProperty("iconName", entry["icon"]);
+    if (id == "rename") action->setEnabled(files.size() == 1);
+    connect(action, &QAction::triggered, this, [this, id, sources, files, directory, entry] {
+      if (id == "open" || id == "openTab" || id == "openWith") { Open(sources, id == "openWith"); return; }
+      if (id == "properties") { Properties(sources); return; }
+      if (id == "pin") {
+        Fusion::Preferences preferences; auto places = preferences.places();
+        for (const auto &url : files) {
+          if (std::none_of(places.begin(), places.end(), [&](const auto &p) { return QUrl(p["url"].toString()) == url; }))
+            places << QVariantMap{{"name", Fusion::title(url)}, {"url", url.toString()}, {"icon", "folder"}};
+        }
+        preferences.setPlaces(places); return;
+      }
+      if (id == "delete") {
+        auto *dialog = new QMessageBox(QMessageBox::Warning, "Delete permanently",
+            QString("Permanently delete %1 selected item(s)? This cannot be undone.").arg(files.size()), QMessageBox::Cancel);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        auto *remove = dialog->addButton("Delete permanently", QMessageBox::DestructiveRole);
+        dialog->setDefaultButton(QMessageBox::Cancel);
+        connect(dialog, &QDialog::finished, this, [this, dialog, remove, files] {
+          if (dialog->clickedButton() == remove) track(new Fusion::RemovalJob(files, true, nullptr));
+        });
+        dialog->open(); return;
+      }
+      QStringList command;
+      QString working = directory.toLocalFile();
+      if (id == "terminal") {
+        if (files.size() == 1 && QFileInfo(files.first().toLocalFile()).isDir()) working = files.first().toLocalFile();
+        command = {"kitty", "--directory", working};
+      } else if (id == "execute") command = Fusion::executionCommand(files.first());
+      else if (id.startsWith("custom:")) command = Fusion::expandCommand(entry["command"].toString(), files);
+      else return; // Clipboard, inline rename and placement belong to the focused desktop surface.
+      if (command.isEmpty()) { error("This action needs local files, or has an invalid command."); return; }
+      const auto program = command.takeFirst();
+      if (!QProcess::startDetached(program, command, working)) error("The file action could not be started.");
+    });
+  }
+  const auto prefix = QUuid::createUuid().toString(QUuid::WithoutBraces);
+  std::function<QJsonArray(QMenu *)> serialize = [&](QMenu *menu) {
+    QJsonArray result;
+    for (auto *action : menu->actions()) {
+      if (!action->isVisible()) continue;
+      QJsonObject row{{"name", action->text().replace("&&", "\x01").remove('&').replace("\x01", "&")},
+        {"enabled", action->isEnabled()}, {"separator", action->isSeparator()},
+        {"local", action->property("desktopAction").toString()}, {"icon", action->property("iconName").toString()}};
+      if (action->menu()) row["children"] = serialize(action->menu());
+      else {
+        const auto key = prefix + ":" + QString::number(menuActions.size());
+        menuActions[key] = action; row["action"] = key;
+      }
+      result.append(row);
+    }
+    return result;
+  };
+  return QString::fromUtf8(QJsonDocument(serialize(fileMenu)).toJson(QJsonDocument::Compact));
 }

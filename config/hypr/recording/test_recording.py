@@ -49,6 +49,14 @@ class SelectionTests(unittest.TestCase):
 
 
 class PreferenceTests(unittest.TestCase):
+    def test_filename_templates_and_unsafe_names(self):
+        from datetime import datetime
+        now=datetime(2026,11,4,15,2,9)
+        self.assertEqual(backend.recording_name('Clip-{date}-{time}-{monitor}', 'DP/1', now), 'Clip-2026-11-04-15-02-09-DP_1.mp4')
+        self.assertEqual(backend.recording_name('Movie.mp4'), 'Movie.mp4')
+        for name in ('../movie','/absolute','bad\\name','{date.__class__}','{unknown}','{date!r}','{date:>999999}','', 'a'*201):
+            with self.subTest(name=name), self.assertRaises(ValueError): backend.recording_name(name)
+
     def test_defaults_atomic_save_and_external_edit_protection(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)/'settings.json'
@@ -134,13 +142,15 @@ class MediaTests(unittest.TestCase):
     @staticmethod
     def fixture_path_move(source, target): source.rename(target); return target
 
-    def test_existing_movie_is_never_overwritten_and_capture_is_retained(self):
+    def test_existing_movie_is_preserved_and_next_name_is_published(self):
         self.prepare_save(); r = self.recorder; r.destination.write_bytes(b'Existing recording')
+        r.workspace=self.root/'work';r.workspace.mkdir();r.capture=self.fixture_path_move(r.capture,r.workspace/'capture.nut')
+        r.close_log();r.log=(r.workspace/'capture.log').open('wb');r.movie=r.workspace/'encoding.mp4'
         r.begin_save(); self.finish()
-        self.assertEqual(r.state['phase'], 'error'); self.assertTrue(r.capture.exists())
-        self.assertEqual(r.destination.read_bytes(), b'Existing recording')
-        self.assertTrue(self.notifications.called)
-        self.assertTrue(all(len(call.args)==2 for call in self.notifications.call_args_list))
+        self.assertEqual(r.state['phase'], 'saved')
+        self.assertEqual((self.root/'published.mp4').read_bytes(), b'Existing recording')
+        self.assertEqual(r.destination.name, 'published (1).mp4')
+        self.assertTrue(r.destination.is_file())
 
     def test_capture_failure_retains_diagnostic_and_no_final_movie(self):
         self.prepare_save(); r = self.recorder; r.capture.write_bytes(b'bad')

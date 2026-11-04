@@ -71,11 +71,11 @@ def main():
         def conclude():
             result[0] = int(code != 0 or not all(observations.values()))
             print('Fusion transfer integration ('+('cancel' if cancel else 'complete')+'):', observations, flush=True)
-            app.quit()
+            app.exit(result[0])
         QTimer.singleShot(150, conclude)
     process.finished.connect(finished)
     process.start(sys.argv[1], ['transferProgress'])
-    QTimer.singleShot(45000, lambda: (process.kill(), app.quit()))
+    QTimer.singleShot(45000, lambda: (process.kill(), app.exit(1)))
     app.exec()
     service.stop()
     return result[0]

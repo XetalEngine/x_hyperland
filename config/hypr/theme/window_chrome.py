@@ -28,7 +28,7 @@ class ControlButton(QToolButton):
 
 def style_close(button,design=None):
     import runtime
-    if design in ('breakpoint','binaryknife','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge'):
+    if design in ('breakpoint','binaryknife','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove'):
         p=runtime.colors(style=design)
         hover=f"background:{p['Highlight']}; color:{p['Text']}; border-color:{p['Accent']};"
         pressed=f"background:{p['Mid']};"

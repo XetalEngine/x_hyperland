@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import shutil
 import signal
+import string
 import subprocess
 import sys
 import tempfile
@@ -16,7 +17,41 @@ from datetime import datetime
 
 ROOT = Path(__file__).resolve().parent
 SETTINGS = ROOT/'settings.json'
-DEFAULTS = dict(fps=64, audio='desktop', quality='high', encoder='auto', directory='')
+DEFAULTS = dict(fps=64, audio='desktop', quality='high', encoder='auto', directory='',
+                filename='Screen-recording-{date}_{time}')
+
+
+def recording_name(pattern, monitor='DP-1', now=None):
+    """Expand only documented tokens; a template can never name another folder."""
+    now = now or datetime.now()
+    tokens = {'date': now.strftime('%Y-%m-%d'), 'time': now.strftime('%H-%M-%S'),
+              'year': now.strftime('%Y'), 'month': now.strftime('%m'), 'day': now.strftime('%d'),
+              'hour': now.strftime('%H'), 'minute': now.strftime('%M'), 'second': now.strftime('%S'),
+              'monitor': re.sub(r'[^\w.-]', '_', monitor)[:64] or 'display'}
+    if not isinstance(pattern, str) or not pattern.strip():
+        raise ValueError('Enter a recording filename format.')
+    try:
+        for _, field, spec, conversion in string.Formatter().parse(pattern):
+            if field is not None and (field not in tokens or spec or conversion):
+                raise ValueError('Use filename tokens such as {date}, {time} and {monitor}.')
+        name = pattern.format_map(tokens).strip()
+    except (KeyError, ValueError) as error:
+        raise ValueError('Use filename tokens such as {date}, {time} and {monitor}.') from error
+    if any(ord(c) < 32 or c in '/\\' for c in name) or name in ('.', '..') or len(name.encode()) > 200:
+        raise ValueError('Use a filename of up to 200 bytes, without folders or control characters.')
+    return name if name.lower().endswith('.mp4') else name+'.mp4'
+
+
+def publish_movie(movie, destination):
+    """Reserve each final name atomically, even when two captures share a name."""
+    for number in range(10000):
+        target = destination if not number else destination.with_name(f'{destination.stem} ({number}){destination.suffix}')
+        try:
+            os.link(movie, target)
+            return target
+        except FileExistsError:
+            continue
+    raise RuntimeError('Too many recordings use this name. Choose another filename format.')
 
 
 def validate(value):
@@ -35,6 +70,7 @@ def validate(value):
         raise ValueError('Choose a valid recordings folder.')
     if directory and not Path(directory).expanduser().is_absolute():
         raise ValueError('Choose an absolute recordings folder.')
+    recording_name(result['filename'])
     return result
 
 
@@ -229,8 +265,7 @@ class Recorder:
         # Keep a recoverable stream while recording; publish MP4 after stopping.
         self.capture = self.workspace/'capture.nut'
         self.movie = self.workspace/'recording.mp4'
-        suffix = self.workspace.name.rsplit('-', 1)[-1]
-        self.destination = directory/f'Screen-recording-{datetime.now():%Y-%m-%d_%H-%M-%S}-{suffix}.mp4'
+        self.destination = directory/recording_name(settings['filename'], monitor)
         self.log = (self.workspace/'capture.log').open('wb')
         self.settings, self.source, self.available = settings, source, available
         self.fallback = codec.startswith('h264_')
@@ -299,7 +334,8 @@ class Recorder:
                 if self.source and not any(s['codec_type'] == 'audio' for s in streams):
                     raise RuntimeError('The selected audio source produced no audio stream.')
                 # Atomic publication without replacing any existing recording.
-                os.link(self.movie, self.destination)
+                self.destination = publish_movie(self.movie, self.destination)
+                self.state['file'] = str(self.destination)
                 self.close_log(); shutil.rmtree(self.workspace)
                 self.state = {**self.state, 'phase': 'saved', 'message': self.reason}
                 self.notify('Recording saved', (self.reason+'\n' if self.reason else '')+str(self.destination), self.destination)

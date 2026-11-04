@@ -36,6 +36,12 @@ class CapturePage(QWidget):
             for caption, value in choices: combo.addItem(caption, value)
             form.addRow(label, combo)
         form.addRow('Video format', QLabel('MP4'))
+        self.filename = QLineEdit(); form.addRow('Filename format', self.filename)
+        self.filename_preview = QLabel(); self.filename_preview.setWordWrap(True)
+        form.addRow('Example', self.filename_preview)
+        tokens = QLabel('{date} · {time} · {monitor} · {year} · {month} · {day} · {hour} · {minute} · {second}\n'
+                        'MP4 is added automatically. Existing recordings keep their names; new copies get a number.')
+        tokens.setWordWrap(True); form.addRow(tokens)
         folder = QWidget(); folder_row = QHBoxLayout(folder); folder_row.setContentsMargins(0, 0, 0, 0)
         self.directory = QLineEdit(); self.directory.setPlaceholderText(str(backend.videos_directory()))
         choose = QPushButton('Choose…'); choose.clicked.connect(self.choose_folder)
@@ -54,12 +60,13 @@ class CapturePage(QWidget):
         self.fps.valueChanged.connect(self.changed)
         for combo in (self.audio, self.quality, self.encoder): combo.currentIndexChanged.connect(self.changed)
         self.directory.textChanged.connect(self.changed)
+        self.filename.textChanged.connect(self.changed)
         self.reload()
         self.timer = QTimer(self); self.timer.setInterval(1000); self.timer.timeout.connect(self.poll); self.timer.start()
 
     def value(self):
         return dict(fps=self.fps.value(), audio=self.audio.currentData(), quality=self.quality.currentData(),
-                    encoder=self.encoder.currentData(), directory=self.directory.text().strip())
+                    encoder=self.encoder.currentData(), directory=self.directory.text().strip(), filename=self.filename.text())
 
     @property
     def dirty(self): return self.value() != self.baseline
@@ -67,6 +74,7 @@ class CapturePage(QWidget):
     def set_value(self, value):
         self.loading = True
         self.fps.setValue(value['fps']); self.directory.setText(value['directory'])
+        self.filename.setText(value.get('filename', backend.DEFAULTS['filename']))
         for name in ('audio', 'quality', 'encoder'):
             combo = getattr(self, name); combo.setCurrentIndex(combo.findData(value[name]))
         self.loading = False; self.changed()
@@ -74,6 +82,10 @@ class CapturePage(QWidget):
     def changed(self, *_):
         if self.loading: return
         self.apply.setEnabled(self.dirty); self.discard.setEnabled(self.dirty)
+        try:
+            self.filename_preview.setText(backend.recording_name(self.filename.text()))
+        except ValueError as error:
+            self.filename_preview.setText(str(error)); self.apply.setEnabled(False)
         self.update_state(self.state)
 
     def refresh(self):

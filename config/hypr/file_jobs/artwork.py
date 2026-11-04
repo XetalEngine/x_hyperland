@@ -316,3 +316,21 @@ def binaryknife(p, box, accent, surface, phase, count, trails, glow, archive, ex
     p.setBrush(accent.lighter(150)); p.setPen(Qt.PenStyle.NoPen)
     for point in (QPointF(start, center.y()), QPointF(end, center.y())):
         p.drawRect(QRectF(point.x()-2, point.y()-2, 4, 4))
+
+
+def hollowgrove(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Leaf letters drift between folders along a gently curving branch."""
+    left=QPointF(box.left()+32,box.center().y());right=QPointF(box.right()-32,box.center().y())
+    folder(p,left,accent,surface,extracting,True);folder(p,right,accent,surface,archive,True)
+    if result=='done':success(p,box.center(),accent);return
+    if result:return
+    route=QPainterPath(left+QPointF(34,0));route.cubicTo(box.center()+QPointF(-35,-16),box.center()+QPointF(35,16),right-QPointF(34,0))
+    p.setPen(QPen(alpha(accent,55),1));p.drawPath(route)
+    for index in range(count):
+        t=(phase+index/count)%1
+        p.save();p.translate(route.pointAtPercent(t));p.rotate(math.sin(t*math.tau)*18-12)
+        p.setOpacity(min(1,t*9,(1-t)*9));leaf=QPainterPath(QPointF(-9,5));leaf.cubicTo(-10,-8,5,-11,10,-7);leaf.cubicTo(12,5,-1,12,-9,5)
+        p.setBrush(alpha(accent,100));p.setPen(QPen(accent,1));p.drawPath(leaf);p.drawLine(QPointF(-8,6),QPointF(8,-6))
+        if trails:
+            p.setPen(QPen(alpha(accent,70),1));p.drawLine(QPointF(-17,6),QPointF(-23,6))
+        p.restore()

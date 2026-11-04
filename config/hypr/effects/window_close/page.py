@@ -1,9 +1,10 @@
 """Hotkeys dialog; changing the gesture never rewrites keybindings.conf."""
 from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QFormLayout, QLabel, QCheckBox,
-                            QComboBox, QSpinBox, QDialogButtonBox)
+                            QComboBox, QSpinBox, QDialogButtonBox, QTabWidget, QWidget)
 from . import model, controller
 from .drag_page import DragSettings
+from window_rules.page import RulesPage
 
 
 class Apply(QThread):
@@ -18,9 +19,12 @@ class Apply(QThread):
 class Dialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle('Window buttons'); self.setMinimumWidth(460)
+        self.setWindowTitle('Window controls'); self.setMinimumSize(760, 650)
         self.values, self.token = model.load(); self.worker = None
-        layout = QVBoxLayout(self); layout.setContentsMargins(24,24,24,24); layout.setSpacing(16)
+        outer=QVBoxLayout(self);self.tabs=QTabWidget();outer.addWidget(self.tabs)
+        controls=QWidget();self.tabs.addTab(controls,'Controls')
+        self.rule_page=RulesPage(self);self.tabs.addTab(self.rule_page,'Window Rules')
+        layout = QVBoxLayout(controls); layout.setContentsMargins(24,24,24,24); layout.setSpacing(16)
         title = QLabel('Your window controls, one key away')
         title.setStyleSheet('font-size: 19px; font-weight: 700;'); layout.addWidget(title)
         hint = QLabel('Hold the modifier over a window to tile, minimize, maximize or restore, and close. '
@@ -61,8 +65,10 @@ class Dialog(QDialog):
 
     def reject(self):
         if self.worker and self.worker.isRunning(): return
+        if not self.rule_page.can_close(): return
         super().reject()
 
     def closeEvent(self, event):
         if self.worker and self.worker.isRunning(): event.ignore()
-        else: super().closeEvent(event)
+        elif not self.rule_page.can_close(): event.ignore()
+        else: event.accept()

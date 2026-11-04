@@ -37,6 +37,26 @@ class PresetTests(unittest.TestCase):
             self.assertEqual(presets.builtin(design,root=self.root)['theme']['mode'],'dark')
             self.assertEqual(presets.builtin(design,'light',self.root)['theme']['mode'],'light')
 
+    def test_waybar_only_changes_bar_design_and_preserves_desktop_palette(self):
+        config=self.root/'waybar/config.json'
+        config.write_text(json.dumps({'modules-left':['custom/launcher','hyprland/workspaces'],
+            'modules-right':['clock','tray'],'clock':{'format':'{:%H:%M}'}}))
+        colors=(self.root/'theme/current.colors').read_bytes()
+        target=presets.builtin('hollowgrove','light',self.root)
+        with patch.object(presets.bar_styles,'reload_session') as reload_bar:
+            backend.apply_components(target,{'waybar'},backend.theme_token())
+        self.assertEqual(runtime.design(),'binaryknife');self.assertEqual(runtime.mode(),'dark')
+        self.assertEqual(json.loads(runtime.STATE.read_text())['bar_style'],'hollowgrove')
+        self.assertEqual((self.root/'theme/current.colors').read_bytes(),colors)
+        self.assertEqual(json.loads(config.read_text())['clock'],{'format':'{:%H:%M}'})
+        self.assertIn('Independent Waybar design: hollowgrove',(self.root/'waybar/style.css').read_text())
+        self.store.save.assert_not_called();reload_bar.assert_called_once_with(self.root)
+
+    def test_color_only_pins_previously_followed_bar(self):
+        previous={'design':'binaryknife','bar_style':'follow'}
+        target=presets.builtin('hollowgrove',root=self.root)
+        self.assertEqual(presets.merged_theme(previous,target,{'colors'})['bar_style'],'binaryknife')
+
     def test_wobbly_snapshot_and_skin_switch_preserve_physics(self):
         path=self.root/'effects/wobbly/settings.json';path.parent.mkdir(parents=True)
         values=dict(presets.wobbly.DEFAULTS,enabled=True,friction=5,snap_inverted=True)

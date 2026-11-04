@@ -242,8 +242,8 @@ QList<QVariantMap> Preferences::places() const {
 void Preferences::setPlaces(const QList<QVariantMap> &places) {
   writeList(settings, "places", places);
 }
-QList<QVariantMap> Preferences::menu() const {
-  auto entries = readList(settings, "menu", menuDefaults());
+QList<QVariantMap> Preferences::menu(const QString &scope) const {
+  auto entries = readList(settings, scope, menuDefaults());
   if (std::none_of(entries.cbegin(), entries.cend(), [](const auto &entry) {
         return entry.value("id").toString() == "execute";
       })) {
@@ -255,7 +255,7 @@ QList<QVariantMap> Preferences::menu() const {
   }
   return entries;
 }
-void Preferences::setMenu(const QList<QVariantMap> &entries) {
-  writeList(settings, "menu", entries);
+void Preferences::setMenu(const QList<QVariantMap> &entries, const QString &scope) {
+  writeList(settings, scope, entries);
 }
 } // namespace Fusion

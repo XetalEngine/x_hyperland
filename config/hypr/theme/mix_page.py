@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,QFormLa
 import quick_mix
 import selection_marker
 import runtime
+import bar_styles
 
 
 def note(text):
@@ -20,7 +21,7 @@ class MixMatchPage(QWidget):
         root.addWidget(note('Your current settings, together. Apply a theme first, then combine its parts here. Changes also appear in their original tabs and stay active until you change them.'))
         scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.body=QWidget();grid=QGridLayout(self.body);grid.setSpacing(16)
-        groups=[('Desktop & navigation',('launcher','layout','marker'),owner.start_menu_page),
+        groups=[('Desktop & navigation',('waybar','launcher','layout','marker'),owner.start_menu_page),
                 ('Pointer & mouse effects',('cursor','trail','ripple'),owner.appearance),
                 ('File transfers',('transfer','transfer_animation'),owner.file_transfer),
                 ('Switching windows',('switcher',),owner.task_switcher)]
@@ -40,7 +41,9 @@ class MixMatchPage(QWidget):
                 field.setAccessibleName('Mix & match · '+caption);self.fields[key]=field
             column.addLayout(form)
             if i==0:
+                self.bar_description=note('');column.addWidget(self.bar_description)
                 self.marker_preview=selection_marker.preview();column.addWidget(self.marker_preview)
+                column.addWidget(note('Waybar styles change the bar’s shape and grouping while using your desktop colors. Any bar works with any theme.'))
                 column.addWidget(note('Selection marker adds an optional edge in Fusion Files. Off keeps the usual selection highlight.'))
             elif i==1:
                 self.active_trail=note('');column.addWidget(self.active_trail)
@@ -83,6 +86,7 @@ class MixMatchPage(QWidget):
         if self.draft:
             if self.draft['trail']!='none':self.last_trail=self.draft['trail']
             self.trail_enabled.blockSignals(True);self.trail_enabled.setChecked(self.draft['trail']!='none');self.trail_enabled.blockSignals(False)
+        if self.draft:self.bar_description.setText(bar_styles.DESCRIPTIONS[bar_styles.resolve(self.draft['waybar'],runtime.design())])
         if self.draft:selection_marker.style_preview(self.marker_preview,self.draft['marker'])
         self.body.setEnabled(not self.busy and bool(self.baseline))
         self.apply.setEnabled(self.dirty and not self.busy and not self.conflicts)

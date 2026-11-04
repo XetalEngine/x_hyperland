@@ -13,11 +13,12 @@ sys.path.insert(0,str(ROOT/'theme'))
 from effects.window_close import model, rules, controller
 from workspaces import model as workspace_model, controller as workspace_controller
 from effects.window_close.drag_page import DragSettings
+from window_rules.page import RulesPage
 from PyQt6.QtCore import Qt, QTimer, QProcess, QObject, pyqtSignal
 from PyQt6.QtGui import QColor, QIcon, QImage, QPixmap
 from PyQt6.QtWidgets import (QApplication,QDialog,QVBoxLayout,QHBoxLayout,QLabel,QComboBox,
                             QSpinBox,QSlider,QFormLayout,QPushButton,QDialogButtonBox,QWidget,
-                            QColorDialog,QScrollArea,QFrame)
+                            QColorDialog,QScrollArea,QFrame,QTabWidget)
 
 
 class DesktopPicker(QObject):
@@ -120,7 +121,10 @@ class RuleDialog(QDialog):
         self.preview_dirty=False;self.valid=False;self.remove_override=False
         self.color_dialog=None;self.background_color=rules.DEFAULTS['background_color'];self.picking=False
         self.setWindowTitle('Window controls');self.setMinimumWidth(540);self.resize(640,790)
-        layout=QVBoxLayout(self);layout.setContentsMargins(24,20,24,20);layout.setSpacing(14)
+        outer=QVBoxLayout(self);tabs=QTabWidget();outer.addWidget(tabs)
+        controls=QWidget();tabs.addTab(controls,'Controls')
+        self.rule_page=RulesPage(self);tabs.addTab(self.rule_page,'Window Rules')
+        layout=QVBoxLayout(controls);layout.setContentsMargins(24,20,24,20);layout.setSpacing(14)
         title=QLabel('Window controls, your way');title.setStyleSheet('font-size: 21px; font-weight: 700;');layout.addWidget(title)
         self.app_label=app=QLabel(self.info['app'] or 'This window');app.setTextFormat(Qt.TextFormat.PlainText)
         app.setWordWrap(True);layout.addWidget(app)
@@ -403,6 +407,7 @@ class RuleDialog(QDialog):
         except Exception:pass  # Native preview expires if the session/helper ends abruptly.
 
     def done(self,result):
+        if not self.rule_page.can_close():return
         self.end_preview();super().done(result)
 
 

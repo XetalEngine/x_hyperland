@@ -15,6 +15,8 @@ import tempfile
 import time
 import uuid
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from window_rules.model import launch_managed
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'compat'))
 from hypr_compat import ipc as compatible_ipc
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'scripts'))
@@ -207,6 +209,8 @@ class Tracker:
             else:rules.append('center on')
         rules += ['tag +' + tag, 'fullscreen_state 0 0']
         if floating and saved:rules.append(f'size {saved[0]} {saved[1]}')
+        if launch_managed(request.get('classes', [])):
+            rules = ['tag +' + tag]
         return {'token': token, 'rules': '; '.join(rules)}
 
     def finish(self, token, success, now):
@@ -219,6 +223,8 @@ class Tracker:
             self.pending[token]['process'] = (pid, process_stamp(pid))
 
     def place_reused(self, client, request):
+        if any(tag.removesuffix('*') == 'fusion-managed-rule' for tag in client.get('tags', [])):
+            self.tag(client, request); return
         address = 'address:' + client['address']
         if client.get('fullscreen') or client.get('fullscreenClient'):
             answer=self.hypr.command(f"xetal-window-state {client['address']} 0 0").strip()

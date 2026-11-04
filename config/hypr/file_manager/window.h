@@ -40,7 +40,7 @@ private:
   QToolButton *views;
   QActionGroup *viewActions;
   QAction *backAction, *forwardAction, *upAction, *previewAction, *hiddenAction,
-      *undoAction;
+      *undoAction, *emptyTrashAction;
   QProcess theme;
   QTimer themeDebounce;
   QHash<QString, QAction *> shortcuts;

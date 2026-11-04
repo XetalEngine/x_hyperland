@@ -116,7 +116,7 @@ def kde_colors(value,design=None):
 
 def theme_token():
     extra=hashlib.sha256()
-    for name in ('hyprlock.conf','startup/kitty.conf','file_jobs/preferences.json','switcher/preferences.json','terminal_fetch/settings.json','effects/burn/settings.conf','effects/cube/settings.json','effects/minimize/settings.conf','effects/wobbly/settings.json','cursors/settings.json','control_center/appearance.conf','wallpaper/selection.json'):
+    for name in ('hyprlock.conf','startup/kitty.conf','file_jobs/preferences.json','switcher/preferences.json','terminal_fetch/settings.json','effects/burn/settings.conf','effects/cube/settings.json','effects/minimize/settings.conf','effects/wobbly/settings.json','cursors/settings.json','control_center/appearance.conf','wallpaper/selection.json','waybar/config.json'):
         path=ROOT/name
         extra.update(path.read_bytes() if path.is_file() else b'missing')
     return settings.Store('theme').load()[1], hashlib.sha256(runtime.STATE.read_bytes()).hexdigest(),extra.hexdigest()
@@ -283,11 +283,14 @@ def prepare_group_image(choice):
     return 'backgrounds/group-'+hashlib.sha256(data).hexdigest()[:24]+'.'+extension,data
 
 
-def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,launcher_background=None,launcher_surfaces=None,launcher_style=None,launcher_labels=None,launcher_background_visibility=None,*,layout=None,components=None,bundle=None,selection_marker=None):
+def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,launcher_background=None,launcher_surfaces=None,launcher_style=None,launcher_labels=None,launcher_background_visibility=None,*,layout=None,components=None,bundle=None,selection_marker=None,bar_style=None):
     if value not in runtime.MODES: raise ValueError('Choose an available theme.')
     design=design or runtime.design()
     if design not in runtime.DESIGNS:raise ValueError('Choose an available desktop design.')
     previous=runtime.state()
+    import bar_styles
+    bar_style=previous.get('bar_style','follow') if bar_style is None else bar_style
+    if not isinstance(bar_style,str) or bar_style not in bar_styles.STYLES:raise ValueError('Choose an available Waybar style.')
     from selection_marker import validate as validate_marker
     selection_marker=validate_marker(runtime.selection_marker() if selection_marker is None else selection_marker)
     if layout is not None and layout not in runtime.layouts.LAYOUTS:raise ValueError('Choose a supported navigation layout.')
@@ -349,6 +352,9 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     elif design=='shadowedge':
         from shadowedge import compositor
         content+=compositor(colors)
+    elif design=='hollowgrove':
+        from hollowgrove import compositor
+        content+=compositor(colors)
     elif design=='candycloud':
         from candycloud import compositor
         content+=compositor(colors)
@@ -382,12 +388,14 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     css+='@define-color text-color-disabled '+colors['Disabled']+';\n@define-color noti-border-color '+colors['Midlight']+';\n'
     if design!='raw':css+=designs.notification_style(colors,design)
     bar=runtime.stylesheet((runtime.ROOT/'waybar-dark.css').read_text(),value,design,qt=False)
-    if design!='raw':bar+=designs.waybar_style(colors,design)
+    bar_design=bar_styles.resolve(bar_style,design)
+    if bar_design!='raw':bar+=designs.waybar_style(colors,bar_design)
+    bar+=bar_styles.stylesheet(colors,bar_design)
     import update_widget
     bar=update_widget.attach(bar)
     files={runtime.ROOT/launcher_background:background_data} if background_data is not None else {}
     files.update(group_files)
-    files.update({runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,**({'layout':layout} if layout is not None else {}),**({'wallpaper_theme':bundle.get('wallpaper_theme',design)} if partial and 'wallpaper' in components else {}),'selection_marker':selection_marker,'launcher_style':launcher_style,'avatar':avatar,'launcher_wallpaper':launcher_wallpaper,'launcher_background':launcher_background,'launcher_surfaces':surfaces,'launcher_labels':labels,'launcher_background_visibility':visibility},indent=2)+'\n').encode(),
+    files.update({runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,**({'layout':layout} if layout is not None else {}),**({'wallpaper_theme':bundle.get('wallpaper_theme',design)} if partial and 'wallpaper' in components else {}),'bar_style':bar_style,'selection_marker':selection_marker,'launcher_style':launcher_style,'avatar':avatar,'launcher_wallpaper':launcher_wallpaper,'launcher_background':launcher_background,'launcher_surfaces':surfaces,'launcher_labels':labels,'launcher_background_visibility':visibility},indent=2)+'\n').encode(),
            runtime.ROOT/'current.colors':scheme.encode(),runtime.ROOT/'kitty-colors.conf':kitty_colors(value,design).encode(),
            isolated:(stream.getvalue().rstrip()+'\n').encode(),
            ROOT/'waybar/style.css':bar.encode(),
@@ -401,8 +409,13 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
             raw=path.read_bytes()
             if design!='raw':files[saved]=raw
         files[path]=(modern_lock(colors,design).encode() if target=='hyprlock.conf' else raw+b'\n'+kitty_colors(value,design).encode()) if design!='raw' else raw
+    if not partial or 'colors' in components or 'waybar' in components:
+        bar_config=ROOT/'waybar/config.json'
+        if bar_config.exists():files[bar_config]=(json.dumps(bar_styles.configure(json.loads(bar_config.read_text()),bar_design),indent=2)+'\n').encode()
     if partial and 'colors' not in components:
-        for path in (runtime.ROOT/'current.colors',runtime.ROOT/'kitty-colors.conf',isolated,ROOT/'waybar/style.css',ROOT/'waybar/updates.css',ROOT/'swaync/style.css',ROOT/'hyprlock.conf',ROOT/'startup/kitty.conf',runtime.ROOT/'hyprlock-raw.conf',runtime.ROOT/'startup-raw.conf'):files.pop(path,None)
+        for path in (runtime.ROOT/'current.colors',runtime.ROOT/'kitty-colors.conf',isolated,ROOT/'waybar/style.css',ROOT/'waybar/updates.css',ROOT/'swaync/style.css',ROOT/'hyprlock.conf',ROOT/'startup/kitty.conf',runtime.ROOT/'hyprlock-raw.conf',runtime.ROOT/'startup-raw.conf'):
+            if 'waybar' in components and path==ROOT/'waybar/style.css':continue
+            files.pop(path,None)
     settings.STATE.mkdir(parents=True,exist_ok=True,mode=0o700)
     with ExitStack() as locks:
         lock_paths=[settings.STATE/'theme-files.lock',settings.STATE/'wallpaper-save.lock']
@@ -481,6 +494,7 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
                 try:effect_colors.reload_active(settings.ctl,effect_reloads)
                 except Exception:pass
             raise
+    if not partial or 'colors' in components or 'waybar' in components:bar_styles.reload_session(ROOT)
     if not partial or 'colors' in components:reload_kitty(include_startup=True)
     # Reload only our notification daemon, never a notification server from KDE.
     for item in Path('/proc').iterdir():
@@ -509,4 +523,4 @@ def apply_components(target,selected,expected):
         state.get('launcher_wallpaper',False),state.get('launcher_background',''),state.get('launcher_surfaces'),
         state.get('launcher_style','follow'),launcher_labels=state.get('launcher_labels'),
         launcher_background_visibility=state.get('launcher_background_visibility',18),
-        layout=state['layout'],components=selected,bundle=target,selection_marker=state.get('selection_marker','none'))
+        layout=state['layout'],components=selected,bundle=target,selection_marker=state.get('selection_marker','none'),bar_style=state.get('bar_style','follow'))

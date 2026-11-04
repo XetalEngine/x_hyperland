@@ -1171,7 +1171,7 @@ class Window(QMainWindow):
                       'calendar': CalendarPage(), 'capture': CapturePage(async_run),
                       'system': SystemPage(), 'terminal': TerminalPage(async_run)}
         for name, page in self.pages.items():
-            self.tabs.addTab(page, name.replace('-', ' ').title())
+            self.tabs.addTab(page, ('Recorder' if name == 'capture' else name.replace('-', ' ').title()))
         self.tabs.currentChanged.connect(self.changed)
         self.refresh_timer=QTimer(self);self.refresh_timer.setSingleShot(True)
         self.refresh_timer.timeout.connect(self.refresh_current)
@@ -1181,7 +1181,7 @@ class Window(QMainWindow):
         self.rail_avatar=Avatar(46);self.rail_avatar.clicked.connect(lambda:self.switch('home'));rail.addWidget(self.rail_avatar)
         self.rail_buttons={}
         for name in ['home',*self.pages]:
-            caption=name.replace('-',' ').title();control=QToolButton();control.setText(caption);control.setObjectName('railButton');control.setCheckable(True)
+            caption=('Recorder' if name == 'capture' else name.replace('-',' ').title());control=QToolButton();control.setText(caption);control.setObjectName('railButton');control.setCheckable(True)
             control.setFixedSize(48,42);control.setIconSize(QSize(22,22));control.setToolTip(caption);control.setAccessibleName(caption)
             control.clicked.connect(lambda _,n=name:self.switch(n));rail.addWidget(control);self.rail_buttons[name]=control
         rail.addStretch();content.addWidget(self.modern_rail);content.addWidget(self.tabs,1);layout.addLayout(content,1)
@@ -1266,7 +1266,7 @@ class Window(QMainWindow):
     def update_navigation(self):
         modern=theme_runtime.layout()!='classic';current=self.tabs.currentWidget()
         name=next((name for name,page in self.pages.items() if page is current),'hotkeys')
-        if modern:self.brand.setText(name.replace('-',' ').title())
+        if modern:self.brand.setText(('Recorder' if name == 'capture' else name.replace('-',' ').title()))
         for key,control in self.rail_buttons.items():
             selected=key==name;control.setChecked(selected)
             control.setIcon(navigation_icon(key,theme_runtime.colors()['HighlightedText' if selected else 'Accent']))
@@ -1288,7 +1288,7 @@ class Window(QMainWindow):
         else:self.modern_rail.setFixedWidth(184 if sidebar else 66)
         self.rail_avatar.setVisible(not ribbon)
         for key,control in self.rail_buttons.items():
-            caption=key.replace('-',' ').title()
+            caption='Recorder' if key == 'capture' else key.replace('-',' ').title()
             control.setText(' '+caption if sidebar else 'Menus' if ribbon and key=='context-menu' else caption)
             control.setFixedSize(78 if ribbon else 166 if sidebar else 48,54 if ribbon else 40)
             control.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon if ribbon else Qt.ToolButtonStyle.ToolButtonTextBesideIcon if sidebar else Qt.ToolButtonStyle.ToolButtonIconOnly)
@@ -1332,7 +1332,7 @@ class Window(QMainWindow):
         if not self.pages['displays'].can_close() or any(self.pages[name].busy for name in ('input','theme','context-menu')):
             event.ignore()
             return
-        unsaved = [name.replace('-', ' ').title() for name in ('displays','input','theme','context-menu','terminal','capture') if self.pages[name].dirty]
+        unsaved = [('Recorder' if name == 'capture' else name.replace('-', ' ').title()) for name in ('displays','input','theme','context-menu','terminal','capture') if self.pages[name].dirty]
         if unsaved and QMessageBox.question(self, 'Discard unsaved changes?',
                 'Discard the draft in '+', '.join(unsaved)+' and close?',
                 QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,

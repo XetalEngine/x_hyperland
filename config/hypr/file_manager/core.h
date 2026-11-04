@@ -22,7 +22,7 @@ public:
   QSettings settings;
   QList<QVariantMap> places() const;
   void setPlaces(const QList<QVariantMap> &places);
-  QList<QVariantMap> menu() const;
-  void setMenu(const QList<QVariantMap> &entries);
+  QList<QVariantMap> menu(const QString &scope = "menu") const;
+  void setMenu(const QList<QVariantMap> &entries, const QString &scope = "menu");
 };
 } // namespace Fusion

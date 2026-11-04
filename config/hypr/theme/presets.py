@@ -9,6 +9,7 @@ import re
 import sys
 import uuid
 import runtime
+import bar_styles
 import layouts
 import selection_marker
 sys.path.insert(0, str(runtime.ROOT.parent))
@@ -23,6 +24,7 @@ from cursors import model as cursors
 from cursors import effects as mouse_effects
 
 COMPONENTS = {
+    'waybar': ('Waybar', 'Taskbar design, grouping and surface shapes'),
     'colors': ('Colors', 'Desktop palette, taskbar accents, terminal and application colors'),
     'layout': ('Navigation & controls', 'Tabs, icon rail, sidebar or ribbon; button and menu shapes'),
     'selection': ('Selection marker', 'Optional accent edge beside the selected folder in Fusion Files'),
@@ -36,6 +38,7 @@ COMPONENTS = {
     'terminal': ('Terminal welcome', 'Logo and information fields; aliases remain untouched'),
 }
 THEME_FIELDS = {
+    'waybar': ('bar_style',),
     'colors': ('design', 'mode'), 'layout': ('layout',), 'avatar': ('avatar',),
     'selection': ('selection_marker',),
     'launcher': ('launcher_style', 'launcher_wallpaper', 'launcher_background', 'launcher_surfaces', 'launcher_labels', 'launcher_background_visibility'),
@@ -70,6 +73,8 @@ def validate(value):
         raise ValueError('Invalid preset colors.')
     state['layout'] = state.get('layout', layouts.default(state['design']))
     if not isinstance(state['layout'],str) or state['layout'] not in layouts.LAYOUTS: raise ValueError('Invalid preset layout.')
+    state['bar_style']=state.get('bar_style','follow')
+    if not isinstance(state['bar_style'],str) or state['bar_style'] not in bar_styles.STYLES:raise ValueError('Invalid Waybar style.')
     state['selection_marker']=selection_marker.validate(state.get('selection_marker',selection_marker.DEFAULT))
     if 'wallpaper_theme' in value and (not isinstance(value['wallpaper_theme'],str) or value['wallpaper_theme'] not in runtime.DESIGNS):raise ValueError('Invalid wallpaper theme.')
     for key, normalizer in [('transfer', transfer.normalize), ('switcher', switcher.normalize), ('terminal', terminal.validate), ('burn', burn.validate), ('cube', cube.validate), ('minimize', minimize.validate), ('wobbly', wobbly.validate), ('cursors', cursors.validate)]:
@@ -96,7 +101,7 @@ def validate(value):
 def builtin(design, mode=None, root=None):
     mode = mode or runtime.designs.DEFAULT_MODES[design]
     value = current(root); value['theme'].update(design=design, mode=mode, layout=layouts.default(design), launcher_style=design,
-                                               selection_marker=selection_marker.DEFAULT)
+                                               selection_marker=selection_marker.DEFAULT,bar_style=design)
     value['transfer']['style'] = design
     # Built-in presets supply their visual language, while keeping timing and hardware preferences.
     value.pop('wallpapers', None); value['wallpaper_theme'] = design
@@ -107,6 +112,9 @@ def builtin(design, mode=None, root=None):
     if design == 'tidalglass':
         value.setdefault('cursors',copy.deepcopy(cursors.DEFAULTS))
         value['cursors'].update(style='pearl')
+    elif design == 'hollowgrove':
+        value['cursors'].update(style='carbon',trail='glow',color='#a3bc99')
+        value['theme']['launcher_wallpaper']=False
     elif design == 'shadowedge':
         value['cursors'].update(style='carbon')
         value['theme']['launcher_wallpaper']=False
@@ -130,6 +138,8 @@ def merged_theme(previous, target, selected):
     result.setdefault('design',runtime.design());result.setdefault('mode',runtime.mode())
     if 'colors' in selected and target['theme']['design']!=previous.get('design','raw') and 'launcher' not in selected and previous.get('launcher_style', 'follow') == 'follow':
         result['launcher_style'] = previous.get('design', 'raw')
+    if 'colors' in selected and 'waybar' not in selected and previous.get('bar_style','follow')=='follow':
+        result['bar_style']=previous.get('design','raw')
     for component, fields in THEME_FIELDS.items():
         if component in selected:
             for key in fields:

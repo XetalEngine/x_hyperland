@@ -106,14 +106,20 @@ with (root/'calls.jsonl').open('a') as log:
             subscription = bus.signal_subscribe(desktop_name, 'org.xetal.FusionFiles.Desktop1', None,
                 '/org/xetal/FusionFiles/Desktop', None, Gio.DBusSignalFlags.NONE,
                 lambda _b,_s,_p,_i,signal,values,_d: signals.append((signal, values.unpack())), None)
-            def desktop(method, signature, arguments):
+            def desktop(method, signature, arguments, reply="(b)"):
                 return bus.call_sync(desktop_name, '/org/xetal/FusionFiles/Desktop',
                     'org.xetal.FusionFiles.Desktop1', method, GLib.Variant(signature, arguments),
-                    GLib.VariantType.new('(b)'), Gio.DBusCallFlags.NONE, 3000, None).unpack()[0]
+                    GLib.VariantType.new(reply), Gio.DBusCallFlags.NONE, 3000, None).unpack()[0]
             source = root/'Desktop'; source.mkdir()
             target = root/'Target'; target.mkdir()
             filename = 'notes # 100% café.txt'
             (source/filename).write_text('desktop transfer fixture')
+            menu=json.loads(desktop('Menu','(as)', ([(source/filename).as_uri()],), '(s)'))
+            assert any(row['name']=='Ark' and row.get('children') for row in menu), menu
+            assert {'open','copy','cut','rename','properties','copyPath'} <= {row.get('local') for row in menu}
+            old=next(row['action'] for row in menu if row.get('local')=='properties')
+            desktop('Menu','(as)', ([source.as_uri()],), '(s)')
+            assert not desktop('MenuAction','(s)', (old,)), 'Stale menus must not act on a new selection'
             assert desktop('TransferWithPlacement', '(assbs)', ([(source/filename).as_uri()], target.as_uri(), True, 'copy-origin'))
             wait_for(lambda: (target/filename).exists(), 'Desktop copy did not reach the Files transfer engine.')
             wait_for(lambda: ('PlacementFinished', ('copy-origin',)) in signals, 'Copy placement context was not completed.')

@@ -118,6 +118,12 @@ def appearance():
         QFrame#pickerActions, QStatusBar {{background:{p['AlternateBase']};}}
         QTabBar::tab:selected {{border:1px solid {p['Midlight']}; border-top-color:{p['Accent']}; border-radius:15px;}}
         '''
+    if design == 'hollowgrove':
+        from hollowgrove import glass
+        style += f'''QMainWindow,QWidget#filesBody,QToolBar,QFrame#addressRow {{background:{glass(p)};}}
+        QGroupBox#drivePartitionCard {{background:{glass(p)};border:1px solid {p['Midlight']};border-radius:18px;}}
+        QTreeWidget#places {{background:{p['Window']};border-right:1px solid {p['Midlight']};}}
+        QTabBar::tab:selected {{background:{p['Highlight']};border:1px solid {p['Accent']};border-radius:12px;}}'''
     if design == 'shadowedge':
         from shadowedge import smoke
         style += f'''

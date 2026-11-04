@@ -1,0 +1,18 @@
+{
+  "tool": "Built-in image_gen",
+  "reference": "Hollow Grove desktop concept supplied by user",
+  "images": [
+    {
+      "file": "hollow-grove.png",
+      "prompt": "Use case: precise-object-edit. Asset type: production desktop wallpaper for Hollow Grove, landscape 3840x2160. Input image 1 is the edit target and visual reference. Remove ALL interface elements: the top taskbar, left launcher, right settings window, bottom dock, all typography including HOLLOW GROVE and XETAL FUSION. Reconstruct the natural scene seamlessly behind them. Preserve the spectacular ancient twisted tree on the right, intricate bark and roots, silver-white blossoms, dark mossy sage-green and charcoal palette, misty ruined arches in the valley on the left, reflective stream flowing toward the foreground, small pale moth. Cinematic detailed dark fantasy botanical painting, low saturation, pale diffused moonlight through fog. Edge-to-edge artwork with no frame, no panels, no icons, no lettering, no UI, no logos. Keep quiet negative space over the central mist for desktop icons. Save the finished clean wallpaper as a project asset."
+    },
+    {
+      "file": "forgotten-arches.png",
+      "prompt": "Use case: stylized-concept. Asset type: companion desktop wallpaper for Hollow Grove, landscape 3840x2160. Image 1 is the style reference, preserve its exact dark charcoal and desaturated sage palette, delicate silver foliage, mist and detailed painted realism. Create a different view in this same enchanted forest for the LEFT monitor: ancient broken stone arches and a mossy ruined stair at the left, calm stream and misty valley leading toward the right, graceful black branches overhead with white blossoms and pale moths, deeper distant towers, large open atmospheric middle. No giant tree trunk in center. Same moonlit hour and low contrast atmospheric depth as reference. Natural edge-to-edge scene, no text, no interface, no windows, no panels, no frame, no watermark."
+    },
+    {
+      "file": "moonlit-pool.png",
+      "prompt": "Use case: stylized-concept. Asset type: third companion desktop wallpaper for Hollow Grove, landscape 3840x2160. Image 1 is the style reference. Create another view in the same world for the RIGHT monitor: a tranquil moonlit pool under an ancient forest canopy, a low stone bridge half lost in mist on the right, sweeping gnarled roots on the left foreground, intricate silver-white blossoms and desaturated sage foliage framing a quiet dark center. A small pale moth over the pool. Preserve reference palette: deep charcoal, muted sage, silver fog, no bright saturated colors. Detailed cinematic botanical fantasy painting, same soft diffused moonlight, graceful natural textures and depth. No typography, no panels, no interface, no windows, no icons, no borders or watermark. Only seamless edge-to-edge landscape artwork."
+    }
+  ]
+}

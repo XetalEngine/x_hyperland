@@ -3,6 +3,7 @@
 #include "window.h"
 #include "applications.h"
 #include "removal.h"
+#include "context_actions.h"
 #include "transfers.h"
 #include <KIO/FileUndoManager>
 #include <KApplicationTrader>
@@ -140,6 +141,25 @@ private slots:
     minimize->click();QTRY_VERIFY(window.isMinimized());
     window.showNormal();QTRY_VERIFY(!window.isMinimized());QVERIFY(window.isVisible());
     close->click();QTRY_VERIFY(!window.isVisible());
+  }
+  void trashButtonFollowsLocationAndCancelKeepsFiles() {
+    FilesWindow window(QUrl::fromLocalFile(folder), false, temporary.path()+"/trash-button.ini");
+    window.show();
+    auto *button=window.findChild<QToolButton *>("emptyTrashButton");QVERIFY(button);
+    QVERIFY(!button->isVisible());
+    window.openLocation(QUrl("trash:/"));QTRY_VERIFY(button->isVisible());
+    QTest::mouseClick(button,Qt::LeftButton);
+    QTRY_VERIFY(window.findChild<QMessageBox *>("emptyTrashConfirmation"));
+    auto *dialog=window.findChild<QMessageBox *>("emptyTrashConfirmation");
+    QCOMPARE(dialog->defaultButton(),dialog->button(QMessageBox::Cancel));
+    dialog->reject();QCoreApplication::processEvents();
+    window.openLocation(QUrl::fromLocalFile(folder));QTRY_VERIFY(!button->isVisible());
+  }
+  void desktopMenuPreferencesAreIndependent() {
+    Fusion::Preferences preferences(temporary.path()+"/desktop-menu.ini");
+    const auto files=preferences.menu();auto desktop=files;
+    desktop[0]["enabled"]=false;preferences.setMenu(desktop,"desktopMenu");
+    QCOMPARE(preferences.menu(),files);QCOMPARE(preferences.menu("desktopMenu"),desktop);
   }
   void sidebarSelectionKeepsIndentationClear() {
     // Render the real PlacesTree with every shipped palette and marker. A

@@ -1,0 +1,186 @@
+"""Independent Waybar architecture, composed with the chosen desktop palette."""
+import copy
+from pathlib import Path
+import os
+import signal
+import designs
+
+STYLES={'follow':'Follow desktop theme', **designs.DESIGNS}
+DESCRIPTIONS={
+ 'raw':'Terminal rail · a continuous compact strip with underlined workspaces',
+ 'modern':'Floating islands · rounded app, clock and status capsules',
+ 'breakpoint':'Command deck · segmented blocks and a strong lower seam',
+ 'binaryknife':'Circuit rail · offset corners, side ticks and a centered workspace bank',
+ 'tidalglass':'Tide pools · translucent curved islands with a luminous rim',
+ 'porcelainink':'Ink ledger · a restrained paper strip with a stamped Apps seal',
+ 'obsidianforge':'Forge console · heavy machined edges and inset status blocks',
+ 'candycloud':'Cloud beads · soft floating bubbles and pill-shaped workspaces',
+ 'shadowedge':'Blade rail · fine silver edges, angular tabs and a quiet central clock',
+ 'hollowgrove':'Grove bough · botanical glass, pale leaves and a framed workspace trail',
+}
+
+
+def resolve(choice,design):return design if choice=='follow' else choice
+
+
+def configure(config,style):
+    """Rearrange only owned modules; retain commands, user modules and settings."""
+    if style not in designs.DESIGNS:raise ValueError('Unknown Waybar design.')
+    result=copy.deepcopy(config)
+    if isinstance(result,list):return [configure(bar,style) for bar in result]
+    all_modules=[]
+    for zone in ('left','center','right'):
+        for module in result.get('modules-'+zone,[]):
+            if module not in all_modules:all_modules.append(module)
+    available=set(all_modules)
+    apps=['cffi/bar-options','custom/launcher','hyprland/workspaces','cffi/new-workspace','custom/keys','custom/updates','cffi/app-pins']
+    status=['custom/recording','cpu','memory','custom/temperature','temperature','disk','custom/internet','custom/lan','network#lan','custom/wifi',
+            'custom/vpn','bluetooth','group/audio','pulseaudio#microphone','idle_inhibitor','custom/notifications','tray','clock','custom/power']
+    layouts={
+        'raw':(apps,['mpris'],status),
+        'modern':(apps+['mpris'],['clock'],[x for x in status if x!='clock']),
+        'breakpoint':(apps,['custom/recording','mpris'],[x for x in status if x!='custom/recording']),
+        'binaryknife':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],
+                       ['hyprland/workspaces','cffi/new-workspace'],status),
+        'tidalglass':(apps+['mpris'],['clock'],[x for x in status if x!='clock']),
+        'porcelainink':(apps,['clock'],['mpris']+[x for x in status if x!='clock']),
+        'obsidianforge':(apps,['cpu','memory','custom/temperature','temperature'],['mpris']+[x for x in status if x not in ('cpu','memory','custom/temperature','temperature')]),
+        'candycloud':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],
+                      ['hyprland/workspaces','cffi/new-workspace'],status),
+        'shadowedge':(apps+['mpris'],['clock'],[x for x in status if x!='clock']),
+        'hollowgrove':(apps,['mpris'],status),
+    }
+    zones=[[module for module in zone if module in available] for zone in layouts[style]]
+    used=set(sum(zones,[]));zones[2]+=[m for m in all_modules if m not in used]
+    for zone,modules in zip(('left','center','right'),zones):result['modules-'+zone]=modules
+    floating=style in ('modern','tidalglass','candycloud','hollowgrove')
+    result.update(height=42 if style in ('candycloud','tidalglass') else 40 if floating else 38,spacing=2)
+    result['margin-top']=6 if floating else 0;result['margin-bottom']=0
+    result['margin-left']=10 if floating else 0;result['margin-right']=10 if floating else 0
+    return result
+
+
+def stylesheet(p,style,root=None):
+    if style not in designs.DESIGNS:raise ValueError('Unknown Waybar design.')
+    root=root or Path(__file__).resolve().parent
+    a,b,w,t,m,h=p['Accent'],p['Base'],p['Window'],p['Text'],p['Midlight'],p['Highlight']
+    common=f'''
+/* Independent Waybar design: {style}. All click targets and visibility choices are retained. */
+window#waybar {{color:{t};}}
+#custom-launcher, #custom-keys, #new-workspace, #clock, #audio, #xetal-pins .pin, #workspaces button {{color:{t};}}
+#workspaces button.active {{background:{h}; color:{p['HighlightedText']};}}
+#workspaces button:hover, #custom-launcher:hover, #custom-keys:hover, #xetal-pins .pin:hover {{background:{p['Mid']};}}
+#custom-recording.recording {{color:#ff8292;}}
+'''
+    faces={
+'raw':f'''
+window#waybar {{background:{w};border:0;border-bottom:1px solid {a};border-radius:0;}}
+.modules-left,.modules-center,.modules-right {{padding:2px 4px;background:transparent;}}
+#custom-launcher,#custom-keys,#clock,#audio,#xetal-pins .pin,#workspaces button {{border-radius:0;background:transparent;}}
+#custom-launcher {{border-right:1px solid {m};color:{a};font-family:monospace;}}
+#workspaces button {{border-bottom:2px solid transparent;padding:0 6px;}}
+#workspaces button.active {{border-bottom-color:{a};background:alpha({a},0.1);}}
+#clock {{font-family:monospace;border-left:1px solid {m};}}
+''',
+'modern':f'''
+window#waybar {{background:transparent;border:0;}}
+.modules-left,.modules-center,.modules-right {{background:alpha({w},0.96);border:1px solid alpha({m},0.75);border-radius:22px;padding:3px 8px;}}
+.modules-center {{margin:0 12px;}}
+#custom-launcher {{background:{h};border-radius:18px;padding:0 15px;}}
+#workspaces button {{background:transparent;border:0;border-radius:16px;}}
+#workspaces button.active {{box-shadow:inset 0 -2px {a};}}
+#clock {{background:transparent;font-weight:bold;}}
+#audio,#custom-keys,#xetal-pins .pin {{border-radius:14px;}}
+''',
+'breakpoint':f'''
+window#waybar {{background:linear-gradient(180deg,{w},{b});border:0;border-bottom:3px solid {a};}}
+.modules-left,.modules-center,.modules-right {{padding:2px 4px;border-right:1px solid {m};}}
+#custom-launcher {{background:{h};border-radius:2px 12px 2px 2px;border-left:3px solid {a};font-weight:900;padding:0 15px;}}
+#workspaces button {{border-radius:1px;border:1px solid {m};background:alpha({b},0.5);}}
+#workspaces button.active {{border-color:{a};box-shadow:inset 0 -3px {a};}}
+#clock {{border-radius:1px;background:{h};border-left:3px solid {a};font-family:monospace;}}
+#cpu,#memory,#custom-temperature,#temperature,#disk {{padding:0 5px;border-bottom:1px solid {m};}}
+''',
+'binaryknife':f'''
+window#waybar {{background:{b};border:1px solid {m};border-bottom:2px solid {a};}}
+.modules-left,.modules-right {{padding:3px 5px;}}
+.modules-center {{padding:2px 8px;border-left:2px solid {a};border-right:2px solid {a};background:alpha({a},0.07);}}
+#custom-launcher,#clock {{background:linear-gradient(110deg,{h},{w});border:1px solid {a};border-radius:0 10px 0 10px;}}
+#workspaces button {{background:transparent;border-radius:0 8px 0 8px;border:1px solid {m};}}
+#workspaces button.active {{border-color:{a};box-shadow:inset 3px 0 {a};}}
+#custom-keys,#audio,#xetal-pins .pin {{border-radius:0;background:transparent;}}
+''',
+ 'tidalglass':f'''
+window#waybar {{background:transparent;border:0;}}
+.modules-left,.modules-center,.modules-right {{background:linear-gradient(170deg,alpha({p['Button']},0.96),alpha({w},0.86));border:1px solid alpha({p['Light']},0.75);border-radius:10px 28px 10px 28px;padding:4px 10px;box-shadow:inset 0 1px alpha({a},0.3);}}
+.modules-center {{margin:0 14px;border-radius:24px;}}
+#custom-launcher {{background:alpha({a},0.18);border-radius:20px 5px 20px 5px;border-bottom:1px solid {a};}}
+#workspaces button {{background:transparent;border:0;border-radius:12px;}}
+#workspaces button.active {{border-bottom:2px solid {p['Light']};}}
+#clock,#audio,#custom-keys,#xetal-pins .pin {{background:alpha({b},0.25);border-radius:16px;}}
+''',
+'porcelainink':f'''
+window#waybar {{background:{w};border:1px solid {m};border-bottom:2px solid {p['Link']};border-radius:1px;}}
+.modules-left,.modules-center,.modules-right {{padding:4px 8px;}}
+#custom-launcher {{background:{h};border:1px solid {a};border-radius:1px;box-shadow:inset 0 0 0 2px {w};padding:0 16px;}}
+#workspaces button {{background:transparent;border:0;border-radius:0;font-family:serif;}}
+#workspaces button.active {{background:transparent;color:{a};border-bottom:2px solid {a};}}
+#clock {{background:transparent;font-family:serif;letter-spacing:2px;border-left:1px solid {m};border-right:1px solid {m};border-radius:0;}}
+#audio,#custom-keys,#xetal-pins .pin {{background:transparent;border-radius:0;}}
+''',
+'obsidianforge':f'''
+window#waybar {{background:linear-gradient(180deg,{p['Button']},{b});border:1px solid {m};border-top:2px solid {p['Light']};border-bottom:4px solid {a};border-radius:3px;}}
+.modules-left,.modules-center,.modules-right {{padding:2px 5px;}}
+.modules-center {{background:{b};border:1px solid {m};border-radius:3px;margin:3px 10px;padding:0 10px;}}
+#custom-launcher,#clock {{background:{b};border:1px solid {p['Light']};border-bottom:2px solid {a};border-radius:2px;font-weight:900;}}
+#workspaces button {{border:1px solid {m};background:{b};border-radius:2px;}}
+#workspaces button.active {{box-shadow:inset 0 2px {a};border-color:{a};}}
+#audio,#custom-keys,#xetal-pins .pin {{border:1px solid {m};border-radius:2px;}}
+''',
+'candycloud':f'''
+window#waybar {{background:transparent;border:0;}}
+.modules-left,.modules-center,.modules-right {{background:linear-gradient(160deg,alpha({p['Button']},0.98),alpha({w},0.95));border:1px solid {p['Light']};border-radius:26px;padding:4px 10px;box-shadow:inset 0 2px alpha({p['Text']},0.08);}}
+.modules-center {{margin:0 10px;}}
+#custom-launcher,#clock {{background:linear-gradient(180deg,{h},{p['Button']});border:1px solid {p['Link']};border-radius:19px;}}
+#workspaces button {{background:alpha({b},0.3);border:0;border-radius:22px;min-width:14px;}}
+#workspaces button.active {{border:1px solid {p['Light']};box-shadow:inset 0 2px alpha({p['Text']},0.2);}}
+#custom-keys,#audio,#xetal-pins .pin {{background:alpha({a},0.1);border-radius:19px;}}
+''',
+'shadowedge':f'''
+window#waybar {{background:linear-gradient(180deg,{p['Button']},{b});border:1px solid {m};border-top:1px solid {p['Light']};border-bottom:1px solid {p['Link']};border-radius:0;}}
+.modules-left,.modules-right {{padding:3px 7px;}}
+.modules-center {{background:transparent;border-left:1px solid {m};border-right:1px solid {m};padding:1px 18px;margin:4px 12px;}}
+#custom-launcher {{background:{b};border:1px solid {p['Link']};border-bottom-color:{a};border-radius:10px 0 10px 0;}}
+#workspaces button {{background:transparent;border:0;border-radius:0;}}
+#workspaces button.active {{border-top:1px solid {p['Link']};border-bottom:2px solid {a};background:alpha({h},0.5);}}
+#clock {{background:transparent;font-weight:500;letter-spacing:2px;border-radius:0;}}
+#audio,#custom-keys,#xetal-pins .pin {{background:transparent;border-radius:1px;}}
+''',
+'hollowgrove':f'''
+window#waybar {{background:linear-gradient(180deg,alpha({p['Button']},0.97),alpha({b},0.95));border:1px solid {p['Link']};border-radius:25px;box-shadow:inset 0 1px alpha({p['Light']},0.25);}}
+.modules-left {{background-image:url("{root/'assets/grove-bough.svg'}");background-repeat:no-repeat;background-position:left center;padding:4px 9px 4px 34px;}}
+.modules-right {{padding:4px 12px;}}
+.modules-center {{padding:4px 12px;}}
+#custom-launcher {{font-family:serif;letter-spacing:1px;background:transparent;border-radius:16px;border-right:1px solid {m};}}
+#workspaces {{border-left:1px solid alpha({a},0.3);border-right:1px solid alpha({a},0.3);padding:0 5px;}}
+#workspaces button {{background:transparent;border:0;border-radius:14px 5px 14px 5px;}}
+#workspaces button.active {{background:linear-gradient(160deg,{p['Link']},{h});color:{p['HighlightedText']};border:1px solid {a};}}
+#clock {{background:transparent;font-family:serif;letter-spacing:1px;border-left:1px solid {m};border-radius:0;}}
+#audio,#custom-keys,#xetal-pins .pin {{background:transparent;border-radius:14px;}}
+'''}
+    return common+faces[style]
+
+
+def reload_session(root):
+    """Signal only this user's bar using this profile and compositor instance."""
+    config=str(root/'waybar/config.json').encode();instance=os.environ.get('HYPRLAND_INSTANCE_SIGNATURE','').encode()
+    if not instance:return
+    for proc in Path('/proc').iterdir():
+        if not proc.name.isdigit():continue
+        try:
+            if proc.stat().st_uid!=os.getuid():continue
+            command=(proc/'cmdline').read_bytes().split(b'\0')
+            if not command or Path(os.fsdecode(command[0])).name!='waybar' or config not in command:continue
+            if b'HYPRLAND_INSTANCE_SIGNATURE='+instance not in (proc/'environ').read_bytes().split(b'\0'):continue
+            os.kill(int(proc.name),signal.SIGUSR2)
+        except (OSError,ValueError):continue

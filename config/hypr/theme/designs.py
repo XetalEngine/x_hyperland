@@ -3,14 +3,14 @@ import colorsys
 from pathlib import Path
 
 DESIGNS = {'raw': 'Xetal Raw', 'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint', 'binaryknife': 'Binary Knife',
-           'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud', 'shadowedge': 'Shadow Edge'}
+           'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud', 'shadowedge': 'Shadow Edge', 'hollowgrove': 'Hollow Grove'}
 DESCRIPTIONS = {'raw': 'Original layout · cyan accents', 'modern': 'Soft cards · blue accents',
                 'breakpoint': 'Charcoal glass · crimson focus', 'binaryknife': 'Sharp graphite · electric blue',
                 'tidalglass': 'Pearl glass · luminous ocean depths',
                 'porcelainink': 'Warm porcelain · charcoal & vermilion',
                 'obsidianforge': 'Machined basalt · molten copper & embers',
                 'candycloud': 'Pearlescent pillows · clouds & starlight',
-                'shadowedge': 'Smoked glass · silver blades & crimson rain'}
+                'shadowedge': 'Smoked glass · silver blades & crimson rain', 'hollowgrove': 'Botanical glass · moonlit sage & silver blossoms'}
 # Every built-in skin starts dark, including future additions to the catalog.
 DEFAULT_MODES = {design: 'dark' for design in DESIGNS}
 
@@ -37,6 +37,9 @@ def recolor(color, palette, mode):
 
 
 def qt_style(p,style='modern'):
+    if style=='hollowgrove':
+        from hollowgrove import qt_style as themed
+        return themed(p)
     if style=='shadowedge':
         from shadowedge import qt_style as themed
         return themed(p)
@@ -138,6 +141,9 @@ def qt_style(p,style='modern'):
 
 
 def waybar_style(p,style='modern'):
+    if style=='hollowgrove':
+        from hollowgrove import waybar_style as themed
+        return themed(p)
     if style=='shadowedge':
         from shadowedge import waybar_style as themed
         return themed(p)
@@ -182,6 +188,9 @@ def waybar_style(p,style='modern'):
 
 
 def notification_style(p,style='modern'):
+    if style=='hollowgrove':
+        from hollowgrove import notification_style as themed
+        return themed(p)
     if style=='shadowedge':
         from shadowedge import notification_style as themed
         return themed(p)

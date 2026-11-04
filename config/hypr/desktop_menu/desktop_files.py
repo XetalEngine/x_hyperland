@@ -1,5 +1,6 @@
 """Delegate desktop file changes and launches to Fusion Files."""
 import hashlib
+import json
 import os
 from gi.repository import Gio, GLib
 
@@ -40,6 +41,18 @@ class Files:
 
     def open(self, urls, choose=False):
         self.call('Open', '(asb)', urls, choose)
+
+    def menu(self, urls, callback):
+        def finished(bus, result, _data):
+            try:
+                entries = json.loads(bus.call_finish(result).unpack()[0])
+                callback(entries)
+            except (GLib.Error, ValueError, TypeError) as error:
+                self.error('Could not load the desktop file menu: '+str(error))
+                callback([])
+        self.bus.call(self.name, OBJECT, INTERFACE, 'Menu', GLib.Variant('(as)', (urls,)),
+                      GLib.VariantType.new('(s)'), Gio.DBusCallFlags.NO_AUTO_START, 5000,
+                      None, finished, None)
 
     def transfer(self, urls, destination, copy):
         self.call('Transfer', '(assb)', urls, destination, copy)

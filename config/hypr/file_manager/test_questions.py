@@ -99,10 +99,12 @@ def main():
                     ('file', 'replace'), ('file', 'skip'), ('conflicts', 'cancel'), ('duplicate', 'copy')}
         result[0] = int(code != 0 or failures or not expected.issubset(set(observed)))
         print('Expanding transfer questions:', observed, 'failures:', failures, flush=True)
-        app.quit()
+        # The fixture's completed progress cards intentionally ignore Close.
+        # Exit the test loop directly once the child and assertions finish.
+        app.exit(result[0])
     process.finished.connect(finished)
     process.start(sys.argv[1], ['transferQuestions'])
-    QTimer.singleShot(90000, lambda: (process.kill(), app.quit()))
+    QTimer.singleShot(90000, lambda: (process.kill(), app.exit(1)))
     app.exec(); service.stop()
     return result[0]
 

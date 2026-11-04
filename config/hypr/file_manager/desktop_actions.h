@@ -1,7 +1,12 @@
 #pragma once
 #include <QDBusAbstractAdaptor>
 #include <QUrl>
+#include <QPointer>
+#include <QHash>
 class KJob;
+class QMenu;
+class QAction;
+class KAbstractFileItemActionPlugin;
 
 // The desktop surface uses the same transfer/conflict and application handlers
 // as Files. This interface belongs only to the current Hyprland login.
@@ -22,6 +27,10 @@ public slots:
   bool NewFolder(const QString &directory);
   bool NewFolderWithPlacement(const QString &directory, const QString &request);
   bool Properties(const QStringList &sources);
+  QString Menu(const QStringList &sources);
+  bool MenuAction(const QString &identity);
+  bool ConfigureMenu();
+  bool EmptyTrash();
 signals:
   void TrashFinished(const QStringList &requested, const QStringList &removed, bool animate);
   void TrashStateChanged(bool full);
@@ -30,6 +39,10 @@ signals:
   void PlacementTarget(const QString &request, const QString &destination);
   void PlacementFinished(const QString &request);
 private:
+  QPointer<QMenu> fileMenu;
+  QHash<QString, QPointer<QAction>> menuActions;
+  QHash<QString, KAbstractFileItemActionPlugin *> arkPlugins;
+  bool configuring = false;
   bool trashStatPending = false;
   static QList<QUrl> urls(const QStringList &values);
   void track(KJob *job);

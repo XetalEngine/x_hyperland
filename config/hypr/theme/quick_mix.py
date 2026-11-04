@@ -2,6 +2,7 @@
 import copy
 import backend
 import layouts
+import bar_styles
 import presets
 import runtime
 import selection_marker
@@ -11,6 +12,7 @@ from switcher import preferences as switcher
 
 # Label, existing component, existing preference path, available choices.
 FIELDS = {
+    'waybar': ('Waybar style', 'waybar', ('theme','bar_style'), bar_styles.STYLES),
     'launcher': ('Start menu', 'launcher', ('theme','launcher_style'), runtime.LAUNCHER_STYLES),
     'layout': ('Navigation & controls', 'layout', ('theme','layout'), layouts.LAYOUTS),
     'marker': ('Selection marker', 'selection', ('theme','selection_marker'), selection_marker.STYLES),
@@ -26,6 +28,7 @@ FIELDS = {
 def values(config):
     config=copy.deepcopy(config)
     config['theme'].setdefault('launcher_style','follow')
+    config['theme'].setdefault('bar_style','follow')
     config.setdefault('cursors',dict(cursors.DEFAULTS))
     config.setdefault('transfer',copy.deepcopy(transfer.DEFAULTS))
     config.setdefault('switcher',copy.deepcopy(switcher.DEFAULTS))
