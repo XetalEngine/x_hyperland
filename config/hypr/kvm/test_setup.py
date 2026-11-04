@@ -32,6 +32,8 @@ class SetupTests(unittest.TestCase):
         cls.environment.stop();cls.temporary.cleanup()
 
     def setUp(self):
+        import editions
+        editions.select('stock')
         from model import VMConfig
         for profile in ('windows','macos'):
             path=self.kvm.vmstart2.profiles.paths(portable.data_root(),profile).session
@@ -48,8 +50,9 @@ class SetupTests(unittest.TestCase):
     def test_downloads_first_and_one_panel_survives_navigation(self):
         w=self.window;wizard=w.tab_wizard;panel=w.package_panel
         self.assertEqual(wizard.steps[wizard.step][0],'components')
-        self.assertEqual(panel.table.rowCount(),7)
-        self.assertIn('Ultra AMD Stealth Interceptor (optional)',panel.table.item(6,0).text())
+        self.assertEqual(panel.table.rowCount(),6)
+        self.assertEqual(panel.store.edition,'stock')
+        self.assertNotIn('kvm-amd',panel.release['components'])
         self.assertIs(panel.parentWidget(),wizard.component_host)
         self.assertFalse(w._components_ready())
         w._select_tab_by_name('Paths & Tools')
@@ -59,7 +62,7 @@ class SetupTests(unittest.TestCase):
         wizard.go(0)
         self.application.sendPostedEvents(None,self.kvm.QEvent.Type.DeferredDelete)
         self.assertIs(panel.parentWidget(),wizard.component_host)
-        self.assertEqual(panel.table.rowCount(),7)
+        self.assertEqual(panel.table.rowCount(),6)
 
     def test_close_saves_without_a_confirmation_or_applying_opencore(self):
         from PyQt6.QtWidgets import QMessageBox
@@ -70,6 +73,78 @@ class SetupTests(unittest.TestCase):
         saved=json.loads(self.window._paths().session.read_text())
         self.assertEqual(saved['simple']['name'],'saved automatically')
         self.assertTrue(Path(str(self.window._paths().session)+'.prev').is_file())
+
+    def test_edition_buttons_preserve_guest_state_and_block_busy_switches(self):
+        import editions,packages
+        panel=self.window.package_panel;cfg=self.window.cfg.data
+        nvram=portable.data_root()/'firmware/OVMF_VARS.fd';nvram.write_bytes(b'private guest state')
+        previous=copy.deepcopy(cfg['smbios'])
+        inventories={edition:packages.decode((portable.ROOT/filename).read_bytes())['components']
+                     for edition,filename in [('stock','catalog-stock.json'),('xetallic','catalog.json')]}
+        with patch.object(packages,'installed',side_effect=lambda name,root=None:inventories[root.name if root else editions.selected()].get(name,{})), \
+             patch.object(panel,'busy',return_value=False):
+            self.assertEqual(panel.edition_buttons['xetallic'].text(),'Switch to Enhanced')
+            panel.choose_edition('xetallic')
+            self.assertEqual(editions.selected(),'xetallic')
+            self.assertEqual(panel.table.rowCount(),7)
+            self.assertFalse(panel.account_button.isHidden())
+            self.assertIn('/editions/xetallic/',cfg['_meta']['binary'])
+            self.assertFalse(panel.edition_buttons['max'].isEnabled())
+            self.assertEqual(panel.edition_buttons['stock'].text(),'Switch to Basic')
+            with patch.object(panel,'busy',return_value=True):
+                panel.choose_edition('stock');self.assertEqual(editions.selected(),'xetallic')
+            panel.choose_edition('stock')
+            self.assertEqual(panel.table.rowCount(),6)
+            self.assertTrue(panel.account_button.isHidden())
+        self.assertEqual(nvram.read_bytes(),b'private guest state')
+        self.assertEqual(cfg['smbios'],previous)
+
+    def wait_for_components(self,panel):
+        deadline=time.monotonic()+5
+        while panel.job and time.monotonic()<deadline:
+            self.application.processEvents();time.sleep(.01)
+        self.assertIsNone(panel.job)
+
+    def test_failed_preparation_keeps_current_edition_and_profile(self):
+        import editions,packages
+        panel=self.window.package_panel;panel.account.token='test token'
+        previous=copy.deepcopy(self.window.cfg.data)
+        with patch.object(panel,'busy',return_value=False), \
+             patch.object(packages.Store,'check',side_effect=OSError('download unavailable')):
+            panel.choose_edition('xetallic')
+            self.wait_for_components(panel)
+        self.assertEqual(editions.selected(),'stock')
+        self.assertEqual(panel.store.edition,'stock')
+        self.assertEqual(self.window.cfg.data,previous)
+        self.assertIn('download unavailable',panel.info.text())
+
+    def test_preparation_finishes_before_selection_and_saves_it(self):
+        import editions,packages
+        panel=self.window.package_panel;panel.account.token='test token'
+        release=packages.decode((portable.ROOT/'catalog.json').read_bytes())
+        calls=[]
+        def download(store,name,entry,progress):
+            self.assertEqual(editions.selected(),'stock')
+            self.assertEqual(store.edition,'xetallic');calls.append(name)
+        with patch.object(panel,'busy',return_value=False), \
+             patch.object(packages.Store,'check',return_value=release), \
+             patch.object(packages.Store,'download',autospec=True,side_effect=download):
+            panel.choose_edition('xetallic');self.wait_for_components(panel)
+        self.assertIn('qemu',calls);self.assertIn('ovmf',calls)
+        self.assertEqual(editions.selected(),'xetallic')
+        self.assertEqual(panel.store.edition,'xetallic')
+        saved=json.loads(self.window._paths().session.read_text())
+        self.assertEqual(saved['_meta']['vm_edition'],'xetallic')
+
+    def test_failed_switch_does_not_change_visible_selection(self):
+        import editions,packages
+        panel=self.window.package_panel
+        with patch.object(panel,'switch_edition',side_effect=OSError('save failed')), \
+             patch.object(panel,'busy',return_value=False):
+            panel._commit_edition(packages.Store(edition='xetallic'),panel.release)
+        self.assertEqual(editions.selected(),'stock')
+        self.assertEqual(panel.store.edition,'stock')
+        self.assertIn('save failed',panel.info.text())
 
     def test_close_during_download_hides_then_allows_the_job_to_finish(self):
         gate=threading.Event();finished=[]
@@ -323,7 +398,7 @@ class SetupTests(unittest.TestCase):
         w.cfg.data['_meta']['binary']=sys.executable
         w.cfg.data['tools']['kvm_build_enabled']=False
         with patch.object(w.cfg,'validate',return_value=[]), \
-             patch.object(packages,'installed',side_effect=lambda name:installed.get(name,{})), \
+             patch.object(packages,'installed',side_effect=lambda name,root=None:installed.get(name,{})), \
              patch.object(panel.store,'check',return_value=release), \
              patch.object(panel.store,'download') as download, \
              patch.object(portable,'prepare_firmware') as firmware, \
@@ -367,7 +442,7 @@ class SetupTests(unittest.TestCase):
         installed=copy.deepcopy(panel.release['components'])
         panel.release=copy.deepcopy(panel.release)
         panel.release['components']['qemu']['sha256']='b'*64
-        with patch.object(packages,'installed',side_effect=lambda name:installed.get(name,{})):
+        with patch.object(packages,'installed',side_effect=lambda name,root=None:installed.get(name,{})):
             panel.refresh()
             self.assertEqual(panel.update_messages(),[])
             row=next(r for r in range(panel.table.rowCount()) if panel.table.item(r,0).text()==panel.release['components']['qemu']['label'])

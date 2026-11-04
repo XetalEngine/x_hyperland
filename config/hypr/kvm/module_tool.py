@@ -16,11 +16,16 @@ def root():
 
 
 def check(directory):
-    entry=packages.installed('kvm-amd',directory)
+    import editions
+    base=editions.component_root(directory)
+    entry=packages.installed('kvm-amd',base)
     if not entry:raise RuntimeError('Download the matching custom KVM module in Paths & Tools first.')
     reason=packages.compatibility('kvm-amd',entry)
     if reason:raise RuntimeError(reason)
-    path=directory/'components/kvm-amd/current'
+    path=base/'components/kvm-amd/current'
+    if entry.get('runtime'):
+        packages.prepare_runtime('kvm-amd',entry,path)
+        return path
     for name in ('kvm.ko','kvm-amd.ko'):
         magic=subprocess.check_output(['modinfo','-F','vermagic',str(path/name)],text=True).split()[0]
         if magic!=entry['kernel']:raise RuntimeError('Installed module ABI does not match its release metadata.')
@@ -39,6 +44,26 @@ def main():
         raise RuntimeError('Published modules are prebuilt. Choose your own local build script in Paths & Tools to compile one.')
     path=check(directory)
     if args==['--check']:print('The published module matches this CPU and running kernel.');return
+    entry=packages.read_json(path/'.component.json',{})
+    if entry.get('runtime') and args!=['--restore']:
+        if args==['--install']:raise RuntimeError('This edition supports loading the custom module for the current boot only.')
+        from vm_session import receive_image
+        from vm_memory import private_memory
+        from module_image import vermagic
+        private_memory()
+        descriptors=[]
+        try:
+            for name in ('kvm.ko','kvm-amd.ko'):descriptors.append(receive_image(path,name))
+            for fd in descriptors:
+                if vermagic(fd).split()[0]!=entry['kernel']:
+                    raise RuntimeError('Module ABI does not match its release metadata.')
+            environment=dict(os.environ,XETAL_KVM_MEMORY_MODULES='1',
+                XETAL_KVM_CORE_IMAGE=str(descriptors[0]),XETAL_KVM_AMD_IMAGE=str(descriptors[1]),
+                XETAL_KVM_IMAGE_HELPER=str(portable.ROOT/'module_image.py'))
+            reply=subprocess.run(['/usr/bin/bash',str(path/'load-kvm.sh')],env=environment,pass_fds=descriptors)
+            raise SystemExit(reply.returncode)
+        finally:
+            for fd in descriptors:os.close(fd)
     os.execv('/usr/bin/bash',['bash',str(path/'load-kvm.sh'),*args])
 
 

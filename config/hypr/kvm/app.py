@@ -64,6 +64,9 @@ class KVMSettings(VMStart2):
         health.install(self)
 
     def _refresh_all(self):
+        if hasattr(self,'cfg'):
+            import editions
+            editions.apply(self.cfg.data)
         super()._refresh_all()
         if hasattr(self,'issue_delegate'):
             import health
@@ -99,7 +102,7 @@ class KVMSettings(VMStart2):
         super().mousePressEvent(event)
 
     def _decorate_pages(self):
-        panel=PackagesPanel(self._busy,self.tab_paths)
+        panel=PackagesPanel(self._busy,self.tab_paths,switch_edition=self._switch_edition)
         panel.changed.connect(self._refresh_all)
         panel.inventory_changed.connect(self._health_changed)
         self.tab_paths.widget().layout().insertWidget(0,panel)
@@ -130,6 +133,21 @@ class KVMSettings(VMStart2):
         self.use_system_kvm.clicked.connect(self._use_system_kvm)
         panel.layout().insertWidget(1,self.use_system_kvm)
         self.use_system_kvm.setVisible(bool(self.cfg.data.get('tools',{}).get('kvm_build_enabled')))
+
+    def _switch_edition(self,edition):
+        import editions,checkpoint,copy
+        checkpoint.save(self)
+        previous=copy.deepcopy(self.cfg.data);old=editions.selected()
+        try:
+            editions.switch(self.cfg.data,edition)
+            portable.prepare_firmware();portable.prepare_tpm_workspace()
+            self._refresh_all();checkpoint.save(self)
+        except Exception:
+            self.cfg.data.clear();self.cfg.data.update(previous)
+            editions.select(old)
+            self._refresh_all();checkpoint.save(self)
+            raise
+        self.status.setText(editions.EDITIONS[edition][0]+' selected. Your guest files and settings are retained.')
 
     def _health_changed(self):
         if hasattr(self,'issue_delegate') and not getattr(self,'_checking_health',False):
@@ -285,7 +303,9 @@ class KVMSettings(VMStart2):
             self.package_panel=None
         super()._rebuild_tabs()
         if panel:
+            account=panel.account
             panel.deleteLater();self._decorate_pages()
+            self.package_panel.account=account;self.package_panel.refresh()
 
     def _mount_components(self,host):
         panel=getattr(self,'package_panel',None)
@@ -353,6 +373,7 @@ class KVMSettings(VMStart2):
             QMessageBox.information(self,'Complete setup','Finish the setup wizard for this profile before starting a VM.');return False
         if self.package_panel.job:
             QMessageBox.information(self,'Components are busy','Wait for component installation to finish.');return False
+        if not self.package_panel.require_account():return False
         settings=self.cfg.data.get('tools',{})
         if settings.get('kvm_build_enabled') and Path(settings.get('kvm_build',''))==ROOT/'module-tool.sh':
             try:
@@ -378,6 +399,16 @@ class KVMSettings(VMStart2):
         if reply.returncode:
             self.status.setText('Launch cancelled: administrator access was not granted.')
             return False
+        import editions
+        if editions.selected()=='xetallic':
+            self.status.setText('Checking your Echo account…');QApplication.processEvents()
+            try:
+                self.package_panel.account.check()
+                reply=subprocess.run(['sudo','-n',sys.executable,str(ROOT/'runtime_access.py'),str(portable.data_root())],
+                    input=json.dumps({'token':self.package_panel.account.token}),capture_output=True,text=True,timeout=30)
+                if reply.returncode:raise RuntimeError(reply.stderr.strip() or 'Could not prepare the VM launch session.')
+            except Exception as error:
+                QMessageBox.warning(self,'Echo sign-in',str(error));return False
         return True
 
     def _launch(self,dry):

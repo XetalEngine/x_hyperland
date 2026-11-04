@@ -52,19 +52,19 @@ class PackageTests(unittest.TestCase):
         with self.assertRaises(ValueError):packages.decode(json.dumps(bad).encode(),self.public)
 
     def test_install_is_atomic_preserves_previous_and_nvram(self):
-        file,entry=self.artifact();root=self.root/'data'
-        self.assertTrue(packages.install_archive('ovmf',entry,file,root))
-        old=(root/'components/ovmf/current').resolve()
+        file,entry=self.artifact();root=self.root/'data';components=root/'editions/stock'
+        self.assertTrue(packages.install_archive('ovmf',entry,file,components))
+        old=(components/'components/ovmf/current').resolve()
         with patch.dict(os.environ,{'XETAL_KVM_DATA':str(root)}):
             portable.prepare_firmware()
             nvram=root/'firmware/OVMF_VARS.fd';nvram.write_bytes(b'my VM variables')
             new,new_entry=self.artifact(value='1.0.1',files={'OVMF_CODE.fd':b'new code','OVMF_VARS.fd':b'new template'})
-            self.assertTrue(packages.install_archive('ovmf',new_entry,new,root))
+            self.assertTrue(packages.install_archive('ovmf',new_entry,new,components))
             portable.prepare_firmware()
             self.assertEqual(nvram.read_bytes(),b'my VM variables')
         self.assertTrue(old.is_dir())
-        self.assertFalse(packages.install_archive('ovmf',new_entry,new,root))
-        with self.assertRaisesRegex(ValueError,'downgrade'):packages.install_archive('ovmf',entry,file,root)
+        self.assertFalse(packages.install_archive('ovmf',new_entry,new,components))
+        with self.assertRaisesRegex(ValueError,'downgrade'):packages.install_archive('ovmf',entry,file,components)
 
     def test_corrupt_archive_leaves_current_untouched(self):
         file,entry=self.artifact();root=self.root/'data';packages.install_archive('ovmf',entry,file,root)
@@ -129,13 +129,14 @@ class PackageTests(unittest.TestCase):
                 self.assertFalse(cfg['wizard']['complete'])
                 self.assertEqual(cfg['smp']['vcpus'],'16')
                 self.assertFalse(any(d['driver'] in ('vfio-pci','usb-host') for d in cfg['devices']))
-                self.assertEqual(cfg['tools']['kvm_build_enabled'],profile=='windows')
+                self.assertFalse(cfg['tools']['kvm_build_enabled'])
                 self.assertTrue(all('${' not in str(value) for value in cfg.values()))
             bios=portable.data_root()/'smbios/smbios.bin'
             self.assertFalse(bios.exists(), 'First run must not install bundled binary assets')
             asset,entry=self.artifact(name='baseline',files={'assets/smbios/smbios.bin':b'baseline',
                 'assets/acpi/dsdt.aml':b'table', 'assets/firmware/OVMF_VARS.fd':b'variables'})
-            packages.install_archive('baseline',entry,asset,portable.data_root())
+            import editions
+            packages.install_archive('baseline',entry,asset,editions.component_root())
             portable.prepare_firmware()
             self.assertEqual(bios.read_bytes(),b'baseline')
             self.assertEqual((portable.data_root()/'acpi/dsdt.aml').read_bytes(),b'table')

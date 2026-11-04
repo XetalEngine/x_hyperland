@@ -229,6 +229,9 @@ def _ivshmem_ids(binary, stamp):
 
 
 def ivshmem_ids(binary):
+    from edition_runtime import inspection
+    result=inspection(binary,'ivshmem_ids')
+    if result is not None:return result
     return _ivshmem_ids(binary, os.stat(binary).st_mtime_ns)
 
 
@@ -332,13 +335,15 @@ def launch(cfg):
     payload.chmod(0o600)
     (Path(workdir) / "output.log").touch(mode=0o600)
     prefix = [] if os.geteuid() == 0 else ["sudo", "-n"]
+    import edition_runtime
     subprocess.run(prefix + ["systemctl", "reset-failed", vg.UNIT], capture_output=True, timeout=10)
     result = subprocess.run(prefix + ["systemd-run", "--unit", vg.UNIT,
                             "--description=vmstart_2 dual GPU guest", "--property=KillMode=mixed",
                             "--setenv=XETAL_KVM_DATA=" + str(vg.data_root()),
+                            "--setenv=XETAL_KVM_EDITION=" + cfg.data.get('_meta',{}).get('vm_edition','stock'),
                             "--property=TimeoutStopSec=120", "--service-type=exec",
-                            *vg.runtime_log_properties(workdir), sys.executable,
-                            str(Path(__file__).with_name("dual_runtime.py")), str(payload)],
+                            *vg.runtime_log_properties(workdir), *edition_runtime.command([sys.executable,
+                            str(Path(__file__).with_name("dual_runtime.py")), str(payload)],cfg)],
                             capture_output=True, text=True, timeout=20)
     if result.returncode:
         raise RuntimeError((result.stdout + result.stderr).strip() or "systemd-run failed")

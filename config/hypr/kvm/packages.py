@@ -20,6 +20,7 @@ import urllib.request
 import urllib.error
 
 from portable import ROOT, data_root
+import editions
 
 SITE = 'https://www.xetal.net/community/site'
 KEY = ROOT/'update-public.pem'
@@ -42,8 +43,11 @@ def digest(path):
 
 
 def validate(release):
-    if not isinstance(release,dict) or release.get('schema')!=1 or release.get('app')!='kvm' or release.get('architecture')!='x86_64':
+    if not isinstance(release,dict) or release.get('schema')!=1 or release.get('app') not in ('kvm','kvm-stock') or release.get('architecture')!='x86_64':
         raise ValueError('Unsupported KVM release')
+    edition=release.get('edition')
+    if edition is not None and (edition not in ('stock','xetallic') or release['app']!=editions.app_id(edition)):
+        raise ValueError('Invalid VM edition')
     version(release.get('version'))
     if not isinstance(release.get('notes'),str) or len(release['notes'].encode())>16384:
         raise ValueError('Invalid release notes')
@@ -53,7 +57,8 @@ def validate(release):
     for name,a in entries.items():
         if not isinstance(a,dict): raise ValueError('Invalid component')
         version(a.get('version'))
-        filename=f'XetalKVM-{name}-{a["version"]}-linux-x86_64.tar.xz'
+        prefix='XetalKVMStock' if edition=='stock' else 'XetalKVM'
+        filename=f'{prefix}-{name}-{a["version"]}-linux-x86_64.tar.xz'
         if a.get('file')!=filename or type(a.get('size')) is not int or not 8<=a['size']<=MAX_ARCHIVE:
             raise ValueError('Invalid component archive')
         if type(a.get('unpacked_size')) is not int or not 1<=a['unpacked_size']<=MAX_EXPANDED:
@@ -64,7 +69,25 @@ def validate(release):
             raise ValueError('Invalid component label')
         if name=='kvm-amd' and (a.get('cpu')!='amd' or not isinstance(a.get('kernel'),str) or not re.fullmatch(r'[A-Za-z0-9_.+-]{1,100}',a['kernel'])):
             raise ValueError('The KVM module requires an exact kernel and processor match')
+        if edition=='stock' and name=='kvm-amd': raise ValueError('Stock uses the system KVM module')
+        if edition=='xetallic' and name in ('qemu','kvm-amd'):
+            validate_runtime(a.get('runtime'),name)
     return release
+
+
+def validate_runtime(runtime, component):
+    if component not in ('qemu','kvm-amd'):raise ValueError('Invalid VM runtime component')
+    if not isinstance(runtime,dict) or runtime.get('edition')!='xetallic' or runtime.get('component')!=component:
+        raise ValueError('Missing VM runtime metadata')
+    if not re.fullmatch('[a-f0-9]{64}',str(runtime.get('key_id',''))): raise ValueError('Invalid VM runtime identity')
+    expected={'libexec/qemu-system-x86_64'} if component=='qemu' else {'kvm.ko','kvm-amd.ko'}
+    if not isinstance(runtime.get('files'),dict) or set(runtime['files'])!=expected:
+        raise ValueError('Invalid VM runtime inventory')
+    for name,e in runtime['files'].items():
+        if (not isinstance(e,dict) or e.get('file')!=name+'.xvm' or type(e.get('size')) is not int
+            or not 1<=e['size']<=1024**3 or not re.fullmatch('[a-f0-9]{64}',str(e.get('sha256','')))):
+            raise ValueError('Invalid VM runtime image')
+    return runtime
 
 
 def decode(raw, key=KEY, *, local_legacy=False):
@@ -117,7 +140,7 @@ def atomic_json(path,value):
 
 def installed(name, root=None):
     if name not in IDS: raise ValueError('Unknown component')
-    return read_json((root or data_root())/'components'/name/'current/.component.json',{})
+    return read_json((root or editions.component_root())/'components'/name/'current/.component.json',{})
 
 
 def update_available(name, entry, current):
@@ -141,8 +164,41 @@ def safe_members(archive, maximum):
     return members
 
 
+def prepare_runtime(name, entry, directory):
+    """Validate cached images and install the client-owned launch adapter.
+
+    Older clients could install a runtime package but leave its placeholder
+    launcher intact. This also repairs that case without unpacking any images.
+    The caller supplies metadata from an authenticated release/install.
+    """
+    if not entry.get('runtime'):return False
+    runtime=validate_runtime(entry['runtime'],name)
+    if read_json(directory/'.vm-runtime.json')!=runtime:
+        raise ValueError('VM runtime metadata differs from the signed release')
+    for original,info in runtime['files'].items():
+        if (directory/original).exists() or digest(directory/info['file'])!=info['sha256']:
+            raise ValueError('Installed VM component does not match its release metadata')
+    if name!='qemu':return False
+    import shlex
+    wrapper=directory/'bin/qemu-system-x86_64'
+    content=('#!/usr/bin/env bash\nset -euo pipefail\n'
+        'component="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"\n'
+        'exec /usr/bin/python3 '+shlex.quote(str(ROOT/'vm_memory.py'))+' "$component" "$@"\n')
+    if wrapper.is_file() and wrapper.read_text()==content:return False
+    wrapper.parent.mkdir(parents=True,exist_ok=True)
+    fd,temporary=tempfile.mkstemp(prefix='.qemu-launcher-',dir=wrapper.parent)
+    try:
+        with os.fdopen(fd,'w') as stream:
+            stream.write(content);stream.flush();os.fsync(stream.fileno())
+            os.fchmod(stream.fileno(),0o755)
+        os.replace(temporary,wrapper)
+    finally:
+        if os.path.exists(temporary):os.unlink(temporary)
+    return True
+
+
 def install_archive(name, entry, archive, root=None):
-    root=root or data_root()
+    root=root or editions.component_root()
     problem=compatibility(name,entry)
     if problem: raise ValueError(problem)
     archive=Path(archive)
@@ -154,7 +210,8 @@ def install_archive(name, entry, archive, root=None):
         previous=installed(name,root)
         if previous and version(entry['version'])<version(previous['version']):
             raise ValueError('Refusing a component downgrade')
-        if previous.get('sha256')==entry['sha256']: return False
+        if previous.get('sha256')==entry['sha256']:
+            return prepare_runtime(name,entry,base/'current')
         if previous.get('version')==entry['version']: raise ValueError('This component version has different bytes')
         if shutil.disk_usage(base).free<entry['unpacked_size']+64*1024**2: raise OSError('Not enough disk space to unpack the component')
         target=base/(entry['version']+'-'+entry['sha256'][:12])
@@ -162,6 +219,10 @@ def install_archive(name, entry, archive, root=None):
             stage=Path(directory)
             with tarfile.open(archive,'r:xz') as tar:
                 members=safe_members(tar,entry['unpacked_size'])
+                if entry.get('runtime'):
+                    runtime=validate_runtime(entry['runtime'],name)
+                    if any(member.name in runtime['files'] for member in members):
+                        raise ValueError('Unexpected VM runtime image in archive')
                 for member in members:
                     destination=stage/member.name
                     if member.isdir(): destination.mkdir(parents=True,exist_ok=True)
@@ -170,10 +231,12 @@ def install_archive(name, entry, archive, root=None):
                         with tar.extractfile(member) as source, destination.open('xb') as output:
                             shutil.copyfileobj(source,output)
                         destination.chmod(0o755 if member.mode & 0o111 else 0o644)
+            prepare_runtime(name,entry,stage)
             atomic_json(stage/'.component.json',entry)
             if target.exists():
                 # A previous interrupted install may have finished extraction.
                 if read_json(target/'.component.json')!=entry: raise ValueError('Conflicting installed component directory')
+                prepare_runtime(name,entry,target)
             else: os.replace(stage,target)
             temp=base/'.current-new'
             temp.unlink(missing_ok=True);temp.symlink_to(target.name)
@@ -182,12 +245,13 @@ def install_archive(name, entry, archive, root=None):
 
 
 class Store:
-    def __init__(self,site=SITE,root=None,key=KEY):
+    def __init__(self,site=SITE,root=None,key=KEY,edition=None):
         url=urllib.parse.urlsplit(site)
         if url.scheme!='https' and not (url.scheme=='http' and url.hostname in ('127.0.0.1','localhost','::1')):
             raise ValueError('KVM downloads require HTTPS')
         if url.username or url.password or url.query or url.fragment: raise ValueError('Invalid release server URL')
-        self.site=site.rstrip('/');self.root=root or data_root();self.key=key
+        self.edition=edition or editions.selected()
+        self.site=site.rstrip('/');self.root=root or editions.component_root(edition=self.edition);self.key=key
 
     def _open(self,url):
         response=urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'XetalKVM/1','Accept':'application/json, application/octet-stream'}),timeout=45)
@@ -197,13 +261,14 @@ class Store:
 
     def check(self):
         try:
-            with self._open(self.site+'/api/app-release.php?app=kvm&signed=1') as stream:
+            with self._open(self.site+'/api/app-release.php?app='+editions.app_id(self.edition)+'&signed=1') as stream:
                 raw=stream.read(MAX_MANIFEST+1)
         except urllib.error.HTTPError as error:
             if error.code==404:
                 raise RuntimeError('No online KVM release is published yet. Try checking for updates later.') from None
             raise
         release=decode(raw,self.key)
+        if release.get('edition')!=self.edition: raise ValueError('The release feed needs the matching VM edition.')
         cached=self.cached()
         if cached and version(release['version'])<version(cached['version']): raise ValueError('Server offered an older release')
         if cached and release['version']==cached['version'] and release!=cached:
@@ -230,7 +295,7 @@ class Store:
             partial=target.with_suffix('.part')
             try:
                 from download_access import open_component
-                with open_component(self.site,self.root,entry['file']) as stream, partial.open('wb') as output:
+                with open_component(self.site,self.root,entry['file'],edition=self.edition) as stream, partial.open('wb') as output:
                     size=0
                     while chunk:=stream.read(1024*1024):
                         size+=len(chunk)

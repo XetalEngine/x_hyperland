@@ -1503,6 +1503,7 @@ def launch(cfg, pinning, **kw):
     command = ["sudo", "-n", "systemd-run", "--unit", unit,
          "--description=vmstart_2 guest",
          "--setenv=XETAL_KVM_DATA=" + str(data_root()),
+         "--setenv=XETAL_KVM_EDITION=" + cfg.data.get('_meta',{}).get('vm_edition','stock'),
          "--property=KillMode=mixed",
          "--property=TimeoutStopSec=120",
          "--service-type=simple"]
@@ -1511,7 +1512,8 @@ def launch(cfg, pinning, **kw):
         # launch. The helper refuses cleanup if another lease owner is alive.
         cleanup = shlex.join([sys.executable, str(SOURCE_DIR / "lib/mac_hugepages.py"), "--release"])
         command.append("--property=ExecStopPost=" + cleanup)
-    command.extend(["/usr/bin/env", "bash", path])
+    import edition_runtime
+    command.extend(edition_runtime.command(["/usr/bin/env", "bash", path]))
     r = subprocess.run(command, capture_output=True, text=True)
     return r.returncode == 0, (r.stdout + r.stderr).strip(), path
 
@@ -1686,7 +1688,11 @@ def test_run(cfg, standalone=True, timeout=120):
         f.write(text)
     os.chmod(TESTRUN, 0o775)
     try:
-        r = subprocess.run(["sudo", "-n", "bash", TESTRUN],
+        import edition_runtime
+        r = subprocess.run(["sudo", "-n", "/usr/bin/env",
+                            "XETAL_KVM_DATA=" + str(data_root()),
+                            "XETAL_KVM_EDITION=" + cfg.data.get('_meta',{}).get('vm_edition','stock'),
+                            *edition_runtime.command(["/usr/bin/bash", TESTRUN])],
                            capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
         subprocess.run(["sudo", "-n", "pkill", "-f", TESTRUN], capture_output=True)

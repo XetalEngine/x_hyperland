@@ -366,6 +366,9 @@ def _capabilities(binary, stamp):
 
 
 def capabilities(binary):
+    from edition_runtime import inspection
+    result=inspection(binary,'capabilities')
+    if result is not None:return result
     return _capabilities(binary, os.stat(binary).st_mtime_ns)
 
 
@@ -393,6 +396,9 @@ def _guest_device_ids(binary, stamp):
 
 
 def guest_device_ids(binary):
+    from edition_runtime import inspection
+    result=inspection(binary,'guest_device_ids')
+    if result is not None:return result
     return _guest_device_ids(binary, os.stat(binary).st_mtime_ns)
 
 
@@ -596,6 +602,7 @@ def launch(cfg):
     payload.chmod(0o600)
     (Path(workdir) / "output.log").touch(mode=0o600)
     runtime = str(Path(__file__).with_name("virtual_runtime.py"))
+    import edition_runtime
     # Exactly the same unit as Single GPU: systemd atomically rejects another
     # launch before either runtime can touch disks, TPM state, or host devices.
     prefix = [] if os.geteuid() == 0 else ["sudo", "-n"]
@@ -603,8 +610,9 @@ def launch(cfg):
     result = subprocess.run(prefix + ["systemd-run", "--unit", UNIT,
                             "--description=vmstart_2 virtual GPU guest", "--property=KillMode=mixed",
                             "--setenv=XETAL_KVM_DATA=" + str(data_root()),
+                            "--setenv=XETAL_KVM_EDITION=" + cfg.data.get('_meta',{}).get('vm_edition','stock'),
                             "--property=TimeoutStopSec=120", "--service-type=exec", *runtime_log_properties(workdir),
-                            sys.executable, runtime, str(payload)],
+                            *edition_runtime.command([sys.executable, runtime, str(payload)],cfg)],
                             capture_output=True, text=True, timeout=20)
     if result.returncode:
         raise RuntimeError((result.stdout + result.stderr).strip() or "systemd-run failed")

@@ -13,7 +13,8 @@ def data_root():
 
 
 def component_path(name):
-    return data_root()/'components'/name/'current'
+    from editions import component_root
+    return component_root()/'components'/name/'current'
 
 
 def tool_defaults():
@@ -38,7 +39,8 @@ def configuration(profile):
         if isinstance(value, str):
             return value.replace('${KVM_DATA}', str(data_root())).replace('${KVM_APP}', str(ROOT))
         return value
-    return resolve(data)
+    from editions import apply
+    return apply(resolve(data))
 
 
 def seed_assets():
@@ -69,6 +71,8 @@ def _copy_new(source, target):
 def prepare():
     root = data_root()
     root.mkdir(parents=True,exist_ok=True,mode=0o700)
+    from edition_migration import migrate
+    migrate(root)
     seed_assets()
     for profile in ('windows','macos'):
         directory = root if profile=='windows' else root/'macos'

@@ -21,7 +21,7 @@ PACKAGES = {
         yt-dlp ffmpeg deno sudo xorg-xhost xorg-xcursorgen hyprcursor openssl virt-viewer virt-firmware gnutls
         base-devel autoconf automake libtool make perl gettext gawk expect socat
         libtasn1 gmp libseccomp fuse3 libei tpm2-tools dmidecode pciutils usbutils
-        mtools dosfstools util-linux kmod'''.split(),
+        mtools dosfstools util-linux kmod python-cryptography keyutils libsecret'''.split(),
     'fedora': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole konsole-part kf6-kio-devel kf6-kwindowsystem-devel kio-extras kio-admin ark udisks2 SwayNotificationCenter grim slurp wf-recorder wl-clipboard xorg-x11-server-Xwayland
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
         python3 python3-psutil python3-pyqt6 python3-gobject python3-pillow gcc gcc-c++ cmake libxcb-devel pkgconf-pkg-config procps-ng glslang-devel
@@ -33,7 +33,7 @@ PACKAGES = {
         yt-dlp+default ffmpeg-free nodejs sudo xhost xcursorgen hyprcursor openssl virt-viewer python3-virt-firmware gnutls-utils
         autoconf automake libtool make perl gettext gawk expect socat openssl-devel
         libtasn1-devel gmp-devel glib2-devel gnutls-devel libseccomp-devel fuse3-devel libei-devel libeis-devel
-        tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod'''.split(),
+        tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod python3-cryptography keyutils-libs libsecret'''.split(),
     'debian': '''git gvfs gvfs-backends gvfs-fuse hyprpaper hyprlock waybar kitty dolphin konsole konsole-kpart libkf6kio-dev libkf6windowsystem-dev kio-extras kio-admin ark udisks2 sway-notification-center grim slurp wf-recorder wl-clipboard xwayland
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
         python3 python3-psutil python3-pyqt6 python3-pyqt6.qtsvg python3-gi python3-pil gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1 build-essential cmake libxcb1-dev libxcb-res0-dev libxcb-xkb-dev pkg-config glslang-dev libsdl3-0
@@ -44,7 +44,7 @@ PACKAGES = {
         yt-dlp ffmpeg nodejs sudo pkexec x11-xserver-utils x11-apps hyprcursor-util openssl virt-viewer python3-virt-firmware gnutls-bin
         autoconf automake libtool libtool-bin make perl gettext gawk expect socat libssl-dev
         libtasn1-6-dev libgmp-dev libglib2.0-dev libgnutls28-dev libseccomp-dev libfuse3-dev libei-dev libeis-dev
-        tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod'''.split(),
+        tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod python3-cryptography libkeyutils1 libsecret-tools'''.split(),
 }
 COMMANDS = '''git Hyprland hyprctl Xwayland hyprpaper hyprlock waybar kitty dolphin konsole ark udisksctl lsblk swaync swaync-client grim slurp wf-recorder
     wl-copy wl-paste xdg-open xdg-user-dir nmcli nm-applet nm-connection-editor bluetoothctl blueman-manager
@@ -204,7 +204,7 @@ def check(runtime=True):
     if not any(shutil.which(command) for command in ('deno','node','qjs')):
         errors.append('Install Deno, Node.js or QuickJS for YouTube downloads.')
     result=subprocess.run([sys.executable,'-c',
-        "import psutil; import PyQt6.QtWidgets, PyQt6.QtNetwork, PyQt6.QtDBus, PyQt6.QtSvg; from PIL import Image; import gi; gi.require_version('Gtk','3.0'); gi.require_version('GtkLayerShell','0.1'); from gi.repository import Gio,Gtk,GtkLayerShell"],
+        "import psutil, cryptography; import PyQt6.QtWidgets, PyQt6.QtNetwork, PyQt6.QtDBus, PyQt6.QtSvg; from PIL import Image; import gi; gi.require_version('Gtk','3.0'); gi.require_version('GtkLayerShell','0.1'); from gi.repository import Gio,Gtk,GtkLayerShell"],
         capture_output=True,text=True)
     if result.returncode:errors.append('Python GUI/image dependencies: '+result.stderr.strip().splitlines()[-1])
     if shutil.which('pkg-config'):

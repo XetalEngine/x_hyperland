@@ -68,6 +68,22 @@ case "${1:-}" in
 esac
 readonly Mode
 
+ModulePath() {
+    if [[ "${XETAL_KVM_MEMORY_MODULES:-0}" == 1 ]]; then
+        case "$1" in
+            kvm.ko) printf '%s' "${XETAL_KVM_CORE_IMAGE:?}" ;;
+            kvm-amd.ko) printf '%s' "${XETAL_KVM_AMD_IMAGE:?}" ;;
+            *) return 1 ;;
+        esac
+    else
+        printf '%s/%s' "$BuildDir" "$1"
+    fi
+}
+if [[ "${XETAL_KVM_MEMORY_MODULES:-0}" == 1 && "$Mode" == install ]]; then
+    printf 'This edition loads modules for the current boot only.\n' >&2
+    exit 1
+fi
+
 declare -a KvmHolderModules=()
 
 Info() { printf '[KVM] %s\n' "$*"; }
@@ -89,12 +105,26 @@ ValidateModules() {
     local Module Vermagic
 
     for Module in kvm.ko kvm-amd.ko; do
-        [[ -f "$BuildDir/$Module" ]] || Fail "$BuildDir/$Module was not built"
-        Vermagic="$(modinfo -F vermagic "$BuildDir/$Module")"
+        if [[ "${XETAL_KVM_MEMORY_MODULES:-0}" == 1 ]]; then
+            /usr/bin/python3 "${XETAL_KVM_IMAGE_HELPER:?}" check "$(ModulePath "$Module")" "$TargetRelease" || Fail "$Module has incompatible metadata"
+            continue
+        fi
+        [[ -f "$(ModulePath "$Module")" ]] || Fail "$Module is unavailable"
+        Vermagic="$(modinfo -F vermagic "$(ModulePath "$Module")")"
         [[ "$Vermagic" == "$TargetRelease "* ]] ||
             Fail "$Module has incompatible vermagic: $Vermagic"
     done
     Info "vermagic matches $TargetRelease"
+}
+
+LoadModule() {
+    local Module="$1"
+    shift
+    if [[ "${XETAL_KVM_MEMORY_MODULES:-0}" == 1 ]]; then
+        /usr/bin/python3 "${XETAL_KVM_IMAGE_HELPER:?}" load "$(ModulePath "$Module")" "$@"
+    else
+        sudo insmod "$(ModulePath "$Module")" "$@"
+    fi
 }
 
 DescribeKvmUser() {
@@ -175,13 +205,13 @@ LoadModules() {
 
     # insmod does not resolve dependencies; modprobe -r may have removed these.
     if ! sudo modprobe irqbypass ||
-       ! sudo insmod "$BuildDir/kvm.ko" ignore_msrs=0 report_ignored_msrs=1; then
+       ! LoadModule kvm.ko ignore_msrs=0 report_ignored_msrs=1; then
         sudo modprobe kvm_amd || true
         Fail "new kvm.ko did not load"
     fi
 
     sudo modprobe ccp || true
-    if ! sudo insmod "$BuildDir/kvm-amd.ko" \
+    if ! LoadModule kvm-amd.ko \
         avic="$Avic" \
         enable_ipiv="$IpiVirtualization" \
         enable_device_posted_irqs="$PostedInterrupts" \

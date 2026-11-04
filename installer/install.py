@@ -84,7 +84,7 @@ def connected_monitors():
 
 def check_kvm_payload(root):
     """Runtime payloads belong on the component server, never in an install."""
-    binary_suffixes={'.xz','.gz','.zip','.tar','.bin','.fd','.rom','.aml','.ko','.so','.a','.o','.iso','.img','.efi'}
+    binary_suffixes={'.xz','.gz','.zip','.tar','.bin','.fd','.rom','.aml','.ko','.so','.a','.o','.iso','.img','.efi','.xvm'}
     for path in (root/'kvm').rglob('*'):
         if not path.is_file():continue
         with path.open('rb') as stream:magic=stream.read(4)

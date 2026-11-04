@@ -46,7 +46,11 @@ def credential(site, root, *, renew=False):
     return token
 
 
-def open_component(site, root, filename):
+def open_component(site, root, filename, *, edition='xetallic'):
+    if edition=='stock':
+        request=urllib.request.Request(site+'/api/kvm-download.php?edition=stock&file='+urllib.parse.quote(filename),
+            headers={'User-Agent':'XetalKVM/2'})
+        return urllib.request.build_opener(NoRedirect).open(request,timeout=45)
     for retry in (False,True):
         token=credential(site,root,renew=retry)
         request=urllib.request.Request(site+'/api/kvm-download.php?file='+urllib.parse.quote(filename),
