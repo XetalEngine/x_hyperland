@@ -153,6 +153,14 @@ int main(int argc, char **argv) {
   } else if (sessionService) {
     return 1;
   }
+  // One session-owned scanner handles opted-in mounts even when every Files
+  // window is closed. It exits with the existing compositor event connection.
+  std::unique_ptr<Drives> autoMount;
+  if (sessionService) {
+    autoMount = std::make_unique<Drives>(nullptr, true, true);
+    QObject::connect(autoMount.get(), &Drives::message, &app,
+                     [](const QString &message) { qInfo().noquote() << "Auto mount:" << message; });
+  }
   if (!sessionService) {
     const auto paths = parser.positionalArguments();
     const QUrl first =

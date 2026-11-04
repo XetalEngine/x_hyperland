@@ -9,6 +9,10 @@ These choices belong to the clicked workspace and persist across logins.
 On uses a shared size, position and background. Hold Super over a window to open
 its gear: the editor loads the workspace settings, previews changes across its
 windows, and saves to that workspace. Reset previews global button defaults.
+The submenu's **Settings…** opens that same shared editor directly, including for
+an empty workspace or while controls are Individual/Off. Saving its size,
+position and background preserves the visibility choice. Live desktop previews
+are available when the workspace is On and contains a window.
 Individual restores existing app/window preferences; workspace overrides never
 delete them. Off can always be reversed from the taskbar menu. A stale editor
 cannot bypass Off or save to a workspace its target has left. Native application

@@ -152,16 +152,33 @@ void PickerWindow::fail(const QString &text) {
 
 QString PickerWindow::withExtension(const QString &path) const {
   if (!request.value("add_extension").toBool(true)) return path;
-  if (!QFileInfo(path).suffix().isEmpty()) return path;
+  const QString filename = QFileInfo(path).fileName();
   const auto patterns = (filters.isEmpty() ? QJsonArray{} : filters.at(types->currentIndex()).toArray().at(1).toArray());
+  QStringList suffixes;
   for (const auto &entry : patterns) {
     const auto pair = entry.toArray();
     const QString pattern = pair.at(1).toString();
-    if (pair.at(0).toInt() == 0 && QRegularExpression("^\\*\\.[A-Za-z0-9._-]+$").match(pattern).hasMatch())
-      return path + pattern.mid(1);
+    if (pair.at(0).toInt() == 0) {
+      // Accept every alternative in the chosen filter, including upper-case
+      // extensions and "All files". A different suffix is part of the name.
+      if (QRegularExpression(QRegularExpression::wildcardToRegularExpression(pattern),
+                             QRegularExpression::CaseInsensitiveOption).match(filename).hasMatch()) return path;
+      if (QRegularExpression("^\\*\\.[A-Za-z0-9._-]+$").match(pattern).hasMatch())
+        suffixes << pattern.mid(2);
+    } else if (pair.at(0).toInt() == 1) {
+      const auto type = QMimeDatabase().mimeTypeForName(pattern);
+      if (!type.preferredSuffix().isEmpty()) suffixes << type.preferredSuffix();
+      suffixes << type.suffixes();
+    }
   }
-  const auto suffix = request.value("default_suffix").toString();
-  return suffix.isEmpty() ? path : path + '.' + suffix;
+  if (suffixes.isEmpty()) {
+    QString fallback = request.value("default_suffix").toString();
+    if (fallback.startsWith('.')) fallback.remove(0, 1);
+    if (QRegularExpression("^[A-Za-z0-9._-]+$").match(fallback).hasMatch()) suffixes << fallback;
+  }
+  for (const auto &suffix : suffixes)
+    if (filename.endsWith('.' + suffix, Qt::CaseInsensitive)) return path;
+  return suffixes.isEmpty() ? path : path + '.' + suffixes.first();
 }
 
 void PickerWindow::acceptSelection() {

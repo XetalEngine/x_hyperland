@@ -713,6 +713,58 @@ print(json.dumps(rows))
     QVERIFY(!sidebar("Unmounted drives"));
     window.close();
   }
+  void mountedSectionFitsOnMountAndShrinksOnUnmount() {
+    FilesWindow window(Fusion::computerUrl(), false,
+                       temporary.path() + "/automatic-drive-layout.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(1200, 1200); window.show();
+    window.drives->volumes = computerVolumes();
+    for (auto &volume : window.drives->volumes)
+      if (volume.driveKey() == "/dev/fusion-b") volume.mount.clear();
+    emit window.drives->changed();
+    auto *tab = window.browser();
+    auto *splitter = tab->findChild<QSplitter *>("driveSections");
+    auto *mounted = tab->findChild<QScrollArea *>("mountedDrives");
+    auto *row = driveRow(tab, "/dev/fusion-b");
+    row->setCurrentRow(0); row->setFocus();
+    QTest::qWait(100);
+    const int original = splitter->sizes()[0];
+    for (auto &volume : window.drives->volumes)
+      if (volume.driveKey() == "/dev/fusion-b") volume.mount = "/media/Projects";
+    emit window.drives->changed();
+    QTRY_VERIFY(splitter->sizes()[0] > original + 100);
+    QTRY_COMPARE(mounted->verticalScrollBar()->maximum(), 0);
+    QCOMPARE(driveRow(tab, "/dev/fusion-b"), row);
+    QCOMPARE(tab->selectedVolume().device, QString("/dev/fusion-b1"));
+    auto verifyVisible = [&] {
+      for (auto *group : driveGroups(tab, "mountedDrives")) {
+        const QPoint bottom = group->mapTo(mounted->viewport(), group->rect().bottomRight());
+        QVERIFY2(bottom.y() < mounted->viewport()->height(), "Mounted drive is below the visible pane");
+      }
+    };
+    verifyVisible();
+    // A saved small pane or dragging the handle cannot conceal mounted rows
+    // while the surrounding window has room for them.
+    splitter->setSizes({1, 200, 800}); QTest::qWait(40);
+    verifyVisible();
+    const auto stable = splitter->sizes();
+    emit window.drives->changed(); QTest::qWait(40);
+    QCOMPARE(splitter->sizes(), stable);
+    // Content minima adapt instead of forcing the window beyond the screen.
+    window.resize(800, 480);
+    QTRY_VERIFY(window.height() <= 480);
+    QTRY_VERIFY(mounted->verticalScrollBar()->maximum() > 0);
+    window.resize(1200, 1200);
+    QTRY_COMPARE(mounted->verticalScrollBar()->maximum(), 0);
+    verifyVisible();
+    for (auto &volume : window.drives->volumes)
+      if (volume.driveKey() == "/dev/fusion-b") volume.mount.clear();
+    emit window.drives->changed();
+    QTRY_COMPARE(splitter->sizes()[0], original);
+    QCOMPARE(driveGroups(tab, "mountedDrives").size(), 1);
+    QCOMPARE(driveRow(tab, "/dev/fusion-b"), row);
+    window.close();
+  }
   void sidebarExpansionSurvivesReopenAndReconnect() {
     const auto settings = temporary.path() + "/sidebar.ini";
     const QStringList names{"This PC", "Quick access", "Unmounted drives"};
@@ -1161,6 +1213,56 @@ print(json.dumps(rows))
     QCOMPARE(window.findChild<QTabWidget *>()->count(), 1);
     QVERIFY(finished.count() >= 3);
     window.close();
+  }
+  void selectedFileAddressKeepsFolderNavigation() {
+    const QString base = folder + "/address-selection";
+    QDir().mkpath(base + "/Destination");
+    const auto here = QUrl::fromLocalFile(base);
+    const auto file = QUrl::fromLocalFile(base + "/photo # 100% café.png");
+    const auto destination = QUrl::fromLocalFile(base + "/Destination");
+    write(file.toLocalFile());
+    Fusion::Preferences prefs(temporary.path() + "/address.ini");
+    Drives drives(nullptr, false);
+    Browser tab(&prefs, &drives);
+    tab.resize(1000, 600); tab.show(); tab.navigate(here);
+    QTRY_COMPARE(tab.proxy->rowCount(), 2);
+    auto *bar = tab.navigator;
+    const int history = bar->historySize();
+    QSignalSpy navigation(&tab, &Browser::locationChanged);
+    QSignalSpy opened(&tab, &Browser::openRequested);
+    for (int mode = 0; mode < 5; ++mode) {
+      tab.setView(mode); focus(&tab);
+      tab.selectUrl(file);
+      QCOMPARE(bar->editor()->currentText(), file.toLocalFile());
+      QCOMPARE(tab.location(), here);
+      QCOMPARE(bar->historySize(), history);
+      QCOMPARE(navigation.size(), 0);
+      bar->setUrlEditable(false);
+      auto *label = bar->findChild<QLabel *>("selectedFilePath");
+      QVERIFY(label); QCOMPARE(label->text(), file.fileName());
+      tab.editAddress();
+      QCOMPARE(bar->editor()->lineEdit()->selectedText(), file.toLocalFile());
+      const int openedBefore = opened.size();
+      QTest::keyClick(bar->editor()->lineEdit(), Qt::Key_Return);
+      QCOMPARE(opened.size(), openedBefore + 1);
+      QCOMPARE(tab.location(), here);
+      tab.selectAll();
+      QCOMPARE(bar->editor()->currentText(), base);
+      tab.selectUrl(file); tab.view()->clearSelection();
+      QCOMPARE(bar->editor()->currentText(), base);
+      tab.selectUrl(destination);
+      QCOMPARE(bar->editor()->currentText(), base);
+    }
+    tab.selectUrl(file);
+    // Typing a relative folder still resolves against the current folder.
+    bar->editor()->lineEdit()->setText("Destination");
+    QTest::keyClick(bar->editor()->lineEdit(), Qt::Key_Return);
+    QCOMPARE(tab.location(), destination);
+    QCOMPARE(bar->editor()->currentText(), destination.toLocalFile());
+    QVERIFY(bar->goBack()); QCOMPARE(tab.location(), here);
+    QCOMPARE(bar->editor()->currentText(), base);
+    QVERIFY(bar->goForward()); QCOMPARE(tab.location(), destination);
+    QVERIFY(bar->goUp()); QCOMPARE(tab.location(), here);
   }
   void mouseSelectionInEveryView() {
     const QString base = folder + "/mouse-selection";

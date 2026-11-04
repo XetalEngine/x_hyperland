@@ -11,6 +11,8 @@ public:
   explicit PathBar(QWidget *parent = nullptr);
   QUrl locationUrl() const;
   void setLocationUrl(const QUrl &url);
+  void setSelectedFileUrl(const QUrl &url);
+  QUrl displayedUrl() const;
   bool goBack();
   bool goForward();
   bool goUp();
@@ -24,12 +26,14 @@ signals:
   void editableStateChanged(bool value);
   void historyChanged();
   void tabRequested(const QUrl &url);
+  void fileActivated(const QUrl &url);
 
 protected:
   bool eventFilter(QObject *, QEvent *) override;
 
 private:
   QList<QUrl> history;
+  QUrl selectedFile;
   int position = 0;
   QStackedWidget *stack;
   QScrollArea *scroll;
@@ -38,4 +42,5 @@ private:
   KUrlComboBox *input = nullptr;
   KUrlCompletion *completion;
   void render();
+  void submit();
 };

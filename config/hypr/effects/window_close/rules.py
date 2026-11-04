@@ -11,7 +11,7 @@ MODES = {'super': 'Only while holding the modifier', 'always': 'Always',
 ANCHORS = {'top-right': 'Top right', 'top-center': 'Top center', 'top-left': 'Top left',
            'bottom-right': 'Bottom right', 'bottom-center': 'Bottom center', 'bottom-left': 'Bottom left'}
 BACKGROUNDS = {'auto': 'Auto · match the window underneath', 'manual': 'Manual · choose a color'}
-DEFAULTS = dict(mode='super', size=34, anchor='top-right', x=8, y=8, proximity=80,
+DEFAULTS = dict(mode='super', size=18, anchor='top-right', x=8, y=8, proximity=80,
                 background='auto', background_color='#20242b')
 LEGACY_KEYS = DEFAULTS.keys() - {'background', 'background_color'}
 

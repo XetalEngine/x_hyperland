@@ -235,6 +235,33 @@ bindm=SUPER,mouse:273,resizewindow
             assert not status()['visible'] and not status()['gear_visible']
             edit('close');editor.wait(timeout=5);point('key 125 0')
             policy(controls='individual');assert info()['rule']==individual and app_rules.read_bytes()==original
+            # The taskbar editor has a workspace identity even with controls
+            # Off or no windows. Applying shared dimensions never enables it.
+            editor=spawn([sys.executable,str(REPO/'tests/window-buttons/editor.py'),str(home/'.config/hypr'),'workspace:9'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
+            wait(lambda:next((c for c in clients() if c['pid']==editor.pid),None))
+            state=edit('state');assert state['scope']=='workspace',state
+            edit('slider',key='size',value=18)
+            state=edit('apply');assert state['status'].startswith('Applied.'),state
+            entry=json.loads((workspace_dir/'rules.json').read_text())['workspaces']['9']
+            assert entry['controls']=='individual' and entry['rule']['size']==18 and entry['layout']=='off',entry
+            edit('close');editor.wait(timeout=5)
+            policy(controls='off')
+            editor=spawn([sys.executable,str(REPO/'tests/window-buttons/editor.py'),str(home/'.config/hypr'),f'workspace:{workspace}'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
+            wait(lambda:next((c for c in clients() if c['pid']==editor.pid),None))
+            state=edit('state');assert state['rule']['size']==24,state
+            edit('slider',key='size',value=20);state=edit('apply');assert state['status'].startswith('Applied.'),state
+            point('key 125 1');time.sleep(.1);assert not status()['visible'];point('key 125 0')
+            assert info()['workspace_controls']=='off'
+            edit('close');editor.wait(timeout=5)
+            policy(controls='on')
+            editor=spawn([sys.executable,str(REPO/'tests/window-buttons/editor.py'),str(home/'.config/hypr'),f'workspace:{workspace}'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
+            wait(lambda:next((c for c in clients() if c['pid']==editor.pid),None))
+            state=edit('state');assert state['rule']['size']==20,state
+            edit('slider',key='size',value=24)
+            wait(lambda:info()['preview_rule']['size']==24 and info('Other')['preview_rule']['size']==24)
+            state=edit('apply');assert state['status'].startswith('Applied.'),state
+            edit('close');editor.wait(timeout=5)
+            print('PASS: workspace Settings edits empty/Off workspaces, preserves visibility, and previews shared settings while On.',flush=True)
             policy(controls='on');assert info()['rule']['size']==24
             settings.write_text(model.encode(dict(model.DEFAULTS,enabled=False)));dispatch('xetalwindowclose:reload')
             reveal();point('key 125 0');wait(lambda:status()['visible'])

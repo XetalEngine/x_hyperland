@@ -206,6 +206,11 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
   driveSplitter->setObjectName("driveSections");
   driveSplitter->setChildrenCollapsible(false);
   driveSplitter->setHandleWidth(9);
+  // Content-derived pane minima must not force the whole Files window taller
+  // than the screen. Recalculate them against the actual space after a resize.
+  driveSplitter->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Ignored);
+  driveSplitter->installEventFilter(this);
+  computer->installEventFilter(this);
   auto addSection = [this](DriveSection &section, const QString &title,
                             const QString &id, int minimum) {
     auto *panel = new QWidget;
@@ -241,11 +246,10 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
   for (int i = 1; i < driveSplitter->count(); ++i)
     driveSplitter->handle(i)->setToolTip("Drag to resize drive sections");
   if (preferences->settings.contains("computerSections")) {
-    driveLayoutReady = driveSplitter->restoreState(
+    driveSplitter->restoreState(
         preferences->settings.value("computerSections").toByteArray());
   }
   connect(driveSplitter, &QSplitter::splitterMoved, this, [this] {
-    driveLayoutReady = true;
     preferences->settings.setValue("computerSections",
                                    driveSplitter->saveState());
   });
@@ -350,6 +354,14 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
       if (type.startsWith("image/")) { imagePlugins << plugin.pluginId(); break; }
   previews->setEnabledPlugins(imagePlugins);
   setThumbnails(preferences->settings.value("thumbnails", true).toBool());
+  auto updateAddress = [this] {
+    const auto items = selectedItems();
+    navigator->setSelectedFileUrl(items.size() == 1 && !items.first().isDir()
+                                     ? items.first().url() : QUrl{});
+  };
+  connect(icons->selectionModel(), &QItemSelectionModel::selectionChanged, this,
+          updateAddress);
+  connect(proxy, &QAbstractItemModel::dataChanged, this, updateAddress);
   connect(icons->selectionModel(), &QItemSelectionModel::selectionChanged, this,
           [this] {
             emit selectionChanged();
@@ -360,6 +372,9 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
     updateStatus();
   });
   connect(navigator, &PathBar::urlChanged, this, &Browser::load);
+  connect(navigator, &PathBar::fileActivated, this, [this](const QUrl &url) {
+    emit openRequested(model->itemForIndex(model->indexForUrl(url)), false);
+  });
   connect(navigator, &PathBar::editableStateChanged, this, [this](bool value) {
     preferences->settings.setValue("addressEditable", value);
   });
@@ -573,6 +588,7 @@ void Browser::configureCards(QListWidget *list) {
 }
 void Browser::updateCards() {
   const QString selected = selectedVolume().device;
+  const auto previousMounted = mountedSection.groups.keys();
   // Classify physical drives, not individual partitions: a partially mounted
   // disk belongs in one row with all its partitions. USB devices stay together.
   QMap<QString, QList<Volume>> groups;
@@ -692,6 +708,15 @@ void Browser::updateCards() {
       identity->addWidget(heading);
       identity->addWidget(description);
       header->addLayout(identity, 1);
+      auto *automatic = new QCheckBox("Auto mount");
+      automatic->setObjectName("autoMountDrive");
+      automatic->setToolTip("Mount the volumes you’ve successfully mounted on this drive at sign-in and when reconnected. "
+                            "Uses your normal system authorization if needed. "
+                            "Unchecking keeps them mounted now and disables future automatic mounts.");
+      header->addWidget(automatic, 0, Qt::AlignTop);
+      connect(automatic, &QCheckBox::clicked, this, [this, group](bool enabled) {
+        drives->setAutoMount(group->property("driveKey").toString(), enabled);
+      });
       layout->addLayout(header);
       auto *list = new QListWidget;
       configureCards(list);
@@ -721,6 +746,14 @@ void Browser::updateCards() {
                        .arg(mounted);
     group->findChild<QLabel *>("driveRowDescription")
         ->setText(description.join(" · "));
+    const auto automatic = drives->autoMountChoice(key);
+    auto *check = group->findChild<QCheckBox *>("autoMountDrive");
+    {
+      QSignalBlocker blocker(check);
+      check->setVisible(automatic.available);
+      check->setTristate(automatic.state == Qt::PartiallyChecked);
+      check->setCheckState(automatic.state);
+    }
     populate(group->findChild<QListWidget *>(), volumes);
   }
   for (auto *section : {&mountedSection, &usbSection, &unmountedSection}) {
@@ -732,21 +765,49 @@ void Browser::updateCards() {
   emptyDrives->setVisible(groups.isEmpty());
   if (rowFocus)
     rowFocus->setFocus(Qt::OtherFocusReason);
-  if (!driveLayoutReady && !drives->volumes.isEmpty()) {
-    driveLayoutReady = true;
-    QTimer::singleShot(0, this, [this] {
-      const int available = driveSplitter->height();
-      const int wanted = mountedSection.groups.size() * 215 + 38;
-      const int top = mountedSection.groups.isEmpty()
-                          ? 0 : qMin(wanted, qMax(145, int(available * .5)));
-      const int middle = usbSection.groups.isEmpty() ? 0 : 225;
-      driveSplitter->setSizes(
-          {top, middle, unmountedSection.groups.isEmpty()
-                            ? 0 : qMax(175, available - top - middle)});
-    });
-  }
+  queueDriveLayout(previousMounted != mountedSection.groups.keys());
   if (Fusion::isComputer(location()))
     updateStatus();
+}
+void Browser::queueDriveLayout(bool fitContents) {
+  fitMountedContents |= fitContents;
+  if (driveLayoutQueued) return;
+  driveLayoutQueued = true;
+  QTimer::singleShot(0, this, [this] {
+    driveLayoutQueued = false;
+    fitDriveSections();
+  });
+}
+void Browser::fitDriveSections() {
+  if (!computer->isVisible() || !driveSplitter->isVisible()) return;
+  const bool mounted = !mountedSection.groups.isEmpty();
+  const bool usb = !usbSection.groups.isEmpty();
+  const bool unmounted = !unmountedSection.groups.isEmpty();
+  const int count = int(mounted) + int(usb) + int(unmounted);
+  if (!count) return;
+  const int available = qMax(0, driveSplitter->height() - (count - 1) * driveSplitter->handleWidth());
+  const int otherMinimum = qMin(175, available / count);
+  usbSection.scroll->parentWidget()->setMinimumHeight(usb ? otherMinimum : 0);
+  unmountedSection.scroll->parentWidget()->setMinimumHeight(unmounted ? otherMinimum : 0);
+  auto *panel = mountedSection.scroll->parentWidget();
+  const auto margins = panel->layout()->contentsMargins();
+  const int heading = panel->findChild<QLabel *>("driveSectionTitle")->sizeHint().height();
+  const int width = mountedSection.scroll->viewport()->width();
+  const int content = qMax(mountedSection.layout->minimumSize().height(),
+                          mountedSection.layout->totalHeightForWidth(width));
+  const int wanted = content + heading + margins.top() + margins.bottom() + panel->layout()->spacing()
+                     + 2 * mountedSection.scroll->frameWidth();
+  const int minimum = mounted ? qMin(wanted, qMax(0, available - (int(usb) + int(unmounted)) * otherMinimum)) : 0;
+  auto sizes = driveSplitter->sizes();
+  panel->setMinimumHeight(minimum);
+  if (fitMountedContents || sizes[0] < minimum) {
+    const int top = mounted ? minimum : 0;
+    const int remainder = qMax(0, available - top);
+    const int middle = usb ? (unmounted ? qBound(otherMinimum, sizes[1], remainder - otherMinimum) : remainder) : 0;
+    driveSplitter->setSizes({top, middle, unmounted ? remainder - middle : 0});
+  }
+  if (mounted && minimum >= wanted) mountedSection.scroll->verticalScrollBar()->setValue(0);
+  fitMountedContents = false;
 }
 void Browser::updateStatus() {
   if (Fusion::isComputer(location())) {
@@ -790,6 +851,10 @@ KFileItem Browser::itemAt(QAbstractItemView *view,
   return index.isValid() ? model->itemForIndex(proxy->mapToSource(index)) : KFileItem();
 }
 bool Browser::eventFilter(QObject *watched, QEvent *event) {
+  if ((watched == computer || watched == driveSplitter) &&
+      (event->type() == QEvent::Resize || event->type() == QEvent::Show ||
+       event->type() == QEvent::StyleChange || event->type() == QEvent::FontChange))
+    queueDriveLayout();
   if (!icons || !details)
     return QWidget::eventFilter(watched, event);
   if (event->type() == QEvent::KeyPress) {

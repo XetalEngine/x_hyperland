@@ -234,6 +234,11 @@ static void workspace_gui_tests(void) {
     entries = gtk_container_get_children(GTK_CONTAINER(menu));
     g_assert_true(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(g_list_nth_data(entries, 2))));
     g_assert_false(bar.options->saving);
+    g_assert_cmpint(g_list_length(entries), ==, 5);
+    GtkWidget *settings = g_list_nth_data(entries, 4);
+    g_assert_cmpstr(gtk_menu_item_get_label(GTK_MENU_ITEM(settings)), ==, "Settings…");
+    g_assert_cmpint(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(settings), "workspace")), ==, 204);
+    g_assert_true(gtk_widget_get_sensitive(settings)); // Available even with controls Off.
     g_list_free(entries); gtk_widget_destroy(menu); g_object_unref(menu);
     wbcffi_deinit(bar.options); gtk_widget_destroy(bar.window); pump(50);
     g_print("PASS: workspace hit testing retains real Cube IDs; layout/button radio groups open without writes.\n");

@@ -111,16 +111,18 @@ class SliderControl(QWidget):
 
 
 class RuleDialog(QDialog):
-    def __init__(self,window_id,parent=None):
+    def __init__(self,window_id=None,parent=None,*,workspace=None):
         super().__init__(parent)
-        self.window_id=str(window_id);self.info=controller.window_info(self.window_id)
+        self.workspace_id=workspace_model.identity(workspace) if workspace is not None else None
+        self.window_id=str(window_id) if window_id is not None else ''
+        self.info=controller.window_info(self.window_id) if self.workspace_id is None else dict(app='',workspace=int(self.workspace_id))
         self.preview_token=secrets.token_hex(16);self.closing=False;self.loading=True
         self.preview_dirty=False;self.valid=False;self.remove_override=False
         self.color_dialog=None;self.background_color=rules.DEFAULTS['background_color'];self.picking=False
         self.setWindowTitle('Window controls');self.setMinimumWidth(540);self.resize(640,790)
         layout=QVBoxLayout(self);layout.setContentsMargins(24,20,24,20);layout.setSpacing(14)
         title=QLabel('Window controls, your way');title.setStyleSheet('font-size: 21px; font-weight: 700;');layout.addWidget(title)
-        app=QLabel(self.info['app'] or 'This window');app.setTextFormat(Qt.TextFormat.PlainText)
+        self.app_label=app=QLabel(self.info['app'] or 'This window');app.setTextFormat(Qt.TextFormat.PlainText)
         app.setWordWrap(True);layout.addWidget(app)
         form_widget=QWidget();form=QFormLayout(form_widget);form.setSpacing(12);form.setContentsMargins(0,0,8,0)
         self.scope=QComboBox()
@@ -255,6 +257,9 @@ class RuleDialog(QDialog):
         self.valid=False;self.buttons.button(QDialogButtonBox.StandardButton.Apply).setEnabled(False)
         self.inherit.setEnabled(False);self.reset.setEnabled(False)
         try:
+            if self.workspace_id is not None:
+                self.load_workspace()
+                return
             self.info=controller.window_info(self.window_id)
             if self.info.get('workspace_controls')=='off':
                 raise ValueError('Controls are forced Off in this workspace. Change its taskbar menu to Individual or On, then Reload.')
@@ -290,6 +295,28 @@ class RuleDialog(QDialog):
             self.buttons.button(QDialogButtonBox.StandardButton.Apply).setEnabled(True);self.reset.setEnabled(True)
         except Exception as error:self.status.setText(str(error))
 
+    def load_workspace(self):
+        self.settings,_=model.load()
+        document,token=workspace_model.load()
+        entry=workspace_model.effective(document,self.workspace_id)
+        if self.workspace_id not in document['workspaces']:
+            entry['rule']=dict(rules.effective(self.settings),mode='always')
+        self.documents={'workspace':document['workspaces']};self.tokens={'workspace':token}
+        self.workspace_label=workspace_controller.display_number(self.workspace_id)
+        self.app_label.setText(f'Workspace {self.workspace_label} · Force modifier buttons: '+workspace_model.CONTROLS[entry['controls']])
+        self.scope.blockSignals(True);self.scope.clear()
+        self.scope.addItem(f'All windows in workspace {self.workspace_label} · remembered','workspace')
+        self.scope.blockSignals(False);self.mode.setEnabled(False)
+        self.info=dict(app='',workspace=int(self.workspace_id),workspace_controls=entry['controls'])
+        self.reset.setText('Reset workspace controls to defaults')
+        self.reset.setToolTip('Preview global defaults for this workspace. Apply to keep them.')
+        self.hint.setText('These shared settings apply when Force modifier buttons is On. '
+                          'Changes preview live on windows in this workspace while On is active. '
+                          'Apply saves the size, position and background; use the workspace menu to change visibility.')
+        self.valid=True;self.remove_override=False
+        self.set_values(entry['rule']);self.scope_changed()
+        self.buttons.button(QDialogButtonBox.StandardButton.Apply).setEnabled(True);self.reset.setEnabled(True)
+
     def reset_window(self):
         if self.picking:self.picker.cancel()
         if self.scope.currentData()=='workspace':
@@ -311,7 +338,8 @@ class RuleDialog(QDialog):
         try:
             scope=self.scope.currentData();value=None if self.remove_override else self.values()
             if scope=='workspace':
-                workspace_controller.save(self.info['workspace'],rule=value,token=self.tokens[scope],window_id=self.window_id)
+                workspace_controller.save(self.info['workspace'],rule=value,token=self.tokens[scope],
+                                          window_id=self.window_id if self.workspace_id is None else None)
             else:
                 controller.save_rule(self.window_id,scope,value,self.tokens[scope],
                                      window_token=self.tokens['window'] if scope=='app' else None)
@@ -328,6 +356,21 @@ class RuleDialog(QDialog):
         if self.closing or not self.valid or not self.isVisible():return
         if self.preview_process.state()!=QProcess.ProcessState.NotRunning:return
         self.preview_dirty=False
+        if self.workspace_id is not None:
+            if self.info['workspace_controls']!='on':
+                self.live.setText('Shared settings take effect when Force modifier buttons is On.')
+                return
+            if not self.window_id:
+                try:target=workspace_controller.preview_window(self.workspace_id)
+                except Exception as error:
+                    self.live.setText('Live preview unavailable: '+str(error));return
+                if target is None:
+                    self.live.setText('Open a window in this workspace to see the live preview.')
+                    return
+                self.window_id=str(target['id'])
+                width,height=target.get('size',[1000,700])
+                self.x.setSliderMaximum(max(16,width-5*self.size.value()-32))
+                self.y.setSliderMaximum(max(16,height-self.size.value()-8))
         workspace=self.info['workspace'] if self.scope.currentData()=='workspace' else None
         payload=controller.preview_payload(self.window_id,self.preview_token,self.values(),workspace=workspace)
         self.preview_process.start('hyprctl',['dispatch','xetalwindowclose:preview',payload]);self.preview_timeout.start()
@@ -340,7 +383,9 @@ class RuleDialog(QDialog):
         if code==0 and output=='ok':self.live.setText('● Live preview across this workspace' if self.scope.currentData()=='workspace' else '● Live preview on your window')
         else:self.live.setText('Live preview unavailable: '+(errors or output or 'The compositor did not respond.')[-240:])
         if 'This window has closed' in output:
-            self.valid=False;self.buttons.button(QDialogButtonBox.StandardButton.Apply).setEnabled(False);self.reset.setEnabled(False);self.inherit.setEnabled(False)
+            if self.workspace_id is not None:self.window_id=''
+            else:
+                self.valid=False;self.buttons.button(QDialogButtonBox.StandardButton.Apply).setEnabled(False);self.reset.setEnabled(False);self.inherit.setEnabled(False)
         if self.preview_dirty:self.preview_timer.start(0)
 
     def preview_failed(self,*_):
@@ -353,7 +398,8 @@ class RuleDialog(QDialog):
         if self.color_dialog:self.color_dialog.reject()
         if self.preview_process.state()!=QProcess.ProcessState.NotRunning:
             self.preview_process.kill();self.preview_process.waitForFinished(500)
-        try:controller.end_preview(self.window_id,self.preview_token)
+        try:
+            if self.window_id:controller.end_preview(self.window_id,self.preview_token)
         except Exception:pass  # Native preview expires if the session/helper ends abruptly.
 
     def done(self,result):
@@ -361,13 +407,14 @@ class RuleDialog(QDialog):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--window-id',required=True);args=parser.parse_args()
+    parser=argparse.ArgumentParser();target=parser.add_mutually_exclusive_group(required=True)
+    target.add_argument('--window-id');target.add_argument('--workspace');args=parser.parse_args()
     import runtime as theme_runtime
     os.environ.update(theme_runtime.environment())
     app=QApplication(sys.argv[:1]);app.setDesktopFileName('fusion-window-buttons')
     theme_runtime.install(app,'QLabel { background: transparent; } QDialog { padding: 0; } QPushButton { padding: 7px 10px; }')
     try:
-        session=controller.instance_dir();dialog=RuleDialog(args.window_id)
+        session=controller.instance_dir();dialog=RuleDialog(args.window_id,workspace=args.workspace)
     except Exception as error:
         print(str(error),file=sys.stderr);return 1
     timer=QTimer(app);timer.setInterval(1500);timer.timeout.connect(lambda:app.quit() if not (session/'.socket.sock').exists() else None);timer.start()

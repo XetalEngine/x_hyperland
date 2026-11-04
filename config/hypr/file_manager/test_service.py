@@ -23,7 +23,7 @@ def check(binary):
     def owner_pid():
         return dbus('GetConnectionUnixProcessID', '(s)', (name,), '(u)') if owns_name() else None
     def wait_for(predicate, description):
-        deadline = time.monotonic()+5
+        deadline = time.monotonic()+8
         while time.monotonic()<deadline:
             if predicate(): return
             time.sleep(.025)
@@ -33,6 +33,29 @@ def check(binary):
     with tempfile.TemporaryDirectory(prefix='fusion-folder-routing-') as directory:
         root = Path(directory)
         (root/'scripts').mkdir()
+        (root/'file_manager').mkdir()
+        (root/'commands').mkdir()
+        (root/'file_manager/automount.json').write_text(json.dumps(dict(version=1, volumes={
+            'fixture-usb': dict(filesystem='ext4', enabled=True, revision=1)})))
+        def inventory(sequence):
+            (root/'inventory.json').write_text(json.dumps(dict(blockdevices=[dict(
+                path='/dev/fixture', type='disk', tran='usb', **{'disk-seq': sequence},
+                children=[dict(path='/dev/fixture1', type='part', fstype='ext4', uuid='fixture-usb')])]
+                if sequence else [])))
+        inventory(1)
+        for command_name, script in {
+            'lsblk': "print((root/'inventory.json').read_text())\n",
+            'udisksctl': "with (root/'mounts.jsonl').open('a') as f:f.write(json.dumps(sys.argv[1:])+'\\n')\n",
+        }.items():
+            command = root/'commands'/command_name
+            command.write_text('#!/usr/bin/python3\nimport json,sys\nfrom pathlib import Path\n'
+                               'root=Path(__file__).resolve().parents[1]\n' + script)
+            command.chmod(0o700)
+        def mounts():
+            try:
+                return [json.loads(line) for line in (root/'mounts.jsonl').read_text().splitlines()]
+            except (FileNotFoundError, ValueError):
+                return []
         (root/'choice').write_text('Fusion Files')
         handler = root/'scripts/file-manager.sh'
         handler.write_text('''#!/usr/bin/python3
@@ -46,11 +69,14 @@ with (root/'calls.jsonl').open('a') as log:
         handler.chmod(0o700)
         env = dict(os.environ, QT_QPA_PLATFORM='offscreen', QT_QPA_PLATFORMTHEME='',
                    XETAL_FILES_ROOT=str(root), HYPRLAND_INSTANCE_SIGNATURE='fixture',
+                   PATH=str(root/'commands')+os.pathsep+os.environ['PATH'],
                    XDG_ACTIVATION_TOKEN='stale-token', DESKTOP_STARTUP_ID='stale-startup')
         for key in ('XDG_CONFIG_HOME','XDG_DATA_HOME','XDG_CACHE_HOME','XDG_STATE_HOME','XDG_RUNTIME_DIR'):
             path = root/key.lower(); path.mkdir(mode=0o700); env[key] = str(path)
         instance = Path(env['XDG_RUNTIME_DIR'])/'hypr/fixture'
         instance.mkdir(parents=True)
+        control = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        control.bind(str(instance/'.socket.sock'))
         listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         listener.bind(str(instance/'.socket2.sock'))
         listener.listen(8); listener.settimeout(5)
@@ -66,6 +92,8 @@ with (root/'calls.jsonl').open('a') as log:
         process, connection = start()
         try:
             wait_for(lambda: owner_pid()==process.pid, 'The native folder service did not start.')
+            wait_for(lambda: len(mounts())==1, 'Auto mount did not run with all Files windows closed.')
+            assert mounts()[0]==['mount', '-b', '/dev/disk/by-uuid/fixture-usb']
             uri = (root/'screen # 100% $(literal).png').as_uri()
             def invoke(method, urls, token=''):
                 bus.call_sync(name, '/org/freedesktop/FileManager1',
@@ -105,6 +133,7 @@ with (root/'calls.jsonl').open('a') as log:
             assert owner_pid()==os.getpid() and process.poll() is None
             dbus('ReleaseName', '(s)', (name,), '(u)')
             wait_for(lambda: owner_pid()==process.pid, 'The queued service did not acquire the name.')
+            assert len(mounts())==1, 'Restarting the router must not repeat a mount attempt.'
             invoke('ShowItems', [uri])
             assert calls(3)[-1]['arguments']==['--external','--select',uri]
             logout(process, connection)
@@ -116,12 +145,16 @@ with (root/'calls.jsonl').open('a') as log:
             process, connection = start()
             wait_for(lambda: owner_pid()==process.pid, 'The temporary registration was not replaced.')
             dbus('ReleaseName', '(s)', (name,), '(u)')
+            inventory(2)
+            wait_for(lambda: len(mounts())==2, 'A USB reconnect did not mount in the background.')
             logout(process, connection)
             wait_for(lambda: not owns_name(), 'The replacement service survived logout.')
+            inventory(3)
+            assert len(mounts())==2
             outside = dict(env); outside.pop('HYPRLAND_INSTANCE_SIGNATURE')
             assert subprocess.run([str(binary), '--service'], env=outside, timeout=5).returncode==1
             assert not owns_name()
-            print('PASS: selection, literal URIs, live default changes, activation tokens, single-instance service, ownership conflicts, replacement and logout.')
+            print('PASS: routing, activation tokens, single-instance ownership, background Auto mount, USB reconnects, restart suppression and logout.')
         finally:
             for process in processes:
                 if process.poll() is None:
@@ -131,6 +164,7 @@ with (root/'calls.jsonl').open('a') as log:
                         process.kill(); process.wait()
             for connection in connections: connection.close()
             listener.close()
+            control.close()
 
 
 if __name__ == '__main__':

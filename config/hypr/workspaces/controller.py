@@ -24,6 +24,19 @@ def display_number(workspace):
     return key
 
 
+def preview_window(workspace):
+    """Find a live preview surface without changing focus or workspace."""
+    key = model.identity(workspace)
+    for window_id in json.loads(buttons.hypr('xetal-windowbuttons'))['windows']:
+        try:
+            info = buttons.window_info(window_id)
+        except ValueError:  # A window may close between the two reads.
+            continue
+        if str(info.get('workspace')) == key and info.get('app') != 'fusion-window-buttons':
+            return info
+    return None
+
+
 def activate():
     plugins = json.loads(buttons.hypr('-j', 'plugin', 'list'))
     if not any(p.get('name') == 'Xetal Window Memory' for p in plugins):

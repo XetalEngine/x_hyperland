@@ -12,7 +12,8 @@ import runtime as theme_runtime
 
 app=QApplication([]);app.setDesktopFileName('fusion-window-buttons')
 theme_runtime.install(app)
-dialog=RuleDialog(sys.argv[2]);dialog.show()
+dialog=(RuleDialog(workspace=sys.argv[2].split(':',1)[1]) if sys.argv[2].startswith('workspace:') else RuleDialog(sys.argv[2]))
+dialog.show()
 dialog.picker.process.readyReadStandardOutput.connect(lambda:print('Picker output:',repr(bytes(dialog.picker.process.peek(128))),file=sys.stderr,flush=True))
 app.aboutToQuit.connect(dialog.end_preview)
 

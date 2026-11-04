@@ -12,9 +12,19 @@ if __name__ == '__main__':
     cache.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='fusion-files-checks-', dir=cache) as directory:
         base = Path(directory)
+        # Assets remain readable, while Files preferences and Auto mount
+        # observations belong only to this test run.
+        profile = base/'profile'; profile.mkdir()
+        for source in ROOT.parent.iterdir():
+            if source.name != 'file_manager': (profile/source.name).symlink_to(source)
+        (profile/'file_manager').mkdir()
+        for source in ROOT.iterdir():
+            if source.is_file() and source.suffix in ('.py', '.svg'):
+                (profile/'file_manager'/source.name).symlink_to(source)
         env = dict(os.environ, QT_QPA_PLATFORM='offscreen', QT_QPA_PLATFORMTHEME='',
-                   XETAL_FILES_ROOT=str(ROOT.parent), XDG_DATA_DIRS='/usr/local/share:/usr/share',
+                   XETAL_FILES_ROOT=str(profile), XDG_DATA_DIRS='/usr/local/share:/usr/share',
                    FUSION_FILES_ISOLATED='1', TMPDIR=str(base))
+        env.pop('HYPRLAND_INSTANCE_SIGNATURE', None)
         for key, name in [('XDG_CONFIG_HOME', 'config'), ('XDG_DATA_HOME', 'data'),
                           ('XDG_CACHE_HOME', 'cache'), ('XDG_STATE_HOME', 'state'),
                           ('XDG_RUNTIME_DIR', 'runtime')]:
@@ -25,6 +35,7 @@ if __name__ == '__main__':
         subprocess.run(['cmake', '--build', str(build), '--parallel', '4'], check=True, env=env)
         subprocess.run(['dbus-run-session', '--', str(build/'files-tests')], check=True, env=env)
         subprocess.run(['dbus-run-session', '--', str(build/'picker-tests')], check=True, env=env)
+        subprocess.run(['dbus-run-session', '--', str(build/'automount-tests')], check=True, env=env)
         subprocess.run(['dbus-run-session', '--', sys.executable, str(ROOT/'test_service.py'),
                         str(build/'xetal-files')], check=True, env=env)
         subprocess.run(['dbus-run-session', '--', sys.executable, str(ROOT/'test_progress.py'),

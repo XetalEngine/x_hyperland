@@ -34,20 +34,34 @@ PathBar::PathBar(QWidget *parent)
   input->setAutoDeleteCompletionObject(false);
   input->lineEdit()->installEventFilter(this);
   stack->addWidget(input);
-  connect(input->lineEdit(), &QLineEdit::returnPressed, this, [this] {
-    setLocationUrl(Fusion::userUrl(input->currentText(), locationUrl()));
-  });
+  connect(input->lineEdit(), &QLineEdit::returnPressed, this, &PathBar::submit);
   connect(input, qOverload<int>(&QComboBox::activated), this, [this](int) {
-    setLocationUrl(Fusion::userUrl(input->currentText(), locationUrl()));
+    submit();
   });
   render();
 }
 QUrl PathBar::locationUrl() const {
   return history.value(position, Fusion::computerUrl());
 }
+QUrl PathBar::displayedUrl() const {
+  return selectedFile.isEmpty() ? locationUrl() : selectedFile;
+}
+void PathBar::setSelectedFileUrl(const QUrl &url) {
+  if (selectedFile == url) return;
+  selectedFile = url;
+  render();
+}
+void PathBar::submit() {
+  const auto url = Fusion::userUrl(input->currentText(), locationUrl());
+  if (!selectedFile.isEmpty() && url == selectedFile)
+    emit fileActivated(url);
+  else
+    setLocationUrl(url);
+}
 void PathBar::setLocationUrl(const QUrl &url) {
   if (!url.isValid() || url.isEmpty())
     return;
+  selectedFile.clear();
   QUrl normalized = url.adjusted(QUrl::NormalizePathSegments);
   if (normalized.path().size() > 1 && normalized.path().endsWith('/'))
     normalized.setPath(normalized.path().chopped(1));
@@ -69,6 +83,7 @@ bool PathBar::goBack() {
   if (position + 1 >= history.size())
     return false;
   ++position;
+  selectedFile.clear();
   render();
   emit urlChanged(locationUrl());
   emit historyChanged();
@@ -78,6 +93,7 @@ bool PathBar::goForward() {
   if (position == 0)
     return false;
   --position;
+  selectedFile.clear();
   render();
   emit urlChanged(locationUrl());
   emit historyChanged();
@@ -103,7 +119,7 @@ bool PathBar::isUrlEditable() const { return stack->currentWidget() == input; }
 void PathBar::setUrlEditable(bool value) {
   stack->setCurrentWidget(value ? static_cast<QWidget *>(input) : scroll);
   if (value) {
-    input->setEditText(Fusion::displayPath(locationUrl()));
+    input->setEditText(Fusion::displayPath(displayedUrl()));
     input->setFocus();
     input->lineEdit()->selectAll();
   }
@@ -149,6 +165,18 @@ void PathBar::render() {
       crumb(segment, part);
     }
   }
+  if (!selectedFile.isEmpty()) {
+    auto *arrow = new QLabel("›");
+    arrow->setObjectName("muted");
+    trail->addWidget(arrow);
+    // Files are shown as the final segment, never entered as directories.
+    auto *file = new QLabel(selectedFile.fileName());
+    file->setObjectName("selectedFilePath");
+    file->setTextFormat(Qt::PlainText);
+    file->setToolTip(Fusion::displayPath(selectedFile));
+    file->installEventFilter(this);
+    trail->addWidget(file);
+  }
   auto *empty = new QWidget;
   empty->setMinimumWidth(20);
   empty->installEventFilter(this);
@@ -158,7 +186,7 @@ void PathBar::render() {
   input->clear();
   for (const auto &entry : history)
     input->addItem(Fusion::displayPath(entry));
-  input->setEditText(Fusion::displayPath(url));
+  input->setEditText(Fusion::displayPath(displayedUrl()));
   completion->setDir(url);
   QTimer::singleShot(0, this, [this] {
     scroll->horizontalScrollBar()->setValue(

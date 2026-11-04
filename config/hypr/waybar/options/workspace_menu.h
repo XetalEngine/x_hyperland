@@ -90,6 +90,20 @@ static void workspace_toggled(GtkCheckMenuItem *item, gpointer data) {
     g_object_unref(process);
 }
 
+static void workspace_settings(GtkMenuItem *item, gpointer data) {
+    Options *o = data;
+    int workspace = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item), "workspace"));
+    if (!o->alive || workspace < 1) return;
+    char number[24]; g_snprintf(number, sizeof number, "%d", workspace);
+    char *script = g_build_filename(g_get_home_dir(), ".config/hypr/effects/window_close/window_settings.py", NULL);
+    char *argv[] = {"python3", script, "--workspace", number, NULL};
+    GError *error = NULL;
+    if (!g_spawn_async(NULL, argv, NULL, G_SPAWN_SEARCH_PATH, NULL, NULL, NULL, &error)) {
+        workspace_failure(o, error->message); g_clear_error(&error);
+    }
+    g_free(script);
+}
+
 static GtkWidget *workspace_choices(Options *o, int workspace, gboolean controls, int selected) {
     const char *layout_names[] = {"Off", "Force tiled", "Force floating"};
     const char *control_names[] = {"Individual", "On", "Off"};
@@ -115,6 +129,14 @@ static GtkWidget *workspace_choices(Options *o, int workspace, gboolean controls
     }
     /* Connecting after initialization prevents writes merely by opening a menu. */
     for (GSList *it = group; it; it = it->next) g_signal_connect(it->data, "toggled", G_CALLBACK(workspace_toggled), o);
+    if (controls) {
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
+        GtkWidget *item = gtk_menu_item_new_with_label("Settings…");
+        gtk_widget_set_tooltip_text(item, "Edit this workspace’s shared button size, position and background.");
+        g_object_set_data(G_OBJECT(item), "workspace", GINT_TO_POINTER(workspace));
+        g_signal_connect(item, "activate", G_CALLBACK(workspace_settings), o);
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+    }
     return menu;
 }
 

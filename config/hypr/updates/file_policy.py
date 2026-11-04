@@ -32,6 +32,7 @@ PREFERENCES = frozenset({
     'effects/burn/settings.conf', 'effects/cube/settings.json', 'effects/minimize/settings.conf',
     'effects/window_close/settings.conf', 'effects/window_close/drag-settings.json', 'effects/wobbly/settings.json',
     'file_jobs/preferences.json',
+    'file_manager/automount.json',
     'recording/settings.json',
     'startup/fastfetch.jsonc', 'startup/kitty.conf', 'startup/projects.json', 'startup/window-rules.conf',
     'swaync/config.json', 'switcher/preferences.json', 'terminal_fetch/settings.json',

@@ -64,11 +64,13 @@ private:
   };
   DriveSection mountedSection, usbSection, unmountedSection;
   QList<QListWidget *> driveLists;
-  bool driveLayoutReady = false;
+  bool driveLayoutQueued = false, fitMountedContents = false;
   KFilePreviewGenerator *previews;
   QUrl pendingSelection;
   void load(const QUrl &url);
   void updateCards();
+  void queueDriveLayout(bool fitContents = false);
+  void fitDriveSections();
   void configureCards(QListWidget *list);
   void updateStatus();
   void columnMenu(const QPoint &position);

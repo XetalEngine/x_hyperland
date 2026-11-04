@@ -3,7 +3,7 @@ import hashlib
 from pathlib import Path
 
 PATH = Path(__file__).with_name('settings.conf')
-DEFAULTS = dict(enabled=True, modifier='SUPER', size=34, inset=8, pulse=True)
+DEFAULTS = dict(enabled=True, modifier='SUPER', size=18, inset=8, pulse=True)
 
 
 def validate(values):

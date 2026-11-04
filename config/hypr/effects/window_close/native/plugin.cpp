@@ -45,7 +45,7 @@
 namespace {
 using Clock = std::chrono::steady_clock;
 HANDLE handle;
-struct Settings { bool enabled=true, pulse=true; int modifier=64, size=34, inset=8; } settings;
+struct Settings { bool enabled=true, pulse=true; int modifier=64, size=18, inset=8; } settings;
 std::array<double,3> accent{.224,.663,1};
 std::vector<CHyprSignalListener> listeners;
 SP<CEventLoopTimer> timer;

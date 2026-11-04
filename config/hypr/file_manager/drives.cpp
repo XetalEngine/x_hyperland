@@ -8,9 +8,11 @@ QList<Volume> Drives::parse(const QByteArray &data) {
   const auto document = QJsonDocument::fromJson(data);
   QList<Volume> result;
   QHash<QString, int> seen;
+  QSet<QString> systemDisks;
   struct PhysicalDisk {
     QString device, model, transport;
     quint64 size = 0;
+    QString connection;
   };
   std::function<void(QJsonObject, bool, PhysicalDisk)> visit =
       [&](QJsonObject item, bool parentRemovable, PhysicalDisk disk) {
@@ -25,7 +27,8 @@ QList<Volume> Drives::parse(const QByteArray &data) {
         if (type == "disk") {
           disk = {device, item["model"].toString().trimmed(),
                   item["tran"].toString(),
-                  item["size"].toVariant().toULongLong()};
+                  item["size"].toVariant().toULongLong(),
+                  item["disk-seq"].toVariant().toString()};
         }
         QStringList mounts;
         for (auto mount : item["mountpoints"].toArray())
@@ -34,6 +37,8 @@ QList<Volume> Drives::parse(const QByteArray &data) {
         if (mounts.isEmpty() && item["mountpoint"].isString() &&
             item["mountpoint"].toString() != "[SWAP]")
           mounts << item["mountpoint"].toString();
+        const bool system = std::any_of(mounts.cbegin(), mounts.cend(), AutoMountPolicy::systemMount);
+        if (system && !disk.device.isEmpty()) systemDisks.insert(disk.device);
         if (type != "loop" && type != "zram" &&
             (children.isEmpty() || !filesystem.isEmpty())) {
           Volume volume;
@@ -60,12 +65,15 @@ QList<Volume> Drives::parse(const QByteArray &data) {
           volume.driveModel = disk.model;
           volume.transport = disk.transport;
           volume.driveSize = disk.size;
+          volume.system = system;
+          volume.connection = disk.connection;
           if (!seen.contains(volume.device) &&
               volume.device.startsWith("/dev/")) {
             seen.insert(volume.device, result.size());
             result << volume;
           } else if (seen.contains(volume.device)) {
             auto &existing = result[seen.value(volume.device)];
+            existing.system |= system;
             if (existing.driveDevice != volume.driveDevice) {
               // Shared RAID/LVM nodes have multiple backing disks; keep their
               // logical device together rather than claiming one physical
@@ -82,6 +90,8 @@ QList<Volume> Drives::parse(const QByteArray &data) {
       };
   for (auto item : document.object()["blockdevices"].toArray())
     visit(item.toObject(), false, {});
+  for (auto &volume : result)
+    volume.system |= systemDisks.contains(volume.driveKey());
   std::stable_sort(result.begin(), result.end(),
                    [](const Volume &a, const Volume &b) {
                      if ((a.mount == "/") != (b.mount == "/"))
@@ -90,7 +100,9 @@ QList<Volume> Drives::parse(const QByteArray &data) {
                    });
   return result;
 }
-Drives::Drives(QObject *parent, bool automatic) : QObject(parent) {
+Drives::Drives(QObject *parent, bool automatic, bool autoMount,
+               const QString &autoMountSettings, const QString &autoMountSession)
+    : QObject(parent), autoMountPolicy(autoMountSettings, autoMountSession), automaticMounting(autoMount) {
   scanningEnabled = automatic;
   connect(
       &scan, &QProcess::finished, this,
@@ -112,8 +124,12 @@ Drives::Drives(QObject *parent, bool automatic) : QObject(parent) {
               volume.available = qMax<qint64>(0, storage.bytesAvailable());
               volume.freeBytes = qMax<qint64>(0, storage.bytesFree());
               volume.spaceKnown = true;
+              const auto actual = QFileInfo(QString::fromLocal8Bit(storage.device())).canonicalFilePath();
+              const auto expected = QFileInfo(volume.device).canonicalFilePath();
+              volume.verifiedMount = !actual.isEmpty() && actual == expected;
             }
           }
+        updateAutoMounts();
         emit changed();
         if (refreshAgain && !busy()) {
           refreshAgain = false;
@@ -126,12 +142,14 @@ Drives::Drives(QObject *parent, bool automatic) : QObject(parent) {
             if (volume.device == requested && volume.mounted())
               emit browse(QUrl::fromLocalFile(volume.mount));
         }
+        if (automaticMounting) mountAutomatically();
       });
   connect(&scan, &QProcess::errorOccurred, this, [this] {
     emit message("Cannot list drives: " + scan.errorString());
   });
   connect(&operation, &QProcess::finished, this,
           [this](int code, QProcess::ExitStatus status) {
+            operationTimeout.stop();
             const QString output =
                 QString::fromUtf8(operation.readAllStandardError()).trimmed();
             if (code || status != QProcess::NormalExit) {
@@ -143,11 +161,17 @@ Drives::Drives(QObject *parent, bool automatic) : QObject(parent) {
             refresh();
           });
   connect(&operation, &QProcess::errorOccurred, this, [this] {
+    operationTimeout.stop();
     openAfterMount.clear();
     emit message("Cannot start drive operation: " + operation.errorString());
   });
   connect(&timer, &QTimer::timeout, this, &Drives::refresh);
   timer.setInterval(5000);
+  operationTimeout.setSingleShot(true);
+  operationTimeout.setInterval(120000);
+  connect(&operationTimeout, &QTimer::timeout, this, [this] {
+    if (busy()) operation.kill();
+  });
   if (automatic) {
     timer.start();
     QTimer::singleShot(0, this, &Drives::refresh);
@@ -164,10 +188,37 @@ void Drives::refresh() {
   }
   scan.start("lsblk", {"--json", "--bytes", "--output",
                        "PATH,NAME,TYPE,FSTYPE,LABEL,SIZE,MOUNTPOINTS,RO,RM,"
-                       "UUID,PKNAME,MODEL,TRAN"});
+                       "UUID,PKNAME,MODEL,TRAN,DISK-SEQ"});
+}
+void Drives::updateAutoMounts() {
+  QString error;
+  if (!autoMountPolicy.observe(volumes, &error)) emit message(error);
+}
+AutoMountPolicy::Choice Drives::autoMountChoice(const QString &drive) const {
+  return autoMountPolicy.choice(drive, volumes);
+}
+void Drives::setAutoMount(const QString &drive, bool enabled) {
+  QString error;
+  if (!autoMountPolicy.setEnabled(drive, volumes, enabled, &error)) emit message(error);
+  emit changed();
+}
+void Drives::mountAutomatically() {
+  if (busy()) return;
+  Volume volume; QString error;
+  if (!autoMountPolicy.next(volumes, &volume, &error)) {
+    if (!error.isEmpty()) emit message(error);
+    return;
+  }
+  // Use the UUID link for the operation too: a reused /dev/sdX name must not
+  // turn a connection race into mounting an unrelated filesystem.
+  // Internal data disks may require the session's normal polkit dialog even
+  // after a previous successful mount. Let UDisks request that authorization.
+  operation.start("udisksctl", {"mount", "-b", "/dev/disk/by-uuid/" + volume.uuid});
+  operationTimeout.start();
 }
 Drives::~Drives() {
   timer.stop();
+  operationTimeout.stop();
   for (auto *process : {&scan, &operation}) {
     disconnect(process, nullptr, this, nullptr);
     if (process->state() != QProcess::NotRunning) {
@@ -221,6 +272,11 @@ void Drives::operate(const Volume &snapshot, const QString &action,
     if (!volume.mounted() || volume.mount == "/" || volume.mount == "/home" ||
         volume.mount == "/boot" || volume.mount.startsWith("/boot/"))
       return;
+    QString error;
+    if (!autoMountPolicy.suppress(volume, &error)) {
+      emit message("Could not pause Auto mount for this connection. " + error);
+      return;
+    }
     args = FusionVolumes::unmount(volume.device);
   } else if (action == "mount" || action == "force" || action == "open") {
     if (volume.mounted())

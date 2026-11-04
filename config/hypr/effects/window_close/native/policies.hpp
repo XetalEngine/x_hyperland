@@ -13,7 +13,7 @@
 namespace WindowButtons {
 struct Rule {
     std::string mode="super",anchor="top-right",background="auto",backgroundColor="#20242b";
-    int size=34,x=8,y=8,proximity=80;
+    int size=18,x=8,y=8,proximity=80;
 };
 using Rules=std::map<std::string,Rule>;
 using Json=std::unique_ptr<json_object,decltype(&json_object_put)>;

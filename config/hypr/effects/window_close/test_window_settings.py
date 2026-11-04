@@ -101,6 +101,43 @@ class EditorTests(unittest.TestCase):
         self.assertFalse(self.dialog.buttons.button(ui.QDialogButtonBox.StandardButton.Apply).isEnabled())
         self.assertIn('forced Off',self.dialog.status.text())
 
+    def test_workspace_menu_settings_can_edit_an_empty_or_disabled_workspace(self):
+        for mode in ('individual','off','on'):
+            value=dict(self.window_rule,mode='always',size=18)
+            document={'version':1,'workspaces':{'203':dict(layout='tile',controls=mode,rule=value)}}
+            with self.subTest(mode=mode), \
+                 patch.object(ui.workspace_model,'load',return_value=(document,'workspace-token')), \
+                 patch.object(ui.workspace_controller,'display_number',return_value='3'), \
+                 patch.object(ui.workspace_controller,'preview_window',return_value=None) as preview, \
+                 patch.object(ui.workspace_controller,'save') as save:
+                dialog=ui.RuleDialog(workspace=203)
+                try:
+                    dialog.show()
+                    self.assertTrue(dialog.valid,dialog.status.text())
+                    self.assertEqual(dialog.scope.currentData(),'workspace')
+                    self.assertIn('Workspace 3',dialog.app_label.text())
+                    self.assertEqual(dialog.values(),value)
+                    dialog.send_preview()
+                    if mode=='on':preview.assert_called_once_with('203')
+                    else:preview.assert_not_called()
+                    self.assertEqual(dialog.window_id,'')
+                    dialog.size.slider.setValue(20);changed=dialog.values();dialog.apply()
+                    save.assert_called_once_with(203,rule=changed,token='workspace-token',window_id=None)
+                    self.save.assert_not_called()
+                finally:dialog.reject()
+
+    def test_new_workspace_uses_current_global_settings_without_a_window(self):
+        with patch.object(ui.workspace_model,'load',return_value=({'version':1,'workspaces':{}},'empty')), \
+             patch.object(ui.workspace_controller,'save') as save:
+            dialog=ui.RuleDialog(workspace=204)
+            try:
+                self.assertEqual(dialog.values(),dict(ui.rules.DEFAULTS,mode='always',size=36,x=10,y=10))
+                dialog.size.slider.setValue(18)
+                dialog.reset.click()
+                self.assertEqual(dialog.size.value(),36)
+                save.assert_not_called()
+            finally:dialog.reject()
+
     def test_screen_picker_is_async_and_editor_owns_its_lifetime(self):
         self.dialog.background.setCurrentIndex(self.dialog.background.findData('manual'))
         with patch.object(self.dialog.picker,'start') as start:

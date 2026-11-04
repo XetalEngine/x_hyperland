@@ -72,13 +72,47 @@ private slots:
     QCOMPARE(result(spy)["uris"].toArray().first().toString(), QUrl::fromLocalFile(folder+"/new image.png").toString(QUrl::FullyEncoded));
     QVERIFY(!QFileInfo::exists(folder+"/new image.png")); // Chooser never writes content.
     PickerWindow overwrite(input, settings(), false); prepare(overwrite);
-    overwrite.findChild<QLineEdit *>("pickerName")->setText("photo.png");
+    overwrite.findChild<QLineEdit *>("pickerName")->setText("photo");
     QSignalSpy cancelled(&overwrite, &PickerWindow::finished);
     QTimer::singleShot(30, [] { for (auto *widget : QApplication::topLevelWidgets())
       if (auto *box = qobject_cast<QMessageBox *>(widget)) box->done(QMessageBox::Cancel); });
     overwrite.acceptSelection();
     QCOMPARE(cancelled.size(), 0); QVERIFY(overwrite.isVisible()); overwrite.close();
     QCOMPARE(result(cancelled)["response"].toInt(), 1);
+  }
+  void saveSelectedExtension_data() {
+    QTest::addColumn<QString>("typed");
+    QTest::addColumn<QJsonArray>("patterns");
+    QTest::addColumn<QString>("fallback");
+    QTest::addColumn<QString>("expected");
+    const QJsonArray png{QJsonArray{0, "*.png"}};
+    QTest::newRow("no extension") << "drawing" << png << "" << "drawing.png";
+    QTest::newRow("incomplete extension") << "drawing.pn" << png << "" << "drawing.pn.png";
+    QTest::newRow("other extension") << "drawing.jpg" << png << "" << "drawing.jpg.png";
+    QTest::newRow("already correct") << "drawing.png" << png << "" << "drawing.png";
+    QTest::newRow("upper case") << "drawing.PNG" << png << "" << "drawing.PNG";
+    QTest::newRow("compound") << "backup.tar" << QJsonArray{QJsonArray{0,"*.tar.gz"}} << "" << "backup.tar.tar.gz";
+    QTest::newRow("compound present") << "backup.tar.gz" << QJsonArray{QJsonArray{0,"*.tar.gz"}} << "" << "backup.tar.gz";
+    QTest::newRow("alternate extension") << "drawing.jpeg" << QJsonArray{QJsonArray{0,"*.jpg"},QJsonArray{0,"*.jpeg"}} << "" << "drawing.jpeg";
+    QTest::newRow("mime filter") << "drawing.pn" << QJsonArray{QJsonArray{1,"image/png"}} << "" << "drawing.pn.png";
+    QTest::newRow("mime present") << "drawing.PNG" << QJsonArray{QJsonArray{1,"image/png"}} << "" << "drawing.PNG";
+    QTest::newRow("all files") << "drawing.pn" << QJsonArray{QJsonArray{0,"*"}} << "" << "drawing.pn";
+    QTest::newRow("no format") << "drawing.pn" << QJsonArray{} << "" << "drawing.pn";
+    QTest::newRow("default suffix") << "drawing.pn" << QJsonArray{} << "png" << "drawing.pn.png";
+    QTest::newRow("selected beats default") << "drawing" << png << "jpg" << "drawing.png";
+  }
+  void saveSelectedExtension() {
+    QFETCH(QString, typed); QFETCH(QJsonArray, patterns); QFETCH(QString, fallback); QFETCH(QString, expected);
+    auto input = request("SaveFile");
+    const QJsonArray chosen{"Chosen type", patterns};
+    input["filters"] = QJsonArray{QJsonArray{"Unselected type", QJsonArray{QJsonArray{0,"*.txt"}}}, chosen};
+    input["current_filter"] = chosen; input["default_suffix"] = fallback;
+    PickerWindow picker(input, settings(), false); prepare(picker);
+    picker.findChild<QLineEdit *>("pickerName")->setText(typed);
+    QSignalSpy spy(&picker, &PickerWindow::finished); picker.acceptSelection();
+    QCOMPARE(result(spy)["uris"].toArray().first().toString(), QUrl::fromLocalFile(folder+'/'+expected).toString(QUrl::FullyEncoded));
+    QCOMPARE(result(spy)["current_filter"].toArray(), chosen);
+    QVERIFY(!QFileInfo::exists(folder+'/'+expected));
   }
   void saveMultipleAvoidsCollisions() {
     auto input = request("SaveFiles"); input["files"] = QJsonArray{"photo.png", "photo.png", "other.txt"};
