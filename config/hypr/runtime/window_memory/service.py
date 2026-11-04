@@ -85,6 +85,7 @@ class Tracker:
         self.initialized = False
 
     def restore(self, client, meta, saved, monitor, phase=0):
+        if meta.get('workspace_layout', 'off') != 'off': return False
         address = client['address']
         # Fusion Files chooses its mode at launch: ordinary windows tile,
         # external requests use a first-map floating rule and their own size,
@@ -141,6 +142,12 @@ class Tracker:
             token = client['address'], client.get('pid')
             if not eligible(client): continue
             meta = metadata.get(client['address'], {})
+            if meta.get('workspace_layout', 'off') != 'off':
+                # Workspace choices override remembered app modes, without
+                # replacing those preferences when this window later closes.
+                self.pending.pop(token, None); self.samples.pop(token, None)
+                self.owners.discard(token)
+                continue
             key = identity(client, meta)
             if key is None: continue
             self.keys[token] = key

@@ -54,6 +54,19 @@ static void state_tests(void) {
     hidden = read_options(state, &bottom, &error); g_assert_no_error(error);
     g_assert_cmpuint(g_hash_table_size(hidden), ==, 0); g_hash_table_unref(hidden);
     g_print("PASS: saved choices merge, unknown items survive, private atomic file, lock conflict, invalid-file protection and reset.\n");
+    char *workspace_path = g_build_filename(directory, "workspaces.json", NULL);
+    WorkspaceModes modes;
+    g_assert_true(workspace_modes(workspace_path, 203, &modes));
+    g_assert_cmpint(modes.layout, ==, 0); g_assert_cmpint(modes.controls, ==, 0);
+    g_file_set_contents(workspace_path, "{\"version\":1,\"workspaces\":{\"203\":{\"layout\":\"tile\",\"controls\":\"off\"}}}", -1, NULL);
+    g_assert_true(workspace_modes(workspace_path, 203, &modes));
+    g_assert_cmpint(modes.layout, ==, 1); g_assert_cmpint(modes.controls, ==, 2);
+    g_assert_true(workspace_modes(workspace_path, 204, &modes));
+    g_assert_cmpint(modes.layout, ==, 0); g_assert_cmpint(modes.controls, ==, 0);
+    g_file_set_contents(workspace_path, "{\"version\":1,\"workspaces\":{\"203\":{\"layout\":\"invalid\",\"controls\":\"on\"}}}", -1, NULL);
+    g_assert_false(workspace_modes(workspace_path, 203, &modes));
+    g_unlink(workspace_path); g_free(workspace_path);
+    g_print("PASS: workspace menu reads the addressed workspace, defaults and invalid state.\n");
 }
 
 typedef struct { GtkWidget *window, *region, *host, *cpu, *memory, *media; Options *options; } Bar;
@@ -197,12 +210,41 @@ static void gui_tests(void) {
     g_print("PASS: GTK checkboxes, async persistence across bars, collapsed gaps, natural visibility, recovery, packing, teardown and reload.\n");
 }
 
+static void workspace_gui_tests(void) {
+    Bar bar = bar_new();
+    GtkWidget *first = gtk_button_new_with_label("3"), *second = gtk_button_new_with_label("4");
+    g_object_set_data(G_OBJECT(first), "xetal-workspace-id", GINT_TO_POINTER(203));
+    g_object_set_data(G_OBJECT(second), "xetal-workspace-id", GINT_TO_POINTER(204));
+    gtk_box_pack_start(GTK_BOX(bar.region), first, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(bar.region), second, FALSE, FALSE, 0);
+    gtk_widget_show_all(bar.window); pump(250);
+    int x, y; gtk_widget_translate_coordinates(second, bar.window, 0, 0, &x, &y);
+    g_assert_true(workspace_at(bar.window, bar.window, x+4, y+4) == second);
+    gtk_widget_translate_coordinates(first, bar.window, 0, 0, &x, &y);
+    g_assert_true(workspace_at(bar.window, bar.window, x+4, y+4) == first);
+    GtkWidget *menu = g_object_ref_sink(workspace_choices(bar.options, 203, FALSE, 1));
+    GList *entries = gtk_container_get_children(GTK_CONTAINER(menu));
+    GtkWidget *tile = g_list_nth_data(entries, 1), *floating = g_list_nth_data(entries, 2);
+    g_assert_true(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(tile)));
+    g_assert_false(bar.options->saving);
+    g_assert_cmpint(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(floating), "workspace")), ==, 203);
+    g_assert_cmpstr(g_object_get_data(G_OBJECT(floating), "workspace-choice"), ==, "floating");
+    g_list_free(entries); gtk_widget_destroy(menu); g_object_unref(menu);
+    menu = g_object_ref_sink(workspace_choices(bar.options, 204, TRUE, 2));
+    entries = gtk_container_get_children(GTK_CONTAINER(menu));
+    g_assert_true(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(g_list_nth_data(entries, 2))));
+    g_assert_false(bar.options->saving);
+    g_list_free(entries); gtk_widget_destroy(menu); g_object_unref(menu);
+    wbcffi_deinit(bar.options); gtk_widget_destroy(bar.window); pump(50);
+    g_print("PASS: workspace hit testing retains real Cube IDs; layout/button radio groups open without writes.\n");
+}
+
 int main(int argc, char **argv) {
     gboolean state_only = argc > 1 && !strcmp(argv[1], "--state-only");
     if (!state_only) gtk_init(&argc, &argv);
     directory = g_dir_make_tmp("xetal-bar-options-test-XXXXXX", NULL); g_assert_nonnull(directory);
     state = g_build_filename(directory, "options.json", NULL);
-    state_tests(); if (!state_only) gui_tests();
+    state_tests(); if (!state_only) { gui_tests(); workspace_gui_tests(); }
     char *lock = g_strconcat(state, ".lock", NULL); g_unlink(lock); g_free(lock);
     g_unlink(state); g_rmdir(directory); g_free(state); g_free(directory); return 0;
 }

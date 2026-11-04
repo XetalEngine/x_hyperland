@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT))
 sys.path.insert(0,str(ROOT/'theme'))
 from effects.window_close import model, rules, controller
+from workspaces import model as workspace_model, controller as workspace_controller
 from effects.window_close.drag_page import DragSettings
 from PyQt6.QtCore import Qt, QTimer, QProcess, QObject, pyqtSignal
 from PyQt6.QtGui import QColor, QIcon, QImage, QPixmap
@@ -153,7 +154,7 @@ class RuleDialog(QDialog):
         self.picker=DesktopPicker(self);self.picker.picked.connect(self.set_color);self.picker.finished.connect(self.picker_finished)
         self.live=QLabel();self.live.setWordWrap(True);self.live.setTextFormat(Qt.TextFormat.PlainText)
         layout.addWidget(self.live)
-        hint=QLabel('All five buttons stay visible on the window while you edit: settings, tile, minimize, restore and close. '
+        self.hint=hint=QLabel('All five buttons stay visible on the window while you edit: settings, tile, minimize, restore and close. '
                     'Move the sliders to preview changes; Apply saves them. '
                     'Your chosen visibility takes effect when you close this editor.')
         hint.setWordWrap(True);layout.addWidget(hint)
@@ -240,6 +241,10 @@ class RuleDialog(QDialog):
     def scope_changed(self,*_):
         if self.loading or not self.valid:return
         self.remove_override=False
+        if self.scope.currentData()=='workspace':
+            self.inherit.setEnabled(False)
+            self.status.setText(f'Apply will save shared controls for all windows in workspace {self.workspace_label}, including future logins.')
+            return
         scope=self.scope.currentData();key=self.info['app'] if scope=='app' else self.window_id
         self.inherit.setEnabled(key in self.documents[scope])
         self.status.setText('Apply will save for this app and replace this window’s override.' if scope=='app' and self.info['window_override'] else
@@ -251,10 +256,30 @@ class RuleDialog(QDialog):
         self.inherit.setEnabled(False);self.reset.setEnabled(False)
         try:
             self.info=controller.window_info(self.window_id)
+            if self.info.get('workspace_controls')=='off':
+                raise ValueError('Controls are forced Off in this workspace. Change its taskbar menu to Individual or On, then Reload.')
             self.settings,_=model.load();self.documents={};self.tokens={}
             for scope in ('app','window'):
                 path,section=controller.rule_file(scope);data,self.tokens[scope]=rules.load(path,section)
                 self.documents[scope]=data[section]
+            shared=self.info.get('workspace_controls')=='on'
+            previous=self.scope.currentData();self.scope.blockSignals(True);self.scope.clear()
+            if shared:
+                workspace=self.workspace_label=workspace_controller.display_number(self.info['workspace'])
+                self.scope.addItem(f'All windows in workspace {workspace} · remembered','workspace')
+                document,self.tokens['workspace']=workspace_model.load()
+                self.documents['workspace']=document['workspaces']
+            else:
+                if self.info['app']:self.scope.addItem('All windows of this app · remembered','app')
+                self.scope.addItem('Only this window · until it closes','window')
+                if self.scope.findData(previous)>=0:self.scope.setCurrentIndex(self.scope.findData(previous))
+            self.scope.blockSignals(False);self.mode.setEnabled(not shared)
+            self.reset.setText('Reset workspace controls to defaults' if shared else 'Reset this window to defaults')
+            self.reset.setToolTip('Preview global defaults for this workspace. Apply to keep them.' if shared else 'Preview global defaults for this window only. Apply to keep them.')
+            self.hint.setText('Changes preview live on all windows in this workspace. Apply saves the shared size, position and background. '
+                              'The gear normally appears while Super is held. Use the workspace menu to change visibility.' if shared else
+                              'All five buttons stay visible on the window while you edit: settings, tile, minimize, restore and close. '
+                              'Move the sliders to preview changes; Apply saves them. Your chosen visibility takes effect when you close this editor.')
             width,height=self.info.get('size',[1000,700])
             self.x.setSliderMaximum(max(16,width-5*self.info['rule']['size']-32))
             self.y.setSliderMaximum(max(16,height-self.info['rule']['size']-8))
@@ -267,6 +292,10 @@ class RuleDialog(QDialog):
 
     def reset_window(self):
         if self.picking:self.picker.cancel()
+        if self.scope.currentData()=='workspace':
+            self.remove_override=False;self.set_values(dict(rules.effective(self.settings),mode='always'))
+            self.status.setText('Default settings previewed for this workspace. Apply to keep them.')
+            return
         self.scope.setCurrentIndex(self.scope.findData('window'))
         self.remove_override=False;self.set_values(rules.effective(self.settings))
         self.status.setText('Default settings previewed for this window only. Apply to keep them.')
@@ -281,10 +310,14 @@ class RuleDialog(QDialog):
     def apply(self):
         try:
             scope=self.scope.currentData();value=None if self.remove_override else self.values()
-            controller.save_rule(self.window_id,scope,value,self.tokens[scope],
-                                 window_token=self.tokens['window'] if scope=='app' else None)
+            if scope=='workspace':
+                workspace_controller.save(self.info['workspace'],rule=value,token=self.tokens[scope],window_id=self.window_id)
+            else:
+                controller.save_rule(self.window_id,scope,value,self.tokens[scope],
+                                     window_token=self.tokens['window'] if scope=='app' else None)
             self.load()
-            self.status.setText('Applied. '+('Saved for this app and future logins.' if scope=='app' else 'This choice lasts until this window closes.'))
+            self.status.setText('Applied. '+('Shared workspace controls saved for future logins.' if scope=='workspace' else
+                               'Saved for this app and future logins.' if scope=='app' else 'This choice lasts until this window closes.'))
         except Exception as error:self.status.setText(str(error))
 
     def queue_preview(self):
@@ -295,7 +328,8 @@ class RuleDialog(QDialog):
         if self.closing or not self.valid or not self.isVisible():return
         if self.preview_process.state()!=QProcess.ProcessState.NotRunning:return
         self.preview_dirty=False
-        payload=controller.preview_payload(self.window_id,self.preview_token,self.values())
+        workspace=self.info['workspace'] if self.scope.currentData()=='workspace' else None
+        payload=controller.preview_payload(self.window_id,self.preview_token,self.values(),workspace=workspace)
         self.preview_process.start('hyprctl',['dispatch','xetalwindowclose:preview',payload]);self.preview_timeout.start()
 
     def preview_finished(self,code,*_):
@@ -303,7 +337,7 @@ class RuleDialog(QDialog):
         output=bytes(self.preview_process.readAllStandardOutput()).decode(errors='replace').strip()
         errors=bytes(self.preview_process.readAllStandardError()).decode(errors='replace').strip()
         if self.closing:return
-        if code==0 and output=='ok':self.live.setText('● Live preview on your window')
+        if code==0 and output=='ok':self.live.setText('● Live preview across this workspace' if self.scope.currentData()=='workspace' else '● Live preview on your window')
         else:self.live.setText('Live preview unavailable: '+(errors or output or 'The compositor did not respond.')[-240:])
         if 'This window has closed' in output:
             self.valid=False;self.buttons.button(QDialogButtonBox.StandardButton.Apply).setEnabled(False);self.reset.setEnabled(False);self.inherit.setEnabled(False)

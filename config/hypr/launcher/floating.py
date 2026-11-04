@@ -228,6 +228,13 @@ class Tracker:
             self.tag(client, request)
             return
         self.hypr.dispatch('setfloating', address)
+        current = next((c for c in self.hypr.query('clients') if c['address'] == client['address']), None)
+        if not current:return
+        if not current.get('floating'):
+            # A forced-tiled workspace may refuse the floating request. Never
+            # resize its shared layout as though this were a floating window.
+            self.tag(current, request)
+            return
         if request['size']:
             width, height = request['size']
             self.hypr.dispatch('resizewindowpixel', f'exact {width} {height},' + address)

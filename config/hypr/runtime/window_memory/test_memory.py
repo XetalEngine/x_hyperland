@@ -6,6 +6,13 @@ from service import Store, Tracker, identity
 
 
 class MemoryTests(unittest.TestCase):
+    def test_forced_workspace_never_receives_an_app_mode_restore(self):
+        hypr=Mock();tracker=Tracker(hypr,None)
+        for layout in ('tile','floating'):
+            for phase in range(3):
+                self.assertFalse(tracker.restore({'address':'0x123'}, {'workspace_layout':layout}, {}, {}, phase))
+        self.assertFalse(hypr.mock_calls)
+
     def test_explicit_launcher_choices_never_receive_a_later_restore(self):
         hypr=Mock();tracker=Tracker(hypr,None)
         saved=dict(floating=True,fullscreen=1,client_fullscreen=1,size=[1920,1080],area=[1920,1080])
@@ -37,6 +44,20 @@ class MemoryTests(unittest.TestCase):
                 tracker.restore(client, {}, saved, monitor, 2)
                 hypr.dispatch.assert_called_once_with('settiled', 'address:0x123')
                 hypr.command.assert_called_once_with('xetal-window-state 0x123 1 1')
+
+    def test_forced_workspace_does_not_replace_normal_app_memory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store=Store(Path(directory)/'windows.json');hypr=Mock();tracker=Tracker(hypr,store)
+            client=dict(address='0x123',pid=123,mapped=True,hidden=False,floating=True,size=[600,400],
+                        workspace={'id':3},monitor=0,**{'class':'test'})
+            meta={'workspace_layout':'floating'}
+            key=identity(client,meta)
+            saved=dict(floating=False,fullscreen=0,client_fullscreen=0,size=[950,1040],area=[1920,1080])
+            store.put(key,saved)
+            hypr.query.side_effect=lambda name: [client] if name=='clients' else {client['address']:meta} if name=='xetal-windows' else [{'id':0}]
+            for now in (0,1,2):tracker.update(now)
+            self.assertEqual(store.data[key],saved)
+            self.assertFalse(tracker.samples);self.assertFalse(tracker.pending)
 
     def test_files_launch_mode_is_not_replaced_by_stale_memory(self):
         hypr = Mock(); tracker = Tracker(hypr, None)

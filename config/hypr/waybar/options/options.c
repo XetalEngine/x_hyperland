@@ -400,6 +400,8 @@ static void closed(GtkWidget *menu, gpointer data) {
     Options *o = data; o->menu = NULL; gtk_widget_destroy(menu);
 }
 
+#include "workspace_menu.h"
+
 static void pressed(GtkGestureMultiPress *gesture, gint count, gdouble x, gdouble y, gpointer data) {
     Options *o = data;
     if (!o->alive || count != 1 || o->menu) return;
@@ -411,6 +413,10 @@ static void pressed(GtkGestureMultiPress *gesture, gint count, gdouble x, gdoubl
     xetal_append_bar_options(menu, o->root, FALSE);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), ready_option(o));
+    if (!strcmp(id, "hyprland/workspaces")) {
+        GtkWidget *button = workspace_at(o->top, o->top, x, y);
+        if (button) append_workspace_options(o, menu, button);
+    }
     if (!strcmp(id, "group/audio") || !strcmp(id, "pulseaudio#microphone") || !strcmp(id, "mpris")
             || !strcmp(id, "custom/notifications") || !strcmp(id, "cpu") || !strcmp(id, "custom/launcher") || !strcmp(id, "custom/power")) {
         gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());

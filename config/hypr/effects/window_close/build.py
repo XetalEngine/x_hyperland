@@ -41,7 +41,7 @@ def build(root=ROOT):
         raise RuntimeError('The window close button supports Hyprland 0.56.2. This compositor version needs an updated adapter.')
     versions = output(['pkg-config','--modversion','hyprland','aquamarine','hyprutils','hyprgraphics','hyprcursor','hyprlang'])
     signature = hashlib.sha256((versions+str(flags)+output(['g++','-dumpfullversion'])).encode())
-    sources = list((root/'native').glob('*'))
+    sources = list((root/'native').glob('*')) + [root.parents[1]/'workspaces/native.hpp']
     for source in sorted(sources):
         signature.update(source.name.encode()); signature.update(source.read_bytes())
     build_dir = root/'.build'/signature.hexdigest()[:20]

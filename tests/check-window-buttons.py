@@ -31,6 +31,9 @@ def main():
     settings.parent.mkdir(parents=True); settings.write_text(model.encode(model.DEFAULTS))
     for source in (REPO/'config/hypr/effects/window_close').glob('*.py'):
         shutil.copy2(source,settings.parent/source.name)
+    workspace_dir=home/'.config/hypr/workspaces';workspace_dir.mkdir(parents=True)
+    for source in (REPO/'config/hypr/workspaces').glob('*.py'):
+        shutil.copy2(source,workspace_dir/source.name)
     # Small theme/config sources only; never adopt the real user's preferences.
     for directory in ('theme','runtime','cursors'):
         destination=home/'.config/hypr'/directory;destination.mkdir(exist_ok=True)
@@ -168,6 +171,88 @@ bindm=SUPER,mouse:273,resizewindow
             c = client(name); m = json.loads(ctl('-j', 'monitors'))[0]
             x, y = c['at']; w, h = c['size']; left, top, right, bottom = m['reserved']
             assert x >= left + 3 and y >= top + 3 and x+w <= m['width']-right-3 and y+h <= m['height']-bottom-3, (c, m)
+
+        if '--workspaces-only' in sys.argv:
+            workspace=client()['workspace']['id']
+            controller_path=workspace_dir/'controller.py'
+            def policy(number=workspace,**values):
+                args=[sys.executable,str(controller_path),'--workspace',str(number)]
+                for key,value in values.items():args.extend(['--'+key,value])
+                run(*args)
+            def info(name='Buttons'):
+                ids=json.loads(ctl('xetal-windowbuttons'))['windows']
+                return next(v for v in (json.loads(ctl('xetal-windowbuttons',i)) for i in ids) if v['address']==client(name)['address'])
+            command('add','Other');wait(lambda:client('Other'))
+            policy(layout='floating');wait(lambda:client()['floating'] and client('Other')['floating']);fits();fits('Other')
+            dispatch('settiled',address());assert client()['floating']
+            command('add','New floating');wait(lambda:client('New floating'))
+            assert client('New floating')['floating'];fits('New floating')
+            command('close','New floating');wait(lambda:not client('New floating'))
+            policy(layout='tile');wait(lambda:not client()['floating'] and not client('Other')['floating'])
+            dispatch('setfloating',address());assert not client()['floating']
+            assert client()['size'][0]*client()['size'][1] < 1280*900*.75,'Windows must share the tiled layout'
+            reveal();point('down 272');point('move 700 350');point('up 272');point('key 125 0')
+            wait(lambda:not client()['floating']);time.sleep(.1)
+            assert not client()['floating'] and client()['size'][0]*client()['size'][1] < 1280*900*.75
+            # A contradictory launch rule must not produce tile/float jumps.
+            dispatch('focuswindow',address())
+            assert ctl('keyword','windowrule','match:class ^wobbly-test$,float on')=='ok'
+            command('add','New tiled');wait(lambda:client('New tiled'))
+            for _ in range(6):assert not client('New tiled')['floating'];time.sleep(.03)
+            command('close','New tiled');wait(lambda:not client('New tiled'))
+            assert ctl('keyword','windowrule','match:class ^wobbly-test$,float off')=='ok'
+            policy(2,layout='floating')
+            dispatch('movetoworkspacesilent','2,'+address('Other'));wait(lambda:client('Other')['floating'])
+            dispatch('movetoworkspacesilent',str(workspace)+','+address('Other'));wait(lambda:not client('Other')['floating'])
+            policy(layout='off');dispatch('setfloating',address());assert client()['floating']
+            dispatch('settiled',address());assert not client()['floating']
+            print('PASS: existing/new/moved windows obey workspace layouts; Off restores normal mode changes.',flush=True)
+
+            app_rules=settings.with_name('rules.json');app_key=info()['app']
+            individual=dict(rules.DEFAULTS,mode='nearby',size=42,x=20)
+            app_rules.write_text(rules.encode({'version':1,'apps':{app_key:individual}}));dispatch('xetalwindowclose:reload')
+            original=app_rules.read_bytes()
+            policy(controls='on')
+            assert info()['rule']['mode']=='always' and info('Other')['rule']==info()['rule']
+            reveal();point('key 125 0');wait(lambda:status()['visible']);assert not status()['gear_visible']
+            window_id=info()['id']
+            editor=spawn([sys.executable,str(REPO/'tests/window-buttons/editor.py'),str(home/'.config/hypr'),window_id],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
+            editor_client=wait(lambda:next((c for c in clients() if c['pid']==editor.pid),None))
+            dispatch('setfloating','address:'+editor_client['address'])
+            def edit(op,**values):
+                editor.stdin.write(json.dumps(dict(op=op,**values))+'\n');editor.stdin.flush();return json.loads(editor.stdout.readline())
+            state=edit('state');assert state['scope']=='workspace',state
+            wait(lambda:info()['preview'] and info('Other')['preview'])
+            edit('slider',key='size',value=24);edit('slider',key='x',value=31)
+            wait(lambda:info()['preview_rule']['size']==24 and info('Other')['preview_rule']['x']==31)
+            assert info()['rule']['size']!=24 and app_rules.read_bytes()==original
+            state=edit('apply');assert state['status'].startswith('Applied.'),state
+            assert info()['rule']['size']==24 and info('Other')['rule']['size']==24
+            run('grim',str(root/'shared-workspace-preview.png'))
+            # A stale editor must never override workspace Off, even under Super.
+            policy(controls='off');point('key 125 1');time.sleep(.1)
+            assert not info()['preview'] and not info('Other')['preview']
+            assert not status()['visible'] and not status()['gear_visible']
+            edit('close');editor.wait(timeout=5);point('key 125 0')
+            policy(controls='individual');assert info()['rule']==individual and app_rules.read_bytes()==original
+            policy(controls='on');assert info()['rule']['size']==24
+            settings.write_text(model.encode(dict(model.DEFAULTS,enabled=False)));dispatch('xetalwindowclose:reload')
+            reveal();point('key 125 0');wait(lambda:status()['visible'])
+            settings.write_text(model.encode(model.DEFAULTS));dispatch('xetalwindowclose:reload')
+            assert ctl('plugin','unload',str(binary))=='ok';assert ctl('plugin','load',str(binary))=='ok'
+            assert info()['rule']['size']==24 and info()['workspace_controls']=='on'
+            policy(layout='tile')
+            click(1);wait(lambda:client()['fullscreen']==1);assert not client()['floating']
+            click(1);wait(lambda:client()['fullscreen']==0);assert not client()['floating']
+            click(0);wait(lambda:min_status()['active']==1)
+            dispatch('xetalminimize:restoreall');wait(lambda:min_status()['active']==0)
+            wait(lambda:not client()['floating'] and client()['workspace']['id']==workspace)
+            assert ctl('plugin','unload',memory_binary)=='ok';assert ctl('plugin','load',memory_binary)=='ok'
+            dispatch('setfloating',address());assert not client()['floating']
+            print('PASS: shared gear editor/live preview, persistence, Individual restoration, Off under Super, and native maximize/restore.',flush=True)
+            run(sys.executable,str(REPO/'config/hypr/waybar/options/test_options.py'),'--native')
+            assert not ctl('configerrors')
+            return
 
         def check_chrome():
             browser = shutil.which('google-chrome-stable') or shutil.which('chromium')

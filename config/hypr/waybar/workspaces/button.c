@@ -262,6 +262,10 @@ static gboolean refresh(gpointer data) {
         number = d->number;
         int face = GPOINTER_TO_INT(g_hash_table_lookup(faces, GSIZE_TO_POINTER(number)));
         d->face = cube ? face : 0;
+        /* The displayed Cube face can differ from Hyprland's persistent ID.
+         * Context menus must save the actual workspace, never the active one. */
+        g_object_set_data(G_OBJECT(button), "xetal-workspace-id", d->minimized || number < 1 ? NULL : GINT_TO_POINTER(number));
+        g_object_set_data(G_OBJECT(button), "xetal-workspace-display", GINT_TO_POINTER(d->face ? d->face : number));
         gtk_widget_set_visible(button, d->minimized || !cube || face > 0);
         GtkWidget *label = find_widget(button, "workspace-label", TRUE);
         watch_label(d, GTK_IS_LABEL(label) ? label : NULL);
@@ -330,6 +334,8 @@ void wbcffi_deinit(void *instance) {
             }
             g_signal_handler_disconnect(d->button, d->destroy_handler);
             g_object_set_data(G_OBJECT(d->button), "xetal-workspace-decoration", NULL);
+            g_object_set_data(G_OBJECT(d->button), "xetal-workspace-id", NULL);
+            g_object_set_data(G_OBJECT(d->button), "xetal-workspace-display", NULL);
             gtk_widget_set_margin_end(d->content, d->margin);
             g_object_ref(d->content);
             gtk_container_remove(GTK_CONTAINER(d->overlay), d->content);

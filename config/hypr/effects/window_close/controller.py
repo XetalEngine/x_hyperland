@@ -12,6 +12,8 @@ import sys
 import tempfile
 import threading
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 if __package__:
     from . import model, build, rules
 else:
@@ -54,7 +56,10 @@ def activate(values, target=None):
         # Disabling hides the button immediately without changing any windows.
         hypr('dispatch','xetalwindowclose:reload')
     else:
-        if not values['enabled']: return
+        if not values['enabled']:
+            from workspaces import model as workspace_model
+            workspaces, _ = workspace_model.load()
+            if not any(p['controls']=='on' for p in workspaces['workspaces'].values()): return
         current = json.loads(hypr('-j','version'))
         if current.get('commit') != build.SUPPORTED_COMMIT:
             raise RuntimeError('Window Close needs the supported Hyprland 0.56.2 session. The windowclose handler needs an updated adapter.')
@@ -117,6 +122,8 @@ def save_rule(window_id, scope, rule, token, window_token=None):
     explicit overrides remain independent of the application choice.
     """
     info = window_info(window_id)
+    if info.get('workspace_controls', 'individual') != 'individual':
+        raise ValueError('Workspace controls changed. Reload the editor before applying.')
     path, section = rule_file(scope)
     key = info['app'] if scope == 'app' else str(window_id)
     if not key: raise ValueError('This window has no application identity. Use a window-specific choice.')
@@ -159,13 +166,16 @@ def save_rule(window_id, scope, rule, token, window_token=None):
     return rules.load(path,section)
 
 
-def preview_payload(window_id, token, rule=None):
+def preview_payload(window_id, token, rule=None, workspace=None):
     if not str(window_id).isascii() or not str(window_id).isdecimal():
         raise ValueError('Invalid window identity.')
     if len(token)!=32 or any(c not in '0123456789abcdef' for c in token):
         raise ValueError('Invalid preview identity.')
     data=dict(action='end' if rule is None else 'update',id=str(window_id),token=token)
     if rule is not None:data.update(owner=os.getpid(),rule=rules.validate(rule))
+    if workspace is not None:
+        from workspaces.model import identity
+        data['workspace']=int(identity(workspace))
     return json.dumps(data,separators=(',',':'))
 
 

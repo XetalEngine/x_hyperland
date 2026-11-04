@@ -19,6 +19,13 @@ adapter's render crop uses that same origin. First-map launcher fullscreen
 rules are released back to ordinary client/compositor state synchronization,
 so later native maximize/restore controls continue to work.
 
+Numbered workspace overrides live in `workspaces/rules.json`. The adapter applies
+forced tiling/floating before the first layout and to existing or incoming
+windows. A native mode-change hook prevents conflicting app/launcher restores;
+tiled drag gestures retain their temporary floating path and rejoin the layout
+on release. The watcher skips app-mode restoration and sampling in forced
+workspaces so those overrides do not replace an app's ordinary remembered mode.
+
 Restoration separates mode, geometry and fullscreen into different compositor
 frames; changing floating state replaces the layout target. Normal floating
 size is preserved when maximizing. Tiled windows retain their remembered mode,

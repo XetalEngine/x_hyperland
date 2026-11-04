@@ -40,6 +40,16 @@ logins. Window overrides take priority over app choices, then global settings.
 exact initial application class; live windows use compositor lifetime IDs, so
 closing one cannot transfer its override to a replacement window.
 
+Workspace choices take precedence over these individual settings. Right-click
+a numbered taskbar workspace → **Force modifier buttons**: Individual keeps the
+existing behavior; On shows shared controls on every window and makes its gear
+edit one workspace layout with live previews; Off hides every artificial control,
+including the gear and Super-triggered buttons. On can override the global enable
+switch for that workspace. Switching back to Individual preserves app/window
+choices. The gear editor's reset affects the workspace only while editing On.
+In a forced-tiled workspace, maximize/restore stays within the tiled layout;
+the Tile control is hidden where floating is forced. See `workspaces/README.md`.
+
 **Button background** defaults to **Auto**, which matches the predominant color
 of the window directly beneath the controls. A continuous opaque backing covers
 native icons and text in the gaps as well as under the buttons; the glow still
@@ -117,6 +127,8 @@ with XWayland disabled. It never targets the parent compositor with test input.
 maximization, screen fitting, addressed minimize/restore, cancelled clicks, and
 normal close requests in a disposable compositor. The native geometry unit
 checks include negative output coordinates, portrait work areas and size limits.
+Add `--workspaces-only` to check workspace layout enforcement, native drag/release,
+shared settings/previews, Off under Super, Individual restoration and GTK menus.
 Add `--rules-only` to exercise the real gear editor, all display modes, app/window
 inheritance, no-modifier actions, bounds, reload and window lifetime. Add
 `--preview-only` to exercise the real editor's sliders, current-value loading,

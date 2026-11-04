@@ -75,6 +75,7 @@ static gboolean state(gpointer unused) {
     gint x=-1,y=-1,bx=-1,by=-1;gboolean visible=FALSE;
     Decoration *d=empty ? g_object_get_data(G_OBJECT(empty),"xetal-workspace-decoration") : NULL;
     if (d) {
+        g_assert_cmpint(GPOINTER_TO_INT(g_object_get_data(G_OBJECT(empty),"xetal-workspace-id")),==,5);
         visible=gtk_widget_get_visible(d->close);
         gtk_widget_translate_coordinates(d->close,window,gtk_widget_get_allocated_width(d->close)/2,
                                          gtk_widget_get_allocated_height(d->close)/2,&x,&y);
@@ -95,6 +96,7 @@ static gboolean state(gpointer unused) {
     if (minimized) {
         Decoration *md=g_object_get_data(G_OBJECT(minimized),"xetal-workspace-decoration");
         if(md){
+            g_assert_null(g_object_get_data(G_OBJECT(minimized),"xetal-workspace-id"));
             g_assert_true(gtk_widget_get_visible(minimized));g_assert_false(gtk_widget_get_visible(md->close));
             g_assert_cmpstr(gtk_label_get_text(GTK_LABEL(md->label)),==,instance->cube?"M2 ":"M5 ");
             g_assert_nonnull(find_widget(minimized,"minimized-app-icon",FALSE));

@@ -36,6 +36,7 @@ PREFERENCES = frozenset({
     'startup/fastfetch.jsonc', 'startup/kitty.conf', 'startup/projects.json', 'startup/window-rules.conf',
     'swaync/config.json', 'switcher/preferences.json', 'terminal_fetch/settings.json',
     'theme/state.json', 'wallpaper/default.json', 'waybar/config.json', 'waybar/options.json',
+    'workspaces/rules.json',
 })
 
 

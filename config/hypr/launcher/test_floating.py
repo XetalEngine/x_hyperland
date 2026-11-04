@@ -134,7 +134,7 @@ class FloatingTests(unittest.TestCase):
         ticket = self.tracker.prepare(self.request, 0)
         self.tracker.finish(ticket['token'], True, .1)
         self.tracker.pending[ticket['token']]['process'] = (99999999, 'old-process')
-        self.hypr.query.side_effect = [[client(size=[800, 600])],
+        self.hypr.query.side_effect = [[client(size=[800, 600])], [client(size=[800, 600])],
                                       [{'id': 0, 'x': -1920, 'y': 200, 'width': 1920, 'height': 1080,
                                         'scale': 1, 'reserved': [0, 38, 0, 0]}]]
         self.tracker.update([before], 2)
@@ -146,6 +146,16 @@ class FloatingTests(unittest.TestCase):
         self.assertTrue(calls[-1][1].startswith('+xetal-float-' + KEY))
         self.assertTrue(calls[-1][1].endswith(' address:0x123'))
         self.assertNotIn(',', calls[-1][1])
+
+    def test_forced_tiling_cannot_be_resized_by_a_ctrl_launch(self):
+        tiled = {**client(), 'floating': False}
+        self.hypr.query.return_value = [tiled]
+        request = dict(self.request, size=[800,600], tag='xetal-float-'+KEY+'-123456abcdef')
+        self.tracker.place_reused(tiled, request)
+        actions = [call.args[0] for call in self.hypr.dispatch.call_args_list]
+        self.assertIn('setfloating', actions)
+        self.assertNotIn('resizewindowpixel', actions)
+        self.assertNotIn('movewindowpixel', actions)
 
     def test_slow_new_invocation_never_floats_an_existing_window(self):
         current = {**client(), 'floating': False, 'tags': []}

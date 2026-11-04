@@ -71,6 +71,36 @@ class EditorTests(unittest.TestCase):
         self.dialog.reset.click();self.assertEqual(self.dialog.values()['background'],'auto')
         self.assertEqual(self.dialog.values()['background_color'],ui.rules.DEFAULTS['background_color'])
 
+    def test_workspace_on_edits_shared_settings_and_restores_individual_scope(self):
+        self.dialog.info.update(workspace=3,workspace_controls='on',rule=dict(self.window_rule,mode='always'))
+        document={'version':1,'workspaces':{'3':dict(ui.workspace_model.DEFAULT)}}
+        with patch.object(ui.workspace_model,'load',return_value=(document,'workspace-token')), \
+             patch.object(ui.workspace_controller,'save') as save:
+            self.dialog.load()
+            self.assertTrue(self.dialog.valid,self.dialog.status.text())
+            self.assertEqual(self.dialog.scope.currentData(),'workspace')
+            self.assertEqual(self.dialog.scope.count(),1)
+            self.assertFalse(self.dialog.mode.isEnabled())
+            self.dialog.size.slider.setValue(10);self.dialog.x.slider.setValue(125)
+            value=self.dialog.values();self.dialog.apply()
+            save.assert_called_once_with(3,rule=value,token='workspace-token',window_id='12')
+            self.save.assert_not_called()
+            self.dialog.reset.click()
+            self.assertEqual(self.dialog.values()['mode'],'always')
+            self.assertEqual(self.dialog.scope.currentData(),'workspace')
+        self.dialog.info.update(workspace_controls='individual',rule=self.window_rule)
+        self.dialog.load()
+        self.assertEqual(self.dialog.scope.currentData(),'app')
+        self.assertEqual(self.dialog.values(),self.window_rule)
+        self.assertTrue(self.dialog.mode.isEnabled())
+
+    def test_workspace_off_invalidates_an_open_editor(self):
+        self.dialog.info.update(workspace=3,workspace_controls='off')
+        self.dialog.load()
+        self.assertFalse(self.dialog.valid)
+        self.assertFalse(self.dialog.buttons.button(ui.QDialogButtonBox.StandardButton.Apply).isEnabled())
+        self.assertIn('forced Off',self.dialog.status.text())
+
     def test_screen_picker_is_async_and_editor_owns_its_lifetime(self):
         self.dialog.background.setCurrentIndex(self.dialog.background.findData('manual'))
         with patch.object(self.dialog.picker,'start') as start:

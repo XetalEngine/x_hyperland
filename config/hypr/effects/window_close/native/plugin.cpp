@@ -40,6 +40,7 @@
 #include "geometry.hpp"
 #include "policies.hpp"
 #include "background.hpp"
+#include "../../../workspaces/native.hpp"
 
 namespace {
 using Clock = std::chrono::steady_clock;
@@ -57,8 +58,9 @@ std::array<CBox,5> buttons;
 struct Row {PHLWINDOWREF window;std::array<CBox,5> boxes;WindowButtons::Rule rule;bool preview=false;};
 std::vector<Row> rows;
 WindowButtons::Rules appRules,windowRules;
+WorkspaceRules::Policies workspaceRules;
 WindowButtons::Backgrounds backgrounds;
-struct Preview {PHLWINDOWREF window;WindowButtons::Rule rule;pid_t owner;std::string token;Clock::time_point expires;};
+struct Preview {PHLWINDOWREF window;WindowButtons::Rule rule;pid_t owner;std::string token;Clock::time_point expires;int64_t workspace=0;};
 std::map<std::string,Preview> previews;
 Action pressedAction=None,pendingAction=None;
 bool held=false, superHeld=false,captured=false, stopping=false,waiting=false;
@@ -105,17 +107,30 @@ std::filesystem::path sessionRulesPath(){
 void load(){
     auto next=readSettings();auto apps=WindowButtons::readRules(root()/"effects/window_close/rules.json","apps");
     auto windows=WindowButtons::readRules(sessionRulesPath(),"windows");
-    settings=next;appRules=std::move(apps);windowRules=std::move(windows);
+    auto workspaces=WorkspaceRules::read();
+    settings=next;appRules=std::move(apps);windowRules=std::move(windows);workspaceRules=std::move(workspaces);
 }
 std::string appId(PHLWINDOW w){return w->m_initialClass.empty()?w->m_class:w->m_initialClass;}
+int64_t workspaceId(PHLWINDOW w){return w&&w->m_workspace?w->m_workspace->m_id:0;}
+WorkspaceRules::Policy workspacePolicy(PHLWINDOW w){return WorkspaceRules::forWorkspace(workspaceRules,workspaceId(w));}
+bool workspaceButtons(){return std::ranges::any_of(workspaceRules,[](const auto& entry){return entry.second.controls=="on";});}
 WindowButtons::Rule ruleFor(PHLWINDOW w){
+    const auto policy=workspacePolicy(w);
+    if(policy.controls=="on")return policy.rule;
+    if(policy.controls=="off"){auto rule=policy.rule;rule.mode="off";return rule;}
     if(auto it=windowRules.find(std::to_string(w->m_stableID));it!=windowRules.end())return it->second;
     if(auto it=appRules.find(appId(w));it!=appRules.end())return it->second;
     WindowButtons::Rule r;r.size=settings.size;r.x=r.y=settings.inset;return r;
 }
 Preview* previewFor(PHLWINDOW w){
     if(!w)return nullptr;
-    auto it=previews.find(std::to_string(w->m_stableID));return it==previews.end()?nullptr:&it->second;
+    const auto policy=workspacePolicy(w);if(policy.controls=="off")return nullptr;
+    if(policy.controls=="on"){
+        for(auto& [id,preview]:previews)if(preview.workspace==workspaceId(w)&&preview.window.lock()&&
+            workspaceId(preview.window.lock())==preview.workspace)return &preview;
+        return nullptr;
+    }
+    auto it=previews.find(std::to_string(w->m_stableID));return it==previews.end()||it->second.workspace?nullptr:&it->second;
 }
 void prunePreviews(){
     std::erase_if(previews,[](const auto& item){
@@ -135,9 +150,9 @@ void readAccent() {
 }
 void damage() {for(const auto& row:rows)for(const auto& button:row.boxes)if(!button.empty())g_pHyprRenderer->damageBox(CBox(button).expand(button.width));}
 Action hit(Vector2D point){for(int i=0;i<5;++i)if(!buttons[i].empty()&&buttons[i].containsPoint(point))return Action(i);return None;}
-bool restoring(PHLWINDOW w){return w&&(!w->m_isFloating||Fullscreen::controller()->getFullscreenModes(w).internal!=Fullscreen::FSMODE_NONE);}
+bool restoring(PHLWINDOW w){return w&&((!w->m_isFloating&&workspacePolicy(w).layout!="tile")||Fullscreen::controller()->getFullscreenModes(w).internal!=Fullscreen::FSMODE_NONE);}
 bool available() {
-    return !stopping && settings.enabled && g_pCompositor->m_sessionActive &&
+    return !stopping && (settings.enabled||workspaceButtons()) && g_pCompositor->m_sessionActive &&
         !g_pSessionLockManager->isSessionLocked() && !PROTO::inputCapture->isCaptured() && !PROTO::data->dndActive() &&
         !g_layoutManager->dragController()->target();
 }
@@ -158,8 +173,8 @@ void refresh() {
     held=available() && (mods==uint32_t(settings.modifier)||superHeld);
     target.reset();buttons={};rows.clear();
     if(!available()){
-        waiting=settings.enabled&&g_pCompositor->m_sessionActive&&!g_pSessionLockManager->isSessionLocked()&&
-            bool(g_layoutManager->dragController()->target())&&(!appRules.empty()||!windowRules.empty()||!previews.empty());
+        waiting=(settings.enabled||workspaceButtons())&&g_pCompositor->m_sessionActive&&!g_pSessionLockManager->isSessionLocked()&&
+            bool(g_layoutManager->dragController()->target())&&(!appRules.empty()||!windowRules.empty()||!previews.empty()||workspaceButtons());
         return;
     }
     const auto point=Pointer::mgr()->position();
@@ -174,6 +189,8 @@ void refresh() {
     }
     for(const auto& window:Desktop::windowState()->windows()){
         if(!window->m_isMapped||window->isHidden()||window->isX11OverrideRedirect()||window->m_class=="fusion-window-buttons")continue;
+        const auto policy=workspacePolicy(window);
+        if(policy.controls=="off"||(!settings.enabled&&policy.controls!="on"))continue;
         const auto monitor=window->m_monitor.lock();
         if(!monitor||!g_pHyprRenderer->shouldRenderWindow(window,monitor))continue;
         const auto preview=previewFor(window);const bool isPreview=preview!=nullptr;
@@ -193,7 +210,7 @@ void refresh() {
         const bool nearby=isHovered&&CBox{x,y,width,size}.expand(rule.proximity).containsPoint(point);
         if(isPreview||(rule.mode!="off"&&((held&&isHovered)||rule.mode=="always"||(rule.mode=="nearby"&&nearby)))){
             for(int i=0;i<3;++i)row.boxes[i]={x+(i+2)*(size+gap),y,size,size};
-            row.boxes[Tile]={x+size+gap,y,size,size};
+            if(policy.layout!="floating")row.boxes[Tile]={x+size+gap,y,size,size};
         }
         if(isPreview||(superHeld&&isHovered))row.boxes[Gear]={x+size*.08,y+size*.08,size*.84,size*.84};
         if(std::ranges::all_of(row.boxes,[](const CBox& b){return b.empty();}))continue;
@@ -289,6 +306,12 @@ public:
 void maximizeOrRestore(PHLWINDOW w){
     auto t=w->layoutTarget();if(!t||!t->space())return;
     const auto mode=Fullscreen::controller()->getFullscreenModes(w).internal;
+    if(workspacePolicy(w).layout=="tile"){
+        const auto next=mode==Fullscreen::FSMODE_NONE?Fullscreen::FSMODE_MAXIMIZED:Fullscreen::FSMODE_NONE;
+        Fullscreen::controller()->setFullscreenMode(w,next,next);
+        if(next==Fullscreen::FSMODE_NONE)++restored;else ++maximized;
+        return;
+    }
     const bool wasTiled=!t->floating();
     if(!wasTiled&&mode==Fullscreen::FSMODE_NONE){
         t->rememberFloatingSize(t->position().size());
@@ -368,7 +391,7 @@ void perform(PHLWINDOW w,Action action){
 void tick(SP<CEventLoopTimer> self,void*) {
     refresh();
     const auto w=pending.lock();const auto action=pendingAction;pending.reset();pendingAction=None;
-    if(w && w->m_isMapped && !w->isHidden() && available() && settled(w)){perform(w,action);refresh();}
+    if(w && w->m_isMapped && !w->isHidden() && available() && settled(w)&&workspacePolicy(w).controls!="off"){perform(w,action);refresh();}
     if(held || captured || waiting || !rows.empty() || !previews.empty())self->updateTimeout(std::chrono::milliseconds(25));
 }
 void cleanup() {
@@ -400,6 +423,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         }));
         listeners.push_back(Event::bus()->m_events.monitor.layoutChanged.listen([](){arm();}));
         listeners.push_back(Event::bus()->m_events.workspace.active.listen([](PHLWORKSPACE){arm();}));
+        listeners.push_back(Event::bus()->m_events.window.moveToWorkspace.listen([](PHLWINDOW,PHLWORKSPACE){arm();}));
         listeners.push_back(Event::bus()->m_events.workspace.specialActive.listen([](PHLWORKSPACE,PHLMONITOR){arm();}));
         listeners.push_back(Event::bus()->m_events.input.mouse.button.listen([](IPointer::SButtonEvent event,Event::SCallbackInfo& info){
             // Recheck after the drag controller sees this press/release. This
@@ -447,8 +471,17 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
                     PHLWINDOW window;
                     for(const auto& w:Desktop::windowState()->windows())if(w->m_isMapped&&id==std::to_string(w->m_stableID)&&w->m_class!="fusion-window-buttons"){window=w;break;}
                     if(!window)throw std::runtime_error("This window has closed");
+                    int64_t workspace=0;json_object* scope=nullptr;
+                    if(json_object_object_get_ex(doc.get(),"workspace",&scope)){
+                        workspace=json_object_get_int64(WindowButtons::field(doc.get(),"workspace",json_type_int));
+                        if(workspace<1||workspace!=workspaceId(window)||workspacePolicy(window).controls!="on")
+                            throw std::runtime_error("Workspace settings changed. Reload the editor.");
+                        rule.mode="always";
+                        for(const auto& [key,preview]:previews)if(key!=id&&preview.workspace==workspace)
+                            throw std::runtime_error("This workspace is already being previewed in another editor");
+                    }else if(workspacePolicy(window).controls!="individual")throw std::runtime_error("Workspace settings changed. Reload the editor.");
                     if(existing==previews.end()&&previews.size()>=64)throw std::runtime_error("Too many window previews");
-                    previews.insert_or_assign(id,Preview{window,rule,pid_t(owner),token,Clock::now()+std::chrono::seconds(4)});
+                    previews.insert_or_assign(id,Preview{window,rule,pid_t(owner),token,Clock::now()+std::chrono::seconds(4),workspace});
                 }else throw std::runtime_error("Unknown preview action");
                 refresh();arm();return SDispatchResult{};
             }catch(const std::exception& error){return SDispatchResult{.success=false,.error=error.what()};}
@@ -478,14 +511,14 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
                 }
                 const auto box=w->geometricBox(Desktop::View::IGeometric::GEOMETRIC_CURRENT);
                 const auto sampled=std::format("{{\"ready\":{},\"color\":\"#{:06x}\"}}",backgrounds.ready(w->m_stableID),backgrounds.last(w->m_stableID).getAsHex()&0xffffff);
-                return std::format("{{\"id\":\"{}\",\"app\":{},\"address\":\"0x{:x}\",\"rule\":{},\"window_override\":{},\"app_override\":{},\"size\":[{},{}],\"preview\":{},\"preview_rule\":{},\"preview_boxes\":{},\"auto_background\":{}}}",
+                return std::format("{{\"id\":\"{}\",\"app\":{},\"address\":\"0x{:x}\",\"rule\":{},\"window_override\":{},\"app_override\":{},\"size\":[{},{}],\"preview\":{},\"preview_rule\":{},\"preview_boxes\":{},\"auto_background\":{},\"workspace\":{},\"workspace_controls\":\"{}\",\"workspace_layout\":\"{}\"}}",
                     id,WindowButtons::quoted(appId(w)),reinterpret_cast<uintptr_t>(w.get()),json_object_to_json_string_ext(rule.get(),JSON_C_TO_STRING_PLAIN),windowRules.contains(id),appRules.contains(appId(w)),
-                    box.w,box.h,bool(preview),json_object_to_json_string_ext(previewRule.get(),JSON_C_TO_STRING_PLAIN),boxes,sampled);
+                    box.w,box.h,bool(preview),json_object_to_json_string_ext(previewRule.get(),JSON_C_TO_STRING_PLAIN),boxes,sampled,workspaceId(w),workspacePolicy(w).controls,workspacePolicy(w).layout);
             }
             return std::string("{\"error\":\"This window has closed.\"}");
         }});
         arm();
     }catch(...){cleanup();throw;}
-    return {"Xetal Window Close","Theme-aware window controls with live per-window previews","XetalEngine","1.5"};
+    return {"Xetal Window Close","Theme-aware window controls with live per-window previews","XetalEngine","1.6"};
 }
 APICALL EXPORT void PLUGIN_EXIT(){cleanup();}
