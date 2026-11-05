@@ -98,6 +98,10 @@ def theme():
           QFrame#defaultsHero, QFrame#ramMetric, QFrame#ramMode, QFrame#filterGroupBox {{background:{satin(p,'Button','Window')}; border-top-color:{p['Light']}; border-radius:20px;}}
           QWidget#defaultAppsTab QToolButton, QListWidget#defaultsAppList, QListWidget#defaultsAppList::item, QLabel#diskDetails {{border-radius:15px;}}
         '''
+    if design=='gildedhollow':
+        from gildedhollow import stone
+        style+=f'''QWidget#hyperControlPanel {{background:{stone(p)};border:1px solid {p['Light']};border-top-color:{p['Link']};border-radius:17px;}}
+          QFrame#defaultsHero,QFrame#ramMetric,QFrame#ramMode,QFrame#filterGroupBox {{background:{stone(p)};border:1px solid {p['Midlight']};border-top-color:{p['Light']};border-radius:16px;}}'''
     if design=='hollowgrove':
         from hollowgrove import glass
         style+=f'''QWidget#hyperControlPanel {{background:{glass(p)};border:1px solid {p['Midlight']};border-radius:19px;}}
@@ -111,7 +115,7 @@ def theme():
           QWidget#defaultAppsTab QToolButton, QListWidget#defaultsAppList, QListWidget#defaultsAppList::item, QLabel#diskDetails {{border-radius:2px;}}
         '''
     return {'stylesheet':style,'colors':p,'font':runtime.ui_font(),
-            'cardRadius':18 if design=='hollowgrove' else 3 if design=='shadowedge' else 24 if design=='candycloud' else 3 if design=='obsidianforge' else 2 if design=='porcelainink' else 16 if design=='tidalglass' else 4 if design=='binaryknife' else 10,
+            'cardRadius':17 if design=='gildedhollow' else 18 if design=='hollowgrove' else 3 if design=='shadowedge' else 24 if design=='candycloud' else 3 if design=='obsidianforge' else 2 if design=='porcelainink' else 16 if design=='tidalglass' else 4 if design=='binaryknife' else 10,
             'iconTheme':'Papirus-Light' if runtime.mode()=='light' else 'Papirus-Dark'}
 
 

@@ -745,6 +745,6 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             return std::format("{{\"enabled\":{},\"hidden\":{},\"effect\":\"{}\",\"edge\":\"{}\",\"order\":\"{}\",\"shape\":{},\"surface\":{},\"color\":[{},{},{}],\"active\":{},\"minimized\":{},\"restored\":{},\"draws\":{},\"presentation\":\"{}\",\"dock_style\":{},\"docks\":[{}],\"windows\":[{}]}}",settings.enabled,effectsHidden,settings.effect,settings.rightEdge?"right":"left",settings.bottomToTop?"bottom-to-top":"top-to-bottom",settings.shape,settings.surface,settings.rgb[0],settings.rgb[1],settings.rgb[2],records.size(),requests,restored,draws,settings.dock?"dock":"stack",settings.dockStyle,trays,items);
         }});
     }catch(...){cleanup();throw;}
-    return {"Xetal Minimize","Animated theme docks and Fireball edge stacks","XetalEngine","1.3.1"};
+    return {"Xetal Minimize","Animated theme docks and Fireball edge stacks","XetalEngine","1.3.3"};
 }
 APICALL EXPORT void PLUGIN_EXIT(){cleanup();}

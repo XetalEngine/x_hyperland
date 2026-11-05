@@ -17,6 +17,7 @@ DESCRIPTIONS={
  'candycloud':'Cloud beads · soft floating bubbles and pill-shaped workspaces',
  'shadowedge':'Blade rail · fine silver edges, angular tabs and a quiet central clock',
  'hollowgrove':'Grove bough · botanical glass, pale leaves and a framed workspace trail',
+ 'gildedhollow':'Lantern rail · engraved brass, moss-dark stone and glowing workspace jewels',
 }
 
 
@@ -49,11 +50,13 @@ def configure(config,style):
                       ['hyprland/workspaces','cffi/new-workspace'],status),
         'shadowedge':(apps+['mpris'],['clock'],[x for x in status if x!='clock']),
         'hollowgrove':(apps,['mpris'],status),
+        'gildedhollow':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],
+                        ['hyprland/workspaces','cffi/new-workspace'],status),
     }
     zones=[[module for module in zone if module in available] for zone in layouts[style]]
     used=set(sum(zones,[]));zones[2]+=[m for m in all_modules if m not in used]
     for zone,modules in zip(('left','center','right'),zones):result['modules-'+zone]=modules
-    floating=style in ('modern','tidalglass','candycloud','hollowgrove')
+    floating=style in ('modern','tidalglass','candycloud','hollowgrove','gildedhollow')
     result.update(height=42 if style in ('candycloud','tidalglass') else 40 if floating else 38,spacing=2)
     result['margin-top']=6 if floating else 0;result['margin-bottom']=0
     result['margin-left']=10 if floating else 0;result['margin-right']=10 if floating else 0
@@ -155,6 +158,19 @@ window#waybar {{background:linear-gradient(180deg,{p['Button']},{b});border:1px 
 #workspaces button.active {{border-top:1px solid {p['Link']};border-bottom:2px solid {a};background:alpha({h},0.5);}}
 #clock {{background:transparent;font-weight:500;letter-spacing:2px;border-radius:0;}}
 #audio,#custom-keys,#xetal-pins .pin {{background:transparent;border-radius:1px;}}
+''',
+'gildedhollow':f'''
+window#waybar {{background:linear-gradient(165deg,{p['Button']},{w} 24%,{b} 65%,{w});border:1px solid {p['Light']};border-top-color:{p['Link']};border-bottom-color:{a};border-radius:22px;box-shadow:inset 0 0 0 2px alpha({a},0.10);}}
+.modules-left {{background-image:url("{root/'assets/gilded-picks.svg'}");background-repeat:no-repeat;background-position:12px center;padding:3px 10px 3px 42px;}}
+.modules-center {{padding:3px 8px;margin:0 12px;}}
+.modules-right {{padding:3px 12px;}}
+#custom-launcher {{background:transparent;font-family:serif;letter-spacing:1px;color:{p['Link']};border-radius:0;border-right:1px solid {m};padding:0 13px;}}
+#workspaces button {{background:linear-gradient(150deg,{p['Button']},{b});border:1px solid {m};border-top-color:{p['Light']};border-radius:8px;min-width:17px;padding:0 6px;margin:0 2px;color:{p['Text']};}}
+#workspaces button.active {{background:linear-gradient(145deg,{a},{h} 70%);border-color:{p['Link']};color:{p['HighlightedText']};box-shadow:0 0 5px alpha({a},0.50),inset 0 1px alpha({p['Link']},0.75);}}
+#workspaces button:hover {{border-color:{a};box-shadow:inset 0 0 5px alpha({a},0.30);}}
+#clock {{font-family:serif;letter-spacing:1px;background:transparent;border-left:1px solid {m};border-radius:0;color:{p['Link']};}}
+#audio,#custom-keys,#xetal-pins .pin {{background:transparent;border-radius:8px;}}
+#custom-power:hover {{color:{p['Link']};text-shadow:0 0 5px {a};}}
 ''',
 'hollowgrove':f'''
 window#waybar {{background:linear-gradient(180deg,alpha({p['Button']},0.97),alpha({b},0.95));border:1px solid {p['Link']};border-radius:25px;box-shadow:inset 0 1px alpha({p['Light']},0.25);}}

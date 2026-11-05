@@ -60,7 +60,8 @@ Closing a window still uses the separate Burn effect.
 Dock designs have distinct silhouettes and details: Raw's circuit rail,
 Modern's glass capsule, BreakPoint's reactor console, Binary Knife's cut crystal,
 Tidal Glass's waves, Porcelain Ink's ink tray, Obsidian Forge's metal and rivets,
-Candy Cloud's pearl pillows, Shadow Edge's smoked steel, and Hollow Grove's vines.
+Candy Cloud's pearl pillows, Shadow Edge's smoked steel, Hollow Grove's vines,
+and The Gilded Hollow's brass caps, traveling gleam and lantern-cut diamond.
 Their materials use the profile's palette, including light themes. No shared
 KDE/Qt color files are changed.
 
@@ -104,6 +105,8 @@ These corrections remain active when the minimize animation is disabled.
 - An adapter upgrade unloads the old, recorded build before loading a distinct
   content-addressed binary. Existing minimized windows are restored once during
   this upgrade. A failed Apply restores the saved configuration and prior build.
+  Internal symbols stay private to each build so an earlier library cannot
+  supply stale settings or dock designs after a live upgrade.
 - Effects do not render or receive input over the session lock or while input
   is captured. With compositor animations disabled, travel and dock transitions are immediate.
 
@@ -133,7 +136,9 @@ python3 tests/check-minimize.py /absolute/path/to/xetal-minimize.so /tmp/new-min
 
 The integration check uses a disposable nested compositor and test apps,
 including a maximized viewer stand-in. It never starts or alters a VM.
-The integration check also produces a ten-design dock gallery and checks live
+Add `--upgrade-from /absolute/path/to/previous.so` to verify window recovery and
+new dock designs after replacing an older build in the same compositor session.
+Add `--dock-only` for the dock scenarios. They produce a gallery of all designs and check live
 palette changes, custom colors, rejected reloads, growth/collapse, hover zoom,
 auto-hide, all four edges, real top/bottom Waybars, multiple outputs, overflow,
 reduced motion and rendering sleep.

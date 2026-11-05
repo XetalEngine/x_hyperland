@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <format>
 #include <string>
-namespace Minimize {
+namespace Minimize __attribute__((visibility("hidden"))) {
 inline std::string iconKey(const std::string& name) {
     uint64_t hash=14695981039346656037ULL;
     for(unsigned char ch:name){if(ch>='A' && ch<='Z')ch+=32;hash=(hash^ch)*1099511628211ULL;}

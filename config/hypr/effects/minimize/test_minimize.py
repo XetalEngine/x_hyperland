@@ -152,7 +152,7 @@ class ControlsTests(unittest.TestCase):
         from effects.minimize.page import MinimizePage
         page = MinimizePage(lambda *args: None)
         page.follow_theme.setChecked(False); page.color = '#61e897'
-        page.dock_style.setCurrentIndex(page.dock_style.findData('hollowgrove'))
+        page.dock_style.cards['hollowgrove'].click()
         page.dock_edge.setCurrentIndex(page.dock_edge.findData('top'));page.hide_delay.setValue(2200)
         page.edge.setCurrentIndex(page.edge.findData('right')); page.order.setCurrentIndex(page.order.findData('top-to-bottom'))
         page.edited()
@@ -167,6 +167,52 @@ class ControlsTests(unittest.TestCase):
         self.assertTrue(page.dock_options.isEnabled());self.assertTrue(page.edge.isHidden())
         page.reset(); self.assertFalse(page.dirty)
         page.close()
+
+    def test_gallery_previews_drafts_without_touching_live_settings(self):
+        from effects.minimize.page import MinimizePage
+        from effects.minimize.gallery import runtime
+        with patch.object(model, 'load', return_value=(dict(model.DEFAULTS), 'token')), \
+             patch.object(controller, 'save') as save, patch.object(controller, 'activate') as activate, \
+             patch.object(runtime, 'design', return_value='hollowgrove'):
+            page = MinimizePage(lambda *args: self.fail('Browsing must not invoke a live operation'))
+            page.follow_theme.setChecked(False); page.color = '#61e897'; page.edited()
+            for style in model.DOCK_STYLES:
+                page.dock_style.cards[style].click()
+                self.assertEqual(page.values()['dock_style'], style)
+                self.assertEqual(page.dock_preview.scene.style, 'hollowgrove' if style == 'follow' else style)
+                self.assertEqual(page.dock_preview.scene.colors['Accent'], '#61e897')
+                self.assertTrue(page.dirty); self.assertTrue(page.apply.isEnabled())
+            page.reset()
+            self.assertFalse(page.dirty); self.assertEqual(page.dock_style.value(), 'follow')
+            save.assert_not_called(); activate.assert_not_called(); page.close()
+
+    def test_visual_picker_cancel_and_accept_keep_quick_selection_explicit(self):
+        from PyQt6.QtCore import QTimer
+        from effects.minimize.gallery import DesignButton, DesignDialog
+        field = DesignButton(); field.setValue('tidalglass')
+        def finish(accept):
+            dialog = next(w for w in self.app.topLevelWidgets() if isinstance(w, DesignDialog) and w.isVisible())
+            dialog.designs.cards['hollowgrove'].click()
+            dialog.accept() if accept else dialog.reject()
+        QTimer.singleShot(0, lambda: finish(False)); field.click()
+        self.assertEqual(field.value(), 'tidalglass')
+        QTimer.singleShot(0, lambda: finish(True)); field.click()
+        self.assertEqual(field.value(), 'hollowgrove'); field.close()
+
+    def test_preview_animation_stops_when_hidden_and_empty_dock_collapses(self):
+        from PyQt6.QtTest import QTest
+        from effects.minimize.gallery import PreviewPanel
+        panel = PreviewPanel(); panel.resize(480, 430); panel.show(); QTest.qWait(50)
+        scene = panel.scene; self.assertTrue(scene.animation.isActive())
+        phase = scene.phase
+        for _ in range(3): panel.remove.click()
+        self.assertFalse(panel.remove.isEnabled()); self.assertTrue(panel.add.isEnabled())
+        QTest.qWait(550)
+        self.assertEqual(scene.weights, []); self.assertEqual(scene.slots, [])
+        self.assertGreater(scene.phase, phase)
+        panel.add.click(); QTest.qWait(100)
+        self.assertEqual(scene.count, 1); self.assertTrue(scene.slots)
+        panel.hide(); self.assertFalse(scene.animation.isActive()); panel.close()
 
 
 if __name__ == '__main__':

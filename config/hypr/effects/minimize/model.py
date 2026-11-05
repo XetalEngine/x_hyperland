@@ -14,7 +14,8 @@ DOCK_STYLES = {'follow': 'Follow desktop theme', 'raw': 'Xetal Raw · circuit ra
                'breakpoint': 'BreakPoint · reactor console', 'binaryknife': 'Binary Knife · cut crystal',
                'tidalglass': 'Tidal Glass · ocean glass', 'porcelainink': 'Porcelain Ink · ink tray',
                'obsidianforge': 'Obsidian Forge · forged metal', 'candycloud': 'Candy Cloud · pearl pillows',
-               'shadowedge': 'Shadow Edge · smoked steel', 'hollowgrove': 'Hollow Grove · moonlit vines'}
+               'shadowedge': 'Shadow Edge · smoked steel', 'hollowgrove': 'Hollow Grove · moonlit vines',
+               'gildedhollow': 'The Gilded Hollow · lantern brass'}
 ORDERS = {'bottom-to-top': 'Bottom to top', 'top-to-bottom': 'Top to bottom'}
 DEFAULTS = dict(enabled=True, effect='fireball', duration=420, size=76,
                 follow_theme=True, color='#39a9ff', shape='random', speed=100, bubbles=70, surface='slime',

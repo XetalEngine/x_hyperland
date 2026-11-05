@@ -3,7 +3,7 @@
 // Erkin Bahceci and Dennis Kasprzyk. See ../README.md and ../../burn/COPYING.
 #pragma once
 #include "../../burn/native/engine.hpp"
-namespace Minimize {
+namespace Minimize __attribute__((visibility("hidden"))) {
 class Fire {
     std::mt19937 rng;
     double elapsed=0;

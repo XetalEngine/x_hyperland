@@ -1,10 +1,11 @@
 """Minimize controls under Theme → Window effects."""
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QIcon, QPixmap
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel,
+from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel,
                             QCheckBox, QSpinBox, QComboBox, QPushButton, QMessageBox, QDialog,
-                            QColorDialog, QGroupBox, QScrollArea)
+                            QColorDialog, QGroupBox, QTabWidget)
 from . import model, controller
+from .gallery import DesignList, PreviewDetails, PreviewPanel
 
 
 class MinimizePage(QWidget):
@@ -20,7 +21,7 @@ class MinimizePage(QWidget):
             self.baseline, self.token = dict(model.DEFAULTS), None
             error = f'Cannot read Minimize settings: {exc}. Repair effects/minimize/settings.conf, then Reload.'
         root = QVBoxLayout(self)
-        root.setContentsMargins(20, 16, 20, 16)
+        root.setContentsMargins(12, 10, 12, 10)
         heading = QHBoxLayout()
         title = QLabel('Minimize'); title.setObjectName('brand'); heading.addWidget(title)
         heading.addStretch()
@@ -29,12 +30,14 @@ class MinimizePage(QWidget):
         description = QLabel('Super + Z sends a window into its Fireball slot. Click to restore it. '
                              'Choose an animated dock or keep the classic edge stack.')
         description.setWordWrap(True); description.setObjectName('muted'); root.addWidget(description)
-        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        body = QWidget(); columns = QHBoxLayout(body); columns.setContentsMargins(0, 12, 8, 12); columns.setSpacing(22)
+        workspace = QHBoxLayout(); workspace.setSpacing(14)
+        self.dock_style = DesignList(); workspace.addWidget(self.dock_style)
+        self.dock_preview = PreviewPanel()
+        controls = QTabWidget(); controls.setMinimumWidth(330)
         general = QGroupBox('Minimizer'); self.general_form = form = QFormLayout(general); form.setSpacing(12)
         self.presentation = QComboBox()
         for value,title in model.PRESENTATIONS.items():self.presentation.addItem(title,value)
-        form.addRow('Show minimized windows in',self.presentation)
+        form.addRow('Presentation',self.presentation)
         self.effect = QComboBox()
         self.effect.addItem('Fireball', 'fireball')
         # self.effect.addItem('Splat', 'splat')  # Parked for a future revision.
@@ -55,14 +58,11 @@ class MinimizePage(QWidget):
         self.color = self.baseline['color']
         self.color_button = QPushButton(); self.color_button.clicked.connect(self.choose_color)
         form.addRow('Custom color', self.color_button)
-        columns.addWidget(general, 1)
+        controls.addTab(general, 'Minimizer')
         self.dock_options = QGroupBox('Animated dock'); dock = QFormLayout(self.dock_options);dock.setSpacing(12)
         self.dock_edge = QComboBox()
         for value,title in model.DOCK_EDGES.items():self.dock_edge.addItem(title,value)
         dock.addRow('Position',self.dock_edge)
-        self.dock_style = QComboBox()
-        for value,title in model.DOCK_STYLES.items():self.dock_style.addItem(title,value)
-        dock.addRow('Dock design',self.dock_style)
         self.auto_hide = QCheckBox('Automatically hide after use');dock.addRow(self.auto_hide)
         for key,label,suffix in (('hide_delay','Hide after',' ms'),('dock_duration','Slide and resize time',' ms'),
                                  ('proximity','Edge proximity',' px'),('dock_zoom','Hover zoom','%')):
@@ -72,15 +72,21 @@ class MinimizePage(QWidget):
                                'Move near that edge to reveal it; scroll over slots when it fills up. '
                                'Side proximity also works at shared monitor boundaries.')
         self.dock_note.setWordWrap(True);self.dock_note.setObjectName('muted');dock.addRow(self.dock_note)
-        columns.addWidget(self.dock_options, 1); columns.setAlignment(Qt.AlignmentFlag.AlignTop)
-        scroll.setWidget(body); root.addWidget(scroll, 1)
+        controls.addTab(self.dock_options, 'Dock behavior')
+        controls.setCurrentWidget(self.dock_options if self.baseline['presentation'] == 'dock' else general)
+        for layout in (form, dock):
+            layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+            layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+            layout.setFormAlignment(Qt.AlignmentFlag.AlignTop)
+        self.details = PreviewDetails(self.dock_preview, controls); workspace.addWidget(self.details, 1)
+        root.addLayout(workspace, 1)
         note = QLabel('Your apps stay open. Turning this off restores all minimized windows to their workspaces.')
         note.setWordWrap(True); note.setObjectName('muted'); root.addWidget(note)
-        self.status = QLabel(error or 'Apply your changes, then use Preview to try the minimizer.')
+        self.status = QLabel(error or 'Choose a design to preview it. Apply Minimize updates your dock; Try minimizer opens a real test window.')
         self.status.setWordWrap(True); self.status.setObjectName('muted'); root.addWidget(self.status)
         row = QHBoxLayout()
         self.defaults = QPushButton('Defaults'); self.defaults.clicked.connect(self.use_defaults); row.addWidget(self.defaults)
-        self.preview = QPushButton('Preview'); self.preview.clicked.connect(self.show_preview); row.addWidget(self.preview)
+        self.preview = QPushButton('Try minimizer'); self.preview.clicked.connect(self.show_preview); row.addWidget(self.preview)
         self.restore = QPushButton('Restore all windows'); self.restore.clicked.connect(self.restore_all); row.addWidget(self.restore)
         row.addStretch()
         self.reload = QPushButton('Reload'); self.reload.clicked.connect(lambda: self.refresh(True)); row.addWidget(self.reload)
@@ -88,15 +94,18 @@ class MinimizePage(QWidget):
         self.apply = QPushButton('Apply Minimize'); self.apply.setObjectName('primary'); self.apply.clicked.connect(self.save); row.addWidget(self.apply)
         root.addLayout(row)
         self.enabled.toggled.connect(self.edited); self.effect.currentIndexChanged.connect(self.edited)
-        for field in (self.edge,self.order,self.presentation,self.dock_edge,self.dock_style):field.currentIndexChanged.connect(self.edited)
+        for field in (self.edge,self.order,self.presentation,self.dock_edge):field.currentIndexChanged.connect(self.edited)
+        self.dock_style.valueChanged.connect(self.edited)
         for field in (self.duration,self.size,self.speed,self.hide_delay,self.dock_duration,self.proximity,self.dock_zoom):field.valueChanged.connect(self.edited)
         self.follow_theme.toggled.connect(self.edited);self.auto_hide.toggled.connect(self.edited)
+        if hasattr(QApplication.instance(), 'hypr_theme'):
+            QApplication.instance().hypr_theme.changed.connect(self.desktop_changed)
         self.reset()
 
     def values(self):
         return model.validate(dict(self.baseline,enabled=self.enabled.isChecked(), effect='fireball',
                                    edge=self.edge.currentData(), order=self.order.currentData(),
-                                   presentation=self.presentation.currentData(),dock_edge=self.dock_edge.currentData(),dock_style=self.dock_style.currentData(),
+                                   presentation=self.presentation.currentData(),dock_edge=self.dock_edge.currentData(),dock_style=self.dock_style.value(),
                                    auto_hide=self.auto_hide.isChecked(),hide_delay=self.hide_delay.value(),dock_duration=self.dock_duration.value(),
                                    proximity=self.proximity.value(),dock_zoom=self.dock_zoom.value(),
                                    duration=self.duration.value(), size=self.size.value(), follow_theme=self.follow_theme.isChecked(),
@@ -116,8 +125,9 @@ class MinimizePage(QWidget):
         self.duration.setValue(values['duration']); self.size.setValue(values['size'])
         self.follow_theme.setChecked(values['follow_theme']); self.color = values['color']
         self.speed.setValue(values['speed'])
-        for key in ('presentation','dock_edge','dock_style'):
+        for key in ('presentation','dock_edge'):
             field=getattr(self,key);field.setCurrentIndex(field.findData(values[key]))
+        self.dock_style.setValue(values['dock_style'])
         self.auto_hide.setChecked(values['auto_hide'])
         for key in ('hide_delay','dock_duration','proximity','dock_zoom'):getattr(self,key).setValue(values[key])
         self.loading = False; self.edited()
@@ -135,6 +145,7 @@ class MinimizePage(QWidget):
             field.setEnabled(not self.busy)
         dock=self.presentation.currentData()=='dock'
         self.dock_options.setEnabled(dock and not self.busy)
+        self.dock_style.setEnabled(dock and not self.busy)
         self.general_form.setRowVisible(self.edge,not dock);self.general_form.setRowVisible(self.order,not dock)
         self.hide_delay.setEnabled(self.auto_hide.isChecked());self.proximity.setEnabled(self.auto_hide.isChecked())
         self.color_button.setEnabled(not self.busy and not self.follow_theme.isChecked())
@@ -143,6 +154,10 @@ class MinimizePage(QWidget):
         self.apply.setEnabled(self.dirty and not self.busy and self.token is not None)
         self.discard.setEnabled(self.dirty and not self.busy)
         self.preview.setEnabled(not self.busy and not self.dirty and self.baseline['enabled'] and self.token is not None)
+        self.dock_preview.configure(self.values())
+
+    def desktop_changed(self):
+        self.dock_style.refresh(); self.dock_preview.configure(self.values()); self.details.arrange()
 
     def refresh(self, force=False):
         if self.busy or (self.dirty and not force):

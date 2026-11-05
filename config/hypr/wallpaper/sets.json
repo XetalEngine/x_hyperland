@@ -48,5 +48,10 @@
     "hollowgrove/forgotten-arches.png",
     "hollowgrove/hollow-grove.png",
     "hollowgrove/moonlit-pool.png"
+  ],
+  "gildedhollow": [
+    "gildedhollow/lantern-crossing.png",
+    "gildedhollow/gilded-hollow.png",
+    "gildedhollow/goldwater-vault.png"
   ]
 }

@@ -2,6 +2,7 @@
 """Real Wayland/X11 requests, pointer input and recovery in a disposable compositor.
 
 Usage: check-minimize.py /absolute/path/xetal-minimize.so /tmp/new-test-directory
+Add --upgrade-from /absolute/path/previous.so to exercise an in-session upgrade.
 Requires a parent Wayland session, PyQt6, grim, wayland-scanner and a C compiler.
 It never loads the plugin into the parent compositor or launches a real VM.
 """
@@ -26,6 +27,8 @@ from effects.burn import model as burn_model, build as burn_build
 
 def main():
     binary = Path(sys.argv[1]).resolve(strict=True)
+    upgrade_from = (Path(sys.argv[sys.argv.index('--upgrade-from')+1]).resolve(strict=True)
+                    if '--upgrade-from' in sys.argv[3:] else None)
     root = Path(sys.argv[2]); root.mkdir(parents=True, exist_ok=False)
     config = root/'minimize.conf'; config.write_text(model.encode(DEFAULTS))
     palette = root/'current.colors'; palette.write_text('[Colors:Window]\nDecorationFocus=57,169,255\n')
@@ -125,10 +128,29 @@ debug {
         output = json.loads(ctl('-j', 'monitors'))[0]
         output_name = output['name']
         dispatch('focusmonitor', output_name); dispatch('workspace', '1')
-        for path in (cube_build.build(), burn_build.build(), binary):
+        for path in (cube_build.build(), burn_build.build(), upgrade_from or binary):
             assert ctl('plugin', 'load', str(path)) == 'ok', path
         print('Cube, Burn and Minimize loaded together', flush=True)
         wayland = begin_app('wayland')
+        if upgrade_from:
+            wayland('add', 'Upgrade recovery'); wait(lambda: any(c['title'] == 'Upgrade recovery' for c in clients()))
+            before = client('Upgrade recovery')
+            wayland('min', 'Upgrade recovery'); wait(lambda: status()['active'] == 1)
+            assert ctl('plugin', 'unload', str(upgrade_from)) == 'ok'
+            wait(lambda: restored('Upgrade recovery', before['workspace']['id']))
+            answer = ctl('plugin', 'load', str(binary)); assert answer == 'ok', answer
+            # GNU-unique inline data can survive dlclose. Merely checking the
+            # new plugin's version missed an old dock-design table being reused.
+            config.write_text(model.encode(dict(model.DEFAULTS, dock_style='gildedhollow')))
+            dispatch('xetalminimize:reload'); assert status()['dock_style'] == 10
+            palette.write_text('[General]\nColorScheme=XetalGildedHollowDark\n[Colors:Window]\nDecorationFocus=235,187,94\n')
+            config.write_text(model.encode(model.DEFAULTS))
+            dispatch('xetalminimize:reload'); assert status()['dock_style'] == 10
+            config.write_text(model.encode(DEFAULTS))
+            palette.write_text('[Colors:Window]\nDecorationFocus=57,169,255\n')
+            dispatch('xetalminimize:reload')
+            wayland('close', 'Upgrade recovery'); wait(lambda: not clients())
+            print('Live upgrade restores windows and accepts the new dock design: passed', flush=True)
         if '--dock-only' in sys.argv[3:]:
             from minimize.dock_checks import check as check_dock
             check_dock(root,env,ctl,dispatch,status,clients,client,wait,wayland,run,spawn,

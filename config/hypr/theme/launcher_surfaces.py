@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QApplication
 import runtime
 
 DEFAULTS = {
+    'gildedhollow': {'tile_opacity': 94, 'group_opacity': 35, 'sidebar_opacity': 82, 'group_image': ''},
     'hollowgrove': {'tile_opacity': 82, 'group_opacity': 25, 'sidebar_opacity': 70, 'group_image': ''},
     'shadowedge': {'tile_opacity': 100, 'group_opacity': 30, 'sidebar_opacity': 82, 'group_image': ''},
     'raw': {'tile_opacity': 45, 'group_opacity': 0, 'sidebar_opacity': 45, 'group_image': ''},
@@ -125,6 +126,10 @@ class StripImage(QObject):
 
 def paint_tile(p, box, colors, style, mode, opacity, selected=False, hover=0, radius=None):
     """Opacity affects the card only; icons, text and focus remain independent."""
+    if style=='gildedhollow':
+        from gildedhollow import paint_tile
+        paint_tile(p,box,colors,opacity,selected,hover>0)
+        return
     if style=='hollowgrove':
         from hollowgrove import paint_tile
         paint_tile(p,box,colors,opacity,selected,hover>0)

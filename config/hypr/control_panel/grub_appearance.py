@@ -30,7 +30,7 @@ GENERATOR = '/etc/grub.d/99_hyper_fusion_appearance'
 BEGIN = '### BEGIN ' + GENERATOR + ' ###'
 END = '### END ' + GENERATOR + ' ###'
 SIGNATURE = '# Hyper Fusion GRUB Appearance v1'
-NAMES = {'modern': 'Hyper Fusion', 'shadowedge': 'Shadow Edge', 'hollowgrove': 'Hollow Grove',
+NAMES = {'modern': 'Hyper Fusion', 'shadowedge': 'Shadow Edge', 'hollowgrove': 'Hollow Grove', 'gildedhollow': 'The Gilded Hollow',
          'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink',
          'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud',
          'breakpoint': 'Breakpoint', 'binaryknife': 'Binary Knife', 'raw': 'Original'}

@@ -6,7 +6,7 @@
 // #include "splat.hpp" // Parked: Fireball is the only enabled effect.
 #include "dock_shader.hpp"
 #include "../../burn/native/fire_texture.hpp"
-namespace Minimize {
+namespace Minimize __attribute__((visibility("hidden"))) {
 struct GLState {
     GLint program, vao, buffer, active, texture, srcRGB, dstRGB, srcA, dstA, eqRGB, eqA;
     GLint scissor[4], depthFunc;

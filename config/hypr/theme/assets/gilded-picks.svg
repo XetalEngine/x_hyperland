@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 32 32">
+ <defs><linearGradient id="brass" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff0c9"/><stop offset=".38" stop-color="#e9b85d"/><stop offset=".65" stop-color="#806034"/><stop offset="1" stop-color="#f5d69b"/></linearGradient></defs>
+ <g stroke="#080d0a" stroke-width="3" stroke-linejoin="round"><path d="M8 5L27 26l-2 2L6 7z"/><path d="M24 5L5 26l2 2L26 7z"/></g>
+ <g fill="url(#brass)" stroke="#f5d69b" stroke-width=".4"><path d="M8 5L27 26l-2 2L6 7z"/><path d="M24 5L5 26l2 2L26 7z"/><path d="M1 12Q5 1 15 3L18 6Q7 3 1 12z"/><path d="M31 12Q27 1 17 3L14 6Q25 3 31 12z"/></g>
+ <path d="M14 16l2-2 2 2-2 2z" fill="#fff0c9"/>
+</svg>

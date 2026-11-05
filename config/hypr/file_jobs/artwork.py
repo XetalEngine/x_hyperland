@@ -318,6 +318,36 @@ def binaryknife(p, box, accent, surface, phase, count, trails, glow, archive, ex
         p.drawRect(QRectF(point.x()-2, point.y()-2, 4, 4))
 
 
+def gildedhollow(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Little brass minecarts carry documents along a lantern-lit rail."""
+    p.save()
+    left,right=QPointF(box.left()+32,box.center().y()),QPointF(box.right()-32,box.center().y())
+    start,end=left.x()+33,right.x()-33
+    p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(alpha(accent,60),1))
+    for offset in (10,14):p.drawLine(QPointF(start,left.y()+offset),QPointF(end,left.y()+offset))
+    for x in range(round(start),round(end),14):p.drawLine(QPointF(x,left.y()+9),QPointF(x+2,left.y()+16))
+    folder(p,left,accent,surface,extracting,True);folder(p,right,accent,surface,archive,True)
+    if result=='done':success(p,box.center(),accent)
+    elif not result:
+        for index in range(count):
+            t=(phase+index/count)%1;point=QPointF(start+(end-start)*t,left.y())
+            p.save();p.translate(point);p.setOpacity(min(1,t*8,(1-t)*8))
+            if glow:
+                light=QRadialGradient(QPointF(0,-5),22);light.setColorAt(0,alpha(accent,glow*1.4));light.setColorAt(1,alpha(accent,0))
+                p.setBrush(light);p.setPen(Qt.PenStyle.NoPen);p.drawEllipse(QPointF(0,-5),22,22)
+            fill=QLinearGradient(0,-11,0,8);fill.setColorAt(0,accent.lighter(160));fill.setColorAt(.25,accent);fill.setColorAt(1,accent.darker(250))
+            p.setPen(QPen(accent.lighter(130),.8));p.setBrush(fill)
+            cart=QPainterPath(QPointF(-10,-5));cart.lineTo(10,-5);cart.lineTo(7,7);cart.lineTo(-7,7);cart.closeSubpath();p.drawPath(cart)
+            p.setBrush(surface);p.drawEllipse(QPointF(-6,10),2.5,2.5);p.drawEllipse(QPointF(6,10),2.5,2.5)
+            p.setBrush(accent.lighter(140));p.drawRoundedRect(QRectF(-5,-14,10,9),1,1)
+            p.setPen(QPen(surface,.8));p.drawLine(QPointF(-3,-11),QPointF(2,-11));p.drawLine(QPointF(-3,-8),QPointF(1,-8))
+            if trails:
+                spark=QPointF(-12,-11-4*math.sin(t*math.tau));p.setPen(QPen(alpha(accent.lighter(170),170),1))
+                p.drawLine(spark-QPointF(2,0),spark+QPointF(2,0));p.drawLine(spark-QPointF(0,2),spark+QPointF(0,2))
+            p.restore()
+    p.restore()
+
+
 def hollowgrove(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     """Leaf letters drift between folders along a gently curving branch."""
     left=QPointF(box.left()+32,box.center().y());right=QPointF(box.right()-32,box.center().y())

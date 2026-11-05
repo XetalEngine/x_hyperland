@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Procedural materials: no wallpaper screenshots or bitmap dependencies.
 #pragma once
-namespace Minimize {
+namespace Minimize __attribute__((visibility("hidden"))) {
 inline constexpr const char* dockFragment=R"(#version 300 es
 precision highp float;
 uniform vec2 dimensions;
@@ -17,7 +17,7 @@ void main(){
  vec2 uv=vertical==1?coord.yx:coord;
  vec2 p=(uv-.5)*dims;vec2 halfSize=dims*.5-vec2(8.);
  float radius=style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:halfSize.y;
- if(part==1)radius=style==0?2.:style==2||style==3||style==6||style==8?8.:16.;
+ if(part==1)radius=style==0?2.:style==2||style==3||style==6||style==8?8.:style==10?10.:16.;
  radius=min(radius,min(halfSize.x,halfSize.y));
  float distance=roundBox(p,halfSize,radius);
  if(style==2||style==3||style==8)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+10.)*.7071);
@@ -28,6 +28,7 @@ void main(){
  vec3 body=mix(base,tint,.055)+ink*shine*.065;
  float decoration=0.;float metal=0.;
  float rim=.26;
+ float jewel=0.;float jewelHalo=0.;float gildedSweep=0.;
  if(part==0){
   if(style==0){
    decoration=(1.-smoothstep(.4,1.3,abs(p.y-halfSize.y+6.)))*.6;
@@ -62,6 +63,27 @@ void main(){
   }else if(style==8){
    metal=step(.94,fract((p.x-p.y)*.09))*.05;
    decoration=exp(-abs(p.y+halfSize.y-4.)*1.3)*.4+exp(-abs(p.y-halfSize.y+5.)*1.3)*.25;rim=.38;
+  }else if(style==10){
+   // Brass caps, inset stone, a traveling polish and a lantern-cut diamond.
+   vec2 q=vec2(halfSize.x-abs(p.x),p.y);
+   float cap=1.-smoothstep(19.,30.,q.x);
+   float grain=sin(p.x*.09+p.y*.18+sin(p.y*.13)*2.);
+   body+=ink*grain*.008;
+   body=mix(body,mix(base,tint,.28)+ink*shine*.12,cap*.85);
+   float curl=abs(length((q-vec2(19.,-8.))/vec2(1.,1.25))-8.);
+   float engraving=exp(-curl*1.8)*step(-18.,p.y)*step(p.y,8.);
+   engraving+=exp(-line(q,vec2(15.,0.),vec2(27.,halfSize.y-8.))*1.7);
+   decoration=engraving*.32*cap;
+   vec2 rivet=vec2(q.x-16.,abs(p.y)-halfSize.y+14.);
+   metal+=(1.-smoothstep(1.,2.8,length(rivet)))*.36;
+   decoration+=exp(-abs(distance+4.7)*1.4)*.24;
+   gildedSweep=exp(-pow((p.x-mix(-halfSize.x-55.,halfSize.x+55.,fract(time*.105)))/35.,2.));
+   decoration+=exp(-abs(p.y+halfSize.y-4.)*1.1)*(.16+.23*gildedSweep);
+   vec2 gem=p-vec2(0.,halfSize.y-5.);
+   jewel=1.-smoothstep(3.3,5.,abs(gem.x)+abs(gem.y));
+   jewelHalo=exp(-length(gem)*.16)*(.7+.15*sin(time*1.6));
+   decoration+=jewelHalo*.18;
+   rim=.8;
   }else if(style==9){
    // Silver vines and paired leaves curl around the tray's ends.
    vec2 q=vec2(halfSize.x-abs(p.x),p.y);
@@ -79,12 +101,26 @@ void main(){
   body=mix(base,tint,.08+emphasis*.14)+ink*shine*.045;
   rim=.08+emphasis*.25;
   decoration=exp(-abs(p.y-halfSize.y+3.)*1.7)*(.25+.4*emphasis);
+  if(style==10){
+   rim=.2+emphasis*.6;
+   decoration*=.7;
+   decoration+=exp(-abs(distance+3.)*1.9)*emphasis*.18;
+  }
  }
  vec3 surface=body+ink*metal+tint*decoration;
  surface=mix(surface,mix(tint,ink,.3),border*rim);
+ if(style==10&&part==0){
+  surface+=mix(tint,ink,.65)*border*gildedSweep*.55;
+  surface=mix(surface,mix(tint,ink,.55),jewel);
+ }
  float alpha=mask*(part==1?.28+emphasis*.18:.9);
  vec3 rgb=surface*alpha;
  float outside=shadow*(1.-mask);
+ if(style==10){
+  float glow=(exp(-max(distance,0.)*.46)*(.035+emphasis*.08)+jewelHalo*.1)*(1.-mask);
+  rgb+=tint*glow;
+  outside+=glow;
+ }
  alpha+=outside;
  fragColor=vec4(rgb,alpha)*opacity;
 })";

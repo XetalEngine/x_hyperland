@@ -113,6 +113,9 @@ def builtin(design, mode=None, root=None):
     if design == 'tidalglass':
         value.setdefault('cursors',copy.deepcopy(cursors.DEFAULTS))
         value['cursors'].update(style='pearl')
+    elif design == 'gildedhollow':
+        value['cursors'].update(style='ember',trail='sparkle',color='#e9b85d')
+        value['theme']['launcher_wallpaper']=False
     elif design == 'hollowgrove':
         value['cursors'].update(style='carbon',trail='glow',color='#a3bc99')
         value['theme']['launcher_wallpaper']=False

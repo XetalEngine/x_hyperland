@@ -112,13 +112,13 @@ class QuickMixTests(unittest.TestCase):
             page=ThemePage(run)
             try:
                 mix=page.mix_page;mouse=page.appearance.mouse
-                mix.fields['dock'].setCurrentIndex(mix.fields['dock'].findData('hollowgrove'));mix.save()
-                self.assertFalse(mix.dirty,mix.status.text());self.assertEqual(page.appearance.minimize.dock_style.currentData(),'hollowgrove')
+                mix.fields['dock'].setValue('hollowgrove');mix.save()
+                self.assertFalse(mix.dirty,mix.status.text());self.assertEqual(page.appearance.minimize.dock_style.value(),'hollowgrove')
                 mix.open_dock();self.assertIs(page.tabs.currentWidget(),page.appearance)
                 self.assertIs(page.appearance.tabs.currentWidget(),page.appearance.minimize)
                 detailed=minimize_load(minimize_path)[0];detailed['dock_style']='obsidianforge'
                 minimize_path.write_text(presets.minimize.encode(detailed));page.appearance.minimize.refresh();mix.refresh()
-                self.assertEqual(mix.fields['dock'].currentData(),'obsidianforge')
+                self.assertEqual(mix.fields['dock'].value(),'obsidianforge')
                 mix.fields['transfer'].setCurrentIndex(mix.fields['transfer'].findData('breakpoint'));mix.save()
                 self.assertFalse(mix.dirty,mix.status.text())
                 self.assertEqual(page.file_transfer.style.currentData(),'breakpoint')

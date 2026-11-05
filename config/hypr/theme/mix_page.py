@@ -6,6 +6,7 @@ import quick_mix
 import selection_marker
 import runtime
 import bar_styles
+from effects.minimize.gallery import DesignButton
 
 
 def note(text):
@@ -32,7 +33,9 @@ class MixMatchPage(QWidget):
                 self.trail_enabled.toggled.connect(self.toggle_trail);column.addWidget(self.trail_enabled)
             for key in keys:
                 caption,_,_,choices=quick_mix.FIELDS[key]
-                if choices is None:
+                if key=='dock':
+                    field=DesignButton();field.valueChanged.connect(lambda value:self.edit('dock',value));form.addRow(caption,field)
+                elif choices is None:
                     field=QCheckBox(caption);field.toggled.connect(lambda value,k=key:self.edit(k,value));form.addRow(field)
                 else:
                     field=QComboBox();field.setMinimumContentsLength(15);field.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
@@ -77,6 +80,7 @@ class MixMatchPage(QWidget):
         self.loading=True;self.draft=dict(values)
         for key,field in self.fields.items():
             if isinstance(field,QCheckBox):field.setChecked(values[key])
+            elif isinstance(field,DesignButton):field.setValue(values[key])
             else:field.setCurrentIndex(field.findData(values[key]))
         self.loading=False;self.changed()
     def edit(self,key,value):

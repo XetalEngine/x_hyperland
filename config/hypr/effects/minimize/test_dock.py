@@ -12,6 +12,38 @@ from effects.minimize import model,controller
 
 
 class DockTests(unittest.TestCase):
+    def test_new_design_survives_an_older_library_loaded_in_the_same_process(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);legacy=root/'legacy.cpp';current=root/'current.cpp'
+            # This is the public inline table layout used by older adapters.
+            # GNU-unique binding keeps it alive even after dlclose.
+            legacy.write_text('''#include <map>
+#include <string>
+namespace Minimize { inline const std::map<std::string,int> dockStyles{{"raw",0}}; }
+extern "C" int initialize(){return Minimize::dockStyles.at("raw");}''')
+            current.write_text('''#include "settings.hpp"
+extern "C" __attribute__((visibility("default")))
+int readStyle(const char* config,const char* palette){
+try{return Minimize::readSettings(config,palette).dockStyle;}catch(...){return -1;}}''')
+            old=root/'legacy.so';new=root/'current.so'
+            subprocess.run(['g++','-std=c++23','-shared','-fPIC',str(legacy),'-o',str(old)],check=True,capture_output=True)
+            subprocess.run(['g++',*controller.build.COMPILE_FLAGS,'-I'+str(ROOT/'native'),str(current),'-o',str(new)],check=True,capture_output=True)
+            config=root/'settings.conf';palette=root/'current.colors'
+            config.write_text(model.encode(dict(model.DEFAULTS,dock_style='gildedhollow')))
+            palette.write_text('[General]\nColorScheme=XetalGildedHollowDark\n')
+            # Isolate the dynamic loader state from other unit tests.
+            probe='''import ctypes,sys
+from _ctypes import dlclose
+old=ctypes.CDLL(sys.argv[1]); assert old.initialize()==0
+dlclose(old._handle)
+new=ctypes.CDLL(sys.argv[2]);new.readStyle.argtypes=[ctypes.c_char_p,ctypes.c_char_p]
+print(new.readStyle(sys.argv[3].encode(),sys.argv[4].encode()))'''
+            def read():
+                return subprocess.check_output([sys.executable,'-c',probe,str(old),str(new),str(config),str(palette)],text=True).strip()
+            self.assertEqual(read(),'10')
+            config.write_text(model.encode(model.DEFAULTS))
+            self.assertEqual(read(),'10')
+
     def test_layout_animation_and_idle_deadlines(self):
         with tempfile.TemporaryDirectory() as directory:
             binary=Path(directory)/'dock'
@@ -37,7 +69,7 @@ std::cout<<s.dock<<" "<<s.dockStyle<<" "<<s.effect<<" "<<s.rgb[0]<<" "<<s.backgr
             old={k:v for k,v in model.DEFAULTS.items() if k in model.PRE_DOCK}
             old.update(effect='splat',edge='right',order='top-to-bottom')
             config.write_text(''.join(f'{k}={int(v) if type(v) is bool else v}\n' for k,v in old.items()))
-            self.assertEqual(read()[:3],['0','9','fireball'])
+            self.assertEqual(read()[:3],['0',str(i),'fireball'])
             self.assertEqual(model.load(config)[0]['presentation'],'stack')
 
     def test_live_upgrade_unloads_only_recorded_build_before_loading_new(self):

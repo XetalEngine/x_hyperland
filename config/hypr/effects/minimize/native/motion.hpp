@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace Minimize {
+namespace Minimize __attribute__((visibility("hidden"))) {
 struct Rect { double x=0, y=0, w=0, h=0; };
 inline double ease(double t) { t=std::clamp(t,0.0,1.0); return t*t*(3-2*t); }
 // One column, paged by scrolling when a monitor cannot hold all its windows.

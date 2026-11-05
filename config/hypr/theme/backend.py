@@ -352,6 +352,9 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     elif design=='shadowedge':
         from shadowedge import compositor
         content+=compositor(colors)
+    elif design=='gildedhollow':
+        from gildedhollow import compositor
+        content+=compositor(colors)
     elif design=='hollowgrove':
         from hollowgrove import compositor
         content+=compositor(colors)

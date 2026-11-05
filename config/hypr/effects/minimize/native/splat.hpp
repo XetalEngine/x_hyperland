@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Living slime: stable silhouettes, advected surface, swelling blisters and pop ripples.
 #pragma once
-namespace Minimize {
+namespace Minimize __attribute__((visibility("hidden"))) {
 inline constexpr const char* splatFragment=R"GLSL(#version 300 es
 precision highp float;
 in vec2 coord; out vec4 fragColor;

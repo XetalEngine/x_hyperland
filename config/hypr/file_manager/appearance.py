@@ -118,6 +118,13 @@ def appearance():
         QFrame#pickerActions, QStatusBar {{background:{p['AlternateBase']};}}
         QTabBar::tab:selected {{border:1px solid {p['Midlight']}; border-top-color:{p['Accent']}; border-radius:15px;}}
         '''
+    if design == 'gildedhollow':
+        from gildedhollow import stone
+        style += f'''QMainWindow,QWidget#filesBody,QToolBar,QFrame#addressRow {{background:{stone(p)};}}
+        QGroupBox#drivePartitionCard {{background:{stone(p)};border:1px solid {p['Midlight']};border-top-color:{p['Light']};border-radius:16px;}}
+        QTreeWidget#places {{background:{p['Window']};border-right:1px solid {p['Midlight']};}}
+        QFrame#pickerActions,QStatusBar {{background:{p['Window']};border-top:1px solid {p['Midlight']};}}
+        QTabBar::tab:selected {{background:{p['Highlight']};border:1px solid {p['Accent']};border-top-color:{p['Link']};border-radius:9px;}}'''
     if design == 'hollowgrove':
         from hollowgrove import glass
         style += f'''QMainWindow,QWidget#filesBody,QToolBar,QFrame#addressRow {{background:{glass(p)};}}

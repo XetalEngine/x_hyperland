@@ -63,6 +63,9 @@ PickerWindow::PickerWindow(const QJsonObject &value, const QString &settingsPath
   if (!preferences.settings.contains(key+"/geometry")) resize(1080, 700);
   auto *panel = new QFrame;
   panel->setObjectName("pickerActions");
+  // This is a form footer, not a second pane. Keep its natural themed height
+  // as the window grows; the folder view receives the additional space.
+  panel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
   auto *layout = new QGridLayout(panel);
   layout->setContentsMargins(18, 14, 18, 16);
   layout->setHorizontalSpacing(12);
@@ -137,7 +140,9 @@ PickerWindow::PickerWindow(const QJsonObject &value, const QString &settingsPath
   layout->addWidget(cancel, row, 2);
   layout->addWidget(accept, row, 3);
   layout->setColumnStretch(1, 1);
-  centralWidget()->layout()->addWidget(panel);
+  auto *content = qobject_cast<QVBoxLayout *>(centralWidget()->layout());
+  content->setStretch(0, 1);
+  content->addWidget(panel, 0);
   // Some Wayland clients retain a stale normalGeometry after a compositor
   // resize. Save the actual content size as well, independent of maximize bits.
   const QSize savedSize = preferences.settings.value(key+"/size").toSize();

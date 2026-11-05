@@ -4,7 +4,7 @@
 #include <map>
 #include <cstdint>
 
-namespace Minimize {
+namespace Minimize __attribute__((visibility("hidden"))) {
 enum class Edge { Bottom, Top, Left, Right };
 inline const char* edgeName(Edge e) {
     switch(e){case Edge::Top:return "top";case Edge::Left:return "left";case Edge::Right:return "right";default:return "bottom";}

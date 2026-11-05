@@ -73,24 +73,25 @@ def check(root, env, ctl, dispatch, status, clients, client, wait, app, run, spa
     print('Dock slots grow, hover-zoom, restore and collapse after close: passed',flush=True)
 
     # Theme geometry/materials follow the palette, or can be selected separately.
-    accents=['5bd5d1','88aacc','ef3347','37beff','53d8e7','a63536','ef9d41','eba1d0','97b9c6','adc49c']
+    palettes=json.loads((Path(model.__file__).resolve().parents[2]/'theme/palettes.json').read_text())
     shots=[]
     for i,name in enumerate(k for k in model.DOCK_STYLES if k!='follow'):
-        rgb=','.join(str(int(accents[i][j:j+2],16)) for j in (0,2,4))
-        background='227,223,209' if name=='porcelainink' else '17,23,29'
-        foreground='36,40,46' if name=='porcelainink' else '224,232,237'
+        colors=(palettes if name=='raw' else palettes[name])['light' if name=='porcelainink' else 'dark']
+        def rgb_color(key):return ','.join(str(int(colors[key][j:j+2],16)) for j in (1,3,5))
+        rgb=rgb_color('Accent');background=rgb_color('Window');foreground=rgb_color('WindowText')
         palette.write_text(f'[General]\nColorScheme=Xetal{name.title()}Dark\n[Colors:Window]\nDecorationFocus={rgb}\nBackgroundNormal={background}\nForegroundNormal={foreground}\n')
         settings(dock_style='follow',dock_edge='bottom');ready();time.sleep(.18)
         assert status()['dock_style']==i
         path=root/('dock-'+name+'.png');run('grim','-o',output_name,str(path))
         x,y,w,h=dock()['box'];picture=Image.open(path)
         shots.append((model.DOCK_STYLES[name],picture.crop((int(x-12),int(y-24),int(x+w+12),int(y+h+14))).convert('RGB')))
-    canvas=Image.new('RGB',(1000,5*180),'#101820');draw=ImageDraw.Draw(canvas)
+    canvas=Image.new('RGB',(1000,((len(shots)+1)//2)*180),'#101820');draw=ImageDraw.Draw(canvas)
     for i,(title,picture) in enumerate(shots):
         x=(i%2)*500;y=(i//2)*180;canvas.paste(picture,(x+(500-picture.width)//2,y+34));draw.text((x+20,y+10),title,fill='white')
     canvas.save(root/'dock-gallery.png')
     settings(dock_style='binaryknife');assert status()['dock_style']==3
-    print('Ten live theme designs and independent design selection: passed',flush=True)
+    settings(dock_style='gildedhollow');assert status()['dock_style']==10
+    print(f'{len(shots)} live theme designs and independent design selection: passed',flush=True)
 
     # Test real mapped Waybar layers at both edges, not only reserved margins.
     bar_config=root/'dock-waybar.json';bar_css=root/'dock-waybar.css'

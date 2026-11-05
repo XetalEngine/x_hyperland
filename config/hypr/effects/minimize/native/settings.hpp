@@ -10,9 +10,11 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
-namespace Minimize {
+// Keep adapter definitions local across dlclose/dlopen upgrades. Hyprland's
+// own headers must retain default visibility for their shared global state.
+namespace Minimize __attribute__((visibility("hidden"))) {
 inline const std::map<std::string,int> dockStyles{{"raw",0},{"modern",1},{"breakpoint",2},{"binaryknife",3},
-    {"tidalglass",4},{"porcelainink",5},{"obsidianforge",6},{"candycloud",7},{"shadowedge",8},{"hollowgrove",9}};
+    {"tidalglass",4},{"porcelainink",5},{"obsidianforge",6},{"candycloud",7},{"shadowedge",8},{"hollowgrove",9},{"gildedhollow",10}};
 struct Settings {
     bool enabled=true, followTheme=true, rightEdge=false, bottomToTop=true;
     bool dock=true, autoHide=true;

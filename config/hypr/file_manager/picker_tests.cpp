@@ -143,6 +143,38 @@ private slots:
     Fusion::Preferences preferences(settings()); QVERIFY(!preferences.settings.contains("geometry"));
     again.close();
   }
+  void compactActionsWhenResized_data() {
+    QTest::addColumn<QString>("method"); QTest::addColumn<bool>("extraChoices");
+    for (const auto &method : {"OpenFile", "SaveFile", "SaveFiles"})
+      for (const bool choices : {false, true})
+        QTest::newRow(qPrintable(QString(method)+(choices ? " with choices" : ""))) << QString(method) << choices;
+  }
+  void compactActionsWhenResized() {
+    QFETCH(QString, method); QFETCH(bool, extraChoices);
+    auto input = request(method);
+    if (extraChoices) input["choices"] = QJsonArray{
+      QJsonArray{"metadata", "Keep metadata", QJsonArray{}, "true"},
+      QJsonArray{"quality", "Quality", QJsonArray{QJsonArray{"high", "High"}, QJsonArray{"low", "Low"}}, "high"}};
+    PickerWindow picker(input, settings(), false); prepare(picker);
+    auto *actions = picker.findChild<QFrame *>("pickerActions"); QVERIFY(actions);
+    picker.resize(1100, 650); QTest::qWait(100);
+    const int compact = actions->height(), browserHeight = picker.browser()->height();
+    picker.resize(1100, 1000);
+    QTRY_COMPARE(actions->height(), compact);
+    QVERIFY(picker.browser()->height() >= browserHeight+340);
+    QVERIFY(actions->height() <= actions->sizeHint().height()+2);
+    for (const auto *control : {static_cast<QWidget *>(picker.findChild<QLineEdit *>("pickerName")),
+                               static_cast<QWidget *>(picker.findChild<QPushButton *>("pickerAccept"))}) {
+      QVERIFY(control && control->isVisible());
+      QVERIFY(actions->rect().contains(QRect(control->mapTo(actions, QPoint()), control->size())));
+    }
+    const auto artifacts = qEnvironmentVariable("FUSION_PICKER_ARTIFACTS");
+    if (!artifacts.isEmpty()) {
+      QDir().mkpath(artifacts);
+      QVERIFY(picker.grab().save(artifacts+'/'+method+(extraChoices ? "-choices" : "")+".png"));
+    }
+    picker.close();
+  }
 };
 QTEST_MAIN(PickerTests)
 #include "picker_tests.moc"
