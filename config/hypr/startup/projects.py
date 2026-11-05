@@ -13,7 +13,8 @@ from PyQt6.QtCore import Qt, QPointF, QRectF, QTimer, QProcess, QObject, QSocket
 from PyQt6.QtGui import (QColor, QFont, QPainter, QPainterPath, QPalette, QPen, QPolygonF,
                          QIcon, QTransform, QLinearGradient, QRadialGradient, QKeySequence, QShortcut)
 from PyQt6.QtWidgets import (QApplication, QAbstractButton, QWidget, QLabel, QVBoxLayout,
-                            QHBoxLayout, QGridLayout, QScrollArea, QSizePolicy, QCheckBox)
+                            QHBoxLayout, QGridLayout, QScrollArea, QSizePolicy, QCheckBox,
+                            QFrame, QPushButton)
 from projects_model import catalog, hide_dashboard, open_project, WORKSPACE
 import login_settings
 
@@ -167,8 +168,19 @@ class Dashboard(QWidget):
         top=QHBoxLayout();brand=QLabel('04 / XETAL ENGINE');brand.setObjectName('projectEyebrow');brand.setFont(font(12,QFont.Weight.DemiBold,True))
         top.addWidget(brand);top.addStretch();count=QLabel(f'{len(projects):02d} PROJECTS');count.setFont(font(11,mono=True));count.setObjectName('projectMuted');top.addWidget(count)
         top.addWidget(window_controls(self,self.hide_dashboard,'Hide dashboard'));layout.addLayout(top)
-        self.title=QLabel('Try my other projects :D');self.title.setObjectName('projectTitle');layout.addSpacing(13);layout.addWidget(self.title)
-        self.subtitle=QLabel('Pick a cube. Discover something new.');self.subtitle.setObjectName('projectMuted');self.subtitle.setFont(font(14));layout.addWidget(self.subtitle)
+        self.intro=QWidget();self.intro_layout=QGridLayout(self.intro);self.intro_layout.setContentsMargins(0,10,0,7);self.intro_layout.setSpacing(22)
+        self.project_intro=QWidget();intro=QVBoxLayout(self.project_intro);intro.setContentsMargins(0,0,0,0);intro.setSpacing(8)
+        self.title=QLabel('Try my other projects :D');self.title.setObjectName('projectTitle');self.title.setWordWrap(True);intro.addWidget(self.title)
+        self.subtitle=QLabel('Pick a cube. Discover something new.');self.subtitle.setObjectName('projectMuted');self.subtitle.setFont(font(14));self.subtitle.setWordWrap(True);intro.addWidget(self.subtitle);intro.addStretch()
+        self.tour_card=QFrame();self.tour_card.setObjectName('tourCard');card=QVBoxLayout(self.tour_card);card.setContentsMargins(19,15,19,16);card.setSpacing(8)
+        eyebrow=QLabel('YOUR DESKTOP, DISCOVERED');eyebrow.setObjectName('tourEyebrow');card.addWidget(eyebrow)
+        headline=QLabel('Make yourself at home.');headline.setObjectName('tourHeadline');headline.setWordWrap(True);card.addWidget(headline)
+        hint=QLabel('A visual guide from first steps to powerful workflows. Search, watch, and try it yourself.');hint.setObjectName('projectMuted');hint.setWordWrap(True);card.addWidget(hint)
+        actions=QHBoxLayout();actions.setSpacing(8)
+        self.tour_button=QPushButton('Take the Tour  →');self.tour_button.setObjectName('takeTour');self.tour_button.setAccessibleName('Take the Hyper Fusion tour');self.tour_button.setToolTip('Open the searchable offline guide in your browser')
+        self.feedback_button=QPushButton('Send Feedback');self.feedback_button.setObjectName('sendFeedback');self.feedback_button.setToolTip('How to add Xetal in Echo and send feedback or a bug report')
+        for button in (self.tour_button,self.feedback_button):button.setCursor(Qt.CursorShape.PointingHandCursor);actions.addWidget(button)
+        card.addLayout(actions);self.intro_layout.addWidget(self.project_intro,0,0);self.intro_layout.addWidget(self.tour_card,0,1);self.intro_layout.setColumnStretch(0,1);self.intro_layout.setColumnStretch(1,1);self.intro_stacked=False;layout.addWidget(self.intro)
         self.scroll=QScrollArea();self.scroll.setObjectName('projectScroll');self.scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.scroll.setWidgetResizable(True);self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.gallery=Gallery(projects);self.scroll.setWidget(self.gallery);layout.addWidget(self.scroll,1)
@@ -181,8 +193,10 @@ class Dashboard(QWidget):
         self.login_toggle.toggled.connect(self.save_login_preference)
         footer=QHBoxLayout();self.message=QLabel('Made by Xetal');self.message.setObjectName('projectMuted');self.message.setFont(font(11,mono=True));footer.addWidget(self.message,1)
         site=QLabel('xetal.net  ↗');site.setObjectName('projectMuted');site.setFont(font(12));footer.addWidget(site);layout.addLayout(footer)
-        self.worker=QProcess(self);self.worker.finished.connect(self.opened);self.worker.errorOccurred.connect(lambda _:self.message.setText('Could not open the project page.'))
+        self.worker=QProcess(self);self.worker.finished.connect(self.opened);self.worker.errorOccurred.connect(lambda _:self.message.setText('Could not open the page.'))
         self.gallery.activated.connect(lambda p:self.run_action('--open',p.id))
+        self.tour_button.clicked.connect(lambda:self.run_action('--tour'))
+        self.feedback_button.clicked.connect(lambda:self.run_action('--feedback'))
         self.escape=QShortcut(QKeySequence('Escape'),self);self.escape.activated.connect(self.hide_dashboard)
         self.motion.start();self.apply_theme()
 
@@ -192,6 +206,13 @@ class Dashboard(QWidget):
         self.setStyleSheet('QLabel {background:transparent;} '
             f'QLabel#projectEyebrow {{color:{colors["Accent"]};}} '
             f'QLabel#projectMuted {{color:{colors["PlaceholderText"]};}} '
+            f'QFrame#tourCard {{background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 {colors["AlternateBase"]},stop:1 {colors["Base"]});border:1px solid {colors["Midlight"]};border-radius:17px;}} '
+            f'QLabel#tourEyebrow {{color:{colors["Accent"]};font-size:10px;font-weight:600;letter-spacing:2px;}} '
+            'QLabel#tourHeadline {font-size:23px;font-weight:600;} '
+            f'QPushButton#takeTour,QPushButton#sendFeedback {{padding:10px 12px;border:1px solid {colors["Midlight"]};border-radius:9px;background:{colors["Base"]};color:{colors["Text"]};font-weight:600;}} '
+            f'QPushButton#takeTour {{background:{colors["Highlight"]};border-color:{colors["Accent"]};color:{colors["HighlightedText"]};}} '
+            f'QPushButton#takeTour:hover,QPushButton#sendFeedback:hover {{border-color:{colors["Accent"]};}} '
+            f'QPushButton#takeTour:focus,QPushButton#sendFeedback:focus {{border:2px solid {colors["Accent"]};}} '
             'QWidget#projectGallery,QScrollArea#projectScroll,QScrollArea#projectScroll>QWidget {background:transparent;border:0;} '
             f'QScrollBar:vertical {{background:transparent;width:7px;}} QScrollBar::handle:vertical {{background:{colors["Midlight"]};border-radius:3px;min-height:25px;}} '
             'QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical {height:0;}')
@@ -224,7 +245,7 @@ class Dashboard(QWidget):
 
     def run_action(self,*args):
         if self.worker.state()!=QProcess.ProcessState.NotRunning:return
-        self.message.setText('Opening project page…' if args[0]=='--open' else 'Made by Xetal')
+        self.message.setText('Opening the desktop tour…' if args[0]=='--tour' else 'Opening feedback instructions…' if args[0]=='--feedback' else 'Opening project page…' if args[0]=='--open' else 'Made by Xetal')
         self.worker.start(sys.executable,[str(ROOT/'projects.py'),*args])
 
     def opened(self,code,status):
@@ -234,7 +255,12 @@ class Dashboard(QWidget):
 
     def resizeEvent(self,event):
         super().resizeEvent(event)
-        self.title.setFont(font(max(21,min(46,int(self.width()/25))),QFont.Weight.Bold))
+        self.title.setFont(font(max(23,min(38,int(self.width()/32))),QFont.Weight.Bold))
+        stacked=self.width()<800
+        if stacked!=self.intro_stacked:
+            self.intro_stacked=stacked;self.intro_layout.removeWidget(self.tour_card)
+            self.intro_layout.addWidget(self.tour_card,1 if stacked else 0,0 if stacked else 1)
+            self.intro_layout.setColumnStretch(1,0 if stacked else 1)
         QTimer.singleShot(0,self.fit_gallery)
 
     def fit_gallery(self):
@@ -302,10 +328,14 @@ STYLE='QToolTip {padding:8px; border:1px solid palette(midlight); border-radius:
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--open');parser.add_argument('--hide',action='store_true');args=parser.parse_args()
-    if args.open or args.hide:
+    parser=argparse.ArgumentParser();parser.add_argument('--open');parser.add_argument('--hide',action='store_true');parser.add_argument('--tour',action='store_true');parser.add_argument('--feedback',action='store_true');args=parser.parse_args()
+    if args.open or args.hide or args.tour or args.feedback:
         try:
-            if args.open:
+            if args.tour or args.feedback:
+                sys.path.insert(0,str(ROOT.parent))
+                from tour.launch import open_guide
+                open_guide('feedback' if args.feedback else 'home',theme_runtime.environment())
+            elif args.open:
                 project=next(p for p in catalog() if p.id==args.open)
                 open_project(project,theme_runtime.environment())
             else:hide_dashboard()

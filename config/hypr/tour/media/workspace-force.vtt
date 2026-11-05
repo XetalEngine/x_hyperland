@@ -1,0 +1,14 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:03.000
+Right-click workspace → Force window layout → Force tiled
+
+00:00:03.000 --> 00:00:06.000
+Force floating applies to existing and incoming windows
+
+00:00:06.000 --> 00:00:08.000
+Force modifier buttons → On shares always-visible workspace controls
+
+00:00:08.000 --> 00:00:10.000
+Off restores ordinary mode choices without undoing the current arrangement
+

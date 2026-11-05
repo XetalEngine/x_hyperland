@@ -1,0 +1,14 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:03.000
+Start with Virtual GPU: a guest in a window
+
+00:00:03.000 --> 00:00:06.000
+Paths & tools: Basic free or Enhanced free; check components
+
+00:00:06.000 --> 00:00:09.000
+Review hardware before launching; leave room for the host
+
+00:00:09.000 --> 00:00:12.000
+Use Preflight check before Launch VM · no VM is launched in this demo
+

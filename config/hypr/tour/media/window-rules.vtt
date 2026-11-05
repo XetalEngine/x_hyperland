@@ -1,0 +1,17 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:02.000
+Hotkeys → Window buttons: global controls
+
+00:00:02.000 --> 00:00:04.000
+Window Rules: saved behavior for matching apps
+
+00:00:04.000 --> 00:00:07.000
+Match an application class; leave title blank for all its windows
+
+00:00:07.000 --> 00:00:09.000
+Floating size and position follow the rule · workspace forcing takes priority
+
+00:00:09.000 --> 00:00:10.000
+Behavior applies on next open; button settings apply immediately
+

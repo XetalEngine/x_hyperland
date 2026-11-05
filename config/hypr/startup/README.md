@@ -12,6 +12,12 @@ pages on <https://www.xetal.net/community/site/>. Clicking, Enter or Space opens
 the selected page in the default browser after hiding the special workspace.
 Escape and the X hide the entire dashboard; Super+D shows it again.
 
+The header also offers **Take the Tour** and **Send Feedback** beside the project
+introduction. They open the bundled, searchable [desktop guide](../tour/README.md)
+or its Echo feedback instructions. The card stacks below the introduction in
+narrow windows; all six project cubes remain available. The guide's pictures,
+captioned video clips, and search work offline in the default browser.
+
 **Show this dashboard at login** at the bottom of the project showcase controls
 whether all four windows appear automatically at login. The same option is in
 **Control Panel → Startup Applications → Desktop startup**. The default is enabled.

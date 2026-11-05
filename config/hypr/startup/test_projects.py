@@ -124,5 +124,26 @@ class GalleryTests(unittest.TestCase):
         geometry=button.geometry();button.advance(0);first=button.grab().toImage();button.advance(3);second=button.grab().toImage()
         self.assertNotEqual(first,second);self.assertEqual(button.geometry(),geometry);button.close()
 
+    def test_tour_and_feedback_are_separate_accessible_actions(self):
+        import projects
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtTest import QTest
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, XETAL_HYPR_ROOT=directory):
+            window=projects.Dashboard(model.catalog());window.show()
+            for width,height,stacked in [(1200,900,False),(600,700,True),(400,700,True),(1000,800,False)]:
+                window.resize(width,height)
+                for _ in range(5):self.app.processEvents()
+                self.assertEqual(window.intro_stacked,stacked)
+                self.assertEqual(len(window.gallery.buttons),6)
+                self.assertFalse(window.tour_button.geometry().intersects(window.feedback_button.geometry()))
+                for button in (window.tour_button,window.feedback_button):
+                    self.assertTrue(button.isVisible())
+                    self.assertGreaterEqual(button.height(),30)
+            for button,flag in [(window.tour_button,'--tour'),(window.feedback_button,'--feedback')]:
+                with patch.object(window,'run_action') as action:
+                    button.setFocus();QTest.keyClick(button,Qt.Key.Key_Space)
+                    action.assert_called_once_with(flag)
+            window.close()
+
 
 if __name__=='__main__':unittest.main()

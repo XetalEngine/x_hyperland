@@ -1,0 +1,17 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:01.000
+Each monitor has four fixed workspace faces
+
+00:00:01.000 --> 00:00:03.000
+Hold Ctrl + Alt + left mouse and drag to rotate
+
+00:00:03.000 --> 00:00:05.000
+Rotate to another face; top and bottom are decorative
+
+00:00:05.000 --> 00:00:07.000
+The + button is unavailable while Cube is enabled
+
+00:00:07.000 --> 00:00:10.000
+Release to select the nearest face; Escape cancels
+
