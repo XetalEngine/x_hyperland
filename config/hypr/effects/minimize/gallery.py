@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 
 from PyQt6.QtCore import QElapsedTimer, QPointF, QRectF, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QPainter, QPen
+from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (QApplication, QBoxLayout, QDialog, QDialogButtonBox, QFrame,
     QGroupBox, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget)
 
@@ -89,12 +89,14 @@ class DesignList(QScrollArea):
 
 class DockPreview(QWidget):
     countChanged = pyqtSignal(int)
+    hidingChanged = pyqtSignal(bool)
 
     def __init__(self):
         super().__init__(); self.setMinimumSize(240, 180); self.setMouseTracking(True)
         self.setAccessibleName('Animated dock preview'); self.setToolTip('Hover to zoom. Click a sample slot to restore it.')
         self.options = dict(model.DEFAULTS); self.count = 3; self.weights = [1., 1., 1.]; self.zooms = [1., 1., 1.]
-        self.hover = -1; self.slots = []; self.phase = 0.
+        self.hover = -1; self.slots = []; self.phase = 0.; self.reveal = 1.; self.hiding = False
+        self.sensor = QRectF()
         self.clock = QElapsedTimer(); self.clock.start()
         self.animation = QTimer(self); self.animation.setInterval(33); self.animation.timeout.connect(self.tick)
         self.configure(self.options)
@@ -102,10 +104,18 @@ class DockPreview(QWidget):
     def configure(self, options):
         self.options = dict(options); self.style = resolved(options['dock_style']); self.colors = dict(runtime.colors())
         if not options['follow_theme']: self.colors['Accent'] = options['color']
+        if options['presentation'] != 'dock' or not options['auto_hide']: self.set_hiding(False)
         self.update()
+
+    def set_hiding(self, hiding):
+        if hiding == self.hiding: return
+        self.hiding = hiding; self.hover = -1; self.hidingChanged.emit(hiding)
+
+    def toggle_hiding(self): self.set_hiding(not self.hiding)
 
     def add_window(self):
         if self.count >= 5: return
+        self.set_hiding(False)
         self.count += 1
         if len(self.weights) < self.count: self.weights.append(0.); self.zooms.append(1.)
         self.countChanged.emit(self.count); self.update()
@@ -117,6 +127,9 @@ class DockPreview(QWidget):
     def tick(self):
         dt = min(.06, self.clock.restart()/1000); self.phase += dt*self.options['speed']/100
         step = 1-math.exp(-dt*5000/self.options['dock_duration'])
+        target = 0. if self.hiding else 1.
+        self.reveal += (target-self.reveal)*step
+        if abs(self.reveal-target) < .002: self.reveal = target
         for index in range(len(self.weights)):
             target = 1. if index < self.count else 0.
             self.weights[index] += (target-self.weights[index])*step
@@ -133,6 +146,7 @@ class DockPreview(QWidget):
         self.animation.stop(); self.hover = -1; super().hideEvent(event)
 
     def mouseMoveEvent(self, event):
+        if self.hiding and self.count and self.sensor.contains(event.position()): self.set_hiding(False)
         self.hover = next((i for i, rect in enumerate(self.slots[:self.count]) if rect.contains(event.position())), -1)
         self.setCursor(Qt.CursorShape.PointingHandCursor if self.hover >= 0 else Qt.CursorShape.ArrowCursor)
 
@@ -165,8 +179,62 @@ class DockPreview(QWidget):
         elif edge == 'top': spot.moveTop(area.top()+margin)
         elif edge == 'left': spot.moveLeft(area.left()+margin)
         else: spot.moveRight(area.right()-margin)
+        self.sensor = QRectF(spot)
+        if edge == 'bottom': self.sensor.setTop(area.bottom()-20); self.sensor.setBottom(area.bottom())
+        elif edge == 'top': self.sensor.setTop(area.top()); self.sensor.setBottom(area.top()+20)
+        elif edge == 'left': self.sensor.setLeft(area.left()); self.sensor.setRight(area.left()+20)
+        else: self.sensor.setLeft(area.right()-20); self.sensor.setRight(area.right())
+        reveal = 1. if stack else self.reveal
+        burning = not stack and self.options['hide_animation'] == 'burn'
+        if burning and self.options['fire_indicator'] and self.count and reveal < 1:
+            p.save(); p.setOpacity(1-reveal); p.setPen(Qt.PenStyle.NoPen)
+            # Short embers along the hidden dock's entire footprint.
+            length = spot.height() if vertical else spot.width()
+            for i in range(0, int(length), 6):
+                height = 2+5*(.5+.5*math.sin(i*.23+self.phase*3))**2
+                glow = .28+.3*(.5+.5*math.sin(i*.71-self.phase*2))
+                p.setBrush(artwork.alpha(self.colors['Accent'], glow))
+                if edge == 'bottom': rect = QRectF(spot.left()+i, area.bottom()-height-2, 4, height)
+                elif edge == 'top': rect = QRectF(spot.left()+i, area.top()+2, 4, height)
+                elif edge == 'left': rect = QRectF(area.left()+2, spot.top()+i, height, 4)
+                else: rect = QRectF(area.right()-height-2, spot.top()+i, height, 4)
+                p.drawRoundedRect(rect, 2, 2)
+            p.restore()
+        p.save(); burn_line = None
+        if burning and 0 < reveal < 1:
+            # Match the native material's ragged, glowing front moving toward its edge.
+            clip = QPainterPath(); burn_line = QPainterPath()
+            length = spot.height() if vertical else spot.width()
+            front = (1-reveal)*(spot.width() if vertical else spot.height())
+            points = []
+            for i in range(0, int(length)+7, 6):
+                jitter = 2*math.sin(i*.73+self.phase*2)+math.sin(i*.24-self.phase*3)
+                if edge == 'bottom': point = QPointF(spot.left()+i, spot.top()+front+jitter)
+                elif edge == 'top': point = QPointF(spot.left()+i, spot.bottom()-front+jitter)
+                elif edge == 'left': point = QPointF(spot.right()-front+jitter, spot.top()+i)
+                else: point = QPointF(spot.left()+front+jitter, spot.top()+i)
+                points.append(point)
+            burn_line.moveTo(points[0]); clip.moveTo(points[0])
+            for point in points[1:]: burn_line.lineTo(point); clip.lineTo(point)
+            corners = {'bottom': (spot.bottomRight(),spot.bottomLeft()), 'top': (spot.topRight(),spot.topLeft()),
+                       'left': (spot.bottomLeft(),spot.topLeft()), 'right': (spot.bottomRight(),spot.topRight())}
+            for point in corners[edge]: clip.lineTo(point)
+            clip.closeSubpath(); p.setClipPath(clip, Qt.ClipOperation.IntersectClip)
+        elif not stack and not burning:
+            shift = (spot.width()+margin if vertical else spot.height()+margin)*(1-reveal)
+            if edge == 'bottom': spot.translate(0,shift)
+            elif edge == 'top': spot.translate(0,-shift)
+            elif edge == 'left': spot.translate(-shift,0)
+            else: spot.translate(shift,0)
         self.slots = artwork.dock(p, spot, self.style, self.colors, phase=self.phase, weights=self.weights,
-                                  zoom=self.zooms, vertical=vertical, stack=stack)
+                                  zoom=self.zooms, vertical=vertical, stack=stack) if reveal > 0 else []
+        p.restore()
+        if burn_line is not None and self.weights:
+            p.save(); p.setClipRect(spot.adjusted(9,9,-9,-9), Qt.ClipOperation.IntersectClip)
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.setPen(QPen(artwork.alpha(self.colors['Accent'], .32), 5)); p.drawPath(burn_line)
+            p.setPen(QPen(artwork.blend(self.colors['Accent'], '#fff1ba', .65), 1.3)); p.drawPath(burn_line); p.restore()
+        if reveal < .95: self.slots = []
         if not self.weights:
             p.setPen(QColor(self.colors['PlaceholderText']))
             p.drawText(area, Qt.AlignmentFlag.AlignCenter, 'Dock empty\nAdd a sample window to preview it.')
@@ -183,7 +251,10 @@ class PreviewPanel(QGroupBox):
         controls = QHBoxLayout(); self.add = QPushButton('Add window'); self.remove = QPushButton('Restore window')
         self.add.clicked.connect(self.scene.add_window); self.remove.clicked.connect(self.scene.restore_window)
         controls.addWidget(self.add); controls.addWidget(self.remove); layout.addLayout(controls)
-        layout.addWidget(note('Hover to zoom; click a slot to restore the sample. Preview only · your windows stay as they are.'))
+        self.hide_sample = QPushButton('Preview hiding'); self.hide_sample.clicked.connect(self.scene.toggle_hiding)
+        self.scene.hidingChanged.connect(lambda hidden: self.hide_sample.setText('Show preview' if hidden else 'Preview hiding'))
+        layout.addWidget(self.hide_sample)
+        layout.addWidget(note('Hover to zoom; click a slot to restore it. Move near the edge to reveal a hidden dock. Preview only.'))
         self.scene.countChanged.connect(self.count_changed); self.configure(model.DEFAULTS)
 
     def configure(self, options):
@@ -195,6 +266,7 @@ class PreviewPanel(QGroupBox):
 
     def count_changed(self, count):
         self.add.setEnabled(count < 5); self.remove.setEnabled(count > 0)
+        self.hide_sample.setEnabled(count > 0 and self.scene.options['presentation'] == 'dock' and self.scene.options['auto_hide'])
         self.summary.setText(f'{count} sample window'+('s' if count != 1 else '')+
                              f" · {self.scene.options['size']} px · {self.scene.options['dock_zoom']}% hover zoom")
 

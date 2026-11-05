@@ -64,11 +64,17 @@ class MinimizePage(QWidget):
         for value,title in model.DOCK_EDGES.items():self.dock_edge.addItem(title,value)
         dock.addRow('Position',self.dock_edge)
         self.auto_hide = QCheckBox('Automatically hide after use');dock.addRow(self.auto_hide)
-        for key,label,suffix in (('hide_delay','Hide after',' ms'),('dock_duration','Slide and resize time',' ms'),
+        self.hide_animation=QComboBox()
+        for value,title in model.HIDE_ANIMATIONS.items():self.hide_animation.addItem(title,value)
+        dock.addRow('Hide animation',self.hide_animation)
+        self.fire_indicator=QCheckBox('Fire indicator');dock.addRow(self.fire_indicator)
+        self.fire_indicator.setToolTip('Keep a low flame along the dock edge while windows are minimized. It disappears when the dock is empty.')
+        self.dock_form=dock
+        for key,label,suffix in (('hide_delay','Hide after',' ms'),('dock_duration','Transition and resize time',' ms'),
                                  ('proximity','Edge proximity',' px'),('dock_zoom','Hover zoom','%')):
             field=QSpinBox();field.setRange(*model.RANGES[key]);field.setSuffix(suffix);field.setKeyboardTracking(False)
             setattr(self,key,field);dock.addRow(label,field)
-        self.dock_note = QLabel('Each monitor has its own dock. It grows as windows arrive and slides toward its edge to hide. '
+        self.dock_note = QLabel('Each monitor has its own dock. It grows as windows arrive, then slides away or burns away to hide. '
                                'Move near that edge to reveal it; scroll over slots when it fills up. '
                                'Side proximity also works at shared monitor boundaries.')
         self.dock_note.setWordWrap(True);self.dock_note.setObjectName('muted');dock.addRow(self.dock_note)
@@ -94,10 +100,11 @@ class MinimizePage(QWidget):
         self.apply = QPushButton('Apply Minimize'); self.apply.setObjectName('primary'); self.apply.clicked.connect(self.save); row.addWidget(self.apply)
         root.addLayout(row)
         self.enabled.toggled.connect(self.edited); self.effect.currentIndexChanged.connect(self.edited)
-        for field in (self.edge,self.order,self.presentation,self.dock_edge):field.currentIndexChanged.connect(self.edited)
+        for field in (self.edge,self.order,self.presentation,self.dock_edge,self.hide_animation):field.currentIndexChanged.connect(self.edited)
         self.dock_style.valueChanged.connect(self.edited)
         for field in (self.duration,self.size,self.speed,self.hide_delay,self.dock_duration,self.proximity,self.dock_zoom):field.valueChanged.connect(self.edited)
         self.follow_theme.toggled.connect(self.edited);self.auto_hide.toggled.connect(self.edited)
+        self.fire_indicator.toggled.connect(self.edited)
         if hasattr(QApplication.instance(), 'hypr_theme'):
             QApplication.instance().hypr_theme.changed.connect(self.desktop_changed)
         self.reset()
@@ -107,6 +114,7 @@ class MinimizePage(QWidget):
                                    edge=self.edge.currentData(), order=self.order.currentData(),
                                    presentation=self.presentation.currentData(),dock_edge=self.dock_edge.currentData(),dock_style=self.dock_style.value(),
                                    auto_hide=self.auto_hide.isChecked(),hide_delay=self.hide_delay.value(),dock_duration=self.dock_duration.value(),
+                                   hide_animation=self.hide_animation.currentData(),fire_indicator=self.fire_indicator.isChecked(),
                                    proximity=self.proximity.value(),dock_zoom=self.dock_zoom.value(),
                                    duration=self.duration.value(), size=self.size.value(), follow_theme=self.follow_theme.isChecked(),
                                    color=self.color, speed=self.speed.value()))
@@ -125,10 +133,11 @@ class MinimizePage(QWidget):
         self.duration.setValue(values['duration']); self.size.setValue(values['size'])
         self.follow_theme.setChecked(values['follow_theme']); self.color = values['color']
         self.speed.setValue(values['speed'])
-        for key in ('presentation','dock_edge'):
+        for key in ('presentation','dock_edge','hide_animation'):
             field=getattr(self,key);field.setCurrentIndex(field.findData(values[key]))
         self.dock_style.setValue(values['dock_style'])
         self.auto_hide.setChecked(values['auto_hide'])
+        self.fire_indicator.setChecked(values['fire_indicator'])
         for key in ('hide_delay','dock_duration','proximity','dock_zoom'):getattr(self,key).setValue(values[key])
         self.loading = False; self.edited()
 
@@ -148,6 +157,9 @@ class MinimizePage(QWidget):
         self.dock_style.setEnabled(dock and not self.busy)
         self.general_form.setRowVisible(self.edge,not dock);self.general_form.setRowVisible(self.order,not dock)
         self.hide_delay.setEnabled(self.auto_hide.isChecked());self.proximity.setEnabled(self.auto_hide.isChecked())
+        self.hide_animation.setEnabled(self.auto_hide.isChecked())
+        self.dock_form.setRowVisible(self.fire_indicator,self.hide_animation.currentData()=='burn')
+        self.fire_indicator.setEnabled(self.auto_hide.isChecked())
         self.color_button.setEnabled(not self.busy and not self.follow_theme.isChecked())
         self.color_button.setText('Choose… ' + self.color)
         swatch = QPixmap(18, 18); swatch.fill(QColor(self.color)); self.color_button.setIcon(QIcon(swatch))

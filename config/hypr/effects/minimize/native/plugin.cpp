@@ -107,7 +107,7 @@ bool visible(PHLMONITOR m) {
     return !stopping && !effectsHidden && online(m) && g_pCompositor->m_sessionActive &&
         !g_pSessionLockManager->isSessionLocked() && !PROTO::inputCapture->isCaptured() &&
         (std::ranges::any_of(records,[&](const auto& r){return r->monitor.lock()==m && (!settings.dock || !r->settled);}) ||
-         (settings.dock && docks.contains(m->m_id) && docks.at(m->m_id).reveal>.002));
+         (settings.dock && docks.contains(m->m_id) && (docks.at(m->m_id).reveal>.002 || docks.at(m->m_id).indicator>.002)));
 }
 Rect rect(CBox b) {return {b.x,b.y,b.width,b.height};}
 CBox box(Rect r) {return {r.x,r.y,r.w,r.h};}
@@ -151,7 +151,7 @@ Rect dockSlot(PHLMONITOR m,const Record& r,int index,const Minimize::DockLayout&
     Rect result=state.slots.contains(r.id)?state.slots.at(r.id):layout.slot(index);
     const double zoom=state.zoom.contains(r.id)?state.zoom.at(r.id):1.;
     result={result.x-result.w*(zoom-1)/2,result.y-result.h*(zoom-1)*.65,result.w*zoom,result.h*zoom};
-    return layout.shifted(result,state.reveal);
+    return layout.displayed(result,state.reveal,settings.burnHide);
 }
 std::optional<Rect> slot(const Record& r) {
     auto m=r.monitor.lock();if(!m)return {};
@@ -221,7 +221,8 @@ void updateDocks() {
         if(!count && !docks.contains(m->m_id))continue;
         const auto layout=dockLayout(m);auto& state=docks[m->m_id];
         const bool wasVisible=visible(m);
-        const auto old=layout.shifted(state.panel,state.reveal);
+        const auto old=layout.displayed(state.panel,state.reveal,settings.burnHide);
+        const auto oldIndicator=layout.indicator(state.panel,m->m_size.x,m->m_size.y);
         const auto local=pointer-m->m_position;
         const bool inside=Minimize::contains({0,0,m->m_size.x,m->m_size.y},local.x,local.y);
         const bool hovered=inside && !g_pInputManager->isConstrained() && !g_pInputManager->hasHeldButtons() &&
@@ -235,12 +236,16 @@ void updateDocks() {
             state.panel=layout.panel;state.reveal=count && (!settings.autoHide || hovered || arriving || now<state.holdUntil)?1:0;
             state.awake=false;
         }
+        const bool parked=std::ranges::any_of(records,[&](const auto& r){return r->monitor.lock()==m && !r->restoring;});
+        const double indicatorTarget=settings.burnHide && settings.fireIndicator && settings.autoHide && parked?1-state.reveal:0;
+        state.indicator=animationsEnabled()?Minimize::approach(state.indicator,indicatorTarget,dt,.16):indicatorTarget;
+        state.awake=state.awake || state.indicator!=indicatorTarget;
         std::set<uint64_t> present;int index=0;
         for(const auto& r:records)if(r->monitor.lock()==m){
             present.insert(r->id);const auto goal=layout.slot(index++);
             auto [at,added]=state.slots.try_emplace(r->id,goal);
             at->second=animationsEnabled()?Minimize::approach(at->second,goal,dt,duration):goal;
-            const auto shown=layout.shifted(at->second,state.reveal);
+            const auto shown=layout.displayed(at->second,state.reveal,settings.burnHide);
             const double delta=Minimize::vertical(layout.edge)?local.y-shown.y-shown.h*.6:local.x-shown.x-shown.w/2;
             const double magnification=hovered?std::exp(-std::pow(delta/(layout.size*.8),2))*(settings.dockZoom/100.-1):0;
             auto [zoom,created]=state.zoom.try_emplace(r->id,1.);
@@ -252,7 +257,9 @@ void updateDocks() {
             // Damage both positions while sliding/resizing, including the last
             // slot disappearing. Hidden docks stop drawing and stop their timer.
             g_pHyprRenderer->damageBox(box(old).expand(settings.size*.6+12).translate(m->m_position));
-            g_pHyprRenderer->damageBox(box(layout.shifted(state.panel,state.reveal)).expand(settings.size*.6+12).translate(m->m_position));
+            g_pHyprRenderer->damageBox(box(layout.displayed(state.panel,state.reveal,settings.burnHide)).expand(settings.size*.6+12).translate(m->m_position));
+            g_pHyprRenderer->damageBox(box(oldIndicator).expand(2).translate(m->m_position));
+            g_pHyprRenderer->damageBox(box(layout.indicator(state.panel,m->m_size.x,m->m_size.y)).expand(2).translate(m->m_position));
         }
         if(wasVisible!=visible(m))m->recheckSolitary();
     }
@@ -448,13 +455,20 @@ class MinimizePass:public IPassElement {
         if(settings.dock){
             const auto layout=dockLayout(m);auto& state=docks[m->m_id];
             if(state.reveal>.002){
-                graphics.dock(m,layout.shifted(state.panel,state.reveal),settings.dockStyle,settings.rgb,settings.background,
-                    settings.light,seconds,std::min(1.,state.reveal*4),Minimize::vertical(layout.edge));
+                graphics.dock(m,layout.displayed(state.panel,state.reveal,settings.burnHide),settings.dockStyle,settings.rgb,settings.background,
+                    settings.light,seconds,std::min(1.,state.reveal*4),Minimize::vertical(layout.edge),0,0,
+                    settings.burnHide?state.reveal:1,int(layout.edge));
                 for(const auto& r:records)if(r->monitor.lock()==m)if(auto b=slot(*r)){
                     const float hover=box(*b).containsPoint(pointer)?1:0;
                     graphics.dock(m,*b,settings.dockStyle,settings.rgb,settings.background,settings.light,seconds,
-                        std::min(1.,state.reveal*4)*Minimize::ease(progress(*r)),false,1,hover);
+                        std::min(1.,state.reveal*4)*Minimize::ease(progress(*r)),false,1,hover,
+                        settings.burnHide?state.reveal:1,int(layout.edge));
                 }
+            }
+            if(state.indicator>.002){
+                graphics.dock(m,layout.indicator(state.panel,m->m_size.x,m->m_size.y),settings.dockStyle,settings.rgb,settings.background,
+                    settings.light,animationsEnabled()?seconds:0,state.indicator,Minimize::vertical(layout.edge),2,0,1,int(layout.edge));
+                ++draws;
             }
         }
         for(auto& r:records) {
@@ -463,17 +477,19 @@ class MinimizePass:public IPassElement {
             double t=progress(*r);Rect thumb=b?thumbnail(*b,*r):r->flight;
             Rect dest=r->restoring?Minimize::travel(r->flight,r->target,t):Minimize::travel(r->source,thumb,t);
             double burn=r->restoring?1-Minimize::ease(t):Minimize::ease(t);
+            const float dockAlpha=settings.dock && settings.burnHide && r->settled && !r->restoring?
+                std::clamp((docks[m->m_id].reveal-.08)/.85,0.,1.):1;
             // Flames travel with the shrinking window and keep burning at rest.
             Rect fire=b.value_or(Rect{r->flight.x,r->flight.y,double(settings.size),double(settings.size)});
             fire.x=dest.x+dest.w/2-fire.w/2;fire.y=dest.y+dest.h/2-fire.h*(settings.dock?.60:.72);
             fire.y+=r->settled?std::sin(seconds*2.2+r->id)*2:0;
             const bool hover=box(fire).containsPoint(pointer);
-            graphics.fire(m,fire,r->fire,settings.rgb,float(burn),hover);
+            graphics.fire(m,fire,r->fire,settings.rgb,float(burn)*dockAlpha,hover);
             const double iconBlend=r->appIcon?std::clamp((burn-.5)*2.0,0.0,1.0):0;
-            snapshot(*r,m,dest,float((1-burn*.25)*(1-iconBlend)));
+            snapshot(*r,m,dest,float((1-burn*.25)*(1-iconBlend))*dockAlpha);
             if(r->appIcon && iconBlend>0){
                 const double size=std::min(dest.w,dest.h);
-                CTexPassElement::SRenderData data;data.tex=r->appIcon;data.a=iconBlend;
+                CTexPassElement::SRenderData data;data.tex=r->appIcon;data.a=iconBlend*dockAlpha;
                 data.box=box({dest.x+(dest.w-size)/2,dest.y+(dest.h-size)/2,size,size}).scale(m->m_scale);
                 g_pHyprRenderer->draw(data,g_pHyprRenderer->m_renderData.damage);
             }
@@ -597,7 +613,7 @@ Minimize::Settings readSettings() {
 std::shared_ptr<Record> hit(Vector2D position) {
     if(g_pInputManager->isConstrained() || g_pInputManager->hasHeldButtons())return nullptr;
     for(auto& r:records)if(!r->restoring && visible(r->monitor.lock()))if(auto b=slot(*r)){
-        if(settings.dock && (docks[r->monitor->m_id].reveal<.2 || !r->monitor->logicalBox().containsPoint(position)))continue;
+        if(settings.dock && (docks[r->monitor->m_id].reveal<(settings.burnHide?.95:.2) || !r->monitor->logicalBox().containsPoint(position)))continue;
         if(box(*b).translate(r->monitor->m_position).containsPoint(position))return r;
     }
     return nullptr;
@@ -634,7 +650,11 @@ void tick(SP<CEventLoopTimer> self,void*) {
         return !r->settled || (visible(r->monitor.lock()) && (!settings.dock || slot(*r).has_value()));
     });
     const bool movingDock=settings.dock && !effectsHidden && std::ranges::any_of(docks,[](const auto& item){return item.second.awake;});
-    if(!pending.empty() || playing || movingDock){self->updateTimeout(std::chrono::milliseconds(16));tickArmed=true;}
+    const bool embers=settings.dock && animationsEnabled() && std::ranges::any_of(docks,[](const auto& item){
+        for(const auto& m:State::monitorState()->monitors())if(m->m_id==item.first && visible(m))return item.second.indicator>.002;
+        return false;
+    });
+    if(!pending.empty() || playing || movingDock || embers){self->updateTimeout(std::chrono::milliseconds(playing || movingDock?16:33));tickArmed=true;}
 }
 void cleanup() {
     stopping=true;listeners.clear();pending.clear();
@@ -736,15 +756,16 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             }
             std::string trays;
             if(settings.dock)for(const auto& m:State::monitorState()->monitors())if(online(m) && docks.contains(m->m_id)){
-                const auto layout=dockLayout(m);const auto& state=docks.at(m->m_id);const auto b=layout.shifted(state.panel,state.reveal);
+                const auto layout=dockLayout(m);const auto& state=docks.at(m->m_id);const auto b=layout.displayed(state.panel,state.reveal,settings.burnHide);
+                const auto indicator=layout.indicator(state.panel,m->m_size.x,m->m_size.y);
                 if(!trays.empty())trays+=",";
-                trays+=std::format("{{\"monitor\":{},\"edge\":\"{}\",\"reveal\":{},\"capacity\":{},\"offset\":{},\"box\":[{},{},{},{}],\"sensor\":[{},{},{},{}]}}",
-                    m->m_id,Minimize::edgeName(layout.edge),state.reveal,layout.capacity,layout.offset,b.x,b.y,b.w,b.h,
+                trays+=std::format("{{\"monitor\":{},\"edge\":\"{}\",\"reveal\":{},\"capacity\":{},\"offset\":{},\"indicator\":{},\"indicator_box\":[{},{},{},{}],\"box\":[{},{},{},{}],\"sensor\":[{},{},{},{}]}}",
+                    m->m_id,Minimize::edgeName(layout.edge),state.reveal,layout.capacity,layout.offset,state.indicator,indicator.x,indicator.y,indicator.w,indicator.h,b.x,b.y,b.w,b.h,
                     layout.sensor.x,layout.sensor.y,layout.sensor.w,layout.sensor.h);
             }
-            return std::format("{{\"enabled\":{},\"hidden\":{},\"effect\":\"{}\",\"edge\":\"{}\",\"order\":\"{}\",\"shape\":{},\"surface\":{},\"color\":[{},{},{}],\"active\":{},\"minimized\":{},\"restored\":{},\"draws\":{},\"presentation\":\"{}\",\"dock_style\":{},\"docks\":[{}],\"windows\":[{}]}}",settings.enabled,effectsHidden,settings.effect,settings.rightEdge?"right":"left",settings.bottomToTop?"bottom-to-top":"top-to-bottom",settings.shape,settings.surface,settings.rgb[0],settings.rgb[1],settings.rgb[2],records.size(),requests,restored,draws,settings.dock?"dock":"stack",settings.dockStyle,trays,items);
+            return std::format("{{\"enabled\":{},\"hidden\":{},\"effect\":\"{}\",\"edge\":\"{}\",\"order\":\"{}\",\"shape\":{},\"surface\":{},\"color\":[{},{},{}],\"active\":{},\"minimized\":{},\"restored\":{},\"draws\":{},\"presentation\":\"{}\",\"dock_style\":{},\"hide_animation\":\"{}\",\"fire_indicator\":{},\"timer_armed\":{},\"animations\":{},\"docks\":[{}],\"windows\":[{}]}}",settings.enabled,effectsHidden,settings.effect,settings.rightEdge?"right":"left",settings.bottomToTop?"bottom-to-top":"top-to-bottom",settings.shape,settings.surface,settings.rgb[0],settings.rgb[1],settings.rgb[2],records.size(),requests,restored,draws,settings.dock?"dock":"stack",settings.dockStyle,settings.burnHide?"burn":"slide",settings.fireIndicator,tickArmed,animationsEnabled(),trays,items);
         }});
     }catch(...){cleanup();throw;}
-    return {"Xetal Minimize","Animated theme docks and Fireball edge stacks","XetalEngine","1.3.3"};
+    return {"Xetal Minimize","Animated theme docks and Fireball edge stacks","XetalEngine","1.4.0"};
 }
 APICALL EXPORT void PLUGIN_EXIT(){cleanup();}

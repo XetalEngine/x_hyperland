@@ -34,8 +34,14 @@ and classic stack, including windows minimized while the effects are hidden.
   the pointer must be inside that output to reveal or interact with its dock.
 - **Dock design**: Follow desktop theme, or choose any theme's design independently.
 - **Automatically hide after use**, **Hide after** (200–10,000 ms),
-  **Slide and resize time** (100–1,000 ms), **Edge proximity** (2–64 logical pixels)
+  **Transition and resize time** (100–1,000 ms), **Edge proximity** (2–64 logical pixels)
   and **Hover zoom** (100–150%). Disabling auto-hide keeps a populated dock visible.
+- **Hide animation**: **Slide away** (the default) or **Burn away**. Burning
+  consumes the dock toward its chosen edge. Its optional **Fire indicator**
+  keeps a low strip of embers as wide as the dock while windows remain minimized.
+  The indicator disappears when empty, respects all four edges and becomes
+  static when compositor animations are disabled. **Preview hiding** lets you
+  try both modes in the settings page.
 - Window travel time, effect size, flame animation speed and color.
 
 New windows open slots as their previews shrink into the Fireballs. Closing or
@@ -121,7 +127,8 @@ also identified by an `icon` flag in each window record. Window snapshots are
 bounded to 1024 pixels on their longest side. Visible effects update at up to 60 FPS and damage only their small screen
 region. Fire uses a fixed 30 ms physics step and a bounded 384-particle pool
 per window; offscreen effects skip simulation and rendering. There is no frame
-timer after an empty/hidden dock finishes its transition, or when all effects
+timer after an empty/hidden dock finishes its transition (except an enabled
+fire indicator, limited to 30 FPS), or when all effects
 are hidden and travel has finished. Edge motion wakes a hidden dock without
 creating an input-blocking surface. `hyprctl dispatch xetalminimize:togglevisibility` also toggles
 visibility, and `hyprctl xetal-minimize` reports the session's `hidden` state.
@@ -140,8 +147,8 @@ Add `--upgrade-from /absolute/path/to/previous.so` to verify window recovery and
 new dock designs after replacing an older build in the same compositor session.
 Add `--dock-only` for the dock scenarios. They produce a gallery of all designs and check live
 palette changes, custom colors, rejected reloads, growth/collapse, hover zoom,
-auto-hide, all four edges, real top/bottom Waybars, multiple outputs, overflow,
-reduced motion and rendering sleep.
+auto-hide, burn-away, indicator cleanup, all four edges, real top/bottom Waybars,
+multiple outputs, overflow, reduced motion and rendering sleep.
 
 ## Attribution
 

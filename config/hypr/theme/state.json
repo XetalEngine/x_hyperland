@@ -1,10 +1,14 @@
 {
   "version": 2,
   "mode": "dark",
-  "design": "modern",
+  "design": "hollowgrove",
   "launcher_style": "follow",
   "selection_marker": "none",
   "avatar": "assets/account.gif",
-  "launcher_wallpaper": true,
-  "launcher_background": ""
+  "launcher_wallpaper": false,
+  "launcher_background": "",
+  "bar_style": "follow",
+  "bar_variant": "full",
+  "layout": "sidebar",
+  "wallpaper_theme": "hollowgrove"
 }

@@ -75,7 +75,9 @@ class CubeTests(unittest.TestCase):
             before=source.read_bytes();relative=model.import_image(source,root)
             self.assertRegex(relative,r'^images/[0-9a-f]{64}\.png$')
             self.assertEqual(source.read_bytes(),before)
-            values=model.validate(model.DEFAULTS);values['top_image']=relative
+            # This fixture exercises a single newly imported image. Packaged
+            # cap/sky defaults are covered by the recipient-install test.
+            values=model.validate(dict(model.DEFAULTS,top_image=relative,bottom_image='',sky_image=''))
             model.prepare_images(values,root)
             raw=(root/'cache'/(Path(relative).stem+'.rgba')).read_bytes()
             self.assertEqual(struct.unpack('<8sII',raw[:16]),(b'XTCUBE1\0',120,80))

@@ -39,7 +39,7 @@ COMPONENTS = {
     'terminal': ('Terminal welcome', 'Logo and information fields; aliases remain untouched'),
 }
 THEME_FIELDS = {
-    'waybar': ('bar_style',),
+    'waybar': ('bar_style','bar_variant'),
     'colors': ('design', 'mode'), 'layout': ('layout',), 'avatar': ('avatar',),
     'selection': ('selection_marker',),
     'launcher': ('launcher_style', 'launcher_wallpaper', 'launcher_background', 'launcher_surfaces', 'launcher_labels', 'launcher_background_visibility'),
@@ -76,6 +76,7 @@ def validate(value):
     if not isinstance(state['layout'],str) or state['layout'] not in layouts.LAYOUTS: raise ValueError('Invalid preset layout.')
     state['bar_style']=state.get('bar_style','follow')
     if not isinstance(state['bar_style'],str) or state['bar_style'] not in bar_styles.STYLES:raise ValueError('Invalid Waybar style.')
+    state['bar_variant']=bar_styles.variant(state.get('bar_variant'),bar_styles.resolve(state['bar_style'],state['design']))
     state['selection_marker']=selection_marker.validate(state.get('selection_marker',selection_marker.DEFAULT))
     if 'wallpaper_theme' in value and (not isinstance(value['wallpaper_theme'],str) or value['wallpaper_theme'] not in runtime.DESIGNS):raise ValueError('Invalid wallpaper theme.')
     for key, normalizer in [('transfer', transfer.normalize), ('switcher', switcher.normalize), ('terminal', terminal.validate), ('burn', burn.validate), ('cube', cube.validate), ('minimize', minimize.validate), ('wobbly', wobbly.validate), ('cursors', cursors.validate)]:

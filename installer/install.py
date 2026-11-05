@@ -51,6 +51,10 @@ def payload_ignored(directory, names):
         ignored.add('apply-this-machine.py')
     if relative == 'launcher':
         ignored.update((*LAUNCHER_DEFAULTS, 'favorite-layout.json', 'floating-sizes.json', 'icons'))
+    if relative.startswith('wallpaper/'):
+        # Artwork creation notes remain in the repository, not in recipients'
+        # desktop profiles (they can refer to the artist's local source files).
+        ignored.add('prompts.json')
     if relative in ('dolphin/config', 'dolphin/data') or relative.startswith(('dolphin/config/', 'dolphin/data/')):
         ignored.update(name for name in names if not any(
             path == relative+'/'+name or path.startswith(relative+'/'+name+'/') for path in DOLPHIN_DEFAULTS))
@@ -155,6 +159,8 @@ def render(stage, home, monitors, profile='auto', startup=True):
     dolphin_profile.prepare_colors(stage)
     dolphin_profile.prepare_terminal(stage)
     dolphin_profile.prepare_layout(stage)
+    # Render the selected fresh-install theme; no live IPC or shared settings.
+    subprocess.run([sys.executable,str(stage/'theme/render_defaults.py'),'--asset-root',str(target/'theme')],check=True)
     # Copy the recipient's XDG directory locations, without invoking a shell or
     # creating/changing any of those folders.
     user_dirs=home/'.config/user-dirs.dirs'

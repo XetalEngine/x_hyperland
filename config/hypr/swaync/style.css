@@ -1,19 +1,13 @@
-/* Hyprland-only notification colors. Retain the packaged layout and animations. */
-@define-color cc-bg #1b232f;
-@define-color noti-bg #1b232f;
-@define-color noti-bg-hover #29364a;
-@define-color text-color #dce7f3;
-@define-color text-color-disabled #94a6ba;
-@define-color noti-border-color #3b5069;
+/* Profile-local notification colors. */
+@define-color cc-bg #111915;
+@define-color noti-bg #111915;
+@define-color noti-bg-hover #27382c;
+@define-color text-color #e8eae1;
+@define-color text-color-disabled #72816e;
+@define-color noti-border-color #45594a;
 
-    .control-center {background:#1b232f; color:#dce7f3; border:1px solid #3b5069; border-radius:18px; padding:12px;}
-    .notification {background:#222d3e; color:#dce7f3; border:1px solid #3b5069; border-radius:16px; margin:6px;}
-    .notification-content {padding:12px;}
-    .notification-default-action {border-radius:16px;}
-    .notification-action {background:#29364a; color:#dce7f3; border-radius:9px; margin:4px;}
-    .notification-action:hover, .notification-default-action:hover {background:#33465d;}
-    .summary {color:#dce7f3; font-weight:700;}
-    .body, .time {color:#9fb6cc;}
-    .widget-title, .widget-dnd {background:#222d3e; border-radius:12px; margin:6px; padding:10px;}
-    .widget-title > button {background:#88b6d9; color:#11273a; border-radius:9px;}
-    .close-button {background:#29364a; color:#dce7f3; border-radius:12px;}
+    .control-center,.notification {background:linear-gradient(155deg,#27382c,#090f0c);color:#e8eae1;border:1px solid #becdb3;border-radius:19px;}
+    .notification-content {padding:14px;}
+    .summary {font-family:serif;color:#e8eae1;}
+    .body,.time {color:#adbca6;}
+    .notification-action,.close-button,.widget-title > button {background:#3c5942;color:#e8eae1;border-radius:12px;}

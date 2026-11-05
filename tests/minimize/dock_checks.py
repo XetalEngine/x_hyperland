@@ -137,6 +137,41 @@ def check(root, env, ctl, dispatch, status, clients, client, wait, app, run, spa
     app('close','Dock Underlay')
     print('Four edges, proximity, adjustable delay, idle rendering and reduced motion: passed',flush=True)
 
+    # Burning keeps the tray in place while it dissolves. The edge embers have
+    # their own lifetime and must never keep an empty dock alive.
+    for edge in ('bottom','top','left','right'):
+        settings(dock_edge=edge,hide_animation='burn',fire_indicator=True,auto_hide=False,
+                 hide_delay=400,dock_duration=500)
+        center();ready();time.sleep(.6);shown=dock()['box']
+        settings(auto_hide=True)
+        wait(lambda: .08 < dock()['reveal'] < .85)
+        assert all(abs(a-b)<1 for a,b in zip(dock()['box'],shown)), 'Burning dock slid away'
+        run('grim','-o',output_name,str(root/('dock-burning-'+edge+'.png')))
+        wait(lambda: dock()['reveal']==0 and dock()['indicator']==1)
+        d=dock();x,y,w,h=d['indicator_box']
+        if edge in ('top','bottom'): assert h==18 and abs(w-shown[2])<1
+        else: assert w==18 and abs(h-shown[3])<1
+        before=status()['draws'];time.sleep(.15);assert status()['draws']>before,'Fire indicator stopped animating'
+        run('grim','-o',output_name,str(root/('dock-embers-'+edge+'.png')))
+        near_edge();ready();wait(lambda:dock()['indicator']==0)
+        assert status()['active']==3
+    center();wait(lambda:dock()['reveal']==0 and dock()['indicator']==1)
+    ctl('keyword','animations:enabled','false')
+    # Other compositor damage may repaint a static strip. Its own frame timer
+    # must stop, and the material uses a fixed phase with animations disabled.
+    wait(lambda:not status()['animations'] and not status()['timer_armed'])
+    time.sleep(.2);assert not status()['timer_armed'],'Reduced-motion indicator kept scheduling frames'
+    ctl('keyword','animations:enabled','true')
+    settings(fire_indicator=False);center();wait(lambda:dock()['reveal']==0 and dock()['indicator']==0)
+    before=status()['draws'];time.sleep(.2);assert status()['draws']==before,'Burning without an indicator kept rendering'
+    settings(fire_indicator=True);center();wait(lambda:dock()['reveal']==0 and dock()['indicator']==1)
+    close_all();wait(lambda:dock()['reveal']==0 and dock()['indicator']==0 and dock()['box'][3]<1)
+    before=status()['draws'];time.sleep(.2);assert status()['draws']==before,'Empty ember strip kept rendering'
+    near_edge();time.sleep(.2);assert dock()['indicator']==0
+    settings(hide_animation='slide',fire_indicator=False,auto_hide=False,dock_duration=320)
+    center();add('Dock Alpha');add('Dock Beta');add('Dock Gamma');ready()
+    print('Burning on four edges, persistent embers, reduced motion and last-window cleanup: passed',flush=True)
+
     # A shared boundary reveals only the monitor containing the cursor.
     ctl('output','create','wayland','DOCK-SECOND');wait(lambda:len(monitors())==2)
     second=next(m for m in monitors() if m['name']!=output_name)

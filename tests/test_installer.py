@@ -124,8 +124,8 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(set(state),{'HDMI-A-1','eDP-1'})
         self.assertTrue(state['eDP-1']['path'].startswith(str(self.target)))
         self.assertEqual(state['eDP-1']['path'],state['eDP-1']['original'])
-        self.assertTrue(state['HDMI-A-1']['path'].endswith('/modern/workstation-1.png'))
-        self.assertTrue(state['eDP-1']['path'].endswith('/modern/workstation-2.png'))
+        self.assertTrue(state['HDMI-A-1']['path'].endswith('/hollowgrove/forgotten-arches.png'))
+        self.assertTrue(state['eDP-1']['path'].endswith('/hollowgrove/hollow-grove.png'))
         for p in self.stage.rglob('*'):
             if not p.is_file():continue
             try:text=p.read_text()
@@ -138,6 +138,35 @@ class InstallerTests(unittest.TestCase):
         self.assertIn('monitor=,preferred,auto,auto',(self.stage/'hyprland.conf').read_text())
         self.assertRegex((self.stage/'wallpaper/hyprpaper.conf').read_text(),r'monitor =\s*\n')
         self.assertEqual(json.loads((self.stage/'wallpaper/selection.json').read_text()),{})
+
+    def test_fresh_hollow_grove_and_effect_defaults_are_portable_and_ready(self):
+        self.render()
+        state=json.loads((self.stage/'theme/state.json').read_text())
+        self.assertEqual((state['design'],state['mode'],state['bar_variant']),('hollowgrove','dark','full'))
+        self.assertIn('XetalHollowgroveDark',(self.stage/'theme/current.colors').read_text())
+        self.assertIn('hollowgrove',(self.stage/'waybar/style.css').read_text())
+        self.assertIn(str(self.target/'theme'),(self.stage/'waybar/style.css').read_text())
+        self.assertNotIn(str(self.stage),(self.stage/'waybar/style.css').read_text())
+        values=json.loads((self.stage/'effects/cube/settings.json').read_text())
+        self.assertEqual((values['wall_opacity'],values['zoom'],values['sensitivity'],values['duration']),(.65,.64,.35,200))
+        self.assertEqual((values['windows_3d'],values['min_cube_size'],values['window_space'],values['window_depth']),(True,60,5,.15))
+        for side,wallpaper in [('top_image','lantern-crossing.png'),('bottom_image','gilded-hollow.png')]:
+            self.assertEqual((self.stage/'effects/cube'/values[side]).read_bytes(),
+                             (self.stage/'wallpaper/gildedhollow'/wallpaper).read_bytes())
+        self.assertTrue((self.stage/'effects/cube'/values['sky_image']).is_file())
+        # Preparing native textures must succeed in a recipient's new profile.
+        probe='''from effects.cube import model
+from effects.wobbly import model as wobbly
+from effects.minimize import model as minimize
+values,_=model.load();assert values==model.DEFAULTS
+model.prepare_images(values)
+w,_=wobbly.load();assert w==wobbly.DEFAULTS
+assert w['enabled'] and w['friction']==3 and w['spring_k']==3
+m,_=minimize.load();assert m==minimize.DEFAULTS
+assert m['auto_hide'] and m['hide_delay']==1200 and m['dock_duration']==320
+assert m['dock_zoom']==125 and m['proximity']==12 and m['hide_animation']=='slide'
+'''
+        subprocess.run([sys.executable,'-c',probe],env=dict(os.environ,PYTHONPATH=str(self.stage)),check=True,capture_output=True)
 
     def test_fresh_favorites_include_my_computer_and_bundled_apps(self):
         self.render()

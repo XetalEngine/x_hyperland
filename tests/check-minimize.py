@@ -31,8 +31,14 @@ def main():
                     if '--upgrade-from' in sys.argv[3:] else None)
     root = Path(sys.argv[2]); root.mkdir(parents=True, exist_ok=False)
     config = root/'minimize.conf'; config.write_text(model.encode(DEFAULTS))
+    if upgrade_from:
+        # The previous adapter predates the burn-away options. Exercise its
+        # installed settings first, then let the new adapter migrate them.
+        config.write_text('\n'.join(line for line in model.encode(DEFAULTS).splitlines()
+                                    if line.partition('=')[0] not in model.HIDE_KEYS)+'\n')
     palette = root/'current.colors'; palette.write_text('[Colors:Window]\nDecorationFocus=57,169,255\n')
-    cube = root/'cube.json'; cube.write_text(cube_model.encode(dict(cube_model.DEFAULTS, enabled=True)))
+    cube = root/'cube.json'; cube.write_text(cube_model.encode(dict(cube_model.DEFAULTS, enabled=True,
+        top_image='', bottom_image='', sky_image='', sky_mode='gradient')))
     burn = root/'burn.conf'; burn.write_text(burn_model.encode(dict(burn_model.DEFAULTS, enabled=True)))
     protocol = REPO/'tests/minimize/wlr-virtual-pointer-unstable-v1.xml'
     subprocess.run(['wayland-scanner', 'client-header', str(protocol), str(root/'virtual-pointer.h')], check=True)

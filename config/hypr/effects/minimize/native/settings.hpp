@@ -18,6 +18,7 @@ inline const std::map<std::string,int> dockStyles{{"raw",0},{"modern",1},{"break
 struct Settings {
     bool enabled=true, followTheme=true, rightEdge=false, bottomToTop=true;
     bool dock=true, autoHide=true;
+    bool burnHide=false, fireIndicator=false;
     int duration=420, size=76, shape=-1, speed=100, bubbles=70, surface=0;
     int hideDelay=1200,dockDuration=320,proximity=12,dockZoom=125,dockStyle=-1;
     std::string dockEdge="auto";
@@ -44,6 +45,10 @@ inline Settings readSettings(const std::filesystem::path& path, const std::files
         if(key=="dock_style"){
             if(value!="follow" && !dockStyles.contains(value))throw std::runtime_error("Unknown dock design");
             next.dockStyle=value=="follow"?-1:dockStyles.at(value);continue;
+        }
+        if(key=="hide_animation"){
+            if(value!="slide" && value!="burn")throw std::runtime_error("Unknown dock hide animation");
+            next.burnHide=value=="burn";continue;
         }
         if(key=="edge") {
             if(value!="left" && value!="right")throw std::runtime_error("Unknown minimize edge");
@@ -77,6 +82,7 @@ inline Settings readSettings(const std::filesystem::path& path, const std::files
         if(key=="enabled" && (n==0 || n==1))next.enabled=n;
         else if(key=="follow_theme" && (n==0 || n==1))next.followTheme=n;
         else if(key=="auto_hide" && (n==0 || n==1))next.autoHide=n;
+        else if(key=="fire_indicator" && (n==0 || n==1))next.fireIndicator=n;
         else if(key=="hide_delay" && n>=200 && n<=10000)next.hideDelay=n;
         else if(key=="dock_duration" && n>=100 && n<=1000)next.dockDuration=n;
         else if(key=="proximity" && n>=2 && n<=64)next.proximity=n;
@@ -92,7 +98,8 @@ inline Settings readSettings(const std::filesystem::path& path, const std::files
     auto previous=all;all.insert("surface");auto materials=all;all.insert("edge");all.insert("order");
     auto stack=all;
     for(const auto* k:{"presentation","dock_edge","dock_style","auto_hide","hide_delay","dock_duration","proximity","dock_zoom"})all.insert(k);
-    if(seen!=legacy && seen!=previous && seen!=materials && seen!=stack && seen!=all)throw std::runtime_error("Incomplete Minimize settings");
+    auto slide=all;all.insert("hide_animation");all.insert("fire_indicator");
+    if(seen!=legacy && seen!=previous && seen!=materials && seen!=stack && seen!=slide && seen!=all)throw std::runtime_error("Incomplete Minimize settings");
     if(!seen.contains("presentation"))next.dock=false;
     for(int i=0;i<3;++i)next.rgb[i]=std::stoi(next.color.substr(1+i*2,2),nullptr,16)/255.F;
     // Only our profile's palette, never KDE's shared color settings.

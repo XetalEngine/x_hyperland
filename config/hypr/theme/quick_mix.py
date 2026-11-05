@@ -14,6 +14,7 @@ from effects.minimize import model as minimize
 # Label, existing component, existing preference path, available choices.
 FIELDS = {
     'waybar': ('Waybar style', 'waybar', ('theme','bar_style'), bar_styles.STYLES),
+    'bar_variant': ('Taskbar variation', 'waybar', ('theme','bar_variant'), bar_styles.VARIANTS),
     'dock': ('Dock design', 'dock', ('minimize','dock_style'), minimize.DOCK_STYLES),
     'launcher': ('Start menu', 'launcher', ('theme','launcher_style'), runtime.LAUNCHER_STYLES),
     'layout': ('Navigation & controls', 'layout', ('theme','layout'), layouts.LAYOUTS),
@@ -31,6 +32,7 @@ def values(config):
     config=copy.deepcopy(config)
     config['theme'].setdefault('launcher_style','follow')
     config['theme'].setdefault('bar_style','follow')
+    config['theme'].setdefault('bar_variant',bar_styles.default_variant(bar_styles.resolve(config['theme']['bar_style'],config['theme']['design'])))
     config.setdefault('cursors',dict(cursors.DEFAULTS))
     config.setdefault('transfer',copy.deepcopy(transfer.DEFAULTS))
     config.setdefault('switcher',copy.deepcopy(switcher.DEFAULTS))

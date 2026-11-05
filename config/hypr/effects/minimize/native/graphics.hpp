@@ -160,7 +160,7 @@ struct Graphics {
         glBlendFunc(GL_SRC_ALPHA,GL_ONE);draw(vertices.size());
     }
     void dock(PHLMONITOR m,Rect b,int style,const std::array<float,3>& rgb,const std::array<float,3>& background,
-              const std::array<float,3>& light,double seconds,float alpha,bool vertical,int part=0,float hover=0) {
+              const std::array<float,3>& light,double seconds,float alpha,bool vertical,int part=0,float hover=0,float reveal=1,int edge=0) {
         if(b.w<2 || b.h<2 || alpha<=0)return;
         GLState restore;prepare(m,dockProgram);
         auto uniform=[&](const char* name){return glGetUniformLocation(dockProgram,name);};
@@ -168,6 +168,7 @@ struct Graphics {
         glUniform3fv(uniform("tint"),1,tint.data());glUniform3fv(uniform("base"),1,base.data());glUniform3fv(uniform("ink"),1,ink.data());
         glUniform2f(uniform("dimensions"),b.w,b.h);glUniform1f(uniform("time"),seconds);glUniform1f(uniform("opacity"),alpha);
         glUniform1i(uniform("style"),style);glUniform1i(uniform("part"),part);glUniform1i(uniform("vertical"),vertical);
+        glUniform1f(uniform("reveal"),reveal);glUniform1i(uniform("edge"),edge);
         glUniform1f(uniform("emphasis"),hover);glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
         std::vector<Vertex> vertices;quad(vertices,m,b,{1,1,1,1});upload(vertices);draw(vertices.size());
     }

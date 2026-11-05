@@ -115,6 +115,8 @@ On 0.56.2, the brief `.conf` deprecation notice refers to a future Hyprland form
 
 Colors follow you through Apps, the taskbar, Fusion Settings, Control Panel, KVM, file pickers, notifications, lock screen and session tools. Choose **Dark**, **Light** or **High contrast**, with a separate wallpaper for each monitor.
 
+Fresh installations start with **Hollow Grove · Dark**. The cube includes Gilded Hollow's **Lantern Crossing** ceiling and **The Gilded Hollow** floor, a moving image sky, 65% wall opacity and raised windows. Cube, 3D-window and Wobbly defaults use the tuned desktop settings; upgrades retain existing preferences.
+
 **Fusion Settings → Theme** lets you mix the pieces: any Start menu with any palette, Classic/Modern/Gallery/Studio navigation, an account picture or animated GIF, menu backgrounds and transparency, custom cursors, task switchers and transfer animations. **Apply theme** lets you choose which components change. Save your combination as a named **Custom** preset and restore it selectively later.
 
 **Mix & match** brings the independent styles together in one quick editor. Its applied choices persist and stay synchronized with the detailed tabs, without creating another preset. Fusion Files' optional **Selection marker** starts **Off** in every theme; choose a Glass curve or Ink line in **Design** or **Mix & match**. Mouse effects include a separate **General effects** gallery and an **Enable mouse trail** switch.
@@ -149,6 +151,8 @@ Right-click the wallpaper for your desktop menu. Its editor supports commands, i
 
 Workspaces, running apps, draggable pins and your chosen status modules stay close to the screen where you work. **Right-click → Options** moves the bar to the top or bottom and shows/hides individual modules. **Hide Update Ready** hides the ready/restart notice while updates keep checking normally. The clock opens a calendar; power opens a compact system dashboard. A session helper restores the bar if it exits unexpectedly.
 
+Every theme has its own taskbar materials and details. **Theme → Mix & match → Taskbar variation** offers **Full** (one continuous bar), **Partial** (floating sections) and **Centered** (workspaces in the middle). Combine any taskbar design and variation with any desktop palette. Workspace context menus and their overrides remain available in every layout.
+
 ### Wallpaper carousel
 
 **Super+W** opens a flowing ribbon of wallpaper cards, with search, collections and a slideshow preview. All twelve bundled wallpapers are included. Add or remove your own folders directly in the browser; folder choices stay on your computer and removing a folder never deletes its images.
@@ -177,7 +181,7 @@ Uncheck **Show this dashboard at login** right on the dashboard to disable all f
 
 **Burn** closes windows with the original Compiz particle flame and smoke. Tune the color, direction, particle count, size, lifetime and timing, or try a disposable preview window.
 
-**Super+Z** minimizes the active window into **Fireball** or **Splat** at the bottom-left of its screen, stacking upward. Choose either screen edge and either stacking direction in Minimize settings. Fireball uses Compiz's particle flames; Splat is living, glossy slime with boiling bubbles, eight fixed or randomized silhouettes, and Living slime, Alien membrane and Glossy paint surfaces. Both follow the theme accent, with an optional custom color. Click to restore; scroll the single column when it fills up. The taskbar shows minimized apps as **M3 + app icons**, using their original workspace number. Apps keep running. Adjust size, travel time, animation speed and boiling intensity, or restore all windows in **Theme → Window effects → Minimize**. [Minimize guide →](config/hypr/effects/minimize/README.md)
+**Super+Z** sends the active window into a burning **Fireball** slot in an animated dock. Each monitor has its own dock, positioned opposite Waybar by default, with a distinct design for every theme. Choose any design independently, or keep the classic Left/Right edge stack. Click a slot to restore it; scroll when it fills up. In **Theme → Window effects → Minimize → Dock behavior**, choose **Slide away** or **Burn away**. Burning can leave a small **Fire indicator** along the hidden dock's edge until every window is restored. Adjust hide delay, transition time, size, proximity and hover zoom; **Preview hiding** demonstrates the effect without touching your windows. Splat is currently disabled. Apps keep running and remain accessible from their original workspace's taskbar icons. [Minimize guide →](config/hypr/effects/minimize/README.md)
 
 **Desktop Cube + 3D Windows** gives each monitor its own four workspace faces. Hold **Ctrl+Alt+left mouse** and drag to rotate; release to select or press Escape to cancel. Adjust transparency, edge colors, ceiling/floor artwork, a moving sky, and raised windows with depth and spacing. **Standard animation is the default for ordinary workspace switching**; automatic cube rotation is an option. The drag gesture works with either choice.
 

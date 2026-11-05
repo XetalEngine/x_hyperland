@@ -1,0 +1,17 @@
+/* Xetal update notice: subtle breathing glow, no layout movement. */
+@keyframes xetal-update-pulse {
+  0% { background-color: alpha(#a3bc99, 0.10); box-shadow: 0 0 0 transparent; }
+  50% { background-color: alpha(#a3bc99, 0.25); box-shadow: 0 0 7px alpha(#a3bc99, 0.35); }
+  100% { background-color: alpha(#a3bc99, 0.10); box-shadow: 0 0 0 transparent; }
+}
+#custom-updates {
+  color: #a3bc99; background: alpha(#a3bc99, 0.08); border: 1px solid alpha(#a3bc99, 0.30);
+  border-radius: 8px; margin: 1px 4px; padding: 0 9px; font-weight: 600;
+  transition: background-color 180ms ease;
+}
+#custom-updates:hover { background: alpha(#a3bc99, 0.24); }
+#custom-updates.available, #custom-updates.ready, #custom-updates.preparing, #custom-updates.runtime-required {
+  animation: xetal-update-pulse 2.4s ease-in-out infinite;
+}
+#custom-updates.attention { color: #e8eae1; border-color: #a3bc99; }
+#custom-updates.current { background: transparent; border-color: transparent; }

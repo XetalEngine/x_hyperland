@@ -6,21 +6,35 @@ inline constexpr const char* dockFragment=R"(#version 300 es
 precision highp float;
 uniform vec2 dimensions;
 uniform vec3 tint,base,ink;
-uniform float time,opacity,emphasis;
-uniform int style,part,vertical;
+uniform float time,opacity,emphasis,reveal;
+uniform int style,part,vertical,edge;
 in vec2 coord;in vec4 particleColor;out vec4 fragColor;
 float line(vec2 p,vec2 a,vec2 b){vec2 ab=b-a;return length(p-a-ab*clamp(dot(p-a,ab)/dot(ab,ab),0.,1.));}
 float roundBox(vec2 p,vec2 b,float r){vec2 q=abs(p)-b+r;return min(max(q.x,q.y),0.)+length(max(q,0.))-r;}
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);}
 void main(){
  vec2 dims=vertical==1?dimensions.yx:dimensions;
  vec2 uv=vertical==1?coord.yx:coord;
+ if(part==2){
+  float x=uv.x*dims.x;
+  float depth=((edge==0||edge==3)?1.-uv.y:uv.y)*dims.y;
+  float flicker=noise(vec2(x*.12-time*.9,time*1.1));
+  float tips=3.+9.*pow(noise(vec2(x*.085+time*.35,time*1.7)),2.);
+  float flame=exp(-depth*.24)*(1.-smoothstep(tips-2.,tips+2.,depth));
+  float ends=smoothstep(0.,12.,x)*smoothstep(0.,12.,dims.x-x);
+  float core=exp(-depth*.8)*(.55+.25*flicker);
+  vec3 warm=mix(tint,vec3(1.,.25,.035),.30);
+  float a=(flame*(.32+.24*flicker)+core*.3)*ends;
+  fragColor=vec4(mix(warm,mix(ink,vec3(1.,.72,.25),.5),core)*a,a)*opacity;return;
+ }
  vec2 p=(uv-.5)*dims;vec2 halfSize=dims*.5-vec2(8.);
  float radius=style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:halfSize.y;
  if(part==1)radius=style==0?2.:style==2||style==3||style==6||style==8?8.:style==10?10.:16.;
  radius=min(radius,min(halfSize.x,halfSize.y));
  float distance=roundBox(p,halfSize,radius);
- if(style==2||style==3||style==8)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+10.)*.7071);
+ if(style==2||style==3||style==8)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+(style==3?19.:style==8?14.:10.))*.7071);
+ if(style==7&&part==0)distance+=sin(p.x*.10)*.9*smoothstep(0.,halfSize.y,p.y);
  float mask=1.-smoothstep(-.7,1.,distance);
  float border=(1.-smoothstep(.4,1.5,abs(distance+1.2)))*mask;
  float shadow=exp(-max(distance,0.)*.40)*.24;
@@ -33,36 +47,80 @@ void main(){
   if(style==0){
    decoration=(1.-smoothstep(.4,1.3,abs(p.y-halfSize.y+6.)))*.6;
    decoration+=step(.88,fract((p.x+halfSize.x)/14.))*(1.-smoothstep(1.,2.,abs(p.y+halfSize.y-7.)))*.4;
+   vec2 q=vec2(halfSize.x-abs(p.x),p.y);
+   decoration+=exp(-line(q,vec2(9.,-halfSize.y+12.),vec2(25.,0.))*1.5)*.55;
+   decoration+=exp(-line(q,vec2(25.,0.),vec2(9.,halfSize.y-12.))*1.5)*.55;
+   decoration+=exp(-abs(length(q-vec2(25.,0.))-3.)*1.7)*.8;
+   float pulse=exp(-pow((p.x-mix(-halfSize.x,halfSize.x,fract(time*.18)))/8.,2.));
+   decoration+=pulse*exp(-abs(p.y-halfSize.y+6.)*.8)*.7;rim=.65;
   }else if(style==1){
    decoration=exp(-abs(p.y+halfSize.y-3.)*.75)*(.3+.1*sin(p.x*.012+time*.6));rim=.35;
+   body+=ink*pow(clamp(1.-abs(p.y+halfSize.y*.38)/18.,0.,1.),3.)*.055;
+   decoration+=exp(-abs(distance+5.)*1.1)*.13;
+   decoration+=exp(-abs(p.y-halfSize.y+4.)*.8)*(.2+.1*sin(p.x*.018+time*.5));
+   metal=exp(-pow((abs(p.x)-halfSize.x+13.)/5.,2.))*exp(-p.y*p.y*.008)*.2;rim=.5;
   }else if(style==2){
    decoration=(1.-smoothstep(.5,1.6,abs(p.y-halfSize.y+5.)))*.75;
    decoration+=step(.92,fract((p.x+p.y)/17.))*step(halfSize.x-30.,abs(p.x))*.35;
    metal=step(.96,fract(p.x/36.))*.04;
+   vec2 q=vec2(halfSize.x-abs(p.x),p.y);
+   decoration+=step(q.x,27.)*step(.7,fract((p.y+time*3.)/11.))*.22;
+   decoration+=exp(-abs(distance+4.)*1.4)*.2;
+   metal+=exp(-length(vec2(q.x-13.,abs(p.y)-halfSize.y+14.))*1.4)*.6;rim=.7;
   }else if(style==3){
    decoration=exp(-abs(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+15.)*.8)*.7;
    metal=(sin(p.x*.07+p.y*.16+time*.3)*.5+.5)*.055;rim=.45;
+   body+=ink*smoothstep(-3.,0.,p.x*.18+p.y)*.03;
+   decoration+=exp(-abs(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+25.)*1.3)*.3;
+   decoration+=exp(-abs(p.y+halfSize.y-5.)*1.2)*(.25+.25*pow(.5+.5*sin(p.x*.012-time*.7),6.));rim=.8;
   }else if(style==4){
    float wave=sin(p.x*.025+time*.7)*3.+sin(p.x*.06-time*.4)*2.;
    decoration=exp(-abs(p.y-halfSize.y+9.+wave)*.5)*.35;
    metal=pow(.5+.5*sin(p.x*.02+p.y*.08+time*.6),4.)*.06;rim=.5;
+   decoration+=exp(-abs(p.y-halfSize.y+15.+wave*.7)*.5)*.15;
+   vec2 q=vec2(halfSize.x-abs(p.x),p.y);
+   for(int i=0;i<3;i++){
+    vec2 bubble=q-vec2(15.+float(i)*5.,-16.+float(i)*13.);
+    decoration+=exp(-abs(length(bubble)-2.-float(i))*.9)*.35;
+   }
+   body+=mix(tint,ink,.65)*shine*.08;rim=.65;
   }else if(style==5){
    body+=ink*(hash(floor(p*1.5))-.5)*.025;
    decoration=(1.-smoothstep(.5,1.5,abs(p.y-halfSize.y+6.+sin(p.x*.04)*.5)))*.45;
    vec2 stamp=p-vec2(halfSize.x-17.,0.);decoration+=exp(-abs(length(stamp)-7.)*1.4)*.5;
+   float spindle=exp(-pow((abs(p.x)-halfSize.x+10.)/4.,2.));
+   body=mix(body,mix(base,ink,.15),spindle*.5);
+   decoration+=exp(-abs(abs(p.x)-halfSize.x+16.)*1.5)*.3;
+   float horizon=halfSize.y-12.+sin(p.x*.035)*2.+sin(p.x*.077)*1.1;
+   metal+=exp(-abs(p.y-horizon)*1.2)*.08;
+   decoration+=exp(-abs(max(abs(stamp.x),abs(stamp.y))-5.)*1.7)*.35;rim=.35;
   }else if(style==6){
    body+=ink*(hash(vec2(floor(p.y*2.),0.))-.5)*.04;
    decoration=exp(-abs(p.y-halfSize.y+6.)*.9)*(.6+.15*sin(time+p.x*.05));
    vec2 rivet=vec2(abs(p.x)-halfSize.x+13.,abs(p.y)-halfSize.y+13.);
    metal+=(1.-smoothstep(1.,3.,length(rivet)))*.25;rim=.4;
+   decoration+=exp(-abs(distance+5.)*1.4)*.28;
+   vec2 q=vec2(halfSize.x-abs(p.x),p.y);
+   float vent=step(q.x,31.)*step(12.,q.x)*step(.56,fract((p.y+halfSize.y)/8.));
+   body=mix(body,base*.5,vent*.5);
+   decoration+=vent*(.11+.06*sin(time*2.+p.y*.14));
+   metal+=exp(-abs(p.y+halfSize.y-5.)*1.8)*.2;rim=.75;
   }else if(style==7){
    body=mix(body,ink,.055+shine*.07);
    decoration=0.12*pow(.5+.5*sin(p.x*.06+sin(p.y*.12)+time*.4),5.);
    vec2 star=vec2(mod(p.x+17.,47.)-23.5,p.y-halfSize.y+12.);
    decoration+=exp(-(abs(star.x)+abs(star.y))*.9)*(.4+.2*sin(time*1.4+p.x));rim=.48;
+   decoration+=exp(-abs(distance+4.)*.9)*.18;
+   vec2 pearl=vec2(halfSize.x-abs(p.x)-17.,p.y);
+   metal+=exp(-dot(pearl,pearl)*.025)*.16;
+   body+=mix(ink,tint,.25)*pow(shine,2.)*.09;
   }else if(style==8){
    metal=step(.94,fract((p.x-p.y)*.09))*.05;
    decoration=exp(-abs(p.y+halfSize.y-4.)*1.3)*.4+exp(-abs(p.y-halfSize.y+5.)*1.3)*.25;rim=.38;
+   float facet=clamp((p.y+halfSize.y)/(halfSize.y*2.),0.,1.);
+   body+=ink*abs(facet-.5)*.055;
+   decoration+=exp(-abs(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+19.)*1.1)*.4;
+   metal+=exp(-pow((p.x-halfSize.x*sin(time*.22))/40.,2.))*exp(-abs(p.y+halfSize.y-3.))*.25;rim=.6;
   }else if(style==10){
    // Brass caps, inset stone, a traveling polish and a lantern-cut diamond.
    vec2 q=vec2(halfSize.x-abs(p.x),p.y);
@@ -83,6 +141,8 @@ void main(){
    jewel=1.-smoothstep(3.3,5.,abs(gem.x)+abs(gem.y));
    jewelHalo=exp(-length(gem)*.16)*(.7+.15*sin(time*1.6));
    decoration+=jewelHalo*.18;
+   decoration+=exp(-abs(distance+7.)*1.2)*step(.7,fract((p.x+halfSize.x)/7.))*.16;
+   body+=ink*pow(noise(p*.06),7.)*.018;
    rim=.8;
   }else if(style==9){
    // Silver vines and paired leaves curl around the tray's ends.
@@ -96,6 +156,16 @@ void main(){
     decoration+=(1.-smoothstep(.7,1.,length(rotated/vec2(5.5,2.2))))*.45;
    }
    decoration*=.85+.15*sin(time*.8+p.y*.09);rim=.4;
+   decoration+=exp(-abs(distance+4.)*1.4)*.14;
+   float vineCurve=halfSize.y-6.+sin(p.x*.019)*1.5;
+   decoration+=exp(-abs(p.y-vineCurve)*1.4)*.16;
+   vec2 moon=p-vec2(0.,halfSize.y-8.);
+   float crescent=max(length(moon)-4.,-(length(moon-vec2(2.,-1.))-3.8));
+   decoration+=(1.-smoothstep(-.4,.6,crescent))*.5;
+   for(int i=0;i<3;i++){
+    vec2 mote=q-vec2(26.+float(i)*4.,sin(time*.5+float(i)*2.)*22.);
+    decoration+=exp(-dot(mote,mote)*.4)*(.15+.1*sin(time+float(i)));
+   }
   }
  }else{
   body=mix(base,tint,.08+emphasis*.14)+ink*shine*.045;
@@ -122,6 +192,20 @@ void main(){
   outside+=glow;
  }
  alpha+=outside;
+ if(reveal<.999){
+  float cross=(edge>=2)?coord.x:coord.y;
+  float along=(edge>=2)?coord.y*dimensions.y:coord.x*dimensions.x;
+  if(edge==1||edge==2)cross=1.-cross;
+  float front=(1.-reveal)*1.16-.08;
+  float grain=noise(vec2(along*.10,time*.7))*0.06+sin(along*.052+time*2.)*.015;
+  float burnEdge=cross+grain-front;
+  float remaining=smoothstep(-.015,.018,burnEdge);
+  float hot=exp(-abs(burnEdge)*85.)*smoothstep(0.,.08,reveal)*smoothstep(0.,.06,1.-reveal)*mask;
+  rgb=rgb*remaining*(1.-exp(-max(burnEdge,0.)*30.)*.55);
+  vec3 ember=mix(tint,vec3(1.,.32,.045),.45);
+  rgb+=mix(ember,vec3(1.,.88,.5),.35)*hot*.85;
+  alpha=clamp(alpha*remaining+hot*.65,0.,1.);
+ }
  fragColor=vec4(rgb,alpha)*opacity;
 })";
 }

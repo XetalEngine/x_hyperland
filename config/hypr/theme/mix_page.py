@@ -6,6 +6,7 @@ import quick_mix
 import selection_marker
 import runtime
 import bar_styles
+from bar_preview import VariationPicker
 from effects.minimize.gallery import DesignButton
 
 
@@ -22,7 +23,7 @@ class MixMatchPage(QWidget):
         root.addWidget(note('Your current settings, together. Apply a theme first, then combine its parts here. Changes also appear in their original tabs and stay active until you change them.'))
         scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.body=QWidget();grid=QGridLayout(self.body);grid.setSpacing(16)
-        groups=[('Desktop & navigation',('waybar','dock','launcher','layout','marker'),owner.start_menu_page),
+        groups=[('Desktop & navigation',('waybar','bar_variant','dock','launcher','layout','marker'),owner.start_menu_page),
                 ('Pointer & mouse effects',('cursor','trail','ripple'),owner.appearance),
                 ('File transfers',('transfer','transfer_animation'),owner.file_transfer),
                 ('Switching windows',('switcher',),owner.task_switcher)]
@@ -35,6 +36,8 @@ class MixMatchPage(QWidget):
                 caption,_,_,choices=quick_mix.FIELDS[key]
                 if key=='dock':
                     field=DesignButton();field.valueChanged.connect(lambda value:self.edit('dock',value));form.addRow(caption,field)
+                elif key=='bar_variant':
+                    field=VariationPicker();field.valueChanged.connect(lambda value:self.edit('bar_variant',value));form.addRow(caption,field)
                 elif choices is None:
                     field=QCheckBox(caption);field.toggled.connect(lambda value,k=key:self.edit(k,value));form.addRow(field)
                 else:
@@ -80,7 +83,7 @@ class MixMatchPage(QWidget):
         self.loading=True;self.draft=dict(values)
         for key,field in self.fields.items():
             if isinstance(field,QCheckBox):field.setChecked(values[key])
-            elif isinstance(field,DesignButton):field.setValue(values[key])
+            elif isinstance(field,(DesignButton,VariationPicker)):field.setValue(values[key])
             else:field.setCurrentIndex(field.findData(values[key]))
         self.loading=False;self.changed()
     def edit(self,key,value):
@@ -95,6 +98,7 @@ class MixMatchPage(QWidget):
             if self.draft['trail']!='none':self.last_trail=self.draft['trail']
             self.trail_enabled.blockSignals(True);self.trail_enabled.setChecked(self.draft['trail']!='none');self.trail_enabled.blockSignals(False)
         if self.draft:self.bar_description.setText(bar_styles.DESCRIPTIONS[bar_styles.resolve(self.draft['waybar'],runtime.design())])
+        if self.draft:self.fields['bar_variant'].setDesign(bar_styles.resolve(self.draft['waybar'],runtime.design()))
         if self.draft:selection_marker.style_preview(self.marker_preview,self.draft['marker'])
         self.body.setEnabled(not self.busy and bool(self.baseline))
         self.apply.setEnabled(self.dirty and not self.busy and not self.conflicts)

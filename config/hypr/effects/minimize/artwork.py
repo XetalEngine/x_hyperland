@@ -121,6 +121,68 @@ def tray(painter, width, style, colors, phase):
                 p.save(); p.translate(24+i*4+(-4 if i % 2 == 0 else 5), 22+i*13)
                 p.rotate(-37); p.setBrush(alpha(accent, .36)); p.drawEllipse(QRectF(-5.5, -2.2, 11, 4.4)); p.restore()
             p.restore()
+    # Each material has a distinct edge construction in addition to its color.
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    if style == 'raw':
+        p.setPen(QPen(alpha(accent,.75),1))
+        for end in (False,True):
+            p.save()
+            if end:p.translate(width,0);p.scale(-1,1)
+            line(p,17,20,33,48);line(p,33,48,17,76);p.drawEllipse(QPointF(33,48),3,3);p.restore()
+        pulse=8+(width-16)*((phase*.18)%1)
+        p.setPen(QPen(alpha(ink,.9),2));line(p,pulse-4,82,pulse+4,82)
+    elif style == 'modern':
+        sheen=QLinearGradient(0,10,0,55);sheen.setColorAt(0,alpha(ink,.12));sheen.setColorAt(1,alpha(ink,0))
+        p.setBrush(sheen);p.setPen(Qt.PenStyle.NoPen);p.drawRoundedRect(bounds.adjusted(5,4,-5,-30),25,25)
+        p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(alpha(accent,.22),1));p.drawRoundedRect(bounds.adjusted(5,5,-5,-5),35,35)
+    elif style == 'breakpoint':
+        p.setPen(QPen(alpha(accent,.48),1.1));p.drawRoundedRect(bounds.adjusted(4,4,-4,-4),6,6)
+        for x in (21,width-21):
+            for y in range(25,74,10):
+                p.setPen(QPen(alpha(accent,.4+.2*math.sin(phase+y)),2));line(p,x-4,y,x+4,y)
+        p.setPen(QPen(alpha(ink,.65),1));p.drawEllipse(QPointF(21,21),2,2);p.drawEllipse(QPointF(width-21,75),2,2)
+    elif style == 'binaryknife':
+        for x,d in ((14,1),(width-14,-1)):
+            p.setPen(QPen(alpha(accent,.75),1.2));line(p,x,37,x+d*25,12);line(p,x,60,x+d*25,85)
+        p.setPen(QPen(alpha(ink,.35),1));line(p,35,12,width-35,12)
+    elif style == 'tidalglass':
+        for x,d in ((22,1),(width-22,-1)):
+            for i in range(3):
+                p.setPen(QPen(alpha(accent,.45),1));p.drawEllipse(QPointF(x+d*i*5,32+i*13),2+i,2+i)
+        p.setPen(QPen(alpha(ink,.3),1));p.drawRoundedRect(bounds.adjusted(4,4,-4,-4),36,36)
+    elif style == 'porcelainink':
+        for x in (17,width-17):
+            p.setPen(QPen(alpha(ink,.18),4));line(p,x,16,x,80)
+            p.setPen(QPen(alpha(accent,.4),.8));line(p,x+5,12,x+5,84)
+        p.setPen(QPen(alpha(accent,.6),.8));p.drawRect(QRectF(width-30,43,10,10))
+    elif style == 'obsidianforge':
+        p.setPen(QPen(alpha(accent,.38),1.2));p.drawRoundedRect(bounds.adjusted(5,5,-5,-5),4,4)
+        for x in (24,width-24):
+            for y in range(29,69,8):
+                p.setPen(QPen(alpha(colors['Shadow'],.75),4));line(p,x-5,y,x+5,y)
+                p.setPen(QPen(alpha(accent,.3+.1*math.sin(phase*2+y)),1));line(p,x-4,y+1,x+4,y+1)
+    elif style == 'candycloud':
+        p.setPen(QPen(alpha(ink,.28),1.4));p.drawRoundedRect(bounds.adjusted(4,4,-4,-4),36,36)
+        p.setBrush(alpha(ink,.15));p.setPen(QPen(alpha(accent,.3),.8))
+        for x in (25,width-25):p.drawEllipse(QPointF(x,48),6,6)
+    elif style == 'shadowedge':
+        p.setPen(QPen(alpha(ink,.25),1))
+        for x,d in ((15,1),(width-15,-1)):
+            line(p,x,30,x+d*18,12);line(p,x,66,x+d*18,84)
+        sweep=(math.sin(phase*.22)+1)*width/2
+        gleam=QLinearGradient(sweep-40,0,sweep+40,0);gleam.setColorAt(0,alpha(ink,0));gleam.setColorAt(.5,alpha(ink,.55));gleam.setColorAt(1,alpha(ink,0))
+        p.setPen(QPen(gleam,1.4));line(p,24,12,width-24,12)
+    elif style == 'hollowgrove':
+        p.setPen(QPen(alpha(accent,.24),.9));p.drawRoundedRect(bounds.adjusted(4,4,-4,-4),36,36)
+        moon=QPainterPath();moon.addEllipse(QPointF(width/2,80),4,4)
+        cut=QPainterPath();cut.addEllipse(QPointF(width/2+2,79),3.8,3.8)
+        p.setBrush(alpha(accent,.65));p.setPen(Qt.PenStyle.NoPen);p.drawPath(moon.subtracted(cut))
+        for end in (22,width-22):
+            for i in range(3):
+                p.setBrush(alpha(accent,.3));p.drawEllipse(QPointF(end+i*3,48+math.sin(phase*.5+i*2)*22),1.2,1.2)
+    elif style == 'gildedhollow':
+        p.setPen(QPen(alpha(accent,.3),1))
+        for x in range(38,int(width-35),7):line(p,x,15,x+1,15)
     p.restore()
 
 

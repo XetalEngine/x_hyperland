@@ -50,7 +50,7 @@ def activate(values, target=None):
     state = instance_dir()/'xetal-minimize.json'
     loaded = next((p for p in json.loads(hypr('-j','plugin','list')) if p.get('name') == 'Xetal Minimize'), None)
     previous_target = loaded_path(state)
-    if target is None and (not loaded or loaded.get('version') != '1.3.3'):
+    if target is None and (not loaded or loaded.get('version') != '1.4.0'):
         target = build.build()
     replacing = bool(loaded and target and target != previous_target)
     if replacing or not loaded:

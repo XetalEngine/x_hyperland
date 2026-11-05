@@ -62,6 +62,26 @@ class QuickMixTests(unittest.TestCase):
         self.assertEqual(parts,{'selection'});self.assertEqual(target['theme']['layout'],config['theme']['layout'])
         with self.assertRaises(ValueError):quick_mix.plan(config,baseline,dict(baseline,marker='anything'))
 
+    def test_taskbar_variation_applies_independently_and_preserves_workspace_actions(self):
+        path=self.root/'waybar/config.json'
+        config={'modules-left':['custom/launcher','hyprland/workspaces','cffi/new-workspace'],
+                'modules-center':['mpris'],'modules-right':['clock','custom/personal'],
+                'hyprland/workspaces':{'on-click-right':'workspace-overrides'},
+                'custom/personal':{'exec':'personal-widget'},'clock':{'format':'{:%H:%M}'}}
+        path.write_text(json.dumps(config))
+        palette=(self.root/'theme/current.colors').read_bytes()
+        for variation in ('full','partial','centered'):
+            self.apply_mix({'waybar':'gildedhollow','bar_variant':variation})
+            saved=json.loads(path.read_text())
+            self.assertEqual(quick_mix.read()[0]['bar_variant'],variation)
+            self.assertEqual(runtime.design(),'binaryknife')
+            self.assertEqual((self.root/'theme/current.colors').read_bytes(),palette)
+            self.assertEqual(saved['hyprland/workspaces'],config['hyprland/workspaces'])
+            self.assertEqual(saved['custom/personal'],config['custom/personal'])
+            self.assertIn('hyprland/workspaces',saved['modules-center' if variation=='centered' else 'modules-left'])
+            snapshot=presets.current(self.root)
+            self.assertEqual(presets.validate(snapshot)['theme']['bar_variant'],variation)
+
     def test_dock_mix_only_changes_shared_design_and_tracks_detailed_edits(self):
         path=self.root/'effects/minimize/settings.conf';path.parent.mkdir(parents=True)
         original=dict(presets.minimize.DEFAULTS,hide_delay=4600,dock_edge='left',dock_zoom=140,color='#90abcf',size=112,presentation='stack')

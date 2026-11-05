@@ -64,11 +64,18 @@ struct DockLayout {
         if(edge==Edge::Left)return translate(b,-distance,0);
         return translate(b,distance,0);
     }
+    Rect displayed(Rect b,double reveal,bool burn)const{return burn?b:shifted(b,reveal);}
+    Rect indicator(Rect b,double width,double height)const {
+        if(edge==Edge::Bottom)return {b.x,height-18,b.w,18};
+        if(edge==Edge::Top)return {b.x,0,b.w,18};
+        if(edge==Edge::Left)return {0,b.y,18,b.h};
+        return {width-18,b.y,18,b.h};
+    }
 };
 struct DockState {
     Rect panel;
     Edge edge=Edge::Bottom;
-    double reveal=0, holdUntil=0, last=0;
+    double reveal=0, indicator=0, holdUntil=0, last=0;
     bool initialized=false, awake=false;
     std::map<uint64_t,Rect> slots;
     std::map<uint64_t,double> zoom;

@@ -6,6 +6,8 @@ import signal
 import designs
 
 STYLES={'follow':'Follow desktop theme', **designs.DESIGNS}
+VARIANTS={'full':'Full · continuous bar', 'partial':'Partial · floating sections',
+          'centered':'Centered · workspaces in the middle'}
 DESCRIPTIONS={
  'raw':'Terminal rail · a continuous compact strip with underlined workspaces',
  'modern':'Floating islands · rounded app, clock and status capsules',
@@ -24,11 +26,23 @@ DESCRIPTIONS={
 def resolve(choice,design):return design if choice=='follow' else choice
 
 
-def configure(config,style):
+def default_variant(style):
+    # Retain the appearance of presets saved before variants were selectable.
+    return 'centered' if style in ('binaryknife','candycloud','gildedhollow') else 'partial' if style in ('modern','tidalglass') else 'full'
+
+
+def variant(value,style):
+    value=default_variant(style) if value is None else value
+    if not isinstance(value,str) or value not in VARIANTS:raise ValueError('Unknown taskbar variation.')
+    return value
+
+
+def configure(config,style,variation=None):
     """Rearrange only owned modules; retain commands, user modules and settings."""
     if style not in designs.DESIGNS:raise ValueError('Unknown Waybar design.')
+    variation=variant(variation,style)
     result=copy.deepcopy(config)
-    if isinstance(result,list):return [configure(bar,style) for bar in result]
+    if isinstance(result,list):return [configure(bar,style,variation) for bar in result]
     all_modules=[]
     for zone in ('left','center','right'):
         for module in result.get('modules-'+zone,[]):
@@ -53,18 +67,33 @@ def configure(config,style):
         'gildedhollow':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],
                         ['hyprland/workspaces','cffi/new-workspace'],status),
     }
-    zones=[[module for module in zone if module in available] for zone in layouts[style]]
+    left,center,right=map(list,layouts[style])
+    workspaces=['hyprland/workspaces','cffi/new-workspace']
+    if variation=='centered':
+        left=[m for m in left if m not in workspaces]
+        right=[m for m in right if m not in workspaces]
+        right=[m for m in center if m not in workspaces]+right
+        center=workspaces
+    else:
+        left=[m for m in left if m not in workspaces]
+        insertion=left.index('custom/launcher')+1 if 'custom/launcher' in left else 0
+        left[insertion:insertion]=workspaces
+        center=[m for m in center if m not in workspaces]
+        right=[m for m in right if m not in workspaces]
+        if not center and 'clock' in right:center=['clock'];right.remove('clock')
+    zones=[[module for module in zone if module in available] for zone in (left,center,right)]
     used=set(sum(zones,[]));zones[2]+=[m for m in all_modules if m not in used]
     for zone,modules in zip(('left','center','right'),zones):result['modules-'+zone]=modules
-    floating=style in ('modern','tidalglass','candycloud','hollowgrove','gildedhollow')
+    floating=variation!='full' or style in ('modern','tidalglass','candycloud','hollowgrove','gildedhollow')
     result.update(height=42 if style in ('candycloud','tidalglass') else 40 if floating else 38,spacing=2)
     result['margin-top']=6 if floating else 0;result['margin-bottom']=0
     result['margin-left']=10 if floating else 0;result['margin-right']=10 if floating else 0
     return result
 
 
-def stylesheet(p,style,root=None):
+def stylesheet(p,style,root=None,variation=None):
     if style not in designs.DESIGNS:raise ValueError('Unknown Waybar design.')
+    variation=variant(variation,style)
     root=root or Path(__file__).resolve().parent
     a,b,w,t,m,h=p['Accent'],p['Base'],p['Window'],p['Text'],p['Midlight'],p['Highlight']
     common=f'''
@@ -184,7 +213,89 @@ window#waybar {{background:linear-gradient(180deg,alpha({p['Button']},0.97),alph
 #clock {{background:transparent;font-family:serif;letter-spacing:1px;border-left:1px solid {m};border-radius:0;}}
 #audio,#custom-keys,#xetal-pins .pin {{background:transparent;border-radius:14px;}}
 '''}
-    return common+faces[style]
+    return common+faces[style]+architecture(p,style,variation,root)
+
+
+def architecture(p,style,variation,root):
+    """One material vocabulary, available as a rail, islands or centered bank."""
+    a,b,w,t,m,h=p['Accent'],p['Base'],p['Window'],p['Text'],p['Midlight'],p['Highlight']
+    radius={'raw':'1px','modern':'23px','breakpoint':'12px 2px 12px 2px','binaryknife':'2px 16px 2px 16px',
+            'tidalglass':'28px 28px 14px 14px','porcelainink':'4px','obsidianforge':'5px',
+            'candycloud':'28px','shadowedge':'12px 0 12px 0','hollowgrove':'28px 12px 28px 12px','gildedhollow':'24px'}[style]
+    surface={
+        'raw':f'linear-gradient(180deg,{w},{b})',
+        'modern':f'linear-gradient(160deg,alpha({p["Button"]},0.95),alpha({w},0.93) 50%,alpha({b},0.95))',
+        'breakpoint':f'linear-gradient(180deg,{p["Button"]},{b} 55%,alpha({a},0.13))',
+        'binaryknife':f'linear-gradient(120deg,{b},alpha({a},0.18) 22%,{w} 23%,{b} 80%,alpha({a},0.12))',
+        'tidalglass':f'linear-gradient(165deg,alpha({p["Light"]},0.3),alpha({w},0.94) 24%,alpha({b},0.93) 72%,alpha({a},0.2))',
+        'porcelainink':f'linear-gradient(180deg,{w},{p["Button"]} 85%,{w})',
+        'obsidianforge':f'linear-gradient(180deg,{p["Light"]},{p["Button"]} 8%,{b} 42%,{w} 90%,alpha({a},0.28))',
+        'candycloud':f'linear-gradient(160deg,alpha({p["Link"]},0.20),{w} 30%,{p["Button"]} 70%,alpha({a},0.26))',
+        'shadowedge':f'linear-gradient(155deg,{p["Button"]},{b} 40%,{w} 80%,{b})',
+        'hollowgrove':f'linear-gradient(150deg,{p["Button"]},alpha({w},0.98) 30%,alpha({b},0.97) 80%,alpha({a},0.14))',
+        'gildedhollow':f'linear-gradient(165deg,{p["Button"]},{w} 24%,{b} 65%,{w})',
+    }[style]
+    frame=f'background:{surface};border:1px solid alpha({a},0.58);border-top-color:alpha({p["Link"]},0.72);border-radius:{radius};box-shadow:inset 0 1px alpha({t},0.12),inset 0 -2px alpha({a},0.1);'
+    if variation=='partial':
+        structure=f'''
+window#waybar {{background:transparent;border:0;box-shadow:none;}}
+.modules-left,.modules-center,.modules-right {{{frame}padding:3px 10px;}}
+.modules-center {{margin:0 12px;}}
+'''
+    else:
+        structure=f'''
+window#waybar {{{frame}}}
+.modules-left,.modules-center,.modules-right {{background:transparent;border:0;box-shadow:none;border-radius:0;padding:3px 10px;margin:0;}}
+'''
+    if variation=='centered':
+        structure+=f'.modules-center {{background:alpha({b},0.45);border:1px solid alpha({a},0.3);border-radius:{radius};margin:3px 14px;padding:0 9px;}}\n'
+    ornament={
+        'raw':f'''#custom-launcher {{border-left:3px solid {a};border-right:1px dashed {m};letter-spacing:2px;}}
+#workspaces button.active {{background:alpha({a},0.14);border-top:1px solid {a};border-bottom:2px solid {a};}}
+#clock {{border-left:1px dashed {a};padding-left:13px;}}''',
+        'modern':f'''#custom-launcher {{background:linear-gradient(135deg,{h},alpha({a},0.3));border:1px solid alpha({p['Link']},0.4);}}
+#workspaces button.active {{border:1px solid alpha({a},0.65);box-shadow:0 0 4px alpha({a},0.25),inset 0 -2px {a};}}
+#clock {{letter-spacing:1px;}}''',
+        'breakpoint':f'''#custom-launcher {{border-left:4px solid {a};border-bottom:2px solid {p['Link']};border-radius:7px 1px 7px 1px;letter-spacing:1px;}}
+#workspaces button {{border:1px solid {m};border-radius:2px;background:{b};}}
+#workspaces button.active {{background:linear-gradient(180deg,{h},{b});border-color:{a};box-shadow:inset 0 -3px {a};}}
+#clock {{border-left:3px solid {a};border-radius:0;padding-left:12px;}}''',
+        'binaryknife':f'''#custom-launcher {{background:linear-gradient(125deg,alpha({a},0.18),{b});border:1px solid {a};border-radius:1px 12px 1px 12px;}}
+#workspaces button {{border-radius:1px 9px 1px 9px;border:1px solid {m};}}
+#workspaces button.active {{border-color:{p['Link']};box-shadow:inset 2px 0 {a},inset -2px 0 {a};}}
+#clock {{border-bottom:1px solid {a};letter-spacing:2px;}}''',
+        'tidalglass':f'''#custom-launcher {{border-radius:20px 20px 9px 9px;border:1px solid alpha({p['Link']},0.7);background:linear-gradient(180deg,alpha({a},0.25),alpha({b},0.3));}}
+#workspaces button {{border-radius:15px 15px 7px 7px;}}
+#workspaces button.active {{background:linear-gradient(180deg,{h},alpha({a},0.3));border-bottom:2px solid {p['Link']};box-shadow:0 0 5px alpha({a},0.25);}}
+#clock {{border-bottom:1px solid alpha({a},0.5);border-radius:18px;}}''',
+        'porcelainink':f'''#custom-launcher {{border:1px solid {a};border-left:4px solid {a};border-radius:1px;background:alpha({a},0.08);font-family:serif;}}
+#workspaces button {{font-family:serif;border:0;border-bottom:1px solid transparent;}}
+#workspaces button.active {{background:alpha({a},0.07);color:{a};border-bottom:3px double {a};}}
+#clock {{font-family:serif;border-left:1px solid {m};letter-spacing:2px;}}''',
+        'obsidianforge':f'''#custom-launcher {{border:2px solid {m};border-top-color:{p['Light']};border-bottom:3px solid {a};border-radius:3px;}}
+#workspaces button {{background:linear-gradient(180deg,{p['Button']},{b});border:1px solid {m};border-radius:3px;}}
+#workspaces button.active {{border-color:{a};box-shadow:inset 0 2px alpha({p['Link']},0.7),inset 0 -3px {a};}}
+#clock {{border:1px solid {m};border-left:4px solid {a};background:{b};padding:0 10px;}}''',
+        'candycloud':f'''#custom-launcher {{border-radius:24px;background:linear-gradient(165deg,{p['Link']},{h});border:1px solid alpha({t},0.35);}}
+#workspaces button {{border-radius:30px;background:alpha({a},0.07);margin:0 3px;}}
+#workspaces button.active {{border:1px solid {p['Link']};box-shadow:inset 0 2px alpha({t},0.35),0 0 5px alpha({a},0.2);}}
+#clock {{border-radius:22px;background:alpha({a},0.1);padding:0 13px;}}''',
+        'shadowedge':f'''#custom-launcher {{background:{b};border:1px solid {p['Light']};border-bottom:2px solid {a};border-radius:10px 0 10px 0;}}
+#workspaces button {{border-radius:9px 0 9px 0;margin:0 2px;}}
+#workspaces button.active {{background:linear-gradient(130deg,{h},{b});border-top:1px solid {p['Link']};border-bottom:2px solid {a};}}
+#clock {{border:0;border-bottom:1px solid {p['Light']};letter-spacing:3px;}}''',
+        'hollowgrove':f'''.modules-left {{background-image:url("{root/'assets/grove-bough.svg'}");background-repeat:no-repeat;background-position:8px center;padding-left:35px;}}
+#custom-launcher {{font-family:serif;letter-spacing:1px;background:transparent;border:0;border-right:1px solid alpha({a},0.3);}}
+#workspaces button {{border-radius:14px 3px 14px 3px;border:1px solid transparent;margin:0 2px;}}
+#workspaces button.active {{background:linear-gradient(155deg,{p['Link']},{h});border-color:{a};box-shadow:inset 0 1px alpha({t},0.3);}}
+#clock {{font-family:serif;border-left:1px solid alpha({a},0.3);letter-spacing:1px;}}''',
+        'gildedhollow':f'''.modules-left {{background-image:url("{root/'assets/gilded-picks.svg'}");background-repeat:no-repeat;background-position:10px center;padding-left:40px;}}
+#custom-launcher {{font-family:serif;letter-spacing:1px;color:{p['Link']};background:transparent;border:0;border-right:1px solid {m};}}
+#workspaces button {{background:linear-gradient(145deg,{p['Button']},{b});border:1px solid {m};border-top-color:{p['Light']};border-radius:8px;}}
+#workspaces button.active {{background:linear-gradient(145deg,{a},{h});border-color:{p['Link']};box-shadow:0 0 5px alpha({a},0.5),inset 0 1px alpha({p['Link']},0.8);}}
+#clock {{font-family:serif;color:{p['Link']};border-left:1px solid {m};letter-spacing:1px;}}''',
+    }[style]
+    return f'\n/* Taskbar variation: {variation} */\n'+structure+ornament+'\n'
 
 
 def reload_session(root):

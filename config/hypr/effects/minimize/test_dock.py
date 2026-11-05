@@ -12,6 +12,15 @@ from effects.minimize import model,controller
 
 
 class DockTests(unittest.TestCase):
+    def test_existing_dock_preferences_keep_slide_and_new_burn_settings_roundtrip(self):
+        previous=dict(model.DEFAULTS,hide_delay=2400,dock_style='gildedhollow',dock_edge='left',dock_zoom=140)
+        legacy=''.join(f'{k}={int(v) if type(v) is bool else v}\n' for k,v in previous.items() if k not in model.HIDE_KEYS)
+        self.assertEqual(model.decode(legacy),previous)
+        burn=dict(previous,hide_animation='burn',fire_indicator=True)
+        self.assertEqual(model.decode(model.encode(burn)),burn)
+        for invalid in ({'hide_animation':'unknown'},{'fire_indicator':'yes'},{'fire_indicator':1}):
+            with self.assertRaises(ValueError):model.validate(dict(burn,**invalid))
+
     def test_new_design_survives_an_older_library_loaded_in_the_same_process(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);legacy=root/'legacy.cpp';current=root/'current.cpp'
