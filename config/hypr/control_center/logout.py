@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'theme'))
 import runtime
 from window_chrome import close_button
+from sounds.qt import before_exit
 
 STYLE = '''
 QWidget {background:#171c24; color:#e3ecf8; font-family:"Noto Sans"; font-size:13px;}
@@ -34,9 +35,10 @@ QPushButton#logout:focus {border:2px solid #f4adba;}
 
 
 class LogoutDialog(QDialog):
-    def __init__(self, runner=None):
+    def __init__(self, runner=None, exit_sound=None):
         super().__init__()
         self.runner = runner or subprocess.run
+        self.exit_sound = exit_sound or before_exit
         self.submitted = False
         self.setWindowTitle('Confirm logout')
         self.setMinimumWidth(440)
@@ -89,6 +91,14 @@ class LogoutDialog(QDialog):
             return
         self.submitted = True
         self.logout.setEnabled(False)
+        self.cancel.setEnabled(False)
+        self.close_control.setEnabled(False)
+        self.exit_sound(self, self.finish_logout)
+
+    def reject(self):
+        if not self.submitted: super().reject()
+
+    def finish_logout(self):
         try:
             result = self.runner(['hyprctl', 'dispatch', 'exit'], capture_output=True,
                                  text=True, timeout=4)
@@ -99,6 +109,8 @@ class LogoutDialog(QDialog):
             self.error.show()
             self.submitted = False
             self.logout.setEnabled(True)
+            self.cancel.setEnabled(True)
+            self.close_control.setEnabled(True)
             self.cancel.setFocus()
             return
         self.accept()

@@ -16,6 +16,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 from effects.burn.page import WindowEffectsPage
 from cursors.page import CursorsPage
 from icon_themes.page import IconsPage
+from sounds.page import SoundsPage
 from file_jobs.page import FileTransferPage
 from switcher.page import TaskSwitcherPage
 from wallpaper.page import SelectorSettings
@@ -374,6 +375,7 @@ class ThemePage(QWidget):
         self.task_switcher=TaskSwitcherPage(async_run)
         self.cursors=CursorsPage(async_run)
         self.icons_page=IconsPage(async_run)
+        self.sounds_page=SoundsPage(async_run)
         self.design_page=DesignPage(self)
         self.layout_page=LayoutPage(self);self.custom_page=CustomPage(self)
         self.start_menu_page=StartMenuPage(self)
@@ -381,6 +383,7 @@ class ThemePage(QWidget):
         self.tabs.addTab(self.design_page,'Presets');self.tabs.addTab(self.mix_page,'Mix && match');self.tabs.addTab(self.layout_page,'Design');self.tabs.addTab(self.custom_page,'Custom');self.tabs.addTab(self.start_menu_page,'Start Menu')
         self.tabs.addTab(self.task_switcher,'Task Switcher');self.tabs.addTab(self.cursors,'Cursors')
         self.tabs.addTab(self.icons_page,'Icons')
+        self.tabs.addTab(self.sounds_page,'Sounds')
         self.tabs.addTab(self.wallpapers,'Wallpapers');self.tabs.addTab(self.file_transfer,'File Transfer');self.tabs.addTab(self.appearance,'Window effects');root.addWidget(self.tabs,1)
         if filename:self.tabs.setCurrentWidget(self.wallpapers)
         self.design.currentIndexChanged.connect(self.preset_changed);self.mode.currentIndexChanged.connect(self.changed)
@@ -393,9 +396,9 @@ class ThemePage(QWidget):
     @property
     def dirty(self):return self.other_pending_mix_edits() or self.mix_page.dirty
     @property
-    def busy(self):return self.applying or self.wallpapers.busy or self.appearance.busy or self.file_transfer.busy or self.task_switcher.busy or self.cursors.busy or self.icons_page.busy or self.mix_page.busy
+    def busy(self):return self.applying or self.wallpapers.busy or self.appearance.busy or self.file_transfer.busy or self.task_switcher.busy or self.cursors.busy or self.icons_page.busy or self.sounds_page.busy or self.mix_page.busy
     def other_pending_mix_edits(self):
-        return self.wallpapers.dirty or self.appearance.dirty or self.file_transfer.dirty or self.task_switcher.dirty or self.cursors.dirty or self.icons_page.dirty or self.choice()!=self.baseline or self.layout_page.choice.currentData()!=self.layout_baseline or self.layout_page.marker.currentData()!=self.marker_baseline
+        return self.wallpapers.dirty or self.appearance.dirty or self.file_transfer.dirty or self.task_switcher.dirty or self.cursors.dirty or self.icons_page.dirty or self.sounds_page.dirty or self.choice()!=self.baseline or self.layout_page.choice.currentData()!=self.layout_baseline or self.layout_page.marker.currentData()!=self.marker_baseline
     def refresh(self):
         if not self.busy and self.choice()==self.baseline and self.layout_page.choice.currentData()==self.layout_baseline and self.layout_page.marker.currentData()==self.marker_baseline:
             self.baseline,self.token=self.read_saved();self.sync_design_controls();self.set_choice(self.baseline);self.changed()
@@ -482,7 +485,7 @@ class ThemePage(QWidget):
         picker=ImagePicker(self,'Choose profile image or GIF',str(Path.home()/'Pictures'),'Images (*.gif *.png *.jpg *.jpeg *.webp)',self.async_run)
         if picker.exec() and picker.selectedFiles():self.set_avatar(picker.selectedFiles()[0])
     def pending_components(self):
-        return self.wallpapers.dirty or self.appearance.dirty or self.file_transfer.dirty or self.task_switcher.dirty or self.cursors.dirty or self.icons_page.dirty or self.mix_page.dirty
+        return self.wallpapers.dirty or self.appearance.dirty or self.file_transfer.dirty or self.task_switcher.dirty or self.cursors.dirty or self.icons_page.dirty or self.sounds_page.dirty or self.mix_page.dirty
     def save_mode(self):
         if self.busy:return
         if self.pending_components():
@@ -527,7 +530,7 @@ class ThemePage(QWidget):
         self.custom_page.refresh()
         # Read the applied mix before starting asynchronous detailed-page loads.
         self.mix_page.refresh()
-        for page in (self.file_transfer,self.task_switcher,self.cursors,self.icons_page,self.appearance,self.appearance.mouse,self.appearance.minimize):page.refresh()
+        for page in (self.file_transfer,self.task_switcher,self.cursors,self.icons_page,self.sounds_page,self.appearance,self.appearance.mouse,self.appearance.minimize):page.refresh()
     def saved(self,value,token):
         self.background=runtime.launcher_background()
         self.surfaces=runtime.launcher_surfaces()

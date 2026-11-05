@@ -31,6 +31,22 @@ class QuickMixTests(unittest.TestCase):
         self.assertEqual(quick_mix.read()[0]['transfer'],'breakpoint')
         self.assertEqual(runtime.design(),'binaryknife');self.assertEqual(self.library.read_bytes(),before)
         self.assertEqual(quick_mix.read()[0]['trail'],baseline['trail'])
+
+    def test_sound_mix_preserves_volume_mute_and_event_choices(self):
+        from sounds import model as sounds
+        path=self.root/'sounds/settings.json';path.parent.mkdir()
+        original=dict(sounds.DEFAULTS,enabled=False,volume=18,events=dict(sounds.DEFAULTS['events'],question=False))
+        path.write_text(json.dumps(original));colors=(self.root/'theme/current.colors').read_bytes()
+        self.apply_mix({'sounds':'gildedhollow'})
+        self.assertEqual(sounds.load(path)[0],dict(original,pack='gildedhollow'))
+        self.assertEqual(quick_mix.read()[0]['sounds'],'gildedhollow')
+        self.assertEqual((self.root/'theme/current.colors').read_bytes(),colors)
+        target=presets.builtin('modern',root=self.root)
+        files,_=presets.resources(self.root,target,{'sounds'},'binaryknife')
+        self.assertEqual(json.loads(files[path]),dict(original,pack='modern'))
+        path.write_text(json.dumps(original))
+        files,_=presets.resources(self.root,target,{'colors'},'binaryknife')
+        self.assertEqual(json.loads(files[path]),dict(original,pack='binaryknife'))
     def test_detailed_transfer_changes_are_read_back_and_do_not_replace_other_drafts(self):
         baseline,_,_=quick_mix.read();path=self.root/'file_jobs/preferences.json'
         value,token=presets.transfer.load(path);value['style']='porcelainink';presets.transfer.save(value,token,path)
@@ -166,7 +182,7 @@ class QuickMixTests(unittest.TestCase):
         qt=QApplication.instance() or QApplication([])
         path=self.root/'cursors/settings.json';value,_=presets.cursors.load(path)
         path.write_bytes(presets.cursors.encode(dict(value,trail='glow')))
-        owner=SimpleNamespace(busy=False,start_menu_page=QWidget(),appearance=QWidget(),file_transfer=QWidget(),task_switcher=QWidget())
+        owner=SimpleNamespace(busy=False,start_menu_page=QWidget(),appearance=QWidget(),file_transfer=QWidget(),task_switcher=QWidget(),sounds_page=QWidget())
         mix=MixMatchPage(owner);owner.mix_page=mix;mix.show();QTest.qWait(10)
         try:
             self.assertEqual(mix.fields['trail'].currentData(),'glow')

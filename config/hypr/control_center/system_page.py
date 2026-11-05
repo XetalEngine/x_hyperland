@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (QWidget, QLabel, QPushButton, QAbstractButton, QVBo
 import keys
 import runtime
 from icons import icon
+from sounds.actions import before_power
 
 
 def snapshot():
@@ -266,6 +267,7 @@ class SystemPage(QWidget):
         self.power_busy=True; self.status.setText(title+'…')
         for tile in self.power_tiles: tile.setEnabled(False)
         def action():
+            before_power(argv)
             result=subprocess.run(argv,text=True,capture_output=True,timeout=20)
             if result.returncode: raise RuntimeError(result.stderr.strip() or 'The system did not accept the request.')
             return result

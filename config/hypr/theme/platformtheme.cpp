@@ -14,6 +14,7 @@
 #include "file_preview.hpp"
 #include "file_picker.hpp"
 #include "icon_theme.hpp"
+#include "dialog_sounds.hpp"
 
 class XetalTheme final : public QObject, public QPlatformTheme {
     QPalette colors;
@@ -81,6 +82,7 @@ public:
             connect(watcher, &QFileSystemWatcher::fileChanged, this, [this] { notify(); });
             notify();
             XetalPreview::install();
+            XetalSounds::install(QFileInfo(config).dir().absoluteFilePath(".."));
         });
     }
     const QPalette *palette(Palette) const override { return &colors; }

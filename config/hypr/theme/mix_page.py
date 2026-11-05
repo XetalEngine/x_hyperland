@@ -26,7 +26,8 @@ class MixMatchPage(QWidget):
         groups=[('Desktop & navigation',('waybar','bar_variant','dock','launcher','layout','marker'),owner.start_menu_page),
                 ('Pointer & mouse effects',('cursor','trail','ripple'),owner.appearance),
                 ('File transfers',('transfer','transfer_animation'),owner.file_transfer),
-                ('Switching windows',('switcher',),owner.task_switcher)]
+                ('Switching windows',('switcher',),owner.task_switcher),
+                ('Desktop sounds',('sounds',),owner.sounds_page)]
         for i,(title,keys,page) in enumerate(groups):
             box=QGroupBox(title.replace('&','&&'));column=QVBoxLayout(box);form=QFormLayout();form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
             if i==1:
@@ -57,7 +58,8 @@ class MixMatchPage(QWidget):
                 self.active_trail=note('');column.addWidget(self.active_trail)
                 column.addWidget(note('Choose any themed trail, a general effect, or Off. Cursor artwork is independent.'))
             elif i==2:column.addWidget(note('The transfer style includes its animation design. Detailed timing, size and information choices are kept.'))
-            else:column.addWidget(note('Change how your windows are arranged in the switcher. Its other options stay as you set them.'))
+            elif i==3:column.addWidget(note('Change how your windows are arranged in the switcher. Its other options stay as you set them.'))
+            else:column.addWidget(note('Pair any sound pack with any theme. Volume, mute and individual sound switches stay as you set them.'))
             column.addStretch();link=QPushButton('Open detailed settings');link.clicked.connect(lambda _,p=page:self.open_details(p));column.addWidget(link)
             grid.addWidget(box,i//2,i%2)
         grid.setColumnStretch(0,1);grid.setColumnStretch(1,1);grid.setRowStretch(2,1)
@@ -68,7 +70,7 @@ class MixMatchPage(QWidget):
         self.discard=QPushButton('Discard');self.discard.clicked.connect(lambda:self.fill(self.baseline));row.addWidget(self.discard)
         self.apply=QPushButton('Apply adjustments');self.apply.setObjectName('primary');self.apply.clicked.connect(self.save);row.addWidget(self.apply);root.addLayout(row)
         self.refresh_timer=QTimer(self);self.refresh_timer.setSingleShot(True);self.refresh_timer.setInterval(100);self.refresh_timer.timeout.connect(self.refresh)
-        paths=[runtime.ROOT,*(runtime.ROOT.parent/name for name in ('cursors','file_jobs','switcher','effects/minimize'))]
+        paths=[runtime.ROOT,*(runtime.ROOT.parent/name for name in ('cursors','file_jobs','switcher','effects/minimize','sounds'))]
         self.watcher=QFileSystemWatcher([str(p) for p in paths if p.is_dir()],self)
         self.watcher.directoryChanged.connect(lambda _:self.refresh_timer.start() if self.isVisible() else None)
         self.refresh()

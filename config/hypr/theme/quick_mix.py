@@ -10,6 +10,7 @@ from cursors import model as cursors, effects
 from file_jobs import preferences as transfer
 from switcher import preferences as switcher
 from effects.minimize import model as minimize
+from sounds import model as sounds
 
 # Label, existing component, existing preference path, available choices.
 FIELDS = {
@@ -25,6 +26,7 @@ FIELDS = {
     'transfer': ('File Transfer style', 'transfer', ('transfer','style'), transfer.STYLES),
     'transfer_animation': ('Animate file transfers', 'transfer', ('transfer','animation','enabled'), None),
     'switcher': ('Task Switcher', 'switcher', ('switcher','style'), switcher.STYLES),
+    'sounds': ('Sound pack', 'sounds', ('sounds','pack'), sounds.STYLES),
 }
 
 
@@ -37,6 +39,7 @@ def values(config):
     config.setdefault('transfer',copy.deepcopy(transfer.DEFAULTS))
     config.setdefault('switcher',copy.deepcopy(switcher.DEFAULTS))
     config.setdefault('minimize',dict(minimize.DEFAULTS))
+    config.setdefault('sounds',copy.deepcopy(sounds.DEFAULTS))
     result={}
     for key,(_,_,path,_) in FIELDS.items():
         value=config
@@ -58,6 +61,7 @@ def plan(config, baseline, edited):
     target.setdefault('cursors',dict(cursors.DEFAULTS));target.setdefault('transfer',copy.deepcopy(transfer.DEFAULTS))
     target.setdefault('switcher',copy.deepcopy(switcher.DEFAULTS))
     target.setdefault('minimize',dict(minimize.DEFAULTS))
+    target.setdefault('sounds',copy.deepcopy(sounds.DEFAULTS))
     for key,(_,component,path,choices) in FIELDS.items():
         value=edited[key]
         valid=type(value) is bool if choices is None else isinstance(value,str) and value in choices

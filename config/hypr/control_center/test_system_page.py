@@ -35,10 +35,12 @@ class DashboardTests(unittest.TestCase):
                                   '[float] '+keys.ADMIN_WRAPPER+' "/tmp/My monitor" --all')
         self.binding_patch=patch.object(self.page,'monitor_binding',return_value=self.binding);self.binding_patch.start()
         self.snapshot_patch=patch('system_page.snapshot',return_value=READING);self.snapshot_patch.start()
+        self.sound_patch=patch('system_page.before_power');self.sound=self.sound_patch.start()
 
     def tearDown(self):
         self.page.close();self.page.deleteLater();QT.processEvents()
         self.binding_patch.stop();self.snapshot_patch.stop()
+        self.sound_patch.stop()
 
     def test_monitor_button_uses_the_configured_command_and_admin_wrapper(self):
         self.page.open_monitor()
@@ -49,10 +51,12 @@ class DashboardTests(unittest.TestCase):
         with patch.object(QMessageBox,'question',return_value=QMessageBox.StandardButton.Cancel), \
                 patch('system_page.subprocess.run') as run:
             self.page.power('Restart',['systemctl','reboot']);run.assert_not_called()
+            self.sound.assert_not_called()
         with patch.object(QMessageBox,'question',return_value=QMessageBox.StandardButton.Yes) as confirm, \
                 patch('system_page.subprocess.run',return_value=subprocess.CompletedProcess([],1,'','Not authorized')) as run:
             self.page.power('Restart',['systemctl','reboot'])
             run.assert_called_once_with(['systemctl','reboot'],text=True,capture_output=True,timeout=20)
+            self.sound.assert_called_once_with(['systemctl','reboot'])
             self.assertEqual(confirm.call_args.args[-1],QMessageBox.StandardButton.Cancel)
         self.assertIn('Not authorized',self.page.status.text())
         self.assertFalse(self.page.power_busy)

@@ -12,7 +12,13 @@
   "notification-window-width": 400,
   "control-center-width": 400,
   "widgets": ["title", "dnd", "notifications"],
-  "scripts": {},
+  "scripts": {
+    "fusion-sounds": {
+      "exec": "python3 \"@HYPR@/sounds/play.py\" --notification",
+      "app-name": ".*",
+      "run-on": "receive"
+    }
+  },
   "widget-config": {
     "title": {"text": "Notifications", "clear-all-button": true},
     "dnd": {"text": "Do Not Disturb"}

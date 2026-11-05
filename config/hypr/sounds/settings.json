@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "enabled": true,
+  "pack": "follow",
+  "volume": 35,
+  "respect_dnd": true,
+  "events": {
+    "startup": true,
+    "shutdown": true,
+    "error": true,
+    "warning": true,
+    "info": true,
+    "question": true,
+    "success": true,
+    "notification": true
+  }
+}

@@ -24,6 +24,7 @@ from PyQt6.QtWidgets import (QApplication, QWidget, QFrame, QLabel, QPushButton,
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'theme')); sys.path.append(str(ROOT / 'launcher'))
 import runtime
+from sounds.actions import before_power
 from identity import Avatar
 from activation import BarActivation
 from outside_click import CLICK_EVENT,check_pointer
@@ -274,8 +275,9 @@ class PowerPage(QWidget):
         image = QPixmap()
         if image.loadFromData(data): self.art.setPixmap(image.scaled(62, 62, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
 
-    def execute(self, args):
+    def execute(self, args, exit_sound=False):
         def run():
+            if exit_sound: before_power(args)
             result = subprocess.run(args, capture_output=True, text=True, timeout=5)
             if result.returncode: raise RuntimeError((result.stderr or result.stdout or 'Command unavailable').strip())
         async_run(run, lambda _: self.refresh(), self.failed)
@@ -311,7 +313,7 @@ class PowerPage(QWidget):
         try:
             confirmed = QMessageBox.question(self, title, title + ' this session now?',
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel, QMessageBox.StandardButton.Cancel)
-            if confirmed == QMessageBox.StandardButton.Yes: self.execute(actions[key])
+            if confirmed == QMessageBox.StandardButton.Yes: self.execute(actions[key], exit_sound=key in ('poweroff','reboot','logout'))
         finally: self.owner.modal = False
 
 

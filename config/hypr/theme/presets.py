@@ -23,6 +23,7 @@ from effects.wobbly import model as wobbly
 from cursors import model as cursors
 from cursors import effects as mouse_effects
 from icon_themes import model as icons
+from sounds import model as sounds
 
 COMPONENTS = {
     'waybar': ('Waybar', 'Taskbar design, grouping and surface shapes'),
@@ -38,6 +39,7 @@ COMPONENTS = {
     'effects': ('Window effects', 'Burn, cube, wobbly windows, minimizing, effect colors and window appearance'),
     'cursors': ('Cursors', 'Cursor style, size, trails and click feedback'),
     'icons': ('Icons', 'System icon design, application icon set and individual choices'),
+    'sounds': ('Sound pack', 'Startup, shutdown and popup sounds; volume and mute choices are kept'),
     'terminal': ('Terminal welcome', 'Logo and information fields; aliases remain untouched'),
 }
 THEME_FIELDS = {
@@ -47,7 +49,7 @@ THEME_FIELDS = {
     'launcher': ('launcher_style', 'launcher_wallpaper', 'launcher_background', 'launcher_surfaces', 'launcher_labels', 'launcher_background_visibility'),
 }
 RESOURCE_PATHS = {'cursors': 'cursors/settings.json', 'transfer': 'file_jobs/preferences.json', 'switcher': 'switcher/preferences.json',
-    'icons': 'theme/icons.json',
+    'icons': 'theme/icons.json', 'sounds': 'sounds/settings.json',
     'terminal': 'terminal_fetch/settings.json', 'burn': 'effects/burn/settings.conf', 'cube': 'effects/cube/settings.json', 'minimize': 'effects/minimize/settings.conf', 'wobbly': 'effects/wobbly/settings.json'}
 
 
@@ -64,6 +66,7 @@ def current(root=None):
         if path.exists(): value[key] = reader(path)[0]
     value['terminal'] = terminal.load(root / RESOURCE_PATHS['terminal'])
     value['icons'] = icons.load(root)[0]
+    value['sounds'] = sounds.load(root / RESOURCE_PATHS['sounds'])[0]
     path = root / 'wallpaper/selection.json'
     if path.exists(): value['wallpapers'] = json.loads(path.read_text())
     path = root / 'control_center/appearance.conf'
@@ -75,6 +78,7 @@ def validate(value):
     if not isinstance(value, dict) or value.get('version') != 1: raise ValueError('Unsupported preset format.')
     value = copy.deepcopy(value); state = value.get('theme', {})
     if 'icons' in value:value['icons']=icons.validate(value['icons'])
+    if 'sounds' in value:value['sounds']=sounds.validate(value['sounds'])
     if not isinstance(state, dict) or state.get('design') not in runtime.DESIGNS or state.get('mode') not in runtime.MODES:
         raise ValueError('Invalid preset colors.')
     state['layout'] = state.get('layout', layouts.default(state['design']))
@@ -111,6 +115,7 @@ def builtin(design, mode=None, root=None):
                                                selection_marker=selection_marker.DEFAULT,bar_style=design)
     value['transfer']['style'] = design
     value['icons']['system']='builtin:'+design
+    value['sounds']['pack']=design
     # Built-in presets supply their visual language, while keeping timing and hardware preferences.
     value.pop('wallpapers', None); value['wallpaper_theme'] = design
     value.pop('burn', None); value.pop('cube', None); value.pop('minimize', None); value.pop('wobbly', None); value.pop('appearance', None)
@@ -161,6 +166,14 @@ def merged_theme(previous, target, selected):
 def resources(root, target, selected, previous_design):
     """Return validated bytes; the backend writes and rolls them back in one transaction."""
     files, reloads = {}, []
+    sound_path = root / RESOURCE_PATHS['sounds']
+    sound_choices = sounds.load(sound_path)[0]
+    if 'sounds' in selected and 'sounds' in target:
+        sound_choices['pack'] = target['sounds']['pack']
+        files[sound_path] = encode(sound_choices)
+    elif 'sounds' not in selected and 'colors' in selected and target['theme']['design'] != previous_design and sound_choices['pack'] == 'follow':
+        sound_choices['pack'] = previous_design
+        files[sound_path] = encode(sound_choices)
     if 'icons' in selected and 'icons' in target:
         files[root / RESOURCE_PATHS['icons']]=encode(icons.prepared(target['icons'],root))
     elif 'colors' in selected and target['theme']['design']!=previous_design and (root/RESOURCE_PATHS['icons']).exists():

@@ -222,4 +222,6 @@ def install(app, source='', *, style=None):
     for format in (QSettings.Format.NativeFormat,QSettings.Format.IniFormat):
         QSettings.setPath(format,QSettings.Scope.UserScope,str(local))
     app.setStyle('Fusion'); instance=LiveTheme(); app.hypr_theme=instance
+    from sounds.qt import install as install_sounds
+    install_sounds(app)
     return instance

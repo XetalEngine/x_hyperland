@@ -16,7 +16,7 @@ QT = QApplication.instance() or QApplication([])
 class LogoutTests(unittest.TestCase):
     def setUp(self):
         self.runner = Mock(return_value=subprocess.CompletedProcess([], 0, 'ok\n', ''))
-        self.window = logout.LogoutDialog(runner=self.runner)
+        self.window = logout.LogoutDialog(runner=self.runner, exit_sound=lambda parent,done:done())
         self.window.present()
         QTest.qWait(10)
 
@@ -64,6 +64,14 @@ class LogoutTests(unittest.TestCase):
                                             capture_output=True, text=True, timeout=4)
         self.assertEqual(self.window.result(), QDialog.DialogCode.Accepted)
         self.assertFalse(self.window.isVisible())
+
+    def test_logout_waits_for_music_and_cannot_be_submitted_twice(self):
+        pending=[]
+        self.window.exit_sound=lambda parent,done:pending.append(done)
+        self.window.confirm_logout();self.window.confirm_logout()
+        self.assertEqual(len(pending),1);self.runner.assert_not_called()
+        self.assertFalse(self.window.cancel.isEnabled())
+        pending[0]();self.runner.assert_called_once()
 
     def test_failure_keeps_dialog_open_and_can_be_cancelled(self):
         self.runner.return_value = subprocess.CompletedProcess([], 1, '', 'Session unavailable')

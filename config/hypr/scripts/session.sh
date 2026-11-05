@@ -52,6 +52,10 @@ export XDG_CURRENT_DESKTOP=Hyprland
 export XDG_SESSION_DESKTOP=Hyprland
 export XDG_SESSION_TYPE=wayland
 
+# Original welcome melody, once per compositor. Its player stops on logout.
+python3 "$config_dir/sounds/play.py" --startup >"$(session_log sounds.log)" 2>&1 9>&- &
+children+=("$!")
+
 # Own standard folder/reveal requests before startup apps can activate another
 # manager on the shared user bus. Closing Files windows keeps this router alive.
 "$config_dir/scripts/files.sh" --service >"$(session_log file-manager.log)" 2>&1 9>&- &
