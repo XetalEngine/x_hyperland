@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import time
 
-from PIL import Image
+from PIL import Image, ImageChops, ImageStat
 import grub_appearance as appearance
 
 
@@ -25,7 +25,7 @@ def wait(predicate, seconds=35):
     raise RuntimeError('Disposable GRUB guest timed out.')
 
 
-def boot(directory, name, args, picture=True, bios=False):
+def boot(directory, name, args, background, picture=True, bios=False, automatic=False):
     serial = directory/(name+'.serial'); errors = directory/(name+'.errors')
     with errors.open('wb') as log:
         executable = shutil.which('qemu-system-i386' if bios else 'qemu-system-x86_64')
@@ -35,23 +35,50 @@ def boot(directory, name, args, picture=True, bios=False):
             '-monitor', 'stdio', '-serial', 'file:'+str(serial), '-parallel', 'none',
             '-nic', 'none', '-no-reboot', *firmware, *args], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=log)
         def output(): return serial.read_text(errors='replace') if serial.exists() else ''
+        def key(value):
+            process.stdin.write(('sendkey '+value+'\n').encode()); process.stdin.flush()
+        def capture(stage, console=False):
+            screenshot = directory/(name+'-'+stage+'.ppm')
+            process.stdin.write(('screendump '+str(screenshot)+'\n').encode()); process.stdin.flush()
+            wait(screenshot.exists, 5)
+            # QEMU may still be writing the last scanlines when the file appears.
+            wait(lambda: screenshot.stat().st_size > 1000, 5)
+            time.sleep(.15)
+            with Image.open(screenshot) as image:
+                image.save(directory/(name+'-'+stage+'.png'))
+                if picture:
+                    colors = image.convert('RGB').getcolors(image.width*image.height)
+                    assert len(colors) > 500, 'Theme artwork did not render'
+                    if console:
+                        expected = background.resize(image.size, Image.Resampling.LANCZOS)
+                        # This region was covered by the default centered black console.
+                        box = tuple(round(v) for v in (image.width*.58, image.height*.58,
+                                                      image.width*.78, image.height*.78))
+                        difference = ImageChops.difference(image.convert('RGB').crop(box), expected.crop(box))
+                        assert max(ImageStat.Stat(difference).mean) < 3, 'Console obscures or misaligns the wallpaper: '+stage
         try:
             wait(lambda: 'FUSION_APPEARANCE_READY' in output())
             time.sleep(2)
-            screenshot = directory/(name+'.ppm')
-            process.stdin.write(('screendump '+str(screenshot)+'\n').encode()); process.stdin.flush()
-            wait(screenshot.exists, 5)
-            with Image.open(screenshot) as image:
-                image.save(directory/(name+'.png'))
+            capture('menu')
+            boot_offset = len(output())
+            if not automatic:
                 if picture:
-                    # A black console cannot pass the colored-background check.
-                    colors = image.convert('RGB').getcolors(image.width*image.height)
-                    assert len(colors) > 500, 'Theme artwork did not render'
-            process.stdin.write(b'sendkey ret\n'); process.stdin.flush()
-            wait(lambda: 'FUSION_APPEARANCE_BOOT_OK' in output())
-            assert 'FUSION_ROOT_PRESERVED' in output(), output()
+                    key('e'); time.sleep(.5); capture('editor', console=True)
+                    assert 'sleep 6' in output(), 'Boot command editor did not open'
+                    key('esc'); time.sleep(.5)
+                    key('c'); time.sleep(.5); capture('console', console=True)
+                    assert 'grub>' in output(), 'Command console did not open'
+                    key('esc'); time.sleep(.5)
+                boot_offset = len(output())
+                key('ret')
+            # Editing prints the script itself, including the marker string.
+            # Only fresh output after Enter proves the entry actually ran.
+            wait(lambda: 'FUSION_APPEARANCE_BOOT_OK' in output()[boot_offset:])
+            time.sleep(.3)
+            capture('starting', console=True)
+            assert 'FUSION_ROOT_PRESERVED' in output()[boot_offset:], output()
             assert 'error:' not in output().lower(), output()
-            print('PASS:', name, 'theme, existing entry and root preserved', flush=True)
+            print('PASS:', name, 'menu, console wallpaper, boot entry and root preserved', flush=True)
         finally:
             if process.poll() is None: process.terminate()
             try: process.wait(timeout=5)
@@ -78,11 +105,11 @@ terminal_output console serial
 search --fs-uuid --set=root CABF-1234
 set fusion_test_original_root=$root
 set default=0
-set timeout=60
+set timeout=12
 menuentry 'Start my Linux system' {
-  terminal_output console serial
   if [ "$root" = "$fusion_test_original_root" ]; then echo FUSION_ROOT_PRESERVED; fi
   echo FUSION_APPEARANCE_BOOT_OK
+  sleep 6
   halt
 }
 menuentry 'Advanced options' { halt; }
@@ -95,16 +122,19 @@ echo FUSION_APPEARANCE_READY
         run('mcopy', '-i', fat, efi, '::/EFI/BOOT/BOOTX64.EFI')
         ovmf = next(Path(p) for p in ('/usr/share/OVMF/OVMF_CODE.fd', '/usr/share/edk2/x64/OVMF_CODE.4m.fd') if Path(p).is_file())
         variables = root/'vars.fd'; shutil.copyfile(ovmf.with_name(ovmf.name.replace('CODE', 'VARS')), variables)
-        boot(args.output, 'uefi', ['-drive', f'if=pflash,format=raw,readonly=on,file={ovmf}',
-             '-drive', f'if=pflash,format=raw,file={variables}', '-drive', f'file={fat},format=raw'])
+        background = Image.open(art/'background.png').convert('RGB')
+        firmware = ['-drive', f'if=pflash,format=raw,readonly=on,file={ovmf}',
+             '-drive', f'if=pflash,format=raw,file={variables}', '-drive', f'file={fat},format=raw']
+        boot(args.output, 'uefi', firmware, background)
+        boot(args.output, 'uefi-countdown', firmware, background, automatic=True)
         iso_root = root/'cd'; (iso_root/'boot/grub').mkdir(parents=True)
         (iso_root/'boot/grub/grub.cfg').write_text(config)
         iso = root/'grub.iso'; run('grub-mkrescue', '-d', '/usr/lib/grub/i386-pc', '-o', iso, iso_root)
-        boot(args.output, 'bios', ['-cdrom', str(iso), '-boot', 'd', '-drive', f'file={fat},format=raw'], bios=True)
+        boot(args.output, 'bios', ['-cdrom', str(iso), '-boot', 'd', '-drive', f'file={fat},format=raw'], background, bios=True)
         # Missing assets skip presentation and preserve the usable boot menu.
         (iso_root/'boot/grub/grub.cfg').write_text(config.replace('/themes/design/', '/themes/missing/'))
         run('grub-mkrescue', '-d', '/usr/lib/grub/i386-pc', '-o', iso, iso_root)
-        boot(args.output, 'fallback', ['-cdrom', str(iso), '-boot', 'd', '-drive', f'file={fat},format=raw'], picture=False, bios=True)
+        boot(args.output, 'fallback', ['-cdrom', str(iso), '-boot', 'd', '-drive', f'file={fat},format=raw'], background, picture=False, bios=True)
         print('GRUB APPEARANCE BOOT CHECKS PASSED', flush=True)
 
 

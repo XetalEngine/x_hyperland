@@ -23,7 +23,9 @@ BASE = Path('/var/lib/xetal-fusion-login')
 CODE = Path('/usr/local/lib/xetal-fusion-login')
 UNIT = 'xetal-fusion-login.service'
 STATE = BASE/'installation.json'
+POWER_POLICY = Path('/etc/polkit-1/rules.d/49-xetal-fusion-login.rules')
 SYSTEM_PATHS = [CODE, Path('/etc/xetal-fusion-login'),
+                POWER_POLICY,
                 Path('/etc/systemd/system')/UNIT,
                 Path('/etc/systemd/system/display-manager.service'),
                 Path('/etc/systemd/system/default.target'), Path('/etc/pam.d/greetd'),
@@ -40,7 +42,7 @@ def write(path, text, mode=0o644):
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary = tempfile.mkstemp(prefix='.fusion-', dir=path.parent)
     try:
-        with os.fdopen(descriptor, 'w') as stream: stream.write(text)
+        with os.fdopen(descriptor, 'wb' if isinstance(text, bytes) else 'w') as stream: stream.write(text)
         os.chmod(temporary, mode)
         os.replace(temporary, path)
     finally:
@@ -75,10 +77,11 @@ class Backup:
                                                           **metadata}, indent=2)+'\n', 0o600)
 
     @staticmethod
-    def restore(destination, root=Path('/')):
+    def restore(destination, root=Path('/'), paths=None):
         manifest = json.loads((destination/'manifest.json').read_text())
         # Trusted administrator-owned manifest, but still reject path traversal.
         for relative, kind in manifest['files'].items():
+            if paths is not None and relative not in paths: continue
             if Path(relative).is_absolute() or '..' in Path(relative).parts: raise ValueError('Invalid backup path')
             actual = root/relative
             if actual.is_symlink() or actual.is_file(): actual.unlink()
@@ -91,6 +94,26 @@ class Backup:
                 owner = manifest.get('ownership', {}).get(relative)
                 if owner is not None: os.chown(actual, *owner, follow_symlinks=False)
         return manifest
+
+
+def original_additions(previous, destination):
+    """Preserve pre-Fusion state for paths first managed by a later release.
+
+    An old original backup will not contain the new power rule. Remember the
+    first backup of that path so Restore original removes/restores it as well.
+    Do not rewrite the original recovery snapshot.
+    """
+    additions = dict(previous.get('original_additions', {}))
+    if previous.get('original_backup'):
+        original = Path(previous['original_backup']).resolve(strict=True)
+        if not original.is_relative_to((BASE/'backups').resolve()):
+            raise RuntimeError('Invalid original Fusion sign-in backup.')
+        original_files = json.loads((original/'manifest.json').read_text())['files']
+        current_files = json.loads((destination/'manifest.json').read_text())['files']
+        for relative in current_files:
+            if relative not in original_files:
+                additions.setdefault(relative, str(destination))
+    return additions
 
 
 def package_command(family):
@@ -134,7 +157,9 @@ source_profile = false
 command = "/usr/bin/start-hyprland -- --config /etc/xetal-fusion-login/hyprland.conf"
 user = "fusion-greeter"
 ''',
-        Path('/etc/xetal-fusion-login/hyprland.conf'): '''# Dedicated sign-in compositor: no user desktop, plugins, terminals or key bindings.
+        Path('/etc/xetal-fusion-login/hyprland.conf'): '''# Dedicated sign-in compositor: no user desktop, terminals or key bindings.
+# Same narrowly scoped startup reminder adapter as the pinned desktop runtime.
+plugin = /usr/local/lib/xetal-fusion-login/xetal-startup-notices.so
 monitor = , preferred, auto, auto
 exec-once = /usr/local/lib/xetal-fusion-login/greeter-session.sh
 env = QT_QPA_PLATFORM,wayland
@@ -157,12 +182,23 @@ animations {
 misc {
     disable_hyprland_logo = true
     disable_splash_rendering = true
+    disable_hyprland_guiutils_check = true
     force_default_wallpaper = 0
     background_color = rgb(101820)
 }
 input {
     kb_layout = us
 }
+''',
+        POWER_POLICY: '''// Power controls for the local, active Fusion sign-in screen only.
+// Other sessions and shutdown inhibitors retain logind's normal protections.
+polkit.addRule(function(action, subject) {
+    if (subject.user === "fusion-greeter" && subject.local && subject.active &&
+        (action.id === "org.freedesktop.login1.power-off" ||
+         action.id === "org.freedesktop.login1.reboot")) {
+        return polkit.Result.YES;
+    }
+});
 ''',
         Path('/etc/systemd/system')/UNIT: '''[Unit]
 Description=Hyper Fusion sign-in
@@ -188,6 +224,9 @@ def install(source, username, skip_packages=False):
     account = pwd.getpwnam(username)
     if account.pw_uid < 1000: raise RuntimeError('Select a regular desktop account.')
     if not (source/'login/app.py').is_file(): raise RuntimeError('Missing Fusion sign-in source files.')
+    notices = source/'runtime/notices/.build/xetal-startup-notices.so'
+    if not notices.is_file():
+        raise RuntimeError('Build the Fusion desktop before installing sign-in; the matching startup adapter is missing.')
     BASE.mkdir(parents=True, exist_ok=True, mode=0o755)
     backups = BASE/'backups'; backups.mkdir(exist_ok=True, mode=0o700)
     backups.chmod(0o700)
@@ -209,6 +248,7 @@ def install(source, username, skip_packages=False):
     backup.finish(metadata)
     print('Fusion sign-in backup: '+str(destination), flush=True)
     try:
+        additions = original_additions(previous, destination)
         if not skip_packages:
             # Package post-install scripts must not start a second greeter in this session.
             run(['systemctl', 'mask', '--runtime', 'greetd.service'])
@@ -233,6 +273,9 @@ def install(source, username, skip_packages=False):
             if item.name.startswith('test_'): continue
             shutil.copy2(item, CODE/item.name); os.chmod(CODE/item.name, 0o644)
         os.chmod(CODE/'launch.py', 0o755)
+        # Never load a user-writable plugin into the system greeter. Setup has
+        # already built this adapter against the selected compositor headers.
+        write(CODE/'xetal-startup-notices.so', notices.read_bytes())
         shutil.copy2(__file__, CODE/'system_setup.py'); os.chmod(CODE/'system_setup.py', 0o755)
         shutil.copy2(source/'theme/palettes.json', CODE/'palettes.json')
         shutil.copy2(source/'theme/assets/account.gif', CODE/'account.gif')
@@ -250,6 +293,8 @@ result=$?
 exit "$result"
 ''', 0o755)
         for path, text in configuration(greetd_binary).items(): write(path, text)
+        run(['runuser', '-u', 'fusion-greeter', '--', '/usr/bin/Hyprland',
+             '--verify-config', '--config', '/etc/xetal-fusion-login/hyprland.conf'])
         # Catch missing Qt modules and unreadable system-owned code before enabling boot changes.
         run(['runuser', '-u', 'fusion-greeter', '--', '/usr/bin/python3', '-c',
              'import sys; sys.path.insert(0, "/usr/local/lib/xetal-fusion-login"); import app'])
@@ -295,6 +340,7 @@ exit "$result"
         run(['systemctl', 'enable', UNIT])
         run(['systemctl', 'set-default', 'graphical.target'])
         write(STATE, json.dumps({'enabled': True, 'original_backup': previous.get('original_backup', str(destination)),
+                               'original_additions': additions,
                                'latest_backup': str(destination), 'user': username}, indent=2)+'\n')
         print('Fusion sign-in is ready for the next boot. The current desktop was not restarted.', flush=True)
         print('Recovery: sudo /usr/local/lib/xetal-fusion-login/system_setup.py --restore original', flush=True)
@@ -306,10 +352,23 @@ exit "$result"
 
 
 def restore(value):
+    additions = {}
     if value == 'original':
-        value = json.loads(STATE.read_text())['original_backup']
+        state = json.loads(STATE.read_text())
+        value = state['original_backup']
+        additions = state.get('original_additions', {})
     destination = Path(value).resolve(strict=True)
     if not destination.is_relative_to((BASE/'backups').resolve()): raise RuntimeError('Select a Fusion sign-in backup.')
+    # Validate all extra records before restoring any file.
+    extra = []
+    for relative, saved in additions.items():
+        record = Path(saved).resolve(strict=True)
+        if not record.is_relative_to((BASE/'backups').resolve()): raise RuntimeError('Invalid Fusion sign-in backup.')
+        manifest = json.loads((record/'manifest.json').read_text())
+        if relative not in manifest['files']: raise RuntimeError('Incomplete Fusion sign-in backup.')
+        extra.append((relative, record))
+    for relative, record in extra:
+        Backup.restore(record, paths={relative})
     Backup.restore(destination)
     run(['systemctl', 'daemon-reload'])
     print('Previous login configuration restored. Reboot when ready. Backups remain at '+str(destination))

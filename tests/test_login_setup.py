@@ -53,9 +53,62 @@ class ChoiceTests(unittest.TestCase):
         compositor = configs[Path('/etc/xetal-fusion-login/hyprland.conf')]
         self.assertNotIn('startup-scene', compositor)
         self.assertNotIn('bind =', compositor)
+        self.assertIn('disable_hyprland_guiutils_check = true', compositor)
+        self.assertIn('plugin = /usr/local/lib/xetal-fusion-login/xetal-startup-notices.so', compositor)
+        self.assertNotIn('suppress_errors', compositor)
+
+    def test_power_policy_is_local_active_greeter_only_and_is_backed_up(self):
+        self.assertIn(system_login.POWER_POLICY, system_login.SYSTEM_PATHS)
+        policy = system_login.configuration()[system_login.POWER_POLICY]
+        self.assertIn('subject.user === "fusion-greeter"', policy)
+        self.assertIn('subject.local && subject.active', policy)
+        self.assertIn('action.id === "org.freedesktop.login1.power-off"', policy)
+        self.assertIn('action.id === "org.freedesktop.login1.reboot"', policy)
+        self.assertNotIn('ignore-inhibit', policy)
+        self.assertNotIn('multiple-sessions', policy)
 
 
 class BackupTests(unittest.TestCase):
+    def test_runtime_adapter_replacement_does_not_overwrite_a_mapped_inode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'adapter.so'; path.write_bytes(b'old loaded adapter')
+            with path.open('rb') as loaded:
+                system_login.write(path, b'new adapter')
+                self.assertEqual(loaded.read(), b'old loaded adapter')
+            self.assertEqual(path.read_bytes(), b'new adapter')
+            self.assertEqual(path.stat().st_mode & 0o777, 0o644)
+
+    def test_upgrading_an_old_greeter_restores_newly_managed_files_to_their_original_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory); root = base/'root'; root.mkdir()
+            backups = base/'state/backups'; backups.mkdir(parents=True)
+            original = backups/'original'; original.mkdir()
+            initial = system_login.Backup(original, root)
+            initial.save(Path('/usr/local/lib/xetal-fusion-login'))
+            initial.finish({})
+            policy = system_login.POWER_POLICY; relative = str(policy).lstrip('/')
+            for preexisting in (False, True):
+                actual = root/relative; actual.parent.mkdir(parents=True, exist_ok=True)
+                if preexisting: actual.write_text('administrator policy before Fusion')
+                latest = backups/str(preexisting); latest.mkdir()
+                upgraded = system_login.Backup(latest, root); upgraded.save(policy); upgraded.finish({})
+                previous = {'original_backup': str(original)}
+                with patch.object(system_login, 'BASE', base/'state'):
+                    additions = system_login.original_additions(previous, latest)
+                    self.assertEqual(additions, {relative: str(latest)})
+                    later = {**previous, 'original_additions': additions}
+                    self.assertEqual(system_login.original_additions(later, original), additions)
+                    actual.write_text('Fusion policy')
+                    state = base/'installation.json'; state.write_text(json.dumps(later))
+                    real_restore = system_login.Backup.restore
+                    def restore_test(path, **kwargs): return real_restore(path, root=root, **kwargs)
+                    with patch.object(system_login, 'STATE', state), \
+                         patch.object(system_login, 'run'), \
+                         patch.object(system_login.Backup, 'restore', side_effect=restore_test):
+                        system_login.restore('original')
+                if preexisting: self.assertEqual(actual.read_text(), 'administrator policy before Fusion')
+                else: self.assertFalse(actual.exists())
+
     def test_restore_retains_content_modes_symlinks_and_originally_absent_files(self):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory); root = base/'root'; root.mkdir()

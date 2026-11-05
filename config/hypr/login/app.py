@@ -20,10 +20,12 @@ from PyQt6.QtGui import (QColor, QFont, QFontDatabase, QImageReader,
                         QMovie, QPainter, QPainterPath, QPen, QPixmap, QRadialGradient)
 from PyQt6.QtNetwork import QLocalSocket
 from PyQt6.QtWidgets import (QApplication, QComboBox, QFrame, QGraphicsDropShadowEffect,
-                            QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget)
+                            QHBoxLayout, QLabel, QLineEdit, QMenu, QMessageBox,
+                            QPushButton, QVBoxLayout, QWidget)
 
 from model import DESIGNS, accounts, presentation, read_json, sessions, session_environment
 from protocol import Decoder, Flow, encode
+from power import ACTIONS, Power
 
 HERE = Path(__file__).resolve().parent
 
@@ -95,6 +97,7 @@ class Controller(QObject):
             self.desktops = [Session('wayland:hyprland.desktop', 'Hyprland', 'wayland', 'Hyprland', ('start-hyprland',))]
         self.user_index = self.session_index = 0
         self.phase = 'busy'
+        self.power = Power(self, preview=preview)
         self.settings = Path.home()/'.local/state/xetal-fusion-login/choices.json'
         self.saved = read_json(self.settings)
         if not isinstance(self.saved.get('sessions', {}), dict): self.saved['sessions'] = {}
@@ -142,6 +145,7 @@ class Controller(QObject):
         self.session_index = next((i for i, session in enumerate(self.desktops) if session.identifier == selected), 0)
 
     def start(self):
+        self.power.refresh()
         if not self.users or not self.desktops:
             self.notify('fatal', 'No desktop accounts or installed desktop sessions were found.'); return
         if self.preview: self.notify('secret', 'Password:'); return
@@ -175,7 +179,7 @@ class Controller(QObject):
             QTimer.singleShot(450, QApplication.instance().quit)
 
     def select_user(self, index):
-        if index == self.user_index or self.phase in ('busy', 'starting', 'launched', 'fatal'): return
+        if index == self.user_index or self.power.busy or self.phase in ('busy', 'starting', 'launched', 'fatal'): return
         self.user_index = index
         self.restore_session()
         self.userChanged.emit(index); self.sessionChanged.emit(self.session_index)
@@ -183,7 +187,7 @@ class Controller(QObject):
         else: self.flow.select(self.users[index]['username'])
 
     def select_session(self, index):
-        if index == self.session_index: return
+        if index == self.session_index or self.power.busy: return
         self.session_index = index
         self.sessionChanged.emit(index)
 
@@ -192,6 +196,7 @@ class Controller(QObject):
         return ([str(HERE/'launch.py'), '--session', session.identifier], session_environment(session))
 
     def submit(self, text):
+        if self.power.busy: return
         if self.preview:
             self.status.emit('message', 'Preview only. No password is checked or saved.'); return
         if self.phase == 'error': self.flow.select(self.users[self.user_index]['username'])
@@ -211,7 +216,18 @@ class SignIn(QWidget):
         self.brand = label('◈   H Y P E R   F U S I O N', 'brand')
         header.addWidget(self.brand); header.addStretch()
         self.time = label('', 'clock'); self.time.setAlignment(Qt.AlignmentFlag.AlignRight)
-        header.addWidget(self.time); outer.addLayout(header)
+        header.addWidget(self.time)
+        self.power_button = QPushButton('⏻  Power'); self.power_button.setObjectName('powerButton')
+        self.power_button.setAccessibleName('Power options'); self.power_button.setMinimumHeight(36)
+        self.power_menu = QMenu(self.power_button)
+        self.power_actions = {}
+        for name, (_, title) in ACTIONS.items():
+            action = self.power_menu.addAction(title+'…')
+            action.triggered.connect(lambda checked=False, name=name: self.confirm_power(name))
+            self.power_actions[name] = action
+        self.power_menu.aboutToShow.connect(controller.power.refresh)
+        self.power_button.setMenu(self.power_menu)
+        header.addSpacing(18); header.addWidget(self.power_button); outer.addLayout(header)
         self.body = body = QHBoxLayout(); body.setSpacing(70); body.addStretch(0)
         self.hero = QWidget(); hero = QVBoxLayout(self.hero)
         hero.setContentsMargins(0, 0, 0, 0); hero.addStretch(2)
@@ -270,10 +286,16 @@ class SignIn(QWidget):
         footer = QHBoxLayout(); self.host = label(socket.gethostname(), 'micro'); footer.addWidget(self.host)
         footer.addStretch(); self.footer = label('YOUR WORKSPACE.  READY FOR YOU.', 'micro'); footer.addWidget(self.footer)
         outer.addLayout(footer)
+        self.power_message = label('', 'powerMessage'); self.power_message.setWordWrap(True)
+        self.power_message.setAlignment(Qt.AlignmentFlag.AlignRight); self.power_message.hide()
+        outer.addWidget(self.power_message)
+        controller.power.changed.connect(self.update_power)
+        controller.power.message.connect(self.show_power_message)
         controller.status.connect(self.update_status)
         controller.userChanged.connect(self.update_user)
         controller.sessionChanged.connect(self.update_session)
         self.update_user(controller.user_index)
+        self.update_power()
         self.tick(); self.clock_timer = QTimer(self); self.clock_timer.timeout.connect(self.tick); self.clock_timer.start(1000)
         if controller.preview: self.footer.setText('DESIGN PREVIEW  ·  AUTHENTICATION DISABLED')
 
@@ -317,6 +339,18 @@ class SignIn(QWidget):
             QPushButton#enter:hover {{background:{p['Highlight']};}}
             QPushButton#enter:focus {{border:2px solid {p['Text']};}}
             QPushButton#enter:disabled {{background:{p['Button']}; color:{p['PlaceholderText']};}}
+            QPushButton#powerButton {{background:{p['Button']}; border:1px solid {p['Midlight']}; border-radius:{min(radius,10)}px; padding:5px 24px 5px 12px;}}
+            QPushButton#powerButton:hover {{border-color:{p['Accent']};}}
+            QPushButton#powerButton:focus {{border:1px solid {p['Accent']};}}
+            QPushButton#powerButton:disabled {{color:{p['PlaceholderText']};}}
+            QMenu {{background:{p['Window']}; border:1px solid {p['Midlight']}; border-radius:{min(radius,10)}px; padding:7px;}}
+            QMenu::item {{padding:10px 28px; border-radius:5px;}}
+            QMenu::item:selected {{background:{p['Highlight']}; color:{p['HighlightedText']};}}
+            QMenu::item:disabled {{color:{p['PlaceholderText']};}}
+            QLabel#powerMessage {{font-size:12px; color:{p['Text']};}}
+            QMessageBox {{background:{p['Window']};}}
+            QMessageBox QPushButton {{background:{p['Button']}; border:1px solid {p['Midlight']}; border-radius:{min(radius,8)}px; padding:8px 18px;}}
+            QMessageBox QPushButton:focus {{border:2px solid {p['Accent']};}}
             QComboBox {{background:{p['Base']}; border:1px solid {p['Midlight']}; border-radius:{min(radius,9)}px; padding:10px 13px; font-size:12px;}}
             QComboBox:focus {{border:1px solid {p['Accent']};}}
             QComboBox::drop-down {{border:0; width:28px;}}
@@ -350,6 +384,47 @@ class SignIn(QWidget):
         if phase == 'ready':
             # Continue after authentication without asking for the same password twice.
             QTimer.singleShot(0, lambda: self.controller.submit('') if self.controller.phase == 'ready' else None)
+        self.update_power()
+
+    def update_power(self):
+        power = self.controller.power
+        allowed = not power.busy and self.controller.phase not in ('starting', 'launched')
+        self.power_button.setEnabled(allowed)
+        for name, action in self.power_actions.items():
+            action.setEnabled(allowed and power.available[name] == 'yes')
+            action.setToolTip(power.reason(name))
+        self.power_menu.setToolTipsVisible(True)
+        if power.busy:
+            for widget in (self.password, self.reveal, self.user_select, self.desktop_select, self.enter):
+                widget.setEnabled(False)
+            self.password.clear()
+        else:
+            phase = self.controller.phase
+            self.password.setEnabled(phase in ('secret', 'visible'))
+            self.reveal.setEnabled(phase == 'secret')
+            self.user_select.setEnabled(phase in ('secret', 'visible', 'ready', 'error'))
+            self.desktop_select.setEnabled(phase in ('secret', 'visible', 'ready', 'error'))
+            self.enter.setEnabled(phase in ('secret', 'visible', 'ready', 'error'))
+
+    def show_power_message(self, message):
+        self.power_message.setText(message)
+        self.power_message.setVisible(bool(message))
+
+    def confirm_power(self, action):
+        if self.controller.power.busy or self.controller.phase in ('starting', 'launched'):
+            return
+        title = ACTIONS[action][1]
+        dialog = QMessageBox(QMessageBox.Icon.Question, title,
+            title+' this computer?', parent=self)
+        dialog.setObjectName('powerConfirmation')
+        dialog.setInformativeText('The computer will '+title.lower()+'.')
+        confirm = dialog.addButton(title, QMessageBox.ButtonRole.AcceptRole)
+        cancel = dialog.addButton(QMessageBox.StandardButton.Cancel)
+        dialog.setDefaultButton(cancel); dialog.setEscapeButton(cancel)
+        dialog.exec()
+        if dialog.clickedButton() == confirm and self.controller.phase not in ('starting', 'launched'):
+            self.controller.power.request(action)
+        dialog.deleteLater()
 
     def submit(self):
         text = self.password.text()

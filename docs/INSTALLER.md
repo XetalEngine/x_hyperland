@@ -143,12 +143,27 @@ Fusion runs its sign-in UI in a dedicated, unprivileged Hyprland greeter session
 
 Installed sessions are discovered from `/usr/share/wayland-sessions/*.desktop` and `/usr/share/xsessions/*.desktop`. Hyprland, KDE Plasma, XFCE and other installed desktops retain their own session commands. Wayland sessions start directly; X11 sessions use `startx` on the authenticated user's console. The greeter remembers the selected desktop separately for each account. PAM also unlocks GNOME Keyring and an installed KDE Wallet PAM module with the login password.
 
+**Power** at the top right offers **Restart…** and **Shut down…**, each with a
+confirmation whose default is Cancel. The greeter asks logind asynchronously and
+keeps sign-in usable if the request fails. Other sessions and shutdown inhibitors
+remain subject to system policy; there are no forced shutdowns or passwordless
+shell commands. Design previews never send power requests. A dedicated polkit
+rule permits only the two ordinary power actions for the local, active
+`fusion-greeter` account.
+
+The dedicated login compositor uses the same ABI-checked startup-notice adapter
+as the pinned Hyprland desktop. Setup installs its own root-owned copy and
+validates the greeter configuration before enabling it. The supported `.conf`
+migration reminder and optional `hyprland-guiutils` reminder are handled at
+startup; configuration errors and unrelated warnings remain visible.
+
 The four themes, Dark/Light/High contrast modes, and GIF/PNG/JPG account images come from each person's Fusion profile. Public copies of account artwork are kept in `/var/lib/xetal-fusion-login/profiles/<uid>/`; the greeter does not need access to private home directories. Applying a Fusion theme refreshes those copies without administrator access.
 
 Before changing settings, Setup creates a dated, root-only backup under **`/var/lib/xetal-fusion-login/backups/`**. The backup records original contents, modes, owners, symbolic links and paths that did not previously exist. Relevant paths are:
 
 - `/etc/xetal-fusion-login/greetd.toml` and `hyprland.conf`.
 - `/etc/pam.d/greetd` and existing `/etc/greetd/config.toml`.
+- `/etc/polkit-1/rules.d/49-xetal-fusion-login.rules` (the scoped power-action rule).
 - `/etc/X11/default-display-manager`, if supplied by the distribution.
 - `/etc/systemd/system/xetal-fusion-login.service`, `display-manager.service`, `default.target`, and affected service enablement links.
 - `/usr/local/lib/xetal-fusion-login/` (the system-owned greeter code).
@@ -165,3 +180,8 @@ sudo systemctl reboot
 ```
 
 The original backup remains available across later Fusion sign-in updates. A specific dated backup can also be supplied to `--restore`. Unchecking the option in a later foreground Setup restores the original login configuration. Neither choosing another desktop nor disabling the Welcome dashboard changes this opt-in setting.
+
+To update an already-installed Fusion greeter, run foreground Setup again with
+**Use Fusion sign-in at boot** selected. Updating only the desktop profile cannot
+replace the root-owned greeter. The update creates a new backup and takes effect
+at the next sign-in; it does not restart the current desktop.

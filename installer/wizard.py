@@ -18,7 +18,7 @@ import login_setup
 
 LOGIN_WARNING = '''Changing the login service can leave you at a text console if setup fails.
 
-Changes: /etc/xetal-fusion-login/; /etc/pam.d/greetd; /etc/systemd/system/{display-manager.service,default.target,xetal-fusion-login.service} and their enablement links; /usr/local/lib/xetal-fusion-login/.
+Changes: /etc/xetal-fusion-login/; /etc/pam.d/greetd; /etc/polkit-1/rules.d/49-xetal-fusion-login.rules; /etc/systemd/system/{display-manager.service,default.target,xetal-fusion-login.service} and their enablement links; /usr/local/lib/xetal-fusion-login/.
 Existing /etc/greetd/config.toml and /etc/X11/default-display-manager are backed up. Fusion's previous getty@tty1.service.d/99-xetal-autologin.conf and marked ~/.zprofile block are backed up and removed if present. A temporary /run/systemd/system/greetd.service mask prevents startup during package installation. Installs greetd/keyring/X11 helpers and creates a dedicated greeter account.
 
 Backups: /var/lib/xetal-fusion-login/backups/

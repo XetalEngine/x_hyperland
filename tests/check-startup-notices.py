@@ -14,6 +14,8 @@ import sys
 import time
 
 REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO/'installer'))
+from system_login import configuration
 
 
 def main():
@@ -26,7 +28,7 @@ def main():
                     str(REPO/'tests/native/startup_notices_probe.cpp'), '-o', str(probe)], check=True)
     hyprland, hyprctl = shutil.which('Hyprland'), shutil.which('hyprctl')
     results = []
-    for index in range(4):
+    for index in range(5):
         # The control run proves both upstream notices are actually present.
         enabled = index != 0
         home = root/str(index); home.mkdir()
@@ -44,6 +46,13 @@ plugin = {probe}
             text += f'plugin = {adapter}\n'
         if index == 3:
             text += 'general:fusion_test_invalid_setting = 1\n'
+        if index == 4:
+            # Exercise the actual installer-owned greeter config, not a second
+            # hand-written approximation. Do not launch a real login service.
+            text = 'plugin = '+str(probe)+'\n'+configuration()[Path('/etc/xetal-fusion-login/hyprland.conf')]
+            text = text.replace('/usr/local/lib/xetal-fusion-login/xetal-startup-notices.so', adapter)
+            text = text.replace('exec-once = /usr/local/lib/xetal-fusion-login/greeter-session.sh', '# No real greeter in this isolated compositor check.')
+            text += '\nxwayland:enabled = false\ndebug:disable_logs = false\n'
         conf.write_text(text)
         env = dict(os.environ)
         env.pop('HYPRLAND_INSTANCE_SIGNATURE', None)
@@ -84,7 +93,8 @@ plugin = {probe}
                 after = json.loads(ctl('fusion-notices-probe'))
                 assert after['warning'] == 1 and after['error'] == 1, after
                 assert after['config'] == state['config'] and after['gui'] == state['gui'], after
-                results.append({'launch': index, 'filtered': enabled, 'locale': env['LANG'], **state})
+                results.append({'launch': index, 'greeter_config': index == 4,
+                                'filtered': enabled, 'locale': env['LANG'], **state})
                 print(json.dumps(results[-1]), flush=True)
                 ctl('dispatch', 'exit')
                 compositor.wait(timeout=10)

@@ -103,6 +103,12 @@ message-font: "Fusion Detail Regular 17"
 message-color: "{o['text']}"
 message-bg-color: "{o['base']}"
 terminal-font: "Fusion Detail Regular 17"
+# Keep the console aligned with the wallpaper during boot, E and C.
+terminal-left: "0"
+terminal-top: "0"
+terminal-width: "100%"
+terminal-height: "100%"
+terminal-border: "16"
 '''
     for top, height, title, font, color in labels:
         text += f'''+ label {{
@@ -282,6 +288,12 @@ if search --no-floppy --fs-uuid --set=fusion_theme_device {fs_uuid}; then
       loadfont {base}/detail.pf2
       set gfxmode=1920x1080,1280x720,1024x768,auto
       if terminal_output gfxterm; then
+        # gfxmenu and gfxterm have separate backgrounds. Configure both so
+        # Enter, the countdown, the editor and boot errors share the artwork.
+        insmod gfxterm_background
+        background_image -m stretch {base}/background.png
+        set color_normal=white/black
+        set color_highlight=black/light-gray
         set theme={base}/theme.txt
         export theme
       fi

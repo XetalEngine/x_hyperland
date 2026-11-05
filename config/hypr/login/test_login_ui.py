@@ -3,10 +3,11 @@ import os
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QMovie
-from PyQt6.QtWidgets import QApplication, QLineEdit
+from PyQt6.QtWidgets import QApplication, QLineEdit, QMessageBox
 from app import Controller, SignIn
 from model import DESIGNS
 
@@ -75,6 +76,46 @@ class LoginUiTests(unittest.TestCase):
         controller.phase = 'launched'
         self.assertTrue(window.close())
         self.assertFalse(window.isVisible())
+
+    def test_power_menu_is_visible_and_cancel_never_sends_a_request(self):
+        controller, window = self.window()
+        controller.power.refresh()
+        self.assertTrue(window.power_button.isVisible())
+        self.assertTrue(window.rect().contains(window.power_button.geometry()))
+        self.assertEqual([a.text() for a in window.power_menu.actions()], ['Restart…', 'Shut down…'])
+        def cancel():
+            dialog = self.app.activeModalWidget()
+            self.assertIsInstance(dialog, QMessageBox)
+            self.assertEqual(dialog.defaultButton(), dialog.button(QMessageBox.StandardButton.Cancel))
+            dialog.button(QMessageBox.StandardButton.Cancel).click()
+        with patch.object(controller.power, 'request') as request:
+            QTimer.singleShot(0, cancel); window.confirm_power('reboot')
+            request.assert_not_called()
+
+    def test_power_confirmation_routes_each_action_and_preview_stays_harmless(self):
+        controller, window = self.window(); controller.power.refresh()
+        def confirm():
+            dialog = self.app.activeModalWidget()
+            next(b for b in dialog.buttons() if dialog.buttonRole(b) == QMessageBox.ButtonRole.AcceptRole).click()
+        with patch.object(controller.power, 'call', side_effect=AssertionError('Preview must not contact logind')):
+            for action in ('reboot', 'poweroff'):
+                QTimer.singleShot(0, confirm); window.confirm_power(action)
+                self.assertIn('Preview only', window.power_message.text())
+
+    def test_power_request_disables_all_screens_and_failure_reenables_login(self):
+        controller, first = self.window()
+        second = SignIn(controller); second.show(); self.addCleanup(second.close)
+        controller.notify('secret', 'Password:')
+        controller.power.busy = True; controller.power.changed.emit()
+        for window in (first, second):
+            self.assertFalse(window.password.isEnabled())
+            self.assertFalse(window.power_button.isEnabled())
+        with patch.object(controller.flow, 'answer') as answer:
+            controller.preview = False; controller.submit('test-only-password')
+            answer.assert_not_called()
+        controller.power.busy = False; controller.power.changed.emit()
+        self.assertTrue(first.password.isEnabled()); self.assertTrue(second.password.isEnabled())
+        controller.preview = True
 
 
 if __name__ == '__main__': unittest.main()
