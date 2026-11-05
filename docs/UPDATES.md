@@ -34,6 +34,22 @@ The updater does not pull, reset, stash or rewrite a developer's clone. Its own 
 
 For direct development installs, finish by registering the delivered commit and its rendered defaults in `.xetal-update.json`, after validating the deployed files. Copying individual fixes without advancing that inventory leaves the checker comparing an older release and can produce a repeated UPDATE notice or merge failure. Do not mark the desktop current from a checkout's HEAD alone: verify the delivered profile first, preserve personal settings and keep a backup. The normal installer/update transaction maintains this record automatically.
 
+After a completed manual deployment, use
+`python3 installer/register-local.py --reference /path/to/rendered-release-profile`.
+The reference must contain the
+release's `.xetal-update.json` and rendered defaults, as a prepared update does.
+This verifies the live configuration, required native outputs, every delivered
+application file and executable permission before advancing the installed
+revision. It installs no files or preferences. The prior inventory and update
+status are saved under `updates/registrations/`; a redundant pending update for
+that exact revision is cleared. Runtime repairs and explicit rollbacks are kept.
+Partial deployments fail verification and retain their previous revision.
+
+The badge also checks that a ready package and matching plan still exist. An
+already-installed revision, an obsolete cached label, or a missing package does
+not show UPDATE READY. A genuinely newer release remains available, and runtime
+repairs can still require activation at the same source revision.
+
 ## Failure and recovery
 
 Preparation works in a separate directory. A differing application file no longer blocks an update or needs a manual reinstall. Missing packages, failed builds, invalid configuration or files changed during preparation still leave the current desktop installed. Automatic updates never run `sudo` or change system packages; dependency problems are shown for the user to resolve.

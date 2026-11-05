@@ -119,6 +119,62 @@ def installed(root):
     return value
 
 
+def register_deployment(live, reference, state):
+    """Register a completed local deployment against rendered release defaults.
+
+    This deliberately installs no code, binaries or preferences. The maintainer
+    must finish deploying/building first; a checkout's HEAD alone is insufficient.
+    Normal users use the installer/update transaction instead.
+    """
+    with locked(state):
+        recover(live, state)
+        target = installed(reference)
+        mismatches = []
+        verified = 0
+        for name, entry in target['files'].items():
+            if policy(name) != 'release': continue
+            source = location(reference, name); destination = location(live, name)
+            data = read(source)
+            if sha(data) != entry['sha256']:
+                raise RuntimeError('Release reference changed: '+name)
+            if (read(destination) != data or
+                    bool(destination.stat().st_mode & 0o100) != bool(entry['mode'] & 0o100)):
+                mismatches.append(name)
+            verified += 1
+        if mismatches:
+            raise RuntimeError('Local deployment is incomplete; the installed revision was kept.\n'+'\n'.join(mismatches[:30]))
+        backup = state/'registrations'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
+        backup.mkdir(parents=True, mode=0o700)
+        paths = [live/META, state/'pending.json', state/'status.json']
+        previous = {path: read(path) for path in paths}
+        for path, data in previous.items():
+            if data is not None: atomic(backup/path.name, data)
+        value = {**target, 'installed': now(), 'registration': 'verified-local'}
+        pending = json_file(state/'pending.json')
+        obsolete = bool(pending and pending.get('revision') == value['revision'] and
+                        not pending.get('rollback') and not pending.get('runtime_setup'))
+        cached = json_file(state/'status.json', {})
+        if not pending or obsolete:
+            identical = cached.get('latest') == value['revision']
+            cached.update(phase='current', current=value['revision'], prepared='', failed_revision='', retry_prepare=False,
+                          restart_revision='', restart_session='',
+                          message='Your desktop is up to date.' if identical else 'Local deployment registered. Checking will refresh its status.')
+            cached['github'] = {**cached.get('github', {}), 'base': value['revision'],
+                                'relation': 'identical' if identical else 'unknown'}
+        try:
+            write_json(live/META, value)
+            if obsolete: (state/'pending.json').unlink()
+            if not pending or obsolete: write_json(state/'status.json', cached)
+        except BaseException:
+            for path, data in previous.items():
+                if data is None: path.unlink(missing_ok=True)
+                else: atomic(path, data)
+            raise
+        write_json(backup/'receipt.json', {'revision':value['revision'], 'reference':str(reference),
+                   'profile':str(live), 'verified_release_files':verified, 'cleared_pending':obsolete})
+        return {'revision':value['revision'], 'backup':str(backup), 'verified_release_files':verified}
+
+
 _MISSING = object()
 
 

@@ -70,7 +70,9 @@ class UpdateUiTests(unittest.TestCase):
                         with patch('app.subprocess.Popen'):
                             window.prepare.click()
                         self.assertEqual(service.take_request(),'setup')
-                        window.close(); window.deleteLater(); service.publish(phase='available')
+                        window.close(); window.deleteLater()
+                        service.publish(phase='available', current='1'*40, latest='2'*40,
+                                        github={'base':'1'*40, 'relation':'ahead'})
 
     def test_log_opens_at_end_follows_growth_and_preserves_manual_scroll(self):
         service.publish(phase='preparing')

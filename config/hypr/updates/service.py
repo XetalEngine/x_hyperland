@@ -28,13 +28,32 @@ NOTICE_DELAY = 30
 READY_MESSAGE = 'Update ready. Restart to finish updating.'
 
 
+def pending_update(state, current):
+    """A cached ready label is not evidence that there is an installable update."""
+    try:
+        pending = engine.json_file(state/'pending.json')
+        if not isinstance(pending, dict): return None
+        engine.revision(pending.get('revision'))
+        if pending['revision'] == current and not (pending.get('rollback') or pending.get('runtime_setup')):
+            return None
+        stage = Path(pending['stage']); plan_path = Path(pending.get('plan', str(stage/'plan.json')))
+        if not stage.resolve().is_relative_to(state.resolve()) or not plan_path.resolve().is_relative_to(state.resolve()):
+            return None
+        plan = engine.json_file(plan_path, {})
+        if not stage.is_dir() or not isinstance(plan, dict) or plan.get('revision') != pending['revision']:
+            return None
+        return pending
+    except (OSError, ValueError, KeyError, TypeError): return None
+
+
 def restart_ready(value, pending=None):
     """A completed update can restart; a download or failed build cannot."""
     phase = value.get('phase', 'current')
     if phase in ('ready', 'rollback'):
         return bool(pending and pending.get('revision') and
                     (pending.get('rollback') if phase == 'rollback' else
-                     pending['revision'] == (value.get('prepared') or value.get('latest'))))
+                     pending['revision'] == (value.get('prepared') or value.get('latest')) and
+                     (pending['revision'] != value.get('current') or pending.get('runtime_setup'))))
     signature = os.environ.get('HYPRLAND_INSTANCE_SIGNATURE')
     return bool(phase == 'current' and signature and value.get('restart_session') == signature
                 and value.get('restart_revision') == value.get('current'))
@@ -74,15 +93,19 @@ def status(state=None, root=None):
     # stays alive. The installed revision wins over its cached failure/status.
     if root is None and state != STATE: return value
     try: current = engine.installed(root or ROOT)['revision']
-    except (OSError, ValueError, RuntimeError): return value
+    except (OSError, ValueError, RuntimeError): current = value.get('current')
+    if not current: return value
+    pending = pending_update(state, current)
     if value.get('phase') == 'rollback': return value
     if value.get('phase') == 'runtime-required' and current == value.get('current'): return value
-    if current == value.get('latest') and value.get('phase') not in ('checking', 'preparing'):
+    runtime_ready = value.get('phase') == 'ready' and pending and pending.get('runtime_setup')
+    if current == value.get('latest') and value.get('phase') not in ('checking', 'preparing') and not runtime_ready:
         value.update(phase='current', current=current, failed_revision='', retry_prepare=False,
-                     message=READY_MESSAGE if restart_ready(value) else 'Your desktop is up to date.')
+                     prepared='', message=READY_MESSAGE if restart_ready(value) else 'Your desktop is up to date.')
         value['github'] = {**value.get('github', {}), 'base':current, 'relation':'identical'}
     elif current != value.get('current'):
         value.update(phase='current', current=current, failed_revision='', retry_prepare=False,
+                     prepared='',
                      message='Local desktop revision changed. Checking GitHub will refresh its status.')
         value['github'] = {**value.get('github', {}), 'relation':'unknown'}
     elif (value.get('phase') in ('available','attention') and value.get('github', {}).get('base')
@@ -90,6 +113,14 @@ def status(state=None, root=None):
         value.update(phase='current', failed_revision='', retry_prepare=False,
                      message='The local desktop changed. Checking GitHub will compare this revision.')
         value['github'] = {**value['github'], 'relation':'unknown'}
+    superseded = (value.get('github', {}).get('base') == current and
+                  value['github'].get('relation') in ('behind', 'diverged', 'identical') and not runtime_ready)
+    if value.get('phase') == 'ready' and (superseded or not restart_ready(value, pending)):
+        ahead = (value.get('github', {}).get('relation') == 'ahead' and
+                 value['github'].get('base') == current and value.get('latest') != current)
+        value.update(phase='available' if ahead else 'current', prepared='',
+                     message='A new desktop update is available. Prepare it before restarting.' if ahead else
+                             'No prepared desktop update is waiting to be installed.')
     return value
 
 
@@ -135,8 +166,9 @@ def check(root=None, state=None):
     if time.time() < value.get('retry_at', 0): return value
     try:
         latest = github.latest(current, value.get('github'))
-        pending = engine.json_file(state/'pending.json')
-        prepared = pending and (pending.get('revision') == latest['sha'] or latest['relation'] != 'ahead')
+        pending = pending_update(state, current)
+        prepared = pending and pending['revision'] == latest['sha'] and (
+            latest['relation'] == 'ahead' or (pending.get('runtime_setup') and current == latest['sha']))
         phase = 'ready' if prepared else 'available' if latest['relation'] == 'ahead' else 'current'
         message = (READY_MESSAGE if prepared else
                    'A new Xetal desktop update is available.' if phase == 'available' else
@@ -336,7 +368,7 @@ def serve():
                         process = subprocess.Popen([sys.executable, str(Path(__file__)), '--check'],
                                                    stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
                         continue
-                pending = engine.json_file(STATE/'pending.json')
+                pending = pending_update(STATE, value.get('current'))
                 if pending and (pending.get('rollback') or pending.get('revision') == value.get('latest')) and action != 'setup': continue
                 eligible = value.get('latest') and (value.get('github', {}).get('relation') == 'ahead' or action == 'setup')
                 if eligible and available_since is None: available_since = time.time()

@@ -34,6 +34,85 @@ class UpdateTests(unittest.TestCase):
         expected = engine.merge_profile(self.live, self.upstream, self.stage, NEW)
         return engine.prepare_plan(self.live, self.stage, expected, NEW)
 
+    def pending(self, revision=NEW, **options):
+        stage = self.state/'prepared'
+        stage.mkdir(parents=True, exist_ok=True)
+        engine.write_json(stage/'plan.json', {'version':1, 'revision':revision})
+        value = {'revision':revision, 'stage':str(stage), 'automatic':True, **options}
+        engine.write_json(self.state/'pending.json', value)
+        return value
+
+    def test_local_registration_preserves_preferences_and_backs_up_stale_tracking(self):
+        (self.upstream/'code.py').write_text('new code\n')
+        self.prepare()
+        shutil.copyfile(self.stage/'code.py', self.live/'code.py')
+        preference = self.live/'theme/state.json'
+        preference.write_text('{"theme":"hollowgrove","my-choice":true}\n')
+        (self.live/'personal.txt').write_text('keep me')
+        self.pending()
+        service.publish(self.state, phase='ready', current=OLD, latest=NEW, prepared=NEW,
+                        github={'base':OLD,'relation':'ahead'})
+        before = {path:path.read_bytes() for path in
+                  (self.live/engine.META, self.state/'pending.json', self.state/'status.json')}
+        result = engine.register_deployment(self.live, self.stage, self.state)
+        self.assertEqual(engine.installed(self.live)['revision'], NEW)
+        self.assertEqual(preference.read_text(), '{"theme":"hollowgrove","my-choice":true}\n')
+        self.assertEqual((self.live/'personal.txt').read_text(), 'keep me')
+        self.assertEqual(engine.installed(self.live)['files']['theme/state.json'],
+                         engine.installed(self.stage)['files']['theme/state.json'])
+        self.assertFalse((self.state/'pending.json').exists())
+        self.assertEqual(service.badge(service.status(self.state, self.live))['text'], '')
+        for path, data in before.items():
+            self.assertEqual((Path(result['backup'])/path.name).read_bytes(), data)
+
+    def test_local_registration_rejects_partial_delivery_and_changed_reference(self):
+        (self.upstream/'code.py').write_text('new code\n')
+        self.prepare()
+        before = (self.live/engine.META).read_bytes()
+        with self.assertRaisesRegex(RuntimeError, 'incomplete'):
+            engine.register_deployment(self.live, self.stage, self.state)
+        self.assertEqual((self.live/engine.META).read_bytes(), before)
+        shutil.copyfile(self.stage/'code.py', self.live/'code.py')
+        (self.stage/'code.py').write_text('modified reference\n')
+        with self.assertRaisesRegex(RuntimeError, 'reference changed'):
+            engine.register_deployment(self.live, self.stage, self.state)
+        self.assertEqual((self.live/engine.META).read_bytes(), before)
+
+    def test_local_registration_preserves_runtime_rollback_and_other_pending_releases(self):
+        self.prepare()
+        for revision, options in ((NEW, {'runtime_setup':True}), (NEW, {'rollback':True}), ('3'*40, {})):
+            with self.subTest(revision=revision, options=options):
+                self.pending(revision, **options)
+                before = (self.state/'pending.json').read_bytes()
+                engine.register_deployment(self.live, self.stage, self.state)
+                self.assertEqual((self.state/'pending.json').read_bytes(), before)
+
+    def test_local_registration_requires_working_executable_permissions(self):
+        helper = self.upstream/'helper.sh'
+        helper.write_text('#!/bin/sh\nexit 0\n'); helper.chmod(0o755)
+        self.prepare()
+        shutil.copyfile(helper, self.live/'helper.sh'); (self.live/'helper.sh').chmod(0o644)
+        with self.assertRaisesRegex(RuntimeError, 'incomplete'):
+            engine.register_deployment(self.live, self.stage, self.state)
+        # Private owner-only executables are valid; world-read permission is not required.
+        (self.live/'helper.sh').chmod(0o700)
+        engine.register_deployment(self.live, self.stage, self.state)
+        self.assertEqual(engine.installed(self.live)['revision'], NEW)
+
+    def test_local_registration_restores_tracking_if_status_write_fails(self):
+        self.prepare(); self.pending()
+        service.publish(self.state, phase='ready', current=OLD, latest=NEW)
+        before = {path:path.read_bytes() for path in
+                  (self.live/engine.META, self.state/'pending.json', self.state/'status.json')}
+        actual = engine.write_json
+        def failing(path, value):
+            if path == self.state/'status.json': raise OSError('disk failed')
+            return actual(path, value)
+        with patch.object(engine, 'write_json', side_effect=failing):
+            with self.assertRaisesRegex(OSError, 'disk failed'):
+                engine.register_deployment(self.live, self.stage, self.state)
+        for path, data in before.items(): self.assertEqual(path.read_bytes(), data)
+
     def test_updates_code_and_keeps_personal_preferences_and_unmanaged_files(self):
         (self.upstream/'code.py').write_text('new code\n')
         (self.live/'theme/state.json').write_text(json.dumps({'theme':'breakpoint','apps':['echo','mine'],'modules':['apps','keys','pins','mine']}))
@@ -323,12 +402,69 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
 
     def test_newer_release_supersedes_ready_status_without_claiming_it_was_built(self):
         pending='3'*40
-        engine.write_json(self.state/'pending.json',{'revision':pending,'stage':str(self.stage),'automatic':True})
+        self.pending(pending)
         latest={'sha':NEW,'base':OLD,'relation':'ahead','message':'New release'}
         with patch.object(github,'latest',return_value=latest): value=service.check(self.live,self.state)
         self.assertEqual(value['phase'],'available');self.assertEqual(value['prepared'],pending)
         self.assertIn(pending[:8],service.badge(value)['tooltip'])
         self.assertEqual(engine.json_file(self.state/'pending.json')['revision'],pending)
+
+    def test_already_installed_pending_release_never_shows_update_ready(self):
+        self.pending(OLD)
+        service.publish(self.state, phase='ready', current=NEW, latest=OLD, prepared=OLD,
+                        github={'base':NEW,'relation':'ahead'})
+        value = service.status(self.state, self.live)
+        self.assertEqual(value['phase'], 'current')
+        self.assertEqual(value['prepared'], '')
+        self.assertEqual(service.badge(value)['text'], '')
+        with patch.object(github, 'latest', return_value={'sha':OLD,'base':OLD,'relation':'identical','message':'Current'}):
+            checked = service.check(self.live, self.state)
+        self.assertEqual(checked['phase'], 'current')
+        self.assertEqual(checked['prepared'], '')
+        self.assertFalse(service.restart_ready(checked, engine.json_file(self.state/'pending.json')))
+
+    def test_old_pending_release_is_not_ready_when_local_build_is_ahead(self):
+        self.pending(NEW)
+        latest = {'sha':NEW,'base':OLD,'relation':'behind','message':'Older release'}
+        service.publish(self.state, phase='ready', current=OLD, latest=NEW, prepared=NEW, github=latest)
+        self.assertEqual(service.status(self.state, self.live)['phase'], 'current')
+        with patch.object(github, 'latest', return_value=latest): value = service.check(self.live, self.state)
+        self.assertEqual(value['phase'], 'current')
+        self.assertEqual(service.badge(value)['text'], '')
+
+    def test_missing_or_invalid_prepared_package_remains_available_instead_of_ready(self):
+        for damage in ('stage', 'plan', 'revision', 'json', 'outside'):
+            with self.subTest(damage=damage):
+                pending = self.pending(); stage = Path(pending['stage'])
+                if damage == 'stage': shutil.rmtree(stage)
+                elif damage == 'plan': (stage/'plan.json').unlink()
+                elif damage == 'revision': engine.write_json(stage/'plan.json', {'revision':'3'*40})
+                elif damage == 'json': (self.state/'pending.json').write_text('{broken')
+                else:
+                    outside = self.root/'outside'; outside.mkdir()
+                    engine.write_json(outside/'plan.json', {'revision':NEW})
+                    engine.write_json(self.state/'pending.json', {**pending, 'stage':str(outside)})
+                latest = {'sha':NEW,'base':OLD,'relation':'ahead','message':'New release'}
+                service.publish(self.state, phase='ready', current=OLD, latest=NEW, prepared=NEW, github=latest)
+                value = service.status(self.state, self.live)
+                self.assertEqual(value['phase'], 'available')
+                self.assertEqual(value['prepared'], '')
+                self.assertEqual(service.badge(value)['text'], '↻ UPDATE')
+                with patch.object(github, 'latest', return_value=latest): checked = service.check(self.live, self.state)
+                self.assertEqual(checked['phase'], 'available')
+
+    def test_ready_requires_a_valid_package_but_preserves_same_revision_runtime_repair(self):
+        for target, options in ((NEW, {}), (OLD, {'runtime_setup':True})):
+            with self.subTest(target=target):
+                pending = self.pending(target, **options)
+                latest = {'sha':target,'base':OLD,'relation':'identical' if target == OLD else 'ahead','message':'Release'}
+                service.publish(self.state, phase='ready', current=OLD, latest=target, prepared=target, github=latest)
+                value = service.status(self.state, self.live)
+                self.assertEqual(value['phase'], 'ready')
+                self.assertTrue(service.restart_ready(value, pending))
+                with patch.object(github, 'latest', return_value=latest): checked = service.check(self.live, self.state)
+                self.assertEqual(checked['phase'], 'ready')
+                self.assertEqual(service.badge(checked)['text'], '✓ UPDATE READY')
 
     def test_development_install_supersedes_cached_update_failure(self):
         service.publish(self.state, phase='attention', current=NEW, latest=OLD,
