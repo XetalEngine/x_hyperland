@@ -61,6 +61,24 @@ class EditionTests(unittest.TestCase):
         cfg=portable.configuration('windows');cfg['_meta']['binary']='/opt/my-qemu'
         editions.apply(cfg);self.assertEqual(cfg['_meta']['binary'],'/opt/my-qemu')
 
+    def test_refresh_and_edition_switch_keep_live_editor_references(self):
+        cfg=portable.configuration('windows')
+        disk={'filename':str(self.root/'old.iso'),'node-name':'test-cd'}
+        device={'driver':'ide-cd','drive':'test-cd','id':'test-cd-device'}
+        cfg['blockdevs'].append(disk);cfg['devices'].append(device)
+        blocks,devices,tools=cfg['blockdevs'],cfg['devices'],cfg['tools']
+        for edition in ('stock','xetallic','stock'):
+            editions.apply(cfg,edition=edition)
+            self.assertIs(cfg['blockdevs'],blocks)
+            self.assertIs(cfg['devices'],devices)
+            self.assertIs(cfg['tools'],tools)
+            self.assertIs(cfg['blockdevs'][-1],disk)
+            self.assertIs(cfg['devices'][-1],device)
+            disk['filename']=str(self.root/(edition+'.iso'))
+            device['_disabled']=True
+            self.assertEqual(cfg['blockdevs'][-1]['filename'],str(self.root/(edition+'.iso')))
+            self.assertTrue(cfg['devices'][-1]['_disabled'])
+
     def test_profile_reopen_preserves_per_edition_module_choice(self):
         cfg=portable.configuration('windows')
         editions.switch(cfg,'xetallic');cfg['tools']['kvm_build_enabled']=True

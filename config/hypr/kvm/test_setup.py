@@ -74,6 +74,68 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(saved['simple']['name'],'saved automatically')
         self.assertTrue(Path(str(self.window._paths().session)+'.prev').is_file())
 
+    def test_disk_card_edits_survive_refresh_save_and_reopen(self):
+        from PyQt6.QtWidgets import QFileDialog,QMessageBox
+        from model import VMConfig
+        import editions
+        import virtual_gpu
+        w=self.window
+        first=portable.data_root()/'old-installer.iso';first.write_bytes(bytes(4096))
+        replacement=portable.data_root()/'new-installer.iso';replacement.write_bytes(bytes(4096))
+        typed=portable.data_root()/'typed-installer.iso';typed.write_bytes(bytes(4096))
+        def emitted(cfg,flag):
+            argv=cfg.to_argv()
+            return [json.loads(argv[i+1]) for i,value in enumerate(argv[:-1]) if value==flag]
+        def saved():
+            w.btn_save.click()
+            self.assertFalse(w.is_modified())
+            return VMConfig.load(w._paths().session,root=w._paths().root)
+        def reopen():
+            # The same read/rebuild path used when opening saved settings.
+            w.cfg=w._read_profile(w.profile_id);w._rebuild_tabs()
+        with patch.object(virtual_gpu,'service_active',return_value=False), \
+             patch.object(QMessageBox,'critical',side_effect=AssertionError('Unexpected save failure')):
+            for profile in ('windows','macos'):
+                w.switch_profile(profile)
+                for edition in ('stock','xetallic'):
+                    with self.subTest(profile=profile,edition=edition):
+                        editions.select(edition);w._refresh_all()
+                        with patch.object(QFileDialog,'getOpenFileName',return_value=(str(first),'')):
+                            w.tab_disks.add_iso()
+                        row=next(r for r in w.tab_disks.rows if r.bd.get('filename')==str(first))
+                        node,device_id=row.bd['node-name'],row.dev['id']
+                        # Save and repeated refreshes must leave the card bound
+                        # to the configuration used by the command and writer.
+                        saved();w._refresh_all();w._refresh_all()
+                        with patch.object(QFileDialog,'getOpenFileName',return_value=(str(replacement),'')):
+                            row._browse()
+                        self.assertTrue(w.is_modified())
+                        self.assertEqual(next(b['filename'] for b in emitted(saved(),'-blockdev')
+                                              if b.get('node-name')==node),str(replacement))
+                        self.assertIn(str(replacement),w.preview.toPlainText())
+                        reopen()
+                        row=next(r for r in w.tab_disks.rows if r.dev.get('id')==device_id)
+                        self.assertEqual(row.path.currentText(),str(replacement))
+                        row.path.setEditText(str(typed))
+                        row.path.lineEdit().textEdited.emit(str(typed))
+                        self.assertEqual(next(b['filename'] for b in emitted(saved(),'-blockdev')
+                                              if b.get('node-name')==node),str(typed))
+                        row.active.click()
+                        loaded=saved()
+                        self.assertNotIn(node,{b.get('node-name') for b in emitted(loaded,'-blockdev')})
+                        self.assertNotIn(device_id,{d.get('id') for d in emitted(loaded,'-device')})
+                        reopen()
+                        row=next(r for r in w.tab_disks.rows if r.dev.get('id')==device_id)
+                        self.assertFalse(row.active.isChecked())
+                        row.active.click();loaded=saved()
+                        self.assertIn(node,{b.get('node-name') for b in emitted(loaded,'-blockdev')})
+                        row=next(r for r in w.tab_disks.rows if r.dev.get('id')==device_id)
+                        row.btn_remove.click();loaded=saved()
+                        self.assertNotIn(node,{b.get('node-name') for b in loaded.blockdevs})
+                        self.assertNotIn(device_id,{d.get('id') for d in loaded.devices})
+                        reopen()
+                        self.assertFalse(any(r.dev.get('id')==device_id for r in w.tab_disks.rows))
+
     def test_account_header_is_before_save_on_every_page(self):
         import account_ui
         header=self.window.account_header

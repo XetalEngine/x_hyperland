@@ -54,15 +54,19 @@ def apply(data, root=None, edition=None):
             preferences.get(edition,{}).get('custom_module',False))
     prefixes = [root/'components', *(root/'editions'/key/'components' for key in ('stock', 'xetallic'))]
     def remap(value):
-        if isinstance(value, dict): return {k:remap(v) for k,v in value.items()}
-        if isinstance(value, list): return [remap(v) for v in value]
+        # Open editors hold references to nested config dictionaries and lists.
+        # Refreshes must update those objects in place or their later edits go
+        # to discarded copies instead of the setup used by Save and Launch.
+        if isinstance(value, dict):
+            for key, item in value.items(): value[key] = remap(item)
+        elif isinstance(value, list):
+            for index, item in enumerate(value): value[index] = remap(item)
         if isinstance(value, str):
             for prefix in prefixes:
                 if value.startswith(str(prefix)+'/'):
                     return str(destination)+value[len(str(prefix)):]
         return value
-    changed = remap(data)
-    data.clear(); data.update(changed)
+    remap(data)
     data.setdefault('_meta', {})['vm_edition'] = edition
     tools = data.setdefault('tools', {})
     if edition == 'stock':
