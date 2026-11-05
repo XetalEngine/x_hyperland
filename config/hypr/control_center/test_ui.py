@@ -58,6 +58,36 @@ class EditorUITests(unittest.TestCase):
         self.assertIn('Open terminal',self.page.change_log.toPlainText())
         self.assertEqual(self.page.change_panel.maximumHeight(),178)
 
+    def test_administrator_command_survives_reselection_and_discard(self):
+        field=self.page.fields['args']
+        field.setText('[float] "$HOME/My apps/monitor" --title "Processes, all users"')
+        self.page.edit(refresh=False)
+        command=self.page.selected().args
+        self.page.administrator.setChecked(True)
+        wrapped=self.page.selected().args
+        self.assertEqual(wrapped,'[float] '+keys.ADMIN_WRAPPER+' "$HOME/My apps/monitor" --title "Processes, all users"')
+        self.assertEqual(keys.parse(keys.serialize(self.page.records))[0].args,wrapped)
+        self.page.render()
+        self.assertTrue(self.page.administrator.isChecked())
+        self.assertEqual(field.text(),command)
+        self.page.fields['label'].setText('Monitor');self.page.edit(refresh=False)
+        self.assertEqual(self.page.selected().args,wrapped)
+        self.page.administrator.setChecked(False)
+        self.assertEqual(self.page.selected().args,command)
+        self.page.discard()
+        self.assertEqual(self.page.selected().args,'kitty')
+        self.assertFalse(self.page.administrator.isChecked())
+
+    def test_administrator_is_only_available_for_application_dispatchers(self):
+        self.page.administrator.setChecked(True)
+        self.page.fields['dispatcher'].setCurrentText('killactive')
+        self.assertFalse(self.page.administrator.isEnabled())
+        self.assertFalse(self.page.administrator.isChecked())
+        self.assertNotIn('xsudo',self.page.selected().args)
+        self.page.fields['dispatcher'].setCurrentText('exec')
+        self.assertTrue(self.page.administrator.isEnabled())
+        self.assertFalse(self.page.administrator.isChecked())
+
     def test_discard_restores_values_and_hides_log(self):
         self.modify();self.page.discard();QTest.qWait(210)
         self.assertFalse(self.page.dirty)

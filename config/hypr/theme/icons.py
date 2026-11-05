@@ -62,6 +62,35 @@ def icon(name, color, size=24):
         p.drawRoundedRect(QRectF(2,4,20,16),2,2);line(6,8,10,12);line(10,12,6,16);line(13,16,18,16)
     elif name=='system':
         line(12,2,12,11);p.drawArc(QRectF(3,4,18,18),125*16,290*16)
+    elif name=='monitor':
+        p.drawRoundedRect(QRectF(2,3,20,14),2,2);line(12,17,12,21);line(8,21,16,21)
+        path=QPainterPath(QPointF(5,11));path.lineTo(8,11);path.lineTo(10,7);path.lineTo(13,14);path.lineTo(15,10);path.lineTo(19,10);p.drawPath(path)
+    elif name=='memory':
+        p.drawRoundedRect(QRectF(2,5,20,13),2,2)
+        for x in (6,10,14,18):line(x,18,x,21)
+        for x in (5,10,15):p.drawRect(QRectF(x,8,3,6))
+    elif name=='drive':
+        p.drawRoundedRect(QRectF(3,3,18,18),3,3);line(3,15,21,15);line(16,18,18,18)
+        p.drawEllipse(QPointF(11,9),3.4,3.4);line(11,9,15,5)
+    elif name=='selection':
+        for x,y,sx,sy in ((3,3,1,1),(21,3,-1,1),(3,21,1,-1),(21,21,-1,-1)):
+            line(x,y,x+5*sx,y);line(x,y,x,y+5*sy)
+        p.setPen(QPen(QColor(color),1,Qt.PenStyle.DotLine));p.drawRect(QRectF(7,7,10,10))
+    elif name=='notifications':
+        path=QPainterPath(QPointF(4,17));path.lineTo(6,14);path.lineTo(6,9)
+        path.cubicTo(6,1,18,1,18,9);path.lineTo(18,14);path.lineTo(20,17);path.closeSubpath();p.drawPath(path)
+        p.drawArc(QRectF(9,18,6,4),180*16,180*16)
+    elif name=='lock':
+        p.drawRoundedRect(QRectF(4,10,16,12),2,2);p.drawArc(QRectF(7,1,10,18),0,180*16)
+        p.drawEllipse(QPointF(12,15),1,1);line(12,16,12,18)
+    elif name=='sleep':
+        path=QPainterPath(QPointF(15,3));path.cubicTo(3,-1,0,18,10,21)
+        path.cubicTo(17,23,22,17,21,14);path.cubicTo(13,18,8,7,15,3);p.drawPath(path)
+    elif name=='logout':
+        line(9,3,3,3);line(3,3,3,21);line(3,21,9,21);line(8,12,22,12)
+        line(17,7,22,12);line(22,12,17,17)
+    elif name=='restart':
+        p.drawArc(QRectF(3,4,18,18),45*16,300*16);line(18,2,18,8);line(18,8,12,8)
     elif name=='microphone':
         p.drawRoundedRect(QRectF(9,2,6,13),3,3);p.drawArc(QRectF(5,6,14,14),180*16,180*16);line(12,20,12,23)
     else:

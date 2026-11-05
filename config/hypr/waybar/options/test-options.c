@@ -150,8 +150,8 @@ static void gui_tests(void) {
 
     /* The ready-only choice persists across bars without hiding other updates. */
     GtkWidget *ready = option(menu, "custom/updates#ready");
-    g_assert_false(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(ready)));
-    gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(ready), TRUE);
+    g_assert_cmpstr(gtk_menu_item_get_label(GTK_MENU_ITEM(ready)), ==, "Hide Update Ready");
+    gtk_menu_item_activate(GTK_MENU_ITEM(ready));
     for (int i = 0; i < 100 && a.options->saving; i++) pump(10);
     pump(350);
     g_assert_true(g_hash_table_contains(a.options->hidden, "custom/updates#ready"));
@@ -159,7 +159,7 @@ static void gui_tests(void) {
     g_assert_false(g_hash_table_contains(a.options->hidden, "custom/updates"));
     g_assert_true(g_hash_table_contains(a.options->hidden, "cpu"));
     GtkWidget *other_menu = g_object_ref_sink(submenu(b.options));
-    g_assert_true(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(option(other_menu, "custom/updates#ready"))));
+    g_assert_cmpstr(gtk_menu_item_get_label(GTK_MENU_ITEM(option(other_menu, "custom/updates#ready"))), ==, "Show Update Ready");
     g_assert_false(b.options->saving);
     gtk_widget_destroy(other_menu); g_object_unref(other_menu);
     gtk_widget_destroy(menu); g_object_unref(menu);
@@ -179,12 +179,19 @@ static void gui_tests(void) {
     g_assert_true(a.options->bottom);
     menu = g_object_ref_sink(submenu(a.options));
     ready = option(menu, "custom/updates#ready");
-    g_assert_false(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(ready)));
-    gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(ready), TRUE);
+    g_assert_cmpstr(gtk_menu_item_get_label(GTK_MENU_ITEM(ready)), ==, "Hide Update Ready");
+    gtk_menu_item_activate(GTK_MENU_ITEM(ready));
     for (int i = 0; i < 100 && a.options->saving; i++) pump(10);
-    gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(ready), FALSE);
+    gtk_widget_destroy(menu); g_object_unref(menu);
+    menu = g_object_ref_sink(submenu(a.options));
+    ready = option(menu, "custom/updates#ready");
+    g_assert_cmpstr(gtk_menu_item_get_label(GTK_MENU_ITEM(ready)), ==, "Show Update Ready");
+    gtk_menu_item_activate(GTK_MENU_ITEM(ready));
     for (int i = 0; i < 100 && a.options->saving; i++) pump(10);
     g_assert_false(g_hash_table_contains(a.options->hidden, "custom/updates#ready"));
+    gtk_widget_destroy(menu); g_object_unref(menu);
+    menu = g_object_ref_sink(submenu(a.options));
+    g_assert_cmpstr(gtk_menu_item_get_label(GTK_MENU_ITEM(option(menu, "custom/updates#ready"))), ==, "Hide Update Ready");
     gtk_widget_destroy(menu); g_object_unref(menu);
 
     /* An external pin menu can outlive the module. Reload restores original packing. */

@@ -36,6 +36,7 @@ from context_menu_page import ContextMenuPage, STYLE as CONTEXT_STYLE
 from window_chrome import window_controls
 import wheel_guard
 from home_page import HomePage
+from system_page import SystemPage
 from identity import Avatar
 from icons import icon as navigation_icon
 from terminal_fetch.page import TerminalPage
@@ -280,6 +281,10 @@ class Hotkeys(QWidget):
         self.enabled = QCheckBox('Enabled')
         self.enabled.stateChanged.connect(self.edit)
         form.addRow('', self.enabled)
+        self.administrator = QCheckBox('Run as administrator')
+        self.administrator.setToolTip('Launch the application with the same administrator access as launcher shortcuts. Authentication is requested when needed.')
+        self.administrator.toggled.connect(lambda _: self.edit(refresh=False))
+        form.addRow('', self.administrator)
         self.inspector_scroll=QScrollArea()
         self.inspector_scroll.setWidgetResizable(True)
         self.inspector_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -449,11 +454,16 @@ class Hotkeys(QWidget):
             return
         self.loading = True
         for name, widget in self.fields.items():
+            value = getattr(b, name)
+            if name == 'args' and b.dispatcher in ('exec', 'execr'):
+                value = keys.administrator_command(value, False)
             if isinstance(widget, QComboBox):
-                widget.setCurrentText(getattr(b, name))
+                widget.setCurrentText(value)
             else:
-                widget.setText(getattr(b, name))
+                widget.setText(value)
         self.enabled.setChecked(b.enabled)
+        self.administrator.setEnabled(b.dispatcher in ('exec', 'execr'))
+        self.administrator.setChecked(b.dispatcher in ('exec', 'execr') and keys.application_command(b.args)[2])
         self.inspector.setEnabled(not b.protected and not self.busy)
         self.loading = False
 
@@ -476,6 +486,14 @@ class Hotkeys(QWidget):
             setattr(b, name, value.strip())
         b.submap = b.submap or 'reset'
         b.enabled = self.enabled.isChecked()
+        can_elevate = b.dispatcher in ('exec', 'execr')
+        self.administrator.setEnabled(can_elevate)
+        if not can_elevate:
+            self.administrator.blockSignals(True)
+            self.administrator.setChecked(False)
+            self.administrator.blockSignals(False)
+        if can_elevate:
+            b.args = keys.administrator_command(b.args, self.administrator.isChecked())
         if before != b:
             self.mark_dirty()
             if refresh:
@@ -966,63 +984,6 @@ class CalendarPage(ControlPage):
         self.calendar.showToday()
 
 
-class SystemPage(ControlPage):
-    def __init__(self):
-        super().__init__('System & session', 'Resource usage, screen capture, and session controls.')
-        grid = QGridLayout()
-        self.metrics = {}
-        for row, name in enumerate(['CPU', 'Memory', 'Home disk']):
-            grid.addWidget(label(name), row, 0)
-            meter = QProgressBar()
-            meter.setRange(0, 100)
-            grid.addWidget(meter, row, 1)
-            self.metrics[name] = meter
-        self.temps = label('', 'muted')
-        grid.addWidget(self.temps, 3, 0, 1, 2)
-        self.layout.addLayout(grid)
-        group = QGroupBox('QUICK ACTIONS')
-        actions = QGridLayout(group)
-        options = [('Task monitor', lambda: launch(['kitty', '--config', str(keys.ROOT / 'kitty.conf'), '-e', 'htop'])),
-                   ('Capture selection', lambda: launch([str(keys.ROOT / 'scripts/screenshot.sh'), 'area'])),
-                   ('Capture all displays', lambda: launch([str(keys.ROOT / 'scripts/screenshot.sh'), 'screen'])),
-                   ('Notifications', lambda: launch(['swaync-client', '-t'])),
-                   ('Lock screen', lambda: launch(['hyprlock', '--config', str(keys.ROOT / 'hyprlock.conf')]))]
-        for index, (name, callback) in enumerate(options):
-            actions.addWidget(button(name, callback), index // 3, index % 3)
-        self.layout.addWidget(group)
-        power = QGroupBox('POWER & SESSION')
-        controls = QHBoxLayout(power)
-        for text, argv in [('Suspend', ['systemctl', 'suspend']), ('Log out', ['hyprctl', 'dispatch', 'exit']),
-                           ('Restart', ['systemctl', 'reboot']), ('Power off', ['systemctl', 'poweroff'])]:
-            controls.addWidget(button(text, lambda _, t=text, a=argv: self.power(t, a)))
-        self.layout.addWidget(power)
-        self.layout.addStretch()
-        self.layout.addWidget(self.status)
-        self.timer = QTimer(self)
-        self.timer.setInterval(2500)
-        self.timer.timeout.connect(lambda: self.refresh() if self.isVisible() else None)
-        self.timer.start()
-
-    def refresh(self):
-        import psutil
-        self.metrics['CPU'].setValue(round(psutil.cpu_percent()))
-        memory = psutil.virtual_memory()
-        self.metrics['Memory'].setValue(round(memory.percent))
-        self.metrics['Memory'].setFormat(f'{memory.used / 2**30:.1f} / {memory.total / 2**30:.1f} GiB  ·  %p%')
-        disk = psutil.disk_usage(str(Path.home()))
-        self.metrics['Home disk'].setValue(round(disk.percent))
-        self.metrics['Home disk'].setFormat(f'{disk.free / 2**30:.0f} GiB free  ·  %p% used')
-        temperatures = psutil.sensors_temperatures()
-        self.temps.setText('   ·   '.join(f'{name}: {values[0].current:.0f}°C' for name, values in temperatures.items()
-                                       if values and name in ('k10temp', 'coretemp', 'amdgpu', 'nvidia')))
-        self.status.setText('Super + K opens Hotkeys  ·  Super + A opens Audio  ·  Super + N opens notifications')
-
-    def power(self, title, argv):
-        if QMessageBox.question(self, title, f'{title} this session now?', QMessageBox.StandardButton.Yes |
-                                QMessageBox.StandardButton.Cancel, QMessageBox.StandardButton.Cancel) == QMessageBox.StandardButton.Yes:
-            self.perform(lambda: run(argv))
-
-
 class HintOverlay(QWidget):
     dismissed = pyqtSignal()
 
@@ -1169,7 +1130,7 @@ class Window(QMainWindow):
                       'context-menu': ContextMenuPage(async_run),
                       'default-apps': DefaultAppsPage(async_run, launch),
                       'calendar': CalendarPage(), 'capture': CapturePage(async_run),
-                      'system': SystemPage(), 'terminal': TerminalPage(async_run)}
+                      'system': SystemPage(async_run, launch, self.switch), 'terminal': TerminalPage(async_run)}
         for name, page in self.pages.items():
             self.tabs.addTab(page, ('Recorder' if name == 'capture' else name.replace('-', ' ').title()))
         self.tabs.currentChanged.connect(self.changed)
@@ -1295,7 +1256,7 @@ class Window(QMainWindow):
         self.modern_rail.setVisible(modern);self.tabs.tabBar().setVisible(not modern)
         self.eyebrow.setVisible(not modern);self.header_hint.setVisible(not modern)
         if not modern:self.brand.setText('Fusion Settings')
-        self.rail_avatar.refresh();self.home.update_design();self.update_navigation();self.changing_design=False
+        self.rail_avatar.refresh();self.home.update_design();self.pages['system'].update_design();self.update_navigation();self.changing_design=False
         self.fit_navigation(choice)
 
     def fit_navigation(self, choice):

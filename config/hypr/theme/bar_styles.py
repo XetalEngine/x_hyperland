@@ -103,6 +103,12 @@ window#waybar {{color:{t};}}
 #workspaces button.active {{background:{h}; color:{p['HighlightedText']};}}
 #workspaces button:hover, #custom-launcher:hover, #custom-keys:hover, #xetal-pins .pin:hover {{background:{p['Mid']};}}
 #custom-recording.recording {{color:#ff8292;}}
+/* The proportional text face otherwise falls back to wide Nerd glyphs whose
+   ink overhangs their advance into the next digit. Keep metrics in one face,
+   including after GTK reloads a theme. The Mono variant has cell-sized icons. */
+#cpu, #memory, #temperature, #custom-temperature, #disk {{
+    font-family:"FiraCode Nerd Font Mono","FiraCode Nerd Font","DejaVu Sans Mono",monospace;
+}}
 '''
     faces={
 'raw':f'''

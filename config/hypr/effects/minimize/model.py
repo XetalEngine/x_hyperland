@@ -22,7 +22,7 @@ DEFAULTS = dict(enabled=True, effect='fireball', duration=420, size=76,
                 follow_theme=True, color='#39a9ff', shape='random', speed=100, bubbles=70, surface='paint',
                 edge='left', order='bottom-to-top', presentation='dock', dock_edge='auto', dock_style='follow',
                 auto_hide=True, hide_delay=1200, dock_duration=320, proximity=12, dock_zoom=125,
-                hide_animation='slide',fire_indicator=False)
+                hide_animation='burn',fire_indicator=True)
 RANGES = dict(duration=(150, 1200), size=(48, 160), speed=(25, 200), bubbles=(0, 100),
               hide_delay=(200,10000), dock_duration=(100,1000), proximity=(2,64), dock_zoom=(100,150))
 DOCK_KEYS = {'presentation','dock_edge','dock_style','auto_hide','hide_delay','dock_duration','proximity','dock_zoom'}
@@ -34,8 +34,8 @@ PATH = Path(__file__).resolve().with_name('settings.conf')
 
 
 def validate(values):
-    if set(values)==PRE_DOCK:values=dict(DEFAULTS,**values,presentation='stack')
-    if set(values)==PRE_BURN:values=dict(DEFAULTS,**values)
+    if set(values)==PRE_DOCK:values=dict(DEFAULTS,**values,presentation='stack',hide_animation='slide',fire_indicator=False)
+    if set(values)==PRE_BURN:values=dict(DEFAULTS,**values,hide_animation='slide',fire_indicator=False)
     if set(values) != set(DEFAULTS):
         raise ValueError('Minimize settings are incomplete or contain unknown options.')
     if any(type(values[key]) is not bool for key in ('enabled', 'follow_theme', 'auto_hide','fire_indicator')):
@@ -82,7 +82,7 @@ def decode(text):
         values[key] = value
     # Upgrade the original four-field format without discarding preferences.
     if set(values) in (LEGACY, PRE_DOCK-{'surface','edge','order'}, PRE_DOCK-{'edge','order'}, PRE_DOCK):
-        values = dict(DEFAULTS, **values, presentation='stack')
+        values = dict(DEFAULTS, **values, presentation='stack', hide_animation='slide', fire_indicator=False)
     return validate(values)
 
 

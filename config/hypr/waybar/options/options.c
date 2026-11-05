@@ -234,18 +234,21 @@ static void toggled(GtkCheckMenuItem *item, gpointer data) {
     save(data, g_object_get_data(G_OBJECT(item), "module-id"), gtk_check_menu_item_get_active(item), FALSE, NULL);
 }
 
-static void ready_toggled(GtkCheckMenuItem *item, gpointer data) {
-    save(data, "custom/updates#ready", !gtk_check_menu_item_get_active(item), FALSE, NULL);
+static void ready_activated(GtkMenuItem *item, gpointer data) {
+    save(data, "custom/updates#ready", GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item), "show-ready")), FALSE, NULL);
 }
 
 static GtkWidget *ready_option(Options *o) {
-    GtkWidget *item = gtk_check_menu_item_new_with_label("Hide Update Ready");
-    gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), g_hash_table_contains(o->hidden, "custom/updates#ready"));
+    gboolean hidden = g_hash_table_contains(o->hidden, "custom/updates#ready");
+    GtkWidget *item = gtk_menu_item_new_with_label(hidden ? "Show Update Ready" : "Hide Update Ready");
     gtk_widget_set_sensitive(item, !o->saving);
-    gtk_widget_set_tooltip_text(item, "Hide the update-ready and restart notices. Update checks, new updates and errors stay visible.");
+    gtk_widget_set_tooltip_text(item, hidden
+        ? "Show the update-ready and restart notices again."
+        : "Hide the update-ready and restart notices. Update checks, new updates and errors stay visible.");
+    g_object_set_data(G_OBJECT(item), "show-ready", GINT_TO_POINTER(hidden));
     g_object_set_data(G_OBJECT(item), "module-id", "custom/updates#ready");
     g_object_set_data_full(G_OBJECT(item), "owner", retain(o), release);
-    g_signal_connect(item, "toggled", G_CALLBACK(ready_toggled), o);
+    g_signal_connect(item, "activate", G_CALLBACK(ready_activated), o);
     return item;
 }
 

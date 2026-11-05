@@ -21,6 +21,27 @@ STATE = Path.home() / '.local/state/hyprland-control'
 CATEGORIES = ['Window hover', 'Applications', 'Workspaces', 'Media & Devices', 'System']
 SOURCE = 'source = ~/.config/hypr/keybindings.conf'
 CAPTURE_MAP = 'hypr-control-capture'
+MONITOR_ID = 'fusion-system-monitor'
+ADMIN_WRAPPER = '~/.config/hypr/scripts/xsudo.sh'
+
+
+def application_command(args):
+    """Separate Hyprland exec rules and our existing graphical sudo wrapper.
+
+    Keep the command as shell text: paths, quoting and environment expansion
+    must still happen in the invoking user's shell, before sudo runs the app.
+    """
+    match = re.match(r'^(\[[^\]\n]*\]\s+)?(.*)$', args, re.S)
+    rules, command = (match[1] or '', match[2]) if match else ('', args)
+    for wrapper in (ADMIN_WRAPPER, '$HOME/.config/hypr/scripts/xsudo.sh', str(ROOT/'scripts/xsudo.sh')):
+        if command.startswith(wrapper + ' '):
+            return rules, command[len(wrapper):].lstrip(), True
+    return rules, command, False
+
+
+def administrator_command(args, enabled):
+    rules, command, _ = application_command(args)
+    return rules + (ADMIN_WRAPPER + ' ' if enabled and command else '') + command
 
 
 class ConfigError(Exception):

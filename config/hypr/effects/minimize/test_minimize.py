@@ -26,11 +26,11 @@ class SettingsTests(unittest.TestCase):
 
     def test_legacy_migration_preserves_preferences_and_new_fields_round_trip(self):
         old = model.decode('enabled=0\neffect=fireball\nduration=650\nsize=100\n')
-        self.assertEqual(old, dict(model.DEFAULTS, enabled=False, duration=650, size=100, presentation='stack'))
+        self.assertEqual(old, dict(model.DEFAULTS, enabled=False, duration=650, size=100, presentation='stack',hide_animation='slide',fire_indicator=False))
         for missing in ({'surface','edge','order'}, {'edge','order'}, set()):
             previous={k:v for k,v in model.DEFAULTS.items() if k in model.PRE_DOCK-missing}
             text=''.join(f'{k}={int(v) if type(v) is bool else v}\n' for k,v in previous.items())
-            self.assertEqual(model.decode(text),dict(model.DEFAULTS,presentation='stack'))
+            self.assertEqual(model.decode(text),dict(model.DEFAULTS,presentation='stack',hide_animation='slide',fire_indicator=False))
         for shape in model.SHAPES:
             new = dict(old, effect='splat', shape=shape, follow_theme=False, color='#aabbcc', bubbles=0)
             self.assertEqual(model.decode(model.encode(new)), dict(new,effect='fireball'))
