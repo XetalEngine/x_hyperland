@@ -97,8 +97,17 @@ private slots:
     if (qEnvironmentVariableIsSet("FUSION_GRUB_HOST_SCREENSHOT"))
       QVERIFY(host.grab().save(qEnvironmentVariable("FUSION_GRUB_HOST_SCREENSHOT")));
   }
+  void appearanceReviewFlowsThroughHelper_data() {
+    QTest::addColumn<bool>("privateMenu"); QTest::addColumn<bool>("cancelOnce");
+    QTest::newRow("readable menu") << false << false;
+    QTest::newRow("private menu") << true << false;
+    QTest::newRow("cancel authentication and retry") << true << true;
+  }
   void appearanceReviewFlowsThroughHelper() {
+    QFETCH(bool, privateMenu); QFETCH(bool, cancelOnce);
     QTemporaryDir fixture;
+    if (privateMenu) { QFile flag(fixture.filePath("private-menu")); QVERIFY(flag.open(QIODevice::WriteOnly)); }
+    if (cancelOnce) { QFile flag(fixture.filePath("cancel-next")); QVERIFY(flag.open(QIODevice::WriteOnly)); }
     const auto appearance = QFINDTESTDATA("../../grub_appearance.py"); QVERIFY(!appearance.isEmpty());
     QVERIFY(QFile::link(appearance, fixture.filePath("grub_appearance.py")));
     QFile helper(fixture.filePath("helper.py")); QVERIFY(helper.open(QIODevice::WriteOnly));
@@ -107,12 +116,17 @@ from pathlib import Path
 root=Path(__file__).parent
 state=dict(supported=True,mode='uefi',drives=[],current_entries=[dict(id='linux',name='Linux',kind='menuentry',commands='linux /vmlinuz',editable=True)],menu_revision='original-menu',revision='original')
 def emit(value): print(json.dumps(value),flush=True)
-if sys.argv[1]=='status': emit(state)
+if sys.argv[1]=='status':
+ emit(dict(state,current_entries=[],menu_revision='',message='Select Load current menu to authenticate.') if (root/'private-menu').exists() else state)
 else:
  for line in sys.stdin:
   request=json.loads(line)
   with (root/'calls').open('a') as log: log.write(line)
-  if request['action']=='appearance-review':
+  if request['action']=='appearance-load':
+   if (root/'cancel-next').exists():
+    (root/'cancel-next').unlink();sys.exit(126)
+   emit(dict(result=dict(state,appearance=dict(active=True,can_undo=True,revision='existing-design'),message='GRUB menu loaded.')))
+  elif request['action']=='appearance-review':
    review=dict(token='review-token',backup='/fixture/backups/one',files=[dict(path='/boot/grub/grub.cfg',backup='/fixture/backups/one/config',change='Replace')],instructions='Recovery Instructions: fixture',command='fixture-restore',report='fixture report')
    emit(dict(result=dict(state,appearance_review=review)))
   elif request['action']=='appearance-confirm' and request['token']=='review-token':
@@ -123,23 +137,54 @@ else:
     GrubEditor page(helper.fileName()); page.resize(1400, 800);
     page.findChild<QTabWidget *>("grubTabs")->setCurrentIndex(2); page.show();
     auto *apply = page.findChild<QPushButton *>("grubAppearanceApply");
+    QTRY_VERIFY_WITH_TIMEOUT(page.findChild<QListWidget *>("grubAppearanceThemes")->count() >= 9, 10000);
     QTRY_VERIFY_WITH_TIMEOUT(apply->isEnabled(), 10000);
+    auto *heading = page.findChild<QLineEdit *>("grubAppearanceHeading"); heading->setText("Keep my selected design");
+    auto *caption = page.findChild<QLabel *>("grubPreviewStatus");
+    if (privateMenu) {
+      QCOMPARE(apply->text(), QString("Load GRUB menu…"));
+      QTRY_VERIFY(caption->text().contains("authenticate"));
+      auto *tabs = page.findChild<QTabWidget *>("grubTabs"); tabs->setCurrentIndex(0); tabs->setCurrentIndex(2);
+      QVERIFY(page.findChild<QLabel *>("grubStatus")->text().contains("Administrator access"));
+      QVERIFY(!QFile::exists(fixture.filePath("calls"))); // Switching tabs does not prompt.
+      if (cancelOnce) {
+        apply->click();
+        QTRY_VERIFY_WITH_TIMEOUT(page.findChild<QLabel *>("grubStatus")->text().contains("cancelled"), 10000);
+        QVERIFY(apply->isEnabled()); QCOMPARE(apply->text(), QString("Load GRUB menu…"));
+        QCOMPARE(heading->text(), QString("Keep my selected design"));
+        QVERIFY(!QFile::exists(fixture.filePath("confirmed")));
+      }
+      apply->click();
+      QTRY_COMPARE_WITH_TIMEOUT(apply->text(), QString("Review && apply…"), 10000);
+      QTRY_VERIFY_WITH_TIMEOUT(apply->isEnabled(), 10000);
+      QVERIFY(page.findChild<QPushButton *>("grubAppearanceSystem")->isEnabled());
+      QVERIFY(page.findChild<QPushButton *>("grubAppearanceUndo")->isEnabled());
+      QCOMPARE(heading->text(), QString("Keep my selected design"));
+      QVERIFY(caption->text().contains("Your current boot entries"));
+      QVERIFY(!QFile::exists(fixture.filePath("confirmed")));
+    }
+    QTRY_VERIFY_WITH_TIMEOUT(apply->isEnabled(), 10000);
+    const int loadingRequests = (privateMenu ? 1 : 0)+(cancelOnce ? 1 : 0);
     bool reviewed = false;
     QTimer confirm; confirm.setInterval(20);
     connect(&confirm, &QTimer::timeout, &page, [&] {
       auto *dialog = page.findChild<QDialog *>("grubRecoveryReview"); if (!dialog) return;
       confirm.stop(); QVERIFY(!QFile::exists(fixture.filePath("confirmed")));
       QFile calls(fixture.filePath("calls")); QVERIFY(calls.open(QIODevice::ReadOnly));
-      QCOMPARE(calls.readAll().trimmed().split('\n').size(), 1);
+      QCOMPARE(calls.readAll().trimmed().split('\n').size(), loadingRequests+1);
       reviewed = true; dialog->findChild<QPushButton *>("grubRecoveryConfirm")->click();
     });
     confirm.start(); apply->click();
     QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(fixture.filePath("confirmed")), 10000); QVERIFY(reviewed);
     QTRY_VERIFY(page.findChild<QLabel *>("grubStatus")->text().startsWith("Appearance saved"));
     QFile calls(fixture.filePath("calls")); QVERIFY(calls.open(QIODevice::ReadOnly));
-    const auto lines = calls.readAll().trimmed().split('\n'); QCOMPARE(lines.size(), 2);
-    QCOMPARE(QJsonDocument::fromJson(lines[0]).object()["operation"].toString(), QString("apply"));
-    QCOMPARE(QJsonDocument::fromJson(lines[1]).object()["action"].toString(), QString("appearance-confirm"));
+    const auto lines = calls.readAll().trimmed().split('\n'); QCOMPARE(lines.size(), loadingRequests+2);
+    for (int i=0; i<loadingRequests; ++i)
+      QCOMPARE(QJsonDocument::fromJson(lines[i]).object()["action"].toString(), QString("appearance-load"));
+    const auto review = QJsonDocument::fromJson(lines[loadingRequests]).object();
+    QCOMPARE(review["operation"].toString(), QString("apply"));
+    QCOMPARE(review["options"].toObject()["heading"].toString(), QString("Keep my selected design"));
+    QCOMPARE(QJsonDocument::fromJson(lines.last()).object()["action"].toString(), QString("appearance-confirm"));
   }
   void recoveryReviewNeedsExplicitConfirmation() {
     GrubAppearance page("/no-helper-needed");

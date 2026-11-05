@@ -448,4 +448,52 @@ menuentry 'Manual' { echo manual; }
             with self.subTest(damaged=damaged), self.assertRaises(ValueError): grub.menu_entries(damaged)
 
 
+class MenuAccessTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix='fusion-grub-access-')
+        self.addCleanup(temporary.cleanup); self.root = Path(temporary.name)
+        config = self.root/'boot/grub/grub.cfg'; config.parent.mkdir(parents=True)
+        config.write_text("menuentry 'Fixture Linux' { linux /vmlinuz; }\n")
+        self.store = grub.Store(self.root)
+        for name, value in [('Store', self.store), ('inventory', []), ('firmware', 'uefi'), ('secure_boot', False)]:
+            mock = patch.object(grub, name, return_value=value); mock.start(); self.addCleanup(mock.stop)
+
+    def test_unreadable_boot_menu_requests_authentication_and_clears_stale_entries(self):
+        if os.geteuid() == 0: self.skipTest('Requires an unprivileged reader.')
+        self.store.config.chmod(0)
+        try: result = grub.status_payload()
+        finally: self.store.config.chmod(0o644)
+        self.assertTrue(result['supported']); self.assertEqual(result['menu_revision'], '')
+        self.assertEqual(result['current_entries'], [])
+        self.assertIn('authenticate', result['message'])
+        loaded = grub.status_payload()
+        self.assertTrue(loaded['menu_revision'])
+        self.assertEqual(loaded['current_entries'][0]['name'], 'Fixture Linux')
+
+    def test_private_boot_directory_requires_authentication_during_discovery(self):
+        if os.geteuid() == 0: self.skipTest('Requires an unprivileged reader.')
+        self.store.config.parent.chmod(0)
+        try:
+            with patch.object(grub, 'Store', side_effect=lambda: type(self.store)(self.root)):
+                result = grub.status_payload()
+        finally: self.store.config.parent.chmod(0o755)
+        self.assertTrue(result['supported']); self.assertEqual(result['menu_revision'], '')
+        self.assertIn('authenticate', result['message'])
+
+    def test_private_editor_metadata_does_not_hide_a_readable_menu(self):
+        if os.geteuid() == 0: self.skipTest('Requires an unprivileged reader.')
+        self.store.state.mkdir(parents=True); self.store.state.chmod(0)
+        try: result = grub.status_payload()
+        finally: self.store.state.chmod(0o700)
+        self.assertTrue(result['supported']); self.assertTrue(result['menu_revision'])
+        self.assertEqual(result['current_entries'][0]['name'], 'Fixture Linux')
+
+    def test_unavailable_grub_clears_cached_menu_state(self):
+        with patch.object(grub, 'Store', side_effect=RuntimeError('No installed GRUB configuration')):
+            result = grub.status_payload()
+        self.assertFalse(result['supported']); self.assertEqual(result['menu_revision'], '')
+        self.assertEqual(result['current_entries'], [])
+        self.assertEqual(result['message'], 'No installed GRUB configuration')
+
+
 if __name__=='__main__':unittest.main()

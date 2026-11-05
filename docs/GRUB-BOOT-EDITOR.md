@@ -58,6 +58,19 @@ The preview is a visual guide at 1920 × 1080; firmware resolution and GRUB's
 bitmap font rendering can change text spacing. Scrolling still works in GRUB
 when there are more entries than fit in the menu.
 
+GRUB's text console uses the same wallpaper, aligned to the full screen. Pressing
+Enter to skip the countdown, editing with E, and opening the console with C no
+longer draw a centered black rectangle. Boot messages and errors remain visible.
+Existing installations need one **Review & apply…** of their current design to
+write this presentation update, with the same backup review as any other apply.
+
+If the installed GRUB menu is private, Appearance shows **Load GRUB menu…**.
+Click it and authenticate to replace the sample entries with your actual menu.
+Your chosen theme, picture and text stay in the preview. Loading does not apply a
+design. The button then becomes **Review & apply…**, including when a theme was
+already applied. Cancelling authentication keeps the draft and lets you retry.
+A missing or unsupported GRUB installation keeps its diagnostic visible.
+
 **Review & apply…** authenticates, validates the design and saves recovery
 backups first. It opens a review that says **Take a picture of the screen. Here
 are your backups.** Every file that will be replaced or removed is listed next

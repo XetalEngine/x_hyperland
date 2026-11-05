@@ -600,7 +600,14 @@ class Store:
         self.root = root
         self.state = root/'var/lib/hyper-fusion/grub-editor'
         self.generator = root/GENERATOR.lstrip('/')
-        choices = [root/name for name in ('boot/grub/grub.cfg', 'boot/grub2/grub.cfg') if (root/name).is_file()]
+        choices = []
+        for name in ('boot/grub/grub.cfg', 'boot/grub2/grub.cfg'):
+            path = root/name
+            try: info = path.stat()
+            except (FileNotFoundError, NotADirectoryError): continue
+            # Path.is_file() can hide PermissionError as False. A private boot
+            # directory needs authentication, not a "no GRUB installed" result.
+            if stat.S_ISREG(info.st_mode): choices.append(path)
         if len(choices) != 1:
             raise RuntimeError('A single active GRUB configuration could not be identified. This editor needs an existing GRUB installation.')
         self.config = choices[0]
@@ -810,7 +817,7 @@ def status_payload():
         store = Store()
         payload.update(store.status(), supported=True)
     except PermissionError:
-        payload.update(supported=True, entries=[], revision='', can_undo=False,
+        payload.update(supported=True, entries=[], current_entries=[], menu_revision='', revision='', can_undo=False,
                        message='Choose an entry to edit, or use Add Entry to detect another system.')
         try:
             if store is None: raise PermissionError('The current menu needs authentication.')
@@ -819,7 +826,7 @@ def status_payload():
         except PermissionError:
             payload.update(message='Select Load current menu to authenticate and read your GRUB entries.')
     except (OSError, ValueError, RuntimeError) as error:
-        payload.update(supported=False, message=str(error), entries=[], revision='', can_undo=False)
+        payload.update(supported=False, message=str(error), entries=[], current_entries=[], menu_revision='', revision='', can_undo=False)
     return payload
 
 
@@ -839,6 +846,13 @@ class Session:
                 from grub_appearance import AppearanceStore
                 theme = AppearanceStore(self.store.root, self.store.checker)
                 with theme.locked():
+                    if action == 'appearance-load':
+                        # Authentication loads the real entries and saved-state
+                        # flags only. Keep the design the user is previewing.
+                        appearance = theme.status()
+                        appearance.pop('options', None)
+                        return {**self.store.status(), 'appearance': appearance,
+                                'message': 'GRUB menu loaded. Review your design, then choose Review & apply.'}
                     expected = request.get('appearance_revision')
                     menu_revision = request.get('menu_revision')
                     if action == 'appearance-cancel':

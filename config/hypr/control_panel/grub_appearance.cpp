@@ -139,6 +139,7 @@ GrubAppearance::GrubAppearance(const QString &helper, QWidget *parent) : QWidget
     pictures->setCurrentIndex(index);
   });
   connect(apply, &QPushButton::clicked, this, [this] {
+    if (!readable) { emit requested({{"action", "appearance-load"}}); return; }
     if (previewReady) emit requested({{"action", "appearance-review"}, {"operation", "apply"}, {"options", settings},
       {"appearance_revision", revision}, {"background_sha", backgroundHash}});
   });
@@ -252,10 +253,16 @@ void GrubAppearance::setAvailability(bool working, bool available, bool hasMenu)
 }
 void GrubAppearance::updateActions() {
   content->setEnabled(!busy); themePicker->setEnabled(!busy); reload->setEnabled(!busy && catalog->state() == QProcess::NotRunning);
-  apply->setEnabled(!busy && supported && readable && previewReady);
+  apply->setText(readable ? "Review && apply…" : "Load GRUB menu…");
+  apply->setEnabled(!busy && supported && (!readable || previewReady));
   restore->setEnabled(!busy && supported && readable && active);
   undo->setEnabled(!busy && supported && readable && canUndo);
-  apply->setToolTip(readable ? "Prepare backups and review recovery instructions before saving" : "Load the current GRUB menu first");
+  apply->setToolTip(!supported ? "An existing GRUB installation is required. See the status below." :
+    readable ? "Prepare backups and review recovery instructions before saving" :
+    "Authenticate to read your GRUB menu. Your chosen design stays in preview.");
+  if (previewReady) caption->setText(!supported ? "GRUB is unavailable · See the status below." :
+    !readable ? "Preview only · Choose Load GRUB menu to authenticate and load your boot entries." :
+    "Preview · "+QString(menu.isEmpty() ? "Sample boot entries" : "Your current boot entries")+" · Firmware resolution can affect text spacing.");
 }
 void GrubAppearance::acceptResult(const QJsonObject &data) {
   revision = data["revision"].toString(); active = data["active"].toBool(); canUndo = data["can_undo"].toBool();

@@ -143,7 +143,9 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
   connect(tabs, &QTabWidget::currentChanged, footnote, [this, footnote](int index) {
     footnote->setText(index == 2 ? "Appearance changes are backed up. Boot entries, kernel commands, default system and timeout are kept." :
         "Each change is backed up and checked before saving. Your GRUB theme is kept.");
-    if (index == 2 && !busy) status->setText("Choose a design. Review & apply creates your backups before confirmation.");
+    if (index == 2 && !busy && supported) status->setText(menuRevision.isEmpty() ?
+      "Administrator access is needed to read this GRUB menu. Choose Load GRUB menu to continue." :
+      "Choose a design. Review & apply creates your backups before confirmation.");
   });
 
   reader = new QProcess(this); worker = new QProcess(this);
@@ -416,7 +418,8 @@ void GrubEditor::request(const QJsonObject &data) {
   }
   pending = data; pending["revision"] = revision; pending["menu_revision"] = menuRevision;
   operation = data["action"].toString();
-  status->setText(operation == "scan" ? "Detecting the system. Authenticate if prompted…" : "Working on your boot menu…");
+  status->setText(operation == "scan" ? "Detecting the system. Authenticate if prompted…" :
+    operation == "appearance-load" ? "Loading your GRUB menu. Authenticate if prompted…" : "Working on your boot menu…");
   setBusy(true);
   if (worker->state() == QProcess::Running) {
     worker->write(QJsonDocument(pending).toJson(QJsonDocument::Compact)+'\n'); pending = {};
@@ -493,7 +496,7 @@ void GrubEditor::result(const QJsonObject &data) {
     entries->expandAll();
     if (!entries->currentItem() && entries->topLevelItemCount()) entries->setCurrentItem(entries->topLevelItem(0));
     saved->setText(count ? QString("%1 boot %2 · %3").arg(count).arg(count == 1 ? "entry" : "entries").arg(data["config"].toString()) : "No literal boot entries were found in the current menu.");
-    load->setText("Reload menu"); chooseEntry();
+    load->setText(menuRevision.isEmpty() ? "Load current menu" : "Reload menu"); chooseEntry();
     if (operation == "add" || operation == "edit-current" || operation == "remove-current") tabs->setCurrentIndex(0);
   } else if (menuRevision.isEmpty()) {
     saved->setText("Load your current menu to see its boot entries.");
@@ -518,6 +521,8 @@ void GrubEditor::result(const QJsonObject &data) {
     for (const auto &note : data["notes"].toArray()) messages.append(note.toString());
     notes->setText(messages.join('\n')); notes->setVisible(!messages.isEmpty());
     status->setText(first >= 0 ? "Detected. Choose the name you want in GRUB, then Add to GRUB." : "Choose another drive or check the detection details above.");
+  } else if (tabs->currentIndex() == 2 && supported && menuRevision.isEmpty()) {
+    status->setText("Administrator access is needed to read this GRUB menu. Choose Load GRUB menu to continue.");
   } else status->setText(data.value("message").toString(tabs->currentIndex() == 2 ?
       "Choose a design. Review & apply creates your backups before confirmation." :
       "Select an entry to edit, or open Add Entry to add another system."));

@@ -128,6 +128,21 @@ class AppearanceTests(unittest.TestCase):
             self.store.commit_plan(undo)
         self.assertEqual(self.config.read_bytes(), old)
 
+    def test_authenticated_load_reads_existing_menu_and_flags_without_changing_design(self):
+        self.apply(heading='Already applied')
+        original = {str(p): p.read_bytes() for p in [*self.store.files().values(), self.store.state/'last.json']}
+        backups = set((self.store.state/'backups').iterdir())
+        session = grub.Session.__new__(grub.Session); session.store = grub.Store(self.root); session.appearance_plan = None
+        with patch.object(appearance, 'AppearanceStore', return_value=self.store), patch.object(grub, 'client_alive'):
+            result = session.handle({'action': 'appearance-load', 'menu_revision': ''})
+        self.assertEqual(result['menu_revision'], grub.digest(self.config.read_bytes()))
+        self.assertEqual([e['name'] for e in result['current_entries']], ['Linux', 'Firmware'])
+        self.assertTrue(result['appearance']['active']); self.assertTrue(result['appearance']['can_undo'])
+        self.assertNotIn('options', result['appearance'])  # The GUI keeps the user's new draft.
+        self.assertIsNone(session.appearance_plan)
+        for name, contents in original.items(): self.assertEqual(Path(name).read_bytes(), contents)
+        self.assertEqual(set((self.store.state/'backups').iterdir()), backups)
+
     def test_session_requires_review_and_single_use_unexpired_confirmation(self):
         session = grub.Session.__new__(grub.Session); session.store = grub.Store(self.root); session.appearance_plan = None
         request = {'action': 'appearance-review', 'operation': 'apply', 'options': self.options,
@@ -178,11 +193,18 @@ class AppearanceTests(unittest.TestCase):
         block = current[len(CONFIG):]
         self.assertNotIn('--set=root', block); self.assertNotIn('set default=', block); self.assertNotIn('set timeout=', block)
         self.assertIn('--set=fusion_theme_device', block)
+        self.assertIn('insmod gfxterm_background', block)
+        self.assertIn('background_image -m stretch ($fusion_theme_device)', block)
+        self.assertIn('set color_normal=white/black', block)
         self.assertEqual(subprocess.check_output([str(self.store.generator)]).decode(), block)
         state = self.store.status(); self.assertTrue(state['active']); self.assertTrue(state['can_undo'])
         source = Path(state['options']['background']); self.assertTrue(source.is_file())
         self.assertTrue((source.parent/'theme.txt').is_file())
         self.assertIn('My boot screen', (source.parent/'theme.txt').read_text())
+        theme = (source.parent/'theme.txt').read_text()
+        for setting in ('terminal-left: "0"', 'terminal-top: "0"',
+                        'terminal-width: "100%"', 'terminal-height: "100%"'):
+            self.assertIn(setting, theme)
         self.assertFalse((self.root/'etc/default/grub').exists())
 
     def test_reapply_then_undo_retains_old_design_assets(self):
