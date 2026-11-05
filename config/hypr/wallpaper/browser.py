@@ -153,54 +153,60 @@ class Browser(QWidget):
         self.jobs = Jobs(self); self.thumbnails = Thumbnails(self); self.thumbnails.changed.connect(lambda _: self.update())
         self.background_animation = QVariantAnimation(self); self.background_animation.setDuration(500); self.background_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.background_animation.valueChanged.connect(self.blend_background)
-        layout = QVBoxLayout(self); layout.setContentsMargins(40,30,40,22); layout.setSpacing(14)
-        self.count = label('Opening your collection…', 'muted'); self.count.setWordWrap(False)
-        close = button('✕', self.close); close.setFixedWidth(42); close.setToolTip('Close · Esc / Super+W'); close.setAccessibleName('Close wallpaper browser')
-        self.hero=label('Find your next view.', 'hero'); self.subtitle=label('A little change of scenery.', 'subtitle')
-        if not self.floating:
-            top = QHBoxLayout(); brand = label('YOUR DESKTOP / WALLPAPERS', 'eyebrow'); brand.setWordWrap(False); top.addWidget(brand); top.addStretch()
-            top.addWidget(self.count); top.addWidget(close); layout.addLayout(top)
-            layout.addSpacing(6); layout.addWidget(self.hero); layout.addWidget(self.subtitle); layout.addSpacing(8)
+        self.presentation = None
+        if self.style in ('frame-lab', 'orbit-atlas'):
+            from wallpaper.presentations import Presentation
+            self.presentation = Presentation(self)
         else:
-            for widget in (self.count, self.hero, self.subtitle): widget.setParent(self); widget.hide()
-        toolbar = QFrame(); toolbar.setObjectName('wallpaperToolbar'); bar = QHBoxLayout(toolbar); bar.setContentsMargins(14,10,14,10); bar.setSpacing(10)
-        self.play = button('▶  Slideshow', self.toggle_play); self.play.setToolTip('Preview each image in the carousel. Wallpapers change only when you select one.'); bar.addWidget(self.play)
-        self.collection = QComboBox(); self.collection.addItem('All collections', ''); self.collection.setMinimumWidth(150); self.collection.currentIndexChanged.connect(self.filter); bar.addWidget(self.collection)
-        self.search = QLineEdit(); self.search.setPlaceholderText('Search wallpapers…'); self.search.setClearButtonEnabled(True); self.search.setAccessibleName('Search wallpapers')
-        self.search.textChanged.connect(self.filter); bar.addWidget(self.search,1)
-        self.folder_button = button('＋  Add / remove folders', self.folders); bar.addWidget(self.folder_button)
-        self.toolbar = toolbar
-        if self.floating:
-            bar.addWidget(close); toolbar.setMaximumWidth(1200)
-            centered = QHBoxLayout(); centered.addStretch(); centered.addWidget(toolbar, 1); centered.addStretch(); layout.addLayout(centered)
-        else: layout.addWidget(toolbar)
-        self.carousel = Carousel(self.thumbnails); self.carousel.activated.connect(self.choose); self.carousel.selected.connect(self.selected); self.carousel.interacted.connect(self.pause)
-        self.carousel.backdrop = not self.floating
-        self.search.returnPressed.connect(self.carousel.activate)
-        layout.addWidget(self.carousel,1)
-        info = QHBoxLayout(); self.previous = button('←',lambda:self.carousel.step(-1)); self.previous.setAccessibleName('Previous wallpaper'); self.previous.setFixedWidth(46); info.addWidget(self.previous)
-        self.next = button('→',lambda:self.carousel.step(1)); self.next.setAccessibleName('Next wallpaper'); self.next.setFixedWidth(46); info.addWidget(self.next)
-        details = QVBoxLayout(); self.title = label('Your wallpaper collection','imageTitle'); self.meta = label('','muted'); details.addWidget(self.title); details.addWidget(self.meta); info.addLayout(details,1)
-        effects = QVBoxLayout(); effects.addWidget(label('TRANSITION','eyebrow')); self.transition = QComboBox()
-        for key, title in library.TRANSITIONS.items(): self.transition.addItem(title,key)
-        self.transition.setMinimumWidth(125 if self.floating else 155); self.transition.setAccessibleName('Wallpaper transition'); effects.addWidget(self.transition); info.addLayout(effects)
-        self.apply = button('Use wallpaper  ↗',lambda:self.choose(self.carousel.current()),True); self.apply.setMinimumWidth(170); self.apply.setMinimumHeight(48); info.addWidget(self.apply)
-        bottom = QHBoxLayout(); self.status = label('Scroll or drag to explore · Click an image to choose its display','muted'); bottom.addWidget(self.status,1)
-        self.hint=label('← → Browse    Enter Select    Esc Close','muted'); self.hint.setWordWrap(False); bottom.addWidget(self.hint)
-        if self.floating:
-            self.apply.setMinimumWidth(140)
-            self.previous.setFixedWidth(36); self.next.setFixedWidth(36)
-            self.footer = QFrame(); self.footer.setObjectName('wallpaperToolbar')
-            footer = QVBoxLayout(self.footer); footer.setContentsMargins(18, 12, 18, 12); footer.setSpacing(10)
-            footer.addLayout(info); footer.addLayout(bottom); self.footer.setMaximumWidth(1200)
-            centered = QHBoxLayout(); centered.addStretch(); centered.addWidget(self.footer, 1); centered.addStretch(); layout.addLayout(centered)
-        else:
-            layout.addLayout(info); layout.addSpacing(6); layout.addLayout(bottom)
+            layout = QVBoxLayout(self); layout.setContentsMargins(40,30,40,22); layout.setSpacing(14)
+            self.count = label('Opening your collection…', 'muted'); self.count.setWordWrap(False)
+            close = button('✕', self.close); close.setFixedWidth(42); close.setToolTip('Close · Esc / Super+W'); close.setAccessibleName('Close wallpaper browser')
+            self.hero=label('Find your next view.', 'hero'); self.subtitle=label('A little change of scenery.', 'subtitle')
+            if not self.floating:
+                top = QHBoxLayout(); brand = label('YOUR DESKTOP / WALLPAPERS', 'eyebrow'); brand.setWordWrap(False); top.addWidget(brand); top.addStretch()
+                top.addWidget(self.count); top.addWidget(close); layout.addLayout(top)
+                layout.addSpacing(6); layout.addWidget(self.hero); layout.addWidget(self.subtitle); layout.addSpacing(8)
+            else:
+                for widget in (self.count, self.hero, self.subtitle): widget.setParent(self); widget.hide()
+            toolbar = QFrame(); toolbar.setObjectName('wallpaperToolbar'); bar = QHBoxLayout(toolbar); bar.setContentsMargins(14,10,14,10); bar.setSpacing(10)
+            self.play = button('▶  Slideshow', self.toggle_play); self.play.setToolTip('Preview each image in the carousel. Wallpapers change only when you select one.'); bar.addWidget(self.play)
+            self.collection = QComboBox(); self.collection.addItem('All collections', ''); self.collection.setMinimumWidth(150); self.collection.currentIndexChanged.connect(self.filter); bar.addWidget(self.collection)
+            self.search = QLineEdit(); self.search.setPlaceholderText('Search wallpapers…'); self.search.setClearButtonEnabled(True); self.search.setAccessibleName('Search wallpapers')
+            self.search.textChanged.connect(self.filter); bar.addWidget(self.search,1)
+            self.folder_button = button('＋  Add / remove folders', self.folders); bar.addWidget(self.folder_button)
+            self.toolbar = toolbar
+            if self.floating:
+                bar.addWidget(close); toolbar.setMaximumWidth(1200)
+                centered = QHBoxLayout(); centered.addStretch(); centered.addWidget(toolbar, 1); centered.addStretch(); layout.addLayout(centered)
+            else: layout.addWidget(toolbar)
+            self.carousel = Carousel(self.thumbnails); self.carousel.activated.connect(self.choose); self.carousel.selected.connect(self.selected); self.carousel.interacted.connect(self.pause)
+            self.carousel.backdrop = not self.floating
+            self.search.returnPressed.connect(self.carousel.activate)
+            layout.addWidget(self.carousel,1)
+            info = QHBoxLayout(); self.previous = button('←',lambda:self.carousel.step(-1)); self.previous.setAccessibleName('Previous wallpaper'); self.previous.setFixedWidth(46); info.addWidget(self.previous)
+            self.next = button('→',lambda:self.carousel.step(1)); self.next.setAccessibleName('Next wallpaper'); self.next.setFixedWidth(46); info.addWidget(self.next)
+            details = QVBoxLayout(); self.title = label('Your wallpaper collection','imageTitle'); self.meta = label('','muted'); details.addWidget(self.title); details.addWidget(self.meta); info.addLayout(details,1)
+            effects = QVBoxLayout(); effects.addWidget(label('TRANSITION','eyebrow')); self.transition = QComboBox()
+            for key, title in library.TRANSITIONS.items(): self.transition.addItem(title,key)
+            self.transition.setMinimumWidth(125 if self.floating else 155); self.transition.setAccessibleName('Wallpaper transition'); effects.addWidget(self.transition); info.addLayout(effects)
+            self.apply = button('Use wallpaper  ↗',lambda:self.choose(self.carousel.current()),True); self.apply.setMinimumWidth(170); self.apply.setMinimumHeight(48); info.addWidget(self.apply)
+            bottom = QHBoxLayout(); self.status = label('Scroll or drag to explore · Click an image to choose its display','muted'); bottom.addWidget(self.status,1)
+            self.hint=label('← → Browse    Enter Select    Esc Close','muted'); self.hint.setWordWrap(False); bottom.addWidget(self.hint)
+            if self.floating:
+                self.apply.setMinimumWidth(140)
+                self.previous.setFixedWidth(36); self.next.setFixedWidth(36)
+                self.footer = QFrame(); self.footer.setObjectName('wallpaperToolbar')
+                footer = QVBoxLayout(self.footer); footer.setContentsMargins(18, 12, 18, 12); footer.setSpacing(10)
+                footer.addLayout(info); footer.addLayout(bottom); self.footer.setMaximumWidth(1200)
+                centered = QHBoxLayout(); centered.addStretch(); centered.addWidget(self.footer, 1); centered.addStretch(); layout.addLayout(centered)
+            else:
+                layout.addLayout(info); layout.addSpacing(6); layout.addLayout(bottom)
         self.slideshow = QTimer(self); self.slideshow.setInterval(3500); self.slideshow.timeout.connect(self.advance)
         # Handle Escape before focused editors/combo boxes or another shortcut
         # can consume it. Limit the filter to this browser and its own children.
         QApplication.instance().installEventFilter(self)
         self.focus_search = QShortcut(QKeySequence('Ctrl+F'),self); self.focus_search.activated.connect(self.search.setFocus)
+        self.quick_search = QShortcut(QKeySequence('Ctrl+K'),self); self.quick_search.activated.connect(self.search.setFocus)
         self.space = QShortcut(QKeySequence(Qt.Key.Key_Space),self.carousel); self.space.setContext(Qt.ShortcutContext.WidgetShortcut); self.space.activated.connect(self.toggle_play)
         if error: self.status.setText(error)
         self.transition.setCurrentIndex(self.transition.findData(self.options['transition'])); self.transition.currentIndexChanged.connect(self.change_transition)
@@ -211,6 +217,8 @@ class Browser(QWidget):
         super().resizeEvent(event)
 
     def fit_layout(self, width, height):
+        if self.presentation:
+            self.presentation.fit(width, height); return
         compact=height<760; self.narrow=width<1000
         self.folder_button.setText('Folders…' if self.narrow else '＋  Add / remove folders')
         self.collection.setMinimumWidth(115 if self.narrow else 150); self.hint.setVisible(not self.narrow)
@@ -224,6 +232,8 @@ class Browser(QWidget):
         self.play.setText(('Ⅱ' if self.slideshow.isActive() else '▶') if self.narrow else ('Ⅱ  Pause slideshow' if self.slideshow.isActive() else '▶  Slideshow'))
 
     def paintEvent(self, _):
+        if self.presentation:
+            self.presentation.paint(); return
         if self.floating: return
         p=QPainter(self); p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform); rect=QRectF(self.rect()); p.fillRect(rect,color('Window'))
         for picture, opacity in ((self.previous_background,1-self.background_mix),(self.background,self.background_mix)):
@@ -268,9 +278,11 @@ class Browser(QWidget):
         self.apply.setEnabled(bool(pictures)); self.play.setEnabled(len(pictures)>1)
         self.previous.setEnabled(len(pictures)>1); self.next.setEnabled(len(pictures)>1)
         if not pictures: self.title.setText('No matching wallpapers'); self.meta.setText('Try another collection, search or folder.')
+        if self.presentation: self.presentation.filtered(pictures)
 
     def selected(self, picture):
         self.title.setText(picture.title); self.title.setToolTip(picture.path); self.meta.setText(f'{picture.collection}  ·  {self.carousel.index%len(self.carousel.pictures)+1:02d} / {len(self.carousel.pictures):02d}')
+        if self.presentation: self.presentation.selected(picture)
         if not self.floating and picture!=self.background:
             self.previous_background=self.background; self.background=picture; self.background_animation.stop()
             self.background_animation.setStartValue(0.); self.background_animation.setEndValue(1.)
@@ -281,9 +293,12 @@ class Browser(QWidget):
         if self.slideshow.isActive(): self.pause()
         elif len(self.carousel.pictures)>1:
             self.slideshow.start(); self.play.setText('Ⅱ' if self.narrow else 'Ⅱ  Pause slideshow'); self.status.setText('Slideshow preview · Select an image to set your wallpaper')
+        if self.presentation: self.presentation.playing(self.slideshow.isActive())
 
     def advance(self): self.carousel.step(1,False)
-    def pause(self): self.slideshow.stop(); self.play.setText('▶' if self.narrow else '▶  Slideshow')
+    def pause(self):
+        self.slideshow.stop(); self.play.setText('▶' if self.narrow else '▶  Slideshow')
+        if self.presentation: self.presentation.playing(False)
 
     def folders(self):
         self.pause()
@@ -302,6 +317,7 @@ class Browser(QWidget):
     def set_busy(self, value):
         self.busy=value
         for widget in (self.carousel,self.apply,self.play,self.search,self.collection,self.folder_button,self.transition,self.previous,self.next): widget.setEnabled(not value)
+        if self.presentation: self.presentation.set_busy(value)
 
     def choose(self, picture):
         if self.busy or not picture: return

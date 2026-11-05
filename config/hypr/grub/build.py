@@ -8,11 +8,11 @@ import subprocess
 from PIL import Image, ImageDraw, ImageEnhance, ImageFont
 
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[1]
 THEME = Path(__file__).resolve().parent / "hyper-fusion"
-SOURCE = ROOT / "config/hypr/wallpaper/modern/workstation-1.png"
-PALETTES = ROOT / "config/hypr/theme/palettes.json"
-FONTS = ROOT / "config/hypr/assets/fonts"
+SOURCE = ROOT / "wallpaper/modern/workstation-1.png"
+PALETTES = ROOT / "theme/palettes.json"
+FONTS = ROOT / "assets/fonts"
 SIZE = (1920, 1080)
 
 

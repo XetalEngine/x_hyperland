@@ -45,8 +45,10 @@ def payload_ignored(directory, names):
     ignored = set(shutil.ignore_patterns('__pycache__','*.pyc','*.so','*.o','*.lock','build','.build',
                  'cache','state','font-cache','qt-settings','window-preview','version.txt')(directory, names))
     relative = Path(directory).relative_to(PAYLOAD).as_posix()
-    if relative == '.':
-        ignored.add('grub')  # Optional boot theme stays in the repo; never install it with Hyprland.
+    if relative == 'grub':
+        # Ship appearance assets for Control Panel, never the old one-machine
+        # installer. Copying the profile does not apply a boot theme.
+        ignored.add('apply-this-machine.py')
     if relative == 'launcher':
         ignored.update((*LAUNCHER_DEFAULTS, 'favorite-layout.json', 'floating-sizes.json', 'icons'))
     if relative in ('dolphin/config', 'dolphin/data') or relative.startswith(('dolphin/config/', 'dolphin/data/')):

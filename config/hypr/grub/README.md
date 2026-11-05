@@ -1,15 +1,23 @@
 # Hyper Fusion GRUB theme
 
-This is an optional boot menu theme matching Hyper Fusion's **Modern dark** palette
-and wallpaper. It changes only the graphical menu. It does not change boot entries,
-kernel arguments, the default entry, timeout, or the installed GRUB EFI binary.
+The original boot menu theme matching Hyper Fusion's **Modern dark** palette is
+now available through **Control Panel → GRUB Boot Editor → Appearance**, alongside
+the other bundled Fusion designs. Choose a theme, picture, menu position, text size,
+heading and colors, then use **Apply for next boot**. Previews need no authentication.
+Applying a design preserves boot entries, kernel arguments, the default entry,
+timeout and the installed GRUB EFI binary.
+
+The editor copies its design to the boot filesystem, validates the complete menu,
+and keeps a separate appearance backup and Undo history. **Use system appearance**
+removes the editor's presentation override. Installing/updating Hyprland only copies
+the editor and its assets; it never applies a GRUB theme automatically.
 
 `hyper-fusion/` contains the ready-to-copy theme. To rebuild its PNG and PF2 assets
 from the repository sources, run `python3 config/hypr/grub/build.py` with Pillow and
 `grub-mkfont` installed. The source wallpaper and Inter font are already in the repo.
 `preview.png` is an illustration with sample entries; GRUB renders the actual entries.
 
-## Applying on this inspected machine only
+## Historical one-machine script
 
 The root GRUB configuration here is a hand-written single-entry file. The
 `apply-this-machine.py` script is deliberately specific to its current UUID,
@@ -20,11 +28,12 @@ the candidate with `grub-script-check`, and saves the original config next to it
 Run it **manually**, in a normal terminal outside the Codex sandbox:
 
 ```sh
-sudo python3 /home/xetal/Desktop/x_hyperland/config/hypr/grub/apply-this-machine.py
+sudo python3 config/hypr/grub/apply-this-machine.py
 ```
 
-The script prints the backup path and a one-command rollback. x_hyperland's
-installer and updater omit this folder from their payload.
+The script prints the backup path and a one-command rollback. It remains in the
+source repository for reference; the installer and updater omit that script.
+Use the Appearance tab for current installations.
 
 ## Applying on another installed system
 

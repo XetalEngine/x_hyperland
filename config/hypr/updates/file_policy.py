@@ -42,6 +42,6 @@ PREFERENCES = frozenset({
 
 
 def policy(name):
-    if name in KEEP or name.startswith('launcher/icons/'): return 'keep'
+    if name in KEEP or name.startswith(('launcher/icons/', 'terminal_fetch/logos/')): return 'keep'
     if name in PREFERENCES: return 'preferences'
     return 'release'

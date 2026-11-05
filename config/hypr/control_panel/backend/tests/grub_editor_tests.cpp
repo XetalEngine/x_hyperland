@@ -1,10 +1,58 @@
 #include "grub_editor.h"
+#include "grub_appearance.h"
 #include <QtTest>
 #include <QtWidgets>
 
 class GrubEditorTests final : public QObject {
   Q_OBJECT
 private slots:
+  void appearancePreviewAndExplicitApply() {
+    const auto helper = QFINDTESTDATA("../../grub_appearance.py"); QVERIFY(!helper.isEmpty());
+    GrubAppearance page(helper); page.resize(1500, 800);
+    page.setMenu({QJsonObject{{"name", "My Linux"}, {"kind", "menuentry"}},
+                  QJsonObject{{"name", "UEFI Firmware Settings"}, {"kind", "menuentry"}}});
+    page.setAvailability(false, true, true);
+    QSignalSpy requests(&page, &GrubAppearance::requested); page.show();
+    auto *themes = page.findChild<QListWidget *>("grubAppearanceThemes");
+    auto *apply = page.findChild<QPushButton *>("grubAppearanceApply");
+    auto *caption = page.findChild<QLabel *>("grubPreviewStatus");
+    QTRY_VERIFY_WITH_TIMEOUT(themes->count() >= 9, 10000);
+    QTRY_VERIFY_WITH_TIMEOUT(apply->isEnabled(), 10000);
+    QCOMPARE(requests.count(), 0); QVERIFY(caption->text().contains("Your current boot entries"));
+    themes->setCurrentRow(1);
+    auto *heading = page.findChild<QLineEdit *>("grubAppearanceHeading");
+    QCOMPARE(heading->text(), QString("SHADOW EDGE"));
+    heading->setText("My custom boot screen");
+    page.findChild<QComboBox *>("grubAppearancePosition")->setCurrentIndex(2);
+    page.findChild<QComboBox *>("grubAppearanceTextSize")->setCurrentIndex(2);
+    QTRY_VERIFY_WITH_TIMEOUT(apply->isEnabled(), 10000);
+    QCOMPARE(requests.count(), 0); apply->click(); QCOMPARE(requests.count(), 1);
+    const auto request = qvariant_cast<QJsonObject>(requests.takeFirst().at(0));
+    QCOMPARE(request["action"].toString(), QString("appearance-apply"));
+    QCOMPARE(request["options"].toObject()["heading"].toString(), QString("My custom boot screen"));
+    QCOMPARE(request["options"].toObject()["layout"].toString(), QString("right"));
+    QCOMPARE(request["options"].toObject()["size"].toInt(), 28);
+    QVERIFY(!request["background_sha"].toString().isEmpty());
+    page.setAvailability(true, true, true); QVERIFY(!apply->isEnabled()); QVERIFY(!themes->isEnabled());
+    page.setAvailability(false, true, true);
+    page.acceptResult({{"active", true}, {"can_undo", true}, {"revision", "theme-saved"}});
+    auto *undo = page.findChild<QPushButton *>("grubAppearanceUndo"); QVERIFY(undo->isEnabled());
+    undo->click(); QCOMPARE(qvariant_cast<QJsonObject>(requests.takeFirst().at(0))["appearance_revision"].toString(), QString("theme-saved"));
+    // Rapid edits discard older worker replies, and all controls remain reachable.
+    heading->setText("Earlier draft"); heading->setText("Latest draft");
+    for (int width : {960, 1500}) {
+      page.resize(width, 800); QTest::qWait(50);
+      QVERIFY(page.rect().contains(apply->geometry()));
+      QVERIFY(page.rect().contains(page.findChild<QPushButton *>("grubAppearanceReload")->geometry()));
+    }
+    QTRY_VERIFY_WITH_TIMEOUT(apply->isEnabled(), 10000);
+    if (qEnvironmentVariableIsSet("FUSION_GRUB_APPEARANCE_SCREENSHOT"))
+      QVERIFY(page.grab().save(qEnvironmentVariable("FUSION_GRUB_APPEARANCE_SCREENSHOT")));
+    auto *pictures = page.findChild<QComboBox *>("grubAppearancePicture");
+    pictures->addItem("Missing picture", "/no-such-fusion-picture.png"); pictures->setCurrentIndex(pictures->count()-1);
+    QTRY_VERIFY_WITH_TIMEOUT(!caption->text().contains("Updating"), 10000); QVERIFY(!apply->isEnabled());
+    QCOMPARE(requests.count(), 0);
+  }
   void driveToBootEntry() {
     QTemporaryDir fixture;
     QFile helper(fixture.filePath("helper.py"));
@@ -45,7 +93,8 @@ else:
     auto *tabs = page.findChild<QTabWidget *>("grubTabs");
     auto *status = page.findChild<QLabel *>("grubStatus");
     QTRY_COMPARE(drives->topLevelItemCount(), 8);
-    QCOMPARE(tabs->count(), 2); QCOMPARE(tabs->tabText(0), QString("Current Grub"));
+    QCOMPARE(tabs->count(), 3); QCOMPARE(tabs->tabText(0), QString("Current Grub"));
+    QCOMPARE(tabs->tabText(2), QString("Appearance"));
     QCOMPARE(tabs->tabText(1), QString("Add Entry")); QCOMPARE(tabs->currentIndex(), 0);
     QCOMPARE(entries->topLevelItemCount(), 1); QCOMPARE(entries->topLevelItem(0)->text(0), QString("Existing Linux"));
     tabs->setCurrentIndex(1);

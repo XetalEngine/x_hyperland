@@ -1,4 +1,5 @@
 #include "grub_editor.h"
+#include "grub_appearance.h"
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QProcess>
@@ -44,6 +45,9 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
   auto *addPage = new QWidget(tabs);
   auto *addLayout = new QVBoxLayout(addPage); addLayout->setSpacing(14);
   tabs->addTab(currentPage, "Current Grub"); tabs->addTab(addPage, "Add Entry");
+  appearance = new GrubAppearance(QFileInfo(helper).dir().filePath("grub_appearance.py"), tabs);
+  tabs->addTab(appearance, "Appearance");
+  connect(appearance, &GrubAppearance::requested, this, &GrubEditor::request);
   layout->addWidget(tabs, 1);
   currentLayout->addWidget(label("Your current boot menu. Select an entry to edit its name or boot commands, or remove it from the menu.", currentPage));
   addLayout->addWidget(label("Choose a drive, detect its bootable systems, and add the one you want to your current GRUB menu.", addPage));
@@ -133,7 +137,12 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
   savedActions->addWidget(load); savedActions->addWidget(rename); savedActions->addWidget(remove);
   savedActions->addStretch(); savedActions->addWidget(undo);
   savedLayout->addLayout(savedActions); currentLayout->addWidget(savedBox, 1);
-  layout->addWidget(label("Each change is backed up and checked before saving. Your GRUB theme is kept.", this, "muted"));
+  auto *footnote = label("Each change is backed up and checked before saving. Your GRUB theme is kept.", this, "muted");
+  layout->addWidget(footnote);
+  connect(tabs, &QTabWidget::currentChanged, footnote, [footnote](int index) {
+    footnote->setText(index == 2 ? "Appearance changes are backed up. Boot entries, kernel commands, default system and timeout are kept." :
+        "Each change is backed up and checked before saving. Your GRUB theme is kept.");
+  });
 
   reader = new QProcess(this); worker = new QProcess(this);
   connect(refresh, &QPushButton::clicked, this, &GrubEditor::refreshDrives);
@@ -193,7 +202,7 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
   connect(worker, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this, [this](int code, QProcess::ExitStatus) {
     readWorker();
     if (busy) {
-      status->setText(code == 126 ? "Administrator authentication was cancelled. Select the drive again to retry." :
+      status->setText(code == 126 ? "Administrator authentication was cancelled. Nothing was changed." :
                        "The GRUB helper stopped. "+QString::fromUtf8(errors).trimmed());
       setBusy(false);
     }
@@ -226,6 +235,7 @@ QJsonObject GrubEditor::drive() const {
 }
 void GrubEditor::setBusy(bool value) { busy = value; progress->setVisible(value); updateActions(); }
 void GrubEditor::updateActions() {
+  appearance->setAvailability(busy, supported, !menuRevision.isEmpty());
   drives->setEnabled(!busy); refresh->setEnabled(!busy);
   detect->setEnabled(!busy && supported && !drive().isEmpty());
   properties->setEnabled(!drive().isEmpty());
@@ -439,6 +449,7 @@ void GrubEditor::result(const QJsonObject &data) {
   if (data.contains("can_undo")) canUndo = data["can_undo"].toBool();
   if (data.contains("entries")) managedEntries = data["entries"].toArray();
   if (data.contains("current_entries")) {
+    appearance->setMenu(data["current_entries"].toArray());
     const auto previous = entry()["id"].toString();
     QHash<QString, QTreeWidgetItem *> rows;
     const QSignalBlocker guard(entries);
@@ -488,4 +499,5 @@ void GrubEditor::result(const QJsonObject &data) {
     status->setText(first >= 0 ? "Detected. Choose the name you want in GRUB, then Add to GRUB." : "Choose another drive or check the detection details above.");
   } else status->setText(data.value("message").toString("Select an entry to edit, or open Add Entry to add another system."));
   if (data.contains("backup")) saved->setToolTip("Backup: "+data["backup"].toString());
+  if (data.contains("appearance")) appearance->acceptResult(data["appearance"].toObject());
 }

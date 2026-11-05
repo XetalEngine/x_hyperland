@@ -12,10 +12,13 @@ EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.bmp', '.avif'}
 TRANSITIONS = {'random': 'Random', 'bloom': 'Bloom', 'fade': 'Crossfade', 'sweep': 'Silk sweep',
                'ripple': 'Ripple', 'iris': 'Iris', 'glide': 'Glide', 'none': 'Instant'}
 ANIMATED_TRANSITIONS = tuple(key for key in TRANSITIONS if key not in ('random', 'none'))
-STYLES = {'overlay': 'Floating cards', 'window': 'Gallery window'}
+STYLES = {'overlay': 'Floating cards', 'window': 'Gallery window',
+          'frame-lab': 'Frame Lab', 'orbit-atlas': 'Orbit Atlas'}
 DESCRIPTIONS = {
     'window': 'The original gallery with a soft backdrop, reflections and a flowing wallpaper ribbon.',
     'overlay': 'Wallpaper cards float directly over your desktop, with compact controls and no background window.',
+    'frame-lab': 'A brass-trimmed wallpaper studio with a filmstrip, collection shelves and a large preview.',
+    'orbit-atlas': 'A midnight gallery with luminous orbits, floating previews and a quiet teal glow.',
 }
 DEFAULTS = {'version': 1, 'folders': [], 'bundled': True, 'transition': 'bloom', 'style': 'overlay'}
 
@@ -111,7 +114,7 @@ def scan(options, root=None, cancelled=lambda: False, limit=20000):
         except OSError: pass
 
     if options['bundled']:
-        names = {'raw': 'Original', 'modern': 'Xetal Modern', 'breakpoint': 'Breakpoint', 'binaryknife': 'Binary Knife', 'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud', 'shadowedge': 'Shadow Edge'}
+        names = {'raw': 'Original', 'modern': 'Xetal Modern', 'breakpoint': 'Breakpoint', 'binaryknife': 'Binary Knife', 'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud', 'shadowedge': 'Shadow Edge', 'hollowgrove': 'Hollow Grove'}
         try:
             catalog = json.loads((root/'sets.json').read_text())
             for collection, paths in catalog.items():

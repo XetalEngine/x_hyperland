@@ -130,7 +130,7 @@ class BrowserTests(unittest.TestCase):
             self.window.pick_screen(self.window.pictures[0],(sample_monitors()[:1],{})); picker.assert_not_called(); apply.assert_called_once()
 
     def test_escape_closes_from_each_control_and_with_competing_shortcut(self):
-        for style in ('window', 'overlay'):
+        for style in library.STYLES:
             for control in ('carousel', 'search', 'collection', 'transition', 'apply'):
                 with self.subTest(style=style, control=control):
                     window = Browser(preview=True, style=style)
@@ -229,7 +229,10 @@ class SelectorTests(unittest.TestCase):
             expected=library.read(); library.save({**expected,'transition':'sweep','folders':[name]},expected)
             control=SelectorSettings(run)
             try:
-                control.style.setCurrentIndex(control.style.findData('window'))
+                for style in library.STYLES:
+                    control.style.setCurrentIndex(control.style.findData(style))
+                    self.assertEqual(library.read()['style'], style)
+                    self.assertEqual(control.description.text(), library.DESCRIPTIONS[style])
                 control.style.setCurrentIndex(control.style.findData('overlay'))
                 saved=library.read(); self.assertEqual(saved['style'],'overlay')
                 self.assertEqual(saved['transition'],'sweep'); self.assertEqual(saved['folders'],[name])
@@ -239,6 +242,112 @@ class SelectorTests(unittest.TestCase):
                 self.assertEqual(control.style.currentData(),'window')
             finally:
                 control.deleteLater(); app.processEvents()
+
+
+class PresentationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication([]); cls.app.setQuitOnLastWindowClosed(False)
+
+    def setUp(self):
+        for mock in (patch.object(library, 'read', return_value=library.normalize(library.DEFAULTS)),
+                     patch.object(Browser, 'scan')):
+            mock.start(); self.addCleanup(mock.stop)
+        self.windows = []
+        self.pictures = [library.Picture(str(library.ROOT / style / f'workstation-{i}.png'), title)
+                         for style, title in [('raw', 'Original'), ('modern', 'Modern'), ('breakpoint', 'Breakpoint')]
+                         for i in (1, 2, 3)]
+
+    def tearDown(self):
+        for window in self.windows:
+            window.hide(); window.shutdown(); window.deleteLater()
+        self.app.processEvents()
+
+    def window(self, style):
+        window = Browser(preview=True, style=style); self.windows.append(window)
+        window.scanned(window.cancel_scan, (self.pictures, [], ''))
+        window.carousel.reduced_motion = True; window.resize(1440, 850); window.show(); QTest.qWait(30)
+        return window
+
+    def test_thumbnails_preview_until_user_explicitly_applies(self):
+        for style in ('frame-lab', 'orbit-atlas'):
+            with self.subTest(style=style):
+                window = self.window(style); scene = window.presentation.strip or window.carousel
+                hero = window.carousel.boxes[-1][1] if style == 'orbit-atlas' else None
+                index, path = next((i, path) for i, path in scene.boxes
+                    if i % len(window.carousel.pictures) != window.carousel.index % len(window.carousel.pictures)
+                    and scene.rect().contains(path.boundingRect().center().toPoint())
+                    and (hero is None or not hero.contains(path.boundingRect().center())))
+                with patch.object(window, 'pick_screen') as apply:
+                    QTest.mouseClick(scene, Qt.MouseButton.LeftButton, pos=path.boundingRect().center().toPoint())
+                    self.assertEqual(window.carousel.current(), self.pictures[index % len(self.pictures)])
+                    apply.assert_not_called()
+                    QTest.keyClick(window.carousel, Qt.Key.Key_Right)
+                    apply.assert_not_called()
+                    self.assertEqual(window.presentation.counter.text(), f'{(index + 1) % len(self.pictures) + 1:02d} / 09')
+                    QTest.keyClick(window.carousel, Qt.Key.Key_Return)
+                    self.assertEqual(apply.call_args.args[0], window.carousel.current())
+                    self.assertTrue(window.busy); self.assertFalse(window.presentation.collections.isEnabled())
+                    window.set_busy(False)
+
+    def test_collection_search_slideshow_and_empty_results_share_selection(self):
+        for style in ('frame-lab', 'orbit-atlas'):
+            with self.subTest(style=style):
+                window = self.window(style)
+                window.presentation.collections.setCurrentRow(2)
+                self.assertEqual(window.collection.currentData(), 'Modern')
+                self.assertTrue(all(p.collection == 'Modern' for p in window.carousel.pictures))
+                self.assertEqual(window.presentation.seek.maximum(), 2)
+                with patch.object(window, 'begin_apply') as apply:
+                    window.toggle_play(); self.assertTrue(window.play.isChecked()); window.advance()
+                    self.assertEqual(window.carousel.current(), self.pictures[4])
+                    window.search.setText('workstation 3'); self.assertFalse(window.play.isChecked())
+                    self.assertEqual(window.carousel.current(), self.pictures[5])
+                    window.search.setText('not a wallpaper'); self.assertIsNone(window.carousel.current())
+                    self.assertFalse(window.apply.isEnabled()); self.assertFalse(window.play.isEnabled())
+                    self.assertEqual(window.presentation.counter.text(), '00 / 00'); apply.assert_not_called()
+                    window.search.clear(); self.assertEqual(len(window.carousel.pictures), 3)
+
+    def test_small_and_large_layouts_keep_actions_reachable(self):
+        for style in ('frame-lab', 'orbit-atlas'):
+            with self.subTest(style=style):
+                window = self.window(style)
+                for width, height in ((960, 700), (1440, 850)):
+                    # place() resolves the selected monitor and fits controls
+                    # before imposing its available size on the window.
+                    window.fit_layout(width, height); window.resize(width, height); QTest.qWait(25)
+                    self.assertLessEqual(window.width(), width); self.assertLessEqual(window.height(), height)
+                    self.assertEqual(window.presentation.sidebar.isVisible(), width >= 1120)
+                    for widget in (window.search, window.collection, window.folder_button, window.apply, window.transition):
+                        self.assertTrue(widget.isVisible(), widget.objectName())
+                        point = widget.mapTo(window, widget.rect().center())
+                        self.assertTrue(window.rect().contains(point), (style, widget.objectName(), point))
+                    self.assertEqual(window.play.height(), window.play.width())
+
+    def test_display_selection_cancel_and_confirm_use_shared_backend(self):
+        for style in ('frame-lab', 'orbit-atlas'):
+            with self.subTest(style=style):
+                window = self.window(style)
+                with patch.object(window, 'begin_apply') as apply, patch('wallpaper.browser.ScreenPicker') as picker:
+                    picker.return_value.exec.return_value = QDialog.DialogCode.Rejected
+                    window.choose(window.carousel.current()); apply.assert_not_called(); self.assertFalse(window.busy)
+                    picker.return_value.exec.return_value = QDialog.DialogCode.Accepted
+                    picker.return_value.selected = sample_monitors()[1]
+                    window.choose(window.carousel.current()); self.assertEqual(apply.call_args.args[1]['name'], 'DP-2')
+                    window.set_busy(False)
+
+    def test_stale_metadata_cannot_replace_selected_image_details(self):
+        for style in ('frame-lab', 'orbit-atlas'):
+            with self.subTest(style=style):
+                window = self.window(style); first = window.carousel.current()
+                window.carousel.step(1); current = window.carousel.current()
+                window.presentation.show_metadata(current.path, (2560, 1440, 'PNG'))
+                window.presentation.show_metadata(first.path, (100, 100, 'JPEG'))
+                self.assertEqual(window.presentation.resolution.text(), '2560 × 1440')
+                self.assertEqual(window.presentation.format.text(), 'PNG')
+                window.search.setText('missing picture')
+                window.presentation.show_metadata(current.path, (2560, 1440, 'PNG'))
+                self.assertEqual(window.presentation.resolution.text(), '—')
 
 
 if __name__=='__main__': unittest.main()

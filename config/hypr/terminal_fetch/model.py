@@ -23,7 +23,7 @@ import runtime
 FIELDS = {'os': 'OS', 'kernel': 'Kernel', 'uptime': 'Uptime', 'cpu': 'CPU', 'gpu': 'GPU',
           'memory': 'Memory', 'disk': 'Disk', 'shell': 'Shell', 'terminal': 'Terminal',
           'wm': 'Desktop', 'packages': 'Packages'}
-DEFAULTS = {'version': 1, 'enabled': True, 'logo': 'arch', 'show_user': True, 'show_palette': True,
+DEFAULTS = {'version': 1, 'enabled': True, 'logo': 'arch', 'logo_image': '', 'show_user': True, 'show_palette': True,
             'fields': list(FIELDS)}
 ARCH = [
     '              ▄              ',
@@ -55,8 +55,13 @@ def validate(value):
     for key in ('enabled', 'show_user', 'show_palette'):
         if type(value.get(key, result[key])) is not bool: raise ValueError('Invalid ' + key + ' option.')
         result[key] = value.get(key, result[key])
-    if value.get('logo', 'arch') not in ('arch', 'arch-ascii', 'fusion', 'none'): raise ValueError('Choose a supported logo.')
+    if value.get('logo', 'arch') not in ('arch', 'arch-ascii', 'fusion', 'custom', 'none'): raise ValueError('Choose a supported logo.')
     result['logo'] = value.get('logo', 'arch')
+    image = value.get('logo_image', '')
+    if not isinstance(image, str) or (image and not re.fullmatch(r'[a-f0-9]{64}\.png', image)):
+        raise ValueError('Choose a supported logo image.')
+    if result['logo'] == 'custom' and not image: raise ValueError('Choose an image for your custom logo.')
+    result['logo_image'] = image
     fields = value.get('fields', list(FIELDS))
     if not isinstance(fields, list) or any(not isinstance(f, str) or f not in FIELDS for f in fields) or len(fields) != len(set(fields)):
         raise ValueError('Invalid information fields.')
@@ -67,6 +72,12 @@ def validate(value):
 def load(path=None):
     path = path or ROOT / 'settings.json'
     return validate(json.loads(path.read_text())) if path.exists() else copy.deepcopy(DEFAULTS)
+
+
+def logo_path(settings):
+    """Only imported images inside this Hyprland profile may be displayed."""
+    name = validate(settings)['logo_image']
+    return ROOT / 'logos' / name if name else None
 
 
 def save(value, path=None, expected=None):
@@ -193,12 +204,16 @@ def main():
     width = shutil.get_terminal_size((110, 24)).columns
     colored = not args.plain and sys.stdout.isatty()
     prefix = ''; image_logo = None
-    if (colored and settings['logo'] == 'arch' and width >= 72
+    if (colored and settings['logo'] in ('arch', 'custom') and width >= 72
             and os.environ.get('TERM') == 'xterm-kitty'
             and not os.environ.get('TMUX') and not os.environ.get('STY')):
         try:
-            import artwork
-            prefix, lines, color = artwork.kitty_image(runtime.colors())
+            if __package__:
+                from . import artwork
+            else:
+                import artwork
+            prefix, lines, color = artwork.kitty_image(runtime.colors(),
+                path=logo_path(settings) if settings['logo'] == 'custom' else None)
             image_logo = (lines, color)
         except (ImportError, OSError, ValueError):
             pass  # Keep a readable theme-colored text logo if graphics fail.

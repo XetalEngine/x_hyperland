@@ -1,4 +1,6 @@
 import copy
+import io
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -23,6 +25,51 @@ class FetchTests(unittest.TestCase):
     def test_disabled_welcome_does_not_probe_system(self):
         with patch.object(model,'load',return_value={**model.DEFAULTS,'enabled':False}),patch.object(model.sys,'argv',['fetch']),patch.object(model,'system_data') as probe:
             self.assertEqual(model.main(),0);probe.assert_not_called()
+
+    def test_existing_settings_and_managed_image_paths(self):
+        legacy = {key: value for key, value in model.DEFAULTS.items() if key != 'logo_image'}
+        self.assertEqual(model.validate(legacy), model.DEFAULTS)
+        name = 'c' * 64 + '.png'
+        settings = model.validate({**legacy, 'logo': 'custom', 'logo_image': name})
+        self.assertEqual(model.logo_path(settings), model.ROOT / 'logos' / name)
+        for name in ('', '../image.png', '/tmp/image.png', 'file:///tmp/image.png', None):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                model.validate({**legacy, 'logo': 'custom', 'logo_image': name})
+
+    def test_custom_image_is_sent_to_kitty_only_when_supported(self):
+        import artwork
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); (root / 'logos').mkdir(); name = 'd' * 64 + '.png'
+            path = root / 'logos' / name; path.write_bytes(b'preview image data')
+            settings = {**model.DEFAULTS, 'logo': 'custom', 'logo_image': name}
+            for term, width, multiplexed, plain, graphical in (
+                    ('xterm-kitty', 110, False, False, True),
+                    ('xterm-256color', 110, False, False, False),
+                    ('xterm-kitty', 60, False, False, False),
+                    ('xterm-kitty', 110, True, False, False),
+                    ('xterm-kitty', 110, False, True, False)):
+                output = io.StringIO(); output.isatty = lambda: True
+                with self.subTest(term=term, width=width, multiplexed=multiplexed, plain=plain), \
+                        patch.object(model, 'ROOT', root), patch.object(model, 'load', return_value=settings), \
+                        patch.object(model, 'system_data', return_value={'os': 'Test OS'}), \
+                        patch.object(model.sys, 'stdout', output), \
+                        patch.object(model.sys, 'argv', ['fetch', *(['--plain'] if plain else [])]), \
+                        patch.object(model.shutil, 'get_terminal_size', return_value=os.terminal_size((width, 24))), \
+                        patch.dict(os.environ, {'TERM': term, 'TMUX': 'test' if multiplexed else '', 'STY': ''}), \
+                        patch.object(artwork, 'kitty_image', wraps=artwork.kitty_image) as graphic:
+                    self.assertEqual(model.main(), 0)
+                    if graphical:
+                        graphic.assert_called_once_with(model.runtime.colors(), path=path)
+                        self.assertIn('\x1b_Ga=T,f=100,U=1,', output.getvalue())
+                    else: graphic.assert_not_called()
+                    self.assertIn('Test OS', output.getvalue())
+            path.unlink()
+            with patch.object(model, 'ROOT', root), patch.object(model, 'load', return_value=settings), \
+                    patch.object(model, 'system_data', return_value={'os': 'Still readable'}), \
+                    patch.object(model.sys, 'stdout', output), patch.object(model.sys, 'argv', ['fetch']), \
+                    patch.dict(os.environ, {'TERM': 'xterm-kitty', 'TMUX': '', 'STY': ''}):
+                self.assertEqual(model.main(), 0)
+                self.assertIn('Still readable', output.getvalue())
 
 
 if __name__=='__main__':unittest.main()

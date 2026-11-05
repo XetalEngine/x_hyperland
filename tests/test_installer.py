@@ -394,6 +394,12 @@ class InstallerTests(unittest.TestCase):
             self.assertFalse(forbidden.intersection(p.parts),str(p))
             self.assertNotIn(p.suffix,{'.so','.o','.a'},str(p))
 
+    def test_grub_design_assets_ship_without_the_machine_specific_installer(self):
+        self.assertNotIn('grub', install.payload_ignored(install.PAYLOAD, ['grub']))
+        ignored = install.payload_ignored(install.PAYLOAD/'grub', ['hyper-fusion', 'apply-this-machine.py'])
+        self.assertIn('apply-this-machine.py', ignored)
+        self.assertNotIn('hyper-fusion', ignored)
+
     def test_native_effect_failure_prevents_an_incomplete_desktop_install(self):
         def command(args,**kwargs):
             optional=any(str(args[-1]).endswith('/effects/'+name+'/build.py') for name in ('burn','cube'))

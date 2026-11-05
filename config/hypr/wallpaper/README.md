@@ -5,7 +5,7 @@ Left/Right to browse. Click any image or press Enter to select it. Search and
 collection filters help find a picture; **Slideshow** previews images without
 changing your desktop until you choose one.
 
-**Esc** closes either browser style, including while the search box or toolbar
+**Esc** closes any browser style, including while the search box or toolbar
 has focus. If a folder or display dialog is open, Esc cancels that dialog first.
 An active wallpaper apply finishes before the browser can close.
 
@@ -15,11 +15,26 @@ collection. If that image is outside your selected folders, it appears as
 **Current wallpaper** for that opening without changing your folder choices.
 
 Open **Theme → Wallpapers → Wallpaper Selector** to choose **Floating cards**
-(the default) or **Gallery window** (the original design). Floating cards shows the ribbon and
+(the default), **Gallery window** (the original design), **Frame Lab**, or
+**Orbit Atlas**. Floating cards shows the ribbon and
 compact controls directly over your desktop, with no enclosing window, blur or
 shadow. The style saves automatically and is used by Super+W. **Open Wallpaper
 Selector** also brings an existing selector forward using the saved style.
-Both styles share your folders, slideshow and monitor selection.
+All four styles share your folders, slideshow, transitions and monitor selection.
+
+**Frame Lab** is a warm brass studio with collection shelves, a large preview,
+image information and a curved filmstrip. Drag or scroll the filmstrip, use the
+collection slider, or press Left/Right to browse. **Orbit Atlas** is a midnight
+teal gallery with thumbnails arranged around a luminous orbit. Click a satellite
+to bring its wallpaper into the main preview. In these two styles, clicking a
+thumbnail previews it; **Use wallpaper**, Enter or double-clicking the main
+preview opens the display picker. Slideshow previews never change the desktop.
+Ctrl+F or Ctrl+K focuses search. On shorter windows, image information scrolls
+inside its card while the transition and apply controls stay available.
+
+These two gallery designs keep their own visual palettes with any desktop theme.
+They show your actual image dimensions and format and use the same image library
+as the original selectors.
 
 All bundled theme wallpapers appear by default. **Add / remove folders** adds
 personal folders, including their subfolders, or hides the bundled collection.
@@ -59,6 +74,7 @@ the helper. The browser uses the same PyQt6 and profile theme as Fusion Settings
 python3 config/hypr/wallpaper/build.py
 QT_QPA_PLATFORM=offscreen python3 config/hypr/wallpaper/test_browser.py
 python3 tests/check-wallpaper.py /tmp/new-wallpaper-check
+python3 tests/check-wallpaper.py /tmp/new-gallery-check --browser-only
 ```
 
 The integration check uses a separate compositor, hyprpaper instance and saved

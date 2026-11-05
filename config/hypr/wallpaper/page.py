@@ -30,7 +30,7 @@ class SelectorSettings(QGroupBox):
         self.baseline = values; self.busy = False; self.style.setEnabled(True); self.open.setEnabled(True)
         self.style.blockSignals(True); self.style.setCurrentIndex(self.style.findData(values['style'])); self.style.blockSignals(False)
         self.description.setText(library.DESCRIPTIONS[values['style']])
-        self.status.setText('Your style is saved automatically. Both styles share your folders and wallpaper transitions.')
+        self.status.setText('Your style is saved automatically. All styles share your folders and wallpaper transitions.')
 
     def changed(self):
         if self.busy or self.baseline is None: return

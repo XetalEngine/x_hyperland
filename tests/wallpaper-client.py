@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import sys
 root=Path(sys.argv[1]); sys.path[:0]=[str(root),str(root/'theme'),str(root/'control_center')]
-from PyQt6.QtCore import QSocketNotifier, QTimer, Qt
+from PyQt6.QtCore import QSocketNotifier, QTimer, Qt, QCoreApplication, QEvent
 from PyQt6.QtWidgets import QApplication
 from wallpaper.browser import Browser, ScreenPicker, MonitorMap, runtime, STYLE, place, settings
 
@@ -20,10 +20,15 @@ def read():
         data=json.loads(line); op=data['op']; answer='ok'
         if op=='status':
             answer={'busy':window.busy,'visible':window.isVisible(),'completed':window.completed,'pictures':len(window.pictures),
+                    'style':window.style,'filtered':len(window.carousel.pictures),
                     'dialog':type(window.dialog).__name__ if window.dialog else '', 'status':window.status.text(),
                     'monitor':window.monitor_name,'selected':window.carousel.current().path if window.carousel.current() else ''}
         elif op=='choose':
             picture=next(p for p in window.pictures if p.path==data['path']); QTimer.singleShot(0,lambda:window.choose(picture))
+        elif op=='browse': window.carousel.step(data['step'])
+        elif op=='search': window.search.setText(data['text'])
+        elif op=='collection': window.collection.setCurrentIndex(window.collection.findData(data['name']))
+        elif op=='apply': QTimer.singleShot(0,window.apply.click)
         elif op=='select':
             dialog=window.dialog; assert isinstance(dialog,ScreenPicker)
             screen=next(b for b in dialog.findChild(MonitorMap).buttons if b.model['name']==data['name']); screen.click()
@@ -36,6 +41,9 @@ def read():
     except Exception as error: print(json.dumps({'error':str(error)}),flush=True)
 notifier.activated.connect(read)
 try: code=app.exec()
-finally: window.shutdown()
+finally:
+    notifier.setEnabled(False); window.hide(); window.shutdown()
+    notifier.deleteLater(); window.deleteLater()
+    QCoreApplication.sendPostedEvents(None,QEvent.Type.DeferredDelete)
 print('Browser driver event loop exited: '+str(code),file=sys.stderr,flush=True)
 raise SystemExit(code)

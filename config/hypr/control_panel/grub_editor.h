@@ -12,6 +12,7 @@ class QProcess;
 class QProgressBar;
 class QPushButton;
 class QTabWidget;
+class GrubAppearance;
 
 class GrubEditor final : public QWidget {
   Q_OBJECT
@@ -29,6 +30,7 @@ private:
   QJsonArray managedEntries;
   QBoxLayout *choicesLayout;
   QTabWidget *tabs;
+  GrubAppearance *appearance;
   QTreeWidget *drives, *entries;
   QListWidget *systems;
   QLineEdit *name;

@@ -59,9 +59,50 @@ def png(colors):
     return target
 
 
-def kitty_image(colors):
+def import_logo(source, directory):
+    """Keep a bounded PNG copy, independent of the original image's location."""
+    from PyQt6.QtCore import QByteArray, QBuffer, QIODevice, QSize, Qt
+    from PyQt6.QtGui import QImage, QImageReader, QPainter
+    source = Path(source)
+    # Read at most the input limit even if the source changes while reading.
+    with source.open('rb') as stream:
+        data = stream.read(16 * 1024 * 1024 + 1)
+    if len(data) > 16 * 1024 * 1024: raise ValueError('Choose an image smaller than 16 MB.')
+    buffer = QBuffer(); buffer.setData(QByteArray(data)); buffer.open(QIODevice.OpenModeFlag.ReadOnly)
+    reader = QImageReader(buffer); reader.setAutoTransform(True)
+    if bytes(reader.format()).lower() not in (b'png', b'jpeg', b'jpg', b'webp', b'svg', b'bmp'):
+        raise ValueError('Choose a PNG, JPEG, WebP, SVG or BMP image.')
+    size = reader.size()
+    if not size.isValid() or max(size.width(), size.height()) > 16384 or size.width() * size.height() > 40_000_000:
+        raise ValueError('Choose an image up to 40 megapixels and 16,384 pixels per side.')
+    if max(size.width(), size.height()) > 480:
+        reader.setScaledSize(size.scaled(QSize(480, 480), Qt.AspectRatioMode.KeepAspectRatio))
+    original = reader.read()
+    if original.isNull(): raise ValueError('This image could not be opened. Try another image.')
+    original = original.scaled(480, 480, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+    image = QImage(480, 480, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(image)
+    painter.drawImage((480 - original.width()) // 2, (480 - original.height()) // 2, original)
+    painter.end()
+    output = QBuffer(); output.open(QIODevice.OpenModeFlag.WriteOnly)
+    if not image.save(output, 'PNG'): raise ValueError('This image could not be prepared for the terminal.')
+    encoded = bytes(output.data())
+    directory = Path(directory); directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    target = directory / (hashlib.sha256(encoded).hexdigest() + '.png')
+    if target.is_file() and target.read_bytes() == encoded: return target
+    fd, temporary = tempfile.mkstemp(prefix='.logo-', suffix='.png', dir=directory)
+    try:
+        with os.fdopen(fd, 'wb') as stream: stream.write(encoded)
+        os.replace(temporary, target)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+    return target
+
+
+def kitty_image(colors, path=None):
     """Return quiet image transmission, placeholder rows and their ID color."""
-    data = base64.b64encode(png(colors).read_bytes()).decode('ascii')
+    data = base64.b64encode((path if path is not None else png(colors)).read_bytes()).decode('ascii')
     image_id = secrets.randbelow(0xfffffe) + 1
     chunks = []
     for offset in range(0, len(data), 4096):

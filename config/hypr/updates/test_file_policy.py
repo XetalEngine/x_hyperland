@@ -195,6 +195,7 @@ class FilePolicyTests(unittest.TestCase):
             with self.subTest(name=name): self.assertEqual(file_policy.policy(name), 'release')
         for name in file_policy.PREFERENCES:
             with self.subTest(name=name): self.assertEqual(file_policy.policy(name), 'preferences')
+        self.assertEqual(file_policy.policy('terminal_fetch/logos/' + 'a' * 64 + '.png'), 'keep')
 
 
 if __name__ == '__main__': unittest.main()

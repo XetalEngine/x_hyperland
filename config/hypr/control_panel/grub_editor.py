@@ -805,6 +805,30 @@ class Session:
     def handle(self, request):
         action = request.get('action')
         with self.store.locked():
+            if isinstance(action, str) and action.startswith('appearance-'):
+                # Share the menu editor lock, so appearance and entry changes
+                # cannot race. Appearance keeps a separate undo history.
+                sys.path.insert(0, str(Path(__file__).resolve().parent))
+                from grub_appearance import AppearanceStore
+                theme = AppearanceStore(self.store.root, self.store.checker)
+                with theme.locked():
+                    expected = request.get('appearance_revision')
+                    menu_revision = request.get('menu_revision')
+                    if menu_revision != digest(theme.config.read_bytes()):
+                        raise RuntimeError('The boot menu changed. Reload the current menu before changing its appearance.')
+                    if action == 'appearance-apply':
+                        emit({'progress': 'Preparing your design and checking the boot menu…'})
+                        backup = theme.apply(request.get('options'), expected, menu_revision,
+                                             request.get('background_sha', ''), client_alive)
+                        message = 'Appearance saved for your next restart. Boot entries and startup options are unchanged.'
+                    elif action == 'appearance-system':
+                        backup = theme.system_appearance(expected, menu_revision, client_alive)
+                        message = 'The previous system appearance is restored for your next restart.'
+                    elif action == 'appearance-undo':
+                        theme.undo(expected or theme.revision(), client_alive)
+                        backup = ''; message = 'The last appearance change was undone.'
+                    else: raise ValueError('Unknown appearance action.')
+                    return {**self.store.status(), 'appearance': theme.status(), 'backup': backup, 'message': message}
             if action == 'refresh': return status_payload()
             if action in ('scan', 'add'):
                 drives = inventory()

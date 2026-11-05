@@ -42,6 +42,8 @@ set(PROJECT_SOURCES
     ../default_apps.h
     ../grub_editor.cpp
     ../grub_editor.h
+    ../grub_appearance.cpp
+    ../grub_appearance.h
     ../runtime_log_guard.cpp
     ../runtime_log_guard.h
         mainwindow.cpp
@@ -134,7 +136,7 @@ option(BUILD_GRUB_EDITOR_TESTS "Build isolated GRUB editor interface checks" OFF
 if(BUILD_GRUB_EDITOR_TESTS)
     enable_testing()
     find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
-    add_executable(grub_editor_tests tests/grub_editor_tests.cpp ../grub_editor.cpp ../grub_editor.h)
+    add_executable(grub_editor_tests tests/grub_editor_tests.cpp ../grub_editor.cpp ../grub_editor.h ../grub_appearance.cpp ../grub_appearance.h)
     target_include_directories(grub_editor_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
     target_link_libraries(grub_editor_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
     add_test(NAME grub_editor COMMAND grub_editor_tests)
