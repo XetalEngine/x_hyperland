@@ -27,6 +27,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 
 GENERATOR = '/etc/grub.d/42_hyper_fusion'
@@ -664,6 +665,9 @@ class Store:
             if old is not None: atomic(backup/key, old)
             data, mode = targets[key]
             record['after'][key] = None if data is None else {'sha': digest(data), 'mode': mode}
+        history = read_optional(self.state/'last.json')
+        record['history'] = digest(history)
+        if history is not None: atomic(backup/'undo-history.json', history)
         atomic(backup/'record.json', encoded(record))
         return record
 
@@ -677,10 +681,15 @@ class Store:
                 raise RuntimeError('GRUB files changed outside this editor. Automatic rollback was stopped to preserve those changes.')
             if before and digest((backup/key).read_bytes()) != before['sha']:
                 raise RuntimeError('The GRUB backup did not pass its integrity check.')
+        if record.get('history') and digest((backup/'undo-history.json').read_bytes()) != record['history']:
+            raise RuntimeError('The undo history backup did not pass its integrity check.')
         for key, path in self.files().items():
             before = record['before'][key]
             if before: atomic(path, (backup/key).read_bytes(), before['mode'])
             else: path.unlink(missing_ok=True)
+        if 'history' in record:
+            if record['history']: atomic(self.state/'last.json', (backup/'undo-history.json').read_bytes())
+            else: (self.state/'last.json').unlink(missing_ok=True)
 
     def recover(self):
         data = read_optional(self.state/'pending.json')
@@ -737,11 +746,28 @@ class Store:
         targets['config'] = (revised.encode(), stat.S_IMODE(self.config.stat().st_mode))
         return self.publish(targets, expected, alive)
 
-    def publish(self, targets, expected, alive):
+    def publish(self, targets, expected, alive, record=None):
         alive()
-        record = self.snapshot(targets)
+        record = record or self.snapshot(targets)
         if expected != self.revision():
             raise RuntimeError('Another program changed GRUB while the menu was being checked. Refresh before saving.')
+        # A review can stay open while another tool edits GRUB. Use exactly the
+        # displayed backups, and verify all of them before writing any target.
+        for key, path in self.files().items():
+            before = record['before'][key]
+            if digest(read_optional(path)) != (before['sha'] if before else None) or (
+                    before and stat.S_IMODE(path.stat().st_mode) != before['mode']):
+                raise RuntimeError('GRUB changed after the backup. Review fresh backups before applying.')
+            if before and digest((Path(record['backup'])/key).read_bytes()) != before['sha']:
+                raise RuntimeError('A backup changed. Review fresh backups before applying.')
+            after = record['after'][key]; data, mode = targets[key]
+            if (None if data is None else {'sha': digest(data), 'mode': mode}) != after:
+                raise RuntimeError('The reviewed change no longer matches its backup record.')
+        if 'history' in record:
+            if digest(read_optional(self.state/'last.json')) != record['history']:
+                raise RuntimeError('Undo history changed. Review fresh backups before applying.')
+            if record['history'] and digest((Path(record['backup'])/'undo-history.json').read_bytes()) != record['history']:
+                raise RuntimeError('The undo history backup changed. Review fresh backups before applying.')
         atomic(self.state/'pending.json', encoded(record))
         try:
             # Publish the complete validated configuration last. No source disk
@@ -769,7 +795,7 @@ class Store:
         alive(); atomic(self.state/'pending.json', encoded(record))
         self.restore(record)
         (self.state/'pending.json').unlink()
-        (self.state/'last.json').unlink()
+        (self.state/'last.json').unlink(missing_ok=True)
 
 
 def client_alive():
@@ -800,6 +826,7 @@ def status_payload():
 class Session:
     def __init__(self):
         self.store = Store()
+        self.appearance_plan = None
         private_mounts()
 
     def handle(self, request):
@@ -814,21 +841,37 @@ class Session:
                 with theme.locked():
                     expected = request.get('appearance_revision')
                     menu_revision = request.get('menu_revision')
+                    if action == 'appearance-cancel':
+                        self.appearance_plan = None
+                        return {'message': 'Cancelled. Boot files are unchanged; your recovery backups are kept.'}
                     if menu_revision != digest(theme.config.read_bytes()):
+                        self.appearance_plan = None
                         raise RuntimeError('The boot menu changed. Reload the current menu before changing its appearance.')
-                    if action == 'appearance-apply':
-                        emit({'progress': 'Preparing your design and checking the boot menu…'})
-                        backup = theme.apply(request.get('options'), expected, menu_revision,
-                                             request.get('background_sha', ''), client_alive)
-                        message = 'Appearance saved for your next restart. Boot entries and startup options are unchanged.'
-                    elif action == 'appearance-system':
-                        backup = theme.system_appearance(expected, menu_revision, client_alive)
-                        message = 'The previous system appearance is restored for your next restart.'
-                    elif action == 'appearance-undo':
-                        theme.undo(expected or theme.revision(), client_alive)
-                        backup = ''; message = 'The last appearance change was undone.'
-                    else: raise ValueError('Unknown appearance action.')
-                    return {**self.store.status(), 'appearance': theme.status(), 'backup': backup, 'message': message}
+                    if action == 'appearance-review':
+                        self.appearance_plan = None
+                        operation = request.get('operation')
+                        emit({'progress': 'Checking the design and preparing your recovery backups…'})
+                        if operation == 'apply':
+                            plan = theme.plan_apply(request.get('options'), expected, menu_revision,
+                                                    request.get('background_sha', ''), client_alive)
+                        elif operation == 'system': plan = theme.plan_system(expected, menu_revision, client_alive)
+                        elif operation == 'undo': plan = theme.plan_undo(expected, client_alive)
+                        else: raise ValueError('Unknown appearance change.')
+                        plan['created_at'] = time.monotonic()
+                        self.appearance_plan = plan
+                        return {**self.store.status(), 'appearance_review': {**plan['review'], 'token': plan['token']},
+                                'message': 'Backups are ready. Review the recovery instructions before applying.'}
+                    if action == 'appearance-confirm':
+                        plan = self.appearance_plan
+                        self.appearance_plan = None  # One approval, one attempt; never replay it.
+                        if not plan or request.get('token') != plan['token'] or time.monotonic()-plan['created_at'] > 300:
+                            raise RuntimeError('This recovery review expired. Review fresh backups before applying.')
+                        backup = theme.commit_plan(plan, client_alive)
+                        message = {'apply': 'Appearance saved for your next restart.',
+                                   'system': 'The previous system appearance is restored for your next restart.',
+                                   'undo': 'The last appearance change was undone.'}[plan['operation']]
+                        return {**self.store.status(), 'appearance': theme.status(), 'backup': backup, 'message': message}
+                    raise ValueError('Review the recovery backups before applying an appearance change.')
             if action == 'refresh': return status_payload()
             if action in ('scan', 'add'):
                 drives = inventory()

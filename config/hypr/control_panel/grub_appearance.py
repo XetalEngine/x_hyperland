@@ -329,7 +329,73 @@ class AppearanceStore(grub.Store):
         return {key: (grub.read_optional(path), stat.S_IMODE(path.stat().st_mode) if path.exists() else 0o600)
                 for key, path in self.files().items()}
 
-    def apply(self, options, expected, menu_revision, background_sha='', alive=lambda: None, prepare_fn=prepared_as_user):
+    def review(self, targets, expected, operation, alive, assets=None):
+        alive()
+        if expected != self.revision(): raise RuntimeError('GRUB changed. Review fresh backups before applying.')
+        record = self.snapshot(targets)
+        if expected != self.revision(): raise RuntimeError('GRUB changed while making backups. Review again.')
+        backup = Path(record['backup'])
+        rows = []
+        # Include every overwritten configuration file and the undo record.
+        for key, path in self.files().items():
+            before, after = record['before'][key], record['after'][key]
+            if before == after: continue
+            rows.append({'path': str(path), 'backup': str(backup/key) if before else '',
+                         'change': 'Create' if before is None else 'Remove' if after is None else 'Replace'})
+        rows.append({'path': str(self.state/'last.json'),
+                     'backup': str(backup/'undo-history.json') if record['history'] else '',
+                     'change': 'Replace' if record['history'] else 'Create'})
+        created = [str(assets['path']/name) for name in sorted(assets['files'])] if assets else []
+        script = self.recovery_script(record)
+        grub.atomic(backup/'restore.sh', script.encode(), 0o700)
+        command = 'sudo sh -- '+grub.shlex.quote(str(backup/'restore.sh'))
+        live_command = 'sudo sh -- '+grub.shlex.quote('/mnt'+str(backup/'restore.sh'))+' /mnt'
+        instructions = ('Recovery Instructions:\n'
+            'If Linux starts, open a terminal and run:\n'+command+'\n\n'
+            'If Linux cannot start, boot a Linux live USB. Mount your installed Linux root at /mnt, '
+            'and mount any separate /boot filesystem at /mnt/boot (plus other boot submounts in their usual locations). '
+            'Then run:\n'+live_command+'\n\n'
+            'The recovery script verifies the backups, restores the files and permissions, and removes only files '
+            'that this change would create. Then restart. Do not run grub-mkconfig after restoring; '
+            'the saved boot menu is already complete. New theme assets can remain on disk.')
+        report = ('Take a picture of the screen. Here are your backups.\n\n'
+                  'Backup folder: '+str(backup)+'\n\nFiles that will change:\n')
+        for row in rows:
+            report += row['change']+': '+row['path']+'\nBackup: '+(row['backup'] or 'New file — no previous copy; recovery removes it.')+'\n\n'
+        if created: report += 'New theme files (existing designs are kept):\n'+'\n'.join(created)+'\n\n'
+        report += instructions+'\n'
+        grub.atomic(backup/'RECOVERY.txt', report.encode(), 0o600)
+        return {'targets': targets, 'expected': expected, 'record': record, 'assets': assets,
+                'operation': operation, 'token': uuid.uuid4().hex,
+                'review': {'files': rows, 'created': created, 'backup': str(backup),
+                           'instructions': instructions, 'command': command, 'report': report,
+                           'recovery_file': str(backup/'RECOVERY.txt')}}
+
+    def recovery_script(self, record):
+        # Self-contained POSIX recovery, usable from the installed system or a
+        # live USB. Verify EVERY backup before the first restoration write.
+        q = grub.shlex.quote
+        script = ['#!/bin/sh', 'set -eu', 'prefix=${1:-}',
+                  'case "$prefix" in ""|/*) ;; *) echo "Use an absolute mount path." >&2; exit 1;; esac',
+                  'prefix=${prefix%/}',
+                  'backup_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)']
+        restore = []
+        files = {**self.files(), 'history': self.state/'last.json'}
+        # Restore the complete boot menu last, just like the normal transaction.
+        for key in ('generator', 'entries', 'history', 'config'):
+            before = ({'sha': record['history'], 'mode': 0o600} if record['history'] else None) if key == 'history' else record['before'][key]
+            name = 'undo-history.json' if key == 'history' else key
+            target = '"$prefix"'+q(str(files[key]))
+            if before:
+                source = '"$backup_dir/"'+q(name)
+                script.append("printf '%s  %s\\n' "+q(before['sha'])+' '+source+' | sha256sum -c -')
+                restore.append('install -m '+format(before['mode'], '04o')+' -- '+source+' '+target)
+            else: restore.append('rm -f -- '+target)
+        script += restore + ['rm -f -- "$prefix"'+q(str(self.state/'pending.json')), 'sync',
+                             "printf '%s\\n' 'GRUB files restored. You can restart now.'"]
+        return '\n'.join(script)+'\n'
+
+    def plan_apply(self, options, expected, menu_revision, background_sha='', alive=lambda: None, prepare_fn=prepared_as_user):
         options = normalize(options); config = self.config.read_text()
         if (expected and expected != self.revision()) or menu_revision != grub.digest(config.encode()):
             raise RuntimeError('The boot menu changed. Reload it before applying your design.')
@@ -346,31 +412,25 @@ class AppearanceStore(grub.Store):
         for name, data in files.items():
             if not data.startswith(b'\x89PNG\r\n\x1a\n' if name.endswith('.png') else b'FILE\0\0\0\x04PFF2'):
                 raise ValueError('Invalid theme asset: '+name)
-        alive(); self.safe_paths(); self.assets.mkdir(parents=True, exist_ok=True, mode=0o755)
+        alive(); self.safe_paths()
         target = self.assets/('design-'+uuid.uuid4().hex)
-        target.mkdir(mode=0o755)
-        try:
-            for name, data in files.items(): grub.atomic(target/name, data, 0o644)
-            grub.atomic(target/'theme.txt', theme_text(options).encode(), 0o644)
-            saved = {**options, 'background': str(target/'source.png') if options['background'] else ''}
-            grub.atomic(target/'appearance.json', grub.encoded(saved), 0o644)
-            fs_uuid = grub.command([grub.executable('grub-probe', 'grub2-probe'), '--target=fs_uuid', target]).decode().strip()
-            relative = grub.command([grub.executable('grub-mkrelpath', 'grub2-mkrelpath'), target]).decode().strip()
-            block = appearance_block(fs_uuid, relative)
-            revised = replace_appearance(config, block); self.check(revised)
-            targets = {'config': (revised.encode(), stat.S_IMODE(self.config.stat().st_mode)),
-                       'generator': (('#!/bin/sh\nexec tail -n +3 "$0"\n'+block).encode(), 0o755),
-                       'entries': (grub.encoded({'version': 1, 'options': saved}), 0o600)}
-            backup = self.publish(targets, expected, alive)
-        except BaseException:
-            # If a concurrent edit prevented rollback, retain any referenced
-            # assets. A still-referenced design must never disappear.
-            if target.name not in self.config.read_text(errors='replace') and target.name not in (grub.read_optional(self.generator) or b'').decode(errors='replace'):
-                shutil.rmtree(target)
-            raise
-        return backup
+        files['theme.txt'] = theme_text(options).encode()
+        saved = {**options, 'background': str(target/'source.png') if options['background'] else ''}
+        files['appearance.json'] = grub.encoded(saved)
+        # Resolve the already-existing boot directory. No /boot or /etc file is
+        # created during review; assets remain in this authenticated process.
+        probe = next(parent for parent in target.parents if parent.is_dir())
+        fs_uuid = grub.command([grub.executable('grub-probe', 'grub2-probe'), '--target=fs_uuid', probe]).decode().strip()
+        relative = grub.command([grub.executable('grub-mkrelpath', 'grub2-mkrelpath'), probe]).decode().strip()
+        relative = relative.rstrip('/')+'/'+str(target.relative_to(probe))
+        block = appearance_block(fs_uuid, relative)
+        revised = replace_appearance(config, block); self.check(revised)
+        targets = {'config': (revised.encode(), stat.S_IMODE(self.config.stat().st_mode)),
+                   'generator': (('#!/bin/sh\nexec tail -n +3 "$0"\n'+block).encode(), 0o755),
+                   'entries': (grub.encoded({'version': 1, 'options': saved}), 0o600)}
+        return self.review(targets, expected, 'apply', alive, {'path': target, 'files': files, 'probe': probe, 'device': probe.stat().st_dev})
 
-    def system_appearance(self, expected, menu_revision, alive=lambda: None):
+    def plan_system(self, expected, menu_revision, alive=lambda: None):
         config = self.config.read_text()
         if (expected and expected != self.revision()) or menu_revision != grub.digest(config.encode()):
             raise RuntimeError('The boot menu changed. Reload before restoring its appearance.')
@@ -379,7 +439,44 @@ class AppearanceStore(grub.Store):
         revised = replace_appearance(config, ''); self.check(revised)
         targets = self.unchanged_targets(); targets['config'] = (revised.encode(), targets['config'][1])
         targets['generator'] = (None, 0o755); targets['entries'] = (None, 0o600)
-        return self.publish(targets, self.revision(), alive)
+        return self.review(targets, self.revision(), 'system', alive)
+
+    def plan_undo(self, expected, alive=lambda: None):
+        if expected and expected != self.revision(): raise RuntimeError('GRUB changed. Review fresh backups before undoing.')
+        record = json.loads((self.state/'last.json').read_text())
+        backup = Path(record['backup'])
+        if record['config'] != str(self.config) or not backup.resolve().is_relative_to((self.state/'backups').resolve()):
+            raise RuntimeError('The recovery record belongs to another installation.')
+        targets = {}
+        for key, path in self.files().items():
+            before, after = record['before'][key], record['after'][key]
+            if grub.digest(grub.read_optional(path)) != (after['sha'] if after else None):
+                raise RuntimeError('Another tool updated GRUB after this change. Reload before undoing.')
+            data = (backup/key).read_bytes() if before else None
+            if before and grub.digest(data) != before['sha']: raise RuntimeError('A backup failed its integrity check.')
+            targets[key] = (data, before['mode'] if before else 0o600)
+        self.check(targets['config'][0].decode())
+        return self.review(targets, self.revision(), 'undo', alive)
+
+    def commit_plan(self, plan, alive=lambda: None):
+        alive(); self.safe_paths()
+        if plan['expected'] != self.revision(): raise RuntimeError('GRUB changed after review. Review fresh backups before applying.')
+        assets = plan['assets']; target = assets['path'] if assets else None
+        created = False
+        try:
+            if target:
+                if assets['probe'].stat().st_dev != assets['device']:
+                    raise RuntimeError('The boot filesystem changed. Review fresh backups before applying.')
+                self.assets.mkdir(parents=True, exist_ok=True, mode=0o755)
+                target.mkdir(mode=0o755); created = True
+                if target.stat().st_dev != assets['device']:
+                    raise RuntimeError('The boot filesystem changed. Review fresh backups before applying.')
+                for name, data in assets['files'].items(): grub.atomic(target/name, data, 0o644)
+            return self.publish(plan['targets'], plan['expected'], alive, record=plan['record'])
+        except BaseException:
+            if created and target.name not in self.config.read_text(errors='replace') and target.name not in (grub.read_optional(self.generator) or b'').decode(errors='replace'):
+                shutil.rmtree(target)
+            raise
 
 
 def catalog():

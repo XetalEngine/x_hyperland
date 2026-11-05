@@ -45,8 +45,114 @@ class AppearanceTests(unittest.TestCase):
 
     def apply(self, **overrides):
         with self.store.locked(), patch.object(grub, 'command', side_effect=self.command):
-            return self.store.apply({**self.options, **overrides}, self.store.revision(),
+            plan = self.store.plan_apply({**self.options, **overrides}, self.store.revision(),
                 grub.digest(self.config.read_bytes()), prepare_fn=appearance.prepare)
+            return self.store.commit_plan(plan)
+
+    def plan(self):
+        with self.store.locked(), patch.object(grub, 'command', side_effect=self.command):
+            return self.store.plan_apply(self.options, self.store.revision(), grub.digest(self.config.read_bytes()),
+                                         prepare_fn=appearance.prepare)
+
+    def test_review_creates_exact_backups_before_any_boot_file_changes(self):
+        before = self.config.read_bytes(); plan = self.plan(); review = plan['review']
+        self.assertEqual(self.config.read_bytes(), before)
+        self.assertFalse(self.store.generator.exists()); self.assertFalse(self.store.assets.exists())
+        self.assertFalse((self.store.state/'last.json').exists())
+        rows = {row['path']: row for row in review['files']}
+        self.assertEqual(Path(rows[str(self.config)]['backup']).read_bytes(), before)
+        self.assertEqual(rows[str(self.store.generator)]['change'], 'Create')
+        self.assertEqual(rows[str(self.store.generator)]['backup'], '')
+        self.assertEqual(set(review['created']), {str(plan['assets']['path']/n) for n in plan['assets']['files']})
+        self.assertIn('Take a picture of the screen. Here are your backups.', review['report'])
+        self.assertIn('Recovery Instructions:', review['instructions'])
+        self.assertIn('/mnt/boot', review['instructions'])
+        self.assertEqual(Path(review['recovery_file']).read_text(), review['report'])
+        backup = Path(plan['record']['backup'])
+        self.assertEqual(subprocess.run(['sh', '-n', backup/'restore.sh']).returncode, 0)
+        with self.store.locked(): returned = self.store.commit_plan(plan)
+        self.assertEqual(returned, str(backup))
+        self.assertEqual(json.loads((self.store.state/'last.json').read_text())['backup'], str(backup))
+        self.assertEqual(len(list((self.store.state/'backups').iterdir())), 1)
+
+    def test_reviewed_backup_and_current_file_tampering_block_apply(self):
+        for what in ('config', 'backup', 'mode'):
+            with self.subTest(what=what):
+                plan = self.plan(); original = self.config.read_bytes()
+                if what == 'config': self.config.write_text(CONFIG+'# changed while reviewing\n')
+                elif what == 'mode': self.config.chmod(0o600)
+                else: (Path(plan['record']['backup'])/'config').write_text('tampered backup')
+                current = self.config.read_bytes()
+                with self.store.locked(), self.assertRaisesRegex(RuntimeError, 'changed|backup'):
+                    self.store.commit_plan(plan)
+                self.assertEqual(self.config.read_bytes(), current); self.assertFalse(self.store.generator.exists())
+                self.config.write_bytes(original); self.config.chmod(0o644)
+
+    def test_recovery_script_restores_all_existing_files_and_permissions(self):
+        self.apply(); original = {key: path.read_bytes() for key, path in self.store.files().items()}
+        history = (self.store.state/'last.json').read_bytes()
+        plan = self.plan(); backup = Path(plan['record']['backup'])
+        self.assertEqual((backup/'undo-history.json').read_bytes(), history)
+        with self.store.locked(): self.store.commit_plan(plan)
+        subprocess.run(['sh', str(backup/'restore.sh')], check=True, capture_output=True)
+        for key, path in self.store.files().items():
+            self.assertEqual(path.read_bytes(), original[key])
+            self.assertEqual(path.stat().st_mode & 0o777, plan['record']['before'][key]['mode'])
+        self.assertEqual((self.store.state/'last.json').read_bytes(), history)
+
+    def test_live_usb_recovery_uses_mounted_root_and_verifies_all_backups_first(self):
+        plan = self.plan(); backup = Path(plan['record']['backup'])
+        with self.store.locked(): self.store.commit_plan(plan)
+        # The fixture itself is the installed system; a second prefix simulates
+        # a live USB's mount point, without accessing /boot on the test machine.
+        mount = self.root/'live'; mounted_config = mount/str(self.config).lstrip('/')
+        mounted_config.parent.mkdir(parents=True); mounted_config.write_bytes(self.config.read_bytes())
+        mounted_gen = mount/str(self.store.generator).lstrip('/')
+        mounted_gen.parent.mkdir(parents=True); mounted_gen.write_bytes(self.store.generator.read_bytes())
+        (backup/'config').write_text('corrupted')
+        failed = subprocess.run(['sh', str(backup/'restore.sh'), str(mount)], capture_output=True)
+        self.assertNotEqual(failed.returncode, 0); self.assertTrue(mounted_gen.exists())
+        (backup/'config').write_text(CONFIG)
+        subprocess.run(['sh', str(backup/'restore.sh'), str(mount)], check=True, capture_output=True)
+        self.assertEqual(mounted_config.read_text(), CONFIG); self.assertFalse(mounted_gen.exists())
+
+    def test_system_and_undo_also_prepare_backups_before_changes(self):
+        self.apply(); old = self.config.read_bytes()
+        with self.store.locked():
+            plan = self.store.plan_system(self.store.revision(), grub.digest(old))
+            self.assertEqual(self.config.read_bytes(), old); self.assertTrue(self.store.generator.exists())
+            self.assertEqual((Path(plan['record']['backup'])/'generator').read_bytes(), self.store.generator.read_bytes())
+            self.store.commit_plan(plan)
+            undo = self.store.plan_undo(self.store.revision())
+            self.assertEqual(self.config.read_text(), CONFIG)
+            self.store.commit_plan(undo)
+        self.assertEqual(self.config.read_bytes(), old)
+
+    def test_session_requires_review_and_single_use_unexpired_confirmation(self):
+        session = grub.Session.__new__(grub.Session); session.store = grub.Store(self.root); session.appearance_plan = None
+        request = {'action': 'appearance-review', 'operation': 'apply', 'options': self.options,
+                   'menu_revision': grub.digest(self.config.read_bytes())}
+        with patch.object(appearance, 'AppearanceStore', return_value=self.store), \
+             patch.object(grub, 'client_alive'), patch.object(grub, 'emit'), \
+             patch.object(grub, 'command', side_effect=self.command):
+            result = session.handle(request); token = result['appearance_review']['token']
+            self.assertEqual(self.config.read_text(), CONFIG)
+            session.handle({**request, 'action': 'appearance-cancel', 'token': token})
+            with self.assertRaisesRegex(RuntimeError, 'expired'):
+                session.handle({**request, 'action': 'appearance-confirm', 'token': token})
+            self.assertEqual(self.config.read_text(), CONFIG)
+            with self.assertRaisesRegex(ValueError, 'Review'):
+                session.handle({**request, 'action': 'appearance-apply'})
+            result = session.handle(request); token = result['appearance_review']['token']
+            session.appearance_plan['created_at'] -= 301
+            with self.assertRaisesRegex(RuntimeError, 'expired'):
+                session.handle({**request, 'action': 'appearance-confirm', 'token': token})
+            self.assertEqual(self.config.read_text(), CONFIG)
+            result = session.handle(request); token = result['appearance_review']['token']
+            result = session.handle({**request, 'action': 'appearance-confirm', 'token': token})
+            self.assertTrue(result['appearance']['active'])
+            with self.assertRaisesRegex(RuntimeError, 'expired'):
+                session.handle({'action': 'appearance-confirm', 'token': token, 'menu_revision': result['menu_revision']})
 
     def test_presets_and_custom_options_render_without_touching_boot_files(self):
         for preset in appearance.presets():
@@ -83,16 +189,16 @@ class AppearanceTests(unittest.TestCase):
         self.apply(); first = self.config.read_bytes(); original_source = self.store.status()['options']['background']
         self.apply(layout='right', size=28)
         self.assertEqual(self.config.read_text().count(appearance.BEGIN), 1)
-        with self.store.locked(): self.store.undo(self.store.revision())
+        with self.store.locked(): self.store.commit_plan(self.store.plan_undo(self.store.revision()))
         self.assertEqual(self.config.read_bytes(), first); self.assertTrue(Path(original_source).is_file())
         self.assertEqual(self.store.status()['options']['layout'], 'left')
 
     def test_system_appearance_and_undo_keep_original_theme(self):
         self.apply(); applied = self.config.read_bytes()
         with self.store.locked():
-            self.store.system_appearance(self.store.revision(), grub.digest(applied))
+            self.store.commit_plan(self.store.plan_system(self.store.revision(), grub.digest(applied)))
         self.assertEqual(self.config.read_text(), CONFIG); self.assertFalse(self.store.generator.exists())
-        with self.store.locked(): self.store.undo(self.store.revision())
+        with self.store.locked(): self.store.commit_plan(self.store.plan_undo(self.store.revision()))
         self.assertEqual(self.config.read_bytes(), applied); self.assertTrue(self.store.generator.exists())
 
     def test_external_menu_change_rejected_before_assets_are_prepared(self):
@@ -100,7 +206,7 @@ class AppearanceTests(unittest.TestCase):
         self.config.write_text(CONFIG+'# kernel update\n')
         with self.store.locked(), patch.object(appearance, 'prepare') as prepare:
             with self.assertRaisesRegex(RuntimeError, 'changed'):
-                self.store.apply(self.options, revision, old, prepare_fn=prepare)
+                self.store.plan_apply(self.options, revision, old, prepare_fn=prepare)
             prepare.assert_not_called()
         self.assertFalse(self.store.assets.exists())
 
@@ -108,7 +214,7 @@ class AppearanceTests(unittest.TestCase):
         self.apply(); self.config.write_text(self.config.read_text()+'# another editor\n')
         current = self.config.read_bytes()
         with self.store.locked(), self.assertRaisesRegex(RuntimeError, 'Another tool'):
-            self.store.undo(self.store.revision())
+            self.store.commit_plan(self.store.plan_undo(self.store.revision()))
         self.assertEqual(self.config.read_bytes(), current)
 
     def test_failed_validation_and_publication_leave_original_menu(self):
@@ -124,7 +230,7 @@ class AppearanceTests(unittest.TestCase):
             self.apply()
         self.assertEqual(self.config.read_bytes(), original)
         self.assertFalse(self.store.generator.exists())
-        self.assertEqual(list(self.store.assets.iterdir()), [])
+        self.assertFalse(self.store.assets.exists())
         atomic = grub.atomic
         def fail_config(path, data, mode=0o600):
             if path == self.config and appearance.BEGIN.encode() in data: raise OSError('write failed')
@@ -149,7 +255,7 @@ class AppearanceTests(unittest.TestCase):
             with self.assertRaises(ValueError): appearance.normalize({**self.options, **value})
         with self.assertRaisesRegex(ValueError, 'changed'): appearance.prepare(self.options, 'wrong-image-hash')
         with self.store.locked(), self.assertRaisesRegex(ValueError, 'incomplete'):
-            self.store.apply(self.options, self.store.revision(), grub.digest(self.config.read_bytes()),
+            self.store.plan_apply(self.options, self.store.revision(), grub.digest(self.config.read_bytes()),
                 prepare_fn=lambda *_: {'files': {}})
         self.assertEqual(self.config.read_text(), CONFIG)
 

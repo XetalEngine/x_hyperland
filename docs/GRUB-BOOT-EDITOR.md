@@ -46,6 +46,10 @@ panel. It offers Hyper Fusion, Shadow Edge, Hollow Grove, Tidal Glass, Porcelain
 Ink, Obsidian Forge, Candy Cloud, Breakpoint and Binary Knife. Any bundled picture
 can be paired with any design, or choose a local picture or a solid color.
 
+The page has no scrolling settings panels: Picture, Menu and Colors tabs keep
+the controls beside the preview. Theme thumbnails use arrow buttons; short
+windows switch to a compact theme picker.
+
 The controls adjust picture dimming, menu shading, left/center/right placement,
 heading, subtitle, menu text size, accent/text/shade colors and navigation hints.
 The live preview uses the same artwork renderer as the saved design and shows
@@ -54,8 +58,14 @@ The preview is a visual guide at 1920 × 1080; firmware resolution and GRUB's
 bitmap font rendering can change text spacing. Scrolling still works in GRUB
 when there are more entries than fit in the menu.
 
-**Apply for next boot** authenticates and saves the design. Selecting a preset,
-editing controls or browsing pictures only changes the preview. Custom artwork
+**Review & apply…** authenticates, validates the design and saves recovery
+backups first. It opens a review that says **Take a picture of the screen. Here
+are your backups.** Every file that will be replaced or removed is listed next
+to its exact backup path. New files are identified separately, including the
+complete list of theme assets. **Apply for next boot** in that review is the
+confirmation that writes the boot files. Cancel keeps the backups and leaves
+the boot configuration unchanged. Selecting a preset, editing controls or
+browsing pictures only changes the preview. Custom artwork
 is decoded as the desktop user and copied into a self-contained versioned theme
 under the boot filesystem, so moving the original picture does not break boot.
 The original picture remains untouched.
@@ -72,9 +82,33 @@ Forwarding configurations without a local boot menu are rejected.
 changed elsewhere. **Use system appearance** removes this editor's override,
 revealing the previous appearance; this action can also be undone. Appearance
 recovery is separate from entry editing, under `/var/lib/hyper-fusion/grub-appearance`.
-Versioned assets are retained because earlier backups may still refer to them.
+Use system appearance and Undo appearance use the same backup review before
+confirmation. Each review expires after five minutes and its approval is used
+once. A changed configuration, permissions, undo history or damaged backup
+blocks saving and requires a new review. Versioned assets are retained because
+earlier backups may still refer to them.
 Installing or updating the desktop ships these controls and assets without
 changing the machine's boot appearance.
+
+### Appearance recovery instructions
+
+Each timestamped directory in `/var/lib/hyper-fusion/grub-appearance/backups/`
+contains the original `config`, `generator` and `entries` files when they existed,
+plus `undo-history.json` when there was an earlier undo record. `record.json`
+records original permissions and SHA-256 checksums. `RECOVERY.txt` lists the full
+paths and exact commands for that particular backup; `restore.sh` verifies all
+backup checksums before restoring any files and restores the original modes.
+These files are private to root. The review offers **Copy all details** and
+**Save instructions…** so the user can keep the instructions on another device.
+
+The normal recovery command is `sudo sh -- /exact/backup/path/restore.sh`.
+For live USB recovery, mount the installed Linux root at `/mnt`, including the
+correct root subvolume where applicable. Mount any separate `/boot` filesystem
+at `/mnt/boot` and other boot submounts in their usual locations. Run the exact
+command from the review: `sudo sh -- /mnt/exact/backup/path/restore.sh /mnt`.
+Then restart. Do not regenerate GRUB after restoring the complete saved menu.
+The script removes configuration files that did not exist before the change;
+it leaves unused new theme assets in place. It does not reinstall a bootloader.
 
 ## Saving and recovery
 
@@ -92,7 +126,7 @@ Opening the page reads the current menu and lists drives without writing or requ
 
 ## Development checks
 
-`test_grub_editor.py` covers mounted/unmounted inventory, detection, shared EFI references, stale devices, duplicate UUIDs, nested current-menu parsing, name/command editing, removal, the last-OS guard, configuration validation, external changes, rollback and recovery using temporary fixtures. Native `grub_editor_tests` cover all three tabs, properties, selection, advanced editing, removal, save responses, cancelled authentication and preview-only appearance edits. `test_grub_appearance.py` exercises every preset, custom text, layout, sizes, stale pictures, menu preservation, generator output, restore, undo, rollback and interrupted transactions. `check_grub_boot.py` boots disposable QEMU images to check UEFI chainloading, missing drives, Linux configuration handoff, and edited current menus under UEFI and BIOS; it attaches no host disks. `check_grub_appearance.py OUTPUT_DIRECTORY` additionally boots the actual graphical theme under UEFI and BIOS and checks fallback without theme assets. These checks do not replace testing a particular Windows/Linux installation on its intended hardware.
+`test_grub_editor.py` covers mounted/unmounted inventory, detection, shared EFI references, stale devices, duplicate UUIDs, nested current-menu parsing, name/command editing, removal, the last-OS guard, configuration validation, external changes, rollback and recovery using temporary fixtures. Native `grub_editor_tests` cover all three tabs, properties, selection, advanced editing, removal, save responses, cancelled authentication and preview-only appearance edits. `test_grub_appearance.py` exercises every preset, custom text, layout, sizes, stale pictures, menu preservation, generator output, pre-confirmation backups, cancellation, expired/replayed confirmations, backup integrity, recovery scripts on installed/live USB roots, restore, undo, rollback and interrupted transactions. `check_grub_boot.py` boots disposable QEMU images to check UEFI chainloading, missing drives, Linux configuration handoff, and edited current menus under UEFI and BIOS; it attaches no host disks. `check_grub_appearance.py OUTPUT_DIRECTORY` additionally boots the actual graphical theme under UEFI and BIOS and checks fallback without theme assets. These checks do not replace testing a particular Windows/Linux installation on its intended hardware.
 
 The boot methods follow GNU GRUB's [chainloading](https://www.gnu.org/software/grub/manual/grub/html_node/Chain_002dloading.html) and [configfile](https://www.gnu.org/software/grub/manual/grub/html_node/configfile.html) commands. Filesystem inspection follows the kernel's [ext4 mount guidance](https://docs.kernel.org/admin-guide/ext4.html) and the [NTFS-3G manual](https://github.com/tuxera/ntfs-3g/wiki/Manual).
 The appearance renderer follows GNU GRUB's [theme file format](https://www.gnu.org/software/grub/manual/grub/html_node/Theme-file-format.html).

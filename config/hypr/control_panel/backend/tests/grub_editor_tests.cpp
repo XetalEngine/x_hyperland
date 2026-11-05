@@ -8,7 +8,9 @@ class GrubEditorTests final : public QObject {
 private slots:
   void appearancePreviewAndExplicitApply() {
     const auto helper = QFINDTESTDATA("../../grub_appearance.py"); QVERIFY(!helper.isEmpty());
-    GrubAppearance page(helper); page.resize(1500, 800);
+    GrubAppearance page(helper); page.resize(1500, 620);
+    page.setStyleSheet("QPushButton, QComboBox, QLineEdit { padding:7px 10px; } "
+                      "QTabBar::tab { padding:8px 12px; } QWidget { font-size:13px; }");
     page.setMenu({QJsonObject{{"name", "My Linux"}, {"kind", "menuentry"}},
                   QJsonObject{{"name", "UEFI Firmware Settings"}, {"kind", "menuentry"}}});
     page.setAvailability(false, true, true);
@@ -28,7 +30,7 @@ private slots:
     QTRY_VERIFY_WITH_TIMEOUT(apply->isEnabled(), 10000);
     QCOMPARE(requests.count(), 0); apply->click(); QCOMPARE(requests.count(), 1);
     const auto request = qvariant_cast<QJsonObject>(requests.takeFirst().at(0));
-    QCOMPARE(request["action"].toString(), QString("appearance-apply"));
+    QCOMPARE(request["action"].toString(), QString("appearance-review"));
     QCOMPARE(request["options"].toObject()["heading"].toString(), QString("My custom boot screen"));
     QCOMPARE(request["options"].toObject()["layout"].toString(), QString("right"));
     QCOMPARE(request["options"].toObject()["size"].toInt(), 28);
@@ -40,8 +42,20 @@ private slots:
     undo->click(); QCOMPARE(qvariant_cast<QJsonObject>(requests.takeFirst().at(0))["appearance_revision"].toString(), QString("theme-saved"));
     // Rapid edits discard older worker replies, and all controls remain reachable.
     heading->setText("Earlier draft"); heading->setText("Latest draft");
-    for (int width : {960, 1500}) {
-      page.resize(width, 800); QTest::qWait(50);
+    for (const auto size : {QSize(960, 460), QSize(1500, 620)}) {
+      page.resize(size); QTest::qWait(50);
+      QCOMPARE(page.size(), size);
+      QVERIFY(page.findChildren<QScrollArea *>().isEmpty());
+      for (auto *bar : page.findChildren<QScrollBar *>()) QVERIFY(!bar->isVisible());
+      auto *controls = page.findChild<QTabWidget *>("grubAppearanceControls");
+      for (int tab=0; tab<controls->count(); ++tab) {
+        controls->setCurrentIndex(tab); QTest::qWait(20);
+        for (auto *widget : controls->currentWidget()->findChildren<QWidget *>()) {
+          if (!widget->isVisible() || (!qobject_cast<QPushButton *>(widget) && !qobject_cast<QComboBox *>(widget) && !qobject_cast<QLineEdit *>(widget))) continue;
+          QVERIFY(page.rect().contains(QRect(widget->mapTo(&page, QPoint()), widget->size())));
+        }
+      }
+      controls->setCurrentIndex(0);
       QVERIFY(page.rect().contains(apply->geometry()));
       QVERIFY(page.rect().contains(page.findChild<QPushButton *>("grubAppearanceReload")->geometry()));
     }
@@ -52,6 +66,118 @@ private slots:
     pictures->addItem("Missing picture", "/no-such-fusion-picture.png"); pictures->setCurrentIndex(pictures->count()-1);
     QTRY_VERIFY_WITH_TIMEOUT(!caption->text().contains("Updating"), 10000); QVERIFY(!apply->isEnabled());
     QCOMPARE(requests.count(), 0);
+  }
+  void appearanceFitsInControlPanelHost() {
+    const auto helper = QFINDTESTDATA("../../grub_editor.py"); QVERIFY(!helper.isEmpty());
+    QScrollArea host; host.setWidgetResizable(true);
+    auto *page = new GrubEditor(helper); host.setWidget(page);
+    QProcess theme; theme.start("python3", {QFileInfo(helper).dir().filePath("bridge.py"), "theme"});
+    QVERIFY(theme.waitForFinished(10000));
+    const auto styling = QJsonDocument::fromJson(theme.readAllStandardOutput()).object();
+    QVERIFY(styling.contains("stylesheet")); host.setStyleSheet(styling["stylesheet"].toString());
+    host.setFont(QFont(styling["font"].toString(), 10));
+    page->findChild<QTabWidget *>("grubTabs")->setCurrentIndex(2);
+    host.resize(1650, 750); host.show();
+    auto *apply = page->findChild<QPushButton *>("grubAppearanceApply");
+    QTRY_VERIFY_WITH_TIMEOUT(apply->isEnabled(), 10000);
+    for (const auto size : {QSize(1000, 650), QSize(1650, 750)}) {
+      host.resize(size); QTest::qWait(150);
+      if (host.verticalScrollBar()->isVisible()) {
+        auto *appearance = page->findChild<GrubAppearance *>();
+        qDebug() << "Host" << size << "page" << page->size() << page->minimumSize() << page->minimumSizeHint()
+                 << "hfw" << page->hasHeightForWidth() << page->layout()->minimumHeightForWidth(page->width())
+                 << "appearance" << appearance->size() << appearance->minimumSize() << appearance->minimumSizeHint();
+        host.grab().save("/tmp/fusion-grub-host-overflow.png");
+      }
+      QVERIFY(!host.verticalScrollBar()->isVisible()); QVERIFY(!host.horizontalScrollBar()->isVisible());
+      for (auto *bar : page->findChildren<QScrollBar *>()) QVERIFY(!bar->isVisible());
+      const QRect button(apply->mapTo(host.viewport(), QPoint()), apply->size());
+      QVERIFY(host.viewport()->rect().contains(button));
+    }
+    if (qEnvironmentVariableIsSet("FUSION_GRUB_HOST_SCREENSHOT"))
+      QVERIFY(host.grab().save(qEnvironmentVariable("FUSION_GRUB_HOST_SCREENSHOT")));
+  }
+  void appearanceReviewFlowsThroughHelper() {
+    QTemporaryDir fixture;
+    const auto appearance = QFINDTESTDATA("../../grub_appearance.py"); QVERIFY(!appearance.isEmpty());
+    QVERIFY(QFile::link(appearance, fixture.filePath("grub_appearance.py")));
+    QFile helper(fixture.filePath("helper.py")); QVERIFY(helper.open(QIODevice::WriteOnly));
+    helper.write(R"PY(import json,sys
+from pathlib import Path
+root=Path(__file__).parent
+state=dict(supported=True,mode='uefi',drives=[],current_entries=[dict(id='linux',name='Linux',kind='menuentry',commands='linux /vmlinuz',editable=True)],menu_revision='original-menu',revision='original')
+def emit(value): print(json.dumps(value),flush=True)
+if sys.argv[1]=='status': emit(state)
+else:
+ for line in sys.stdin:
+  request=json.loads(line)
+  with (root/'calls').open('a') as log: log.write(line)
+  if request['action']=='appearance-review':
+   review=dict(token='review-token',backup='/fixture/backups/one',files=[dict(path='/boot/grub/grub.cfg',backup='/fixture/backups/one/config',change='Replace')],instructions='Recovery Instructions: fixture',command='fixture-restore',report='fixture report')
+   emit(dict(result=dict(state,appearance_review=review)))
+  elif request['action']=='appearance-confirm' and request['token']=='review-token':
+   (root/'confirmed').write_text('yes')
+   emit(dict(result=dict(state,appearance=dict(active=True,can_undo=True,revision='saved'),message='Appearance saved for your next restart.')))
+  else: emit(dict(error='Unexpected fixture request'))
+)PY"); helper.close();
+    GrubEditor page(helper.fileName()); page.resize(1400, 800);
+    page.findChild<QTabWidget *>("grubTabs")->setCurrentIndex(2); page.show();
+    auto *apply = page.findChild<QPushButton *>("grubAppearanceApply");
+    QTRY_VERIFY_WITH_TIMEOUT(apply->isEnabled(), 10000);
+    bool reviewed = false;
+    QTimer confirm; confirm.setInterval(20);
+    connect(&confirm, &QTimer::timeout, &page, [&] {
+      auto *dialog = page.findChild<QDialog *>("grubRecoveryReview"); if (!dialog) return;
+      confirm.stop(); QVERIFY(!QFile::exists(fixture.filePath("confirmed")));
+      QFile calls(fixture.filePath("calls")); QVERIFY(calls.open(QIODevice::ReadOnly));
+      QCOMPARE(calls.readAll().trimmed().split('\n').size(), 1);
+      reviewed = true; dialog->findChild<QPushButton *>("grubRecoveryConfirm")->click();
+    });
+    confirm.start(); apply->click();
+    QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(fixture.filePath("confirmed")), 10000); QVERIFY(reviewed);
+    QTRY_VERIFY(page.findChild<QLabel *>("grubStatus")->text().startsWith("Appearance saved"));
+    QFile calls(fixture.filePath("calls")); QVERIFY(calls.open(QIODevice::ReadOnly));
+    const auto lines = calls.readAll().trimmed().split('\n'); QCOMPARE(lines.size(), 2);
+    QCOMPARE(QJsonDocument::fromJson(lines[0]).object()["operation"].toString(), QString("apply"));
+    QCOMPARE(QJsonDocument::fromJson(lines[1]).object()["action"].toString(), QString("appearance-confirm"));
+  }
+  void recoveryReviewNeedsExplicitConfirmation() {
+    GrubAppearance page("/no-helper-needed");
+    QSignalSpy requests(&page, &GrubAppearance::requested);
+    const QString backup = "/var/lib/hyper-fusion/grub-appearance/backups/20261104T200000-12345678";
+    const QString command = "sudo sh -- "+backup+"/restore.sh";
+    const QJsonObject review{{"token", "single-use-review"}, {"backup", backup},
+      {"command", command}, {"report", "Take a picture of the screen. Here are your backups.\nRecovery Instructions: fixture"},
+      {"instructions", "Recovery Instructions:\nIf Linux starts, open a terminal and run:\n"+command+"\n\nIf Linux cannot start, boot a Linux live USB. Mount Linux at /mnt and any separate /boot at /mnt/boot.\nThen run: sudo sh -- /mnt"+backup+"/restore.sh /mnt"},
+      {"files", QJsonArray{
+        QJsonObject{{"path", "/boot/grub/grub.cfg"}, {"backup", backup+"/config"}, {"change", "Replace"}},
+        QJsonObject{{"path", "/etc/grub.d/99_hyper_fusion_appearance"}, {"backup", ""}, {"change", "Create"}},
+        QJsonObject{{"path", "/var/lib/hyper-fusion/grub-appearance/entries.json"}, {"backup", ""}, {"change", "Create"}},
+        QJsonObject{{"path", "/var/lib/hyper-fusion/grub-appearance/last.json"}, {"backup", backup+"/undo-history.json"}, {"change", "Replace"}}}},
+      {"created", QJsonArray{"/boot/grub/themes/hyper-fusion-editor/design-fixture/background.png", "/boot/grub/themes/hyper-fusion-editor/design-fixture/theme.txt"}}};
+    bool inspected = false;
+    QTimer::singleShot(0, &page, [&] {
+      auto *dialog = page.findChild<QDialog *>("grubRecoveryReview"); QVERIFY(dialog);
+      QCOMPARE(requests.count(), 0);
+      QCOMPARE(dialog->findChild<QLabel *>("grubRecoveryBackupFolder")->text(), backup);
+      QCOMPARE(dialog->findChild<QLabel *>("grubRecoveryCommand")->text(), command);
+      QVERIFY(dialog->findChild<QLabel *>("grubRecoveryInstructions")->text().contains("/mnt/boot"));
+      QVERIFY(dialog->findChildren<QScrollArea *>().isEmpty());
+      if (qEnvironmentVariableIsSet("FUSION_GRUB_RECOVERY_SCREENSHOT"))
+        QVERIFY(dialog->grab().save(qEnvironmentVariable("FUSION_GRUB_RECOVERY_SCREENSHOT")));
+      inspected = true; dialog->reject();
+    });
+    page.reviewChanges(review); QVERIFY(inspected); QCOMPARE(requests.count(), 1);
+    QCOMPARE(qvariant_cast<QJsonObject>(requests.takeFirst().at(0))["action"].toString(), QString("appearance-cancel"));
+    QTimer::singleShot(0, &page, [&] {
+      auto *dialog = page.findChild<QDialog *>("grubRecoveryReview"); QVERIFY(dialog);
+      QCOMPARE(requests.count(), 0);
+      dialog->findChild<QPushButton *>("grubRecoveryConfirm")->click();
+    });
+    page.reviewChanges(review); QCOMPARE(requests.count(), 1);
+    const auto confirmed = qvariant_cast<QJsonObject>(requests.takeFirst().at(0));
+    QCOMPARE(confirmed["action"].toString(), QString("appearance-confirm"));
+    QCOMPARE(confirmed["token"].toString(), QString("single-use-review"));
   }
   void driveToBootEntry() {
     QTemporaryDir fixture;

@@ -19,6 +19,7 @@ class GrubEditor final : public QWidget {
 public:
   explicit GrubEditor(const QString &helper, QWidget *parent = nullptr);
   ~GrubEditor() override;
+  int heightForWidth(int width) const override;
 protected:
   void showEvent(QShowEvent *event) override;
   void resizeEvent(QResizeEvent *event) override;

@@ -1,5 +1,6 @@
 #include "grub_editor.h"
 #include "grub_appearance.h"
+#include "native.h"
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QProcess>
@@ -39,7 +40,7 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
   heading->addWidget(label("GRUB Boot Editor", this, "panelTitle"), 1);
   mode = label("", this, "muted"); heading->addWidget(mode);
   layout->addLayout(heading);
-  tabs = new QTabWidget(this); tabs->setObjectName("grubTabs");
+  tabs = new PanelTabs(this); tabs->setObjectName("grubTabs");
   auto *currentPage = new QWidget(tabs);
   auto *currentLayout = new QVBoxLayout(currentPage); currentLayout->setSpacing(14);
   auto *addPage = new QWidget(tabs);
@@ -139,9 +140,10 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
   savedLayout->addLayout(savedActions); currentLayout->addWidget(savedBox, 1);
   auto *footnote = label("Each change is backed up and checked before saving. Your GRUB theme is kept.", this, "muted");
   layout->addWidget(footnote);
-  connect(tabs, &QTabWidget::currentChanged, footnote, [footnote](int index) {
+  connect(tabs, &QTabWidget::currentChanged, footnote, [this, footnote](int index) {
     footnote->setText(index == 2 ? "Appearance changes are backed up. Boot entries, kernel commands, default system and timeout are kept." :
         "Each change is backed up and checked before saving. Your GRUB theme is kept.");
+    if (index == 2 && !busy) status->setText("Choose a design. Review & apply creates your backups before confirmation.");
   });
 
   reader = new QProcess(this); worker = new QProcess(this);
@@ -217,6 +219,12 @@ GrubEditor::~GrubEditor() {
   worker->closeWriteChannel();
   if (!busy && worker->state() != QProcess::NotRunning) worker->waitForFinished(1000);
   if (reader->state() != QProcess::NotRunning) { reader->kill(); reader->waitForFinished(1000); }
+}
+int GrubEditor::heightForWidth(int width) const {
+  // The outer Control Panel scroll area must be allowed to shrink the preview.
+  // Its preferred height must not force a scrollbar before compact mode runs.
+  if (tabs->currentIndex() == 2) return layout()->minimumHeightForWidth(width);
+  return QWidget::heightForWidth(width);
 }
 void GrubEditor::showEvent(QShowEvent *event) {
   QWidget::showEvent(event);
@@ -400,6 +408,12 @@ void GrubEditor::editEntry() {
 }
 void GrubEditor::request(const QJsonObject &data) {
   if (busy) return;
+  if ((data["action"] == "appearance-confirm" || data["action"] == "appearance-cancel") && worker->state() != QProcess::Running) {
+    status->setText(data["action"] == "appearance-cancel" ?
+      "Cancelled. Boot files are unchanged; your recovery backups are kept." :
+      "This recovery review expired. Choose Review & apply again for fresh backups.");
+    return;
+  }
   pending = data; pending["revision"] = revision; pending["menu_revision"] = menuRevision;
   operation = data["action"].toString();
   status->setText(operation == "scan" ? "Detecting the system. Authenticate if prompted…" : "Working on your boot menu…");
@@ -414,7 +428,14 @@ void GrubEditor::readWorker() {
     const int end = output.indexOf('\n');
     const auto data = QJsonDocument::fromJson(output.left(end)).object(); output.remove(0, end+1);
     if (data.contains("progress")) status->setText(data["progress"].toString());
-    else if (data.contains("result")) { result(data["result"].toObject()); setBusy(false); }
+    else if (data.contains("result")) {
+      const auto value = data["result"].toObject(); result(value); setBusy(false);
+      if (value.contains("appearance_review")) {
+        // Present after releasing the in-flight request; confirmation sends a
+        // second request with the helper's single-use review token.
+        QTimer::singleShot(0, appearance, [this, value] { appearance->reviewChanges(value["appearance_review"].toObject()); });
+      }
+    }
     else if (data.contains("error")) {
       status->setText(data["error"].toString());
       setBusy(false);
@@ -497,7 +518,9 @@ void GrubEditor::result(const QJsonObject &data) {
     for (const auto &note : data["notes"].toArray()) messages.append(note.toString());
     notes->setText(messages.join('\n')); notes->setVisible(!messages.isEmpty());
     status->setText(first >= 0 ? "Detected. Choose the name you want in GRUB, then Add to GRUB." : "Choose another drive or check the detection details above.");
-  } else status->setText(data.value("message").toString("Select an entry to edit, or open Add Entry to add another system."));
+  } else status->setText(data.value("message").toString(tabs->currentIndex() == 2 ?
+      "Choose a design. Review & apply creates your backups before confirmation." :
+      "Select an entry to edit, or open Add Entry to add another system."));
   if (data.contains("backup")) saved->setToolTip("Backup: "+data["backup"].toString());
   if (data.contains("appearance")) appearance->acceptResult(data["appearance"].toObject());
 }

@@ -11,7 +11,7 @@ class QLineEdit;
 class QListWidget;
 class QPushButton;
 class QProcess;
-class QScrollArea;
+class QTabWidget;
 class QSlider;
 class QTimer;
 class GrubDesignPreview;
@@ -21,9 +21,12 @@ class GrubAppearance final : public QWidget {
 public:
   explicit GrubAppearance(const QString &helper, QWidget *parent = nullptr);
   ~GrubAppearance() override;
+  QSize minimumSizeHint() const override { return QSize(760, 400); }
+  bool hasHeightForWidth() const override { return false; }
   void setMenu(const QJsonArray &entries);
   void setAvailability(bool busy, bool supported, bool readable);
   void acceptResult(const QJsonObject &data);
+  void reviewChanges(const QJsonObject &data);
 signals:
   void requested(const QJsonObject &data);
 protected:
@@ -41,7 +44,9 @@ private:
   QPushButton *accent, *textColor, *base, *apply, *undo, *restore, *reload, *browse;
   QLabel *caption, *selection;
   QBoxLayout *body;
-  QScrollArea *controls;
+  QTabWidget *controls;
+  QComboBox *themePicker;
+  QWidget *themeShelf;
   QWidget *content;
   GrubDesignPreview *preview;
   QProcess *catalog, *renderer;

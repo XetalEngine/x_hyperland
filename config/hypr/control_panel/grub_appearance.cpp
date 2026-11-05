@@ -21,7 +21,7 @@ class GrubDesignPreview final : public QWidget {
 public:
   QPixmap image;
   explicit GrubDesignPreview(QWidget *parent) : QWidget(parent) {
-    setObjectName("grubDesignPreview"); setMinimumSize(340, 250);
+    setObjectName("grubDesignPreview"); setMinimumSize(240, 160);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     setAccessibleName("Boot menu design preview");
   }
@@ -44,59 +44,73 @@ public:
 
 GrubAppearance::GrubAppearance(const QString &helper, QWidget *parent) : QWidget(parent), helper(helper) {
   setObjectName("grubAppearanceTab");
-  auto *layout = new QVBoxLayout(this); layout->setSpacing(12);
-  layout->addWidget(note("Make the first screen yours. Start with a Fusion theme, then choose its picture, colors and menu layout.", this));
-  auto *scroll = new QScrollArea(this); scroll->setWidgetResizable(true); scroll->setFrameShape(QFrame::NoFrame);
-  content = new QWidget(scroll); auto *canvas = new QVBoxLayout(content); canvas->setContentsMargins(0, 0, 4, 0); canvas->setSpacing(14);
-  themes = new QListWidget(content); themes->setObjectName("grubAppearanceThemes");
+  auto *layout = new QVBoxLayout(this); layout->setSpacing(10);
+  layout->setSizeConstraint(QLayout::SetNoConstraint);
+  auto *intro = new QHBoxLayout;
+  intro->addWidget(note("Choose a theme, then make it yours. Review your backups before applying.", this), 1);
+  themePicker = new QComboBox(this); themePicker->setObjectName("grubAppearanceThemePicker");
+  themePicker->setMinimumWidth(180); themePicker->hide(); intro->addWidget(themePicker); layout->addLayout(intro);
+  content = new QWidget(this); auto *canvas = new QVBoxLayout(content);
+  canvas->setContentsMargins(0, 0, 0, 0); canvas->setSpacing(10);
+  themeShelf = new QWidget(content); auto *shelf = new QHBoxLayout(themeShelf); shelf->setContentsMargins(0, 0, 0, 0);
+  auto *previous = new QToolButton(themeShelf); previous->setArrowType(Qt::LeftArrow); previous->setToolTip("Previous themes");
+  auto *next = new QToolButton(themeShelf); next->setArrowType(Qt::RightArrow); next->setToolTip("More themes");
+  themes = new QListWidget(themeShelf); themes->setObjectName("grubAppearanceThemes");
   themes->setViewMode(QListView::IconMode); themes->setFlow(QListView::LeftToRight);
   themes->setWrapping(false); themes->setMovement(QListView::Static); themes->setResizeMode(QListView::Adjust);
-  themes->setSelectionMode(QAbstractItemView::SingleSelection); themes->setIconSize(QSize(154, 80));
-  themes->setGridSize(QSize(174, 116)); themes->setFixedHeight(142);
+  themes->setSelectionMode(QAbstractItemView::SingleSelection); themes->setIconSize(QSize(126, 66));
+  themes->setGridSize(QSize(148, 102)); themes->setFixedHeight(108);
   themes->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
-  themes->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-  themes->setAccessibleName("Boot screen themes"); canvas->addWidget(themes);
-  body = new QBoxLayout(QBoxLayout::LeftToRight); body->setSpacing(18); canvas->addLayout(body, 1);
+  themes->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff); themes->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  themes->setAccessibleName("Boot screen themes");
+  shelf->addWidget(previous); shelf->addWidget(themes, 1); shelf->addWidget(next); canvas->addWidget(themeShelf);
+  connect(previous, &QToolButton::clicked, this, [this] { themes->horizontalScrollBar()->setValue(themes->horizontalScrollBar()->value()-themes->viewport()->width()); });
+  connect(next, &QToolButton::clicked, this, [this] { themes->horizontalScrollBar()->setValue(themes->horizontalScrollBar()->value()+themes->viewport()->width()); });
+  body = new QBoxLayout(QBoxLayout::LeftToRight); body->setSpacing(16); canvas->addLayout(body, 1);
   auto *previewColumn = new QWidget(content); auto *previewLayout = new QVBoxLayout(previewColumn);
   previewLayout->setContentsMargins(0, 0, 0, 0);
   selection = note("BOOT SCREEN PREVIEW", previewColumn, "muted"); previewLayout->addWidget(selection);
   preview = new GrubDesignPreview(previewColumn); previewLayout->addWidget(preview, 1);
-  caption = note("Preview only · Changes are applied when you choose Apply for next boot.", previewColumn, "grubPreviewStatus");
+  caption = note("Preview only · Apply opens a backup and recovery review.", previewColumn, "grubPreviewStatus");
   previewLayout->addWidget(caption); body->addWidget(previewColumn, 1);
-  controls = new QScrollArea(content); controls->setWidgetResizable(true); controls->setFrameShape(QFrame::NoFrame);
-  controls->setMinimumWidth(310); controls->setMaximumWidth(360); controls->setMinimumHeight(310);
-  auto *formWidget = new QWidget(controls); auto *form = new QVBoxLayout(formWidget); form->setContentsMargins(4, 0, 10, 4); form->setSpacing(10);
-  form->addWidget(note("Picture", formWidget, "panelTitle"));
-  pictures = new QComboBox(formWidget); pictures->setObjectName("grubAppearancePicture");
-  pictures->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon); pictures->setMinimumContentsLength(22);
-  form->addWidget(pictures);
-  browse = new QPushButton(QIcon::fromTheme("folder-pictures"), "Choose picture…", formWidget);
-  browse->setObjectName("grubAppearanceBrowse"); form->addWidget(browse);
-  dimming = new QSlider(Qt::Horizontal, formWidget); dimming->setRange(0, 95); dimming->setObjectName("grubAppearanceDimming");
-  form->addWidget(note("Picture dimming", formWidget)); form->addWidget(sliderRow(dimming, formWidget));
-  contrast = new QSlider(Qt::Horizontal, formWidget); contrast->setRange(0, 95); contrast->setObjectName("grubAppearanceContrast");
-  form->addWidget(note("Menu shading", formWidget)); form->addWidget(sliderRow(contrast, formWidget));
-  form->addWidget(note("Menu & lettering", formWidget, "panelTitle"));
-  position = new QComboBox(formWidget); position->setObjectName("grubAppearancePosition");
-  position->addItem("Menu on the left", "left"); position->addItem("Centered menu", "center"); position->addItem("Menu on the right", "right"); form->addWidget(position);
-  heading = new QLineEdit(formWidget); heading->setObjectName("grubAppearanceHeading"); heading->setMaxLength(64);
-  subtitle = new QLineEdit(formWidget); subtitle->setObjectName("grubAppearanceSubtitle"); subtitle->setMaxLength(100);
-  form->addWidget(note("Heading", formWidget)); form->addWidget(heading);
-  form->addWidget(note("Subtitle", formWidget)); form->addWidget(subtitle);
-  textSize = new QComboBox(formWidget); textSize->setObjectName("grubAppearanceTextSize");
-  textSize->addItem("Small menu text", 18); textSize->addItem("Regular menu text", 22); textSize->addItem("Large menu text", 28); form->addWidget(textSize);
-  auto *colors = new QHBoxLayout;
-  accent = new QPushButton("Accent", formWidget); textColor = new QPushButton("Text", formWidget); base = new QPushButton("Shade", formWidget);
+  auto *settingsColumn = new QWidget(content); settingsColumn->setMinimumWidth(320); settingsColumn->setMaximumWidth(380);
+  auto *column = new QVBoxLayout(settingsColumn); column->setContentsMargins(0, 0, 0, 0);
+  controls = new QTabWidget(settingsColumn); controls->setObjectName("grubAppearanceControls");
+  column->addWidget(controls, 1);
+  auto *picturePage = new QWidget(controls); auto *pictureForm = new QVBoxLayout(picturePage); pictureForm->setSpacing(10);
+  pictures = new QComboBox(picturePage); pictures->setObjectName("grubAppearancePicture");
+  pictures->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon); pictures->setMinimumContentsLength(18);
+  pictureForm->addWidget(note("Background picture", picturePage)); pictureForm->addWidget(pictures);
+  browse = new QPushButton(QIcon::fromTheme("folder-pictures"), "Choose picture…", picturePage);
+  browse->setObjectName("grubAppearanceBrowse"); pictureForm->addWidget(browse);
+  dimming = new QSlider(Qt::Horizontal, picturePage); dimming->setRange(0, 95); dimming->setObjectName("grubAppearanceDimming");
+  pictureForm->addWidget(note("Picture dimming", picturePage)); pictureForm->addWidget(sliderRow(dimming, picturePage));
+  contrast = new QSlider(Qt::Horizontal, picturePage); contrast->setRange(0, 95); contrast->setObjectName("grubAppearanceContrast");
+  pictureForm->addWidget(note("Menu shading", picturePage)); pictureForm->addWidget(sliderRow(contrast, picturePage)); pictureForm->addStretch();
+  controls->addTab(picturePage, "Picture");
+  auto *menuPage = new QWidget(controls); auto *form = new QFormLayout(menuPage); form->setVerticalSpacing(12);
+  form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+  position = new QComboBox(menuPage); position->setObjectName("grubAppearancePosition");
+  position->addItem("Left", "left"); position->addItem("Center", "center"); position->addItem("Right", "right"); form->addRow("Position", position);
+  heading = new QLineEdit(menuPage); heading->setObjectName("grubAppearanceHeading"); heading->setMaxLength(64);
+  subtitle = new QLineEdit(menuPage); subtitle->setObjectName("grubAppearanceSubtitle"); subtitle->setMaxLength(100);
+  form->addRow("Heading", heading); form->addRow("Subtitle", subtitle);
+  textSize = new QComboBox(menuPage); textSize->setObjectName("grubAppearanceTextSize");
+  textSize->addItem("Small", 18); textSize->addItem("Regular", 22); textSize->addItem("Large", 28); form->addRow("Text size", textSize);
+  hints = new QCheckBox("Show navigation hints", menuPage); hints->setObjectName("grubAppearanceHints"); form->addRow(hints);
+  controls->addTab(menuPage, "Menu");
+  auto *colorPage = new QWidget(controls); auto *colors = new QVBoxLayout(colorPage); colors->setSpacing(12);
+  colors->addWidget(note("Fine-tune the colors of this boot screen.", colorPage));
+  accent = new QPushButton("Selection & accent", colorPage); textColor = new QPushButton("Menu text", colorPage); base = new QPushButton("Menu shade", colorPage);
   accent->setObjectName("grubAppearanceAccent"); textColor->setObjectName("grubAppearanceTextColor"); base->setObjectName("grubAppearanceBase");
-  colors->addWidget(accent); colors->addWidget(textColor); colors->addWidget(base); form->addLayout(colors);
-  hints = new QCheckBox("Show navigation hints", formWidget); hints->setObjectName("grubAppearanceHints"); form->addWidget(hints);
-  auto *reset = new QPushButton("Reset this theme", formWidget); reset->setObjectName("grubAppearanceReset"); form->addWidget(reset); form->addStretch();
-  controls->setWidget(formWidget); body->addWidget(controls); scroll->setWidget(content); layout->addWidget(scroll, 1);
+  colors->addWidget(accent); colors->addWidget(textColor); colors->addWidget(base); colors->addStretch(); controls->addTab(colorPage, "Colors");
+  auto *reset = new QPushButton("Reset this theme", settingsColumn); reset->setObjectName("grubAppearanceReset"); column->addWidget(reset);
+  body->addWidget(settingsColumn); layout->addWidget(content, 1);
   auto *actions = new QHBoxLayout;
-  reload = new QPushButton("Reload applied design", this); reload->setObjectName("grubAppearanceReload");
+  reload = new QPushButton("Reload design", this); reload->setObjectName("grubAppearanceReload");
   restore = new QPushButton("Use system appearance", this); restore->setObjectName("grubAppearanceSystem");
   undo = new QPushButton("Undo appearance", this); undo->setObjectName("grubAppearanceUndo");
-  apply = new QPushButton("Apply for next boot", this); apply->setProperty("primary", true); apply->setObjectName("grubAppearanceApply");
+  apply = new QPushButton("Review && apply…", this); apply->setProperty("primary", true); apply->setObjectName("grubAppearanceApply");
   actions->addWidget(reload); actions->addWidget(restore); actions->addWidget(undo); actions->addStretch(); actions->addWidget(apply); layout->addLayout(actions);
 
   catalog = new QProcess(this); renderer = new QProcess(this); debounce = new QTimer(this);
@@ -106,6 +120,7 @@ GrubAppearance::GrubAppearance(const QString &helper, QWidget *parent) : QWidget
   connect(themes, &QListWidget::currentItemChanged, this, [this] {
     if (!syncing && themes->currentItem()) loadOptions(themes->currentItem()->data(Qt::UserRole).toJsonObject()["options"].toObject());
   });
+  connect(themePicker, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int row) { if (!syncing) themes->setCurrentRow(row); });
   connect(reset, &QPushButton::clicked, this, [this] {
     if (themes->currentItem()) loadOptions(themes->currentItem()->data(Qt::UserRole).toJsonObject()["options"].toObject());
   });
@@ -124,18 +139,18 @@ GrubAppearance::GrubAppearance(const QString &helper, QWidget *parent) : QWidget
     pictures->setCurrentIndex(index);
   });
   connect(apply, &QPushButton::clicked, this, [this] {
-    if (previewReady) emit requested({{"action", "appearance-apply"}, {"options", settings},
+    if (previewReady) emit requested({{"action", "appearance-review"}, {"operation", "apply"}, {"options", settings},
       {"appearance_revision", revision}, {"background_sha", backgroundHash}});
   });
-  connect(restore, &QPushButton::clicked, this, [this] { emit requested({{"action", "appearance-system"}, {"appearance_revision", revision}}); });
-  connect(undo, &QPushButton::clicked, this, [this] { emit requested({{"action", "appearance-undo"}, {"appearance_revision", revision}}); });
+  connect(restore, &QPushButton::clicked, this, [this] { emit requested({{"action", "appearance-review"}, {"operation", "system"}, {"appearance_revision", revision}}); });
+  connect(undo, &QPushButton::clicked, this, [this] { emit requested({{"action", "appearance-review"}, {"operation", "undo"}, {"appearance_revision", revision}}); });
   connect(catalog, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this, [this](int code, QProcess::ExitStatus exit) {
     const auto data = QJsonDocument::fromJson(catalog->readAllStandardOutput()).object();
     if (code || exit != QProcess::NormalExit || !data.contains("presets")) {
       caption->setText(data["error"].toString("Could not load the boot screen themes. Use Reload applied design to retry."));
       previewReady = false; updateActions(); return;
     }
-    syncing = true; themes->clear(); pictures->clear(); pictures->addItem("Solid color", "");
+    syncing = true; themes->clear(); themePicker->clear(); pictures->clear(); pictures->addItem("Solid color", "");
     for (const auto &value : data["pictures"].toArray()) {
       const auto picture = value.toObject(); pictures->addItem(picture["name"].toString(), picture["path"].toString());
     }
@@ -144,6 +159,7 @@ GrubAppearance::GrubAppearance(const QString &helper, QWidget *parent) : QWidget
       QPixmap art(preset["options"].toObject()["background"].toString());
       auto *item = new QListWidgetItem(QIcon(art.scaled(308, 160, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation)), preset["name"].toString(), themes);
       item->setData(Qt::UserRole, preset); item->setToolTip(preset["name"].toString());
+      themePicker->addItem(preset["name"].toString());
     }
     active = data["active"].toBool(); canUndo = data["can_undo"].toBool() || active;
     revision = data["revision"].toString(); syncing = false;
@@ -181,10 +197,9 @@ void GrubAppearance::showEvent(QShowEvent *event) {
   QWidget::showEvent(event); if (!loaded) { loaded = true; loadCatalog(); }
 }
 void GrubAppearance::resizeEvent(QResizeEvent *event) {
-  QWidget::resizeEvent(event); const bool narrow = width() < 1050;
-  body->setDirection(narrow ? QBoxLayout::TopToBottom : QBoxLayout::LeftToRight);
-  controls->setMaximumWidth(narrow ? QWIDGETSIZE_MAX : 360); controls->setMaximumHeight(narrow ? 300 : QWIDGETSIZE_MAX);
-  controls->setMinimumHeight(narrow ? 260 : 310);
+  QWidget::resizeEvent(event);
+  const bool compact = height() < 520;
+  themeShelf->setVisible(!compact); themePicker->setVisible(compact);
 }
 void GrubAppearance::loadCatalog() {
   if (busy || catalog->state() != QProcess::NotRunning) return;
@@ -195,7 +210,7 @@ void GrubAppearance::loadOptions(const QJsonObject &value) {
   if (value.isEmpty()) return;
   syncing = true; settings = value;
   for (int i=0; i<themes->count(); ++i)
-    if (themes->item(i)->data(Qt::UserRole).toJsonObject()["id"] == settings["preset"]) { themes->setCurrentRow(i); break; }
+    if (themes->item(i)->data(Qt::UserRole).toJsonObject()["id"] == settings["preset"]) { themes->setCurrentRow(i); themePicker->setCurrentIndex(i); themes->scrollToItem(themes->item(i)); break; }
   const auto path = settings["background"].toString(); int picture = pictures->findData(path);
   if (picture < 0) { pictures->addItem("Applied picture · "+QFileInfo(path).fileName(), path); picture = pictures->count()-1; }
   pictures->setCurrentIndex(picture); position->setCurrentIndex(qMax(0, position->findData(settings["layout"].toString())));
@@ -236,14 +251,87 @@ void GrubAppearance::setAvailability(bool working, bool available, bool hasMenu)
   busy = working; supported = available; readable = hasMenu; updateActions();
 }
 void GrubAppearance::updateActions() {
-  content->setEnabled(!busy); reload->setEnabled(!busy && catalog->state() == QProcess::NotRunning);
+  content->setEnabled(!busy); themePicker->setEnabled(!busy); reload->setEnabled(!busy && catalog->state() == QProcess::NotRunning);
   apply->setEnabled(!busy && supported && readable && previewReady);
   restore->setEnabled(!busy && supported && readable && active);
   undo->setEnabled(!busy && supported && readable && canUndo);
-  apply->setToolTip(readable ? "Save this design for your next restart" : "Load the current GRUB menu first");
+  apply->setToolTip(readable ? "Prepare backups and review recovery instructions before saving" : "Load the current GRUB menu first");
 }
 void GrubAppearance::acceptResult(const QJsonObject &data) {
   revision = data["revision"].toString(); active = data["active"].toBool(); canUndo = data["can_undo"].toBool();
   if (!data["options"].toObject().isEmpty()) loadOptions(data["options"].toObject());
   updateActions();
+}
+
+void GrubAppearance::reviewChanges(const QJsonObject &data) {
+  if (data["token"].toString().isEmpty() || data["files"].toArray().isEmpty()) return;
+  QDialog dialog(this); dialog.setObjectName("grubRecoveryReview");
+  dialog.setWindowTitle("Review your GRUB backups"); dialog.setProperty("xetalWindowSized", true);
+  auto *layout = new QVBoxLayout(&dialog); layout->setSpacing(12);
+  layout->addWidget(note("Take a picture of the screen. Here are your backups.", &dialog, "panelTitle"));
+  layout->addWidget(note("The backups below have been saved. Your boot files will change only after you confirm Apply.", &dialog));
+  auto selectable = [](const QString &text, QWidget *parent) {
+    auto *label = note(text, parent); label->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
+    label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred); return label;
+  };
+  auto *folder = selectable(data["backup"].toString(), &dialog); folder->setObjectName("grubRecoveryBackupFolder");
+  layout->addWidget(folder);
+  auto *pages = new QTabWidget(&dialog); pages->setObjectName("grubRecoveryPages"); layout->addWidget(pages, 1);
+  auto *filesPage = new QWidget(pages); auto *files = new QVBoxLayout(filesPage);
+  auto *grid = new QGridLayout; grid->setHorizontalSpacing(18); grid->setVerticalSpacing(14);
+  grid->addWidget(note("File that will change", filesPage, "muted"), 0, 0);
+  grid->addWidget(note("Backup already saved", filesPage, "muted"), 0, 1);
+  int row = 1;
+  for (const auto &value : data["files"].toArray()) {
+    const auto file = value.toObject();
+    grid->addWidget(selectable(file["change"].toString()+" · "+file["path"].toString(), filesPage), row, 0);
+    grid->addWidget(selectable(file["backup"].toString().isEmpty() ?
+      "New file — no previous copy. Recovery removes it." : file["backup"].toString(), filesPage), row++, 1);
+  }
+  grid->setColumnStretch(0, 1); grid->setColumnStretch(1, 1); files->addLayout(grid); files->addStretch();
+  files->addWidget(note("Recovery Instructions: If Linux starts, open a terminal and run:", filesPage));
+  auto *command = selectable(data["command"].toString(), filesPage); command->setObjectName("grubRecoveryCommand"); files->addWidget(command);
+  files->addWidget(note("If Linux cannot start, use a live USB. Open Recovery instructions for the mounting steps and command.", filesPage));
+  pages->addTab(filesPage, "Files && backups");
+  if (!data["created"].toArray().isEmpty()) {
+    auto *assetsPage = new QWidget(pages); auto *assets = new QVBoxLayout(assetsPage);
+    const auto paths = data["created"].toArray();
+    assets->addWidget(note("New theme files · Existing themes are kept", assetsPage, "panelTitle"));
+    assets->addWidget(selectable(QFileInfo(paths.first().toString()).absolutePath(), assetsPage));
+    auto *names = new QGridLayout;
+    for (int i = 0; i < paths.size(); ++i)
+      names->addWidget(selectable(QFileInfo(paths[i].toString()).fileName(), assetsPage), i/3, i%3);
+    assets->addLayout(names); assets->addStretch();
+    assets->addWidget(note("These files do not replace existing files. Recovery restores the previous menu; these unused assets can stay on disk.", assetsPage));
+    pages->addTab(assetsPage, "New theme files");
+  }
+  auto *recoveryPage = new QWidget(pages); auto *recovery = new QVBoxLayout(recoveryPage);
+  auto *instructions = selectable(data["instructions"].toString(), recoveryPage); instructions->setObjectName("grubRecoveryInstructions");
+  recovery->addWidget(instructions); recovery->addStretch(); pages->addTab(recoveryPage, "Recovery instructions");
+  layout->addWidget(note("A complete copy is saved as RECOVERY.txt in the backup folder above. You can also save a copy to another drive.", &dialog, "muted"));
+  auto *expiry = note("This review expires after five minutes. Changed boot files require fresh backups.", &dialog, "muted"); layout->addWidget(expiry);
+  auto *buttons = new QDialogButtonBox(&dialog); layout->addWidget(buttons);
+  auto *copy = buttons->addButton("Copy all details", QDialogButtonBox::ActionRole);
+  auto *save = buttons->addButton("Save instructions…", QDialogButtonBox::ActionRole);
+  auto *cancel = buttons->addButton(QDialogButtonBox::Cancel); cancel->setDefault(true);
+  auto *confirm = buttons->addButton("Apply for next boot", QDialogButtonBox::AcceptRole);
+  confirm->setObjectName("grubRecoveryConfirm"); confirm->setAutoDefault(false);
+  connect(copy, &QPushButton::clicked, &dialog, [data] { QApplication::clipboard()->setText(data["report"].toString()); });
+  connect(save, &QPushButton::clicked, &dialog, [&dialog, data] {
+    const auto path = QFileDialog::getSaveFileName(&dialog, "Save GRUB recovery instructions",
+      QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)+"/grub-recovery-"+QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss")+".txt", "Text files (*.txt)");
+    if (path.isEmpty()) return;
+    QSaveFile file(path); const auto bytes = data["report"].toString().toUtf8();
+    if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit())
+      QMessageBox::warning(&dialog, "Could not save instructions", file.errorString());
+  });
+  connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+  connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+  QTimer timer; timer.setSingleShot(true); timer.start(300000);
+  connect(&timer, &QTimer::timeout, &dialog, [confirm, expiry] {
+    confirm->setEnabled(false); expiry->setText("This review expired. Cancel and choose Review & apply again for fresh backups.");
+  });
+  dialog.resize(1120, 740);
+  const bool confirmed = dialog.exec() == QDialog::Accepted && confirm->isEnabled();
+  emit requested({{"action", confirmed ? "appearance-confirm" : "appearance-cancel"}, {"token", data["token"]}});
 }
