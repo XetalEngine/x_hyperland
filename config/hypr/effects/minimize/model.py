@@ -8,19 +8,31 @@ SHAPES = {'random': 'Random per window', 'bloom': 'Bloom', 'star': 'Starburst',
           'web': 'Webbed splash', 'droplets': 'Heavy droplets'}
 SURFACES = {'slime': 'Living slime', 'membrane': 'Alien membrane', 'paint': 'Glossy paint'}
 EDGES = {'left': 'Left', 'right': 'Right'}
+PRESENTATIONS = {'dock': 'Animated dock', 'stack': 'Classic edge stack'}
+DOCK_EDGES = {'auto': 'Opposite Waybar', 'bottom': 'Bottom', 'top': 'Top', 'left': 'Left', 'right': 'Right'}
+DOCK_STYLES = {'follow': 'Follow desktop theme', 'raw': 'Xetal Raw · circuit rail', 'modern': 'Xetal Modern · floating glass',
+               'breakpoint': 'BreakPoint · reactor console', 'binaryknife': 'Binary Knife · cut crystal',
+               'tidalglass': 'Tidal Glass · ocean glass', 'porcelainink': 'Porcelain Ink · ink tray',
+               'obsidianforge': 'Obsidian Forge · forged metal', 'candycloud': 'Candy Cloud · pearl pillows',
+               'shadowedge': 'Shadow Edge · smoked steel', 'hollowgrove': 'Hollow Grove · moonlit vines'}
 ORDERS = {'bottom-to-top': 'Bottom to top', 'top-to-bottom': 'Top to bottom'}
 DEFAULTS = dict(enabled=True, effect='fireball', duration=420, size=76,
                 follow_theme=True, color='#39a9ff', shape='random', speed=100, bubbles=70, surface='slime',
-                edge='left', order='bottom-to-top')
-RANGES = dict(duration=(150, 1200), size=(48, 160), speed=(25, 200), bubbles=(0, 100))
+                edge='left', order='bottom-to-top', presentation='dock', dock_edge='auto', dock_style='follow',
+                auto_hide=True, hide_delay=1200, dock_duration=320, proximity=12, dock_zoom=125)
+RANGES = dict(duration=(150, 1200), size=(48, 160), speed=(25, 200), bubbles=(0, 100),
+              hide_delay=(200,10000), dock_duration=(100,1000), proximity=(2,64), dock_zoom=(100,150))
+DOCK_KEYS = {'presentation','dock_edge','dock_style','auto_hide','hide_delay','dock_duration','proximity','dock_zoom'}
+PRE_DOCK = set(DEFAULTS)-DOCK_KEYS
 LEGACY = {'enabled', 'effect', 'duration', 'size'}
 PATH = Path(__file__).resolve().with_name('settings.conf')
 
 
 def validate(values):
+    if set(values)==PRE_DOCK:values=dict(DEFAULTS,**values,presentation='stack')
     if set(values) != set(DEFAULTS):
         raise ValueError('Minimize settings are incomplete or contain unknown options.')
-    if any(type(values[key]) is not bool for key in ('enabled', 'follow_theme')):
+    if any(type(values[key]) is not bool for key in ('enabled', 'follow_theme', 'auto_hide')):
         raise ValueError('Invalid Minimize switch.')
     if values['effect'] not in ('fireball', 'splat') or not isinstance(values['shape'], str) or values['shape'] not in SHAPES:
         raise ValueError('Choose a supported effect and splat shape.')
@@ -30,10 +42,14 @@ def validate(values):
         raise ValueError('Choose a supported Splat surface.')
     if values['edge'] not in EDGES or values['order'] not in ORDERS:
         raise ValueError('Choose a screen edge and stacking direction.')
+    if values['presentation'] not in PRESENTATIONS or values['dock_edge'] not in DOCK_EDGES or values['dock_style'] not in DOCK_STYLES:
+        raise ValueError('Choose an available dock style and position.')
     for key, (lo, hi) in RANGES.items():
         if type(values[key]) is not int or not lo <= values[key] <= hi:
             raise ValueError(f'{key} must be a whole number between {lo} and {hi}.')
-    return dict(values, color=values['color'].lower())
+    # Splat is parked for now. Read its old preferences without losing them,
+    # but use Fireball until the effect is enabled again in a future release.
+    return dict(values, color=values['color'].lower(), effect='fireball')
 
 
 def encode(values):
@@ -50,7 +66,7 @@ def decode(text):
         key, sep, value = line.partition('=')
         if not sep or key not in DEFAULTS or key in values:
             raise ValueError('Invalid or duplicate Minimize setting.')
-        if key in ('enabled', 'follow_theme'):
+        if key in ('enabled', 'follow_theme', 'auto_hide'):
             if value not in ('0', '1'):
                 raise ValueError('Invalid Minimize switch.')
             value = value == '1'
@@ -58,8 +74,8 @@ def decode(text):
             value = int(value)
         values[key] = value
     # Upgrade the original four-field format without discarding preferences.
-    if set(values) in (LEGACY, set(DEFAULTS)-{'surface', 'edge', 'order'}, set(DEFAULTS)-{'edge', 'order'}):
-        values = dict(DEFAULTS, **values)
+    if set(values) in (LEGACY, PRE_DOCK-{'surface','edge','order'}, PRE_DOCK-{'edge','order'}, PRE_DOCK):
+        values = dict(DEFAULTS, **values, presentation='stack')
     return validate(values)
 
 

@@ -3,7 +3,8 @@
 #include <hyprland/src/render/Renderer.hpp>
 #include "motion.hpp"
 #include "fire.hpp"
-#include "splat.hpp"
+// #include "splat.hpp" // Parked: Fireball is the only enabled effect.
+#include "dock_shader.hpp"
 #include "../../burn/native/fire_texture.hpp"
 namespace Minimize {
 struct GLState {
@@ -58,7 +59,7 @@ struct GLState {
 };
 struct Graphics {
     struct Vertex {float x,y,u,v,r,g,b,a;};
-    GLuint fireProgram=0, splatProgram=0, vao=0, vbo=0, texture=0;
+    GLuint fireProgram=0, dockProgram=0, vao=0, vbo=0, texture=0;
     GLuint compile(GLenum type, const char* source) {
         GLuint shader=glCreateShader(type);
         glShaderSource(shader,1,&source,nullptr);glCompileShader(shader);
@@ -86,7 +87,7 @@ struct Graphics {
         uniform sampler2D sprite;uniform float alphaScale;
         in vec2 coord;in vec4 particleColor;out vec4 fragColor;
         void main(){fragColor=texture(sprite,coord)*particleColor;fragColor.a*=alphaScale;})");
-        splatProgram=link(splatFragment);
+        dockProgram=link(dockFragment);
         glGenTextures(1,&texture);glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,texture);
         glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,32,32,0,GL_RGBA,GL_UNSIGNED_BYTE,fireTex);
         glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
@@ -103,9 +104,9 @@ struct Graphics {
         if(vbo)glDeleteBuffers(1,&vbo);
         if(vao)glDeleteVertexArrays(1,&vao);
         if(fireProgram)glDeleteProgram(fireProgram);
-        if(splatProgram)glDeleteProgram(splatProgram);
+        if(dockProgram)glDeleteProgram(dockProgram);
         if(texture)glDeleteTextures(1,&texture);
-        fireProgram=splatProgram=vao=vbo=texture=0;
+        fireProgram=dockProgram=vao=vbo=texture=0;
     }
     void prepare(PHLMONITOR m,GLuint program) {
         glUseProgram(program);glBindVertexArray(vao);glBindBuffer(GL_ARRAY_BUFFER,vbo);
@@ -158,6 +159,19 @@ struct Graphics {
         glUniform1f(glGetUniformLocation(fireProgram,"alphaScale"),1.F);
         glBlendFunc(GL_SRC_ALPHA,GL_ONE);draw(vertices.size());
     }
+    void dock(PHLMONITOR m,Rect b,int style,const std::array<float,3>& rgb,const std::array<float,3>& background,
+              const std::array<float,3>& light,double seconds,float alpha,bool vertical,int part=0,float hover=0) {
+        if(b.w<2 || b.h<2 || alpha<=0)return;
+        GLState restore;prepare(m,dockProgram);
+        auto uniform=[&](const char* name){return glGetUniformLocation(dockProgram,name);};
+        const auto tint=color(rgb),base=color(background),ink=color(light);
+        glUniform3fv(uniform("tint"),1,tint.data());glUniform3fv(uniform("base"),1,base.data());glUniform3fv(uniform("ink"),1,ink.data());
+        glUniform2f(uniform("dimensions"),b.w,b.h);glUniform1f(uniform("time"),seconds);glUniform1f(uniform("opacity"),alpha);
+        glUniform1i(uniform("style"),style);glUniform1i(uniform("part"),part);glUniform1i(uniform("vertical"),vertical);
+        glUniform1f(uniform("emphasis"),hover);glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
+        std::vector<Vertex> vertices;quad(vertices,m,b,{1,1,1,1});upload(vertices);draw(vertices.size());
+    }
+#if 0 // Retain Splat's implementation for a future revision, without compiling its shader.
     void splat(PHLMONITOR m,Rect b,double seconds,uint32_t seed,int shape,int surface,float bubbles,
                const std::array<float,3>& rgb,float alpha,bool hover) {
         GLState restore;prepare(m,splatProgram);
@@ -170,5 +184,6 @@ struct Graphics {
         glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
         std::vector<Vertex> vertices;quad(vertices,m,b,{1,1,1,1});upload(vertices);draw(vertices.size());
     }
+#endif
 };
 }

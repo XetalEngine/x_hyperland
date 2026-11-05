@@ -25,6 +25,7 @@ from cursors import effects as mouse_effects
 
 COMPONENTS = {
     'waybar': ('Waybar', 'Taskbar design, grouping and surface shapes'),
+    'dock': ('Dock design', 'Independent dock design; position, timing and minimize options are kept'),
     'colors': ('Colors', 'Desktop palette, taskbar accents, terminal and application colors'),
     'layout': ('Navigation & controls', 'Tabs, icon rail, sidebar or ribbon; button and menu shapes'),
     'selection': ('Selection marker', 'Optional accent edge beside the selected folder in Fusion Files'),
@@ -162,9 +163,29 @@ def resources(root, target, selected, previous_design):
     if 'effects' in selected:
         for key, plugin, dispatcher in [('burn', 'Xetal Burn', 'xetalburn:reload'), ('cube', 'Xetal Desktop Cube', 'xetalcube:reload'), ('minimize', 'Xetal Minimize', 'xetalminimize:reload'), ('wobbly', 'Xetal Wobbly Windows', 'xetalwobbly:reload')]:
             if key in target:
-                files[root / RESOURCE_PATHS[key]] = burn.encode(target[key]).encode() if key == 'burn' else minimize.encode(target[key]).encode() if key == 'minimize' else encode(target[key])
+                value=target[key]
+                if key=='minimize' and 'dock' not in selected:
+                    # Dock design is its own component, even in saved presets.
+                    value=dict(value,dock_style=minimize.load(root / RESOURCE_PATHS[key])[0]['dock_style'])
+                files[root / RESOURCE_PATHS[key]] = burn.encode(value).encode() if key == 'burn' else minimize.encode(value).encode() if key == 'minimize' else encode(value)
                 reloads.append((plugin, dispatcher))
         if 'appearance' in target: files[root / 'control_center/appearance.conf'] = target['appearance'].encode()
+    if 'dock' in selected:
+        path=root / RESOURCE_PATHS['minimize']
+        value=minimize.decode(files[path].decode()) if path in files else minimize.load(path)[0]
+        # Built-ins provide their design; custom snapshots retain Follow theme
+        # or their explicit choice. All other minimizer settings stay intact.
+        value['dock_style']=target.get('minimize',{}).get('dock_style',target['theme']['design'])
+        files[path]=minimize.encode(value).encode();reloads.append(('Xetal Minimize','xetalminimize:reload'))
+    elif 'colors' in selected and target['theme']['design']!=previous_design:
+        path=root / RESOURCE_PATHS['minimize']
+        if path in files or path.exists():
+            value=minimize.decode(files[path].decode()) if path in files else minimize.load(path)[0]
+            if value['dock_style']=='follow':
+                # A colors-only preset keeps an unchecked dock's shape, just
+                # as it keeps the current Waybar and Start menu designs.
+                value['dock_style']=previous_design;files[path]=minimize.encode(value).encode()
+                reloads.append(('Xetal Minimize','xetalminimize:reload'))
     return files, reloads
 
 

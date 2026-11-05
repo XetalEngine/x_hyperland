@@ -15,7 +15,9 @@ class SettingsTests(unittest.TestCase):
     def test_invalid_input_never_reaches_compositor(self):
         for change in ({'enabled': 1}, {'effect': 'unknown'}, {'size': 0}, {'duration': 1.5},
                        {'follow_theme': 1}, {'color': 'red'}, {'shape': 'alien'}, {'speed': 0}, {'bubbles': 101}, {'surface': 'unknown'},
-                       {'edge': 'center'}, {'order': 'sideways'}):
+                       {'edge': 'center'}, {'order': 'sideways'}, {'presentation':'panel'}, {'dock_style':'missing'},
+                       {'dock_edge':'middle'}, {'hide_delay':0}, {'dock_duration':99}, {'proximity':65},
+                       {'dock_zoom':151}, {'auto_hide':1}):
             with patch.object(controller, 'hypr') as hypr, self.assertRaises(ValueError):
                 controller.save(dict(model.DEFAULTS, **change), 'unused')
             hypr.assert_not_called()
@@ -24,14 +26,17 @@ class SettingsTests(unittest.TestCase):
 
     def test_legacy_migration_preserves_preferences_and_new_fields_round_trip(self):
         old = model.decode('enabled=0\neffect=fireball\nduration=650\nsize=100\n')
-        self.assertEqual(old, dict(model.DEFAULTS, enabled=False, duration=650, size=100))
-        for missing in ({'surface','edge','order'}, {'edge','order'}):
-            previous={k:v for k,v in model.DEFAULTS.items() if k not in missing}
+        self.assertEqual(old, dict(model.DEFAULTS, enabled=False, duration=650, size=100, presentation='stack'))
+        for missing in ({'surface','edge','order'}, {'edge','order'}, set()):
+            previous={k:v for k,v in model.DEFAULTS.items() if k in model.PRE_DOCK-missing}
             text=''.join(f'{k}={int(v) if type(v) is bool else v}\n' for k,v in previous.items())
-            self.assertEqual(model.decode(text),model.DEFAULTS)
+            self.assertEqual(model.decode(text),dict(model.DEFAULTS,presentation='stack'))
         for shape in model.SHAPES:
             new = dict(old, effect='splat', shape=shape, follow_theme=False, color='#aabbcc', bubbles=0)
-            self.assertEqual(model.decode(model.encode(new)), new)
+            self.assertEqual(model.decode(model.encode(new)), dict(new,effect='fireball'))
+        for style in model.DOCK_STYLES:
+            new=dict(model.DEFAULTS,dock_style=style,hide_delay=2500,proximity=24)
+            self.assertEqual(model.decode(model.encode(new)),new)
         with self.assertRaises(ValueError):
             model.decode('enabled=1\neffect=splat\nduration=420\n')
 
@@ -47,7 +52,7 @@ class SettingsTests(unittest.TestCase):
 #include <cmath>
 int main(int argc,char** argv){
  auto s=Minimize::readSettings(argv[1],argv[2]);
- assert(s.effect=="splat" && s.shape==5);
+ assert(s.effect=="fireball" && s.shape==5);
  assert(std::abs(s.rgb[0]-57.F/255)<.001 && s.rgb[2]==1);
  Minimize::Fire a(42),b(42);
  for(int i=0;i<100;++i){a.advance(.016);b.advance(.008);b.advance(.008);}
@@ -143,19 +148,23 @@ class ControlsTests(unittest.TestCase):
         self.assertIn('Cannot read', page.status.text()); self.assertFalse(page.preview.isEnabled())
         page.close()
 
-    def test_splat_controls_keep_custom_color_and_draft_until_apply(self):
+    def test_dock_controls_keep_custom_color_and_draft_until_apply(self):
         from effects.minimize.page import MinimizePage
         page = MinimizePage(lambda *args: None)
-        page.effect.setCurrentIndex(page.effect.findData('splat'))
-        page.surface.setCurrentIndex(page.surface.findData('membrane'))
         page.follow_theme.setChecked(False); page.color = '#61e897'
-        page.shape.setCurrentIndex(page.shape.findData('claw')); page.bubbles.setValue(95)
+        page.dock_style.setCurrentIndex(page.dock_style.findData('hollowgrove'))
+        page.dock_edge.setCurrentIndex(page.dock_edge.findData('top'));page.hide_delay.setValue(2200)
         page.edge.setCurrentIndex(page.edge.findData('right')); page.order.setCurrentIndex(page.order.findData('top-to-bottom'))
         page.edited()
         self.assertTrue(page.dirty); self.assertTrue(page.color_button.isEnabled())
-        self.assertFalse(page.preview.isEnabled()); self.assertEqual(page.values()['shape'], 'claw')
-        self.assertEqual(page.values()['surface'],'membrane')
+        self.assertFalse(page.preview.isEnabled()); self.assertEqual(page.values()['dock_style'], 'hollowgrove')
+        self.assertEqual(page.values()['dock_edge'],'top');self.assertEqual(page.values()['hide_delay'],2200)
         self.assertEqual(page.values()['edge'],'right'); self.assertEqual(page.values()['order'],'top-to-bottom')
+        self.assertEqual(page.effect.count(),1);self.assertEqual(page.effect.itemData(0),'fireball')
+        page.presentation.setCurrentIndex(page.presentation.findData('stack'))
+        self.assertFalse(page.dock_options.isEnabled());self.assertFalse(page.edge.isHidden())
+        page.presentation.setCurrentIndex(page.presentation.findData('dock'))
+        self.assertTrue(page.dock_options.isEnabled());self.assertTrue(page.edge.isHidden())
         page.reset(); self.assertFalse(page.dirty)
         page.close()
 

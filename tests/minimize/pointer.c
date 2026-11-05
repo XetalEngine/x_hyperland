@@ -23,7 +23,7 @@ int main(int argc,char **argv) {
     if(!strcmp(argv[5],"click")) {
         zwlr_virtual_pointer_v1_button(pointer,2,272,1);zwlr_virtual_pointer_v1_frame(pointer);
         zwlr_virtual_pointer_v1_button(pointer,3,272,0);zwlr_virtual_pointer_v1_frame(pointer);
-    } else {
+    } else if(strcmp(argv[5],"move")) {
         int direction=atoi(argv[5]);
         zwlr_virtual_pointer_v1_axis_source(pointer,WL_POINTER_AXIS_SOURCE_WHEEL);
         zwlr_virtual_pointer_v1_axis_discrete(pointer,2,WL_POINTER_AXIS_VERTICAL_SCROLL,wl_fixed_from_int(15*direction),direction);

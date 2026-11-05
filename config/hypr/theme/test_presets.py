@@ -57,6 +57,45 @@ class PresetTests(unittest.TestCase):
         target=presets.builtin('hollowgrove',root=self.root)
         self.assertEqual(presets.merged_theme(previous,target,{'colors'})['bar_style'],'binaryknife')
 
+    def test_dock_component_uses_each_theme_and_preserves_minimizer_controls(self):
+        path=self.root/'effects/minimize/settings.conf';path.parent.mkdir(parents=True)
+        original=dict(presets.minimize.DEFAULTS,presentation='stack',hide_delay=5300,dock_edge='right')
+        path.write_text(presets.minimize.encode(original))
+        colors=(self.root/'theme/current.colors').read_bytes()
+        for design in runtime.DESIGNS:
+            target=presets.builtin(design,root=self.root)
+            files,reloads=presets.resources(self.root,target,{'dock'},'binaryknife')
+            self.assertEqual(set(files),{path})
+            self.assertEqual(presets.minimize.decode(files[path].decode()),dict(original,dock_style=design))
+            self.assertIn(('Xetal Minimize','xetalminimize:reload'),reloads)
+        with patch.object(backend.effect_colors,'reload_active') as reload_effect,patch.object(backend.Path,'iterdir',return_value=iter(())):
+            backend.apply_components(presets.builtin('candycloud',root=self.root),{'dock'},backend.theme_token())
+        self.assertEqual(presets.minimize.load(path)[0],dict(original,dock_style='candycloud'))
+        self.assertEqual((self.root/'theme/current.colors').read_bytes(),colors)
+        self.store.save.assert_not_called();reload_effect.assert_called_once()
+
+    def test_custom_effects_and_dock_can_be_applied_independently(self):
+        path=self.root/'effects/minimize/settings.conf';path.parent.mkdir(parents=True)
+        original=dict(presets.minimize.DEFAULTS,dock_style='hollowgrove')
+        path.write_text(presets.minimize.encode(original))
+        target=presets.current(self.root);target['minimize'].update(dock_style='modern',size=130)
+        files,_=presets.resources(self.root,target,{'effects'},'binaryknife')
+        self.assertEqual(presets.minimize.decode(files[path].decode()),dict(original,size=130))
+        files,_=presets.resources(self.root,target,{'dock'},'binaryknife')
+        self.assertEqual(presets.minimize.decode(files[path].decode()),dict(original,dock_style='modern'))
+        files,_=presets.resources(self.root,target,{'effects','dock'},'binaryknife')
+        self.assertEqual(presets.minimize.decode(files[path].decode()),target['minimize'])
+
+    def test_colors_only_pins_the_followed_dock_without_changing_its_controls(self):
+        path=self.root/'effects/minimize/settings.conf';path.parent.mkdir(parents=True)
+        original=dict(presets.minimize.DEFAULTS,hide_delay=3500,dock_edge='top')
+        path.write_text(presets.minimize.encode(original));target=presets.builtin('hollowgrove',root=self.root)
+        files,reloads=presets.resources(self.root,target,{'colors'},'binaryknife')
+        self.assertEqual(presets.minimize.decode(files[path].decode()),dict(original,dock_style='binaryknife'))
+        self.assertIn(('Xetal Minimize','xetalminimize:reload'),reloads)
+        files,_=presets.resources(self.root,target,{'colors','dock'},'binaryknife')
+        self.assertEqual(presets.minimize.decode(files[path].decode()),dict(original,dock_style='hollowgrove'))
+
     def test_wobbly_snapshot_and_skin_switch_preserve_physics(self):
         path=self.root/'effects/wobbly/settings.json';path.parent.mkdir(parents=True)
         values=dict(presets.wobbly.DEFAULTS,enabled=True,friction=5,snap_inverted=True)
@@ -106,7 +145,8 @@ class PresetTests(unittest.TestCase):
 
     def test_minimize_color_follow_and_rollback_without_replacing_preferences(self):
         path=self.root/'effects/minimize/settings.conf';path.parent.mkdir(parents=True)
-        values=dict(presets.minimize.DEFAULTS,effect='splat',shape='claw',color='#65dd44',size=110)
+        values=dict(presets.minimize.DEFAULTS,effect='fireball',shape='claw',color='#65dd44',size=110,
+                    dock_style='hollowgrove',hide_delay=2000)
         path.write_text(presets.minimize.encode(values));before=path.read_bytes()
         target=presets.builtin('modern','light',self.root)
         self.assertNotIn('minimize',target)

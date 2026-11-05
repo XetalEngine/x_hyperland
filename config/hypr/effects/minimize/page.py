@@ -26,14 +26,18 @@ class MinimizePage(QWidget):
         heading.addStretch()
         self.enabled = QCheckBox('Enable minimizing'); heading.addWidget(self.enabled)
         root.addLayout(heading)
-        description = QLabel('Super + Z minimizes the active window. Click its effect to bring it back. '
-                             'Scroll over the column when it fills up.')
+        description = QLabel('Super + Z sends a window into its Fireball slot. Click to restore it. '
+                             'Choose an animated dock or keep the classic edge stack.')
         description.setWordWrap(True); description.setObjectName('muted'); root.addWidget(description)
         scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         body = QWidget(); columns = QHBoxLayout(body); columns.setContentsMargins(0, 12, 8, 12); columns.setSpacing(22)
-        general = QGroupBox('Movement & color'); form = QFormLayout(general); form.setSpacing(14)
+        general = QGroupBox('Minimizer'); self.general_form = form = QFormLayout(general); form.setSpacing(12)
+        self.presentation = QComboBox()
+        for value,title in model.PRESENTATIONS.items():self.presentation.addItem(title,value)
+        form.addRow('Show minimized windows in',self.presentation)
         self.effect = QComboBox()
-        self.effect.addItem('Fireball', 'fireball'); self.effect.addItem('Splat', 'splat')
+        self.effect.addItem('Fireball', 'fireball')
+        # self.effect.addItem('Splat', 'splat')  # Parked for a future revision.
         form.addRow('Minimize effect', self.effect)
         self.edge = QComboBox()
         for value, title in model.EDGES.items(): self.edge.addItem(title, value)
@@ -52,28 +56,27 @@ class MinimizePage(QWidget):
         self.color_button = QPushButton(); self.color_button.clicked.connect(self.choose_color)
         form.addRow('Custom color', self.color_button)
         columns.addWidget(general, 1)
-        details = QGroupBox('Effect details'); right = QVBoxLayout(details)
-        self.effect_note = QLabel(); self.effect_note.setWordWrap(True); self.effect_note.setObjectName('muted'); right.addWidget(self.effect_note)
-        self.splat_options = QWidget(); self.splat_options.setObjectName("minimizeSplatOptions")
-        self.splat_options.setStyleSheet("QWidget#minimizeSplatOptions { background: transparent; }")
-        splat = QFormLayout(self.splat_options); splat.setContentsMargins(0, 12, 0, 0); splat.setSpacing(14)
-        self.surface = QComboBox()
-        for value, title in model.SURFACES.items(): self.surface.addItem(title, value)
-        splat.addRow('Surface', self.surface)
-        self.shape = QComboBox()
-        for value, title in model.SHAPES.items(): self.shape.addItem(title, value)
-        splat.addRow('Silhouette', self.shape)
-        self.bubbles = QSpinBox(); self.bubbles.setRange(*model.RANGES['bubbles']); self.bubbles.setSuffix('%')
-        self.bubbles.setKeyboardTracking(False); splat.addRow('Boiling intensity', self.bubbles)
-        note = QLabel('Random picks a different shape for each window and keeps it until restored. '
-                      'Fixed shapes keep their outline while the slime moves and bubbles pop.')
-        note.setWordWrap(True); note.setObjectName('muted'); splat.addRow(note)
-        right.addWidget(self.splat_options); right.addStretch()
-        columns.addWidget(details, 1); columns.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.dock_options = QGroupBox('Animated dock'); dock = QFormLayout(self.dock_options);dock.setSpacing(12)
+        self.dock_edge = QComboBox()
+        for value,title in model.DOCK_EDGES.items():self.dock_edge.addItem(title,value)
+        dock.addRow('Position',self.dock_edge)
+        self.dock_style = QComboBox()
+        for value,title in model.DOCK_STYLES.items():self.dock_style.addItem(title,value)
+        dock.addRow('Dock design',self.dock_style)
+        self.auto_hide = QCheckBox('Automatically hide after use');dock.addRow(self.auto_hide)
+        for key,label,suffix in (('hide_delay','Hide after',' ms'),('dock_duration','Slide and resize time',' ms'),
+                                 ('proximity','Edge proximity',' px'),('dock_zoom','Hover zoom','%')):
+            field=QSpinBox();field.setRange(*model.RANGES[key]);field.setSuffix(suffix);field.setKeyboardTracking(False)
+            setattr(self,key,field);dock.addRow(label,field)
+        self.dock_note = QLabel('Each monitor has its own dock. It grows as windows arrive and slides toward its edge to hide. '
+                               'Move near that edge to reveal it; scroll over slots when it fills up. '
+                               'Side proximity also works at shared monitor boundaries.')
+        self.dock_note.setWordWrap(True);self.dock_note.setObjectName('muted');dock.addRow(self.dock_note)
+        columns.addWidget(self.dock_options, 1); columns.setAlignment(Qt.AlignmentFlag.AlignTop)
         scroll.setWidget(body); root.addWidget(scroll, 1)
         note = QLabel('Your apps stay open. Turning this off restores all minimized windows to their workspaces.')
         note.setWordWrap(True); note.setObjectName('muted'); root.addWidget(note)
-        self.status = QLabel(error or 'Choose Fireball or Splat, apply your changes, then try Preview.')
+        self.status = QLabel(error or 'Apply your changes, then use Preview to try the minimizer.')
         self.status.setWordWrap(True); self.status.setObjectName('muted'); root.addWidget(self.status)
         row = QHBoxLayout()
         self.defaults = QPushButton('Defaults'); self.defaults.clicked.connect(self.use_defaults); row.addWidget(self.defaults)
@@ -85,16 +88,19 @@ class MinimizePage(QWidget):
         self.apply = QPushButton('Apply Minimize'); self.apply.setObjectName('primary'); self.apply.clicked.connect(self.save); row.addWidget(self.apply)
         root.addLayout(row)
         self.enabled.toggled.connect(self.edited); self.effect.currentIndexChanged.connect(self.edited)
-        self.edge.currentIndexChanged.connect(self.edited); self.order.currentIndexChanged.connect(self.edited)
-        for field in (self.duration, self.size, self.speed, self.bubbles): field.valueChanged.connect(self.edited)
-        self.follow_theme.toggled.connect(self.edited); self.shape.currentIndexChanged.connect(self.edited); self.surface.currentIndexChanged.connect(self.edited)
+        for field in (self.edge,self.order,self.presentation,self.dock_edge,self.dock_style):field.currentIndexChanged.connect(self.edited)
+        for field in (self.duration,self.size,self.speed,self.hide_delay,self.dock_duration,self.proximity,self.dock_zoom):field.valueChanged.connect(self.edited)
+        self.follow_theme.toggled.connect(self.edited);self.auto_hide.toggled.connect(self.edited)
         self.reset()
 
     def values(self):
-        return model.validate(dict(enabled=self.enabled.isChecked(), effect=self.effect.currentData(),
+        return model.validate(dict(self.baseline,enabled=self.enabled.isChecked(), effect='fireball',
                                    edge=self.edge.currentData(), order=self.order.currentData(),
+                                   presentation=self.presentation.currentData(),dock_edge=self.dock_edge.currentData(),dock_style=self.dock_style.currentData(),
+                                   auto_hide=self.auto_hide.isChecked(),hide_delay=self.hide_delay.value(),dock_duration=self.dock_duration.value(),
+                                   proximity=self.proximity.value(),dock_zoom=self.dock_zoom.value(),
                                    duration=self.duration.value(), size=self.size.value(), follow_theme=self.follow_theme.isChecked(),
-                                   color=self.color, surface=self.surface.currentData(), shape=self.shape.currentData(), speed=self.speed.value(), bubbles=self.bubbles.value()))
+                                   color=self.color, speed=self.speed.value()))
 
     def reset(self):
         self.fill(self.baseline)
@@ -109,9 +115,11 @@ class MinimizePage(QWidget):
         self.edge.setCurrentIndex(self.edge.findData(values['edge'])); self.order.setCurrentIndex(self.order.findData(values['order']))
         self.duration.setValue(values['duration']); self.size.setValue(values['size'])
         self.follow_theme.setChecked(values['follow_theme']); self.color = values['color']
-        self.shape.setCurrentIndex(self.shape.findData(values['shape']))
-        self.surface.setCurrentIndex(self.surface.findData(values['surface']))
-        self.speed.setValue(values['speed']); self.bubbles.setValue(values['bubbles'])
+        self.speed.setValue(values['speed'])
+        for key in ('presentation','dock_edge','dock_style'):
+            field=getattr(self,key);field.setCurrentIndex(field.findData(values[key]))
+        self.auto_hide.setChecked(values['auto_hide'])
+        for key in ('hide_delay','dock_duration','proximity','dock_zoom'):getattr(self,key).setValue(values[key])
         self.loading = False; self.edited()
 
     def choose_color(self):
@@ -122,18 +130,16 @@ class MinimizePage(QWidget):
         if self.loading:
             return
         self.dirty = self.values() != self.baseline
-        for field in (self.enabled, self.effect, self.edge, self.order, self.duration, self.size, self.speed, self.bubbles, self.follow_theme, self.shape, self.surface, self.defaults, self.reload, self.restore):
+        for field in (self.enabled, self.effect, self.edge, self.order, self.duration, self.size, self.speed, self.follow_theme,
+                      self.presentation,self.defaults,self.reload,self.restore):
             field.setEnabled(not self.busy)
+        dock=self.presentation.currentData()=='dock'
+        self.dock_options.setEnabled(dock and not self.busy)
+        self.general_form.setRowVisible(self.edge,not dock);self.general_form.setRowVisible(self.order,not dock)
+        self.hide_delay.setEnabled(self.auto_hide.isChecked());self.proximity.setEnabled(self.auto_hide.isChecked())
         self.color_button.setEnabled(not self.busy and not self.follow_theme.isChecked())
         self.color_button.setText('Choose… ' + self.color)
         swatch = QPixmap(18, 18); swatch.fill(QColor(self.color)); self.color_button.setIcon(QIcon(swatch))
-        is_splat = self.effect.currentData() == 'splat'; self.splat_options.setVisible(is_splat)
-        self.effect_note.setText({
-            'slime': 'Glossy, living slime with rippling skin, swelling bubbles and scattered droplets.',
-            'membrane': 'Dark, soft pockets joined by bright living veins, with wet ridges and swollen droplets.',
-            'paint': 'Rich liquid color, a smooth surface and broad wet highlights. Add bubbles for a boiling paint effect.',
-        }[self.surface.currentData()] if is_splat else
-                                'Soft, rising flames with bright cores and drifting wisps. The fire keeps burning while your window is minimized.')
         self.apply.setEnabled(self.dirty and not self.busy and self.token is not None)
         self.discard.setEnabled(self.dirty and not self.busy)
         self.preview.setEnabled(not self.busy and not self.dirty and self.baseline['enabled'] and self.token is not None)
@@ -183,7 +189,7 @@ class MinimizePage(QWidget):
         preview = QDialog(self.window()); preview.setWindowTitle('Minimize preview'); preview.setModal(False)
         preview.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose); preview.resize(520, 300)
         layout = QVBoxLayout(preview); layout.setContentsMargins(28, 24, 28, 24)
-        text = QLabel('Send this window to your chosen screen edge. Click its effect to bring it back, or press Super + Z to minimize it.'); text.setWordWrap(True)
+        text = QLabel('Minimize this window to try your dock or edge stack. Move near the dock’s edge to reveal it, then click its Fireball to restore.'); text.setWordWrap(True)
         layout.addWidget(text); layout.addStretch()
         minimize = QPushButton('Minimize this window'); minimize.setObjectName('primary'); minimize.clicked.connect(preview.showMinimized)
         layout.addWidget(minimize)

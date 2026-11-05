@@ -62,6 +62,33 @@ class QuickMixTests(unittest.TestCase):
         self.assertEqual(parts,{'selection'});self.assertEqual(target['theme']['layout'],config['theme']['layout'])
         with self.assertRaises(ValueError):quick_mix.plan(config,baseline,dict(baseline,marker='anything'))
 
+    def test_dock_mix_only_changes_shared_design_and_tracks_detailed_edits(self):
+        path=self.root/'effects/minimize/settings.conf';path.parent.mkdir(parents=True)
+        original=dict(presets.minimize.DEFAULTS,hide_delay=4600,dock_edge='left',dock_zoom=140,color='#90abcf',size=112,presentation='stack')
+        path.write_text(presets.minimize.encode(original))
+        colors=(self.root/'theme/current.colors').read_bytes();library=self.library.read_bytes()
+        baseline,_,config=quick_mix.read();target,parts=quick_mix.plan(config,baseline,dict(baseline,dock='hollowgrove'))
+        self.assertEqual(parts,{'dock'})
+        self.apply_mix({'dock':'hollowgrove'})
+        actual=presets.minimize.load(path)[0]
+        self.assertEqual(actual,dict(original,dock_style='hollowgrove'))
+        self.assertEqual((self.root/'theme/current.colors').read_bytes(),colors);self.assertEqual(self.library.read_bytes(),library)
+        self.assertEqual(quick_mix.read()[0]['dock'],'hollowgrove')
+        baseline=quick_mix.read()[0];path.write_text(presets.minimize.encode(dict(actual,dock_style='candycloud')))
+        saved=quick_mix.read()[0]
+        merged,conflicts=quick_mix.merge(baseline,dict(baseline,waybar='modern'),saved)
+        self.assertEqual(merged['dock'],'candycloud');self.assertEqual(merged['waybar'],'modern');self.assertFalse(conflicts)
+        _,conflicts=quick_mix.merge(baseline,dict(baseline,dock='modern'),saved);self.assertEqual(conflicts,['dock'])
+
+    def test_dock_reload_failure_rolls_back_shared_preferences(self):
+        path=self.root/'effects/minimize/settings.conf';path.parent.mkdir(parents=True)
+        path.write_text(presets.minimize.encode(dict(presets.minimize.DEFAULTS,dock_style='tidalglass')))
+        before=path.read_bytes();baseline,token,_=quick_mix.read()
+        with patch.object(backend.effect_colors,'reload_active',side_effect=ValueError('Dock reload failed')):
+            with self.assertRaisesRegex(ValueError,'Dock reload failed'):
+                quick_mix.apply(dict(baseline,dock='breakpoint'),baseline,token)
+        self.assertEqual(path.read_bytes(),before)
+
     def test_quick_and_detailed_pages_share_applied_values_and_persistent_off(self):
         from PyQt6.QtCore import QEvent
         from PyQt6.QtWidgets import QApplication
@@ -70,11 +97,14 @@ class QuickMixTests(unittest.TestCase):
         qt=QApplication.instance() or QApplication([])
         cursor_path=self.root/'cursors/settings.json'
         cursor_load=presets.cursors.load;cursor_save=controller.save
+        minimize_path=self.root/'effects/minimize/settings.conf';minimize_path.parent.mkdir(parents=True)
+        minimize_path.write_text(presets.minimize.encode(presets.minimize.DEFAULTS));minimize_load=presets.minimize.load
         def run(task,done,failed):
             try:result=task()
             except Exception as error:failed(str(error))
             else:done(result)
         with patch.object(presets.transfer,'PATH',self.root/'file_jobs/preferences.json'), \
+             patch.object(presets.minimize,'load',side_effect=lambda path=None:minimize_load(path or minimize_path)), \
              patch.object(presets.cursors,'load',side_effect=lambda path=None:cursor_load(path or cursor_path)), \
              patch.object(controller,'save',side_effect=lambda values,token:cursor_save(values,token,cursor_path)), \
              patch.object(controller,'prepare'),patch.object(controller,'apply'),patch.object(controller.cube,'instance_dir',return_value=self.root), \
@@ -82,6 +112,13 @@ class QuickMixTests(unittest.TestCase):
             page=ThemePage(run)
             try:
                 mix=page.mix_page;mouse=page.appearance.mouse
+                mix.fields['dock'].setCurrentIndex(mix.fields['dock'].findData('hollowgrove'));mix.save()
+                self.assertFalse(mix.dirty,mix.status.text());self.assertEqual(page.appearance.minimize.dock_style.currentData(),'hollowgrove')
+                mix.open_dock();self.assertIs(page.tabs.currentWidget(),page.appearance)
+                self.assertIs(page.appearance.tabs.currentWidget(),page.appearance.minimize)
+                detailed=minimize_load(minimize_path)[0];detailed['dock_style']='obsidianforge'
+                minimize_path.write_text(presets.minimize.encode(detailed));page.appearance.minimize.refresh();mix.refresh()
+                self.assertEqual(mix.fields['dock'].currentData(),'obsidianforge')
                 mix.fields['transfer'].setCurrentIndex(mix.fields['transfer'].findData('breakpoint'));mix.save()
                 self.assertFalse(mix.dirty,mix.status.text())
                 self.assertEqual(page.file_transfer.style.currentData(),'breakpoint')

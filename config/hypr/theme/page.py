@@ -524,7 +524,7 @@ class ThemePage(QWidget):
         self.custom_page.refresh()
         # Read the applied mix before starting asynchronous detailed-page loads.
         self.mix_page.refresh()
-        for page in (self.file_transfer,self.task_switcher,self.cursors,self.appearance,self.appearance.mouse):page.refresh()
+        for page in (self.file_transfer,self.task_switcher,self.cursors,self.appearance,self.appearance.mouse,self.appearance.minimize):page.refresh()
     def saved(self,value,token):
         self.background=runtime.launcher_background()
         self.surfaces=runtime.launcher_surfaces()

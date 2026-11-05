@@ -20,12 +20,16 @@ class ComponentDialog(QDialog):
         root=QVBoxLayout(self);root.setContentsMargins(22,20,22,20)
         root.addWidget(label('What would you like to apply?','brand'))
         root.addWidget(label('Choose the parts of '+name+' to use. Everything left unchecked keeps its current appearance.','muted'))
+        scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.Shape.NoFrame)
+        options=QWidget();choices=QVBoxLayout(options);choices.setContentsMargins(0,0,8,0)
+        scroll.setWidget(options);root.addWidget(scroll,1)
         self.checks={}
         for key,(title,description) in presets.COMPONENTS.items():
-            box=QCheckBox(title);box.setToolTip(description);box.setChecked(selected is None or key in selected)
+            box=QCheckBox(title.replace('&','&&'));box.setToolTip(description);box.setChecked(selected is None or key in selected)
             if key in ('transfer','switcher','terminal') and key not in target:box.setEnabled(False);box.setChecked(False)
-            root.addWidget(box);note=label(description,'muted');note.setContentsMargins(25,0,0,3);root.addWidget(note)
+            choices.addWidget(box);note=label(description,'muted');note.setContentsMargins(25,0,0,3);choices.addWidget(note)
             self.checks[key]=box
+        choices.addStretch()
         row=QHBoxLayout()
         for title,checked in [('Select all',True),('Clear selection',False)]:
             button=QPushButton(title);button.clicked.connect(lambda _,v=checked:self.select(v));row.addWidget(button)

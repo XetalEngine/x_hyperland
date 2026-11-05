@@ -9,10 +9,12 @@ import selection_marker
 from cursors import model as cursors, effects
 from file_jobs import preferences as transfer
 from switcher import preferences as switcher
+from effects.minimize import model as minimize
 
 # Label, existing component, existing preference path, available choices.
 FIELDS = {
     'waybar': ('Waybar style', 'waybar', ('theme','bar_style'), bar_styles.STYLES),
+    'dock': ('Dock design', 'dock', ('minimize','dock_style'), minimize.DOCK_STYLES),
     'launcher': ('Start menu', 'launcher', ('theme','launcher_style'), runtime.LAUNCHER_STYLES),
     'layout': ('Navigation & controls', 'layout', ('theme','layout'), layouts.LAYOUTS),
     'marker': ('Selection marker', 'selection', ('theme','selection_marker'), selection_marker.STYLES),
@@ -32,6 +34,7 @@ def values(config):
     config.setdefault('cursors',dict(cursors.DEFAULTS))
     config.setdefault('transfer',copy.deepcopy(transfer.DEFAULTS))
     config.setdefault('switcher',copy.deepcopy(switcher.DEFAULTS))
+    config.setdefault('minimize',dict(minimize.DEFAULTS))
     result={}
     for key,(_,_,path,_) in FIELDS.items():
         value=config
@@ -52,6 +55,7 @@ def plan(config, baseline, edited):
     target=copy.deepcopy(config);selected=set()
     target.setdefault('cursors',dict(cursors.DEFAULTS));target.setdefault('transfer',copy.deepcopy(transfer.DEFAULTS))
     target.setdefault('switcher',copy.deepcopy(switcher.DEFAULTS))
+    target.setdefault('minimize',dict(minimize.DEFAULTS))
     for key,(_,component,path,choices) in FIELDS.items():
         value=edited[key]
         valid=type(value) is bool if choices is None else isinstance(value,str) and value in choices

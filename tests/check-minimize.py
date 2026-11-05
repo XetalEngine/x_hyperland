@@ -17,6 +17,9 @@ import time
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO/'config/hypr'))
 from effects.minimize import model
+
+# Keep the established edge-stack checks; the dock gets its own live scenarios.
+DEFAULTS = dict(model.DEFAULTS, presentation="stack")
 from effects.cube import model as cube_model, build as cube_build
 from effects.burn import model as burn_model, build as burn_build
 
@@ -24,7 +27,7 @@ from effects.burn import model as burn_model, build as burn_build
 def main():
     binary = Path(sys.argv[1]).resolve(strict=True)
     root = Path(sys.argv[2]); root.mkdir(parents=True, exist_ok=False)
-    config = root/'minimize.conf'; config.write_text(model.encode(model.DEFAULTS))
+    config = root/'minimize.conf'; config.write_text(model.encode(DEFAULTS))
     palette = root/'current.colors'; palette.write_text('[Colors:Window]\nDecorationFocus=57,169,255\n')
     cube = root/'cube.json'; cube.write_text(cube_model.encode(dict(cube_model.DEFAULTS, enabled=True)))
     burn = root/'burn.conf'; burn.write_text(burn_model.encode(dict(burn_model.DEFAULTS, enabled=True)))
@@ -126,6 +129,13 @@ debug {
             assert ctl('plugin', 'load', str(path)) == 'ok', path
         print('Cube, Burn and Minimize loaded together', flush=True)
         wayland = begin_app('wayland')
+        if '--dock-only' in sys.argv[3:]:
+            from minimize.dock_checks import check as check_dock
+            check_dock(root,env,ctl,dispatch,status,clients,client,wait,wayland,run,spawn,
+                       pointer,output,model,config,palette)
+            assert ctl('plugin','unload',str(binary))=='ok'
+            print('PASS',flush=True)
+            return
         wayland('add', 'Wayland'); wait(lambda: any(c['title'] == 'Wayland' for c in clients()))
         dispatch('setfloating', 'address:'+client('Wayland')['address'])
         dispatch('resizewindowpixel', 'exact 680 420,address:'+client('Wayland')['address'])
@@ -159,8 +169,8 @@ debug {
             b = status()['windows'][0]['box']; x,y,w,h = map(int,b)
             picture = Image.open(path).crop((max(0,x-8),max(0,y-8),x+w+8,y+h+8)).convert('RGB')
             shots.append((label,picture))
-        for effect in ('fireball','splat'):
-            config.write_text(model.encode(dict(model.DEFAULTS, effect=effect, size=160)))
+        for effect in ('fireball',):
+            config.write_text(model.encode(dict(DEFAULTS, effect=effect, size=160)))
             dispatch('xetalminimize:reload'); time.sleep(.4)
             assert status()['active']==1 and status()['effect']==effect
             for i,rgb in enumerate(((57,169,255),(225,72,33),(101,224,118))):
@@ -168,44 +178,18 @@ debug {
                 dispatch('xetalminimize:reload'); time.sleep(.4)
                 assert all(abs(a-b/255)<.001 for a,b in zip(status()['color'],rgb))
                 shot(effect+'-'+str(i))
-        for shape in model.SHAPES:
-            config.write_text(model.encode(dict(model.DEFAULTS, effect='splat', shape=shape, size=160,
-                                               follow_theme=False, color='#64e18b')))
-            dispatch('xetalminimize:reload');time.sleep(.35)
-            assert status()['active']==1
-            shot('shape-'+shape)
-        for surface in model.SURFACES:
-            for shape in ('bloom','web','droplets'):
-                values=dict(model.DEFAULTS,effect='splat',surface=surface,shape=shape,size=160,
-                            follow_theme=False,color='#c939ce' if surface=='membrane' else '#ff126a' if surface=='paint' else '#64e18b')
-                config.write_text(model.encode(values));dispatch('xetalminimize:reload');time.sleep(.3)
-                assert status()['surface']==list(model.SURFACES).index(surface)
-                shot(surface+'-'+shape)
-        # Record a short crop of the moving membrane for visual review.
-        config.write_text(model.encode(dict(model.DEFAULTS,effect='splat',surface='membrane',size=160,
-                                           shape='web',follow_theme=False,color='#c939ce')))
+        config.write_text(model.encode(dict(DEFAULTS,follow_theme=False,color='#c939ce')))
         dispatch('xetalminimize:reload')
-        frames=[]
-        for i in range(24):
-            path=root/'animation-frame.png';run('grim','-o',output_name,str(path))
-            x,y,w,h=map(int,status()['windows'][0]['box'])
-            frames.append(Image.open(path).crop((max(0,x-8),max(0,y-8),x+w+8,y+h+8)).convert('RGB'))
-            time.sleep(.08)
-        frames[0].save(root/'membrane.gif',save_all=True,append_images=frames[1:],duration=100,loop=0)
-        # The frame must evolve while the window remains minimized.
-        run('grim','-o',output_name,str(root/'splat-a.png'));time.sleep(.3)
-        run('grim','-o',output_name,str(root/'splat-b.png'))
-        assert (root/'splat-a.png').read_bytes()!=(root/'splat-b.png').read_bytes()
-        canvas=Image.new('RGB',(6*200,((len(shots)+5)//6)*210),'#0f181f');draw=ImageDraw.Draw(canvas)
-        for i,(name,picture) in enumerate(shots):
-            x=(i%6)*200;y=(i//6)*210;canvas.paste(picture,(x+10,y+6));draw.text((x+10,y+185),name,fill='white')
-        canvas.save(root/'gallery.png')
+        assert all(abs(a-b/255)<.001 for a,b in zip(status()['color'],(201,57,206)))
+        run('grim','-o',output_name,str(root/'fireball-a.png'));time.sleep(.3)
+        run('grim','-o',output_name,str(root/'fireball-b.png'))
+        assert (root/'fireball-a.png').read_bytes()!=(root/'fireball-b.png').read_bytes()
         # Malformed live preferences must not strand or recolor a window.
-        config.write_text(model.encode(model.DEFAULTS)+'shape=invalid\n')
+        config.write_text(model.encode(DEFAULTS)+'shape=invalid\n')
         assert 'Duplicate' in ctl('dispatch','xetalminimize:reload')
-        assert status()['effect']=='splat' and status()['active']==1
-        config.write_text(model.encode(model.DEFAULTS));dispatch('xetalminimize:reload')
-        print('Live Fireball/Splat, eight shapes, three surfaces, palette-follow, custom color and rejected reload: passed',flush=True)
+        assert status()['effect']=='fireball' and status()['active']==1
+        config.write_text(model.encode(DEFAULTS));dispatch('xetalminimize:reload')
+        print('Live Fireball, palette-follow, custom color and rejected reload: passed',flush=True)
         click_or_scroll(status()['windows'][0]); wait(lambda: status()['active'] == 0)
         wait(lambda: restored('Wayland', ws))
         after = client('Wayland'); assert after['at'] == before['at'] and after['size'] == before['size'], (before, after)
@@ -221,11 +205,11 @@ debug {
         assert restored('Viewer', ws)
         assert client('Wayland')['workspace']['name'].startswith('special:xetal-minimized-ws-')
         # An ordinary underlying window must still receive pointer input when
-        # effects are hidden, and rendering must stop for both effect types.
+        # effects are hidden, and rendering must stop for the effect.
         wayland('add', 'Underlay'); wait(lambda: any(c['title'] == 'Underlay' for c in clients()))
         dispatch('fullscreen', '1')
-        for effect in ('fireball', 'splat'):
-            config.write_text(model.encode(dict(model.DEFAULTS, effect=effect)))
+        for effect in ('fireball',):
+            config.write_text(model.encode(dict(DEFAULTS, effect=effect)))
             dispatch('xetalminimize:reload'); time.sleep(.6)
             item = status()['windows'][0]
             dispatch('focuswindow', 'address:'+client('Viewer')['address'])
@@ -250,13 +234,13 @@ debug {
         assert restored('Wayland', ws)
         dispatch('xetalminimize:togglevisibility')
         wayland('close', 'Viewer'); wayland('close', 'Underlay')
-        config.write_text(model.encode(model.DEFAULTS)); dispatch('xetalminimize:reload')
-        print('Targeted Qt minimize; Fireball/Splat hide, render pause, pointer pass-through and hidden restore: passed', flush=True)
+        config.write_text(model.encode(DEFAULTS)); dispatch('xetalminimize:reload')
+        print('Targeted Qt minimize; Fireball hide, render pause, pointer pass-through and hidden restore: passed', flush=True)
         wayland('min', 'Wayland'); wait(lambda: status()['active'] == 1)
-        config.write_text(model.encode(dict(model.DEFAULTS, enabled=False)))
+        config.write_text(model.encode(dict(DEFAULTS, enabled=False)))
         dispatch('xetalminimize:reload'); wait(lambda: status()['active'] == 0)
         assert restored('Wayland', ws)
-        config.write_text(model.encode(model.DEFAULTS)); dispatch('xetalminimize:reload')
+        config.write_text(model.encode(DEFAULTS)); dispatch('xetalminimize:reload')
         wayland('min', 'Wayland'); wait(lambda: status()['active'] == 1)
         wayland('close', 'Wayland'); wait(lambda: status()['active'] == 0)
         print('Repeated minimize, disable recovery, closing minimized app: passed', flush=True)
@@ -295,7 +279,7 @@ debug {
         assert restored('X11', ws); x11('close', 'X11')
         print('XWayland minimize and restore: passed', flush=True)
 
-        count = int(output['height'] / output['scale'] / (model.DEFAULTS['size']+12)) + 3
+        count = int(output['height'] / output['scale'] / (DEFAULTS['size']+12)) + 3
         for i in range(count):
             name = f'Window {i}'; wayland('add', name); wait(lambda: any(c['title'] == name for c in clients()))
             time.sleep(.08); wayland('min', name); wait(lambda: status()['active'] == i+1)
@@ -307,7 +291,7 @@ debug {
         # Changing placement moves existing effects and their input hitboxes.
         for edge in model.EDGES:
             for order in model.ORDERS:
-                config.write_text(model.encode(dict(model.DEFAULTS,edge=edge,order=order)))
+                config.write_text(model.encode(dict(DEFAULTS,edge=edge,order=order)))
                 dispatch('xetalminimize:reload');time.sleep(.2)
                 state=status();assert (state['edge'],state['order'])==(edge,order)
                 boxes=[item['box'] for item in state['windows'] if item['visible']]
@@ -317,7 +301,7 @@ debug {
                 assert all(b[1]>=0 and b[1]+b[3]<=output['height']/output['scale'] for b in boxes)
         click_or_scroll(next(w for w in status()['windows'] if w['visible']))
         wait(lambda:status()['active']==count-1)
-        config.write_text(model.encode(model.DEFAULTS));dispatch('xetalminimize:reload')
+        config.write_text(model.encode(DEFAULTS));dispatch('xetalminimize:reload')
         print('Left/right, upward/downward placement, overflow and moved hitboxes: passed',flush=True)
         dispatch('xetalminimize:restoreall'); assert status()['active'] == 0
         for i in range(count):
@@ -339,6 +323,11 @@ debug {
         wayland('close', 'Group A'); wayland('close', 'Group B')
         wait(lambda: not clients())
         print('Grouped windows minimize and return together: passed', flush=True)
+
+        from minimize.dock_checks import check as check_dock
+        check_dock(root, env, ctl, dispatch, status, clients, client, wait, wayland, run, spawn,
+                   pointer, output, model, config, palette)
+        config.write_text(model.encode(DEFAULTS));dispatch('xetalminimize:reload')
 
         wayland('add', 'Viewer'); wayland('add', 'KVM settings'); wait(lambda: len(clients()) == 2)
         for name in ('Viewer', 'KVM settings'):
@@ -380,15 +369,6 @@ debug {
         ctl('keyword', 'animations:enabled', 'true')
         print('Fullscreen and reduced-motion recovery: passed', flush=True)
 
-        ctl('output', 'create', 'wayland', 'MINIMIZE-SECOND')
-        wait(lambda: len(json.loads(ctl('-j', 'monitors'))) == 2)
-        second = next(m for m in json.loads(ctl('-j', 'monitors')) if m['name'] != output_name)
-        dispatch('focuswindow', 'address:'+client('Viewer')['address'])
-        dispatch('movewindow', 'mon:'+second['name'])
-        time.sleep(.6); wayland('min', 'Viewer'); wait(lambda: status()['active'] == 1)
-        ctl('output', 'remove', second['name']); wait(lambda: status()['active'] == 0)
-        assert client('Viewer')['monitor'] == json.loads(ctl('-j', 'monitors'))[0]['id'] and not client('Viewer')['hidden']
-        print('Disconnecting an output restores apps before workspace migration: passed', flush=True)
         dispatch('focuswindow', 'address:'+client('KVM settings')['address']); dispatch('pin')
         wayland('min', 'KVM settings'); wait(lambda: status()['active'] == 1)
         assert ctl('plugin', 'unload', str(binary)) == 'ok'

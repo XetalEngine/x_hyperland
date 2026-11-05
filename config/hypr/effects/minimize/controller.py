@@ -48,14 +48,26 @@ def atomic(path, content):
 
 def activate(values, target=None):
     state = instance_dir()/'xetal-minimize.json'
-    loaded = any(p.get('name') == 'Xetal Minimize' for p in json.loads(hypr('-j','plugin','list')))
+    loaded = next((p for p in json.loads(hypr('-j','plugin','list')) if p.get('name') == 'Xetal Minimize'), None)
+    previous_target = loaded_path(state)
+    if target is None and (not loaded or loaded.get('version') != '1.3.1'):
+        target = build.build()
+    replacing = bool(loaded and target and target != previous_target)
+    if replacing or not loaded:
+        current = json.loads(hypr('-j','version'))
+        if current.get('commit') != build.SUPPORTED_COMMIT:
+            raise RuntimeError('Minimize needs the supported Hyprland 0.56.2 session. The minimize handler needs an updated adapter.')
+    if replacing:
+        if previous_target is None or not previous_target.is_file():
+            raise RuntimeError('The running minimizer has no recovery path. Start a new Hyprland session to load this update.')
+        # Never replace a mapped .so. Unloading restores minimized apps before
+        # loading the distinct, content-addressed build.
+        hypr('plugin','unload',str(previous_target))
+        loaded = None
     if loaded:
         # The compositor restores every minimized window before disabling.
         hypr('dispatch','xetalminimize:reload')
     else:
-        current = json.loads(hypr('-j','version'))
-        if current.get('commit') != build.SUPPORTED_COMMIT:
-            raise RuntimeError('Minimize needs the supported Hyprland 0.56.2 session. The minimize handler needs an updated adapter.')
         target = target or build.build()
         answer = hypr('plugin','load',str(target))
         if answer != 'ok':
@@ -66,9 +78,16 @@ def activate(values, target=None):
         raise RuntimeError('The compositor did not accept the Minimize setting.')
 
 
+def loaded_path(state):
+    try:
+        return Path(json.loads(state.read_text())['path'])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
 def save(values, token, path=model.PATH):
     values = model.validate(values)
-    instance_dir()
+    previous_target = loaded_path(instance_dir()/'xetal-minimize.json')
     target = build.build() if values['enabled'] else None
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.with_suffix('.lock').open('w') as lock:
@@ -83,7 +102,7 @@ def save(values, token, path=model.PATH):
         except Exception:
             if old_bytes is None: path.unlink(missing_ok=True)
             else: atomic(path,old_bytes)
-            try: activate(previous)
+            try: activate(previous, previous_target)
             except Exception: pass
             raise
     return model.load(path)

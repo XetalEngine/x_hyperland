@@ -4,6 +4,7 @@
 #include <hyprland/src/Compositor.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/desktop/view/Group.hpp>
+#include <hyprland/src/desktop/view/LayerSurface.hpp>
 #include <hyprland/src/desktop/Workspace.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
@@ -35,6 +36,7 @@
 #include <map>
 #include "graphics.hpp"
 #include "settings.hpp"
+#include "dock.hpp"
 #include "icons.hpp"
 #include <hyprgraphics/image/Image.hpp>
 #include <drm_fourcc.h>
@@ -46,6 +48,7 @@ HANDLE handle;
 Minimize::Settings settings;
 Minimize::Graphics graphics;
 bool stopping=false, mutating=false, capturing=false, effectsHidden=false;
+bool tickArmed=false;
 uint64_t sequence=0, requests=0, restored=0, draws=0;
 SP<CEventLoopTimer> timer;
 SP<SHyprCtlCommand> statusCommand;
@@ -53,6 +56,7 @@ std::vector<CHyprSignalListener> listeners;
 std::vector<CFunctionHook*> hooks;
 std::function<SDispatchResult(std::string)> ordinaryFocus;
 std::map<MONITORID,int> scroll;
+std::map<MONITORID,Minimize::DockState> docks;
 std::set<uint32_t> consumedButtons;
 struct Pending { PHLWINDOWREF window; bool minimize; };
 std::vector<Pending> pending;
@@ -78,6 +82,8 @@ struct Record {
     double effectTime=0;
 };
 std::vector<std::shared_ptr<Record>> records;
+double nowSeconds(){return std::chrono::duration<double>(Clock::now().time_since_epoch()).count();}
+bool animationsEnabled(){static auto enabled=CConfigValue<Config::INTEGER>("animations:enabled");return *enabled;}
 
 PHLWINDOW member(const Record& r) {
     if (auto w=r.primary.lock(); w && w->m_isMapped) return w;
@@ -100,7 +106,8 @@ PHLMONITOR fallback() {
 bool visible(PHLMONITOR m) {
     return !stopping && !effectsHidden && online(m) && g_pCompositor->m_sessionActive &&
         !g_pSessionLockManager->isSessionLocked() && !PROTO::inputCapture->isCaptured() &&
-        std::ranges::any_of(records,[&](const auto& r){return r->monitor.lock()==m;});
+        (std::ranges::any_of(records,[&](const auto& r){return r->monitor.lock()==m && (!settings.dock || !r->settled);}) ||
+         (settings.dock && docks.contains(m->m_id) && docks.at(m->m_id).reveal>.002));
 }
 Rect rect(CBox b) {return {b.x,b.y,b.width,b.height};}
 CBox box(Rect r) {return {r.x,r.y,r.w,r.h};}
@@ -119,8 +126,46 @@ Minimize::Column column(PHLMONITOR m) {
                        settings.size,count,scroll[m->m_id],settings.rightEdge,settings.bottomToTop);
     scroll[m->m_id]=c.offset; return c;
 }
+Minimize::Edge dockEdge(PHLMONITOR m) {
+    using Minimize::Edge;
+    if(settings.dockEdge=="top")return Edge::Top;
+    if(settings.dockEdge=="bottom")return Edge::Bottom;
+    if(settings.dockEdge=="left")return Edge::Left;
+    if(settings.dockEdge=="right")return Edge::Right;
+    // Use the mapped bar on this output, including independent multi-output bars.
+    for(const auto& layer:Desktop::viewState()->layers())if(layer->m_mapped && layer->m_monitor==m && layer->m_namespace=="waybar"){
+        const auto b=layer->logicalBox().value_or(layer->m_geometry).translate(-m->m_position);
+        if(b.width>=b.height)return b.y+b.height/2<m->m_size.y/2?Edge::Bottom:Edge::Top;
+        return b.x+b.width/2<m->m_size.x/2?Edge::Right:Edge::Left;
+    }
+    return m->m_reservedArea.bottom()>m->m_reservedArea.top()?Edge::Top:Edge::Bottom;
+}
+Minimize::DockLayout dockLayout(PHLMONITOR m) {
+    const int count=std::ranges::count_if(records,[&](const auto& r){return r->monitor.lock()==m;});
+    Minimize::DockLayout result(m->m_size.x,m->m_size.y,m->m_reservedArea.left(),m->m_reservedArea.top(),
+        m->m_reservedArea.right(),m->m_reservedArea.bottom(),settings.size,count,scroll[m->m_id],dockEdge(m),settings.proximity);
+    scroll[m->m_id]=result.offset;return result;
+}
+Rect dockSlot(PHLMONITOR m,const Record& r,int index,const Minimize::DockLayout& layout) {
+    auto& state=docks[m->m_id];
+    Rect result=state.slots.contains(r.id)?state.slots.at(r.id):layout.slot(index);
+    const double zoom=state.zoom.contains(r.id)?state.zoom.at(r.id):1.;
+    result={result.x-result.w*(zoom-1)/2,result.y-result.h*(zoom-1)*.65,result.w*zoom,result.h*zoom};
+    return layout.shifted(result,state.reveal);
+}
 std::optional<Rect> slot(const Record& r) {
     auto m=r.monitor.lock();if(!m)return {};
+    if(settings.dock){
+        const auto layout=dockLayout(m);int index=0;
+        for(const auto& item:records)if(item->monitor.lock()==m){
+            if(item.get()==&r){
+                if(!layout.visible(index) || docks[m->m_id].reveal<=.002)return {};
+                return dockSlot(m,r,index,layout);
+            }
+            ++index;
+        }
+        return {};
+    }
     auto c=column(m);int i=0;
     for(auto& item:records)if(item->monitor.lock()==m){
         if(item.get()==&r)return c.visible(i)?std::optional<Rect>(c.box(i)):std::nullopt;
@@ -129,9 +174,9 @@ std::optional<Rect> slot(const Record& r) {
     return {};
 }
 Rect thumbnail(Rect b, const Record& r) {
-    if(r.appIcon){const double size=b.w*.43;return {b.x+(b.w-size)/2,b.y+b.h*(settings.effect=="splat"?.53:.72)-size/2,size,size};}
+    if(r.appIcon){const double size=b.w*(settings.dock?.52:.43);return {b.x+(b.w-size)/2,b.y+b.h*(settings.dock?.60:.72)-size/2,size,size};}
     double w=b.w*.29,h=std::min(b.h*.19,w*r.source.h/std::max(1.0,r.source.w));
-    return {b.x+(b.w-w)/2,b.y+b.h*(settings.effect=="splat"?.53:.72)-h/2,w,h};
+    return {b.x+(b.w-w)/2,b.y+b.h*(settings.dock?.60:.72)-h/2,w,h};
 }
 void refreshIcon(Record& r) {
     if(Clock::now()<r.iconCheck)return;
@@ -165,7 +210,54 @@ void damage(bool full=true) {
         else if(auto b=slot(*r))g_pHyprRenderer->damageBox(box(*b).expand(8).translate(m->m_position));
     }
 }
-void arm() {if(timer)timer->updateTimeout(std::chrono::milliseconds(1));}
+void arm() {if(timer && !tickArmed){timer->updateTimeout(std::chrono::milliseconds(1));tickArmed=true;}}
+void updateDocks() {
+    if(!settings.dock || effectsHidden)return;
+    const auto now=nowSeconds();const auto pointer=Pointer::mgr()->position();
+    std::set<MONITORID> onlineIDs;
+    for(const auto& m:State::monitorState()->monitors())if(online(m)){
+        onlineIDs.insert(m->m_id);
+        const int count=std::ranges::count_if(records,[&](const auto& r){return r->monitor.lock()==m;});
+        if(!count && !docks.contains(m->m_id))continue;
+        const auto layout=dockLayout(m);auto& state=docks[m->m_id];
+        const bool wasVisible=visible(m);
+        const auto old=layout.shifted(state.panel,state.reveal);
+        const auto local=pointer-m->m_position;
+        const bool inside=Minimize::contains({0,0,m->m_size.x,m->m_size.y},local.x,local.y);
+        const bool hovered=inside && !g_pInputManager->isConstrained() && !g_pInputManager->hasHeldButtons() &&
+            (Minimize::contains(layout.sensor,local.x,local.y) ||
+             (state.reveal>.05 && Minimize::contains(Minimize::expand(old,24),local.x,local.y)));
+        const bool arriving=std::ranges::any_of(records,[&](const auto& r){return r->monitor.lock()==m && !r->settled;});
+        const double dt=state.initialized?std::clamp(now-state.last,0.,.1):.016;
+        const double duration=animationsEnabled()?settings.dockDuration/1000.:.0001;
+        state.update(layout,now,hovered,arriving,settings.autoHide,settings.hideDelay/1000.,duration,count);
+        if(!animationsEnabled()){
+            state.panel=layout.panel;state.reveal=count && (!settings.autoHide || hovered || arriving || now<state.holdUntil)?1:0;
+            state.awake=false;
+        }
+        std::set<uint64_t> present;int index=0;
+        for(const auto& r:records)if(r->monitor.lock()==m){
+            present.insert(r->id);const auto goal=layout.slot(index++);
+            auto [at,added]=state.slots.try_emplace(r->id,goal);
+            at->second=animationsEnabled()?Minimize::approach(at->second,goal,dt,duration):goal;
+            const auto shown=layout.shifted(at->second,state.reveal);
+            const double delta=Minimize::vertical(layout.edge)?local.y-shown.y-shown.h*.6:local.x-shown.x-shown.w/2;
+            const double magnification=hovered?std::exp(-std::pow(delta/(layout.size*.8),2))*(settings.dockZoom/100.-1):0;
+            auto [zoom,created]=state.zoom.try_emplace(r->id,1.);
+            zoom->second=animationsEnabled()?Minimize::approach(zoom->second,1+magnification,dt,duration):1+magnification;
+        }
+        std::erase_if(state.slots,[&](const auto& item){return !present.contains(item.first);});
+        std::erase_if(state.zoom,[&](const auto& item){return !present.contains(item.first);});
+        if(wasVisible || visible(m)){
+            // Damage both positions while sliding/resizing, including the last
+            // slot disappearing. Hidden docks stop drawing and stop their timer.
+            g_pHyprRenderer->damageBox(box(old).expand(settings.size*.6+12).translate(m->m_position));
+            g_pHyprRenderer->damageBox(box(layout.shifted(state.panel,state.reveal)).expand(settings.size*.6+12).translate(m->m_position));
+        }
+        if(wasVisible!=visible(m))m->recheckSolitary();
+    }
+    std::erase_if(docks,[&](const auto& item){return !onlineIDs.contains(item.first);});
+}
 void enqueue(PHLWINDOW w, bool minimize) {
     if(stopping || mutating || !w)return;
     pending.push_back({w,minimize});arm();
@@ -251,7 +343,9 @@ void minimize(PHLWINDOW w) {
     }
     for(auto& weak:r->members)if(auto item=weak.lock();item && item->m_xwaylandSurface)item->m_xwaylandSurface->setMinimized(true);
     int count=std::ranges::count_if(records,[&](const auto& item){return item->monitor.lock()==m;});
-    auto c=column(m);scroll[m->m_id]=std::max(0,count-c.capacity);
+    const int capacity=settings.dock?dockLayout(m).capacity:column(m).capacity;
+    scroll[m->m_id]=std::max(0,count-capacity);
+    if(settings.dock)docks[m->m_id].hold(nowSeconds(),(settings.duration+settings.hideDelay)/1000.);
     ++requests;m->recheckSolitary();damage();arm();
 }
 
@@ -265,6 +359,9 @@ void finish(const std::shared_ptr<Record>& r, bool focus) {
     }
     if(m){g_pHyprRenderer->damageMonitor(m);m->recheckSolitary();}
     ++restored;
+    // A synchronous restore-all or close can remove the last record while the
+    // dock's frame timer is asleep. Its collapse still needs a frame.
+    arm();
 }
 void restore(const std::shared_ptr<Record>& r, bool animate=true, bool focus=true) {
     if(r->restoring){if(!animate)finish(r,focus);return;}
@@ -274,6 +371,12 @@ void restore(const std::shared_ptr<Record>& r, bool animate=true, bool focus=tru
     if(!m)return; // retain the record until an output returns
     auto c=column(m);
     Rect origin=slot(*r).value_or(c.box(c.offset));
+    if(settings.dock && dock){
+        const auto layout=dockLayout(dock);int index=0;
+        for(const auto& item:records)if(item->monitor.lock()==dock){if(item==r)break;++index;}
+        origin=dockSlot(dock,*r,std::clamp(index,layout.offset,layout.offset+layout.capacity-1),layout);
+        docks[dock->m_id].hold(nowSeconds(),(settings.duration+settings.hideDelay)/1000.);
+    }
     if(!r->settled)origin=Minimize::travel(r->flight,thumbnail(origin,*r),progress(*r));
     else origin=thumbnail(origin,*r);
     r->restoring=true;r->settled=false;r->flight=origin;r->monitor=m;
@@ -310,6 +413,7 @@ void toggleVisibility() {
     for(auto& r:copy){
         r->lastFrame=Clock::now();
         if(effectsHidden && r->restoring)finish(r,true);
+        else if(!effectsHidden && settings.dock)if(auto m=r->monitor.lock())docks[m->m_id].hold(nowSeconds(),settings.hideDelay/1000.);
     }
     // Damage explicitly when hiding, since damage() only visits visible effects.
     for(auto& m:State::monitorState()->monitors())if(online(m)){
@@ -341,6 +445,18 @@ class MinimizePass:public IPassElement {
         const auto pointer=Pointer::mgr()->position()-m->m_position;
         static const auto epoch=Clock::now();
         const double seconds=std::fmod(std::chrono::duration<double>(Clock::now()-epoch).count(),3600.0);
+        if(settings.dock){
+            const auto layout=dockLayout(m);auto& state=docks[m->m_id];
+            if(state.reveal>.002){
+                graphics.dock(m,layout.shifted(state.panel,state.reveal),settings.dockStyle,settings.rgb,settings.background,
+                    settings.light,seconds,std::min(1.,state.reveal*4),Minimize::vertical(layout.edge));
+                for(const auto& r:records)if(r->monitor.lock()==m)if(auto b=slot(*r)){
+                    const float hover=box(*b).containsPoint(pointer)?1:0;
+                    graphics.dock(m,*b,settings.dockStyle,settings.rgb,settings.background,settings.light,seconds,
+                        std::min(1.,state.reveal*4)*Minimize::ease(progress(*r)),false,1,hover);
+                }
+            }
+        }
         for(auto& r:records) {
             if(r->monitor.lock()!=m)continue;
             auto b=slot(*r);if(!b && !r->restoring)continue;
@@ -349,11 +465,10 @@ class MinimizePass:public IPassElement {
             double burn=r->restoring?1-Minimize::ease(t):Minimize::ease(t);
             // Flames travel with the shrinking window and keep burning at rest.
             Rect fire=b.value_or(Rect{r->flight.x,r->flight.y,double(settings.size),double(settings.size)});
-            fire.x=dest.x+dest.w/2-fire.w/2;fire.y=dest.y+dest.h/2-fire.h*(settings.effect=="splat"?.53:.72);
+            fire.x=dest.x+dest.w/2-fire.w/2;fire.y=dest.y+dest.h/2-fire.h*(settings.dock?.60:.72);
             fire.y+=r->settled?std::sin(seconds*2.2+r->id)*2:0;
             const bool hover=box(fire).containsPoint(pointer);
-            if(settings.effect=="splat")graphics.splat(m,fire,r->effectTime,r->seed,settings.shape,settings.surface,settings.bubbles/100.F,settings.rgb,float(burn),hover);
-            else graphics.fire(m,fire,r->fire,settings.rgb,float(burn),hover);
+            graphics.fire(m,fire,r->fire,settings.rgb,float(burn),hover);
             const double iconBlend=r->appIcon?std::clamp((burn-.5)*2.0,0.0,1.0):0;
             snapshot(*r,m,dest,float((1-burn*.25)*(1-iconBlend)));
             if(r->appIcon && iconBlend>0){
@@ -482,11 +597,13 @@ Minimize::Settings readSettings() {
 std::shared_ptr<Record> hit(Vector2D position) {
     if(g_pInputManager->isConstrained() || g_pInputManager->hasHeldButtons())return nullptr;
     for(auto& r:records)if(!r->restoring && visible(r->monitor.lock()))if(auto b=slot(*r)){
+        if(settings.dock && (docks[r->monitor->m_id].reveal<.2 || !r->monitor->logicalBox().containsPoint(position)))continue;
         if(box(*b).translate(r->monitor->m_position).containsPoint(position))return r;
     }
     return nullptr;
 }
 void tick(SP<CEventLoopTimer> self,void*) {
+    tickArmed=false;
     if(stopping)return;
     auto queue=std::move(pending);pending.clear();
     for(auto& p:queue)if(auto w=p.window.lock()){
@@ -508,9 +625,16 @@ void tick(SP<CEventLoopTimer> self,void*) {
         if(r->restoring && progress(*r)>=1)finish(r,true);
         else if(progress(*r)>=1)r->settled=true;
     }
+    // Finish restores and prune closed windows before counting dock slots.
+    // Otherwise removing the last record leaves a fully open, "idle" tray
+    // and the timer stops before its empty-state transition ever begins.
+    updateDocks();
     damage(false);
-    if(!pending.empty() || std::ranges::any_of(records,[](const auto& r){return !effectsHidden || !r->settled;}))
-        self->updateTimeout(std::chrono::milliseconds(16));
+    const bool playing=std::ranges::any_of(records,[](const auto& r){
+        return !r->settled || (visible(r->monitor.lock()) && (!settings.dock || slot(*r).has_value()));
+    });
+    const bool movingDock=settings.dock && !effectsHidden && std::ranges::any_of(docks,[](const auto& item){return item.second.awake;});
+    if(!pending.empty() || playing || movingDock){self->updateTimeout(std::chrono::milliseconds(16));tickArmed=true;}
 }
 void cleanup() {
     stopping=true;listeners.clear();pending.clear();
@@ -522,6 +646,7 @@ void cleanup() {
     hooks.clear();
     g_pHyprRenderer->m_renderPass.removeAllOfType("XetalMinimize");
     graphics.release();
+    docks.clear();scroll.clear();tickArmed=false;
 }
 }
 
@@ -563,13 +688,22 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         }));
         listeners.push_back(Event::bus()->m_events.input.mouse.axis.listen([](IPointer::SAxisEvent e,Event::SCallbackInfo& info){
             if(info.cancelled || e.axis!=WL_POINTER_AXIS_VERTICAL_SCROLL)return;
-            if(auto r=hit(Pointer::mgr()->position())){auto m=r->monitor.lock();scroll[m->m_id]+=(e.delta>0?1:-1);column(m);damage();info.cancelled=true;}
+            if(e.delta==0)return;
+            if(auto r=hit(Pointer::mgr()->position())){
+                auto m=r->monitor.lock();scroll[m->m_id]+=(e.delta>0?1:-1);
+                if(settings.dock){dockLayout(m);docks[m->m_id].hold(nowSeconds(),settings.hideDelay/1000.);}
+                else column(m);
+                damage();arm();info.cancelled=true;
+            }
+        }));
+        listeners.push_back(Event::bus()->m_events.input.mouse.move.listen([](Vector2D,Event::SCallbackInfo&){
+            if(settings.dock && !effectsHidden && !records.empty())arm();
         }));
         listeners.push_back(Event::bus()->m_events.window.active.listen([](PHLWINDOW w,Desktop::eFocusReason){
             if(auto r=recordFor(w);r && !r->restoring)enqueue(w,false);
         }));
         listeners.push_back(Event::bus()->m_events.window.close.listen([](PHLWINDOW){arm();}));
-        listeners.push_back(Event::bus()->m_events.monitor.layoutChanged.listen([](){arm();}));
+        listeners.push_back(Event::bus()->m_events.monitor.layoutChanged.listen([](){damage();arm();}));
         // Restore before the core removes outputs, including the last one. Its
         // normal workspace migration then keeps every app reachable on return.
         listeners.push_back(Event::bus()->m_events.monitor.preRemoved.listen([](PHLMONITOR){restoreAll();}));
@@ -587,16 +721,30 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             return SDispatchResult{.success=false,.error="No minimized window with that ID"};
         });
         HyprlandAPI::addDispatcherV2(handle,"xetalminimize:reload",[](std::string){
-            try{auto next=readSettings();if(!next.enabled)restoreAll();settings=next;damage();arm();return SDispatchResult{};}
+            try{
+                auto next=readSettings();if(!next.enabled)restoreAll();damage();
+                const bool changed=settings.dock!=next.dock || settings.dockEdge!=next.dockEdge;
+                settings=next;if(changed)docks.clear();
+                for(const auto& r:records)if(auto m=r->monitor.lock())docks[m->m_id].hold(nowSeconds(),settings.hideDelay/1000.);
+                updateDocks();damage();arm();return SDispatchResult{};
+            }
             catch(const std::exception& e){return SDispatchResult{.success=false,.error=e.what()};}
         });
         statusCommand=HyprlandAPI::registerHyprCtlCommand(handle,{"xetal-minimize",true,[](eHyprCtlOutputFormat,std::string){
             std::string items;for(auto& r:records){auto b=slot(*r);if(!items.empty())items+=",";
                 items+=std::format("{{\"id\":{},\"workspace\":{},\"restoring\":{},\"visible\":{},\"icon\":{},\"box\":[{},{},{},{}]}}",r->id,r->original?r->original->m_id:0,r->restoring,visible(r->monitor.lock()) && b.has_value(),bool(r->appIcon),b?b->x:0,b?b->y:0,b?b->w:0,b?b->h:0);
             }
-            return std::format("{{\"enabled\":{},\"hidden\":{},\"effect\":\"{}\",\"edge\":\"{}\",\"order\":\"{}\",\"shape\":{},\"surface\":{},\"color\":[{},{},{}],\"active\":{},\"minimized\":{},\"restored\":{},\"draws\":{},\"windows\":[{}]}}",settings.enabled,effectsHidden,settings.effect,settings.rightEdge?"right":"left",settings.bottomToTop?"bottom-to-top":"top-to-bottom",settings.shape,settings.surface,settings.rgb[0],settings.rgb[1],settings.rgb[2],records.size(),requests,restored,draws,items);
+            std::string trays;
+            if(settings.dock)for(const auto& m:State::monitorState()->monitors())if(online(m) && docks.contains(m->m_id)){
+                const auto layout=dockLayout(m);const auto& state=docks.at(m->m_id);const auto b=layout.shifted(state.panel,state.reveal);
+                if(!trays.empty())trays+=",";
+                trays+=std::format("{{\"monitor\":{},\"edge\":\"{}\",\"reveal\":{},\"capacity\":{},\"offset\":{},\"box\":[{},{},{},{}],\"sensor\":[{},{},{},{}]}}",
+                    m->m_id,Minimize::edgeName(layout.edge),state.reveal,layout.capacity,layout.offset,b.x,b.y,b.w,b.h,
+                    layout.sensor.x,layout.sensor.y,layout.sensor.w,layout.sensor.h);
+            }
+            return std::format("{{\"enabled\":{},\"hidden\":{},\"effect\":\"{}\",\"edge\":\"{}\",\"order\":\"{}\",\"shape\":{},\"surface\":{},\"color\":[{},{},{}],\"active\":{},\"minimized\":{},\"restored\":{},\"draws\":{},\"presentation\":\"{}\",\"dock_style\":{},\"docks\":[{}],\"windows\":[{}]}}",settings.enabled,effectsHidden,settings.effect,settings.rightEdge?"right":"left",settings.bottomToTop?"bottom-to-top":"top-to-bottom",settings.shape,settings.surface,settings.rgb[0],settings.rgb[1],settings.rgb[2],records.size(),requests,restored,draws,settings.dock?"dock":"stack",settings.dockStyle,trays,items);
         }});
     }catch(...){cleanup();throw;}
-    return {"Xetal Minimize","Fireball and living Splat minimize effects","XetalEngine","1.2"};
+    return {"Xetal Minimize","Animated theme docks and Fireball edge stacks","XetalEngine","1.3.1"};
 }
 APICALL EXPORT void PLUGIN_EXIT(){cleanup();}

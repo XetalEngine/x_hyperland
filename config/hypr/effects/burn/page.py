@@ -163,7 +163,7 @@ class WindowEffectsPage(QWidget):
         layout = QVBoxLayout(self);layout.setContentsMargins(0,8,0,0)
         self.tabs = QTabWidget();self.tabs.addTab(self.burn,'Burn');self.tabs.addTab(self.cube,'Desktop Cube + 3D');self.tabs.addTab(self.appearance,'Window appearance');layout.addWidget(self.tabs)
         self.tabs.insertTab(2,self.minimize,'Minimize')
-        self.tabs.setTabToolTip(2, 'Fireball and Splat · Super + Z')
+        self.tabs.setTabToolTip(2, 'Animated dock and Fireball edge stack · Super + Z')
         self.tabs.insertTab(2,self.wobbly,'Wobbly Windows')
         self.tabs.insertTab(4,self.mouse,'Mouse effects')
         self.tabs.currentChanged.connect(lambda _:self.refresh())

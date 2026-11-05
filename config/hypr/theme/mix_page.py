@@ -21,7 +21,7 @@ class MixMatchPage(QWidget):
         root.addWidget(note('Your current settings, together. Apply a theme first, then combine its parts here. Changes also appear in their original tabs and stay active until you change them.'))
         scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.body=QWidget();grid=QGridLayout(self.body);grid.setSpacing(16)
-        groups=[('Desktop & navigation',('waybar','launcher','layout','marker'),owner.start_menu_page),
+        groups=[('Desktop & navigation',('waybar','dock','launcher','layout','marker'),owner.start_menu_page),
                 ('Pointer & mouse effects',('cursor','trail','ripple'),owner.appearance),
                 ('File transfers',('transfer','transfer_animation'),owner.file_transfer),
                 ('Switching windows',('switcher',),owner.task_switcher)]
@@ -43,7 +43,8 @@ class MixMatchPage(QWidget):
             if i==0:
                 self.bar_description=note('');column.addWidget(self.bar_description)
                 self.marker_preview=selection_marker.preview();column.addWidget(self.marker_preview)
-                column.addWidget(note('Waybar styles change the bar’s shape and grouping while using your desktop colors. Any bar works with any theme.'))
+                column.addWidget(note('Mix any Waybar and dock design with your desktop theme. Dock timing, position and size stay as you set them.'))
+                dock_link=QPushButton('Open dock settings');dock_link.clicked.connect(self.open_dock);column.addWidget(dock_link)
                 column.addWidget(note('Selection marker adds an optional edge in Fusion Files. Off keeps the usual selection highlight.'))
             elif i==1:
                 self.active_trail=note('');column.addWidget(self.active_trail)
@@ -60,7 +61,7 @@ class MixMatchPage(QWidget):
         self.discard=QPushButton('Discard');self.discard.clicked.connect(lambda:self.fill(self.baseline));row.addWidget(self.discard)
         self.apply=QPushButton('Apply adjustments');self.apply.setObjectName('primary');self.apply.clicked.connect(self.save);row.addWidget(self.apply);root.addLayout(row)
         self.refresh_timer=QTimer(self);self.refresh_timer.setSingleShot(True);self.refresh_timer.setInterval(100);self.refresh_timer.timeout.connect(self.refresh)
-        paths=[runtime.ROOT,*(runtime.ROOT.parent/name for name in ('cursors','file_jobs','switcher'))]
+        paths=[runtime.ROOT,*(runtime.ROOT.parent/name for name in ('cursors','file_jobs','switcher','effects/minimize'))]
         self.watcher=QFileSystemWatcher([str(p) for p in paths if p.is_dir()],self)
         self.watcher.directoryChanged.connect(lambda _:self.refresh_timer.start() if self.isVisible() else None)
         self.refresh()
@@ -68,6 +69,9 @@ class MixMatchPage(QWidget):
     def hideEvent(self,event):self.refresh_timer.stop();super().hideEvent(event)
     def open_details(self,page):
         if page is self.owner.appearance:page.tabs.setCurrentWidget(page.mouse)
+        self.owner.tabs.setCurrentWidget(page)
+    def open_dock(self):
+        page=self.owner.appearance;page.tabs.setCurrentWidget(page.minimize)
         self.owner.tabs.setCurrentWidget(page)
     def fill(self,values):
         self.loading=True;self.draft=dict(values)
