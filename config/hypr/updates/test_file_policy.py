@@ -122,6 +122,18 @@ class FilePolicyTests(unittest.TestCase):
         self.assertEqual((self.live/'runtime/window_memory/state/windows.json').read_text(), 'private geometry\n')
         self.assertEqual((self.live/'file_manager/.build/xetal-files').stat().st_mode & 0o777, 0o755)
 
+    def test_icon_choices_and_imported_artwork_survive_updates_and_enter_build_tree(self):
+        choice='{"version":1,"system":"builtin:gildedhollow","other":"theme:MyIcons","overrides":{}}'
+        assets={'theme/icons.json':choice,'icon_themes/custom/personal.svg':'personal icon',
+                'icon_themes/imported/MyIcons/index.theme':'[Icon Theme]\nName=My icons\n'}
+        for name,data in assets.items():self.write(self.live,name,data)
+        self.write(self.upstream,'theme/icons.json','{"version":1,"system":"follow","other":"auto","overrides":{}}')
+        self.write(self.upstream,'icon_themes/model.py','new icon library')
+        plan=self.prepare()
+        for name,data in assets.items():self.assertEqual((self.stage/name).read_text(),data)
+        engine.apply_plan(self.live,self.stage,plan,self.state)
+        for name,data in assets.items():self.assertEqual((self.live/name).read_text(),data)
+
     def test_personal_text_conflict_is_preserved_without_blocking_release_files(self):
         self.write(self.live, 'keybindings.conf', 'bind = SUPER, Q, exec, old-terminal\n')
         self.register()

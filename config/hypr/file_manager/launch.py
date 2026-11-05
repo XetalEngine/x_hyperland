@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT / 'theme'))
 import runtime
 
 def main():
+    runtime.icon_library.ensure(ROOT)
     binary = ROOT / 'file_manager/.build/xetal-files'
     if not binary.is_file():
         subprocess.run([sys.executable, str(ROOT / 'file_manager/build.py')], check=True)

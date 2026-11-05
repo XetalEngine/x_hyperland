@@ -51,6 +51,8 @@ def payload_ignored(directory, names):
         ignored.add('apply-this-machine.py')
     if relative == 'launcher':
         ignored.update((*LAUNCHER_DEFAULTS, 'favorite-layout.json', 'floating-sizes.json', 'icons'))
+    if relative == 'icon_themes':
+        ignored.update(('custom','imported','backups'))
     if relative.startswith('wallpaper/'):
         # Artwork creation notes remain in the repository, not in recipients'
         # desktop profiles (they can refer to the artist's local source files).
@@ -103,6 +105,9 @@ def render(stage, home, monitors, profile='auto', startup=True):
     check_kvm_payload(PAYLOAD)
     target=home/'.config/hypr'
     shutil.copytree(PAYLOAD,stage,dirs_exist_ok=True,ignore=payload_ignored)
+    # A source checkout can be used as a live desktop too. Ship neutral icon
+    # choices, not the author's imports, overrides or generated paths.
+    (stage/'theme/icons.json').write_text(json.dumps({'version':1,'system':'follow','other':'auto','overrides':{}},indent=2)+'\n')
     for name, defaults in LAUNCHER_DEFAULTS.items():
         (stage/'launcher'/name).write_text(json.dumps(defaults, indent=2)+'\n')
     for p in stage.rglob('*'):
@@ -202,6 +207,7 @@ def build(stage, checkpoint=lambda:None):
                  [sys.executable,str(stage/'runtime/cursor_probe/build.py')],
                  [sys.executable,str(stage/'runtime/window_memory/build.py')],
                  [sys.executable,str(stage/'cursors/build.py')],
+                 [sys.executable,str(stage/'icon_themes/prepare.py')],
                  [sys.executable,str(stage/'theme/build.py')],
                  [sys.executable,str(stage/'wallpaper/build.py')],
                  [sys.executable,str(stage/'control_panel/build.py')],

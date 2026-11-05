@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Tidal Glass
+Comment=Sea glass, pearl rims and flowing ocean lines.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

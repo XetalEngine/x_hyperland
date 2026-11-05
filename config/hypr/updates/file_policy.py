@@ -10,6 +10,7 @@ inventories are never adopted just because they are inside the profile.
 KEEP = frozenset({
     'control_center/displays.conf', 'control_center/workspaces.conf',
     'theme/custom-presets.json', 'theme/hyprlock-raw.conf', 'theme/startup-raw.conf',
+    'theme/icons.json',
     'wallpaper/selection.json', 'wallpaper/hyprpaper.conf', 'wallpaper/profiles.json',
     'waybar/style.css', 'waybar/updates.css', 'swaync/style.css', 'theme/current.colors',
     'theme/kitty-colors.conf', 'dolphin/config/kdeglobals',
@@ -42,6 +43,6 @@ PREFERENCES = frozenset({
 
 
 def policy(name):
-    if name in KEEP or name.startswith(('launcher/icons/', 'terminal_fetch/logos/')): return 'keep'
+    if name in KEEP or name.startswith(('launcher/icons/', 'terminal_fetch/logos/', 'icon_themes/custom/', 'icon_themes/imported/', 'icon_themes/backups/')): return 'keep'
     if name in PREFERENCES: return 'preferences'
     return 'release'

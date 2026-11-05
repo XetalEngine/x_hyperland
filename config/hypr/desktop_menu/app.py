@@ -26,7 +26,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 gi.require_version('GtkLayerShell', '0.1')
-from gi.repository import Gdk, GLib, Gtk, GtkLayerShell, Pango
+from gi.repository import Gdk, GLib, Gtk, GtkLayerShell, Pango, Gio
 from desktop_icons import Icons
 
 NAMESPACE = 'xetal-desktop-menu'
@@ -174,6 +174,9 @@ class Desktop:
         Gtk.StyleContext.add_provider_for_screen(display.get_default_screen(), self.provider,
                                                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         self.refresh_style()
+        self.theme_monitor=Gio.File.new_for_path(str(ROOT/'theme')).monitor_directory(Gio.FileMonitorFlags.NONE,None)
+        self.theme_refresh=0
+        self.theme_monitor.connect('changed',self.theme_changed)
         self.monitor_signals = [display.connect('monitor-added', self.add_monitor),
                                 display.connect('monitor-removed', self.remove_monitor)]
         for index in range(display.get_n_monitors()):
@@ -188,8 +191,16 @@ class Desktop:
         self.provider.load_from_data(appearance.css(self.config['style']).encode())
         self.icons.accent.parse(appearance.colors(self.config['style'])['accent'])
         settings = Gtk.Settings.get_default()
-        settings.set_property('gtk-icon-theme-name',
-                              'Papirus-Light' if theme_runtime.mode() == 'light' else 'Papirus-Dark')
+        icons=theme_runtime.icon_library.info(ROOT)
+        Gtk.IconTheme.get_default().set_search_path(icons['iconSearchPaths'])
+        settings.set_property('gtk-icon-theme-name',icons['iconTheme'])
+
+    def theme_changed(self,_monitor,source,_other,_event):
+        if source.get_basename() not in ('icons.json','state.json'):return
+        if self.theme_refresh:GLib.source_remove(self.theme_refresh)
+        def refresh():
+            self.theme_refresh=0;self.refresh_style();return False
+        self.theme_refresh=GLib.timeout_add(100,refresh)
 
     def add_monitor(self, _display, monitor):
         if monitor not in self.surfaces:
@@ -229,6 +240,8 @@ class Desktop:
         return True
 
     def dispose(self):
+        if self.theme_refresh:GLib.source_remove(self.theme_refresh)
+        self.theme_monitor.cancel()
         self.icons.dispose()
         for identifier in self.monitor_signals:
             self.display.disconnect(identifier)

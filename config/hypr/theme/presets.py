@@ -22,6 +22,7 @@ from effects.minimize import model as minimize
 from effects.wobbly import model as wobbly
 from cursors import model as cursors
 from cursors import effects as mouse_effects
+from icon_themes import model as icons
 
 COMPONENTS = {
     'waybar': ('Waybar', 'Taskbar design, grouping and surface shapes'),
@@ -36,6 +37,7 @@ COMPONENTS = {
     'switcher': ('Task Switcher', 'Switcher style, preview FPS and layout options'),
     'effects': ('Window effects', 'Burn, cube, wobbly windows, minimizing, effect colors and window appearance'),
     'cursors': ('Cursors', 'Cursor style, size, trails and click feedback'),
+    'icons': ('Icons', 'System icon design, application icon set and individual choices'),
     'terminal': ('Terminal welcome', 'Logo and information fields; aliases remain untouched'),
 }
 THEME_FIELDS = {
@@ -45,6 +47,7 @@ THEME_FIELDS = {
     'launcher': ('launcher_style', 'launcher_wallpaper', 'launcher_background', 'launcher_surfaces', 'launcher_labels', 'launcher_background_visibility'),
 }
 RESOURCE_PATHS = {'cursors': 'cursors/settings.json', 'transfer': 'file_jobs/preferences.json', 'switcher': 'switcher/preferences.json',
+    'icons': 'theme/icons.json',
     'terminal': 'terminal_fetch/settings.json', 'burn': 'effects/burn/settings.conf', 'cube': 'effects/cube/settings.json', 'minimize': 'effects/minimize/settings.conf', 'wobbly': 'effects/wobbly/settings.json'}
 
 
@@ -60,6 +63,7 @@ def current(root=None):
         path = root / RESOURCE_PATHS[key]
         if path.exists(): value[key] = reader(path)[0]
     value['terminal'] = terminal.load(root / RESOURCE_PATHS['terminal'])
+    value['icons'] = icons.load(root)[0]
     path = root / 'wallpaper/selection.json'
     if path.exists(): value['wallpapers'] = json.loads(path.read_text())
     path = root / 'control_center/appearance.conf'
@@ -70,6 +74,7 @@ def current(root=None):
 def validate(value):
     if not isinstance(value, dict) or value.get('version') != 1: raise ValueError('Unsupported preset format.')
     value = copy.deepcopy(value); state = value.get('theme', {})
+    if 'icons' in value:value['icons']=icons.validate(value['icons'])
     if not isinstance(state, dict) or state.get('design') not in runtime.DESIGNS or state.get('mode') not in runtime.MODES:
         raise ValueError('Invalid preset colors.')
     state['layout'] = state.get('layout', layouts.default(state['design']))
@@ -105,6 +110,7 @@ def builtin(design, mode=None, root=None):
     value = current(root); value['theme'].update(design=design, mode=mode, layout=layouts.default(design), launcher_style=design,
                                                selection_marker=selection_marker.DEFAULT,bar_style=design)
     value['transfer']['style'] = design
+    value['icons']['system']='builtin:'+design
     # Built-in presets supply their visual language, while keeping timing and hardware preferences.
     value.pop('wallpapers', None); value['wallpaper_theme'] = design
     value.pop('burn', None); value.pop('cube', None); value.pop('minimize', None); value.pop('wobbly', None); value.pop('appearance', None)
@@ -155,6 +161,13 @@ def merged_theme(previous, target, selected):
 def resources(root, target, selected, previous_design):
     """Return validated bytes; the backend writes and rolls them back in one transaction."""
     files, reloads = {}, []
+    if 'icons' in selected and 'icons' in target:
+        files[root / RESOURCE_PATHS['icons']]=encode(icons.prepared(target['icons'],root))
+    elif 'colors' in selected and target['theme']['design']!=previous_design and (root/RESOURCE_PATHS['icons']).exists():
+        choices=icons.load(root)[0]
+        if choices['system']=='follow':
+            choices['system']='builtin:'+previous_design
+            files[root / RESOURCE_PATHS['icons']]=encode(icons.prepared(choices,root))
     for component in ('transfer', 'switcher', 'terminal', 'cursors'):
         if component in selected and component in target:
             files[root / RESOURCE_PATHS[component]] = encode(target[component])

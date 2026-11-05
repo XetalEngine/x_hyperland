@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Shadow Edge
+Comment=Brushed silver blades with a fine crimson signature.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

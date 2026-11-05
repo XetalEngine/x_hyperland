@@ -4,6 +4,13 @@ from PyQt6.QtGui import QIcon, QPainter, QPainterPath, QPen, QPixmap, QColor
 
 
 def icon(name, color, size=24):
+    themed={'home':'user-home','network':'network-workgroup','displays':'computer',
+            'capture':'multimedia-video-player','chip':'xetal-kvm-settings','fusion-settings':'xetal-fusion-settings',
+            'theme':'preferences-desktop-theme','terminal':'utilities-terminal','system':'system-shutdown',
+            'monitor':'utilities-system-monitor','files':'system-file-manager','folder':'folder','trash':'user-trash'}.get(name)
+    if themed:
+        candidate=QIcon.fromTheme(themed)
+        if not candidate.isNull():return candidate
     pixmap=QPixmap(size*2,size*2);pixmap.fill(Qt.GlobalColor.transparent);pixmap.setDevicePixelRatio(2)
     p=QPainter(pixmap);p.setRenderHint(QPainter.RenderHint.Antialiasing);p.scale(size/24,size/24)
     p.setPen(QPen(QColor(color),1.7,Qt.PenStyle.SolidLine,Qt.PenCapStyle.RoundCap,Qt.PenJoinStyle.RoundJoin))

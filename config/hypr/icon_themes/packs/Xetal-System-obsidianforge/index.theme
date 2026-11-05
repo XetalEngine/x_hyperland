@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Obsidian Forge
+Comment=Riveted basalt, copper bevels and molten seams.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

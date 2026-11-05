@@ -116,6 +116,8 @@ class PresetTests(unittest.TestCase):
         self.assertEqual(json.loads((self.root/'file_jobs/preferences.json').read_text())['style'],'binaryknife')
         self.assertIn('decoration:rounding = 17',self.store.save.call_args.args[0]);wallpaper.assert_not_called();effects.assert_not_called()
     def test_custom_round_trip_and_failed_apply_restore_all_files(self):
+        (self.root/'icon_themes').mkdir()
+        (self.root/'icon_themes/packs').symlink_to(Path(__file__).resolve().parents[1]/'icon_themes/packs',target_is_directory=True)
         original=presets.current(self.root);original['theme']['layout']='modern';original['transfer']['animation']['speed']=160
         path=self.root/'custom.json';item=presets.save('Blue workshop',original,path=path)
         saved=presets.library(path)['presets'][0];self.assertEqual(saved['config'],original)

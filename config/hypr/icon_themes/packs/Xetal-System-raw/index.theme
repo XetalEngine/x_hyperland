@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Xetal Raw
+Comment=Luminous cyan circuits and precision-cut panels.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

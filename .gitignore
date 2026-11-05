@@ -59,3 +59,7 @@ config/hypr/file_manager/automount.json
 config/hypr/desktop_menu/icons.json
 
 config/hypr/effects/wobbly/.build/
+config/hypr/icon_themes/.build/
+config/hypr/icon_themes/custom/
+config/hypr/icon_themes/imported/
+config/hypr/icon_themes/backups/

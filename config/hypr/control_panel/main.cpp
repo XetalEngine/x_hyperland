@@ -3,6 +3,7 @@
 #include "native.h"
 #include "disk_visualizer.h"
 #include "wheel_guard.h"
+#include "../theme/icon_theme.hpp"
 #include <QJsonDocument>
 #include <QLocalServer>
 #include <QLocalSocket>
@@ -31,15 +32,7 @@ int main(int argc, char **argv) {
   SettingsWheelGuard wheelGuard(&app);
   app.setApplicationName("Hyper Fusion Control Panel");
   app.setDesktopFileName("xetal-control-panel");
-  auto iconPaths = QIcon::themeSearchPaths();
-  iconPaths << QDir::homePath() + "/.local/share/icons"
-            << "/usr/local/share/icons" << "/usr/share/icons";
-  iconPaths.removeDuplicates();
-  QIcon::setThemeSearchPaths(iconPaths);
-  QIcon::setFallbackSearchPaths({"/usr/share/icons", "/usr/local/share/icons"});
-  QIcon::setFallbackThemeName("Papirus-Dark");
-  if (!QIcon::hasThemeIcon("media-optical"))
-    QIcon::setThemeName("Papirus-Dark");
+  XetalIcons::apply(HyperPanel::root());
   QSettings::setDefaultFormat(QSettings::IniFormat);
   QSettings::setPath(QSettings::NativeFormat, QSettings::UserScope,
                      HyperPanel::root() + "/control_panel/state");

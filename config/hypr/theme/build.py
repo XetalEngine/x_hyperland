@@ -71,7 +71,7 @@ def build():
         destination = ROOT/f'qt{major}/platformthemes'; destination.mkdir(parents=True, exist_ok=True)
         output = destination/'libxetaltheme.so'
         stamp = destination/'version.txt'
-        sources = [ROOT/'platformtheme.cpp', ROOT/'plugin.json', ROOT/'file_picker.hpp', ROOT/'file_preview.hpp', ROOT/'file_places.hpp', Path(__file__)]
+        sources = [ROOT/'platformtheme.cpp', ROOT/'plugin.json', ROOT/'file_picker.hpp', ROOT/'file_preview.hpp', ROOT/'file_places.hpp', ROOT/'icon_theme.hpp', Path(__file__)]
         if (output.exists() and stamp.exists() and stamp.read_text().strip() == version
                 and output.stat().st_mtime > max(p.stat().st_mtime for p in sources)):
             versions[str(major)] = version; continue

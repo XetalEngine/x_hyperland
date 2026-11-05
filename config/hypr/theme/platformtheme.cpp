@@ -13,18 +13,22 @@
 #include <QTimer>
 #include "file_preview.hpp"
 #include "file_picker.hpp"
+#include "icon_theme.hpp"
 
 class XetalTheme final : public QObject, public QPlatformTheme {
     QPalette colors;
     QFont systemFont{"Noto Sans", 10};
     QFileSystemWatcher *watcher = nullptr;
-    QString config, mode;
+    QString config, mode, iconTheme;
+    QStringList iconPaths;
     QJsonObject read(const QString &path) {
         QFile file(path); if (!file.open(QIODevice::ReadOnly)) return {};
         return QJsonDocument::fromJson(file.readAll()).object();
     }
     void load() {
         const auto state = read(config);
+        const auto root=QFileInfo(config).dir().absoluteFilePath("..");
+        iconTheme=XetalIcons::name(root);iconPaths=XetalIcons::paths(root);
         mode = state.value("mode").toString("dark");
         auto all = read(QFileInfo(config).dir().filePath("palettes.json"));
         auto design = state.value("design").toString("raw");
@@ -57,6 +61,8 @@ class XetalTheme final : public QObject, public QPlatformTheme {
         load();
         if (watcher && !watcher->files().contains(config)) watcher->addPath(config);
         if (qobject_cast<QApplication *>(QCoreApplication::instance())) QApplication::setPalette(colors);
+        QIcon::setThemeSearchPaths(iconPaths);
+        QIcon::setFallbackThemeName("hicolor");QIcon::setThemeName(iconTheme);
 #if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
         QWindowSystemInterface::handleThemeChange();
 #else
@@ -89,9 +95,9 @@ public:
     }
     QVariant themeHint(ThemeHint hint) const override {
         if (hint == StyleNames) return QStringList{"Fusion"};
-        if (hint == SystemIconThemeName) return mode == "light" ? "Papirus-Light" : "Papirus-Dark";
+        if (hint == SystemIconThemeName) return iconTheme;
         if (hint == SystemIconFallbackThemeName) return "hicolor";
-        if (hint == IconThemeSearchPaths) return QStringList{QDir::homePath()+"/.local/share/icons", "/usr/local/share/icons", "/usr/share/icons"};
+        if (hint == IconThemeSearchPaths) return iconPaths;
         return QPlatformTheme::themeHint(hint);
     }
 #if QT_VERSION >= QT_VERSION_CHECK(6,5,0)

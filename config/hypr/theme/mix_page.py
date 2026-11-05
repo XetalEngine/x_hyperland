@@ -51,6 +51,7 @@ class MixMatchPage(QWidget):
                 self.marker_preview=selection_marker.preview();column.addWidget(self.marker_preview)
                 column.addWidget(note('Mix any Waybar and dock design with your desktop theme. Dock timing, position and size stay as you set them.'))
                 dock_link=QPushButton('Open dock settings');dock_link.clicked.connect(self.open_dock);column.addWidget(dock_link)
+                icons_link=QPushButton('Mix icon designs…');icons_link.clicked.connect(lambda:self.owner.tabs.setCurrentWidget(self.owner.icons_page));column.addWidget(icons_link)
                 column.addWidget(note('Selection marker adds an optional edge in Fusion Files. Off keeps the usual selection highlight.'))
             elif i==1:
                 self.active_trail=note('');column.addWidget(self.active_trail)

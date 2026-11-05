@@ -496,6 +496,13 @@ void Browser::refresh() {
     model->dirLister()->updateDirectory(location());
   }
 }
+void Browser::refreshIcons() {
+  // Ask the preview provider to replace cached themed pixmaps, without
+  // reopening the folder or losing selection, history or an inline rename.
+  previews->updateIcons();
+  icons->viewport()->update();
+  details->viewport()->update();
+}
 void Browser::setView(int mode) {
   viewMode = qBound(0, mode, 4);
   preferences->settings.setValue("view", viewMode);

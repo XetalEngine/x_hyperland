@@ -67,23 +67,21 @@ QIcon icon(const QString &name, const QString &fallback) {
   if (name.startsWith('/'))
     return QIcon(name);
   if (name == "fusion-computer")
-    return QIcon(root() + "/file_manager/computer.svg");
-  if (name == "drive-harddisk")
-    return QIcon(root() + "/file_manager/drive.svg");
-  if (name == "drive-removable-media-usb")
-    return QIcon(root() + "/file_manager/removable.svg");
+    return QIcon::fromTheme("computer", QIcon(root() + "/file_manager/computer.svg"));
   const QIcon original = QIcon::fromTheme(name, QIcon::fromTheme(fallback));
-  QPixmap pixmap = original.pixmap(48, 48);
   if (name.startsWith("go-") || name.startsWith("edit-") ||
       name.startsWith("view-") || name.startsWith("document-") ||
       name == "application-menu" || name == "tab-new" || name == "folder-new" ||
       name == "bookmark-new" || name == "media-eject") {
+    QPixmap pixmap = original.pixmap(48, 48);
     QPainter painter(&pixmap);
     painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
     painter.fillRect(pixmap.rect(),
                      qApp->palette().color(QPalette::WindowText));
+    painter.end();
+    return QIcon(pixmap);
   }
-  return QIcon(pixmap);
+  return original;
 }
 QList<QVariantMap> defaultPlaces() {
   QList<QVariantMap> result{

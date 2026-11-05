@@ -29,7 +29,8 @@ class AppearanceTests(unittest.TestCase):
                     self.assertIn(result['colors']['Window'], result['stylesheet'])
                     self.assertIn(result['colors']['Highlight'], result['stylesheet'])
                     self.assertIn('QTreeWidget#places', result['stylesheet'])
-                    self.assertEqual(result['iconTheme'], 'Papirus-Light' if mode=='light' else 'Papirus-Dark')
+                    self.assertEqual(result['iconTheme'],runtime.icon_library.info(runtime.ROOT.parent,runtime.design(),mode)['iconTheme'])
+                    self.assertIn(str(runtime.ROOT.parent/'icon_themes/packs'),result['iconSearchPaths'])
 
 if __name__ == '__main__':
     unittest.main()

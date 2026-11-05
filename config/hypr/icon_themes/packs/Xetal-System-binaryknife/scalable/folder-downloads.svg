@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>Downloads · Binary Knife</title><defs>
+<linearGradient id="metal" x1="0" y1="0" x2=".65" y2="1"><stop stop-color="#d3f4ff"/><stop offset=".3" stop-color="#41baff"/><stop offset=".53" stop-color="#d3f4ff"/><stop offset=".65" stop-color="#41baff"/><stop offset="1" stop-color="#204d9f"/></linearGradient>
+<linearGradient id="face" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#41baff" stop-opacity=".58"/><stop offset=".45" stop-color="#12233e"/><stop offset="1" stop-color="#12233e"/></linearGradient>
+<linearGradient id="shine" x1="0" y1="0" x2="0" y2="1"><stop stop-color="white" stop-opacity=".22"/><stop offset="1" stop-color="white" stop-opacity="0"/></linearGradient></defs>
+<path d="M7 20V14Q7 11 11 11H26L32 18H53Q57 18 57 23V51Q57 55 53 55H11Q7 55 7 51ZM8 25H56" transform="translate(0 1.8)" fill="#061317" opacity=".38"/>
+<path d="M7 20V14Q7 11 11 11H26L32 18H53Q57 18 57 23V51Q57 55 53 55H11Q7 55 7 51ZM8 25H56" fill="url(#face)" stroke="url(#metal)" stroke-width="1.7" stroke-linejoin="round"/>
+<path d="M7 20V14Q7 11 11 11H26L32 18H53Q57 18 57 23V51Q57 55 53 55H11Q7 55 7 51ZM8 25H56" transform="translate(4 4) scale(.875)" fill="none" stroke="#d3f4ff" stroke-width=".65" opacity=".35"/>
+<path d="M9 27H55L51 49H13Z" fill="url(#shine)"/><g transform="translate(10 11) scale(.69)" fill="none" stroke="url(#metal)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M32 18V38M24 30 32 39 40 30M19 39V47H45V39"/></g><path d="m7 21 7-12h14m8 47h16l6-12" fill="none" stroke="#41baff" stroke-width="1.6"/><path d="m44 53 10-9" stroke="#b1efff" stroke-width="2"/></svg>

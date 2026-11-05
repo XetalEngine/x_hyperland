@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>Text editor · The Gilded Hollow</title><defs>
+<linearGradient id="metal" x1="0" y1="0" x2=".65" y2="1"><stop stop-color="#fff0b7"/><stop offset=".3" stop-color="#dfb469"/><stop offset=".53" stop-color="#fff0b7"/><stop offset=".65" stop-color="#dfb469"/><stop offset="1" stop-color="#836137"/></linearGradient>
+<linearGradient id="face" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#dfb469" stop-opacity=".58"/><stop offset=".45" stop-color="#303c32"/><stop offset="1" stop-color="#303c32"/></linearGradient>
+<linearGradient id="shine" x1="0" y1="0" x2="0" y2="1"><stop stop-color="white" stop-opacity=".22"/><stop offset="1" stop-color="white" stop-opacity="0"/></linearGradient></defs>
+<path d="M12 54Q29 39 49 10 54 6 57 7 54 25 41 36L32 36 36 40 23 44Z" fill="url(#metal)" stroke="#836137" stroke-width="1"/><path d="M12 54Q38 24 55 9M27 38l12-2M33 30l12-2M40 22l10-1M26 38l-1-7M32 31l-2-8" fill="none" stroke="#303c32" stroke-width=".9"/><path d="M14 55h30" stroke="url(#metal)" stroke-width="1.6"/></svg>

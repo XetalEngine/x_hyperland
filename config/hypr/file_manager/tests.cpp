@@ -126,6 +126,32 @@ private slots:
     QVERIFY(!Fusion::validName(".."));
     QVERIFY(Fusion::validName("100% # résumé.txt"));
   }
+  void iconSetChangesKeepTheOpenFolderAndSelection() {
+    const auto oldPaths=QIcon::themeSearchPaths();const auto oldName=QIcon::themeName();
+    const auto reset=qScopeGuard([&]{QIcon::setThemeSearchPaths(oldPaths);QIcon::setThemeName(oldName);});
+    const QString iconRoot=temporary.path()+"/icon-sets";
+    for (const auto &name:QStringList{"Fusion-Test-Red","Fusion-Test-Green"}) {
+      const QString path=iconRoot+"/"+name;
+      QVERIFY(QDir().mkpath(path+"/scalable"));
+      QFile index(path+"/index.theme");QVERIFY(index.open(QIODevice::WriteOnly));
+      index.write("[Icon Theme]\nName=Test Icons\nDirectories=scalable\n\n[scalable]\nSize=64\nType=Scalable\nMinSize=16\nMaxSize=512\n");index.close();
+      QImage image(64,64,QImage::Format_ARGB32);image.fill(name.endsWith("Red") ? QColor("#d12244") : QColor("#22bb55"));
+      QVERIFY(image.save(path+"/scalable/folder.png"));
+      QVERIFY(image.save(path+"/scalable/inode-directory.png"));
+    }
+    const QString parent=folder+"/icon-reload";const auto child=QUrl::fromLocalFile(parent+"/example");
+    QVERIFY(QDir().mkpath(child.toLocalFile()));
+    Fusion::Preferences preferences(temporary.path()+"/icon-reload.ini");Drives drives;
+    QIcon::setThemeSearchPaths({iconRoot});QIcon::setThemeName("Fusion-Test-Red");
+    Browser browser(&preferences,&drives);browser.setThumbnails(false);browser.navigate(QUrl::fromLocalFile(parent));browser.show();
+    QTRY_VERIFY_WITH_TIMEOUT(browser.model->indexForUrl(child).isValid(),5000);
+    browser.selectUrl(child);
+    auto color=[&]{const auto image=qvariant_cast<QIcon>(browser.model->indexForUrl(child).data(Qt::DecorationRole)).pixmap(64,64).toImage();return image.isNull() ? QString("null") : image.pixelColor(image.width()/2,image.height()/2).name();};
+    QTRY_COMPARE_WITH_TIMEOUT(color(),QString("#d12244"),5000);
+    QIcon::setThemeName("Fusion-Test-Green");browser.refreshIcons();
+    QTRY_COMPARE_WITH_TIMEOUT(color(),QString("#22bb55"),5000);
+    QCOMPARE(browser.location(),QUrl::fromLocalFile(parent));QCOMPARE(browser.selectedUrls(),QList<QUrl>{child});
+  }
   void builtinWindowControlsUseNativeActions() {
     FilesWindow window(Fusion::computerUrl(),false,temporary.path()+"/window-controls.ini");
     window.setAttribute(Qt::WA_DeleteOnClose,false);window.show();

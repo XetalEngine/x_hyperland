@@ -1,6 +1,7 @@
 #include "window.h"
 #include "picker.h"
 #include "desktop_actions.h"
+#include "../theme/icon_theme.hpp"
 #include <KPropertiesDialog>
 #include <QDBusAbstractAdaptor>
 #include <QDBusConnection>
@@ -75,7 +76,7 @@ int main(int argc, char **argv) {
   app.setOrganizationName("Hyper Fusion");
   app.setDesktopFileName("xetal-files");
   app.setStyle("Fusion");
-  QIcon::setThemeName("Papirus-Dark");
+  XetalIcons::apply(Fusion::root());
   QCommandLineParser parser;
   parser.setApplicationDescription("Fusion Files — files, folders and This PC");
   parser.addHelpOption();

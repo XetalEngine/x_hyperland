@@ -35,13 +35,16 @@ def image_icon(value):
     return QIcon(value) if Path(value).is_absolute() else QIcon.fromTheme(value)
 
 
-@lru_cache(maxsize=1)
-def theme_names():
+def theme_names():return _theme_names(QIcon.themeName(),tuple(QIcon.themeSearchPaths()))
+
+
+@lru_cache(maxsize=8)
+def _theme_names(theme_name,search_paths):
     names = {'application-x-executable', 'applications-development', 'applications-system',
              'applications-utilities', 'folder', 'utilities-terminal', 'preferences-system'}
-    for root in QIcon.themeSearchPaths():
-        for theme in dict.fromkeys([QIcon.themeName(), 'Papirus', 'Papirus-Dark', 'breeze', 'hicolor']):
-            for sub in ('64x64/apps', '48x48/apps', 'scalable/apps', 'apps/48', 'apps/64'):
+    for root in search_paths:
+        for theme in dict.fromkeys([theme_name, 'Papirus', 'Papirus-Dark', 'breeze', 'hicolor']):
+            for sub in ('scalable','64x64/apps', '48x48/apps', 'scalable/apps', 'apps/48', 'apps/64'):
                 directory = Path(root) / theme / sub
                 if directory.is_dir():
                     names.update(p.stem for p in directory.iterdir() if p.suffix.lower() in ('.svg', '.png', '.xpm'))

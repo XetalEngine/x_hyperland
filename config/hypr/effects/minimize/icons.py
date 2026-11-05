@@ -14,6 +14,8 @@ from PyQt6.QtNetwork import QLocalSocket
 from gi.repository import Gio
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0,str(ROOT))
+from icon_themes import model as icon_library
 
 
 def configure_icon_paths():
@@ -87,11 +89,7 @@ class Cache:
         self.refresh()
 
     def refresh(self):
-        try:
-            theme = json.loads((ROOT/'theme/state.json').read_text())
-        except (OSError, ValueError):theme = {}
-        style = 'Papirus-Light' if theme.get('mode') == 'light' else 'Papirus-Dark'
-        QIcon.setThemeName(style); QIcon.setFallbackThemeName('hicolor')
+        style = icon_library.apply_qt(ROOT)
         self.applications = Gio.AppInfo.get_all()
         stamp = (style, tuple((info.get_id(), info.get_icon().to_string() if info.get_icon() else '') for info in self.applications))
         if stamp != self.stamp:

@@ -116,7 +116,7 @@ def theme():
         '''
     return {'stylesheet':style,'colors':p,'font':runtime.ui_font(),
             'cardRadius':17 if design=='gildedhollow' else 18 if design=='hollowgrove' else 3 if design=='shadowedge' else 24 if design=='candycloud' else 3 if design=='obsidianforge' else 2 if design=='porcelainink' else 16 if design=='tidalglass' else 4 if design=='binaryknife' else 10,
-            'iconTheme':'Papirus-Light' if runtime.mode()=='light' else 'Papirus-Dark'}
+            **runtime.icon_library.info(runtime.ROOT.parent,runtime.design(),runtime.mode())}
 
 
 def shortcut(value):

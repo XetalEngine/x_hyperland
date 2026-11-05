@@ -6,6 +6,7 @@
 #include "trash_animation.h"
 #include "../theme/file_preview.hpp"
 #include "../theme/window_chrome.hpp"
+#include "../theme/icon_theme.hpp"
 #include <KAbstractFileItemActionPlugin>
 #include <KApplicationTrader>
 #include <KFileItemActions>
@@ -444,7 +445,10 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
             qApp->setProperty("fusionAccent",
                               QColor(colors["Accent"].toString()));
             qApp->setFont(QFont(value["font"].toString("Noto Sans"), 10));
-            QIcon::setThemeName(value["iconTheme"].toString());
+            const auto iconTheme=value["iconTheme"].toString();
+            const bool iconsChanged=property("fusionIconTheme").toString()!=iconTheme;
+            setProperty("fusionIconTheme",iconTheme);
+            XetalIcons::apply(Fusion::root());
             qApp->setStyleSheet(value["stylesheet"].toString());
             for (auto *action : findChildren<QAction *>())
               if (action->property("fusionIcon").isValid())
@@ -455,6 +459,8 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
                 button->setIcon(
                     Fusion::icon(button->property("fusionIcon").toString()));
             rebuildPlaces();
+            if (iconsChanged)
+              for (auto *page:findChildren<Browser *>()) page->refreshIcons();
             update();
           });
   reloadTheme();

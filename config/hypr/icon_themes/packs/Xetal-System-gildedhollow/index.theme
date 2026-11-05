@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=The Gilded Hollow
+Comment=Engraved brass, moss-dark leather and lantern highlights.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

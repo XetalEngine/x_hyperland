@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>Image · Tidal Glass</title><defs>
+<linearGradient id="metal" x1="0" y1="0" x2=".65" y2="1"><stop stop-color="#f1fff7"/><stop offset=".3" stop-color="#81e5d9"/><stop offset=".53" stop-color="#f1fff7"/><stop offset=".65" stop-color="#81e5d9"/><stop offset="1" stop-color="#328aaf"/></linearGradient>
+<linearGradient id="face" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#81e5d9" stop-opacity=".58"/><stop offset=".45" stop-color="#164a65"/><stop offset="1" stop-color="#164a65"/></linearGradient>
+<linearGradient id="shine" x1="0" y1="0" x2="0" y2="1"><stop stop-color="white" stop-opacity=".22"/><stop offset="1" stop-color="white" stop-opacity="0"/></linearGradient></defs>
+<path d="M17 7H38L50 19V56H17ZM38 7V20H50" transform="translate(0 1.8)" fill="#061317" opacity=".38"/>
+<path d="M17 7H38L50 19V56H17ZM38 7V20H50" fill="url(#face)" stroke="url(#metal)" stroke-width="1.7" stroke-linejoin="round"/>
+<path d="M17 7H38L50 19V56H17ZM38 7V20H50" transform="translate(4 4) scale(.875)" fill="none" stroke="#f1fff7" stroke-width=".65" opacity=".35"/>
+<g fill="none" stroke="#328aaf" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 .8)"><path d="M21 25H43V43H21ZM22 41 29 32 35 39 39 34 43 40"/><circle cx="39" cy="27" r="2"/></g><g fill="none" stroke="url(#metal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 25H43V43H21ZM22 41 29 32 35 39 39 34 43 40"/><circle cx="39" cy="27" r="2"/></g><path d="M8 48Q19 41 31 48T57 46M10 52Q24 46 35 51T54 50" fill="none" stroke="#81e5d9" stroke-width="1" opacity=".8"/><circle cx="51" cy="17" r="2.2" fill="#effffa" opacity=".8"/></svg>

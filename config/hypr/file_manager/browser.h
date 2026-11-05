@@ -27,6 +27,7 @@ public:
   QUrl location() const;
   void navigate(const QUrl &url);
   void refresh();
+  void refreshIcons();
   void setView(int mode);
   void setHidden(bool hidden);
   void setThumbnails(bool enabled);

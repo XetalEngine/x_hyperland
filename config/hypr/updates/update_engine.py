@@ -202,6 +202,12 @@ def merge_profile(live, upstream, stage, commit):
         atomic(destination, merged, mode)
     write_json(stage/META, new)
     expected[META] = sha(read(live/META))
+    # Icon choices refer to copied artwork. Include those private dependencies
+    # in the build tree so an update can prepare the same selected icon set.
+    for relative in ('icon_themes/custom','icon_themes/imported'):
+        source=live/relative
+        if source.is_dir() and not source.is_symlink():
+            shutil.copytree(source,stage/relative,dirs_exist_ok=True)
     # Reuse compiler caches only inside the review tree. Builders check source
     # and installed-library fingerprints before accepting these binaries.
     for relative in ('theme/qt5', 'theme/qt6', 'theme/gtk3', 'effects/burn/.build', 'effects/cube/.build', 'effects/minimize/.build',

@@ -231,8 +231,7 @@ def main():
     parser.add_argument('--style', choices=preferences.STYLES); args = parser.parse_args()
     app = QApplication(sys.argv[:1]); app.setApplicationName('xetal-switcher'); app.setDesktopFileName('xetal-switcher')
     app.setQuitOnLastWindowClosed(False); app.setStyle('Fusion')
-    QIcon.setThemeSearchPaths([str(Path.home()/'.local/share/icons'), '/usr/share/icons'])
-    QIcon.setFallbackThemeName('hicolor'); QIcon.setThemeName('Papirus-Dark')
+    theme_runtime.icon_library.apply_qt(ROOT)
     window = Switcher(bool(args.preview or args.demo)); app.aboutToQuit.connect(window.queue.shutdown)
     if args.preview or args.demo:
         if args.style: window.options['style'] = args.style

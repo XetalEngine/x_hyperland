@@ -145,7 +145,7 @@ def appearance():
         '''
     style += selection_marker.stylesheet(p, runtime.selection_marker())
     return dict(colors=p, stylesheet=style, font=runtime.ui_font(),
-                iconTheme='Papirus-Light' if runtime.mode() == 'light' else 'Papirus-Dark')
+                **runtime.icon_library.info(runtime.ROOT.parent,runtime.design(),runtime.mode()))
 
 if __name__ == '__main__':
     print(json.dumps(appearance()))

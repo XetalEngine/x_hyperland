@@ -83,6 +83,10 @@ def leave_dashboard():
 
 
 def icon_for(app):
+    name=theme_runtime.icon_library.application_name(app.get_id(),getattr(app,'fields',{}).get('icon',''),custom=bool(getattr(app,'changes',{}).get('icon')))
+    if name:
+        themed=QIcon.fromTheme(name)
+        if not themed.isNull():return themed
     icon = app.get_icon()
     if icon:
         if hasattr(icon, 'get_file'):
@@ -399,8 +403,8 @@ class Menu(QWidget):
 
     def apply_design(self):
         modern=theme_runtime.launcher_design() in ('modern','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow')
-        self.fusion_settings_button.setIcon(desktop_icon('fusion-settings',theme_runtime.colors(style=theme_runtime.launcher_design())['Accent'],20))
-        self.kvm_button.setIcon(desktop_icon('chip',theme_runtime.colors(style=theme_runtime.launcher_design())['Accent'],20))
+        self.fusion_settings_button.setIcon(QIcon.fromTheme('xetal-fusion-settings',QIcon.fromTheme('preferences-system')))
+        self.kvm_button.setIcon(QIcon.fromTheme('xetal-kvm-settings',QIcon.fromTheme('computer')))
         self.profile.setVisible(modern);self.profile.refresh()
         self.raw_header.setVisible(not modern);self.raw_avatar.refresh()
         for widget in (self.raw_brand,self.raw_eyebrow,self.raw_account,self.raw_session):widget.setVisible(not modern)
@@ -1061,9 +1065,6 @@ def main():
     app.setDesktopFileName('xetal-launcher')
     app.setQuitOnLastWindowClosed(False)
     theme_runtime.install(app, STYLE, style=theme_runtime.launcher_design)
-    QIcon.setThemeSearchPaths([str(Path.home()/'.local/share/icons'), '/usr/share/icons'])
-    QIcon.setFallbackThemeName('hicolor')
-    QIcon.setThemeName('Papirus-Light' if theme_runtime.mode() == 'light' else 'Papirus-Dark')
     server = None
     if not args.preview:
         instance = Path(os.environ['XDG_RUNTIME_DIR']) / 'hypr' / os.environ['HYPRLAND_INSTANCE_SIGNATURE']

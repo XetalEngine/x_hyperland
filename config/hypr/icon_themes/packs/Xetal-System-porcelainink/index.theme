@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Porcelain Ink
+Comment=Ivory paper, brushed ink and tiny vermilion seals.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

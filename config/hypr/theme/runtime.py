@@ -9,6 +9,8 @@ import designs
 import layouts
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT.parent))
+from icon_themes import model as icon_library
 sys.path.insert(0, str(ROOT.parent/'runtime'))
 import command_paths
 
@@ -106,6 +108,8 @@ def environment(base=None, value=None):
         paths=[directory,*filter(None,env.get(key,fallback).split(':'))]
         env[key]=':'.join(dict.fromkeys(paths))
     sys.path.insert(0,str(ROOT.parent))
+    icon_data=str(ROOT.parent/'icon_themes/.build')
+    env['XDG_DATA_DIRS']=':'.join(dict.fromkeys([icon_data,*env['XDG_DATA_DIRS'].split(':')]))
     from cursors import model as cursor_model
     try:
         cursor = cursor_model.load()[0]
@@ -206,8 +210,7 @@ def install(app, source='', *, style=None):
             # An application property is not inherited by programs we launch.
             app.setProperty('xetalThemeDesign',selected)
             app.setPalette(palette(style=selected)); app.setStyleSheet(stylesheet(source,style=selected))
-            QIcon.setThemeSearchPaths([str(Path.home()/'.local/share/icons'),'/usr/share/icons'])
-            QIcon.setFallbackThemeName('hicolor'); QIcon.setThemeName('Papirus-Light' if mode()=='light' else 'Papirus-Dark')
+            icon_library.apply_qt(ROOT.parent,design(),mode())
             for widget in app.allWidgets():
                 if isinstance(widget,QCalendarWidget): style_calendar(widget)
                 if widget.property('xetalWindowControl') or widget.objectName()=='windowClose':window_chrome.style_close(widget,selected or design())

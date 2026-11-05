@@ -17,6 +17,11 @@ from desktop_clipboard import Clipboard
 from trash_animation import Flights, snapshot
 import math
 
+PROFILE_ROOT = Path(__file__).resolve().parents[1]
+if str(PROFILE_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROFILE_ROOT))
+from icon_themes import model as icon_library
+
 TARGETS = [Gtk.TargetEntry.new('application/x-xetal-desktop-icons', Gtk.TargetFlags.SAME_APP, 0),
            Gtk.TargetEntry.new('text/uri-list', 0, 1)]
 ATTRIBUTES = 'standard::name,standard::display-name,standard::type,standard::icon,standard::is-hidden,standard::is-symlink,thumbnail::path,thumbnail::is-valid'
@@ -862,7 +867,16 @@ class Icons:
                             launcher = Gio.DesktopAppInfo.new_from_filename(str(self.root/name))
                             if launcher:
                                 entry.set_display_name(launcher.get_display_name())
-                                if launcher.get_icon(): entry.set_icon(launcher.get_icon())
+                                # Legacy Fusion shortcuts used absolute artwork.
+                                # Only that known default is replaced; a custom
+                                # shortcut image remains the owner's choice.
+                                original=launcher.get_string('Icon') or ''
+                                themed=icon_library.application_name(name,original)
+                                known=original in ('system-file-manager','computer','fusion-computer','accessories-calculator','preferences-system','image-x-generic','preferences-desktop-wallpaper','xetal-kvm-settings','virt-manager') or original.endswith(('/file_manager/computer.svg','/calculator/programmer_calculator/assets/calculator.svg','/kvm/icon.svg'))
+                                if themed and known:
+                                    fallback=['computer-vm','virt-manager','computer'] if themed=='xetal-kvm-settings' else ['application-x-executable']
+                                    entry.set_icon(Gio.ThemedIcon.new_from_names([themed,*fallback]))
+                                elif launcher.get_icon(): entry.set_icon(launcher.get_icon())
                         pending[name] = entry
                 if entries:
                     enumerator.next_files_async(128, GLib.PRIORITY_DEFAULT, self.cancellable, batch, None)

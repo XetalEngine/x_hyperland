@@ -284,6 +284,10 @@ PanelController::PanelController(MainWindow *window)
                              QColor(colors["Disabled"].toString()));
           qApp->setPalette(palette);
           qApp->setFont(QFont(value["font"].toString("Noto Sans"), 10));
+          QStringList iconPaths;
+          for (const auto &path:value["iconSearchPaths"].toArray()) iconPaths << path.toString();
+          if (!iconPaths.isEmpty()) QIcon::setThemeSearchPaths(iconPaths);
+          QIcon::setFallbackThemeName("hicolor");
           QIcon::setThemeName(value["iconTheme"].toString("Papirus-Dark"));
           qApp->setProperty("xetalPanelCardRadius", value["cardRadius"].toInt(10));
           qApp->setStyleSheet(value["stylesheet"].toString());
