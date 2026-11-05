@@ -8,7 +8,7 @@ import tempfile
 import threading
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch,Mock
 
 os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 import portable
@@ -73,6 +73,113 @@ class SetupTests(unittest.TestCase):
         saved=json.loads(self.window._paths().session.read_text())
         self.assertEqual(saved['simple']['name'],'saved automatically')
         self.assertTrue(Path(str(self.window._paths().session)+'.prev').is_file())
+
+    def test_account_header_is_before_save_on_every_page(self):
+        import account_ui
+        header=self.window.account_header
+        actions=self.window.account_actions.layout()
+        self.assertEqual(actions.indexOf(header)+1,actions.indexOf(self.window.btn_save))
+        for page in ('Paths & Tools','Virtual GPU','Single GPU','Dual GPU'):
+            self.window._select_tab_by_name(page)
+            self.application.processEvents()
+            self.assertTrue(header.isVisible());self.assertTrue(header.login.isVisible())
+            self.assertFalse(header.logout.isVisible())
+        with patch.object(account_ui.QDesktopServices,'openUrl',return_value=True) as open_url:
+            header.download.click()
+        self.assertEqual(open_url.call_args.args[0].toString(),account_ui.SITE+'/#download')
+        for width in (1820,1280,800,1820):
+            self.window.resize(width,920);self.application.processEvents()
+            self.assertLess(header.geometry().right(),self.window.btn_save.geometry().left())
+            self.assertGreaterEqual(self.window.account_actions.x(),0)
+            self.assertLessEqual(self.window.account_actions.geometry().right(),self.window.width())
+            self.assertEqual(self.window._account_wrapped,width<1540)
+
+    def test_header_login_and_logout_while_guest_is_running(self):
+        from account_ui import LoginDialog
+        import echo_account
+        panel=self.window.package_panel;header=self.window.account_header
+        def accept(dialog):
+            dialog.login.setText('test-user');dialog.password.setText('fixture-password')
+            return LoginDialog.DialogCode.Accepted
+        with patch.object(echo_account.shutil,'which',return_value=None), \
+             patch.object(echo_account,'request',return_value={'token':'fixture-token','user':{'username':'test-user'}}) as request, \
+             patch.object(LoginDialog,'exec',accept):
+            header.login.click();self.wait_for_components(panel)
+            self.assertEqual(header.status.text(),'Logged in as test-user')
+            self.assertTrue(header.logout.isVisible());self.assertFalse(header.login.isVisible())
+            request.assert_called_once_with('login',{'login':'test-user','password':'fixture-password','totp':''})
+            with patch.object(panel,'busy',return_value=True):
+                header.logout.click();self.wait_for_components(panel)
+        self.assertFalse(panel.account.token)
+        self.assertTrue(header.login.isVisible());self.assertFalse(header.logout.isVisible())
+
+    def test_failed_login_is_visible_from_launch_page(self):
+        from account_ui import LoginDialog
+        import echo_account
+        self.window._select_tab_by_name('Virtual GPU')
+        panel=self.window.package_panel
+        def accept(dialog):
+            dialog.login.setText('test-user');dialog.password.setText('fixture-password')
+            return LoginDialog.DialogCode.Accepted
+        with patch.object(echo_account.shutil,'which',return_value=None), \
+             patch.object(echo_account,'request',side_effect=echo_account.AccountError('Sign in to Echo again to continue.',status=401)), \
+             patch.object(LoginDialog,'exec',accept):
+            self.window.account_header.login.click();self.wait_for_components(panel)
+        self.assertEqual(self.window.status.text(),'Sign in to Echo again to continue.')
+        self.assertFalse(panel.account.token);self.assertTrue(self.window.account_header.login.isVisible())
+
+    def test_close_reopen_requires_login_and_saves_no_account_in_profile(self):
+        panel=self.window.package_panel;account=panel.account
+        account.token='fixture-secret-token';account.user={'username':'test-user'};panel.refresh_account()
+        self.assertTrue(self.window.save_session(quiet=True))
+        saved=self.window._paths().session.read_text()
+        self.assertNotIn('fixture-secret-token',saved);self.assertNotIn('test-user',saved)
+        self.window.close();self.window.show_for_session();self.application.processEvents()
+        self.assertEqual((account.token,account.user),('',{}))
+        self.assertTrue(self.window.account_header.login.isVisible())
+        panel.store.edition='xetallic'
+        with patch.object(panel,'sign_in') as prompt:
+            self.assertFalse(panel.require_account());prompt.assert_called_once_with()
+        panel.store.edition='stock'
+        with patch.object(panel,'sign_in') as prompt:
+            self.assertTrue(panel.require_account());prompt.assert_not_called()
+
+    def test_pending_login_does_not_survive_close_and_reopen(self):
+        import echo_account
+        panel=self.window.package_panel;started=threading.Event();release=threading.Event();after=Mock()
+        session=panel.account.session
+        def pending(*args,**kwargs):
+            started.set();release.wait(5)
+            return {'token':'fixture-token','user':{'username':'test-user'}}
+        with patch.object(echo_account,'request',side_effect=pending), \
+             patch.object(echo_account.shutil,'which',return_value=None):
+            panel.run(lambda progress:panel.account.login('test-user','fixture-password',session=session),
+                      lambda user:panel.info.setText('Signed in.'),after=after,session=session)
+            try:
+                self.assertTrue(started.wait(5))
+                self.window.close();self.window.show_for_session()
+            finally:release.set();self.wait_for_components(panel)
+        self.application.processEvents()
+        self.assertFalse(panel.account.token);self.assertEqual(panel.account.user,{})
+        self.assertTrue(self.window.account_header.login.isVisible());after.assert_not_called()
+
+    def test_saved_password_prefills_but_cancel_does_not_authenticate(self):
+        from account_ui import LoginDialog
+        import echo_account
+        panel=self.window.package_panel;shown=[]
+        def cancel(dialog):
+            self.assertFalse(panel.account.token)
+            self.assertEqual(dialog.login.text(),'test-user')
+            self.assertEqual(dialog.password.text(),'fixture-password')
+            self.assertTrue(dialog.remember.isChecked());self.assertEqual(dialog.totp.text(),'')
+            shown.append(True)
+            return LoginDialog.DialogCode.Rejected
+        with patch.object(echo_account.shutil,'which',return_value='/fixture/secret-tool'), \
+             patch.object(panel.account,'saved_credentials',return_value={'login':'test-user','password':'fixture-password'}), \
+             patch.object(LoginDialog,'exec',cancel),patch.object(echo_account,'request') as request:
+            self.window.account_header.login.click();self.wait_for_components(panel)
+            self.application.processEvents()
+        self.assertEqual(shown,[True]);self.assertFalse(panel.account.token);request.assert_not_called()
 
     def test_edition_buttons_preserve_guest_state_and_block_busy_switches(self):
         import editions,packages

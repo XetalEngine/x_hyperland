@@ -199,15 +199,15 @@ class EditionTests(unittest.TestCase):
         self.assertEqual(account.token,'synthetic')
         self.assertEqual(list(self.root.iterdir()),[])
 
-    def test_stock_update_check_never_opens_echo_wallet_or_session(self):
+    def test_update_checks_never_open_echo_wallet_or_session(self):
         from package_ui import PackagesPanel
-        panel=SimpleNamespace(info=Mock(),store=Mock(edition='stock'),account=Mock(),_restore_account=True,
-                              run=lambda work,finished:work(Mock()))
-        panel.account.restore.side_effect=AssertionError('Stock must not contact the account wallet')
-        PackagesPanel.check_updates(panel)
-        panel.account.restore.assert_not_called();panel.account.check.assert_not_called()
-        panel.store.check.assert_called_once_with()
-        self.assertTrue(panel._restore_account)
+        for edition in ('stock','xetallic'):
+            with self.subTest(edition=edition):
+                panel=SimpleNamespace(info=Mock(),store=Mock(edition=edition),account=Mock(),
+                                      run=lambda work,finished:work(Mock()))
+                PackagesPanel.check_updates(panel)
+                self.assertEqual(panel.account.mock_calls,[])
+                panel.store.check.assert_called_once_with()
 
     def test_all_launch_modes_use_preflight_owner(self):
         from importlib.util import spec_from_file_location,module_from_spec

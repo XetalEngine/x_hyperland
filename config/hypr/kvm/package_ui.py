@@ -3,11 +3,12 @@ from PyQt6.QtCore import QThread, pyqtSignal, Qt, QTimer,QUrl
 from PyQt6.QtGui import QDesktopServices,QIcon
 from PyQt6.QtWidgets import (QGroupBox,QVBoxLayout,QHBoxLayout,QLabel,QPushButton,QWidget,
                              QTableWidget,QTableWidgetItem,QHeaderView,QProgressBar,QMessageBox,
-                             QDialog,QFormLayout,QLineEdit,QCheckBox,QDialogButtonBox)
+                             QDialog)
 import packages
 import portable
 import editions
 from echo_account import Account
+from account_ui import LoginDialog
 from edition_ui import EditionCards
 
 
@@ -21,6 +22,7 @@ class Job(QThread):
     def run(self):
         try:self.done.emit(self.work(self.progress.emit))
         except Exception as error:self.failed.emit(str(error))
+        finally:self.work=None
 
 
 class PackagesPanel(QGroupBox):
@@ -29,6 +31,7 @@ class PackagesPanel(QGroupBox):
     active=pyqtSignal(bool)
     message=pyqtSignal(str)
     edition_changed=pyqtSignal(str)
+    account_changed=pyqtSignal()
     def __init__(self,busy,parent=None,*,switch_edition=None):
         super().__init__('KVM components',parent)
         self.busy=busy;self.store=packages.Store();self.release=None;self.job=None;self.account=Account()
@@ -40,9 +43,10 @@ class PackagesPanel(QGroupBox):
         layout.addWidget(self.edition_cards)
         account_row=QHBoxLayout()
         self.account_info=QLabel('Sign in to Echo to use Enhanced free.');account_row.addWidget(self.account_info,1)
-        self.account_button=QPushButton('Sign in to Echo');self.account_button.setIcon(QIcon(str(portable.ROOT/'echo.svg')))
+        self.account_button=QPushButton('Login to Echo');self.account_button.setIcon(QIcon(str(portable.ROOT/'echo.svg')))
         self.account_button.clicked.connect(lambda:self.sign_in());account_row.addWidget(self.account_button)
-        self.sign_out=QPushButton('Disconnect');self.sign_out.clicked.connect(self.disconnect_account);account_row.addWidget(self.sign_out)
+        self.sign_out=QPushButton('Logout');self.sign_out.clicked.connect(self.disconnect_account);account_row.addWidget(self.sign_out)
+        self.account_info.setTextFormat(Qt.TextFormat.PlainText)
         layout.addLayout(account_row)
         bar=QHBoxLayout()
         self.info=QLabel('Installed components and available downloads');self.info.setWordWrap(True)
@@ -121,33 +125,63 @@ class PackagesPanel(QGroupBox):
 
     def sign_in(self,after=None):
         if self.job:return
-        dialog=QDialog(self);dialog.setWindowTitle('Sign in to Echo');form=QFormLayout(dialog)
-        login=QLineEdit();password=QLineEdit();password.setEchoMode(QLineEdit.EchoMode.Password)
-        totp=QLineEdit();totp.setPlaceholderText('If enabled on your account')
-        remember=QCheckBox('Remember me in the system password wallet');remember.setEnabled(self.account.can_remember)
-        form.addRow('Username or email',login);form.addRow('Password',password);form.addRow('Authentication code',totp);form.addRow(remember)
-        buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
-        buttons.button(QDialogButtonBox.StandardButton.Ok).setText('Sign in')
-        buttons.accepted.connect(dialog.accept);buttons.rejected.connect(dialog.reject);form.addRow(buttons)
-        if dialog.exec()!=QDialog.DialogCode.Accepted:password.clear();return
-        values=(login.text().strip(),password.text(),totp.text().strip(),remember.isChecked());password.clear()
-        self.info.setText('Signing in to Echo…')
-        self.run(lambda progress:self.account.login(*values),lambda user:self.info.setText('Signed in to Echo.'),after=after)
+        session=self.account.session
+        if not self.account.can_remember:
+            self._login_prompt({},session,after);return
+        # Wallet access may ask the user to unlock it. Keep the window responsive
+        # and only read it after an explicit Login click, never during startup.
+        credentials={}
+        self._account_message('Opening Echo login…')
+        self.run(lambda progress:self.account.saved_credentials(),credentials.update,
+                 after=lambda:self._login_prompt(credentials,session,after),session=session)
+
+    def _login_prompt(self,credentials,session,after):
+        if session is not self.account.session:
+            credentials.clear();return
+        dialog=LoginDialog(credentials,self.account.can_remember,self.window())
+        credentials.clear();self._account_dialog=dialog
+        try:
+            if dialog.exec()!=QDialog.DialogCode.Accepted or session is not self.account.session:return
+            values=dialog.values()
+        finally:
+            dialog.clear_secrets();dialog.deleteLater();self._account_dialog=None
+        self._account_message('Signing in to Echo…')
+        self.run(lambda progress:self.account.login(*values,session=session),
+                 lambda user:self._account_message(('Signed in to Echo. '+self.account.wallet_warning).strip()),
+                 failed=self._account_message,after=after,session=session)
+
+    def _account_message(self,text):
+        self.info.setText(text);self.message.emit(text)
+
+    def end_account_session(self):
+        self.account.end_session()
+        dialog=getattr(self,'_account_dialog',None)
+        if dialog:dialog.reject()
+        self.refresh_account()
 
     def disconnect_account(self):
-        if self.job or self.busy():return
-        self.run(lambda progress:self.account.forget(),lambda _:self.info.setText('Echo disconnected.'))
+        if self.job:return
+        self.end_account_session()
+        self.run(lambda progress:self.account.forget(),lambda _:self._account_message('Logged out of Echo.'),
+                 failed=self._account_message)
 
     def require_account(self):
         if self.store.edition=='stock':return True
         if self.account.token:return True
         self.sign_in();return False
 
+    def refresh_account(self):
+        enhanced=self.store.edition=='xetallic'
+        self.account_info.setVisible(enhanced)
+        self.account_button.setVisible(enhanced and not self.account.token)
+        self.sign_out.setVisible(enhanced and bool(self.account.token))
+        self.account_info.setText('Logged in as '+self.account.user.get('username','Echo user') if self.account.token else 'Log in to Echo to use Enhanced free.')
+        self.account_button.setEnabled(not self.job);self.sign_out.setEnabled(bool(self.account.token) and not self.job)
+        self.account_changed.emit()
+
     def refresh(self):
         self.edition_cards.refresh(self.store.edition,busy=bool(self.job))
-        for widget in (self.account_info,self.account_button,self.sign_out):widget.setVisible(self.store.edition=='xetallic')
-        self.account_info.setText('Echo · '+self.account.user.get('username','Signed in') if self.account.token else 'Sign in to Echo to use Enhanced free.')
-        self.account_button.setEnabled(not self.job);self.sign_out.setEnabled(bool(self.account.token) and not self.job)
+        self.refresh_account()
         entries=(self.release or {}).get('components',{})
         self.missing.setEnabled(not self.job and any(not packages.installed(n,self.store.root) and not packages.compatibility(n,e) for n,e in entries.items()))
         self.table.setRowCount(len(entries))
@@ -189,20 +223,24 @@ class PackagesPanel(QGroupBox):
                 messages.append(f'{entry["label"]} update available: {current["version"]} → {entry["version"]}.')
         return messages
 
-    def run(self,work,finished,failed=None,after=None):
+    def run(self,work,finished,failed=None,after=None,*,session=None):
         if self.job:return
         self.check.setEnabled(False);self.progress.show();self.progress.setRange(0,0)
         self.active.emit(True)
         job=Job(work,self);self.job=job
         job.progress.connect(lambda value,total:self._progress(value,total))
         succeeded=[]
+        def current():return session is None or session is self.account.session
+        def fail(error):
+            if current():(failed or self.info.setText)(error)
         def done(result):
+            if not current():return
             try:finished(result);succeeded.append(True)
-            except Exception as error:(failed or (lambda error:self.info.setText(error)))(str(error))
-        job.done.connect(done);job.failed.connect(failed or (lambda error:self.info.setText(error)))
+            except Exception as error:fail(str(error))
+        job.done.connect(done);job.failed.connect(fail)
         def release():
             self.job=None;self.check.setEnabled(True);self.progress.hide();self.refresh();job.deleteLater();self.active.emit(False)
-            if succeeded and after:QTimer.singleShot(0,after)
+            if succeeded and after and current():QTimer.singleShot(0,lambda:after() if current() else None)
         job.finished.connect(release);self.refresh();job.start()
 
     def _progress(self,value,total):
@@ -212,14 +250,7 @@ class PackagesPanel(QGroupBox):
         self.info.setText('Checking the signed release feed…')
         def done(release):
             self.release=release;self.info.setText('Release '+release['version']+' · Choose the components to update.');self.refresh()
-        def work(progress):
-            if self.store.edition=='xetallic' and getattr(self,'_restore_account',False):
-                self._restore_account=False
-                if self.account.restore():
-                    try:self.account.check()
-                    except Exception:self.account.token='';self.account.user={}
-            return self.store.check()
-        self.run(work,done)
+        self.run(lambda progress:self.store.check(),done)
 
     def download(self,name,entry):
         if not self.require_account():return
@@ -257,5 +288,4 @@ class PackagesPanel(QGroupBox):
             portable.prepare_firmware();portable.prepare_tpm_workspace()
             self.changed.emit()
         # Reading release metadata is safe while a guest is running, too.
-        self._restore_account=True
         self.check_updates()

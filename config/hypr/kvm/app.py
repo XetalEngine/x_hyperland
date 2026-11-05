@@ -18,7 +18,7 @@ import portable
 from PyQt6.QtCore import Qt,QTimer,QSize,QEvent
 from PyQt6.QtGui import QCursor,QGuiApplication
 from PyQt6.QtNetwork import QLocalServer,QLocalSocket
-from PyQt6.QtWidgets import QApplication,QLabel,QPushButton,QMessageBox
+from PyQt6.QtWidgets import QApplication,QLabel,QPushButton,QMessageBox,QWidget,QHBoxLayout,QSizePolicy
 import vmstart2
 from vmstart2 import VMStart2
 import virtual_gpu
@@ -29,6 +29,7 @@ import wheel_guard
 from icons import icon
 from window_chrome import window_controls,toggle_maximized
 from package_ui import PackagesPanel
+from account_ui import AccountHeader
 from activity import supervisor_active
 
 
@@ -56,6 +57,27 @@ class KVMSettings(VMStart2):
         self.chip=QLabel();self.chip.setPixmap(icon('chip',desktop_theme.colors()['Accent'],30).pixmap(30,30));bar.insertWidget(0,self.chip)
         self.window_controls=window_controls(self);bar.addWidget(self.window_controls)
         self._decorate_pages()
+        self.account_header=AccountHeader(self)
+        self.account_actions=QWidget(self)
+        actions=QHBoxLayout(self.account_actions);actions.setContentsMargins(0,0,0,0)
+        actions.setSpacing(bar.spacing());actions.addWidget(self.account_header)
+        # Keep account controls beside Save, moving the whole group below the
+        # title bar when a smaller display cannot fit both groups in one row.
+        index=bar.indexOf(self.btn_save)
+        while index<bar.indexOf(self.window_controls):
+            item=bar.takeAt(index)
+            if item.widget():actions.addWidget(item.widget())
+            else:actions.addItem(item)
+        bar.insertWidget(bar.indexOf(self.window_controls),self.account_actions)
+        self.account_actions.setSizePolicy(QSizePolicy.Policy.Maximum,QSizePolicy.Policy.Fixed)
+        self.account_row=QHBoxLayout();self.account_row.setContentsMargins(0,0,0,0);self.account_row.addStretch()
+        self.centralWidget().layout().insertLayout(1,self.account_row)
+        self._account_wrapped=False
+        self.account_header.login_requested.connect(self.package_panel.sign_in)
+        self.account_header.logout_requested.connect(self.package_panel.disconnect_account)
+        self.package_panel.account_changed.connect(self._refresh_account_header)
+        self.package_panel.message.connect(self.status.setText)
+        self._refresh_account_header()
         self.setWindowIcon(icon('chip',desktop_theme.colors()['Accent']))
         QApplication.instance().hypr_theme.changed.connect(self._theme_changed)
         if not self.cfg.data.get('wizard',{}).get('complete'):
@@ -83,7 +105,30 @@ class KVMSettings(VMStart2):
         self.chip.setPixmap(icon('chip',desktop_theme.colors()['Accent'],30).pixmap(30,30))
         self._fill_features()
         self._fill_smbios()
+        self._layout_account_actions()
         self.update()
+
+    def _refresh_account_header(self):
+        self.account_header.refresh(self.package_panel.account,busy=bool(self.package_panel.job))
+
+    def _layout_account_actions(self):
+        if not hasattr(self,'_account_wrapped'):return
+        root=self.centralWidget().layout();bar=root.itemAt(0).layout()
+        margins=root.contentsMargins()
+        required=bar.minimumSize().width()+margins.left()+margins.right()
+        if self._account_wrapped:required+=self.account_actions.minimumSizeHint().width()+bar.spacing()
+        wrapped=self.width()<required
+        if wrapped==self._account_wrapped:return
+        if wrapped:
+            bar.removeWidget(self.account_actions);self.account_row.addWidget(self.account_actions)
+        else:
+            self.account_row.removeWidget(self.account_actions)
+            bar.insertWidget(bar.indexOf(self.window_controls),self.account_actions)
+        self._account_wrapped=wrapped
+
+    def resizeEvent(self,event):
+        super().resizeEvent(event)
+        self._layout_account_actions()
 
     def _toggle_maximized(self):
         toggle_maximized(self)
@@ -409,6 +454,7 @@ class KVMSettings(VMStart2):
                 if reply.returncode:raise RuntimeError(reply.stderr.strip() or 'Could not prepare the VM launch session.')
             except Exception as error:
                 QMessageBox.warning(self,'Echo sign-in',str(error));return False
+            finally:self.package_panel.refresh_account()
         return True
 
     def _launch(self,dry):
@@ -428,6 +474,7 @@ class KVMSettings(VMStart2):
         self.tab_wizard.btn_next.setFocus()
 
     def closeEvent(self,event):
+        self.package_panel.end_account_session()
         import checkpoint
         focus=QApplication.focusWidget()
         if focus:focus.clearFocus()
@@ -474,6 +521,7 @@ def main():
         server=QLocalServer(app);server.setSocketOptions(QLocalServer.SocketOption.UserAccessOption)
         if not server.listen(address):raise RuntimeError(server.errorString())
     window=KVMSettings()
+    app.aboutToQuit.connect(window.package_panel.end_account_session)
     if server:
         start_lock.close()
         def incoming():
@@ -492,6 +540,7 @@ def main():
         lifetime=QLocalSocket(app);lifetime.connectToServer(str(session/'.socket2.sock'))
         lifetime.readyRead.connect(lambda:lifetime.readAll())
         def session_ended():
+            window.package_panel.end_account_session()
             window.hide()
             import checkpoint
             try:checkpoint.save(window)
