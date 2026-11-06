@@ -1,6 +1,6 @@
 # Startup project showcase
 
-Super+D shows the existing system, Matrix and clock consoles alongside **Try my
+Super+D shows the system, Matrix and fusion-check consoles alongside **Try my
 other projects :D**. Six perspective-rendered cubes float above soft colored
 shadows. Hover tilts and highlights a cube; its name and click area stay still.
 The panel follows Xetal Raw, Xetal Modern, BreakPoint and Binary Knife, including light and
@@ -24,7 +24,16 @@ whether all four windows appear automatically at login. The same option is in
 Turning it off skips both the login delay and pane creation; Super+D remains
 available to open the dashboard and turn startup back on.
 The private preference is saved in `control_panel/state/startup-screen.json`
-and survives desktop updates.
+and survives desktop updates. Fresh Setup always enables Welcome; its installer
+has no startup opt-out. Users can disable it here after their first login.
+
+The **Fusion Check** console replaces Local Time and uses the same read-only
+plugin inspection as the `fusion-check` command. It refreshes every five seconds
+while visible, without blocking the console during IPC requests. Failures sort
+first with red crosses, startup errors and log paths; successful checks use green
+ticks. The count stays visible while scrolling long reports with the mouse wheel,
+arrow keys or Page Up/Down. This checks native plugins, not every desktop feature.
+The `xetal-startup-clock` window class remains for saved placement compatibility.
 
 Icons are bundled unchanged from the supplied Xetal Community site, with Echo's
 newer silver/cyan icon taken from the Echo project's `echoicon_2.png`. Their

@@ -505,9 +505,28 @@ using ScanoutFn=bool (*)(Monitor::CMonitor*);
 using EventFn=void (*)(CEventManager*,const SHyprIPCEvent&);
 using ClientModeFn=void (*)(Fullscreen::CFullscreenController*,PHLWINDOW,Fullscreen::eFullscreenMode,bool);
 using UVFn=void (*)(Render::IElementRenderer*,PHLWINDOW,SP<CWLSurfaceResource>,PHLMONITOR,bool,const Vector2D&,const Vector2D&,bool);
+using PassFn=void (*)(Render::CRenderPass*,UP<IPassElement>&&);
 StateFn originalState;RenderFn originalRender;ScanoutFn originalScanout;EventFn originalEvent;
 ClientModeFn originalClientMode;
 UVFn originalUV;
+PassFn originalPass;
+void surfacePassHook(Render::CRenderPass* passList,UP<IPassElement>&& element) {
+    if(auto pass=dynamic_cast<CSurfacePassElement*>(element.get());pass&&!pass->m_data.mainSurface&&!pass->m_data.popup) {
+        auto& data=pass->m_data;
+        const auto w=data.pWindow;
+        if(w&&w->m_xdgSurface&&w->wlSurface()->resource()) {
+            const auto geom=w->m_xdgSurface->m_current.geometry;
+            const auto size=w->wlSurface()->resource()->m_current.size;
+            // The main surface is UV-cropped below. Firefox paints its browser
+            // on a child surface inside that padding: translate children before
+            // bounds, clipping and damage are calculated, without cropping their
+            // own textures. Match window-memory's input/damage offset exactly.
+            if(size.x>0&&size.y>0&&geom.w>0&&geom.h>0&&geom.x>=0&&geom.y>=0&&geom.x+geom.w<=size.x&&geom.y+geom.h<=size.y)
+                data.localPos-=geom.pos();
+        }
+    }
+    originalPass(passList,std::move(element));
+}
 void uvHook(Render::IElementRenderer* renderer,PHLWINDOW w,SP<CWLSurfaceResource> surface,PHLMONITOR monitor,bool main,
             const Vector2D& projected,const Vector2D& unscaled,bool fixMisaligned) {
     originalUV(renderer,w,surface,monitor,main,projected,unscaled,fixMisaligned);
@@ -681,6 +700,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         hook("onUpdateState","CWindow::onUpdateState(",(void*)stateHook,originalState);
         hook("setWindowFullscreenModeClient","CFullscreenController::setWindowFullscreenModeClient(",(void*)clientModeHook,originalClientMode);
         hook("calculateUVForSurface","IElementRenderer::calculateUVForSurface(",(void*)uvHook,originalUV);
+        hook("add","CRenderPass::add(",(void*)surfacePassHook,originalPass);
         hook("shouldRenderWindow","CSharedPointer<Monitor::CMonitor>",(void*)renderHook,originalRender);
         hook("attemptDirectScanout","CMonitor::attemptDirectScanout(",(void*)scanoutHook,originalScanout);
         hook("postEvent","CEventManager::postEvent(",(void*)eventHook,originalEvent);

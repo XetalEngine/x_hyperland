@@ -89,7 +89,6 @@ Each bundled package is below 100 MB. Fedora packages come from the documented g
 ./x_hyperinstall.sh --dry-run                      # Preview the installation plan
 ./x_hyperinstall.sh --skip-packages                # Use dependencies already installed
 ./x_hyperinstall.sh --prepare /tmp/fusion-review   # Build/validate a new review directory
-./x_hyperinstall.sh --no-startup                   # Keep the Welcome dashboard manual
 ./x_hyperinstall.sh --fusion-login                 # Opt in to Fusion sign-in; back up system login settings
 ./x_hyperinstall.sh --no-fusion-login              # Restore the login settings saved before opting in
 ./x_hyperinstall.sh --restore /path/to/backup       # Use the backup path printed by Setup
@@ -169,9 +168,9 @@ Choose frame rate, quality, encoding, desktop/microphone/no audio and the save f
 
 ### Welcome and startup
 
-**Super+D** opens or hides the four-window Welcome dashboard: system information, Matrix rain, a large clock and six interactive project cubes. The taskbar groups it as **Welcome**, without four duplicate app icons.
+**Super+D** opens or hides the four-window Welcome dashboard: system information, Matrix rain, live **fusion-check** results and six interactive project cubes. Plugin failures appear first with a red cross and their diagnostic details; successful checks have green ticks. The taskbar groups it as **Welcome**, without four duplicate app icons.
 
-Uncheck **Show this dashboard at login** right on the dashboard to disable all four startup windows. Re-enable it in **Control Panel → Startup Applications**; Super+D continues to work manually. **Num Lock starts on by default**, with a matching switch in Startup Applications and Fusion Settings → Input.
+Fresh installs always enable Welcome so plugin failures are visible at the first login. Uncheck **Show this dashboard at login** right on the dashboard to disable all four startup windows. Re-enable it in **Control Panel → Startup Applications**; Super+D continues to work manually. **Num Lock starts on by default**, with a matching switch in Startup Applications and Fusion Settings → Input.
 
 ## Compiz spirit. Hyprland desktop.
 

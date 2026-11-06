@@ -6,6 +6,8 @@
 #include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
 #include <hyprland/src/protocols/XDGShell.hpp>
 #include <hyprland/src/protocols/core/Compositor.hpp>
+#include <hyprland/src/protocols/core/Subcompositor.hpp>
+#include <hyprland/src/desktop/view/Subsurface.hpp>
 #include <hyprland/src/xwayland/XSurface.hpp>
 #include <hyprland/src/desktop/state/ViewState.hpp>
 #include <hyprland/src/desktop/view/Popup.hpp>
@@ -101,8 +103,10 @@ void queuePolicy(PHLWINDOW w){
 }
 using SurfaceAtFn=SP<CWLSurfaceResource> (*)(const Desktop::CViewHitTester*,const Vector2D&,PHLWINDOW,Vector2D&);
 using SurfaceBoxFn=std::optional<CBox> (*)(const Desktop::View::CWLSurface*);
+using SubsurfaceCoordsFn=Vector2D (*)(const Desktop::View::CSubsurface*);
 SurfaceAtFn originalSurfaceAt;
 SurfaceBoxFn originalSurfaceBox;
+SubsurfaceCoordsFn originalSubsurfaceCoords;
 Vector2D contentOffset(PHLWINDOW w){
     if(!w||!w->m_xdgSurface||!w->wlSurface()->resource())return {};
     const auto geom=w->m_xdgSurface->m_current.geometry;
@@ -133,6 +137,22 @@ std::optional<CBox> surfaceBoxHook(const Desktop::View::CWLSurface* surface){
     if(box&&w&&w->m_xdgSurface&&!w->m_isX11&&w->wlSurface().get()==surface)
         box->translate(-contentOffset(w));
     return box;
+}
+Vector2D subsurfaceCoordsHook(const Desktop::View::CSubsurface* subsurface){
+    auto coords=originalSubsurfaceCoords(subsurface);
+    auto resource=subsurface->wlSurface()?subsurface->wlSurface()->resource():nullptr;
+    for(int depth=0;resource&&depth<32;++depth) {
+        const auto role=dynamicPointerCast<CSubsurfaceRole>(resource->m_role);
+        if(!role)break;
+        const auto sub=role->m_subsurface.lock();
+        resource=sub?sub->m_parent.lock():nullptr;
+    }
+    const auto parent=Desktop::View::CWLSurface::fromResource(resource);
+    // Root-window children share the main surface's geometry offset. Correct
+    // both damage and held-pointer motion, which use these global coordinates.
+    // Popup children already inherit their popup's corrected global position.
+    const auto w=parent?Desktop::View::CWindow::fromView(parent->view()):nullptr;
+    return coords-contentOffset(w);
 }
 
 uint64_t hash(const std::string& value) {
@@ -193,6 +213,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         hook(handle,"changeFloatingMode","CLayoutManager::changeFloatingMode(",(void*)floatingHook,originalFloating);
         hook(handle,"windowSurfaceAt","CViewHitTester::windowSurfaceAt(",(void*)surfaceAtHook,originalSurfaceAt);
         hook(handle,"getSurfaceBoxGlobal","CWLSurface::getSurfaceBoxGlobal(",(void*)surfaceBoxHook,originalSurfaceBox);
+        hook(handle,"coordsGlobal","CSubsurface::coordsGlobal(",(void*)subsurfaceCoordsHook,originalSubsurfaceCoords);
         policyListeners.push_back(Event::bus()->m_events.window.openEarly.listen([](PHLWINDOW w){
             const auto policy=workspacePolicy(w);if(policy.layout=="off")return;
             if(auto target=w->layoutTarget())target->setFloating(policy.layout=="floating");

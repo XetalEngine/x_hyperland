@@ -2,6 +2,13 @@
 
 Native floating Qt/C++ panel, opened from Apps above Fusion Settings. See the [feature map and integration guide](../../../docs/CONTROL-PANEL.md).
 
+**Install .deb** prepares missing conversion tools (including `pactree` from
+`pacman-contrib`) and repairs incomplete debtap/pkgfile databases before converting.
+It verifies database contents even when `debtap -u` claims success, and installs
+only after successful conversion. Dependency, update, conversion and pacman
+failures stop the operation with the failed command visible in the terminal.
+Package installation keeps pacman's normal confirmation and authentication.
+
 The header has built-in minimize, maximize/restore and close buttons on the home
 screen and every tool page. Minimize sends Qt's native minimize request, keeping
 the panel available through Fusion's Minimize effect; it no longer merely hides

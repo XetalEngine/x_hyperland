@@ -22,7 +22,7 @@ PACKAGES = {
         networkmanager network-manager-applet blueman bluez-utils pipewire-pulse wireplumber
         playerctl brightnessctl fastfetch htop libnotify polkit-gnome papirus-icon-theme noto-fonts ttf-dejavu
         yt-dlp ffmpeg deno sudo xorg-xhost xorg-xcursorgen hyprcursor openssl virt-viewer virt-firmware gnutls
-        base-devel autoconf automake libtool make perl gettext gawk expect socat
+        base-devel autoconf automake libtool make perl gettext gawk expect socat pacman-contrib pkgfile
         libtasn1 gmp libseccomp fuse3 libei tpm2-tools dmidecode pciutils usbutils
         mtools dosfstools util-linux kmod python-cryptography keyutils libsecret'''.split(),
     'fedora': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole konsole-part kf6-kio-devel kf6-kwindowsystem-devel kio-extras kio-admin ark udisks2 SwayNotificationCenter grim slurp wf-recorder wl-clipboard xorg-x11-server-Xwayland

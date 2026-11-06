@@ -25,7 +25,7 @@ runpy.run_path(sys.argv[0], run_name='__main__')
 '''
         scene = Path(__file__).with_name('scene.py')
         for mode, heading in (('info', '01 / SYSTEM'), ('matrix', '02 / THE CONSTRUCT'),
-                              ('clock', '03 / LOCAL TIME'), ('hero', '04 / XETAL ENGINE')):
+                              ('clock', '03 / FUSION CHECK'), ('hero', '04 / XETAL ENGINE')):
             with self.subTest(mode=mode):
                 run = subprocess.run([sys.executable, '-c', bootstrap, str(scene), mode, '--frame'],
                                      capture_output=True, text=True, timeout=10)

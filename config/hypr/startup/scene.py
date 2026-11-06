@@ -14,11 +14,13 @@ import signal
 import subprocess
 import sys
 import termios
+import textwrap
 import time
 import tty
 
 from PIL import Image, ImageDraw
 from companion import Artwork, Choice, Input, MOUSE_ON, MOUSE_OFF, pixel_size
+from checks import LiveCheck, plugin_health
 
 ROOT = Path(__file__).resolve().parent
 ESC = '\033['
@@ -26,6 +28,8 @@ RESET = ESC+'0m'
 TEAL = (115, 218, 205)
 MUTED = (106, 133, 163)
 PALE = (199, 216, 239)
+GREEN = (120, 215, 182)
+RED = (255, 129, 150)
 FONT = {
 '0':['01110','11011','11011','11011','11011','11011','01110'],
 '1':['00110','01110','00110','00110','00110','00110','11111'],
@@ -174,9 +178,15 @@ class Scene:
         self.choice=Choice() if mode=='hero' else None
         self.artwork=Artwork() if mode=='hero' else None
         self.art_area=(0,0,0,0)
+        # Retain the clock class/mode so saved dashboard placement still works.
+        self.check = LiveCheck() if mode=='clock' else None
+        self.check_scroll = 0
+        self.check_failures = None
 
     def input(self,event):
         kind,x,y=event
+        if self.check and kind=='scroll':
+            self.check_scroll=max(0,self.check_scroll+x)
         left,top,width,height=self.art_area
         if self.choice and (kind=='switch' or (kind=='click' and
                 left<=x<left+width and top<=y<top+height)):
@@ -205,6 +215,61 @@ class Scene:
             except Exception:self.is_visible=True
         return self.is_visible
 
+    def check_frame(self,cols,rows):
+        report=self.check.refresh()
+        lines=[heading('03 / FUSION CHECK',cols,'CHECKING' if self.check.busy else 'LIVE')]
+        body=[]
+        width=max(1,cols-6)
+        def wrapped(text, rgb=MUTED):
+            for paragraph in plugin_health.safe_text(text).splitlines():
+                body.extend('    '+color(rgb)+line+RESET for line in textwrap.wrap(paragraph,width))
+        if report is None:
+            lines.append(color(MUTED)+' Checking native plugins…'+RESET)
+            wrapped('Results update automatically.')
+        elif 'error' in report:
+            failures=(('error',report['error']),)
+            if failures!=self.check_failures:
+                self.check_scroll=0
+                self.check_failures=failures
+            lines.append(color(RED)+' [✗] Could not check plugins'+RESET)
+            wrapped(report['error'],RED)
+        else:
+            plugins=sorted(report['plugins'],key=lambda row:bool(row['ok']))
+            failures=tuple((row['key'],row['message'],row['detail']) for row in plugins if not row['ok'])
+            if failures!=self.check_failures:
+                self.check_scroll=0
+                self.check_failures=failures
+            failed=len(failures)
+            lines.append(color(RED if failed else GREEN)+
+                         f' {len(plugins)-failed} passed · {failed} need attention'+RESET)
+            if rows>=14:
+                version=report['hyprland']
+                lines.append(color(MUTED)+' Hyprland '+plugin_health.safe_text(
+                    version.get('version') or version.get('tag') or version.get('commit','unknown'))+RESET)
+            if rows>=16:lines.append('')
+            for row in plugins:
+                label=plugin_health.safe_text(row['label']).replace('\n',' ')
+                message=plugin_health.safe_text(row['message']).replace('\n',' ')
+                rgb=GREEN if row['ok'] else RED
+                mark='[✓]' if row['ok'] else '[✗]'
+                prefix=f' {mark} {label:<30} '
+                if len(prefix)+len(message)<cols:
+                    body.append(color(rgb)+prefix+color(PALE if row['ok'] else RED)+message+RESET)
+                else:
+                    body.extend(color(rgb)+line+RESET for line in textwrap.wrap(
+                        f' {mark} '+label,max(1,cols-1),subsequent_indent='     ' if cols>6 else ''))
+                    wrapped(message, PALE if row['ok'] else RED)
+                if row['detail']:wrapped(row['detail'])
+                if not row['ok'] and row['log']:wrapped('Log: '+row['log'])
+        capacity=max(1,rows-len(lines)-1)
+        self.check_scroll=min(self.check_scroll,max(0,len(body)-capacity))
+        lines+=body[self.check_scroll:self.check_scroll+capacity]
+        lines+=['']*max(0,rows-len(lines)-1)
+        footer=(f' ↑↓ / wheel · {self.check_scroll+1}–{min(len(body),self.check_scroll+capacity)}/{len(body)}'
+                if len(body)>capacity else ' Auto-refresh')
+        if len(footer)+15<cols:footer+=' · fusion-check'
+        return lines+[color(MUTED)+footer+RESET]
+
     def frame(self,cols,rows,t=None):
         t=time.monotonic()-self.start if t is None else t
         if self.mode=='hero':
@@ -221,16 +286,7 @@ class Scene:
                       centered(color(MUTED)+'Super + D  hide dashboard   ·   Super + Space  apps'+RESET,cols)]
             return lines
         if self.mode=='clock':
-            now=datetime.datetime.now()
-            scale=2 if cols>=57 else 1
-            lines=[heading('03 / LOCAL TIME',cols,now.strftime('%Z'))]
-            lines += ['']*max(1,(rows-14)//2)
-            lines += [centered(s,cols) for s in blocks(now.strftime('%H:%M'),scale,t)]
-            lines += ['',centered(color(PALE)+now.strftime('%A  /  %d %B %Y').upper()+RESET,cols)]
-            width=min(cols-6,50);filled=round(now.second/60*width)
-            lines += [centered(color(TEAL)+'━'*filled+color((41,62,83))+'─'*(width-filled)+RESET,cols)]
-            lines += [centered(color(MUTED)+now.astimezone().tzname()+f'  ·  {now.second:02d}s'+RESET,cols)]
-            return lines
+            return self.check_frame(cols,rows)
         if self.mode=='info':
             if t-self.last_fetch>30 or not self.fetch:
                 self.last_fetch=t
@@ -276,13 +332,14 @@ def main():
         return
     old=termios.tcgetattr(sys.stdin)
     tty.setcbreak(sys.stdin.fileno())
-    input_events=Input()
+    input_events=Input(scroll=scene.check is not None)
+    mouse=scene.choice or scene.check
     stopped=False
     def stop(*_):
         nonlocal stopped
         stopped=True
     for sig in [signal.SIGTERM,signal.SIGHUP,signal.SIGINT]:signal.signal(sig,stop)
-    sys.stdout.write(ESC+'?1049h'+ESC+'?25l'+ESC+'?7l'+(MOUSE_ON if scene.choice else ''))
+    sys.stdout.write(ESC+'?1049h'+ESC+'?25l'+ESC+'?7l'+(MOUSE_ON if mouse else ''))
     try:
         while not stopped:
             start=time.monotonic()
@@ -306,7 +363,8 @@ def main():
     except (BrokenPipeError,OSError):pass
     finally:
         try:
-            if scene.artwork:sys.stdout.write(scene.artwork.hide(release=True)+MOUSE_OFF)
+            if scene.artwork:sys.stdout.write(scene.artwork.hide(release=True))
+            if mouse:sys.stdout.write(MOUSE_OFF)
             sys.stdout.write(RESET+ESC+'?7h'+ESC+'?25h'+ESC+'?1049l');sys.stdout.flush()
             termios.tcsetattr(sys.stdin,termios.TCSADRAIN,old)
         except (OSError,termios.error):pass

@@ -205,6 +205,18 @@ def merge_file(name, base, local, remote):
     if ownership == 'release': return remote
     if local is None: return remote
     if ownership == 'keep' or remote is None: return local
+    if name == 'theme/state.json':
+        # Menu backgrounds are fresh-install defaults. Keep saved choices even
+        # when they happen to equal an older release's default.
+        try:
+            saved, incoming = json.loads(local), json.loads(remote)
+            if isinstance(saved, dict) and isinstance(incoming, dict):
+                choices = {key: saved[key] for key in ('launcher_wallpaper', 'launcher_background')
+                           if key in saved}
+                if any(incoming.get(key, _MISSING) != value for key, value in choices.items()):
+                    incoming.update(choices)
+                    remote = (json.dumps(incoming, indent=2)+'\n').encode()
+        except (UnicodeDecodeError, ValueError): pass
     old_hash = base.get('sha256') if base else None
     if sha(local) == old_hash or local == remote: return remote
     if sha(remote) == old_hash: return local

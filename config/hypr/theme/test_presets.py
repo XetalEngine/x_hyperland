@@ -37,6 +37,19 @@ class PresetTests(unittest.TestCase):
             self.assertEqual(presets.builtin(design,root=self.root)['theme']['mode'],'dark')
             self.assertEqual(presets.builtin(design,'light',self.root)['theme']['mode'],'light')
 
+    def test_all_themes_keep_desktop_wallpaper_default_and_user_background_choices(self):
+        for enabled, background in ((True,''),(False,''),(True,'backgrounds/custom.png')):
+            runtime.STATE.write_text(json.dumps(dict(runtime.state(),launcher_wallpaper=enabled,
+                                                     launcher_background=background)))
+            for design in runtime.DESIGNS:
+                target=presets.builtin(design,root=self.root)
+                result=presets.merged_theme(runtime.state(),target,{'colors','launcher'})
+                self.assertEqual(result['launcher_wallpaper'],enabled,design)
+                self.assertEqual(result['launcher_background'],background,design)
+                # Switching a built-in theme keeps saved window geometry/effects.
+                files,_=presets.resources(self.root,target,{'effects'},'binaryknife')
+                self.assertNotIn(self.root/'control_center/appearance.conf',files)
+
     def test_waybar_only_changes_bar_design_and_preserves_desktop_palette(self):
         config=self.root/'waybar/config.json'
         config.write_text(json.dumps({'modules-left':['custom/launcher','hyprland/workspaces'],

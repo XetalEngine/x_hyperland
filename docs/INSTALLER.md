@@ -4,6 +4,12 @@ Run `./x_hyperinstall.sh` from a complete checkout or extracted GitHub ZIP as yo
 
 For an existing desktop, **Keep my existing desktop and startup preferences** starts checked. Uncheck it to install the current desktop and startup defaults instead. The Review page shows the selected behavior, and the existing profile is backed up before replacement in either case.
 
+Fresh installs always open Welcome at login, including its live `fusion-check`
+panel. Disable **Show this dashboard at login** in Welcome after signing in if
+desired. Fresh Start menus show the desktop wallpaper across all themes. Window
+defaults are 10 px corners, 2 px borders, `5 5 5 5` inner/outer gaps, border-drag
+resizing off, animations/blur/shadows on, and focused/unfocused opacity at 1.00.
+
 Dolphin Places are generated for the recipient: Home, existing standard XDG folders, Trash and Network. Drives are discovered on that computer. Developer bookmarks, history and Dolphin runtime data are excluded from both Git and installer copies. Updates keep the recipient's own Places; a fresh/default install generates a clean list.
 
 Dolphin starts with Hyper Fusion's dark colors on a fresh install. Its private `dolphinrc` explicitly selects the bundled `HyperFusion` scheme, so KDE's color-scheme manager cannot fall back to a light theme outside Plasma. That scheme follows the selected Hyper Fusion palette when Dolphin opens; choosing a different scheme in Dolphin remains respected. The standard Dolphin launcher in the Hyprland application directory also uses this private profile. Shared KDE/Plasma settings are untouched. [KDE color-scheme manager behavior](https://api.kde.org/kcolorschememanager.html).
@@ -147,7 +153,7 @@ Update the runtime manifest only after validating the new compositor, native eff
 Arch-based x86-64, mutable Fedora 44 x86-64 and Debian 13 amd64 have automatic compositor installation paths. Other distributions must install the exact required native compositor themselves before using their remaining dependency recipes. Pinning Hyprland does not pin the complete operating system; dependency checks and native builds remain necessary on every recipient machine.
 ## Optional Fusion sign-in
 
-The **Use Fusion sign-in at boot instead of my current login screen** checkbox is off by default on a new install. Leaving it off does not change system login services, PAM, SDDM, GDM or LightDM. Updates keep the existing choice. The Welcome/dashboard checkbox is independent.
+The **Use Fusion sign-in at boot instead of my current login screen** checkbox is off by default on a new install. Leaving it off does not change system login services, PAM, SDDM, GDM or LightDM. Updates keep the existing choice. Welcome's own startup preference is independent.
 
 An always-visible note above the checkbox states **Tested on Arch with SDDM only**, including before the option is selected.
 

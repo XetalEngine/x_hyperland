@@ -100,6 +100,27 @@ class FilePolicyTests(unittest.TestCase):
         self.assertEqual((self.live/favorites).read_text(), personal)
         for name, data in saved.items(): self.assertEqual((self.live/name).read_text(), data)
 
+    def test_fresh_menu_background_default_preserves_existing_off_choice(self):
+        name = 'theme/state.json'
+        self.write(self.live, name, '{"launcher_wallpaper":false,"launcher_background":"","border":1}')
+        self.register()
+        self.write(self.upstream, name, '{"launcher_wallpaper":true,"launcher_background":"","border":2}')
+        plan = self.prepare(); engine.apply_plan(self.live, self.stage, plan, self.state)
+        self.assertEqual(engine.json_file(self.live/name),
+                         {'launcher_wallpaper': False, 'launcher_background': '', 'border': 2})
+
+    def test_menu_background_preserves_custom_image_and_fills_missing_defaults(self):
+        name = 'theme/state.json'
+        incoming = b'{"launcher_wallpaper":true,"launcher_background":"","new_option":true}'
+        for saved in ({'launcher_wallpaper': False, 'launcher_background': '/my picture.png'},
+                      {'launcher_wallpaper': True, 'launcher_background': ''}, {}):
+            with self.subTest(saved=saved):
+                local = json.dumps(saved).encode()
+                base = {'sha256': engine.sha(local), 'text': local.decode()}
+                merged = json.loads(engine.merge_file(name, base, local, incoming))
+                self.assertEqual(merged, {**json.loads(incoming), **saved})
+        self.assertEqual(engine.merge_file(name, None, None, incoming), incoming)
+
     def test_file_manager_update_delivers_executable_and_keeps_private_preferences(self):
         self.write(self.live, 'file_manager/state/settings.ini', 'private bookmarks and columns\n')
         self.write(self.live, 'runtime/window_memory/state/windows.json', 'private geometry\n')

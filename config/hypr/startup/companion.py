@@ -71,7 +71,8 @@ class Input:
     mouse = re.compile(rb'\x1b\[<(\d+);(\d+);(\d+)([mM])')
     csi = re.compile(rb'\x1b\[[0-?]*[ -/]*[@-~]')
 
-    def __init__(self):
+    def __init__(self, scroll=False):
+        self.scroll = scroll
         self.pending = b''
         self.since = 0
         self.pressed = None
@@ -101,6 +102,9 @@ class Input:
                     break
                 report = self.mouse.fullmatch(match[0])
                 self.pending = self.pending[len(match[0]):]
+                if self.scroll and match[0] in (b'\x1b[A', b'\x1b[B', b'\x1b[5~', b'\x1b[6~'):
+                    events.append(('scroll', {b'\x1b[A':-1, b'\x1b[B':1,
+                                              b'\x1b[5~':-10, b'\x1b[6~':10}[match[0]], 0))
                 if report:
                     button, x, y = map(int, report.group(1, 2, 3))
                     point = (x - 1, y - 1)
@@ -113,6 +117,8 @@ class Input:
                     else:
                         # Dragging, scrolling and other buttons never cycle views.
                         self.pressed = None
+                        if self.scroll and button in (64, 65) and report[4] == b'M':
+                            events.append(('scroll', -3 if button == 64 else 3, 0))
                 continue
             if self.pending.startswith(b'\x1b_'):
                 end = self.pending.find(b'\x1b\\', 2)

@@ -121,11 +121,13 @@ class Wizard:
         self.label(card, 'Setup installs the tested version and holds its package.\nFuture desktop releases manage changes to this requirement.', 'copy')
         if runtime_install.policy.fedora_host():
             self.label(card, 'Fedora 44: includes signed packages from giperborey/Hyprland (COPR).\nThe matching libraries are held too; no third-party repository is enabled.', 'copy')
-        self.startup = g.check_button_new_with_label(b'Keep my existing desktop and startup preferences' if update else
-                                                   b'Show the animated dashboard when I sign in')
-        g.toggle_button_set_active(self.startup, 1); g.box_pack_start(page, self.startup, 0, 0, 0)
+        self.keep_preferences = None
         if update:
+            self.keep_preferences = g.check_button_new_with_label(b'Keep my existing desktop and startup preferences')
+            g.toggle_button_set_active(self.keep_preferences, 1); g.box_pack_start(page, self.keep_preferences, 0, 0, 0)
             self.label(page, 'Uncheck to use the current desktop and startup defaults.\nYour existing profile will be backed up.', 'copy')
+        else:
+            self.label(page, 'Welcome opens at login and shows your plugin checks.\nYou can turn off startup from Welcome after signing in.', 'copy')
         self.login_was_enabled = login_setup.enabled()
         self.label(page, 'Tested on Arch with SDDM only', 'login-tested')
         self.fusion_login = g.check_button_new_with_label(b'Use Fusion sign-in at boot instead of my current login screen')
@@ -233,10 +235,10 @@ class Wizard:
         if self.busy: return
         if self.index == 4: self.close(); return
         if self.index == 1:
-            selected = bool(self.g.toggle_button_get_active(self.startup))
+            selected = self.update and bool(self.g.toggle_button_get_active(self.keep_preferences))
             preferences = ('Keep existing desktop and startup preferences' if selected else
                            'Use current desktop and startup defaults') if self.update else (
-                           'Startup dashboard: on' if selected else 'Startup dashboard: off')
+                           'Welcome at login: on · includes fusion-check')
             text = ('Desktop folder\n'+str(Path.home()/'.config/hypr')+'\n\nHyprland '+self.target['hyprland']+
                     '  ·  Cube and Burn included\nUse all '+str(cpu_count())+' available CPU threads for compilation\n\n'+
                     preferences+'\n'+('Login: Fusion sign-in · installed desktop selector · system backups' if
@@ -249,10 +251,7 @@ class Wizard:
             self.g.text_buffer_set_text(self.log_buffer, b'', 0); self.follow_log = True
             self.g.widget_set_sensitive(self.cancel, 1); self.g.label_set_text(self.error, b'')
             self.g.progress_bar_set_fraction(self.progress, 0.03); self.show(3)
-            selected = bool(self.g.toggle_button_get_active(self.startup))
-            self.preserve_preferences = self.update and selected
-            # Resetting an existing desktop restores its startup default too.
-            self.startup_enabled = self.update or selected
+            self.preserve_preferences = self.update and bool(self.g.toggle_button_get_active(self.keep_preferences))
             selected_login = bool(self.g.toggle_button_get_active(self.fusion_login))
             self.login_choice = True if selected_login else False if self.login_was_enabled else None
             threading.Thread(target=self.worker, daemon=True).start()
@@ -265,7 +264,6 @@ class Wizard:
                         '--manual', '--runtime', '--activate', '--cancel-file', str(self.cancel_file)]
             else:
                 args = [sys.executable, str(install.REPO/'installer/install.py'), '--yes', '--cancel-file', str(self.cancel_file)]
-                if not self.startup_enabled: args.append('--no-startup')
             if self.login_choice is not None:
                 args.append('--fusion-login' if self.login_choice else '--no-fusion-login')
             self.log_path.parent.mkdir(parents=True, exist_ok=True)

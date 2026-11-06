@@ -14,8 +14,11 @@ adapter update uses a new build path and a controlled plugin unload/load while
 the memory watcher is stopped; existing windows are only observed on restart.
 
 The adapter also aligns pointer hits and held-button motion with xdg window
-geometry when clients include invisible decoration padding. The Minimize
-adapter's render crop uses that same origin. First-map launcher fullscreen
+geometry when clients include invisible decoration padding. This includes child
+surfaces, such as Firefox's browser content, and their redraw coordinates. The
+Minimize adapter crops the main surface and shifts its children to that same
+origin before calculating clipping. Popup surfaces retain their own origin.
+First-map launcher fullscreen
 rules are released back to ordinary client/compositor state synchronization,
 so later native maximize/restore controls continue to work.
 
@@ -58,3 +61,9 @@ Append `--memory-only` to check floating/maximized restoration and balanced
 tiles when reopening two windows quickly or mixing applications.
 The latter uses private settings, a private D-Bus and disabled XWayland; input
 never reaches the parent desktop.
+
+`dbus-run-session -- python3 tests/check-firefox-geometry.py MEMORY_SO MINIMIZE_SO OUTPUT_DIR`
+checks real Firefox with a temporary profile and local page. It covers frame
+edges, clicks, held drags, partial redraws, native maximize/restore and dock
+restore in tiled/floating modes at 100% and 125% scaling. It requires Firefox,
+grim, Pillow and the Wayland C tools and never loads a plugin into the parent.

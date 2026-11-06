@@ -143,6 +143,15 @@ class InstallerTests(unittest.TestCase):
         self.render()
         state=json.loads((self.stage/'theme/state.json').read_text())
         self.assertEqual((state['design'],state['mode'],state['bar_variant']),('hollowgrove','dark','full'))
+        self.assertIs(state['launcher_wallpaper'],True)
+        self.assertEqual(state['launcher_background'],'')
+        appearance=dict(line.split('=',1) for line in (self.stage/'control_center/appearance.conf').read_text().splitlines()
+                        if line.strip() and not line.lstrip().startswith('#'))
+        appearance={key.strip():value.strip() for key,value in appearance.items()}
+        self.assertEqual(appearance,{'decoration:rounding':'10','general:border_size':'2',
+            'general:gaps_in':'5 5 5 5','general:gaps_out':'5 5 5 5','general:resize_on_border':'false',
+            'animations:enabled':'true','decoration:blur:enabled':'true','decoration:shadow:enabled':'true',
+            'decoration:active_opacity':'1.00','decoration:inactive_opacity':'1.00'})
         self.assertIn('XetalHollowgroveDark',(self.stage/'theme/current.colors').read_text())
         self.assertIn('hollowgrove',(self.stage/'waybar/style.css').read_text())
         self.assertIn(str(self.target/'theme'),(self.stage/'waybar/style.css').read_text())
@@ -202,7 +211,11 @@ assert m['fire_indicator']
             (source/'launcher'/name).write_text('{"developer_only": true}')
         private = ('launcher/favorite-layout.json', 'launcher/floating-sizes.json',
                    'launcher/icons/private.png', 'calculator/state/preferences.ini',
-                   'file_manager/state/settings.ini', 'runtime/window_memory/state/windows.json')
+                   'file_manager/state/settings.ini', 'runtime/window_memory/state/windows.json',
+                   'control_panel/state/startup-screen.json')
+        theme=source/'theme/state.json'
+        theme.write_text(json.dumps(dict(json.loads(theme.read_text()), launcher_wallpaper=False,
+                                        launcher_background='backgrounds/developer.png')))
         for name in private:
             path = source/name; path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text('PRIVATE DEVELOPER DATA')
@@ -213,6 +226,9 @@ assert m['fire_indicator']
         for name in private: self.assertFalse((self.stage/name).exists(), name)
         for name, expected in install.LAUNCHER_DEFAULTS.items():
             self.assertEqual(json.loads((self.stage/'launcher'/name).read_text()), expected)
+        defaults=json.loads((self.stage/'theme/state.json').read_text())
+        self.assertIs(defaults['launcher_wallpaper'],True)
+        self.assertEqual(defaults['launcher_background'],'')
         self.assertEqual(kde.read_bytes(), before)
 
     def test_places_use_recipient_folders_without_importing_private_bookmarks(self):
@@ -357,10 +373,11 @@ assert m['fire_indicator']
         self.assertEqual((self.stage/'control_center/displays.conf').read_bytes(),(REPO/'profiles/xetal-original/displays.conf').read_bytes())
         self.assertEqual(set(json.loads((self.stage/'wallpaper/selection.json').read_text())),{'DP-4','DP-5','DP-6'})
 
-    def test_disabled_startup_keeps_super_d_shortcut(self):
-        self.render(startup=False)
-        self.assertNotIn('exec-once = ~/.config/hypr/scripts/startup-scene.sh --login',(self.stage/'hyprland.conf').read_text())
+    def test_fresh_startup_is_enabled_and_keeps_super_d_shortcut(self):
+        self.render()
+        self.assertIn('exec-once = ~/.config/hypr/scripts/startup-scene.sh --login',(self.stage/'hyprland.conf').read_text())
         self.assertIn('startup-scene.sh --toggle',(self.stage/'keybindings.conf').read_text())
+        self.assertFalse((self.stage/'control_panel/state/startup-screen.json').exists())
 
     def test_backup_install_and_restore_keep_unrelated_desktops_and_latest_changes(self):
         self.target.mkdir();(self.target/'personal.conf').write_text('before')

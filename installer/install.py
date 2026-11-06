@@ -101,7 +101,7 @@ def check_kvm_payload(root):
             raise RuntimeError('KVM binaries must be downloaded in KVM Settings: '+str(path.relative_to(root)))
 
 
-def render(stage, home, monitors, profile='auto', startup=True):
+def render(stage, home, monitors, profile='auto'):
     safe_home(home)
     check_kvm_payload(PAYLOAD)
     target=home/'.config/hypr'
@@ -111,6 +111,10 @@ def render(stage, home, monitors, profile='auto', startup=True):
     (stage/'theme/icons.json').write_text(json.dumps({'version':1,'system':'follow','other':'auto','overrides':{}},indent=2)+'\n')
     for name, defaults in LAUNCHER_DEFAULTS.items():
         (stage/'launcher'/name).write_text(json.dumps(defaults, indent=2)+'\n')
+    theme = stage/'theme/state.json'
+    theme_defaults = json.loads(theme.read_text())
+    theme_defaults.update(launcher_wallpaper=True, launcher_background='')
+    theme.write_text(json.dumps(theme_defaults, indent=2)+'\n')
     for p in stage.rglob('*'):
         if not p.is_file():continue
         try:text=p.read_text()
@@ -158,8 +162,6 @@ def render(stage, home, monitors, profile='auto', startup=True):
         path=selection[name]['path'] if name else wallpaper
         lines+=['wallpaper {',f'    monitor = {name}',f'    path = {path}',f'    fit_mode = {choice["fit"]}','}','']
     (stage/'wallpaper/hyprpaper.conf').write_text('\n'.join(lines))
-    if not startup:
-        p=stage/'hyprland.conf';p.write_text(p.read_text().replace('exec-once = ~/.config/hypr/scripts/startup-scene.sh --login','# Login animation disabled by installer; Super+D remains available.'))
     # Portable Places; never publish the author's private paths or recent files.
     dolphin_profile.write_changed(stage/'dolphin/data/user-places.xbel', dolphin_profile.default_places(home))
     dolphin_profile.prepare_colors(stage)
@@ -332,7 +334,6 @@ def main():
     mode.add_argument('--dry-run',action='store_true',help='Read-only installation plan and dependency report.')
     mode.add_argument('--prepare',type=Path,help='Build and validate a review copy here without installing it.')
     parser.add_argument('--profile',choices=['auto','original'],default='auto',help='Adapt to this computer, or use the author\'s three-display layout.')
-    parser.add_argument('--no-startup',action='store_true',help='Keep the animated dashboard available with Super+D without opening it at login.')
     login = parser.add_mutually_exclusive_group()
     login.add_argument('--fusion-login', dest='fusion_login', action='store_true', default=None,
                        help='Opt in to themed Fusion sign-in with an installed-desktop selector; backs up system login settings.')
@@ -391,7 +392,7 @@ def main():
         destination=args.prepare.absolute()
         if destination.exists():raise RuntimeError('--prepare destination must not exist.')
         destination.parent.mkdir(parents=True,exist_ok=True)
-        render(destination,home,connected_monitors(),args.profile,not args.no_startup)
+        render(destination,home,connected_monitors(),args.profile)
         register_updates(destination,commit)
         validate_config(destination)
         build(destination,checkpoint);validate(destination)
@@ -407,7 +408,7 @@ def main():
         expected=tree_digest(target)
         with tempfile.TemporaryDirectory(prefix='.xetal-hypr-',dir=target.parent) as temporary:
             stage=Path(temporary)/'hypr'
-            render(stage,home,connected_monitors(),args.profile,not args.no_startup)
+            render(stage,home,connected_monitors(),args.profile)
             register_updates(stage,commit)
             validate_config(stage)
             build(stage,checkpoint);validate(stage)
