@@ -9,6 +9,13 @@ import sys
 _inspections={}
 
 
+def managed_module(cfg):
+    runtime=Path(__file__).resolve().parents[2]/'module_policy.py'
+    if not runtime.is_file():return False
+    import module_policy
+    return module_policy.managed(cfg.data)
+
+
 def inspection(binary,query):
     """Read build capabilities through the same authenticated memory owner.
 

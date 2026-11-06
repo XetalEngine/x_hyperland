@@ -68,10 +68,8 @@ def collect(window):
     panel=getattr(window,'package_panel',None)
     if panel:
         issues['Paths && Tools'].extend(panel.update_messages())
-    if tools.get('kvm_build_enabled') and Path(tools.get('kvm_build',''))==portable.ROOT/'module-tool.sh':
-        entry=packages.installed('kvm-amd')
-        reason=packages.compatibility('kvm-amd',entry) if entry else 'Custom KVM module is missing'
-        if reason:issues['Paths && Tools'].append(reason+'. Download a matching build or choose Use system KVM.')
+    # Optional module compatibility is shown beside Launch, not as a blocking
+    # Paths & Tools error. Every launch can fall back to standard KVM.
     for key in ('template_blob','output_blob'):
         value=cfg.data.get('smbios',{}).get(key)
         if value and not Path(value).is_file():issues['SMBIOS'].append('Missing '+value)
@@ -109,10 +107,7 @@ def refresh(window):
         issues=collect(window)
     finally:window._checking_health=False
     window.page_issues=issues
-    tools=window.cfg.data.get('tools',{})
-    entry=packages.installed('kvm-amd')
-    mismatch=not entry or packages.compatibility('kvm-amd',entry)
-    window.use_system_kvm.setVisible(bool(tools.get('kvm_build_enabled') and mismatch))
+    window._refresh_module_status()
     nav=window.navigation
     for key,item in nav.items.items():
         messages=issues.get(key,[])

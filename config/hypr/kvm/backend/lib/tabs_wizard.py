@@ -1351,7 +1351,7 @@ class WizardTab(QScrollArea):
             managed = tools.get('kvm_build', '').endswith('/module-tool.sh')
             kbox = QGroupBox("Custom KVM module" if managed else "Custom KVM module rebuild")
             kl = QVBoxLayout(kbox)
-            self.kvm_build = QCheckBox("Load the published custom KVM module on launch" if managed else "Rebuild the custom KVM module on launch")
+            self.kvm_build = QCheckBox("Use the custom KVM module automatically when compatible" if managed else "Rebuild the custom KVM module on launch")
             self.kvm_build.setChecked(bool(tools.get("kvm_build_enabled")))
             kl.addWidget(self.kvm_build)
             path = tools.get("kvm_build", "")
@@ -1361,7 +1361,9 @@ class WizardTab(QScrollArea):
                 l.setWordWrap(True)
                 l.setStyleSheet("color:#e5c07b;")
                 kl.addWidget(l)
-            keep = QLabel("Leave this ON where the patched module belongs (your AMD "
+            keep = QLabel("Standard KVM is used automatically when the custom module cannot run on this CPU/kernel. "
+                          "Your preference is kept; a matching build is prepared on the next compatible launch."
+                          if managed else "Leave this ON where the patched module belongs (your AMD "
                           "box); turn it OFF on a machine you are not using that build "
                           "on. The setting is saved either way — nothing is hardcoded.")
             keep.setWordWrap(True)
@@ -1387,6 +1389,11 @@ class WizardTab(QScrollArea):
 
     def _kvm_build_hints(self, path):
         """Non-binding warnings about whether the KVM rebuild will succeed here."""
+        import edition_runtime
+        if edition_runtime.managed_module(self.cfg):
+            import module_policy
+            reason=module_policy.unavailable()
+            return [reason+'. Standard KVM is used automatically; you can continue.'] if reason else []
         hints = []
         if path and not os.path.isfile(path):
             hints.append("⚠ This build script does not exist on this machine, so the "

@@ -15,6 +15,8 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT.parent))
+from native_toolchain import compiler, environment
 SUPPORTED_COMMIT = 'efb50993780079460b0cbed1363e2166a2de1d9f'
 
 
@@ -40,7 +42,7 @@ def build(root=ROOT):
     if not match or match[1] != SUPPORTED_COMMIT:
         raise RuntimeError('Burn supports Hyprland 0.56.2. This version needs an updated Burn adapter; normal closing animations remain available.')
     versions = output(['pkg-config','--modversion','hyprland','aquamarine','hyprutils','hyprgraphics','hyprcursor','hyprlang'])
-    signature = hashlib.sha256((versions+str(flags)+output(['g++','-dumpfullversion'])).encode())
+    signature = hashlib.sha256((versions+str(flags)+output([compiler(),'-dumpfullversion'])).encode())
     for source in sorted((root/'native').glob('*')):
         signature.update(source.name.encode()); signature.update(source.read_bytes())
     build_dir = root/'.build'/signature.hexdigest()[:20]
@@ -53,9 +55,9 @@ def build(root=ROOT):
         # A unique pathname for each build avoids replacing a mapped .so.
         fd, tmp = tempfile.mkstemp(prefix='compile-',suffix='.so',dir=build_dir); os.close(fd)
         try:
-            cmd = ['g++','-std=c++23','-shared','-fPIC','-O2','-g','-Wall','-Wextra','-Wno-unused-parameter',
+            cmd = [compiler(),'-std=c++23','-shared','-fPIC','-O2','-g','-Wall','-Wextra','-Wno-unused-parameter',
                    *flags,str(root/'native/plugin.cpp'),'-o',tmp,'-lGLESv2']
-            process = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True)
+            process = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True,env=environment())
             try:
                 stdout,stderr = process.communicate(timeout=180)
             except BaseException:

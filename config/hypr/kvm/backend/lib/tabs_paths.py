@@ -48,10 +48,11 @@ class PathRow(QWidget):
     """One editable path with a browse button and a live existence check."""
 
     def __init__(self, label, getter, setter, on_change, tip="",
-                 kind="file", missing_ok=False):
+                 kind="file", missing_ok=False, optional=False):
         super().__init__()
         self.getter, self.setter, self.on_change = getter, setter, on_change
         self.kind, self.missing_ok = kind, missing_ok
+        self.optional = optional
 
         g = QGridLayout(self)
         g.setContentsMargins(0, 0, 0, 0)
@@ -124,8 +125,8 @@ class PathRow(QWidget):
                 return
             # Sockets and state files are created at launch, so their absence
             # now is expected rather than an error.
-            self.status.setText("created at launch" if self.missing_ok else "MISSING")
-            self.status.setStyleSheet("color: #888;" if self.missing_ok
+            self.status.setText("Optional · custom KVM only" if self.optional else "created at launch" if self.missing_ok else "MISSING")
+            self.status.setStyleSheet("color: #888;" if self.missing_ok or self.optional
                                       else "color: #e06c75;")
         else:
             size = os.path.getsize(p) if os.path.isfile(p) else 0
@@ -397,6 +398,10 @@ class PathsTab(QScrollArea):
         g.addWidget(hdr, 0, 0)
 
         self.chk_kvm = QCheckBox("Build and load this module before launching")
+        import edition_runtime
+        if edition_runtime.managed_module(self.cfg):
+            hdr.setText('Uses the published module when it matches the running CPU/kernel. Otherwise the VM uses standard KVM automatically.')
+            self.chk_kvm.setText('Use the custom KVM module automatically when compatible')
         self.chk_kvm.setChecked(bool(t.get("kvm_build_enabled", True)))
         self.chk_kvm.stateChanged.connect(
             lambda s: (t.__setitem__("kvm_build_enabled", bool(s)), self._touched()))
@@ -506,6 +511,7 @@ class PathsTab(QScrollArea):
         self._add(g, 1, "Host script",
                   lambda: t.get("vmstealth_host", ""),
                   lambda v: t.__setitem__("vmstealth_host", v),
+                  optional=True,
                   tip="vmstealth75.sh. Drops CPUID interception once the guest is up.")
         self._add(g, 2, "Guest script",
                   lambda: t.get("vmstealth_guest", ""),

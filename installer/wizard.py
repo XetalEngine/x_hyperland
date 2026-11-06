@@ -11,7 +11,7 @@ import tempfile
 import threading
 from string import Template
 
-from gtk_ui import GTK
+from gtk_ui import GTK, TextIter
 import install
 import runtime_install
 import login_setup
@@ -168,6 +168,10 @@ class Wizard:
         g.widget_set_vexpand(self.log_view, 1)
         g.text_view_set_monospace(self.log_view, 1); g.text_view_set_wrap_mode(self.log_view, 2)
         self.log_buffer = g.text_view_get_buffer(self.log_view); g.container_add(scroll, self.log_view)
+        self.log_adjustment = g.scrolled_window_get_vadjustment(scroll)
+        self.follow_log = True; self.editing_log = False
+        g.connect(self.log_adjustment, 'changed', self.follow_log_end)
+        g.connect(self.log_adjustment, 'value-changed', self.log_scrolled)
         page = self.page('Your next login starts here.', 'Your workspace is ready.')
         self.complete = self.label(page, '', 'copy')
         self.error = self.label(main, '', 'error')
@@ -242,6 +246,7 @@ class Wizard:
             self.g.label_set_text(self.review, text.encode())
         if self.index == 2:
             self.busy = True; self.lines = []; self.cancel_file.unlink(missing_ok=True)
+            self.g.text_buffer_set_text(self.log_buffer, b'', 0); self.follow_log = True
             self.g.widget_set_sensitive(self.cancel, 1); self.g.label_set_text(self.error, b'')
             self.g.progress_bar_set_fraction(self.progress, 0.03); self.show(3)
             selected = bool(self.g.toggle_button_get_active(self.startup))
@@ -275,18 +280,54 @@ class Wizard:
         except Exception as error:
             self.events.put(('line', str(error))); self.events.put(('done', 1))
 
+    def log_scrolled(self):
+        if not self.editing_log:
+            g = self.g; adjustment = self.log_adjustment
+            self.follow_log = (g.adjustment_get_value(adjustment) + g.adjustment_get_page_size(adjustment)
+                               >= g.adjustment_get_upper(adjustment) - 2)
+
+    def follow_log_end(self):
+        # GTK lays out wrapped text after insertion. Follow the updated range,
+        # rather than the old height available when the worker emits a line.
+        if self.follow_log:
+            g = self.g; adjustment = self.log_adjustment
+            g.adjustment_set_value(adjustment, max(0, g.adjustment_get_upper(adjustment)
+                                                  - g.adjustment_get_page_size(adjustment)))
+
+    def append_log(self, lines):
+        if not lines:
+            return
+        g = self.g; end = TextIter(); start = TextIter()
+        self.editing_log = True
+        try:
+            g.text_buffer_get_end_iter(self.log_buffer, C.byref(end))
+            text = ('\n'.join(lines)+'\n').encode()
+            g.text_buffer_insert(self.log_buffer, C.byref(end), text, len(text))
+            # Retain the same 500-line display limit; the file keeps the full
+            # log. Incremental edits preserve selection and reading position.
+            excess = g.text_buffer_get_line_count(self.log_buffer) - 501
+            if excess > 0:
+                g.text_buffer_get_start_iter(self.log_buffer, C.byref(start))
+                g.text_buffer_get_iter_at_line(self.log_buffer, C.byref(end), excess)
+                g.text_buffer_delete(self.log_buffer, C.byref(start), C.byref(end))
+            self.follow_log_end()
+        finally:
+            self.editing_log = False
+
     def poll(self):
+        pending = []
         while not self.events.empty():
             event, value = self.events.get()
             if event == 'line':
                 self.lines.append(value); self.lines = self.lines[-500:]
-                text = '\n'.join(self.lines).encode(); self.g.text_buffer_set_text(self.log_buffer, text, len(text))
+                pending.append(value)
                 prefixes = ('Required desktop', 'Downloading ', 'Package command:', 'Building ', 'Built ', 'Checking Hyprland', 'Validating ', 'Installed.', 'Ready.')
                 if value.startswith(prefixes):
                     self.g.label_set_text(self.status, value[:150].encode())
                     fraction = .2 if value.startswith('Package') else .4 if value.startswith('Building') else .8 if value.startswith('Built') else .9 if value.startswith(('Checking','Validating')) else .1
                     self.g.progress_bar_set_fraction(self.progress, fraction)
             else:
+                self.append_log(pending); pending.clear()
                 self.busy = False; self.success = value == 0; self.g.widget_set_sensitive(self.cancel, 1)
                 if self.success:
                     message = ('Hyprland '+self.target['hyprland']+' and your desktop are installed.\n\n'+
@@ -301,6 +342,7 @@ class Wizard:
                     self.g.widget_set_sensitive(self.back, 0); self.g.widget_set_sensitive(self.next, 1)
                     self.g.button_set_label(self.next, b'Retry'); self.g.button_set_label(self.cancel, b'Close')
                     self.index = 2
+        self.append_log(pending)
         return 1
 
     def close(self):

@@ -218,6 +218,10 @@ class Store:
     def load(self, favorites):
         raw = self.raw()
         data = validate(json.loads(raw)) if raw else {'version': 1, 'groups': []}
+        if not raw:
+            # On first use, keep My Computer ahead of inherited KDE favorites.
+            # A saved layout retains the user's own groups and tile positions.
+            favorites = sorted(favorites, key=lambda ident: ident != 'xetal-files-computer.desktop')
         return reconcile(data, favorites), hashlib.sha256(raw).hexdigest()
 
     def save(self, data, expected):

@@ -11,6 +11,9 @@ import sys
 import runtime_install
 import command_paths
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'config/hypr/effects'))
+import native_toolchain
+
 PACKAGES = {
     'arch': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole kio kwindowsystem kio-extras kio-admin ark udisks2 swaync grim slurp wf-recorder wl-clipboard xorg-xwayland
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
@@ -49,7 +52,7 @@ PACKAGES = {
 COMMANDS = '''git Hyprland hyprctl Xwayland hyprpaper hyprlock waybar kitty dolphin konsole ark udisksctl lsblk swaync swaync-client grim slurp wf-recorder
     wl-copy wl-paste xdg-open xdg-user-dir nmcli nm-applet nm-connection-editor bluetoothctl blueman-manager
     pactl wpctl playerctl brightnessctl fastfetch htop notify-send gdbus pgrep flock
-    xcursorgen hyprcursor-util cc c++ cmake pkg-config wayland-scanner fc-match yt-dlp ffmpeg ffprobe sudo xhost openssl remote-viewer virt-fw-vars certtool
+    xcursorgen hyprcursor-util cc c++ g++ cmake pkg-config wayland-scanner fc-match yt-dlp ffmpeg ffprobe sudo xhost openssl remote-viewer virt-fw-vars certtool
     make autoconf autoreconf automake aclocal libtool libtoolize perl pod2man gettext gawk expect socat
     tpm2_getcap dmidecode lspci lsusb mcopy mtype fsck.fat losetup modinfo'''.split()
 LIBRARIES = ['gtk+-3.0','gio-unix-2.0','gtk-layer-shell-0','epoxy','json-glib-1.0','Qt5Widgets','Qt6Widgets','Qt5Concurrent','Qt6Concurrent','wayland-client','xcb','xcb-res',
@@ -163,6 +166,41 @@ def prepare_environment():
     os.environ['PATH'] = command_paths.extended_path(os.environ.get('PATH', os.defpath))
 
 
+def repair_toolchain(yes=False):
+    """Repair installed-but-incomplete compiler packages after normal setup."""
+    problem = native_toolchain.problem()
+    if not problem:
+        return
+    family = distro()
+    commands = {'arch': ['pacman', '-S', 'gcc', 'gcc-libs', 'binutils'],
+                'fedora': ['dnf', 'reinstall', 'gcc', 'gcc-c++', 'libstdc++-devel', 'binutils'],
+                'debian': ['apt-get', 'install', '--reinstall', 'gcc', 'g++', 'binutils']}
+    if family not in commands:
+        raise RuntimeError('The C++ compiler is incomplete:\n'+problem)
+    command = commands[family]
+    if family == 'debian':
+        # Reinstall the versioned backend too; g++ itself is a metapackage.
+        packages = subprocess.run(['dpkg-query', '-W', '-f=${binary:Package} ${db:Status-Abbrev}\\n',
+                                   'gcc-[0-9]*', 'g++-[0-9]*', 'libstdc++-[0-9]*-dev'],
+                                  capture_output=True, text=True, timeout=15)
+        names = [line.split()[0] for line in packages.stdout.splitlines()
+                 if len(line.split()) == 2 and line.split()[1] == 'ii'
+                 and re.fullmatch(r'[a-zA-Z0-9.+:-]+', line.split()[0])]
+        command = ['apt-get', 'install', '--reinstall', 'gcc', 'g++', 'binutils', *names]
+    print('Repairing the distribution C++ toolchain (including cc1plus).\n'+problem, flush=True)
+    if not yes and input('Reinstall these compiler packages? [y/N] ').strip().lower() not in ('y','yes'):
+        raise RuntimeError('Compiler repair cancelled. Desktop profile unchanged.')
+    if yes:
+        command.append('--noconfirm' if family == 'arch' else '-y')
+    prefix = runtime_install.administrator()
+    result = subprocess.run(prefix+command)
+    runtime_install.check_administrator_result(prefix, result.returncode)
+    result.check_returncode()
+    problem = native_toolchain.problem()
+    if problem:
+        raise RuntimeError('The system C++ compiler still cannot compile and link a program:\n'+problem)
+
+
 def konsole_part_available():
     try:
         from PyQt6.QtCore import QLibraryInfo
@@ -187,6 +225,9 @@ def check(runtime=True):
         if message:errors.append(message)
     if sys.version_info < (3,11): errors.append('Python 3.11 or newer is required.')
     errors += ['Missing command: '+command for command in COMMANDS if not shutil.which(command)]
+    compiler_error = native_toolchain.problem()
+    if compiler_error:
+        errors.append('C++ compiler cannot compile/link (including cc1plus and C++ headers): '+compiler_error)
     if runtime_install.policy.fedora_host(distribution()) and not find_library('SDL3'):
         errors.append('QEMU needs the SDL3 runtime: install SDL3.')
     if runtime_install.policy.debian_host(distribution()) and not find_library('SDL3'):

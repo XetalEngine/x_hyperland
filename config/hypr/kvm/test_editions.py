@@ -277,7 +277,7 @@ class EditionTests(unittest.TestCase):
         self.assertEqual(run.call_args.kwargs,{'components':('qemu',),'revoke_session':False})
 
     def test_account_or_module_failure_cannot_start_guest_preparation(self):
-        import vm_session,runtime_access
+        import vm_session,runtime_access,module_policy
         component=self.root/'qemu';component.mkdir()
         (component/'.vm-runtime.json').write_text(json.dumps({'key_id':'a'*64,'edition':'xetallic',
             'files':{'libexec/qemu-system-x86_64':{}}}))
@@ -286,6 +286,7 @@ class EditionTests(unittest.TestCase):
                 directory=self.root/'launch';directory.mkdir()
                 stack.enter_context(patch.object(vm_session.editions,'selected',return_value='xetallic'))
                 stack.enter_context(patch.object(vm_session,'private_memory'))
+                stack.enter_context(patch.object(module_policy,'unavailable',return_value=''))
                 stack.enter_context(patch.object(vm_session.os,'geteuid',return_value=0))
                 stack.enter_context(patch.object(vm_session.portable,'component_path',side_effect=lambda name:component if name=='qemu' else self.root/'absent'))
                 key=stack.enter_context(patch.object(runtime_access,'launch_key',return_value=b'x'*32))

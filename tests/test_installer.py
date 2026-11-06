@@ -175,7 +175,7 @@ assert m['fire_indicator']
         self.assertEqual(json.loads((self.stage/'launcher/favorites.json').read_text()), expected)
         self.assertEqual(json.loads((install.PAYLOAD/'launcher/favorites.json').read_text()), expected)
         self.assertEqual(json.loads((self.stage/'launcher/shortcuts.json').read_text()),
-                         {'version': 1, 'overrides': {}, 'copies': {}})
+                         {'version': 1, 'overrides': {'xetal-calculator.desktop': {'floating': True}}, 'copies': {}})
         computer = (self.stage/'desktop/data/applications/xetal-files-computer.desktop').read_text()
         self.assertIn('Name=My Computer', computer)
         self.assertIn(f'Exec={self.target}/scripts/files.sh --this-pc', computer)

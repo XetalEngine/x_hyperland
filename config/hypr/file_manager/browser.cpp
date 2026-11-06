@@ -244,9 +244,15 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
   driveSplitter->setObjectName("driveSections");
   driveSplitter->setChildrenCollapsible(false);
   driveSplitter->setHandleWidth(9);
-  // Content-derived pane minima must not force the whole Files window taller
-  // than the screen. Recalculate them against the actual space after a resize.
-  driveSplitter->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Ignored);
+  // Keep every section tall enough for all its drive rows. On a short display,
+  // scroll the complete drive view instead of clipping rows in each section.
+  auto *driveScroll = new QScrollArea;
+  driveScroll->setObjectName("computerDrivesScroll");
+  driveScroll->setWidgetResizable(true);
+  driveScroll->setFrameShape(QFrame::NoFrame);
+  driveScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  driveScroll->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Ignored);
+  driveScroll->setWidget(driveSplitter);
   driveSplitter->installEventFilter(this);
   computer->installEventFilter(this);
   auto addSection = [this](DriveSection &section, const QString &title,
@@ -264,6 +270,7 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
     section.scroll->setWidgetResizable(true);
     section.scroll->setFrameShape(QFrame::NoFrame);
     section.scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    section.scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     auto *body = new QWidget;
     body->setObjectName("driveRows");
     section.layout = new QVBoxLayout(body);
@@ -291,7 +298,7 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
     preferences->settings.setValue("computerSections",
                                    driveSplitter->saveState());
   });
-  homeLayout->addWidget(driveSplitter, 1);
+  homeLayout->addWidget(driveScroll, 1);
   emptyDrives = new QLabel("No drives detected.");
   emptyDrives->setObjectName("emptyDrives");
   emptyDrives->setProperty("muted", true);
@@ -658,7 +665,7 @@ void Browser::configureCards(QListWidget *list) {
 }
 void Browser::updateCards() {
   const QString selected = selectedVolume().device;
-  const auto previousMounted = mountedSection.groups.keys();
+  const auto previousGroups = mountedSection.groups.keys() + usbSection.groups.keys() + unmountedSection.groups.keys();
   // Classify physical drives, not individual partitions: a partially mounted
   // disk belongs in one row with all its partitions. USB devices stay together.
   QMap<QString, QList<Volume>> groups;
@@ -835,12 +842,12 @@ void Browser::updateCards() {
   emptyDrives->setVisible(groups.isEmpty());
   if (rowFocus)
     rowFocus->setFocus(Qt::OtherFocusReason);
-  queueDriveLayout(previousMounted != mountedSection.groups.keys());
+  queueDriveLayout(previousGroups != mountedSection.groups.keys() + usbSection.groups.keys() + unmountedSection.groups.keys());
   if (Fusion::isComputer(location()))
     updateStatus();
 }
 void Browser::queueDriveLayout(bool fitContents) {
-  fitMountedContents |= fitContents;
+  fitSectionContents |= fitContents;
   if (driveLayoutQueued) return;
   driveLayoutQueued = true;
   QTimer::singleShot(0, this, [this] {
@@ -850,34 +857,28 @@ void Browser::queueDriveLayout(bool fitContents) {
 }
 void Browser::fitDriveSections() {
   if (!computer->isVisible() || !driveSplitter->isVisible()) return;
-  const bool mounted = !mountedSection.groups.isEmpty();
-  const bool usb = !usbSection.groups.isEmpty();
-  const bool unmounted = !unmountedSection.groups.isEmpty();
-  const int count = int(mounted) + int(usb) + int(unmounted);
-  if (!count) return;
-  const int available = qMax(0, driveSplitter->height() - (count - 1) * driveSplitter->handleWidth());
-  const int otherMinimum = qMin(175, available / count);
-  usbSection.scroll->parentWidget()->setMinimumHeight(usb ? otherMinimum : 0);
-  unmountedSection.scroll->parentWidget()->setMinimumHeight(unmounted ? otherMinimum : 0);
-  auto *panel = mountedSection.scroll->parentWidget();
-  const auto margins = panel->layout()->contentsMargins();
-  const int heading = panel->findChild<QLabel *>("driveSectionTitle")->sizeHint().height();
-  const int width = mountedSection.scroll->viewport()->width();
-  const int content = qMax(mountedSection.layout->minimumSize().height(),
-                          mountedSection.layout->totalHeightForWidth(width));
-  const int wanted = content + heading + margins.top() + margins.bottom() + panel->layout()->spacing()
-                     + 2 * mountedSection.scroll->frameWidth();
-  const int minimum = mounted ? qMin(wanted, qMax(0, available - (int(usb) + int(unmounted)) * otherMinimum)) : 0;
-  auto sizes = driveSplitter->sizes();
-  panel->setMinimumHeight(minimum);
-  if (fitMountedContents || sizes[0] < minimum) {
-    const int top = mounted ? minimum : 0;
-    const int remainder = qMax(0, available - top);
-    const int middle = usb ? (unmounted ? qBound(otherMinimum, sizes[1], remainder - otherMinimum) : remainder) : 0;
-    driveSplitter->setSizes({top, middle, unmounted ? remainder - middle : 0});
+  QList<int> wanted;
+  int count = 0, total = 0;
+  for (auto *section : {&mountedSection, &usbSection, &unmountedSection}) {
+    auto *panel = section->scroll->parentWidget();
+    int height = 0;
+    if (!section->groups.isEmpty()) {
+      ++count;
+      const auto margins = panel->layout()->contentsMargins();
+      const int heading = panel->findChild<QLabel *>("driveSectionTitle")->sizeHint().height();
+      const int content = qMax(section->layout->minimumSize().height(),
+                              section->layout->totalHeightForWidth(section->scroll->viewport()->width()));
+      height = content + heading + margins.top() + margins.bottom() + panel->layout()->spacing()
+               + 2 * section->scroll->frameWidth();
+    }
+    panel->setMinimumHeight(height);
+    section->scroll->verticalScrollBar()->setValue(0);
+    wanted << height;
+    total += height;
   }
-  if (mounted && minimum >= wanted) mountedSection.scroll->verticalScrollBar()->setValue(0);
-  fitMountedContents = false;
+  driveSplitter->setMinimumHeight(total + qMax(0, count - 1) * driveSplitter->handleWidth());
+  if (fitSectionContents) driveSplitter->setSizes(wanted);
+  fitSectionContents = false;
 }
 void Browser::updateStatus() {
   if (Fusion::isComputer(location())) {

@@ -159,8 +159,12 @@ class KVMSettings(VMStart2):
             self._wizard_connected=True
         self.tab_wizard.components_ready=self._components_ready
         self._mount_components(self.tab_wizard.component_host)
-        self.tab_virtual.before_launch=self._ready
-        self.tab_dual.before_launch=self._ready
+        self.tab_virtual.before_launch=lambda:self._ready(self.tab_virtual._launch)
+        self.tab_dual.before_launch=lambda:self._ready(self.tab_dual._launch)
+        from module_warning import ModuleWarning
+        self.module_warnings=[ModuleWarning(button) for button in
+                              (self.btn_launch,self.tab_virtual.btn_launch,self.tab_dual.btn_launch)]
+        self._refresh_module_status()
         self.tab_hw.capture_gpu_rom=self._capture_gpu_rom
         self.tab_wizard.capture_gpu_rom=self._capture_gpu_rom
         self.tab_dual.capture_gpu_rom=self._capture_gpu_rom
@@ -173,11 +177,6 @@ class KVMSettings(VMStart2):
             panel.message.connect(self.tab_tpm.action_status.setText)
         panel.active.connect(lambda busy:self.tab_tpm.set_actions_busy(busy)
                              if hasattr(self.tab_tpm,'btn_repair') else None)
-        self.use_system_kvm=QPushButton('Use system KVM')
-        self.use_system_kvm.setToolTip('Skip the custom module and use the running kernel’s standard KVM module.')
-        self.use_system_kvm.clicked.connect(self._use_system_kvm)
-        panel.layout().insertWidget(1,self.use_system_kvm)
-        self.use_system_kvm.setVisible(bool(self.cfg.data.get('tools',{}).get('kvm_build_enabled')))
 
     def _switch_edition(self,edition):
         import editions,checkpoint,copy
@@ -199,12 +198,44 @@ class KVMSettings(VMStart2):
             import health
             health.refresh(self)
 
-    def _use_system_kvm(self):
-        self.cfg.data.setdefault('tools',{})['kvm_build_enabled']=False
-        self.tab_paths.chk_kvm.setChecked(False)
-        self.use_system_kvm.hide()
-        self.status.setText('Using this kernel’s standard KVM module. The custom module will not be loaded.')
-        self._refresh_all()
+    def _refresh_module_status(self):
+        if not getattr(self,'package_panel',None):return
+        import module_policy
+        text,detail=module_policy.warning(self.cfg.data,self.package_panel.release)
+        for label in getattr(self,'module_warnings',[]):
+            label.setText(text);label.setToolTip(detail);label.setVisible(bool(text))
+
+    def _prepare_optional_module(self,retry):
+        """A compatible published build is installed on demand, once per release.
+
+        A missing or incompatible optional build never blocks the guest. Failed
+        downloads fall back for this session, leaving the saved choice intact.
+        """
+        import module_policy,packages
+        if not retry or not module_policy.requested(self.cfg.data):return False
+        panel=self.package_panel
+        entry=(panel.release or {}).get('components',{}).get('kvm-amd')
+        if (not entry or packages.compatibility('kvm-amd',entry)
+                or not module_policy.unavailable(check_busy=False) or self._busy()):return False
+        identity=(str(panel.store.root),entry['sha256'])
+        attempts=getattr(self,'_module_download_attempts',set())
+        if identity in attempts:return False
+        attempts.add(identity);self._module_download_attempts=attempts
+        session=panel.account.session;config=self.cfg
+        self.status.setText('Preparing the custom KVM module for this kernel…')
+        def done(_):
+            self.status.setText('Compatible custom KVM module ready. Continuing launch…')
+            self._refresh_all()
+        def failed(error):
+            panel.info.setText('Optional module download unavailable. Using standard KVM. '+error)
+        def resume():
+            # Closing/reopening Settings or changing profiles cancels the old
+            # launch intent, even if the optional download finishes afterwards.
+            if (self.isVisible() and self.package_panel is panel and self.cfg is config
+                    and panel.account.session is session):retry()
+        panel.run(lambda progress:panel.store.download('kvm-amd',entry,progress),done,failed,session=session)
+        panel.job.finished.connect(lambda:QTimer.singleShot(0,resume))
+        return True
 
     def _capture_gpu_rom(self,slot,finished):
         panel=self.package_panel
@@ -343,6 +374,9 @@ class KVMSettings(VMStart2):
         if hasattr(self,'package_panel') and self.package_panel.job:
             raise RuntimeError('Wait for the component operation before changing profiles or loading a preset.')
         panel=getattr(self,'package_panel',None)
+        for label in getattr(self,'module_warnings',[]):
+            label.hide();label.deleteLater()
+        self.module_warnings=[]
         if panel:
             panel.setParent(self);panel.hide()
             self.package_panel=None
@@ -366,13 +400,8 @@ class KVMSettings(VMStart2):
         if panel.job:
             panel.info.setText('Please wait for component installation to finish.');return False
         required=['baseline','qemu','ovmf','opencore' if self.profile_id=='macos' else 'tpm']
-        tools=self.cfg.data.get('tools',{})
-        if tools.get('kvm_build_enabled'):
-            entry=(panel.release or {}).get('components',{}).get('kvm-amd')
-            if entry and not packages.compatibility('kvm-amd',entry):required.append('kvm-amd')
-            else:
-                tools['kvm_build_enabled']=False
-                self.status.setText('This CPU/kernel uses the standard KVM module. Your other baseline settings are retained.')
+        # The custom module is optional. Its preference survives unsupported
+        # kernels and a matching build is prepared automatically at launch.
         missing=[name for name in required if not packages.installed(name)]
         if missing:
             panel.info.setText('Install / download missing components before continuing: '+', '.join(missing));return False
@@ -412,15 +441,18 @@ class KVMSettings(VMStart2):
             if supervisor_active(virtual_gpu.status(panel.run)):return True
         return False
 
-    def _ready(self):
+    def _ready(self,retry=None):
         if not self.cfg.data.get('wizard',{}).get('complete'):
             self._select_tab_by_name('Wizard')
             QMessageBox.information(self,'Complete setup','Finish the setup wizard for this profile before starting a VM.');return False
         if self.package_panel.job:
             QMessageBox.information(self,'Components are busy','Wait for component installation to finish.');return False
         if not self.package_panel.require_account():return False
+        if self._prepare_optional_module(retry):return False
+        self._refresh_module_status()
+        import module_policy
         settings=self.cfg.data.get('tools',{})
-        if settings.get('kvm_build_enabled') and Path(settings.get('kvm_build',''))==ROOT/'module-tool.sh':
+        if module_policy.requested(self.cfg.data) and not module_policy.unavailable():
             try:
                 from module_tool import check
                 args=shlex.split(settings.get('kvm_build_args',''))
@@ -458,11 +490,11 @@ class KVMSettings(VMStart2):
         return True
 
     def _launch(self,dry):
-        if not dry and not self._ready():return
+        if not dry and not self._ready(lambda:self._launch(False)):return
         return super()._launch(dry)
 
     def _test_run(self):
-        if self._ready():return super()._test_run()
+        if self._ready(self._test_run):return super()._test_run()
 
     def _wizard_finished(self):
         if self.save_session(quiet=True):

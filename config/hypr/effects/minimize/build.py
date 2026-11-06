@@ -15,6 +15,8 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT.parent))
+from native_toolchain import compiler, environment
 SUPPORTED_COMMIT = 'efb50993780079460b0cbed1363e2166a2de1d9f'
 # Include code-generation options in the content-addressed build key as well.
 COMPILE_FLAGS = ('-std=c++23', '-shared', '-fPIC', '-O2', '-g', '-Wall', '-Wextra',
@@ -43,7 +45,7 @@ def build(root=ROOT):
     if not match or match[1] != SUPPORTED_COMMIT:
         raise RuntimeError('Minimize supports Hyprland 0.56.2. This version needs an updated Minimize adapter; minimized windows are unavailable until the adapter is updated.')
     versions = output(['pkg-config','--modversion','hyprland','aquamarine','hyprutils','hyprgraphics','hyprcursor','hyprlang'])
-    signature = hashlib.sha256((versions+str(COMPILE_FLAGS)+str(flags)+output(['g++','-dumpfullversion'])).encode())
+    signature = hashlib.sha256((versions+str(COMPILE_FLAGS)+str(flags)+output([compiler(),'-dumpfullversion'])).encode())
     sources = [*(root/'native').glob('*'), root.parent/'burn/native/engine.hpp', root.parent/'burn/native/fire_texture.hpp']
     for source in sorted(sources):
         signature.update(source.name.encode()); signature.update(source.read_bytes())
@@ -57,8 +59,8 @@ def build(root=ROOT):
         # A unique pathname for each build avoids replacing a mapped .so.
         fd, tmp = tempfile.mkstemp(prefix='compile-',suffix='.so',dir=build_dir); os.close(fd)
         try:
-            cmd = ['g++',*COMPILE_FLAGS,*flags,str(root/'native/plugin.cpp'),'-o',tmp,'-lGLESv2']
-            process = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True)
+            cmd = [compiler(),*COMPILE_FLAGS,*flags,str(root/'native/plugin.cpp'),'-o',tmp,'-lGLESv2']
+            process = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True,env=environment())
             try:
                 stdout,stderr = process.communicate(timeout=180)
             except BaseException:

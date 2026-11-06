@@ -1,6 +1,16 @@
 """Small GTK 3 ctypes bridge shared with the Echo Linux installer design."""
 import ctypes as C
 
+
+class TextIter(C.Structure):
+    """Opaque GtkTextIter storage, matching GTK 3's public ABI."""
+    _fields_ = [('dummy1', C.c_void_p), ('dummy2', C.c_void_p),
+                *[(f'dummy{n}', C.c_int) for n in range(3, 9)],
+                ('dummy9', C.c_void_p), ('dummy10', C.c_void_p),
+                *[(f'dummy{n}', C.c_int) for n in range(11, 14)],
+                ('dummy14', C.c_void_p)]
+
+
 class GTK:
     def __init__(self):
         try:
@@ -38,9 +48,18 @@ class GTK:
             'gtk_dialog_set_default_response': (None, p, i),
             'gtk_window_set_modal': (None, p, i),
             'gtk_scrolled_window_new': (p, p, p), 'gtk_scrolled_window_set_policy': (None, p, i, i),
+            'gtk_scrolled_window_get_vadjustment': (p, p),
+            'gtk_adjustment_get_value': (d, p), 'gtk_adjustment_get_upper': (d, p),
+            'gtk_adjustment_get_page_size': (d, p), 'gtk_adjustment_set_value': (None, p, d),
             'gtk_text_view_new': (p,), 'gtk_text_view_get_buffer': (p, p),
             'gtk_text_view_set_editable': (None, p, i), 'gtk_text_view_set_monospace': (None, p, i),
             'gtk_text_view_set_wrap_mode': (None, p, i), 'gtk_text_buffer_set_text': (None, p, s, i),
+            'gtk_text_buffer_get_end_iter': (None, p, C.POINTER(TextIter)),
+            'gtk_text_buffer_get_start_iter': (None, p, C.POINTER(TextIter)),
+            'gtk_text_buffer_get_iter_at_line': (None, p, C.POINTER(TextIter), i),
+            'gtk_text_buffer_get_line_count': (i, p),
+            'gtk_text_buffer_insert': (None, p, C.POINTER(TextIter), s, i),
+            'gtk_text_buffer_delete': (None, p, C.POINTER(TextIter), C.POINTER(TextIter)),
             'gtk_expander_new': (p, s), 'gtk_expander_set_expanded': (None, p, i),
             'gtk_check_button_new_with_label': (p, s), 'gtk_toggle_button_set_active': (None, p, i),
             'gtk_toggle_button_get_active': (i, p), 'gtk_progress_bar_new': (p,),

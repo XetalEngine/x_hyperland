@@ -65,6 +65,14 @@ def main(command,module_options=None,*,components=('qemu','kvm-amd'),revoke_sess
     if editions.selected()=='stock':
         system_kvm()
         os.execv(command[0],command)
+    if 'kvm-amd' in components:
+        from module_policy import unavailable
+        reason = unavailable()
+        if reason:
+            components = tuple(name for name in components if name != 'kvm-amd')
+            if module_options is not None:
+                print('KVM: '+reason+'. Continuing with the loaded/system KVM module.', flush=True)
+                module_options = None
     private_memory()
     if os.geteuid()!=0:raise RuntimeError('Administrator access is required for this VM launch.')
     with ExitStack() as stack:
@@ -93,7 +101,7 @@ def main(command,module_options=None,*,components=('qemu','kvm-amd'),revoke_sess
                                    or not isinstance(v,(str,int,bool)) for k,v in module_options.items())):
                         raise ValueError('Invalid custom module settings.')
                     environment=dict(os.environ,**{k:str(v) for k,v in module_options.items() if str(v)})
-                    subprocess.run([sys.executable,str(portable.ROOT/'module_tool.py')],env=environment,check=True)
+                    subprocess.run([sys.executable,str(portable.ROOT/'module_tool.py'),'--auto'],env=environment,check=True)
                 return run_pinned(command,[])
         finally:shutil.rmtree(directory)
 

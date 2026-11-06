@@ -58,6 +58,7 @@ set(PROJECT_SOURCES
         restore_points.h
         firewall_manager.h
         kernel_manager.h
+        ../kernel_catalog.h
         env_editor.h
         system_properties.h
         drive.h
@@ -130,6 +131,17 @@ else()
             ${PROJECT_SOURCES}
         )
     endif()
+endif()
+
+option(BUILD_KERNEL_CATALOG_TESTS "Build isolated kernel catalogue interface checks" OFF)
+if(BUILD_KERNEL_CATALOG_TESTS)
+    enable_testing()
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(kernel_catalog_tests tests/kernel_catalog_tests.cpp ../kernel_catalog.h)
+    target_include_directories(kernel_catalog_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    target_link_libraries(kernel_catalog_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME kernel_catalog COMMAND kernel_catalog_tests)
+    set_tests_properties(kernel_catalog PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
 
 option(BUILD_GRUB_EDITOR_TESTS "Build isolated GRUB editor interface checks" OFF)

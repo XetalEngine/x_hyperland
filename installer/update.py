@@ -39,6 +39,7 @@ def prepare(home, commit, automatic=True, allow_runtime=False, checkpoint=lambda
     if errors and allow_runtime:
         dependencies.install(yes=True)
         install.runtime_install.restart_after_python_upgrade()
+        dependencies.repair_toolchain(yes=True)
         checkpoint(); errors = dependencies.check()
     if errors: raise RuntimeError('Dependencies need attention; no desktop files changed:\n'+'\n'.join(errors))
     if allow_runtime:

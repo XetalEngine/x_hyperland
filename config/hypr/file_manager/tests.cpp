@@ -799,16 +799,57 @@ print(json.dumps(rows))
     // Content minima adapt instead of forcing the window beyond the screen.
     window.resize(800, 480);
     QTRY_VERIFY(window.height() <= 480);
-    QTRY_VERIFY(mounted->verticalScrollBar()->maximum() > 0);
+    QTRY_VERIFY(tab->findChild<QScrollArea *>("computerDrivesScroll")->verticalScrollBar()->maximum() > 0);
+    QTRY_COMPARE(mounted->verticalScrollBar()->maximum(), 0);
     window.resize(1200, 1200);
     QTRY_COMPARE(mounted->verticalScrollBar()->maximum(), 0);
     verifyVisible();
     for (auto &volume : window.drives->volumes)
       if (volume.driveKey() == "/dev/fusion-b") volume.mount.clear();
     emit window.drives->changed();
-    QTRY_COMPARE(splitter->sizes()[0], original);
+    // The outer scrollbar can change available width by a few pixels; the
+    // pane still returns to one row and every card must remain visible.
+    QTRY_VERIFY(qAbs(splitter->sizes()[0] - original) < 10);
+    verifyVisible();
     QCOMPARE(driveGroups(tab, "mountedDrives").size(), 1);
     QCOMPARE(driveRow(tab, "/dev/fusion-b"), row);
+    window.close();
+  }
+  void everyDriveSectionFitsItsRowsAfterHotplug() {
+    FilesWindow window(Fusion::computerUrl(), false, temporary.path() + "/all-drive-layout.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(1200, 900); window.show();
+    window.drives->volumes = computerVolumes();
+    auto *tab = window.browser();
+    auto *splitter = tab->findChild<QSplitter *>("driveSections");
+    auto *scroll = tab->findChild<QScrollArea *>("computerDrivesScroll");
+    auto verify = [&] {
+      for (const QString &name : {"mountedDrives", "usbDrives", "unmountedDrives"}) {
+        auto *section = tab->findChild<QScrollArea *>(name);
+        if (driveGroups(tab, name).isEmpty()) continue;
+        QTRY_COMPARE(section->verticalScrollBar()->maximum(), 0);
+        for (auto *group : driveGroups(tab, name)) {
+          const auto bottom = group->mapTo(section->viewport(), group->rect().bottomRight());
+          QVERIFY2(bottom.y() < section->viewport()->height(), qPrintable(name + " clips a drive row"));
+        }
+      }
+    };
+    emit window.drives->changed(); QTest::qWait(80); verify();
+    const int usbBefore = splitter->sizes()[1];
+    window.drives->volumes.append(Drives::parse(R"({"blockdevices":[
+      {"path":"/dev/fusion-usb-extra","type":"disk","tran":"usb","fstype":"exfat","size":32000000000,"mountpoints":[null]},
+      {"path":"/dev/fusion-unmounted-extra","type":"disk","tran":"sata","fstype":"ext4","size":1000000000000,"mountpoints":[null]}
+    ]})"));
+    emit window.drives->changed();
+    QTRY_VERIFY(splitter->sizes()[1] > usbBefore + 100); verify();
+    splitter->setSizes({1, 1, 1}); QTest::qWait(60); verify();
+    window.resize(800, 480);
+    QTRY_VERIFY(window.height() <= 480);
+    QTRY_VERIFY(scroll->verticalScrollBar()->maximum() > 0); verify();
+    scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
+    const auto position = scroll->verticalScrollBar()->value();
+    emit window.drives->changed(); QTest::qWait(40);
+    QCOMPARE(scroll->verticalScrollBar()->value(), position);
     window.close();
   }
   void sidebarExpansionSurvivesReopenAndReconnect() {

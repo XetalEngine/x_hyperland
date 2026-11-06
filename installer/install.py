@@ -35,7 +35,7 @@ DOLPHIN_DEFAULTS = {'dolphin/config/dolphinrc', 'dolphin/config/kdeglobals',
 # launcher settings explicitly instead of copying its owner's saved pins.
 LAUNCHER_DEFAULTS = {
     'favorites.json': {'add': ['xetal-files-computer.desktop', 'kitty.desktop', 'xetal-calculator.desktop'], 'hide': []},
-    'shortcuts.json': {'version': 1, 'overrides': {}, 'copies': {}},
+    'shortcuts.json': {'version': 1, 'overrides': {'xetal-calculator.desktop': {'floating': True}}, 'copies': {}},
     'bar-pins.json': {'version': 1, 'pins': []},
     'window.json': {'width': 980, 'height': 720},
 }
@@ -222,7 +222,7 @@ def build(stage, checkpoint=lambda:None):
         run_build(args, label)
 
     # A complete desktop requires the adapters matched by the runtime manifest.
-    for effect,label in [('burn','Burn'),('cube','Desktop Cube & 3D Windows'),('minimize','Fireball Minimize'),('wobbly','Compiz Wobbly Windows')]:
+    for effect,label in [('burn','Burn'),('cube','Desktop Cube & 3D Windows'),('minimize','Fireball Minimize'),('wobbly','Compiz Wobbly Windows'),('window_close','Window controls & forced workspace layout')]:
         result = subprocess.run([sys.executable,str(stage/'effects'/effect/'build.py')],capture_output=True,text=True)
         if result.returncode:
             raise RuntimeError(label+' could not be built for the required compositor:\n'+result.stderr.strip())
@@ -382,6 +382,7 @@ def main():
         if args.skip_packages:raise RuntimeError('\n'.join(errors))
         dependencies.install(args.yes)
         runtime_install.restart_after_python_upgrade()
+        dependencies.repair_toolchain(args.yes)
         checkpoint()
         errors=dependencies.check()
         if errors:raise RuntimeError('Dependencies still need attention; profile unchanged:\n'+'\n'.join(errors))

@@ -1,5 +1,9 @@
 {
   "version": 1,
-  "overrides": {},
+  "overrides": {
+    "xetal-calculator.desktop": {
+      "floating": true
+    }
+  },
   "copies": {}
 }

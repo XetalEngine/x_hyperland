@@ -36,7 +36,7 @@ def main():
         g.lib.gtk_window_move.argtypes=[C.c_void_p,C.c_int,C.c_int]
         g.lib.gtk_window_resize(app.window,1600,960)
         g.lib.gtk_window_move(app.window,0,0)
-    phase=0;commands=[];failures=[];started=time.monotonic()
+    phase=0;scroll_phase=0;commands=[];failures=[];started=time.monotonic()
     class FakeProcess:
         def __init__(self,args,**kwargs):
             commands.append(args);self.attempt=len(commands)
@@ -69,7 +69,7 @@ def main():
         assert size[0]<=(1650 if options.large else 1100),(name,size)
         assert size[1]<=(1000 if options.large else 760),(name,size)
     def tick(_):
-        nonlocal phase
+        nonlocal phase,scroll_phase
         try:
             assert time.monotonic()-started<25,'Setup UI test timed out'
             if phase==0:
@@ -104,6 +104,28 @@ def main():
                 assert not g.lib.gtk_widget_get_sensitive(app.next)
                 assert g.lib.gtk_button_get_label(app.next).decode()=='Installing…'
                 log_height=g.lib.gtk_widget_get_allocated_height(app.log_scroll)
+                adjustment=app.log_adjustment
+                bottom=max(0,g.adjustment_get_upper(adjustment)-g.adjustment_get_page_size(adjustment))
+                value=g.adjustment_get_value(adjustment)
+                if scroll_phase in (0,1,3,5):
+                    assert abs(value-bottom)<2,('log did not follow output',scroll_phase,value,bottom)
+                if scroll_phase==0:
+                    for row in range(40):app.events.put(('line',f'Wrapped line {row}: '+('Checking libraries… '*12)))
+                elif scroll_phase==1:
+                    g.adjustment_set_value(adjustment,0)
+                    for row in range(40):app.events.put(('line',f'Output while reading earlier messages {row}'))
+                elif scroll_phase==2:
+                    assert value<2 and not app.follow_log,('manual reading position moved',value)
+                    g.adjustment_set_value(adjustment,bottom)
+                    for row in range(800):app.events.put(('line',f'Burst output beyond the 500-line limit {row}'))
+                elif scroll_phase==3:
+                    assert g.text_buffer_get_line_count(app.log_buffer)==501
+                    g.expander_set_expanded(app.expander,0)
+                    for row in range(40):app.events.put(('line',f'Output while details are collapsed {row}'))
+                elif scroll_phase==4:
+                    g.expander_set_expanded(app.expander,1)
+                if scroll_phase<5:
+                    scroll_phase+=1;return 1
                 assert log_height >= (520 if options.large else 260),log_height
                 capture('progress');app.close()
                 assert app.cancel_file.exists()
@@ -127,7 +149,7 @@ def main():
     finally:app.temporary.cleanup()
     if failures:raise AssertionError('; '.join(failures))
     assert len(commands)==2 and commands[0]==commands[1],commands
-    print('Setup UI ('+mode+'): editable choice, review, worker command, cancellation, retry and finish passed.')
+    print('Setup UI ('+mode+'): choices, worker routing, live log follow/scrollback/trim/reopen, cancellation, retry and finish passed.')
 
 
 if __name__=='__main__':main()

@@ -35,9 +35,16 @@ def check(directory):
 def main():
     args=sys.argv[1:]
     if args and args[0] in ('--help','-h'):
-        print('Usage: module-tool.sh [--check|--build-only|--install|--restore]\nDefault: load published modules for this boot only.');return
-    if args not in ([],['--check'],['--build-only'],['--install'],['--restore']):raise ValueError('Unknown module option')
+        print('Usage: module-tool.sh [--auto|--check|--build-only|--install|--restore]\nDefault: load published modules for this boot only.');return
+    if args not in ([],['--auto'],['--check'],['--build-only'],['--install'],['--restore']):raise ValueError('Unknown module option')
     directory=root()
+    if args == ['--auto']:
+        from module_policy import unavailable
+        reason = unavailable(directory)
+        if reason:
+            print('KVM: '+reason+'. Continuing with the loaded/system KVM module.', flush=True)
+            return
+        args = []
     # Distro module backups must survive switching to a newer package version.
     os.environ['XETAL_KVM_MODULE_BACKUPS']=str(directory/'module-backups')
     if args==['--build-only']:

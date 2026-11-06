@@ -51,7 +51,7 @@ def apply(data, root=None, edition=None):
         preferences=data.setdefault('edition_preferences', {})
         preferences[old]={'custom_module':bool(tools.get('kvm_build_enabled'))}
         tools['kvm_build_enabled']=(edition=='xetallic' and
-            preferences.get(edition,{}).get('custom_module',False))
+            preferences.get(edition,{}).get('custom_module',True))
     prefixes = [root/'components', *(root/'editions'/key/'components' for key in ('stock', 'xetallic'))]
     def remap(value):
         # Open editors hold references to nested config dictionaries and lists.
@@ -89,5 +89,5 @@ def switch(data, edition, root=None):
         if block.get('filename', '').endswith('/OVMF_CODE.fd'):
             block['filename'] = str(base/'ovmf/current/OVMF_CODE.fd')
     data['tools']['kvm_build_enabled'] = (edition == 'xetallic' and
-        preferences.get(edition, {}).get('custom_module', False))
+        preferences.get(edition, {}).get('custom_module', True))
     select(edition, root)

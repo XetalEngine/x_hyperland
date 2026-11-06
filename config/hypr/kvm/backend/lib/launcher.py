@@ -218,7 +218,14 @@ def preflight(cfg, pinning):
 
     # --- tool paths -------------------------------------------------------
     tools = cfg.data.get("tools", {})
-    if tools.get("kvm_build_enabled"):
+    import edition_runtime
+    managed_module = edition_runtime.managed_module(cfg)
+    if tools.get("kvm_build_enabled") and managed_module:
+        import module_policy
+        reason = module_policy.unavailable()
+        out.append(("info" if reason else "ok", (reason + ". Standard KVM is used automatically.")
+                    if reason else "Custom KVM module matches this running kernel."))
+    if tools.get("kvm_build_enabled") and not managed_module:
         kvm = tools.get("kvm_build", "")
         if not kvm:
             out.append(("warn", "KVM module build is enabled but no script is set"))
@@ -735,7 +742,17 @@ def build_start(cfg, pinning):
         a("")
 
     kvm = tools.get("kvm_build", "")
-    if tools.get("kvm_build_enabled") and kvm:
+    import edition_runtime
+    managed_module = edition_runtime.managed_module(cfg)
+    if tools.get("kvm_build_enabled") and kvm and managed_module:
+        # Recheck at execution time: an exported script can outlive a reboot.
+        # The optional loader skips unsupported hosts without changing config.
+        for key, value in sorted((tools.get("kvm_env") or {}).items()):
+            if str(value) != "":
+                a(f"export {key}={shlex.quote(str(value))}")
+        a(f'bash {shlex.quote(kvm)} --auto || exit 1')
+        a('')
+    if tools.get("kvm_build_enabled") and kvm and not managed_module:
         a("# ------------------------------------------------------- kvm module --")
         # The module cannot be swapped while anything holds it. Catch that here
         # with a clear message instead of letting the build fail with a bare
