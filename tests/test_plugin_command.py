@@ -32,7 +32,8 @@ class CommandTests(unittest.TestCase):
         home = self.root/'recipient'; script = home/'.config/hypr/runtime/plugin_health.py'
         script.parent.mkdir(parents=True)
         script.write_text('import sys\nprint("recipient",repr(sys.argv[1:]))\nraise SystemExit(1)\n')
-        result = subprocess.run([str(self.destination), '--json'], env=dict(os.environ, HOME=str(home)), capture_output=True, text=True)
+        env = dict(os.environ, HOME=str(home), PATH=str(self.destination.parent)+':/usr/bin:/bin')
+        result = subprocess.run(['fusion-check', '--json'], env=env, capture_output=True, text=True)
         self.assertEqual(result.returncode, 1); self.assertEqual(result.stdout, "recipient ['--json']\n")
         script.unlink()
         result = subprocess.run([str(self.destination)], env=dict(os.environ, HOME=str(home)), capture_output=True, text=True)
@@ -43,6 +44,18 @@ class CommandTests(unittest.TestCase):
         with patch.object(commands, 'current', return_value=True), \
              patch.object(runtime_install, 'administrator', side_effect=AssertionError('unexpected elevation')):
             commands.install()
+
+    def test_environment_repair_is_delivered_without_losing_personal_settings(self):
+        sys.path.insert(0, str(ROOT/'config/hypr/updates'))
+        import update_engine
+        remote = (ROOT/'config/hypr/desktop/environment.conf').read_bytes()
+        bad = b'# The profile also supplies fusion-check for updates prepared without root access.\nenv = PATH,/home/recipient/.config/hypr/bin:$PATH\n'
+        old = remote+bad
+        base = {'sha256':update_engine.sha(old), 'text':old.decode()}
+        for local, wanted in ((old, remote), (b'env = MY_PERSONAL_OPTION,yes\n'+old, b'env = MY_PERSONAL_OPTION,yes\n'+remote),
+                              (remote, remote)):
+            with self.subTest(local=local):
+                self.assertEqual(update_engine.merge_file('desktop/environment.conf', base, local, remote), wanted)
 
 
 if __name__ == '__main__': unittest.main()

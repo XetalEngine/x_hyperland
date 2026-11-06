@@ -15,8 +15,9 @@ class ApplicationTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.env = dict(os.environ)
-        for key, directory in [('XDG_CONFIG_HOME', 'config'), ('XDG_DATA_HOME', 'data'), ('XDG_CACHE_HOME', 'cache')]:
-            path = self.root/directory; path.mkdir(); self.env[key] = str(path)
+        for key, directory in [('XDG_CONFIG_HOME', 'config'), ('XDG_DATA_HOME', 'data'), ('XDG_CACHE_HOME', 'cache'), ('XDG_RUNTIME_DIR', 'runtime')]:
+            path = self.root/directory; path.mkdir(mode=0o700); self.env[key] = str(path)
+        self.env['GIO_USE_VFS'] = 'local'
         self.env['XDG_DATA_DIRS'] = '/usr/local/share:/usr/share'
         self.env['XDG_CONFIG_DIRS'] = str(self.root/'config')
         self.env['XDG_CURRENT_DESKTOP'] = 'Hyprland'
@@ -77,6 +78,42 @@ class ApplicationTests(unittest.TestCase):
         code, result = self.call('launch', dict(app='missing-fixture.desktop', mime='text/plain', urls=['file:///unused']))
         self.assertEqual(code, 1)
         self.assertIn('No application', result['error'])
+
+    def test_app_survives_closed_launcher_pipes_and_respects_log_preference(self):
+        instance = self.root/'runtime/hypr/fixture'; instance.mkdir(parents=True)
+        self.env['HYPRLAND_INSTANCE_SIGNATURE'] = 'fixture'
+        output = instance/'file-applications.log'
+        release = self.root/'launcher-closed'
+        file = self.root/'archive # literal.zip'; file.write_text('fixture')
+        # Reproduce a native application's SIGPIPE behavior after ApplicationJob
+        # receives its reply and destroys the launcher's stdout/stderr pipes.
+        self.program.write_text('import json,os,signal,sys,time\nfrom pathlib import Path\n'
+            'signal.signal(signal.SIGPIPE,signal.SIG_DFL)\n'
+            'deadline=time.monotonic()+5\n'
+            'while not Path('+repr(str(release))+').exists() and time.monotonic()<deadline:time.sleep(.01)\n'
+            'os.write(1,b"application stdout\\n");os.write(2,b"application stderr\\n")\n'
+            'Path('+repr(str(self.log))+').write_text(json.dumps(sys.argv[1:]))\n')
+        request=dict(app='fusion-fixture-editor.desktop', mime='application/zip', urls=[file.as_uri()])
+        for disabled in (False, True):
+            with self.subTest(file_logs_disabled=disabled):
+                (instance/'session-logging.json').write_text(json.dumps(dict(version=1, disabled=disabled)))
+                release.unlink(missing_ok=True); self.log.unlink(missing_ok=True)
+                previous = output.read_bytes() if output.exists() else b''
+                with subprocess.Popen(['/usr/bin/python3', str(ROOT/'applications.py'), 'launch'], env=self.env,
+                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as child:
+                    try:
+                        child.stdin.write(json.dumps(request)); child.stdin.close()
+                        self.assertEqual(child.wait(timeout=5), 0)
+                        reply = json.loads(child.stdout.readline())
+                        self.assertTrue(reply['ok'])
+                        child.stdout.close(); child.stderr.close()
+                    finally: release.touch()
+                deadline=time.monotonic()+3
+                while not self.log.exists() and time.monotonic()<deadline: time.sleep(.02)
+                self.assertTrue(self.log.exists(), 'Application died when the launcher closed its pipes.')
+                self.assertEqual(json.loads(self.log.read_text()), [str(file)])
+                if disabled: self.assertEqual(output.read_bytes(), previous)
+                else: self.assertIn(b'application stdout\napplication stderr\n', output.read_bytes())
 
 
 if __name__ == '__main__':unittest.main()

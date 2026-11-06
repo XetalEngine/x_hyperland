@@ -15,6 +15,33 @@ sys.path.insert(0, str(ROOT/'control_panel'))
 import default_apps
 
 
+def application_output():
+    """Give launched apps a durable stream, separate from this helper's JSON."""
+    runtime = os.environ.get('XDG_RUNTIME_DIR', '')
+    signature = os.environ.get('HYPRLAND_INSTANCE_SIGNATURE', '')
+    if runtime and signature and Path(signature).name == signature and signature not in ('.', '..'):
+        instance = Path(runtime)/'hypr'/signature
+        if instance.is_dir():
+            sys.path.insert(0, str(ROOT/'scripts'))
+            import session_logging
+            try:
+                return session_logging.log_path(instance, 'file-applications.log').open('ab')
+            except (OSError, ValueError):
+                pass
+    return open(os.devnull, 'ab')
+
+
+def open_uris(app, urls):
+    # ApplicationJob closes its QProcess pipes as soon as our JSON reply is
+    # received. Sharing those pipes with a GUI app can corrupt that reply or
+    # kill the app with SIGPIPE when it prints a startup diagnostic later.
+    # GLib still handles desktop Exec field codes, terminals and D-Bus launch.
+    with open(os.devnull, 'rb') as source, application_output() as output:
+        return app.launch_uris_as_manager_with_fds(
+            urls, Gio.AppLaunchContext(), GLib.SpawnFlags.SEARCH_PATH,
+            None, None, None, None, source.fileno(), output.fileno(), output.fileno())
+
+
 def choices(data):
     mimes = data.get('mimes', [])
     preferred = set()
@@ -85,7 +112,7 @@ def launch(data):
                 if custom:
                     custom.unlink(missing_ok=True)
                 raise
-    if not app.launch_uris(urls, Gio.AppLaunchContext()):
+    if not open_uris(app, urls):
         raise ValueError('The application could not be started.')
     return dict(ok=True)
 
