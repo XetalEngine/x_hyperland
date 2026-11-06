@@ -15,6 +15,8 @@ from gtk_ui import GTK, TextIter
 import install
 import runtime_install
 import login_setup
+sys.path.insert(0, str(install.PAYLOAD/'updates'))
+import release_version
 
 LOGIN_WARNING = '''Changing the login service can leave you at a text console if setup fails.
 
@@ -101,6 +103,7 @@ class Wizard:
         self.steps = self.label(sidebar, '', 'steps')
         space = self.box(sidebar); g.widget_set_vexpand(space, 1)
         self.label(sidebar, 'Made for your workspace.', 'copy')
+        self.label(sidebar, release_version.read(install.PAYLOAD), 'copy')
         self.label(sidebar, 'Source '+self.revision[:8], 'copy')
         main = self.box(outer, spacing=18, expand=True); g.container_set_border_width(main, 32)
         self.stack = g.stack_new(); g.stack_set_transition_type(self.stack, 1); g.box_pack_start(main, self.stack, 1, 1, 0)

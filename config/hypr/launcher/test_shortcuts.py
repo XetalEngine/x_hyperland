@@ -66,6 +66,45 @@ class ShortcutTests(unittest.TestCase):
         shortcuts.reset(saved)
         self.assertEqual(catalog.applications()['example.desktop'].get_display_name(), 'Example')
 
+    def test_refresh_and_reopen_find_new_apps_without_pinning_or_resetting_search(self):
+        catalog.pin('example.desktop', True)
+        saved = catalog.LOCAL.read_bytes()
+        menu = app.Menu(preview=True)
+        menu.search.setText('new browser')
+        self.assertEqual(menu.grid.count(), 0)
+        desktop = self.root/'new-browser.desktop'
+        desktop.write_text('[Desktop Entry]\nType=Application\nName=New Browser\nExec=/usr/bin/true\n')
+        native = Gio.DesktopAppInfo.new_from_filename(str(desktop))
+        with patch.object(Gio.AppInfo, 'get_all', return_value=[self.native, native]):
+            menu.refresh_button.click()
+            self.assertEqual(menu.grid.count(), 1)
+            self.assertEqual(menu.grid.item(0).text(), 'New Browser')
+            self.assertEqual(menu.search.text(), 'new browser')
+            self.assertEqual(catalog.LOCAL.read_bytes(), saved)
+        menu.refresh_button.click()
+        self.assertEqual(menu.grid.count(), 0)
+        with patch.object(Gio.AppInfo, 'get_all', return_value=[self.native, native]):
+            menu.present()
+            self.assertEqual(menu.grid.count(), 1)
+            self.assertEqual(catalog.LOCAL.read_bytes(), saved)
+
+    def test_first_application_directory_is_watched_when_installer_creates_it(self):
+        data = self.root/'data'
+        data.mkdir()
+        directory = data/'applications'
+        with patch.dict(os.environ, {'XDG_DATA_HOME': str(data), 'XDG_DATA_DIRS': str(data)}):
+            menu = app.Menu(preview=True)
+            self.assertIn(str(data), menu.catalog_watch.directories())
+            directory.mkdir()
+            desktop = directory/'first-app.desktop'
+            desktop.write_text('[Desktop Entry]\nType=Application\nName=First App\nExec=/usr/bin/true\n')
+            native = Gio.DesktopAppInfo.new_from_filename(str(desktop))
+            with patch.object(Gio.AppInfo, 'get_all', return_value=[self.native, native]):
+                QTest.qWait(450)
+                self.assertIn('first-app.desktop', menu.apps)
+                self.assertIn(str(directory), menu.catalog_watch.directories())
+                self.assertNotIn('first-app.desktop', catalog.favorites())
+
     def test_favorite_copy_is_independent_of_original(self):
         ident = shortcuts.duplicate(self.entry, {**self.entry.fields, 'name': 'Separate favorite'})
         catalog.pin(ident, True)

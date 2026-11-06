@@ -41,6 +41,15 @@ class UpdateUiTests(unittest.TestCase):
         engine.write_json(self.state/'pending.json', {'revision': '2'*40, 'stage': str(stage), 'automatic': True})
         service.publish(phase='ready', prepared='2'*40, message=service.READY_MESSAGE)
 
+    def test_release_numbers_are_visible_and_commit_hashes_remain_in_tooltip(self):
+        service.publish(current_version='0.0.0.199-alpha',latest_version='0.0.0.200-alpha')
+        window=self.window()
+        self.assertIn('Installed 0.0.0.199-alpha',window.version.text())
+        self.assertIn('Latest 0.0.0.200-alpha',window.version.text())
+        self.assertNotIn('1'*8,window.version.text())
+        self.assertIn('1'*40,window.version.toolTip())
+        self.assertIn('2'*40,window.version.toolTip())
+
     def test_three_themes_and_settings_use_private_state(self):
         from PyQt6.QtWidgets import QApplication
         app = QApplication.instance() or QApplication([])

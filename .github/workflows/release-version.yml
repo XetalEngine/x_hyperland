@@ -1,0 +1,18 @@
+name: Release version
+
+on: [push, pull_request, workflow_dispatch]
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - run: python3 tools/version.py --check HEAD
+      - run: python3 -m unittest discover -s tests -p test_release_version.py -v

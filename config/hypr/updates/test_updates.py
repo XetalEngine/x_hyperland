@@ -246,13 +246,13 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
 
     def test_api_checks_new_commit_and_does_not_autodowngrade(self):
         for relation in ('ahead', 'behind', 'diverged'):
-            responses = [([{'sha': NEW, 'commit': {'message':'Release'}}], 'etag'), ({'status':relation}, '')]
+            responses = [([{'sha': NEW, 'commit': {'message':'Release'}}], 'etag'), ({'status':relation}, ''), (None, '')]
             with patch.object(github, 'request', side_effect=responses): result = service.check(self.live, self.state)
             self.assertEqual(result['phase'], 'available' if relation == 'ahead' else 'current')
             (self.state/'status.json').unlink()
 
     def test_conditional_api_check_and_rate_limit_keep_cached_release(self):
-        previous = {'sha': NEW, 'base':OLD, 'etag':'same', 'relation':'ahead', 'message':'Release'}
+        previous = {'sha': NEW, 'base':OLD, 'etag':'same', 'relation':'ahead', 'message':'Release', 'release_version':''}
         with patch.object(github, 'request', return_value=(None, 'same')) as call:
             self.assertEqual(github.latest(OLD, previous)['sha'], NEW); self.assertEqual(call.call_count, 1)
         service.publish(self.state, phase='available', latest=NEW, github=previous)
@@ -342,7 +342,7 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
     def test_public_api_missing_local_commit_keeps_development_build_unadvertised(self):
         from urllib.error import HTTPError
         responses=[([{'sha':NEW,'commit':{'message':'Published release'}}],'etag'),
-                   HTTPError('https://example.invalid/compare',404,'Not Found',{},None)]
+                   HTTPError('https://example.invalid/compare',404,'Not Found',{},None), (None,'')]
         with patch.object(github,'request',side_effect=responses):
             result=service.check(self.live,self.state)
         self.assertEqual(result['github']['relation'],'unknown')

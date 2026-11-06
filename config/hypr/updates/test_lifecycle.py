@@ -82,11 +82,15 @@ else:
             def git(*args):
                 return subprocess.check_output(['git','-C',str(repo),'-c','user.name=Fixture','-c','user.email=fixture@example.invalid',*args], text=True).strip()
             git('init','-q','-b','main'); (repo/'code').write_text('one'); git('add','.');git('commit','-qm','First version'); first=git('rev-parse','HEAD')
-            (repo/'code').write_text('two');git('commit','-qam','Second version'); second=git('rev-parse','HEAD')
+            (repo/'code').write_text('two')
+            (repo/'config/hypr').mkdir(parents=True)
+            (repo/'config/hypr/VERSION').write_text('0.0.0.200-alpha\n')
+            git('add','.');git('commit','-qm','Second version'); second=git('rev-parse','HEAD')
             with patch.object(github,'REPOSITORY',str(repo)):
                 value=github.git_latest(first,cache=root/'cache')
                 self.assertEqual(value['sha'],second);self.assertEqual(value['relation'],'ahead')
                 self.assertEqual(value['message'],'Second version')
+                self.assertEqual(value['release_version'],'0.0.0.200-alpha')
                 with patch.object(github,'git_cache',side_effect=AssertionError('Unchanged head should not download again')):
                     self.assertEqual(github.git_latest(first,value,root/'cache')['relation'],'ahead')
                 git('update-ref','refs/heads/main',first)

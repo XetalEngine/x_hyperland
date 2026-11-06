@@ -18,6 +18,7 @@ import time
 
 import github
 import update_engine as engine
+import release_version
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'runtime'))
 import runtime_policy
 
@@ -92,10 +93,17 @@ def status(state=None, root=None):
     # Direct development installs update the inventory while the session checker
     # stays alive. The installed revision wins over its cached failure/status.
     if root is None and state != STATE: return value
-    try: current = engine.installed(root or ROOT)['revision']
+    try:
+        installed = engine.installed(root or ROOT)
+        current = installed['revision']
+        value['current_version'] = installed.get('release_version', '')
     except (OSError, ValueError, RuntimeError): current = value.get('current')
+    value.setdefault('current_version', '')
     if not current: return value
     pending = pending_update(state, current)
+    value['prepared_version'] = pending.get('release_version', '') if pending else ''
+    if value.get('latest') == current:
+        value['latest_version'] = value.get('current_version', '')
     if value.get('phase') == 'rollback': return value
     if value.get('phase') == 'runtime-required' and current == value.get('current'): return value
     runtime_ready = value.get('phase') == 'ready' and pending and pending.get('runtime_setup')
@@ -155,14 +163,15 @@ def badge(value, root=None):
                                     and value.get('latest') != value.get('current')):
         text = ''
     message = value.get('message', 'Xetal desktop updates · Click to check and manage updates')
-    if value.get('prepared'): message += '\nPrepared desktop · '+value['prepared'][:8]
-    if value.get('latest'): message += '\nGitHub main · '+value['latest'][:8]
+    if value.get('prepared'): message += '\nPrepared desktop · '+release_version.label(value.get('prepared_version'), value['prepared'])
+    if value.get('latest'): message += '\nGitHub main · '+release_version.label(value.get('latest_version'), value['latest'])
     return {'text': text, 'class': phase, 'tooltip': html.escape(message)}
 
 
 def check(root=None, state=None):
     root, state = root or ROOT, state or STATE
-    current = engine.installed(root)['revision']; value = status(state, root)
+    installed = engine.installed(root)
+    current = installed['revision']; value = status(state, root)
     if time.time() < value.get('retry_at', 0): return value
     try:
         latest = github.latest(current, value.get('github'))
@@ -189,9 +198,13 @@ def check(root=None, state=None):
             phase = 'runtime-required'; message = required['message']
         if phase == 'current' and restart_ready({**value, 'phase': phase, 'current': current}):
             message = READY_MESSAGE
-        return publish(state, phase=phase, current=current, latest=latest['sha'], title=latest['message'],
+        return publish(state, phase=phase, current=current, current_version=installed.get('release_version',''),
+                       latest=latest['sha'], latest_version=(installed.get('release_version','') if latest['sha'] == current
+                                                          else latest.get('release_version','')),
+                       title=latest['message'],
                        github=latest, message=message, checked=time.time(), retry_at=0,
                        prepared=pending.get('revision','') if pending else '',
+                       prepared_version=pending.get('release_version','') if pending else '',
                        failed_revision=value.get('failed_revision','') if phase in ('attention','runtime-required') else '')
     except Exception as error:
         retry_at = getattr(error, 'retry_at', time.time()+900)
@@ -230,7 +243,8 @@ def queue_rollback(root=None, state=None):
         engine.check_plan(root, backup/'files', plan)
         engine.write_json(state/'rollback-plan.json', plan)
         engine.write_json(state/'pending.json', {'stage': str(backup/'files'), 'plan': str(state/'rollback-plan.json'),
-                                               'revision': plan['revision'], 'automatic': False, 'rollback': True})
+                                               'revision': plan['revision'], 'release_version': plan.get('release_version',''),
+                                               'automatic': False, 'rollback': True})
         settings = preferences(state); settings['automatic'] = False; engine.write_json(state/'settings.json', settings)
         publish(state, phase='rollback', message='Rollback is queued for your next Hyprland login. Automatic updates are paused.')
 
@@ -278,7 +292,8 @@ def activate(root=None, state=None):
         backup = engine.apply_plan(root, stage, plan, state)
         (state/'pending.json').unlink(missing_ok=True)
         (state/'runtime-required.json').unlink(missing_ok=True)
-        publish(state, phase='current', current=plan['revision'], installed=engine.now(),
+        publish(state, phase='current', current=plan['revision'],
+                current_version=engine.installed(root).get('release_version',''), installed=engine.now(),
                 message='Desktop update installed.' if not pending.get('rollback') else 'Previous desktop version restored.',
                 backup=str(backup), retry_prepare=False, failed_revision='',
                 github={**status(state).get('github',{}),'base':'','relation':'unknown'})

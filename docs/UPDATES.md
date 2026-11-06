@@ -73,6 +73,30 @@ Public repositories use GitHub's conditional API requests, cached commit informa
 
 ## Maintainer checks
 
+The release label lives in `config/hypr/VERSION`, starting at
+`0.0.0.199-alpha`. The fourth number advances automatically for each commit,
+including an amended commit. Commit hashes still identify, compare and verify
+updates; the version is also saved in installation records and restored on rollback.
+Old, unnumbered installations continue to display their commit hash.
+
+Enable automatic numbering once in each maintainer checkout:
+
+```bash
+python3 tools/version.py --install-hooks
+```
+
+The tracked [Git commit hooks](https://git-scm.com/docs/githooks#_pre_commit)
+stamp and stage only `VERSION` alongside your changes. Failed commit retries
+reuse the same number. Merge commits advance past both parents, and shallow
+clones use the recorded build number. Create merge commits using
+`git merge --no-ff --no-commit <branch>` followed by `git commit`, so Git runs the
+commit hook. ZIP/tar downloads contain the committed
+version and need no network access to identify it. Setup and Desktop Updates
+display that label; hover over the updater's version line for full commit hashes.
+The GitHub check rejects a non-advancing release number if hooks were bypassed.
+To change the release series or channel later, edit and stage `VERSION`; the
+hook preserves those choices while advancing the build number.
+
 ```bash
 (cd config/hypr/updates && QT_QPA_PLATFORM=offscreen python3 -m unittest discover -v)
 python3 -m unittest discover -s tests -v

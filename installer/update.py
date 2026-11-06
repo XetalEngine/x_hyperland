@@ -69,6 +69,7 @@ def prepare(home, commit, automatic=True, allow_runtime=False, checkpoint=lambda
             os.replace(stage, destination)
             engine.write_json(destination/'plan.json', plan)
             engine.write_json(state/'pending.json', {'stage': str(destination), 'revision': commit,
+                                                     'release_version': engine.installed(destination).get('release_version',''),
                                                      'automatic': automatic, 'runtime_setup': allow_runtime})
             (state/'runtime-required.json').unlink(missing_ok=True)
             print('Ready. '+('Installing the matching desktop now.' if allow_runtime else

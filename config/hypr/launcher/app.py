@@ -289,6 +289,15 @@ class Menu(QWidget):
         self.close_button=close_button(self,title='Close Apps')
         self.heading = label('Favorites', 'section')
         greeting.addWidget(self.heading)
+        self.refresh_button = QPushButton(self)
+        self.refresh_button.setIcon(QIcon.fromTheme('view-refresh', self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)))
+        self.refresh_button.setIconSize(QSize(18, 18))
+        self.refresh_button.setFixedSize(30, 30)
+        self.refresh_button.setStyleSheet('padding: 6px;')
+        self.refresh_button.setAccessibleName('Refresh apps')
+        self.refresh_button.setToolTip('Refresh installed apps (F5)')
+        self.refresh_button.clicked.connect(self.catalog_changed)
+        greeting.addWidget(self.refresh_button)
         self.favorites_board = Board(Tiles.draw)
         self.favorite_trash = TrashTarget(self.favorites_board)
         greeting.addWidget(self.favorite_trash)
@@ -353,6 +362,7 @@ class Menu(QWidget):
         outer.addLayout(main, 1)
         QShortcut(QKeySequence('Escape'), self).activated.connect(self.close)
         QShortcut(QKeySequence('Ctrl+F'), self).activated.connect(self.search.setFocus)
+        QShortcut(QKeySequence('F5'), self).activated.connect(self.catalog_changed)
         QShortcut(QKeySequence('F2'), self).activated.connect(self.edit_current)
         QShortcut(QKeySequence('Ctrl+N'), self).activated.connect(lambda: self.perform('new'))
         self.timer = QTimer(self)
@@ -380,6 +390,14 @@ class Menu(QWidget):
             if directory.is_dir():
                 paths.add(directory);paths.update(directory.rglob('*.desktop'))
                 paths.update(p for p in directory.rglob('*') if p.is_dir())
+            else:
+                # First-time installers may create applications/ after preload.
+                # Follow the nearest existing parent until the directory appears.
+                parent = directory.parent
+                while not parent.exists() and parent != parent.parent:
+                    parent = parent.parent
+                if parent.is_dir() and parent != parent.parent:
+                    paths.add(parent)
         existing=set(self.catalog_watch.files()+self.catalog_watch.directories())
         missing=[str(p) for p in paths if p.exists() and str(p) not in existing]
         if missing:self.catalog_watch.addPaths(missing)
@@ -389,6 +407,7 @@ class Menu(QWidget):
         self.watch_catalog();self.refresh_apps()
 
     def present(self):
+        self.catalog_changed()
         if not self.preview:
             try:
                 width,height=placement.prepare(geometry.size())

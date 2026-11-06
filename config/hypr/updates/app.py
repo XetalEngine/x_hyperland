@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QL
                             QPushButton, QCheckBox, QPlainTextEdit, QProgressBar, QMessageBox)
 import service
 import update_engine as engine
+import release_version
 sys.path.insert(0, str(service.ROOT/'theme'))
 import runtime as theme_runtime
 from window_chrome import window_controls
@@ -40,7 +41,8 @@ class Window(QWidget):
         header = QHBoxLayout(); label = QLabel('XETAL  /  DESKTOP UPDATES'); label.setObjectName('eyebrow')
         header.addWidget(label, 1); header.addWidget(window_controls(self)); layout.addLayout(header)
         self.heading = QLabel('Your desktop, kept current.'); self.heading.setObjectName('brand'); layout.addWidget(self.heading)
-        self.version = QLabel(); self.version.setObjectName('muted'); layout.addWidget(self.version)
+        self.version = QLabel(); self.version.setObjectName('muted'); self.version.setWordWrap(True)
+        self.version.setTextFormat(Qt.TextFormat.PlainText); layout.addWidget(self.version)
         self.message = QLabel(); self.message.setWordWrap(True); self.message.setTextFormat(Qt.TextFormat.PlainText)
         self.message.setObjectName('message'); layout.addWidget(self.message)
         self.progress = QProgressBar(); self.progress.setRange(0, 0); self.progress.setTextVisible(False); layout.addWidget(self.progress)
@@ -128,10 +130,15 @@ class Window(QWidget):
                                    or time.monotonic()-self.queued_at > 10):
             self.queued_action = None
         current = value.get('current', '')
+        current_version = value.get('current_version', '')
         if not current:
-            try: current = engine.installed(service.ROOT)['revision']
+            try:
+                installed = engine.installed(service.ROOT)
+                current = installed['revision']; current_version = installed.get('release_version','')
             except Exception: current = 'unregistered'
-        self.version.setText('Installed '+current[:8]+'   ·   GitHub / main'+('   ·   Latest '+value['latest'][:8] if value.get('latest') else ''))
+        self.version.setText('Installed '+release_version.label(current_version, current)+'   ·   GitHub / main'+
+                             ('   ·   Latest '+release_version.label(value.get('latest_version'),value['latest']) if value.get('latest') else ''))
+        self.version.setToolTip('Installed commit: '+current+('\nLatest commit: '+value['latest'] if value.get('latest') else ''))
         self.message.setText(value.get('message', 'Ready to check for desktop updates.'))
         pending = engine.json_file(service.STATE/'pending.json', {})
         ready = service.restart_ready(value, pending)

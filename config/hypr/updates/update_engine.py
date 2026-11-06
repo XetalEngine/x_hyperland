@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 
 from file_policy import KEEP, policy
+import release_version
 
 REPOSITORY = 'https://github.com/XetalEngine/x_hyperland.git'
 BRANCH = 'main'
@@ -95,7 +96,8 @@ def metadata(root, commit):
             except UnicodeDecodeError: pass
         files[str(path.relative_to(root))] = entry
     result = {'version': 1, 'repository': REPOSITORY, 'branch': BRANCH,
-              'revision': revision(commit), 'installed': now(), 'files': files}
+              'revision': revision(commit), 'release_version': release_version.read(root),
+              'installed': now(), 'files': files}
     if (root/'runtime/manifest.json').is_file():
         result['runtime'] = json_file(root/'runtime/manifest.json')
         fedora = result['runtime'].get('fedora_manifest')
@@ -156,7 +158,8 @@ def register_deployment(live, reference, state):
         cached = json_file(state/'status.json', {})
         if not pending or obsolete:
             identical = cached.get('latest') == value['revision']
-            cached.update(phase='current', current=value['revision'], prepared='', failed_revision='', retry_prepare=False,
+            cached.update(phase='current', current=value['revision'], current_version=value.get('release_version',''),
+                          prepared='', failed_revision='', retry_prepare=False,
                           restart_revision='', restart_session='',
                           message='Your desktop is up to date.' if identical else 'Local deployment registered. Checking will refresh its status.')
             cached['github'] = {**cached.get('github', {}), 'base': value['revision'],
@@ -378,4 +381,5 @@ def rollback_plan(live, backup):
     expected = {name: (entry['sha256'] if entry else None) for name, entry in record['after'].items()}
     previous = json_file(backup/'files'/META)
     return {'version': 1, 'revision': revision(previous['revision']), 'created': now(),
+            'release_version': previous.get('release_version',''),
             'automatic': False, 'expected': expected, 'changes': record['before'], 'runtime': previous.get('runtime')}

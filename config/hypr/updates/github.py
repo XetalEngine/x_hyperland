@@ -1,4 +1,6 @@
 """Read the public main branch; download only the exact advertised commit."""
+import base64
+import binascii
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -9,6 +11,7 @@ import time
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from update_engine import REPOSITORY, revision
+import release_version
 
 API = 'https://api.github.com/repos/XetalEngine/x_hyperland'
 
@@ -36,7 +39,8 @@ def git_latest(current, previous=None, cache=None):
     output = subprocess.check_output(['git', 'ls-remote', '--exit-code', REPOSITORY, 'refs/heads/main'],
                                      env=env, text=True, timeout=30, stderr=subprocess.PIPE)
     commit = revision(output.split()[0])
-    if previous.get('sha') == commit and previous.get('base') == current and previous.get('relation') != 'unknown':
+    if (previous.get('sha') == commit and previous.get('base') == current and previous.get('relation') != 'unknown'
+            and ('release_version' in previous or commit == current)):
         return {**previous, 'transport': 'git'}
     value = {'sha':commit, 'base':current, 'etag':'', 'transport':'git',
              'relation':'identical', 'message':'Current GitHub main version'}
@@ -44,6 +48,10 @@ def git_latest(current, previous=None, cache=None):
     _, command = git_cache(cache or Path.home()/'.cache/xetal-hyprland/updates')
     subprocess.run([*command, 'fetch', '--depth=256', '--no-tags', REPOSITORY, commit],
                    env=env, check=True, timeout=300, capture_output=True)
+    version = subprocess.run([*command, 'show', commit+':'+release_version.SOURCE_PATH],
+                             env=env, capture_output=True, text=True, timeout=30)
+    try: value['release_version'] = release_version.parse(version.stdout) if version.returncode == 0 else ''
+    except ValueError: value['release_version'] = ''
     present = subprocess.run([*command, 'cat-file', '-e', current+'^{commit}'], env=env, capture_output=True)
     if present.returncode:
         try:
@@ -112,12 +120,32 @@ def latest(current, previous=None):
         try: comparison, _ = request('/compare/'+current+'...'+result['sha'])
         except HTTPError as error:
             if error.code != 404: raise
-            return {**result,'base':current,'relation':'unknown',
-                    'message':'This local desktop revision is not available from GitHub. Automatic downgrades are disabled.'}
+            return with_version({**result,'base':current,'relation':'unknown',
+                    'message':'This local desktop revision is not available from GitHub. Automatic downgrades are disabled.'}, previous)
         result['relation'] = comparison['status']
         if result['relation'] not in ('ahead', 'behind', 'diverged', 'identical'):
             raise ValueError('GitHub returned an unknown commit relationship.')
     result['base'] = current
+    return with_version(result, previous)
+
+
+def with_version(result, previous):
+    """Read the label at this exact commit, never at a moving branch head."""
+    if previous.get('sha') == result['sha'] and 'release_version' in previous:
+        return {**result, 'release_version': previous['release_version']}
+    try:
+        data, _ = request('/contents/'+release_version.SOURCE_PATH+'?ref='+result['sha'])
+        if not isinstance(data, dict) or data.get('type') != 'file' or data.get('encoding') != 'base64':
+            return result
+        encoded = data.get('content', '')
+        if not isinstance(encoded, str) or len(encoded) > 256: return result
+        value = release_version.parse(base64.b64decode(encoded).decode('utf-8'))
+        return {**result, 'release_version': value}
+    except HTTPError as error:
+        if error.code == 404: return {**result, 'release_version': ''}
+    except (OSError, ValueError, binascii.Error, RetryLater):
+        pass
+    # Optional display metadata must not prevent a verified commit update.
     return result
 
 
