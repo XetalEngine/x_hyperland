@@ -18,7 +18,7 @@ def main():
     g.dialog_set_default_response(dialog, -5)
     content = g.dialog_get_content_area(dialog)
     g.container_set_border_width(content, 20)
-    label = g.label_new(b'Debian needs administrator access to continue.\nEnter the root password set during Debian installation:' if root else
+    label = g.label_new(b'Setup needs administrator access to continue.\nEnter the system root password:' if root else
                         b'Administrator access is needed for desktop packages\nand the tested Hyprland version. Enter your password:')
     g.label_set_xalign(label, 0)
     g.box_pack_start(content, label, 0, 0, 8)

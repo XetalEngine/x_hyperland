@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'installer'))
 import dependencies as deps
 import install
 import runtime_install as runtime
+import arch_runtime as arch
 import update
 
 
@@ -59,17 +60,14 @@ class DistributionTests(unittest.TestCase):
 
     def test_package_resolution_is_read_only_and_checks_repository_versions(self):
         output='waybar 0.15.0-2\nkitty 1:0.49.1-1.1\nhyprpaper 0.8.0-1\n'
-        with self.host('cachyos','arch'),patch.object(deps.subprocess,'run',return_value=subprocess.CompletedProcess([],0,output,'')) as run:
+        with self.host('cachyos','arch'),patch.object(arch,'preflight') as preflight:
             deps.preflight()
-            args=run.call_args.args[0]
-            self.assertEqual(args[:2],['pacman','-Sp'])
-            self.assertNotIn('--needed',args)
-            self.assertEqual(args[-len(deps.PACKAGES['arch']):],deps.PACKAGES['arch'])
+            preflight.assert_called_once_with(deps.PACKAGES['arch'])
         self.assertTrue(deps.package_version_problems(output.replace('0.15.0','0.14.0')))
         self.assertTrue(deps.package_version_problems('kitty 0.49.0\n'))
 
     def test_missing_repository_package_has_an_actionable_error(self):
-        with self.host('manjaro','arch'),patch.object(deps.subprocess,'run',return_value=subprocess.CompletedProcess([],1,'','error: target not found: kitty')):
+        with self.host('manjaro','arch'),patch.object(arch,'preflight',side_effect=RuntimeError('error: target not found: kitty')):
             with self.assertRaisesRegex(RuntimeError,'target not found: kitty'):deps.preflight()
 
     def test_compositor_abi_resolution_keeps_dependency_checks_enabled(self):
@@ -84,7 +82,7 @@ class DistributionTests(unittest.TestCase):
             with self.subTest(stdout=stdout,stderr=stderr),self.host(), \
                  patch.object(runtime.subprocess,'run',return_value=subprocess.CompletedProcess([],1,stdout,stderr)), \
                  patch.object(runtime,'administrator') as administrator:
-                for check in (deps.preflight,lambda:runtime.check_transaction(Path('/tmp/package'))):
+                for check in (lambda:arch.resolve(Path('/tmp/config'), []),lambda:runtime.check_transaction(Path('/tmp/package'))):
                     with self.assertRaises(RuntimeError) as raised:check()
                     self.assertIn(detail,str(raised.exception))
                     if summary in stdout+stderr:self.assertIn(summary,str(raised.exception))
@@ -118,16 +116,16 @@ class DistributionTests(unittest.TestCase):
             execute=subprocess.run
             results=[]
             def resolve(argv,**kwargs):
-                self.assertEqual(argv[:2],['pacman','-Sp'])
+                self.assertEqual(argv[:2],['pacman','--config'])
                 result=execute([argv[0],'--config',str(config),'--dbpath',str(root/'db'),
                                 '--root',str(root/'root'),'--cachedir',str(root/'cache'),
-                                '--logfile',str(root/'pacman.log'),*argv[1:]],
-                               **kwargs,env={**os.environ,'LC_ALL':'C'})
+                                '--logfile',str(root/'pacman.log'),*argv[3:]], **kwargs)
                 results.append(result)
                 return result
             with self.host(),patch.dict(deps.PACKAGES,{'arch':['fixture-lib']}), \
+                 patch.object(arch,'package_args',return_value=['fixture-lib']), \
                  patch.object(deps.subprocess,'run',side_effect=resolve):
-                with self.assertRaises(RuntimeError) as raised:deps.preflight()
+                with self.assertRaises(RuntimeError) as raised:arch.resolve(config, ['fixture-lib'])
             self.assertIn("required by fixture-app",results[0].stdout)
             self.assertIn('could not satisfy dependencies',results[0].stderr)
             self.assertIn("required by fixture-app",str(raised.exception))
@@ -136,11 +134,10 @@ class DistributionTests(unittest.TestCase):
             self.assertEqual(list((root/'root').iterdir()),[])
             self.assertEqual(list((root/'cache').iterdir()),[])
 
-    def test_incompatible_compositor_does_not_request_administrator_or_backup(self):
-        with self.host(),patch.object(runtime,'download',return_value=Path('/tmp/package')), \
-             patch.object(runtime,'check_transaction',side_effect=RuntimeError('ABI mismatch')), \
+    def test_incompatible_combined_runtime_does_not_request_administrator_or_backup(self):
+        with self.host(),patch.object(arch,'preflight',side_effect=RuntimeError('ABI mismatch')), \
              patch.object(runtime,'administrator') as administrator,patch.object(runtime,'previous_package') as backup:
-            with self.assertRaisesRegex(RuntimeError,'ABI mismatch'):runtime.ensure(yes=True)
+            with self.assertRaisesRegex(RuntimeError,'ABI mismatch'):deps.preflight()
             administrator.assert_not_called();backup.assert_not_called()
 
     def test_install_and_foreground_update_preflight_before_any_package_changes(self):

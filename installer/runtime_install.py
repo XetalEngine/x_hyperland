@@ -1,9 +1,9 @@
 """Prepare verified compositor packages and request normal administrator auth."""
 import base64
 import hashlib
+import json
 import os
 from pathlib import Path
-import platform
 import re
 import shutil
 import subprocess
@@ -20,6 +20,17 @@ PIN = Path('/etc/pacman.d/xetal-hyprland.conf')
 BUNDLED = ROOT/'installer/packages'
 TRANSACTION = None
 TRANSACTION_BACKEND = 'arch'
+_handoff = os.environ.pop('XETAL_SETUP_PACKAGE_RECOVERY', '')
+if _handoff:
+    _record = json.loads(_handoff)
+    _roots = {'arch-bundle':'/var/lib/xetal-hyprland/arch-runtime',
+              'arch':'/var/lib/xetal-hyprland/runtime',
+              'fedora':'/var/lib/xetal-hyprland/fedora-runtime',
+              'debian':'/var/lib/xetal-hyprland/debian-runtime'}
+    if _record.get('backend') not in _roots or Path(_record['path']).parent != Path(_roots[_record['backend']]):
+        raise RuntimeError('Invalid package recovery handoff.')
+    TRANSACTION = Path(_record['path'])
+    TRANSACTION_BACKEND = _record['backend']
 # Reserve these for the Debian authentication wrapper, outside APT's exit codes.
 DEBIAN_AUTH_CANCELLED = 200
 DEBIAN_AUTH_FAILED = 201
@@ -34,6 +45,10 @@ def graphical_administrator(data=None):
 
 def administrator():
     global DEBIAN_USE_SU
+    if os.environ.get('XETAL_SETUP_AUTH_SU') == '1' and shutil.which('su'):
+        return ['/usr/bin/python3', str(ROOT/'installer/root_auth.py')]
+    if os.environ.get('XETAL_SETUP_AUTH_PKEXEC') == '1' and shutil.which('pkexec'):
+        return ['pkexec', '--disable-internal-agent']
     if os.environ.get('XETAL_SETUP_GUI') == '1' and policy.debian_host():
         if not DEBIAN_USE_SU and not shutil.which('pkexec') and shutil.which('su'):
             import debian_administrator
@@ -47,9 +62,17 @@ def administrator():
         # for a terminal agent on the wizard's output pipe if none is running.
         return ['pkexec', '--disable-internal-agent']
     if not shutil.which('sudo'):
+        if os.environ.get('XETAL_SETUP_GUI') == '1' and shutil.which('pkexec'):
+            os.environ['XETAL_SETUP_AUTH_PKEXEC'] = '1'
+            return ['pkexec', '--disable-internal-agent']
+        if shutil.which('su'):
+            # Survive both dependency installation (which supplies sudo) and
+            # Python's upgrade/restart without changing authentication backend.
+            os.environ['XETAL_SETUP_AUTH_SU'] = '1'
+            return ['/usr/bin/python3', str(ROOT/'installer/root_auth.py')]
         raise RuntimeError('Setup needs administrator authentication for system packages. '
-                           'On Debian, install pkexec and use graphical Setup, or use an account '
-                           'authorized to run sudo. Run Setup as your desktop user.')
+                           'Install sudo, su, or a graphical pkexec authentication agent. '
+                           'Run Setup as your desktop user.')
     if os.environ.get('XETAL_SETUP_GUI') == '1':
         os.environ['SUDO_ASKPASS'] = str(ROOT/'installer/askpass.py')
         return ['sudo', '-A']
@@ -59,6 +82,11 @@ def administrator():
 def check_administrator_result(prefix, code, output=''):
     """Recognize authentication failures before reporting a package failure."""
     tool = Path(prefix[0]).name if prefix else ''
+    if prefix and str(ROOT/'installer/root_auth.py') in prefix:
+        if code == DEBIAN_AUTH_CANCELLED:
+            raise RuntimeError('Root authentication was cancelled. Retry Setup when ready.')
+        if code == DEBIAN_AUTH_FAILED:
+            raise RuntimeError('Root authentication failed. Enter the system root password, not your desktop password.')
     if prefix and str(ROOT/'installer/debian_su.py') in prefix:
         if code == DEBIAN_AUTH_CANCELLED:
             raise RuntimeError('Debian root authentication was cancelled. Retry Setup when ready.')
@@ -155,21 +183,23 @@ def save_recovery(cache, filename, local_dirs, url=None, signature=b''):
     return cache/filename
 
 
-def previous_package(cache):
+def previous_package(cache, package_name='hyprland'):
     """Preserve the exact installed package, including CachyOS architecture builds."""
-    result = subprocess.run(['pacman', '-Q', 'hyprland'], capture_output=True, text=True, timeout=10)
+    if not re.fullmatch(r'[a-z][a-z0-9+-]*', package_name):
+        raise ValueError('Invalid recovery package name.')
+    result = subprocess.run(['pacman', '-Q', package_name], capture_output=True, text=True, timeout=10)
     if result.returncode: return None
     name, version = result.stdout.split()
-    if name != 'hyprland' or not re.fullmatch(r'[0-9][A-Za-z0-9.+_:-]*', version):
+    if name != package_name or not re.fullmatch(r'[0-9][A-Za-z0-9.+_~:-]*', version):
         raise RuntimeError('Cannot identify the installed compositor package for recovery.')
-    details = subprocess.run(['pacman', '-Qi', 'hyprland'], capture_output=True, text=True,
+    details = subprocess.run(['pacman', '-Qi', package_name], capture_output=True, text=True,
                              env={**os.environ, 'LC_ALL':'C'}, timeout=10)
     arch = re.search(r'^Architecture\s*:\s*([A-Za-z0-9_]+)\s*$', details.stdout, re.M)
     if details.returncode or not arch:
         raise RuntimeError('Cannot identify the installed compositor architecture for recovery.')
     architecture = arch[1]
     # Epochs belong in the package version, not its archive filename.
-    filename = 'hyprland-'+version.split(':')[-1]+'-'+architecture+'.pkg.tar.zst'
+    filename = package_name+'-'+version.split(':')[-1]+'-'+architecture+'.pkg.tar.zst'
     cache.mkdir(parents=True, exist_ok=True)
     local_dirs = package_caches()
     try:
@@ -179,7 +209,7 @@ def previous_package(cache):
     # --print only queries pacman's configured repositories. It never changes
     # packages or refreshes databases. %g also covers caches without a .sig file.
     result = subprocess.run(['pacman', '-Spdd', '--noconfirm', '--print-format',
-                             '%n|%v|%a|%f|%l|%g', 'hyprland='+version],
+                             '%n|%v|%a|%f|%l|%g', package_name+'='+version],
                             capture_output=True, text=True, timeout=15)
     sources = []
     if result.returncode == 0:
@@ -187,7 +217,7 @@ def previous_package(cache):
             fields = line.split('|')
             if len(fields) != 6: continue
             pkg, candidate_version, candidate_arch, file, url, encoded = fields
-            if (pkg, candidate_version, candidate_arch, file) != ('hyprland', version, architecture, filename):
+            if (pkg, candidate_version, candidate_arch, file) != (package_name, version, architecture, filename):
                 continue
             if urlparse(url).scheme not in ('https', 'http', 'file'): continue
             try: signature = base64.b64decode(encoded, validate=True)
@@ -198,14 +228,14 @@ def previous_package(cache):
         for server in pacman_config('--repo', repo, 'Server')[:3]:
             if urlparse(server).scheme in ('https', 'http', 'file'):
                 sources.append((server.rstrip('/')+'/'+filename, b''))
-    sources.append(('https://archive.archlinux.org/packages/h/hyprland/'+filename, b''))
+    sources.append(('https://archive.archlinux.org/packages/'+package_name[0]+'/'+package_name+'/'+filename, b''))
     errors = []
     for url, signature in dict.fromkeys(sources):
         try: return save_recovery(cache, filename, local_dirs, url, signature)
         except OSError as error:
             errors.append(str(error))
             if isinstance(error, HTTPError): error.close()
-    raise RuntimeError('Could not save the installed Hyprland '+version+' ('+architecture+
+    raise RuntimeError('Could not save the installed '+package_name+' '+version+' ('+architecture+
                        ') for recovery from the package cache or configured repositories. '+
                        'No compositor changes were made. Last download error: '+errors[-1])
 
@@ -213,6 +243,19 @@ def previous_package(cache):
 def complete():
     global TRANSACTION
     TRANSACTION = None
+
+
+def restart_after_python_upgrade():
+    """An older rolling system may replace Python during the package upgrade."""
+    result = subprocess.run(['/usr/bin/python3', '-c', 'import sys;print("%d.%d" % sys.version_info[:2])'],
+                            capture_output=True, text=True, check=True, timeout=15)
+    if result.stdout.strip() == '%d.%d' % sys.version_info[:2]:
+        return
+    print('System Python was upgraded. Continuing Setup with the new interpreter and preserved recovery record.', flush=True)
+    environment = dict(os.environ)
+    if TRANSACTION:
+        environment['XETAL_SETUP_PACKAGE_RECOVERY'] = json.dumps({'backend':TRANSACTION_BACKEND, 'path':str(TRANSACTION)})
+    os.execve('/usr/bin/python3', ['/usr/bin/python3', *sys.argv], environment)
 
 
 def package_error_output(result):
@@ -237,7 +280,8 @@ def rollback():
     global TRANSACTION
     if not TRANSACTION: return
     print('Restoring the previous compositor because desktop setup did not finish.', flush=True)
-    helper = {'fedora':'system_fedora_runtime.py', 'debian':'system_debian_runtime.py', 'arch':'system_runtime.py'}[TRANSACTION_BACKEND]
+    helper = {'fedora':'system_fedora_runtime.py', 'debian':'system_debian_runtime.py',
+              'arch':'system_runtime.py', 'arch-bundle':'system_arch_runtime.py'}[TRANSACTION_BACKEND]
     subprocess.run([*administrator(), '/usr/bin/python3', str(ROOT/'installer'/helper),
                     '--restore', str(TRANSACTION)], check=True)
     TRANSACTION = None
@@ -252,40 +296,10 @@ def ensure(yes=False):
     if policy.debian_host(dependencies.distribution()):
         import debian_runtime
         return debian_runtime.ensure(yes)
-    TRANSACTION_BACKEND = 'arch'
-    target = policy.manifest()
+    if dependencies.distro() == 'arch':
+        import arch_runtime
+        return arch_runtime.ensure(yes)
     message = policy.problem()
-    if not message and (dependencies.distro() != 'arch' or pinned(target)):
-        return False
-    if dependencies.distro() != 'arch' or platform.machine() != target['architecture']:
-        raise RuntimeError('Automatic compositor setup supports Arch-based x86-64 systems. '+
-                           (message or 'Install and hold the matching compositor with your distribution package manager.'))
-    print('Required desktop compositor: Hyprland '+target['hyprland']+'; '+
-          ('install/downgrade and hold this version.' if message else 'hold the installed version.'), flush=True)
-    if not yes and input('Apply this compositor version and package hold? [y/N] ').strip().lower() not in ('y','yes'):
-        raise RuntimeError('Compositor setup cancelled.')
-    cache = Path.home()/'.cache/xetal-hyprland/runtime'/target['arch_package']
-    package = download(target, cache) if message else None
-    if package: check_transaction(package)
-    args = [*administrator(), '/usr/bin/python3', str(ROOT/'installer/system_runtime.py')]
-    if package:
-        previous = previous_package(cache)
-        args += ['--package', str(package)]
-        if previous: args += ['--previous', str(previous)]
-    with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True) as process:
-        try:
-            for line in process.stdout:
-                if line.startswith('XETAL_RUNTIME_TRANSACTION '):
-                    TRANSACTION = Path(line.strip().split(' ',1)[1])
-                else: print(line, end='', flush=True)
-            code = process.wait()
-        except KeyboardInterrupt:
-            # The privileged helper restores its transaction on interruption.
-            # Wait for that recovery before the caller attempts another action.
-            process.wait()
-            raise
-    if code: raise RuntimeError('Compositor package setup failed. See the package details above.')
-    if package and not TRANSACTION: raise RuntimeError('Compositor setup did not return a recovery record.')
-    policy.require()
-    if not pinned(target): raise RuntimeError('The compositor hold was not installed.')
-    return bool(message)
+    if not message:
+        return False  # A manually supplied native runtime on another distro.
+    raise RuntimeError('No matching native compositor bundle is available for this distribution. '+message)

@@ -27,11 +27,15 @@ def main():
                 return subprocess.call([terminal, '--title', 'Xetal Setup prerequisites', sys.executable, str(__file__), '--gui', *(['--update'] if '--update' in args else [])])
             raise RuntimeError('GTK 3 is required. Run x_hyperinstall.sh in a terminal to install it.')
         import dependencies
-        command = {'arch':['pacman','-S','--needed','gtk3'], 'fedora':['dnf','install','gtk3'],
-                   'debian':['apt-get','install','libgtk-3-0t64']}.get(dependencies.distro())
-        if command is None: raise RuntimeError('Install the GTK 3 runtime, then open Setup again.')
-        if input('Install GTK 3 to open the graphical installer? [Y/n] ').strip().lower() not in ('','y','yes'): return 1
-        subprocess.run(['sudo',*command], check=True)
+        family = dependencies.distro()
+        if family not in ('arch', 'fedora', 'debian'):
+            raise RuntimeError('Install the GTK 3 runtime, then open Setup again.')
+        prompt = ('Install GTK 3 and upgrade Arch-family packages to open Setup? [Y/n] '
+                  if family == 'arch' else 'Install GTK 3 to open the graphical installer? [Y/n] ')
+        if input(prompt).strip().lower() not in ('','y','yes'): return 1
+        import runtime_install
+        subprocess.run([*runtime_install.administrator(), '/bin/bash', str(ROOT/'bootstrap_packages.sh'), 'gtk3'], check=True)
+        runtime_install.restart_after_python_upgrade()
     from wizard import main as wizard
     existing = (Path.home()/'.config/hypr/.xetal-update.json').is_file()
     return wizard(update='--update' in args or existing)

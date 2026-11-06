@@ -1,0 +1,117 @@
+{
+  "schema": 1,
+  "distribution": "arch",
+  "architecture": "x86_64",
+  "hyprland": "0.56.2",
+  "commit": "efb50993780079460b0cbed1363e2166a2de1d9f",
+  "packages": [
+    {
+      "name": "hyprland",
+      "version": "0.56.2-4",
+      "architecture": "x86_64",
+      "file": "hyprland-0.56.2-4-x86_64.pkg.tar.zst",
+      "bytes": 51303184,
+      "sha256": "163bc740241880192d90027fad39ddb809b1705b04800a1f0185a58f3ce0884a",
+      "signature_sha256": "a885f28848fd22ca02cb9cb92d4d33feb5ae4de729409ef0900ec354dfcf095b"
+    },
+    {
+      "name": "aquamarine",
+      "version": "0.15.1-1",
+      "architecture": "x86_64",
+      "file": "aquamarine-0.15.1-1-x86_64.pkg.tar.zst",
+      "bytes": 469302,
+      "sha256": "ac96995cceea132e32cafd9bf63fd6cbe3d0599ab175e82bcee85b0c7da9706c",
+      "signature_sha256": "b2b263bf0e1d2d815dd34c86289b4645096085a0c434ccb108f59d9aace6316c"
+    },
+    {
+      "name": "hyprgraphics",
+      "version": "0.5.1-4",
+      "architecture": "x86_64",
+      "file": "hyprgraphics-0.5.1-4-x86_64.pkg.tar.zst",
+      "bytes": 91662,
+      "sha256": "c916b1fb9d7ad0e78fab2d94b0066dcdc8be0a2810be7e72df57ddf5b639fea3",
+      "signature_sha256": "74ff012fe4372e11287baedf733b88c24fa4c7ba20da300637c03c984b6d52dc"
+    },
+    {
+      "name": "hyprutils",
+      "version": "0.14.3-1",
+      "architecture": "x86_64",
+      "file": "hyprutils-0.14.3-1-x86_64.pkg.tar.zst",
+      "bytes": 222737,
+      "sha256": "4e30d54567ff3324cf003aca5d1ab85df4fe3215c3f378eb6bcaaec941da39df",
+      "signature_sha256": "bd14f065f8af7632315f7ce88c20e0c9c83425c60259988cc2ae708fc2cc46b6"
+    },
+    {
+      "name": "hyprlang",
+      "version": "0.6.8-5",
+      "architecture": "x86_64",
+      "file": "hyprlang-0.6.8-5-x86_64.pkg.tar.zst",
+      "bytes": 118367,
+      "sha256": "212eb288e5a695650cdc4b91b59039ad80423ae5fb938de997e915d979948553",
+      "signature_sha256": "482d828a4d2c022254f01435b89eec2b36e1d6d722d806f3da1d3ac8e0b7c4e3"
+    },
+    {
+      "name": "hyprcursor",
+      "version": "0.1.13-7",
+      "architecture": "x86_64",
+      "file": "hyprcursor-0.1.13-7-x86_64.pkg.tar.zst",
+      "bytes": 227391,
+      "sha256": "1a145509039b1914c179364c4a61fad0dadceea9cc039296ac69ffb48e983fce",
+      "signature_sha256": "39696ff9a458ea7a0f1b9cf08f66de08ceb8ec73129fee8b02248356e3a64df0"
+    },
+    {
+      "name": "hyprwire",
+      "version": "0.3.1-3",
+      "architecture": "x86_64",
+      "file": "hyprwire-0.3.1-3-x86_64.pkg.tar.zst",
+      "bytes": 203146,
+      "sha256": "21c889597fc33cf1c2a4c45d13c709f73606a48dfa63c676d4bd4db120de3914",
+      "signature_sha256": "cd908f1866a50a05c1eeb2bc0a7e3058afd43a8feef263719bee7994eff4e557"
+    },
+    {
+      "name": "hyprtoolkit",
+      "version": "0.6.0-1",
+      "architecture": "x86_64",
+      "file": "hyprtoolkit-0.6.0-1-x86_64.pkg.tar.zst",
+      "bytes": 529401,
+      "sha256": "2f223b6c9fb03416e3ddf4a7380c3411452e3701da2285fa4bfee972a22f42cf",
+      "signature_sha256": "f906dde6394138eaee76f0f5a6ae4297a272c37bfd710ddbbe715eb8c8bb19a8"
+    },
+    {
+      "name": "hyprland-guiutils",
+      "version": "0.2.2-4",
+      "architecture": "x86_64",
+      "file": "hyprland-guiutils-0.2.2-4-x86_64.pkg.tar.zst",
+      "bytes": 184274,
+      "sha256": "c0a0938005128c574fa0fb8fcb7061876db381213143d2ed3b37faf1ea21f09e",
+      "signature_sha256": "4aec759201518ff4f53821e2a9d2f49acc74f65d34b0b43235922797583dc72d"
+    },
+    {
+      "name": "hyprpaper",
+      "version": "0.8.4-9",
+      "architecture": "x86_64",
+      "file": "hyprpaper-0.8.4-9-x86_64.pkg.tar.zst",
+      "bytes": 164099,
+      "sha256": "8be950d50b261769b0a11d49eff8b25e7135d95bbc41350688478a54f4fdb9ea",
+      "signature_sha256": "63a34c3c03af42d844de954a908619502a0bb137bf1f0440cb901bff279503e6"
+    },
+    {
+      "name": "hyprlock",
+      "version": "0.9.6-3",
+      "architecture": "x86_64",
+      "file": "hyprlock-0.9.6-3-x86_64.pkg.tar.zst",
+      "bytes": 315760,
+      "sha256": "e1408ddf42d77c9babed0fac2e4022e9f45df44e9d3cd708ed8073242aaf1964",
+      "signature_sha256": "b7958ff79a89c34faac00ca763ac6c02f99ff6d64918df8e0307efc991f1e801"
+    },
+    {
+      "name": "xdg-desktop-portal-hyprland",
+      "version": "1.4.1-2",
+      "architecture": "x86_64",
+      "file": "xdg-desktop-portal-hyprland-1.4.1-2-x86_64.pkg.tar.zst",
+      "bytes": 303132,
+      "sha256": "1df1cac8f5066998a937e848bcb8ff64d1a40de15a0ca24f328a40a805787d66",
+      "signature_sha256": "c313908275bc342d2857623a8c1ce1a2fed99c01e1e924e59ccf07995f9c8362"
+    }
+  ]
+}

@@ -97,14 +97,13 @@ def platform_problems(auto_packages=True):
                             'The bundled Arch package cannot be installed on this distribution.')
         if Path('/run/ostree-booted').exists():
             problems.append('Automatic package installation is unavailable on an immutable OSTree desktop.')
-        tools={'arch':('pacman','pacman-conf','pacman-key','sudo'),
-               'fedora':('dnf','rpm','rpmkeys','sudo'),'debian':('apt-get','dpkg-query','dpkg-deb')}.get(family,())
+        tools={'arch':('pacman','pacman-conf','pacman-key','repo-add'),
+               'fedora':('dnf','rpm','rpmkeys'),'debian':('apt-get','dpkg-query','dpkg-deb')}.get(family,())
         problems.extend('Required package tool is missing: '+tool for tool in tools if not shutil.which(tool))
-        root_dialog = (os.environ.get('XETAL_SETUP_GUI') == '1' and runtime_install.policy.debian_host(data)
-                       and shutil.which('su'))
-        if family == 'debian' and not runtime_install.graphical_administrator(data) and not shutil.which('sudo') and not root_dialog:
-            problems.append('Administrator authentication is unavailable. Debian graphical Setup needs '
-                            'su or pkexec, or an account authorized to use sudo.')
+        graphical_auth = os.environ.get('XETAL_SETUP_GUI') == '1' and shutil.which('pkexec')
+        if not (shutil.which('sudo') or shutil.which('su') or graphical_auth):
+            problems.append('Administrator authentication is unavailable. Setup needs sudo or su, '
+                            'or graphical Setup with a pkexec authentication agent.')
     return problems
 
 
@@ -138,13 +137,8 @@ def preflight():
         debian_runtime.preflight(PACKAGES['debian'])
         return
     if distro(data) != 'arch': return
-    result=subprocess.run(['pacman','-Sp','--noconfirm','--print-format','%n %v',*PACKAGES['arch']],
-                          capture_output=True,text=True,timeout=60)
-    if result.returncode:
-        raise RuntimeError('Desktop packages cannot be resolved from this system’s configured repositories. '+
-                           'No packages or desktop settings have been changed.\n'+runtime_install.package_error_output(result))
-    problems=package_version_problems(result.stdout)
-    if problems: raise RuntimeError('\n'.join(problems)+'\nNo packages or desktop settings have been changed.')
+    import arch_runtime
+    arch_runtime.preflight(PACKAGES['arch'])
 
 
 def prepare_repositories():
@@ -240,8 +234,11 @@ def install(yes=False):
     family=distro()
     if family not in PACKAGES:
         raise RuntimeError('No automatic package recipe for this distribution. Install the dependencies in docs/DEPENDENCIES.md, then use --skip-packages.')
+    if family == 'arch':
+        import arch_runtime
+        return arch_runtime.ensure(yes, force=True)
     prefix=runtime_install.administrator()
-    command={'arch':['pacman','-S','--needed'], 'fedora':['dnf','install'], 'debian':['apt-get','install']}[family]
+    command={'fedora':['dnf','install'], 'debian':['apt-get','install']}[family]
     if yes:command+=['--noconfirm' if family=='arch' else '-y']
     command=prefix+command+PACKAGES[family]
     print('Package command: '+shlex.join(command),flush=True)

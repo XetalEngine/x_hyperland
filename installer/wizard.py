@@ -146,6 +146,11 @@ class Wizard:
                     'An administrator password may be requested in a separate window.')
         self.label(page, packages+
                    '\nKVM components download separately from KVM Settings.', 'copy')
+        import dependencies
+        if dependencies.distro() == 'arch':
+            self.label(page, 'Arch-based systems: Setup upgrades system packages together and installs\n'
+                       'the matching Hyprland libraries. Keep an internet connection available.\n'
+                       'Runtime recovery restores replaced Hyprland packages; system updates remain.', 'copy')
         page = self.page('Ready when you are.', 'Review your setup, then let us handle the rest.')
         card = self.box(page, spacing=12, name='card')
         self.review = self.label(card, '')

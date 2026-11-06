@@ -29,7 +29,7 @@ def root_password():
     result = subprocess.run(['/usr/bin/python3', str(Path(__file__).with_name('askpass.py')), '--root'],
                             stdout=subprocess.PIPE, timeout=600)
     if result.returncode:
-        raise AuthenticationCancelled('Debian root authentication was cancelled.')
+        raise AuthenticationCancelled('Root authentication was cancelled.')
     password = bytearray(result.stdout)
     result.stdout = None
     if password.endswith(b'\n'):
@@ -68,7 +68,7 @@ def exchange(command, marker, prompt, output, timeout=30):
     try:
         while True:
             if not authenticated and time.monotonic() > deadline:
-                raise AuthenticationError('Debian root authentication timed out. Retry Setup.')
+                raise AuthenticationError('Root authentication timed out. Retry Setup.')
             if not select.select([terminal], [], [], .1)[0]:
                 continue
             try:
@@ -90,7 +90,7 @@ def exchange(command, marker, prompt, output, timeout=30):
                 output(bytes(remainder).replace(b'\r\n', b'\n'))
             elif re.search(rb'(?i)password:\s*$', pending):
                 if submitted:
-                    raise AuthenticationError('Debian root authentication failed. Retry with the root password.')
+                    raise AuthenticationError('Root authentication failed. Retry with the root password.')
                 # Never write a password into an echoing terminal, or forward
                 # PAM's terminal output to the installer log after submission.
                 if termios.tcgetattr(terminal)[3] & termios.ECHO:
@@ -117,7 +117,7 @@ def exchange(command, marker, prompt, output, timeout=30):
         _, status = os.waitpid(pid, 0)
         reaped = True
         if not authenticated:
-            raise AuthenticationError('Debian root authentication failed. Use the root password set during Debian installation.')
+            raise AuthenticationError('Root authentication failed. Use the system root password.')
         code = os.waitstatus_to_exitcode(status)
         return code if code >= 0 else 128-code
     finally:

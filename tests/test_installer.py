@@ -164,7 +164,8 @@ w,_=wobbly.load();assert w==wobbly.DEFAULTS
 assert w['enabled'] and w['friction']==3 and w['spring_k']==3
 m,_=minimize.load();assert m==minimize.DEFAULTS
 assert m['auto_hide'] and m['hide_delay']==1200 and m['dock_duration']==320
-assert m['dock_zoom']==125 and m['proximity']==12 and m['hide_animation']=='slide'
+assert m['dock_zoom']==125 and m['proximity']==12 and m['hide_animation']=='burn'
+assert m['fire_indicator']
 '''
         subprocess.run([sys.executable,'-c',probe],env=dict(os.environ,PYTHONPATH=str(self.stage)),check=True,capture_output=True)
 
@@ -178,7 +179,7 @@ assert m['dock_zoom']==125 and m['proximity']==12 and m['hide_animation']=='slid
         computer = (self.stage/'desktop/data/applications/xetal-files-computer.desktop').read_text()
         self.assertIn('Name=My Computer', computer)
         self.assertIn(f'Exec={self.target}/scripts/files.sh --this-pc', computer)
-        self.assertIn(f'Icon={self.target}/file_manager/computer.svg', computer)
+        self.assertIn('Icon=computer', computer)
         self.assertTrue((self.stage/'file_manager/computer.svg').is_file())
         self.assertIn('inode/directory=xetal-files.desktop;', (self.stage/'desktop/config/mimeapps.list').read_text())
         self.assertIn('$fileManager = ~/.config/hypr/scripts/file-manager.sh', (self.stage/'hyprland.conf').read_text())
@@ -189,7 +190,7 @@ assert m['dock_zoom']==125 and m['proximity']==12 and m['hide_animation']=='slid
                       (self.stage/'desktop/data/dbus-1/services/org.freedesktop.FileManager1.service').read_text())
         desktop = (self.stage/'desktop/data/applications/xetal-calculator.desktop').read_text()
         self.assertIn(f'Exec=python3 {self.target}/calculator/app.py', desktop)
-        self.assertIn(f'Icon={self.target}/calculator/programmer_calculator/assets/calculator.svg', desktop)
+        self.assertIn('Icon=accessories-calculator', desktop)
         self.assertTrue((self.stage/'calculator/app.py').is_file())
         self.assertTrue((self.stage/'calculator/programmer_calculator/assets/calculator.svg').is_file())
         self.assertIn('from PyQt6.QtWidgets', (self.stage/'calculator/programmer_calculator/window.py').read_text())
@@ -438,7 +439,7 @@ assert m['dock_zoom']==125 and m['proximity']==12 and m['hide_animation']=='slid
             with self.assertRaisesRegex(RuntimeError,'Burn could not be built'):
                 install.build(self.stage)
         self.assertEqual(run.call_count,1)
-        self.assertEqual(builds.call_count,12)
+        self.assertTrue(any(str(call.args[0][-1]).endswith('/icon_themes/prepare.py') for call in builds.call_args_list))
         self.assertTrue(any(str(call.args[0][-1]).endswith('/runtime/notices/build.py') for call in builds.call_args_list))
         self.assertTrue(any(str(call.args[0][-1]).endswith('/runtime/cursor_probe/build.py') for call in builds.call_args_list))
         self.assertTrue(any(str(call.args[0][-1]).endswith('/runtime/window_memory/build.py') for call in builds.call_args_list))

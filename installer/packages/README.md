@@ -11,6 +11,12 @@ reuses verified cached copies, and falls back to the archive if necessary.
 Other desktop dependencies and the previous compositor's recovery package may
 still require network access.
 
+The [`arch/`](arch/README.md) directory now includes the eleven signed libraries
+and companion tools matching this compositor. Their additional size is about
+2.8 MB. Setup installs the complete set and fetches the remaining dependencies
+through the recipient distribution's native package manager. This prevents
+rolling repository ABI updates from making the pinned compositor uninstallable.
+
 Hyprland is BSD-3-Clause; the license is reproduced in
 [`LICENSES/Hyprland-BSD-3-Clause.txt`](../../LICENSES/Hyprland-BSD-3-Clause.txt)
 and inside the package. [Upstream source](https://github.com/hyprwm/Hyprland/tree/efb50993780079460b0cbed1363e2166a2de1d9f).

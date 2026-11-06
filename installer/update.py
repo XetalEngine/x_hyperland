@@ -33,10 +33,13 @@ def prepare(home, commit, automatic=True, allow_runtime=False, checkpoint=lambda
         dependencies.prepare_repositories()
         dependencies.preflight()
         install.runtime_install.ensure(yes=True)
+        install.runtime_install.restart_after_python_upgrade()
         checkpoint()
     errors = dependencies.check()
     if errors and allow_runtime:
-        dependencies.install(yes=True); checkpoint(); errors = dependencies.check()
+        dependencies.install(yes=True)
+        install.runtime_install.restart_after_python_upgrade()
+        checkpoint(); errors = dependencies.check()
     if errors: raise RuntimeError('Dependencies need attention; no desktop files changed:\n'+'\n'.join(errors))
     if allow_runtime:
         dependencies.prepare_account()

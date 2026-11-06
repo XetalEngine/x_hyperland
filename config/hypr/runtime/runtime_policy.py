@@ -108,6 +108,41 @@ def package_url(target):
     return 'https://archive.archlinux.org/packages/h/hyprland/'+filename(target)
 
 
+def arch_manifest(root=ROOT):
+    target = manifest(root)
+    if target.get('arch_manifest') != 'arch.json':
+        raise ValueError('Missing Arch runtime manifest.')
+    data = json.loads((Path(root)/'runtime/arch.json').read_text())
+    if (data.get('schema'), data.get('distribution'), data.get('architecture'),
+        data.get('hyprland'), data.get('commit')) != (1, 'arch', 'x86_64', target['hyprland'], target['commit']):
+        raise ValueError('Arch and desktop compositor requirements differ.')
+    names = set()
+    for package in data['packages']:
+        name, version, arch = package['name'], package['version'], package['architecture']
+        if (name in names or not re.fullmatch(r'[a-z][a-z0-9+-]*', name)
+            or not re.fullmatch(r'[0-9][A-Za-z0-9.+:~-]*', version) or arch != 'x86_64'
+            or package['file'] != name+'-'+version.split(':')[-1]+'-'+arch+'.pkg.tar.zst'
+            or not re.fullmatch(r'[a-f0-9]{64}', package['sha256'])
+            or not re.fullmatch(r'[a-f0-9]{64}', package['signature_sha256'])
+            or not 0 < package['bytes'] < 100_000_000):
+            raise ValueError('Invalid Arch runtime package: '+name)
+        names.add(name)
+    if not {'hyprland', 'aquamarine', 'hyprgraphics', 'hyprtoolkit', 'hyprlock'} <= names:
+        raise ValueError('Incomplete Arch runtime bundle.')
+    compositor = next(p for p in data['packages'] if p['name'] == 'hyprland')
+    if (compositor['version'], compositor['sha256'], compositor['signature_sha256']) != (
+            target['arch_package'], target['package_sha256'], target['signature_sha256']):
+        raise ValueError('Arch compositor differs from the main manifest.')
+    return data
+
+
+def arch_versions(names):
+    result = subprocess.run(['/usr/bin/pacman', '-Q', *names], capture_output=True, text=True,
+                            timeout=15, env={**os.environ, 'LC_ALL':'C'})
+    return dict(line.split() for line in result.stdout.splitlines()
+                if len(line.split()) == 2 and line.split()[0] in names)
+
+
 def fedora_host(data=None):
     if data is None:
         try: data = platform.freedesktop_os_release()

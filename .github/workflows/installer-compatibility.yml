@@ -13,6 +13,67 @@ permissions:
   contents: read
 
 jobs:
+  arch-historical-install:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        prerequisites: [present, missing]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare isolated historical test runner
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools bubblewrap
+      - name: Install and recover from a one-year-old Arch base
+        run: |
+          if [ '${{ matrix.prerequisites }}' = missing ]; then
+            sudo env XETAL_DISPOSABLE_ARCH_HISTORICAL=1 python3 tests/arch_historical_container.py --minimal
+          else
+            sudo env XETAL_DISPOSABLE_ARCH_HISTORICAL=1 python3 tests/arch_historical_container.py
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arch-historical-install-${{ matrix.prerequisites }}
+          path: arch-historical-install.log
+  arch-install:
+    runs-on: ubuntu-latest
+    container: archlinux:base
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [fresh, existing]
+    steps:
+      - name: Prepare disposable Arch container
+        run: pacman -Syu --noconfirm python sudo git
+      - uses: actions/checkout@v4
+      - name: Arch runtime and recovery regressions
+        run: |
+          python -m unittest discover -s tests -p test_arch_runtime.py -v
+          python -m unittest discover -s tests -p test_runtime_setup.py -v
+          python -m unittest discover -s tests -p test_distribution_support.py -v
+          python -m unittest discover -s tests -p test_root_auth.py -v
+      - name: Authenticate without preinstalled sudo
+        env:
+          XETAL_DISPOSABLE_ARCH: '1'
+        run: python tests/root_auth_container.py
+      - name: Install all dependencies, build native effects and verify recovery
+        env:
+          XETAL_DISPOSABLE_ARCH: '1'
+        run: |
+          if [ '${{ matrix.runtime }}' = existing ]; then
+            python tests/arch_container.py --existing-runtime > arch-install.log 2>&1
+          else
+            python tests/arch_container.py > arch-install.log 2>&1
+          fi
+      - name: Resolve upgrades from older Arch installations
+        run: python tests/repository_matrix.py --distro arch --historical 2025/11/05 --historical 2026/05/05 --output arch-history.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arch-install-and-history-${{ matrix.runtime }}
+          path: |
+            arch-install.log
+            arch-history.json
   debian:
     runs-on: ubuntu-latest
     container: debian:13

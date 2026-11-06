@@ -6,7 +6,6 @@ an availability and dependency check, not a claim that GPU/session tests passed.
 """
 import argparse
 from datetime import datetime, timezone
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -14,12 +13,14 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tarfile
 from urllib.request import Request, urlopen
 
 REPO=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(REPO/'installer'))
 import dependencies
 import runtime_install
+import arch_runtime
 
 ARCH=[(name,'https://geo.mirror.pkgbuild.com/'+name+'/os/x86_64') for name in ('core','extra','multilib')]
 CACHY=('cachyos','https://cdn77.cachyos.org/repo/x86_64/cachyos')
@@ -45,7 +46,52 @@ def download_database(url, destination):
             output.write(chunk)
 
 
-def resolve(name):
+def entries(path):
+    result = {}
+    with tarfile.open(path) as archive:
+        for item in archive:
+            if not item.name.endswith('/desc'):
+                continue
+            raw = archive.extractfile(item).read()
+            fields = dict(block.split('\n', 1) for block in raw.decode().strip().split('\n\n') if '\n' in block)
+            result[fields['%NAME%']] = (fields, raw)
+    return result
+
+
+def populate_older_system(root, date):
+    """Create installed metadata from real historical packages and dependencies."""
+    old = root/'historical'
+    for directory in ('db/local', 'db/sync', 'cache', 'root'):
+        (old/directory).mkdir(parents=True)
+    config = '[options]\nArchitecture = x86_64\nSigLevel = Required DatabaseOptional\n'
+    available = {}
+    for repo in ('core', 'extra', 'multilib'):
+        server = 'https://archive.archlinux.org/repos/'+date+'/'+repo+'/os/x86_64'
+        database = old/'db/sync'/(repo+'.db')
+        download_database(server+'/'+repo+'.db', database)
+        available.update(entries(database))
+        config += '['+repo+']\nServer = '+server+'\n'
+    (old/'pacman.conf').write_text(config)
+    wanted = ['base', 'linux', 'pacman', 'archlinux-keyring', 'hyprland', *dependencies.PACKAGES['arch']]
+    args = [p for p in dict.fromkeys(wanted) if p in available]
+    result = subprocess.run(['pacman', '--config', str(old/'pacman.conf'), '--dbpath', str(old/'db'),
+                             '--root', str(old/'root'), '--cachedir', str(old/'cache'),
+                             '--logfile', str(old/'pacman.log'), '-Sp', '--noconfirm',
+                             '--print-format', '%n', *args], capture_output=True, text=True, timeout=180)
+    if result.returncode:
+        raise RuntimeError(runtime_install.package_error_output(result))
+    names = [name for name in result.stdout.splitlines() if name in available]
+    for name in names:
+        fields, raw = available[name]
+        entry = root/'db/local'/(name+'-'+fields['%VERSION%'])
+        entry.mkdir()
+        (entry/'desc').write_bytes(raw)
+        (entry/'files').write_text('%FILES%\n\n')
+    (root/'db/local/ALPM_DB_VERSION').write_text('9\n')
+    return len(names)
+
+
+def resolve(name, historical=None):
     architecture,repositories=MATRIX[name]
     with tempfile.TemporaryDirectory(prefix='xetal-repository-check-') as temporary:
         root=Path(temporary)
@@ -55,30 +101,22 @@ def resolve(name):
             print(name+': reading '+repo,flush=True)
             download_database(url+'/'+repo+'.db',root/'db/sync'/str(repo+'.db'))
             config+='\n['+repo+']\nServer = '+url+'\n'
-        (root/'pacman.conf').write_text(config)
-        prefix=['pacman','--config',str(root/'pacman.conf'),'--dbpath',str(root/'db'),
+        index = arch_runtime.repository(root/'runtime')
+        shutil.copyfile(index, root/'db/sync'/index.name)
+        (root/'pacman.conf').write_text(arch_runtime.configuration(config, root/'runtime'))
+        installed = populate_older_system(root, historical) if historical else 0
+        prefix=['--dbpath',str(root/'db'),
                 '--root',str(root/'root'),'--cachedir',str(root/'cache'),'--logfile',str(root/'pacman.log')]
-        def plan(operation,targets):
-            result=subprocess.run([*prefix,operation,'--noconfirm','--print-format','%n %v',*targets],
-                                  capture_output=True,text=True,timeout=120,env={**os.environ,'LC_ALL':'C'})
-            if result.returncode:raise RuntimeError(runtime_install.package_error_output(result))
-            return result.stdout
-        desktop=plan('-Sp',dependencies.PACKAGES['arch'])
-        problems=dependencies.package_version_problems(desktop)
-        if problems:raise RuntimeError('\n'.join(problems))
-        target=runtime_install.policy.manifest()
-        package=runtime_install.BUNDLED/('hyprland-'+target['arch_package']+'-x86_64.pkg.tar.zst')
-        if hashlib.sha256(package.read_bytes()).hexdigest()!=target['package_sha256']:
-            raise RuntimeError('Bundled compositor hash mismatch')
-        compositor=plan('-Up',[str(package)])
-        return {'status':'passed','desktop_packages':desktop.strip().splitlines(),
-                'compositor_packages':compositor.strip().splitlines()}
+        selected = arch_runtime.resolve(root/'pacman.conf', dependencies.PACKAGES['arch'], prefix)
+        return {'status':'passed', 'historical':historical, 'installed_packages':installed,
+                'resolved_packages':selected}
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--distro',choices=MATRIX,action='append')
     parser.add_argument('--output',type=Path)
+    parser.add_argument('--historical', action='append', help='Also test an Arch snapshot, YYYY/MM/DD.')
     args=parser.parse_args()
     if not shutil.which('pacman'):parser.error('Run on an Arch-family host or in an Arch Linux CI container.')
     report={'checked_at':datetime.now(timezone.utc).isoformat(),'checks':{}}
@@ -88,6 +126,15 @@ def main():
             report['checks'][name]={'status':'failed','error':str(error)}
         item=report['checks'][name]
         print(name+': '+item['status']+('\n'+item['error'] if 'error' in item else ''),flush=True)
+    for date in args.historical or []:
+        import re
+        if not re.fullmatch(r'\d{4}/\d{2}/\d{2}', date):
+            parser.error('Historical date must be YYYY/MM/DD.')
+        name = 'arch-from-'+date
+        try:report['checks'][name] = resolve('arch', date)
+        except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
+            report['checks'][name]={'status':'failed','error':str(error)}
+        print(name+': '+report['checks'][name]['status'], flush=True)
     if args.output:args.output.write_text(json.dumps(report,indent=2)+'\n')
     return int(any(item['status']!='passed' for item in report['checks'].values()))
 

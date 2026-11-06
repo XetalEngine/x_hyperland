@@ -343,7 +343,7 @@ def main():
     def checkpoint():
         if args.cancel_file and args.cancel_file.exists():
             raise RuntimeError('Setup cancelled after completing the current step. The desktop profile was not replaced.')
-    if os.geteuid()==0:raise RuntimeError('Run as your desktop user, without sudo. The installer asks sudo only for packages.')
+    if os.geteuid()==0:raise RuntimeError('Run as your desktop user, without sudo. Setup requests administrator access for system operations.')
     home=Path.home();safe_home(home);target=home/'.config/hypr';state=home/'.local/state/xetal-hyprland'
     print('Xetal / Hyprland desktop\nTarget: '+str(target),flush=True)
     if args.restore:
@@ -375,11 +375,13 @@ def main():
         dependencies.prepare_repositories()
         dependencies.preflight()
         runtime_install.ensure(args.yes)
+        runtime_install.restart_after_python_upgrade()
         checkpoint()
         errors=dependencies.check()
     if errors:
         if args.skip_packages:raise RuntimeError('\n'.join(errors))
         dependencies.install(args.yes)
+        runtime_install.restart_after_python_upgrade()
         checkpoint()
         errors=dependencies.check()
         if errors:raise RuntimeError('Dependencies still need attention; profile unchanged:\n'+'\n'.join(errors))
