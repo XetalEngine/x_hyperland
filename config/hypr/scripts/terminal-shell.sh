@@ -18,7 +18,8 @@ case "${fusion_shell##*/}" in
         exec "$fusion_shell" --rcfile "$fusion_root/terminal_fetch/bashrc" -i "$@" ;;
     fish)
         export XETAL_FUSION_FETCH="$fusion_root/terminal_fetch/model.py"
-        exec "$fusion_shell" -i -C 'if test -n "$KITTY_INSTALLATION_DIR"; and test "$KITTY_SHELL_INTEGRATION" != disabled; and test -r "$KITTY_INSTALLATION_DIR/shell-integration/fish/vendor_conf.d/kitty-shell-integration.fish"; source "$KITTY_INSTALLATION_DIR/shell-integration/fish/vendor_conf.d/kitty-shell-integration.fish"; end; python3 "$XETAL_FUSION_FETCH"' "$@" ;;
+        export XETAL_FUSION_COMMANDS="$fusion_root/terminal_fetch/commands.fish"
+        exec "$fusion_shell" -i -C 'source "$XETAL_FUSION_COMMANDS"; set --erase XETAL_FUSION_COMMANDS; if test -n "$KITTY_INSTALLATION_DIR"; and test "$KITTY_SHELL_INTEGRATION" != disabled; and test -r "$KITTY_INSTALLATION_DIR/shell-integration/fish/vendor_conf.d/kitty-shell-integration.fish"; source "$KITTY_INSTALLATION_DIR/shell-integration/fish/vendor_conf.d/kitty-shell-integration.fish"; end; python3 "$XETAL_FUSION_FETCH"' "$@" ;;
     *)
         python3 "$fusion_root/terminal_fetch/model.py" || true
         exec "$fusion_shell" -i "$@" ;;

@@ -18,6 +18,15 @@ Fresh profiles show **Places** on the left and hide the redundant **Folders** tr
 
 During installation, the forward button is disabled, gray and labeled **Installing…**. It becomes **Finish** after success, or **Retry** if setup stops.
 
+Run `fusion-check` inside Hyprland to see which native plugins loaded and respond.
+Foreground Setup installs and verifies `/usr/local/bin/fusion-check`. Fusion's
+Bash, Zsh and Fish terminals also provide the command from the installed profile
+when no command with that name is available, including after a background update
+or when the shell omits `/usr/local/bin` from its search path. Existing user aliases
+and commands take precedence. This does not change `PATH`, Hyprland environment
+directives, or the user's shell startup files. Already-open terminals can run
+`/usr/bin/python3 "$HOME/.config/hypr/runtime/plugin_health.py"` directly.
+
 Python and GTK 3 can be bootstrapped from Arch, Fedora or Debian packages if missing. The wizard itself does not need PyQt or PyGObject before starting. On Debian 13, graphical Setup uses the desktop's administrator dialog through `pkexec` when available, with a root-password fallback for accounts without sudo access. Existing sudo-authorized users can use a separate password window through `sudo -A`. Passwords go only to the authentication tool and are never included in the installation log. Details are saved to `~/.local/state/xetal-hyprland/setup.log`.
 
 Minimal installations do not need sudo preinstalled: Setup can use an existing graphical `pkexec` agent or normal `su` authentication with the system root password. It keeps that working authentication method through installation and recovery, even after the sudo package arrives. The Python bootstrap also supports `su`. On Arch-family systems the prerequisite prompt explicitly includes a full package upgrade; signing keys are refreshed first, preventing a partial Python/GTK library upgrade on an older base. A locked root account still needs an authorized administrator authentication method; Setup never resets passwords or disables authentication.

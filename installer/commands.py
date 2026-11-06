@@ -45,6 +45,8 @@ def install():
     output = result.stdout+result.stderr
     runtime_install.check_administrator_result(prefix, result.returncode, output)
     if result.returncode: raise RuntimeError('Could not install fusion-check:\n'+output.strip())
+    if not current():
+        raise RuntimeError('fusion-check installation did not produce the expected executable at '+str(DESTINATION)+'.')
 
 
 if __name__ == '__main__':
