@@ -98,6 +98,22 @@ These corrections remain active when the minimize animation is disabled.
 
 ## Compatibility and recovery
 
+Minimizing is enabled on fresh installations. Native plugins wait for a ready
+compositor and monitor at login. Cold-start builds and loads run one at a time;
+a failed attempt is retried with increasing delays instead of staying inactive
+for the entire login. Retries stop with the compositor and preserve all settings.
+
+The dock icon helper uses a verified Python executable, including a system
+fallback if the login environment leaves `sys.executable` empty. The native
+minimizer starts first; a failed icon helper is reported without disabling it.
+
+Run **`fusion-check`** in any terminal in the Fusion session to check every native
+plugin. Green checks mean loaded/responding or intentionally disabled; red crosses
+identify missing plugins, failed status requests, or a mismatch with saved settings.
+The report includes the startup error and log path when available. It is read-only;
+`fusion-check --json` produces the same results for scripts. Foreground installation
+also installs the command in `/usr/local/bin`, so Bash, Zsh and Fish can all use it.
+
 - Hyprland **0.56.2**, commit `efb50993780079460b0cbed1363e2166a2de1d9f`,
   x86-64 and OpenGL. Other compositor ABIs are rejected before loading.
 - Build dependencies: C++23, matching Hyprland headers, `pkg-config`,

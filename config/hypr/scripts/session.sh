@@ -11,10 +11,12 @@ instance_dir="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE"
 exec 9>"$instance_dir/isolated-helpers.lock"
 flock -n 9 || exit 0
 config_dir="$HOME/.config/hypr"
+# Use an absolute interpreter so login helpers have a usable sys.executable.
+session_python=/usr/bin/python3
 
 # Freeze the file-log preference for this login, including helper restarts.
 # No running applications need to be restarted when the preference is changed.
-session_logs_disabled=$(python3 "$config_dir/scripts/runtime-log-guard.py" --begin-session) || session_logs_disabled=0
+session_logs_disabled=$("$session_python" "$config_dir/scripts/runtime-log-guard.py" --begin-session) || session_logs_disabled=0
 session_log() {
     if [[ "$session_logs_disabled" == 1 ]]; then
         printf '%s' /dev/null
@@ -27,7 +29,7 @@ session_log() {
 # A replaced launcher is re-executed; applications are never logged out by updates.
 if [[ "${XETAL_UPDATE_ACTIVATED:-}" != 1 ]]; then
     update_result=0
-    python3 "$config_dir/updates/service.py" --activate >"$(session_log update-activation.log)" 2>&1 || update_result=$?
+    "$session_python" "$config_dir/updates/service.py" --activate >"$(session_log update-activation.log)" 2>&1 || update_result=$?
     if [[ "$update_result" == 20 ]]; then
         hyprctl reload >>"$(session_log update-activation.log)" 2>&1 || true
         exec 9>&-
@@ -52,8 +54,29 @@ export XDG_CURRENT_DESKTOP=Hyprland
 export XDG_SESSION_DESKTOP=Hyprland
 export XDG_SESSION_TYPE=wayland
 
+# Native effects start before slower artwork/theme helpers. Each loader waits
+# for compositor readiness, serializes builds/loads and retries startup failures.
+"$session_python" "$config_dir/effects/burn/controller.py" --session >"$(session_log burn.log)" 2>&1 9>&- &
+children+=("$!")
+
+# Each output has its own optional cube; this loader exits with the compositor.
+"$session_python" "$config_dir/effects/cube/controller.py" --session >"$(session_log cube.log)" 2>&1 9>&- &
+children+=("$!")
+
+# Native minimize requests and fireballs belong to this compositor only.
+"$session_python" "$config_dir/effects/minimize/controller.py" --session >"$(session_log minimize.log)" 2>&1 9>&- &
+children+=("$!")
+
+# Original Compiz spring deformation; lifetime belongs to this compositor.
+"$session_python" "$config_dir/effects/wobbly/controller.py" --session >"$(session_log wobbly.log)" 2>&1 9>&- &
+children+=("$!")
+
+# A modifier-held close button complements applications without title bars.
+"$session_python" "$config_dir/effects/window_close/controller.py" --session >"$(session_log window-close.log)" 2>&1 9>&- &
+children+=("$!")
+
 # Original welcome melody, once per compositor. Its player stops on logout.
-python3 "$config_dir/sounds/play.py" --startup >"$(session_log sounds.log)" 2>&1 9>&- &
+"$session_python" "$config_dir/sounds/play.py" --startup >"$(session_log sounds.log)" 2>&1 9>&- &
 children+=("$!")
 
 # Own standard folder/reveal requests before startup apps can activate another
@@ -62,59 +85,38 @@ children+=("$!")
 children+=("$!")
 
 # File dialogs and geometry memory belong to this login, never a user service.
-python3 "$config_dir/file_manager/portal.py" >"$(session_log file-picker.log)" 2>&1 9>&- &
+"$session_python" "$config_dir/file_manager/portal.py" >"$(session_log file-picker.log)" 2>&1 9>&- &
 children+=("$!")
-python3 "$config_dir/runtime/window_memory/service.py" >"$(session_log window-memory.log)" 2>&1 9>&- &
+"$session_python" "$config_dir/runtime/window_memory/service.py" >"$(session_log window-memory.log)" 2>&1 9>&- &
 children+=("$!")
 
 # Keep new X11 clients working if this compositor's primary socket pathname
 # disappears. The helper verifies its backup listener and stops at logout.
-python3 "$config_dir/scripts/xwayland-session.py" --session >"$(session_log xwayland-session.log)" 2>&1 9>&- &
+"$session_python" "$config_dir/scripts/xwayland-session.py" --session >"$(session_log xwayland-session.log)" 2>&1 9>&- &
 children+=("$!")
 
 # Keep compositor and our session logs from filling the user runtime tmpfs.
 # This helper also follows the compositor socket when enabled during a session.
-python3 "$config_dir/scripts/runtime-log-guard.py" --session >/dev/null 2>&1 9>&- &
+"$session_python" "$config_dir/scripts/runtime-log-guard.py" --session >/dev/null 2>&1 9>&- &
 children+=("$!")
 
 # Opt-in sign-in artwork is a public copy; private home settings stay private.
-python3 "$config_dir/login/profile.py" >"$(session_log sign-in-artwork.log)" 2>&1 || true
+"$session_python" "$config_dir/login/profile.py" >"$(session_log sign-in-artwork.log)" 2>&1 || true
 
-python3 "$config_dir/updates/service.py" --serve >"$(session_log desktop-updates.log)" 2>&1 9>&- &
+"$session_python" "$config_dir/updates/service.py" --serve >"$(session_log desktop-updates.log)" 2>&1 9>&- &
 children+=("$!")
 
 # Rebuild the profile-local palette plugins if the installed Qt version changed.
-if ! python3 "$config_dir/theme/build.py" >"$(session_log theme-build.log)" 2>&1; then
+if ! "$session_python" "$config_dir/theme/build.py" >"$(session_log theme-build.log)" 2>&1; then
     printf '%s\n' 'Theme plugin rebuild failed; see theme-build.log. Session tools will still start.' >&2
 fi
 
-# Optional native effects are private to this compositor. Unsupported versions
-# keep the normal close animation; building never delays the rest of the shell.
-python3 "$config_dir/effects/burn/controller.py" --session >"$(session_log burn.log)" 2>&1 9>&- &
-children+=("$!")
-
-# Each output has its own optional cube; this loader exits with the compositor.
-python3 "$config_dir/effects/cube/controller.py" --session >"$(session_log cube.log)" 2>&1 9>&- &
-children+=("$!")
-
-# Native minimize requests and fireballs belong to this compositor only.
-python3 "$config_dir/effects/minimize/controller.py" --session >"$(session_log minimize.log)" 2>&1 9>&- &
-children+=("$!")
-
-# Original Compiz spring deformation; lifetime belongs to this compositor.
-python3 "$config_dir/effects/wobbly/controller.py" --session >"$(session_log wobbly.log)" 2>&1 9>&- &
-children+=("$!")
-
-# A modifier-held close button complements applications without title bars.
-python3 "$config_dir/effects/window_close/controller.py" --session >"$(session_log window-close.log)" 2>&1 9>&- &
-children+=("$!")
-
 # User-configured startup applications belong to this Hyprland session.
-python3 "$config_dir/control_panel/startup.py" --session >"$(session_log panel-startup.log)" 2>&1 9>&- &
+"$session_python" "$config_dir/control_panel/startup.py" --session >"$(session_log panel-startup.log)" 2>&1 9>&- &
 children+=("$!")
 
 # Preload Apps, Fusion Settings/Theme and Control Panel without mapping windows.
-python3 "$config_dir/session_ui/preload.py" >"$(session_log session-ui-preload.log)" 2>&1 9>&- &
+"$session_python" "$config_dir/session_ui/preload.py" >"$(session_log session-ui-preload.log)" 2>&1 9>&- &
 children+=("$!")
 
 # A resident switcher receives ordered key events, including a very quick Super release.
@@ -122,7 +124,7 @@ children+=("$!")
 children+=("$!")
 
 # Plain left-drag near the top of floating windows; idle between click events.
-python3 "$config_dir/scripts/floating-drag.py" >"$(session_log floating-drag.log)" 2>&1 9>&- &
+"$session_python" "$config_dir/scripts/floating-drag.py" >"$(session_log floating-drag.log)" 2>&1 9>&- &
 children+=("$!")
 
 # File-operation progress uses the standard job interface and ends with this session.
@@ -130,7 +132,7 @@ children+=("$!")
 children+=("$!")
 
 # Recover a crashed bar inside this session; logout stops the owner and its bar.
-python3 "$config_dir/scripts/waybar-session.py" \
+"$session_python" "$config_dir/scripts/waybar-session.py" \
     >"$(session_log waybar-supervisor.log)" 2>&1 9>&- &
 children+=("$!")
 
@@ -177,7 +179,7 @@ fi
 
 # A live IPC connection also closes if Hyprland crashes and leaves stale socket files.
 # This prevents our helpers from surviving into a later KDE session.
-python3 - "$instance_dir/.socket2.sock" 9>&- <<'PY' &
+"$session_python" - "$instance_dir/.socket2.sock" 9>&- <<'PY' &
 import socket
 import sys
 

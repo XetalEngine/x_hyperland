@@ -94,6 +94,7 @@ if __name__ == '__main__':
         prepare(Path.home(), args.revision, not args.manual, args.runtime, checkpoint)
         if args.activate:
             checkpoint()
+            install.commands.install()
             import service
             if not service.activate(Path.home()/'.config/hypr'):
                 raise RuntimeError('Update was prepared but could not be activated. Open Desktop Updates for details.')

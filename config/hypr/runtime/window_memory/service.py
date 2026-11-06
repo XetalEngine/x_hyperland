@@ -13,9 +13,12 @@ import signal
 import socket
 import sys
 import tempfile
+import threading
 import time
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+from effects.session import initialize
 sys.path.insert(0, str(ROOT/'launcher'))
 from floating import Hypr, valid_size, window_key, workarea
 
@@ -228,7 +231,7 @@ def main():
         hypr = Hypr(instance)
         def startup_cancel(*_): raise SystemExit(0)
         for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP): signal.signal(number, startup_cancel)
-        ensure_plugin(hypr)
+        if not initialize('window_memory', lambda: ensure_plugin(hypr), instance, threading.Event()): return 1
         tracker = Tracker(hypr, Store(state))
         stopping = False
         def stop(*_):

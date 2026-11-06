@@ -10,11 +10,13 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from effects.window_close import drag_settings
+from effects.session import initialize
 sys.path.insert(0, str(ROOT/'scripts'))
 from drag_cursor import CursorGuard, ensure_probe
 sys.path.insert(0, str(ROOT/'launcher'))
@@ -134,9 +136,7 @@ def main():
         # also stop its compiler group; the builder cleans up on SystemExit.
         def cancel_start(*_): raise SystemExit(0)
         for number in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP): signal.signal(number, cancel_start)
-        try: ensure_probe(hypr)
-        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
-            print('Floating drag: '+str(error), file=sys.stderr, flush=True)
+        initialize('cursor_probe', lambda: ensure_probe(hypr), instance, threading.Event())
         drag = Drag(hypr)
         drag.guard.refresh()
         stopping = False

@@ -161,6 +161,7 @@ class InstallRecoveryTests(unittest.TestCase):
                  patch.object(install, 'build'), patch.object(install, 'validate'), \
                  patch.object(install.runtime_install.policy, 'require') as require, \
                  patch.object(install.runtime_install, 'complete') as complete, \
+                 patch.object(install.commands, 'install'), \
                  patch.object(install.login_setup, 'apply', side_effect=RuntimeError('test login failure')):
                 with self.assertRaisesRegex(RuntimeError, 'test login failure'): install.main()
             self.assertEqual((target/'hyprland.conf').read_text(), 'original desktop')

@@ -5,11 +5,8 @@ import json
 import os
 from pathlib import Path
 import subprocess
-import signal
-import socket
 import sys
 import tempfile
-import threading
 
 if __package__:
     from . import model, build
@@ -97,21 +94,9 @@ def start():
 
 
 def session():
-    # Remain owned by session.sh until the compositor ends; never leave a
-    # stale short-lived PID in its child list. No services or shared env writes.
-    def stop(*_):raise SystemExit(0)
-    signal.signal(signal.SIGTERM,stop)
-    with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as connection:
-        connection.connect(str(instance_dir()/'.socket2.sock'))
-        def watch():
-            try:
-                while connection.recv(65536):pass
-            finally:os.kill(os.getpid(),signal.SIGTERM)
-        watcher=threading.Thread(target=watch,daemon=True);watcher.start()
-        try:start()
-        except (RuntimeError,ValueError,OSError,subprocess.TimeoutExpired) as error:
-            print('Wobbly Windows: '+str(error),file=sys.stderr,flush=True)
-        watcher.join()
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from effects.session import run
+    run('wobbly', start)
 
 
 if __name__ == '__main__':

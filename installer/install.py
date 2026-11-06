@@ -19,6 +19,7 @@ import tempfile
 import dependencies
 import runtime_install
 import login_setup
+import commands
 
 REPO=Path(__file__).resolve().parents[1]
 PAYLOAD=REPO/'config/hypr'
@@ -417,6 +418,7 @@ def main():
                 print('Cancelled; your current profile is unchanged.');return 0
             backup=activate(stage,target,state,expected)
             try:
+                commands.install()
                 login_setup.apply(args.fusion_login, target, args.skip_packages)
             except BaseException:
                 # Keep the old desktop paired with any compositor recovery.

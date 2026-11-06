@@ -5,11 +5,8 @@ import json
 import os
 from pathlib import Path
 import subprocess
-import signal
-import socket
 import sys
 import tempfile
-import threading
 
 if __package__:
     from . import model, build
@@ -115,28 +112,9 @@ def start():
 
 
 def session():
-    # Remain owned by session.sh until the compositor ends; never leave a
-    # stale short-lived PID in its child list. No services or shared env writes.
-    def stop(*_):raise SystemExit(0)
-    signal.signal(signal.SIGTERM,stop)
-    with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as connection:
-        connection.connect(str(instance_dir()/'.socket2.sock'))
-        def watch():
-            try:
-                while connection.recv(65536):pass
-            finally:os.kill(os.getpid(),signal.SIGTERM)
-        watcher=threading.Thread(target=watch,daemon=True);watcher.start()
-        icons = subprocess.Popen([sys.executable, str(Path(__file__).with_name('icons.py'))],
-                                 env=dict(os.environ, QT_QPA_PLATFORM='offscreen', QT_QPA_PLATFORMTHEME=''))
-        try:
-            try:start()
-            except (RuntimeError,ValueError,OSError,subprocess.TimeoutExpired) as error:
-                print('Minimize: '+str(error),file=sys.stderr,flush=True)
-            watcher.join()
-        finally:
-            icons.terminate()
-            try:icons.wait(timeout=3)
-            except subprocess.TimeoutExpired:icons.kill(); icons.wait()
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from effects.session import run
+    run('minimize', start, auxiliary=Path(__file__).with_name('icons.py'))
 
 
 if __name__ == '__main__':

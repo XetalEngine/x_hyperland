@@ -1,0 +1,9 @@
+#!/bin/sh
+# Hyper Fusion managed command: fusion-check v1
+set -eu
+fusion_checker="$HOME/.config/hypr/runtime/plugin_health.py"
+if [ ! -f "$fusion_checker" ]; then
+    printf '%s\n' 'Hyper Fusion is not installed for this user. Open a terminal in your Fusion session.' >&2
+    exit 2
+fi
+exec /usr/bin/python3 "$fusion_checker" "$@"
