@@ -54,7 +54,7 @@ def command_for(mode, target):
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--toggle',action='store_true')
-    parser.add_argument('--login',action='store_true',help='Wait five seconds before the login animation')
+    parser.add_argument('--login',action='store_true',help='Wait 1.25 seconds before the login animation')
     args=parser.parse_args()
     if args.login and not login_settings.enabled():
         return
@@ -62,7 +62,7 @@ def main():
     if not sig:
         return
     runtime=Path(os.environ['XDG_RUNTIME_DIR'])/'hypr'/sig
-    if args.login and not wait_for_login(runtime, 5.0):
+    if args.login and not wait_for_login(runtime, 1.25):
         return
     if args.login and not login_settings.enabled():
         return
@@ -106,7 +106,7 @@ def main():
                 if not visible:
                     ctl('dispatch','togglespecialworkspace','xetal-startup')
                     visible=True
-                time.sleep(.5)
+                time.sleep(.125)
             # Upgrade an already-open dashboard only after its replacement maps.
             # These are our generated mascot consoles, not user terminal shells.
             for client in clients:
