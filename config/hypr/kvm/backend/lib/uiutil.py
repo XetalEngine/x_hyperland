@@ -25,9 +25,8 @@ def _passwordless_sudo():
 def _find_askpass(prompt):
     """A binary sudo can run to ask for the password graphically.
 
-    Prefers a real ssh-askpass (ksshaskpass on KDE, seahorse on GNOME); if none
-    is installed, synthesises one from kdialog or zenity so the prompt still
-    appears rather than the command failing with a permission error.
+    Prefers the bundled themed prompt, then a real ssh-askpass (ksshaskpass on
+    KDE, seahorse on GNOME). Finally, synthesises one from kdialog or zenity.
     """
     # Use the desktop's themed password prompt, without persistent services or
     # a predictable writable script in /tmp.
@@ -59,18 +58,21 @@ def _shq(s):
 def sudo_command(cmd, prompt="KVM Settings needs administrator rights"):
     """Wrap a command list so it runs as root, returning (argv, env, ok).
 
-    Uses passwordless sudo when it is configured, otherwise a graphical password
-    prompt via SUDO_ASKPASS. ok is False (argv None) only when neither a password
-    prompt nor passwordless sudo is available, so the caller can explain instead
-    of running a command that would half-fail on permission errors.
+    Give the actual command an askpass fallback. sudo still reuses valid cached
+    credentials and NOPASSWD rules without prompting. A successful `sudo -n true`
+    probe cannot guarantee that another command, possibly in a new session or
+    after the credentials expire, can run noninteractively.
+
+    Without a graphical helper, retain noninteractive sudo where available.
+    ok is False (argv None) when neither authentication route is available.
     """
     env = dict(os.environ)
-    if _passwordless_sudo():
-        return ["sudo", "-n", *cmd], env, True
     askpass = _find_askpass(prompt)
     if askpass:
         env["SUDO_ASKPASS"] = askpass
         return ["sudo", "-A", *cmd], env, True
+    if _passwordless_sudo():
+        return ["sudo", "-n", *cmd], env, True
     return None, env, False
 
 
