@@ -1816,7 +1816,10 @@ print(json.dumps(rows))
     write(file.toLocalFile());
     const QString log = sample + "/opened.json";
     const QString program = sample + "/editor.py";
-    write(program, "import json,sys\nfrom pathlib import Path\nPath(" + QJsonDocument(QJsonArray{log}).toJson(QJsonDocument::Compact).mid(1).chopped(1) + ").write_text(json.dumps(sys.argv[1:]))\n");
+    write(program, "import json,os,signal,sys,time\nfrom pathlib import Path\n"
+                   "signal.signal(signal.SIGPIPE,signal.SIG_DFL)\ntime.sleep(.15)\n"
+                   "os.write(1,b'Application stdout\\n');os.write(2,b'Application stderr\\n')\nPath(" +
+                   QJsonDocument(QJsonArray{log}).toJson(QJsonDocument::Compact).mid(1).chopped(1) + ").write_text(json.dumps(sys.argv[1:]))\n");
     write(qEnvironmentVariable("XDG_DATA_HOME") + "/applications/fusion-test-editor.desktop",
           "[Desktop Entry]\nType=Application\nName=Fusion Test Editor\nExec=/usr/bin/python3 \"" + program.toUtf8() + "\" %F\nIcon=text-editor\nMimeType=text/plain;\n");
     QCOMPARE(QProcess::execute("kbuildsycoca6", {"--noincremental"}), 0);
@@ -1842,6 +1845,18 @@ print(json.dumps(rows))
     QTRY_COMPARE(list->count(), 1);
     QCOMPARE(chooser.request().value("app").toString(), QString("fusion-test-editor.desktop"));
     QVERIFY(!chooser.request().value("remember").toBool());
+    // The chosen application uses the same launcher as double-click, including
+    // safe streams after the short-lived JSON helper has exited.
+    opened.close(); QVERIFY(QFile::remove(log));
+    auto request = chooser.request();
+    request["urls"] = QJsonArray{file.toString(QUrl::FullyEncoded)};
+    auto *job = Fusion::launchApplication(request, &window);
+    int launchError = -1;
+    connect(job, &KJob::result, &window, [&](KJob *result) { launchError = result->error(); });
+    QTRY_COMPARE_WITH_TIMEOUT(launchError, 0, 10000);
+    QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(log), 10000);
+    QVERIFY(opened.open(QIODevice::ReadOnly));
+    QCOMPARE(QJsonDocument::fromJson(opened.readAll()).array(), QJsonArray{file.toLocalFile()});
     const auto capture = qEnvironmentVariable("FUSION_FILES_CAPTURE");
     if (!capture.isEmpty()) chooser.grab().save(capture + "-open-with.png");
     chooser.reject(); window.close();
