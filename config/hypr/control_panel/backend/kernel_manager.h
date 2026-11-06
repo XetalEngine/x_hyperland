@@ -67,6 +67,12 @@ void MainWindow::setupKernelManagerTab() {
     connect(popularBtn, &QPushButton::clicked, this, [this]() {
         KernelCatalog dlg(HyperPanel::root() + "/control_panel/kernel_inventory.py", this);
         if (dlg.exec() != QDialog::Accepted) return;
+        if (KernelCatalog::compatibleKernel(dlg.selection())) {
+            if (!QProcess::startDetached("python3", {HyperPanel::root() + "/kvm/kernel_install_ui.py",
+                                                     "--kernel", dlg.selection()["kernel"].toString()}))
+                QMessageBox::warning(this, tr("Kernel setup"), tr("The compatible-kernel installer could not be opened."));
+            return;
+        }
         const auto command = KernelCatalog::installCommand(dlg.selection());
         if (command.isEmpty()) return;
         runSudoCommandInTerminal("if (" + command + "); then echo 'Kernel installation finished. Refresh the kernel list; boot the new kernel to use it.'; "

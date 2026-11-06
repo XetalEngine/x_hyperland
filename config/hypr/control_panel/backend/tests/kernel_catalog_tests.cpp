@@ -23,6 +23,13 @@ private slots:
         search->clear(); QVERIFY(!table->topLevelItem(0)->isHidden());
         QVERIFY(KernelCatalog::installCommand({{"package","linux;reboot"},{"method","pacman"},{"repo","core"}}).isEmpty());
         QVERIFY(KernelCatalog::installCommand({{"package","linux"},{"method","pacman"},{"repo","core'"}}).isEmpty());
+        dialog.populate({{"kernels", QJsonArray()}, {"kvm_kernel", QJsonObject{{"release", "7.2.11-arch1-1"}, {"installed", false}}}});
+        search->setText("7.2.11");
+        table->setCurrentItem(table->topLevelItem(0));
+        QVERIFY(!table->topLevelItem(0)->isHidden());
+        QVERIFY(KernelCatalog::compatibleKernel(dialog.selection()));
+        QCOMPARE(dialog.selection()["kernel"].toString(), QString("7.2.11-arch1-1"));
+        QVERIFY(!KernelCatalog::compatibleKernel({{"method","compatible-kvm"}, {"kernel","7.2.11-arch1-1;reboot"}}));
     }
 };
 QTEST_MAIN(KernelCatalogTests)

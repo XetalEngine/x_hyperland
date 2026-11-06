@@ -64,6 +64,13 @@ public:
                 row["repo"].toString(), row["installed"].toString(), row["description"].toString()});
             item->setData(0, Qt::UserRole, row); item->setToolTip(4, row["description"].toString());
         };
+        const auto compatible = data["kvm_kernel"].toObject();
+        if (!compatible["release"].toString().isEmpty())
+            add({{"package", "linux · KVM compatible"}, {"version", compatible["release"]},
+                 {"kernel", compatible["release"]}, {"repo", "Exact version · cache / archive / AUR"},
+                 {"installed", compatible["installed"].toBool() ? "Installed · boot this kernel" : ""},
+                 {"description", "Required by the published KVM module. Opens setup with Proceed / Cancel and detailed results."},
+                 {"method", "compatible-kvm"}});
         for (const auto &entry : data["kernels"].toArray()) {
             const auto row = entry.toObject(); names.insert(row["package"].toString()); add(row);
         }
@@ -102,6 +109,10 @@ public:
                    "cd \"$kernel_build_dir\" && makepkg -si";
         return {};
     }
+    static bool compatibleKernel(const QJsonObject &row) {
+        return row["method"].toString() == "compatible-kvm" &&
+            QRegularExpression("^\\d+\\.\\d+(?:\\.\\d+)?-arch\\d+-\\d+$").match(row["kernel"].toString()).hasMatch();
+    }
 private:
     QLineEdit *search;
     QTreeWidget *table;
@@ -109,7 +120,7 @@ private:
     QPushButton *install;
     QProcess *process;
     QString note;
-    void updateInstall() { install->setEnabled(!installCommand(selection()).isEmpty()); }
+    void updateInstall() { install->setEnabled(compatibleKernel(selection()) || !installCommand(selection()).isEmpty()); }
     void filter() {
         const auto words = search->text().simplified().split(' ', Qt::SkipEmptyParts);
         int visible = 0;

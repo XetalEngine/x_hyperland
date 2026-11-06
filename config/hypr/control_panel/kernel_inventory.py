@@ -7,6 +7,7 @@ from pathlib import Path
 import platform
 import re
 import subprocess
+import sys
 import tarfile
 
 
@@ -171,7 +172,17 @@ def catalog(database=None, repositories=None):
             rows.append(dict(package=name, repo=repo, version=value(data, 'VERSION'),
                              description=value(data, 'DESC'), installed=value(installed.get(name, {}), 'VERSION'),
                              headers=headers if headers in entries else '', method='pacman'))
-    return dict(kernels=rows, missing_repositories=missing)
+    result = dict(kernels=rows, missing_repositories=missing)
+    # This exact historical build is often absent from current repository DBs.
+    # Offer the confirmed KVM installer separately from ordinary repo targets.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'kvm'))
+    try:
+        import kernel_install
+        if not kernel_install.platform_problem():
+            target = kernel_install.Target.parse(kernel_install.required_kernel())
+            result['kvm_kernel'] = dict(release=target.release, installed=kernel_install.complete(target))
+    except (OSError, ValueError, RuntimeError) as error:result['kvm_kernel_error'] = str(error)
+    return result
 
 
 def main():

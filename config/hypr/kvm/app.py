@@ -162,7 +162,7 @@ class KVMSettings(VMStart2):
         self.tab_virtual.before_launch=lambda:self._ready(self.tab_virtual._launch)
         self.tab_dual.before_launch=lambda:self._ready(self.tab_dual._launch)
         from module_warning import ModuleWarning
-        self.module_warnings=[ModuleWarning(button) for button in
+        self.module_warnings=[ModuleWarning(button,self._install_compatible_kernel) for button in
                               (self.btn_launch,self.tab_virtual.btn_launch,self.tab_dual.btn_launch)]
         self._refresh_module_status()
         self.tab_hw.capture_gpu_rom=self._capture_gpu_rom
@@ -200,10 +200,22 @@ class KVMSettings(VMStart2):
 
     def _refresh_module_status(self):
         if not getattr(self,'package_panel',None):return
-        import module_policy
+        import module_policy,platform,packages
         text,detail=module_policy.warning(self.cfg.data,self.package_panel.release)
+        entry=(self.package_panel.release or {}).get('components',{}).get('kvm-amd',{})
+        kernel=entry.get('kernel','') if module_policy.requested(self.cfg.data) and packages.cpu_vendor()=='amd' else ''
+        if kernel==platform.release():kernel=''
         for label in getattr(self,'module_warnings',[]):
             label.setText(text);label.setToolTip(detail);label.setVisible(bool(text))
+            label.kernel_action(kernel,available=not bool(self.package_panel.job))
+
+    def _install_compatible_kernel(self):
+        if self.package_panel.job or self._busy():
+            self.status.setText('Finish the current operation and shut down the VM before installing a kernel.');return
+        from kernel_install_ui import KernelInstallDialog
+        entry=(self.package_panel.release or {}).get('components',{}).get('kvm-amd',{})
+        dialog=KernelInstallDialog(entry.get('kernel'),self,busy=self._busy)
+        dialog.exec();self._refresh_module_status()
 
     def _prepare_optional_module(self,retry):
         """A compatible published build is installed on demand, once per release.
@@ -375,6 +387,7 @@ class KVMSettings(VMStart2):
             raise RuntimeError('Wait for the component operation before changing profiles or loading a preset.')
         panel=getattr(self,'package_panel',None)
         for label in getattr(self,'module_warnings',[]):
+            label.install_button.hide();label.install_button.deleteLater()
             label.hide();label.deleteLater()
         self.module_warnings=[]
         if panel:
@@ -442,6 +455,9 @@ class KVMSettings(VMStart2):
         return False
 
     def _ready(self,retry=None):
+        import kernel_install
+        if kernel_install.active():
+            QMessageBox.information(self,'Kernel setup is running','Wait for compatible-kernel installation to finish before launching a VM.');return False
         if not self.cfg.data.get('wizard',{}).get('complete'):
             self._select_tab_by_name('Wizard')
             QMessageBox.information(self,'Complete setup','Finish the setup wizard for this profile before starting a VM.');return False
