@@ -1,5 +1,6 @@
 """Distribution packages and capability checks. No installation at import time."""
 from pathlib import Path
+from ctypes import CDLL
 from ctypes.util import find_library
 import os
 import platform
@@ -13,6 +14,33 @@ import command_paths
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'config/hypr/effects'))
 import native_toolchain
+
+# XWayland hosts older X11 clients inside Hyprland. Install its client libraries
+# explicitly, including libraries bundled Qt/GLFW applications load at runtime.
+# Keep the native Qt Wayland packages below alongside these compatibility tools.
+X11_PACKAGES = {
+    'arch': '''xorg-xwayland xorg-xauth xorg-xhost xorg-xdpyinfo xclip zenity
+        libx11 libxext libxrender libxrandr libxinerama libxcursor libxi libxtst
+        libxfixes libxcomposite libxdamage libxpresent libsm libice libxcb
+        libxkbcommon-x11 xcb-util xcb-util-cursor xcb-util-image xcb-util-keysyms
+        xcb-util-renderutil xcb-util-wm qt5-base qt6-base'''.split(),
+    'fedora': '''xorg-x11-server-Xwayland xorg-x11-xauth xhost xdpyinfo xclip zenity
+        libX11 libXext libXrender libXrandr libXinerama libXcursor libXi libXtst
+        libXfixes libXcomposite libXdamage libXpresent libSM libICE libxcb
+        libxkbcommon-x11 xcb-util xcb-util-cursor xcb-util-image xcb-util-keysyms
+        xcb-util-renderutil xcb-util-wm qt5-qtbase-gui qt6-qtbase-gui'''.split(),
+    'debian': '''xwayland xauth x11-xserver-utils x11-utils xclip zenity
+        libx11-6 libx11-xcb1 libxext6 libxrender1 libxrandr2 libxinerama1 libxcursor1 libxi6 libxtst6
+        libxfixes3 libxcomposite1 libxdamage1 libxpresent1 libsm6 libice6 libxcb1
+        libxkbcommon-x11-0 libxcb-util1 libxcb-cursor0 libxcb-image0 libxcb-keysyms1
+        libxcb-render-util0 libxcb-icccm4 libxcb-xinerama0 libxcb-xkb1'''.split(),
+}
+X11_LIBRARIES = '''libX11.so.6 libX11-xcb.so.1 libXext.so.6 libXrender.so.1
+    libXrandr.so.2 libXinerama.so.1 libXcursor.so.1 libXi.so.6 libXtst.so.6
+    libXfixes.so.3 libXcomposite.so.1 libXdamage.so.1 libXpresent.so.1 libSM.so.6 libICE.so.6
+    libxcb.so.1 libxkbcommon-x11.so.0 libxcb-util.so.1 libxcb-cursor.so.0
+    libxcb-image.so.0 libxcb-keysyms.so.1 libxcb-render-util.so.0 libxcb-icccm.so.4
+    libxcb-xinerama.so.0 libxcb-xkb.so.1'''.split()
 
 PACKAGES = {
     'arch': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole kio kwindowsystem kio-extras kio-admin ark udisks2 swaync grim slurp wf-recorder wl-clipboard xorg-xwayland
@@ -49,10 +77,13 @@ PACKAGES = {
         libtasn1-6-dev libgmp-dev libglib2.0-dev libgnutls28-dev libseccomp-dev libfuse3-dev libei-dev libeis-dev
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod python3-cryptography libkeyutils1 libsecret-tools'''.split(),
 }
+for _family, _packages in X11_PACKAGES.items():
+    PACKAGES[_family] = list(dict.fromkeys([*PACKAGES[_family], *_packages]))
+
 COMMANDS = '''git Hyprland hyprctl Xwayland hyprpaper hyprlock waybar kitty dolphin konsole ark udisksctl lsblk swaync swaync-client grim slurp wf-recorder
     wl-copy wl-paste xdg-open xdg-user-dir nmcli nm-applet nm-connection-editor bluetoothctl blueman-manager
     pactl wpctl playerctl brightnessctl fastfetch htop notify-send gdbus pgrep flock
-    xcursorgen hyprcursor-util cc c++ g++ cmake pkg-config wayland-scanner fc-match yt-dlp ffmpeg ffprobe sudo xhost openssl remote-viewer virt-fw-vars certtool
+    xcursorgen hyprcursor-util cc c++ g++ cmake pkg-config wayland-scanner fc-match yt-dlp ffmpeg ffprobe sudo xhost xauth xdpyinfo xclip zenity openssl remote-viewer virt-fw-vars certtool
     make autoconf autoreconf automake aclocal libtool libtoolize perl pod2man gettext gawk expect socat
     tpm2_getcap dmidecode lspci lsusb mcopy mtype fsck.fat losetup modinfo'''.split()
 LIBRARIES = ['gtk+-3.0','gio-unix-2.0','gtk-layer-shell-0','epoxy','json-glib-1.0','Qt5Widgets','Qt6Widgets','Qt5Concurrent','Qt6Concurrent','wayland-client','xcb','xcb-res',
@@ -217,6 +248,16 @@ def kio_admin_available():
         return False
 
 
+def x11_runtime_problems():
+    """Check the loader/ABI without opening a display or changing the session."""
+    errors=[]
+    for library in X11_LIBRARIES:
+        try:CDLL(library)
+        except OSError as error:
+            errors.append('X11 compatibility library cannot load: '+library+' ('+str(error)+')')
+    return errors
+
+
 def check(runtime=True):
     prepare_environment()
     errors=platform_problems(auto_packages=False)
@@ -225,6 +266,7 @@ def check(runtime=True):
         if message:errors.append(message)
     if sys.version_info < (3,11): errors.append('Python 3.11 or newer is required.')
     errors += ['Missing command: '+command for command in COMMANDS if not shutil.which(command)]
+    errors += x11_runtime_problems()
     compiler_error = native_toolchain.problem()
     if compiler_error:
         errors.append('C++ compiler cannot compile/link (including cc1plus and C++ headers): '+compiler_error)

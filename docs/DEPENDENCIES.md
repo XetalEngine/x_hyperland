@@ -5,7 +5,7 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 | Area | Required components |
 | --- | --- |
 | Desktop | Exact Hyprland 0.56.2 and commit from the runtime manifest; Hyprpaper 0.8+, Hyprlock, Waybar 0.15+, Kitty 0.49+ (0.47.1+ on Fedora 44, 0.48.2+ on Debian 13), Dolphin, Konsole's Qt 6 embedded terminal, SwayNotificationCenter |
-| X11 application compatibility | XWayland, explicitly installed and checked as `Xwayland`: `xorg-xwayland` on Arch, `xorg-x11-server-Xwayland` on Fedora, `xwayland` on Debian. Qt 5/6 Wayland support remains installed for native applications. |
+| X11 application compatibility | XWayland; X11/XCB client libraries, including Xpresent and the Qt XCB backend dependencies; xauth, xhost, xdpyinfo, xclip and Zenity. Qt 5/6 Wayland support remains installed for native applications. |
 | Python | Python 3.11+, PyQt6 Widgets/Network/DBus/SVG, PyGObject with Gio/GTK 3/GtkLayerShell, Pillow |
 | Native builds | C/C++23 compiler, matching Hyprland headers, GLESv2, json-c, libei, CMake, pkg-config, GTK 3, gio-unix, gtk-layer-shell, json-glib, Wayland client/scanner; Qt 5 and 6 Widgets/Concurrent, Qt Network/DBus/Linguist, development tools and private QtGui/QtCore headers; XCB and XCB-RES |
 | Capture | grim, slurp, wl-clipboard, wf-recorder, FFmpeg/ffprobe, xdg-desktop-portal-hyprland, GTK desktop portal |
@@ -37,6 +37,10 @@ The Control Panel build uses every CPU available to the installer, including log
 The private GTK 3 preview module is built by the same theme builder. Qt previews use Qt Concurrent for background loading; both dependencies are supplied by the existing GTK/Qt development package recipes. See [file picker coverage](FILE-PREVIEWS.md).
 
 ### XWayland and VLC startup
+
+Setup explicitly installs the X11 compatibility package group on Arch-family systems, Fedora and Debian. The server packages are `xorg-xwayland`, `xorg-x11-server-Xwayland` and `xwayland`, respectively. The client libraries include the [Qt XCB requirements](https://doc.qt.io/qt-6/linux-requirements.html), plus Xpresent and other common runtime libraries used by bundled applications. Setup checks that each required shared library can load and reports missing libraries or loader errors before activating the desktop. These packages cover common X11 client requirements; individual applications can still need additional dependencies.
+
+Hyprland starts XWayland and supplies its `DISPLAY` value. Native Wayland applications retain their Wayland backends; Setup does not force an X11 backend globally or install a separate Xorg desktop session.
 
 VLC 3.0.24's [Qt interface checks X11 before opening and selects the xcb backend](https://github.com/videolan/vlc/blob/3.0.24/modules/gui/qt/qt.cpp). A working native Wayland desktop does not prove that this X11 compatibility connection works. Do not force `QT_QPA_PLATFORM=xcb` globally to fix one application.
 

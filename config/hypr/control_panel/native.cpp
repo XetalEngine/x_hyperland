@@ -383,13 +383,14 @@ void PanelController::prepareTools() {
   title->setObjectName("panelTitle");
   debLayout->addWidget(title);
   auto *description = new QLabel(
-      "Choose a .deb file to convert with debtap and install with pacman. "
-      "You can review the conversion and installation in your terminal.", deb);
+      "Currently unavailable. Requires more automation.", deb);
   description->setWordWrap(true);
   debLayout->addWidget(description);
   auto *install = owner->findChild<QPushButton *>("installDebButton");
   shared->removeWidget(install);
-  install->setText("Choose .deb package…");
+  install->setText("Currently unavailable");
+  install->setEnabled(false);
+  install->setToolTip("Requires more automation.");
   install->setIcon(QIcon::fromTheme("application-x-deb"));
   debLayout->addWidget(install, 0, Qt::AlignLeft);
   install->show();

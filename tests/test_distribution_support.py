@@ -39,6 +39,44 @@ class DistributionTests(unittest.TestCase):
             with self.subTest(ident=ident):
                 self.assertEqual(deps.distro({'ID':ident,'ID_LIKE':like}),expected)
 
+    def test_compatibility_dependencies_are_in_each_complete_desktop_recipe(self):
+        required = {
+            'arch': ('xorg-xwayland', 'libxpresent', 'xcb-util-cursor', 'xorg-xauth', 'xorg-xdpyinfo', 'qt5-wayland', 'qt6-wayland'),
+            'fedora': ('xorg-x11-server-Xwayland', 'libXpresent', 'xcb-util-cursor', 'xorg-x11-xauth', 'xdpyinfo', 'qt5-qtwayland', 'qt6-qtwayland'),
+            'debian': ('xwayland', 'libxpresent1', 'libxcb-cursor0', 'xauth', 'x11-utils', 'qtwayland5', 'qt6-wayland'),
+        }
+        for family, names in required.items():
+            with self.subTest(family=family):
+                recipe = deps.PACKAGES[family]
+                self.assertTrue(set((*names, 'xclip', 'zenity')) <= set(recipe))
+                self.assertTrue(set(deps.X11_PACKAGES[family]) <= set(recipe))
+                self.assertEqual(len(recipe), len(set(recipe)))
+
+    def test_x11_library_check_reports_missing_libraries_and_broken_abis(self):
+        def load(name):
+            if name == 'libXpresent.so.1':
+                raise OSError('cannot open shared object file: No such file or directory')
+            if name == 'libxcb-cursor.so.0':
+                raise OSError('undefined symbol: fixture_missing_symbol')
+            return object()
+        environment = dict(os.environ)
+        with patch.object(deps, 'CDLL', side_effect=load) as loader, \
+             patch.object(deps.subprocess, 'run', side_effect=AssertionError('No display or package commands')):
+            problems = deps.x11_runtime_problems()
+        self.assertEqual(len(problems), 2)
+        self.assertIn('libXpresent.so.1', problems[0])
+        self.assertIn('fixture_missing_symbol', problems[1])
+        self.assertEqual(loader.call_count, len(deps.X11_LIBRARIES))
+        self.assertEqual(dict(os.environ), environment)
+
+    def test_missing_x11_runtime_is_included_in_setup_checks(self):
+        with patch.object(deps, 'CDLL', side_effect=OSError('missing compatibility library')), \
+             patch.object(deps.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, '', '')):
+            problems = deps.check(runtime=False)
+        self.assertTrue(any('X11 compatibility library cannot load: libXpresent.so.1' in p for p in problems))
+        with patch.object(deps, 'CDLL', return_value=object()):
+            self.assertEqual(deps.x11_runtime_problems(), [])
+
     def test_other_distributions_need_native_compositor_without_arch_install(self):
         for ident in ('fedora','ubuntu','opensuse-tumbleweed'):
             with self.subTest(ident=ident),self.host(ident),patch.object(deps.subprocess,'run') as run:

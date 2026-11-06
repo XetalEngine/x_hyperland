@@ -2,7 +2,7 @@
 """Prepare debtap completely, then convert and install one .deb in a terminal."""
 import argparse
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shlex
 import shutil
@@ -24,9 +24,9 @@ DATABASES = ('debian-main-packages-files', 'debian-non-free-packages-files',
 LEGACY_CACHE_PROBE = b"ls /var/cache/pkgfile | grep -E '*.files?(.[[:digit:]]{3})'"
 
 
-def run(args, *, cwd=None, capture=False):
+def run(args, *, cwd=None, capture=False, stdin=None):
     if not capture:print('\n== '+shlex.join(map(str,args)),flush=True)
-    result=subprocess.run(list(map(str,args)),cwd=cwd,text=True,
+    result=subprocess.run(list(map(str,args)),cwd=cwd,text=True,stdin=stdin,
                           capture_output=capture,env=dict(os.environ,LC_ALL='C'))
     if result.returncode:
         detail=(result.stderr or result.stdout or '').strip() if capture else 'See the command output above.'
@@ -93,6 +93,86 @@ def converter(work):
     return ['bash',str(adapted)]
 
 
+def payload_paths(listing):
+    """Read archive names without extracting or executing package contents."""
+    paths=set()
+    for name in listing.splitlines():
+        path=PurePosixPath(name)
+        if path.is_absolute() or '..' in path.parts:
+            raise RuntimeError('The package contains an unsafe file path: '+name)
+        if not path.parts or name.endswith('/') or str(path) in ('.PKGINFO','.BUILDINFO','.MTREE','.INSTALL'):
+            continue
+        paths.add(str(path))
+    return paths
+
+
+def application_files(paths):
+    # Match debtap's Arch filesystem moves for executable directories. /opt
+    # and application-menu entries must survive conversion at their own paths.
+    required=set()
+    for name in paths:
+        for prefix in ('bin/','sbin/','usr/sbin/','usr/games/','usr/local/bin/','usr/local/sbin/','usr/local/games/'):
+            if name.startswith(prefix):
+                name='usr/bin/'+name[len(prefix):]
+                break
+        if name.startswith(('opt/','usr/bin/','usr/share/applications/','usr/local/share/applications/')):
+            required.add(name)
+    return required
+
+
+def source_payload(deb):
+    members=run(['ar','t',deb],capture=True).stdout.splitlines()
+    data=[name for name in members if re.fullmatch(r'data\.tar(?:\.(?:gz|xz|bz2|lzma|zst))?',name)]
+    if len(data)!=1:
+        raise RuntimeError('The .deb must contain exactly one supported data archive.')
+    # Stream compressed contents to libarchive. Neither Debian maintainer
+    # scripts nor application files run during these checks.
+    with tempfile.TemporaryFile() as errors:
+        with subprocess.Popen(['ar','p',str(deb),data[0]],stdout=subprocess.PIPE,stderr=errors) as reader:
+            try:
+                listing=run(['bsdtar','-tf','-'],stdin=reader.stdout,capture=True).stdout
+            finally:
+                reader.stdout.close()
+            if reader.wait():
+                errors.seek(0)
+                raise RuntimeError('Could not read the .deb payload: '+errors.read().decode(errors='replace'))
+    return payload_paths(listing)
+
+
+def converted_package(package, original):
+    identity=run(['pacman','-Qp','--',package],capture=True).stdout.split()
+    if len(identity)!=2 or not re.fullmatch(r'[A-Za-z0-9@_+][A-Za-z0-9@._+\-]*',identity[0]):
+        raise RuntimeError('The converted package has no valid package name/version.')
+    paths=payload_paths(run(['bsdtar','-tf',package],capture=True).stdout)
+    missing=application_files(original)-paths
+    if original and not paths:
+        raise RuntimeError('Conversion produced an empty package. Nothing was installed.')
+    if missing:
+        raise RuntimeError('Conversion lost application files. Nothing was installed:\n  '+
+                           '\n  '.join(sorted(missing)[:12]))
+    print('== Converted package: '+' '.join(identity)+f' ({len(paths)} payload files)',flush=True)
+    return identity,application_files(paths)
+
+
+def verify_installation(identity, required, root=Path('/')):
+    name,version=identity
+    print('== Verifying installed package and files: '+name,flush=True)
+    try:
+        installed=run(['pacman','-Q','--',name],capture=True).stdout.split()
+    except RuntimeError as error:
+        raise RuntimeError('Installation was not verified: '+name+' is not registered with pacman. '+str(error)) from error
+    if installed!=identity:
+        raise RuntimeError('Installation was not completed: expected '+name+' '+version+
+                           ', found '+(' '.join(installed) or 'no installed version')+'.')
+    run(['pacman','-Qk','--',name],capture=True)
+    missing=[path for path in sorted(required) if not (root/path).exists()]
+    if missing:
+        raise RuntimeError('The package is registered, but application files are missing or broken:\n  '+
+                           '\n  '.join('/'+path for path in missing[:12]))
+    launchers=sorted(path for path in required if path.endswith('.desktop') and '/applications/' in path)
+    for path in launchers:print('== Verified Apps launcher: /'+path,flush=True)
+
+
 def install(deb):
     if os.geteuid()==0:raise RuntimeError('Open the .deb installer as your desktop user, without sudo.')
     deb=Path(deb).expanduser().resolve(strict=True)
@@ -104,14 +184,20 @@ def install(deb):
         # Debtap itself uses shell word splitting on arguments. A neutral local
         # filename also supports downloads with spaces, quotes or shell symbols.
         shutil.copyfile(deb,work/'source.deb')
+        print('== Checking application files in '+str(deb),flush=True)
+        original=source_payload(work/'source.deb')
         print('== Converting '+str(deb),flush=True)
         run([*converter(work),'-q','source.deb'],cwd=work)
         packages=[p for p in work.iterdir() if p.is_file() and re.fullmatch(
             r'.+\.pkg\.tar(?:\.(?:zst|xz|gz|bz2|lz4|lrz|lzo|lz|Z))?',p.name)]
         if len(packages)!=1:
             raise RuntimeError(f'Conversion produced {len(packages)} installable packages; expected one. Nothing was installed.')
+        identity,required=converted_package(packages[0],original)
+        print('== Installing converted package: '+' '.join(identity)+
+              '. Review and confirm the pacman transaction below.',flush=True)
         run(['sudo','pacman','-U',packages[0]],cwd=work)
-    print('\n== Installed successfully. The package is now managed by pacman (PKG Uninstall).',flush=True)
+        verify_installation(identity,required)
+    print('\n== Installed successfully: '+' '.join(identity)+'. Package registration and files verified.',flush=True)
 
 
 def main(argv=None):

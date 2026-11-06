@@ -2,12 +2,26 @@
 
 Native floating Qt/C++ panel, opened from Apps above Fusion Settings. See the [feature map and integration guide](../../../docs/CONTROL-PANEL.md).
 
-**Install .deb** prepares missing conversion tools (including `pactree` from
+**Install .deb is currently unavailable and requires more automation.** Its
+Control Panel tile and page remain visible, but the install action is disabled
+and the backend handler only displays the unavailable message. The conversion
+helper is retained for further development.
+
+The helper prepares missing conversion tools (including `pactree` from
 `pacman-contrib`) and repairs incomplete debtap/pkgfile databases before converting.
 It verifies database contents even when `debtap -u` claims success, and installs
 only after successful conversion. Dependency, update, conversion and pacman
 failures stop the operation with the failed command visible in the terminal.
 Package installation keeps pacman's normal confirmation and authentication.
+Before installing, the helper checks that conversion preserved the original
+application executables, `/opt` files and Apps launchers, allowing debtap's
+normal Arch executable-directory moves. After the pacman transaction, it checks
+the installed package name/version, runs `pacman -Qk` and verifies application
+files and launcher paths exist. The final installation success message appears
+only after these checks pass; debtap's earlier "Package successfully created!"
+message marks conversion. These checks do not launch the application or prove
+that all of its runtime features are compatible with Arch.
+
 Debtap 3.6.3's numbered-cache check rejects current pkgfile databases. For that
 known check, conversion uses a temporary copy that asks `pkgfile -l pacman`
 whether the database is usable. Older numbered caches remain supported, missing

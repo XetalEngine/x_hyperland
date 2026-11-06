@@ -1168,22 +1168,8 @@ void MainWindow::on_paruUninstallButton_clicked() {
     process->start("bash", QStringList() << "-c" << script);
 }
 
-// 📦 Install .deb: convert a Debian package to a native Arch package with
-// debtap, then pacman -U it — tracked, removable, visible in PKG Uninstall.
-// The whole conversion + install runs in a visible terminal.
+// Keep the entry discoverable while dependency conversion is being automated.
 void MainWindow::on_installDebButton_clicked() {
-    QString debFile = QFileDialog::getOpenFileName(this, tr("Choose a Debian package"),
-                                                   QDir::homePath(), tr("Debian packages (*.deb)"));
-    if (debFile.isEmpty()) return;
-
     QMessageBox::information(this, tr("Install .deb"),
-        tr("The terminal will install missing conversion tools and prepare the debtap package database before converting your file.\n\n"
-           "Review the package details and confirm installation in the terminal. Administrator authentication may be requested."));
-
-    auto quote = [](QString value) {
-        value.replace("'", "'\"'\"'");
-        return "'" + value + "'";
-    };
-    runSudoCommandInTerminal("exec python3 " + quote(HyperPanel::root() + "/control_panel/deb_install.py") +
-                            " --wait -- " + quote(debFile));
+        tr("Currently unavailable. Requires more automation."));
 }
