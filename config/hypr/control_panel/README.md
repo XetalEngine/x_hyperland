@@ -8,6 +8,16 @@ It verifies database contents even when `debtap -u` claims success, and installs
 only after successful conversion. Dependency, update, conversion and pacman
 failures stop the operation with the failed command visible in the terminal.
 Package installation keeps pacman's normal confirmation and authentication.
+Debtap 3.6.3's numbered-cache check rejects current pkgfile databases. For that
+known check, conversion uses a temporary copy that asks `pkgfile -l pacman`
+whether the database is usable. Older numbered caches remain supported, missing
+or corrupt databases still stop conversion, and the installed debtap script is
+unchanged. See the [upstream cache check](https://github.com/helixarch/debtap/blob/3.6.3/debtap)
+and [pkgfile's cache naming](https://github.com/falconindy/pkgfile/blob/master/src/repo.cc).
+
+System ISO rechecks missing tools when an individual-install or Install All
+terminal closes, including after a cancelled or failed install. It removes only
+dependencies that are now present, without requiring the page or panel to reopen.
 
 The header has built-in minimize, maximize/restore and close buttons on the home
 screen and every tool page. Minimize sends Qt's native minimize request, keeping

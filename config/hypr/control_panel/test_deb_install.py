@@ -1,6 +1,7 @@
 """Package-manager failures must stop conversion/installation, never fake success."""
 import contextlib
 import io
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -18,11 +19,13 @@ class DebInstallTests(unittest.TestCase):
         self.pkgcache=self.root/'pkgfile';self.pkgcache.mkdir()
         self.source=self.root/"browser's $(not-a-command) download.deb"
         self.source.write_bytes(b'downloaded package')
+        self.tool=self.root/'debtap-command';self.tool.write_text('#!/bin/bash\nexit 0\n')
         self.commands=[];self.missing={'pactree'}
         self.fail_at=None;self.broken_update=False;self.query_broken=False;self.output_count=1
         self.real_database=deb.prepare_database
         for mock in (patch.object(deb.os,'geteuid',return_value=1000),
-                     patch.object(deb.shutil,'which',side_effect=lambda name:None if name in self.missing else '/usr/bin/'+name),
+                     patch.object(deb.shutil,'which',side_effect=lambda name:None if name in self.missing else
+                                  str(self.tool) if name=='debtap' else '/usr/bin/'+name),
                      patch.object(deb,'run',side_effect=self.command),
                      patch.object(deb,'prepare_database',side_effect=lambda:self.real_database(self.cache,self.pkgcache))):
             mock.start();self.addCleanup(mock.stop)
@@ -38,7 +41,8 @@ class DebInstallTests(unittest.TestCase):
         if self.fail_at and args[:len(self.fail_at)]==self.fail_at:
             if args[0]=='debtap':(Path(kwargs['cwd'])/'partial.pkg.tar.zst').write_bytes(b'partial')
             raise RuntimeError('Simulated command failed (exit 7): '+' '.join(args))
-        if args[:3]==['sudo','pacman','-S']:self.missing.discard('pactree')
+        if args[:3]==['sudo','pacman','-S']:
+            self.missing.difference_update(name for name,package in deb.TOOLS.items() if package in args[4:])
         if args[:3]==['/usr/bin/yay','-S','--needed']:self.missing.discard('debtap')
         if args==['sudo','debtap','-u']:
             self.databases();self.query_broken=False
@@ -66,6 +70,12 @@ class DebInstallTests(unittest.TestCase):
         self.databases();(self.cache/'extended-base-packages-list').write_text('\n')
         deb.install(self.source)
         self.assertIn(['sudo','debtap','-u'],self.commands)
+
+    def test_archive_and_dependency_inspection_tools_are_installed_before_conversion(self):
+        self.databases();self.missing={'bsdtar','file','which','namcap'}
+        deb.install(self.source)
+        self.assertEqual(self.commands[0],['sudo','pacman','-S','--needed','libarchive','file','which','namcap'])
+        self.assertEqual(self.commands[-1][:3],['sudo','pacman','-U'])
 
     def test_healthy_cache_skips_download_and_does_not_require_aur_helper(self):
         self.databases();self.missing={'yay','paru'}
@@ -109,6 +119,73 @@ class DebInstallTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,f'produced {count} installable packages'):
                 deb.install(self.source)
             self.assertFalse(any(args[:3]==['sudo','pacman','-U'] for args in self.commands))
+
+
+class DebtapCompatibilityTests(unittest.TestCase):
+    """Run the upstream shell guard, not a mocked successful debtap command."""
+    def setUp(self):
+        temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
+        self.root=Path(temporary.name);self.bin=self.root/'bin';self.bin.mkdir()
+        self.cache=self.root/'cache';self.cache.mkdir()
+        self.work=self.root/'work';self.work.mkdir()
+        self.tool=self.bin/'debtap'
+        # The cache-name probe is verbatim from debtap 3.6.3. Redirect only ls
+        # to a disposable directory; the real bash/grep condition still runs.
+        self.source=b'''#!/bin/bash
+ls() { command ls "$TEST_PKGFILE_CACHE"; }
+if [[ ! $(ls /var/cache/pkgfile | grep -E '*.files?(.[[:digit:]]{3})' 2> /dev/null) ]] || [[ ! -s "$TEST_DEBTAP_DATA" ]]; then
+    echo 'Error: Run debtap -u first'
+    exit 1
+fi
+echo converted
+'''
+        self.tool.write_bytes(self.source)
+        pkgfile=self.bin/'pkgfile'
+        pkgfile.write_text('''#!/bin/bash
+for index in "$TEST_PKGFILE_CACHE"/*.files "$TEST_PKGFILE_CACHE"/*.files.[0-9][0-9][0-9]; do
+    if [[ $(cat "$index" 2>/dev/null) == valid-index ]]; then
+        echo 'core/pacman /usr/bin/pacman'
+        exit 0
+    fi
+done
+exit 1
+''')
+        self.tool.chmod(0o755);pkgfile.chmod(0o755)
+        self.data=self.root/'debtap-data';self.data.write_text('package data')
+        environment=patch.dict(os.environ,PATH=str(self.bin)+os.pathsep+os.environ['PATH'],
+                               TEST_PKGFILE_CACHE=str(self.cache),TEST_DEBTAP_DATA=str(self.data))
+        environment.start();self.addCleanup(environment.stop)
+
+    def execute(self, command):
+        return subprocess.run(command+['-q','source.deb'],cwd=self.work,capture_output=True,text=True,timeout=5)
+
+    def test_current_and_numbered_caches_pass_actual_shell_guard_after_adaptation(self):
+        command=deb.converter(self.work)
+        for filename in ('core.files','core.files.001','extra.files.002'):
+            with self.subTest(filename=filename):
+                index=self.cache/filename;index.write_text('valid-index')
+                original=self.execute(['bash',str(self.tool)])
+                self.assertEqual(original.returncode,1 if filename=='core.files' else 0)
+                result=self.execute(command)
+                self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+                self.assertEqual(result.stdout.strip(),'converted')
+                index.unlink()
+        self.assertEqual(self.tool.read_bytes(),self.source)
+
+    def test_adaptation_keeps_missing_corrupt_and_debtap_data_checks(self):
+        command=deb.converter(self.work)
+        self.assertEqual(self.execute(command).returncode,1)
+        index=self.cache/'core.files';index.write_text('corrupt-index')
+        self.assertEqual(self.execute(command).returncode,1)
+        index.write_text('valid-index');self.data.unlink()
+        self.assertEqual(self.execute(command).returncode,1)
+
+    def test_already_fixed_converter_runs_unchanged(self):
+        self.tool.write_bytes(self.source.replace(deb.LEGACY_CACHE_PROBE,b'pkgfile -l pacman'))
+        (self.cache/'core.files').write_text('valid-index')
+        self.assertEqual(deb.converter(self.work),['debtap'])
+        self.assertEqual(self.execute(['debtap']).returncode,0)
+        self.assertFalse((self.work/'debtap-compat').exists())
 
 
 if __name__=='__main__':unittest.main()

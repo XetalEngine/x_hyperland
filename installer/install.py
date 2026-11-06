@@ -101,7 +101,7 @@ def check_kvm_payload(root):
             raise RuntimeError('KVM binaries must be downloaded in KVM Settings: '+str(path.relative_to(root)))
 
 
-def render(stage, home, monitors, profile='auto'):
+def render(stage, home, monitors, profile='auto', *, preserve_theme=False):
     safe_home(home)
     check_kvm_payload(PAYLOAD)
     target=home/'.config/hypr'
@@ -113,7 +113,17 @@ def render(stage, home, monitors, profile='auto'):
         (stage/'launcher'/name).write_text(json.dumps(defaults, indent=2)+'\n')
     theme = stage/'theme/state.json'
     theme_defaults = json.loads(theme.read_text())
-    theme_defaults.update(launcher_wallpaper=True, launcher_background='')
+    theme_defaults.update(design='binaryknife',mode='dark',layout='classic',wallpaper_theme='binaryknife',
+                          bar_style='follow',bar_variant='full',launcher_style='follow',
+                          launcher_wallpaper=True, launcher_background='')
+    # Updates render colors for the recipient's chosen theme, including when
+    # it still matches an old release default. Fresh/reset installs use Binary Knife.
+    saved_theme=target/'theme/state.json'
+    if preserve_theme and saved_theme.is_file():
+        saved=json.loads(saved_theme.read_text())
+        theme_defaults.update(saved)
+        for key in ('layout','wallpaper_theme','bar_style','launcher_style'):
+            if key not in saved:theme_defaults.pop(key,None)
     theme.write_text(json.dumps(theme_defaults, indent=2)+'\n')
     for p in stage.rglob('*'):
         if not p.is_file():continue
@@ -143,6 +153,10 @@ def render(stage, home, monitors, profile='auto'):
         lines += [f'workspace = {i}, monitor:{m["name"]}, default:true' for i,m in enumerate(active,1)]
         (stage/'control_center/workspaces.conf').write_text('\n'.join(lines)+'\n')
     choice=json.loads((stage/'wallpaper/default.json').read_text())
+    choice.update(image='binaryknife/workstation-2.png',fit='cover')
+    saved_wallpaper=target/'wallpaper/default.json'
+    if preserve_theme and saved_wallpaper.is_file():choice.update(json.loads(saved_wallpaper.read_text()))
+    (stage/'wallpaper/default.json').write_text(json.dumps(choice,indent=2)+'\n')
     wallpaper=str(target/'wallpaper'/choice['image'])
     design=json.loads((stage/'theme/state.json').read_text()).get('design','modern')
     sets=json.loads((stage/'wallpaper/sets.json').read_text())

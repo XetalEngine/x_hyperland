@@ -1,7 +1,7 @@
 {
   "version": 2,
   "mode": "dark",
-  "design": "hollowgrove",
+  "design": "binaryknife",
   "launcher_style": "follow",
   "selection_marker": "none",
   "avatar": "assets/account.gif",
@@ -9,6 +9,6 @@
   "launcher_background": "",
   "bar_style": "follow",
   "bar_variant": "full",
-  "layout": "sidebar",
-  "wallpaper_theme": "hollowgrove"
+  "layout": "classic",
+  "wallpaper_theme": "binaryknife"
 }

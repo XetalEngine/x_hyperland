@@ -40,6 +40,7 @@
 #include "sensors_power.h"
 #include "network_shares.h"
 #include "autostart.h"
+#include "../terminal_exit.h"
 
 void MainWindow::setNumlockSetting(bool enabled) {
     QString value = enabled ? "1" : "0";
@@ -47,10 +48,12 @@ void MainWindow::setNumlockSetting(bool enabled) {
 }
 
 // Helper to run a sudo command in a terminal
-void MainWindow::runSudoCommandInTerminal(const QString &cmd) {
+void MainWindow::runSudoCommandInTerminal(const QString &cmd, std::function<void()> onClosed) {
     QStringList terminals = {HyperPanel::terminal(), "kitty", "alacritty", "xterm"};
     for (const QString &terminal : terminals) {
-        if (QProcess::startDetached(terminal, QStringList() << "-e" << "bash" << "-c" << cmd)) {
+        qint64 pid = 0;
+        if (QProcess::startDetached(terminal, QStringList() << "-e" << "bash" << "-c" << cmd, QString(), &pid)) {
+            if (onClosed) TerminalExit::watch(this, pid, onClosed);
             return;
         }
     }

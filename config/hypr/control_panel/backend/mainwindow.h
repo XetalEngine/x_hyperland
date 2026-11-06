@@ -533,7 +533,7 @@ private:
     void searchLogFiles();
     void applyLogFilters();
     void openConfigInNano(const QString &filePath);
-    void runSudoCommandInTerminal(const QString &cmd);
+    void runSudoCommandInTerminal(const QString &cmd, std::function<void()> onClosed = {});
     
     // Tweaks tab state checking functions
     void refreshTweaksStatus();
@@ -646,6 +646,7 @@ private:
     void refreshIsoDeps();
     QWidget *isoDepsBar = nullptr;
     QHBoxLayout *isoDepsBarLayout = nullptr;
+    unsigned isoDepsGeneration = 0;
 
     // Control panel (Dashboard sub-tabs)
     void setupControlPanelTabs();

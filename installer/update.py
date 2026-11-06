@@ -50,7 +50,7 @@ def prepare(home, commit, automatic=True, allow_runtime=False, checkpoint=lambda
         with tempfile.TemporaryDirectory(prefix='prepare-', dir=state) as temporary:
             root = Path(temporary); upstream = root/'upstream'; stage = root/'profile'
             print('Preparing release files and preserving personal settings…', flush=True)
-            install.render(upstream, home, install.connected_monitors())
+            install.render(upstream, home, install.connected_monitors(), preserve_theme=True)
             expected = engine.merge_profile(live, upstream, stage, commit)
             # These paths are not source-controlled and are created by the initial installer.
             for directory in ('dolphin/cache', 'dolphin/state', 'apps', 'assets/font-cache'):

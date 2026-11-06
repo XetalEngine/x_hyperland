@@ -11,12 +11,17 @@ import tempfile
 
 TOOLS = {'pactree':'pacman-contrib', 'pkgfile':'pkgfile', 'ar':'binutils',
          'readelf':'binutils', 'fakeroot':'fakeroot', 'curl':'curl', 'gzip':'gzip',
-         'gawk':'gawk', 'tar':'tar', 'xz':'xz', 'zstd':'zstd'}
+         'gawk':'gawk', 'tar':'tar', 'bsdtar':'libarchive', 'file':'file',
+         'which':'which', 'namcap':'namcap', 'xz':'xz', 'zstd':'zstd'}
 # Debtap can exit zero after failed commands. Check the outputs it actually
 # consumes, including the base list that becomes just a newline without pactree.
 DATABASES = ('debian-main-packages-files', 'debian-non-free-packages-files',
              'debian-contrib-packages-files', 'ubuntu-packages-files',
              'aur-packages', 'virtual-packages', 'extended-base-packages-list')
+# Debtap 3.6.3 requires a numbered pkgfile cache suffix, rejecting the current
+# repo.files layout. Replace only that known probe in a disposable copy; query
+# pkgfile itself so a missing/corrupt database still fails the original guard.
+LEGACY_CACHE_PROBE = b"ls /var/cache/pkgfile | grep -E '*.files?(.[[:digit:]]{3})'"
 
 
 def run(args, *, cwd=None, capture=False):
@@ -77,6 +82,17 @@ def prepare_database(cache=Path('/var/cache/debtap'), pkgcache=Path('/var/cache/
             raise RuntimeError('Debtap update finished, but pkgfile still cannot read the pacman file list.')
 
 
+def converter(work):
+    executable=shutil.which('debtap')
+    if not executable:raise RuntimeError('The debtap command is no longer available.')
+    source=Path(executable).read_bytes()
+    if LEGACY_CACHE_PROBE not in source:return ['debtap']
+    adapted=work/'debtap-compat'
+    adapted.write_bytes(source.replace(LEGACY_CACHE_PROBE,b'pkgfile -l pacman',1))
+    print('== Using debtap compatibility for current and older pkgfile databases.',flush=True)
+    return ['bash',str(adapted)]
+
+
 def install(deb):
     if os.geteuid()==0:raise RuntimeError('Open the .deb installer as your desktop user, without sudo.')
     deb=Path(deb).expanduser().resolve(strict=True)
@@ -89,7 +105,7 @@ def install(deb):
         # filename also supports downloads with spaces, quotes or shell symbols.
         shutil.copyfile(deb,work/'source.deb')
         print('== Converting '+str(deb),flush=True)
-        run(['debtap','-q','source.deb'],cwd=work)
+        run([*converter(work),'-q','source.deb'],cwd=work)
         packages=[p for p in work.iterdir() if p.is_file() and re.fullmatch(
             r'.+\.pkg\.tar(?:\.(?:zst|xz|gz|bz2|lz4|lrz|lzo|lz|Z))?',p.name)]
         if len(packages)!=1:

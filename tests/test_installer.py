@@ -124,8 +124,8 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(set(state),{'HDMI-A-1','eDP-1'})
         self.assertTrue(state['eDP-1']['path'].startswith(str(self.target)))
         self.assertEqual(state['eDP-1']['path'],state['eDP-1']['original'])
-        self.assertTrue(state['HDMI-A-1']['path'].endswith('/hollowgrove/forgotten-arches.png'))
-        self.assertTrue(state['eDP-1']['path'].endswith('/hollowgrove/hollow-grove.png'))
+        self.assertTrue(state['HDMI-A-1']['path'].endswith('/binaryknife/workstation-1.png'))
+        self.assertTrue(state['eDP-1']['path'].endswith('/binaryknife/workstation-2.png'))
         for p in self.stage.rglob('*'):
             if not p.is_file():continue
             try:text=p.read_text()
@@ -137,12 +137,15 @@ class InstallerTests(unittest.TestCase):
         self.render(monitors=[])
         self.assertIn('monitor=,preferred,auto,auto',(self.stage/'hyprland.conf').read_text())
         self.assertRegex((self.stage/'wallpaper/hyprpaper.conf').read_text(),r'monitor =\s*\n')
+        self.assertIn('/binaryknife/workstation-2.png',(self.stage/'wallpaper/hyprpaper.conf').read_text())
         self.assertEqual(json.loads((self.stage/'wallpaper/selection.json').read_text()),{})
 
-    def test_fresh_hollow_grove_and_effect_defaults_are_portable_and_ready(self):
+    def test_fresh_binary_knife_and_effect_defaults_are_portable_and_ready(self):
         self.render()
         state=json.loads((self.stage/'theme/state.json').read_text())
-        self.assertEqual((state['design'],state['mode'],state['bar_variant']),('hollowgrove','dark','full'))
+        self.assertEqual((state['design'],state['mode'],state['layout'],state['bar_variant']),
+                         ('binaryknife','dark','classic','full'))
+        self.assertEqual(state['wallpaper_theme'],'binaryknife')
         self.assertIs(state['launcher_wallpaper'],True)
         self.assertEqual(state['launcher_background'],'')
         appearance=dict(line.split('=',1) for line in (self.stage/'control_center/appearance.conf').read_text().splitlines()
@@ -152,9 +155,8 @@ class InstallerTests(unittest.TestCase):
             'general:gaps_in':'5 5 5 5','general:gaps_out':'5 5 5 5','general:resize_on_border':'false',
             'animations:enabled':'true','decoration:blur:enabled':'true','decoration:shadow:enabled':'true',
             'decoration:active_opacity':'1.00','decoration:inactive_opacity':'1.00'})
-        self.assertIn('XetalHollowgroveDark',(self.stage/'theme/current.colors').read_text())
-        self.assertIn('hollowgrove',(self.stage/'waybar/style.css').read_text())
-        self.assertIn(str(self.target/'theme'),(self.stage/'waybar/style.css').read_text())
+        self.assertIn('XetalBinaryknifeDark',(self.stage/'theme/current.colors').read_text())
+        self.assertIn('binaryknife',(self.stage/'waybar/style.css').read_text())
         self.assertNotIn(str(self.stage),(self.stage/'waybar/style.css').read_text())
         values=json.loads((self.stage/'effects/cube/settings.json').read_text())
         self.assertEqual((values['wall_opacity'],values['zoom'],values['sensitivity'],values['duration']),(.65,.64,.35,200))
@@ -214,8 +216,10 @@ assert m['fire_indicator']
                    'file_manager/state/settings.ini', 'runtime/window_memory/state/windows.json',
                    'control_panel/state/startup-screen.json')
         theme=source/'theme/state.json'
-        theme.write_text(json.dumps(dict(json.loads(theme.read_text()), launcher_wallpaper=False,
-                                        launcher_background='backgrounds/developer.png')))
+        theme.write_text(json.dumps(dict(json.loads(theme.read_text()),design='hollowgrove',mode='light',
+                                        layout='sidebar',wallpaper_theme='hollowgrove',
+                                        launcher_wallpaper=False,launcher_background='backgrounds/developer.png')))
+        (source/'wallpaper/default.json').write_text('{"image":"hollowgrove/hollow-grove.png","fit":"contain"}')
         for name in private:
             path = source/name; path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text('PRIVATE DEVELOPER DATA')
@@ -229,7 +233,30 @@ assert m['fire_indicator']
         defaults=json.loads((self.stage/'theme/state.json').read_text())
         self.assertIs(defaults['launcher_wallpaper'],True)
         self.assertEqual(defaults['launcher_background'],'')
+        self.assertEqual((defaults['design'],defaults['mode'],defaults['layout']),('binaryknife','dark','classic'))
+        self.assertEqual(json.loads((self.stage/'wallpaper/default.json').read_text()),
+                         {'image':'binaryknife/workstation-2.png','fit':'cover'})
         self.assertEqual(kde.read_bytes(), before)
+
+    def test_update_renders_existing_theme_even_when_it_is_the_previous_stock_default(self):
+        saved={'design':'hollowgrove','mode':'dark','layout':'sidebar','wallpaper_theme':'hollowgrove',
+               'launcher_style':'follow','bar_style':'follow','bar_variant':'full',
+               'launcher_wallpaper':False,'launcher_background':''}
+        theme=self.target/'theme/state.json';theme.parent.mkdir(parents=True)
+        theme.write_text(json.dumps(saved))
+        wallpaper=self.target/'wallpaper/default.json';wallpaper.parent.mkdir(parents=True)
+        choice={'image':'hollowgrove/hollow-grove.png','fit':'contain'}
+        wallpaper.write_text(json.dumps(choice))
+        self.render(preserve_theme=True)
+        result=json.loads((self.stage/'theme/state.json').read_text())
+        self.assertEqual({key:result[key] for key in saved},saved)
+        self.assertEqual(json.loads((self.stage/'wallpaper/default.json').read_text()),choice)
+        self.assertIn('XetalHollowgroveDark',(self.stage/'theme/current.colors').read_text())
+        self.assertIn('hollowgrove',(self.stage/'waybar/style.css').read_text())
+        self.assertIn(str(self.target/'theme'),(self.stage/'waybar/style.css').read_text())
+        self.assertNotIn(str(self.stage),(self.stage/'waybar/style.css').read_text())
+        self.assertIn('/hollowgrove/hollow-grove.png',(self.stage/'wallpaper/hyprpaper.conf').read_text())
+        self.assertEqual(json.loads(theme.read_text()),saved)
 
     def test_places_use_recipient_folders_without_importing_private_bookmarks(self):
         (self.home/'Desktop').mkdir()

@@ -460,9 +460,14 @@ void MainWindow::setupIsoDepsCheck() {
 }
 
 void MainWindow::refreshIsoDeps() {
+    const auto generation = ++isoDepsGeneration;
     QProcess *proc = new QProcess(this);
     connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            [this, proc](int, QProcess::ExitStatus) {
+            this, [this, proc, generation](int code, QProcess::ExitStatus status) {
+                if (generation != isoDepsGeneration || code != 0 || status != QProcess::NormalExit) {
+                    proc->deleteLater();
+                    return;
+                }
                 QStringList missing;
                 for (const QString &line : QString::fromUtf8(proc->readAllStandardOutput()).split('\n', Qt::SkipEmptyParts))
                     if (line.startsWith("MISSING:")) missing << line.section(':', 1).trimmed();
@@ -485,20 +490,25 @@ void MainWindow::refreshIsoDeps() {
                     QPushButton *btn = new QPushButton(tr("⬇️ Install %1").arg(pkg), isoDepsBar);
                     connect(btn, &QPushButton::clicked, this, [this, pkg]() {
                         runSudoCommandInTerminal(QString(
-                            "sudo pacman -S --needed %1 && echo '%1 installed — re-open the System ISO tab to refresh this bar.'; read -p 'Press Enter...'").arg(pkg));
+                            "sudo pacman -S --needed %1 && echo '%1 installed.'; read -p 'Press Enter...'").arg(pkg),
+                            [this] { refreshIsoDeps(); });
                     });
                     isoDepsBarLayout->addWidget(btn);
                 }
                 QPushButton *allBtn = new QPushButton(tr("⬇️ Install All"), isoDepsBar);
                 connect(allBtn, &QPushButton::clicked, this, [this, missing]() {
                     runSudoCommandInTerminal(QString(
-                        "sudo pacman -S --needed %1 && echo 'All ISO dependencies installed.'; read -p 'Press Enter...'").arg(missing.join(' ')));
+                        "sudo pacman -S --needed %1 && echo 'All ISO dependencies installed.'; read -p 'Press Enter...'").arg(missing.join(' ')),
+                        [this] { refreshIsoDeps(); });
                 });
                 isoDepsBarLayout->addWidget(allBtn);
                 isoDepsBarLayout->addStretch();
                 isoDepsBar->show();
                 proc->deleteLater();
             });
+    connect(proc, &QProcess::errorOccurred, this, [proc](QProcess::ProcessError error) {
+        if (error == QProcess::FailedToStart) proc->deleteLater();
+    });
     // binary -> providing package (what pacman actually installs)
     proc->start("bash", QStringList() << "-c" <<
         "for p in mkarchiso:archiso rsync:rsync tar:tar zstd:zstd bsdtar:libarchive "

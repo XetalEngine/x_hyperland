@@ -33,6 +33,7 @@ set(PROJECT_SOURCES
         ../native.cpp
         ../native.h
     ../wheel_guard.h
+    ../terminal_exit.h
     ../disk_visualizer.cpp
     ../disk_visualizer.h
     ../disk_layout.h

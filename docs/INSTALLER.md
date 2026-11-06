@@ -4,6 +4,8 @@ Run `./x_hyperinstall.sh` from a complete checkout or extracted GitHub ZIP as yo
 
 For an existing desktop, **Keep my existing desktop and startup preferences** starts checked. Uncheck it to install the current desktop and startup defaults instead. The Review page shows the selected behavior, and the existing profile is backed up before replacement in either case.
 
+Fresh installs and resets use the **Binary Knife** preset in dark mode, with its
+matching wallpapers. Updates keep the existing theme and wallpaper choices.
 Fresh installs always open Welcome at login, including its live `fusion-check`
 panel. Disable **Show this dashboard at login** in Welcome after signing in if
 desired. Fresh Start menus show the desktop wallpaper across all themes. Window
