@@ -108,13 +108,22 @@ restore_boot_gpu_modules() {
 
 restore_boot_make_image() {
     local tool=$1 version=$2 image=$3 early_modules
+    local hooks='base udev modconf keyboard block filesystems fsck'
     local -a post_options=()
     early_modules=$(restore_boot_gpu_modules "$version") || return 1
+    if [[ $tool == mkinitcpio && -f /usr/lib/initcpio/install/hyperfusion-graphics &&
+          -f /etc/hyperfusion/graphics/nvidia-supported.txt ]]; then
+        # A CustomArch image carries both NVIDIA and Nouveau. Preserve its
+        # pre-udev selection when building a clone, including on a different GPU.
+        # The hook includes drivers; MODULES must not force a competing stack.
+        early_modules=''
+        hooks='base systemd modconf kms keyboard block filesystems fsck hyperfusion-graphics'
+    fi
     # The clone is ext4. Source encryption, LVM, resume and Btrfs hooks must not
     # leak into its initramfs. Optional GPU drivers are checked for EACH kernel.
     {
         printf 'MODULES=(ext4%s)\n' "${early_modules:+ $early_modules}"
-        printf 'BINARIES=()\nFILES=()\nHOOKS=(base udev modconf keyboard block filesystems fsck)\nCOMPRESSION="gzip"\n'
+        printf 'BINARIES=()\nFILES=()\nHOOKS=(%s)\nCOMPRESSION="gzip"\n' "$hooks"
     } > /etc/mkinitcpio-xetal.conf || return 1
     mkdir -p /etc/dracut-xetal.conf.d || return 1
     printf 'hostonly="no"\nhostonly_cmdline="no"\n' > /etc/dracut-xetal.conf || return 1

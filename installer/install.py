@@ -106,9 +106,9 @@ def render(stage, home, monitors, profile='auto', *, preserve_theme=False):
     check_kvm_payload(PAYLOAD)
     target=home/'.config/hypr'
     shutil.copytree(PAYLOAD,stage,dirs_exist_ok=True,ignore=payload_ignored)
-    # A source checkout can be used as a live desktop too. Ship neutral icon
-    # choices, not the author's imports, overrides or generated paths.
-    (stage/'theme/icons.json').write_text(json.dumps({'version':1,'system':'follow','other':'auto','overrides':{}},indent=2)+'\n')
+    # Fresh installs use Papirus-Dark for both system and application icons.
+    # Do not copy the author's imports, overrides or generated paths.
+    (stage/'theme/icons.json').write_text(json.dumps({'version':1,'system':'other','other':'theme:Papirus-Dark','overrides':{}},indent=2)+'\n')
     for name, defaults in LAUNCHER_DEFAULTS.items():
         (stage/'launcher'/name).write_text(json.dumps(defaults, indent=2)+'\n')
     theme = stage/'theme/state.json'

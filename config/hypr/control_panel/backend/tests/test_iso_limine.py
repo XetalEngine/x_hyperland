@@ -256,6 +256,18 @@ restore_boot_main
         self.assertEqual(conf, 'MODULES=(ext4)\nBINARIES=()\nFILES=()\n'
                                'HOOKS=(base udev modconf keyboard block filesystems fsck)\nCOMPRESSION="gzip"\n')
 
+    def test_portable_graphics_selection_survives_clone_boot_regeneration(self):
+        for name in ('usr/lib/initcpio/install/hyperfusion-graphics', 'etc/hyperfusion/graphics/nvidia-supported.txt'):
+            path=self.r/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text('fixture\n')
+        (self.r/'etc/mkinitcpio.conf').write_text('MODULES=(nvidia nouveau amdgpu)\nHOOKS=(base systemd autodetect encrypt)\n')
+        for loader in ('grub', 'systemd-boot', 'limine'):
+            with self.subTest(loader=loader):
+                result=self.run_boot(loader)
+                self.assertEqual(result.returncode,0,result.stderr)
+                conf=(self.r/'etc/mkinitcpio-xetal.conf').read_text()
+                self.assertIn('MODULES=(ext4)\n',conf)
+                self.assertIn('HOOKS=(base systemd modconf kms keyboard block filesystems fsck hyperfusion-graphics)',conf)
+
     def test_limine_graphics_no_is_written_and_covered_by_the_enrolled_hash(self):
         result = self.run_boot('limine', sb=True, extra='LIMINE_GRAPHICS=no\n')
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)

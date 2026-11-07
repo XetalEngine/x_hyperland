@@ -1,0 +1,13 @@
+[Unit]
+Description=Choose the preinstalled Hyper Fusion GPU driver
+DefaultDependencies=no
+ConditionPathExists=/etc/hyperfusion/graphics/nvidia-supported.txt
+Before=systemd-udevd.service systemd-udev-trigger.service systemd-modules-load.service sysinit.target display-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/hyperfusion-graphics/policy.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target

@@ -44,7 +44,7 @@ class IconTests(unittest.TestCase):
         self.assertEqual(len(seen),len(art.STYLES))
 
     def test_other_apps_fall_back_to_selected_pack_and_it_can_replace_system_icons(self):
-        values=deepcopy(model.DEFAULTS);values['other']='theme:Test-Other';self.activate(values)
+        values=deepcopy(model.DEFAULTS);values['system']='follow';values['other']='theme:Test-Other';self.activate(values)
         self.assertEqual(self.color('imaginary-app'),'#22bb55')
         self.assertNotEqual(self.color('folder'),'#bb2255')
         values['system']='other';self.activate(values);self.assertEqual(self.color('folder'),'#bb2255')
@@ -60,6 +60,7 @@ class IconTests(unittest.TestCase):
         self.assertTrue(list((self.root/'icon_themes/backups').glob('*.json')))
 
     def test_follow_and_pinned_sets_survive_palette_changes_and_reopen(self):
+        self.activate({**model.DEFAULTS,'system':'follow','other':'auto'})
         model.apply_qt(self.root);before=QIcon.themeName()
         (self.root/'theme/state.json').write_text('{"design":"gildedhollow","mode":"light"}')
         model.apply_qt(self.root);self.assertNotEqual(QIcon.themeName(),before)
@@ -69,9 +70,9 @@ class IconTests(unittest.TestCase):
         self.assertEqual(model.load(self.root)[0],values)
 
     def test_stale_editor_cannot_overwrite_newer_choices_or_corrupt_preferences(self):
-        _,old=model.load(self.root);values={**model.DEFAULTS,'system':'other'};self.activate(values)
+        _,old=model.load(self.root);values={**model.DEFAULTS,'system':'follow'};self.activate(values)
         with self.assertRaisesRegex(ValueError,'changed elsewhere'):model.save(model.DEFAULTS,old,self.root)
-        self.assertEqual(model.load(self.root)[0]['system'],'other')
+        self.assertEqual(model.load(self.root)[0]['system'],'follow')
         path=self.root/'theme/icons.json';path.write_text('broken')
         with self.assertRaises(ValueError):model.ensure(self.root)
         self.assertEqual(path.read_text(),'broken')
@@ -114,7 +115,7 @@ class IconTests(unittest.TestCase):
     def test_preset_keeps_other_icons_and_individual_choices_when_system_design_changes(self):
         import runtime,presets
         relative=model.import_image(self.set/'scalable/folder.svg',self.root)
-        values={**deepcopy(model.DEFAULTS),'other':'theme:Test-Other','overrides':{'user-home':relative}}
+        values={**deepcopy(model.DEFAULTS),'system':'follow','other':'theme:Test-Other','overrides':{'user-home':relative}}
         self.activate(values)
         target={'theme':{'design':'gildedhollow'},'icons':{**values,'system':'builtin:gildedhollow'}}
         files,_=presets.resources(self.root,target,{'icons'},'hollowgrove')

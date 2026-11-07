@@ -142,6 +142,8 @@ class InstallerTests(unittest.TestCase):
 
     def test_fresh_binary_knife_and_effect_defaults_are_portable_and_ready(self):
         self.render()
+        icons=json.loads((self.stage/'theme/icons.json').read_text())
+        self.assertEqual((icons['system'], icons['other']), ('other', 'theme:Papirus-Dark'))
         state=json.loads((self.stage/'theme/state.json').read_text())
         self.assertEqual((state['design'],state['mode'],state['layout'],state['bar_variant']),
                          ('binaryknife','dark','classic','full'))

@@ -18,7 +18,7 @@ from functools import lru_cache
 from . import art
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULTS = {'version': 1, 'system': 'follow', 'other': 'auto', 'overrides': {}}
+DEFAULTS = {'version': 1, 'system': 'other', 'other': 'theme:Papirus-Dark', 'overrides': {}}
 NAME = re.compile(r'[^/\\\x00-\x1f,=]{1,160}\Z')
 ICON = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.+@-]{0,179}\Z')
 MODES = ('dark','light','contrast')

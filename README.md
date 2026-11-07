@@ -21,6 +21,8 @@ https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d
 
 Hyper Fusion brings the whole desktop together: a launcher you can arrange yourself, coordinated visual styles, a configurable taskbar, native settings, themed file tools, virtual-machine management and original Compiz effects adapted to Hyprland. The graphical installer builds the included desktop components for your system, and the updater keeps your personal choices between releases.
 
+Fresh installations use **Use Other Icons → Papirus-Dark**. Desktop updates preserve your saved icon choices.
+
 ## Tested on
 
 <table>

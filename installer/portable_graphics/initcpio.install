@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+build() {
+    # Regenerate on every mkinitcpio build, including future NVIDIA upgrades.
+    /usr/bin/python3 /usr/local/lib/hyperfusion-graphics/support.py || return 1
+    add_file /etc/hyperfusion/graphics/nvidia-supported.txt
+    if [[ -f /etc/hyperfusion/graphics/nouveau-enabled ]]; then
+        add_file /etc/hyperfusion/graphics/nouveau-enabled
+    fi
+    add_file /usr/local/lib/hyperfusion-graphics/policy.sh /usr/local/lib/hyperfusion-graphics/policy.sh 755
+    add_file /usr/lib/systemd/system/hyperfusion-graphics.service
+    add_symlink /usr/lib/systemd/system/sysinit.target.wants/hyperfusion-graphics.service ../hyperfusion-graphics.service
+    # Include external modules without forcing them to load on an AMD/Intel PC.
+    local gpu_module
+    for gpu_module in nvidia nvidia_modeset nvidia_uvm nvidia_drm; do
+        add_module "$gpu_module" || return 1
+    done
+}
+
+help() {
+    echo 'Include NVIDIA DKMS and select NVIDIA/Nouveau before systemd GPU coldplug. Requires the systemd and base hooks.'
+}
