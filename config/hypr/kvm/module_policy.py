@@ -70,8 +70,10 @@ def warning(data, release=None):
     text = f'⚠ Kernel {kernel}: KVM interception / native timing tweaks unavailable. Using standard KVM.'
     if 'using KVM' in reason or 'consumer' in reason:
         text = '⚠ KVM is in use. Keeping the loaded module; custom interception / timing changes are skipped.'
+    elif entry and not packages.compatibility('kvm-amd',entry):
+        text = f'Kernel {kernel} is compatible. Its KVM interception module still needs to be prepared.'
     detail = reason + '. VM launch continues automatically. Your custom-module preference is kept.'
-    if entry.get('kernel'):
+    if entry.get('kernel') and entry['kernel'] != kernel:
         detail += '\nPublished build: AMD · kernel ' + entry['kernel'] + '. Boot that kernel to use it.'
-    detail += '\nCompatibility is checked again when Settings opens and before each launch. A matching download is prepared automatically.'
+    detail += '\nA matching download is prepared when Settings opens. Modules are loaded only when you launch a VM.'
     return text, detail

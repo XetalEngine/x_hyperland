@@ -43,9 +43,31 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(notices[-1][0], 'launched')
         self.assertNotIn('test-password', repr(notices))
 
-    def test_retry_cancels_failed_pam_and_account_switch_creates_new_identity(self):
+    def test_retry_authenticates_again_with_automatic_or_stale_worker_cleanup(self):
+        replies = ({'type': 'success'}, {'type': 'error', 'error_type': 'error',
+                   'description': 'unable to send message: Connection refused (os error 111)'})
+        for cleanup_reply in replies:
+            with self.subTest(cleanup_reply=cleanup_reply):
+                flow, sent, notices = self.flow()
+                flow.select('alice')
+                flow.receive({'type': 'auth_message', 'auth_message_type': 'secret', 'auth_message': 'Password:'})
+                flow.answer('wrong-test-password')
+                flow.receive({'type': 'error', 'error_type': 'auth_error'})
+                flow.select('alice')
+                self.assertEqual(sent[-1], {'type': 'cancel_session'})
+                flow.receive(cleanup_reply)
+                self.assertEqual(sent[-1], {'type': 'create_session', 'username': 'alice'})
+                self.assertFalse(any(m['type'] == 'start_session' for m in sent))
+                flow.receive({'type': 'auth_message', 'auth_message_type': 'secret', 'auth_message': 'Password:'})
+                flow.answer('correct-test-password'); flow.receive({'type': 'success'})
+                flow.answer(''); flow.receive({'type': 'success'})
+                self.assertEqual(notices[-1][0], 'launched')
+                self.assertNotIn('test-password', repr(notices))
+
+    def test_account_switch_cancels_a_live_conversation_before_creating_new_identity(self):
         flow, sent, notices = self.flow()
-        flow.select('alice'); flow.receive({'type': 'error', 'error_type': 'auth_error'})
+        flow.select('alice')
+        flow.receive({'type': 'auth_message', 'auth_message_type': 'secret', 'auth_message': 'Password:'})
         flow.select('bob')
         self.assertEqual(sent[-1]['type'], 'cancel_session')
         self.assertFalse(any(m.get('username') == 'bob' for m in sent))

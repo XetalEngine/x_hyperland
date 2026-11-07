@@ -208,6 +208,15 @@ class KVMSettings(VMStart2):
         for label in getattr(self,'module_warnings',[]):
             label.setText(text);label.setToolTip(detail);label.setVisible(bool(text))
             label.kernel_action(kernel,available=not bool(self.package_panel.job))
+        # Inventory callbacks can run while the panel is releasing a job.
+        # Prepare a matching download on the next event-loop turn, before the
+        # user needs to launch a guest. Loading modules remains a launch action.
+        if not hasattr(self,'_module_prepare_timer'):
+            self._module_prepare_timer=QTimer(self)
+            self._module_prepare_timer.setSingleShot(True)
+            self._module_prepare_timer.timeout.connect(
+                lambda:self._prepare_optional_module() if self.isVisible() else None)
+        if not self._module_prepare_timer.isActive():self._module_prepare_timer.start(0)
 
     def _install_compatible_kernel(self):
         if self.package_panel.job or self._busy():
@@ -217,15 +226,16 @@ class KVMSettings(VMStart2):
         dialog=KernelInstallDialog(entry.get('kernel'),self,busy=self._busy)
         dialog.exec();self._refresh_module_status()
 
-    def _prepare_optional_module(self,retry):
-        """A compatible published build is installed on demand, once per release.
+    def _prepare_optional_module(self,retry=None):
+        """Prepare a compatible published download once per release/session.
 
         A missing or incompatible optional build never blocks the guest. Failed
         downloads fall back for this session, leaving the saved choice intact.
         """
         import module_policy,packages
-        if not retry or not module_policy.requested(self.cfg.data):return False
+        if not module_policy.requested(self.cfg.data):return False
         panel=self.package_panel
+        if panel.job:return False
         entry=(panel.release or {}).get('components',{}).get('kvm-amd')
         if (not entry or packages.compatibility('kvm-amd',entry)
                 or not module_policy.unavailable(check_busy=False) or self._busy()):return False
@@ -236,7 +246,7 @@ class KVMSettings(VMStart2):
         session=panel.account.session;config=self.cfg
         self.status.setText('Preparing the custom KVM module for this kernel…')
         def done(_):
-            self.status.setText('Compatible custom KVM module ready. Continuing launch…')
+            self.status.setText('Compatible custom KVM module ready.'+(' Continuing launch…' if retry else ''))
             self._refresh_all()
         def failed(error):
             panel.info.setText('Optional module download unavailable. Using standard KVM. '+error)
@@ -246,7 +256,7 @@ class KVMSettings(VMStart2):
             if (self.isVisible() and self.package_panel is panel and self.cfg is config
                     and panel.account.session is session):retry()
         panel.run(lambda progress:panel.store.download('kvm-amd',entry,progress),done,failed,session=session)
-        panel.job.finished.connect(lambda:QTimer.singleShot(0,resume))
+        if retry:panel.job.finished.connect(lambda:QTimer.singleShot(0,resume))
         return True
 
     def _capture_gpu_rom(self,slot,finished):
@@ -323,9 +333,13 @@ class KVMSettings(VMStart2):
                 try:blob.read_bytes()
                 except PermissionError:
                     from uiutil import sudo_command
-                    command,env,available=sudo_command(['test','-r',str(blob)],'KVM Settings: check existing TPM state')
-                    if not available:raise RuntimeError('Administrator access is needed to read the existing TPM state.')
+                    command,env,available=sudo_command([sys.executable,str(ROOT/'private_tpm.py'),
+                        '--repair','--state',state,'--root',str(portable.data_root()),
+                        '--uid',str(os.getuid()),'--gid',str(os.getgid())],
+                        'KVM Settings: restore access to existing private TPM state')
+                    if not available:raise RuntimeError('Administrator access is needed to restore TPM state permissions.')
                     subprocess.run(command,env=env,check=True,timeout=90,capture_output=True)
+                    blob.read_bytes()
                 return selected,'Existing TPM state preserved. Checks refreshed; use the named action for any remaining issue.'
             message=tpm_setup.initialize(state,selected,banks,ek,certificates,lock_nvram)
             return selected,message
@@ -334,6 +348,8 @@ class KVMSettings(VMStart2):
             tab.log.setPlainText(result[1]);tab.check_attestation()
             panel.info.setText(result[1]);self.status.setText(result[1].splitlines()[0])
             self._refresh_all()
+            import checkpoint
+            checkpoint.save(self)
         def failed(error):
             tab.log.setPlainText(error);panel.info.setText(error)
             tab.check_attestation()

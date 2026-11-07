@@ -861,7 +861,12 @@ def build_start(cfg, pinning):
         a('    pkill -f "swtpm.*$TPM_SOCK" 2>/dev/null || true')
         a('    rm -f "$TPM_SOCK"')
         a("fi")
-        a('"$SWTPM" socket --daemon --tpm2 \\')
+        from portable import data_root
+        helper = SOURCE_DIR.parent/'private_tpm.py'
+        command = ([sys.executable, str(helper), '--state', tpm['state'], '--root', str(data_root()),
+                    '--uid', str(os.getuid()), '--gid', str(os.getgid()), '--run-dir', RUN_DIR, '--']
+                   if helper.is_file() else [])
+        a((shlex.join(command)+' ' if command else '')+'"$SWTPM" socket --daemon --tpm2 \\')
         a('    --tpmstate dir="$TPM_STATE",mode=0600 \\')
         a('    --ctrl type=unixio,path="$TPM_SOCK",mode=0600 \\')
         a(f'    --pid file={shlex.quote(os.path.join(RUN_DIR, "swtpm.pid"))} \\')

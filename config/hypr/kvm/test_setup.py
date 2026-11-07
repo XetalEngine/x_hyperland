@@ -33,6 +33,10 @@ class SetupTests(unittest.TestCase):
 
     def setUp(self):
         import editions
+        # Most UI fixtures have no component download service. Dedicated module
+        # tests below enable preparation with a local fake download.
+        optional=patch('module_policy.requested',return_value=False)
+        optional.start();self.addCleanup(optional.stop)
         editions.select('stock')
         from model import VMConfig
         for profile in ('windows','macos'):
@@ -554,6 +558,58 @@ class SetupTests(unittest.TestCase):
         self.window.tab_tpm.last_checks=[('PASS','TPM','Ready')]
         health.refresh(self.window)
         self.assertFalse(self.window.navigation.items['TPM'].data(health.ISSUE_ROLE))
+
+    def test_compatible_module_prepares_and_clears_warning_before_launch(self):
+        import editions,health,module_policy,packages,platform
+        w=self.window;panel=w.package_panel
+        editions.select('xetallic');w.cfg.data['tools']['kvm_build_enabled']=True
+        panel.store=packages.Store(edition='xetallic');panel.load_catalog()
+        entry=copy.deepcopy(panel.release['components']['kvm-amd'])
+        entry['kernel']=platform.release();entry.pop('runtime',None)
+        panel.release['components']['kvm-amd']=entry
+        def download(name,selected,progress):
+            self.assertEqual(name,'kvm-amd')
+            directory=panel.store.root/'components/kvm-amd/current';directory.mkdir(parents=True,exist_ok=True)
+            packages.atomic_json(directory/'.component.json',selected)
+            for filename in ('load-kvm.sh','kvm.ko','kvm-amd.ko'):
+                (directory/filename).write_text('fixture; never execute')
+        with patch.object(module_policy,'requested',return_value=True), \
+             patch.object(module_policy,'busy_reason',return_value=''), \
+             patch.object(packages,'cpu_vendor',return_value='amd'), \
+             patch.object(w,'_busy',return_value=False), \
+             patch.object(panel.store,'download',side_effect=download) as downloaded, \
+             patch('module_tool.check',side_effect=AssertionError('Settings must not load modules')):
+            health.refresh(w)
+            self.assertTrue(all('compatible' in warning.text() for warning in w.module_warnings))
+            self.application.processEvents();self.wait_for_operation();self.application.processEvents()
+            downloaded.assert_called_once()
+            self.assertTrue(all(warning.isHidden() for warning in w.module_warnings))
+            self.assertEqual(module_policy.unavailable(),'')
+        import shutil
+        shutil.rmtree(panel.store.root/'components/kvm-amd')
+
+    def test_tpm_selection_and_health_survive_close_and_new_window(self):
+        import tpm_actions,tpm_setup
+        tab=self.window.tab_tpm
+        state=portable.data_root()/'tpm-identities/saved-fixture/state';state.mkdir(parents=True,exist_ok=True)
+        blob=state/'tpm2-00.permall';blob.write_bytes(b'saved guest keys');blob.chmod(0o600)
+        choice={**tpm_actions.snapshot(tab),'binary':sys.executable,'state':str(state),
+                'values':copy.deepcopy(next(iter(__import__('tabs_tpm').PRESETS.values()))),'label':'Saved fixture TPM'}
+        actual={number:int(choice['values'][key],0) for key,number in tpm_actions.PROPERTIES.items()}
+        def inspect(binary,data,stamp,identity=False):return actual if identity else (('sha1','sha256'),True)
+        with patch.object(tpm_actions,'prepare',return_value=choice), \
+             patch.object(tpm_setup,'inspect_state',side_effect=inspect), \
+             patch.object(self.window,'_busy',return_value=False):
+            self.window._tpm_action('bundled');self.wait_for_operation()
+            self.window.close()
+            reopened=self.kvm.KVMSettings()
+            try:
+                self.assertEqual(reopened.cfg.data['tools']['swtpm_state'],str(state))
+                self.assertEqual(reopened.cfg.data['tpm_choice'],'Saved fixture TPM')
+                self.assertFalse([c for c in reopened.tab_tpm.last_checks if c[0]=='FAIL'])
+                self.assertEqual(blob.read_bytes(),b'saved guest keys')
+            finally:
+                reopened.hide();reopened.deleteLater()
 
     def test_component_check_pulses_paths_and_clears_after_updates(self):
         import health

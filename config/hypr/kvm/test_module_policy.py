@@ -126,7 +126,8 @@ class PolicyTests(unittest.TestCase):
                 account = SimpleNamespace(session=object())
                 panel = SimpleNamespace(release={'components': {'kvm-amd': {'sha256': 'a'*64}}},
                                         account=account, store=SimpleNamespace(root=self.root, download=Mock()),
-                                        info=Mock(), job=SimpleNamespace(finished=Mock()), run=Mock())
+                                        info=Mock(), job=None, run=Mock())
+                panel.run.side_effect=lambda *a,**k:setattr(panel,'job',SimpleNamespace(finished=Mock()))
                 window = SimpleNamespace(cfg=SimpleNamespace(data=self.cfg), package_panel=panel,
                                          status=Mock(), _busy=lambda:False, isVisible=Mock(return_value=True),
                                          _refresh_all=Mock())
@@ -152,11 +153,34 @@ class PolicyTests(unittest.TestCase):
 
     def test_unsupported_kernel_never_downloads_an_optional_module(self):
         import app
-        panel = SimpleNamespace(release={'components': {'kvm-amd': {'sha256': 'a'*64}}}, run=Mock())
+        panel = SimpleNamespace(release={'components': {'kvm-amd': {'sha256': 'a'*64}}}, run=Mock(),job=None)
         window = SimpleNamespace(cfg=SimpleNamespace(data=self.cfg), package_panel=panel)
         with patch.object(packages, 'compatibility', return_value='Requires a different kernel'):
             self.assertFalse(app.KVMSettings._prepare_optional_module(window, Mock()))
         panel.run.assert_not_called()
+
+    def test_matching_kernel_prepares_without_a_launch_request(self):
+        import app
+        panel=SimpleNamespace(release={'components':{'kvm-amd':{'sha256':'a'*64}}},
+            account=SimpleNamespace(session=object()),store=SimpleNamespace(root=self.root,download=Mock()),
+            job=None,run=Mock(),info=Mock())
+        window=SimpleNamespace(cfg=SimpleNamespace(data=self.cfg),package_panel=panel,
+            status=Mock(),_busy=lambda:False,_refresh_all=Mock())
+        with patch.object(packages,'compatibility',return_value=''):
+            self.assertTrue(app.KVMSettings._prepare_optional_module(window))
+            work,done,failed=panel.run.call_args.args
+            work(Mock());done(None)
+            panel.store.download.assert_called_once()
+            self.assertNotIn('Continuing launch',window.status.setText.call_args.args[0])
+            window._refresh_all.assert_called_once()
+            self.assertFalse(app.KVMSettings._prepare_optional_module(window))
+
+    def test_matching_kernel_warning_does_not_claim_kernel_incompatibility(self):
+        release={'components':{'kvm-amd':{'cpu':'amd','kernel':'test-kernel'}}}
+        with patch.object(module_policy.platform,'release',return_value='test-kernel'):
+            text,detail=module_policy.warning(self.cfg,release)
+        self.assertIn('is compatible',text)
+        self.assertNotIn('Boot that kernel',detail)
 
 
 if __name__ == '__main__': unittest.main()

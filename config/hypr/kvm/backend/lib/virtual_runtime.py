@@ -191,10 +191,12 @@ class Runtime:
                 continue
         if "," in str(state):
             raise RuntimeError("swtpm state paths containing commas are unsupported")
+        import private_tpm
+        options = private_tpm.process_options(state, self.plan['uid'], self.plan['gid'])
         child = subprocess.Popen([tpm["binary"], "socket", "--tpm2", "--tpmstate",
                                   f"dir={state},mode=0600,lock", "--ctrl",
                                   f"type=unixio,path={tpm['sock']},mode=0600", "--terminate"],
-                                 stdin=subprocess.DEVNULL)
+                                 stdin=subprocess.DEVNULL, **options)
         self.defer(stop_child, child)
         for _ in range(100):
             if child.poll() is not None:

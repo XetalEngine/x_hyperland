@@ -36,6 +36,7 @@
 #include <map>
 #include "graphics.hpp"
 #include "settings.hpp"
+#include "symbols.hpp"
 #include "dock.hpp"
 #include "icons.hpp"
 #include <hyprgraphics/image/Image.hpp>
@@ -613,7 +614,7 @@ void eventHook(CEventManager* manager,const SHyprIPCEvent& event) {
 }
 template<typename T> void hook(const std::string& name,const std::string& signature,const void* replacement,T& original) {
     for(const auto& match:HyprlandAPI::findFunctionsByName(handle,name)) {
-        if(match.demangled.find(signature)==std::string::npos)continue;
+        if(!Minimize::symbolMatches(match.signature,signature))continue;
         auto h=HyprlandAPI::createFunctionHook(handle,match.address,replacement);
         if(!h || !h->hook())throw std::runtime_error("Cannot install Minimize hook: "+name);
         original=reinterpret_cast<T>(h->m_original);hooks.push_back(h);return;

@@ -85,8 +85,9 @@ def build(root=ROOT, register=False):
     return cache/'data'
 
 if __name__=='__main__':
-    # Fonts used in a few auxiliary shapes require a GUI application, offscreen.
-    os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
+    # This command only renders assets, even when launched by an X11/Wayland GUI.
+    # Override inherited desktop backends for builds in a displayless chroot.
+    os.environ['QT_QPA_PLATFORM']='offscreen'
     from PyQt6.QtGui import QGuiApplication
     app=QGuiApplication([])
     print(build(register='--register' in sys.argv))

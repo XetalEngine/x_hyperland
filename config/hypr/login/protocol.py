@@ -66,16 +66,20 @@ class Flow:
     def receive(self, message):
         pending, self.pending = self.pending, None
         kind = message.get('type')
+        if pending == 'cancel_session' and kind in ('success', 'error'):
+            # greetd 0.10 clears its configuring slot before contacting the PAM
+            # worker. An exited worker can make cleanup report an error; still
+            # request a fresh conversation, which must authenticate again.
+            self.active = True
+            self.request('create_session', username=self.username)
+            return
         if kind == 'error':
             self.starting = self.ready = False
-            # Authentication failures must cancel the PAM conversation before retrying.
+            # Keep cleanup pending: some greetd versions retain a failed slot.
             self.notify('error', ('Sign-in failed. Please try again.' if message.get('error_type') == 'auth_error'
                                   else str(message.get('description', 'Sign-in is unavailable.'))[:240]))
             return
-        if pending == 'cancel_session' and kind == 'success':
-            self.active = True
-            self.request('create_session', username=self.username)
-        elif kind == 'auth_message':
+        if kind == 'auth_message':
             prompt = str(message.get('auth_message', ''))[:240]
             style = message.get('auth_message_type')
             if style in ('info', 'error'):
