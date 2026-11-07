@@ -207,6 +207,49 @@ private slots:
     recovered.close(); saved.settings.sync();
     QCOMPARE(saved.settings.value("splitter").toByteArray(), normalLayout);
   }
+  void previewWidthRecoversInPickers_data() {
+    QTest::addColumn<QString>("method");QTest::addColumn<bool>("directory");
+    QTest::newRow("upload") << QString("OpenFile") << false;
+    QTest::newRow("save") << QString("SaveFile") << false;
+    QTest::newRow("folder") << QString("OpenFile") << true;
+    QTest::newRow("save multiple") << QString("SaveFiles") << true;
+  }
+  void previewWidthRecoversInPickers() {
+    QFETCH(QString,method);QFETCH(bool,directory);
+    const auto path=temp.path()+"/preview-"+method+QString::number(directory)+".ini";
+    auto input=request(method);input["directory"]=directory;
+    Fusion::Preferences saved(path);
+    int width=0;
+    {
+      PickerWindow picker(input,path,false);prepare(picker);
+      auto *pane=picker.findChild<QStackedWidget *>("previewStack");QVERIFY(pane);
+      auto *split=qobject_cast<QSplitter *>(pane->parentWidget());QVERIFY(split);
+      QTRY_VERIFY(pane->isVisible() && pane->width()>=240);
+      QVERIFY(!split->isCollapsible(2));
+      auto sizes=split->sizes();sizes[2]=0;split->setSizes(sizes);QTRY_VERIFY(pane->width()>=240);
+      sizes=split->sizes();sizes[2]=315;split->setSizes(sizes);QTest::qWait(25);width=pane->width();
+      picker.close();
+    }
+    saved.settings.sync();QString layoutKey;
+    for (const auto &key:saved.settings.allKeys())
+      if (key.startsWith("picker/") && key.endsWith("/splitter")) layoutKey=key;
+    QVERIFY(!layoutKey.isEmpty());QVERIFY(!saved.settings.contains("splitter"));
+    {
+      PickerWindow again(input,path,false);prepare(again);
+      auto *pane=again.findChild<QStackedWidget *>("previewStack");
+      QTRY_VERIFY(qAbs(pane->width()-width)<=3);again.close();
+    }
+    // A previous release could save Preview enabled with a collapsed width.
+    QSplitter legacy;for (int i=0;i<3;++i) legacy.addWidget(new QWidget);
+    legacy.resize(1100,650);legacy.setSizes({210,900,0});
+    saved.settings.setValue(layoutKey,legacy.saveState());saved.settings.sync();
+    PickerWindow recovered(input,path,false);prepare(recovered);
+    auto *pane=recovered.findChild<QStackedWidget *>("previewStack");
+    QTRY_VERIFY(pane->isVisible() && pane->width()>=240);
+    recovered.runAction("preview");QVERIFY(!pane->isVisible());
+    recovered.runAction("preview");QTRY_VERIFY(pane->isVisible() && pane->width()>=240);
+    recovered.close();saved.settings.sync();QVERIFY(!saved.settings.contains("splitter"));
+  }
   void compactActionsWhenResized_data() {
     QTest::addColumn<QString>("method"); QTest::addColumn<bool>("extraChoices");
     for (const auto &method : {"OpenFile", "SaveFile", "SaveFiles"})

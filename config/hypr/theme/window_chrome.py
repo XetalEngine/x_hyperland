@@ -28,6 +28,15 @@ class ControlButton(QToolButton):
 
 def style_close(button,design=None):
     import runtime
+    if design=='blackwood':
+        from blackwood import wood
+        p=runtime.colors(style=design);close=getattr(button,'symbol','close')=='close'
+        button.setStyleSheet(f'''QToolButton {{background:{wood(p)};color:{p['Text']};border:1px solid {p['Midlight']};
+            border-top-color:{p['Light']};border-radius:3px;padding:0;}}
+            QToolButton:hover {{background:{'#743e2c' if close else p['Highlight']};color:{'#fff4db' if close else p['HighlightedText']};border-color:{p['Light']};}}
+            QToolButton:pressed {{background:{p['Base']};color:{p['Text']};}}
+            QToolButton:focus {{border-color:{p['Accent']};}}''')
+        return
     if design=='midnighttransit':
         from midnighttransit import enamel,amber
         p=runtime.colors(style=design)
@@ -50,7 +59,7 @@ def style_close(button,design=None):
             QToolButton:pressed {{background:{'#6e211e' if close else p['Highlight']};}}
             QToolButton:focus {{border-color:{p['Accent']};}}''')
         return
-    if design in ('breakpoint','binaryknife','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit'):
+    if design in ('breakpoint','binaryknife','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood'):
         p=runtime.colors(style=design)
         hover=f"background:{p['Highlight']}; color:{p['Text']}; border-color:{p['Accent']};"
         pressed=f"background:{p['Mid']};"

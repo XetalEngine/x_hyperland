@@ -386,6 +386,39 @@ def hyperfusionblue(p, box, accent, surface, phase, count, trails, glow, archive
     p.restore()
 
 
+def blackwood(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Sealed document boats cross a quiet cove between two brass beacons."""
+    p.save();p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    left=box.left()+25;right=box.right()-25;y=box.center().y()+4
+    brass=QColor(accent).lighter(145);base=QColor(surface)
+    for row in (10,15):
+        wave=QPainterPath();wave.moveTo(left,y+row)
+        for x in range(int(left),int(right)+1,4):wave.lineTo(x,y+row+math.sin(x*.08-phase*1.7)*1.7)
+        p.setPen(QPen(alpha(accent,65),.8));p.drawPath(wave)
+    for x in (left,right):
+        tower=QPainterPath();tower.moveTo(x-7,y+10);tower.lineTo(x-4,y-21);tower.lineTo(x+4,y-21);tower.lineTo(x+7,y+10);tower.closeSubpath()
+        p.setBrush(base);p.setPen(QPen(brass,1));p.drawPath(tower)
+        p.setBrush(brass);p.drawRect(QRectF(x-4,y-23,8,7));p.drawLine(QPointF(x-7,y-25),QPointF(x+7,y-25))
+        if glow:
+            beam=QPainterPath(QPointF(x,y-20));beam.lineTo(x+(25 if x==left else -25),y-29);beam.lineTo(x+(25 if x==left else -25),y-16);beam.closeSubpath()
+            p.fillPath(beam,alpha(brass,18+int(12*math.sin(phase))))
+    if result=='done':success(p,box.center(),accent);p.restore();return
+    if result:p.restore();return
+    for index in range(max(1,count)):
+        t=(phase*.18+index/max(1,count))%1
+        x=left+20+t*max(1,right-left-40)
+        if extracting:x=right-20-t*max(1,right-left-40)
+        p.save();p.translate(x,y+math.sin(t*8+phase)*1.3);p.setOpacity(min(1,t*10,(1-t)*10))
+        p.setPen(QPen(brass,1));p.setBrush(base)
+        p.drawRoundedRect(QRectF(-7,-16,14,15),1,1)
+        p.drawLine(QPointF(-4,-12),QPointF(4,-12));p.drawLine(QPointF(-4,-9),QPointF(2,-9))
+        hull=QPainterPath();hull.moveTo(-14,-1);hull.lineTo(14,-1);hull.lineTo(9,7);hull.lineTo(-9,7);hull.closeSubpath();p.setBrush(accent);p.drawPath(hull)
+        if archive:p.setBrush(brass);p.drawRect(QRectF(-1,-16,2,15))
+        if trails:p.setPen(QPen(alpha(accent,70),.8));p.drawLine(QPointF(-22,7),QPointF(-16,7))
+        p.restore()
+    p.restore()
+
+
 def midnighttransit(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     """Small document carriages travel between station platforms."""
     p.save();p.setRenderHint(QPainter.RenderHint.Antialiasing)

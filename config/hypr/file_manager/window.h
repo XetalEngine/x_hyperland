@@ -59,6 +59,7 @@ private:
   void configure();
   void updateCurrent();
   void updatePreview();
+  void ensurePreviewWidth();
   void openAssociated(const KFileItemList &items);
   void chooseApplication(const KFileItemList &items);
   void execute(const QUrl &url);

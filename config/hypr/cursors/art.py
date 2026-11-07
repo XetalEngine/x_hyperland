@@ -1,5 +1,6 @@
 """Original vector cursor families, shared by the picker and generated themes."""
 STYLES = {
+    'brass': ('Blackwood Brass', '#e9d2a0', '#24271f', '#8db694'),
     'enamel': ('Transit Enamel', '#f9edca', '#10383c', '#f7ad37'),
     'pearl': ('Pearl', '#f4f7ff', '#172335', '#69baff'),
     'carbon': ('Carbon', '#18232e', '#e2eaff', '#94a6bf'),
@@ -29,7 +30,7 @@ ALIASES = {
 def svg(style, shape='left_ptr', frame=0):
     _, fill, edge, accent = STYLES[style]
     arrow = 'M5 3 L5 26 L11 21 L16 32 L21 29 L16 19 L26 18 Z'
-    arrow = {'enamel':'M5 3L5 27L12 20L17 32L22 29L17 19L28 18L17 11Z', 'carbon':'M5 3L5 28L12 21L17 32L22 29L17 19L29 18Z', 'cyan':'M5 3L8 28L14 20L25 18Z', 'orchid':'M5 3Q7 2 9 5L28 20L17 20L21 30Q18 34 16 30L12 22L5 28Z', 'ember':'M5 3L5 27L12 20L18 32L23 29L17 18L28 18Z'}.get(style,arrow)
+    arrow = {'brass':'M5 3L7 29L13 22L19 32L23 29L17 20L29 17L16 12Z', 'enamel':'M5 3L5 27L12 20L17 32L22 29L17 19L28 18L17 11Z', 'carbon':'M5 3L5 28L12 21L17 32L22 29L17 19L29 18Z', 'cyan':'M5 3L8 28L14 20L25 18Z', 'orchid':'M5 3Q7 2 9 5L28 20L17 20L21 30Q18 34 16 30L12 22L5 28Z', 'ember':'M5 3L5 27L12 20L18 32L23 29L17 18L28 18Z'}.get(style,arrow)
     body = f'<path d="{arrow}"/>'
     hot = (5, 3)
     if shape in ('hand2','openhand','closedhand'):

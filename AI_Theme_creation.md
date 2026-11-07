@@ -199,6 +199,8 @@ limits; do not call an offscreen preview a live desktop test.
 - [ ] Stable ID registered in every relevant catalog and all three palette modes.
 - [ ] Original materials for launcher, taskbar, windows, controls and notifications.
 - [ ] Fusion Files, every file picker, desktop menus and transfer window covered.
+      Keep both the navigation tree and enabled preview pane usable after
+      restoring old splitter layouts; neither may collapse to an unreachable sliver.
 - [ ] Distinct minimize container implemented in both native shader and preview.
 - [ ] Complete icons and cursor assets, including aliases, hotspots and busy shapes.
 - [ ] Pointer effects, terminal, lock screen, other effects, greeter/GRUB previews checked.

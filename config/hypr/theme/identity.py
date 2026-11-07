@@ -149,11 +149,11 @@ class ProfileCard(QWidget):
         if self.design()=='porcelainink':
             self.name.setStyleSheet('background:transparent; color:'+colors['WindowText']+'; font-family:"Noto Serif"; font-size:'+('15' if self.compact else '23')+'px; font-weight:500;')
             self.detail.setStyleSheet('background:transparent; color:'+colors['PlaceholderText']+'; font-size:12px;')
-        if self.design() in ('obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit'):
+        if self.design() in ('obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood'):
             self.name.setStyleSheet('background:transparent; color:'+colors['WindowText']+'; font-size:'+('15' if self.compact else '23')+'px; font-weight:600; letter-spacing:1px;')
             self.detail.setStyleSheet('background:transparent; color:'+colors['PlaceholderText']+'; font-size:12px;')
         if not self.compact:
-            self.caption.setStyleSheet('background:transparent; color:'+(colors['PlaceholderText'] if self.design() in ('porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit') else '#c6d8e8')+'; font-size:13px;')
+            self.caption.setStyleSheet('background:transparent; color:'+(colors['PlaceholderText'] if self.design() in ('porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood') else '#c6d8e8')+'; font-size:13px;')
         if self.compact:self.detail.setText(runtime.DESIGNS[self.design()])
         path = wallpaper_path() if self.backdrop else None
         if path != self.background_path:
@@ -174,7 +174,7 @@ class ProfileCard(QWidget):
             target=QRectF(0,0,self.background.width()*ratio,self.background.height()*ratio);target.moveCenter(box.center())
             p.drawPixmap(target,self.background,QRectF(self.background.rect()))
         overlay=QLinearGradient(box.topLeft(),box.bottomRight())
-        if ink or self.design() in ('obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit'):
+        if ink or self.design() in ('obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood'):
             start=QColor(colors['Window']);start.setAlpha(240)
             end=QColor(colors['Window']);end.setAlpha(195)
             overlay.setColorAt(0,start);overlay.setColorAt(1,end)

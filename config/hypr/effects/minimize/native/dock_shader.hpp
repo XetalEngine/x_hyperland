@@ -29,8 +29,8 @@ void main(){
   fragColor=vec4(mix(warm,mix(ink,vec3(1.,.72,.25),.5),core)*a,a)*opacity;return;
  }
  vec2 p=(uv-.5)*dims;vec2 halfSize=dims*.5-vec2(8.);
- float radius=style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:halfSize.y;
- if(part==1)radius=style==0?2.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
+ float radius=style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13?5.:halfSize.y;
+ if(part==1)radius=style==0?2.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
  radius=min(radius,min(halfSize.x,halfSize.y));
  float distance=roundBox(p,halfSize,radius);
  if(style==2||style==3||style==8)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+(style==3?19.:style==8?14.:10.))*.7071);
@@ -44,7 +44,27 @@ void main(){
  float rim=.26;
  float jewel=0.;float jewelHalo=0.;float gildedSweep=0.;
  if(part==0){
-  if(style==12){
+  if(style==13){
+   // Harbour Cabinet: walnut grain, brass corner straps and sage inlay.
+   vec2 q=vec2(halfSize.x-abs(p.x),p.y);
+   vec3 brass=mix(ink,vec3(.67,.47,.22),.28);
+   vec3 walnut=mix(base,vec3(.17,.105,.055),.3);
+   float grain=pow(.5+.5*sin(p.y*2.2+sin(p.x*.035)*1.3+sin(p.x*.009)*2.),9.);
+   body=walnut+brass*(grain*.045+shine*.085);
+   float strap=(1.-smoothstep(14.,16.,q.x));
+   body=mix(body,brass*(.29+.27*shine),strap);
+   float rail=exp(-abs(abs(p.y)-halfSize.y+3.)*1.9);
+   body+=brass*rail*.5;
+   vec2 pin=vec2(q.x-8.,abs(p.y)-halfSize.y+9.);
+   float stud=1.-smoothstep(1.2,2.3,length(pin));
+   body=mix(body,brass,stud*.8);
+   body-=base*exp(-abs(pin.y)*3.)*step(abs(pin.x),1.3)*.5;
+   decoration=exp(-abs(p.y-halfSize.y+7.)*1.8)*step(20.,q.x)*.18;
+   float medallion=abs(q.x-8.)+abs(p.y);
+   decoration+=(1.-smoothstep(3.,4.5,medallion))*.8;
+   metal=exp(-abs(distance+2.5)*1.9)*.2;
+   rim=.75;
+  }else if(style==12){
    // Platform Twelve: twin cream rails, enamel bays and amber signal lamps.
    vec2 q=vec2(halfSize.x-abs(p.x),p.y);
    body=mix(base,tint,.035)+ink*shine*.095;
@@ -204,6 +224,15 @@ void main(){
   body=mix(base,tint,.08+emphasis*.14)+ink*shine*.045;
   rim=.08+emphasis*.25;
   decoration=exp(-abs(p.y-halfSize.y+3.)*1.7)*(.25+.4*emphasis);
+  if(style==13){
+   body=mix(base,tint,.06+emphasis*.12)+ink*shine*.07;
+   rim=.35+emphasis*.45;
+   metal=exp(-abs(distance+3.)*1.8)*.24;
+   // A small horizontal brass drawer pull, under each application icon.
+   float pull=line(p,vec2(-5.,halfSize.y-7.),vec2(5.,halfSize.y-7.));
+   metal+=(1.-smoothstep(.5,1.4,pull))*.6;
+   decoration=exp(-abs(p.y+halfSize.y-3.)*2.)*emphasis*.35;
+  }
   if(style==12){
    body=mix(base,tint,.055)+ink*shine*.11;
    rim=.55+emphasis*.35;

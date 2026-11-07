@@ -212,6 +212,7 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   toolbar->addWidget(views);
   previewAction = tool("view-preview", "Preview pane", [this] {
     previewStack->setVisible(previewAction->isChecked());
+    ensurePreviewWidth();
     preferences.settings.setValue("preview", previewAction->isChecked());
     updatePreview();
   });
@@ -261,6 +262,7 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   layout->setContentsMargins(0, 0, 0, 0);
   setCentralWidget(body);
   splitter = new QSplitter;
+  splitter->setHandleWidth(6);
   layout->addWidget(splitter);
   auto *tree = new PlacesTree;
   places = tree;
@@ -322,6 +324,7 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   connect(newTab, &QToolButton::clicked, this,
           [this] { addTab(Fusion::computerUrl()); });
   previewStack = new QStackedWidget;
+  previewStack->setObjectName("previewStack");
   previewStack->setMinimumWidth(240);
   previewStack->setMaximumWidth(420);
   splitter->addWidget(previewStack);
@@ -350,11 +353,17 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   // folder windows and pickers. Repair old collapsed layouts after restoring
   // them, and keep the divider from hiding the tree again.
   splitter->setCollapsible(0, false);
+  // A checked Preview action must mean a usable pane, not Qt's saved
+  // zero-width collapsed state. Hide it through the action, never by dragging
+  // the divider past its minimum. restoreState also restores handle width.
+  splitter->setCollapsible(2, false);
+  splitter->setHandleWidth(6);
   auto sizes = splitter->sizes();
   if (sizes.first() < places->minimumWidth()) {
     sizes[0] = 210;
     splitter->setSizes(sizes);
   }
+  ensurePreviewWidth();
   connect(tabs, &QTabWidget::currentChanged, this, [this] { updateCurrent(); });
   connect(tabs, &QTabWidget::tabCloseRequested, this, [this](int index) {
     if (tabs->count() == 1) {
@@ -570,6 +579,15 @@ void FilesWindow::updateCurrent() {
       break;
     }
 }
+void FilesWindow::ensurePreviewWidth() {
+  if (!previewAction->isChecked()) return;
+  auto sizes = splitter->sizes();
+  if (sizes.size() == 3 && sizes[2] < previewStack->minimumWidth()) {
+    sizes[2] = 270;
+    splitter->setSizes(sizes);
+  }
+}
+
 void FilesWindow::updatePreview() {
   if (!browser() || !previewAction->isChecked())
     return;

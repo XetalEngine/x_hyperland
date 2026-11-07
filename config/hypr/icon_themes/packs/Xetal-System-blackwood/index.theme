@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Blackwood
+Comment=Aged-brass folders, walnut cases and engraved ivory symbols.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

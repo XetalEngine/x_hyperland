@@ -61,12 +61,33 @@ def platform_twelve(p,width,colors,phase):
     p.restore()
 
 
+def harbour_cabinet(p,width,colors,phase):
+    """Walnut drawer cabinet with brass straps, corner screws and sage inlay."""
+    from blackwood import paint_surface
+    paint_surface(p,QRectF(8,8,width-16,80),colors,5,100)
+    p.save();brass=QColor(colors['Light']);accent=QColor(colors['Accent'])
+    for x in (9,width-23):
+        metal=QLinearGradient(0,9,0,87);metal.setColorAt(0,alpha(brass,.6));metal.setColorAt(.5,alpha(brass,.18));metal.setColorAt(1,alpha(brass,.42))
+        p.setPen(QPen(brass,.7));p.setBrush(metal);p.drawRoundedRect(QRectF(x,10,14,76),2,2)
+        for y in (18,78):
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(brass);p.drawEllipse(QPointF(x+7,y),2,2)
+            p.setPen(QPen(QColor(colors['Base']),.7));line(p,x+5.8,y,x+8.2,y)
+        gem=QPainterPath();gem.moveTo(x+7,43);gem.lineTo(x+11,48);gem.lineTo(x+7,53);gem.lineTo(x+3,48);gem.closeSubpath()
+        p.fillPath(gem,accent)
+    p.setPen(QPen(alpha(brass,.8),.8))
+    for y in (11,85):line(p,25,y,width-25,y)
+    p.setPen(QPen(alpha(accent,.3),1));line(p,29,81,width-29,81)
+    p.restore()
+
+
 def tray(painter, width, style, colors, phase):
     """Draw a horizontal tray in a width × 96 coordinate space."""
     if style == 'hyperfusionblue':
         blue_vault(painter,width,colors,phase);return
     if style == 'midnighttransit':
         platform_twelve(painter,width,colors,phase);return
+    if style == 'blackwood':
+        harbour_cabinet(painter,width,colors,phase);return
     p = painter; accent, ink, base = (QColor(colors[k]) for k in ('Accent', 'WindowText', 'Window'))
     bounds = QRectF(8, 8, width-16, 80)
     radius = {'raw': 3, 'breakpoint': 10, 'binaryknife': 5, 'porcelainink': 5,
@@ -288,8 +309,13 @@ def dock(p, area, style, colors, *, phase=0., weights=(1., 1., 1.), zoom=(), ver
         p.save(); p.setOpacity(p.opacity()*max(0., min(1., weight)))
         if not stack:
             p.setPen(QPen(alpha(colors['Accent'], .12+(z-1)), .8)); p.setBrush(alpha(colors['Accent'], .035+(z-1)*.1))
-            radius = 2 if style == 'raw' else 6 if style == 'midnighttransit' else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
+            radius = 2 if style == 'raw' else 4 if style == 'blackwood' else 6 if style == 'midnighttransit' else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
             p.drawRoundedRect(rect, radius, radius)
+        if style == 'blackwood' and not stack:
+            pane=QLinearGradient(rect.topLeft(),rect.bottomRight());pane.setColorAt(0,QColor(colors['Button']));pane.setColorAt(1,QColor(colors['Base']))
+            p.setBrush(pane);p.setPen(QPen(alpha(colors['Light'],.65),.8));p.drawRoundedRect(rect,4,4)
+            p.setPen(QPen(alpha(colors['Midlight'],.6),.6));p.setBrush(Qt.BrushStyle.NoBrush);p.drawRoundedRect(rect.adjusted(3,3,-3,-3),2,2)
+            p.setPen(QPen(QColor(colors['Light']),2));line(p,rect.center().x()-5,rect.bottom()-7,rect.center().x()+5,rect.bottom()-7)
         if style == 'midnighttransit' and not stack:
             pane=QLinearGradient(rect.topLeft(),rect.bottomRight())
             pane.setColorAt(0,QColor(colors['Button']));pane.setColorAt(.65,QColor(colors['Base']));pane.setColorAt(1,QColor(colors['Window']))

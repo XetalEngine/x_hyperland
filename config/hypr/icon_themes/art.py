@@ -5,6 +5,7 @@ from xml.sax.saxutils import escape
 VERSION = 4
 # Name, metal/light, midtone, shadow, face, decorative language.
 STYLES = {
+    'blackwood': ('Blackwood', '#efdbab', '#bc9c61', '#655033', '#292e27', 'walnut'),
     'midnighttransit': ('Midnight Transit', '#f5e5bd', '#ffb239', '#895820', '#0d3036', 'enamel'),
     'hyperfusionblue': ('HyperFusion Blue', '#effaff', '#22bfff', '#0061a9', '#152b3b', 'fusion'),
     'raw': ('Xetal Raw', '#a4fff4', '#41d6ce', '#175e72', '#102c38', 'circuit'),
@@ -20,6 +21,7 @@ STYLES = {
     'gildedhollow': ('The Gilded Hollow', '#fff0b7', '#dfb469', '#836137', '#303c32', 'brass'),
 }
 DESCRIPTIONS = {
+    'blackwood': 'Aged-brass folders, walnut cases and engraved ivory symbols.',
     'midnighttransit': 'Teal enamel folders, ivory nickel outlines and amber station details.',
     'hyperfusionblue': 'Sapphire glass folders, silver hardware and polished graphite application tiles.',
     'raw': 'Luminous cyan circuits and precision-cut panels.',
@@ -147,6 +149,9 @@ def ornament(style, accent):
 
 
 def svg(style, name):
+    if style == 'blackwood':
+        from .blackwood import svg as blackwood_svg
+        return blackwood_svg(ALIASES.get(name,name),CATALOG,symbol)
     if style == 'midnighttransit':
         from .transit import svg as transit_svg
         return transit_svg(ALIASES.get(name,name),CATALOG,symbol)

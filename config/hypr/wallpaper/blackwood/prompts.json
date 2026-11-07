@@ -1,0 +1,35 @@
+{
+  "generator": "OpenAI built-in image_gen",
+  "images": [
+    {
+      "id": "beacon-at-blackwood",
+      "title": "Beacon at Blackwood",
+      "prompt": "Use case: stylized-concept\nAsset type: finished 16:9 desktop wallpaper for the Hyper Fusion Blackwood theme, landscape, requested 3840x2160.\nPrimary request: A dramatic rocky North Atlantic headland with an old whitewashed lighthouse and slate keeper cottages to the right of center. A winding footpath through purple heather and muted olive grasses leads toward the warm amber beacon. A deep sheltered sea channel to the left, distant basalt cliffs receding into mist, crashing ivory surf. Huge layered grey-green storm clouds, a narrow pale champagne break in the horizon. Wide view from a hillside with foreground rocks.\nStyle: exquisite cinematic natural landscape, painterly realism with convincing finely detailed stone, water, weathered timber and vegetation. Richly atmospheric, restrained and elegant, never cartoonish.\nLighting and palette: storm charcoal, weathered walnut, muted sage and olive, ivory sea foam, small aged-brass amber lights. Deep but readable shadows. Natural subdued saturation.\nComposition: a complete edge-to-edge scenic wallpaper with generous calm sky and mist for desktop readability; focal landmark off center; no enormous object filling the frame.\nConstraints: landscape artwork only. No words, letters, logos, watermarks, UI, frames, taskbars, windows, desktop icons, people, or poster typography. This is one of three distinct original Blackwood wallpapers.",
+      "file": "beacon-at-blackwood.png",
+      "dimensions": [
+        1672,
+        941
+      ]
+    },
+    {
+      "id": "the-quiet-harbour",
+      "title": "The Quiet Harbour",
+      "prompt": "Use case: stylized-concept\nAsset type: finished 16:9 desktop wallpaper for the Hyper Fusion Blackwood theme, landscape, requested 3840x2160.\nPrimary request: A sheltered old coastal fishing harbour at rainy blue hour. Weathered dark timber boathouses and slate cottages with a few softly glowing amber windows along a wet stone quay on the left. Two small wooden fishing boats moored in the calm foreground, their reflections in sage-grey water. A distant lighthouse is a tiny landmark on the far headland on the right. Fog drifts between mountains and sea. Broad quiet water in the center.\nStyle: exquisite cinematic natural landscape, painterly realism with convincing finely detailed stone, water, weathered timber and vegetation. Richly atmospheric, restrained and elegant, never cartoonish.\nLighting and palette: storm charcoal, weathered walnut, muted sage and olive, ivory sea foam, small aged-brass amber lights. Deep but readable shadows. Natural subdued saturation.\nComposition: a complete edge-to-edge scenic wallpaper with generous calm sky and mist for desktop readability; focal landmark off center; no enormous object filling the frame.\nConstraints: landscape artwork only. No words, letters, logos, watermarks, UI, frames, taskbars, windows, desktop icons, people, or poster typography. This is one of three distinct original Blackwood wallpapers.",
+      "file": "the-quiet-harbour.png",
+      "dimensions": [
+        1672,
+        941
+      ]
+    },
+    {
+      "id": "cedar-and-tide",
+      "title": "Cedar and Tide",
+      "prompt": "Use case: stylized-concept\nAsset type: finished 16:9 desktop wallpaper for the Hyper Fusion Blackwood theme, landscape, requested 3840x2160.\nPrimary request: A secluded rugged sea cove seen from an ancient wind-shaped coastal cedar woodland. Dark twisting trunks frame the left and upper edges, ferns, heather and moss in the foreground. A natural stone sea arch sits beyond the cove toward the right, rain haze, subtle foam on grey-green water. Far away a tiny warm signal lantern on a stone lookout. Misty cliffs, soft evening light filtered through storm clouds, contemplative wild landscape.\nStyle: exquisite cinematic natural landscape, painterly realism with convincing finely detailed stone, water, weathered timber and vegetation. Richly atmospheric, restrained and elegant, never cartoonish.\nLighting and palette: storm charcoal, weathered walnut, muted sage and olive, ivory sea foam, small aged-brass amber lights. Deep but readable shadows. Natural subdued saturation.\nComposition: a complete edge-to-edge scenic wallpaper with generous calm sky and mist for desktop readability; focal landmark off center; no enormous object filling the frame.\nConstraints: landscape artwork only. No words, letters, logos, watermarks, UI, frames, taskbars, windows, desktop icons, people, or poster typography. This is one of three distinct original Blackwood wallpapers.",
+      "file": "cedar-and-tide.png",
+      "dimensions": [
+        1672,
+        941
+      ]
+    }
+  ]
+}

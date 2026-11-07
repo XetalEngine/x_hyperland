@@ -63,5 +63,10 @@
     "midnighttransit/midnight-concourse.png",
     "midnighttransit/last-train-home.png",
     "midnighttransit/lantern-platform.png"
+  ],
+  "blackwood": [
+    "blackwood/beacon-at-blackwood.png",
+    "blackwood/the-quiet-harbour.png",
+    "blackwood/cedar-and-tide.png"
   ]
 }

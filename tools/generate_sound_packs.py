@@ -22,6 +22,7 @@ from sounds.model import PACKS, EVENTS
 RATE = 48000
 # tonic, voice, unique opening melody (semitones), beat spacing
 SCORES = {
+    'blackwood': (55, 'harbour', [0, 7, 10, 14, 7, 2], .43),
     'midnighttransit': (60, 'transit', [7, 12, 4, 9, 7, 0], .36),
     'hyperfusionblue': (62, 'keys', [0, 7, 12, 9, 16, 19], .36),
     'raw': (62, 'crystal', [0, 7, 12, 16, 14, 19], .34),
@@ -52,6 +53,10 @@ def voice(midi, duration, kind, seed=0):
     elif kind == 'string':
         out = sum(np.sin(phase*h + .025*np.sin(t*13)) * np.exp(-(2.5+h*.7)*t) / h**1.5 for h in range(1, 10))
         out += .16 * np.sin(phase*2.008) * np.exp(-6*t)
+    elif kind == 'harbour':
+        out = np.sin(phase)*np.exp(-3.2*t) + .20*np.sin(phase*2.72)*np.exp(-9*t)
+        out += .13*np.sin(phase*.5)*np.exp(-2.4*t) + .07*np.sin(phase*4.03)*np.exp(-12*t)
+        attack = .025
     elif kind == 'wood':
         out = np.sin(phase)*np.exp(-4*t) + .30*np.sin(phase*2.76)*np.exp(-14*t)
         out += .09*np.sin(phase*5.4)*np.exp(-24*t)
@@ -84,7 +89,7 @@ def voice(midi, duration, kind, seed=0):
 
 def score(pack, event):
     tonic, kind, motif, beat = SCORES[pack]
-    minor = pack in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge')
+    minor = pack in ('blackwood', 'breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge')
     third = 3 if minor else 4
     # time, midi note, length, gain, stereo pan
     if event == 'startup':

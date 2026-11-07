@@ -12,6 +12,13 @@ Pickers remember their panel widths separately for each application and
 operation, alongside their existing window size and last-folder settings.
 Closing a picker does not change the main Files window's panel layout.
 
+Preview starts enabled on fresh installs. Its divider cannot collapse it to
+zero width; old collapsed layouts recover to a usable width when opened or
+when Preview is enabled. Normal custom widths and an intentional Preview-off
+choice are preserved. The divider has a six-pixel grab area. This applies to
+folders, This PC, external windows, and every upload/save picker.
+
+
 ## Dragging files
 
 Hold **Ctrl** while dragging to copy, **Shift** to move, or **Ctrl+Shift** to

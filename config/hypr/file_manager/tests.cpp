@@ -211,7 +211,10 @@ print(json.dumps(rows))
     QVERIFY(variants.size() >= 72);
     FilesWindow window(Fusion::computerUrl(), false, temporary.path()+"/sidebar.ini");
     window.show();
-    QTRY_VERIFY(!qApp->styleSheet().isEmpty());
+    // Other window tests leave the application's stylesheet populated. Wait
+    // for this window's own asynchronous theme load before inserting fixture
+    // rows, otherwise its completion rebuilds the tree beneath the test.
+    QTRY_VERIFY(!window.property("fusionIconTheme").toString().isEmpty());
     auto *tree = window.findChild<QTreeWidget *>("places");
     QVERIFY(tree);
     tree->clear();
@@ -324,6 +327,65 @@ print(json.dumps(rows))
       QVERIFY(reopened.grab().save(artifacts+"/"+QTest::currentDataTag()+".png"));
     }
     reopened.close();
+  }
+  void previewPaneRecoversSavedWidth_data() {
+    QTest::addColumn<bool>("external"); QTest::addColumn<bool>("computer");
+    QTest::addColumn<bool>("enabled"); QTest::addColumn<int>("savedWidth");
+    for (bool external : {false,true})
+      for (bool computer : {false,true})
+        for (bool enabled : {false,true})
+          for (int width : {-1,0,2,330})
+            QTest::newRow(qPrintable(QString("%1-%2-%3-%4")
+                .arg(external ? "external" : "normal").arg(computer ? "computer" : "folder")
+                .arg(enabled ? "shown" : "hidden").arg(width)))
+                << external << computer << enabled << width;
+  }
+  void previewPaneRecoversSavedWidth() {
+    QFETCH(bool,external); QFETCH(bool,computer); QFETCH(bool,enabled); QFETCH(int,savedWidth);
+    const auto restoreRole=qScopeGuard([] { qApp->setDesktopFileName("xetal-files"); });
+    qApp->setDesktopFileName(external ? "xetal-files-external" : "xetal-files");
+    const auto path=temporary.path()+"/preview-width-"+QTest::currentDataTag()+".ini";
+    Fusion::Preferences saved(path);
+    // Leave the fresh default unset: it should offer Preview immediately.
+    if (!enabled) saved.settings.setValue("preview",false);
+    if (savedWidth>=0) {
+      QSplitter legacy; for (int i=0;i<3;++i) legacy.addWidget(new QWidget);
+      legacy.resize(1200,650); legacy.setHandleWidth(1);
+      legacy.setSizes({210,720,savedWidth});
+      saved.settings.setValue("splitter",legacy.saveState());
+    }
+    saved.settings.sync();
+    const auto initial=computer ? Fusion::computerUrl() : QUrl::fromLocalFile(folder);
+    int customWidth=0;
+    {
+      FilesWindow window(initial,false,path);window.setAttribute(Qt::WA_DeleteOnClose,false);window.show();
+      auto *pane=window.findChild<QStackedWidget *>("previewStack");QVERIFY(pane);
+      auto *split=qobject_cast<QSplitter *>(pane->parentWidget());QVERIFY(split);
+      auto *action=window.findChild<QAction *>("previewPaneAction");QVERIFY(action);
+      QCOMPARE(action->isChecked(),enabled);QCOMPARE(pane->isVisible(),enabled);
+      QVERIFY(!split->isCollapsible(2));QVERIFY(split->handleWidth()>=6);
+      if (!enabled) window.runAction("preview");
+      QTRY_VERIFY(pane->isVisible() && pane->width()>=240);
+      // A programmatic zero models dragging the divider all the way closed.
+      auto sizes=split->sizes();sizes[2]=0;split->setSizes(sizes);
+      QTRY_VERIFY(pane->width()>=240);
+      sizes=split->sizes();sizes[2]=335;split->setSizes(sizes);QTest::qWait(25);
+      customWidth=pane->width();QVERIFY(customWidth>270);
+      window.runAction("preview");QVERIFY(!pane->isVisible());
+      window.runAction("preview");QTRY_VERIFY(pane->width()>=240);
+      QTRY_VERIFY(qAbs(pane->width()-customWidth)<=3);
+      window.close();
+    }
+    FilesWindow reopened(initial,false,path);reopened.setAttribute(Qt::WA_DeleteOnClose,false);reopened.show();
+    auto *pane=reopened.findChild<QStackedWidget *>("previewStack");QVERIFY(pane);
+    QTRY_VERIFY(pane->isVisible() && pane->width()>=240);
+    QTRY_VERIFY(qAbs(pane->width()-customWidth)<=3);
+    const auto artifacts=qEnvironmentVariable("FUSION_FILES_ARTIFACTS");
+    if (!artifacts.isEmpty() && savedWidth==0 && enabled) {
+      QDir().mkpath(artifacts);QVERIFY(reopened.grab().save(artifacts+"/preview-"+QTest::currentDataTag()+".png"));
+    }
+    reopened.runAction("preview");reopened.close();saved.settings.sync();
+    QVERIFY(!saved.settings.value("preview").toBool());
   }
   void launchGeometrySeparatesNormalAndExternalWindows() {
     const auto path = temporary.path() + "/launch-geometry.ini";
