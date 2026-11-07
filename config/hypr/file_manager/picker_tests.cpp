@@ -158,13 +158,14 @@ private slots:
     bookmarks.append({{"name", "Picker test folder"}, {"url", QUrl::fromLocalFile(folder+"/Folder").toString()}, {"icon", "folder"}});
     saved.setPlaces(bookmarks);
     {
-      FilesWindow files(QUrl::fromLocalFile(folder), false, path);
-      files.setAttribute(Qt::WA_DeleteOnClose, false); files.show();
-      auto *tree = files.findChild<QTreeWidget *>("places"); QVERIFY(tree);
-      auto *split = qobject_cast<QSplitter *>(tree->parentWidget()); QVERIFY(split);
-      split->setSizes({0, 900, 0});
-      QTRY_COMPARE(split->sizes().first(), 0);
-      files.close();
+      // Reproduce a layout written by older Files versions, which allowed
+      // the navigation tree to be collapsed entirely.
+      QSplitter legacy;
+      for (int i = 0; i < 3; ++i) legacy.addWidget(new QWidget);
+      legacy.resize(1100, 600);
+      legacy.setSizes({0, 900, 0});
+      QCOMPARE(legacy.sizes().first(), 0);
+      saved.settings.setValue("splitter", legacy.saveState());
     }
     saved.settings.sync();
     const auto normalLayout = saved.settings.value("splitter").toByteArray();

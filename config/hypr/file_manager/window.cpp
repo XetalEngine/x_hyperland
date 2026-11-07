@@ -346,6 +346,15 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   if (preferences.settings.contains(splitterKey))
     splitter->restoreState(
         preferences.settings.value(splitterKey).toByteArray());
+  // Navigation is part of every Files window, including This PC, external
+  // folder windows and pickers. Repair old collapsed layouts after restoring
+  // them, and keep the divider from hiding the tree again.
+  splitter->setCollapsible(0, false);
+  auto sizes = splitter->sizes();
+  if (sizes.first() < places->minimumWidth()) {
+    sizes[0] = 210;
+    splitter->setSizes(sizes);
+  }
   connect(tabs, &QTabWidget::currentChanged, this, [this] { updateCurrent(); });
   connect(tabs, &QTabWidget::tabCloseRequested, this, [this](int index) {
     if (tabs->count() == 1) {
@@ -1365,14 +1374,6 @@ void FilesWindow::closeEvent(QCloseEvent *event) {
 }
 
 void FilesWindow::preparePicker() {
-  // Keep navigation reachable even after dragging the splitter all the way
-  // left. Repair any previously saved zero-width picker state as well.
-  splitter->setCollapsible(0, false);
-  auto sizes = splitter->sizes();
-  if (sizes.first() < places->minimumWidth()) {
-    sizes[0] = 210;
-    splitter->setSizes(sizes);
-  }
   tabs->setTabsClosable(false);
   tabs->tabBar()->setTabButton(0, QTabBar::RightSide, nullptr);
   if (auto *button = findChild<QToolButton *>("newTabButton")) button->hide();

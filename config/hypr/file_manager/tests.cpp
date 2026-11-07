@@ -251,6 +251,80 @@ print(json.dumps(rows))
     QTest::mouseClick(tree->viewport(),Qt::LeftButton,Qt::NoModifier,arrow);
     QVERIFY(group->isExpanded());
   }
+  void navigationTreeIsAvailableInEveryWindow_data() {
+    QTest::addColumn<bool>("external");
+    QTest::addColumn<bool>("computer");
+    QTest::addColumn<bool>("collapsed");
+    for (bool external : {false, true})
+      for (bool computer : {false, true})
+        for (bool collapsed : {false, true})
+          QTest::newRow(qPrintable(QString(external ? "external" : "normal") +
+              (computer ? " computer" : " folder") + (collapsed ? " collapsed" : " fresh")))
+              << external << computer << collapsed;
+  }
+  void navigationTreeIsAvailableInEveryWindow() {
+    QFETCH(bool, external); QFETCH(bool, computer); QFETCH(bool, collapsed);
+    const auto restoreRole = qScopeGuard([] { qApp->setDesktopFileName("xetal-files"); });
+    qApp->setDesktopFileName(external ? "xetal-files-external" : "xetal-files");
+    const auto path = temporary.path()+"/navigation-"+QTest::currentDataTag()+".ini";
+    Fusion::Preferences saved(path);
+    auto bookmarks = saved.places();
+    bookmarks.append({{"name", "Navigation test folder"},
+        {"url", QUrl::fromLocalFile(folder).toString()}, {"icon", "folder"}});
+    saved.setPlaces(bookmarks);
+    // Exercise both preview states while repairing only the navigation pane.
+    saved.settings.setValue("preview", !computer);
+    if (collapsed) {
+      QSplitter legacy;
+      for (int i = 0; i < 3; ++i) legacy.addWidget(new QWidget);
+      legacy.resize(1100, 600);
+      legacy.setSizes({0, 900, 270});
+      QCOMPARE(legacy.sizes().first(), 0);
+      saved.settings.setValue("splitter", legacy.saveState());
+    }
+    saved.settings.sync();
+    const auto initial = computer ? Fusion::computerUrl() : QUrl::fromLocalFile(folder);
+    int width = 0;
+    {
+      FilesWindow window(initial, false, path);
+      window.setAttribute(Qt::WA_DeleteOnClose, false); window.show();
+      auto *tree = window.findChild<QTreeWidget *>("places"); QVERIFY(tree);
+      auto *split = qobject_cast<QSplitter *>(tree->parentWidget()); QVERIFY(split);
+      QTRY_VERIFY(tree->isVisible() && tree->width() >= 165);
+      QVERIFY(!split->isCollapsible(0));
+      QCOMPARE(split->widget(2)->isVisible(), !computer);
+      QCOMPARE(window.browser()->location(), initial);
+      // Neither a divider drag nor opening another tab can lose navigation.
+      auto sizes = split->sizes(); sizes[0] = 0; split->setSizes(sizes);
+      QTRY_VERIFY(tree->width() >= 165);
+      window.openLocation(Fusion::computerUrl(), true);
+      QTRY_VERIFY(tree->isVisible() && tree->width() >= 165);
+      QTreeWidgetItem *destination = nullptr;
+      for (QTreeWidgetItemIterator it(tree); *it; ++it)
+        if ((*it)->text(0) == "Navigation test folder") destination = *it;
+      QVERIFY(destination); tree->scrollToItem(destination);
+      QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier,
+          tree->visualItemRect(destination).center());
+      QTRY_COMPARE(window.browser()->location(), QUrl::fromLocalFile(folder));
+      sizes = split->sizes(); sizes[0] = 275; split->setSizes(sizes);
+      QTest::qWait(100); width = tree->width(); QVERIFY(width >= 165);
+      window.close();
+    }
+    saved.settings.sync();
+    QCOMPARE(saved.settings.value("preview").toBool(), !computer);
+    QCOMPARE(saved.places(), bookmarks);
+    FilesWindow reopened(initial, false, path);
+    reopened.setAttribute(Qt::WA_DeleteOnClose, false); reopened.show();
+    auto *tree = reopened.findChild<QTreeWidget *>("places"); QVERIFY(tree);
+    QTRY_VERIFY(tree->isVisible() && tree->width() >= 165);
+    QTRY_VERIFY(qAbs(tree->width()-width) <= 3);
+    const auto artifacts = qEnvironmentVariable("FUSION_FILES_ARTIFACTS");
+    if (!artifacts.isEmpty()) {
+      QDir().mkpath(artifacts);
+      QVERIFY(reopened.grab().save(artifacts+"/"+QTest::currentDataTag()+".png"));
+    }
+    reopened.close();
+  }
   void launchGeometrySeparatesNormalAndExternalWindows() {
     const auto path = temporary.path() + "/launch-geometry.ini";
     const auto restore = qScopeGuard([] { qApp->setDesktopFileName("xetal-files"); });
