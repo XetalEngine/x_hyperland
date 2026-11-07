@@ -22,6 +22,7 @@ from sounds.model import PACKS, EVENTS
 RATE = 48000
 # tonic, voice, unique opening melody (semitones), beat spacing
 SCORES = {
+    'hyperfusionblue': (62, 'keys', [0, 7, 12, 9, 16, 19], .36),
     'raw': (62, 'crystal', [0, 7, 12, 16, 14, 19], .34),
     'modern': (64, 'keys', [0, 4, 11, 7, 14], .43),
     'breakpoint': (48, 'analog', [0, 7, 10, 12, 7], .40),
@@ -123,9 +124,12 @@ def score(pack, event):
     return audio
 
 
-def main():
+def main(selected=None):
+    if selected and set(selected)-PACKS.keys():raise ValueError('Unknown sound pack.')
     output=ROOT/'sounds/packs';manifest={'version':1,'sample_rate':RATE,'license':'MIT','packs':{}}
+    if selected and (output/'catalog.json').is_file():manifest=json.loads((output/'catalog.json').read_text())
     for pack,(_,title,description,_) in PACKS.items():
+        if selected and pack not in selected:continue
         target=output/pack;target.mkdir(parents=True,exist_ok=True)
         info={'title':title,'description':description,'events':{}}
         for event in EVENTS:
@@ -146,4 +150,4 @@ def main():
     (output/'catalog.json').write_text(json.dumps(manifest,indent=2,ensure_ascii=False)+'\n')
 
 
-if __name__=='__main__':main()
+if __name__=='__main__':main(sys.argv[1:] or None)

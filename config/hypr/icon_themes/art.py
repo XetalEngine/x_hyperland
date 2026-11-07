@@ -5,6 +5,7 @@ from xml.sax.saxutils import escape
 VERSION = 4
 # Name, metal/light, midtone, shadow, face, decorative language.
 STYLES = {
+    'hyperfusionblue': ('HyperFusion Blue', '#effaff', '#22bfff', '#0061a9', '#152b3b', 'fusion'),
     'raw': ('Xetal Raw', '#a4fff4', '#41d6ce', '#175e72', '#102c38', 'circuit'),
     'modern': ('Xetal Modern', '#edf6ff', '#86b9ee', '#405d99', '#233b61', 'glass'),
     'breakpoint': ('BreakPoint', '#ffdad6', '#ef485b', '#842839', '#271c27', 'signal'),
@@ -18,6 +19,7 @@ STYLES = {
     'gildedhollow': ('The Gilded Hollow', '#fff0b7', '#dfb469', '#836137', '#303c32', 'brass'),
 }
 DESCRIPTIONS = {
+    'hyperfusionblue': 'Sapphire glass folders, silver hardware and polished graphite application tiles.',
     'raw': 'Luminous cyan circuits and precision-cut panels.',
     'modern': 'Frosted blue glass with polished silver edges.',
     'breakpoint': 'Crimson signals, smoked panels and inset indicator lights.',
@@ -143,6 +145,9 @@ def ornament(style, accent):
 
 
 def svg(style, name):
+    if style == 'hyperfusionblue':
+        from .blue import svg as blue_svg
+        return blue_svg(ALIASES.get(name,name),CATALOG,symbol)
     name = ALIASES.get(name, name)
     label, group, shape, _ = CATALOG[name]
     _, light, mid, dark, face, material = STYLES[style]

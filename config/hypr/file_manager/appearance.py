@@ -118,6 +118,13 @@ def appearance():
         QFrame#pickerActions, QStatusBar {{background:{p['AlternateBase']};}}
         QTabBar::tab:selected {{border:1px solid {p['Midlight']}; border-top-color:{p['Accent']}; border-radius:15px;}}
         '''
+    if design == 'hyperfusionblue':
+        from hyperfusionblue import steel, blue
+        style += f'''QMainWindow,QWidget#filesBody,QWidget#hyperControlPanel,QToolBar,QFrame#addressRow {{background:{steel(p)};}}
+        QGroupBox#drivePartitionCard,QFrame#defaultsHero,QFrame#ramMetric,QFrame#ramMode,QFrame#filterGroupBox {{background:{steel(p)};border:1px solid {p['Midlight']};border-top-color:{p['Light']};border-radius:8px;}}
+        QTreeWidget#places {{background:{p['Window']};border-right:1px solid {p['Midlight']};}}
+        QTreeWidget#places::item:selected,QTabBar::tab:selected {{background:{blue(p)};color:{p['HighlightedText']};border:1px solid {p['Accent']};border-radius:5px;}}
+        QFrame#pickerActions,QStatusBar {{background:{p['Window']};border-top:1px solid {p['Midlight']};}}'''
     if design == 'gildedhollow':
         from gildedhollow import stone
         style += f'''QMainWindow,QWidget#filesBody,QToolBar,QFrame#addressRow {{background:{stone(p)};}}

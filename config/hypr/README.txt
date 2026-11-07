@@ -13,8 +13,8 @@ Shortcuts (Super is the Windows key):
   Super + D               Show / hide the animated Xetal dashboard
   Super + Tab             Cycle all apps; release Super to focus the selected app
   Super + Shift + Tab     Cycle apps in reverse
-  Super + Shift + S       Send the focused app to the Magic scratch workspace
-  Super + S               Show / hide Magic; its bar button remains while occupied
+  Super + Shift + S       Send the focused app to the Stash scratch workspace
+  Super + S               Show / hide Stash; its bar button remains while occupied
   Super + C               Close active window
   Super + Shift + K       Force-kill the application under the pointer
   Super + V               Toggle floating
@@ -289,8 +289,11 @@ bash ~/.config/hypr/waybar/workspaces/build.sh
 The + beside workspaces creates an empty persistent workspace on that bar's
 monitor. Each workspace shows an icon for every mapped window, including inactive
 workspaces; clicking an icon focuses that exact window. Occupied special workspaces
-stay discoverable. Workspace assignments live in control_center/workspaces.conf.
-Super+Tab includes apps from all monitors and workspaces, including Magic. Releasing
+stay discoverable. Stash has four lines of hover help: what it does, how to send
+a window there, how to show/hide it, and how to move a window back. Its internal
+workspace name remains magic for existing shortcuts and occupied windows.
+Workspace assignments live in control_center/workspaces.conf.
+Super+Tab includes apps from all monitors and workspaces, including Stash. Releasing
 Super reveals and focuses the selection in its original workspace and monitor;
 it never moves that app. Escape cancels. The switcher ends with this compositor.
 
@@ -337,3 +340,10 @@ Choose Fusion Settings > Theme > Design for Xetal Raw (original cyan) or Xetal M
 High contrast. Apply theme keeps the same hotkeys, favorites and desktop engine.
 Click your account picture in Apps to open Home. Change the image/GIF on the
 Design page. Reopen older applications if they have not picked up the palette.
+
+HyperFusion Blue adds polished graphite surfaces, silver window controls and
+sapphire glass icons, with a matching full-width taskbar and Blue Vault minimize
+container. Choose Theme > Design > HyperFusion Blue, then Apply preset. Select
+Icons in the component chooser to use its custom icons (Icons stays unchecked
+by default). Dark, Light and High contrast are available. Three alpine wallpapers
+and eight original sound cues are included. See theme/HYPERFUSION_BLUE.md.

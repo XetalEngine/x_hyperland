@@ -28,7 +28,19 @@ class ControlButton(QToolButton):
 
 def style_close(button,design=None):
     import runtime
-    if design in ('breakpoint','binaryknife','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow'):
+    if design=='hyperfusionblue':
+        from hyperfusionblue import steel,blue
+        p=runtime.colors(style=design)
+        close=getattr(button,'symbol','close')=='close'
+        background=('qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #b86358,stop:.48 #81352f,stop:.52 #5b211f,stop:1 #843c32)'
+                    if close else steel(p))
+        button.setStyleSheet(f'''QToolButton {{background:{background};color:{'#ffffff' if close else p['Text']};
+            border:1px solid {p['Midlight']};border-top-color:{p['Light']};border-radius:6px;padding:0;}}
+            QToolButton:hover {{background:{'#b94b40' if close else blue(p)};color:#ffffff;border-color:{p['Accent']};}}
+            QToolButton:pressed {{background:{'#6e211e' if close else p['Highlight']};}}
+            QToolButton:focus {{border-color:{p['Accent']};}}''')
+        return
+    if design in ('breakpoint','binaryknife','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue'):
         p=runtime.colors(style=design)
         hover=f"background:{p['Highlight']}; color:{p['Text']}; border-color:{p['Accent']};"
         pressed=f"background:{p['Mid']};"

@@ -1,0 +1,18 @@
+{
+  "tool": "Built-in image_gen",
+  "purpose": "Original coordinated HyperFusion Blue desktop wallpapers inspired by the user's alpine desktop concept",
+  "assets": [
+    {
+      "file": "alpine-arch.png",
+      "prompt": "Create a finished desktop wallpaper for the HyperFusion Blue Linux theme. Use case: stylized-concept, premium photorealistic alpine landscape, cinematic but believable, landscape 16:9 ideally 3840x2160. A pristine deep sapphire alpine lake at blue hour, monumental snow capped jagged mountains, an immense natural stone arch in the right distance, a very small warm amber-lit chalet on the far forested shore slightly left of center. Delicate sunset gold on the highest peaks and a cobalt/cyan sky, dark evergreen silhouettes frame the far sides, refined detailed rock and calm reflections. The middle and lower lake give generous quiet negative space for desktop windows. Mood: cool blue, polished, immersive, beautiful, photographic realism with a subtly fantastical alpine arch. Full-bleed landscape only. Absolutely no user interface, no windows, no taskbar, no icons, no text, no letters, no logo, no border, no watermark. This is usable wallpaper artwork, not a screenshot or desktop mockup."
+    },
+    {
+      "file": "sapphire-river.png",
+      "prompt": "Create a finished premium photorealistic alpine wallpaper, landscape 16:9 ideally 3840x2160, for HyperFusion Blue. The left-monitor companion to an alpine blue-hour lake: dark evergreen forest framing the left edge, clear cobalt glacial river leading into a deep blue lake, jagged snow-capped mountains at dusk with fine gold light only along distant ridges, small weathered granite rocks and a few subtle wildflowers in foreground, layered blue forests, quiet mist. Sophisticated photographic realism, rich sapphire and steel-blue tones with restrained cyan reflections. Large uncluttered water and sky areas, crisp natural textures. No text, no logo, no UI, no screens, no frames, no watermark. Full bleed landscape, a beautiful usable desktop wallpaper."
+    },
+    {
+      "file": "blue-horizon.png",
+      "prompt": "Create a finished premium photorealistic alpine wallpaper, landscape 16:9 ideally 3840x2160, for HyperFusion Blue. The right-monitor companion to an alpine blue-hour lake: an immense natural granite stone arch in the upper left-middle with distant snowy peaks visible through it, calm deep sapphire lake reflecting the arch, dark evergreen forest along the right shore, a tiny warm amber lakeside chalet on the far right, cool cobalt dusk sky, fine gold sunset touching the highest rock. The arch is majestic and realistic in material, subtle fantasy in scale. Photo-real environment with meticulous rock and water, quiet central and lower water negative space. Rich blue and polished silver light, almost no purple. No text, no logo, no UI, no screens, no frames, no watermark. Full bleed landscape."
+    }
+  ]
+}

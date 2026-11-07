@@ -3,7 +3,7 @@
 <p align="center"><strong>Your workspace. Your colors. Your kind of Linux desktop.</strong><br>A complete Xetal desktop for Hyprland, with native settings, custom menus, KVM tools and a little Compiz nostalgia.</p>
 
 <p align="center">
-  <a href="#install">Install</a> ·
+  <a href="#three-ways-to-install-hyper-fusion">Install</a> ·
   <a href="#tested-on">Tested on</a> ·
   <a href="#four-looks-one-desktop">Themes</a> ·
   <a href="#compiz-spirit-hyprland-desktop">Effects</a> ·
@@ -18,6 +18,35 @@
 https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d
 
 <p align="center"><sub>48-second desktop tour · Original 1440p recording · <a href="docs/GALLERY.md">Explore the full gallery</a></sub></p>
+
+## Three ways to install Hyper Fusion
+
+1. **Install it on your existing system**
+
+   Download or clone the [GitHub repository](https://github.com/XetalEngine/x_hyperland), open a terminal in the repository folder, and run the installer as your regular desktop user. Make it executable first if needed:
+
+   ```bash
+   chmod +x x_hyperinstall.sh
+   ./x_hyperinstall.sh
+   ```
+
+   See the [detailed installation instructions](#install) below.
+
+2. **Install the custom Arch Linux OFFLINE ISO — 5.25 GB**
+
+   This is the version installed in the video above. It includes Arch Linux, KDE, and the entire Hyper Fusion system.
+
+   **[Download the OFFLINE installer](https://drive.google.com/file/d/1enXaT-NAJah_gagPONBMs_oIVJ12LuPI/view?usp=drive_link)**
+
+3. **Install the custom Arch Linux ONLINE ISO — 2.29 GB**
+
+   This includes the same setup as the offline version, but downloads the packages from the Arch Linux servers during installation. Since Arch is a rolling release, future package or library changes could cause compatibility issues.
+
+   **[Download the ONLINE installer](https://drive.google.com/file/d/10r-iTgtOwndrRtDnbBVlb7oWVs-4saqE/view?usp=drive_link)**
+
+[**GitHub repository**](https://github.com/XetalEngine/x_hyperland) — feel free to contribute ideas or submit pull requests!
+
+---
 
 Hyper Fusion brings the whole desktop together: a launcher you can arrange yourself, coordinated visual styles, a configurable taskbar, native settings, themed file tools, virtual-machine management and original Compiz effects adapted to Hyprland. The graphical installer builds the included desktop components for your system, and the updater keeps your personal choices between releases.
 

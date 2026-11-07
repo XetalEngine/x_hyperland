@@ -68,7 +68,9 @@ class JobTests(unittest.TestCase):
         self.assertEqual(amount(1024**3), '1.0 GiB')
 
     def window(self, job=None):
-        window = ProgressWindow(job or self.job(hints={'title': 'Copying files', 'percent': 25}))
+        # Rendering expectations must not inherit the developer's saved theme.
+        window = ProgressWindow(job or self.job(hints={'title': 'Copying files', 'percent': 25}),
+                                options={'style': 'modern'})
         self.addCleanup(window.dismiss)
         window.show(); APPLICATION.processEvents()
         return window

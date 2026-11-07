@@ -9,6 +9,7 @@ STYLES={'follow':'Follow desktop theme', **designs.DESIGNS}
 VARIANTS={'full':'Full · continuous bar', 'partial':'Partial · floating sections',
           'centered':'Centered · workspaces in the middle'}
 DESCRIPTIONS={
+ 'hyperfusionblue':'Alpine console · silver bevels, sapphire buttons and a polished graphite rail',
  'raw':'Terminal rail · a continuous compact strip with underlined workspaces',
  'modern':'Floating islands · rounded app, clock and status capsules',
  'breakpoint':'Command deck · segmented blocks and a strong lower seam',
@@ -52,6 +53,7 @@ def configure(config,style,variation=None):
     status=['custom/recording','cpu','memory','custom/temperature','temperature','disk','custom/internet','custom/lan','network#lan','custom/wifi',
             'custom/vpn','bluetooth','group/audio','pulseaudio#microphone','idle_inhibitor','custom/notifications','tray','clock','custom/power']
     layouts={
+        'hyperfusionblue':(apps,['mpris'],status),
         'raw':(apps,['mpris'],status),
         'modern':(apps+['mpris'],['clock'],[x for x in status if x!='clock']),
         'breakpoint':(apps,['custom/recording','mpris'],[x for x in status if x!='custom/recording']),
@@ -111,6 +113,15 @@ window#waybar {{color:{t};}}
 }}
 '''
     faces={
+'hyperfusionblue':f'''
+window#waybar {{background:linear-gradient(180deg,{p['Button']},{w} 35%,{b} 54%,{w});border:1px solid {m};border-top-color:{p['Light']};border-bottom:2px solid {p['Dark']};border-radius:0;}}
+.modules-left,.modules-center,.modules-right {{padding:0 5px;}}
+#custom-launcher {{background:linear-gradient(180deg,{p['Button']},{w});border:1px solid {p['Light']};border-radius:6px;font-weight:700;padding:0 14px 0 35px;}}
+#workspaces button {{background:linear-gradient(180deg,{p['Button']},{b} 55%,{w});border:1px solid {m};border-top-color:{p['Light']};border-radius:5px;margin:3px 2px;padding:0 7px;}}
+#workspaces button.active {{background:linear-gradient(180deg,{a},{h} 48%,{h});color:{p['HighlightedText']};border:1px solid {p['Link']};box-shadow:inset 0 1px alpha({p['Light']},0.6),0 0 5px alpha({a},0.4);}}
+#custom-keys,#new-workspace,#xetal-pins .pin {{background:linear-gradient(180deg,{p['Button']},{w});border:1px solid {m};border-radius:5px;}}
+#clock {{background:transparent;border-left:1px solid {m};border-radius:0;padding:0 12px;font-weight:600;}}
+''',
 'raw':f'''
 window#waybar {{background:{w};border:0;border-bottom:1px solid {a};border-radius:0;}}
 .modules-left,.modules-center,.modules-right {{padding:2px 4px;background:transparent;}}
@@ -225,7 +236,7 @@ window#waybar {{background:linear-gradient(180deg,alpha({p['Button']},0.97),alph
 def architecture(p,style,variation,root):
     """One material vocabulary, available as a rail, islands or centered bank."""
     a,b,w,t,m,h=p['Accent'],p['Base'],p['Window'],p['Text'],p['Midlight'],p['Highlight']
-    radius={'raw':'1px','modern':'23px','breakpoint':'12px 2px 12px 2px','binaryknife':'2px 16px 2px 16px',
+    radius={'hyperfusionblue':'7px','raw':'1px','modern':'23px','breakpoint':'12px 2px 12px 2px','binaryknife':'2px 16px 2px 16px',
             'tidalglass':'28px 28px 14px 14px','porcelainink':'4px','obsidianforge':'5px',
             'candycloud':'28px','shadowedge':'12px 0 12px 0','hollowgrove':'28px 12px 28px 12px','gildedhollow':'24px'}[style]
     surface={
@@ -239,6 +250,7 @@ def architecture(p,style,variation,root):
         'candycloud':f'linear-gradient(160deg,alpha({p["Link"]},0.20),{w} 30%,{p["Button"]} 70%,alpha({a},0.26))',
         'shadowedge':f'linear-gradient(155deg,{p["Button"]},{b} 40%,{w} 80%,{b})',
         'hollowgrove':f'linear-gradient(150deg,{p["Button"]},alpha({w},0.98) 30%,alpha({b},0.97) 80%,alpha({a},0.14))',
+        'hyperfusionblue':f'linear-gradient(180deg,{p["Button"]},{w} 32%,{b} 55%,{w})',
         'gildedhollow':f'linear-gradient(165deg,{p["Button"]},{w} 24%,{b} 65%,{w})',
     }[style]
     frame=f'background:{surface};border:1px solid alpha({a},0.58);border-top-color:alpha({p["Link"]},0.72);border-radius:{radius};box-shadow:inset 0 1px alpha({t},0.12),inset 0 -2px alpha({a},0.1);'
@@ -295,6 +307,10 @@ window#waybar {{{frame}}}
 #workspaces button {{border-radius:14px 3px 14px 3px;border:1px solid transparent;margin:0 2px;}}
 #workspaces button.active {{background:linear-gradient(155deg,{p['Link']},{h});border-color:{a};box-shadow:inset 0 1px alpha({t},0.3);}}
 #clock {{font-family:serif;border-left:1px solid alpha({a},0.3);letter-spacing:1px;}}''',
+        'hyperfusionblue':f'''#custom-launcher {{background-image:url("{root/'assets/hyperfusion-blue-mark.svg'}"),linear-gradient(180deg,{p['Button']},{w});background-repeat:no-repeat;background-position:9px center;border:1px solid {p['Light']};border-radius:6px;padding-left:35px;}}
+#workspaces button {{border-radius:5px;border:1px solid {m};border-top-color:{p['Light']};background:linear-gradient(180deg,{p['Button']},{b} 55%,{w});}}
+#workspaces button.active {{background:linear-gradient(180deg,{a},{h} 48%,{h});color:{p['HighlightedText']};border-color:{p['Link']};box-shadow:inset 0 1px alpha({p['Light']},0.7),0 0 5px alpha({a},0.35);}}
+#clock {{border-left:1px solid {m};font-weight:600;}}''',
         'gildedhollow':f'''.modules-left {{background-image:url("{root/'assets/gilded-picks.svg'}");background-repeat:no-repeat;background-position:10px center;padding-left:40px;}}
 #custom-launcher {{font-family:serif;letter-spacing:1px;color:{p['Link']};background:transparent;border:0;border-right:1px solid {m};}}
 #workspaces button {{background:linear-gradient(145deg,{p['Button']},{b});border:1px solid {m};border-top-color:{p['Light']};border-radius:8px;}}

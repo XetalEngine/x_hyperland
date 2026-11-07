@@ -137,7 +137,9 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
                          const QString &settingsPath, const QString &geometryKey)
     : preferences(settingsPath), geometryKey(geometryKey.isEmpty()
           ? (qApp->desktopFileName() == "xetal-files-external" ? "external/geometry" : "geometry")
-          : geometryKey) {
+          : geometryKey),
+      splitterKey(this->geometryKey.startsWith("picker/")
+          ? this->geometryKey.section('/', 0, -2)+"/splitter" : "splitter") {
   setObjectName("fusionFiles");
   setAttribute(Qt::WA_DeleteOnClose);
   setWindowTitle("Fusion Files");
@@ -338,9 +340,12 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   splitter->setStretchFactor(1, 1);
   splitter->setStretchFactor(2, 0);
   splitter->setSizes({210, 720, 270});
-  if (preferences.settings.contains("splitter"))
+  // Pickers already remember geometry per application and operation. Keep
+  // their panel widths there too, rather than inheriting a collapsed Files
+  // sidebar or overwriting the main window's layout when the dialog closes.
+  if (preferences.settings.contains(splitterKey))
     splitter->restoreState(
-        preferences.settings.value("splitter").toByteArray());
+        preferences.settings.value(splitterKey).toByteArray());
   connect(tabs, &QTabWidget::currentChanged, this, [this] { updateCurrent(); });
   connect(tabs, &QTabWidget::tabCloseRequested, this, [this](int index) {
     if (tabs->count() == 1) {
@@ -1354,12 +1359,20 @@ void FilesWindow::closeEvent(QCloseEvent *event) {
     preferences.settings.setValue("external/size", size());
   else if (geometryKey != "geometry")
     preferences.settings.setValue(geometryKey, saveGeometry());
-  preferences.settings.setValue("splitter", splitter->saveState());
+  preferences.settings.setValue(splitterKey, splitter->saveState());
   preferences.settings.sync();
   QMainWindow::closeEvent(event);
 }
 
 void FilesWindow::preparePicker() {
+  // Keep navigation reachable even after dragging the splitter all the way
+  // left. Repair any previously saved zero-width picker state as well.
+  splitter->setCollapsible(0, false);
+  auto sizes = splitter->sizes();
+  if (sizes.first() < places->minimumWidth()) {
+    sizes[0] = 210;
+    splitter->setSizes(sizes);
+  }
   tabs->setTabsClosable(false);
   tabs->tabBar()->setTabButton(0, QTabBar::RightSide, nullptr);
   if (auto *button = findChild<QToolButton *>("newTabButton")) button->hide();

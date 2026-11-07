@@ -1,7 +1,7 @@
 """Original vector scenes for the Modern and BreakPoint transfer cards."""
 import math
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QColor, QLinearGradient, QPainterPath, QPen, QRadialGradient
+from PyQt6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen, QRadialGradient
 
 
 def alpha(color, opacity):
@@ -364,3 +364,23 @@ def hollowgrove(p, box, accent, surface, phase, count, trails, glow, archive, ex
         if trails:
             p.setPen(QPen(alpha(accent,70),1));p.drawLine(QPointF(-17,6),QPointF(-23,6))
         p.restore()
+
+
+def hyperfusionblue(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    p.save();p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    c=QColor(accent);base=QColor(surface);ink=QColor('#d7edfa')
+    y=box.center().y();left=box.left()+22;right=box.right()-22
+    rail=QLinearGradient(left,y-5,left,y+5);rail.setColorAt(0,ink);rail.setColorAt(.25,base);rail.setColorAt(1,c)
+    p.setPen(Qt.PenStyle.NoPen);p.setBrush(rail);p.drawRoundedRect(QRectF(left,y-4,right-left,8),4,4)
+    for x in (left,right):
+        bay=QLinearGradient(x-12,y-20,x+12,y+20);bay.setColorAt(0,ink);bay.setColorAt(.12,c);bay.setColorAt(.5,base);bay.setColorAt(1,c.darker(160))
+        p.setBrush(bay);p.setPen(QPen(ink,1));p.drawRoundedRect(QRectF(x-13,y-21,26,42),5,5)
+        p.setPen(QPen(c,2));p.drawLine(QPointF(x-7,y+15),QPointF(x+7,y+15))
+    for i in range(max(1,count)):
+        t=(phase*.18+i/max(1,count))%1.;x=left+20+t*max(1,right-left-40)
+        if extracting:x=right-20-t*max(1,right-left-40)
+        if trails:
+            tail=QColor(c);tail.setAlpha(55);p.setPen(QPen(tail,3));p.drawLine(QPointF(x-14,y),QPointF(x,y))
+        p.setBrush(c);p.setPen(QPen(ink,1));p.drawRoundedRect(QRectF(x-5,y-7,10,14),2,2)
+        p.setPen(QPen(ink,.6));p.drawLine(QPointF(x-2,y-3),QPointF(x+2,y-3))
+    p.restore()

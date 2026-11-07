@@ -38,7 +38,7 @@ class GalleryTests(unittest.TestCase):
     def visible(self): return [name for name, card in self.page.cards.items() if not card.isHidden()]
 
     def test_search_across_collections_keeps_selection_and_handles_no_results(self):
-        for query, expected in (('  BLUE  ', ['modern', 'binaryknife', 'tidalglass']),
+        for query, expected in (('  BLUE  ', ['modern', 'binaryknife', 'tidalglass', 'hyperfusionblue']),
                                 ('moon rain', ['shadowedge']), ('CANDY', ['candycloud']),
                                 ('no-such-theme', [])):
             self.page.search.setText(query); self.page.refresh(); QT.processEvents()

@@ -10,6 +10,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 PATH = ROOT / 'sounds/settings.json'
 PACKS = {
+    'hyperfusionblue': ('HyperFusion Blue', 'Blue horizon', 'Clear glass notes over a warm, restrained electronic chord.', '#00baff'),
     'raw': ('Xetal Raw', 'Prismatic notes', 'Clean digital plucks and crystalline echoes.', '#65d9d0'),
     'modern': ('Xetal Modern', 'First light', 'Soft electric keys with a warm, airy finish.', '#87b6da'),
     'breakpoint': ('BreakPoint', 'Red signal', 'Low analog pulses and a restrained minor melody.', '#eb4358'),

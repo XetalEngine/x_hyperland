@@ -47,7 +47,8 @@
   "hyprland/workspaces": {
     "format": "{icon} {windows}",
     "format-icons": {
-      "xetal-startup": "Welcome"
+      "xetal-startup": "Welcome",
+      "magic": "Stash"
     },
     "all-outputs": false,
     "show-special": true,

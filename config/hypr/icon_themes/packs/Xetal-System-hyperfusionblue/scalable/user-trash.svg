@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>Trash · HyperFusion Blue</title><defs>
+<linearGradient id="metal" x2="0.25" y2="1"><stop stop-color="#f3fbff"/><stop offset=".23" stop-color="#b7cbd7"/><stop offset=".47" stop-color="#f3fbff"/><stop offset=".52" stop-color="#7894a6"/><stop offset="1" stop-color="#d4e5ee"/></linearGradient>
+<linearGradient id="blue" x2=".15" y2="1"><stop stop-color="#70e2ff"/><stop offset=".12" stop-color="#27c6ff"/><stop offset=".49" stop-color="#0099e7"/><stop offset=".52" stop-color="#007bc7"/><stop offset="1" stop-color="#004b83"/></linearGradient>
+<linearGradient id="case" x2="0" y2="1"><stop stop-color="#526977"/><stop offset=".15" stop-color="#263e4e"/><stop offset=".5" stop-color="#162835"/><stop offset=".52" stop-color="#0a1924"/><stop offset="1" stop-color="#263c4b"/></linearGradient>
+<linearGradient id="shine" x2="0" y2="1"><stop stop-color="#ffffff" stop-opacity=".55"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+</defs><path d="M16 19H49L45 56H20Z" fill="url(#case)" stroke="url(#metal)" stroke-width="2"/><path d="M14 17H51V22H14ZM25 16V10H40V16" fill="url(#metal)" stroke="#36566b"/><g stroke="url(#metal)" stroke-width="2.5"><path d="M24 27 26 49M32 27V49M41 27 39 49"/></g><path d="M21 53H44" stroke="#00baff" stroke-width="1.5"/></svg>

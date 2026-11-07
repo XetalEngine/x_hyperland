@@ -22,8 +22,31 @@ def line(painter, x1, y1, x2, y2):
     painter.drawLine(QPointF(x1, y1), QPointF(x2, y2))
 
 
+def blue_vault(p, width, colors, phase):
+    """Silver end caps and a dark glass bay, mirrored by native style 11."""
+    from hyperfusionblue import paint_surface
+    box=QRectF(8,8,width-16,80);paint_surface(p,box,colors,12,100)
+    p.save();p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    accent=QColor(colors['Accent']);silver=QColor(colors['Light'])
+    for x in (10,width-26):
+        cap=QLinearGradient(x,10,x+16,86)
+        cap.setColorAt(0,silver);cap.setColorAt(.16,QColor(colors['Button']));cap.setColorAt(.52,QColor(colors['Base']));cap.setColorAt(1,silver)
+        p.setBrush(cap);p.setPen(QPen(silver,.7));p.drawRoundedRect(QRectF(x,11,16,74),5,5)
+        for y in (18,78):
+            p.setBrush(QColor(colors['Base']));p.drawEllipse(QPointF(x+8,y),1.6,1.6)
+        p.setPen(QPen(accent,2));line(p,x+8,34,x+8,62)
+    p.setPen(QPen(alpha(silver,.7),1));line(p,29,12,width-29,12)
+    p.setPen(QPen(accent,2));line(p,29,83,width-29,83)
+    shine=QLinearGradient(26,0,width-26,0)
+    shine.setColorAt(0,alpha(accent,0));shine.setColorAt(.5+.3*math.sin(phase*.45),alpha(silver,.7));shine.setColorAt(1,alpha(accent,0))
+    p.setPen(QPen(shine,1.5));line(p,29,15,width-29,15)
+    p.restore()
+
+
 def tray(painter, width, style, colors, phase):
     """Draw a horizontal tray in a width × 96 coordinate space."""
+    if style == 'hyperfusionblue':
+        blue_vault(painter,width,colors,phase);return
     p = painter; accent, ink, base = (QColor(colors[k]) for k in ('Accent', 'WindowText', 'Window'))
     bounds = QRectF(8, 8, width-16, 80)
     radius = {'raw': 3, 'breakpoint': 10, 'binaryknife': 5, 'porcelainink': 5,
@@ -245,8 +268,13 @@ def dock(p, area, style, colors, *, phase=0., weights=(1., 1., 1.), zoom=(), ver
         p.save(); p.setOpacity(p.opacity()*max(0., min(1., weight)))
         if not stack:
             p.setPen(QPen(alpha(colors['Accent'], .12+(z-1)), .8)); p.setBrush(alpha(colors['Accent'], .035+(z-1)*.1))
-            radius = 2 if style == 'raw' else 10 if style == 'gildedhollow' else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
+            radius = 2 if style == 'raw' else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
             p.drawRoundedRect(rect, radius, radius)
+        if style == 'hyperfusionblue' and not stack:
+            glass=QLinearGradient(rect.topLeft(),rect.bottomLeft())
+            glass.setColorAt(0,alpha(colors['Light'],.24));glass.setColorAt(.45,alpha(colors['Accent'],.06));glass.setColorAt(.5,alpha(colors['Base'],.6));glass.setColorAt(1,alpha(colors['Accent'],.16))
+            p.setBrush(glass);p.setPen(QPen(alpha(colors['Light'],.65),.8));p.drawRoundedRect(rect,10,10)
+            p.setPen(QPen(alpha(colors['Accent'],.8),2));line(p,rect.left()+9,rect.bottom()-4,rect.right()-9,rect.bottom()-4)
         fire(p, spot, size, QColor(colors['Accent']), phase+index*.7)
         app_icon(p, QRectF(spot.x()-size*.20, spot.y()-size*.16, size*.4, size*.4), index, colors)
         p.restore()

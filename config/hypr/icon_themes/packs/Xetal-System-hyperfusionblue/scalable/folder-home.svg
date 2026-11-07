@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>Home · HyperFusion Blue</title><defs>
+<linearGradient id="metal" x2="0.25" y2="1"><stop stop-color="#f3fbff"/><stop offset=".23" stop-color="#b7cbd7"/><stop offset=".47" stop-color="#f3fbff"/><stop offset=".52" stop-color="#7894a6"/><stop offset="1" stop-color="#d4e5ee"/></linearGradient>
+<linearGradient id="blue" x2=".15" y2="1"><stop stop-color="#70e2ff"/><stop offset=".12" stop-color="#27c6ff"/><stop offset=".49" stop-color="#0099e7"/><stop offset=".52" stop-color="#007bc7"/><stop offset="1" stop-color="#004b83"/></linearGradient>
+<linearGradient id="case" x2="0" y2="1"><stop stop-color="#526977"/><stop offset=".15" stop-color="#263e4e"/><stop offset=".5" stop-color="#162835"/><stop offset=".52" stop-color="#0a1924"/><stop offset="1" stop-color="#263c4b"/></linearGradient>
+<linearGradient id="shine" x2="0" y2="1"><stop stop-color="#ffffff" stop-opacity=".55"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+</defs><path d="M13 29V54H28V39H38V54H52V29L32 11Z" fill="url(#metal)" stroke="#284d64" stroke-width="1.5"/><path d="M4 29 31 5Q32 4 34 6L60 29 55 34 32 14 9 34Z" fill="url(#blue)" stroke="#d7f5ff" stroke-width="1.1"/><path d="M28 54V39Q33 36 38 39V54" fill="#0d496d" stroke="#eefaff"/></svg>

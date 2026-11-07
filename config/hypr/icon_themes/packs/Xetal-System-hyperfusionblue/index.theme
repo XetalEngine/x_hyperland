@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=HyperFusion Blue
+Comment=Sapphire glass folders, silver hardware and polished graphite application tiles.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

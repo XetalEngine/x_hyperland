@@ -29,7 +29,7 @@ protected:
   void preparePicker();
 
 private:
-  QString geometryKey;
+  QString geometryKey, splitterKey;
   QTabWidget *tabs;
   QTreeWidget *places;
   QTreeWidgetItem *quickRoot;

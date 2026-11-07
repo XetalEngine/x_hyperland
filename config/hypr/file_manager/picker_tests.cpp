@@ -143,6 +143,69 @@ private slots:
     Fusion::Preferences preferences(settings()); QVERIFY(!preferences.settings.contains("geometry"));
     again.close();
   }
+  void sidebarStaysVisibleAndKeepsItsOwnWidth_data() {
+    QTest::addColumn<QString>("method"); QTest::addColumn<bool>("directory");
+    QTest::newRow("upload") << QString("OpenFile") << false;
+    QTest::newRow("save") << QString("SaveFile") << false;
+    QTest::newRow("folder") << QString("OpenFile") << true;
+    QTest::newRow("save multiple") << QString("SaveFiles") << true;
+  }
+  void sidebarStaysVisibleAndKeepsItsOwnWidth() {
+    QFETCH(QString, method); QFETCH(bool, directory);
+    const auto path = temp.path()+"/navigation-"+method+QString::number(directory)+".ini";
+    Fusion::Preferences saved(path);
+    auto bookmarks = saved.places();
+    bookmarks.append({{"name", "Picker test folder"}, {"url", QUrl::fromLocalFile(folder+"/Folder").toString()}, {"icon", "folder"}});
+    saved.setPlaces(bookmarks);
+    {
+      FilesWindow files(QUrl::fromLocalFile(folder), false, path);
+      files.setAttribute(Qt::WA_DeleteOnClose, false); files.show();
+      auto *tree = files.findChild<QTreeWidget *>("places"); QVERIFY(tree);
+      auto *split = qobject_cast<QSplitter *>(tree->parentWidget()); QVERIFY(split);
+      split->setSizes({0, 900, 0});
+      QTRY_COMPARE(split->sizes().first(), 0);
+      files.close();
+    }
+    saved.settings.sync();
+    const auto normalLayout = saved.settings.value("splitter").toByteArray();
+    QVERIFY(!normalLayout.isEmpty());
+    auto input = request(method); input["directory"] = directory;
+    PickerWindow picker(input, path, false); prepare(picker);
+    auto *tree = picker.findChild<QTreeWidget *>("places"); QVERIFY(tree);
+    auto *split = qobject_cast<QSplitter *>(tree->parentWidget()); QVERIFY(split);
+    QTRY_VERIFY(tree->isVisible() && split->sizes().first() >= 165);
+    QVERIFY(!split->isCollapsible(0));
+    // The drag handle must never leave the picker with an unreachable tree.
+    split->setSizes({0, 900, 0}); QTRY_VERIFY(split->sizes().first() >= 165);
+    QTreeWidgetItem *destination = nullptr;
+    for (QTreeWidgetItemIterator it(tree); *it; ++it)
+      if ((*it)->text(0) == "Picker test folder") destination = *it;
+    QVERIFY(destination); tree->scrollToItem(destination);
+    QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualItemRect(destination).center());
+    QTRY_COMPARE(picker.browser()->location(), QUrl::fromLocalFile(folder+"/Folder"));
+    split->setSizes({275, 800, 0}); QTest::qWait(100);
+    const int width = split->sizes().first(); QVERIFY(width >= 165);
+    picker.close(); saved.settings.sync();
+    QCOMPARE(saved.settings.value("splitter").toByteArray(), normalLayout);
+    QString pickerLayout;
+    for (const auto &key : saved.settings.allKeys())
+      if (key.startsWith("picker/") && key.endsWith("/splitter")) pickerLayout = key;
+    QVERIFY(!pickerLayout.isEmpty());
+    {
+      PickerWindow again(input, path, false); prepare(again);
+      auto *againTree = again.findChild<QTreeWidget *>("places"); QVERIFY(againTree);
+      QTRY_VERIFY(qAbs(againTree->width()-width) <= 3);
+      again.close();
+    }
+    // A stale collapsed picker state is repaired too, without deleting other
+    // saved folders, filters, geometry or the main file manager's layout.
+    saved.settings.setValue(pickerLayout, normalLayout); saved.settings.sync();
+    PickerWindow recovered(input, path, false); prepare(recovered);
+    auto *recoveredTree = recovered.findChild<QTreeWidget *>("places"); QVERIFY(recoveredTree);
+    QTRY_VERIFY(recoveredTree->width() >= 165);
+    recovered.close(); saved.settings.sync();
+    QCOMPARE(saved.settings.value("splitter").toByteArray(), normalLayout);
+  }
   void compactActionsWhenResized_data() {
     QTest::addColumn<QString>("method"); QTest::addColumn<bool>("extraChoices");
     for (const auto &method : {"OpenFile", "SaveFile", "SaveFiles"})

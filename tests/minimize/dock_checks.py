@@ -8,7 +8,9 @@ def check(root, env, ctl, dispatch, status, clients, client, wait, app, run, spa
           pointer, output, model, config, palette):
     from PIL import Image, ImageDraw
     output_name=output['name']
-    values=dict(model.DEFAULTS,auto_hide=False)
+    # Slide/idle assertions below are distinct from the burning indicator
+    # scenarios. Do not inherit the user's current default hide animation.
+    values=dict(model.DEFAULTS,auto_hide=False,hide_animation='slide',fire_indicator=False)
     def settings(**changes):
         values.update(changes);config.write_text(model.encode(values));dispatch('xetalminimize:reload')
     def monitors():return json.loads(ctl('-j','monitors'))

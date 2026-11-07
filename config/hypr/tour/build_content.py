@@ -107,7 +107,7 @@ lesson('workspaces','windows','Workspaces—and why the + button stops working',
     'With Cube enabled, each monitor has local faces 1–4. Super + 1–4 switches the monitor under the pointer; Super + Shift + 1–4 moves the active window. Super + mouse wheel cycles faces.',
     'The taskbar + and remove controls are unavailable because adding or removing a face would break the fixed four-face arrangement. Number shortcuts 5–0 do nothing in this mode. This is expected.',
     'For freely added workspaces, open Desktop Cube + 3D and disable Cube. The + and remove controls return, together with normal global workspace numbers and shortcuts.',
-    'Special workspaces such as Welcome and Magic remain separate from cube faces. Existing excess workspaces may be folded into face four when Cube is enabled; disabling it can restore their original placement if you have not moved them manually.'],
+    'Special workspaces such as Welcome and Stash remain separate from cube faces. Existing excess workspaces may be folded into face four when Cube is enabled; disabling it can restore their original placement if you have not moved them manually.'],
     keys='Super + 1–4|Super + Shift + 1–4|Super + wheel',tryit='With Cube enabled, switch between faces 1 and 2. Notice the + control is unavailable.',related='cube workspace-force magic',tags='plus new workspace add grey disabled four sides 3d cube ceiling',image='cube.webp',clip='cube',sources='effects/cube/README.md scripts/workspace.py scripts/new-workspace.py')
 
 lesson('workspace-force','windows','Force a window layout for one workspace',
@@ -133,16 +133,16 @@ lesson('switcher','windows','Switch between apps without hunting',
     'The task switcher can reach windows across monitors and workspaces. Its design is independent of your desktop theme.',
     'Super + Tab · Theme → Task Switcher',[
     'Hold Super and press Tab to advance through apps. Add Shift to move backward. Release Super to focus the selected app in its workspace and monitor.',
-    'The switcher includes windows outside your current workspace, including Magic. Use it to return to the guide after trying an action.',
+    'The switcher includes windows outside your current workspace, including Stash. Use it to return to the guide after trying an action.',
     'Open Theme → Task Switcher to preview the available designs and customize their presentation. Save the selection when you are happy with it.'],
     keys='Super + Tab|Super + Shift + Tab',related='magic workspaces',image='switcher.webp',sources='switcher/README.md keybindings.conf')
 
-lesson('magic','windows','Keep a spare window in Magic',
-    'Magic is a special scratch workspace for windows you want nearby without occupying your regular layout.',
+lesson('magic','windows','Keep a spare window in Stash',
+    'Stash is a special scratch workspace for windows you want nearby without occupying your regular layout.',
     'Super + Shift + S / Super + S',[
-    'Focus a practice window and press Super + Shift + S to send it to Magic.',
-    'Press Super + S to show or hide Magic. The app keeps running while hidden, and the taskbar retains its Magic entry while it contains windows.',
-    'Bring a window back with your ordinary move-to-workspace shortcut. Magic is separate from Cube’s four faces; it is also different from minimizing to the dock.'],
+    'Focus a practice window and press Super + Shift + S to send it to Stash.',
+    'Press Super + S to show or hide Stash. The app keeps running while hidden, and the taskbar retains its Stash entry while it contains windows.',
+    'Bring a window back with your ordinary move-to-workspace shortcut. Stash is separate from Cube’s four faces; it is also different from minimizing to the dock.'],
     keys='Super + Shift + S|Super + S',related='workspaces minimize switcher',image='workspaces.webp',sources='keybindings.conf README.txt')
 
 lesson('monitors','windows','Work comfortably across monitors',

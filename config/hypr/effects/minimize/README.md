@@ -67,7 +67,9 @@ Dock designs have distinct silhouettes and details: Raw's circuit rail,
 Modern's glass capsule, BreakPoint's reactor console, Binary Knife's cut crystal,
 Tidal Glass's waves, Porcelain Ink's ink tray, Obsidian Forge's metal and rivets,
 Candy Cloud's pearl pillows, Shadow Edge's smoked steel, Hollow Grove's vines,
-and The Gilded Hollow's brass caps, traveling gleam and lantern-cut diamond.
+The Gilded Hollow's brass caps, traveling gleam and lantern-cut diamond,
+and HyperFusion Blue's Blue Vault: silver end caps, sapphire edge lights and
+individual glass chambers around each minimized window.
 Their materials use the profile's palette, including light themes. No shared
 KDE/Qt color files are changed.
 

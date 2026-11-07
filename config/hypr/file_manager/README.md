@@ -1,5 +1,14 @@
 # Fusion Files
 
+## File picker navigation
+
+Open, Save, and folder pickers keep the left navigation tree visible. Its width
+is adjustable, but dragging the divider cannot collapse it completely. Each
+application and operation remembers its own panel widths alongside its existing
+window size and last-folder settings. A collapsed main Files sidebar is not
+inherited by pickers, and closing a picker does not change the main window's
+panel layout.
+
 ## Dragging files
 
 Hold **Ctrl** while dragging to copy, **Shift** to move, or **Ctrl+Shift** to

@@ -15,7 +15,8 @@ DOCK_STYLES = {'follow': 'Follow desktop theme', 'raw': 'Xetal Raw · circuit ra
                'tidalglass': 'Tidal Glass · ocean glass', 'porcelainink': 'Porcelain Ink · ink tray',
                'obsidianforge': 'Obsidian Forge · forged metal', 'candycloud': 'Candy Cloud · pearl pillows',
                'shadowedge': 'Shadow Edge · smoked steel', 'hollowgrove': 'Hollow Grove · moonlit vines',
-               'gildedhollow': 'The Gilded Hollow · lantern brass'}
+               'gildedhollow': 'The Gilded Hollow · lantern brass',
+               'hyperfusionblue': 'HyperFusion Blue · Blue Vault'}
 ORDERS = {'bottom-to-top': 'Bottom to top', 'top-to-bottom': 'Top to bottom'}
 HIDE_ANIMATIONS = {'slide':'Slide away', 'burn':'Burn away'}
 DEFAULTS = dict(enabled=True, effect='fireball', duration=420, size=76,

@@ -98,6 +98,13 @@ def theme():
           QFrame#defaultsHero, QFrame#ramMetric, QFrame#ramMode, QFrame#filterGroupBox {{background:{satin(p,'Button','Window')}; border-top-color:{p['Light']}; border-radius:20px;}}
           QWidget#defaultAppsTab QToolButton, QListWidget#defaultsAppList, QListWidget#defaultsAppList::item, QLabel#diskDetails {{border-radius:15px;}}
         '''
+    if design == 'hyperfusionblue':
+        from hyperfusionblue import steel, blue
+        style += f'''QMainWindow,QWidget#filesBody,QWidget#hyperControlPanel,QToolBar,QFrame#addressRow {{background:{steel(p)};}}
+        QGroupBox#drivePartitionCard,QFrame#defaultsHero,QFrame#ramMetric,QFrame#ramMode,QFrame#filterGroupBox {{background:{steel(p)};border:1px solid {p['Midlight']};border-top-color:{p['Light']};border-radius:8px;}}
+        QTreeWidget#places {{background:{p['Window']};border-right:1px solid {p['Midlight']};}}
+        QTreeWidget#places::item:selected,QTabBar::tab:selected {{background:{blue(p)};color:{p['HighlightedText']};border:1px solid {p['Accent']};border-radius:5px;}}
+        QFrame#pickerActions,QStatusBar {{background:{p['Window']};border-top:1px solid {p['Midlight']};}}'''
     if design=='gildedhollow':
         from gildedhollow import stone
         style+=f'''QWidget#hyperControlPanel {{background:{stone(p)};border:1px solid {p['Light']};border-top-color:{p['Link']};border-radius:17px;}}
@@ -115,7 +122,7 @@ def theme():
           QWidget#defaultAppsTab QToolButton, QListWidget#defaultsAppList, QListWidget#defaultsAppList::item, QLabel#diskDetails {{border-radius:2px;}}
         '''
     return {'stylesheet':style,'colors':p,'font':runtime.ui_font(),
-            'cardRadius':17 if design=='gildedhollow' else 18 if design=='hollowgrove' else 3 if design=='shadowedge' else 24 if design=='candycloud' else 3 if design=='obsidianforge' else 2 if design=='porcelainink' else 16 if design=='tidalglass' else 4 if design=='binaryknife' else 10,
+            'cardRadius':9 if design=='hyperfusionblue' else 17 if design=='gildedhollow' else 18 if design=='hollowgrove' else 3 if design=='shadowedge' else 24 if design=='candycloud' else 3 if design=='obsidianforge' else 2 if design=='porcelainink' else 16 if design=='tidalglass' else 4 if design=='binaryknife' else 10,
             **runtime.icon_library.info(runtime.ROOT.parent,runtime.design(),runtime.mode())}
 
 
