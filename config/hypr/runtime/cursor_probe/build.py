@@ -35,7 +35,7 @@ def build(root=ROOT):
         raise RuntimeError('The cursor probe needs development headers matching the pinned Hyprland runtime.')
     versions = output(['pkg-config', '--modversion', 'hyprland', 'aquamarine', 'hyprutils', 'hyprgraphics', 'hyprcursor', 'hyprlang'])
     signature = hashlib.sha256((versions+str(flags)+headers.read_text()+output(['g++', '-dumpfullversion'])).encode())
-    for source in (root/'plugin.cpp', root/'build.py'):
+    for source in (root/'plugin.cpp', root/'drag_actions.hpp', root/'build.py'):
         signature.update(source.read_bytes())
     directory = root/'.build'/signature.hexdigest()[:20]
     directory.mkdir(parents=True, exist_ok=True)

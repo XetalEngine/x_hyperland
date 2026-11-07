@@ -3,6 +3,7 @@
 #include <QUrl>
 #include <QPointer>
 #include <QHash>
+#include "transfer_access.h"
 class KJob;
 class QMenu;
 class QAction;
@@ -19,6 +20,7 @@ public:
 public slots:
   bool Transfer(const QStringList &sources, const QString &destination, bool copy);
   bool TransferWithPlacement(const QStringList &sources, const QString &destination, bool copy, const QString &request);
+  bool LinkWithPlacement(const QStringList &sources, const QString &destination, const QString &request);
   bool Open(const QStringList &sources, bool chooseApplication);
   bool Trash(const QStringList &sources);
   bool RefreshTrash();
@@ -44,6 +46,7 @@ private:
   QHash<QString, KAbstractFileItemActionPlugin *> arkPlugins;
   bool configuring = false;
   bool trashStatPending = false;
+  bool transfer(const QStringList &sources, const QString &destination, Fusion::TransferOperation operation, const QString &request);
   static QList<QUrl> urls(const QStringList &values);
   void track(KJob *job);
   void error(const QString &message);

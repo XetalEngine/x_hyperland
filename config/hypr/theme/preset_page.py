@@ -25,7 +25,8 @@ class ComponentDialog(QDialog):
         scroll.setWidget(options);root.addWidget(scroll,1)
         self.checks={}
         for key,(title,description) in presets.COMPONENTS.items():
-            box=QCheckBox(title.replace('&','&&'));box.setToolTip(description);box.setChecked(selected is None or key in selected)
+            box=QCheckBox(title.replace('&','&&'));box.setToolTip(description)
+            box.setChecked(key != 'icons' if selected is None else key in selected)
             if key in ('transfer','switcher','terminal','icons') and key not in target:box.setEnabled(False);box.setChecked(False)
             choices.addWidget(box);note=label(description,'muted');note.setContentsMargins(25,0,0,3);choices.addWidget(note)
             self.checks[key]=box

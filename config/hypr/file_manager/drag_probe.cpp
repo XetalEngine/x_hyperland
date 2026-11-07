@@ -7,14 +7,16 @@
 
 int main(int argc,char **argv) {
   QApplication app(argc,argv);app.setApplicationName("Fusion drag probe");app.setStyle("Fusion");
-  if(argc!=3)return 2;
+  if(argc<3 || argc>4)return 2;
   const QString root=QString::fromLocal8Bit(argv[1]), report=QString::fromLocal8Bit(argv[2]);
-  FilesWindow window(QUrl::fromLocalFile(root),false,root+"/../preferences.ini");
-  window.setWindowTitle("Fusion drag probe");window.resize(650,650);window.show();
+  FilesWindow window(root=="computer:/"?QUrl(root):QUrl::fromLocalFile(root),false,QFileInfo(report).absolutePath()+"/preferences.ini");
+  window.setWindowTitle(argc==4?QString::fromLocal8Bit(argv[3]):"Fusion drag probe");window.resize(650,650);window.show();
   auto* tab=window.browser();
   QTimer timer;
   QObject::connect(&timer,&QTimer::timeout,&window,[&]{
     QJsonObject data;
+    const auto background=tab->view()->viewport()->mapTo(&window,QPoint(150,tab->view()->viewport()->height()-65));
+    data["_background"]=QJsonArray{background.x(),background.y()};
     for(int row=0;row<tab->proxy->rowCount();++row){
       const auto index=tab->proxy->index(row,0);
       const auto item=tab->model->itemForIndex(tab->proxy->mapToSource(index));

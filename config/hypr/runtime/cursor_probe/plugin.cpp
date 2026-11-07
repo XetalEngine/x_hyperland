@@ -13,13 +13,16 @@
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/layout/LayoutManager.hpp>
 #include <hyprland/src/managers/SessionLockManager.hpp>
+#include <hyprland/src/managers/input/InputManager.hpp>
 #include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
 #include <sstream>
 #include <drm_fourcc.h>
 #include <linux/input-event-codes.h>
+#include "drag_actions.hpp"
 
 namespace {
 SP<SHyprCtlCommand> command;
+SP<SHyprCtlCommand> fileDragCommand;
 CHyprSignalListener buttonListener;
 bool down = false;
 uint64_t serial = 0;
@@ -79,6 +82,14 @@ APICALL EXPORT std::string PLUGIN_API_VERSION() { return HYPRLAND_API_VERSION; }
 APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     if (std::string(__hyprland_api_get_hash()) != __hyprland_api_get_client_hash())
         throw std::runtime_error("Rebuild cursor probe for this compositor ABI");
+    FileDragActions::start(g_pCompositor->m_wlDisplay);
+    fileDragCommand = HyprlandAPI::registerHyprCtlCommand(handle, {"xetal-file-drag", true, [](eHyprCtlOutputFormat, std::string) {
+        const auto mods = g_pInputManager->getModsFromAllKBs();
+        const bool active = FileDragActions::source.value && PROTO::data->dndActive();
+        const auto action = active ? FileDragActions::last : 0;
+        const auto name = action == 1 ? ((mods & 4) && (mods & 1) ? "link" : "copy") : action == 2 ? "move" : "none";
+        return std::format("{{\"active\":{},\"action\":\"{}\"}}", active, name);
+    }});
     buttonListener = Event::bus()->m_events.input.mouse.button.listen([](IPointer::SButtonEvent event, Event::SCallbackInfo& info) {
         if (event.button != BTN_LEFT) return;
         down = event.state == WL_POINTER_BUTTON_STATE_PRESSED && !info.cancelled;
@@ -112,4 +123,4 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     }});
     return {"Xetal Cursor Probe", "Cursor metadata for text-safe floating drags", "XetalEngine", "1.0"};
 }
-APICALL EXPORT void PLUGIN_EXIT() { buttonListener.reset();endGrip(); }
+APICALL EXPORT void PLUGIN_EXIT() { FileDragActions::stop();buttonListener.reset();endGrip(); }

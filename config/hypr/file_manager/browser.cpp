@@ -12,6 +12,7 @@
 #include <KJobWidgets>
 #include <KUrlComboBox>
 #include <QBackingStore>
+#include <QLocalSocket>
 #include <functional>
 #include <memory>
 
@@ -62,19 +63,34 @@ class FileDragFeedback : public QObject {
 public:
   FileDragFeedback(QDrag *drag, const QIcon &icon, int count, const QPalette &palette, qreal scale)
       : icon(icon), count(count), palette(palette) {
-    action=QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier)?Qt::CopyAction:Qt::MoveAction;
     drag->setPixmap(pixmap(scale));drag->setHotSpot({-12,-8});
     qApp->installEventFilter(this);
-    // Some Wayland compositors never report source action changes. The Ctrl
-    // badge must still follow the key while crossing application boundaries.
-    connect(&modifiers,&QTimer::timeout,this,[this] {
-      const auto next=QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier)?Qt::CopyAction:Qt::MoveAction;
-      if (action==next) return;
-      action=next;paint();
+    connect(drag,&QDrag::actionChanged,this,[this](Qt::DropAction next) {
+      accepted=next;updateAction();
     });
-    modifiers.start(32); // Repaint only when the key changes, and only while dragging.
+    // Copy carries shortcut URLs on Wayland; modifiers distinguish that from
+    // an ordinary copy. Never show an allowed action over a rejected target.
+    connect(&modifiers,&QTimer::timeout,this,[this] { updateAction(); });
+    modifiers.start(32);
+    const auto runtime=qEnvironmentVariable("XDG_RUNTIME_DIR"), signature=qEnvironmentVariable("HYPRLAND_INSTANCE_SIGNATURE");
+    if (!runtime.isEmpty() && !signature.isEmpty()) socketPath=runtime+"/hypr/"+signature+"/.socket.sock";
+    connect(&probe,&QLocalSocket::connected,this,[this] { probe.write("j/xetal-file-drag"); });
+    connect(&probe,&QLocalSocket::readyRead,this,[this] { reply+=probe.readAll();if(reply.size()>4096)probe.abort(); });
+    connect(&probe,&QLocalSocket::disconnected,this,[this] {
+      const auto value=QJsonDocument::fromJson(reply).object();reply.clear();
+      if (!value.value("active").toBool()) { nativeAction.clear();return; }
+      nativeAction=value.value("action").toString();updateAction();
+    });
+    connect(&poll,&QTimer::timeout,this,[this] {
+      if (probe.state()!=QLocalSocket::UnconnectedState) {
+        if (pending.elapsed()>250) { probe.abort();nativeAction.clear(); }
+        return;
+      }
+      if (!socketPath.isEmpty()) { reply.clear();pending.restart();probe.connectToServer(socketPath); }
+    });
+    poll.start(50); // Async, only for the duration of this drag; no GUI-thread waits.
   }
-  ~FileDragFeedback() override { qApp->removeEventFilter(this); }
+  ~FileDragFeedback() override { probe.disconnect(this);probe.abort();qApp->removeEventFilter(this); }
 protected:
   bool eventFilter(QObject *object,QEvent *event) override {
     if (!window && event->type()==QEvent::Show && object->inherits("QShapedPixmapWindow")) {
@@ -95,23 +111,47 @@ private:
   QIcon icon;
   int count;
   QPalette palette;
-  Qt::DropAction action;
+  Qt::DropAction action = Qt::IgnoreAction, accepted = Qt::IgnoreAction;
   QTimer modifiers;
+  QTimer poll;
+  QLocalSocket probe;
+  QByteArray reply;
+  QString socketPath, nativeAction;
+  QElapsedTimer pending;
   QPointer<QWindow> window;
   std::unique_ptr<QBackingStore> backing;
+  void updateAction() {
+    auto next=accepted;
+    const auto keys=QGuiApplication::keyboardModifiers();
+    if (next==Qt::CopyAction && keys.testFlag(Qt::ControlModifier) && keys.testFlag(Qt::ShiftModifier))
+      next=Qt::LinkAction;
+    if (!nativeAction.isEmpty()) next=nativeAction=="copy"?Qt::CopyAction:nativeAction=="move"?Qt::MoveAction:nativeAction=="link"?Qt::LinkAction:Qt::IgnoreAction;
+    if (action==next) return;
+    action=next;paint();
+  }
   QPixmap pixmap(qreal scale) const {
     QPixmap image(QSize(64,64)*scale);image.setDevicePixelRatio(scale);image.fill(Qt::transparent);
     QPainter painter(&image);painter.setRenderHint(QPainter::Antialiasing);
-    icon.paint(&painter,QRect(10,4,48,48));
+    painter.setOpacity(action==Qt::MoveAction?.45:1);
+    icon.paint(&painter,QRect(10,4,48,48));painter.setOpacity(1);
     if (count>1) {
       painter.setPen(Qt::NoPen);painter.setBrush(palette.highlight());painter.drawRoundedRect(QRectF(38,0,26,20),8,8);
       painter.setPen(palette.highlightedText().color());painter.drawText(QRect(38,0,26,20),Qt::AlignCenter,QString::number(count));
     }
-    if (action==Qt::CopyAction) {
+    if (action==Qt::IgnoreAction) {
+      painter.setPen(QPen(Qt::white,1.5));painter.setBrush(QColor("#d53645"));
+      painter.drawEllipse(QRectF(4,40,20,20));
+      painter.setPen(QPen(Qt::white,2.5));painter.drawLine(QPointF(8,44),QPointF(20,56));
+    } else if (action==Qt::CopyAction || action==Qt::LinkAction) {
       painter.setPen(QPen(Qt::white,1.5));painter.setBrush(QColor("#2468bb"));
       painter.drawRoundedRect(QRectF(4,40,20,20),4,4);
-      painter.setPen(QPen(Qt::white,2));painter.drawLine(QPointF(9,50),QPointF(19,50));
-      painter.drawLine(QPointF(14,45),QPointF(14,55));
+      painter.setPen(QPen(Qt::white,2));
+      if (action==Qt::CopyAction) {
+        painter.drawLine(QPointF(9,50),QPointF(19,50));painter.drawLine(QPointF(14,45),QPointF(14,55));
+      } else {
+        painter.drawLine(QPointF(9,55),QPointF(9,48));painter.drawLine(QPointF(9,48),QPointF(19,48));
+        painter.drawLine(QPointF(15,44),QPointF(19,48));painter.drawLine(QPointF(15,52),QPointF(19,48));
+      }
     }
     return image;
   }
@@ -130,11 +170,12 @@ void startFileDrag(QAbstractItemView *view, Qt::DropActions supported) {
   if (indexes.isEmpty()) return;
   auto *drag = new QDrag(view);
   drag->setMimeData(view->model()->mimeData(indexes));
+  drag->mimeData()->setData("application/x-hyperfusion-file-drag", "1");
   FileDragFeedback feedback(drag,qvariant_cast<QIcon>(indexes.first().data(Qt::DecorationRole)),
                             indexes.size(),view->palette(),view->devicePixelRatioF());
   // KIO owns file removal and Undo; the view must not remove source rows when
   // the destination reports Move before its asynchronous job completes.
-  drag->exec(supported & (Qt::CopyAction | Qt::MoveAction), Qt::MoveAction);
+  drag->exec((supported & (Qt::CopyAction | Qt::MoveAction)) | Qt::LinkAction, Qt::MoveAction);
 }
 class FilesDetailsView : public QTreeView {
 protected:
@@ -969,7 +1010,10 @@ bool Browser::eventFilter(QObject *watched, QEvent *event) {
   }
   if (event->type() == QEvent::DragEnter || event->type() == QEvent::DragMove) {
     auto *drag = static_cast<QDragMoveEvent *>(event);
-    const auto action = Fusion::fileDropAction(drag->mimeData(), drag->modifiers(), drag->possibleActions());
+    const auto item = itemAt(target, drag->position().toPoint());
+    const auto destination = !item.isNull() && item.isDir() ? item.url() : location();
+    const auto action = Fusion::fileDropDestination(destination)
+        ? Fusion::fileDropAction(drag->mimeData(), drag->modifiers(), drag->possibleActions()) : Qt::IgnoreAction;
     if (action == Qt::IgnoreAction) drag->ignore();
     else { drag->setDropAction(action);drag->accept(); }
     return true;

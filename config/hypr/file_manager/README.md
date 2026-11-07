@@ -1,5 +1,23 @@
 # Fusion Files
 
+## Dragging files
+
+Hold **Ctrl** while dragging to copy, **Shift** to move, or **Ctrl+Shift** to
+create shortcuts. Shortcuts are symbolic links to the original files or folders;
+they use the existing transfer engine, conflict prompts and Undo. These gestures
+also work between Files and desktop icons in either direction. Without a modifier,
+folder drops move; a source that only allows copying is copied instead.
+
+The drag image has a bottom-left plus for Copy, an arrow for Shortcut, and a
+red prohibited badge over a target that cannot accept the operation. Move fades
+the drag image like a cut item. My Computer's drive overview and non-drop areas
+do not accept file transfers. An explicit Shift-move never becomes a copy when
+the source only allows copying.
+
+Wayland carries shortcut URLs as a non-destructive Copy action; the destination
+performs the link operation. Fusion's cursor-probe runtime reports accepted drag
+actions and modifiers across GTK/Qt focus changes, so badges remain accurate.
+
 ## Auto mount
 
 The **Auto mount** checkbox in a physical drive's header becomes available after

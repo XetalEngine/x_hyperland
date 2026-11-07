@@ -342,6 +342,40 @@ print(json.dumps(rows))
     QCOMPARE(Fusion::fileDropAction(&mime,Qt::NoModifier,Qt::CopyAction),Qt::CopyAction);
     QCOMPARE(Fusion::fileDropAction(&mime,Qt::ControlModifier,Qt::MoveAction),Qt::IgnoreAction);
   }
+  void dragModifiersAndShortcuts() {
+    const auto base=folder+"/drag-shortcuts";
+    QDir().mkpath(base+"/source/Folder");QDir().mkpath(base+"/target");
+    write(base+"/source/Folder/child.txt","folder contents");write(base+"/source/notes # café.txt","file contents");
+    QMimeData mime;mime.setUrls({QUrl::fromLocalFile(base+"/source/Folder"),QUrl::fromLocalFile(base+"/source/notes # café.txt")});
+    const auto linkKeys=Qt::ControlModifier|Qt::ShiftModifier;
+    const auto wireActions=Qt::CopyAction|Qt::MoveAction;
+    QCOMPARE(Fusion::fileDropOperation(&mime,linkKeys,wireActions),Qt::LinkAction);
+    QCOMPARE(Fusion::fileDropAction(&mime,linkKeys,wireActions),Qt::CopyAction);
+    QCOMPARE(Fusion::fileDropAction(&mime,linkKeys,wireActions|Qt::LinkAction),Qt::LinkAction);
+    QCOMPARE(Fusion::fileDropAction(&mime,Qt::ShiftModifier,wireActions),Qt::MoveAction);
+    QCOMPARE(Fusion::fileDropAction(&mime,Qt::ShiftModifier,Qt::CopyAction),Qt::IgnoreAction);
+    QCOMPARE(Fusion::fileDropAction(&mime,linkKeys,Qt::MoveAction),Qt::IgnoreAction);
+    QWidget owner;
+    for (const auto &target : {base+"/target",base+"/source"}) {
+      QDropEvent event(QPointF(1,1),wireActions,&mime,Qt::LeftButton,linkKeys);
+      auto *job=Fusion::dropFiles(&event,QUrl::fromLocalFile(target),&owner,{});QVERIFY(job);
+      int error=-1;connect(job,&KJob::result,&owner,[&](KJob *j){error=j->error();});
+      QTRY_COMPARE_WITH_TIMEOUT(error,0,10000);
+      const auto suffix=target.endsWith("/source")?"_copy1":"";
+      const QFileInfo linkedFolder(target+"/Folder"+suffix),linkedFile(target+"/notes # café"+suffix+".txt");
+      QVERIFY(linkedFolder.isSymbolicLink());QVERIFY(linkedFile.isSymbolicLink());
+      QCOMPARE(linkedFolder.symLinkTarget(),base+"/source/Folder");
+      QCOMPARE(linkedFile.symLinkTarget(),base+"/source/notes # café.txt");
+      QVERIFY(!owner.findChild<QMessageBox *>("duplicateDropQuestion"));
+    }
+    QVERIFY(!QFileInfo(base+"/source/Folder").isSymbolicLink());
+    QVERIFY(!QFileInfo(base+"/source/notes # café.txt").isSymbolicLink());
+    for (const auto &target : {QUrl("computer:/"),QUrl("network:/"),QUrl::fromLocalFile(base+"/source/notes # café.txt")}) {
+      QVERIFY(!Fusion::fileDropDestination(target));
+      QDropEvent event(QPointF(1,1),wireActions,&mime,Qt::LeftButton,Qt::ControlModifier);
+      QVERIFY(!Fusion::dropFiles(&event,target,&owner,{}));
+    }
+  }
   void crossFolderConflictsAskBeforeOverwriting() {
     for (const auto answer : {QMessageBox::Cancel,QMessageBox::No,QMessageBox::Yes}) {
       const auto base=folder+"/conflict-"+QString::number(answer);

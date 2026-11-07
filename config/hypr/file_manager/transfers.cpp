@@ -10,6 +10,7 @@
 #include <KIO/WidgetsAskUserActionHandler>
 #include <KJobWidgets>
 #include <KProtocolInfo>
+#include <KProtocolManager>
 #include <KUrlMimeData>
 #include <QApplication>
 #include <QClipboard>
@@ -441,28 +442,54 @@ bool Fusion::acceptsFileDrop(const QMimeData *mime) {
   return mime && (mime->hasUrls() || arkDrop(mime));
 }
 
-Qt::DropAction Fusion::fileDropAction(const QMimeData *mime, Qt::KeyboardModifiers modifiers,
-                                     Qt::DropActions possible) {
+Qt::DropAction Fusion::fileDropOperation(const QMimeData *mime, Qt::KeyboardModifiers modifiers,
+                                        Qt::DropActions possible) {
   if (!acceptsFileDrop(mime)) return Qt::IgnoreAction;
+  const bool control = modifiers.testFlag(Qt::ControlModifier);
+  const bool shift = modifiers.testFlag(Qt::ShiftModifier);
+  if (control && shift && !arkDrop(mime))
+    return possible.testFlag(Qt::LinkAction) || possible.testFlag(Qt::CopyAction)
+        ? Qt::LinkAction : Qt::IgnoreAction;
   const auto requested = arkDrop(mime) ? Qt::CopyAction
-      : modifiers.testFlag(Qt::ControlModifier) ? Qt::CopyAction : Qt::MoveAction;
+      : control ? Qt::CopyAction : Qt::MoveAction;
+  if (arkDrop(mime) && shift) return Qt::IgnoreAction;
   if (possible.testFlag(requested)) return requested;
   // Archives and read-only sources can offer only copying. Never turn a
   // requested Ctrl-copy into a move when a source does not support copying.
-  return requested == Qt::MoveAction && possible.testFlag(Qt::CopyAction)
+  return !shift && requested == Qt::MoveAction && possible.testFlag(Qt::CopyAction)
       ? Qt::CopyAction : Qt::IgnoreAction;
+}
+
+Qt::DropAction Fusion::fileDropAction(const QMimeData *mime, Qt::KeyboardModifiers modifiers,
+                                     Qt::DropActions possible) {
+  const auto operation = fileDropOperation(mime, modifiers, possible);
+  // Wayland has no wire-level Link action. Exchange URLs as Copy (the source
+  // must survive), and perform the shortcut operation in the destination.
+  return operation == Qt::LinkAction && !possible.testFlag(Qt::LinkAction)
+      ? Qt::CopyAction : operation;
+}
+
+bool Fusion::fileDropDestination(const QUrl &destination) {
+  if (!destination.isValid() || destination.isEmpty()) return false;
+  if (destination.isLocalFile()) return QFileInfo(destination.toLocalFile()).isDir();
+  const auto scheme = destination.scheme();
+  return scheme != "computer" && scheme != "trash" && scheme != "network" &&
+      KProtocolManager::supportsWriting(destination);
 }
 
 KJob *Fusion::dropFiles(const QDropEvent *event, const QUrl &destination,
                        QWidget *window, const QPoint &) {
+  if (!fileDropDestination(destination)) return nullptr;
   const auto *mime = event->mimeData();
+  const auto action = fileDropOperation(mime, event->modifiers(), event->possibleActions());
+  if (action == Qt::IgnoreAction) return nullptr;
   const auto urls = KUrlMimeData::urlsFromMimeData(mime, KUrlMimeData::PreferLocalUrls);
   // Ark advertises an extraction service, not file URLs. Keep its own
   // asynchronous extraction (including passwords and conflict handling).
   if (arkDrop(mime) || urls.isEmpty() ||
       mime->hasFormat("application/x-xbel")) return KIO::drop(event, destination);
-  const auto action = fileDropAction(mime, event->modifiers(), event->possibleActions());
-  if (action == Qt::IgnoreAction) return nullptr;
+  if (action == Qt::LinkAction)
+    return transferFiles(urls, destination, TransferOperation::Link, window);
   const bool duplicate = std::any_of(urls.begin(), urls.end(), [&](const QUrl &url) { return sameDirectory(url, destination); });
   if (!duplicate)
     return transferFiles(urls, destination, action == Qt::MoveAction ? TransferOperation::Move : TransferOperation::Copy, window);

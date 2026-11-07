@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 import subprocess
+import shutil
 import sys
 import tempfile
 
@@ -16,11 +17,13 @@ if __name__ == '__main__':
         # observations belong only to this test run.
         profile = base/'profile'; profile.mkdir()
         for source in ROOT.parent.iterdir():
-            if source.name != 'file_manager': (profile/source.name).symlink_to(source)
+            if source.name in ('theme', 'icon_themes'):
+                shutil.copytree(source, profile/source.name, ignore=shutil.ignore_patterns('__pycache__', '.build', 'generated', 'backups'))
+            elif source.name != 'file_manager': (profile/source.name).symlink_to(source)
         (profile/'file_manager').mkdir()
         for source in ROOT.iterdir():
             if source.is_file() and source.suffix in ('.py', '.svg'):
-                (profile/'file_manager'/source.name).symlink_to(source)
+                shutil.copy2(source, profile/'file_manager'/source.name)
         env = dict(os.environ, QT_QPA_PLATFORM='offscreen', QT_QPA_PLATFORMTHEME='',
                    XETAL_FILES_ROOT=str(profile), XDG_DATA_DIRS='/usr/local/share:/usr/share',
                    FUSION_FILES_ISOLATED='1', TMPDIR=str(base))

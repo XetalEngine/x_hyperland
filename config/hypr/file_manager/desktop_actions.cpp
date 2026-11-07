@@ -51,8 +51,14 @@ bool DesktopActions::Transfer(const QStringList &sources, const QString &destina
   return TransferWithPlacement(sources, destination, copy, {});
 }
 bool DesktopActions::TransferWithPlacement(const QStringList &sources, const QString &destination, bool copy, const QString &request) {
+  return transfer(sources, destination, copy ? Fusion::TransferOperation::Copy : Fusion::TransferOperation::Move, request);
+}
+bool DesktopActions::LinkWithPlacement(const QStringList &sources, const QString &destination, const QString &request) {
+  return transfer(sources, destination, Fusion::TransferOperation::Link, request);
+}
+bool DesktopActions::transfer(const QStringList &sources, const QString &destination, Fusion::TransferOperation operation, const QString &request) {
   const auto from = urls(sources), to = urls({destination});
-  if (request.size() > 128 || from.isEmpty() || to.size() != 1 || to.first().scheme() == "trash" ||
+  if (request.size() > 128 || from.isEmpty() || to.size() != 1 || !Fusion::fileDropDestination(to.first()) ||
       from.contains(QUrl("trash:/"))) return false;
   std::function<void(const QUrl &)> placement;
   if (!request.isEmpty()) {
@@ -69,8 +75,8 @@ bool DesktopActions::TransferWithPlacement(const QStringList &sources, const QSt
       placement(target);
     }
   }
-  auto *job = Fusion::transferFiles(from, to.first(), copy ? Fusion::TransferOperation::Copy
-                                                         : Fusion::TransferOperation::Move, nullptr, placement);
+  const bool copy = operation != Fusion::TransferOperation::Move;
+  auto *job = Fusion::transferFiles(from, to.first(), operation, nullptr, placement);
   connect(job, &KJob::result, this, [this, sources, destination, copy, request](KJob *result) {
     emit TransferFinished(sources, destination, copy, !result->error());
     if (!request.isEmpty()) emit PlacementFinished(request);

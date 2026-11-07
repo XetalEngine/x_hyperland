@@ -168,6 +168,60 @@ class LayoutTests(unittest.TestCase):
 
 @unittest.skipUnless(os.environ.get('FUSION_DESKTOP_TEST_GUI') == '1', 'Run on a private display with FUSION_DESKTOP_TEST_GUI=1')
 class CanvasTests(unittest.TestCase):
+    def test_control_press_preserves_drag_source_until_click_release(self):
+        name='notes # café.txt';self.controller.select({name})
+        tile=self.canvas.tiles[name]
+        event=Mock(button=1,type=self.Gdk.EventType.BUTTON_PRESS,state=self.Gdk.ModifierType.CONTROL_MASK,x=20,y=20)
+        tile.pressed(tile,event)
+        self.assertEqual(self.controller.selected,{name})
+        tile.released(tile,event)
+        self.assertEqual(self.controller.selected,set())
+
+    def test_drag_modifiers_and_wayland_link_transport(self):
+        from drag_feedback import drop_operation, wire_action
+        copy, move, link = self.Gdk.DragAction.COPY, self.Gdk.DragAction.MOVE, self.Gdk.DragAction.LINK
+        ctrl, shift = self.Gdk.ModifierType.CONTROL_MASK, self.Gdk.ModifierType.SHIFT_MASK
+        for keys, expected in [(0,move),(ctrl,copy),(shift,move),(ctrl|shift,link)]:
+            self.assertEqual(drop_operation(keys,copy|move|link),expected)
+            self.assertEqual(drop_operation(keys,copy|move),expected)
+        self.assertEqual(wire_action(link,copy|move),copy)
+        self.assertEqual(wire_action(link,copy|move|link),link)
+        self.assertEqual(drop_operation(shift,copy),0)
+        self.assertEqual(drop_operation(ctrl,move),0)
+        self.assertEqual(drop_operation(ctrl|shift,move),0)
+
+    def test_shortcut_drop_uses_link_service_and_placement(self):
+        from unittest.mock import ANY
+        urls=[self.controller.uri('notes # café.txt')]
+        self.canvas.drop_operation=self.Gdk.DragAction.LINK
+        self.canvas.drop_action=self.Gdk.DragAction.COPY
+        data=Mock();data.get_length.return_value=100;data.get_uris.return_value=urls
+        with patch.object(self.Gtk,'drag_finish') as finish:
+            self.canvas.received(self.canvas,Mock(),550,380,data,1,1)
+        self.assertEqual(finish.call_args.args[1],True)
+        calls=[call for call in self.fake_files.call.call_args_list if call.args[0]=='LinkWithPlacement']
+        self.assertEqual(len(calls),1)
+        self.fake_files.call.assert_any_call('LinkWithPlacement','(asss)',urls,self.controller.uri(),calls[0].args[4],on_reply=ANY)
+        self.assertIn(calls[0].args[4],self.controller.placements)
+        self.fake_files.transfer.assert_not_called()
+
+    def test_local_shortcut_uses_owned_drag_and_invalid_data_changes_nothing(self):
+        name='notes # café.txt'
+        self.controller.drag=dict(names=[name],anchor=name,offset=[35,25])
+        self.canvas.drop_operation=self.Gdk.DragAction.LINK
+        self.canvas.drop_action=self.Gdk.DragAction.COPY
+        with patch.object(self.Gtk,'drag_finish') as finish:
+            self.canvas.received(self.canvas,Mock(),550,380,None,0,1)
+            self.assertTrue(finish.call_args.args[1])
+        self.assertTrue(any(call.args[0]=='LinkWithPlacement' for call in self.fake_files.call.call_args_list))
+        self.fake_files.reset_mock()
+        data=Mock();data.get_length.return_value=-1
+        with patch.object(self.Gtk,'drag_finish') as finish, patch.object(self.controller,'error') as error:
+            self.canvas.received(self.canvas,Mock(),550,380,data,0,1)
+            self.assertFalse(finish.call_args.args[1]);error.assert_called_once()
+        data.get_data.assert_not_called()
+        self.fake_files.call.assert_not_called()
+
     def setUp(self):
         import desktop_icons as icons
         self.icons = icons
@@ -254,6 +308,34 @@ class CanvasTests(unittest.TestCase):
         key.keyval = self.Gdk.KEY_Delete; key.state = self.Gdk.ModifierType(0)
         self.canvas.key(self.canvas, key)
         self.fake_files.call.assert_called_once_with('Trash', '(as)', [self.controller.uri('Folder')], on_reply=ANY)
+
+    def test_delayed_file_actions_respect_dismissal_and_newer_selection(self):
+        # Native Wayland geometry is covered by check-desktop-icons.py. Here
+        # control D-Bus reply order to exercise cancellation without real grabs.
+        entries = [{'name': 'Copy', 'local': 'copy'}]
+        with patch.object(self.Gtk.Menu, 'popup_at_widget', lambda menu, *_: menu.show()):
+            self.controller.select({'Folder'}); self.canvas.file_menu(None)
+            dismissed = self.window.menu
+            reply = self.fake_files.menu.call_args.args[1]
+            dismissed.popdown(); self.assertFalse(dismissed.get_visible())
+            reply(entries)
+            self.assertIs(self.window.menu, dismissed)
+            self.assertFalse(dismissed.get_visible())
+
+            self.canvas.file_menu(None)
+            older_reply = self.fake_files.menu.call_args.args[1]
+            self.controller.select({'notes # café.txt'}); self.canvas.file_menu(None)
+            loading = self.window.menu
+            latest_reply = self.fake_files.menu.call_args.args[1]
+            older_reply(entries)
+            self.assertIs(self.window.menu, loading)
+            latest_reply(entries)
+            ready = self.window.menu
+            self.assertIsNot(ready, loading)
+            with patch.object(self.controller, 'copy') as copy:
+                ready.get_children()[0].activate()
+                copy.assert_called_once_with(False, ['notes # café.txt'])
+            ready.destroy(); self.window.menu = None
 
     def test_trash_icon_open_hide_and_success_animation(self):
         before = dict(self.canvas.positions)

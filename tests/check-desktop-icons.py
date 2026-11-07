@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real desktop-layer input in a disposable Hyprland, private HOME and bus.
 
-Usage: python3 tests/check-desktop-icons.py NEW_OUTPUT_DIRECTORY FILES_BUILD
+Usage: python3 tests/check-desktop-icons.py NEW_OUTPUT_DIRECTORY FILES_BUILD [--menus-only | --drag-actions-only]
 Only virtual input in the nested compositor is used; no personal files change.
 """
 import json
@@ -26,9 +26,16 @@ def main():
     for index in range(7): (desktop/f'{index+1} notes # café.txt').write_text(f'fixture {index}\n')
     (desktop/'.hidden').write_text('hidden')
     profile = home/'.config/hypr'; profile.mkdir(parents=True)
-    for name in ('desktop_menu', 'file_manager'):
-        shutil.copytree(SOURCE/name, profile/name, ignore=shutil.ignore_patterns('.build', '__pycache__', 'state', 'icons.json', 'automount.json'))
-    for name in ('theme', 'control_center', 'control_panel', 'cursors', 'compat', 'runtime', 'desktop', 'assets'):
+    # KIO may activate KDE's first-run helper on its private bus during a
+    # transfer. Mark that tour seen only in the fixture so it cannot cover icons.
+    if shutil.which('plasma-welcome'):
+        version = subprocess.check_output(['plasma-welcome', '--version'], text=True,
+            env=dict(os.environ, QT_QPA_PLATFORM='offscreen')).strip().split()[-1]
+        (home/'.config/plasma-welcomerc').write_text('[General]\nLastSeenVersion='+version+'\n')
+    for name in ('desktop_menu', 'file_manager', 'theme', 'icon_themes'):
+        shutil.copytree(SOURCE/name, profile/name, ignore=shutil.ignore_patterns('.build', '__pycache__', 'state', 'automount.json', 'generated', 'backups'))
+    (profile/'desktop_menu/icons.json').unlink(missing_ok=True)
+    for name in ('control_center', 'control_panel', 'cursors', 'compat', 'runtime', 'desktop', 'assets'):
         (profile/name).symlink_to(SOURCE/name)
     shutil.copy2(SOURCE/'keybindings.conf', profile/'keybindings.conf')
     (profile/'hyprland.conf').write_text('source = '+str(profile/'keybindings.conf')+'\n')
@@ -102,7 +109,9 @@ def tile_pressed(self,widget,event):
 Tile.pressed=tile_pressed
 received=Canvas.received
 def data_received(self,widget,context,x,y,data,info,timestamp):
- trace('drop',selected=int(context.get_selected_action()));return received(self,widget,context,x,y,data,info,timestamp)
+ trace('drop',selected=int(context.get_selected_action()),operation=int(self.drop_operation),info=info,
+       destination=self.destination(x,y),payload=bytes(data.get_data()).decode('utf-8',errors='replace') if data is not None and data.get_length()>0 else '')
+ return received(self,widget,context,x,y,data,info,timestamp)
 Canvas.received=data_received
 canvas_pressed=Canvas.pressed
 def background_pressed(self,widget,event):
@@ -135,7 +144,9 @@ class Desktop(app.Desktop):
        geometry=[geometry.x,geometry.y,geometry.width,geometry.height],scale=surface.get_scale_factor()))
    menu=surface.menu
    while menu and menu.get_visible():
-    selected=menu.get_selected_item();menus.append(dict(labels=labels(menu),selected=labels(selected) if selected else []))
+    selected=menu.get_selected_item();menus.append(dict(labels=labels(menu),selected=labels(selected) if selected else [],
+        height=menu.get_allocated_height(),popup_height=menu.get_toplevel().get_allocated_height(),
+        preferred_height=menu.get_preferred_height()[1]))
     menu=selected.get_submenu() if selected else None
   editors={name:tile.editor.get_text() for canvas in self.icons.canvases.values() for name,tile in canvas.tiles.items() if tile.editor}
   data=dict(settings=self.icons.settings,surfaces=surfaces,menus=menus,selected=list(self.icons.selected),editors=editors,
@@ -169,8 +180,21 @@ windowrule=match:class ^xetal-files-external$,float on,center on
             if instance: break
             time.sleep(.1)
         assert instance
+        # The host tiler can resize its nested compositor window between
+        # gestures. Fix only our own host window's size before creating icons.
+        if os.environ.get('HYPRLAND_INSTANCE_SIGNATURE'):
+            parent_clients=json.loads(subprocess.check_output(['hyprctl','-j','clients'],text=True))
+            for owned in parent_clients:
+                if owned.get('pid')==compositor.pid:
+                    address='address:'+owned['address']
+                    subprocess.run(['hyprctl','dispatch','setfloating',address],check=True,stdout=subprocess.DEVNULL)
+                    subprocess.run(['hyprctl','dispatch','resizewindowpixel','exact 1280 900,'+address],check=True,stdout=subprocess.DEVNULL)
+                    break
         env.update(HYPRLAND_INSTANCE_SIGNATURE=instance['instance'], WAYLAND_DISPLAY=instance['wl_socket'])
         assert not ctl('configerrors')
+        if '--menus-only' not in sys.argv[3:]:
+            plugin = subprocess.check_output([sys.executable, str(SOURCE/'runtime/cursor_probe/build.py')], text=True).strip()
+            assert ctl('plugin', 'load', plugin) == 'ok'
         devices = json.loads(ctl('-j', 'devices'))
         for kind in ('mice', 'keyboards'):
             for device in devices.get(kind, []):
@@ -243,6 +267,37 @@ windowrule=match:class ^xetal-files-external$,float on,center on
         select_menu('Show Desktop icons'); key(28)
         wait(lambda: len(positions()) == 8, 'Desktop files displayed')
         wait(layout_current, 'initial output layout')
+        if '--drag-actions-only' in sys.argv[3:]:
+            from check_drag_actions import check_drag_actions
+            check_drag_actions(root, build, desktop, positions, spawn, ctl, run, gesture, wait)
+            return
+        # File actions arrive over D-Bus after the popup request. Its Wayland
+        # window must fit the completed menu, not the one-row loading message.
+        file_menus = []
+        for name in ('A folder', '1 notes # café.txt'):
+            a, b = positions()[name]
+            click(a+35, b+30, 'right')
+            wait(lambda: any('Customize desktop file menu…' in menu['labels']
+                            for menu in state().get('menus', [])), 'file actions received')
+            time.sleep(.3)
+            menu = state()['menus'][0]
+            file_menus.append(dict(name=name, **menu))
+            (root/'file-menus.json').write_text(json.dumps(file_menus, indent=2))
+            run('grim', str(root/('folder-menu.png' if name == 'A folder' else 'file-menu.png')))
+            assert menu['popup_height'] >= min(menu['preferred_height'], height-80), menu
+            key(102); select_menu('Copy'); key(28)
+            wait(lambda: not state().get('menus'), 'file menu action dismissed')
+            copied = run('wl-paste', '--type', 'text/uri-list')
+            assert (desktop/name).as_uri() in copied, copied
+        key(68)  # F10 requests the same asynchronous menu from the keyboard.
+        wait(lambda: any('Customize desktop file menu…' in menu['labels']
+                        for menu in state().get('menus', [])), 'keyboard file menu')
+        key(102); select_menu('Copy'); key(28)
+        wait(lambda: not state().get('menus'), 'keyboard menu action dismissed')
+        assert (desktop/'1 notes # café.txt').as_uri() in run('wl-paste', '--type', 'text/uri-list')
+        if '--menus-only' in sys.argv[3:]:
+            print('PASS: folder/file menus fit their content; pointer and keyboard invocations copy the selected file.')
+            return
         (root/'monitors.json').write_text(ctl('-j', 'monitors'))
         (root/'input-size.json').write_text(json.dumps([width,height]))
         assert '.hidden' not in positions()

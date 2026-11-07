@@ -15,6 +15,7 @@ import icons_model as model
 from desktop_files import Files
 from desktop_clipboard import Clipboard
 from trash_animation import Flights, snapshot
+from drag_feedback import DragFeedback, drop_operation, wire_action
 import math
 
 PROFILE_ROOT = Path(__file__).resolve().parents[1]
@@ -23,7 +24,8 @@ if str(PROFILE_ROOT) not in sys.path:
 from icon_themes import model as icon_library
 
 TARGETS = [Gtk.TargetEntry.new('application/x-xetal-desktop-icons', Gtk.TargetFlags.SAME_APP, 0),
-           Gtk.TargetEntry.new('text/uri-list', 0, 1)]
+           Gtk.TargetEntry.new('text/uri-list', 0, 1),
+           Gtk.TargetEntry.new('application/x-hyperfusion-file-drag', 0, 2)]
 ATTRIBUTES = 'standard::name,standard::display-name,standard::type,standard::icon,standard::is-hidden,standard::is-symlink,thumbnail::path,thumbnail::is-valid'
 
 
@@ -77,6 +79,7 @@ class Tile(Gtk.EventBox):
         self.connect('motion-notify-event', self.motion)
         self.connect('drag-data-get', self.drag_data)
         self.connect('drag-end', self.drag_end)
+        self.drag_feedback = None
         self.resize_icon()
 
     def resize_icon(self):
@@ -169,21 +172,25 @@ class Tile(Gtk.EventBox):
         else:
             control = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
             shift = bool(event.state & Gdk.ModifierType.SHIFT_MASK)
+            toggle_on_release = control and not shift and self.name in controller.selected
             if shift and controller.anchor in self.canvas.positions:
                 names = list(self.canvas.positions)
                 a, b = sorted((names.index(controller.anchor), names.index(self.name)))
                 controller.select(set(names[a:b+1]) | (controller.selected if control else set()))
             elif control:
-                controller.select(controller.selected ^ {self.name})
+                # Ctrl may already be held to start a copy drag. Defer removing
+                # a selected item until release so it remains a drag source.
+                controller.select(controller.selected | {self.name})
             elif self.name not in controller.selected:
                 controller.select({self.name})
             controller.anchor = self.name
-            self.press = (event.x, event.y, bool(control or shift))
+            self.press = (event.x, event.y, bool(control or shift), toggle_on_release)
         return True
 
     def released(self, _widget, event):
         if event.button == 1 and self.press:
             if not self.press[2]: self.canvas.controller.select({self.name})
+            elif self.press[3]: self.canvas.controller.select(self.canvas.controller.selected ^ {self.name})
             self.press = None
         return True
 
@@ -196,19 +203,22 @@ class Tile(Gtk.EventBox):
                                offset=[self.press[0], self.press[1]])
         self.press = None
         virtual = model.TRASH in controller.drag['names']
-        context = self.drag_begin_with_coordinates(Gtk.TargetList.new(TARGETS[:1] if virtual else TARGETS),
-            Gdk.DragAction.MOVE if virtual else Gdk.DragAction.COPY | Gdk.DragAction.MOVE, 1, event, -1, -1)
-        Gtk.drag_set_icon_gicon(context, self.info.get_icon(), 0, 0)
+        context = self.drag_begin_with_coordinates(Gtk.TargetList.new(TARGETS[:1]+TARGETS[2:] if virtual else TARGETS),
+            Gdk.DragAction.MOVE if virtual else Gdk.DragAction.COPY | Gdk.DragAction.MOVE | Gdk.DragAction.LINK, 1, event, -1, -1)
+        self.drag_feedback = DragFeedback(self, context, len(controller.drag['names']))
         return True
 
     def drag_data(self, _widget, _context, selection, info, _time):
         controller = self.canvas.controller
         if info == 0:
             selection.set(selection.get_target(), 8, json.dumps(controller.drag).encode())
-        else:
+        elif info == 1:
             selection.set_uris(controller.urls(controller.drag.get('names', [])))
+        else:
+            selection.set(selection.get_target(), 8, b'1')
 
     def drag_end(self, *_):
+        if self.drag_feedback: self.drag_feedback.close(); self.drag_feedback = None
         self.press = None
         self.canvas.controller.drag = {}
         for canvas in self.canvas.controller.canvases.values(): canvas.highlight(None)
@@ -224,6 +234,7 @@ class Canvas(Gtk.Layout):
         self.rubber = None
         self.drop_name = None
         self.drop_action = Gdk.DragAction(0)
+        self.drop_operation = Gdk.DragAction(0)
         self.search, self.search_time = '', 0
         self.set_can_focus(True)
         self.get_style_context().add_class('desktop-icons')
@@ -233,7 +244,7 @@ class Canvas(Gtk.Layout):
         self.connect('motion-notify-event', self.motion)
         self.connect('key-press-event', self.key)
         self.connect_after('draw', self.draw_selection)
-        self.drag_dest_set(Gtk.DestDefaults(0), TARGETS, Gdk.DragAction.COPY | Gdk.DragAction.MOVE)
+        self.drag_dest_set(Gtk.DestDefaults(0), TARGETS[:2], Gdk.DragAction.COPY | Gdk.DragAction.MOVE | Gdk.DragAction.LINK)
         self.connect('drag-motion', self.drag_motion)
         self.connect('drag-leave', lambda *_: self.highlight(None))
         self.connect('drag-drop', self.drop)
@@ -362,7 +373,21 @@ class Canvas(Gtk.Layout):
         names = self.controller.ordered_selection()
         if not names: return
         urls = self.controller.urls(names)
-        loading = action(menu, 'Loading file actions…', lambda: None, False)
+        trigger = event.copy() if event else Gtk.get_current_event()
+        anchor = Gdk.Rectangle()
+        if event:
+            anchor.x, anchor.y = round(event.x), round(event.y)
+            anchor.width = anchor.height = 1
+        def popup(popup_menu):
+            if event:
+                # The loading popup owns the pointer by the time D-Bus replies.
+                # Anchor both windows to the original click in the icon surface.
+                popup_menu.popup_at_rect(trigger.get_window(), anchor,
+                    Gdk.Gravity.NORTH_WEST, Gdk.Gravity.NORTH_WEST, trigger)
+            else:
+                tile = self.tiles.get(names[0])
+                popup_menu.popup_at_widget(tile or self, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST, trigger)
+        action(menu, 'Loading file actions…', lambda: None, False)
         def activate(entry):
             identifier = entry.get('local')
             if identifier == 'cut': self.controller.copy(True, names)
@@ -379,7 +404,10 @@ class Canvas(Gtk.Layout):
             else: self.controller.files.call('MenuAction', '(s)', entry['action'])
         def populate(entries):
             if self.surface.menu is not menu or not menu.get_visible(): return
-            for child in menu.get_children(): child.destroy()
+            # GTK's mapped Wayland popup retains the loading row's configured
+            # height. Build its replacement before mapping it, so the compositor
+            # gets the complete size. Keep the original event and dismissal guard.
+            ready = Gtk.Menu(); ready.get_style_context().add_class('desktop-context-menu')
             def append(parent, entries):
                 for entry in entries:
                     if entry.get('separator'):
@@ -388,20 +416,20 @@ class Canvas(Gtk.Layout):
                     if 'children' in entry:
                         submenu = Gtk.Menu(); submenu.get_style_context().add_class('desktop-context-menu')
                         append(submenu, entry['children']); item.set_submenu(submenu)
-            append(menu, entries)
+            append(ready, entries)
             if names == [model.TRASH]:
-                action(menu, 'Empty Trash…', lambda: self.controller.files.call('EmptyTrash', '()'))
-                action(menu, 'Hide Trash', lambda: self.controller.setting('show_trash', False))
-            menu.append(Gtk.SeparatorMenuItem())
-            action(menu, 'Customize desktop file menu…', lambda: self.controller.files.call('ConfigureMenu', '()'))
-            menu.show_all()
+                action(ready, 'Empty Trash…', lambda: self.controller.files.call('EmptyTrash', '()'))
+                action(ready, 'Hide Trash', lambda: self.controller.setting('show_trash', False))
+            ready.append(Gtk.SeparatorMenuItem())
+            action(ready, 'Customize desktop file menu…', lambda: self.controller.files.call('ConfigureMenu', '()'))
+            ready.attach_to_widget(self, None); ready.show_all()
+            menu.popdown(); menu.destroy()
+            self.surface.menu = ready
+            popup(ready)
         if self.surface.menu: self.surface.menu.destroy()
         self.surface.menu = menu
         menu.attach_to_widget(self, None); menu.show_all()
-        if event: menu.popup_at_pointer(event)
-        else:
-            tile = self.tiles.get(names[0])
-            menu.popup_at_widget(tile or self, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST, None)
+        popup(menu)
         self.controller.files.menu(urls, populate)
 
     def highlight(self, name):
@@ -422,33 +450,38 @@ class Canvas(Gtk.Layout):
         # A GDK drag-motion event has no button/modifier state. Read the
         # keyboard state directly so holding Ctrl really selects Copy.
         state = Gdk.Keymap.get_for_display(self.get_display()).get_modifier_state()
-        copy = bool(state & Gdk.ModifierType.CONTROL_MASK)
         possible = context.get_actions()
-        selected = Gdk.DragAction.COPY if copy or not possible & Gdk.DragAction.MOVE else Gdk.DragAction.MOVE
-        if not selected & possible: selected = Gdk.DragAction.COPY if possible & Gdk.DragAction.COPY else Gdk.DragAction(0)
-        self.drop_action = selected
+        operation = drop_operation(state, possible)
         destination = self.destination(x, y)
-        if destination == model.TRASH: selected = Gdk.DragAction.MOVE if possible & Gdk.DragAction.MOVE else Gdk.DragAction(0)
-        if model.TRASH in self.controller.drag.get('names', []) and (destination or copy): selected = Gdk.DragAction(0)
-        self.drop_action = selected
-        self.highlight(destination)
-        Gdk.drag_status(context, selected, timestamp)
-        return bool(selected)
+        if destination == model.TRASH and operation != Gdk.DragAction.MOVE: operation = Gdk.DragAction(0)
+        if model.TRASH in self.controller.drag.get('names', []) and (destination or operation != Gdk.DragAction.MOVE): operation = Gdk.DragAction(0)
+        self.drop_operation = operation
+        self.drop_action = wire_action(operation, possible)
+        self.highlight(destination if operation else None)
+        Gdk.drag_status(context, self.drop_action, timestamp)
+        return bool(operation)
 
     def drop(self, _widget, context, x, y, timestamp):
         target = self.drag_dest_find_target(context, None)
         if not target or not self.controller.settings['enabled']: return False
         if not self.drag_motion(self, context, x, y, timestamp): return False
+        if target == Gdk.Atom.intern('application/x-xetal-desktop-icons', False) and self.controller.drag:
+            # SAME_APP already identifies our in-process drag. Its selection
+            # request can be cancelled by GTK's Wayland handoff; use the owned
+            # snapshot while the source is alive, including its anchor/offset.
+            self.received(self, context, x, y, None, 0, timestamp)
+            return True
         self.drag_get_data(context, target, timestamp)
         return True
 
     def received(self, _widget, context, x, y, data, info, timestamp):
         success = False
         try:
-            if data.get_length() > 2*1024*1024: raise ValueError('Too many files in this drop.')
+            if data is not None and data.get_length() < 0: raise ValueError('The drag source did not supply its files. Please try again.')
+            if data is not None and data.get_length() > 2*1024*1024: raise ValueError('Too many files in this drop.')
             drag = {}
             if info == 0:
-                drag = json.loads(bytes(data.get_data()))
+                drag = dict(self.controller.drag) if data is None else json.loads(bytes(data.get_data()))
                 names = drag.get('names', [])
                 if not isinstance(names, list) or not names or not all(name in self.controller.entries for name in names):
                     raise ValueError('The dragged files changed. Select them again.')
@@ -459,16 +492,21 @@ class Canvas(Gtk.Layout):
             if not urls or len(urls) > 10000: raise ValueError('No files were supplied by this drop.')
             # GTK's Wayland context can still report the previous action while
             # its new drag status is being committed. Use our accepted action.
-            copy = self.drop_action == Gdk.DragAction.COPY
+            operation = self.drop_operation
+            if not operation: raise ValueError('This location does not accept the selected drag operation.')
             destination = self.destination(x, y)
             if destination == model.TRASH:
                 self.controller.trash([url for url in urls if url != model.TRASH])
-            elif destination is None and not copy and len(names) == len(urls):
+            elif destination is None and operation == Gdk.DragAction.MOVE and len(names) == len(urls):
                 offset = drag.get('offset', [model.cell(self.controller.settings)[0]/2, 20])
                 self.controller.reposition(self.monitor, names, (x-offset[0], y-offset[1]), drag.get('anchor'))
             else:
                 if model.TRASH in urls: raise ValueError('Trash can be repositioned on the desktop, but cannot be moved into a folder.')
-                self.controller.transfer(urls, self.controller.uri(destination), copy, (self.monitor, (x, y)))
+                target = (self.monitor, (x, y))
+                if operation == Gdk.DragAction.LINK:
+                    self.controller.link(urls, self.controller.uri(destination), target)
+                else:
+                    self.controller.transfer(urls, self.controller.uri(destination), operation == Gdk.DragAction.COPY, target)
             success = True
         except (ValueError, TypeError, KeyError, IndexError) as error:
             self.controller.error(str(error))
@@ -585,6 +623,11 @@ class Icons:
             self.files.transfer(urls, destination, copy); return
         request = self.begin_placement(target or self.pointer_target())
         self.files.call('TransferWithPlacement', '(assbs)', urls, destination, copy, request or '',
+                        on_reply=lambda accepted: None if accepted else self.placements.pop(request, None))
+
+    def link(self, urls, destination, target=None):
+        request = self.begin_placement(target or self.pointer_target()) if destination == self.uri() else None
+        self.files.call('LinkWithPlacement', '(asss)', urls, destination, request or '',
                         on_reply=lambda accepted: None if accepted else self.placements.pop(request, None))
 
     def paste(self, target=None):

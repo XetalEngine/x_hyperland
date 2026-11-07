@@ -34,6 +34,11 @@ Enter saves, Escape cancels, and a rename never replaces an existing file.
 creates a folder. Links and desktop launchers have a small accent-colored arrow
 badge at the bottom left of the icon; launchers display their own name and icon.
 
+File actions load asynchronously from Fusion Files. The completed menu replaces
+the loading popup at the original click, so Wayland can size it for all actions.
+Dismissed or superseded requests cannot reopen an old menu. Keyboard invocation
+uses the selected icon as its anchor.
+
 **Show Trash** adds an optional, movable Trash icon without creating a file in
 `~/Desktop`. It remembers its position, reflects whether Trash contains files,
 and double-clicking opens Trash in a floating Fusion Files window. Delete,
@@ -44,9 +49,20 @@ as in Files. Failed or cancelled removals do not animate. This respects Files'
 the flight ends near the source monitor's lower right corner. Hiding desktop
 icons hides Trash too and preserves its preference.
 
-Dropping onto another folder moves files; hold Ctrl to copy.
+Dropping onto another folder moves files. Hold **Ctrl** to copy, **Shift** to
+move, or **Ctrl+Shift** to create shortcuts (symbolic links). This works within
+the desktop and in both directions with Fusion Files, including multiple files
+and folders. A desktop-to-desktop move on empty space still repositions icons.
+The dragged image shows a plus at the bottom left for Copy, an arrow for
+Shortcut, a faded icon for Move, or a red prohibited badge for a rejected target.
+Copy and Shortcut cannot drop into Trash; neither operation silently moves files.
 Fusion Files handles transfers and any conflict prompts. The desktop watches the
 folder for changes, so files saved or renamed elsewhere appear automatically.
+
+The cursor-probe runtime supplies accepted drag actions for the pinned Hyprland
+compositor and keeps modifier feedback current across application focus changes.
+Its Wayland negotiation applies only to Fusion's marked file drags. Drag feedback
+queries are asynchronous, bounded, and stop when the drag ends.
 
 Preferences and positions live in `desktop_menu/icons.json`. This private file is
 created only when a preference or layout changes, is excluded from Git, and is
@@ -77,3 +93,5 @@ floating folder/Properties launches, clipboard exchange with Qt, inline rename,
 Trash opening and removal animations, drag transfers, hiding icons and session
 shutdown. Use an output directory on the home filesystem to keep the fixture's
 Trash inside its private HOME.
+Use `--drag-actions-only` to check copy/move/shortcut transfers in both directions,
+folder links, drag badges, and rejected My Computer/toolbar destinations.

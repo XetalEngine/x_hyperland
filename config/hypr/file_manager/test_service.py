@@ -125,6 +125,13 @@ with (root/'calls.jsonl').open('a') as log:
             wait_for(lambda: ('PlacementFinished', ('copy-origin',)) in signals, 'Copy placement context was not completed.')
             assert ('PlacementTarget', ('copy-origin', (target/filename).as_uri())) in signals
             assert (source/filename).read_text() == (target/filename).read_text()
+            links = root/'Shortcuts'; links.mkdir()
+            assert desktop('LinkWithPlacement', '(asss)', ([(source/filename).as_uri(), source.as_uri()], links.as_uri(), 'link-origin'))
+            wait_for(lambda: ('PlacementFinished', ('link-origin',)) in signals, 'Shortcut placement did not complete.')
+            assert (links/filename).is_symlink() and (links/filename).resolve() == source/filename
+            assert (links/source.name).is_symlink() and (links/source.name).resolve() == source
+            assert ('PlacementTarget', ('link-origin', (links/filename).as_uri())) in signals
+            assert not desktop('LinkWithPlacement', '(asss)', ([source.as_uri()], 'computer:/', 'invalid'))
             moved = root/'Moved'; moved.mkdir()
             assert desktop('TransferWithPlacement', '(assbs)', ([(target/filename).as_uri()], moved.as_uri(), False, 'move-origin'))
             wait_for(lambda: (moved/filename).exists() and not (target/filename).exists(), 'Desktop move did not complete.')
