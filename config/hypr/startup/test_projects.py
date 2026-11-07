@@ -15,6 +15,14 @@ import launch
 
 
 class CatalogTests(unittest.TestCase):
+    def test_minimal_login_environment_gives_dashboard_a_real_interpreter(self):
+        command=launch.command_for('projects',{'width':1280,'scale':1})
+        environment=dict(os.environ);environment.pop('PATH',None)
+        result=subprocess.run([*command[:3],'-c','import sys; print(sys.executable)'],env=environment,
+                              capture_output=True,text=True,check=True)
+        self.assertTrue(Path(result.stdout.strip()).is_absolute())
+        self.assertTrue(Path(result.stdout.strip()).is_file())
+
     def test_portable_catalog_preserves_community_artwork(self):
         entries=model.catalog()
         self.assertEqual({p.id for p in entries},{'echo','binaryknife','linuxstudio','cachyostools','xmusic','xvideo'})
@@ -144,6 +152,16 @@ class GalleryTests(unittest.TestCase):
                     button.setFocus();QTest.keyClick(button,Qt.Key.Key_Space)
                     action.assert_called_once_with(flag)
             window.close()
+
+    def test_welcome_actions_start_even_when_python_executable_is_empty(self):
+        import projects
+        window=projects.Dashboard(model.catalog())
+        try:
+            with patch.object(projects.sys,'executable',''),patch.object(window.worker,'start') as start:
+                for args in [('--tour',),('--feedback',),('--open','echo')]:
+                    window.run_action(*args)
+                    self.assertEqual(start.call_args.args,('/usr/bin/python3',[str(projects.ROOT/'projects.py'),*args]))
+        finally:window.close()
 
 
 if __name__=='__main__':unittest.main()

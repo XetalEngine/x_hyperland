@@ -55,10 +55,11 @@ lesson('shortcuts-editor','start','Make a shortcut work your way',
     keys='Super + Escape',note='Administrator mode is for applications that actually need elevated access. A saved shortcut is not a promise of permanent password-free authorization.',related='hotkeys workspace-force',tags='sudo root taskman admin custom app properties pin',image='shortcut.webp',sources='launcher/shortcuts.py launcher/hotkey_dialog.py keybindings.conf')
 
 lesson('dashboard','start','Your welcome dashboard',
-    'System information, animated consoles, a clock, and project cubes share the Welcome workspace. The Tour and Send Feedback buttons are always easy to find here.',
+    'System information, an animated console, desktop health checks, and project cubes share the Welcome workspace. The Tour and Send Feedback buttons are always easy to find here.',
     'Super + D',[
     'Press Super + D to show the dashboard on the active monitor. Press it again to return to your work. Its windows are reused, and closed dashboard panels can be recreated.',
     'Take the Tour opens this local guide. Send Feedback opens the Echo instructions and a copyable report template. Neither button sends a message for you.',
+    'The fusion-check panel shows desktop health checks at login. Review any failures before relying on the affected feature.',
     'Project cubes open their individual websites. The dashboard hides before opening a browser so it does not cover the destination.',
     'Show this dashboard at login controls automatic display at the next login. Turning it off keeps Super + D available.'],
     keys='Super + D',related='welcome settings-map',image='welcome.webp',sources='startup/README.md startup/projects.py')

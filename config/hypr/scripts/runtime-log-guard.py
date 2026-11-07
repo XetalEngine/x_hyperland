@@ -29,7 +29,7 @@ LOGS = ('hyprland.log', 'cached-apps.log', 'cached-settings.log', 'cached-panel.
         'session-ui-preload.log', 'switcher.log', 'floating-drag.log',
         'file-progress.log', 'waybar-supervisor.log', 'waybar.log', 'waybar.log.1',
         'hyprpaper.log', 'desktop-menu.log', 'network-applet.log',
-        'swaync.log', 'polkit-agent.log', 'sign-in-artwork.log',
+        'swaync.log', 'notification-session.log', 'polkit-agent.log', 'sign-in-artwork.log',
         'startup-scene.log', 'startup-projects.log', 'startup-clock.log',
         'startup-matrix.log', 'startup-info.log', 'floating-geometry.log',
         'screenshot-notify.log', 'xwayland-session.log')

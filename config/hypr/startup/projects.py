@@ -246,7 +246,9 @@ class Dashboard(QWidget):
     def run_action(self,*args):
         if self.worker.state()!=QProcess.ProcessState.NotRunning:return
         self.message.setText('Opening the desktop tour…' if args[0]=='--tour' else 'Opening feedback instructions…' if args[0]=='--feedback' else 'Opening project page…' if args[0]=='--open' else 'Made by Xetal')
-        self.worker.start(sys.executable,[str(ROOT/'projects.py'),*args])
+        # Python can leave sys.executable empty when greetd's session has no
+        # PATH and the dashboard was started as bare `python3`.
+        self.worker.start(sys.executable or '/usr/bin/python3',[str(ROOT/'projects.py'),*args])
 
     def opened(self,code,status):
         self.message.setText('Made by Xetal' if code==0 else 'Could not open the page. Try again.')

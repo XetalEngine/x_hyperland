@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Own only the processes started here. Stop them when this Hyprland instance ends.
-# Never change KDE, shared GTK/Qt settings, D-Bus activation variables or user services.
+# Never change KDE, shared GTK/Qt settings, D-Bus activation variables or service configuration.
 set -euo pipefail
 umask 077
 
@@ -53,6 +53,15 @@ trap 'exit 0' INT TERM HUP
 export XDG_CURRENT_DESKTOP=Hyprland
 export XDG_SESSION_DESKTOP=Hyprland
 export XDG_SESSION_TYPE=wayland
+
+# Claim notifications before Waybar, updater notices or startup apps can cause
+# D-Bus to activate an unthemed default SwayNC. Wait for both its bus names.
+rm -f -- "$instance_dir/notifications-ready.json"
+"$session_python" "$config_dir/scripts/notification-session.py" \
+    >"$(session_log notification-session.log)" 2>&1 9>&- &
+children+=("$!")
+"$session_python" "$config_dir/scripts/notification-session.py" --wait-ready \
+    >>"$(session_log notification-session.log)" 2>&1 || true
 
 # Native effects start before slower artwork/theme helpers. Each loader waits
 # for compositor readiness, serializes builds/loads and retries startup failures.
@@ -151,15 +160,6 @@ children+=("$!")
 if ! pgrep -u "$UID" -x nm-applet >/dev/null; then
     XDG_CONFIG_HOME="$config_dir/apps" GSETTINGS_BACKEND=keyfile GTK_THEME="${GTK_THEME:-Adwaita:dark}" nm-applet --indicator \
         >"$(session_log network-applet.log)" 2>&1 9>&- &
-    children+=("$!")
-fi
-
-# Respect an existing notification server, including one belonging to another desktop.
-owner=$(gdbus call --session --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus \
-    --method org.freedesktop.DBus.NameHasOwner org.freedesktop.Notifications) || owner=unknown
-if [[ "$owner" == '(false,)' ]]; then
-    swaync --config "$config_dir/swaync/config.json" --style "$config_dir/swaync/style.css" \
-        >"$(session_log swaync.log)" 2>&1 9>&- &
     children+=("$!")
 fi
 

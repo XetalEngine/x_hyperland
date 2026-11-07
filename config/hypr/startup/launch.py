@@ -43,9 +43,9 @@ def ctl(*args, json_output=False):
 
 def command_for(mode, target):
     if mode == 'projects':
-        return ['env', 'QT_QPA_PLATFORM=wayland', 'python3', str(ROOT/'projects.py')]
+        return ['env', 'QT_QPA_PLATFORM=wayland', '/usr/bin/python3', str(ROOT/'projects.py')]
     command=['kitty','--config',str(ROOT/'kitty.conf'),'--class','xetal-startup-'+mode,
-             '--title','Xetal / '+('Fusion check' if mode=='clock' else mode.title()),'python3',str(ROOT/'scene.py'),mode]
+             '--title','Xetal / '+('Fusion check' if mode=='clock' else mode.title()),'/usr/bin/python3',str(ROOT/'scene.py'),mode]
     if target['width']/target['scale']<2200:
         command[3:3]=['-o','font_size=10.5']
     return command

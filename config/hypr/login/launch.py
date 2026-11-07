@@ -13,6 +13,10 @@ else:
 
 
 def main():
+    # greetd/PAM may not supply PATH. execvp finds programs using its fallback,
+    # but the desktop's children (notably Python) also need an exported path.
+    if not os.environ.get('PATH'):
+        os.environ['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
     parser = argparse.ArgumentParser()
     parser.add_argument('--session', required=True)
     parser.add_argument('--x11-client', action='store_true')
