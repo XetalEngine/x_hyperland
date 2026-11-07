@@ -1,0 +1,35 @@
+{
+  "theme": "Midnight Transit",
+  "id": "midnighttransit",
+  "generator": "Built-in image_gen",
+  "reference": "User-supplied Midnight Transit desktop concept; used for visual direction.",
+  "images": [
+    {
+      "file": "midnight-concourse.png",
+      "title": "Midnight Concourse",
+      "prompt": "Use case: stylized-concept. Asset type: finished landscape desktop wallpaper, 3840x2160, 16:9. Paint an original cinematic European riverside railway city on a rainy midnight: a magnificent iron-and-glass central station, long warm amber illuminated arched windows, a single understated vintage electric train traversing a stone viaduct above a canal, wet cobblestone riverside promenade and delicate old brass streetlights. Eye-level wide panorama with the station and clock tower across the right two-thirds; deep teal shaded trees and quiet wet stone on the left leave space for desktop icons. Dark petrol teal and blue-black night, warm honey amber reflections, restrained pale ivory highlights; exquisite atmospheric architectural detail, misty depth, realistic light, premium painterly realism. Keep the lower edge dark and calm for a taskbar. This is the wallpaper itself, not a desktop screenshot: absolutely no UI, windows, icons, menus, desktop dock, labels, watermarks or lettering. Fill the entire frame; do not add frames.",
+      "size": [
+        1672,
+        941
+      ]
+    },
+    {
+      "file": "last-train-home.png",
+      "title": "Last Train Home",
+      "prompt": "Use case: stylized-concept. Asset type: finished landscape desktop wallpaper, 3840x2160, 16:9. Original panoramic nocturnal landscape for a theme called Midnight Transit: an elegant antique teal electric train with small warm amber windows travels on a long curved stone railway viaduct crossing a deep misty river valley. The viaduct arcs toward a small warmly lit station on the far right; distant mountains fade into deep petrol teal clouds. Foreground dark wet foliage and a few reflected lanterns on calm river water, moonlight grazing stone and thin ivory highlights on rails. Moody and tranquil, rain has just stopped. Premium cinematic painterly realism, intricate natural materials, restrained warm light against very dark cool teal. Broad quiet space in the left sky for desktop icons, rich but uncluttered composition, no characters in foreground. The wallpaper itself, no UI screenshot, no windows, icons, text, logos, frames or watermarks.",
+      "size": [
+        1672,
+        941
+      ]
+    },
+    {
+      "file": "lantern-platform.png",
+      "title": "Lantern Platform",
+      "prompt": "Use case: stylized-concept. Asset type: finished landscape desktop wallpaper, 3840x2160, 16:9. Create an original beautifully detailed art-nouveau railway platform at blue midnight after rain, viewed along a graceful vaulted iron and glass canopy toward a softly glowing amber station clock in the far distance. Deep teal enamel columns with restrained aged brass and ivory trim, warm lanterns, wet dark stone tiles reflecting little pools of amber, an empty carved wooden bench and tasteful ferns on the right, a quiet teal passenger train across the tracks. Refined painterly cinematic realism, controlled highlights, gentle fog, strong perspective, restful and sophisticated. Keep foreground and left third sufficiently dark and calm for desktop icons and window legibility. No people, no legible writing, no city names, no branding or logos; no interface, application windows, icons, menus, frame or watermark. Full-bleed wallpaper, not a desktop mockup.",
+      "size": [
+        1672,
+        941
+      ]
+    }
+  ]
+}

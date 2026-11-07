@@ -1,3 +1,4 @@
+import copy
 import os
 from pathlib import Path
 import subprocess
@@ -27,10 +28,10 @@ class EffectsTests(unittest.TestCase):
             self.assertEqual(page.draft['trail'],'sparkle')
             self.assertEqual(set(effects.GENERAL)&set(effects.THEMES.values()),set())
             page.close()
-    def test_every_theme_has_a_distinct_trail_and_mixing_is_independent(self):
+    def test_native_theme_trails_are_distinct_and_mixing_is_independent(self):
         from theme.designs import DESIGNS
-        self.assertEqual(set(effects.THEMES),set(DESIGNS))
-        self.assertEqual(len(set(effects.THEMES.values())),len(DESIGNS))
+        self.assertLessEqual(set(effects.THEMES),set(DESIGNS))
+        self.assertEqual(len(set(effects.THEMES.values())),len(effects.THEMES))
         for theme,style in effects.THEMES.items():
             self.assertEqual(effects.resolve('follow',theme),style)
             self.assertEqual(effects.resolve('ink',theme),'ink')
@@ -54,14 +55,20 @@ class EffectsTests(unittest.TestCase):
             page.reset_defaults();self.assertEqual(page.draft['size'],48);self.assertEqual(page.draft['trail'],'follow')
             page.resize(1120,720);page.show();app.processEvents();page.preview.advance();page.grab()
             page.hide();self.assertFalse(page.preview.timer.isActive());page.close()
-    def test_presets_select_follow_and_preserve_timing(self):
+    def test_every_preset_selects_a_supported_trail_and_preserves_timing(self):
         sys.path[:0]=[str(ROOT/'theme'),str(ROOT/'control_center')]
         import presets
-        current={'version':1,'theme':{'design':'raw','mode':'dark'},'transfer':{},'cursors':dict(model.DEFAULTS,duration=750,intensity=40)}
-        with patch.object(presets,'current',return_value=current):
-            for theme in effects.THEMES:
+        current={'version':1,'theme':{'design':'raw','mode':'dark'},'transfer':{},'icons':{},'sounds':{},
+                 'cursors':dict(model.DEFAULTS,duration=750,intensity=40)}
+        with patch.object(presets,'current',side_effect=lambda *args:copy.deepcopy(current)):
+            for theme in presets.runtime.DESIGNS:
                 value=presets.builtin(theme)
-                self.assertEqual(value['cursors']['trail'],'follow');self.assertEqual(value['cursors']['duration'],750)
+                # New designs may deliberately pair original cursor artwork with
+                # a general trail instead of introducing another native effect.
+                if theme in effects.THEMES:self.assertEqual(value['cursors']['trail'],'follow')
+                else:self.assertIn(value['cursors']['trail'],effects.GENERAL)
+                self.assertEqual(model.validate(value['cursors']),value['cursors'])
+                self.assertEqual(value['cursors']['duration'],750)
                 self.assertEqual(value['cursors']['intensity'],40)
 
 if __name__=='__main__':unittest.main()

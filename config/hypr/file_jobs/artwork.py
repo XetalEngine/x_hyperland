@@ -384,3 +384,34 @@ def hyperfusionblue(p, box, accent, surface, phase, count, trails, glow, archive
         p.setBrush(c);p.setPen(QPen(ink,1));p.drawRoundedRect(QRectF(x-5,y-7,10,14),2,2)
         p.setPen(QPen(ink,.6));p.drawLine(QPointF(x-2,y-3),QPointF(x+2,y-3))
     p.restore()
+
+
+def midnighttransit(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Small document carriages travel between station platforms."""
+    p.save();p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    left=box.left()+27;right=box.right()-27;y=box.center().y()
+    ink=QColor(accent).lighter(145);base=QColor(surface)
+    p.setPen(QPen(alpha(ink,95),1))
+    for x in range(int(left),int(right),10):p.drawLine(QPointF(x,y+11),QPointF(x+3,y+17))
+    for offset in (10,16):p.drawLine(QPointF(left,y+offset),QPointF(right,y+offset))
+    for x in (left,right):
+        p.setBrush(base);p.setPen(QPen(ink,1));p.drawRoundedRect(QRectF(x-10,y-22,20,39),4,4)
+        p.setBrush(accent);p.drawEllipse(QPointF(x,y-13),3,3)
+        p.drawLine(QPointF(x-5,y+8),QPointF(x+5,y+8))
+    if result=='done':success(p,box.center(),accent);p.restore();return
+    if result:p.restore();return
+    for index in range(max(1,count)):
+        t=(phase*.22+index/max(1,count))%1
+        x=left+23+t*max(1,right-left-46)
+        if extracting:x=right-23-t*max(1,right-left-46)
+        p.setOpacity(min(1,t*10,(1-t)*10))
+        p.setBrush(base);p.setPen(QPen(ink,1));p.drawRoundedRect(QRectF(x-12,y-9,24,18),3,3)
+        p.setBrush(accent);p.setPen(Qt.PenStyle.NoPen)
+        for offset in (-7,1):p.drawRoundedRect(QRectF(x+offset,y-5,6,6),1,1)
+        p.setBrush(ink)
+        for offset in (-7,7):p.drawEllipse(QPointF(x+offset,y+10),2,2)
+        if archive:
+            p.setPen(QPen(accent,1.2));p.drawLine(QPointF(x,y-8),QPointF(x,y+8))
+        if trails:
+            p.setPen(QPen(alpha(accent,65),1));p.drawLine(QPointF(x-20,y+1),QPointF(x-15,y+1))
+    p.restore()

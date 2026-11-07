@@ -5,6 +5,7 @@ from xml.sax.saxutils import escape
 VERSION = 4
 # Name, metal/light, midtone, shadow, face, decorative language.
 STYLES = {
+    'midnighttransit': ('Midnight Transit', '#f5e5bd', '#ffb239', '#895820', '#0d3036', 'enamel'),
     'hyperfusionblue': ('HyperFusion Blue', '#effaff', '#22bfff', '#0061a9', '#152b3b', 'fusion'),
     'raw': ('Xetal Raw', '#a4fff4', '#41d6ce', '#175e72', '#102c38', 'circuit'),
     'modern': ('Xetal Modern', '#edf6ff', '#86b9ee', '#405d99', '#233b61', 'glass'),
@@ -19,6 +20,7 @@ STYLES = {
     'gildedhollow': ('The Gilded Hollow', '#fff0b7', '#dfb469', '#836137', '#303c32', 'brass'),
 }
 DESCRIPTIONS = {
+    'midnighttransit': 'Teal enamel folders, ivory nickel outlines and amber station details.',
     'hyperfusionblue': 'Sapphire glass folders, silver hardware and polished graphite application tiles.',
     'raw': 'Luminous cyan circuits and precision-cut panels.',
     'modern': 'Frosted blue glass with polished silver edges.',
@@ -145,6 +147,9 @@ def ornament(style, accent):
 
 
 def svg(style, name):
+    if style == 'midnighttransit':
+        from .transit import svg as transit_svg
+        return transit_svg(ALIASES.get(name,name),CATALOG,symbol)
     if style == 'hyperfusionblue':
         from .blue import svg as blue_svg
         return blue_svg(ALIASES.get(name,name),CATALOG,symbol)

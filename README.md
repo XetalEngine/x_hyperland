@@ -1,4 +1,4 @@
-<h1 align="center">Hyper Fusion</h1>
+<h1 align="center">Hyper Fusion ALPHA</h1>
 
 <p align="center"><strong>Your workspace. Your colors. Your kind of Linux desktop.</strong><br>A complete Xetal desktop for Hyprland, with native settings, custom menus, KVM tools and a little Compiz nostalgia.</p>
 
@@ -153,6 +153,8 @@ Fresh installations start with **Hollow Grove · Dark**. The cube includes Gilde
 
 The **Presets** gallery shows every theme in a full-width banner. Search by name, color or mood; hover or keyboard-focus the right side to reveal its three wallpapers. The previews disappear when you move away. Choose the banner to select which parts of the theme to apply. **File Transfer** has an independently scrolling style column, with a responsive live preview and settings beside it. Each theme includes its own three-screen wallpaper set. The [gallery](docs/GALLERY.md) shows the original Xetal World designs, their tools and artwork.
 
+**[Midnight Transit](config/hypr/theme/MIDNIGHT_TRANSIT.md)** brings teal enamel, cream pinstripes and amber station lights to the whole desktop, with its own Platform Twelve minimize container, icons, cursor, transfer animation, sound pack and three rainy railway wallpapers.
+
 Tidal Glass, Porcelain Ink, Obsidian Forge, and **Candy Cloud** bring four distinct atmospheres to the gallery. Obsidian Forge pairs machined basalt panels and copper edges with three original volcanic wallpapers: Basalt Reach, The Forge, and Ashen Observatory. Its Cinder wake mouse trail lifts embers from a cooling fissure; its file-transfer animation carries glowing documents through basalt presses.
 
 Candy Cloud adds sculpted satin controls, pill-shaped navigation, a pearlescent taskbar, and three floating-island wallpapers: Sugar Sky, Cloud Palace, and Moon Ribbon, assigned left to right. Its Cloud nine trail releases small clouds and four-point stars, while cloud couriers carry envelopes along a ribbon during file transfers. These styles, its Orchid cursor, and its Start menu can be mixed independently through their detailed tabs or Mix & match. Every preset starts dark; Candy Cloud also includes pastel light and high-contrast modes. Kitty stays dark in every mode, and the optional selection marker starts Off. Wallpaper generation prompts are kept beside each atmosphere's artwork.
@@ -304,6 +306,7 @@ Your hotkeys, monitor arrangement, chosen wallpapers, private Dolphin Places and
 | --- | --- |
 | [Start here: project and AI guide](IA_START_HERE.html) | Offline architecture map, source/live paths, development, privacy, testing and releases; open the HTML in a browser or read its source |
 | [Full gallery](docs/GALLERY.md) | Themes, panels, menus, transfer cards and wallpapers |
+| [AI theme creation guide](AI_Theme_creation.md) | Complete theme integration map, three-wallpaper requirement, builds and verification |
 | [Installer](docs/INSTALLER.md) | GUI choices, pinned runtimes, backups and recovery |
 | [Dependencies](docs/DEPENDENCIES.md) | Distro scope, required tools and compatibility checks |
 | [Desktop updates](docs/UPDATES.md) | Settings preservation, activation and rollback |

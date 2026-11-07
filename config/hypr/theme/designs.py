@@ -3,7 +3,7 @@ import colorsys
 from pathlib import Path
 
 DESIGNS = {'raw': 'Xetal Raw', 'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint', 'binaryknife': 'Binary Knife',
-           'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud', 'shadowedge': 'Shadow Edge', 'hollowgrove': 'Hollow Grove', 'gildedhollow': 'The Gilded Hollow', 'hyperfusionblue': 'HyperFusion Blue'}
+           'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud', 'shadowedge': 'Shadow Edge', 'hollowgrove': 'Hollow Grove', 'gildedhollow': 'The Gilded Hollow', 'hyperfusionblue': 'HyperFusion Blue', 'midnighttransit': 'Midnight Transit'}
 DESCRIPTIONS = {'raw': 'Original layout · cyan accents', 'modern': 'Soft cards · blue accents',
                 'breakpoint': 'Charcoal glass · crimson focus', 'binaryknife': 'Sharp graphite · electric blue',
                 'tidalglass': 'Pearl glass · luminous ocean depths',
@@ -11,6 +11,7 @@ DESCRIPTIONS = {'raw': 'Original layout · cyan accents', 'modern': 'Soft cards 
                 'obsidianforge': 'Machined basalt · molten copper & embers',
                 'candycloud': 'Pearlescent pillows · clouds & starlight',
                 'shadowedge': 'Smoked glass · silver blades & crimson rain', 'hollowgrove': 'Botanical glass · moonlit sage & silver blossoms',
+                'midnighttransit': 'Teal enamel · ivory pinstripes & amber station lights',
                 'hyperfusionblue': 'Polished graphite · sapphire glass & alpine silver',
                 'gildedhollow': 'Moss-dark stone · engraved brass & lantern gold'}
 # Every built-in skin starts dark, including future additions to the catalog.
@@ -39,6 +40,9 @@ def recolor(color, palette, mode):
 
 
 def qt_style(p,style='modern'):
+    if style=='midnighttransit':
+        from midnighttransit import qt_style as themed
+        return themed(p)
     if style=='hyperfusionblue':
         from hyperfusionblue import qt_style as themed
         return themed(p)
@@ -149,6 +153,9 @@ def qt_style(p,style='modern'):
 
 
 def waybar_style(p,style='modern'):
+    if style=='midnighttransit':
+        from midnighttransit import waybar_style as themed
+        return themed(p)
     if style=='hyperfusionblue':
         from hyperfusionblue import waybar_style as themed
         return themed(p)
@@ -202,6 +209,9 @@ def waybar_style(p,style='modern'):
 
 
 def notification_style(p,style='modern'):
+    if style=='midnighttransit':
+        from midnighttransit import notification_style as themed
+        return themed(p)
     if style=='hyperfusionblue':
         from hyperfusionblue import notification_style as themed
         return themed(p)

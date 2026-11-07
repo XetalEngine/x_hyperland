@@ -43,10 +43,30 @@ def blue_vault(p, width, colors, phase):
     p.restore()
 
 
+def platform_twelve(p,width,colors,phase):
+    """An enamel station platform, cream rails and paired signal lanterns."""
+    from midnighttransit import paint_surface
+    paint_surface(p,QRectF(8,8,width-16,80),colors,9,100)
+    p.save();cream=QColor(colors['Light']);accent=QColor(colors['Accent'])
+    p.setPen(QPen(cream,1.4))
+    for y in (16,80):line(p,31,y,width-31,y)
+    p.setPen(QPen(alpha(cream,.35),.8))
+    for x in range(35,int(width-30),11):line(p,x,80,x+2,84)
+    for x in (21,width-21):
+        p.setBrush(QColor(colors['Base']));p.setPen(QPen(cream,1))
+        p.drawRoundedRect(QRectF(x-7,24,14,48),7,7)
+        for y in (34,61):
+            p.setBrush(alpha(accent,.75+.2*math.sin(phase*.6)));p.drawEllipse(QPointF(x,y),3,3)
+        p.setPen(QPen(cream,.8));line(p,x-3,46,x+3,46);line(p,x-3,50,x+3,50)
+    p.restore()
+
+
 def tray(painter, width, style, colors, phase):
     """Draw a horizontal tray in a width × 96 coordinate space."""
     if style == 'hyperfusionblue':
         blue_vault(painter,width,colors,phase);return
+    if style == 'midnighttransit':
+        platform_twelve(painter,width,colors,phase);return
     p = painter; accent, ink, base = (QColor(colors[k]) for k in ('Accent', 'WindowText', 'Window'))
     bounds = QRectF(8, 8, width-16, 80)
     radius = {'raw': 3, 'breakpoint': 10, 'binaryknife': 5, 'porcelainink': 5,
@@ -268,8 +288,13 @@ def dock(p, area, style, colors, *, phase=0., weights=(1., 1., 1.), zoom=(), ver
         p.save(); p.setOpacity(p.opacity()*max(0., min(1., weight)))
         if not stack:
             p.setPen(QPen(alpha(colors['Accent'], .12+(z-1)), .8)); p.setBrush(alpha(colors['Accent'], .035+(z-1)*.1))
-            radius = 2 if style == 'raw' else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
+            radius = 2 if style == 'raw' else 6 if style == 'midnighttransit' else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
             p.drawRoundedRect(rect, radius, radius)
+        if style == 'midnighttransit' and not stack:
+            pane=QLinearGradient(rect.topLeft(),rect.bottomRight())
+            pane.setColorAt(0,QColor(colors['Button']));pane.setColorAt(.65,QColor(colors['Base']));pane.setColorAt(1,QColor(colors['Window']))
+            p.setBrush(pane);p.setPen(QPen(alpha(colors['Light'],.75),1));p.drawRoundedRect(rect,6,6)
+            p.setPen(QPen(alpha(colors['Accent'],.75),2));line(p,rect.left()+8,rect.bottom()-5,rect.right()-8,rect.bottom()-5)
         if style == 'hyperfusionblue' and not stack:
             glass=QLinearGradient(rect.topLeft(),rect.bottomLeft())
             glass.setColorAt(0,alpha(colors['Light'],.24));glass.setColorAt(.45,alpha(colors['Accent'],.06));glass.setColorAt(.5,alpha(colors['Base'],.6));glass.setColorAt(1,alpha(colors['Accent'],.16))

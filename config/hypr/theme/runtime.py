@@ -95,7 +95,7 @@ def colors(value=None,style=None):
 
 
 def ui_font(style=None):
-    return 'Inter' if (style or design()) in ('breakpoint','binaryknife','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue') else 'Noto Sans'
+    return 'Inter' if (style or design()) in ('breakpoint','binaryknife','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit') else 'Noto Sans'
 
 
 def environment(base=None, value=None):

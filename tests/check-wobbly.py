@@ -2,6 +2,7 @@
 """Exercise real Compiz deformation in a disposable nested Hyprland session.
 
 Usage: check-wobbly.py /path/to/xetal-wobbly.so /tmp/new-test-directory
+Use --cursors-only to check cursor families and general glow with all adapters loaded.
 Never loads a plugin into the parent compositor or modifies its configuration.
 """
 import json,os,shlex,subprocess,sys,tempfile,time
@@ -13,7 +14,7 @@ from effects.window_close import build as close_build, model as close_model, rul
 from effects.cube import model as cube_model, build as cube_build
 from effects.burn import model as burn_model, build as burn_build
 from effects.minimize import model as minimize_model, build as minimize_build
-from cursors import model as cursor_model,effects as mouse_effects,build as cursor_build
+from cursors import model as cursor_model,effects as mouse_effects,build as cursor_build,art as cursor_art
 
 
 def main():
@@ -126,6 +127,24 @@ windowrule=match:class ^wobbly-test$,float on
         m=json.loads(ctl('-j','monitors'))[0];width=m['width'];height=m['height']
         pointer=spawn([str(pointer_path),str(width),str(height)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
         def point(line):pointer.stdin.write(line+'\n');pointer.stdin.flush();assert pointer.stdout.readline().strip()=='ok'
+        if '--cursors-only' in sys.argv[3:]:
+            for effect in (cube_build,burn_build,minimize_build):assert ctl('plugin','load',str(effect.build()))=='ok'
+            def cursor_status():return json.loads(ctl('xetal-cube'))
+            for family in cursor_art.STYLES:
+                cursor_values.update(style=family,trail='glow',color='#ffb239')
+                cursor_config.write_bytes(cursor_model.encode(cursor_values))
+                dispatch('xetalcube:cursor')
+                assert cursor_status()['cursor_style']==family,cursor_status()
+                assert cursor_status()['cursor_effect']=='glow',cursor_status()
+                before=cursor_status()['cursor_frames']
+                for x in (250,300,350,400):point(f'move {x} 240');time.sleep(.035)
+                wait(lambda:cursor_status()['cursor_frames']>before)
+                screenshot('cursor-'+family)
+                wait(lambda:cursor_status()['cursor_marks']==0)
+                frames=cursor_status()['cursor_frames'];time.sleep(.15)
+                assert cursor_status()['cursor_frames']==frames,'Idle cursor effect continued rendering'
+            print(f'PASS: {len(cursor_art.STYLES)} native cursor families, glow rendering and idle suspension with all effects loaded',flush=True)
+            return
         point('move 250 190');point('down 272');time.sleep(.04)
         for x in (280,320,360,400,440,480):point(f'move {x} 250');time.sleep(.025)
         screenshot('drag');s=status();assert s['grabs']>=1 and s['active']==1 and s['draws']>0,s
@@ -307,6 +326,14 @@ windowrule=match:class ^wobbly-test$,float on
         # All native effects must load together, regardless of hook installation order.
         for effect in (cube_build,burn_build,minimize_build):assert ctl('plugin','load',str(effect.build()))=='ok'
         def mouse_status():return json.loads(ctl('xetal-cube'))
+        # Loading the SVG/XCursor assets alone is insufficient: the native
+        # adapter must accept each family and successfully load its manifest.
+        for family in cursor_art.STYLES:
+            cursor_values['style']=family
+            cursor_config.write_bytes(cursor_model.encode(cursor_values))
+            dispatch('xetalcube:cursor')
+            assert mouse_status()['cursor_style']==family,mouse_status()
+        print(f'{len(cursor_art.STYLES)} cursor families accepted and loaded by the native adapter',flush=True)
         def mouse_style(style):
             cursor_values['trail']=style
             if style in mouse_effects.STYLES:cursor_values['color']=mouse_effects.STYLES[style][2]

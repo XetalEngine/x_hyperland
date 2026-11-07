@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Midnight Transit
+Comment=Teal enamel folders, ivory nickel outlines and amber station details.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

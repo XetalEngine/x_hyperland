@@ -29,8 +29,8 @@ void main(){
   fragColor=vec4(mix(warm,mix(ink,vec3(1.,.72,.25),.5),core)*a,a)*opacity;return;
  }
  vec2 p=(uv-.5)*dims;vec2 halfSize=dims*.5-vec2(8.);
- float radius=style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:halfSize.y;
- if(part==1)radius=style==0?2.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
+ float radius=style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:halfSize.y;
+ if(part==1)radius=style==0?2.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
  radius=min(radius,min(halfSize.x,halfSize.y));
  float distance=roundBox(p,halfSize,radius);
  if(style==2||style==3||style==8)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+(style==3?19.:style==8?14.:10.))*.7071);
@@ -44,7 +44,23 @@ void main(){
  float rim=.26;
  float jewel=0.;float jewelHalo=0.;float gildedSweep=0.;
  if(part==0){
-  if(style==11){
+  if(style==12){
+   // Platform Twelve: twin cream rails, enamel bays and amber signal lamps.
+   vec2 q=vec2(halfSize.x-abs(p.x),p.y);
+   body=mix(base,tint,.035)+ink*shine*.095;
+   float rails=exp(-abs(abs(p.y)-halfSize.y+8.)*1.6)*step(23.,q.x);
+   metal=rails*.8;
+   metal+=step(.78,fract((p.x+halfSize.x)/11.))*exp(-abs(p.y-halfSize.y+4.)*1.4)*step(23.,q.x)*.22;
+   float signalCase=roundBox(vec2(q.x-13.,p.y),vec2(7.,24.),6.);
+   body=mix(body,base*.65,(1.-smoothstep(-.5,.7,signalCase))*.8);
+   metal+=exp(-abs(signalCase)*1.4)*.6;
+   vec2 lamp=vec2(q.x-13.,abs(p.y)-14.);
+   decoration=(1.-smoothstep(2.,3.5,length(lamp)))*(.85+.12*sin(time*.6));
+   decoration+=exp(-length(lamp)*.5)*.18;
+   metal+=exp(-abs(q.x-13.)*.6)*exp(-abs(abs(p.y)-2.)*1.6)*.3;
+   metal+=exp(-abs(distance+3.)*1.8)*.13;
+   rim=.9;
+  }else if(style==11){
    // Blue Vault: machined silver caps, glass cells and an illuminated sill.
    vec2 q=vec2(halfSize.x-abs(p.x),p.y);
    float cap=1.-smoothstep(15.,20.,q.x);
@@ -188,6 +204,12 @@ void main(){
   body=mix(base,tint,.08+emphasis*.14)+ink*shine*.045;
   rim=.08+emphasis*.25;
   decoration=exp(-abs(p.y-halfSize.y+3.)*1.7)*(.25+.4*emphasis);
+  if(style==12){
+   body=mix(base,tint,.055)+ink*shine*.11;
+   rim=.55+emphasis*.35;
+   decoration=exp(-abs(p.y-halfSize.y+5.)*1.6)*(.3+emphasis*.5);
+   metal=exp(-abs(p.y+halfSize.y-3.)*1.8)*.28;
+  }
   if(style==11){
    body=mix(base,tint,.12)+ink*shine*.16;
    body+=ink*step(.5,1.-uv.y)*.035;

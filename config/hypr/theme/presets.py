@@ -122,7 +122,9 @@ def builtin(design, mode=None, root=None):
     value.setdefault('cursors',copy.deepcopy(cursors.DEFAULTS))
     effect=mouse_effects.STYLES[mouse_effects.THEMES.get(design,'plasma')]
     value['cursors'].update(trail='follow',color=effect[2])
-    if design == 'hyperfusionblue':
+    if design == 'midnighttransit':
+        value['cursors'].update(style='enamel',trail='glow',color='#ffb239')
+    elif design == 'hyperfusionblue':
         value['cursors'].update(style='pearl',trail='glow',color='#00baff')
     elif design == 'tidalglass':
         value.setdefault('cursors',copy.deepcopy(cursors.DEFAULTS))

@@ -9,6 +9,7 @@ STYLES={'follow':'Follow desktop theme', **designs.DESIGNS}
 VARIANTS={'full':'Full · continuous bar', 'partial':'Partial · floating sections',
           'centered':'Centered · workspaces in the middle'}
 DESCRIPTIONS={
+ 'midnighttransit':'Station enamel · cream pinstripes, amber signals and a winged HF badge',
  'hyperfusionblue':'Alpine console · silver bevels, sapphire buttons and a polished graphite rail',
  'raw':'Terminal rail · a continuous compact strip with underlined workspaces',
  'modern':'Floating islands · rounded app, clock and status capsules',
@@ -53,6 +54,7 @@ def configure(config,style,variation=None):
     status=['custom/recording','cpu','memory','custom/temperature','temperature','disk','custom/internet','custom/lan','network#lan','custom/wifi',
             'custom/vpn','bluetooth','group/audio','pulseaudio#microphone','idle_inhibitor','custom/notifications','tray','clock','custom/power']
     layouts={
+        'midnighttransit':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
         'hyperfusionblue':(apps,['mpris'],status),
         'raw':(apps,['mpris'],status),
         'modern':(apps+['mpris'],['clock'],[x for x in status if x!='clock']),
@@ -113,6 +115,7 @@ window#waybar {{color:{t};}}
 }}
 '''
     faces={
+'midnighttransit':__import__('midnighttransit').bar_controls(p,root),
 'hyperfusionblue':f'''
 window#waybar {{background:linear-gradient(180deg,{p['Button']},{w} 35%,{b} 54%,{w});border:1px solid {m};border-top-color:{p['Light']};border-bottom:2px solid {p['Dark']};border-radius:0;}}
 .modules-left,.modules-center,.modules-right {{padding:0 5px;}}
@@ -236,10 +239,11 @@ window#waybar {{background:linear-gradient(180deg,alpha({p['Button']},0.97),alph
 def architecture(p,style,variation,root):
     """One material vocabulary, available as a rail, islands or centered bank."""
     a,b,w,t,m,h=p['Accent'],p['Base'],p['Window'],p['Text'],p['Midlight'],p['Highlight']
-    radius={'hyperfusionblue':'7px','raw':'1px','modern':'23px','breakpoint':'12px 2px 12px 2px','binaryknife':'2px 16px 2px 16px',
+    radius={'midnighttransit':'7px','hyperfusionblue':'7px','raw':'1px','modern':'23px','breakpoint':'12px 2px 12px 2px','binaryknife':'2px 16px 2px 16px',
             'tidalglass':'28px 28px 14px 14px','porcelainink':'4px','obsidianforge':'5px',
             'candycloud':'28px','shadowedge':'12px 0 12px 0','hollowgrove':'28px 12px 28px 12px','gildedhollow':'24px'}[style]
     surface={
+        'midnighttransit':f'linear-gradient(160deg,{p["Button"]},{w} 22%,{b} 78%,{w})',
         'raw':f'linear-gradient(180deg,{w},{b})',
         'modern':f'linear-gradient(160deg,alpha({p["Button"]},0.95),alpha({w},0.93) 50%,alpha({b},0.95))',
         'breakpoint':f'linear-gradient(180deg,{p["Button"]},{b} 55%,alpha({a},0.13))',
@@ -268,6 +272,7 @@ window#waybar {{{frame}}}
     if variation=='centered':
         structure+=f'.modules-center {{background:alpha({b},0.45);border:1px solid alpha({a},0.3);border-radius:{radius};margin:3px 14px;padding:0 9px;}}\n'
     ornament={
+        'midnighttransit':__import__('midnighttransit').bar_controls(p,root),
         'raw':f'''#custom-launcher {{border-left:3px solid {a};border-right:1px dashed {m};letter-spacing:2px;}}
 #workspaces button.active {{background:alpha({a},0.14);border-top:1px solid {a};border-bottom:2px solid {a};}}
 #clock {{border-left:1px dashed {a};padding-left:13px;}}''',

@@ -118,6 +118,9 @@ def appearance():
         QFrame#pickerActions, QStatusBar {{background:{p['AlternateBase']};}}
         QTabBar::tab:selected {{border:1px solid {p['Midlight']}; border-top-color:{p['Accent']}; border-radius:15px;}}
         '''
+    if design == 'midnighttransit':
+        from midnighttransit import files_style
+        style += files_style(p)
     if design == 'hyperfusionblue':
         from hyperfusionblue import steel, blue
         style += f'''QMainWindow,QWidget#filesBody,QWidget#hyperControlPanel,QToolBar,QFrame#addressRow {{background:{steel(p)};}}

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>Fusion Settings · Midnight Transit</title><defs>
+    <linearGradient id="enamel" x2=".25" y2="1"><stop stop-color="#376169"/><stop offset=".24" stop-color="#163e43"/><stop offset=".76" stop-color="#082629"/><stop offset="1" stop-color="#235054"/></linearGradient>
+    <linearGradient id="nickel" x2="0" y2="1"><stop stop-color="#fff6d9"/><stop offset=".45" stop-color="#dbcba6"/><stop offset=".52" stop-color="#998c6d"/><stop offset="1" stop-color="#f6e7bb"/></linearGradient>
+    <linearGradient id="amber" x2="0" y2="1"><stop stop-color="#ffdc88"/><stop offset="1" stop-color="#cf8423"/></linearGradient>
+    </defs><rect x="6" y="7" width="52" height="50" rx="10" fill="url(#enamel)" stroke="url(#nickel)" stroke-width="2"/><rect x="9" y="10" width="46" height="44" rx="7" fill="none" stroke="#d4c69f" stroke-width=".6"/><g fill="none" stroke="#f5dfad" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 17V47M32 17V47M44 17V47M16 28H24M28 39H36M40 25H48"/></g><path d="M24 53H40" stroke="#ffb33e" stroke-width="1.2"/></svg>

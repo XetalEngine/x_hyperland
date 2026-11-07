@@ -1,7 +1,7 @@
 # Cursors
 
 Open **Theme → Cursors**, choose a style and size, then **Apply cursors**.
-Pearl, Carbon, Neon Cyan, Orchid, Ember and Sumi Ink include matching pointer, link, text,
+Pearl, Carbon, Neon Cyan, Orchid, Ember, Sumi Ink and Transit Enamel include matching pointer, link, text,
 resize, drag/drop, zoom, help, unavailable and animated busy shapes.
 
 Open **Theme → Window effects → Mouse effects** for the trail gallery and an
@@ -18,6 +18,10 @@ interactive preview. **Follow desktop theme** is the fresh-install default:
 | Obsidian Forge | Cinder wake — cooling molten fissures and rising embers |
 | Candy Cloud | Cloud nine — satin cloud puffs and drifting four-point stars |
 | Shadow Edge | Blade wake — silver crescent cuts and drifting crimson needles |
+| Hollow Grove | Soft glow — sage wake with Carbon cursor artwork |
+| The Gilded Hollow | Stardust — lantern-gold sparks with Ember cursor artwork |
+| HyperFusion Blue | Soft glow — blue wake with Pearl cursor artwork |
+| Midnight Transit | Soft glow — amber wake with original Transit Enamel artwork |
 
 Every effect can be selected with any desktop theme. Follow uses the effect's
 own palette; selecting a particular effect also allows a custom accent.
@@ -27,8 +31,9 @@ and size. The **General effects** gallery contains the original **Comet**,
 **Soft glow** and **Stardust** effects, independent of every theme.
 The Cursors, Mouse effects and **Theme → Mix & match** pages share one validated preference store;
 conflicting drafts must be reloaded before applying. Theme snapshots include
-these choices in their Cursors component. Built-in presets select Follow while
-preserving personal timing and opacity.
+these choices in their Cursors component. Built-in presets select their themed
+effect or an explicitly colored general effect while preserving personal timing
+and opacity.
 
 `art.py` contains original vector artwork. `build.py` generates both Hyprcursor
 and XCursor formats in the profile's ignored `.build/data/icons` directory. Its

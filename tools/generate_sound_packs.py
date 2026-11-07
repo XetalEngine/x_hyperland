@@ -22,6 +22,7 @@ from sounds.model import PACKS, EVENTS
 RATE = 48000
 # tonic, voice, unique opening melody (semitones), beat spacing
 SCORES = {
+    'midnighttransit': (60, 'transit', [7, 12, 4, 9, 7, 0], .36),
     'hyperfusionblue': (62, 'keys', [0, 7, 12, 9, 16, 19], .36),
     'raw': (62, 'crystal', [0, 7, 12, 16, 14, 19], .34),
     'modern': (64, 'keys', [0, 4, 11, 7, 14], .43),
@@ -63,6 +64,7 @@ def voice(midi, duration, kind, seed=0):
     else:
         # Different modal resonances and decay rates give every material its own voice.
         modes = {
+            'transit': [(1, 1, 3.1), (2.002, .22, 5.4), (3, .10, 8), (4.01, .04, 10)],
             'crystal': [(1, 1, 3.2), (2, .24, 5), (4, .08, 9)],
             'glass': [(1, 1, 3.8), (2.003, .32, 6), (3.997, .11, 11)],
             'water': [(1, 1, 2.7), (2.01, .14, 5), (3, .06, 8)],

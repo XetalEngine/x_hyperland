@@ -58,5 +58,10 @@
     "hyperfusionblue/alpine-arch.png",
     "hyperfusionblue/sapphire-river.png",
     "hyperfusionblue/blue-horizon.png"
+  ],
+  "midnighttransit": [
+    "midnighttransit/midnight-concourse.png",
+    "midnighttransit/last-train-home.png",
+    "midnighttransit/lantern-platform.png"
   ]
 }
