@@ -11,7 +11,8 @@ import sys
 import tempfile
 
 from deb_dependencies import AurRepository, MissingRepositoryIndexes, read_control, resolve
-from deb_recipes import CHROME, VSCODE, dependency_fields, omitted_application_files
+from deb_recipes import (CHROME, VSCODE, RECIPE_NOTICES, dependency_fields,
+                         omitted_application_files, permission_changes, verify_installed_recipe)
 
 TOOLS = {'pactree':'pacman-contrib', 'pkgfile':'pkgfile', 'ar':'binutils',
          'readelf':'binutils', 'fakeroot':'fakeroot', 'curl':'curl', 'gzip':'gzip',
@@ -209,12 +210,14 @@ def payload_manifest(archive, *, stdin=None):
     return Payload(entries)
 
 
-def verify_permissions(original, converted):
+def verify_permissions(original, converted, *, allowed=None):
     changed=[]
     for name,(kind,mode) in getattr(original,'entries',{}).items():
         target=arch_path(name)
         actual=converted.entries.get(target)
         if actual and kind in ('file','dir') and actual[0]==kind and actual[1]!=mode:
+            if kind=='file' and (allowed or {}).get(target)==(mode,actual[1]):
+                continue
             changed.append(f'/{target}: expected {mode:04o}, got {actual[1]:04o}')
     if changed:
         raise RuntimeError('Conversion changed package file permissions. Nothing was installed:\n  '+
@@ -240,7 +243,7 @@ def source_payload(deb):
     return payload
 
 
-def converted_package(package, original, *, omitted=()):
+def converted_package(package, original, *, omitted=(), permissions=None):
     identity=run(['pacman','-Qp','--',package],capture=True).stdout.split()
     if len(identity)!=2 or not re.fullmatch(r'[A-Za-z0-9@_+][A-Za-z0-9@._+\-]*',identity[0]):
         raise RuntimeError('The converted package has no valid package name/version.')
@@ -251,7 +254,7 @@ def converted_package(package, original, *, omitted=()):
     if missing:
         raise RuntimeError('Conversion lost application files. Nothing was installed:\n  '+
                            '\n  '.join(sorted(missing)[:12]))
-    verify_permissions(original,paths)
+    verify_permissions(original,paths,allowed=permissions)
     print('== Converted package: '+' '.join(identity)+f' ({len(paths)} payload files)',flush=True)
     return identity,application_files(paths)
 
@@ -282,6 +285,8 @@ def check_dependencies(deb, fields=None, aur=None):
         print('== Chrome Arch recipe: package-owned icons and native hooks; Debian updater scripts and dpkg prerequisite are replaced.',flush=True)
     elif fields['package']==VSCODE:
         print('== VS Code Arch recipe: package-owned code launcher and native desktop, icon and MIME hooks replace Debian setup scripts.',flush=True)
+    elif fields['package'] in RECIPE_NOTICES:
+        print('== '+RECIPE_NOTICES[fields['package']],flush=True)
     dependencies,rows=resolve(dependency_fields(fields), aur=aur)
     print('== Debian requirements → Arch packages:\n  '+('\n  '.join(rows) or 'No declared dependencies.'),flush=True)
     print('== Version checks use upstream minimums; Debian packaging revisions are not Arch revisions.',flush=True)
@@ -372,7 +377,8 @@ def install(deb, *, check_only=False, convert_only=None):
         if len(packages)!=1:
             raise RuntimeError(f'Conversion produced {len(packages)} installable packages; expected one. Nothing was installed.')
         identity,required=converted_package(packages[0],original,
-                                           omitted=omitted_application_files(fields['package']))
+                                           omitted=omitted_application_files(fields['package']),
+                                           permissions=permission_changes(fields['package']))
         native=native_dependencies(work)
         if native:print('== Native library requirements: '+', '.join(native),flush=True)
         dependencies=list(dict.fromkeys([*dependencies,*native]))
@@ -396,6 +402,7 @@ def install(deb, *, check_only=False, convert_only=None):
               '. Review and confirm the pacman transaction below.',flush=True)
         run(['sudo','pacman','-U',packages[0]],cwd=work)
         verify_installation(identity,required)
+        verify_installed_recipe(fields['package'])
     print('\n== Installed successfully: '+' '.join(identity)+'. Package registration and files verified.',flush=True)
 
 

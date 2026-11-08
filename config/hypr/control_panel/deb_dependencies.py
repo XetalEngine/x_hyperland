@@ -38,12 +38,14 @@ ALIASES = {
     'libudev1': 'systemd-libs', 'libvulkan1': 'vulkan-icd-loader',
     'libuuid1': 'util-linux-libs',  # libuuid.so.1; same util-linux upstream version
     'libx11-6': 'libx11', 'libx11-xcb1': 'libx11', 'libxcb1': 'libxcb',
+    'libxcb-shape0': 'libxcb', 'libxcb-shm0': 'libxcb', 'libxcb-xfixes0': 'libxcb',
     'libxcomposite1': 'libxcomposite', 'libxcursor1': 'libxcursor',
     'libxdamage1': 'libxdamage', 'libxext6': 'libxext', 'libxfixes3': 'libxfixes',
     'libxi6': 'libxi', 'libxinerama1': 'libxinerama', 'libxrandr2': 'libxrandr',
     'libxrender1': 'libxrender', 'libxss1': 'libxss', 'libxtst6': 'libxtst',
     'libxshmfence1': 'libxshmfence',  # libxshmfence.so.1
     'libayatana-appindicator3-1': 'libayatana-appindicator',  # libayatana-appindicator3.so.1 (GTK 3)
+    'libqt5core5a': 'qt5-base', 'libqt5gui5': 'qt5-base', 'libqt5widgets5': 'qt5-base',
     'libxkbcommon0': 'libxkbcommon', 'libxkbcommon-x11-0': 'libxkbcommon-x11',
     'libxkbfile1': 'libxkbfile',  # libxkbfile.so.1; used by VS Code and other X11 apps
     'libwayland-client0': 'wayland', 'libwayland-cursor0': 'wayland',
@@ -55,11 +57,12 @@ ALIASES = {
     # SONAME generation; minimum versions still refer to the GCC release.
     # https://archlinux.org/todo/gcc-libs-deprecation/
     'libatomic1': 'libatomic',  # libatomic.so.1
-    'libgcc-s1': 'libgcc', 'libstdc++6': 'libstdc++',  # libgcc_s.so.1, libstdc++.so.6
+    'libgcc1': 'libgcc', 'libgcc-s1': 'libgcc', 'libstdc++6': 'libstdc++',  # libgcc_s.so.1, libstdc++.so.6
     'libgomp1': 'libgomp', 'libquadmath0': 'libquadmath',  # libgomp.so.1, libquadmath.so.0
     'libgfortran5': 'libgfortran',  # libgfortran.so.5
     'python3': 'python', 'libfuse2': 'fuse2', 'libfuse2t64': 'fuse2',
     'libfuse3-3': 'fuse3',
+    'gnupg2': 'gnupg',  # Arch includes the gpg2/gpgv2 compatibility commands
 }
 ARCHITECTURES = {'x86_64': 'amd64', 'aarch64': 'arm64', 'i686': 'i386',
                  'armv7l': 'armhf'}

@@ -353,6 +353,23 @@ class PayloadTests(unittest.TestCase):
         deb.verify_permissions(payload,deb.Payload({'opt/vendor/a file\\name':('file',0o644),
                                                    'usr/bin/app':('file',0o644)}))
 
+    def test_native_sandbox_permission_exception_is_exact_and_only_for_regular_files(self):
+        from deb_recipes import permission_changes
+        for package in ('opera-stable', '1password'):
+            allowed = permission_changes(package)
+            name = next(iter(allowed))
+            deb.verify_permissions(deb.Payload({name:('file',0o755)}),
+                                   deb.Payload({name:('file',0o4755)}), allowed=allowed)
+            for path, kind, before, after in ((name, 'file', 0o700, 0o4755),
+                                              (name, 'file', 0o755, 0o4777),
+                                              (name, 'dir', 0o755, 0o4755),
+                                              (name+'-other', 'file', 0o755, 0o4755)):
+                with self.subTest(package=package, path=path, kind=kind, before=before, after=after):
+                    with self.assertRaisesRegex(RuntimeError, 'changed package file permissions'):
+                        deb.verify_permissions(deb.Payload({path:(kind,before)}),
+                                               deb.Payload({path:(kind,after)}), allowed=allowed)
+        self.assertEqual(permission_changes('unknown'), {})
+
     def test_build_preserves_source_modes_under_private_umask_and_keeps_parent_private(self):
         archive=self.root/'payload.tar'
         modes={'opt':0o755,'opt/vendor':0o755,'opt/vendor/app':0o755,

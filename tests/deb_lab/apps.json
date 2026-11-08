@@ -167,6 +167,7 @@
       "apt_index": "https://deb.anydesk.com/dists/all/main/binary-amd64/Packages.gz",
       "apt_root": "https://deb.anydesk.com/",
       "package": "anydesk",
+      "local_login": true,
       "launch": ["anydesk"]
     },
     {

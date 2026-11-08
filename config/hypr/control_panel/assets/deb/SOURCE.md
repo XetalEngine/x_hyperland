@@ -13,6 +13,9 @@ Source: <https://github.com/PapirusDevelopmentTeam/papirus-icon-theme/tree/maste
 - `insomnia.svg`
 - `signal-desktop.svg`
 - `sublime-text.svg`
+- `opera.svg`
+- `1password.svg`
+- `anydesk.svg`
 
 They are bundled as fallbacks so the compatibility grid has recognizable icons
 before any of these applications is installed. The active icon theme takes

@@ -110,7 +110,7 @@ class DependencyTests(unittest.TestCase):
                 self.resolve(name, sync={'libayatana-appindicator': '0.6.1-1'})
 
     def test_gcc_runtime_mappings_preserve_minimums_and_use_split_arch_packages(self):
-        mappings = {'libatomic1': 'libatomic', 'libgcc-s1': 'libgcc',
+        mappings = {'libatomic1': 'libatomic', 'libgcc-s1': 'libgcc', 'libgcc1': 'libgcc',
                     'libstdc++6': 'libstdc++', 'libgomp1': 'libgomp',
                     'libquadmath0': 'libquadmath', 'libgfortran5': 'libgfortran'}
         for debian, arch in mappings.items():
@@ -137,6 +137,25 @@ class DependencyTests(unittest.TestCase):
             with self.subTest(dependency=requirement):
                 with self.assertRaisesRegex(RuntimeError, requirement.replace('+', r'\+')):
                     self.resolve(requirement, sync=packages)
+
+    def test_qt5_xcb_and_gnupg_aliases_keep_version_and_abi_checks(self):
+        for name, native, floor in (
+            ('libqt5core5a', 'qt5-base', '5.3.0'),
+            ('libqt5gui5', 'qt5-base', '5.10.0'),
+            ('libqt5widgets5', 'qt5-base', '5.0.2'),
+            ('libxcb-shape0', 'libxcb', '1.11'),
+            ('libxcb-shm0', 'libxcb', '1.11'),
+            ('libxcb-xfixes0', 'libxcb', '1.11'),
+            ('gnupg2', 'gnupg', '2.1'),
+        ):
+            with self.subTest(name=name):
+                result, _ = self.resolve(f'{name} (>= {floor})', sync={native: floor+'-1'})
+                self.assertEqual(result, [native+'>='+floor])
+                with self.assertRaisesRegex(RuntimeError, 'missing or below its minimum'):
+                    self.resolve(f'{name} (>= {floor})', sync={native: '0.1-1'})
+        for other in ('libqt5gui5-gles', 'libqt6core6', 'libxcb-shape1', 'libxcb-shm1', 'libxcb-xfixes1'):
+            with self.subTest(unsupported=other), self.assertRaisesRegex(RuntimeError, other):
+                self.resolve(other, sync={'qt5-base':'99.0-1', 'libxcb':'99.0-1'})
 
     def test_vscode_1_145_2_dependencies_resolve_without_an_aur_lookup(self):
         # Depends from Microsoft's 1.145.2-1793945276 amd64 archive:

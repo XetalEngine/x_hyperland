@@ -10,6 +10,36 @@ import lab
 
 
 class LabTests(unittest.TestCase):
+    def test_local_login_refuses_host_before_writing_guest_service_override(self):
+        with patch.object(guest, 'guard', side_effect=RuntimeError('not a lab guest')), patch.object(guest, 'run') as run:
+            with self.assertRaisesRegex(RuntimeError, 'not a lab guest'):
+                guest.local_login('example')
+            run.assert_not_called()
+
+    def test_local_login_checks_the_actual_active_seat_owner(self):
+        def invoke(args, **kwargs):
+            output = ''
+            if args[:2] == ['loginctl', 'show-seat']: output = '7\n'
+            if args[:2] == ['loginctl', 'show-session']: output = str(guest.os.getuid())+'\n'
+            return subprocess.CompletedProcess(args, 0, output)
+        with patch.object(guest, 'guard') as guard, patch.object(guest, 'run', side_effect=invoke) as run:
+            result = guest.local_login('example')
+        guard.assert_called_once_with('example')
+        self.assertEqual(result['uid'], guest.os.getuid())
+        self.assertEqual(result['session'], '7')
+        self.assertIn(['loginctl', 'show-session', '7', '--property=User', '--value'], [call.args[0] for call in run.call_args_list])
+
+    def test_poweroff_transport_disconnect_still_waits_for_guest_exit(self):
+        instance = object.__new__(lab.Lab)
+        with tempfile.TemporaryDirectory() as directory:
+            instance.current = Path(directory)
+            pid = instance.current/'qemu.pid'; pid.write_text('123')
+            with patch.object(instance, 'ssh', side_effect=subprocess.CalledProcessError(255, ['ssh'])), \
+                 patch.object(lab.time, 'sleep', side_effect=lambda _:pid.unlink()) as sleep:
+                instance.stop(graceful=True)
+            sleep.assert_called_once_with(0.5)
+            self.assertIsNone(instance.current)
+
     def test_sandboxed_window_can_be_identified_without_disabling_its_sandbox(self):
         responses = [
             subprocess.CompletedProcess([], 0, '_NET_WM_PID(CARDINAL) = 123\nWM_CLASS(STRING) = "app"'),

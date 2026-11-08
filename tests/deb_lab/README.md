@@ -26,6 +26,9 @@ python tests/deb_lab/lab.py run --all
 # Run only the second batch of ten popular vendor packages.
 python tests/deb_lab/lab.py run brave opera spotify steam signal 1password sublime-text anydesk rustdesk cursor
 
+# Focus follow-up work on apps without an enabled native repository package.
+python tests/deb_lab/lab.py run opera 1password anydesk
+
 # Test a local download with its normal application command.
 python tests/deb_lab/lab.py run-file /path/to/example_amd64.deb --id example --command example
 
@@ -48,6 +51,15 @@ URLs and hashes come from the vendors' package indexes, GitHub release assets,
 or official download pages. The Cursor URL currently selects the 3.29 release
 listed on its download page; recheck that page when updating the candidate.
 
+For new compatibility work, prefer the native package when one is available in
+the user's enabled repositories. On the development system on 2026-11-08 this
+means skipping `steam` (Arch multilib), `brave-bin` (CachyOS), and
+[`spotify-launcher`](https://archlinux.org/packages/extra/x86_64/spotify-launcher/)
+(Arch extra). The latter manages Spotify's vendor client rather than repackaging
+it with this installer. Check availability with `pacman -Si` before choosing a
+batch; configured repositories differ across installations. The historical
+candidates remain in `apps.json` for reproducibility, so `--all` includes them.
+
 The normal installer and guest runner are snapshotted for each test, then copied
 into that guest. Those exact source files and their hashes stay with the result.
 The harness answers only pacman's ordinary `Proceed with installation? [Y/n]`
@@ -61,6 +73,13 @@ dependency/transaction checks, registration and file-preservation checks.
 GUI checks use Xvfb and Openbox in a private D-Bus session. A pass requires a
 visible window owned by the installed package that survives for at least twelve
 seconds. The lab also records a screenshot and verifies package removal.
+Apps with `local_login: true` (currently AnyDesk) also receive a real tester
+login on the guest's virtual tty1 through PAM/logind. The runner verifies the
+active seat's user; it does not spoof user IDs or disable app session checks.
+The getty override lives only in the guest's `/run`. AnyDesk's root service is
+not enabled for this startup test. Guests shut down cleanly after collection so
+Btrfs writes and diagnostic state survive on the retained test disk, including
+when SSH disconnects before returning the poweroff command's result.
 
 **A GUI smoke pass is not a full compatibility certification.** A window may
 display a login screen or app-specific error. Review its screenshot. This does
@@ -125,6 +144,40 @@ fixtures are in the Control Panel documentation and `test_deb_dependencies.py`.
 Spotify was rerun from a fresh overlay with that change; both its original
 dependency failure and subsequent script-validation failure remain in the logs.
 The other eight candidates were **not** added as working or launch tested.
+
+## Recipe follow-up: November 8, 2026
+
+After adding reviewed native recipes and shared dependency mappings, these
+vendor packages passed installation, package/file verification, a visible
+startup screen and removal in fresh Arch guests. Screenshots were reviewed;
+the Control Panel lists them as **Launch tested**, dated **2026-11-08**.
+
+| Application | Version | Reviewed startup | Evidence run |
+| --- | --- | --- | --- |
+| Opera | 139.0.6053.38 | Normal Speed Dial browser page | `20261108T084809Z-opera` |
+| 1Password | 8.12.44 | Welcome/sign-in screen; native helper permissions and target-user policy also verified | `20261108T084959Z-1password` |
+| AnyDesk | 8.1.0 | Normal Welcome page with a real tester console login; root service not enabled | `20261108T090304Z-anydesk` |
+
+AnyDesk's first launch exposed an undeclared `libevdev.so.2` requirement; its
+recipe now includes the Arch provider. The next attempt exposed a lab issue:
+AnyDesk refuses to run as a user different from the active local login, and a
+bare SSH/Xvfb environment had no such login. A genuine PAM/logind tester session
+on virtual tty1 fixes the fixture without patching AnyDesk or disabling checks.
+Remote connections, accounts, browser integration, audio/video and Wayland
+remain untested. Normal startup is the scope of these catalog entries.
+
+Steam and Brave follow-up work was skipped because native packages were already
+available. Spotify was attempted before discovering Arch's native
+`spotify-launcher`; its conversion installed but startup lacked an indicator
+library. The provisional Spotify recipe was removed, and no passing `.deb`
+claim was added. Prefer the native paths described above.
+
+Reviewed native packaging revisions were Opera
+`104daab16df3adcd016979dc7f42f0a8f6ee3995` (archived; current vendor layout checked
+separately), 1Password `a01e3b048ebbe341d6e6b500304a315a342a7d84`, and AnyDesk
+`61d4ea89d878a844b9d2e71d84388c2662e0fe4d`. Package archive hashes and the exact
+installer/harness snapshots are in each private lab result. The tests installed
+no applications on the development host.
 
 ## Storage on a dedicated NVMe
 

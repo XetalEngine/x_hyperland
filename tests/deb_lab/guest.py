@@ -59,6 +59,29 @@ def install():
             if child.isalive(): child.terminate(force=True)
 
 
+def local_login(expected):
+    """Give session-sensitive apps a real PAM/logind user on the VM's tty1."""
+    guard(expected)  # This helper must also refuse accidental host invocation.
+    directory = '/run/systemd/system/getty@tty1.service.d'
+    run(['sudo', 'mkdir', '-p', directory])
+    run(['sudo', 'tee', directory+'/hyperfusion-deb-lab.conf'],
+        input='[Service]\nExecStart=\nExecStart=-/usr/bin/agetty --autologin tester --noclear %I linux\n',
+        text=True, stdout=subprocess.DEVNULL)
+    run(['sudo', 'systemctl', 'daemon-reload'])
+    run(['sudo', 'systemctl', 'restart', 'getty@tty1.service'])
+    deadline = time.monotonic()+15
+    while time.monotonic() < deadline:
+        session = run(['loginctl', 'show-seat', 'seat0', '--property=ActiveSession', '--value'],
+                      capture_output=True, text=True).stdout.strip()
+        if session:
+            uid = run(['loginctl', 'show-session', session, '--property=User', '--value'],
+                      capture_output=True, text=True).stdout.strip()
+            if uid == str(os.getuid()):
+                return {'user': 'tester', 'uid': int(uid), 'session': session, 'tty': 'tty1'}
+        time.sleep(0.5)
+    raise RuntimeError('The guest tester login did not become active on seat0')
+
+
 def window_info(window):
     result = subprocess.run(['xprop', '-id', window, '_NET_WM_PID', 'WM_CLASS', '_NET_WM_NAME'], capture_output=True, text=True)
     match = re.search(r'_NET_WM_PID\(CARDINAL\) = (\d+)', result.stdout)
@@ -195,6 +218,8 @@ def main():
         record.update(install_passed=True, installed_package=package, installed_version=version, status='launch-failed')
         with (RESULTS/'package-check.log').open('w') as log:
             run(['pacman', '-Qk', '--', package], stdout=log, stderr=subprocess.STDOUT)
+        if app.get('local_login'):
+            record['local_login'] = local_login(app['lab_uuid'])
         subprocess.run(['dbus-run-session', '--', sys.executable, str(Path(__file__)), '--gui', package], timeout=150)
         if (RESULTS/'gui.json').exists():
             record['gui'] = json.loads((RESULTS/'gui.json').read_text())

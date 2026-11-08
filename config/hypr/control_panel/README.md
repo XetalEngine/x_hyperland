@@ -29,8 +29,9 @@ Use `status: "launch_tested"` for an automated installation, GUI startup and
 removal check after reviewing the captured screenshot. This displays **Launch
 tested**, separately from human-reported **Tested working** results. It does not
 claim account, application-feature, GPU or Wayland compatibility. Obsidian
-1.15.0, Bitwarden 2026.9.1, Insomnia 13.4.0, Signal 8.34.0 and Sublime Text
-4215 passed this check on November 8, 2026. The reusable isolated runner is documented in
+1.15.0, Bitwarden 2026.9.1, Insomnia 13.4.0, Signal 8.34.0, Sublime Text
+4215, Opera 139.0.6053.38, 1Password 8.12.44 and AnyDesk 8.1.0 passed this
+check on November 8, 2026. The reusable isolated runner is documented in
 [`tests/deb_lab/README.md`](../../../tests/deb_lab/README.md).
 The bundled Papirus icons are fallbacks for fresh installations.
 
@@ -182,6 +183,48 @@ command is left unclaimed; Microsoft's shim remains under
 `/usr/share/code/bin/copilot-shim/copilot`. Existing editor preferences are kept.
 Other apps' broken scripts still stop; this is a named recipe, not a syntax-check
 bypass. A package layout or product identity change requires another review.
+
+Three more named recipes replace the vendors' Debian setup scripts with native
+package integration. All added launchers, icons, policies and units belong to the
+converted pacman package; dependency, conflict and file ownership checks remain
+enabled. The original binaries stay unchanged.
+
+- **Opera Stable** keeps its vendor launcher and private library directory.
+  Only the reviewed `apt-transport-https` and `debconf` setup groups are removed;
+  unknown alternatives and architecture constraints still stop for review. Qt 5
+  requirements resolve to `qt5-base`. Its specific `opera_sandbox` receives the
+  vendor-required root/setuid mode, checked before packaging and after install.
+  The recipe does not change the default browser or configure an APT repository.
+- **1Password** packages its launchers, Polkit policy, browser defaults and a
+  small native setup helper. On install/upgrade, that helper creates the vendor's
+  protected `onepassword` and `onepassword-mcp` groups, sets the helper permissions
+  and fills the policy with users from the target system. It never adds users to
+  those groups. `/etc/1password/custom_allowed_browsers` is a pacman backup file.
+  The Chromium sandbox retains the vendor-required root/setuid mode. A separate
+  post-install check rejects incomplete group, permission or policy setup even
+  if pacman returned success. APT/debsig configuration is not executed.
+- **AnyDesk** installs its unit in `/usr/lib/systemd/system` as a package-owned
+  file. Its native `libevdev` dependency supplies `libevdev.so.2`, required by
+  the 8.1.0 ELF binary but omitted from its Debian control file. Unattended
+  access is opt-in; installation prints the service command
+  without enabling it. Upgrades refresh an already-running service and removal
+  stops it. GUI startup testing does not certify remote connections.
+
+These adaptations were reviewed against the vendor `.deb` contents and native
+packaging: [Opera's archived Arch recipe](https://gitlab.archlinux.org/archlinux/packaging/packages/opera),
+[1Password](https://aur.archlinux.org/cgit/aur.git/tree/PKGBUILD?h=1password), and
+[AnyDesk](https://aur.archlinux.org/cgit/aur.git/tree/PKGBUILD?h=anydesk-bin).
+The exact vendor versions, archive hashes and recipe snapshots are retained in
+the lab reports. Changed layouts, unexpected symlinks and invalid scripts fail
+before installation. Permission exceptions are restricted to the two named
+sandbox files, specifically `0755` → `4755`; other original permissions remain
+subject to the existing preservation check.
+
+Shared mappings also cover `libxcb-shape0`, `libxcb-shm0`, `libxcb-xfixes0`
+(`libxcb`), `libqt5core5a`, `libqt5gui5`, `libqt5widgets5` (`qt5-base`), the legacy
+`libgcc1` name (`libgcc`), and `gnupg2` (`gnupg`). These match the components in
+the Debian and Arch file lists and keep minimum version checks. They do not
+guess other ABI generations or substitute Qt 5 for Qt 6/GLES packages.
 
 Command-line checks (run as the desktop user):
 

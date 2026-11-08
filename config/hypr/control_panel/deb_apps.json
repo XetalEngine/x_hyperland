@@ -77,6 +77,33 @@
       "status": "launch_tested",
       "tested_on": "2026-11-08",
       "note": "4215 installed, opened to the editor and uninstalled in a disposable Arch Linux VM (X11/Xvfb). Screenshot reviewed. Editing, plugins, licensing and Wayland were not tested."
+    },
+    {
+      "id": "opera",
+      "name": "Opera",
+      "icon": "opera",
+      "url": "https://www.opera.com/download",
+      "status": "launch_tested",
+      "tested_on": "2026-11-08",
+      "note": "139.0.6053.38 installed, opened and uninstalled in a disposable Arch Linux VM (X11/Xvfb). Screenshot reviewed. Opened to the Speed Dial page. Browsing, media, accounts and Wayland were not tested."
+    },
+    {
+      "id": "1password",
+      "name": "1Password",
+      "icon": "1password",
+      "url": "https://support.1password.com/install-linux/",
+      "status": "launch_tested",
+      "tested_on": "2026-11-08",
+      "note": "8.12.44 installed, opened and uninstalled in a disposable Arch Linux VM (X11/Xvfb). Screenshot reviewed. Opened to the welcome screen; native setup permissions verified. Accounts, vaults, browser/MCP integration and Wayland were not tested."
+    },
+    {
+      "id": "anydesk",
+      "name": "AnyDesk",
+      "icon": "anydesk",
+      "url": "https://anydesk.com/en/downloads/linux",
+      "status": "launch_tested",
+      "tested_on": "2026-11-08",
+      "note": "8.1.0 installed, opened to the welcome screen and uninstalled in a disposable Arch Linux VM (X11/Xvfb, logged-in tester). Screenshot reviewed. Remote connections, unattended access, audio and Wayland were not tested."
     }
   ]
 }

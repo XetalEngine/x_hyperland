@@ -240,14 +240,17 @@ class Lab:
         try:
             if graceful:
                 try:
-                    self.ssh(['sudo', 'systemctl', 'poweroff'], capture_output=True)
-                    for _ in range(60):
-                        if not (directory/'qemu.pid').exists():
-                            return
-                        time.sleep(0.5)
-                    error = RuntimeError('Guest did not shut down cleanly; base not promoted')
+                    self.ssh(['sudo', 'systemctl', 'poweroff'], capture_output=True, timeout=15)
                 except subprocess.SubprocessError as caught:
                     error = caught
+                # SSH can disconnect before systemctl's reply during a normal
+                # poweroff. Wait for QEMU to exit before considering it failed.
+                for _ in range(60):
+                    if not (directory/'qemu.pid').exists():
+                        return
+                    time.sleep(0.5)
+                if error is None:
+                    error = RuntimeError('Guest did not shut down cleanly; disk was not safely retained')
                 # Stop only this lab guest even when clean shutdown failed.
                 # Propagate the error so an unclean image is never promoted.
             if (directory/'qmp.sock').exists():
@@ -370,7 +373,13 @@ class Lab:
         except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError) as error:
             record['error'] = str(error)
         finally:
-            self.stop()
+            # Btrfs may otherwise roll back its last transaction on QMP quit,
+            # losing the failed app's trace/configuration on the retained disk.
+            try:
+                self.stop(graceful=True)
+            except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+                record['shutdown_error'] = str(error)
+                record['status'] = 'infrastructure-failed'
             if (self.state/'boot-test').exists() and (run/'disk.qcow2').exists():
                 shutil.copytree(self.state/'boot-test', run/'boot', ignore=shutil.ignore_patterns('*.sock'), dirs_exist_ok=True)
             record['duration_seconds'] = round(time.monotonic()-started, 1)
