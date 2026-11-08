@@ -229,7 +229,7 @@ def enable(user, system=None, root=Path('/')):
             try: system.run(command)
             except Exception as failed: recovery.append(str(failed))
         raise RuntimeError(f'Local SSH setup failed: {error}' + ('\nRecovery needs attention: ' + '; '.join(recovery) if recovery else '\nPrevious SSH configuration restored.')) from error
-    return {'port': PORT, 'message': f'Local SSH enabled for {user}. Click Copy, then run the script in Windows and use your Linux password.'}
+    return {'port': PORT, 'message': f'Local SSH enabled for {user}. Click Copy, run the script after Windows boots, and use your Linux password for SSH and the administrator prompt.'}
 
 
 def request():

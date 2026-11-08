@@ -22,9 +22,17 @@ class GuestConnectionTests(unittest.TestCase):
                            'QMP_SOCKET=/home/alice/My VMs/run/qmp.sock', 'GUEST_NAME=Windows 11'):
             self.assertIn('set "'+assignment+'"', text)
         self.assertIn("bash '%HOST_HELPER%' --qmp '%QMP_SOCKET%' --domain '%GUEST_NAME%'", text)
+        self.assertIn('ssh.exe -tt ', text)
         self.assertEqual(self.config, before)
         self.assertEqual((portable.ROOT/'guest/vmstealth75.bat').read_bytes().decode(), self.template)
-        self.assertEqual(text.count('\r\n'), self.template.count('\r\n'))
+        self.assertEqual(text.count('\r\n'), text.count('\n'))
+        self.assertEqual(text.count('\n'), self.template.count('\n'))
+
+    def test_qemu_guest_name_option_is_not_copied_as_part_of_the_name(self):
+        self.config['simple']['name'] = 'guest=win10,debug-threads=on'
+        text = guest.render(self.template, self.config, managed=True, user='alice', address='192.168.1.25')
+        self.assertIn('set "GUEST_NAME=win10"', text)
+        self.assertNotIn('GUEST_NAME=guest=', text)
 
     def test_custom_login_and_commands_are_preserved(self):
         custom = '@echo off\r\nset "HOST_LOGIN=bob@192.168.4.8"\r\necho custom\r\n'

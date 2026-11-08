@@ -412,7 +412,7 @@
     "kvm_build_args": "",
     "qemu_build": "",
     "ovmf_build": "",
-    "vmstealth_host": "${KVM_DATA}/components/kvm-amd/current/vmstealth75.sh",
+    "vmstealth_host": "${KVM_APP}/guest/vmstealth75.sh",
     "vmstealth_guest": "${KVM_APP}/guest/vmstealth75.bat",
     "tpm_root": "${KVM_DATA}/tpm-workspace",
     "tpm_reconstruct": "${KVM_DATA}/tpm-workspace/scripts/tpm-reconstruct.sh",

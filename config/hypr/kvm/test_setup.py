@@ -444,11 +444,14 @@ class SetupTests(unittest.TestCase):
         self.assertFalse(portable.component_path('kvm-amd').exists())
         # Upgrade a saved preset with the previous managed component path.
         w.cfg.data['tools']['vmstealth_guest'] = str(portable.component_path('kvm-amd')/'vmstealth75.bat')
+        w.cfg.data['tools']['vmstealth_host'] = str(portable.component_path('kvm-amd')/'vmstealth75.sh')
         tab = w.tab_paths
         tab.tools(); tab.refresh()
         self.assertTrue(Path(w.cfg.data['tools']['vmstealth_guest']).is_file())
+        self.assertEqual(w.cfg.data['tools']['vmstealth_host'], str(portable.ROOT/'guest/vmstealth75.sh'))
         self.assertTrue(tab.guest_batch_copy.isEnabled())
         self.assertIn('set "HOST_LOGIN=alice@192.168.50.10"', tab.guest_batch_preview.toPlainText())
+        self.assertIn('set "GUEST_NAME=win10"', tab.guest_batch_preview.toPlainText())
         tab.guest_batch_copy.click()
         self.assertEqual(self.application.clipboard().text(), tab._guest_batch_text)
         self.assertIn('HOST_LOGIN', self.application.clipboard().text())

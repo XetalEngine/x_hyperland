@@ -18,6 +18,8 @@ import hashlib
 import vm_memory
 import vm_session
 import runtime_access
+import module_image
+import module_state
 
 
 def main():
@@ -46,7 +48,34 @@ def main():
                             assert vm_memory.run_pinned([image.path],[image])==0
                         finally:os.close(fd)
             assert not (component/'libexec/qemu-system-x86_64').exists()
-            print('Root memory/keyring/descriptor/execution fixture passed; no network or modules used.')
+            # Exercise the Windows handoff with authenticated module metadata,
+            # real locked memfds and a root-owned receipt in disposable sysfs.
+            # These are synthetic ELF metadata fixtures, never kernel-loaded.
+            from test_module_image import elf
+            import platform
+            modules=root/'modules';modules.mkdir()
+            sysfs=root/'sys-module';versions={}
+            for name,filename in (('kvm','kvm.ko'),('kvm_amd','kvm-amd.ko')):
+                version=('A' if name=='kvm' else 'B')*24
+                plain=elf((platform.release()+' SMP').encode(),version.encode())
+                associated=vm_memory.aad('xetallic','kvm-amd',filename)
+                nonce=os.urandom(12)
+                encrypted=vm_memory.MAGIC+nonce+AESGCM(key).encrypt(nonce,plain,associated)
+                image_path=modules/(filename+'.xvm');image_path.write_bytes(encrypted)
+                info={'size':len(plain),'sha256':hashlib.sha256(encrypted).hexdigest()}
+                with vm_memory.Image(image_path,info,key,associated) as image:
+                    assert module_image.vermagic(image.fd).split()[0]==platform.release()
+                    versions[name]=module_image.modinfo(image.fd,'srcversion')
+                (sysfs/name).mkdir(parents=True)
+                (sysfs/name/'srcversion').write_text(version+'\n')
+                assert not (modules/filename).exists()
+            parameter=sysfs/'kvm_amd/parameters/intercept_cpuid'
+            parameter.parent.mkdir();parameter.write_text('Y\n')
+            with patch.object(module_state,'RECEIPT',root/'module-receipt.json'), \
+                 patch.object(module_state,'SYS_MODULE',sysfs):
+                module_state.record_loaded(platform.release(),versions)
+                assert module_state.verified()['srcversions']==versions
+            print('Root memory/keyring/descriptor/execution and encrypted module identity fixtures passed; no network or kernel modules used.')
         finally:runtime_access.revoke(root)
 
 

@@ -16,7 +16,9 @@ def read(fd, offset, count):
     return data
 
 
-def vermagic(fd):
+def modinfo(fd, field):
+    if field not in ('vermagic', 'srcversion'):
+        raise ValueError('Unsupported module metadata field')
     header=read(fd,0,64)
     if header[:7]!=b'\x7fELF\x02\x01\x01' or struct.unpack_from('<HH',header,16)!=(1,62):
         raise ValueError('Expected an x86-64 Linux module')
@@ -35,11 +37,18 @@ def vermagic(fd):
         if end<0:raise ValueError('Invalid module section name')
         if names[item[0]:end]==b'.modinfo':
             entries=read(fd,item[4],item[5]).split(b'\0')
-            values=[entry[9:].decode('ascii') for entry in entries if entry.startswith(b'vermagic=')]
+            prefix=(field+'=').encode('ascii')
+            values=[entry[len(prefix):].decode('ascii') for entry in entries if entry.startswith(prefix)]
             if len(values)!=1 or not values[0].split() or len(values[0])>512:
-                raise ValueError('Invalid module version metadata')
+                raise ValueError('Invalid module '+field+' metadata')
+            if field == 'srcversion' and not re.fullmatch(r'[A-Fa-f0-9]{24}', values[0]):
+                raise ValueError('Invalid module srcversion metadata')
             return values[0]
-    raise ValueError('Module version metadata is missing')
+    raise ValueError('Module '+field+' metadata is missing')
+
+
+def vermagic(fd):
+    return modinfo(fd, 'vermagic')
 
 
 def load(fd, parameters):

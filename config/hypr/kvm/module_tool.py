@@ -56,7 +56,8 @@ def main():
         if args==['--install']:raise RuntimeError('This edition supports loading the custom module for the current boot only.')
         from vm_session import receive_image
         from vm_memory import private_memory
-        from module_image import vermagic
+        from module_image import vermagic, modinfo
+        from module_state import record_loaded
         private_memory()
         descriptors=[]
         try:
@@ -64,10 +65,14 @@ def main():
             for fd in descriptors:
                 if vermagic(fd).split()[0]!=entry['kernel']:
                     raise RuntimeError('Module ABI does not match its release metadata.')
+            srcversions={name:modinfo(fd,'srcversion')
+                         for name,fd in zip(('kvm','kvm_amd'),descriptors)}
             environment=dict(os.environ,XETAL_KVM_MEMORY_MODULES='1',
                 XETAL_KVM_CORE_IMAGE=str(descriptors[0]),XETAL_KVM_AMD_IMAGE=str(descriptors[1]),
                 XETAL_KVM_IMAGE_HELPER=str(portable.ROOT/'module_image.py'))
             reply=subprocess.run(['/usr/bin/bash',str(path/'load-kvm.sh')],env=environment,pass_fds=descriptors)
+            if reply.returncode == 0:
+                record_loaded(entry['kernel'],srcversions)
             raise SystemExit(reply.returncode)
         finally:
             for fd in descriptors:os.close(fd)

@@ -494,7 +494,7 @@ class PathsTab(QScrollArea):
         self.guest_batch_preview.setMinimumSize(280, 170)
         self.guest_batch_preview.setAccessibleName("Guest batch file contents")
         batch_layout.addWidget(self.guest_batch_preview)
-        self.guest_ssh_status = QLabel("Enable local SSH once, then Copy. Your Linux login and VM paths are filled in automatically.")
+        self.guest_ssh_status = QLabel("Enable local SSH once, then Copy. Run in Windows after boot; enter your Linux password for SSH and the administrator prompt.")
         self.guest_ssh_status.setTextFormat(Qt.TextFormat.PlainText)
         self.guest_ssh_status.setWordWrap(True)
         batch_layout.addWidget(self.guest_ssh_status)
@@ -514,10 +514,11 @@ class PathsTab(QScrollArea):
 
         # ---- helper scripts ---------------------------------------------------------
         g, box = _group("Stealth helpers")
-        hdr = QLabel("Run by hand, not by launch: the CPUID drop must happen after "
-                     "Windows has finished enumerating topology. The Windows guest script is included "
-                     "with the desktop. Copy fills in your SSH login and VM paths; it requires the matching "
-                     "custom AMD KVM module and host helper.")
+        hdr = QLabel("KVM Settings decrypts and loads the matching custom modules before VM boot. "
+                     "After Windows reaches the desktop, run the copied BAT to verify those modules "
+                     "and enable native CPU timing. Enter your Linux administrator password when prompted. "
+                     "Run the BAT with the on argument before restarting Windows within the VM. "
+                     "This setting affects all AMD KVM guests on the host.")
         hdr.setWordWrap(True)
         g.addWidget(hdr, 0, 0)
         self._add(g, 1, "Host script",
@@ -528,7 +529,7 @@ class PathsTab(QScrollArea):
         self._add(g, 2, "Guest script",
                   lambda: t.get("vmstealth_guest", ""),
                   self._set_guest_batch_path,
-                  tip="Included Windows .bat template. Copy it into the guest, then edit HOST_LOGIN and any custom paths before running.")
+                  tip="Copy fills your Linux login and VM paths. Run after Windows boots; SSH and sudo use your Linux password.")
         pairs2.addWidget(box, 0, 0, Qt.AlignmentFlag.AlignTop)
 
         # ---- memory / sockets ----------------------------------------------------------

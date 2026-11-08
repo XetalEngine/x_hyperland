@@ -38,13 +38,16 @@ class RuntimeSetupTests(unittest.TestCase):
 
     def test_old_guest_script_default_migrates_but_custom_choices_are_preserved(self):
         with tempfile.TemporaryDirectory() as name, patch.dict(os.environ, {'XETAL_KVM_DATA':name}):
-            tools = {'vmstealth_guest':str(portable.component_path('kvm-amd')/'vmstealth75.bat')}
-            portable.upgrade_guest_script(tools)
-            self.assertEqual(tools['vmstealth_guest'], portable.tool_defaults()['vmstealth_guest'])
-            for choice in ('', str(Path(name)/'personal helper.bat')):
-                tools['vmstealth_guest'] = choice
-                portable.upgrade_guest_script(tools)
-                self.assertEqual(tools['vmstealth_guest'], choice)
+            for key, filename in (('vmstealth_guest', 'vmstealth75.bat'), ('vmstealth_host', 'vmstealth75.sh')):
+                for prefix in ('components', 'editions/stock/components', 'editions/xetallic/components'):
+                    tools = {key:str(Path(name)/prefix/'kvm-amd/current'/filename)}
+                    portable.upgrade_guest_script(tools)
+                    self.assertEqual(tools[key], portable.tool_defaults()[key])
+                    self.assertTrue(Path(tools[key]).is_file())
+                for choice in ('', str(Path(name)/('personal '+filename))):
+                    tools[key] = choice
+                    portable.upgrade_guest_script(tools)
+                    self.assertEqual(tools[key], choice)
 
     def test_only_untouched_default_snapshots_are_upgraded(self):
         with tempfile.TemporaryDirectory() as name:

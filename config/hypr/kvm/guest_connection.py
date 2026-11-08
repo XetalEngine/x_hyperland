@@ -83,7 +83,7 @@ def render(text, config, *, managed, user=None, address=None):
             raise ValueError('Select a Unix QMP socket before copying the guest helper.')
         values.update(HOST_PORT=str(PORT), HOST_HELPER=tools.get('vmstealth_host', ''),
                       QMP_SOCKET=qmp[5:].split(',', 1)[0],
-                      GUEST_NAME=simple.get('name', 'win10').split(',', 1)[0])
+                      GUEST_NAME=simple.get('name', 'win10').split(',', 1)[0].removeprefix('guest='))
     for key, value in values.items():
         # Values cross both cmd.exe and the remote POSIX shell. The template
         # quotes paths, and rejects characters that could break either layer.
@@ -93,4 +93,4 @@ def render(text, config, *, managed, user=None, address=None):
         text, count = pattern.subn(lambda _: f'set "{key}={value}"', text)
         if count != 1:
             raise ValueError(f'The guest script needs exactly one {key} setting.')
-    return text
+    return text.replace('\r\n', '\n').replace('\n', '\r\n') if managed else text

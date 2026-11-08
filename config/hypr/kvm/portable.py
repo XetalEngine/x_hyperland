@@ -22,10 +22,15 @@ def tool_defaults():
 
 
 def upgrade_guest_script(tools):
-    """Move the old managed default out of the optional module download."""
-    previous = str(component_path('kvm-amd')/'vmstealth75.bat')
-    if tools.get('vmstealth_guest') == previous:
-        tools['vmstealth_guest'] = str(ROOT/'guest/vmstealth75.bat')
+    """Move managed helpers out of old source-dependent module downloads."""
+    root = data_root()
+    bases = [root/'components', *(root/'editions'/edition/'components'
+                                 for edition in ('stock', 'xetallic'))]
+    for key, filename in (('vmstealth_guest', 'vmstealth75.bat'),
+                          ('vmstealth_host', 'vmstealth75.sh')):
+        previous = {str(base/'kvm-amd/current'/filename) for base in bases}
+        if tools.get(key) in previous:
+            tools[key] = str(ROOT/'guest'/filename)
 
 
 def configuration(profile):

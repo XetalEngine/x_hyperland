@@ -8,9 +8,9 @@ from unittest.mock import Mock, patch
 import module_image
 
 
-def elf(vermagic=b'fixture-kernel SMP'):
+def elf(vermagic=b'fixture-kernel SMP', srcversion=b'A'*24):
     names=b'\0.shstrtab\0.modinfo\0'
-    info=b'license=GPL\0vermagic='+vermagic+b'\0'
+    info=b'license=GPL\0vermagic='+vermagic+b'\0srcversion='+srcversion+b'\0'
     header=bytearray(64)
     header[:7]=b'\x7fELF\x02\x01\x01'
     struct.pack_into('<HH',header,16,1,62)
@@ -32,6 +32,12 @@ class ModuleImageTests(unittest.TestCase):
     def test_reads_real_elf_section_layout_without_modinfo(self):
         fd=self.descriptor(elf())
         self.assertEqual(module_image.vermagic(fd),'fixture-kernel SMP')
+        self.assertEqual(module_image.modinfo(fd,'srcversion'),'A'*24)
+
+    def test_rejects_missing_duplicate_or_invalid_module_identity(self):
+        for value in (b'', b'../untrusted', b'A'*23, b'A'*24+b'\0srcversion='+b'B'*24):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, 'srcversion'):
+                module_image.modinfo(self.descriptor(elf(srcversion=value)), 'srcversion')
 
     def test_rejects_truncation_wrong_arch_and_invalid_section_bounds(self):
         wrong_arch=elf();struct.pack_into('<H',wrong_arch,18,183)
