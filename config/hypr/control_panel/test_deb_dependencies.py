@@ -1,4 +1,4 @@
-"""Regression cases from Chrome's Debian metadata and isolated archive fixtures."""
+"""Regression cases from vendor Debian metadata and isolated archive fixtures."""
 import io
 import json
 import os
@@ -29,6 +29,60 @@ def fields(requirements='', **extra):
 class DependencyTests(unittest.TestCase):
     def resolve(self, requirements, local=None, sync=None, **extra):
         return deps.resolve(fields(requirements, **extra), Inventory(local, sync), 'x86_64')
+
+    def test_discord_1_0_168_dependencies_resolve_without_an_aur_lookup(self):
+        # Depends from the official Discord 1.0.168 amd64 archive, checked
+        # 2026-11-08: https://discord.com/api/download?platform=linux&format=deb
+        # SHA256: 93d43ad090825b9edcacfb3841506ea51e7040c60d93a9e377d0caca547bea28
+        control = dict(package='discord', version='1.0.168', architecture='amd64',
+                       depends=('libc6, libasound2, libatk1.0-0, libatk-bridge2.0-0, '
+                                'libatspi2.0-0, libatomic1, libcairo2, libdbus-1-3, '
+                                'libexpat1, libgbm1, libglib2.0-0, libgtk-3-0, '
+                                'libnotify4, libnspr4, libnss3, libpango-1.0-0, '
+                                'libstdc++6, libudev1, libx11-6, libxcb1, '
+                                'libxcomposite1, libxdamage1, libxext6, libxfixes3, '
+                                'libxkbcommon0, libxrandr2'))
+        expected = ['glibc', 'alsa-lib', 'at-spi2-core', 'libatomic', 'cairo',
+                    'dbus', 'expat', 'mesa', 'glib2', 'gtk3', 'libnotify', 'nspr',
+                    'nss', 'pango', 'libstdc++', 'systemd-libs', 'libx11',
+                    'libxcb', 'libxcomposite', 'libxdamage', 'libxext',
+                    'libxfixes', 'libxkbcommon', 'libxrandr']
+        aur = deps.AurRepository()
+        with patch.object(aur, 'available', side_effect=AssertionError('unnecessary AUR lookup')):
+            result, rows = deps.resolve(control, Inventory(sync=dict.fromkeys(expected, '1.0-1')),
+                                        'x86_64', aur)
+        self.assertEqual(result, expected)
+        self.assertIn('libatomic1 → libatomic (repository: 1.0-1)', rows)
+        self.assertEqual(aur.selected, {})
+
+    def test_gcc_runtime_mappings_preserve_minimums_and_use_split_arch_packages(self):
+        mappings = {'libatomic1': 'libatomic', 'libgcc-s1': 'libgcc',
+                    'libstdc++6': 'libstdc++', 'libgomp1': 'libgomp',
+                    'libquadmath0': 'libquadmath', 'libgfortran5': 'libgfortran'}
+        for debian, arch in mappings.items():
+            with self.subTest(dependency=debian):
+                requirement = f'{debian} (>= 14.2.0-3)'
+                result, rows = self.resolve(requirement, local={arch: '14.2.1-1'})
+                self.assertEqual(result, [arch + '>=14.2.0'])
+                self.assertIn('(installed: 14.2.1-1)', rows[0])
+                result, rows = self.resolve(requirement, local={arch: '13.3.0-1'},
+                                            sync={arch: '16.2.1-1'})
+                self.assertEqual(result, [arch + '>=14.2.0'])
+                self.assertIn('(repository: 16.2.1-1)', rows[0])
+                # A missing/old component cannot be satisfied by the version
+                # of the gcc-libs meta-package or by omitting the dependency.
+                for inventory in ({'gcc-libs': '99.0-1'}, {arch: '99:13.3.0-1'}):
+                    with self.subTest(inventory=inventory):
+                        with self.assertRaisesRegex(RuntimeError, 'missing or below its minimum'):
+                            self.resolve(requirement, sync=inventory)
+
+    def test_unsupported_gcc_runtime_abis_are_not_mapped_to_current_libraries(self):
+        packages = {'libatomic': '16.2.1-1', 'libstdc++': '16.2.1-1',
+                    'libgfortran': '16.2.1-1'}
+        for requirement in ('libatomic2', 'libstdc++5', 'libgfortran4'):
+            with self.subTest(dependency=requirement):
+                with self.assertRaisesRegex(RuntimeError, requirement.replace('+', r'\+')):
+                    self.resolve(requirement, sync=packages)
 
     def test_chrome_epochs_never_become_part_of_package_names(self):
         control = ('libnspr4 (>= 2:4.9-2~), libnss3 (>= 2:3.35), '

@@ -60,6 +60,26 @@ dependencies are never silently dropped or installed with `--nodeps`. Unknown
 dependencies are not guessed, downloaded from Debian, or built from arbitrary AUR
 search matches; extending support requires an explicit mapping or recipe.
 
+GCC runtime mappings follow Arch's [split runtime packages](https://archlinux.org/todo/gcc-libs-deprecation/):
+
+| Debian dependency | Arch package | Shared library ABI |
+| --- | --- | --- |
+| `libatomic1` | `libatomic` | `libatomic.so.1` |
+| `libgcc-s1` | `libgcc` | `libgcc_s.so.1` |
+| `libstdc++6` | `libstdc++` | `libstdc++.so.6` |
+| `libgomp1` | `libgomp` | `libgomp.so.1` |
+| `libquadmath0` | `libquadmath` | `libquadmath.so.0` |
+| `libgfortran5` | `libgfortran` | `libgfortran.so.5` |
+
+These shared mappings apply to every `.deb`, including Discord 1.0.168's
+`libatomic1` requirement. The [Debian file list](https://packages.debian.org/trixie/amd64/libatomic1/filelist)
+and [Arch file list](https://archlinux.org/packages/core/x86_64/libatomic/files/)
+identify the same library ABI. Version minimums remain enforced, and unsupported
+ABI generations still stop resolution. For future mappings, verify the actual
+library and package ownership in both distributions and add a dependency fixture
+with missing/insufficient-version cases. The Discord fixture checks dependency
+resolution only; it does not establish successful installation or launch.
+
 The helper prepares missing conversion tools (including `pactree` from
 `pacman-contrib`) and repairs incomplete debtap/pkgfile databases before converting.
 It verifies database contents even when `debtap -u` claims success, and installs

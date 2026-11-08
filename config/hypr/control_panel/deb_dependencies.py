@@ -47,7 +47,13 @@ ALIASES = {
     'liblzma5': 'xz', 'libbz2-1.0': 'bzip2', 'libsqlite3-0': 'sqlite',
     'libssl3': 'openssl', 'libssl3t64': 'openssl', 'libnotify4': 'libnotify',
     'libsecret-1-0': 'libsecret', 'libpulse0': 'libpulse',
-    'libgcc-s1': 'gcc-libs', 'libstdc++6': 'gcc-libs',
+    # GCC runtimes are split packages in current Arch. Match the explicit
+    # SONAME generation; minimum versions still refer to the GCC release.
+    # https://archlinux.org/todo/gcc-libs-deprecation/
+    'libatomic1': 'libatomic',  # libatomic.so.1
+    'libgcc-s1': 'libgcc', 'libstdc++6': 'libstdc++',  # libgcc_s.so.1, libstdc++.so.6
+    'libgomp1': 'libgomp', 'libquadmath0': 'libquadmath',  # libgomp.so.1, libquadmath.so.0
+    'libgfortran5': 'libgfortran',  # libgfortran.so.5
     'python3': 'python', 'libfuse2': 'fuse2', 'libfuse2t64': 'fuse2',
     'libfuse3-3': 'fuse3',
 }
