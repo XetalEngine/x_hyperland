@@ -20,7 +20,7 @@ directory are outside the converted system payload.
 The page has a theme-aware **Experimental** banner and a responsive app grid
 below the installation buttons. `deb_apps.json` is the compatibility catalog:
 **Google Chrome** is reported working on **November 7, 2026**, and **Discord
-1.0.168** on **November 8, 2026**. Visual Studio Code is still **untested**.
+1.0.168** and **Visual Studio Code 1.145.2** on **November 8, 2026**.
 Clicking an app opens its official download page; it does not download or install a package.
 Test dates describe a reported result, not support for all future versions.
 Keep new entries untested until an installation and launch have been checked;

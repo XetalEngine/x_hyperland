@@ -29,8 +29,9 @@
       "name": "Visual Studio Code",
       "icon": "vscode",
       "url": "https://code.visualstudio.com/download",
-      "status": "untested",
-      "note": "No compatibility report yet"
+      "status": "tested",
+      "tested_on": "2026-11-08",
+      "note": "1.145.2 reported working on Arch Linux"
     }
   ]
 }

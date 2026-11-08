@@ -85,9 +85,11 @@ private slots:
     QCOMPARE(opened.last(), QUrl("https://discord.com/download"));
     auto *vscode = button(page, "debApp_vscode");
     QVERIFY(vscode);
-    QVERIFY(!vscode->property("tested").toBool());
-    QVERIFY(vscode->accessibleName().contains("untested"));
-    QVERIFY(vscode->property("testedOn").toString().isEmpty());
+    QVERIFY(vscode->property("tested").toBool());
+    QVERIFY(vscode->accessibleName().contains("tested working"));
+    QCOMPARE(vscode->property("testedOn").toString(), QString("2026-11-08"));
+    vscode->click();
+    QCOMPARE(opened.last(), QUrl("https://code.visualstudio.com/download"));
   }
 
   void feedbackRequiresReproducibleDetailsAndOpensOnlyOnRequest() {
