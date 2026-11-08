@@ -68,6 +68,47 @@ class DependencyTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'libuuid2'):
             self.resolve('libuuid2', sync={'util-linux-libs': '2.42.4-1'})
 
+    def test_spotify_1_2_95_dependencies_resolve_to_native_libraries(self):
+        # Official Spotify repository, 2026-11-08; SHA256:
+        # 256e2eb1ec96fbc0c51afab247298e4e6eabfabbafafd4617584f44cca2fb31f
+        requirements = ('libc6 (>= 2.39), libasound2, libatk-bridge2.0-0, '
+                        'libatomic1, libgbm1, libglib2.0-0, libgtk-3-0, libnss3, '
+                        'libxshmfence1, libxss1, libxtst6, xdg-utils, libayatana-appindicator3-1')
+        packages = {'glibc': '2.44-1', 'alsa-lib': '1.2.16.1-1',
+                    'at-spi2-core': '2.62.1-1', 'libatomic': '16.2.1-1',
+                    'mesa': '1:26.2.5-1', 'glib2': '2.90.1-1', 'gtk3': '1:3.24.52-2',
+                    'nss': '3.132-1', 'libxshmfence': '1.3.3-1', 'libxss': '1.2.4-1',
+                    'libxtst': '1.2.5-1', 'xdg-utils': '1.2.1-1',
+                    'libayatana-appindicator': '0.6.1-1'}
+        aur = deps.AurRepository()
+        with patch.object(aur, 'available', side_effect=AssertionError('unnecessary AUR lookup')):
+            result, _ = deps.resolve(fields(requirements), Inventory(sync=packages), 'x86_64', aur)
+        self.assertEqual(set(result), (set(packages) - {'glibc'}) | {'glibc>=2.39'})
+        self.assertEqual(aur.selected, {})
+
+    def test_shmfence_and_ayatana_mappings_keep_versions_and_abi_boundaries(self):
+        # Verified matching SONAMEs in the official Debian/Arch file lists:
+        # https://packages.debian.org/trixie/amd64/libxshmfence1/filelist
+        # https://archlinux.org/packages/extra/x86_64/libxshmfence/files/
+        # https://packages.debian.org/trixie/amd64/libayatana-appindicator3-1/filelist
+        # https://archlinux.org/packages/extra/x86_64/libayatana-appindicator/files/
+        for debian, arch, floor, good, old, other in (
+            ('libxshmfence1', 'libxshmfence', '1.3', '1.3.3-1', '1.2-1', 'libxshmfence2'),
+            ('libayatana-appindicator3-1', 'libayatana-appindicator', '0.5.90', '0.6.1-1', '0.5.89-1', 'libayatana-appindicator4-1'),
+        ):
+            with self.subTest(dependency=debian):
+                result, _ = self.resolve(f'{debian} (>= {floor})', sync={arch: good})
+                self.assertEqual(result, [f'{arch}>={floor}'])
+                for packages in ({}, {arch: old}):
+                    with self.assertRaisesRegex(RuntimeError, 'missing or below its minimum'):
+                        self.resolve(f'{debian} (>= {floor})', sync=packages)
+                with self.assertRaisesRegex(RuntimeError, other):
+                    self.resolve(other, sync={arch: good})
+        # The GTK 2 component and the old libappindicator ABI are not synonyms.
+        for name in ('libayatana-appindicator1', 'libappindicator3-1'):
+            with self.assertRaisesRegex(RuntimeError, name):
+                self.resolve(name, sync={'libayatana-appindicator': '0.6.1-1'})
+
     def test_gcc_runtime_mappings_preserve_minimums_and_use_split_arch_packages(self):
         mappings = {'libatomic1': 'libatomic', 'libgcc-s1': 'libgcc',
                     'libstdc++6': 'libstdc++', 'libgomp1': 'libgomp',

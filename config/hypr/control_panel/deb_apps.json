@@ -59,6 +59,24 @@
       "status": "launch_tested",
       "tested_on": "2026-11-08",
       "note": "13.4.0 installed, opened and uninstalled in a disposable Arch Linux VM (X11/Xvfb). Screenshot reviewed. Accounts, app features and Wayland were not tested."
+    },
+    {
+      "id": "signal",
+      "name": "Signal",
+      "icon": "signal-desktop",
+      "url": "https://signal.org/download/linux/",
+      "status": "launch_tested",
+      "tested_on": "2026-11-08",
+      "note": "8.34.0 installed, opened to the phone-linking screen and uninstalled in a disposable Arch Linux VM (X11/Xvfb). Screenshot reviewed. Pairing, messaging, calls and Wayland were not tested."
+    },
+    {
+      "id": "sublime-text",
+      "name": "Sublime Text",
+      "icon": "sublime-text",
+      "url": "https://www.sublimetext.com/download",
+      "status": "launch_tested",
+      "tested_on": "2026-11-08",
+      "note": "4215 installed, opened to the editor and uninstalled in a disposable Arch Linux VM (X11/Xvfb). Screenshot reviewed. Editing, plugins, licensing and Wayland were not tested."
     }
   ]
 }

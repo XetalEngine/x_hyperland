@@ -11,6 +11,8 @@ Source: <https://github.com/PapirusDevelopmentTeam/papirus-icon-theme/tree/maste
 - `obsidian.svg`
 - `bitwarden.svg`
 - `insomnia.svg`
+- `signal-desktop.svg`
+- `sublime-text.svg`
 
 They are bundled as fallbacks so the compatibility grid has recognizable icons
 before any of these applications is installed. The active icon theme takes

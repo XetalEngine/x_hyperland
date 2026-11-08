@@ -29,8 +29,8 @@ Use `status: "launch_tested"` for an automated installation, GUI startup and
 removal check after reviewing the captured screenshot. This displays **Launch
 tested**, separately from human-reported **Tested working** results. It does not
 claim account, application-feature, GPU or Wayland compatibility. Obsidian
-1.15.0, Bitwarden 2026.9.1 and Insomnia 13.4.0 passed this check on November 8,
-2026. The reusable isolated runner is documented in
+1.15.0, Bitwarden 2026.9.1, Insomnia 13.4.0, Signal 8.34.0 and Sublime Text
+4215 passed this check on November 8, 2026. The reusable isolated runner is documented in
 [`tests/deb_lab/README.md`](../../../tests/deb_lab/README.md).
 The bundled Papirus icons are fallbacks for fresh installations.
 
@@ -103,6 +103,17 @@ provides `libxkbfile.so.1`. This mapping also applies to other `.deb` apps, with
 the same minimum-version checks. Its regression fixture covers Microsoft's full
 dependency list, and missing, outdated or unsupported library ABIs still stop
 resolution. Passing the dependency check does not mark VS Code tested working.
+
+Spotify's dependency preflight also exposed two shared mappings:
+`libxshmfence1` → `libxshmfence` and `libayatana-appindicator3-1` →
+`libayatana-appindicator`. The [Debian Xshmfence files](https://packages.debian.org/trixie/amd64/libxshmfence1/filelist)
+and [Arch Xshmfence files](https://archlinux.org/packages/extra/x86_64/libxshmfence/files/)
+identify `libxshmfence.so.1`; the [Debian Ayatana files](https://packages.debian.org/trixie/amd64/libayatana-appindicator3-1/filelist)
+and [Arch Ayatana files](https://archlinux.org/packages/extra/x86_64/libayatana-appindicator/files/)
+identify `libayatana-appindicator3.so.1`. Minimum versions still apply. GTK 2,
+other ABI generations and the old `libappindicator3-1` name are not substituted
+with the GTK 3 Ayatana library. The Spotify metadata fixture checks that these
+requirements resolve through official Arch packages without an AUR lookup.
 
 The helper prepares missing conversion tools (including `pactree` from
 `pacman-contrib`) and repairs incomplete debtap/pkgfile databases before converting.

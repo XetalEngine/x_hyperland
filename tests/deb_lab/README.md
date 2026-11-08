@@ -20,8 +20,11 @@ From the repository root:
 # Test the next few apps without opening a VM window.
 python tests/deb_lab/lab.py run obsidian slack zoom
 
-# Run all ten candidates in apps.json, continuing after individual failures.
+# Run all candidates in apps.json, continuing after individual failures.
 python tests/deb_lab/lab.py run --all
+
+# Run only the second batch of ten popular vendor packages.
+python tests/deb_lab/lab.py run brave opera spotify steam signal 1password sublime-text anydesk rustdesk cursor
 
 # Test a local download with its normal application command.
 python tests/deb_lab/lab.py run-file /path/to/example_amd64.deb --id example --command example
@@ -38,6 +41,12 @@ for diagnosis; successful test disks are retained too. Nothing is published.
 The Markdown report shows the latest result for each app; the JSON retains the
 full run history. A completed batch returns exit status 1 if any candidate fails,
 but still attempts every selected app. Ctrl+C stops the current lab guest.
+
+The candidate list is a selection of widely used applications with official
+vendor `.deb` downloads, not a verified cross-vendor download ranking. Repository
+URLs and hashes come from the vendors' package indexes, GitHub release assets,
+or official download pages. The Cursor URL currently selects the 3.29 release
+listed on its download page; recheck that page when updating the candidate.
 
 The normal installer and guest runner are snapshotted for each test, then copied
 into that guest. Those exact source files and their hashes stay with the result.
@@ -87,6 +96,35 @@ mapping and two harness launch-detection issues, the reviewed results were:
 Full per-run evidence is in the private NVMe lab's `RESULTS.md`, `results.json`
 and `runs/` directory. The failed candidates were stopped by the existing
 installer checks. No dependency or transaction checks were disabled.
+
+## Second batch: November 8, 2026
+
+Ten more popular vendor applications were attempted in fresh guests. Signal and
+Sublime Text passed installation, a visible normal startup screen, screenshot
+review and removal. They were added to the Control Panel as **Launch tested**
+with the date **2026-11-08**. Signal pairing/messages/calls and Sublime editing,
+plugins and licensing were not exercised; neither was tested on Wayland.
+
+| Application | Version | Result |
+| --- | --- | --- |
+| Brave | 1.99.55 | Blocked by its Debian `brave-keyring` dependency; requires an Arch recipe. |
+| Opera | 139.0.6053.38 | Unmapped Qt 5 requirements and Debian-specific `apt-transport-https`/`debconf` requirements. |
+| Spotify | 1:1.2.95.453.g0eeebbed | After the library-mapping fix, dependencies resolve, but the converted `.INSTALL` has an unterminated heredoc. Nothing installed; needs a reviewed Arch recipe. |
+| Steam | 1:1.0.0.87 | Unmapped D-Bus/PolicyKit/XZ requirements plus Debian-specific `python3-apt`. The launcher needs an Arch recipe and runtime testing. |
+| Signal | 8.34.0 | **Launch tested**: normal phone-linking screen; install and removal verified. |
+| 1Password | 8.12.44 | Unmapped `gnupg2`, `libxcb-shape0` and `libxcb-xfixes0`. |
+| Sublime Text | 4215 | **Launch tested**: normal unregistered editor; install and removal verified. |
+| AnyDesk | 8.1.0 | Unmapped `libgcc1` and `libxcb-shm0`. |
+| RustDesk | 1.5.1 | Unmapped XCB, systemd, VA-API, GStreamer and PipeWire requirements. |
+| Cursor | 3.29.9-1793846899 | Dependency preflight passes; converted `.INSTALL` has an invalid `elif`. Nothing installed; needs a reviewed Arch recipe. |
+
+This batch added verified shared mappings for `libxshmfence1` → `libxshmfence`
+and `libayatana-appindicator3-1` → `libayatana-appindicator`, preserving minimum
+versions and ABI boundaries. The official file-list references and regression
+fixtures are in the Control Panel documentation and `test_deb_dependencies.py`.
+Spotify was rerun from a fresh overlay with that change; both its original
+dependency failure and subsequent script-validation failure remain in the logs.
+The other eight candidates were **not** added as working or launch tested.
 
 ## Storage on a dedicated NVMe
 

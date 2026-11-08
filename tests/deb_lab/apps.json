@@ -101,6 +101,88 @@
       "launch": [
         "teamviewer"
       ]
+    },
+    {
+      "id": "brave",
+      "name": "Brave",
+      "page": "https://brave.com/linux/",
+      "apt_index": "https://brave-browser-apt-release.s3.brave.com/dists/stable/main/binary-amd64/Packages.gz",
+      "apt_root": "https://brave-browser-apt-release.s3.brave.com/",
+      "package": "brave-browser",
+      "launch": ["brave-browser", "--no-first-run"]
+    },
+    {
+      "id": "opera",
+      "name": "Opera",
+      "page": "https://www.opera.com/download",
+      "apt_index": "https://deb.opera.com/opera-stable/dists/stable/non-free/binary-amd64/Packages.gz",
+      "apt_root": "https://deb.opera.com/opera-stable/",
+      "package": "opera-stable",
+      "launch": ["opera", "--no-first-run"]
+    },
+    {
+      "id": "spotify",
+      "name": "Spotify",
+      "page": "https://www.spotify.com/download/linux/",
+      "apt_index": "https://repository.spotify.com/dists/stable/non-free/binary-amd64/Packages.gz",
+      "apt_root": "https://repository.spotify.com/",
+      "package": "spotify-client",
+      "launch": ["spotify"]
+    },
+    {
+      "id": "steam",
+      "name": "Steam",
+      "page": "https://store.steampowered.com/about/",
+      "url": "https://cdn.akamai.steamstatic.com/client/installer/steam.deb",
+      "launch": ["steam"]
+    },
+    {
+      "id": "signal",
+      "name": "Signal",
+      "page": "https://signal.org/download/linux/",
+      "apt_index": "https://updates.signal.org/desktop/apt/dists/xenial/main/binary-amd64/Packages.gz",
+      "apt_root": "https://updates.signal.org/desktop/apt/",
+      "package": "signal-desktop",
+      "launch": ["signal-desktop"]
+    },
+    {
+      "id": "1password",
+      "name": "1Password",
+      "page": "https://support.1password.com/install-linux/",
+      "url": "https://downloads.1password.com/linux/debian/amd64/stable/1password-latest.deb",
+      "launch": ["1password"]
+    },
+    {
+      "id": "sublime-text",
+      "name": "Sublime Text",
+      "page": "https://www.sublimetext.com/download",
+      "download_page": "https://www.sublimetext.com/download_thanks?target=x64-deb",
+      "link_pattern": "https://download\\.sublimetext\\.com/sublime-text_build-[0-9]+_amd64\\.deb",
+      "launch": ["subl"]
+    },
+    {
+      "id": "anydesk",
+      "name": "AnyDesk",
+      "page": "https://anydesk.com/en/downloads/linux",
+      "apt_index": "https://deb.anydesk.com/dists/all/main/binary-amd64/Packages.gz",
+      "apt_root": "https://deb.anydesk.com/",
+      "package": "anydesk",
+      "launch": ["anydesk"]
+    },
+    {
+      "id": "rustdesk",
+      "name": "RustDesk",
+      "page": "https://rustdesk.com/",
+      "github": "rustdesk/rustdesk",
+      "asset": "rustdesk-[0-9.]+-x86_64\\.deb",
+      "launch": ["rustdesk"]
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "page": "https://cursor.com/download",
+      "url": "https://api2.cursor.sh/updates/download/golden/linux-x64-deb/cursor/3.29",
+      "launch": ["cursor"]
     }
   ]
 }

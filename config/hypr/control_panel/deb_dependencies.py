@@ -42,6 +42,8 @@ ALIASES = {
     'libxdamage1': 'libxdamage', 'libxext6': 'libxext', 'libxfixes3': 'libxfixes',
     'libxi6': 'libxi', 'libxinerama1': 'libxinerama', 'libxrandr2': 'libxrandr',
     'libxrender1': 'libxrender', 'libxss1': 'libxss', 'libxtst6': 'libxtst',
+    'libxshmfence1': 'libxshmfence',  # libxshmfence.so.1
+    'libayatana-appindicator3-1': 'libayatana-appindicator',  # libayatana-appindicator3.so.1 (GTK 3)
     'libxkbcommon0': 'libxkbcommon', 'libxkbcommon-x11-0': 'libxkbcommon-x11',
     'libxkbfile1': 'libxkbfile',  # libxkbfile.so.1; used by VS Code and other X11 apps
     'libwayland-client0': 'wayland', 'libwayland-cursor0': 'wayland',
