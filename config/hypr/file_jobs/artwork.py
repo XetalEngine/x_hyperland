@@ -45,6 +45,52 @@ def success(p, center, accent):
     p.drawLine(center+QPointF(-1, 6), center+QPointF(11, -7))
 
 
+def mycelium(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Documents drift like spores between caps; every wrap fades fully out.
+
+    The clock supplies one complete cycle. Opacity covers the document AND its
+    glow/trail; secondary cap breathing uses one whole periodic turn too.
+    """
+    from mycelium import mushroom
+    p.save();mid=box.center();left=box.left()+38;right=box.right()-38
+    ivory=QColor('#f2dfc5' if surface.lightnessF()<.5 else '#72546f')
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    root=QPainterPath(QPointF(left,mid.y()+23))
+    root.cubicTo(left+50,mid.y()+34,right-50,mid.y()+30,right,mid.y()+23)
+    p.setPen(QPen(alpha(ivory,85),1));p.drawPath(root)
+    for x in range(int(left+18),int(right-12),29):
+        branch=QPainterPath(QPointF(x,mid.y()+28));branch.quadTo(x+5,mid.y()+21,x+13,mid.y()+20)
+        p.setPen(QPen(alpha(ivory,45),.7));p.drawPath(branch)
+    for x,zipped in ((left,extracting),(right,archive)):
+        halo=QRadialGradient(QPointF(x,mid.y()),32)
+        halo.setColorAt(0,alpha(accent,glow*(1.1+.2*math.sin(phase*math.tau))))
+        halo.setColorAt(1,alpha(accent,0));p.setPen(Qt.PenStyle.NoPen);p.setBrush(halo)
+        p.drawEllipse(QPointF(x,mid.y()),33,31)
+        mushroom(p,x,mid.y()+3,1.1,accent,ivory)
+        if zipped:
+            p.setPen(QPen(accent.darker(170),1.4))
+            for y in range(8,22,4):p.drawLine(QPointF(x-1,mid.y()+y),QPointF(x+2,mid.y()+y))
+    if result=='done':
+        success(p,mid,accent);p.restore();return
+    start,end=(right-17,left+17) if extracting else (left+17,right-17)
+    def location(t):return QPointF(start+(end-start)*t,mid.y()-9-15*math.sin(t*math.pi))
+    for i in range(max(1,count)):
+        t=(phase+i/max(1,count))%1
+        fade=min(1,t/.16,(1-t)/.16);fade=fade*fade*(3-2*fade)
+        p.save();p.setOpacity(p.opacity()*fade)
+        spot=location(t)
+        if trails:
+            for j in range(1,6):
+                trail=location(max(0,t-j*.018))
+                p.setPen(Qt.PenStyle.NoPen);p.setBrush(alpha(accent,(65-j*9)*fade))
+                p.drawEllipse(trail,2.7-j*.3,2.7-j*.3)
+        halo=QRadialGradient(spot,15);halo.setColorAt(0,alpha(accent,glow*1.8));halo.setColorAt(1,alpha(accent,0))
+        p.setBrush(halo);p.setPen(Qt.PenStyle.NoPen);p.drawEllipse(spot,15,15)
+        p.translate(spot);p.rotate(8*math.sin(t*math.tau+i))
+        p.scale(.55,.55);paper(p,accent);p.restore()
+    p.restore()
+
+
 def atomicafterglow(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     """A closed phosphor orbit transports documents between instrument bays.
 

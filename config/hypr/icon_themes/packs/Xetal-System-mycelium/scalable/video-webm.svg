@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>Video · Mycelium</title><defs>
+<linearGradient id="metal" x2=".2" y2="1"><stop stop-color="#fff0d9"/><stop offset=".5" stop-color="#cdb39e"/><stop offset="1" stop-color="#89717e"/></linearGradient>
+<linearGradient id="plum" x2=".2" y2="1"><stop stop-color="#94728f"/><stop offset=".35" stop-color="#60475f"/><stop offset="1" stop-color="#302333"/></linearGradient>
+<linearGradient id="cap" x2=".2" y2="1"><stop stop-color="#dfb9ed"/><stop offset=".5" stop-color="#ad85bc"/><stop offset="1" stop-color="#68466e"/></linearGradient>
+<linearGradient id="glow" x2="0" y2="1"><stop stop-color="#fff0cc"/><stop offset="1" stop-color="#c99c6f"/></linearGradient>
+</defs><path d="M15 6H38L51 19V56Q34 60 14 55Z" fill="url(#plum)" stroke="url(#metal)" stroke-width="1.6"/><path d="M38 6V19H51" fill="#b18cb7" stroke="#e4cfda"/><g fill="none" stroke="#f1dfc8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 25H43V43H21ZM29 29 37 34 29 39Z"/></g><path d="M8 52Q18 54 23 49L29 52M13 53L10 46M18 52L17 48M23 49L22 43M29 52L33 48M48 12L51 17L58 19M51 17L54 10" fill="none" stroke="#d7bdc6" stroke-width=".85"/></svg>

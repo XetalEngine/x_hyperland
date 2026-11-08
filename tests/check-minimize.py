@@ -128,9 +128,18 @@ debug {
         else:
             raise RuntimeError('No disposable compositor')
         time.sleep(.6)
-        # Use the Wayland backend: a headless output needs a GBM allocator that
-        # is not available on every host. Let the parent's initial resize settle.
-        time.sleep(1)
+        # Keep this disposable output stable while creating many test clients.
+        # A parent tiling layout can otherwise resize it after we record the
+        # dimensions, invalidating both hitboxes and overflow assertions.
+        def parent_surface():
+            parent_clients=json.loads(subprocess.check_output(['hyprctl','-j','clients'],env=os.environ,text=True))
+            return next((c for c in parent_clients if c['pid']==compositor.pid),None)
+        wait(parent_surface)
+        address='address:'+parent_surface()['address']
+        for action,arg in [('setfloating',address),('resizewindowpixel','exact 1280 800,'+address)]:
+            subprocess.run(['hyprctl','dispatch',action,arg],env=os.environ,check=True,capture_output=True)
+        wait(lambda: all(m['width']==1280 and m['height']==800 for m in json.loads(ctl('-j','monitors'))))
+        time.sleep(.5)
         output = json.loads(ctl('-j', 'monitors'))[0]
         output_name = output['name']
         dispatch('focusmonitor', output_name); dispatch('workspace', '1')

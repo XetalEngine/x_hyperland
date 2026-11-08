@@ -95,6 +95,7 @@ def colors(value=None,style=None):
 
 
 def ui_font(style=None):
+    if (style or design()) == 'mycelium': return 'Noto Serif'
     if (style or design()) == 'blackwood': return 'Noto Serif'
     return 'Inter' if (style or design()) in ('breakpoint','binaryknife','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow') else 'Noto Sans'
 

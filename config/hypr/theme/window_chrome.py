@@ -28,6 +28,15 @@ class ControlButton(QToolButton):
 
 def style_close(button,design=None):
     import runtime
+    if design=='mycelium':
+        from mycelium import velvet
+        p=runtime.colors(style=design);close=getattr(button,'symbol','close')=='close'
+        button.setStyleSheet(f'''QToolButton {{background:{velvet(p)};color:{p['Text']};border:1px solid {p['Midlight']};border-radius:9px;padding:0;}}
+            QToolButton:hover {{background:{'#814359' if close else p['Highlight']};color:{'#fff2ef' if close else p['HighlightedText']};border-color:{p['Accent']};}}
+            QToolButton:pressed {{background:{p['Base']};color:{p['Text']};}}
+            QToolButton:focus {{border-color:{p['Accent']};}}
+            QToolButton:disabled {{color:{p['Disabled']};border-color:{p['Mid']};}}''')
+        return
     if design=='atomicafterglow':
         from atomicafterglow import metal,phosphor
         p=runtime.colors(style=design);close=getattr(button,'symbol','close')=='close'

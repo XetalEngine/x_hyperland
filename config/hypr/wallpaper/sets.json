@@ -73,5 +73,10 @@
     "atomicafterglow/reactor-at-dusk.png",
     "atomicafterglow/cooling-lake.png",
     "atomicafterglow/control-hall.png"
+  ],
+  "mycelium": [
+    "mycelium/lantern-creek.png",
+    "mycelium/spore-cathedral.png",
+    "mycelium/mooncap-ridge.png"
   ]
 }

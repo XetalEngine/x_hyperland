@@ -29,7 +29,7 @@ void main(){
   fragColor=vec4(mix(warm,mix(ink,vec3(1.,.72,.25),.5),core)*a,a)*opacity;return;
  }
  vec2 p=(uv-.5)*dims;vec2 halfSize=dims*.5-vec2(8.);
- float radius=style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:halfSize.y;
+ float radius=style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
  if(part==1)radius=style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
  radius=min(radius,min(halfSize.x,halfSize.y));
  float distance=roundBox(p,halfSize,radius);
@@ -44,7 +44,27 @@ void main(){
  float rim=.26;
  float jewel=0.;float jewelHalo=0.;float gildedSweep=0.;
  if(part==0){
-  if(style==14){
+  if(style==15){
+   // Spore Cradle: velvet body, cap lanterns and branching ivory root threads.
+   vec2 q=vec2(halfSize.x-abs(p.x),p.y);
+   body=mix(base,tint,.075)+ink*shine*.07;rim=.55;
+   float stem=line(q,vec2(15.,-3.),vec2(15.,15.));
+   float cap=length((q-vec2(15.,-6.))/vec2(11.,6.));
+   float capMask=(1.-smoothstep(.85,1.05,cap))*step(p.y,-4.);
+   body=mix(body,mix(tint,ink,.22+.25*shine),capMask);
+   metal=exp(-stem*1.5)*step(abs(p.y-6.),10.)*.7;
+   metal+=exp(-abs(p.y+3.)*1.7)*step(abs(q.x-15.),10.)*.55;
+   decoration=exp(-dot((q-vec2(15.,1.))/vec2(16.,22.),(q-vec2(15.,1.))/vec2(16.,22.)))*(.10+.02*sin(time*.6));
+   float rootY=halfSize.y-8.+sin(p.x*.018)*2.;
+   metal+=exp(-abs(p.y-rootY)*1.6)*step(26.,q.x)*.38;
+   metal+=exp(-abs(p.y-rootY+4.)*1.8)*step(26.,q.x)*.14;
+   vec2 twig=vec2(mod(p.x+halfSize.x,23.)-11.,p.y-rootY);
+   metal+=exp(-line(twig,vec2(0.,0.),vec2(7.,-6.))*2.)*step(26.,q.x)*.3;
+   metal+=exp(-line(twig,vec2(4.,-4.),vec2(3.,-8.))*2.)*step(26.,q.x)*.2;
+   vec2 spore=vec2(twig.x,p.y-halfSize.y+5.);
+   decoration+=exp(-dot(spore,spore)*.5)*step(26.,q.x)*(.6+.2*sin(time*.6+p.x*.07));
+   metal+=exp(-abs(distance+3.)*2.)*.12;
+  }else if(style==14){
    // Containment Bay: instrument rack, vents, phosphor rail, small hazard caps.
    vec2 q=vec2(halfSize.x-abs(p.x),p.y);
    vec3 brass=mix(ink,vec3(.71,.68,.40),.22);
@@ -242,6 +262,16 @@ void main(){
   body=mix(base,tint,.08+emphasis*.14)+ink*shine*.045;
   rim=.08+emphasis*.25;
   decoration=exp(-abs(p.y-halfSize.y+3.)*1.7)*(.25+.4*emphasis);
+  if(style==15){
+   body=mix(base,tint,.08+emphasis*.14)+ink*shine*.07;rim=.35+emphasis*.4;
+   float root=halfSize.y-7.+2.*pow(p.x/max(1.,halfSize.x),2.);
+   decoration=exp(-abs(p.y-root)*1.7)*step(abs(p.x),halfSize.x-9.)*(.3+emphasis*.3);
+   for(int i=-1;i<=1;i++){
+    vec2 spore=p-vec2(float(i)*5.,halfSize.y-8.);
+    decoration+=exp(-dot(spore,spore)*.9)*(.45+emphasis*.25);
+   }
+   metal=exp(-abs(distance+3.)*2.)*.12;
+  }
   if(style==14){
    body=mix(base,tint,.045+emphasis*.1)+ink*shine*.08;
    rim=.45+emphasis*.4;

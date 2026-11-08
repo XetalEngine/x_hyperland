@@ -104,8 +104,32 @@ def containment_bay(p, width, colors, phase):
     p.restore()
 
 
+def spore_cradle(p,width,colors,phase):
+    """Plum cradle, branching ivory roots and paired mushroom lanterns (ID 15)."""
+    from mycelium import paint_surface,mushroom
+    paint_surface(p,QRectF(8,8,width-16,80),colors,20,100)
+    p.save();accent=QColor(colors['Accent']);ivory=QColor(colors['Light'])
+    for x in (23,width-23):
+        halo=QRadialGradient(QPointF(x,48),23)
+        halo.setColorAt(0,alpha(accent,.22+.04*math.sin(phase*.6)));halo.setColorAt(1,alpha(accent,0))
+        p.setBrush(halo);p.setPen(Qt.PenStyle.NoPen);p.drawEllipse(QPointF(x,48),22,29)
+        mushroom(p,x,43,.64,accent,ivory)
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    for offset,opacity in ((0,.55),(4,.22)):
+        root=QPainterPath();root.moveTo(35,81-offset)
+        root.cubicTo(width*.32,73-offset,width*.67,86-offset,width-35,79-offset)
+        p.setPen(QPen(alpha(ivory,opacity),.8));p.drawPath(root)
+    for x in range(42,int(width-35),23):
+        p.setPen(QPen(alpha(ivory,.4),.6));line(p,x,80,x+7,74);line(p,x+4,76,x+3,72)
+        p.setPen(Qt.PenStyle.NoPen);p.setBrush(alpha(accent,.6+.2*math.sin(phase*.6+x*.07)))
+        p.drawEllipse(QPointF(x,83),1.3,1.3)
+    p.restore()
+
+
 def tray(painter, width, style, colors, phase):
     """Draw a horizontal tray in a width × 96 coordinate space."""
+    if style == 'mycelium':
+        spore_cradle(painter,width,colors,phase);return
     if style == 'hyperfusionblue':
         blue_vault(painter,width,colors,phase);return
     if style == 'midnighttransit':
@@ -337,6 +361,14 @@ def dock(p, area, style, colors, *, phase=0., weights=(1., 1., 1.), zoom=(), ver
             p.setPen(QPen(alpha(colors['Accent'], .12+(z-1)), .8)); p.setBrush(alpha(colors['Accent'], .035+(z-1)*.1))
             radius = 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style == 'midnighttransit' else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
             p.drawRoundedRect(rect, radius, radius)
+        if style == 'mycelium' and not stack:
+            pane=QLinearGradient(rect.topLeft(),rect.bottomRight());pane.setColorAt(0,QColor(colors['Button']));pane.setColorAt(1,QColor(colors['Base']))
+            p.setBrush(pane);p.setPen(QPen(alpha(colors['Light'],.45),.8));p.drawRoundedRect(rect,16,16)
+            p.setPen(QPen(alpha(colors['Accent'],.7),.8));p.setBrush(Qt.BrushStyle.NoBrush)
+            path=QPainterPath(QPointF(rect.left()+9,rect.bottom()-9))
+            path.quadTo(rect.center().x(),rect.bottom()-3,rect.right()-9,rect.bottom()-9);p.drawPath(path)
+            for dx in (-5,0,5):
+                p.setPen(Qt.PenStyle.NoPen);p.setBrush(alpha(colors['Accent'],.55+(z-1)*.3));p.drawEllipse(QPointF(rect.center().x()+dx,rect.bottom()-8),1,1)
         if style == 'atomicafterglow' and not stack:
             pane=QLinearGradient(rect.topLeft(),rect.bottomLeft());pane.setColorAt(0,QColor(colors['Button']));pane.setColorAt(1,QColor(colors['Base']))
             p.setBrush(pane);p.setPen(QPen(alpha(colors['Light'],.65),.8));p.drawRoundedRect(rect,3,3)

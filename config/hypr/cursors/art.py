@@ -1,5 +1,6 @@
 """Original vector cursor families, shared by the picker and generated themes."""
 STYLES = {
+    'mycelium': ('Mycelium Spore', '#f2e5d4', '#352536', '#c9a0e1'),
     'isotope': ('Atomic Phosphor', '#d5e5a4', '#182218', '#b5ed29'),
     'brass': ('Blackwood Brass', '#e9d2a0', '#24271f', '#8db694'),
     'enamel': ('Transit Enamel', '#f9edca', '#10383c', '#f7ad37'),
@@ -32,7 +33,11 @@ def svg(style, shape='left_ptr', frame=0):
     _, fill, edge, accent = STYLES[style]
     arrow = 'M5 3 L5 26 L11 21 L16 32 L21 29 L16 19 L26 18 Z'
     arrow = {'isotope':'M5 3L6 28L12 21L18 32L23 29L17 19L28 17L16 10Z', 'brass':'M5 3L7 29L13 22L19 32L23 29L17 20L29 17L16 12Z', 'enamel':'M5 3L5 27L12 20L17 32L22 29L17 19L28 18L17 11Z', 'carbon':'M5 3L5 28L12 21L17 32L22 29L17 19L29 18Z', 'cyan':'M5 3L8 28L14 20L25 18Z', 'orchid':'M5 3Q7 2 9 5L28 20L17 20L21 30Q18 34 16 30L12 22L5 28Z', 'ember':'M5 3L5 27L12 20L18 32L23 29L17 18L28 18Z'}.get(style,arrow)
+    if style == 'mycelium':
+        arrow = 'M5 3Q9 4 13 8L29 18Q30 20 27 20L18 21L22 30Q21 33 18 32L13 23L7 28Q5 29 5 26Z'
     body = f'<path d="{arrow}"/>'
+    if style == 'mycelium':
+        body += f'<path d="M8 8Q12 13 14 20M11 13L16 13L23 17M13 18L9 23M17 14L17 10" fill="none" stroke="{accent}" stroke-width="1"/>'
     hot = (5, 3)
     if shape in ('hand2','openhand','closedhand'):
         body = '<path d="M10 18V5Q10 2 13 3Q15 3 15 6V15V11Q19 8 21 13Q25 10 27 15Q31 13 32 18L30 28Q28 33 23 34H17Q13 34 10 30L4 23Q2 19 6 18L10 21Z"/>'
@@ -54,6 +59,13 @@ def svg(style, shape='left_ptr', frame=0):
         hot=(18,18)
     elif shape in ('watch','left_ptr_watch'):
         ring=f'<g transform="rotate({frame*30} 18 18)"><circle cx="18" cy="18" r="11" fill="none" stroke="{edge}" stroke-opacity=".25" stroke-width="4"/><path d="M18 7A11 11 0 0 1 29 18" fill="none" stroke="{accent}" stroke-width="4"/></g>'
+        if style == 'mycelium':
+            ring = (f'<circle cx="18" cy="18" r="14" fill="{edge}" stroke="{fill}" stroke-width=".8"/>'
+                    f'<path d="M16 18Q18 24 15 27H22Q19 22 20 18" fill="{fill}" stroke-width=".7"/>'
+                    f'<path d="M8 17Q12 7 18 8Q25 8 28 17Q18 23 8 17Z" fill="{accent}" stroke="{fill}" stroke-width="1"/>'
+                    f'<path d="M11 18Q18 22 25 18M14 17L17 20M22 17L19 20" stroke="{fill}" stroke-width=".8"/>'
+                    f'<g transform="rotate({frame*30} 18 18)"><circle cx="18" cy="4" r="2" fill="{fill}" stroke="{edge}" stroke-width=".8"/>'
+                    f'<circle cx="32" cy="18" r="1.2" fill="{accent}" stroke="{edge}" stroke-width=".6"/></g>')
         if style == 'isotope':
             ring = (f'<circle cx="18" cy="18" r="14" fill="{edge}"/>'
                     + ''.join(f'<ellipse cx="18" cy="18" rx="12" ry="5" fill="none" stroke="{fill}" stroke-width="1.2" transform="rotate({angle} 18 18)"/>' for angle in (0,60,120))

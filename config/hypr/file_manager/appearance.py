@@ -118,6 +118,9 @@ def appearance():
         QFrame#pickerActions, QStatusBar {{background:{p['AlternateBase']};}}
         QTabBar::tab:selected {{border:1px solid {p['Midlight']}; border-top-color:{p['Accent']}; border-radius:15px;}}
         '''
+    if design == 'mycelium':
+        from mycelium import files_style
+        style += files_style(p)
     if design == 'atomicafterglow':
         from atomicafterglow import files_style
         style += files_style(p)

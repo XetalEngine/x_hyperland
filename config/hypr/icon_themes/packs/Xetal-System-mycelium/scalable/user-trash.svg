@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>Trash · Mycelium</title><defs>
+<linearGradient id="metal" x2=".2" y2="1"><stop stop-color="#fff0d9"/><stop offset=".5" stop-color="#cdb39e"/><stop offset="1" stop-color="#89717e"/></linearGradient>
+<linearGradient id="plum" x2=".2" y2="1"><stop stop-color="#94728f"/><stop offset=".35" stop-color="#60475f"/><stop offset="1" stop-color="#302333"/></linearGradient>
+<linearGradient id="cap" x2=".2" y2="1"><stop stop-color="#dfb9ed"/><stop offset=".5" stop-color="#ad85bc"/><stop offset="1" stop-color="#68466e"/></linearGradient>
+<linearGradient id="glow" x2="0" y2="1"><stop stop-color="#fff0cc"/><stop offset="1" stop-color="#c99c6f"/></linearGradient>
+</defs><path d="M12 20H52L46 53Q32 60 18 53Z" fill="url(#plum)" stroke="url(#metal)" stroke-width="1.7"/><path d="M16 23Q48 41 21.4 54M16 23Q16 39 42.6 54" fill="none" stroke="#d3b8b9" stroke-width="1"/><path d="M24 23Q40 41 26.6 54M24 23Q24 39 37.4 54" fill="none" stroke="#d3b8b9" stroke-width="1"/><path d="M32 23Q32 41 31.8 54M32 23Q32 39 32.2 54" fill="none" stroke="#d3b8b9" stroke-width="1"/><path d="M40 23Q24 41 37.0 54M40 23Q40 39 27.0 54" fill="none" stroke="#d3b8b9" stroke-width="1"/><path d="M48 23Q16 41 42.2 54M48 23Q48 39 21.8 54" fill="none" stroke="#d3b8b9" stroke-width="1"/><ellipse cx="32" cy="20" rx="22" ry="6" fill="url(#metal)" stroke="#8d6c87"/><ellipse cx="32" cy="19" rx="17" ry="3" fill="#332236"/><g transform="translate(25 14) scale(0.6)">
+    <path d="M-2 0Q0 12-4 17Q1 19 5 17Q1 9 3 0" fill="url(#metal)" stroke="#70526d" stroke-width=".8"/>
+    <path d="M-17 1Q-11-11 0-11Q10-11 17 1Q0 8-17 1Z" fill="url(#cap)" stroke="#f0dfd2" stroke-width="1"/>
+    <path d="M-14 2Q0 8 14 2Q0 2-14 2Z" fill="url(#glow)"/>
+    <path d="M-11 2L-4 5M-6 2L-2 6M6 2L2 6M11 2L4 5" stroke="#c09b83" stroke-width=".7"/>
+    <g fill="#efdfd4"><ellipse cx="-6" cy="-4" rx="2.2" ry="1"/><ellipse cx="5" cy="-5" rx="2.5" ry="1.2"/><circle cx="1" cy="-8" r=".8"/></g></g><g transform="translate(41 18) scale(0.4)">
+    <path d="M-2 0Q0 12-4 17Q1 19 5 17Q1 9 3 0" fill="url(#metal)" stroke="#70526d" stroke-width=".8"/>
+    <path d="M-17 1Q-11-11 0-11Q10-11 17 1Q0 8-17 1Z" fill="url(#cap)" stroke="#f0dfd2" stroke-width="1"/>
+    <path d="M-14 2Q0 8 14 2Q0 2-14 2Z" fill="url(#glow)"/>
+    <path d="M-11 2L-4 5M-6 2L-2 6M6 2L2 6M11 2L4 5" stroke="#c09b83" stroke-width=".7"/>
+    <g fill="#efdfd4"><ellipse cx="-6" cy="-4" rx="2.2" ry="1"/><ellipse cx="5" cy="-5" rx="2.5" ry="1.2"/><circle cx="1" cy="-8" r=".8"/></g></g></svg>

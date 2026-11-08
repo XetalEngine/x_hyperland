@@ -1,0 +1,35 @@
+{
+  "generator": "OpenAI built-in image_gen",
+  "images": [
+    {
+      "id": "lantern-creek",
+      "title": "Lantern Creek",
+      "prompt": "Use case: stylized-concept. Asset type: original wide 16:9 desktop wallpaper for Hyper Fusion Mycelium. A breathtaking enchanted woodland at violet dusk, enormous layered lavender and dusty-mauve mushroom caps forming a canopy over a clear winding creek. Their delicate ivory gills radiate soft warm honey light onto mossy roots and reflective water; tiny lilac mushrooms and a few luminous spores dot the forest floor. Old twisting dark trunks frame the sides, with deep atmospheric plum haze and quiet open space in the center distance. Rich organic textures, cinematic realistic fantasy concept painting, refined delicate bioluminescence, believable perspective and depth. Match an elegant dark aubergine, lavender, warm ivory and moss-green desktop palette. Composition spacious enough for real desktop windows, no bright clutter in the upper center. No people, no lettering, no logo, no typography, no desktop UI, no taskbars, no windows, no icons, no watermark. Landscape 16:9, highest available resolution.",
+      "file": "lantern-creek.png",
+      "dimensions": [
+        1672,
+        941
+      ]
+    },
+    {
+      "id": "spore-cathedral",
+      "title": "Spore Cathedral",
+      "prompt": "Use case: stylized-concept. Asset type: second original wide 16:9 desktop wallpaper for Hyper Fusion Mycelium. Inside an immense hollow ancient tree, an organic cathedral formed entirely from twisting roots and natural wooden arches, opening onto a misty violet forest. Clusters of tall bell-shaped lilac mushrooms grow around the outer walls, with creamy warmly illuminated gills like natural lanterns. Fine pale branching mycelium traces the bark near the ground; scattered small glowing spores float in the air. A still shallow pool mirrors the huge root arch at the center, leaving a calm open dark foreground. No buildings or manufactured objects. Sophisticated cinematic realistic fantasy painting, tactile bark, velvet mushroom caps, soft volumetric light, elegant aubergine shadows, dusty lavender highlights and antique ivory glow with small moss-green details. Entirely distinct composition from a woodland creek panorama. Spacious wide framing for desktop use. No people, text, logos, UI, taskbars, windows, desktop icons or watermark. Landscape 16:9, highest available resolution.",
+      "file": "spore-cathedral.png",
+      "dimensions": [
+        1672,
+        941
+      ]
+    },
+    {
+      "id": "mooncap-ridge",
+      "title": "Mooncap Ridge",
+      "prompt": "Use case: stylized-concept. Asset type: third original wide 16:9 desktop wallpaper for Hyper Fusion Mycelium. A quiet elevated mossy forest ridge overlooking an expansive sea of pale lavender mist at moonrise. In the right foreground, a beautiful cluster of broad luminous plum-and-lilac mushrooms grows from an old gnarled tree root, their ivory gills softly lighting tiny ferns and dew. Layered silhouettes of ancient trees and distant mushroom canopies recede far below into the hazy valley. A slender crescent moon and very faint stars above soft mauve clouds; the left half remains calm and atmospheric with ample open sky and shadowed forest. Refined cinematic realistic fantasy landscape, dark aubergine, dusty orchid, warm cream glow, restrained olive moss, extraordinary natural textures and atmospheric scale. This is a high viewpoint panorama, distinct from a close creek scene and a hollow-tree interior. No characters, no readable writing, no logos, no desktop UI, no icons, no watermark. Landscape 16:9, highest available resolution.",
+      "file": "mooncap-ridge.png",
+      "dimensions": [
+        1672,
+        941
+      ]
+    }
+  ]
+}

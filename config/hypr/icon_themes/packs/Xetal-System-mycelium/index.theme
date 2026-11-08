@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Mycelium
+Comment=Sculpted lilac caps, plum folders, ivory roots and moss details.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

@@ -1,5 +1,10 @@
 """Render across animation boundaries, including individual packet wraps."""
 import unittest
+from pathlib import Path
+import sys
+
+# The production window adds the profile's shared theme painters to its path.
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'theme'))
 
 from PyQt6.QtCore import QRectF
 from PyQt6.QtGui import QColor, QImage, QPainter
@@ -31,7 +36,7 @@ class LoopTests(unittest.TestCase):
         # tick() supplies a repeating 0..1 phase. A speed multiplier inside a
         # renderer used to jump backwards after travelling only 18–22% of its
         # route. Check the actual rendered images, not the timing expression.
-        for style in ('hyperfusionblue', 'midnighttransit', 'blackwood', 'atomicafterglow'):
+        for style in ('hyperfusionblue', 'midnighttransit', 'blackwood', 'atomicafterglow', 'mycelium'):
             for count in (1, 3, 7):
                 for extracting in (False, True):
                     for light in (False, True):
@@ -41,17 +46,18 @@ class LoopTests(unittest.TestCase):
                             self.assertLess(self.difference(a,b), .02)
 
     def test_each_packet_wraps_out_of_view_without_a_pop(self):
-        for style in ('hyperfusionblue', 'midnighttransit', 'blackwood', 'atomicafterglow'):
+        for style in ('hyperfusionblue', 'midnighttransit', 'blackwood', 'atomicafterglow', 'mycelium'):
             for extracting in (False, True):
                 for trails in (False, True):
-                    for boundary in (1/3, 2/3):
-                        with self.subTest(style=style, extracting=extracting, trails=trails, boundary=boundary):
-                            a = self.frame(style, boundary-1e-6, extracting=extracting, trails=trails)
-                            b = self.frame(style, boundary+1e-6, extracting=extracting, trails=trails)
-                            self.assertLess(self.difference(a,b), .02)
+                    for count in (1,3,7):
+                        for boundary in (i/count for i in range(1,count+1)):
+                            with self.subTest(style=style, count=count, extracting=extracting, trails=trails, boundary=boundary):
+                                a = self.frame(style, boundary-1e-6, count, extracting=extracting, trails=trails)
+                                b = self.frame(style, boundary+1e-6, count, extracting=extracting, trails=trails)
+                                self.assertLess(self.difference(a,b), .02)
 
     def test_scenes_keep_moving_through_the_whole_cycle(self):
-        for style in ('hyperfusionblue', 'midnighttransit', 'blackwood', 'atomicafterglow'):
+        for style in ('hyperfusionblue', 'midnighttransit', 'blackwood', 'atomicafterglow', 'mycelium'):
             for phase in (.05, .3, .6, .9):
                 with self.subTest(style=style, phase=phase):
                     self.assertNotEqual(self.frame(style, phase), self.frame(style, phase+.04))

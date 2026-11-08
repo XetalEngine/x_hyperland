@@ -22,6 +22,7 @@ from sounds.model import PACKS, EVENTS
 RATE = 48000
 # tonic, voice, unique opening melody (semitones), beat spacing
 SCORES = {
+    'mycelium': (64, 'spore', [0, 7, 10, 14, 12, 7], .42),
     'atomicafterglow': (57, 'isotope', [0, 7, 14, 11, 7, 12], .33),
     'blackwood': (55, 'harbour', [0, 7, 10, 14, 7, 2], .43),
     'midnighttransit': (60, 'transit', [7, 12, 4, 9, 7, 0], .36),
@@ -54,6 +55,11 @@ def voice(midi, duration, kind, seed=0):
     elif kind == 'string':
         out = sum(np.sin(phase*h + .025*np.sin(t*13)) * np.exp(-(2.5+h*.7)*t) / h**1.5 for h in range(1, 10))
         out += .16 * np.sin(phase*2.008) * np.exp(-6*t)
+    elif kind == 'spore':
+        out = np.sin(phase+.012*np.sin(t*9))*np.exp(-3.1*t)
+        out += .18*np.sin(phase*2.006)*np.exp(-5*t)+.11*np.sin(phase*2.71)*np.exp(-12*t)
+        out += .12*np.sin(phase*.5)*np.exp(-2.3*t)*(1-np.exp(-14*t))
+        attack = .045
     elif kind == 'isotope':
         out = np.sin(phase + .6*np.sin(phase*2)*np.exp(-6*t))*np.exp(-3*t)
         out += .12*np.sin(phase*.5)*np.exp(-2*t) + .06*np.sin(phase*3.002)*np.exp(-9*t)
@@ -94,7 +100,7 @@ def voice(midi, duration, kind, seed=0):
 
 def score(pack, event):
     tonic, kind, motif, beat = SCORES[pack]
-    minor = pack in ('blackwood', 'breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge')
+    minor = pack in ('mycelium', 'blackwood', 'breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge')
     third = 3 if minor else 4
     # time, midi note, length, gain, stereo pan
     if event == 'startup':

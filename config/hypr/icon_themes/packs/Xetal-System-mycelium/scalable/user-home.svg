@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>Home · Mycelium</title><defs>
+<linearGradient id="metal" x2=".2" y2="1"><stop stop-color="#fff0d9"/><stop offset=".5" stop-color="#cdb39e"/><stop offset="1" stop-color="#89717e"/></linearGradient>
+<linearGradient id="plum" x2=".2" y2="1"><stop stop-color="#94728f"/><stop offset=".35" stop-color="#60475f"/><stop offset="1" stop-color="#302333"/></linearGradient>
+<linearGradient id="cap" x2=".2" y2="1"><stop stop-color="#dfb9ed"/><stop offset=".5" stop-color="#ad85bc"/><stop offset="1" stop-color="#68466e"/></linearGradient>
+<linearGradient id="glow" x2="0" y2="1"><stop stop-color="#fff0cc"/><stop offset="1" stop-color="#c99c6f"/></linearGradient>
+</defs><path d="M17 29Q19 42 16 55Q31 60 47 55Q43 42 46 29Z" fill="url(#plum)" stroke="url(#metal)" stroke-width="1.5"/><path d="M26 56V43Q32 33 38 43V56M19 35H24V42H19ZM40 34H44V42H40Z" fill="url(#glow)" stroke="#eed5b8"/><path d="M32 40V56M27 48H37" stroke="#8e657b"/><g transform="translate(32 24) scale(1.65)">
+    <path d="M-2 0Q0 12-4 17Q1 19 5 17Q1 9 3 0" fill="url(#metal)" stroke="#70526d" stroke-width=".8"/>
+    <path d="M-17 1Q-11-11 0-11Q10-11 17 1Q0 8-17 1Z" fill="url(#cap)" stroke="#f0dfd2" stroke-width="1"/>
+    <path d="M-14 2Q0 8 14 2Q0 2-14 2Z" fill="url(#glow)"/>
+    <path d="M-11 2L-4 5M-6 2L-2 6M6 2L2 6M11 2L4 5" stroke="#c09b83" stroke-width=".7"/>
+    <g fill="#efdfd4"><ellipse cx="-6" cy="-4" rx="2.2" ry="1"/><ellipse cx="5" cy="-5" rx="2.5" ry="1.2"/><circle cx="1" cy="-8" r=".8"/></g></g><g fill="#8b9465"><ellipse cx="12" cy="54" rx="5" ry="1.4"/><ellipse cx="51" cy="54" rx="5.5" ry="1.2"/><path d="M9 54L7 49L11 52L13 48L15 54M49 54L49 49L52 52L54 48L55 54"/></g></svg>
