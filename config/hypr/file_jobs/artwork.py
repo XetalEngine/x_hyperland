@@ -1,4 +1,4 @@
-"""Original vector scenes for the Modern and BreakPoint transfer cards."""
+"""Original transfer scenes; phase is a repeating 0..1 animation cycle."""
 import math
 from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen, QRadialGradient
@@ -377,12 +377,14 @@ def hyperfusionblue(p, box, accent, surface, phase, count, trails, glow, archive
         p.setBrush(bay);p.setPen(QPen(ink,1));p.drawRoundedRect(QRectF(x-13,y-21,26,42),5,5)
         p.setPen(QPen(c,2));p.drawLine(QPointF(x-7,y+15),QPointF(x+7,y+15))
     for i in range(max(1,count)):
-        t=(phase*.18+i/max(1,count))%1.;x=left+20+t*max(1,right-left-40)
+        t=(phase+i/max(1,count))%1.;x=left+20+t*max(1,right-left-40)
         if extracting:x=right-20-t*max(1,right-left-40)
+        p.save();p.setOpacity(min(1,t*10,(1-t)*10))
         if trails:
             tail=QColor(c);tail.setAlpha(55);p.setPen(QPen(tail,3));p.drawLine(QPointF(x-14,y),QPointF(x,y))
         p.setBrush(c);p.setPen(QPen(ink,1));p.drawRoundedRect(QRectF(x-5,y-7,10,14),2,2)
         p.setPen(QPen(ink,.6));p.drawLine(QPointF(x-2,y-3),QPointF(x+2,y-3))
+        p.restore()
     p.restore()
 
 
@@ -393,7 +395,7 @@ def blackwood(p, box, accent, surface, phase, count, trails, glow, archive, extr
     brass=QColor(accent).lighter(145);base=QColor(surface)
     for row in (10,15):
         wave=QPainterPath();wave.moveTo(left,y+row)
-        for x in range(int(left),int(right)+1,4):wave.lineTo(x,y+row+math.sin(x*.08-phase*1.7)*1.7)
+        for x in range(int(left),int(right)+1,4):wave.lineTo(x,y+row+math.sin(x*.08-phase*math.tau)*1.7)
         p.setPen(QPen(alpha(accent,65),.8));p.drawPath(wave)
     for x in (left,right):
         tower=QPainterPath();tower.moveTo(x-7,y+10);tower.lineTo(x-4,y-21);tower.lineTo(x+4,y-21);tower.lineTo(x+7,y+10);tower.closeSubpath()
@@ -401,14 +403,14 @@ def blackwood(p, box, accent, surface, phase, count, trails, glow, archive, extr
         p.setBrush(brass);p.drawRect(QRectF(x-4,y-23,8,7));p.drawLine(QPointF(x-7,y-25),QPointF(x+7,y-25))
         if glow:
             beam=QPainterPath(QPointF(x,y-20));beam.lineTo(x+(25 if x==left else -25),y-29);beam.lineTo(x+(25 if x==left else -25),y-16);beam.closeSubpath()
-            p.fillPath(beam,alpha(brass,18+int(12*math.sin(phase))))
+            p.fillPath(beam,alpha(brass,18+int(12*math.sin(phase*math.tau))))
     if result=='done':success(p,box.center(),accent);p.restore();return
     if result:p.restore();return
     for index in range(max(1,count)):
-        t=(phase*.18+index/max(1,count))%1
+        t=(phase+index/max(1,count))%1
         x=left+20+t*max(1,right-left-40)
         if extracting:x=right-20-t*max(1,right-left-40)
-        p.save();p.translate(x,y+math.sin(t*8+phase)*1.3);p.setOpacity(min(1,t*10,(1-t)*10))
+        p.save();p.translate(x,y+math.sin((t+phase)*math.tau)*1.3);p.setOpacity(min(1,t*10,(1-t)*10))
         p.setPen(QPen(brass,1));p.setBrush(base)
         p.drawRoundedRect(QRectF(-7,-16,14,15),1,1)
         p.drawLine(QPointF(-4,-12),QPointF(4,-12));p.drawLine(QPointF(-4,-9),QPointF(2,-9))
@@ -434,7 +436,7 @@ def midnighttransit(p, box, accent, surface, phase, count, trails, glow, archive
     if result=='done':success(p,box.center(),accent);p.restore();return
     if result:p.restore();return
     for index in range(max(1,count)):
-        t=(phase*.22+index/max(1,count))%1
+        t=(phase+index/max(1,count))%1
         x=left+23+t*max(1,right-left-46)
         if extracting:x=right-23-t*max(1,right-left-46)
         p.setOpacity(min(1,t*10,(1-t)*10))
