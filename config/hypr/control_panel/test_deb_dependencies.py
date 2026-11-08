@@ -56,6 +56,18 @@ class DependencyTests(unittest.TestCase):
         self.assertIn('libatomic1 → libatomic (repository: 1.0-1)', rows)
         self.assertEqual(aur.selected, {})
 
+    def test_uuid_runtime_mapping_preserves_versions_and_abi(self):
+        # Both package file lists contain libuuid.so.1 (util-linux):
+        # https://packages.debian.org/trixie/amd64/libuuid1/filelist
+        # https://archlinux.org/packages/core/x86_64/util-linux-libs/files/
+        result, rows = self.resolve('libuuid1 (>= 2.31.1)', local={'util-linux-libs': '2.42.4-1'})
+        self.assertEqual(result, ['util-linux-libs>=2.31.1'])
+        self.assertIn('(installed: 2.42.4-1)', rows[0])
+        with self.assertRaisesRegex(RuntimeError, 'missing or below its minimum'):
+            self.resolve('libuuid1 (>= 2.31.1)', sync={'util-linux-libs': '2.30-1'})
+        with self.assertRaisesRegex(RuntimeError, 'libuuid2'):
+            self.resolve('libuuid2', sync={'util-linux-libs': '2.42.4-1'})
+
     def test_gcc_runtime_mappings_preserve_minimums_and_use_split_arch_packages(self):
         mappings = {'libatomic1': 'libatomic', 'libgcc-s1': 'libgcc',
                     'libstdc++6': 'libstdc++', 'libgomp1': 'libgomp',

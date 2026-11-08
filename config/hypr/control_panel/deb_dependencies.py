@@ -36,6 +36,7 @@ ALIASES = {
     'libnspr4': 'nspr', 'libnss3': 'nss', 'libpango-1.0-0': 'pango',
     'libpangocairo-1.0-0': 'pango', 'libpangoft2-1.0-0': 'pango',
     'libudev1': 'systemd-libs', 'libvulkan1': 'vulkan-icd-loader',
+    'libuuid1': 'util-linux-libs',  # libuuid.so.1; same util-linux upstream version
     'libx11-6': 'libx11', 'libx11-xcb1': 'libx11', 'libxcb1': 'libxcb',
     'libxcomposite1': 'libxcomposite', 'libxcursor1': 'libxcursor',
     'libxdamage1': 'libxdamage', 'libxext6': 'libxext', 'libxfixes3': 'libxfixes',

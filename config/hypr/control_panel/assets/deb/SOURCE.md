@@ -1,6 +1,6 @@
 # Application icons
 
-These three SVGs are unchanged 64px application icons from Papirus Icon Theme
+These SVGs are unchanged 64px application icons from Papirus Icon Theme
 20260801, installed by Arch's `papirus-icon-theme` package (GPL-3.0).
 
 Source: <https://github.com/PapirusDevelopmentTeam/papirus-icon-theme/tree/master/Papirus/64x64/apps>
@@ -8,6 +8,9 @@ Source: <https://github.com/PapirusDevelopmentTeam/papirus-icon-theme/tree/maste
 - `google-chrome.svg`
 - `discord.svg`
 - `vscode.svg`
+- `obsidian.svg`
+- `bitwarden.svg`
+- `insomnia.svg`
 
 They are bundled as fallbacks so the compatibility grid has recognizable icons
 before any of these applications is installed. The active icon theme takes

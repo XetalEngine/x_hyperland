@@ -20,6 +20,7 @@ class AppCard final : public QPushButton {
   QJsonObject app;
   QString fallback;
   bool tested;
+  bool launchTested;
   bool suggestion;
 
 public:
@@ -28,13 +29,17 @@ public:
         fallback(root + "/control_panel/assets/deb/" + data["icon"].toString() + ".svg"),
         tested(data["status"] == "tested" &&
                QDate::fromString(data["tested_on"].toString(), Qt::ISODate).isValid()),
+        launchTested(data["status"] == "launch_tested" &&
+               QDate::fromString(data["tested_on"].toString(), Qt::ISODate).isValid()),
         suggestion(data["id"] == "suggest") {
     setObjectName("debApp_" + data["id"].toString());
     setText(data["name"].toString());
     setProperty("tested", tested);
+    setProperty("launchTested", launchTested);
     setProperty("downloadUrl", data["url"].toString());
     setProperty("testedOn", data["tested_on"].toString());
     setAccessibleName(text() + (tested ? ": tested working, " + testDate()
+                                      : launchTested ? ": launch tested, " + testDate()
                                       : suggestion ? ": share a test result" : ": untested"));
     setAccessibleDescription(data["note"].toString() + ". " + data["url"].toString());
     setToolTip(suggestion ? "Tell Xetal about an application you tried."
@@ -65,12 +70,12 @@ public:
     f.setPointSizeF(qMax(8., font().pointSizeF() - 1));
     f.setBold(true);
     p.setFont(f);
-    const QString status = tested ? "Tested working" : suggestion ? "Not listed?" : "Untested";
+    const QString status = tested ? "Tested working" : launchTested ? "Launch tested" : suggestion ? "Not listed?" : "Untested";
     const int pillWidth = p.fontMetrics().horizontalAdvance(status) + 20;
     p.setPen(Qt::NoPen);
-    p.setBrush(pal.color(tested ? QPalette::Highlight : QPalette::AlternateBase));
+    p.setBrush(pal.color(tested || launchTested ? QPalette::Highlight : QPalette::AlternateBase));
     p.drawRoundedRect(QRectF(16, 14, pillWidth, 25), 6, 6);
-    p.setPen(pal.color(tested ? QPalette::HighlightedText : QPalette::Text));
+    p.setPen(pal.color(tested || launchTested ? QPalette::HighlightedText : QPalette::Text));
     p.drawText(QRect(16, 14, pillWidth, 25), Qt::AlignCenter, status);
     const auto icon = QIcon::fromTheme(app["icon"].toString(),
         QFile::exists(fallback) ? QIcon(fallback) : style()->standardIcon(QStyle::SP_FileIcon));
@@ -81,7 +86,7 @@ public:
                p.fontMetrics().elidedText(text(), Qt::ElideRight, width() - 36));
     f = font(); p.setFont(f); p.setPen(pal.color(QPalette::PlaceholderText));
     p.drawText(QRect(18, 148, width() - 36, 22), Qt::AlignVCenter,
-               tested ? testDate() : suggestion ? "Help grow this list" : "No report yet");
+               tested || launchTested ? testDate() : suggestion ? "Help grow this list" : "No report yet");
     p.setPen(pal.color(QPalette::Link));
     p.drawText(QRect(18, height() - 37, width() - 36, 22), Qt::AlignVCenter,
                suggestion ? "Share a test result  →" : "Official download  ↗");
@@ -185,35 +190,44 @@ DebInstallerPage::DebInstallerPage(const QString &profileRoot, QPushButton *inst
   auto *catalogTitle = new QHBoxLayout;
   catalogTitle->addWidget(label("App compatibility", "debCatalogTitle", body), 1);
   auto *count = label("", "debMuted", body);
+  count->setWordWrap(false);
   catalogTitle->addWidget(count);
   layout->addLayout(catalogTitle);
   layout->addWidget(label("Test results are snapshots, not a promise for every version. Untested means we have no result yet. "
+                          "Launch tested covers automated installation, startup and removal; app features are not checked. "
                           "Select an icon to visit the app’s official download page.", "debMuted", body));
   appGrid = new QWidget(body);
   appGrid->setObjectName("debAppGrid");
+  appGrid->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
   grid = new QGridLayout(appGrid);
+  grid->setAlignment(Qt::AlignTop);
   grid->setContentsMargins(0, 0, 0, 0);
   grid->setSpacing(12);
   int tested = 0;
+  int launchTested = 0;
   for (const auto &value : catalog["apps"].toArray()) {
     const auto data = value.toObject();
     const QUrl url(data["url"].toString(), QUrl::StrictMode);
     if (data["id"].toString().isEmpty() || data["name"].toString().isEmpty() || !webUrl(url)) continue;
     auto *card = new AppCard(data, root, appGrid);
     if (card->property("tested").toBool()) ++tested;
+    if (card->property("launchTested").toBool()) ++launchTested;
     connect(card, &QPushButton::clicked, this, [this, url] {
       if (!QDesktopServices::openUrl(url))
         QMessageBox::warning(this, "Could not open the browser", "Open this download page in your browser:\n" + url.toString());
     });
     cards.append(card);
   }
-  count->setText(QString("%1 tested  ·  %2 untested").arg(tested).arg(cards.size() - tested));
+  count->setText(QString("%1 reported working  ·  %2 launch tested  ·  %3 untested")
+                    .arg(tested).arg(launchTested).arg(cards.size() - tested - launchTested));
   if (cards.isEmpty())
     layout->addWidget(label("The app catalog could not be loaded. You can still choose a .deb file above.", "debMuted", body));
   auto *suggest = new AppCard({{"id", "suggest"}, {"name", "Your .deb app"},
                                {"icon", "list-add"}, {"note", "Share a working app or a failure with Xetal"}}, root, appGrid);
   cards.append(suggest);
   connect(suggest, &QPushButton::clicked, this, &DebInstallerPage::feedback);
+  appViewport = scroll->viewport();
+  appViewport->installEventFilter(this);
   appGrid->installEventFilter(this);
   arrangeCards();
   layout->addWidget(appGrid);
@@ -236,12 +250,16 @@ DebInstallerPage::DebInstallerPage(const QString &profileRoot, QPushButton *inst
 }
 
 bool DebInstallerPage::eventFilter(QObject *watched, QEvent *event) {
-  if (watched == appGrid && event->type() == QEvent::Resize) arrangeCards();
+  if ((watched == appGrid || watched == appViewport) && event->type() == QEvent::Resize) arrangeCards();
   return QWidget::eventFilter(watched, event);
 }
 
 void DebInstallerPage::arrangeCards() {
-  const int next = qBound(1, (appGrid->width() + 12) / 242, 4);
+  // A four-column grid's minimum width can prevent the grid itself shrinking.
+  // Use the viewport so narrowing the page can actually reduce column count.
+  const auto margins = appGrid->parentWidget()->layout()->contentsMargins();
+  const int available = appViewport->width() - margins.left() - margins.right();
+  const int next = qBound(1, (available + 12) / 242, 4);
   if (next == columns) return;
   while (auto *item = grid->takeAt(0)) delete item;
   for (int i = 0; i < 4; ++i) grid->setColumnStretch(i, i < next ? 1 : 0);

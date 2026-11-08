@@ -129,6 +129,30 @@ private slots:
     dialog->reject();
   }
 
+  void automatedLaunchResultDoesNotClaimReportedWorking() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QVERIFY(QDir(directory.path()).mkpath("control_panel"));
+    QFile catalog(directory.path() + "/control_panel/deb_apps.json");
+    QVERIFY(catalog.open(QIODevice::WriteOnly));
+    const QJsonObject app{{"id", "example"}, {"name", "Example app"},
+                          {"url", "https://example.org/download"}, {"status", "launch_tested"},
+                          {"tested_on", "2026-11-08"},
+                          {"note", "Automated install, launch and removal; features not tested."}};
+    catalog.write(QJsonDocument(QJsonObject{{"apps", QJsonArray{app}}}).toJson());
+    catalog.close();
+    QPushButton yay, paru;
+    DebInstallerPage page(directory.path(), new QPushButton, &yay, &paru);
+    auto *card = button(page, "debApp_example");
+    QVERIFY(card);
+    QVERIFY(card->property("launchTested").toBool());
+    QVERIFY(!card->property("tested").toBool());
+    QVERIFY(card->accessibleName().contains("launch tested, Nov 8, 2026"));
+    QVERIFY(card->toolTip().contains("features not tested"));
+    card->click();
+    QCOMPARE(opened.last(), QUrl("https://example.org/download"));
+  }
+
   void cardsReflowWithoutHorizontalScrolling() {
     QPushButton yay, paru;
     DebInstallerPage page(root, new QPushButton, &yay, &paru);
@@ -137,7 +161,8 @@ private slots:
     auto *chrome = button(page, "debApp_chrome");
     auto *suggest = button(page, "debApp_suggest");
     auto *scroll = page.findChild<QScrollArea *>("debScroll");
-    QTRY_COMPARE(chrome->y(), suggest->y());
+    QTRY_COMPARE(chrome->y(), button(page, "debApp_vscode")->y());
+    QTRY_COMPARE(chrome->y(), 0);
     QCOMPARE(scroll->horizontalScrollBar()->maximum(), 0);
     // Styled buttons may carry gradient brushes; custom cards must still use
     // the selected light/dark palette rather than painting a black surface.

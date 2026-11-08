@@ -25,7 +25,14 @@ Clicking an app opens its official download page; it does not download or instal
 Test dates describe a reported result, not support for all future versions.
 Keep new entries untested until an installation and launch have been checked;
 record a `tested_on` ISO date (`YYYY-MM-DD`) and explain the result in `note`.
-The three small bundled Papirus icons are fallbacks for fresh installations.
+Use `status: "launch_tested"` for an automated installation, GUI startup and
+removal check after reviewing the captured screenshot. This displays **Launch
+tested**, separately from human-reported **Tested working** results. It does not
+claim account, application-feature, GPU or Wayland compatibility. Obsidian
+1.15.0, Bitwarden 2026.9.1 and Insomnia 13.4.0 passed this check on November 8,
+2026. The reusable isolated runner is documented in
+[`tests/deb_lab/README.md`](../../../tests/deb_lab/README.md).
+The bundled Papirus icons are fallbacks for fresh installations.
 
 **Send feedback** opens a local form for the app name, optional version, original
 `.deb` download URL, result and error/test details. Copying requires a name, an

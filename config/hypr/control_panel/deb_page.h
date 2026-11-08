@@ -19,6 +19,7 @@ private:
   QString root;
   QJsonObject contacts;
   QWidget *appGrid = nullptr;
+  QWidget *appViewport = nullptr;
   QGridLayout *grid = nullptr;
   QList<QPushButton *> cards;
   int columns = 0;

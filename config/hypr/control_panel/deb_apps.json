@@ -3,7 +3,7 @@
     "echo_username": "xetal",
     "echo_url": "https://www.xetal.net/community/site/echo-web/",
     "discord_url": "https://discord.com/channels/@me",
-    "discord_hint": "Discord: Friends → Add Friend → xetal. Once accepted, open the conversation and paste your report."
+    "discord_hint": "Discord: Friends \u2192 Add Friend \u2192 xetal. Once accepted, open the conversation and paste your report."
   },
   "apps": [
     {
@@ -32,6 +32,33 @@
       "status": "tested",
       "tested_on": "2026-11-08",
       "note": "1.145.2 reported working on Arch Linux"
+    },
+    {
+      "id": "obsidian",
+      "name": "Obsidian",
+      "icon": "obsidian",
+      "url": "https://obsidian.md/download",
+      "status": "launch_tested",
+      "tested_on": "2026-11-08",
+      "note": "1.15.0 installed, opened and uninstalled in a disposable Arch Linux VM (X11/Xvfb). Screenshot reviewed. Accounts, app features and Wayland were not tested."
+    },
+    {
+      "id": "bitwarden",
+      "name": "Bitwarden",
+      "icon": "bitwarden",
+      "url": "https://bitwarden.com/download/",
+      "status": "launch_tested",
+      "tested_on": "2026-11-08",
+      "note": "2026.9.1 installed, opened and uninstalled in a disposable Arch Linux VM (X11/Xvfb). Screenshot reviewed. Accounts, app features and Wayland were not tested."
+    },
+    {
+      "id": "insomnia",
+      "name": "Insomnia",
+      "icon": "insomnia",
+      "url": "https://insomnia.rest/download",
+      "status": "launch_tested",
+      "tested_on": "2026-11-08",
+      "note": "13.4.0 installed, opened and uninstalled in a disposable Arch Linux VM (X11/Xvfb). Screenshot reviewed. Accounts, app features and Wayland were not tested."
     }
   ]
 }

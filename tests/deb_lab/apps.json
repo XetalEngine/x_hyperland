@@ -1,0 +1,106 @@
+{
+  "apps": [
+    {
+      "id": "obsidian",
+      "name": "Obsidian",
+      "page": "https://obsidian.md/download",
+      "github": "obsidianmd/obsidian-releases",
+      "asset": ".*amd64\\.deb$",
+      "launch": [
+        "obsidian"
+      ]
+    },
+    {
+      "id": "slack",
+      "name": "Slack",
+      "page": "https://slack.com/downloads/linux",
+      "link_pattern": "https://downloads\\.slack-edge\\.com/[^\\\"\\s<>]+amd64\\.deb",
+      "launch": [
+        "slack"
+      ],
+      "download_page": "https://slack.com/downloads/instructions/linux?build=deb&ddl=1"
+    },
+    {
+      "id": "bitwarden",
+      "name": "Bitwarden",
+      "page": "https://bitwarden.com/download/",
+      "github": "bitwarden/clients",
+      "tag_prefix": "desktop-",
+      "asset": ".*amd64\\.deb$",
+      "launch": [
+        "bitwarden"
+      ]
+    },
+    {
+      "id": "zoom",
+      "name": "Zoom",
+      "page": "https://zoom.us/download",
+      "url": "https://zoom.us/client/latest/zoom_amd64.deb",
+      "launch": [
+        "zoom"
+      ]
+    },
+    {
+      "id": "onlyoffice",
+      "name": "ONLYOFFICE Desktop Editors",
+      "page": "https://www.onlyoffice.com/download-desktop",
+      "url": "https://download.onlyoffice.com/install/desktop/editors/linux/onlyoffice-desktopeditors_amd64.deb",
+      "launch": [
+        "desktopeditors"
+      ]
+    },
+    {
+      "id": "vivaldi",
+      "name": "Vivaldi",
+      "page": "https://vivaldi.com/download/",
+      "link_pattern": "https://downloads\\.vivaldi\\.com/stable/[^\\\"\\s<>]+amd64\\.deb",
+      "launch": [
+        "vivaldi-stable"
+      ]
+    },
+    {
+      "id": "edge",
+      "name": "Microsoft Edge",
+      "page": "https://www.microsoft.com/en-us/edge/download",
+      "apt_index": "https://packages.microsoft.com/repos/edge/dists/stable/main/binary-amd64/Packages.gz",
+      "apt_root": "https://packages.microsoft.com/repos/edge/",
+      "package": "microsoft-edge-stable",
+      "launch": [
+        "microsoft-edge-stable",
+        "--no-first-run"
+      ]
+    },
+    {
+      "id": "dbeaver",
+      "name": "DBeaver Community",
+      "page": "https://dbeaver.io/download/",
+      "url": "https://dbeaver.io/files/dbeaver-ce_latest_amd64.deb",
+      "launch": [
+        "env",
+        "NO_AT_BRIDGE=1",
+        "/usr/share/dbeaver-ce/dbeaver"
+      ],
+      "cwd": "/usr/share/dbeaver-ce"
+    },
+    {
+      "id": "insomnia",
+      "name": "Insomnia",
+      "page": "https://insomnia.rest/download",
+      "github": "Kong/insomnia",
+      "tag_prefix": "core@",
+      "asset": ".*(?<!arm64)\\.deb$",
+      "launch": [
+        "insomnia"
+      ]
+    },
+    {
+      "id": "teamviewer",
+      "name": "TeamViewer",
+      "page": "https://www.teamviewer.com/en/download/linux/",
+      "url": "https://download.teamviewer.com/download/linux/teamviewer_amd64.deb",
+      "launch": [
+        "teamviewer"
+      ]
+    }
+  ]
+}
