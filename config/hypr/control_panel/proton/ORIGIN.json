@@ -1,0 +1,33 @@
+{
+  "project": "XetalProton",
+  "revision": "b1788307699333fedec1d9d720972195e293a945",
+  "integration": "Native Hyper Fusion Control Panel page; existing XetalProton data and configuration paths retained.",
+  "files": {
+    "src/config.cpp": "28fa6145b4a75679e62bb7977aa45fa01a6b1ca2f0b0c093118c92dec1ab5ba5",
+    "src/config.h": "30ce1ecd558c68c421e54b9c182dcd31eb014b103a8d7758674c83babc262eee",
+    "src/dependencies.cpp": "5abe1f3e381033eeb574258810893b9600de9ed792ac8b21313b0dcec22f0e6d",
+    "src/dependencies.h": "5d6c3d02a5666174454463233c5c2b0f8b660134302e53fe14c491c2631b8cf4",
+    "src/download.cpp": "2a9b2bee6bf637dbd2789c2c257a7404e21eff28b77abb7400bb0c20bc49806f",
+    "src/download.h": "1a7067e3841fea2dcede0b5d31fba9483976b2158852a9e0602205a6d3d02cab",
+    "src/icons.cpp": "cf6a00ff48fbfbef8da5212822a5caa90efc7c6a9e60c1594a147b244021883e",
+    "src/icons.h": "436f8fd67de37d635131b4d4ae2c98994686104803116983f9729d470af034ea",
+    "src/launcher.cpp": "469eab66f9a809ca2630c837c938bfb05bdde275baf887e52c2374346ab8aed0",
+    "src/launcher.h": "d6419219822a392283e40e6b96b6c6883ed8245360d1e38fa5e359bc20793b3c",
+    "src/steam.cpp": "6f0f4631547325956d60dae18cbc92e9346b47fa89b4bbfb2b0955d291334c96",
+    "src/steam.h": "5b23c6264b1b1b22876dc43159f7ee65420d29e2637b213f9ca5483338666eca",
+    "src/tools.cpp": "581487e5be823ebc721912c45b3365b00b64e2ba92120c7a02ef99df23428e95",
+    "src/tools.h": "7fb70fe775b1eec0134cc671ead447605a5bde9c496e612fed2822e5fb2f80bb",
+    "src/util.cpp": "fdfef94c45edd455e307a8d8dde4c9c077e018587c14ec0115d509a38998b73a",
+    "src/util.h": "10cfe237fefeb0212345ac311166864e11f194348ed3fcacc6484581e5dad176",
+    "third_party/stb_image.h": "594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3",
+    "third_party/nlohmann/json.hpp": "9bea4c8066ef4a1c206b2be5a36302f8926f7fdc6087af5d20b417d0cf103ea6",
+    "tests/core_tests.cpp": "438d693797aecffdbd83b2dcba63ddc8a4d68d69bba3a6ae203a6c2366dff5ac",
+    "tests/download_server.py": "ae9ec43ccf1c2c7feb991f15cf2b97218549090367615ff7fba61ac88b589541"
+  },
+  "derived_files": {
+    "options.h": {
+      "source": "src/app.cpp",
+      "sha256": "481bc940617bfdad909c35542b54198b676df1e9c04322396692a1df53995036"
+    }
+  }
+}

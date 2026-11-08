@@ -34,6 +34,13 @@ The C++ [Control Panel](CONTROL-PANEL.md) builds from the included CachyOsTools 
 
 The Control Panel build uses every CPU available to the installer, including logical threads, and prints the parallel job count. The installer also prints its source revision and checks the complete configuration before compilation, then validates the built profile again before activation.
 
+Its integrated [Proton page](../config/hypr/control_panel/proton/README.md) adds
+libcurl >= 7.85, libarchive and OpenSSL Crypto development dependencies. Setup
+uses `curl`/`libarchive` on Arch, `libcurl-devel`/`libarchive-devel` on Fedora, and
+`libcurl4-openssl-dev`/`libarchive-dev` on Debian, alongside the existing OpenSSL
+and Qt Concurrent packages. `cabextract` is supplied for Winetricks components.
+Proton and UMU are downloaded separately when requested in Control Panel.
+
 The private GTK 3 preview module is built by the same theme builder. Qt previews use Qt Concurrent for background loading; both dependencies are supplied by the existing GTK/Qt development package recipes. See [file picker coverage](FILE-PREVIEWS.md).
 
 ### XWayland and VLC startup

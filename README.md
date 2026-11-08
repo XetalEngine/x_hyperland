@@ -52,6 +52,8 @@ Hyper Fusion brings the whole desktop together: a launcher you can arrange yours
 
 Fresh installations use **Use Other Icons → Papirus-Dark**. Desktop updates preserve your saved icon choices.
 
+**Control Panel → Software & maintenance → Proton** includes XetalProton's Windows application library, isolated prefixes, Proton downloads and updates, Winetricks dependencies, and launch controls. It shares existing XetalProton data. See the [Proton guide](config/hypr/control_panel/proton/README.md).
+
 ## Tested on
 
 <table>

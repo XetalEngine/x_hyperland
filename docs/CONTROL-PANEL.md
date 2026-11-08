@@ -12,6 +12,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 
 | Control Panel entry | Included tools |
 | --- | --- |
+| Proton | Integrated XetalProton: isolated/shared prefixes, Windows shortcuts, 13-provider Proton downloader, UMU, updates, Winetricks dependencies, compatibility options, command export and process logs. [Guide →](../config/hypr/control_panel/proton/README.md) |
 | System ISO | Full system clone, exclusions, online/offline packages, archive selection/verification, first-boot hardware/identity changes, output, restore guide, dependency checks and dummy installer preview |
 | System Backup / System Restore | Source/destination drives, filesystem browsing, rsync backup and restore |
 | Drives & Storage | Filters, mounts, labels, formatting, ownership/permissions, SMART health, benchmarking and ISO to USB |
@@ -167,4 +168,4 @@ Integration validation covers the upstream ISO regression suite, graphical and c
 python3 config/hypr/control_panel/build.py
 ```
 
-The executable lives in ignored `control_panel/.build`. Required components include CMake, Qt Widgets/Network/DBus/Linguist, XCB/XCB-RES, Wayland development files and Qt SVG readers. Installer recipes include these dependencies. Updates build the executable before activation and preserve private Control Panel state.
+The executable lives in ignored `control_panel/.build`. Required components include CMake, Qt Widgets/Concurrent/Network/DBus/Linguist, XCB/XCB-RES, Wayland development files and Qt SVG readers. The Proton backend also needs a C++20 compiler, libcurl >= 7.85, libarchive and OpenSSL Crypto. Installer recipes include these dependencies. Updates build the executable before activation and preserve private Control Panel state and separate XetalProton storage.

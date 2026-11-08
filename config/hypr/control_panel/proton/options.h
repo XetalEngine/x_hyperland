@@ -1,0 +1,82 @@
+#pragma once
+#include <vector>
+namespace XetalProton {
+enum class OptKind { Bool, Choice, Text };
+struct OptionDef { const char* key; const char* label; const char* tip; OptKind kind; std::vector<const char*> choices; };
+struct OptionGroup { const char* name; std::vector<OptionDef> opts; };
+
+static const std::vector<OptionGroup> OPTION_GROUPS = {
+    { "Graphics / Direct3D", {
+        { "PROTON_USE_WINED3D", "Use wined3d (OpenGL) instead of DXVK", "Use OpenGL-based wined3d for D3D9/10/11 instead of Vulkan-based DXVK.", OptKind::Bool, {} },
+        { "PROTON_NO_D3D11", "Disable D3D11", "Disable d3d11.dll (DXVK) so games fall back to D3D9/OpenGL.", OptKind::Bool, {} },
+        { "PROTON_NO_D3D10", "Disable D3D10", "Disable d3d10.dll.", OptKind::Bool, {} },
+        { "PROTON_DXVK_D3D8", "Use DXVK for D3D8", "Route Direct3D 8 through DXVK's d3d8 (Proton 9+).", OptKind::Bool, {} },
+        { "PROTON_OLD_GL_STRING", "Old GL string", "Fake an old OpenGL version string for games that choke on modern ones.", OptKind::Bool, {} },
+        { "PROTON_FORCE_NVAPI", "Force NVAPI", "Force-enable DXVK-NVAPI (DLSS / Reflex) even when the game is not on the allow list.", OptKind::Bool, {} },
+        { "PROTON_DISABLE_NVAPI", "Disable NVAPI", "Disable DXVK-NVAPI entirely.", OptKind::Bool, {} },
+        { "PROTON_ENABLE_NVAPI", "Enable NVAPI (older Proton)", "Older Proton flag for enabling NVAPI.", OptKind::Bool, {} },
+        { "PROTON_HIDE_NVIDIA_GPU", "Hide NVIDIA GPU", "Report the GPU as non-NVIDIA to the game.", OptKind::Bool, {} },
+        { "PROTON_HIDE_INTEL_GPU", "Hide Intel GPU", "Hide Intel GPUs from the game.", OptKind::Bool, {} },
+        { "PROTON_HIDE_APU", "Hide APU", "Hide integrated APU from the game.", OptKind::Bool, {} },
+        { "PROTON_HIDE_VANGOGH_GPU", "Hide Van Gogh GPU", "Hide the Steam Deck GPU identity.", OptKind::Bool, {} },
+        { "PROTON_ENABLE_WAYLAND", "Wayland driver", "Use Wine's native Wayland driver instead of XWayland (Proton 10+).", OptKind::Bool, {} },
+        { "PROTON_ENABLE_HDR", "HDR", "Enable HDR output (needs Wayland driver / gamescope).", OptKind::Bool, {} },
+        { "PROTON_NO_WM_DECORATION", "No WM decorations", "Do not let the window manager decorate Wine windows.", OptKind::Bool, {} },
+        { "DXVK_HUD", "DXVK HUD", "DXVK on-screen HUD.", OptKind::Choice, { "fps", "devinfo", "devinfo,fps", "fps,frametimes", "fps,frametimes,gpuload,memory", "full", "compiler", "1" } },
+        { "DXVK_FRAME_RATE", "DXVK frame rate cap", "Limit FPS in D3D9/10/11 games (e.g. 60).", OptKind::Text, {} },
+        { "VKD3D_CONFIG", "VKD3D config", "vkd3d-proton options (D3D12).", OptKind::Choice, { "dxr", "dxr11", "dxr12", "no_upload_hvv", "force_static_cbv", "single_queue", "no_dxr" } },
+        { "VKD3D_FEATURE_LEVEL", "VKD3D feature level", "Override the D3D12 feature level.", OptKind::Choice, { "11_0", "11_1", "12_0", "12_1", "12_2" } },
+        { "WINE_FULLSCREEN_FSR", "FSR upscaling (fullscreen)", "AMD FidelityFX Super Resolution for fullscreen games at lower resolutions.", OptKind::Bool, {} },
+        { "WINE_FULLSCREEN_FSR_STRENGTH", "FSR sharpness", "0 (sharpest) - 5 (softest). Default 2.", OptKind::Choice, { "0", "1", "2", "3", "4", "5" } },
+        { "WINE_FULLSCREEN_FSR_MODE", "FSR mode", "Preset upscaling ratio.", OptKind::Choice, { "ultra", "quality", "balanced", "performance" } },
+        { "PROTON_LIMIT_RESOLUTIONS", "Limit resolutions", "Hide display modes above the given value (e.g. 1920x1080).", OptKind::Text, {} },
+        { "MANGOHUD", "MangoHud overlay", "Show the MangoHud performance overlay (MANGOHUD=1).", OptKind::Bool, {} },
+        { "MANGOHUD_CONFIG", "MangoHud config", "e.g. fps,frametime,cpu_temp,gpu_temp", OptKind::Text, {} },
+        { "ENABLE_VKBASALT", "vkBasalt post-processing", "Enable the vkBasalt Vulkan layer if installed.", OptKind::Bool, {} },
+        { "OBS_VKCAPTURE", "OBS Vulkan capture", "Enable the obs-vkcapture layer.", OptKind::Bool, {} },
+    } },
+    { "Sync / CPU / Memory", {
+        { "PROTON_NO_ESYNC", "Disable esync", "Disable eventfd-based synchronisation.", OptKind::Bool, {} },
+        { "PROTON_NO_FSYNC", "Disable fsync", "Disable futex-based synchronisation.", OptKind::Bool, {} },
+        { "PROTON_USE_NTSYNC", "Use ntsync", "Use the kernel ntsync driver when available (Proton 10+).", OptKind::Bool, {} },
+        { "PROTON_NO_NTSYNC", "Disable ntsync", "Force-disable ntsync.", OptKind::Bool, {} },
+        { "PROTON_FORCE_LARGE_ADDRESS_AWARE", "Force large address aware", "Let 32-bit games use more than 2 GB of address space.", OptKind::Bool, {} },
+        { "PROTON_HEAP_DELAY_FREE", "Heap delay free", "Delay freeing heap memory (works around use-after-free bugs in games).", OptKind::Bool, {} },
+        { "PROTON_HEAP_ZERO_MEMORY", "Heap zero memory", "Zero heap allocations.", OptKind::Bool, {} },
+        { "PROTON_CPU_TOPOLOGY", "CPU topology", "Limit visible CPUs, e.g. 8:0,1,2,3,4,5,6,7", OptKind::Text, {} },
+        { "WINE_CPU_TOPOLOGY", "Wine CPU topology", "Same as above, Wine-level variable.", OptKind::Text, {} },
+        { "PROTON_LIMIT_ADDRESS_SPACE", "Limit address space", "Limit 64-bit address space (hex/bytes), rarely needed.", OptKind::Text, {} },
+        { "@gamemoderun", "Run with gamemoderun", "Prefix the command with gamemoderun (Feral GameMode).", OptKind::Bool, {} },
+        { "@gamescope", "Run inside gamescope", "Wrap the game in a gamescope micro-compositor session.", OptKind::Bool, {} },
+        { "@gamescope_args", "gamescope arguments", "e.g. -W 2560 -H 1440 -f --force-grab-cursor", OptKind::Text, {} },
+    } },
+    { "Compatibility / Input", {
+        { "PROTON_USE_WOW64", "New WoW64 mode", "Run 32-bit games through the new wow64 layer (no 32-bit libs needed).", OptKind::Bool, {} },
+        { "PROTON_USE_XALIA", "Xalia (gamepad UI)", "Enable Xalia gamepad navigation for launchers.", OptKind::Bool, {} },
+        { "PROTON_NO_XIM", "Disable XIM", "Disable X input method support (fixes some keyboard issues).", OptKind::Bool, {} },
+        { "PROTON_DISABLE_HIDRAW", "Disable hidraw", "Disable raw HID controller access.", OptKind::Bool, {} },
+        { "PROTON_PREFER_SDL", "Prefer SDL input", "Prefer SDL for controllers (older Proton).", OptKind::Bool, {} },
+        { "PROTON_MEDIACONV_NO_VIDEO", "No video conversion", "Skip Proton's media converter for video files.", OptKind::Bool, {} },
+        { "PROTON_SET_GAME_DRIVE", "Map game drive (S:)", "Expose the game install path as a drive letter.", OptKind::Bool, {} },
+        { "PROTON_USE_EAC_LINUX", "EAC Linux runtime", "Use the native Easy Anti-Cheat runtime.", OptKind::Bool, {} },
+        { "WINEDLLOVERRIDES", "DLL overrides", "e.g. dxgi=n,b;d3d11=n,b (native/builtin order)", OptKind::Text, {} },
+        { "WINE_LARGE_ADDRESS_AWARE", "Wine large address aware", "Wine-level LAA flag.", OptKind::Bool, {} },
+        { "STEAM_COMPAT_APP_ID", "Steam App ID", "Apply Proton's game-specific fixes for this Steam App ID.", OptKind::Text, {} },
+        { "LANG", "Locale (LANG)", "e.g. ja_JP.UTF-8 for Japanese games.", OptKind::Text, {} },
+        { "LC_ALL", "Locale (LC_ALL)", "Force all locale categories.", OptKind::Text, {} },
+    } },
+    { "Logging / Debug", {
+        { "PROTON_LOG", "Proton log", "Write steam-<id>.log into the XetalProton logs folder.", OptKind::Bool, {} },
+        { "PROTON_DUMP_DEBUG_COMMANDS", "Dump debug commands", "Write helper scripts for running the game outside Steam.", OptKind::Bool, {} },
+        { "WINEDEBUG", "WINEDEBUG channels", "Wine debug channel list.", OptKind::Choice, { "-all", "+timestamp,+pid,+tid,+seh,+unwind,+threadname,+debugstr,+loaddll,+mscoree", "+loaddll", "warn+all", "+seh", "fixme-all" } },
+        { "DXVK_LOG_LEVEL", "DXVK log level", "", OptKind::Choice, { "none", "error", "warn", "info", "debug" } },
+        { "DXVK_NVAPI_LOG_LEVEL", "DXVK-NVAPI log level", "", OptKind::Choice, { "none", "error", "warn", "info" } },
+        { "VKD3D_DEBUG", "VKD3D log level", "", OptKind::Choice, { "none", "err", "warn", "fixme", "trace" } },
+        { "VKD3D_SHADER_DEBUG", "VKD3D shader log", "", OptKind::Choice, { "none", "err", "warn", "fixme", "trace" } },
+        { "WINE_MONO_TRACE", "Mono trace", "e.g. E:System.NotImplementedException", OptKind::Text, {} },
+        { "PROTON_CRASH_REPORT_DIR", "Crash report dir", "Directory for Wine crash dumps.", OptKind::Text, {} },
+        { "GST_DEBUG", "GStreamer debug", "e.g. 4", OptKind::Text, {} },
+    } },
+};
+
+}
