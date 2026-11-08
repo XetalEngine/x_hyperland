@@ -157,10 +157,10 @@ DebInstallerPage::DebInstallerPage(const QString &profileRoot, QPushButton *inst
   layout->addWidget(helpers);
 
   auto *actions = new QHBoxLayout;
-  install->setText("Choose .deb and install…");
+  install->setText("Install or update from .deb…");
   install->setProperty("debPrimary", true);
   install->setEnabled(true);
-  install->setToolTip("Check dependencies, convert, and review the pacman installation in a terminal.");
+  install->setToolTip("Choose a new or newer .deb, check dependencies, and review the installation or upgrade in a terminal.");
   install->setIcon(QIcon::fromTheme("application-x-deb"));
   actions->addWidget(install);
   install->show();
@@ -175,6 +175,7 @@ DebInstallerPage::DebInstallerPage(const QString &profileRoot, QPushButton *inst
     install->setProperty("debCheckOnly", false);
   });
   layout->addLayout(actions);
+  layout->addWidget(label("Updating an app? Download its newer .deb and use the same button. Updates are not downloaded automatically.", "debMuted", body));
   layout->addWidget(label("Unresolved dependencies stop installation and are explained in the terminal.", "debMuted", body));
 
   QFile source(root + "/control_panel/deb_apps.json");

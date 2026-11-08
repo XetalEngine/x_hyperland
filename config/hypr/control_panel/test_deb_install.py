@@ -165,6 +165,16 @@ class DebInstallTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'empty package'):deb.install(self.source)
         self.assertFalse(any(args[:3]==['sudo','pacman','-U'] for args in self.commands))
 
+    def test_lost_vscode_runtime_is_rejected_before_installation(self):
+        self.files = {'usr/share/code/code', 'usr/share/code/resources/app/out/cli.js',
+                      'usr/share/applications/com.microsoft.VSCode.desktop'}
+        for name in ('usr/share/code/code', 'usr/share/code/resources/app/out/cli.js'):
+            with self.subTest(name=name):
+                self.converted = self.files - {name}; self.commands.clear()
+                with self.assertRaisesRegex(RuntimeError, 'Conversion lost application files'):
+                    deb.install(self.source)
+                self.assertFalse(any(args[:3] == ['sudo', 'pacman', '-U'] for args in self.commands))
+
     def test_zero_exit_without_installing_is_not_success(self):
         self.skip_install=True
         self.assertEqual(deb.main([str(self.source)]),1)

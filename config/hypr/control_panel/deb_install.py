@@ -11,7 +11,7 @@ import sys
 import tempfile
 
 from deb_dependencies import AurRepository, MissingRepositoryIndexes, read_control, resolve
-from deb_recipes import CHROME, dependency_fields, omitted_application_files
+from deb_recipes import CHROME, VSCODE, dependency_fields, omitted_application_files
 
 TOOLS = {'pactree':'pacman-contrib', 'pkgfile':'pkgfile', 'ar':'binutils',
          'readelf':'binutils', 'fakeroot':'fakeroot', 'curl':'curl', 'gzip':'gzip',
@@ -170,10 +170,12 @@ def arch_path(name):
 def application_files(paths):
     # Match debtap's Arch filesystem moves for executable directories. /opt
     # and application-menu entries must survive conversion at their own paths.
+    # VS Code stores its executable and runtime under /usr/share/code.
     required=set()
     for name in paths:
         name=arch_path(name)
-        if name.startswith(('opt/','usr/bin/','usr/share/applications/','usr/local/share/applications/')):
+        if name.startswith(('opt/','usr/bin/','usr/share/applications/','usr/local/share/applications/',
+                            'usr/share/code/')):
             required.add(name)
     return required
 
@@ -278,6 +280,8 @@ def check_dependencies(deb, fields=None, aur=None):
     print('== Checking '+fields['package']+' '+fields['version']+' ('+fields['architecture']+')',flush=True)
     if fields['package']==CHROME:
         print('== Chrome Arch recipe: package-owned icons and native hooks; Debian updater scripts and dpkg prerequisite are replaced.',flush=True)
+    elif fields['package']==VSCODE:
+        print('== VS Code Arch recipe: package-owned code launcher and native desktop, icon and MIME hooks replace Debian setup scripts.',flush=True)
     dependencies,rows=resolve(dependency_fields(fields), aur=aur)
     print('== Debian requirements → Arch packages:\n  '+('\n  '.join(rows) or 'No declared dependencies.'),flush=True)
     print('== Version checks use upstream minimums; Debian packaging revisions are not Arch revisions.',flush=True)

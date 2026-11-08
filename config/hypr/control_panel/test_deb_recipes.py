@@ -1,4 +1,5 @@
-"""Arch recipes must not run Debian setup scripts or remove browser payloads."""
+"""Arch recipes must not run Debian setup scripts or remove application payloads."""
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -27,6 +28,86 @@ class RecipeTests(unittest.TestCase):
             self.write(f'opt/google/chrome/product_logo_{size}.png', f'icon-{size}')
         for path in recipes.CHROME_CRON:
             self.write(path)
+
+    def vscode(self):
+        for name in ('usr/share/code/code', 'usr/share/code/bin/code',
+                     'usr/share/code/chrome-sandbox', 'usr/share/code/resources/app/out/cli.js',
+                     'usr/share/code/bin/copilot-shim/copilot',
+                     'usr/share/applications/com.microsoft.VSCode.desktop',
+                     'usr/share/applications/com.microsoft.VSCode.UrlHandler.desktop',
+                     'usr/share/mime/packages/code-workspace.xml'):
+            self.write(name)
+        for name in ('usr/share/code/code', 'usr/share/code/bin/code'):
+            (self.root/name).chmod(0o755)
+        (self.root/'usr/share/code/chrome-sandbox').chmod(0o4755)
+        self.write('usr/share/code/resources/app/product.json', json.dumps(
+            {'applicationName': 'code', 'nameLong': 'Visual Studio Code'}))
+        # Only the header is needed to test copying the vendor's 1024px icon.
+        self.write('usr/share/pixmaps/vscode.png').write_bytes(
+            b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR' + (1024).to_bytes(4, 'big') * 2)
+
+    def test_vscode_replaces_broken_script_with_owned_launcher_and_native_hooks(self):
+        self.vscode()
+        self.write('.INSTALL', 'post_install() {\nfi\n}\n')
+        before = {str(p.relative_to(self.root)): (p.read_bytes(), p.stat().st_mode)
+                  for p in (self.root/'usr').rglob('*') if p.is_file()}
+        recipes.finalize(self.root, recipes.VSCODE)
+        self.assertEqual((self.root/'usr/bin/code').readlink(), Path('../share/code/bin/code'))
+        self.assertEqual((self.root/'usr/bin/code').resolve(), self.root/'usr/share/code/bin/code')
+        icon = self.root/'usr/share/icons/hicolor/1024x1024/apps/vscode.png'
+        self.assertEqual(icon.read_bytes(), (self.root/'usr/share/pixmaps/vscode.png').read_bytes())
+        self.assertEqual(icon.stat().st_mode & 0o7777, 0o644)
+        script = (self.root/'.INSTALL').read_text()
+        self.assertTrue(all(not line.strip() or line.startswith('#') for line in script.splitlines()))
+        self.assertFalse((self.root/'usr/bin/copilot').exists())
+        self.assertFalse((self.root/'etc').exists())
+        for name, (content, mode) in before.items():
+            self.assertEqual((self.root/name).read_bytes(), content)
+            self.assertEqual((self.root/name).stat().st_mode, mode)
+        # Re-running the layout keeps the same owned paths for updates.
+        recipes.finalize(self.root, recipes.VSCODE)
+
+    def test_vscode_changed_or_unrelated_payload_stops_before_replacing_script(self):
+        self.vscode()
+        script = self.write('.INSTALL', 'broken script must remain\n')
+        product = self.root/'usr/share/code/resources/app/product.json'
+        for content in ('invalid json', '[]', '{"applicationName":"other"}'):
+            product.write_text(content)
+            with self.assertRaisesRegex(RuntimeError, 'VS Code|Visual Studio Code'):
+                recipes.finalize(self.root, recipes.VSCODE)
+            self.assertEqual(script.read_text(), 'broken script must remain\n')
+        product.write_text(json.dumps({'applicationName': 'code', 'nameLong': 'Visual Studio Code'}))
+        (self.root/'usr/share/code/resources/app/out/cli.js').unlink()
+        with self.assertRaisesRegex(RuntimeError, 'layout changed'):
+            recipes.finalize(self.root, recipes.VSCODE)
+
+    def test_vscode_refuses_unexpected_launcher_or_symlinked_output_directory(self):
+        self.vscode()
+        launcher = self.write('usr/bin/code', 'different command')
+        with self.assertRaisesRegex(RuntimeError, 'unexpected /usr/bin/code'):
+            recipes.finalize(self.root, recipes.VSCODE)
+        self.assertEqual(launcher.read_text(), 'different command')
+        launcher.unlink()
+        launcher.symlink_to('../bin/different-command')
+        with self.assertRaisesRegex(RuntimeError, 'unexpected /usr/bin/code'):
+            recipes.finalize(self.root, recipes.VSCODE)
+        launcher.unlink()
+        outside = self.root/'elsewhere'; outside.mkdir()
+        (self.root/'usr/share/icons').symlink_to(outside)
+        with self.assertRaisesRegex(RuntimeError, 'unexpected symbolic link'):
+            recipes.finalize(self.root, recipes.VSCODE)
+        self.assertEqual(list(outside.iterdir()), [])
+
+    def test_vscode_adds_native_hook_dependencies_without_dropping_declared_requirements(self):
+        control = {'package': recipes.VSCODE, 'depends': 'libxkbfile1 (>= 1:1.1.0)',
+                   'pre-depends': 'example-prerequisite'}
+        adapted = recipes.dependency_fields(control)
+        self.assertTrue(adapted['depends'].startswith(control['depends'] + ', '))
+        for name in ('desktop-file-utils', 'gtk-update-icon-cache', 'hicolor-icon-theme', 'shared-mime-info'):
+            self.assertIn(name, adapted['depends'].split(', '))
+        self.assertEqual(adapted['pre-depends'], control['pre-depends'])
+        generic = dict(control, package='different-application')
+        self.assertEqual(recipes.dependency_fields(generic), generic)
 
     def test_chrome_icons_are_packaged_and_only_known_debian_updaters_removed(self):
         self.chrome()

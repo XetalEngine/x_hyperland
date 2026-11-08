@@ -4,6 +4,7 @@ Chrome's native layout follows the maintained google-chrome AUR recipe:
 https://aur.archlinux.org/cgit/aur.git/tree/PKGBUILD?h=google-chrome
 """
 import argparse
+import json
 from pathlib import Path
 import shlex
 import shutil
@@ -14,6 +15,8 @@ from deb_dependencies import parse_relationships
 CHROME = 'google-chrome-stable'
 CHROME_EXTRAS = ('libxss', 'libxtst', 'hicolor-icon-theme', 'desktop-file-utils')
 CHROME_CRON = ('etc/cron.daily/google-chrome', 'opt/google/chrome/cron/google-chrome')
+VSCODE = 'code'
+VSCODE_EXTRAS = ('desktop-file-utils', 'gtk-update-icon-cache', 'hicolor-icon-theme', 'shared-mime-info')
 
 
 def dependency_fields(fields):
@@ -25,6 +28,10 @@ def dependency_fields(fields):
         if len(groups) == 1 and len(groups[0]) == 1 and groups[0][0].name == 'dpkg':
             result.pop('pre-depends', None)
         result['depends'] = ', '.join(filter(None, [fields.get('depends', ''), *CHROME_EXTRAS]))
+    elif fields['package'] == VSCODE:
+        # Native transaction hooks refresh the packaged desktop, icon and MIME
+        # entries on installation, upgrade and removal.
+        result['depends'] = ', '.join(filter(None, [fields.get('depends', ''), *VSCODE_EXTRAS]))
     return result
 
 
@@ -83,9 +90,67 @@ post_upgrade() { post_install; }
 ''')
 
 
+def vscode_layout(root):
+    """Replace VS Code Stable's Debian setup with package-owned Arch files."""
+    required = ('usr/share/code/code', 'usr/share/code/bin/code',
+                'usr/share/code/resources/app/out/cli.js',
+                'usr/share/code/resources/app/product.json',
+                'usr/share/applications/com.microsoft.VSCode.desktop',
+                'usr/share/applications/com.microsoft.VSCode.UrlHandler.desktop',
+                'usr/share/pixmaps/vscode.png', 'usr/share/mime/packages/code-workspace.xml')
+    icon = root/'usr/share/icons/hicolor/1024x1024/apps/vscode.png'
+    launcher = root/'usr/bin/code'
+    # A changed layout needs review. Never follow an archive symlink while
+    # creating integration files, or substitute a different app named "code".
+    for relative in (*required, 'usr/bin', 'usr/share/icons/hicolor/1024x1024/apps',
+                     'usr/share/icons/hicolor/1024x1024/apps/vscode.png', '.INSTALL'):
+        path = root
+        for part in Path(relative).parts:
+            path /= part
+            if path.is_symlink():
+                raise RuntimeError('The VS Code package layout changed; unexpected symbolic link: '+relative)
+    if any(not (root/name).is_file() for name in required):
+        raise RuntimeError('The VS Code package layout changed; its Arch recipe must be reviewed.')
+    try:
+        product = json.loads((root/'usr/share/code/resources/app/product.json').read_text())
+    except (OSError, ValueError) as error:
+        raise RuntimeError('Could not identify the VS Code package; its Arch recipe must be reviewed.') from error
+    if not isinstance(product, dict) or product.get('applicationName') != 'code' or product.get('nameLong') != 'Visual Studio Code':
+        raise RuntimeError('The package is not the supported Visual Studio Code Stable layout.')
+    for name in ('usr/share/code/code', 'usr/share/code/bin/code'):
+        if not (root/name).stat().st_mode & 0o111:
+            raise RuntimeError('The VS Code package contains a non-executable launcher: '+name)
+    # The vendor supplies this 1024px icon in pixmaps; hicolor makes it available
+    # to the standard icon cache while retaining the original packaged file.
+    original_icon = root/'usr/share/pixmaps/vscode.png'
+    with original_icon.open('rb') as stream:
+        header = stream.read(24)
+    if header[:16] != b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR' or header[16:24] != (1024).to_bytes(4, 'big') * 2:
+        raise RuntimeError('The VS Code icon layout changed; its Arch recipe must be reviewed.')
+    target = '../share/code/bin/code'
+    if launcher.is_symlink():
+        if launcher.readlink().as_posix() not in (target, '/usr/share/code/bin/code'):
+            raise RuntimeError('The VS Code package contains an unexpected /usr/bin/code link.')
+    elif launcher.exists():
+        raise RuntimeError('The VS Code package contains an unexpected /usr/bin/code file.')
+    else:
+        launcher.parent.mkdir(parents=True, exist_ok=True)
+        launcher.symlink_to(target)
+    icon.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(original_icon, icon)
+    icon.chmod(0o644)
+    # The Debian scripts configure apt/debconf, update-alternatives, and a shared
+    # optional /usr/bin/copilot alias. Keep the Copilot shim in the payload, but
+    # leave that global command and editor preferences to the user. Pacman owns
+    # the code launcher; its hooks handle caches, including upgrade and removal.
+    (root/'.INSTALL').write_text('# VS Code uses package-owned launchers and native pacman desktop, icon and MIME hooks.\n')
+
+
 def finalize(root, name):
     if name == CHROME:
         chrome_layout(root)
+    elif name == VSCODE:
+        vscode_layout(root)
     script = root/'.INSTALL'
     if script.exists():
         result = subprocess.run(['bash', '-n', str(script)], capture_output=True, text=True)

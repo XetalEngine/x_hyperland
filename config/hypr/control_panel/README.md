@@ -3,9 +3,19 @@
 Native floating Qt/C++ panel, opened from Apps above Fusion Settings. See the [feature map and integration guide](../../../docs/CONTROL-PANEL.md).
 
 **Install .deb is available again as an experimental compatibility tool.**
-Choose a trusted Debian application in **Install .deb → Choose .deb and install**.
+Choose a trusted Debian application in **Install .deb → Install or update from .deb**.
 **Check dependencies only** reads the package and the existing pacman databases
 without installing tools, downloading packages or changing the system.
+
+For an update, download the newer `.deb` from the same publisher and use the same
+button. Conversion and validation run again, then `pacman -U` upgrades the matching
+installed package and tracks the new files. A same-version file is a reinstall;
+pacman displays its transaction before confirmation. Matching is by the converted
+package name, so changing edition, vendor, or packaging source is not necessarily
+an upgrade. Dependencies and file conflicts remain checked. This page does not
+poll vendors or automatically download application updates; registration with
+pacman alone does not provide an update feed. App-owned data/settings in the home
+directory are outside the converted system payload.
 
 The page has a theme-aware **Experimental** banner and a responsive app grid
 below the installation buttons. `deb_apps.json` is the compatibility catalog:
@@ -131,7 +141,7 @@ paths. Native pacman hooks replace Debian setup scripts; consequently Chrome's
 packaging-only `dpkg` prerequisite is not installed. This follows the layout in
 the [maintained Chrome Arch recipe](https://aur.archlinux.org/cgit/aur.git/tree/PKGBUILD?h=google-chrome).
 Debtap corrupts the vendor script's heredocs and conditionals, so its generated
-script is not used for Chrome. All other converted install scripts must pass
+script is not used for Chrome. Other converted install scripts must pass
 `bash -n` before packaging; unsupported scripts stop for a dedicated recipe.
 Syntax checking does not execute the script or prove its runtime behavior.
 Chrome's replacement hook also repairs root-owned `0700` directories left by the
@@ -140,6 +150,20 @@ directory in the checked Chrome payload. It never recursively changes modes,
 follows symlinks or changes ownership. Reinstalling replaces damaged file modes;
 the hook handles directories that pacman otherwise retains. Verification still
 runs as the desktop user, so inaccessible application files remain an error.
+
+The **VS Code Stable** (`code`) recipe checks Microsoft's product identity and
+the reviewed application layout before replacing Debtap's broken `.INSTALL`.
+The `/usr/bin/code` symlink and hicolor icon become package-owned files. Native
+desktop/icon/MIME hooks handle installation, upgrades and removal; their packages
+are explicit dependencies. The editor, CLI, desktop entries, workspace MIME
+definition, sandbox permissions and remaining payload are retained. File-loss
+checks include `/usr/share/code`, where this app stores its executable/runtime.
+APT repository/key setup, Debian editor alternatives and debconf prompts are
+replaced by that native integration. The optional shared `/usr/bin/copilot`
+command is left unclaimed; Microsoft's shim remains under
+`/usr/share/code/bin/copilot-shim/copilot`. Existing editor preferences are kept.
+Other apps' broken scripts still stop; this is a named recipe, not a syntax-check
+bypass. A package layout or product identity change requires another review.
 
 Command-line checks (run as the desktop user):
 
