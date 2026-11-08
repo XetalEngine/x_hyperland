@@ -153,6 +153,7 @@ def _human(n):
 
 class PathsTab(QScrollArea):
     changed = pyqtSignal()
+    enable_local_ssh = pyqtSignal()
 
     def __init__(self, cfg):
         super().__init__()
@@ -269,7 +270,9 @@ class PathsTab(QScrollArea):
                     contents = stream.read(1024 * 1024 + 1)
                 if len(contents) > 1024 * 1024:
                     raise ValueError("The guest script is too large to preview (limit: 1 MiB).")
-                self._guest_batch_text = contents.decode("utf-8-sig")
+                import guest_connection, portable
+                managed = os.path.realpath(path) == str((portable.ROOT/'guest/vmstealth75.bat').resolve())
+                self._guest_batch_text = guest_connection.render(contents.decode("utf-8-sig"), self.cfg.data, managed=managed)
                 message = "The guest script is empty."
             except (OSError, UnicodeError, ValueError) as error:
                 self._guest_batch_text = ""
@@ -281,6 +284,7 @@ class PathsTab(QScrollArea):
             self.guest_batch_preview.setPlainText(displayed)
         self.guest_batch_preview.setPlaceholderText(message)
         self.guest_batch_copy.setEnabled(bool(self._guest_batch_text))
+        self.guest_batch_copy.setToolTip("Copy the personalized Windows guest script" if self._guest_batch_text else message)
 
     def _copy_guest_batch(self):
         self._refresh_guest_batch()
@@ -473,6 +477,10 @@ class PathsTab(QScrollArea):
                                           QSizePolicy.Policy.Preferred)
         self.guest_batch_name.setStyleSheet("color: #888;")
         batch_header.addWidget(self.guest_batch_name, 1)
+        self.guest_ssh_enable = QPushButton("Enable local SSH")
+        self.guest_ssh_enable.setToolTip("Allow your Linux account to connect from private networks. Administrator authentication is required.")
+        self.guest_ssh_enable.clicked.connect(self.enable_local_ssh.emit)
+        batch_header.addWidget(self.guest_ssh_enable)
         self.guest_batch_copy = QPushButton("Copy")
         self.guest_batch_copy.setObjectName("accent")
         self.guest_batch_copy.setMinimumWidth(72)
@@ -486,6 +494,10 @@ class PathsTab(QScrollArea):
         self.guest_batch_preview.setMinimumSize(280, 170)
         self.guest_batch_preview.setAccessibleName("Guest batch file contents")
         batch_layout.addWidget(self.guest_batch_preview)
+        self.guest_ssh_status = QLabel("Enable local SSH once, then Copy. Your Linux login and VM paths are filled in automatically.")
+        self.guest_ssh_status.setTextFormat(Qt.TextFormat.PlainText)
+        self.guest_ssh_status.setWordWrap(True)
+        batch_layout.addWidget(self.guest_ssh_status)
         self.guest_batch_copy_timer = QTimer(self)
         self.guest_batch_copy_timer.setSingleShot(True)
         self.guest_batch_copy_timer.timeout.connect(lambda: self.guest_batch_copy.setText("Copy"))
@@ -504,7 +516,7 @@ class PathsTab(QScrollArea):
         g, box = _group("Stealth helpers")
         hdr = QLabel("Run by hand, not by launch: the CPUID drop must happen after "
                      "Windows has finished enumerating topology. The Windows guest script is included "
-                     "with the desktop. Set its SSH login before use; it requires the matching "
+                     "with the desktop. Copy fills in your SSH login and VM paths; it requires the matching "
                      "custom AMD KVM module and host helper.")
         hdr.setWordWrap(True)
         g.addWidget(hdr, 0, 0)

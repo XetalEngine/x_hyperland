@@ -33,6 +33,9 @@ class SetupTests(unittest.TestCase):
 
     def setUp(self):
         import editions
+        for name, value in (('host_address','192.168.50.10'), ('username','alice')):
+            discovery=patch('guest_connection.'+name, return_value=value)
+            discovery.start();self.addCleanup(discovery.stop)
         # Most UI fixtures have no component download service. Dedicated module
         # tests below enable preparation with a local fake download.
         optional=patch('module_policy.requested',return_value=False)
@@ -445,10 +448,53 @@ class SetupTests(unittest.TestCase):
         tab.tools(); tab.refresh()
         self.assertTrue(Path(w.cfg.data['tools']['vmstealth_guest']).is_file())
         self.assertTrue(tab.guest_batch_copy.isEnabled())
-        self.assertIn('YOUR_LINUX_USER@YOUR_LINUX_HOST', tab.guest_batch_preview.toPlainText())
+        self.assertIn('set "HOST_LOGIN=alice@192.168.50.10"', tab.guest_batch_preview.toPlainText())
         tab.guest_batch_copy.click()
         self.assertEqual(self.application.clipboard().text(), tab._guest_batch_text)
         self.assertIn('HOST_LOGIN', self.application.clipboard().text())
+
+    def test_local_ssh_button_runs_setup_with_a_running_vm_and_refreshes_copy(self):
+        import local_ssh
+        w = self.window; tab = w.tab_paths
+        def run(work, done, failed): done(work(lambda *_:None))
+        with patch.object(w, '_busy', return_value=True), patch.object(w.package_panel, 'run', side_effect=run), \
+             patch.object(local_ssh, 'request', return_value={'message':'Local SSH ready','port':2222}) as request:
+            tab.guest_ssh_enable.click()
+        request.assert_called_once_with()
+        self.assertEqual(tab.guest_ssh_enable.text(), 'Local SSH enabled')
+        self.assertEqual(tab.guest_ssh_status.text(), 'Local SSH ready')
+        tab.guest_batch_copy.click()
+        self.assertIn('set "HOST_PORT=2222"', self.application.clipboard().text())
+
+    def test_local_ssh_cancellation_is_visible_and_can_be_retried(self):
+        w = self.window; tab = w.tab_paths
+        def run(work, done, failed): failed('Authentication was cancelled.')
+        with patch.object(w.package_panel, 'run', side_effect=run): tab.guest_ssh_enable.click()
+        self.assertEqual(tab.guest_ssh_enable.text(), 'Enable local SSH')
+        self.assertIn('cancelled', tab.guest_ssh_status.text())
+
+    def test_local_ssh_authentication_worker_keeps_the_ui_responsive(self):
+        import local_ssh
+        from PyQt6.QtCore import QTimer
+        from PyQt6.QtTest import QTest
+        release=threading.Event(); ticks=[]
+        timer=QTimer();timer.setInterval(10);timer.timeout.connect(lambda:ticks.append(True));timer.start()
+        def request():
+            release.wait(3)
+            return {'message':'Local SSH ready','port':2222}
+        try:
+            with patch.object(local_ssh,'request',side_effect=request):
+                self.window.tab_paths.guest_ssh_enable.click()
+                QTest.qWait(100)
+                self.assertFalse(self.window.tab_paths.guest_ssh_enable.isEnabled())
+                self.assertGreaterEqual(len(ticks),3)
+                release.set()
+                for _ in range(200):
+                    if self.window.package_panel.job is None:break
+                    QTest.qWait(10)
+                self.assertIsNone(self.window.package_panel.job)
+                self.assertEqual(self.window.tab_paths.guest_ssh_enable.text(),'Local SSH enabled')
+        finally:release.set();timer.stop()
 
     def test_add_gpu_assigns_captured_rom_only_to_graphics(self):
         tab=self.window.tab_hw

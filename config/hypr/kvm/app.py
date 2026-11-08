@@ -170,6 +170,9 @@ class KVMSettings(VMStart2):
         self.tab_dual.capture_gpu_rom=self._capture_gpu_rom
         self.tab_machine.create_bridge.connect(self._create_bridge)
         self.tab_wizard.create_bridge.connect(self._create_bridge)
+        self.tab_paths.enable_local_ssh.connect(self._enable_local_ssh)
+        panel.active.connect(lambda busy: self.tab_paths.guest_ssh_enable.setEnabled(not busy)
+                             if hasattr(self.tab_paths, 'guest_ssh_enable') else None)
         if hasattr(self.tab_tpm,'btn_repair'):
             self.tab_tpm.btn_repair.clicked.connect(self._repair_tpm)
             self.tab_tpm.checks_changed.connect(self._health_changed)
@@ -280,6 +283,27 @@ class KVMSettings(VMStart2):
             panel.info.setText(error)
             if self.isVisible():QMessageBox.warning(self,'GPU ROM capture failed',error)
         panel.run(lambda progress:gpu_rom.capture(slot),done,failed)
+
+    def _enable_local_ssh(self):
+        panel = self.package_panel; tab = self.tab_paths
+        if panel.job:
+            self.status.setText('Finish the current operation before enabling local SSH.')
+            return
+        import local_ssh
+        tab.guest_ssh_enable.setText('Enabling…')
+        tab.guest_ssh_status.setText('Preparing local SSH. Enter your administrator password when prompted.')
+        def done(result):
+            tab.guest_ssh_enable.setText('Local SSH enabled')
+            tab.guest_ssh_status.setText(result['message'])
+            tab._refresh_guest_batch()
+            self.status.setText(result['message'])
+        def failed(error):
+            tab.guest_ssh_enable.setText('Enable local SSH')
+            tab.guest_ssh_status.setText(error)
+            self.status.setText('Local SSH setup needs attention.')
+        # SSH setup may be needed after Windows has booted; it does not change
+        # the VM, its bridge, devices or kernel module and is safe while it runs.
+        panel.run(lambda progress: local_ssh.request(), done, failed)
 
     def _create_bridge(self, name):
         panel = self.package_panel
