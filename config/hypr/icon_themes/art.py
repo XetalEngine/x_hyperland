@@ -5,6 +5,7 @@ from xml.sax.saxutils import escape
 VERSION = 4
 # Name, metal/light, midtone, shadow, face, decorative language.
 STYLES = {
+    'platform95': ('Platform 95', '#fff2c9', '#d5ac53', '#806233', '#38271a', 'platform95'),
     'mycelium': ('Mycelium', '#f1dfc8', '#c7a1df', '#806079', '#322630', 'mycelium'),
     'atomicafterglow': ('Atomic Afterglow', '#eadba5', '#b5ed29', '#687047', '#21281d', 'reactor'),
     'blackwood': ('Blackwood', '#efdbab', '#bc9c61', '#655033', '#292e27', 'walnut'),
@@ -23,6 +24,7 @@ STYLES = {
     'gildedhollow': ('The Gilded Hollow', '#fff0b7', '#dfb469', '#836137', '#303c32', 'brass'),
 }
 DESCRIPTIONS = {
+    'platform95': 'Gold file folders, ivory office equipment and classic espresso symbols.',
     'mycelium': 'Sculpted lilac caps, plum folders, ivory roots and moss details.',
     'atomicafterglow': 'Graphite instrument cases, phosphor tabs and brass fasteners.',
     'blackwood': 'Aged-brass folders, walnut cases and engraved ivory symbols.',
@@ -153,6 +155,9 @@ def ornament(style, accent):
 
 
 def svg(style, name):
+    if style == 'platform95':
+        from .platform95 import svg as platform95_svg
+        return platform95_svg(ALIASES.get(name,name),CATALOG,symbol)
     if style == 'mycelium':
         from .mycelium import svg as mycelium_svg
         return mycelium_svg(ALIASES.get(name,name),CATALOG,symbol)

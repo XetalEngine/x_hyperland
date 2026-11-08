@@ -9,6 +9,7 @@ STYLES={'follow':'Follow desktop theme', **designs.DESIGNS}
 VARIANTS={'full':'Full · continuous bar', 'partial':'Partial · floating sections',
           'centered':'Centered · workspaces in the middle'}
 DESCRIPTIONS={
+ 'platform95':'Classic casework · ivory bevels, espresso outlines and antique-gold workspaces',
  'mycelium':'Plum velvet · branching roots, lilac workspaces and a mushroom lantern',
  'atomicafterglow':'Graphite instruments · brass borders, phosphor workspaces and an atomic badge',
  'blackwood':'Walnut panels · brass fittings, sage selections and an engraved HF monogram',
@@ -57,6 +58,7 @@ def configure(config,style,variation=None):
     status=['custom/recording','cpu','memory','custom/temperature','temperature','disk','custom/internet','custom/lan','network#lan','custom/wifi',
             'custom/vpn','bluetooth','group/audio','pulseaudio#microphone','idle_inhibitor','custom/notifications','tray','clock','custom/power']
     layouts={
+        'platform95':(apps,['mpris'],status),
         'mycelium':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
         'atomicafterglow':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
         'blackwood':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
@@ -121,6 +123,7 @@ window#waybar {{color:{t};}}
 }}
 '''
     faces={
+'platform95':__import__('platform95').bar_controls(p,root),
 'mycelium':__import__('mycelium').bar_controls(p,root),
 'atomicafterglow':__import__('atomicafterglow').bar_controls(p,root),
 'blackwood':__import__('blackwood').bar_controls(p,root),
@@ -248,10 +251,11 @@ window#waybar {{background:linear-gradient(180deg,alpha({p['Button']},0.97),alph
 def architecture(p,style,variation,root):
     """One material vocabulary, available as a rail, islands or centered bank."""
     a,b,w,t,m,h=p['Accent'],p['Base'],p['Window'],p['Text'],p['Midlight'],p['Highlight']
-    radius={'mycelium':'14px','atomicafterglow':'5px','blackwood':'5px','midnighttransit':'7px','hyperfusionblue':'7px','raw':'1px','modern':'23px','breakpoint':'12px 2px 12px 2px','binaryknife':'2px 16px 2px 16px',
+    radius={'platform95':'1px','mycelium':'14px','atomicafterglow':'5px','blackwood':'5px','midnighttransit':'7px','hyperfusionblue':'7px','raw':'1px','modern':'23px','breakpoint':'12px 2px 12px 2px','binaryknife':'2px 16px 2px 16px',
             'tidalglass':'28px 28px 14px 14px','porcelainink':'4px','obsidianforge':'5px',
             'candycloud':'28px','shadowedge':'12px 0 12px 0','hollowgrove':'28px 12px 28px 12px','gildedhollow':'24px'}[style]
     surface={
+        'platform95':f'linear-gradient(180deg,{p["Button"]},{w} 18%,{w})',
         'mycelium':f'linear-gradient(180deg,{p["Button"]},{w} 25%,{b})',
         'atomicafterglow':f'linear-gradient(180deg,{p["Button"]},{w} 25%,{b})',
         'blackwood':f'url("{root/"assets/blackwood-grain.svg"}"),linear-gradient(180deg,{p["Button"]},{w} 30%,{b})',
@@ -270,6 +274,8 @@ def architecture(p,style,variation,root):
         'gildedhollow':f'linear-gradient(165deg,{p["Button"]},{w} 24%,{b} 65%,{w})',
     }[style]
     frame=f'background:{surface};border:1px solid alpha({a},0.58);border-top-color:alpha({p["Link"]},0.72);border-radius:{radius};box-shadow:inset 0 1px alpha({t},0.12),inset 0 -2px alpha({a},0.1);'
+    if style=='platform95':
+        frame=f'background:{surface};border:2px solid {p["Dark"]};border-top-color:{p["Light"]};border-left-color:{p["Light"]};border-radius:1px;box-shadow:none;'
     if variation=='partial':
         structure=f'''
 window#waybar {{background:transparent;border:0;box-shadow:none;}}
@@ -284,6 +290,7 @@ window#waybar {{{frame}}}
     if variation=='centered':
         structure+=f'.modules-center {{background:alpha({b},0.45);border:1px solid alpha({a},0.3);border-radius:{radius};margin:3px 14px;padding:0 9px;}}\n'
     ornament={
+        'platform95':__import__('platform95').bar_controls(p,root),
         'mycelium':__import__('mycelium').bar_controls(p,root),
         'atomicafterglow':__import__('atomicafterglow').bar_controls(p,root),
 'blackwood':__import__('blackwood').bar_controls(p,root),

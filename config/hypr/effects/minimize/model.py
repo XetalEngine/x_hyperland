@@ -20,7 +20,8 @@ DOCK_STYLES = {'follow': 'Follow desktop theme', 'raw': 'Xetal Raw · circuit ra
                'midnighttransit': 'Midnight Transit · Platform Twelve',
                'blackwood': 'Blackwood · Harbour Cabinet',
                'atomicafterglow': 'Atomic Afterglow · Containment Bay',
-               'mycelium': 'Mycelium · Spore Cradle'}
+               'mycelium': 'Mycelium · Spore Cradle',
+               'platform95': 'Platform 95 · Parcel Shelf'}
 ORDERS = {'bottom-to-top': 'Bottom to top', 'top-to-bottom': 'Top to bottom'}
 HIDE_ANIMATIONS = {'slide':'Slide away', 'burn':'Burn away'}
 DEFAULTS = dict(enabled=True, effect='fireball', duration=420, size=76,

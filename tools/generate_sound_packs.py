@@ -22,6 +22,7 @@ from sounds.model import PACKS, EVENTS
 RATE = 48000
 # tonic, voice, unique opening melody (semitones), beat spacing
 SCORES = {
+    'platform95': (65, 'station95', [0, 4, 7, 12, 9, 4], .31),
     'mycelium': (64, 'spore', [0, 7, 10, 14, 12, 7], .42),
     'atomicafterglow': (57, 'isotope', [0, 7, 14, 11, 7, 12], .33),
     'blackwood': (55, 'harbour', [0, 7, 10, 14, 7, 2], .43),
@@ -80,6 +81,7 @@ def voice(midi, duration, kind, seed=0):
     else:
         # Different modal resonances and decay rates give every material its own voice.
         modes = {
+            'station95': [(1, 1, 3.7), (2.001, .19, 6.2), (3.98, .08, 10.5), (.5, .09, 3.2)],
             'transit': [(1, 1, 3.1), (2.002, .22, 5.4), (3, .10, 8), (4.01, .04, 10)],
             'crystal': [(1, 1, 3.2), (2, .24, 5), (4, .08, 9)],
             'glass': [(1, 1, 3.8), (2.003, .32, 6), (3.997, .11, 11)],

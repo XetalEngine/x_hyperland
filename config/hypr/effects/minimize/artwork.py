@@ -126,8 +126,30 @@ def spore_cradle(p,width,colors,phase):
     p.restore()
 
 
+def parcel_bevel(p,box,colors,inset=False):
+    light=blend(colors['Window'],'#ffffff',.65);dark=blend(colors['Window'],'#000000',.7)
+    if inset:light,dark=dark,light
+    p.setPen(QPen(light,2));p.drawLine(box.bottomLeft(),box.topLeft());p.drawLine(box.topLeft(),box.topRight())
+    p.setPen(QPen(dark,2));p.drawLine(box.topRight(),box.bottomRight());p.drawLine(box.bottomRight(),box.bottomLeft())
+
+
+def parcel_shelf(p,width,colors,phase):
+    """Raised ivory/espresso casework and brass handles, mirrored by native ID 16."""
+    p.save();box=QRectF(8,8,width-16,80)
+    p.fillRect(box,QColor(colors['Window']))
+    for x in (9,width-26):
+        p.fillRect(QRectF(x,9,17,78),blend(colors['Window'],colors['Accent'],.18))
+        p.setPen(QPen(blend(colors['Window'],colors['WindowText'],.45),1.5));p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawRoundedRect(QRectF(x+5.5,31,7,34),1,1)
+    p.setPen(QPen(alpha(colors['Accent'],.6),1.5));line(p,31,82,width-31,82)
+    p.setPen(QPen(alpha(colors['WindowText'],.18),1));line(p,31,13,width-31,13)
+    parcel_bevel(p,box.adjusted(1,1,-1,-1),colors);p.restore()
+
+
 def tray(painter, width, style, colors, phase):
     """Draw a horizontal tray in a width × 96 coordinate space."""
+    if style == 'platform95':
+        parcel_shelf(painter,width,colors,phase);return
     if style == 'mycelium':
         spore_cradle(painter,width,colors,phase);return
     if style == 'hyperfusionblue':
@@ -359,8 +381,13 @@ def dock(p, area, style, colors, *, phase=0., weights=(1., 1., 1.), zoom=(), ver
         p.save(); p.setOpacity(p.opacity()*max(0., min(1., weight)))
         if not stack:
             p.setPen(QPen(alpha(colors['Accent'], .12+(z-1)), .8)); p.setBrush(alpha(colors['Accent'], .035+(z-1)*.1))
-            radius = 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style == 'midnighttransit' else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
+            radius = 1 if style == 'platform95' else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style == 'midnighttransit' else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
             p.drawRoundedRect(rect, radius, radius)
+        if style == 'platform95' and not stack:
+            p.fillRect(rect,blend(colors['Window'],colors['Accent'],.035+(z-1)*.12))
+            parcel_bevel(p,rect.adjusted(1,1,-1,-1),colors,True)
+            p.setPen(QPen(alpha(colors['Accent'],min(1,.4+(z-1)*.55)),1.5))
+            line(p,rect.left()+7,rect.bottom()-6,rect.right()-7,rect.bottom()-6)
         if style == 'mycelium' and not stack:
             pane=QLinearGradient(rect.topLeft(),rect.bottomRight());pane.setColorAt(0,QColor(colors['Button']));pane.setColorAt(1,QColor(colors['Base']))
             p.setBrush(pane);p.setPen(QPen(alpha(colors['Light'],.45),.8));p.drawRoundedRect(rect,16,16)

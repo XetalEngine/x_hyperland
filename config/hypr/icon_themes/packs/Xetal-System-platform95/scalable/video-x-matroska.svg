@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>Video · Platform 95</title><defs>
+<linearGradient id="gold" x2="0" y2="1"><stop stop-color="#fff0b8"/><stop offset=".18" stop-color="#e6c16b"/><stop offset="1" stop-color="#af8133"/></linearGradient>
+<linearGradient id="ivory" x2="0" y2="1"><stop stop-color="#fffbed"/><stop offset=".55" stop-color="#e5dac5"/><stop offset="1" stop-color="#b0a18a"/></linearGradient>
+<linearGradient id="glass" x2="1" y2="1"><stop stop-color="#9bc5cf"/><stop offset=".4" stop-color="#3e7f99"/><stop offset="1" stop-color="#25485d"/></linearGradient>
+</defs><path d="M14 5H38L51 18V58H14Z" transform="translate(1 2)" fill="#382719" opacity=".25"/><path d="M14 5H38L51 18V58H14Z" fill="url(#ivory)" stroke="#382719" stroke-width="1.8"/><path d="M38 5V18H51" fill="#c9b99a" stroke="#382719"/><path d="M16 55V7H36" fill="none" stroke="#fffbed"/><g fill="none" stroke="#382719" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="round"><path d="M21 25H43V43H21ZM29 29 37 34 29 39Z"/></g></svg>

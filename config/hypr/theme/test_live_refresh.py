@@ -30,6 +30,8 @@ class RefreshTests(unittest.TestCase):
         self.changes=QSignalSpy(self.theme.changed)
 
     def tearDown(self):
+        if getattr(self.app,'hypr_theme',None) is self.theme:
+            del self.app.hypr_theme
         self.theme.deleteLater();self.widget.deleteLater()
         self.app.sendPostedEvents(None,QEvent.Type.DeferredDelete)
 

@@ -10,6 +10,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 PATH = ROOT / 'sounds/settings.json'
 PACKS = {
+    'platform95': ('Platform 95', 'Golden departure', 'Warm desk-bell notes and a gentle major-key welcome.', '#d1aa58'),
     'mycelium': ('Mycelium', 'Spore songs', 'Airy wooden chimes and soft, luminous bell harmonics.', '#c9a0e1'),
     'atomicafterglow': ('Atomic Afterglow', 'Phosphor signals', 'Soft analog instruments, warm sine chimes and a quiet rising signal.', '#b5ed29'),
     'blackwood': ('Blackwood', 'Harbour bells', 'Low wooden mallets, soft brass overtones and a quiet coastal cadence.', '#c7af7d'),

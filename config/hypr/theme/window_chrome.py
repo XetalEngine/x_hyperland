@@ -1,7 +1,7 @@
 """Native Qt window actions, drawn consistently in Fusion's own headers."""
 from PyQt6.QtCore import Qt,QEvent,QObject,QRectF,QPointF
-from PyQt6.QtGui import QPainter,QPen,QPolygonF
-from PyQt6.QtWidgets import QDialog,QHBoxLayout,QLabel,QToolButton,QWidget,QSizePolicy,QStyleOptionToolButton
+from PyQt6.QtGui import QColor,QPainter,QPen,QPolygonF
+from PyQt6.QtWidgets import QDialog,QHBoxLayout,QLabel,QToolButton,QWidget,QSizePolicy,QStyle,QStyleOptionToolButton
 import weakref
 
 
@@ -15,7 +15,11 @@ class ControlButton(QToolButton):
         option=QStyleOptionToolButton();self.initStyleOption(option)
         painter=QPainter(self);painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.translate(self.width()/2,self.height()/2)
-        painter.setPen(QPen(option.palette.buttonText().color(),1.5,Qt.PenStyle.SolidLine,Qt.PenCapStyle.SquareCap))
+        ink=option.palette.buttonText().color()
+        hover_ink=self.property('xetalChromeHoverInk')
+        if hover_ink and self.isEnabled() and option.state&QStyle.StateFlag.State_MouseOver and not self.isDown():
+            ink=QColor(hover_ink)
+        painter.setPen(QPen(ink,1.5,Qt.PenStyle.SolidLine,Qt.PenCapStyle.SquareCap))
         if self.symbol=='minimize':painter.drawLine(QPointF(-5,3),QPointF(5,3))
         elif self.symbol=='maximize':painter.drawRect(QRectF(-5,-5,10,10))
         elif self.symbol=='restore':
@@ -28,6 +32,13 @@ class ControlButton(QToolButton):
 
 def style_close(button,design=None):
     import runtime
+    button.setProperty('xetalChromeHoverInk',None)
+    if design=='platform95':
+        from platform95 import chrome_style
+        colors=runtime.colors(style=design)
+        button.setProperty('xetalChromeHoverInk','#fff8e9' if getattr(button,'symbol','close')=='close' else colors['HighlightedText'])
+        button.setStyleSheet(chrome_style(colors))
+        return
     if design=='mycelium':
         from mycelium import velvet
         p=runtime.colors(style=design);close=getattr(button,'symbol','close')=='close'

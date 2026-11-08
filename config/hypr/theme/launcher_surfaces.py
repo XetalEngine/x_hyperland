@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QApplication
 import runtime
 
 DEFAULTS = {
+    'platform95': {'tile_opacity': 100, 'group_opacity': 100, 'sidebar_opacity': 100, 'group_image': ''},
     'mycelium': {'tile_opacity': 100, 'group_opacity': 32, 'sidebar_opacity': 94, 'group_image': ''},
     'atomicafterglow': {'tile_opacity': 100, 'group_opacity': 45, 'sidebar_opacity': 100, 'group_image': ''},
     'blackwood': {'tile_opacity': 100, 'group_opacity': 45, 'sidebar_opacity': 100, 'group_image': ''},
@@ -131,6 +132,10 @@ class StripImage(QObject):
 
 def paint_tile(p, box, colors, style, mode, opacity, selected=False, hover=0, radius=None):
     """Opacity affects the card only; icons, text and focus remain independent."""
+    if style=='platform95':
+        from platform95 import paint_tile
+        paint_tile(p,box,colors,opacity,selected,hover>0)
+        return
     if style=='mycelium':
         from mycelium import paint_tile
         paint_tile(p,box,colors,opacity,selected,hover>0)
@@ -203,7 +208,7 @@ def paint_tile(p, box, colors, style, mode, opacity, selected=False, hover=0, ra
 
 def paint_group(p, box, colors, style, opacity, image=None, focused=False, hovered=False):
     p.save()
-    radius = 2 if style == 'shadowedge' else 22 if style == 'candycloud' else 3 if style == 'obsidianforge' else 2 if style == 'porcelainink' else 16 if style == 'tidalglass' else 4 if style == 'binaryknife' else 10 if style == 'modern' else 8
+    radius = 1 if style == 'platform95' else 2 if style == 'shadowedge' else 22 if style == 'candycloud' else 3 if style == 'obsidianforge' else 2 if style == 'porcelainink' else 16 if style == 'tidalglass' else 4 if style == 'binaryknife' else 10 if style == 'modern' else 8
     clip = QPainterPath(); clip.addRoundedRect(box, radius, radius)
     p.setClipPath(clip, Qt.ClipOperation.IntersectClip)
     p.setOpacity(p.opacity() * opacity / 100)
@@ -221,6 +226,9 @@ def paint_group(p, box, colors, style, opacity, image=None, focused=False, hover
         shade = QColor(colors['Window']); shade.setAlpha(160)
         brush.fillRect(QRectF(0, 0, box.width(), box.height()), shade); brush.end()
         p.drawPixmap(box, layer, QRectF(layer.rect()))
+    elif style == 'platform95':
+        from platform95 import paint_surface
+        paint_surface(p,box,colors)
     else:
         p.fillRect(box, QColor(colors['Button']))
     p.restore()

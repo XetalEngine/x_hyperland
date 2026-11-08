@@ -33,7 +33,7 @@ SIGNATURE = '# Hyper Fusion GRUB Appearance v1'
 NAMES = {'modern': 'Hyper Fusion', 'shadowedge': 'Shadow Edge', 'hollowgrove': 'Hollow Grove', 'gildedhollow': 'The Gilded Hollow',
          'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink',
          'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud',
-         'breakpoint': 'Breakpoint', 'binaryknife': 'Binary Knife', 'raw': 'Original', 'hyperfusionblue': 'HyperFusion Blue', 'midnighttransit': 'Midnight Transit', 'blackwood': 'Blackwood', 'atomicafterglow': 'Atomic Afterglow', 'mycelium': 'Mycelium'}
+         'breakpoint': 'Breakpoint', 'binaryknife': 'Binary Knife', 'raw': 'Original', 'hyperfusionblue': 'HyperFusion Blue', 'midnighttransit': 'Midnight Transit', 'blackwood': 'Blackwood', 'atomicafterglow': 'Atomic Afterglow', 'mycelium': 'Mycelium', 'platform95': 'Platform 95'}
 SLICES = ('nw', 'n', 'ne', 'w', 'c', 'e', 'sw', 's', 'se')
 FILES = {'background.png', 'source.png', 'menu.pf2', 'selected.pf2', 'heading.pf2', 'detail.pf2',
          *(f'select_{part}.png' for part in SLICES)}

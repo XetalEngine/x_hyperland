@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Platform 95
+Comment=Gold file folders, ivory office equipment and classic espresso symbols.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

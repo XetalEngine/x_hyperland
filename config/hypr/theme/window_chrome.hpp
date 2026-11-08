@@ -19,7 +19,12 @@ protected:
     QToolButton::paintEvent(event);
     QStyleOptionToolButton option;initStyleOption(&option);
     QPainter p(this);p.setRenderHint(QPainter::Antialiasing);p.translate(width()/2.,height()/2.);
-    p.setPen(QPen(option.palette.color(QPalette::ButtonText),1.5,Qt::SolidLine,Qt::SquareCap));
+    // Our glyph is painted separately from QToolButton's label. Match the
+    // local highlight hover surface explicitly; initStyleOption retains the
+    // normal ButtonText even when a stylesheet supplies a hover text color.
+    const bool highlighted=(option.state&QStyle::State_Enabled) &&
+                           (option.state&QStyle::State_MouseOver) && !(option.state&QStyle::State_Sunken);
+    p.setPen(QPen(option.palette.color(highlighted?QPalette::HighlightedText:QPalette::ButtonText),1.5,Qt::SolidLine,Qt::SquareCap));
     if(symbol==Minimize)p.drawLine(QPointF(-5,3),QPointF(5,3));
     else if(symbol==Maximize)p.drawRect(QRectF(-5,-5,10,10));
     else if(symbol==Restore){

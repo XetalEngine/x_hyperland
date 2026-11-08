@@ -353,6 +353,9 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     elif design=='shadowedge':
         from shadowedge import compositor
         content+=compositor(colors)
+    elif design=='platform95':
+        from platform95 import compositor
+        content+=compositor(colors)
     elif design=='mycelium':
         from mycelium import compositor
         content+=compositor(colors)

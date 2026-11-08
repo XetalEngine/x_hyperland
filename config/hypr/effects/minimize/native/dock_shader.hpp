@@ -29,8 +29,8 @@ void main(){
   fragColor=vec4(mix(warm,mix(ink,vec3(1.,.72,.25),.5),core)*a,a)*opacity;return;
  }
  vec2 p=(uv-.5)*dims;vec2 halfSize=dims*.5-vec2(8.);
- float radius=style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
- if(part==1)radius=style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
+ float radius=style==16?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
+ if(part==1)radius=style==16?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
  radius=min(radius,min(halfSize.x,halfSize.y));
  float distance=roundBox(p,halfSize,radius);
  if(style==2||style==3||style==8)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+(style==3?19.:style==8?14.:10.))*.7071);
@@ -44,7 +44,17 @@ void main(){
  float rim=.26;
  float jewel=0.;float jewelHalo=0.;float gildedSweep=0.;
  if(part==0){
-  if(style==15){
+  if(style==16){
+   // Parcel Shelf: classic raised casework, brass shelf rail and end handles.
+   vec2 q=vec2(halfSize.x-abs(p.x),p.y);
+   body=mix(base,ink,.04*shine);rim=0.;
+   float cap=1.-smoothstep(17.,18.,q.x);
+   body=mix(body,mix(base,tint,.18),cap);
+   float handle=abs(roundBox(vec2(q.x-9.,p.y),vec2(3.5,17.),1.));
+   body=mix(body,mix(base,ink,.45),exp(-handle*2.)*.8);
+   decoration=exp(-abs(p.y-halfSize.y+6.)*1.5)*step(23.,q.x)*.6;
+   metal=exp(-abs(p.y+halfSize.y-5.)*1.8)*step(23.,q.x)*.18;
+  }else if(style==15){
    // Spore Cradle: velvet body, cap lanterns and branching ivory root threads.
    vec2 q=vec2(halfSize.x-abs(p.x),p.y);
    body=mix(base,tint,.075)+ink*shine*.07;rim=.55;
@@ -262,6 +272,10 @@ void main(){
   body=mix(base,tint,.08+emphasis*.14)+ink*shine*.045;
   rim=.08+emphasis*.25;
   decoration=exp(-abs(p.y-halfSize.y+3.)*1.7)*(.25+.4*emphasis);
+  if(style==16){
+   body=mix(base,tint,.035+emphasis*.12);rim=0.;
+   decoration=exp(-abs(p.y-halfSize.y+6.)*2.)*step(abs(p.x),halfSize.x-7.)*(.25+emphasis*.55);
+  }
   if(style==15){
    body=mix(base,tint,.08+emphasis*.14)+ink*shine*.07;rim=.35+emphasis*.4;
    float root=halfSize.y-7.+2.*pow(p.x/max(1.,halfSize.x),2.);
@@ -311,6 +325,14 @@ void main(){
  }
  vec3 surface=body+ink*metal+tint*decoration;
  surface=mix(surface,mix(tint,ink,.3),border*rim);
+ if(style==16){
+  float bevel=1.-smoothstep(1.2,2.5,-distance);
+  float upper=step(halfSize.x+p.x,halfSize.x-p.x)*step(halfSize.x+p.x,halfSize.y-p.y);
+  upper=max(upper,step(halfSize.y+p.y,min(halfSize.x-p.x,halfSize.y-p.y)));
+  if(part==1)upper=1.-upper;
+  vec3 edgeColor=mix(base*.3,mix(base,vec3(1.),.65),upper);
+  surface=mix(surface,edgeColor,bevel);
+ }
  if(style==10&&part==0){
   surface+=mix(tint,ink,.65)*border*gildedSweep*.55;
   surface=mix(surface,mix(tint,ink,.55),jewel);

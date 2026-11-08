@@ -78,5 +78,10 @@
     "mycelium/lantern-creek.png",
     "mycelium/spore-cathedral.png",
     "mycelium/mooncap-ridge.png"
+  ],
+  "platform95": [
+    "platform95/golden-concourse.png",
+    "platform95/evening-platform.png",
+    "platform95/highland-crossing.png"
   ]
 }

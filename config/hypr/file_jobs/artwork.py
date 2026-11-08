@@ -45,6 +45,72 @@ def success(p, center, accent):
     p.drawLine(center+QPointF(-1, 6), center+QPointF(11, -7))
 
 
+def platform95(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Brass parcel trolleys roll between two classic filing cabinets.
+
+    Each trolley and its entire trail fade together at its own wrap point.
+    Wheel rotation makes eight whole turns per route, including reverse travel.
+    """
+    p.save(); mid=box.center(); left=box.left()+31; right=box.right()-31
+    ink=QColor('#f5ecda' if surface.lightnessF()<.5 else '#392619')
+    rail_y=mid.y()+19
+    p.setPen(QPen(alpha(ink,65),1))
+    for y in (rail_y,rail_y+4):p.drawLine(QPointF(left,y),QPointF(right,y))
+    for x in range(int(left),int(right),13):p.drawLine(QPointF(x,rail_y),QPointF(x+2,rail_y+4))
+    for x,zipped in ((left,extracting),(right,archive)):
+        case=QRectF(x-20,mid.y()-25,40,51)
+        p.setBrush(surface);p.setPen(QPen(ink,1.2));p.drawRect(case)
+        p.setPen(QPen(alpha(ink,95),1));p.drawLine(case.topLeft()+QPointF(2,2),case.topRight()+QPointF(-2,2))
+        for y in (-19,1):
+            drawer=QRectF(x-15,mid.y()+y,30,17)
+            p.setBrush(alpha(accent,38));p.setPen(QPen(alpha(ink,155),.8));p.drawRect(drawer)
+            p.setPen(QPen(accent,2));p.drawLine(QPointF(x-4,drawer.center().y()),QPointF(x+4,drawer.center().y()))
+        if zipped:
+            p.setPen(QPen(accent,2))
+            for y in range(-19,20,5):p.drawLine(QPointF(x+11,mid.y()+y),QPointF(x+15,mid.y()+y))
+    if result:
+        if result=='done':success(p,mid,accent)
+        p.restore();return
+    start,end=left+26,right-26
+    for index in range(count):
+        t=(phase+index/count)%1
+        visibility=min(1.,t/.12,(1-t)/.12)
+        visibility=visibility*visibility*(3-2*visibility)
+        travel=1-t if extracting else t
+        x=start+(end-start)*travel
+        p.save();p.setOpacity(p.opacity()*visibility)
+        if trails:
+            direction=1 if extracting else -1
+            for n in range(1,5):
+                p.setPen(QPen(alpha(accent,55/n),1.4))
+                dx=direction*n*6
+                p.drawLine(QPointF(x+dx,mid.y()+6),QPointF(x+dx+direction*3,mid.y()+6))
+        if glow:
+            halo=QRadialGradient(QPointF(x,mid.y()+9),18)
+            halo.setColorAt(0,alpha(accent,glow*.8));halo.setColorAt(1,alpha(accent,0))
+            p.setBrush(halo);p.setPen(Qt.PenStyle.NoPen);p.drawEllipse(QPointF(x,mid.y()+9),18,12)
+        # A folder sits on the luggage cart; archive jobs carry a tied parcel.
+        p.setPen(QPen(ink,1));p.setBrush(accent)
+        cargo=QPainterPath();cargo.moveTo(x-10,mid.y()+9);cargo.lineTo(x-10,mid.y()-10)
+        cargo.lineTo(x-3,mid.y()-10);cargo.lineTo(x,mid.y()-6);cargo.lineTo(x+10,mid.y()-6)
+        cargo.lineTo(x+10,mid.y()+9);cargo.closeSubpath();p.drawPath(cargo)
+        p.setPen(QPen(accent.lighter(170),1));p.drawLine(QPointF(x-8,mid.y()-3),QPointF(x+8,mid.y()-3))
+        if archive or extracting:
+            p.setPen(QPen(ink,1));p.drawLine(QPointF(x,mid.y()-6),QPointF(x,mid.y()+9))
+            p.drawLine(QPointF(x-10,mid.y()+2),QPointF(x+10,mid.y()+2))
+        p.setPen(QPen(ink,1.6));p.drawLine(QPointF(x-13,mid.y()+11),QPointF(x+13,mid.y()+11))
+        p.drawLine(QPointF(x-13,mid.y()+11),QPointF(x-13,mid.y()-5))
+        p.drawLine(QPointF(x-13,mid.y()-5),QPointF(x-17,mid.y()-5))
+        for dx in (-8,8):
+            center=QPointF(x+dx,rail_y-3)
+            p.setBrush(surface);p.setPen(QPen(ink,1.1));p.drawEllipse(center,3,3)
+            angle=travel*math.tau*8
+            spoke=QPointF(math.cos(angle)*2.3,math.sin(angle)*2.3)
+            p.drawLine(center-spoke,center+spoke)
+        p.restore()
+    p.restore()
+
+
 def mycelium(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     """Documents drift like spores between caps; every wrap fades fully out.
 

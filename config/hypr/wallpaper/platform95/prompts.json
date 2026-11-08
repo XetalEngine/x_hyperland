@@ -1,0 +1,37 @@
+{
+  "id": "platform95",
+  "title": "Platform 95",
+  "provenance": "Original artwork generated with the built-in image_gen tool for Hyper Fusion.",
+  "images": [
+    {
+      "file": "golden-concourse.png",
+      "title": "Golden Concourse",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "aa978f94e2b7d365a4e6a109f4c7921fca300fc68645730a509feb6cfabe603e",
+      "prompt": "Use case: stylized-concept. Asset type: finished desktop wallpaper for the Platform 95 theme, wide 16:9 landscape composition at 3840x2160 if supported. Create an original cinematic view inside an enormous nineteenth-century iron-and-glass railway terminus at golden hour. Dark espresso iron ribs curve across a vast vaulted roof, sunlight streams through amber clerestory glass, worn ochre stone platforms and parallel rails converge into a luminous distant center slightly right of center. A stationary vintage dark train occupies the far right in subtle shadow; delicate steam and dust catch the light. Sophisticated near-photographic painted environment art, warm brass highlights, antique gold, deep brown, ivory light, fine architectural craftsmanship. The composition is immersive, calm and spacious, with quieter shadowed regions at the left and lower edges for desktop icons. Entire image is the environment itself. No windows, taskbars, computer interfaces, UI mockups, desktop icons, logos, watermarks, signage, words, letters, captions or typography. This is one complete wallpaper, not a contact sheet."
+    },
+    {
+      "file": "evening-platform.png",
+      "title": "Evening Platform",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "cfc184cd26d1742ae99bbaef0f80e8093b26405833166d587ed733414b48fb8b",
+      "prompt": "Use case: stylized-concept. Asset type: finished desktop wallpaper for the Platform 95 theme, wide 16:9 landscape composition at 3840x2160 if supported. Create an original cinematic railway scene, a quiet covered country-station platform at evening, viewed diagonally beneath a low ornate cast-iron canopy. A row of antique brass and ivory-glass lamps recedes along the right side, casting warm golden pools onto dark wet stone paving. Espresso-painted pillars and a single vintage wooden bench frame the foreground. Empty railway tracks curve away to the left into softly luminous blue-gray mist under a pale evening sky. No train dominates this composition. Rich restrained near-photographic painted environment art with antique gold, ivory, putty-gray stone and deep coffee-brown shadows, a small amount of desaturated dusk blue for balance. Spacious and tranquil, low detail in the upper-left sky and lower-left track shadows so real desktop content stays readable. Entire image is landscape environment. No computer windows, UI, desktop icons, taskbars, captions, signage, words, letters, logos or watermarks. A standalone wallpaper, no collage."
+    },
+    {
+      "file": "highland-crossing.png",
+      "title": "Highland Crossing",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "580236b16dde709920d4316c75ea3891b9fa47196676f0019fe5da92790409f3",
+      "prompt": "Use case: stylized-concept. Asset type: finished desktop wallpaper for the Platform 95 theme, wide 16:9 landscape composition at 3840x2160 if supported. Create an original panoramic vista of a graceful old sandstone railway viaduct spanning a broad misty highland valley at sunrise. The long bridge sweeps across the lower middle distance from left to right, with one small espresso-brown steam locomotive and warm ivory carriages moving across it, a thin plume of steam dissolving into pale golden mist. Layered muted brown mountains and dark green-gray woods in the distance, ochre moor grasses at the foreground edges, expansive soft ivory sky above. Warm antique-gold sunlight outlines the arches; emphasize dignified craftsmanship and huge quiet open space, avoiding busy detail. Premium cinematic near-photographic painted environment art in antique gold, weathered putty stone, warm ivory and espresso brown, compatible with a classic beveled desktop theme. A landscape artwork filling the entire image, no UI, windows, taskbars, desktop icons, decorative frames, readable signs, letters, typography, brand marks or watermarks. One complete standalone wallpaper, not a montage."
+    }
+  ]
+}

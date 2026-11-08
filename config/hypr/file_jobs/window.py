@@ -313,7 +313,7 @@ class ProgressWindow(QWidget):
             scene = {'modern': artwork.modern, 'breakpoint': artwork.breakpoint,
                      'binaryknife': artwork.binaryknife, 'tidalglass': artwork.tidalglass, 'porcelainink': artwork.porcelainink,
                      'obsidianforge': artwork.obsidianforge, 'candycloud': artwork.candycloud, 'shadowedge': artwork.shadowedge, 'hollowgrove': artwork.hollowgrove,
-                     'mycelium': artwork.mycelium, 'atomicafterglow': artwork.atomicafterglow, 'blackwood': artwork.blackwood, 'midnighttransit': artwork.midnighttransit, 'hyperfusionblue': artwork.hyperfusionblue, 'gildedhollow': artwork.gildedhollow}[self.design]
+                     'platform95': artwork.platform95, 'mycelium': artwork.mycelium, 'atomicafterglow': artwork.atomicafterglow, 'blackwood': artwork.blackwood, 'midnighttransit': artwork.midnighttransit, 'hyperfusionblue': artwork.hyperfusionblue, 'gildedhollow': artwork.gildedhollow}[self.design]
             scene(painter, box, accent, QColor(self.colors['AlternateBase']), self.phase,
                   self.options['animation']['density'], self.options['animation']['trails'],
                   self.appearance['glow'], archive and not extracting, extracting, self.job.result)
@@ -394,6 +394,9 @@ class ProgressWindow(QWidget):
             box=QRectF(inset,inset,w-2*inset,h-2*inset)
             paint_surface(painter,box,self.colors,radius,self.appearance['opacity'])
             painter.setClipPath(cut_path(box,min(16,box.height()*.16)),Qt.ClipOperation.IntersectClip)
+        if self.design == 'platform95':
+            from platform95 import paint_surface
+            paint_surface(painter,QRectF(inset,inset,w-2*inset,h-2*inset),self.colors,radius,self.appearance['opacity'])
         if self.design == 'mycelium':
             from mycelium import paint_surface
             paint_surface(painter,QRectF(inset,inset,w-2*inset,h-2*inset),self.colors,radius,self.appearance['opacity'])
@@ -459,7 +462,7 @@ class ProgressWindow(QWidget):
             self.transfer(painter, box, accent)
         thickness = self.appearance['track_height']
         track = QRectF(16, h-54, w-32, thickness)
-        track_radius = 1 if self.design in ('breakpoint','binaryknife') else thickness/2
+        track_radius = 1 if self.design in ('breakpoint','binaryknife','platform95') else thickness/2
         painter.setPen(Qt.PenStyle.NoPen); painter.setBrush(QColor(self.colors['Base']))
         painter.drawRoundedRect(track, track_radius, track_radius)
         painter.save(); clip = QPainterPath(); clip.addRoundedRect(track, track_radius, track_radius); painter.setClipPath(clip)
