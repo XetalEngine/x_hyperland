@@ -1168,8 +1168,22 @@ void MainWindow::on_paruUninstallButton_clicked() {
     process->start("bash", QStringList() << "-c" << script);
 }
 
-// Keep the entry discoverable while dependency conversion is being automated.
 void MainWindow::on_installDebButton_clicked() {
-    QMessageBox::information(this, tr("Install .deb"),
-        tr("Currently unavailable. Requires more automation."));
+    const QString file = QFileDialog::getOpenFileName(this, tr("Choose a Debian package"),
+        QStandardPaths::writableLocation(QStandardPaths::DownloadLocation),
+        tr("Debian packages (*.deb)"));
+    if (file.isEmpty()) return;
+    const QString helper = HyperPanel::root() + "/control_panel/deb_install.py";
+    if (!QFileInfo::exists(helper)) {
+        QMessageBox::warning(this, tr("Install .deb"), tr("The .deb installer helper is missing. Please update Hyper Fusion."));
+        return;
+    }
+    QStringList arguments{"-e", "python3", helper, "--wait"};
+    if (ui->installDebButton->property("debCheckOnly").toBool()) arguments << "--check";
+    arguments << "--" << file;
+    // Keep filenames out of shell code. Spaces, quotes and shell symbols are
+    // ordinary filename characters; sudo is requested only by the helper.
+    if (!QProcess::startDetached(HyperPanel::terminal(), arguments)) {
+        QMessageBox::warning(this, tr("Install .deb"), tr("Could not open the installation terminal."));
+    }
 }

@@ -21,12 +21,13 @@ class DebInstallTests(unittest.TestCase):
         self.pkgcache=self.root/'pkgfile';self.pkgcache.mkdir()
         self.source=self.root/"browser's $(not-a-command) download.deb"
         self.source.write_bytes(b'downloaded package')
-        self.tool=self.root/'debtap-command';self.tool.write_text('#!/bin/bash\nexit 0\n')
+        self.tool=self.root/'debtap-command';self.tool.write_text('#!/bin/bash\nrm -rf test.pkg.tar\n# Generating .MTREE file\nexit 0\n')
         self.commands=[];self.missing={'pactree'}
         self.fail_at=None;self.broken_update=False;self.query_broken=False;self.output_count=1
         self.files={'opt/fusion-browser/browser','usr/share/applications/fusion-browser.desktop'}
         self.converted=set(self.files);self.identity=['fusion-browser','1.0-1'];self.installed=None
         self.skip_install=False;self.skip_files=False
+        self.dependencies=['glibc>=2.25','gtk3>=3.9.10']
         self.filesystem=self.root/'system';self.filesystem.mkdir()
         self.real_database=deb.prepare_database
         self.real_verify=deb.verify_installation
@@ -35,6 +36,8 @@ class DebInstallTests(unittest.TestCase):
                                   str(self.tool) if name=='debtap' else '/usr/bin/'+name),
                      patch.object(deb,'run',side_effect=self.command),
                      patch.object(deb,'source_payload',side_effect=lambda path:self.files),
+                     patch.object(deb,'read_control',return_value={'package':'fusion-browser','version':'1.0','architecture':'amd64'}),
+                     patch.object(deb,'check_dependencies',return_value=self.dependencies),
                      patch.object(deb,'verify_installation',side_effect=lambda identity,paths:self.real_verify(identity,paths,self.filesystem)),
                      patch.object(deb,'prepare_database',side_effect=lambda:self.real_database(self.cache,self.pkgcache))):
             mock.start();self.addCleanup(mock.stop)
@@ -59,9 +62,10 @@ class DebInstallTests(unittest.TestCase):
         if args==['pkgfile','-l','pacman']:
             if self.query_broken:raise RuntimeError('pkgfile archive is corrupt')
             return subprocess.CompletedProcess(args,0,'core/pacman /usr/bin/pacman\n','')
-        if args[0]=='debtap':
-            self.assertEqual(args,['debtap','-q','source.deb'])
+        if args[0]=='bash' and args[1].endswith('debtap-compat'):
+            self.assertEqual(args[2:],['-Q','source.deb'])
             work=Path(kwargs['cwd'])
+            (work/'fusion-native-checks').write_text('')
             self.assertEqual((work/'source.deb').read_bytes(),self.source.read_bytes())
             for i in range(self.output_count):(work/f'browser-{i}.pkg.tar.zst').write_bytes(b'converted package')
             (work/'browser.pkg.tar.zst.sig').write_bytes(b'not a package')
@@ -69,6 +73,8 @@ class DebInstallTests(unittest.TestCase):
             return subprocess.CompletedProcess(args,0,' '.join(self.identity)+'\n','')
         if args[:2]==['bsdtar','-tf']:
             return subprocess.CompletedProcess(args,0,'.PKGINFO\n'+''.join(path+'\n' for path in sorted(self.converted)),'')
+        if args[:2]==['bsdtar','-xOf']:
+            return subprocess.CompletedProcess(args,0,''.join('depend = '+d+'\n' for d in self.dependencies),'')
         if args[:3]==['sudo','pacman','-U'] and not self.skip_install:
             self.installed=list(self.identity)
             if not self.skip_files:
@@ -83,7 +89,8 @@ class DebInstallTests(unittest.TestCase):
         (self.cache/'aur-packages').write_text('left over from a failed update')
         self.assertEqual(deb.main([str(self.source)]),0)
         self.assertEqual(self.commands[:2],[['sudo','pacman','-S','--needed','pacman-contrib'],['sudo','debtap','-u']])
-        self.assertEqual(self.commands[2:4],[['pkgfile','-l','pacman'],['debtap','-q','source.deb']])
+        self.assertEqual(self.commands[2],['pkgfile','-l','pacman'])
+        self.assertEqual(self.commands[3][0],'bash')
         self.assertEqual(self.commands[-3][:3],['sudo','pacman','-U'])
         self.assertEqual(self.commands[-2:],[['pacman','-Q','--','fusion-browser'],['pacman','-Qk','--','fusion-browser']])
         self.assertIn('Installed successfully',self.output.getvalue())
@@ -97,7 +104,8 @@ class DebInstallTests(unittest.TestCase):
     def test_archive_and_dependency_inspection_tools_are_installed_before_conversion(self):
         self.databases();self.missing={'bsdtar','file','which','namcap'}
         deb.install(self.source)
-        self.assertEqual(self.commands[0],['sudo','pacman','-S','--needed','libarchive','file','which','namcap'])
+        self.assertEqual(self.commands[:2],[['sudo','pacman','-S','--needed','libarchive'],
+                                         ['sudo','pacman','-S','--needed','file','which','namcap']])
         self.assertEqual(self.commands[-3][:3],['sudo','pacman','-U'])
 
     def test_healthy_cache_skips_download_and_does_not_require_aur_helper(self):
@@ -119,7 +127,7 @@ class DebInstallTests(unittest.TestCase):
         self.assertNotIn('Installed successfully',self.output.getvalue())
 
     def test_dependency_update_conversion_and_pacman_failures_are_reported(self):
-        for command in (['sudo','pacman','-S'],['sudo','debtap','-u'],['debtap'],['sudo','pacman','-U']):
+        for command in (['sudo','pacman','-S'],['sudo','debtap','-u'],['bash'],['pacman','-Up'],['sudo','pacman','-U']):
             with self.subTest(command=command):
                 self.commands.clear();self.output.seek(0);self.output.truncate();self.missing={'pactree'}
                 for path in self.cache.iterdir():path.unlink()
@@ -178,6 +186,32 @@ class DebInstallTests(unittest.TestCase):
         self.fail_at=['pacman','-Qk']
         self.assertEqual(deb.main([str(self.source)]),1)
         self.assertNotIn('Installed successfully',self.output.getvalue())
+
+    def test_check_only_does_not_install_tools_or_convert(self):
+        self.assertEqual(deb.main(['--check',str(self.source)]),0)
+        self.assertEqual(self.commands,[])
+        self.assertNotIn('Installed successfully',self.output.getvalue())
+
+    def test_check_only_missing_inspection_tool_never_installs_it(self):
+        self.missing={'bsdtar'}
+        self.assertEqual(deb.main(['--check',str(self.source)]),1)
+        self.assertEqual(self.commands,[])
+
+    def test_unresolved_source_dependencies_stop_before_system_changes(self):
+        with patch.object(deb,'check_dependencies',side_effect=RuntimeError('Unmapped dependency')):
+            self.assertEqual(deb.main([str(self.source)]),1)
+        self.assertEqual(self.commands,[])
+
+    def test_convert_only_saves_artifact_without_installing_application(self):
+        target=self.root/'result'
+        deb.install(self.source,convert_only=target)
+        self.assertEqual(len(list(target.glob('*.pkg.tar.zst'))),1)
+        self.assertFalse(any(c[:3]==['sudo','pacman','-U'] for c in self.commands))
+
+    def test_changed_metadata_cannot_reach_pacman_install(self):
+        with patch.object(deb,'run',return_value=subprocess.CompletedProcess([],0,'depend = broken4.9\n','')):
+            with self.assertRaisesRegex(RuntimeError,'reviewed dependency list'):
+                deb.verify_dependencies(self.root/'package.pkg.tar.zst',self.dependencies)
 
     def test_library_package_does_not_need_an_app_launcher(self):
         self.files={'usr/lib/fusion-fixture.so'};self.converted=set(self.files)

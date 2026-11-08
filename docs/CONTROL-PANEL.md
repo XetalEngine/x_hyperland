@@ -28,7 +28,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | Window Inspector | Window/process inspection, X11/Wayland backends and window actions |
 | Default Apps | Browser, email, file manager, music, video, images, PDF, text, archives and office defaults; searchable individual file types and links; Undo |
 | **Pacman / Paru / Yay** | Three adjacent entries: installed packages, repository/AUR searches, details, installation and helper management |
-| Install .deb | Visible but currently unavailable; requires more automation |
+| Install .deb | Check Debian dependencies, convert supported applications, and install with pacman (experimental) |
 | Package Updates | System upgrades, package checks and Arch news |
 | Package Repair | Mirrors, keyrings, locks, diagnostics and downgrades |
 | Installed Software | Package removal, orphans and caches |

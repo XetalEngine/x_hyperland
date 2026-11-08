@@ -383,17 +383,29 @@ void PanelController::prepareTools() {
   title->setObjectName("panelTitle");
   debLayout->addWidget(title);
   auto *description = new QLabel(
-      "Currently unavailable. Requires more automation.", deb);
+      "Choose a trusted .deb application. Hyper Fusion checks its Debian requirements, "
+      "maps supported dependencies to Arch packages, then converts and installs it with pacman. "
+      "You can check compatibility first without changing your system.\n\n"
+      "Experimental: some Debian applications need a package-specific recipe. "
+      "Unresolved dependencies stop installation and are listed in the terminal.", deb);
   description->setWordWrap(true);
   debLayout->addWidget(description);
   auto *install = owner->findChild<QPushButton *>("installDebButton");
   shared->removeWidget(install);
-  install->setText("Currently unavailable");
-  install->setEnabled(false);
-  install->setToolTip("Requires more automation.");
+  install->setText("Choose .deb and install…");
+  install->setEnabled(true);
+  install->setToolTip("Check dependencies, convert, and review the pacman installation in a terminal.");
   install->setIcon(QIcon::fromTheme("application-x-deb"));
   debLayout->addWidget(install, 0, Qt::AlignLeft);
   install->show();
+  auto *checkDeb = new QPushButton("Check dependencies only…", deb);
+  checkDeb->setObjectName("checkDebButton");
+  debLayout->addWidget(checkDeb, 0, Qt::AlignLeft);
+  connect(checkDeb, &QPushButton::clicked, owner, [install] {
+    install->setProperty("debCheckOnly", true);
+    install->click();
+    install->setProperty("debCheckOnly", false);
+  });
   debLayout->addStretch();
   rootTabs->addTab(deb, "Install .deb");
 

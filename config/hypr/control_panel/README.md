@@ -2,15 +2,38 @@
 
 Native floating Qt/C++ panel, opened from Apps above Fusion Settings. See the [feature map and integration guide](../../../docs/CONTROL-PANEL.md).
 
-**Install .deb is currently unavailable and requires more automation.** Its
-Control Panel tile and page remain visible, but the install action is disabled
-and the backend handler only displays the unavailable message. The conversion
-helper is retained for further development.
+**Install .deb is available again as an experimental compatibility tool.**
+Choose a trusted Debian application in **Install .deb → Choose .deb and install**.
+**Check dependencies only** reads the package and the existing pacman databases
+without installing tools, downloading packages or changing the system.
+
+`deb_dependencies.py` reads `Depends` and `Pre-Depends` from the original control
+archive. Explicit ABI-aware mappings translate common desktop libraries to Arch
+packages. Exact names already available in Arch also work. It chooses one usable
+member of each `A | B` group, preferring a sufficiently recent installed member.
+It compares upstream minimum versions, keeping Arch's epoch separate from
+Debian's epoch and packaging revision. For example, `libnspr4 (>= 2:4.9-2~)` becomes
+`nspr>=4.9`, not `nspr4.9-2~`. Pre-release minimums conservatively require the
+upstream final release. Debian-specific revision requirements cannot be proved
+on Arch. Exact/upper/strict bounds, unknown ABI names, unavailable packages and
+foreign architectures stop with a list of unresolved requirements. Required
+dependencies are never silently dropped or installed with `--nodeps`. Unknown
+dependencies are not guessed, downloaded from Debian, or built from arbitrary AUR
+search matches; extending support requires an explicit mapping or recipe.
 
 The helper prepares missing conversion tools (including `pactree` from
 `pacman-contrib`) and repairs incomplete debtap/pkgfile databases before converting.
 It verifies database contents even when `debtap -u` claims success, and installs
-only after successful conversion. Dependency, update, conversion and pacman
+only after successful conversion. The checked dependencies replace Debtap's
+guesses in a temporary script **before** `.MTREE` is generated. The installed
+Debtap script is unchanged, and an unknown script layout is rejected. Conversion
+uses `-Q` because dependency metadata is supplied automatically. Additional native
+library dependencies identified by namcap are retained; a failed scanner stops
+conversion instead of being hidden by its output-filtering pipeline. The resulting
+package must contain exactly the reviewed and scanned requirements, and `pacman -Up` must
+resolve the complete transaction before privileged installation is offered.
+Pacman then fetches missing native dependencies through its normal `-U`
+transaction. Dependency, update, conversion and pacman
 failures stop the operation with the failed command visible in the terminal.
 Package installation keeps pacman's normal confirmation and authentication.
 Before installing, the helper checks that conversion preserved the original
@@ -20,7 +43,35 @@ the installed package name/version, runs `pacman -Qk` and verifies application
 files and launcher paths exist. The final installation success message appears
 only after these checks pass; debtap's earlier "Package successfully created!"
 message marks conversion. These checks do not launch the application or prove
-that all of its runtime features are compatible with Arch.
+that all of its runtime features or Debian maintainer scripts are compatible
+with Arch. A stale repository cache or unavailable mirror remains a visible
+package-manager failure; the helper does not silently synchronize databases or
+upgrade the operating system.
+
+`deb_recipes.py` supplies an explicit **Google Chrome Stable** adaptation. It
+packages the browser icons under `usr/share/icons/hicolor`, keeps the browser,
+launcher and original logos, and removes only Google's two Debian cron-updater
+paths. Native pacman hooks replace Debian setup scripts; consequently Chrome's
+packaging-only `dpkg` prerequisite is not installed. This follows the layout in
+the [maintained Chrome Arch recipe](https://aur.archlinux.org/cgit/aur.git/tree/PKGBUILD?h=google-chrome).
+Debtap corrupts the vendor script's heredocs and conditionals, so its generated
+script is not used for Chrome. All other converted install scripts must pass
+`bash -n` before packaging; unsupported scripts stop for a dedicated recipe.
+Syntax checking does not execute the script or prove its runtime behavior.
+
+Command-line checks (run as the desktop user):
+
+```sh
+python3 deb_install.py --check /path/to/application.deb
+python3 deb_install.py --convert-only /path/to/output /path/to/application.deb
+python3 -m unittest discover -s . -p 'test_deb*.py'
+```
+
+`--convert-only` prepares any missing conversion tools and saves a checked Arch
+package without installing the application. It refuses to overwrite an existing
+output. Tests include Chrome's failing version/alternative requirements, archive
+inspection, metadata insertion before hashing, dependency dry runs, cancellations,
+skipped pacman transactions and missing installed files.
 
 Debtap 3.6.3's numbered-cache check rejects current pkgfile databases. For that
 known check, conversion uses a temporary copy that asks `pkgfile -l pacman`

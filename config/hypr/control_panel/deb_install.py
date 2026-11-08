@@ -7,7 +7,11 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
+
+from deb_dependencies import read_control, resolve
+from deb_recipes import CHROME, dependency_fields, omitted_application_files
 
 TOOLS = {'pactree':'pacman-contrib', 'pkgfile':'pkgfile', 'ar':'binutils',
          'readelf':'binutils', 'fakeroot':'fakeroot', 'curl':'curl', 'gzip':'gzip',
@@ -52,6 +56,19 @@ def prepare_tools():
         if not shutil.which('debtap'):raise RuntimeError('Debtap installation finished without providing the debtap command.')
 
 
+def prepare_inspection(check_only=False):
+    if not shutil.which('pacman'):
+        raise RuntimeError('This .deb converter requires an Arch-based system with pacman.')
+    packages=[package for command,package in (('ar','binutils'),('bsdtar','libarchive'))
+              if not shutil.which(command)]
+    if packages:
+        if check_only:
+            raise RuntimeError('Dependency inspection needs these tools installed first: '+', '.join(packages)+'.')
+        run(['sudo','pacman','-S','--needed',*packages])
+        if any(not shutil.which(command) for command in ('ar','bsdtar')):
+            raise RuntimeError('Archive inspection tools are still missing.')
+
+
 def has_data(path):
     try:
         with path.open('rb') as stream:return bool(stream.read(4096).strip())
@@ -82,14 +99,43 @@ def prepare_database(cache=Path('/var/cache/debtap'), pkgcache=Path('/var/cache/
             raise RuntimeError('Debtap update finished, but pkgfile still cannot read the pacman file list.')
 
 
-def converter(work):
+def converter(work, dependencies=None, package_name=''):
     executable=shutil.which('debtap')
     if not executable:raise RuntimeError('The debtap command is no longer available.')
     source=Path(executable).read_bytes()
-    if LEGACY_CACHE_PROBE not in source:return ['debtap']
+    original=source
+    if LEGACY_CACHE_PROBE in source:
+        source=source.replace(LEGACY_CACHE_PROBE,b'pkgfile -l pacman',1)
+        print('== Using debtap compatibility for current and older pkgfile databases.',flush=True)
+    if dependencies is not None:
+        # Insert BEFORE mtree generation so its metadata hashes describe the
+        # actual dependency file. Do not rewrite compressed archives afterwards.
+        marker=b'# Generating .MTREE file\n'
+        audit_marker=b'rm -rf test.pkg.tar\n'
+        if source.count(marker)!=1 or source.count(audit_marker)!=1:
+            raise RuntimeError('This debtap version has an unsupported packaging layout; conversion was not started.')
+        # Preserve namcap's additional native-library requirements. The first
+        # command in its pipeline must succeed; grep legitimately returns 1
+        # when there are no findings, so blanket `set -e` is not appropriate.
+        native=work/'fusion-native-checks'
+        audit=("if [[ ${PIPESTATUS[0]} != 0 ]]; then echo 'Native library inspection failed.' >&2; exit 1; fi\n"
+               f"cp namcap-checks {shlex.quote(str(native))} || exit 1\n").encode()
+        source=source.replace(audit_marker,audit+audit_marker,1)
+        metadata=work/'fusion-dependencies'
+        metadata.write_text(''.join('depend = '+dependency+'\n' for dependency in dependencies))
+        insertion=("# Use requirements resolved from the original Debian control file.\n"
+                   "awk '$1 != \"depend\" {print}' .PKGINFO > .PKGINFO.fusion || exit 1\n"
+                   f"cat {shlex.quote(str(metadata))} >> .PKGINFO.fusion || exit 1\n"
+                   "awk '$1 == \"dependency-detected-not-included\" {print \"depend = \" $2}' "
+                   f"{shlex.quote(str(native))} >> .PKGINFO.fusion || exit 1\n"
+                   "awk '$1 != \"depend\" || !seen[$3]++' .PKGINFO.fusion > .PKGINFO || exit 1\n"
+                   "rm .PKGINFO.fusion || exit 1\n"
+                   + shlex.join([sys.executable,str(Path(__file__).with_name('deb_recipes.py')),
+                                 '--package',package_name,'--root','.']) + ' || exit 1\n\n').encode()
+        source=source.replace(marker,insertion+marker,1)
+    if source==original:return ['debtap']
     adapted=work/'debtap-compat'
-    adapted.write_bytes(source.replace(LEGACY_CACHE_PROBE,b'pkgfile -l pacman',1))
-    print('== Using debtap compatibility for current and older pkgfile databases.',flush=True)
+    adapted.write_bytes(source)
     return ['bash',str(adapted)]
 
 
@@ -139,12 +185,12 @@ def source_payload(deb):
     return payload_paths(listing)
 
 
-def converted_package(package, original):
+def converted_package(package, original, *, omitted=()):
     identity=run(['pacman','-Qp','--',package],capture=True).stdout.split()
     if len(identity)!=2 or not re.fullmatch(r'[A-Za-z0-9@_+][A-Za-z0-9@._+\-]*',identity[0]):
         raise RuntimeError('The converted package has no valid package name/version.')
     paths=payload_paths(run(['bsdtar','-tf',package],capture=True).stdout)
-    missing=application_files(original)-paths
+    missing=application_files(original)-set(omitted)-paths
     if original and not paths:
         raise RuntimeError('Conversion produced an empty package. Nothing was installed.')
     if missing:
@@ -173,26 +219,81 @@ def verify_installation(identity, required, root=Path('/')):
     for path in launchers:print('== Verified Apps launcher: /'+path,flush=True)
 
 
-def install(deb):
+def check_dependencies(deb, fields=None):
+    fields=fields or read_control(deb)
+    print('== Checking '+fields['package']+' '+fields['version']+' ('+fields['architecture']+')',flush=True)
+    if fields['package']==CHROME:
+        print('== Chrome Arch recipe: package-owned icons and native hooks; Debian updater scripts and dpkg prerequisite are replaced.',flush=True)
+    dependencies,rows=resolve(dependency_fields(fields))
+    print('== Debian requirements → Arch packages:\n  '+('\n  '.join(rows) or 'No declared dependencies.'),flush=True)
+    print('== Version checks use upstream minimums; Debian packaging revisions are not Arch revisions.',flush=True)
+    return dependencies
+
+
+def verify_dependencies(package, dependencies):
+    metadata=run(['bsdtar','-xOf',package,'.PKGINFO'],capture=True).stdout
+    actual=[line.partition(' = ')[2] for line in metadata.splitlines() if line.startswith('depend = ')]
+    if sorted(actual)!=sorted(dependencies):
+        raise RuntimeError('The converted package does not contain the reviewed dependency list. Nothing was installed.')
+    # Resolve the COMPLETE native transaction, including dependencies of the
+    # dependencies. This does not install/download packages or disable checks.
+    run(['pacman','-Up','--print-format','%n %v','--',package],capture=True)
+
+
+def native_dependencies(work):
+    path=work/'fusion-native-checks'
+    if not path.exists():
+        raise RuntimeError('Conversion did not produce the native-library inspection result.')
+    dependencies=[]
+    for line in path.read_text().splitlines():
+        if line.startswith('dependency-detected-not-included '):
+            name=line.split(' ',1)[1].strip()
+            if not re.fullmatch(r'[A-Za-z0-9@_+][A-Za-z0-9@._+\-]*',name):
+                raise RuntimeError('Unexpected native-library dependency: '+name)
+            if name not in dependencies:dependencies.append(name)
+    return dependencies
+
+
+def install(deb, *, check_only=False, convert_only=None):
     if os.geteuid()==0:raise RuntimeError('Open the .deb installer as your desktop user, without sudo.')
     deb=Path(deb).expanduser().resolve(strict=True)
     if not deb.is_file() or deb.suffix.lower()!='.deb':raise ValueError('Choose an existing .deb package.')
-    prepare_tools()
-    prepare_database()
+    prepare_inspection(check_only)
     with tempfile.TemporaryDirectory(prefix='fusion-debtap-') as directory:
         work=Path(directory)
         # Debtap itself uses shell word splitting on arguments. A neutral local
         # filename also supports downloads with spaces, quotes or shell symbols.
         shutil.copyfile(deb,work/'source.deb')
+        fields=read_control(work/'source.deb')
+        dependencies=check_dependencies(work/'source.deb',fields)
+        if check_only:
+            print('== Dependency mapping check passed. No packages were installed or converted.',flush=True)
+            return
+        prepare_tools()
+        prepare_database()
         print('== Checking application files in '+str(deb),flush=True)
         original=source_payload(work/'source.deb')
         print('== Converting '+str(deb),flush=True)
-        run([*converter(work),'-q','source.deb'],cwd=work)
+        run([*converter(work,dependencies,fields['package']),'-Q','source.deb'],cwd=work)
         packages=[p for p in work.iterdir() if p.is_file() and re.fullmatch(
             r'.+\.pkg\.tar(?:\.(?:zst|xz|gz|bz2|lz4|lrz|lzo|lz|Z))?',p.name)]
         if len(packages)!=1:
             raise RuntimeError(f'Conversion produced {len(packages)} installable packages; expected one. Nothing was installed.')
-        identity,required=converted_package(packages[0],original)
+        identity,required=converted_package(packages[0],original,
+                                           omitted=omitted_application_files(fields['package']))
+        native=native_dependencies(work)
+        if native:print('== Native library requirements: '+', '.join(native),flush=True)
+        dependencies=list(dict.fromkeys([*dependencies,*native]))
+        verify_dependencies(packages[0],dependencies)
+        if convert_only is not None:
+            destination=Path(convert_only).expanduser().resolve()
+            destination.mkdir(parents=True,exist_ok=True)
+            target=destination/packages[0].name
+            # Do not overwrite a previous result, especially an original .deb.
+            with target.open('xb') as output,packages[0].open('rb') as source:
+                shutil.copyfileobj(source,output)
+            print('== Converted package saved: '+str(target)+'. The application was not installed.',flush=True)
+            return
         print('== Installing converted package: '+' '.join(identity)+
               '. Review and confirm the pacman transaction below.',flush=True)
         run(['sudo','pacman','-U',packages[0]],cwd=work)
@@ -203,10 +304,14 @@ def install(deb):
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--wait',action='store_true',help='Keep the terminal open after completion or failure.')
+    mode=parser.add_mutually_exclusive_group()
+    mode.add_argument('--check',action='store_true',help='Only check dependency mappings; do not install tools or packages.')
+    mode.add_argument('--convert-only',type=Path,metavar='DIRECTORY',
+                      help='Prepare conversion tools and save a checked native package without installing the application.')
     parser.add_argument('deb',type=Path)
     args=parser.parse_args(argv)
     code=0
-    try:install(args.deb)
+    try:install(args.deb,check_only=args.check,convert_only=args.convert_only)
     except KeyboardInterrupt:
         print('\n== Installation cancelled.',flush=True);code=130
     except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
