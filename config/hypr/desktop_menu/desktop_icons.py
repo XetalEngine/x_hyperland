@@ -52,6 +52,8 @@ class Tile(Gtk.EventBox):
         self.press = None
         self.editor = None
         self.renaming = False
+        self.drag_context = None
+        self.drag_payload, self.drag_urls = {}, []
         # Paint the themed selection/hover background on the tile's RGBA
         # window; an input-only EventBox would paint only the label color.
         self.set_visible_window(True); self.set_above_child(True)
@@ -62,7 +64,7 @@ class Tile(Gtk.EventBox):
         box.set_margin_start(4); box.set_margin_end(4)
         self.image = Gtk.Image.new_from_gicon(info.get_icon(), Gtk.IconSize.DIALOG)
         self.shortcut = info.get_is_symlink() or name.casefold().endswith('.desktop')
-        if self.shortcut: self.image.connect_after('draw', self.draw_shortcut)
+        self.image.connect_after('draw', self.draw_shortcut)
         box.pack_start(self.image, False, False, 0)
         label = Gtk.Label(label=info.get_display_name())
         label.set_justify(Gtk.Justification.CENTER)
@@ -77,10 +79,23 @@ class Tile(Gtk.EventBox):
         self.connect('button-press-event', self.pressed)
         self.connect('button-release-event', self.released)
         self.connect('motion-notify-event', self.motion)
+        self.connect('drag-begin', self.drag_begin)
         self.connect('drag-data-get', self.drag_data)
         self.connect('drag-end', self.drag_end)
+        self.connect('unmap', self.cancel_drag)
+        self.connect('destroy', self.cancel_drag)
         self.drag_feedback = None
         self.resize_icon()
+
+    def update_info(self, info):
+        # Directory enumeration returns fresh Gio.FileInfo objects even for
+        # unchanged files. Replacing their widgets destroys the GTK drag source
+        # (and its callbacks) while another app may still be requesting URLs.
+        self.info = info
+        self.set_tooltip_text(info.get_display_name())
+        self.shortcut = info.get_is_symlink() or self.name.casefold().endswith('.desktop')
+        if not self.editor: self.label.set_text(info.get_display_name())
+        self.image.set_from_gicon(info.get_icon(), Gtk.IconSize.DIALOG)
 
     def resize_icon(self):
         settings = self.canvas.controller.settings
@@ -97,6 +112,7 @@ class Tile(Gtk.EventBox):
                 pass
 
     def draw_shortcut(self, image, cr):
+        if not self.shortcut: return False
         size = self.canvas.controller.settings['size']
         badge = max(15, round(size*.30))
         x, y = (image.get_allocated_width()-size)/2, (image.get_allocated_height()+size)/2-badge
@@ -205,23 +221,41 @@ class Tile(Gtk.EventBox):
         virtual = model.TRASH in controller.drag['names']
         context = self.drag_begin_with_coordinates(Gtk.TargetList.new(TARGETS[:1]+TARGETS[2:] if virtual else TARGETS),
             Gdk.DragAction.MOVE if virtual else Gdk.DragAction.COPY | Gdk.DragAction.MOVE | Gdk.DragAction.LINK, 1, event, -1, -1)
-        self.drag_feedback = DragFeedback(self, context, len(controller.drag['names']))
+        if context and self.drag_context == context:
+            self.drag_feedback = DragFeedback(self, context, len(self.drag_payload['names']))
+        else:
+            self.drag_end()
         return True
 
+    def drag_begin(self, _widget, context):
+        self.drag_context = context
+        self.drag_payload = dict(self.canvas.controller.drag)
+        self.drag_urls = self.canvas.controller.urls(self.drag_payload.get('names', []))
+
     def drag_data(self, _widget, _context, selection, info, _time):
-        controller = self.canvas.controller
         if info == 0:
-            selection.set(selection.get_target(), 8, json.dumps(controller.drag).encode())
+            selection.set(selection.get_target(), 8, json.dumps(self.drag_payload).encode())
         elif info == 1:
-            selection.set_uris(controller.urls(controller.drag.get('names', [])))
+            selection.set_uris(self.drag_urls)
         else:
             selection.set(selection.get_target(), 8, b'1')
 
     def drag_end(self, *_):
+        self.drag_context = None
         if self.drag_feedback: self.drag_feedback.close(); self.drag_feedback = None
+        self.drag_payload, self.drag_urls = {}, []
         self.press = None
         self.canvas.controller.drag = {}
         for canvas in self.canvas.controller.canvases.values(): canvas.highlight(None)
+
+    def cancel_drag(self, *_):
+        # Removal, hidden icons, monitor unplug and shutdown must release the
+        # native grab before the source window/signal handlers disappear.
+        context = self.drag_context
+        if context is not None:
+            self.drag_context = None
+            Gtk.drag_cancel(context)
+            self.drag_end()
 
 
 class Canvas(Gtk.Layout):
@@ -258,14 +292,17 @@ class Canvas(Gtk.Layout):
         self.last_layout = state
         self.positions = positions
         for name in list(self.tiles):
-            if name not in positions or self.tiles[name].info != self.controller.entries.get(name):
-                self.tiles.pop(name).destroy()
+            if name not in positions:
+                tile = self.tiles.pop(name)
+                tile.cancel_drag()
+                tile.destroy()
         for name, point in positions.items():
             if name not in self.tiles:
                 self.tiles[name] = Tile(self, name, self.controller.entries[name])
                 self.put(self.tiles[name], *point)
                 self.tiles[name].show_all()
             else:
+                self.tiles[name].update_info(self.controller.entries[name])
                 self.tiles[name].resize_icon()
                 self.move(self.tiles[name], *point)
         width, height = model.cell(self.controller.settings)
@@ -401,7 +438,7 @@ class Canvas(Gtk.Layout):
                 tile = self.tiles.get(names[0])
                 if tile: tile.begin_rename()
             elif identifier == 'trash': self.controller.trash(urls)
-            else: self.controller.files.call('MenuAction', '(s)', entry['action'])
+            elif 'action' in entry: self.controller.files.call('MenuAction', '(s)', entry['action'])
         def populate(entries):
             if self.surface.menu is not menu or not menu.get_visible(): return
             # GTK's mapped Wayland popup retains the loading row's configured

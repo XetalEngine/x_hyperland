@@ -274,6 +274,85 @@ class CanvasTests(unittest.TestCase):
         (self.controller.root/'new.txt').unlink()
         self.wait(lambda: 'new.txt' not in self.canvas.positions)
 
+    def test_archive_refresh_keeps_drag_source_and_selected_urls(self):
+        names = ['Folder', 'notes # café.txt']
+        self.controller.select(set(names))
+        tile = self.canvas.tiles[names[1]]
+        destroyed = Mock(); tile.connect('destroy', destroyed)
+        payload = dict(names=names, anchor=tile.name, offset=[30, 20])
+        self.controller.drag = payload
+        context = Mock()
+        tile.drag_begin(tile, context)
+        feedback = tile.drag_feedback = Mock()
+        info = tile.info
+        # The watcher reads every file again when an archive is created.
+        (self.controller.root/'in progress.zip').write_bytes(b'PK\x03\x04')
+        self.wait(lambda: 'in progress.zip' in self.canvas.tiles)
+        self.assertIs(self.canvas.tiles[tile.name], tile)
+        self.assertIsNot(tile.info, info)
+        self.assertIs(tile.drag_context, context)
+        destroyed.assert_not_called(); feedback.close.assert_not_called()
+        # Changing the selection after starting a drag cannot change its URLs.
+        self.controller.select({'in progress.zip'})
+        selection = Mock()
+        tile.drag_data(tile, context, selection, 1, 0)
+        selection.set_uris.assert_called_once_with(self.controller.urls(names))
+        tile.drag_data(tile, context, selection, 0, 0)
+        self.assertEqual(json.loads(selection.set.call_args.args[2]), payload)
+        tile.drag_end(tile, context)
+        feedback.close.assert_called_once()
+        self.assertIsNone(tile.drag_context)
+        self.assertEqual(self.controller.drag, {})
+
+    def test_removed_drag_source_cancels_before_widget_destruction(self):
+        name = 'notes # café.txt'; tile = self.canvas.tiles[name]
+        self.controller.drag = dict(names=[name], anchor=name, offset=[20, 20])
+        context = Mock(); tile.drag_begin(tile, context)
+        feedback = tile.drag_feedback = Mock()
+        destroyed = Mock(); tile.connect('destroy', destroyed)
+        def cancel(current):
+            self.assertIs(current, context)
+            destroyed.assert_not_called()
+            tile.drag_end(tile, context)
+        with patch.object(self.Gtk, 'drag_cancel', side_effect=cancel) as cancelled:
+            (self.controller.root/name).unlink()
+            self.wait(lambda: name not in self.canvas.tiles)
+            cancelled.assert_called_once_with(context)
+        feedback.close.assert_called_once(); destroyed.assert_called_once()
+        self.assertEqual(self.controller.drag, {})
+
+    def test_hidden_drag_source_releases_context_and_feedback_once(self):
+        name = 'notes # café.txt'; tile = self.canvas.tiles[name]
+        self.controller.drag = dict(names=[name], anchor=name, offset=[20, 20])
+        context = Mock(); tile.drag_begin(tile, context)
+        feedback = tile.drag_feedback = Mock()
+        with patch.object(self.Gtk, 'drag_cancel') as cancel:
+            self.controller.setting('enabled', False)
+            self.wait(lambda: not self.canvas.tiles)
+            cancel.assert_called_once_with(context)
+        tile.drag_end(tile, context)
+        feedback.close.assert_called_once()
+        self.assertIsNone(tile.drag_context)
+        self.assertEqual(tile.drag_urls, [])
+        self.assertEqual(self.controller.drag, {})
+
+    def test_refresh_preserves_inline_rename_and_updates_icon_metadata(self):
+        tile = self.canvas.tiles['notes # café.txt']
+        tile.begin_rename(); editor = tile.editor
+        editor.set_text('name being edited.txt')
+        info = tile.info
+        self.controller.refresh()
+        self.wait(lambda: tile.info is not info)
+        self.assertIs(self.canvas.tiles[tile.name], tile)
+        self.assertIs(tile.editor, editor)
+        self.assertEqual(editor.get_text(), 'name being edited.txt')
+        updated = info.dup(); updated.set_display_name('Updated name')
+        updated.set_is_symlink(True)
+        tile.update_info(updated)
+        self.assertTrue(tile.shortcut)
+        self.assertEqual(tile.get_tooltip_text(), 'Updated name')
+        self.assertEqual(editor.get_text(), 'name being edited.txt')
+
     def test_menu_toggle_and_layout_controls(self):
         menu = self.Gtk.Menu(); self.controller.append_menu(menu, 0)
         items = {item.get_label(): item for item in menu.get_children() if hasattr(item, 'get_label')}
@@ -336,6 +415,20 @@ class CanvasTests(unittest.TestCase):
                 ready.get_children()[0].activate()
                 copy.assert_called_once_with(False, ['notes # café.txt'])
             ready.destroy(); self.window.menu = None
+
+    def test_archive_submenu_does_not_dispatch_a_missing_action(self):
+        entries = [{'name': 'Ark', 'children': [{'name': 'Compress…', 'action': 'archive:1'}]}]
+        with patch.object(self.Gtk.Menu, 'popup_at_widget', lambda menu, *_: menu.show()):
+            self.controller.select({'Folder'}); self.canvas.file_menu(None)
+            self.fake_files.menu.call_args.args[1](entries)
+            row = self.window.menu.get_children()[0]
+            with patch('sys.excepthook') as uncaught:
+                row.activate()
+                uncaught.assert_not_called()
+            self.fake_files.call.assert_not_called()
+            row.get_submenu().get_children()[0].activate()
+            self.fake_files.call.assert_called_once_with('MenuAction', '(s)', 'archive:1')
+            self.window.menu.destroy(); self.window.menu = None
 
     def test_trash_icon_open_hide_and_success_animation(self):
         before = dict(self.canvas.positions)

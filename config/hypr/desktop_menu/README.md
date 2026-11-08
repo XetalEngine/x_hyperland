@@ -59,6 +59,14 @@ Copy and Shortcut cannot drop into Trash; neither operation silently moves files
 Fusion Files handles transfers and any conflict prompts. The desktop watches the
 folder for changes, so files saved or renamed elsewhere appear automatically.
 
+Directory refreshes update existing icon widgets in place. In particular, an
+archive being written on the desktop must not destroy the source of an active
+drag or an inline rename editor. Each drag retains the URLs selected at its
+start. Removing its source, hiding icons, disconnecting its monitor or ending
+the session explicitly cancels the drag before destroying its widget, releasing
+the native input grab and the feedback timer. Compression and file transfers
+remain outside the desktop event loop.
+
 The cursor-probe runtime supplies accepted drag actions for the pinned Hyprland
 compositor and keeps modifier feedback current across application focus changes.
 Its Wayland negotiation applies only to Fusion's marked file drags. Drag feedback
@@ -95,3 +103,8 @@ shutdown. Use an output directory on the home filesystem to keep the fixture's
 Trash inside its private HOME.
 Use `--drag-actions-only` to check copy/move/shortcut transfers in both directions,
 folder links, drag badges, and rejected My Computer/toolbar destinations.
+Use `--drag-refresh-only` to write an archive during a two-file drag to an
+external GTK target, then check URL delivery, Escape, source removal and clicks
+in both applications. The target is a local upload-queue fixture; it never
+contacts an external server. The unit suite also covers hidden icons, metadata
+updates, rename editor preservation and opening archive submenus.

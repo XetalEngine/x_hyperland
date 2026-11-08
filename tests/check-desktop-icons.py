@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real desktop-layer input in a disposable Hyprland, private HOME and bus.
 
-Usage: python3 tests/check-desktop-icons.py NEW_OUTPUT_DIRECTORY FILES_BUILD [--menus-only | --drag-actions-only]
+Usage: python3 tests/check-desktop-icons.py NEW_OUTPUT_DIRECTORY FILES_BUILD [--menus-only | --drag-actions-only | --drag-refresh-only]
 Only virtual input in the nested compositor is used; no personal files change.
 """
 import json
@@ -107,6 +107,17 @@ pressed=Tile.pressed
 def tile_pressed(self,widget,event):
  trace('press',name=self.name,modifiers=int(event.state));return pressed(self,widget,event)
 Tile.pressed=tile_pressed
+tile_motion=Tile.motion
+def source_motion(self,widget,event):
+ was_dragging=bool(self.canvas.controller.drag)
+ result=tile_motion(self,widget,event)
+ if not was_dragging and self.canvas.controller.drag:trace('drag-start',name=self.name)
+ return result
+Tile.motion=source_motion
+tile_end=Tile.drag_end
+def source_end(self,*args):
+ trace('drag-end',name=self.name);return tile_end(self,*args)
+Tile.drag_end=source_end
 received=Canvas.received
 def data_received(self,widget,context,x,y,data,info,timestamp):
  trace('drop',selected=int(context.get_selected_action()),operation=int(self.drop_operation),info=info,
@@ -270,6 +281,10 @@ windowrule=match:class ^xetal-files-external$,float on,center on
         if '--drag-actions-only' in sys.argv[3:]:
             from check_drag_actions import check_drag_actions
             check_drag_actions(root, build, desktop, positions, spawn, ctl, run, gesture, wait)
+            return
+        if '--drag-refresh-only' in sys.argv[3:]:
+            from check_drag_refresh import check_drag_refresh
+            check_drag_refresh(root, desktop, positions, spawn, ctl, gesture, wait, popup, key, state)
             return
         # File actions arrive over D-Bus after the popup request. Its Wayland
         # window must fit the completed menu, not the one-row loading message.
