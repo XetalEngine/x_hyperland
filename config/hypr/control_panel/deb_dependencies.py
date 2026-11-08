@@ -42,6 +42,7 @@ ALIASES = {
     'libxi6': 'libxi', 'libxinerama1': 'libxinerama', 'libxrandr2': 'libxrandr',
     'libxrender1': 'libxrender', 'libxss1': 'libxss', 'libxtst6': 'libxtst',
     'libxkbcommon0': 'libxkbcommon', 'libxkbcommon-x11-0': 'libxkbcommon-x11',
+    'libxkbfile1': 'libxkbfile',  # libxkbfile.so.1; used by VS Code and other X11 apps
     'libwayland-client0': 'wayland', 'libwayland-cursor0': 'wayland',
     'libwayland-egl1': 'wayland', 'libzstd1': 'zstd', 'zlib1g': 'zlib',
     'liblzma5': 'xz', 'libbz2-1.0': 'bzip2', 'libsqlite3-0': 'sqlite',

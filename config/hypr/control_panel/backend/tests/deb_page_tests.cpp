@@ -67,7 +67,7 @@ private slots:
     QVERIFY(opened.isEmpty());
   }
 
-  void chromeResultAndOfficialDownload() {
+  void reportedResultsAndOfficialDownloads() {
     QPushButton yay, paru;
     DebInstallerPage page(root, new QPushButton, &yay, &paru);
     auto *chrome = button(page, "debApp_chrome");
@@ -76,13 +76,18 @@ private slots:
     QCOMPARE(chrome->property("testedOn").toString(), QString("2026-11-07"));
     chrome->click();
     QCOMPARE(opened, QList<QUrl>({QUrl("https://www.google.com/chrome/?platform=linux")}));
-    for (const auto *name : {"debApp_discord", "debApp_vscode"}) {
-      auto *card = button(page, name);
-      QVERIFY(card);
-      QVERIFY(!card->property("tested").toBool());
-      QVERIFY(card->accessibleName().contains("untested"));
-      QVERIFY(card->property("testedOn").toString().isEmpty());
-    }
+    auto *discord = button(page, "debApp_discord");
+    QVERIFY(discord);
+    QVERIFY(discord->property("tested").toBool());
+    QCOMPARE(discord->property("testedOn").toString(), QString("2026-11-08"));
+    QVERIFY(discord->accessibleName().contains("tested working"));
+    discord->click();
+    QCOMPARE(opened.last(), QUrl("https://discord.com/download"));
+    auto *vscode = button(page, "debApp_vscode");
+    QVERIFY(vscode);
+    QVERIFY(!vscode->property("tested").toBool());
+    QVERIFY(vscode->accessibleName().contains("untested"));
+    QVERIFY(vscode->property("testedOn").toString().isEmpty());
   }
 
   void feedbackRequiresReproducibleDetailsAndOpensOnlyOnRequest() {

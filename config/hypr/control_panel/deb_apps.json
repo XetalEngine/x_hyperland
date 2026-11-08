@@ -20,8 +20,9 @@
       "name": "Discord",
       "icon": "discord",
       "url": "https://discord.com/download",
-      "status": "untested",
-      "note": "No compatibility report yet"
+      "status": "tested",
+      "tested_on": "2026-11-08",
+      "note": "1.0.168 reported working on Arch Linux"
     },
     {
       "id": "vscode",

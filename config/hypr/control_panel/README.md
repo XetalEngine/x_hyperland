@@ -9,9 +9,9 @@ without installing tools, downloading packages or changing the system.
 
 The page has a theme-aware **Experimental** banner and a responsive app grid
 below the installation buttons. `deb_apps.json` is the compatibility catalog:
-only **Google Chrome** is currently reported working, on **November 7, 2026**.
-Discord and Visual Studio Code are explicitly **untested**. Clicking an app
-opens its official download page; it does not download or install a package.
+**Google Chrome** is reported working on **November 7, 2026**, and **Discord
+1.0.168** on **November 8, 2026**. Visual Studio Code is still **untested**.
+Clicking an app opens its official download page; it does not download or install a package.
 Test dates describe a reported result, not support for all future versions.
 Keep new entries untested until an installation and launch have been checked;
 record a `tested_on` ISO date (`YYYY-MM-DD`) and explain the result in `note`.
@@ -78,7 +78,14 @@ identify the same library ABI. Version minimums remain enforced, and unsupported
 ABI generations still stop resolution. For future mappings, verify the actual
 library and package ownership in both distributions and add a dependency fixture
 with missing/insufficient-version cases. The Discord fixture checks dependency
-resolution only; it does not establish successful installation or launch.
+resolution only; installation and launch reports are recorded separately in the catalog.
+
+Visual Studio Code 1.145.2's `libxkbfile1 (>= 1:1.1.0)` requirement maps to
+`libxkbfile>=1.1.0`. Arch's [libxkbfile package](https://archlinux.org/packages/extra/x86_64/libxkbfile/files/)
+provides `libxkbfile.so.1`. This mapping also applies to other `.deb` apps, with
+the same minimum-version checks. Its regression fixture covers Microsoft's full
+dependency list, and missing, outdated or unsupported library ABIs still stop
+resolution. Passing the dependency check does not mark VS Code tested working.
 
 The helper prepares missing conversion tools (including `pactree` from
 `pacman-contrib`) and repairs incomplete debtap/pkgfile databases before converting.

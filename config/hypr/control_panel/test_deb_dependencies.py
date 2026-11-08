@@ -3,6 +3,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tarfile
@@ -83,6 +84,55 @@ class DependencyTests(unittest.TestCase):
             with self.subTest(dependency=requirement):
                 with self.assertRaisesRegex(RuntimeError, requirement.replace('+', r'\+')):
                     self.resolve(requirement, sync=packages)
+
+    def test_vscode_1_145_2_dependencies_resolve_without_an_aur_lookup(self):
+        # Depends from Microsoft's 1.145.2-1793945276 amd64 archive:
+        # https://update.code.visualstudio.com/1.145.2/linux-deb-x64/stable
+        # SHA256: aa2bfc5a3db4f0971e8b50ce08d07b1849894a9caca2b0f8ea5b07ac8d68da8d
+        control = ('ca-certificates, libasound2 (>= 1.0.17), '
+                   'libatk-bridge2.0-0 (>= 2.5.3), libatk1.0-0 (>= 2.11.90), '
+                   'libatspi2.0-0 (>= 2.9.90), libc6 (>= 2.15), libc6 (>= 2.16), '
+                   'libc6 (>= 2.17), libc6 (>= 2.2.5), libc6 (>= 2.25), '
+                   'libc6 (>= 2.28), libc6 (>= 2.4), libcairo2 (>= 1.6.0), '
+                   'libcups2 (>= 1.6.0), libcurl3-gnutls | libcurl3-nss | libcurl4 | libcurl3, '
+                   'libdbus-1-3 (>= 1.9.14), libexpat1 (>= 2.1~beta3), '
+                   'libgbm1 (>= 17.1.0~rc2), libglib2.0-0 (>= 2.12.0), '
+                   'libglib2.0-0 (>= 2.39.4), libgtk-3-0 (>= 3.9.10), '
+                   'libgtk-3-0 (>= 3.9.10) | libgtk-4-1, libnspr4 (>= 2:4.9-2~), '
+                   'libnss3 (>= 2:3.30), libnss3 (>= 3.26), libpango-1.0-0 (>= 1.14.0), '
+                   'libudev1 (>= 183), libx11-6, libx11-6 (>= 2:1.4.99.1), '
+                   'libxcb1 (>= 1.9.2), libxcomposite1 (>= 1:0.4.4-1), '
+                   'libxdamage1 (>= 1:1.1), libxext6, libxfixes3, '
+                   'libxkbcommon0 (>= 0.5.0), libxkbfile1 (>= 1:1.1.0), '
+                   'libxrandr2, xdg-utils (>= 1.0.2)')
+        packages = {'ca-certificates': '20260101-1', 'alsa-lib': '1.2.16.1-1',
+                    'at-spi2-core': '2.62.1-1', 'glibc': '2.44-1', 'cairo': '1.18.6-1',
+                    'libcups': '2.4.19-1', 'curl': '8.23.0-1', 'dbus': '1.16.2-1',
+                    'expat': '2.9.0-1', 'mesa': '1:26.2.5-1', 'glib2': '2.90.1-1',
+                    'gtk3': '1:3.24.52-2', 'nspr': '4.40-1', 'nss': '3.132-1',
+                    'pango': '1:1.58.2-1', 'systemd-libs': '262.1-1',
+                    'libx11': '1.8.14-1', 'libxcb': '1.17.0-1', 'libxcomposite': '0.4.7-1',
+                    'libxdamage': '1.1.7-1', 'libxext': '1.3.7-1', 'libxfixes': '6.0.2-1',
+                    'libxkbcommon': '1.13.2-1', 'libxkbfile': '1.2.0-1',
+                    'libxrandr': '1.5.5-1', 'xdg-utils': '1.2.1-1'}
+        aur = deps.AurRepository()
+        with patch.object(aur, 'available', side_effect=AssertionError('unnecessary AUR lookup')):
+            result, rows = deps.resolve(fields(control), Inventory(sync=packages), 'x86_64', aur)
+        self.assertIn('libxkbfile>=1.1.0', result)
+        self.assertIn('libxkbfile1 (>= 1:1.1.0) → libxkbfile>=1.1.0 (repository: 1.2.0-1)', rows)
+        self.assertEqual({re.split(r'[<>=]', item, maxsplit=1)[0] for item in result}, set(packages))
+        self.assertEqual(aur.selected, {})
+
+    def test_xkbfile_mapping_keeps_minimum_and_abi_checks(self):
+        requirement = 'libxkbfile1 (>= 1:1.1.0)'
+        self.assertEqual(self.resolve(requirement, local={'libxkbfile': '1.2.0-1'})[0],
+                         ['libxkbfile>=1.1.0'])
+        for packages in ({}, {'libxkbfile': '99:1.0.9-1'}, {'libxkbcommon': '99.0-1'}):
+            with self.subTest(inventory=packages):
+                with self.assertRaisesRegex(RuntimeError, 'missing or below its minimum'):
+                    self.resolve(requirement, sync=packages)
+        with self.assertRaisesRegex(RuntimeError, 'libxkbfile2'):
+            self.resolve('libxkbfile2', sync={'libxkbfile': '1.2.0-1'})
 
     def test_chrome_epochs_never_become_part_of_package_names(self):
         control = ('libnspr4 (>= 2:4.9-2~), libnss3 (>= 2:3.35), '
