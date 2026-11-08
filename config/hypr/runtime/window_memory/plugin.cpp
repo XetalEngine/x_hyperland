@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Typed window memory, launch intent and client-decoration input geometry.
+// Typed window memory, launch intent and client-decoration geometry.
 #include <hyprland/src/plugins/PluginAPI.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
@@ -103,9 +103,11 @@ void queuePolicy(PHLWINDOW w){
 }
 using SurfaceAtFn=SP<CWLSurfaceResource> (*)(const Desktop::CViewHitTester*,const Vector2D&,PHLWINDOW,Vector2D&);
 using SurfaceBoxFn=std::optional<CBox> (*)(const Desktop::View::CWLSurface*);
+using SurfaceDamageFn=CRegion (*)(const Desktop::View::CWLSurface*);
 using SubsurfaceCoordsFn=Vector2D (*)(const Desktop::View::CSubsurface*);
 SurfaceAtFn originalSurfaceAt;
 SurfaceBoxFn originalSurfaceBox;
+SurfaceDamageFn originalSurfaceDamage;
 SubsurfaceCoordsFn originalSubsurfaceCoords;
 Vector2D contentOffset(PHLWINDOW w){
     if(!w||!w->m_xdgSurface||!w->wlSurface()->resource())return {};
@@ -137,6 +139,32 @@ std::optional<CBox> surfaceBoxHook(const Desktop::View::CWLSurface* surface){
     if(box&&w&&w->m_xdgSurface&&!w->m_isX11&&w->wlSurface().get()==surface)
         box->translate(-contentOffset(w));
     return box;
+}
+CRegion surfaceDamageHook(const Desktop::View::CWLSurface* surface){
+    const auto w=Desktop::View::CWindow::fromView(surface->view());
+    const auto offset=contentOffset(w);
+    if(!w||w->m_isX11||w->wlSurface().get()!=surface||offset==Vector2D{})
+        return originalSurfaceDamage(surface);
+    auto& state=surface->resource()->m_current;
+    if(!state.texture||state.bufferSize.x<=0||state.bufferSize.y<=0||state.size.x<=0||state.size.y<=0)return {};
+    // Match the pinned core's buffer/viewport normalization, but postpone its
+    // window-size clip until after removing the padding. Translating core's
+    // already-clipped result loses right/bottom updates. Its internal bounds
+    // lookup is inlined, so the input-origin hook cannot change that ordering.
+    CRegion damage=state.accumulateBufferDamage();
+    damage.transform(Math::wlTransformToHyprutils(state.transform),state.bufferSize.x,state.bufferSize.y);
+    if(state.viewport.hasSource)damage.intersect(state.viewport.source);
+    const auto sourceSize=state.viewport.hasSource?state.viewport.source.size()*state.scale:state.bufferSize;
+    if(sourceSize.x<=0||sourceSize.y<=0)return {};
+    damage.scale(state.bufferSize/sourceSize);
+    damage.translate(surface->correctSmallVecBuf());
+    damage.scale(state.size/state.bufferSize);
+    // The renderer UV-crops the main surface to xdg geometry. Typing damages
+    // only small rectangles, which must reach that same visible origin. Full
+    // repaints (including screen capture) otherwise conceal the stale pixels.
+    damage.intersect(w->m_xdgSurface->m_current.geometry).translate(-offset);
+    if(const auto box=originalSurfaceBox(surface))damage.intersect(CBox{{},box->size()});
+    return damage;
 }
 Vector2D subsurfaceCoordsHook(const Desktop::View::CSubsurface* subsurface){
     auto coords=originalSubsurfaceCoords(subsurface);
@@ -213,6 +241,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         hook(handle,"changeFloatingMode","CLayoutManager::changeFloatingMode(",(void*)floatingHook,originalFloating);
         hook(handle,"windowSurfaceAt","CViewHitTester::windowSurfaceAt(",(void*)surfaceAtHook,originalSurfaceAt);
         hook(handle,"getSurfaceBoxGlobal","CWLSurface::getSurfaceBoxGlobal(",(void*)surfaceBoxHook,originalSurfaceBox);
+        hook(handle,"computeDamage","CWLSurface::computeDamage(",(void*)surfaceDamageHook,originalSurfaceDamage);
         hook(handle,"coordsGlobal","CSubsurface::coordsGlobal(",(void*)subsurfaceCoordsHook,originalSubsurfaceCoords);
         policyListeners.push_back(Event::bus()->m_events.window.openEarly.listen([](PHLWINDOW w){
             const auto policy=workspacePolicy(w);if(policy.layout=="off")return;
@@ -242,6 +271,6 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         });
         for(const auto& w:Desktop::windowState()->windows())enforcePolicy(w);
     }catch(...){cleanup();throw;}
-    return {"Xetal Window Memory", "Window geometry, workspace policies and decoration input", "XetalEngine", "1.2"};
+    return {"Xetal Window Memory", "Window geometry, workspace policies and decoration input", "XetalEngine", "1.3"};
 }
 APICALL EXPORT void PLUGIN_EXIT() { cleanup(); }

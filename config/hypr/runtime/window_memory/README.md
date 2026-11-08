@@ -18,6 +18,12 @@ geometry when clients include invisible decoration padding. This includes child
 surfaces, such as Firefox's browser content, and their redraw coordinates. The
 Minimize adapter crops the main surface and shifts its children to that same
 origin before calculating clipping. Popup surfaces retain their own origin.
+Main-surface partial damage also uses that visible origin: the adapter follows
+the pinned core's buffer scale, transform and viewport normalization, then crops
+and translates damage by the xdg geometry offset before the window-size clip.
+This ordering preserves right/bottom updates until the final content clip.
+Without this, typing can leave background-colored strips over text, while a
+full repaint from screen capture makes the defect disappear.
 First-map launcher fullscreen
 rules are released back to ordinary client/compositor state synchronization,
 so later native maximize/restore controls continue to work.
@@ -67,3 +73,10 @@ checks real Firefox with a temporary profile and local page. It covers frame
 edges, clicks, held drags, partial redraws, native maximize/restore and dock
 restore in tiled/floating modes at 100% and 125% scaling. It requires Firefox,
 grim, Pillow and the Wayland C tools and never loads a plugin into the parent.
+
+`python3 tests/check-text-damage.py MEMORY_SO MINIMIZE_SO OUTPUT_DIR` checks
+main-surface text-height updates and right/bottom edges without screencopy or
+forcing full repaints. It observes the real damage regions of a private
+compositor, with padded/unpadded clients, buffer scales 1/2, output scales
+1/1.25 and both Wayland damage coordinate spaces. Add
+`--expect-bug` with the previous adapter to demonstrate the regression.
