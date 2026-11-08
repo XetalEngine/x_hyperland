@@ -99,18 +99,21 @@ void Fusion::addArkActions(QMenu *menu, const KFileItemList &items, bool compres
       ark->menuAction()->setVisible(false);
   }
 }
-void Fusion::customizeMenu(Preferences &preferences, QWidget *parent, const QString &scope) {
-  QDialog dialog(parent);
-  dialog.setWindowTitle(scope == "desktopMenu" ? "Customize desktop file menu" : "Customize context menu");
-  dialog.resize(680, 550);
-  auto *layout = new QVBoxLayout(&dialog);
+Fusion::MenuEditor::MenuEditor(const Preferences &preferences, const QString &scope, QWidget *parent)
+    : QWidget(parent) {
+  setObjectName(scope == "desktopMenu" ? "desktopMenuEditor" : "filesMenuEditor");
+  auto *layout = new QVBoxLayout(this);
   auto *intro = new QLabel(
-      "Choose the actions you use. Drag to reorder; uncheck to hide.");
+      (scope == "desktopMenu" ? "Right-click actions for files and folders on the desktop.\n"
+                              : "Right-click actions for files and folders in Fusion Files.\n")
+      + QString("Drag to reorder; uncheck to hide an action."));
+  intro->setWordWrap(true);
   layout->addWidget(intro);
-  auto *list = new QListWidget;
+  list = new QListWidget;
+  list->setObjectName("menuActions");
   list->setDragDropMode(QAbstractItemView::InternalMove);
   layout->addWidget(list, 1);
-  auto populate = [&](const QList<QVariantMap> &entries) {
+  auto populate = [this](const QList<QVariantMap> &entries) {
     list->clear();
     for (const auto &entry : entries) {
       auto *item = new QListWidgetItem(Fusion::icon(entry["icon"].toString()),
@@ -124,7 +127,7 @@ void Fusion::customizeMenu(Preferences &preferences, QWidget *parent, const QStr
   populate(preferences.menu(scope));
   auto *buttons = new QHBoxLayout;
   layout->addLayout(buttons);
-  auto edit = [&](bool creating) {
+  auto edit = [this](bool creating) {
     auto *item = list->currentItem();
     if (!creating && !item)
       return;
@@ -134,10 +137,12 @@ void Fusion::customizeMenu(Preferences &preferences, QWidget *parent, const QStr
                                {"enabled", true},
                                {"icon", "application-x-executable"}}
                  : item->data(Qt::UserRole).toMap();
-    QDialog editor(&dialog);
+    QDialog editor(this);
+    editor.setObjectName("menuActionEditor");
     editor.setWindowTitle(creating ? "Add action" : "Edit action");
     auto *form = new QFormLayout(&editor);
     auto *name = new QLineEdit(data["name"].toString());
+    name->setObjectName("actionName");
     auto *icon = new QLineEdit(data["icon"].toString());
     form->addRow("Name", name);
     form->addRow("Icon name or image path", icon);
@@ -149,7 +154,8 @@ void Fusion::customizeMenu(Preferences &preferences, QWidget *parent, const QStr
       if (!path.isEmpty())
         icon->setText(path);
     });
-    auto *command = new QLineEdit(data["command"].toString());
+    auto *command = new QLineEdit(data["command"].toString(), &editor);
+    command->setObjectName("actionCommand");
     const bool custom = data["id"].toString().startsWith("custom:");
     if (custom) {
       form->addRow("Command", command);
@@ -183,7 +189,7 @@ void Fusion::customizeMenu(Preferences &preferences, QWidget *parent, const QStr
   for (const auto &label : {"Add…", "Edit…", "Remove", "Restore defaults"}) {
     auto *button = new QPushButton(label);
     buttons->addWidget(button);
-    QObject::connect(button, &QPushButton::clicked, &dialog, [&, label] {
+    QObject::connect(button, &QPushButton::clicked, this, [this, edit, populate, label] {
       if (QString(label) == "Add…")
         edit(true);
       else if (QString(label) == "Edit…")
@@ -201,21 +207,33 @@ void Fusion::customizeMenu(Preferences &preferences, QWidget *parent, const QStr
         populate(Fusion::menuDefaults());
     });
   }
+}
+
+QList<QVariantMap> Fusion::MenuEditor::entries() const {
+  QList<QVariantMap> entries;
+  for (int i = 0; i < list->count(); ++i) {
+    auto *item = list->item(i);
+    auto data = item->data(Qt::UserRole).toMap();
+    data["enabled"] = item->checkState() == Qt::Checked;
+    entries << data;
+  }
+  return entries;
+}
+
+void Fusion::customizeMenu(Preferences &preferences, QWidget *parent, const QString &scope) {
+  QDialog dialog(parent);
+  dialog.setWindowTitle(scope == "desktopMenu" ? "Customize desktop file menu" : "Customize context menu");
+  dialog.resize(680, 550);
+  auto *layout = new QVBoxLayout(&dialog);
+  auto *menu = new MenuEditor(preferences, scope);
+  layout->addWidget(menu);
   auto *box =
       new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);
   layout->addWidget(box);
   QObject::connect(box, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
   QObject::connect(box, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
-  if (dialog.exec() == QDialog::Accepted) {
-    QList<QVariantMap> entries;
-    for (int i = 0; i < list->count(); ++i) {
-      auto *item = list->item(i);
-      auto data = item->data(Qt::UserRole).toMap();
-      data["enabled"] = item->checkState() == Qt::Checked;
-      entries << data;
-    }
-    preferences.setMenu(entries, scope);
-  }
+  if (dialog.exec() == QDialog::Accepted)
+    preferences.setMenu(menu->entries(), scope);
 }
 
 void Fusion::emptyTrash(QWidget *parent, const std::function<void()> &finished) {

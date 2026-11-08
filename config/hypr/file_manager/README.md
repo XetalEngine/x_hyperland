@@ -1,5 +1,17 @@
 # Fusion Files
 
+## Configure menus
+
+Open **Configure Fusion Files…** from the toolbar's three-dot menu. The
+**Browsing** tab holds the existing display and file-action preferences.
+**Files menu** and **Desktop menu** let you separately reorder, hide, rename,
+add or remove right-click actions for Files and desktop files/folders.
+
+Existing customizations are preserved. **Save** applies all tabs; **Cancel**
+discards the edits. Menu customization shortcuts no longer appear in either
+right-click menu. Desktop icon visibility and arrangement remain in the
+desktop's right-click menu.
+
 ## Navigation tree
 
 Every Fusion Files window keeps the left navigation tree visible: This PC,

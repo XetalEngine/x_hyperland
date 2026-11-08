@@ -878,9 +878,6 @@ class Icons:
             submenu.append(item)
         arrange.set_submenu(submenu)
         menu.attach(arrange, 0, 1, row, row+1); row += 1
-        configure = style_item(Gtk.MenuItem(label='Configure desktop file menu…'))
-        configure.connect('activate', lambda *_: self.files.call('ConfigureMenu', '()'))
-        menu.attach(configure, 0, 1, row, row+1); row += 1
         if self.settings['enabled']:
             target = target or self.pointer_target()
             paste = style_item(Gtk.MenuItem(label='Paste'))

@@ -55,7 +55,6 @@ private:
   void volumeAction(const Volume &volume, const QString &id);
   void addArkActions(QMenu *menu, const KFileItemList &items, bool compress,
                      bool extract, const std::function<bool()> &guard = {});
-  void customizeMenu();
   void configure();
   void updateCurrent();
   void updatePreview();

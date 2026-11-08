@@ -250,7 +250,6 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
     for (int i = 0; i < tabs->count(); ++i)
       static_cast<Browser *>(tabs->widget(i))->setHidden(value);
   });
-  menu->addAction("Customize context menu…", this, &FilesWindow::customizeMenu);
   menu->addAction(Fusion::icon("configure"), "Configure Fusion Files…", this, &FilesWindow::configure)->setObjectName("configureFiles");
   undoAction = menu->addAction("Undo", this, [this] { runAction("undo"); });
   undoAction->setEnabled(false);
@@ -1274,8 +1273,6 @@ void FilesWindow::fileMenu(const QPoint &point) {
         runAction(id);
     });
   }
-  menu.addSeparator();
-  menu.addAction("Customize this menu…", this, &FilesWindow::customizeMenu);
   menu.exec(point);
 }
 void FilesWindow::customAction(const QVariantMap &entry) {
@@ -1295,23 +1292,33 @@ void FilesWindow::customAction(const QVariantMap &entry) {
   if (!QProcess::startDetached(program, parts, working))
     message("The custom action could not be started.");
 }
-void FilesWindow::customizeMenu() {
-  Fusion::customizeMenu(preferences, this);
-}
 void FilesWindow::configure() {
+  preferences.settings.sync();
+  const auto savedFilesMenu = preferences.menu();
+  const auto savedDesktopMenu = preferences.menu("desktopMenu");
   QDialog dialog(this);
   dialog.setObjectName("filesConfiguration");
   dialog.setWindowTitle("Configure Fusion Files");
-  dialog.resize(530, 420);
+  dialog.resize(720, 580);
   auto *layout = new QVBoxLayout(&dialog);
   layout->setContentsMargins(24, 22, 24, 20);
   layout->setSpacing(14);
   auto *heading = new QLabel("Your files, your way");
   heading->setObjectName("settingsHeading");
   layout->addWidget(heading);
-  auto *intro = new QLabel("Choose what appears while you browse. These settings are saved for your desktop.");
+  auto *intro = new QLabel("Choose how you browse and which actions appear when you right-click.");
   intro->setWordWrap(true);
   layout->addWidget(intro);
+  auto *pages = new QTabWidget;
+  pages->setObjectName("filesSettingsTabs");
+  layout->addWidget(pages, 1);
+  auto *general = new QWidget;
+  auto *generalLayout = new QVBoxLayout(general);
+  pages->addTab(general, "Browsing");
+  auto *filesMenu = new Fusion::MenuEditor(preferences, "menu");
+  auto *desktopMenu = new Fusion::MenuEditor(preferences, "desktopMenu");
+  pages->addTab(filesMenu, "Files menu");
+  pages->addTab(desktopMenu, "Desktop menu");
   auto *display = new QGroupBox("Browsing");
   auto *displayLayout = new QVBoxLayout(display);
   auto *pane = new QCheckBox("Show the preview pane");
@@ -1328,23 +1335,24 @@ void FilesWindow::configure() {
   auto *hidden = new QCheckBox("Show hidden files and folders");
   hidden->setChecked(hiddenAction->isChecked());
   displayLayout->addWidget(hidden);
-  layout->addWidget(display);
+  generalLayout->addWidget(display);
   auto *behavior = new QGroupBox("File actions");
   auto *behaviorLayout = new QVBoxLayout(behavior);
   auto *animation = new QCheckBox("Animate files moving to Trash");
   animation->setObjectName("configureTrashAnimation");
   animation->setChecked(preferences.settings.value("trashAnimation", true).toBool());
   behaviorLayout->addWidget(animation);
-  auto *menu = new QPushButton("Customize context menu…");
-  connect(menu, &QPushButton::clicked, this, &FilesWindow::customizeMenu);
-  behaviorLayout->addWidget(menu);
-  layout->addWidget(behavior);
-  layout->addStretch();
+  generalLayout->addWidget(behavior);
+  generalLayout->addStretch();
   auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);
   layout->addWidget(buttons);
   connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
   connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
   if (dialog.exec() != QDialog::Accepted) return;
+  if (filesMenu->entries() != savedFilesMenu)
+    preferences.setMenu(filesMenu->entries());
+  if (desktopMenu->entries() != savedDesktopMenu)
+    preferences.setMenu(desktopMenu->entries(), "desktopMenu");
   preferences.settings.setValue("thumbnails", thumbnails->isChecked());
   preferences.settings.setValue("trashAnimation", animation->isChecked());
   if (pane->isChecked() != previewAction->isChecked()) previewAction->trigger();
