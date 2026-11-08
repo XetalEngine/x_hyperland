@@ -52,6 +52,13 @@ Click **Enable local SSH** beside **Copy** and authenticate with your Linux admi
 
 The helper checks the selected guest's name, KVM acceleration and running state before changing CPUID interception. It verifies both loaded modules against their authenticated ELF identities, recorded by the loader in root-owned `/run/xetal-kvm-modules.json` for this boot. This public record contains no keys or plaintext modules; the helper does not depend on a source checkout or decrypted `.ko` files on disk. After upgrading an older client, relaunch the VM once through KVM Settings to create the record. A successful BAT run reports **CPUID interception is OFF**. Before rebooting Windows within the same running VM, run `your-helper.bat on` to restore interception for Windows CPU enumeration; run it normally again after Windows reaches the desktop. The setting affects all AMD KVM guests on the host.
 
+The loader and timing helper accept the published modules' 23-character hexadecimal
+`srcversion` identities as well as conventional 24-character values, and require an
+exact match with the loaded modules. An older desktop client can reject the
+published package with **Invalid module srcversion metadata** before loading it.
+Install the corrected desktop client, reopen KVM Settings and launch again; this
+fix does not require republishing or downloading the module package again.
+
 Copy refreshes the connection values without overwriting the shipped template or custom scripts. Old managed helper paths migrate to the desktop's maintained helpers; custom paths remain unchanged. Custom scripts with their own login remain unchanged; an explicit login placeholder is filled automatically. The timing helper requires the matching custom AMD module and is unnecessary for standard system KVM.
 
 Local SSH setup runs in a worker, including while a VM is running. It installs OpenSSH if needed and enables a dedicated `xetal-kvm-ssh.service` on TCP **2222**, with its configuration in `/etc/ssh/xetal-kvm-local.conf`. Normal account passwords or SSH keys are accepted only for users who enabled the feature, from loopback and private IPv4 ranges (`10/8`, `172.16/12`, `192.168/16`). Root login and SSH forwarding are disabled. The service also uses systemd IP filtering. Existing SSH configuration and port 22 are preserved. Active UFW/firewalld receive only source-restricted rules for this port; custom firewall policies may require an administrator's rule. Failed setup restores managed files and removes only rules added by that attempt. Disable the endpoint with `sudo systemctl disable --now xetal-kvm-ssh.service`.

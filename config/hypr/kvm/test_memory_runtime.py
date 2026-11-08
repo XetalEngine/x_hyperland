@@ -51,12 +51,12 @@ def main():
             # Exercise the Windows handoff with authenticated module metadata,
             # real locked memfds and a root-owned receipt in disposable sysfs.
             # These are synthetic ELF metadata fixtures, never kernel-loaded.
-            from test_module_image import elf
+            from test_module_image import PUBLISHED_SRCVERSIONS, elf
             import platform
             modules=root/'modules';modules.mkdir()
             sysfs=root/'sys-module';versions={}
             for name,filename in (('kvm','kvm.ko'),('kvm_amd','kvm-amd.ko')):
-                version=('A' if name=='kvm' else 'B')*24
+                version=PUBLISHED_SRCVERSIONS[name]
                 plain=elf((platform.release()+' SMP').encode(),version.encode())
                 associated=vm_memory.aad('xetallic','kvm-amd',filename)
                 nonce=os.urandom(12)

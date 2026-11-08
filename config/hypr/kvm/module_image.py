@@ -7,6 +7,13 @@ import struct
 import sys
 
 
+def valid_srcversion(value):
+    # Published AMD modules expose 23 hex characters in both ELF and sysfs;
+    # conventional builds use 24. Keep the value exact, without padding or
+    # normalization, so the load receipt still matches the running module.
+    return isinstance(value, str) and re.fullmatch(r'[A-Fa-f0-9]{23,24}', value) is not None
+
+
 def read(fd, offset, count):
     size=os.fstat(fd).st_size
     if offset<0 or count<0 or count>16*1024*1024 or offset>size-count:
@@ -41,7 +48,7 @@ def modinfo(fd, field):
             values=[entry[len(prefix):].decode('ascii') for entry in entries if entry.startswith(prefix)]
             if len(values)!=1 or not values[0].split() or len(values[0])>512:
                 raise ValueError('Invalid module '+field+' metadata')
-            if field == 'srcversion' and not re.fullmatch(r'[A-Fa-f0-9]{24}', values[0]):
+            if field == 'srcversion' and not valid_srcversion(values[0]):
                 raise ValueError('Invalid module srcversion metadata')
             return values[0]
     raise ValueError('Module '+field+' metadata is missing')

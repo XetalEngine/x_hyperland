@@ -8,9 +8,10 @@ import json
 import os
 from pathlib import Path
 import platform
-import re
 import stat
 import tempfile
+
+from module_image import valid_srcversion
 
 RECEIPT = Path('/run/xetal-kvm-modules.json')
 SYS_MODULE = Path('/sys/module')
@@ -29,7 +30,7 @@ def check_loaded(record):
     if not isinstance(versions, dict) or set(versions) != set(MODULES):
         raise RuntimeError('Invalid custom module identities. '+RESTART)
     for name, expected in versions.items():
-        if not isinstance(expected, str) or not re.fullmatch(r'[A-Fa-f0-9]{24}', expected):
+        if not valid_srcversion(expected):
             raise RuntimeError('Invalid custom module identity. '+RESTART)
         try:
             loaded = (SYS_MODULE/name/'srcversion').read_text().strip()

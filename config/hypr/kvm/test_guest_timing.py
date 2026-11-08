@@ -20,7 +20,7 @@ import module_state
 import module_tool
 import vm_memory
 import vm_session
-from test_module_image import elf
+from test_module_image import PUBLISHED_SRCVERSIONS, elf
 
 
 class TimingTests(unittest.TestCase):
@@ -100,6 +100,35 @@ class TimingTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'does not match'):
             module_state.verified()
 
+    def test_published_module_identities_allow_handoff_but_require_exact_match(self):
+        for name, version in PUBLISHED_SRCVERSIONS.items():
+            (self.sysfs/name/'srcversion').write_text(version+'\n')
+        module_state.record_loaded('fixture-kernel', PUBLISHED_SRCVERSIONS)
+        self.assertEqual(module_state.verified()['srcversions'], PUBLISHED_SRCVERSIONS)
+        with self.qmp() as (path, _):
+            guest_timing.apply('off', path, 'win10')
+        self.assertEqual(self.param.read_text(), '0\n')
+        self.param.write_text('Y\n')
+        for version in ('0'+PUBLISHED_SRCVERSIONS['kvm'], PUBLISHED_SRCVERSIONS['kvm'][:-1]+'B'):
+            (self.sysfs/'kvm/srcversion').write_text(version+'\n')
+            with patch.object(guest_timing, 'guest_state') as query, \
+                 self.assertRaisesRegex(RuntimeError, 'does not match'):
+                guest_timing.apply('off', self.root/'qmp.sock', 'win10')
+            query.assert_not_called()
+            self.assertEqual(self.param.read_text(), 'Y\n')
+
+    def test_malformed_record_identities_never_change_the_parameter(self):
+        for value in ('', 'A'*22, 'A'*25, 'G'*23, ' '+'A'*23, 'A'*23+'\n', None, 23, []):
+            with self.subTest(value=value):
+                record = json.loads(self.receipt.read_text())
+                record['srcversions']['kvm'] = value
+                self.receipt.write_text(json.dumps(record))
+                with patch.object(guest_timing, 'guest_state') as query, \
+                     self.assertRaisesRegex(RuntimeError, 'Invalid custom module identity'):
+                    guest_timing.apply('off', self.root/'qmp.sock', 'win10')
+                query.assert_not_called()
+                self.assertEqual(self.param.read_text(), 'Y\n')
+
     def test_stale_or_missing_record_never_changes_the_parameter(self):
         for change in ('boot', 'kernel', 'missing', 'permission', 'owner', 'symlink'):
             with self.subTest(change=change):
@@ -159,11 +188,14 @@ class TimingTests(unittest.TestCase):
     def test_module_loader_records_identity_only_after_success_and_closes_fds(self):
         component = self.root/'component'; component.mkdir()
         (component/'.component.json').write_text(json.dumps({'kernel': 'fixture-kernel', 'runtime': {'component': 'kvm-amd'}}))
-        for code in (0, 1):
+        for versions, code in ((self.versions, 0), (self.versions, 1),
+                               (PUBLISHED_SRCVERSIONS, 0), (PUBLISHED_SRCVERSIONS, 1)):
+            for name, version in versions.items():
+                (self.sysfs/name/'srcversion').write_text(version+'\n')
             descriptors = []
             def receive(_path, name):
                 fd = os.memfd_create('fixture', os.MFD_CLOEXEC)
-                os.write(fd, elf(srcversion=(self.versions['kvm' if name == 'kvm.ko' else 'kvm_amd']).encode()))
+                os.write(fd, elf(srcversion=(versions['kvm' if name == 'kvm.ko' else 'kvm_amd']).encode()))
                 descriptors.append(fd)
                 return fd
             def load(command, **kwargs):
@@ -182,6 +214,8 @@ class TimingTests(unittest.TestCase):
                 module_tool.main()
             self.assertEqual(exit.exception.code, code)
             self.assertEqual(record.call_count, int(code == 0))
+            if code == 0:
+                self.assertEqual(module_state.verified()['srcversions'], versions)
             for fd in descriptors:
                 with self.assertRaises(OSError): os.fstat(fd)
 

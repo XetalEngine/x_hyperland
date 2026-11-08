@@ -8,6 +8,11 @@ from unittest.mock import Mock, patch
 import module_image
 
 
+# Public metadata from the published AMD modules; no module bytes or keys.
+PUBLISHED_SRCVERSIONS = {'kvm': 'BBC0F6B9C980A79CE4EA31A',
+                       'kvm_amd': 'B5A91E5B97EFD6377A4BE08'}
+
+
 def elf(vermagic=b'fixture-kernel SMP', srcversion=b'A'*24):
     names=b'\0.shstrtab\0.modinfo\0'
     info=b'license=GPL\0vermagic='+vermagic+b'\0srcversion='+srcversion+b'\0'
@@ -34,8 +39,16 @@ class ModuleImageTests(unittest.TestCase):
         self.assertEqual(module_image.vermagic(fd),'fixture-kernel SMP')
         self.assertEqual(module_image.modinfo(fd,'srcversion'),'A'*24)
 
+    def test_preserves_published_module_identities_exactly(self):
+        for value in PUBLISHED_SRCVERSIONS.values():
+            with self.subTest(value=value):
+                fd=self.descriptor(elf(srcversion=value.encode()))
+                self.assertEqual(module_image.modinfo(fd,'srcversion'),value)
+
     def test_rejects_missing_duplicate_or_invalid_module_identity(self):
-        for value in (b'', b'../untrusted', b'A'*23, b'A'*24+b'\0srcversion='+b'B'*24):
+        for value in (b'', b'../untrusted', b'A'*22, b'A'*25, b'G'*23,
+                      b' '+b'A'*23, b'A'*23+b'\n',
+                      b'A'*24+b'\0srcversion='+b'B'*24):
             with self.subTest(value=value), self.assertRaisesRegex(ValueError, 'srcversion'):
                 module_image.modinfo(self.descriptor(elf(srcversion=value)), 'srcversion')
 
