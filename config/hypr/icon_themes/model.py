@@ -178,10 +178,17 @@ def info(root=None,design=None,mode=None):
     try: state=json.loads((root/'theme/state.json').read_text())
     except (OSError,ValueError): state={}
     design=design or state.get('design','hollowgrove');mode=mode or state.get('mode','dark')
+    name='Papirus-Light' if mode=='light' else 'Papirus-Dark'
     try:
-        value=ensure(root);themes=value['resolved']['themes']
-        name=themes.get(design+':'+mode,themes['hollowgrove:dark'])
-    except (OSError,ValueError): name='Papirus-Light' if mode=='light' else 'Papirus-Dark'
+        # Readers can outlive an update and have an older art.STYLES catalog.
+        # Rebuilding here makes old/new processes overwrite each other's
+        # resolved themes, feeding their live-style watchers indefinitely.
+        # Installation/startup and explicit Apply prepare the shared document.
+        value=json.loads((root/'theme/icons.json').read_text())
+        themes=value['resolved']['themes']
+        selected=themes.get(design+':'+mode,themes.get('hollowgrove:dark',name))
+        if isinstance(selected,str) and NAME.fullmatch(selected):name=selected
+    except (OSError,ValueError,KeyError,TypeError,AttributeError):pass
     return {'iconTheme':name,'iconSearchPaths':search_paths(root),'iconFallbackTheme':'hicolor'}
 
 

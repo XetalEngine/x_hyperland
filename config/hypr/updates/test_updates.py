@@ -42,6 +42,36 @@ class UpdateTests(unittest.TestCase):
         engine.write_json(self.state/'pending.json', value)
         return value
 
+    def test_status_reuses_inventory_but_tracks_atomic_registration_changes(self):
+        with patch.object(engine, 'installed', wraps=engine.installed) as inspect:
+            for _ in range(5):
+                self.assertEqual(service.status(self.state, self.live)['current'], OLD)
+            self.assertEqual(inspect.call_count, 1)
+            value = engine.json_file(self.live/engine.META)
+            value.update(revision=NEW, release_version='0.0.0.300-alpha')
+            engine.write_json(self.live/engine.META, value)
+            fresh = service.status(self.state, self.live)
+            self.assertEqual(fresh['current'], NEW)
+            self.assertEqual(fresh['current_version'], '0.0.0.300-alpha')
+            self.assertEqual(inspect.call_count, 2)
+
+    def test_cached_status_does_not_skip_transaction_path_validation(self):
+        engine.installed_identity(self.live)
+        (self.live/'code.py').unlink()
+        (self.live/'code.py').symlink_to(self.upstream/'code.py')
+        with self.assertRaisesRegex(ValueError, 'symbolic link'):
+            engine.installed(self.live)
+
+    def test_status_identity_tracks_in_place_changes_and_missing_registration(self):
+        self.assertEqual(engine.installed_identity(self.live)['revision'], OLD)
+        value = engine.json_file(self.live/engine.META)
+        value['revision'] = NEW
+        (self.live/engine.META).write_text(json.dumps(value))
+        self.assertEqual(engine.installed_identity(self.live)['revision'], NEW)
+        (self.live/engine.META).unlink()
+        with self.assertRaises(FileNotFoundError):
+            engine.installed_identity(self.live)
+
     def test_local_registration_preserves_preferences_and_backs_up_stale_tracking(self):
         (self.upstream/'code.py').write_text('new code\n')
         self.prepare()

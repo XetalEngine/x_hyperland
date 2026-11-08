@@ -94,7 +94,7 @@ def status(state=None, root=None):
     # stays alive. The installed revision wins over its cached failure/status.
     if root is None and state != STATE: return value
     try:
-        installed = engine.installed(root or ROOT)
+        installed = engine.installed_identity(root or ROOT)
         current = installed['revision']
         value['current_version'] = installed.get('release_version', '')
     except (OSError, ValueError, RuntimeError): current = value.get('current')

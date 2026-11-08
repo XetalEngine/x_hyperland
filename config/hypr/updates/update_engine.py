@@ -2,6 +2,7 @@
 from __future__ import annotations
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from functools import lru_cache
 import fcntl
 import hashlib
 import json
@@ -119,6 +120,22 @@ def installed(root):
     if not isinstance(value.get('files'), dict): raise ValueError('Invalid installed file inventory.')
     for name in value['files']: location(root, name)
     return value
+
+
+@lru_cache(maxsize=8)
+def _installed_identity(root, signature):
+    value = installed(Path(root))
+    # Cache only display metadata, never the file inventory used by an update.
+    return value['revision'], value.get('release_version', '')
+
+
+def installed_identity(root):
+    """Cheap status polling; transactions must still call installed() directly."""
+    root = Path(root).absolute()
+    info = (root/META).stat()
+    signature = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+    commit, version = _installed_identity(str(root), signature)
+    return {'revision': commit, 'release_version': version}
 
 
 def register_deployment(live, reference, state):

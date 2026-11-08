@@ -69,6 +69,38 @@ class IconTests(unittest.TestCase):
         model.apply_qt(self.root);self.assertEqual(QIcon.themeName(),pinned)
         self.assertEqual(model.load(self.root)[0],values)
 
+    def test_old_and_new_readers_never_rewrite_each_others_catalog(self):
+        self.activate({**model.DEFAULTS,'system':'follow'})
+        path=self.root/'theme/icons.json';before=path.read_bytes();stamp=path.stat().st_mtime_ns
+        (self.root/'theme/state.json').write_text('{"design":"mycelium","mode":"dark"}')
+        expected=json.loads(before)['resolved']['themes']['mycelium:dark']
+        old={name:value for name,value in art.STYLES.items() if name!='mycelium'}
+        for _ in range(3):
+            with patch.object(art,'STYLES',old):
+                self.assertEqual(model.apply_qt(self.root),expected)
+            self.assertEqual(model.apply_qt(self.root),expected)
+        self.assertEqual(path.read_bytes(),before)
+        self.assertEqual(path.stat().st_mtime_ns,stamp)
+
+    def test_unprepared_or_invalid_icon_info_is_read_only(self):
+        path=self.root/'theme/icons.json';path.unlink()
+        self.assertEqual(model.info(self.root)['iconTheme'],'Papirus-Dark')
+        self.assertFalse(path.exists())
+        for text in ('broken','{}','{"resolved":{"themes":[]}}'):
+            path.write_text(text)
+            self.assertEqual(model.info(self.root)['iconTheme'],'Papirus-Dark')
+            self.assertEqual(path.read_text(),text)
+
+    def test_old_icon_editor_refresh_does_not_drop_new_resolved_themes(self):
+        from icon_themes.page import IconsPage
+        path=self.root/'theme/icons.json';before=path.read_bytes()
+        old={name:value for name,value in art.STYLES.items() if name!='mycelium'}
+        with patch.object(model,'ROOT',self.root),patch.object(art,'STYLES',old):
+            page=IconsPage(lambda work,ok,bad:ok(work()))
+            page.refresh()
+            self.assertEqual(path.read_bytes(),before)
+            page.deleteLater();APP.sendPostedEvents(None,0)
+
     def test_stale_editor_cannot_overwrite_newer_choices_or_corrupt_preferences(self):
         _,old=model.load(self.root);values={**model.DEFAULTS,'system':'follow'};self.activate(values)
         with self.assertRaisesRegex(ValueError,'changed elsewhere'):model.save(model.DEFAULTS,old,self.root)

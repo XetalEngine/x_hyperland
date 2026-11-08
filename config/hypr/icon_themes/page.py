@@ -62,7 +62,7 @@ class IconsPage(QWidget):
     def __init__(self,async_run):
         super().__init__();self.async_run=async_run;self.busy=self.dirty=self.loading=False
         self.load_error=''
-        try:model.ensure();self.baseline,self.token=model.load()
+        try:self.baseline,self.token=model.load()
         except (OSError,ValueError) as error:
             self.baseline=deepcopy(model.DEFAULTS);self.token=model.token(model.ROOT/'theme/icons.json');self.load_error=str(error)
         self.draft=deepcopy(self.baseline)
@@ -247,7 +247,7 @@ class IconsPage(QWidget):
 
     def refresh(self,force=False):
         if self.busy or self.dirty and not force:return
-        try:model.ensure();self.baseline,self.token=model.load();self.fill(self.baseline)
+        try:self.baseline,self.token=model.load();self.fill(self.baseline)
         except (OSError,ValueError) as error:self.failed(str(error))
 
     def save(self):

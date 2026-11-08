@@ -204,19 +204,49 @@ def install(app, source='', *, style=None):
     class LiveTheme(QObject):
         changed=pyqtSignal()
         def __init__(self):
-            super().__init__(app); self.watcher=QFileSystemWatcher([str(ROOT)],self)
-            self.watcher.directoryChanged.connect(self.apply); self.apply()
+            super().__init__(app)
+            self.inputs=(STATE,ROOT/'palettes.json',ROOT/'icons.json')
+            self.previous=None
+            self.watcher=QFileSystemWatcher(self)
+            self.delay=QTimer(self);self.delay.setSingleShot(True);self.delay.setInterval(40)
+            self.delay.timeout.connect(self.apply)
+            self.watcher.directoryChanged.connect(self.schedule)
+            self.watcher.fileChanged.connect(self.schedule)
+            self.apply()
+        def schedule(self,*_):
+            # A saved theme replaces several files. Coalesce that transaction;
+            # compiling/copying code in the same folder is not a theme change.
+            self.delay.start()
         def apply(self,*_):
+            self.delay.stop()
+            # File watches handle in-place edits; directory watches handle
+            # atomic replacement. Re-arm removed watches even for equal bytes.
+            watched=set(self.watcher.files()+self.watcher.directories())
+            paths={*self.inputs,*(path.parent for path in self.inputs)}
+            missing=[str(path) for path in paths if path.exists() and str(path) not in watched]
+            if missing:self.watcher.addPaths(missing)
+            contents=[]
+            for path in self.inputs:
+                try:contents.append(path.read_bytes())
+                except OSError:contents.append(None)
             selected=style() if callable(style) else style
+            current=(*contents,selected)
+            if current==self.previous:return
             # The native palette watcher must respect this process's menu style.
             # An application property is not inherited by programs we launch.
             app.setProperty('xetalThemeDesign',selected)
-            app.setPalette(palette(style=selected)); app.setStyleSheet(stylesheet(source,style=selected))
+            next_palette=palette(style=selected)
+            if app.palette()!=next_palette:app.setPalette(next_palette)
+            next_style=stylesheet(source,style=selected)
+            # Even assigning the same QSS repolishes every descendant, including
+            # all hidden Settings pages, and can block input for seconds.
+            if app.styleSheet()!=next_style:app.setStyleSheet(next_style)
             icon_library.apply_qt(ROOT.parent,design(),mode())
             for widget in app.allWidgets():
                 if isinstance(widget,QCalendarWidget): style_calendar(widget)
                 if widget.property('xetalWindowControl') or widget.objectName()=='windowClose':window_chrome.style_close(widget,selected or design())
                 widget.update()
+            self.previous=current
             self.changed.emit()
     # QFileDialog normally remembers its folder in shared QtProject settings.
     # Keep that UI state inside this profile for our tools as well.

@@ -144,6 +144,17 @@ Required verification for **every new or changed transfer scene**:
 - `icon_themes/model.py` builds profile-local overlays and fallbacks. If changing
   existing artwork, review `art.VERSION` so cached overlays cannot retain stale
   assets. Preserve user overrides and Other Icons choices.
+- Icon lookups and editor refreshes must stay read-only. Prepare overlays during
+  installation/startup or an explicit Apply, never from `info()` or a file-watch
+  callback. After adding a theme, older resident applications still have the
+  previous catalog in memory; rebuilding on reads makes old and new processes
+  repeatedly overwrite `theme/icons.json` and freeze interfaces with refreshes.
+  Keep the old/new catalog regression tests in `icon_themes/test_icons.py`.
+- Live theme watchers must coalesce saves, handle atomic and in-place writes,
+  and ignore unrelated build files or unchanged settings. Never reassign an
+  identical Qt stylesheet: that repolishes every widget, including hidden
+  Settings pages. Keep `theme/test_live_refresh.py` and the live menu palette
+  tests passing when extending the watched theme inputs.
 - Fresh installs keep **Use Other Icons → Papirus-Dark**. The **Icons** checkbox
   in Apply preset stays **unchecked by default**. A user can opt into the new
   original icon pack without changing that policy.

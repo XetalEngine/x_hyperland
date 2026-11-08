@@ -81,11 +81,12 @@ base={'HYPRLAND_INSTANCE_SIGNATURE':'test'};environment=runtime.environment(base
 for mode in runtime.MODES:
     for desktop,menu in (('modern','raw'),('raw','modern'),('modern','follow'),('breakpoint','follow'),('modern','breakpoint'),('breakpoint','raw'),('binaryknife','follow'),('breakpoint','binaryknife'),('binaryknife','modern')):
         changes=QSignalSpy(theme.changed)
+        previous=runtime.STATE.read_bytes()
         pending=root/'pending.json'
         pending.write_text(json.dumps({'design':desktop,'mode':mode,'launcher_style':menu}))
         pending.replace(runtime.STATE)
         QTest.qWait(80)
-        assert len(changes)>0,'Running menu missed saved settings'
+        assert bool(len(changes))==(runtime.STATE.read_bytes()!=previous),'Running menu missed changed settings or refreshed identical settings'
         expected=desktop if menu=='follow' else menu
         assert app.palette().color(QPalette.ColorRole.Window).name()==runtime.colors(mode,expected)['Window']
         assert app.styleSheet()==runtime.stylesheet(source,mode,expected)
