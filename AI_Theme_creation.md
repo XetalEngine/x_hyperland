@@ -44,11 +44,60 @@ Use existing semantic palette roles rather than scattered hardcoded colors.
 | Notifications | `theme/designs.py` notification dispatch and the design's `notification_style()`, consumed by `theme/backend.py` into `swaync/style.css`. Test popup and control center, media controls, actions, DND, clear and empty state. The center needs its own readable background; do not rely on the wallpaper being dark. |
 | Fusion Files and file pickers | `file_manager/appearance.py` plus the design's `files_style()`. Cover toolbar, Places/file tree, This PC drive cards, selection, tabs, breadcrumbs, filters, context menus, previews, status and Open/Save actions. Keep the left navigation available in every instance, including application pickers. Theme code must not alter navigation or drag/drop behavior. |
 | Control Panel | `control_panel/bridge.py`: register custom material/shape overrides. Confirm real cards, tables and dialogs inherit the theme. |
-| File transfers | `file_jobs/preferences.py`, `file_jobs/window.py`, `file_jobs/artwork.py`: register style, animation handler, surface and track geometry. Provide an original transfer illustration. The scene receives a repeating **0–1 cycle**, not elapsed seconds: complete the route before wrapping, fade each item at its endpoints, and make waves/lights periodic across the same boundary. Check several full loops and add rendered-frame coverage in `file_jobs/test_artwork.py`. Exercise copy/move/archive/extract, pause, cancellation, errors and completion; labels, buttons and progress must remain legible at compact sizes. |
+| File transfers | `file_jobs/preferences.py`, `file_jobs/window.py`, `file_jobs/artwork.py`: register style, animation handler, surface and track geometry. Provide an original transfer illustration and satisfy **Transfer animations must loop seamlessly** below. Exercise copy/move/archive/extract, pause, cancellation, errors and completion; labels, buttons and progress must remain legible at compact sizes. |
 | Minimize container | `effects/minimize/model.py`, `native/settings.hpp`, `native/dock_shader.hpp`, `artwork.py`. Add a distinct tray and slot material, **append** a native ID, and match the Qt preview to actual shader rendering. Preserve hover, restore, auto-hide/burn-away, monitor edges, overflow/scroll, independent style selection and palette following. Building a pretty preview alone is not sufficient. |
 | Other desktop effects | `theme/backend.py`, `theme/effect_colors.py`, `switcher/` and existing effect preferences. Check compositor border/rounding/shadow, task switcher, Burn/Cube/Wobbly color following and reduced-motion choices. Do not reset effect enable switches, personal timing or hardware options. |
 | Terminal and lock screen | Existing backend generates Kitty palette, lock-screen and startup styles. Verify them with the new palette, including selection and muted text. Do not replace the user's shell or terminal content. |
 | Greeter and GRUB | `login/model.py`, `control_panel/grub_appearance.py`: register the display name and palette. Their editors should offer the new design and three wallpapers. Adding a theme does **not** authorize installing a greeter or rewriting `/etc/default/grub`. |
+
+## Transfer animations must loop seamlessly
+
+**A visible reset, backward jump, disappearing group or pause at the loop boundary
+is a bug. Do not mark a theme complete until its animation passes these checks.**
+A still screenshot cannot establish that an animation works.
+
+`file_jobs/window.py` → `ProgressWindow.tick()` supplies a repeating **0–1 phase**
+to the artwork renderer. It is a complete cycle, not elapsed seconds. The previous
+HyperFusion Blue, Midnight Transit and Blackwood bug used `phase * .18` or
+`phase * .22` for travel. When the clock wrapped, the objects jumped back after
+covering only 18–22% of their route. **Do not copy that pattern.**
+
+- Make each item complete its route using `(phase + index / count) % 1`.
+  Fade the item **and its trail/glow** to invisible before it wraps from the
+  destination back to the source, then fade it in. Do not teleport a visible item.
+- Keep the existing animation-speed control. Do not slow a scene by multiplying
+  the already wrapped phase by a fractional speed. If different timing is needed,
+  implement a complete cycle at the clock level and test its wrap explicitly.
+- Make secondary motion periodic too: water, bobbing, wheels, lights, particles
+  and trails must match at phase 0 and phase 1. For a repeating oscillation use
+  `sin(phase * math.tau + offset)` (or an integer number of full turns), not
+  `sin(phase)` or `sin(phase * 1.7)`. Moving items also have their own wrap points;
+  hiding only the overall cycle boundary is insufficient.
+- Preserve pause/resume, hidden-window timer suspension, disabled animation and
+  completion/error behavior. Resuming an existing job must not reset its scene
+  to the beginning. Do not change file-operation behavior to fix artwork.
+
+Required verification for **every new or changed transfer scene**:
+
+1. Add its stable ID to **every applicable style list** in
+   `file_jobs/test_artwork.py`; the current tests name their covered styles
+   explicitly. Passing tests that never render the new style does not count.
+   Compare rendered frames immediately before/after the 1→0 boundary and each
+   individual item's wrap. Also verify that the scene keeps moving throughout
+   the cycle, so a frozen image cannot pass as a seamless animation.
+2. Run this focused regression from the repository root, then the full
+   `file_jobs` suite listed below:
+
+   ```bash
+   QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME= QT_PLUGIN_PATH= python3 -m unittest discover -s config/hypr/file_jobs -p 'test_artwork.py'
+   ```
+
+3. Watch **at least three complete loops** in the Settings preview and a transfer
+   window. Check normal, slow and fast animation speeds; densities 1, 3 and 7;
+   forward and extraction travel; trails on/off; and dark, light and contrast
+   modes. Inspect the departure/arrival points and secondary motion as well as
+   the middle of the route. Record what was actually inspected; do not substitute
+   one rendered frame or a source-code assertion for motion verification.
 
 ## Three wallpapers, every time
 
@@ -201,6 +250,9 @@ limits; do not call an offscreen preview a live desktop test.
 - [ ] Fusion Files, every file picker, desktop menus and transfer window covered.
       Keep both the navigation tree and enabled preview pane usable after
       restoring old splitter layouts; neither may collapse to an unreachable sliver.
+- [ ] Transfer animation watched for at least three complete loops with no visible
+      resets; the new style is included in rendered-frame boundary tests, and
+      both focused animation and full File Transfer tests pass.
 - [ ] Distinct minimize container implemented in both native shader and preview.
 - [ ] Complete icons and cursor assets, including aliases, hotspots and busy shapes.
 - [ ] Pointer effects, terminal, lock screen, other effects, greeter/GRUB previews checked.
