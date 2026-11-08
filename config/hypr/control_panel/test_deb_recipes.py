@@ -1,5 +1,7 @@
 """Arch recipes must not run Debian setup scripts or remove browser payloads."""
 from pathlib import Path
+import shutil
+import subprocess
 import tempfile
 import unittest
 
@@ -46,6 +48,30 @@ class RecipeTests(unittest.TestCase):
         (self.root/'opt/google/chrome/product_logo_256.png').unlink()
         with self.assertRaisesRegex(RuntimeError, 'layout changed'):
             recipes.finalize(self.root, recipes.CHROME)
+
+    @unittest.skipUnless(shutil.which('fakeroot'), 'fakeroot required for root-owned directory fixture')
+    def test_reinstall_repairs_only_the_old_private_directory_bug(self):
+        self.chrome()
+        private=self.root/'opt/google/chrome/private';private.mkdir(mode=0o700)
+        recipes.finalize(self.root,recipes.CHROME)
+        script=(self.root/'.INSTALL').read_text()
+        self.assertNotIn('/opt/google/chrome/private',script)
+        # Run the actual generated hook in a disposable root, with fake root
+        # ownership. No paths on the host system are modified.
+        script=script.replace(' /opt/', ' '+str(self.root)+'/opt/').replace(
+                              ' /usr/', ' '+str(self.root)+'/usr/')
+        test=self.root/'hook.sh';test.write_text(script+'''
+chmod 0700 -- "$1/opt/google" "$1/opt/google/chrome"
+chmod 0750 -- "$1/usr/share/applications"
+chown 0 -- "$1/opt/google" "$1/opt/google/chrome"
+post_upgrade
+''')
+        result=subprocess.run(['fakeroot','bash',test,self.root],capture_output=True,text=True)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual((self.root/'opt/google').stat().st_mode&0o7777,0o755)
+        self.assertEqual((self.root/'opt/google/chrome').stat().st_mode&0o7777,0o755)
+        self.assertEqual(private.stat().st_mode&0o7777,0o700)
+        self.assertEqual((self.root/'usr/share/applications').stat().st_mode&0o7777,0o750)
 
     def test_dpkg_prerequisite_is_replaced_only_for_the_explicit_chrome_recipe(self):
         control = {'package': recipes.CHROME, 'pre-depends': 'dpkg (>= 1.14.0)', 'depends': 'libnss3'}

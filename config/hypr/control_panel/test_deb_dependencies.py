@@ -1,5 +1,6 @@
 """Regression cases from Chrome's Debian metadata and isolated archive fixtures."""
 import io
+import json
 import os
 from pathlib import Path
 import shutil
@@ -92,12 +93,60 @@ class DependencyTests(unittest.TestCase):
             with self.subTest(text=text), self.assertRaisesRegex(RuntimeError, 'syntax'):
                 self.resolve(text)
 
+    def test_aur_is_used_only_after_installed_and_repository_alternatives(self):
+        aur = deps.AurRepository(); aur.versions = {'custom-library': '2.4-1'}
+        dependencies, rows = deps.resolve(fields('custom-library (>= 2.1)'), Inventory(), 'x86_64', aur)
+        self.assertEqual(dependencies, ['custom-library>=2.1'])
+        self.assertIn('(AUR: 2.4-1)', rows[0])
+        self.assertEqual(aur.selected, {'custom-library>=2.1': '2.4-1'})
+        aur = deps.AurRepository()
+        with patch.object(aur, 'available', side_effect=AssertionError('unnecessary AUR lookup')):
+            result, _ = deps.resolve(fields('custom-library | libgtk-4-1'),
+                                     Inventory(sync={'gtk4':'4.24-1'}), 'x86_64', aur)
+        self.assertEqual(result, ['gtk4'])
+
+    def test_aur_floor_is_checked_and_unknown_names_are_not_fuzzily_matched(self):
+        aur = deps.AurRepository(); aur.versions = {'custom-library':'1.9-1', 'libssl1.1':None}
+        with self.assertRaisesRegex(RuntimeError, 'below its minimum version in the AUR'):
+            deps.resolve(fields('custom-library (>= 2.1)'), Inventory(), 'x86_64', aur)
+        with self.assertRaisesRegex(RuntimeError, 'libssl1.1'):
+            deps.resolve(fields('libssl1.1'), Inventory(sync={'openssl':'3.6-1'}), 'x86_64', aur)
+        self.assertEqual(aur.selected, {})
+
+    def test_aur_info_validates_exact_names_caches_results_and_stops_on_network_failure(self):
+        raw = json.dumps({'type':'multiinfo','results':[{'Name':'custom-library','Version':'2:3.0-1'}]}).encode()
+        aur = deps.AurRepository()
+        with patch.object(deps,'urlopen',return_value=io.BytesIO(raw)) as request:
+            self.assertEqual(aur.available('custom-library'), [('2:3.0-1',False)])
+            self.assertEqual(aur.available('custom-library'), [('2:3.0-1',False)])
+            self.assertEqual(request.call_count,1)
+        with patch.object(deps,'urlopen',side_effect=OSError('offline')):
+            with self.assertRaisesRegex(RuntimeError,'Could not check the AUR.*offline'):
+                aur.available('another-library')
+        raw = json.dumps({'type':'multiinfo','results':[{'Name':'similar-library','Version':'9.0'}]}).encode()
+        with patch.object(deps,'urlopen',return_value=io.BytesIO(raw)):
+            self.assertEqual(aur.available('another-library'), [])
+
 
 class MetadataTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="fusion-deb ' test-")
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
+
+    def test_fresh_offline_system_reports_missing_indexes_before_claiming_packages_are_unavailable(self):
+        def command(args):
+            return 'core\nextra\nmultilib\n' if args[-1] == '--repo-list' else str(self.root)
+        with patch.object(deps, 'command', side_effect=command):
+            with self.assertRaisesRegex(deps.MissingRepositoryIndexes, 'core, extra, multilib'):
+                deps.Repository()
+            (self.root/'sync').mkdir()
+            for name in ('core', 'extra', 'multilib'):
+                (self.root/'sync'/(name+'.db')).write_bytes(b'index')
+            deps.check_repository_indexes()
+            (self.root/'sync/extra.db').write_bytes(b'')
+            with self.assertRaisesRegex(deps.MissingRepositoryIndexes, 'empty: extra'):
+                deps.check_repository_indexes()
 
     def test_folded_dependency_fields_are_joined(self):
         result = deps.control_fields('Package: example\nVersion: 1.0\nArchitecture: all\n'

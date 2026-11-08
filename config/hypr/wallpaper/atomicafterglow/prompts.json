@@ -1,0 +1,35 @@
+{
+  "generator": "OpenAI built-in image_gen",
+  "images": [
+    {
+      "id": "reactor-at-dusk",
+      "title": "Reactor at Dusk",
+      "prompt": "Use case: stylized-concept. Asset type: original desktop wallpaper for the Hyper Fusion Atomic Afterglow theme. Create a cinematic, highly detailed, wide 16:9 landscape of a retrofuturist civilian atomic research complex in a remote alpine valley at stormy blue hour. One large ribbed reactor dome stands on the left, a geometric turbine building in the middle, three distant cooling towers on the right releasing softly lit white steam. Charcoal concrete and weathered olive steel, warm amber lamps, restrained electric chartreuse window light, snowy mountains, pine silhouettes, damp asphalt reflections. The architecture is monumental and believable, framed from across a quiet reservoir. Keep the upper sky spacious and the lower foreground dark and calm so real desktop windows and icons remain readable. Polished realistic concept painting, atmospheric depth, precise architecture and rich materials, restrained neon. No people, no typography, no logo, no captions, no desktop UI, no icons, no watermark. Landscape 16:9, highest available resolution.",
+      "file": "reactor-at-dusk.png",
+      "dimensions": [
+        1672,
+        941
+      ]
+    },
+    {
+      "id": "cooling-lake",
+      "title": "Cooling Lake",
+      "prompt": "Use case: stylized-concept. Asset type: second original desktop wallpaper for Hyper Fusion Atomic Afterglow. Wide 16:9 cinematic landscape, a tranquil mountain reservoir beneath a vast moonlit cloud ceiling. On the far right shore, a pair of concrete cooling towers and a low retro atomic power station with fine amber service lights and a few chartreuse-green glazed windows. Steam drifts gently into the sky, mirrored in still dark water. In the near left foreground an empty steel access walkway and small industrial lamps lead toward pine forest. Distinct from a front-on reactor complex: an expansive lake panorama with most of the composition occupied by reflections and mountains. Palette of graphite, desaturated olive, antique brass, subtle luminous lime, cold blue storm clouds. Refined realistic architectural concept art, peaceful and grand, not an apocalypse. Dark open space for desktop content. No people, no text, no symbols, no logos, no desktop UI, no watermarks. Landscape 16:9, highest available resolution.",
+      "file": "cooling-lake.png",
+      "dimensions": [
+        1672,
+        941
+      ]
+    },
+    {
+      "id": "control-hall",
+      "title": "Control Hall",
+      "prompt": "Use case: stylized-concept. Asset type: third original desktop wallpaper for Hyper Fusion Atomic Afterglow. A wide 16:9 interior view of an immaculate but weathered retrofuturist atomic research control hall at night. Sweeping banks of olive-black enamel instrument consoles, small ivory analog gauges and restrained lime-green phosphor displays, dark riveted steel pillars, subtle brass trim, warm low amber utility lighting. The central floor and upper wall remain spacious and quiet, with a panoramic rear window revealing one distant reactor dome under mountain clouds. Compose a real architectural interior with console banks receding along the edges; it must not resemble a computer desktop or an app screenshot. Rich tactile industrial materials, controlled chartreuse afterglow, cinematic photorealistic concept painting, calm and intriguing. No readable writing, labels, logos, people, interface overlays, desktop windows, icons or watermark. Landscape 16:9, highest available resolution.",
+      "file": "control-hall.png",
+      "dimensions": [
+        1672,
+        941
+      ]
+    }
+  ]
+}

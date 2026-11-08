@@ -122,7 +122,9 @@ def builtin(design, mode=None, root=None):
     value.setdefault('cursors',copy.deepcopy(cursors.DEFAULTS))
     effect=mouse_effects.STYLES[mouse_effects.THEMES.get(design,'plasma')]
     value['cursors'].update(trail='follow',color=effect[2])
-    if design == 'blackwood':
+    if design == 'atomicafterglow':
+        value['cursors'].update(style='isotope',trail='glow',color='#b5ed29')
+    elif design == 'blackwood':
         value['cursors'].update(style='brass',trail='glow',color='#bdcda6')
     elif design == 'midnighttransit':
         value['cursors'].update(style='enamel',trail='glow',color='#ffb239')

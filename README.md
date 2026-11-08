@@ -157,6 +157,8 @@ The **Presets** gallery shows every theme in a full-width banner. Search by name
 
 **[Blackwood](config/hypr/theme/BLACKWOOD.md)** pairs walnut headers and aged-brass fittings with sage controls and serif text. Its Harbour Cabinet minimize dock, brass icons and cursor, document-boat transfers and Harbour bells accompany three original coastal wallpapers.
 
+**[Atomic Afterglow](config/hypr/theme/ATOMIC_AFTERGLOW.md)** combines olive graphite, brass fittings and phosphor green. Its Containment Bay minimize dock, atomic icons, custom cursor, continuously orbiting file transfers and Phosphor signals sound pack accompany three original research-complex wallpapers.
+
 Tidal Glass, Porcelain Ink, Obsidian Forge, and **Candy Cloud** bring four distinct atmospheres to the gallery. Obsidian Forge pairs machined basalt panels and copper edges with three original volcanic wallpapers: Basalt Reach, The Forge, and Ashen Observatory. Its Cinder wake mouse trail lifts embers from a cooling fissure; its file-transfer animation carries glowing documents through basalt presses.
 
 Candy Cloud adds sculpted satin controls, pill-shaped navigation, a pearlescent taskbar, and three floating-island wallpapers: Sugar Sky, Cloud Palace, and Moon Ribbon, assigned left to right. Its Cloud nine trail releases small clouds and four-point stars, while cloud couriers carry envelopes along a ribbon during file transfers. These styles, its Orchid cursor, and its Start menu can be mixed independently through their detailed tabs or Mix & match. Every preset starts dark; Candy Cloud also includes pastel light and high-contrast modes. Kitty stays dark in every mode, and the optional selection marker starts Off. Wallpaper generation prompts are kept beside each atmosphere's artwork.

@@ -71,8 +71,9 @@ class DebInstallTests(unittest.TestCase):
             (work/'browser.pkg.tar.zst.sig').write_bytes(b'not a package')
         if args[:2]==['pacman','-Qp']:
             return subprocess.CompletedProcess(args,0,' '.join(self.identity)+'\n','')
-        if args[:2]==['bsdtar','-tf']:
-            return subprocess.CompletedProcess(args,0,'.PKGINFO\n'+''.join(path+'\n' for path in sorted(self.converted)),'')
+        if args[:2]==['bsdtar','-cf']:
+            return subprocess.CompletedProcess(args,0,'#mtree\n'+''.join(
+                './'+path+' type=file mode=644\n' for path in sorted(self.converted)),'')
         if args[:2]==['bsdtar','-xOf']:
             return subprocess.CompletedProcess(args,0,''.join('depend = '+d+'\n' for d in self.dependencies),'')
         if args[:3]==['sudo','pacman','-U'] and not self.skip_install:
@@ -202,6 +203,62 @@ class DebInstallTests(unittest.TestCase):
             self.assertEqual(deb.main([str(self.source)]),1)
         self.assertEqual(self.commands,[])
 
+    def test_missing_arch_indexes_refresh_with_full_upgrade_and_recheck_before_conversion(self):
+        with patch.object(deb,'check_dependencies',side_effect=[
+                deb.MissingRepositoryIndexes('core, extra, multilib'), self.dependencies]) as check:
+            deb.install(self.source)
+        self.assertEqual(self.commands[0],['sudo','pacman','-Syu'])
+        self.assertEqual(check.call_count,2)
+        self.assertIn('Installed successfully',self.output.getvalue())
+
+    def test_verified_aur_dependencies_use_a_user_helper_then_pacman_checks_real_installation(self):
+        def checked(*args, aur=None):
+            aur.selected = {'custom-library>=2.0':'2.1-1'}
+            return self.dependencies
+        with patch.object(deb,'check_dependencies',side_effect=checked):
+            deb.install(self.source)
+        build=['/usr/bin/yay','-S','--needed','--asdeps','--','custom-library']
+        self.assertIn(build,self.commands)
+        self.assertIn(['pacman','-T','--','custom-library>=2.0'],self.commands)
+        self.assertLess(self.commands.index(build),next(i for i,c in enumerate(self.commands) if c[:3]==['sudo','pacman','-U']))
+
+    def test_aur_build_cancelled_or_unsatisfied_never_installs_the_application(self):
+        for failure in (['/usr/bin/yay','-S'],['pacman','-T']):
+            self.commands.clear();self.fail_at=failure
+            with self.subTest(failure=failure),self.assertRaises(RuntimeError):
+                deb.install_aur_dependencies({'custom-library>=2.0':'2.1-1'})
+            self.assertFalse(any(c[:3]==['sudo','pacman','-U'] for c in self.commands))
+
+    def test_aur_falls_back_to_paru_and_reports_when_neither_helper_exists(self):
+        self.missing={'yay'}
+        deb.install_aur_dependencies({'custom-library':'1.0'})
+        self.assertIn(['/usr/bin/paru','-S','--needed','--asdeps','--','custom-library'],self.commands)
+        self.missing={'yay','paru'}
+        with self.assertRaisesRegex(RuntimeError,'Yay and Paru are not installed'):
+            deb.install_aur_dependencies({'custom-library':'1.0'})
+
+    def test_missing_arch_indexes_in_check_or_conversion_mode_do_not_change_the_system(self):
+        for options in ({'check_only':True},{'convert_only':self.root/'converted'}):
+            with self.subTest(options=options), patch.object(deb,'check_dependencies',
+                    side_effect=deb.MissingRepositoryIndexes('core, extra, multilib')):
+                with self.assertRaises(deb.MissingRepositoryIndexes):
+                    deb.install(self.source,**options)
+            self.assertEqual(self.commands,[])
+
+    def test_cancelled_repository_initialization_stops_before_conversion(self):
+        self.fail_at=['sudo','pacman','-Syu']
+        with patch.object(deb,'check_dependencies',side_effect=deb.MissingRepositoryIndexes('missing')):
+            with self.assertRaisesRegex(RuntimeError,'Simulated command failed'):
+                deb.install(self.source)
+        self.assertEqual(self.commands,[['sudo','pacman','-Syu']])
+
+    def test_unresolved_dependency_after_refresh_is_not_bypassed_or_retried_forever(self):
+        with patch.object(deb,'check_dependencies',side_effect=[deb.MissingRepositoryIndexes('missing'),
+                RuntimeError('Unmapped dependency')]):
+            with self.assertRaisesRegex(RuntimeError,'Unmapped dependency'):
+                deb.install(self.source)
+        self.assertEqual(self.commands,[['sudo','pacman','-Syu']])
+
     def test_convert_only_saves_artifact_without_installing_application(self):
         target=self.root/'result'
         deb.install(self.source,convert_only=target)
@@ -265,6 +322,53 @@ class PayloadTests(unittest.TestCase):
         self.assertEqual(deb.payload_paths('./\nopt/\n./.PKGINFO\n.MTREE\n.INSTALL\n.BUILDINFO\n./opt/app\n'),{'opt/app'})
         for name in ('/opt/app','../escape','opt/../../escape'):
             with self.assertRaisesRegex(RuntimeError,'unsafe file path'):deb.payload_paths(name)
+
+    def test_permission_check_catches_private_parent_and_executable_before_install(self):
+        original=deb.Payload({'opt/vendor':('dir',0o755),
+                              'opt/vendor/app':('file',0o755),
+                              'opt/vendor/private':('file',0o600)})
+        broken=deb.Payload({'opt/vendor':('dir',0o700),
+                            'opt/vendor/app':('file',0o700),
+                            'opt/vendor/private':('file',0o600)})
+        with self.assertRaisesRegex(RuntimeError,r'/opt/vendor: expected 0755, got 0700'):
+            deb.verify_permissions(original,broken)
+        deb.verify_permissions(original,original)
+
+    def test_mtree_names_and_arch_moves_preserve_permissions(self):
+        archive=self.root/'payload.tar.gz'
+        self.archive(archive,{'./opt/vendor/a file\\name':b'data','./bin/app':b'app'})
+        payload=deb.payload_manifest(archive)
+        self.assertEqual(payload.entries,{'opt/vendor/a file\\name':('file',0o644),
+                                          'bin/app':('file',0o644)})
+        deb.verify_permissions(payload,deb.Payload({'opt/vendor/a file\\name':('file',0o644),
+                                                   'usr/bin/app':('file',0o644)}))
+
+    def test_build_preserves_source_modes_under_private_umask_and_keeps_parent_private(self):
+        archive=self.root/'payload.tar'
+        modes={'opt':0o755,'opt/vendor':0o755,'opt/vendor/app':0o755,
+               'opt/vendor/private':0o600,'opt/vendor/shared':0o664,'opt/vendor/sandbox':0o4755}
+        with tarfile.open(archive,'w') as output:
+            for name,mode in modes.items():
+                entry=tarfile.TarInfo(name);entry.mode=mode
+                if name in ('opt','opt/vendor'):
+                    entry.type=tarfile.DIRTYPE;output.addfile(entry)
+                else:
+                    entry.size=3;output.addfile(entry,io.BytesIO(b'app'))
+        build=self.root/'build';build.mkdir(mode=0o700)
+        previous=os.umask(0o077)
+        try:
+            with patch.dict(os.environ,TAR_OPTIONS='--no-same-permissions'):
+                deb.run(['bash','-c','tar -xf "$1" && mkdir generated && printf data > metadata',
+                         'build',str(archive)],cwd=build,package_build=True,capture=True)
+            (self.root/'still-private').write_text('private')
+        finally:
+            os.umask(previous)
+        for name,mode in modes.items():
+            self.assertEqual((build/name).stat().st_mode&0o7777,mode,name)
+        self.assertEqual((build/'generated').stat().st_mode&0o7777,0o755)
+        self.assertEqual((build/'metadata').stat().st_mode&0o7777,0o644)
+        self.assertEqual((self.root/'still-private').stat().st_mode&0o7777,0o600)
+        self.assertEqual(build.stat().st_mode&0o7777,0o700)
 
 
 class DebtapCompatibilityTests(unittest.TestCase):

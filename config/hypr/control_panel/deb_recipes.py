@@ -5,6 +5,7 @@ https://aur.archlinux.org/cgit/aur.git/tree/PKGBUILD?h=google-chrome
 """
 import argparse
 from pathlib import Path
+import shlex
 import shutil
 import subprocess
 
@@ -54,9 +55,32 @@ def chrome_layout(root):
             path.parent.rmdir()
         except OSError:
             pass
+    # Pacman replaces files on reinstall, but retains existing directory
+    # permissions. Repair the 0700 directories left by our former umask bug.
+    # Use only public 0755 directories in this Chrome payload, never recurse,
+    # follow symlinks, change ownership, or broaden a private vendor directory.
+    public=[]
+    for path in sorted(root.rglob('*')):
+        if path.is_dir() and not path.is_symlink() and path.stat().st_mode&0o7777==0o755:
+            name=path.relative_to(root).as_posix()
+            if name == 'opt/google' or name.startswith(('opt/google/','usr/share/')):
+                public.append(name)
     # Debtap's shell translation corrupts Google's heredocs and conditionals.
-    # Chrome needs none of those Debian setup/removal actions on Arch.
-    (root/'.INSTALL').write_text('# Chrome uses native pacman icon and desktop-file hooks.\n')
+    # Replace those Debian actions with this narrow native repair; Arch hooks
+    # already handle desktop/icon caches. This runs on install and reinstall.
+    (root/'.INSTALL').write_text('''# Chrome uses native pacman icon and desktop-file hooks.
+post_install() {
+    local directory
+    for directory in '''+' '.join(shlex.quote('/'+name) for name in public)+'''; do
+        if [ "$(stat -c '%a:%u' -- "$directory" 2>/dev/null)" = "700:0" ] &&
+           [ "$(realpath -e -- "$directory" 2>/dev/null)" = "$directory" ]; then
+            chmod 0755 -- "$directory" || return 1
+            printf 'Restored Chrome directory permissions: %s\\n' "$directory"
+        fi
+    done
+}
+post_upgrade() { post_install; }
+''')
 
 
 def finalize(root, name):

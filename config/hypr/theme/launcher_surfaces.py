@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QApplication
 import runtime
 
 DEFAULTS = {
+    'atomicafterglow': {'tile_opacity': 100, 'group_opacity': 45, 'sidebar_opacity': 100, 'group_image': ''},
     'blackwood': {'tile_opacity': 100, 'group_opacity': 45, 'sidebar_opacity': 100, 'group_image': ''},
     'midnighttransit': {'tile_opacity': 100, 'group_opacity': 40, 'sidebar_opacity': 100, 'group_image': ''},
     'hyperfusionblue': {'tile_opacity': 100, 'group_opacity': 38, 'sidebar_opacity': 94, 'group_image': ''},
@@ -129,6 +130,10 @@ class StripImage(QObject):
 
 def paint_tile(p, box, colors, style, mode, opacity, selected=False, hover=0, radius=None):
     """Opacity affects the card only; icons, text and focus remain independent."""
+    if style=='atomicafterglow':
+        from atomicafterglow import paint_tile
+        paint_tile(p,box,colors,opacity,selected,hover>0)
+        return
     if style=='blackwood':
         from blackwood import paint_tile
         paint_tile(p,box,colors,opacity,selected,hover>0)

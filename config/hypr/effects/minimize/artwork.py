@@ -80,6 +80,30 @@ def harbour_cabinet(p,width,colors,phase):
     p.restore()
 
 
+def containment_bay(p, width, colors, phase):
+    """Riveted instrument rack, vented end caps and a phosphor conduit."""
+    from atomicafterglow import paint_surface
+    paint_surface(p,QRectF(8,8,width-16,80),colors,5,100)
+    p.save(); brass=QColor(colors['Light']); accent=QColor(colors['Accent'])
+    for x in (11,width-27):
+        cap=QRectF(x,12,16,72)
+        p.setBrush(QColor(colors['Button']));p.setPen(QPen(brass,.7));p.drawRoundedRect(cap,2,2)
+        for y in range(30,68,5):
+            p.setPen(QPen(QColor(colors['Base']),2));line(p,x+4,y,x+12,y)
+        for y in (19,77):
+            p.setBrush(brass);p.setPen(Qt.PenStyle.NoPen);p.drawEllipse(QPointF(x+8,y),2,2)
+            p.setPen(QPen(QColor(colors['Base']),.7));line(p,x+7,y,x+9,y)
+        p.setPen(QPen(accent,2))
+        for dx in (2,7,12):line(p,x+dx,26,x+dx+3,22)
+    p.setPen(QPen(alpha(brass,.65),1));line(p,31,15,width-31,15)
+    p.setPen(QPen(alpha(accent,.3),4));line(p,31,81,width-31,81)
+    p.setPen(QPen(alpha(accent,.9),1.5));line(p,31,81,width-31,81)
+    for x in range(38,int(width-31),13):
+        p.setPen(QPen(alpha(accent,.5+.3*math.sin(phase+x*.025)),1))
+        line(p,x,84,x+4,84)
+    p.restore()
+
+
 def tray(painter, width, style, colors, phase):
     """Draw a horizontal tray in a width × 96 coordinate space."""
     if style == 'hyperfusionblue':
@@ -88,6 +112,8 @@ def tray(painter, width, style, colors, phase):
         platform_twelve(painter,width,colors,phase);return
     if style == 'blackwood':
         harbour_cabinet(painter,width,colors,phase);return
+    if style == 'atomicafterglow':
+        containment_bay(painter,width,colors,phase);return
     p = painter; accent, ink, base = (QColor(colors[k]) for k in ('Accent', 'WindowText', 'Window'))
     bounds = QRectF(8, 8, width-16, 80)
     radius = {'raw': 3, 'breakpoint': 10, 'binaryknife': 5, 'porcelainink': 5,
@@ -309,8 +335,15 @@ def dock(p, area, style, colors, *, phase=0., weights=(1., 1., 1.), zoom=(), ver
         p.save(); p.setOpacity(p.opacity()*max(0., min(1., weight)))
         if not stack:
             p.setPen(QPen(alpha(colors['Accent'], .12+(z-1)), .8)); p.setBrush(alpha(colors['Accent'], .035+(z-1)*.1))
-            radius = 2 if style == 'raw' else 4 if style == 'blackwood' else 6 if style == 'midnighttransit' else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
+            radius = 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style == 'midnighttransit' else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
             p.drawRoundedRect(rect, radius, radius)
+        if style == 'atomicafterglow' and not stack:
+            pane=QLinearGradient(rect.topLeft(),rect.bottomLeft());pane.setColorAt(0,QColor(colors['Button']));pane.setColorAt(1,QColor(colors['Base']))
+            p.setBrush(pane);p.setPen(QPen(alpha(colors['Light'],.65),.8));p.drawRoundedRect(rect,3,3)
+            p.setBrush(QColor(colors['Base']));p.setPen(QPen(alpha(colors['Accent'],.6),.6))
+            p.drawRoundedRect(QRectF(rect.left()+9,rect.bottom()-12,rect.width()-18,7),1,1)
+            p.setPen(QPen(QColor(colors['Accent']),2))
+            for i in range(4):line(p,rect.left()+13+i*8,rect.bottom()-8,rect.left()+17+i*8,rect.bottom()-8)
         if style == 'blackwood' and not stack:
             pane=QLinearGradient(rect.topLeft(),rect.bottomRight());pane.setColorAt(0,QColor(colors['Button']));pane.setColorAt(1,QColor(colors['Base']))
             p.setBrush(pane);p.setPen(QPen(alpha(colors['Light'],.65),.8));p.drawRoundedRect(rect,4,4)

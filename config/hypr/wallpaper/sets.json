@@ -68,5 +68,10 @@
     "blackwood/beacon-at-blackwood.png",
     "blackwood/the-quiet-harbour.png",
     "blackwood/cedar-and-tide.png"
+  ],
+  "atomicafterglow": [
+    "atomicafterglow/reactor-at-dusk.png",
+    "atomicafterglow/cooling-lake.png",
+    "atomicafterglow/control-hall.png"
   ]
 }

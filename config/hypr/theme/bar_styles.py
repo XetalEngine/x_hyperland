@@ -9,6 +9,7 @@ STYLES={'follow':'Follow desktop theme', **designs.DESIGNS}
 VARIANTS={'full':'Full · continuous bar', 'partial':'Partial · floating sections',
           'centered':'Centered · workspaces in the middle'}
 DESCRIPTIONS={
+ 'atomicafterglow':'Graphite instruments · brass borders, phosphor workspaces and an atomic badge',
  'blackwood':'Walnut panels · brass fittings, sage selections and an engraved HF monogram',
  'midnighttransit':'Station enamel · cream pinstripes, amber signals and a winged HF badge',
  'hyperfusionblue':'Alpine console · silver bevels, sapphire buttons and a polished graphite rail',
@@ -55,6 +56,7 @@ def configure(config,style,variation=None):
     status=['custom/recording','cpu','memory','custom/temperature','temperature','disk','custom/internet','custom/lan','network#lan','custom/wifi',
             'custom/vpn','bluetooth','group/audio','pulseaudio#microphone','idle_inhibitor','custom/notifications','tray','clock','custom/power']
     layouts={
+        'atomicafterglow':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
         'blackwood':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
         'midnighttransit':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
         'hyperfusionblue':(apps,['mpris'],status),
@@ -117,6 +119,7 @@ window#waybar {{color:{t};}}
 }}
 '''
     faces={
+'atomicafterglow':__import__('atomicafterglow').bar_controls(p,root),
 'blackwood':__import__('blackwood').bar_controls(p,root),
 'midnighttransit':__import__('midnighttransit').bar_controls(p,root),
 'hyperfusionblue':f'''
@@ -242,10 +245,11 @@ window#waybar {{background:linear-gradient(180deg,alpha({p['Button']},0.97),alph
 def architecture(p,style,variation,root):
     """One material vocabulary, available as a rail, islands or centered bank."""
     a,b,w,t,m,h=p['Accent'],p['Base'],p['Window'],p['Text'],p['Midlight'],p['Highlight']
-    radius={'blackwood':'5px','midnighttransit':'7px','hyperfusionblue':'7px','raw':'1px','modern':'23px','breakpoint':'12px 2px 12px 2px','binaryknife':'2px 16px 2px 16px',
+    radius={'atomicafterglow':'5px','blackwood':'5px','midnighttransit':'7px','hyperfusionblue':'7px','raw':'1px','modern':'23px','breakpoint':'12px 2px 12px 2px','binaryknife':'2px 16px 2px 16px',
             'tidalglass':'28px 28px 14px 14px','porcelainink':'4px','obsidianforge':'5px',
             'candycloud':'28px','shadowedge':'12px 0 12px 0','hollowgrove':'28px 12px 28px 12px','gildedhollow':'24px'}[style]
     surface={
+        'atomicafterglow':f'linear-gradient(180deg,{p["Button"]},{w} 25%,{b})',
         'blackwood':f'url("{root/"assets/blackwood-grain.svg"}"),linear-gradient(180deg,{p["Button"]},{w} 30%,{b})',
         'midnighttransit':f'linear-gradient(160deg,{p["Button"]},{w} 22%,{b} 78%,{w})',
         'raw':f'linear-gradient(180deg,{w},{b})',
@@ -276,7 +280,8 @@ window#waybar {{{frame}}}
     if variation=='centered':
         structure+=f'.modules-center {{background:alpha({b},0.45);border:1px solid alpha({a},0.3);border-radius:{radius};margin:3px 14px;padding:0 9px;}}\n'
     ornament={
-        'blackwood':__import__('blackwood').bar_controls(p,root),
+        'atomicafterglow':__import__('atomicafterglow').bar_controls(p,root),
+'blackwood':__import__('blackwood').bar_controls(p,root),
         'midnighttransit':__import__('midnighttransit').bar_controls(p,root),
         'raw':f'''#custom-launcher {{border-left:3px solid {a};border-right:1px dashed {m};letter-spacing:2px;}}
 #workspaces button.active {{background:alpha({a},0.14);border-top:1px solid {a};border-bottom:2px solid {a};}}

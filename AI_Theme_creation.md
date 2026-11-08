@@ -125,6 +125,15 @@ Required verification for **every new or changed transfer scene**:
   Render every `CATALOG` entry and alias: folders, Home, Computer, Trash, devices,
   application categories, file types and actions. Inspect both small and large
   sizes. Do not use one identical generic icon for everything.
+- Keep the three application identities unmistakable at launcher size:
+  **Control Panel** (`xetal-control-panel`) uses a gear, **Fusion Settings**
+  (`xetal-fusion-settings`) uses sliders, and **KVM** (`xetal-kvm-settings`)
+  uses a CPU/chip with visible pins, never a computer/monitor. Check all three
+  with both built-in packs and **Use Other Icons → Papirus-Dark/Light**.
+  Use `theme/icons.py`'s `fusion-settings` and `chip` helpers when a selected
+  external pack lacks our app icons: they draw distinct symbols in the theme's
+  accent color. Preserve explicit individual icon overrides. Do not make Fusion
+  Settings fall back to Control Panel's icon or KVM fall back to `computer`.
 - Generate and ship `icon_themes/packs/Xetal-System-<id>/index.theme` and all its
   `scalable/*.svg` files. From repository root:
 
@@ -201,6 +210,11 @@ Inspect actual Qt screenshots in **dark, light and high contrast**: menus,
 dialogs, focus/disabled controls, Files and picker tree, transfer card and dock
 preview. Parse actual Waybar/SwayNC CSS with GTK; stylesheet text tests cannot
 catch every runtime parser failure. Inspect the three wallpapers and SVG packs.
+Check native Files and Control Panel header buttons separately from Python
+dialogs: `theme/window_chrome.hpp` gives native controls a local transparent
+background. A global dark close-button glyph intended for a bright background
+can become invisible there. Verify normal, hover and disabled contrast on the
+actual native header rather than relying on the Python preview.
 
 Native dock or cursor changes also need a **disposable nested compositor** on
 the supported Hyprland version. Existing entry points:

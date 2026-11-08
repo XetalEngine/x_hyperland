@@ -7,10 +7,23 @@ Choose a trusted Debian application in **Install .deb → Choose .deb and instal
 **Check dependencies only** reads the package and the existing pacman databases
 without installing tools, downloading packages or changing the system.
 
+The same page shows whether **Yay** and **Paru** are installed and offers an
+install button for either missing helper. One is sufficient. They use the same
+detector and install actions as the dedicated Yay/Paru pages. When bootstrapping
+without another helper, build tools are prepared with `pacman -Syu`, AUR build
+files are shown for review, and `makepkg -si` runs as the desktop user. Passwords
+are entered into sudo in the terminal, never embedded in a shell command.
+
 `deb_dependencies.py` reads `Depends` and `Pre-Depends` from the original control
 archive. Explicit ABI-aware mappings translate common desktop libraries to Arch
 packages. Exact names already available in Arch also work. It chooses one usable
-member of each `A | B` group, preferring a sufficiently recent installed member.
+member of each `A | B` group, preferring a sufficiently recent installed member,
+then an official repository package. If neither satisfies it, exact mapped names
+are checked using the AUR metadata API. An installed Yay or Paru builds those
+dependencies after the application's converted payload and metadata pass checks.
+Its normal build review remains enabled. Pacman verifies the resulting installed
+versions before the application transaction. A declined build cannot count as
+success. AUR network failures are reported separately from missing packages.
 It compares upstream minimum versions, keeping Arch's epoch separate from
 Debian's epoch and packaging revision. For example, `libnspr4 (>= 2:4.9-2~)` becomes
 `nspr>=4.9`, not `nspr4.9-2~`. Pre-release minimums conservatively require the
@@ -44,9 +57,19 @@ files and launcher paths exist. The final installation success message appears
 only after these checks pass; debtap's earlier "Package successfully created!"
 message marks conversion. These checks do not launch the application or prove
 that all of its runtime features or Debian maintainer scripts are compatible
-with Arch. A stale repository cache or unavailable mirror remains a visible
-package-manager failure; the helper does not silently synchronize databases or
-upgrade the operating system.
+with Arch. Missing or empty repository indexes, which can occur after an offline
+installation, are detected before package availability is assessed. The normal
+install action offers `sudo pacman -Syu` with pacman's usual transaction review,
+then repeats the dependency check. Check-only and convert-only modes report the
+missing indexes without updating the system. A standalone `-Sy` followed by new
+packages is avoided because Arch does not support partial upgrades. A stale
+repository cache or unavailable mirror remains a visible package-manager error.
+
+Conversion uses a child-local `022` umask for generated directories and tells GNU
+tar to preserve the source archive's modes. This keeps public executables usable,
+private files private, and setuid helpers intact. The desktop's umask and the
+private temporary parent are unchanged. A libarchive metadata pass compares
+source and converted permissions, including parent directories, before installation.
 
 `deb_recipes.py` supplies an explicit **Google Chrome Stable** adaptation. It
 packages the browser icons under `usr/share/icons/hicolor`, keeps the browser,
@@ -58,6 +81,12 @@ Debtap corrupts the vendor script's heredocs and conditionals, so its generated
 script is not used for Chrome. All other converted install scripts must pass
 `bash -n` before packaging; unsupported scripts stop for a dedicated recipe.
 Syntax checking does not execute the script or prove its runtime behavior.
+Chrome's replacement hook also repairs root-owned `0700` directories left by the
+previous converter, but only when that exact directory is a public `0755`
+directory in the checked Chrome payload. It never recursively changes modes,
+follows symlinks or changes ownership. Reinstalling replaces damaged file modes;
+the hook handles directories that pacman otherwise retains. Verification still
+runs as the desktop user, so inaccessible application files remain an error.
 
 Command-line checks (run as the desktop user):
 
@@ -65,6 +94,7 @@ Command-line checks (run as the desktop user):
 python3 deb_install.py --check /path/to/application.deb
 python3 deb_install.py --convert-only /path/to/output /path/to/application.deb
 python3 -m unittest discover -s . -p 'test_deb*.py'
+python3 -m unittest discover -s . -p 'test_aur_helper_install.py'
 ```
 
 `--convert-only` prepares any missing conversion tools and saves a checked Arch

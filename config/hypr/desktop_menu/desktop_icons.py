@@ -952,9 +952,9 @@ class Icons:
                                 # shortcut image remains the owner's choice.
                                 original=launcher.get_string('Icon') or ''
                                 themed=icon_library.application_name(name,original)
-                                known=original in ('system-file-manager','computer','fusion-computer','accessories-calculator','preferences-system','image-x-generic','preferences-desktop-wallpaper','xetal-kvm-settings','virt-manager') or original.endswith(('/file_manager/computer.svg','/calculator/programmer_calculator/assets/calculator.svg','/kvm/icon.svg'))
+                                known=original in ('system-file-manager','computer','fusion-computer','accessories-calculator','preferences-system','xetal-control-panel','image-x-generic','preferences-desktop-wallpaper','xetal-kvm-settings','virt-manager','cpu') or original.endswith(('/file_manager/computer.svg','/calculator/programmer_calculator/assets/calculator.svg','/kvm/icon.svg'))
                                 if themed and known:
-                                    fallback=['computer-vm','virt-manager','computer'] if themed=='xetal-kvm-settings' else ['application-x-executable']
+                                    fallback=['cpu'] if themed=='xetal-kvm-settings' else ['application-x-executable']
                                     entry.set_icon(Gio.ThemedIcon.new_from_names([themed,*fallback]))
                                 elif launcher.get_icon(): entry.set_icon(launcher.get_icon())
                         pending[name] = entry

@@ -45,6 +45,61 @@ def success(p, center, accent):
     p.drawLine(center+QPointF(-1, 6), center+QPointF(11, -7))
 
 
+def atomicafterglow(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """A closed phosphor orbit transports documents between instrument bays.
+
+    All motion uses whole turns of the supplied phase. Packet trails follow
+    the same closed ellipse, including when an individual packet wraps.
+    """
+    p.save()
+    center = box.center()
+    rx, ry = max(18., box.width()/2-77), min(23., box.height()/2-12)
+    brass = QColor('#d3cba2' if surface.lightnessF() < .5 else '#686c3d')
+    p.setBrush(Qt.BrushStyle.NoBrush); p.setPen(QPen(alpha(brass, 80), 1))
+    orbit = QRectF(center.x()-rx, center.y()-ry, 2*rx, 2*ry)
+    p.drawEllipse(orbit)
+    p.setPen(QPen(alpha(accent, 35), 3)); p.drawEllipse(orbit.adjusted(-3, -3, 3, 3))
+    for x, zipped in ((box.left()+31, extracting), (box.right()-31, archive)):
+        bay = QRectF(x-23, center.y()-27, 46, 54)
+        body = QLinearGradient(bay.topLeft(), bay.bottomLeft())
+        body.setColorAt(0, surface.lighter(125)); body.setColorAt(.4, surface); body.setColorAt(1, surface.darker(125))
+        p.setBrush(body); p.setPen(QPen(brass, 1)); p.drawRoundedRect(bay, 3, 3)
+        for dx in (-18, 18):
+            for dy in (-22, 22):
+                p.setBrush(brass); p.drawEllipse(QPointF(x+dx, center.y()+dy), 1, 1)
+        folder(p, QPointF(x, center.y()-1), accent, surface, zipped, True)
+        p.setPen(QPen(accent, 2)); p.drawLine(QPointF(x-13, center.y()+22), QPointF(x+13, center.y()+22))
+    # Stationary atom with a softly breathing core; sin(tau*phase) closes.
+    p.save(); p.translate(center); p.setBrush(Qt.BrushStyle.NoBrush)
+    p.setPen(QPen(alpha(brass, 100), .8))
+    for angle in (0, 60, 120):
+        p.save(); p.rotate(angle); p.drawEllipse(QRectF(-16, -6, 32, 12)); p.restore()
+    p.setPen(Qt.PenStyle.NoPen); p.setBrush(alpha(accent, 170+35*math.sin(phase*math.tau)))
+    p.drawEllipse(QPointF(), 3, 3); p.restore()
+    if result == 'done':
+        p.fillRect(QRectF(center.x()-18, center.y()-13, 36, 26), surface)
+        success(p, center, accent)
+    elif not result:
+        for i in range(count):
+            t = (phase+i/count) % 1
+            def point(turn):
+                angle = turn*math.tau
+                return center+QPointF(rx*math.cos(angle), ry*math.sin(angle))
+            if trails:
+                for j in range(1, 7):
+                    p.setPen(Qt.PenStyle.NoPen); p.setBrush(alpha(accent, 85*(1-j/7)))
+                    p.drawEllipse(point(t-j*.012), 2.4, 2.4)
+            pos = point(t)
+            p.save(); p.translate(pos)
+            if glow:
+                bloom = QRadialGradient(QPointF(), 18)
+                bloom.setColorAt(0, alpha(accent, glow)); bloom.setColorAt(1, alpha(accent, 0))
+                p.setBrush(bloom); p.setPen(Qt.PenStyle.NoPen); p.drawEllipse(QPointF(), 18, 18)
+            p.scale(.67, .67); p.rotate(8*math.sin(t*math.tau))
+            paper(p, accent, technical=True); p.restore()
+    p.restore()
+
+
 def modern(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     left = QPointF(box.left()+38, box.center().y())
     right = QPointF(box.right()-38, box.center().y())

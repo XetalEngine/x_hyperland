@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Atomic Afterglow
+Comment=Graphite instrument cases, phosphor tabs and brass fasteners.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

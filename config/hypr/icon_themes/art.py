@@ -5,6 +5,7 @@ from xml.sax.saxutils import escape
 VERSION = 4
 # Name, metal/light, midtone, shadow, face, decorative language.
 STYLES = {
+    'atomicafterglow': ('Atomic Afterglow', '#eadba5', '#b5ed29', '#687047', '#21281d', 'reactor'),
     'blackwood': ('Blackwood', '#efdbab', '#bc9c61', '#655033', '#292e27', 'walnut'),
     'midnighttransit': ('Midnight Transit', '#f5e5bd', '#ffb239', '#895820', '#0d3036', 'enamel'),
     'hyperfusionblue': ('HyperFusion Blue', '#effaff', '#22bfff', '#0061a9', '#152b3b', 'fusion'),
@@ -21,6 +22,7 @@ STYLES = {
     'gildedhollow': ('The Gilded Hollow', '#fff0b7', '#dfb469', '#836137', '#303c32', 'brass'),
 }
 DESCRIPTIONS = {
+    'atomicafterglow': 'Graphite instrument cases, phosphor tabs and brass fasteners.',
     'blackwood': 'Aged-brass folders, walnut cases and engraved ivory symbols.',
     'midnighttransit': 'Teal enamel folders, ivory nickel outlines and amber station details.',
     'hyperfusionblue': 'Sapphire glass folders, silver hardware and polished graphite application tiles.',
@@ -149,6 +151,9 @@ def ornament(style, accent):
 
 
 def svg(style, name):
+    if style == 'atomicafterglow':
+        from .atomic import svg as atomic_svg
+        return atomic_svg(ALIASES.get(name,name),CATALOG,symbol)
     if style == 'blackwood':
         from .blackwood import svg as blackwood_svg
         return blackwood_svg(ALIASES.get(name,name),CATALOG,symbol)

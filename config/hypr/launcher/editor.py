@@ -161,7 +161,7 @@ class ShortcutEditor(QDialog):
         self.keep_open.setChecked(self.fields['keep_open'])
         self.keep_open.setEnabled(self.terminal.isChecked())
         self.terminal.toggled.connect(self.keep_open.setEnabled); layout.addWidget(self.keep_open)
-        self.floating=QCheckBox('Always start this shortcut floating')
+        self.floating=QCheckBox('Always start this shortcut floating (or hold control before clicking the app)')
         self.floating.setChecked(self.fields['floating'])
         self.floating.setToolTip('Open floating from Favorites, Apps, search, bar pins and launch hotkeys, just like Ctrl-click. Other shortcuts keep their own setting.')
         layout.addWidget(self.floating)

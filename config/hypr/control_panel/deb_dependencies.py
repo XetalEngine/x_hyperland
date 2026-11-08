@@ -5,11 +5,15 @@ in Arch under that exact name. Debian alternatives are alternatives, not a list
 of extra packages to install. This is deliberately not a Debian environment.
 """
 from dataclasses import dataclass
+import json
 import os
 from pathlib import Path
 import re
 import subprocess
 import tempfile
+from urllib.error import URLError
+from urllib.parse import urlencode
+from urllib.request import urlopen
 
 
 # Debian ABI package names -> the Arch package containing the same component.
@@ -115,6 +119,33 @@ class Requirement:
     version: str | None = None
 
 
+class MissingRepositoryIndexes(RuntimeError):
+    """Package availability cannot be determined from an incomplete inventory."""
+
+
+def check_repository_indexes():
+    repositories = command(['pacman-conf', '--repo-list']).splitlines()
+    dbpath = Path(command(['pacman-conf', 'DBPath']).strip())
+    missing = []
+    for repository in repositories:
+        index = dbpath/'sync'/(repository+'.db')
+        try:
+            if index.stat().st_size > 0:
+                continue
+        except FileNotFoundError:
+            pass
+        missing.append(repository)
+    if not repositories:
+        raise RuntimeError('No pacman repositories are enabled. Configure the system repositories before installing .deb applications.')
+    if missing:
+        raise MissingRepositoryIndexes(
+            'Arch package indexes are missing or empty: '+', '.join(missing)+'.\n'
+            'This can happen after an offline installation. Package availability cannot be checked yet.\n'
+            'Connect to the internet and run sudo pacman -Syu, then retry. '
+            'Use the normal .deb install action to review and run that update here. '
+            'Dependency checks have not been bypassed.')
+
+
 def parse_relationships(text):
     if not text.strip():
         return []
@@ -151,6 +182,7 @@ def minimum(requirement):
 
 class Repository:
     def __init__(self):
+        check_repository_indexes()
         self.local = {}
         self.sync = {}
         for line in command(['pacman', '-Q']).splitlines():
@@ -171,7 +203,37 @@ class Repository:
         return not floor or int(command(['vercmp', upstream_version(version), floor]).strip()) >= 0
 
 
-def resolve(fields, repository=None, machine=None):
+class AurRepository:
+    """Read exact-name AUR metadata only; never fetch or execute a PKGBUILD here."""
+    def __init__(self):
+        self.versions = {}
+        self.selected = {}
+
+    def available(self, name):
+        if not re.fullmatch(NAME, name):
+            raise ValueError('invalid AUR package name')
+        if name not in self.versions:
+            url = 'https://aur.archlinux.org/rpc/v5/info?' + urlencode({'arg[]': name})
+            try:
+                with urlopen(url, timeout=20) as response:
+                    raw = response.read(1024*1024+1)
+                if len(raw) > 1024*1024:
+                    raise ValueError('response too large')
+                data = json.loads(raw)
+                if data.get('type') != 'multiinfo' or not isinstance(data.get('results'), list):
+                    raise ValueError('invalid package information')
+                versions = [row.get('Version') for row in data['results'] if row.get('Name') == name]
+                if len(versions) > 1 or (versions and not re.fullmatch(r'[A-Za-z0-9:.+_~\-]+', versions[0] or '')):
+                    raise ValueError('invalid package version')
+            except (OSError, URLError, ValueError, AttributeError, TypeError) as error:
+                raise RuntimeError(f'Could not check the AUR for {name}: {error}. '
+                                   'No dependency was skipped; check the connection and retry.') from error
+            self.versions[name] = versions[0] if versions else None
+        version = self.versions[name]
+        return [(version, False)] if version else []
+
+
+def resolve(fields, repository=None, machine=None, aur=None):
     machine = machine or os.uname().machine
     native = ARCHITECTURES.get(machine)
     if fields['architecture'] not in ('all', native):
@@ -186,15 +248,18 @@ def resolve(fields, repository=None, machine=None):
         chosen = None
         # Keep a suitable installed alternative when one exists. Otherwise
         # prefer the first supported alternative in Debian's declared order.
-        for installed in (True, False):
+        for source in ('installed', 'repository', 'AUR'):
+            if source == 'AUR' and aur is None:
+                continue
+            installed = source == 'installed'
             for req in alternatives:
                 try:
                     if req.qualifier not in (None, 'any', 'native', native):
                         raise ValueError('requires a foreign architecture')
                     floor = minimum(req)
                     target = ALIASES.get(req.name, req.name)
-                    candidates = (repository.candidates(target) if installed
-                                  else repository.available(target))
+                    candidates = (repository.candidates(target) if installed else
+                                  aur.available(target) if source == 'AUR' else repository.available(target))
                     for version, _ in candidates:
                         if not repository.sufficient(version, floor):
                             continue
@@ -203,12 +268,15 @@ def resolve(fields, repository=None, machine=None):
                         epoch = version.split(':', 1)[0] + ':' if ':' in version else ''
                         dependency = target + ('>=' + epoch + floor if floor else '')
                         chosen = dependency
+                        if source == 'AUR':
+                            aur.selected[dependency] = version
                         rows.append(f'{req.name}' + (f' ({req.operator} {req.version})' if req.operator else '')
-                                    + f' → {dependency} ({"installed" if installed else "repository"}: {version})')
+                                    + f' → {dependency} ({source}: {version})')
                         break
                     if chosen:
                         break
-                    reasons.append(f'{req.name} → {target}: missing or below its minimum version')
+                    reasons.append(f'{req.name} → {target}: missing or below its minimum version'
+                                   + (' in the AUR' if source == 'AUR' else ''))
                 except ValueError as error:
                     reasons.append(f'{req.name}: {error}')
             if chosen:

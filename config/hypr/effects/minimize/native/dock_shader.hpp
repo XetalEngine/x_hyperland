@@ -29,8 +29,8 @@ void main(){
   fragColor=vec4(mix(warm,mix(ink,vec3(1.,.72,.25),.5),core)*a,a)*opacity;return;
  }
  vec2 p=(uv-.5)*dims;vec2 halfSize=dims*.5-vec2(8.);
- float radius=style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13?5.:halfSize.y;
- if(part==1)radius=style==0?2.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
+ float radius=style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:halfSize.y;
+ if(part==1)radius=style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
  radius=min(radius,min(halfSize.x,halfSize.y));
  float distance=roundBox(p,halfSize,radius);
  if(style==2||style==3||style==8)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+(style==3?19.:style==8?14.:10.))*.7071);
@@ -44,7 +44,25 @@ void main(){
  float rim=.26;
  float jewel=0.;float jewelHalo=0.;float gildedSweep=0.;
  if(part==0){
-  if(style==13){
+  if(style==14){
+   // Containment Bay: instrument rack, vents, phosphor rail, small hazard caps.
+   vec2 q=vec2(halfSize.x-abs(p.x),p.y);
+   vec3 brass=mix(ink,vec3(.71,.68,.40),.22);
+   float cap=1.-smoothstep(17.,20.,q.x);
+   body=mix(base,tint,.045)+brass*shine*.11;
+   body=mix(body,mix(base,brass,.17+shine*.16),cap);
+   float vents=step(4.,q.x)*step(q.x,13.)*step(abs(p.y),18.)*step(.5,fract((p.y+20.)/5.));
+   body=mix(body,base*.4,vents*.9);
+   vec2 screw=vec2(q.x-10.,abs(p.y)-halfSize.y+11.);
+   float stud=1.-smoothstep(1.,2.5,length(screw));
+   body=mix(body,brass,stud*.8);
+   float hazard=step(3.,q.x)*step(q.x,17.)*step(abs(p.y+halfSize.y-16.),3.)*step(.5,fract((q.x+p.y)/6.));
+   decoration=hazard*.65;
+   decoration+=exp(-abs(p.y-halfSize.y+7.)*1.3)*step(22.,q.x)*.8;
+   decoration+=exp(-abs(p.y-halfSize.y+4.)*1.8)*step(.7,fract((p.x+halfSize.x)/13.))*step(22.,q.x)*(.5+.3*sin(time+p.x*.025));
+   metal=exp(-abs(p.y+halfSize.y-7.)*1.9)*step(22.,q.x)*.4;
+   metal+=exp(-abs(distance+3.)*2.)*.18;rim=.75;
+  }else if(style==13){
    // Harbour Cabinet: walnut grain, brass corner straps and sage inlay.
    vec2 q=vec2(halfSize.x-abs(p.x),p.y);
    vec3 brass=mix(ink,vec3(.67,.47,.22),.28);
@@ -224,6 +242,16 @@ void main(){
   body=mix(base,tint,.08+emphasis*.14)+ink*shine*.045;
   rim=.08+emphasis*.25;
   decoration=exp(-abs(p.y-halfSize.y+3.)*1.7)*(.25+.4*emphasis);
+  if(style==14){
+   body=mix(base,tint,.045+emphasis*.1)+ink*shine*.08;
+   rim=.45+emphasis*.4;
+   vec2 display=p-vec2(0.,halfSize.y-8.);
+   float plate=roundBox(display,vec2(max(2.,halfSize.x-9.),3.5),1.);
+   body=mix(body,base*.5,1.-smoothstep(-.5,.5,plate));
+   decoration=exp(-abs(plate)*2.)*.35;
+   decoration+=step(abs(display.y),1.)*step(abs(display.x),halfSize.x-13.)*step(.45,fract((display.x+halfSize.x)/8.))*(.55+emphasis*.35);
+   metal=exp(-abs(p.y+halfSize.y-3.)*1.8)*.25;
+  }
   if(style==13){
    body=mix(base,tint,.06+emphasis*.12)+ink*shine*.07;
    rim=.35+emphasis*.45;

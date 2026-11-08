@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>Home · Atomic Afterglow</title><defs>
+    <linearGradient id="metal" x2=".12" y2="1"><stop stop-color="#f4e7b5"/><stop offset=".45" stop-color="#aaa477"/><stop offset=".55" stop-color="#6f704d"/><stop offset="1" stop-color="#d7c797"/></linearGradient>
+    <linearGradient id="steel" x2=".3" y2="1"><stop stop-color="#565b40"/><stop offset=".25" stop-color="#32392b"/><stop offset=".8" stop-color="#171e18"/><stop offset="1" stop-color="#363d29"/></linearGradient>
+    <linearGradient id="phosphor" x2=".2" y2="1"><stop stop-color="#d7ff65"/><stop offset=".48" stop-color="#a5d91c"/><stop offset="1" stop-color="#5b8517"/></linearGradient>
+    </defs><path d="M11 29L32 9L53 29V55H11Z" fill="url(#steel)" stroke="url(#metal)" stroke-width="1.8"/><path d="M4 29L32 4L60 29L56 34L32 13L8 34Z" fill="url(#metal)" stroke="#242e20"/><path d="M28 55V36H38V55M17 31H24V40H17Z" fill="url(#phosphor)" stroke="#d7dfac"/><path d="M20.5 31V40M28 44H38" stroke="#3a4c23"/></svg>

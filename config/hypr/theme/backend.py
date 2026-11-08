@@ -353,6 +353,9 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     elif design=='shadowedge':
         from shadowedge import compositor
         content+=compositor(colors)
+    elif design=='atomicafterglow':
+        from atomicafterglow import compositor
+        content+=compositor(colors)
     elif design=='blackwood':
         from blackwood import compositor
         content+=compositor(colors)

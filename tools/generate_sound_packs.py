@@ -22,6 +22,7 @@ from sounds.model import PACKS, EVENTS
 RATE = 48000
 # tonic, voice, unique opening melody (semitones), beat spacing
 SCORES = {
+    'atomicafterglow': (57, 'isotope', [0, 7, 14, 11, 7, 12], .33),
     'blackwood': (55, 'harbour', [0, 7, 10, 14, 7, 2], .43),
     'midnighttransit': (60, 'transit', [7, 12, 4, 9, 7, 0], .36),
     'hyperfusionblue': (62, 'keys', [0, 7, 12, 9, 16, 19], .36),
@@ -53,6 +54,10 @@ def voice(midi, duration, kind, seed=0):
     elif kind == 'string':
         out = sum(np.sin(phase*h + .025*np.sin(t*13)) * np.exp(-(2.5+h*.7)*t) / h**1.5 for h in range(1, 10))
         out += .16 * np.sin(phase*2.008) * np.exp(-6*t)
+    elif kind == 'isotope':
+        out = np.sin(phase + .6*np.sin(phase*2)*np.exp(-6*t))*np.exp(-3*t)
+        out += .12*np.sin(phase*.5)*np.exp(-2*t) + .06*np.sin(phase*3.002)*np.exp(-9*t)
+        attack = .035
     elif kind == 'harbour':
         out = np.sin(phase)*np.exp(-3.2*t) + .20*np.sin(phase*2.72)*np.exp(-9*t)
         out += .13*np.sin(phase*.5)*np.exp(-2.4*t) + .07*np.sin(phase*4.03)*np.exp(-12*t)

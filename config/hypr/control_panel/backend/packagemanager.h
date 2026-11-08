@@ -1,19 +1,14 @@
 #include "package_install.h"
+#include "../aur_helpers.h"
 
 // Package Manager tab functions
 
 void MainWindow::checkAurHelpers() {
     // Check if Yay is installed
-    QProcess yayCheck;
-    yayCheck.start("which", QStringList() << "yay");
-    yayCheck.waitForFinished();
-    bool yayInstalled = (yayCheck.exitCode() == 0);
+    bool yayInstalled = HyperPanel::aurHelperInstalled("yay");
     
     // Check if Paru is installed
-    QProcess paruCheck;
-    paruCheck.start("which", QStringList() << "paru");
-    paruCheck.waitForFinished();
-    bool paruInstalled = (paruCheck.exitCode() == 0);
+    bool paruInstalled = HyperPanel::aurHelperInstalled("paru");
     
     // Update UI
     if (yayInstalled) {
@@ -1008,38 +1003,16 @@ void MainWindow::on_paruUninstallPackageButton_clicked() {
 }
 
 void MainWindow::on_yayInstallButton_clicked() {
-    QMessageBox::StandardButton reply = QMessageBox::question(this, tr("Install Yay"),
-                                                              tr("This will install Yay AUR helper.\n\n"
-                                                              "This requires sudo privileges and will clone from GitHub.\n\n"
-                                                              "Do you want to continue?"),
-                                                              QMessageBox::Yes | QMessageBox::No);
-    if (reply != QMessageBox::Yes) {
+    const QString script = HyperPanel::root() + "/control_panel/aur_helper_install.py";
+    if (!QFileInfo::exists(script)) {
+        QMessageBox::warning(this, tr("Install Yay"), tr("The AUR helper installer is missing. Please update Hyper Fusion."));
         return;
     }
-    
-    bool ok;
-    QString sudoPassword = QInputDialog::getText(this, tr("Sudo Password"),
-                                                 tr("Enter your sudo password:"),
-                                                 QLineEdit::Password, "", &ok);
-    if (!ok || sudoPassword.isEmpty()) {
+    if (!QProcess::startDetached(HyperPanel::terminal(), {"-e", "python3", script, "--wait", "yay"})) {
+        QMessageBox::warning(this, tr("Install Yay"), tr("Could not open the installation terminal."));
         return;
     }
-    
-    ui->packageOutputText->setPlainText("Installing Yay...\n");
-    
-    // makepkg must run as the real user, not root — use sudo -v so nested sudo from makepkg/pacman works.
-    QString script = QString(
-        "cd /tmp && rm -rf yay && "
-        "git clone https://aur.archlinux.org/yay.git && "
-        "cd yay && "
-        "echo '%1' | sudo -S -v && "
-        "makepkg -si --noconfirm"
-    ).arg(sudoPassword);
-    
-    QProcess::startDetached(HyperPanel::terminal(), QStringList() << "-e" << "bash" << "-c" << script + "; read -p 'Press Enter to close...'");
-    
-    ui->packageOutputText->append("\n✅ Yay installation started in terminal. Please check the terminal window.");
-    ui->packageOutputText->append("After installation completes, click 'Refresh All' to update the status.");
+    ui->packageOutputText->append(tr("Yay installation opened in a terminal. Review the build and package changes there."));
 }
 
 void MainWindow::on_yayReinstallButton_clicked() {
@@ -1089,37 +1062,16 @@ void MainWindow::on_yayUninstallButton_clicked() {
 }
 
 void MainWindow::on_paruInstallButton_clicked() {
-    QMessageBox::StandardButton reply = QMessageBox::question(this, tr("Install Paru"),
-                                                              tr("This will install Paru AUR helper.\n\n"
-                                                              "This requires sudo privileges and will clone from GitHub.\n\n"
-                                                              "Do you want to continue?"),
-                                                              QMessageBox::Yes | QMessageBox::No);
-    if (reply != QMessageBox::Yes) {
+    const QString script = HyperPanel::root() + "/control_panel/aur_helper_install.py";
+    if (!QFileInfo::exists(script)) {
+        QMessageBox::warning(this, tr("Install Paru"), tr("The AUR helper installer is missing. Please update Hyper Fusion."));
         return;
     }
-    
-    bool ok;
-    QString sudoPassword = QInputDialog::getText(this, tr("Sudo Password"),
-                                                 tr("Enter your sudo password:"),
-                                                 QLineEdit::Password, "", &ok);
-    if (!ok || sudoPassword.isEmpty()) {
+    if (!QProcess::startDetached(HyperPanel::terminal(), {"-e", "python3", script, "--wait", "paru"})) {
+        QMessageBox::warning(this, tr("Install Paru"), tr("Could not open the installation terminal."));
         return;
     }
-    
-    ui->packageOutputText->setPlainText("Installing Paru...\n");
-    
-    QString script = QString(
-        "cd /tmp && rm -rf paru && "
-        "git clone https://aur.archlinux.org/paru.git && "
-        "cd paru && "
-        "echo '%1' | sudo -S -v && "
-        "makepkg -si --noconfirm"
-    ).arg(sudoPassword);
-    
-    QProcess::startDetached(HyperPanel::terminal(), QStringList() << "-e" << "bash" << "-c" << script + "; read -p 'Press Enter to close...'");
-    
-    ui->packageOutputText->append("\n✅ Paru installation started in terminal. Please check the terminal window.");
-    ui->packageOutputText->append("After installation completes, click 'Refresh All' to update the status.");
+    ui->packageOutputText->append(tr("Paru installation opened in a terminal. Review the build and package changes there."));
 }
 
 void MainWindow::on_paruReinstallButton_clicked() {

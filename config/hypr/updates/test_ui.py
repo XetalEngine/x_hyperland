@@ -50,6 +50,17 @@ class UpdateUiTests(unittest.TestCase):
         self.assertIn('1'*40,window.version.toolTip())
         self.assertIn('2'*40,window.version.toolTip())
 
+    def test_current_version_has_a_clear_inactive_button_and_updates_can_reappear(self):
+        service.publish(phase='current', current='2'*40, latest='2'*40,
+                        github={'relation': 'identical'})
+        window = self.window()
+        self.assertEqual(window.prepare.text(), 'You are up to date!')
+        self.assertFalse(window.prepare.isEnabled())
+        service.publish(phase='available', latest='3'*40, github={'relation': 'ahead'})
+        window.refresh()
+        self.assertEqual(window.prepare.text(), 'Update!')
+        self.assertTrue(window.prepare.isEnabled())
+
     def test_three_themes_and_settings_use_private_state(self):
         from PyQt6.QtWidgets import QApplication
         app = QApplication.instance() or QApplication([])

@@ -10,6 +10,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 PATH = ROOT / 'sounds/settings.json'
 PACKS = {
+    'atomicafterglow': ('Atomic Afterglow', 'Phosphor signals', 'Soft analog instruments, warm sine chimes and a quiet rising signal.', '#b5ed29'),
     'blackwood': ('Blackwood', 'Harbour bells', 'Low wooden mallets, soft brass overtones and a quiet coastal cadence.', '#c7af7d'),
     'midnighttransit': ('Midnight Transit', 'Platform chimes', 'Soft station bells and a warm descending electric-piano cadence.', '#ffb239'),
     'hyperfusionblue': ('HyperFusion Blue', 'Blue horizon', 'Clear glass notes over a warm, restrained electronic chord.', '#00baff'),

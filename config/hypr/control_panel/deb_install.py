@@ -10,7 +10,7 @@ import subprocess
 import sys
 import tempfile
 
-from deb_dependencies import read_control, resolve
+from deb_dependencies import AurRepository, MissingRepositoryIndexes, read_control, resolve
 from deb_recipes import CHROME, dependency_fields, omitted_application_files
 
 TOOLS = {'pactree':'pacman-contrib', 'pkgfile':'pkgfile', 'ar':'binutils',
@@ -28,10 +28,18 @@ DATABASES = ('debian-main-packages-files', 'debian-non-free-packages-files',
 LEGACY_CACHE_PROBE = b"ls /var/cache/pkgfile | grep -E '*.files?(.[[:digit:]]{3})'"
 
 
-def run(args, *, cwd=None, capture=False, stdin=None):
+def run(args, *, cwd=None, capture=False, stdin=None, package_build=False):
     if not capture:print('\n== '+shlex.join(map(str,args)),flush=True)
+    environment=dict(os.environ,LC_ALL='C')
+    if package_build:
+        # Keep the temporary parent private, but package-created directories
+        # need ordinary system permissions. GNU tar must also retain explicit
+        # archive modes (private files, group access and setuid sandbox helpers).
+        # Scope both settings to this child; never change the desktop's umask.
+        environment['TAR_OPTIONS']='--same-permissions'
     result=subprocess.run(list(map(str,args)),cwd=cwd,text=True,stdin=stdin,
-                          capture_output=capture,env=dict(os.environ,LC_ALL='C'))
+                          capture_output=capture,env=environment,
+                          umask=0o022 if package_build else -1)
     if result.returncode:
         detail=(result.stderr or result.stdout or '').strip() if capture else 'See the command output above.'
         raise RuntimeError(f'{shlex.join(map(str,args))} failed (exit {result.returncode}). {detail}')
@@ -50,7 +58,7 @@ def prepare_tools():
     if not shutil.which('debtap'):
         helper=shutil.which('yay') or shutil.which('paru')
         if not helper:
-            raise RuntimeError('Debtap is not installed. Install Yay or Paru from its Control Panel page, then retry.')
+            raise RuntimeError('Debtap is not installed. Install Yay or Paru from the Install .deb page, then retry.')
         # AUR builds must run as the desktop user; the helper handles package authentication.
         run([helper,'-S','--needed','debtap'])
         if not shutil.which('debtap'):raise RuntimeError('Debtap installation finished without providing the debtap command.')
@@ -152,18 +160,63 @@ def payload_paths(listing):
     return paths
 
 
+def arch_path(name):
+    for prefix in ('bin','sbin','usr/sbin','usr/games','usr/local/bin','usr/local/sbin','usr/local/games'):
+        if name==prefix or name.startswith(prefix+'/'):
+            return 'usr/bin'+name[len(prefix):]
+    return name
+
+
 def application_files(paths):
     # Match debtap's Arch filesystem moves for executable directories. /opt
     # and application-menu entries must survive conversion at their own paths.
     required=set()
     for name in paths:
-        for prefix in ('bin/','sbin/','usr/sbin/','usr/games/','usr/local/bin/','usr/local/sbin/','usr/local/games/'):
-            if name.startswith(prefix):
-                name='usr/bin/'+name[len(prefix):]
-                break
+        name=arch_path(name)
         if name.startswith(('opt/','usr/bin/','usr/share/applications/','usr/local/share/applications/')):
             required.add(name)
     return required
+
+
+class Payload(set):
+    """Payload filenames plus archived permissions, without extracting files."""
+    def __init__(self, entries):
+        self.entries=entries
+        super().__init__(name for name,(kind,mode) in entries.items() if kind!='dir')
+
+
+def payload_manifest(archive, *, stdin=None):
+    # libarchive reads all supported Debian/Arch compression formats. Mtree
+    # escapes whitespace/backslashes in names and includes directory modes;
+    # a plain filename listing misses an inaccessible /opt/vendor parent.
+    listing=run(['bsdtar','-cf','-','--format=mtree','--options=!all,type,mode',
+                 '@'+str(archive)],stdin=stdin,capture=True).stdout
+    entries={}
+    for line in listing.splitlines():
+        if not line or line.startswith('#'):continue
+        tokens=line.split()
+        name=re.sub(r'\\([0-7]{3})',lambda match:chr(int(match[1],8)),tokens[0])
+        path=PurePosixPath(name)
+        if path.is_absolute() or '..' in path.parts:
+            raise RuntimeError('The package contains an unsafe file path: '+name)
+        if not path.parts or str(path) in ('.PKGINFO','.BUILDINFO','.MTREE','.INSTALL'):continue
+        attrs=dict(token.split('=',1) for token in tokens[1:] if '=' in token)
+        if not attrs.get('type') or not re.fullmatch(r'[0-7]{1,4}',attrs.get('mode','')):
+            raise RuntimeError('Could not inspect archived permissions for '+name)
+        entries[str(path)]=(attrs['type'],int(attrs['mode'],8))
+    return Payload(entries)
+
+
+def verify_permissions(original, converted):
+    changed=[]
+    for name,(kind,mode) in getattr(original,'entries',{}).items():
+        target=arch_path(name)
+        actual=converted.entries.get(target)
+        if actual and kind in ('file','dir') and actual[0]==kind and actual[1]!=mode:
+            changed.append(f'/{target}: expected {mode:04o}, got {actual[1]:04o}')
+    if changed:
+        raise RuntimeError('Conversion changed package file permissions. Nothing was installed:\n  '+
+                           '\n  '.join(changed[:12]))
 
 
 def source_payload(deb):
@@ -176,26 +229,27 @@ def source_payload(deb):
     with tempfile.TemporaryFile() as errors:
         with subprocess.Popen(['ar','p',str(deb),data[0]],stdout=subprocess.PIPE,stderr=errors) as reader:
             try:
-                listing=run(['bsdtar','-tf','-'],stdin=reader.stdout,capture=True).stdout
+                payload=payload_manifest('-',stdin=reader.stdout)
             finally:
                 reader.stdout.close()
             if reader.wait():
                 errors.seek(0)
                 raise RuntimeError('Could not read the .deb payload: '+errors.read().decode(errors='replace'))
-    return payload_paths(listing)
+    return payload
 
 
 def converted_package(package, original, *, omitted=()):
     identity=run(['pacman','-Qp','--',package],capture=True).stdout.split()
     if len(identity)!=2 or not re.fullmatch(r'[A-Za-z0-9@_+][A-Za-z0-9@._+\-]*',identity[0]):
         raise RuntimeError('The converted package has no valid package name/version.')
-    paths=payload_paths(run(['bsdtar','-tf',package],capture=True).stdout)
+    paths=payload_manifest(package)
     missing=application_files(original)-set(omitted)-paths
     if original and not paths:
         raise RuntimeError('Conversion produced an empty package. Nothing was installed.')
     if missing:
         raise RuntimeError('Conversion lost application files. Nothing was installed:\n  '+
                            '\n  '.join(sorted(missing)[:12]))
+    verify_permissions(original,paths)
     print('== Converted package: '+' '.join(identity)+f' ({len(paths)} payload files)',flush=True)
     return identity,application_files(paths)
 
@@ -219,25 +273,41 @@ def verify_installation(identity, required, root=Path('/')):
     for path in launchers:print('== Verified Apps launcher: /'+path,flush=True)
 
 
-def check_dependencies(deb, fields=None):
+def check_dependencies(deb, fields=None, aur=None):
     fields=fields or read_control(deb)
     print('== Checking '+fields['package']+' '+fields['version']+' ('+fields['architecture']+')',flush=True)
     if fields['package']==CHROME:
         print('== Chrome Arch recipe: package-owned icons and native hooks; Debian updater scripts and dpkg prerequisite are replaced.',flush=True)
-    dependencies,rows=resolve(dependency_fields(fields))
+    dependencies,rows=resolve(dependency_fields(fields), aur=aur)
     print('== Debian requirements → Arch packages:\n  '+('\n  '.join(rows) or 'No declared dependencies.'),flush=True)
     print('== Version checks use upstream minimums; Debian packaging revisions are not Arch revisions.',flush=True)
     return dependencies
 
 
-def verify_dependencies(package, dependencies):
+def verify_dependencies(package, dependencies, *, plan=True):
     metadata=run(['bsdtar','-xOf',package,'.PKGINFO'],capture=True).stdout
     actual=[line.partition(' = ')[2] for line in metadata.splitlines() if line.startswith('depend = ')]
     if sorted(actual)!=sorted(dependencies):
         raise RuntimeError('The converted package does not contain the reviewed dependency list. Nothing was installed.')
     # Resolve the COMPLETE native transaction, including dependencies of the
     # dependencies. This does not install/download packages or disable checks.
-    run(['pacman','-Up','--print-format','%n %v','--',package],capture=True)
+    if plan:
+        run(['pacman','-Up','--print-format','%n %v','--',package],capture=True)
+
+
+def install_aur_dependencies(dependencies):
+    if not dependencies:
+        return
+    helper=shutil.which('yay') or shutil.which('paru')
+    if not helper:
+        raise RuntimeError('This application needs AUR dependencies. Yay and Paru are not installed. '
+                           'Use Install Yay or Install Paru on the Install .deb page, then retry.')
+    names=list(dict.fromkeys(re.split(r'[<>=]',dependency,maxsplit=1)[0] for dependency in dependencies))
+    print('== AUR dependencies: '+', '.join(dependencies)+'. Review the helper’s build files and transaction below.',flush=True)
+    run([helper,'-S','--needed','--asdeps','--',*names])
+    # A helper can finish without installing a declined build. Ask pacman to
+    # confirm that the actual installed versions satisfy every requirement.
+    run(['pacman','-T','--',*dependencies],capture=True)
 
 
 def native_dependencies(work):
@@ -265,16 +335,34 @@ def install(deb, *, check_only=False, convert_only=None):
         # filename also supports downloads with spaces, quotes or shell symbols.
         shutil.copyfile(deb,work/'source.deb')
         fields=read_control(work/'source.deb')
-        dependencies=check_dependencies(work/'source.deb',fields)
+        aur=AurRepository()
+        helper=shutil.which('yay') or shutil.which('paru')
+        print('== AUR helper: '+(Path(helper).name if helper else
+              'Yay and Paru are not installed. Install either from the Install .deb page for AUR packages.'),flush=True)
+        try:
+            dependencies=check_dependencies(work/'source.deb',fields,aur=aur)
+        except MissingRepositoryIndexes:
+            if check_only or convert_only is not None:
+                raise
+            print('== Arch package indexes have not been initialized. Connect to the internet.\n'
+                  '== Pacman will refresh them and offer a full system update. Review its package list and confirmation below.\n'
+                  '== The .deb dependency check will run again after the update.',flush=True)
+            # Never initialize a live system with -Sy followed by individual
+            # packages: that can create an unsupported partial Arch upgrade.
+            run(['sudo','pacman','-Syu'])
+            dependencies=check_dependencies(work/'source.deb',fields,aur=aur)
         if check_only:
             print('== Dependency mapping check passed. No packages were installed or converted.',flush=True)
             return
+        if aur.selected and not helper and convert_only is None:
+            raise RuntimeError('AUR dependencies were found, but Yay and Paru are not installed. '
+                               'Install either helper from the Install .deb page, then retry.')
         prepare_tools()
         prepare_database()
         print('== Checking application files in '+str(deb),flush=True)
         original=source_payload(work/'source.deb')
         print('== Converting '+str(deb),flush=True)
-        run([*converter(work,dependencies,fields['package']),'-Q','source.deb'],cwd=work)
+        run([*converter(work,dependencies,fields['package']),'-Q','source.deb'],cwd=work,package_build=True)
         packages=[p for p in work.iterdir() if p.is_file() and re.fullmatch(
             r'.+\.pkg\.tar(?:\.(?:zst|xz|gz|bz2|lz4|lrz|lzo|lz|Z))?',p.name)]
         if len(packages)!=1:
@@ -284,7 +372,8 @@ def install(deb, *, check_only=False, convert_only=None):
         native=native_dependencies(work)
         if native:print('== Native library requirements: '+', '.join(native),flush=True)
         dependencies=list(dict.fromkeys([*dependencies,*native]))
-        verify_dependencies(packages[0],dependencies)
+        # Validate the archive before building any additional AUR dependencies.
+        verify_dependencies(packages[0],dependencies,plan=not aur.selected)
         if convert_only is not None:
             destination=Path(convert_only).expanduser().resolve()
             destination.mkdir(parents=True,exist_ok=True)
@@ -292,8 +381,13 @@ def install(deb, *, check_only=False, convert_only=None):
             # Do not overwrite a previous result, especially an original .deb.
             with target.open('xb') as output,packages[0].open('rb') as source:
                 shutil.copyfileobj(source,output)
+            if aur.selected:
+                print('== Required AUR packages were not installed: '+', '.join(aur.selected),flush=True)
             print('== Converted package saved: '+str(target)+'. The application was not installed.',flush=True)
             return
+        if aur.selected:
+            install_aur_dependencies(aur.selected)
+            verify_dependencies(packages[0],dependencies)
         print('== Installing converted package: '+' '.join(identity)+
               '. Review and confirm the pacman transaction below.',flush=True)
         run(['sudo','pacman','-U',packages[0]],cwd=work)

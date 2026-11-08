@@ -144,10 +144,14 @@ class Window(QWidget):
         ready = service.restart_ready(value, pending)
         updating = phase == 'preparing' or self.queued_action in ('prepare', 'setup')
         busy = phase in ('preparing', 'checking') or bool(self.queued_action) or self.restarting
+        current = (phase == 'current' and not ready and bool(value.get('latest'))
+                   and value.get('current') == value.get('latest'))
         self.progress.setVisible(busy); self.check.setEnabled(not busy)
-        self.prepare.setText('Restarting…' if self.restarting else 'Updating…' if updating else 'Restart' if ready else 'Update!')
+        self.prepare.setText('Restarting…' if self.restarting else 'Updating…' if updating else 'Restart' if ready else
+                             'You are up to date!' if current and not busy else 'Update!')
         self.prepare.setToolTip('Restart this computer to finish updating.' if ready else
                                'Open Setup to install the required compositor and desktop.' if phase == 'runtime-required' else
+                               'The latest desktop update is already installed.' if current else
                                'Download, build and check the latest desktop update.')
         self.prepare.setEnabled(not busy and (ready or phase == 'runtime-required' or
             (phase in ('available', 'attention', 'ready') and pending.get('revision') != value.get('latest')

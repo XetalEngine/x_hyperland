@@ -4,6 +4,7 @@
 #include "default_apps.h"
 #include "grub_editor.h"
 #include "runtime_log_guard.h"
+#include "aur_helpers.h"
 #include "../theme/window_chrome.hpp"
 #include "backend/mainwindow.h"
 #include <QFileSystemWatcher>
@@ -385,11 +386,40 @@ void PanelController::prepareTools() {
   auto *description = new QLabel(
       "Choose a trusted .deb application. Hyper Fusion checks its Debian requirements, "
       "maps supported dependencies to Arch packages, then converts and installs it with pacman. "
+      "Dependencies unavailable in your Arch repositories are checked in the AUR and built with Yay or Paru. "
       "You can check compatibility first without changing your system.\n\n"
       "Experimental: some Debian applications need a package-specific recipe. "
       "Unresolved dependencies stop installation and are listed in the terminal.", deb);
   description->setWordWrap(true);
   debLayout->addWidget(description);
+  auto *helpers = new QGroupBox("AUR helpers", deb);
+  auto *helpersLayout = new QVBoxLayout(helpers);
+  auto *helperHint = new QLabel("Install either helper to use AUR dependencies and Debtap. Build files and package changes are reviewed in the terminal.", helpers);
+  helperHint->setWordWrap(true);
+  helpersLayout->addWidget(helperHint);
+  for (const auto &name : {QString("yay"), QString("paru")}) {
+    const QString title = name == "yay" ? "Yay" : "Paru";
+    auto *row = new QHBoxLayout;
+    auto *status = new QLabel(helpers);
+    status->setObjectName("deb" + title + "Status");
+    auto *button = new QPushButton("Install " + title, helpers);
+    button->setObjectName("deb" + title + "Install");
+    auto *existing = owner->findChild<QPushButton *>(name + "InstallButton");
+    connect(button, &QPushButton::clicked, existing, &QPushButton::click);
+    auto refresh = [status, button, name, title] {
+      const bool installed = HyperPanel::aurHelperInstalled(name);
+      status->setText(title + (installed ? ": ✓ Installed" : ": ✗ Not installed"));
+      status->setStyleSheet(installed ? "color:#77b581;" : "color:#ef7b72;");
+      button->setVisible(!installed);
+    };
+    refresh();
+    auto *timer = new QTimer(helpers);
+    connect(timer, &QTimer::timeout, helpers, [deb, refresh] { if (deb->isVisible()) refresh(); });
+    timer->start(2000);
+    row->addWidget(status); row->addWidget(button); row->addStretch();
+    helpersLayout->addLayout(row);
+  }
+  debLayout->addWidget(helpers);
   auto *install = owner->findChild<QPushButton *>("installDebButton");
   shared->removeWidget(install);
   install->setText("Choose .deb and install…");

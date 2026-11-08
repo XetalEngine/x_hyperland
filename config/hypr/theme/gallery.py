@@ -12,6 +12,7 @@ import wallpaper_sets
 
 # Presentation only: selecting a banner still uses the normal component chooser.
 STORIES = {
+    'atomicafterglow': ('ATOMIC AFTERGLOW', 'Quiet power. Lasting light.\nGraphite. Brass. Phosphor.', 'atomic afterglow reactor nuclear green lime olive industrial brass graphite'),
     'blackwood': ('BLACKWOOD', 'A light on the coast.\nWalnut. Brass. Quiet sage.', 'blackwood walnut wood brass sage green lighthouse coastal classic serif'),
     'midnighttransit': ('MIDNIGHT\nTRANSIT', 'The last train. The first idea.\nTeal enamel. Amber light.', 'teal amber cream nickel enamel train railway station rain midnight transit'),
     'hyperfusionblue': ('HYPERFUSION\nBLUE', 'Power in plain sight.\nAlpine blue. Polished silver.', 'blue sapphire alpine lake mountain chrome silver classic glass hyperfusion'),
@@ -57,7 +58,7 @@ def shape(box, design):
         from shadowedge import cut_path
         return cut_path(box, 14)
     path = QPainterPath()
-    radius = {'blackwood': 5, 'midnighttransit': 7, 'hyperfusionblue': 9, 'candycloud': 26, 'porcelainink': 2, 'obsidianforge': 3, 'binaryknife': 3,
+    radius = {'atomicafterglow': 5, 'blackwood': 5, 'midnighttransit': 7, 'hyperfusionblue': 9, 'candycloud': 26, 'porcelainink': 2, 'obsidianforge': 3, 'binaryknife': 3,
               'breakpoint': 8, 'tidalglass': 20}.get(design, 16)
     path.addRoundedRect(box, radius, radius)
     return path
@@ -178,7 +179,7 @@ class DesignCard(QPushButton):
     def paintEvent(self, event):
         p = QPainter(self); p.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform)
         colors = runtime.colors(self.mode, self.design); box = QRectF(self.rect()).adjusted(2, 2, -2, -2)
-        if self.design in ('shadowedge', 'candycloud', 'obsidianforge', 'porcelainink', 'tidalglass', 'hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood'):
+        if self.design in ('shadowedge', 'candycloud', 'obsidianforge', 'porcelainink', 'tidalglass', 'hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow'):
             importlib.import_module(self.design).paint_surface(p, box, colors, focused=self.isChecked())
         else:
             shade = QLinearGradient(box.topLeft(), box.bottomRight())
@@ -190,7 +191,7 @@ class DesignCard(QPushButton):
         scene = box.adjusted(12, 12, -12, -54)
         art = QRectF(scene.left(), scene.top(), self.wallpapers.x()-scene.left()+50, scene.height())
         if self.hero is None:
-            index = min(1, len(self.paths)-1) if self.design not in ('tidalglass','hyperfusionblue','midnighttransit','blackwood') else 0
+            index = min(1, len(self.paths)-1) if self.design not in ('tidalglass','hyperfusionblue','midnighttransit','blackwood','atomicafterglow') else 0
             self.hero = picture(self.paths[index], 1440) if self.paths else QPixmap()
         p.save(); p.setClipPath(shape(scene, self.design))
         p.fillRect(scene, QColor(colors['Base'])); cover(p, self.hero, art, FOCAL_TOP.get(self.design, .35))
