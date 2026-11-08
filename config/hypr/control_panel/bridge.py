@@ -18,6 +18,20 @@ def theme():
       QWidget#hyperControlPanel {{border:1px solid {p['Midlight']}; border-radius:{4 if design=='binaryknife' else 12 if design=='breakpoint' else 16}px;}}
       QFrame#panelHeader {{background:transparent; border:none;}}
       QLabel#panelTitle {{font-size:21px; font-weight:600; padding:8px 0; color:{p['Text']};}}
+      QFrame#debHero {{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {p['AlternateBase']},stop:1 {p['Base']}); border:1px solid {p['Midlight']}; border-radius:12px;}}
+      QLabel#debEyebrow {{color:{p['Accent']}; font-size:10px; font-weight:600; letter-spacing:2px;}}
+      QLabel#debTitle {{color:{p['Text']}; font-size:27px; font-weight:600;}}
+      QLabel#debExperimental {{background:{p['Highlight']}; color:{p['HighlightedText']}; border:1px solid {p['Accent']}; border-radius:6px; padding:5px 12px; font-weight:600;}}
+      QLabel#debDescription {{color:{p['Text']};}}
+      QLabel#debMuted {{color:{p['PlaceholderText']};}}
+      QLabel#debSectionTitle {{font-size:13px; font-weight:600; color:{p['Text']};}}
+      QLabel#debCatalogTitle {{font-size:20px; font-weight:600; color:{p['Text']};}}
+      QFrame#debHelpers, QFrame#debFeedbackBox {{background:{p['AlternateBase']}; border:1px solid {p['Midlight']}; border-radius:9px;}}
+      QPushButton[debPrimary="true"], QPushButton#debFeedbackButton {{background:{p['Highlight']}; color:{p['HighlightedText']}; border:1px solid {p['Accent']}; font-weight:600; padding:9px 16px;}}
+      QPushButton[debPrimary="true"]:hover, QPushButton#debFeedbackButton:hover {{border-color:{p['Text']};}}
+      QDialog#debFeedbackDialog {{background:{p['Window']};}}
+      QPlainTextEdit#debFeedbackDetails {{background:{p['Base']}; color:{p['Text']}; border:1px solid {p['Midlight']}; border-radius:6px; padding:8px;}}
+      QLabel#debFeedbackStatus {{color:{p['Accent']};}}
       QFrame#defaultsHero {{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {p['AlternateBase']},stop:1 {p['Base']}); border:1px solid {p['Midlight']}; border-radius:{4 if design=='binaryknife' else 14}px;}}
       QLabel#defaultsEyebrow {{font-size:10px; letter-spacing:2px; color:{p['Accent']}; font-weight:600;}}
       QLabel#defaultsTitle {{font-size:28px; font-weight:600; color:{p['Text']};}}

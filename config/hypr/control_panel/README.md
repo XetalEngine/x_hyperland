@@ -7,6 +7,32 @@ Choose a trusted Debian application in **Install .deb → Choose .deb and instal
 **Check dependencies only** reads the package and the existing pacman databases
 without installing tools, downloading packages or changing the system.
 
+The page has a theme-aware **Experimental** banner and a responsive app grid
+below the installation buttons. `deb_apps.json` is the compatibility catalog:
+only **Google Chrome** is currently reported working, on **November 7, 2026**.
+Discord and Visual Studio Code are explicitly **untested**. Clicking an app
+opens its official download page; it does not download or install a package.
+Test dates describe a reported result, not support for all future versions.
+Keep new entries untested until an installation and launch have been checked;
+record a `tested_on` ISO date (`YYYY-MM-DD`) and explain the result in `note`.
+The three small bundled Papirus icons are fallbacks for fresh installations.
+
+**Send feedback** opens a local form for the app name, optional version, original
+`.deb` download URL, result and error/test details. Copying requires a name, an
+HTTP(S) URL and details. **Copy & open Echo/Discord** copies the report and opens
+chat in the browser; the user pastes and sends it. Nothing is uploaded, sent or
+saved automatically. The report adds only the OS name, architecture and date;
+it does not collect logs, usernames or hardware identifiers. Echo's existing
+contact is `xetal`, and the confirmed Discord username is also `xetal`. The form
+shows add-friend instructions for both. Discord opens its Friends/direct-message
+area, since a username alone does not supply a numeric profile URL. Contact
+destinations and instructions live in the catalog's `feedback` section.
+
+`deb_page.*` owns this presentation and forwards the original install, check-only
+and helper-install actions. Native interaction checks are available with
+`-DBUILD_DEB_PAGE_TESTS=ON` and `ctest -R '^deb_page$'`. They intercept browser
+opens and use temporary state; they do not install packages or send reports.
+
 The same page shows whether **Yay** and **Paru** are installed and offers an
 install button for either missing helper. One is sufficient. They use the same
 detector and install actions as the dedicated Yay/Paru pages. When bootstrapping

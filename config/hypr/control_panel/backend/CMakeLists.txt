@@ -41,6 +41,8 @@ set(PROJECT_SOURCES
     ../ram_cleaner.h
     ../default_apps.cpp
     ../default_apps.h
+    ../deb_page.cpp
+    ../deb_page.h
     ../grub_editor.cpp
     ../grub_editor.h
     ../grub_appearance.cpp
@@ -215,6 +217,17 @@ if(BUILD_DEFAULT_APPS_TESTS)
     target_link_libraries(default_apps_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
     add_test(NAME default_apps COMMAND default_apps_tests)
     set_tests_properties(default_apps PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
+option(BUILD_DEB_PAGE_TESTS "Build .deb page interaction tests" OFF)
+if(BUILD_DEB_PAGE_TESTS)
+    enable_testing()
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(deb_page_tests tests/deb_page_tests.cpp ../deb_page.cpp ../deb_page.h)
+    target_include_directories(deb_page_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    target_compile_definitions(deb_page_tests PRIVATE DEB_PROFILE_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/../..")
+    target_link_libraries(deb_page_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME deb_page COMMAND deb_page_tests)
+    set_tests_properties(deb_page PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
 if(BUILD_RAM_CLEANER_TESTS)
     enable_testing()

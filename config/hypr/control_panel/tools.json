@@ -23,7 +23,7 @@
     {"id":"pacman","title":"Pacman","description":"Official packages, search and install","icon":"system-software-install","path":["packageManagerTab","pacmanTab"]},
     {"id":"paru","title":"Paru","description":"AUR packages and helper management","icon":"package-x-generic","path":["packageManagerTab","paruTab"]},
     {"id":"yay","title":"Yay","description":"AUR packages and helper management","icon":"applications-other","path":["packageManagerTab","yayTab"]},
-    {"id":"deb","title":"Install .deb","description":"Check dependencies and install a Debian application with pacman","icon":"application-x-deb","path":["debInstallTab"],"keywords":"debtap local package Debian compatibility"},
+    {"id":"deb","title":"Install .deb","description":"Experimental · install Debian apps, see test results and share feedback","icon":"application-x-deb","path":["debInstallTab"],"keywords":"debtap local package Debian compatibility experimental tested Chrome feedback"},
     {"id":"updates","title":"Package Updates","description":"System upgrades and Arch news","icon":"system-software-update","path":["packageManagerTab","updatesTab"]},
     {"id":"repair","title":"Package Repair","description":"Mirrors, keyrings, locks and downgrades","icon":"tools-check-spelling","path":["pacmanDoctorTab"]},
     {"id":"remove","title":"Installed Software","description":"Remove packages, orphans and caches","icon":"edit-delete","path":["uninstallTab"]},

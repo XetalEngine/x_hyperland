@@ -1,0 +1,35 @@
+{
+  "feedback": {
+    "echo_username": "xetal",
+    "echo_url": "https://www.xetal.net/community/site/echo-web/",
+    "discord_url": "https://discord.com/channels/@me",
+    "discord_hint": "Discord: Friends → Add Friend → xetal. Once accepted, open the conversation and paste your report."
+  },
+  "apps": [
+    {
+      "id": "chrome",
+      "name": "Google Chrome",
+      "icon": "google-chrome",
+      "url": "https://www.google.com/chrome/?platform=linux",
+      "status": "tested",
+      "tested_on": "2026-11-07",
+      "note": "Reported working on Arch Linux"
+    },
+    {
+      "id": "discord",
+      "name": "Discord",
+      "icon": "discord",
+      "url": "https://discord.com/download",
+      "status": "untested",
+      "note": "No compatibility report yet"
+    },
+    {
+      "id": "vscode",
+      "name": "Visual Studio Code",
+      "icon": "vscode",
+      "url": "https://code.visualstudio.com/download",
+      "status": "untested",
+      "note": "No compatibility report yet"
+    }
+  ]
+}
