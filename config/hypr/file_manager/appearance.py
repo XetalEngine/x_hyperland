@@ -12,7 +12,7 @@ import selection_marker
 def appearance():
     p = runtime.colors()
     design = runtime.widget_design()
-    radius = 1 if design == 'platform95' else 2 if design == 'shadowedge' else 16 if design == 'candycloud' else 3 if design == 'obsidianforge' else 2 if design == 'porcelainink' else 14 if design == 'tidalglass' else 3 if design == 'binaryknife' else 8 if design == 'breakpoint' else 10
+    radius = 5 if design == 'infernalencore' else 7 if design == 'midnightrun' else 1 if design == 'platform95' else 2 if design == 'shadowedge' else 16 if design == 'candycloud' else 3 if design == 'obsidianforge' else 2 if design == 'porcelainink' else 14 if design == 'tidalglass' else 3 if design == 'binaryknife' else 8 if design == 'breakpoint' else 10
     accent_rgb = ','.join(str(int(p['Accent'][i:i+2], 16)) for i in (1, 3, 5))
     style = qt_style(p, design) + runtime.layouts.stylesheet(p, runtime.layout(), runtime.design())
     style += f'''
@@ -118,6 +118,12 @@ def appearance():
         QFrame#pickerActions, QStatusBar {{background:{p['AlternateBase']};}}
         QTabBar::tab:selected {{border:1px solid {p['Midlight']}; border-top-color:{p['Accent']}; border-radius:15px;}}
         '''
+    if design == 'infernalencore':
+        from infernalencore import files_style
+        style += files_style(p)
+    if design == 'midnightrun':
+        from midnightrun import files_style
+        style += files_style(p)
     if design == 'platform95':
         from platform95 import files_style
         style += files_style(p)

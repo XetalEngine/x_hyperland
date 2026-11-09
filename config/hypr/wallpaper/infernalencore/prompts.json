@@ -1,0 +1,37 @@
+{
+  "id": "infernalencore",
+  "title": "Infernal Encore",
+  "provenance": "Original artwork generated with the built-in image_gen tool for Hyper Fusion.",
+  "images": [
+    {
+      "file": "final-encore.png",
+      "title": "Final Encore",
+      "prompt": "Use case: stylized-concept. Asset type: an original finished desktop wallpaper for Hyper Fusion's Infernal Encore theme. Wide 16:9 landscape, 2560 by 1440 if supported. Premium heavy-metal album-cover illustration, highly detailed confident hand-painted comic realism, blackened graphite, crimson stage light, molten orange fire, antique brass and bone highlights, stormy plum-purple shadows. Fill the entire image with the scene, one complete composition. Keep the upper outer edges relatively dark so real desktop content remains readable. No computer windows, UI, taskbars, desktop icons, title text, captions, logos, readable lettering, watermarks or mockup borders. No gore. Scene: two original fictional adult heavy-metal guitarists performing energetically on a vast gothic outdoor concert stage at night, a muscular bald guitarist with a short dark beard at left and a long blond-haired guitarist at right, both wearing black leather and metal studs, angular electric guitars with accurate strings and natural hands. Drummer on a raised stage behind them. Monumental pointed cathedral arches, dark amplifier stacks, iron trusses and a carved horned demon-skull stage ornament frame an orange-red circular five-point star light fixture in the distance. Flame jets rise safely at the far sides. Crowd silhouettes and raised horn gestures across the lower edge. Dramatic low viewpoint, strong composition with figures in the lower middle, huge atmospheric purple clouds and gothic spires behind. Fictional musicians, no identifiable real people or band branding. The entire wallpaper is concert art, without any desktop interface.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "00762af2b9e6d60bf08bbe9ac7c64b4f442083f195fcfdee0c303c7ee43b6ba3"
+    },
+    {
+      "file": "cathedral-of-sound.png",
+      "title": "Cathedral of Sound",
+      "prompt": "Use case: stylized-concept. Asset type: an original finished desktop wallpaper for Hyper Fusion's Infernal Encore theme. Wide 16:9 landscape, 2560 by 1440 if supported. Premium heavy-metal album-cover illustration, highly detailed confident hand-painted comic realism, blackened graphite, crimson stage light, molten orange fire, antique brass and bone highlights, stormy plum-purple shadows. Fill the entire image with the scene, one complete composition. Keep the upper outer edges relatively dark so real desktop content remains readable. No computer windows, UI, taskbars, desktop icons, title text, captions, logos, readable lettering, watermarks or mockup borders. No gore. Scene: an atmospheric empty gothic cathedral transformed into an immense concert venue, viewed from the back of the dark stone nave toward a raised circular stage. Tall pointed iron-and-stone arches converge into deep perspective; paired brass-edged speaker towers flank a glowing red circular occult star stage ornament. Crimson stained glass, restrained flame braziers and amber stage lamps illuminate black stone, chains and worn velvet curtains. The ceiling and upper side aisles fall into charcoal-purple shadow. A polished black floor reflects narrow red and golden beams through incense haze. No people, no close-up instruments and no crowd. Symmetrical architectural grandeur, quiet anticipation before a concert, ample dark space, completely distinct from a performance illustration.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "befa65ff99815d5ab3792d898ee901a0b315b0cba5509968149d6ef96f25eb49"
+    },
+    {
+      "file": "backstage-embers.png",
+      "title": "Backstage Embers",
+      "prompt": "Use case: stylized-concept. Asset type: an original finished desktop wallpaper for Hyper Fusion's Infernal Encore theme. Wide 16:9 landscape, 2560 by 1440 if supported. Premium heavy-metal album-cover illustration, highly detailed confident hand-painted comic realism, blackened graphite, crimson stage light, molten orange fire, antique brass and bone highlights, stormy plum-purple shadows. Fill the entire image with the scene, one complete composition. Keep the upper outer edges relatively dark so real desktop content remains readable. No computer windows, UI, taskbars, desktop icons, title text, captions, logos, readable lettering, watermarks or mockup borders. No gore. Scene: an intimate cinematic still life in the backstage room of a gothic concert hall. An elegantly angular black electric guitar with ivory binding, metal strings and subtle flame-red inlay leans diagonally against a large worn black amplifier cabinet with brass corner protectors and knobs, occupying the left two thirds. A coiled instrument cable, a few heavy chains and a leather guitar strap rest on dark stone in the foreground. Carved horned-skull ornaments and a small red star charm hang from a road case. At right, an open pointed-arch doorway reveals distant crimson stage beams and purple fog. Warm ember light from a safely contained iron brazier grazes the instrument and textured cabinet. No performers, no readable amplifier brand or text. Rich tactile materials, calm shadowed composition, close viewpoint and distinct still-life arrangement.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "d6fbe436a98819aaa5ac21c1dec6742526141e068a4116a71ebbe59ec7b1c13e"
+    }
+  ]
+}

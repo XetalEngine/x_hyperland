@@ -22,6 +22,8 @@ from sounds.model import PACKS, EVENTS
 RATE = 48000
 # tonic, voice, unique opening melody (semitones), beat spacing
 SCORES = {
+    'infernalencore': (52, 'encore', [0, 0, 7, 10, 7, 3], .29),
+    'midnightrun': (63, 'neon', [0, 7, 12, 10, 14, 7], .27),
     'platform95': (65, 'station95', [0, 4, 7, 12, 9, 4], .31),
     'mycelium': (64, 'spore', [0, 7, 10, 14, 12, 7], .42),
     'atomicafterglow': (57, 'isotope', [0, 7, 14, 11, 7, 12], .33),
@@ -53,6 +55,18 @@ def voice(midi, duration, kind, seed=0):
     elif kind == 'analog':
         out = sum(np.sin(phase*h) * np.exp(-(2.6+h)*t) / h**1.7 for h in range(1, 7))
         out += .16 * np.sin(phase*.5) * np.exp(-3*t); attack = .018
+    elif kind == 'neon':
+        out = np.sin(phase + .85*np.exp(-7*t)*np.sin(phase*2))*np.exp(-3.2*t)
+        out += .16*np.sin(phase*2.004)*np.exp(-5.5*t)
+        out += .12*np.sin(phase*.5)*np.exp(-2.4*t)*(1-np.exp(-18*t))
+        attack = .032
+    elif kind == 'encore':
+        # Muted string harmonics with a quiet fifth; restrained drive, no samples.
+        out = sum(np.sin(phase*h)*np.exp(-(3.8+h*.85)*t)/h**1.6 for h in range(1,9))
+        out += .16*np.sin(phase*1.4983)*np.exp(-4.2*t)
+        out = np.tanh(out*1.2)/1.2
+        out += .08*np.sin(phase*.5)*np.exp(-3*t)
+        attack = .024
     elif kind == 'string':
         out = sum(np.sin(phase*h + .025*np.sin(t*13)) * np.exp(-(2.5+h*.7)*t) / h**1.5 for h in range(1, 10))
         out += .16 * np.sin(phase*2.008) * np.exp(-6*t)
@@ -102,7 +116,7 @@ def voice(midi, duration, kind, seed=0):
 
 def score(pack, event):
     tonic, kind, motif, beat = SCORES[pack]
-    minor = pack in ('mycelium', 'blackwood', 'breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge')
+    minor = pack in ('infernalencore', 'midnightrun', 'mycelium', 'blackwood', 'breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge')
     third = 3 if minor else 4
     # time, midi note, length, gain, stereo pan
     if event == 'startup':

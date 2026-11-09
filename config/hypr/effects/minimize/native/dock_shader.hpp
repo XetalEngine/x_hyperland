@@ -29,8 +29,8 @@ void main(){
   fragColor=vec4(mix(warm,mix(ink,vec3(1.,.72,.25),.5),core)*a,a)*opacity;return;
  }
  vec2 p=(uv-.5)*dims;vec2 halfSize=dims*.5-vec2(8.);
- float radius=style==16?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
- if(part==1)radius=style==16?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
+ float radius=style==18?5.:style==17?7.:style==16?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
+ if(part==1)radius=style==18?4.:style==17?6.:style==16?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
  radius=min(radius,min(halfSize.x,halfSize.y));
  float distance=roundBox(p,halfSize,radius);
  if(style==2||style==3||style==8)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+(style==3?19.:style==8?14.:10.))*.7071);
@@ -44,7 +44,40 @@ void main(){
  float rim=.26;
  float jewel=0.;float jewelHalo=0.;float gildedSweep=0.;
  if(part==0){
-  if(style==16){
+  if(style==18){
+   // Amplifier Rack: speaker end caps, brass guards and red power lamps.
+   vec3 brass=mix(tint,ink,.65);
+   vec2 q=vec2(halfSize.x-abs(p.x),p.y);
+   body=mix(base,ink,shine*.07);rim=.20;
+   float cap=1.-smoothstep(23.,24.,q.x);
+   float grille=step(.75,fract(q.x/3.))*step(.7,fract(p.y/3.));
+   body+=ink*grille*cap*.08;
+   for(int i=0;i<2;i++){
+    vec2 c=q-vec2(12.,-11.+float(i)*22.);
+    body+=brass*exp(-abs(length(c)-6.)*2.)*.65;
+    decoration+=exp(-dot(c,c)*.8)*.45;
+   }
+   float guard=step(q.x,18.)*exp(-abs(abs(p.y)-halfSize.y+3.)*2.);
+   guard+=step(abs(p.y),halfSize.y-3.)*step(halfSize.y-14.,abs(p.y))*exp(-abs(q.x-3.)*2.);
+   body+=brass*min(1.,guard)*.8;
+   body+=brass*exp(-abs(p.y+halfSize.y-4.)*2.)*step(25.,q.x)*.5;
+   decoration+=exp(-abs(p.y-halfSize.y+4.)*2.)*step(25.,q.x)*.55;
+  }else if(style==17){
+   // Neon Pit Lane: lacquer, cyan/magenta rails and angled light fins.
+   // Rotate the selected accent channels so both colors follow the palette.
+   vec3 neon=tint.brg;
+   vec2 q=vec2(halfSize.x-abs(p.x),p.y);
+   body=mix(base,tint,.04)+ink*shine*.10;rim=.42;
+   float span=step(23.,q.x);
+   decoration=exp(-abs(p.y+halfSize.y-6.)*1.8)*span*.8;
+   body+=neon*exp(-abs(p.y-halfSize.y+6.)*1.7)*span*.8;
+   for(int i=0;i<2;i++){
+    float x=8.+float(i)*5.;
+    float fin=line(q,vec2(x,7.),vec2(x+4.,-7.));
+    body+=mix(tint,neon,float(i))*exp(-fin*1.7)*.8;
+   }
+   metal=exp(-abs(p.y-halfSize.y+3.)*1.8)*span*step(.65,fract((p.x+halfSize.x)/19.))*.16;
+  }else if(style==16){
    // Parcel Shelf: classic raised casework, brass shelf rail and end handles.
    vec2 q=vec2(halfSize.x-abs(p.x),p.y);
    body=mix(base,ink,.04*shine);rim=0.;
@@ -272,6 +305,29 @@ void main(){
   body=mix(base,tint,.08+emphasis*.14)+ink*shine*.045;
   rim=.08+emphasis*.25;
   decoration=exp(-abs(p.y-halfSize.y+3.)*1.7)*(.25+.4*emphasis);
+  if(style==18){
+   vec3 brass=mix(tint,ink,.65);
+   body=mix(base,tint,.035+emphasis*.09)+ink*shine*.06;rim=.2+emphasis*.35;
+   body+=brass*exp(-abs(p.y+halfSize.y-3.)*2.)*step(abs(p.x),halfSize.x-5.)*.45;
+   float strip=step(abs(p.y-halfSize.y+8.),4.)*step(abs(p.x),halfSize.x-5.);
+   body=mix(body,base*.65,strip);
+   decoration=0.;
+   for(int i=-1;i<=1;i++){
+    vec2 knob=p-vec2(float(i)*6.,halfSize.y-8.);
+    body+=brass*(1.-smoothstep(1.,1.6,length(knob)))*.7;
+   }
+   vec2 lamp=p-vec2(halfSize.x-8.,halfSize.y-8.);
+   decoration=exp(-dot(lamp,lamp)*.6)*(.6+emphasis*.3);
+  }
+  if(style==17){
+   body=mix(base,tint,.04+emphasis*.08)+ink*shine*.07;rim=.25+emphasis*.4;
+   decoration=exp(-abs(p.y+halfSize.y-5.)*1.8)*step(abs(p.x),halfSize.x-8.)*(.35+emphasis*.35);
+   body+=tint.brg*exp(-abs(p.y-halfSize.y+5.)*1.8)*step(abs(p.x),halfSize.x-8.)*(.45+emphasis*.4);
+   for(int i=0;i<2;i++){
+    float x=halfSize.x-10.-float(i)*4.;
+    body+=tint.brg*exp(-line(p,vec2(x-2.,halfSize.y-10.),vec2(x,halfSize.y-15.))*2.)*.35;
+   }
+  }
   if(style==16){
    body=mix(base,tint,.035+emphasis*.12);rim=0.;
    decoration=exp(-abs(p.y-halfSize.y+6.)*2.)*step(abs(p.x),halfSize.x-7.)*(.25+emphasis*.55);

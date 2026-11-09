@@ -12,7 +12,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 
 | Control Panel entry | Included tools |
 | --- | --- |
-| Proton | Integrated XetalProton: isolated/shared prefixes, Windows shortcuts, 13-provider Proton downloader, UMU, updates, Winetricks dependencies, compatibility options, command export and process logs. [Guide →](../config/hypr/control_panel/proton/README.md) |
+| Proton | Integrated XetalProton: isolated/shared prefixes, Windows shortcuts, 13-provider tool downloader, UMU, updates, Winetricks dependencies, compatibility options, command export and process logs. [Screenshots and feature showcase →](../README.md#windows-apps-with-our-custom-proton-manager) · [Guide →](../config/hypr/control_panel/proton/README.md) |
 | System ISO | Full system clone, exclusions, online/offline packages, archive selection/verification, first-boot hardware/identity changes, output, restore guide, dependency checks and dummy installer preview |
 | System Backup / System Restore | Source/destination drives, filesystem browsing, rsync backup and restore |
 | Drives & Storage | Filters, mounts, labels, formatting, ownership/permissions, SMART health, benchmarking and ISO to USB |

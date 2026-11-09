@@ -1,0 +1,37 @@
+{
+  "id": "midnightrun",
+  "title": "Midnight Run",
+  "provenance": "Original artwork generated with the built-in image_gen tool for Hyper Fusion.",
+  "images": [
+    {
+      "file": "neon-after-hours.png",
+      "title": "Neon After Hours",
+      "prompt": "Use case: stylized-concept. Asset type: an original finished desktop wallpaper for Hyper Fusion's Midnight Run theme. Wide 16:9 landscape, 2560 by 1440 if supported. Premium richly detailed Japanese anime environment painting with cinematic realism, graphite-black surfaces, electric cyan and saturated magenta neon, small warm amber lights, indigo night sky, rain and wet reflective asphalt. Fill the complete frame with the artwork. Preserve calm darker breathing room in upper and outer regions for real desktop content. No computer windows, taskbars, desktop icons, UI, mockup borders, captions, typography, theme name, watermarks or prominent readable lettering. One complete composition, not a collage. Scene: street-level front three-quarter view of a low glossy black European sports sedan parked in a rain-soaked Tokyo side street, car across the lower center with tasteful silver multi-spoke wheels and sharp white LED headlamps, accurate elegant proportions. Pink cherry blossoms hang at the upper left above small warm-lit ramen storefronts and cyan/pink vending machines. Elevated expressway and a distant illuminated Tokyo tower recede at the right; scattered high-rise windows behind. Bright cyan and magenta reflections ripple across puddles beneath the car. The car is the hero, background remains coherent and spacious; no people in the foreground. Inspired by the supplied rainy neon Tokyo desktop concept, but render only the actual wallpaper scene, without any painted desktop interface.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "f00c68a0c09b2188d35a61b6c49a1c58c0e1fe98dd420fd0291f475e037ebebf"
+    },
+    {
+      "file": "expressway-blue-hour.png",
+      "title": "Expressway Blue Hour",
+      "prompt": "Use case: stylized-concept. Asset type: an original finished desktop wallpaper for Hyper Fusion's Midnight Run theme. Wide 16:9 landscape, 2560 by 1440 if supported. Premium richly detailed Japanese anime environment painting with cinematic realism, graphite-black surfaces, electric cyan and saturated magenta neon, small warm amber lights, indigo night sky, rain and wet reflective asphalt. Fill the complete frame with the artwork. Preserve calm darker breathing room in upper and outer regions for real desktop content. No computer windows, taskbars, desktop icons, UI, mockup borders, captions, typography, theme name, watermarks or prominent readable lettering. One complete composition, not a collage. Scene: a dramatically different panoramic composition from a high viewpoint over a sweeping elevated Japanese urban expressway at midnight. A small sleek black sports sedan seen from the rear follows the broad curve from the lower left toward the distant skyline. Restrained pink tail-light reflections streak along wet pavement; cyan guardrail light traces the curve. Deep indigo glass towers rise through soft rain and mist, a pink-lit communications tower far away, restrained luminous rooftop panels without readable text. Expansive open stormy sky in the upper half. Strong perspective, atmospheric scale, calm cinematic motion, the city and curve dominate instead of a close-up car.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "7be3b3a719b0af52fa6f5f3ea65f69861b1ee3a9e2705e9de2b8384abfeb6d6c"
+    },
+    {
+      "file": "sakura-rain.png",
+      "title": "Sakura Rain",
+      "prompt": "Use case: stylized-concept. Asset type: an original finished desktop wallpaper for Hyper Fusion's Midnight Run theme. Wide 16:9 landscape, 2560 by 1440 if supported. Premium richly detailed Japanese anime environment painting with cinematic realism, graphite-black surfaces, electric cyan and saturated magenta neon, small warm amber lights, indigo night sky, rain and wet reflective asphalt. Fill the complete frame with the artwork. Preserve calm darker breathing room in upper and outer regions for real desktop content. No computer windows, taskbars, desktop icons, UI, mockup borders, captions, typography, theme name, watermarks or prominent readable lettering. One complete composition, not a collage. Scene: a quiet narrow Tokyo canal-side shopping lane at night, viewed along the empty wet pedestrian pavement and dark canal toward a small arched footbridge in the middle distance. Dense pink sakura branches frame the top right, a few fallen petals float in foreground puddles. Closed dark-wood storefronts and small warm lamps line the left; luminous cyan vending machines and magenta neon shapes without readable lettering reflect in the water. Distant high-rise silhouettes fade into indigo rain. No cars and no foreground people in this composition. Emphasize reflective water, delicate branches, deep shadow and a serene sense of place; not a variation or crop of a car street scene.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "899293988889c880f0afb4bba85922174c3e9f7b292a0b754200afa9dab4d31f"
+    }
+  ]
+}

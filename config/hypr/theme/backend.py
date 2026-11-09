@@ -353,6 +353,12 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     elif design=='shadowedge':
         from shadowedge import compositor
         content+=compositor(colors)
+    elif design=='infernalencore':
+        from infernalencore import compositor
+        content+=compositor(colors)
+    elif design=='midnightrun':
+        from midnightrun import compositor
+        content+=compositor(colors)
     elif design=='platform95':
         from platform95 import compositor
         content+=compositor(colors)

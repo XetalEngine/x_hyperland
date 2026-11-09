@@ -83,5 +83,15 @@
     "platform95/golden-concourse.png",
     "platform95/evening-platform.png",
     "platform95/highland-crossing.png"
+  ],
+  "midnightrun": [
+    "midnightrun/neon-after-hours.png",
+    "midnightrun/expressway-blue-hour.png",
+    "midnightrun/sakura-rain.png"
+  ],
+  "infernalencore": [
+    "infernalencore/final-encore.png",
+    "infernalencore/cathedral-of-sound.png",
+    "infernalencore/backstage-embers.png"
   ]
 }

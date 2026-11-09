@@ -52,7 +52,7 @@ Hyper Fusion brings the whole desktop together: a launcher you can arrange yours
 
 Fresh installations use **Use Other Icons → Papirus-Dark**. Desktop updates preserve your saved icon choices.
 
-**Control Panel → Software & maintenance → Proton** includes XetalProton's Windows application library, isolated prefixes, Proton downloads and updates, Winetricks dependencies, and launch controls. It shares existing XetalProton data. See the [Proton guide](config/hypr/control_panel/proton/README.md).
+**Control Panel → Software & maintenance → Proton** includes our custom Windows application manager, with isolated prefixes, Proton downloads, dependencies and launch controls. [See it in action below.](#windows-apps-with-our-custom-proton-manager)
 
 ## Tested on
 
@@ -165,6 +165,10 @@ The **Presets** gallery shows every theme in a full-width banner. Search by name
 
 **[Platform 95](config/hypr/theme/PLATFORM95.md)** brings classic ivory bevels, espresso headers and antique-gold selections to the desktop. Gold folders, a clock cursor, luggage-cart transfers, the Parcel Shelf minimize dock and Golden departure sounds accompany three original railway wallpapers. Light mode follows the concept, with dark and high-contrast alternatives.
 
+**[Midnight Run](config/hypr/theme/MIDNIGHT_RUN.md)** brings rainy Tokyo nights to the desktop: graphite surfaces, cyan edges, magenta selections and neon outline icons. Its wheel cursor, courier-car file transfers, Neon Pit Lane minimize dock and After-hours signals sound pack accompany three original wallpapers featuring a black sports sedan, an elevated expressway and a sakura-lined canal. Dark, light and high-contrast modes are included.
+
+**[Infernal Encore](config/hypr/theme/INFERNAL_ENCORE.md)** turns the desktop into a gothic concert stage: blackened metal, brass bevels, crimson switches and riveted folder icons. The Infernal Blade cursor, speaker-to-speaker file transfers, Amplifier Rack minimize dock and Backstage signals sound pack accompany three original wallpapers: a fiery live performance, a cathedral venue and an ember-lit backstage guitar. Includes dark, light and high-contrast modes.
+
 Tidal Glass, Porcelain Ink, Obsidian Forge, and **Candy Cloud** bring four distinct atmospheres to the gallery. Obsidian Forge pairs machined basalt panels and copper edges with three original volcanic wallpapers: Basalt Reach, The Forge, and Ashen Observatory. Its Cinder wake mouse trail lifts embers from a cooling fissure; its file-transfer animation carries glowing documents through basalt presses.
 
 Candy Cloud adds sculpted satin controls, pill-shaped navigation, a pearlescent taskbar, and three floating-island wallpapers: Sugar Sky, Cloud Palace, and Moon Ribbon, assigned left to right. Its Cloud nine trail releases small clouds and four-point stars, while cloud couriers carry envelopes along a ribbon during file transfers. These styles, its Orchid cursor, and its Start menu can be mixed independently through their detailed tabs or Mix & match. Every preset starts dark; Candy Cloud also includes pastel light and high-contrast modes. Kitty stays dark in every mode, and the optional selection marker starts Off. Wallpaper generation prompts are kept beside each atmosphere's artwork.
@@ -250,6 +254,28 @@ The **Custom KVM module · Ultra AMD Stealth Interceptor** is **optional** and a
 
 Runtime components download inside KVM Settings; they are not bundled with the desktop. Supply your own guest installation media and disks. Physical GPU passthrough and guest behavior still depend on the host hardware. [KVM setup, components and recovery →](docs/KVM.md)
 
+## Windows apps with our custom Proton manager
+
+**XetalProton is built into Hyper Fusion's Control Panel.** Manage Windows applications and games from a native interface that follows your desktop theme, with your library, prefixes, downloads, dependencies and process logs together. Open **Control Panel → Software & maintenance → Proton**.
+
+[![Hyper Fusion desktop with the custom Proton manager, Windows application shortcuts, prefix selector and launch command preview](docs/screenshots/proton-library.png)](docs/screenshots/proton-library.png)
+
+*The library on the live desktop: related applications share the selected custom prefix, with a chosen Proton version and individual launch controls. Click either screenshot to view it at full resolution.*
+
+- **Custom, isolated prefixes:** create a separate Windows environment for each application, or share a prefix between a launcher and its games. Each prefix keeps its own Windows files, registry and dependencies. Import existing prefixes, rename them, choose their storage location, measure disk usage and open their C: drive.
+- **Proton versions per prefix and per app:** select a default runner for each prefix and override it for an individual shortcut. Install newer builds alongside older ones while keeping your existing selections.
+- **A Windows application library:** add installers and executables, drag and drop programs, run something once, or save a shortcut with its extracted icon. Edit, duplicate and organize shortcuts within their prefixes.
+- **Dependencies and Windows utilities:** install Winetricks components into the selected prefix, review their status and retry failed installs. Open Wine configuration, Registry Editor, Windows Control Panel, Task Manager, Explorer and Command Prompt from **Prefix tools**.
+- **Detailed launch controls:** configure arguments, working directories, graphics and synchronization options, custom environment variables and wrappers. Preview or copy the generated command, export an executable `.sh` launcher, and follow each application's log under **Processes and logs**.
+
+[![Proton download manager showing Proton-GE releases, archive variants, sizes, availability and download controls](docs/screenshots/proton-downloads.png)](docs/screenshots/proton-downloads.png)
+
+*Downloads → Available: browse Proton-GE releases, compare versions and sizes, then select a build to download and install.*
+
+The downloader includes **13 tool providers**, including Proton-GE, CachyOS and UMU. Search releases, browse older versions, choose archive variants, filter prereleases and inspect CPU compatibility. Downloads show progress, support cancellation and recovery of resumable partial files, verify published checksums and stage extraction before installation. **Installed** manages downloaded tools; **Updates** finds newer matching builds without switching existing prefixes automatically.
+
+UMU is prepared automatically when downloading Proton, and Steam is optional. Existing XetalProton prefixes, shortcuts and downloaded tools are reused; desktop updates keep that personal data separate. [Full Proton feature guide and setup instructions →](config/hypr/control_panel/proton/README.md)
+
 ## Tools that fit the desktop
 
 | Control Panel | File picker with previews |
@@ -259,6 +285,7 @@ Runtime components download inside KVM Settings; they are not bundled with the d
 | Tool | What you get |
 | --- | --- |
 | **Control Panel** | A searchable native interface built from CachyOsTools: hardware, storage, services, startup apps, backups, system tools and shortcuts. **Some features remain Arch-only until further notice**, including Pacman/Paru/Yay and Arch package repair/kernel tools. [Feature map and platform requirements →](docs/CONTROL-PANEL.md) |
+| **Proton** | Our integrated XetalProton manager: Windows application library, custom prefixes, per-app runners, Proton downloads and updates, Winetricks, launch options and process logs. [Proton guide →](config/hypr/control_panel/proton/README.md) |
 | **GRUB Boot Editor** | Select a drive, let Hyper Fusion detect Windows or Linux, give it a name and add it to your boot menu. Includes rename, removal, backups and undo while keeping your existing theme and entries. [Boot editor →](docs/GRUB-BOOT-EDITOR.md) |
 | **Session log protection** | Enabled by default. Clears oversized Hyprland and Hyper Fusion session logs above 64 MiB every minute to protect runtime space. **Control Panel → System Tweaks → Hyprland** also offers **Disable session logs to file**, effective at the next login. [Log guard →](docs/CONTROL-PANEL.md#hyprland-log-guard) |
 | **System ISO** | Create an Arch-based system clone, then restore through a graphical Hyper Fusion wizard with drive cards, review and progress, plus an automatic console fallback. Choose whether the ISO requires a fresh administrator account or preserves existing accounts. Try **Control Panel → System ISO → Preview installer…** with sample drives first. [Restore wizard →](docs/CONTROL-PANEL.md#system-iso) |

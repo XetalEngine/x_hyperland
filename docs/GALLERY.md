@@ -1,7 +1,8 @@
 # Hyper Fusion · Panel gallery
 
 A tour of the real Xetal interface. Click any picture for its full resolution.
-Panel captures use an isolated copy of the author's Hyprland profile. The full
+Most panel captures use an isolated copy of the author's Hyprland profile. The Proton
+screenshots below were supplied by the author from the live desktop and are included unchanged. The full
 Super+D scene was captured on the desktop over an empty temporary workspace,
 then the original workspace was restored. Applications shown in
 Favorites are installed separately. The file-progress cards use sample jobs;
@@ -126,6 +127,18 @@ Created with the built-in imagegen tool. [Wallpaper generation prompts](../confi
 [![Cube and 3D Window controls](screenshots/cube.png)](screenshots/cube.png)
 
 ## Floating tools
+
+### Custom Proton manager
+
+XetalProton is integrated into **Control Panel → Software & maintenance → Proton** and follows the active desktop theme. Create independent Windows prefixes or share one between related applications, choose a Proton version for each prefix or shortcut, and manage dependencies and launch options in the same panel.
+
+[![Custom Proton library on the Hyper Fusion desktop, with Windows shortcuts, a custom prefix and launch command preview](screenshots/proton-library.png)](screenshots/proton-library.png)
+
+The downloader offers 13 tool providers, release search, archive variants, compatibility filters, resumable downloads and updates that preserve your current prefix selections.
+
+[![Proton-GE releases in the integrated downloader, showing versions, sizes and installation controls](screenshots/proton-downloads.png)](screenshots/proton-downloads.png)
+
+[Feature showcase](../README.md#windows-apps-with-our-custom-proton-manager) · [Setup and complete feature guide](../config/hypr/control_panel/proton/README.md)
 
 ### Xetal Images
 

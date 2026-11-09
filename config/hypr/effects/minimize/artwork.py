@@ -146,8 +146,54 @@ def parcel_shelf(p,width,colors,phase):
     parcel_bevel(p,box.adjusted(1,1,-1,-1),colors);p.restore()
 
 
+def neon_pit_lane(p,width,colors,phase):
+    """Lacquer, twin neon rails and light fins, mirrored by native ID 17."""
+    p.save();box=QRectF(8,8,width-16,80)
+    accent=QColor(colors['Accent']);ink=QColor(colors['WindowText'])
+    pink=QColor.fromRgbF(accent.blueF(),accent.redF(),accent.greenF())
+    surface=QLinearGradient(box.topLeft(),box.bottomLeft())
+    surface.setColorAt(0,blend(colors['Window'],ink,.10));surface.setColorAt(1,blend(colors['Window'],accent,.04))
+    p.setBrush(surface);p.setPen(QPen(alpha(accent,.42),1));p.drawRoundedRect(box,7,7)
+    p.setPen(QPen(alpha(accent,.8),1.4));line(p,31,14,width-31,14)
+    p.setPen(QPen(alpha(pink,.8),1.4));line(p,31,82,width-31,82)
+    p.setPen(QPen(alpha(ink,.16),1))
+    for x in range(35,int(width-31),19):line(p,x,85,min(x+6,width-31),85)
+    for x,direction in ((8,1),(width-8,-1)):
+        for i,color in enumerate((accent,pink)):
+            p.setPen(QPen(alpha(color,.8),1.6));dx=8+i*5
+            line(p,x+direction*dx,55,x+direction*(dx+4),41)
+    p.restore()
+
+
+def amplifier_rack(p,width,colors,phase):
+    """Brass guards and twin-speaker end caps, mirrored by native ID 18."""
+    p.save();box=QRectF(8,8,width-16,80)
+    accent=QColor(colors['Accent']);ink=QColor(colors['WindowText']);brass=blend(accent,ink,.65)
+    surface=QLinearGradient(box.topLeft(),box.bottomLeft())
+    surface.setColorAt(0,blend(colors['Window'],ink,.07));surface.setColorAt(1,QColor(colors['Window']))
+    p.setBrush(surface);p.setPen(QPen(alpha(accent,.2),1));p.drawRoundedRect(box,5,5)
+    for x,direction in ((8,1),(width-8,-1)):
+        p.setPen(QPen(alpha(ink,.08),1))
+        for dx in range(3,24,3):
+            for y in range(15,83,3):p.drawPoint(QPointF(x+direction*dx,y))
+        for y in (37,59):
+            p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(alpha(brass,.65),1));p.drawEllipse(QPointF(x+direction*12,y),6,6)
+            p.setBrush(alpha(accent,.45));p.setPen(Qt.PenStyle.NoPen);p.drawEllipse(QPointF(x+direction*12,y),1.5,1.5)
+        p.setPen(QPen(alpha(brass,.8),1.5))
+        for y,dy in ((11,1),(85,-1)):
+            line(p,x+direction*3,y,x+direction*18,y)
+            line(p,x+direction*3,y,x+direction*3,y+dy*11)
+    p.setPen(QPen(alpha(brass,.5),1));line(p,33,12,width-33,12)
+    p.setPen(QPen(alpha(accent,.55),1.3));line(p,33,84,width-33,84)
+    p.restore()
+
+
 def tray(painter, width, style, colors, phase):
     """Draw a horizontal tray in a width × 96 coordinate space."""
+    if style == 'infernalencore':
+        amplifier_rack(painter,width,colors,phase);return
+    if style == 'midnightrun':
+        neon_pit_lane(painter,width,colors,phase);return
     if style == 'platform95':
         parcel_shelf(painter,width,colors,phase);return
     if style == 'mycelium':
@@ -381,8 +427,28 @@ def dock(p, area, style, colors, *, phase=0., weights=(1., 1., 1.), zoom=(), ver
         p.save(); p.setOpacity(p.opacity()*max(0., min(1., weight)))
         if not stack:
             p.setPen(QPen(alpha(colors['Accent'], .12+(z-1)), .8)); p.setBrush(alpha(colors['Accent'], .035+(z-1)*.1))
-            radius = 1 if style == 'platform95' else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style == 'midnighttransit' else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
+            radius = 4 if style == 'infernalencore' else 1 if style == 'platform95' else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style in ('midnighttransit','midnightrun') else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
             p.drawRoundedRect(rect, radius, radius)
+        if style == 'infernalencore' and not stack:
+            accent=QColor(colors['Accent']);brass=blend(accent,colors['WindowText'],.65)
+            pane=QLinearGradient(rect.topLeft(),rect.bottomLeft())
+            pane.setColorAt(0,blend(colors['Window'],colors['WindowText'],.06));pane.setColorAt(1,blend(colors['Window'],accent,.035+(z-1)*.09))
+            p.setBrush(pane);p.setPen(QPen(alpha(accent,min(1,.2+(z-1)*.35)),.8));p.drawRoundedRect(rect,4,4)
+            p.setPen(QPen(alpha(brass,.45),1));line(p,rect.left()+5,rect.top()+3,rect.right()-5,rect.top()+3)
+            p.fillRect(QRectF(rect.left()+5,rect.bottom()-12,rect.width()-10,8),blend(colors['Window'],'#000000',.35))
+            p.setBrush(alpha(brass,.7));p.setPen(Qt.PenStyle.NoPen)
+            for dx in (-6,0,6):p.drawEllipse(QPointF(rect.center().x()+dx,rect.bottom()-8),1.4,1.4)
+            p.setBrush(alpha(accent,min(1,.6+(z-1)*.3)));p.drawEllipse(QPointF(rect.right()-8,rect.bottom()-8),1.6,1.6)
+        if style == 'midnightrun' and not stack:
+            accent=QColor(colors['Accent']);pink=QColor.fromRgbF(accent.blueF(),accent.redF(),accent.greenF())
+            pane=QLinearGradient(rect.topLeft(),rect.bottomLeft())
+            pane.setColorAt(0,blend(colors['Window'],colors['WindowText'],.07));pane.setColorAt(1,blend(colors['Window'],accent,.04+(z-1)*.08))
+            p.setBrush(pane);p.setPen(QPen(alpha(accent,min(1,.25+(z-1)*.4)),.8));p.drawRoundedRect(rect,6,6)
+            p.setPen(QPen(alpha(accent,min(1,.35+(z-1)*.35)),1.3));line(p,rect.left()+8,rect.top()+5,rect.right()-8,rect.top()+5)
+            p.setPen(QPen(alpha(pink,min(1,.45+(z-1)*.4)),1.3));line(p,rect.left()+8,rect.bottom()-5,rect.right()-8,rect.bottom()-5)
+            p.setPen(QPen(alpha(pink,.35),1))
+            for i in range(2):
+                x=rect.right()-10-i*4;line(p,x-2,rect.bottom()-10,x,rect.bottom()-15)
         if style == 'platform95' and not stack:
             p.fillRect(rect,blend(colors['Window'],colors['Accent'],.035+(z-1)*.12))
             parcel_bevel(p,rect.adjusted(1,1,-1,-1),colors,True)

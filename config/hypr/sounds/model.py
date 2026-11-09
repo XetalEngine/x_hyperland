@@ -10,6 +10,8 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 PATH = ROOT / 'sounds/settings.json'
 PACKS = {
+    'infernalencore': ('Infernal Encore', 'Backstage signals', 'Soft muted guitar harmonics and restrained minor-key power chords.', '#ff472c'),
+    'midnightrun': ('Midnight Run', 'After-hours signals', 'Soft synth plucks, neon bell harmonics and a restrained minor arpeggio.', '#42e5f5'),
     'platform95': ('Platform 95', 'Golden departure', 'Warm desk-bell notes and a gentle major-key welcome.', '#d1aa58'),
     'mycelium': ('Mycelium', 'Spore songs', 'Airy wooden chimes and soft, luminous bell harmonics.', '#c9a0e1'),
     'atomicafterglow': ('Atomic Afterglow', 'Phosphor signals', 'Soft analog instruments, warm sine chimes and a quiet rising signal.', '#b5ed29'),

@@ -45,6 +45,133 @@ def success(p, center, accent):
     p.drawLine(center+QPointF(-1, 6), center+QPointF(11, -7))
 
 
+def infernalencore(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Documents ride a sound wave between two brass amplifier cabinets.
+
+    Each document, halo and note trail fades as one at its own route wrap.
+    The wave and tilt use whole periods so phase zero and one render alike.
+    """
+    p.save();mid=box.center();left=box.left()+31;right=box.right()-31
+    ink=QColor('#f4dfbd' if surface.lightnessF()<.5 else '#503329')
+    for x,zipped in ((left,extracting),(right,archive)):
+        case=QRectF(x-21,mid.y()-27,42,54)
+        p.setBrush(surface);p.setPen(QPen(ink,1.3));p.drawRoundedRect(case,3,3)
+        p.setPen(QPen(alpha(ink,180),1));p.drawLine(case.topLeft()+QPointF(3,9),case.topRight()+QPointF(-3,9))
+        for dx in (-12,-5,2):
+            p.setBrush(ink);p.setPen(Qt.PenStyle.NoPen);p.drawEllipse(QPointF(x+dx,mid.y()-22),1.3,1.3)
+        p.setBrush(accent);p.drawEllipse(QPointF(x+13,mid.y()-22),1.8,1.8)
+        for y in (-8,13):
+            p.setBrush(alpha(ink,22));p.setPen(QPen(alpha(ink,150),1));p.drawEllipse(QPointF(x,mid.y()+y),8,8)
+            p.setBrush(alpha(accent,110));p.drawEllipse(QPointF(x,mid.y()+y),2,2)
+        for dx in (-17,17):
+            for dy in (-24,24):
+                p.setBrush(ink);p.setPen(Qt.PenStyle.NoPen);p.drawEllipse(QPointF(x+dx,mid.y()+dy),.9,.9)
+        if zipped:
+            p.setPen(QPen(accent,1.5))
+            for dy in range(-14,23,5):p.drawLine(QPointF(x+14,mid.y()+dy),QPointF(x+17,mid.y()+dy))
+    if result:
+        if result=='done':success(p,mid,accent)
+        p.restore();return
+    start,end=left+27,right-27
+    wave=QPainterPath()
+    for i in range(81):
+        t=i/80;x=start+(end-start)*t
+        y=mid.y()+15+math.sin(t*math.tau*2+phase*math.tau)*3*math.sin(t*math.pi)
+        if i==0:wave.moveTo(x,y)
+        else:wave.lineTo(x,y)
+    p.setPen(QPen(alpha(accent,95),1));p.setBrush(Qt.BrushStyle.NoBrush);p.drawPath(wave)
+    for index in range(count):
+        t=(phase+index/count)%1
+        fade=min(1.,t/.12,(1-t)/.12);fade=fade*fade*(3-2*fade)
+        travel=1-t if extracting else t;direction=-1 if extracting else 1
+        x=start+(end-start)*travel;y=mid.y()-7-math.sin(travel*math.pi)*8
+        p.save();p.setOpacity(p.opacity()*fade)
+        if trails:
+            p.setPen(QPen(alpha(ink,110),1));p.setBrush(alpha(accent,115))
+            for n in range(1,4):
+                nx=x-direction*(12+n*9);ny=y+4+math.sin(t*math.tau+n)*3
+                p.drawEllipse(QPointF(nx,ny),2,1.4);p.drawLine(QPointF(nx+2,ny),QPointF(nx+2,ny-6))
+        if glow:
+            halo=QRadialGradient(QPointF(x,y),22);halo.setColorAt(0,alpha(accent,glow));halo.setColorAt(1,alpha(accent,0))
+            p.setBrush(halo);p.setPen(Qt.PenStyle.NoPen);p.drawEllipse(QPointF(x,y),22,18)
+        p.translate(x,y);p.rotate(math.sin(t*math.tau)*9);paper(p,ink,technical=True)
+        p.setPen(QPen(accent,1.8));p.drawLine(QPointF(-5,7),QPointF(5,7))
+        if archive or extracting:
+            for dy in range(-6,6,4):p.drawLine(QPointF(-1,dy),QPointF(2,dy))
+        p.restore()
+    p.restore()
+
+
+def midnightrun(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Neon couriers carry documents between two illuminated garages.
+
+    Each car, its lights, and its trail disappear together at its route wrap.
+    Wheel spokes complete eight full turns; the road itself stays still.
+    """
+    p.save(); mid=box.center(); left=box.left()+31; right=box.right()-31
+    pink=QColor.fromRgbF(accent.blueF(),accent.redF(),accent.greenF())
+    ink=QColor('#d7f6ff' if surface.lightnessF()<.5 else '#1b3046')
+    road=mid.y()+20
+    p.setPen(QPen(alpha(accent,120),1));p.drawLine(QPointF(left,road-1),QPointF(right,road-1))
+    p.setPen(QPen(alpha(pink,120),1));p.drawLine(QPointF(left,road+6),QPointF(right,road+6))
+    p.setPen(QPen(alpha(ink,65),1))
+    for x in range(int(left),int(right-4),17):p.drawLine(QPointF(x,road+3),QPointF(x+6,road+3))
+    for x,zipped in ((left,extracting),(right,archive)):
+        case=QRectF(x-22,mid.y()-25,44,48)
+        p.setBrush(surface);p.setPen(QPen(accent,1.2));p.drawRoundedRect(case,4,4)
+        p.setPen(QPen(pink,2));p.drawLine(case.topLeft()+QPointF(5,5),case.topRight()+QPointF(-5,5))
+        p.setPen(QPen(alpha(ink,95),.8))
+        for y in range(-13,18,6):p.drawLine(QPointF(x-16,mid.y()+y),QPointF(x+16,mid.y()+y))
+        p.save();p.translate(x,mid.y()+2);p.scale(.85,.85)
+        paper(p,accent,technical=True)
+        if zipped:
+            p.setPen(QPen(pink,1.5))
+            for y in range(-6,9,4):p.drawLine(QPointF(-1,y),QPointF(2,y))
+        p.restore()
+    if result:
+        if result=='done':success(p,mid,accent)
+        p.restore();return
+    start,end=left+27,right-27
+    for index in range(count):
+        t=(phase+index/count)%1
+        fade=min(1.,t/.12,(1-t)/.12);fade=fade*fade*(3-2*fade)
+        travel=1-t if extracting else t
+        x=start+(end-start)*travel
+        direction=-1 if extracting else 1
+        p.save();p.setOpacity(p.opacity()*fade)
+        if trails:
+            for n in range(1,5):
+                p.setPen(QPen(alpha(pink,70/n),1.5))
+                dx=-direction*(14+n*5)
+                p.drawLine(QPointF(x+dx,mid.y()+14),QPointF(x+dx-direction*3,mid.y()+14))
+        if glow:
+            halo=QRadialGradient(QPointF(x,road),23)
+            halo.setColorAt(0,alpha(pink,glow));halo.setColorAt(1,alpha(accent,0))
+            p.setBrush(halo);p.setPen(Qt.PenStyle.NoPen);p.drawEllipse(QPointF(x,road),23,9)
+        p.translate(x,mid.y());p.scale(direction,1)
+        body=QPainterPath(QPointF(-17,14));body.lineTo(-16,7);body.lineTo(-9,5)
+        body.lineTo(-5,-3);body.lineTo(7,-3);body.lineTo(12,5);body.lineTo(18,7)
+        body.lineTo(18,14);body.closeSubpath()
+        p.setBrush(surface);p.setPen(QPen(ink,1));p.drawPath(body)
+        p.setPen(QPen(accent,1.4));p.drawLine(QPointF(-8,5),QPointF(11,5))
+        p.setPen(QPen(pink,1.6));p.drawLine(QPointF(-14,13),QPointF(13,13))
+        p.setPen(QPen(accent,2));p.drawLine(QPointF(14,8),QPointF(18,8))
+        p.setPen(QPen(pink,2));p.drawLine(QPointF(-17,8),QPointF(-14,8))
+        p.save();p.translate(0,-8);p.scale(.58,.58);paper(p,accent,technical=True)
+        if archive or extracting:
+            p.setPen(QPen(pink,1.7))
+            for y in range(-6,9,4):p.drawLine(QPointF(-1,y),QPointF(2,y))
+        p.restore()
+        for dx in (-10,11):
+            center=QPointF(dx,16)
+            p.setBrush(surface);p.setPen(QPen(ink,1.2));p.drawEllipse(center,3,3)
+            angle=travel*math.tau*8
+            spoke=QPointF(math.cos(angle)*2.1,math.sin(angle)*2.1)
+            p.drawLine(center-spoke,center+spoke)
+        p.restore()
+    p.restore()
+
+
 def platform95(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     """Brass parcel trolleys roll between two classic filing cabinets.
 

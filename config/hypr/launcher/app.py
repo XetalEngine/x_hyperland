@@ -421,7 +421,7 @@ class Menu(QWidget):
             self.bar_activation=BarActivation(self);self.bar_activation.start()
 
     def apply_design(self):
-        modern=theme_runtime.launcher_design() in ('modern','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95')
+        modern=theme_runtime.launcher_design() in ('modern','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','midnightrun','infernalencore')
         accent=theme_runtime.colors(style=theme_runtime.launcher_design())['Accent']
         self.fusion_settings_button.setIcon(desktop_icon('fusion-settings',accent,20))
         self.kvm_button.setIcon(desktop_icon('chip',accent,20))
@@ -459,6 +459,14 @@ class Menu(QWidget):
             painter.setBrush(Qt.BrushStyle.NoBrush);painter.setPen(QPen(QColor(border),2 if technical else 1));painter.drawPath(path)
             return
         if style!='raw':
+            if style=='infernalencore':
+                from infernalencore import paint_surface
+                paint_surface(painter,QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),colors,5,100,self.isActiveWindow())
+                return
+            if style=='midnightrun':
+                from midnightrun import paint_surface
+                paint_surface(painter,QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),colors,7,100,self.isActiveWindow())
+                return
             if style=='platform95':
                 from platform95 import paint_surface
                 paint_surface(painter,QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),colors,1,100,self.isActiveWindow())

@@ -51,7 +51,7 @@ void reloadCursors() {
     };
     next.style=json_object_get_string(member("style",json_type_string));
     next.trail=json_object_get_string(member("trail",json_type_string));
-    if (!std::set<std::string>{"pearl","carbon","cyan","orchid","ember","sumi","enamel","brass","isotope","mycelium","platform95"}.contains(next.style) ||
+    if (!std::set<std::string>{"pearl","carbon","cyan","orchid","ember","sumi","enamel","brass","isotope","mycelium","platform95","midnightrun","infernalencore"}.contains(next.style) ||
         !std::set<std::string>{"none","follow","plasma","orbit","fracture","circuit","tidal","ink","cinder","cloud","blade","comet","glow","sparkle"}.contains(next.trail)) throw std::runtime_error("Unknown cursor style or trail");
     next.size=json_object_get_int(member("size",json_type_int));
     next.duration=json_object_get_int(member("duration",json_type_int));

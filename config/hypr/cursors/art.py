@@ -1,5 +1,7 @@
 """Original vector cursor families, shared by the picker and generated themes."""
 STYLES = {
+    'infernalencore': ('Infernal Blade', '#f4dfbd', '#36150f', '#ff472c'),
+    'midnightrun': ('Midnight Run Neon', '#17212e', '#72f3ff', '#ff4fc3'),
     'platform95': ('Platform 95 Classic', '#fff6df', '#382719', '#c49a42'),
     'mycelium': ('Mycelium Spore', '#f2e5d4', '#352536', '#c9a0e1'),
     'isotope': ('Atomic Phosphor', '#d5e5a4', '#182218', '#b5ed29'),
@@ -38,7 +40,15 @@ def svg(style, shape='left_ptr', frame=0):
         arrow = 'M5 3Q9 4 13 8L29 18Q30 20 27 20L18 21L22 30Q21 33 18 32L13 23L7 28Q5 29 5 26Z'
     if style == 'platform95':
         arrow = 'M5 3L5 27L11 21L16 32L21 30L16 20L27 20Z'
+    if style == 'midnightrun':
+        arrow = 'M5 3L7 28L13 21L19 32L24 29L18 18L29 17Z'
+    if style == 'infernalencore':
+        arrow = 'M5 3L28 16L18 19L24 30L20 33L13 22L7 28Z'
     body = f'<path d="{arrow}"/>'
+    if style == 'infernalencore':
+        body += f'<path d="M8 8L12 18L22 16M12 18L19 29" fill="none" stroke="{accent}" stroke-width="1.3"/>'
+    if style == 'midnightrun':
+        body += f'<path d="M9 11L10 21L14 17L22 16" fill="none" stroke="{accent}" stroke-width="1.8"/>'
     if style == 'platform95':
         body += f'<path d="M8 11V20L12 16L20 18" fill="none" stroke="{accent}" stroke-width="1"/>'
     if style == 'mycelium':
@@ -64,6 +74,18 @@ def svg(style, shape='left_ptr', frame=0):
         hot=(18,18)
     elif shape in ('watch','left_ptr_watch'):
         ring=f'<g transform="rotate({frame*30} 18 18)"><circle cx="18" cy="18" r="11" fill="none" stroke="{edge}" stroke-opacity=".25" stroke-width="4"/><path d="M18 7A11 11 0 0 1 29 18" fill="none" stroke="{accent}" stroke-width="4"/></g>'
+        if style == 'infernalencore':
+            ring = (f'<circle cx="18" cy="18" r="14" fill="{edge}" stroke="{fill}" stroke-width="1.2"/>'
+                    f'<circle cx="18" cy="18" r="11.5" fill="none" stroke="{accent}" stroke-width=".7"/>'
+                    f'<g transform="rotate({frame*30} 18 18)"><path d="M18 6L25 27.7L6.6 14.3H29.4L11 27.7Z" fill="none" stroke="{accent}" stroke-width="1.8"/>'
+                    f'<circle cx="18" cy="5" r="1.4" fill="{fill}" stroke="none"/></g>')
+        if style == 'midnightrun':
+            ring = (f'<circle cx="18" cy="18" r="14" fill="{fill}" stroke="{edge}" stroke-width="1.2"/>'
+                    + ''.join(f'<path d="M18 6V8" stroke="{edge}" stroke-width=".8" transform="rotate({angle} 18 18)"/>' for angle in range(0,360,30))
+                    + f'<g transform="rotate({frame*30} 18 18)"><path d="M18 7A11 11 0 0 1 29 18" fill="none" stroke="{accent}" stroke-width="2.8"/>'
+                    + f'<path d="M18 29A11 11 0 0 1 7 18" fill="none" stroke="{edge}" stroke-width="2.8"/>'
+                    + ''.join(f'<path d="M18 18L18 11" stroke="{edge}" stroke-width="1.3" transform="rotate({angle} 18 18)"/>' for angle in range(0,360,72))
+                    + f'<circle cx="18" cy="18" r="2.5" fill="{accent}" stroke="none"/></g>')
         if style == 'mycelium':
             ring = (f'<circle cx="18" cy="18" r="14" fill="{edge}" stroke="{fill}" stroke-width=".8"/>'
                     f'<path d="M16 18Q18 24 15 27H22Q19 22 20 18" fill="{fill}" stroke-width=".7"/>'
