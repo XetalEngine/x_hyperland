@@ -395,17 +395,25 @@ class TransferTests(unittest.TestCase):
         self.assertEqual(transfer.ignored_sockets, 1); self.assertEqual(transfer.skipped, 0)
 
     def test_socket_count_observation_does_not_hide_a_replacement_regular_file(self):
+        self.check_socket_replaced_after_counting(False)
+
+    def test_selected_socket_replaced_with_regular_file_is_rechecked_before_omission(self):
+        self.check_socket_replaced_after_counting(True)
+
+    def check_socket_replaced_after_counting(self, directly_selected):
         path = self.source/'changing.sock'; endpoint = socket.socket(socket.AF_UNIX); endpoint.bind(str(path)); self.addCleanup(endpoint.close)
-        transfer = self.transfer(); get = transfer.get; changed = threading.Event()
+        transfer = self.transfer(self.request([path] if directly_selected else [self.source]))
+        progress = transfer.progress; changed = threading.Event()
         def count(counter):
             counter.scan(False)
             endpoint.close(); path.unlink(); path.write_bytes(b'now ordinary data'); changed.set()
-        def after_counter(source):
-            if source == str(path): self.assertTrue(changed.wait(2))
-            return get(source)
-        transfer.get = after_counter
+        def after_counter(*args):
+            if transfer.counter: self.assertTrue(changed.wait(2))
+            return progress(*args)
+        transfer.progress = after_counter
         with patch.object(Counter, 'run', count): self.assertTrue(transfer.run()['ok'])
-        self.assertEqual((self.target/'source/changing.sock').read_bytes(), b'now ordinary data')
+        target = self.target if directly_selected else self.target/'source'
+        self.assertEqual((target/'changing.sock').read_bytes(), b'now ordinary data')
         self.assertEqual(transfer.ignored_sockets, 0)
         self.assertEqual(self.events[-1]['totalFiles'], 1); self.assertEqual(self.events[-1]['processedFiles'], 1)
 
@@ -424,13 +432,27 @@ class TransferTests(unittest.TestCase):
         self.assertEqual(transfer.files, 0); self.assertEqual(transfer.skipped, 0)
         self.assertEqual(self.events[-1]['totalFiles'], 0)
 
+    def test_socket_removed_by_its_owner_during_inspection_does_not_queue_missing_file(self):
+        path = self.source/'runtime'; endpoint = socket.socket(socket.AF_UNIX); endpoint.bind(str(path)); self.addCleanup(endpoint.close)
+        transfer = self.transfer(); get = transfer.get
+        def disappears(source):
+            info = get(source)
+            if source == str(path) and info:
+                endpoint.close(); path.unlink()
+            return info
+        transfer.get = disappears
+        self.assertTrue(transfer.run()['ok'])
+        self.assertEqual(transfer.ignored_sockets, 1)
+        self.assertFalse(any(e.get('event') in ('issue', 'authenticate') for e in self.events))
+        self.assertEqual(self.events[-1]['totalFiles'], 0); self.assertEqual(transfer.files, 0)
+
     def test_ignored_socket_journal_deduplicates_rescans_and_old_reports_still_work(self):
         path = self.source/'runtime'; endpoint = socket.socket(socket.AF_UNIX); endpoint.bind(str(path)); self.addCleanup(endpoint.close)
         transfer = self.transfer(); target = str(self.target/path.name)
         transfer.walk(str(path), target); transfer.walk(str(path), target, rescan=True); transfer.db.commit()
         self.assertEqual(transfer.ignored_sockets, 1); self.assertEqual(transfer.pending.total, 0)
         report = io.StringIO(); export_report(transfer.journal, report)
-        self.assertEqual(report.getvalue().count('Status: ignored / original kept'), 1)
+        self.assertEqual(report.getvalue().count('Status: ignored / source untouched'), 1)
         transfer.db.execute('DROP TABLE ignored_sockets'); transfer.db.commit()
         report = io.StringIO(); export_report(transfer.journal, report)
         self.assertIn('Fusion Files transfer report', report.getvalue())

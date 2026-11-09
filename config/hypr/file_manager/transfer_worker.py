@@ -513,9 +513,15 @@ class Transfer:
                         # Do this before destination/conflict checks: omitting a
                         # runtime socket must not touch an existing destination.
                         if stat.S_ISSOCK(info['mode']):
-                            self.ignore_socket(source, target, info)
-                            self.progress()
-                            continue
+                            # Root metadata may predate counter startup. Copy a
+                            # replacement file normally; a socket removed by its
+                            # daemon in the meantime needs no user decision.
+                            current = self.get(source)
+                            if current is None or stat.S_ISSOCK(current['mode']):
+                                self.ignore_socket(source, target, current or info)
+                                self.progress()
+                                continue
+                            info = current; task['info'] = info
                         if rescan and self.completed_item(source, target, info): continue
                         if not (stat.S_ISDIR(info['mode']) or stat.S_ISREG(info['mode']) or stat.S_ISLNK(info['mode'])):
                             raise SpecialFile(info['mode'])

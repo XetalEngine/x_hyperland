@@ -225,7 +225,7 @@ def export_report(journal, stream):
         if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='ignored_sockets'").fetchone():
             for source, target in db.execute('SELECT source,target FROM ignored_sockets ORDER BY source,target'):
                 stream.write(f'\nRuntime socket ignored automatically; excluded from file totals.\n'
-                             f'From: {source}\nTo: {target}\nStatus: ignored / original kept\n')
+                             f'From: {source}\nTo: {target}\nStatus: ignored / source untouched\n')
 
 
 if __name__ == '__main__':
