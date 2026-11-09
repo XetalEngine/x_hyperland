@@ -13,6 +13,7 @@
 #include <QCheckBox>
 #include <QPushButton>
 #include <QPlainTextEdit>
+#include <QLocalServer>
 #include <QFileDialog>
 #include <KIO/FileUndoManager>
 #include <KApplicationTrader>
@@ -754,6 +755,25 @@ print(json.dumps(rows))
       QVERIFY(!QFileInfo::exists(base+"/target/Folder_copy1"));
       QVERIFY(!QFileInfo::exists(base+"/target/first_copy1.txt"));
     }
+  }
+  void socketOmissionsDoNotOpenQueueOrDiscardOrdinaryFiles() {
+    QTemporaryDir temporarySocket("/tmp/fusion-socket-XXXXXX"); QVERIFY(temporarySocket.isValid());
+    const auto base=temporarySocket.path();
+    QDir().mkpath(base+"/source"); QDir().mkpath(base+"/target");
+    QLocalServer endpoint; QVERIFY(endpoint.listen(base+"/source/bus_100"));
+    write(base+"/source/ordinary.sock","real data with a socket-like name");
+    QVERIFY(QFile::link(base+"/source/bus_100",base+"/source/socket-link"));
+    QWidget owner;
+    auto *job=Fusion::transferFiles({QUrl::fromLocalFile(base+"/source")},QUrl::fromLocalFile(base+"/target"),Fusion::TransferOperation::Copy,&owner);
+    int error=-1; connect(job,&KJob::result,&owner,[&](KJob *result){error=result->error();});
+    QTRY_COMPARE_WITH_TIMEOUT(error,0,10000);
+    QVERIFY(!queueFor(base));
+    QVERIFY(QFileInfo::exists(base+"/source/bus_100"));
+    QVERIFY(!QFileInfo::exists(base+"/target/source/bus_100"));
+    QFile copied(base+"/target/source/ordinary.sock"); QVERIFY(copied.open(QIODevice::ReadOnly));
+    QCOMPARE(copied.readAll(),QByteArray("real data with a socket-like name"));
+    QVERIFY(QFileInfo(base+"/target/source/socket-link").isSymbolicLink());
+    QCOMPARE(QFileInfo(base+"/target/source/socket-link").symLinkTarget(),base+"/source/bus_100");
   }
   void specialFilesQueueWithoutBlockingNormalCopies() {
     const auto base=folder+"/queued-special-files";

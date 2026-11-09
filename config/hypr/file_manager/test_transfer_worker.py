@@ -278,7 +278,7 @@ class TransferTests(unittest.TestCase):
         with self.assertRaises(OSError): ops.execute('temporary', {'path': str(self.target/'escape'/'new')})
         with self.assertRaises(ValueError): ops.execute('remove', {'path': str(item), 'expected': {}})
 
-    def test_sockets_and_fifo_queue_while_all_regular_files_finish(self):
+    def test_sockets_are_ignored_while_other_unsupported_types_still_need_a_choice(self):
         endpoints = []
         for name in ('control-a.sock', 'control-b.sock'):
             endpoint = socket.socket(socket.AF_UNIX); endpoint.bind(str(self.source/name)); endpoints.append(endpoint)
@@ -291,42 +291,39 @@ class TransferTests(unittest.TestCase):
             if event.get('phase') != 'Waiting for queued items': return
             self.assertEqual((self.target/'source/nested/good').read_bytes(), b'copy immediately')
             issues = [e for e in self.events if e.get('event') == 'issue' and e['status'] == 'pending']
-            self.assertEqual(len(issues), 3)
-            if not passes:
-                self.decide(next(e for e in issues if e['category'].endswith(':socket')), 'skip', True)
-            else:
-                self.assertEqual(event['pendingIssues'], 1)  # A socket policy must not skip a FIFO.
-                self.decide(next(e for e in issues if e['category'].endswith(':named pipe')))
+            self.assertEqual(len(issues), 1)
+            self.assertEqual(event['pendingIssues'], 1)
+            self.assertTrue(issues[0]['category'].endswith(':named pipe'))
+            self.decide(issues[0])
             passes.append(True)
         self.on_event = waiting
         transfer = self.transfer(); result = transfer.run()
-        self.assertTrue(result['ok']); self.assertEqual(transfer.files, 1); self.assertEqual(transfer.skipped, 3)
-        self.assertTrue(result['warnings']); self.assertEqual(len(passes), 2)
-        self.assertEqual(transfer.db.execute("SELECT count(*) FROM issues WHERE status='skipped'").fetchone()[0], 3)
+        self.assertTrue(result['ok']); self.assertEqual(transfer.files, 1); self.assertEqual(transfer.skipped, 1)
+        self.assertEqual(result['ignoredSockets'], 2)
+        self.assertTrue(result['warnings']); self.assertEqual(len(passes), 1)
+        self.assertEqual(transfer.db.execute("SELECT count(*) FROM issues WHERE status='skipped'").fetchone()[0], 1)
+        self.assertEqual(self.events[-1]['totalFiles'], 2)
         self.assertFalse((self.target/'source/control-a.sock').exists())
         self.assertTrue(stat.S_ISSOCK((self.source/'control-a.sock').stat().st_mode))
 
-    def test_move_with_skipped_socket_retains_original_and_undo_restores_copied_files(self):
+    def test_move_ignores_socket_without_queue_and_undo_restores_copied_files(self):
         endpoint = socket.socket(socket.AF_UNIX); endpoint.bind(str(self.source/'vm.sock')); self.addCleanup(endpoint.close)
         item = self.write('nested/data', b'safe data')
-        self.on_issue = lambda event: None
-        def waiting(event):
-            if event.get('phase') == 'Waiting for queued items':
-                self.assertTrue(item.exists())
-                self.assertTrue((self.target/'source/nested/data').exists())
-                self.decide(next(e for e in self.events if e.get('event') == 'issue'))
-        self.on_event = waiting
         transfer = self.transfer(self.request(operation='move')); self.force_cross_device(transfer)
         self.assertTrue(transfer.run()['ok']); self.assertFalse(item.exists())
+        self.assertEqual(transfer.ignored_sockets, 1); self.assertEqual(transfer.skipped, 0)
+        self.assertFalse(any(e.get('event') in ('issue', 'authenticate') for e in self.events))
+        self.assertEqual(self.events[-1]['processedFiles'], 1); self.assertEqual(self.events[-1]['totalFiles'], 1)
         self.assertTrue((self.source/'vm.sock').exists())
         undo = self.transfer(dict(operation='undo', undoJournal=transfer.journal, journal=str(self.base/'undo-queued.sqlite')), Undo)
         self.assertTrue(undo.run()['ok']); self.assertEqual(item.read_bytes(), b'safe data')
         self.assertTrue((self.source/'vm.sock').exists()); self.assertFalse((self.target/'source').exists())
 
-    def test_successful_retry_is_reported_before_socket_skip_and_stays_successful(self):
+    def test_successful_retry_stays_successful_after_skipping_an_unrelated_item(self):
         protected = self.write('win10.xml', b'<domain/>')
         self.write('other.txt', b'copied while waiting')
         endpoint = socket.socket(socket.AF_UNIX); endpoint.bind(str(self.source/'vm.sock')); self.addCleanup(endpoint.close)
+        os.mkfifo(self.source/'pipe')
         transfer = self.transfer(); copy_file = transfer.copy_file; attempts = []
         def permission_once(source, *args):
             if source == str(protected) and not attempts:
@@ -341,7 +338,7 @@ class TransferTests(unittest.TestCase):
             self.assertEqual(successes[0]['source'], str(protected))
             self.assertEqual((self.target/'source/win10.xml').read_bytes(), b'<domain/>')
             self.assertEqual((self.target/'source/other.txt').read_bytes(), b'copied while waiting')
-            pending = next(e for e in self.events if e.get('status') == 'pending' and e['category'].endswith(':socket'))
+            pending = next(e for e in self.events if e.get('status') == 'pending' and e['category'].endswith(':named pipe'))
             self.assertFalse(pending['retry_allowed'])
             transfer.pending.choose(pending['id'], 'retry')
             self.assertEqual(transfer.db.execute('SELECT status FROM issues WHERE id=?', (pending['id'],)).fetchone()[0], 'pending')
@@ -351,10 +348,92 @@ class TransferTests(unittest.TestCase):
         self.assertTrue(protected.exists()); self.assertTrue((self.source/'vm.sock').exists())
         states = transfer.db.execute('SELECT source,status FROM issues').fetchall()
         self.assertIn((str(protected), 'resolved'), states)
-        self.assertIn((str(self.source/'vm.sock'), 'skipped'), states)
+        self.assertIn((str(self.source/'pipe'), 'skipped'), states)
+        self.assertNotIn(str(self.source/'vm.sock'), [source for source, _ in states])
         report = io.StringIO(); export_report(transfer.journal, report)
         self.assertIn('Status: Copied successfully', report.getvalue())
         self.assertIn('Original issue: Permission denied', report.getvalue())
+        self.assertIn('Runtime socket ignored automatically', report.getvalue())
+
+    def test_actual_socket_types_are_excluded_but_names_directories_and_links_transfer(self):
+        for name in ('vnc.sock', 'bus_100', 'looks-like-data.txt'):
+            endpoint = socket.socket(socket.AF_UNIX); endpoint.bind(str(self.source/name)); self.addCleanup(endpoint.close)
+        self.write('regular.sock', b'this is ordinary data')
+        self.write('folder.sock/data', b'inside a directory')
+        os.symlink('vnc.sock', self.source/'socket-link')
+        os.symlink('missing.sock', self.source/'dangling-link')
+        transfer = self.transfer()
+        for privileged in (False, True):
+            counter = Counter([str(self.source)], transfer.access); counter.scan(privileged)
+            self.assertTrue(counter.complete); self.assertEqual(counter.files, 4)
+            self.assertEqual(counter.bytes, len(b'this is ordinary datainside a directory'))
+        result = transfer.run()
+        self.assertTrue(result['ok']); self.assertEqual(result['warnings'], [])
+        self.assertEqual(result['ignoredSockets'], 3); self.assertEqual(result['skippedFiles'], 0)
+        self.assertFalse(any(e.get('event') in ('issue', 'authenticate', 'question') for e in self.events))
+        self.assertEqual(self.events[-1]['totalFiles'], 4); self.assertEqual(self.events[-1]['processedFiles'], 4)
+        self.assertEqual((self.target/'source/regular.sock').read_bytes(), b'this is ordinary data')
+        self.assertEqual((self.target/'source/folder.sock/data').read_bytes(), b'inside a directory')
+        self.assertEqual(os.readlink(self.target/'source/socket-link'), 'vnc.sock')
+        self.assertEqual(os.readlink(self.target/'source/dangling-link'), 'missing.sock')
+        for name in ('vnc.sock', 'bus_100', 'looks-like-data.txt'):
+            self.assertTrue(stat.S_ISSOCK((self.source/name).lstat().st_mode))
+            self.assertFalse((self.target/'source'/name).exists())
+        self.assertEqual(transfer.db.execute('SELECT count(*) FROM issues').fetchone()[0], 0)
+
+    def test_selected_socket_does_not_conflict_with_or_replace_existing_destination(self):
+        path = self.source/'endpoint'; endpoint = socket.socket(socket.AF_UNIX); endpoint.bind(str(path)); self.addCleanup(endpoint.close)
+        existing = self.target/path.name; existing.write_bytes(b'keep this file')
+        transfer = self.transfer(self.request([path]))
+        for privileged in (False, True):
+            counter = Counter([str(path)], transfer.access); counter.scan(privileged)
+            self.assertTrue(counter.complete); self.assertEqual((counter.files, counter.bytes), (0, 0))
+        self.assertTrue(transfer.run()['ok'])
+        self.assertEqual(existing.read_bytes(), b'keep this file')
+        self.assertFalse(any(e.get('event') in ('issue', 'authenticate') for e in self.events))
+        self.assertEqual(self.events[-1]['totalFiles'], 0); self.assertEqual(self.events[-1]['processedFiles'], 0)
+        self.assertEqual(transfer.ignored_sockets, 1); self.assertEqual(transfer.skipped, 0)
+
+    def test_socket_count_observation_does_not_hide_a_replacement_regular_file(self):
+        path = self.source/'changing.sock'; endpoint = socket.socket(socket.AF_UNIX); endpoint.bind(str(path)); self.addCleanup(endpoint.close)
+        transfer = self.transfer(); get = transfer.get; changed = threading.Event()
+        def count(counter):
+            counter.scan(False)
+            endpoint.close(); path.unlink(); path.write_bytes(b'now ordinary data'); changed.set()
+        def after_counter(source):
+            if source == str(path): self.assertTrue(changed.wait(2))
+            return get(source)
+        transfer.get = after_counter
+        with patch.object(Counter, 'run', count): self.assertTrue(transfer.run()['ok'])
+        self.assertEqual((self.target/'source/changing.sock').read_bytes(), b'now ordinary data')
+        self.assertEqual(transfer.ignored_sockets, 0)
+        self.assertEqual(self.events[-1]['totalFiles'], 1); self.assertEqual(self.events[-1]['processedFiles'], 1)
+
+    def test_socket_found_after_permission_retry_is_not_claimed_as_copied(self):
+        path = self.source/'private.sock'; endpoint = socket.socket(socket.AF_UNIX); endpoint.bind(str(path)); self.addCleanup(endpoint.close)
+        transfer = self.transfer(); get = transfer.get; failures = []
+        def inaccessible(source):
+            if source == str(path) and not failures:
+                failures.append(True); raise PermissionError(errno.EACCES, 'Cannot inspect item')
+            return get(source)
+        transfer.get = inaccessible
+        self.on_issue = lambda event: self.decide(event, 'retry')
+        self.assertTrue(transfer.run()['ok'])
+        resolved = [e for e in self.events if e.get('status') == 'resolved']
+        self.assertTrue(resolved); self.assertTrue(all(e['resolution'] == 'Runtime socket ignored' for e in resolved))
+        self.assertEqual(transfer.files, 0); self.assertEqual(transfer.skipped, 0)
+        self.assertEqual(self.events[-1]['totalFiles'], 0)
+
+    def test_ignored_socket_journal_deduplicates_rescans_and_old_reports_still_work(self):
+        path = self.source/'runtime'; endpoint = socket.socket(socket.AF_UNIX); endpoint.bind(str(path)); self.addCleanup(endpoint.close)
+        transfer = self.transfer(); target = str(self.target/path.name)
+        transfer.walk(str(path), target); transfer.walk(str(path), target, rescan=True); transfer.db.commit()
+        self.assertEqual(transfer.ignored_sockets, 1); self.assertEqual(transfer.pending.total, 0)
+        report = io.StringIO(); export_report(transfer.journal, report)
+        self.assertEqual(report.getvalue().count('Status: ignored / original kept'), 1)
+        transfer.db.execute('DROP TABLE ignored_sockets'); transfer.db.commit()
+        report = io.StringIO(); export_report(transfer.journal, report)
+        self.assertIn('Fusion Files transfer report', report.getvalue())
 
     def test_move_retry_only_claims_moved_after_verified_original_removal(self):
         for keep_original in (False, True):

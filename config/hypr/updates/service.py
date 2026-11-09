@@ -25,7 +25,6 @@ import runtime_policy
 ROOT = Path(__file__).resolve().parents[1]
 STATE = Path.home()/'.local/state/xetal-hyprland/updates'
 CACHE = Path.home()/'.cache/xetal-hyprland/updates'
-NOTICE_DELAY = 30
 READY_MESSAGE = 'Update ready. Restart to finish updating.'
 
 
@@ -61,7 +60,7 @@ def restart_ready(value, pending=None):
 
 
 def prepare_restart(root=None, state=None):
-    """An explicit Restart also applies a prepared update when auto updates pause."""
+    """An explicit Restart can approve an update prepared by an older updater."""
     root, state = root or ROOT, state or STATE
     with engine.locked(state):
         pending = engine.json_file(state/'pending.json')
@@ -83,8 +82,15 @@ def prepare_restart(root=None, state=None):
 def preferences(state=None):
     state = state or STATE
     value = engine.json_file(state/'settings.json', {})
-    return {'automatic': value.get('automatic', True) is True,
-            'interval': max(300, min(86400, int(value.get('interval', 900))))}
+    # Older automatic-update preferences no longer authorize downloads.
+    return {'interval': max(300, min(86400, int(value.get('interval', 900))))}
+
+
+def checked_since(value, started):
+    """Only a successful network check begun after this request is fresh."""
+    return (value.get('check_ok') is True and value.get('check_started', 0) >= started
+            and value.get('checked', 0) >= value.get('check_started', 0)
+            and not value.get('retry_at'))
 
 
 def status(state=None, root=None):
@@ -108,8 +114,11 @@ def status(state=None, root=None):
     if value.get('phase') == 'runtime-required' and current == value.get('current'): return value
     runtime_ready = value.get('phase') == 'ready' and pending and pending.get('runtime_setup')
     if current == value.get('latest') and value.get('phase') not in ('checking', 'preparing') and not runtime_ready:
+        message = (value.get('message', 'Could not confirm the latest version.')
+                   if value.get('check_ok') is False and value.get('retry_at') else
+                   READY_MESSAGE if restart_ready(value) else 'Your desktop is up to date.')
         value.update(phase='current', current=current, failed_revision='', retry_prepare=False,
-                     prepared='', message=READY_MESSAGE if restart_ready(value) else 'Your desktop is up to date.')
+                     prepared='', message=message)
         value['github'] = {**value.get('github', {}), 'base':current, 'relation':'identical'}
     elif current != value.get('current'):
         value.update(phase='current', current=current, failed_revision='', retry_prepare=False,
@@ -163,6 +172,7 @@ def badge(value, root=None):
                                     and value.get('latest') != value.get('current')):
         text = ''
     message = value.get('message', 'Xetal desktop updates · Click to check and manage updates')
+    if phase == 'available': message += '\nOpen Desktop Updates to check for the latest version before downloading.'
     if value.get('prepared'): message += '\nPrepared desktop · '+release_version.label(value.get('prepared_version'), value['prepared'])
     if value.get('latest'): message += '\nGitHub main · '+release_version.label(value.get('latest_version'), value['latest'])
     return {'text': text, 'class': phase, 'tooltip': html.escape(message)}
@@ -172,15 +182,17 @@ def check(root=None, state=None):
     root, state = root or ROOT, state or STATE
     installed = engine.installed(root)
     current = installed['revision']; value = status(state, root)
-    if time.time() < value.get('retry_at', 0): return value
+    started = time.time()
     try:
+        if started < value.get('retry_at', 0):
+            raise github.RetryLater('Checks are temporarily paused. Try Check now again shortly.', value['retry_at'])
         latest = github.latest(current, value.get('github'))
         pending = pending_update(state, current)
         prepared = pending and pending['revision'] == latest['sha'] and (
             latest['relation'] == 'ahead' or (pending.get('runtime_setup') and current == latest['sha']))
         phase = 'ready' if prepared else 'available' if latest['relation'] == 'ahead' else 'current'
         message = (READY_MESSAGE if prepared else
-                   'A new Xetal desktop update is available.' if phase == 'available' else
+                   'A new Xetal desktop update is available. Choose Update! to download the latest version.' if phase == 'available' else
                    'Your desktop is up to date.' if latest['relation'] == 'identical' else
                    'This build is ahead of main or has a different history. Automatic downgrades are disabled.')
         if pending and pending.get('rollback'): phase = 'rollback'; message = 'Rollback is queued for your next Hyprland login.'
@@ -203,6 +215,7 @@ def check(root=None, state=None):
                                                           else latest.get('release_version','')),
                        title=latest['message'],
                        github=latest, message=message, checked=time.time(), retry_at=0,
+                       check_started=started, check_ok=True,
                        prepared=pending.get('revision','') if pending else '',
                        prepared_version=pending.get('release_version','') if pending else '',
                        failed_revision=value.get('failed_revision','') if phase in ('attention','runtime-required') else '')
@@ -213,6 +226,7 @@ def check(root=None, state=None):
             verified_ahead = value.get('github', {}).get('relation') == 'ahead' and value['github'].get('base') == current
             phase = 'available' if verified_ahead else 'current'
         return publish(state, message='Could not check GitHub: '+str(error), checked=time.time(), retry_at=retry_at,
+                       check_started=started, check_ok=False,
                        phase=phase)
 
 
@@ -245,8 +259,7 @@ def queue_rollback(root=None, state=None):
         engine.write_json(state/'pending.json', {'stage': str(backup/'files'), 'plan': str(state/'rollback-plan.json'),
                                                'revision': plan['revision'], 'release_version': plan.get('release_version',''),
                                                'automatic': False, 'rollback': True})
-        settings = preferences(state); settings['automatic'] = False; engine.write_json(state/'settings.json', settings)
-        publish(state, phase='rollback', message='Rollback is queued for your next Hyprland login. Automatic updates are paused.')
+        publish(state, phase='rollback', message='Rollback is queued for your next Hyprland login.')
 
 
 def activate(root=None, state=None):
@@ -254,7 +267,8 @@ def activate(root=None, state=None):
     with engine.locked(state):
         engine.recover(root, state)
         pending = engine.json_file(state/'pending.json')
-        if not pending or (pending.get('automatic') and not preferences(state)['automatic']): return False
+        # Legacy background downloads need an explicit Restart before activation.
+        if not pending or pending.get('automatic'): return False
         stage = Path(pending['stage'])
         if not stage.resolve().is_relative_to(state.resolve()): raise ValueError('Prepared update is outside its private state directory.')
         if (engine.installed(root)['revision'] == pending['revision'] and
@@ -337,8 +351,9 @@ def serve():
         try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError: return
         session.connect(str(runtime/'.socket2.sock')); session.setblocking(False)
-        process = None; log = None; running_revision = ''; role = ''; started = time.time()
-        next_check = time.time()+random.uniform(35, 70); available_since = None
+        process = None; log = None; running_revision = ''; role = ''
+        next_check = time.time()+random.uniform(35, 70)
+        after_check = None; check_started = 0
         def stop(*_): raise KeyboardInterrupt
         signal.signal(signal.SIGTERM, stop); signal.signal(signal.SIGINT, stop)
         try:
@@ -348,12 +363,15 @@ def serve():
                     try:
                         if not session.recv(65536): break
                     except BlockingIOError: pass
-                settings = preferences(); action = take_request()
+                settings = preferences(); verified_action = None
                 if process and process.poll() is not None:
                     code = process.returncode; process = None
                     if log: log.close(); log = None
                     if role == 'check':
                         next_check = max(time.time()+settings['interval'], status().get('retry_at', 0))
+                        if code == 0 and checked_since(status(), check_started):
+                            verified_action = after_check
+                        after_check = None
                     elif code == 0:
                         if engine.installed(ROOT)['revision'] == running_revision:
                             publish(phase='current', current=running_revision, message=READY_MESSAGE, failed_revision='', prepared='',
@@ -369,34 +387,35 @@ def serve():
                         else:
                             publish(phase='attention', message='Update preparation stopped. '+detail[-800:], failed_revision=running_revision)
                 if process: continue
+                # Keep requests made while checking/building until the worker is idle.
+                action = verified_action or take_request()
                 if action == 'rollback':
                     try: queue_rollback()
                     except Exception as error: publish(phase='attention', message=str(error))
                     continue
                 value = status()
-                if action == 'check' or (time.time() >= next_check and action not in ('prepare', 'setup')):
-                    if time.time() < value.get('retry_at', 0):
-                        next_check = value['retry_at']
-                    else:
-                        role = 'check'; log = (STATE/'check.log').open('w')
-                        if value.get('phase', 'current') == 'current': publish(phase='checking', message='Checking GitHub…')
-                        process = subprocess.Popen([sys.executable, str(Path(__file__)), '--check'],
-                                                   stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
-                        continue
+                if not verified_action and (action in ('check', 'prepare', 'setup') or time.time() >= next_check):
+                    # Every explicit download gets a new head check, even if the
+                    # window has been open since an earlier successful check.
+                    after_check = action if action in ('prepare', 'setup') else None
+                    check_started = time.time()
+                    role = 'check'; log = (STATE/'check.log').open('w')
+                    publish(phase='checking', message='Checking GitHub…', check_ok=False)
+                    process = subprocess.Popen([sys.executable, str(Path(__file__)), '--check'],
+                                               stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+                    continue
+                if not verified_action: continue
                 pending = pending_update(STATE, value.get('current'))
                 if pending and (pending.get('rollback') or pending.get('revision') == value.get('latest')) and action != 'setup': continue
-                eligible = value.get('latest') and (value.get('github', {}).get('relation') == 'ahead' or action == 'setup')
-                if eligible and available_since is None: available_since = time.time()
-                if not eligible: available_since = None; continue
-                automatic = (settings['automatic'] and value.get('failed_revision') != value['latest']
-                             and value.get('checked', 0) >= started and time.time()-available_since >= NOTICE_DELAY)
-                if action in ('prepare', 'setup') or automatic:
+                eligible = value.get('latest') and (value.get('github', {}).get('relation') == 'ahead' or
+                                                   (action == 'setup' and value.get('phase') == 'runtime-required'))
+                if eligible:
                     role = 'prepare'
                     running_revision = engine.revision(value['latest'])
                     publish(phase='preparing', message='Downloading, merging and validating the new desktop…', retry_prepare=False)
                     log = (STATE/'update.log').open('w')
                     args = [sys.executable, str(Path(__file__)), '--worker', running_revision]
-                    if action == 'prepare': args.append('--manual')
+                    args.append('--manual')
                     if action == 'setup': args.append('--setup')
                     process = subprocess.Popen(args, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         except (KeyboardInterrupt, ConnectionError): pass
@@ -404,7 +423,7 @@ def serve():
             if process and process.poll() is None:
                 stop_worker(process)
                 publish(phase='available' if role == 'prepare' else 'current',
-                        message='Update work paused at logout. It will resume next session.')
+                        message='Update work paused at logout. Open Desktop Updates to check and try again.')
             if log: log.close()
 
 

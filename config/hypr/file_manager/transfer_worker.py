@@ -255,11 +255,11 @@ class Counter:
                                     child = os.path.join(path, entry.name)
                                     value, _ = self.access.inspect('stat', path=child)
                                     if stat.S_ISDIR(value['mode']): pending.append(child)
-                                    else:
+                                    elif not stat.S_ISSOCK(value['mode']):
                                         self.files += 1
                                         if stat.S_ISREG(value['mode']): self.bytes += value['size']
                         finally: os.close(fd)
-                    else:
+                    elif not stat.S_ISSOCK(info['mode']):
                         self.files += 1
                         if stat.S_ISREG(info['mode']): self.bytes += info['size']
                     continue
@@ -271,9 +271,10 @@ class Counter:
                             if item.is_dir(follow_symlinks=False): pending.append(item.path)
                             else:
                                 value = item.stat(follow_symlinks=False)
+                                if stat.S_ISSOCK(value.st_mode): continue
                                 self.files += 1
                                 if stat.S_ISREG(value.st_mode): self.bytes += value.st_size
-                else:
+                elif not stat.S_ISSOCK(info.st_mode):
                     self.files += 1
                     if stat.S_ISREG(info.st_mode): self.bytes += info.st_size
             except OSError: accessible = False
@@ -303,6 +304,7 @@ class Transfer:
         self.phase = 'Copying'
         self.processed = self.files = self.skipped = self.skipped_bytes = self.verified = self.renamed = 0
         self.skipped_folders = 0
+        self.ignored_sockets = 0
         self.attributes_done = self.attributes_total = 0
         self.last_progress = 0
         self.last_bytes = 0
@@ -319,6 +321,9 @@ class Transfer:
         self.db.execute('CREATE INDEX entry_paths ON entries(source,target)')
         self.pending = Pending(self)
         self.db.execute('CREATE TABLE directory_metadata (id INTEGER PRIMARY KEY, source TEXT, target TEXT, value TEXT)')
+        # Diagnostic records are separate from copied files and the attention
+        # queue. They never contribute bytes, files, skips or pending decisions.
+        self.db.execute('CREATE TABLE ignored_sockets (source TEXT, target TEXT, original TEXT, PRIMARY KEY(source,target))')
         self.db.commit()
 
     def record(self, kind, source, target, original, final, created=True, removed=False):
@@ -328,6 +333,11 @@ class Transfer:
     def get(self, path):
         try: return self.access.value('stat', path=path)
         except FileNotFoundError: return None
+
+    def ignore_socket(self, source, target, info):
+        recorded = self.db.execute('INSERT OR IGNORE INTO ignored_sockets VALUES (?,?,?)',
+                                   (source, target, json.dumps(info)))
+        self.ignored_sockets += recorded.rowcount
 
     def progress(self, force=False, complete=False):
         now = time.monotonic()
@@ -467,6 +477,7 @@ class Transfer:
         if self.skipped:
             self.warnings.add(f'{self.skipped:,} items were skipped or kept at their original locations. See the transfer queue for details.')
         return {'event': 'result', 'ok': True, 'journal': self.journal, 'skippedFiles': self.skipped,
+                'ignoredSockets': self.ignored_sockets,
                 'warnings': sorted(self.warnings)}
 
     def walk(self, source, target, info=None, approved=None, rescan=False):
@@ -497,6 +508,14 @@ class Transfer:
                     else:
                         info = info or self.get(source); task['info'] = info
                         if info is None: raise FileNotFoundError(errno.ENOENT, 'A source disappeared during copying.', source)
+                        # Use no-follow metadata, never the filename or an I/O
+                        # error. Links to sockets are still transferable links.
+                        # Do this before destination/conflict checks: omitting a
+                        # runtime socket must not touch an existing destination.
+                        if stat.S_ISSOCK(info['mode']):
+                            self.ignore_socket(source, target, info)
+                            self.progress()
+                            continue
                         if rescan and self.completed_item(source, target, info): continue
                         if not (stat.S_ISDIR(info['mode']) or stat.S_ISREG(info['mode']) or stat.S_ISLNK(info['mode'])):
                             raise SpecialFile(info['mode'])

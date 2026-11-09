@@ -184,11 +184,15 @@ file does not retain its old contents for Undo.
 
 A successful retry immediately shows **Copied successfully** with a check mark.
 The previous error remains under **Original issue** in its details and saved
-report. Skipping another row leaves that copy intact. Runtime sockets, named
-pipes and devices have no ordinary contents to copy; their rows explain Skip
-and disable Retry and administrator access. **Review queue** reopens a hidden
+report. Skipping another row leaves that copy intact. Actual filesystem sockets
+are ignored automatically during copying: no popup, queue row or file-count
+increment. Their originals stay in place. This uses the filesystem type, so a
+regular file named `.sock`, a directory, or a symbolic link still transfers.
+Named pipes, devices and genuine file errors remain visible for a choice.
+**Review queue** reopens a hidden
 popup, and **Save report…** includes every affected path, including automatic
-skips. Closing the popup during a transfer only hides it.
+skips; automatically ignored sockets are recorded separately for diagnostics.
+Closing the popup during a transfer only hides it.
 
 Folder attributes have their own progress count after copying. Same-drive moves
 use an instant rename where possible; other moves verify copied data before

@@ -26,14 +26,21 @@ class UpdateUiTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.state = Path(temporary.name)/'updates'
         mock = patch.object(service, 'STATE', self.state); mock.start(); self.addCleanup(mock.stop)
+        launch = patch('app.subprocess.Popen'); self.launch = launch.start(); self.addCleanup(launch.stop)
         service.publish(phase='available', current='1'*40, latest='2'*40,
                         title='A tested new desktop version', github={'relation': 'ahead'})
 
-    def window(self):
+    def window(self, checked=True):
         window = Window(); window.timer.stop(); window.show(); self.application.processEvents()
         self.addCleanup(window.close)
         self.addCleanup(window.deleteLater)
+        if checked and not window.check_on_idle: self.finish_check(window)
         return window
+
+    def finish_check(self, window, **changes):
+        started = time.time()
+        service.publish(check_started=started, checked=started, check_ok=True, retry_at=0, **changes)
+        window.refresh(); self.application.processEvents()
 
     def ready(self):
         stage = self.state/'prepared'; stage.mkdir(exist_ok=True)
@@ -50,16 +57,69 @@ class UpdateUiTests(unittest.TestCase):
         self.assertIn('1'*40,window.version.toolTip())
         self.assertIn('2'*40,window.version.toolTip())
 
-    def test_current_version_has_a_clear_inactive_button_and_updates_can_reappear(self):
+    def test_current_version_hides_the_update_button_and_updates_can_reappear(self):
         service.publish(phase='current', current='2'*40, latest='2'*40,
                         github={'relation': 'identical'})
         window = self.window()
-        self.assertEqual(window.prepare.text(), 'You are up to date!')
+        self.assertFalse(window.prepare.isVisible())
         self.assertFalse(window.prepare.isEnabled())
         service.publish(phase='available', latest='3'*40, github={'relation': 'ahead'})
         window.refresh()
         self.assertEqual(window.prepare.text(), 'Update!')
         self.assertTrue(window.prepare.isEnabled())
+
+    def test_opening_checks_without_exposing_a_cached_download_or_checkbox(self):
+        from PyQt6.QtWidgets import QCheckBox
+        service.publish(check_started=time.time()-60, checked=time.time()-50, check_ok=True)
+        window = self.window(checked=False)
+        self.assertEqual(service.take_request(), 'check')
+        self.launch.assert_called_once()
+        self.assertFalse(window.findChildren(QCheckBox))
+        self.assertFalse(window.prepare.isVisible())
+        self.assertIn('Checking', window.message.text())
+        self.assertIn('Last seen', window.version.text())
+        service.publish(check_started=time.time()-30, checked=time.time(), check_ok=True)
+        window.refresh()
+        self.assertFalse(window.prepare.isVisible(), 'An older in-flight check cannot unlock the download')
+        self.finish_check(window, latest='3'*40)
+        self.assertTrue(window.prepare.isVisible())
+        self.assertTrue(window.prepare.isEnabled())
+        self.assertIn('Latest', window.version.text())
+        window.check.click()
+        self.assertEqual(service.take_request(), 'check')
+        self.assertFalse(window.prepare.isVisible())
+        self.finish_check(window)
+        window.hide(); window.show(); self.application.processEvents()
+        self.assertEqual(service.take_request(), 'check')
+        self.assertFalse(window.prepare.isVisible())
+
+    def test_failed_check_or_request_timeout_never_unlocks_the_cached_update(self):
+        window = self.window(checked=False)
+        service.publish(check_started=time.time(), checked=time.time(), check_ok=False,
+                        retry_at=time.time()+900, message='Could not check GitHub: offline')
+        window.refresh()
+        self.assertFalse(window.prepare.isVisible())
+        self.assertIn('offline', window.message.text())
+        self.assertTrue(window.check.isEnabled())
+        window.check.click()
+        self.assertEqual(service.take_request(), 'check')
+        window.queued_at -= 11; window.refresh()
+        self.assertFalse(window.prepare.isVisible())
+        window.primary_action()
+        self.assertEqual(service.take_request(), 'check')
+
+    def test_an_opening_during_preparation_checks_after_it_finishes(self):
+        service.publish(phase='preparing')
+        window = self.window(checked=False)
+        self.launch.assert_not_called()
+        self.assertEqual(window.prepare.text(), 'Updating…')
+        self.ready(); window.refresh()
+        self.assertEqual(service.take_request(), 'check')
+        self.assertFalse(window.prepare.isVisible())
+        self.finish_check(window, phase='available', latest='3'*40, prepared='2'*40)
+        self.assertEqual(window.prepare.text(), 'Update!')
+        self.assertTrue(window.prepare.isEnabled())
+        self.assertFalse(service.restart_ready(service.status(), engine.json_file(self.state/'pending.json')))
 
     def test_three_themes_and_settings_use_private_state(self):
         from PyQt6.QtWidgets import QApplication
@@ -73,13 +133,11 @@ class UpdateUiTests(unittest.TestCase):
                 for design in ('raw', 'modern', 'breakpoint'):
                     with patch.object(theme_runtime, 'design', return_value=design):
                         app.setPalette(theme_runtime.palette('dark',design)); app.setStyleSheet(STYLE)
-                        window = Window(); window.show(); app.processEvents()
+                        window = self.window()
                         self.assertTrue(window.prepare.isEnabled()); self.assertFalse(window.progress.isVisible())
                         self.assertEqual(window.prepare.text(), 'Update!')
                         self.assertLess(window.prepare.geometry().bottom(), window.height())
                         self.assertFalse(window.grab().isNull())
-                        window.automatic.setChecked(False)
-                        self.assertFalse(service.preferences()['automatic'])
                         service.publish(phase='preparing'); window.refresh(); app.processEvents()
                         self.assertFalse(window.prepare.isEnabled()); self.assertTrue(window.progress.isVisible())
                         self.assertEqual(window.prepare.text(), 'Updating…')
@@ -111,7 +169,7 @@ class UpdateUiTests(unittest.TestCase):
         bar.setValue(bar.maximum())
         # Exercise the bounded log tail, not only short output.
         with log.open('a') as stream: stream.write('Compiler output\n'*2500+'Validation finished\n')
-        self.ready(); window.refresh(); self.application.processEvents()
+        self.ready(); window.refresh(); self.finish_check(window)
         self.assertEqual(bar.value(), bar.maximum())
         self.assertTrue(window.details.toPlainText().endswith('Validation finished\n'))
         self.assertEqual(window.prepare.text(), 'Restart')

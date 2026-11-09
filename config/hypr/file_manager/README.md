@@ -97,10 +97,15 @@ show the item, error, status, source, destination and stage; select one or more
 to **Retry**, **Skip**, **Replace** a conflicting file, or **Use administrator
 access** for a permission error. The similar-items checkbox applies a choice
 to matching queued issues; Skip also applies to later issues of that same
-type for this job only. Sockets, named pipes and devices are distinct from
-ordinary file data and are queued, not opened as streams or silently ignored.
-Their rows explain **Skip** and disable Retry and administrator access, which
-cannot copy a runtime endpoint. Skip only affects unresolved items; successful
+type for this job only. Filesystem sockets are ignored automatically while
+copying, without a queue row or authentication prompt. Both the worker and its
+background counter exclude them from file and byte totals; they do not count
+as user-skipped files. Detection uses the actual no-follow filesystem type,
+not a `.sock` extension or an error code. Ordinary files, directories and
+symbolic links (including links to sockets) still transfer normally. Named
+pipes, devices, unknown file types and access/I/O failures still need a choice.
+Their rows explain **Skip** and disable actions that cannot resolve the issue.
+Skip only affects unresolved items; successful
 copies remain successful even when selected alongside a skipped row.
 
 Retries run after the current copy pass. A successful retry immediately shows
@@ -121,6 +126,10 @@ Later automatic skips are summarized with a count so choosing Skip similar on
 a large tree does not flood the popup with millions of rows. **Save report**
 streams every affected path from a read-only journal snapshot, including those
 automatic skips, without loading the whole report into memory.
+Automatically ignored sockets have separate diagnostic records in the journal
+and optional report, outside the attention queue and transfer totals. Moves
+that copy data retain those sockets at their sources; instant same-filesystem
+renames retain their normal filesystem behavior.
 
 Same-filesystem moves use an atomic rename where the destination is free.
 Cross-filesystem moves and folder merges copy the selected contents first,

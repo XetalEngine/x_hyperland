@@ -332,9 +332,9 @@ Turn Cube off for global workspace numbering and add/remove controls. All bindin
 
 ## Updates that keep your settings
 
-The taskbar's **UPDATE** badge announces a newer desktop release. Automatic updates prepare in the background, merge personal settings, build native components and validate the result. **UPDATE READY** activates at the next Hyprland login, without forcing you to log out.
+The taskbar's **UPDATE** badge announces a newer desktop release. Opening Desktop Updates checks GitHub again; **Update!** appears only after a successful fresh check. Downloads start when you choose Update, with another release check immediately beforehand. Preparation merges personal settings, builds native components and validates the result. **UPDATE READY** activates at the next Hyprland login, without forcing you to log out.
 
-Click the badge to inspect the live log, check now, pause automatic updates or queue a rollback. The log follows new output, and the main button changes from **Update!** to **Updating…** to **Restart** when ready. Restart requires your confirmation; updates never reboot the computer automatically. A changed compositor requirement shows **SETUP REQUIRED** and opens the graphical installer so the system runtime and desktop move together. KVM component updates are managed separately in Paths & Tools.
+Click the badge to inspect the live log, check again or queue a rollback. Background checks provide notices; there is no automatic-download setting. The log follows new output, and the main button changes from **Update!** to **Updating…** to **Restart** when ready. Restart requires your confirmation; updates never reboot the computer automatically. A changed compositor requirement shows **SETUP REQUIRED** and opens the graphical installer so the system runtime and desktop move together. KVM component updates are managed separately in Paths & Tools.
 
 Your hotkeys, monitor arrangement, chosen wallpapers, private Dolphin Places and startup preferences are preserved. Conflicting edits stop an update for review. [Update behavior and recovery →](docs/UPDATES.md)
 

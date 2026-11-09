@@ -9,6 +9,7 @@ import tempfile
 import time
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import update_engine as engine
@@ -41,6 +42,23 @@ class UpdateTests(unittest.TestCase):
         value = {'revision':revision, 'stage':str(stage), 'automatic':True, **options}
         engine.write_json(self.state/'pending.json', value)
         return value
+
+    def serve_ticks(self, count, start, step=lambda _index: None, delay=3600):
+        """Drive the real request loop without networking or installer children."""
+        with patch.object(service, 'STATE', self.state), patch.object(service, 'ROOT', self.live), \
+             patch.dict(os.environ, {'HYPRLAND_INSTANCE_SIGNATURE':'test-session', 'XDG_RUNTIME_DIR':str(self.root)}), \
+             patch.object(service.random, 'uniform', return_value=delay), \
+             patch.object(service.signal, 'signal'), patch.object(service.socket, 'socket') as sockets, \
+             patch.object(service.select, 'select') as select_socket, \
+             patch.object(service.subprocess, 'Popen', side_effect=start) as popen, patch.object(service, 'stop_worker'):
+            session = sockets.return_value.__enter__.return_value; session.recv.return_value = b''
+            ticks = iter(range(count+1))
+            def advance(*_args):
+                index = next(ticks); step(index)
+                return ([], [], []) if index < count else ([session], [], [])
+            select_socket.side_effect = advance
+            service.serve()
+        return popen
 
     def test_status_reuses_inventory_but_tracks_atomic_registration_changes(self):
         with patch.object(engine, 'installed', wraps=engine.installed) as inspect:
@@ -290,10 +308,20 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
             service.check(self.live, self.state); value = service.check(self.live, self.state)
             self.assertEqual(call.call_count, 1); self.assertEqual(value['latest'], NEW)
 
-    def test_paused_auto_update_does_not_activate_and_requests_are_consumed_once(self):
+    def test_failed_check_does_not_claim_a_cached_current_release_is_up_to_date(self):
+        service.publish(self.state, phase='current', current=OLD, latest=OLD,
+                        github={'base':OLD, 'relation':'identical'})
+        with patch.object(github, 'latest', side_effect=OSError('offline')):
+            service.check(self.live, self.state)
+        value = service.status(self.state, self.live)
+        self.assertIn('offline', value['message'])
+        self.assertFalse(service.checked_since(value, 0))
+
+    def test_legacy_automatic_preference_never_activates_without_explicit_restart(self):
         engine.write_json(self.state/'pending.json', {'automatic':True})
-        engine.write_json(self.state/'settings.json', {'automatic':False})
-        self.assertFalse(service.activate(self.live, self.state))
+        for previous in (True, False):
+            engine.write_json(self.state/'settings.json', {'automatic':previous})
+            self.assertFalse(service.activate(self.live, self.state))
         service.request('check', self.state); self.assertEqual(service.take_request(self.state), 'check')
         self.assertIsNone(service.take_request(self.state))
 
@@ -307,7 +335,7 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
         service.publish(self.state, phase='ready', current=OLD, latest=NEW, prepared=NEW)
         self.assertFalse(service.activate(self.live, self.state))
         service.prepare_restart(self.live, self.state)
-        self.assertFalse(service.preferences(self.state)['automatic'])
+        self.assertNotIn('automatic', service.preferences(self.state))
         self.assertFalse(engine.json_file(self.state/'pending.json')['automatic'])
         compatibility = SimpleNamespace(candidate=lambda *args: staged/'hyprland.conf')
         with patch.dict(sys.modules, {'hypr_compat':compatibility}), \
@@ -340,23 +368,61 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
             self.assertFalse(service.restart_ready(value))
             self.assertEqual(service.badge(value)['text'], '')
 
-    def test_manual_update_is_not_consumed_by_a_due_background_check(self):
+    def test_manual_update_rechecks_and_downloads_the_newest_commit(self):
         service.publish(self.state, phase='available', current=OLD, latest=NEW, github={'relation':'ahead'})
         service.request('prepare', self.state)
-        with patch.object(service, 'STATE', self.state), patch.object(service, 'ROOT', self.live), \
-             patch.dict(os.environ, {'HYPRLAND_INSTANCE_SIGNATURE':'test-session', 'XDG_RUNTIME_DIR':str(self.root)}), \
-             patch.object(service.random, 'uniform', return_value=0), \
-             patch.object(service.socket, 'socket') as socket_factory, \
-             patch.object(service.select, 'select') as select_socket, \
-             patch.object(service.subprocess, 'Popen') as popen, patch.object(service, 'stop_worker'):
-            session = socket_factory.return_value.__enter__.return_value
-            session.recv.return_value = b''
-            select_socket.side_effect = [([], [], []), ([session], [], [])]
-            service.serve()
-        popen.assert_called_once()
-        self.assertIn('--worker', popen.call_args.args[0])
-        self.assertIn('--manual', popen.call_args.args[0])
-        self.assertNotIn('--check', popen.call_args.args[0])
+        newest = '3'*40
+        def start(command, **_options):
+            if '--check' in command:
+                with patch.object(github, 'latest', return_value={'sha':newest, 'base':OLD, 'relation':'ahead', 'message':'New release'}):
+                    service.check()
+                return SimpleNamespace(poll=lambda:0, returncode=0)
+            return SimpleNamespace(poll=lambda:None)
+        popen = self.serve_ticks(2, start, delay=0)
+        self.assertEqual(popen.call_count, 2)
+        self.assertIn('--check', popen.call_args_list[0].args[0])
+        command = popen.call_args_list[1].args[0]
+        self.assertIn('--worker', command); self.assertIn('--manual', command)
+        self.assertIn(newest, command); self.assertNotIn(NEW, command)
+
+    def test_manual_update_never_downloads_after_a_failed_or_no_longer_new_check(self):
+        for result in ('offline', 'rate-limit', 'current', 'behind'):
+            with self.subTest(result=result):
+                service.publish(self.state, phase='available', current=OLD, latest=NEW, retry_at=0, github={'relation':'ahead'})
+                service.request('prepare', self.state)
+                def start(command, **_options):
+                    self.assertIn('--check', command)
+                    value = {'sha':OLD, 'base':OLD, 'relation':'identical' if result == 'current' else 'behind', 'message':'Current'}
+                    error = OSError('offline') if result == 'offline' else github.RetryLater('rate limited', time.time()+600)
+                    with patch.object(github, 'latest', **({'side_effect':error} if result in ('offline','rate-limit') else {'return_value':value})):
+                        service.check()
+                    return SimpleNamespace(poll=lambda:0, returncode=0)
+                popen = self.serve_ticks(2, start)
+                self.assertEqual(popen.call_count, 1)
+
+    def test_background_checks_never_start_downloads_with_legacy_automatic_enabled(self):
+        clock = [1000]
+        service.publish(self.state, phase='available', current=OLD, latest=NEW, checked=1000,
+                        github={'base':OLD, 'relation':'ahead'})
+        engine.write_json(self.state/'settings.json', {'automatic':True})
+        with patch.object(service.time, 'time', side_effect=lambda:clock[0]):
+            popen = self.serve_ticks(3, lambda *_args, **_kwargs:self.fail('Unrequested download'),
+                                    step=lambda index:clock.__setitem__(0, 1000+60*index))
+        popen.assert_not_called()
+
+    def test_check_request_waits_for_an_existing_worker_instead_of_being_dropped(self):
+        service.request('check', self.state); ticks = [0]
+        def start(command, **_options):
+            self.assertIn('--check', command)
+            with patch.object(github, 'latest', return_value={'sha':NEW, 'base':OLD, 'relation':'ahead', 'message':'Release'}):
+                service.check()
+            return SimpleNamespace(poll=lambda:0 if ticks[0] >= 2 else None, returncode=0)
+        def step(index):
+            ticks[0] = index
+            if index == 1: service.request('check', self.state)
+            if index == 2: self.assertTrue((self.state/'request.json').is_file())
+        popen = self.serve_ticks(3, start, step)
+        self.assertEqual(popen.call_count, 2)
 
     def test_status_escapes_remote_markup(self):
         badge = service.badge({'phase':'available','message':'<b>not markup</b>'})
@@ -386,7 +452,7 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
         plan=self.prepare()
         staged=self.state/'prepared';shutil.copytree(self.stage,staged)
         engine.write_json(staged/'plan.json',plan)
-        engine.write_json(self.state/'pending.json',{'revision':NEW,'stage':str(staged),'automatic':True})
+        engine.write_json(self.state/'pending.json',{'revision':NEW,'stage':str(staged),'automatic':False})
         with patch.object(service.runtime_policy,'installed',return_value={'version':'0.57.0','commit':'a'*40}):
             self.assertFalse(service.activate(self.live,self.state))
         self.assertEqual(engine.installed(self.live)['revision'],OLD)

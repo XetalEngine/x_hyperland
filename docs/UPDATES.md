@@ -4,13 +4,17 @@ Hyper Fusion watches `XetalEngine/x_hyperland` on GitHub, branch **main**. Every
 
 ## What users see
 
-An animated **UPDATE** badge appears beside **Keys** when a newer commit is available. It stays completely hidden while the desktop is up to date or checking for updates, and remains visible while an update downloads or waits for the next login. Click it for installed/latest revisions, the commit message, a live update log, **Check now**, **Update!**, automatic-update preferences and **Roll back**. Right-click the taskbar and check **Hide Update Ready** to hide the ready/restart notice across all monitors and future logins. New-update and error notices still appear, and update checks continue. Uncheck it to show the notice again. **Options → Desktop updates** hides all update notices; **Show all items** resets both choices. To manage updates while the badge is hidden, run `~/.config/hypr/scripts/desktop-updates.sh`.
+An animated **UPDATE** badge appears beside **Keys** when a newer commit is available. It stays completely hidden while the desktop is up to date or checking for updates, and remains visible while an update downloads or waits for the next login. Click it for installed/latest revisions, the commit message, a live update log, **Check now**, **Update!** and **Roll back**. Right-click the taskbar and check **Hide Update Ready** to hide the ready/restart notice across all monitors and future logins. New-update and error notices still appear, and update checks continue. Uncheck it to show the notice again. **Options → Desktop updates** hides all update notices; **Show all items** resets both choices. To manage updates while the badge is hidden, run `~/.config/hypr/scripts/desktop-updates.sh`.
+
+Opening the window starts a fresh GitHub check. **Update!** stays hidden until that check succeeds and finds an available update; cached version information is labelled **Last seen**. **Check now** repeats the check. Offline failures and rate limits keep downloads unavailable, with the reason shown in the window. If an update is already being prepared, opening the window schedules its fresh check after preparation finishes.
+
+Clicking **Update!** checks the branch again before selecting the commit to download. A newer release published while the window was open replaces the earlier candidate. A failed check or a branch that is no longer ahead starts no download. An already-prepared older release remains separate from the newly available version.
 
 The main button changes from **Update!** to **Updating…**, then **Restart** once the update has finished building and validating. The log opens at its newest output and follows new lines; scrolling up pauses following until you return to the bottom. Restart asks you to save your work and confirm, then uses the normal system restart request. If authorization or a shutdown inhibitor blocks it, the update remains ready and the button allows another attempt. Updates never restart the computer automatically.
 
 ![Desktop updates](screenshots/desktop-updates.png)
 
-Automatic updates are enabled by default. One session helper checks roughly every 15 minutes, with a short startup delay. After showing the notice for at least 30 seconds, it downloads the advertised commit, merges the new defaults with personal settings, builds native components and validates the complete Hyprland configuration.
+One session helper checks roughly every 15 minutes, with a short startup delay, and announces available releases. Downloads require **Update!**; the automatic-update checkbox and background-download behavior have been removed. Older saved automatic-update preferences are ignored. Requested updates merge new defaults with personal settings, build native components and validate the complete Hyprland configuration.
 
 During update preparation, the incoming release also initializes standard user
 folders for older accounts that never received an XDG directory configuration.
@@ -22,9 +26,9 @@ shortcuts; it never creates folders on another mounted installation. A failure
 is recorded in the update log without blocking the desktop update, and the
 session retries initialization before starting Files on a subsequent login.
 
-**Ordinary automatic updates activate at the next Hyprland login, before the session helpers and native effects load.** No forced logout or compositor-plugin replacement occurs while you are working. The badge changes to **UPDATE READY** after preparation. You can choose **Restart** to finish, or let the update activate at a later login. Pausing automatic updates also postpones activation of an already prepared automatic update; clicking **Restart** explicitly enables that pending update without changing your automatic-update preference. A manually requested update also remains explicit. If a newer release appears while an older one is prepared, the badge offers that newer release and identifies the prepared revision separately.
+**Requested updates activate at the next Hyprland login, before the session helpers and native effects load.** No forced logout or compositor-plugin replacement occurs while you are working. The badge changes to **UPDATE READY** after preparation. You can choose **Restart** to finish, or let the update activate at a later login. A legacy update downloaded automatically by an older version requires an explicit **Restart** before activation. If a newer release appears while an older one is prepared, the refreshed window offers that newer release and identifies the prepared revision separately.
 
-Each release declares its required compositor in `runtime/manifest.json`. A different installed version or source commit shows **SETUP REQUIRED**; **Update!** opens the graphical Setup wizard for that release. Background updates never elevate privileges. This foreground wizard uses the release's signed Arch package or Fedora 44 RPM bundle, requests administrator authentication, builds and validates the matching desktop, and installs the merged profile in the same operation. **Restart** is offered afterward to start that pair together, and the restart reminder clears at the next login. The same path repairs a compositor mismatch even when the desktop source revision is already current.
+Each release declares its required compositor in `runtime/manifest.json`. A different installed version or source commit shows **SETUP REQUIRED**; after the fresh check, **Update!** opens the graphical Setup wizard for that release. Background checks never elevate privileges. This foreground wizard uses the release's signed Arch package or Fedora 44 RPM bundle, requests administrator authentication, builds and validates the matching desktop, and installs the merged profile in the same operation. **Restart** is offered afterward to start that pair together, and the restart reminder clears at the next login. The same path repairs a compositor mismatch even when the desktop source revision is already current.
 
 ## Keeping personal settings
 
@@ -62,7 +66,7 @@ repairs can still require activation at the same source revision.
 
 ## Failure and recovery
 
-Preparation works in a separate directory. A differing application file no longer blocks an update or needs a manual reinstall. Missing packages, failed builds, invalid configuration or files changed during preparation still leave the current desktop installed. Automatic updates never run `sudo` or change system packages; dependency problems are shown for the user to resolve.
+Preparation works in a separate directory. A differing application file no longer blocks an update or needs a manual reinstall. Missing packages, failed builds, invalid configuration or files changed during preparation still leave the current desktop installed. Ordinary update preparation never runs `sudo` or changes system packages; dependency problems are shown for the user to resolve.
 
 Source downloads and Git history checks share an exclusive process lock. Git
 inherits that lock, so terminating its Python parent cannot allow another worker
@@ -84,7 +88,7 @@ keeping a backup of the previous file. Then select **Check now** and **Update!**
 New workers load the repaired downloader immediately; no logout, cache deletion,
 or administrator authentication is needed.
 
-Activation has a journal, per-file atomic writes and a backup of changed files. The next startup recovers an interrupted transaction. **Roll back** queues the previous completed version for next login and pauses automatic updates. It refuses to overwrite files edited since that update; inspect the message before resolving any difference.
+Activation has a journal, per-file atomic writes and a backup of changed files. The next startup recovers an interrupted transaction. **Roll back** queues the previous completed version for next login. It refuses to overwrite files edited since that update; inspect the message before resolving any difference.
 
 The required native Burn/Cube/Minimize ABI is checked by their builders. A missing adapter or failed build blocks the prepared desktop. Foreground Setup retains a signed copy of the previous compositor before replacement and restores it if preparation fails or is cancelled. A queued profile is checked against the installed compositor again at activation. On Fedora, the exact bundled library/tool/header versions are checked too, including during profile rollback; a changed runtime requires foreground Setup even if Hyprland itself has the same version and commit. Rollback refuses a backup requiring a different compositor; use that release's Setup to restore the matching pair. [Package pin and recovery details](INSTALLER.md).
 

@@ -31,7 +31,13 @@ def resolution(db, source, target, stage, moving, finished=False):
     if stage in steps: return steps[stage]
     row = db.execute('SELECT kind,removed,retained FROM entries WHERE source=? AND target=? ORDER BY id DESC LIMIT 1',
                      (source, target)).fetchone()
-    if not row: return 'Folder processed' if stage == 'rescan' else 'Step completed'
+    if not row:
+        # A previously unreadable item may turn out to be a socket after access
+        # is granted. Do not describe that retry as a successful file copy.
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='ignored_sockets'").fetchone() and \
+           db.execute('SELECT 1 FROM ignored_sockets WHERE source=? AND target=?', (source, target)).fetchone():
+            return 'Runtime socket ignored'
+        return 'Folder processed' if stage == 'rescan' else 'Step completed'
     kind, removed, retained = row
     if removed: return 'Moved successfully'
     if stage == 'remove': return 'Original kept'
@@ -214,6 +220,12 @@ def export_report(journal, stream):
             if result: stream.write(f'\n{result}\nOriginal issue: {detail}')
             else: stream.write(f'\n{detail}')
             stream.write(f'\nFrom: {source}\nTo: {target}\nStage: {stage}\nStatus: {result or status}\n')
+        # Older journals predate this table. Runtime endpoints have no queue
+        # rows, but an optional saved report can still explain their omission.
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='ignored_sockets'").fetchone():
+            for source, target in db.execute('SELECT source,target FROM ignored_sockets ORDER BY source,target'):
+                stream.write(f'\nRuntime socket ignored automatically; excluded from file totals.\n'
+                             f'From: {source}\nTo: {target}\nStatus: ignored / original kept\n')
 
 
 if __name__ == '__main__':
