@@ -62,6 +62,7 @@ Fusion::TransferView::TransferView(KJob *job, const QVariantMap &initial)
       bus.connect(owner, path, "org.kde.JobViewV3", "cancelRequested", this, SLOT(cancel()));
       bus.connect(owner, path, "org.kde.JobViewV3", "suspendRequested", this, SLOT(suspend()));
       bus.connect(owner, path, "org.kde.JobViewV3", "resumeRequested", this, SLOT(resume()));
+      bus.connect(owner, path, "org.xetal.FileTransfer1", "reviewRequested", this, SLOT(review()));
     } else if (this->job && !finished) {
       // Standalone Files outside a Fusion session retains ordinary KIO progress.
       KIO::getJobTracker()->registerJob(this->job);
@@ -124,3 +125,4 @@ void Fusion::TransferView::terminate() {
 void Fusion::TransferView::cancel() { if (job && !finished) job->kill(KJob::EmitResult); }
 void Fusion::TransferView::suspend() { if (job && !finished) { job->suspend(); update({{"suspended", job->isSuspended()}}); } }
 void Fusion::TransferView::resume() { if (job && !finished) { job->resume(); update({{"suspended", job->isSuspended()}}); } }
+void Fusion::TransferView::review() { if (job && !finished) emit reviewRequested(); }

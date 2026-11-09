@@ -13,9 +13,11 @@ public:
   ~NativeTransfer() override;
   void start() override;
   void answer(const QString &choice);
+  void resolve(const QVariantMap &decision);
   QString journal() const { return journalPath; }
 signals:
   void progress(const QVariantMap &values);
+  void issue(const QVariantMap &values);
   void question(const QUrl &source, const QUrl &destination, bool replaceAllowed);
   void moved(const QUrl &source, const QUrl &destination);
   void destinationReady(const QUrl &destination);
@@ -28,7 +30,7 @@ private:
   QProcess process, authority;
   QByteArray buffer;
   QJsonObject outcome;
-  QString journalPath;
+  QString journalPath, authorizationToken;
   bool started = false, finished = false, paused = false;
   void command(const QJsonObject &message);
   void receive();

@@ -1,5 +1,6 @@
 #include "page.h"
 #include "src/util.h"
+#include "desktop.h"
 #include <QtTest>
 #include <QTemporaryDir>
 #include <QJsonObject>
@@ -18,7 +19,7 @@ class ProtonPageTests : public QObject {
     }
     void tool(const QString &name) {
         runner=Ui::text(util::tools_dir())+"/"+name;
-        write(runner+"/proton","#!/bin/sh\nprintf '%s\\n' \"$WINEPREFIX\" > \"$WINEPREFIX/launched.txt\"\n[ \"$HOLD_FIXTURE\" != 1 ] || sleep 3\n",true);
+        write(runner+"/proton","#!/bin/sh\nprintf '%s\\n' \"$WINEPREFIX\" > \"$WINEPREFIX/launched.txt\"\nprintf '%s\\n' \"$@\" > \"$WINEPREFIX/arguments.txt\"\n[ \"$HOLD_FIXTURE\" != 1 ] || sleep 3\n",true);
         write(runner+"/version","0 fixture\n");
         write(runner+"/.xetalproton-tool.json",QJsonDocument(QJsonObject{{"provider","ge"},{"name",name},{"version","fixture"},{"entrypoint","proton"}}).toJson());
         write(runner+"/protonfixes/winetricks","w_metadata corefonts fonts\nw_metadata vcrun2022 dlls\n");
@@ -28,6 +29,8 @@ private slots:
     void init() {
         fixture=std::make_unique<QTemporaryDir>("/tmp/fusion-proton-page-XXXXXX");QVERIFY(fixture->isValid());
         qputenv("XETALPROTON_HOME",fixture->path().toUtf8());qputenv("XETALPROTON_OFFLINE","1");
+        qputenv("XETAL_HYPR_ROOT",(fixture->path()+"/hypr").toUtf8());
+        qputenv("XDG_CONFIG_HOME",(fixture->path()+"/config").toUtf8());
     }
     void cleanup() {fixture.reset();}
     void pageIsLazyAndHasEverySectionAndProvider() {
@@ -114,6 +117,66 @@ private slots:
         auto shortcut=model.config.shortcuts.front();shortcut.use_runtime=false;shortcut.env["FUTURE_OPTION"]="value";shortcut.custom_env="MY_OPTION=space value";QVERIFY(model.updateShortcut(shortcut));
         const auto output=fixture->path()+"/launch.sh";QVERIFY(model.exportScript(shortcut.id,output));
         QFile file(output);QVERIFY(file.open(QIODevice::ReadOnly));const auto script=file.readAll();QVERIFY(script.contains("FUTURE_OPTION=value"));QVERIFY(script.contains(QByteArray::fromStdString(model.current+"/pfx")));QVERIFY(script.contains("'space value'"));QVERIFY(file.permissions()&QFileDevice::ExeOwner);
+    }
+    void browserSignInEditorPersistsAndExportsTheMatchingHandler() {
+        tool("Fixture");Page page;show(page);auto &model=*page.controller();QVERIFY(model.createPrefix("Sign in"));
+        const auto app=fixture->path()+"/Example.exe";write(app,"fixture");QVERIFY(model.addShortcut(app,false));
+        bool edited=false;
+        QTimer::singleShot(30,[&]{
+            auto *dialog=qobject_cast<QDialog *>(QApplication::activeModalWidget());if(!dialog)return;
+            auto *enabled=dialog->findChild<QCheckBox *>("protonHandleUrls");
+            if(enabled){
+                enabled->setChecked(true);dialog->findChild<QLineEdit *>("protonUrlSchemes")->setText("example-login, example-app");
+                dialog->findChild<QLineEdit *>("protonUrlArgument")->setText("--url={url}");
+                dialog->findChild<QCheckBox *>("protonUrlIncludeArgs")->setChecked(false);
+                dialog->findChild<QCheckBox *>("protonUseRuntime")->setChecked(false);edited=true;
+            }
+            const auto screenshots=qEnvironmentVariable("XETALPROTON_TEST_SCREENSHOTS");
+            if(!screenshots.isEmpty()){QDir().mkpath(screenshots);dialog->grab().save(screenshots+"/browser-sign-in.png");}
+            QTest::mouseClick(dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save),Qt::LeftButton);
+        });
+        QTest::mouseClick(page.findChild<QPushButton *>("protonBrowserSignIn"),Qt::LeftButton);QVERIFY(edited);
+        const auto selected=model.config.shortcuts.front();QVERIFY(selected.desktop.enabled);QVERIFY(selected.desktop.private_output);
+        const auto screenshots=qEnvironmentVariable("XETALPROTON_TEST_SCREENSHOTS");
+        if(!screenshots.isEmpty()){QTest::qWait(30);page.grab().save(screenshots+"/proton-library.png");}
+        QCOMPARE(selected.desktop.argument,std::string("--url={url}"));QVERIFY(!selected.desktop.include_args);
+        QVERIFY(QFileInfo::exists(Desktop::manifest(selected.id)));QVERIFY(page.findChild<QPushButton *>("protonRepairHandlers")->isEnabled());
+        QVERIFY(model.reload());QVERIFY(model.shortcut(selected.id)->desktop.enabled);
+        const auto exported=fixture->path()+"/with-login.sh";QVERIFY(model.exportScript(selected.id,exported));
+        QFile script(exported);QVERIFY(script.open(QIODevice::ReadOnly));const auto data=script.readAll();QVERIFY(data.contains("desktop_bridge.py"));QVERIFY(data.contains("--launch"));
+        QVERIFY(model.duplicateShortcut(selected.id));QVERIFY(!model.config.shortcuts.back().desktop.enabled);
+        auto disabled=selected;disabled.desktop.enabled=false;QVERIFY(model.updateShortcut(disabled));QVERIFY(!QFileInfo::exists(Desktop::manifest(selected.id)));
+    }
+    void invalidBrowserSettingsNeverOverwriteTheConfig() {
+        tool("Fixture");Controller model;QVERIFY(model.reload());QVERIFY(model.createPrefix("App"));
+        const auto app=fixture->path()+"/Example.exe";write(app,"fixture");QVERIFY(model.addShortcut(app,false));
+        QFile file(Ui::text(config_path()));QVERIFY(file.open(QIODevice::ReadOnly));const auto before=file.readAll();file.close();
+        auto shortcut=model.config.shortcuts.front();shortcut.use_runtime=false;shortcut.desktop.enabled=true;shortcut.desktop.schemes="https";
+        QVERIFY(!model.updateShortcut(shortcut));QVERIFY(file.open(QIODevice::ReadOnly));QCOMPARE(file.readAll(),before);file.close();
+        shortcut.desktop.schemes="example";shortcut.verb="waitforexitandrun";QVERIFY(!model.updateShortcut(shortcut));
+        QVERIFY(model.notice.contains("run verb"));
+    }
+    void taskManagerUsesTheSelectedAppsPrefixAndRunner() {
+        tool("Default");const auto defaultRunner=runner;tool("Override");const auto overrideRunner=runner;
+        Controller model;QVERIFY(model.reload());QVERIFY(model.createPrefix("App prefix"));const auto first=model.current;
+        Shortcut app;app.id=new_id();app.name="App";app.exe="cmd.exe";app.prefix=first;app.proton=overrideRunner.toStdString();app.use_runtime=false;
+        auto next=model.config;next.shortcuts.push_back(app);next.prefix_proton[first]=defaultRunner.toStdString();QVERIFY(model.save(next));
+        QVERIFY(model.createPrefix("Other prefix"));const auto other=model.current;
+        QVERIFY(model.runTaskManager(app.id)>0);QTRY_VERIFY(QFileInfo::exists(Ui::text(first)+"/pfx/arguments.txt"));
+        QFile args(Ui::text(first)+"/pfx/arguments.txt");QVERIFY(args.open(QIODevice::ReadOnly));QCOMPARE(args.readAll(),QByteArray("runinprefix\ntaskmgr.exe\n"));
+        QVERIFY(!QFileInfo::exists(Ui::text(other)+"/pfx/launched.txt"));
+        QFile log(Ui::text(model.processes.back().log_path));QVERIFY(log.open(QIODevice::ReadOnly));QVERIFY(log.readAll().contains(overrideRunner.toUtf8()));
+    }
+    void privateSignInLaunchDoesNotCaptureAppOutput() {
+        tool("Fixture");write(runner+"/proton","#!/bin/sh\necho fixture-private-token\n",true);
+        Controller model;QVERIFY(model.reload());QVERIFY(model.createPrefix("Private app"));
+        Shortcut app;app.id=new_id();app.name="Private app";app.exe="cmd.exe";app.prefix=model.current;app.use_runtime=false;
+        app.desktop.enabled=true;app.desktop.schemes="fixture-login";
+        const auto spec=model.command(app);QVERIFY(spec.private_output);QCOMPARE(spec.env.at("PROTON_LOG"),std::string("0"));
+        QVERIFY(model.launch(spec)>0);QTRY_VERIFY(!model.processes.back().running);
+        QFile log(Ui::text(spec.log_path));QVERIFY(log.open(QIODevice::ReadOnly));const auto data=log.readAll();
+        QVERIFY(data.contains("Application output hidden"));QVERIFY(!data.contains("fixture-private-token"));
+        QVERIFY(!(log.permissions()&QFileDevice::ReadGroup));QVERIFY(!(log.permissions()&QFileDevice::ReadOther));
     }
 };
 QTEST_MAIN(ProtonPageTests)

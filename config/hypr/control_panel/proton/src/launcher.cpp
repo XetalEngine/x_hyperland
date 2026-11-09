@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 #include <cctype>
 
 extern char** environ;
@@ -186,7 +187,16 @@ pid_t ProcessManager::start(const LaunchSpec& spec) {
 
     // Write header to the log
     { std::string hdr = "# XetalProton launch: " + spec.label + "\n# " + util::timestamp("%Y-%m-%d %H:%M:%S") + "\n" + spec_to_shell(spec) + "\n----\n"; util::write_file(spec.log_path, hdr); }
-    int logfd = open(spec.log_path.c_str(), O_WRONLY | O_APPEND | O_CREAT, 0644);
+    chmod(spec.log_path.c_str(), 0600);
+    if (spec.private_output) {
+        int note=open(spec.log_path.c_str(),O_WRONLY|O_APPEND);
+        if(note>=0) { const char *message="Application output hidden for browser sign-in.\n"; ssize_t written=write(note,message,strlen(message)); (void)written; close(note); }
+    }
+    int logfd = spec.private_output ? open("/dev/null",O_WRONLY) : open(spec.log_path.c_str(), O_WRONLY | O_APPEND | O_CREAT, 0600);
+    if(logfd<0) {
+        if(prefix_lock>=0)close(prefix_lock);
+        log("Could not open the launch output destination.");return -1;
+    }
 
     pid_t pid = fork();
     if (pid == 0) {

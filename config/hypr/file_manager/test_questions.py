@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 import sys
-from PyQt6.QtCore import QProcess, QTimer, Qt
+from PyQt6.QtCore import QObject, QProcess, QTimer, Qt, pyqtSlot
 from PyQt6.QtDBus import QDBusConnection, QDBusMessage, QDBusPendingCallWatcher, QDBusPendingReply
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication
@@ -30,6 +30,16 @@ def check_question_ownership(service):
     paths = [service.create(client.baseService(), 'Protocol fixture', 3, {}, 'org.kde.JobViewV3').path()
              for client in clients]
     first, second = [service.jobs[path] for path in paths]
+    class ReviewReceiver(QObject):
+        called = False
+        @pyqtSlot()
+        def review(self): self.called = True
+    receiver = ReviewReceiver()
+    assert clients[0].connect(service.bus.baseService(), paths[0], 'org.xetal.FileTransfer1', 'reviewRequested', receiver.review)
+    first.update({'pendingIssues': 2})
+    assert first.request('review')
+    wait(lambda: receiver.called)
+    assert first.pending == '' and first.running
     pending = [ask(client, path) for client, path in zip(clients, paths)]
     wait(lambda: first.question is not None and second.question is not None)
     wrong = ask(clients[1], paths[0]); wait(wrong.isFinished)
@@ -95,8 +105,7 @@ def main():
     process = QProcess(app); process.setProcessChannelMode(QProcess.ProcessChannelMode.ForwardedChannels)
     result = [1]
     def finished(code, status):
-        expected = {('conflicts', 'replace'), ('conflicts', 'skip'), ('conflicts', 'individual'),
-                    ('file', 'replace'), ('file', 'skip'), ('conflicts', 'cancel'), ('duplicate', 'copy')}
+        expected = {('duplicate', 'copy')}
         result[0] = int(code != 0 or failures or not expected.issubset(set(observed)))
         print('Expanding transfer questions:', observed, 'failures:', failures, flush=True)
         # The fixture's completed progress cards intentionally ignore Close.

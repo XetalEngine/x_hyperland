@@ -41,6 +41,14 @@ Config load_config() {
             sc.workdir = gs(s, "workdir"); sc.prefix = gs(s, "prefix"); sc.proton = gs(s, "proton");
             sc.verb = gs(s, "verb", "run"); sc.custom_env = gs(s, "custom_env"); sc.icon_override = gs(s, "icon_override");
             if (s.contains("use_runtime") && s["use_runtime"].is_boolean()) sc.use_runtime = s["use_runtime"].get<bool>();
+            if (s.contains("desktop_integration") && s["desktop_integration"].is_object()) {
+                const auto &d=s["desktop_integration"];
+                sc.desktop.schemes=gs(d,"schemes"); sc.desktop.argument=gs(d,"argument","{url}");
+                for (auto [key,value]:std::initializer_list<std::pair<const char *,bool *>>{
+                    {"enabled",&sc.desktop.enabled},{"include_args",&sc.desktop.include_args},
+                    {"make_default",&sc.desktop.make_default},{"private_output",&sc.desktop.private_output}})
+                    if(d.contains(key) && d[key].is_boolean()) *value=d[key].get<bool>();
+            }
             if (s.contains("env") && s["env"].is_object())
                 for (auto& [k, v] : s["env"].items()) if (v.is_string()) sc.env[k] = v.get<std::string>();
             c.shortcuts.push_back(sc);
@@ -66,7 +74,10 @@ bool save_config(const Config& c) {
         for (auto& [k, v] : s.env) if (!v.empty()) e[k] = v;
         j["shortcuts"].push_back({ {"id", s.id}, {"name", s.name}, {"exe", s.exe}, {"args", s.args}, {"workdir", s.workdir},
             {"prefix", s.prefix}, {"proton", s.proton}, {"verb", s.verb}, {"use_runtime", s.use_runtime}, {"env", e},
-            {"custom_env", s.custom_env}, {"icon_override", s.icon_override} });
+            {"custom_env", s.custom_env}, {"icon_override", s.icon_override},
+            {"desktop_integration", {{"enabled",s.desktop.enabled},{"schemes",s.desktop.schemes},
+                {"argument",s.desktop.argument},{"include_args",s.desktop.include_args},
+                {"make_default",s.desktop.make_default},{"private_output",s.desktop.private_output}}} });
     }
     return util::write_file(config_path(), j.dump(2));
 }

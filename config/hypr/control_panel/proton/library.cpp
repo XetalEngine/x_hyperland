@@ -1,5 +1,6 @@
 #include "page.h"
 #include "options.h"
+#include "desktop.h"
 #include "src/icons.h"
 #include "src/util.h"
 #include <QDesktopServices>
@@ -15,6 +16,7 @@ void Page::buildLibrary() {
     button("Run once…","protonRunOnce",actions,[this]{addShortcut(true);});
     button("Open C:\\","protonDriveC",actions,[this]{openFolder(text(model.current)+"/pfx/drive_c");});
     button("Initialize / update prefix","protonInit",actions,[this]{model.runTool("wineboot","-u");});
+    button("Task Manager","protonTaskManager",actions,[this]{model.runTaskManager(selectedShortcut);});
     auto *helpers=new QPushButton("Prefix tools");helpers->setObjectName("protonHelpers");auto *menu=new QMenu(helpers);
     for(const auto &entry:std::vector<std::pair<QString,std::string>>{{"Wine configuration","winecfg"},{"Registry Editor","regedit"},{"Windows Control Panel","control"},{"Task Manager","taskmgr"},{"Explorer","explorer"},{"Command prompt","cmd"}})
         connect(menu->addAction(entry.first),&QAction::triggered,this,[this,entry]{model.runTool(entry.second);});
@@ -27,6 +29,7 @@ void Page::buildLibrary() {
     shortcuts->setWordWrap(true);shortcuts->setSpacing(12);shortcuts->setSelectionMode(QAbstractItemView::SingleSelection);
     shortcuts->setAcceptDrops(false);shortcuts->viewport()->setAcceptDrops(false);split->addWidget(shortcuts);
     auto *detail=new QWidget;auto *right=new QVBoxLayout(detail);shortcutInfo=hint("Add an installer or Windows program to this prefix. Double-click a shortcut to launch it.",right);
+    shortcutInfo->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Minimum);
     auto *launchRow=new QHBoxLayout;
     button("Launch","protonLaunch",launchRow,[this]{model.launchShortcut(selectedShortcut);});
     button("Edit…","protonEditShortcut",launchRow,[this]{editShortcut();});
@@ -35,6 +38,10 @@ void Page::buildLibrary() {
     button("Export .sh…","protonExport",more,[this]{exportShortcut();});
     button("Open app folder","protonAppFolder",more,[this]{if(const auto *s=model.shortcut(selectedShortcut))openFolder(text(util::dirname(s->exe)));});
     button("Remove shortcut","protonRemoveShortcut",more,[this]{if(model.shortcut(selectedShortcut) && confirm("Remove shortcut","Remove this shortcut from the library? The Windows application and its files will remain."))model.removeShortcut(selectedShortcut);});right->addLayout(more);
+    auto *integration=new QHBoxLayout;
+    button("Browser sign-in…","protonBrowserSignIn",integration,[this]{editShortcut(true);});
+    button("Repair link handlers","protonRepairHandlers",integration,[this]{if(model.syncDesktopHandlers())model.report("Browser sign-in handlers refreshed.");});
+    integration->addStretch();right->addLayout(integration);
     right->addWidget(new QLabel("Launch command"));commandPreview=new QPlainTextEdit;commandPreview->setObjectName("protonCommand");commandPreview->setReadOnly(true);right->addWidget(commandPreview,1);
     auto *copyRow=new QHBoxLayout;button("Copy command","protonCopyCommand",copyRow,[this]{QApplication::clipboard()->setText(commandPreview->toPlainText());});copyRow->addStretch();right->addLayout(copyRow);
     split->addWidget(detail);split->setStretchFactor(0,1);split->setStretchFactor(1,1);layout->addWidget(split,1);
@@ -42,9 +49,11 @@ void Page::buildLibrary() {
     connect(shortcuts,&QListWidget::itemDoubleClicked,this,[this]{model.launchShortcut(selectedShortcut);});
     shortcuts->setContextMenuPolicy(Qt::CustomContextMenu);connect(shortcuts,&QWidget::customContextMenuRequested,this,[this](QPoint point){
         auto *item=shortcuts->itemAt(point);if(!item)return;shortcuts->setCurrentItem(item);
-        QMenu menu;auto *run=menu.addAction("Launch"),*edit=menu.addAction("Edit…"),*duplicate=menu.addAction("Duplicate"),*folder=menu.addAction("Open app folder"),*exporter=menu.addAction("Export .sh…"),*remove=menu.addAction("Remove shortcut");
+        QMenu menu;auto *run=menu.addAction("Launch"),*edit=menu.addAction("Edit…"),*login=menu.addAction("Browser sign-in…"),*taskManager=menu.addAction("Task Manager in this prefix");menu.addSeparator();
+        auto *duplicate=menu.addAction("Duplicate"),*folder=menu.addAction("Open app folder"),*exporter=menu.addAction("Export .sh…"),*remove=menu.addAction("Remove shortcut");
         const auto *action=menu.exec(shortcuts->viewport()->mapToGlobal(point));
         if(action==run)model.launchShortcut(selectedShortcut);else if(action==edit)editShortcut();else if(action==duplicate)model.duplicateShortcut(selectedShortcut);
+        else if(action==login)editShortcut(true);else if(action==taskManager)model.runTaskManager(selectedShortcut);
         else if(action==folder){if(const auto *s=model.shortcut(selectedShortcut))openFolder(text(util::dirname(s->exe)));}
         else if(action==exporter)exportShortcut();else if(action==remove && confirm("Remove shortcut","Remove this shortcut while keeping the Windows application?"))model.removeShortcut(selectedShortcut);
     });
@@ -85,8 +94,10 @@ void Page::selectShortcut() {
     selectedShortcut=shortcuts->currentItem()?shortcuts->currentItem()->data(Qt::UserRole).toString().toStdString():"";
     const auto *s=model.shortcut(selectedShortcut);
     if(!s){shortcutInfo->setText(model.current.empty()?"Create or import a prefix, then add your Windows programs.":"Add a Windows program or installer to this prefix.");commandPreview->clear();}
-    else {shortcutInfo->setText(text(s->name)+"\n"+text(s->exe));commandPreview->setPlainText(text(spec_to_shell(model.command(*s))));}
-    for(const auto *name:{"protonLaunch","protonEditShortcut","protonDuplicate","protonExport","protonAppFolder","protonRemoveShortcut","protonCopyCommand"})findChild<QPushButton *>(name)->setEnabled(s!=nullptr);
+    else {shortcutInfo->setText(text(s->name)+"\n"+text(s->exe)+(s->desktop.enabled?"\nBrowser sign-in: "+Desktop::schemes(s->desktop.schemes).join(", "):QString()));commandPreview->setPlainText(text(spec_to_shell(Desktop::managedLaunch(model.command(*s),*s))));}
+    for(const auto *name:{"protonLaunch","protonEditShortcut","protonDuplicate","protonExport","protonAppFolder","protonRemoveShortcut","protonCopyCommand","protonBrowserSignIn"})findChild<QPushButton *>(name)->setEnabled(s!=nullptr);
+    findChild<QPushButton *>("protonRepairHandlers")->setEnabled((s && s->desktop.enabled) || QFileInfo::exists(Desktop::storage()+"/registry.json"));
+    findChild<QPushButton *>("protonTaskManager")->setEnabled(!model.current.empty());
 }
 void Page::addShortcut(bool once) {
     if(model.current.empty()){model.report("Create or select a prefix first.");return;}
@@ -121,7 +132,7 @@ void Page::managePrefix() {
     connect(remove,&QPushButton::clicked,&dialog,[this,removeFiles,&dialog]{if(confirm("Remove prefix",removeFiles->isChecked()?"Permanently delete this prefix and its installed Windows applications?":"Remove this prefix and its shortcuts from the list, keeping Windows files on disk?") && model.removePrefix(removeFiles->isChecked()))dialog.accept();});
     dialog.exec();
 }
-void Page::editShortcut() {
+void Page::editShortcut(bool browserSignIn) {
     const auto *original=model.shortcut(selectedShortcut);if(!original)return;Shortcut draft=*original;
     QDialog dialog(this);dialog.setWindowTitle("Edit Proton shortcut");dialog.setObjectName("protonShortcutEditor");dialog.resize(900,720);
     auto *layout=new QVBoxLayout(&dialog);auto *pages=new QTabWidget;layout->addWidget(pages,1);
@@ -139,6 +150,22 @@ void Page::editShortcut() {
     auto *verb=new QComboBox;verb->setObjectName("protonVerb");verb->addItems({"run","waitforexitandrun","runinprefix"});verb->setCurrentText(text(draft.verb));form->addRow("Launch verb:",verb);
     auto *runtime=new QCheckBox("Use the managed UMU runtime");runtime->setObjectName("protonUseRuntime");runtime->setChecked(draft.use_runtime);form->addRow(runtime);
     auto *explain=new QLabel("run allows related applications in the same prefix. waitforexitandrun waits for existing prefix programs to finish. runinprefix runs a Wine helper.");explain->setWordWrap(true);form->addRow(explain);
+    auto *integration=new QWidget;auto *integrationLayout=new QVBoxLayout(integration);pages->addTab(integration,"Browser sign-in");
+    hint("Let your Linux browser return sign-in links to this Windows app. Use the installed application's executable and start sign-in from that app.",integrationLayout);
+    auto *receive=new QCheckBox("Receive browser sign-in links for this app");receive->setObjectName("protonHandleUrls");receive->setChecked(draft.desktop.enabled);integrationLayout->addWidget(receive);
+    auto *integrationFields=new QWidget;auto *integrationForm=new QFormLayout(integrationFields);integrationForm->setContentsMargins(0,0,0,0);integrationLayout->addWidget(integrationFields);
+    auto *schemes=new QLineEdit(text(draft.desktop.schemes));schemes->setObjectName("protonUrlSchemes");schemes->setPlaceholderText("grasshopper, another-app");integrationForm->addRow("URL schemes:",schemes);
+    schemes->setToolTip("Names before ://, separated by commas or spaces. For grasshopper:// links, enter grasshopper.");
+    auto *argument=new QLineEdit(text(draft.desktop.argument));argument->setObjectName("protonUrlArgument");integrationForm->addRow("URL argument:",argument);
+    argument->setToolTip("One argument containing {url}. Usually {url}; some apps need --url={url}. The link is passed intact.");
+    auto *includeArgs=new QCheckBox("Include the app's normal launch arguments");includeArgs->setObjectName("protonUrlIncludeArgs");includeArgs->setChecked(draft.desktop.include_args);integrationForm->addRow(includeArgs);
+    auto *makeDefault=new QCheckBox("Keep this app as the default for these links in Hyprland");makeDefault->setObjectName("protonUrlDefault");makeDefault->setChecked(draft.desktop.make_default);integrationForm->addRow(makeDefault);
+    auto *privateOutput=new QCheckBox("Hide app output and Proton debug logs during sign-in");privateOutput->setObjectName("protonUrlPrivateOutput");privateOutput->setChecked(draft.desktop.private_output);integrationForm->addRow(privateOutput);
+    privateOutput->setToolTip("Recommended: some apps print sign-in tokens. Callback launches always hide their output; this option also hides the original app's output.");
+    integrationFields->setEnabled(receive->isChecked());connect(receive,&QCheckBox::toggled,integrationFields,&QWidget::setEnabled);
+    hint("Save installs the link handlers. Callbacks use the same prefix and runner as the app's latest launch. Disabling this option removes its handlers and restores defaults that are still owned by this shortcut.",integrationLayout);
+    hint("Changes apply to future launches. An already-open app may still be writing its existing log. Export .sh includes this sign-in setup.",integrationLayout);
+    integrationLayout->addStretch();if(browserSignIn)pages->setCurrentWidget(integration);
     std::map<std::string,QWidget *> options;
     for(const auto &group:OPTION_GROUPS) {
         auto *scroll=new QScrollArea;scroll->setWidgetResizable(true);auto *content=new QWidget;auto *fields=new QFormLayout(content);fields->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);scroll->setWidget(content);pages->addTab(scroll,group.name);
@@ -158,6 +185,8 @@ void Page::editShortcut() {
     connect(buttons,&QDialogButtonBox::accepted,&dialog,[&,this]{
         draft.name=name->text().trimmed().toStdString();draft.exe=exe->text().toStdString();draft.args=args->text().toStdString();draft.workdir=workdir->text().toStdString();draft.icon_override=icon->text().toStdString();
         draft.prefix=prefix->currentData().toString().toStdString();draft.proton=runner->currentData().toString().toStdString();draft.verb=verb->currentText().toStdString();draft.use_runtime=runtime->isChecked();
+        draft.desktop.enabled=receive->isChecked();draft.desktop.schemes=schemes->text().trimmed().toStdString();draft.desktop.argument=argument->text().toStdString();
+        draft.desktop.include_args=includeArgs->isChecked();draft.desktop.make_default=makeDefault->isChecked();draft.desktop.private_output=privateOutput->isChecked();
         for(const auto &[key,widget]:options) {
             std::string value;
             if(auto *check=qobject_cast<QCheckBox *>(widget))value=check->isChecked()?"1":"";

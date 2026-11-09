@@ -37,7 +37,10 @@ def exercise(request, uid, gid, groups, before_auth=None):
             while b'\n' in pending:
                 line, _, rest = pending.partition(b'\n'); pending = bytearray(rest)
                 value = json.loads(line)
-                if value['event'] == 'authenticate':
+                if value['event'] == 'issue' and value['status'] == 'pending':
+                    assert value['category'].endswith(':permission'), value
+                    process.stdin.write((json.dumps(dict(command='issue_answer', ids=[value['id']], versions={str(value['id']): value['version']}, choice='authorize'))+'\n').encode()); process.stdin.flush()
+                elif value['event'] == 'authenticate':
                     authorizations += 1
                     if before_auth: before_auth()
                     helper = subprocess.Popen(['/usr/bin/python3', '-I', str(ROOT/'transfer_authority.py')],

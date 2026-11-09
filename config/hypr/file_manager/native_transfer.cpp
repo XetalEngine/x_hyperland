@@ -29,11 +29,11 @@ Fusion::NativeTransfer::NativeTransfer(QJsonObject data) : request(std::move(dat
         QString::fromUtf8(process.readAllStandardError())));
   });
   connect(&authority, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
-    if (error == QProcess::FailedToStart) command({{"command", "auth_failed"}, {"error", authority.errorString()}});
+    if (error == QProcess::FailedToStart) command({{"command", "auth_failed"}, {"token", authorizationToken}, {"error", authority.errorString()}});
   });
   connect(&authority, &QProcess::finished, this, [this](int code, QProcess::ExitStatus status) {
     if (!finished && process.state() == QProcess::Running && (code || status != QProcess::NormalExit))
-      command({{"command", "auth_failed"}, {"error", "Administrator authorization was cancelled or file access failed.\n" +
+      command({{"command", "auth_failed"}, {"token", authorizationToken}, {"error", "Administrator authorization was cancelled or file access failed.\n" +
                QString::fromUtf8(authority.readAllStandardError())}});
   });
 }
@@ -63,6 +63,9 @@ void Fusion::NativeTransfer::command(const QJsonObject &message) {
     process.write(QJsonDocument(message).toJson(QJsonDocument::Compact) + '\n');
 }
 void Fusion::NativeTransfer::answer(const QString &choice) { command({{"command", "answer"}, {"choice", choice}}); }
+void Fusion::NativeTransfer::resolve(const QVariantMap &decision) {
+  auto message = QJsonObject::fromVariantMap(decision); message["command"] = "issue_answer"; command(message);
+}
 bool Fusion::NativeTransfer::doKill() {
   if (!started) { finished = true; return true; }
   command({{"command", "cancel"}});
@@ -88,7 +91,8 @@ void Fusion::NativeTransfer::receive() {
       setPercent(message.value("percent").toInt());
       emitSpeed(message.value("speed").toInteger());
       emit progress(message.toVariantMap());
-    } else if (event == "question") {
+    } else if (event == "issue") emit issue(message.toVariantMap());
+    else if (event == "question") {
       emit question(QUrl::fromLocalFile(message.value("source").toString()),
                     QUrl::fromLocalFile(message.value("destination").toString()), message.value("replace_allowed").toBool());
     } else if (event == "authenticate") authenticate(message);
@@ -105,12 +109,17 @@ void Fusion::NativeTransfer::receive() {
 }
 
 void Fusion::NativeTransfer::authenticate(QJsonObject scope) {
+  const auto token = scope.value("token").toString();
+  if (authority.state() != QProcess::NotRunning) {
+    command({{"command", "auth_failed"}, {"token", token}, {"error", "An administrator request is still open. Close that prompt, then retry."}}); return;
+  }
+  authorizationToken = token;
   const auto pkexec = QStandardPaths::findExecutable("pkexec");
   if (pkexec.isEmpty()) {
-    command({{"command", "auth_failed"}, {"error", "The PolicyKit authentication helper (pkexec) is unavailable."}}); return;
+    command({{"command", "auth_failed"}, {"token", token}, {"error", "The PolicyKit authentication helper (pkexec) is unavailable."}}); return;
   }
-  emit infoMessage(this, "Authenticate to continue this transfer. Authorization ends when the transfer finishes.");
-  emit progress({{"phase", "Waiting for administrator authorization"}});
+  emit infoMessage(this, "Authorize access to protected items. Other files keep copying; authorization ends with this transfer.");
+  if (!scope.value("background").toBool()) emit progress({{"phase", "Waiting for administrator authorization"}});
   authority.start(pkexec, {"/usr/bin/python3", "-I", Fusion::root() + "/file_manager/transfer_authority.py"});
   authority.write(QJsonDocument(scope).toJson(QJsonDocument::Compact));
   authority.closeWriteChannel();

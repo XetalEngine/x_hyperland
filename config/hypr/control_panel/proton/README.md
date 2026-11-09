@@ -35,9 +35,10 @@ Recoverable downloads can be resumed by selecting the same release again.
 | --- | --- |
 | Prefixes | Create, import, rename, choose storage root, measure disk usage, open C: or prefix folder, remove from list, optionally delete managed prefix files |
 | Library | Add, drag and drop, launch, run once, edit, duplicate, remove, executable icons and icon override, icon size, optional launch after adding |
-| Prefix tools | Initialize/update, winecfg, regedit, Windows Control Panel, Task Manager, Explorer, cmd, graceful stop and force-stop wineserver |
+| Prefix tools | Initialize/update, winecfg, regedit, Windows Control Panel, a direct Task Manager button and per-app context action, Explorer, cmd, graceful stop and force-stop wineserver |
 | Launch settings | Per-prefix Proton and per-shortcut override, three verbs, optional UMU runtime, all original graphics/CPU/input/logging options, GameMode/gamescope/custom wrappers, custom environment |
 | Commands | Read-only preview, clipboard copy, executable `.sh` export |
+| Browser sign-in | Per-app custom URL schemes, URL argument template, optional normal arguments, Hyprland default handlers, output privacy, handler repair and exports |
 | Downloads | All 13 original providers, search, variants, prereleases, CPU compatibility, older release pages, upstream notes, progress, cancel, retry/resume, checksum verification and staged archive extraction |
 | Installed tools | Open files, choose default for a prefix, remove unused app-managed tools; selected tools and running prefixes prevent removal |
 | Updates | Background check on first opening with installed tools; manual refresh; install newer matching variants alongside existing versions without changing prefix selections |
@@ -48,6 +49,50 @@ Recoverable downloads can be resumed by selecting the same release again.
 Companion downloads such as Luxtorpeda, Steam Tinker Launch, Boxtron and Roberta
 retain their upstream purpose; they are not offered as Windows Proton runners.
 Prefixes separate application environments; they are not a security sandbox.
+
+## Browser sign-in and app links
+
+Select an **installed application's executable** in Library and choose
+**Browser sign-in…**, or right-click its shortcut. Enable **Receive browser
+sign-in links**, then enter the scheme used by the application. For example,
+`grasshopper://auth/callback` uses the scheme `grasshopper`. Multiple schemes
+can be separated by commas or spaces. Standard web/file schemes are reserved.
+
+The default URL argument is `{url}`. Apps that expect a named argument can use
+`--url={url}`. This is one argument, passed intact without shell interpretation.
+The checkboxes control whether normal launch arguments are included, whether
+the app remains the default for these links in Hyprland, and whether app output
+and Proton debug logs are hidden. Callback output is always hidden. Keep output
+privacy enabled for sign-in apps because they may print credentials. Existing
+processes retain their original logging behavior until their next launch.
+
+Save registers the handlers. Launch the app through this panel or an exported
+script, then start sign-in **inside the app**. Complete it in your Linux browser
+and allow the browser's open-application prompt. The callback uses the runner,
+prefix and command recorded at the app's last launch, even if the shortcut was
+subsequently edited. The app still validates its authentication state; a success
+tab from an older login attempt cannot authenticate a newer attempt.
+
+**Repair link handlers** restores saved associations. Disabling the feature or
+removing the shortcut removes its handlers, restoring earlier defaults only
+while this panel still owns them. Duplicated shortcuts start with handlers
+disabled. Only one shortcut can claim a scheme as its default.
+
+Generated desktop entries live under the Hyprland profile's
+`desktop/data/applications`; defaults use `hyprland-mimeapps.list` in the active
+config home and existing isolated Hyprland app profiles. Shared `mimeapps.list`
+and KDE preferences are not changed. Private manifests and launch snapshots
+live in XetalProton's `desktop-handlers` directory. No background service is
+installed, and link handling works while Control Panel is closed.
+
+For shortcuts with browser sign-in enabled, **Export .sh** uses the installed
+handler helper and saved manifest, repairs associations at launch and accepts
+additional app arguments. Keep the shortcut and Hyper Fusion profile installed.
+Other shortcuts continue to export standalone Proton commands.
+
+The **Task Manager** toolbar button uses the selected app's prefix, Proton
+override and runtime choice, or the selected prefix's defaults if no app is
+selected. The same action is available in the app's right-click menu.
 
 ## Data and updates
 
@@ -84,6 +129,8 @@ The offline backend checks cover archives, checksums, download recovery,
 cancellation, update matching, removal, prefix locks and command construction.
 Qt tests exercise prefix separation with real child processes, the native
 shortcut editor, dependencies, configuration preservation and export.
+Handler tests cover real callback argv forwarding, launch snapshots, default
+restoration, external edits, rejected schemes, prefix locks and write rollback.
 The HTTPS recovery test binds a temporary local socket.
 
 Optional network checks use disposable storage:

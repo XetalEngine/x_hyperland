@@ -1,4 +1,5 @@
 #include "controller.h"
+#include "desktop.h"
 #include "src/util.h"
 #include <QDir>
 #include <QFile>
@@ -6,9 +7,11 @@
 #include <QJsonDocument>
 #include <QLockFile>
 #include <QSaveFile>
+#include <QProcess>
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <filesystem>
+#include <set>
 
 namespace fs = std::filesystem;
 namespace XetalProton {
@@ -38,6 +41,11 @@ QByteArray encode(const Config &c, const QByteArray &previous) {
         entry.update(J{{"id",s.id},{"name",s.name},{"exe",s.exe},{"args",s.args},{"workdir",s.workdir},
             {"prefix",s.prefix},{"proton",s.proton},{"verb",s.verb},{"use_runtime",s.use_runtime},
             {"env",s.env},{"custom_env",s.custom_env},{"icon_override",s.icon_override}});
+        auto desktop=entry.value("desktop_integration",J::object());
+        if(!desktop.is_object())desktop=J::object();
+        desktop.update(J{{"enabled",s.desktop.enabled},{"schemes",s.desktop.schemes},{"argument",s.desktop.argument},
+            {"include_args",s.desktop.include_args},{"make_default",s.desktop.make_default},{"private_output",s.desktop.private_output}});
+        entry["desktop_integration"]=desktop;
         doc["shortcuts"].push_back(entry);
     }
     return QByteArray::fromStdString(doc.dump(2))+"\n";
@@ -77,6 +85,13 @@ void Controller::scan() {
 bool Controller::save(const Config &next) {
     if (!configReadable) { report("Reload a valid configuration before saving changes."); return false; }
     try {
+        std::set<QString> defaults;
+        for(const auto &s:next.shortcuts) {
+            const auto error=Desktop::validate(s);
+            if(!error.isEmpty())throw std::runtime_error(error.toStdString());
+            if(s.desktop.enabled && s.desktop.make_default)for(const auto &scheme:Desktop::schemes(s.desktop.schemes))
+                if(!defaults.insert(scheme).second)throw std::runtime_error("Only one shortcut can be the default for "+scheme.toStdString()+" links.");
+        }
         const QString path = q(config_path());
         if (!QDir().mkpath(QFileInfo(path).absolutePath())) throw std::runtime_error("Cannot create the configuration folder.");
         QLockFile lock(path+".panel-lock");
@@ -93,7 +108,7 @@ bool Controller::save(const Config &next) {
         saved=data; config=next;
         // Discovery failure must not undo a prefix after its configuration was committed.
         try { scan(); } catch (const std::exception &e) { report("Settings saved; could not refresh tools: "+q(e.what())); }
-        emit changed(); return true;
+        emit changed(); syncDesktopHandlers(); return true;
     } catch (const std::exception &e) { report(q(e.what())); return false; }
 }
 const ProtonVersion *Controller::proton(const std::string &prefix, const std::string &override) const {
@@ -187,7 +202,13 @@ bool Controller::addShortcut(const QString &path, bool run) {
 bool Controller::updateShortcut(const Shortcut &s) {
     if (s.name.empty() || s.exe.empty()) { report("Enter a name and executable for this shortcut."); return false; }
     auto next=config;
-    for (auto &entry:next.shortcuts) if (entry.id==s.id) { entry=s; return save(next); }
+    for (auto &entry:next.shortcuts) if (entry.id==s.id) {
+        if(s.desktop.enabled) {
+            const auto error=command(s).error;
+            if(!error.empty()){report(q(error));return false;}
+        }
+        entry=s;pinDefaults(next);return save(next);
+    }
     return false;
 }
 bool Controller::removeShortcut(const std::string &id) {
@@ -196,12 +217,47 @@ bool Controller::removeShortcut(const std::string &id) {
 bool Controller::duplicateShortcut(const std::string &id) {
     const auto *s=shortcut(id); if (!s) return false;
     auto copy=*s; copy.id=new_id(); copy.name+=" (copy)";
+    copy.desktop.enabled=false; // A duplicate must not take over the original's sign-in links.
     auto next=config; next.shortcuts.push_back(copy); return save(next);
 }
 LaunchSpec Controller::command(const Shortcut &s) const {
+    const auto validation=Desktop::validate(s);
+    if(!validation.isEmpty()){LaunchSpec result;result.error=validation.toStdString();return result;}
     const auto *p=proton(s.prefix,s.proton);
     if (!p) { LaunchSpec result; result.error="The selected Proton version is unavailable. Download it or choose an installed version."; return result; }
-    return build_launch(*p,s.prefix,s.exe,s.args,s.verb,s.use_runtime,s.env,s.custom_env,s.workdir,s.name);
+    auto result=build_launch(*p,s.prefix,s.exe,s.args,s.verb,s.use_runtime,s.env,s.custom_env,s.workdir,s.name);
+    if(s.desktop.enabled && s.desktop.private_output) {
+        result.private_output=true;result.env["PROTON_LOG"]="0";result.env["PROTON_DUMP_DEBUG_COMMANDS"]="0";result.env["WINEDEBUG"]="-all";
+    }
+    return result;
+}
+bool Controller::syncDesktopHandlers() {
+    using J=nlohmann::json;
+    J apps=J::array();
+    for(const auto &s:config.shortcuts)if(s.desktop.enabled) {
+        const auto spec=command(s);
+        if(!spec.error.empty()){report("Settings saved; browser handler needs attention: "+q(spec.error));return false;}
+        auto callback=spec.argv;
+        if(!s.desktop.include_args) {
+            const auto count=util::split_args(s.args).size();
+            if(count<=callback.size())callback.resize(callback.size()-count);
+        }
+        // A callback must never wait for the application it is authenticating to exit.
+        auto environment=spec.env;environment["PROTON_VERB"]="run";
+        J names=J::array();for(const auto &value:Desktop::schemes(s.desktop.schemes))names.push_back(value.toStdString());
+        apps.push_back(J{{"id",s.id},{"name",s.name},{"schemes",names},{"argument",s.desktop.argument},
+            {"make_default",s.desktop.make_default},{"private_output",s.desktop.private_output},
+            {"argv",spec.argv},{"callback_argv",callback},{"env",spec.env},{"callback_env",environment},{"cwd",spec.cwd},{"prefix",s.prefix}});
+    }
+    if(apps.empty() && !QFileInfo::exists(Desktop::storage()+"/registry.json"))return true;
+    const J request={{"root",Desktop::root().toStdString()},{"storage",Desktop::storage().toStdString()},
+        {"config_home",qEnvironmentVariable("XDG_CONFIG_HOME",QDir::homePath()+"/.config").toStdString()},{"apps",apps}};
+    QProcess process;process.start("python3",{Desktop::bridge(),"--sync"});
+    if(!process.waitForStarted(3000)){report("Settings saved; could not start the browser handler helper.");return false;}
+    process.write(QByteArray::fromStdString(request.dump()));process.closeWriteChannel();
+    if(!process.waitForFinished(15000)){process.kill();process.waitForFinished();report("Settings saved; browser handler setup timed out. Save again to retry.");return false;}
+    if(process.exitStatus()!=QProcess::NormalExit || process.exitCode()!=0){report("Settings saved; "+QString::fromUtf8(process.readAllStandardError()).trimmed());return false;}
+    return true;
 }
 pid_t Controller::launch(const LaunchSpec &spec) {
     if (task==Remove) { report("Wait for tool removal to finish before launching."); return -1; }
@@ -210,13 +266,21 @@ pid_t Controller::launch(const LaunchSpec &spec) {
 }
 pid_t Controller::launchShortcut(const std::string &id) {
     const auto *s=shortcut(id); if (!s) return -1;
-    const auto spec=command(*s);
+    const auto selected=*s;const auto spec=command(selected);
     auto next=config; pinDefaults(next); if (next.prefix_proton!=config.prefix_proton && !save(next)) return -1;
-    return launch(spec);
+    if(selected.desktop.enabled && !syncDesktopHandlers())return -1;
+    return launch(Desktop::managedLaunch(spec,selected));
 }
 pid_t Controller::runTool(const std::string &exe, const std::string &args) {
     Shortcut s; s.prefix=current; s.exe=exe; s.args=args; s.verb="runinprefix"; s.name=exe;
     return launch(command(s));
+}
+pid_t Controller::runTaskManager(const std::string &id) {
+    Shortcut tool;tool.prefix=current;tool.exe="taskmgr.exe";tool.verb="runinprefix";tool.name="Task Manager";
+    if(const auto *selected=shortcut(id)) {
+        tool.prefix=selected->prefix;tool.proton=selected->proton;tool.use_runtime=selected->use_runtime;
+    }
+    return launch(command(tool));
 }
 pid_t Controller::forceStopPrefix() {
     const auto *p=proton(current); if (!p) { report("Select an installed Proton version first."); return -1; }
@@ -226,7 +290,9 @@ pid_t Controller::forceStopPrefix() {
 }
 bool Controller::exportScript(const std::string &id,const QString &path) {
     const auto *s=shortcut(id); if (!s) return false;
-    const auto spec=command(*s); if (!spec.error.empty()) { report(q(spec.error)); return false; }
+    auto spec=command(*s); if (!spec.error.empty()) { report(q(spec.error)); return false; }
+    if(s->desktop.enabled && !syncDesktopHandlers())return false;
+    spec=Desktop::managedLaunch(spec,*s);
     QSaveFile file(path); file.setDirectWriteFallback(false);
     const auto content=QByteArray::fromStdString(spec_to_script(spec));
     if (!file.open(QIODevice::WriteOnly) || file.write(content)!=content.size() || !file.commit()) { report("Could not export the launch script."); return false; }

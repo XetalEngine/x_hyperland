@@ -90,11 +90,34 @@ total…**, and 100% is reserved for successful completion. Progress comes from
 the worker, not repeated scans of the destination. Updates are batched, and
 neither file sizes nor transfer sizes have an application-imposed ceiling.
 
+Local transfer errors and name conflicts collect in a **nonmodal transfer
+queue**, shown as a compact floating dialog. Its window size is separate from
+the main file browser. Ordinary files keep copying while the queue is open or hidden. Rows
+show the item, error, status, source, destination and stage; select one or more
+to **Retry**, **Skip**, **Replace** a conflicting file, or **Use administrator
+access** for a permission error. The similar-items checkbox applies a choice
+to matching queued issues; Skip also applies to later issues of that same
+type for this job only. Sockets, named pipes and devices are distinct from
+ordinary file data and are queued, not opened as streams or silently ignored.
+
+Retries run after the current copy pass. Once other work is finished, progress
+explicitly says **Waiting for queued items** until the remaining rows are
+resolved. **Review queue** reopens it; hiding or closing the queue does not
+cancel the transfer. A searchable table and **Save report** retain details of
+resolved and skipped rows. The journal also stores those decisions on disk;
+this is an audit trail, not automatic resume after a process exit. Skipped
+items produce **Completed with notes**, rather than claiming they were copied.
+Later automatic skips are summarized with a count so choosing Skip similar on
+a large tree does not flood the popup with millions of rows. **Save report**
+streams every affected path from a read-only journal snapshot, including those
+automatic skips, without loading the whole report into memory.
+
 Same-filesystem moves use an atomic rename where the destination is free.
 Cross-filesystem moves and folder merges copy the selected contents first,
 compare copied file contents, flush the destination, and then remove only
-unchanged, verified originals. A copy or verification failure leaves those
-originals in place. Skipped conflicts stay at their source. If cancellation or
+unchanged, verified originals. Queued copy or verification failures must be
+resolved before cleanup starts. Skipping one keeps its original while allowing
+other verified files to finish moving. Skipped conflicts stay at their source. If cancellation or
 an error happens during cleanup, the already verified copies remain available;
 the remaining originals are retained. Active files can still change outside
 the worker's control; this is not a filesystem snapshot or an all-or-nothing
@@ -107,8 +130,14 @@ Permissions, timestamps and supported extended attributes are retained;
 cross-filesystem moves preserve ownership. Copies of hard-linked files are
 independent files. Unsupported filesystem metadata is reported in **Details**.
 
-When actual access fails, the normal PolicyKit dialog authorizes a small helper
-for that transfer's selected paths. The worker continues using the same helper
+When actual access fails, that item joins the queue while accessible items
+continue. Choosing **Use administrator access** requests authentication
+immediately, while the copy pass continues, using the normal PolicyKit dialog
+to authorize a small helper for that transfer's selected paths. The queue
+shows **Awaiting authorization**, then **Retry queued**; canceling or failing
+authentication returns those rows to **Needs a choice**. Already-authorized
+access is explicitly shown and reused without another prompt. The system may
+also reuse a valid PolicyKit authorization. The worker continues using the same helper
 for subsequent protected items, and socket EOF ends its lifetime. Passwords
 are never collected or stored by Fusion Files, and the browser remains an
 ordinary user process. Directory symlinks are not followed by privileged

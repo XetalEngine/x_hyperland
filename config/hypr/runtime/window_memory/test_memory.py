@@ -92,6 +92,13 @@ class MemoryTests(unittest.TestCase):
             self.assertEqual(Store(path).data['a'*32]['floating_size'], [850,600])
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
+    def test_transfer_popup_memory_survives_closing_browser_without_sharing_its_size(self):
+        browser = {'class': 'xetal-files', 'initialTitle': 'Home — Fusion Files'}
+        queue = dict(browser, initialTitle='Transfer queue — Fusion Files')
+        key = identity(queue, {'role': 'dialog-role', 'dialog': True})
+        self.assertNotEqual(key, identity(browser, {'role': 'main'}))
+        self.assertEqual(key, identity(queue, {'role': 'main', 'dialog': False}))
+
     def test_restore_phases_and_monitor_limits(self):
         class Hypr:
             def __init__(self): self.calls = []

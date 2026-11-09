@@ -3,6 +3,15 @@
 #include <vector>
 #include <map>
 
+struct DesktopIntegration {
+    bool enabled = false;
+    std::string schemes;            // whitespace/comma separated custom URL schemes
+    std::string argument = "{url}"; // exactly one argv element; never shell-expanded
+    bool include_args = true;
+    bool make_default = true;       // Hyprland-only association
+    bool private_output = true;     // apps may print authentication tokens
+};
+
 struct Shortcut {
     std::string id;         // unique id
     std::string name;
@@ -16,6 +25,7 @@ struct Shortcut {
     std::map<std::string, std::string> env;  // option key -> value ("1" for bools); keys starting with '@' are wrappers
     std::string custom_env;     // free text KEY=VALUE per line
     std::string icon_override;  // optional path to png/ico
+    DesktopIntegration desktop;
 };
 
 struct CustomPrefix {

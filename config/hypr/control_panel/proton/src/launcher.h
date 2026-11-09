@@ -18,6 +18,7 @@ struct LaunchSpec {
     std::string error;   // non-empty if the spec could not be built
     std::string prefix_path; // compatdata-style parent; always contains pfx/
     bool exclusive_prefix = false; // dependency installers must not overlap launches
+    bool private_output = false;   // suppress application output containing sign-in tokens
 };
 
 // Build the full command for running `exe args` inside `prefix_path` with `proton`.

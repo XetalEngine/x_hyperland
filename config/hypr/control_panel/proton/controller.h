@@ -52,6 +52,8 @@ public:
     pid_t launch(const LaunchSpec &spec);
     pid_t launchShortcut(const std::string &id);
     pid_t runTool(const std::string &exe, const std::string &args = {});
+    pid_t runTaskManager(const std::string &shortcutId = {});
+    bool syncDesktopHandlers();
     pid_t forceStopPrefix();
     bool exportScript(const std::string &id, const QString &path);
     void stopProcess(pid_t pid, bool force);

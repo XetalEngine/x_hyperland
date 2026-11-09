@@ -1,0 +1,188 @@
+"""Disk-backed decisions for one transfer; errors never hold up unrelated files."""
+import errno
+import json
+import stat
+import time
+
+
+class Conflict(OSError):
+    def __init__(self, previous, replace_allowed):
+        super().__init__(errno.EEXIST, 'An item with this name already exists in the destination.')
+        self.previous, self.replace_allowed = previous, replace_allowed
+
+
+class SpecialFile(OSError):
+    def __init__(self, mode):
+        self.kind = ('socket' if stat.S_ISSOCK(mode) else 'named pipe' if stat.S_ISFIFO(mode)
+                     else 'device' if stat.S_ISCHR(mode) or stat.S_ISBLK(mode) else 'special file')
+        super().__init__(errno.EOPNOTSUPP,
+            f'This {self.kind} is a runtime endpoint, not ordinary file data. It was left at its original location.')
+
+
+class Pending:
+    def __init__(self, transfer):
+        self.t = transfer
+        self.count = 0
+        self.total = 0
+        self.automatic = 0
+        self.last_commit = time.monotonic()
+        self.policies = {}
+        self.t.db.execute('''CREATE TABLE issues (
+            id INTEGER PRIMARY KEY, source TEXT, target TEXT, stage TEXT, category TEXT,
+            detail TEXT, task TEXT, status TEXT, choice TEXT, replace_allowed INTEGER, version INTEGER DEFAULT 1,
+            UNIQUE(source,target,stage))''')
+        self.t.db.execute('CREATE INDEX pending_status ON issues(status,id)')
+
+    def emit(self, identifier):
+        row = self.t.db.execute('SELECT source,target,stage,category,detail,status,replace_allowed,version FROM issues WHERE id=?', (identifier,)).fetchone()
+        self.t.emit(dict(event='issue', id=identifier, source=row[0], destination=row[1],
+                         stage=row[2], category=row[3], detail=row[4], status=row[5],
+                         replace_allowed=bool(row[6]), version=row[7]))
+
+    def add(self, task, error):
+        stage = task['kind']
+        category = stage + ':' + ('conflict' if isinstance(error, Conflict) else
+            error.kind if isinstance(error, SpecialFile) else 'permission' if isinstance(error, PermissionError)
+            or error.errno in (errno.EACCES, errno.EPERM) else str(error.errno or 'io'))
+        can_replace = isinstance(error, Conflict) and error.replace_allowed
+        detail = error.strerror or str(error)
+        if isinstance(error, Conflict):
+            task['replace_expected'] = error.previous
+            category += ':file' if can_replace else ':folder'
+        old = self.t.db.execute('SELECT id,status FROM issues WHERE source=? AND target=? AND stage=?',
+                               (task['source'], task['target'], stage)).fetchone()
+        if old and old[1] in ('pending', 'authorizing', 'retry', 'skipped'): return  # Already decided/queued.
+        if old:
+            identifier = old[0]
+            self.t.db.execute('UPDATE issues SET category=?,detail=?,task=?,status=?,choice=NULL,replace_allowed=?,version=version+1 WHERE id=?',
+                (category, detail, json.dumps(task), 'pending', can_replace, identifier))
+        else:
+            identifier = self.t.db.execute('INSERT INTO issues(source,target,stage,category,detail,task,status,replace_allowed) VALUES (?,?,?,?,?,?,?,?)',
+                (task['source'], task['target'], stage, category, detail, json.dumps(task), 'pending', can_replace)).lastrowid
+            self.total += 1
+        self.count += 1
+        policy = self.policies.get(category)
+        if policy == 'skip':
+            self.choose(identifier, 'skip', publish=False)
+            self.automatic += 1
+        else:
+            self.emit(identifier)
+        # Commit both completed work and queued errors, including when the user
+        # leaves the queue open. No in-memory list of every transferred file.
+        if policy != 'skip' or time.monotonic() - self.last_commit >= .25:
+            self.t.db.commit(); self.last_commit = time.monotonic()
+
+    def choose(self, identifier, choice, publish=True):
+        row = self.t.db.execute('SELECT task,status,category,replace_allowed FROM issues WHERE id=?', (identifier,)).fetchone()
+        if not row or row[1] != 'pending': return
+        if choice not in ('skip', 'retry', 'replace', 'authorize'): return
+        if choice == 'replace' and not row[3]: return
+        if choice == 'authorize' and not row[2].endswith(':permission'): return
+        task = json.loads(row[0])
+        if choice == 'skip':
+            self.t.skip_task(task)
+            self.count -= 1
+        self.t.db.execute('UPDATE issues SET status=?,choice=? WHERE id=?',
+                          ('skipped' if choice == 'skip' else 'authorizing' if choice == 'authorize' else 'retry', choice, identifier))
+        if publish: self.emit(identifier)
+
+    def authorization_finished(self):
+        # Only this thread touches the journal. Authentication runs separately
+        # so a password prompt cannot hold up unrelated copies.
+        state, message = self.t.access.authorization()
+        if state not in ('authorized', 'failed'): return
+        rows = self.t.db.execute("SELECT id FROM issues WHERE status='authorizing'").fetchall()
+        for (identifier,) in rows:
+            if state == 'authorized':
+                self.t.db.execute("UPDATE issues SET status='retry' WHERE id=?", (identifier,))
+            else:
+                self.t.db.execute("UPDATE issues SET status='pending',choice=NULL,version=version+1,detail=? WHERE id=?",
+                    ('Administrator access was not granted. ' + message, identifier))
+            self.emit(identifier)
+        if rows: self.t.db.commit()
+
+    def accept(self):
+        self.authorization_finished()
+        with self.t.control.condition:
+            decisions, self.t.control.decisions = self.t.control.decisions, []
+        for decision in decisions:
+            ids = decision.get('ids', [])
+            if not isinstance(ids, list): continue
+            versions = decision.get('versions', {})
+            if not isinstance(versions, dict): continue
+            choice = decision.get('choice')
+            for identifier in ids:
+                if type(identifier) is not int: continue
+                row = self.t.db.execute('SELECT category,status,version FROM issues WHERE id=?', (identifier,)).fetchone()
+                # A delayed/double-click reply to an earlier error must never
+                # authorize overwriting a destination that changed meanwhile.
+                if not row or row[1] != 'pending' or versions.get(str(identifier)) != row[2]: continue
+                if decision.get('all') is True:
+                    # Only skipping is a lasting error policy. Retrying applies
+                    # once to currently queued peers, never an endless loop.
+                    if choice == 'skip': self.policies[row[0]] = 'skip'
+                    for (peer,) in self.t.db.execute("SELECT id FROM issues WHERE category=? AND status='pending'", (row[0],)).fetchall():
+                        self.choose(peer, choice)
+                else: self.choose(identifier, choice)
+        if decisions:
+            if self.t.db.execute("SELECT 1 FROM issues WHERE status='authorizing' LIMIT 1").fetchone():
+                self.t.access.request_authorization()
+                self.authorization_finished()
+            self.t.db.commit()
+
+    def drain(self):
+        t = self.t
+        previous_phase = t.phase
+        while self.count:
+            t.control.check(); self.accept()
+            row = t.db.execute("SELECT id,task,choice FROM issues WHERE status='retry' ORDER BY id LIMIT 1").fetchone()
+            if row:
+                identifier, encoded, choice = row
+                task = json.loads(encoded)
+                t.db.execute("UPDATE issues SET status='working' WHERE id=?", (identifier,))
+                self.count -= 1
+                self.emit(identifier)
+                t.phase = 'Retrying queued items'
+                t.current, t.target = task['source'], task['target']
+                try:
+                    t.retry_task(task, choice)
+                except OSError as error:
+                    self.add(task, error)
+                else:
+                    # A retried directory can discover different failed children;
+                    # the directory's own resolved row must not hide those rows.
+                    state = t.db.execute('SELECT status FROM issues WHERE id=?', (identifier,)).fetchone()[0]
+                    if state == 'working':
+                        t.db.execute("UPDATE issues SET status='resolved' WHERE id=?", (identifier,))
+                        self.emit(identifier)
+                t.db.commit()
+            elif self.count:
+                t.phase = 'Waiting for queued items'; t.current = ''
+                t.progress(True)
+                with t.control.condition:
+                    if not t.control.decisions and not t.control.cancelled: t.control.condition.wait(.25)
+        t.phase = previous_phase
+        t.progress(True)
+
+
+def export_report(journal, stream):
+    """Stream a read-only snapshot, including every automatic skip, to a file."""
+    from datetime import datetime, timezone
+    from pathlib import Path
+    import sqlite3
+    from contextlib import closing
+    with closing(sqlite3.connect(Path(journal).resolve().as_uri() + '?mode=ro', uri=True)) as db:
+        db.execute('BEGIN')
+        stream.write('Fusion Files transfer report\nSnapshot: ' + datetime.now(timezone.utc).isoformat() + '\n')
+        for source, target, stage, detail, status in db.execute('SELECT source,target,stage,detail,status FROM issues ORDER BY id'):
+            stage = {'item':'Copying', 'root':'Copying', 'rescan':'Reading folder', 'directory_done':'Folder attributes',
+                     'verify':'Verifying copies', 'precheck':'Checking originals', 'remove':'Removing originals', 'sync':'Saving to disk'}.get(stage, stage)
+            stream.write(f'\n{detail}\nFrom: {source}\nTo: {target}\nStage: {stage}\nStatus: {status}\n')
+
+
+if __name__ == '__main__':
+    import argparse
+    import sys
+    parser = argparse.ArgumentParser(description='Export a Fusion Files transfer report.')
+    parser.add_argument('--report', required=True)
+    export_report(parser.parse_args().report, sys.stdout)

@@ -2,6 +2,7 @@
 from contextlib import suppress
 import errno
 import json
+import io
 import os
 from pathlib import Path
 import socket
@@ -14,6 +15,7 @@ from unittest.mock import patch
 from transfer_worker import Transfer, Undo, Control, Cancelled, Counter
 from transfer_io import FileOps
 from transfer_authority import send, receive, serve
+from transfer_pending import export_report
 
 
 class TransferTests(unittest.TestCase):
@@ -25,6 +27,8 @@ class TransferTests(unittest.TestCase):
         self.target = self.base/'target'; self.target.mkdir()
         self.events = []
         self.control = Control(self.events.append)
+        self.on_issue = None
+        self.on_event = None
         self.sequence = 0
 
     def request(self, sources=None, operation='copy', destination=None):
@@ -34,9 +38,21 @@ class TransferTests(unittest.TestCase):
                     journal=str(self.base/f'journal-{self.sequence}.sqlite'))
 
     def transfer(self, request=None, cls=Transfer):
-        transfer = cls(request or self.request(), self.control, self.events.append)
+        transfer = cls(request or self.request(), self.control, self.observe)
         self.addCleanup(transfer.close)
         return transfer
+
+    def decide(self, event, choice='skip', all_similar=False):
+        self.control.decisions.append(dict(ids=[event['id']], versions={str(event['id']): event['version']}, choice=choice, all=all_similar))
+
+    def observe(self, event):
+        self.events.append(event)
+        if self.on_event: self.on_event(event)
+        if event.get('event') != 'issue' or event.get('status') != 'pending': return
+        if self.on_issue: self.on_issue(event)
+        elif ':conflict:' in event['category']:
+            self.decide(event, self.control.question(event['source'], event['destination'], event['replace_allowed']))
+        else: self.control.cancelled = True
 
     def write(self, name, value=b'original'):
         path = self.source/name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(value)
@@ -100,7 +116,7 @@ class TransferTests(unittest.TestCase):
             if copied: raise OSError(errno.ENOSPC, 'No space left')
             copy(*args); copied.append(args[0])
         transfer.copy_file = fail_later
-        with self.assertRaises(OSError): transfer.run()
+        with self.assertRaises(Cancelled): transfer.run()
         self.assertTrue((self.source/'a').exists()); self.assertTrue((self.source/'b').exists())
         self.assertEqual(len(list((self.target/'source').iterdir())), 1)
 
@@ -112,7 +128,7 @@ class TransferTests(unittest.TestCase):
             (self.target/'source'/'b').write_bytes(b'corrupted')
             verify()
         transfer.verify = corrupt
-        with self.assertRaises(OSError): transfer.run()
+        with self.assertRaises(Cancelled): transfer.run()
         self.assertEqual((self.source/'a').read_bytes(), b'original')
         self.assertEqual((self.source/'b').read_bytes(), b'original')
 
@@ -127,7 +143,7 @@ class TransferTests(unittest.TestCase):
                     verify()
                     ((self.source if side == 'source' else target/'source')/'b').write_bytes(b'changed')
                 transfer.verify = modify
-                with self.assertRaises(OSError): transfer.run()
+                with self.assertRaises(Cancelled): transfer.run()
                 self.assertTrue((self.source/'a').exists()); self.assertTrue((self.source/'b').exists())
 
     def test_partial_overwrite_failure_keeps_destination_and_cleans_temp(self):
@@ -138,7 +154,7 @@ class TransferTests(unittest.TestCase):
             os.write(target, b'partial'); raise OSError(errno.ENOSPC, 'No space left')
         with patch('transfer_worker.fcntl.ioctl', side_effect=OSError(errno.EOPNOTSUPP, 'not supported')):
             transfer.copy_data = fail
-            with self.assertRaises(OSError): transfer.run()
+            with self.assertRaises(Cancelled): transfer.run()
         self.assertEqual(old.read_bytes(), b'old data')
         self.assertEqual(item.read_bytes(), b'new data')
         self.assertEqual(list(self.target.iterdir()), [old])
@@ -240,7 +256,7 @@ class TransferTests(unittest.TestCase):
             return execute(action, args)
         transfer.ops.execute = denied
         with patch.object(transfer.access, 'authorize', side_effect=PermissionError('Authentication declined')):
-            with self.assertRaises(PermissionError): transfer.run()
+            with self.assertRaises(Cancelled): transfer.run()
         self.assertEqual((self.source/'a').read_bytes(), b'original')
         self.assertEqual((self.source/'private').read_bytes(), b'original')
 
@@ -261,6 +277,271 @@ class TransferTests(unittest.TestCase):
             with self.assertRaises(ValueError): ops.execute('read', {'path': path})
         with self.assertRaises(OSError): ops.execute('temporary', {'path': str(self.target/'escape'/'new')})
         with self.assertRaises(ValueError): ops.execute('remove', {'path': str(item), 'expected': {}})
+
+    def test_sockets_and_fifo_queue_while_all_regular_files_finish(self):
+        endpoints = []
+        for name in ('control-a.sock', 'control-b.sock'):
+            endpoint = socket.socket(socket.AF_UNIX); endpoint.bind(str(self.source/name)); endpoints.append(endpoint)
+            self.addCleanup(endpoint.close)
+        os.mkfifo(self.source/'pipe')
+        self.write('nested/good', b'copy immediately')
+        self.on_issue = lambda event: None
+        passes = []
+        def waiting(event):
+            if event.get('phase') != 'Waiting for queued items': return
+            self.assertEqual((self.target/'source/nested/good').read_bytes(), b'copy immediately')
+            issues = [e for e in self.events if e.get('event') == 'issue' and e['status'] == 'pending']
+            self.assertEqual(len(issues), 3)
+            if not passes:
+                self.decide(next(e for e in issues if e['category'].endswith(':socket')), 'skip', True)
+            else:
+                self.assertEqual(event['pendingIssues'], 1)  # A socket policy must not skip a FIFO.
+                self.decide(next(e for e in issues if e['category'].endswith(':named pipe')))
+            passes.append(True)
+        self.on_event = waiting
+        transfer = self.transfer(); result = transfer.run()
+        self.assertTrue(result['ok']); self.assertEqual(transfer.files, 1); self.assertEqual(transfer.skipped, 3)
+        self.assertTrue(result['warnings']); self.assertEqual(len(passes), 2)
+        self.assertEqual(transfer.db.execute("SELECT count(*) FROM issues WHERE status='skipped'").fetchone()[0], 3)
+        self.assertFalse((self.target/'source/control-a.sock').exists())
+        self.assertTrue(stat.S_ISSOCK((self.source/'control-a.sock').stat().st_mode))
+
+    def test_move_with_skipped_socket_retains_original_and_undo_restores_copied_files(self):
+        endpoint = socket.socket(socket.AF_UNIX); endpoint.bind(str(self.source/'vm.sock')); self.addCleanup(endpoint.close)
+        item = self.write('nested/data', b'safe data')
+        self.on_issue = lambda event: None
+        def waiting(event):
+            if event.get('phase') == 'Waiting for queued items':
+                self.assertTrue(item.exists())
+                self.assertTrue((self.target/'source/nested/data').exists())
+                self.decide(next(e for e in self.events if e.get('event') == 'issue'))
+        self.on_event = waiting
+        transfer = self.transfer(self.request(operation='move')); self.force_cross_device(transfer)
+        self.assertTrue(transfer.run()['ok']); self.assertFalse(item.exists())
+        self.assertTrue((self.source/'vm.sock').exists())
+        undo = self.transfer(dict(operation='undo', undoJournal=transfer.journal, journal=str(self.base/'undo-queued.sqlite')), Undo)
+        self.assertTrue(undo.run()['ok']); self.assertEqual(item.read_bytes(), b'safe data')
+        self.assertTrue((self.source/'vm.sock').exists()); self.assertFalse((self.target/'source').exists())
+
+    def test_partial_disk_full_error_retries_after_unrelated_files_and_counts_once(self):
+        bad = self.write('blocked', b'new contents'); good = self.write('other', b'other contents')
+        transfer = self.transfer(self.request([bad, good]))
+        copy_data = transfer.copy_data; attempts = []
+        def fail_once(source, target, size):
+            if not attempts:
+                attempts.append(True); os.write(target, b'par'); transfer.processed += 3
+                raise OSError(errno.ENOSPC, 'No space left on device')
+            copy_data(source, target, size)
+        transfer.copy_data = fail_once; self.on_issue = lambda event: None
+        def waiting(event):
+            if event.get('phase') != 'Waiting for queued items': return
+            self.assertEqual((self.target/'other').read_bytes(), b'other contents')
+            self.assertEqual(event['processedBytes'], len(b'other contents'))
+            self.assertFalse((self.target/'blocked').exists()); self.assertFalse(list(self.target.glob('.fusion-*')))
+            self.decide(next(e for e in self.events if e.get('event') == 'issue'), 'retry')
+        self.on_event = waiting
+        with patch('transfer_worker.fcntl.ioctl', side_effect=OSError(errno.EOPNOTSUPP, 'not supported')):
+            self.assertTrue(transfer.run()['ok'])
+        self.assertEqual((self.target/'blocked').read_bytes(), b'new contents')
+        self.assertEqual(transfer.files, 2); self.assertEqual(transfer.processed, len(b'other contentsnew contents'))
+
+    def test_conflicts_do_not_block_and_delayed_replace_checks_destination_again(self):
+        item = self.write('conflict', b'new'); good = self.write('good', b'good')
+        destination = self.target/'conflict'; destination.write_bytes(b'old')
+        self.on_issue = lambda event: None
+        decisions = []
+        def waiting(event):
+            if event.get('phase') != 'Waiting for queued items': return
+            self.assertEqual((self.target/'good').read_bytes(), b'good')
+            issue = next(e for e in reversed(self.events) if e.get('event') == 'issue' and e['status'] == 'pending')
+            if not decisions:
+                destination.write_bytes(b'edited while queued')
+                self.decide(issue, 'replace')
+            else:
+                self.decide(dict(issue, version=issue['version']-1), 'replace')  # Stale answer is rejected.
+                self.decide(issue, 'skip')
+            decisions.append(True)
+        self.on_event = waiting
+        transfer = self.transfer(self.request([item, good])); self.assertTrue(transfer.run()['ok'])
+        self.assertEqual(destination.read_bytes(), b'edited while queued'); self.assertEqual(len(decisions), 2)
+
+    def test_authorization_starts_during_copy_without_blocking_other_files(self):
+        private = self.write('private/secret'); good = self.write('good')
+        transfer = self.transfer(self.request([private.parent, good])); execute = transfer.ops.execute
+        authenticated = []
+        prompted, continue_auth = threading.Event(), threading.Event()
+        def guarded(action, args):
+            if action == 'list' and args['path'].endswith('/private') and not authenticated:
+                raise PermissionError(errno.EACCES, 'Private folder')
+            return execute(action, args)
+        transfer.ops.execute = guarded
+        def authorize():
+            prompted.set()
+            if not continue_auth.wait(3): raise PermissionError('Test prompt was not released')
+            authenticated.append(True)
+        transfer.access.authorize = authorize
+        copy = transfer.copy_file
+        def copying(source, *args):
+            if source == str(good):
+                transfer.progress(True)
+                self.assertTrue(prompted.wait(2), 'Authentication waited until the end of the copy pass')
+                self.assertFalse(authenticated, 'The fixture prompt should still be open')
+            copy(source, *args)
+            if source == str(good): continue_auth.set()
+        transfer.copy_file = copying
+        self.addCleanup(continue_auth.set)
+        self.on_issue = lambda event: self.decide(event, 'authorize')
+        self.assertTrue(transfer.run()['ok']); self.assertEqual(authenticated, [True])
+        self.assertEqual((self.target/'private/secret').read_bytes(), b'original')
+        self.assertIn('authorizing', [e.get('status') for e in self.events])
+
+    def test_cancelled_authentication_returns_rows_to_choices_and_can_retry(self):
+        private = self.write('private'); good = self.write('good')
+        transfer = self.transfer(self.request([private, good])); execute = transfer.ops.execute
+        authenticated, attempts = [], []
+        def guarded(action, args):
+            if action == 'read' and args['path'] == str(private) and not authenticated:
+                raise PermissionError(errno.EACCES, 'Private file')
+            return execute(action, args)
+        transfer.ops.execute = guarded
+        def authorize():
+            attempts.append(True)
+            if len(attempts) == 1: raise PermissionError('Authentication cancelled')
+            authenticated.append(True)
+        transfer.access.authorize = authorize
+        self.on_issue = lambda event: self.decide(event, 'authorize')
+        self.assertTrue(transfer.run()['ok'])
+        choices = [e for e in self.events if e.get('status') == 'pending']
+        self.assertEqual([e['version'] for e in choices], [1, 2])
+        self.assertIn('Authentication cancelled', choices[1]['detail'])
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual((self.target/'good').read_bytes(), b'original')
+        self.assertEqual((self.target/'private').read_bytes(), b'original')
+
+    def test_repeated_admin_choices_share_one_pending_authentication(self):
+        transfer = self.transfer()
+        prompted, finish = threading.Event(), threading.Event()
+        calls = []
+        def authorize():
+            calls.append(True); prompted.set()
+            if not finish.wait(3): raise PermissionError('Test prompt was not released')
+        transfer.access.authorize = authorize
+        self.addCleanup(finish.set)
+        transfer.access.request_authorization()
+        self.assertTrue(prompted.wait(2))
+        for _ in range(5): transfer.access.request_authorization()
+        self.assertEqual(calls, [True]); self.assertEqual(transfer.access.authorization()[0], 'authorizing')
+        finish.set(); transfer.access.auth_thread.join(2)
+        self.assertEqual(transfer.access.authorization()[0], 'authorized')
+
+    def test_closing_transfer_cancels_pending_authentication_and_removes_socket(self):
+        transfer = self.transfer()
+        prompt = threading.Event(); endpoints = []
+        def event(value):
+            if value.get('event') == 'authenticate':
+                endpoints.append(value['socket']); prompt.set()
+        self.on_event = event
+        transfer.access.request_authorization()
+        self.assertTrue(prompt.wait(2))
+        transfer.access.close()
+        self.assertFalse(transfer.access.auth_thread.is_alive())
+        self.assertFalse(Path(endpoints[0]).exists())
+
+    def test_helper_exit_during_authentication_is_not_reported_as_active(self):
+        transfer = self.transfer()
+        client, helper = socket.socketpair()
+        self.addCleanup(client.close); self.addCleanup(helper.close)
+        def authorize():
+            transfer.access.connection = client
+            helper.close()
+            with self.assertRaises(PermissionError): transfer.access.remote('stat', {'path': str(self.source)})
+        transfer.access.authorize = authorize
+        transfer.access.request_authorization(); transfer.access.auth_thread.join(2)
+        state, error = transfer.access.authorization()
+        self.assertEqual(state, 'failed'); self.assertIn('connection ended', error)
+
+    def test_skip_verification_failure_preserves_that_original(self):
+        bad = self.write('bad'); good = self.write('good')
+        transfer = self.transfer(self.request(operation='move')); self.force_cross_device(transfer)
+        verify = transfer.verify
+        def corrupt(): (self.target/'source/bad').write_bytes(b'corrupt'); verify()
+        transfer.verify = corrupt
+        self.on_issue = lambda event: self.decide(event)
+        self.assertTrue(transfer.run()['ok']); self.assertEqual(bad.read_bytes(), b'original')
+        self.assertFalse(good.exists()); self.assertEqual((self.target/'source/good').read_bytes(), b'original')
+
+    def test_cancel_waiting_queue_leaves_all_cross_device_originals(self):
+        os.mkfifo(self.source/'pipe'); good = self.write('good')
+        transfer = self.transfer(self.request(operation='move')); self.force_cross_device(transfer)
+        self.on_issue = lambda event: None
+        def waiting(event):
+            if event.get('phase') == 'Waiting for queued items':
+                self.assertTrue((self.target/'source/good').exists()); self.control.cancelled = True
+        self.on_event = waiting
+        with self.assertRaises(Cancelled): transfer.run()
+        self.assertTrue(good.exists()); self.assertTrue((self.source/'pipe').exists())
+
+    def test_directory_iteration_error_retries_without_recopying_completed_files(self):
+        self.write('one', b'one'); self.write('two', b'two')
+        scandir = os.scandir; failed = []
+        class BrokenIterator:
+            def __init__(self, iterator): self.iterator, self.read = iterator, False
+            def __next__(self):
+                if self.read:
+                    failed.append(True); raise OSError(errno.EIO, 'Directory read failed')
+                self.read = True; return next(self.iterator)
+            def close(self): self.iterator.close()
+        def intermittent(path):
+            result = scandir(path)
+            if isinstance(path, int) and not failed: return BrokenIterator(result)
+            return result
+        self.on_issue = lambda event: self.decide(event, 'retry')
+        transfer = self.transfer()
+        with patch('transfer_worker.os.scandir', side_effect=intermittent):
+            self.assertTrue(transfer.run()['ok'])
+        self.assertEqual(transfer.files, 2); self.assertEqual(transfer.processed, 6)
+        self.assertEqual((self.target/'source/one').read_bytes(), b'one')
+        self.assertEqual((self.target/'source/two').read_bytes(), b'two')
+        self.assertEqual(transfer.db.execute("SELECT count(*) FROM entries WHERE kind='file'").fetchone()[0], 2)
+
+    def test_skipping_directory_flush_failure_retains_all_affected_originals(self):
+        kept = self.write('unflushed/data'); moved = self.write('good/data')
+        transfer = self.transfer(self.request(operation='move')); self.force_cross_device(transfer)
+        execute = transfer.ops.execute
+        def fail_sync(action, args):
+            if action == 'sync' and args['path'] == str(self.target/'source/unflushed'):
+                raise OSError(errno.EIO, 'Could not flush this directory')
+            return execute(action, args)
+        transfer.ops.execute = fail_sync; self.on_issue = lambda event: self.decide(event)
+        self.assertTrue(transfer.run()['ok']); self.assertTrue(kept.exists()); self.assertFalse(moved.exists())
+        self.assertEqual((self.target/'source/good/data').read_bytes(), b'original')
+
+    def test_failed_original_removal_queues_without_deleting_unverified_data(self):
+        kept = self.write('keep'); moved = self.write('good')
+        transfer = self.transfer(self.request(operation='move')); self.force_cross_device(transfer)
+        execute = transfer.ops.execute
+        def fail_remove(action, args):
+            if action == 'remove' and args['path'] == str(kept): raise OSError(errno.EIO, 'Could not remove this original')
+            return execute(action, args)
+        transfer.ops.execute = fail_remove; self.on_issue = lambda event: self.decide(event)
+        result = transfer.run(); self.assertTrue(result['ok']); self.assertTrue(result['warnings'])
+        self.assertEqual(kept.read_bytes(), b'original'); self.assertFalse(moved.exists())
+        self.assertEqual((self.target/'source/keep').read_bytes(), b'original')
+
+    def test_skip_similar_summarizes_future_rows_but_full_report_retains_every_path(self):
+        for n in range(12): os.mkfifo(self.source/f'pipe-{n}')
+        transfer = self.transfer()
+        def skip_similar(event):
+            self.decide(event, 'skip', True)
+            transfer.last_progress = 0  # Accept the decision before encountering the next item.
+        self.on_issue = skip_similar
+        self.assertTrue(transfer.run()['ok'])
+        self.assertEqual(transfer.skipped, 12); self.assertEqual(transfer.pending.automatic, 11)
+        self.assertEqual(len([e for e in self.events if e.get('event') == 'issue' and e['status'] == 'pending']), 1)
+        self.assertEqual(transfer.db.execute('SELECT count(*) FROM issues').fetchone()[0], 12)
+        report = io.StringIO(); export_report(transfer.journal, report)
+        self.assertEqual(report.getvalue().count('Status: skipped'), 12)
+        for n in range(12): self.assertIn(f'From: {self.source}/pipe-{n}\n', report.getvalue())
 
     def test_file_descriptor_transport_and_helper_eof(self):
         item = self.write('a', b'passed descriptor')

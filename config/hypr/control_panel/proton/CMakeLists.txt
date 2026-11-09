@@ -12,11 +12,12 @@ target_include_directories(xetal_proton_core PUBLIC src third_party)
 target_link_libraries(xetal_proton_core PUBLIC CURL::libcurl LibArchive::LibArchive
     OpenSSL::Crypto Threads::Threads)
 
-add_library(xetal_proton_page STATIC controller.cpp controller.h page.cpp page.h
+add_library(xetal_proton_page STATIC controller.cpp controller.h desktop.cpp desktop.h page.cpp page.h
     library.cpp tools_page.cpp dependencies_page.cpp)
 set_target_properties(xetal_proton_page PROPERTIES CXX_STANDARD 20)
 target_link_libraries(xetal_proton_page PUBLIC xetal_proton_core Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Concurrent)
 target_include_directories(xetal_proton_page PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_definitions(xetal_proton_page PRIVATE XETAL_PROTON_BRIDGE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/desktop_bridge.py")
 
 option(BUILD_PROTON_TESTS "Build isolated Proton backend and page tests" OFF)
 if(BUILD_PROTON_TESTS)
@@ -27,6 +28,8 @@ if(BUILD_PROTON_TESTS)
     target_link_libraries(proton_core_tests PRIVATE xetal_proton_core)
     add_test(NAME proton_core COMMAND proton_core_tests)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME proton_desktop_handlers COMMAND ${Python3_EXECUTABLE}
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_desktop_bridge.py")
     find_program(PROTON_OPENSSL openssl REQUIRED)
     add_test(NAME proton_download_recovery COMMAND ${Python3_EXECUTABLE}
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/download_server.py"

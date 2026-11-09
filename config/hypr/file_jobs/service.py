@@ -42,6 +42,7 @@ class ViewV3(Guarded):
 @pyqtClassInfo('D-Bus Interface', 'org.xetal.FileTransfer1')
 class TransferQuestions(Guarded):
     """Questions belong to the exact JobView, and only its owner can ask them."""
+    reviewRequested = pyqtSignal()
     def __init__(self, job):
         super().__init__(job)
         self.reply = None
@@ -188,7 +189,8 @@ class Service(QObject):
         return QDBusObjectPath(path)
 
     def request(self, job, action):
-        signal = QDBusMessage.createTargetedSignal(job.owner, job.path, job.interface, action + 'Requested')
+        interface = 'org.xetal.FileTransfer1' if action == 'review' else job.interface
+        signal = QDBusMessage.createTargetedSignal(job.owner, job.path, interface, action + 'Requested')
         self.bus.send(signal)
 
     @pyqtSlot(str, str, str)

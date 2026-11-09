@@ -68,7 +68,9 @@ class ProgressWindow(QWidget):
         self.close_button.setObjectName('closeOperation'); self.close_button.clicked.connect(self.close)
         self.details = QPushButton('Details', self); self.details.clicked.connect(self.show_error)
         self.details.hide()
-        for button in (self.cancel, self.pause, self.close_button, self.details):
+        self.review = QPushButton('Review queue', self); self.review.setObjectName('reviewTransferQueue')
+        self.review.clicked.connect(lambda: self.job.request('review')); self.review.hide()
+        for button in (self.cancel, self.pause, self.close_button, self.details, self.review):
             button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.set_options(self.options)
         self.job.changed.connect(self.refresh)
@@ -149,6 +151,9 @@ class ProgressWindow(QWidget):
         self.pause.setToolTip('Resume operation' if suspended else 'Pause operation')
         self.pause.setAccessibleName(self.pause.toolTip())
         self.details.setVisible(self.job.result == 'failed' or bool(self.job.result and self.job.data.get('warningMessage')))
+        self.review.setVisible(not done and bool(self.job.data.get('issueCount') or self.job.data.get('pendingIssues')))
+        if not done and self.job.data.get('pendingIssues') and not self.isVisible() and not self.embedded and not self.preview:
+            self.show()
         self.layout_controls()
         if self.isVisible() and self.job.running and self.options['animation']['enabled']:
             if not self.animation.isActive(): self.clock.restart(); self.animation.start()
@@ -162,6 +167,7 @@ class ProgressWindow(QWidget):
         self.cancel.setGeometry(self.width()-78, self.base_height-38, 62, 24)
         self.pause.setGeometry(self.width()-113, self.base_height-38, 28, 24)
         self.details.setGeometry(self.width()-139, self.base_height-38, 54, 24)
+        self.review.setGeometry(self.width()-128, 36, 110, 22)
         self.question_scroll.setGeometry(8, self.base_height, self.width()-16, max(0, self.height()-self.base_height-8))
 
     def refresh_question(self, animate=True):
@@ -355,7 +361,7 @@ class ProgressWindow(QWidget):
             painter.restore()
 
     def summary(self):
-        if self.job.result or self.job.pending or self.job.question or self.job.data.get('suspended'):
+        if self.job.result or self.job.pending or self.job.question or self.job.data.get('suspended') or self.job.data.get('phase') == 'Waiting for queued items':
             return self.job.summary()
         info, data, parts = self.options['information'], self.job.data, []
         total, processed, speed = data.get('totalBytes', 0), data.get('processedBytes', 0), data.get('speed', 0)
@@ -465,10 +471,10 @@ class ProgressWindow(QWidget):
                       Qt.AlignmentFlag.AlignCenter if self.design == 'modern' else Qt.AlignmentFlag.AlignRight)
         source, destination = self.job.paths
         path_style = self.options['information']['paths']
-        if path_style != 'hidden':
+        if path_style != 'hidden' or self.review.isVisible():
             route = '  →  '.join(short_location(p) if path_style == 'names' else p for p in (source, destination) if p)
-            self.text(painter, QRectF(16, 35, w-32, 18), route or self.job.application, muted, 9)
-        scene_top = 55 if path_style != 'hidden' else 42
+            self.text(painter, QRectF(16, 35, w-(148 if self.review.isVisible() else 32), 18), route or self.job.application, muted, 9)
+        scene_top = 59 if self.review.isVisible() else 55 if path_style != 'hidden' else 42
         if 'totalsKnown' in self.job.data:
             phase = self.job.data.get('phase', 'Copying')
             current = short_location(self.job.data.get('currentFile'))

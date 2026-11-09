@@ -5,6 +5,14 @@
 #include "removal.h"
 #include "context_actions.h"
 #include "transfers.h"
+#include "transfer_issues.h"
+#include "native_transfer.h"
+#include <QLabel>
+#include <QWindow>
+#include <QTableView>
+#include <QCheckBox>
+#include <QPushButton>
+#include <QFileDialog>
 #include <KIO/FileUndoManager>
 #include <KApplicationTrader>
 #include <KDirLister>
@@ -48,6 +56,32 @@ class FileTests : public QObject {
     QFile file(path);
     QVERIFY(file.open(QIODevice::WriteOnly));
     QCOMPARE(file.write(bytes), bytes.size());
+  }
+  static Fusion::TransferIssues *queueFor(const QString &base) {
+    for (auto *widget : QApplication::topLevelWidgets()) {
+      auto *queue = qobject_cast<Fusion::TransferIssues *>(widget);
+      if (!queue) continue;
+      auto *table = queue->findChild<QTableView *>("transferIssuesTable");
+      for (int n=0; n<table->model()->rowCount(); ++n)
+        if (table->model()->index(n,3).data().toString().startsWith(base+"/")) return queue;
+    }
+    return nullptr;
+  }
+  static bool answerQueue(const QString &base, const QString &choice, bool all=true) {
+    auto *queue = queueFor(base); if (!queue) return false;
+    auto *table = queue->findChild<QTableView *>("transferIssuesTable");
+    table->clearSelection();
+    for (int n=0; n<table->model()->rowCount(); ++n)
+      if (table->model()->index(n,2).data().toString()=="Needs a choice")
+        table->selectionModel()->select(table->model()->index(n,0), QItemSelectionModel::Select|QItemSelectionModel::Rows);
+    if (table->selectionModel()->selectedRows().isEmpty()) return false;
+    if (choice=="cancel") { queue->findChild<QPushButton *>("cancelQueuedTransfer")->click(); return true; }
+    queue->findChild<QCheckBox *>("similarTransferIssues")->setChecked(all);
+    if (choice=="replace") QTimer::singleShot(0, queue, [queue] {
+      for (auto *dialog : queue->findChildren<QMessageBox *>()) dialog->button(QMessageBox::Yes)->click();
+    });
+    queue->findChild<QPushButton *>("transferIssue_"+choice)->click();
+    return true;
   }
   static void focus(Browser *tab) {
     tab->window()->activateWindow();
@@ -102,6 +136,13 @@ class FileTests : public QObject {
     return volumes;
   }
 private slots:
+  void cleanup() {
+    // Completed queue reports intentionally stay open for review. They belong
+    // to the preceding test, not to a subsequent no-dialog assertion.
+    for (auto *widget : QApplication::topLevelWidgets())
+      if (auto *queue=qobject_cast<Fusion::TransferIssues *>(widget)) queue->close();
+    QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
+  }
   void initTestCase() {
     QVERIFY(temporary.isValid());
     folder = temporary.path() + "/files";
@@ -669,19 +710,14 @@ print(json.dumps(rows))
       QDropEvent event(QPointF(1,1),Qt::MoveAction|Qt::CopyAction,&mime,Qt::LeftButton,Qt::NoModifier);
       auto *job=Fusion::dropFiles(&event,QUrl::fromLocalFile(base+"/target"),&owner,{});
       int error=-1;connect(job,&KJob::result,&owner,[&](KJob *j){error=j->error();});
-      QTRY_VERIFY(owner.findChild<QDialog *>("transferConflictSummary"));
-      auto *summary=owner.findChild<QDialog *>("transferConflictSummary");
-      QTRY_VERIFY(summary->isVisible());
+      QTRY_VERIFY(queueFor(base));
+      auto *queue=queueFor(base); QVERIFY(!queue->isModal());
+      QTRY_VERIFY(queue->isVisible());
       QFile existing(base+"/target/item.txt");QVERIFY(existing.open(QIODevice::ReadOnly));
       QCOMPARE(existing.readAll(),QByteArray("destination"));existing.close();
       QVERIFY(QFileInfo::exists(base+"/source/item.txt"));
-      if (answer==QMessageBox::Cancel) summary->reject();
-      else {
-        summary->done(3); // Let me decide for each file.
-        QTRY_VERIFY(owner.findChild<QMessageBox *>("transferConflictQuestion"));
-        auto *question=owner.findChild<QMessageBox *>("transferConflictQuestion");
-        QTRY_VERIFY(question->isVisible());question->done(answer);
-      }
+      queue->hide(); QTest::qWait(30); QCOMPARE(error,-1); queue->reveal();
+      QVERIFY(answerQueue(base, answer==QMessageBox::Cancel?"cancel":answer==QMessageBox::Yes?"replace":"skip"));
       QTRY_COMPARE_WITH_TIMEOUT(error,answer==QMessageBox::Cancel?KIO::ERR_USER_CANCELED:0,10000);
       QVERIFY(existing.open(QIODevice::ReadOnly));
       QCOMPARE(existing.readAll(),answer==QMessageBox::Yes?QByteArray("source"):QByteArray("destination"));
@@ -701,14 +737,13 @@ print(json.dumps(rows))
       write(base+"/source/Folder/new.txt","new source only");
       QWidget owner;int prompts=0;
       QTimer answer;connect(&answer,&QTimer::timeout,&owner,[&]{
-        auto *question=owner.findChild<QDialog *>("transferConflictSummary");
-        if (!question || !question->isVisible()) return;
-        ++prompts;question->done(1);
+        if (!QFileInfo::exists(base+"/target/Folder/new.txt")) return;
+        if (answerQueue(base,"replace")) ++prompts;
       });answer.start(10);
       auto *job=Fusion::transferFiles({QUrl::fromLocalFile(base+"/source/first.txt"),QUrl::fromLocalFile(base+"/source/Folder")},
           QUrl::fromLocalFile(base+"/target"),operation,&owner);
       int error=-1;connect(job,&KJob::result,&owner,[&](KJob *j){error=j->error();});
-      QTRY_COMPARE_WITH_TIMEOUT(error,0,15000);QCOMPARE(prompts,1);
+      QTRY_COMPARE_WITH_TIMEOUT(error,0,15000);QVERIFY(prompts>=1);
       for (const auto file : {"first.txt","Folder/a.txt","Folder/nested/deeper/b.txt"}) {
         QFile copied(base+"/target/"+file);QVERIFY(copied.open(QIODevice::ReadOnly));QCOMPARE(copied.readAll(),QByteArray("source"));
         QCOMPARE(QFileInfo::exists(base+"/source/"+file),operation==Fusion::TransferOperation::Copy);
@@ -718,6 +753,64 @@ print(json.dumps(rows))
       QVERIFY(!QFileInfo::exists(base+"/target/Folder_copy1"));
       QVERIFY(!QFileInfo::exists(base+"/target/first_copy1.txt"));
     }
+  }
+  void specialFilesQueueWithoutBlockingNormalCopies() {
+    const auto base=folder+"/queued-special-files";
+    QDir().mkpath(base+"/source"); QDir().mkpath(base+"/target");
+    QCOMPARE(::mkfifo(QFile::encodeName(base+"/source/control-a.pipe"),0600),0);
+    QCOMPARE(::mkfifo(QFile::encodeName(base+"/source/control-b.pipe"),0600),0);
+    write(base+"/source/normal.txt","ordinary files keep copying");
+    QWidget owner;
+    auto *job=Fusion::transferFiles({QUrl::fromLocalFile(base+"/source")},QUrl::fromLocalFile(base+"/target"),Fusion::TransferOperation::Copy,&owner);
+    int error=-1; connect(job,&KJob::result,&owner,[&](KJob *result){error=result->error();});
+    QTRY_VERIFY(queueFor(base)); auto *queue=queueFor(base);
+    QCOMPARE(queue->windowHandle()->transientParent(), owner.windowHandle());
+    QVERIFY(!queue->parentWidget()); // The transfer must outlive its browser.
+    QVERIFY(queue->width() <= 980); QVERIFY(queue->height() <= 540);
+    QTRY_VERIFY(QFileInfo::exists(base+"/target/source/normal.txt"));
+    auto *table=queue->findChild<QTableView *>("transferIssuesTable");
+    QTRY_COMPARE(table->model()->rowCount(),2); QCOMPARE(error,-1);
+    QVERIFY(!queue->isModal()); queue->hide(); QTest::qWait(50); QCOMPARE(error,-1);
+    queue->reveal();
+    if(qEnvironmentVariableIsSet("FUSION_FILES_CAPTURE")) queue->grab().save(qEnvironmentVariable("FUSION_FILES_CAPTURE")+"-queue.png");
+    table->selectRow(0); queue->findChild<QCheckBox *>("similarTransferIssues")->setChecked(true);
+    queue->findChild<QPushButton *>("transferIssue_skip")->click();
+    QTRY_COMPARE_WITH_TIMEOUT(error,0,10000);
+    QVERIFY(QFileInfo::exists(base+"/source/control-a.pipe"));
+    QVERIFY(!QFileInfo::exists(base+"/target/source/control-a.pipe"));
+    for(int n=0;n<2;++n) QCOMPARE(table->model()->index(n,2).data().toString(),QString("Skipped / original kept"));
+    const auto report=base+"/queue-report.txt";
+    QTimer::singleShot(0,queue,[queue,report]{
+      for(auto *dialog:queue->findChildren<QFileDialog *>()) {
+        dialog->selectFile(report); QMetaObject::invokeMethod(dialog,"accept",Qt::QueuedConnection);
+      }
+    });
+    queue->findChild<QPushButton *>("saveTransferReport")->click();
+    QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(report),10000);
+    QFile saved(report); QVERIFY(saved.open(QIODevice::ReadOnly));
+    const auto contents=saved.readAll(); QVERIFY(contents.contains("control-a.pipe")); QVERIFY(contents.contains("control-b.pipe"));
+    queue->close();
+  }
+  void transferQueueShowsAuthenticationStateAndRecoversAfterRefusal() {
+    Fusion::NativeTransfer operation({});
+    QWidget owner;
+    Fusion::TransferIssues queue(&operation, &owner);
+    QVariantMap issue{{"id",1},{"source",folder+"/private"},{"destination",folder+"/target/private"},
+        {"stage","item"},{"category","item:permission"},{"detail","Permission denied"},{"version",1},
+        {"status","authorizing"}};
+    emit operation.issue(issue);
+    emit operation.progress({{"administratorAccess","authorizing"},{"pendingIssues",1},{"phase","Copying"}});
+    auto *status=queue.findChild<QLabel *>("transferAdministratorStatus");
+    auto *button=queue.findChild<QPushButton *>("transferIssue_authorize");
+    auto *table=queue.findChild<QTableView *>("transferIssuesTable");
+    QVERIFY(!queue.isModal()); QVERIFY(status->isVisible()); QVERIFY(!button->isEnabled());
+    QCOMPARE(table->model()->index(0,2).data().toString(),QString("Awaiting authorization"));
+    issue["status"]="pending"; issue["version"]=2;
+    emit operation.issue(issue);
+    emit operation.progress({{"administratorAccess","failed"},{"administratorError","Authentication cancelled"}});
+    QVERIFY(button->isEnabled()); QVERIFY(status->text().contains("Authentication cancelled"));
+    emit operation.progress({{"administratorAccess","authorized"},{"administratorError",""}});
+    QVERIFY(status->text().contains("access is active"));
   }
   void skipConflictsStillTransfersNewFilesInsideMatchingFolders() {
     for (const auto operation : {Fusion::TransferOperation::Copy,Fusion::TransferOperation::Move}) {
@@ -731,13 +824,13 @@ print(json.dumps(rows))
       write(base+"/source/Folder/nested/deeper/new.txt","new source only");
       QWidget owner;int prompts=0;
       QTimer answer;connect(&answer,&QTimer::timeout,&owner,[&]{
-        auto *question=owner.findChild<QDialog *>("transferConflictSummary");
-        if (question && question->isVisible()) { ++prompts;question->done(2); }
+        if (!QFileInfo::exists(base+"/target/Folder/nested/deeper/new.txt")) return;
+        if (answerQueue(base,"skip")) ++prompts;
       });answer.start(10);
       auto *job=Fusion::transferFiles({QUrl::fromLocalFile(base+"/source/Folder"),QUrl::fromLocalFile(base+"/source/first.txt")},
           QUrl::fromLocalFile(base+"/target"),operation,&owner);
       int error=-1;connect(job,&KJob::result,&owner,[&](KJob *j){error=j->error();});
-      QTRY_COMPARE_WITH_TIMEOUT(error,0,15000);QCOMPARE(prompts,1);
+      QTRY_COMPARE_WITH_TIMEOUT(error,0,15000);QVERIFY(prompts>=1);
       for (const auto file : {"first.txt","Folder/a.txt","Folder/nested/deeper/b.txt"}) {
         QFile existing(base+"/target/"+file);QVERIFY(existing.open(QIODevice::ReadOnly));QCOMPARE(existing.readAll(),QByteArray("target"));
         QVERIFY(QFileInfo::exists(base+"/source/"+file));
@@ -2014,6 +2107,25 @@ print(json.dumps(rows))
             write(base+"/"+side+"/"+name, QByteArray(side));
         }
         write(base+"/source/Folder/new.txt", "new file");
+        QTimer queued;
+        connect(&queued, &QTimer::timeout, &owner, [&] {
+          if (!QFileInfo::exists(base+"/target/Folder/new.txt")) return;
+          if (QByteArray(mode)=="individual") {
+            auto *queue=queueFor(base); if (!queue) return;
+            auto *table=queue->findChild<QTableView *>("transferIssuesTable");
+            table->clearSelection();
+            for (int n=0;n<table->model()->rowCount();++n) {
+              if (table->model()->index(n,2).data().toString()!="Needs a choice") continue;
+              const auto choice=table->model()->index(n,3).data().toString().endsWith("/a.txt")?"replace":"skip";
+              table->selectRow(n); queue->findChild<QCheckBox *>("similarTransferIssues")->setChecked(false);
+              if (QByteArray(choice)=="replace") QTimer::singleShot(0,queue,[queue]{
+                for(auto *dialog:queue->findChildren<QMessageBox *>()) dialog->button(QMessageBox::Yes)->click();
+              });
+              queue->findChild<QPushButton *>(QString("transferIssue_")+choice)->click();
+              break;
+            }
+          } else answerQueue(base,mode);
+        }); queued.start(100);
         auto *job = Fusion::transferFiles({QUrl::fromLocalFile(base+"/source/a.txt"), QUrl::fromLocalFile(base+"/source/Folder")},
             QUrl::fromLocalFile(base+"/target"), operation, &owner);
         int error = -1; connect(job, &KJob::result, &owner, [&](KJob *j) { error = j->error(); });

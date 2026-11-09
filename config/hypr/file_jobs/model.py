@@ -7,7 +7,7 @@ TEXT = {'title', 'infoMessage', 'descriptionLabel1', 'descriptionValue1',
         'descriptionLabel2', 'descriptionValue2', 'destUrl', 'errorMessage', 'currentFile', 'phase', 'warningMessage'}
 NUMBERS = {'totalBytes', 'processedBytes', 'totalFiles', 'processedFiles',
            'totalDirectories', 'processedDirectories', 'totalItems', 'processedItems',
-           'percent', 'speed', 'elapsedTime', 'errorCode', 'skippedFiles', 'verifiedBytes', 'renamedItems'}
+           'percent', 'speed', 'elapsedTime', 'errorCode', 'skippedFiles', 'verifiedBytes', 'renamedItems', 'pendingIssues', 'issueCount', 'skippedFolders'}
 FLAGS = {'suspended', 'transient', 'immediate', 'totalsKnown'}
 
 
@@ -90,7 +90,7 @@ class Job(QObject):
 
     @property
     def running(self):
-        return self.result is None and not self.question and not self.data.get('suspended') and self.pending != 'cancel'
+        return self.result is None and not self.question and not self.data.get('suspended') and self.pending != 'cancel' and self.data.get('phase') != 'Waiting for queued items'
 
     @property
     def title(self):
@@ -111,6 +111,7 @@ class Job(QObject):
         if self.pending == 'suspend': return 'Pausing…'
         if self.pending == 'resume': return 'Resuming…'
         if self.data.get('suspended'): return 'Paused'
+        if self.data.get('phase') == 'Waiting for queued items': return f'{self.data.get("pendingIssues", 0):,} queued items need a choice · Other files finished'
         pieces = []
         total, processed = self.data.get('totalBytes', 0), self.data.get('processedBytes', 0)
         if total: pieces.append(f'{amount(processed)} / {amount(total)}')
@@ -122,18 +123,24 @@ class Job(QObject):
 
     def file_summary(self):
         files = self.data.get('processedFiles', 0)
-        if self.data.get('totalsKnown') is False:
+        if self.result is not None and self.data.get('skippedFolders'):
+            text = f'{files:,} files copied'
+        elif self.data.get('totalsKnown') is False:
             text = f'{files:,} files copied · Counting total…'
         elif self.data.get('renamedItems') and not self.data.get('totalFiles'):
             text = f'{self.data["renamedItems"]:,} items moved'
         else:
             text = f'{files:,} / {self.data.get("totalFiles", 0):,} files copied'
         skipped = self.data.get('skippedFiles', 0)
-        if skipped: text += f' · {skipped:,} skipped'
+        if skipped: text += f' · {skipped:,} skipped items'
+        pending = self.data.get('pendingIssues', 0)
+        if pending: text += f' · {pending:,} queued'
         return text
 
     def request(self, action):
         if self.result is not None or self.pending == 'cancel': return False
+        if action == 'review' and (self.data.get('issueCount', 0) or self.data.get('pendingIssues', 0)):
+            self.requested.emit(action); return True
         if action == 'cancel' and not self.capabilities & 1: return False
         if action in ('suspend', 'resume'):
             if not self.capabilities & 2 or self.pending or self.question: return False

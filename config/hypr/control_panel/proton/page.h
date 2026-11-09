@@ -46,7 +46,7 @@ private:
     void refreshProcesses();
     void refreshTask();
     void selectShortcut();
-    void editShortcut();
+    void editShortcut(bool browserSignIn=false);
     void managePrefix();
     void addShortcut(bool once=false);
     void exportShortcut();

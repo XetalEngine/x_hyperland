@@ -61,6 +61,20 @@ class JobTests(unittest.TestCase):
         job.update({'suspended': False}); self.assertTrue(job.running)
         self.assertEqual(actions, ['suspend', 'resume'])
 
+    def test_pending_queue_does_not_pause_or_finish_transfer_and_can_be_reopened(self):
+        job = self.job(hints={'totalsKnown': True, 'phase': 'Copying', 'pendingIssues': 3})
+        actions = []; job.requested.connect(actions.append)
+        window = self.window(job)
+        self.assertTrue(job.running); self.assertTrue(window.pause.isEnabled())
+        self.assertTrue(window.review.isVisible()); self.assertIn('3 queued', job.file_summary())
+        QTest.mouseClick(window.review, Qt.MouseButton.LeftButton)
+        self.assertEqual(actions, ['review']); self.assertEqual(job.pending, '')
+        job.update({'phase': 'Waiting for queued items'})
+        self.assertFalse(job.running); self.assertIsNone(job.result)
+        self.assertIn('Other files finished', job.summary())
+        job.update({'pendingIssues': 0, 'phase': 'Finishing'})
+        self.assertFalse(window.review.isVisible()); self.assertIsNone(job.result)
+
     def test_cancel_is_sent_once_and_never_reports_success_without_completion(self):
         job = self.job(); actions = []; job.requested.connect(actions.append)
         self.assertTrue(job.request('cancel')); self.assertFalse(job.request('cancel'))

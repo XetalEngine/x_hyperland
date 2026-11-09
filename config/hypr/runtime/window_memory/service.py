@@ -28,6 +28,10 @@ def identity(client, metadata):
     if not app:
         try: app = os.readlink(f"/proc/{int(client.get('pid', 0))}/exe")
         except (OSError, ValueError, TypeError): return None
+    # A transfer and its popup can outlive the browser that started it. Keep
+    # the same independent geometry key after that transient parent closes.
+    if is_transfer_queue(client):
+        return hashlib.sha256((app.casefold() + ':transfer-queue').encode()).hexdigest()[:32]
     role = metadata.get('role', 'main')
     value = app.casefold() + (':picker' if is_picker(client) else ':' + ('dialog:' if metadata.get('dialog') else 'window:') + str(role))
     return hashlib.sha256(value.encode()).hexdigest()[:32]
@@ -35,6 +39,11 @@ def identity(client, metadata):
 
 def is_picker(client):
     return client.get('class', '').startswith('xetal-file-picker')
+
+
+def is_transfer_queue(client):
+    return (client.get('class') in ('xetal-files', 'xetal-files-external')
+            and (client.get('initialTitle') or client.get('title')) == 'Transfer queue — Fusion Files')
 
 
 def eligible(client):
@@ -46,7 +55,7 @@ def explicit_mode(client, meta):
     """Launch/workspace choices own mode; they do not opt out of geometry memory."""
     return (meta.get('workspace_layout', 'off') != 'off' or window_key(client)
             or any(tag.removesuffix('*') == 'fusion-managed-rule' for tag in client.get('tags', []))
-            or is_picker(client)
+            or is_picker(client) or is_transfer_queue(client)
             or (client.get('class') in ('xetal-files', 'xetal-files-external') and not meta.get('dialog')))
 
 

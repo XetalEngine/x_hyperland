@@ -1,6 +1,7 @@
 #include "transfers.h"
 #include "transfer_view.h"
 #include "native_transfer.h"
+#include "transfer_issues.h"
 #include <KIO/CopyJob>
 #include <KIO/DropJob>
 #include <KIO/FileUndoManager>
@@ -362,6 +363,8 @@ private:
         {"destination", Fusion::ordinaryFileUrl(destination).toLocalFile()},
         {"operation", undoJournal.isEmpty() ? (moving ? "move" : "copy") : "undo"}, {"undoJournal", undoJournal}});
     active = copy;
+    auto *issues = new Fusion::TransferIssues(copy, window);
+    connect(view, &Fusion::TransferView::reviewRequested, issues, &Fusion::TransferIssues::reveal);
     if (const auto *mime = QApplication::clipboard()->mimeData()) {
       originalClipboard = KUrlMimeData::urlsFromMimeData(mime, KUrlMimeData::PreferLocalUrls);
       originalCut = KIO::isClipboardDataCut(mime);
