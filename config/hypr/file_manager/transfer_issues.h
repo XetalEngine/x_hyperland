@@ -21,9 +21,11 @@ public:
   QVariant data(const QModelIndex &index, int role) const override;
   QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
   void update(const QVariantMap &value);
+  qlonglong count(const QString &state) const { return counts.value(state); }
   QVector<QVariantMap> rows;
 private:
   QHash<qlonglong, int> positions;
+  QHash<QString, qlonglong> counts;
 };
 
 // A nonmodal queue belongs to the transfer, not to whichever file failed first.
@@ -38,12 +40,14 @@ private:
   TransferIssuesModel *model;
   QSortFilterProxyModel *proxy;
   QTableView *table;
-  QLabel *summary, *accessStatus;
+  QLabel *heading, *summary, *accessStatus, *actionHint;
   QPlainTextEdit *detail;
   QCheckBox *similar;
   QPushButton *retry, *skip, *replace, *authorize, *cancel;
   bool shown = false, done = false;
-  qlonglong pending = 0, automatic = 0;
+  bool countsKnown = false;
+  int finishCode = 0;
+  qlonglong copied = 0, skipped = 0, renamed = 0, automatic = 0;
   QString phase, journal, accessState, accessError;
   void refresh();
   void decide(const QString &choice);

@@ -164,25 +164,40 @@ current user and does not change file contents.
 
 ## File actions
 
-Ordinary copy, move, drag-and-drop, rename, Trash, restore and undo use KDE KIO jobs.
-Copies use the existing Fusion transfer-progress service, including the selected
-File Transfer style, pause, resume and cancellation. Dragging into another
+Local copy and move operations use Fusion's streaming transfer worker. Copying
+starts immediately while a background scan counts files and bytes. The animated
+transfer card uses your selected File Transfer style and supports pause, resume
+and cancellation. Rename, Trash, restore and remote operations use KDE KIO.
+Dragging into another
 folder moves immediately; hold Ctrl to copy instead. The dragged icon shows a
 bottom-left **+** while Ctrl is held, including when the key changes mid-drag.
 Folder targets in the sidebar use the same behavior.
 
-For existing destination files, **Replace or skip files** offers **Replace the
-files in the destination**, **Skip these files**, and **Let me decide for each
-file**. These choices expand downward inside the active animated transfer window,
-using its selected File Transfer style, then collapse after the answer. Theme →
-File Transfer's preview status menu includes the conflict, individual and duplicate
-questions. Replace applies throughout that transfer. Skip keeps existing files and
-still transfers new files, including new descendants inside matching folders.
-Matching directories merge; unrelated destination files are kept. Individual
-decisions offer Replace, Skip, Cancel, and an apply-to-all checkbox. Replacing a
+Local transfer conflicts and errors collect in a compact **Items needing
+attention** popup while other files keep copying. Select unfinished rows to
+**Retry**, **Skip item**, **Replace…**, or **Use administrator access…** for a
+permission error. Administrator access lasts for that transfer; retries run
+after the current pass. The similar-items checkbox applies a choice to matching
+queued issues, and **Skip similar** also covers later matches in that transfer.
+Matching directories merge; unrelated destination files are kept. Replacing a
 file does not retain its old contents for Undo.
 
-Questions are attached to their exact job, including when multiple transfers run
+A successful retry immediately shows **Copied successfully** with a check mark.
+The previous error remains under **Original issue** in its details and saved
+report. Skipping another row leaves that copy intact. Runtime sockets, named
+pipes and devices have no ordinary contents to copy; their rows explain Skip
+and disable Retry and administrator access. **Review queue** reopens a hidden
+popup, and **Save report…** includes every affected path, including automatic
+skips. Closing the popup during a transfer only hides it.
+
+Folder attributes have their own progress count after copying. Same-drive moves
+use an instant rename where possible; other moves verify copied data before
+removing unchanged originals. **Copied; move pending** becomes **Moved
+successfully** only after removal, or **Copied; original kept** when it remains.
+The finished card shows the number actually copied and the skipped count, with
+**Copy complete** or **Move complete** at the top. Skipped originals stay in place.
+
+KIO confirmation questions are attached to their exact job, including when multiple transfers run
 at once. Only that job's client can ask or receive its answer. Cancel or loss of the
 question service never authorizes an overwrite. When Files is launched outside a
 Fusion session without the progress service, standalone confirmation dialogs are

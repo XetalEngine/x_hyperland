@@ -303,6 +303,7 @@ class Transfer:
         self.phase = 'Copying'
         self.processed = self.files = self.skipped = self.skipped_bytes = self.verified = self.renamed = 0
         self.skipped_folders = 0
+        self.attributes_done = self.attributes_total = 0
         self.last_progress = 0
         self.last_bytes = 0
         self.last_speed_time = time.monotonic()
@@ -348,6 +349,7 @@ class Transfer:
                    'currentFile': self.current, 'phase': self.phase, 'verifiedBytes': self.verified,
                    'renamedItems': self.renamed, 'pendingIssues': self.pending.count, 'issueCount': self.pending.total,
                    'skippedFolders': self.skipped_folders, 'autoSkippedIssues': self.pending.automatic,
+                   'processedFolderAttributes': self.attributes_done, 'totalFolderAttributes': self.attributes_total,
                    'administratorAccess': auth_state, 'administratorError': auth_message})
 
     def conflict(self, source, target, info, approved=None):
@@ -441,16 +443,25 @@ class Transfer:
             self.emit({'event': 'target', 'destination': target})
             self.guarded(dict(kind='root', source=source, target=target), lambda: self.root_item(source, target))
         self.pending.drain()
+        self.attributes_total = self.db.execute('SELECT count(*) FROM directory_metadata').fetchone()[0]
+        if self.attributes_total:
+            self.phase = 'Saving folder attributes'; self.current = ''; self.progress(True)
         for source, target, encoded in self.db.execute('SELECT source,target,value FROM directory_metadata ORDER BY length(target) DESC,id'):
+            self.current, self.target = source, target
             info = json.loads(encoded)
             self.guarded(dict(kind='directory_done', source=source, target=target, info=info),
                          lambda: self.apply_directory(source, target, info))
+            self.attributes_done += 1
+            self.progress()
+        if self.attributes_total: self.progress(True)
         self.pending.drain()
         self.db.commit()
         if self.moving:
             self.verify()
             self.cleanup_sources()
+        self.pending.finish()
         self.phase = 'Finishing'
+        self.current = ''
         self.progress(True, True)
         self.db.commit()
         if self.skipped:

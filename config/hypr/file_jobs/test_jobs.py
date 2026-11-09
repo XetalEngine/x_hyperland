@@ -36,7 +36,7 @@ class JobTests(unittest.TestCase):
         job.update({'totalsKnown': True, 'skippedFiles': 2})
         self.assertEqual(job.percent, 50)
         self.assertIn('1,234 / 9,000 files copied', job.summary())
-        self.assertIn('2 skipped', job.file_summary())
+        self.assertIn('2 items skipped', job.file_summary())
         self.assertIn('GiB', job.summary())
 
     def test_native_progress_adds_readable_current_file_rows_and_keeps_notes(self):
@@ -71,9 +71,43 @@ class JobTests(unittest.TestCase):
         self.assertEqual(actions, ['review']); self.assertEqual(job.pending, '')
         job.update({'phase': 'Waiting for queued items'})
         self.assertFalse(job.running); self.assertIsNone(job.result)
-        self.assertIn('Other files finished', job.summary())
+        self.assertIn('3 queued items need a choice', job.summary())
         job.update({'pendingIssues': 0, 'phase': 'Finishing'})
         self.assertFalse(window.review.isVisible()); self.assertIsNone(job.result)
+
+    def test_completed_copy_reports_actual_successes_and_skips_without_finishing_label(self):
+        job = self.job(hints={'title': 'Copying files', 'totalsKnown': True, 'phase': 'Finishing',
+                             'processedFiles': 1890739, 'totalFiles': 1890740, 'skippedFiles': 1,
+                             'warningMessage': 'A runtime socket was skipped.'})
+        window = self.window(job)
+        self.assertIsNone(job.result); self.assertLess(job.percent, 100)
+        job.terminate()
+        self.assertEqual(job.title, 'Copy complete')
+        self.assertEqual(window.windowTitle(), 'Copy complete — Xetal Files')
+        self.assertEqual(job.percent, 100)
+        self.assertEqual(job.file_summary(), '1,890,739 files copied · 1 item skipped')
+        self.assertEqual(job.summary(), 'Completed · 1 item skipped')
+        self.assertNotIn('Finishing', job.activity())
+        self.assertIn('originals remain', job.activity())
+        self.assertTrue(window.details.isVisible()); self.assertFalse(window.dismiss_timer.isActive())
+
+    def test_folder_attributes_report_separate_progress_before_completion(self):
+        job = self.job(hints={'title': 'Copying files', 'totalsKnown': True, 'phase': 'Saving folder attributes',
+                             'processedFiles': 200, 'totalFiles': 200, 'processedFolderAttributes': 20,
+                             'totalFolderAttributes': 100, 'percent': 99})
+        self.assertIn('20 / 100 folders', job.activity()); self.assertIsNone(job.result)
+        self.assertEqual(job.file_summary(), '200 / 200 files copied')
+        job.update({'processedFolderAttributes': 80})
+        self.assertIn('80 / 100 folders', job.activity()); self.assertEqual(job.percent, 99)
+
+    def test_finished_same_drive_move_keeps_rename_count_and_cancellation_is_not_success(self):
+        job = self.job(hints={'title': 'Moving files', 'totalsKnown': True, 'renamedItems': 1, 'totalFiles': 0})
+        job.terminate()
+        self.assertEqual(job.title, 'Move complete'); self.assertEqual(job.file_summary(), '1 item moved')
+        canceled = self.job(hints={'title': 'Copying files', 'totalsKnown': False, 'processedFiles': 1, 'pendingIssues': 1})
+        canceled.terminate(1)
+        self.assertEqual(canceled.title, 'Copy canceled'); self.assertEqual(canceled.file_summary(), '1 file copied')
+        self.assertNotIn('finished', canceled.activity())
 
     def test_cancel_is_sent_once_and_never_reports_success_without_completion(self):
         job = self.job(); actions = []; job.requested.connect(actions.append)

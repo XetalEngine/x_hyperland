@@ -21,6 +21,8 @@ https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d
 
 ## Three ways to install Hyper Fusion
 
+**[Download the ONLINE and OFFLINE Arch Linux ISOs](https://drive.google.com/drive/folders/1bkAs8SiMqnbCihzMGPYzlOXB5mXGfs_Y?usp=sharing)** — both installers are in this shared Google Drive folder.
+
 1. **Install it on your existing system**
 
    Download or clone the [GitHub repository](https://github.com/XetalEngine/x_hyperland), open a terminal in the repository folder, and run the installer as your regular desktop user. Make it executable first if needed:
@@ -32,17 +34,13 @@ https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d
 
    See the [detailed installation instructions](#install) below.
 
-2. **Install the custom Arch Linux OFFLINE ISO — 5.25 GB**
+2. **Install the custom Arch Linux OFFLINE ISO**
 
    This is the version installed in the video above. It includes Arch Linux, KDE, and the entire Hyper Fusion system.
 
-   **[Download the OFFLINE installer](https://drive.google.com/file/d/1enXaT-NAJah_gagPONBMs_oIVJ12LuPI/view?usp=drive_link)**
-
-3. **Install the custom Arch Linux ONLINE ISO — 2.29 GB**
+3. **Install the custom Arch Linux ONLINE ISO**
 
    This includes the same setup as the offline version, but downloads the packages from the Arch Linux servers during installation. Since Arch is a rolling release, future package or library changes could cause compatibility issues.
-
-   **[Download the ONLINE installer](https://drive.google.com/file/d/10r-iTgtOwndrRtDnbBVlb7oWVs-4saqE/view?usp=drive_link)**
 
 [**GitHub repository**](https://github.com/XetalEngine/x_hyperland) — feel free to contribute ideas or submit pull requests!
 

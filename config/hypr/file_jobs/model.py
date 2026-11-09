@@ -7,7 +7,8 @@ TEXT = {'title', 'infoMessage', 'descriptionLabel1', 'descriptionValue1',
         'descriptionLabel2', 'descriptionValue2', 'destUrl', 'errorMessage', 'currentFile', 'phase', 'warningMessage'}
 NUMBERS = {'totalBytes', 'processedBytes', 'totalFiles', 'processedFiles',
            'totalDirectories', 'processedDirectories', 'totalItems', 'processedItems',
-           'percent', 'speed', 'elapsedTime', 'errorCode', 'skippedFiles', 'verifiedBytes', 'renamedItems', 'pendingIssues', 'issueCount', 'skippedFolders'}
+           'percent', 'speed', 'elapsedTime', 'errorCode', 'skippedFiles', 'verifiedBytes', 'renamedItems', 'pendingIssues', 'issueCount', 'skippedFolders',
+           'processedFolderAttributes', 'totalFolderAttributes'}
 FLAGS = {'suspended', 'transient', 'immediate', 'totalsKnown'}
 
 
@@ -94,7 +95,11 @@ class Job(QObject):
 
     @property
     def title(self):
-        return self.data.get('title') or 'File operation'
+        title = self.data.get('title') or 'File operation'
+        operation = {'Copying files': 'Copy', 'Moving files': 'Move', 'Linking files': 'Link', 'Undoing transfer': 'Undo'}.get(title)
+        if operation and self.result:
+            return operation + (' complete' if self.result == 'done' else ' canceled' if self.result == 'canceled' else ' stopped')
+        return title
 
     @property
     def paths(self):
@@ -103,7 +108,10 @@ class Job(QObject):
         return location(first), location(second)
 
     def summary(self):
-        if self.result == 'done': return 'Completed with notes' if self.data.get('warningMessage') else 'Completed'
+        if self.result == 'done':
+            skipped = self.data.get('skippedFiles', 0)
+            if skipped: return f'Completed · {skipped:,} ' + ('item skipped' if skipped == 1 else 'items skipped')
+            return 'Completed with notes' if self.data.get('warningMessage') else 'Completed'
         if self.result == 'canceled': return 'Canceled'
         if self.result == 'failed': return self.data.get('errorMessage') or 'The operation could not be completed.'
         if self.pending == 'cancel': return 'Canceling…'
@@ -111,7 +119,9 @@ class Job(QObject):
         if self.pending == 'suspend': return 'Pausing…'
         if self.pending == 'resume': return 'Resuming…'
         if self.data.get('suspended'): return 'Paused'
-        if self.data.get('phase') == 'Waiting for queued items': return f'{self.data.get("pendingIssues", 0):,} queued items need a choice · Other files finished'
+        if self.data.get('phase') == 'Waiting for queued items':
+            pending = self.data.get('pendingIssues', 0)
+            return f'{pending:,} queued ' + ('item needs a choice' if pending == 1 else 'items need a choice')
         pieces = []
         total, processed = self.data.get('totalBytes', 0), self.data.get('processedBytes', 0)
         if total: pieces.append(f'{amount(processed)} / {amount(total)}')
@@ -123,19 +133,30 @@ class Job(QObject):
 
     def file_summary(self):
         files = self.data.get('processedFiles', 0)
-        if self.result is not None and self.data.get('skippedFolders'):
-            text = f'{files:,} files copied'
+        if self.data.get('renamedItems') and not self.data.get('totalFiles'):
+            renamed = self.data['renamedItems']
+            text = f'{renamed:,} ' + ('item moved' if renamed == 1 else 'items moved')
+        elif self.result is not None:
+            text = f'{files:,} ' + ('file copied' if files == 1 else 'files copied')
         elif self.data.get('totalsKnown') is False:
             text = f'{files:,} files copied · Counting total…'
-        elif self.data.get('renamedItems') and not self.data.get('totalFiles'):
-            text = f'{self.data["renamedItems"]:,} items moved'
         else:
             text = f'{files:,} / {self.data.get("totalFiles", 0):,} files copied'
         skipped = self.data.get('skippedFiles', 0)
-        if skipped: text += f' · {skipped:,} skipped items'
+        if skipped: text += f' · {skipped:,} ' + ('item skipped' if skipped == 1 else 'items skipped')
         pending = self.data.get('pendingIssues', 0)
-        if pending: text += f' · {pending:,} queued'
+        if pending and self.result is None: text += f' · {pending:,} queued'
         return text
+
+    def activity(self):
+        if self.result == 'done':
+            return 'Skipped originals remain in place' if self.data.get('skippedFiles') else 'Transfer finished'
+        if self.result is not None: return 'Completed copies are kept'
+        phase = self.data.get('phase', 'Copying')
+        if phase == 'Saving folder attributes':
+            return f'{phase} · {self.data.get("processedFolderAttributes", 0):,} / {self.data.get("totalFolderAttributes", 0):,} folders'
+        if phase == 'Waiting for queued items': return 'Waiting for your choice'
+        return phase + (': ' + short_location(self.data['currentFile']) if self.data.get('currentFile') else '…')
 
     def request(self, action):
         if self.result is not None or self.pending == 'cancel': return False

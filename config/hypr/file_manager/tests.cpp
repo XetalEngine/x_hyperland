@@ -12,6 +12,7 @@
 #include <QTableView>
 #include <QCheckBox>
 #include <QPushButton>
+#include <QPlainTextEdit>
 #include <QFileDialog>
 #include <KIO/FileUndoManager>
 #include <KApplicationTrader>
@@ -774,11 +775,18 @@ print(json.dumps(rows))
     queue->reveal();
     if(qEnvironmentVariableIsSet("FUSION_FILES_CAPTURE")) queue->grab().save(qEnvironmentVariable("FUSION_FILES_CAPTURE")+"-queue.png");
     table->selectRow(0); queue->findChild<QCheckBox *>("similarTransferIssues")->setChecked(true);
+    QVERIFY(!queue->findChild<QPushButton *>("transferIssue_retry")->isEnabled());
+    QVERIFY(!queue->findChild<QPushButton *>("transferIssue_authorize")->isEnabled());
+    QVERIFY(queue->findChild<QLabel *>("transferIssueHint")->text().contains("cannot be copied"));
+    QCOMPARE(queue->findChild<QPushButton *>("transferIssue_skip")->text(),QString("Skip similar"));
     queue->findChild<QPushButton *>("transferIssue_skip")->click();
     QTRY_COMPARE_WITH_TIMEOUT(error,0,10000);
     QVERIFY(QFileInfo::exists(base+"/source/control-a.pipe"));
     QVERIFY(!QFileInfo::exists(base+"/target/source/control-a.pipe"));
     for(int n=0;n<2;++n) QCOMPARE(table->model()->index(n,2).data().toString(),QString("Skipped / original kept"));
+    QCOMPARE(queue->findChild<QLabel *>("transferQueueHeading")->text(),QString("Completed with skipped items"));
+    QVERIFY(queue->findChild<QLabel *>("transferQueueSummary")->text().contains("1 file copied"));
+    QVERIFY(queue->findChild<QLabel *>("transferQueueSummary")->text().contains("2 items skipped"));
     const auto report=base+"/queue-report.txt";
     QTimer::singleShot(0,queue,[queue,report]{
       for(auto *dialog:queue->findChildren<QFileDialog *>()) {
@@ -811,6 +819,47 @@ print(json.dumps(rows))
     QVERIFY(button->isEnabled()); QVERIFY(status->text().contains("Authentication cancelled"));
     emit operation.progress({{"administratorAccess","authorized"},{"administratorError",""}});
     QVERIFY(status->text().contains("access is active"));
+  }
+  void transferQueueShowsSuccessWhileOtherItemsAwaitChoices() {
+    struct CompletedTransfer : Fusion::NativeTransfer {
+      CompletedTransfer() : NativeTransfer({}) { setAutoDelete(false); }
+      void complete() { emitResult(); }
+    } operation;
+    Fusion::TransferIssues queue(&operation);
+    QVariantMap copied{{"id",1},{"source",folder+"/win10.xml"},{"destination",folder+"/target/win10.xml"},
+        {"stage","item"},{"category","item:permission"},{"detail","Permission denied"},{"version",1},
+        {"status","retry"}};
+    emit operation.issue(copied);
+    QVariantMap endpoint{{"id",2},{"source",folder+"/vm.sock"},{"destination",folder+"/target/vm.sock"},
+        {"stage","item"},{"category","item:socket"},{"detail","This socket has no ordinary file contents to copy."},
+        {"version",1},{"status","pending"},{"retry_allowed",false}};
+    emit operation.issue(endpoint);
+    copied["status"]="resolved"; copied["resolution"]="Copied successfully";
+    emit operation.issue(copied);
+    emit operation.progress({{"processedFiles",1},{"pendingIssues",1},{"phase","Waiting for queued items"}});
+    auto *table=queue.findChild<QTableView *>("transferIssuesTable");
+    QCOMPARE(table->model()->index(0,2).data().toString(),QString("Copied successfully"));
+    QVERIFY(!table->model()->index(0,1).data().toString().contains("Permission denied"));
+    QVERIFY(table->model()->index(0,2).data(Qt::DecorationRole).isValid());
+    QVERIFY(queue.findChild<QLabel *>("transferQueueSummary")->text().contains("1 item needs a choice"));
+    QVERIFY(queue.findChild<QPlainTextEdit *>("transferIssueDetails")->toPlainText().contains("Original issue: Permission denied"));
+    table->selectAll();
+    QVERIFY(!queue.findChild<QPushButton *>("transferIssue_retry")->isEnabled());
+    QVERIFY(!queue.findChild<QPushButton *>("transferIssue_authorize")->isEnabled());
+    auto *skip=queue.findChild<QPushButton *>("transferIssue_skip");
+    QVERIFY(skip->isEnabled()); QCOMPARE(skip->text(),QString("Skip item")); // The successful copy is excluded.
+    endpoint["status"]="skipped"; emit operation.issue(endpoint);
+    emit operation.progress({{"processedFiles",1},{"skippedFiles",1},{"pendingIssues",0},{"phase","Finishing"}});
+    operation.complete();
+    QCOMPARE(table->model()->index(0,2).data().toString(),QString("Copied successfully"));
+    QCOMPARE(table->model()->index(1,2).data().toString(),QString("Skipped / original kept"));
+    QCOMPARE(queue.findChild<QLabel *>("transferQueueHeading")->text(),QString("Completed with skipped items"));
+    QVERIFY(queue.findChild<QLabel *>("transferQueueSummary")->text().contains("1 file copied"));
+    QVERIFY(queue.findChild<QLabel *>("transferQueueSummary")->text().contains("1 item skipped"));
+    QVERIFY(!skip->isEnabled());
+    auto *summary=queue.findChild<QLabel *>("transferQueueSummary");
+    QTRY_VERIFY(summary->height() >= 2*summary->fontMetrics().height());
+    if(qEnvironmentVariableIsSet("FUSION_FILES_CAPTURE")) queue.grab().save(qEnvironmentVariable("FUSION_FILES_CAPTURE")+"-completed-queue.png");
   }
   void skipConflictsStillTransfersNewFilesInsideMatchingFolders() {
     for (const auto operation : {Fusion::TransferOperation::Copy,Fusion::TransferOperation::Move}) {

@@ -323,6 +323,94 @@ class TransferTests(unittest.TestCase):
         self.assertTrue(undo.run()['ok']); self.assertEqual(item.read_bytes(), b'safe data')
         self.assertTrue((self.source/'vm.sock').exists()); self.assertFalse((self.target/'source').exists())
 
+    def test_successful_retry_is_reported_before_socket_skip_and_stays_successful(self):
+        protected = self.write('win10.xml', b'<domain/>')
+        self.write('other.txt', b'copied while waiting')
+        endpoint = socket.socket(socket.AF_UNIX); endpoint.bind(str(self.source/'vm.sock')); self.addCleanup(endpoint.close)
+        transfer = self.transfer(); copy_file = transfer.copy_file; attempts = []
+        def permission_once(source, *args):
+            if source == str(protected) and not attempts:
+                attempts.append(True); raise PermissionError(errno.EACCES, 'Permission denied')
+            return copy_file(source, *args)
+        transfer.copy_file = permission_once
+        self.on_issue = lambda event: self.decide(event, 'retry') if event['category'].endswith(':permission') else None
+        def waiting(event):
+            if event.get('phase') != 'Waiting for queued items': return
+            successes = [e for e in self.events if e.get('resolution') == 'Copied successfully']
+            self.assertEqual(len(successes), 1)
+            self.assertEqual(successes[0]['source'], str(protected))
+            self.assertEqual((self.target/'source/win10.xml').read_bytes(), b'<domain/>')
+            self.assertEqual((self.target/'source/other.txt').read_bytes(), b'copied while waiting')
+            pending = next(e for e in self.events if e.get('status') == 'pending' and e['category'].endswith(':socket'))
+            self.assertFalse(pending['retry_allowed'])
+            transfer.pending.choose(pending['id'], 'retry')
+            self.assertEqual(transfer.db.execute('SELECT status FROM issues WHERE id=?', (pending['id'],)).fetchone()[0], 'pending')
+            self.decide(pending, 'skip', True)
+        self.on_event = waiting
+        self.assertTrue(transfer.run()['ok']); self.assertEqual(transfer.files, 2); self.assertEqual(transfer.skipped, 1)
+        self.assertTrue(protected.exists()); self.assertTrue((self.source/'vm.sock').exists())
+        states = transfer.db.execute('SELECT source,status FROM issues').fetchall()
+        self.assertIn((str(protected), 'resolved'), states)
+        self.assertIn((str(self.source/'vm.sock'), 'skipped'), states)
+        report = io.StringIO(); export_report(transfer.journal, report)
+        self.assertIn('Status: Copied successfully', report.getvalue())
+        self.assertIn('Original issue: Permission denied', report.getvalue())
+
+    def test_move_retry_only_claims_moved_after_verified_original_removal(self):
+        for keep_original in (False, True):
+            with self.subTest(keep_original=keep_original):
+                item = self.write(f'move-{keep_original}.txt')
+                transfer = self.transfer(self.request([item], operation='move')); self.force_cross_device(transfer)
+                copy_file = transfer.copy_file; attempts = []
+                def fail_once(source, *args):
+                    if not attempts:
+                        attempts.append(True); raise OSError(errno.EIO, 'Temporary read failure')
+                    return copy_file(source, *args)
+                transfer.copy_file = fail_once
+                if keep_original:
+                    execute = transfer.ops.execute
+                    def fail_remove(action, args):
+                        if action == 'remove': raise PermissionError(errno.EACCES, 'Cannot remove original')
+                        return execute(action, args)
+                    transfer.ops.execute = fail_remove
+                self.on_issue = lambda event: self.decide(event, 'skip' if event['stage'] == 'remove' else 'retry')
+                self.assertTrue(transfer.run()['ok'])
+                outcomes = [e['resolution'] for e in self.events if e.get('source') == str(item) and
+                            e.get('status') == 'resolved' and e['stage'] != 'remove']
+                self.assertEqual(outcomes, ['Copied; move pending', 'Copied; original kept' if keep_original else 'Moved successfully'])
+                self.assertEqual(item.exists(), keep_original)
+                self.assertEqual((self.target/item.name).read_bytes(), b'original')
+
+    def test_folder_attribute_pass_reports_progress_without_changing_copy_counts(self):
+        for n in range(4): self.write(f'folder-{n}/data')
+        transfer = self.transfer(); apply_directory = transfer.apply_directory
+        def observed(*args):
+            apply_directory(*args)
+            transfer.last_progress = 0  # Observe each step without timing-dependent sleeps.
+        transfer.apply_directory = observed
+        self.assertTrue(transfer.run()['ok'])
+        progress = [e for e in self.events if e.get('phase') == 'Saving folder attributes']
+        self.assertEqual(progress[0]['processedFolderAttributes'], 0)
+        self.assertEqual(progress[-1]['processedFolderAttributes'], 5)
+        self.assertTrue(all(e['totalFolderAttributes'] == 5 and e['processedFiles'] == 4 for e in progress))
+        self.assertTrue(any(e['currentFile'] for e in progress))
+        self.assertEqual(self.events[-1]['currentFile'], '')
+
+    def test_failed_retry_returns_to_queue_with_an_explicit_failure(self):
+        item = self.write('bad'); self.write('good')
+        transfer = self.transfer(); copy_file = transfer.copy_file
+        def fail(source, *args):
+            if source == str(item): raise OSError(errno.EIO, 'Read failure')
+            return copy_file(source, *args)
+        transfer.copy_file = fail
+        self.on_issue = lambda event: self.decide(event, 'retry' if event['version'] == 1 else 'skip')
+        self.assertTrue(transfer.run()['ok'])
+        failures = [e for e in self.events if e.get('status') == 'pending']
+        self.assertEqual(len(failures), 2)
+        self.assertEqual(failures[-1]['detail'], 'Retry failed: Read failure')
+        self.assertEqual(item.read_bytes(), b'original')
+        self.assertEqual((self.target/'source/good').read_bytes(), b'original')
+
     def test_partial_disk_full_error_retries_after_unrelated_files_and_counts_once(self):
         bad = self.write('blocked', b'new contents'); good = self.write('other', b'other contents')
         transfer = self.transfer(self.request([bad, good]))

@@ -476,10 +476,7 @@ class ProgressWindow(QWidget):
             self.text(painter, QRectF(16, 35, w-(148 if self.review.isVisible() else 32), 18), route or self.job.application, muted, 9)
         scene_top = 59 if self.review.isVisible() else 55 if path_style != 'hidden' else 42
         if 'totalsKnown' in self.job.data:
-            phase = self.job.data.get('phase', 'Copying')
-            current = short_location(self.job.data.get('currentFile'))
-            label = phase + (': ' + current if self.job.data.get('currentFile') else '…')
-            self.text(painter, QRectF(16, scene_top, w-32, 16), label, foreground, 8)
+            self.text(painter, QRectF(16, scene_top, w-32, 16), self.job.activity(), foreground, 8)
             self.text(painter, QRectF(16, scene_top+17, w-32, 16), self.job.file_summary(), muted, 8)
             scene_top += 36
         box = QRectF(16, scene_top, w-32, h-61-scene_top)

@@ -99,14 +99,24 @@ access** for a permission error. The similar-items checkbox applies a choice
 to matching queued issues; Skip also applies to later issues of that same
 type for this job only. Sockets, named pipes and devices are distinct from
 ordinary file data and are queued, not opened as streams or silently ignored.
+Their rows explain **Skip** and disable Retry and administrator access, which
+cannot copy a runtime endpoint. Skip only affects unresolved items; successful
+copies remain successful even when selected alongside a skipped row.
 
-Retries run after the current copy pass. Once other work is finished, progress
-explicitly says **Waiting for queued items** until the remaining rows are
-resolved. **Review queue** reopens it; hiding or closing the queue does not
+Retries run after the current copy pass. A successful retry immediately shows
+**Copied successfully** with a check mark; its old error moves into **Original
+issue** in the details and report. Directory traversal reports **Folder
+processed**, and a move reports **Copied; move pending** until verification and
+original removal finish. Failed retries return to the queue with **Retry failed**.
+Progress says **Waiting for your choice** while queued items need an answer;
+saving folder attributes and move verification can still follow that answer.
+**Review queue** reopens it; hiding or closing the queue does not
 cancel the transfer. A searchable table and **Save report** retain details of
 resolved and skipped rows. The journal also stores those decisions on disk;
 this is an audit trail, not automatic resume after a process exit. Skipped
-items produce **Completed with notes**, rather than claiming they were copied.
+items finish with an explicit skipped count and the number actually copied.
+Folder attributes have their own progress count, and the finished card says
+**Copy complete** or **Move complete** instead of leaving **Finishing…** visible.
 Later automatic skips are summarized with a count so choosing Skip similar on
 a large tree does not flood the popup with millions of rows. **Save report**
 streams every affected path from a read-only journal snapshot, including those
