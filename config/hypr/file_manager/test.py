@@ -40,6 +40,7 @@ if __name__ == '__main__':
                         '-DBUILD_TESTING=ON', '-DCMAKE_BUILD_TYPE=Debug'], check=True, env=env)
         subprocess.run(['cmake', '--build', str(build), '--parallel', '4'], check=True, env=env)
         subprocess.run([sys.executable, str(ROOT/'test_search_worker.py')], check=True, env=env)
+        subprocess.run([sys.executable, str(ROOT/'test_transfer_worker.py')], check=True, env=env)
         subprocess.run(['dbus-run-session', '--', str(build/'search-tests')], check=True, env=env)
         subprocess.run(['dbus-run-session', '--', str(build/'files-tests')], check=True, env=env)
         subprocess.run(['dbus-run-session', '--', str(build/'picker-tests')], check=True, env=env)

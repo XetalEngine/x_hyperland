@@ -17,6 +17,7 @@ Qt::DropAction fileDropAction(const QMimeData *mime, Qt::KeyboardModifiers modif
                              Qt::DropActions possible);
 bool fileDropDestination(const QUrl &destination);
 KJob *pasteFiles(const QUrl &destination, QWidget *window);
+KJob *undoTransfer(QWidget *window);
 KJob *transferFiles(const QList<QUrl> &sources, const QUrl &destination,
                     TransferOperation operation, QWidget *window,
                     std::function<void(const QUrl &)> destinationChanged = {});

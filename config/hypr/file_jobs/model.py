@@ -4,11 +4,11 @@ from urllib.parse import unquote, urlsplit, urlunsplit
 from PyQt6.QtCore import QObject, pyqtSignal
 
 TEXT = {'title', 'infoMessage', 'descriptionLabel1', 'descriptionValue1',
-        'descriptionLabel2', 'descriptionValue2', 'destUrl', 'errorMessage'}
+        'descriptionLabel2', 'descriptionValue2', 'destUrl', 'errorMessage', 'currentFile', 'phase', 'warningMessage'}
 NUMBERS = {'totalBytes', 'processedBytes', 'totalFiles', 'processedFiles',
            'totalDirectories', 'processedDirectories', 'totalItems', 'processedItems',
-           'percent', 'speed', 'elapsedTime', 'errorCode'}
-FLAGS = {'suspended', 'transient', 'immediate'}
+           'percent', 'speed', 'elapsedTime', 'errorCode', 'skippedFiles', 'verifiedBytes', 'renamedItems'}
+FLAGS = {'suspended', 'transient', 'immediate', 'totalsKnown'}
 
 
 def location(value):
@@ -80,6 +80,7 @@ class Job(QObject):
     @property
     def percent(self):
         if self.result == 'done': return 100
+        if self.data.get('totalsKnown') is False: return None
         if 'percent' in self.data: return self.data['percent']
         for unit in ('Bytes', 'Files', 'Items'):
             total = self.data.get('total' + unit, 0)
@@ -102,7 +103,7 @@ class Job(QObject):
         return location(first), location(second)
 
     def summary(self):
-        if self.result == 'done': return 'Completed'
+        if self.result == 'done': return 'Completed with notes' if self.data.get('warningMessage') else 'Completed'
         if self.result == 'canceled': return 'Canceled'
         if self.result == 'failed': return self.data.get('errorMessage') or 'The operation could not be completed.'
         if self.pending == 'cancel': return 'Canceling…'
@@ -113,11 +114,23 @@ class Job(QObject):
         pieces = []
         total, processed = self.data.get('totalBytes', 0), self.data.get('processedBytes', 0)
         if total: pieces.append(f'{amount(processed)} / {amount(total)}')
-        elif self.data.get('totalFiles'):
-            pieces.append(f'{self.data.get("processedFiles", 0):,} / {self.data["totalFiles"]:,} files')
+        elif processed: pieces.append(amount(processed))
+        if self.data.get('totalFiles') or 'totalsKnown' in self.data: pieces.append(self.file_summary())
         speed = self.data.get('speed', 0)
         if speed: pieces.append(amount(speed) + '/s')
         return ' · '.join(pieces) or self.data.get('infoMessage') or 'Working…'
+
+    def file_summary(self):
+        files = self.data.get('processedFiles', 0)
+        if self.data.get('totalsKnown') is False:
+            text = f'{files:,} files copied · Counting total…'
+        elif self.data.get('renamedItems') and not self.data.get('totalFiles'):
+            text = f'{self.data["renamedItems"]:,} items moved'
+        else:
+            text = f'{files:,} / {self.data.get("totalFiles", 0):,} files copied'
+        skipped = self.data.get('skippedFiles', 0)
+        if skipped: text += f' · {skipped:,} skipped'
+        return text
 
     def request(self, action):
         if self.result is not None or self.pending == 'cancel': return False

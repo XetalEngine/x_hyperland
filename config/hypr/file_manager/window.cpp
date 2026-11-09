@@ -1,6 +1,7 @@
 #include "window.h"
 #include "context_actions.h"
 #include "transfers.h"
+#include "native_transfer.h"
 #include "applications.h"
 #include "removal.h"
 #include "trash_animation.h"
@@ -405,11 +406,10 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   connect(drives, &Drives::message, this, &FilesWindow::message);
   connect(drives, &Drives::browse, this,
           [this](const QUrl &url) { openLocation(url); });
-  auto *undo = KIO::FileUndoManager::self();
-  connect(undo, &KIO::FileUndoManager::undoAvailable, undoAction,
-          &QAction::setEnabled);
-  connect(undo, &KIO::FileUndoManager::undoTextChanged, undoAction,
-          &QAction::setText);
+  auto *undo = Fusion::TransferHistory::self();
+  auto refreshUndo = [this, undo] { undoAction->setEnabled(undo->available()); undoAction->setText(undo->text()); };
+  connect(undo, &Fusion::TransferHistory::changed, undoAction, refreshUndo);
+  refreshUndo();
   for (const auto &binding :
        QList<QStringList>{{"rename", "F2"},
                           {"refresh", "F5"},
@@ -921,8 +921,7 @@ void FilesWindow::runAction(const QString &id) {
     return;
   }
   if (id == "undo") {
-    KIO::FileUndoManager::self()->uiInterface()->setParentWidget(this);
-    KIO::FileUndoManager::self()->undo();
+    track(Fusion::undoTransfer(this));
     return;
   }
   if (id == "execute") {

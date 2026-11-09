@@ -1,5 +1,6 @@
 #include "transfers.h"
 #include "transfer_view.h"
+#include "native_transfer.h"
 #include <KIO/CopyJob>
 #include <KIO/DropJob>
 #include <KIO/FileUndoManager>
@@ -28,12 +29,13 @@
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QLabel>
+#include <QJsonArray>
 #include <QtConcurrent>
 #include <algorithm>
 #include <optional>
 
 namespace {
-// Keep KIO's single transfer, clipboard updates, Undo and JobView progress.
+// Share conflict choices between native local transfers and remote KIO jobs.
 // Same-folder duplicates get numbered names. Other conflicts require a choice,
 // shared across both files and folders for this transfer only.
 class TransferConflicts : public KIO::WidgetsAskUserActionHandler {
@@ -274,6 +276,13 @@ public:
   void start() override {
     if (started || cancelled->load()) return;
     started = true;
+    const auto local = [](const QUrl &url) { return Fusion::ordinaryFileUrl(url).isLocalFile(); };
+    if (!undoJournal.isEmpty() || (operation != Fusion::TransferOperation::Link && local(destination) &&
+        std::all_of(sources.begin(), sources.end(), local))) {
+      if (isSuspended()) pendingNative = true;
+      else beginNative();
+      return;
+    }
     emit infoMessage(this, "Checking file access…");
     auto *watcher = new QFutureWatcher<Fusion::TransferAccess>(this);
     connect(watcher, &QFutureWatcher<Fusion::TransferAccess>::finished, this, [this, watcher] {
@@ -287,6 +296,7 @@ public:
     watcher->setFuture(QtConcurrent::run(Fusion::transferAccess, sources, destination, operation, cancelled));
   }
   void choose(Fusion::TransferOperation choice) { operation = choice; start(); }
+  void undo(const QString &journal) { undoJournal = journal; start(); }
   void cancelChoice() { if (!started) finish(KIO::ERR_USER_CANCELED, {}); }
   void askDuplicate(std::function<void()> fallback) {
     view->ask({{"kind", "duplicate"}, {"destination", Fusion::ordinaryFileUrl(destination).toDisplayString()}},
@@ -299,6 +309,10 @@ public:
 protected:
   bool doKill() override {
     cancelled->store(true);
+    if (auto *native = qobject_cast<Fusion::NativeTransfer *>(active.data())) {
+      native->kill(KJob::EmitResult);
+      return false;
+    }
     finished = true;
     if (active) active->kill(KJob::Quietly);
     return true;
@@ -306,6 +320,10 @@ protected:
   bool doSuspend() override { return active ? active->suspend() : !finished; }
   bool doResume() override {
     if (active) return active->resume();
+    if (pendingNative) {
+      pendingNative = false;
+      QTimer::singleShot(0, this, [this] { if (!finished && !cancelled->load()) beginNative(); });
+    }
     if (pausedPlan) {
       const auto plan = *pausedPlan; pausedPlan.reset();
       QTimer::singleShot(0, this, [this, plan] {
@@ -332,6 +350,55 @@ private:
   QHash<QUrl, QUrl> moved;
   QList<QUrl> originalClipboard;
   bool originalCut = false;
+  bool pendingNative = false;
+  QString undoJournal;
+
+  void beginNative() {
+    if (isSuspended()) { pendingNative = true; return; }
+    const bool moving = operation == Fusion::TransferOperation::Move;
+    QJsonArray paths;
+    for (const auto &source : sources) paths.append(Fusion::ordinaryFileUrl(source).toLocalFile());
+    auto *copy = new Fusion::NativeTransfer({{"sources", paths},
+        {"destination", Fusion::ordinaryFileUrl(destination).toLocalFile()},
+        {"operation", undoJournal.isEmpty() ? (moving ? "move" : "copy") : "undo"}, {"undoJournal", undoJournal}});
+    active = copy;
+    if (const auto *mime = QApplication::clipboard()->mimeData()) {
+      originalClipboard = KUrlMimeData::urlsFromMimeData(mime, KUrlMimeData::PreferLocalUrls);
+      originalCut = KIO::isClipboardDataCut(mime);
+    }
+    view->update({{"totalsKnown", false}, {"phase", "Copying"},
+                  {"title", undoJournal.isEmpty() ? (moving ? "Moving files" : "Copying files") : "Undoing transfer"}});
+    auto *questions = new TransferConflicts(window, moving, view);
+    questions->setParent(copy);
+    connect(copy, &Fusion::NativeTransfer::question, questions,
+        [questions, copy](const QUrl &from, const QUrl &to, bool replace) {
+          questions->askUserRename(copy, {}, from, to, replace ? KIO::RenameDialog_Overwrite : KIO::RenameDialog_Options{}, 0, 0, {}, {}, {}, {});
+        });
+    connect(questions, &KIO::WidgetsAskUserActionHandler::askUserRenameResult, copy,
+        [copy](KIO::RenameDialog_Result result, const QUrl &, KJob *) {
+          copy->answer(result == KIO::Result_Overwrite ? "replace" : result == KIO::Result_Skip ? "skip" : "cancel");
+        });
+    connect(copy, &Fusion::NativeTransfer::progress, view, &Fusion::TransferView::update);
+    connect(copy, &KJob::infoMessage, this, [this](KJob *, const QString &text) { emit infoMessage(this, text); });
+    connect(copy, &KJob::totalAmountChanged, this, [this](KJob *, KJob::Unit unit, qulonglong amount) { setTotalAmount(unit, amount); });
+    connect(copy, &KJob::processedAmountChanged, this, [this](KJob *, KJob::Unit unit, qulonglong amount) { setProcessedAmount(unit, amount); });
+    connect(copy, &KJob::percentChanged, this, [this](KJob *, unsigned long value) { setPercent(value); });
+    connect(copy, &KJob::speed, this, [this](KJob *, unsigned long value) { emitSpeed(value); });
+    connect(copy, &Fusion::NativeTransfer::moved, this, [this](const QUrl &from, const QUrl &to) { rememberMove(from, to); });
+    connect(copy, &Fusion::NativeTransfer::destinationReady, this, [this](const QUrl &to) {
+      if (destinationChanged) destinationChanged(to);
+    });
+    connect(copy, &KJob::result, this, [this, copy, moving](KJob *result) {
+      updateClipboard();
+      if (!result->error()) {
+        if (undoJournal.isEmpty()) Fusion::TransferHistory::self()->record(copy->journal(), moving);
+        else Fusion::TransferHistory::self()->consumed(undoJournal);
+      }
+      if (destinationChanged) destinationChanged(Fusion::ordinaryFileUrl(destination));
+      finish(result->error(), result->errorString());
+    });
+    copy->start();
+  }
 
   void rememberMove(const QUrl &from, const QUrl &to) {
     const auto original = Fusion::ordinaryFileUrl(from);
@@ -421,6 +488,18 @@ KJob *Fusion::transferFiles(const QList<QUrl> &sources, const QUrl &destination,
                             TransferOperation operation, QWidget *window,
                             std::function<void(const QUrl &)> destinationChanged) {
   return new TransferJob(sources, destination, operation, window, false, std::move(destinationChanged));
+}
+
+KJob *Fusion::undoTransfer(QWidget *window) {
+  const auto journal = TransferHistory::self()->pending();
+  if (journal.isEmpty()) {
+    KIO::FileUndoManager::self()->uiInterface()->setParentWidget(window);
+    KIO::FileUndoManager::self()->undo();
+    return nullptr;
+  }
+  auto *job = new TransferJob({}, {}, TransferOperation::Move, window, true);
+  job->undo(journal);
+  return job;
 }
 
 namespace {

@@ -119,7 +119,7 @@ class ProgressWindow(QWidget):
             QCheckBox {{color:{p['Text']}; font:11px "{theme_runtime.ui_font(self.design)}"; spacing:7px;}}
         ''')
         if not self.options['behavior']['auto_close']: self.dismiss_timer.stop()
-        elif (self.job.result is not None and self.job.result != 'failed' and not self.preview
+        elif (self.job.result is not None and self.job.result != 'failed' and not self.job.data.get('warningMessage') and not self.preview
               and self.isVisible() and previous != self.options['behavior']):
             self.dismiss_timer.start(self.options['behavior']['close_delay'])
         self.refresh()
@@ -128,7 +128,12 @@ class ProgressWindow(QWidget):
         self.setWindowTitle(self.job.title + ' — Xetal Files')
         self.setAccessibleDescription(self.job.summary())
         paths = [p for p in self.job.paths if p]
-        self.setToolTip('\n→ '.join(paths))
+        self.setToolTip('\n→ '.join(paths) + ('\n' + self.job.data['currentFile'] if self.job.data.get('currentFile') else ''))
+        detailed = 'totalsKnown' in self.job.data
+        desired_height = self.appearance['height'] + (36 if detailed else 0)
+        if self.base_height != desired_height:
+            self.base_height = desired_height
+            self.resize_question(animate=False)
         done = self.job.result is not None
         cancelable = bool(self.job.capabilities & 1)
         self.cancel.setText('Close' if done else 'Cancel')
@@ -143,7 +148,7 @@ class ProgressWindow(QWidget):
         self.pause.setText('▶' if suspended else 'Ⅱ')
         self.pause.setToolTip('Resume operation' if suspended else 'Pause operation')
         self.pause.setAccessibleName(self.pause.toolTip())
-        self.details.setVisible(self.job.result == 'failed')
+        self.details.setVisible(self.job.result == 'failed' or bool(self.job.result and self.job.data.get('warningMessage')))
         self.layout_controls()
         if self.isVisible() and self.job.running and self.options['animation']['enabled']:
             if not self.animation.isActive(): self.clock.restart(); self.animation.start()
@@ -216,7 +221,7 @@ class ProgressWindow(QWidget):
         self.animation.stop()
         if self.preview:
             self.display_percent = self.job.percent or 0
-        elif self.job.result == 'failed' or not self.options['behavior']['auto_close']:
+        elif self.job.result == 'failed' or self.job.data.get('warningMessage') or not self.options['behavior']['auto_close']:
             self.show()
         elif not self.isVisible():
             QTimer.singleShot(0, self.dismiss)
@@ -233,6 +238,7 @@ class ProgressWindow(QWidget):
         dialog.setWindowTitle('File operation')
         dialog.setTextFormat(Qt.TextFormat.PlainText)
         dialog.setText(self.job.summary())
+        if self.job.data.get('warningMessage'): dialog.setDetailedText(self.job.data['warningMessage'])
         dialog.setIcon(QMessageBox.Icon.Warning)
         dialog.exec()
 
@@ -355,6 +361,7 @@ class ProgressWindow(QWidget):
         total, processed, speed = data.get('totalBytes', 0), data.get('processedBytes', 0), data.get('speed', 0)
         if info['amount']:
             if total: parts.append(f'{amount(processed)} / {amount(total)}')
+            elif processed: parts.append(amount(processed))
             elif data.get('totalFiles'): parts.append(f'{data.get("processedFiles", 0):,} / {data["totalFiles"]:,} files')
         if info['speed'] and speed: parts.append(amount(speed)+'/s')
         if info['remaining'] and total and speed:
@@ -462,6 +469,13 @@ class ProgressWindow(QWidget):
             route = '  →  '.join(short_location(p) if path_style == 'names' else p for p in (source, destination) if p)
             self.text(painter, QRectF(16, 35, w-32, 18), route or self.job.application, muted, 9)
         scene_top = 55 if path_style != 'hidden' else 42
+        if 'totalsKnown' in self.job.data:
+            phase = self.job.data.get('phase', 'Copying')
+            current = short_location(self.job.data.get('currentFile'))
+            label = phase + (': ' + current if self.job.data.get('currentFile') else '…')
+            self.text(painter, QRectF(16, scene_top, w-32, 16), label, foreground, 8)
+            self.text(painter, QRectF(16, scene_top+17, w-32, 16), self.job.file_summary(), muted, 8)
+            scene_top += 36
         box = QRectF(16, scene_top, w-32, h-61-scene_top)
         if self.job.result == 'failed':
             painter.setPen(Qt.PenStyle.NoPen); painter.setBrush(alpha(QColor('#e53945'), 18))

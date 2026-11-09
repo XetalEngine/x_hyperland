@@ -13,6 +13,12 @@ permissions:
   contents: read
 
 jobs:
+  local-transfers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preserve originals through interrupted copies and verified moves
+        run: python3 config/hypr/file_manager/test_transfer_worker.py -v
   source-downloads:
     runs-on: ubuntu-latest
     steps:

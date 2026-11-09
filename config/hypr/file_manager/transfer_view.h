@@ -5,14 +5,15 @@
 #include <functional>
 
 namespace Fusion {
-// One JobView for the entire operation, including its questions. KIO's child
-// copy runs without a second progress tracker; it still owns all file changes.
+// One JobView for the entire operation, including its questions. Native local
+// transfers and remote KIO operations share this presentation and controls.
 class TransferView : public QObject {
   Q_OBJECT
 public:
   using Answer = std::function<void(const QVariantMap &)>;
   TransferView(KJob *job, const QVariantMap &initial);
   void ask(const QVariantMap &question, Answer answer, std::function<void()> fallback);
+  void update(const QVariantMap &data);
 
 private slots:
   void cancel();
@@ -28,7 +29,6 @@ private:
   bool ready = false, finished = false, unavailable = false;
   int error = 0;
   QString errorText;
-  void update(const QVariantMap &data);
   void flush();
   void sendQuestion();
   void finish(int code, const QString &text);

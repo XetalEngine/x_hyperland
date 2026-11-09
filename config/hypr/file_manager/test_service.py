@@ -5,6 +5,7 @@ import hashlib
 import os
 from pathlib import Path
 import socket
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -38,6 +39,8 @@ def check(binary):
         root = Path(directory)
         (root/'scripts').mkdir()
         (root/'file_manager').mkdir()
+        for helper in ('transfer_worker.py', 'transfer_authority.py', 'transfer_io.py'):
+            shutil.copy2(Path(__file__).resolve().parent/helper, root/'file_manager'/helper)
         (root/'commands').mkdir()
         (root/'file_manager/automount.json').write_text(json.dumps(dict(version=1, volumes={
             'fixture-usb': dict(filesystem='ext4', enabled=True, revision=1)})))

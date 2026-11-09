@@ -1,4 +1,4 @@
-"""Exercise a real KIO folder copy through Fusion's themed JobView service.
+"""Exercise a native folder copy through Fusion's themed JobView service.
 
 Invoked by test.py only, inside its disposable config and private session bus.
 """
@@ -32,7 +32,7 @@ def main():
     windows.options = preferences.normalize({'style':'binaryknife',
         'behavior':{'show_delay':0, 'auto_close':False}})
     observations = dict(created=False, paused=False, completed=False,
-                        bytes=False, themed=False)
+                        bytes=False, themed=False, files=False, current=False)
     if not cancel:
         observations['resumed'] = False
 
@@ -44,6 +44,8 @@ def main():
 
         def changed():
             observations['bytes'] |= job.data.get('totalBytes', 0) >= 64*1024*1024
+            observations['files'] |= job.data.get('totalFiles', 0) >= 1024
+            observations['current'] |= bool(job.data.get('currentFile'))
             if observations['bytes'] and not pause_scheduled[0]:
                 pause_scheduled[0] = True
                 QTimer.singleShot(150, lambda: job.request('suspend'))
@@ -59,8 +61,8 @@ def main():
         job.finished.connect(lambda: observations.update(completed=job.result == ('canceled' if cancel else 'done')))
         # Wait for the client to receive requestView's reply and subscribe to
         # control signals, as a real click after the popup appears would.
-        # The card now exists during the access check, before KIO has counted
-        # the files. Exercise cancellation during an actual, measurable copy.
+        # The card exists before counting finishes. Exercise cancellation
+        # during an actual, measurable copy, not just during discovery.
 
     service.created.connect(created)
     process = QProcess(app)

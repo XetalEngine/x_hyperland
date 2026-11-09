@@ -82,6 +82,46 @@ folders, This PC, external windows, and every upload/save picker.
 
 ## Dragging files
 
+Local copy and move operations use Fusion's streaming worker. The first files
+start immediately; a low-priority source scan counts bytes and files alongside
+the copy. The transfer card shows the current file, completed/total files,
+skipped files, bytes and speed. Until enumeration finishes it says **Counting
+total…**, and 100% is reserved for successful completion. Progress comes from
+the worker, not repeated scans of the destination. Updates are batched, and
+neither file sizes nor transfer sizes have an application-imposed ceiling.
+
+Same-filesystem moves use an atomic rename where the destination is free.
+Cross-filesystem moves and folder merges copy the selected contents first,
+compare copied file contents, flush the destination, and then remove only
+unchanged, verified originals. A copy or verification failure leaves those
+originals in place. Skipped conflicts stay at their source. If cancellation or
+an error happens during cleanup, the already verified copies remain available;
+the remaining originals are retained. Active files can still change outside
+the worker's control; this is not a filesystem snapshot or an all-or-nothing
+transaction across drives.
+
+Regular files are copied to exclusive temporary names before an atomic publish.
+Reflinks and `copy_file_range` accelerate supported filesystems; the fallback
+uses bounded buffers and preserves sparse holes. Symlinks stay symlinks.
+Permissions, timestamps and supported extended attributes are retained;
+cross-filesystem moves preserve ownership. Copies of hard-linked files are
+independent files. Unsupported filesystem metadata is reported in **Details**.
+
+When actual access fails, the normal PolicyKit dialog authorizes a small helper
+for that transfer's selected paths. The worker continues using the same helper
+for subsequent protected items, and socket EOF ends its lifetime. Passwords
+are never collected or stored by Fusion Files, and the browser remains an
+ordinary user process. Directory symlinks are not followed by privileged
+operations. Read-only media, exhausted space and other I/O errors are reported
+with their source, destination and transfer phase rather than silently skipped.
+
+The disk-backed transfer journal supports **Undo** without keeping every file
+record in GUI memory. Native transfers and KIO's rename/Trash actions share
+command ordering. Undo checks that copied files have not changed before
+removing them; it never recursively removes unrecorded files. Remote protocols,
+archive extraction and shortcut creation continue through their existing KIO
+backends. Administrator access is scoped to each transfer, including Undo.
+
 Hold **Ctrl** while dragging to copy, **Shift** to move, or **Ctrl+Shift** to
 create shortcuts. Shortcuts are symbolic links to the original files or folders;
 they use the existing transfer engine, conflict prompts and Undo. These gestures
@@ -133,5 +173,10 @@ Run `python3 test.py` for the native Files, search, picker, Auto mount, service 
 and transfer-prompt checks. Auto mount tests use temporary preferences, synthetic
 drive inventories and mock mount commands; they never mount real drives.
 `python3 test_search_worker.py` runs the standalone search-engine checks.
+`python3 test_transfer_worker.py` tests streaming, sparse files, links, Undo,
+failed writes, cancellation and changed sources/destinations using disposable
+files. `sudo -n env FUSION_TRANSFER_PRIVILEGED_TEST=1 python3
+test_transfer_privileged.py` additionally checks real protected files and an
+actual `/tmp` → `/dev/shm` move; it never changes the host's authorization policy.
 `FUSION_FILES_BUILD` can reuse a build directory. The native test profile stays
 on the home filesystem so the real Trash and mounted-volume checks work.

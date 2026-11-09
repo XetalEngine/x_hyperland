@@ -27,6 +27,29 @@ class JobTests(unittest.TestCase):
         job.update({'percent': 200}); self.assertEqual(job.percent, 100)
         job.update({'percent': 'invalid', 'totalBytes': -1}); self.assertEqual(job.percent, 100)
 
+    def test_native_totals_are_unknown_until_counting_finishes_and_show_file_counts(self):
+        job = self.job()
+        job.update({'processedBytes': 2**34, 'totalBytes': 2**35, 'percent': 50,
+                    'processedFiles': 1234, 'totalFiles': 9000, 'totalsKnown': False})
+        self.assertIsNone(job.percent)
+        self.assertIn('Counting', job.file_summary())
+        job.update({'totalsKnown': True, 'skippedFiles': 2})
+        self.assertEqual(job.percent, 50)
+        self.assertIn('1,234 / 9,000 files copied', job.summary())
+        self.assertIn('2 skipped', job.file_summary())
+        self.assertIn('GiB', job.summary())
+
+    def test_native_progress_adds_readable_current_file_rows_and_keeps_notes(self):
+        job = self.job(hints={'totalsKnown': False, 'currentFile': '/Source/large.iso', 'phase': 'Copying'})
+        window = self.window(job)
+        self.assertEqual(window.height(), 204)
+        self.assertIn('large.iso', window.toolTip())
+        job.update({'totalsKnown': True, 'warningMessage': 'Some attributes could not be preserved.'})
+        job.terminate()
+        self.assertTrue(window.details.isVisible())
+        self.assertFalse(window.dismiss_timer.isActive())
+        self.assertEqual(job.summary(), 'Completed with notes')
+
     def test_pause_and_resume_wait_for_the_application_to_acknowledge(self):
         job = self.job(); actions = []; job.requested.connect(actions.append)
         self.assertTrue(job.request('suspend')); self.assertTrue(job.running)
