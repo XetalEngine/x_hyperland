@@ -258,14 +258,14 @@ Runtime components download inside KVM Settings; they are not bundled with the d
 
 **XetalProton is built into Hyper Fusion's Control Panel.** Manage Windows applications and games from a native interface that follows your desktop theme, with your library, prefixes, downloads, dependencies and process logs together. Open **Control Panel → Software & maintenance → Proton**.
 
-[![Hyper Fusion desktop with the custom Proton manager, Windows application shortcuts, prefix selector and launch command preview](docs/screenshots/proton-library.png)](docs/screenshots/proton-library.png)
+[![Proton Library with large Windows app icons, app search, Task Manager and a selected-app Launch card](docs/screenshots/proton-library.png)](docs/screenshots/proton-library.png)
 
-*The library on the live desktop: related applications share the selected custom prefix, with a chosen Proton version and individual launch controls. Click either screenshot to view it at full resolution.*
+*The Library keeps everyday actions beside a large app gallery. Setup and maintenance live in Settings; the app's More menu holds export, command details and other advanced actions. Click either screenshot to view it at full resolution.*
 
 - **Custom, isolated prefixes:** create a separate Windows environment for each application, or share a prefix between a launcher and its games. Each prefix keeps its own Windows files, registry and dependencies. Import existing prefixes, rename them, choose their storage location, measure disk usage and open their C: drive.
 - **Proton versions per prefix and per app:** select a default runner for each prefix and override it for an individual shortcut. Install newer builds alongside older ones while keeping your existing selections.
-- **A Windows application library:** add installers and executables, drag and drop programs, run something once, or save a shortcut with its extracted icon. Edit, duplicate and organize shortcuts within their prefixes.
-- **Dependencies and Windows utilities:** install Winetricks components into the selected prefix, review their status and retry failed installs. Open Wine configuration, Registry Editor, Windows Control Panel, Task Manager, Explorer and Command Prompt from **Prefix tools**.
+- **A Windows application library:** add installers and executables, drag and drop programs, and keep their extracted icons in a spacious gallery. Search with **Ctrl+F**, then double-click or press **Enter** to launch. **App settings** holds per-app options, and **More** holds export, duplicate and removal.
+- **Dependencies and Windows utilities:** install Winetricks components into the selected prefix, review their status and retry failed installs. **Settings → Windows tools** holds run-once and maintenance actions, with Wine configuration, Registry Editor, Windows Control Panel, Task Manager, Explorer and Command Prompt under **More tools**.
 - **Browser sign-in:** configure per-app URL handlers so your Linux browser can return authentication links to the correct Windows app, prefix and runner. Choose URL arguments, Hyprland defaults and private output; exported launch scripts retain the setup. Task Manager also has a direct button and an app context-menu action.
 - **Detailed launch controls:** configure arguments, working directories, graphics and synchronization options, custom environment variables and wrappers. Preview or copy the generated command, export an executable `.sh` launcher, and follow each application's log under **Processes and logs**.
 

@@ -8,6 +8,7 @@ class Page final : public QWidget {
 public:
     explicit Page(QWidget *parent=nullptr);
     Controller *controller() { return &model; }
+    void focusSearch();
     QSize sizeHint() const override { return {1150,720}; }
     QSize minimumSizeHint() const override { return {640,480}; }
 protected:
@@ -23,8 +24,12 @@ private:
     QPushButton *cancelButton, *older, *download, *removeInstalled, *useInstalled;
     QPushButton *dependencyInstall, *dependencyStop;
     QListWidget *shortcuts;
-    QPlainTextEdit *commandPreview, *processLog, *events;
-    QLineEdit *releaseSearch, *dependencySearch;
+    QPlainTextEdit *processLog, *events;
+    QLineEdit *releaseSearch, *dependencySearch, *librarySearch;
+    QStackedWidget *libraryStack;
+    QMenu *appMenu;
+    QLabel *libraryCount, *emptyTitle, *emptyDescription, *shortcutTitle, *shortcutArtwork;
+    QPushButton *emptyAction;
     QCheckBox *prereleases, *incompatible, *launchAdded, *discoverSteam;
     QSpinBox *iconSize;
     QTableWidget *releaseTable, *installedTable, *updateTable, *dependencyTable, *processTable;
@@ -32,6 +37,7 @@ private:
     QTimer logTimer;
     bool refreshing=false, firstShow=true;
     std::string selectedShortcut;
+    std::map<std::string,bool> launchFeedback;
     QString activeLog;
     QHash<QString,QIcon> iconCache;
     void buildLibrary();
@@ -46,6 +52,9 @@ private:
     void refreshProcesses();
     void refreshTask();
     void selectShortcut();
+    void filterLibrary();
+    void launchApp(std::string id);
+    void showCommand();
     void editShortcut(bool browserSignIn=false);
     void managePrefix();
     void addShortcut(bool once=false);
@@ -62,6 +71,8 @@ private:
 };
 namespace Ui {
 QPushButton *button(const QString &text,const QString &name,QBoxLayout *layout,std::function<void()> action);
+QIcon icon(const QString &name, QStyle::StandardPixmap fallback=QStyle::SP_FileIcon);
+void decorate(QAbstractButton *button,const QString &iconName,const QString &description={},bool iconOnly=false);
 QLabel *hint(const QString &text,QBoxLayout *layout);
 QTableWidget *table(const QStringList &headers,const QString &name);
 void row(QTableWidget *table,int index,const QStringList &values,const QVariant &key={});

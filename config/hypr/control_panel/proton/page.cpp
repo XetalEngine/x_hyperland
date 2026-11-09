@@ -3,13 +3,73 @@
 #include <QDesktopServices>
 #include <QMimeData>
 #include <QUrl>
+#include <tuple>
 
 namespace XetalProton {
 namespace Ui {
+namespace {
+// Paint the native themed button at a slightly smaller size while pressed.
+// Only the paint changes: the layout and clickable area stay in place.
+class FeedbackButton final : public QPushButton {
+    QVariantAnimation releaseAnimation;
+    qreal pressure=0;
+    void releasePressure() {
+        releaseAnimation.setStartValue(pressure);releaseAnimation.setEndValue(0.);releaseAnimation.start();
+    }
+public:
+    explicit FeedbackButton(const QString &text) : QPushButton(text) {
+        setCursor(Qt::PointingHandCursor);
+        releaseAnimation.setDuration(280);releaseAnimation.setEasingCurve(QEasingCurve::OutCubic);
+        connect(&releaseAnimation,&QVariantAnimation::valueChanged,this,[this](const QVariant &value){pressure=value.toReal();update();});
+        connect(this,&QPushButton::pressed,this,[this]{releaseAnimation.stop();pressure=1;repaint();});
+        connect(this,&QPushButton::released,this,[this]{releasePressure();});
+    }
+protected:
+    bool event(QEvent *event) override {
+        const bool handled=QPushButton::event(event);
+        // Popup menus and canceled presses can clear isDown without emitting
+        // released. Their highlight must settle back too.
+        if(pressure>0 && !isDown() && releaseAnimation.state()!=QAbstractAnimation::Running)releasePressure();
+        return handled;
+    }
+    void paintEvent(QPaintEvent *) override {
+        QStylePainter painter(this);QStyleOptionButton option;initStyleOption(&option);
+        const qreal inset=1.5*pressure;
+        painter.translate(inset,inset);
+        painter.scale((width()-2*inset)/qMax(1,width()),(height()-2*inset)/qMax(1,height()));
+        painter.setOpacity(1.-.25*pressure);
+        painter.drawControl(QStyle::CE_PushButton,option);
+        if(pressure>0){
+            auto tint=palette().color(objectName()=="protonLaunch"?QPalette::HighlightedText:QPalette::ButtonText);
+            tint.setAlphaF(.24*pressure);painter.setOpacity(1.);painter.setRenderHint(QPainter::Antialiasing);
+            painter.setPen(Qt::NoPen);painter.setBrush(tint);painter.drawRoundedRect(option.rect.adjusted(2,2,-2,-2),6,6);
+        }
+    }
+};
+}
 QString text(const std::string &value) { return QString::fromStdString(value); }
 QPushButton *button(const QString &text,const QString &name,QBoxLayout *layout,std::function<void()> action) {
-    auto *result=new QPushButton(text); result->setObjectName(name); layout->addWidget(result);
+    auto *result=new FeedbackButton(text); result->setObjectName(name); layout->addWidget(result);
     QObject::connect(result,&QPushButton::clicked,result,std::move(action)); return result;
+}
+QIcon icon(const QString &name,QStyle::StandardPixmap fallback) {
+    static const QMap<QString,QStyle::StandardPixmap> fallbacks={
+        {"media-playback-start",QStyle::SP_MediaPlay},{"utilities-system-monitor",QStyle::SP_ComputerIcon},
+        {"list-add",QStyle::SP_FileDialogNewFolder},{"preferences-system",QStyle::SP_FileDialogDetailedView},
+        {"folder-open",QStyle::SP_DirOpenIcon},{"document-open",QStyle::SP_DialogOpenButton},
+        {"drive-harddisk",QStyle::SP_DriveHDIcon},{"view-refresh",QStyle::SP_BrowserReload},
+        {"view-grid",QStyle::SP_FileDialogListView},{"view-more-symbolic",QStyle::SP_ArrowDown},
+        {"applications-system",QStyle::SP_ComputerIcon},{"download",QStyle::SP_ArrowDown},
+        {"edit-delete",QStyle::SP_TrashIcon},{"document-save-as",QStyle::SP_DialogSaveButton},
+        {"internet-web-browser",QStyle::SP_DialogHelpButton},{"dialog-ok-apply",QStyle::SP_DialogApplyButton}};
+    fallback=fallbacks.value(name,fallback);
+    return QIcon::fromTheme(name,QApplication::style()->standardIcon(fallback));
+}
+void decorate(QAbstractButton *button,const QString &iconName,const QString &description,bool iconOnly) {
+    const auto label=description.isEmpty()?button->text():description;
+    button->setIcon(icon(iconName));button->setIconSize({20,20});
+    button->setToolTip(label);button->setAccessibleName(label);button->setMinimumHeight(36);
+    if(iconOnly){button->setText({});button->setFixedSize(40,38);}
 }
 QLabel *hint(const QString &text,QBoxLayout *layout) {
     auto *label=new QLabel(text); label->setWordWrap(true); label->setTextFormat(Qt::PlainText);
@@ -38,23 +98,21 @@ using namespace Ui;
 Page::Page(QWidget *parent) : QWidget(parent), model(this) {
     setObjectName("protonTab"); setAcceptDrops(true);
     auto *layout=new QVBoxLayout(this); layout->setContentsMargins(8,8,8,8);
-    auto *intro=new QLabel("<b>Proton · Windows applications</b>"); layout->addWidget(intro);
-    hint("Create a separate Windows prefix for each app, or share one between related apps. Download and run Proton here without Steam.",layout);
-    auto *prefixRow=new QHBoxLayout;
-    prefixRow->addWidget(new QLabel("Prefix:")); prefixChoice=new QComboBox; prefixChoice->setObjectName("protonPrefix"); prefixChoice->setMinimumWidth(180);
-    prefixChoice->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon); prefixRow->addWidget(prefixChoice,1);
-    button("New…","protonNewPrefix",prefixRow,[this]{bool ok=false; const auto name=QInputDialog::getText(this,"New Windows prefix","Name:",QLineEdit::Normal,{},&ok); if(ok) model.createPrefix(name);});
-    button("Import…","protonImportPrefix",prefixRow,[this]{const auto path=QFileDialog::getExistingDirectory(this,"Import Proton prefix",text(model.config.prefixes_root)); if(!path.isEmpty()) model.importPrefix(path);});
-    button("Manage…","protonManagePrefix",prefixRow,[this]{managePrefix();});
-    prefixRow->addWidget(new QLabel("Proton:")); protonChoice=new QComboBox; protonChoice->setObjectName("protonVersion");
-    protonChoice->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon); prefixRow->addWidget(protonChoice,1);
-    button("Reload","protonReload",prefixRow,[this]{if(!model.busy()) model.reload();}); layout->addLayout(prefixRow);
-    prefixPath=hint({},layout); prefixPath->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    auto *header=new QHBoxLayout;auto *titles=new QVBoxLayout;titles->setSpacing(3);
+    auto *intro=new QLabel("Windows apps");intro->setObjectName("protonHeading");intro->setStyleSheet("font-size:26px;font-weight:700;background:transparent;");titles->addWidget(intro);
+    hint("Your apps, ready when you are.",titles);header->addLayout(titles,1);
+    header->addWidget(new QLabel("Environment"));prefixChoice=new QComboBox;prefixChoice->setObjectName("protonPrefix");
+    prefixChoice->setMinimumWidth(150);prefixChoice->setMaximumWidth(290);prefixChoice->setMinimumHeight(36);
+    prefixChoice->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    prefixChoice->setToolTip("Choose the Windows environment whose apps you want to use. Manage environments in Settings.");
+    prefixChoice->setAccessibleName("Windows environment");header->addWidget(prefixChoice);layout->addLayout(header);
     tabs=new QTabWidget; tabs->setObjectName("protonSections"); layout->addWidget(tabs,1);
     buildLibrary(); buildTools(); buildDependencies(); buildProcesses(); buildSettings();
+    const QStringList tabIcons={"view-grid","download","applications-system","utilities-system-monitor","preferences-system"};
+    for(int i=0;i<tabs->count();++i)tabs->setTabIcon(i,icon(tabIcons[i]));
     auto *jobRow=new QHBoxLayout; progress=new QProgressBar; progress->setObjectName("protonProgress"); jobRow->addWidget(progress,1);
     cancelButton=button("Cancel","protonCancel",jobRow,[this]{model.cancel();}); layout->addLayout(jobRow);
-    status=hint("Choose Downloads to install Proton, then create a prefix in Library.",layout); status->setObjectName("protonStatus");
+    status=hint("Get Proton in Downloads, then create an environment in Settings.",layout); status->setObjectName("protonStatus");
     connect(prefixChoice,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int i){if(!refreshing && i>=0) model.selectPrefix(prefixChoice->itemData(i).toString().toStdString());});
     connect(protonChoice,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int i){if(!refreshing && i>=0) model.selectProton(protonChoice->itemData(i).toString().toStdString());});
     connect(&model,&Controller::changed,this,&Page::refresh);
@@ -71,6 +129,7 @@ void Page::showEvent(QShowEvent *event) {
     firstShow=false;
     QTimer::singleShot(0,this,[this]{if(model.reload() && !model.installed.empty() && !qEnvironmentVariableIsSet("XETALPROTON_OFFLINE")) model.checkUpdates();});
 }
+void Page::focusSearch() {tabs->setCurrentIndex(0);librarySearch->setFocus();librarySearch->selectAll();}
 void Page::refresh() {
     refreshing=true;
     prefixChoice->clear(); for(const auto &p:model.prefixes) prefixChoice->addItem(text(p.name),text(p.path));
@@ -84,9 +143,10 @@ void Page::refresh() {
         else protonChoice->setCurrentIndex(-1);
     }
     protonChoice->setEnabled(!model.current.empty()); prefixPath->setText(text(model.current));
+    for(const auto *name:{"protonManagePrefix","protonDriveC","protonRunOnce","protonHelpers","protonInit"})findChild<QPushButton *>(name)->setEnabled(!model.current.empty());
     discoverSteam->setChecked(model.config.discover_steam); iconSize->setValue(std::clamp(model.config.icon_size,32,128));
     settingsPaths->setText("Prefixes: "+text(model.config.prefixes_root)+"\nTools and runtimes: "+text(util::data_dir())+"\nConfiguration: "+text(config_path()));
-    if(model.notice.isEmpty())status->setText(model.current.empty() ? "Choose Downloads to install Proton, then create a prefix in Library." : "Ready to launch programs in the selected prefix.");
+    if(model.notice.isEmpty())status->setText(model.current.empty() ? "Get Proton in Downloads, then create an environment in Settings." : "Double-click an app to launch it.");
     refreshing=false;
     refreshLibrary();refreshTools();refreshDependencies();refreshProcesses();refreshTask();
 }
@@ -152,21 +212,54 @@ void Page::readLog() {
     }
 }
 void Page::buildSettings() {
-    auto *page=new QWidget;auto *layout=new QVBoxLayout(page);
-    hint("Each prefix keeps its own Windows files, registry and installed dependencies. Prefixes separate application environments; they are not a security sandbox.",layout);
-    settingsPaths=hint({},layout);settingsPaths->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    auto *row=new QHBoxLayout;
-    button("Choose prefixes folder…","protonPrefixesRoot",row,[this]{const auto path=QFileDialog::getExistingDirectory(this,"New prefixes folder",text(model.config.prefixes_root));if(!path.isEmpty()){auto next=model.config;next.prefixes_root=QFileInfo(path).absoluteFilePath().toStdString();model.save(next);}});
-    button("Open prefixes","protonOpenPrefixes",row,[this]{openFolder(text(model.config.prefixes_root));});
-    button("Open tool storage","protonOpenStorage",row,[]{openFolder(text(util::data_dir()));});row->addStretch();layout->addLayout(row);
-    discoverSteam=new QCheckBox("Discover existing Steam tools and prefixes (optional)");discoverSteam->setObjectName("protonDiscoverSteam");layout->addWidget(discoverSteam);
+    auto *scroll=new QScrollArea;scroll->setObjectName("protonSettings");scroll->setWidgetResizable(true);scroll->setFrameShape(QFrame::NoFrame);
+    auto *page=new QWidget;auto *layout=new QVBoxLayout(page);layout->setContentsMargins(16,18,16,18);layout->setSpacing(18);scroll->setWidget(page);
+    auto section=[layout](const QString &title){auto *group=new QGroupBox(title);auto *content=new QVBoxLayout(group);content->setContentsMargins(16,20,16,16);content->setSpacing(12);layout->addWidget(group);return content;};
+    auto *environment=section("Windows environment");
+    hint("Each environment (a Wine prefix) keeps its own apps, Windows files and settings. Choose the active one at the top of this page.",environment);
+    auto *prefixRow=new QHBoxLayout;
+    auto *create=button("New…","protonNewPrefix",prefixRow,[this]{bool ok=false;const auto name=QInputDialog::getText(this,"New Windows environment","Name:",QLineEdit::Normal,{},&ok);if(ok)model.createPrefix(name);});decorate(create,"list-add");
+    auto *import=button("Import…","protonImportPrefix",prefixRow,[this]{const auto path=QFileDialog::getExistingDirectory(this,"Import Proton environment",text(model.config.prefixes_root));if(!path.isEmpty())model.importPrefix(path);});decorate(import,"document-open");
+    auto *manage=button("Manage…","protonManagePrefix",prefixRow,[this]{managePrefix();});decorate(manage,"preferences-system");
+    auto *reload=button("Reload","protonReload",prefixRow,[this]{if(!model.busy())model.reload();});decorate(reload,"view-refresh","Reload environments and installed Proton versions",true);
+    prefixRow->addStretch();environment->addLayout(prefixRow);
+    auto *runnerRow=new QHBoxLayout;runnerRow->addWidget(new QLabel("Proton version"));
+    protonChoice=new QComboBox;protonChoice->setObjectName("protonVersion");protonChoice->setMinimumContentsLength(22);
+    protonChoice->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);runnerRow->addWidget(protonChoice,1);
+    auto *get=button("Get Proton","protonGetProton",runnerRow,[this]{tabs->setCurrentIndex(1);});decorate(get,"download");environment->addLayout(runnerRow);
+    prefixPath=hint({},environment);prefixPath->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    auto *tools=section("Windows tools");
+    hint("Tools and maintenance for the selected environment.",tools);
+    auto *toolRow=new QHBoxLayout;
+    auto *drive=button("Open C: drive","protonDriveC",toolRow,[this]{openFolder(text(model.current)+"/pfx/drive_c");});decorate(drive,"drive-harddisk");
+    auto *run=button("Run a file…","protonRunOnce",toolRow,[this]{addShortcut(true);});decorate(run,"system-run","Run a Windows file without adding it to your library");
+    auto *helpers=button("More tools","protonHelpers",toolRow,[]{});decorate(helpers,"applications-system");auto *menu=new QMenu(helpers);
+    for(const auto &entry:std::vector<std::tuple<QString,std::string,QString>>{
+        {"Wine configuration","winecfg","preferences-system"},{"Registry Editor","regedit","preferences-other"},
+        {"Windows Control Panel","control","preferences-system"},{"Task Manager","taskmgr","utilities-system-monitor"},
+        {"Explorer","explorer","system-file-manager"},{"Command prompt","cmd","utilities-terminal"}}){
+        auto *action=menu->addAction(icon(std::get<2>(entry)),std::get<0>(entry));connect(action,&QAction::triggered,this,[this,entry]{model.runTool(std::get<1>(entry));});
+    }
+    menu->addSeparator();connect(menu->addAction(icon("folder-open"),"Open environment folder"),&QAction::triggered,this,[this]{openFolder(text(model.current));});
+    menu->addSeparator();
+    connect(menu->addAction("Stop all programs in this environment"),&QAction::triggered,this,[this]{if(confirm("Stop environment","Stop all Windows programs in the selected environment?"))model.runTool("wineboot","-k");});
+    connect(menu->addAction("Force stop this environment's wineserver"),&QAction::triggered,this,[this]{if(confirm("Force stop environment","Unsaved Windows data may be lost. Force stop this environment?"))model.forceStopPrefix();});
+    helpers->setMenu(menu);toolRow->addStretch();tools->addLayout(toolRow);
+    auto *maintenance=new QHBoxLayout;auto *init=button("Initialize / repair environment","protonInit",maintenance,[this]{model.runTool("wineboot","-u");});decorate(init,"view-refresh");
+    auto *repair=button("Repair browser links","protonSettingsRepairHandlers",maintenance,[this]{if(model.syncDesktopHandlers())model.report("Browser sign-in handlers refreshed.");});decorate(repair,"internet-web-browser");maintenance->addStretch();tools->addLayout(maintenance);
+    auto *library=section("Library preferences");
+    discoverSteam=new QCheckBox("Include environments and Proton versions from Steam");discoverSteam->setObjectName("protonDiscoverSteam");library->addWidget(discoverSteam);
     connect(discoverSteam,&QCheckBox::toggled,this,[this](bool value){if(!refreshing){auto next=model.config;next.discover_steam=value;model.save(next);}});
-    launchAdded=new QCheckBox("Launch programs immediately after adding a shortcut");launchAdded->setChecked(true);launchAdded->setObjectName("protonLaunchAdded");layout->addWidget(launchAdded);
-    auto *sizeRow=new QHBoxLayout;sizeRow->addWidget(new QLabel("Shortcut icon size:"));iconSize=new QSpinBox;iconSize->setRange(32,128);iconSize->setSingleStep(8);sizeRow->addWidget(iconSize);sizeRow->addStretch();layout->addLayout(sizeRow);
+    launchAdded=new QCheckBox("Launch apps immediately after adding them");launchAdded->setChecked(true);launchAdded->setObjectName("protonLaunchAdded");library->addWidget(launchAdded);
+    auto *sizeRow=new QHBoxLayout;sizeRow->addWidget(new QLabel("App icon size"));iconSize=new QSpinBox;iconSize->setRange(32,128);iconSize->setSingleStep(8);sizeRow->addWidget(iconSize);sizeRow->addStretch();library->addLayout(sizeRow);
     connect(iconSize,qOverload<int>(&QSpinBox::valueChanged),this,[this](int size){if(!refreshing){auto next=model.config;next.icon_size=size;model.save(next);}});
-    hint("The first launch may download the UMU runtime. Dependencies, prefixes and downloaded Proton versions are stored separately from Hyper Fusion updates.",layout);
-    hint("Optional wrappers need their corresponding host tools: GameMode, gamescope, MangoHud or vkBasalt. Winetricks components may also need cabextract. Errors and download progress appear in Processes and logs.",layout);
-    layout->addStretch();tabs->addTab(page,"Settings");
+    auto *storage=section("Storage");settingsPaths=hint({},storage);settingsPaths->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    auto *row=new QHBoxLayout;
+    auto *choose=button("Choose folder…","protonPrefixesRoot",row,[this]{const auto path=QFileDialog::getExistingDirectory(this,"New environments folder",text(model.config.prefixes_root));if(!path.isEmpty()){auto next=model.config;next.prefixes_root=QFileInfo(path).absoluteFilePath().toStdString();model.save(next);}});decorate(choose,"folder-open");
+    auto *prefixes=button("Environments","protonOpenPrefixes",row,[this]{openFolder(text(model.config.prefixes_root));});decorate(prefixes,"folder-open","Open the environments folder");
+    auto *store=button("Tools and runtimes","protonOpenStorage",row,[]{openFolder(text(util::data_dir()));});decorate(store,"folder-open","Open downloaded Proton tools and runtimes");row->addStretch();storage->addLayout(row);
+    hint("Apps, environments and downloaded tools are kept separately from desktop updates. The first app launch may download the UMU runtime.",storage);
+    layout->addStretch();tabs->addTab(scroll,"Settings");
 }
 void Page::dragEnterEvent(QDragEnterEvent *event) {
     if(!event->mimeData()->hasUrls())return;

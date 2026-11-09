@@ -26,6 +26,15 @@ class ProtonPageTests : public QObject {
     }
     void show(Page &page) {page.resize(1150,720);page.show();QTRY_VERIFY(page.controller()->loaded);}
 private slots:
+    void initTestCase() {
+        const auto path=qEnvironmentVariable("XETALPROTON_TEST_THEME");if(path.isEmpty())return;
+        QFile file(path);QVERIFY(file.open(QIODevice::ReadOnly));const auto theme=QJsonDocument::fromJson(file.readAll()).object();
+        QPalette palette;const auto colors=theme["colors"].toObject();const auto roles=QMetaEnum::fromType<QPalette::ColorRole>();
+        for(auto it=colors.begin();it!=colors.end();++it){const int role=roles.keyToValue(it.key().toUtf8());if(role>=0)palette.setColor(QPalette::All,QPalette::ColorRole(role),QColor(it.value().toString()));}
+        QApplication::setPalette(palette);QApplication::setFont(QFont(theme["font"].toString("Noto Sans"),10));
+        QStringList paths;for(const auto &value:theme["iconSearchPaths"].toArray())paths<<value.toString();QIcon::setThemeSearchPaths(paths);QIcon::setThemeName(theme["iconTheme"].toString());
+        qApp->setStyleSheet(theme["stylesheet"].toString());
+    }
     void init() {
         fixture=std::make_unique<QTemporaryDir>("/tmp/fusion-proton-page-XXXXXX");QVERIFY(fixture->isValid());
         qputenv("XETALPROTON_HOME",fixture->path().toUtf8());qputenv("XETALPROTON_OFFLINE","1");
@@ -86,9 +95,11 @@ private slots:
     }
     void newPrefixAndShortcutEditorUseNativeControls() {
         tool("Fixture");Page page;show(page);
+        page.findChild<QTabWidget *>("protonSections")->setCurrentIndex(4);
         QTimer::singleShot(30,[]{auto *dialog=qobject_cast<QInputDialog *>(QApplication::activeModalWidget());if(dialog){dialog->setTextValue("Editor fixture");dialog->accept();}});
         QTest::mouseClick(page.findChild<QPushButton *>("protonNewPrefix"),Qt::LeftButton);
         QCOMPARE(page.controller()->prefixes.size(),size_t(1));
+        page.findChild<QTabWidget *>("protonSections")->setCurrentIndex(0);
         const auto app=fixture->path()+"/Example.exe";write(app,"fixture executable");QVERIFY(page.controller()->addShortcut(app,false));
         bool edited=false;
         QTimer::singleShot(30,[&]{auto *dialog=qobject_cast<QDialog *>(QApplication::activeModalWidget());if(!dialog)return;
@@ -99,7 +110,7 @@ private slots:
         QTest::mouseClick(page.findChild<QPushButton *>("protonEditShortcut"),Qt::LeftButton);
         QVERIFY(edited);const auto &shortcut=page.controller()->config.shortcuts.front();QCOMPARE(shortcut.name,std::string("Edited app"));QCOMPARE(shortcut.env.at("PROTON_NO_ESYNC"),std::string("1"));
         QCOMPARE(shortcut.custom_env,std::string("CUSTOM_VALUE=with spaces"));
-        QTest::mouseClick(page.findChild<QPushButton *>("protonDuplicate"),Qt::LeftButton);QCOMPARE(page.controller()->config.shortcuts.size(),size_t(2));
+        page.findChild<QAction *>("protonDuplicate")->trigger();QCOMPARE(page.controller()->config.shortcuts.size(),size_t(2));
     }
     void dependencyStatusAndDownloadFilteringArePrefixSpecific() {
         tool("Fixture");Page page;show(page);auto &model=*page.controller();QVERIFY(model.createPrefix("One"));const auto one=model.current;
@@ -135,12 +146,12 @@ private slots:
             if(!screenshots.isEmpty()){QDir().mkpath(screenshots);dialog->grab().save(screenshots+"/browser-sign-in.png");}
             QTest::mouseClick(dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save),Qt::LeftButton);
         });
-        QTest::mouseClick(page.findChild<QPushButton *>("protonBrowserSignIn"),Qt::LeftButton);QVERIFY(edited);
+        page.findChild<QAction *>("protonBrowserSignIn")->trigger();QVERIFY(edited);
         const auto selected=model.config.shortcuts.front();QVERIFY(selected.desktop.enabled);QVERIFY(selected.desktop.private_output);
         const auto screenshots=qEnvironmentVariable("XETALPROTON_TEST_SCREENSHOTS");
         if(!screenshots.isEmpty()){QTest::qWait(30);page.grab().save(screenshots+"/proton-library.png");}
         QCOMPARE(selected.desktop.argument,std::string("--url={url}"));QVERIFY(!selected.desktop.include_args);
-        QVERIFY(QFileInfo::exists(Desktop::manifest(selected.id)));QVERIFY(page.findChild<QPushButton *>("protonRepairHandlers")->isEnabled());
+        QVERIFY(QFileInfo::exists(Desktop::manifest(selected.id)));QVERIFY(page.findChild<QAction *>("protonRepairHandlers")->isEnabled());
         QVERIFY(model.reload());QVERIFY(model.shortcut(selected.id)->desktop.enabled);
         const auto exported=fixture->path()+"/with-login.sh";QVERIFY(model.exportScript(selected.id,exported));
         QFile script(exported);QVERIFY(script.open(QIODevice::ReadOnly));const auto data=script.readAll();QVERIFY(data.contains("desktop_bridge.py"));QVERIFY(data.contains("--launch"));
@@ -177,6 +188,103 @@ private slots:
         QFile log(Ui::text(spec.log_path));QVERIFY(log.open(QIODevice::ReadOnly));const auto data=log.readAll();
         QVERIFY(data.contains("Application output hidden"));QVERIFY(!data.contains("fixture-private-token"));
         QVERIFY(!(log.permissions()&QFileDevice::ReadGroup));QVERIFY(!(log.permissions()&QFileDevice::ReadOther));
+    }
+    void libraryKeepsSetupOutOfTheWayAndGuidesAnEmptyLibrary() {
+        Page page;show(page);
+        QVERIFY(page.findChild<QPushButton *>("protonTaskManager")->isVisible());
+        QVERIFY(!page.findChild<QPushButton *>("protonTaskManager")->accessibleName().isEmpty());
+        QVERIFY(!page.findChild<QPushButton *>("protonTaskManager")->icon().isNull());
+        QVERIFY(!page.findChild<QPushButton *>("protonAddShortcut")->isEnabled());
+        QVERIFY(!page.findChild<QComboBox *>("protonVersion")->isVisible());
+        QVERIFY(!page.findChild<QPushButton *>("protonInit")->isVisible());
+        QVERIFY(!page.findChild<QPlainTextEdit *>("protonCommand"));
+        auto *empty=page.findChild<QPushButton *>("protonEmptyAction");QVERIFY(empty->isVisible());
+        QTest::mouseClick(empty,Qt::LeftButton);
+        QCOMPARE(page.findChild<QTabWidget *>("protonSections")->currentIndex(),4);
+        QVERIFY(page.findChild<QComboBox *>("protonVersion")->isVisible());
+        QVERIFY(page.findChild<QPushButton *>("protonNewPrefix")->isVisible());
+    }
+    void searchSelectsTheCorrectAppAndEnterLaunchesOnlyThatApp() {
+        tool("Fixture");Page page;show(page);auto &model=*page.controller();QVERIFY(model.createPrefix("Personal"));const auto personal=model.current;
+        QVERIFY(model.createPrefix("Work"));const auto work=model.current;QVERIFY(model.selectPrefix(personal));
+        auto next=model.config;
+        for(const auto &name:{"Alpha","Beta","Gamma"}){Shortcut app;app.id=new_id();app.name=name;app.exe=fixture->path().toStdString()+"/"+name+".exe";app.prefix=name==std::string("Gamma")?work:personal;app.use_runtime=false;next.shortcuts.push_back(app);}
+        QVERIFY(model.save(next));auto *list=page.findChild<QListWidget *>("protonShortcuts");QCOMPARE(list->count(),2);
+        auto *search=page.findChild<QLineEdit *>("protonLibrarySearch");search->setText("bEt");
+        QCOMPARE(page.findChild<QLabel *>("protonAppName")->text(),QString("Beta"));QVERIFY(model.processes.empty());
+        QVERIFY(list->item(0)->isHidden());QVERIFY(!list->item(1)->isHidden());
+        list->setFocus();QTest::keyClick(list,Qt::Key_Return);
+        QTRY_VERIFY(QFileInfo::exists(Ui::text(personal)+"/pfx/arguments.txt"));
+        QFile args(Ui::text(personal)+"/pfx/arguments.txt");QVERIFY(args.open(QIODevice::ReadOnly));QVERIFY(args.readAll().contains("Beta.exe"));
+        search->setText("No matches");QVERIFY(!page.findChild<QPushButton *>("protonLaunch")->isEnabled());
+        QTest::mouseClick(page.findChild<QPushButton *>("protonEmptyAction"),Qt::LeftButton);QVERIFY(search->text().isEmpty());
+        auto *prefix=page.findChild<QComboBox *>("protonPrefix");prefix->setCurrentIndex(prefix->findData(Ui::text(work)));
+        QCOMPARE(list->count(),1);QCOMPARE(page.findChild<QLabel *>("protonAppName")->text(),QString("Gamma"));
+    }
+    void advancedCommandIsAvailableFromTheAppMenu() {
+        tool("Fixture");Page page;show(page);auto &model=*page.controller();QVERIFY(model.createPrefix("Personal"));
+        const auto exe=fixture->path()+"/Example.exe";write(exe,"fixture");QVERIFY(model.addShortcut(exe,false));
+        auto app=model.config.shortcuts.front();app.use_runtime=false;QVERIFY(model.updateShortcut(app));
+        bool inspected=false;
+        QTimer::singleShot(30,[&]{auto *dialog=qobject_cast<QDialog *>(QApplication::activeModalWidget());if(!dialog)return;
+            auto *command=dialog->findChild<QPlainTextEdit *>("protonCommand");
+            inspected=command && command->toPlainText().contains(exe) && command->toPlainText().contains(Ui::text(model.current));
+            if(command){QTest::mouseClick(dialog->findChild<QPushButton *>("protonCopyCommand"),Qt::LeftButton);QCOMPARE(QApplication::clipboard()->text(),command->toPlainText());}
+            dialog->accept();
+        });
+        page.findChild<QAction *>("protonShowCommand")->trigger();QVERIFY(inspected);
+        QVERIFY(!page.findChild<QPlainTextEdit *>("protonCommand"));
+    }
+    void launchFeedbackAcknowledgesTheSelectedAppAndRejectsRepeatClicks() {
+        tool("Fixture");Page page;show(page);auto &model=*page.controller();QVERIFY(model.createPrefix("Personal"));
+        auto next=model.config;
+        for(const auto *name:{"First app","Second app"}){Shortcut app;app.id=new_id();app.name=name;app.exe="cmd.exe";app.prefix=model.current;app.use_runtime=false;next.shortcuts.push_back(app);}
+        QVERIFY(model.save(next));auto *list=page.findChild<QListWidget *>("protonShortcuts");list->setCurrentRow(0);
+        auto *launch=page.findChild<QPushButton *>("protonLaunch");
+        const auto screenshots=qEnvironmentVariable("XETALPROTON_TEST_SCREENSHOTS");
+        auto capture=[&](const QString &name){if(!screenshots.isEmpty()){QDir().mkpath(screenshots);launch->grab().save(screenshots+"/"+name+".png");}};
+        capture("launch-ready");QTest::mousePress(launch,Qt::LeftButton);capture("launch-pressed");
+        QTest::mouseRelease(launch,Qt::LeftButton);
+        QCOMPARE(launch->text(),QString("Launching…"));QVERIFY(!launch->isEnabled());capture("launch-pending");
+        list->setFocus();QTest::keyClick(list,Qt::Key_Return);
+        page.findChild<QAction *>("protonMenuLaunch")->trigger();
+        QTRY_COMPARE(model.processes.size(),size_t(1));QTRY_COMPARE(launch->text(),QString("Launch sent"));
+        QTest::qWait(300);capture("launch-sent");QCOMPARE(model.processes.size(),size_t(1));
+        // A different app can launch immediately, and returning to the first
+        // app keeps its acknowledgement until the brief repeat-click guard ends.
+        list->setCurrentRow(1);QVERIFY(launch->isEnabled());QCOMPARE(launch->text(),QString("Launch"));
+        launch->setFocus();QTest::keyClick(launch,Qt::Key_Space);QCOMPARE(launch->text(),QString("Launching…"));
+        QTRY_COMPARE(model.processes.size(),size_t(2));list->setCurrentRow(0);
+        QCOMPARE(launch->text(),QString("Launch sent"));QVERIFY(!launch->isEnabled());
+        QTRY_VERIFY_WITH_TIMEOUT(launch->isEnabled(),2200);QCOMPARE(launch->text(),QString("Launch"));
+        QCOMPARE(model.processes.size(),size_t(2));
+        auto broken=model.config.shortcuts.front();broken.proton="/missing/proton";QVERIFY(model.updateShortcut(broken));
+        QTest::mouseClick(launch,Qt::LeftButton);QCOMPARE(launch->text(),QString("Launching…"));
+        QTRY_VERIFY(launch->isEnabled());QCOMPARE(launch->text(),QString("Launch"));QCOMPARE(model.processes.size(),size_t(2));
+        QVERIFY(!model.notice.isEmpty());
+    }
+    void libraryLayoutWorksAtCommonWindowSizes() {
+        tool("Fixture");Page page;show(page);auto &model=*page.controller();QVERIFY(model.createPrefix("Everyday"));auto next=model.config;
+        const QStringList names={"Photo Studio","Work Notes","Music Player","Strategy Arena","Team Chat","Workshop"};
+        const QList<QColor> colors={QColor("#6366db"),QColor("#d4a23b"),QColor("#bf507c"),QColor("#497dc4"),QColor("#32a273"),QColor("#a163d8")};
+        for(int i=0;i<names.size();++i){
+            QImage image(128,128,QImage::Format_ARGB32);image.fill(Qt::transparent);QPainter painter(&image);painter.setRenderHint(QPainter::Antialiasing);
+            painter.setPen(Qt::NoPen);painter.setBrush(colors[i]);painter.drawRoundedRect(QRectF(3,3,122,122),26,26);painter.setPen(Qt::white);painter.setFont(QFont("Noto Sans",40,QFont::Bold));painter.drawText(image.rect(),Qt::AlignCenter,names[i].left(1));painter.end();
+            const auto icon=fixture->path()+"/app-"+QString::number(i)+".png";QVERIFY(image.save(icon));
+            Shortcut app;app.id=new_id();app.name=names[i].toStdString();app.exe=fixture->path().toStdString()+"/app.exe";app.icon_override=icon.toStdString();app.prefix=model.current;app.use_runtime=false;next.shortcuts.push_back(app);
+        }
+        QVERIFY(model.save(next));auto *sections=page.findChild<QTabWidget *>("protonSections");auto *list=page.findChild<QListWidget *>("protonShortcuts");list->setCurrentRow(3);
+        QTest::qWait(80);
+        for(const auto size:{QSize(1150,720),QSize(900,650),QSize(1600,900)}){
+            page.resize(size);QTest::qWait(30);QCOMPARE(page.size(),size);
+            auto *card=page.findChild<QFrame *>("protonAppCard");const auto corner=card->mapTo(&page,card->rect().bottomRight());
+            QVERIFY(corner.x()<page.width());QVERIFY(corner.y()<page.height());QVERIFY(page.findChild<QPushButton *>("protonLaunch")->isVisible());
+            const auto screenshots=qEnvironmentVariable("XETALPROTON_TEST_SCREENSHOTS");
+            if(!screenshots.isEmpty()){QDir().mkpath(screenshots);page.grab().save(screenshots+"/library-"+QString::number(size.width())+".png");}
+        }
+        page.resize(1150,720);sections->setCurrentIndex(4);QTest::qWait(30);
+        const auto screenshots=qEnvironmentVariable("XETALPROTON_TEST_SCREENSHOTS");if(!screenshots.isEmpty())page.grab().save(screenshots+"/settings.png");
+        page.focusSearch();QCOMPARE(sections->currentIndex(),0);QVERIFY(page.findChild<QLineEdit *>("protonLibrarySearch")->hasFocus());
     }
 };
 QTEST_MAIN(ProtonPageTests)

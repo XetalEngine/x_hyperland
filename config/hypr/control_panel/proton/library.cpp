@@ -10,53 +10,86 @@
 namespace XetalProton {
 using namespace Ui;
 void Page::buildLibrary() {
-    auto *page=new QWidget;auto *layout=new QVBoxLayout(page);
-    auto *actions=new QHBoxLayout;
-    button("Add shortcut…","protonAddShortcut",actions,[this]{addShortcut();});
-    button("Run once…","protonRunOnce",actions,[this]{addShortcut(true);});
-    button("Open C:\\","protonDriveC",actions,[this]{openFolder(text(model.current)+"/pfx/drive_c");});
-    button("Initialize / update prefix","protonInit",actions,[this]{model.runTool("wineboot","-u");});
-    button("Task Manager","protonTaskManager",actions,[this]{model.runTaskManager(selectedShortcut);});
-    auto *helpers=new QPushButton("Prefix tools");helpers->setObjectName("protonHelpers");auto *menu=new QMenu(helpers);
-    for(const auto &entry:std::vector<std::pair<QString,std::string>>{{"Wine configuration","winecfg"},{"Registry Editor","regedit"},{"Windows Control Panel","control"},{"Task Manager","taskmgr"},{"Explorer","explorer"},{"Command prompt","cmd"}})
-        connect(menu->addAction(entry.first),&QAction::triggered,this,[this,entry]{model.runTool(entry.second);});
-    menu->addSeparator();connect(menu->addAction("Open prefix folder"),&QAction::triggered,this,[this]{openFolder(text(model.current));});
-    connect(menu->addAction("Stop all programs in this prefix"),&QAction::triggered,this,[this]{if(confirm("Stop prefix","Stop all Windows programs in the selected prefix?"))model.runTool("wineboot","-k");});
-    connect(menu->addAction("Force stop this prefix's wineserver"),&QAction::triggered,this,[this]{if(confirm("Force stop prefix","Unsaved Windows data may be lost. Force stop this prefix?"))model.forceStopPrefix();});
-    helpers->setMenu(menu);actions->addWidget(helpers);actions->addStretch();layout->addLayout(actions);
-    auto *split=new QSplitter;shortcuts=new QListWidget;shortcuts->setObjectName("protonShortcuts");
+    auto *page=new QWidget;page->setObjectName("protonLibrary");auto *layout=new QVBoxLayout(page);layout->setContentsMargins(14,16,14,12);layout->setSpacing(14);
+    page->setStyleSheet(R"(
+        QListWidget#protonShortcuts { background: transparent; border: none; outline: none; padding: 4px; }
+        QListWidget#protonShortcuts::item { padding: 8px; border: 1px solid transparent; border-radius: 12px; }
+        QListWidget#protonShortcuts::item:hover:!selected { background: palette(alternate-base); border-color: palette(mid); }
+        QListWidget#protonShortcuts::item:selected { background: palette(highlight); color: palette(highlighted-text); border-color: palette(highlight); }
+        QFrame#protonAppCard { background: palette(alternate-base); border: 1px solid palette(mid); border-radius: 16px; }
+        QFrame#protonAppCard QLabel { background: transparent; border: none; }
+        QLabel#protonAppName { font-size: 22px; font-weight: 600; }
+        QLabel#protonEmptyTitle { font-size: 20px; font-weight: 600; }
+        QLabel#protonAppEyebrow { font-size: 10px; letter-spacing: 1px; }
+        QPushButton#protonLaunch { background: palette(highlight); color: palette(highlighted-text); border: none; border-radius: 9px; padding: 10px; font-weight: bold; }
+        QPushButton#protonLaunch:disabled { background: palette(button); color: palette(mid); }
+        QPushButton#protonLaunch[launchPending="true"]:disabled { background: palette(highlight); color: palette(highlighted-text); }
+        QLineEdit#protonLibrarySearch { padding: 8px 10px; border-radius: 8px; }
+    )");
+    auto *toolbar=new QHBoxLayout;toolbar->setSpacing(10);
+    librarySearch=new QLineEdit;librarySearch->setObjectName("protonLibrarySearch");librarySearch->setPlaceholderText("Search your apps…");
+    librarySearch->setClearButtonEnabled(true);librarySearch->setAccessibleName("Search your Windows apps");
+    librarySearch->addAction(icon("edit-find",QStyle::SP_FileDialogContentsView),QLineEdit::LeadingPosition);toolbar->addWidget(librarySearch,1);
+    auto *add=button("Add app","protonAddShortcut",toolbar,[this]{addShortcut();});decorate(add,"list-add","Add a Windows app or installer to this environment");
+    auto *tasks=button("Task Manager","protonTaskManager",toolbar,[this]{model.runTaskManager(selectedShortcut);});
+    decorate(tasks,"utilities-system-monitor","Task Manager — view programs in this app's Windows environment",true);layout->addLayout(toolbar);
+    auto *split=new QSplitter;split->setObjectName("protonLibrarySplit");split->setChildrenCollapsible(false);split->setHandleWidth(12);
+    auto *gallery=new QWidget;gallery->setMinimumWidth(220);auto *left=new QVBoxLayout(gallery);left->setContentsMargins(0,0,0,0);left->setSpacing(8);
+    libraryCount=hint("Your applications",left);libraryCount->setObjectName("protonLibraryCount");
+    libraryStack=new QStackedWidget;left->addWidget(libraryStack,1);
+    shortcuts=new QListWidget;shortcuts->setObjectName("protonShortcuts");
     shortcuts->setViewMode(QListView::IconMode);shortcuts->setResizeMode(QListView::Adjust);shortcuts->setMovement(QListView::Static);
-    shortcuts->setWordWrap(true);shortcuts->setSpacing(12);shortcuts->setSelectionMode(QAbstractItemView::SingleSelection);
-    shortcuts->setAcceptDrops(false);shortcuts->viewport()->setAcceptDrops(false);split->addWidget(shortcuts);
-    auto *detail=new QWidget;auto *right=new QVBoxLayout(detail);shortcutInfo=hint("Add an installer or Windows program to this prefix. Double-click a shortcut to launch it.",right);
-    shortcutInfo->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Minimum);
-    auto *launchRow=new QHBoxLayout;
-    button("Launch","protonLaunch",launchRow,[this]{model.launchShortcut(selectedShortcut);});
-    button("Edit…","protonEditShortcut",launchRow,[this]{editShortcut();});
-    button("Duplicate","protonDuplicate",launchRow,[this]{model.duplicateShortcut(selectedShortcut);});right->addLayout(launchRow);
-    auto *more=new QHBoxLayout;
-    button("Export .sh…","protonExport",more,[this]{exportShortcut();});
-    button("Open app folder","protonAppFolder",more,[this]{if(const auto *s=model.shortcut(selectedShortcut))openFolder(text(util::dirname(s->exe)));});
-    button("Remove shortcut","protonRemoveShortcut",more,[this]{if(model.shortcut(selectedShortcut) && confirm("Remove shortcut","Remove this shortcut from the library? The Windows application and its files will remain."))model.removeShortcut(selectedShortcut);});right->addLayout(more);
-    auto *integration=new QHBoxLayout;
-    button("Browser sign-in…","protonBrowserSignIn",integration,[this]{editShortcut(true);});
-    button("Repair link handlers","protonRepairHandlers",integration,[this]{if(model.syncDesktopHandlers())model.report("Browser sign-in handlers refreshed.");});
-    integration->addStretch();right->addLayout(integration);
-    right->addWidget(new QLabel("Launch command"));commandPreview=new QPlainTextEdit;commandPreview->setObjectName("protonCommand");commandPreview->setReadOnly(true);right->addWidget(commandPreview,1);
-    auto *copyRow=new QHBoxLayout;button("Copy command","protonCopyCommand",copyRow,[this]{QApplication::clipboard()->setText(commandPreview->toPlainText());});copyRow->addStretch();right->addLayout(copyRow);
-    split->addWidget(detail);split->setStretchFactor(0,1);split->setStretchFactor(1,1);layout->addWidget(split,1);
+    shortcuts->setWordWrap(true);shortcuts->setTextElideMode(Qt::ElideRight);shortcuts->setSpacing(8);shortcuts->setSelectionMode(QAbstractItemView::SingleSelection);
+    shortcuts->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);shortcuts->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    shortcuts->setAcceptDrops(false);shortcuts->viewport()->setAcceptDrops(false);libraryStack->addWidget(shortcuts);
+    auto *empty=new QWidget;auto *emptyLayout=new QVBoxLayout(empty);emptyLayout->addStretch();
+    auto *emptyIcon=new QLabel;emptyIcon->setPixmap(icon("application-x-executable",QStyle::SP_ComputerIcon).pixmap(64,64));emptyIcon->setAlignment(Qt::AlignCenter);emptyLayout->addWidget(emptyIcon);
+    emptyTitle=new QLabel;emptyTitle->setObjectName("protonEmptyTitle");emptyTitle->setAlignment(Qt::AlignCenter);emptyTitle->setWordWrap(true);
+    auto heading=emptyTitle->font();heading.setPointSize(17);heading.setBold(true);emptyTitle->setFont(heading);emptyLayout->addWidget(emptyTitle);
+    emptyDescription=hint({},emptyLayout);emptyDescription->setAlignment(Qt::AlignCenter);
+    auto *emptyRow=new QHBoxLayout;emptyRow->addStretch();emptyAction=button("Add app","protonEmptyAction",emptyRow,[this]{
+        if(!librarySearch->text().isEmpty())librarySearch->clear();else if(model.current.empty())tabs->setCurrentIndex(4);else addShortcut();
+    });emptyRow->addStretch();emptyLayout->addLayout(emptyRow);emptyLayout->addStretch();libraryStack->addWidget(empty);
+    split->addWidget(gallery);
+    auto *sidebar=new QWidget;sidebar->setMinimumWidth(260);sidebar->setMaximumWidth(340);auto *sideLayout=new QVBoxLayout(sidebar);sideLayout->setContentsMargins(0,0,0,0);
+    auto *card=new QFrame;card->setObjectName("protonAppCard");auto *right=new QVBoxLayout(card);right->setContentsMargins(22,24,22,22);right->setSpacing(14);
+    auto *eyebrow=hint("SELECTED APP",right);eyebrow->setObjectName("protonAppEyebrow");eyebrow->setAlignment(Qt::AlignCenter);
+    shortcutArtwork=new QLabel;shortcutArtwork->setObjectName("protonAppArtwork");shortcutArtwork->setAlignment(Qt::AlignCenter);shortcutArtwork->setMinimumHeight(104);right->addWidget(shortcutArtwork);
+    shortcutTitle=new QLabel;shortcutTitle->setObjectName("protonAppName");shortcutTitle->setTextFormat(Qt::PlainText);shortcutTitle->setAlignment(Qt::AlignCenter);shortcutTitle->setWordWrap(true);
+    auto appFont=shortcutTitle->font();appFont.setPointSize(20);appFont.setBold(true);shortcutTitle->setFont(appFont);right->addWidget(shortcutTitle);
+    shortcutInfo=hint({},right);shortcutInfo->setAlignment(Qt::AlignCenter);shortcutInfo->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Minimum);
+    right->addSpacing(6);
+    auto *launch=button("Launch","protonLaunch",right,[this]{launchApp(selectedShortcut);});decorate(launch,"media-playback-start");launch->setMinimumHeight(46);
+    auto *edit=button("App settings","protonEditShortcut",right,[this]{editShortcut();});decorate(edit,"preferences-system","App settings — launch options, compatibility and browser sign-in");
+    auto *moreRow=new QHBoxLayout;
+    auto *folder=button("App folder","protonAppFolder",moreRow,[this]{if(const auto *s=model.shortcut(selectedShortcut))openFolder(text(util::dirname(s->exe)));});decorate(folder,"folder-open","Open this app's folder",true);
+    auto *more=button("More","protonAppMore",moreRow,[]{});decorate(more,"view-more-symbolic","More actions for this app");moreRow->setStretch(1,1);right->addLayout(moreRow);
+    sideLayout->addWidget(card);sideLayout->addStretch();split->addWidget(sidebar);split->setStretchFactor(0,1);split->setStretchFactor(1,0);split->setSizes({820,300});layout->addWidget(split,1);
+    appMenu=new QMenu(this);appMenu->setObjectName("protonAppMenu");more->setMenu(appMenu);
+    auto action=[this](const QString &title,const QString &name,const QString &iconName,std::function<void()> callback){
+        auto *result=appMenu->addAction(icon(iconName),title);result->setObjectName(name);connect(result,&QAction::triggered,this,std::move(callback));return result;
+    };
+    action("Launch","protonMenuLaunch","media-playback-start",[this]{launchApp(selectedShortcut);});
+    action("App settings…","protonMenuEdit","preferences-system",[this]{editShortcut();});
+    action("Browser sign-in…","protonBrowserSignIn","internet-web-browser",[this]{editShortcut(true);});
+    action("Task Manager in this environment","protonMenuTaskManager","utilities-system-monitor",[this]{model.runTaskManager(selectedShortcut);});
+    appMenu->addSeparator();
+    action("Export launcher…","protonExport","document-save-as",[this]{exportShortcut();});
+    action("Duplicate","protonDuplicate","edit-copy",[this]{model.duplicateShortcut(selectedShortcut);});
+    action("Launch command…","protonShowCommand","utilities-terminal",[this]{showCommand();});
+    action("Repair browser sign-in","protonRepairHandlers","view-refresh",[this]{if(model.syncDesktopHandlers())model.report("Browser sign-in handlers refreshed.");});
+    appMenu->addSeparator();
+    action("Remove from library…","protonRemoveShortcut","edit-delete",[this]{if(model.shortcut(selectedShortcut) && confirm("Remove shortcut","Remove this shortcut from the library? The Windows application and its files will remain."))model.removeShortcut(selectedShortcut);});
+    connect(librarySearch,&QLineEdit::textChanged,this,&Page::filterLibrary);
     connect(shortcuts,&QListWidget::itemSelectionChanged,this,&Page::selectShortcut);
-    connect(shortcuts,&QListWidget::itemDoubleClicked,this,[this]{model.launchShortcut(selectedShortcut);});
+    connect(shortcuts,&QListWidget::itemDoubleClicked,this,[this](QListWidgetItem *item){launchApp(item->data(Qt::UserRole).toString().toStdString());});
     shortcuts->setContextMenuPolicy(Qt::CustomContextMenu);connect(shortcuts,&QWidget::customContextMenuRequested,this,[this](QPoint point){
-        auto *item=shortcuts->itemAt(point);if(!item)return;shortcuts->setCurrentItem(item);
-        QMenu menu;auto *run=menu.addAction("Launch"),*edit=menu.addAction("Edit…"),*login=menu.addAction("Browser sign-in…"),*taskManager=menu.addAction("Task Manager in this prefix");menu.addSeparator();
-        auto *duplicate=menu.addAction("Duplicate"),*folder=menu.addAction("Open app folder"),*exporter=menu.addAction("Export .sh…"),*remove=menu.addAction("Remove shortcut");
-        const auto *action=menu.exec(shortcuts->viewport()->mapToGlobal(point));
-        if(action==run)model.launchShortcut(selectedShortcut);else if(action==edit)editShortcut();else if(action==duplicate)model.duplicateShortcut(selectedShortcut);
-        else if(action==login)editShortcut(true);else if(action==taskManager)model.runTaskManager(selectedShortcut);
-        else if(action==folder){if(const auto *s=model.shortcut(selectedShortcut))openFolder(text(util::dirname(s->exe)));}
-        else if(action==exporter)exportShortcut();else if(action==remove && confirm("Remove shortcut","Remove this shortcut while keeping the Windows application?"))model.removeShortcut(selectedShortcut);
+        auto *item=shortcuts->itemAt(point);if(!item)return;shortcuts->setCurrentItem(item);appMenu->exec(shortcuts->viewport()->mapToGlobal(point));
     });
+    for(const auto key:{Qt::Key_Return,Qt::Key_Enter}){
+        auto *launchKey=new QShortcut(QKeySequence(key),shortcuts);launchKey->setContext(Qt::WidgetShortcut);
+        connect(launchKey,&QShortcut::activated,this,[this]{launchApp(selectedShortcut);});
+    }
     tabs->addTab(page,"Library");
 }
 QIcon Page::shortcutIcon(const Shortcut &s) {
@@ -72,6 +105,7 @@ QIcon Page::shortcutIcon(const Shortcut &s) {
             auto *item=shortcuts->item(i);const auto *shortcut=model.shortcut(item->data(Qt::UserRole).toString().toStdString());
             if(shortcut)item->setIcon(shortcutIcon(*shortcut));
         }
+        if(const auto *selected=model.shortcut(selectedShortcut))shortcutArtwork->setPixmap(shortcutIcon(*selected).pixmap(96,96));
     });
     watcher->setFuture(QtConcurrent::run([path]{
         IconImage result;
@@ -82,22 +116,71 @@ QIcon Page::shortcutIcon(const Shortcut &s) {
 }
 void Page::refreshLibrary() {
     const QSignalBlocker block(shortcuts);shortcuts->clear();
-    const int size=std::clamp(model.config.icon_size,32,128);shortcuts->setIconSize({size,size});shortcuts->setGridSize({size+70,size+65});
+    const int size=std::clamp(model.config.icon_size,32,128);shortcuts->setIconSize({size,size});shortcuts->setGridSize({size+92,size+86});
     for(const auto &s:model.config.shortcuts)if(s.prefix==model.current){
-        auto *item=new QListWidgetItem(shortcutIcon(s),text(s.name),shortcuts);item->setData(Qt::UserRole,text(s.id));item->setToolTip(text(s.exe));
+        auto *item=new QListWidgetItem(shortcutIcon(s),text(s.name),shortcuts);item->setData(Qt::UserRole,text(s.id));item->setToolTip(text(s.name)+"\n"+text(s.exe));
         if(s.id==selectedShortcut)shortcuts->setCurrentItem(item);
     }
-    if(!shortcuts->currentItem() && shortcuts->count())shortcuts->setCurrentRow(0);
+    filterLibrary();
+}
+void Page::filterLibrary() {
+    const QSignalBlocker block(shortcuts);const auto query=librarySearch->text().trimmed();QListWidgetItem *first=nullptr;int visible=0;
+    for(int i=0;i<shortcuts->count();++i){
+        auto *item=shortcuts->item(i);const bool matches=item->text().contains(query,Qt::CaseInsensitive);item->setHidden(!matches);
+        if(matches){++visible;if(!first)first=item;}
+    }
+    if(!shortcuts->currentItem() || shortcuts->currentItem()->isHidden())shortcuts->setCurrentItem(first);
+    libraryCount->setText(query.isEmpty()?QString::number(visible)+(visible==1?" application":" applications"):
+                          QString::number(visible)+" of "+QString::number(shortcuts->count())+" applications");
+    libraryStack->setCurrentIndex(visible?0:1);
+    const bool searching=!query.isEmpty();
+    emptyTitle->setText(searching?"No matching apps":model.current.empty()?"Make room for your Windows apps":"Add your first app");
+    emptyDescription->setText(searching?"Try another name or clear your search.":model.current.empty()?
+        "Create an environment in Settings, then add your apps here.":"Add a Windows app or installer, or drop its file into this window.");
+    emptyAction->setText(searching?"Clear search":model.current.empty()?"Set up an environment":"Add app");
     selectShortcut();
 }
 void Page::selectShortcut() {
     selectedShortcut=shortcuts->currentItem()?shortcuts->currentItem()->data(Qt::UserRole).toString().toStdString():"";
     const auto *s=model.shortcut(selectedShortcut);
-    if(!s){shortcutInfo->setText(model.current.empty()?"Create or import a prefix, then add your Windows programs.":"Add a Windows program or installer to this prefix.");commandPreview->clear();}
-    else {shortcutInfo->setText(text(s->name)+"\n"+text(s->exe)+(s->desktop.enabled?"\nBrowser sign-in: "+Desktop::schemes(s->desktop.schemes).join(", "):QString()));commandPreview->setPlainText(text(spec_to_shell(Desktop::managedLaunch(model.command(*s),*s))));}
-    for(const auto *name:{"protonLaunch","protonEditShortcut","protonDuplicate","protonExport","protonAppFolder","protonRemoveShortcut","protonCopyCommand","protonBrowserSignIn"})findChild<QPushButton *>(name)->setEnabled(s!=nullptr);
-    findChild<QPushButton *>("protonRepairHandlers")->setEnabled((s && s->desktop.enabled) || QFileInfo::exists(Desktop::storage()+"/registry.json"));
+    shortcutTitle->setText(s?text(s->name):"Choose an app");
+    shortcutArtwork->setPixmap((s?shortcutIcon(*s):icon("application-x-executable",QStyle::SP_ComputerIcon)).pixmap(96,96));
+    shortcutInfo->setText(s?(prefixChoice->currentText()+(s->desktop.enabled?"\nBrowser sign-in enabled":"")):"Select an app from your library to launch it or change its settings.");
+    shortcutTitle->setToolTip(s?text(s->exe):QString());
+    for(const auto *name:{"protonLaunch","protonEditShortcut","protonAppFolder","protonAppMore"})findChild<QPushButton *>(name)->setEnabled(s!=nullptr);
+    for(auto *action:appMenu->actions())if(!action->isSeparator())action->setEnabled(s!=nullptr);
+    const auto feedback=launchFeedback.find(selectedShortcut);const bool pending=feedback!=launchFeedback.end();
+    auto *launch=findChild<QPushButton *>("protonLaunch");
+    launch->setEnabled(s && !pending);findChild<QAction *>("protonMenuLaunch")->setEnabled(s && !pending);
+    launch->setText(pending?(feedback->second?"Launch sent":"Launching…"):"Launch");
+    launch->setAccessibleName(launch->text());
+    launch->setIcon(icon(pending?(feedback->second?"dialog-ok-apply":"view-refresh"):"media-playback-start"));
+    if(launch->property("launchPending").toBool()!=pending){
+        launch->setProperty("launchPending",pending);launch->style()->unpolish(launch);launch->style()->polish(launch);launch->update();
+    }
+    findChild<QAction *>("protonRepairHandlers")->setEnabled((s && s->desktop.enabled) || QFileInfo::exists(Desktop::storage()+"/registry.json"));
     findChild<QPushButton *>("protonTaskManager")->setEnabled(!model.current.empty());
+    findChild<QPushButton *>("protonAddShortcut")->setEnabled(!model.current.empty());
+}
+void Page::launchApp(std::string id) {
+    if(!model.shortcut(id) || launchFeedback.count(id))return;
+    launchFeedback[id]=false;selectShortcut();
+    // Give the compositor a frame to show the acknowledgement before launch
+    // setup (including browser-handler registration) can briefly block.
+    QTimer::singleShot(40,this,[this,id]{
+        if(model.launchShortcut(id)<=0){launchFeedback.erase(id);selectShortcut();return;}
+        launchFeedback[id]=true;selectShortcut();
+        // This acknowledges the request, not whether the Windows app is ready.
+        QTimer::singleShot(1400,this,[this,id]{launchFeedback.erase(id);selectShortcut();});
+    });
+}
+void Page::showCommand() {
+    const auto *s=model.shortcut(selectedShortcut);if(!s)return;
+    QDialog dialog(this);dialog.setObjectName("protonCommandDialog");dialog.setWindowTitle("Launch command · "+text(s->name));dialog.resize(780,560);
+    auto *layout=new QVBoxLayout(&dialog);hint("The command used to launch this app, including its environment and saved options.",layout);
+    auto *command=new QPlainTextEdit(text(spec_to_shell(Desktop::managedLaunch(model.command(*s),*s))));command->setObjectName("protonCommand");command->setReadOnly(true);layout->addWidget(command,1);
+    auto *row=new QHBoxLayout;auto *copy=button("Copy command","protonCopyCommand",row,[command]{QApplication::clipboard()->setText(command->toPlainText());});decorate(copy,"edit-copy");row->addStretch();
+    button("Close","protonCloseCommand",row,[&dialog]{dialog.accept();});layout->addLayout(row);dialog.exec();
 }
 void Page::addShortcut(bool once) {
     if(model.current.empty()){model.report("Create or select a prefix first.");return;}

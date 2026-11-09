@@ -259,6 +259,10 @@ PanelController::PanelController(MainWindow *window)
       owner->findChild<DefaultApps *>()->focusSearch();
       return;
     }
+    if (current == "proton") {
+      owner->findChild<XetalProton::Page *>()->focusSearch();
+      return;
+    }
     open("");
     search->setFocus();
   });

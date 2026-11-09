@@ -14,14 +14,32 @@ usable; close its editor before changing shared settings in Control Panel.
 1. Under **Downloads → Available**, select a provider and **Load releases**.
    Select a compatible build and **Download & install**. UMU is prepared
    automatically. Steam is optional.
-2. Click **New** to create a prefix and select its Proton version. A prefix has
-   its own Windows files, registry and installed dependencies. Create separate
-   prefixes for independent applications, or share one for a launcher and game.
-3. **Add shortcut** selects an installer or Windows program. The default is to
+2. Under **Settings → Windows environment**, click **New** and select a Proton
+   version. An environment (a Wine prefix) has its own Windows files, registry
+   and installed dependencies. Create separate environments for independent
+   applications, or share one for a launcher and game.
+3. Return to **Library**. **Add app** selects an installer or Windows program. The default is to
    launch it immediately; disable that in Settings if desired. Installers write
    into the selected prefix's `pfx/drive_c`.
 4. Add the installed application's executable to the library. Double-click to
-   launch it, or **Edit** its runner, arguments and compatibility options.
+   launch it, or open **App settings** for its runner, arguments and compatibility options.
+
+The Library keeps everyday actions beside a large app gallery. Use its search
+field or **Ctrl+F** to find an app; select it and press **Enter**, double-click
+its icon, or click **Launch**. The **Environment** selector switches libraries.
+Hover over icon buttons for their labels, including **Task Manager** beside
+**Add app** and **App folder** in the selected app's card.
+
+Buttons briefly compress and fade back when pressed. **Launch** immediately
+shows **Launching…**, then **Launch sent** when the launcher accepts the request.
+This confirms the click; the Windows app may still take time to open. Rapid
+repeat requests for that app are ignored during the brief acknowledgement.
+
+**More** (also available by right-clicking an app) contains browser sign-in,
+launcher export, duplicate, launch command and removal. **Settings** groups
+environment management, Proton version selection, Windows tools, library
+preferences and storage. Downloads, dependencies and process logs keep their
+own tabs.
 
 The first UMU launch can download its runtime. **Processes & logs** shows its
 progress and errors. Windows applications and downloads keep running when the
@@ -34,10 +52,10 @@ Recoverable downloads can be resumed by selecting the same release again.
 | Area | Controls |
 | --- | --- |
 | Prefixes | Create, import, rename, choose storage root, measure disk usage, open C: or prefix folder, remove from list, optionally delete managed prefix files |
-| Library | Add, drag and drop, launch, run once, edit, duplicate, remove, executable icons and icon override, icon size, optional launch after adding |
-| Prefix tools | Initialize/update, winecfg, regedit, Windows Control Panel, a direct Task Manager button and per-app context action, Explorer, cmd, graceful stop and force-stop wineserver |
+| Library | Search, add, drag and drop, launch, app settings, duplicate, remove, executable icons and icon override, icon size, optional launch after adding |
+| Windows tools | Under Settings: run a file once, initialize/repair, winecfg, regedit, Windows Control Panel, Explorer, cmd, graceful stop and force-stop wineserver; Task Manager also has a Library icon button and per-app context action |
 | Launch settings | Per-prefix Proton and per-shortcut override, three verbs, optional UMU runtime, all original graphics/CPU/input/logging options, GameMode/gamescope/custom wrappers, custom environment |
-| Commands | Read-only preview, clipboard copy, executable `.sh` export |
+| Commands | Under More: launch command dialog with read-only preview and clipboard copy, executable `.sh` export |
 | Browser sign-in | Per-app custom URL schemes, URL argument template, optional normal arguments, Hyprland default handlers, output privacy, handler repair and exports |
 | Downloads | All 13 original providers, search, variants, prereleases, CPU compatibility, older release pages, upstream notes, progress, cancel, retry/resume, checksum verification and staged archive extraction |
 | Installed tools | Open files, choose default for a prefix, remove unused app-managed tools; selected tools and running prefixes prevent removal |
@@ -53,7 +71,7 @@ Prefixes separate application environments; they are not a security sandbox.
 ## Browser sign-in and app links
 
 Select an **installed application's executable** in Library and choose
-**Browser sign-in…**, or right-click its shortcut. Enable **Receive browser
+**More → Browser sign-in…**, or right-click its shortcut. Enable **Receive browser
 sign-in links**, then enter the scheme used by the application. For example,
 `grasshopper://auth/callback` uses the scheme `grasshopper`. Multiple schemes
 can be separated by commas or spaces. Standard web/file schemes are reserved.
@@ -73,7 +91,8 @@ prefix and command recorded at the app's last launch, even if the shortcut was
 subsequently edited. The app still validates its authentication state; a success
 tab from an older login attempt cannot authenticate a newer attempt.
 
-**Repair link handlers** restores saved associations. Disabling the feature or
+**Settings → Windows tools → Repair browser links** restores saved associations.
+The app's **More** menu also offers **Repair browser sign-in**. Disabling the feature or
 removing the shortcut removes its handlers, restoring earlier defaults only
 while this panel still owns them. Duplicated shortcuts start with handlers
 disabled. Only one shortcut can claim a scheme as its default.
@@ -85,7 +104,7 @@ and KDE preferences are not changed. Private manifests and launch snapshots
 live in XetalProton's `desktop-handlers` directory. No background service is
 installed, and link handling works while Control Panel is closed.
 
-For shortcuts with browser sign-in enabled, **Export .sh** uses the installed
+For shortcuts with browser sign-in enabled, **More → Export launcher** uses the installed
 handler helper and saved manifest, repairs associations at launch and accepts
 additional app arguments. Keep the shortcut and Hyper Fusion profile installed.
 Other shortcuts continue to export standalone Proton commands.
@@ -128,7 +147,9 @@ ctest --test-dir config/hypr/control_panel/.build/proton --output-on-failure
 The offline backend checks cover archives, checksums, download recovery,
 cancellation, update matching, removal, prefix locks and command construction.
 Qt tests exercise prefix separation with real child processes, the native
-shortcut editor, dependencies, configuration preservation and export.
+shortcut editor, dependencies, configuration preservation and export. They also
+check filtered keyboard launches, empty-library guidance, command copying and
+the Library layout at compact and wide window sizes.
 Handler tests cover real callback argv forwarding, launch snapshots, default
 restoration, external edits, rejected schemes, prefix locks and write rollback.
 The HTTPS recovery test binds a temporary local socket.
