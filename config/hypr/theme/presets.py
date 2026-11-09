@@ -122,7 +122,9 @@ def builtin(design, mode=None, root=None):
     value.setdefault('cursors',copy.deepcopy(cursors.DEFAULTS))
     effect=mouse_effects.STYLES[mouse_effects.THEMES.get(design,'plasma')]
     value['cursors'].update(trail='follow',color=effect[2])
-    if design == 'infernalencore':
+    if design == 'polaris':
+        value['cursors'].update(style='polaris',trail='glow',color='#32e1f2')
+    elif design == 'infernalencore':
         value['cursors'].update(style='infernalencore',trail='glow',color='#ff472c')
     elif design == 'midnightrun':
         value['cursors'].update(style='midnightrun',trail='glow',color='#42e5f5')

@@ -8,11 +8,16 @@
 #include <KIO/FileUndoManager>
 #include <KIO/Job>
 #include <KIO/PreviewJob>
+#include <KIO/SimpleJob>
 #include <KPluginMetaData>
+#include <KProtocolInfo>
 #include <KJobWidgets>
 #include <KUrlComboBox>
 #include <QBackingStore>
 #include <QLocalSocket>
+#include <QtConcurrent>
+#include <cerrno>
+#include <unistd.h>
 #include <functional>
 #include <memory>
 
@@ -272,12 +277,96 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
   row->addWidget(filter);
   layout->addWidget(address);
   notice = new QLabel;
+  notice->setTextFormat(Qt::PlainText);
   notice->setWordWrap(true);
   notice->setContentsMargins(14, 8, 14, 8);
   notice->hide();
   layout->addWidget(notice);
+  administratorBar = new QFrame;
+  administratorBar->setObjectName("administratorAccess");
+  auto *adminRow = new QHBoxLayout(administratorBar);
+  adminRow->setContentsMargins(14, 8, 14, 8);
+  auto *adminLabel = new QLabel("Administrator access · File operations in this tab can use administrator permissions.");
+  adminLabel->setWordWrap(true);
+  adminRow->addWidget(adminLabel, 1);
+  auto *normalAccess = new QPushButton("Use normal access");
+  normalAccess->setObjectName("normalFolderAccess");
+  normalAccess->setToolTip("Return this tab to ordinary file access. The system may briefly remember authentication.");
+  adminRow->addWidget(normalAccess);
+  connect(normalAccess, &QPushButton::clicked, this, [this] {
+    navigate(Fusion::ordinaryFileUrl(location()));
+  });
+  administratorBar->hide();
+  layout->addWidget(administratorBar);
   stack = new QStackedWidget;
   layout->addWidget(stack, 1);
+  folderMessage = new QWidget;
+  folderMessage->setObjectName("folderMessage");
+  auto *messageLayout = new QVBoxLayout(folderMessage);
+  messageLayout->setContentsMargins(24, 24, 24, 24);
+  messageLayout->addStretch();
+  auto *card = new QFrame;
+  card->setObjectName("folderMessageCard");
+  card->setMaximumWidth(560);
+  auto *cardLayout = new QVBoxLayout(card);
+  cardLayout->setContentsMargins(28, 26, 28, 26);
+  cardLayout->setSpacing(14);
+  folderSymbol = new QLabel;
+  cardLayout->addWidget(folderSymbol);
+  folderHeading = new QLabel;
+  folderHeading->setObjectName("folderMessageHeading");
+  folderHeading->setWordWrap(true);
+  cardLayout->addWidget(folderHeading);
+  folderExplanation = new QLabel;
+  folderExplanation->setObjectName("folderMessageExplanation");
+  folderExplanation->setTextFormat(Qt::PlainText);
+  folderExplanation->setWordWrap(true);
+  cardLayout->addWidget(folderExplanation);
+  auto *messageActions = new QHBoxLayout;
+  folderAction = new QPushButton;
+  folderAction->setObjectName("folderMessageAction");
+  messageActions->addWidget(folderAction);
+  auto *back = new QPushButton("Go back");
+  back->setObjectName("folderMessageBack");
+  messageActions->addWidget(back);
+  messageActions->addStretch();
+  cardLayout->addLayout(messageActions);
+  // Give the card its available width before measuring wrapped labels. A
+  // horizontally aligned widget can otherwise keep a height calculated for a
+  // wider size and clip the final lines of its explanation.
+  auto *cardRow = new QHBoxLayout;
+  cardRow->addStretch();
+  cardRow->addWidget(card, 100);
+  cardRow->addStretch();
+  messageLayout->addLayout(cardRow);
+  messageLayout->addStretch(2);
+  stack->addWidget(folderMessage);
+  connect(back, &QPushButton::clicked, navigator, &PathBar::goBack);
+  connect(navigator, &PathBar::historyChanged, this, [this, back] {
+    back->setEnabled(navigator->historyIndex() > 0);
+  });
+  connect(folderAction, &QPushButton::clicked, this, [this] {
+    switch (currentFolderAction) {
+    case FolderAction::ShowHidden:
+      setHidden(true);
+      emit hiddenFilesRequested();
+      break;
+    case FolderAction::Unlock: {
+      if (!location().isLocalFile() || !location().host().isEmpty()) return;
+      if (!KProtocolInfo::isKnownProtocol("admin")) {
+        listingError = "Administrator access requires the kio-admin package. Install it using Control Panel → Packages, then try again.";
+        updateFolderMessage();
+        return;
+      }
+      auto url = location();
+      url.setScheme("admin");
+      navigate(url);
+      break;
+    }
+    case FolderAction::Retry: refresh(); break;
+    case FolderAction::None: break;
+    }
+  });
   computer = new QWidget;
   computer->setObjectName("computerPage");
   auto *homeLayout = new QVBoxLayout(computer);
@@ -353,6 +442,7 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
   model = new KDirModel(this);
   model->setDropsAllowed(KDirModel::DropOnDirectory);
   model->dirLister()->setAutoErrorHandlingEnabled(false);
+  model->dirLister()->setMainWindow(window());
   proxy = new FilesFilter(this);
   proxy->setSourceModel(model);
   proxy->setSortFoldersFirst(true);
@@ -471,18 +561,21 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
     emit openRequested(KFileItem(url, QString(), S_IFDIR), true);
   });
   connect(model->dirLister(), &KDirLister::started, this,
-          [this] { emit statusChanged("Loading…"); });
+          [this] {
+            listingBusy = true;
+            ++accessGeneration;
+            listingFailed = privateFolder = false;
+            listingError.clear();
+            updateFolderMessage();
+            emit statusChanged("Loading…");
+          });
   connect(model->dirLister(), &KDirLister::completed, this, [this] {
+    listingBusy = false;
     updateStatus();
     if (pendingSelection.isValid())
       selectUrl(pendingSelection);
   });
-  connect(model->dirLister(), &KDirLister::jobError, this,
-          [this](KIO::Job *job) {
-            notice->setText(job->errorString());
-            notice->show();
-            updateStatus();
-          });
+  connect(model->dirLister(), &KDirLister::jobError, this, &Browser::handleListingError);
   connect(model->dirLister(), &KDirLister::redirection, this,
           [this](const QUrl &, const QUrl &to) {
             if (to != location()) {
@@ -523,6 +616,11 @@ void Browser::load(const QUrl &url) {
   closeSearch();
   pendingSelection.clear();
   notice->hide();
+  listingBusy = !Fusion::isComputer(url);
+  ++accessGeneration;
+  listingFailed = privateFolder = false;
+  listingError.clear();
+  administratorBar->setVisible(url.scheme() == "admin");
   filter->clear();
   icons->clearSelection();
   setThumbnails(preferences->settings.value("thumbnails", true).toBool());
@@ -549,7 +647,11 @@ void Browser::refresh() {
     drives->refresh();
   else {
     notice->hide();
-    model->dirLister()->updateDirectory(location());
+    if (listingFailed) {
+      // Failed listings are not necessarily cached by KDirLister. Reload must
+      // create a fresh job, including after a cancelled authentication prompt.
+      model->openUrl(location(), KDirModel::Reload);
+    } else model->dirLister()->updateDirectory(location());
   }
 }
 void Browser::refreshIcons() {
@@ -575,14 +677,13 @@ void Browser::setView(int mode) {
   icons->setWrapping(true);
   icons->setWordWrap(!compact);
   icons->setGridSize(compact ? QSize(220, 32) : QSize(size + 68, size + 52));
-  if (!Fusion::isComputer(location()))
-    stack->setCurrentWidget(mode == 4 ? static_cast<QWidget *>(details)
-                                      : icons);
+  updateFolderMessage();
   previews->updateIcons();
 }
 void Browser::setHidden(bool value) {
   model->dirLister()->setShowHiddenFiles(value);
   model->dirLister()->emitChanges();
+  updateStatus();
 }
 void Browser::setThumbnails(bool enabled) {
   previews->setPreviewShown(enabled && location().isLocalFile());
@@ -977,6 +1078,15 @@ void Browser::updateStatus() {
                            .arg(drives->volumes.size() - mounted));
     return;
   }
+  updateFolderMessage();
+  if (listingFailed) {
+    emit statusChanged(privateFolder ? "This folder is private" : "Folder could not be opened");
+    return;
+  }
+  if (currentFolderAction == FolderAction::ShowHidden) {
+    emit statusChanged("Only hidden items · Show hidden files to see them");
+    return;
+  }
   const auto items = selectedItems();
   quint64 size = 0;
   for (const auto &item : items)
@@ -987,6 +1097,71 @@ void Browser::updateStatus() {
                          : QString("%1 selected · %2")
                                .arg(items.size())
                                .arg(QLocale().formattedDataSize(size)));
+}
+void Browser::handleListingError(KIO::Job *job) {
+  if (Fusion::isComputer(location())) return;
+  if (auto *simple = qobject_cast<KIO::SimpleJob *>(job))
+    if (!simple->url().matches(location(), QUrl::StripTrailingSlash)) return;
+  listingBusy = false;
+  listingFailed = true;
+  const auto generation = ++accessGeneration;
+  privateFolder = location().isLocalFile() && location().host().isEmpty() &&
+      job->error() == KIO::ERR_ACCESS_DENIED;
+  // KIO errorString may contain HTML. Render it as plain text inside our card.
+  QTextDocument description;
+  description.setHtml(job->errorString());
+  listingError = description.toPlainText();
+  if (job->error() == KIO::ERR_USER_CANCELED)
+    listingError = "Authentication was cancelled. No access was granted. You can try again or go back.";
+  updateStatus();
+  if (location().isLocalFile() && location().host().isEmpty() && job->error() == KIO::ERR_CANNOT_ENTER_DIRECTORY) {
+    // This KIO error also includes disk/I/O failures. Check actual access off
+    // the GUI thread before calling the folder private or offering elevation.
+    const auto path = QFile::encodeName(location().toLocalFile());
+    auto *probe = new QFutureWatcher<bool>(this);
+    connect(probe, &QFutureWatcher<bool>::finished, this, [this, probe, generation] {
+      if (listingFailed && generation == accessGeneration) {
+        privateFolder = probe->result();
+        updateStatus();
+      }
+      probe->deleteLater();
+    });
+    probe->setFuture(QtConcurrent::run([path] {
+      return ::access(path.constData(), R_OK | X_OK) != 0 && (errno == EACCES || errno == EPERM);
+    }));
+  }
+}
+void Browser::updateFolderMessage() {
+  if (Fusion::isComputer(location())) return;
+  currentFolderAction = FolderAction::None;
+  if (listingFailed) {
+    if (privateFolder) {
+      folderHeading->setText("This folder is private");
+      folderExplanation->setText("Unlock it with an administrator account on this running system. "
+          "The desktop will ask for your credentials. The mounted system’s login password is not used.\n\n" + listingError);
+      folderSymbol->setPixmap(Fusion::icon("folder-locked", "dialog-password").pixmap(48, 48));
+      folderAction->setText("Unlock folder…");
+      currentFolderAction = FolderAction::Unlock;
+    } else {
+      folderHeading->setText("Could not open this folder");
+      folderExplanation->setText(listingError);
+      folderSymbol->setPixmap(Fusion::icon("dialog-warning").pixmap(48, 48));
+      folderAction->setText("Try again");
+      currentFolderAction = FolderAction::Retry;
+    }
+  } else if (!listingBusy && proxy->rowCount() == 0 && filter->text().isEmpty() &&
+             !model->dirLister()->showHiddenFiles()) {
+    const auto all = model->dirLister()->items(KDirLister::AllItems);
+    if (!all.isEmpty() && std::all_of(all.cbegin(), all.cend(), [](const KFileItem &item) { return item.isHidden(); })) {
+      folderHeading->setText("This folder contains hidden files");
+      folderExplanation->setText(QString("%1 hidden item(s) are available here. Linux settings and app data often have names beginning with a dot.\n\nShow hidden files to see them · Ctrl+H").arg(all.size()));
+      folderSymbol->setPixmap(Fusion::icon("folder-hidden", "folder").pixmap(48, 48));
+      folderAction->setText("Show hidden files");
+      currentFolderAction = FolderAction::ShowHidden;
+    }
+  }
+  stack->setCurrentWidget(currentFolderAction == FolderAction::None
+      ? static_cast<QWidget *>(view()) : folderMessage);
 }
 void Browser::columnMenu(const QPoint &position) {
   QMenu menu(this);

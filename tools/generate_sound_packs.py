@@ -22,6 +22,7 @@ from sounds.model import PACKS, EVENTS
 RATE = 48000
 # tonic, voice, unique opening melody (semitones), beat spacing
 SCORES = {
+    'polaris': (67, 'polar', [0, 7, 14, 12, 19, 16], .38),
     'infernalencore': (52, 'encore', [0, 0, 7, 10, 7, 3], .29),
     'midnightrun': (63, 'neon', [0, 7, 12, 10, 14, 7], .27),
     'platform95': (65, 'station95', [0, 4, 7, 12, 9, 4], .31),
@@ -67,6 +68,13 @@ def voice(midi, duration, kind, seed=0):
         out = np.tanh(out*1.2)/1.2
         out += .08*np.sin(phase*.5)*np.exp(-3*t)
         attack = .024
+    elif kind == 'polar':
+        # Soft glass resonance with a delayed warm fundamental, no samples.
+        out = np.sin(phase)*np.exp(-2.8*t)
+        out += .15*np.sin(phase*2.002)*np.exp(-4.8*t)
+        out += .06*np.sin(phase*4.004)*np.exp(-8*t)
+        out += .13*np.sin(phase*.5)*np.exp(-2.3*t)*(1-np.exp(-12*t))
+        attack = .045
     elif kind == 'string':
         out = sum(np.sin(phase*h + .025*np.sin(t*13)) * np.exp(-(2.5+h*.7)*t) / h**1.5 for h in range(1, 10))
         out += .16 * np.sin(phase*2.008) * np.exp(-6*t)

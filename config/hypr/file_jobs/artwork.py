@@ -45,6 +45,55 @@ def success(p, center, accent):
     p.drawLine(center+QPointF(-1, 6), center+QPointF(11, -7))
 
 
+def polaris(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Glass document capsules cross a polar arc between orbital gateways.
+
+    Phase is one complete cycle. Each capsule, trail and halo fades together
+    before its own wrap; the secondary orbit makes one complete revolution.
+    """
+    p.save(); mid=box.center(); left=box.left()+31; right=box.right()-31
+    ice=QColor('#def8ff' if surface.lightnessF()<.5 else '#25466a')
+    violet=QColor('#aa98ee' if surface.lightnessF()<.5 else '#65529b')
+    route=QPainterPath(QPointF(left+25,mid.y()+7))
+    route.cubicTo(left+95,mid.y()-23,right-95,mid.y()-23,right-25,mid.y()+7)
+    p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(alpha(accent,55),1));p.drawPath(route)
+    for x,zipped in ((left,extracting),(right,archive)):
+        folder(p,QPointF(x,mid.y()),accent,surface,zipped,True)
+        p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(alpha(violet,150),1))
+        p.drawEllipse(QRectF(x-24,mid.y()-8,48,16))
+        angle=phase*math.tau
+        dot=QPointF(x+24*math.cos(angle),mid.y()+8*math.sin(angle))
+        p.setPen(Qt.PenStyle.NoPen);p.setBrush(ice);p.drawEllipse(dot,1.6,1.6)
+    if result:
+        if result=='done':success(p,mid,accent)
+        p.restore();return
+    start,end=left+31,right-31
+    for index in range(max(1,count)):
+        t=(phase+index/max(1,count))%1
+        fade=min(1.,t/.13,(1-t)/.13);fade=fade*fade*(3-2*fade)
+        travel=1-t if extracting else t
+        x=start+(end-start)*travel;y=mid.y()+7-22*math.sin(travel*math.pi)
+        p.save();p.setOpacity(p.opacity()*fade)
+        if glow:
+            halo=QRadialGradient(QPointF(x,y),23)
+            halo.setColorAt(0,alpha(accent,glow));halo.setColorAt(1,alpha(accent,0))
+            p.setBrush(halo);p.setPen(Qt.PenStyle.NoPen);p.drawEllipse(QPointF(x,y),23,23)
+        if trails:
+            for n in range(1,5):
+                trail=travel+(1 if extracting else -1)*n*.018
+                tx=start+(end-start)*trail;ty=mid.y()+7-22*math.sin(trail*math.pi)
+                p.setPen(Qt.PenStyle.NoPen);p.setBrush(alpha(violet,110/n));p.drawEllipse(QPointF(tx,ty),2,2)
+        p.translate(x,y)
+        glass=QLinearGradient(0,-16,0,16);glass.setColorAt(0,alpha(ice,90));glass.setColorAt(.45,surface);glass.setColorAt(1,alpha(violet,100))
+        p.setBrush(glass);p.setPen(QPen(accent,1));p.drawRoundedRect(QRectF(-12,-16,24,32),8,8)
+        p.scale(.75,.75);paper(p,accent,technical=True)
+        if archive or extracting:
+            p.setPen(QPen(violet,1.5))
+            for py in (-6,-2,2,6):p.drawLine(QPointF(-1,py),QPointF(2,py))
+        p.restore()
+    p.restore()
+
+
 def infernalencore(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     """Documents ride a sound wave between two brass amplifier cabinets.
 

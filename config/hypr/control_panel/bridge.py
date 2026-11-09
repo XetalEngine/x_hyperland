@@ -118,6 +118,9 @@ def theme():
     if design == 'midnightrun':
         from midnightrun import files_style
         style += files_style(p)
+    if design == 'polaris':
+        from polaris import files_style
+        style += files_style(p)
     if design == 'platform95':
         from platform95 import files_style
         style += files_style(p)
@@ -157,7 +160,7 @@ def theme():
           QWidget#defaultAppsTab QToolButton, QListWidget#defaultsAppList, QListWidget#defaultsAppList::item, QLabel#diskDetails {{border-radius:2px;}}
         '''
     return {'stylesheet':style,'colors':p,'font':runtime.ui_font(),
-            'cardRadius':5 if design=='infernalencore' else 7 if design=='midnightrun' else 1 if design=='platform95' else 12 if design=='mycelium' else 5 if design in ('blackwood','atomicafterglow') else 7 if design=='midnighttransit' else 9 if design=='hyperfusionblue' else 17 if design=='gildedhollow' else 18 if design=='hollowgrove' else 3 if design=='shadowedge' else 24 if design=='candycloud' else 3 if design=='obsidianforge' else 2 if design=='porcelainink' else 16 if design=='tidalglass' else 4 if design=='binaryknife' else 10,
+            'cardRadius':12 if design=='polaris' else 5 if design=='infernalencore' else 7 if design=='midnightrun' else 1 if design=='platform95' else 12 if design=='mycelium' else 5 if design in ('blackwood','atomicafterglow') else 7 if design=='midnighttransit' else 9 if design=='hyperfusionblue' else 17 if design=='gildedhollow' else 18 if design=='hollowgrove' else 3 if design=='shadowedge' else 24 if design=='candycloud' else 3 if design=='obsidianforge' else 2 if design=='porcelainink' else 16 if design=='tidalglass' else 4 if design=='binaryknife' else 10,
             **runtime.icon_library.info(runtime.ROOT.parent,runtime.design(),runtime.mode())}
 
 

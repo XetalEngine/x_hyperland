@@ -188,8 +188,35 @@ def amplifier_rack(p,width,colors,phase):
     p.restore()
 
 
+def orbital_glass(p, width, colors, phase):
+    """Inset optical rim and orbiting end lights, mirrored by native ID 19."""
+    p.save();box=QRectF(8,8,width-16,80)
+    accent=QColor(colors['Accent']);ink=QColor(colors['WindowText'])
+    surface=QLinearGradient(box.topLeft(),box.bottomLeft())
+    surface.setColorAt(0,blend(colors['Window'],ink,.14))
+    surface.setColorAt(.35,blend(colors['Window'],accent,.04))
+    surface.setColorAt(1,QColor(colors['Window']))
+    p.setBrush(surface);p.setPen(QPen(alpha(accent,.55),1));p.drawRoundedRect(box,14,14)
+    p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(alpha(accent,.18),1))
+    p.drawRoundedRect(box.adjusted(3,3,-3,-3),11,11)
+    p.setPen(QPen(alpha(ink,.55),1));line(p,34,11,width-34,11)
+    p.setPen(QPen(alpha(accent,.65),1.4));line(p,34,82,width-34,82)
+    for x in (23,width-23):
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.setPen(QPen(alpha(accent,.65),1));p.drawEllipse(QPointF(x,48),8,18)
+        dot=QPointF(x+8*math.cos(phase*.7),48+18*math.sin(phase*.7))
+        p.setPen(Qt.PenStyle.NoPen);p.setBrush(ink);p.drawEllipse(dot,2,2)
+        star=QPainterPath(QPointF(x,42));star.lineTo(x+1.5,46.5);star.lineTo(x+6,48)
+        star.lineTo(x+1.5,49.5);star.lineTo(x,54);star.lineTo(x-1.5,49.5)
+        star.lineTo(x-6,48);star.lineTo(x-1.5,46.5);star.closeSubpath()
+        p.fillPath(star,alpha(accent,.8))
+    p.restore()
+
+
 def tray(painter, width, style, colors, phase):
     """Draw a horizontal tray in a width × 96 coordinate space."""
+    if style == 'polaris':
+        orbital_glass(painter,width,colors,phase);return
     if style == 'infernalencore':
         amplifier_rack(painter,width,colors,phase);return
     if style == 'midnightrun':
@@ -427,8 +454,16 @@ def dock(p, area, style, colors, *, phase=0., weights=(1., 1., 1.), zoom=(), ver
         p.save(); p.setOpacity(p.opacity()*max(0., min(1., weight)))
         if not stack:
             p.setPen(QPen(alpha(colors['Accent'], .12+(z-1)), .8)); p.setBrush(alpha(colors['Accent'], .035+(z-1)*.1))
-            radius = 4 if style == 'infernalencore' else 1 if style == 'platform95' else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style in ('midnighttransit','midnightrun') else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
+            radius = 11 if style == 'polaris' else 4 if style == 'infernalencore' else 1 if style == 'platform95' else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style in ('midnighttransit','midnightrun') else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
             p.drawRoundedRect(rect, radius, radius)
+        if style == 'polaris' and not stack:
+            accent=QColor(colors['Accent']);ink=QColor(colors['WindowText'])
+            pane=QLinearGradient(rect.topLeft(),rect.bottomLeft())
+            pane.setColorAt(0,blend(colors['Window'],ink,.13))
+            pane.setColorAt(1,blend(colors['Window'],accent,.06+(z-1)*.1))
+            p.setBrush(pane);p.setPen(QPen(alpha(accent,min(1,.4+(z-1)*.4)),.9));p.drawRoundedRect(rect,11,11)
+            p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(alpha(ink,.18),.8));p.drawRoundedRect(rect.adjusted(3,3,-3,-3),8,8)
+            p.setPen(QPen(alpha(accent,min(1,.45+(z-1)*.4)),1.4));line(p,rect.left()+10,rect.bottom()-5,rect.right()-10,rect.bottom()-5)
         if style == 'infernalencore' and not stack:
             accent=QColor(colors['Accent']);brass=blend(accent,colors['WindowText'],.65)
             pane=QLinearGradient(rect.topLeft(),rect.bottomLeft())

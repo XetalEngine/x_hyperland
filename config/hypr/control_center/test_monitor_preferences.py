@@ -45,6 +45,28 @@ class MonitorTests(unittest.TestCase):
         view.primary_boxes['DP-2'].click();app.processEvents()
         self.assertEqual([m['name'] for m in view.models if m['primary']],['DP-2']);self.assertTrue(changes)
         view.close()
+    def test_mouse_click_survives_canvas_repaint_while_pressed(self):
+        from PyQt6.QtCore import Qt, QPoint, QObject, QEvent
+        from PyQt6.QtTest import QTest
+        from PyQt6.QtWidgets import QApplication
+        from display_page import Arrangement
+        app=QApplication.instance() or QApplication([])
+        view=Arrangement();view.models=settings.display_models(monitors());view.resize(900,400);view.show();app.processEvents()
+        check=view.primary_boxes['DP-2'];changes=[];view.edited.connect(lambda:changes.append(True))
+        class MappingObserver(QObject):
+            hides=0
+            def eventFilter(self, obj, event):
+                if event.type()==QEvent.Type.Hide:self.hides+=1
+                return False
+        observer=MappingObserver();check.installEventFilter(observer)
+        QTest.mousePress(check,Qt.MouseButton.LeftButton,pos=QPoint(8,check.height()//2))
+        view.repaint();app.processEvents()
+        QTest.mouseRelease(check,Qt.MouseButton.LeftButton,pos=QPoint(8,check.height()//2))
+        app.processEvents()
+        self.assertEqual([m['name'] for m in view.models if m['primary']],['DP-2'])
+        self.assertEqual(changes,[True])
+        self.assertEqual(observer.hides,0,'Repainting must retain the native mouse grab')
+        view.close()
     def test_first_frame_rule_is_relative_to_selected_scaled_monitor(self):
         calls=[]
         m=dict(id=2,width=1080,height=1920,scale=1.5,transform=1,reserved=[0,30,0,0])

@@ -36,7 +36,7 @@ class LoopTests(unittest.TestCase):
         # tick() supplies a repeating 0..1 phase. A speed multiplier inside a
         # renderer used to jump backwards after travelling only 18–22% of its
         # route. Check the actual rendered images, not the timing expression.
-        for style in ('hyperfusionblue', 'midnighttransit', 'blackwood', 'atomicafterglow', 'mycelium', 'platform95', 'midnightrun','infernalencore'):
+        for style in ('hyperfusionblue', 'midnighttransit', 'blackwood', 'atomicafterglow', 'mycelium', 'platform95', 'midnightrun','infernalencore','polaris'):
             for count in (1, 3, 7):
                 for extracting in (False, True):
                     for light in (False, True):
@@ -46,7 +46,7 @@ class LoopTests(unittest.TestCase):
                             self.assertLess(self.difference(a,b), .02)
 
     def test_each_packet_wraps_out_of_view_without_a_pop(self):
-        for style in ('hyperfusionblue', 'midnighttransit', 'blackwood', 'atomicafterglow', 'mycelium', 'platform95', 'midnightrun','infernalencore'):
+        for style in ('hyperfusionblue', 'midnighttransit', 'blackwood', 'atomicafterglow', 'mycelium', 'platform95', 'midnightrun','infernalencore','polaris'):
             for extracting in (False, True):
                 for trails in (False, True):
                     for count in (1,3,7):
@@ -57,7 +57,7 @@ class LoopTests(unittest.TestCase):
                                 self.assertLess(self.difference(a,b), .02)
 
     def test_scenes_keep_moving_through_the_whole_cycle(self):
-        for style in ('hyperfusionblue', 'midnighttransit', 'blackwood', 'atomicafterglow', 'mycelium', 'platform95', 'midnightrun','infernalencore'):
+        for style in ('hyperfusionblue', 'midnighttransit', 'blackwood', 'atomicafterglow', 'mycelium', 'platform95', 'midnightrun','infernalencore','polaris'):
             for phase in (.05, .3, .6, .9):
                 with self.subTest(style=style, phase=phase):
                     self.assertNotEqual(self.frame(style, phase), self.frame(style, phase+.04))

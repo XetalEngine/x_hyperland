@@ -10,6 +10,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 PATH = ROOT / 'sounds/settings.json'
 PACKS = {
+    'polaris': ('Polaris', 'Northern lights', 'Gentle glass chimes and a warm, spacious ascending welcome.', '#32e1f2'),
     'infernalencore': ('Infernal Encore', 'Backstage signals', 'Soft muted guitar harmonics and restrained minor-key power chords.', '#ff472c'),
     'midnightrun': ('Midnight Run', 'After-hours signals', 'Soft synth plucks, neon bell harmonics and a restrained minor arpeggio.', '#42e5f5'),
     'platform95': ('Platform 95', 'Golden departure', 'Warm desk-bell notes and a gentle major-key welcome.', '#d1aa58'),

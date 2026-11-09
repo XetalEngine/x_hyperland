@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QApplication
 import runtime
 
 DEFAULTS = {
+    'polaris': {'tile_opacity': 100, 'group_opacity': 55, 'sidebar_opacity': 96, 'group_image': ''},
     'infernalencore': {'tile_opacity': 100, 'group_opacity': 65, 'sidebar_opacity': 100, 'group_image': ''},
     'midnightrun': {'tile_opacity': 100, 'group_opacity': 50, 'sidebar_opacity': 98, 'group_image': ''},
     'platform95': {'tile_opacity': 100, 'group_opacity': 100, 'sidebar_opacity': 100, 'group_image': ''},
@@ -142,6 +143,10 @@ def paint_tile(p, box, colors, style, mode, opacity, selected=False, hover=0, ra
         from midnightrun import paint_tile
         paint_tile(p,box,colors,opacity,selected,hover>0)
         return
+    if style=='polaris':
+        from polaris import paint_tile
+        paint_tile(p,box,colors,opacity,selected,hover>0)
+        return
     if style=='platform95':
         from platform95 import paint_tile
         paint_tile(p,box,colors,opacity,selected,hover>0)
@@ -218,7 +223,7 @@ def paint_tile(p, box, colors, style, mode, opacity, selected=False, hover=0, ra
 
 def paint_group(p, box, colors, style, opacity, image=None, focused=False, hovered=False):
     p.save()
-    radius = 5 if style == 'infernalencore' else 7 if style == 'midnightrun' else 1 if style == 'platform95' else 2 if style == 'shadowedge' else 22 if style == 'candycloud' else 3 if style == 'obsidianforge' else 2 if style == 'porcelainink' else 16 if style == 'tidalglass' else 4 if style == 'binaryknife' else 10 if style == 'modern' else 8
+    radius = 12 if style == 'polaris' else 5 if style == 'infernalencore' else 7 if style == 'midnightrun' else 1 if style == 'platform95' else 2 if style == 'shadowedge' else 22 if style == 'candycloud' else 3 if style == 'obsidianforge' else 2 if style == 'porcelainink' else 16 if style == 'tidalglass' else 4 if style == 'binaryknife' else 10 if style == 'modern' else 8
     clip = QPainterPath(); clip.addRoundedRect(box, radius, radius)
     p.setClipPath(clip, Qt.ClipOperation.IntersectClip)
     p.setOpacity(p.opacity() * opacity / 100)
@@ -241,6 +246,9 @@ def paint_group(p, box, colors, style, opacity, image=None, focused=False, hover
         paint_surface(p,box,colors)
     elif style == 'midnightrun':
         from midnightrun import paint_surface
+        paint_surface(p,box,colors)
+    elif style == 'polaris':
+        from polaris import paint_surface
         paint_surface(p,box,colors)
     elif style == 'platform95':
         from platform95 import paint_surface

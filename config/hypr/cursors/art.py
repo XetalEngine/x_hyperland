@@ -1,5 +1,6 @@
 """Original vector cursor families, shared by the picker and generated themes."""
 STYLES = {
+    'polaris': ('Polaris Starlight', '#e8fcff', '#18344b', '#22daed'),
     'infernalencore': ('Infernal Blade', '#f4dfbd', '#36150f', '#ff472c'),
     'midnightrun': ('Midnight Run Neon', '#17212e', '#72f3ff', '#ff4fc3'),
     'platform95': ('Platform 95 Classic', '#fff6df', '#382719', '#c49a42'),
@@ -44,7 +45,11 @@ def svg(style, shape='left_ptr', frame=0):
         arrow = 'M5 3L7 28L13 21L19 32L24 29L18 18L29 17Z'
     if style == 'infernalencore':
         arrow = 'M5 3L28 16L18 19L24 30L20 33L13 22L7 28Z'
+    if style == 'polaris':
+        arrow = 'M5 3Q6 2 8 5L28 20L18 21L22 30L18 33L13 23L6 28Z'
     body = f'<path d="{arrow}"/>'
+    if style == 'polaris':
+        body += f'<path d="M8 8L10 22L14 18L22 18" fill="none" stroke="{accent}" stroke-width="1.6"/>'
     if style == 'infernalencore':
         body += f'<path d="M8 8L12 18L22 16M12 18L19 29" fill="none" stroke="{accent}" stroke-width="1.3"/>'
     if style == 'midnightrun':
@@ -74,6 +79,11 @@ def svg(style, shape='left_ptr', frame=0):
         hot=(18,18)
     elif shape in ('watch','left_ptr_watch'):
         ring=f'<g transform="rotate({frame*30} 18 18)"><circle cx="18" cy="18" r="11" fill="none" stroke="{edge}" stroke-opacity=".25" stroke-width="4"/><path d="M18 7A11 11 0 0 1 29 18" fill="none" stroke="{accent}" stroke-width="4"/></g>'
+        if style == 'polaris':
+            ring = (f'<circle cx="18" cy="18" r="14" fill="{edge}" stroke="{fill}" stroke-width=".7"/>'
+                    f'<path d="M18 10L20 16L26 18L20 20L18 26L16 20L10 18L16 16Z" fill="{fill}" stroke="none"/>'
+                    f'<g transform="rotate({frame*30} 18 18)"><ellipse cx="18" cy="18" rx="13" ry="6" fill="none" stroke="{accent}" stroke-width="1.4"/>'
+                    f'<circle cx="31" cy="18" r="2.4" fill="{accent}" stroke="{fill}" stroke-width=".7"/></g>')
         if style == 'infernalencore':
             ring = (f'<circle cx="18" cy="18" r="14" fill="{edge}" stroke="{fill}" stroke-width="1.2"/>'
                     f'<circle cx="18" cy="18" r="11.5" fill="none" stroke="{accent}" stroke-width=".7"/>'

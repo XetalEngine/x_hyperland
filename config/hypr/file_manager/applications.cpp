@@ -3,23 +3,32 @@
 #include <KJob>
 #include <KIO/Global>
 #include <KIO/JobUiDelegateFactory>
+#include <KIO/ApplicationLauncherJob>
+#include <KService>
 
 namespace {
 class ApplicationJob : public KJob {
 public:
-  ApplicationJob(QJsonObject request, QWidget *window) : request(request) {
+  ApplicationJob(QJsonObject request, QWidget *window) : request(request), window(window) {
+    for (const auto &value : request.value("urls").toArray())
+      administratorFiles |= QUrl(value.toString()).scheme() == "admin";
     setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingDisabled, window));
     connect(&process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
       if (error == QProcess::FailedToStart) finish(process.errorString());
     });
     connect(&process, &QProcess::finished, this, [this](int code, QProcess::ExitStatus exit) {
       const auto result = QJsonDocument::fromJson(process.readAllStandardOutput()).object();
-      finish(code == 0 && exit == QProcess::NormalExit && result.value("ok").toBool()
-                 ? QString() : result.value("error").toString("The application could not be started."));
+      if (code != 0 || exit != QProcess::NormalExit || !result.value("ok").toBool()) {
+        finish(result.value("error").toString("The application could not be started."));
+      } else if (administratorFiles) launchAuthenticated(result);
+      else finish({});
     });
     QTimer::singleShot(0, this, [this] { start(); });
   }
   void start() override {
+    // GIO does not implement KIO's admin: protocol. Resolve the selected app
+    // and save any requested default normally, then let KIO handle its URLs.
+    if (administratorFiles) request["prepare_only"] = true;
     process.start("python3", {Fusion::root() + "/file_manager/applications.py", "launch"});
     process.write(QJsonDocument(request).toJson(QJsonDocument::Compact));
     process.closeWriteChannel();
@@ -27,7 +36,30 @@ public:
 private:
   QProcess process;
   QJsonObject request;
+  QPointer<QWidget> window;
+  bool administratorFiles = false;
   bool done = false;
+  void launchAuthenticated(const QJsonObject &result) {
+    const auto desktop = result.value("desktop_file").toString();
+    KService::Ptr service;
+    if (!desktop.isEmpty()) service = KService::Ptr(new KService(desktop));
+    else {
+      service = KService::Ptr(new KService(result.value("name").toString(),
+          result.value("command").toString(), "application-x-executable"));
+      service->setTerminal(request.value("terminal").toBool());
+    }
+    if (!service->isValid()) { finish("The chosen application is unavailable. Choose Open with… and try again."); return; }
+    auto *job = new KIO::ApplicationLauncherJob(service, this);
+    QList<QUrl> urls;
+    for (const auto &value : request.value("urls").toArray()) urls << QUrl(value.toString());
+    job->setUrls(urls);
+    job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingDisabled, window));
+    connect(job, &KJob::result, this, [this](KJob *result) {
+      if (result->error() == KIO::ERR_USER_CANCELED) { done = true; setError(result->error()); emitResult(); }
+      else finish(result->error() ? result->errorString() : QString());
+    });
+    job->start();
+  }
   void finish(const QString &error) {
     if (done) return;
     done = true;

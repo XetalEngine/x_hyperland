@@ -1,0 +1,40 @@
+{
+  "id": "polaris",
+  "name": "Polaris",
+  "generator": "Built-in imagegen",
+  "wallpapers": [
+    {
+      "file": "tux-starlight.png",
+      "title": "Tux Starlight",
+      "prompt": "Use case: stylized-concept. Asset type: finished 16:9 widescreen Linux desktop wallpaper for Hyper Fusion's Polaris theme, ideally 3840x2160. Primary request: a beautifully rendered classic Tux penguin, seated facing forward, warm golden yellow beak and feet, glossy black head and flippers, soft white belly, friendly expressive eyes. Scene: sophisticated deep midnight navy studio backdrop with a broad restrained blue halo behind the penguin, subtle cyan rim lighting and a hint of violet at the edges. Tux occupies the central lower half of the wide composition, ample clean navy space at the top and sides for real desktop windows. High quality smooth 3D illustration, elegant soft reflections, grounded soft shadow, readable silhouette, polished but friendly Linux identity. No words, no logos, no fake interface, no windows, no taskbars, no desktop icons, no watermark. One complete wallpaper, not a montage.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "c3351b759f58b3f32d9a581e91dbff0f0cbc8cb5b6291627e7881b93191ac82d",
+      "provenance": "Original artwork generated with the built-in imagegen tool for Hyper Fusion Polaris."
+    },
+    {
+      "file": "northern-lights.png",
+      "title": "Northern Lights",
+      "prompt": "Use case: stylized-concept. Asset type: finished 16:9 widescreen desktop wallpaper for Hyper Fusion Polaris, ideally 3840x2160. Primary request: a serene polar night landscape seen across a smooth dark glacial lake, sculptural ice shelves at the lower corners, distant blue-black mountain silhouettes low on the horizon. A luminous cyan and blue-violet aurora sweeps gracefully across the sky beneath a single bright north star, with a few fine stars and restrained reflections in the water. Sophisticated cinematic 3D digital art, deep midnight navy with cyan, electric blue and soft amethyst light, elegant glasslike ice surfaces. Leave broad dark quiet space for windows, light concentrated along the horizon and one sweeping aurora arc. Calm, refined, spacious. No words, letters, logos, fake UI, windows, taskbars, desktop icons, characters or watermark. A distinct full wallpaper, not a montage.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "1e5d13c857ff6dddd60e6dba77ff515e38a21b30b56133a0dd6749914d8753b7",
+      "provenance": "Original artwork generated with the built-in imagegen tool for Hyper Fusion Polaris."
+    },
+    {
+      "file": "orbital-glass.png",
+      "title": "Orbital Glass",
+      "prompt": "Use case: stylized-concept. Asset type: finished 16:9 widescreen desktop wallpaper for Hyper Fusion Polaris, ideally 3840x2160. Primary request: a luminous abstract orbital sculpture in deep navy space: three flowing elliptical glass ribbons in cyan, electric blue and blue-violet curve around a small brilliant white north star, over a subtle midnight-blue atmosphere and a soft blue reflection below. A refined sculptural composition, smooth optical glass, very fine edge light, restrained glow, beautiful physically rendered depth; orbital form placed right of center, broad clean dark negative space on the left for desktop content. No planet detail or crowded stars; elegant glossy future-classic desktop mood. No words, letters, logos, fake interface, windows, taskbars, desktop icons or watermark. One complete wallpaper, not a montage.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "9a2fe12b876fbfffe2020575dc7b2ed29c88476aa52249e67da52fa83b1ef9c3",
+      "provenance": "Original artwork generated with the built-in imagegen tool for Hyper Fusion Polaris."
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>Document · Polaris</title><defs>
+    <linearGradient id="glass" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#477793"/><stop offset=".35" stop-color="#203b55"/><stop offset="1" stop-color="#131e36"/></linearGradient>
+    <linearGradient id="folder" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#54c3e2"/><stop offset=".45" stop-color="#396499"/><stop offset="1" stop-color="#55467e"/></linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#b3f5ff"/><stop offset=".45" stop-color="#5483ae"/><stop offset="1" stop-color="#8174bd"/></linearGradient>
+    <linearGradient id="glyph" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#dcfcff"/><stop offset="1" stop-color="#27d8ec"/></linearGradient>
+    </defs><path d="M15 6H39L51 18V53Q51 57 47 57H19Q15 57 15 53Z" fill="url(#glass)" stroke="url(#rim)" stroke-width="1.4"/><path d="M39 6V18H51" fill="#94c9f0" stroke="#b3f5ff" stroke-width="1"/><g transform="translate(10 16) scale(.66)" fill="none" stroke="url(#glyph)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M24 25H38M24 32H40M24 39H37M24 46H33"/></g></svg>

@@ -5,6 +5,7 @@ from xml.sax.saxutils import escape
 VERSION = 4
 # Name, metal/light, midtone, shadow, face, decorative language.
 STYLES = {
+    'polaris': ('Polaris', '#d8f8ff', '#4de5f5', '#a391fa', '#16243c', 'polaris'),
     'infernalencore': ('Infernal Encore', '#f4dfbd', '#d6975b', '#ff472c', '#181414', 'encore'),
     'midnightrun': ('Midnight Run', '#c8faff', '#42e5f5', '#ed38b5', '#111b28', 'neonrun'),
     'platform95': ('Platform 95', '#fff2c9', '#d5ac53', '#806233', '#38271a', 'platform95'),
@@ -26,6 +27,7 @@ STYLES = {
     'gildedhollow': ('The Gilded Hollow', '#fff0b7', '#dfb469', '#836137', '#303c32', 'brass'),
 }
 DESCRIPTIONS = {
+    'polaris': 'Sapphire glass tiles, luminous cyan symbols and violet folder depths.',
     'infernalencore': 'Brass-framed black folders, red symbols and riveted corners.',
     'midnightrun': 'Cyan folder outlines, magenta symbols and graphite silhouettes.',
     'platform95': 'Gold file folders, ivory office equipment and classic espresso symbols.',
@@ -162,6 +164,9 @@ def svg(style, name):
     if style == 'infernalencore':
         from .infernalencore import svg as encore_svg
         return encore_svg(ALIASES.get(name,name),CATALOG,symbol)
+    if style == 'polaris':
+        from .polaris import svg as polaris_svg
+        return polaris_svg(name,CATALOG,symbol)
     if style == 'midnightrun':
         from .midnightrun import svg as neon_svg
         return neon_svg(ALIASES.get(name,name),CATALOG,symbol)

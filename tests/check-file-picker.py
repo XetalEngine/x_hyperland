@@ -34,7 +34,7 @@ def main():
     runtime = Path(tempfile.mkdtemp(prefix='ft-'))
     home = root/'home';home.mkdir()
     profile = home/'.config/hypr'
-    for part in ('theme', 'cursors', 'file_manager', 'control_panel', 'launcher', 'compat', 'scripts',
+    for part in ('theme', 'cursors', 'icon_themes', 'window_rules', 'effects/window_close', 'file_manager', 'control_panel', 'launcher', 'compat', 'scripts',
                  'desktop/config', 'desktop/data/applications', 'desktop/data/xdg-desktop-portal', 'desktop/data/dbus-1'):
         shutil.copytree(REPO/'config/hypr'/part, profile/part, ignore=shutil.ignore_patterns('.build', '__pycache__', 'state', 'qt-settings'))
     (profile/'runtime').mkdir()
@@ -95,6 +95,7 @@ windowrule=match:tag ^xetal-title-drag$,no_anim on
 plugin={plugin}
 windowrule=match:class ^xetal-file-picker.*$,float on,center on
 windowrule=match:class ^xetal-files-external$,float on,center on
+windowrule=match:class ^fusion-display-test$,float on,center on
 ''')
     compositor=spawn(['Hyprland','--config',str(conf)],start_new_session=True)
     try:
@@ -109,6 +110,23 @@ windowrule=match:class ^xetal-files-external$,float on,center on
         assert instance
         env.update(HYPRLAND_INSTANCE_SIGNATURE=instance['instance'],WAYLAND_DISPLAY=instance['wl_socket'])
         assert not ctl('configerrors'),ctl('configerrors')
+        # Wait out parent window-memory placement before deriving virtual input
+        # coordinates from the nested output. Only touch our own test surface.
+        time.sleep(1.5)
+        parent_windows=json.loads(subprocess.check_output(['hyprctl','-j','clients'],text=True))
+        surface=next((c for c in parent_windows if c['pid']==compositor.pid),None)
+        if surface:
+            target='address:'+surface['address']
+            for action,args in [('setfloating',target),('resizewindowpixel','exact 1100 700,'+target)]:
+                subprocess.run(['hyprctl','dispatch',action,args],capture_output=True,check=True)
+            wait(lambda:json.loads(ctl('-j','monitors'))[0]['width']==1100,'stable nested output')
+        time.sleep(.3)
+        # Parent desktop pointer movement must not interrupt nested test clicks.
+        # Disable backend devices before creating this fixture's virtual input.
+        devices=json.loads(ctl('-j','devices'))
+        for group in ('mice','keyboards'):
+            for device in devices[group]:
+                assert ctl('keyword',f'device[{device["name"]}]:enabled','false')=='ok'
         log=(root/'dbus.log').open('w');logs.append(log)
         bus=subprocess.Popen(['dbus-daemon','--session','--nofork','--print-address=1'],env=env,stdout=subprocess.PIPE,stderr=log,text=True)
         children.append(bus);env['DBUS_SESSION_BUS_ADDRESS']=bus.stdout.readline().strip()
@@ -125,6 +143,43 @@ windowrule=match:class ^xetal-files-external$,float on,center on
         def record(name, **details):
             results.append(dict(check=name, **details))
             (root/'results.json').write_text(json.dumps(results, indent=2)+'\n')
+        # Use actual Wayland press/release routing: QCheckBox.click() and QtTest
+        # sending events straight to a child bypass a lost native mouse grab.
+        display_fixture=root/'display-test.py'
+        display_fixture.write_text('''import sys,json
+from pathlib import Path
+sys.path[:0]=[sys.argv[1]+'/config/hypr/control_center',sys.argv[1]+'/config/hypr/theme']
+from PyQt6.QtWidgets import QApplication,QGraphicsOpacityEffect
+from PyQt6.QtCore import QTimer,QPoint
+from display_page import Arrangement
+from test_desktop import monitors
+import desktop_settings as settings
+import runtime
+app=QApplication([]);app.setDesktopFileName('fusion-display-test')
+app.setStyleSheet(runtime.stylesheet('',style='polaris'))
+view=Arrangement();view.models=settings.display_models(monitors());view.resize(900,400)
+effect=QGraphicsOpacityEffect(view);effect.setOpacity(1);view.setGraphicsEffect(effect)
+def save():
+    check=view.primary_boxes.get('DP-2')
+    if check is None:return
+    point=check.mapTo(view,QPoint(8,check.height()//2))
+    Path(sys.argv[2]).write_text(json.dumps(dict(primary=[m['name'] for m in view.models if m['primary']],point=[point.x(),point.y()])))
+view.edited.connect(save);view.show()
+timer=QTimer();timer.timeout.connect(view.update);timer.start(25)
+QTimer.singleShot(300,save)
+app.exec()
+''')
+        state=root/'primary.json'
+        display_process=spawn([sys.executable,str(display_fixture),str(REPO),str(state)])
+        wait(lambda:find('fusion-display-test') and state.exists(),'primary checkbox fixture')
+        c=find('fusion-display-test');point=json.loads(state.read_text())['point']
+        gesture(f"move {c['at'][0]+point[0]} {c['at'][1]+point[1]}")
+        (root/'click-debug.json').write_text(json.dumps(dict(window=c,point=point,monitor=monitor,cursor=json.loads(ctl('-j','cursorpos')))))
+        gesture('button 1',.25);gesture('button 0')
+        wait(lambda:json.loads(state.read_text())['primary']==['DP-2'],'real pointer selects primary')
+        record('primary checkbox survives repaint during a real mouse click')
+        dispatch('closewindow','address:'+c['address']);display_process.wait(timeout=5)
+        if '--primary-only' in sys.argv[3:]:return
         memory = spawn([sys.executable, str(REPO/'config/hypr/runtime/window_memory/service.py'), '--state', str(root/'windows.json')])
         fixture = root/'window.py'
         fixture.write_text('''from PyQt6.QtWidgets import QApplication,QWidget
@@ -140,14 +195,16 @@ app.exec()
         window = find('memory-fixture'); address = window['address']
         dispatch('setfloating', 'address:'+address)
         dispatch('resizewindowpixel', 'exact 700 480,address:'+address)
+        dispatch('movewindowpixel','exact 100 90,address:'+address)
         time.sleep(1)
         record('initial resized window', client=find('memory-fixture'))
         dispatch('closewindow', 'address:'+address)
         regular.wait(timeout=5)
         time.sleep(.4)
         regular = spawn([sys.executable, str(fixture), 'memory-fixture'])
-        wait(lambda: find('memory-fixture') and find('memory-fixture')['floating'] and find('memory-fixture')['size']==[700,480], 'restored floating size')
-        record('floating reopen', size=find('memory-fixture')['size'])
+        wait(lambda: find('memory-fixture') and find('memory-fixture')['floating'] and find('memory-fixture')['size']==[700,480]
+             and find('memory-fixture')['at']==[100,90], 'restored floating size and position')
+        record('floating reopen', size=find('memory-fixture')['size'],position=find('memory-fixture')['at'])
         address = find('memory-fixture')['address']
         assert ctl('xetal-window-state', address, '1', '1') == 'ok'
         time.sleep(1)
@@ -202,6 +259,52 @@ app.exec()
         record('reopening after small tiles preserves the new layout',sizes=[c['size'] for c in pair])
         for window in pair:dispatch('closewindow','address:'+window['address'])
         first.wait(timeout=5);second.wait(timeout=5)
+        # Workspace overrides own mode while every floating window shares normal
+        # geometry memory, even when an explicit launch tag asks for tiling.
+        sys.path.insert(0,str(REPO/'config/hypr'))
+        from workspaces.model import DEFAULT
+        def policy(layout):
+            path=profile/'workspaces/rules.json';path.parent.mkdir(exist_ok=True)
+            path.write_text(json.dumps({'version':1,'workspaces':{'1':dict(DEFAULT,layout=layout)}}))
+            dispatch('xetalworkspaces:reload','')
+        dispatch('workspace','1');policy('floating')
+        forced=spawn([sys.executable,str(fixture),'forced-memory-fixture'])
+        wait(lambda:find('forced-memory-fixture') and find('forced-memory-fixture')['floating'],'force floating first map')
+        time.sleep(1)
+        address=find('forced-memory-fixture')['address']
+        dispatch('resizewindowpixel','exact 620 430,address:'+address)
+        dispatch('movewindowpixel','exact 140 100,address:'+address);time.sleep(.35)
+        assert ctl('xetal-window-state',address,'1','1')=='ok';time.sleep(.8)
+        dispatch('closewindow','address:'+address);forced.wait(timeout=5);time.sleep(.4)
+        forced=spawn([sys.executable,str(fixture),'forced-memory-fixture'])
+        wait(lambda:find('forced-memory-fixture') and find('forced-memory-fixture')['size']==[620,430]
+             and find('forced-memory-fixture')['at']==[140,100],'force floating restores normal geometry after maximized close')
+        assert find('forced-memory-fixture')['fullscreen']==0
+        record('force floating restores last normal rectangle after maximized close')
+        # Restart observes open windows; it must not impose older saved geometry.
+        memory.terminate();memory.wait(timeout=5)
+        address=find('forced-memory-fixture')['address']
+        dispatch('resizewindowpixel','exact 640 450,address:'+address)
+        dispatch('movewindowpixel','exact 160 110,address:'+address)
+        memory=spawn([sys.executable,str(REPO/'config/hypr/runtime/window_memory/service.py'),'--state',str(root/'windows.json')])
+        time.sleep(1)
+        assert find('forced-memory-fixture')['size']==[640,450] and find('forced-memory-fixture')['at']==[160,110]
+        policy('tile');time.sleep(.6)
+        assert not find('forced-memory-fixture')['floating']
+        dispatch('closewindow','address:'+address);forced.wait(timeout=5);time.sleep(.4)
+        forced=spawn([sys.executable,str(fixture),'forced-memory-fixture'])
+        wait(lambda:find('forced-memory-fixture'),'force tiled reopen');time.sleep(1)
+        assert not find('forced-memory-fixture')['floating']
+        record('force tiled reopen preserves layout and floating memory')
+        dispatch('closewindow','address:'+find('forced-memory-fixture')['address']);forced.wait(timeout=5);time.sleep(.4)
+        policy('floating')
+        tag='xetal-tile-'+('a'*24)+'-'+('b'*12)
+        assert ctl('keyword','windowrule','match:class ^forced-memory-fixture$, tag +'+tag)=='ok'
+        forced=spawn([sys.executable,str(fixture),'forced-memory-fixture'])
+        wait(lambda:find('forced-memory-fixture') and find('forced-memory-fixture')['size']==[640,450]
+             and find('forced-memory-fixture')['at']==[160,110],'normal geometry survives tiled interval and explicit launch tag')
+        record('floating geometry survives tiling, restart and explicit launch tags')
+        dispatch('closewindow','address:'+find('forced-memory-fixture')['address']);forced.wait(timeout=5);policy('off')
         if '--memory-only' in sys.argv[3:]:
             print(json.dumps(results,indent=2),flush=True)
             return
@@ -218,7 +321,7 @@ settings.setValue('geometry',window.saveGeometry());settings.setValue('external/
 ''')
         subprocess.run([sys.executable,str(seed),str(profile/'file_manager/state/settings.ini')],
                        env=dict(env,QT_QPA_PLATFORM='offscreen'),check=True)
-        def observe_files(app, floating, size=None):
+        def observe_files(app, floating, size=None, position=None):
             seen=[]; deadline=time.monotonic()+6; first=None
             while time.monotonic()<deadline:
                 window=next((c for c in clients() if c['class']==app),None)
@@ -227,12 +330,13 @@ settings.setValue('geometry',window.saveGeometry());settings.setValue('external/
                     sample=(window['floating'],window['fullscreen'],tuple(window['size']),tuple(window['at']))
                     if not seen or seen[-1]!=sample: seen.append(sample)
                     assert window['floating']==floating and window['fullscreen']==0, (app,seen)
-                    if size: assert window['size']==size, (app,seen)
                     if time.monotonic()-first>1.5: break
                 time.sleep(.02)
             assert first, 'Files window did not map: '+app
-            assert len(seen)==1, ('Files changed placement after mapping',app,seen)
-            if floating:
+            if not floating:assert len(seen)==1, ('Files changed tiled placement after mapping',app,seen)
+            if size:assert window['size']==size,(app,seen)
+            if isinstance(position,list):assert window['at']==position,(app,seen)
+            if position=='center':
                 x,y=window['at'];w,h=window['size']
                 area=json.loads(ctl('-j','monitors'))[0]
                 left,top,right,bottom=area.get('reserved',[0,0,0,0])
@@ -264,11 +368,12 @@ bus.call_sync('org.freedesktop.FileManager1','/org/freedesktop/FileManager1','or
               GLib.Variant('(ass)',([sys.argv[1]],'')),None,Gio.DBusCallFlags.NONE,3000,None)
 ''')
         subprocess.run([sys.executable,str(reveal),(root/'files/existing.txt').as_uri()],env=env,check=True)
-        window=observe_files('xetal-files-external',True,[940,610])
+        window=observe_files('xetal-files-external',True,[940,610],'center')
         dispatch('resizewindowpixel','exact 980 620,address:'+window['address']);time.sleep(.1)
+        external_position=find('xetal-files-external')['at']
         close_files(window)
         external=spawn([files_binary,'--from-desktop',str(root/'files')])
-        close_files(observe_files('xetal-files-external',True,[980,620]));external.wait(timeout=5)
+        close_files(observe_files('xetal-files-external',True,[980,620],external_position));external.wait(timeout=5)
         # The actual launcher path used by Ctrl-click and the floating checkbox.
         floating_launch=root/'floating-files.py'
         floating_launch.write_text('''import sys
@@ -281,9 +386,10 @@ entry.launch(floating=True)
         subprocess.run([sys.executable,str(floating_launch),str(profile)],env=env,check=True)
         window=observe_files('xetal-files',True)
         dispatch('resizewindowpixel','exact 960 640,address:'+window['address']);time.sleep(.8)
+        floating_position=find('xetal-files')['at']
         close_files(window)
         subprocess.run([sys.executable,str(floating_launch),str(profile)],env=env,check=True)
-        close_files(observe_files('xetal-files',True,[960,640]))
+        close_files(observe_files('xetal-files',True,[960,640],floating_position))
         normal=spawn([files_binary,'--from-desktop']) # Ordinary application icon, no URI.
         close_files(observe_files('xetal-files',False));normal.wait(timeout=5)
         record('normal Files, Super+E, external reveal, MIME folders and Ctrl-click remain independent')
@@ -364,10 +470,11 @@ value=QFileDialog.getOpenFileName(None,'Open in Qt',str(Path(sys.argv[1])/'files
         threading.Thread(target=server.serve_forever,daemon=True).start()
         browser=shutil.which('google-chrome-stable') or shutil.which('chromium')
         assert browser,'Chrome/Chromium required for the real portal test'
-        chrome=spawn([browser,'--user-data-dir='+str(root/'chrome'),'--ozone-platform=wayland',
+        browser_args=[browser,'--user-data-dir='+str(root/'chrome'),'--ozone-platform=wayland',
                       '--no-first-run','--no-default-browser-check','--disable-background-networking','--disable-gpu',
                       '--password-store=basic','--use-mock-keychain',
-                      f'http://127.0.0.1:{server.server_port}/'])
+                      f'http://127.0.0.1:{server.server_port}/']
+        chrome=spawn(browser_args)
         wait(lambda:any(path=='/ready' for path,_ in received),'Chrome local fixture')
         wait(lambda:any('Fusion portal upload check' in c['title'] for c in clients()),'Chrome mapped page')
         browser_window=next(c for c in clients() if 'Fusion portal upload check' in c['title'])
@@ -383,6 +490,19 @@ value=QFileDialog.getOpenFileName(None,'Open in Qt',str(Path(sys.argv[1])/'files
         result=next(value for path,value in received if path=='/result')
         assert result==dict(name='existing.txt',text='Test file; stays local.\n'),result
         record('Chrome file input uses Fusion picker',result=result)
+        policy('floating')
+        address=browser_window['address']
+        dispatch('resizewindowpixel','exact 850 550,address:'+address)
+        dispatch('movewindowpixel','exact 120 90,address:'+address);time.sleep(1)
+        assert ctl('xetal-window-state',address,'1','1')=='ok';time.sleep(.8)
+        dispatch('closewindow','address:'+address);chrome.wait(timeout=10);time.sleep(.4)
+        chrome=spawn(browser_args)
+        wait(lambda:any('Fusion portal upload check' in c['title'] for c in clients()),'Chrome reopened')
+        def restored_browser():
+            c=next((c for c in clients() if 'Fusion portal upload check' in c['title']),{})
+            return c.get('floating') and c.get('size')==[850,550] and c.get('at')==[120,90] and c.get('fullscreen')==0
+        wait(restored_browser,'Chrome restores last normal rectangle in force floating')
+        record('real Chrome restores last non-maximized size and position in force floating')
         server.shutdown();server.server_close()
         print(json.dumps(results,indent=2),flush=True)
     finally:

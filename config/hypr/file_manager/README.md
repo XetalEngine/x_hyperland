@@ -1,5 +1,19 @@
 # Fusion Files
 
+## Private folders
+
+Permission-denied local folders show **This folder is private → Unlock folder…**.
+KIO's `admin:` worker uses the running system's PolicyKit administrator prompt;
+the GUI stays unprivileged and never stores credentials or changes permissions.
+An administrator banner provides **Use normal access**. Failed authentication
+can be retried or left without a prompt loop. File opening also routes `admin:`
+URLs through KIO, including the application chooser and custom commands.
+
+Readable folders containing only hidden entries instead offer **Show hidden
+files**, synchronized with the existing **Ctrl+H** option. Empty folders, name
+filter misses and ordinary I/O errors do not request administrator credentials.
+See [the Files guide](../../../docs/FILES.md) for mounted-drive access details.
+
 ## Search
 
 **Ctrl+F** opens and focuses a recursive search. **Ctrl+Shift+F** focuses the

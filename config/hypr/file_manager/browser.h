@@ -9,6 +9,7 @@
 #include <QtWidgets>
 class KJob;
 class KFilePreviewGenerator;
+namespace KIO { class Job; }
 
 class Browser : public QWidget {
   Q_OBJECT
@@ -54,6 +55,7 @@ signals:
   void computerContextRequested(const QPoint &position);
   void jobStarted(KJob *job);
   void statusChanged(const QString &text);
+  void hiddenFilesRequested();
 
 protected:
   bool eventFilter(QObject *watched, QEvent *event) override;
@@ -74,6 +76,17 @@ private:
   bool driveLayoutQueued = false, fitSectionContents = false;
   KFilePreviewGenerator *previews;
   QUrl pendingSelection;
+  QWidget *folderMessage;
+  QFrame *administratorBar;
+  QLabel *folderHeading, *folderExplanation, *folderSymbol;
+  QPushButton *folderAction;
+  bool listingBusy = false, listingFailed = false, privateFolder = false;
+  quint64 accessGeneration = 0;
+  QString listingError;
+  enum class FolderAction { None, ShowHidden, Unlock, Retry };
+  FolderAction currentFolderAction = FolderAction::None;
+  void updateFolderMessage();
+  void handleListingError(KIO::Job *job);
   void load(const QUrl &url);
   void updateCards();
   void queueDriveLayout(bool fitContents = false);

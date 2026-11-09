@@ -29,8 +29,8 @@ void main(){
   fragColor=vec4(mix(warm,mix(ink,vec3(1.,.72,.25),.5),core)*a,a)*opacity;return;
  }
  vec2 p=(uv-.5)*dims;vec2 halfSize=dims*.5-vec2(8.);
- float radius=style==18?5.:style==17?7.:style==16?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
- if(part==1)radius=style==18?4.:style==17?6.:style==16?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
+ float radius=style==19?14.:style==18?5.:style==17?7.:style==16?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
+ if(part==1)radius=style==19?11.:style==18?4.:style==17?6.:style==16?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
  radius=min(radius,min(halfSize.x,halfSize.y));
  float distance=roundBox(p,halfSize,radius);
  if(style==2||style==3||style==8)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+(style==3?19.:style==8?14.:10.))*.7071);
@@ -44,7 +44,20 @@ void main(){
  float rim=.26;
  float jewel=0.;float jewelHalo=0.;float gildedSweep=0.;
  if(part==0){
-  if(style==18){
+  if(style==19){
+   // Orbital Glass: curved sapphire shoulder, inset rim and orbiting end lights.
+   vec2 q=vec2(halfSize.x-abs(p.x)-15.,p.y);
+   body=mix(base,tint,.04)+ink*shine*.14;rim=.55;
+   decoration=exp(-abs(distance+3.)*1.7)*.18;
+   decoration+=exp(-abs(p.y-halfSize.y+6.)*1.8)*step(26.,halfSize.x-abs(p.x))*.65;
+   metal=exp(-abs(p.y+halfSize.y-3.)*1.8)*step(26.,halfSize.x-abs(p.x))*.55;
+   float orbit=abs(length(q/vec2(8.,18.))-1.);
+   decoration+=exp(-orbit*20.)*.65;
+   vec2 light=q-vec2(8.*cos(time*.7),18.*sin(time*.7));
+   metal+=(1.-smoothstep(1.,2.5,length(light)))*.85;
+   float star=min(line(q,vec2(-6.,0.),vec2(6.,0.)),line(q,vec2(0.,-6.),vec2(0.,6.)));
+   decoration+=exp(-star*2.)*exp(-length(q)*.12)*.8;
+  }else if(style==18){
    // Amplifier Rack: speaker end caps, brass guards and red power lamps.
    vec3 brass=mix(tint,ink,.65);
    vec2 q=vec2(halfSize.x-abs(p.x),p.y);
@@ -305,6 +318,11 @@ void main(){
   body=mix(base,tint,.08+emphasis*.14)+ink*shine*.045;
   rim=.08+emphasis*.25;
   decoration=exp(-abs(p.y-halfSize.y+3.)*1.7)*(.25+.4*emphasis);
+  if(style==19){
+   body=mix(base,tint,.06+emphasis*.1)+ink*shine*.13;rim=.4+emphasis*.4;
+   decoration=exp(-abs(p.y-halfSize.y+5.)*1.8)*step(abs(p.x),halfSize.x-10.)*(.45+emphasis*.4);
+   metal=exp(-abs(distance+3.)*1.8)*.18;
+  }
   if(style==18){
    vec3 brass=mix(tint,ink,.65);
    body=mix(base,tint,.035+emphasis*.09)+ink*shine*.06;rim=.2+emphasis*.35;

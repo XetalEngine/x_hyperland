@@ -197,6 +197,29 @@ provide Trash reports the error; it never silently substitutes permanent deletio
 Permanent deletion always asks for confirmation. Pending tracked file jobs keep
 the application process alive after its last browser window closes.
 
+If a folder cannot be read because of Linux permissions, Files shows **This
+folder is private** with an **Unlock folder…** button. Unlock opens the desktop's
+administrator authentication prompt and browses that folder using KIO's `admin:`
+worker. Use an administrator account on the **currently running system**, not
+the password from another Linux installation on the mounted drive. Files does
+not collect or save passwords, change ownership, or loosen folder permissions.
+An **Administrator access** banner stays visible while using this mode;
+**Use normal access** switches the tab back to ordinary access. System
+authentication may remain cached briefly. Cancellation or a failed unlock
+leaves a visible error with Retry and Back, without repeated prompts.
+
+The authenticated folder supports browsing, creating folders, copying, moving,
+renaming and opening files through KIO. The application chooser also uses KIO
+for `admin:` files, so ordinary application launching is not handed an
+unsupported URI. Administrator access does not decrypt encrypted volumes or
+make a read-only mount writable. Search and file pickers still require paths
+that their unprivileged workers or requesting applications can access.
+
+A readable folder containing only hidden entries instead shows **This folder
+contains hidden files** with **Show hidden files** (also **Ctrl+H**). This enables
+the existing hidden-files option across tabs. A genuinely empty folder or a
+folder with no filter matches is never described as private.
+
 Protected copy and move operations, including drag-and-drop and protected
 destinations, use KIO's `admin:` worker after an asynchronous, read-only access
 check. `kio-admin` supplies the graphical PolicyKit prompt; the browser stays

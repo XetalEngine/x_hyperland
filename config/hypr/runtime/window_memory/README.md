@@ -32,8 +32,10 @@ Numbered workspace overrides live in `workspaces/rules.json`. The adapter applie
 forced tiling/floating before the first layout and to existing or incoming
 windows. A native mode-change hook prevents conflicting app/launcher restores;
 tiled drag gestures retain their temporary floating path and rejoin the layout
-on release. The watcher skips app-mode restoration and sampling in forced
-workspaces so those overrides do not replace an app's ordinary remembered mode.
+on release. The watcher skips app-mode restoration in forced workspaces. Force
+floating still records and restores each app's normal floating size and position;
+force tiled never restores pixel geometry or samples temporary floating drag
+targets. Neither override replaces the app's ordinary remembered mode.
 
 Restoration separates mode, geometry and fullscreen into different compositor
 frames; changing floating state replaces the layout target. Normal floating
@@ -46,27 +48,43 @@ application constraints. Layer-shell surfaces and unmapped/hidden
 windows are not ordinary managed windows. Apps-menu launches explicitly choose
 tiling; Ctrl-click chooses floating. Both carry first-map launch tags and bypass
 later generic mode restoration, including stale maximized preferences. Floating
-launches retain `launcher/floating.py`'s per-shortcut normal size and position,
-fitted to the destination monitor. Saved floating geometry survives tiling and
-maximizing. Bar pins and launch hotkeys retain their explicit shortcut preference.
+launches retain `launcher/floating.py`'s first-map placement, followed by the same
+normal geometry memory used by other launch routes. Bar pins and launch hotkeys
+retain their explicit shortcut mode preference.
 
-Fusion pickers keep their more recent, synchronous actual-size record in
-`file_manager/state/settings.ini`; the memory helper does not override it.
-The picker class rule makes every open/save request floating from its first map.
+Normal geometry memory applies to all managed floating application windows,
+including Files, pickers, transient dialogs and windows with explicit launch
+tags or matched rules. Fixed-size windows keep their application's size limits
+and remember position. Layers/popups are not independent managed windows, and
+minimized windows are not sampled. App and dialog identities remain separate.
+Saved positions are relative to the destination monitor's usable desktop, so
+negative origins, scaling, rotation and disconnected monitors cannot restore a
+window onto a missing output. Geometry is fitted to that usable area.
 
-Fusion Files main windows (`xetal-files` and `xetal-files-external`) also skip
-generic restoration. Ordinary launches tile; explicit launcher floating requests
-use their exec rules and per-shortcut size; external folder/reveal requests use
-a floating/centered class rule and the Files `external/size` preference before
-mapping. Files child dialogs still restore independently. This prevents older
-generic or Qt maximize state from changing these launch modes after opening.
+The last normal rectangle survives maximizing, fullscreen, tiling, minimization
+and service restarts. A sampled resize is retained even if maximizing or closing
+happens before the write debounce. The last closed sibling supplies the next
+window's default; simultaneous closes prefer the last focused sibling. Startup
+only observes existing windows. Private state uses atomic writes and is flushed
+on service shutdown. Version-1 records remain readable; old maximized/tiled sizes
+are never treated as a normal floating size.
+
+Fusion Files and picker launch rules still decide their mode. Ordinary Files
+launches tile; external folder/reveal requests and pickers float. Generic mode
+memory cannot override these choices, and their floating geometry is remembered
+like other applications.
 
 Run `python3 -m unittest discover -s config/hypr/runtime/window_memory` and the
 real compositor check `tests/check-file-picker.py OUTPUT_DIR FILES_BUILD`.
 Append `--memory-only` to check floating/maximized restoration and balanced
 tiles when reopening two windows quickly or mixing applications.
-The latter uses private settings, a private D-Bus and disabled XWayland; input
-never reaches the parent desktop.
+The latter covers all three workspace modes, explicit launch tags, normal
+position after maximized close, service restart and balanced tiles. The full
+check also reopens real Chrome from a private profile. Both check the display
+Primary checkbox using real Wayland mouse input through canvas repaints, since
+a programmatic `click()` bypasses native mouse-grab bugs. They use private
+settings, a private D-Bus and disabled XWayland; input never reaches the parent
+desktop. `--primary-only` runs just the checkbox check.
 
 `dbus-run-session -- python3 tests/check-firefox-geometry.py MEMORY_SO MINIMIZE_SO OUTPUT_DIR`
 checks real Firefox with a temporary profile and local page. It covers frame

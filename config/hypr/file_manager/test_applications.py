@@ -69,6 +69,23 @@ class ApplicationTests(unittest.TestCase):
         self.assertEqual(len(list(self.apps.glob('xetal-openwith-*.desktop'))), 1)
         self.assertIn('application/octet-stream=xetal-openwith-', (self.root/'config/mimeapps.list').read_text())
 
+    def test_authenticated_launch_prepares_app_without_passing_admin_uri_to_gio(self):
+        _, choices = self.call('choices', {'mimes':['text/plain']})
+        code, result = self.call('launch', dict(app='fusion-fixture-editor.desktop', mime='text/plain',
+            urls=['admin:///protected/a%20%23%20file.txt'], prepare_only=True,
+            remember=True, revision=choices['revision']))
+        self.assertEqual(code, 0, result)
+        self.assertEqual(result['desktop_file'], str(self.apps/'fusion-fixture-editor.desktop'))
+        self.assertIn(str(self.program), result['command'])
+        self.assertFalse(self.log.exists())
+        self.assertIn('text/plain=fusion-fixture-editor.desktop;', (self.root/'config/mimeapps.list').read_text())
+        code, result = self.call('launch', dict(command='/usr/bin/python3 '+str(self.program),
+            urls=['admin:///protected/a.txt'], prepare_only=True))
+        self.assertEqual(code, 0, result)
+        self.assertEqual(result['desktop_file'], '')
+        self.assertIn(str(self.program), result['command'])
+        self.assertFalse(self.log.exists())
+
     def test_stale_default_save_and_missing_application_report_errors(self):
         code, result = self.call('launch', dict(app='fusion-fixture-editor.desktop', mime='text/plain',
                                               urls=[(self.root/'unused').as_uri()], remember=True, revision='stale'))

@@ -55,7 +55,12 @@ class Arrangement(QWidget):
         p.setPen(QPen(theme_runtime.qcolor('#192630'), 1))
         for x in range(0, self.width(), 24): p.drawLine(x, 0, x, self.height())
         for y in range(0, self.height(), 24): p.drawLine(0, y, self.width(), y)
-        for check in self.primary_boxes.values(): check.hide()
+        # Hiding a pressed checkbox releases its Wayland mouse grab. Repaints
+        # (including hover/opacity effects) must leave live controls mapped so
+        # the eventual release reaches the same button and emits clicked().
+        names = {m['name'] for m in self.models}
+        for name, check in self.primary_boxes.items():
+            if name not in names: check.hide()
         self.rects = []; scale, ox, oy = self.view(); parked = 0
         for m in self.models:
             if not m['enabled'] or m['mirror']:

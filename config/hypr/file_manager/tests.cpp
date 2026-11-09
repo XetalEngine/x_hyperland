@@ -7,6 +7,8 @@
 #include "transfers.h"
 #include <KIO/FileUndoManager>
 #include <KApplicationTrader>
+#include <KDirLister>
+#include <KProtocolInfo>
 #include <KIO/RenameDialog>
 #include <KIO/Paste>
 #include <KIO/RenameFileDialog>
@@ -125,6 +127,152 @@ private slots:
     QVERIFY(!Fusion::validName("../outside"));
     QVERIFY(!Fusion::validName(".."));
     QVERIFY(Fusion::validName("100% # résumé.txt"));
+  }
+  void hiddenOnlyFolderExplainsAndRevealsItsContents() {
+    const auto path = folder + "/hidden-only";
+    QVERIFY(QDir().mkpath(path + "/.config"));
+    write(path + "/.profile");
+    FilesWindow window(QUrl::fromLocalFile(path), false, temporary.path() + "/hidden-only.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.show();
+    auto *tab = window.browser();
+    auto *action = tab->findChild<QPushButton *>("folderMessageAction");
+    auto *heading = tab->findChild<QLabel *>("folderMessageHeading");
+    QTRY_VERIFY(action->isVisible());
+    QCOMPARE(heading->text(), QString("This folder contains hidden files"));
+    QCOMPARE(action->text(), QString("Show hidden files"));
+    QVERIFY(!window.statusBar()->currentMessage().contains("0 items"));
+    auto *explanation = tab->findChild<QLabel *>("folderMessageExplanation");
+    QTRY_VERIFY(explanation->height() >= explanation->heightForWidth(explanation->width()));
+    const auto capture = qEnvironmentVariable("FUSION_FILES_CAPTURE");
+    if (!capture.isEmpty()) { QTest::qWait(100); window.grab().save(capture + "-hidden-folder.png"); }
+    tab->setView(4);
+    QVERIFY(action->isVisible()); // View changes must not hide the explanation.
+    QTest::mouseClick(action, Qt::LeftButton);
+    QTRY_COMPARE(tab->proxy->rowCount(), 2);
+    QVERIFY(!action->isVisible());
+    QVERIFY(window.findChild<QAction *>("hiddenFilesAction")->isChecked());
+    QVERIFY(window.preferences.settings.value("hidden").toBool());
+    QVERIFY(tab->details->isVisible());
+    QVERIFY(tab->model->indexForUrl(QUrl::fromLocalFile(path + "/.profile")).isValid());
+  }
+  void emptyAndFilteredFoldersAreNotReportedAsPrivate() {
+    const auto path = folder + "/empty-readable";
+    QVERIFY(QDir().mkpath(path));
+    Fusion::Preferences preferences(temporary.path() + "/empty-readable.ini");
+    Drives drives;
+    Browser tab(&preferences, &drives);
+    QSignalSpy loaded(tab.model->dirLister(), &KDirLister::completed);
+    tab.navigate(QUrl::fromLocalFile(path));
+    tab.show();
+    QTRY_VERIFY(!loaded.isEmpty());
+    QVERIFY(!tab.findChild<QPushButton *>("folderMessageAction")->isVisible());
+    write(path + "/visible.txt");
+    write(path + "/.hidden");
+    tab.refresh();
+    QTRY_COMPARE(tab.proxy->rowCount(), 1);
+    tab.filter->setText("no such name");
+    QCOMPARE(tab.proxy->rowCount(), 0);
+    QVERIFY(!tab.findChild<QPushButton *>("folderMessageAction")->isVisible());
+    tab.filter->clear();
+    QTRY_COMPARE(tab.proxy->rowCount(), 1);
+  }
+  void privateFolderShowsUnlockAndRecoversWithoutChangingPermissions() {
+    if (geteuid() == 0) QSKIP("Permission denial requires an ordinary desktop user.");
+    const auto path = folder + "/private # café";
+    QVERIFY(QDir().mkpath(path));
+    write(path + "/keep.txt");
+    const auto encoded = QFile::encodeName(path);
+    const auto restore = qScopeGuard([&] { ::chmod(encoded, 0700); });
+    QCOMPARE(::chmod(encoded, 0000), 0);
+    FilesWindow window(QUrl::fromLocalFile(path), false, temporary.path() + "/private.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.show();
+    auto *tab = window.browser();
+    auto *action = tab->findChild<QPushButton *>("folderMessageAction");
+    QTRY_VERIFY(action->isVisible());
+    QTRY_COMPARE(action->text(), QString("Unlock folder…"));
+    QCOMPARE(tab->findChild<QLabel *>("folderMessageHeading")->text(), QString("This folder is private"));
+    QVERIFY(tab->findChild<QLabel *>("folderMessageExplanation")->text().contains("running system"));
+    QCOMPARE(window.statusBar()->currentMessage(), QString("This folder is private"));
+    const auto capture = qEnvironmentVariable("FUSION_FILES_CAPTURE");
+    if (!capture.isEmpty()) { QTest::qWait(100); window.grab().save(capture + "-private-folder.png"); }
+    QCOMPARE(tab->location(), QUrl::fromLocalFile(path)); // No automatic elevation or prompt loop.
+    struct stat info;
+    QCOMPARE(::stat(encoded, &info), 0);
+    QCOMPARE(info.st_mode & 0777, mode_t(0000));
+    tab->setView(4);
+    QVERIFY(action->isVisible());
+    tab->refresh();
+    QTRY_VERIFY(action->isVisible());
+    QTRY_COMPARE(action->text(), QString("Unlock folder…"));
+    // Permissions can also be corrected externally; Refresh retries a failed
+    // listing instead of trying to update a directory absent from the cache.
+    QCOMPARE(::chmod(encoded, 0700), 0);
+    tab->refresh();
+    QTRY_COMPARE(tab->proxy->rowCount(), 1);
+    QVERIFY(!action->isVisible());
+    QVERIFY(tab->details->isVisible());
+    QVERIFY(QFileInfo::exists(path + "/keep.txt"));
+  }
+  void missingFolderOffersRetryInsteadOfCredentials() {
+    const auto path = folder + "/missing-folder";
+    Fusion::Preferences preferences(temporary.path() + "/missing-folder.ini");
+    Drives drives;
+    Browser tab(&preferences, &drives);
+    tab.navigate(QUrl::fromLocalFile(path));
+    tab.show();
+    auto *action = tab.findChild<QPushButton *>("folderMessageAction");
+    QTRY_VERIFY(action->isVisible());
+    QCOMPARE(action->text(), QString("Try again"));
+    QVERIFY(QDir().mkpath(path));
+    write(path + "/now-here.txt");
+    QTest::mouseClick(action, Qt::LeftButton);
+    QTRY_COMPARE(tab.proxy->rowCount(), 1);
+    QVERIFY(!action->isVisible());
+    tab.navigate(Fusion::computerUrl());
+    QVERIFY(!action->isVisible());
+  }
+  void unlockFailureCanReturnToNormalAccess() {
+    if (geteuid() == 0 || !KProtocolInfo::isKnownProtocol("admin")) QSKIP("Needs kio-admin and an ordinary user.");
+    if (!qEnvironmentVariable("DBUS_SYSTEM_BUS_ADDRESS").endsWith("/no-system-bus"))
+      QSKIP("Run through test.py: authentication tests must not contact the real system bus.");
+    const auto path = folder + "/unlock # 100% café";
+    QVERIFY(QDir().mkpath(path));
+    write(path + "/kept.txt");
+    const auto encoded = QFile::encodeName(path);
+    const auto restore = qScopeGuard([&] { ::chmod(encoded, 0700); });
+    QCOMPARE(::chmod(encoded, 0000), 0);
+    Fusion::Preferences preferences(temporary.path() + "/unlock.ini");
+    Drives drives;
+    Browser tab(&preferences, &drives);
+    tab.navigate(QUrl::fromLocalFile(path));
+    tab.show();
+    auto *action = tab.findChild<QPushButton *>("folderMessageAction");
+    QTRY_VERIFY(action->isVisible());
+    QTRY_COMPARE(action->text(), QString("Unlock folder…"));
+    QSignalSpy attempts(tab.model->dirLister(), &KDirLister::started);
+    QTest::mouseClick(action, Qt::LeftButton);
+    QCOMPARE(tab.location().scheme(), QString("admin"));
+    QCOMPARE(tab.location().path(), path);
+    auto *normal = tab.findChild<QPushButton *>("normalFolderAccess");
+    QVERIFY(normal->isVisible());
+    QTRY_VERIFY_WITH_TIMEOUT(action->isVisible(), 15000);
+    QCOMPARE(action->text(), QString("Try again"));
+    const auto count = attempts.size();
+    QTest::qWait(100);
+    QCOMPARE(attempts.size(), count); // Authentication failure never loops.
+    QTest::mouseClick(normal, Qt::LeftButton);
+    QCOMPARE(tab.location(), QUrl::fromLocalFile(path));
+    QTRY_VERIFY(action->isVisible());
+    QTRY_COMPARE(action->text(), QString("Unlock folder…"));
+    QVERIFY(!normal->isVisible());
+    struct stat info;
+    QCOMPARE(::stat(encoded, &info), 0);
+    QCOMPARE(info.st_mode & 0777, mode_t(0000));
+    QCOMPARE(::chmod(encoded, 0700), 0);
+    tab.refresh();
+    QTRY_COMPARE(tab.proxy->rowCount(), 1);
   }
   void iconSetChangesKeepTheOpenFolderAndSelection() {
     const auto oldPaths=QIcon::themeSearchPaths();const auto oldName=QIcon::themeName();

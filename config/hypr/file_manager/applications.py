@@ -112,6 +112,9 @@ def launch(data):
                 if custom:
                     custom.unlink(missing_ok=True)
                 raise
+    if data.get('prepare_only'):
+        return dict(ok=True, desktop_file=(app.get_filename() or '') if isinstance(app, Gio.DesktopAppInfo) else '',
+                    name=app.get_name(), command=app.get_commandline())
     if not open_uris(app, urls):
         raise ValueError('The application could not be started.')
     return dict(ok=True)

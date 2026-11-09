@@ -99,5 +99,10 @@
     "infernalencore/final-encore.png",
     "infernalencore/cathedral-of-sound.png",
     "infernalencore/backstage-embers.png"
+  ],
+  "polaris": [
+    "polaris/tux-starlight.png",
+    "polaris/northern-lights.png",
+    "polaris/orbital-glass.png"
   ]
 }

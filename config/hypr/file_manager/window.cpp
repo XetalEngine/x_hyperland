@@ -525,6 +525,9 @@ void FilesWindow::addTab(const QUrl &url) {
           &FilesWindow::computerMenu);
   connect(tab, &Browser::openRequested, this, &FilesWindow::openItem);
   connect(tab, &Browser::jobStarted, this, &FilesWindow::track);
+  connect(tab, &Browser::hiddenFilesRequested, this, [this] {
+    hiddenAction->setChecked(true);
+  });
   connect(tab, &Browser::statusChanged, this, [this, tab](const QString &text) {
     if (tab == browser())
       statusBar()->showMessage(text);

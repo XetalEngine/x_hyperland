@@ -10,7 +10,7 @@ import tempfile
 
 PATH = Path(__file__).with_name('preferences.json')
 STYLES = {'follow': 'Follow desktop theme', 'raw': 'Xetal Raw',
-          'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint', 'binaryknife': 'Binary Knife', 'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud', 'shadowedge': 'Shadow Edge', 'hollowgrove': 'Hollow Grove', 'gildedhollow': 'The Gilded Hollow', 'hyperfusionblue': 'HyperFusion Blue', 'midnighttransit': 'Midnight Transit', 'blackwood': 'Blackwood', 'atomicafterglow': 'Atomic Afterglow', 'mycelium': 'Mycelium', 'platform95': 'Platform 95', 'midnightrun': 'Midnight Run', 'infernalencore': 'Infernal Encore'}
+          'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint', 'binaryknife': 'Binary Knife', 'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud', 'shadowedge': 'Shadow Edge', 'hollowgrove': 'Hollow Grove', 'gildedhollow': 'The Gilded Hollow', 'hyperfusionblue': 'HyperFusion Blue', 'midnighttransit': 'Midnight Transit', 'blackwood': 'Blackwood', 'atomicafterglow': 'Atomic Afterglow', 'mycelium': 'Mycelium', 'platform95': 'Platform 95', 'midnightrun': 'Midnight Run', 'infernalencore': 'Infernal Encore', 'polaris': 'Polaris'}
 APPEARANCE = dict(width=448, height=168, radius=16, opacity=100, glow=55,
                   border=1, track_height=5, accent='')
 PROFILES = {name: {**APPEARANCE, **values} for name, values in {
@@ -22,6 +22,7 @@ PROFILES = {name: {**APPEARANCE, **values} for name, values in {
     'obsidianforge': dict(radius=3, opacity=100, glow=65, track_height=4),
     'hollowgrove': dict(radius=20, opacity=100, glow=22, track_height=5),
     'infernalencore': dict(radius=5, opacity=100, glow=40, track_height=7),
+    'polaris': dict(radius=12, opacity=100, glow=35, track_height=7),
     'midnightrun': dict(radius=7, opacity=100, glow=40, track_height=7),
     'platform95': dict(radius=1, opacity=100, glow=10, track_height=8),
     'mycelium': dict(radius=14, opacity=100, glow=24, track_height=6),

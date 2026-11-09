@@ -26,7 +26,10 @@ if __name__ == '__main__':
                 shutil.copy2(source, profile/'file_manager'/source.name)
         env = dict(os.environ, QT_QPA_PLATFORM='offscreen', QT_QPA_PLATFORMTHEME='',
                    XETAL_FILES_ROOT=str(profile), XDG_DATA_DIRS='/usr/local/share:/usr/share',
-                   FUSION_FILES_ISOLATED='1', TMPDIR=str(base))
+                   FUSION_FILES_ISOLATED='1', TMPDIR=str(base),
+                   # Test failure/retry of authenticated browsing without ever
+                   # opening the real desktop's password prompt or root helper.
+                   DBUS_SYSTEM_BUS_ADDRESS='unix:path='+str(base/'no-system-bus'))
         env.pop('HYPRLAND_INSTANCE_SIGNATURE', None)
         for key, name in [('XDG_CONFIG_HOME', 'config'), ('XDG_DATA_HOME', 'data'),
                           ('XDG_CACHE_HOME', 'cache'), ('XDG_STATE_HOME', 'state'),
