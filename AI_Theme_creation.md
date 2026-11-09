@@ -118,6 +118,13 @@ Required verification for **every new or changed transfer scene**:
    and licenses needed to reproduce/distribute the theme, not caches or personal
    photographs. No asset may depend on an absolute path to the author's Desktop.
 
+When the user requests more wallpapers for an existing theme, append them to
+that theme's catalog. Preserve the original first three: these remain the
+default monitor set. Additional images are selectable individually and saved
+per monitor. The preset reveal uses two columns for up to six wallpapers and
+three for nine, widening on hover/focus to keep the thumbnails readable;
+verify every thumbnail is visible and existing selections survive switching.
+
 ## Icons are a complete pack
 
 - Extend `icon_themes/art.py` (`STYLES`, descriptions and SVG dispatch), using a

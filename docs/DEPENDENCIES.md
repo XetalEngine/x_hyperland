@@ -10,6 +10,7 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 | Native builds | C/C++23 compiler, matching Hyprland headers, GLESv2, json-c, libei, CMake, pkg-config, GTK 3, gio-unix, gtk-layer-shell, json-glib, Wayland client/scanner; Qt 5 and 6 Widgets/Concurrent, Qt Network/DBus/Linguist, development tools and private QtGui/QtCore headers; XCB and XCB-RES |
 | Capture | grim, slurp, wl-clipboard, wf-recorder, FFmpeg/ffprobe, xdg-desktop-portal-hyprland, GTK desktop portal |
 | Audio | PipeWire PulseAudio compatibility, pactl, WirePlumber/wpctl, playerctl |
+| Fusion Files search | Python 3 and ripgrep (`rg`) for cancellable text/regex searches; filename search uses the Python standard library |
 | Media downloader | yt-dlp, FFmpeg/ffprobe, and a supported Deno, Node.js or QuickJS runtime; wl-paste for selected links |
 | Network | NetworkManager/nmcli, network-manager-applet, nm-connection-editor, BlueZ/bluetoothctl, Blueman |
 | Desktop updates | Git, Python standard-library HTTPS, access to the GitHub repository; native builds use the dependencies above. No automatic system-package installation. |

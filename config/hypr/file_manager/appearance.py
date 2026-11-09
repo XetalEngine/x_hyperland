@@ -45,6 +45,23 @@ def appearance():
     QLabel#muted {{color:{p['PlaceholderText']};}}
     QLineEdit#folderFilter {{min-width:120px; max-width:220px; padding:7px 10px;}}
     QFrame#addressRow {{background:{p['Window']}; border-bottom:1px solid {p['Midlight']};}}
+    QWidget#searchPane {{background:{p['Window']};}}
+    QFrame#searchBar, QFrame#searchPresetBar {{background:{p['AlternateBase']}; border:1px solid {p['Midlight']}; border-radius:{radius}px;}}
+    QLineEdit#fileSearchQuery {{background:{p['Base']}; color:{p['Text']}; padding:9px 12px; font-size:14px; border:1px solid {p['Midlight']}; border-radius:{radius}px;}}
+    QLineEdit#fileSearchQuery:focus {{border-color:{p['Accent']};}}
+    QPushButton#searchStart {{background:{p['Highlight']}; color:{p['HighlightedText']}; border:1px solid {p['Accent']}; padding:9px 20px;}}
+    QTreeView#searchResults {{background:{p['Base']}; alternate-background-color:{p['AlternateBase']}; color:{p['Text']}; border:1px solid {p['Midlight']}; border-radius:{radius}px; outline:none;}}
+    QTreeView#searchResults::item {{min-height:29px; padding:2px 7px;}}
+    QTreeView#searchResults::item:selected {{background:{p['Highlight']}; color:{p['HighlightedText']};}}
+    QLabel#searchEmpty {{background:{p['Base']}; color:{p['PlaceholderText']}; border:1px solid {p['Midlight']}; border-radius:{radius}px; padding:24px; font-size:16px;}}
+    QLabel#searchScope {{font-weight:600; padding:3px 0;}}
+    QLabel#searchStatus {{color:{p['PlaceholderText']};}}
+    QDialog#advancedSearchDialog QGroupBox {{padding:20px 12px 12px; margin-top:14px; border:1px solid {p['Midlight']}; border-radius:{radius}px;}}
+    QDialog#advancedSearchDialog QGroupBox::title {{subcontrol-origin:margin; left:12px; padding:0 4px; color:{p['Accent']};}}
+    QLabel#searchValidation {{color:{p['Accent']};}}
+    QLabel#searchPresetStatus {{color:{p['PlaceholderText']};}}
+    QPlainTextEdit#searchExtensions {{background:{p['Base']}; color:{p['Text']}; selection-background-color:{p['Highlight']}; selection-color:{p['HighlightedText']}; border:1px solid {p['Midlight']}; border-radius:{radius}px; padding:8px;}}
+    QPlainTextEdit#searchExtensions:focus {{border-color:{p['Accent']};}}
     QStatusBar {{background:{p['Window']}; border-top:1px solid {p['Midlight']}; padding:3px;}}
     QFrame#pickerActions {{background:{p['Window']}; border-top:1px solid {p['Midlight']};}}
     QPushButton#pickerAccept {{background:{p['Highlight']}; color:{p['HighlightedText']}; border:1px solid {p['Accent']}; padding:8px 22px; border-radius:{radius}px;}}

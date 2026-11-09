@@ -84,6 +84,78 @@ the Trash animation on or off. Saved choices survive reopening and updates;
 the new defaults do not replace an existing preview preference. Remote folders
 keep their file-type icons instead of downloading pictures for thumbnails.
 
+## Search files and contents
+
+**Ctrl+F** opens a separate search area in the current tab and focuses its input.
+The existing **Filter this folder…** field stays in the address row;
+**Ctrl+Shift+F** returns to the folder view and focuses that filter. Filtering
+only narrows the current listing. Searching includes subfolders by default and
+does not inherit the folder filter.
+
+Type a partial name or a wildcard and press **Enter**. Matching ignores case by
+default. Examples: `*.jpg`, `par*ialname*png`, `image?.png`, or `*.png;*.jpg`.
+`*.*` matches every name, including extensionless names; `*.` matches names
+without an extension. Semicolon or `|` separates alternative patterns.
+Searches use the current local or mounted folder; **Choose folder…** changes
+the scope. From This PC or a KIO network URL, choose a local or mounted path.
+
+Checking **Advanced** opens a dialog with:
+
+- **Search text inside files**, with literal text or regular expressions,
+  case sensitivity, whole words, and matching across lines.
+- Filename patterns and common text/source/web/configuration/data file types.
+  Selected types are combined, then intersected with the filename filter.
+  The multiline, word-wrapped extension box shows `.txt, .html, .cpp` rather
+  than wildcard syntax. Checking a group adds its extensions; unchecking it
+  removes that group's extensions while retaining extensions shared with
+  another checked group and unrelated custom entries. Edit this box directly
+  to add or remove extensions. Plain `txt` and `*.txt` are also accepted and
+  normalized to `.txt`; an empty box searches all file types.
+- Excluded files/folders, recursive search, hidden files, optional symbolic-link
+  traversal with loop detection, and optional binary-data searching.
+- Minimum/maximum file size, modified-date range, and automatic Unicode or
+  explicit UTF-8, UTF-16, and Windows-1252 decoding. Advanced searches start
+  with a 64 MiB file-size limit; zero removes the limit.
+- **Parallel workers**: Automatic uses up to four; choose 1–32 explicitly.
+  Fewer workers can suit hard drives or mounted network folders.
+- A result limit, initially 20,000 rows, adjustable up to 100,000.
+
+The advanced dialog's **Presets** dropdown lists saved search setups. **Save…**
+stores the current search folder, query, extensions and every advanced option
+under a name; saving over an existing preset asks before replacing it.
+Choose a preset and click **Load**, or use **Load file…** for a preset from
+another location. Loading fills the form for review and does not start a search.
+You can save an incomplete query or a folder that will be available later.
+
+**Open folder** opens `~/.config/hypr/file_manager/state/search-presets/` for the
+standard profile. Each preset is a separate JSON file. Renaming or deleting a
+file updates the dropdown while the dialog is open; deleting the selected
+preset leaves the current form intact. Files added externally also appear.
+These private files survive desktop updates and are not shipped in releases.
+Preset writes are atomic, and malformed or unsupported files report an error
+without replacing the form's settings.
+
+Rows show **name, size, line, match count, modified date, full path and matching
+text**. Content searches produce one row per matching line; a multiline match
+shows its starting line. Double-click a content row to preview the excerpt;
+**Open file** uses the normal file-opening action, and **Show in folder** returns
+to the containing folder with that file selected. Copy paths or result rows,
+sort completed results, or export the displayed results as CSV. Excerpts are
+bounded to 400 characters around the first match. Search results are read-only;
+use Show in folder for renaming, moving or deleting files.
+
+**Stop** retains results already received. **Escape** stops a running search;
+press it again to close search. Starting another search, navigating away,
+closing a tab or closing the window cancels its worker and child readers. Each
+tab/window has an independent search. No indexing service is required.
+
+Content search uses the installed **ripgrep** package with its default regex
+engine (no look-around or backreferences). Files are searched as text; PDF,
+Office and archive contents are not extracted. Unreadable files, binary files,
+oversized result lines and reached result limits are reported. JSON result
+lines larger than 2 MiB are skipped to keep memory bounded. Search runs as the
+current user and does not change file contents.
+
 ## File actions
 
 Ordinary copy, move, drag-and-drop, rename, Trash, restore and undo use KDE KIO jobs.
@@ -189,7 +261,9 @@ shell expansion; multiple-file placeholders must occupy a separate argument.
 | F5 | Refresh |
 | Alt+. / Ctrl+H | Show or hide hidden files |
 | Alt+P | Toggle preview pane |
-| Ctrl+F | Filter the current folder |
+| Ctrl+F | Open and focus search |
+| Ctrl+Shift+F | Focus the current-folder filter |
+| Escape (in search) | Stop search, then close search |
 | Ctrl+Shift+C | Copy complete selected path(s) |
 | Ctrl+T / Ctrl+W | New / close tab |
 | Ctrl+Tab / Ctrl+Shift+Tab | Next / previous tab |

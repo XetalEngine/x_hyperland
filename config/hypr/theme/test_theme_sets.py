@@ -69,6 +69,23 @@ class ThemeSetTests(unittest.TestCase):
         assigned=wallpaper_sets.bundled(self.root/'wallpaper','binaryknife',monitors)
         self.assertEqual(list(assigned),['DP-1','DP-2','DP-3'])
 
+    def test_extra_wallpapers_preserve_defaults_and_restore_a_saved_extra(self):
+        root = self.root/'wallpaper'; monitors = self.monitors+[{'name':'DP-4','x':5760,'mirrorOf':'none'}]
+        defaults = wallpaper_sets.bundled(root,'modern',monitors)
+        catalog = json.loads((root/'sets.json').read_text())
+        for index in range(3,9):
+            name = f'modern/{index}.png'; Image.new('RGB',(16,9),'navy').save(root/name)
+            catalog['modern'].append(name)
+        (root/'sets.json').write_text(json.dumps(catalog))
+        self.assertEqual(len(wallpaper_sets.catalog(root)['modern']),9)
+        self.assertEqual(wallpaper_sets.bundled(root,'modern',monitors),defaults)
+        extra = str(root/'modern/8.png'); choice = {'path':extra,'original':extra,'fit':'contain'}
+        (root/'profiles.json').write_bytes(wallpaper_sets.encode({'version':1,'themes':{'modern':{'DP-2':choice}}}))
+        target,_ = wallpaper_sets.switching(root,'raw','modern',{},monitors)
+        self.assertEqual(target['DP-2'],choice)
+        self.assertEqual(target['DP-1'],defaults['DP-1'])
+        self.assertEqual(target['DP-4'],defaults['DP-4'])
+
     def test_each_theme_restores_its_own_three_screen_set(self):
         for design in (*runtime.DESIGNS,'raw'):
             self.apply(design)

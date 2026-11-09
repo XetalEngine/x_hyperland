@@ -2,6 +2,7 @@
 #include "core.h"
 #include "drives.h"
 #include "pathbar.h"
+#include "search.h"
 #include <KDirModel>
 #include <KDirSortFilterProxyModel>
 #include <KFileItem>
@@ -21,6 +22,7 @@ public:
   QListView *icons = nullptr;
   QTreeView *details = nullptr;
   QLineEdit *filter;
+  SearchPane *search = nullptr;
   QLabel *notice;
   QStackedWidget *stack;
   int viewMode = 2;
@@ -35,6 +37,9 @@ public:
   void selectUrl(const QUrl &url);
   void saveView();
   void editAddress();
+  void beginSearch();
+  void closeSearch();
+  bool searchActive() const;
   KFileItemList selectedItems() const;
   QList<QUrl> selectedUrls() const;
   Volume selectedVolume() const;

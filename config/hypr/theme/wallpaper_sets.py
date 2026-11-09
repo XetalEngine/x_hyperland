@@ -11,8 +11,8 @@ def catalog(root):
     if not isinstance(value, dict): raise ValueError('The wallpaper set catalog is invalid.')
     result = {}
     for design, names in value.items():
-        if not isinstance(names, list) or len(names) != 3:
-            raise ValueError('Each bundled theme needs exactly three wallpapers.')
+        if not isinstance(names, list) or len(names) < 3:
+            raise ValueError('Each bundled theme needs at least three wallpapers.')
         paths = []
         for name in names:
             relative = Path(name)
@@ -49,6 +49,8 @@ def bundled(root, design, monitors):
     if not paths: return {}
     if not all(path.is_file() for path in paths):
         raise ValueError('A wallpaper in this theme is missing. Reinstall the bundled artwork.')
+    # Additional artwork is offered in the chooser. Keep the original first
+    # three as the monitor defaults, including on desktops with extra outputs.
     return {monitor['name']: {'path': str(paths[index%3]), 'original': str(paths[index%3]), 'fit': 'cover'}
             for index, monitor in enumerate(screens(monitors))}
 

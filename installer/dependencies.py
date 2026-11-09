@@ -78,9 +78,9 @@ PACKAGES = {
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod python3-cryptography libkeyutils1 libsecret-tools libcurl4-openssl-dev libarchive-dev cabextract'''.split(),
 }
 for _family, _packages in X11_PACKAGES.items():
-    PACKAGES[_family] = list(dict.fromkeys([*PACKAGES[_family], *_packages]))
+    PACKAGES[_family] = list(dict.fromkeys([*PACKAGES[_family], *_packages, 'ripgrep']))
 
-COMMANDS = '''git Hyprland hyprctl Xwayland hyprpaper hyprlock waybar kitty dolphin konsole ark udisksctl lsblk swaync swaync-client grim slurp wf-recorder
+COMMANDS = '''git rg Hyprland hyprctl Xwayland hyprpaper hyprlock waybar kitty dolphin konsole ark udisksctl lsblk swaync swaync-client grim slurp wf-recorder
     wl-copy wl-paste xdg-open xdg-user-dir nmcli nm-applet nm-connection-editor bluetoothctl blueman-manager
     pactl wpctl playerctl brightnessctl fastfetch htop notify-send gdbus pgrep flock
     xcursorgen hyprcursor-util cc c++ g++ cmake pkg-config wayland-scanner fc-match yt-dlp ffmpeg ffprobe sudo xhost xauth xdpyinfo xclip zenity openssl remote-viewer virt-fw-vars certtool

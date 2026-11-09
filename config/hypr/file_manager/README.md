@@ -1,5 +1,40 @@
 # Fusion Files
 
+## Search
+
+**Ctrl+F** opens and focuses a recursive search. **Ctrl+Shift+F** focuses the
+existing **Filter this folder…** field. Search accepts partial names and
+wildcards such as `*.jpg`, `par*ialname*png`, `*.png;*.jpg`, and `*.` for names
+without an extension. `*.*` also includes extensionless names.
+
+Check **Advanced** for text/regex content searches, common file-type presets,
+name and folder exclusions, hidden files, size/date limits, encodings, and
+1–32 parallel workers (Automatic uses up to four). Results include filename,
+size, line, match count, modification time, full path and a text excerpt.
+Preview matching text, open files, reveal them in their folder, copy paths or
+rows, and export CSV. Stop keeps the results already found; Escape stops a
+search and then closes it. Tabs and windows can search independently.
+
+Common file-type checkboxes populate an editable, word-wrapped extension list
+such as `.txt, .html, .cpp`. The list is the filter; custom extensions are
+supported, and clearing it searches all types. Shared extensions remain when
+another checked group still includes them.
+
+The advanced dialog has **Save…**, **Load**, **Load file…** and a **Presets**
+dropdown. Presets include the folder, query and all advanced settings. Each
+lives in a private JSON file under `file_manager/state/search-presets/`.
+**Open folder** lets users rename or delete them; the dropdown watches the
+filesystem and updates automatically, without clearing the current form.
+`search_presets.cpp` validates and atomically saves presets, normalizes extension
+filters, and watches the preset directory. Loading does not launch a search.
+
+`search.cpp` provides the native interface and `search_worker.py` scans local
+or mounted folders in a separate process group. Content searches require
+**ripgrep**; the installer supplies it. Workers and result counts are bounded,
+and cancellation stops child readers. No persistent index is created.
+See [the Files guide](../../../docs/FILES.md#search-files-and-contents) for
+pattern rules, limits and supported formats.
+
 ## Configure menus
 
 Open **Configure Fusion Files…** from the toolbar's three-dot menu. The
@@ -80,6 +115,9 @@ KDE settings, passwords, or persistent system services are changed.
 
 ## Checks
 
-Run `python3 test.py` for the native Files, picker, Auto mount, service routing,
+Run `python3 test.py` for the native Files, search, picker, Auto mount, service routing,
 and transfer-prompt checks. Auto mount tests use temporary preferences, synthetic
 drive inventories and mock mount commands; they never mount real drives.
+`python3 test_search_worker.py` runs the standalone search-engine checks.
+`FUSION_FILES_BUILD` can reuse a build directory. The native test profile stays
+on the home filesystem so the real Trash and mounted-volume checks work.

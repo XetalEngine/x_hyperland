@@ -267,6 +267,7 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
   filter = new QLineEdit;
   filter->setObjectName("folderFilter");
   filter->setPlaceholderText("Filter this folder…");
+  filter->setToolTip("Filter names in this folder · Ctrl+Shift+F");
   filter->setClearButtonEnabled(true);
   row->addWidget(filter);
   layout->addWidget(address);
@@ -455,6 +456,7 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
             updateStatus();
           });
   connect(filter, &QLineEdit::textChanged, this, [this](const QString &text) {
+    if (searchActive()) { closeSearch(); filter->setFocus(); }
     proxy->setFilterFixedString(text);
     updateStatus();
   });
@@ -510,6 +512,7 @@ Browser::~Browser() {
 void Browser::navigate(const QUrl &url) {
   if (!url.isValid() || url.isEmpty())
     return;
+  closeSearch();
   if (url == location()) {
     refresh();
     return;
@@ -517,6 +520,7 @@ void Browser::navigate(const QUrl &url) {
   navigator->setLocationUrl(url);
 }
 void Browser::load(const QUrl &url) {
+  closeSearch();
   pendingSelection.clear();
   notice->hide();
   filter->clear();
@@ -537,6 +541,10 @@ void Browser::load(const QUrl &url) {
   emit selectionChanged();
 }
 void Browser::refresh() {
+  if (searchActive()) {
+    search->start();
+    return;
+  }
   if (Fusion::isComputer(location()))
     drives->refresh();
   else {
@@ -599,11 +607,47 @@ void Browser::editAddress() {
   navigator->editor()->setFocus();
   navigator->editor()->lineEdit()->selectAll();
 }
+bool Browser::searchActive() const { return search && !search->isHidden(); }
+void Browser::beginSearch() {
+  if (!search) {
+    search = new SearchPane(this);
+    static_cast<QVBoxLayout *>(layout())->addWidget(search, 1);
+    search->hide();
+    connect(search, &SearchPane::closeRequested, this, &Browser::closeSearch);
+    connect(search, &SearchPane::selectionChanged, this, &Browser::selectionChanged);
+    connect(search, &SearchPane::openRequested, this, [this](const QUrl &url, bool directory) {
+      emit openRequested(KFileItem(url, QString(), directory ? S_IFDIR : S_IFREG), false);
+    });
+    connect(search, &SearchPane::revealRequested, this, [this](const QUrl &url) {
+      navigate(url.adjusted(QUrl::RemoveFilename | QUrl::StripTrailingSlash));
+      selectUrl(url);
+    });
+  }
+  if (!searchActive()) search->setLocation(location());
+  stack->hide();
+  notice->hide();
+  search->show();
+  search->focusQuery();
+  emit selectionChanged();
+}
+void Browser::closeSearch() {
+  if (!searchActive()) return;
+  search->cancel();
+  search->hide();
+  stack->show();
+  view()->setFocus();
+  emit selectionChanged();
+  updateStatus();
+}
 QAbstractItemView *Browser::view() const {
   return viewMode == 4 ? static_cast<QAbstractItemView *>(details) : icons;
 }
 KFileItemList Browser::selectedItems() const {
   KFileItemList items;
+  if (searchActive()) {
+    for (const auto &url : search->selectedUrls()) items << KFileItem(url);
+    return items;
+  }
   if (Fusion::isComputer(location()))
     return items;
   // Icon/list views select the name cell, while Details selects whole rows.
@@ -625,6 +669,7 @@ QList<QUrl> Browser::selectedUrls() const {
   return urls;
 }
 void Browser::selectAll() {
+  if (searchActive()) { search->results->selectAll(); return; }
   if (Fusion::isComputer(location())) {
     for (auto *list : driveLists)
       if (list->hasFocus()) {
@@ -659,6 +704,7 @@ void Browser::renameItem(const QModelIndex &index, const QString &name) {
   emit jobStarted(job);
 }
 Volume Browser::selectedVolume() const {
+  if (searchActive()) return {};
   for (auto *list : driveLists)
     if (!list->selectedItems().isEmpty())
       return list->selectedItems().first()->data(Qt::UserRole).value<Volume>();

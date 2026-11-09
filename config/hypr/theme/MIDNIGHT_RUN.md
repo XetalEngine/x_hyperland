@@ -35,8 +35,24 @@ and event selections are preserved.
 | [Neon After Hours](../wallpaper/midnightrun/neon-after-hours.png) | A black sports sedan, sakura and neon reflected in a wet Tokyo street |
 | [Expressway Blue Hour](../wallpaper/midnightrun/expressway-blue-hour.png) | An elevated road sweeping toward an indigo skyline |
 | [Sakura Rain](../wallpaper/midnightrun/sakura-rain.png) | A quiet canal, cherry blossoms and glowing storefronts |
+| [Audi Sakura Nights](../wallpaper/midnightrun/audi-sakura-nights.png) | A black Audi Avant under sakura, with cyan and magenta Tokyo street reflections |
+| [Audi Bayside Run](../wallpaper/midnightrun/audi-bayside-run.png) | A rear view of the Audi on a wet bay expressway beneath the city skyline |
+| [Audi Mountain Midnight](../wallpaper/midnightrun/audi-mountain-midnight.png) | The Audi at a moonlit mountain overlook above the neon city |
+| [Audi A4 · Sakura Stance](../wallpaper/midnightrun/audi-a4-sakura-stance.png) | A slammed black 2014 A4 sedan from the front, with tucked silver wheels and neon sakura reflections |
+| [Audi A4 · Neon Profile](../wallpaper/midnightrun/audi-a4-neon-profile.png) | The lowered four-door A4 in side profile beside the rainy Tokyo ramen shop |
+| [Audi A4 · Midnight Return](../wallpaper/midnightrun/audi-a4-midnight-return.png) | A rear three-quarter view of the A4 sedan, with red tail lights reflected in cyan and magenta puddles |
 
-All three original generated PNGs are **1672 × 941**, with no painted desktop
+The collection includes three Audi Avant scenes and three **slammed black 2014
+Audi A4 sedan** scenes, preserving the existing theme and original artwork.
+The A4 trio follows the supplied rainy Tokyo concept from front, side and rear
+angles, with a separate sedan trunk, tucked silver wheels and a very low stance.
+The first three wallpapers remain the default monitor set. Choose any of the
+nine in **Theme → Wallpapers** or the **Super+W** Wallpaper Selector; search for
+**A4** to find the sedan trio. The preset banner shows **9 wallpapers**, with
+all nine previews in three columns on hover or focus.
+Current wallpaper selections are preserved; these additions need no logout.
+
+All nine original generated PNGs are **1672 × 941**, with no painted desktop
 interface. Their exact prompts, provenance and hashes are in
 [prompts.json](../wallpaper/midnightrun/prompts.json). The icon/cursor vectors and
 sound synthesis are original repository artwork; native effects retain their

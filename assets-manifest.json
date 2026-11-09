@@ -820,7 +820,7 @@
   "config/hypr/wallpaper/midnightrun/expressway-blue-hour.png": "7be3b3a719b0af52fa6f5f3ea65f69861b1ee3a9e2705e9de2b8384abfeb6d6c",
   "config/hypr/wallpaper/midnightrun/neon-after-hours.png": "f00c68a0c09b2188d35a61b6c49a1c58c0e1fe98dd420fd0291f475e037ebebf",
   "config/hypr/wallpaper/midnightrun/sakura-rain.png": "899293988889c880f0afb4bba85922174c3e9f7b292a0b754200afa9dab4d31f",
-  "config/hypr/wallpaper/midnightrun/prompts.json": "83977d398b0cef0210a5d302f145cf7793ed1557aa1cec8b9c3db14e5e0a1e0d",
+  "config/hypr/wallpaper/midnightrun/prompts.json": "4d727a40bf954e69e9737d8c2122eaeac299b5082381edfe8c5da5e1b2564162",
   "config/hypr/icon_themes/packs/Xetal-System-midnightrun/index.theme": "ffa548c6c7ec1be41fe4934464324b1da2cddf6438e31cfc5ba6c4c494deac9c",
   "config/hypr/icon_themes/packs/Xetal-System-midnightrun/scalable/folder-blue.svg": "4dafbefca135ada72851e3ed633b63fbf5901ae6ca86fb2644b6b64b8dca4ffb",
   "config/hypr/icon_themes/packs/Xetal-System-midnightrun/scalable/text-x-shellscript.svg": "64ec2bdde383d43e8fbc3a00cacd9fea89dcb879f4604dd4a81077136ee66580",
@@ -1116,5 +1116,11 @@
   "config/hypr/theme/assets/infernal-encore-preview.png": "6155e210d7c3ce94f8beee720b55de13d5987b8875e1ae20895046303b0e59ca",
   "config/hypr/theme/assets/infernalencore-down-dark.svg": "0c8bdf2e7796c07f9984df15af696e23f5fa39f1027c56d65aab78c2b29f00ef",
   "config/hypr/theme/assets/infernalencore-mark.svg": "013b527ed8fe9c4ffd9ac6cd36ff0c798f19df4d07400c10e9b5f119efcc6967",
-  "config/hypr/theme/assets/infernalencore-down-light.svg": "f72df724eaa815850496d4feb6f511cf6a4c9048bfad4101edfe7553b43b9bff"
+  "config/hypr/theme/assets/infernalencore-down-light.svg": "f72df724eaa815850496d4feb6f511cf6a4c9048bfad4101edfe7553b43b9bff",
+  "config/hypr/wallpaper/midnightrun/audi-sakura-nights.png": "e0db452beaea288ba0eb11fda281b70abe76853d27ee8de78ad0eb936e50679e",
+  "config/hypr/wallpaper/midnightrun/audi-bayside-run.png": "0d89152cfc7ba5c6374f065456940cf10b9e1da97c84f5badb013b72b71f3dfa",
+  "config/hypr/wallpaper/midnightrun/audi-mountain-midnight.png": "7fb0641a8849018aed6dba1f3bc5a5b7e29492ee49328c252166e9d42f44801a",
+  "config/hypr/wallpaper/midnightrun/audi-a4-sakura-stance.png": "db1b345f837459729f8fc8482bc445dd81daf597178ab5082f72885ee8a6ab4d",
+  "config/hypr/wallpaper/midnightrun/audi-a4-neon-profile.png": "1a13ae5646bd5d4e8402b94d47309c329845737c2a52467b00b3dae3fe4c07b0",
+  "config/hypr/wallpaper/midnightrun/audi-a4-midnight-return.png": "05a6913c1ba1ab2841d6761d644d4f5f61a5fec1f1e8eb18d8ef53c577f127ea"
 }

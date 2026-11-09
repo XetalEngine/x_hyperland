@@ -235,6 +235,8 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   menu->addAction("New tab", this, [this] { runAction("newTab"); });
   menu->addAction("New window", this, [this] { runAction("newWindow"); });
   menu->addAction("Open location…", this, [this] { browser()->editAddress(); });
+  menu->addAction("Search files…\tCtrl+F", this, [this] { runAction("search"); });
+  menu->addAction("Filter this folder\tCtrl+Shift+F", this, [this] { runAction("filter"); });
   menu->addAction("Connect to server…", this, [this] { runAction("connect"); });
   menu->addSeparator();
   hiddenAction = menu->addAction("Show hidden files");
@@ -431,7 +433,8 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
                           {"nextTab", "Ctrl+Tab"},
                           {"previousTab", "Ctrl+Shift+Tab"},
                           {"properties", "Alt+Return"},
-                          {"filter", "Ctrl+F"},
+                          {"search", "Ctrl+F"},
+                          {"filter", "Ctrl+Shift+F"},
                           {"copyPath", "Ctrl+Shift+C"}})
     bind(binding[0], binding[1]);
   addTab(initial);
@@ -750,7 +753,7 @@ void FilesWindow::bind(const QString &id, const QString &key) {
     // context-menu action must work even when the address bar retains focus.
     if (isTextEditing() && QStringList{"trash", "delete", "open", "copy", "cut", "paste", "selectAll", "undo"}.contains(id))
       return;
-    if (id == "open" && browser() && !Fusion::isComputer(browser()->location())) {
+    if (id == "open" && browser() && !browser()->searchActive() && !Fusion::isComputer(browser()->location())) {
       for (const auto &item : browser()->selectedItems()) openItem(item);
       return;
     }
@@ -826,6 +829,8 @@ void FilesWindow::runAction(const QString &id) {
   auto *tab = browser();
   if (!tab)
     return;
+  if (id == "search") { tab->beginSearch(); return; }
+  if (tab->searchActive() && tab->search->handleAction(id)) return;
   const auto items = tab->selectedItems();
   const auto urls = tab->selectedUrls();
   const auto location = tab->location();
@@ -877,6 +882,7 @@ void FilesWindow::runAction(const QString &id) {
     return;
   }
   if (id == "filter") {
+    tab->closeSearch();
     tab->filter->setFocus();
     tab->filter->selectAll();
     return;
@@ -1368,8 +1374,9 @@ void FilesWindow::showShortcuts() {
       "Move to Trash\nShift+Delete — Delete permanently (confirmation)\nCtrl+Z "
       "— Undo\nCtrl+Shift+N — New folder\nCtrl+A — Select all\nCtrl+L or Alt+D "
       "— Edit full path\nAlt+Left / Right / Up — Back / forward / parent\nF5 — "
-      "Refresh\nAlt+. / Ctrl+H — Hidden files\nAlt+P — Preview pane\nCtrl+F — Filter "
-      "current folder\nCtrl+Shift+C — Copy full path\nCtrl+T / Ctrl+W — New / "
+      "Refresh\nAlt+. / Ctrl+H — Hidden files\nAlt+P — Preview pane\nCtrl+F — Search files\n"
+      "Ctrl+Shift+F — Filter current folder\nEscape — Stop / close search\n"
+      "Ctrl+Shift+C — Copy full path\nCtrl+T / Ctrl+W — New / "
       "close tab\nCtrl+Tab / Ctrl+Shift+Tab — Switch tabs\nCtrl+N — New "
       "window\nAlt+Enter — Properties");
 }
@@ -1388,6 +1395,10 @@ void FilesWindow::message(const QString &text) {
   }
 }
 void FilesWindow::closeEvent(QCloseEvent *event) {
+  for (int i = 0; i < tabs->count(); ++i) {
+    auto *tab = static_cast<Browser *>(tabs->widget(i));
+    if (tab->search) tab->search->cancel();
+  }
   if (browser())
     browser()->saveView();
   if (geometryKey == "external/geometry")

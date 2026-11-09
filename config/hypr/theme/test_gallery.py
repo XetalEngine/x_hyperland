@@ -9,8 +9,8 @@ from unittest.mock import Mock, patch
 
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from PyQt6.QtCore import QEvent, QPoint, QPointF, Qt
-from PyQt6.QtGui import QEnterEvent
+from PyQt6.QtCore import QEvent, QPoint, QPointF, QRectF, Qt
+from PyQt6.QtGui import QColor, QEnterEvent, QPixmap
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication, QComboBox
 import runtime
@@ -40,6 +40,7 @@ class GalleryTests(unittest.TestCase):
     def test_search_across_collections_keeps_selection_and_handles_no_results(self):
         for query, expected in (('  BLUE  ', ['modern', 'binaryknife', 'tidalglass', 'hyperfusionblue']),
                                 ('moon rain', ['shadowedge']), ('CANDY', ['candycloud']),
+                                ('audi a4 sedan', ['midnightrun']),
                                 ('no-such-theme', [])):
             self.page.search.setText(query); self.page.refresh(); QT.processEvents()
             self.assertEqual(self.visible(), expected)
@@ -87,6 +88,40 @@ class GalleryTests(unittest.TestCase):
             self.page.refresh(); self.assertEqual(self.page.scroll.verticalScrollBar().value(), value)
             self.assertTrue(self.page.scroll.viewport().rect().contains(
                 self.page.cards['shadowedge'].mapTo(self.page.scroll.viewport(), QPoint(5, 5))))
+
+    def test_expanded_wallpaper_collection_remains_visible_without_applying_it(self):
+        self.page.search.setText('midnight run'); QT.processEvents()
+        card = self.page.cards['midnightrun']; reveal = card.wallpapers
+        colors = ['#cc3344', '#33cc55', '#3344cc', '#ccaa33', '#33bbcc', '#cc33aa', '#ff7733', '#7799ff', '#aaff33']
+        paths = []
+        for index, color in enumerate(colors):
+            path = Path(self.directory.name)/f'extra-{index}.png'
+            pixmap = QPixmap(80, 48); pixmap.fill(QColor(color)); self.assertTrue(pixmap.save(str(path)))
+            paths.append(path)
+        for count in (6, 9):
+            card.paths = paths[:count]; reveal.pictures = None
+            for width in (720, 1280):
+                with self.subTest(count=count, width=width):
+                    self.page.resize(width, 600); QT.processEvents()
+                    collapsed_width = reveal.width()
+                    reveal.setFocus(); QTest.qWait(200)
+                    self.assertEqual(len(reveal.pictures), count)
+                    self.assertTrue(all(not p.isNull() for p in reveal.pictures))
+                    if count == 9 and width == 720: self.assertGreater(reveal.width(), collapsed_width)
+                    boxes = reveal.preview_boxes(); shot = reveal.grab().toImage()
+                    self.assertEqual(len(boxes), count)
+                    for index, box in enumerate(boxes):
+                        self.assertTrue(QRectF(reveal.rect()).contains(box))
+                        self.assertGreaterEqual(box.width(), 100); self.assertGreaterEqual(box.height(), 45)
+                        self.assertTrue(all(not box.intersects(other) for other in boxes[index+1:]))
+                        # Each generated fixture appears in its own visible thumbnail.
+                        actual = shot.pixelColor(round(box.center().x()), round(box.top()+8))
+                        expected = QColor(colors[index])
+                        self.assertLess(max(abs(actual.red()-expected.red()),abs(actual.green()-expected.green()),abs(actual.blue()-expected.blue())), 65)
+                    QTest.keyClick(reveal, Qt.Key.Key_Escape); QTest.qWait(200)
+                    self.assertEqual(reveal.amount, 0.)
+                    self.assertEqual(reveal.width(), collapsed_width)
+        self.owner.select_preset.assert_not_called()
 
 
 if __name__ == '__main__': unittest.main()

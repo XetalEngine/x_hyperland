@@ -13,7 +13,7 @@ import wallpaper_sets
 # Presentation only: selecting a banner still uses the normal component chooser.
 STORIES = {
     'infernalencore': ('INFERNAL\nENCORE', 'One last riff. All the fire.\nGraphite. Brass. Crimson.', 'infernal encore heavy metal gothic concert guitar fire red crimson brass skull purple'),
-    'midnightrun': ('MIDNIGHT RUN', 'After hours. In full color.\nGraphite. Cyan. Magenta.', 'midnight run tokyo japan neon cyan magenta pink graphite car sports sedan sakura rain city night'),
+    'midnightrun': ('MIDNIGHT RUN', 'After hours. In full color.\nGraphite. Cyan. Magenta.', 'midnight run tokyo japan neon cyan magenta pink graphite car sports sedan sakura rain city night audi a4 2014 slammed stance rs6 avant wagon bay mountain'),
     'platform95': ('PLATFORM 95', 'A familiar desktop. A golden departure.\nIvory. Espresso. Antique gold.', 'platform 95 classic retro windows beige ivory brown espresso gold brass railway train station beveled'),
     'mycelium': ('MYCELIUM', 'Small lights. Hidden worlds.\nPlum velvet. Ivory roots.', 'mycelium mushroom forest roots purple lilac lavender spores moss fantasy'),
     'atomicafterglow': ('ATOMIC AFTERGLOW', 'Quiet power. Lasting light.\nGraphite. Brass. Phosphor.', 'atomic afterglow reactor nuclear green lime olive industrial brass graphite'),
@@ -33,6 +33,11 @@ STORIES = {
     'shadowedge': ('SHADOW\nEDGE', 'Move in silence.\nSmoked glass, silver and crimson rain.', 'ninja moon black silver red rain'),
 }
 FOCAL_TOP = {'modern': .05, 'shadowedge': .08}
+THUMBNAIL_FOCAL_TOP = {
+    'audi-a4-sakura-stance.png': .95,
+    'audi-a4-neon-profile.png': .95,
+    'audi-a4-midnight-return.png': .95,
+}
 
 
 def caption(path):
@@ -82,7 +87,7 @@ class WallpaperReveal(QPushButton):
         self.animation.valueChanged.connect(self.animate)
 
     def animate(self, value):
-        self.amount = float(value); self.update()
+        self.amount = float(value); self.card.position_wallpapers(); self.update()
 
     def reveal(self):
         self.animation.stop()
@@ -113,8 +118,17 @@ class WallpaperReveal(QPushButton):
         else: super().keyPressEvent(event)
 
     def hideEvent(self, event):
-        self.animation.stop(); self.amount = 0.; self.hovered = False
+        self.animation.stop(); self.hovered = False; self.animate(0.)
         super().hideEvent(event)
+
+    def preview_boxes(self):
+        area = QRectF(self.rect()).adjusted(18, 12, -18, -10)
+        count = max(1, len(self.card.paths)); columns = 3 if count > 6 else 2 if count > 3 else 1
+        rows = (count+columns-1)//columns
+        width = (area.width()-(columns-1)*6)/columns
+        height = (area.height()-50-(rows-1)*6)/rows
+        return [QRectF(area.left()+(i%columns)*(width+6), area.top()+25+(i//columns)*(height+6), width, height)
+                for i in range(count)]
 
     def paintEvent(self, event):
         p = QPainter(self); p.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform)
@@ -142,11 +156,10 @@ class WallpaperReveal(QPushButton):
             p.save(); p.setOpacity(self.amount)
             p.setPen(QColor(colors['Link'])); p.setFont(QFont('Inter', 8, QFont.Weight.DemiBold))
             p.drawText(QRectF(area.left(), area.top(), area.width(), 18), Qt.AlignmentFlag.AlignVCenter, 'YOUR WALLPAPER SET')
-            count = max(1, len(self.card.paths)); height = (area.height()-50-(count-1)*6)/count
-            for i, (path, pixmap) in enumerate(zip(self.card.paths, self.pictures or [])):
-                box = QRectF(area.left(), area.top()+25+i*(height+6), area.width(), height)
+            for i, (path, pixmap, box) in enumerate(zip(self.card.paths, self.pictures or [], self.preview_boxes())):
                 p.save(); p.setClipPath(shape(box, self.card.design))
-                p.fillRect(box, QColor(colors['Base'])); cover(p, pixmap, box, FOCAL_TOP.get(self.card.design, .35))
+                p.fillRect(box, QColor(colors['Base']))
+                cover(p, pixmap, box, THUMBNAIL_FOCAL_TOP.get(path.name, FOCAL_TOP.get(self.card.design, .35)))
                 fade = QLinearGradient(box.topLeft(), box.bottomLeft())
                 fade.setColorAt(0, QColor(0, 0, 0, 0)); fade.setColorAt(1, QColor(0, 0, 0, 210)); p.fillRect(box, fade)
                 p.setFont(QFont('Inter', 8, QFont.Weight.DemiBold)); p.setPen(QColor('#ffffff'))
@@ -171,9 +184,15 @@ class DesignCard(QPushButton):
 
     def sizeHint(self): return QSize(920, 304)
 
-    def resizeEvent(self, event):
+    def position_wallpapers(self):
         width = max(250, min(430, round(self.width()*.34)))
+        if len(self.paths) > 6:
+            expanded = max(width, min(430, self.width()-32))
+            width = round(width+(expanded-width)*self.wallpapers.amount)
         self.wallpapers.setGeometry(self.width()-width-16, 16, width, 232)
+
+    def resizeEvent(self, event):
+        self.position_wallpapers()
         super().resizeEvent(event)
 
     def nextCheckState(self):
