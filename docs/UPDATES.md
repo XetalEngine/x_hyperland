@@ -64,6 +64,26 @@ repairs can still require activation at the same source revision.
 
 Preparation works in a separate directory. A differing application file no longer blocks an update or needs a manual reinstall. Missing packages, failed builds, invalid configuration or files changed during preparation still leave the current desktop installed. Automatic updates never run `sudo` or change system packages; dependency problems are shown for the user to resolve.
 
+Source downloads and Git history checks share an exclusive process lock. Git
+inherits that lock, so terminating its Python parent cannot allow another worker
+to remove an active Git lock. After all workers exit or the computer restarts,
+the next attempt clears abandoned Git locks and completes an interrupted cache
+initialization automatically. Background Git maintenance is disabled for this
+private cache. The `git-v2` cache is separate from older releases' unguarded
+`repository.git`, which is left untouched even during an upgrade.
+
+Desktop source downloads have no fixed size ceiling. Available storage determines
+what can be downloaded and extracted; exact-commit verification and archive path
+and entry-type checks still apply. A download or extraction failure leaves the
+installed desktop in place.
+
+An older installed updater cannot download its own repair if its legacy cache
+is already blocked by `shallow.lock` or its old source-size limit. Install the
+current `config/hypr/updates/github.py` into `~/.config/hypr/updates/github.py`,
+keeping a backup of the previous file. Then select **Check now** and **Update!**.
+New workers load the repaired downloader immediately; no logout, cache deletion,
+or administrator authentication is needed.
+
 Activation has a journal, per-file atomic writes and a backup of changed files. The next startup recovers an interrupted transaction. **Roll back** queues the previous completed version for next login and pauses automatic updates. It refuses to overwrite files edited since that update; inspect the message before resolving any difference.
 
 The required native Burn/Cube/Minimize ABI is checked by their builders. A missing adapter or failed build blocks the prepared desktop. Foreground Setup retains a signed copy of the previous compositor before replacement and restores it if preparation fails or is cancelled. A queued profile is checked against the installed compositor again at activation. On Fedora, the exact bundled library/tool/header versions are checked too, including during profile rollback; a changed runtime requires foreground Setup even if Hyprland itself has the same version and commit. Rollback refuses a backup requiring a different compositor; use that release's Setup to restore the matching pair. [Package pin and recovery details](INSTALLER.md).

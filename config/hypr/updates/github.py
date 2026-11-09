@@ -1,6 +1,8 @@
 """Read the public main branch; download only the exact advertised commit."""
 import base64
 import binascii
+from contextlib import contextmanager
+import fcntl
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -21,13 +23,38 @@ def git_environment():
             'GIT_ASKPASS': '/usr/bin/false', 'SSH_ASKPASS': '/usr/bin/false'}
 
 
+@contextmanager
 def git_cache(cache):
-    cache.mkdir(parents=True, exist_ok=True, mode=0o700)
-    bare = cache/'repository.git'
-    if bare.is_symlink(): raise ValueError('Update cache must not be a symbolic link.')
-    command = ['git', '-c', 'core.hooksPath=/dev/null']
-    if not bare.exists(): subprocess.run([*command, 'init', '--bare', '-q', str(bare)], check=True, env=git_environment(), timeout=30)
-    return bare, [*command, '--git-dir='+str(bare)]
+    """Serialize source operations, including Git children surviving their parent.
+
+    The new namespace excludes older workers that do not hold this lease. Never
+    unlink the lease or explicitly unlock it: an inherited descriptor must keep
+    recovery out until the last Git child has exited. Background maintenance is
+    disabled so no detached writer can outlive that ownership.
+    """
+    private = cache/'git-v2'
+    if private.is_symlink(): raise ValueError('Update cache must not be a symbolic link.')
+    private.mkdir(parents=True, exist_ok=True, mode=0o700)
+    lease = private/'operation.lock'
+    descriptor = os.open(lease, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(descriptor, 'a+b') as lock:
+        try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise RuntimeError('Another update download is still running. Please try again when it finishes.') from None
+        bare = private/'repository.git'
+        if bare.is_symlink(): raise ValueError('Update cache must not be a symbolic link.')
+        # With the lease held, every Git lock here belongs to interrupted work.
+        abandoned = sorted(bare.rglob('*.lock'))
+        for path in abandoned:
+            if path.is_symlink() or not path.is_file():
+                raise ValueError('Update cache contains an unsupported lock entry.')
+        for path in abandoned: path.unlink()
+        if abandoned: print('Recovered an interrupted source download. Retrying safely…', flush=True)
+        command = ['git', '-c', 'core.hooksPath=/dev/null', '-c', 'gc.auto=0', '-c', 'maintenance.auto=false']
+        options = {'env': git_environment(), 'pass_fds': (lock.fileno(),)}
+        # Reinitialization also completes an init interrupted before its first fetch.
+        subprocess.run([*command, 'init', '--bare', '-q', str(bare)], check=True, timeout=30, **options)
+        yield bare, [*command, '--git-dir='+str(bare)], options
 
 
 def git_latest(current, previous=None, cache=None):
@@ -45,32 +72,36 @@ def git_latest(current, previous=None, cache=None):
     value = {'sha':commit, 'base':current, 'etag':'', 'transport':'git',
              'relation':'identical', 'message':'Current GitHub main version'}
     if commit == current: return value
-    _, command = git_cache(cache or Path.home()/'.cache/xetal-hyprland/updates')
+    with git_cache(cache or Path.home()/'.cache/xetal-hyprland/updates') as (_, command, options):
+        return git_history(current, commit, value, command, options)
+
+
+def git_history(current, commit, value, command, options):
     subprocess.run([*command, 'fetch', '--depth=256', '--no-tags', REPOSITORY, commit],
-                   env=env, check=True, timeout=300, capture_output=True)
+                   check=True, timeout=300, capture_output=True, **options)
     version = subprocess.run([*command, 'show', commit+':'+release_version.SOURCE_PATH],
-                             env=env, capture_output=True, text=True, timeout=30)
+                             capture_output=True, text=True, timeout=30, **options)
     try: value['release_version'] = release_version.parse(version.stdout) if version.returncode == 0 else ''
     except ValueError: value['release_version'] = ''
-    present = subprocess.run([*command, 'cat-file', '-e', current+'^{commit}'], env=env, capture_output=True)
+    present = subprocess.run([*command, 'cat-file', '-e', current+'^{commit}'], capture_output=True, **options)
     if present.returncode:
         try:
             subprocess.run([*command, 'fetch', '--depth=256', '--no-tags', REPOSITORY, current],
-                           env=env, check=True, timeout=300, capture_output=True)
+                           check=True, timeout=300, capture_output=True, **options)
         except subprocess.CalledProcessError:
             return {**value, 'relation':'unknown',
                     'message':'This local desktop revision is not available from GitHub. Automatic downgrades are disabled.'}
     def ancestor(a, b):
-        result = subprocess.run([*command, 'merge-base', '--is-ancestor', a, b], env=env, capture_output=True)
+        result = subprocess.run([*command, 'merge-base', '--is-ancestor', a, b], capture_output=True, **options)
         if result.returncode > 1: raise RuntimeError('Could not verify the update history.')
         return result.returncode == 0
     if not ancestor(current,commit) and not ancestor(commit,current):
-        shallow = subprocess.check_output([*command, 'rev-parse', '--is-shallow-repository'], env=env, text=True).strip()
+        shallow = subprocess.check_output([*command, 'rev-parse', '--is-shallow-repository'], text=True, **options).strip()
         if shallow == 'true':
             subprocess.run([*command, 'fetch', '--unshallow', '--no-tags', REPOSITORY, commit, current],
-                           env=env, check=True, timeout=300, capture_output=True)
+                           check=True, timeout=300, capture_output=True, **options)
     value['relation'] = 'ahead' if ancestor(current,commit) else 'behind' if ancestor(commit,current) else 'diverged'
-    value['message'] = subprocess.check_output([*command, 'show', '-s', '--format=%B', commit], env=env, text=True)[:4000].strip()
+    value['message'] = subprocess.check_output([*command, 'show', '-s', '--format=%B', commit], text=True, **options)[:4000].strip()
     return value
 
 
@@ -150,22 +181,24 @@ def with_version(result, previous):
 
 
 def source(commit, cache, destination):
-    revision(commit); bare, command = git_cache(cache); env = git_environment()
-    subprocess.run([*command, 'fetch', '--depth=1', '--no-tags', REPOSITORY, commit], check=True, env=env, timeout=300)
-    actual = subprocess.check_output([*command, 'rev-parse', 'FETCH_HEAD'], env=env, text=True).strip()
+    revision(commit)
+    with git_cache(cache) as (bare, command, options):
+        return checkout(commit, bare, command, options, destination)
+
+
+def checkout(commit, bare, command, options, destination):
+    subprocess.run([*command, 'fetch', '--depth=1', '--no-tags', REPOSITORY, commit], check=True, timeout=300, **options)
+    actual = subprocess.check_output([*command, 'rev-parse', 'FETCH_HEAD'], text=True, **options).strip()
     if actual != commit: raise ValueError('Downloaded commit does not match the update notice.')
     archive = destination.parent/'source.tar'
     with archive.open('wb') as stream:
-        subprocess.run([*command, 'archive', '--format=tar', commit], stdout=stream, check=True, env=env, timeout=90)
+        subprocess.run([*command, 'archive', '--format=tar', commit], stdout=stream, check=True, timeout=90, **options)
     destination.mkdir(mode=0o700)
-    total = 0
     with tarfile.open(archive) as stream:
         for member in stream:
             path = PurePosixPath(member.name)
             if path.is_absolute() or '..' in path.parts or not (member.isdir() or member.isfile()):
                 raise ValueError('Update source contains an unsupported archive entry.')
-            total += member.size
-            if total > 512_000_000: raise ValueError('Update source is larger than the allowed download size.')
             target = destination.joinpath(*path.parts)
             if member.isdir(): target.mkdir(parents=True, exist_ok=True); continue
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -173,7 +206,8 @@ def source(commit, cache, destination):
             target.chmod(0o755 if member.mode & 0o111 else 0o644)
     # The installer verifies this revision as well. Keep a minimal local Git view
     # pointing at our private object store, never the developer's working clone.
-    subprocess.run(['git', 'init', '--quiet', '--initial-branch=main', str(destination)], check=True, env=env, timeout=30)
+    subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', 'init', '--quiet', '--initial-branch=main', str(destination)],
+                   check=True, timeout=30, **options)
     objects = destination/'.git/objects/info/alternates'; objects.parent.mkdir(parents=True, exist_ok=True)
     objects.write_text(str(bare.resolve()/'objects')+'\n')
     (destination/'.git/HEAD').write_text(commit+'\n')

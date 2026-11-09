@@ -13,6 +13,14 @@ permissions:
   contents: read
 
 jobs:
+  source-downloads:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recover interrupted downloads and preserve active Git workers
+        env:
+          PYTHONPATH: config/hypr/updates
+        run: python3 -m unittest test_git_cache test_lifecycle test_updates -v
   user-folders:
     runs-on: ubuntu-latest
     steps:
