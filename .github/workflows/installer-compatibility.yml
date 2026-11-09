@@ -13,6 +13,16 @@ permissions:
   contents: read
 
 jobs:
+  user-folders:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the standard-folder utility
+        run: sudo apt-get update && sudo apt-get install -y xdg-user-dirs
+      - name: Repair old accounts without replacing personal folder settings
+        run: |
+          python3 config/hypr/scripts/test_user_directories.py -v
+          python3 -m unittest discover -s tests -p test_user_directory_updates.py -v
   arch-historical-install:
     runs-on: ubuntu-latest
     strategy:

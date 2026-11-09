@@ -54,6 +54,11 @@ export XDG_CURRENT_DESKTOP=Hyprland
 export XDG_SESSION_DESKTOP=Hyprland
 export XDG_SESSION_TYPE=wayland
 
+# Fresh accounts need their standard folders before Files and desktop helpers
+# start. Existing XDG locations and opt-outs are preserved; failure is nonfatal.
+"$session_python" "$config_dir/scripts/user-directories.py" \
+    >"$(session_log user-directories.log)" 2>&1 || true
+
 # Claim notifications before Waybar, updater notices or startup apps can cause
 # D-Bus to activate an unthemed default SwayNC. Wait for both its bus names.
 rm -f -- "$instance_dir/notifications-ready.json"

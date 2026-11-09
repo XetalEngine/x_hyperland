@@ -64,6 +64,12 @@ Expanded/collapsed states for This PC, Quick access and Unmounted drives are
 saved immediately in private preferences, including across restarts and drive
 disconnection/reconnection. Sidebar width and the main splitters are also saved.
 
+On first login, HyperFusion initializes the account's standard folders with
+`xdg-user-dirs-update` before starting Files. Accounts with an existing
+`user-dirs.dirs` are left alone, including custom paths, unavailable mounts and
+intentionally disabled folders. The user's `enabled=False` opt-out is respected.
+Browsing another installed system's home does not create folders on that drive.
+
 The location bar has clickable breadcrumbs and an editable full address. Use
 Ctrl+L, Alt+D or the blank part of the bar to type or copy it; Escape returns to
 breadcrumbs. Paths containing spaces, Unicode, `#` and `%` retain their literal

@@ -12,6 +12,16 @@ The main button changes from **Update!** to **Updating…**, then **Restart** on
 
 Automatic updates are enabled by default. One session helper checks roughly every 15 minutes, with a short startup delay. After showing the notice for at least 30 seconds, it downloads the advertised commit, merges the new defaults with personal settings, builds native components and validates the complete Hyprland configuration.
 
+During update preparation, the incoming release also initializes standard user
+folders for older accounts that never received an XDG directory configuration.
+Desktop, Documents, Downloads and the other system-defined folders appear
+without a logout or administrator prompt. Existing `user-dirs.dirs` files,
+custom locations, unavailable mounts and `enabled=False` preferences are
+preserved. Initialization runs as the desktop user, before preparing folder
+shortcuts; it never creates folders on another mounted installation. A failure
+is recorded in the update log without blocking the desktop update, and the
+session retries initialization before starting Files on a subsequent login.
+
 **Ordinary automatic updates activate at the next Hyprland login, before the session helpers and native effects load.** No forced logout or compositor-plugin replacement occurs while you are working. The badge changes to **UPDATE READY** after preparation. You can choose **Restart** to finish, or let the update activate at a later login. Pausing automatic updates also postpones activation of an already prepared automatic update; clicking **Restart** explicitly enables that pending update without changing your automatic-update preference. A manually requested update also remains explicit. If a newer release appears while an older one is prepared, the badge offers that newer release and identifies the prepared revision separately.
 
 Each release declares its required compositor in `runtime/manifest.json`. A different installed version or source commit shows **SETUP REQUIRED**; **Update!** opens the graphical Setup wizard for that release. Background updates never elevate privileges. This foreground wizard uses the release's signed Arch package or Fedora 44 RPM bundle, requests administrator authentication, builds and validates the matching desktop, and installs the merged profile in the same operation. **Restart** is offered afterward to start that pair together, and the restart reminder clears at the next login. The same path repairs a compositor mismatch even when the desktop source revision is already current.

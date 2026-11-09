@@ -16,6 +16,25 @@ sys.path.insert(0, str(install.PAYLOAD/'updates'))
 import update_engine as engine
 
 
+def repair_user_directories(home):
+    """Repair old accounts during download/preparation, without a logout.
+
+    Run the incoming release's helper: the installed updater may predate this
+    repair. Folder initialization is independent of the desktop transaction;
+    errors are logged and the session fallback retries at a future login.
+    """
+    print('Checking standard user folders…', flush=True)
+    try:
+        subprocess.run([sys.executable, str(install.PAYLOAD/'scripts/user-directories.py')],
+                       env={**os.environ, 'HOME': str(home)}, check=True,
+                       capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.SubprocessError) as error:
+        detail = (error.stderr or str(error)) if isinstance(error, subprocess.CalledProcessError) else str(error)
+        print('Standard folder setup will retry at login: '+detail.strip()[-800:], flush=True)
+        return False
+    return True
+
+
 def prepare(home, commit, automatic=True, allow_runtime=False, checkpoint=lambda:None):
     if os.geteuid() == 0: raise RuntimeError('Updates run as your desktop user, without sudo.')
     install.safe_home(home); engine.revision(commit)
@@ -47,6 +66,8 @@ def prepare(home, commit, automatic=True, allow_runtime=False, checkpoint=lambda
         checkpoint()
     with engine.locked(state):
         engine.recover(live, state)
+        checkpoint()
+        repair_user_directories(home)
         with tempfile.TemporaryDirectory(prefix='prepare-', dir=state) as temporary:
             root = Path(temporary); upstream = root/'upstream'; stage = root/'profile'
             print('Preparing release files and preserving personal settings…', flush=True)
