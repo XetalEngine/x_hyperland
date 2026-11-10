@@ -1,5 +1,6 @@
 #include "window.h"
 #include "context_actions.h"
+#include "new_items.h"
 #include "transfers.h"
 #include "native_transfer.h"
 #include "applications.h"
@@ -1019,28 +1020,10 @@ void FilesWindow::runAction(const QString &id) {
     return;
   }
   if (id == "newFolder") {
-    bool ok;
-    const QString name = QInputDialog::getText(
-        this, "New folder", "Folder name:", QLineEdit::Normal, "New folder",
-        &ok);
-    if (!ok)
-      return;
-    if (!Fusion::validName(name)) {
-      message("Choose a name without /, and different from . or ..");
-      return;
-    }
-    QUrl dest = location;
-    dest.setPath(location.path() + (location.path().endsWith('/') ? "" : "/") +
-                 name);
-    auto *job = KIO::mkdir(dest);
-    KIO::FileUndoManager::self()->recordJob(KIO::FileUndoManager::Mkdir, {},
-                                            dest, job);
-    track(job);
-    connect(job, &KJob::result, this,
-            [tab = QPointer<Browser>(tab), dest](KJob *job) {
-              if (!job->error() && tab)
-                tab->selectUrl(dest);
-            });
+    Fusion::NewItemCallbacks callbacks;
+    callbacks.track = [this](KJob *job) { track(job); };
+    callbacks.created = [tab = QPointer<Browser>(tab)](const QUrl &url) { if (tab) tab->selectUrl(url); };
+    Fusion::promptNewItem("folder", location, this, this, callbacks);
     return;
   }
   if (id == "trash" || id == "delete") {
@@ -1142,7 +1125,7 @@ void FilesWindow::volumeAction(const Volume &volume, const QString &id) {
       return;
     }
     const auto *data = QApplication::clipboard()->mimeData();
-    if (KIO::canPasteMimeData(data))
+    if (Fusion::canPasteFiles(data))
       track(Fusion::pasteFiles(location, this));
   }
 }
@@ -1151,6 +1134,15 @@ void FilesWindow::addVolumeActions(QMenu *menu, const Volume &volume) {
   QHash<QString, QVariantMap> configured;
   for (const auto &entry : preferences.menu())
     configured.insert(entry["id"].toString(), entry);
+  if (volume.mounted()) {
+    const KFileItemList items{KFileItem(QUrl::fromLocalFile(volume.mount),
+                                        "inode/directory", S_IFDIR)};
+    addArchiveActions(
+        menu, items,
+        configured.value("compress").value("enabled", true).toBool(), false,
+        [this, volume] { return !drives->mountedLocation(volume).isEmpty(); });
+  }
+  menu->addSeparator();
   for (const auto &entry : QList<QStringList>{
            {"cut", "Cut", "edit-cut", "Ctrl+X"},
            {"copy", "Copy", "edit-copy", "Ctrl+C"},
@@ -1169,27 +1161,20 @@ void FilesWindow::addVolumeActions(QMenu *menu, const Volume &volume) {
         volume.mounted() && entry[0] != "cut" &&
         (entry[0] != "paste" ||
          (!volume.readOnly &&
-          KIO::canPasteMimeData(QApplication::clipboard()->mimeData()))));
+          Fusion::canPasteFiles(QApplication::clipboard()->mimeData()))));
     if (entry[0] == "cut")
       action->setToolTip("Open the drive to cut files or folders inside it.");
     connect(action, &QAction::triggered, this,
             [this, volume, id = entry[0]] { volumeAction(volume, id); });
   }
-  if (volume.mounted()) {
-    const KFileItemList items{KFileItem(QUrl::fromLocalFile(volume.mount),
-                                        "inode/directory", S_IFDIR)};
-    addArchiveActions(
-        menu, items,
-        configured.value("compress").value("enabled", true).toBool(), false,
-        [this, volume] { return !drives->mountedLocation(volume).isEmpty(); });
-  }
+
 }
 void FilesWindow::computerMenu(const QPoint &point) {
   QMenu menu(this);
   menu.setObjectName("computerContextMenu");
   auto *paste = menu.addMenu(Fusion::icon("edit-paste"), "Paste into…");
   paste->setEnabled(
-      KIO::canPasteMimeData(QApplication::clipboard()->mimeData()));
+      Fusion::canPasteFiles(QApplication::clipboard()->mimeData()));
   for (const auto &volume : drives->volumes)
     if (volume.mounted() && !volume.readOnly)
       paste->addAction(Fusion::icon(volume.usb() ? "drive-removable-media-usb"
@@ -1209,6 +1194,9 @@ void FilesWindow::fileMenu(const QPoint &point) {
   menu.setObjectName("fileContextMenu");
   if (location.scheme() == "trash")
     menu.addAction(Fusion::icon("user-trash"), "Empty Trash…", this, [this] { Fusion::emptyTrash(this); });
+  const bool directories = !items.isEmpty() && std::all_of(items.cbegin(), items.cend(), [](const KFileItem &item) { return item.isDir(); });
+  const bool folderTarget = items.size() == 1 && directories;
+  const auto pasteTarget = folderTarget ? items.first().url() : location;
   bool compress = false, extract = false, archiveAdded = false;
   for (const auto &entry : preferences.menu()) {
     if (entry["id"] == "compress")
@@ -1236,6 +1224,7 @@ void FilesWindow::fileMenu(const QPoint &point) {
       continue;
     if (id == "compress" || id == "extract") {
       if (!archiveAdded && !items.isEmpty()) {
+        Fusion::menuSection(&menu, id);
         addArchiveActions(&menu, items, compress, extract);
         archiveAdded = true;
       }
@@ -1254,6 +1243,18 @@ void FilesWindow::fileMenu(const QPoint &point) {
         !std::all_of(items.begin(), items.end(),
                      [](const KFileItem &item) { return item.isDir(); }))
       continue;
+    if (id == "newFolder") {
+      if (!items.isEmpty() || !Fusion::fileDropDestination(location) || browser()->searchActive()) continue;
+      Fusion::menuSection(&menu, id);
+      Fusion::NewItemCallbacks callbacks;
+      callbacks.track = [this](KJob *job) { track(job); };
+      callbacks.created = [tab = QPointer<Browser>(browser())](const QUrl &url) { if (tab) tab->selectUrl(url); };
+      Fusion::addNewMenu(&menu, location, this, this, callbacks);
+      continue;
+    }
+    if (id == "openWith" && directories) continue;
+    if (id == "paste" && ((!items.isEmpty() && !folderTarget) || !Fusion::fileDropDestination(pasteTarget) || browser()->searchActive())) continue;
+    Fusion::menuSection(&menu, id);
     QString label = entry["name"].toString(), icon = entry["icon"].toString();
     if (id == "trash" && location.scheme() == "trash") label = "Delete permanently…";
     if (id == "open" && preferred && label == "Open") {
@@ -1267,14 +1268,14 @@ void FilesWindow::fileMenu(const QPoint &point) {
     action->setObjectName(id);
     if (shortcuts.contains(id))
       action->setShortcut(shortcuts[id]->shortcut());
-    if (id == "paste")
-      action->setEnabled(
-          KIO::canPasteMimeData(QApplication::clipboard()->mimeData()));
-    connect(action, &QAction::triggered, this, [this, entry, id] {
-      if (id.startsWith("custom:"))
-        customAction(entry);
-      else
-        runAction(id);
+    if (id == "paste") {
+      auto available = [action] { action->setEnabled(Fusion::canPasteFiles(QApplication::clipboard()->mimeData())); };
+      available(); connect(QApplication::clipboard(), &QClipboard::dataChanged, action, available);
+    }
+    connect(action, &QAction::triggered, this, [this, entry, id, pasteTarget] {
+      if (id.startsWith("custom:")) customAction(entry);
+      else if (id == "paste") track(Fusion::pasteFiles(pasteTarget, this));
+      else runAction(id);
     });
   }
   menu.exec(point);

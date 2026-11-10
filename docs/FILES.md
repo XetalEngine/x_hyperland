@@ -34,7 +34,10 @@ the middle, whether mounted or unmounted; USB SSDs are recognized by their
 connection type even when their removable flag is unset. The lower section
 contains wholly unmounted internal drives. Frames use the theme's accent;
 frames and partition cards inherit its shared corner styling without a list
-of theme names. Divider positions are remembered.
+of theme names. Data partitions keep full-width cards. EFI, BIOS boot, reserved,
+recovery and swap partitions use cards about 58% as wide, with space information
+below the icon. Classification uses partition roles and boot mount points;
+ordinary FAT-formatted data drives keep the full layout. Divider positions are remembered.
 Empty sections and their extra dividers hide automatically and return when
 matching drives appear. Mounted volumes
 show available space; unmounted volumes show
@@ -70,9 +73,9 @@ On first login, HyperFusion initializes the account's standard folders with
 intentionally disabled folders. The user's `enabled=False` opt-out is respected.
 Browsing another installed system's home does not create folders on that drive.
 
-The location bar has clickable breadcrumbs and an editable full address. Use
-Ctrl+L, Alt+D or the blank part of the bar to type or copy it; Escape returns to
-breadcrumbs. Paths containing spaces, Unicode, `#` and `%` retain their literal
+The location bar always shows an editable full address, including on fresh
+installs. Ctrl+L or Alt+D focuses and selects it. Escape restores the current
+address and returns focus to the files. Paths containing spaces, Unicode, `#` and `%` retain their literal
 names. Back, Forward and Up work across folder and This PC navigation. Network
 locations accept URLs such as `smb://server/share` and `sftp://host/path`, using
 the installed KIO protocol workers and their authentication dialogs.
@@ -285,8 +288,24 @@ the option to remember a file-type association, including for unknown file types
 Discovery uses the shared Gio application inventory and does not require a
 Plasma application-menu definition. Recommended/default apps appear first,
 and default saves reuse Control Panel's guarded MIME-association backend.
-Cut, Copy and Paste are available
-in file menus. In This PC, select a mounted volume and use Ctrl+V or **Paste into
+Menus follow a familiar desktop order: opening/app actions, the existing
+**7-Zip** submenu, Cut/Copy/Paste, then Delete, Rename and Properties.
+**Delete** keeps the existing Move to Trash behavior; permanent deletion remains
+separate. **New** appears only on empty-space menus. A file selection does not
+show Paste; a single folder's Paste targets that folder. Background and keyboard
+Paste target the current folder. Plain text and website links leave Paste disabled;
+file clipboard formats from Fusion, KDE and GNOME are supported.
+
+**New → Folder**, **Text document**, and **Template Options…** are shared by
+Fusion Files and the desktop. Template Options can add, edit, reorder, hide or
+remove custom entries. Choose a default filename and optional starting text, or
+an existing template file whose bytes are copied unchanged. Keep referenced
+template files available; missing sources disable their entries. Creation asks
+for a name and never overwrites an existing item. Settings live in
+`file_manager/state/templates.json`, are saved atomically, and survive updates.
+Concurrent edits require reopening the options before saving over newer settings.
+
+In This PC, select a mounted volume and use Ctrl+V or **Paste into
 drive** to paste into its root folder; copied and cut files retain their usual
 copy/move behavior. **Copy** on a mounted volume copies its folder location.
 Cut applies to files and folders inside a drive, rather than the mounted drive
@@ -313,8 +332,8 @@ for formats, source provenance and offline rebuilding.
 
 Existing drag-and-drop from an independently installed Ark remains compatible
 with its own extraction service. These actions are enabled by default.
-**Customize context menu…** controls
-action visibility, order, labels and icons. Custom actions accept `%f` / `%F` for
+**Configure Fusion Files…** in the toolbar menu controls
+action visibility, order, labels and icons, with separate Files and Desktop tabs. Custom actions accept `%f` / `%F` for
 local files and `%u` / `%U` for URLs. Commands execute as argument lists, without
 shell expansion; multiple-file placeholders must occupy a separate argument.
 

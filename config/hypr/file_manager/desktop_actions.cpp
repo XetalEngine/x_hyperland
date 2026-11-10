@@ -2,6 +2,7 @@
 #include "applications.h"
 #include "core.h"
 #include "context_actions.h"
+#include "new_items.h"
 #include <QtWidgets>
 #include "removal.h"
 #include "transfers.h"
@@ -188,32 +189,30 @@ bool DesktopActions::NewFolder(const QString &directory) {
   return NewFolderWithPlacement(directory, {});
 }
 bool DesktopActions::NewFolderWithPlacement(const QString &directory, const QString &request) {
-  const auto paths = urls({directory});
-  if (request.size() > 128 || paths.size() != 1) return false;
-  auto *dialog = new QInputDialog;
-  dialog->setWindowTitle("New folder"); dialog->setLabelText("Folder name:");
-  dialog->setTextValue("New folder"); dialog->setAttribute(Qt::WA_DeleteOnClose);
-  connect(dialog, &QInputDialog::rejected, this, [this, request] {
-    if (!request.isEmpty()) emit PlacementFinished(request);
-  });
-  connect(dialog, &QInputDialog::textValueSelected, this, [this, request, location = paths.first()](const QString &name) {
-    if (!Fusion::validName(name)) {
-      error("Choose a name without /, and different from . or ..");
-      if (!request.isEmpty()) emit PlacementFinished(request);
-      return;
-    }
-    auto destination = location;
-    destination.setPath(location.path() + (location.path().endsWith('/') ? "" : "/") + name);
-    if (!request.isEmpty()) emit PlacementTarget(request, destination.toString(QUrl::FullyEncoded));
-    auto *job = KIO::mkdir(destination);
-    connect(job, &KJob::result, this, [this, request] {
-      if (!request.isEmpty()) emit PlacementFinished(request);
-    });
-    track(job);
-  });
-  dialog->open();
+  return CreateNewWithPlacement(directory, "folder", request);
+}
+QString DesktopActions::NewEntries() {
+  QJsonArray result;
+  for (const auto &item : Fusion::newItems())
+    result.append(QJsonObject{{"id", item.id}, {"name", item.name}, {"enabled", item.enabled}});
+  return QString::fromUtf8(QJsonDocument(result).toJson(QJsonDocument::Compact));
+}
+bool DesktopActions::ConfigureTemplates() {
+  if (configuringTemplates) return true;
+  configuringTemplates = true;
+  QTimer::singleShot(0, this, [this] { Fusion::configureTemplates(); configuringTemplates = false; });
   return true;
 }
+bool DesktopActions::CreateNewWithPlacement(const QString &directory, const QString &id, const QString &request) {
+  const auto paths = urls({directory});
+  if (request.size() > 128 || paths.size() != 1) return false;
+  Fusion::NewItemCallbacks callbacks;
+  callbacks.track = [this](KJob *job) { track(job); };
+  callbacks.target = [this, request](const QUrl &url) { if (!request.isEmpty()) emit PlacementTarget(request, url.toString(QUrl::FullyEncoded)); };
+  callbacks.finished = [this, request] { if (!request.isEmpty()) emit PlacementFinished(request); };
+  return Fusion::promptNewItem(id, paths.first(), nullptr, this, callbacks);
+}
+
 bool DesktopActions::Properties(const QStringList &sources) {
   const auto files = urls(sources);
   if (files.isEmpty()) return false;
@@ -265,14 +264,19 @@ QString DesktopActions::Menu(const QStringList &sources) {
     if (!entry.value("enabled", true).toBool()) continue;
     const auto id = entry["id"].toString();
     if (trash && id != "open" && id != "properties") continue;
+    if (id == "newFolder" || (id == "paste" && (files.size() != 1 || !directories))) continue;
     if (id == "execute" && (files.size() != 1 || Fusion::executionCommand(files.first()).isEmpty())) continue;
     if ((id == "openTab" || id == "pin") && !directories) continue;
     if (id == "openWith" && directories) continue;
     if (id == "compress" || id == "extract") {
-      if (!addedArchive) Fusion::addArchiveActions(fileMenu, items, compress, extract, this, directory,
-                                         [this](const QString &text) { error(text); });
+      if (!addedArchive) {
+        Fusion::menuSection(fileMenu, id);
+        Fusion::addArchiveActions(fileMenu, items, compress, extract, this, directory,
+                                 [this](const QString &text) { error(text); });
+      }
       addedArchive = true; continue;
     }
+    Fusion::menuSection(fileMenu, id);
     auto *action = fileMenu->addAction(Fusion::icon(entry["icon"].toString()),
         id == "openTab" ? "Open in floating window" : entry["name"].toString());
     action->setProperty("desktopAction", id);

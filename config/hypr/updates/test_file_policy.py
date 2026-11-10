@@ -123,6 +123,7 @@ class FilePolicyTests(unittest.TestCase):
 
     def test_file_manager_update_delivers_executable_and_keeps_private_preferences(self):
         self.write(self.live, 'file_manager/state/settings.ini', 'private bookmarks and columns\n')
+        self.write(self.live, 'file_manager/state/templates.json', 'private new-item templates\n')
         self.write(self.live, 'file_manager/state/search-presets/Source code.json', 'private search preset\n')
         self.write(self.live, 'runtime/window_memory/state/windows.json', 'private geometry\n')
         self.write(self.upstream, 'file_manager/main.cpp', 'new application\n')
@@ -132,6 +133,7 @@ class FilePolicyTests(unittest.TestCase):
         self.write(self.stage, 'file_manager/.build/CMakeCache.txt', '/private/build/path')
         self.write(self.stage, 'file_manager/.build/files-tests', 'test executable')
         self.write(self.stage, 'file_manager/state/settings.ini', 'temporary settings')
+        self.write(self.stage, 'file_manager/state/templates.json', 'temporary templates')
         self.write(self.stage, 'file_manager/state/search-presets/Source code.json', 'temporary preset')
         self.write(self.stage, 'runtime/window_memory/state/windows.json', 'temporary geometry')
         plan = engine.prepare_plan(self.live, self.stage, expected, NEW)
@@ -139,10 +141,12 @@ class FilePolicyTests(unittest.TestCase):
         self.assertNotIn('file_manager/.build/CMakeCache.txt', plan['changes'])
         self.assertNotIn('file_manager/.build/files-tests', plan['changes'])
         self.assertNotIn('file_manager/state/settings.ini', plan['changes'])
+        self.assertNotIn('file_manager/state/templates.json', plan['changes'])
         self.assertNotIn('file_manager/state/search-presets/Source code.json', plan['changes'])
         self.assertNotIn('runtime/window_memory/state/windows.json', plan['changes'])
         engine.apply_plan(self.live, self.stage, plan, self.state)
         self.assertEqual((self.live/'file_manager/state/settings.ini').read_text(), 'private bookmarks and columns\n')
+        self.assertEqual((self.live/'file_manager/state/templates.json').read_text(), 'private new-item templates\n')
         self.assertEqual((self.live/'file_manager/state/search-presets/Source code.json').read_text(), 'private search preset\n')
         self.assertEqual((self.live/'runtime/window_memory/state/windows.json').read_text(), 'private geometry\n')
         self.assertEqual((self.live/'file_manager/.build/xetal-files').stat().st_mode & 0o777, 0o755)

@@ -14,6 +14,7 @@ private:
   QListWidget *list;
 };
 void customizeMenu(Preferences &preferences, QWidget *parent = nullptr, const QString &scope = "menu");
+void menuSection(QMenu *menu, const QString &id);
 bool isArchive(const KFileItem &item);
 bool launchArchive(const QString &operation, const QList<QUrl> &files, const QUrl &directory,
     const std::function<void(const QString &)> &message);

@@ -43,6 +43,12 @@ class Files:
         self.call('Open', '(asb)', urls, choose)
 
     def menu(self, urls, callback):
+        self.menu_entries('Menu', GLib.Variant('(as)', (urls,)), callback)
+
+    def new_entries(self, callback):
+        self.menu_entries('NewEntries', GLib.Variant('()', ()), callback)
+
+    def menu_entries(self, method, arguments, callback):
         def finished(bus, result, _data):
             try:
                 entries = json.loads(bus.call_finish(result).unpack()[0])
@@ -50,7 +56,7 @@ class Files:
             except (GLib.Error, ValueError, TypeError) as error:
                 self.error('Could not load the desktop file menu: '+str(error))
                 callback([])
-        self.bus.call(self.name, OBJECT, INTERFACE, 'Menu', GLib.Variant('(as)', (urls,)),
+        self.bus.call(self.name, OBJECT, INTERFACE, method, arguments,
                       GLib.VariantType.new('(s)'), Gio.DBusCallFlags.NO_AUTO_START, 5000,
                       None, finished, None)
 

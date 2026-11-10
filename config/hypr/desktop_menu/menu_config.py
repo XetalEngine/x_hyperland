@@ -42,10 +42,10 @@ def new_item(kind='action', **values):
 
 
 def defaults():
-    return {'version': 1, 'enabled': True, 'style': copy.deepcopy(DEFAULT_STYLE), 'items': [
+    return {'version': 1, 'layout_version': 2, 'enabled': True, 'style': copy.deepcopy(DEFAULT_STYLE), 'items': [
         new_item(id='file-manager', label='File Manager', icon='system-file-manager', target='file_manager'),
-        new_item(id='wallpaper', label='Wallpaper', icon='preferences-desktop-wallpaper', target='wallpaper'),
-        new_item(id='displays', label='Display Settings', icon='preferences-desktop-display', target='displays')]}
+        new_item(id='displays', label='Display Settings', icon='preferences-desktop-display', target='displays'),
+        new_item(id='wallpaper', label='Wallpaper', icon='preferences-desktop-wallpaper', target='wallpaper')]}
 
 
 def walk(items, enabled=True):
@@ -163,7 +163,13 @@ class Store:
 
     def load(self):
         data = self.path.read_bytes() if self.path.exists() else None
-        return (decode(data) if data is not None else defaults()), digest(data)
+        config = decode(data) if data is not None else defaults()
+        if config.get('layout_version') != 2:
+            # Move only the old stock order; keep custom menus and their style.
+            if [item['id'] for item in config['items']] == ['file-manager', 'wallpaper', 'displays']:
+                config['items'][1], config['items'][2] = config['items'][2], config['items'][1]
+            config['layout_version'] = 2
+        return config, digest(data)
 
     def save(self, config, expected):
         data = encode(config)

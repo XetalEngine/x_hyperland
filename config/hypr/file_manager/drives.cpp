@@ -49,6 +49,8 @@ QList<Volume> Drives::parse(const QByteArray &data) {
                               ? "Linux system"
                               : QFileInfo(volume.device).fileName();
           volume.filesystem = filesystem;
+          volume.partitionType = item["parttype"].toString();
+          volume.partitionLabel = item["partlabel"].toString();
           volume.mount = mounts.contains("/") ? "/" : mounts.value(0);
           volume.type = type;
           volume.uuid = item["uuid"].toString();
@@ -188,7 +190,7 @@ void Drives::refresh() {
   }
   scan.start("lsblk", {"--json", "--bytes", "--output",
                        "PATH,NAME,TYPE,FSTYPE,LABEL,SIZE,MOUNTPOINTS,RO,RM,"
-                       "UUID,PKNAME,MODEL,TRAN,DISK-SEQ"});
+                       "UUID,PKNAME,MODEL,TRAN,DISK-SEQ,PARTTYPE,PARTLABEL"});
 }
 void Drives::updateAutoMounts() {
   QString error;
@@ -362,6 +364,28 @@ void Drives::showProperties(const Volume &volume, QWidget *parent) {
   dialog->setAttribute(Qt::WA_DeleteOnClose);
   dialog->show();
 }
+bool Volume::compactCard() const {
+  // Mounted data takes priority over stale partition labels. Never classify a
+  // data drive by size, or assume every FAT-formatted USB drive is boot media.
+  if (QStringList{"/", "/home", "/usr", "/var", "/opt", "/srv"}.contains(mount)) return false;
+  if (QStringList{"/boot", "/boot/efi", "/efi"}.contains(mount)) return true;
+  const auto role = partitionType.toLower();
+  if (QStringList{"c12a7328-f81f-11d2-ba4b-00a0c93ec93b", // EFI System
+                  "21686148-6449-6e6f-744e-656564454649", // BIOS boot
+                  "e3c9e316-0b5c-4db8-817d-f92df00215ae", // Microsoft reserved
+                  "de94bba4-06d1-4d40-a16a-bfd50179d6ac", // Windows recovery
+                  "bc13c2ff-59e6-4262-a352-b275fd6f7172", // Extended boot loader
+                  "0657fd6d-a4ab-43c4-84e5-0933c84b4f4f", // Linux swap
+                  "0xef", "ef", "0x82", "82"}.contains(role)) return true;
+  if (filesystem == "swap") return true;
+  const auto fat = QStringList{"vfat", "fat", "fat16", "fat32"}.contains(filesystem.toLower());
+  static const QRegularExpression bootLabel("(^|[ _-])(efi|esp|boot)([ _-]|$)", QRegularExpression::CaseInsensitiveOption);
+  return fat && (bootLabel.match(name).hasMatch() || bootLabel.match(partitionLabel).hasMatch());
+}
+QSize DriveDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const {
+  return {index.data(Qt::UserRole).value<Volume>().compactCard() ? 184 : 320,
+          qMax(104, QFontMetrics(option.font).height() * 5 + 28)};
+}
 DriveDelegate::DriveDelegate(QWidget *parent) : QStyledItemDelegate(parent) {
   // Paint with a real themed widget, so the shared theme owns card geometry.
   // New themes (or live theme changes) need no special cases in the delegate.
@@ -372,6 +396,7 @@ DriveDelegate::DriveDelegate(QWidget *parent) : QStyledItemDelegate(parent) {
 void DriveDelegate::paint(QPainter *p, const QStyleOptionViewItem &o,
                           const QModelIndex &index) const {
   const auto volume = index.data(Qt::UserRole).value<Volume>();
+  const bool compact = volume.compactCard();
   p->save();
   p->setRenderHint(QPainter::Antialiasing);
   QRect box = o.rect.adjusted(5, 5, -5, -5);
@@ -385,15 +410,17 @@ void DriveDelegate::paint(QPainter *p, const QStyleOptionViewItem &o,
   frame.lineWidth = 1;
   cardStyle->style()->drawComplexControl(QStyle::CC_GroupBox, &frame, p, cardStyle);
   Fusion::icon(volume.usb() ? "drive-removable-media-usb" : "drive-harddisk")
-      .paint(p, box.adjusted(14, 20, 0, 0).topLeft().x(), box.y() + 22, 54, 54);
+      .paint(p, box.x() + 12, box.y() + (compact ? 9 : 16), compact ? 40 : 54, compact ? 40 : 54);
   const QColor text =
       o.palette.color(selected ? QPalette::HighlightedText : QPalette::Text);
-  QRect content = box.adjusted(82, 12, -14, -10);
+  const int line = QFontMetrics(o.font).height();
+  QRect content = box.adjusted(compact ? 62 : 82, 8, -12, -8);
+  QRect footer = box.adjusted(compact ? 12 : 82, 8 + 3 * line + 7, -12, -3);
   p->setPen(text);
   QFont bold = o.font;
   bold.setBold(true);
   p->setFont(bold);
-  p->drawText(content.adjusted(0, 0, 0, -50), Qt::AlignLeft | Qt::AlignVCenter,
+  p->drawText(QRect(content.x(), content.y(), content.width(), line + 2), Qt::AlignLeft | Qt::AlignVCenter,
               QFontMetrics(bold).elidedText(volume.name, Qt::ElideRight,
                                             content.width()));
   p->setFont(o.font);
@@ -404,11 +431,11 @@ void DriveDelegate::paint(QPainter *p, const QStyleOptionViewItem &o,
   QColor muted = text;
   muted.setAlpha(190);
   p->setPen(muted);
-  p->drawText(content.adjusted(0, 24, 0, -29), Qt::AlignLeft | Qt::AlignVCenter,
+  p->drawText(QRect(content.x(), content.y() + line + 4, content.width(), line + 2), Qt::AlignLeft | Qt::AlignVCenter,
               QFontMetrics(o.font).elidedText(description, Qt::ElideMiddle,
                                               content.width()));
   if (volume.mounted() && volume.total) {
-    const QRectF bar(content.x(), content.y() + 51, content.width(), 6);
+    const QRectF bar(footer.x(), footer.y() - 11, footer.width(), 6);
     p->setPen(Qt::NoPen);
     QColor track = text;
     track.setAlpha(35);
@@ -441,15 +468,15 @@ void DriveDelegate::paint(QPainter *p, const QStyleOptionViewItem &o,
       p->drawRoundedRect(fill, 3, 3);
     }
     p->setPen(muted);
-    p->drawText(content.adjusted(0, 61, 0, 4), Qt::AlignLeft | Qt::AlignTop,
-                QLocale().formattedDataSize(volume.available) + " free of " +
+    p->drawText(footer, Qt::AlignLeft | Qt::AlignTop,
+                QLocale().formattedDataSize(volume.available) + (compact ? " free\nof " : " free of ") +
                     QLocale().formattedDataSize(volume.total));
   } else {
     p->setPen(muted);
     p->drawText(
-        content.adjusted(0, 54, 0, 0), Qt::AlignLeft | Qt::AlignTop,
-        QLocale().formattedDataSize(volume.size) +
-            (volume.filesystem.isEmpty() ? "" : " · " + volume.filesystem));
+        footer, Qt::AlignLeft | Qt::AlignTop,
+        QFontMetrics(o.font).elidedText(QLocale().formattedDataSize(volume.size) +
+            (volume.filesystem.isEmpty() ? "" : " · " + volume.filesystem), Qt::ElideRight, footer.width()));
   }
   p->restore();
 }

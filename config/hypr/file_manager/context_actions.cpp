@@ -32,6 +32,18 @@ bool Fusion::launchArchive(const QString &operation, const QList<QUrl> &files, c
   }
   return true;
 }
+void Fusion::menuSection(QMenu *menu, const QString &id) {
+  int group = 0;
+  if (id == "compress" || id == "extract") group = 1;
+  else if (QStringList{"cut", "copy", "paste", "copyPath"}.contains(id)) group = 2;
+  else if (id == "newFolder") group = 3;
+  else if (QStringList{"trash", "delete", "rename"}.contains(id)) group = 4;
+  else if (id == "properties") group = 5;
+  const auto previous = menu->property("fusionMenuSection");
+  if (!menu->actions().isEmpty() && previous.isValid() && previous.toInt() != group)
+    menu->addSeparator();
+  menu->setProperty("fusionMenuSection", group);
+}
 void Fusion::addArchiveActions(QMenu *menu, const KFileItemList &items, bool compress, bool extract,
     QObject *owner, const QUrl &directory, const std::function<void(const QString &)> &message,
     const std::function<bool()> &guard) {

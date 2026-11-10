@@ -479,12 +479,35 @@ private:
 };
 }
 
+QList<QUrl> Fusion::clipboardFiles(const QMimeData *mime) {
+  if (!mime) return {};
+  if (!mime->hasUrls() && !mime->hasFormat("application/x-kde4-urilist") &&
+      !mime->hasFormat("x-special/gnome-copied-files")) return {};
+  auto urls = KUrlMimeData::urlsFromMimeData(mime, KUrlMimeData::PreferLocalUrls);
+  if (urls.isEmpty() && mime->hasFormat("x-special/gnome-copied-files")) {
+    auto lines = QString::fromUtf8(mime->data("x-special/gnome-copied-files")).split('\n', Qt::SkipEmptyParts);
+    if (lines.isEmpty() || (lines.first().trimmed() != "copy" && lines.first().trimmed() != "cut")) return {};
+    lines.removeFirst();
+    for (const auto &line : lines) urls << QUrl(line.trimmed(), QUrl::StrictMode);
+  }
+  // Text, browser links and virtual locations aren't a file clipboard. Remote
+  // file-manager URLs remain supported; nothing is stat'ed on the UI thread.
+  const QStringList protocols{"file", "admin", "trash", "nfs", "smb", "sftp", "fish", "ftp", "ftps", "webdav", "webdavs", "dav", "davs", "mtp", "afc"};
+  for (const auto &url : urls)
+    if (!url.isValid() || !protocols.contains(url.scheme()) || url.path().contains(QChar::Null) ||
+        (url.scheme() == "trash" && (url.path().isEmpty() || url.path() == "/")) ||
+        (url.isLocalFile() && !QDir::isAbsolutePath(url.toLocalFile()))) return {};
+  return urls;
+}
+bool Fusion::canPasteFiles(const QMimeData *mime) { return !clipboardFiles(mime).isEmpty(); }
+
 KJob *Fusion::pasteFiles(const QUrl &destination, QWidget *window) {
   const auto *mime = QApplication::clipboard()->mimeData();
   if (!mime) return nullptr;
-  const auto urls = KUrlMimeData::urlsFromMimeData(mime, KUrlMimeData::PreferLocalUrls);
-  if (urls.isEmpty()) return KIO::paste(mime, destination);
-  return transferFiles(urls, destination, KIO::isClipboardDataCut(mime) ? TransferOperation::Move : TransferOperation::Copy, window);
+  const auto urls = clipboardFiles(mime);
+  if (urls.isEmpty() || !fileDropDestination(destination)) return nullptr;
+  const bool cut = KIO::isClipboardDataCut(mime) || mime->data("x-special/gnome-copied-files").split('\n').value(0).trimmed() == "cut";
+  return transferFiles(urls, destination, cut ? TransferOperation::Move : TransferOperation::Copy, window);
 }
 
 KJob *Fusion::transferFiles(const QList<QUrl> &sources, const QUrl &destination,

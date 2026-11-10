@@ -115,18 +115,18 @@ QList<QVariantMap> menuDefaults() {
       {"open", "Open", "document-open"},
       {"openTab", "Open in new tab", "tab-new"},
       {"openWith", "Open with…", "application-x-executable"},
-      {"cut", "Cut", "edit-cut"},
-      {"copy", "Copy", "edit-copy"},
-      {"paste", "Paste", "edit-paste"},
-      {"rename", "Rename…", "edit-rename"},
-      {"trash", "Move to Trash", "user-trash"},
-      {"delete", "Delete permanently…", "edit-delete"},
-      {"newFolder", "New folder…", "folder-new"},
       {"pin", "Pin to quick access", "bookmark-new"},
-      {"copyPath", "Copy full path", "edit-copy"},
       {"terminal", "Open terminal here", "utilities-terminal"},
       {"compress", "Compress…", "package-x-generic"},
       {"extract", "Extract archive…", "archive-extract"},
+      {"cut", "Cut", "edit-cut"},
+      {"copy", "Copy", "edit-copy"},
+      {"paste", "Paste", "edit-paste"},
+      {"copyPath", "Copy full path", "edit-copy"},
+      {"newFolder", "New", "folder-new"},
+      {"trash", "Delete", "user-trash"},
+      {"delete", "Delete permanently…", "edit-delete"},
+      {"rename", "Rename…", "edit-rename"},
       {"properties", "Properties", "document-properties"}};
   for (const auto &entry : definitions)
     entries.append({{"id", entry[0]},
@@ -251,9 +251,27 @@ QList<QVariantMap> Preferences::menu(const QString &scope) const {
         execute["enabled"] = entry.value("enabled", true);
     entries.prepend(execute);
   }
+  // Migrate old layouts without discarding custom labels, disabled actions or
+  // custom commands. Subsequent changes in the menu editor keep their order.
+  if (settings.value(scope + "LayoutVersion", 0).toInt() < 2) {
+    QStringList order;
+    for (const auto &entry : menuDefaults()) order << entry["id"].toString();
+    std::stable_sort(entries.begin(), entries.end(), [&](const auto &a, const auto &b) {
+      auto rank = [&](const auto &entry) {
+        const int index = order.indexOf(entry["id"].toString());
+        return index < 0 ? order.indexOf("pin") : index;
+      };
+      return rank(a) < rank(b);
+    });
+    for (auto &entry : entries) {
+      if (entry["id"] == "newFolder" && entry["name"] == "New folder…") entry["name"] = "New";
+      if (entry["id"] == "trash" && entry["name"] == "Move to Trash") entry["name"] = "Delete";
+    }
+  }
   return entries;
 }
 void Preferences::setMenu(const QList<QVariantMap> &entries, const QString &scope) {
+  settings.setValue(scope + "LayoutVersion", 2);
   writeList(settings, scope, entries);
 }
 } // namespace Fusion

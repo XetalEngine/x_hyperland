@@ -266,8 +266,6 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
   row->setContentsMargins(10, 8, 10, 8);
   navigator = new PathBar(this);
   navigator->setObjectName("addressBar");
-  navigator->setUrlEditable(
-      preferences->settings.value("addressEditable", false).toBool());
   row->addWidget(navigator, 1);
   filter = new QLineEdit;
   filter->setObjectName("folderFilter");
@@ -554,9 +552,7 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
   connect(navigator, &PathBar::fileActivated, this, [this](const QUrl &url) {
     emit openRequested(model->itemForIndex(model->indexForUrl(url)), false);
   });
-  connect(navigator, &PathBar::editableStateChanged, this, [this](bool value) {
-    preferences->settings.setValue("addressEditable", value);
-  });
+  connect(navigator, &PathBar::editingCancelled, this, [this] { view()->setFocus(); });
   connect(navigator, &PathBar::tabRequested, this, [this](const QUrl &url) {
     emit openRequested(KFileItem(url, QString(), S_IFDIR), true);
   });
@@ -817,7 +813,7 @@ void Browser::configureCards(QListWidget *list) {
   list->setResizeMode(QListView::Adjust);
   list->setMovement(QListView::Static);
   list->setSpacing(2);
-  list->setGridSize({328, 116});
+  list->setUniformItemSizes(false);
   list->setMouseTracking(true);
   list->setFrameShape(QFrame::NoFrame);
   list->setItemDelegate(new DriveDelegate(list));
@@ -988,7 +984,7 @@ void Browser::updateCards() {
       list->setProperty("driveKey", key);
       list->setWrapping(false);
       list->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-      list->setFixedHeight(136);
+      list->setFixedHeight(qMax(104, list->fontMetrics().height() * 5 + 28) + 20);
       layout->addWidget(list);
       section->groups.insert(key, group);
     }

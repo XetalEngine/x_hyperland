@@ -245,11 +245,17 @@ windowrule=match:class ^xetal-files-external$,float on,center on
             click(round(current['width']/current['scale'])-320, 90, 'right'); wait(lambda: state().get('menus'), 'desktop context menu')
             key(102)  # Home chooses the first enabled item.
         def select_menu(label):
-            for _ in range(15):
+            deadline = time.monotonic()+8
+            while time.monotonic() < deadline:
                 menus = state().get('menus', [])
                 if menus and label in menus[-1]['selected']: return
                 key(108)
             raise AssertionError('Menu item was not reachable: '+label+' '+str(state().get('menus')))
+        def view_option(label):
+            select_menu('View'); key(106)
+            wait(lambda: len(state().get('menus', [])) == 2, 'view submenu')
+            key(102); select_menu(label); key(28)
+            wait(lambda: not state().get('menus'), 'view choice applied')
         def arrange(label):
             popup(); select_menu('Arrange icons'); key(106)
             wait(lambda: len(state().get('menus', [])) == 2, 'arrangement submenu')
@@ -275,7 +281,7 @@ windowrule=match:class ^xetal-files-external$,float on,center on
         assert any(layer['namespace'] == 'xetal-desktop-menu' for output in layers.values()
                    for layer in output['levels'].get('1', [])), layers
         popup(); run('grim', str(root/'context-menu.png'))
-        select_menu('Show Desktop icons'); key(28)
+        view_option('Show Desktop icons')
         wait(lambda: len(positions()) == 8, 'Desktop files displayed')
         wait(layout_current, 'initial output layout')
         if '--drag-actions-only' in sys.argv[3:]:
@@ -292,7 +298,7 @@ windowrule=match:class ^xetal-files-external$,float on,center on
         for name in ('A folder', '1 notes # café.txt'):
             a, b = positions()[name]
             click(a+35, b+30, 'right')
-            wait(lambda: any('Customize desktop file menu…' in menu['labels']
+            wait(lambda: any('Properties' in menu['labels'] and 'Copy' in menu['labels']
                             for menu in state().get('menus', [])), 'file actions received')
             time.sleep(.3)
             menu = state()['menus'][0]
@@ -300,18 +306,28 @@ windowrule=match:class ^xetal-files-external$,float on,center on
             (root/'file-menus.json').write_text(json.dumps(file_menus, indent=2))
             run('grim', str(root/('folder-menu.png' if name == 'A folder' else 'file-menu.png')))
             assert menu['popup_height'] >= min(menu['preferred_height'], height-80), menu
+            assert menu['labels'].index('7-Zip') < menu['labels'].index('Cut'), menu
+            assert 'New' not in menu['labels'], menu
+            assert menu['labels'].index('Rename…') < menu['labels'].index('Properties'), menu
             key(102); select_menu('Copy'); key(28)
             wait(lambda: not state().get('menus'), 'file menu action dismissed')
             copied = run('wl-paste', '--type', 'text/uri-list')
             assert (desktop/name).as_uri() in copied, copied
         key(68)  # F10 requests the same asynchronous menu from the keyboard.
-        wait(lambda: any('Customize desktop file menu…' in menu['labels']
+        wait(lambda: any('Properties' in menu['labels'] and 'Copy' in menu['labels']
                         for menu in state().get('menus', [])), 'keyboard file menu')
         key(102); select_menu('Copy'); key(28)
         wait(lambda: not state().get('menus'), 'keyboard menu action dismissed')
         assert (desktop/'1 notes # café.txt').as_uri() in run('wl-paste', '--type', 'text/uri-list')
         if '--menus-only' in sys.argv[3:]:
-            print('PASS: folder/file menus fit their content; pointer and keyboard invocations copy the selected file.')
+            popup(); select_menu('New'); key(106)
+            wait(lambda: len(state().get('menus', [])) == 2 and 'Template Options…' in state()['menus'][-1]['labels'], 'shared New submenu loaded')
+            submenu = state()['menus'][-1]
+            assert 'Folder' in submenu['labels'] and 'Text document' in submenu['labels'], submenu
+            assert submenu['popup_height'] >= submenu['preferred_height'], submenu
+            run('grim', str(root/'new-menu.png'))
+            key(1); key(1)
+            print('PASS: relevant file/folder ordering, pointer and keyboard copy, and the shared New submenu fit their native Wayland popups.')
             return
         (root/'monitors.json').write_text(ctl('-j', 'monitors'))
         (root/'input-size.json').write_text(json.dumps([width,height]))
@@ -440,7 +456,7 @@ button.clicked.connect(copy);button.show();app.exec()
         assert (desktop/incoming.name).read_text()=='native clipboard fixture'
         clipboard_source.terminate();clipboard_source.wait(timeout=5)
 
-        popup();select_menu('Show Trash');key(28)
+        popup();view_option('Show Trash')
         wait(lambda:'trash:/' in positions(),'Trash icon shown')
         a,b=positions()['trash:/'];click(a+35,b+30);click(a+35,b+30)
         wait(folder,'floating Trash folder');assert folder()['floating']
@@ -473,7 +489,9 @@ button.clicked.connect(copy);button.show();app.exec()
         secondary=next(m for m in json.loads(ctl('-j','monitors')) if m['name']==second)
         sx,sy=secondary['x'],secondary['y']
         click(sx+260,sy+240,'right');wait(lambda:state().get('menus'),'second-monitor menu')
-        key(102);select_menu('New folder…');key(28)
+        key(102);select_menu('New');key(106)
+        wait(lambda:len(state().get('menus',[]))==2,'New submenu')
+        key(102);select_menu('Folder');key(28)
         wait(folder,'native New folder dialog')
         time.sleep(.3)
         assert ctl('dispatch','focuswindow','address:'+folder()['address'])=='ok'
@@ -498,7 +516,7 @@ button.clicked.connect(copy);button.show();app.exec()
         run('grim',str(root/'second-monitor-paste.png'))
 
         count=len(list(desktop.iterdir()))
-        popup(); select_menu('Show Desktop icons'); key(28)
+        popup(); view_option('Show Desktop icons')
         wait(lambda: not positions() and not state()['settings']['enabled'], 'desktop icons hidden')
         assert len(list(desktop.iterdir())) == count
         assert service.poll() is None, 'Files service exited before logout'

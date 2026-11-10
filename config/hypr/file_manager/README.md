@@ -56,12 +56,30 @@ Open **Configure Fusion Files…** from the toolbar's three-dot menu. The
 **Files menu** and **Desktop menu** let you separately reorder, hide, rename,
 add or remove right-click actions for Files and desktop files/folders.
 
+Default menus place 7-Zip before Cut/Copy/Paste and end with Delete, Rename,
+and Properties. Old saved layouts migrate to this order while keeping custom
+commands, labels and visibility; later reordering remains supported. New appears
+only on the background and contains Folder, Text document, custom templates, and
+Template Options. `new_items.cpp` shares the same creation and template settings
+with desktop icons. Entries support UTF-8 starter text or copying an existing
+file without overwriting destinations. Settings in `file_manager/state/templates.json`
+are atomic, guarded against concurrent edits, and retained by updates.
+
+Paste accepts file clipboard formats, including KDE/GNOME cut selections. Plain
+text and web links never create files through Paste. A selected folder's context
+Paste targets that folder; keyboard Paste targets the current directory.
+
 Existing customizations are preserved. **Save** applies all tabs; **Cancel**
 discards the edits. Menu customization shortcuts no longer appear in either
 right-click menu. Desktop icon visibility and arrangement remain in the
 desktop's right-click menu.
 
 ## Navigation tree
+
+The address is always a textbox, including with old breadcrumb preferences.
+Ctrl+L and Alt+D select it; Escape restores the address without hiding it.
+This PC keeps data partitions full-width and uses compact cards for boot and
+helper partitions identified from their role or mount point.
 
 Every Fusion Files window keeps the left navigation tree visible: This PC,
 folders, windows opened by other applications, and Open, Save, and folder

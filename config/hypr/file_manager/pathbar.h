@@ -23,7 +23,7 @@ public:
   KUrlComboBox *editor() const { return input; }
 signals:
   void urlChanged(const QUrl &url);
-  void editableStateChanged(bool value);
+  void editingCancelled();
   void historyChanged();
   void tabRequested(const QUrl &url);
   void fileActivated(const QUrl &url);
@@ -35,10 +35,6 @@ private:
   QList<QUrl> history;
   QUrl selectedFile;
   int position = 0;
-  QStackedWidget *stack;
-  QScrollArea *scroll;
-  QWidget *crumbs;
-  QHBoxLayout *trail;
   KUrlComboBox *input = nullptr;
   KUrlCompletion *completion;
   void render();
