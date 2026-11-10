@@ -370,6 +370,7 @@ assert m['fire_indicator']
         bar=json.loads((self.stage/'waybar/config.json').read_text())
         self.assertIn('cffi/bar-options',bar['modules-left'])
         self.assertEqual(bar['cffi/bar-options']['module_path'],str(self.target/'waybar/options/options.so'))
+        self.assertEqual(bar['cffi/workspace-mode']['module_path'],str(self.target/'waybar/workspaces/mode.so'))
         self.assertEqual(json.loads((self.stage/'waybar/options.json').read_text()),{'version':1,'hidden':[]})
         self.assertTrue((self.stage/'waybar/options/build.sh').is_file())
 
@@ -382,7 +383,8 @@ assert m['fire_indicator']
         self.assertIn('text',inventory['files']['launcher/favorites.json'])
         self.assertNotIn('theme/qt6/libxetal.so',inventory['files'])
         bar=json.loads((self.stage/'waybar/config.json').read_text())
-        self.assertEqual(bar['modules-left'][bar['modules-left'].index('custom/keys')+1],'custom/updates')
+        keys=bar['modules-left'].index('custom/keys')
+        self.assertEqual(bar['modules-left'][keys+1:keys+3],['cffi/workspace-mode','custom/updates'])
         self.assertIn('updates.css',(self.stage/'waybar/style.css').read_text())
         self.assertIn('updates/service.py" --activate',(self.stage/'scripts/session.sh').read_text())
 

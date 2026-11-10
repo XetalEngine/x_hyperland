@@ -6,6 +6,13 @@ offers Individual (existing app/window choices), On (always-visible shared
 controls), and Off (no artificial controls, including while Super is held).
 These choices belong to the clicked workspace and persist across logins.
 
+Between **Keys** and **Update**, each taskbar shows its active workspace's layout:
+four equal panes for Individual (layout forcing Off) or Force tiled, and three
+overlapping windows for Force floating. Hover for the exact mode. The two vector
+icons share the same dimensions and follow the bar's text color. Workspace
+switches and saved mode changes update the indicator automatically, including
+Cube's local face numbering. It can be hidden in the taskbar's Options menu.
+
 On uses a shared size, position and background. Hold Super over a window to open
 its gear: the editor loads the workspace settings, previews changes across its
 windows, and saves to that workspace. Reset previews global button defaults.

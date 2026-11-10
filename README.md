@@ -201,6 +201,8 @@ Right-click the wallpaper for your desktop menu. Its editor supports commands, i
 
 Workspaces, running apps, draggable pins and your chosen status modules stay close to the screen where you work. **Right-click → Options** moves the bar to the top or bottom and shows/hides individual modules. **Hide Update Ready** hides the ready/restart notice while updates keep checking normally. The clock opens a calendar; power opens a compact system dashboard. A session helper restores the bar if it exits unexpectedly.
 
+The icon between **Keys** and **Update** shows that display's active workspace mode: four equal panes for Individual/default or Force tiling, and three overlapping windows for Force floating. Hover to see the exact mode.
+
 Every theme has its own taskbar materials and details. **Theme → Mix & match → Taskbar variation** offers **Full** (one continuous bar), **Partial** (floating sections) and **Centered** (workspaces in the middle). Combine any taskbar design and variation with any desktop palette. Workspace context menus and their overrides remain available in every layout.
 
 ### Wallpaper carousel

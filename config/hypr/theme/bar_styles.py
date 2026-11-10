@@ -58,7 +58,7 @@ def configure(config,style,variation=None):
         for module in result.get('modules-'+zone,[]):
             if module not in all_modules:all_modules.append(module)
     available=set(all_modules)
-    apps=['cffi/bar-options','custom/launcher','hyprland/workspaces','cffi/new-workspace','custom/keys','custom/updates','cffi/app-pins']
+    apps=['cffi/bar-options','custom/launcher','hyprland/workspaces','cffi/new-workspace','custom/keys','cffi/workspace-mode','custom/updates','cffi/app-pins']
     status=['custom/recording','cpu','memory','custom/temperature','temperature','disk','custom/internet','custom/lan','network#lan','custom/wifi',
             'custom/vpn','bluetooth','group/audio','pulseaudio#microphone','idle_inhibitor','custom/notifications','tray','clock','custom/power']
     layouts={
@@ -67,24 +67,24 @@ def configure(config,style,variation=None):
         'leviathan':(apps,['mpris'],status),
         'polaris':(apps,['mpris'],status),
         'platform95':(apps,['mpris'],status),
-        'mycelium':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
-        'atomicafterglow':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
-        'blackwood':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
-        'midnighttransit':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
+        'mycelium':(['cffi/bar-options','custom/launcher','custom/keys','cffi/workspace-mode','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
+        'atomicafterglow':(['cffi/bar-options','custom/launcher','custom/keys','cffi/workspace-mode','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
+        'blackwood':(['cffi/bar-options','custom/launcher','custom/keys','cffi/workspace-mode','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
+        'midnighttransit':(['cffi/bar-options','custom/launcher','custom/keys','cffi/workspace-mode','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
         'hyperfusionblue':(apps,['mpris'],status),
         'raw':(apps,['mpris'],status),
         'modern':(apps+['mpris'],['clock'],[x for x in status if x!='clock']),
         'breakpoint':(apps,['custom/recording','mpris'],[x for x in status if x!='custom/recording']),
-        'binaryknife':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],
+        'binaryknife':(['cffi/bar-options','custom/launcher','custom/keys','cffi/workspace-mode','custom/updates','cffi/app-pins','mpris'],
                        ['hyprland/workspaces','cffi/new-workspace'],status),
         'tidalglass':(apps+['mpris'],['clock'],[x for x in status if x!='clock']),
         'porcelainink':(apps,['clock'],['mpris']+[x for x in status if x!='clock']),
         'obsidianforge':(apps,['cpu','memory','custom/temperature','temperature'],['mpris']+[x for x in status if x not in ('cpu','memory','custom/temperature','temperature')]),
-        'candycloud':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],
+        'candycloud':(['cffi/bar-options','custom/launcher','custom/keys','cffi/workspace-mode','custom/updates','cffi/app-pins','mpris'],
                       ['hyprland/workspaces','cffi/new-workspace'],status),
         'shadowedge':(apps+['mpris'],['clock'],[x for x in status if x!='clock']),
         'hollowgrove':(apps,['mpris'],status),
-        'gildedhollow':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],
+        'gildedhollow':(['cffi/bar-options','custom/launcher','custom/keys','cffi/workspace-mode','custom/updates','cffi/app-pins','mpris'],
                         ['hyprland/workspaces','cffi/new-workspace'],status),
     }
     left,center,right=map(list,layouts[style])

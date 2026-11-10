@@ -38,6 +38,8 @@ class BarStylesTests(unittest.TestCase):
                     zone='center' if variation=='centered' else 'left'
                     self.assertIn('hyprland/workspaces',result['modules-'+zone])
                     self.assertIn('cffi/new-workspace',result['modules-'+zone])
+                    left=result['modules-left'];keys=left.index('custom/keys')
+                    self.assertEqual(left[keys+1:keys+3],['cffi/workspace-mode','custom/updates'])
                     for key,value in original.items():
                         if isinstance(value,dict):self.assertEqual(result[key],value)
 
