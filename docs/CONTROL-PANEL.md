@@ -4,6 +4,8 @@ Open **Apps → Control Panel**, immediately above Fusion Settings. It opens as 
 
 The minus button hides the panel while its work continues. Open Control Panel from Apps again to return to the same instance and tool.
 
+Click the star at the right of any tool tile to add a direct shortcut to **Apps → Favorites**. A filled star means it is saved; click again to remove the pin. Launching that favorite opens the specific page in the existing Control Panel window. Stars stay in sync with changes made in Apps, and saved favorites survive desktop updates.
+
 The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine. The original application is not replaced or modified. System operations, dialogs, scripts, translations and ISO resources are included in [`control_panel/backend`](../config/hypr/control_panel/backend). [`UPSTREAM.json`](../config/hypr/control_panel/UPSTREAM.json) records the original source revision and file hashes. The engine and integration use [GPLv3](../config/hypr/control_panel/LICENSE).
 
 ![Control Panel in BreakPoint](screenshots/control-panel.png)

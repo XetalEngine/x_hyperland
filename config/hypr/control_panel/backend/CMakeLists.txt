@@ -32,6 +32,9 @@ set(PROJECT_SOURCES
         ../main.cpp
         ../native.cpp
         ../native.h
+        ../tool_tile.h
+        ../tool_favorites.cpp
+        ../tool_favorites.h
     ../wheel_guard.h
     ../terminal_exit.h
     ../disk_visualizer.cpp
@@ -137,6 +140,17 @@ else()
 endif()
 
 option(BUILD_KERNEL_CATALOG_TESTS "Build isolated kernel catalogue interface checks" OFF)
+option(BUILD_TOOL_FAVORITES_TESTS "Build Control Panel favorite tile interaction checks" OFF)
+if(BUILD_TOOL_FAVORITES_TESTS)
+    enable_testing()
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(tool_favorites_tests tests/tool_favorites_tests.cpp ../tool_tile.h ../tool_favorites.cpp ../tool_favorites.h)
+    target_include_directories(tool_favorites_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    target_link_libraries(tool_favorites_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME tool_favorites COMMAND tool_favorites_tests)
+    set_tests_properties(tool_favorites PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
+
 if(BUILD_KERNEL_CATALOG_TESTS)
     enable_testing()
     find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)

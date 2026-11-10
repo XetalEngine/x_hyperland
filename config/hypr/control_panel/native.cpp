@@ -1,4 +1,6 @@
 #include "native.h"
+#include "tool_tile.h"
+#include "tool_favorites.h"
 #include "window_sizing.h"
 #include "ram_cleaner.h"
 #include "default_apps.h"
@@ -67,59 +69,9 @@ void HyperPanel::shortcut(const QJsonObject &input) {
   process->start("python3", {root() + "/control_panel/bridge.py", "shortcut"});
 }
 
-class ToolButton final : public QPushButton {
-  QString title, detail, iconName;
-
-public:
-  ToolButton(const QJsonObject &data, QWidget *parent)
-      : QPushButton(parent), title(data["title"].toString()),
-        detail(data["description"].toString()),
-        iconName(data["icon"].toString()) {
-    setText(title);
-    setAccessibleName(title);
-    setToolTip(detail);
-    setMinimumHeight(72);
-    setCursor(Qt::PointingHandCursor);
-    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    setObjectName("panelTool");
-    setIcon(QIcon::fromTheme(data["icon"].toString(),
-                             style()->standardIcon(QStyle::SP_ComputerIcon)));
-  }
-  void paintEvent(QPaintEvent *) override {
-    QPainter p(this);
-    p.setRenderHint(QPainter::Antialiasing);
-    QColor accent = palette().color(QPalette::Link);
-    auto bounds = QRectF(rect()).adjusted(1, 1, -1, -1);
-    auto fill = palette().color(QPalette::AlternateBase);
-    auto border = palette().color(QPalette::Midlight);
-    if (underMouse() || hasFocus() || isDown()) {
-      fill = palette().color(QPalette::Highlight);
-      border = accent;
-    }
-    p.setBrush(fill);
-    p.setPen(QPen(border, hasFocus() ? 1.5 : 1));
-    const auto corner = qApp->property("xetalPanelCardRadius");
-    const auto radius = corner.isValid() ? corner.toInt() : 10;
-    p.drawRoundedRect(bounds, radius, radius);
-    QIcon::fromTheme(iconName, icon()).paint(&p, QRect(13, 14, 42, 42));
-    auto f = font();
-    f.setBold(true);
-    p.setFont(f);
-    p.setPen(palette().color(QPalette::Text));
-    p.drawText(QRect(69, 12, width() - 80, 25), Qt::AlignVCenter,
-               p.fontMetrics().elidedText(title, Qt::ElideRight, width() - 80));
-    f.setBold(false);
-    f.setPointSizeF(qMax(8., f.pointSizeF() - 1));
-    p.setFont(f);
-    p.setPen(palette().color(QPalette::PlaceholderText));
-    p.drawText(
-        QRect(69, 38, width() - 80, 22), Qt::AlignVCenter,
-        p.fontMetrics().elidedText(detail, Qt::ElideRight, width() - 80));
-  }
-};
-
 PanelController::PanelController(MainWindow *window)
     : QObject(window), owner(window) {
+  favorites = new ToolFavorites(HyperPanel::root(), this);
   auto *backend = owner->takeCentralWidget();
   owner->menuBar()->hide();
   owner->statusBar()->hide();
@@ -186,10 +138,23 @@ PanelController::PanelController(MainWindow *window)
       group.tools.append({tool, button});
       connect(button, &QPushButton::clicked, this,
               [this, tool] { open(tool["id"].toString()); });
+      connect(button->favoriteButton(), &QAbstractButton::clicked, this,
+              [this, tool](bool checked) { favorites->setFavorite(tool["id"].toString(), checked); });
     }
     groups.append(group);
     homeLayout->addWidget(box);
   }
+  connect(favorites, &ToolFavorites::changed, this, [this] {
+    for (const auto &group : groups)
+      for (const auto &tool : group.tools) {
+        const auto id = tool.data["id"].toString();
+        tool.button->setFavoriteState(favorites->contains(id), favorites->available(),
+                                      favorites->pending(id), favorites->error());
+      }
+  });
+  connect(favorites, &ToolFavorites::failed, this, [this](const QString &error) {
+    QMessageBox::warning(owner, "Could not update Favorites", error);
+  });
   homeLayout->addStretch();
   homeScroll->setWidget(home);
   stack->addWidget(homeScroll);
@@ -641,6 +606,7 @@ QJsonArray PanelController::verifyNavigation() {
   return errors;
 }
 bool PanelController::eventFilter(QObject *object, QEvent *event) {
+  if (object == owner && event->type() == QEvent::WindowActivate) favorites->refresh();
   if (object->objectName() == "panelHeader" && event->type() == QEvent::MouseButtonDblClick) {
     if (static_cast<QMouseEvent *>(event)->button() == Qt::LeftButton) {
       FusionChrome::toggleMaximized(owner);return true;

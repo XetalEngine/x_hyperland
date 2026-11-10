@@ -1,8 +1,11 @@
 """Desktop entries and a read-only view of the active KDE menu favorites."""
 from pathlib import Path
 import configparser
+import fcntl
 import json
+import os
 import re
+import tempfile
 
 import gi
 from gi.repository import Gio
@@ -58,17 +61,40 @@ def favorites():
 
 
 def pin(app_id, enabled):
-    data = local_preferences()
-    data['add'] = [i for i in data['add'] if i != app_id]
-    data['hide'] = [i for i in data['hide'] if i != app_id]
-    if enabled:
-        data['add'].append(app_id)
-    else:
-        data['hide'].append(app_id)
-    tmp = LOCAL.with_suffix('.tmp')
-    tmp.write_text(json.dumps(data, indent=2) + '\n')
-    tmp.chmod(0o600)
-    tmp.replace(LOCAL)
+    # Apps and Control Panel can save at the same time. Serialize the entire
+    # read/modify/write, retaining other pins, their order and future fields.
+    LOCAL.parent.mkdir(parents=True, exist_ok=True)
+    with LOCAL.with_name('.favorites.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        data = json.loads(LOCAL.read_text()) if LOCAL.exists() else {'add': [], 'hide': []}
+        if not isinstance(data, dict) or any(
+                not isinstance(data.get(key, []), list) or
+                any(not isinstance(value, str) for value in data.get(key, []))
+                for key in ('add', 'hide')):
+            raise ValueError('Favorites settings have an unsupported format; the existing file was kept.')
+        added, hidden = list(data.get('add', [])), list(data.get('hide', []))
+        if enabled:
+            hidden = [value for value in hidden if value != app_id]
+            if app_id not in added:
+                added.append(app_id)
+        else:
+            added = [value for value in added if value != app_id]
+            if app_id not in hidden:
+                hidden.append(app_id)
+        updated = {**data, 'add': added, 'hide': hidden}
+        if updated == data:
+            return
+        fd, name = tempfile.mkstemp(prefix='.favorites-', dir=LOCAL.parent)
+        try:
+            with os.fdopen(fd, 'w') as stream:
+                json.dump(updated, stream, indent=2)
+                stream.write('\n')
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(name, LOCAL)
+        finally:
+            if os.path.exists(name):
+                os.unlink(name)
 
 
 def applications():

@@ -55,6 +55,8 @@ class QWidget;
 class QEvent;
 class QScrollArea;
 class QCheckBox;
+class ToolButton;
+class ToolFavorites;
 namespace HyperPanel {
 inline QString root() {
   const auto value = qEnvironmentVariable("XETAL_HYPR_ROOT");
@@ -91,9 +93,10 @@ private:
   QLineEdit *search;
   QPushButton *back;
   QProcess *themeProcess;
+  ToolFavorites *favorites;
   struct Tool {
     QJsonObject data;
-    QPushButton *button;
+    ToolButton *button;
   };
   struct Group {
     QWidget *box;

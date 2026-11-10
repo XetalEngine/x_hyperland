@@ -230,6 +230,9 @@ def main():
                 import aliases
                 result=aliases.load() if action=='aliases' else aliases.save(data,ROOT/'control_panel/state')
             elif action=='shortcut':result=shortcut(data)
+            elif action in ('tool-favorites', 'tool-favorite'):
+                import tool_favorites
+                result=tool_favorites.snapshot() if action=='tool-favorites' else tool_favorites.set_favorite(data)
             elif action=='numlock-startup':result=numlock_startup(data)
             elif action=='startup-screen':
                 sys.path.insert(0,str(ROOT/'startup'))
