@@ -941,7 +941,14 @@ class Icons:
                     name = entry.get_name()
                     if not entry.get_is_hidden() and model.valid_name(name):
                         if name.casefold().endswith('.desktop'):
-                            launcher = Gio.DesktopAppInfo.new_from_filename(str(self.root/name))
+                            try:
+                                launcher = Gio.DesktopAppInfo.new_from_filename(str(self.root/name))
+                            except (TypeError, GLib.Error):
+                                # Invalid launchers or missing executables can
+                                # return NULL through GIO's Python constructor.
+                                # Keep their ordinary file metadata and finish
+                                # the scan so one shortcut cannot hide all icons.
+                                launcher = None
                             if launcher:
                                 entry.set_display_name(launcher.get_display_name())
                                 # Legacy Fusion shortcuts used absolute artwork.

@@ -145,10 +145,10 @@ class DesktopBridgeTests(unittest.TestCase):
         self.assertFalse(self.event.exists())
 
     def test_invalid_schemes_urls_and_templates_are_rejected(self):
-        for value in ('https', 'file', 'grasshopper://', 'one\nExec=bad', ''):
+        for value in ('https', 'file', 'example-app://', 'one\nExec=bad', ''):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 bridge.schemes(value)
-        self.assertEqual(bridge.schemes('Grasshopper, example;example'), ['grasshopper', 'example'])
+        self.assertEqual(bridge.schemes('Example-App, example;example'), ['example-app', 'example'])
         for value in ('https://example.com', 'example://ok\n--flag'):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 bridge.callback_command(self.app, value)

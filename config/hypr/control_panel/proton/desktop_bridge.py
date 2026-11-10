@@ -22,7 +22,7 @@ RESERVED = {'http', 'https', 'file', 'ftp', 'mailto', 'data', 'javascript', 'abo
 def schemes(value):
     values = list(dict.fromkeys(re.split(r'[\s,;]+', value.strip().lower())))
     if not values or any(not SCHEME.fullmatch(v) or v in RESERVED for v in values):
-        raise ValueError('Enter custom URL schemes such as grasshopper, without ://. Web and file schemes are reserved.')
+        raise ValueError('Enter custom URL schemes such as example-app, without ://. Web and file schemes are reserved.')
     return values
 
 

@@ -73,7 +73,7 @@ Prefixes separate application environments; they are not a security sandbox.
 Select an **installed application's executable** in Library and choose
 **More → Browser sign-in…**, or right-click its shortcut. Enable **Receive browser
 sign-in links**, then enter the scheme used by the application. For example,
-`grasshopper://auth/callback` uses the scheme `grasshopper`. Multiple schemes
+`example-app://auth/callback` uses the scheme `example-app`. Multiple schemes
 can be separated by commas or spaces. Standard web/file schemes are reserved.
 
 The default URL argument is `{url}`. Apps that expect a named argument can use

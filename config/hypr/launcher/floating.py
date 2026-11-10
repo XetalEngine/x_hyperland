@@ -17,6 +17,7 @@ import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from window_rules.model import launch_managed
+from window_rules.window_types import geometry_managed, window_metadata
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'compat'))
 from hypr_compat import ipc as compatible_ipc
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'scripts'))
@@ -89,8 +90,8 @@ def window_key(client):
         if match:return match[2]
 
 
-def eligible(client):
-    return (client.get('mapped') and client.get('floating')
+def eligible(client, meta):
+    return (geometry_managed(client, meta) and client.get('mapped') and client.get('floating')
             and normalized(client.get('class', '')) != 'xetalauth'
             and not client.get('fullscreen') and not client.get('fullscreenClient')
             and valid_size(client.get('size')))
@@ -169,11 +170,13 @@ class Tracker:
         self.hypr, self.store = hypr, store
         self.pending, self.samples = {}, {}
         self.positions = {}
+        self.identities = {}
 
     def prepare(self, request, now):
         clients = self.hypr.query('clients')
+        metadata = window_metadata(self.hypr)
         saved = self.store.read().get(request['key'])
-        current = sorted((c for c in clients if eligible(c) and matches(c, request)),
+        current = sorted((c for c in clients if eligible(c, metadata.get(c['address'])) and matches(c, request)),
                          key=lambda c: c.get('focusHistoryID', 999))
         if current:
             saved = current[0]['size']
@@ -196,8 +199,9 @@ class Tracker:
                 saved=[min(saved[0],max(1,width-32)),min(saved[1],max(1,height-32))]
         tag = ('xetal-float-' if floating else 'xetal-tile-') + request['key'] + '-' + token
         self.pending[token] = dict(request, tag=tag, size=saved, position=position, created=now, committed=None,
-                                   existing={c['address'] for c in clients if matches(c, request)},
-                                   before={c['address'] for c in clients})
+                                   existing={(c['address'], c.get('stableId')) for c in clients
+                                             if geometry_managed(c, metadata.get(c['address'])) and matches(c, request)},
+                                   before={(c['address'], c.get('stableId')) for c in clients})
         # These are first-map rules. Ordinary launches must never briefly
         # restore a maximized/floating preference before entering the layout.
         rules = ['float on' if floating else 'float off']
@@ -222,9 +226,16 @@ class Tracker:
         if token in self.pending:
             self.pending[token]['process'] = (pid, process_stamp(pid))
 
+    def current(self, client):
+        current = next((c for c in self.hypr.query('clients') if c['address'] == client['address']
+                        and c.get('stableId') == client.get('stableId') and c.get('mapped')), None)
+        if current and geometry_managed(current, window_metadata(self.hypr).get(current['address'])):
+            return current
+
     def place_reused(self, client, request):
+        if not geometry_managed(client, window_metadata(self.hypr).get(client['address'])): return False
         if any(tag.removesuffix('*') == 'fusion-managed-rule' for tag in client.get('tags', [])):
-            self.tag(client, request); return
+            self.tag(client, request); return True
         address = 'address:' + client['address']
         if client.get('fullscreen') or client.get('fullscreenClient'):
             answer=self.hypr.command(f"xetal-window-state {client['address']} 0 0").strip()
@@ -232,22 +243,22 @@ class Tracker:
         if not request.get('floating', True):
             self.hypr.dispatch('settiled', address)
             self.tag(client, request)
-            return
+            return True
         self.hypr.dispatch('setfloating', address)
-        current = next((c for c in self.hypr.query('clients') if c['address'] == client['address']), None)
-        if not current:return
+        current = self.current(client)
+        if not current:return False
         if not current.get('floating'):
             # A forced-tiled workspace may refuse the floating request. Never
             # resize its shared layout as though this were a floating window.
             self.tag(current, request)
-            return
+            return True
         if request['size']:
             width, height = request['size']
             self.hypr.dispatch('resizewindowpixel', f'exact {width} {height},' + address)
         # Read the resulting size: toggling from tiled restores Hyprland's
         # natural floating geometry when we have no saved floating size yet.
-        current = next((c for c in self.hypr.query('clients') if c['address'] == client['address']), None)
-        if not current:return
+        current = self.current(client)
+        if not current:return False
         monitor = next((m for m in self.hypr.query('monitors') if m['id'] == current['monitor']), None)
         if monitor:
             x, y, width, height = workarea(monitor)
@@ -257,6 +268,7 @@ class Tracker:
             dx,dy=request.get('position') or [round((width-w)/2),round((height-h)/2)]
             self.hypr.dispatch('movewindowpixel', f'exact {x+max(16,min(dx,width-w-16))} {y+max(16,min(dy,height-h-16))},' + address)
         self.tag(current, request)
+        return True
 
     def tag(self, client, request):
         address = 'address:' + client['address']
@@ -265,9 +277,20 @@ class Tracker:
         self.hypr.dispatch('tagwindow', '+' + request['tag'] + ' ' + address)
 
     def update(self, clients, now):
+        metadata = window_metadata(self.hypr)
+        managed = [c for c in clients if geometry_managed(c, metadata.get(c['address']))]
+        for client in clients:
+            address = client['address']
+            identity = client.get('pid'), client.get('stableId')
+            if (not geometry_managed(client, metadata.get(address))
+                    or address in self.identities and self.identities[address] != identity):
+                # A menu/unknown role is not a closed normal window. Discard
+                # uncommitted geometry instead of poisoning shortcut memory.
+                self.samples.pop(address, None); self.positions.pop(address, None)
+                self.identities.pop(address, None)
         for token, request in list(self.pending.items()):
             if any(request['tag'] in [tag.removesuffix('*') for tag in c.get('tags', [])]
-                   and normalized(c.get('class', '')) != 'xetalauth' for c in clients):
+                   and c.get('mapped') and normalized(c.get('class', '')) != 'xetalauth' for c in managed):
                 del self.pending[token]
                 continue
             if now - request['created'] > 120:
@@ -278,33 +301,32 @@ class Tracker:
             # Hyprland's exec rules can lose the app after an elevation or
             # wrapper boundary. Claim only a newly mapped window descended
             # from this exact launch; never guess by class or current focus.
-            largest_first = sorted(clients, key=lambda c: c.get('size', [0, 0])[0] * c.get('size', [0, 0])[1], reverse=True)
-            child = next((c for c in largest_first if c['address'] not in request['before']
+            largest_first = sorted(managed, key=lambda c: c.get('size', [0, 0])[0] * c.get('size', [0, 0])[1], reverse=True)
+            child = next((c for c in largest_first if (c['address'], c.get('stableId')) not in request['before']
                           and normalized(c.get('class', '')) != 'xetalauth'
                           and c.get('mapped') and not c.get('fullscreen') and not c.get('fullscreenClient')
                           and launched and descendant(c.get('pid', 0), launched)), None)
             if child:
-                self.place_reused(child, request)
-                del self.pending[token]
+                if self.place_reused(child, request): del self.pending[token]
                 continue
             if not launched or not launched[1] or process_stamp(launched[0]) == launched[1]:continue
             # An app may activate its existing window instead of making one.
             # Wait for the new invocation to exit; a slow new window must not
             # cause us to change a different instance which is already open.
-            active = next((c for c in clients if c.get('focusHistoryID') == 0
-                           and c['address'] in request['existing'] and c.get('mapped')
+            active = next((c for c in managed if c.get('focusHistoryID') == 0
+                           and (c['address'], c.get('stableId')) in request['existing'] and c.get('mapped')
                            and not c.get('fullscreen') and not c.get('fullscreenClient')), None)
             if active:
-                self.place_reused(active, request)
-                del self.pending[token]
+                if self.place_reused(active, request): del self.pending[token]
 
         changes, positions, present, settled = {}, {}, set(), []
         monitors = None
         # If several windows settle together, the most recently focused wins.
         for client in sorted(clients, key=lambda c: c.get('focusHistoryID', 999), reverse=True):
             key, address = window_key(client), client['address']
-            if not key or not eligible(client):continue
+            if not key or not eligible(client, metadata.get(address)):continue
             present.add(address)
+            self.identities[address] = client.get('pid'), client.get('stableId')
             size = client['size'][:]
             place=None
             if valid_position(client.get('at')):
@@ -332,6 +354,7 @@ class Tracker:
             self.samples[address] = (size, since, True, key)
         self.samples = {address: sample for address, sample in self.samples.items() if address in present}
         self.positions = {address:position for address,position in self.positions.items() if address in present}
+        self.identities = {address:identity for address,identity in self.identities.items() if address in present}
 
 
 def exchange(root, payload):

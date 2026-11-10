@@ -49,7 +49,7 @@ PACKAGES = {
         qt5-base qt5-wayland qt6-base qt6-wayland qt6-svg qt6-tools wayland wayland-protocols
         networkmanager network-manager-applet blueman bluez-utils pipewire-pulse wireplumber
         playerctl brightnessctl fastfetch htop libnotify polkit-gnome papirus-icon-theme noto-fonts ttf-dejavu
-        yt-dlp ffmpeg deno sudo xorg-xhost xorg-xcursorgen hyprcursor openssl virt-viewer virt-firmware gnutls
+        yt-dlp ffmpeg vlc vlc-plugin-ffmpeg deno sudo xorg-xhost xorg-xcursorgen hyprcursor openssl virt-viewer virt-firmware gnutls
         base-devel autoconf automake libtool make perl gettext gawk expect socat pacman-contrib pkgfile
         libtasn1 gmp libseccomp fuse3 libei tpm2-tools dmidecode pciutils usbutils
         mtools dosfstools util-linux kmod python-cryptography keyutils libsecret curl libarchive cabextract'''.split(),

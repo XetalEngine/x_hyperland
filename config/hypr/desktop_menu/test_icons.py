@@ -1,4 +1,4 @@
-"""Layouts use temporary files; GUI checks opt in on a private test display."""
+"""Layouts/scans use temporary files; GUI checks opt in on a private display."""
 import copy
 import json
 import os
@@ -164,6 +164,79 @@ class LayoutTests(unittest.TestCase):
         saved = self.store.load()
         self.assertTrue(saved['show_trash'])
         self.assertEqual(model.layout(names, self.areas, saved)['SIDE'][model.TRASH], (240, 162))
+
+
+class EnumerationTests(unittest.TestCase):
+    """Exercise real asynchronous GIO scans without a display or file service."""
+    def setUp(self):
+        import desktop_icons as icons
+        self.icons = icons
+        self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        desktop = self.root/'Desktop'; desktop.mkdir()
+        store = model.Store(self.root/'icons.json')
+        with patch.object(icons.model, 'Store', return_value=store), \
+                patch.object(icons, 'Files'), patch.object(icons, 'Clipboard'):
+            self.controller = icons.Icons(Mock(), {})
+        self.controller.root = desktop
+        self.controller.settings.update(enabled=True, show_trash=True)
+        self.controller.schedule_layout = Mock()
+        self.controller.error = Mock()
+        self.addCleanup(self.controller.dispose)
+
+    def scan(self):
+        self.controller.schedule_layout.reset_mock()
+        context = self.icons.GLib.MainContext.default()
+        with patch('sys.excepthook') as uncaught:
+            self.controller.refresh()
+            deadline = time.monotonic()+4
+            while time.monotonic() < deadline:
+                while context.pending(): context.iteration(False)
+                self.assertFalse(uncaught.called, f'Directory scan raised: {uncaught.call_args}')
+                if self.controller.schedule_layout.called: break
+                time.sleep(.01)
+            else:
+                self.fail('Directory scan did not finish')
+        self.controller.error.assert_not_called()
+        return self.controller.entries
+
+    def test_unusable_launchers_do_not_abort_batches_or_hide_files_and_trash(self):
+        desktop = self.controller.root
+        # More than one batch, with real launcher parsing rather than a mocked
+        # constructor. A missing Exec target reproduces the fresh-install bug.
+        for index in range(135): (desktop/f'file-{index:03}.txt').touch()
+        (desktop/'Folder').mkdir()
+        (desktop/'Folder.desktop').mkdir()
+        (desktop/'Missing.desktop').write_text(
+            f'[Desktop Entry]\nType=Application\nName=Missing app\nExec={self.root}/missing-program\n')
+        (desktop/'Malformed.desktop').write_text('not a desktop entry\n')
+        (desktop/'Broken.desktop').symlink_to(self.root/'missing.desktop')
+        (desktop/'Working.desktop').write_text(
+            '[Desktop Entry]\nType=Application\nName=Working app\nExec=true\nIcon=utilities-terminal\n')
+        (desktop/'.Hidden.desktop').write_text('not a desktop entry\n')
+        expected = {p.name for p in desktop.iterdir() if not p.name.startswith('.')} | {model.TRASH}
+        entries = self.scan()
+        self.assertEqual(set(entries), expected)
+        for name in ('Missing.desktop', 'Malformed.desktop', 'Broken.desktop', 'Folder.desktop'):
+            self.assertEqual(entries[name].get_display_name(), name)
+            self.assertIsNotNone(entries[name].get_icon())
+        self.assertEqual(entries['Working.desktop'].get_display_name(), 'Working app')
+        self.assertIn('utilities-terminal', entries['Working.desktop'].get_icon().get_names())
+
+    def test_launcher_target_disappearing_and_returning_keeps_refresh_working(self):
+        desktop = self.controller.root
+        program = self.root/'program'
+        program.write_text('#!/bin/sh\nexit 0\n'); program.chmod(0o755)
+        launcher = desktop/'App.desktop'
+        launcher.write_text(f'[Desktop Entry]\nType=Application\nName=App label\nExec={program}\n')
+        self.assertEqual(self.scan()[launcher.name].get_display_name(), 'App label')
+        program.unlink()
+        (desktop/'New folder').mkdir()
+        entries = self.scan()
+        self.assertEqual(set(entries), {launcher.name, 'New folder', model.TRASH})
+        self.assertEqual(entries[launcher.name].get_display_name(), launcher.name)
+        program.write_text('#!/bin/sh\nexit 0\n'); program.chmod(0o755)
+        self.assertEqual(self.scan()[launcher.name].get_display_name(), 'App label')
 
 
 @unittest.skipUnless(os.environ.get('FUSION_DESKTOP_TEST_GUI') == '1', 'Run on a private display with FUSION_DESKTOP_TEST_GUI=1')

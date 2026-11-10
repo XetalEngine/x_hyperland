@@ -6,6 +6,25 @@ only newly mapped windows receive saved geometry. Normal windows and transient
 dialogs have separate hashed identities. No titles, filenames, process IDs or
 monitor serials are persisted. `state/` is private and preserved by updates.
 
+All automatic geometry helpers share `runtime/window_types_native.hpp` and
+`window_rules/window_types.py`. The native decision uses protocol roles: XWayland
+override-redirect windows and EWMH menu, dropdown, popup, tooltip, combo, drag,
+notification, splash, toolbar, dock and desktop surfaces keep their application's
+geometry. Normal X11 windows (including legacy untyped windows), dialogs and
+utilities remain eligible. On Wayland only xdg toplevels qualify; xdg popups do
+not. No application names, dimensions or delay heuristics determine this.
+See the [EWMH window types](https://specifications.freedesktop.org/wm/latest/ar01s05.html).
+
+`xetal-windows` exposes `geometry_managed` and the same hexadecimal `stableId`
+as `clients`. Python consumers require an explicit true decision and matching
+stable IDs. Missing/old metadata suspends geometry handling instead of assuming
+a main window. Reclassified surfaces lose pending restores and uncommitted
+samples, including on close/shutdown. Menus cannot win an app's memory ownership
+or consume a pending launcher request, even if class, role or launch tags match.
+Workspace enforcement, title controls, title grips and Wobbly's final position
+adjustment use the same native guard. Existing private state remains intact;
+excluded surfaces no longer read or write it.
+
 The exact-ABI native adapter supplies transient/role metadata and addressed
 fullscreen changes without moving focus. Zero xdg-shell size limits mean
 unspecified, not fixed. Rebuild it with `build.py` for the pinned runtime. Never

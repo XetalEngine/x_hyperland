@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from effects.window_close import drag_settings
 from effects.session import initialize
+from window_rules.window_types import geometry_managed, window_metadata
 sys.path.insert(0, str(ROOT/'scripts'))
 from drag_cursor import CursorGuard, ensure_probe
 sys.path.insert(0, str(ROOT/'launcher'))
@@ -59,7 +60,7 @@ class Drag:
         try:self.thresholds,_=self.settings_loader()
         except (OSError,ValueError):self.thresholds=dict(drag_settings.DEFAULTS)
         cursor, target = self.hovered()
-        if in_grip(target, cursor):
+        if in_grip(target, cursor) and geometry_managed(target, window_metadata(self.hypr).get(target['address'])):
             self.press_serial = self.guard.allowed()
             if self.press_serial is not None:
                 self.candidate = (target, cursor, now)
@@ -83,6 +84,8 @@ class Drag:
         if math.hypot(cursor['x']-origin['x'], cursor['y']-origin['y']) < self.thresholds['distance']: return
         cursor, current = self.hovered()
         if (current is None or current.get('address') != target.get('address')
+                or current.get('stableId') != target.get('stableId')
+                or not geometry_managed(current, window_metadata(self.hypr).get(current['address']))
                 or current.get('pid') != target.get('pid') or not current.get('floating')
                 or current.get('fullscreen') or current['at'] != target['at']
                 or current['size'] != target['size']):
@@ -103,6 +106,8 @@ class Drag:
     def move(self, cursor):
         if self.native:return
         target, origin, _ = self.candidate
+        if not geometry_managed(target, window_metadata(self.hypr).get(target['address'])):
+            self.release(); return
         position = (round(target['at'][0]+cursor['x']-origin['x']),
                     round(target['at'][1]+cursor['y']-origin['y']))
         if position != self.last_position:

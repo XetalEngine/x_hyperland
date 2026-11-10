@@ -22,6 +22,7 @@
 #include <hyprland/src/layout/algorithm/FloatingAlgorithm.hpp>
 #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
 #include "../../workspaces/native.hpp"
+#include "../window_types_native.hpp"
 #include "../../effects/window_close/native/geometry.hpp"
 #include <sstream>
 
@@ -50,7 +51,7 @@ template<typename T> void hook(HANDLE handle,const std::string& name,const std::
     throw std::runtime_error("Unsupported window input API: "+name);
 }
 WorkspaceRules::Policy workspacePolicy(PHLWINDOW w){
-    if(!w||!w->m_workspace||w->isX11OverrideRedirect()||w->m_class=="fusion-window-buttons")return {};
+    if(!WindowTypes::geometryManaged(w)||!w->m_workspace||w->m_class=="fusion-window-buttons")return {};
     return WorkspaceRules::forWorkspace(workspaceRules,w->m_workspace->m_id);
 }
 using FloatingFn=void (*)(Layout::CLayoutManager*,SP<Layout::ITarget>);
@@ -203,8 +204,9 @@ std::string metadata() {
         // Never persist/export titles, document paths, or a window's contents.
         const auto role = x11 && !x11->m_role.empty() ? x11->m_role : dialog ? window->m_initialTitle : "main";
         if (result.size() > 1) result += ',';
-        result += std::format("\"0x{:x}\":{{\"dialog\":{},\"fixed\":{},\"role\":\"{:016x}\",\"workspace_layout\":\"{}\"}}",
-                              reinterpret_cast<uintptr_t>(window.get()), dialog, fixed, hash(role),workspacePolicy(window).layout);
+        result += std::format("\"0x{:x}\":{{\"dialog\":{},\"fixed\":{},\"role\":\"{:016x}\",\"workspace_layout\":\"{}\",\"geometry_managed\":{},\"stableId\":\"{:x}\"}}",
+                              reinterpret_cast<uintptr_t>(window.get()), dialog, fixed, hash(role),workspacePolicy(window).layout,
+                              WindowTypes::geometryManaged(window), window->m_stableID);
     }
     return result + '}';
 }
@@ -225,7 +227,8 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
             if (args.fail() || (args >> extra) || internal < 0 || internal > 2 || client < 0 || client > 2)
                 return std::string("invalid state");
             for (const auto& window : Desktop::windowState()->windows()) {
-                if (!window->m_isMapped || address != std::format("0x{:x}", reinterpret_cast<uintptr_t>(window.get()))) continue;
+                if (!window->m_isMapped || !WindowTypes::geometryManaged(window) ||
+                    address != std::format("0x{:x}", reinterpret_cast<uintptr_t>(window.get()))) continue;
                 Fullscreen::controller()->setFullscreenMode(window, static_cast<Fullscreen::eFullscreenMode>(internal),
                                                             static_cast<Fullscreen::eFullscreenMode>(client));
                 return std::string("ok");
@@ -258,7 +261,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
             }catch(const std::exception& error){return SDispatchResult{.success=false,.error=error.what()};}
         });
         mappedListener = Event::bus()->m_events.window.openLate.listen([](PHLWINDOW w){
-            if(w&&w->m_isMapped){
+            if(w&&w->m_isMapped&&WindowTypes::geometryManaged(w)){
                 enforcePolicy(w,true);
                 const auto& tags=w->m_ruleApplicator->m_tagKeeper.getTags();
                 const bool launched=std::ranges::any_of(tags,[](const auto& tag){return tag.starts_with("xetal-tile-")||tag.starts_with("xetal-float-");});

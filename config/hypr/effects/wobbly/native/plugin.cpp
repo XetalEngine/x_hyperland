@@ -28,6 +28,7 @@
 #include "settings.hpp"
 #include "graphics.hpp"
 #include "capture.hpp"
+#include "../../../runtime/window_types_native.hpp"
 // xcb-xkb's generated C header uses the C++ keyword as a field name.
 #define explicit explicit_
 #include <xcb/xkb.h>
@@ -360,7 +361,7 @@ void frame(PHLMONITOR monitor){
             if(!moving&&!r->engine.grabbed&&!w->positionAnimation()->isBeingAnimated()&&!w->sizeAnimation()->isBeingAnimated()){
                 // Compiz lets the released lattice come to rest, then moves the
                 // real input rectangle to that resting point. Only floats move.
-                if(r->settlePosition && w->m_isFloating && !max && w->m_target){
+                if(r->settlePosition && WindowTypes::geometryManaged(w) && w->m_isFloating && !max && w->m_target){
                     auto b=w->geometricBox(Geo::GEOMETRIC_CURRENT);auto ext=w->getFullWindowExtents();
                     b.x=std::round(r->engine.model->topLeft.x+ext.topLeft.x);b.y=std::round(r->engine.model->topLeft.y+ext.topLeft.y);
                     g_layoutManager->setTargetGeom(b,w->m_target);w->positionAnimation()->warp();

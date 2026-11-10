@@ -16,7 +16,7 @@ OTHER = 'b' * 24
 
 
 def client(address='0x123', size=None, **changes):
-    return dict(address=address, size=size or [640, 420], mapped=True, floating=True,
+    return dict(address=address, stableId=address[2:], size=size or [640, 420], mapped=True, floating=True,
                 fullscreen=0, fullscreenClient=0, tags=[f'xetal-float-{KEY}-123456abcdef*'],
                 focusHistoryID=0, monitor=0, initialClass='example', **changes)
 
@@ -27,7 +27,10 @@ class FloatingTests(unittest.TestCase):
         self.path = Path(self.temp.name) / 'sizes.json'
         self.store = floating.Store(self.path)
         self.hypr = Mock()
-        self.hypr.query.return_value = []
+        self.query = Mock(return_value=[])
+        self.metadata = {address: {'geometry_managed': True, 'stableId': address[2:]}
+                         for address in ('0x123','0x234','0x456','0x789')}
+        self.hypr.query.side_effect = lambda what: self.metadata if what == 'xetal-windows' else self.query(what)
         self.tracker = floating.Tracker(self.hypr, self.store)
         self.request = {'key': KEY, 'classes': ['example'], 'terminal': False, 'name': 'Example'}
 
@@ -55,12 +58,12 @@ class FloatingTests(unittest.TestCase):
 
     def test_position_memory_and_smaller_monitor_restore(self):
         monitor=dict(id=0,x=-1920,y=200,width=1920,height=1080,focused=True,scale=1,reserved=[0,38,0,0])
-        self.hypr.query.return_value=[monitor]
+        self.query.return_value=[monitor]
         c=dict(client(size=[900,650]),at=[-1700,400])
         for now in (0,.6):self.tracker.update([c],now)
         self.assertEqual(self.store.positions()[KEY],[220,162])
         smaller=dict(monitor,x=0,y=0,width=800,height=600)
-        self.hypr.query.side_effect=[[],[smaller]]
+        self.query.side_effect=[[],[smaller]]
         ticket=self.tracker.prepare(self.request,2)
         self.assertIn('size 768 530',ticket['rules'])
         self.assertIn('move 16 54',ticket['rules'])
@@ -98,7 +101,7 @@ class FloatingTests(unittest.TestCase):
 
     def test_current_floating_size_takes_precedence_over_older_saved_size(self):
         self.store.save({KEY: [640, 420]})
-        self.hypr.query.return_value = [client(size=[810, 610])]
+        self.query.return_value = [client(size=[810, 610])]
         self.assertIn('size 810 610', self.tracker.prepare(self.request, 0)['rules'])
 
     def test_untagged_windows_and_other_shortcuts_do_not_overwrite_size(self):
@@ -121,7 +124,7 @@ class FloatingTests(unittest.TestCase):
 
     def test_failed_launch_cannot_change_existing_window(self):
         current = {**client(), 'floating': False, 'tags': []}
-        self.hypr.query.return_value = [current]
+        self.query.return_value = [current]
         ticket = self.tracker.prepare(self.request, 0)
         self.tracker.finish(ticket['token'], False, .1)
         self.tracker.update([current], 2)
@@ -129,12 +132,12 @@ class FloatingTests(unittest.TestCase):
 
     def test_reused_existing_window_is_floated_restored_and_centered(self):
         before = {**client(size=[1920, 1042]), 'floating': False, 'tags': []}
-        self.hypr.query.return_value = [before]
+        self.query.return_value = [before]
         self.store.save({KEY: [800, 600]})
         ticket = self.tracker.prepare(self.request, 0)
         self.tracker.finish(ticket['token'], True, .1)
         self.tracker.pending[ticket['token']]['process'] = (99999999, 'old-process')
-        self.hypr.query.side_effect = [[client(size=[800, 600])], [client(size=[800, 600])],
+        self.query.side_effect = [[client(size=[800, 600])], [client(size=[800, 600])],
                                       [{'id': 0, 'x': -1920, 'y': 200, 'width': 1920, 'height': 1080,
                                         'scale': 1, 'reserved': [0, 38, 0, 0]}]]
         self.tracker.update([before], 2)
@@ -149,7 +152,7 @@ class FloatingTests(unittest.TestCase):
 
     def test_forced_tiling_cannot_be_resized_by_a_ctrl_launch(self):
         tiled = {**client(), 'floating': False}
-        self.hypr.query.return_value = [tiled]
+        self.query.return_value = [tiled]
         request = dict(self.request, size=[800,600], tag='xetal-float-'+KEY+'-123456abcdef')
         self.tracker.place_reused(tiled, request)
         actions = [call.args[0] for call in self.hypr.dispatch.call_args_list]
@@ -159,7 +162,7 @@ class FloatingTests(unittest.TestCase):
 
     def test_slow_new_invocation_never_floats_an_existing_window(self):
         current = {**client(), 'floating': False, 'tags': []}
-        self.hypr.query.return_value = [current]
+        self.query.return_value = [current]
         ticket = self.tracker.prepare(self.request, 0)
         self.tracker.finish(ticket['token'], True, .1)
         self.tracker.pending[ticket['token']]['process'] = (123, 'still-running')
@@ -169,7 +172,7 @@ class FloatingTests(unittest.TestCase):
 
     def test_new_window_prevents_touching_preexisting_window(self):
         old = {**client(), 'floating': False, 'tags': []}
-        self.hypr.query.return_value = [old]
+        self.query.return_value = [old]
         ticket = self.tracker.prepare(self.request, 0)
         pending = self.tracker.pending[ticket['token']]
         new = {**client('0x456'), 'tags': [pending['tag'] + '*']}
@@ -187,7 +190,7 @@ class FloatingTests(unittest.TestCase):
 
     def test_sudo_child_with_different_class_is_floated_without_touching_other_apps(self):
         old = {**client(), 'tags': [], 'floating': False, 'pid': 100}
-        self.hypr.query.return_value = [old]
+        self.query.return_value = [old]
         ticket = self.tracker.prepare(self.request, 0)
         self.tracker.finish(ticket['token'], True, .1)
         self.tracker.pending[ticket['token']]['process'] = (200, 'stamp')
@@ -231,6 +234,80 @@ class FloatingTests(unittest.TestCase):
     def test_scaled_rotated_monitor_workarea(self):
         self.assertEqual(floating.workarea({'width': 2560, 'height': 1440, 'x': 0, 'y': -100,
                          'scale': 1.5, 'transform': 1, 'reserved': [0, 40, 0, 0]}), (0, -60, 960, 1667))
+
+    def test_popup_neither_consumes_launch_request_nor_replaces_memory(self):
+        self.store.save({KEY:[800,600]})
+        ticket=self.tracker.prepare(self.request,0)
+        request=self.tracker.pending[ticket['token']]
+        request['process']=(200,'stamp')
+        self.tracker.finish(ticket['token'],True,.1)
+        popup={**client(size=[127,78]),'pid':201,'tags':[request['tag']]}
+        self.metadata[popup['address']]['geometry_managed']=False
+        with patch.object(floating,'descendant',return_value=True), \
+             patch.object(floating,'process_stamp',return_value='stamp'):
+            for now in (2,3):self.tracker.update([popup],now)
+        self.assertIn(ticket['token'],self.tracker.pending)
+        self.hypr.dispatch.assert_not_called()
+        self.assertEqual(self.store.read(),{KEY:[800,600]})
+        # The real window arriving later can still satisfy the launch.
+        normal=client('0x456');normal['tags']=[request['tag']]
+        self.tracker.update([popup,normal],4)
+        self.assertNotIn(ticket['token'],self.tracker.pending)
+
+    def test_prepare_does_not_snapshot_a_focused_menu_from_same_application(self):
+        self.store.save({KEY:[800,600]})
+        self.query.return_value=[client(size=[127,78])]
+        self.metadata['0x123']['geometry_managed']=False
+        ticket=self.tracker.prepare(self.request,0)
+        self.assertIn('size 800 600',ticket['rules'])
+        self.assertFalse(self.tracker.pending[ticket['token']]['existing'])
+        self.assertEqual(self.store.read(),{KEY:[800,600]})
+
+    def test_unverified_sample_is_discarded_instead_of_flushed_as_closed(self):
+        for meta in ({}, {'geometry_managed':False,'stableId':'123'},
+                     {'geometry_managed':True,'stableId':'reused'}):
+            with self.subTest(meta=meta):
+                self.metadata['0x123']={'geometry_managed':True,'stableId':'123'}
+                self.tracker.update([client(size=[127,78])],0)
+                self.metadata['0x123']=meta
+                self.tracker.update([client()],.1)
+                self.tracker.update([],.2)
+                self.assertEqual(self.store.read(),{})
+
+    def test_reused_popup_is_never_moved_even_by_direct_placement(self):
+        for meta in ({},{'geometry_managed':False,'stableId':'123'}):
+            self.metadata['0x123']=meta
+            request=dict(self.request,size=[800,600],tag='xetal-float-'+KEY+'-123456abcdef')
+            self.assertFalse(self.tracker.place_reused(client(),request))
+        self.hypr.dispatch.assert_not_called();self.hypr.command.assert_not_called()
+
+    def test_role_change_after_floating_cancels_later_resize_and_move(self):
+        self.query.return_value=[client()]
+        def change_role(action,args):
+            if action=='setfloating':self.metadata['0x123']['geometry_managed']=False
+        self.hypr.dispatch.side_effect=change_role
+        request=dict(self.request,size=[800,600],tag='xetal-float-'+KEY+'-123456abcdef')
+        self.assertFalse(self.tracker.place_reused(client(),request))
+        self.hypr.dispatch.assert_called_once_with('setfloating','address:0x123')
+
+    def test_transient_dialog_remains_eligible_for_floating_memory(self):
+        self.metadata['0x123']['dialog']=True
+        for now in (0,.6):self.tracker.update([client(size=[500,400])],now)
+        self.assertEqual(self.store.read(),{KEY:[500,400]})
+
+    def test_address_reuse_cannot_activate_an_unrelated_existing_window(self):
+        before={**client(),'tags':[]}
+        self.query.return_value=[before]
+        ticket=self.tracker.prepare(self.request,0)
+        request=self.tracker.pending[ticket['token']]
+        request['process']=(200,'stamp');self.tracker.finish(ticket['token'],True,.1)
+        replacement={**before,'stableId':'new-window','initialClass':'unrelated','pid':300}
+        self.metadata['0x123']['stableId']='new-window'
+        with patch.object(floating,'descendant',return_value=False), \
+             patch.object(floating,'process_stamp',return_value=None):
+            self.tracker.update([replacement],2)
+        self.hypr.dispatch.assert_not_called()
+        self.assertIn(ticket['token'],self.tracker.pending)
 
     def test_watcher_exits_when_session_connection_closes_and_cleans_its_socket(self):
         root = Path(self.temp.name) / 'hypr/test'

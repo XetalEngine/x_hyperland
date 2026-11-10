@@ -237,8 +237,8 @@ void Page::editShortcut(bool browserSignIn) {
     hint("Let your Linux browser return sign-in links to this Windows app. Use the installed application's executable and start sign-in from that app.",integrationLayout);
     auto *receive=new QCheckBox("Receive browser sign-in links for this app");receive->setObjectName("protonHandleUrls");receive->setChecked(draft.desktop.enabled);integrationLayout->addWidget(receive);
     auto *integrationFields=new QWidget;auto *integrationForm=new QFormLayout(integrationFields);integrationForm->setContentsMargins(0,0,0,0);integrationLayout->addWidget(integrationFields);
-    auto *schemes=new QLineEdit(text(draft.desktop.schemes));schemes->setObjectName("protonUrlSchemes");schemes->setPlaceholderText("grasshopper, another-app");integrationForm->addRow("URL schemes:",schemes);
-    schemes->setToolTip("Names before ://, separated by commas or spaces. For grasshopper:// links, enter grasshopper.");
+    auto *schemes=new QLineEdit(text(draft.desktop.schemes));schemes->setObjectName("protonUrlSchemes");schemes->setPlaceholderText("example-app, another-app");integrationForm->addRow("URL schemes:",schemes);
+    schemes->setToolTip("Names before ://, separated by commas or spaces. For example-app:// links, enter example-app.");
     auto *argument=new QLineEdit(text(draft.desktop.argument));argument->setObjectName("protonUrlArgument");integrationForm->addRow("URL argument:",argument);
     argument->setToolTip("One argument containing {url}. Usually {url}; some apps need --url={url}. The link is passed intact.");
     auto *includeArgs=new QCheckBox("Include the app's normal launch arguments");includeArgs->setObjectName("protonUrlIncludeArgs");includeArgs->setChecked(draft.desktop.include_args);integrationForm->addRow(includeArgs);

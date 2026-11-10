@@ -19,6 +19,7 @@
 #include <drm_fourcc.h>
 #include <linux/input-event-codes.h>
 #include "drag_actions.hpp"
+#include "../window_types_native.hpp"
 
 namespace {
 SP<SHyprCtlCommand> command;
@@ -104,7 +105,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
             return SDispatchResult{.success=false,.error="The title grip is no longer available"};
         for(auto& w:Desktop::windowState()->windows()) {
             if(std::format("0x{:x}",reinterpret_cast<uintptr_t>(w.get()))!=address)continue;
-            if(!w->m_isMapped||w->isHidden()||!w->m_isFloating||!w->m_workspace||
+            if(!w->m_isMapped||!WindowTypes::geometryManaged(w)||w->isHidden()||!w->m_isFloating||!w->m_workspace||
                Fullscreen::controller()->getFullscreenModes(w).internal!=Fullscreen::FSMODE_NONE)
                 return SDispatchResult{.success=false,.error="The window cannot be dragged"};
             // The helper already checked the press AND current cursor artwork.

@@ -19,6 +19,7 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from effects.session import initialize
+from window_rules.window_types import geometry_managed, window_metadata
 sys.path.insert(0, str(ROOT/'launcher'))
 from floating import Hypr, valid_size, valid_position, window_key, workarea
 
@@ -46,8 +47,8 @@ def is_transfer_queue(client):
             and (client.get('initialTitle') or client.get('title')) == 'Transfer queue — Fusion Files')
 
 
-def eligible(client):
-    return (client.get('mapped') and not client.get('hidden') and valid_size(client.get('size'))
+def eligible(client, meta):
+    return (geometry_managed(client, meta) and client.get('mapped') and not client.get('hidden') and valid_size(client.get('size'))
             and not client.get('workspace', {}).get('name', '').startswith('special:xetal-minimized'))
 
 
@@ -120,6 +121,7 @@ class Tracker:
         self.initialized = False
 
     def restore(self, client, meta, saved, monitor, phase=0):
+        if not geometry_managed(client, meta): return False
         if meta.get('workspace_layout', 'off') == 'tile': return False
         address = client['address']
         if not saved: return False
@@ -163,13 +165,19 @@ class Tracker:
 
     def update(self, now):
         clients = self.hypr.query('clients')
-        metadata = self.hypr.query('xetal-windows')
+        metadata = window_metadata(self.hypr)
         monitors = {m['id']: m for m in self.hypr.query('monitors')}
         current = {(c['address'], c.get('pid'), c.get('stableId')) for c in clients if c.get('mapped')}
         for client in clients:
             token = client['address'], client.get('pid'), client.get('stableId')
-            if not eligible(client): continue
             meta = metadata.get(client['address'], {})
+            if not geometry_managed(client, meta):
+                # Drop a role that changed or cannot be verified; never flush
+                # its sample on close/shutdown or finish a pending restore.
+                self.samples.pop(token, None); self.pending.pop(token, None)
+                self.keys.pop(token, None); self.owners.discard(token)
+                continue
+            if not eligible(client, meta): continue
             if meta.get('workspace_layout', 'off') == 'tile':
                 # Ignore temporary floating targets used to drag/reorder tiles.
                 previous, _ = self.samples.pop(token, (None, 0))
@@ -178,6 +186,9 @@ class Tracker:
                 continue
             key = identity(client, meta)
             if key is None: continue
+            if token in self.keys and self.keys[token] != key:
+                self.samples.pop(token, None); self.pending.pop(token, None)
+                self.owners.discard(token)
             self.keys[token] = key
             monitor = monitors.get(client.get('monitor'))
             if monitor is None: continue
@@ -226,7 +237,8 @@ class Tracker:
             if value != previous:
                 self.samples[token] = value, now
             # The most recently focused sibling is the app's next-window default.
-            siblings = [c for c in clients if eligible(c) and identity(c, metadata.get(c['address'], {})) == key]
+            siblings = [c for c in clients if eligible(c, metadata.get(c['address'], {}))
+                        and identity(c, metadata.get(c['address'], {})) == key]
             if min(siblings, key=lambda c: c.get('focusHistoryID', 999))['address'] == client['address']:
                 self.owners.add(token)
                 if value == previous and now-changed >= .45:

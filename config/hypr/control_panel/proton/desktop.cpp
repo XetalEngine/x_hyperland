@@ -20,7 +20,7 @@ QString validate(const Shortcut &s) {
     if(!s.desktop.enabled)return {};
     if(!QRegularExpression("^[A-Za-z0-9_-]{1,128}$").match(QString::fromStdString(s.id)).hasMatch())return "Invalid shortcut identifier.";
     const auto values=schemes(s.desktop.schemes);
-    if(values.isEmpty())return "Enter at least one custom URL scheme, such as grasshopper.";
+    if(values.isEmpty())return "Enter at least one custom URL scheme, such as example-app.";
     for(const auto &value:values)
         if(!QRegularExpression("^[a-z][a-z0-9+.-]*$").match(value).hasMatch() || QStringList{"http","https","file","ftp","mailto","data","javascript","about"}.contains(value))
             return "Enter custom URL schemes without ://. Web and file schemes are reserved.";

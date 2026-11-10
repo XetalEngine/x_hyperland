@@ -43,7 +43,8 @@ def build(root=ROOT):
         raise RuntimeError('Wobbly Windows supports Hyprland 0.56.2. This version needs an updated Wobbly adapter; normal window movement remains available.')
     versions = output(['pkg-config','--modversion','hyprland','aquamarine','hyprutils','hyprgraphics','hyprcursor','hyprlang'])
     signature = hashlib.sha256((versions+str(flags)+output([compiler(),'-dumpfullversion'])).encode())
-    for source in sorted((root/'native').glob('*')):
+    sources = list((root/'native').glob('*')) + [root.parents[1]/'runtime/window_types.hpp', root.parents[1]/'runtime/window_types_native.hpp']
+    for source in sorted(sources):
         signature.update(source.name.encode()); signature.update(source.read_bytes())
     build_dir = root/'.build'/signature.hexdigest()[:20]
     build_dir.mkdir(parents=True, exist_ok=True)

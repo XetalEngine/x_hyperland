@@ -42,6 +42,7 @@
 #include "policies.hpp"
 #include "background.hpp"
 #include "../../../workspaces/native.hpp"
+#include "../../../runtime/window_types_native.hpp"
 
 namespace {
 using Clock = std::chrono::steady_clock;
@@ -192,7 +193,7 @@ void refresh() {
         }
     }
     for(const auto& window:Desktop::windowState()->windows()){
-        if(!window->m_isMapped||window->isHidden()||window->isX11OverrideRedirect()||window->m_class=="fusion-window-buttons")continue;
+        if(!window->m_isMapped||window->isHidden()||!WindowTypes::geometryManaged(window)||window->m_class=="fusion-window-buttons")continue;
         const auto policy=workspacePolicy(window);
         if(policy.controls=="off"||(!settings.enabled&&policy.controls!="on"))continue;
         const auto monitor=window->m_monitor.lock();
@@ -353,6 +354,7 @@ void maximizeOrRestore(PHLWINDOW w){
     if(wasTiled)++floated;else ++restored;
 }
 void perform(PHLWINDOW w,Action action){
+    if(!w||!w->m_isMapped||!WindowTypes::geometryManaged(w))return;
     if(action==Gear){
         if(auto preview=previewFor(w)){
             for(const auto& editor:Desktop::windowState()->windows())
@@ -473,7 +475,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
                     if(existing!=previews.end()&&(existing->second.token!=token||existing->second.owner!=owner))throw std::runtime_error("This window is already being previewed in another editor");
                     auto rule=WindowButtons::readRule(WindowButtons::field(doc.get(),"rule",json_type_object));
                     PHLWINDOW window;
-                    for(const auto& w:Desktop::windowState()->windows())if(w->m_isMapped&&id==std::to_string(w->m_stableID)&&w->m_class!="fusion-window-buttons"){window=w;break;}
+                    for(const auto& w:Desktop::windowState()->windows())if(w->m_isMapped&&WindowTypes::geometryManaged(w)&&id==std::to_string(w->m_stableID)&&w->m_class!="fusion-window-buttons"){window=w;break;}
                     if(!window)throw std::runtime_error("This window has closed");
                     int64_t workspace=0;json_object* scope=nullptr;
                     if(json_object_object_get_ex(doc.get(),"workspace",&scope)){
@@ -504,10 +506,10 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         windowStatus=HyprlandAPI::registerHyprCtlCommand(handle,{"xetal-windowbuttons",false,[](eHyprCtlOutputFormat,std::string input){
             std::istringstream stream(input);std::string command,id,extra;stream>>command>>id;
             if(id.empty()){
-                std::string ids;for(const auto& w:Desktop::windowState()->windows())if(w->m_isMapped){if(!ids.empty())ids+=",";ids+=WindowButtons::quoted(std::to_string(w->m_stableID));}
+                std::string ids;for(const auto& w:Desktop::windowState()->windows())if(w->m_isMapped&&WindowTypes::geometryManaged(w)){if(!ids.empty())ids+=",";ids+=WindowButtons::quoted(std::to_string(w->m_stableID));}
                 return "{\"windows\":["+ids+"]}";
             }
-            if(!(stream>>extra))for(const auto& w:Desktop::windowState()->windows())if(w->m_isMapped&&id==std::to_string(w->m_stableID)){
+            if(!(stream>>extra))for(const auto& w:Desktop::windowState()->windows())if(w->m_isMapped&&WindowTypes::geometryManaged(w)&&id==std::to_string(w->m_stableID)){
                 auto rule=WindowButtons::ruleJson(ruleFor(w));
                 auto preview=previewFor(w);auto previewRule=WindowButtons::ruleJson(preview?preview->rule:ruleFor(w));std::string boxes="[]";
                 for(const auto& row:rows)if(row.preview&&row.window.lock()==w){
