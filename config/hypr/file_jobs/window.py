@@ -1,5 +1,6 @@
 """A compact, draggable file-operation card with an original vector animation."""
 from pathlib import Path
+import os
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'theme'))
 import runtime as theme_runtime
@@ -11,10 +12,14 @@ try:
     from .model import short_location, amount
     from . import preferences, artwork
     from .questions import QuestionPanel
+    from .queue_panel import QueuePanel
+    from .placement import Placement
 except ImportError:
     from model import short_location, amount
     import preferences, artwork
     from questions import QuestionPanel
+    from queue_panel import QueuePanel
+    from placement import Placement
 
 
 def alpha(color, value):
@@ -40,8 +45,20 @@ class ProgressWindow(QWidget):
         self.display_percent = 0.0
         self.closed = False
         self.drag_offset = None
+        self.placement = (Placement(self) if not embedded and QApplication.platformName() == 'wayland'
+                          and os.environ.get('HYPRLAND_INSTANCE_SIGNATURE') and os.environ.get('XDG_RUNTIME_DIR') else None)
+        self.resize_target = None
         self.base_height = 168
         self.question_panel = None
+        self.queue_panel = None
+        self.queue_open = False
+        self.queue_scroll = QScrollArea(self)
+        self.queue_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.queue_scroll.setWidgetResizable(True)
+        self.queue_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.queue_scroll.setStyleSheet('QScrollArea {background:transparent;border:none;}')
+        self.queue_scroll.viewport().setAutoFillBackground(False)
+        self.queue_scroll.hide()
         self.question_scroll = QScrollArea(self)
         self.question_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.question_scroll.setWidgetResizable(True)
@@ -52,7 +69,7 @@ class ProgressWindow(QWidget):
         self.expansion = QVariantAnimation(self)
         self.expansion.setDuration(190)
         self.expansion.setEasingCurve(QEasingCurve.Type.OutCubic)
-        self.expansion.valueChanged.connect(lambda value: self.setFixedHeight(round(value)))
+        self.expansion.valueChanged.connect(lambda value: self.set_card_height(round(value)))
         self.expansion.finished.connect(self.expansion_finished)
         self.clock = QElapsedTimer(); self.clock.start()
         self.animation = QTimer(self); self.animation.setInterval(33)
@@ -69,17 +86,19 @@ class ProgressWindow(QWidget):
         self.details = QPushButton('Details', self); self.details.clicked.connect(self.show_error)
         self.details.hide()
         self.review = QPushButton('Review queue', self); self.review.setObjectName('reviewTransferQueue')
-        self.review.clicked.connect(lambda: self.job.request('review')); self.review.hide()
+        self.review.clicked.connect(self.toggle_queue); self.review.hide()
         for button in (self.cancel, self.pause, self.close_button, self.details, self.review):
             button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.set_options(self.options)
         self.job.changed.connect(self.refresh)
         self.job.finished.connect(self.completed)
         self.job.question_changed.connect(self.refresh_question)
+        self.job.queue_changed.connect(self.refresh_queue)
         if hasattr(QApplication.instance(), 'hypr_theme'):
             QApplication.instance().hypr_theme.changed.connect(self.theme_changed)
         self.refresh()
         self.refresh_question(animate=False)
+        self.refresh_queue(animate=False)
 
     def theme_changed(self):
         self.set_options(self.options)
@@ -119,15 +138,30 @@ class ProgressWindow(QWidget):
             QPushButton#transferChoice {{background:{p['Button']}; padding:0; text-align:left;}}
             QPushButton#transferChoice:hover,QPushButton#transferChoice:focus {{background:{p['AlternateBase']}; border-color:{self.accent.name()};}}
             QCheckBox {{color:{p['Text']}; font:11px "{theme_runtime.ui_font(self.design)}"; spacing:7px;}}
+            QWidget#transferQueue {{background:transparent;}}
+            QWidget#transferQueue QLabel {{background:transparent; border:none; padding:0;
+                color:{p['Text']}; font:11px "{theme_runtime.ui_font(self.design)}";}}
+            QWidget#transferQueue QLabel#queueHeading {{font-size:14px; font-weight:600;}}
+            QWidget#transferQueue QLineEdit,QWidget#transferQueue QPlainTextEdit {{
+                background:{p['Base']}; color:{p['Text']}; border:1px solid {p['Midlight']};
+                border-radius:5px; padding:5px; font:11px "{theme_runtime.ui_font(self.design)}";
+                selection-background-color:{p['Highlight']}; selection-color:{p['HighlightedText']};}}
+            QWidget#transferQueue QTableView {{background:{p['Base']}; alternate-background-color:{p['AlternateBase']};
+                color:{p['Text']}; border:1px solid {p['Midlight']}; border-radius:4px; gridline-color:{p['Midlight']};
+                font:11px "{theme_runtime.ui_font(self.design)}"; selection-background-color:{p['Highlight']};
+                selection-color:{p['HighlightedText']};}}
+            QWidget#transferQueue QHeaderView::section {{background:{p['Window']}; color:{p['Text']};
+                border:none; border-bottom:1px solid {p['Midlight']}; padding:6px 2px;
+                font:600 11px "{theme_runtime.ui_font(self.design)}";}}
         ''')
         if not self.options['behavior']['auto_close']: self.dismiss_timer.stop()
-        elif (self.job.result is not None and self.job.result != 'failed' and not self.job.data.get('warningMessage') and not self.preview
+        elif (self.job.result is not None and self.job.result != 'failed' and not self.job.data.get('warningMessage') and not self.job.queue_rows and not self.preview
               and self.isVisible() and previous != self.options['behavior']):
             self.dismiss_timer.start(self.options['behavior']['close_delay'])
         self.refresh()
 
     def refresh(self):
-        self.setWindowTitle(self.job.title + ' — Xetal Files')
+        self.setWindowTitle(self.placement.binding_title if self.placement and self.placement.binding_title else self.job.title + ' — Xetal Files')
         self.setAccessibleDescription(self.job.summary())
         paths = [p for p in self.job.paths if p]
         self.setToolTip('\n→ '.join(paths) + ('\n' + self.job.data['currentFile'] if self.job.data.get('currentFile') else ''))
@@ -151,7 +185,8 @@ class ProgressWindow(QWidget):
         self.pause.setToolTip('Resume operation' if suspended else 'Pause operation')
         self.pause.setAccessibleName(self.pause.toolTip())
         self.details.setVisible(self.job.result == 'failed' or bool(self.job.result and self.job.data.get('warningMessage')))
-        self.review.setVisible(not done and bool(self.job.data.get('issueCount') or self.job.data.get('pendingIssues')))
+        self.review.setVisible(bool(self.job.queue_rows) or (not done and bool(self.job.data.get('issueCount') or self.job.data.get('pendingIssues'))))
+        self.review.setText('Hide queue ▴' if self.queue_open and self.job.queue_rows else 'Review queue ▾')
         if not done and self.job.data.get('pendingIssues') and not self.isVisible() and not self.embedded and not self.preview:
             self.show()
         self.layout_controls()
@@ -169,6 +204,27 @@ class ProgressWindow(QWidget):
         self.details.setGeometry(self.width()-139, self.base_height-38, 54, 24)
         self.review.setGeometry(self.width()-128, 36, 110, 22)
         self.question_scroll.setGeometry(8, self.base_height, self.width()-16, max(0, self.height()-self.base_height-8))
+        self.queue_scroll.setGeometry(self.question_scroll.geometry())
+
+    def refresh_queue(self, _rows=None, animate=True):
+        if not self.job.queue_rows: return
+        if not self.queue_panel:
+            self.queue_panel = QueuePanel(self.job)
+            self.queue_panel.collapse_requested.connect(self.toggle_queue)
+            self.queue_scroll.setWidget(self.queue_panel)
+            self.queue_open = True
+        if self.job.queue_state.pop('reveal', False): self.queue_open = True
+        self.dismiss_timer.stop()
+        if not self.isVisible() and not self.embedded and not self.preview: self.show()
+        self.resize_question(animate)
+        self.refresh()
+
+    def toggle_queue(self):
+        if not self.job.queue_rows:
+            self.job.request('review'); return
+        self.queue_open = not self.queue_open
+        self.resize_question()
+        self.refresh()
 
     def refresh_question(self, animate=True):
         if self.job.question:
@@ -189,24 +245,52 @@ class ProgressWindow(QWidget):
 
     def resize_question(self, animate=True):
         target = self.base_height
+        if self.job.question: self.queue_scroll.hide()
+        elif self.queue_panel and self.queue_open: self.queue_scroll.show()
         if self.job.question and self.question_panel:
             self.question_panel.setFixedWidth(max(200, self.width()-32))
             layout = self.question_panel.layout()
             layout.activate()
             target += max(layout.sizeHint().height(), layout.totalHeightForWidth(self.width()-32)) + 8
             if not self.embedded and self.screen(): target = min(target, self.screen().availableGeometry().height()-24)
+        elif self.queue_panel and self.queue_open:
+            self.queue_panel.setFixedWidth(max(200, self.width()-32))
+            # Three card heights for the drawer. On shorter displays the
+            # contents scroll, while the progress card keeps its exact size.
+            target += self.base_height * 3
+            if not self.embedded and self.screen():
+                area = self.screen().availableGeometry()
+                target = min(target, max(self.base_height, area.height()-24))
+                if not self.placement and self.isVisible() and self.y()+target > area.bottom()-12:
+                    self.move(self.x(), max(area.top()+12, area.bottom()-target-12))
+        if self.resize_target == target:
+            if self.height() == target: self.expansion_finished()
+            return
+        self.resize_target = target
+        self.expansion.stop()
+        if self.placement and self.isVisible() and self.height() != target:
+            self.placement.prepare(target, lambda height: self.animate_height(height, animate))
+        else: self.animate_height(target, animate)
+
+    def set_card_height(self, height):
+        self.setFixedHeight(height)
+        if self.placement: self.placement.resize(self.width(), height)
+
+    def animate_height(self, target, animate):
         self.expansion.stop()
         if animate and self.isVisible() and not self.embedded and self.options['animation']['enabled'] and self.height() != target:
             self.expansion.setStartValue(float(self.height())); self.expansion.setEndValue(float(target)); self.expansion.start()
         else:
-            self.setFixedHeight(target); self.expansion_finished()
+            self.set_card_height(target); self.expansion_finished()
 
     def expansion_finished(self):
         if not self.job.question: self.question_scroll.hide()
+        if not self.queue_open or self.job.question: self.queue_scroll.hide()
         self.geometry_changed.emit()
 
     def showEvent(self, event):
         super().showEvent(event)
+        if self.placement: self.placement.shown()
         self.clock.restart()
         self.refresh()
 
@@ -227,7 +311,7 @@ class ProgressWindow(QWidget):
         self.animation.stop()
         if self.preview:
             self.display_percent = self.job.percent or 0
-        elif self.job.result == 'failed' or self.job.data.get('warningMessage') or not self.options['behavior']['auto_close']:
+        elif self.job.result == 'failed' or self.job.data.get('warningMessage') or self.job.queue_rows or not self.options['behavior']['auto_close']:
             self.show()
         elif not self.isVisible():
             QTimer.singleShot(0, self.dismiss)
@@ -240,6 +324,8 @@ class ProgressWindow(QWidget):
         self.job.request('resume' if self.job.data.get('suspended') else 'suspend')
 
     def show_error(self):
+        if self.job.queue_rows:
+            self.queue_open = True; self.resize_question(); self.refresh(); return
         dialog = QMessageBox(self)
         dialog.setWindowTitle('File operation')
         dialog.setTextFormat(Qt.TextFormat.PlainText)
@@ -251,6 +337,7 @@ class ProgressWindow(QWidget):
     def dismiss(self):
         if self.closed: return
         self.closed = True
+        if self.placement: self.placement.release()
         self.dismiss_timer.stop(); self.animation.stop(); self.expansion.stop()
         self.hide()
         self.dismissed.emit()
@@ -265,11 +352,14 @@ class ProgressWindow(QWidget):
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
-            self.close(); event.accept()
+            if self.queue_open and not self.job.question: self.toggle_queue()
+            else: self.close()
+            event.accept()
         else: super().keyPressEvent(event)
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton and not self.embedded:
+        if event.button() == Qt.MouseButton.LeftButton and not self.embedded and event.position().y() < self.base_height:
+            if self.placement: self.placement.release()
             if self.windowHandle() and self.windowHandle().startSystemMove():
                 event.accept(); return
             self.drag_offset = event.globalPosition().toPoint() - self.pos()

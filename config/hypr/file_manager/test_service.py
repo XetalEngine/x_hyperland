@@ -118,7 +118,7 @@ with (root/'calls.jsonl').open('a') as log:
             filename = 'notes # 100% café.txt'
             (source/filename).write_text('desktop transfer fixture')
             menu=json.loads(desktop('Menu','(as)', ([(source/filename).as_uri()],), '(s)'))
-            assert any(row['name']=='Ark' and row.get('children') for row in menu), menu
+            assert any(row['name']=='7-Zip' and row.get('children') for row in menu), menu
             assert {'open','copy','cut','rename','properties','copyPath'} <= {row.get('local') for row in menu}
             old=next(row['action'] for row in menu if row.get('local')=='properties')
             desktop('Menu','(as)', ([source.as_uri()],), '(s)')

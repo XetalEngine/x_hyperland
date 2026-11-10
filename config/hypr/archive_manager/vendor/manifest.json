@@ -1,0 +1,17 @@
+{
+  "version": "26.06",
+  "source": {
+    "file": "7z2606-src.tar.xz",
+    "sha256": "a4e374c8f864f51df48c2cfd0e1413ec3b2ea030deae852d6a655402ebb61ac4",
+    "url": "https://github.com/ip7z/7zip/releases/download/26.06/7z2606-src.tar.xz"
+  },
+  "engine": {
+    "file": "7zz-fusion",
+    "architecture": "x86_64",
+    "sha256": "683400dc32e49621b25b1ec280bf77161b9740028eb37dd04daf0c4724d38fa9",
+    "adapter": 1,
+    "linking": "Bundled GCC C++ runtime; system glibc",
+    "compiler": "16.2.1",
+    "minimum_glibc": "2.38"
+  }
+}

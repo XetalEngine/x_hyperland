@@ -105,6 +105,13 @@ bool DesktopActions::Open(const QStringList &sources, bool choose) {
         track(job); job->start();
         continue;
       }
+      const auto archiveApp = KApplicationTrader::preferredService(item.mimetype());
+      if (!choose && Fusion::isArchive(item) && url.isLocalFile() &&
+          (!archiveApp || archiveApp->storageId() == "org.kde.ark.desktop" || archiveApp->storageId() == "xetal-archives.desktop")) {
+        Fusion::launchArchive("open", {url}, url.adjusted(QUrl::RemoveFilename),
+                              [this](const QString &text) { error(text); });
+        continue;
+      }
       selected << item;
     }
     auto application = [this](const KFileItemList &items) {
@@ -249,7 +256,7 @@ QString DesktopActions::Menu(const QStringList &sources) {
   const bool trash = files.contains(QUrl("trash:/"));
   const bool directories = std::all_of(items.begin(), items.end(), [](const KFileItem &item) { return item.isDir(); });
   auto directory = QUrl::fromLocalFile(QStandardPaths::writableLocation(QStandardPaths::DesktopLocation));
-  bool compress = false, extract = false, addedArk = false;
+  bool compress = false, extract = false, addedArchive = false;
   for (const auto &entry : entries) {
     if (entry["id"] == "compress") compress = entry.value("enabled", true).toBool();
     if (entry["id"] == "extract") extract = entry.value("enabled", true).toBool();
@@ -262,9 +269,9 @@ QString DesktopActions::Menu(const QStringList &sources) {
     if ((id == "openTab" || id == "pin") && !directories) continue;
     if (id == "openWith" && directories) continue;
     if (id == "compress" || id == "extract") {
-      if (!addedArk) Fusion::addArkActions(fileMenu, items, compress, extract, this, arkPlugins, directory,
+      if (!addedArchive) Fusion::addArchiveActions(fileMenu, items, compress, extract, this, directory,
                                          [this](const QString &text) { error(text); });
-      addedArk = true; continue;
+      addedArchive = true; continue;
     }
     auto *action = fileMenu->addAction(Fusion::icon(entry["icon"].toString()),
         id == "openTab" ? "Open in floating window" : entry["name"].toString());

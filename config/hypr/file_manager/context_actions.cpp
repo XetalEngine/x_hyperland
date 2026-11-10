@@ -1,102 +1,68 @@
 #include "context_actions.h"
+#include "transfer_access.h"
 #include <QtWidgets>
-#include <KAbstractFileItemActionPlugin>
-#include <KFileItemListProperties>
-#include <KPluginFactory>
-#include <KPluginMetaData>
 #include <KIO/EmptyTrashJob>
 #include <KIO/JobUiDelegateFactory>
 #include <KJobWidgets>
 #include <algorithm>
-void Fusion::addArkActions(QMenu *menu, const KFileItemList &items, bool compress, bool extract,
-    QObject *owner, QHash<QString, KAbstractFileItemActionPlugin *> &arkPlugins, const QUrl &directory,
-    const std::function<void(const QString &)> &message, const std::function<bool()> &guard) {
-  if (items.isEmpty() || (!compress && !extract))
-    return;
-  const bool archiveSelected =
-      std::any_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
-        const auto type = item.mimetype();
-        return type.contains("zip") || type.contains("tar") ||
-               type.contains("rar") || type.contains("compressed") ||
-               type.contains("7z") || type.contains("archive");
-      });
-  auto *ark = menu->addMenu(Fusion::icon("ark", "package-x-generic"), "Ark");
-  ark->setObjectName("arkMenu");
-  std::function<void(QMenu *, QAction *)> append = [&](QMenu *target,
-                                                       QAction *original) {
-    if (original->isSeparator()) {
-      target->addSeparator();
-      return;
+bool Fusion::isArchive(const KFileItem &item) {
+  if (item.isDir()) return false;
+  const auto type = item.mimetype();
+  if (!type.startsWith("application/") && !item.name().endsWith(".001")) return false;
+  return type.contains("zip") || type.contains("tar") || type.contains("rar") ||
+      type.contains("compressed") || type.contains("archive") || type.contains("7z") ||
+      type == "application/x-iso9660-image" || type == "application/x-cd-image" ||
+      item.name().endsWith(".001");
+}
+bool Fusion::launchArchive(const QString &operation, const QList<QUrl> &files, const QUrl &directory,
+                          const std::function<void(const QString &)> &message) {
+  if (files.isEmpty()) return false;
+  QStringList args{Fusion::root()+"/archive_manager/app.py", operation};
+  if (directory.isLocalFile()) args << "--directory" << directory.toLocalFile();
+  args << "--";
+  for (const auto &url : files) {
+    const auto local = Fusion::ordinaryFileUrl(url);
+    if (!local.isLocalFile()) {
+      message("Save remote items to a local folder before using 7-Zip."); return false;
     }
-    if (original->menu()) {
-      auto *child = target->addMenu(original->icon(), original->text());
-      for (auto *action : original->menu()->actions())
-        append(child, action);
-      return;
-    }
-    auto *copy = target->addAction(original->icon(), original->text());
-    copy->setEnabled(original->isEnabled());
-    QObject::connect(copy, &QAction::triggered, owner,
-            [original = QPointer<QAction>(original), guard] {
-              if (original && (!guard || guard()))
-                original->trigger();
-            });
-  };
-  for (const auto &metadata :
-       KPluginMetaData::findPlugins("kf6/kfileitemaction")) {
-    const auto id = metadata.pluginId();
-    if (!((id == "compressfileitemaction" && compress) ||
-          (id == "extractfileitemaction" && extract && archiveSelected)))
-      continue;
-    auto *plugin = arkPlugins.value(id);
-    if (!plugin) {
-      plugin = KPluginFactory::instantiatePlugin<KAbstractFileItemActionPlugin>(
-                   metadata, owner)
-                   .plugin;
-      if (!plugin)
-        continue;
-      arkPlugins.insert(id, plugin);
-      QObject::connect(plugin, &KAbstractFileItemActionPlugin::error, owner,
-              message);
-    }
-    const auto actions = plugin->actions(KFileItemListProperties(items), ark);
-    if (!ark->actions().isEmpty() && !actions.isEmpty())
-      ark->addSeparator();
-    for (auto *action : actions) {
-      if (action->menu())
-        for (auto *option : action->menu()->actions())
-          append(ark, option);
-      else
-        append(ark, action);
-    }
+    args << local.toLocalFile();
   }
-  if (ark->actions().isEmpty()) {
-    // Some distributions ship the executable separately from its menu plugins.
-    auto fallback = [&](bool unpack) {
-      auto *action = ark->addAction(unpack ? "Extract archive…" : "Compress…");
-      action->setEnabled(!QStandardPaths::findExecutable("ark").isEmpty());
-      QObject::connect(action, &QAction::triggered, owner, [directory, message, items, guard, unpack] {
-        if (guard && !guard())
-          return;
-        QStringList args =
-            unpack ? QStringList{"--batch", "--dialog", "--autosubfolder"}
-                   : QStringList{"--add", "--dialog"};
-        if (unpack && directory.isLocalFile())
-          args << "--destination" << directory.toLocalFile();
-        args << "--";
-        for (const auto &item : items)
-          args << (item.url().isLocalFile() ? item.url().toLocalFile()
-                                            : item.url().toString());
-        if (!QProcess::startDetached("ark", args))
-          message("Ark could not be started.");
-      });
-    };
-    if (compress)
-      fallback(false);
-    if (extract && archiveSelected)
-      fallback(true);
-    if (ark->isEmpty())
-      ark->menuAction()->setVisible(false);
+  if (!QProcess::startDetached("/usr/bin/python3", args)) {
+    message("The Fusion 7-Zip window could not be started."); return false;
+  }
+  return true;
+}
+void Fusion::addArchiveActions(QMenu *menu, const KFileItemList &items, bool compress, bool extract,
+    QObject *owner, const QUrl &directory, const std::function<void(const QString &)> &message,
+    const std::function<bool()> &guard) {
+  if (items.isEmpty() || (!compress && !extract)) return;
+  auto *archive = menu->addMenu(Fusion::icon("package-x-generic"), "7-Zip");
+  archive->setObjectName("sevenZipMenu");
+  archive->menuAction()->setProperty("iconName", "package-x-generic");
+  QList<QUrl> files;
+  for (const auto &item : items) files << item.url();
+  auto append = [&](const QString &text, const QString &operation) {
+    auto *action = archive->addAction(text);
+    action->setObjectName("sevenZip_"+operation);
+    action->setProperty("iconName", operation.startsWith("extract") ? "archive-extract" : "package-x-generic");
+    QObject::connect(action, &QAction::triggered, owner, [files, operation, directory, message, guard] {
+      if (!guard || guard()) Fusion::launchArchive(operation, files, directory, message);
+    });
+  };
+  if (compress) {
+    append("Compress…", "compress");
+    append("Compress to…", "compress-to");
+    append("Compress to 7z", "quick-7z");
+    append("Compress to ZIP", "quick-zip");
+  }
+  const bool filesOnly = std::none_of(items.cbegin(), items.cend(), [](const KFileItem &item) { return item.isDir(); });
+  if (extract && filesOnly) {
+    if (compress) archive->addSeparator();
+    append("Open archive…", "open");
+    append("Extract here", "extract-here");
+    append("Extract to separate folder", "extract-folder");
+    append("Extract to…", "extract");
+    append("Test archive", "test");
   }
 }
 Fusion::MenuEditor::MenuEditor(const Preferences &preferences, const QString &scope, QWidget *parent)

@@ -24,6 +24,16 @@ The Xetal scripts, custom UI components, installer and configuration are supplie
 
 The owner-provided **Programmer Calculator** source and SVG artwork are integrated under `config/hypr/calculator`, adapted from the owner's `WindowsCalculatorClone` project to the desktop's PyQt6 runtime. This is an independent implementation, not Microsoft's Windows Calculator source. Its personal settings and history are not distributed.
 
+- **7-Zip 26.06:** the full, unmodified upstream source archive, a compiled engine,
+  LGPL text, BSD notices and unRAR restriction are included under
+  [`config/hypr/archive_manager/vendor`](config/hypr/archive_manager/vendor/License.txt).
+  Copyright © 1999–2026 Igor Pavlov and the upstream contributors identified in
+  those notices. HyperFusion's optional event/password adapter and offline build
+  script are LGPL-2.1-or-later; their complete source is included. Compression
+  codecs and archive handlers remain upstream code. The bundled GCC runtime
+  uses GPL-3.0 with the GCC Runtime Library Exception; its notices are included
+  alongside the engine. See [source and build details](config/hypr/archive_manager/README.md).
+
 The installer includes no browser profiles, account data or application credentials.
 
 ## KVM components

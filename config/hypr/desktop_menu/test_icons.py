@@ -417,7 +417,7 @@ class CanvasTests(unittest.TestCase):
             ready.destroy(); self.window.menu = None
 
     def test_archive_submenu_does_not_dispatch_a_missing_action(self):
-        entries = [{'name': 'Ark', 'children': [{'name': 'Compress…', 'action': 'archive:1'}]}]
+        entries = [{'name': '7-Zip', 'children': [{'name': 'Compress…', 'action': 'archive:1'}]}]
         with patch.object(self.Gtk.Menu, 'popup_at_widget', lambda menu, *_: menu.show()):
             self.controller.select({'Folder'}); self.canvas.file_menu(None)
             self.fake_files.menu.call_args.args[1](entries)

@@ -363,7 +363,7 @@ private:
         {"destination", Fusion::ordinaryFileUrl(destination).toLocalFile()},
         {"operation", undoJournal.isEmpty() ? (moving ? "move" : "copy") : "undo"}, {"undoJournal", undoJournal}});
     active = copy;
-    auto *issues = new Fusion::TransferIssues(copy, window);
+    auto *issues = new Fusion::TransferIssues(copy, window, view);
     connect(view, &Fusion::TransferView::reviewRequested, issues, &Fusion::TransferIssues::reveal);
     if (const auto *mime = QApplication::clipboard()->mimeData()) {
       originalClipboard = KUrlMimeData::urlsFromMimeData(mime, KUrlMimeData::PreferLocalUrls);

@@ -813,6 +813,12 @@ void FilesWindow::openAssociated(const KFileItemList &items) {
   for (const auto &item : items) {
     if (item.isDir()) { openLocation(item.url()); continue; }
     const auto preferred = KApplicationTrader::preferredService(item.mimetype());
+    if (Fusion::isArchive(item) && item.url().isLocalFile() &&
+        (!preferred || preferred->storageId() == "org.kde.ark.desktop" || preferred->storageId() == "xetal-archives.desktop")) {
+      Fusion::launchArchive("open", {item.url()}, item.url().adjusted(QUrl::RemoveFilename),
+                            [this](const QString &text) { message(text); });
+      continue;
+    }
     if (!preferred) { chooseApplication({item}); continue; }
     track(Fusion::launchApplication({{"app", preferred->storageId()}, {"mime", item.mimetype()},
                                     {"urls", QJsonArray{item.url().toString(QUrl::FullyEncoded)}}}, this));
@@ -1108,24 +1114,12 @@ void FilesWindow::archive(bool extract) {
   const auto urls = browser()->selectedUrls();
   if (urls.isEmpty())
     return;
-  if (QStandardPaths::findExecutable("ark").isEmpty()) {
-    message("Ark is required for archive actions. Install Ark and try again.");
-    return;
-  }
-  QStringList args = extract
-                         ? QStringList{"--batch", "--dialog", "--autosubfolder"}
-                         : QStringList{"--add", "--dialog"};
-  if (extract && browser()->location().isLocalFile())
-    args << "--destination" << browser()->location().toLocalFile();
-  args << "--";
-  for (const auto &url : urls)
-    args << (url.isLocalFile() ? url.toLocalFile() : url.toString());
-  if (!QProcess::startDetached("ark", args))
-    message("Ark could not be started.");
+  Fusion::launchArchive(extract ? "extract" : "compress", urls, browser()->location(),
+                       [this](const QString &text) { message(text); });
 }
-void FilesWindow::addArkActions(QMenu *menu, const KFileItemList &items, bool compress, bool extract,
+void FilesWindow::addArchiveActions(QMenu *menu, const KFileItemList &items, bool compress, bool extract,
                                 const std::function<bool()> &guard) {
-  Fusion::addArkActions(menu, items, compress, extract, this, arkPlugins, browser()->location(),
+  Fusion::addArchiveActions(menu, items, compress, extract, this, browser()->location(),
                        [this](const QString &text) { message(text); }, guard);
 }
 void FilesWindow::volumeAction(const Volume &volume, const QString &id) {
@@ -1184,7 +1178,7 @@ void FilesWindow::addVolumeActions(QMenu *menu, const Volume &volume) {
   if (volume.mounted()) {
     const KFileItemList items{KFileItem(QUrl::fromLocalFile(volume.mount),
                                         "inode/directory", S_IFDIR)};
-    addArkActions(
+    addArchiveActions(
         menu, items,
         configured.value("compress").value("enabled", true).toBool(), false,
         [this, volume] { return !drives->mountedLocation(volume).isEmpty(); });
@@ -1215,7 +1209,7 @@ void FilesWindow::fileMenu(const QPoint &point) {
   menu.setObjectName("fileContextMenu");
   if (location.scheme() == "trash")
     menu.addAction(Fusion::icon("user-trash"), "Empty Trash…", this, [this] { Fusion::emptyTrash(this); });
-  bool compress = false, extract = false, arkAdded = false;
+  bool compress = false, extract = false, archiveAdded = false;
   for (const auto &entry : preferences.menu()) {
     if (entry["id"] == "compress")
       compress = entry.value("enabled", true).toBool();
@@ -1241,9 +1235,9 @@ void FilesWindow::fileMenu(const QPoint &point) {
         (items.size() != 1 || Fusion::executionCommand(items.first().url()).isEmpty()))
       continue;
     if (id == "compress" || id == "extract") {
-      if (!arkAdded && !items.isEmpty()) {
-        addArkActions(&menu, items, compress, extract);
-        arkAdded = true;
+      if (!archiveAdded && !items.isEmpty()) {
+        addArchiveActions(&menu, items, compress, extract);
+        archiveAdded = true;
       }
       continue;
     }
@@ -1264,6 +1258,8 @@ void FilesWindow::fileMenu(const QPoint &point) {
     if (id == "trash" && location.scheme() == "trash") label = "Delete permanently…";
     if (id == "open" && preferred && label == "Open") {
       label = "Open with " + QString(preferred->name()).replace('&', "&&");
+    if (id == "open" && items.size() == 1 && Fusion::isArchive(items.first()) &&
+        (!preferred || preferred->storageId() == "org.kde.ark.desktop" || preferred->storageId() == "xetal-archives.desktop")) label = "Open with 7-Zip";
       if (icon == "document-open" && !preferred->icon().isEmpty())
         icon = preferred->icon();
     }

@@ -90,10 +90,14 @@ total…**, and 100% is reserved for successful completion. Progress comes from
 the worker, not repeated scans of the destination. Updates are batched, and
 neither file sizes nor transfer sizes have an application-imposed ceiling.
 
-Local transfer errors and name conflicts collect in a **nonmodal transfer
-queue**, shown as a compact floating dialog. Its window size is separate from
-the main file browser. Ordinary files keep copying while the queue is open or hidden. Rows
-show the item, error, status, source, destination and stage; select one or more
+Local transfer errors and name conflicts collect in an **attention panel that
+unfolds below the animated transfer card**. It is part of the same window and
+keeps the card's width, artwork and controls in place. The panel starts at three
+card heights and scrolls when needed to fit the display; its animation follows
+the File Transfer animation setting. Ordinary files keep copying while the
+panel is open or collapsed. The table shows Item, Status and Result / issue;
+full source/destination paths, stage and original errors appear in the selected
+row's details. Filtering also searches those paths. Select one or more rows
 to **Retry**, **Skip**, **Replace** a conflicting file, or **Use administrator
 access** for a permission error. The similar-items checkbox applies a choice
 to matching queued issues; Skip also applies to later issues of that same
@@ -115,21 +119,29 @@ processed**, and a move reports **Copied; move pending** until verification and
 original removal finish. Failed retries return to the queue with **Retry failed**.
 Progress says **Waiting for your choice** while queued items need an answer;
 saving folder attributes and move verification can still follow that answer.
-**Review queue** reopens it; hiding or closing the queue does not
-cancel the transfer. A searchable table and **Save report** retain details of
+**Review queue** expands it again; **Collapse**, **Hide queue** and Escape fold
+the panel away without canceling the transfer. The card's Cancel/Close controls
+retain their normal meaning. Completed queue results remain available until the
+card is closed. A searchable table and **Save report** retain details of
 resolved and skipped rows. The journal also stores those decisions on disk;
 this is an audit trail, not automatic resume after a process exit. Skipped
 items finish with an explicit skipped count and the number actually copied.
 Folder attributes have their own progress count, and the finished card says
 **Copy complete** or **Move complete** instead of leaving **Finishing…** visible.
 Later automatic skips are summarized with a count so choosing Skip similar on
-a large tree does not flood the popup with millions of rows. **Save report**
+a large tree does not flood the panel with millions of rows. **Save report**
 streams every affected path from a read-only journal snapshot, including those
 automatic skips, without loading the whole report into memory.
 Automatically ignored sockets have separate diagnostic records in the journal
 and optional report, outside the attention queue and transfer totals. Moves
 that copy data retain those sockets at their sources; instant same-filesystem
 renames retain their normal filesystem behavior.
+
+Queue updates and decisions use the exact job's owner-checked D-Bus channel;
+multiple transfers cannot answer each other's items. Decisions keep the worker's
+item versions, including while a replacement confirmation is open. The original
+standalone queue remains a fallback when the progress service is unavailable or
+too old to provide an embedded panel. The file-operation worker is unchanged.
 
 Same-filesystem moves use an atomic rename where the destination is free.
 Cross-filesystem moves and folder merges copy the selected contents first,
@@ -166,9 +178,11 @@ with their source, destination and transfer phase rather than silently skipped.
 The disk-backed transfer journal supports **Undo** without keeping every file
 record in GUI memory. Native transfers and KIO's rename/Trash actions share
 command ordering. Undo checks that copied files have not changed before
-removing them; it never recursively removes unrecorded files. Remote protocols,
-archive extraction and shortcut creation continue through their existing KIO
-backends. Administrator access is scoped to each transfer, including Undo.
+removing them; it never recursively removes unrecorded files. Remote protocols
+and shortcut creation retain their existing backends. The shared **7-Zip** menu
+opens the [bundled Fusion archive manager](../archive_manager/README.md), which
+stages and verifies archive work before publishing it through the native transfer
+worker. Administrator access is scoped to each transfer, including Undo.
 
 Hold **Ctrl** while dragging to copy, **Shift** to move, or **Ctrl+Shift** to
 create shortcuts. Shortcuts are symbolic links to the original files or folders;

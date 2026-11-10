@@ -1578,7 +1578,7 @@ print(json.dumps(rows))
     data->setUrls({QUrl::fromLocalFile(source + "/menu.txt")});
     QApplication::clipboard()->setMimeData(data);
     bool copyEnabled = false, cutDisabled = false, pasteEnabled = false,
-         arkPresent = false;
+         archivePresent = false;
     QTimer::singleShot(0, &window, [&] {
       auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
       if (!menu)
@@ -1589,13 +1589,13 @@ print(json.dumps(rows))
       copyEnabled = copy && copy->isEnabled();
       cutDisabled = cut && !cut->isEnabled();
       pasteEnabled = paste && paste->isEnabled();
-      arkPresent = menu->findChild<QMenu *>("arkMenu");
+      archivePresent = menu->findChild<QMenu *>("sevenZipMenu");
       if (paste)
         paste->trigger();
       menu->close();
     });
     window.drives->menu(usb, window.mapToGlobal(QPoint(30, 30)), &window);
-    QVERIFY(copyEnabled && cutDisabled && pasteEnabled && arkPresent);
+    QVERIFY(copyEnabled && cutDisabled && pasteEnabled && archivePresent);
     QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(destination + "/menu.txt"),
                              10000);
     write(source + "/disconnected.txt");
@@ -1647,7 +1647,7 @@ print(json.dumps(rows))
       copy = menu->findChild<QAction *>("copy");
       cut = menu->findChild<QAction *>("cut");
       paste = menu->findChild<QAction *>("paste");
-      if (auto *ark = menu->findChild<QMenu *>("arkMenu"))
+      if (auto *ark = menu->findChild<QMenu *>("sevenZipMenu"))
         for (auto *action : ark->actions())
           if (!action->isSeparator())
             compression << action->text();
@@ -1668,7 +1668,7 @@ print(json.dumps(rows))
       auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
       if (!menu)
         return;
-      if (auto *ark = menu->findChild<QMenu *>("arkMenu"))
+      if (auto *ark = menu->findChild<QMenu *>("sevenZipMenu"))
         for (auto *action : ark->actions())
           if (action->text().contains("zip", Qt::CaseInsensitive)) {
             action->trigger();
@@ -2134,7 +2134,10 @@ print(json.dumps(rows))
     const auto target = folder + "/Transfer target";
     QDir().mkpath(source);
     QDir().mkpath(target);
-    for (int n = 0; n < 1024; ++n)
+    // Keep enough work in flight for the real pause/resume round trip even
+    // on fast reflink-capable storage.
+    constexpr int fileCount = 4096;
+    for (int n = 0; n < fileCount; ++n)
       write(source + "/file-" + QString::number(n), QByteArray(65536, char(n % 127)));
     FilesWindow window(QUrl::fromLocalFile(folder), false,
                        temporary.path() + "/progress.ini");
@@ -2152,15 +2155,15 @@ print(json.dumps(rows))
     QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 1, 30000);
     if (qEnvironmentVariableIsSet("FUSION_FILES_PROGRESS_CANCEL")) {
       QCOMPARE(finished.first().first().toInt(), int(KIO::ERR_USER_CANCELED));
-      QCOMPARE(QDir(source).entryList(QDir::Files).size(), 1024);
+      QCOMPARE(QDir(source).entryList(QDir::Files).size(), fileCount);
       window.close();
       return;
     }
     QCOMPARE(finished.first().first().toInt(), 0);
-    QCOMPARE(QDir(target + "/Transfer source").entryList(QDir::Files).size(), 1024);
-    QFile last(target + "/Transfer source/file-1023");
+    QCOMPARE(QDir(target + "/Transfer source").entryList(QDir::Files).size(), fileCount);
+    QFile last(target + "/Transfer source/file-" + QString::number(fileCount-1));
     QVERIFY(last.open(QIODevice::ReadOnly));
-    QCOMPARE(last.readAll(), QByteArray(65536, char(1023 % 127)));
+    QCOMPARE(last.readAll(), QByteArray(65536, char((fileCount-1) % 127)));
     window.close();
   }
   void transferQuestions() {
@@ -2178,6 +2181,7 @@ print(json.dumps(rows))
         write(base+"/source/Folder/new.txt", "new file");
         QTimer queued;
         connect(&queued, &QTimer::timeout, &owner, [&] {
+          if (qEnvironmentVariableIsSet("FUSION_FILES_EMBEDDED_QUEUE_CHECK")) return;
           if (!QFileInfo::exists(base+"/target/Folder/new.txt")) return;
           if (QByteArray(mode)=="individual") {
             auto *queue=queueFor(base); if (!queue) return;
@@ -2199,6 +2203,10 @@ print(json.dumps(rows))
             QUrl::fromLocalFile(base+"/target"), operation, &owner);
         int error = -1; connect(job, &KJob::result, &owner, [&](KJob *j) { error = j->error(); });
         QTRY_VERIFY_WITH_TIMEOUT(error != -1, 15000);
+        if (qEnvironmentVariableIsSet("FUSION_FILES_EMBEDDED_QUEUE_CHECK")) {
+          for (auto *widget : QApplication::topLevelWidgets())
+            if (auto *queue = qobject_cast<Fusion::TransferIssues *>(widget)) QVERIFY(!queue->isVisible());
+        }
         QCOMPARE(error, QByteArray(mode) == "cancel" ? KIO::ERR_USER_CANCELED : 0);
         for (const auto name : {"a.txt", "Folder/b.txt", "Folder/nested/c.txt"}) {
           const bool replaced = QByteArray(mode) == "replace" || (QByteArray(mode) == "individual" && QByteArray(name) == "a.txt");
@@ -2210,6 +2218,19 @@ print(json.dumps(rows))
         QVERIFY(!owner.findChild<QDialog *>("transferConflictSummary"));
         QVERIFY(!owner.findChild<QMessageBox *>("transferConflictQuestion"));
       }
+    }
+    if (qEnvironmentVariableIsSet("FUSION_FILES_EMBEDDED_QUEUE_CHECK")) {
+      const auto retryBase = folder+"/questions-retry";
+      QDir().mkpath(retryBase+"/source"); QDir().mkpath(retryBase+"/target");
+      write(retryBase+"/source/private.xml", "protected content");
+      write(retryBase+"/source/ordinary.txt", "uninterrupted copy");
+      QVERIFY(::chmod(QFile::encodeName(retryBase+"/source/private.xml"), 0000) == 0);
+      auto *job = Fusion::transferFiles({QUrl::fromLocalFile(retryBase+"/source")},
+          QUrl::fromLocalFile(retryBase+"/target"), Fusion::TransferOperation::Copy, &owner);
+      int error = -1; connect(job, &KJob::result, &owner, [&](KJob *j) { error = j->error(); });
+      QTRY_COMPARE_WITH_TIMEOUT(error, 0, 15000);
+      QFile copied(retryBase+"/target/source/private.xml"); QVERIFY(copied.open(QIODevice::ReadOnly));
+      QCOMPARE(copied.readAll(), QByteArray("protected content"));
     }
     const auto base = folder+"/questions-duplicate"; QDir().mkpath(base);
     write(base+"/a.txt", "original");

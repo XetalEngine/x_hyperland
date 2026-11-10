@@ -3,11 +3,13 @@
 #include <KJobTrackerInterface>
 #include <QCoreApplication>
 #include <QDBusConnection>
+#include <QDBusArgument>
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
 #include <QDBusObjectPath>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
+#include <QDBusServiceWatcher>
 #include <QTimer>
 #include <limits>
 #include <utility>
@@ -63,13 +65,72 @@ Fusion::TransferView::TransferView(KJob *job, const QVariantMap &initial)
       bus.connect(owner, path, "org.kde.JobViewV3", "suspendRequested", this, SLOT(suspend()));
       bus.connect(owner, path, "org.kde.JobViewV3", "resumeRequested", this, SLOT(resume()));
       bus.connect(owner, path, "org.xetal.FileTransfer1", "reviewRequested", this, SLOT(review()));
+      bus.connect(owner, path, "org.xetal.FileTransfer1", "queueDecision", this, SLOT(decideQueue(QVariantMap)));
+      auto *serviceWatcher = new QDBusServiceWatcher(owner, bus, QDBusServiceWatcher::WatchForUnregistration, this);
+      connect(serviceWatcher, &QDBusServiceWatcher::serviceUnregistered, this, [this] {
+        unavailable = true; queueChecked = true; queueAvailable = false;
+        emit queueReady(false);
+      });
     } else if (this->job && !finished) {
       // Standalone Files outside a Fusion session retains ordinary KIO progress.
       KIO::getJobTracker()->registerJob(this->job);
     }
+    probeQueue();
     if (finished) terminate();
     else { flush(); sendQuestion(); }
   });
+}
+
+void Fusion::TransferView::enableQueue() {
+  queueEnabled = true;
+  probeQueue();
+}
+
+void Fusion::TransferView::probeQueue() {
+  if (!ready || !queueEnabled || queueChecked || queueProbing) return;
+  if (unavailable) { queueChecked = true; emit queueReady(false); return; }
+  queueProbing = true;
+  auto request = QDBusMessage::createMethodCall(owner, path, "org.xetal.FileTransfer1", "updateQueue");
+  request.setArguments({QVariantMap{}});
+  auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(request, 2500), this);
+  connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher] {
+    const QDBusPendingReply<bool> result = *watcher;
+    watcher->deleteLater();
+    queueProbing = false; queueChecked = true;
+    queueAvailable = !unavailable && !result.isError() && result.value();
+    emit queueReady(queueAvailable);
+    flushQueue();
+    if (finished) terminate();
+  });
+}
+
+void Fusion::TransferView::updateQueue(const QVariantMap &row, const QVariantMap &state) {
+  if (queueChecked && !queueAvailable) return;
+  if (!row.isEmpty()) queueRows[row.value("id").toLongLong()] = row;
+  for (auto it = state.begin(); it != state.end(); ++it) queueState[it.key()] = it.value();
+  if (!property("queueFlushQueued").toBool()) {
+    setProperty("queueFlushQueued", true);
+    QTimer::singleShot(100, this, [this] { setProperty("queueFlushQueued", false); flushQueue(); });
+  }
+}
+
+void Fusion::TransferView::flushQueue() {
+  if (!queueAvailable || (queueRows.isEmpty() && queueState.isEmpty())) return;
+  QVariantList rows;
+  for (const auto &row : std::as_const(queueRows)) rows.append(row);
+  auto message = QDBusMessage::createMethodCall(owner, path, "org.xetal.FileTransfer1", "updateQueue");
+  message.setArguments({QVariantMap{{"rows", rows}, {"state", queueState}}});
+  QDBusConnection::sessionBus().call(message, QDBus::NoBlock);
+  queueRows.clear(); queueState.clear();
+}
+
+void Fusion::TransferView::decideQueue(const QVariantMap &decision) {
+  if (!job || finished || !queueAvailable) return;
+  auto decoded = decision;
+  // Containers nested in a{sv} arrive as QDBusArgument, not JSON containers.
+  decoded["ids"] = qdbus_cast<QVariantList>(decision.value("ids"));
+  decoded["versions"] = qdbus_cast<QVariantMap>(decision.value("versions"));
+  emit queueDecision(decoded);
 }
 
 void Fusion::TransferView::update(const QVariantMap &data) {
@@ -119,6 +180,8 @@ void Fusion::TransferView::finish(int code, const QString &text) {
   if (ready) terminate();
 }
 void Fusion::TransferView::terminate() {
+  if (queueEnabled && !queueChecked) return;
+  flushQueue();
   if (!unavailable) send(owner, path, "terminate", {uint(error ? (error == KJob::KilledJobError ? 1 : 2) : 0), errorText, QVariantMap{}});
   deleteLater();
 }

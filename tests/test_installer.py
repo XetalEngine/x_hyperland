@@ -397,6 +397,24 @@ assert m['fire_indicator']
         self.assertFalse((self.home/'.config/mimeapps.list').exists())
         self.assertTrue((self.stage/'image_viewer/window_size.py').is_file())
 
+    def test_archive_source_engine_and_launcher_are_available_offline(self):
+        import hashlib
+        self.render()
+        root=self.stage/'archive_manager'
+        manifest=json.loads((root/'vendor/manifest.json').read_text())
+        for component in ('source','engine'):
+            path=root/'vendor'/manifest[component]['file']
+            self.assertTrue(path.is_file())
+            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),manifest[component]['sha256'])
+        self.assertTrue(os.access(root/'vendor'/manifest['engine']['file'],os.X_OK))
+        self.assertTrue((root/'native/FusionEvents.h').is_file())
+        self.assertTrue((root/'vendor/copying.txt').is_file())
+        desktop=(self.stage/'desktop/data/applications/xetal-archives.desktop').read_text()
+        self.assertIn(f'Exec=/usr/bin/python3 {self.target}/archive_manager/app.py open -- %F',desktop)
+        self.assertIn('application/zip=xetal-archives.desktop;',
+                      (self.stage/'desktop/config/mimeapps.list').read_text())
+        self.assertNotIn('ark',dependencies.COMMANDS)
+
     def test_explicit_original_profile_retains_original_display_layout(self):
         self.render(profile='original')
         self.assertEqual((self.stage/'control_center/displays.conf').read_bytes(),(REPO/'profiles/xetal-original/displays.conf').read_bytes())
