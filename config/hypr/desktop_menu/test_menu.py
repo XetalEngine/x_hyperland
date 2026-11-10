@@ -26,6 +26,16 @@ class MenuTests(unittest.TestCase):
             return subprocess.CompletedProcess(argv,0,'config ok' if argv[0]=='Hyprland' else ('ok' if argv[1]=='reload' else ''),'')
         self.keys=hotkeys.keys.Store(self.root,self.root/'keys-history',runner)
 
+    def test_stock_order_migrates_once_without_changing_custom_layouts(self):
+        draft=copy.deepcopy(self.document); draft.pop('layout_version', None)
+        draft['items'][1],draft['items'][2]=draft['items'][2],draft['items'][1]
+        self.store.save(draft,self.saved)
+        restored,digest=self.store.load()
+        self.assertEqual([item['id'] for item in restored['items']],['file-manager','displays','wallpaper'])
+        restored['items'].reverse()
+        self.store.save(restored,digest)
+        self.assertEqual(self.store.load()[0]['items'],restored['items'])
+
     def test_nested_roundtrip_and_disabled_parent(self):
         item=config.new_item(label='Quoted command',value='/usr/bin/printf "%s" "hello world"')
         group=config.new_item('submenu',label='Tools',children=[item,config.new_item('separator'),config.new_item('spacer'),config.new_item('column')])

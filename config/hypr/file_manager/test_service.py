@@ -118,10 +118,27 @@ with (root/'calls.jsonl').open('a') as log:
             filename = 'notes # 100% café.txt'
             (source/filename).write_text('desktop transfer fixture')
             menu=json.loads(desktop('Menu','(as)', ([(source/filename).as_uri()],), '(s)'))
-            assert any(row['name']=='Ark' and row.get('children') for row in menu), menu
+            assert any(row['name']=='7-Zip' and row.get('children') for row in menu), menu
             assert {'open','copy','cut','rename','properties','copyPath'} <= {row.get('local') for row in menu}
+            ordered = [row.get('local') or row['name'] for row in menu if not row.get('separator')]
+            assert 'newFolder' not in ordered and 'paste' not in ordered, ordered
+            assert ordered.index('7-Zip') < ordered.index('cut'), ordered
+            assert ordered[-2:] == ['rename', 'properties'], ordered
+            choices = json.loads(desktop('NewEntries', '()', (), '(s)'))
+            assert [row['name'] for row in choices] == ['Folder', 'Text document'], choices
+            settings = root/'file_manager/state/templates.json'; settings.parent.mkdir(exist_ok=True)
+            settings.write_text(json.dumps(dict(version=1, entries=[dict(id='note', name='Project notes',
+                filename='Notes.md', kind='text', text='# Project\n', enabled=True)])))
+            choices = json.loads(desktop('NewEntries', '()', (), '(s)'))
+            assert [row['id'] for row in choices] == ['folder', 'text', 'note'], choices
+            settings.unlink()
+            assert len(json.loads(desktop('NewEntries', '()', (), '(s)'))) == 2
+            assert not desktop('CreateNewWithPlacement', '(sss)', (source.as_uri(), 'missing-template', 'invalid'))
+            assert not desktop('CreateNewWithPlacement', '(sss)', ('computer:/', 'text', 'invalid'))
             old=next(row['action'] for row in menu if row.get('local')=='properties')
-            desktop('Menu','(as)', ([source.as_uri()],), '(s)')
+            folder_menu = json.loads(desktop('Menu','(as)', ([source.as_uri()],), '(s)'))
+            assert any(row.get('local') == 'paste' for row in folder_menu)
+            assert not any(row.get('local') == 'newFolder' for row in folder_menu)
             assert not desktop('MenuAction','(s)', (old,)), 'Stale menus must not act on a new selection'
             assert desktop('TransferWithPlacement', '(assbs)', ([(source/filename).as_uri()], target.as_uri(), True, 'copy-origin'))
             wait_for(lambda: (target/filename).exists(), 'Desktop copy did not reach the Files transfer engine.')

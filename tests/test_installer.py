@@ -370,6 +370,7 @@ assert m['fire_indicator']
         bar=json.loads((self.stage/'waybar/config.json').read_text())
         self.assertIn('cffi/bar-options',bar['modules-left'])
         self.assertEqual(bar['cffi/bar-options']['module_path'],str(self.target/'waybar/options/options.so'))
+        self.assertEqual(bar['cffi/workspace-mode']['module_path'],str(self.target/'waybar/workspaces/mode.so'))
         self.assertEqual(json.loads((self.stage/'waybar/options.json').read_text()),{'version':1,'hidden':[]})
         self.assertTrue((self.stage/'waybar/options/build.sh').is_file())
 
@@ -382,7 +383,8 @@ assert m['fire_indicator']
         self.assertIn('text',inventory['files']['launcher/favorites.json'])
         self.assertNotIn('theme/qt6/libxetal.so',inventory['files'])
         bar=json.loads((self.stage/'waybar/config.json').read_text())
-        self.assertEqual(bar['modules-left'][bar['modules-left'].index('custom/keys')+1],'custom/updates')
+        keys=bar['modules-left'].index('custom/keys')
+        self.assertEqual(bar['modules-left'][keys+1:keys+3],['cffi/workspace-mode','custom/updates'])
         self.assertIn('updates.css',(self.stage/'waybar/style.css').read_text())
         self.assertIn('updates/service.py" --activate',(self.stage/'scripts/session.sh').read_text())
 
@@ -396,6 +398,24 @@ assert m['fire_indicator']
         self.assertIn('inode/directory=',associations)
         self.assertFalse((self.home/'.config/mimeapps.list').exists())
         self.assertTrue((self.stage/'image_viewer/window_size.py').is_file())
+
+    def test_archive_source_engine_and_launcher_are_available_offline(self):
+        import hashlib
+        self.render()
+        root=self.stage/'archive_manager'
+        manifest=json.loads((root/'vendor/manifest.json').read_text())
+        for component in ('source','engine'):
+            path=root/'vendor'/manifest[component]['file']
+            self.assertTrue(path.is_file())
+            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),manifest[component]['sha256'])
+        self.assertTrue(os.access(root/'vendor'/manifest['engine']['file'],os.X_OK))
+        self.assertTrue((root/'native/FusionEvents.h').is_file())
+        self.assertTrue((root/'vendor/copying.txt').is_file())
+        desktop=(self.stage/'desktop/data/applications/xetal-archives.desktop').read_text()
+        self.assertIn(f'Exec=/usr/bin/python3 {self.target}/archive_manager/app.py open -- %F',desktop)
+        self.assertIn('application/zip=xetal-archives.desktop;',
+                      (self.stage/'desktop/config/mimeapps.list').read_text())
+        self.assertNotIn('ark',dependencies.COMMANDS)
 
     def test_explicit_original_profile_retains_original_display_layout(self):
         self.render(profile='original')

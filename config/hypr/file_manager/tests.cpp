@@ -4,6 +4,7 @@
 #include "applications.h"
 #include "removal.h"
 #include "context_actions.h"
+#include "new_items.h"
 #include "transfers.h"
 #include "transfer_issues.h"
 #include "native_transfer.h"
@@ -155,6 +156,163 @@ private slots:
     QVERIFY(bus.registerService("org.freedesktop.FileManager1"));
     QVERIFY(bus.registerObject("/org/freedesktop/FileManager1", &fileManager,
                                QDBusConnection::ExportAllSlots));
+  }
+  void pathEditorIsAlwaysVisibleAndEscapeKeepsNavigation() {
+    Fusion::Preferences prefs(temporary.path()+"/old-breadcrumb.ini");
+    prefs.settings.setValue("addressEditable", false);
+    Drives drives(nullptr, false); Browser tab(&prefs, &drives);
+    tab.show(); tab.navigate(QUrl::fromLocalFile(folder));
+    QVERIFY(tab.navigator->isUrlEditable()); QVERIFY(tab.navigator->editor()->isVisible());
+    tab.editAddress(); tab.navigator->editor()->lineEdit()->setText("unsubmitted text");
+    QTest::keyClick(tab.navigator->editor()->lineEdit(), Qt::Key_Escape);
+    QCOMPARE(tab.navigator->editor()->currentText(), folder);
+    QVERIFY(tab.navigator->editor()->isVisible()); QCOMPARE(tab.location(), QUrl::fromLocalFile(folder));
+  }
+  void pasteRequiresFileClipboardData() {
+    QMimeData mime;
+    mime.setText("hello"); QVERIFY(!Fusion::canPasteFiles(&mime));
+    mime.setText(folder); QVERIFY(!Fusion::canPasteFiles(&mime));
+    mime.setUrls({QUrl("https://example.com/a.txt")}); QVERIFY(!Fusion::canPasteFiles(&mime));
+    mime.setUrls({QUrl::fromLocalFile(folder+"/a # café.txt")}); QVERIFY(Fusion::canPasteFiles(&mime));
+    QCOMPARE(Fusion::clipboardFiles(&mime).first().toLocalFile(), folder+"/a # café.txt");
+    mime.setUrls({QUrl("sftp://server/home/user/a.txt")}); QVERIFY(Fusion::canPasteFiles(&mime));
+    mime.clear(); mime.setData("x-special/gnome-copied-files", "copy\nfile:///tmp/example.txt\n");
+    QVERIFY(Fusion::canPasteFiles(&mime));
+    mime.setData("x-special/gnome-copied-files", "copy\nnot-a-file-url\n"); QVERIFY(!Fusion::canPasteFiles(&mime));
+    QApplication::clipboard()->setText("text is not a file");
+    QVERIFY(!Fusion::pasteFiles(QUrl::fromLocalFile(folder), nullptr));
+  }
+  void menuMigrationPreservesCustomizations() {
+    Fusion::Preferences prefs(temporary.path()+"/old-menu.ini");
+    QJsonArray entries;
+    for (const auto &row : Fusion::menuDefaults()) entries.prepend(QJsonObject::fromVariantMap(row));
+    entries.append(QJsonObject{{"id", "custom:tool"}, {"name", "My action"}, {"command", "true"}, {"enabled", false}});
+    prefs.settings.setValue("menu", QString::fromUtf8(QJsonDocument(entries).toJson(QJsonDocument::Compact)));
+    const auto migrated = prefs.menu(); QStringList ids;
+    for (const auto &row : migrated) ids << row["id"].toString();
+    QVERIFY(ids.indexOf("compress") < ids.indexOf("cut"));
+    QCOMPARE(ids.indexOf("rename") + 1, ids.indexOf("properties"));
+    QVERIFY(!migrated[ids.indexOf("custom:tool")]["enabled"].toBool());
+    prefs.setMenu(migrated); QCOMPARE(prefs.menu(), migrated);
+  }
+  void newTemplatesPersistAndRejectConflicts() {
+    const auto path = temporary.path()+"/templates.json";
+    auto catalog = Fusion::loadTemplates(path); const auto stale = catalog;
+    catalog.entries << Fusion::NewItem{"custom-document", "Notes", "Notes.txt", "text", "Hello café\n", {}, true};
+    QString error; QVERIFY2(Fusion::saveTemplates(catalog, &error, path), qPrintable(error));
+    auto loaded = Fusion::loadTemplates(path); QCOMPARE(loaded.entries.size(), 1); QCOMPARE(loaded.entries[0].text, QString("Hello café\n"));
+    QVERIFY(!Fusion::saveTemplates(stale, &error, path)); QVERIFY(error.contains("another window"));
+    loaded.entries[0].filename = "../escape"; QVERIFY(!Fusion::saveTemplates(loaded, &error, path));
+    QCOMPARE(Fusion::loadTemplates(path).entries[0].filename, QString("Notes.txt"));
+    write(path, "{broken"); auto broken = Fusion::loadTemplates(path); QVERIFY(!broken.error.isEmpty());
+    QVERIFY(!Fusion::saveTemplates(broken, &error, path)); QFile saved(path); QVERIFY(saved.open(QIODevice::ReadOnly)); QCOMPARE(saved.readAll(), QByteArray("{broken"));
+  }
+  void templateEditorCreatesSharedMenuEntriesAndCancelKeepsSettings() {
+    const auto path = Fusion::templateSettingsPath();
+    QFile old(path); const bool existed = old.exists(); QByteArray before;
+    if (old.open(QIODevice::ReadOnly)) before = old.readAll(); old.close();
+    auto restore = qScopeGuard([&] { if (existed) write(path, before); else QFile::remove(path); });
+    QFile::remove(path);
+    bool entrySaved = false, optionsSaved = false;
+    QTimer::singleShot(0, this, [&] {
+      auto *options = qobject_cast<QDialog *>(QApplication::activeModalWidget()); if (!options) return;
+      QTimer::singleShot(0, options, [&] {
+        auto *entry = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+        if (!entry || !entry->findChild<QLineEdit *>("templateName")) return;
+        entry->findChild<QLineEdit *>("templateName")->setText("Project notes");
+        entry->findChild<QLineEdit *>("templateFilename")->setText("Notes.md");
+        entry->findChild<QPlainTextEdit *>("templateText")->setPlainText("# Project\n");
+        const auto capture = qEnvironmentVariable("FUSION_FILES_CAPTURE");
+        if (!capture.isEmpty()) entry->grab().save(capture+"-template-entry.png");
+        entry->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save)->click();
+        entrySaved = true;
+      });
+      for (auto *button : options->findChildren<QPushButton *>()) if (button->text() == "Add…") { button->click(); break; }
+      const auto capture = qEnvironmentVariable("FUSION_FILES_CAPTURE");
+      if (!capture.isEmpty()) options->grab().save(capture+"-templates.png");
+      optionsSaved = options->findChild<QListWidget *>("templateEntries")->count() == 1;
+      options->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save)->click();
+    });
+    Fusion::configureTemplates(); QVERIFY(entrySaved && optionsSaved);
+    auto entries = Fusion::newItems(); QCOMPARE(entries.size(), 3); QCOMPARE(entries.last().filename, QString("Notes.md"));
+    QCOMPARE(entries.last().text, QString("# Project\n"));
+    const auto saved = Fusion::loadTemplates().revision;
+    QTimer::singleShot(0, this, [] {
+      auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget()); if (!dialog) return;
+      dialog->findChild<QListWidget *>("templateEntries")->item(0)->setCheckState(Qt::Unchecked);
+      dialog->reject();
+    });
+    Fusion::configureTemplates(); QCOMPARE(Fusion::loadTemplates().revision, saved);
+  }
+  void newItemsNeverOverwriteAndPreserveTemplateBytes() {
+    const auto base = folder+"/new-items"; QDir().mkpath(base);
+    const auto directory = QUrl::fromLocalFile(base);
+    Fusion::NewItem text{"text", "Text document", "New.txt", "text", "café\n", {}, true};
+    auto run = [&](const Fusion::NewItem &item, const QString &name) {
+      auto *job = Fusion::createNewItem(item, name, directory);
+      if (!job) return -1;
+      QSignalSpy finished(job, &KJob::result); int error = -1; QObject scope;
+      connect(job, &KJob::result, &scope, [&](KJob *result) { error = result->error(); });
+      if (finished.isEmpty()) finished.wait(10000);
+      return error;
+    };
+    QCOMPARE(run(text, "new # 100% café.txt"), 0);
+    text.text = "must not replace"; QVERIFY(run(text, "new # 100% café.txt") > 0);
+    QFile saved(base+"/new # 100% café.txt"); QVERIFY(saved.open(QIODevice::ReadOnly)); QCOMPARE(saved.readAll(), QByteArray("café\n"));
+    const auto source = base+"/source.bin"; const QByteArray bytes("a\0b\xff", 4); write(source, bytes);
+    Fusion::NewItem file{"custom-file", "Binary", "New.bin", "file", {}, source, true};
+    QCOMPARE(run(file, "created.bin"), 0); QFile copied(base+"/created.bin"); QVERIFY(copied.open(QIODevice::ReadOnly)); QCOMPARE(copied.readAll(), bytes);
+    QVERIFY(QFile::link(source, base+"/link.bin")); QVERIFY(run(text, "link.bin") > 0);
+    QFile original(source); QVERIFY(original.open(QIODevice::ReadOnly)); QCOMPARE(original.readAll(), bytes);
+    QVERIFY(!Fusion::createNewItem(text, "../escape", directory));
+    QVERIFY(!Fusion::createNewItem(text, "name", Fusion::computerUrl()));
+    Fusion::NewItem folderItem{"folder", "Folder", "New folder", "folder", {}, {}, true};
+    QCOMPARE(run(folderItem, "Directory"), 0); QVERIFY(QFileInfo(base+"/Directory").isDir());
+  }
+  void itemAndBackgroundMenusAreRelevant() {
+    const auto base = folder+"/relevant-menu"; QDir().mkpath(base+"/Directory"); write(base+"/file.txt");
+    FilesWindow window(QUrl::fromLocalFile(base), false, temporary.path()+"/relevant.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false); window.show(); auto *tab = window.browser();
+    QTRY_COMPARE(tab->proxy->rowCount(), 2);
+    for (const auto &selection : QStringList{"file.txt", "Directory", ""}) {
+      tab->view()->clearSelection(); if (!selection.isEmpty()) tab->selectUrl(QUrl::fromLocalFile(base+"/"+selection));
+      QApplication::clipboard()->setText("plain text");
+      QStringList ids; bool pasteDisabled = false, pasteActivated = false, newEntries = false;
+      QTimer::singleShot(0, &window, [&] {
+        auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget()); if (!menu) return;
+        for (auto *a : menu->actions()) if (!a->isSeparator()) ids << (a->menu() && a->menu()->objectName() == "sevenZipMenu" ? "archive" : a->objectName());
+        if (auto *paste = menu->findChild<QAction *>("paste")) {
+          pasteDisabled = !paste->isEnabled(); auto *mime = new QMimeData; mime->setUrls({QUrl::fromLocalFile(base+"/file.txt")}); QApplication::clipboard()->setMimeData(mime); pasteActivated = paste->isEnabled();
+        }
+        if (auto *sub = menu->findChild<QMenu *>("newMenu")) newEntries = sub->actions()[0]->text() == "Folder" && sub->actions()[1]->text() == "Text document" && sub->actions().last()->text() == "Template Options…";
+        menu->close();
+      });
+      emit tab->contextRequested(window.mapToGlobal(QPoint(40,80)));
+      QCOMPARE(ids.contains("newFolder"), selection.isEmpty());
+      QCOMPARE(newEntries, selection.isEmpty());
+      QCOMPARE(ids.contains("paste"), selection != "file.txt");
+      if (ids.contains("paste")) QVERIFY(pasteDisabled && pasteActivated);
+      if (!selection.isEmpty()) { QVERIFY(ids.indexOf("archive") < ids.indexOf("cut")); QCOMPARE(ids.indexOf("rename")+1, ids.indexOf("properties")); QVERIFY(ids.indexOf("trash") < ids.indexOf("rename")); }
+      QCOMPARE(ids.last(), QString("properties"));
+    }
+  }
+  void auxiliaryPartitionsAreCompactWithoutShrinkingData() {
+    Volume volume; volume.filesystem = "vfat"; volume.name = "USB data"; QVERIFY(!volume.compactCard());
+    volume.name = "FUSION_EFI"; QVERIFY(volume.compactCard());
+    volume.filesystem = "ntfs"; QVERIFY(!volume.compactCard());
+    volume.partitionType = "de94bba4-06d1-4d40-a16a-bfd50179d6ac"; QVERIFY(volume.compactCard());
+    volume.mount = "/"; QVERIFY(!volume.compactCard());
+    volume.partitionType.clear(); volume.mount = "/boot"; volume.filesystem = "ext4"; QVERIFY(volume.compactCard());
+    FilesWindow window(Fusion::computerUrl(), false, temporary.path()+"/compact.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false); window.resize(1300, 900); window.show();
+    window.drives->volumes = computerVolumes(); emit window.drives->changed();
+    auto *row = driveRow(window.browser(), "/dev/fusion-a"); QVERIFY(row);
+    QListWidgetItem *data = nullptr, *efi = nullptr;
+    for (int n=0; n<row->count(); ++n) { auto *item=row->item(n); if (item->data(Qt::UserRole).value<Volume>().mount == "/") data=item; if (item->data(Qt::UserRole).value<Volume>().mount == "/boot/efi") efi=item; }
+    QVERIFY(data && efi); QTRY_VERIFY(row->visualItemRect(data).width() > 0);
+    const auto main = row->visualItemRect(data), small = row->visualItemRect(efi);
+    QVERIFY(small.width() >= main.width()/2 && small.width() <= main.width()*3/5);
+    QCOMPARE(main.height(), small.height()); QVERIFY(!main.intersects(small));
   }
   void pathsPreserveLiteralCharacters() {
     const QString path = folder + "/deep path/# 100% café %u.txt";
@@ -1578,7 +1736,7 @@ print(json.dumps(rows))
     data->setUrls({QUrl::fromLocalFile(source + "/menu.txt")});
     QApplication::clipboard()->setMimeData(data);
     bool copyEnabled = false, cutDisabled = false, pasteEnabled = false,
-         arkPresent = false;
+         archivePresent = false;
     QTimer::singleShot(0, &window, [&] {
       auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
       if (!menu)
@@ -1589,13 +1747,13 @@ print(json.dumps(rows))
       copyEnabled = copy && copy->isEnabled();
       cutDisabled = cut && !cut->isEnabled();
       pasteEnabled = paste && paste->isEnabled();
-      arkPresent = menu->findChild<QMenu *>("arkMenu");
+      archivePresent = menu->findChild<QMenu *>("sevenZipMenu");
       if (paste)
         paste->trigger();
       menu->close();
     });
     window.drives->menu(usb, window.mapToGlobal(QPoint(30, 30)), &window);
-    QVERIFY(copyEnabled && cutDisabled && pasteEnabled && arkPresent);
+    QVERIFY(copyEnabled && cutDisabled && pasteEnabled && archivePresent);
     QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(destination + "/menu.txt"),
                              10000);
     write(source + "/disconnected.txt");
@@ -1647,7 +1805,7 @@ print(json.dumps(rows))
       copy = menu->findChild<QAction *>("copy");
       cut = menu->findChild<QAction *>("cut");
       paste = menu->findChild<QAction *>("paste");
-      if (auto *ark = menu->findChild<QMenu *>("arkMenu"))
+      if (auto *ark = menu->findChild<QMenu *>("sevenZipMenu"))
         for (auto *action : ark->actions())
           if (!action->isSeparator())
             compression << action->text();
@@ -1657,7 +1815,8 @@ print(json.dumps(rows))
       menu->close();
     });
     emit tab->contextRequested(window.mapToGlobal(QPoint(40, 80)));
-    QVERIFY(openNamed && chooser && copy && cut && paste);
+    QVERIFY(openNamed && chooser && copy && cut);
+    QVERIFY(!paste); // Paste belongs to the background or a selected folder.
     QVERIFY2(compression.size() >= 2, qPrintable(compression.join(" | ")));
     QVERIFY2(std::any_of(compression.cbegin(), compression.cend(),
                          [](const QString &text) {
@@ -1668,7 +1827,7 @@ print(json.dumps(rows))
       auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
       if (!menu)
         return;
-      if (auto *ark = menu->findChild<QMenu *>("arkMenu"))
+      if (auto *ark = menu->findChild<QMenu *>("sevenZipMenu"))
         for (auto *action : ark->actions())
           if (action->text().contains("zip", Qt::CaseInsensitive)) {
             action->trigger();
@@ -1856,8 +2015,9 @@ print(json.dumps(rows))
       QCOMPARE(bar->historySize(), history);
       QCOMPARE(navigation.size(), 0);
       bar->setUrlEditable(false);
-      auto *label = bar->findChild<QLabel *>("selectedFilePath");
-      QVERIFY(label); QCOMPARE(label->text(), file.fileName());
+      QVERIFY(bar->isUrlEditable());
+      QVERIFY(bar->editor()->isVisible());
+      QCOMPARE(bar->editor()->currentText(), file.toLocalFile());
       tab.editAddress();
       QCOMPARE(bar->editor()->lineEdit()->selectedText(), file.toLocalFile());
       const int openedBefore = opened.size();
@@ -2049,8 +2209,9 @@ print(json.dumps(rows))
       const auto index = tab->proxy->mapFromSource(tab->model->indexForUrl(url));
       // Use the view's real right-click path, including hit testing.
       emit tab->view()->customContextMenuRequested(tab->view()->visualRect(index).center());
-      for (const auto &id : {"open", "openWith", "copy", "cut", "paste", "rename", "trash"})
+      for (const auto &id : {"open", "openWith", "copy", "cut", "rename", "trash"})
         QVERIFY2(actions.contains(id), id);
+      QVERIFY(!actions.contains("newFolder")); QVERIFY(!actions.contains("paste"));
       if (url == script) QCOMPARE(actions.first(), QString("execute"));
       else QVERIFY(!actions.contains("execute"));
     }
@@ -2134,7 +2295,10 @@ print(json.dumps(rows))
     const auto target = folder + "/Transfer target";
     QDir().mkpath(source);
     QDir().mkpath(target);
-    for (int n = 0; n < 1024; ++n)
+    // Keep enough work in flight for the real pause/resume round trip even
+    // on fast reflink-capable storage.
+    constexpr int fileCount = 4096;
+    for (int n = 0; n < fileCount; ++n)
       write(source + "/file-" + QString::number(n), QByteArray(65536, char(n % 127)));
     FilesWindow window(QUrl::fromLocalFile(folder), false,
                        temporary.path() + "/progress.ini");
@@ -2152,15 +2316,15 @@ print(json.dumps(rows))
     QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 1, 30000);
     if (qEnvironmentVariableIsSet("FUSION_FILES_PROGRESS_CANCEL")) {
       QCOMPARE(finished.first().first().toInt(), int(KIO::ERR_USER_CANCELED));
-      QCOMPARE(QDir(source).entryList(QDir::Files).size(), 1024);
+      QCOMPARE(QDir(source).entryList(QDir::Files).size(), fileCount);
       window.close();
       return;
     }
     QCOMPARE(finished.first().first().toInt(), 0);
-    QCOMPARE(QDir(target + "/Transfer source").entryList(QDir::Files).size(), 1024);
-    QFile last(target + "/Transfer source/file-1023");
+    QCOMPARE(QDir(target + "/Transfer source").entryList(QDir::Files).size(), fileCount);
+    QFile last(target + "/Transfer source/file-" + QString::number(fileCount-1));
     QVERIFY(last.open(QIODevice::ReadOnly));
-    QCOMPARE(last.readAll(), QByteArray(65536, char(1023 % 127)));
+    QCOMPARE(last.readAll(), QByteArray(65536, char((fileCount-1) % 127)));
     window.close();
   }
   void transferQuestions() {
@@ -2178,6 +2342,7 @@ print(json.dumps(rows))
         write(base+"/source/Folder/new.txt", "new file");
         QTimer queued;
         connect(&queued, &QTimer::timeout, &owner, [&] {
+          if (qEnvironmentVariableIsSet("FUSION_FILES_EMBEDDED_QUEUE_CHECK")) return;
           if (!QFileInfo::exists(base+"/target/Folder/new.txt")) return;
           if (QByteArray(mode)=="individual") {
             auto *queue=queueFor(base); if (!queue) return;
@@ -2199,6 +2364,10 @@ print(json.dumps(rows))
             QUrl::fromLocalFile(base+"/target"), operation, &owner);
         int error = -1; connect(job, &KJob::result, &owner, [&](KJob *j) { error = j->error(); });
         QTRY_VERIFY_WITH_TIMEOUT(error != -1, 15000);
+        if (qEnvironmentVariableIsSet("FUSION_FILES_EMBEDDED_QUEUE_CHECK")) {
+          for (auto *widget : QApplication::topLevelWidgets())
+            if (auto *queue = qobject_cast<Fusion::TransferIssues *>(widget)) QVERIFY(!queue->isVisible());
+        }
         QCOMPARE(error, QByteArray(mode) == "cancel" ? KIO::ERR_USER_CANCELED : 0);
         for (const auto name : {"a.txt", "Folder/b.txt", "Folder/nested/c.txt"}) {
           const bool replaced = QByteArray(mode) == "replace" || (QByteArray(mode) == "individual" && QByteArray(name) == "a.txt");
@@ -2210,6 +2379,19 @@ print(json.dumps(rows))
         QVERIFY(!owner.findChild<QDialog *>("transferConflictSummary"));
         QVERIFY(!owner.findChild<QMessageBox *>("transferConflictQuestion"));
       }
+    }
+    if (qEnvironmentVariableIsSet("FUSION_FILES_EMBEDDED_QUEUE_CHECK")) {
+      const auto retryBase = folder+"/questions-retry";
+      QDir().mkpath(retryBase+"/source"); QDir().mkpath(retryBase+"/target");
+      write(retryBase+"/source/private.xml", "protected content");
+      write(retryBase+"/source/ordinary.txt", "uninterrupted copy");
+      QVERIFY(::chmod(QFile::encodeName(retryBase+"/source/private.xml"), 0000) == 0);
+      auto *job = Fusion::transferFiles({QUrl::fromLocalFile(retryBase+"/source")},
+          QUrl::fromLocalFile(retryBase+"/target"), Fusion::TransferOperation::Copy, &owner);
+      int error = -1; connect(job, &KJob::result, &owner, [&](KJob *j) { error = j->error(); });
+      QTRY_COMPARE_WITH_TIMEOUT(error, 0, 15000);
+      QFile copied(retryBase+"/target/source/private.xml"); QVERIFY(copied.open(QIODevice::ReadOnly));
+      QCOMPARE(copied.readAll(), QByteArray("protected content"));
     }
     const auto base = folder+"/questions-duplicate"; QDir().mkpath(base);
     write(base+"/a.txt", "original");

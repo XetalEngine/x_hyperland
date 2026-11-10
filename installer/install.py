@@ -299,7 +299,7 @@ def validate(stage):
     validate_config(stage)
     for relative in ('runtime/notices/.build/xetal-startup-notices.so',
                      'theme/gtk3/libxetal-file-preview.so','theme/qt5/platformthemes/libxetaltheme.so','theme/qt6/platformthemes/libxetaltheme.so',
-                     'waybar/pins/pins.so','waybar/workspaces/controls.so','waybar/options/options.so','share-picker/window-preview','control_panel/.build/xetal-control-panel',
+                     'waybar/pins/pins.so','waybar/workspaces/controls.so','waybar/workspaces/mode.so','waybar/options/options.so','share-picker/window-preview','control_panel/.build/xetal-control-panel',
                      'file_manager/.build/xetal-files'):
         if not (stage/relative).is_file():raise RuntimeError('Missing built component: '+relative)
 

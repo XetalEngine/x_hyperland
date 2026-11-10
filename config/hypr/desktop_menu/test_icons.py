@@ -308,6 +308,9 @@ class CanvasTests(unittest.TestCase):
         (root/'Desktop/.hidden').write_text('hidden')
         self.owner = Mock()
         self.fake_files = Mock()
+        self.fake_files.new_entries.side_effect = lambda callback: callback([
+            dict(id="folder", name="Folder", enabled=True),
+            dict(id="text", name="Text document", enabled=True)])
         self.store = model.Store(root/'icons.json')
         with patch.object(icons.model, 'Store', return_value=self.store), patch.object(icons, 'Files', return_value=self.fake_files):
             self.controller = icons.Icons(self.owner, {})
@@ -429,7 +432,8 @@ class CanvasTests(unittest.TestCase):
     def test_menu_toggle_and_layout_controls(self):
         menu = self.Gtk.Menu(); self.controller.append_menu(menu, 0)
         items = {item.get_label(): item for item in menu.get_children() if hasattr(item, 'get_label')}
-        self.assertTrue(items['Show Desktop icons'].get_active())
+        view = {item.get_label(): item for item in items['View'].get_submenu().get_children() if hasattr(item, 'get_label')}
+        self.assertTrue(view['Show Desktop icons'].get_active())
         arrange = {item.get_label(): item for item in items['Arrange icons'].get_submenu().get_children() if hasattr(item, 'get_label')}
         self.assertTrue(arrange['Columns'].get_active())
         self.assertTrue(arrange['Auto align'].get_active())
@@ -445,7 +449,7 @@ class CanvasTests(unittest.TestCase):
         arrange['Auto arrange'].set_active(False)
         self.wait(lambda: not self.controller.layout_pending)
         self.assertEqual(self.canvas.positions, packed)
-        items['Show Desktop icons'].set_active(False)
+        view['Show Desktop icons'].set_active(False)
         self.wait(lambda: not self.canvas.tiles)
         self.assertFalse(self.store.load()['enabled'])
         menu.destroy()
@@ -490,7 +494,7 @@ class CanvasTests(unittest.TestCase):
             ready.destroy(); self.window.menu = None
 
     def test_archive_submenu_does_not_dispatch_a_missing_action(self):
-        entries = [{'name': 'Ark', 'children': [{'name': 'Compress…', 'action': 'archive:1'}]}]
+        entries = [{'name': '7-Zip', 'children': [{'name': 'Compress…', 'action': 'archive:1'}]}]
         with patch.object(self.Gtk.Menu, 'popup_at_widget', lambda menu, *_: menu.show()):
             self.controller.select({'Folder'}); self.canvas.file_menu(None)
             self.fake_files.menu.call_args.args[1](entries)
@@ -573,6 +577,49 @@ class CanvasTests(unittest.TestCase):
         self.assertEqual(texts, ['copied while transfer was running'])
         self.assertEqual(self.canvas.tiles['notes # café.txt'].image.get_opacity(), 1)
 
+    def test_delayed_templates_enable_a_complete_submenu_and_ignore_closed_menus(self):
+        self.fake_files.new_entries.side_effect = None
+        menu = self.Gtk.Menu(); self.controller.append_menu(menu, 0)
+        new = next(item for item in menu.get_children() if item.get_label() == 'New')
+        self.assertFalse(new.get_sensitive())
+        callback = self.fake_files.new_entries.call_args.args[0]
+        callback([dict(id='folder', name='Folder', enabled=True), dict(id='text', name='Text document', enabled=True),
+                  dict(id='notes', name='Project notes', enabled=True)])
+        self.assertTrue(new.get_sensitive())
+        labels = [item.get_label() for item in new.get_submenu().get_children()]
+        self.assertEqual(labels[:3], ['Folder', 'Text document', 'Project notes'])
+        self.assertEqual(labels[-1], 'Template Options…')
+        menu.destroy()
+        menu = self.Gtk.Menu(); self.controller.append_menu(menu, 0)
+        delayed = self.fake_files.new_entries.call_args.args[0]; menu.destroy()
+        with patch('sys.excepthook') as uncaught:
+            delayed([dict(id='folder', name='Folder', enabled=True)])
+            uncaught.assert_not_called()
+
+    def test_paste_menu_tracks_file_clipboard_and_folder_destination(self):
+        menu = self.Gtk.Menu(); self.controller.append_menu(menu, 0)
+        entries = {item.get_label(): item for item in menu.get_children() if hasattr(item, 'get_label')}
+        paste = entries['Paste']; clipboard = self.controller.clipboard
+        clipboard.clipboard.set_text('ordinary text', -1)
+        self.wait(lambda: not paste.get_sensitive())
+        clipboard.write([self.controller.uri('notes # café.txt')])
+        self.wait(lambda: paste.get_sensitive())
+        clipboard.clipboard.set_text(self.controller.uri('notes # café.txt'), -1)
+        self.wait(lambda: not paste.get_sensitive())
+        clipboard.write(['https://example.com/a.txt'])
+        self.wait(lambda: not paste.get_sensitive())
+        clipboard.write([self.controller.uri('notes # café.txt')])
+        self.wait(lambda: paste.get_sensitive())
+        with patch.object(self.controller, 'transfer') as transfer:
+            self.controller.paste(destination=self.controller.uri('Folder'))
+            self.wait(lambda: transfer.called)
+            self.assertEqual(transfer.call_args.args[1], self.controller.uri('Folder'))
+        options = entries['New'].get_submenu().get_children()[-1]
+        self.assertEqual(options.get_label(), 'Template Options…')
+        options.activate(); self.fake_files.call.assert_any_call('ConfigureTemplates', '()')
+        menu.destroy()
+        clipboard.clipboard.set_text('closed menu', -1)
+
     def test_shortcut_badge_only_for_links_and_launchers(self):
         (self.controller.root/'Folder link').symlink_to(self.controller.root/'Folder', target_is_directory=True)
         (self.controller.root/'Example.desktop').write_text('[Desktop Entry]\nType=Application\nName=Example\nExec=true\nIcon=folder\n')
@@ -585,11 +632,12 @@ class CanvasTests(unittest.TestCase):
         self.controller.setting('auto_align', False)
         target = (self.canvas.monitor, (310, 220))
         menu = self.Gtk.Menu(); self.controller.append_menu(menu, 0, target)
-        new = next(item for item in menu.get_children() if hasattr(item, 'get_label') and item.get_label() == 'New folder…')
+        new = next(item for item in menu.get_children() if hasattr(item, 'get_label') and item.get_label() == 'New')
+        new = new.get_submenu().get_children()[0]
         with patch.object(self.controller, 'pointer_target', return_value=(self.canvas.monitor, (600, 450))):
             new.activate()
         request = next(iter(self.controller.placements))
-        self.fake_files.call.assert_any_call('NewFolderWithPlacement', '(ss)', self.controller.uri(), request, on_reply=ANY)
+        self.fake_files.call.assert_any_call('CreateNewWithPlacement', '(sss)', self.controller.uri(), 'folder', request, on_reply=ANY)
         original = self.canvas.positions['Folder']
         self.controller.placement_target(request, self.controller.uri('Folder'))
         self.controller.placement_target(request, self.controller.uri('Created here'))

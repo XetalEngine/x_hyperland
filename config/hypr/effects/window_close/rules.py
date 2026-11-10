@@ -8,6 +8,7 @@ from pathlib import Path
 PATH = Path(__file__).with_name('rules.json')
 MODES = {'super': 'Only while holding the modifier', 'always': 'Always',
          'nearby': 'When the pointer is nearby', 'off': 'Off'}
+KDE_MODES = {'auto': 'Automatic · add missing controls', **MODES}
 ANCHORS = {'top-right': 'Top right', 'top-center': 'Top center', 'top-left': 'Top left',
            'bottom-right': 'Bottom right', 'bottom-center': 'Bottom center', 'bottom-left': 'Bottom left'}
 BACKGROUNDS = {'auto': 'Auto · match the window underneath', 'manual': 'Manual · choose a color'}
@@ -20,7 +21,7 @@ def validate(rule):
     if not isinstance(rule, dict) or rule.keys() not in (DEFAULTS.keys(), LEGACY_KEYS):
         raise ValueError('Window button options are incomplete or contain unknown fields.')
     rule = dict(DEFAULTS, **rule)  # Existing rules gain Auto without changing their saved geometry.
-    if rule['mode'] not in MODES or rule['anchor'] not in ANCHORS:
+    if rule['mode'] not in KDE_MODES or rule['anchor'] not in ANCHORS:
         raise ValueError('Choose a supported display mode and position.')
     for key, low, high in [('size',10,64), ('x',0,4000), ('y',0,4000), ('proximity',12,400)]:
         if type(rule[key]) is not int or not low <= rule[key] <= high:
@@ -60,5 +61,6 @@ def load(path=PATH, section='apps'):
     return validate_document(data,section), hashlib.sha256(raw).hexdigest()
 
 
-def effective(settings, app_rule=None, window_rule=None):
-    return validate(window_rule or app_rule or dict(DEFAULTS,size=settings['size'],x=settings['inset'],y=settings['inset']))
+def effective(settings, app_rule=None, window_rule=None, *, profile='standard'):
+    return validate(window_rule or app_rule or dict(DEFAULTS, mode='auto' if profile=='kde' else 'super',
+                                                   size=settings['size'],x=settings['inset'],y=settings['inset']))

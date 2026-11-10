@@ -1,44 +1,7 @@
 /* Per-workspace menus. Only the profile controller writes preferences; it
  * validates, locks, merges and rolls back failed compositor updates. */
 #pragma once
-typedef struct { int layout, controls; } WorkspaceModes;
-static const char *layout_keys[] = {"off", "tile", "floating"};
-static const char *control_keys[] = {"individual", "on", "off"};
-
-static int workspace_choice(JsonObject *object, const char *key, const char **choices) {
-    JsonNode *node = json_object_get_member(object, key);
-    if (!node || json_node_get_value_type(node) != G_TYPE_STRING) return -1;
-    for (int i = 0; i < 3; i++) if (!strcmp(json_node_get_string(node), choices[i])) return i;
-    return -1;
-}
-
-static gboolean workspace_modes(const char *path, int workspace, WorkspaceModes *modes) {
-    *modes = (WorkspaceModes){0, 0};
-    char *contents = NULL; gsize length = 0; GError *error = NULL;
-    if (!g_file_get_contents(path, &contents, &length, &error)) {
-        gboolean absent = g_error_matches(error, G_FILE_ERROR, G_FILE_ERROR_NOENT);
-        g_clear_error(&error); return absent;
-    }
-    JsonParser *parser = json_parser_new();
-    gboolean valid = length <= 1024 * 1024 && json_parser_load_from_data(parser, contents, length, NULL);
-    JsonNode *root = valid ? json_parser_get_root(parser) : NULL;
-    JsonObject *object = root && JSON_NODE_HOLDS_OBJECT(root) ? json_node_get_object(root) : NULL;
-    JsonNode *version = object ? json_object_get_member(object, "version") : NULL;
-    JsonNode *entries = object ? json_object_get_member(object, "workspaces") : NULL;
-    valid = version && json_node_get_value_type(version) == G_TYPE_INT64 && json_node_get_int(version) == 1
-        && entries && JSON_NODE_HOLDS_OBJECT(entries);
-    if (valid) {
-        char key[24]; g_snprintf(key, sizeof key, "%d", workspace);
-        JsonNode *entry = json_object_get_member(json_node_get_object(entries), key);
-        if (entry) {
-            object = JSON_NODE_HOLDS_OBJECT(entry) ? json_node_get_object(entry) : NULL;
-            modes->layout = object ? workspace_choice(object, "layout", layout_keys) : -1;
-            modes->controls = object ? workspace_choice(object, "controls", control_keys) : -1;
-            valid = modes->layout >= 0 && modes->controls >= 0;
-        }
-    }
-    g_object_unref(parser); g_free(contents); return valid;
-}
+#include "workspace_state.h"
 
 static GtkWidget *workspace_at(GtkWidget *widget, GtkWidget *top, double x, double y) {
     if (!gtk_widget_get_mapped(widget)) return NULL;
@@ -105,18 +68,19 @@ static void workspace_settings(GtkMenuItem *item, gpointer data) {
 }
 
 static GtkWidget *workspace_choices(Options *o, int workspace, gboolean controls, int selected) {
-    const char *layout_names[] = {"Off", "Force tiled", "Force floating"};
+    const char *layout_names[] = {"Individual", "Force tiling", "Force floating", "KDE mode"};
     const char *control_names[] = {"Individual", "On", "Off"};
     const char *layout_tips[] = {"Use normal launch and per-window behavior. Current windows keep their layout.",
         "Keep windows tiled together, including newly opened windows and windows moved here.",
-        "Keep windows floating, including newly opened windows and windows moved here."};
+        "Keep windows floating, including newly opened windows and windows moved here.",
+        "Float windows and add missing controls. The gear saves separate KDE-mode preferences."};
     const char *control_tips[] = {"Use each app or window’s own settings.",
         "Always show controls on all windows here. Super reveals the gear; its settings apply across this workspace.",
         "Hide all artificial window controls in this workspace, even while Super is held."};
     GtkWidget *menu = gtk_menu_new(); GSList *group = NULL;
     gtk_style_context_add_class(gtk_widget_get_style_context(menu), "xetal-bar-options");
     g_object_set_data_full(G_OBJECT(menu), "owner", retain(o), release);
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < (controls ? 3 : 4); i++) {
         GtkWidget *item = gtk_radio_menu_item_new_with_label(group, controls ? control_names[i] : layout_names[i]);
         group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
         gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), selected == i);
@@ -154,6 +118,10 @@ static void append_workspace_options(Options *o, GtkWidget *menu, GtkWidget *but
         GtkWidget *item = gtk_menu_item_new_with_label(controls ? "Force modifier buttons" : "Force window layout");
         gtk_menu_item_set_submenu(GTK_MENU_ITEM(item), workspace_choices(o, workspace, controls,
             valid ? controls ? modes.controls : modes.layout : -1));
+        if (controls && valid && modes.layout == 3) {
+            gtk_widget_set_sensitive(item, FALSE);
+            gtk_widget_set_tooltip_text(item, "KDE mode uses separate per-app and per-window settings. Hold Super over a window for its gear.");
+        }
         gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
     }
     if (!valid) {

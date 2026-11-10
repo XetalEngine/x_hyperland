@@ -39,6 +39,7 @@ static const Item items[] = {
     {"hyprland/workspaces", "Workspaces & app icons", "workspaces", NULL, "Apps & workspaces"},
     {"cffi/new-workspace", "New workspace (+)", "new-workspace", NULL, "Apps & workspaces"},
     {"custom/keys", "Keys button", "custom-keys", NULL, "Apps & workspaces"},
+    {"cffi/workspace-mode", "Workspace window mode", "workspace-mode", NULL, "Apps & workspaces"},
     {"custom/updates", "Desktop updates", "custom-updates", NULL, "Apps & workspaces"},
     {"cffi/app-pins", "Pinned apps", "xetal-pins", NULL, "Apps & workspaces"},
 };

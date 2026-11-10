@@ -9,6 +9,15 @@ import shutil
 ROOT = Path(__file__).resolve().parent
 
 def build():
+    # Verify the pinned offline archive runtime before publishing this build.
+    import importlib.util
+    archive_root = ROOT.parent / 'archive_manager'
+    spec = importlib.util.spec_from_file_location('fusion_archive_engine', archive_root/'engine.py')
+    engine = importlib.util.module_from_spec(spec)
+    import sys
+    sys.modules[spec.name] = engine
+    spec.loader.exec_module(engine)
+    engine.binary()
     output = ROOT / '.build'
     output.mkdir(exist_ok=True)
     with (output / 'build.lock').open('a') as lock:

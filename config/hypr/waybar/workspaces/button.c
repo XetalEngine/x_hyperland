@@ -278,6 +278,9 @@ static gboolean refresh(gpointer data) {
             if (d && minimized) { d->minimized = TRUE; d->number = minimized; }
             if (d) d->stash = stash;
         }
+        /* Named workspaces have no numbered layout override. Publish readiness
+         * separately so the indicator can distinguish them from initial setup. */
+        g_object_set_data(G_OBJECT(button), "xetal-workspace-layout-ready", GINT_TO_POINTER(!number || d != NULL));
         if (!d) continue;
         if (!d->number) d->number = number;
         number = d->number;
@@ -363,6 +366,7 @@ void wbcffi_deinit(void *instance) {
             g_object_set_data(G_OBJECT(d->button), "xetal-workspace-decoration", NULL);
             g_object_set_data(G_OBJECT(d->button), "xetal-workspace-id", NULL);
             g_object_set_data(G_OBJECT(d->button), "xetal-workspace-display", NULL);
+            g_object_set_data(G_OBJECT(d->button), "xetal-workspace-layout-ready", NULL);
             gtk_widget_set_margin_end(d->content, d->margin);
             g_object_ref(d->content);
             gtk_container_remove(GTK_CONTAINER(d->overlay), d->content);

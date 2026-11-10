@@ -56,7 +56,7 @@ def activate(values, target=None):
         if not values['enabled']:
             from workspaces import model as workspace_model
             workspaces, _ = workspace_model.load()
-            if not any(p['controls']=='on' for p in workspaces['workspaces'].values()): return
+            if not any(p['controls']=='on' or p['layout']=='kde' for p in workspaces['workspaces'].values()): return
         current = json.loads(hypr('-j','version'))
         if current.get('commit') != build.SUPPORTED_COMMIT:
             raise RuntimeError('Window Close needs the supported Hyprland 0.56.2 session. The windowclose handler needs an updated adapter.')
@@ -106,28 +106,33 @@ def window_info(window_id):
     return result
 
 
-def rule_file(scope):
-    if scope == 'app': return rules.PATH, 'apps'
-    if scope == 'window': return instance_dir()/'xetal-windowbuttons-rules.json', 'windows'
+def rule_file(scope, profile='standard'):
+    if profile not in ('standard', 'kde'): raise ValueError('Unknown window controls profile.')
+    if scope == 'app': return rules.PATH.with_name('kde-rules.json') if profile=='kde' else rules.PATH, 'apps'
+    if scope == 'window': return instance_dir()/('xetal-windowbuttons-kde-rules.json' if profile=='kde' else 'xetal-windowbuttons-rules.json'), 'windows'
     raise ValueError('Choose this window or this application.')
 
 
-def save_rule(window_id, scope, rule, token, window_token=None):
+def save_rule(window_id, scope, rule, token, window_token=None, *, profile='standard'):
     """Save a choice; app-editor saves may also clear this window's override.
 
     Both files are checked, locked and rolled back together. Other windows'
     explicit overrides remain independent of the application choice.
     """
     info = window_info(window_id)
+    if info.get('control_profile', 'standard') != profile:
+        raise ValueError('The workspace mode changed. Reload the editor before applying.')
     if info.get('workspace_controls', 'individual') != 'individual':
         raise ValueError('Workspace controls changed. Reload the editor before applying.')
-    path, section = rule_file(scope)
+    path, section = rule_file(scope, profile) if profile!='standard' else rule_file(scope)
     key = info['app'] if scope == 'app' else str(window_id)
     if not key: raise ValueError('This window has no application identity. Use a window-specific choice.')
-    if rule is not None: rule = rules.validate(rule)
+    if rule is not None:
+        rule = rules.validate(rule)
+        if rule['mode']=='auto' and profile!='kde': raise ValueError('Automatic controls are available in KDE mode.')
     changes = [(path,section,key,rule,token)]
     if scope == 'app' and window_token is not None:
-        window_path,window_section = rule_file('window')
+        window_path,window_section = rule_file('window',profile) if profile!='standard' else rule_file('window')
         changes.append((window_path,window_section,str(window_id),None,window_token))
     with ExitStack() as stack:
         for target in sorted({change[0] for change in changes}):
@@ -147,7 +152,10 @@ def save_rule(window_id, scope, rule, token, window_token=None):
             documents.append((target,kind,document,old))
         # Recheck after acquiring the lock; never apply an address recycled by
         # another window. Stable IDs last for exactly this compositor session.
-        if window_info(window_id)['app'] != info['app']: raise ValueError('The application identity changed. Reopen its settings.')
+        latest = window_info(window_id)
+        if latest['app'] != info['app']: raise ValueError('The application identity changed. Reopen its settings.')
+        if latest.get('control_profile','standard')!=profile or latest.get('workspace_controls','individual')!='individual':
+            raise ValueError('The workspace mode changed. Reload the editor before applying.')
         try:
             for target,kind,document,old in documents:
                 # Removing a nonexistent override need not create a file.
@@ -163,12 +171,14 @@ def save_rule(window_id, scope, rule, token, window_token=None):
     return rules.load(path,section)
 
 
-def preview_payload(window_id, token, rule=None, workspace=None):
+def preview_payload(window_id, token, rule=None, workspace=None, *, profile='standard'):
     if not str(window_id).isascii() or not str(window_id).isdecimal():
         raise ValueError('Invalid window identity.')
     if len(token)!=32 or any(c not in '0123456789abcdef' for c in token):
         raise ValueError('Invalid preview identity.')
     data=dict(action='end' if rule is None else 'update',id=str(window_id),token=token)
+    if profile not in ('standard','kde'): raise ValueError('Unknown window controls profile.')
+    if rule is not None: data['profile']=profile
     if rule is not None:data.update(owner=os.getpid(),rule=rules.validate(rule))
     if workspace is not None:
         from workspaces.model import identity

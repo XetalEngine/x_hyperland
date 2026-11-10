@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=7-Zip · Fusion
+GenericName=Archive Manager
+Comment=Create, browse, test and extract archives with the bundled 7-Zip engine
+Exec=/usr/bin/python3 @HYPR@/archive_manager/app.py open -- %F
+Icon=package-x-generic
+MimeType=application/zip;application/x-7z-compressed;application/vnd.rar;application/x-rar;application/x-tar;application/gzip;application/x-bzip2;application/x-xz;application/zstd;application/x-compressed-tar;application/x-bzip-compressed-tar;application/x-xz-compressed-tar;application/x-lzma;application/x-cabinet;application/x-iso9660-image;application/x-cd-image;application/x-wim;
+Categories=Utility;Archiving;Compression;
+StartupNotify=true
+Terminal=false

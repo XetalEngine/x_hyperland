@@ -52,9 +52,10 @@ def activate():
     if answer!='ok':raise RuntimeError(answer)
 
 
-def save(workspace, *, layout=None, controls=None, rule=None, token=None, path=None, window_id=None):
+def save(workspace, *, layout=None, controls=None, rule=None, token=None, path=None, window_id=None, cycle_layout=False):
     key = model.identity(workspace); path = model.PATH if path is None else path
     if layout is not None and layout not in model.LAYOUTS: raise ValueError('Unknown workspace layout.')
+    if cycle_layout and layout is not None: raise ValueError('Choose a layout or cycle it, not both.')
     if controls is not None and controls not in model.CONTROLS: raise ValueError('Unknown workspace button mode.')
     if rule is not None: rule = rules.validate(dict(rule, mode='always'))
     buttons.instance_dir(); path.parent.mkdir(parents=True, exist_ok=True)
@@ -68,6 +69,9 @@ def save(workspace, *, layout=None, controls=None, rule=None, token=None, path=N
                 raise ValueError('This window’s workspace settings changed. Reload before applying.')
         old = path.read_bytes() if path.exists() else None
         value = model.effective(document, key)
+        if cycle_layout:
+            choices = tuple(model.LAYOUTS)
+            layout = choices[(choices.index(value['layout']) + 1) % len(choices)]
         if key not in document['workspaces']:
             settings, _ = button_settings.load()
             value['rule'] = dict(rules.effective(settings), mode='always')
@@ -92,8 +96,9 @@ def main():
     parser.add_argument('--workspace', required=True)
     parser.add_argument('--layout', choices=model.LAYOUTS)
     parser.add_argument('--controls', choices=model.CONTROLS)
+    parser.add_argument('--cycle-layout', action='store_true')
     args = parser.parse_args()
-    save(args.workspace, layout=args.layout, controls=args.controls)
+    save(args.workspace, layout=args.layout, controls=args.controls, cycle_layout=args.cycle_layout)
 
 
 if __name__ == '__main__':

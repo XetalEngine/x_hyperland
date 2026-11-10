@@ -213,8 +213,30 @@ def orbital_glass(p, width, colors, phase):
     p.restore()
 
 
+def puzzle_reliquary(p, width, colors, phase):
+    """Engraved brass double rim and faceted end seals; native material 20."""
+    p.save();accent=QColor(colors['Accent']);ink=QColor(colors['WindowText'])
+    brass=blend(ink,'#c79b61',.65);base=QColor(colors['Window'])
+    box=QRectF(8,8,width-16,80)
+    surface=QLinearGradient(box.topLeft(),box.bottomLeft())
+    surface.setColorAt(0,blend(base,ink,.075));surface.setColorAt(.3,blend(base,accent,.04));surface.setColorAt(1,base)
+    p.setBrush(surface);p.setPen(QPen(alpha(brass,.85),1));p.drawRoundedRect(box,6,6)
+    p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(alpha(brass,.35),.8));p.drawRoundedRect(box.adjusted(4,4,-4,-4),3,3)
+    for x in (23,width-23):
+        diamond=QPainterPath(QPointF(x,29));diamond.lineTo(x+10,48);diamond.lineTo(x,67);diamond.lineTo(x-10,48);diamond.closeSubpath()
+        p.setBrush(base);p.setPen(QPen(alpha(brass,.85),1));p.drawPath(diamond)
+        line(p,x,29,x,67);line(p,x-10,48,x+10,48)
+        p.setPen(QPen(alpha(brass,.4),.7));p.drawEllipse(QPointF(x,48),6,6)
+        p.setBrush(alpha(accent,.65+.2*math.sin(phase)));p.setPen(Qt.PenStyle.NoPen);p.drawEllipse(QPointF(x,48),2,2)
+    p.setPen(QPen(alpha(brass,.55),.8))
+    for y in (15,81):line(p,37,y,width-37,y)
+    p.restore()
+
+
 def tray(painter, width, style, colors, phase):
     """Draw a horizontal tray in a width × 96 coordinate space."""
+    if style == 'leviathan':
+        puzzle_reliquary(painter,width,colors,phase);return
     if style == 'polaris':
         orbital_glass(painter,width,colors,phase);return
     if style == 'infernalencore':
@@ -454,8 +476,13 @@ def dock(p, area, style, colors, *, phase=0., weights=(1., 1., 1.), zoom=(), ver
         p.save(); p.setOpacity(p.opacity()*max(0., min(1., weight)))
         if not stack:
             p.setPen(QPen(alpha(colors['Accent'], .12+(z-1)), .8)); p.setBrush(alpha(colors['Accent'], .035+(z-1)*.1))
-            radius = 11 if style == 'polaris' else 4 if style == 'infernalencore' else 1 if style == 'platform95' else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style in ('midnighttransit','midnightrun') else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
+            radius = 4 if style == 'leviathan' else 11 if style == 'polaris' else 4 if style == 'infernalencore' else 1 if style == 'platform95' else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style in ('midnighttransit','midnightrun') else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
             p.drawRoundedRect(rect, radius, radius)
+        if style == 'leviathan' and not stack:
+            brass=blend(colors['WindowText'],'#c79b61',.65);accent=QColor(colors['Accent'])
+            p.setBrush(blend(colors['Window'],accent,.04+(z-1)*.1));p.setPen(QPen(alpha(brass,min(1,.4+(z-1)*.5)),.8));p.drawRoundedRect(rect,4,4)
+            p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(alpha(brass,.2),.6));p.drawRoundedRect(rect.adjusted(3,3,-3,-3),2,2)
+            p.setPen(QPen(alpha(accent,min(1,.6+(z-1)*.4)),1.2));line(p,rect.left()+9,rect.bottom()-5,rect.right()-9,rect.bottom()-5)
         if style == 'polaris' and not stack:
             accent=QColor(colors['Accent']);ink=QColor(colors['WindowText'])
             pane=QLinearGradient(rect.topLeft(),rect.bottomLeft())

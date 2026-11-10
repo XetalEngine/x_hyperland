@@ -1,5 +1,6 @@
 #include "transfer_issues.h"
 #include "native_transfer.h"
+#include "transfer_view.h"
 #include "core.h"
 #include <QApplication>
 #include <QCheckBox>
@@ -92,7 +93,8 @@ void Fusion::TransferIssuesModel::update(const QVariantMap &value) {
   }
 }
 
-Fusion::TransferIssues::TransferIssues(NativeTransfer *operation, QWidget *owner) : job(operation) {
+Fusion::TransferIssues::TransferIssues(NativeTransfer *operation, QWidget *owner, TransferView *progress)
+    : job(operation), view(progress), bridgeChecked(!progress) {
   setObjectName("transferIssues"); setWindowTitle("Transfer queue — Fusion Files");
   setWindowRole("fusion-transfer-queue");
   setWindowModality(Qt::NonModal); setAttribute(Qt::WA_ShowWithoutActivating);
@@ -159,9 +161,10 @@ Fusion::TransferIssues::TransferIssues(NativeTransfer *operation, QWidget *owner
   connect(job, &NativeTransfer::issue, this, [this, refreshTimer](const QVariantMap &value) {
     if (job) journal = job->journal();
     model->update(value);
+    publish(value);
     if (model->rows.size() == 1 && table->selectionModel()->selectedRows().isEmpty()) table->selectRow(0);
     if (!refreshTimer->isActive()) refreshTimer->start();
-    if (!shown) { shown = true; show(); }
+    if (!shown && bridgeChecked && !embedded) { shown = true; show(); }
   });
   connect(job, &NativeTransfer::progress, this, [this](const QVariantMap &value) {
     if (value.contains("processedFiles")) { copied = value.value("processedFiles").toLongLong(); countsKnown = true; }
@@ -179,18 +182,42 @@ Fusion::TransferIssues::TransferIssues(NativeTransfer *operation, QWidget *owner
       auto value = model->rows[row];
       const auto state = value.value("status").toString();
       if (state == "pending" || state == "authorizing" || state == "retry" || state == "working") {
-        value["status"] = "unresolved"; model->update(value);
+        value["status"] = "unresolved"; model->update(value); publish(value);
       } else if (state == "resolved" && value.value("resolution") == "Copied; move pending") {
-        value["resolution"] = "Copied; original kept"; model->update(value);
+        value["resolution"] = "Copied; original kept"; model->update(value); publish(value);
       }
     }
     done = true; refresh(); hide->setText("Close"); setAttribute(Qt::WA_DeleteOnClose);
-    if (model->rows.isEmpty()) deleteLater(); else show();
+    if (model->rows.isEmpty() || embedded) deleteLater(); else if (bridgeChecked) show();
   });
+  if (view) {
+    connect(view, &TransferView::queueReady, this, [this](bool available) {
+      bridgeChecked = true; embedded = available;
+      if (available) { this->hide(); if (done) deleteLater(); }
+      else if (!model->rows.isEmpty()) { shown = true; show(); }
+    });
+    connect(view, &TransferView::queueDecision, operation, &NativeTransfer::resolve);
+    view->enableQueue();
+  }
   refresh();
 }
 
-void Fusion::TransferIssues::reveal() { show(); raise(); activateWindow(); }
+void Fusion::TransferIssues::publish(const QVariantMap &row) {
+  if (!view) return;
+  auto value = row;
+  value["id"] = row.value("id").toLongLong();
+  value["version"] = row.value("version").toLongLong();
+  value["name"] = QFileInfo(row.value("source").toString()).fileName();
+  value["statusText"] = status(row);
+  value["resultText"] = row.value("status") == "resolved" ? QString("Completed after retry") : row.value("detail").toString();
+  value["details"] = details(row);
+  value["retry_allowed"] = canRetry(row);
+  view->updateQueue(value);
+}
+void Fusion::TransferIssues::reveal() {
+  if (embedded && view) { view->updateQueue({}, {{"reveal", true}}); return; }
+  if (bridgeChecked) { show(); raise(); activateWindow(); }
+}
 void Fusion::TransferIssues::refresh() {
   const auto pending = model->count("pending"), retrying = model->count("retry") + model->count("working") + model->count("authorizing");
   const auto resolved = model->count("resolved"), skippedCount = qMax(skipped, model->count("skipped") + automatic);
@@ -242,6 +269,8 @@ void Fusion::TransferIssues::refresh() {
     const auto text = details(model->rows[proxy->mapToSource(indexes.first()).row()]);
     if (detail->toPlainText() != text) detail->setPlainText(text);
   } else detail->clear();
+  if (view) view->updateQueue({}, {{"heading", heading->text()}, {"summary", summary->text()},
+      {"done", done}, {"access", accessState}, {"accessText", done ? QString() : accessStatus->text()}, {"journal", journal}});
 }
 void Fusion::TransferIssues::decide(const QString &choice) {
   if (!job || done) return;

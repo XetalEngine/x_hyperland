@@ -4,6 +4,7 @@ GTK 3 omits set_with_data from introspection. Keep that small C API boundary
 here; ownership, requests and Wayland serial handling still belong to GTK.
 """
 import ctypes as C
+from urllib.parse import urlsplit, unquote
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
@@ -13,6 +14,18 @@ URI = 'text/uri-list'
 CUT = 'application/x-kde-cutselection'
 GNOME = 'x-special/gnome-copied-files'
 FORMATS = (URI, CUT, GNOME, 'text/plain;charset=utf-8')
+
+
+def file_uri(value):
+    try:
+        url = urlsplit(value)
+        return (url.scheme in ('file', 'admin', 'trash', 'nfs', 'smb', 'sftp', 'fish', 'ftp', 'ftps',
+                               'webdav', 'webdavs', 'dav', 'davs', 'mtp', 'afc')
+                and '\0' not in unquote(url.path)
+                and (url.scheme != 'trash' or url.path not in ('', '/'))
+                and (url.scheme != 'file' or url.path.startswith('/')))
+    except ValueError:
+        return False
 
 
 def contents(data):
@@ -83,7 +96,8 @@ class Clipboard:
         generation = self.generation
         def finish(urls, cut):
             if generation == self.generation:
-                callback([url for url in (urls or []) if url and url != 'trash:/'], cut, generation)
+                values = list(urls or [])
+                callback(values if all(file_uri(url) for url in values) else [], cut, generation)
         def kde(_clipboard, data, urls):
             finish(urls, contents(data).strip() == b'1')
         def uris(_clipboard, urls, _data):
@@ -97,6 +111,22 @@ class Clipboard:
                     finish(lines[1:], lines[0] == 'cut'); return
             self.clipboard.request_uris(uris, None)
         self.clipboard.request_contents(Gdk.Atom.intern(GNOME, False), gnome, None)
+
+    def bind_paste(self, item):
+        """Keep a visible Paste action in sync without blocking the GTK loop."""
+        alive = True
+        def refresh(*_):
+            item.set_sensitive(False)
+            def received(urls, _cut, _generation):
+                if alive: item.set_sensitive(bool(urls))
+            self.read(received)
+        signal = self.clipboard.connect('owner-change', refresh)
+        def destroyed(*_):
+            nonlocal alive
+            alive = False
+            self.clipboard.disconnect(signal)
+        item.connect('destroy', destroyed)
+        refresh()
 
     def complete_move(self, urls, generation):
         # Never erase something copied while a transfer or conflict was open.

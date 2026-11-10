@@ -10,6 +10,34 @@ import controller
 
 
 class RuleTests(unittest.TestCase):
+    def test_kde_profile_keeps_standard_and_other_windows_independent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);standard=root/'rules.json'
+            standard.write_text(rules.encode({'version':1,'apps':{'fixture':dict(rules.DEFAULTS,size=42)}}))
+            before=standard.read_bytes()
+            info={'app':'fixture','control_profile':'kde','workspace_controls':'individual'}
+            def ipc(*args):return '{"windows":["12","13"]}' if args==('xetal-windowbuttons',) else 'ok'
+            with patch.object(rules,'PATH',standard),patch.object(controller,'instance_dir',return_value=root), \
+                 patch.object(controller,'window_info',return_value=info),patch.object(controller,'hypr',side_effect=ipc):
+                path,section=controller.rule_file('app','kde');_,token=rules.load(path,section)
+                controller.save_rule('12','app',dict(rules.DEFAULTS,mode='off'),token,profile='kde')
+                self.assertEqual(rules.load(path)[0]['apps']['fixture']['mode'],'off')
+                self.assertEqual(standard.read_bytes(),before)
+                windows,kind=controller.rule_file('window','kde');_,token=rules.load(windows,kind)
+                controller.save_rule('12','window',dict(rules.DEFAULTS,mode='always'),token,profile='kde')
+                self.assertEqual(rules.load(windows,kind)[0]['windows']['12']['mode'],'always')
+                self.assertFalse(controller.rule_file('window')[0].exists())
+                old=windows.read_bytes();_,token=rules.load(windows,kind)
+                with patch.object(controller,'window_info',side_effect=[info,dict(info,control_profile='standard')]):
+                    with self.assertRaisesRegex(ValueError,'mode changed'):
+                        controller.save_rule('12','window',None,token,profile='kde')
+                self.assertEqual(windows.read_bytes(),old)
+                with self.assertRaisesRegex(ValueError,'mode changed'):
+                    controller.save_rule('12','window',None,token)
+        self.assertEqual(rules.effective(model.DEFAULTS,profile='kde')['mode'],'auto')
+        self.assertEqual(rules.effective(model.DEFAULTS)['mode'],'super')
+        self.assertEqual(json.loads(controller.preview_payload('12','a'*32,rules.DEFAULTS,profile='kde'))['profile'],'kde')
+
     def test_background_upgrade_and_native_color_selection(self):
         legacy={key:rules.DEFAULTS[key] for key in rules.LEGACY_KEYS}
         old={'version':1,'apps':{'fixture':dict(legacy,size=46)}}

@@ -1,4 +1,15 @@
 [Default Applications]
+application/zip=xetal-archives.desktop;
+application/x-7z-compressed=xetal-archives.desktop;
+application/vnd.rar=xetal-archives.desktop;
+application/x-rar=xetal-archives.desktop;
+application/x-tar=xetal-archives.desktop;
+application/gzip=xetal-archives.desktop;
+application/x-bzip2=xetal-archives.desktop;
+application/x-xz=xetal-archives.desktop;
+application/x-compressed-tar=xetal-archives.desktop;
+application/x-bzip-compressed-tar=xetal-archives.desktop;
+application/x-xz-compressed-tar=xetal-archives.desktop;
 inode/directory=xetal-files.desktop;
 image/avci=xetal-image-viewer.desktop;
 image/avif=xetal-image-viewer.desktop;

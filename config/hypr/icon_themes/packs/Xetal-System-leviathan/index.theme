@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Leviathan
+Comment=Engraved brass folders, obsidian plaques and amethyst details.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

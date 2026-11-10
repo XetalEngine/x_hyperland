@@ -6,6 +6,7 @@
 
 namespace WorkspaceRules {
 struct Policy {std::string layout="off",controls="individual";WindowButtons::Rule rule;};
+inline bool floats(const Policy& p){return p.layout=="floating"||p.layout=="kde";}
 using Policies=std::map<int64_t,Policy>;
 inline std::filesystem::path path(){return std::filesystem::path(std::getenv("HOME"))/".config/hypr/workspaces/rules.json";}
 inline Policies read(){
@@ -27,7 +28,7 @@ inline Policies read(){
         p.layout=json_object_get_string(field(value,"layout",json_type_string));
         p.controls=json_object_get_string(field(value,"controls",json_type_string));
         p.rule=readRule(field(value,"rule",json_type_object));
-        if(!std::set<std::string>{"off","tile","floating"}.contains(p.layout)||
+        if(!std::set<std::string>{"off","tile","floating","kde"}.contains(p.layout)||
            !std::set<std::string>{"individual","on","off"}.contains(p.controls)||p.rule.mode!="always")throw std::runtime_error("Invalid workspace mode");
         result.emplace(number,p);
     }

@@ -1,10 +1,11 @@
 # Desktop icons and context menu
 
-Right-click the wallpaper and enable **Show Desktop icons**. The transparent
+Right-click the wallpaper and enable **View → Show Desktop icons**. The transparent
 desktop surface displays files and folders directly from `~/Desktop`, beneath
 application windows and panels. Turning icons off only hides them.
 
-**Arrange icons** offers Columns (the default), Rows, and three icon sizes.
+**View** contains icon visibility and size. **Arrange icons** offers Columns
+(the default), Rows, and alignment controls.
 **Auto align** is on by default: drag an icon to any grid cell and it snaps there,
 keeping gaps and other icons in place. Turn it off for placement between grid
 cells. **Auto arrange** is a separate option, off by default, that keeps icons
@@ -15,7 +16,9 @@ or Columns only rearranges existing icons while Auto arrange is enabled.
 Positions are remembered per monitor; disconnecting
 a display temporarily brings its icons onto the primary display, and reconnecting
 it restores their placement. Reserved panel space is kept clear.
-New folders appear at the right-click position. Paste uses the monitor and
+**New** on the wallpaper contains Folder, Text document, custom entries, and
+Template Options shared with Fusion Files. Newly created items appear at the
+right-click position. Paste uses the monitor and
 pointer position at invocation; a context-menu Paste uses that menu's original
 click. Incoming drops use the drop location. These positions survive dialogs,
 long transfers, and later pointer movement. Auto align chooses nearby empty grid
@@ -27,14 +30,18 @@ open with their associated application. Desktop icons support multiple
 selection, a selection rectangle, keyboard navigation, and drag and drop.
 **Ctrl+C / Ctrl+X / Ctrl+V** copy, cut and paste, including files copied in Fusion
 Files and other file managers. Cut icons fade until the clipboard changes. Paste
-targets the Desktop folder; selecting a folder does not redirect it. **F2** edits
+from the keyboard targets the Desktop folder; selecting a folder does not
+redirect it. A folder context-menu Paste targets that folder. Paste is disabled
+for plain-text clipboard contents and website links. **F2** edits
 the name directly under the icon, selecting the filename without its extension.
 Enter saves, Escape cancels, and a rename never replaces an existing file.
 **Alt+Enter** and **Properties** open a floating Properties window. **Ctrl+Shift+N**
 creates a folder. Links and desktop launchers have a small accent-colored arrow
 badge at the bottom left of the icon; launchers display their own name and icon.
 
-File actions load asynchronously from Fusion Files. The completed menu replaces
+File/folder menus keep 7-Zip above clipboard actions and Delete/Rename/Properties
+at the bottom. New appears only on the background. File actions load asynchronously
+from Fusion Files. The completed menu replaces
 the loading popup at the original click, so Wayland can size it for all actions.
 Dismissed or superseded requests cannot reopen an old menu. Keyboard invocation
 uses the selected icon as its anchor.

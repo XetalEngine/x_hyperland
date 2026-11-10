@@ -117,6 +117,7 @@ class RuleDialog(QDialog):
         self.workspace_id=workspace_model.identity(workspace) if workspace is not None else None
         self.window_id=str(window_id) if window_id is not None else ''
         self.info=controller.window_info(self.window_id) if self.workspace_id is None else dict(app='',workspace=int(self.workspace_id))
+        self.profile='standard'
         self.preview_token=secrets.token_hex(16);self.closing=False;self.loading=True
         self.preview_dirty=False;self.valid=False;self.remove_override=False
         self.color_dialog=None;self.background_color=rules.DEFAULTS['background_color'];self.picking=False
@@ -265,11 +266,18 @@ class RuleDialog(QDialog):
                 self.load_workspace()
                 return
             self.info=controller.window_info(self.window_id)
+            self.profile=self.info.get('control_profile','standard')
+            kde=self.profile=='kde'
+            self.mode.blockSignals(True);self.mode.clear()
+            for key,label in (rules.KDE_MODES if kde else rules.MODES).items():self.mode.addItem(label,key)
+            self.mode.blockSignals(False)
+            self.app_label.setText(('KDE mode · ' if kde else '')+(self.info['app'] or 'This window'))
             if self.info.get('workspace_controls')=='off':
                 raise ValueError('Controls are forced Off in this workspace. Change its taskbar menu to Individual or On, then Reload.')
             self.settings,_=model.load();self.documents={};self.tokens={}
             for scope in ('app','window'):
-                path,section=controller.rule_file(scope);data,self.tokens[scope]=rules.load(path,section)
+                path,section=controller.rule_file(scope,self.profile) if kde else controller.rule_file(scope)
+                data,self.tokens[scope]=rules.load(path,section)
                 self.documents[scope]=data[section]
             shared=self.info.get('workspace_controls')=='on'
             previous=self.scope.currentData();self.scope.blockSignals(True);self.scope.clear()
@@ -287,10 +295,13 @@ class RuleDialog(QDialog):
             self.reset.setToolTip('Preview global defaults for this workspace. Apply to keep them.' if shared else 'Preview global defaults for this window only. Apply to keep them.')
             self.hint.setText('Changes preview live on all windows in this workspace. Apply saves the shared size, position and background. '
                               'The gear normally appears while Super is held. Use the workspace menu to change visibility.' if shared else
+                              'KDE mode has separate saved choices. Automatic uses the app’s decoration hints; choose Always or Off if needed. '
+                              'Settings, minimize, maximize/restore and close preview here; there is no tile button. '
+                              'Hold Super over the window to reach its gear even when controls are off.' if kde else
                               'All five buttons stay visible on the window while you edit: settings, tile, minimize, restore and close. '
                               'Move the sliders to preview changes; Apply saves them. Your chosen visibility takes effect when you close this editor.')
             width,height=self.info.get('size',[1000,700])
-            self.x.setSliderMaximum(max(16,width-5*self.info['rule']['size']-32))
+            self.x.setSliderMaximum(max(16,width-(4 if kde else 5)*self.info['rule']['size']-32))
             self.y.setSliderMaximum(max(16,height-self.info['rule']['size']-8))
             self.valid=True;self.remove_override=False
             # Apply-to selects the destination, never the source. Always show
@@ -303,6 +314,8 @@ class RuleDialog(QDialog):
         self.settings,_=model.load()
         document,token=workspace_model.load()
         entry=workspace_model.effective(document,self.workspace_id)
+        if entry['layout']=='kde':
+            raise ValueError('KDE mode uses separate app and window controls. Hold Super over a window and click its gear.')
         if self.workspace_id not in document['workspaces']:
             entry['rule']=dict(rules.effective(self.settings),mode='always')
         self.documents={'workspace':document['workspaces']};self.tokens={'workspace':token}
@@ -328,14 +341,14 @@ class RuleDialog(QDialog):
             self.status.setText('Default settings previewed for this workspace. Apply to keep them.')
             return
         self.scope.setCurrentIndex(self.scope.findData('window'))
-        self.remove_override=False;self.set_values(rules.effective(self.settings))
+        self.remove_override=False;self.set_values(rules.effective(self.settings,profile=self.profile))
         self.status.setText('Default settings previewed for this window only. Apply to keep them.')
 
     def use_inherited(self):
         if self.picking:self.picker.cancel()
         scope=self.scope.currentData()
         inherited=self.documents['app'].get(self.info['app']) if scope=='window' else None
-        self.set_values(rules.effective(self.settings,inherited));self.remove_override=True
+        self.set_values(rules.effective(self.settings,inherited,profile=self.profile));self.remove_override=True
         self.status.setText('Inherited settings previewed. Apply to remove this override.')
 
     def apply(self):
@@ -346,7 +359,8 @@ class RuleDialog(QDialog):
                                           window_id=self.window_id if self.workspace_id is None else None)
             else:
                 controller.save_rule(self.window_id,scope,value,self.tokens[scope],
-                                     window_token=self.tokens['window'] if scope=='app' else None)
+                                     window_token=self.tokens['window'] if scope=='app' else None,
+                                     **({'profile':self.profile} if self.profile!='standard' else {}))
             self.load()
             self.status.setText('Applied. '+('Shared workspace controls saved for future logins.' if scope=='workspace' else
                                'Saved for this app and future logins.' if scope=='app' else 'This choice lasts until this window closes.'))
@@ -376,7 +390,7 @@ class RuleDialog(QDialog):
                 self.x.setSliderMaximum(max(16,width-5*self.size.value()-32))
                 self.y.setSliderMaximum(max(16,height-self.size.value()-8))
         workspace=self.info['workspace'] if self.scope.currentData()=='workspace' else None
-        payload=controller.preview_payload(self.window_id,self.preview_token,self.values(),workspace=workspace)
+        payload=controller.preview_payload(self.window_id,self.preview_token,self.values(),workspace=workspace,profile=self.profile)
         self.preview_process.start('hyprctl',['dispatch','xetalwindowclose:preview',payload]);self.preview_timeout.start()
 
     def preview_finished(self,code,*_):

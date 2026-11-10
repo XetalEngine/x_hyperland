@@ -13,6 +13,7 @@ class QPushButton;
 
 namespace Fusion {
 class NativeTransfer;
+class TransferView;
 class TransferIssuesModel : public QAbstractTableModel {
 public:
   explicit TransferIssuesModel(QObject *parent) : QAbstractTableModel(parent) {}
@@ -33,10 +34,12 @@ private:
 class TransferIssues : public QDialog {
   Q_OBJECT
 public:
-  explicit TransferIssues(NativeTransfer *job, QWidget *owner = nullptr);
+  explicit TransferIssues(NativeTransfer *job, QWidget *owner = nullptr, TransferView *view = nullptr);
   void reveal();
 private:
   QPointer<NativeTransfer> job;
+  QPointer<TransferView> view;
+  bool bridgeChecked = false, embedded = false;
   TransferIssuesModel *model;
   QSortFilterProxyModel *proxy;
   QTableView *table;
@@ -50,6 +53,7 @@ private:
   qlonglong copied = 0, skipped = 0, renamed = 0, automatic = 0;
   QString phase, journal, accessState, accessError;
   void refresh();
+  void publish(const QVariantMap &row);
   void decide(const QString &choice);
   void saveReport(const QString &path, QPushButton *button);
 };

@@ -3,7 +3,7 @@
 <p align="center"><strong>Your workspace. Your colors. Your kind of Linux desktop.</strong><br>A complete Xetal desktop for Hyprland, with native settings, custom menus, KVM tools and a little Compiz nostalgia.</p>
 
 <p align="center">
-  <a href="#three-ways-to-install-hyper-fusion">Install</a> ·
+  <a href="#two-ways-to-install-hyper-fusion">Install</a> ·
   <a href="#tested-on">Tested on</a> ·
   <a href="#four-looks-one-desktop">Themes</a> ·
   <a href="#compiz-spirit-hyprland-desktop">Effects</a> ·
@@ -19,11 +19,17 @@ https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d
 
 <p align="center"><sub>48-second desktop tour · Original 1440p recording · <a href="docs/GALLERY.md">Explore the full gallery</a></sub></p>
 
-## Three ways to install Hyper Fusion
+## Two ways to install Hyper Fusion
 
-**[Download the ONLINE and OFFLINE Arch Linux ISOs](https://drive.google.com/drive/folders/1bkAs8SiMqnbCihzMGPYzlOXB5mXGfs_Y?usp=sharing)** — both installers are in this shared Google Drive folder.
+1. **Install the custom Arch Linux ISO — ONLINE or OFFLINE**
 
-1. **Install it on your existing system**
+   **[Download the ONLINE and OFFLINE Arch Linux ISOs](https://drive.google.com/drive/folders/1bkAs8SiMqnbCihzMGPYzlOXB5mXGfs_Y?usp=sharing)** — both installers are in this shared Google Drive folder.
+
+   **Offline:** This is the version installed in the video above. It includes Arch Linux, KDE, and the entire Hyper Fusion system.
+
+   **Online:** This includes the same setup as the offline version, but downloads the packages from the Arch Linux servers during installation. Since Arch is a rolling release, future package or library changes could cause compatibility issues.
+
+2. **Install it on your existing system**
 
    Download or clone the [GitHub repository](https://github.com/XetalEngine/x_hyperland), open a terminal in the repository folder, and run the installer as your regular desktop user. Make it executable first if needed:
 
@@ -33,14 +39,6 @@ https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d
    ```
 
    See the [detailed installation instructions](#install) below.
-
-2. **Install the custom Arch Linux OFFLINE ISO**
-
-   This is the version installed in the video above. It includes Arch Linux, KDE, and the entire Hyper Fusion system.
-
-3. **Install the custom Arch Linux ONLINE ISO**
-
-   This includes the same setup as the offline version, but downloads the packages from the Arch Linux servers during installation. Since Arch is a rolling release, future package or library changes could cause compatibility issues.
 
 [**GitHub repository**](https://github.com/XetalEngine/x_hyperland) — feel free to contribute ideas or submit pull requests!
 
@@ -169,6 +167,8 @@ The **Presets** gallery shows every theme in a full-width banner. Search by name
 
 **[Polaris](config/hypr/theme/POLARIS.md)** pairs midnight navy glass with luminous cyan controls and violet depth. Sapphire folder icons, the Starlight cursor, orbital document transfers, the Orbital Glass minimize dock and Northern lights sounds accompany three original wallpapers: Tux Starlight, Northern Lights and Orbital Glass. Dark, light and high-contrast modes are included.
 
+**[Leviathan](config/hypr/theme/LEVIATHAN.md)** brings obsidian surfaces, amethyst selections and engraved brass details to the desktop. Brass icons, the Gilded cursor, animated puzzle-cube transfers, the Puzzle Reliquary minimize dock and Brass echoes sounds accompany three labyrinth wallpapers. Dark, light and high-contrast palettes are included. [Preview](config/hypr/theme/assets/leviathan-preview.png).
+
 Tidal Glass, Porcelain Ink, Obsidian Forge, and **Candy Cloud** bring four distinct atmospheres to the gallery. Obsidian Forge pairs machined basalt panels and copper edges with three original volcanic wallpapers: Basalt Reach, The Forge, and Ashen Observatory. Its Cinder wake mouse trail lifts embers from a cooling fissure; its file-transfer animation carries glowing documents through basalt presses.
 
 Candy Cloud adds sculpted satin controls, pill-shaped navigation, a pearlescent taskbar, and three floating-island wallpapers: Sugar Sky, Cloud Palace, and Moon Ribbon, assigned left to right. Its Cloud nine trail releases small clouds and four-point stars, while cloud couriers carry envelopes along a ribbon during file transfers. These styles, its Orchid cursor, and its Start menu can be mixed independently through their detailed tabs or Mix & match. Every preset starts dark; Candy Cloud also includes pastel light and high-contrast modes. Kitty stays dark in every mode, and the optional selection marker starts Off. Wallpaper generation prompts are kept beside each atmosphere's artwork.
@@ -198,6 +198,8 @@ Right-click the wallpaper for your desktop menu. Its editor supports commands, i
 ### A taskbar for each display
 
 Workspaces, running apps, draggable pins and your chosen status modules stay close to the screen where you work. **Right-click → Options** moves the bar to the top or bottom and shows/hides individual modules. **Hide Update Ready** hides the ready/restart notice while updates keep checking normally. The clock opens a calendar; power opens a compact system dashboard. A session helper restores the bar if it exits unexpectedly.
+
+The icon between **Keys** and **Update** shows that display's active workspace mode: four equal panes for Individual/default or Force tiling, and three overlapping windows for Force floating. Hover to see the exact mode.
 
 Every theme has its own taskbar materials and details. **Theme → Mix & match → Taskbar variation** offers **Full** (one continuous bar), **Partial** (floating sections) and **Centered** (workspaces in the middle). Combine any taskbar design and variation with any desktop palette. Workspace context menus and their overrides remain available in every layout.
 
@@ -292,10 +294,11 @@ UMU is prepared automatically when downloading Proton, and Steam is optional. Ex
 | **System ISO** | Create an Arch-based system clone, then restore through a graphical Hyper Fusion wizard with drive cards, review and progress, plus an automatic console fallback. Choose whether the ISO requires a fresh administrator account or preserves existing accounts. Try **Control Panel → System ISO → Preview installer…** with sample drives first. [Restore wizard →](docs/CONTROL-PANEL.md#system-iso) |
 | **RAM Cleaner** | Manual **Normal** and **Aggressive** cache cleanup with before/after readings. It keeps applications running and does not reclaim their active memory. Linux already reclaims cache when needed; this is an occasional troubleshooting tool. |
 | **Disk Visualizer** | A directory-size tree and treemap, folder navigation, allocated/apparent sizes, and confirmed file actions inside System Cleaner. |
-| **[Fusion Files](docs/FILES.md)** | **My Computer** in Favorites opens **This PC**, with mounted and unmounted drives. Quick access, editable breadcrumbs, tabs, five views, configurable columns and menus, previews and Ark follow the desktop theme. **Ctrl+F** searches names/wildcards or file contents with advanced text/regex filters, matching-line results and parallel workers; **Ctrl+Shift+F** filters the current folder. |
+| **[Fusion Files](docs/FILES.md)** | **My Computer** in Favorites opens **This PC**, with mounted and unmounted drives. Quick access, editable breadcrumbs, tabs, five views, configurable columns and menus, previews and the built-in **7-Zip** archive manager follow the desktop theme. **Ctrl+F** searches names/wildcards or file contents with advanced text/regex filters, matching-line results and parallel workers; **Ctrl+Shift+F** filters the current folder. |
 | **Dolphin** | Available separately with recipient-specific **Places** and an embedded terminal; its private profile remains independent of KDE/Plasma. |
 | **File pickers** | Matching Places and image/text/folder previews in Xetal, Qt Widgets and standard GTK 3 dialogs. Custom application and portal pickers have their own integration limits. [Coverage →](docs/FILE-PREVIEWS.md) |
-| **File transfers** | Four animated transfer-card designs for Fusion Files, Dolphin/KIO and Ark, with real progress, pause/cancel where supported, error details and appearance controls. |
+| **[7-Zip archives](config/hypr/archive_manager/README.md)** | Pinned engine and complete source included. Compress, browse, test and extract; select compression methods, passwords, AES encryption, split volumes and CPU threads. Archive jobs use Fusion's animated transfer window and expandable attention queue. No separate 7-Zip installation needed. |
+| **File transfers** | Animated transfer-card designs for Fusion Files, built-in archive jobs and Dolphin/KIO, with real progress, pause/cancel where supported, error details and appearance controls. |
 | **Xetal Images** | Pointer-centered zoom, pan, Fit/100%, folder navigation, GIF playback, fullscreen and remembered window sizing. |
 | **Capture and sharing** | Alt+F9 screen recording with audio, 64 FPS MP4 saved to Videos by default, area/all-display screenshots, clipboard support and a custom Hyprland screen-share picker. Recording options live in Fusion Settings → Capture. |
 | **Media downloader** | **Super+Ctrl+P** opens an MP3/MP4 popup with progress, cancellation and updates for its private yt-dlp copy. |

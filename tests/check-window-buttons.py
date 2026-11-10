@@ -31,11 +31,12 @@ def main():
     settings.parent.mkdir(parents=True); settings.write_text(model.encode(model.DEFAULTS))
     for source in (REPO/'config/hypr/effects/window_close').glob('*.py'):
         shutil.copy2(source,settings.parent/source.name)
+    shutil.copy2(REPO/'config/hypr/effects/native_toolchain.py',settings.parent.parent/'native_toolchain.py')
     workspace_dir=home/'.config/hypr/workspaces';workspace_dir.mkdir(parents=True)
     for source in (REPO/'config/hypr/workspaces').glob('*.py'):
         shutil.copy2(source,workspace_dir/source.name)
     # Small theme/config sources only; never adopt the real user's preferences.
-    for directory in ('theme','runtime','cursors','window_rules'):
+    for directory in ('theme','runtime','cursors','window_rules','icon_themes','sounds'):
         destination=home/'.config/hypr'/directory;destination.mkdir(exist_ok=True)
         for source in (REPO/'config/hypr'/directory).iterdir():
             if source.is_file() and source.suffix in ('.py','.json','.colors'):shutil.copy2(source,destination/source.name)
@@ -171,6 +172,115 @@ bindm=SUPER,mouse:273,resizewindow
             c = client(name); m = json.loads(ctl('-j', 'monitors'))[0]
             x, y = c['at']; w, h = c['size']; left, top, right, bottom = m['reserved']
             assert x >= left + 3 and y >= top + 3 and x+w <= m['width']-right-3 and y+h <= m['height']-bottom-3, (c, m)
+
+        if '--kde-only' in sys.argv:
+            workspace=client()['workspace']['id'];controller_path=workspace_dir/'controller.py'
+            def policy(**values):
+                args=[sys.executable,str(controller_path),'--workspace',str(workspace)]
+                for key,value in values.items():args.extend(['--'+key,value])
+                run(*args)
+            def info(name='Missing controls'):
+                ids=json.loads(ctl('xetal-windowbuttons'))['windows']
+                return next(v for v in (json.loads(ctl('xetal-windowbuttons',i)) for i in ids) if v['address']==client(name)['address'])
+            binary_fixture=root/'decorations'
+            gtk_flags=shlex.split(run('pkg-config','--cflags','--libs','gtk+-3.0'))
+            run('cc',str(REPO/'tests/window-buttons/decorations.c'),'-o',str(binary_fixture),'-lglfw','-lGL',*gtk_flags)
+            missing=spawn([str(binary_fixture)]);wait(lambda:client('Missing controls'))
+            # Preserve old choices even when workspace controls were forced Off.
+            policy(layout='kde',controls='off')
+            wait(lambda:client('Missing controls')['floating'] and client()['floating'])
+            assert info()['control_profile']=='kde' and info()['rule']['mode']=='auto',info()
+            assert info()['decoration_hint']=='server',info()
+            dispatch('settiled',address('Missing controls'));assert client('Missing controls')['floating']
+            def hover(name='Missing controls'):
+                dispatch('focuswindow',address(name))
+                dispatch('alterzorder','top,'+address(name))
+                c=client(name);point(f"move {c['at'][0]+100} {c['at'][1]+70}");point('key 125 0')
+                time.sleep(.15)
+            def action(index):
+                hover();wait(lambda:status()['visible']);aim(index)
+                point('down 272');point('up 272');time.sleep(.15)
+            hover();wait(lambda:status()['visible'])
+            assert status()['gear_visible'] and status()['buttons'][3]['box']==[0,0,0,0],status()
+            settings.write_text(model.encode(dict(model.DEFAULTS,enabled=False)));dispatch('xetalwindowclose:reload')
+            hover();wait(lambda:status()['visible']);assert not status()['enabled']
+            settings.write_text(model.encode(model.DEFAULTS));dispatch('xetalwindowclose:reload')
+            initial=geometry('Missing controls');action(1);wait(lambda:client('Missing controls')['fullscreen']==1)
+            maximized=geometry('Missing controls')
+            assert ctl('plugin','unload',memory_binary)=='ok'
+            assert ctl('plugin','load',memory_binary)=='ok'
+            assert client('Missing controls')['fullscreen']==1 and geometry('Missing controls')==maximized
+            action(1);wait(lambda:client('Missing controls')['fullscreen']==0 and geometry('Missing controls')==initial)
+            assert ctl('xetal-window-state',client('Missing controls')['address'],'2','2')=='ok'
+            wait(lambda:client('Missing controls')['fullscreen']==2);hover();wait(lambda:not status()['visible'])
+            assert ctl('xetal-window-state',client('Missing controls')['address'],'0','0')=='ok'
+            hover();wait(lambda:status()['visible'])
+            action(0);wait(lambda:min_status()['active']==1)
+            dispatch('xetalminimize:restoreall')
+            wait(lambda:min_status()['active']==0);hover();wait(lambda:status()['visible'])
+            run('grim',str(root/'kde-controls.png'))
+            print('PASS: KDE floats existing windows; missing controls, no tile, no-modifier maximize/restore/minimize.',flush=True)
+            # An actual GTK headerbar must keep its own buttons, while retaining
+            # a Super gear for correcting inaccurate decoration hints.
+            csd=spawn([str(binary_fixture),'gtk'],env=dict(env,GDK_BACKEND='wayland'))
+            wait(lambda:client('Wayland client frame'))
+            assert client('Wayland client frame')['floating']
+            assert info('Wayland client frame')['decoration_hint']=='client',info('Wayland client frame')
+            hover('Wayland client frame');assert not status()['visible']
+            point('key 125 1');wait(lambda:status()['gear_visible']);point('key 125 0')
+            # Use the real gear without Super on a fallback row.
+            hover();wait(lambda:status()['gear_visible']);g=status()['gear']
+            point(f'move {round(g[0]+g[2]/2)} {round(g[1]+g[3]/2)}');point('down 272');point('up 272')
+            real_editor=wait(lambda:next((c for c in clients() if c['class']=='fusion-window-buttons'),None))
+            dispatch('closewindow','address:'+real_editor['address']);wait(lambda:not any(c['class']=='fusion-window-buttons' for c in clients()))
+            wait(lambda:not info()['preview'])
+            window_id=info()['id'];app_key=info()['app']
+            standard=settings.with_name('rules.json');standard_rule=dict(rules.DEFAULTS,mode='nearby',size=34)
+            standard.write_text(rules.encode({'version':1,'apps':{app_key:standard_rule}}));before=standard.read_bytes()
+            dispatch('xetalwindowclose:reload')
+            editor=spawn([sys.executable,str(REPO/'tests/window-buttons/editor.py'),str(home/'.config/hypr'),window_id],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
+            wait(lambda:any(c['pid']==editor.pid for c in clients()))
+            def edit(op,**values):
+                editor.stdin.write(json.dumps(dict(op=op,**values))+'\n');editor.stdin.flush();return json.loads(editor.stdout.readline())
+            assert edit('state')['rule']['mode']=='auto'
+            wait(lambda:info()['preview'])
+            assert info()['preview_boxes'][3]==[0,0,0,0]
+            edit('mode',value='off');saved=edit('apply');assert saved['status'].startswith('Applied.'),saved
+            assert info()['rule']['mode']=='off' and standard.read_bytes()==before
+            policy(layout='floating',controls='individual')
+            assert info()['rule']==standard_rule and not info()['preview']
+            rejected=edit('apply');assert 'mode changed' in rejected['status'],rejected
+            edit('reload');assert edit('state')['rule']==standard_rule
+            policy(layout='kde');edit('reload');assert edit('state')['rule']['mode']=='off'
+            edit('scope',value='window');edit('mode',value='always');assert edit('apply')['status'].startswith('Applied.')
+            edit('close');editor.wait(timeout=5);hover();wait(lambda:status()['visible'])
+            assert info()['window_override'] and standard.read_bytes()==before
+            print('PASS: live KDE gear preview, separate app/window saves, mode isolation, stale-editor rejection and inherited standard choices.',flush=True)
+            # Real XWayland hints, polled without blocking the compositor.
+            display=root/'x-display'
+            dispatch('exec','sh -c '+shlex.quote('printf "%s" "$DISPLAY" > '+shlex.quote(str(display))))
+            wait(lambda:display.exists() and display.read_text())
+            xenv=dict(env,DISPLAY=display.read_text())
+            xserver=spawn([str(binary_fixture),'x11'],env=xenv);wait(lambda:client('X11 controls'))
+            hover('X11 controls');wait(lambda:info('X11 controls')['decoration_hint']=='server')
+            wait(lambda:status()['visible']);assert not status()['buttons'][3]['box'][2]
+            xclient=spawn([str(binary_fixture),'x11','client'],env=xenv);wait(lambda:client('Client frame'))
+            hover('Client frame');wait(lambda:info('Client frame')['decoration_hint']=='client')
+            time.sleep(.15);assert not status()['visible']
+            # Close disposes cached hints and the session override, new windows
+            # retain only the persistent KDE app choice.
+            assert info()['rule']['mode']=='always' and info()['window_override'],info()
+            hover();action(2);missing.wait(timeout=5);wait(lambda:not client('Missing controls'))
+            missing=spawn([str(binary_fixture)]);wait(lambda:client('Missing controls'))
+            assert info()['id']!=window_id and not info()['window_override'] and info()['rule']['mode']=='off'
+            assert ctl('plugin','unload',str(binary))=='ok'
+            assert ctl('plugin','load',str(binary))=='ok'
+            assert info()['rule']['mode']=='off' and info()['control_profile']=='kde'
+            print('PASS: X11 server/client hints, window lifetime, persisted KDE choice and safe plugin reload.',flush=True)
+            for expected in ('off','tile','floating','kde'):
+                run(sys.executable,str(controller_path),'--workspace',str(workspace),'--cycle-layout')
+                assert info()['workspace_layout']==expected
+            return
 
         if '--workspaces-only' in sys.argv:
             workspace=client()['workspace']['id']
@@ -782,6 +892,14 @@ entry.launch(floating=sys.argv[3]=='float')
         assert ctl('plugin', 'load', str(binary)) == 'ok' and status()['enabled']
         assert not ctl('configerrors') and compositor.poll() is None
         print('Wayland/XWayland close, XWayland maximize/restore and safe plugin reload passed', flush=True)
+    except Exception:
+        try:
+            diagnostic={'clients':clients(),'buttons':status()}
+            if 'initial' in locals():diagnostic['initial']=initial
+            (root/'failure.json').write_text(json.dumps(diagnostic,indent=2))
+            run('grim',str(root/'failure.png'))
+        except Exception:pass
+        raise
     finally:
         for process in reversed(children):
             if process.poll() is None:

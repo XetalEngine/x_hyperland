@@ -45,6 +45,59 @@ def success(p, center, accent):
     p.drawLine(center+QPointF(-1, 6), center+QPointF(11, -7))
 
 
+def leviathan(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Documents and puzzle cubes pass between brass labyrinth gateways.
+
+    A phase is a whole journey. Packets and their entire trails fade together
+    before each wrap, while gateway lights use complete periodic revolutions.
+    """
+    from leviathan import puzzle_cube
+    p.save();p.setClipRect(box,Qt.ClipOperation.IntersectClip)
+    mid=box.center();left=box.left()+29;right=box.right()-29
+    brass=QColor('#dac09a' if surface.lightnessF()<.5 else '#76562e')
+    for x,zipped in ((left,extracting),(right,archive)):
+        portal=QPainterPath(QPointF(x-19,mid.y()+23));portal.lineTo(x-19,mid.y()-13)
+        portal.lineTo(x,mid.y()-27);portal.lineTo(x+19,mid.y()-13);portal.lineTo(x+19,mid.y()+23);portal.closeSubpath()
+        p.setBrush(surface);p.setPen(QPen(brass,1.2));p.drawPath(portal)
+        p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(alpha(brass,100),.8))
+        p.drawRect(QRectF(x-15,mid.y()-11,30,30))
+        if zipped:puzzle_cube(p,QPointF(x,mid.y()+3),21,brass,accent,surface)
+        else:
+            p.save();p.translate(x,mid.y()+3);p.scale(.7,.7);paper(p,brass,technical=True);p.restore()
+        intensity=155+65*math.sin(phase*math.tau)
+        p.setBrush(alpha(accent,intensity));p.setPen(QPen(brass,.7))
+        jewel=QPainterPath(QPointF(x,mid.y()-23));jewel.lineTo(x+3,mid.y()-19);jewel.lineTo(x,mid.y()-15);jewel.lineTo(x-3,mid.y()-19);jewel.closeSubpath();p.drawPath(jewel)
+    start,end=left+28,right-28
+    p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(alpha(brass,90),.8))
+    for y in (mid.y()+19,mid.y()+23):p.drawLine(QPointF(start,y),QPointF(end,y))
+    for i in range(10):
+        x=start+(end-start)*(i+.5)/10
+        p.drawLine(QPointF(x-4,mid.y()+19),QPointF(x,mid.y()+23))
+    if result:
+        if result=='done':success(p,mid,accent)
+        p.restore();return
+    for index in range(max(1,count)):
+        t=(phase+index/max(1,count))%1
+        fade=min(1.,t/.14,(1-t)/.14);fade=fade*fade*(3-2*fade)
+        travel=1-t if extracting else t;direction=-1 if extracting else 1
+        x=start+(end-start)*travel;y=mid.y()-5-7*math.sin(travel*math.pi)
+        p.save();p.setOpacity(p.opacity()*fade)
+        if glow:
+            halo=QRadialGradient(QPointF(x,y),23);halo.setColorAt(0,alpha(accent,glow));halo.setColorAt(1,alpha(accent,0))
+            p.setBrush(halo);p.setPen(Qt.PenStyle.NoPen);p.drawEllipse(QPointF(x,y),23,23)
+        if trails:
+            for n in range(1,4):
+                tx=x-direction*(10+n*7);ty=y+math.sin(t*math.tau+n)*2
+                p.setPen(QPen(alpha(brass,130/n),.8));p.setBrush(alpha(accent,70/n))
+                shard=QPainterPath(QPointF(tx,ty-2));shard.lineTo(tx+2,ty);shard.lineTo(tx,ty+2);shard.lineTo(tx-2,ty);shard.closeSubpath();p.drawPath(shard)
+        if archive or extracting:puzzle_cube(p,QPointF(x,y),25,brass,accent,surface)
+        else:
+            p.translate(x,y);p.rotate(4*math.sin(t*math.tau));paper(p,brass,technical=True)
+            p.setPen(QPen(accent,1.4));p.drawLine(QPointF(-4,7),QPointF(4,7))
+        p.restore()
+    p.restore()
+
+
 def polaris(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     """Glass document capsules cross a polar arc between orbital gateways.
 

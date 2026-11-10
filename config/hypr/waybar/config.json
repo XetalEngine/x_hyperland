@@ -10,6 +10,7 @@
     "hyprland/workspaces",
     "cffi/new-workspace",
     "custom/keys",
+    "cffi/workspace-mode",
     "custom/updates",
     "cffi/app-pins"
   ],
@@ -78,6 +79,9 @@
     "format": "\udb80\udf0c  Keys",
     "tooltip-format": "Hotkey editor \u00b7 Super + K",
     "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab hotkeys"
+  },
+  "cffi/workspace-mode": {
+    "module_path": "@HOME@/.config/hypr/waybar/workspaces/mode.so"
   },
   "cffi/app-pins": {
     "module_path": "@HOME@/.config/hypr/waybar/pins/pins.so"

@@ -35,6 +35,19 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(data['workspaces']['3']['rule']['size'],36)
         self.assertEqual(self.path.stat().st_mode&0o777,0o600)
 
+    def test_cycle_keeps_all_four_modes_and_other_choices(self):
+        controller.save(203,controls='off',path=self.path)
+        controller.save(204,layout='tile',path=self.path)
+        for expected in ('tile','floating','kde','off','tile'):
+            data,_=controller.save(203,cycle_layout=True,path=self.path)
+            self.assertEqual(data['workspaces']['203']['layout'],expected)
+            self.assertEqual(data['workspaces']['203']['controls'],'off')
+            self.assertEqual(data['workspaces']['204']['layout'],'tile')
+        before=self.path.read_bytes()
+        with patch.object(controller,'activate',side_effect=RuntimeError('rejected')):
+            with self.assertRaises(RuntimeError):controller.save(203,cycle_layout=True,path=self.path)
+        self.assertEqual(self.path.read_bytes(),before)
+
     def test_disabling_override_retains_shared_geometry(self):
         rule=dict(rules.DEFAULTS,size=10,x=83,background='manual',background_color='#123456')
         controller.save(3,controls='on',rule=rule,path=self.path)

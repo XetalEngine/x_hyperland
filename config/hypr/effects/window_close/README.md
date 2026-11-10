@@ -50,6 +50,22 @@ choices. The gear editor's reset affects the workspace only while editing On.
 In a forced-tiled workspace, maximize/restore stays within the tiled layout;
 the Tile control is hidden where floating is forced. See `workspaces/README.md`.
 
+**KDE mode** uses its own Automatic/Always/nearby/modifier/Off settings, with a
+four-button row: gear, minimize, maximize/restore and close. The gear stays visible
+with the fallback controls; Super reveals it when controls are hidden. Persistent
+app choices live in `kde-rules.json`, and window-only choices in the session's
+`xetal-windowbuttons-kde-rules.json`. Standard app/title rules and workspace
+On/Off settings are preserved for the other modes. Previews and saves carry their
+profile identity, so changing modes cannot apply a stale editor to another profile.
+
+Automatic mode uses the pinned compositor's Wayland decoration requests and
+nonblocking X11 GTK/Motif property replies. It reads protocol state without
+changing client decoration negotiation. These are frame-ownership hints, not a
+universal list of visible buttons; frameless clients may need an Always override.
+Without Wayland decoration negotiation the client owns its frame. X11 properties
+are refreshed while evaluating controls; pending queries are discarded on window
+close or unload. No synchronous X11 round trips run in the rendering path.
+
 **Button background** defaults to **Auto**, which matches the predominant color
 of the window directly beneath the controls. A continuous opaque backing covers
 native icons and text in the gaps as well as under the buttons; the glow still
@@ -73,7 +89,7 @@ It does not replace application decorations or force unsupported decorations.
 
 `model.py` validates `settings.conf`; `controller.py` checks for external edits,
 saves atomically, activates the setting, and rolls back on failure. The updater
-treats it and `rules.json` as personal preferences. Fresh installations enable the controls.
+treats it, `rules.json` and `kde-rules.json` as personal preferences. Fresh installations enable the controls.
 `page.py` supplies the themed Hotkeys dialog. `scripts/session.sh` starts the
 controller for this compositor session; there is no persistent system service.
 `window_settings.py` supplies the gear editor; `rules.py` and `native/policies.hpp`

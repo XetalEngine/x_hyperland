@@ -4,6 +4,7 @@
 
 struct Volume {
   QString device, name, filesystem, mount, type, uuid;
+  QString partitionType, partitionLabel;
   quint64 size = 0, available = 0, total = 0;
   bool removable = false, readOnly = false;
   QString driveDevice, driveModel, transport;
@@ -26,6 +27,7 @@ struct Volume {
     return !filesystem.isEmpty() && filesystem != "swap" && !locked() &&
            filesystem != "LVM2_member";
   }
+  bool compactCard() const;
 };
 Q_DECLARE_METATYPE(Volume)
 
@@ -66,10 +68,7 @@ private:
 class DriveDelegate : public QStyledItemDelegate {
 public:
   explicit DriveDelegate(QWidget *parent);
-  QSize sizeHint(const QStyleOptionViewItem &,
-                 const QModelIndex &) const override {
-    return {320, 112};
-  }
+  QSize sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const override;
   void paint(QPainter *, const QStyleOptionViewItem &,
              const QModelIndex &) const override;
 private:

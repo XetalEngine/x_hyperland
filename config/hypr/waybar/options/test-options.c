@@ -231,6 +231,9 @@ static void workspace_gui_tests(void) {
     g_assert_true(workspace_at(bar.window, bar.window, x+4, y+4) == first);
     GtkWidget *menu = g_object_ref_sink(workspace_choices(bar.options, 203, FALSE, 1));
     GList *entries = gtk_container_get_children(GTK_CONTAINER(menu));
+    g_assert_cmpint(g_list_length(entries), ==, 4);
+    GtkWidget *kde = g_list_nth_data(entries, 3);
+    g_assert_cmpstr(g_object_get_data(G_OBJECT(kde), "workspace-choice"), ==, "kde");
     GtkWidget *tile = g_list_nth_data(entries, 1), *floating = g_list_nth_data(entries, 2);
     g_assert_true(gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(tile)));
     g_assert_false(bar.options->saving);

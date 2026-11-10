@@ -34,7 +34,10 @@ the middle, whether mounted or unmounted; USB SSDs are recognized by their
 connection type even when their removable flag is unset. The lower section
 contains wholly unmounted internal drives. Frames use the theme's accent;
 frames and partition cards inherit its shared corner styling without a list
-of theme names. Divider positions are remembered.
+of theme names. Data partitions keep full-width cards. EFI, BIOS boot, reserved,
+recovery and swap partitions use cards about 58% as wide, with space information
+below the icon. Classification uses partition roles and boot mount points;
+ordinary FAT-formatted data drives keep the full layout. Divider positions are remembered.
 Empty sections and their extra dividers hide automatically and return when
 matching drives appear. Mounted volumes
 show available space; unmounted volumes show
@@ -70,9 +73,9 @@ On first login, HyperFusion initializes the account's standard folders with
 intentionally disabled folders. The user's `enabled=False` opt-out is respected.
 Browsing another installed system's home does not create folders on that drive.
 
-The location bar has clickable breadcrumbs and an editable full address. Use
-Ctrl+L, Alt+D or the blank part of the bar to type or copy it; Escape returns to
-breadcrumbs. Paths containing spaces, Unicode, `#` and `%` retain their literal
+The location bar always shows an editable full address, including on fresh
+installs. Ctrl+L or Alt+D focuses and selects it. Escape restores the current
+address and returns focus to the files. Paths containing spaces, Unicode, `#` and `%` retain their literal
 names. Back, Forward and Up work across folder and This PC navigation. Network
 locations accept URLs such as `smb://server/share` and `sftp://host/path`, using
 the installed KIO protocol workers and their authentication dialogs.
@@ -173,8 +176,13 @@ folder moves immediately; hold Ctrl to copy instead. The dragged icon shows a
 bottom-left **+** while Ctrl is held, including when the key changes mid-drag.
 Folder targets in the sidebar use the same behavior.
 
-Local transfer conflicts and errors collect in a compact **Items needing
-attention** popup while other files keep copying. Select unfinished rows to
+Local transfer conflicts and errors collect in an **Items needing attention**
+panel that animates downward from the transfer card, inside the same window.
+The card keeps its width and its animation, progress and controls stay in place.
+The extension starts at about three card heights, with scrolling on smaller
+displays. Its three columns are **Item**, **Status** and **Result / issue**;
+select a row for its full paths, stage and error details. Other files keep
+copying while the panel is open or collapsed. Select unfinished rows to
 **Retry**, **Skip item**, **Replace…**, or **Use administrator access…** for a
 permission error. Administrator access lasts for that transfer; retries run
 after the current pass. The similar-items checkbox applies a choice to matching
@@ -189,10 +197,11 @@ are ignored automatically during copying: no popup, queue row or file-count
 increment. Their originals stay in place. This uses the filesystem type, so a
 regular file named `.sock`, a directory, or a symbolic link still transfers.
 Named pipes, devices and genuine file errors remain visible for a choice.
-**Review queue** reopens a hidden
-popup, and **Save report…** includes every affected path, including automatic
+**Review queue** expands the panel again, and **Save report…** includes every affected path, including automatic
 skips; automatically ignored sockets are recorded separately for diagnostics.
-Closing the popup during a transfer only hides it.
+**Collapse**, **Hide queue** and Escape fold the panel away without canceling.
+The card's Cancel button still cancels the transfer. Completed queue results and
+report saving stay available until the card is closed.
 
 Folder attributes have their own progress count after copying. Same-drive moves
 use an instant rename where possible; other moves verify copied data before
@@ -205,7 +214,8 @@ KIO confirmation questions are attached to their exact job, including when multi
 at once. Only that job's client can ask or receive its answer. Cancel or loss of the
 question service never authorizes an overwrite. When Files is launched outside a
 Fusion session without the progress service, standalone confirmation dialogs are
-available as a fallback. Ark-owned extraction questions remain controlled by Ark.
+available as a fallback. Fusion's bundled 7-Zip operations use the same transfer
+card and attention drawer when publishing archives and extracted files.
 
 Dropping into the source folder asks whether to copy the selection anyway.
 Same-folder copies and pastes alone use names such as `photo_copy1.png`, then
@@ -278,21 +288,52 @@ the option to remember a file-type association, including for unknown file types
 Discovery uses the shared Gio application inventory and does not require a
 Plasma application-menu definition. Recommended/default apps appear first,
 and default saves reuse Control Panel's guarded MIME-association backend.
-Cut, Copy and Paste are available
-in file menus. In This PC, select a mounted volume and use Ctrl+V or **Paste into
+Menus follow a familiar desktop order: opening/app actions, the existing
+**7-Zip** submenu, Cut/Copy/Paste, then Delete, Rename and Properties.
+**Delete** keeps the existing Move to Trash behavior; permanent deletion remains
+separate. **New** appears only on empty-space menus. A file selection does not
+show Paste; a single folder's Paste targets that folder. Background and keyboard
+Paste target the current folder. Plain text and website links leave Paste disabled;
+file clipboard formats from Fusion, KDE and GNOME are supported.
+
+**New → Folder**, **Text document**, and **Template Options…** are shared by
+Fusion Files and the desktop. Template Options can add, edit, reorder, hide or
+remove custom entries. Choose a default filename and optional starting text, or
+an existing template file whose bytes are copied unchanged. Keep referenced
+template files available; missing sources disable their entries. Creation asks
+for a name and never overwrites an existing item. Settings live in
+`file_manager/state/templates.json`, are saved atomically, and survive updates.
+Concurrent edits require reopening the options before saving over newer settings.
+
+In This PC, select a mounted volume and use Ctrl+V or **Paste into
 drive** to paste into its root folder; copied and cut files retain their usual
 copy/move behavior. **Copy** on a mounted volume copies its folder location.
 Cut applies to files and folders inside a drive, rather than the mounted drive
 itself. Pasting checks that the target is still mounted. Right-click blank
 space in a drive grid for **Paste into…** with a list of mounted destinations.
 
-The **Ark** submenu uses Ark's own installed compression and extraction menu
-plugins, including their format shortcuts and options dialog. Dragging selected
-entries from an Ark ZIP or tar.gz window onto a folder or its background extracts
-them there. Ark retains control of extraction, passwords, and archive conflicts;
-the archive itself is kept. These actions are
-enabled by default. **Customize context menu…** controls
-action visibility, order, labels and icons. Custom actions accept `%f` / `%F` for
+The **7-Zip** submenu is shared by Fusion Files and desktop icons. It offers
+**Compress…**, **Compress to…**, quick **7z / ZIP**, **Open archive…**, **Extract
+here**, **Extract to separate folder**, **Extract to…**, and **Test archive**.
+The native Fusion archive manager includes a pinned 7-Zip engine and its complete
+compressed source; no installed Ark or 7-Zip package is needed. Its themed dialogs
+offer compression methods and levels, CPU threads, dictionaries, solid archives,
+split volumes, passwords, AES encryption and encrypted 7z file names. Browse and
+search archive entries, extract selected files, or add, delete and rename entries
+in formats that support updates. RAR is supported for extraction, not creation.
+
+Archive jobs run in the shared animated transfer card, with pause/cancel and the
+expanding attention drawer. New archives are tested before publishing; skipped
+inputs are explicitly reported. Extraction uses private staging, validates member
+paths and links, then publishes through the native transfer worker with its
+conflict choices and scoped administrator access. Original archives remain intact
+if an update fails. See [the bundled archive manager](../config/hypr/archive_manager/README.md)
+for formats, source provenance and offline rebuilding.
+
+Existing drag-and-drop from an independently installed Ark remains compatible
+with its own extraction service. These actions are enabled by default.
+**Configure Fusion Files…** in the toolbar menu controls
+action visibility, order, labels and icons, with separate Files and Desktop tabs. Custom actions accept `%f` / `%F` for
 local files and `%u` / `%U` for URLs. Commands execute as argument lists, without
 shell expansion; multiple-file placeholders must occupy a separate argument.
 
@@ -335,7 +376,7 @@ favorites remain the recipient's choices; updates make My Computer available
 without replacing their favorite layout.
 
 The native file-operation dependencies are Qt 6 and KDE Frameworks 6 KIO.
-Setup installs KIO development files, KIO extras, `kio-admin`, Ark and UDisks on the supported
+Setup installs KIO development files, KIO extras, `kio-admin` and UDisks on the supported
 distributions. Normal mount and force-mount arguments are shared with Control
 Panel in `control_panel/backend/volume_commands.h`; the file manager does not
 perform filesystem repair or discard Windows hibernation files.

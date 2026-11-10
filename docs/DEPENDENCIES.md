@@ -73,6 +73,13 @@ Xetal Images uses the installed Qt image readers. Common image formats are inclu
 
 Xetal Files speaks the [KDE JobView interfaces](https://invent.kde.org/frameworks/kjobwidgets) used by Dolphin/KIO and Ark. It starts only for this Hyprland session and leaves any existing job-service owner in charge. Applications that draw their own progress windows independently of these interfaces retain their own UI. No KDE configuration or system service is replaced.
 
+Fusion Files and desktop archive actions use the [bundled 7-Zip 26.06 engine](../config/hypr/archive_manager/README.md).
+Its complete compressed source, compiled Linux x86-64 engine, adapter source and
+licenses ship in the normal installation/update payload. No Ark or system 7-Zip
+package is required, and upstream 7-Zip updates cannot change the bundled engine.
+Rebuilding it is an optional maintainer operation using GCC and make; recipients
+use the included executable and the existing PyQt6/transfer runtime.
+
 The media popup can update its private copy from the [official yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases), with SHA-256 verification and an atomic replacement. Current YouTube extraction also needs the [EJS scripts and a supported JavaScript runtime](https://github.com/yt-dlp/yt-dlp/wiki/EJS). The official update archive includes EJS; Deno, Node.js or QuickJS and FFmpeg remain distribution dependencies.
 
 Automatic compositor installation supports Arch-based x86-64, mutable Fedora 44 x86-64 and Debian 13 amd64 systems. Fedora uses its own signed RPM bundle, including matching headers/libraries and DNF version locks; see [Fedora setup](INSTALLER.md#fedora-44). Debian 13 uses a separate 22.3 MB native DEB bundle, with matching libraries, headers and dedicated APT pins; see [Debian setup](INSTALLER.md#debian-13). Other distributions, including Ubuntu, must supply the exact native manifest version and commit themselves. Repository availability differs by release. On Arch, Setup uses the official Arch archive; on Fedora 44 it uses the bundled signed COPR RPMs. Arch and Fedora retain their normal package signature checks. Debian verifies the bundled native files against its trusted release manifest and uses authenticated APT repositories for ordinary dependencies. All paths retain dependency checks, without adding a third-party package repository or forcing incompatible libraries. Manual dependency installations can use `--skip-packages` after satisfying the same checks.

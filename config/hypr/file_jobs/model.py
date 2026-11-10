@@ -4,7 +4,7 @@ from urllib.parse import unquote, urlsplit, urlunsplit
 from PyQt6.QtCore import QObject, pyqtSignal
 
 TEXT = {'title', 'infoMessage', 'descriptionLabel1', 'descriptionValue1',
-        'descriptionLabel2', 'descriptionValue2', 'destUrl', 'errorMessage', 'currentFile', 'phase', 'warningMessage'}
+        'descriptionLabel2', 'descriptionValue2', 'destUrl', 'errorMessage', 'currentFile', 'phase', 'warningMessage', 'operation'}
 NUMBERS = {'totalBytes', 'processedBytes', 'totalFiles', 'processedFiles',
            'totalDirectories', 'processedDirectories', 'totalItems', 'processedItems',
            'percent', 'speed', 'elapsedTime', 'errorCode', 'skippedFiles', 'verifiedBytes', 'renamedItems', 'pendingIssues', 'issueCount', 'skippedFolders',
@@ -48,6 +48,8 @@ class Job(QObject):
     requested = pyqtSignal(str)
     question_changed = pyqtSignal()
     answered = pyqtSignal(dict)
+    queue_changed = pyqtSignal(object)
+    queue_decision = pyqtSignal(dict)
 
     def __init__(self, path, owner, application, capabilities, hints=None, parent=None):
         super().__init__(parent)
@@ -57,7 +59,39 @@ class Job(QObject):
         self.result = None
         self.pending = ''
         self.question = None
+        self.queue_rows = {}
+        self.queue_state = {}
         self.update(hints or {})
+
+    def update_queue(self, values):
+        """Presentation only: decisions return to the owning transfer worker."""
+        if not isinstance(values, dict): return False
+        changed = []
+        for row in values.get('rows', []):
+            if not isinstance(row, dict) or type(row.get('id')) is not int: continue
+            row = dict(row)
+            self.queue_rows[row['id']] = row
+            changed.append(row)
+        state = values.get('state', {})
+        if isinstance(state, dict): self.queue_state.update(state)
+        if changed or state: self.queue_changed.emit(changed)
+        return True
+
+    def decide_queue(self, ids, choice, similar=False, versions=None):
+        if self.result is not None or self.pending == 'cancel' or self.queue_state.get('done'): return False
+        if choice not in ('retry', 'skip', 'replace', 'authorize'): return False
+        rows = [self.queue_rows[i] for i in dict.fromkeys(ids)
+                if i in self.queue_rows and self.queue_rows[i].get('status') == 'pending']
+        if not rows: return False
+        # A replacement confirmation can stay open while the worker updates
+        # the queue. Never approve a different revision than the user saw.
+        if versions is not None and any(versions.get(str(r['id'])) != r.get('version') for r in rows): return False
+        if choice == 'replace' and not all(r.get('replace_allowed') is True for r in rows): return False
+        if choice == 'retry' and not all(r.get('retry_allowed', True) for r in rows): return False
+        if choice == 'authorize' and not all(str(r.get('category', '')).endswith(':permission') for r in rows): return False
+        self.queue_decision.emit({'ids': [r['id'] for r in rows],
+            'versions': {str(r['id']): r.get('version') for r in rows}, 'choice': choice, 'all': bool(similar)})
+        return True
 
     def update(self, values):
         if self.result is not None or not isinstance(values, dict):
@@ -132,6 +166,12 @@ class Job(QObject):
         return ' · '.join(pieces) or self.data.get('infoMessage') or 'Working…'
 
     def file_summary(self):
+        if self.data.get('operation') in ('compress','extract','test','add','delete','rename','list'):
+            count=self.data.get('processedFiles',0)
+            text=f'{count:,} items processed' if count else ''
+            pending=self.data.get('pendingIssues',0)
+            if pending and self.result is None:text+=f' · {pending:,} queued'
+            return text.strip(' ·')
         files = self.data.get('processedFiles', 0)
         if self.data.get('renamedItems') and not self.data.get('totalFiles'):
             renamed = self.data['renamedItems']
@@ -149,6 +189,8 @@ class Job(QObject):
         return text
 
     def activity(self):
+        if self.data.get('operation') in ('compress','extract','test','add','delete','rename','list') and self.result:
+            return 'Archive operation finished' if self.result=='done' else 'Archive operation canceled' if self.result=='canceled' else 'Archive operation stopped'
         if self.result == 'done':
             return 'Skipped originals remain in place' if self.data.get('skippedFiles') else 'Transfer finished'
         if self.result is not None: return 'Completed copies are kept'

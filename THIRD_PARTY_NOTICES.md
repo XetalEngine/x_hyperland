@@ -17,12 +17,23 @@ The Xetal scripts, custom UI components, installer and configuration are supplie
 - **JetBrains Mono 2.304:** unmodified Regular, Bold, Italic and BoldItalic TrueType fonts from the [official repository](https://github.com/JetBrains/JetBrainsMono/tree/v2.304), bundled under their [SIL Open Font License](config/hypr/assets/fonts/JetBrainsMono-OFL.txt).
 - **Wallpaper:** the exact image supplied by the repository owner for this desktop is included under `config/hypr/wallpaper/images`. The code's MIT license does not grant a separate license to the artwork. No third-party authorship or artwork rights are asserted by the installer.
 - **BreakPoint wallpapers:** three variants of the owner’s existing desktop artwork, created at their request with the built-in image generator. They preserve the original characters and use new crimson workstation settings. [Prompts](config/hypr/wallpaper/breakpoint/PROMPTS.txt) are included. Original files are not replaced; the code license does not separately license artwork or depicted third-party marks.
+- **Leviathan artwork:** three wallpapers generated with the built-in image generator from the owner’s supplied theme concept. [Prompts and provenance](config/hypr/wallpaper/leviathan/prompts.json) are included; icons, cursor vectors and synthesized chimes are repository artwork. Existing native-effect licenses are unchanged.
 - **Xetal mascot:** the original transparent PNG supplied by the repository owner is included unchanged in `config/hypr/startup/assets/xetal-mascot.png`. As with the wallpaper, the code's MIT license does not grant a separate license to the artwork.
 - **Hyprland:** the unmodified official Arch package **0.56.2-4** and its detached signature are included under [`installer/packages`](installer/packages/README.md). Hyprland is **BSD-3-Clause**, copyright © 2022–2026 vaxerski; its license is reproduced in [`LICENSES/Hyprland-BSD-3-Clause.txt`](LICENSES/Hyprland-BSD-3-Clause.txt) and remains inside the package. [Matching upstream source](https://github.com/hyprwm/Hyprland/tree/efb50993780079460b0cbed1363e2166a2de1d9f).
 - **Fedora runtime:** unmodified signed RPMs from giperborey/Hyprland on Fedora COPR are included under [`installer/packages/fedora-44`](installer/packages/fedora-44/README.md). They retain their embedded license notices. Hyprland contains BSD/MIT-family and LGPL-2.1-or-later components; Hyprlang is LGPL-3.0-only. Exact corresponding source RPMs are included in the `sources/` subdirectory. The bundle manifest records hashes, package versions, publisher and source URLs. Other Hyprland ecosystem components retain their BSD-3-Clause/MIT notices; see the bundle inventory.
 - **Other desktop system packages:** Qt, GTK, Kitty, Dolphin, Papirus and other desktop dependencies are obtained from the recipient's distribution. Their licenses continue to apply. Bundled KVM components are described separately below.
 
 The owner-provided **Programmer Calculator** source and SVG artwork are integrated under `config/hypr/calculator`, adapted from the owner's `WindowsCalculatorClone` project to the desktop's PyQt6 runtime. This is an independent implementation, not Microsoft's Windows Calculator source. Its personal settings and history are not distributed.
+
+- **7-Zip 26.06:** the full, unmodified upstream source archive, a compiled engine,
+  LGPL text, BSD notices and unRAR restriction are included under
+  [`config/hypr/archive_manager/vendor`](config/hypr/archive_manager/vendor/License.txt).
+  Copyright © 1999–2026 Igor Pavlov and the upstream contributors identified in
+  those notices. HyperFusion's optional event/password adapter and offline build
+  script are LGPL-2.1-or-later; their complete source is included. Compression
+  codecs and archive handlers remain upstream code. The bundled GCC runtime
+  uses GPL-3.0 with the GCC Runtime Library Exception; its notices are included
+  alongside the engine. See [source and build details](config/hypr/archive_manager/README.md).
 
 The installer includes no browser profiles, account data or application credentials.
 

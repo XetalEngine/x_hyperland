@@ -43,10 +43,22 @@ class ViewV3(Guarded):
 class TransferQuestions(Guarded):
     """Questions belong to the exact JobView, and only its owner can ask them."""
     reviewRequested = pyqtSignal()
+    queueDecision = pyqtSignal('QVariantMap')
     def __init__(self, job):
         super().__init__(job)
         self.reply = None
         job.answered.connect(self.answer)
+        job.queue_decision.connect(self.decide_queue)
+
+    @pyqtSlot('QVariantMap', QDBusMessage, result=bool)
+    def updateQueue(self, values, message):
+        return self.parent().update_queue(values) if self.accepted(message) else False
+
+    def decide_queue(self, values):
+        job = self.parent()
+        signal = QDBusMessage.createTargetedSignal(job.owner, job.path, 'org.xetal.FileTransfer1', 'queueDecision')
+        signal.setArguments([values])
+        job.service.bus.send(signal)
 
     @pyqtSlot('QVariantMap', QDBusMessage, result='QVariantMap')
     def ask(self, values, message):

@@ -8,3 +8,8 @@ cc -std=c11 -O2 -Wall -Wextra -Werror -Wno-unused-parameter -fPIC -shared \
     "$workspace_root/button.c" -o "$workspace_output" "${workspace_flags[@]}"
 chmod 755 "$workspace_output"
 mv -f -- "$workspace_output" "$workspace_root/controls.so"
+read -r -a workspace_flags <<< "$(pkg-config --cflags --libs gtk+-3.0 json-glib-1.0)"
+cc -std=c11 -O2 -Wall -Wextra -Werror -Wno-unused-parameter -fPIC -shared \
+    "$workspace_root/mode.c" -o "$workspace_output" "${workspace_flags[@]}"
+chmod 755 "$workspace_output"
+mv -f -- "$workspace_output" "$workspace_root/mode.so"

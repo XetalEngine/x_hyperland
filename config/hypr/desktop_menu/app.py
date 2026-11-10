@@ -74,6 +74,7 @@ class DesktopSurface(Gtk.Window):
         columns = appearance.columns(items)
         available = GtkLayerShell.get_monitor(self).get_geometry().width-40
         width = min(style['width'], max(100, (available-2*style['padding']-style['accent_width'])//max(1, len(columns))-12))
+        offset = self.owner.icons.append_menu(menu, 0, target) if desktop else 0
         for col, entries in enumerate(columns):
             for index, entry in enumerate(entries):
                 kind = entry['kind']
@@ -121,10 +122,8 @@ class DesktopSurface(Gtk.Window):
                             item.connect('activate', self.activate, entry['id'])
                     item.add(row)
                 if col: item.get_style_context().add_class('after-split')
-                menu.attach(item, col, col+1, index, index+1)
-        if desktop:
-            self.owner.icons.append_menu(menu, len(columns[0]) if columns else 0, target)
-        elif not columns:
+                menu.attach(item, col, col+1, offset+index, offset+index+1)
+        if not desktop and not columns:
             empty = Gtk.MenuItem(label='Empty submenu'); empty.set_sensitive(False); menu.append(empty)
         menu.show_all()
         return menu

@@ -42,6 +42,7 @@
 #include "policies.hpp"
 #include "background.hpp"
 #include "../../../workspaces/native.hpp"
+#include "decorations.hpp"
 #include "../../../runtime/window_types_native.hpp"
 
 namespace {
@@ -59,10 +60,11 @@ std::vector<PHLWINDOWREF> neverFloated;
 std::array<CBox,5> buttons;
 struct Row {PHLWINDOWREF window;std::array<CBox,5> boxes;WindowButtons::Rule rule;bool preview=false;};
 std::vector<Row> rows;
-WindowButtons::Rules appRules,windowRules;
+WindowButtons::Rules appRules,windowRules,kdeAppRules,kdeWindowRules;
+WindowButtons::Decorations decorations;
 WorkspaceRules::Policies workspaceRules;
 WindowButtons::Backgrounds backgrounds;
-struct Preview {PHLWINDOWREF window;WindowButtons::Rule rule;pid_t owner;std::string token;Clock::time_point expires;int64_t workspace=0;};
+struct Preview {PHLWINDOWREF window;WindowButtons::Rule rule;pid_t owner;std::string token;Clock::time_point expires;int64_t workspace=0;bool kde=false;};
 std::map<std::string,Preview> previews;
 Action pressedAction=None,pendingAction=None;
 bool held=false, superHeld=false,captured=false, stopping=false,waiting=false;
@@ -101,25 +103,35 @@ Settings readSettings() {
         throw std::runtime_error("Incomplete window close settings");
     return next;
 }
-std::filesystem::path sessionRulesPath(){
+std::filesystem::path sessionRulesPath(bool kde=false){
     const char* runtime=std::getenv("XDG_RUNTIME_DIR"),*instance=std::getenv("HYPRLAND_INSTANCE_SIGNATURE");
     if(!runtime||!instance||std::string(instance).find('/')!=std::string::npos)throw std::runtime_error("Missing compositor session");
-    return std::filesystem::path(runtime)/"hypr"/instance/"xetal-windowbuttons-rules.json";
+    return std::filesystem::path(runtime)/"hypr"/instance/(kde?"xetal-windowbuttons-kde-rules.json":"xetal-windowbuttons-rules.json");
 }
 WindowRules::ButtonRules matchedRules;
 void load(){
     auto next=readSettings();auto apps=WindowButtons::readRules(root()/"effects/window_close/rules.json","apps");
     auto windows=WindowButtons::readRules(sessionRulesPath(),"windows");
+    auto kdeApps=WindowButtons::readRules(root()/"effects/window_close/kde-rules.json","apps");
+    auto kdeWindows=WindowButtons::readRules(sessionRulesPath(true),"windows");
     auto workspaces=WorkspaceRules::read();
     auto patterns=WindowRules::read(root()/"window_rules/rules.json");
     matchedRules=std::move(patterns);settings=next;appRules=std::move(apps);windowRules=std::move(windows);workspaceRules=std::move(workspaces);
+    kdeAppRules=std::move(kdeApps);kdeWindowRules=std::move(kdeWindows);
 }
 std::string appId(PHLWINDOW w){return w->m_initialClass.empty()?w->m_class:w->m_initialClass;}
 int64_t workspaceId(PHLWINDOW w){return w&&w->m_workspace?w->m_workspace->m_id:0;}
 WorkspaceRules::Policy workspacePolicy(PHLWINDOW w){return WorkspaceRules::forWorkspace(workspaceRules,workspaceId(w));}
-bool workspaceButtons(){return std::ranges::any_of(workspaceRules,[](const auto& entry){return entry.second.controls=="on";});}
+bool kdeMode(PHLWINDOW w){return workspacePolicy(w).layout=="kde";}
+std::string controlsMode(PHLWINDOW w){return kdeMode(w)?"individual":workspacePolicy(w).controls;}
+bool workspaceButtons(){return std::ranges::any_of(workspaceRules,[](const auto& entry){return entry.second.controls=="on"||entry.second.layout=="kde";});}
 WindowButtons::Rule ruleFor(PHLWINDOW w){
     const auto policy=workspacePolicy(w);
+    if(policy.layout=="kde"){
+        if(auto it=kdeWindowRules.find(std::to_string(w->m_stableID));it!=kdeWindowRules.end())return it->second;
+        if(auto it=kdeAppRules.find(appId(w));it!=kdeAppRules.end())return it->second;
+        WindowButtons::Rule r;r.mode="auto";r.size=settings.size;r.x=r.y=settings.inset;return r;
+    }
     if(policy.controls=="on")return policy.rule;
     if(policy.controls=="off"){auto rule=policy.rule;rule.mode="off";return rule;}
     if(auto it=windowRules.find(std::to_string(w->m_stableID));it!=windowRules.end())return it->second;
@@ -129,13 +141,13 @@ WindowButtons::Rule ruleFor(PHLWINDOW w){
 }
 Preview* previewFor(PHLWINDOW w){
     if(!w)return nullptr;
-    const auto policy=workspacePolicy(w);if(policy.controls=="off")return nullptr;
-    if(policy.controls=="on"){
+    const auto controls=controlsMode(w);if(controls=="off")return nullptr;
+    if(controls=="on"){
         for(auto& [id,preview]:previews)if(preview.workspace==workspaceId(w)&&preview.window.lock()&&
-            workspaceId(preview.window.lock())==preview.workspace)return &preview;
+            !preview.kde&&workspaceId(preview.window.lock())==preview.workspace&&!kdeMode(preview.window.lock()))return &preview;
         return nullptr;
     }
-    auto it=previews.find(std::to_string(w->m_stableID));return it==previews.end()||it->second.workspace?nullptr:&it->second;
+    auto it=previews.find(std::to_string(w->m_stableID));return it==previews.end()||it->second.workspace||it->second.kde!=kdeMode(w)?nullptr:&it->second;
 }
 void prunePreviews(){
     std::erase_if(previews,[](const auto& item){
@@ -195,29 +207,37 @@ void refresh() {
     for(const auto& window:Desktop::windowState()->windows()){
         if(!window->m_isMapped||window->isHidden()||!WindowTypes::geometryManaged(window)||window->m_class=="fusion-window-buttons")continue;
         const auto policy=workspacePolicy(window);
-        if(policy.controls=="off"||(!settings.enabled&&policy.controls!="on"))continue;
+        const bool kde=policy.layout=="kde";
+        if(!kde&&(policy.controls=="off"||(!settings.enabled&&policy.controls!="on")))continue;
         const auto monitor=window->m_monitor.lock();
         if(!monitor||!g_pHyprRenderer->shouldRenderWindow(window,monitor))continue;
         const auto preview=previewFor(window);const bool isPreview=preview!=nullptr;
         auto rule=preview?preview->rule:ruleFor(window);const bool isHovered=hovered==window;
+        if(kde&&!isPreview&&Fullscreen::controller()->getFullscreenModes(window).internal==Fullscreen::FSMODE_FULLSCREEN&&!held)continue;
+        if(rule.mode=="auto"){
+            const auto decoration=decorations.get(window);
+            waiting|=decoration==WindowButtons::Decoration::Pending;
+            rule.mode=decoration==WindowButtons::Decoration::Server?"always":"off";
+        }
         if(!isPreview&&rule.mode!="always"&&!isHovered)continue;
         if(!settled(window)){waiting|=isPreview||rule.mode=="always"||(isHovered&&(held||rule.mode=="nearby"));continue;}
         if(window->popupsCount()>0){if(isPreview||rule.mode=="always")rows.push_back({window,{},rule,isPreview});continue;}
         auto box=window->geometricBox(Desktop::View::IGeometric::GEOMETRIC_CURRENT).intersection(monitor->logicalBox());
         const double gap=std::max(2,rule.size/6);
-        const double size=std::min({double(rule.size),(box.w-8-4*gap)/5.,box.h-8});
+        const int count=kde?4:5;
+        const double size=std::min({double(rule.size),(box.w-8-(count-1)*gap)/count,box.h-8});
         if(size<10)continue;
-        const double width=5*size+4*gap;
+        const double width=count*size+(count-1)*gap;
         const double x=std::clamp(rule.anchor.ends_with("right")?box.x+box.w-width-rule.x:
             rule.anchor.ends_with("center")?box.x+(box.w-width)/2+rule.x-8:box.x+rule.x,box.x+4,box.x+box.w-width-4);
         const double y=std::clamp(rule.anchor.starts_with("bottom")?box.y+box.h-size-rule.y:box.y+rule.y,box.y+4,box.y+box.h-size-4);
         Row row{window,{},rule,isPreview};
         const bool nearby=isHovered&&CBox{x,y,width,size}.expand(rule.proximity).containsPoint(point);
         if(isPreview||(rule.mode!="off"&&((held&&isHovered)||rule.mode=="always"||(rule.mode=="nearby"&&nearby)))){
-            for(int i=0;i<3;++i)row.boxes[i]={x+(i+2)*(size+gap),y,size,size};
-            if(policy.layout!="floating")row.boxes[Tile]={x+size+gap,y,size,size};
+            for(int i=0;i<3;++i)row.boxes[i]={x+(i+(kde?1:2))*(size+gap),y,size,size};
+            if(!WorkspaceRules::floats(policy))row.boxes[Tile]={x+size+gap,y,size,size};
         }
-        if(isPreview||(superHeld&&isHovered))row.boxes[Gear]={x+size*.08,y+size*.08,size*.84,size*.84};
+        if(isPreview||(superHeld&&isHovered)||(kde&&!row.boxes[Close].empty()))row.boxes[Gear]={x+size*.08,y+size*.08,size*.84,size*.84};
         if(std::ranges::all_of(row.boxes,[](const CBox& b){return b.empty();}))continue;
         if(isHovered){target=window;buttons=row.boxes;}
         rows.push_back(row);
@@ -274,7 +294,7 @@ public:
         if(!m || !w || !available() || !settled(w))return {};
         CBox panel;
         for(int i=0;i<5;++i){
-            const auto& button=row.boxes[i];if(button.empty()||(i==Gear&&!superHeld&&!row.preview))continue;
+            const auto& button=row.boxes[i];if(button.empty()||(i==Gear&&!superHeld&&!row.preview&&!kdeMode(w)))continue;
             if(panel.empty())panel=button;
             else {const double right=std::max(panel.x+panel.w,button.x+button.w),bottom=std::max(panel.y+panel.h,button.y+button.h);
                 panel.x=std::min(panel.x,button.x);panel.y=std::min(panel.y,button.y);panel.w=right-panel.x;panel.h=bottom-panel.y;}
@@ -294,7 +314,7 @@ public:
         g_pHyprRenderer->draw(backing,g_pHyprRenderer->m_renderData.damage);
         const double elapsed=std::chrono::duration<double>(Clock::now()-epoch).count();
         for(int i=0;i<5;++i){
-            const auto& button=row.boxes[i];if(button.empty()||(i==Gear&&!superHeld&&!row.preview))continue;
+            const auto& button=row.boxes[i];if(button.empty()||(i==Gear&&!superHeld&&!row.preview&&!kdeMode(w)))continue;
             const int glyph=i==Gear?4:i==Tile?5:i==Close?3:i==Maximize&&restoring(w)?2:i;
             if(!textures[glyph])createTexture(glyph);
             const bool hover=button.containsPoint(Pointer::mgr()->position());
@@ -363,7 +383,7 @@ void perform(PHLWINDOW w,Action action){
                 }
             return;
         }
-        if(!superHeld)return;
+        if(!superHeld&&!kdeMode(w))return;
         std::string path=(root()/"effects/window_close/window_settings.py").string(),quoted="'";
         for(char c:path)quoted+=c=='\''?"'\\''":std::string(1,c);
         quoted+="'";
@@ -397,11 +417,12 @@ void perform(PHLWINDOW w,Action action){
 void tick(SP<CEventLoopTimer> self,void*) {
     refresh();
     const auto w=pending.lock();const auto action=pendingAction;pending.reset();pendingAction=None;
-    if(w && w->m_isMapped && !w->isHidden() && available() && settled(w)&&workspacePolicy(w).controls!="off"){perform(w,action);refresh();}
+    if(w && w->m_isMapped && !w->isHidden() && available() && settled(w)&&controlsMode(w)!="off"&&
+       !(action==Tile&&WorkspaceRules::floats(workspacePolicy(w)))){perform(w,action);refresh();}
     if(held || captured || waiting || !rows.empty() || !previews.empty())self->updateTimeout(std::chrono::milliseconds(25));
 }
 void cleanup() {
-    stopping=true;damage();listeners.clear();target.reset();pressed.reset();pending.reset();neverFloated.clear();
+    stopping=true;damage();listeners.clear();target.reset();pressed.reset();pending.reset();neverFloated.clear();decorations.clear();
     if(timer){timer->cancel();g_pEventLoopManager->removeTimer(timer);timer.reset();}
     g_pHyprRenderer->m_renderPass.removeAllOfType("FusionWindowClose");
     g_pHyprRenderer->glBackend()->makeEGLCurrent();backgrounds.clear();textures={};buttons={};rows.clear();previews.clear();
@@ -418,12 +439,14 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         listeners.push_back(Event::bus()->m_events.input.keyboard.key.listen([](IKeyboard::SKeyEvent,Event::SCallbackInfo&){arm();}));
         listeners.push_back(Event::bus()->m_events.input.mouse.move.listen([](Vector2D,Event::SCallbackInfo&){arm();}));
         listeners.push_back(Event::bus()->m_events.window.openLate.listen([](PHLWINDOW w){if(!w->m_isFloating)neverFloated.emplace_back(w);arm();}));
+        listeners.push_back(Event::bus()->m_events.window.fullscreen.listen([](PHLWINDOW){arm();}));
         listeners.push_back(Event::bus()->m_events.window.floating.listen([](PHLWINDOW w){
             if(w->m_isFloating)std::erase_if(neverFloated,[&](const auto& weak){return !weak.lock()||weak.lock()==w;});
         }));
         listeners.push_back(Event::bus()->m_events.window.close.listen([](PHLWINDOW w){
             g_pHyprRenderer->glBackend()->makeEGLCurrent();backgrounds.erase(w->m_stableID);
             std::erase_if(neverFloated,[&](const auto& weak){return !weak.lock()||weak.lock()==w;});windowRules.erase(std::to_string(w->m_stableID));
+            kdeWindowRules.erase(std::to_string(w->m_stableID));decorations.erase(w->m_stableID);
             // Closing either the edited window or its editor ends the preview.
             std::erase_if(previews,[&](const auto& p){return p.second.window.lock()==w||(w->m_class=="fusion-window-buttons"&&p.second.owner==w->getPID());});arm();
         }));
@@ -477,17 +500,21 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
                     PHLWINDOW window;
                     for(const auto& w:Desktop::windowState()->windows())if(w->m_isMapped&&WindowTypes::geometryManaged(w)&&id==std::to_string(w->m_stableID)&&w->m_class!="fusion-window-buttons"){window=w;break;}
                     if(!window)throw std::runtime_error("This window has closed");
+                    json_object* profileValue=nullptr;
+                    const auto profile=json_object_object_get_ex(doc.get(),"profile",&profileValue)?string("profile"):"standard";
+                    if((profile!="standard"&&profile!="kde")||(profile=="kde")!=kdeMode(window))
+                        throw std::runtime_error("Workspace mode changed. Reload the editor.");
                     int64_t workspace=0;json_object* scope=nullptr;
                     if(json_object_object_get_ex(doc.get(),"workspace",&scope)){
                         workspace=json_object_get_int64(WindowButtons::field(doc.get(),"workspace",json_type_int));
-                        if(workspace<1||workspace!=workspaceId(window)||workspacePolicy(window).controls!="on")
+                        if(workspace<1||workspace!=workspaceId(window)||controlsMode(window)!="on")
                             throw std::runtime_error("Workspace settings changed. Reload the editor.");
                         rule.mode="always";
                         for(const auto& [key,preview]:previews)if(key!=id&&preview.workspace==workspace)
                             throw std::runtime_error("This workspace is already being previewed in another editor");
-                    }else if(workspacePolicy(window).controls!="individual")throw std::runtime_error("Workspace settings changed. Reload the editor.");
+                    }else if(controlsMode(window)!="individual")throw std::runtime_error("Workspace settings changed. Reload the editor.");
                     if(existing==previews.end()&&previews.size()>=64)throw std::runtime_error("Too many window previews");
-                    previews.insert_or_assign(id,Preview{window,rule,pid_t(owner),token,Clock::now()+std::chrono::seconds(4),workspace});
+                    previews.insert_or_assign(id,Preview{window,rule,pid_t(owner),token,Clock::now()+std::chrono::seconds(4),workspace,profile=="kde"});
                 }else throw std::runtime_error("Unknown preview action");
                 refresh();arm();return SDispatchResult{};
             }catch(const std::exception& error){return SDispatchResult{.success=false,.error=error.what()};}
@@ -517,14 +544,16 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
                 }
                 const auto box=w->geometricBox(Desktop::View::IGeometric::GEOMETRIC_CURRENT);
                 const auto sampled=std::format("{{\"ready\":{},\"color\":\"#{:06x}\"}}",backgrounds.ready(w->m_stableID),backgrounds.last(w->m_stableID).getAsHex()&0xffffff);
-                return std::format("{{\"id\":\"{}\",\"app\":{},\"address\":\"0x{:x}\",\"rule\":{},\"window_override\":{},\"app_override\":{},\"size\":[{},{}],\"preview\":{},\"preview_rule\":{},\"preview_boxes\":{},\"auto_background\":{},\"workspace\":{},\"workspace_controls\":\"{}\",\"workspace_layout\":\"{}\"}}",
-                    id,WindowButtons::quoted(appId(w)),reinterpret_cast<uintptr_t>(w.get()),json_object_to_json_string_ext(rule.get(),JSON_C_TO_STRING_PLAIN),windowRules.contains(id),appRules.contains(appId(w)),
-                    box.w,box.h,bool(preview),json_object_to_json_string_ext(previewRule.get(),JSON_C_TO_STRING_PLAIN),boxes,sampled,workspaceId(w),workspacePolicy(w).controls,workspacePolicy(w).layout);
+                const bool kde=kdeMode(w);
+                return std::format("{{\"id\":\"{}\",\"app\":{},\"address\":\"0x{:x}\",\"rule\":{},\"window_override\":{},\"app_override\":{},\"size\":[{},{}],\"preview\":{},\"preview_rule\":{},\"preview_boxes\":{},\"auto_background\":{},\"workspace\":{},\"workspace_controls\":\"{}\",\"workspace_layout\":\"{}\",\"control_profile\":\"{}\",\"decoration_hint\":\"{}\"}}",
+                    id,WindowButtons::quoted(appId(w)),reinterpret_cast<uintptr_t>(w.get()),json_object_to_json_string_ext(rule.get(),JSON_C_TO_STRING_PLAIN),(kde?kdeWindowRules:windowRules).contains(id),(kde?kdeAppRules:appRules).contains(appId(w)),
+                    box.w,box.h,bool(preview),json_object_to_json_string_ext(previewRule.get(),JSON_C_TO_STRING_PLAIN),boxes,sampled,workspaceId(w),controlsMode(w),workspacePolicy(w).layout,kde?"kde":"standard",
+                    WindowButtons::decorationName(decorations.get(w)));
             }
             return std::string("{\"error\":\"This window has closed.\"}");
         }});
         arm();
     }catch(...){cleanup();throw;}
-    return {"Xetal Window Close","Theme-aware window controls with live per-window previews","XetalEngine","1.6"};
+    return {"Xetal Window Close","Theme-aware window controls with live per-window previews","XetalEngine","1.7"};
 }
 APICALL EXPORT void PLUGIN_EXIT(){cleanup();}

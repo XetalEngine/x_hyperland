@@ -7,7 +7,6 @@
 class KJob;
 class QMenu;
 class QAction;
-class KAbstractFileItemActionPlugin;
 
 // The desktop surface uses the same transfer/conflict and application handlers
 // as Files. This interface belongs only to the current Hyprland login.
@@ -28,6 +27,9 @@ public slots:
   bool RenameTo(const QString &source, const QString &name);
   bool NewFolder(const QString &directory);
   bool NewFolderWithPlacement(const QString &directory, const QString &request);
+  QString NewEntries();
+  bool CreateNewWithPlacement(const QString &directory, const QString &id, const QString &request);
+  bool ConfigureTemplates();
   bool Properties(const QStringList &sources);
   QString Menu(const QStringList &sources);
   bool MenuAction(const QString &identity);
@@ -43,8 +45,8 @@ signals:
 private:
   QPointer<QMenu> fileMenu;
   QHash<QString, QPointer<QAction>> menuActions;
-  QHash<QString, KAbstractFileItemActionPlugin *> arkPlugins;
   bool configuring = false;
+  bool configuringTemplates = false;
   bool trashStatPending = false;
   bool transfer(const QStringList &sources, const QString &destination, Fusion::TransferOperation operation, const QString &request);
   static QList<QUrl> urls(const QStringList &values);
