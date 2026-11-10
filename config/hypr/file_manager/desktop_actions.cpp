@@ -106,6 +106,13 @@ bool DesktopActions::Open(const QStringList &sources, bool choose) {
         track(job); job->start();
         continue;
       }
+      if (!choose && Fusion::executeOnOpen(url)) {
+        auto command = Fusion::executionCommand(url);
+        const auto program = command.takeFirst();
+        if (!QProcess::startDetached(program, command, QFileInfo(url.toLocalFile()).absolutePath()))
+          error("Could not start Execute.");
+        continue;
+      }
       const auto archiveApp = KApplicationTrader::preferredService(item.mimetype());
       if (!choose && Fusion::isArchive(item) && url.isLocalFile() &&
           (!archiveApp || archiveApp->storageId() == "org.kde.ark.desktop" || archiveApp->storageId() == "xetal-archives.desktop")) {
@@ -249,7 +256,7 @@ QString DesktopActions::Menu(const QStringList &sources) {
   fileMenu = new QMenu;
   menuActions.clear();
   Fusion::Preferences preferences;
-  const auto entries = preferences.menu("desktopMenu");
+  const auto entries = Fusion::executionMenu(preferences.menu("desktopMenu"), files);
   KFileItemList items;
   for (const auto &file : files) items << KFileItem(file);
   const bool trash = files.contains(QUrl("trash:/"));

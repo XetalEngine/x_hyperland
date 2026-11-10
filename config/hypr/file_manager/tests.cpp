@@ -2187,8 +2187,7 @@ print(json.dumps(rows))
     write(script.toLocalFile(), "#!/usr/bin/env bash\nprintf 'fixture only'\n");
     write(unknown.toLocalFile(), QByteArray(32, '\0'));
     const auto command = Fusion::executionCommand(script);
-    QCOMPARE(command, QStringList({"kitty", "--hold", "--directory", base, "-e",
-                                  "/usr/bin/env", "bash", script.toLocalFile()}));
+    QCOMPARE(command, QStringList({"/usr/bin/python3", Fusion::root()+"/file_manager/execute.py", "--", script.toLocalFile()}));
     QVERIFY(!QFileInfo(script.toLocalFile()).isExecutable());
     QVERIFY(Fusion::executionCommand(unknown).isEmpty());
     FilesWindow window(QUrl::fromLocalFile(base), false,

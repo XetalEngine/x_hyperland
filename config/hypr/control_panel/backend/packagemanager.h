@@ -1121,7 +1121,8 @@ void MainWindow::on_paruUninstallButton_clicked() {
 }
 
 void MainWindow::on_installDebButton_clicked() {
-    const QString file = QFileDialog::getOpenFileName(this, tr("Choose a Debian package"),
+    QString file = ui->installDebButton->property("debSelectedFile").toString();
+    if (file.isEmpty()) file = QFileDialog::getOpenFileName(this, tr("Choose a Debian package"),
         QStandardPaths::writableLocation(QStandardPaths::DownloadLocation),
         tr("Debian packages (*.deb)"));
     if (file.isEmpty()) return;

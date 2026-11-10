@@ -243,7 +243,7 @@ class Window(QWidget):
     def open_folder(self):
         folder=self.folder
         folder.mkdir(parents=True,exist_ok=True)
-        subprocess.Popen([str(backend.ROOT/'scripts/dolphin.sh'),str(folder)],start_new_session=True)
+        subprocess.Popen([str(backend.ROOT/'scripts/files.sh'),'--external',str(folder)],start_new_session=True)
 
     def open_file(self):
         if self.last_file and self.last_file.is_file():subprocess.Popen(['xdg-open',str(self.last_file)],start_new_session=True)

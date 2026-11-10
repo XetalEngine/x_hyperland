@@ -2,6 +2,7 @@
 #include "backend/window_enum_backend.h"
 #include "native.h"
 #include "disk_visualizer.h"
+#include "deb_page.h"
 #include "wheel_guard.h"
 #include "../theme/icon_theme.hpp"
 #include <QJsonDocument>
@@ -68,6 +69,7 @@ int main(int argc, char **argv) {
   parser.addHelpOption();
   parser.addOption({"preload", "Keep the panel ready without opening a window"});
   parser.addOption({"section", "Open a tool", "id"});
+  parser.addOption({"deb-file", "Select a Debian package in Install .deb", "path"});
   parser.addOption({"smoke-size", "Override test window size (WIDTHxHEIGHT)", "size"});
   parser.addOption({"smoke-disk-path", "Scan a disk fixture without sudo (only with --smoke-dir)", "path"});
   parser.addOption({"smoke-dir",
@@ -101,7 +103,8 @@ int main(int argc, char **argv) {
       if (!existing.waitForConnected(1500))
         return 1;
       existing.write(
-          QJsonDocument(QJsonObject{{"section", parser.value("section")}, {"preload", parser.isSet("preload")}})
+          QJsonDocument(QJsonObject{{"section", parser.value("section")}, {"preload", parser.isSet("preload")},
+                                   {"deb_file", parser.value("deb-file")}})
               .toJson(QJsonDocument::Compact) +
           "\n");
       if (!existing.waitForBytesWritten(1000))
@@ -115,13 +118,20 @@ int main(int argc, char **argv) {
   }
   MainWindow window;
   PanelController controller(&window);
+  auto openTool = [&](const QString &section, const QString &package) {
+    if (!package.isEmpty()) {
+      controller.open("deb");
+      if (auto *page = dynamic_cast<DebInstallerPage *>(window.findChild<QWidget *>("debInstallTab")))
+        page->selectPackage(package);
+    } else if (!section.isEmpty()) controller.open(section);
+  };
   if (smoke) {
     const auto size = parser.value("smoke-size").split('x');
     window.resize(size.size() == 2 ? QSize(size[0].toInt(), size[1].toInt()) : QSize(1280, 800));
   }
   if (!parser.isSet("preload")) window.show();
-  if (parser.isSet("section") && !parser.isSet("preload"))
-    controller.open(parser.value("section"));
+  if (!parser.isSet("preload"))
+    openTool(parser.value("section"), parser.value("deb-file"));
   if (smoke && parser.isSet("smoke-disk-path")) {
     controller.open("cleaner");
     if (auto *disk = window.findChild<DiskVisualizer *>()) {
@@ -135,10 +145,10 @@ int main(int argc, char **argv) {
         if (!peer->canReadLine())
           return;
         const auto request =
-            QJsonDocument::fromJson(peer->readLine(4096)).object();
+            QJsonDocument::fromJson(peer->readLine(16384)).object();
         if (!request["preload"].toBool()) {
           const auto section = request["section"].toString();
-          if (!section.isEmpty()) controller.open(section);
+          openTool(section, request["deb_file"].toString());
           if (window.isMinimized()) window.showNormal(); else window.show();
           window.raise();
           window.activateWindow();

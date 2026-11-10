@@ -152,6 +152,7 @@ bindm=SUPER,mouse:273,resizewindow
             env['DBUS_SESSION_BUS_ADDRESS']=bus.stdout.readline().strip()
             assert env['DBUS_SESSION_BUS_ADDRESS'].startswith('unix:')
         fixture='tests/window-buttons/background_client.py' if '--background-only' in sys.argv else 'tests/wobbly/client.py'
+        if '--stacking-only' in sys.argv:fixture='tests/window-buttons/stacking_client.py'
         app = spawn([sys.executable, str(REPO / fixture), '-name', 'wobbly-test'],
                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         def command(op, name='Buttons', process=app):
@@ -172,6 +173,56 @@ bindm=SUPER,mouse:273,resizewindow
             c = client(name); m = json.loads(ctl('-j', 'monitors'))[0]
             x, y = c['at']; w, h = c['size']; left, top, right, bottom = m['reserved']
             assert x >= left + 3 and y >= top + 3 and x+w <= m['width']-right-3 and y+h <= m['height']-bottom-3, (c, m)
+
+        if '--stacking-only' in sys.argv:
+            from PIL import Image
+            workspace=client()['workspace']['id'];controller_path=workspace_dir/'controller.py'
+            def policy(mode):
+                run(sys.executable,str(controller_path),'--workspace',str(workspace),'--layout',mode)
+            def counts():
+                app.stdin.write('{"op":"counts"}\n');app.stdin.flush()
+                return json.loads(app.stdout.readline())
+            def tap(x,y):
+                point(f'move {x} {y}');point('down 272');point('up 272')
+            def visible_color(label,expected):
+                image=root/(label+'.png');run('grim',str(image))
+                with Image.open(image) as shot:
+                    actual=shot.convert('RGB').getpixel((450,470))
+                assert max(abs(a-b) for a,b in zip(actual,expected))<8,(label,actual,expected)
+            command('add','Media');wait(lambda:client('Media'))
+            for mode in ('floating','kde'):
+                policy(mode)
+                assert all(c['floating'] for c in clients())
+                for operation,fullscreen in (('max',1),('full',2)):
+                    command(operation);wait(lambda:client()['fullscreen']==fullscreen)
+                    dispatch('resizewindowpixel','exact 400 260,'+address('Media'))
+                    dispatch('movewindowpixel','exact 400 250,'+address('Media'))
+                    for repeat in range(3):
+                        dispatch('focuswindow',address('Media'))
+                        wait(lambda:client('Media')['allowedOverFullscreen'] and client('Media')['acceptsInput'])
+                        visible_color(f'{mode}-{operation}-{repeat}-media',(208,128,32))
+                        before=counts();tap(450,470)
+                        wait(lambda:counts()['Media']>before['Media'])
+                        tap(80,760) # exposed browser content, outside Media
+                        wait(lambda:json.loads(ctl('-j','activewindow'))['title']=='Buttons')
+                        assert not client('Media')['allowedOverFullscreen'],clients()
+                        visible_color(f'{mode}-{operation}-{repeat}-browser',(32,80,128))
+                        before=counts();tap(450,470) # former overlay rectangle
+                        wait(lambda:counts()['Buttons']>before['Buttons'])
+                        assert counts()['Media']==before['Media']
+                    dispatch('workspace','2');dispatch('workspace',str(workspace))
+                    assert not client('Media')['allowedOverFullscreen']
+                    visible_color(f'{mode}-{operation}-roundtrip',(32,80,128))
+                    # Normal restore keeps both windows accessible again.
+                    command('restore');wait(lambda:client()['fullscreen']==0)
+                    dispatch('focuswindow',address('Media'))
+                    assert client('Media')['acceptsInput']
+            policy('off')
+            dispatch('settiled',address());command('max');wait(lambda:client()['fullscreen']==1)
+            dispatch('focuswindow',address('Media'));tap(80,760)
+            assert client('Media')['allowedOverFullscreen'] # normal floating-over-tiling policy
+            print('PASS: Force floating/KDE render and click order, maximize/fullscreen, workspace return and Individual isolation.',flush=True)
+            return
 
         if '--kde-only' in sys.argv:
             workspace=client()['workspace']['id'];controller_path=workspace_dir/'controller.py'

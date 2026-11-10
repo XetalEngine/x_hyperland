@@ -793,8 +793,7 @@ void FilesWindow::openItem(const KFileItem &item, bool newTab) {
     openLocation(item.url(), newTab);
     return;
   }
-  if (item.url().isLocalFile() && QFileInfo(item.url().toLocalFile()).isExecutable() &&
-      !Fusion::executionCommand(item.url()).isEmpty()) {
+  if (Fusion::executeOnOpen(item.url())) {
     execute(item.url());
     return;
   }
@@ -1190,6 +1189,7 @@ void FilesWindow::computerMenu(const QPoint &point) {
 void FilesWindow::fileMenu(const QPoint &point) {
   const auto items = browser()->selectedItems();
   const auto location = browser()->location();
+  const auto entries = Fusion::executionMenu(preferences.menu(), browser()->selectedUrls());
   QMenu menu(this);
   menu.setObjectName("fileContextMenu");
   if (location.scheme() == "trash")
@@ -1198,7 +1198,7 @@ void FilesWindow::fileMenu(const QPoint &point) {
   const bool folderTarget = items.size() == 1 && directories;
   const auto pasteTarget = folderTarget ? items.first().url() : location;
   bool compress = false, extract = false, archiveAdded = false;
-  for (const auto &entry : preferences.menu()) {
+  for (const auto &entry : entries) {
     if (entry["id"] == "compress")
       compress = entry.value("enabled", true).toBool();
     if (entry["id"] == "extract")
@@ -1215,7 +1215,7 @@ void FilesWindow::fileMenu(const QPoint &point) {
   if (location.scheme() == "trash" && !items.isEmpty())
     menu.addAction(Fusion::icon("edit-undo"), "Restore", this,
                    [this] { runAction("restore"); });
-  for (const auto &entry : preferences.menu()) {
+  for (const auto &entry : entries) {
     if (!entry.value("enabled", true).toBool())
       continue;
     const QString id = entry["id"].toString();
@@ -1257,7 +1257,8 @@ void FilesWindow::fileMenu(const QPoint &point) {
     Fusion::menuSection(&menu, id);
     QString label = entry["name"].toString(), icon = entry["icon"].toString();
     if (id == "trash" && location.scheme() == "trash") label = "Delete permanently…";
-    if (id == "open" && preferred && label == "Open") {
+    if (id == "open" && preferred && label == "Open" &&
+        !(items.size() == 1 && Fusion::executeOnOpen(items.first().url()))) {
       label = "Open with " + QString(preferred->name()).replace('&', "&&");
     if (id == "open" && items.size() == 1 && Fusion::isArchive(items.first()) &&
         (!preferred || preferred->storageId() == "org.kde.ark.desktop" || preferred->storageId() == "xetal-archives.desktop")) label = "Open with 7-Zip";

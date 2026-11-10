@@ -56,6 +56,16 @@ floating still records and restores each app's normal floating size and position
 force tiled never restores pixel geometry or samples temporary floating drag
 targets. Neither override replaces the app's ordinary remembered mode.
 
+Force floating and KDE also synchronize the floating-over-fullscreen rendering
+plane after every native raise/lower, including mouse clicks, app activation and
+window switching. The pinned compositor otherwise reorders input without clearing
+other windows' permission to draw above a maximized window. The adapter follows
+the resulting native order and updates that permission, input blocking and opacity
+together; it does not change geometry, maximize state or focus. Individual and
+Force tiling retain their normal stacking behavior. Protocol-owned popups, pinned
+windows, hidden windows and other workspaces are excluded. The existing Minimize
+adapter still handles explicit Super+F / Super+B and workspace order restoration.
+
 Restoration separates mode, geometry and fullscreen into different compositor
 frames; changing floating state replaces the layout target. Normal floating
 size is preserved when maximizing. Tiled windows retain their remembered mode,
@@ -95,6 +105,11 @@ like other applications.
 
 Run `python3 -m unittest discover -s config/hypr/runtime/window_memory` and the
 real compositor check `tests/check-file-picker.py OUTPUT_DIR FILES_BUILD`.
+`tests/check-window-buttons.py WINDOW_BUTTONS_SO OUTPUT_DIR --stacking-only`
+compares screenshots with real pointer clicks at the same overlap in Force
+floating and KDE, including maximize/fullscreen, activation, workspace return,
+restore and preservation of Individual mode. It uses two solid-color clients in
+a private compositor and HOME; it never clicks the parent session's apps.
 Append `--memory-only` to check floating/maximized restoration and balanced
 tiles when reopening two windows quickly or mixing applications.
 The latter covers all three workspace modes, explicit launch tags, normal

@@ -276,13 +276,22 @@ the sidebar's Trash icon with the current theme accent. Failed/cancelled moves
 do not animate as successes. The effect is a non-interactive overlay and can be
 disabled in Configure Fusion Files.
 
-Executable files and shell scripts have **Execute** first. Double-click or Enter
-runs a recognized local executable with executable permission, including shell
-installers with a shebang. Shell scripts open in
-a terminal with their output kept visible, using their declared interpreter (or
-Bash for a `.sh` script without one). Non-executable scripts can still be run
-through the explicit Execute action; permissions are not changed. The context
-menu's **Open with [app]** always opens the associated app, even for an executable.
+AppImages and `.sh` / `.run` installers have **Execute** first, including downloads
+without executable permission. AppImage double-click and Execute use the same
+preflight: missing FUSE support, a missing supported script interpreter, or
+`chmod +x` requires confirmation. **Set up and run** opens a terminal, installs
+the listed requirements and enables execution using sudo, then runs the file as
+the normal user. Passwords are entered only in the terminal. Cancellation or a
+failed setup leaves the application unlaunched. Modern static AppImage runtimes
+do not require the legacy `fuse2` library.
+
+Once executable, shell scripts run on double-click or Enter in a terminal with
+their output kept visible, using their declared interpreter (or Bash when there
+is no shebang). Non-executable scripts keep their ordinary file association until
+the user chooses Execute. AppImages with their requirements already present run
+directly. Debian packages have **Install .deb…** first; that action and double-click
+open **Control Panel → Install .deb** with the clicked package selected. Installation
+starts only when the user chooses the page's install action.
 **Open with…** offers a searchable list of installed applications, a custom command/program and
 the option to remember a file-type association, including for unknown file types.
 Discovery uses the shared Gio application inventory and does not require a

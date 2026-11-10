@@ -172,12 +172,46 @@ bool validName(const QString &name) {
   return !name.isEmpty() && name != "." && name != ".." &&
          !name.contains('/') && !name.contains(QChar::Null);
 }
+QString executionKind(const QUrl &url) {
+  if (!url.isLocalFile()) return {};
+  const QFileInfo info(url.toLocalFile());
+  if (!info.isFile()) return {};
+  const auto suffix = info.suffix().toLower();
+  if (suffix == "deb") return "deb";
+  if (suffix == "appimage") return "appimage";
+  if (QStringList{"sh", "run", "bash", "zsh", "ksh"}.contains(suffix)) return "script";
+  const auto type = QMimeDatabase().mimeTypeForFile(info).name();
+  if (type == "application/x-appimage" || type == "application/vnd.appimage") return "appimage";
+  QFile file(info.absoluteFilePath());
+  if (file.open(QIODevice::ReadOnly)) {
+    const auto header = file.read(11);
+    if (header.startsWith("\x7f" "ELF") && (header.mid(8) == QByteArray("AI\x01", 3) || header.mid(8) == QByteArray("AI\x02", 3)))
+      return "appimage";
+  }
+  return {};
+}
+bool executeOnOpen(const QUrl &url) {
+  const auto kind = executionKind(url);
+  return kind == "appimage" || kind == "deb" ||
+      (url.isLocalFile() && QFileInfo(url.toLocalFile()).isExecutable() && !executionCommand(url).isEmpty());
+}
+QList<QVariantMap> executionMenu(QList<QVariantMap> entries, const QList<QUrl> &urls) {
+  if (urls.size() != 1) return entries;
+  const auto kind = executionKind(urls.first());
+  if (kind.isEmpty()) return entries;
+  entries.erase(std::remove_if(entries.begin(), entries.end(), [](const auto &entry) { return entry["id"] == "execute"; }), entries.end());
+  entries.prepend({{"id", "execute"}, {"name", kind == "deb" ? "Install .deb…" : "Execute"},
+                   {"icon", kind == "deb" ? "application-x-deb" : "system-run"}, {"enabled", true}});
+  return entries;
+}
 QStringList executionCommand(const QUrl &url) {
   if (!url.isLocalFile())
     return {};
   const QFileInfo info(url.toLocalFile());
   if (!info.isFile())
     return {};
+  if (!executionKind(url).isEmpty())
+    return {"/usr/bin/python3", root()+"/file_manager/execute.py", "--", info.absoluteFilePath()};
   const auto type = QMimeDatabase().mimeTypeForFile(info).name();
   QFile script(info.absoluteFilePath());
   QString first;

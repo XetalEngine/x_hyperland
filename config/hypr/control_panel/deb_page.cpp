@@ -97,7 +97,7 @@ public:
 DebInstallerPage::DebInstallerPage(const QString &profileRoot, QPushButton *install,
                                  QPushButton *installYay, QPushButton *installParu,
                                  QWidget *parent)
-    : QWidget(parent), root(profileRoot) {
+    : QWidget(parent), root(profileRoot), installButton(install) {
   setObjectName("debInstallTab");
   auto *outer = new QVBoxLayout(this);
   outer->setContentsMargins(0, 0, 0, 0);
@@ -160,6 +160,26 @@ DebInstallerPage::DebInstallerPage(const QString &profileRoot, QPushButton *inst
   helpersLayout->addWidget(label("Arch repositories are checked first. Yay or Paru handles supported AUR dependencies and Debtap. "
                                 "Review package changes in the terminal.", "debMuted", helpers));
   layout->addWidget(helpers);
+
+  packageRow = new QWidget(body);
+  packageRow->setObjectName("selectedDebPackageRow");
+  auto *packageLayout = new QHBoxLayout(packageRow);
+  packageLayout->setContentsMargins(0, 0, 0, 0);
+  selectedPackage = new QLabel(packageRow);
+  selectedPackage->setObjectName("selectedDebPackage");
+  selectedPackage->setTextFormat(Qt::PlainText);
+  selectedPackage->setWordWrap(true);
+  packageLayout->addWidget(selectedPackage, 1);
+  auto *chooseAnother = new QPushButton("Choose another…", packageRow);
+  chooseAnother->setObjectName("chooseAnotherDebPackage");
+  packageLayout->addWidget(chooseAnother);
+  connect(chooseAnother, &QPushButton::clicked, this, [this] {
+    installButton->setProperty("debSelectedFile", QVariant());
+    packageRow->hide();
+    installButton->click();
+  });
+  layout->addWidget(packageRow);
+  packageRow->hide();
 
   auto *actions = new QHBoxLayout;
   install->setText("Install or update from .deb…");
@@ -252,6 +272,19 @@ DebInstallerPage::DebInstallerPage(const QString &profileRoot, QPushButton *inst
 bool DebInstallerPage::eventFilter(QObject *watched, QEvent *event) {
   if ((watched == appGrid || watched == appViewport) && event->type() == QEvent::Resize) arrangeCards();
   return QWidget::eventFilter(watched, event);
+}
+
+void DebInstallerPage::selectPackage(const QString &path) {
+  installButton->setProperty("debSelectedFile", QVariant());
+  packageRow->hide();
+  const QFileInfo info(path);
+  if (!info.isAbsolute() || !info.isFile() || info.suffix().compare("deb", Qt::CaseInsensitive) != 0) {
+    QMessageBox::warning(this, "Install .deb", "The selected Debian package is no longer available.");
+    return;
+  }
+  installButton->setProperty("debSelectedFile", info.absoluteFilePath());
+  selectedPackage->setText("Selected package: " + info.absoluteFilePath());
+  packageRow->show();
 }
 
 void DebInstallerPage::arrangeCards() {

@@ -21,6 +21,7 @@
 #include <hyprland/src/layout/algorithm/Algorithm.hpp>
 #include <hyprland/src/layout/algorithm/FloatingAlgorithm.hpp>
 #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
+#include <hyprland/src/render/Renderer.hpp>
 #include "../../workspaces/native.hpp"
 #include "../window_types_native.hpp"
 #include "../../effects/window_close/native/geometry.hpp"
@@ -54,6 +55,7 @@ WorkspaceRules::Policy workspacePolicy(PHLWINDOW w){
     if(!WindowTypes::geometryManaged(w)||!w->m_workspace||w->m_class=="fusion-window-buttons")return {};
     return WorkspaceRules::forWorkspace(workspaceRules,w->m_workspace->m_id);
 }
+#include "stacking.hpp"
 using FloatingFn=void (*)(Layout::CLayoutManager*,SP<Layout::ITarget>);
 FloatingFn originalFloating;
 void queuePolicy(PHLWINDOW w);
@@ -96,6 +98,7 @@ void enforcePolicy(PHLWINDOW w,bool initial=false){
         }
     }
     if(initial)target->warpPositionSize();
+    WorkspaceStack::reconcile(w->m_workspace);
 }
 void queuePolicy(PHLWINDOW w){
     if(workspacePolicy(w).layout=="off")return;
@@ -242,6 +245,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
             for(auto weak:work)enforcePolicy(weak.lock());
         },nullptr);g_pEventLoopManager->addTimer(policyTimer);
         hook(handle,"changeFloatingMode","CLayoutManager::changeFloatingMode(",(void*)floatingHook,originalFloating);
+        hook(handle,"moveToZ","CWindowState::moveToZ(",(void*)WorkspaceStack::move,WorkspaceStack::originalMove);
         hook(handle,"windowSurfaceAt","CViewHitTester::windowSurfaceAt(",(void*)surfaceAtHook,originalSurfaceAt);
         hook(handle,"getSurfaceBoxGlobal","CWLSurface::getSurfaceBoxGlobal(",(void*)surfaceBoxHook,originalSurfaceBox);
         hook(handle,"computeDamage","CWLSurface::computeDamage(",(void*)surfaceDamageHook,originalSurfaceDamage);
@@ -252,6 +256,9 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
             else w->m_isFloating=WorkspaceRules::floats(policy);
         }));
         policyListeners.push_back(Event::bus()->m_events.window.moveToWorkspace.listen([](PHLWINDOW w,PHLWORKSPACE){queuePolicy(w);}));
+        policyListeners.push_back(Event::bus()->m_events.window.fullscreen.listen([](PHLWINDOW w){
+            if(w)WorkspaceStack::reconcile(w->m_workspace);
+        }));
         HyprlandAPI::addDispatcherV2(handle,"xetalworkspaces:reload",[](std::string){
             try{
                 auto next=WorkspaceRules::read();auto previous=std::move(workspaceRules);workspaceRules=std::move(next);
@@ -278,7 +285,10 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
             const auto policy=workspacePolicy(w);auto target=w->layoutTarget();
             if(policy.layout!="off"&&target&&target->floating()!=WorkspaceRules::floats(policy))enforcePolicy(w);
         }
+        std::set<WORKSPACEID> reconciled;
+        for(const auto& w:Desktop::windowState()->windows())if(w->m_workspace&&reconciled.insert(w->m_workspace->m_id).second)
+            WorkspaceStack::reconcile(w->m_workspace);
     }catch(...){cleanup();throw;}
-    return {"Xetal Window Memory", "Window geometry, workspace policies and decoration input", "XetalEngine", "1.4"};
+    return {"Xetal Window Memory", "Window geometry, workspace policies and decoration input", "XetalEngine", "1.5"};
 }
 APICALL EXPORT void PLUGIN_EXIT() { cleanup(); }

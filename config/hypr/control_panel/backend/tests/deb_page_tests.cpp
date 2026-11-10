@@ -67,6 +67,32 @@ private slots:
     QVERIFY(opened.isEmpty());
   }
 
+  void fileSelectionIsVisibleAndWaitsForInstall() {
+    QTemporaryDir temp;
+    const auto path = temp.path()+"/package's $(literal) <b>.deb";
+    QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); file.write("fixture"); file.close();
+    QPushButton yay, paru;
+    auto *install = new QPushButton;
+    DebInstallerPage page(root, install, &yay, &paru);
+    QSignalSpy clicks(install, &QPushButton::clicked);
+    page.selectPackage(path);
+    QCOMPARE(clicks.count(), 0);
+    QCOMPARE(install->property("debSelectedFile").toString(), path);
+    auto *label = page.findChild<QLabel *>("selectedDebPackage");
+    QVERIFY(label);
+    QCOMPARE(label->textFormat(), Qt::PlainText);
+    QVERIFY(label->text().contains(path));
+    QVERIFY(!page.findChild<QWidget *>("selectedDebPackageRow")->isHidden());
+    button(page, "checkDebButton")->click();
+    QCOMPARE(clicks.count(), 1);
+    QCOMPARE(install->property("debSelectedFile").toString(), path);
+    button(page, "chooseAnotherDebPackage")->click();
+    QCOMPARE(clicks.count(), 2);
+    QVERIFY(install->property("debSelectedFile").toString().isEmpty());
+    QVERIFY(page.findChild<QWidget *>("selectedDebPackageRow")->isHidden());
+    QVERIFY(opened.isEmpty());
+  }
+
   void reportedResultsAndOfficialDownloads() {
     QPushButton yay, paru;
     DebInstallerPage page(root, new QPushButton, &yay, &paru);

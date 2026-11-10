@@ -44,8 +44,12 @@ title-bar buttons are unaffected.
 Layouts apply to existing, newly opened and incoming windows. Forced tiling joins
 the normal shared layout; native maximize/restore remains usable within it.
 Tiled drag gestures can float temporarily, then rejoin the destination layout.
-Forced floating uses remembered dimensions and fits them to the output. Turning
-layout forcing Off leaves the current arrangement and permits normal mode changes.
+Forced floating uses remembered dimensions and fits them to the output.
+Force floating and KDE mode keep maximized windows in the same stacking order
+as other floating windows: activating a window brings its drawing and input
+to the front together. Menus retain their application's behavior and explicitly
+pinned windows keep their always-on-top behavior.
+Turning layout forcing Off leaves the current arrangement and permits normal mode changes.
 The gear editor itself remains independently movable. Layer-shell and unmanaged
 X11 surfaces are outside the managed window layout.
 

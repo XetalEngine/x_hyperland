@@ -43,6 +43,8 @@ class SessionCacheTests(unittest.TestCase):
              {'tab': 'hotkeys', 'wallpaper': '', 'preload': True}),
             (['panel', '--section', 'cleaner'], panel,
              {'section': 'cleaner', 'preload': False}),
+            (['panel', '--section', 'deb', '--deb-file', "/tmp/package's $(literal).deb"], panel,
+             {'section': 'deb', 'preload': False, 'deb_file': "/tmp/package's $(literal).deb"}),
         ]
         for arguments, server, expected in cases:
             with self.subTest(arguments=arguments):

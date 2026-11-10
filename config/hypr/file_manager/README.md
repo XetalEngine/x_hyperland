@@ -1,5 +1,29 @@
 # Fusion Files
 
+## Local applications and installers
+
+AppImages and `.sh` / `.run` files show **Execute** first even without an execute
+bit. AppImages open through `execute.py` on double-click; scripts do so once
+executable. The shared helper inspects AppImage ELF headers without running them,
+offers missing FUSE packages/interpreters and executable permissions, and opens
+a terminal only after confirmation. Only package installation, `modprobe` and
+`chmod +x` use sudo. The selected program always runs as the normal user, with
+filenames passed as separate arguments. Cancellation, changed files and failed
+setup stop execution. Existing ready AppImages launch directly; shell output
+remains visible in the terminal. Bundled Qt applications do not inherit host Qt
+plugin paths.
+
+Legacy AppImages may need [FUSE 2](https://docs.appimage.org/user-guide/troubleshooting/fuse.html).
+The [current static runtime](https://github.com/AppImage/type2-runtime) includes
+libfuse, so it only needs a usable mount helper and kernel support.
+
+For `.deb` files, **Install .deb…** is first and double-click opens Control Panel's
+installer page with that file selected. It does not start installation. The same
+rules apply to desktop file actions; remote and Trash URLs are never executed.
+
+Run `python3 test_execute.py` for setup/launch checks and the CMake
+`execution-tests` target for native file recognition and menu policy checks.
+
 ## Private folders
 
 Permission-denied local folders show **This folder is private → Unlock folder…**.
