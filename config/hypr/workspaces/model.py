@@ -7,7 +7,7 @@ from pathlib import Path
 from effects.window_close import rules
 
 PATH = Path(__file__).with_name('rules.json')
-LAYOUTS = {'off': 'Off', 'tile': 'Force tiled', 'floating': 'Force floating'}
+LAYOUTS = {'off': 'Individual', 'tile': 'Force tiling', 'floating': 'Force floating', 'kde': 'KDE mode'}
 CONTROLS = {'individual': 'Individual', 'on': 'On', 'off': 'Off'}
 DEFAULT = dict(layout='off', controls='individual', rule=dict(rules.DEFAULTS, mode='always'))
 

@@ -1,13 +1,13 @@
 /* Read the same persisted workspace policy in menus and the mode indicator. */
 #pragma once
 typedef struct { int layout, controls; } WorkspaceModes;
-static const char *layout_keys[] = {"off", "tile", "floating"};
+static const char *layout_keys[] = {"off", "tile", "floating", "kde"};
 static const char *control_keys[] = {"individual", "on", "off"};
 
-static int workspace_choice(JsonObject *object, const char *key, const char **choices) {
+static int workspace_choice(JsonObject *object, const char *key, const char **choices, size_t count) {
     JsonNode *node = json_object_get_member(object, key);
     if (!node || json_node_get_value_type(node) != G_TYPE_STRING) return -1;
-    for (int i = 0; i < 3; i++) if (!strcmp(json_node_get_string(node), choices[i])) return i;
+    for (size_t i = 0; i < count; i++) if (!strcmp(json_node_get_string(node), choices[i])) return i;
     return -1;
 }
 
@@ -31,11 +31,10 @@ static gboolean workspace_modes(const char *path, int workspace, WorkspaceModes 
         JsonNode *entry = json_object_get_member(json_node_get_object(entries), key);
         if (entry) {
             object = JSON_NODE_HOLDS_OBJECT(entry) ? json_node_get_object(entry) : NULL;
-            modes->layout = object ? workspace_choice(object, "layout", layout_keys) : -1;
-            modes->controls = object ? workspace_choice(object, "controls", control_keys) : -1;
+            modes->layout = object ? workspace_choice(object, "layout", layout_keys, G_N_ELEMENTS(layout_keys)) : -1;
+            modes->controls = object ? workspace_choice(object, "controls", control_keys, G_N_ELEMENTS(control_keys)) : -1;
             valid = modes->layout >= 0 && modes->controls >= 0;
         }
     }
     g_object_unref(parser); g_free(contents); return valid;
 }
-

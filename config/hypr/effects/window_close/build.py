@@ -57,7 +57,7 @@ def build(root=ROOT):
         fd, tmp = tempfile.mkstemp(prefix='compile-',suffix='.so',dir=build_dir); os.close(fd)
         try:
             cmd = [compiler(),'-std=c++23','-shared','-fPIC','-O2','-g','-Wall','-Wextra','-Wno-unused-parameter',
-                   *flags,str(root/'native/plugin.cpp'),'-o',tmp,'-lGLESv2','-lcairo','-ljson-c']
+                   *flags,str(root/'native/plugin.cpp'),'-o',tmp,'-lGLESv2','-lcairo','-ljson-c','-lxcb']
             process = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True,env=environment())
             try:
                 stdout,stderr = process.communicate(timeout=180)

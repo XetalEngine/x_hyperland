@@ -65,7 +65,7 @@ void floatingHook(Layout::CLayoutManager* manager,SP<Layout::ITarget> target){
     }
     // Refuse contradictory requests before the layout changes. A later polling
     // correction would visibly bounce between tiled and floating geometry.
-    if(policy.layout!="off"&&target->floating()==(policy.layout=="floating"))return;
+    if(policy.layout!="off"&&target->floating()==WorkspaceRules::floats(policy))return;
     originalFloating(manager,target);
 }
 void enforcePolicy(PHLWINDOW w,bool initial=false){
@@ -75,7 +75,7 @@ void enforcePolicy(PHLWINDOW w,bool initial=false){
     if(g_layoutManager->dragController()->target()==target){
         queuePolicy(w);policyTimer->updateTimeout(std::chrono::milliseconds(25));return;
     }
-    const bool floating=policy.layout=="floating",wasTiled=!target->floating();
+    const bool floating=WorkspaceRules::floats(policy),wasTiled=!target->floating();
     auto saved=target->lastFloatingSize();const auto before=target->position();
     // Clear startup maximization only when applying/entering a forced layout.
     // Subsequent native maximize/restore requests remain functional.
@@ -245,8 +245,8 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         hook(handle,"coordsGlobal","CSubsurface::coordsGlobal(",(void*)subsurfaceCoordsHook,originalSubsurfaceCoords);
         policyListeners.push_back(Event::bus()->m_events.window.openEarly.listen([](PHLWINDOW w){
             const auto policy=workspacePolicy(w);if(policy.layout=="off")return;
-            if(auto target=w->layoutTarget())target->setFloating(policy.layout=="floating");
-            else w->m_isFloating=policy.layout=="floating";
+            if(auto target=w->layoutTarget())target->setFloating(WorkspaceRules::floats(policy));
+            else w->m_isFloating=WorkspaceRules::floats(policy);
         }));
         policyListeners.push_back(Event::bus()->m_events.window.moveToWorkspace.listen([](PHLWINDOW w,PHLWORKSPACE){queuePolicy(w);}));
         HyprlandAPI::addDispatcherV2(handle,"xetalworkspaces:reload",[](std::string){
@@ -269,8 +269,13 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
                     w->m_ruleApplicator->syncFullscreenOverride(Desktop::Types::COverridableVar(true,Desktop::Types::PRIORITY_WINDOW_RULE));
             }
         });
-        for(const auto& w:Desktop::windowState()->windows())enforcePolicy(w);
+        // Loading an updated adapter must not unmaximize or resize windows
+        // which already obey their workspace policy.
+        for(const auto& w:Desktop::windowState()->windows()){
+            const auto policy=workspacePolicy(w);auto target=w->layoutTarget();
+            if(policy.layout!="off"&&target&&target->floating()!=WorkspaceRules::floats(policy))enforcePolicy(w);
+        }
     }catch(...){cleanup();throw;}
-    return {"Xetal Window Memory", "Window geometry, workspace policies and decoration input", "XetalEngine", "1.3"};
+    return {"Xetal Window Memory", "Window geometry, workspace policies and decoration input", "XetalEngine", "1.4"};
 }
 APICALL EXPORT void PLUGIN_EXIT() { cleanup(); }

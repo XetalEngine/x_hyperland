@@ -68,18 +68,19 @@ static void workspace_settings(GtkMenuItem *item, gpointer data) {
 }
 
 static GtkWidget *workspace_choices(Options *o, int workspace, gboolean controls, int selected) {
-    const char *layout_names[] = {"Off", "Force tiled", "Force floating"};
+    const char *layout_names[] = {"Individual", "Force tiling", "Force floating", "KDE mode"};
     const char *control_names[] = {"Individual", "On", "Off"};
     const char *layout_tips[] = {"Use normal launch and per-window behavior. Current windows keep their layout.",
         "Keep windows tiled together, including newly opened windows and windows moved here.",
-        "Keep windows floating, including newly opened windows and windows moved here."};
+        "Keep windows floating, including newly opened windows and windows moved here.",
+        "Float windows and add missing controls. The gear saves separate KDE-mode preferences."};
     const char *control_tips[] = {"Use each app or window’s own settings.",
         "Always show controls on all windows here. Super reveals the gear; its settings apply across this workspace.",
         "Hide all artificial window controls in this workspace, even while Super is held."};
     GtkWidget *menu = gtk_menu_new(); GSList *group = NULL;
     gtk_style_context_add_class(gtk_widget_get_style_context(menu), "xetal-bar-options");
     g_object_set_data_full(G_OBJECT(menu), "owner", retain(o), release);
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < (controls ? 3 : 4); i++) {
         GtkWidget *item = gtk_radio_menu_item_new_with_label(group, controls ? control_names[i] : layout_names[i]);
         group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(item));
         gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), selected == i);
@@ -117,6 +118,10 @@ static void append_workspace_options(Options *o, GtkWidget *menu, GtkWidget *but
         GtkWidget *item = gtk_menu_item_new_with_label(controls ? "Force modifier buttons" : "Force window layout");
         gtk_menu_item_set_submenu(GTK_MENU_ITEM(item), workspace_choices(o, workspace, controls,
             valid ? controls ? modes.controls : modes.layout : -1));
+        if (controls && valid && modes.layout == 3) {
+            gtk_widget_set_sensitive(item, FALSE);
+            gtk_widget_set_tooltip_text(item, "KDE mode uses separate per-app and per-window settings. Hold Super over a window for its gear.");
+        }
         gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
     }
     if (!valid) {

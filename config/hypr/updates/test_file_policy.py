@@ -80,6 +80,14 @@ class FilePolicyTests(unittest.TestCase):
         self.assertEqual(engine.json_file(self.live/'theme/state.json'),
                          {'mode':'light', 'custom':True, 'design':'modern'})
 
+    def test_kde_control_preferences_survive_a_release(self):
+        name='effects/window_close/kde-rules.json'
+        personal='{"version":1,"apps":{"fixture":{"mode":"off"}}}'
+        self.write(self.live,name,personal)
+        self.write(self.upstream,name,'{"version":1,"apps":{}}')
+        plan=self.prepare();engine.apply_plan(self.live,self.stage,plan,self.state)
+        self.assertEqual((self.live/name).read_text(),personal)
+
     def test_fresh_launcher_defaults_never_replace_existing_favorites_or_copies(self):
         favorites = 'launcher/favorites.json'
         original = '{"add":["old-default.desktop","kitty.desktop"],"hide":[]}'

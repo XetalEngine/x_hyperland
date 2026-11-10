@@ -8,7 +8,7 @@ from service import Store, Tracker, identity
 class MemoryTests(unittest.TestCase):
     def test_forced_workspace_never_receives_an_app_mode_restore(self):
         hypr=Mock();tracker=Tracker(hypr,None)
-        for layout in ('tile','floating'):
+        for layout in ('tile','floating','kde'):
             for phase in range(3):
                 self.assertFalse(tracker.restore({'address':'0x123'}, {'workspace_layout':layout}, {}, {}, phase))
         self.assertFalse(hypr.mock_calls)
@@ -136,6 +136,7 @@ class GeometryTests(unittest.TestCase):
     def test_geometry_restores_for_every_explicit_mode_without_changing_mode(self):
         for client,meta in [
             (self.client,{'workspace_layout':'floating'}),
+            (self.client,{'workspace_layout':'kde'}),
             *[(dict(self.client,tags=[f'xetal-{mode}-'+('a'*24)+'-'+('b'*12)+'*']),{}) for mode in ('float','tile')],
             (dict(self.client,tags=['fusion-managed-rule*']),{}),
             *[({**self.client,'class':app},{}) for app in ('xetal-files','xetal-files-external','xetal-file-picker-123')],

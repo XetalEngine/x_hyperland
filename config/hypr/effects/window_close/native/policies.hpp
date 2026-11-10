@@ -32,7 +32,7 @@ inline Json parseJson(const std::string& text){
 inline Rule readRule(json_object* value){
     if(!json_object_is_type(value,json_type_object)||(json_object_object_length(value)!=6&&json_object_object_length(value)!=8))throw std::runtime_error("Incomplete window button rule");
     Rule r;r.mode=json_object_get_string(field(value,"mode",json_type_string));r.anchor=json_object_get_string(field(value,"anchor",json_type_string));
-    if(!std::set<std::string>{"super","always","nearby","off"}.contains(r.mode)||
+    if(!std::set<std::string>{"super","always","nearby","off","auto"}.contains(r.mode)||
        !std::set<std::string>{"top-left","top-center","top-right","bottom-left","bottom-center","bottom-right"}.contains(r.anchor))throw std::runtime_error("Unknown button display mode or position");
     auto number=[&](const char* key,int lo,int hi){auto n=json_object_get_int64(field(value,key,json_type_int));if(n<lo||n>hi)throw std::runtime_error("Button rule value out of range");return int(n);};
     r.size=number("size",10,64);r.x=number("x",0,4000);r.y=number("y",0,4000);r.proximity=number("proximity",12,400);

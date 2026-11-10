@@ -101,6 +101,24 @@ class EditorTests(unittest.TestCase):
         self.assertFalse(self.dialog.buttons.button(ui.QDialogButtonBox.StandardButton.Apply).isEnabled())
         self.assertIn('forced Off',self.dialog.status.text())
 
+    def test_kde_editor_has_auto_and_saves_only_kde_profile(self):
+        self.dialog.info.update(control_profile='kde',workspace_controls='individual',rule=dict(self.window_rule,mode='auto'))
+        with patch.object(ui.controller,'rule_file',side_effect=lambda scope,profile:self.files[scope]) as files:
+            self.dialog.load()
+            self.assertTrue(self.dialog.valid,self.dialog.status.text())
+            self.assertEqual(self.dialog.values()['mode'],'auto')
+            self.assertIn('KDE mode',self.dialog.app_label.text())
+            self.assertIn('no tile button',self.dialog.hint.text())
+            files.assert_any_call('app','kde');files.assert_any_call('window','kde')
+            self.dialog.reset.click()
+            self.assertEqual(self.dialog.values()['mode'],'auto')
+            expected=self.dialog.values();self.dialog.apply()
+            self.save.assert_called_once_with('12','window',expected,self.dialog.tokens['window'],window_token=None,profile='kde')
+        self.dialog.info.update(control_profile='standard',rule=self.window_rule)
+        self.dialog.load()
+        self.assertTrue(self.dialog.valid,self.dialog.status.text())
+        self.assertEqual(self.dialog.mode.findData('auto'),-1)
+
     def test_workspace_menu_settings_can_edit_an_empty_or_disabled_workspace(self):
         for mode in ('individual','off','on'):
             value=dict(self.window_rule,mode='always',size=18)

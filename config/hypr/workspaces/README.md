@@ -1,17 +1,33 @@
 # Workspace behavior
 
 Right-click a numbered workspace in the taskbar. **Force window layout** offers
-Off (normal behavior), Force tiled, and Force floating. **Force modifier buttons**
+Individual (normal behavior), Force tiling, Force floating, and KDE mode. **Force modifier buttons**
 offers Individual (existing app/window choices), On (always-visible shared
 controls), and Off (no artificial controls, including while Super is held).
 These choices belong to the clicked workspace and persist across logins.
 
 Between **Keys** and **Update**, each taskbar shows its active workspace's layout:
-four equal panes for Individual (layout forcing Off) or Force tiled, and three
-overlapping windows for Force floating. Hover for the exact mode. The two vector
-icons share the same dimensions and follow the bar's text color. Workspace
+one window for Individual (layout forcing Off), four equal panes for Force tiling,
+three overlapping windows for Force floating, and **KDE** text for KDE mode.
+Left-click cycles **Individual → Force tiling → Force floating → KDE mode**;
+hover shows the current mode and next choice. All four indicators use the same-sized
+button and follow the bar's text color. Workspace
 switches and saved mode changes update the indicator automatically, including
 Cube's local face numbering. It can be hidden in the taskbar's Options menu.
+
+KDE mode floats windows and supplies a compact gear, minimize, maximize/restore
+and close row where the app requests compositor controls. There is no tile button
+or added title bar. The gear saves independent KDE app/window preferences; hold
+Super over a window to reveal it even when the automatic choice hides controls.
+Choose Automatic, Always, nearby, modifier-only or Off. App choices persist across
+logins; window-only choices last until that window closes. KDE mode temporarily
+supersedes Force modifier buttons, preserving that setting for the other modes.
+
+Automatic detection uses per-surface Wayland decoration negotiation and X11
+GTK/Motif frame hints. Those hints describe decoration ownership, not the actual
+buttons: a frameless app can report that it draws its own frame. Use Always or Off
+in its gear for such apps. No screenshots, accessibility scraping or application
+name guesses are used. Automatic buttons hide during true fullscreen playback.
 
 On uses a shared size, position and background. Hold Super over a window to open
 its gear: the editor loads the workspace settings, previews changes across its
@@ -41,8 +57,13 @@ face numbers. `runtime/window_memory` applies layout policies before the first
 frame and prevents contradictory mode changes; its watcher leaves normal app
 mode memory intact. `effects/window_close` applies button precedence and bounded,
 temporary workspace previews. Both builds hash the shared native policy header.
+Cycling computes the next mode under the same lock as the save. Rapid repeated
+presses are ignored until the pending change finishes; errors are surfaced and
+the displayed mode is always read back from the saved policy.
 
 Run `python3 -m unittest discover -s config/hypr/workspaces` for persistence tests.
 `tests/check-window-buttons.py PLUGIN OUTPUT_DIR --workspaces-only` checks real
 layouts, window transfers, drag/release, native controls, shared editor previews,
 Off under Super, persistence and GTK menus in a private compositor and HOME.
+Add `--kde-only` instead for Wayland/X11 decoration hints, real button actions,
+KDE profile separation, stale editors, window lifetime and plugin reloads.
