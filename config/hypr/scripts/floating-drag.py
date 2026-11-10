@@ -30,14 +30,15 @@ PRESS = 'custom>>xetal-floating-drag-press'
 RELEASE = 'custom>>xetal-floating-drag-release'
 
 
-def in_grip(window, cursor):
+def in_grip(window, cursor, border=0):
     if not window or not window.get('floating') or window.get('fullscreen'):
         return False
     if not window.get('mapped') or window.get('hidden'): return False
     x, y = cursor['x']-window['at'][0], cursor['y']-window['at'][1]
     width, height = window['size']
-    # Leave resize edges and common left/right title-bar button clusters alone.
-    return min(48, width/5) <= x < width-min(96, width/4) and 5 <= y < min(32, height/3)
+    # Include the visible upper border, with no inset/dead strip. Keep the
+    # left/right button clusters alone; resize/text cursors still veto a grab.
+    return min(48, width/5) <= x < width-min(96, width/4) and -border <= y < min(32, height/3)
 
 
 class Drag:
@@ -55,13 +56,27 @@ class Drag:
         target = target_at(cursor, self.hypr.query('monitors'), self.hypr.query('clients'), self.hypr.query('layers'))
         return cursor, target
 
+    def pressed(self, state):
+        if 'origin' not in state:
+            # An already loaded older probe is updated at the next login.
+            cursor, target = self.hovered()
+            return cursor, target, 0
+        origin = state['origin']
+        if not isinstance(origin, dict): return None, None, 0
+        target = next((w for w in self.hypr.query('clients')
+                       if w.get('address') == origin.get('address')
+                       and w.get('stableId') == origin.get('stableId')), None)
+        return origin, target, origin.get('border', 0)
+
     def press(self, now):
         self.release()
         try:self.thresholds,_=self.settings_loader()
         except (OSError,ValueError):self.thresholds=dict(drag_settings.DEFAULTS)
-        cursor, target = self.hovered()
-        if in_grip(target, cursor) and geometry_managed(target, window_metadata(self.hypr).get(target['address'])):
-            self.press_serial = self.guard.allowed()
+        state = self.hypr.query('xetal-cursor')
+        if not isinstance(state, dict): return
+        cursor, target, border = self.pressed(state)
+        if in_grip(target, cursor, border) and geometry_managed(target, window_metadata(self.hypr).get(target['address'])):
+            self.press_serial = self.guard.allowed(state.get('serial'))
             if self.press_serial is not None:
                 self.candidate = (target, cursor, now)
 
@@ -82,11 +97,14 @@ class Drag:
         # a tab's close button. Both deliberate hold and motion are required.
         if now-started < self.thresholds['hold_ms']/1000: return
         if math.hypot(cursor['x']-origin['x'], cursor['y']-origin['y']) < self.thresholds['distance']: return
-        cursor, current = self.hovered()
+        # The press owns this gesture. A fast pointer can leave the window
+        # during the hold delay; that must not discard an otherwise valid grab.
+        current = next((w for w in self.hypr.query('clients') if w.get('address') == target.get('address')), None)
         if (current is None or current.get('address') != target.get('address')
                 or current.get('stableId') != target.get('stableId')
                 or not geometry_managed(current, window_metadata(self.hypr).get(current['address']))
-                or current.get('pid') != target.get('pid') or not current.get('floating')
+                or current.get('pid') != target.get('pid') or not current.get('mapped')
+                or current.get('hidden') or not current.get('floating')
                 or current.get('fullscreen') or current['at'] != target['at']
                 or current['size'] != target['size']):
             self.candidate = None

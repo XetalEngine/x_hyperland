@@ -22,6 +22,7 @@ from effects.wobbly import model as wobble_model,build as wobble_build
 def main():
     root = Path(sys.argv[1]).resolve();root.mkdir(parents=True,exist_ok=False)
     plugin = subprocess.check_output([sys.executable,str(REPO/'config/hypr/runtime/cursor_probe/build.py')],text=True).strip()
+    memory = subprocess.check_output([sys.executable,str(REPO/'config/hypr/runtime/window_memory/build.py')],text=True).strip()
     for name, xml in [('pointer',REPO/'tests/minimize/wlr-virtual-pointer-unstable-v1.xml'),
                       ('keyboard',REPO/'tests/native/virtual-keyboard-unstable-v1.xml')]:
         for mode,suffix in [('client-header','h'),('private-code','c')]:
@@ -63,11 +64,14 @@ misc:disable_splash_rendering=true
 misc:disable_hyprland_guiutils_check=true
 animations:enabled=false
 xwayland:enabled=false
+general:border_size=2
+general:resize_on_border=false
 bindm=SUPER,mouse:272,movewindow
 bindn=,mouse:272,event,xetal-floating-drag-press
 bindinr=,mouse:272,event,xetal-floating-drag-release
 windowrule=match:tag ^xetal-title-drag$,no_anim on
 plugin={plugin}
+plugin={memory}
 ''')
     compositor=spawn(['Hyprland','--config',str(conf)],start_new_session=True)
     try:
@@ -170,6 +174,34 @@ window.show();app.exec()
             assert selection()['clicks']==count+1,('Title button click was intercepted',dx,selection(),cursor())
             assert client()['at']==before,('A quick click moved the window',dx)
         print('Title buttons receive ordinary, 1-pixel and fast moving clicks',flush=True)
+        # The original top inset and current-pointer re-hit test both rejected
+        # these upward grabs. Stop moving before activation too: native takeover
+        # must include the distance already travelled during the hold delay.
+        for offset in (-2, -1, 0, 1, 2, 3, 4):
+            dispatch('movewindowpixel','exact 80 100,'+address)
+            x,y=client()['at'];start=[x+400,y+offset]
+            gesture(f'move {start[0]} {start[1]}',.2)
+            gesture('button 1',.01)
+            gesture(f'move {start[0]+50} {start[1]-45}',.25)
+            actual=client()['at']
+            gesture('button 0',.1)
+            assert all(abs(a-b)<=2 for a,b in zip(actual,[x+50,y-45])),('Top edge fast grab lost motion',offset,actual,cursor())
+        # Simulate a busy helper: motion reaches another point before Python
+        # receives the press event. The compositor's recorded origin must win.
+        dispatch('movewindowpixel','exact 80 100,'+address)
+        x,y=client()['at'];gesture(f'move {x+400} {y+1}',.2)
+        helper.send_signal(signal.SIGSTOP)
+        try:
+            gesture('button 1',.01)
+            pressed=cursor()
+            gesture(f'move {x+440} {y-50}',.02)
+        finally:
+            helper.send_signal(signal.SIGCONT)
+        time.sleep(.3)
+        actual=client()['at'];gesture('button 0',.1)
+        assert pressed['origin']['address']==client()['address'],pressed
+        assert all(abs(a-b)<=2 for a,b in zip(actual,[x+40,y-51])),('Delayed press lost its original grab',actual,pressed)
+        print('Outer border, first five rows, fast upward grabs and delayed press delivery preserve the grab point',flush=True)
         for mode in ('named','bitmap'):
             (root/'mode').write_text(mode);wait(lambda:selection()['mode']==mode,'cursor mode')
             x,y=client()['at'];before=[x,y]

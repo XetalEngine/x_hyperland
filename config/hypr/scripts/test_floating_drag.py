@@ -18,15 +18,81 @@ class FloatingDragTests(unittest.TestCase):
         self.drag = Drag(self.hypr, self.guard, lambda: (dict(distance=2,hold_ms=120), "test"))
         self.drag.hovered = Mock(return_value=(self.point, self.window))
         self.query = Mock(return_value=self.point)
+        self.clients = [self.window]
+        self.state = {'native_drag': False}
         self.metadata = {'0x123': {'geometry_managed': True, 'stableId': '1'}}
-        self.hypr.query.side_effect = lambda what: self.metadata if what == 'xetal-windows' else self.query(what)
+        self.hypr.query.side_effect = lambda what: {'xetal-windows': self.metadata, 'clients': self.clients,
+                                                   'xetal-cursor': self.state}.get(what, self.query(what))
 
     def test_only_title_band_of_floating_normal_windows(self):
         self.assertTrue(in_grip(self.window, self.point))
         for changes in ({'floating': False}, {'fullscreen': 1}, {'mapped': False}, {'hidden': True}):
             self.assertFalse(in_grip(dict(self.window, **changes), self.point))
-        for point in (dict(x=-990,y=220),dict(x=-220,y=220),dict(x=-700,y=202),dict(x=-700,y=250)):
+        for point in (dict(x=-990,y=220),dict(x=-220,y=220),dict(x=-700,y=199),dict(x=-700,y=250)):
             self.assertFalse(in_grip(self.window, point))
+
+    def test_grip_starts_at_the_uppermost_pixel_including_the_actual_border(self):
+        for border in (0, 1, 2, 4):
+            with self.subTest(border=border):
+                for y in (200-border, 200, 201, 202, 203, 204, 205, 231.9):
+                    self.assertTrue(in_grip(self.window, dict(x=-700, y=y), border))
+                for y in (199.9-border, 232):
+                    self.assertFalse(in_grip(self.window, dict(x=-700, y=y), border))
+
+    def test_press_uses_recorded_origin_after_pointer_has_already_left_window(self):
+        self.state.update(serial=1, origin=dict(self.point, address='0x123', stableId='1', border=2))
+        self.query.return_value = dict(x=-700, y=100)
+        self.drag.hovered.return_value = (self.query.return_value, None)
+        self.drag.press(0)
+        self.assertEqual(self.drag.candidate[0], self.window)
+        self.assertEqual(self.drag.candidate[1]['y'], 220)
+        self.drag.hovered.assert_not_called()
+        self.guard.allowed.assert_called_once_with(1)
+
+    def test_border_press_is_kept_even_before_client_surface_begins(self):
+        self.state.update(serial=1, origin=dict(x=-700, y=198, address='0x123', stableId='1', border=2))
+        self.drag.press(0)
+        self.assertIsNotNone(self.drag.candidate)
+
+    def test_non_window_press_does_not_turn_into_drag_when_pointer_enters_header(self):
+        self.state['origin'] = None
+        self.drag.press(0)
+        self.assertIsNone(self.drag.candidate)
+        self.guard.allowed.assert_not_called()
+
+    def test_unavailable_probe_cannot_start_a_grab_or_crash_the_helper(self):
+        for self.state in (None, [], 'unknown request', 0):
+            self.drag.press(0)
+            self.assertIsNone(self.drag.candidate)
+        self.guard.allowed.assert_not_called()
+
+    def test_reused_window_address_cannot_inherit_a_press(self):
+        self.state.update(serial=1, origin=dict(self.point, address='0x123', stableId='previous', border=2))
+        self.drag.press(0)
+        self.assertIsNone(self.drag.candidate)
+
+    def test_new_button_serial_cannot_inherit_an_old_origin(self):
+        self.state.update(serial=1, origin=dict(self.point, address='0x123', stableId='1', border=2))
+        self.guard.allowed.return_value = None
+        self.drag.press(0)
+        self.guard.allowed.assert_called_once_with(1)
+        self.assertIsNone(self.drag.candidate)
+
+    def test_fast_upward_drag_survives_leaving_the_window_during_hold(self):
+        self.drag.press(0)
+        self.query.return_value = dict(x=-680, y=150)
+        self.drag.hovered.return_value = (self.query.return_value, None)
+        self.drag.tick(.15)
+        self.assertTrue(self.drag.dragging)
+        self.hypr.dispatch.assert_called_with('movewindowpixel', 'exact -980 130,address:0x123')
+
+    def test_crossing_another_window_does_not_transfer_or_cancel_the_grab(self):
+        self.drag.press(0)
+        self.query.return_value = dict(x=-680, y=150)
+        self.drag.hovered.return_value = (self.query.return_value, dict(self.window, address='0x456'))
+        self.drag.tick(.15)
+        self.assertTrue(self.drag.dragging)
+        self.hypr.dispatch.assert_called_with('movewindowpixel', 'exact -980 130,address:0x123')
 
     def test_click_and_small_movement_pass_through(self):
         self.drag.press(0)
@@ -70,13 +136,14 @@ class FloatingDragTests(unittest.TestCase):
                           ('movewindowpixel','exact -980 202,address:0x123'),
                           ('tagwindow','-xetal-title-drag,address:0x123')])
 
-    def test_native_drag_resize_or_different_window_is_left_alone(self):
+    def test_native_drag_resize_closed_or_replaced_window_is_left_alone(self):
         for changes in ({'at': [-990,220]}, {'size': [820,600]}, {'address': '0x456'},
-                        {'pid': 99}, {'floating': False}, {'fullscreen': 1}):
+                        {'pid': 99}, {'stableId': 'reused'}, {'mapped': False}, {'hidden': True},
+                        {'floating': False}, {'fullscreen': 1}):
             self.drag.hovered.return_value = (self.point, self.window)
             self.drag.press(0)
             self.query.return_value = dict(x=-680,y=222)
-            self.drag.hovered.return_value = (dict(x=-680,y=222), dict(self.window, **changes))
+            self.clients = [dict(self.window, **changes)]
             self.drag.tick(.15)
         self.hypr.dispatch.assert_not_called()
 
@@ -120,8 +187,9 @@ class FloatingDragTests(unittest.TestCase):
         self.hypr.dispatch.assert_called_with('movewindowpixel','exact -960 202,address:0x123')
 
     def test_native_grip_leaves_motion_to_compositor(self):
+        self.state['native_drag'] = True
         self.drag.press(0)
-        self.query.side_effect=lambda what: {'native_drag':True} if what=='xetal-cursor' else dict(x=-680,y=222)
+        self.query.return_value = dict(x=-680,y=222)
         self.drag.hovered.return_value=(dict(x=-680,y=222),self.window)
         self.drag.tick(.15);self.drag.tick(.2)
         self.hypr.dispatch.assert_called_once_with('xetaldrag:begin','0x123 1')

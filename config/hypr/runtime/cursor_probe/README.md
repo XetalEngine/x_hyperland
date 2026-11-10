@@ -1,7 +1,10 @@
 # Text-safe floating header dragging
 
-`scripts/floating-drag.py` provides the small invisible grip near the top of a
-floating window. `scripts/drag_cursor.py` now permits that gesture only with an
+`scripts/floating-drag.py` provides an invisible grip from the visible upper
+border through the first 32 logical pixels of a floating window. There is no
+five-pixel inset at the top; the actual per-window border width is included.
+The left/right button clusters remain outside the grip.
+`scripts/drag_cursor.py` permits that gesture only with an
 ordinary pointer. Text-selection, resize, link and unknown cursors stay with the
 application. A press that starts over text remains excluded until mouse release,
 even after leaving the field. An already started header drag continues normally.
@@ -9,13 +12,21 @@ Super-drag uses the existing compositor binding and is unaffected.
 
 Hyprland's standard IPC does not expose the current cursor shape. This small
 native adapter adds `hyprctl xetal-cursor`: the current shape, a snapshot
-at left-button press, the button state and a gesture serial. It reads the
+at left-button press, the button state and a gesture serial. `origin` records
+the global press position, the window address and stable ID, and its border
+width at the input event. Layers and popups cannot supply a drag origin. A named
+arrow on the compositor-owned border is valid without client surface focus.
+It reads the
 compositor's cursor metadata and cursor-only CPU image cache. It never captures
 window pixels or text, modifies cursor images, cancels input or patches functions.
 
 After the Python helper validates both cursors and the movement threshold,
 `xetaldrag:begin ADDRESS SERIAL` starts a native compositor drag. A matching held
-left-button serial and a mapped floating window are required. Release or
+left-button serial and the same mapped floating window with unchanged geometry
+are required. The helper keeps that target when fast motion leaves the window
+during the hold delay; it never substitutes the window beneath the new pointer
+position. Motion accumulated during the delay is applied before native dragging
+captures its offset, preserving the original grab point. Release or
 `xetaldrag:end` ends only that grip's drag. Movement now follows native pointer
 events instead of 16 ms IPC position changes. Wobbly recognizes it as normal
 dragging, and the Super-hover close button stays hidden until the drag ends.

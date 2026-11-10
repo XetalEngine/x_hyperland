@@ -107,6 +107,9 @@ drag starts only after the left button has been held for 120 ms and moved at lea
 settings** saves them in `drag-settings.json` for the next gesture. The updater
 preserves this preference. Text selection, native title-bar dragging, Super-drag,
 and per-monitor Wobbly timing keep their existing paths.
+The grip starts at the visible upper border with no vertical inset. It captures
+the actual press position and keeps that window if quick motion leaves its
+bounds during the hold delay; the original grab point follows the pointer.
 
 `native/background.hpp` samples before drawing the controls, in their owning
 window's render stack. It downsamples only the backing rectangle to 40×12 pixels,
