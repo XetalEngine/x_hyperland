@@ -1,14 +1,34 @@
-# Hyper Fusion · Panel gallery
+# Hyper Fusion · Desktop gallery
 
 A tour of the real Xetal interface. Click any picture for its full resolution.
-Most panel captures use an isolated copy of the author's Hyprland profile. The Proton
-screenshots below were supplied by the author from the live desktop and are included unchanged. The full
-Super+D scene was captured on the desktop over an empty temporary workspace,
-then the original workspace was restored. Applications shown in
-Favorites are installed separately. The file-progress cards use sample jobs;
-their settings panel is captured from the installed interface without changing preferences.
+The current Midnight Transit showcase uses real applications and compositor effects captured headlessly with a disposable profile. Some applications shown in Favorites are installed separately; transfer previews use sample jobs.
 
 [Back to the README](../README.md) · [Watch the desktop video](https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d)
+
+## Current theme: Midnight Transit
+
+Teal enamel, cream lettering, amber highlights and the **Midnight Concourse** wallpaper, with Fusion Files and Apps Favorites.
+
+[![Midnight Transit desktop with Fusion Files and Apps Favorites](screenshots/midnight-transit-desktop.png)](screenshots/midnight-transit-desktop.png)
+
+[![Midnight Transit Apps and pinned favorites](screenshots/midnight-transit-apps.png)](screenshots/midnight-transit-apps.png)
+
+| Control Panel and Favorites stars | Fusion file picker and image preview |
+| :---: | :---: |
+| [![Midnight Transit Control Panel with per-tool Favorites buttons](screenshots/midnight-transit-control-panel.png)](screenshots/midnight-transit-control-panel.png) | [![Fusion file picker showing the three Midnight Transit wallpapers](screenshots/midnight-transit-file-picker.png)](screenshots/midnight-transit-file-picker.png) |
+
+[Desktop effects](#desktop-effects) · [File transfers](#file-operation-progress) · [Midnight Transit theme guide](../config/hypr/theme/MIDNIGHT_TRANSIT.md)
+
+<details>
+<summary>How these screenshots were captured</summary>
+
+Captured on **November 10, 2026** using the installed **Hyprland 0.56.2** effects and native Hyper Fusion applications. Hyprland ran inside a headless virtual framebuffer with a private home directory, configuration, session bus and sample files. Full desktop captures are 1920 × 1080; detail images are direct screen-region captures.
+
+The fire and dock animations were slowed in the temporary profile to catch clear frames. Cube previews use the bundled Midnight Transit station wallpapers for the caps, a matching gradient sky, and adjusted framing; the 3D detail view increases window spacing and thickness. Transfer cards are explicitly labelled **Preview**: their counts, speed and queued items are sample data, not a performance benchmark. Screenshots contain the actual rendered interface and effects.
+
+The live desktop's settings were kept intact, and no VM was needed. Earlier theme examples remain below. The Proton screenshots were supplied by the author and are unchanged; the older Super+D scene was captured over a temporary workspace before restoring the original workspace.
+
+</details>
 
 ## Apps, in every style
 
@@ -120,11 +140,29 @@ Created with the built-in imagegen tool. [Wallpaper generation prompts](../confi
 
 ### Compiz Burn
 
-[![Burn controls](screenshots/burn.png)](screenshots/burn.png)
+The actual close animation, caught as a Fusion Files window dissolves into flame.
 
-### Desktop Cube + 3D Windows
+[![Fusion Files closing with the Compiz Burn effect](screenshots/midnight-transit-burn.png)](screenshots/midnight-transit-burn.png)
 
-[![Cube and 3D Window controls](screenshots/cube.png)](screenshots/cube.png)
+### Platform Twelve minimize dock
+
+Three running applications minimized into Midnight Transit's dock, followed by its burn-away transition.
+
+| Minimized applications | Burn-away animation |
+| :---: | :---: |
+| [![Platform Twelve dock with three application icons](screenshots/midnight-transit-dock.png)](screenshots/midnight-transit-dock.png) | [![Platform Twelve dock burning away](screenshots/midnight-transit-dock-burning.png)](screenshots/midnight-transit-dock-burning.png) |
+
+### Desktop Cube
+
+Four workspace faces, transparent walls and station artwork on the cube caps.
+
+[![Rotating Midnight Transit workspace cube](screenshots/midnight-transit-cube.png)](screenshots/midnight-transit-cube.png)
+
+### 3D Windows
+
+Application windows lift away from the desktop faces. This view increases spacing and thickness to make the depth visible.
+
+[![Application windows raised above the cube with visible depth](screenshots/midnight-transit-3d-windows.png)](screenshots/midnight-transit-3d-windows.png)
 
 ## Floating tools
 
@@ -146,11 +184,20 @@ The downloader offers 13 tool providers, release search, archive variants, compa
 
 ### File picker
 
-[![Right-side file preview pane](screenshots/file-picker.png)](screenshots/file-picker.png)
+[![Midnight Transit file picker with wallpaper thumbnails and a right-side image preview](screenshots/midnight-transit-file-picker.png)](screenshots/midnight-transit-file-picker.png)
 
 ### File-operation progress
 
-Mix any transfer style with any desktop theme, or follow the desktop automatically.
+The Midnight Transit card and its attached attention drawer use the native transfer interface with sample jobs. The drawer shows one successful retry and another item awaiting a choice; other files can keep copying while the queue is open.
+
+[![Midnight Transit transfer animation with sample progress and file counts](screenshots/midnight-transit-transfer-card.png)](screenshots/midnight-transit-transfer-card.png)
+
+[![Expanded transfer attention drawer with per-item status and retry, skip and replace controls](screenshots/midnight-transit-transfer-detail.png)](screenshots/midnight-transit-transfer-detail.png)
+
+Mix any transfer style with any desktop theme, or follow the desktop automatically. These previews show example counts and speeds, not benchmark results.
+
+<details>
+<summary>Earlier transfer styles and appearance controls</summary>
 
 | Xetal Raw | Xetal Modern | BreakPoint |
 | :---: | :---: | :---: |
@@ -159,6 +206,8 @@ Mix any transfer style with any desktop theme, or follow the desktop automatical
 [![Binary Knife files travelling along blue circuit traces](screenshots/file-progress-binaryknife.png)](screenshots/file-progress-binaryknife.png)
 
 [![File Transfer appearance, animation and behavior options](screenshots/file-transfer-settings.png)](screenshots/file-transfer-settings.png)
+
+</details>
 
 ### MP3 / MP4 downloader
 

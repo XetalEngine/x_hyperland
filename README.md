@@ -5,14 +5,16 @@
 <p align="center">
   <a href="#two-ways-to-install-hyper-fusion">Install</a> ·
   <a href="#tested-on">Tested on</a> ·
-  <a href="#four-looks-one-desktop">Themes</a> ·
+  <a href="#your-desktop-your-style">Themes</a> ·
   <a href="#compiz-spirit-hyprland-desktop">Effects</a> ·
   <a href="#kvm-settings">KVM</a> ·
   <a href="docs/GALLERY.md">Gallery</a> ·
   <a href="#documentation">Documentation</a>
 </p>
 
-[![Hyper Fusion desktop with system information, Matrix rain, clock and interactive project cubes](docs/screenshots/startup-dashboard.png)](docs/GALLERY.md)
+[![Midnight Transit desktop with Fusion Files and Apps Favorites](docs/screenshots/midnight-transit-desktop.png)](docs/GALLERY.md#current-theme-midnight-transit)
+
+<p align="center"><sub>Midnight Transit · Real applications and desktop effects, captured in an isolated headless session. <a href="docs/GALLERY.md#current-theme-midnight-transit">View the current-theme gallery</a></sub></p>
 
 <!-- GitHub renders this attachment as an inline video player. -->
 https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d
@@ -129,17 +131,13 @@ On 0.56.2, the brief `.conf` deprecation notice refers to a future Hyprland form
 
 </details>
 
-## Four looks. One desktop.
+## Your desktop. Your style.
 
-| Xetal Raw | Xetal Modern |
-| :---: | :---: |
-| [![Xetal Raw Apps menu](docs/screenshots/apps-raw.png)](docs/screenshots/apps-raw.png) | [![Xetal Modern Apps menu](docs/screenshots/apps-modern.png)](docs/screenshots/apps-modern.png) |
-| Cyan accents and transparent surfaces | Soft blue cards and a Home overview |
+**Midnight Transit**, the theme shown here, pairs teal enamel and cream lettering with amber highlights and rainy railway wallpapers.
 
-| BreakPoint | Binary Knife |
-| :---: | :---: |
-| [![BreakPoint Apps menu](docs/screenshots/apps-breakpoint.png)](docs/screenshots/apps-breakpoint.png) | [![Binary Knife Apps menu](docs/screenshots/apps-binaryknife.png)](docs/screenshots/apps-binaryknife.png) |
-| Charcoal glass and crimson highlights | Graphite panels and electric blue edges |
+[![Midnight Transit Apps menu with pinned favorites and themed navigation](docs/screenshots/midnight-transit-apps.png)](docs/screenshots/midnight-transit-apps.png)
+
+Explore Xetal Raw, Xetal Modern, BreakPoint, Binary Knife and more in the [theme gallery](docs/GALLERY.md#apps-in-every-style).
 
 Colors follow you through Apps, the taskbar, Fusion Settings, Control Panel, KVM, file pickers, notifications, lock screen and session tools. Choose **Dark**, **Light** or **High contrast**, with a separate wallpaper for each monitor.
 
@@ -225,15 +223,23 @@ Fresh installs always enable Welcome so plugin failures are visible at the first
 
 ## Compiz spirit. Hyprland desktop.
 
-| Burn | Desktop Cube + 3D Windows |
+| Burn close animation | Desktop Cube |
 | :---: | :---: |
-| [![Burn effect controls](docs/screenshots/burn.png)](docs/screenshots/burn.png) | [![Desktop Cube and 3D Windows controls](docs/screenshots/cube.png)](docs/screenshots/cube.png) |
+| [![A Fusion Files window dissolving into the real Compiz Burn flame](docs/screenshots/midnight-transit-burn.png)](docs/screenshots/midnight-transit-burn.png) | [![Rotated workspace cube with Midnight Transit station artwork and application windows](docs/screenshots/midnight-transit-cube.png)](docs/screenshots/midnight-transit-cube.png) |
 
 **Burn** closes windows with the original Compiz particle flame and smoke. Tune the color, direction, particle count, size, lifetime and timing, or try a disposable preview window.
 
 **Super+Z** sends the active window into a burning **Fireball** slot in an animated dock. Each monitor has its own dock, positioned opposite Waybar by default, with a distinct design for every theme. Choose any design independently, or keep the classic Left/Right edge stack. Click a slot to restore it; scroll when it fills up. In **Theme → Window effects → Minimize → Dock behavior**, choose **Slide away** or **Burn away**. Burning can leave a small **Fire indicator** along the hidden dock's edge until every window is restored. Adjust hide delay, transition time, size, proximity and hover zoom; **Preview hiding** demonstrates the effect without touching your windows. Splat is currently disabled. Apps keep running and remain accessible from their original workspace's taskbar icons. [Minimize guide →](config/hypr/effects/minimize/README.md)
 
+| Platform Twelve minimize dock | Burning away |
+| :---: | :---: |
+| [![Midnight Transit's Platform Twelve dock holding three minimized applications](docs/screenshots/midnight-transit-dock.png)](docs/screenshots/midnight-transit-dock.png) | [![The same dock dissolving along a glowing fire edge](docs/screenshots/midnight-transit-dock-burning.png)](docs/screenshots/midnight-transit-dock-burning.png) |
+
 **Desktop Cube + 3D Windows** gives each monitor its own four workspace faces. Hold **Ctrl+Alt+left mouse** and drag to rotate; release to select or press Escape to cancel. Adjust transparency, edge colors, ceiling/floor artwork, a moving sky, and raised windows with depth and spacing. **Standard animation is the default for ordinary workspace switching**; automatic cube rotation is an option. The drag gesture works with either choice.
+
+[![Fusion Files, a terminal and transfer cards raised above the cube faces with visible 3D thickness](docs/screenshots/midnight-transit-3d-windows.png)](docs/screenshots/midnight-transit-3d-windows.png)
+
+*Real compositor captures with sample windows. [Capture details and full gallery →](docs/GALLERY.md#current-theme-midnight-transit)*
 
 **Super+Tab** uses Ring Switcher by default, with seven alternatives: Fusion Cards, Application, Static Application, Shift Cover, Shift Flip, Stack and Scale overview. Live previews follow your selected monitor and style. [Task switcher guide →](config/hypr/switcher/README.md)
 
@@ -283,7 +289,7 @@ UMU is prepared automatically when downloading Proton, and Steam is optional. Ex
 
 | Control Panel | File picker with previews |
 | :---: | :---: |
-| [![Hyper Fusion Control Panel](docs/screenshots/control-panel-binaryknife.png)](docs/CONTROL-PANEL.md) | [![Themed file picker with Places and preview pane](docs/screenshots/file-picker-binaryknife.png)](docs/FILE-PREVIEWS.md) |
+| [![Midnight Transit Control Panel with a Favorites star on each tool](docs/screenshots/midnight-transit-control-panel.png)](docs/CONTROL-PANEL.md) | [![Midnight Transit Fusion file picker with Places, wallpaper thumbnails and an image preview](docs/screenshots/midnight-transit-file-picker.png)](docs/FILE-PREVIEWS.md) |
 
 | Tool | What you get |
 | --- | --- |
@@ -303,6 +309,21 @@ UMU is prepared automatically when downloading Proton, and Steam is optional. Ex
 | **Capture and sharing** | Alt+F9 screen recording with audio, 64 FPS MP4 saved to Videos by default, area/all-display screenshots, clipboard support and a custom Hyprland screen-share picker. Recording options live in Fusion Settings → Capture. |
 | **Media downloader** | **Super+Ctrl+P** opens an MP3/MP4 popup with progress, cancellation and updates for its private yt-dlp copy. |
 | **Kitty** | Matching colors, animated cursor, a draggable scrollback scrollbar and a configurable Fastfetch welcome. |
+
+### File transfers
+
+Midnight Transit's animated transfer card shows progress, file counts, transferred bytes and speed. Items needing attention expand beneath the same card while other files continue copying. Retry, skip, replace and administrator-access actions stay together with per-item results.
+
+[![Midnight Transit animated transfer card showing a sample copy operation](docs/screenshots/midnight-transit-transfer-card.png)](docs/screenshots/midnight-transit-transfer-card.png)
+
+<details>
+<summary>See the expandable attention drawer</summary>
+
+[![Transfer drawer with a successful retry and an existing file awaiting a choice](docs/screenshots/midnight-transit-transfer-detail.png)](docs/screenshots/midnight-transit-transfer-detail.png)
+
+</details>
+
+*These native UI previews use sample jobs; the displayed speed and counts are examples.*
 
 ## Shortcuts at a glance
 
