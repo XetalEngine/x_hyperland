@@ -1,0 +1,40 @@
+{
+  "id": "leviathan",
+  "name": "Leviathan",
+  "generator": "Built-in imagegen",
+  "wallpapers": [
+    {
+      "file": "leviathans-approach.png",
+      "title": "Leviathan’s Approach",
+      "prompt": "Use case: stylized-concept. Asset type: finished widescreen 16:9 desktop wallpaper for Hyper Fusion Leviathan, highest available resolution, ideally 3840x2160. Scene: an immense ancient basalt labyrinth stretching across a bottomless violet mist abyss; a narrow broken stone causeway leads toward gothic fortress walls and a gigantic suspended elongated octahedral black diamond monument in storm clouds. A solitary tall cenobite-like figure seen from behind, pale bald head with a precise grid of slender silver pins, full-length sculpted black leather ceremonial robe, stands on the central causeway, contemplative and imposing. In the lower left foreground a beautifully crafted antique brass puzzle cube sits on a carved round stone plinth; its dark faces have fine interlocking geometric gold filigree and occult geometry, no readable writing. Cinematic dark fantasy realism, tactile weathered stone, muted obsidian and charcoal, amethyst fog, restrained violet lightning, warm aged brass details. Rich cinematic depth and extraordinary detail, elegant and ominous rather than gory. Wide full landscape with open dark atmospheric sky and quiet side regions for real desktop windows. No text, no captions, no logos, no interface, no desktop icons, no window frames, no taskbar, no watermark, no gore. One coherent complete landscape, not a collage.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "f9bfd67fd306de1be8f30cfa90a9691d02cdc4d4b71854ff3540f354e528d98f",
+      "provenance": "Original artwork generated with the built-in imagegen tool from the user-provided Leviathan concept."
+    },
+    {
+      "file": "the-brass-configuration.png",
+      "title": "The Brass Configuration",
+      "prompt": "Use case: stylized-concept. Asset type: finished widescreen 16:9 desktop wallpaper for Hyper Fusion Leviathan, highest available resolution, ideally 3840x2160. Scene: inside a cavernous obsidian ritual observatory, an elaborate antique brass puzzle cube is the principal subject on a low octagonal black stone altar right of center. The cube is palm-sized in the imagined scene but beautifully featured in this wide close foreground composition, three visible faces inlaid with intricate interlocking geometric labyrinths, thin gold tracery, tiny mechanical joints and circular astronomical patterns, no writing. Tall shadowed gothic arches behind it open onto a distant immense violet labyrinth under a purple storm; dim amethyst light leaks between the altar slabs. Fine suspended dust and subtle volumetric shafts. Cinematic physically detailed dark fantasy still life, warm weathered brass against deep graphite and black stone, restrained violet illumination, very refined quiet ominous atmosphere. Wide composition with broad calm dark space across left third and upper half for desktop content; cube occupies right-middle foreground, architectural depth instead of a flat studio background. No people, no readable symbols or letters, no captions, no logo, no interface, no icons, no taskbars, no window frames, no watermark, no gore. A unique complete wallpaper, not a collage.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "d5ac16495d1c4c838920348a4c0278a075bc216cce162e57520670a015e6a80d",
+      "provenance": "Original artwork generated with the built-in imagegen tool from the user-provided Leviathan concept."
+    },
+    {
+      "file": "endless-dominion.png",
+      "title": "Endless Dominion",
+      "prompt": "Use case: stylized-concept. Asset type: finished widescreen 16:9 desktop wallpaper for Hyper Fusion Leviathan, highest available resolution, ideally 3840x2160. Scene: breathtaking elevated panoramic view over an infinite monumental maze of black basalt walls and deep vertical chasms filled with muted purple mist. Multiple impossible stone stairways and narrow bridges connect distant gothic citadels. A colossal faceted elongated black octahedron hangs above the horizon just right of center, its subtly engraved planes catching cold violet light; purple lightning forks behind it through layered charcoal storm clouds. Fine restrained antique brass inlays trace a few foreground angular stone rails, tying the world to an engraved geometric puzzle artifact without depicting any cube in this scene. Cinematic dark fantasy architectural realism, extremely strong scale and atmospheric perspective, richly textured stone, elegant amethyst haze and obsidian surfaces. Visually distinct aerial panorama: no human figures, no foreground puzzle cube. Broad dark quiet upper sky and left edges, luminous mist concentrated in the lower valleys, comfortable desktop contrast. No words, text, captions, lettering, logos, fake interface, windows, desktop icons, taskbar, watermark or gore. One complete wide landscape, not a collage.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "48ba3ba00ad5222811bfb1bc04dd52bb6adafd6eb5169961339eab96b6a460cf",
+      "provenance": "Original artwork generated with the built-in imagegen tool from the user-provided Leviathan concept."
+    }
+  ]
+}

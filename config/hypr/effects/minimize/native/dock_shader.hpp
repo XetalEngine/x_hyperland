@@ -29,8 +29,8 @@ void main(){
   fragColor=vec4(mix(warm,mix(ink,vec3(1.,.72,.25),.5),core)*a,a)*opacity;return;
  }
  vec2 p=(uv-.5)*dims;vec2 halfSize=dims*.5-vec2(8.);
- float radius=style==19?14.:style==18?5.:style==17?7.:style==16?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
- if(part==1)radius=style==19?11.:style==18?4.:style==17?6.:style==16?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
+ float radius=style==20?6.:style==19?14.:style==18?5.:style==17?7.:style==16?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
+ if(part==1)radius=style==20?4.:style==19?11.:style==18?4.:style==17?6.:style==16?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
  radius=min(radius,min(halfSize.x,halfSize.y));
  float distance=roundBox(p,halfSize,radius);
  if(style==2||style==3||style==8)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+(style==3?19.:style==8?14.:10.))*.7071);
@@ -44,7 +44,19 @@ void main(){
  float rim=.26;
  float jewel=0.;float jewelHalo=0.;float gildedSweep=0.;
  if(part==0){
-  if(style==19){
+  if(style==20){
+   // Puzzle Reliquary: engraved brass, double rims and violet faceted seals.
+   vec3 brass=mix(ink,vec3(.7804,.6078,.3804),.65);
+   vec2 q=vec2(halfSize.x-abs(p.x)-15.,p.y);
+   body=mix(base,tint,.04)+ink*shine*.075;rim=.0;
+   body+=brass*exp(-abs(distance+4.)*1.9)*.35;
+   float diamond=abs(abs(q.x)/10.+abs(q.y)/19.-1.);
+   float cross=min(line(q,vec2(0.,-19.),vec2(0.,19.)),line(q,vec2(-10.,0.),vec2(10.,0.)));
+   body+=brass*(exp(-diamond*24.)*.85+exp(-cross*2.)*.4)*step(abs(q.y),20.)*step(abs(q.x),11.);
+   body+=brass*exp(-abs(length(q)-6.)*2.)*.4;
+   body+=brass*exp(-abs(abs(p.y)-halfSize.y+7.)*2.)*step(29.,halfSize.x-abs(p.x))*.55;
+   decoration=exp(-dot(q,q)*.4)*(.65+.2*sin(time));
+  }else if(style==19){
    // Orbital Glass: curved sapphire shoulder, inset rim and orbiting end lights.
    vec2 q=vec2(halfSize.x-abs(p.x)-15.,p.y);
    body=mix(base,tint,.04)+ink*shine*.14;rim=.55;
@@ -318,7 +330,12 @@ void main(){
   body=mix(base,tint,.08+emphasis*.14)+ink*shine*.045;
   rim=.08+emphasis*.25;
   decoration=exp(-abs(p.y-halfSize.y+3.)*1.7)*(.25+.4*emphasis);
-  if(style==19){
+  if(style==20){
+   vec3 brass=mix(ink,vec3(.7804,.6078,.3804),.65);
+   body=mix(base,tint,.04+emphasis*.1);rim=0.;
+   body+=brass*exp(-abs(distance+3.)*1.9)*.2;
+   decoration=exp(-abs(p.y-halfSize.y+5.)*2.)*step(abs(p.x),halfSize.x-9.)*(.6+emphasis*.4);
+  }else if(style==19){
    body=mix(base,tint,.06+emphasis*.1)+ink*shine*.13;rim=.4+emphasis*.4;
    decoration=exp(-abs(p.y-halfSize.y+5.)*1.8)*step(abs(p.x),halfSize.x-10.)*(.45+emphasis*.4);
    metal=exp(-abs(distance+3.)*1.8)*.18;
@@ -399,6 +416,7 @@ void main(){
  }
  vec3 surface=body+ink*metal+tint*decoration;
  surface=mix(surface,mix(tint,ink,.3),border*rim);
+ if(style==20)surface=mix(surface,mix(ink,vec3(.7804,.6078,.3804),.65),border*(part==0?.85:.4+emphasis*.5));
  if(style==16){
   float bevel=1.-smoothstep(1.2,2.5,-distance);
   float upper=step(halfSize.x+p.x,halfSize.x-p.x)*step(halfSize.x+p.x,halfSize.y-p.y);

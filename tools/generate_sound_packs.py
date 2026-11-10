@@ -22,6 +22,7 @@ from sounds.model import PACKS, EVENTS
 RATE = 48000
 # tonic, voice, unique opening melody (semitones), beat spacing
 SCORES = {
+    'leviathan': (50, 'reliquary', [0, 7, 10, 3, 14, 12], .44),
     'polaris': (67, 'polar', [0, 7, 14, 12, 19, 16], .38),
     'infernalencore': (52, 'encore', [0, 0, 7, 10, 7, 3], .29),
     'midnightrun': (63, 'neon', [0, 7, 12, 10, 14, 7], .27),
@@ -68,6 +69,13 @@ def voice(midi, duration, kind, seed=0):
         out = np.tanh(out*1.2)/1.2
         out += .08*np.sin(phase*.5)*np.exp(-3*t)
         attack = .024
+    elif kind == 'reliquary':
+        # Soft struck brass, a delayed low resonance and a gentle attack.
+        out = np.sin(phase)*np.exp(-3*t)
+        out += .18*np.sin(phase*2.003)*np.exp(-4.5*t)
+        out += .07*np.sin(phase*3.97)*np.exp(-8*t)
+        out += .12*np.sin(phase*.5)*np.exp(-2.4*t)*(1-np.exp(-9*t))
+        attack = .045
     elif kind == 'polar':
         # Soft glass resonance with a delayed warm fundamental, no samples.
         out = np.sin(phase)*np.exp(-2.8*t)
@@ -124,7 +132,7 @@ def voice(midi, duration, kind, seed=0):
 
 def score(pack, event):
     tonic, kind, motif, beat = SCORES[pack]
-    minor = pack in ('infernalencore', 'midnightrun', 'mycelium', 'blackwood', 'breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge')
+    minor = pack in ('leviathan', 'infernalencore', 'midnightrun', 'mycelium', 'blackwood', 'breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge')
     third = 3 if minor else 4
     # time, midi note, length, gain, stereo pan
     if event == 'startup':

@@ -9,6 +9,7 @@ STYLES={'follow':'Follow desktop theme', **designs.DESIGNS}
 VARIANTS={'full':'Full · continuous bar', 'partial':'Partial · floating sections',
           'centered':'Centered · workspaces in the middle'}
 DESCRIPTIONS={
+ 'leviathan':'Engraved reliquary · obsidian panels, brass tracery and amethyst workspaces',
  'polaris':'Orbital glass · sapphire depth, cyan workspaces and silver light',
  'infernalencore':'Stage rack · blackened metal, brass bevels and crimson switches',
  'midnightrun':'Neon expressway · graphite lacquer, cyan rails and magenta workspaces',
@@ -63,6 +64,7 @@ def configure(config,style,variation=None):
     layouts={
         'infernalencore':(apps,['mpris'],status),
         'midnightrun':(apps,['mpris'],status),
+        'leviathan':(apps,['mpris'],status),
         'polaris':(apps,['mpris'],status),
         'platform95':(apps,['mpris'],status),
         'mycelium':(['cffi/bar-options','custom/launcher','custom/keys','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
@@ -131,6 +133,7 @@ window#waybar {{color:{t};}}
     faces={
 'infernalencore':__import__('infernalencore').bar_controls(p,root),
 'midnightrun':__import__('midnightrun').bar_controls(p,root),
+'leviathan':__import__('leviathan').bar_controls(p,root),
 'polaris':__import__('polaris').bar_controls(p,root),
 'platform95':__import__('platform95').bar_controls(p,root),
 'mycelium':__import__('mycelium').bar_controls(p,root),
@@ -260,10 +263,11 @@ window#waybar {{background:linear-gradient(180deg,alpha({p['Button']},0.97),alph
 def architecture(p,style,variation,root):
     """One material vocabulary, available as a rail, islands or centered bank."""
     a,b,w,t,m,h=p['Accent'],p['Base'],p['Window'],p['Text'],p['Midlight'],p['Highlight']
-    radius={'polaris':'12px','infernalencore':'5px','midnightrun':'7px','platform95':'1px','mycelium':'14px','atomicafterglow':'5px','blackwood':'5px','midnighttransit':'7px','hyperfusionblue':'7px','raw':'1px','modern':'23px','breakpoint':'12px 2px 12px 2px','binaryknife':'2px 16px 2px 16px',
+    radius={'leviathan':'6px','polaris':'12px','infernalencore':'5px','midnightrun':'7px','platform95':'1px','mycelium':'14px','atomicafterglow':'5px','blackwood':'5px','midnighttransit':'7px','hyperfusionblue':'7px','raw':'1px','modern':'23px','breakpoint':'12px 2px 12px 2px','binaryknife':'2px 16px 2px 16px',
             'tidalglass':'28px 28px 14px 14px','porcelainink':'4px','obsidianforge':'5px',
             'candycloud':'28px','shadowedge':'12px 0 12px 0','hollowgrove':'28px 12px 28px 12px','gildedhollow':'24px'}[style]
     surface={
+        'leviathan':f'linear-gradient(160deg,{p["Button"]},{w} 22%,{b} 70%,{w})',
         'polaris':f'linear-gradient(180deg,{p["Button"]},{w} 35%,{b} 75%,{w})',
         'infernalencore':f'linear-gradient(160deg,{p["Button"]},{w} 28%,{b} 72%,{w})',
         'midnightrun':f'linear-gradient(180deg,{p["Button"]},{w} 25%,{b})',
@@ -288,6 +292,8 @@ def architecture(p,style,variation,root):
     frame=f'background:{surface};border:1px solid alpha({a},0.58);border-top-color:alpha({p["Link"]},0.72);border-radius:{radius};box-shadow:inset 0 1px alpha({t},0.12),inset 0 -2px alpha({a},0.1);'
     if style=='infernalencore':
         frame=f'background:{surface};border:1px solid {p["Midlight"]};border-top-color:{p["Light"]};border-bottom-color:{a};border-radius:5px;box-shadow:inset 0 1px alpha({t},0.10);'
+    if style=='leviathan':
+        frame=f'background:{surface};border:1px solid {m};border-top-color:{p["Light"]};border-bottom-color:{p["Light"]};border-radius:6px;box-shadow:inset 0 0 0 2px alpha({b},0.8),inset 0 0 0 3px alpha({p["Light"]},0.15);'
     if style=='polaris':
         frame=f'background:{surface};border:1px solid {m};border-top-color:{p["Light"]};border-radius:12px;box-shadow:inset 0 1px alpha({a},0.18);'
     if style=='midnightrun':
@@ -310,6 +316,7 @@ window#waybar {{{frame}}}
     ornament={
         'infernalencore':__import__('infernalencore').bar_controls(p,root),
 'midnightrun':__import__('midnightrun').bar_controls(p,root),
+'leviathan':__import__('leviathan').bar_controls(p,root),
 'polaris':__import__('polaris').bar_controls(p,root),
         'platform95':__import__('platform95').bar_controls(p,root),
         'mycelium':__import__('mycelium').bar_controls(p,root),

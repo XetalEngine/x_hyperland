@@ -104,5 +104,10 @@
     "polaris/tux-starlight.png",
     "polaris/northern-lights.png",
     "polaris/orbital-glass.png"
+  ],
+  "leviathan": [
+    "leviathan/leviathans-approach.png",
+    "leviathan/the-brass-configuration.png",
+    "leviathan/endless-dominion.png"
   ]
 }

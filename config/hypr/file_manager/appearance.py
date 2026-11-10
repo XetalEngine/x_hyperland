@@ -12,7 +12,7 @@ import selection_marker
 def appearance():
     p = runtime.colors()
     design = runtime.widget_design()
-    radius = 12 if design == 'polaris' else 5 if design == 'infernalencore' else 7 if design == 'midnightrun' else 1 if design == 'platform95' else 2 if design == 'shadowedge' else 16 if design == 'candycloud' else 3 if design == 'obsidianforge' else 2 if design == 'porcelainink' else 14 if design == 'tidalglass' else 3 if design == 'binaryknife' else 8 if design == 'breakpoint' else 10
+    radius = 6 if design=='leviathan' else 12 if design == 'polaris' else 5 if design == 'infernalencore' else 7 if design == 'midnightrun' else 1 if design == 'platform95' else 2 if design == 'shadowedge' else 16 if design == 'candycloud' else 3 if design == 'obsidianforge' else 2 if design == 'porcelainink' else 14 if design == 'tidalglass' else 3 if design == 'binaryknife' else 8 if design == 'breakpoint' else 10
     accent_rgb = ','.join(str(int(p['Accent'][i:i+2], 16)) for i in (1, 3, 5))
     style = qt_style(p, design) + runtime.layouts.stylesheet(p, runtime.layout(), runtime.design())
     style += f'''
@@ -146,6 +146,9 @@ def appearance():
         style += files_style(p)
     if design == 'midnightrun':
         from midnightrun import files_style
+        style += files_style(p)
+    if design == 'leviathan':
+        from leviathan import files_style
         style += files_style(p)
     if design == 'polaris':
         from polaris import files_style
