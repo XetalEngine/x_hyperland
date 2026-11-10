@@ -3,7 +3,7 @@
 <p align="center"><strong>Your workspace. Your colors. Your kind of Linux desktop.</strong><br>A complete Xetal desktop for Hyprland, with native settings, custom menus, KVM tools and a little Compiz nostalgia.</p>
 
 <p align="center">
-  <a href="#three-ways-to-install-hyper-fusion">Install</a> ·
+  <a href="#two-ways-to-install-hyper-fusion">Install</a> ·
   <a href="#tested-on">Tested on</a> ·
   <a href="#four-looks-one-desktop">Themes</a> ·
   <a href="#compiz-spirit-hyprland-desktop">Effects</a> ·
@@ -19,11 +19,17 @@ https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d
 
 <p align="center"><sub>48-second desktop tour · Original 1440p recording · <a href="docs/GALLERY.md">Explore the full gallery</a></sub></p>
 
-## Three ways to install Hyper Fusion
+## Two ways to install Hyper Fusion
 
-**[Download the ONLINE and OFFLINE Arch Linux ISOs](https://drive.google.com/drive/folders/1bkAs8SiMqnbCihzMGPYzlOXB5mXGfs_Y?usp=sharing)** — both installers are in this shared Google Drive folder.
+1. **Install the custom Arch Linux ISO — ONLINE or OFFLINE**
 
-1. **Install it on your existing system**
+   **[Download the ONLINE and OFFLINE Arch Linux ISOs](https://drive.google.com/drive/folders/1bkAs8SiMqnbCihzMGPYzlOXB5mXGfs_Y?usp=sharing)** — both installers are in this shared Google Drive folder.
+
+   **Offline:** This is the version installed in the video above. It includes Arch Linux, KDE, and the entire Hyper Fusion system.
+
+   **Online:** This includes the same setup as the offline version, but downloads the packages from the Arch Linux servers during installation. Since Arch is a rolling release, future package or library changes could cause compatibility issues.
+
+2. **Install it on your existing system**
 
    Download or clone the [GitHub repository](https://github.com/XetalEngine/x_hyperland), open a terminal in the repository folder, and run the installer as your regular desktop user. Make it executable first if needed:
 
@@ -33,14 +39,6 @@ https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d
    ```
 
    See the [detailed installation instructions](#install) below.
-
-2. **Install the custom Arch Linux OFFLINE ISO**
-
-   This is the version installed in the video above. It includes Arch Linux, KDE, and the entire Hyper Fusion system.
-
-3. **Install the custom Arch Linux ONLINE ISO**
-
-   This includes the same setup as the offline version, but downloads the packages from the Arch Linux servers during installation. Since Arch is a rolling release, future package or library changes could cause compatibility issues.
 
 [**GitHub repository**](https://github.com/XetalEngine/x_hyperland) — feel free to contribute ideas or submit pull requests!
 
