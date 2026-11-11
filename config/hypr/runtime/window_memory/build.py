@@ -35,7 +35,7 @@ def build(root=ROOT):
         raise RuntimeError('The window memory needs development headers matching the pinned Hyprland runtime.')
     versions = output(['pkg-config', '--modversion', 'hyprland', 'aquamarine', 'hyprutils', 'hyprgraphics', 'hyprcursor', 'hyprlang'])
     signature = hashlib.sha256((versions+str(flags)+headers.read_text()+output(['g++', '-dumpfullversion'])).encode())
-    for source in (root/'plugin.cpp', root/'stacking.hpp', root/'build.py', root.parent/'window_types.hpp', root.parent/'window_types_native.hpp', root.parents[1]/'workspaces/native.hpp',
+    for source in (root/'plugin.cpp', root/'stacking.hpp', root/'inspector.hpp', root/'build.py', root.parent/'window_types.hpp', root.parent/'window_types_native.hpp', root.parents[1]/'workspaces/native.hpp',
                    root.parents[1]/'effects/window_close/native/policies.hpp', root.parents[1]/'effects/window_close/native/geometry.hpp'):
         signature.update(source.read_bytes())
     directory = root/'.build'/signature.hexdigest()[:20]

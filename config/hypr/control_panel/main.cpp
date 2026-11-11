@@ -1,5 +1,6 @@
 #include "backend/mainwindow.h"
 #include "backend/window_enum_backend.h"
+#include "backend/window_enum_hyprland.h"
 #include "native.h"
 #include "disk_visualizer.h"
 #include "deb_page.h"
@@ -17,6 +18,7 @@
 static volatile sig_atomic_t stopping = 0;
 int main(int argc, char **argv) {
   if (argc > 1 && (std::strcmp(argv[1], "--window-enum-x11") == 0 ||
+                   std::strcmp(argv[1], "--window-enum-hyprland") == 0 ||
                    std::strcmp(argv[1], "--window-enum-wayland") == 0)) {
     QCoreApplication app(argc, argv);
     if (std::strcmp(argv[1], "--window-enum-wayland") == 0)
@@ -24,7 +26,7 @@ int main(int argc, char **argv) {
     auto request =
         QJsonDocument::fromJson(argc > 2 ? QByteArray(argv[2]) : QByteArray())
             .object();
-    auto output = windowEnumX11(request);
+    auto output = std::strcmp(argv[1], "--window-enum-hyprland") == 0 ? windowEnumHyprland(request) : windowEnumX11(request);
     auto text = QJsonDocument(output).toJson(QJsonDocument::Compact);
     std::fwrite(text.data(), 1, size_t(text.size()), stdout);
     return output.contains("error") ? 1 : 0;

@@ -130,6 +130,11 @@ void MainWindow::setupSensorsPowerTab() {
     batLay->addLayout(thrLay);
     rightLay->addWidget(powBatteryGroup);
 
+    auto *tweaksLink = new QPushButton(tr("Open System Tweaks →"), rightBox);
+    tweaksLink->setObjectName("sensorsTweaksLink");
+    tweaksLink->setToolTip(tr("CPU, memory and system settings that persist after reboot."));
+    rightLay->addWidget(tweaksLink, 0, Qt::AlignLeft);
+
     // Fans
     QGroupBox *fanBox = new QGroupBox(tr("🌀 Fan control"), rightBox);
     QVBoxLayout *fanLay = new QVBoxLayout(fanBox);

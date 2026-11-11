@@ -67,6 +67,30 @@ private slots:
     QVERIFY(opened.isEmpty());
   }
 
+  void missingHelperWarningRepeatsOnEntryAndEitherHelperSatisfiesIt() {
+    struct RestorePath { QByteArray value = qgetenv("PATH"); ~RestorePath() { qputenv("PATH",value); } } restore;
+    QTemporaryDir directory; QVERIFY(directory.isValid());
+    qputenv("PATH",directory.path().toUtf8());
+    QPushButton yay, paru;
+    DebInstallerPage page(root,new QPushButton,&yay,&paru);
+    const auto warning = [&] { return page.findChild<QMessageBox *>("debMissingHelperWarning"); };
+    QCoreApplication::processEvents(); QVERIFY(!warning()); // Preload stays silent.
+    for (int entry = 0; entry < 2; ++entry) {
+      page.show(); QTRY_VERIFY(warning());
+      QVERIFY(warning()->text().contains("without Yay or Paru"));
+      warning()->accept(); QTRY_VERIFY(!warning());
+      page.hide(); QCoreApplication::processEvents();
+    }
+    for (const auto &name : {QString("yay"),QString("paru")}) {
+      QFile executable(directory.filePath(name)); QVERIFY(executable.open(QIODevice::WriteOnly));
+      executable.write("#!/bin/sh\nexit 0\n"); executable.close();
+      QVERIFY(executable.setPermissions(QFile::ReadOwner|QFile::WriteOwner|QFile::ExeOwner));
+      page.show(); QTest::qWait(40); QVERIFY(!warning());
+      page.hide(); QVERIFY(executable.remove());
+    }
+    page.show(); QTRY_VERIFY(warning()); warning()->accept();
+  }
+
   void fileSelectionIsVisibleAndWaitsForInstall() {
     QTemporaryDir temp;
     const auto path = temp.path()+"/package's $(literal) <b>.deb";

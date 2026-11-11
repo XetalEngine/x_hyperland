@@ -1,5 +1,14 @@
 # Window memory
 
+The adapter also exposes the read-only `hyprctl -j xetal-inspector-surfaces`
+command for Control Panel's Hyprland Window Inspector. It walks the compositor's
+registered popup and child views on request, returning logical geometry, mapped
+and visible state, Wayland client PID, role and popup-owner identity. No strings
+from window contents, pixels, input, geometry changes, polling timer or extra
+hooks are involved. The UI combines this with standard `clients` and `layers`
+inventories. The updated command becomes available at the next login; an active
+adapter is never hot-swapped.
+
 `service.py` runs only for its Hyprland instance, follows the compositor event
 socket and uses a per-instance lock. It observes windows already open at startup;
 only newly mapped windows receive saved geometry. Normal windows and transient

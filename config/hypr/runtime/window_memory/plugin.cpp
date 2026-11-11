@@ -24,11 +24,12 @@
 #include <hyprland/src/render/Renderer.hpp>
 #include "../../workspaces/native.hpp"
 #include "../window_types_native.hpp"
+#include "inspector.hpp"
 #include "../../effects/window_close/native/geometry.hpp"
 #include <sstream>
 
 namespace {
-SP<SHyprCtlCommand> metadataCommand, stateCommand;
+SP<SHyprCtlCommand> metadataCommand, stateCommand, inspectorCommand;
 CHyprSignalListener mappedListener;
 std::vector<CHyprSignalListener> policyListeners;
 WorkspaceRules::Policies workspaceRules;
@@ -221,6 +222,8 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         throw std::runtime_error("Rebuild window memory for this compositor ABI");
     metadataCommand = HyprlandAPI::registerHyprCtlCommand(handle, {"xetal-windows", true,
         [](eHyprCtlOutputFormat, std::string) { return metadata(); }});
+    inspectorCommand = HyprlandAPI::registerHyprCtlCommand(handle, {"xetal-inspector-surfaces", true,
+        [](eHyprCtlOutputFormat, std::string) { return WindowInspector::surfaces(); }});
     stateCommand = HyprlandAPI::registerHyprCtlCommand(handle, {"xetal-window-state", false,
         [](eHyprCtlOutputFormat, std::string input) {
             std::istringstream args(input);

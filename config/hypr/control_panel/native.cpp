@@ -303,6 +303,12 @@ startupDone:
 }
 
 void PanelController::prepareTools() {
+  if (auto *link = owner->findChild<QPushButton *>("sensorsTweaksLink"))
+    connect(link, &QPushButton::clicked, this, [this] {
+      open("tweaks");
+      if (auto *tabs = owner->findChild<QTabWidget *>("tweaksTabWidget"))
+        if (auto *performance = owner->findChild<QWidget *>("performanceTab")) tabs->setCurrentWidget(performance);
+    });
   auto *rootTabs = owner->findChild<QTabWidget *>("tabWidget");
   rootTabs->addTab(new RamCleaner(HyperPanel::root() + "/control_panel/ram_cleaner.py", rootTabs), "RAM Cleaner");
   rootTabs->addTab(new DefaultApps(HyperPanel::root() + "/control_panel/default_apps.py", rootTabs), "Default Apps");

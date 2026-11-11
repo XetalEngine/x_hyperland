@@ -153,6 +153,14 @@
     "iso/dummy.sh": "Package graphics and mouse support in the disposable preview environment.",
     "iso/installer.sh": "Graphical/console wizard, account preferences and progress; explicit filesystem mounts with existing target checks retained.",
     "iso/installer-ui.py": "Console fallback, clean limited-color branding and private graphical frontend bridge.",
-    "iso/firstboot.sh": "Account changes happen inside the restore installer; no first-boot password prompt."
+    "iso/firstboot.sh": "Account changes happen inside the restore installer; no first-boot password prompt.",
+    "dashboard.h": "Comment out the retired standalone language selector and restart callback in the integrated Hyper Fusion overview.",
+    "sensors_power.h": "Add the integrated System Tweaks link before Fan control.",
+    "users_groups.h": "Display the shared Hyper Fusion profile avatar and current-account card; retain per-account fallback images and use the shared appearance picker for the signed-in user.",
+    "window_enum.cpp": "Offer the Hyprland backend and include untitled/classless overlay and child surfaces by default.",
+    "window_enum_controller.cpp": "Detect the running Hyprland instance and route requests through the isolated Hyprland collector.",
+    "main.cpp": "Recognize the Hyprland window collector entry point alongside X11 and generic Wayland helpers.",
+    "CMakeLists.txt": "Build the Hyprland window collector and focused account-avatar, surface-table and installer-warning checks.",
+    "docs/WINDOW_ENUM.md": "Document native Hyprland window/layer/popup/child-surface coverage, read-only surface inspection and default filters."
   }
 }

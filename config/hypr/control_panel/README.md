@@ -2,6 +2,21 @@
 
 Native floating Qt/C++ panel, opened from Apps above Fusion Settings. See the [feature map and integration guide](../../../docs/CONTROL-PANEL.md).
 
+System Overview's legacy language selector and restart callback are commented
+out. Sensors & Power links to **System Tweaks → Performance** between the power
+controls and Fan control. Users & Groups shows the signed-in account's shared
+Hyper Fusion profile image, including animated GIFs in its account card; other
+accounts retain their own account images. **Change Icon** for the current account
+opens the shared appearance settings.
+
+**Window Inspector** automatically uses Hyprland's window and layer inventory,
+with `xetal-inspector-surfaces` adding popup menus and child surfaces after the
+updated native adapter loads at login. Untitled/classless surfaces are included
+by default. Geometry, owner, process path, workspace, monitor and raw properties
+come from the compositor and local process information. Controls are limited to
+ordinary managed windows; popup/layer/child-surface inspection is read-only.
+See [backend coverage](backend/docs/WINDOW_ENUM.md) for details and checks.
+
 **RDP** provides native remote desktop sessions with saved PCs and system-wallet
 passwords, a shared home folder, clipboard text/images, audio, microphone,
 printer redirection, resizing, reconnect, and a hiding session toolbar. See
@@ -11,6 +26,9 @@ printer redirection, resizing, reconnect, and a hiding session toolbar. See
 Choose a trusted Debian application in **Install .deb → Install or update from .deb**.
 **Check dependencies only** reads the package and the existing pacman databases
 without installing tools, downloading packages or changing the system.
+Each visit warns if **neither Yay nor Paru** is installed. Either helper is
+sufficient; the warning does not start an installation and stays silent during
+background preloading.
 
 For an update, download the newer `.deb` from the same publisher and use the same
 button. Conversion and validation run again, then `pacman -U` upgrades the matching

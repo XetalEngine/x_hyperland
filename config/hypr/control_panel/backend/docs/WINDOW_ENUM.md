@@ -1,11 +1,11 @@
 # Window Enum
 
-Open **Dashboard → Window Enum**, immediately after **Sensors & Power**.
+Open **Control Panel → Window Inspector**.
 Each row represents one window exposed by the selected backend. Every statistic
 has its own sortable column. Filter searches all columns. **Hide Empty window name**
-and **Hide Empty Class** are both enabled by default; each hides windows whose
-corresponding field is blank or unavailable. Uncheck either filter to include
-those windows. **Topmost only** further narrows the results to windows reported
+and **Hide Empty Class** are both off by default, so unnamed overlays and child
+surfaces remain visible. Enable either filter to hide rows whose corresponding
+field is blank or unavailable. **Topmost only** further narrows the results to windows reported
 as always on top. Right-click a column header to show/hide columns. Export writes
 the matching rows to JSON or CSV.
 Live refresh runs every two seconds while the tab is visible. Selection and
@@ -23,6 +23,7 @@ does not mean false or zero.
 
 | Session / backend | Discovery | Controls |
 | --- | --- | --- |
+| Hyprland / Hyper Fusion | All compositor client windows, including other workspaces and unmapped records; desktop layers on every monitor; popup and child surfaces through the bundled native adapter | Focus and graceful close for ordinary managed windows; raise/lower and move/resize for eligible floating windows. Layers/popups/child surfaces are read-only. |
 | X11 on KDE, Xfce, MATE, GNOME and other EWMH window managers | Recursively walks every screen's full X window tree, including root, child, unmapped, input-only and override-redirect windows | Move, resize, raise/lower, focus, topmost/below, minimize/maximize, fullscreen, workspace, opacity, title and graceful close as supported |
 | KDE Wayland, or explicit KDE backend | KWin workspace and stacking lists, including the popups, panels and overlays those APIs expose | Native move/resize, focus/raise, topmost/below, minimize/maximize, fullscreen, workspace, opacity, decorations and graceful close |
 | GNOME Wayland, or explicit GNOME backend | Mutter window list through the included GNOME Shell extension; includes override-redirect windows where exposed | Native geometry, focus/raise/lower, topmost, minimize/maximize, fullscreen, workspace, actor opacity and graceful close as supported |
@@ -31,6 +32,13 @@ does not mean false or zero.
 
 Automatic uses the session type and desktop to select a backend. The backend
 selector can override it for sessions using a different compositor.
+The running Hyprland instance takes precedence over desktop-style labels such
+as KDE. Window addresses and stable IDs are checked again before an action;
+closed/replaced windows and surfaces cannot inherit another row's controls.
+Hyprland geometry uses global logical coordinates, including negative monitor
+origins. Its popup/child collector exports metadata only and never moves,
+captures, focuses or renders surfaces. An older running adapter still lists
+windows and layers and reports that another login is needed for child surfaces.
 
 There is no universal Wayland interface for inspecting and controlling every
 surface. Generic foreign-toplevel protocols do not expose global geometry,

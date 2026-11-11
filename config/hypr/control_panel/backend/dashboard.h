@@ -60,7 +60,9 @@ void MainWindow::refreshDashboard() {
                     "&nbsp;&nbsp;<span style='font-size:15px; color:#888;'>%1</span>")
                 .arg(tr("System at a glance")));
 
-        // Language selector: flag dropdown, persisted choice, applied on restart
+        // Retired standalone language selector; Hyper Fusion owns the desktop UI.
+        ui->dashLangCombo->hide();
+        /* Language selector: flag dropdown, persisted choice, applied on restart
         ui->dashLangCombo->setIconSize(QSize(24, 16));
         ui->dashLangCombo->addItem(QIcon(":/images/flag_us.png"), "English", "en");
         ui->dashLangCombo->addItem(QIcon(":/images/flag_br.png"), "Português", "pt_BR");
@@ -74,6 +76,7 @@ void MainWindow::refreshDashboard() {
             int langIdx = ui->dashLangCombo->findData(cur);
             if (langIdx >= 0) ui->dashLangCombo->setCurrentIndex(langIdx);
         }
+        */
         // Self-updater: orange button appears when origin/main is ahead of us
         dashUpdateBtn = new QPushButton(ui->dashboardTab);
         dashUpdateBtn->setStyleSheet(
@@ -84,6 +87,7 @@ void MainWindow::refreshDashboard() {
         connect(dashUpdateBtn, &QPushButton::clicked, this, &MainWindow::runAppUpdate);
         // Hyper Fusion updates this vendored backend with the desktop.
 
+        /* Standalone language restart flow, retained for reference.
         connect(ui->dashLangCombo, QOverload<int>::of(&QComboBox::activated), this, [this](int index) {
             QString code = ui->dashLangCombo->itemData(index).toString();
             QSettings settings("XetalHyperland", "ControlPanel");
@@ -97,6 +101,7 @@ void MainWindow::refreshDashboard() {
                 qApp->quit();
             }
         });
+        */
 
         const QList<QGroupBox*> cards = {ui->dashDrivesGroup, ui->dashServicesGroup, ui->dashUpdatesGroup,
                                          ui->dashDiskGroup, ui->dashIsoGroup, ui->dashSystemGroup};

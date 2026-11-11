@@ -1,12 +1,32 @@
 
 #include <QListWidget>
 #include <QPainter>
+#include <QFileSystemWatcher>
+#include <pwd.h>
+#include <unistd.h>
+#include "../account_avatar.h"
+#include "../native.h"
 // Dashboard -> Users & Groups sub-tab: account management the Windows
 // lusrmgr.msc way. Group membership is where Arch permission problems live.
-// Avatars come from AccountsService (what SDDM/KDE show on the login screen).
+// The signed-in account shares Hyper Fusion's profile picture. Other accounts
+// use their own account images, without inheriting the current user's theme.
 
 void MainWindow::setupUsersGroupsTab() {
     QVBoxLayout *layout = new QVBoxLayout(ui->usersGroupsSubTab);
+
+    auto *profile = new QHBoxLayout;
+    auto *avatar = new FusionAccounts::Avatar(ui->usersGroupsSubTab);
+    avatar->setObjectName("usersCurrentAvatar");
+    profile->addWidget(avatar);
+    auto *identity = new QVBoxLayout;
+    auto *name = new QLabel(ui->usersGroupsSubTab);
+    name->setObjectName("usersCurrentName"); name->setTextFormat(Qt::PlainText);
+    auto font = name->font(); font.setPointSize(font.pointSize()+5); font.setBold(true); name->setFont(font);
+    identity->addWidget(name);
+    auto *description = new QLabel(ui->usersGroupsSubTab);
+    description->setObjectName("usersCurrentDescription"); description->setTextFormat(Qt::PlainText);
+    identity->addWidget(description); profile->addLayout(identity); profile->addStretch();
+    layout->addLayout(profile);
 
     QHBoxLayout *bar = new QHBoxLayout();
     QLabel *hint = new QLabel(tr("Local accounts and their group memberships (wheel = sudo)."), ui->usersGroupsSubTab);
@@ -18,7 +38,7 @@ void MainWindow::setupUsersGroupsTab() {
     QPushButton *shellBtn = new QPushButton(tr("🐚 Change Shell"), ui->usersGroupsSubTab);
     QPushButton *groupsBtn = new QPushButton(tr("👥 Edit Groups"), ui->usersGroupsSubTab);
     QPushButton *iconBtn = new QPushButton(tr("🖼️ Change Icon"), ui->usersGroupsSubTab);
-    bar->addWidget(hint);
+    layout->addWidget(hint);
     bar->addStretch();
     for (QPushButton *b : {refreshBtn, addBtn, delBtn, passBtn, shellBtn, groupsBtn, iconBtn}) bar->addWidget(b);
     layout->addLayout(bar);
@@ -27,8 +47,11 @@ void MainWindow::setupUsersGroupsTab() {
     ugUsersTable->setColumnCount(5);
     ugUsersTable->setHorizontalHeaderLabels(QStringList() << tr("User") << tr("UID") << tr("Home") << tr("Shell") << tr("Groups"));
     ugUsersTable->horizontalHeader()->setStretchLastSection(true);
-    ugUsersTable->setIconSize(QSize(32, 32));
-    ugUsersTable->verticalHeader()->setDefaultSectionSize(40);
+    for (int column = 0; column < 4; ++column)
+        ugUsersTable->horizontalHeader()->setSectionResizeMode(column, QHeaderView::ResizeToContents);
+    ugUsersTable->setWordWrap(false);
+    ugUsersTable->setIconSize(QSize(48, 48));
+    ugUsersTable->verticalHeader()->setDefaultSectionSize(60);
     ugUsersTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     ugUsersTable->setSelectionMode(QAbstractItemView::SingleSelection);
     ugUsersTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -37,6 +60,10 @@ void MainWindow::setupUsersGroupsTab() {
     layout->addWidget(ugUsersTable);
 
     connect(refreshBtn, &QPushButton::clicked, this, &MainWindow::refreshUsersGroups);
+    auto *profileWatcher = new QFileSystemWatcher({HyperPanel::root()+"/theme"}, this);
+    connect(profileWatcher, &QFileSystemWatcher::directoryChanged, this, [this] {
+        if (ui->usersGroupsSubTab->isVisible()) refreshUsersGroups();
+    });
 
     auto selectedUser = [this]() -> QString {
         int row = ugUsersTable->currentRow();
@@ -145,6 +172,12 @@ void MainWindow::setupUsersGroupsTab() {
     connect(iconBtn, &QPushButton::clicked, this, [this, selectedUser]() {
         QString name = selectedUser();
         if (name.isEmpty()) { QMessageBox::information(this, tr("No Selection"), tr("Select a user first.")); return; }
+        if (ugUsersTable->item(ugUsersTable->currentRow(), 1)->text().toUInt() == getuid()) {
+            // Use the same profile picker as Apps and the desktop, so changing
+            // the image cannot silently write an unused legacy account icon.
+            QProcess::startDetached("python3", {HyperPanel::root()+"/control_center/app.py", "--tab", "theme"});
+            return;
+        }
         QString file = QFileDialog::getOpenFileName(this, tr("Choose Avatar for %1").arg(name),
                                                     QDir::homePath(), tr("Images (*.png *.jpg *.jpeg *.bmp *.webp)"));
         if (file.isEmpty()) return;
@@ -173,15 +206,11 @@ void MainWindow::setupUsersGroupsTab() {
 }
 
 // Avatar: AccountsService icon, else ~/.face.icon, else a colored-initial badge
-static QIcon ugAvatarFor(const QString &user, const QString &home) {
+static QIcon ugAvatarFor(const QString &user, const QString &home, bool current) {
     QPixmap px;
-    const QStringList candidates = {
-        "/var/lib/AccountsService/icons/" + user, home + "/.face.icon", home + "/.face"
-    };
-    for (const QString &p : candidates)
-        if (QFile::exists(p) && px.load(p)) break;
+    px.load(FusionAccounts::avatarPath(user, home, HyperPanel::root(), current));
     if (!px.isNull()) {
-        return QIcon(px.scaled(32, 32, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation));
+        return QIcon(FusionAccounts::cropped(px, 48));
     }
     static const QList<QColor> palette = {
         QColor("#27ae60"), QColor("#2980b9"), QColor("#8e44ad"),
@@ -204,6 +233,8 @@ void MainWindow::refreshUsersGroups() {
     QProcess *proc = new QProcess(this);
     connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
             [this, proc](int, QProcess::ExitStatus) {
+                const auto *selectedItem = ugUsersTable->item(ugUsersTable->currentRow(), 0);
+                const auto selectedName = selectedItem ? selectedItem->text() : QString();
                 ugUsersTable->setRowCount(0);
                 const QStringList lines = QString::fromUtf8(proc->readAllStandardOutput()).split('\n', Qt::SkipEmptyParts);
                 for (const QString &line : lines) {
@@ -214,7 +245,19 @@ void MainWindow::refreshUsersGroups() {
                     ugUsersTable->insertRow(row);
                     for (int c = 0; c < 5; ++c)
                         ugUsersTable->setItem(row, c, new QTableWidgetItem(f[c]));
-                    ugUsersTable->item(row, 0)->setIcon(ugAvatarFor(f[0], f[2]));
+                    const bool current = f[1].toUInt() == getuid();
+                    ugUsersTable->item(row, 0)->setIcon(ugAvatarFor(f[0], f[2], current));
+                    if (current) {
+                        auto *avatar = dynamic_cast<FusionAccounts::Avatar *>(ui->usersGroupsSubTab->findChild<QWidget *>("usersCurrentAvatar"));
+                        if (avatar) avatar->setSource(FusionAccounts::avatarPath(f[0], f[2], HyperPanel::root(), true));
+                        const auto *account = getpwuid(getuid());
+                        const auto fullName = account ? QString::fromLocal8Bit(account->pw_gecos).section(',',0,0) : QString();
+                        ui->usersGroupsSubTab->findChild<QLabel *>("usersCurrentName")->setText(fullName.isEmpty() ? f[0] : fullName+" · "+f[0]);
+                        ui->usersGroupsSubTab->findChild<QLabel *>("usersCurrentDescription")->setText(
+                            tr("Signed in · %1 · %2").arg(f[4].split(' ').contains("wheel") ? tr("Administrator") : tr("Standard account"), f[2]));
+                        ugUsersTable->item(row,0)->setToolTip(tr("Your Hyper Fusion profile picture. Change it in Fusion Settings → Appearance."));
+                    }
+                    if (f[0] == selectedName || (selectedName.isEmpty() && current)) ugUsersTable->selectRow(row);
                     if (f[4].split(' ').contains("wheel"))
                         ugUsersTable->item(row, 0)->setForeground(QColor("#27ae60"));
                 }

@@ -269,6 +269,23 @@ DebInstallerPage::DebInstallerPage(const QString &profileRoot, QPushButton *inst
   layout->addStretch();
 }
 
+void DebInstallerPage::showEvent(QShowEvent *event) {
+  QWidget::showEvent(event);
+  // Defer until the selected page is visible; preloading must never show a dialog.
+  QTimer::singleShot(0, this, [this] {
+    if (!isVisible() || helperWarning || HyperPanel::aurHelperInstalled("yay") ||
+        HyperPanel::aurHelperInstalled("paru")) return;
+    auto *message = new QMessageBox(QMessageBox::Warning, "AUR helper required",
+        "The .deb installer does not work properly without Yay or Paru.\n\n"
+        "Install either helper using the buttons on this page, then try again.",
+        QMessageBox::Ok, this);
+    message->setObjectName("debMissingHelperWarning");
+    message->setAttribute(Qt::WA_DeleteOnClose);
+    helperWarning = message;
+    message->open();
+  });
+}
+
 bool DebInstallerPage::eventFilter(QObject *watched, QEvent *event) {
   if ((watched == appGrid || watched == appViewport) && event->type() == QEvent::Resize) arrangeCards();
   return QWidget::eventFilter(watched, event);

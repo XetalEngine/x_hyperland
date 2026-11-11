@@ -46,6 +46,7 @@ set(PROJECT_SOURCES
     ../default_apps.h
     ../deb_page.cpp
     ../deb_page.h
+        ../account_avatar.h
     ../grub_editor.cpp
     ../grub_editor.h
     ../grub_appearance.cpp
@@ -107,6 +108,8 @@ set(PROJECT_SOURCES
         window_enum_controller.cpp
         window_enum_backend.h
         window_enum_backend.cpp
+        window_enum_hyprland.cpp
+        window_enum_hyprland.h
         window_enum_x11.cpp
         window_enum_wayland.cpp
         ${WINDOW_ENUM_PROTOCOLS}
@@ -198,7 +201,7 @@ if(BUILD_WINDOW_ENUM_TESTS)
     find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
     add_executable(window_enum_tests tests/window_enum_tests.cpp window_enum.h
-        window_enum.cpp window_enum_controller.cpp window_enum_backend.cpp window_enum_x11.cpp resources.qrc)
+        window_enum.cpp window_enum_controller.cpp window_enum_backend.cpp window_enum_hyprland.cpp window_enum_x11.cpp resources.qrc)
     target_include_directories(window_enum_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(window_enum_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets
         Qt${QT_VERSION_MAJOR}::DBus Qt${QT_VERSION_MAJOR}::Test PkgConfig::WINDOW_ENUM_X11)
@@ -246,6 +249,13 @@ if(BUILD_DEB_PAGE_TESTS)
     target_link_libraries(deb_page_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
     add_test(NAME deb_page COMMAND deb_page_tests)
     set_tests_properties(deb_page PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    add_executable(control_panel_pages_tests tests/control_panel_pages_tests.cpp
+        window_enum.h window_enum.cpp window_enum_controller.cpp window_enum_backend.cpp
+        window_enum_hyprland.cpp ../account_avatar.h resources.qrc)
+    target_include_directories(control_panel_pages_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    target_link_libraries(control_panel_pages_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test Qt${QT_VERSION_MAJOR}::DBus)
+    add_test(NAME control_panel_pages COMMAND control_panel_pages_tests)
+    set_tests_properties(control_panel_pages PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_PLATFORMTHEME=")
 endif()
 if(BUILD_RAM_CLEANER_TESTS)
     enable_testing()
