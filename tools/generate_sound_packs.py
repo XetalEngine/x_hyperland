@@ -22,6 +22,7 @@ from sounds.model import PACKS, EVENTS
 RATE = 48000
 # tonic, voice, unique opening melody (semitones), beat spacing
 SCORES = {
+    'prisonbreak': (60, 'breakout', [0, 3, 7, 12, 10, 15], .32),
     'mystery98': (57, 'clockwork', [0, 7, 3, 14, 10, 12], .41),
     'ghostbusters': (62, 'ectoplasm', [0, 7, 3, 10, 14, 12], .36),
     'leviathan': (50, 'reliquary', [0, 7, 10, 3, 14, 12], .44),
@@ -53,7 +54,13 @@ def voice(midi, duration, kind, seed=0):
     f = 440 * 2 ** ((midi - 69) / 12)
     phase = 2 * np.pi * f * t
     attack = .012
-    if kind == 'clockwork':
+    if kind == 'breakout':
+        # Original synth pulse with a brief metallic overtone and soft bass.
+        out = np.sin(phase+.65*np.exp(-10*t)*np.sin(phase*2))*np.exp(-3.2*t)
+        out += .14*np.sin(phase*.5)*np.exp(-2.7*t)*(1-np.exp(-14*t))
+        out += .08*np.sin(phase*3.01)*np.exp(-9*t)
+        attack = .032
+    elif kind == 'clockwork':
         # Quiet struck tines above a warm string resonance; an original motif.
         out = np.sin(phase)*np.exp(-3.4*t)
         out += .17*np.sin(phase*2.002)*np.exp(-6*t)

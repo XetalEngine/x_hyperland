@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>Fusion Files · Prison Break</title><defs>
+<linearGradient id="orange" x2=".3" y2="1"><stop stop-color="#ffe080"/><stop offset=".2" stop-color="#ffbc2c"/><stop offset="1" stop-color="#e88609"/></linearGradient>
+<linearGradient id="violet" x2="1" y2="1"><stop stop-color="#e6c8ff"/><stop offset=".35" stop-color="#bc74db"/><stop offset="1" stop-color="#783aa1"/></linearGradient>
+<linearGradient id="steel" x2=".2" y2="1"><stop stop-color="#ded6e5"/><stop offset=".5" stop-color="#a59aaf"/><stop offset="1" stop-color="#61536d"/></linearGradient>
+<linearGradient id="glass" x2="1" y2="1"><stop stop-color="#7a6ed5"/><stop offset=".5" stop-color="#41418c"/><stop offset="1" stop-color="#242044"/></linearGradient>
+</defs><path d="M6 21V13Q6 9 11 9H25L31 16H53Q58 16 58 21V52Q58 56 53 56H10Q6 56 6 52Z" fill="url(#orange)" stroke="#1c1421" stroke-width="3"/><path d="M6 26Q6 22 10 22H56Q60 22 59 27L56 51Q56 55 52 55H10Q6 55 6 51Z" fill="url(#orange)" stroke="#1c1421" stroke-width="2.6"/><path d="M10 20V14H24L30 20M10 27H54" fill="none" stroke="#fff1ae" stroke-width="1.6"/><path d="M13 48L25 36M20 49L30 39" stroke="#ffd674" stroke-width="2" opacity=".45"/></svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>Desktop · Prison Break</title><defs>
+<linearGradient id="orange" x2=".3" y2="1"><stop stop-color="#ffe080"/><stop offset=".2" stop-color="#ffbc2c"/><stop offset="1" stop-color="#e88609"/></linearGradient>
+<linearGradient id="violet" x2="1" y2="1"><stop stop-color="#e6c8ff"/><stop offset=".35" stop-color="#bc74db"/><stop offset="1" stop-color="#783aa1"/></linearGradient>
+<linearGradient id="steel" x2=".2" y2="1"><stop stop-color="#ded6e5"/><stop offset=".5" stop-color="#a59aaf"/><stop offset="1" stop-color="#61536d"/></linearGradient>
+<linearGradient id="glass" x2="1" y2="1"><stop stop-color="#7a6ed5"/><stop offset=".5" stop-color="#41418c"/><stop offset="1" stop-color="#242044"/></linearGradient>
+</defs><rect x="7" y="6" width="50" height="36" rx="4" fill="url(#violet)" stroke="#191121" stroke-width="3"/><path d="M12 11H52V34H12Z" fill="url(#glass)" stroke="#241c32" stroke-width="2"/><path d="M14 30L34 13H42L22 32Z" fill="#af8af1" opacity=".32"/><path d="M27 42H37V50H27ZM19 50H45L49 56H15Z" fill="url(#violet)" stroke="#191121" stroke-width="2.5"/><path d="M11 8H52M20 52H43" stroke="#efd7ff" stroke-width="1.2"/><circle cx="48" cy="38" r="1.2" fill="#ffbf39"/></svg>

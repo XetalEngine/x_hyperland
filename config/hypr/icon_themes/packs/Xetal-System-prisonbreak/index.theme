@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Prison Break
+Comment=Orange comic folders, violet monitors and riveted graphite equipment.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>Wallpapers · Prison Break</title><defs>
+<linearGradient id="orange" x2=".3" y2="1"><stop stop-color="#ffe080"/><stop offset=".2" stop-color="#ffbc2c"/><stop offset="1" stop-color="#e88609"/></linearGradient>
+<linearGradient id="violet" x2="1" y2="1"><stop stop-color="#e6c8ff"/><stop offset=".35" stop-color="#bc74db"/><stop offset="1" stop-color="#783aa1"/></linearGradient>
+<linearGradient id="steel" x2=".2" y2="1"><stop stop-color="#ded6e5"/><stop offset=".5" stop-color="#a59aaf"/><stop offset="1" stop-color="#61536d"/></linearGradient>
+<linearGradient id="glass" x2="1" y2="1"><stop stop-color="#7a6ed5"/><stop offset=".5" stop-color="#41418c"/><stop offset="1" stop-color="#242044"/></linearGradient>
+</defs><g fill="#292031" stroke="#1a111e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 20H49V45H15ZM17 42 29 29 36 37 41 32 48 41"/><circle cx="39" cy="27" r="2"/></g><g fill="none" stroke="url(#violet)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 20H49V45H15ZM17 42 29 29 36 37 41 32 48 41"/><circle cx="39" cy="27" r="2"/></g></svg>

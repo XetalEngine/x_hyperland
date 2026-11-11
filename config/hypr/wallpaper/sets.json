@@ -119,5 +119,10 @@
     "mystery98/midnight-study.png",
     "mystery98/rain-at-the-manor.png",
     "mystery98/secret-archive.png"
+  ],
+  "prisonbreak": [
+    "prisonbreak/cellblock-neon.png",
+    "prisonbreak/midnight-yard.png",
+    "prisonbreak/service-passage.png"
   ]
 }

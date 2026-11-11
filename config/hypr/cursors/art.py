@@ -3,7 +3,7 @@ STYLES = {
     'ghostbusters': ('Ghostbusters Ectoplasm', '#b4ff00', '#102207', '#f4a3dd'),
     'leviathan': ('Leviathan Gilded', '#f0d8b6', '#211c29', '#c69ae5'),
     'polaris': ('Polaris Starlight', '#e8fcff', '#18344b', '#22daed'),
-    'infernalencore': ('Infernal Blade', '#f4dfbd', '#36150f', '#ff472c'),
+    'prisonbreak': ('Prison Break Escape Key', '#d5b5f0', '#291633', '#ffb326'), 'infernalencore': ('Infernal Blade', '#f4dfbd', '#36150f', '#ff472c'),
     'midnightrun': ('Midnight Run Neon', '#17212e', '#72f3ff', '#ff4fc3'),
     'mystery98': ('Mystery 98 Pocket Watch', '#f3e5c9', '#261e17', '#d6af62'), 'platform95': ('Platform 95 Classic', '#fff6df', '#382719', '#c49a42'),
     'mycelium': ('Mycelium Spore', '#f2e5d4', '#352536', '#c9a0e1'),
@@ -47,7 +47,9 @@ def svg(style, shape='left_ptr', frame=0):
         arrow = 'M5 3L5 27L11 21L16 32L21 30L16 20L27 20Z'
     if style == 'midnightrun':
         arrow = 'M5 3L7 28L13 21L19 32L24 29L18 18L29 17Z'
-    if style == 'infernalencore':
+    if style == 'prisonbreak':
+        arrow = 'M5 3L28 18L18 20L23 31L18 34L12 23L6 28Z'
+    elif style == 'infernalencore':
         arrow = 'M5 3L28 16L18 19L24 30L20 33L13 22L7 28Z'
     if style == 'leviathan':
         arrow = 'M5 3L29 17L18 20L23 31L18 34L12 23L6 28Z'
@@ -62,7 +64,9 @@ def svg(style, shape='left_ptr', frame=0):
         body += f'<path d="M8 8L10 22L14 18L23 17M10 12L17 16L13 19Z" fill="none" stroke="{edge}" stroke-width=".8"/><path d="M10 12L17 16L13 19Z" fill="{accent}" stroke-width=".5"/>'
     if style == 'polaris':
         body += f'<path d="M8 8L10 22L14 18L22 18" fill="none" stroke="{accent}" stroke-width="1.6"/>'
-    if style == 'infernalencore':
+    if style == 'prisonbreak':
+        body += f'<path d="M8 8L12 18L22 16M12 18L19 29" fill="none" stroke="{accent}" stroke-width="1.3"/>'
+    elif style == 'infernalencore':
         body += f'<path d="M8 8L12 18L22 16M12 18L19 29" fill="none" stroke="{accent}" stroke-width="1.3"/>'
     if style == 'midnightrun':
         body += f'<path d="M9 11L10 21L14 17L22 16" fill="none" stroke="{accent}" stroke-width="1.8"/>'
@@ -108,7 +112,12 @@ def svg(style, shape='left_ptr', frame=0):
                     f'<path d="M18 10L20 16L26 18L20 20L18 26L16 20L10 18L16 16Z" fill="{fill}" stroke="none"/>'
                     f'<g transform="rotate({frame*30} 18 18)"><ellipse cx="18" cy="18" rx="13" ry="6" fill="none" stroke="{accent}" stroke-width="1.4"/>'
                     f'<circle cx="31" cy="18" r="2.4" fill="{accent}" stroke="{fill}" stroke-width=".7"/></g>')
-        if style == 'infernalencore':
+        if style == 'prisonbreak':
+            ring = (f'<path d="M11 16V10Q11 3 18 3Q25 3 25 10V13" fill="none" stroke="{fill}" stroke-width="3"/>'
+                    f'<rect x="8" y="14" width="20" height="17" rx="3" fill="{edge}" stroke="{fill}" stroke-width="1.5"/>'
+                    f'<circle cx="18" cy="21" r="2.3" fill="{accent}" stroke="none"/><path d="M18 23V26" stroke="{accent}" stroke-width="2"/>'
+                    f'<g transform="rotate({frame*30} 18 18)"><circle cx="18" cy="2" r="2" fill="{accent}" stroke="{edge}" stroke-width=".7"/></g>')
+        elif style == 'infernalencore':
             ring = (f'<circle cx="18" cy="18" r="14" fill="{edge}" stroke="{fill}" stroke-width="1.2"/>'
                     f'<circle cx="18" cy="18" r="11.5" fill="none" stroke="{accent}" stroke-width=".7"/>'
                     f'<g transform="rotate({frame*30} 18 18)"><path d="M18 6L25 27.7L6.6 14.3H29.4L11 27.7Z" fill="none" stroke="{accent}" stroke-width="1.8"/>'

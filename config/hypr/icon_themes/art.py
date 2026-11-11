@@ -8,7 +8,7 @@ STYLES = {
     'ghostbusters': ('Ghostbusters', '#e1ff88', '#b4ff00', '#60b800', '#08110f', 'ghostbusters'),
     'leviathan': ('Leviathan', '#eed7b2', '#c6a06c', '#a47ac0', '#17151d', 'leviathan'),
     'polaris': ('Polaris', '#d8f8ff', '#4de5f5', '#a391fa', '#16243c', 'polaris'),
-    'infernalencore': ('Infernal Encore', '#f4dfbd', '#d6975b', '#ff472c', '#181414', 'encore'),
+    'prisonbreak': ('Prison Break', '#f5d489', '#ffae21', '#973bc4', '#211d29', 'prisonbreak'), 'infernalencore': ('Infernal Encore', '#f4dfbd', '#d6975b', '#ff472c', '#181414', 'encore'),
     'midnightrun': ('Midnight Run', '#c8faff', '#42e5f5', '#ed38b5', '#111b28', 'neonrun'),
     'mystery98': ('Windows 98 Mystery', '#fff2c9', '#d5ac53', '#806233', '#38271a', 'mystery98'), 'platform95': ('Platform 95', '#fff2c9', '#d5ac53', '#806233', '#38271a', 'platform95'),
     'mycelium': ('Mycelium', '#f1dfc8', '#c7a1df', '#806079', '#322630', 'mycelium'),
@@ -32,7 +32,7 @@ DESCRIPTIONS = {
     'ghostbusters': 'Slime-green folders, liquid edges and midnight enamel badges.',
     'leviathan': 'Engraved brass folders, obsidian plaques and amethyst details.',
     'polaris': 'Sapphire glass tiles, luminous cyan symbols and violet folder depths.',
-    'infernalencore': 'Brass-framed black folders, red symbols and riveted corners.',
+    'prisonbreak': 'Orange comic folders, violet monitors and riveted graphite equipment.', 'infernalencore': 'Brass-framed black folders, red symbols and riveted corners.',
     'midnightrun': 'Cyan folder outlines, magenta symbols and graphite silhouettes.',
     'mystery98': 'Brass keys, leather-bound books, parchment folders and emerald glass.', 'platform95': 'Gold file folders, ivory office equipment and classic espresso symbols.',
     'mycelium': 'Sculpted lilac caps, plum folders, ivory roots and moss details.',
@@ -171,7 +171,10 @@ def svg(style, name):
     if style == 'leviathan':
         from .leviathan import svg as leviathan_svg
         return leviathan_svg(ALIASES.get(name,name),CATALOG,symbol)
-    if style == 'infernalencore':
+    if style == 'prisonbreak':
+        from .prisonbreak import svg as encore_svg
+        return encore_svg(ALIASES.get(name,name),CATALOG,symbol)
+    elif style == 'infernalencore':
         from .infernalencore import svg as encore_svg
         return encore_svg(ALIASES.get(name,name),CATALOG,symbol)
     if style == 'polaris':

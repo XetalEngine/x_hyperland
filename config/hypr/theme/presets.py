@@ -128,6 +128,8 @@ def builtin(design, mode=None, root=None):
         value['cursors'].update(style='leviathan',trail='glow',color='#c69ae5')
     elif design == 'polaris':
         value['cursors'].update(style='polaris',trail='glow',color='#32e1f2')
+    elif design == 'prisonbreak':
+        value['cursors'].update(style='prisonbreak',trail='glow',color='#e580ff')
     elif design == 'infernalencore':
         value['cursors'].update(style='infernalencore',trail='glow',color='#ff472c')
     elif design == 'midnightrun':

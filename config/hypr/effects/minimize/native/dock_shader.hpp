@@ -29,8 +29,8 @@ void main(){
   fragColor=vec4(mix(warm,mix(ink,vec3(1.,.72,.25),.5),core)*a,a)*opacity;return;
  }
  vec2 p=(uv-.5)*dims;vec2 halfSize=dims*.5-vec2(8.);
- float radius=style==21?10.:style==20?6.:style==19?14.:style==18?5.:style==17?7.:(style==16||style==22)?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
- if(part==1)radius=style==21?8.:style==20?4.:style==19?11.:style==18?4.:style==17?6.:(style==16||style==22)?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
+ float radius=style==21?10.:style==20?6.:style==19?14.:(style==18||style==23)?5.:style==17?7.:(style==16||style==22)?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
+ if(part==1)radius=style==21?8.:style==20?4.:style==19?11.:(style==18||style==23)?4.:style==17?6.:(style==16||style==22)?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
  radius=min(radius,min(halfSize.x,halfSize.y));
  float distance=roundBox(p,halfSize,radius);
  if(style==2||style==3||style==8)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+(style==3?19.:style==8?14.:10.))*.7071);
@@ -44,7 +44,21 @@ void main(){
  float rim=.26;
  float jewel=0.;float jewelHalo=0.;float gildedSweep=0.;
  if(part==0){
-  if(style==22){
+  if(style==23){
+   // Cellblock Dock: graphite plates, violet rim and orange hazard guards.
+   vec2 q=vec2(halfSize.x-abs(p.x),p.y);
+   body=mix(base,ink,shine*.08);rim=.75;
+   float cap=step(5.,q.x)*step(q.x,21.)*step(abs(p.y),30.5);
+   float stripe=step(.5,fract((q.x+p.y)/10.));
+   body=mix(body,mix(vec3(.094,.071,.122),vec3(1.,.682,.129),stripe),cap);
+   float header=step(abs(p.x),30.)*step(2.,p.y+halfSize.y)*step(p.y+halfSize.y,6.);
+   float hatch=step(.5,fract((p.x+p.y+halfSize.y)/10.));
+   body=mix(body,mix(vec3(.094,.071,.122),vec3(1.,.682,.129),hatch),header);
+   decoration=exp(-abs(p.y-halfSize.y+6.)*1.8)*step(24.,q.x)*.75;
+   metal=exp(-abs(p.y+halfSize.y-5.)*1.8)*step(24.,q.x)*.5;
+   vec2 screw=vec2(q.x-13.,abs(p.y)-35.);
+   metal+=(1.-smoothstep(.7,1.8,length(screw)))*.75;
+  }else if(style==22){
    // Writing Desk: walnut grain, brass bevels and an emerald felt interior.
    vec2 q=vec2(halfSize.x-abs(p.x),p.y);
    float cap=1.-smoothstep(21.,23.,q.x);
@@ -356,7 +370,14 @@ void main(){
   body=mix(base,tint,.08+emphasis*.14)+ink*shine*.045;
   rim=.08+emphasis*.25;
   decoration=exp(-abs(p.y-halfSize.y+3.)*1.7)*(.25+.4*emphasis);
-  if(style==22){
+  if(style==23){
+   body=mix(base,tint,.035+emphasis*.1)+ink*shine*.06;rim=.4+emphasis*.4;
+   decoration=exp(-abs(p.y-halfSize.y+5.)*2.)*step(abs(p.x),halfSize.x-8.)*(.5+emphasis*.4);
+   for(int i=0;i<3;i++){
+    float x=-6.+float(i)*6.;
+    metal+=exp(-line(p,vec2(x,-halfSize.y+4.),vec2(x,-halfSize.y+8.))*2.)*.30;
+   }
+  }else if(style==22){
    body=mix(base,vec3(.0863,.2980,.2118),.28+emphasis*.08);rim=.45;
    metal=exp(-abs(distance+2.)*1.7)*.25;
    decoration=exp(-abs(p.y-halfSize.y+6.)*2.)*step(abs(p.x),8.)*(.5+emphasis*.4);

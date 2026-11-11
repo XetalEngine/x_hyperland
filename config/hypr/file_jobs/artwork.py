@@ -45,6 +45,54 @@ def success(p, center, accent):
     p.drawLine(center+QPointF(-1, 6), center+QPointF(11, -7))
 
 
+def prisonbreak(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Orange dossiers cross sliding cell gates with continuous, fading wraps."""
+    from prisonbreak import hazard
+    p.save();p.setClipRect(box,Qt.ClipOperation.IntersectClip)
+    mid=box.center();left=box.left()+25;right=box.right()-25
+    steel=QColor('#ded2e6' if surface.lightnessF()<.5 else '#584562')
+    amber=QColor('#ffb326');ink=QColor('#291d29')
+    opening=.5-.5*math.cos(phase*math.tau)
+    for x,zipped in ((left,extracting),(right,archive)):
+        gate=QRectF(x-18,mid.y()-25,36,51)
+        p.setBrush(surface);p.setPen(QPen(steel,1.3));p.drawRoundedRect(gate,3,3)
+        p.save();p.setClipRect(gate.adjusted(3,4,-3,-5),Qt.ClipOperation.IntersectClip)
+        p.setPen(QPen(alpha(steel,170),1.6))
+        for dx in (-10,-2,6,14):
+            bx=x+dx+opening*16;p.drawLine(QPointF(bx,mid.y()-20),QPointF(bx,mid.y()+18))
+        p.restore();hazard(p,QRectF(x-15,mid.y()+19,30,4))
+        p.setPen(Qt.PenStyle.NoPen);p.setBrush(accent);p.drawEllipse(QPointF(x-12,mid.y()-20),1.5,1.5)
+        if zipped:
+            p.setPen(QPen(steel,1));p.setBrush(amber);p.drawRoundedRect(QRectF(x+6,mid.y()+1,7,9),1,1)
+            p.setBrush(Qt.BrushStyle.NoBrush);p.drawArc(QRectF(x+7,mid.y()-3,5,8),0,180*16)
+    p.setPen(QPen(alpha(accent,95),1));p.drawLine(QPointF(left+20,mid.y()+23),QPointF(right-20,mid.y()+23))
+    if result:
+        if result=='done':success(p,mid,accent)
+        p.restore();return
+    start,end=left+36,right-36
+    for index in range(count):
+        t=(phase+index/count)%1
+        visibility=max(0.,min(1.,t/.14,(1-t)/.14));visibility=visibility*visibility*(3-2*visibility)
+        travel=1-t if extracting else t
+        x=start+(end-start)*travel;y=mid.y()+2*math.sin(t*math.tau)
+        p.save();p.setOpacity(p.opacity()*visibility)
+        if trails:
+            direction=1 if extracting else -1
+            for n in range(1,4):
+                p.setPen(QPen(alpha(accent,85/n),1.4));dx=direction*(16+n*6)
+                p.drawLine(QPointF(x+dx,y+5),QPointF(x+dx+direction*3,y+5))
+        if glow:
+            halo=QRadialGradient(QPointF(x,y+16),24);halo.setColorAt(0,alpha(accent,glow));halo.setColorAt(1,alpha(accent,0))
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(halo);p.drawEllipse(QPointF(x,y+16),24,7)
+        p.translate(x,y);p.rotate(2*math.sin(t*math.tau))
+        shape=QPainterPath(QPointF(-14,-11));shape.lineTo(-4,-11);shape.lineTo(0,-6);shape.lineTo(15,-6);shape.lineTo(13,13);shape.lineTo(-14,13);shape.closeSubpath()
+        p.setPen(QPen(ink,1.5));p.setBrush(amber);p.drawPath(shape)
+        p.setPen(QPen(QColor('#ffe6a2'),1));p.drawLine(QPointF(-11,-3),QPointF(11,-3))
+        p.setPen(QPen(ink,1.2));p.drawLine(QPointF(-4,2),QPointF(5,2));p.drawLine(QPointF(-4,6),QPointF(3,6))
+        p.restore()
+    p.restore()
+
+
 def mystery98(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     """Wax-sealed letters travel between walnut trays, fading at each wrap."""
     p.save();p.setClipRect(box,Qt.ClipOperation.IntersectClip)

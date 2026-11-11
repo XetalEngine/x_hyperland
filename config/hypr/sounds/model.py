@@ -13,7 +13,7 @@ PACKS = {
     'ghostbusters': ('Ghostbusters', 'Ectoplasm echoes', 'Original bubbly synth glides, soft theremin tones and playful ghost-trap chimes.', '#b4ff00'),
     'leviathan': ('Leviathan', 'Brass echoes', 'Quiet struck-brass harmonics and a spacious minor-key welcome.', '#c69ae5'),
     'polaris': ('Polaris', 'Northern lights', 'Gentle glass chimes and a warm, spacious ascending welcome.', '#32e1f2'),
-    'infernalencore': ('Infernal Encore', 'Backstage signals', 'Soft muted guitar harmonics and restrained minor-key power chords.', '#ff472c'),
+    'prisonbreak': ('Prison Break', 'Midnight breakout', 'Original violet synth pulses, soft metal chimes and a warm bass echo.', '#e580ff'), 'infernalencore': ('Infernal Encore', 'Backstage signals', 'Soft muted guitar harmonics and restrained minor-key power chords.', '#ff472c'),
     'midnightrun': ('Midnight Run', 'After-hours signals', 'Soft synth plucks, neon bell harmonics and a restrained minor arpeggio.', '#42e5f5'),
     'mystery98': ('Windows 98 Mystery', 'The midnight study', 'Soft clockwork chimes and warm string overtones from an original minor-key score.', '#dbb46a'), 'platform95': ('Platform 95', 'Golden departure', 'Warm desk-bell notes and a gentle major-key welcome.', '#d1aa58'),
     'mycelium': ('Mycelium', 'Spore songs', 'Airy wooden chimes and soft, luminous bell harmonics.', '#c9a0e1'),

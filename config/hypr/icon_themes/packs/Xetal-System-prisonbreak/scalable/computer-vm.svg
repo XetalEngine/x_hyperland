@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>KVM Settings · Prison Break</title><defs>
+<linearGradient id="orange" x2=".3" y2="1"><stop stop-color="#ffe080"/><stop offset=".2" stop-color="#ffbc2c"/><stop offset="1" stop-color="#e88609"/></linearGradient>
+<linearGradient id="violet" x2="1" y2="1"><stop stop-color="#e6c8ff"/><stop offset=".35" stop-color="#bc74db"/><stop offset="1" stop-color="#783aa1"/></linearGradient>
+<linearGradient id="steel" x2=".2" y2="1"><stop stop-color="#ded6e5"/><stop offset=".5" stop-color="#a59aaf"/><stop offset="1" stop-color="#61536d"/></linearGradient>
+<linearGradient id="glass" x2="1" y2="1"><stop stop-color="#7a6ed5"/><stop offset=".5" stop-color="#41418c"/><stop offset="1" stop-color="#242044"/></linearGradient>
+</defs><g fill="#292031" stroke="#1a111e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 22H42V42H22ZM28 28H36V36H28ZM26 16V22M38 16V22M26 42V48M38 42V48M16 26H22M16 38H22M42 26H48M42 38H48"/></g><g fill="none" stroke="url(#violet)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 22H42V42H22ZM28 28H36V36H28ZM26 16V22M38 16V22M26 42V48M38 42V48M16 26H22M16 38H22M42 26H48M42 38H48"/></g></svg>

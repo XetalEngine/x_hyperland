@@ -133,6 +133,21 @@ def parcel_bevel(p,box,colors,inset=False):
     p.setPen(QPen(dark,2));p.drawLine(box.topRight(),box.bottomRight());p.drawLine(box.bottomRight(),box.bottomLeft())
 
 
+def cellblock(p,width,colors,phase):
+    """Riveted purple steel with hazard guards; mirrored by native style 23."""
+    from prisonbreak import paint_surface,hazard
+    p.save();box=QRectF(8,8,width-16,80);paint_surface(p,box,colors,5,100)
+    accent=QColor(colors['Accent']);steel=QColor(colors['Light'])
+    for x in (13,width-29):
+        p.fillRect(QRectF(x,17,16,61),blend(colors['Window'],'#000000',.25))
+        p.save();p.translate(x+16,17);p.rotate(90);hazard(p,QRectF(0,0,61,16));p.restore()
+        p.setBrush(steel);p.setPen(QPen(QColor(colors['Dark']),.7))
+        for y in (13,83):p.drawEllipse(QPointF(x+8,y),1.8,1.8)
+    p.setPen(QPen(alpha(accent,.75),1.5));line(p,32,82,width-32,82)
+    p.setPen(QPen(alpha(steel,.5),.8));line(p,32,13,width-32,13)
+    p.restore()
+
+
 def writing_desk(p,width,colors,phase):
     """Walnut drawers, brass inlay and emerald felt; native dock material 22."""
     from mystery98 import paint_surface
@@ -284,7 +299,9 @@ def tray(painter, width, style, colors, phase):
         puzzle_reliquary(painter,width,colors,phase);return
     if style == 'polaris':
         orbital_glass(painter,width,colors,phase);return
-    if style == 'infernalencore':
+    if style == 'prisonbreak':
+        cellblock(painter,width,colors,phase);return
+    elif style == 'infernalencore':
         amplifier_rack(painter,width,colors,phase);return
     if style == 'midnightrun':
         neon_pit_lane(painter,width,colors,phase);return
@@ -523,7 +540,7 @@ def dock(p, area, style, colors, *, phase=0., weights=(1., 1., 1.), zoom=(), ver
         p.save(); p.setOpacity(p.opacity()*max(0., min(1., weight)))
         if not stack:
             p.setPen(QPen(alpha(colors['Accent'], .12+(z-1)), .8)); p.setBrush(alpha(colors['Accent'], .035+(z-1)*.1))
-            radius = 8 if style == 'ghostbusters' else 4 if style == 'leviathan' else 11 if style == 'polaris' else 4 if style == 'infernalencore' else 1 if style in ('platform95','mystery98') else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style in ('midnighttransit','midnightrun') else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
+            radius = 8 if style == 'ghostbusters' else 4 if style == 'leviathan' else 11 if style == 'polaris' else 4 if style in ('infernalencore','prisonbreak') else 1 if style in ('platform95','mystery98') else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style in ('midnighttransit','midnightrun') else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
             p.drawRoundedRect(rect, radius, radius)
         if style == 'ghostbusters' and not stack:
             accent=QColor(colors['Accent'])
@@ -545,7 +562,15 @@ def dock(p, area, style, colors, *, phase=0., weights=(1., 1., 1.), zoom=(), ver
             p.setBrush(pane);p.setPen(QPen(alpha(accent,min(1,.4+(z-1)*.4)),.9));p.drawRoundedRect(rect,11,11)
             p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(alpha(ink,.18),.8));p.drawRoundedRect(rect.adjusted(3,3,-3,-3),8,8)
             p.setPen(QPen(alpha(accent,min(1,.45+(z-1)*.4)),1.4));line(p,rect.left()+10,rect.bottom()-5,rect.right()-10,rect.bottom()-5)
-        if style == 'infernalencore' and not stack:
+        if style == 'prisonbreak' and not stack:
+            accent=QColor(colors['Accent']);steel=QColor(colors['WindowText'])
+            pane=QLinearGradient(rect.topLeft(),rect.bottomLeft())
+            pane.setColorAt(0,blend(colors['Window'],colors['WindowText'],.06));pane.setColorAt(1,blend(colors['Window'],accent,.035+(z-1)*.09))
+            p.setBrush(pane);p.setPen(QPen(alpha(accent,min(1,.4+(z-1)*.4)),.9));p.drawRoundedRect(rect,4,4)
+            p.setPen(QPen(alpha(steel,.3),1))
+            for dx in (-6,0,6):line(p,rect.center().x()+dx,rect.top()+4,rect.center().x()+dx,rect.top()+8)
+            p.setPen(QPen(alpha(accent,min(1,.5+(z-1)*.4)),1.4));line(p,rect.left()+8,rect.bottom()-5,rect.right()-8,rect.bottom()-5)
+        elif style == 'infernalencore' and not stack:
             accent=QColor(colors['Accent']);brass=blend(accent,colors['WindowText'],.65)
             pane=QLinearGradient(rect.topLeft(),rect.bottomLeft())
             pane.setColorAt(0,blend(colors['Window'],colors['WindowText'],.06));pane.setColorAt(1,blend(colors['Window'],accent,.035+(z-1)*.09))

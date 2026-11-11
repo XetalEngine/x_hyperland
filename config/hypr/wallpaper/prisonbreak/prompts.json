@@ -1,0 +1,37 @@
+{
+  "theme": "Prison Break",
+  "tool": "Built-in image_gen \u00b7 new image generation",
+  "reference": "User-supplied comic-book desktop concept with purple prison walls, orange hazard markings, graphite windows and orange folders.",
+  "images": [
+    {
+      "file": "cellblock-neon.png",
+      "title": "Cellblock Neon",
+      "prompt": "Use case: stylized-concept. Asset type: production 16:9 landscape desktop wallpaper for a Hyper Fusion theme named Prison Break, 3840x2160 requested. Create a richly detailed comic-book action-game illustration of an industrial prison cell block at night. Two fictional adult male characters stand behind the central cell's heavy vertical iron bars: on the left a stern muscular bald man in a long black martial-arts coat with red trim and a red sash, on the right a stern older man with full silver beard and swept silver hair, navy suit and green-and-gold striped tie. Both grip separate bars; all hands anatomically correct. Nonviolent, no injuries, no weapons. Riveted graphite steel, distressed purple brick, exposed copper pipes and valves, amber cage lamps, small orange-and-black hazard bands, distant blue rainy prison courtyard at right. Electric violet and magenta side lighting, warm orange lantern light, cobalt rain reflections, deep charcoal shadows. Bold ink outlines, crisp cel shading, painterly textures and polished arcade poster quality. The characters and cell occupy the center-right, with the left edge and upper corners relatively quiet for actual desktop icons. Artwork only: no desktop UI, windows, menus, panels, folders or taskbars. No typography, no title, no logos, no watermark; leave the sign above the cell as a weathered blank dark steel plate. Wide believable perspective, high detail, do not crop heads or feet.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "6be5324501b8871726100c50d24c6cbd805caebe95945e06bfd8a9d502ea052d"
+    },
+    {
+      "file": "midnight-yard.png",
+      "title": "Midnight Yard",
+      "prompt": "Use case: stylized-concept. Asset type: companion 16:9 desktop wallpaper for the Prison Break Hyper Fusion theme, landscape 3840x2160 requested. A dramatic empty industrial prison courtyard at midnight, illustrated like a polished comic-book arcade game. Wet asphalt reflects violet and magenta neon from barred windows and warm amber cage lamps; tall blue-black watchtowers, layered iron catwalks, heavy riveted gates, orange-and-black caution bands and copper pipes. Wind-blown rain, atmospheric cobalt-blue distance. One partly open steel maintenance gate at center-right reveals a pool of orange light; a hanging broken chain catches purple highlights. No people, weapons, violence or police activity. Bold ink contours, crisp cel shading, richly textured painted masonry and steel, cinematic believable perspective. Color palette graphite, electric violet, magenta, burnt orange and cool midnight blue. Put the detailed gate and watchtower toward the right; quieter dark masonry and rain shadow at the left and along the upper edge for desktop icons. No titles, lettering, logos or watermark. Full-bleed wallpaper artwork only, absolutely no desktop UI, windows, menus, icons or taskbars.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "cf8b33a83be8a969b6d257cf571f76db9113d89a56db1b5eca56e1983a61c250"
+    },
+    {
+      "file": "service-passage.png",
+      "title": "The Service Passage",
+      "prompt": "Use case: stylized-concept. Asset type: third companion 16:9 landscape desktop wallpaper for the Prison Break Hyper Fusion theme, 3840x2160 requested. Inside an empty industrial service passage beneath a comic-book prison, with ribbed riveted steel doors, exposed copper and iron pipes, orange valve wheels, a small padlock and loosely hanging chain, violet fluorescent strips, warm amber cage lamps and orange-black caution paint at the base of a heavy partly open door. Through the doorway at center-right, a distant cool-blue rainy exterior and a slim slice of night sky suggest a route outside. Wet concrete floor reflects restrained purple and gold light. Bold inked contours, crisp cel-shaded volumes, elaborate painted surface wear, polished cinematic arcade illustration, believable wide perspective. Graphite black, purple neon, magenta reflections, saturated orange details and midnight blue. Keep the left quarter and upper corners dark and comparatively simple for desktop icons, put the doorway and machinery mainly center-right. No people, no weapons, no violence. No lettering, typography, logos, watermark or readable signs. Full-bleed artwork only, no desktop UI, windows, menus, icons or taskbars.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "a9120aa5e8749d203fa17ba8279c629f18d07e235b12e3556d7656e711abf656"
+    }
+  ]
+}
