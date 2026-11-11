@@ -15,15 +15,18 @@ button and follow the bar's text color. Workspace
 switches and saved mode changes update the indicator automatically, including
 Cube's local face numbering. It can be hidden in the taskbar's Options menu.
 
-KDE mode floats windows and supplies a compact gear, minimize, maximize/restore
-and close row where the app requests compositor controls. There is no tile button
-or added title bar. The gear saves independent KDE app/window preferences; hold
-Super over a window to reveal it even when the automatic choice hides controls.
-Choose Automatic, Always, nearby, modifier-only or Off. App choices persist across
+KDE mode floats windows and adds a compact title bar above application content,
+with gear, minimize, maximize/restore and close controls. The bar grows with the
+chosen button size, reserves space when maximized and disappears in fullscreen.
+Drag its title area without Super; double-click to maximize/restore. The gear
+saves independent KDE app/window preferences. Uncheck **Add a title bar above the
+app** to use the previous Automatic, Always, nearby, modifier-only or Off overlay
+controls. Hold Super over a window to reveal its gear when those controls are hidden.
+App choices persist across
 logins; window-only choices last until that window closes. KDE mode temporarily
 supersedes Force modifier buttons, preserving that setting for the other modes.
 
-Automatic detection uses per-surface Wayland decoration negotiation and X11
+With the title bar disabled, Automatic detection uses per-surface Wayland decoration negotiation and X11
 GTK/Motif frame hints. Those hints describe decoration ownership, not the actual
 buttons: a frameless app can report that it draws its own frame. Use Always or Off
 in its gear for such apps. No screenshots, accessibility scraping or application

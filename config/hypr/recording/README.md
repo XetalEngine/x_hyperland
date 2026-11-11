@@ -4,7 +4,11 @@
 
 The **Recording saved** notification includes **📂 Show in folder**. Click it to open Fusion Files with that exact MP4 selected. Clicking the notification body does the same. The action remains available in notification history for the current desktop session, until the notification is dismissed. It is offered only after the MP4 has been checked and saved successfully.
 
-The defaults are **64 FPS**, **desktop audio**, **high quality**, and **MP4** in your XDG Videos folder (`~/Videos` when no folder is configured). Fusion Settings → Capture offers frame rate, quality, automatic/software encoding, desktop/microphone/no audio and a custom save folder. Changes apply to the next recording. The shortcut is editable in Hotkeys.
+The defaults are **64 FPS**, **desktop audio**, **high quality**, and **MP4** in your XDG Videos folder (`~/Videos` when no folder is configured). **Fusion Settings → Recorder** offers frame rate, quality, automatic/software encoding, desktop/microphone/no audio, filename patterns and a custom save folder. Changes apply to the next recording. The shortcut is editable in Hotkeys.
+
+[![Recorder settings in KDE mode, with an added title bar above the app](../docs/features/kde-recorder.png)](../docs/features/kde-recorder.png)
+
+*Live desktop screenshot supplied by the author.* [Compare KDE title bars and Super overlays →](../FEATURES.md#kde-title-bars-and-super-overlays)
 
 Automatic encoding probes available NVIDIA NVENC and VA-API encoders before using the CPU. Actual capture throughput depends on the GPU, display refresh rate, resolution and load; 64 FPS is the encoded output rate, and frames may repeat when the display updates more slowly. Audio uses the default output's monitor source, or the default microphone, selected at recording start. It does not change audio routing or mix the microphone into desktop audio.
 

@@ -73,7 +73,7 @@ static GtkWidget *workspace_choices(Options *o, int workspace, gboolean controls
     const char *layout_tips[] = {"Use normal launch and per-window behavior. Current windows keep their layout.",
         "Keep windows tiled together, including newly opened windows and windows moved here.",
         "Keep windows floating, including newly opened windows and windows moved here.",
-        "Float windows and add missing controls. The gear saves separate KDE-mode preferences."};
+        "Float windows with a title bar above the app. Its gear saves separate KDE-mode preferences."};
     const char *control_tips[] = {"Use each app or window’s own settings.",
         "Always show controls on all windows here. Super reveals the gear; its settings apply across this workspace.",
         "Hide all artificial window controls in this workspace, even while Super is held."};

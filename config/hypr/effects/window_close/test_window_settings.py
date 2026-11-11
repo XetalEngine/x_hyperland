@@ -119,6 +119,41 @@ class EditorTests(unittest.TestCase):
         self.assertTrue(self.dialog.valid,self.dialog.status.text())
         self.assertEqual(self.dialog.mode.findData('auto'),-1)
 
+    def test_kde_titlebar_preview_opt_out_reset_and_mode_switch(self):
+        self.dialog.info.update(control_profile='kde',workspace_controls='individual',kde_titlebar_supported=True,
+                                rule=dict(self.window_rule,mode='auto'))
+        with patch.object(ui.controller,'rule_file',side_effect=lambda scope,profile:self.files[scope]):
+            self.dialog.load()
+            self.assertTrue(self.dialog.titlebar.isChecked())
+            self.assertTrue(self.dialog.titlebar.isEnabled())
+            self.assertFalse(self.dialog.mode.isEnabled())
+            self.assertFalse(self.dialog.anchor.isEnabled())
+            self.assertTrue(self.dialog.size.isEnabled())
+            self.dialog.scope.setCurrentIndex(self.dialog.scope.findData('window'))
+            self.dialog.titlebar.setChecked(False)
+            self.assertTrue(self.dialog.mode.isEnabled())
+            self.assertTrue(self.dialog.anchor.isEnabled())
+            self.assertFalse(self.dialog.values()['titlebar'])
+            self.dialog.apply()
+            saved=self.save.call_args
+            self.assertEqual(saved.args[:2],('12','window'))
+            self.assertFalse(saved.args[2]['titlebar'])
+            self.assertEqual(saved.kwargs['profile'],'kde')
+            self.dialog.reset.click();self.assertTrue(self.dialog.values()['titlebar'])
+        self.dialog.info.update(control_profile='standard',rule=self.window_rule)
+        self.dialog.load()
+        self.assertFalse(self.dialog.controls_form.isRowVisible(self.dialog.titlebar))
+        self.assertNotIn('titlebar',self.dialog.values())
+        self.assertTrue(self.dialog.mode.isEnabled())
+
+    def test_old_loaded_adapter_does_not_receive_new_fields(self):
+        self.dialog.info.update(control_profile='kde',workspace_controls='individual',rule=dict(self.window_rule,mode='auto'))
+        with patch.object(ui.controller,'rule_file',side_effect=lambda scope,profile:self.files[scope]):
+            self.dialog.load()
+            self.assertFalse(self.dialog.titlebar.isEnabled())
+            self.assertNotIn('titlebar',self.dialog.values())
+            self.assertIn('Log out',self.dialog.hint.text())
+
     def test_workspace_menu_settings_can_edit_an_empty_or_disabled_workspace(self):
         for mode in ('individual','off','on'):
             value=dict(self.window_rule,mode='always',size=18)

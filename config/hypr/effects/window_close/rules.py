@@ -18,8 +18,10 @@ LEGACY_KEYS = DEFAULTS.keys() - {'background', 'background_color'}
 
 
 def validate(rule):
-    if not isinstance(rule, dict) or rule.keys() not in (DEFAULTS.keys(), LEGACY_KEYS):
+    if not isinstance(rule, dict) or rule.keys() - {'titlebar'} not in (DEFAULTS.keys(), LEGACY_KEYS):
         raise ValueError('Window button options are incomplete or contain unknown fields.')
+    if 'titlebar' in rule and type(rule['titlebar']) is not bool:
+        raise ValueError('Invalid KDE title bar switch.')
     rule = dict(DEFAULTS, **rule)  # Existing rules gain Auto without changing their saved geometry.
     if rule['mode'] not in KDE_MODES or rule['anchor'] not in ANCHORS:
         raise ValueError('Choose a supported display mode and position.')
@@ -62,5 +64,7 @@ def load(path=PATH, section='apps'):
 
 
 def effective(settings, app_rule=None, window_rule=None, *, profile='standard'):
-    return validate(window_rule or app_rule or dict(DEFAULTS, mode='auto' if profile=='kde' else 'super',
-                                                   size=settings['size'],x=settings['inset'],y=settings['inset']))
+    result = validate(window_rule or app_rule or dict(DEFAULTS, mode='auto' if profile=='kde' else 'super',
+                                                     size=settings['size'],x=settings['inset'],y=settings['inset']))
+    if profile == 'kde': result.setdefault('titlebar', True)
+    return result

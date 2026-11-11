@@ -50,21 +50,49 @@ choices. The gear editor's reset affects the workspace only while editing On.
 In a forced-tiled workspace, maximize/restore stays within the tiled layout;
 the Tile control is hidden where floating is forced. See `workspaces/README.md`.
 
-**KDE mode** uses its own Automatic/Always/nearby/modifier/Off settings, with a
-four-button row: gear, minimize, maximize/restore and close. The gear stays visible
-with the fallback controls; Super reveals it when controls are hidden. Persistent
+**KDE mode** adds a real compositor title bar above ordinary application windows,
+including apps with their own header controls. It contains the title, gear,
+minimize, maximize/restore and close. The bar reserves space outside the client;
+it is 30 logical pixels tall with the default 18-pixel buttons, or
+`max(28, button size + 12)` for other sizes. Floating client content keeps its
+size. Maximization reserves the bar inside the usable display area; true
+fullscreen hides it. A new bar near the upper panel moves the floating window
+down just enough to remain accessible. Its background follows the theme unless
+a manual color is chosen.
+
+Drag anywhere in the bar, including its top edge, without Super; double-click
+the title area to maximize/restore. Mouse motion goes through the compositor's
+native drag controller. Both press and release are captured together, with no
+clicks sent through to the app. Menus, popups, tooltips, override-redirect windows
+and windows with an explicit no-decoration rule are excluded.
+
+In the gear editor, uncheck **Add a title bar above the app**, select **Only this
+window** or **All windows of this app**, and Apply. This restores the existing
+Automatic/Always/nearby/modifier/Off overlay controls for that KDE window/app.
+Super reveals the gear even when both the bar and fallback controls are hidden.
+Overlay position/visibility settings are retained while the title bar is on.
+Persistent
 app choices live in `kde-rules.json`, and window-only choices in the session's
 `xetal-windowbuttons-kde-rules.json`. Standard app/title rules and workspace
 On/Off settings are preserved for the other modes. Previews and saves carry their
 profile identity, so changing modes cannot apply a stale editor to another profile.
 
-Automatic mode uses the pinned compositor's Wayland decoration requests and
+With the title bar disabled, Automatic mode uses the pinned compositor's Wayland decoration requests and
 nonblocking X11 GTK/Motif property replies. It reads protocol state without
 changing client decoration negotiation. These are frame-ownership hints, not a
 universal list of visible buttons; frameless clients may need an Always override.
 Without Wayland decoration negotiation the client owns its frame. X11 properties
 are refreshed while evaluating controls; pending queries are discarded on window
 close or unload. No synchronous X11 round trips run in the rendering path.
+
+`native/titlebar.hpp` implements a sticky, reserved top decoration with mouse
+input extents and `PART_OF_MAIN_WINDOW`. Its normal OVER pass participates in
+Wobbly, snapshots, stacking and rendering on every intersecting output, below
+popups. It is never drawn as a post-window overlay or hidden during movement.
+Extent changes wait for motion/Wobbly to settle so the mesh source does not change
+mid-drag. Existing KDE rules without a `titlebar` field default to enabled;
+standard rules do not acquire that field. The editor checks the loaded adapter's
+capability before sending it, so a code update remains usable before next login.
 
 **Button background** defaults to **Auto**, which matches the predominant color
 of the window directly beneath the controls. A continuous opaque backing covers
@@ -131,7 +159,8 @@ there are no visible controls or settling windows to follow. No Hyprland functio
 The native adapter currently supports x86-64 **Hyprland 0.56.2**, commit
 `efb50993780079460b0cbed1363e2166a2de1d9f`, and OpenGL. A mismatched compositor,
 headers, or renderer is rejected. Builds require the existing compositor
-development dependencies plus Cairo and json-c headers/libraries; each source/ABI build gets
+development dependencies plus Cairo, Pango and json-c headers/libraries (included
+with the existing GTK development dependencies); each source/ABI build gets
 a unique `.so` path so loaded libraries are never overwritten. Updating a loaded
 native adapter takes effect on the next login; settings apply immediately.
 
@@ -158,6 +187,11 @@ are isolated beneath the test's `/tmp` directory.
 Add `--background-only` for real rendering and eyedropper checks: a contrasting
 toolbar/content fixture, bright native marks, changing dominant colors, covering
 gaps, preview/Apply/discard, picker cancellation and saved-color reload.
+Add `--titlebar-only` for reserved top geometry, sizes, cancelled clicks,
+fullscreen/maximize, brim dragging, subsequent Super-drag, the real gear editor,
+per-window opt-out and mode isolation. `--kde-only` exercises the opt-out's legacy
+decoration-hint fallback. `test_titlebar.py` runs the production painter, native
+rule reader and 1,320 geometry/hit-target cases without a compositor.
 
 Run `QT_QPA_PLATFORM=offscreen python3 config/hypr/effects/window_close/test_drag_settings.py`
 from the repository root for threshold persistence and slider checks.

@@ -33,7 +33,7 @@ def build(root=ROOT):
     if not shutil.which('g++') or not shutil.which('pkg-config'):
         raise RuntimeError('Window close button needs a C++ compiler and pkg-config. Install the optional Window close button build dependencies.')
     try:
-        flags = shlex.split(output(['pkg-config','--cflags','hyprland','libeis-1.0','cairo','json-c']))
+        flags = shlex.split(output(['pkg-config','--cflags','hyprland','libeis-1.0','cairo','pangocairo','json-c']))
         headers = next(Path(arg[2:])/'src/version.h' for arg in flags
                        if arg.startswith('-I') and (Path(arg[2:])/'src/version.h').exists())
     except (RuntimeError, StopIteration) as error:
@@ -58,7 +58,8 @@ def build(root=ROOT):
         fd, tmp = tempfile.mkstemp(prefix='compile-',suffix='.so',dir=build_dir); os.close(fd)
         try:
             cmd = [compiler(),'-std=c++23','-shared','-fPIC','-O2','-g','-Wall','-Wextra','-Wno-unused-parameter',
-                   *flags,str(root/'native/plugin.cpp'),'-o',tmp,'-lGLESv2','-lcairo','-ljson-c','-lxcb']
+                   *flags,str(root/'native/plugin.cpp'),'-o',tmp,'-lGLESv2','-ljson-c','-lxcb',
+                   *shlex.split(output(['pkg-config','--libs','pangocairo']))]
             process = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True,env=environment())
             try:
                 stdout,stderr = process.communicate(timeout=180)

@@ -18,7 +18,7 @@ from PyQt6.QtCore import Qt, QTimer, QProcess, QObject, pyqtSignal
 from PyQt6.QtGui import QColor, QIcon, QImage, QPixmap
 from PyQt6.QtWidgets import (QApplication,QDialog,QVBoxLayout,QHBoxLayout,QLabel,QComboBox,
                             QSpinBox,QSlider,QFormLayout,QPushButton,QDialogButtonBox,QWidget,
-                            QColorDialog,QScrollArea,QFrame,QTabWidget)
+                            QColorDialog,QScrollArea,QFrame,QTabWidget,QCheckBox)
 
 
 class DesktopPicker(QObject):
@@ -134,6 +134,12 @@ class RuleDialog(QDialog):
         if self.info['app']:self.scope.addItem('All windows of this app · remembered','app')
         self.scope.addItem('Only this window · until it closes','window')
         form.addRow('Apply to',self.scope)
+        self.controls_form=form
+        self.titlebar=QCheckBox('Add a title bar above the app')
+        self.titlebar.setToolTip('KDE mode only. Reserves space above the content; the bar grows with your button size. '
+                                'Turn off to use the overlay controls below.')
+        form.addRow('KDE title bar',self.titlebar)
+        form.setRowVisible(self.titlebar,False)
         self.mode=QComboBox()
         for key,label in rules.MODES.items():self.mode.addItem(label,key)
         form.addRow('Show controls',self.mode)
@@ -152,10 +158,10 @@ class RuleDialog(QDialog):
         self.pick_button=QPushButton('Pick from screen…');self.pick_button.clicked.connect(self.pick_color)
         color_row.addWidget(self.color_button,1);color_row.addWidget(self.pick_button,1)
         form.addRow('Manual color',colors)
-        background_hint=QLabel('Auto blends the solid background with the window underneath. '
+        self.background_hint=background_hint=QLabel('Auto blends the solid background with the window underneath. '
                               'Manual covers it with your chosen color, including the gaps between buttons.')
         background_hint.setWordWrap(True);form.addRow(background_hint)
-        form.addRow(DragSettings(self))
+        self.drag_controls=DragSettings(self);form.addRow(self.drag_controls)
         scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setWidget(form_widget);scroll.setMinimumHeight(160);layout.addWidget(scroll,1)
         self.picker=DesktopPicker(self);self.picker.picked.connect(self.set_color);self.picker.finished.connect(self.picker_finished)
@@ -186,12 +192,16 @@ class RuleDialog(QDialog):
         self.scope.currentIndexChanged.connect(self.scope_changed)
         for control in (self.mode,self.anchor,self.background):control.currentIndexChanged.connect(self.changed)
         for control in (self.size,self.x,self.y,self.proximity):control.valueChanged.connect(self.changed)
+        self.titlebar.toggled.connect(self.changed)
         self.load();self.heartbeat.start()
 
     def values(self):
-        return dict(mode=self.mode.currentData(),size=self.size.value(),anchor=self.anchor.currentData(),
-                    x=self.x.value(),y=self.y.value(),proximity=self.proximity.value(),
-                    background=self.background.currentData(),background_color=self.background_color)
+        value=dict(mode=self.mode.currentData(),size=self.size.value(),anchor=self.anchor.currentData(),
+                   x=self.x.value(),y=self.y.value(),proximity=self.proximity.value(),
+                   background=self.background.currentData(),background_color=self.background_color)
+        if self.profile=='kde' and self.info.get('kde_titlebar_supported'):
+            value['titlebar']=self.titlebar.isChecked()
+        return value
 
     def set_values(self,value):
         value=rules.validate(value)
@@ -200,16 +210,34 @@ class RuleDialog(QDialog):
             self.mode.setCurrentIndex(self.mode.findData(value['mode']));self.anchor.setCurrentIndex(self.anchor.findData(value['anchor']))
             for key in ('size','x','y','proximity'):getattr(self,key).setValue(value[key])
             self.background.setCurrentIndex(self.background.findData(value['background']))
+            self.titlebar.setChecked(value.get('titlebar',True))
             self.background_color=value['background_color'];self.update_color_controls()
         finally:self.loading=False
-        self.proximity.setEnabled(value['mode']=='nearby');self.queue_preview()
+        self.update_titlebar_controls();self.queue_preview()
 
     def changed(self,*_):
         if self.loading:return
         self.update_color_controls()
-        self.remove_override=False;self.proximity.setEnabled(self.mode.currentData()=='nearby')
+        self.remove_override=False;self.update_titlebar_controls()
         self.status.setText('Previewing changes. Apply to save; Close discards unapplied changes.')
         self.queue_preview()
+
+    def update_titlebar_controls(self):
+        kde=self.profile=='kde'
+        supported=bool(self.info.get('kde_titlebar_supported'))
+        self.controls_form.setRowVisible(self.titlebar,kde)
+        self.titlebar.setEnabled(kde and supported)
+        bar=kde and supported and self.titlebar.isChecked()
+        self.background.setItemText(self.background.findData('auto'),
+                                   'Auto · use the current theme' if bar else rules.BACKGROUNDS['auto'])
+        self.background_hint.setText('Auto uses the current theme’s title bar colors. Manual uses your chosen color.' if bar else
+                                    'Auto blends the solid background with the window underneath. '
+                                    'Manual covers it with your chosen color, including the gaps between buttons.')
+        self.mode.setEnabled(not bar and self.scope.currentData()!='workspace')
+        for control in (self.anchor,self.x,self.y):control.setEnabled(not bar)
+        self.proximity.setEnabled(not bar and self.mode.currentData()=='nearby')
+        for control in (self.mode,self.anchor,self.x,self.y,self.proximity,self.drag_controls):
+            self.controls_form.setRowVisible(control,not bar)
 
     def update_color_controls(self):
         manual=self.background.currentData()=='manual'
@@ -295,9 +323,12 @@ class RuleDialog(QDialog):
             self.reset.setToolTip('Preview global defaults for this workspace. Apply to keep them.' if shared else 'Preview global defaults for this window only. Apply to keep them.')
             self.hint.setText('Changes preview live on all windows in this workspace. Apply saves the shared size, position and background. '
                               'The gear normally appears while Super is held. Use the workspace menu to change visibility.' if shared else
-                              'KDE mode has separate saved choices. Automatic uses the app’s decoration hints; choose Always or Off if needed. '
+                              'KDE mode has separate saved choices. The title bar sits above the app and fits your button size. '
+                              'Turn it off for this window or app to return to overlay controls. '
                               'Settings, minimize, maximize/restore and close preview here; there is no tile button. '
-                              'Hold Super over the window to reach its gear even when controls are off.' if kde else
+                              'Hold Super to reach the gear when the bar and controls are off. '
+                              + ('' if self.info.get('kde_titlebar_supported') else
+                                 'Log out and back in to enable the new title bar adapter.') if kde else
                               'All five buttons stay visible on the window while you edit: settings, tile, minimize, restore and close. '
                               'Move the sliders to preview changes; Apply saves them. Your chosen visibility takes effect when you close this editor.')
             width,height=self.info.get('size',[1000,700])

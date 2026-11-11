@@ -174,6 +174,67 @@ bindm=SUPER,mouse:273,resizewindow
             x, y = c['at']; w, h = c['size']; left, top, right, bottom = m['reserved']
             assert x >= left + 3 and y >= top + 3 and x+w <= m['width']-right-3 and y+h <= m['height']-bottom-3, (c, m)
 
+        if '--titlebar-only' in sys.argv:
+            workspace=client()['workspace']['id'];controller_path=workspace_dir/'controller.py'
+            def policy(mode):run(sys.executable,str(controller_path),'--workspace',str(workspace),'--layout',mode)
+            def info(name='Buttons'):
+                ids=json.loads(ctl('xetal-windowbuttons'))['windows']
+                return next(v for v in (json.loads(ctl('xetal-windowbuttons',i)) for i in ids) if v['address']==client(name)['address'])
+            def save(enabled,size=18,scope='window'):
+                code='import sys,json;sys.path.insert(0,sys.argv[1]);from effects.window_close import controller,rules;i=controller.window_info(sys.argv[2]);p,s=controller.rule_file(sys.argv[3],"kde");_,token=rules.load(p,s);r=dict(i["rule"],titlebar=sys.argv[4]=="1",size=int(sys.argv[5]));controller.save_rule(sys.argv[2],sys.argv[3],r,token,profile="kde")'
+                run(sys.executable,'-c',code,str(home/'.config/hypr'),info()['id'],scope,str(int(enabled)),str(size))
+            def bar():return info()['titlebar']
+            def button(index):
+                b=bar()['buttons'][index];point(f'move {round(b[0]+b[2]/2)} {round(b[1]+b[3]/2)}')
+                point('down 272');point('up 272')
+            policy('floating');wait(lambda:client()['floating'])
+            dispatch('resizewindowpixel','exact 620 400,'+address())
+            dispatch('movewindowpixel','exact 200 100,'+address());initial=geometry()
+            policy('kde');wait(lambda:bar()['enabled'])
+            assert geometry()[2:]==initial[2:],(initial,geometry())
+            b=bar()['box'];assert b[1]+b[3]<=client()['at'][1] and b[3]==30,info()
+            point('move 300 250');assert not status()['visible'],status() # No duplicate overlay.
+            # A cancelled close press must not close the client or stick input.
+            b=bar()['buttons'][3];point(f'move {round(b[0]+b[2]/2)} {round(b[1]+b[3]/2)}')
+            point('down 272');point('move 300 300');point('up 272');assert client()
+            button(2);wait(lambda:client()['fullscreen']==1)
+            wait(lambda:bar()['box'][1]>=0);fits()
+            button(2);wait(lambda:client()['fullscreen']==0)
+            wait(lambda:geometry()[2:]==initial[2:])
+            command('fullscreen');wait(lambda:client()['fullscreen']==2 and not bar()['enabled'])
+            command('restore');wait(lambda:client()['fullscreen']==0 and bar()['enabled'])
+            for size in (10,32,64,18):
+                save(True,size);wait(lambda:bar()['box'][3]==max(28,size+12))
+                assert geometry()[2:]==initial[2:]
+                for x,y,w,h in bar()['buttons']:assert y+h<=client()['at'][1]
+            # The entire strip is a drag target, including its first pixel.
+            for brim in (0,1,15):
+                dispatch('movewindowpixel','exact 200 160,'+address());before=geometry()
+                b=bar()['box'];x=round(b[0]+100);y=round(b[1]+brim)
+                point(f'move {x} {y}');point('down 272')
+                point(f'move {x+4} {y+4}');point(f'move {x+64} {y+44}');point('up 272')
+                wait(lambda:geometry()[0]>before[0]+40)
+            # Existing Super movement still works after each captured release.
+            before=geometry();point(f'move {before[0]+80} {before[1]+80}');point('key 125 1');point('down 272')
+            point(f'move {before[0]+120} {before[1]+100}');point('up 272');point('key 125 0')
+            wait(lambda:geometry()[0]>before[0])
+            command('add','Sibling');wait(lambda:client('Sibling') and info('Sibling')['titlebar']['enabled'])
+            save(False);wait(lambda:not bar()['enabled'])
+            assert info('Sibling')['titlebar']['enabled']
+            save(True);wait(lambda:bar()['enabled'])
+            standard=settings.with_name('rules.json')
+            standard.write_text(rules.encode({'version':1,'apps':{info()['app']:dict(rules.DEFAULTS,size=36)}}));saved=standard.read_bytes()
+            for mode in ('off','floating','tile'):
+                policy(mode);wait(lambda:not bar()['enabled']);assert standard.read_bytes()==saved
+            policy('kde');wait(lambda:bar()['enabled'])
+            # Gear opens the real editor without a modifier.
+            dispatch('focuswindow',address());dispatch('alterzorder','top,'+address());button(0)
+            editor=wait(lambda:next((c for c in clients() if c['class']=='fusion-window-buttons'),None))
+            run('grim',str(root/'kde-titlebar-editor.png'))
+            dispatch('closewindow','address:'+editor['address'])
+            print('PASS: KDE reserved title bar, size/geometry, click cancellation, fullscreen, native drag, gear, per-window opt-out and mode isolation.',flush=True)
+            return
+
         if '--stacking-only' in sys.argv:
             from PIL import Image
             workspace=client()['workspace']['id'];controller_path=workspace_dir/'controller.py'
@@ -233,6 +294,12 @@ bindm=SUPER,mouse:273,resizewindow
             def info(name='Missing controls'):
                 ids=json.loads(ctl('xetal-windowbuttons'))['windows']
                 return next(v for v in (json.loads(ctl('xetal-windowbuttons',i)) for i in ids) if v['address']==client(name)['address'])
+            def overlay(name='Missing controls'):
+                # This legacy suite exercises the opt-out's decoration-hint
+                # fallback. The default real bar has its own --titlebar-only suite.
+                path=settings.with_name('kde-rules.json');data,_=rules.load(path)
+                data['apps'][info(name)['app']]=dict(rules.DEFAULTS,mode='auto',titlebar=False)
+                path.write_text(rules.encode(data));dispatch('xetalwindowclose:reload')
             binary_fixture=root/'decorations'
             gtk_flags=shlex.split(run('pkg-config','--cflags','--libs','gtk+-3.0'))
             run('cc',str(REPO/'tests/window-buttons/decorations.c'),'-o',str(binary_fixture),'-lglfw','-lGL',*gtk_flags)
@@ -240,6 +307,7 @@ bindm=SUPER,mouse:273,resizewindow
             # Preserve old choices even when workspace controls were forced Off.
             policy(layout='kde',controls='off')
             wait(lambda:client('Missing controls')['floating'] and client()['floating'])
+            overlay()
             assert info()['control_profile']=='kde' and info()['rule']['mode']=='auto',info()
             assert info()['decoration_hint']=='server',info()
             dispatch('settiled',address('Missing controls'));assert client('Missing controls')['floating']
@@ -275,6 +343,7 @@ bindm=SUPER,mouse:273,resizewindow
             # a Super gear for correcting inaccurate decoration hints.
             csd=spawn([str(binary_fixture),'gtk'],env=dict(env,GDK_BACKEND='wayland'))
             wait(lambda:client('Wayland client frame'))
+            overlay('Wayland client frame')
             assert client('Wayland client frame')['floating']
             assert info('Wayland client frame')['decoration_hint']=='client',info('Wayland client frame')
             hover('Wayland client frame');assert not status()['visible']
@@ -313,9 +382,11 @@ bindm=SUPER,mouse:273,resizewindow
             wait(lambda:display.exists() and display.read_text())
             xenv=dict(env,DISPLAY=display.read_text())
             xserver=spawn([str(binary_fixture),'x11'],env=xenv);wait(lambda:client('X11 controls'))
+            overlay('X11 controls')
             hover('X11 controls');wait(lambda:info('X11 controls')['decoration_hint']=='server')
             wait(lambda:status()['visible']);assert not status()['buttons'][3]['box'][2]
             xclient=spawn([str(binary_fixture),'x11','client'],env=xenv);wait(lambda:client('Client frame'))
+            overlay('Client frame')
             hover('Client frame');wait(lambda:info('Client frame')['decoration_hint']=='client')
             time.sleep(.15);assert not status()['visible']
             # Close disposes cached hints and the session override, new windows

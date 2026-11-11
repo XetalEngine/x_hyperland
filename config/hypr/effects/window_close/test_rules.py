@@ -10,6 +10,35 @@ import controller
 
 
 class RuleTests(unittest.TestCase):
+    def test_kde_titlebar_migration_opt_out_and_standard_isolation(self):
+        old=dict(rules.DEFAULTS,mode='auto',size=32)
+        self.assertTrue(rules.effective(model.DEFAULTS,old,profile='kde')['titlebar'])
+        self.assertNotIn('titlebar',rules.effective(model.DEFAULTS))
+        self.assertNotIn('titlebar',old)
+        with self.assertRaises(ValueError):rules.validate(dict(old,titlebar=0))
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);standard=root/'rules.json'
+            standard.write_text(rules.encode({'version':1,'apps':{'fixture':dict(rules.DEFAULTS,size=42)}}))
+            before=standard.read_bytes()
+            info={'app':'fixture','control_profile':'kde','workspace_controls':'individual','kde_titlebar_supported':True}
+            def ipc(*args):return '{"windows":["12","13"]}' if args==('xetal-windowbuttons',) else 'ok'
+            with patch.object(rules,'PATH',standard),patch.object(controller,'instance_dir',return_value=root), \
+                 patch.object(controller,'window_info',return_value=info),patch.object(controller,'hypr',side_effect=ipc):
+                path,section=controller.rule_file('window','kde')
+                _,token=rules.load(path,section)
+                disabled=dict(old,titlebar=False)
+                data,_=controller.save_rule('12','window',disabled,token,profile='kde')
+                self.assertFalse(data['windows']['12']['titlebar'])
+                self.assertTrue(rules.effective(model.DEFAULTS,old,profile='kde')['titlebar'])
+                self.assertFalse(controller.rule_file('window')[0].exists())
+                self.assertEqual(standard.read_bytes(),before)
+                with patch.object(controller,'window_info',return_value=dict(info,control_profile='standard')):
+                    with self.assertRaisesRegex(ValueError,'only in KDE'):
+                        controller.save_rule('12','window',dict(rules.DEFAULTS,titlebar=True),'',profile='standard')
+                with patch.object(controller,'window_info',return_value=dict(info,kde_titlebar_supported=False)):
+                    with self.assertRaisesRegex(ValueError,'Log out'):
+                        controller.save_rule('12','window',disabled,'',profile='kde')
+
     def test_kde_profile_keeps_standard_and_other_windows_independent(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);standard=root/'rules.json'

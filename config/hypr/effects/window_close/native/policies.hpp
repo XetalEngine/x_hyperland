@@ -9,11 +9,14 @@
 #include <set>
 #include <string>
 #include <stdexcept>
+#include <optional>
 
 namespace WindowButtons {
 struct Rule {
     std::string mode="super",anchor="top-right",background="auto",backgroundColor="#20242b";
     int size=18,x=8,y=8,proximity=80;
+    // Absent in legacy/standard rules. Only the KDE profile consumes this.
+    std::optional<bool> titlebar;
 };
 using Rules=std::map<std::string,Rule>;
 using Json=std::unique_ptr<json_object,decltype(&json_object_put)>;
@@ -30,13 +33,18 @@ inline Json parseJson(const std::string& text){
     return doc;
 }
 inline Rule readRule(json_object* value){
-    if(!json_object_is_type(value,json_type_object)||(json_object_object_length(value)!=6&&json_object_object_length(value)!=8))throw std::runtime_error("Incomplete window button rule");
+    if(!json_object_is_type(value,json_type_object))throw std::runtime_error("Incomplete window button rule");
+    json_object* titlebar=nullptr;
+    const bool hasTitlebar=json_object_object_get_ex(value,"titlebar",&titlebar);
+    const auto fields=json_object_object_length(value)-int(hasTitlebar);
+    if(fields!=6&&fields!=8)throw std::runtime_error("Incomplete window button rule");
     Rule r;r.mode=json_object_get_string(field(value,"mode",json_type_string));r.anchor=json_object_get_string(field(value,"anchor",json_type_string));
+    if(hasTitlebar)r.titlebar=json_object_get_boolean(field(value,"titlebar",json_type_boolean));
     if(!std::set<std::string>{"super","always","nearby","off","auto"}.contains(r.mode)||
        !std::set<std::string>{"top-left","top-center","top-right","bottom-left","bottom-center","bottom-right"}.contains(r.anchor))throw std::runtime_error("Unknown button display mode or position");
     auto number=[&](const char* key,int lo,int hi){auto n=json_object_get_int64(field(value,key,json_type_int));if(n<lo||n>hi)throw std::runtime_error("Button rule value out of range");return int(n);};
     r.size=number("size",10,64);r.x=number("x",0,4000);r.y=number("y",0,4000);r.proximity=number("proximity",12,400);
-    if(json_object_object_length(value)==8){
+    if(fields==8){
         r.background=json_object_get_string(field(value,"background",json_type_string));
         auto color=field(value,"background_color",json_type_string);
         r.backgroundColor=std::string(json_object_get_string(color),json_object_get_string_len(color));
@@ -67,6 +75,7 @@ inline Rules readRules(const std::filesystem::path& path,const char* section){
 }
 inline Json ruleJson(const Rule& r){
     auto result=json(json_object_new_object());
+    if(r.titlebar.has_value())json_object_object_add(result.get(),"titlebar",json_object_new_boolean(*r.titlebar));
     json_object_object_add(result.get(),"mode",json_object_new_string(r.mode.c_str()));
     json_object_object_add(result.get(),"anchor",json_object_new_string(r.anchor.c_str()));
     json_object_object_add(result.get(),"background",json_object_new_string(r.background.c_str()));

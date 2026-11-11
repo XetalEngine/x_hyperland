@@ -25,6 +25,8 @@
 #include <hyprland/src/render/Renderer.hpp>
 #include <hyprland/src/render/pass/TexPassElement.hpp>
 #include <hyprland/src/render/OpenGL.hpp>
+#include <hyprland/src/render/decorations/IHyprWindowDecoration.hpp>
+#include <hyprland/src/state/MonitorState.hpp>
 #include <cairo/cairo.h>
 #include <drm_fourcc.h>
 #include <linux/input-event-codes.h>
@@ -41,6 +43,7 @@
 #include "geometry.hpp"
 #include "policies.hpp"
 #include "background.hpp"
+#include "titlebar_paint.hpp"
 #include "../../../workspaces/native.hpp"
 #include "decorations.hpp"
 #include "../../../runtime/window_types_native.hpp"
@@ -50,6 +53,14 @@ using Clock = std::chrono::steady_clock;
 HANDLE handle;
 struct Settings { bool enabled=true, pulse=true; int modifier=64, size=18, inset=8; } settings;
 std::array<double,3> accent{.224,.663,1};
+WindowButtons::Titlebar::Palette titlebarPalette;
+uint64_t paletteRevision=0;
+void syncTitlebars();
+bool titlebarActive(PHLWINDOW);
+bool titlebarPointer(IPointer::SButtonEvent,Event::SCallbackInfo&);
+void titlebarMotion();
+void cleanupTitlebars();
+std::string titlebarStatus(PHLWINDOW);
 std::vector<CHyprSignalListener> listeners;
 SP<CEventLoopTimer> timer;
 SP<SHyprCtlCommand> status,windowStatus;
@@ -130,7 +141,7 @@ WindowButtons::Rule ruleFor(PHLWINDOW w){
     if(policy.layout=="kde"){
         if(auto it=kdeWindowRules.find(std::to_string(w->m_stableID));it!=kdeWindowRules.end())return it->second;
         if(auto it=kdeAppRules.find(appId(w));it!=kdeAppRules.end())return it->second;
-        WindowButtons::Rule r;r.mode="auto";r.size=settings.size;r.x=r.y=settings.inset;return r;
+        WindowButtons::Rule r;r.mode="auto";r.titlebar=true;r.size=settings.size;r.x=r.y=settings.inset;return r;
     }
     if(policy.controls=="on")return policy.rule;
     if(policy.controls=="off"){auto rule=policy.rule;rule.mode="off";return rule;}
@@ -156,14 +167,21 @@ void prunePreviews(){
     });
 }
 void readAccent() {
-    std::ifstream colors(root()/"theme/current.colors");std::string line;bool window=false;
+    std::ifstream colors(root()/"theme/current.colors");std::string line,section;
     while(std::getline(colors,line)) {
-        if(line.starts_with('[')){window=line=="[Colors:Window]";continue;}
-        if(!window || !line.starts_with("DecorationFocus="))continue;
-        std::istringstream stream(line.substr(16));int r,g,b;char c,d;
-        if(stream>>r>>c>>g>>d>>b && c==',' && d==',' && r>=0 && r<=255 && g>=0 && g<=255 && b>=0 && b<=255)
-            accent={r/255.,g/255.,b/255.};
+        if(line.starts_with('[')){section=line;continue;}
+        const auto split=line.find('=');if(split==std::string::npos)continue;
+        const auto key=line.substr(0,split);
+        std::istringstream stream(line.substr(split+1));int r,g,b;char c,d;
+        if(!(stream>>r>>c>>g>>d>>b)||c!=','||d!=','||r<0||r>255||g<0||g>255||b<0||b>255)continue;
+        const std::array<double,3> rgb{r/255.,g/255.,b/255.};
+        if(section=="[Colors:Window]"&&key=="DecorationFocus")accent=rgb;
+        if(section=="[Colors:Window]"||section=="[Colors:Header]"){
+            if(key=="BackgroundNormal")titlebarPalette.background=rgb;
+            if(key=="ForegroundNormal")titlebarPalette.foreground=rgb;
+        }
     }
+    titlebarPalette.accent=accent;++paletteRevision;
 }
 void damage() {for(const auto& row:rows)for(const auto& button:row.boxes)if(!button.empty())g_pHyprRenderer->damageBox(CBox(button).expand(button.width));}
 Action hit(Vector2D point){for(int i=0;i<5;++i)if(!buttons[i].empty()&&buttons[i].containsPoint(point))return Action(i);return None;}
@@ -186,11 +204,12 @@ void refresh() {
     prunePreviews();
     const auto mods=g_pInputManager->getModsFromAllKBs();
     waiting=false;
+    syncTitlebars();
     superHeld=available()&&mods==64;
     held=available() && (mods==uint32_t(settings.modifier)||superHeld);
     target.reset();buttons={};rows.clear();
     if(!available()){
-        waiting=(settings.enabled||workspaceButtons())&&g_pCompositor->m_sessionActive&&!g_pSessionLockManager->isSessionLocked()&&
+        waiting|=(settings.enabled||workspaceButtons())&&g_pCompositor->m_sessionActive&&!g_pSessionLockManager->isSessionLocked()&&
             bool(g_layoutManager->dragController()->target())&&(!appRules.empty()||!windowRules.empty()||!previews.empty()||workspaceButtons());
         return;
     }
@@ -208,6 +227,7 @@ void refresh() {
         if(!window->m_isMapped||window->isHidden()||!WindowTypes::geometryManaged(window)||window->m_class=="fusion-window-buttons")continue;
         const auto policy=workspacePolicy(window);
         const bool kde=policy.layout=="kde";
+        if(titlebarActive(window))continue; // Real decoration owns rendering and input.
         if(!kde&&(policy.controls=="off"||(!settings.enabled&&policy.controls!="on")))continue;
         const auto monitor=window->m_monitor.lock();
         if(!monitor||!g_pHyprRenderer->shouldRenderWindow(window,monitor))continue;
@@ -246,7 +266,6 @@ void refresh() {
 }
 void arm(){if(timer)timer->updateTimeout(std::chrono::milliseconds(1));}
 void createTexture(int glyph) {
-    readAccent();
     constexpr int side=192;
     auto surface=cairo_image_surface_create(CAIRO_FORMAT_ARGB32,side,side);
     auto cr=cairo_create(surface);cairo_scale(cr,3,3);
@@ -414,6 +433,7 @@ void perform(PHLWINDOW w,Action action){
     }else maximizeOrRestore(w);
     Desktop::windowState()->raise(w);
 }
+#include "titlebar.hpp"
 void tick(SP<CEventLoopTimer> self,void*) {
     refresh();
     const auto w=pending.lock();const auto action=pendingAction;pending.reset();pendingAction=None;
@@ -423,6 +443,8 @@ void tick(SP<CEventLoopTimer> self,void*) {
 }
 void cleanup() {
     stopping=true;damage();listeners.clear();target.reset();pressed.reset();pending.reset();neverFloated.clear();decorations.clear();
+    g_pHyprRenderer->glBackend()->makeEGLCurrent();
+    cleanupTitlebars();
     if(timer){timer->cancel();g_pEventLoopManager->removeTimer(timer);timer.reset();}
     g_pHyprRenderer->m_renderPass.removeAllOfType("FusionWindowClose");
     g_pHyprRenderer->glBackend()->makeEGLCurrent();backgrounds.clear();textures={};buttons={};rows.clear();previews.clear();
@@ -433,13 +455,15 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
     handle=h;stopping=false;
     if(std::string(__hyprland_api_get_hash())!=__hyprland_api_get_client_hash())throw std::runtime_error("Rebuild window close for this compositor ABI");
     if(g_pHyprRenderer->type()!=Render::IHyprRenderer::RT_GL)throw std::runtime_error("Window close needs the OpenGL renderer");
-    load();
+    load();readAccent();
     try {
         timer=makeShared<CEventLoopTimer>(std::nullopt,tick,nullptr);g_pEventLoopManager->addTimer(timer);
         listeners.push_back(Event::bus()->m_events.input.keyboard.key.listen([](IKeyboard::SKeyEvent,Event::SCallbackInfo&){arm();}));
-        listeners.push_back(Event::bus()->m_events.input.mouse.move.listen([](Vector2D,Event::SCallbackInfo&){arm();}));
+        listeners.push_back(Event::bus()->m_events.input.mouse.move.listen([](Vector2D,Event::SCallbackInfo&){titlebarMotion();arm();}));
         listeners.push_back(Event::bus()->m_events.window.openLate.listen([](PHLWINDOW w){if(!w->m_isFloating)neverFloated.emplace_back(w);arm();}));
         listeners.push_back(Event::bus()->m_events.window.fullscreen.listen([](PHLWINDOW){arm();}));
+        listeners.push_back(Event::bus()->m_events.window.title.listen([](PHLWINDOW){arm();}));
+        listeners.push_back(Event::bus()->m_events.window.active.listen([](PHLWINDOW,Desktop::eFocusReason){arm();}));
         listeners.push_back(Event::bus()->m_events.window.floating.listen([](PHLWINDOW w){
             if(w->m_isFloating)std::erase_if(neverFloated,[&](const auto& weak){return !weak.lock()||weak.lock()==w;});
         }));
@@ -459,6 +483,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             // also restores the button after a drag with Super still held.
             arm();
             if(event.button!=BTN_LEFT)return;
+            if(titlebarPointer(event,info))return;
             if(event.state==WL_POINTER_BUTTON_STATE_RELEASED && captured){
                 captured=false;info.cancelled=true;refresh();
                 if(pressed.lock()==target.lock() && hit(Pointer::mgr()->position())==pressedAction){pending=pressed;pendingAction=pressedAction;}
@@ -478,7 +503,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
                 for(const auto& row:rows)if(row.window.lock()==w)g_pHyprRenderer->addPassElement(makeUnique<ClosePass>(m,row));
         }));
         HyprlandAPI::addDispatcherV2(handle,"xetalwindowclose:reload",[](std::string){
-            try{load();textures={};refresh();arm();return SDispatchResult{};}
+            try{load();readAccent();textures={};refresh();arm();return SDispatchResult{};}
             catch(const std::exception& error){return SDispatchResult{.success=false,.error=error.what()};}
         });
         HyprlandAPI::addDispatcherV2(handle,"xetalwindowclose:preview",[](std::string input){
@@ -538,6 +563,8 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             }
             if(!(stream>>extra))for(const auto& w:Desktop::windowState()->windows())if(w->m_isMapped&&WindowTypes::geometryManaged(w)&&id==std::to_string(w->m_stableID)){
                 auto rule=WindowButtons::ruleJson(ruleFor(w));
+                if(kdeMode(w)&&!json_object_object_get(rule.get(),"titlebar"))
+                    json_object_object_add(rule.get(),"titlebar",json_object_new_boolean(true));
                 auto preview=previewFor(w);auto previewRule=WindowButtons::ruleJson(preview?preview->rule:ruleFor(w));std::string boxes="[]";
                 for(const auto& row:rows)if(row.preview&&row.window.lock()==w){
                     boxes="[";for(const auto& b:row.boxes){if(boxes.size()>1)boxes+=",";boxes+=std::format("[{},{},{},{}]",b.x,b.y,b.w,b.h);}boxes+="]";break;
@@ -548,12 +575,12 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
                 return std::format("{{\"id\":\"{}\",\"app\":{},\"address\":\"0x{:x}\",\"rule\":{},\"window_override\":{},\"app_override\":{},\"size\":[{},{}],\"preview\":{},\"preview_rule\":{},\"preview_boxes\":{},\"auto_background\":{},\"workspace\":{},\"workspace_controls\":\"{}\",\"workspace_layout\":\"{}\",\"control_profile\":\"{}\",\"decoration_hint\":\"{}\"}}",
                     id,WindowButtons::quoted(appId(w)),reinterpret_cast<uintptr_t>(w.get()),json_object_to_json_string_ext(rule.get(),JSON_C_TO_STRING_PLAIN),(kde?kdeWindowRules:windowRules).contains(id),(kde?kdeAppRules:appRules).contains(appId(w)),
                     box.w,box.h,bool(preview),json_object_to_json_string_ext(previewRule.get(),JSON_C_TO_STRING_PLAIN),boxes,sampled,workspaceId(w),controlsMode(w),workspacePolicy(w).layout,kde?"kde":"standard",
-                    WindowButtons::decorationName(decorations.get(w)));
+                    WindowButtons::decorationName(decorations.get(w))).insert(1,"\"kde_titlebar_supported\":true,\"titlebar\":"+titlebarStatus(w)+",");
             }
             return std::string("{\"error\":\"This window has closed.\"}");
         }});
         arm();
     }catch(...){cleanup();throw;}
-    return {"Xetal Window Close","Theme-aware window controls with live per-window previews","XetalEngine","1.7"};
+    return {"Xetal Window Close","Theme-aware window controls and KDE title bars with live per-window previews","XetalEngine","1.8"};
 }
 APICALL EXPORT void PLUGIN_EXIT(){cleanup();}

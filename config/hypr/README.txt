@@ -1,5 +1,9 @@
 Hyprland-only configuration
 
+Start with FEATURES.md for the illustrated feature guide: Alt+F9 recording,
+the four workspace modes, KDE title bars versus Super overlays, one cube per
+monitor, and Fusion Files' Copy/Cut/Move engine.
+
 KDE/Plasma and shared desktop settings are off-limits. Keep all Hyprland-specific
 configuration and scripts in this directory. Do not run ML4W installers, GTK theme
 sync scripts, shared environment changes, or scripts that restart portal/audio

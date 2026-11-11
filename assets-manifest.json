@@ -1874,5 +1874,11 @@
   "config/hypr/icon_themes/packs/Xetal-System-prisonbreak/scalable/folder-pictures.svg": "57f77ff7c9d63edbc83eeb85db905335a6c8f583b431d806c1a294291ae6c15c",
   "config/hypr/icon_themes/packs/Xetal-System-prisonbreak/scalable/org.kde.dolphin.svg": "2d3bd36016328c8130b42b8e24eb6890101be77e0fcebedb9fc95ee9cd046cba",
   "config/hypr/icon_themes/packs/Xetal-System-prisonbreak/scalable/view-app-grid.svg": "50451513786dcf614c538601eb76512e0ae2cf63875d2fd5a87eeeed82dd1117",
-  "config/hypr/icon_themes/packs/Xetal-System-prisonbreak/scalable/text-x-generic.svg": "e9e7299288ac1f9cee75fcbf72962331590d3ecda492e84071f26097bb617ede"
+  "config/hypr/icon_themes/packs/Xetal-System-prisonbreak/scalable/text-x-generic.svg": "e9e7299288ac1f9cee75fcbf72962331590d3ecda492e84071f26097bb617ede",
+  "config/hypr/docs/features/kde-recorder.png": "88dcd93a5508b1e90e245d9a1c07cf661208318cb647b6455cf544cff1d476e1",
+  "config/hypr/docs/features/kde-taskbar.png": "563e725a0fefa503b0969b00d3214778538ba8f2d61622fc15d9902ba6fbef34",
+  "config/hypr/docs/features/monitor-cube.png": "1ee8ed2ac8e21479e0cf1f2842d28948f108e9d696b3bca99d0a8378675f86fa",
+  "config/hypr/docs/features/super-overlay-settings.png": "c0429881268c54e19a9896d71daa0445304c8ffce92db81d8555f366b0be0a35",
+  "config/hypr/docs/features/transfer-attention.png": "0621dc98753bbc065dac9905be14a4de476eb3cba0933d0002c043b00cb932ee",
+  "config/hypr/docs/features/transfer-card.png": "f70ce7f83a7583f042599940b80c7ae2d081a3e7849529ac8a0f92b73acc0b59"
 }

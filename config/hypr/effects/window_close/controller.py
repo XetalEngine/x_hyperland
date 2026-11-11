@@ -130,6 +130,10 @@ def save_rule(window_id, scope, rule, token, window_token=None, *, profile='stan
     if rule is not None:
         rule = rules.validate(rule)
         if rule['mode']=='auto' and profile!='kde': raise ValueError('Automatic controls are available in KDE mode.')
+        if 'titlebar' in rule:
+            if profile!='kde': raise ValueError('The extra title bar is available only in KDE mode.')
+            if not info.get('kde_titlebar_supported'):
+                raise ValueError('Log out and back in to load the updated KDE title bar adapter.')
     changes = [(path,section,key,rule,token)]
     if scope == 'app' and window_token is not None:
         window_path,window_section = rule_file('window',profile) if profile!='standard' else rule_file('window')

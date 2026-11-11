@@ -1,9 +1,34 @@
 # Hyper Fusion · Desktop gallery
 
 A tour of the real Xetal interface. Click any picture for its full resolution.
-The current Midnight Transit showcase uses real applications and compositor effects captured headlessly with a disposable profile. Some applications shown in Favorites are installed separately; transfer previews use sample jobs.
+The KDE-mode screenshots below were supplied by the author from the live desktop. The Midnight Transit showcase uses real applications and compositor effects captured headlessly with a disposable profile. Some applications shown in Favorites are installed separately; transfer previews use sample jobs.
 
 [Back to the README](../README.md) · [Watch the desktop video](https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d)
+
+## KDE mode and built-in recording
+
+The **KDE** indicator sits between Keys and Update. Click it to cycle Individual, Force tiling, Force floating and KDE mode; the choice belongs to the active workspace on that display.
+
+[![Live taskbar with the KDE workspace-mode indicator](../config/hypr/docs/features/kde-taskbar.png)](../config/hypr/docs/features/kde-taskbar.png)
+
+KDE mode adds a title bar **above** the app's content. This Recorder screenshot shows the added gear/minimize/maximize/close row at the top, followed by the application's own header. **Alt+F9** starts or stops recording the monitor under the pointer. The page exposes frame rate, audio, quality, GPU/CPU encoding, filenames and the save folder.
+
+[![Live Recorder settings with the KDE-mode title bar above the app](../config/hypr/docs/features/kde-recorder.png)](../config/hypr/docs/features/kde-recorder.png)
+
+*These two screenshots are unchanged captures supplied by the author.* [All four modes and their controls →](../README.md#four-window-modes) · [Recorder guide →](../config/hypr/recording/README.md)
+
+### Compare with Super-key overlays
+
+Super-key overlay controls sit over the existing app surface. This earlier Mystery 98 capture shows their editor, with modifier-only visibility, button size, position and per-app/per-window scope. KDE mode's added title bar can be disabled in its gear editor, and its saved choices remain separate from the standard overlay settings.
+
+<details>
+<summary>View the overlay settings screenshot</summary>
+
+[![Author-supplied overlay settings editor in the Mystery 98 theme](../config/hypr/docs/features/super-overlay-settings.png)](../config/hypr/docs/features/super-overlay-settings.png)
+
+</details>
+
+[KDE title bar versus Super overlay comparison →](../README.md#kde-title-bars-and-super-overlays)
 
 ## Current theme: Midnight Transit
 
