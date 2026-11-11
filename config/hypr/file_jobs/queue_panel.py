@@ -10,9 +10,37 @@ from PyQt6.QtWidgets import (QAbstractItemView, QCheckBox, QFileDialog, QGridLay
 
 
 class QueueModel(QAbstractTableModel):
+    REQUESTS = {'skip':'Skip requested…', 'retry':'Retry requested…',
+                'replace':'Replace requested…', 'authorize':'Access requested…'}
+
     def __init__(self, parent):
         super().__init__(parent)
-        self.rows, self.positions = [], {}
+        self.rows, self.positions, self.requests = [], {}, {}
+
+    def requested(self, row):
+        request = self.requests.get(row['id'])
+        return request if request and request['version']==row.get('version') and row.get('status')=='pending' else None
+
+    def presentation(self, row):
+        request = self.requested(row)
+        if not request: return row
+        text = self.REQUESTS[request['choice']]
+        detail = 'Waiting for the transfer to confirm your choice.'
+        if request['similar']: detail += ' It also applies to matching items.'
+        return dict(row, statusText=text, resultText='Waiting for confirmation',
+                    details=text+'\n'+detail+'\n\n'+row.get('details',''))
+
+    def request_rows(self, rows, choice, similar):
+        for row in rows:
+            self.requests[row['id']] = dict(version=row.get('version'),choice=choice,similar=similar)
+            index = self.positions[row['id']]
+            self.dataChanged.emit(self.index(index,0),self.index(index,2))
+
+    def clear_requests(self, ids):
+        for identifier in ids:
+            if self.requests.pop(identifier,None) is not None:
+                index=self.positions[identifier]
+                self.dataChanged.emit(self.index(index,0),self.index(index,2))
 
     def rowCount(self, parent=QModelIndex()):
         return 0 if parent.isValid() else len(self.rows)
@@ -22,16 +50,17 @@ class QueueModel(QAbstractTableModel):
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid(): return None
-        row = self.rows[index.row()]
+        row = self.presentation(self.rows[index.row()])
         if role == Qt.ItemDataRole.DisplayRole:
             return row.get(('name', 'statusText', 'resultText')[index.column()], '')
         if role == Qt.ItemDataRole.ToolTipRole: return row.get('details', '')
         if role == Qt.ItemDataRole.UserRole: return row['id']
         if role == Qt.ItemDataRole.UserRole + 1:
             return '\n'.join(str(row.get(k, '')) for k in ('name', 'statusText', 'details', 'source', 'destination', 'resultText'))
-        if row.get('status') == 'resolved' and index.column() == 1:
+        if row.get('status') in ('resolved','skipped') and index.column() == 1:
             if role == Qt.ItemDataRole.DecorationRole:
-                return self.parent().style().standardIcon(QStyle.StandardPixmap.SP_DialogApplyButton)
+                icon = QStyle.StandardPixmap.SP_DialogApplyButton if row['status']=='resolved' else QStyle.StandardPixmap.SP_MediaSkipForward
+                return self.parent().style().standardIcon(icon)
             if role == Qt.ItemDataRole.FontRole:
                 font = QFont(); font.setBold(True); return font
         return None
@@ -43,6 +72,9 @@ class QueueModel(QAbstractTableModel):
 
     def update_rows(self, rows):
         for row in rows:
+            request=self.requests.get(row['id'])
+            if request and (row.get('status')!='pending' or row.get('version')!=request['version'] or row.get('decisionRejected')):
+                self.requests.pop(row['id'])
             index = self.positions.get(row['id'])
             if index is None:
                 index = len(self.rows)
@@ -145,7 +177,8 @@ class QueuePanel(QWidget):
         self.heading.setText(state.get('heading', 'Items needing attention'))
         self.summary.setText(state.get('summary', 'Other files keep copying while you review these items.'))
         selected = self.selected()
-        pending = [r for r in selected if r.get('status') == 'pending']
+        if done: self.model.clear_requests(list(self.model.requests))
+        pending = [r for r in selected if r.get('status') == 'pending' and not self.model.requested(r)]
         enabled = bool(pending) and not done and self.job.pending != 'cancel'
         retryable = all(r.get('retry_allowed', True) for r in pending)
         self.buttons['retry'].setEnabled(enabled and retryable)
@@ -165,11 +198,13 @@ class QueuePanel(QWidget):
                           'Selected unfinished items only. Completed copies are kept.')
         self.hint.setVisible(enabled)
         if state.get('hintText'): self.hint.setText(state['hintText'])
-        text = selected[0].get('details', '') if selected else ''
+        text = self.model.presentation(selected[0]).get('details', '') if selected else ''
+        if selected and self.model.requested(selected[0]) and self.job.data.get('suspended'):
+            text += '\n\nThe transfer is paused. This choice may be confirmed after you resume.'
         if self.detail.toPlainText() != text: self.detail.setPlainText(text)
 
     def decide(self, choice):
-        rows = [r for r in self.selected() if r.get('status') == 'pending']
+        rows = [r for r in self.selected() if r.get('status') == 'pending' and not self.model.requested(r)]
         if not rows: return
         versions = {str(r['id']): r.get('version') for r in rows}
         if choice == 'replace':
@@ -178,7 +213,11 @@ class QueuePanel(QWidget):
             if QMessageBox.question(self, 'Replace destination files?', prompt,
                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                     QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes: return
-        self.job.decide_queue([r['id'] for r in rows], choice, self.similar.isChecked(), versions)
+        similar=self.similar.isChecked()
+        self.model.request_rows(rows,choice,similar)
+        self.refresh()
+        if not self.job.decide_queue([r['id'] for r in rows], choice, similar, versions):
+            self.model.clear_requests([r['id'] for r in rows]);self.refresh()
 
     def choose_report(self):
         path, _ = QFileDialog.getSaveFileName(self, 'Save transfer report', 'transfer-report.txt', 'Text files (*.txt)')

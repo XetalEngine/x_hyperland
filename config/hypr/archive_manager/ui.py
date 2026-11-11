@@ -242,15 +242,21 @@ class JobController(QObject):
             self.task.command(dict(command='password',password=password if accepted else None))
         elif kind == 'issue':
             status = value['status']
-            labels = dict(pending='Needs a choice',retry='Retry queued',working='Retrying…',authorizing='Authorizing…',skipped='Skipped · Original kept',resolved=value.get('resolution') or 'Completed successfully')
+            labels = dict(pending='Needs a choice',retry='Retry queued',working='Retrying…',authorizing='Authorizing…',skipped='Skipped',resolved=value.get('resolution') or 'Completed successfully')
+            decision = value.get('decisionText','')
             row = dict(value, name=Path(value.get('source','')).name, statusText=labels.get(status,status),
-                resultText='Completed after retry' if status == 'resolved' else value.get('detail',''))
-            row['details'] = '\n'.join((row['statusText'],row['resultText'],'From: '+value.get('source',''),'To: '+value.get('destination',''),'Stage: '+value.get('stage','')))
+                resultText=decision or ('Completed after retry' if status == 'resolved' else 'Original kept' if status == 'skipped' else value.get('detail','')))
+            row['details'] = '\n'.join((row['statusText'],row['resultText'],'Original issue: '+value.get('detail',''),
+                'From: '+value.get('source',''),'To: '+value.get('destination',''),'Stage: '+value.get('stage','')))
+            rows = {**self.job.queue_rows,row['id']:row}.values()
+            counts = {state:sum(r['status']==state for r in rows) for state in ('pending','retry','working','skipped','resolved')}
+            summary = ' · '.join(str(counts[state])+' '+label for state,label in
+                (('pending','needing a choice'),('retry','retries queued'),('working','retrying'),('skipped','skipped'),('resolved','completed')) if counts[state])
             self.job.update_queue({'rows':[row], 'state':dict(heading='Items needing attention',journal=self.journal,
                 reportFile=str(self.task.report),
                 hintText=('Completed files are kept. Retry or skip only affects the selected items.' if self.journal else
                           'Archive retries rebuild the archive. Skipped inputs remain outside the archive.'),
-                summary='Other files continue. Skipped items are included in the final report.')})
+                summary=(summary+'. ' if summary else '')+'Skipped items remain in the final report.')})
             pending = sum(r.get('status') in ('pending','retry','working','authorizing') for r in self.job.queue_rows.values())
             self.job.update(dict(issueCount=len(self.job.queue_rows),pendingIssues=pending))
 

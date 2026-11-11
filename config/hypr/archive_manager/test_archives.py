@@ -104,6 +104,37 @@ class Archives(unittest.TestCase):
         result,events=self.task(dict(operation='compress',sources=[str(self.source)],output=str(archive),options={'format':'zip'}),choice='skip')
         self.assertTrue(result.get('ok'),result);self.assertEqual(archive.read_bytes(),before);self.assertTrue(result['notes'])
 
+    def test_accepted_skip_remains_excluded_when_a_peer_retries_the_archive(self):
+        if os.getuid()==0:self.skipTest('Requires unprivileged permissions')
+        skipped=self.source/'skip*?\nliteral';retried=self.source/'retry'
+        peer=self.source/'skipXY\nliteral';peer.write_text('keep the wildcard lookalike')
+        for kind in ('zip','tar.xz'):
+            with self.subTest(format=kind):
+                for path in (skipped,retried):path.write_text(path.name);path.chmod(0)
+                archive=self.output/('retry.'+kind)
+                task=Task(dict(operation='compress',sources=[str(self.source)],output=str(archive),options={'format':kind,'threads':2}))
+                result=[];events=[]
+                def event(value):
+                    events.append(value)
+                    if value.get('event')=='issue' and value['status']=='pending':
+                        path=Path(value['source']);path.chmod(0o600)
+                        task.command(dict(command='issue_answer',ids=[value['id']],versions={str(value['id']):value['version']},
+                                          choice='skip' if path==skipped else 'retry',all=False))
+                task.message.connect(event);task.outcome.connect(result.append)
+                try:
+                    task.run();self.assertTrue(result[0].get('ok'),result)
+                    destination=self.base/('retried-'+kind)
+                    unpacked,_=self.task(dict(operation='extract',sources=[str(archive)],destination=str(destination)))
+                    self.assertTrue(unpacked.get('ok'),unpacked)
+                    self.assertFalse((destination/'input'/skipped.name).exists())
+                    self.assertEqual((destination/'input'/retried.name).read_text(),retried.name)
+                    self.assertEqual((destination/'input'/peer.name).read_text(),peer.read_text())
+                    self.assertTrue(any(e.get('status')=='resolved' and e.get('source')==str(retried) for e in events))
+                    self.assertEqual(sum(e.get('status')=='pending' and e.get('source')==str(skipped) for e in events),1)
+                    self.assertTrue(skipped.is_file())
+                finally:
+                    skipped.chmod(0o600);retried.chmod(0o600)
+
     def test_reject_escaping_paths_without_touching_destination(self):
         for member in ('../escape.txt','/absolute.txt','C:/windows.txt','safe/../../escape.txt'):
             with self.subTest(member=member):

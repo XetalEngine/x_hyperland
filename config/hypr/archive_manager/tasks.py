@@ -45,14 +45,24 @@ class Task(QThread):
         self.report = state_directory()/(uuid.uuid4().hex+'.jsonl')
         self.issue_serial = 0
         self.archive_rows = {}
+        self.archive_ids = {}
+        self.archive_pass = 0
+        self.archive_condition = threading.Condition(threading.RLock())
+        self.report_lock = threading.Lock()
+        self.skip_categories = set()
+        self.skipped_inputs = set()
         self.notes = []
         self.engine_cwd = os.getcwd()
 
     def send(self, value):
         # Passwords are kept only in memory and are never included in the report.
+        # Qt queues Python objects by reference: later decisions must not rewrite
+        # an earlier event before the GUI thread has received it.
+        value = dict(value)
         if value.get('event') in ('issue', 'result', 'phase'):
-            with self.report.open('a', encoding='utf-8') as stream:
-                stream.write(json.dumps(value, ensure_ascii=True)+'\n')
+            with self.report_lock:
+                with self.report.open('a', encoding='utf-8') as stream:
+                    stream.write(json.dumps(value, ensure_ascii=True)+'\n')
         self.message.emit(value)
 
     def command(self, value):
@@ -65,6 +75,7 @@ class Task(QThread):
                     self.write_transfer(value)
                 else: self.control.request(action)
             self.message.emit({'event':'paused', 'value': action == 'suspend'})
+        elif value.get('command') == 'issue_answer' and self.decide_archive(value): pass
         elif value.get('command') == 'password': self.answers.put(value)
         else:
             with self.transfer_lock:
@@ -93,20 +104,83 @@ class Task(QThread):
         self.message.emit(value)
 
     def archive_issue(self, error):
-        key = (error.get('path',''), error.get('stage',''), error['code'])
-        previous = self.archive_rows.get(key)
-        if previous and previous['status'] == 'pending': return previous
-        self.issue_serial += 1
         detail = (os.strerror(error['code']) if error.get('stage') in ('scan','open','read') else
                   '7-Zip could not process this archive member (code '+str(error['code'])+').')
         path = error.get('path','')
         if path and error.get('stage') in ('scan','open','read'): path = os.path.abspath(os.path.join(self.engine_cwd,path))
-        row = dict(event='issue', id=previous['id'] if previous else -self.issue_serial,
-                   version=previous['version']+1 if previous else 1, source=path,
-                   destination=self.request.get('output',''), stage=self.phase,
-                   category='archive:'+str(error['code']), detail=detail, status='pending',
-                   retry_allowed=True, replace_allowed=False)
-        self.archive_rows[key] = row; self.send(row); return row
+        key = (path,error.get('stage',''),error['code'])
+        with self.archive_condition:
+            previous = self.archive_rows.get(key)
+            # The end-of-pass result repeats the live error events. Preserve an
+            # already accepted choice instead of asking for it again.
+            if previous and previous['pass'] == self.archive_pass: return dict(previous)
+            self.issue_serial += 1
+            row = dict(event='issue', id=previous['id'] if previous else -self.issue_serial,
+                       version=previous['version']+1 if previous else 1, source=path,
+                       destination=self.request.get('output',''), stage=self.phase,
+                       category='archive:'+str(error['code']), detail=detail, status='pending',
+                       retry_allowed=True, replace_allowed=False, **{'pass':self.archive_pass})
+            self.archive_rows[key] = row; self.archive_ids[row['id']] = row
+            if row['category'] in self.skip_categories or path in self.skipped_inputs:
+                self.choose_archive(row,'skip',similar=row['category'] in self.skip_categories,automatic=True)
+            else: self.send(row)
+            return dict(row)
+
+    def choose_archive(self, row, choice, similar=False, automatic=False):
+        """Caller holds archive_condition; acknowledging never waits for 7-Zip."""
+        row['status'] = 'skipped' if choice == 'skip' else 'retry'
+        if choice == 'skip':
+            if row['source']: self.skipped_inputs.add(row['source'])
+            row['decisionText'] = ('Skipped automatically by your matching-issue choice. Original kept.' if automatic else
+                                   'Skip accepted. This input is excluded from the archive; the original is kept.')
+            if similar: row['decisionText'] += ' Current and later matching issues will also be skipped in this job.'
+        else:
+            row['decisionText'] = 'Retry accepted. The archive will be rebuilt after the current pass finishes.'
+        self.send(row)
+
+    def decide_archive(self, answer):
+        ids = answer.get('ids',[])
+        if not isinstance(ids,list) or not any(type(i) is int and i < 0 for i in ids): return False
+        versions = answer.get('versions',{})
+        if not isinstance(versions,dict): return True
+        with self.archive_condition:
+            selected = [self.archive_ids[i] for i in dict.fromkeys(i for i in ids if type(i) is int)
+                        if i in self.archive_ids]
+            choice = answer.get('choice')
+            valid = [r for r in selected if r['status']=='pending' and versions.get(str(r['id']))==r['version']]
+            if self.control.cancelled or choice not in ('skip','retry'): valid=[]
+            if answer.get('all') is True:
+                categories = {r['category'] for r in valid}
+                if choice == 'skip': self.skip_categories.update(categories)
+                valid = [r for r in self.archive_ids.values() if r['status']=='pending' and r['category'] in categories]
+            for row in valid: self.choose_archive(row,choice,similar=answer.get('all') is True)
+            # A stale/double-click decision cannot apply to a new issue revision.
+            # Return its current state so a waiting UI can offer a fresh choice.
+            for row in selected:
+                if row not in valid: self.send(dict(row,decisionRejected=True))
+            self.archive_condition.notify_all()
+        return True
+
+    def begin_archive_pass(self):
+        with self.archive_condition:
+            self.archive_pass += 1
+            for row in self.archive_ids.values():
+                if row['status']=='retry':
+                    row['status']='working';row['decisionText']='Rebuilding the archive to retry this input.';self.send(row)
+
+    def finish_archive_pass(self):
+        with self.archive_condition:
+            failed = {row['source'] for row in self.archive_ids.values() if row['pass']==self.archive_pass and row['status']!='resolved'}
+            for row in self.archive_ids.values():
+                if row['status']=='working' and row['pass'] < self.archive_pass:
+                    row.update(status='resolved',resolution='Retry attempted' if row['source'] in failed else 'Archived successfully',
+                               decisionText='This input has another issue; review its other row.' if row['source'] in failed else 'Included after retry. Original kept.')
+                    self.send(row)
+
+    def archive_exclusions(self, cwd):
+        # Runner uses -spd: exclusions are literal paths, including * and ?.
+        with self.archive_condition:
+            return ['-x!'+os.path.relpath(path,cwd) for path in sorted(self.skipped_inputs)]
 
     def get_password(self, wrong=False):
         self.message.emit({'event':'password', 'wrong':wrong})
@@ -142,31 +216,17 @@ class Task(QThread):
 
     def resolve_archive_errors(self, result):
         """Continue compression's first pass, then require explicit omission/retry decisions."""
-        rows = list({row['id']:row for row in (self.archive_issue(error) for error in result.errors)}.values())
-        if not rows:
+        ids = list(dict.fromkeys(self.archive_issue(error)['id'] for error in result.errors))
+        if not ids:
             raise ArchiveError(result.output.strip() or f'7-Zip stopped with exit code {result.code}.')
         self.set_phase('Waiting for queued items')
-        decisions = {}
-        while len(decisions) < len(rows):
+        while True:
             self.control.check()
-            try: answer = self.answers.get(timeout=.1)
-            except queue.Empty: continue
-            if answer.get('command') != 'issue_answer': continue
-            selected = [r for r in rows if r['id'] in answer.get('ids', []) and
-                        answer.get('versions', {}).get(str(r['id'])) == r['version'] and r['id'] not in decisions]
-            if answer.get('all'):
-                categories = {r['category'] for r in selected}
-                selected = [r for r in rows if r['category'] in categories and r['id'] not in decisions]
-            for row in selected:
-                choice = answer.get('choice')
-                if choice not in ('skip', 'retry'): continue
-                decisions[row['id']] = choice
-                row['status'] = 'retry' if choice == 'retry' else 'skipped'
-                self.send(row)
-        retry = any(value == 'retry' for value in decisions.values())
-        if not retry:
-            self.notes.append(f'{len(rows)} input item(s) were omitted with your approval.')
-        return retry, rows
+            with self.archive_condition:
+                rows = [dict(self.archive_ids[i]) for i in ids]
+                if all(row['status']!='pending' for row in rows): break
+                self.archive_condition.wait(.1)
+        return any(row['status']=='retry' for row in rows)
 
     def transfer(self, sources, destination, moving=False):
         self.set_phase('Saving archive' if self.request['operation'] in ('compress','add','delete','rename') else 'Saving extracted files')
@@ -266,29 +326,32 @@ class Task(QThread):
             raise ArchiveError('This format compresses one file. Choose tar.'+kind+' for folders or multiple files.')
         temporary = work/'output'; temporary.mkdir()
         target = temporary/output.name
-        retry_rows = []
         while True:
+            self.begin_archive_pass()
             self.set_phase('Compressing')
             for path in temporary.iterdir(): path.unlink()
             args = format_arguments(options)
             if kind.startswith('tar.'):
                 tar = work/(output.name[:-len(kind)]+ 'tar' if output.name.lower().endswith(kind) else output.name+'.tar')
                 tar.unlink(missing_ok=True)
-                result = self.invoke(runner, ['a', '-ttar', '-snl', '--', str(tar), *names], cwd=cwd)
+                result = self.invoke(runner, ['a', '-ttar', '-snl', *self.archive_exclusions(cwd), '--', str(tar), *names], cwd=cwd)
                 if result.code:
                     if result.code != 1: raise ArchiveError(result.output.strip())
-                    retry, retry_rows = self.resolve_archive_errors(result)
+                    retry = self.resolve_archive_errors(result)
+                    self.finish_archive_pass()
                     if retry: continue
                 result = self.invoke(runner, ['a', *args, '--', str(target), tar.name], cwd=work)
             else:
-                result = self.invoke(runner, ['a', *args, '--', str(target), *names], cwd=cwd)
+                result = self.invoke(runner, ['a', *args, *self.archive_exclusions(cwd), '--', str(target), *names], cwd=cwd)
             if result.code == 1:
-                retry, retry_rows = self.resolve_archive_errors(result)
+                retry = self.resolve_archive_errors(result)
+                self.finish_archive_pass()
                 if retry: continue
             elif result.code: raise ArchiveError(result.output.strip() or 'Compression failed.')
-            for row in retry_rows:
-                if row['status'] == 'retry': self.send(dict(row, status='resolved', resolution='Archived successfully'))
+            self.finish_archive_pass()
             break
+        if self.skipped_inputs:
+            self.notes.append(f'{len(self.skipped_inputs)} input item(s) were omitted with your approval.')
         self.set_phase('Verifying archive')
         parts = sorted(temporary.iterdir())
         if not parts: raise ArchiveError('7-Zip did not produce an archive.')

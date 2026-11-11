@@ -95,6 +95,41 @@ class QueueTests(unittest.TestCase):
         self.assertFalse(panel.buttons['skip'].isEnabled())
         self.assertFalse(panel.buttons['retry'].isEnabled())
 
+    def test_requested_choice_is_visible_until_worker_confirmation_even_when_paused(self):
+        window=self.window();panel=self.populate(window)
+        window.job.update({'suspended':True})
+        decisions=[];window.job.queue_decision.connect(decisions.append)
+        panel.buttons['skip'].click()
+        self.assertEqual(panel.model.index(0,1).data(),'Skip requested…')
+        self.assertIn('paused',panel.detail.toPlainText())
+        self.assertEqual(window.job.queue_rows[1]['status'],'pending') # no invented success
+        self.assertFalse(panel.buttons['skip'].isEnabled())
+        panel.buttons['skip'].click();self.assertEqual(len(decisions),1)
+        window.job.update_queue({'rows':[issue(status='skipped',statusText='Skipped',resultText='Original kept',details='Skip accepted. Original kept.')]})
+        self.assertEqual(panel.model.index(0,1).data(),'Skipped')
+        self.assertIn('Skip accepted',panel.detail.toPlainText())
+        self.assertIsNotNone(panel.model.index(0,1).data(Qt.ItemDataRole.DecorationRole))
+        self.assertFalse(panel.model.requests)
+
+    def test_requested_revision_can_be_replaced_or_rejected_without_hiding_the_new_issue(self):
+        window=self.window();panel=self.populate(window)
+        panel.buttons['retry'].click()
+        window.job.update_queue({'rows':[issue(version=2)]})
+        self.assertTrue(panel.buttons['skip'].isEnabled())
+        self.assertEqual(panel.model.index(0,1).data(),'Needs a choice')
+        panel.buttons['skip'].click()
+        window.job.update_queue({'rows':[issue(version=2,decisionRejected=True)]})
+        self.assertTrue(panel.buttons['skip'].isEnabled())
+        self.assertFalse(panel.model.requests)
+
+    def test_immediate_worker_reply_replaces_request_without_a_stuck_spinner(self):
+        window=self.window();panel=self.populate(window)
+        window.job.queue_decision.connect(lambda _:window.job.update_queue({'rows':[
+            issue(status='skipped',statusText='Skipped',details='Original kept')]}))
+        panel.buttons['skip'].click()
+        self.assertEqual(panel.model.index(0,1).data(),'Skipped')
+        self.assertFalse(panel.model.requests)
+
     def test_full_paths_remain_searchable_even_without_path_columns(self):
         panel = self.populate(self.window(), [issue(), issue(2, source='/Other/file.txt', details='Other file', name='file.txt')])
         panel.filter.setText('/Mounted/Private')

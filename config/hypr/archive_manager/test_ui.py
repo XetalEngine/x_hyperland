@@ -5,6 +5,7 @@ os.environ['DBUS_SESSION_BUS_ADDRESS']='unix:path=/nonexistent/fusion-archive-ui
 from pathlib import Path
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from unittest.mock import patch
@@ -14,7 +15,7 @@ from PyQt6.QtWidgets import QApplication, QInputDialog, QTabWidget
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT));sys.path.insert(0,str(ROOT/'archive_manager'))
 from ui import CompressDialog, JobController, MemberModel
-from engine import Index
+from engine import Index, Runner
 
 APP=QApplication.instance() or QApplication([])
 
@@ -85,6 +86,36 @@ class Interface(unittest.TestCase):
         self.assertEqual(model.rowCount(),1025);self.assertEqual(model.entry(1000)['size'],1000)
         model.filter('1000');self.assertEqual(model.rowCount(),1);self.assertEqual(model.entry(0)['path'],'Folder/1000.txt')
         model.db.close()
+
+    def test_skip_feedback_arrives_while_the_archive_pass_is_busy_and_paused(self):
+        if os.getuid()==0:self.skipTest('Requires unprivileged permissions')
+        denied=self.source/'denied';denied.write_text('private');denied.chmod(0)
+        hold=threading.Event();waiting=threading.Event();original=Runner.run
+        def busy_pass(runner,arguments,**kwargs):
+            result=original(runner,arguments,**kwargs)
+            if arguments[0]=='a':
+                waiting.set()
+                if not hold.wait(5):raise AssertionError('Test did not release compression pass')
+            return result
+        with patch.object(Runner,'run',busy_pass):
+            controller=JobController(dict(operation='compress',sources=[str(self.source)],output=str(self.base/'paused.7z'),options={'format':'7z','threads':2}))
+            try:
+                self.assertTrue(until(lambda:waiting.is_set() and bool(controller.job.queue_rows)))
+                controller.job.request('suspend');self.assertTrue(controller.job.data['suspended'])
+                panel=controller.window.queue_panel;panel.similar.setChecked(True);panel.buttons['skip'].click()
+                self.assertTrue(until(lambda:panel.model.index(0,1).data()=='Skipped',seconds=1))
+                self.assertIsNone(controller.job.result);self.assertFalse(hold.is_set())
+                self.assertIn('later matching',panel.detail.toPlainText())
+                self.assertIn('1 skipped',panel.summary.text())
+                self.assertFalse(panel.buttons['skip'].isEnabled())
+                self.assertTrue(controller.job.data['suspended'])
+                controller.job.request('resume');hold.set()
+                self.assertTrue(until(lambda:controller.job.result is not None));self.assertEqual(controller.job.result,'done')
+                self.assertEqual(panel.model.index(0,1).data(),'Skipped')
+            finally:
+                hold.set();denied.chmod(0o600)
+                if controller.task.isRunning():controller.task.command({'command':'cancel'});controller.task.wait(5000)
+                if controller.window:controller.window.dismiss()
 
 
 if __name__=='__main__':unittest.main()

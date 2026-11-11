@@ -82,6 +82,18 @@ retries rebuild the archive, and omissions require an explicit Skip decision and
 appear in the completion report. Corrupt extraction never publishes partial
 staging data over existing destination files.
 
+The attention drawer shows a requested state until the job confirms a choice,
+then keeps the same row visible with its result. Compression input Skip/Retry
+choices are acknowledged immediately, including while the engine is busy or
+paused; processing can remain paused. Skip shows a distinct icon and an explicit
+confirmation that the original is kept. The summary counts accepted skips, and
+the detail panel confirms when Skip similar covers current and later matching
+issues in this job. Retry similar applies only once to currently queued items.
+The final error summary cannot reopen a choice already accepted during that pass.
+Skipped inputs stay excluded when another input triggers an archive rebuild,
+including filenames containing wildcard characters or newlines. A failed retry
+requires a new choice for its new issue revision.
+
 Extraction validates member paths and link targets, unpacks into private staging,
 and uses Fusion's transfer worker to publish the result. This includes newly
 created destination folders, overwrite choices and scoped administrator access
@@ -106,6 +118,7 @@ compatible if a user independently keeps Ark installed.
 
 ```sh
 python3 config/hypr/archive_manager/test_archives.py -v
+python3 config/hypr/archive_manager/test_decisions.py -v
 QT_QPA_PLATFORM=offscreen python3 config/hypr/archive_manager/test_ui.py -v
 dbus-run-session -- env FUSION_ARCHIVE_PRIVATE_BUS=1 QT_QPA_PLATFORM=offscreen \
   python3 config/hypr/archive_manager/test_remote.py -v
