@@ -187,6 +187,8 @@ target_link_libraries(CachyOsTools PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT
 target_link_libraries(CachyOsTools PRIVATE PkgConfig::WINDOW_ENUM_X11 PkgConfig::WINDOW_ENUM_WAYLAND)
 add_subdirectory(../proton proton)
 target_link_libraries(CachyOsTools PRIVATE xetal_proton_page)
+add_subdirectory(../rdp rdp)
+target_link_libraries(CachyOsTools PRIVATE fusion_rdp)
 target_include_directories(CachyOsTools PRIVATE "${WINDOW_ENUM_PROTOCOL_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/..")
 set_target_properties(CachyOsTools PROPERTIES OUTPUT_NAME xetal-control-panel)
 

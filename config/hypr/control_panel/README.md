@@ -2,6 +2,11 @@
 
 Native floating Qt/C++ panel, opened from Apps above Fusion Settings. See the [feature map and integration guide](../../../docs/CONTROL-PANEL.md).
 
+**RDP** provides native remote desktop sessions with saved PCs and system-wallet
+passwords, a shared home folder, clipboard text/images, audio, microphone,
+printer redirection, resizing, reconnect, and a hiding session toolbar. See
+[`rdp/README.md`](rdp/README.md) for defaults, controls, dependencies, and checks.
+
 **Install .deb is available again as an experimental compatibility tool.**
 Choose a trusted Debian application in **Install .deb → Install or update from .deb**.
 **Check dependencies only** reads the package and the existing pacman databases

@@ -38,6 +38,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | System Cleaner | Curated cleanup plus a sudo disk visualizer with mounted-volume/folder picker, size tree, treemap, breadcrumbs and file actions |
 | RAM Cleaner | Live memory readings, Normal/Aggressive manual cache cleanup and observed before/after results; keeps applications running |
 | Network | Interfaces, Wi-Fi, connections, bridges, libvirt networks and ports |
+| RDP | Native remote desktop client with saved PCs and wallet credentials, shared home folder, clipboard text/images, audio/microphone/printers, resizing/reconnect, optional RD Gateway and a hiding full-screen toolbar. [Guide →](../config/hypr/control_panel/rdp/README.md) |
 | Firewall | UFW/firewalld rules and configuration |
 | Network Shares | Discovery, mounts, sharing and associated services |
 | Shell & Apps Shortcuts | Alias add/edit/remove, shell configuration editor, terminal actions and Apps favorites |

@@ -52,7 +52,7 @@ PACKAGES = {
         yt-dlp ffmpeg vlc vlc-plugin-ffmpeg deno sudo xorg-xhost xorg-xcursorgen hyprcursor openssl virt-viewer virt-firmware gnutls
         base-devel autoconf automake libtool make perl gettext gawk expect socat pacman-contrib pkgfile
         libtasn1 gmp libseccomp fuse3 libei tpm2-tools dmidecode pciutils usbutils
-        mtools dosfstools util-linux kmod python-cryptography keyutils libsecret curl libarchive cabextract'''.split(),
+        mtools dosfstools util-linux kmod python-cryptography keyutils libsecret freerdp curl libarchive cabextract'''.split(),
     'fedora': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole konsole-part kf6-kio-devel kf6-kwindowsystem-devel kio-extras kio-admin udisks2 SwayNotificationCenter grim slurp wf-recorder wl-clipboard xorg-x11-server-Xwayland
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
         python3 python3-psutil python3-pyqt6 python3-gobject python3-pillow gcc gcc-c++ cmake libxcb-devel pkgconf-pkg-config procps-ng glslang-devel
@@ -64,7 +64,7 @@ PACKAGES = {
         yt-dlp+default ffmpeg-free nodejs sudo xhost xcursorgen hyprcursor openssl virt-viewer python3-virt-firmware gnutls-utils
         autoconf automake libtool make perl gettext gawk expect socat openssl-devel
         libtasn1-devel gmp-devel glib2-devel gnutls-devel libseccomp-devel fuse3-devel libei-devel libeis-devel
-        tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod python3-cryptography keyutils-libs libsecret libcurl-devel libarchive-devel cabextract'''.split(),
+        tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod python3-cryptography keyutils-libs libsecret freerdp-devel libcurl-devel libarchive-devel cabextract'''.split(),
     'debian': '''git gvfs gvfs-backends gvfs-fuse hyprpaper hyprlock waybar kitty dolphin konsole konsole-kpart libkf6kio-dev libkf6windowsystem-dev kio-extras kio-admin udisks2 sway-notification-center grim slurp wf-recorder wl-clipboard xwayland
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
         python3 python3-psutil python3-pyqt6 python3-pyqt6.qtsvg python3-gi python3-pil gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1 build-essential cmake libxcb1-dev libxcb-res0-dev libxcb-xkb-dev pkg-config glslang-dev libsdl3-0
@@ -75,7 +75,7 @@ PACKAGES = {
         yt-dlp ffmpeg nodejs sudo pkexec x11-xserver-utils x11-apps hyprcursor-util openssl virt-viewer python3-virt-firmware gnutls-bin
         autoconf automake libtool libtool-bin make perl gettext gawk expect socat libssl-dev
         libtasn1-6-dev libgmp-dev libglib2.0-dev libgnutls28-dev libseccomp-dev libfuse3-dev libei-dev libeis-dev
-        tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod python3-cryptography libkeyutils1 libsecret-tools libcurl4-openssl-dev libarchive-dev cabextract'''.split(),
+        tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod python3-cryptography libkeyutils1 libsecret-tools freerdp3-dev libcurl4-openssl-dev libarchive-dev cabextract'''.split(),
 }
 for _family, _packages in X11_PACKAGES.items():
     PACKAGES[_family] = list(dict.fromkeys([*PACKAGES[_family], *_packages, 'ripgrep']))
@@ -85,9 +85,10 @@ COMMANDS = '''git rg Hyprland hyprctl Xwayland hyprpaper hyprlock waybar kitty d
     pactl wpctl playerctl brightnessctl fastfetch htop notify-send gdbus pgrep flock
     xcursorgen hyprcursor-util cc c++ g++ cmake pkg-config wayland-scanner fc-match yt-dlp ffmpeg ffprobe sudo xhost xauth xdpyinfo xclip zenity openssl remote-viewer virt-fw-vars certtool
     make autoconf autoreconf automake aclocal libtool libtoolize perl pod2man gettext gawk expect socat
-    tpm2_getcap dmidecode lspci lsusb mcopy mtype fsck.fat losetup modinfo'''.split()
+    tpm2_getcap dmidecode lspci lsusb mcopy mtype fsck.fat losetup modinfo secret-tool'''.split()
 LIBRARIES = ['gtk+-3.0','gio-unix-2.0','gtk-layer-shell-0','epoxy','json-glib-1.0','Qt5Widgets','Qt6Widgets','Qt5Concurrent','Qt6Concurrent','wayland-client','xcb','xcb-res',
-             'openssl','libcurl','libarchive','libtasn1','gmp','glib-2.0','gnutls','libseccomp','fuse3','libeis-1.0','json-c','xcb-xkb']
+             'openssl','libcurl','libarchive','libtasn1','gmp','glib-2.0','gnutls','libseccomp','fuse3','libeis-1.0','json-c','xcb-xkb',
+             'freerdp3','freerdp-client3','winpr3']
 # Hyprland comes from the exact, signed package selected by Setup.
 MINIMUM = {'waybar':(0,15,0),'kitty':(0,49,0),'hyprpaper':(0,8,0)}
 

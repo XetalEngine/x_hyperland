@@ -32,6 +32,7 @@
     {"id":"ram-cleaner","title":"RAM Cleaner","description":"Reclaim unused caches without closing apps","icon":"media-flash","path":["ramCleanerTab"],"keywords":"memory ram cache normal aggressive cleanup reclaim"}
   ]},
   {"title": "Network & connections","tools":[
+    {"id":"rdp","title":"RDP","description":"Remote desktops · saved PCs, credentials and shared folders","icon":"preferences-desktop-remote-desktop","path":["rdpTab"],"keywords":"remote desktop Windows PC RDP FreeRDP Remmina gateway connection clipboard audio microphone folder full screen"},
     {"id":"network","title":"Network","description":"Wi-Fi, interfaces, bridges and ports","icon":"network-workgroup","path":["networkTab"]},
     {"id":"firewall","title":"Firewall","description":"UFW and firewalld rules","icon":"security-high","path":["firewallSubTab"]},
     {"id":"shares","title":"Network Shares","description":"Discover, mount and share folders","icon":"folder-network","path":["networkSharesSubTab"]}

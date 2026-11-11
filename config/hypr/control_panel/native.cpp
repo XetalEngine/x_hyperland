@@ -9,6 +9,7 @@
 #include "aur_helpers.h"
 #include "deb_page.h"
 #include "proton/page.h"
+#include "rdp/page.h"
 #include "../theme/window_chrome.hpp"
 #include "backend/mainwindow.h"
 #include <QFileSystemWatcher>
@@ -306,6 +307,7 @@ void PanelController::prepareTools() {
   rootTabs->addTab(new RamCleaner(HyperPanel::root() + "/control_panel/ram_cleaner.py", rootTabs), "RAM Cleaner");
   rootTabs->addTab(new DefaultApps(HyperPanel::root() + "/control_panel/default_apps.py", rootTabs), "Default Apps");
   rootTabs->addTab(new XetalProton::Page(rootTabs), "Proton");
+  rootTabs->addTab(new FusionRdp::Page(HyperPanel::root(), rootTabs), "RDP");
   rootTabs->addTab(new GrubEditor(HyperPanel::root() + "/control_panel/grub_editor.py", rootTabs), "GRUB Boot Editor");
   auto promote = [this, rootTabs](const QString &name, const QString &title) {
     auto *page = owner->findChild<QWidget *>(name);

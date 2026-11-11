@@ -15,9 +15,10 @@ import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGroupBox,
                              QCheckBox, QComboBox, QSpinBox, QPushButton, QLineEdit,
                              QScrollArea, QGridLayout, QFormLayout, QFileDialog,
-                             QPlainTextEdit, QSizePolicy, QMessageBox, QStyleOptionGroupBox, QStyle)
+                             QPlainTextEdit, QSizePolicy, QMessageBox, QStyleOptionGroupBox,
+                             QStyleOptionComboBox, QStyle)
 from PyQt6.QtCore import pyqtSignal, Qt, QTimer, QRectF
-from PyQt6.QtGui import QFont, QPainter, QColor, QPen
+from PyQt6.QtGui import QFont, QPainter, QColor, QPen, QPainterPath, QPalette
 
 import hostinfo
 from uiutil import guard_all
@@ -70,6 +71,34 @@ def _random_serial(n):
     and duplicates across devices confuse Windows' storage stack.
     """
     return randomize.serial(n)
+
+
+class DevicePicker(QComboBox):
+    """Keep the editable device dropdown visible even without theme arrow images."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet("QComboBox { padding-right: 28px; }"
+                           "QComboBox::drop-down { width: 24px; }"
+                           "QComboBox::down-arrow { image: none; width: 0; height: 0; }")
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        option = QStyleOptionComboBox()
+        self.initStyleOption(option)
+        arrow = self.style().subControlRect(QStyle.ComplexControl.CC_ComboBox, option,
+                                           QStyle.SubControl.SC_ComboBoxArrow, self)
+        x, y = arrow.center().x(), arrow.center().y()
+        chevron = QPainterPath()
+        chevron.moveTo(x - 4, y - 2)
+        chevron.lineTo(x, y + 2)
+        chevron.lineTo(x + 4, y - 2)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(QPen(option.palette.color(QPalette.ColorRole.Text), 1.6,
+                            Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap,
+                            Qt.PenJoinStyle.RoundJoin))
+        painter.drawPath(chevron)
 
 
 class DiskRow(QGroupBox):
@@ -125,7 +154,7 @@ class DiskRow(QGroupBox):
         r = 0
 
         # --- host device -------------------------------------------------
-        self.path = QComboBox()
+        self.path = DevicePicker()
         self.path.setEditable(True)
         self.path.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.path.setMinimumContentsLength(28)

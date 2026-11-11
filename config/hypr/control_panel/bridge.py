@@ -27,7 +27,7 @@ def theme():
       QLabel#debSectionTitle {{font-size:13px; font-weight:600; color:{p['Text']};}}
       QLabel#debCatalogTitle {{font-size:20px; font-weight:600; color:{p['Text']};}}
       QFrame#debHelpers, QFrame#debFeedbackBox {{background:{p['AlternateBase']}; border:1px solid {p['Midlight']}; border-radius:9px;}}
-      QPushButton[debPrimary="true"], QPushButton#debFeedbackButton {{background:{p['Highlight']}; color:{p['HighlightedText']}; border:1px solid {p['Accent']}; font-weight:600; padding:9px 16px;}}
+      QPushButton[debPrimary="true"], QPushButton#debFeedbackButton, QPushButton#rdpConnect {{background:{p['Highlight']}; color:{p['HighlightedText']}; border:1px solid {p['Accent']}; font-weight:600; padding:9px 16px;}}
       QPushButton[debPrimary="true"]:hover, QPushButton#debFeedbackButton:hover {{border-color:{p['Text']};}}
       QDialog#debFeedbackDialog {{background:{p['Window']};}}
       QPlainTextEdit#debFeedbackDetails {{background:{p['Base']}; color:{p['Text']}; border:1px solid {p['Midlight']}; border-radius:6px; padding:8px;}}
