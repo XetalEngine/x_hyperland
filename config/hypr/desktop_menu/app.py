@@ -10,6 +10,7 @@ import sys
 import menu_config
 import appearance
 import menu_hotkeys
+import menu_focus
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'theme'))
@@ -41,6 +42,7 @@ class DesktopSurface(Gtk.Window):
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self.owner = owner
         self.desktop_monitor = monitor
+        self.menu_context = None
         self.set_name('xetal-desktop-background')
         self.set_title('Xetal desktop menu')
         self.set_decorated(False)
@@ -143,6 +145,7 @@ class DesktopSurface(Gtk.Window):
         target = self.owner.icons.pointer_target(self.owner.icons.canvases.get(self))
         self.menu = self.build_menu(self.owner.config['items'], desktop=True, target=target)
         self.menu.attach_to_widget(self, None)
+        self.owner.watch_menu(self)
         self.menu.popup_at_pointer(event)
         return True
 
@@ -216,6 +219,31 @@ class Desktop:
     def dismiss(self):
         for window in self.surfaces.values():
             if window.menu: window.menu.popdown()
+            window.menu_context = None
+
+    def menu_context(self, window, session):
+        canvas = self.icons.canvases.get(window)
+        geometry = window.desktop_monitor.get_geometry()
+        return menu_focus.MenuContext.capture(session, canvas.monitor if canvas else None,
+                                              (geometry.x, geometry.y))
+
+    def watch_menu(self, window):
+        # Capture once for the invocation. The asynchronous file-actions popup
+        # replacement must inherit this context, rather than start a new one.
+        window.menu_context = self.menu_context(window, menu_focus.read_session(LAUNCH_ENV))
+
+    def check_menu_context(self):
+        visible = [window for window in self.surfaces.values()
+                   if window.menu and window.menu.get_visible()]
+        if not visible:
+            return
+        session = menu_focus.read_session(LAUNCH_ENV)
+        for window in visible:
+            if window.menu_context is None:
+                window.menu_context = self.menu_context(window, session)
+            elif window.menu_context.changed(session):
+                window.menu.popdown()
+                window.menu_context = None
 
     def session_event(self, stream, condition):
         if condition & (GLib.IOCondition.HUP | GLib.IOCondition.ERR):
@@ -229,13 +257,16 @@ class Desktop:
             Gtk.main_quit()
             return False
         self.events.extend(data)
+        context_event = False
         while b'\n' in self.events:
             line, _, self.events = self.events.partition(b'\n')
             if line.startswith((b'monitoradded', b'monitorremoved', b'configreloaded')):
                 self.icons.schedule_layout()
-            if line.startswith((b'workspacev2>>', b'focusedmonv2>>', b'activespecialv2>>')) or (
-                    line.startswith(b'activewindowv2>>') and line.removeprefix(b'activewindowv2>>').strip()):
-                self.dismiss()
+            if line.startswith((b'workspacev2>>', b'focusedmonv2>>', b'activespecialv2>>',
+                                b'activewindowv2>>', b'moveworkspacev2>>', b'monitorremoved')):
+                context_event = True
+        if context_event:
+            self.check_menu_context()
         return True
 
     def dispose(self):

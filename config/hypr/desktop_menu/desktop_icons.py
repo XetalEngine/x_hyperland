@@ -464,6 +464,7 @@ class Canvas(Gtk.Layout):
         if self.surface.menu: self.surface.menu.destroy()
         self.surface.menu = menu
         menu.attach_to_widget(self, None); menu.show_all()
+        self.controller.owner.watch_menu(self.surface)
         popup(menu)
         self.controller.files.menu(urls, populate)
 

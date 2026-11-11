@@ -483,11 +483,14 @@ class CanvasTests(unittest.TestCase):
             self.controller.select({'notes # café.txt'}); self.canvas.file_menu(None)
             loading = self.window.menu
             latest_reply = self.fake_files.menu.call_args.args[1]
+            watched = self.owner.watch_menu.call_count
             older_reply(entries)
             self.assertIs(self.window.menu, loading)
             latest_reply(entries)
             ready = self.window.menu
             self.assertIsNot(ready, loading)
+            self.assertEqual(self.owner.watch_menu.call_count, watched)
+            self.owner.watch_menu.assert_called_with(self.window)
             with patch.object(self.controller, 'copy') as copy:
                 ready.get_children()[0].activate()
                 copy.assert_called_once_with(False, ['notes # café.txt'])

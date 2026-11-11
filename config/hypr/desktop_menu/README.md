@@ -46,6 +46,15 @@ the loading popup at the original click, so Wayland can size it for all actions.
 Dismissed or superseded requests cannot reopen an old menu. Keyboard invocation
 uses the selected icon as its anchor.
 
+Each desktop or icon menu belongs to the monitor and workspace where it opened.
+Compositor focus/workspace notifications trigger a check of the current state;
+delayed notifications from crossing monitors do not dismiss a newly opened menu.
+Changing that monitor's workspace, opening/closing its special workspace, focusing
+another monitor or activating an application dismisses it. Unrelated workspace
+changes on other monitors leave it alone. The asynchronous file-menu replacement
+keeps the original invocation's context. Outside clicks and Escape retain GTK's
+normal popup behavior; a failed IPC query does not spuriously close the menu.
+
 **Show Trash** adds an optional, movable Trash icon without creating a file in
 `~/Desktop`. It remembers its position, reflects whether Trash contains files,
 and double-clicking opens Trash in a floating Fusion Files window. Delete,
@@ -95,7 +104,7 @@ Validation:
 
 ```sh
 cd config/hypr/desktop_menu
-python3 -m unittest test_icons test_menu
+python3 -m unittest test_icons test_menu test_focus
 FUSION_DESKTOP_TEST_GUI=1 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory \
   xvfb-run -a dbus-run-session -- python3 -m unittest test_icons
 ```
