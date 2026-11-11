@@ -22,6 +22,12 @@ The complete decorated window is captured before deformation, so fast dragging
 near a display edge cannot cut away pixels that the springs bend back onscreen.
 Capture buffers are reused separately for each display scale; rotated outputs
 use the same window coordinates for content, corners, borders and blur.
+Monitor visibility and transformed-pass blur bounds include the interpolated
+mesh. During a monitor crossing, the trailing edge therefore remains drawable
+after the undeformed window rectangle has left the old output. This extends only
+the compositor's geometric visibility test; its workspace, fullscreen, stacking
+and Minimize filters still decide whether the window may be shown. Source capture
+coordinates, input geometry and the original spring physics are unchanged.
 
 All 14 options from `compiz-core/metadata/wobbly.xml.in` are present. The original
 metadata is included as `compiz-options.xml` and checked against the controls:
@@ -90,7 +96,8 @@ hyprctl dispatch xetalwobbly:shiver
 ```
 
 The status command reports active lattices, render/physics counters, mesh builds,
-requested damage area as a fraction of the affected outputs, and bell
+requested damage area as a fraction of the affected outputs, current source and
+deformed render bounds, and bell
 subscriptions. There is no independent animation timer. Reload,
 disable, close, workspace changes and unload detach owned transformers. Snapping
 modifiers are allowed during a drag without Hyprland ending that drag; other
@@ -110,3 +117,7 @@ rollback and unsaved-edit guards. The integration check starts a disposable
 nested compositor and exercises real window/input/rendering behavior. It never
 loads a test binary into the parent session. Pixel checks cover fast drags at
 all four edges and a window spanning a rotated, fractionally scaled display.
+Native regressions also cover the final trailing strip after the source rectangle
+has completely departed all four output edges, including translated and negative
+monitor origins, and verify that rendering stops when the mesh has left. The
+nested check captures that last strip during transfers in both directions.

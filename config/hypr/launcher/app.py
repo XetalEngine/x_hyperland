@@ -421,7 +421,7 @@ class Menu(QWidget):
             self.bar_activation=BarActivation(self);self.bar_activation.start()
 
     def apply_design(self):
-        modern=theme_runtime.launcher_design() in ('modern','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','midnightrun','infernalencore','polaris','leviathan')
+        modern=theme_runtime.launcher_design() in ('modern','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','midnightrun','infernalencore','polaris','leviathan','ghostbusters')
         accent=theme_runtime.colors(style=theme_runtime.launcher_design())['Accent']
         self.fusion_settings_button.setIcon(desktop_icon('fusion-settings',accent,20))
         self.kvm_button.setIcon(desktop_icon('chip',accent,20))
@@ -467,7 +467,11 @@ class Menu(QWidget):
                 from midnightrun import paint_surface
                 paint_surface(painter,QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),colors,7,100,self.isActiveWindow())
                 return
-            if style=='leviathan':
+            if style=='ghostbusters':
+                from ghostbusters import paint_surface
+                paint_surface(painter,QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),colors,12,100,self.isActiveWindow())
+                return
+            elif style=='leviathan':
                 from leviathan import paint_surface
                 paint_surface(painter,QRectF(self.rect()).adjusted(.5,.5,-.5,-.5),colors,12,100,self.isActiveWindow())
                 return

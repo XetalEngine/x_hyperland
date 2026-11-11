@@ -28,6 +28,7 @@
 #include "settings.hpp"
 #include "graphics.hpp"
 #include "capture.hpp"
+#include "render_bounds.hpp"
 #include "../../../runtime/window_types_native.hpp"
 // xcb-xkb's generated C header uses the C++ keyword as a field name.
 #define explicit explicit_
@@ -105,9 +106,40 @@ struct Record {
 std::vector<std::shared_ptr<Record>> records;
 auto record(PHLWINDOW w){auto it=std::find_if(records.begin(),records.end(),[&](auto& r){return r->window==w;});return it==records.end()?std::shared_ptr<Record>{}:*it;}
 CBox bounds(const std::shared_ptr<Record>& r){
-    auto b=r->engine.box;double left=b.x,top=b.y,right=b.x+b.w,bottom=b.y+b.h;
-    for(auto p:r->engine.renderPoints()){left=std::min(left,double(p.x));top=std::min(top,double(p.y));right=std::max(right,double(p.x));bottom=std::max(bottom,double(p.y));}
-    return CBox{std::floor(left)-3,std::floor(top)-3,std::ceil(right)-std::floor(left)+6,std::ceil(bottom)-std::floor(top)+6};
+    const auto b=Wobbly::renderBounds(r->engine);return {b.x,b.y,b.w,b.h};
+}
+
+using Window=Desktop::View::CWindow;
+using VisibleFn=bool(*)(Window*,PHLMONITOR);
+using PassBoundsFn=std::optional<CBox>(*)(CTransformedWindowPassElement*);
+VisibleFn originalVisible=nullptr;
+PassBoundsFn originalPassBounds=nullptr;
+
+bool visibleOnMonitor(Window* window,PHLMONITOR monitor){
+    const bool original=originalVisible(window,monitor);
+    if(original || stopping || !monitor || g_pHyprRenderer->m_bRenderingSnapshot)return original;
+    auto w=window->m_self.lock();auto r=record(w);
+    if(!r || !usable(w))return original;
+    // In the pinned compositor this is purely a geometric intersection test.
+    // Extend it, not shouldRenderWindow: workspace/fullscreen/Minimize vetoes
+    // must still run, and Minimize owns a hook on that higher-level function.
+    // Solitary-fullscreen detection also needs to notice the trailing mesh.
+    const auto output=monitor->logicalBox();
+    return Wobbly::overlaps(Wobbly::renderBounds(r->engine),{output.x,output.y,output.w,output.h});
+}
+
+std::optional<CBox> transformedBounds(CTransformedWindowPassElement* element){
+    auto original=originalPassBounds(element);
+    auto renderer=g_pHyprRenderer.get();auto monitor=renderer->m_renderData.pMonitor.lock();
+    auto r=record(element->m_data.window.lock());
+    if(stopping || !original || !r || !monitor || renderer->m_bRenderingSnapshot ||
+       Wobbly::captureContext || !usable(r->window.lock()))return original;
+    // Blur/damage bookkeeping must cover the same trailing mesh. currentBox
+    // remains untouched: it describes the undeformed source capture and UVs.
+    const auto visual=bounds(r).translate(-monitor->m_position);
+    const double left=std::min(original->x,visual.x),top=std::min(original->y,visual.y);
+    return CBox{left,top,std::max(original->x+original->w,visual.x+visual.w)-left,
+                std::max(original->y+original->h,visual.y+visual.h)-top};
 }
 bool touches(const std::shared_ptr<Record>& r,PHLMONITOR m){
     if(!m)return false;
@@ -447,6 +479,8 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h){
         hook("onKeyEvent","CKeybindManager::onKeyEvent(",(void*)keyEvent,originalKey);
         hook("ensureMouseBindState","CKeybindManager::ensureMouseBindState(",(void*)mouseState,originalMouseState);
         hook("drawElement","IElementRenderer::drawElement(",(void*)drawElement,Wobbly::originalElementDraw);
+        hook("visibleOnMonitor","CWindow::visibleOnMonitor(",(void*)visibleOnMonitor,originalVisible);
+        hook("boundingBox","CTransformedWindowPassElement::boundingBox(",(void*)transformedBounds,originalPassBounds);
         auto& events=Event::bus()->m_events;
         listeners.push_back(events.render.pre.listen([](PHLMONITOR m){renderingMonitor=m;frame(m);}));
         listeners.push_back(events.render.stage.listen([](eRenderStage stage){
@@ -479,8 +513,9 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h){
                 auto w=r->window.lock();auto& e=r->engine;double deviation=0;
                 for(int i=0;i<16;++i)deviation=std::max(deviation,std::hypot(e.model->objects[i].position.x-e.box.x-(i%4)*e.box.w/3,e.model->objects[i].position.y-e.box.y-(i/4)*e.box.h/3));
                 auto m=r->monitor.lock();
-                detail+=std::format("{{\"grabbed\":{},\"hotkey\":{},\"monitor\":{},\"refresh_hz\":{},\"flags\":{},\"deviation\":{},\"snapping\":{},\"position_animating\":{},\"size_animating\":{},\"box\":[{},{},{},{}]}}",
-                    e.grabbed,r->hotkey,m?m->m_id:-1,m?m->m_refreshRate:0,e.active,deviation,e.snapping,w&&w->positionAnimation()->isBeingAnimated(),w&&w->sizeAnimation()->isBeingAnimated(),e.box.x,e.box.y,e.box.w,e.box.h);
+                const auto visual=Wobbly::renderBounds(e);
+                detail+=std::format("{{\"grabbed\":{},\"hotkey\":{},\"monitor\":{},\"refresh_hz\":{},\"flags\":{},\"deviation\":{},\"snapping\":{},\"position_animating\":{},\"size_animating\":{},\"box\":[{},{},{},{}],\"render_bounds\":[{},{},{},{}]}}",
+                    e.grabbed,r->hotkey,m?m->m_id:-1,m?m->m_refreshRate:0,e.active,deviation,e.snapping,w&&w->positionAnimation()->isBeingAnimated(),w&&w->sizeAnimation()->isBeingAnimated(),e.box.x,e.box.y,e.box.w,e.box.h,visual.x,visual.y,visual.w,visual.h);
             }
             detail+="]";
             std::string outputs="[";

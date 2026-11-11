@@ -1,6 +1,7 @@
 #include "engine.hpp"
 #include "settings.hpp"
 #include "mesh.hpp"
+#include "render_bounds.hpp"
 #include <cassert>
 #include <iostream>
 #include <chrono>
@@ -61,6 +62,49 @@ int main(int argc,char** argv){
                 assert(near(v.x*screen.w+screen.x,point.x,.003));
                 assert(near(v.y*screen.h+screen.y,point.y,.003));
             }
+        }
+    }
+    // Regression: the undeformed rectangle has COMPLETELY left an output,
+    // but the trailing Bezier surface is still visible. The old monitor gate
+    // rejected these frames even though capture, mesh and damage were correct.
+    const Box output{0,0,1280,900};
+    const std::array<std::pair<Box,Box>,4> crossings{{
+        {{1150,200,620,400},{1310,200,620,400}},
+        {{-490,200,620,400},{-650,200,620,400}},
+        {{250,770,620,400},{250,930,620,400}},
+        {{250,-270,620,400},{250,-430,620,400}},
+    }};
+    for(auto [from,to]:crossings){
+        // A translated/negative monitor origin and fractional logical extents
+        // must not turn the visibility decision into physical-pixel geometry.
+        for(const auto origin:{std::pair{0.,0.},std::pair{-1920.25,400.5},std::pair{1280.,-900.}}){
+            const Box screen{origin.first,origin.second,output.w,output.h};
+            auto start=from,end=to;start.x+=screen.x;start.y+=screen.y;end.x+=screen.x;end.y+=screen.y;
+            Engine crossing(start);crossing.grab(start.x+310,start.y+200,false);
+            crossing.geometry(end,false,end.x+310,end.y+200);crossing.step(8,3,3);
+            assert(!overlaps(crossing.box,screen)); // former visibility result
+            assert(overlaps(renderBounds(crossing),screen));
+            const Box source{end.x-2,end.y-2,end.w+4,end.h+4};
+            Mesh trail;trail.update(crossing,3,8,screen,source);
+            size_t visible=0;const auto visual=renderBounds(crossing);
+            for(const auto& v:trail.vertices){
+                if(v.x>0 && v.x<1 && v.y>0 && v.y<1)++visible;
+                const double x=v.x*screen.w+screen.x,y=v.y*screen.h+screen.y;
+                assert(x>=visual.x && x<=visual.x+visual.w && y>=visual.y && y<=visual.y+visual.h);
+                assert(v.u>=0 && v.u<=1 && v.v>=0 && v.v<=1);
+            }
+            assert(visible>0); // actual tessellated surface, not just padding
+            // Keep drawing for every subsequent frame with visible geometry;
+            // once the tail leaves, stale damage must not keep it "visible".
+            bool stillMoving=true;
+            for(int frame=0;frame<10000 && stillMoving;++frame){
+                stillMoving=crossing.step(1000./144,3,3);
+                trail.update(crossing,3,8,screen,source);
+                bool onscreen=false;
+                for(const auto& v:trail.vertices)onscreen|=v.x>0 && v.x<1 && v.y>0 && v.y<1;
+                if(onscreen)assert(overlaps(renderBounds(crossing),screen));
+            }
+            assert(!stillMoving && !overlaps(renderBounds(crossing),screen));
         }
     }
     Engine snap({30,100,300,200});Compiz::CompScreen screen;screen.outputDev.push_back({{0,0,1000,800}});

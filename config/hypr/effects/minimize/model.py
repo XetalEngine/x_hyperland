@@ -25,7 +25,8 @@ DOCK_STYLES = {'follow': 'Follow desktop theme', 'raw': 'Xetal Raw · circuit ra
                'midnightrun': 'Midnight Run · Neon Pit Lane',
                'infernalencore': 'Infernal Encore · Amplifier Rack',
                'polaris': 'Polaris · Orbital Glass',
-               'leviathan': 'Leviathan · Puzzle Reliquary'}
+               'leviathan': 'Leviathan · Puzzle Reliquary',
+               'ghostbusters': 'Ghostbusters · Ghost Trap'}
 ORDERS = {'bottom-to-top': 'Bottom to top', 'top-to-bottom': 'Top to bottom'}
 HIDE_ANIMATIONS = {'slide':'Slide away', 'burn':'Burn away'}
 DEFAULTS = dict(enabled=True, effect='fireball', duration=420, size=76,

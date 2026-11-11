@@ -84,7 +84,10 @@ class FloatingDragTests(unittest.TestCase):
         self.drag.hovered.return_value = (self.query.return_value, None)
         self.drag.tick(.15)
         self.assertTrue(self.drag.dragging)
-        self.hypr.dispatch.assert_called_with('movewindowpixel', 'exact -980 130,address:0x123')
+        self.hypr.dispatch.assert_called_once_with('tagwindow', '+xetal-title-drag,address:0x123')
+        self.query.return_value = dict(x=-660, y=130)
+        self.drag.tick(.2)
+        self.hypr.dispatch.assert_called_with('movewindowpixel', 'exact -980 180,address:0x123')
 
     def test_crossing_another_window_does_not_transfer_or_cancel_the_grab(self):
         self.drag.press(0)
@@ -92,7 +95,26 @@ class FloatingDragTests(unittest.TestCase):
         self.drag.hovered.return_value = (self.query.return_value, dict(self.window, address='0x456'))
         self.drag.tick(.15)
         self.assertTrue(self.drag.dragging)
-        self.hypr.dispatch.assert_called_with('movewindowpixel', 'exact -980 130,address:0x123')
+        self.hypr.dispatch.assert_called_once_with('tagwindow', '+xetal-title-drag,address:0x123')
+        self.query.return_value = dict(x=-660, y=130)
+        self.drag.tick(.2)
+        self.hypr.dispatch.assert_called_with('movewindowpixel', 'exact -980 180,address:0x123')
+
+    def test_takeover_discards_pending_motion_and_tracks_only_subsequent_delta(self):
+        for dx, dy in ((300, 0), (-300, 0), (0, -120), (0, 300), (210, -100)):
+            with self.subTest(pending_motion=(dx, dy)):
+                self.hypr.dispatch.reset_mock()
+                self.drag.press(0)
+                self.query.return_value = dict(x=self.point['x']+dx, y=self.point['y']+dy)
+                self.drag.tick(.5)
+                self.assertTrue(self.drag.dragging)
+                self.hypr.dispatch.assert_called_once_with('tagwindow', '+xetal-title-drag,address:0x123')
+                self.drag.tick(.55)  # A held, stationary pointer cannot jump later.
+                self.assertEqual(self.hypr.dispatch.call_count, 1)
+                self.query.return_value = dict(x=self.point['x']+dx+7, y=self.point['y']+dy-9)
+                self.drag.tick(.6)
+                self.hypr.dispatch.assert_called_with('movewindowpixel', 'exact -993 191,address:0x123')
+                self.drag.release()
 
     def test_click_and_small_movement_pass_through(self):
         self.drag.press(0)
@@ -129,11 +151,14 @@ class FloatingDragTests(unittest.TestCase):
         self.query.return_value = dict(x=-680,y=222)
         self.drag.hovered.return_value = (dict(x=-680,y=222), self.window)
         self.drag.tick(.15); self.drag.tick(.2)
+        self.assertEqual(self.hypr.dispatch.call_count, 1)
+        self.query.return_value = dict(x=-660,y=232)
+        self.drag.tick(.25); self.drag.tick(.3)
         self.assertEqual(self.hypr.dispatch.call_count, 2)
         self.drag.release(); self.drag.release()
         self.assertEqual([call.args for call in self.hypr.dispatch.call_args_list],
                          [('tagwindow','+xetal-title-drag,address:0x123'),
-                          ('movewindowpixel','exact -980 202,address:0x123'),
+                          ('movewindowpixel','exact -980 210,address:0x123'),
                           ('tagwindow','-xetal-title-drag,address:0x123')])
 
     def test_native_drag_resize_closed_or_replaced_window_is_left_alone(self):
@@ -184,7 +209,7 @@ class FloatingDragTests(unittest.TestCase):
         self.query.return_value = dict(x=-660,y=222)
         self.drag.tick(.2)
         self.assertTrue(self.drag.dragging)
-        self.hypr.dispatch.assert_called_with('movewindowpixel','exact -960 202,address:0x123')
+        self.hypr.dispatch.assert_called_with('movewindowpixel','exact -980 200,address:0x123')
 
     def test_native_grip_leaves_motion_to_compositor(self):
         self.state['native_drag'] = True

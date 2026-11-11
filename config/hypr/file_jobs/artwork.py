@@ -45,6 +45,57 @@ def success(p, center, accent):
     p.drawLine(center+QPointF(-1, 6), center+QPointF(11, -7))
 
 
+def ghostbusters(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Slime couriers carry pages between two ghost traps, without wrap jumps."""
+    from ghostbusters import little_ghost
+    p.save();p.setClipRect(box,Qt.ClipOperation.IntersectClip)
+    mid=box.center();left=box.left()+25;right=box.right()-25
+    warm=QColor('#ffb52e' if surface.lightnessF()<.5 else '#785100')
+    for x,zipped in ((left,extracting),(right,archive)):
+        p.setBrush(surface);p.setPen(QPen(accent,1.2))
+        p.drawRoundedRect(QRectF(x-19,mid.y()-18,38,40),5,5)
+        p.setBrush(alpha(accent,40));p.drawRoundedRect(QRectF(x-16,mid.y()-15,32,23),3,3)
+        p.setPen(QPen(warm,2))
+        for dx in (-12,-4,4,12):p.drawLine(QPointF(x+dx-2,mid.y()+14),QPointF(x+dx+2,mid.y()+19))
+        p.save();p.translate(x,mid.y()-4);p.scale(.58,.58)
+        if zipped:
+            p.setPen(QPen(accent,2));p.setBrush(alpha(accent,25));p.drawRoundedRect(QRectF(-12,-14,24,28),3,3)
+            for y in (-9,-3,3,9):p.drawLine(QPointF(-3,y),QPointF(3,y))
+        else:paper(p,accent,technical=True)
+        p.restore()
+        p.setPen(Qt.PenStyle.NoPen);p.setBrush(alpha(accent,180+55*math.sin(phase*math.tau)))
+        p.drawEllipse(QPointF(x+12,mid.y()-11),1.8,1.8)
+    start,end=left+28,right-28
+    p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(alpha(accent,80),1.2))
+    rail=QPainterPath(QPointF(start,mid.y()+24))
+    for j in range(1,51):
+        x=start+(end-start)*j/50
+        rail.lineTo(x,mid.y()+24+1.4*math.sin(j/50*math.tau*3+phase*math.tau))
+    p.drawPath(rail)
+    if result:
+        if result=='done':success(p,mid,accent)
+        p.restore();return
+    for index in range(max(1,count)):
+        t=(phase+index/max(1,count))%1
+        fade=min(1.,t/.16,(1-t)/.16);fade=fade*fade*(3-2*fade)
+        travel=1-t if extracting else t;direction=-1 if extracting else 1
+        x=start+(end-start)*travel;y=mid.y()-4-6*math.sin(travel*math.pi)
+        p.save();p.setOpacity(p.opacity()*fade)
+        if glow:
+            halo=QRadialGradient(QPointF(x,y),25)
+            halo.setColorAt(0,alpha(accent,glow));halo.setColorAt(1,alpha(accent,0))
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(halo);p.drawEllipse(QPointF(x,y),25,25)
+        if trails:
+            p.setPen(Qt.PenStyle.NoPen)
+            for j in range(1,5):
+                p.setBrush(alpha(accent,90/(j+1)))
+                p.drawEllipse(QPointF(x-direction*j*6,y+4+2*math.sin(t*math.tau+j)),2.5-j*.3,2.5-j*.3)
+        little_ghost(p,QPointF(x,y-2),22,accent,surface)
+        p.translate(x+direction*7,y+10);p.scale(.46,.46);paper(p,accent,technical=True)
+        p.restore()
+    p.restore()
+
+
 def leviathan(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     """Documents and puzzle cubes pass between brass labyrinth gateways.
 

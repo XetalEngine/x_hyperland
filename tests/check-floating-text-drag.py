@@ -43,7 +43,7 @@ def main():
                QT_WAYLAND_DISABLE_WINDOWDECORATION='1', GSETTINGS_BACKEND='memory',
                XCURSOR_THEME='Adwaita', XCURSOR_SIZE='24',XETAL_WOBBLY_CONFIG=str(wobble))
     for key in ('HYPRLAND_INSTANCE_SIGNATURE','DISPLAY','DBUS_SESSION_BUS_ADDRESS'): env.pop(key,None)
-    children=[];logs=[];input_process=None;results=[]
+    children=[];logs=[];input_process=None;results=[];takeovers=[]
     def spawn(args,**kwargs):
         log=(root/f'process-{len(children)}.log').open('w');logs.append(log)
         process=subprocess.Popen(args,env=env,stdout=log,stderr=log,**kwargs);children.append(process);return process
@@ -174,34 +174,38 @@ window.show();app.exec()
             assert selection()['clicks']==count+1,('Title button click was intercepted',dx,selection(),cursor())
             assert client()['at']==before,('A quick click moved the window',dx)
         print('Title buttons receive ordinary, 1-pixel and fast moving clicks',flush=True)
-        # The original top inset and current-pointer re-hit test both rejected
-        # these upward grabs. Stop moving before activation too: native takeover
-        # must include the distance already travelled during the hold delay.
-        for offset in (-2, -1, 0, 1, 2, 3, 4):
+        def fast_grab(label, offset=1, pending=(50,-45), delayed=False):
             dispatch('movewindowpixel','exact 80 100,'+address)
+            time.sleep(.4)
             x,y=client()['at'];start=[x+400,y+offset]
-            gesture(f'move {start[0]} {start[1]}',.2)
-            gesture('button 1',.01)
-            gesture(f'move {start[0]+50} {start[1]-45}',.25)
-            actual=client()['at']
+            # Already moving at the press, then stop before takeover so any
+            # replay of pending motion is visible as an unambiguous jump.
+            gesture(f'move {start[0]-30} {start[1]}',.2)
+            gesture(f'move {start[0]} {start[1]}',.005)
+            if delayed:helper.send_signal(signal.SIGSTOP)
+            try:
+                gesture('button 1',.01)
+                pressed=cursor()
+                stop=[start[0]+pending[0],start[1]+pending[1]]
+                gesture(f'move {stop[0]} {stop[1]}',.02)
+            finally:
+                if delayed:helper.send_signal(signal.SIGCONT)
+            wait(lambda:cursor()['dragging'],'fast native takeover: '+label)
+            assert pressed['origin']['address']==client()['address'],(label,pressed)
+            assert client()['at']==[x,y],('Window jumped at takeover',label,client(),cursor())
+            time.sleep(.1)
+            assert client()['at']==[x,y],('Stationary grab jumped later',label,client())
+            gesture(f'move {stop[0]+18} {stop[1]+12}',.08)
+            gesture(f'move {stop[0]+30} {stop[1]+20}',.08)
+            actual=client()['at'];state=cursor()
             gesture('button 0',.1)
-            assert all(abs(a-b)<=2 for a,b in zip(actual,[x+50,y-45])),('Top edge fast grab lost motion',offset,actual,cursor())
-        # Simulate a busy helper: motion reaches another point before Python
-        # receives the press event. The compositor's recorded origin must win.
-        dispatch('movewindowpixel','exact 80 100,'+address)
-        x,y=client()['at'];gesture(f'move {x+400} {y+1}',.2)
-        helper.send_signal(signal.SIGSTOP)
-        try:
-            gesture('button 1',.01)
-            pressed=cursor()
-            gesture(f'move {x+440} {y-50}',.02)
-        finally:
-            helper.send_signal(signal.SIGCONT)
-        time.sleep(.3)
-        actual=client()['at'];gesture('button 0',.1)
-        assert pressed['origin']['address']==client()['address'],pressed
-        assert all(abs(a-b)<=2 for a,b in zip(actual,[x+40,y-51])),('Delayed press lost its original grab',actual,pressed)
-        print('Outer border, first five rows, fast upward grabs and delayed press delivery preserve the grab point',flush=True)
+            assert all(abs(a-b)<=2 for a,b in zip(actual,[x+30,y+20])),('Drag did not follow subsequent motion',label,actual,state)
+            takeovers.append(dict(label=label,pending=pending,delayed=delayed,before=[x,y],after=actual))
+        # Preserve the brim/first-row hit area and original target, even when
+        # the pointer leaves the window while Python is still handling a click.
+        for offset in (-2, -1, 0, 1, 2, 3, 4):fast_grab('upper row '+str(offset),offset)
+        fast_grab('delayed press delivery',delayed=True)
+        print('Upper border and fast upward grabs stay still at takeover, then follow new motion',flush=True)
         for mode in ('named','bitmap'):
             (root/'mode').write_text(mode);wait(lambda:selection()['mode']==mode,'cursor mode')
             x,y=client()['at'];before=[x,y]
@@ -229,6 +233,11 @@ window.show();app.exec()
             assert client()['at']!=before,('Normal drag must move with either toggle',normal,client(),cursor(),wobble_status())
             assert wobble_status()['grabs']-grabs==int(normal),('Normal drag switch',normal,wobble_status())
             wait(lambda:wobble_status()['active']==0,'normal wobble settles')
+            for pending in ((250,0),(-250,0),(0,180),(50,-45)):
+                grabs=wobble_status()['grabs']
+                fast_grab(f'normal wobble={normal}, pending={pending}',pending=pending,delayed=True)
+                assert wobble_status()['grabs']-grabs==int(normal),('Fast grip wobble switch',normal,wobble_status())
+                wait(lambda:wobble_status()['active']==0,'fast grab wobble settles')
             x,y=client()['at'];grabs=wobble_status()['grabs'];before=[x,y];gesture('key 125 1')
             drag([x+150,y+100],[x+185,y+135]);gesture('key 125 0')
             assert client()['at']!=before,'Hotkey drag must move with either toggle'
@@ -236,7 +245,7 @@ window.show();app.exec()
             wait(lambda:wobble_status()['active']==0,'hotkey wobble settles')
         print('Wobbly recognizes the text-safe native top grip; both drag switches act independently',flush=True)
         assert helper.poll() is None,'Drag helper crashed'
-        (root/'results.json').write_text(json.dumps({'checks':results,'super_drag':True},indent=2)+'\n')
+        (root/'results.json').write_text(json.dumps({'checks':results,'takeovers':takeovers,'super_drag':True},indent=2)+'\n')
         print(json.dumps({'modes':[r['mode'] for r in results],'text_selection':True,'header_drag':True,'super_drag':True}),flush=True)
     finally:
         if input_process:

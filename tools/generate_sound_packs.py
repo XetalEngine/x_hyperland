@@ -22,6 +22,7 @@ from sounds.model import PACKS, EVENTS
 RATE = 48000
 # tonic, voice, unique opening melody (semitones), beat spacing
 SCORES = {
+    'ghostbusters': (62, 'ectoplasm', [0, 7, 3, 10, 14, 12], .36),
     'leviathan': (50, 'reliquary', [0, 7, 10, 3, 14, 12], .44),
     'polaris': (67, 'polar', [0, 7, 14, 12, 19, 16], .38),
     'infernalencore': (52, 'encore', [0, 0, 7, 10, 7, 3], .29),
@@ -69,6 +70,13 @@ def voice(midi, duration, kind, seed=0):
         out = np.tanh(out*1.2)/1.2
         out += .08*np.sin(phase*.5)*np.exp(-3*t)
         attack = .024
+    elif kind == 'ectoplasm':
+        # An original liquid synth voice, never a sample of the film score.
+        bend = .38*np.exp(-18*t) + .035*np.sin(2*np.pi*5*t)*(1-np.exp(-8*t))
+        out = np.sin(phase+bend)*np.exp(-3*t)
+        out += .16*np.sin(phase*2+.7*np.exp(-15*t))*np.exp(-6*t)
+        out += .10*np.sin(phase*.5)*np.exp(-2.4*t)*(1-np.exp(-14*t))
+        attack = .035
     elif kind == 'reliquary':
         # Soft struck brass, a delayed low resonance and a gentle attack.
         out = np.sin(phase)*np.exp(-3*t)

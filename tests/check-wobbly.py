@@ -435,6 +435,54 @@ windowrule=match:class ^wobbly-test$,float on
         point('up 272');point('key 125 0');wait(lambda:status()['active']==0)
         (root/'monitor-timing.json').write_text(json.dumps({'outputs':outputs,'transferred':s},indent=2))
         print('Held drag transfer preserves the spring lattice; actual output rates:',[o['refreshRate'] for o in outputs],flush=True)
+        # Late crossing: the entire decorated source rectangle is already on
+        # the destination, while the final strip of the mesh remains on the
+        # departing output. Previous edge checks kept part of the source there
+        # and could not catch visibleOnMonitor rejecting this last strip.
+        # Remove only this test client's other windows, which have the same
+        # blue fill and could otherwise make a missing-tail pixel check pass.
+        for other in clients():
+            if other['class']=='wobbly-test' and other['title'] not in ('Map shiver','XWayland wobble'):
+                command('close',other['title'])
+        if client('XWayland wobble'):xcommand('close')
+        prior_physics={key:values[key] for key in ('spring_k','friction')}
+        save(spring_k=.1,friction=3)
+        trailing=[]
+        try:
+            for direction in ('right','left'):
+                x=width-220 if direction=='right' else width-400
+                pointer_x=width+200 if direction=='right' else width-320
+                destination=width+500 if direction=='right' else width-620
+                dispatch('resizewindowpixel','exact 620 400,'+address)
+                dispatch('movewindowpixel',f'exact {x} 180,'+address);time.sleep(.4)
+                dispatch('focuswindow',address)
+                point(f'move {pointer_x} 240');point('key 125 1');point('down 272')
+                wait(lambda:status()['active']==1 and status()['windows'][0]['grabbed'])
+                point(f'move {destination} 240')
+                def departed():
+                    state=status()
+                    if not state['windows']:return None
+                    box=state['windows'][0]['box']
+                    outside=box[0]>width+5 if direction=='right' else box[0]+box[2]<width-5
+                    return state if outside else None
+                state=wait(departed)
+                visual=state['windows'][0]['render_bounds']
+                assert visual[0]<width-30 if direction=='right' else visual[0]+visual[2]>width+30,state
+                screenshot('trailing-'+direction)
+                picture=Image.open(root/('trailing-'+direction+'.png')).convert('RGB')
+                ratio=picture.width/right
+                band=(width-220,220,width-5,540) if direction=='right' else (width+5,220,width+220,540)
+                crop=picture.crop(tuple(round(v*ratio) for v in band))
+                colored=sum(b>r+18 and g>r+10 for r,g,b in crop.getdata())
+                assert colored>100,(direction,colored,state,'Trailing mesh disappeared when its source left the monitor')
+                trailing.append(dict(direction=direction,state=state,colored_pixels=colored))
+                point('up 272');point('key 125 0')
+                # End this deliberately slow test lattice before the next case.
+                save(spring_k=.1,friction=3)
+        finally:
+            point('up 272');point('key 125 0');save(**prior_physics)
+        (root/'trailing-mesh.json').write_text(json.dumps(trailing,indent=2))
+        print('Trailing mesh remains visible after the complete source rectangle leaves either output',flush=True)
         # Nested Wayland outputs may report 60 Hz regardless of requested mode.
         # Rate invariance (60/120/144/240 Hz and rate changes) is also checked by
         # native/test_engine.cpp; this checks actual per-output callbacks/transfer.

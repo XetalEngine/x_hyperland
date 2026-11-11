@@ -118,8 +118,11 @@ class Drag:
             self.native=True;self.dragging=True
             return
         self.hypr.dispatch('tagwindow', '+xetal-title-drag,address:' + target['address'])
+        # Match native takeover: the press selects the window, but movement
+        # starts here. Replaying the hold delay's motion causes an initial jump.
+        self.candidate = (target, cursor, started)
+        self.last_position = tuple(target['at'])
         self.dragging = True
-        self.move(cursor)
 
     def move(self, cursor):
         if self.native:return

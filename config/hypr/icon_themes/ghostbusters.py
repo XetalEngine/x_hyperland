@@ -1,0 +1,23 @@
+"""Original slime folders and enamel badges with recognizable semantic glyphs."""
+from xml.sax.saxutils import escape
+
+
+def svg(name, catalog, symbol):
+    label,group,kind,_=catalog[name]
+    folder=kind=='folder' or group=='Places' and name.startswith('folder-')
+    document=kind.startswith('file-')
+    defs='<defs><linearGradient id="metal" x2=".25" y2="1"><stop stop-color="#e1ff88"/><stop offset=".25" stop-color="#b4ff00"/><stop offset="1" stop-color="#60b800"/></linearGradient><linearGradient id="enamel" x2=".2" y2="1"><stop stop-color="#263c2b"/><stop offset="1" stop-color="#08110f"/></linearGradient></defs>'
+    if folder:
+        body='<path d="M5 20V14Q5 9 11 9H24L31 16H52Q58 16 58 22V50Q58 55 52 55H11Q5 55 5 50Z" fill="url(#metal)" stroke="#102207" stroke-width="2.5"/>'
+        body+='<path d="M6 24Q6 20 11 20H53Q58 20 58 25V49Q58 54 52 54H11Q6 54 6 49Z" fill="url(#metal)" stroke="#20380c" stroke-width="1.7"/>'
+        body+='<path d="M11 24H52M11 26V35" fill="none" stroke="#e5ff9b" stroke-width="1.4" stroke-linecap="round"/>'
+        if kind!='folder':body+='<g transform="translate(10 13) scale(.68)" fill="none" stroke="#1d380b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'+symbol(kind)+'</g>'
+    elif document:
+        body='<path d="M14 5H39L52 18V55Q52 59 48 59H18Q14 59 14 55Z" fill="url(#enamel)" stroke="#b4ff00" stroke-width="2"/><path d="M39 5V18H52" fill="none" stroke="#dcff8a" stroke-width="1.5"/>'
+        body+='<g transform="translate(10 12) scale(.72)" fill="none" stroke="#c5ff45" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">'+symbol(kind)+'</g>'
+    else:
+        body='<rect x="5" y="5" width="54" height="54" rx="13" fill="url(#enamel)" stroke="#102207" stroke-width="4"/><rect x="5" y="5" width="54" height="54" rx="13" fill="none" stroke="#b4ff00" stroke-width="1.8"/>'
+        body+='<g transform="translate(2 2) scale(.94)" fill="none" stroke="url(#metal)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">'+symbol(kind)+'</g>'
+    # Liquid lip: deliberately separate from the glyph, even at small sizes.
+    body+='<path d="M8 11Q7 5 17 5H28Q31 5 30 8Q29 10 25 8Q22 7 21 12Q20 16 17 14Q15 13 17 9Q10 7 11 15Q11 20 8 19Z" fill="#b4ff00" stroke="#426a0b" stroke-width=".6"/>'
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>'+escape(label+' · Ghostbusters')+'</title>'+defs+body+'</svg>\n'

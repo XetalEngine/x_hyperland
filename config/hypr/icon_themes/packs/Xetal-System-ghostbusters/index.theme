@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Ghostbusters
+Comment=Slime-green folders, liquid edges and midnight enamel badges.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

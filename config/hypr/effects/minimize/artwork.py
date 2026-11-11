@@ -233,8 +233,33 @@ def puzzle_reliquary(p, width, colors, phase):
     p.restore()
 
 
+def ghost_trap(p, width, colors, phase):
+    """Enamel trap rail, striped end guards and a living ectoplasm lip."""
+    accent,ink,base=(QColor(colors[k]) for k in ('Accent','WindowText','Window'))
+    p.save();bounds=QRectF(8,8,width-16,80)
+    shape=QPainterPath();shape.addRoundedRect(bounds,10,10)
+    fill=QLinearGradient(0,8,0,88)
+    fill.setColorAt(0,blend(base,ink,.12));fill.setColorAt(1,base)
+    p.setBrush(fill);p.setPen(QPen(accent,1.5));p.drawPath(shape);p.setClipPath(shape,Qt.ClipOperation.IntersectClip)
+    for x,sx in ((8,1),(width-8,-1)):
+        p.save();p.translate(x,8);p.scale(sx,1)
+        p.fillRect(QRectF(2,8,18,64),blend(base,'#000000',.2))
+        warm=blend(ink,'#ffc229',.75);p.setPen(QPen(warm,3))
+        for y in (15,26,37,48,59):line(p,5,y,16,y-7)
+        p.setPen(Qt.PenStyle.NoPen);p.setBrush(alpha(accent,.75+.15*math.sin(phase)))
+        p.drawEllipse(QPointF(11,70),2.5,2.5);p.restore()
+    p.setPen(QPen(alpha(accent,.8),2));line(p,32,81,width-32,81)
+    lip=QPainterPath(QPointF(32,10));lip.lineTo(width-32,10);lip.lineTo(width-32,13)
+    for i in range(30,-1,-1):
+        x=32+(width-64)*i/30
+        lip.lineTo(x,14+2*math.sin(x*.1+phase)+1.5*math.sin(x*.21-phase))
+    lip.closeSubpath();p.fillPath(lip,accent);p.restore()
+
+
 def tray(painter, width, style, colors, phase):
     """Draw a horizontal tray in a width × 96 coordinate space."""
+    if style == 'ghostbusters':
+        ghost_trap(painter,width,colors,phase);return
     if style == 'leviathan':
         puzzle_reliquary(painter,width,colors,phase);return
     if style == 'polaris':
@@ -476,8 +501,15 @@ def dock(p, area, style, colors, *, phase=0., weights=(1., 1., 1.), zoom=(), ver
         p.save(); p.setOpacity(p.opacity()*max(0., min(1., weight)))
         if not stack:
             p.setPen(QPen(alpha(colors['Accent'], .12+(z-1)), .8)); p.setBrush(alpha(colors['Accent'], .035+(z-1)*.1))
-            radius = 4 if style == 'leviathan' else 11 if style == 'polaris' else 4 if style == 'infernalencore' else 1 if style == 'platform95' else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style in ('midnighttransit','midnightrun') else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
+            radius = 8 if style == 'ghostbusters' else 4 if style == 'leviathan' else 11 if style == 'polaris' else 4 if style == 'infernalencore' else 1 if style == 'platform95' else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style in ('midnighttransit','midnightrun') else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
             p.drawRoundedRect(rect, radius, radius)
+        if style == 'ghostbusters' and not stack:
+            accent=QColor(colors['Accent'])
+            p.setBrush(blend(colors['Window'],accent,.06+(z-1)*.12))
+            p.setPen(QPen(alpha(accent,min(1,.5+(z-1)*.5)),1));p.drawRoundedRect(rect,8,8)
+            p.setPen(QPen(alpha(accent,.8),1.8));line(p,rect.left()+8,rect.bottom()-5,rect.right()-8,rect.bottom()-5)
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(alpha(accent,.5))
+            for dx in (-5,5):p.drawEllipse(QPointF(rect.center().x()+dx,rect.top()+5),1.2,1.2)
         if style == 'leviathan' and not stack:
             brass=blend(colors['WindowText'],'#c79b61',.65);accent=QColor(colors['Accent'])
             p.setBrush(blend(colors['Window'],accent,.04+(z-1)*.1));p.setPen(QPen(alpha(brass,min(1,.4+(z-1)*.5)),.8));p.drawRoundedRect(rect,4,4)

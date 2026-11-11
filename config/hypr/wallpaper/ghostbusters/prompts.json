@@ -1,0 +1,37 @@
+{
+  "theme": "ghostbusters",
+  "tool": "Built-in image_gen",
+  "reference": "User-provided Ghostbusters desktop concept; used for illustration style and character reference.",
+  "images": [
+    {
+      "file": "slimer-at-the-firehouse.png",
+      "title": "Slimer at the Firehouse",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "13158908c1b9e81da90f3cbbefa7a34e86e3627bfa6ac33ff8bbc6a458181fbf",
+      "prompt": "Use case: stylized-concept. Create a finished wide 16:9 desktop wallpaper for a Ghostbusters theme. The attached screenshot is a STYLE AND CHARACTER REFERENCE only, not a layout to reproduce. Keep its playful hand-drawn cartoon Slimer: bright ectoplasm green, orange eyes, huge joyful open mouth and purple tongue, bold clean black outlines, smooth cel shading and glossy highlights. Scene: inside the Ghostbusters firehouse at midnight, deep navy brick, arched moonlit window, warm orange hanging lamp, red firehouse doors and a small ghost trap on the floor with red-orange electrical energy. Slimer floats in the center-right above a luminous puddle, gesturing happily. Rich illustrated environmental detail and cinematic reflected neon green on wet concrete. Keep the left quarter darker and calmer for real desktop icons, with a clean dark upper edge for a real panel. Strong black/acid-green/blue palette, controlled orange and magenta accents. Wallpaper artwork ONLY: no desktop interface, no windows, no panels, no icons, no buttons, no lettering, no captions, no text watermark. High-resolution widescreen polished illustration."
+    },
+    {
+      "file": "ecto-one-after-hours.png",
+      "title": "Ecto-1 After Hours",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "5b7ad2e85092bfb799428acc54fc2346ba254f47374e4754055a341a97af7cd9",
+      "prompt": "Use case: stylized-concept. Create a second distinct finished 16:9 Ghostbusters desktop wallpaper. Attached image is only a reference for its bold clean cartoon outlines, cel-shaded color, glossy neon slime and dark blue nighttime mood; do not reproduce any desktop interface. Scene: the iconic white Ecto-1 Ghostbusters ambulance with red tail fins and rooftop paranormal equipment parked outside a red-brick New York firehouse on a rainy night, seen from a low three-quarter front angle. Slimer peeks playfully from behind the roof equipment, smaller than the vehicle. Electric-lime ectoplasm trickles into luminous puddles along the curb, glowing green reflections across wet asphalt; restrained red beacon and warm amber window light against midnight navy buildings. Cinematic wide framing, vehicle in lower center-right, left side and top provide calm dark negative space for real desktop content. A distinct exterior composition, not the indoor scene from the reference. Crisp expressive 2D cartoon illustration with detailed vehicle, charming spooky atmosphere. Artwork only, no fake windows, taskbars, app icons, menus, captions, words, typography, or watermark."
+    },
+    {
+      "file": "containment-breach.png",
+      "title": "Containment Breach",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "dcc95ed5730125bd463372f1e82b9e05578460966f26fdd99e07e69fce382521",
+      "prompt": "Use case: stylized-concept. Create a third distinct 16:9 Ghostbusters desktop wallpaper using the attached screenshot only for cartoon style and neon-green/black/navy palette. Scene: an atmospheric underground Ghostbusters containment room, dramatic wide perspective, riveted dark steel containment unit and thick pipes on the right, red-and-orange glowing gauges, a ghost trap and coiled cable on the floor, a spectacular curling ribbon of acid-green ectoplasm escaping into the air and forming a mischievous Slimer face in the upper-right mist. Bold black cartoon outlines, precise cel shading, luminous wet slime, cool moon-blue industrial shadows, glossy green reflections on a polished dark floor. This is the quieter companion wallpaper: generous dark open floor and shadowy wall space on the left and center, vivid detail concentrated to the right. Playful supernatural laboratory, richly finished 2D illustration, no horror gore. Make it visually different from both a firehouse interior portrait and a car exterior. Wallpaper only: absolutely no UI, no panels, no windows, no app icons, no lettering, no wordmarks, no watermark."
+    }
+  ]
+}

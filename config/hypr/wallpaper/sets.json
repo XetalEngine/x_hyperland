@@ -109,5 +109,10 @@
     "leviathan/leviathans-approach.png",
     "leviathan/the-brass-configuration.png",
     "leviathan/endless-dominion.png"
+  ],
+  "ghostbusters": [
+    "ghostbusters/slimer-at-the-firehouse.png",
+    "ghostbusters/ecto-one-after-hours.png",
+    "ghostbusters/containment-breach.png"
   ]
 }

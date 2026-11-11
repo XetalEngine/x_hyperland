@@ -1,5 +1,6 @@
 """Original vector cursor families, shared by the picker and generated themes."""
 STYLES = {
+    'ghostbusters': ('Ghostbusters Ectoplasm', '#b4ff00', '#102207', '#f4a3dd'),
     'leviathan': ('Leviathan Gilded', '#f0d8b6', '#211c29', '#c69ae5'),
     'polaris': ('Polaris Starlight', '#e8fcff', '#18344b', '#22daed'),
     'infernalencore': ('Infernal Blade', '#f4dfbd', '#36150f', '#ff472c'),
@@ -50,7 +51,11 @@ def svg(style, shape='left_ptr', frame=0):
         arrow = 'M5 3L29 17L18 20L23 31L18 34L12 23L6 28Z'
     if style == 'polaris':
         arrow = 'M5 3Q6 2 8 5L28 20L18 21L22 30L18 33L13 23L6 28Z'
+    if style == 'ghostbusters':
+        arrow = 'M5 3Q8 4 13 8L29 19Q30 22 26 22L18 21L22 29Q23 33 19 33Q17 33 16 30L12 23L8 28Q4 29 5 25Z'
     body = f'<path d="{arrow}"/>'
+    if style == 'ghostbusters':
+        body += '<path d="M8 9V18M10 10L20 17" fill="none" stroke="#eeffc7" stroke-width="1.3"/><circle cx="10" cy="21" r="1" fill="#e1ff88" stroke="none"/>'
     if style == 'leviathan':
         body += f'<path d="M8 8L10 22L14 18L23 17M10 12L17 16L13 19Z" fill="none" stroke="{edge}" stroke-width=".8"/><path d="M10 12L17 16L13 19Z" fill="{accent}" stroke-width=".5"/>'
     if style == 'polaris':
@@ -84,6 +89,11 @@ def svg(style, shape='left_ptr', frame=0):
         hot=(18,18)
     elif shape in ('watch','left_ptr_watch'):
         ring=f'<g transform="rotate({frame*30} 18 18)"><circle cx="18" cy="18" r="11" fill="none" stroke="{edge}" stroke-opacity=".25" stroke-width="4"/><path d="M18 7A11 11 0 0 1 29 18" fill="none" stroke="{accent}" stroke-width="4"/></g>'
+        if style == 'ghostbusters':
+            ring = (f'<path d="M7 28Q12 21 8 17Q6 5 18 4Q31 4 29 18Q26 24 30 29Q24 33 21 28Q16 33 13 28Q10 32 7 28Z" fill="{fill}" stroke="{edge}"/>'
+                    f'<ellipse cx="14" cy="14" rx="2" ry="3" fill="{edge}"/><ellipse cx="22" cy="14" rx="2" ry="3" fill="{edge}"/>'
+                    f'<path d="M13 20Q19 29 25 19Q19 21 13 20Z" fill="{edge}"/>'
+                    f'<g transform="rotate({frame*30} 18 18)"><circle cx="18" cy="2.5" r="2" fill="{accent}" stroke="{edge}" stroke-width=".8"/></g>')
         if style == 'leviathan':
             ring = (f'<circle cx="18" cy="18" r="14" fill="{edge}" stroke="{fill}" stroke-width=".8"/>'
                     f'<g transform="rotate({frame*30} 18 18)"><path d="M18 5L29 18L18 31L7 18ZM18 5V31M7 18H29M18 9L25 18L18 27L11 18Z" fill="none" stroke="{fill}" stroke-width="1.1"/>'

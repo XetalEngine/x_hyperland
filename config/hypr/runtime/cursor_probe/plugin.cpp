@@ -143,20 +143,16 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
                Fullscreen::controller()->getFullscreenModes(w).internal!=Fullscreen::FSMODE_NONE)
                 return SDispatchResult{.success=false,.error="The window cannot be dragged"};
             // The helper already checked the press AND current cursor artwork.
-            // Catch up motion made during the click-protection delay before
-            // native dragging records its offset. The original grab point
-            // stays beneath the pointer, even after a fast upward movement.
+            // Start from the current window and pointer positions. The hold
+            // delay decides whether this is a drag; replaying its accumulated
+            // motion here teleports the window before the native/Wobbly grab.
             auto target=w->layoutTarget();
             if(!target||!target->space())
                 return SDispatchResult{.success=false,.error="The window has no drag target"};
-            const auto before=target->position();
-            target->setPositionGlobal({(before.pos()+Pointer::mgr()->position()-pressedPosition).round(),before.size()});
-            target->warpPositionSize();
             // Pointer motion now goes directly through the compositor, at the
             // display/input cadence, rather than 16 ms IPC position updates.
             g_layoutManager->beginDragTarget(target,MBIND_MOVE,std::nullopt,true);
             if(g_layoutManager->dragController()->target()!=target) {
-                target->setPositionGlobal(before);target->warpPositionSize();
                 return SDispatchResult{.success=false,.error="The title grip could not start"};
             }
             grip=w;return SDispatchResult{};

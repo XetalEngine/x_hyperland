@@ -25,8 +25,11 @@ After the Python helper validates both cursors and the movement threshold,
 left-button serial and the same mapped floating window with unchanged geometry
 are required. The helper keeps that target when fast motion leaves the window
 during the hold delay; it never substitutes the window beneath the new pointer
-position. Motion accumulated during the delay is applied before native dragging
-captures its offset, preserving the original grab point. Release or
+position. Takeover leaves the window where it is and captures the pointer's
+current position as the movement origin. Motion during the click-protection
+delay only establishes drag intent; it is not replayed as a position jump before
+the native drag and Wobbly begin. Subsequent motion follows the pointer's delta
+from takeover, including when a fast pointer has already left the header. Release or
 `xetaldrag:end` ends only that grip's drag. Movement now follows native pointer
 events instead of 16 ms IPC position changes. Wobbly recognizes it as normal
 dragging, and the Super-hover close button stays hidden until the drag ends.
@@ -58,5 +61,7 @@ python3 tests/check-floating-text-drag.py /tmp/fusion-text-drag-check
 The second command uses a new output directory, a private nested compositor with
 XWayland disabled, a private D-Bus session and a frameless text-field fixture. It
 tests real selection, leaving the field while holding the mouse, empty-header
-dragging and Super-drag with both named and bitmap cursors. Test input goes only
-to that nested compositor.
+dragging and Super-drag with both named and bitmap cursors. Fast grabs and delayed
+press delivery must leave the window stationary at takeover, then move by only
+the subsequent pointer delta, with Wobbly both on and off. Test input goes only to
+that nested compositor.

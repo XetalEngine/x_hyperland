@@ -5,6 +5,7 @@ from xml.sax.saxutils import escape
 VERSION = 4
 # Name, metal/light, midtone, shadow, face, decorative language.
 STYLES = {
+    'ghostbusters': ('Ghostbusters', '#e1ff88', '#b4ff00', '#60b800', '#08110f', 'ghostbusters'),
     'leviathan': ('Leviathan', '#eed7b2', '#c6a06c', '#a47ac0', '#17151d', 'leviathan'),
     'polaris': ('Polaris', '#d8f8ff', '#4de5f5', '#a391fa', '#16243c', 'polaris'),
     'infernalencore': ('Infernal Encore', '#f4dfbd', '#d6975b', '#ff472c', '#181414', 'encore'),
@@ -28,6 +29,7 @@ STYLES = {
     'gildedhollow': ('The Gilded Hollow', '#fff0b7', '#dfb469', '#836137', '#303c32', 'brass'),
 }
 DESCRIPTIONS = {
+    'ghostbusters': 'Slime-green folders, liquid edges and midnight enamel badges.',
     'leviathan': 'Engraved brass folders, obsidian plaques and amethyst details.',
     'polaris': 'Sapphire glass tiles, luminous cyan symbols and violet folder depths.',
     'infernalencore': 'Brass-framed black folders, red symbols and riveted corners.',
@@ -163,6 +165,9 @@ def ornament(style, accent):
 
 
 def svg(style, name):
+    if style == 'ghostbusters':
+        from .ghostbusters import svg as ghostbusters_svg
+        return ghostbusters_svg(ALIASES.get(name,name),CATALOG,symbol)
     if style == 'leviathan':
         from .leviathan import svg as leviathan_svg
         return leviathan_svg(ALIASES.get(name,name),CATALOG,symbol)

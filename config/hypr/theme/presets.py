@@ -122,7 +122,9 @@ def builtin(design, mode=None, root=None):
     value.setdefault('cursors',copy.deepcopy(cursors.DEFAULTS))
     effect=mouse_effects.STYLES[mouse_effects.THEMES.get(design,'plasma')]
     value['cursors'].update(trail='follow',color=effect[2])
-    if design == 'leviathan':
+    if design == 'ghostbusters':
+        value['cursors'].update(style='ghostbusters',trail='glow',color='#b4ff00')
+    elif design == 'leviathan':
         value['cursors'].update(style='leviathan',trail='glow',color='#c69ae5')
     elif design == 'polaris':
         value['cursors'].update(style='polaris',trail='glow',color='#32e1f2')

@@ -14,7 +14,7 @@
 // own headers must retain default visibility for their shared global state.
 namespace Minimize __attribute__((visibility("hidden"))) {
 inline const std::map<std::string,int> dockStyles{{"raw",0},{"modern",1},{"breakpoint",2},{"binaryknife",3},
-    {"tidalglass",4},{"porcelainink",5},{"obsidianforge",6},{"candycloud",7},{"shadowedge",8},{"hollowgrove",9},{"gildedhollow",10},{"hyperfusionblue",11},{"midnighttransit",12},{"blackwood",13},{"atomicafterglow",14},{"mycelium",15},{"platform95",16},{"midnightrun",17},{"infernalencore",18},{"polaris",19},{"leviathan",20}};
+    {"tidalglass",4},{"porcelainink",5},{"obsidianforge",6},{"candycloud",7},{"shadowedge",8},{"hollowgrove",9},{"gildedhollow",10},{"hyperfusionblue",11},{"midnighttransit",12},{"blackwood",13},{"atomicafterglow",14},{"mycelium",15},{"platform95",16},{"midnightrun",17},{"infernalencore",18},{"polaris",19},{"leviathan",20},{"ghostbusters",21}};
 struct Settings {
     bool enabled=true, followTheme=true, rightEdge=false, bottomToTop=true;
     bool dock=true, autoHide=true;
