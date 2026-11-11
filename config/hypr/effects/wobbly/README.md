@@ -28,6 +28,20 @@ after the undeformed window rectangle has left the old output. This extends only
 the compositor's geometric visibility test; its workspace, fullscreen, stacking
 and Minimize filters still decide whether the window may be shown. Source capture
 coordinates, input geometry and the original spring physics are unchanged.
+If a maximized or fullscreen window is behind a crossing float, its remaining
+mesh joins the existing foreground window pass on the old output. The compositor
+normally restricts that pass to the background window's workspace, so changing
+workspace at the seam would otherwise put the tail underneath the background.
+Crossing windows keep their order relative to the other foreground windows, are
+painted once, and do not change workspace, input geometry or stacking state.
+The same ordering applies to a settled float straddling the seam, so releasing
+the drag does not make its visible half disappear when the springs stop.
+Before each output's render checks, a visible lattice also prevents the
+single-fullscreen-window shortcut for that frame. The compositor normally checks
+only floats on that fullscreen window's workspace; a crossing window already
+belongs to the neighbor's workspace. Without this guard, the shortcut can skip
+the trailing mesh even though its bounds are correct. Normal visibility rules
+still apply, and the optimization resumes when no visible lattice needs it.
 
 All 14 options from `compiz-core/metadata/wobbly.xml.in` are present. The original
 metadata is included as `compiz-options.xml` and checked against the controls:
@@ -97,7 +111,9 @@ hyprctl dispatch xetalwobbly:shiver
 
 The status command reports active lattices, render/physics counters, mesh builds,
 requested damage area as a fraction of the affected outputs, current source and
-deformed render bounds, and bell
+deformed render bounds, per-output `crossing_frames` (foreground pass repairs)
+and `composited_frames` (fullscreen shortcuts avoided for a visible crossing or
+lattice), and bell
 subscriptions. There is no independent animation timer. Reload,
 disable, close, workspace changes and unload detach owned transformers. Snapping
 modifiers are allowed during a drag without Hyprland ending that drag; other
@@ -121,3 +137,10 @@ Native regressions also cover the final trailing strip after the source rectangl
 has completely departed all four output edges, including translated and negative
 monitor origins, and verify that rendering stops when the mesh has left. The
 nested check captures that last strip during transfers in both directions.
+The pass-order unit test reproduces the old background occlusion and verifies
+both maximized and fullscreen backgrounds, foreground stack order, single draws,
+hidden/minimized exclusions and cleanup. The nested check also repeats both
+seams of a three-monitor layout (1920×1080, 2560×1440, 2560×1440), with ordinary,
+maximized and fullscreen backgrounds. A solid red background fixture makes
+missing blue window pixels detectable. It checks that solitary rendering resumes
+after the mesh leaves.

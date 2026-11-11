@@ -2,8 +2,11 @@ import json,sys
 from PyQt6.QtCore import QSocketNotifier,QTimer,QTime
 from PyQt6.QtWidgets import QApplication,QWidget,QVBoxLayout,QLabel,QLineEdit
 app=QApplication(sys.argv);app.setDesktopFileName("wobbly-test");app.setQuitOnLastWindowClosed(False);windows={}
-def add(name):
+def add(name,backdrop=False):
     w=QWidget();w.setWindowTitle(name);w.resize(620,400)
+    if backdrop:
+        w.setStyleSheet('background:#621a18;')
+        windows[name]=w;w.show();return
     w.setStyleSheet('QWidget {background:#132f42;color:#edf5fa;font-size:24px;} QLineEdit {background:#25526d;}')
     layout=QVBoxLayout(w);layout.addWidget(QLabel('TOP — '+name))
     layout.addWidget(QLineEdit('Live text stays editable'));clock=QLabel();layout.addWidget(clock);layout.addStretch();layout.addWidget(QLabel('BOTTOM — original window content'))
@@ -14,6 +17,8 @@ def read(*_):
     if not line:app.quit();return
     c=json.loads(line);name=c.get('name','Wobbly test');op=c['op']
     if op=='add':add(name)
+    elif op=='backdrop':add(name,True)
+    elif op=='fullscreen':windows[name].showFullScreen()
     elif op=='close':windows[name].close()
     elif op=='max':windows[name].showMaximized()
     elif op=='restore':windows[name].showNormal()

@@ -5,6 +5,7 @@
 #include <hyprland/src/render/Renderer.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
+#include <hyprland/src/desktop/state/FadingOutState.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/Workspace.hpp>
 #include <hyprland/src/state/MonitorState.hpp>
@@ -29,6 +30,7 @@
 #include "graphics.hpp"
 #include "capture.hpp"
 #include "render_bounds.hpp"
+#include "fullscreen_pass.hpp"
 #include "../../../runtime/window_types_native.hpp"
 // xcb-xkb's generated C header uses the C++ keyword as a field name.
 #define explicit explicit_
@@ -47,7 +49,7 @@ std::vector<CHyprSignalListener> listeners;
 std::vector<CFunctionHook*> hooks;
 bool stopping=false;
 uint64_t started=0,finished=0,draws=0,steps=0,grabs=0,shivers=0,meshBuilds=0;
-std::map<int64_t,uint64_t> outputSteps;
+std::map<int64_t,uint64_t> outputSteps,outputCompositedFrames,outputCrossingFrames;
 double damagePixels=0,monitorPixels=0;
 std::string lastError;
 xcb_connection_t* bellConnection=nullptr;
@@ -140,6 +142,45 @@ std::optional<CBox> transformedBounds(CTransformedWindowPassElement* element){
     const double left=std::min(original->x,visual.x),top=std::min(original->y,visual.y);
     return CBox{left,top,std::max(original->x+original->w,visual.x+visual.w)-left,
                 std::max(original->y+original->h,visual.y+visual.h)-top};
+}
+using WorkspaceRenderFn=void(*)(Render::IHyprRenderer*,PHLMONITOR,PHLWORKSPACE,const Time::steady_tp&);
+WorkspaceRenderFn originalFullscreenWorkspace=nullptr;
+bool crossingForeground(Render::IHyprRenderer* renderer,PHLWINDOW w,PHLMONITOR monitor,PHLWORKSPACE workspace){
+    return workspace && !workspace->m_isSpecialWorkspace && usable(w) && w->m_isFloating && !w->m_pinned &&
+        w->m_workspace!=workspace && !w->onSpecialWorkspace() && w->isAllowedOverFullscreen() &&
+        !Fullscreen::controller()->isFullscreen(w) && renderer->shouldRenderWindow(w,monitor) &&
+        w->alphaValue(Desktop::View::WINDOW_ALPHA_FADE)*w->alphaValue(Desktop::View::WINDOW_ALPHA_FULLSCREEN)>0.f;
+}
+void fullscreenWorkspace(Render::IHyprRenderer* renderer,PHLMONITOR monitor,PHLWORKSPACE workspace,const Time::steady_tp& time){
+    std::vector<PHLWINDOW> crossing;
+    // Include settled floats as well: dropping the window across a seam must
+    // not hide half of it when its last spring animation ends.
+    if(!stopping && !renderer->m_bRenderingSnapshot)
+        for(const auto& w:Desktop::windowState()->windows())
+            if(crossingForeground(renderer,w,monitor,workspace))crossing.push_back(w);
+    if(crossing.empty()){originalFullscreenWorkspace(renderer,monitor,workspace,time);return;}
+    ++outputCrossingFrames[monitor->m_id];
+    Wobbly::renderFullscreenWorkspace(renderer,monitor,workspace,time,
+        [&](PHLWINDOW w){return std::ranges::find(crossing,w)!=crossing.end();});
+}
+void preserveComposition(PHLMONITOR monitor){
+    auto renderer=g_pHyprRenderer.get();
+    if(stopping || !monitor || monitor->m_solitaryClient.expired() || renderer->m_bRenderingSnapshot)return;
+    // The pinned compositor's solitary-fullscreen check only considers floats
+    // on the fullscreen window's workspace. A dragged window changes workspace
+    // at the monitor seam, while its lattice can still cover the old output.
+    // That shortcut bypasses shouldRenderWindow AND every transformed pass.
+    // preChecks runs after recheckSolitary, before tearing/direct scanout and
+    // the single-window render path. Drop just this frame's shortcut when the
+    // normal visibility policy (including Minimize's hook) admits our window.
+    // No extra function hook: Cube already owns the solitary/scanout hooks.
+    for(const auto& w:Desktop::windowState()->windows())if(
+        (record(w) && usable(w) && renderer->shouldRenderWindow(w,monitor)) ||
+        crossingForeground(renderer,w,monitor,monitor->m_activeWorkspace)){
+        monitor->m_solitaryClient.reset();
+        ++outputCompositedFrames[monitor->m_id];
+        return;
+    }
 }
 bool touches(const std::shared_ptr<Record>& r,PHLMONITOR m){
     if(!m)return false;
@@ -481,7 +522,9 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h){
         hook("drawElement","IElementRenderer::drawElement(",(void*)drawElement,Wobbly::originalElementDraw);
         hook("visibleOnMonitor","CWindow::visibleOnMonitor(",(void*)visibleOnMonitor,originalVisible);
         hook("boundingBox","CTransformedWindowPassElement::boundingBox(",(void*)transformedBounds,originalPassBounds);
+        hook("renderWorkspaceWindowsFullscreen","IHyprRenderer::renderWorkspaceWindowsFullscreen(",(void*)fullscreenWorkspace,originalFullscreenWorkspace);
         auto& events=Event::bus()->m_events;
+        listeners.push_back(events.render.preChecks.listen([](PHLMONITOR m){preserveComposition(m);}));
         listeners.push_back(events.render.pre.listen([](PHLMONITOR m){renderingMonitor=m;frame(m);}));
         listeners.push_back(events.render.stage.listen([](eRenderStage stage){
             if(stage!=RENDER_POST||g_pHyprRenderer->m_bRenderingSnapshot)return;
@@ -521,7 +564,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h){
             std::string outputs="[";
             for(auto& m:State::monitorState()->monitors()){
                 if(outputs.size()>1)outputs+=",";
-                outputs+=std::format("{{\"id\":{},\"refresh_hz\":{},\"steps\":{}}}",m->m_id,m->m_refreshRate,outputSteps[m->m_id]);
+                outputs+=std::format("{{\"id\":{},\"refresh_hz\":{},\"steps\":{},\"composited_frames\":{},\"crossing_frames\":{}}}",m->m_id,m->m_refreshRate,outputSteps[m->m_id],outputCompositedFrames[m->m_id],outputCrossingFrames[m->m_id]);
             }
             outputs+="]";
             auto error=json_object_new_string(lastError.c_str());std::string errorText=json_object_to_json_string_ext(error,JSON_C_TO_STRING_PLAIN);json_object_put(error);

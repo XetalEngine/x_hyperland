@@ -483,6 +483,112 @@ windowrule=match:class ^wobbly-test$,float on
             point('up 272');point('key 125 0');save(**prior_physics)
         (root/'trailing-mesh.json').write_text(json.dumps(trailing,indent=2))
         print('Trailing mesh remains visible after the complete source rectangle leaves either output',flush=True)
+        # Reproduce the three-output layout, including the nonzero-origin seam
+        # between the middle and right outputs. Repeat with a fullscreen app
+        # behind the departing tail: the background can cover foreign-workspace
+        # floats, or solitary rendering can bypass the whole wobbly pass.
+        ctl('output','create','wayland');wait(lambda:len(json.loads(ctl('-j','monitors')))==3)
+        third=next(o for o in json.loads(ctl('-j','monitors')) if o['name'] not in (m['name'],second['name']))
+        layout=((m['name'],1920,1080,0),(second['name'],2560,1440,1920),(third['name'],2560,1440,4480))
+        for name,w,h,x in layout:
+            assert ctl('keyword','monitor',f'{name},{w}x{h}@120,{x}x0,1,transform,0')=='ok'
+        for name,w,h,_ in layout:size_output(name,w,h)
+        def output_info(name):
+            return next(o for o in json.loads(ctl('-j','monitors')) if o['name']==name)
+        wait(lambda:all((output_info(name)['x'],output_info(name)['width'],output_info(name)['height'],
+                         output_info(name)['scale'],output_info(name)['transform'])==(x,w,h,1,0)
+                        for name,w,h,x in layout))
+        point('extent 7040 1440')
+        crossings=[]
+        background='Crossing backdrop'
+        prior_maximize=values['maximize_effect']
+        try:
+            for background_mode in ('none','maximized','fullscreen'):
+                for seam,left_name,right_name in ((1920,m['name'],second['name']),(4480,second['name'],third['name'])):
+                    for direction in ('left','right'):
+                        source=output_info(right_name if direction=='left' else left_name)
+                        destination=output_info(left_name if direction=='left' else right_name)
+                        save(spring_k=.1,friction=3,maximize_effect=False)
+                        # This private workspace keeps the test window out of
+                        # the way while proving that the fullscreen shortcut is
+                        # available. No desktop bars or cursor trails mask it.
+                        dispatch('movetoworkspacesilent','999,'+address)
+                        if background_mode!='none':
+                            command('backdrop',background);wait(lambda:client(background))
+                            backdrop_address='address:'+client(background)['address']
+                            dispatch('movetoworkspacesilent',f"{source['activeWorkspace']['id']},"+backdrop_address)
+                            command('max' if background_mode=='maximized' else 'fullscreen',background)
+                            wait(lambda:client(background)['fullscreen']==(1 if background_mode=='maximized' else 2))
+                            if background_mode=='fullscreen':
+                                wait(lambda:int(output_info(source['name'])['solitary'],16)!=0)
+                        dispatch('movetoworkspacesilent',f"{source['activeWorkspace']['id']},"+address)
+                        dispatch('resizewindowpixel','exact 620 400,'+address)
+                        x=seam-200 if direction=='left' else seam-420
+                        pointer_x=seam-120 if direction=='left' else seam+120
+                        end_x=seam-700 if direction=='left' else seam+700
+                        dispatch('movewindowpixel',f'exact {x} 180,'+address);time.sleep(.4)
+                        dispatch('focuswindow',address)
+                        before=next(o for o in status()['outputs'] if o['id']==source['id'])
+                        point(f'move {pointer_x} 240');point('key 125 1');point('down 272')
+                        wait(lambda:status()['active']==1 and status()['windows'][0]['grabbed'])
+                        point(f'move {end_x} 240')
+                        def source_departed():
+                            state=status()
+                            if not state['windows']:return None
+                            b=state['windows'][0]['box']
+                            outside=b[0]+b[2]<seam-5 if direction=='left' else b[0]>seam+5
+                            return state if outside and client('Map shiver')['monitor']==destination['id'] else None
+                        state=wait(source_departed)
+                        visual=state['windows'][0]['render_bounds']
+                        assert visual[0]+visual[2]>seam+30 if direction=='left' else visual[0]<seam-30,state
+                        name=f'three-output-{seam}-{direction}-{background_mode}'
+                        screenshot(name)
+                        with Image.open(root/(name+'.png')) as image:
+                            ratio=image.width/7040
+                            band=(seam+5,220,seam+220,540) if direction=='left' else (seam-220,220,seam-5,540)
+                            crop=image.convert('RGB').crop(tuple(round(v*ratio) for v in band))
+                            blue=sum(b>r+18 and g>r+10 for r,g,b in crop.getdata())
+                        assert blue>100,(name,blue,state,'Background covered the trailing mesh')
+                        after=next(o for o in status()['outputs'] if o['id']==source['id'])
+                        composed=after.get('composited_frames',0)-before.get('composited_frames',0)
+                        ordered=after.get('crossing_frames',0)-before.get('crossing_frames',0)
+                        if background_mode!='none':assert ordered>0,(name,before,after,'Crossing render order was not exercised')
+                        if background_mode=='fullscreen':assert composed>0,(name,before,after,'Composition guard was not exercised')
+                        crossings.append(dict(name=name,state=state,blue_pixels=blue,composited_frames=composed,crossing_frames=ordered))
+                        # Keep the anchor held until the whole mesh has left;
+                        # releasing immediately can let a weak spring settle
+                        # back onto the source monitor, as in original Compiz.
+                        def tail_departed():
+                            state=status()
+                            if not state['windows']:return False
+                            b=state['windows'][0]['render_bounds']
+                            return b[0]+b[2]<=seam if direction=='left' else b[0]>=seam
+                        wait(tail_departed,seconds=20)
+                        if background_mode=='fullscreen':
+                            wait(lambda:int(output_info(source['name'])['solitary'],16)!=0)
+                        point('up 272');point('key 125 0')
+                        save(spring_k=.1,friction=3)
+                        if background_mode!='none':
+                            # The input rectangle can straddle the seam after
+                            # the springs stop too; its visible half must stay
+                            # above the background without an active lattice.
+                            settled_x=seam-420 if direction=='left' else seam-200
+                            dispatch('movewindowpixel',f'exact {settled_x} 180,'+address);time.sleep(.4)
+                            assert status()['active']==0
+                            screenshot(name+'-settled')
+                            with Image.open(root/(name+'-settled.png')) as image:
+                                ratio=image.width/7040
+                                band=(seam+5,220,seam+150,540) if direction=='left' else (seam-150,220,seam-5,540)
+                                crop=image.convert('RGB').crop(tuple(round(v*ratio) for v in band))
+                                blue=sum(b>r+18 and g>r+10 for r,g,b in crop.getdata())
+                            assert blue>100,(name,blue,'Settled float was covered after its lattice detached')
+                            command('close',background);wait(lambda:not client(background))
+                        print(name+': trailing pixels visible; source rendering recovered',flush=True)
+        finally:
+            point('up 272');point('key 125 0');save(**prior_physics,maximize_effect=prior_maximize)
+            if client(background):command('close',background)
+        (root/'three-output-crossings.json').write_text(json.dumps(crossings,indent=2))
+        ctl('output','remove',third['name'])
         # Nested Wayland outputs may report 60 Hz regardless of requested mode.
         # Rate invariance (60/120/144/240 Hz and rate changes) is also checked by
         # native/test_engine.cpp; this checks actual per-output callbacks/transfer.

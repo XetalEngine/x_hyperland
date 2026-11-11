@@ -61,6 +61,13 @@ class OptionsTests(unittest.TestCase):
             subprocess.run(['g++','-std=c++23','-O2',str(ROOT/'native/test_engine.cpp'),'-o',str(exe),'-ljson-c'],check=True,capture_output=True)
             result=subprocess.run([str(exe),str(ROOT/'settings.json')],check=True,capture_output=True,text=True,timeout=15)
             self.assertIn('passed',result.stdout)
+    def test_crossing_order_over_maximized_and_fullscreen_backgrounds(self):
+        with tempfile.TemporaryDirectory() as directory:
+            exe=Path(directory)/'fullscreen-pass'
+            subprocess.run(['g++','-std=c++23','-O2',str(ROOT/'native/test_fullscreen_pass.cpp'),'-o',str(exe)],
+                           check=True,capture_output=True)
+            result=subprocess.run([str(exe)],check=True,capture_output=True,text=True,timeout=15)
+            self.assertIn('passed',result.stdout)
 
 
 class ControlsTests(unittest.TestCase):
