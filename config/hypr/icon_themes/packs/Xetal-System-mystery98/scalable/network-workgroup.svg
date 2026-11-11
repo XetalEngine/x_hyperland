@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>Network · Windows 98 Mystery</title><defs>
+<linearGradient id="brass" x2=".3" y2="1"><stop stop-color="#fff0b8"/><stop offset=".23" stop-color="#dcb66a"/><stop offset=".6" stop-color="#ac772a"/><stop offset=".82" stop-color="#e0ba70"/><stop offset="1" stop-color="#79521e"/></linearGradient>
+<linearGradient id="paper" x2="0" y2="1"><stop stop-color="#fff0cd"/><stop offset="1" stop-color="#c9a96f"/></linearGradient>
+<linearGradient id="wood" x2="1" y2="1"><stop stop-color="#654024"/><stop offset=".4" stop-color="#352319"/><stop offset=".6" stop-color="#593620"/><stop offset="1" stop-color="#201810"/></linearGradient>
+<linearGradient id="glass" x2="1" y2="1"><stop stop-color="#538774"/><stop offset=".4" stop-color="#164c36"/><stop offset="1" stop-color="#081c14"/></linearGradient>
+</defs><path d="M29 43H35V54L46 57V60H18V57L29 54Z" fill="url(#brass)" stroke="#382719" stroke-width="1.4"/><g transform="rotate(-23 32 27)" fill="none" stroke="url(#brass)" stroke-width="3"><circle cx="32" cy="27" r="20"/><ellipse cx="32" cy="27" rx="10" ry="20"/><ellipse cx="32" cy="27" rx="26" ry="8"/><path d="M32 3V51"/></g><circle cx="32" cy="27" r="4.5" fill="url(#brass)" stroke="#5d4021"/></svg>

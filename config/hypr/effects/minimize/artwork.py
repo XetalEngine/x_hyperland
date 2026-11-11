@@ -133,6 +133,26 @@ def parcel_bevel(p,box,colors,inset=False):
     p.setPen(QPen(dark,2));p.drawLine(box.topRight(),box.bottomRight());p.drawLine(box.bottomRight(),box.bottomLeft())
 
 
+def writing_desk(p,width,colors,phase):
+    """Walnut drawers, brass inlay and emerald felt; native dock material 22."""
+    from mystery98 import paint_surface
+    p.save();box=QRectF(8,8,width-16,80)
+    paint_surface(p,box,colors,1,100)
+    brass=QColor(colors['Accent'])
+    felt=blend(colors['Window'],'#164c36',.65)
+    p.fillRect(QRectF(31,13,width-62,66),felt)
+    p.setPen(QPen(alpha(brass,.8),1));p.setBrush(Qt.BrushStyle.NoBrush)
+    p.drawRect(QRectF(30,12,width-60,68))
+    for x in (12,width-27):
+        p.fillRect(QRectF(x,14,15,64),blend(colors['Window'],colors['Accent'],.15))
+        p.setPen(QPen(brass,1))
+        p.drawRect(QRectF(x+4,34,7,25))
+        for y in (20,73):
+            p.setBrush(brass);p.drawEllipse(QPointF(x+7.5,y),1.4,1.4)
+    p.setPen(QPen(alpha(brass,.8),1.4));line(p,31,84,width-31,84)
+    p.restore()
+
+
 def parcel_shelf(p,width,colors,phase):
     """Raised ivory/espresso casework and brass handles, mirrored by native ID 16."""
     p.save();box=QRectF(8,8,width-16,80)
@@ -268,7 +288,9 @@ def tray(painter, width, style, colors, phase):
         amplifier_rack(painter,width,colors,phase);return
     if style == 'midnightrun':
         neon_pit_lane(painter,width,colors,phase);return
-    if style == 'platform95':
+    if style == 'mystery98':
+        writing_desk(painter,width,colors,phase);return
+    elif style == 'platform95':
         parcel_shelf(painter,width,colors,phase);return
     if style == 'mycelium':
         spore_cradle(painter,width,colors,phase);return
@@ -501,7 +523,7 @@ def dock(p, area, style, colors, *, phase=0., weights=(1., 1., 1.), zoom=(), ver
         p.save(); p.setOpacity(p.opacity()*max(0., min(1., weight)))
         if not stack:
             p.setPen(QPen(alpha(colors['Accent'], .12+(z-1)), .8)); p.setBrush(alpha(colors['Accent'], .035+(z-1)*.1))
-            radius = 8 if style == 'ghostbusters' else 4 if style == 'leviathan' else 11 if style == 'polaris' else 4 if style == 'infernalencore' else 1 if style == 'platform95' else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style in ('midnighttransit','midnightrun') else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
+            radius = 8 if style == 'ghostbusters' else 4 if style == 'leviathan' else 11 if style == 'polaris' else 4 if style == 'infernalencore' else 1 if style in ('platform95','mystery98') else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style in ('midnighttransit','midnightrun') else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
             p.drawRoundedRect(rect, radius, radius)
         if style == 'ghostbusters' and not stack:
             accent=QColor(colors['Accent'])
@@ -543,7 +565,12 @@ def dock(p, area, style, colors, *, phase=0., weights=(1., 1., 1.), zoom=(), ver
             p.setPen(QPen(alpha(pink,.35),1))
             for i in range(2):
                 x=rect.right()-10-i*4;line(p,x-2,rect.bottom()-10,x,rect.bottom()-15)
-        if style == 'platform95' and not stack:
+        if style == 'mystery98' and not stack:
+            p.fillRect(rect,blend(colors['Window'],'#164c36',.28+(z-1)*.08))
+            parcel_bevel(p,rect.adjusted(1,1,-1,-1),colors,True)
+            p.setPen(QPen(alpha(colors['Accent'],min(1,.4+(z-1)*.55)),1.5))
+            line(p,rect.center().x()-8,rect.bottom()-6,rect.center().x()+8,rect.bottom()-6)
+        elif style == 'platform95' and not stack:
             p.fillRect(rect,blend(colors['Window'],colors['Accent'],.035+(z-1)*.12))
             parcel_bevel(p,rect.adjusted(1,1,-1,-1),colors,True)
             p.setPen(QPen(alpha(colors['Accent'],min(1,.4+(z-1)*.55)),1.5))

@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Windows 98 Mystery
+Comment=Brass keys, leather-bound books, parchment folders and emerald glass.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

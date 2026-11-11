@@ -29,8 +29,8 @@ void main(){
   fragColor=vec4(mix(warm,mix(ink,vec3(1.,.72,.25),.5),core)*a,a)*opacity;return;
  }
  vec2 p=(uv-.5)*dims;vec2 halfSize=dims*.5-vec2(8.);
- float radius=style==21?10.:style==20?6.:style==19?14.:style==18?5.:style==17?7.:style==16?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
- if(part==1)radius=style==21?8.:style==20?4.:style==19?11.:style==18?4.:style==17?6.:style==16?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
+ float radius=style==21?10.:style==20?6.:style==19?14.:style==18?5.:style==17?7.:(style==16||style==22)?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
+ if(part==1)radius=style==21?8.:style==20?4.:style==19?11.:style==18?4.:style==17?6.:(style==16||style==22)?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
  radius=min(radius,min(halfSize.x,halfSize.y));
  float distance=roundBox(p,halfSize,radius);
  if(style==2||style==3||style==8)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+(style==3?19.:style==8?14.:10.))*.7071);
@@ -44,7 +44,22 @@ void main(){
  float rim=.26;
  float jewel=0.;float jewelHalo=0.;float gildedSweep=0.;
  if(part==0){
-  if(style==21){
+  if(style==22){
+   // Writing Desk: walnut grain, brass bevels and an emerald felt interior.
+   vec2 q=vec2(halfSize.x-abs(p.x),p.y);
+   float cap=1.-smoothstep(21.,23.,q.x);
+   vec3 felt=mix(base,vec3(.0863,.2980,.2118),.65);
+   body=mix(felt,mix(base,tint,.15),cap);rim=.8;
+   body+=ink*(.025*sin(p.y*1.8+noise(vec2(p.x*.025,p.y*.17))*2.))*cap;
+   float upper=exp(-abs(p.y+halfSize.y-2.)*2.);
+   float lower=exp(-abs(p.y-halfSize.y+2.)*2.);
+   metal=upper*.7+exp(-abs(q.x-2.)*2.)*.7;
+   decoration=lower*.6+exp(-abs(q.x-22.)*2.)*.7;
+   float handle=abs(roundBox(q-vec2(11.,0.),vec2(3.5,12.5),1.));
+   decoration+=exp(-handle*2.)*.75*cap;
+   vec2 rivet=vec2(q.x-11.,abs(p.y)-27.);
+   decoration+=(1.-smoothstep(.6,1.6,length(rivet)))*.7;
+  }else if(style==21){
    // Ghost Trap: striped guards, green liquid lip and pulsing trap lights.
    vec2 q=vec2(halfSize.x-abs(p.x),p.y);
    body=mix(base,ink,shine*.12);rim=.85;
@@ -341,7 +356,11 @@ void main(){
   body=mix(base,tint,.08+emphasis*.14)+ink*shine*.045;
   rim=.08+emphasis*.25;
   decoration=exp(-abs(p.y-halfSize.y+3.)*1.7)*(.25+.4*emphasis);
-  if(style==21){
+  if(style==22){
+   body=mix(base,vec3(.0863,.2980,.2118),.28+emphasis*.08);rim=.45;
+   metal=exp(-abs(distance+2.)*1.7)*.25;
+   decoration=exp(-abs(p.y-halfSize.y+6.)*2.)*step(abs(p.x),8.)*(.5+emphasis*.4);
+  }else if(style==21){
    body=mix(base,tint,.06+emphasis*.12);rim=.5+emphasis*.5;
    decoration=exp(-abs(p.y-halfSize.y+5.)*2.)*step(abs(p.x),halfSize.x-8.)*.8;
    for(int i=0;i<2;i++){

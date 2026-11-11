@@ -10,7 +10,7 @@ STYLES = {
     'polaris': ('Polaris', '#d8f8ff', '#4de5f5', '#a391fa', '#16243c', 'polaris'),
     'infernalencore': ('Infernal Encore', '#f4dfbd', '#d6975b', '#ff472c', '#181414', 'encore'),
     'midnightrun': ('Midnight Run', '#c8faff', '#42e5f5', '#ed38b5', '#111b28', 'neonrun'),
-    'platform95': ('Platform 95', '#fff2c9', '#d5ac53', '#806233', '#38271a', 'platform95'),
+    'mystery98': ('Windows 98 Mystery', '#fff2c9', '#d5ac53', '#806233', '#38271a', 'mystery98'), 'platform95': ('Platform 95', '#fff2c9', '#d5ac53', '#806233', '#38271a', 'platform95'),
     'mycelium': ('Mycelium', '#f1dfc8', '#c7a1df', '#806079', '#322630', 'mycelium'),
     'atomicafterglow': ('Atomic Afterglow', '#eadba5', '#b5ed29', '#687047', '#21281d', 'reactor'),
     'blackwood': ('Blackwood', '#efdbab', '#bc9c61', '#655033', '#292e27', 'walnut'),
@@ -34,7 +34,7 @@ DESCRIPTIONS = {
     'polaris': 'Sapphire glass tiles, luminous cyan symbols and violet folder depths.',
     'infernalencore': 'Brass-framed black folders, red symbols and riveted corners.',
     'midnightrun': 'Cyan folder outlines, magenta symbols and graphite silhouettes.',
-    'platform95': 'Gold file folders, ivory office equipment and classic espresso symbols.',
+    'mystery98': 'Brass keys, leather-bound books, parchment folders and emerald glass.', 'platform95': 'Gold file folders, ivory office equipment and classic espresso symbols.',
     'mycelium': 'Sculpted lilac caps, plum folders, ivory roots and moss details.',
     'atomicafterglow': 'Graphite instrument cases, phosphor tabs and brass fasteners.',
     'blackwood': 'Aged-brass folders, walnut cases and engraved ivory symbols.',
@@ -180,7 +180,10 @@ def svg(style, name):
     if style == 'midnightrun':
         from .midnightrun import svg as neon_svg
         return neon_svg(ALIASES.get(name,name),CATALOG,symbol)
-    if style == 'platform95':
+    if style == 'mystery98':
+        from .mystery98 import svg as mystery98_svg
+        return mystery98_svg(ALIASES.get(name,name),CATALOG,symbol)
+    elif style == 'platform95':
         from .platform95 import svg as platform95_svg
         return platform95_svg(ALIASES.get(name,name),CATALOG,symbol)
     if style == 'mycelium':

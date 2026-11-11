@@ -8,11 +8,11 @@ DESCRIPTIONS = {'classic': 'Compact tabs across the top · crisp controls',
     'ribbon': 'Icon toolbar across the top · precise, compact controls'}
 
 
-def default(design): return 'ribbon' if design in ('shadowedge','midnightrun','infernalencore','polaris','leviathan','ghostbusters') else 'sidebar' if design in ('tidalglass', 'porcelainink', 'obsidianforge', 'candycloud', 'shadowedge', 'hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','midnightrun','infernalencore','polaris','leviathan','ghostbusters') else 'modern' if design == 'modern' else 'classic'
+def default(design): return 'ribbon' if design in ('shadowedge','midnightrun','infernalencore','polaris','leviathan','ghostbusters') else 'sidebar' if design in ('tidalglass', 'porcelainink', 'obsidianforge', 'candycloud', 'shadowedge', 'hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','polaris','leviathan','ghostbusters') else 'modern' if design == 'modern' else 'classic'
 
 
 def widget_style(layout, design):
-    if design in ('tidalglass', 'porcelainink', 'obsidianforge', 'candycloud', 'shadowedge', 'hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','midnightrun','infernalencore','polaris','leviathan','ghostbusters'): return design
+    if design in ('tidalglass', 'porcelainink', 'obsidianforge', 'candycloud', 'shadowedge', 'hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','polaris','leviathan','ghostbusters'): return design
     if layout in ('modern', 'sidebar'): return 'modern'
     if layout == 'ribbon': return 'binaryknife'
     return design if design in ('raw', 'breakpoint', 'binaryknife') else 'raw'
@@ -32,7 +32,7 @@ def stylesheet(p, layout, palette=''):
     QFrame#presetCard {{background:{p['AlternateBase']}; border:1px solid {p['Midlight']}; border-radius:{radius}px;}}
     '''
     # These designs supply their own surfaces for every navigation layout.
-    if palette in ('tidalglass', 'porcelainink', 'obsidianforge', 'candycloud', 'shadowedge', 'hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','midnightrun','infernalencore','polaris','leviathan','ghostbusters'): shapes = ''
+    if palette in ('tidalglass', 'porcelainink', 'obsidianforge', 'candycloud', 'shadowedge', 'hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','polaris','leviathan','ghostbusters'): shapes = ''
     return shapes + f'''
     QCheckBox::indicator:checked, QAbstractItemView::indicator:checked {{image:url("{check}");
         background:{p['Highlight']}; border:1px solid {p['Accent']}; width:16px; height:16px;}}

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>Document · Windows 98 Mystery</title><defs>
+<linearGradient id="brass" x2=".3" y2="1"><stop stop-color="#fff0b8"/><stop offset=".23" stop-color="#dcb66a"/><stop offset=".6" stop-color="#ac772a"/><stop offset=".82" stop-color="#e0ba70"/><stop offset="1" stop-color="#79521e"/></linearGradient>
+<linearGradient id="paper" x2="0" y2="1"><stop stop-color="#fff0cd"/><stop offset="1" stop-color="#c9a96f"/></linearGradient>
+<linearGradient id="wood" x2="1" y2="1"><stop stop-color="#654024"/><stop offset=".4" stop-color="#352319"/><stop offset=".6" stop-color="#593620"/><stop offset="1" stop-color="#201810"/></linearGradient>
+<linearGradient id="glass" x2="1" y2="1"><stop stop-color="#538774"/><stop offset=".4" stop-color="#164c36"/><stop offset="1" stop-color="#081c14"/></linearGradient>
+</defs><path d="M14 5H38L51 18V58H14Z" transform="translate(1 2)" fill="#170f09" opacity=".3"/><path d="M14 5H38L51 18V58H14Z" fill="url(#paper)" stroke="#bb9452" stroke-width="1.5"/><path d="M38 5V18H51" fill="#ad8a51" stroke="#5d4121"/><path d="M16 55V7H36" fill="none" stroke="#fff1cc"/><g fill="none" stroke="#4b311a" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M24 25H38M24 32H40M24 39H37M24 46H33"/></g></svg>

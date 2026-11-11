@@ -14,7 +14,7 @@ DESCRIPTIONS={
  'polaris':'Orbital glass · sapphire depth, cyan workspaces and silver light',
  'infernalencore':'Stage rack · blackened metal, brass bevels and crimson switches',
  'midnightrun':'Neon expressway · graphite lacquer, cyan rails and magenta workspaces',
- 'platform95':'Classic casework · ivory bevels, espresso outlines and antique-gold workspaces',
+ 'mystery98': 'Emerald enamel · walnut controls and engraved brass edges', 'platform95':'Classic casework · ivory bevels, espresso outlines and antique-gold workspaces',
  'mycelium':'Plum velvet · branching roots, lilac workspaces and a mushroom lantern',
  'atomicafterglow':'Graphite instruments · brass borders, phosphor workspaces and an atomic badge',
  'blackwood':'Walnut panels · brass fittings, sage selections and an engraved HF monogram',
@@ -68,7 +68,7 @@ def configure(config,style,variation=None):
         'ghostbusters':(apps,['mpris'],status),
         'leviathan':(apps,['mpris'],status),
         'polaris':(apps,['mpris'],status),
-        'platform95':(apps,['mpris'],status),
+        'mystery98': (apps,['mpris'],status), 'platform95':(apps,['mpris'],status),
         'mycelium':(['cffi/bar-options','custom/launcher','custom/keys','cffi/workspace-mode','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
         'atomicafterglow':(['cffi/bar-options','custom/launcher','custom/keys','cffi/workspace-mode','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
         'blackwood':(['cffi/bar-options','custom/launcher','custom/keys','cffi/workspace-mode','custom/updates','cffi/app-pins','mpris'],['hyprland/workspaces','cffi/new-workspace'],status),
@@ -138,7 +138,7 @@ window#waybar {{color:{t};}}
 'ghostbusters':__import__('ghostbusters').bar_controls(p,root),
 'leviathan':__import__('leviathan').bar_controls(p,root),
 'polaris':__import__('polaris').bar_controls(p,root),
-'platform95':__import__('platform95').bar_controls(p,root),
+'mystery98': __import__('mystery98').bar_controls(p,root), 'platform95':__import__('platform95').bar_controls(p,root),
 'mycelium':__import__('mycelium').bar_controls(p,root),
 'atomicafterglow':__import__('atomicafterglow').bar_controls(p,root),
 'blackwood':__import__('blackwood').bar_controls(p,root),
@@ -266,7 +266,7 @@ window#waybar {{background:linear-gradient(180deg,alpha({p['Button']},0.97),alph
 def architecture(p,style,variation,root):
     """One material vocabulary, available as a rail, islands or centered bank."""
     a,b,w,t,m,h=p['Accent'],p['Base'],p['Window'],p['Text'],p['Midlight'],p['Highlight']
-    radius={'ghostbusters':'10px','leviathan':'6px','polaris':'12px','infernalencore':'5px','midnightrun':'7px','platform95':'1px','mycelium':'14px','atomicafterglow':'5px','blackwood':'5px','midnighttransit':'7px','hyperfusionblue':'7px','raw':'1px','modern':'23px','breakpoint':'12px 2px 12px 2px','binaryknife':'2px 16px 2px 16px',
+    radius={'ghostbusters':'10px','leviathan':'6px','polaris':'12px','infernalencore':'5px','midnightrun':'7px','mystery98': '1px', 'platform95':'1px','mycelium':'14px','atomicafterglow':'5px','blackwood':'5px','midnighttransit':'7px','hyperfusionblue':'7px','raw':'1px','modern':'23px','breakpoint':'12px 2px 12px 2px','binaryknife':'2px 16px 2px 16px',
             'tidalglass':'28px 28px 14px 14px','porcelainink':'4px','obsidianforge':'5px',
             'candycloud':'28px','shadowedge':'12px 0 12px 0','hollowgrove':'28px 12px 28px 12px','gildedhollow':'24px'}[style]
     surface={
@@ -275,7 +275,7 @@ def architecture(p,style,variation,root):
         'polaris':f'linear-gradient(180deg,{p["Button"]},{w} 35%,{b} 75%,{w})',
         'infernalencore':f'linear-gradient(160deg,{p["Button"]},{w} 28%,{b} 72%,{w})',
         'midnightrun':f'linear-gradient(180deg,{p["Button"]},{w} 25%,{b})',
-        'platform95':f'linear-gradient(180deg,{p["Button"]},{w} 18%,{w})',
+        'mystery98': f'linear-gradient(180deg,{h},{h})', 'platform95':f'linear-gradient(180deg,{p["Button"]},{w} 18%,{w})',
         'mycelium':f'linear-gradient(180deg,{p["Button"]},{w} 25%,{b})',
         'atomicafterglow':f'linear-gradient(180deg,{p["Button"]},{w} 25%,{b})',
         'blackwood':f'url("{root/"assets/blackwood-grain.svg"}"),linear-gradient(180deg,{p["Button"]},{w} 30%,{b})',
@@ -304,7 +304,9 @@ def architecture(p,style,variation,root):
         frame=f'background:{surface};border:1px solid {m};border-top-color:{p["Light"]};border-radius:12px;box-shadow:inset 0 1px alpha({a},0.18);'
     if style=='midnightrun':
         frame=f'background:{surface};border:1px solid {a};border-bottom-color:{p["LinkVisited"]};border-radius:7px;box-shadow:inset 0 1px alpha({t},0.08);'
-    if style=='platform95':
+    if style=='mystery98':
+        frame=f'background:{surface};border:2px solid {p["Dark"]};border-top-color:{p["Light"]};border-left-color:{p["Light"]};border-radius:1px;box-shadow:none;'
+    elif style=='platform95':
         frame=f'background:{surface};border:2px solid {p["Dark"]};border-top-color:{p["Light"]};border-left-color:{p["Light"]};border-radius:1px;box-shadow:none;'
     if variation=='partial':
         structure=f'''
@@ -325,7 +327,7 @@ window#waybar {{{frame}}}
 'ghostbusters':__import__('ghostbusters').bar_controls(p,root),
 'leviathan':__import__('leviathan').bar_controls(p,root),
 'polaris':__import__('polaris').bar_controls(p,root),
-        'platform95':__import__('platform95').bar_controls(p,root),
+        'mystery98': __import__('mystery98').bar_controls(p,root), 'platform95':__import__('platform95').bar_controls(p,root),
         'mycelium':__import__('mycelium').bar_controls(p,root),
         'atomicafterglow':__import__('atomicafterglow').bar_controls(p,root),
 'blackwood':__import__('blackwood').bar_controls(p,root),

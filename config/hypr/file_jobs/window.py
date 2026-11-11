@@ -415,7 +415,7 @@ class ProgressWindow(QWidget):
             scene = {'modern': artwork.modern, 'breakpoint': artwork.breakpoint,
                      'binaryknife': artwork.binaryknife, 'tidalglass': artwork.tidalglass, 'porcelainink': artwork.porcelainink,
                      'obsidianforge': artwork.obsidianforge, 'candycloud': artwork.candycloud, 'shadowedge': artwork.shadowedge, 'hollowgrove': artwork.hollowgrove,
-                     'infernalencore': artwork.infernalencore, 'midnightrun': artwork.midnightrun, 'polaris': artwork.polaris, 'leviathan': artwork.leviathan, 'ghostbusters': artwork.ghostbusters, 'platform95': artwork.platform95, 'mycelium': artwork.mycelium, 'atomicafterglow': artwork.atomicafterglow, 'blackwood': artwork.blackwood, 'midnighttransit': artwork.midnighttransit, 'hyperfusionblue': artwork.hyperfusionblue, 'gildedhollow': artwork.gildedhollow}[self.design]
+                     'infernalencore': artwork.infernalencore, 'midnightrun': artwork.midnightrun, 'polaris': artwork.polaris, 'leviathan': artwork.leviathan, 'ghostbusters': artwork.ghostbusters, 'mystery98': artwork.mystery98, 'platform95': artwork.platform95, 'mycelium': artwork.mycelium, 'atomicafterglow': artwork.atomicafterglow, 'blackwood': artwork.blackwood, 'midnighttransit': artwork.midnighttransit, 'hyperfusionblue': artwork.hyperfusionblue, 'gildedhollow': artwork.gildedhollow}[self.design]
             scene(painter, box, accent, QColor(self.colors['AlternateBase']), self.phase,
                   self.options['animation']['density'], self.options['animation']['trails'],
                   self.appearance['glow'], archive and not extracting, extracting, self.job.result)
@@ -512,7 +512,10 @@ class ProgressWindow(QWidget):
         if self.design == 'polaris':
             from polaris import paint_surface
             paint_surface(painter,QRectF(inset,inset,w-2*inset,h-2*inset),self.colors,radius,self.appearance['opacity'])
-        if self.design == 'platform95':
+        if self.design == 'mystery98':
+            from mystery98 import paint_surface
+            paint_surface(painter,QRectF(inset,inset,w-2*inset,h-2*inset),self.colors,radius,self.appearance['opacity'])
+        elif self.design == 'platform95':
             from platform95 import paint_surface
             paint_surface(painter,QRectF(inset,inset,w-2*inset,h-2*inset),self.colors,radius,self.appearance['opacity'])
         if self.design == 'mycelium':

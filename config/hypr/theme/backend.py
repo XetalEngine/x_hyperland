@@ -368,6 +368,9 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     elif design=='polaris':
         from polaris import compositor
         content+=compositor(colors)
+    elif design=='mystery98':
+        from mystery98 import compositor
+        content+=compositor(colors)
     elif design=='platform95':
         from platform95 import compositor
         content+=compositor(colors)

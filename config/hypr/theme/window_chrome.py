@@ -63,7 +63,13 @@ def style_close(button,design=None):
         button.setProperty('xetalChromeHoverInk',colors['HighlightedText'])
         button.setStyleSheet(chrome_style(colors))
         return
-    if design=='platform95':
+    if design=='mystery98':
+        from mystery98 import chrome_style
+        colors=runtime.colors(style=design)
+        button.setProperty('xetalChromeHoverInk','#fff8e9' if getattr(button,'symbol','close')=='close' else colors['HighlightedText'])
+        button.setStyleSheet(chrome_style(colors))
+        return
+    elif design=='platform95':
         from platform95 import chrome_style
         colors=runtime.colors(style=design)
         button.setProperty('xetalChromeHoverInk','#fff8e9' if getattr(button,'symbol','close')=='close' else colors['HighlightedText'])

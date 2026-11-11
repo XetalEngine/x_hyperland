@@ -1,0 +1,37 @@
+{
+  "theme": "Windows 98 Mystery",
+  "tool": "Built-in image_gen \u00b7 new image generation",
+  "reference": "User-supplied Windows 98 Mystery desktop concept: dark walnut Victorian study, emerald enamel, antique gold and parchment.",
+  "images": [
+    {
+      "file": "midnight-study.png",
+      "title": "Midnight Study",
+      "prompt": "Use case: stylized-concept. Asset type: production desktop wallpaper for a new Windows 98 Mystery theme, 3840x2160 landscape, 16:9. Create a richly detailed, cinematic Victorian mystery study inspired by a luxurious late-1990s pre-rendered adventure game. Full-bleed architectural interior, absolutely no desktop interface, windows, menus, icons, panels, labels, logos, text or watermark. Dark carved walnut wall panels and tall bookshelves of worn leather books; a central emerald-green marble fireplace with a small warm fire and ornate antique brass grate; above it a modest dark oil portrait of an unnamed Victorian gentleman in a gilded frame. At right, an empty carved mahogany chair with deep burgundy velvet, with a dark bronze detective bust on a stone pedestal farther right. Across the lower foreground a polished walnut desk with an aged parchment map without readable lettering, a closed burgundy leather journal, a brass magnifying glass, a quill and inkwell, a cream envelope sealed with red wax, and a single tall ivory candle in a brass holder. Keep the left edge and upper corners dark and visually quiet for actual desktop icons; place the fireplace and desk focal details in the middle and lower right. Deep forest emerald, tobacco brown, charcoal, parchment ivory and aged gold, warm candlelight, restrained contrast, fine tactile materials, elegant mysterious atmosphere. Straight-on wide composition with believable perspective and no people physically present. This is the wallpaper only, not a screenshot or a mockup.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "768f74b92b97e474164938d1c98aa19011aca0b73a58f3d3e4dbf7e9a6d4d3a3"
+    },
+    {
+      "file": "rain-at-the-manor.png",
+      "title": "Rain at the Manor",
+      "prompt": "Use case: stylized-concept. Asset type: companion 16:9 desktop wallpaper for Windows 98 Mystery, landscape 3840x2160 requested. A richly atmospheric Victorian manor at night viewed from the wet stone garden path: dark old brick and carved stone, tall emerald-tinted leaded windows glowing warm amber from the library, a wrought-iron gate with antique brass ornament, ivy, soft rain and thin ground fog. A single lamp beside the oak front door. Color palette deep forest green, walnut brown, charcoal, old gold; tiny burgundy autumn leaves. Polished cinematic late-1990s pre-rendered mystery adventure game atmosphere with realistic textures and believable architecture, calm and elegant rather than scary. Manor occupies the center-right; dark garden and quiet negative space on the left and along the top for desktop icons and panels. No people, no cars, no lettering, no captions, no logos or watermark. Wallpaper artwork only, absolutely no desktop UI, windows, menus, app icons or taskbars.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "2d93b0de43254c6dad0849223250451b206891ee0c71307d6a622a67e92e351f"
+    },
+    {
+      "file": "secret-archive.png",
+      "title": "The Secret Archive",
+      "prompt": "Use case: stylized-concept. Asset type: companion 16:9 desktop wallpaper for Windows 98 Mystery, landscape 3840x2160 requested. An empty secret archive deep inside a Victorian mansion: a long quiet room of carved walnut bookcases, narrow shelves of aged leather volumes and parchment document boxes, a polished brass rolling ladder at right, an emerald green reading table in the center-right holding a closed burgundy ledger and a small antique brass lamp. Beyond the table, a leaded arched window admits soft blue-green moonlight; a slightly open concealed bookcase reveals only a dim warm amber passage, subtle and inviting. Dark paneled walls, antique gold details, warm candlelight against forest green shadows. Luxurious cinematic late-1990s pre-rendered mystery adventure game art, realistic materials and believable perspective, calm rather than frightening. Left side and top edge relatively dark and uncluttered for desktop icons. No people, no lettering, no captions, no logos, no watermark. Artwork only, absolutely no desktop interface, windows, app icons, menus or taskbars.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "f75bd39bef81cc56c8a5001a575df7492737f1b9052d5c37672f73f6af38773d"
+    }
+  ]
+}

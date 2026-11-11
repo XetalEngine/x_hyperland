@@ -45,6 +45,52 @@ def success(p, center, accent):
     p.drawLine(center+QPointF(-1, 6), center+QPointF(11, -7))
 
 
+def mystery98(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Wax-sealed letters travel between walnut trays, fading at each wrap."""
+    p.save();p.setClipRect(box,Qt.ClipOperation.IntersectClip)
+    mid=box.center();left=box.left()+25;right=box.right()-25
+    ink=QColor('#f3e5c9' if surface.lightnessF()<.5 else '#49311a')
+    wax=QColor('#a54535' if surface.lightnessF()<.5 else '#7a2b25')
+    for x,zipped in ((left,extracting),(right,archive)):
+        p.setBrush(surface);p.setPen(QPen(accent,1.2))
+        p.drawRect(QRectF(x-20,mid.y()-23,40,47))
+        for y in (-15,-5,5):
+            p.setBrush(alpha(ink,45));p.setPen(QPen(alpha(ink,130),.7))
+            p.drawRect(QRectF(x-15,mid.y()+y,30,9))
+            p.setPen(QPen(accent,1.5));p.drawLine(QPointF(x-5,mid.y()+y+6),QPointF(x+5,mid.y()+y+6))
+        if zipped:
+            p.setBrush(wax);p.setPen(QPen(ink,.8));p.drawEllipse(QPointF(x+11,mid.y()+15),4,4)
+    p.setPen(QPen(alpha(accent,105),1))
+    p.drawLine(QPointF(left+22,mid.y()+22),QPointF(right-22,mid.y()+22))
+    if result:
+        if result=='done':success(p,mid,accent)
+        p.restore();return
+    start,end=left+39,right-39
+    for index in range(count):
+        t=(phase+index/count)%1
+        visibility=max(0.,min(1.,t/.14,(1-t)/.14))
+        visibility=visibility*visibility*(3-2*visibility)
+        travel=1-t if extracting else t
+        x=start+(end-start)*travel;y=mid.y()+2*math.sin(t*math.tau)
+        p.save();p.setOpacity(p.opacity()*visibility)
+        if trails:
+            direction=1 if extracting else -1
+            for n in range(1,4):
+                p.setPen(QPen(alpha(accent,65/n),.8))
+                p.drawLine(QPointF(x+direction*(18+n*5),y),QPointF(x+direction*(21+n*5),y))
+        if glow:
+            halo=QRadialGradient(QPointF(x,y+15),22)
+            halo.setColorAt(0,alpha(accent,glow*.65));halo.setColorAt(1,alpha(accent,0))
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(halo);p.drawEllipse(QPointF(x,y+15),22,7)
+        p.translate(x,y);p.rotate(3*math.sin(t*math.tau))
+        p.setBrush(QColor('#ead7b2'));p.setPen(QPen(QColor('#70512d'),1))
+        p.drawRect(QRectF(-15,-10,30,21))
+        p.drawLine(QPointF(-15,-10),QPointF(0,3));p.drawLine(QPointF(0,3),QPointF(15,-10))
+        p.setPen(QPen(QColor('#f3d29b'),.7));p.setBrush(wax);p.drawEllipse(QPointF(0,2),3.6,3.6)
+        p.restore()
+    p.restore()
+
+
 def ghostbusters(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     """Slime couriers carry pages between two ghost traps, without wrap jumps."""
     from ghostbusters import little_ghost

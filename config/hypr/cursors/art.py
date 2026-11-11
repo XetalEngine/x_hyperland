@@ -5,7 +5,7 @@ STYLES = {
     'polaris': ('Polaris Starlight', '#e8fcff', '#18344b', '#22daed'),
     'infernalencore': ('Infernal Blade', '#f4dfbd', '#36150f', '#ff472c'),
     'midnightrun': ('Midnight Run Neon', '#17212e', '#72f3ff', '#ff4fc3'),
-    'platform95': ('Platform 95 Classic', '#fff6df', '#382719', '#c49a42'),
+    'mystery98': ('Mystery 98 Pocket Watch', '#f3e5c9', '#261e17', '#d6af62'), 'platform95': ('Platform 95 Classic', '#fff6df', '#382719', '#c49a42'),
     'mycelium': ('Mycelium Spore', '#f2e5d4', '#352536', '#c9a0e1'),
     'isotope': ('Atomic Phosphor', '#d5e5a4', '#182218', '#b5ed29'),
     'brass': ('Blackwood Brass', '#e9d2a0', '#24271f', '#8db694'),
@@ -41,7 +41,9 @@ def svg(style, shape='left_ptr', frame=0):
     arrow = {'isotope':'M5 3L6 28L12 21L18 32L23 29L17 19L28 17L16 10Z', 'brass':'M5 3L7 29L13 22L19 32L23 29L17 20L29 17L16 12Z', 'enamel':'M5 3L5 27L12 20L17 32L22 29L17 19L28 18L17 11Z', 'carbon':'M5 3L5 28L12 21L17 32L22 29L17 19L29 18Z', 'cyan':'M5 3L8 28L14 20L25 18Z', 'orchid':'M5 3Q7 2 9 5L28 20L17 20L21 30Q18 34 16 30L12 22L5 28Z', 'ember':'M5 3L5 27L12 20L18 32L23 29L17 18L28 18Z'}.get(style,arrow)
     if style == 'mycelium':
         arrow = 'M5 3Q9 4 13 8L29 18Q30 20 27 20L18 21L22 30Q21 33 18 32L13 23L7 28Q5 29 5 26Z'
-    if style == 'platform95':
+    if style == 'mystery98':
+        arrow = 'M5 3L5 27L11 21L16 32L21 30L16 20L27 20Z'
+    elif style == 'platform95':
         arrow = 'M5 3L5 27L11 21L16 32L21 30L16 20L27 20Z'
     if style == 'midnightrun':
         arrow = 'M5 3L7 28L13 21L19 32L24 29L18 18L29 17Z'
@@ -64,7 +66,9 @@ def svg(style, shape='left_ptr', frame=0):
         body += f'<path d="M8 8L12 18L22 16M12 18L19 29" fill="none" stroke="{accent}" stroke-width="1.3"/>'
     if style == 'midnightrun':
         body += f'<path d="M9 11L10 21L14 17L22 16" fill="none" stroke="{accent}" stroke-width="1.8"/>'
-    if style == 'platform95':
+    if style == 'mystery98':
+        body += f'<path d="M8 9V21L12 17L21 18M12 17L18 29" fill="none" stroke="{accent}" stroke-width="1"/>'
+    elif style == 'platform95':
         body += f'<path d="M8 11V20L12 16L20 18" fill="none" stroke="{accent}" stroke-width="1"/>'
     if style == 'mycelium':
         body += f'<path d="M8 8Q12 13 14 20M11 13L16 13L23 17M13 18L9 23M17 14L17 10" fill="none" stroke="{accent}" stroke-width="1"/>'
@@ -123,7 +127,15 @@ def svg(style, shape='left_ptr', frame=0):
                     f'<path d="M11 18Q18 22 25 18M14 17L17 20M22 17L19 20" stroke="{fill}" stroke-width=".8"/>'
                     f'<g transform="rotate({frame*30} 18 18)"><circle cx="18" cy="4" r="2" fill="{fill}" stroke="{edge}" stroke-width=".8"/>'
                     f'<circle cx="32" cy="18" r="1.2" fill="{accent}" stroke="{edge}" stroke-width=".6"/></g>')
-        if style == 'platform95':
+        if style == 'mystery98':
+            ring = (f'<path d="M15 5V2H21V5" fill="{accent}" stroke="{edge}"/>'
+                    f'<circle cx="18" cy="18" r="13" fill="{accent}" stroke="{edge}"/>'
+                    f'<circle cx="18" cy="18" r="11" fill="{fill}" stroke="{edge}" stroke-width=".9"/>'
+                    + ''.join(f'<path d="M18 8V10" stroke="{edge}" transform="rotate({angle} 18 18)"/>' for angle in (0,90,180,270))
+                    + f'<path d="M18 18L23 21" stroke="{edge}" stroke-width="2"/>'
+                    + f'<path d="M18 18V10" stroke="{edge}" stroke-width="1.6" transform="rotate({frame*30} 18 18)"/>'
+                    + f'<circle cx="18" cy="18" r="1.7" fill="{edge}"/>')
+        elif style == 'platform95':
             ring = (f'<circle cx="18" cy="18" r="14" fill="{accent}" stroke="{edge}"/>'
                     f'<circle cx="18" cy="18" r="11" fill="{fill}" stroke="{edge}" stroke-width=".9"/>'
                     + ''.join(f'<path d="M18 8V10" stroke="{edge}" transform="rotate({angle} 18 18)"/>' for angle in (0,90,180,270))

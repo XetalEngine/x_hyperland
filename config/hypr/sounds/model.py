@@ -15,7 +15,7 @@ PACKS = {
     'polaris': ('Polaris', 'Northern lights', 'Gentle glass chimes and a warm, spacious ascending welcome.', '#32e1f2'),
     'infernalencore': ('Infernal Encore', 'Backstage signals', 'Soft muted guitar harmonics and restrained minor-key power chords.', '#ff472c'),
     'midnightrun': ('Midnight Run', 'After-hours signals', 'Soft synth plucks, neon bell harmonics and a restrained minor arpeggio.', '#42e5f5'),
-    'platform95': ('Platform 95', 'Golden departure', 'Warm desk-bell notes and a gentle major-key welcome.', '#d1aa58'),
+    'mystery98': ('Windows 98 Mystery', 'The midnight study', 'Soft clockwork chimes and warm string overtones from an original minor-key score.', '#dbb46a'), 'platform95': ('Platform 95', 'Golden departure', 'Warm desk-bell notes and a gentle major-key welcome.', '#d1aa58'),
     'mycelium': ('Mycelium', 'Spore songs', 'Airy wooden chimes and soft, luminous bell harmonics.', '#c9a0e1'),
     'atomicafterglow': ('Atomic Afterglow', 'Phosphor signals', 'Soft analog instruments, warm sine chimes and a quiet rising signal.', '#b5ed29'),
     'blackwood': ('Blackwood', 'Harbour bells', 'Low wooden mallets, soft brass overtones and a quiet coastal cadence.', '#c7af7d'),
