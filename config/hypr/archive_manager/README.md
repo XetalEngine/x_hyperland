@@ -67,9 +67,21 @@ the repository license.
 - Reading/extraction uses the complete upstream decoder set, including RAR,
   CAB, ISO, disk images and Zstandard. Read support does not imply write support:
   RAR and Zstandard creation are not supported by this pinned upstream engine.
-- Searchable, sortable archive contents use an on-disk SQLite index and paged
-  rows. Extract selected entries, or add/delete/rename entries in writable
-  formats. Updates use a temporary copy and verify it before replacing anything.
+- Searchable, sortable archive contents form an expandable **folder tree**, with
+  themed file icons and folders first. Folders omitted by the archive writer
+  are reconstructed from member paths. Search keeps matching files inside their
+  parent folders. An on-disk SQLite index and paged children keep browsing from
+  loading every member into memory.
+- **Drag files or folders into Fusion Files to extract.** Select one or several
+  entries, then drop onto a folder or the current folder's background. A nested
+  file lands directly in the destination; a folder keeps its contents together.
+  Multiple selections preserve their layout below their common parent. Drops
+  copy out of the archive and use the existing progress, password and overwrite
+  dialogs. Canceling the drag does not start extraction. No Ark installation is
+  needed: the browser uses the archive handoff already supported by Fusion Files.
+- Extract selected entries with the toolbar, or add/delete/rename entries in
+  writable formats. Updates use a temporary copy and verify it before replacing
+  anything.
 - Animated Fusion transfer cards, pause/resume/cancel, live engine progress,
   an expanding attention drawer, explicit Retry/Skip and saved reports.
 
@@ -111,8 +123,19 @@ additional disk space and time, especially for compressed tar files.
 Split archive extraction is supported. Creating a split set with an already
 existing base name requires a new name, preventing mixed old/new volume sets.
 Extract split or non-updatable formats before editing their contents. Remote
-URLs must first be copied to a local folder. External Ark drag/drop remains
+URLs must first be copied to a local folder. Archive drops also require a local
+destination; copy extracted files onward for remote locations. A drop keeps its
+own selection even if the browser selection changes or the browser closes while
+Fusion Files receives it. If the source archive changes during the drop or
+extraction, the job stops before publishing. External Ark drag/drop remains
 compatible if a user independently keeps Ark installed.
+
+The destination's extraction request starts the job. The browser keeps that
+handoff available briefly after Qt returns from a drag, including an
+`IgnoreAction` result on Wayland; the compositor's drag result and KIO's request
+can arrive independently. A drag with no destination request expires without
+extracting anything. Qt retains ownership of the drag's MIME data until its
+native transfer finishes.
 
 ## Validation
 
@@ -120,6 +143,7 @@ compatible if a user independently keeps Ark installed.
 python3 config/hypr/archive_manager/test_archives.py -v
 python3 config/hypr/archive_manager/test_decisions.py -v
 QT_QPA_PLATFORM=offscreen python3 config/hypr/archive_manager/test_ui.py -v
+QT_QPA_PLATFORM=offscreen python3 config/hypr/archive_manager/test_tree.py -v
 dbus-run-session -- env FUSION_ARCHIVE_PRIVATE_BUS=1 QT_QPA_PLATFORM=offscreen \
   python3 config/hypr/archive_manager/test_remote.py -v
 ```
@@ -127,4 +151,9 @@ dbus-run-session -- env FUSION_ARCHIVE_PRIVATE_BUS=1 QT_QPA_PLATFORM=offscreen \
 These use disposable files and cover real format/method round trips, encryption,
 split archives, filenames containing Unicode/newlines/wildcards, cancellation,
 unreadable inputs, overwrites, malicious paths, new destination folders, GUI
-password/queue handling and progress decisions across separate processes.
+password/queue handling and progress decisions across separate processes. Tree
+checks cover implicit directories, parent indexes, paged children, search and
+selection. Drop checks cover immutable handoffs, browser closure, cancellation,
+changed archives, encrypted files and compressed tar selections.
+They also exercise extraction requests arriving before and after the drag
+returns, including `IgnoreAction`, and abandoned handoffs expiring without work.

@@ -2,22 +2,23 @@
 from pathlib import Path
 import json
 import os
-import sqlite3
 import tempfile
 import time
 
-from PyQt6.QtCore import QAbstractTableModel, QModelIndex, QObject, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
+from PyQt6.QtCore import QObject, QPoint, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QDesktopServices, QDrag, QIcon, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog,
     QDialogButtonBox, QFileDialog, QFormLayout, QGridLayout, QGroupBox, QHBoxLayout,
     QHeaderView, QInputDialog, QLabel, QLineEdit, QMessageBox, QPushButton,
-    QSpinBox, QTableView, QTabWidget, QVBoxLayout, QWidget)
+    QSpinBox, QTreeView, QTabWidget, QVBoxLayout, QWidget)
 
 from engine import FORMATS, LEVELS, ArchiveError
 from tasks import Task
 from file_jobs.model import Job, amount
 from file_jobs.window import ProgressWindow
 from progress import RemoteProgress
+from members import MemberModel
+from drag import ArchiveDrag
 
 
 def plain(text):
@@ -278,51 +279,16 @@ class JobController(QObject):
         self.completed.emit(result)
 
 
-class MemberModel(QAbstractTableModel):
-    def __init__(self, parent=None):
-        super().__init__(parent); self.db = None; self.query = ''; self.count = 0; self.cache = {}
-        self.sort_column = 'id'; self.direction = 'ASC'
-
-    def open(self, path):
-        if self.db: self.db.close()
-        self.db = sqlite3.connect('file:'+str(path)+'?mode=ro',uri=True)
-        self.filter('')
-
-    def filter(self, text):
-        self.beginResetModel(); self.query=text; self.cache.clear()
-        self.count = self.db.execute('SELECT COUNT(*) FROM members WHERE instr(lower(path),lower(?))>0',(text,)).fetchone()[0] if self.db else 0
-        self.endResetModel()
-
-    def rowCount(self,parent=QModelIndex()): return 0 if parent.isValid() else self.count
-    def columnCount(self,parent=QModelIndex()): return 0 if parent.isValid() else 5
-    def entry(self,row):
-        page = row//256
-        if page not in self.cache:
-            values = self.db.execute(f'SELECT data FROM members WHERE instr(lower(path),lower(?))>0 ORDER BY {self.sort_column} {self.direction} LIMIT 256 OFFSET ?',
-                                     (self.query,page*256)).fetchall()
-            if len(self.cache)>16: self.cache.clear()
-            self.cache[page] = [json.loads(value[0]) for value in values]
-        return self.cache[page][row%256]
-    def data(self,index,role=Qt.ItemDataRole.DisplayRole):
-        if not index.isValid(): return None
-        item = self.entry(index.row())
-        if role == Qt.ItemDataRole.ToolTipRole: return item['path']
-        if role == Qt.ItemDataRole.DisplayRole:
-            return (item['path'], 'Folder' if item['directory'] else amount(item['size']),
-                    amount(item['packed']),item.get('method') or '', 'Yes' if item.get('encrypted') else '')[index.column()]
-    def headerData(self,section,orientation,role=Qt.ItemDataRole.DisplayRole):
-        if role == Qt.ItemDataRole.DisplayRole and orientation == Qt.Orientation.Horizontal:
-            return ('Name / path','Size','Packed size','Method','Encrypted')[section]
-    def sort(self,column,order=Qt.SortOrder.AscendingOrder):
-        if column < 0: return
-        self.sort_column = ('path','size','packed',"json_extract(data,'$.method')","json_extract(data,'$.encrypted')")[column]
-        self.direction = 'DESC' if order == Qt.SortOrder.DescendingOrder else 'ASC'; self.filter(self.query)
+class ArchiveTree(QTreeView):
+    dragRequested=pyqtSignal()
+    def startDrag(self, _actions):
+        self.dragRequested.emit()
 
 
 class ArchiveBrowser(QWidget):
     launch = pyqtSignal(dict)
     def __init__(self, archive, parent=None):
-        super().__init__(parent); self.archive = Path(archive); self.password=None; self.reader=None
+        super().__init__(parent); self.archive = Path(archive); self.password=None; self.reader=None; self.pending_drops={}; self.dragging=False
         self.storage = tempfile.TemporaryDirectory(prefix='fusion-archive-browser-')
         self.setWindowTitle(self.archive.name+' · 7-Zip · Fusion'); self.resize(1000,680)
         layout = QVBoxLayout(self); layout.setContentsMargins(18,18,18,18); layout.setSpacing(10)
@@ -333,20 +299,57 @@ class ArchiveBrowser(QWidget):
                 ('Add files…',self.add),('Add folder…',self.add_folder),('Delete selected',self.remove),('Rename…',self.rename),('Reload',self.reload)):
             button=QPushButton(text); button.clicked.connect(callback); toolbar.addWidget(button)
         self.search=QLineEdit(); self.search.setPlaceholderText('Search files and paths inside this archive…'); self.search.setClearButtonEnabled(True); layout.addWidget(self.search)
-        self.model=MemberModel(self); self.table=QTableView(); self.table.setModel(self.model)
+        self.model=MemberModel(self); self.table=ArchiveTree(); self.table.setModel(self.model)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.table.setAlternatingRowColors(True); self.table.setSortingEnabled(True)
-        self.table.horizontalHeader().setSectionResizeMode(0,QHeaderView.ResizeMode.Stretch)
-        self.table.verticalHeader().hide(); layout.addWidget(self.table,1)
+        self.table.header().setStretchLastSection(False)
+        self.table.header().setSectionResizeMode(0,QHeaderView.ResizeMode.Stretch)
+        self.table.setUniformRowHeights(True); self.table.setRootIsDecorated(True)
+        self.table.setDragEnabled(True); self.table.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
+        self.table.setDefaultDropAction(Qt.DropAction.CopyAction)
+        self.table.sortByColumn(0,Qt.SortOrder.AscendingOrder)
+        self.table.dragRequested.connect(self.start_drag)
+        layout.addWidget(self.table,1)
         self.status=plain('Reading archive…'); layout.addWidget(self.status)
         self.timer=QTimer(self); self.timer.setSingleShot(True); self.timer.setInterval(180)
-        self.search.textChanged.connect(lambda:self.timer.start()); self.timer.timeout.connect(lambda:self.model.filter(self.search.text()))
+        self.search.textChanged.connect(lambda:self.timer.start()); self.timer.timeout.connect(self.filter_members)
         QShortcut(QKeySequence.StandardKey.Find,self,activated=self.search.setFocus)
-        self.table.doubleClicked.connect(lambda:self.extract())
+        self.table.activated.connect(self.activate_member)
         QTimer.singleShot(0,self.reload)
 
-    def selected(self): return [self.model.entry(i.row())['path'] for i in self.table.selectionModel().selectedRows()]
+    def selected(self): return self.model.selection(self.table.selectionModel().selectedRows())
+    def filter_members(self):
+        self.model.filter(self.search.text())
+        for index in self.model.matching_folders(): self.table.expand(index)
+    def activate_member(self,index):
+        item=self.model.node(index.internalId())
+        if item and not item['directory']: self.extract()
+    def start_drag(self):
+        members=self.selected()
+        if not members or self.dragging:return
+        endpoint=None
+        try:
+            endpoint=ArchiveDrag(self.archive,members,self.password,self)
+            mime=endpoint.mime_data()
+            self.pending_drops[endpoint.path]=endpoint
+            endpoint.launch.connect(self.launch)
+            endpoint.failed.connect(self.status.setText)
+            def released():
+                self.pending_drops.pop(endpoint.path,None)
+            endpoint.closed.connect(released)
+            drag=QDrag(self.table);drag.setMimeData(mime)
+            icon=QIcon.fromTheme('package-x-generic')
+            if not icon.isNull():drag.setPixmap(icon.pixmap(40,40));drag.setHotSpot(QPoint(20,20))
+            self.dragging=True
+            try: result=drag.exec(Qt.DropAction.CopyAction,Qt.DropAction.CopyAction)
+            # Qt owns QDrag after exec starts. In particular, Wayland may still
+            # need its MIME payload after exec returns, until dnd_finished.
+            finally: self.dragging=False
+            endpoint.dropped(result==Qt.DropAction.CopyAction)
+        except (OSError,ArchiveError) as error:
+            if endpoint:endpoint.dispose();endpoint.deleteLater()
+            self.status.setText(str(error))
     def submit(self,operation,**extra): self.launch.emit(dict(operation=operation,sources=[str(self.archive)],password=self.password,**extra))
     def reload(self):
         if self.reader and self.reader.isRunning(): return
@@ -355,7 +358,8 @@ class ArchiveBrowser(QWidget):
         self.reader.message.connect(self.read_event)
         def finished(result):
             if result.get('ok'):
-                self.model.open(database); self.status.setText(f'{self.model.count:,} entries · 7-Zip 26.06 · Select entries to extract only those files')
+                self.model.open(database); self.filter_members()
+                self.status.setText(f'{self.model.count:,} entries · 7-Zip 26.06 · Drag files or folders into Fusion Files to extract')
             else: self.status.setText(result.get('error','Canceled'))
         self.reader.outcome.connect(finished); self.reader.start()
     def read_event(self,event):
@@ -384,7 +388,8 @@ class ArchiveBrowser(QWidget):
         name,ok=QInputDialog.getText(self,'Rename archive entry','New name / path:',text=members[0])
         if ok and name and name!=members[0]:self.submit('rename',members=members,new_name=name)
     def closeEvent(self,event):
+        if self.dragging: event.ignore(); return
         if self.reader and self.reader.isRunning():
             self.reader.command({'command':'cancel'}); event.ignore(); self.reader.finished.connect(self.close); return
-        if self.model.db:self.model.db.close();self.model.db=None
+        self.model.close()
         self.password=None;self.storage.cleanup();super().closeEvent(event)

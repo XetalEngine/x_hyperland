@@ -366,6 +366,10 @@ class Task(QThread):
         destination = Path(self.request['destination'])
         for n, path in enumerate(archives):
             archive = Path(path)
+            if self.request.get('source_identity'):
+                value=archive.stat()
+                if [value.st_dev,value.st_ino,value.st_size,value.st_mtime_ns]!=self.request['source_identity']:
+                    raise ArchiveError('The archive changed after the drop. Reload it and drag the selection again.')
             self.set_phase('Reading archive')
             index = self.index(runner, archive, work/f'members-{n}.sqlite')
             try: index.validate()
@@ -373,6 +377,8 @@ class Task(QThread):
             extracted = work/f'extracted-{n}'; extracted.mkdir()
             selected = self.request.get('members', [])
             for member in selected: safe_member(member)
+            if self.request.get('strip_common_parent') and not selected:
+                raise ArchiveError('No archive entries were selected for this drop.')
             self.set_phase('Extracting')
             args = ['x', '-y', '-aos', '-o'+str(extracted), '--', str(archive), *(selected if not wrapped_tar(archive) else [])]
             result = self.invoke(runner, args)
@@ -395,7 +401,19 @@ class Task(QThread):
                     if name.lower().endswith(suffix): name = name[:-len(suffix)]; break
                 else: name = archive.stem
                 target = destination/(name or 'Extracted files')
-            self.publish(list(extracted.iterdir()), target, work)
+            published=extracted
+            if self.request.get('strip_common_parent'):
+                # A dragged nested file lands in the chosen folder. Sibling
+                # selections retain their layout below the common parent.
+                prefix=os.path.commonpath([str(Path(safe_member(member)).parent) for member in selected])
+                published=extracted/prefix
+                if not published.is_dir():
+                    raise ArchiveError('The selected entries could not be extracted. Reload the archive and try again.')
+            if self.request.get('source_identity'):
+                value=archive.stat()
+                if [value.st_dev,value.st_ino,value.st_size,value.st_mtime_ns]!=self.request['source_identity']:
+                    raise ArchiveError('The archive changed during extraction. Existing destination files were kept.')
+            self.publish(list(published.iterdir()), target, work)
 
     def modify(self, runner, work):
         archive = Path(self.request['sources'][0])
@@ -461,7 +479,8 @@ class Task(QThread):
                         if len(files)!=1 or not files[0].is_file():raise ArchiveError('The compressed tar does not contain one archive.')
                         archive=files[0]
                     index = self.index(runner, archive, self.request['index'])
-                    index.close()
+                    try: index.build_tree(self.control)
+                    finally: index.close()
                 else: raise ArchiveError('Unknown archive operation.')
             result = {'ok':True, 'notes':self.notes, 'report':str(self.report)}
         except Cancelled: result = {'ok':False, 'cancelled':True, 'report':str(self.report)}

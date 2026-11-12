@@ -1,5 +1,6 @@
 """Pinned 7-Zip engine, structured events, and archive format capabilities."""
 from dataclasses import dataclass
+from collections import OrderedDict
 from pathlib import Path, PurePosixPath
 import hashlib
 import json
@@ -209,6 +210,39 @@ class Index:
     def add(self, event):
         self.db.execute('INSERT INTO members(path,directory,size,packed,data) VALUES(?,?,?,?,?)',
             (event['path'], bool(event['directory']), event['size'], event['packed'], json.dumps(event)))
+
+    def build_tree(self, control=None):
+        """Materialize parents on disk, including directories omitted by ZIP writers."""
+        self.db.execute('DROP TABLE IF EXISTS tree')
+        self.db.execute('CREATE TABLE tree (id INTEGER PRIMARY KEY, path TEXT UNIQUE, parent INTEGER NOT NULL, name TEXT NOT NULL, directory INTEGER NOT NULL, member INTEGER)')
+        self.db.execute('CREATE INDEX tree_parent ON tree(parent,directory,name COLLATE NOCASE)')
+        parents = OrderedDict()
+        for number, (member, path, directory) in enumerate(self.db.execute('SELECT id,path,directory FROM members')):
+            if control and number % 256 == 0: control.check()
+            path = safe_member(path)
+            if path == '.': continue
+            parts = PurePosixPath(path).parts
+            parent = 0
+            for depth, name in enumerate(parts):
+                prefix = '/'.join(parts[:depth+1])
+                folder = depth < len(parts)-1 or bool(directory)
+                if prefix in parents and depth < len(parts)-1:
+                    parent = parents[prefix]; parents.move_to_end(prefix); continue
+                found = self.db.execute('SELECT id,directory FROM tree WHERE path=?', (prefix,)).fetchone()
+                if found:
+                    if bool(found[1]) != folder:
+                        raise ArchiveError('An archive path is both a file and a folder: '+prefix)
+                    ident = found[0]
+                    if depth == len(parts)-1:
+                        self.db.execute('UPDATE tree SET member=COALESCE(member,?) WHERE id=?', (member,ident))
+                else:
+                    ident = self.db.execute('INSERT INTO tree(path,parent,name,directory,member) VALUES(?,?,?,?,?)',
+                        (prefix,parent,name,folder,member if depth == len(parts)-1 else None)).lastrowid
+                if folder:
+                    parents[prefix] = ident
+                    if len(parents)>4096: parents.popitem(last=False)
+                parent = ident
+        self.db.commit()
 
     def validate(self):
         self.db.commit()

@@ -26,7 +26,7 @@ def main():
     directory=args.directory or (str(Path(paths[0]).parent) if paths else str(Path.home()))
     controllers=[]; browsers=[]
     def quit_if_empty():
-        if not controllers and not any(browser.isVisible() for browser in browsers): app.quit()
+        if not controllers and not any(browser.isVisible() or browser.pending_drops for browser in browsers): app.quit()
     def launch(request):
         controller=JobController(request,app); controllers.append(controller)
         def release():

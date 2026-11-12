@@ -81,11 +81,15 @@ class Interface(unittest.TestCase):
     def test_member_index_pages_and_filters(self):
         index=Index(self.base/'index.sqlite')
         for number in range(1025):index.add(dict(path=f'Folder/{number:04}.txt',directory=False,size=number,packed=number//2))
-        index.db.commit();index.close()
+        index.build_tree();index.close()
         model=MemberModel();model.open(self.base/'index.sqlite')
-        self.assertEqual(model.rowCount(),1025);self.assertEqual(model.entry(1000)['size'],1000)
-        model.filter('1000');self.assertEqual(model.rowCount(),1);self.assertEqual(model.entry(0)['path'],'Folder/1000.txt')
-        model.db.close()
+        self.assertEqual(model.rowCount(),1)
+        folder=model.index(0,0)
+        self.assertEqual(model.rowCount(folder),1025);self.assertEqual(model.entry(1000,folder)['size'],1000)
+        model.filter('1000');self.assertEqual(model.rowCount(),1)
+        folder=model.index(0,0)
+        self.assertEqual(model.rowCount(folder),1);self.assertEqual(model.entry(0,folder)['path'],'Folder/1000.txt')
+        model.close()
 
     def test_skip_feedback_arrives_while_the_archive_pass_is_busy_and_paused(self):
         if os.getuid()==0:self.skipTest('Requires unprivileged permissions')
