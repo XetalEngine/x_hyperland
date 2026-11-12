@@ -27,7 +27,7 @@ def build(root=ROOT):
     manifest = json.loads((root.parent/'manifest.json').read_text())
     if platform.machine() not in ('x86_64', 'AMD64'):
         raise RuntimeError('The window memory requires the supported x86-64 Hyprland runtime.')
-    flags = shlex.split(output(['pkg-config', '--cflags', 'hyprland', 'libeis-1.0', 'json-c']))
+    flags = shlex.split(output(['pkg-config', '--cflags', 'hyprland', 'libeis-1.0', 'json-c', 'glib-2.0']))
     headers = next((Path(arg[2:])/'src/version.h' for arg in flags
                     if arg.startswith('-I') and (Path(arg[2:])/'src/version.h').is_file()), None)
     match = re.search(r'#define\s+GIT_COMMIT_HASH\s+"([a-f0-9]+)"', headers.read_text()) if headers else None
@@ -35,7 +35,7 @@ def build(root=ROOT):
         raise RuntimeError('The window memory needs development headers matching the pinned Hyprland runtime.')
     versions = output(['pkg-config', '--modversion', 'hyprland', 'aquamarine', 'hyprutils', 'hyprgraphics', 'hyprcursor', 'hyprlang'])
     signature = hashlib.sha256((versions+str(flags)+headers.read_text()+output(['g++', '-dumpfullversion'])).encode())
-    for source in (root/'plugin.cpp', root/'stacking.hpp', root/'inspector.hpp', root/'build.py', root.parent/'window_types.hpp', root.parent/'window_types_native.hpp', root.parents[1]/'workspaces/native.hpp',
+    for source in (root/'plugin.cpp', root/'stacking.hpp', root/'inspector.hpp', root/'initial_memory.hpp', root/'build.py', root.parent/'window_types.hpp', root.parent/'window_types_native.hpp', root.parents[1]/'workspaces/native.hpp',
                    root.parents[1]/'effects/window_close/native/policies.hpp', root.parents[1]/'effects/window_close/native/geometry.hpp'):
         signature.update(source.read_bytes())
     directory = root/'.build'/signature.hexdigest()[:20]
@@ -50,7 +50,7 @@ def build(root=ROOT):
         os.close(fd)
         try:
             cmd = ['g++', '-std=c++23', '-shared', '-fPIC', '-O2', '-Wall', '-Wextra',
-                   '-Wno-unused-parameter', *flags, str(root/'plugin.cpp'), '-o', temporary, '-ljson-c']
+                   '-Wno-unused-parameter', *flags, str(root/'plugin.cpp'), '-o', temporary, '-ljson-c', '-lglib-2.0']
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
             try:
                 stdout, stderr = process.communicate(timeout=180)

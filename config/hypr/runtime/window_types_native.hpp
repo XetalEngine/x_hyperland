@@ -7,10 +7,11 @@
 #include <hyprland/src/xwayland/XSurface.hpp>
 
 namespace WindowTypes {
-// Use protocol roles, never class/title/size heuristics. This is also called
+// Use protocol roles and explicit placement ownership, never size heuristics. This is also called
 // before mapping, so mapped/hidden checks belong to each operation's caller.
 inline bool geometryManaged(PHLWINDOW window) {
     if (!window) return false;
+    if (placementOwned(window->m_ruleApplicator->m_tagKeeper.getTags())) return false;
     if (window->m_isX11) {
         const auto x11 = window->m_xwaylandSurface.lock();
         return x11 && managedX11(x11->m_overrideRedirect, x11->m_atoms, HYPRATOMS);

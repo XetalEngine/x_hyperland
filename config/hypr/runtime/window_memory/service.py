@@ -122,6 +122,9 @@ class Tracker:
 
     def restore(self, client, meta, saved, monitor, phase=0):
         if not geometry_managed(client, meta): return False
+        # New adapters apply memory within mapWindow(), before the first frame.
+        # Retain this compatibility path only for an older, already-loaded ABI.
+        if meta.get('initial_memory') is True: return False
         if meta.get('workspace_layout', 'off') == 'tile': return False
         address = client['address']
         if not saved: return False
@@ -192,7 +195,7 @@ class Tracker:
             self.keys[token] = key
             monitor = monitors.get(client.get('monitor'))
             if monitor is None: continue
-            if self.initialized and token not in self.known:
+            if self.initialized and token not in self.known and meta.get('initial_memory') is not True:
                 self.pending[token] = {'at': now + .2, 'phase': 0}
             if token in self.pending:
                 pending = self.pending[token]
@@ -258,6 +261,9 @@ class Tracker:
             self.samples.pop(token, None)
         self.known = current
         self.initialized = True
+        # A rapid close/reopen must see the last rectangle in the native reader,
+        # not the previous disk snapshot from the two-second write timer.
+        if closed: self.store.save()
 
     def flush(self):
         for token in self.owners:
@@ -290,19 +296,31 @@ def main():
         def startup_cancel(*_): raise SystemExit(0)
         for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP): signal.signal(number, startup_cancel)
         if not initialize('window_memory', lambda: ensure_plugin(hypr), instance, threading.Event()): return 1
+        # The native adapter reads the same file, including private test profiles.
+        # An older adapter can remain loaded until logout and uses the legacy path.
+        hypr.command('xetal-memory-source '+str(state.resolve()))
         tracker = Tracker(hypr, Store(state))
         stopping = False
         def stop(*_):
             nonlocal stopping
             stopping = True
         for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP): signal.signal(number, stop)
-        last_save = last_update = 0
+        last_save = last_update = last_error = 0
         try:
             while not stopping:
                 if select.select([events], [], [], .2)[0] and not events.recv(65536): break
                 now = time.monotonic()
                 if now-last_update < .15: continue
-                tracker.update(now)
+                try:
+                    tracker.update(now)
+                except (OSError, ValueError) as error:
+                    # A busy compositor can miss an IPC deadline. Keep observing
+                    # this session instead of silently losing all future saves.
+                    if now-last_error > 10:
+                        print('Window memory: retrying after '+str(error), file=sys.stderr, flush=True)
+                        last_error = now
+                    last_update = now
+                    continue
                 last_update = now
                 if now-last_save > 2:
                     tracker.store.save(); last_save = now

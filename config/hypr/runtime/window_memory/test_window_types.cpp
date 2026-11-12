@@ -4,6 +4,10 @@
 #include <vector>
 
 int main() {
+    assert(WindowTypes::placementOwned(std::vector<std::string>{"fusion-placement-owned"}));
+    assert(WindowTypes::placementOwned(std::vector<std::string>{"other", "fusion-placement-owned*"}));
+    assert(!WindowTypes::placementOwned(std::vector<std::string>{"fusion-placement-owned-extra"}));
+    assert(!WindowTypes::placementOwned(std::vector<std::string>{}));
     std::unordered_map<std::string, uint32_t> atoms;
     const std::vector<std::string> types = {"NORMAL", "DIALOG", "UTILITY", "DESKTOP", "DOCK", "TOOLBAR",
         "MENU", "SPLASH", "DROPDOWN_MENU", "POPUP_MENU", "TOOLTIP", "NOTIFICATION", "COMBO", "DND"};

@@ -8,6 +8,18 @@
 #include <string_view>
 
 namespace WindowTypes {
+// Explicit ownership for desktop toplevels whose anchors are set before map.
+// Unlike an app-name heuristic, this can also be assigned by a window rule.
+template<typename Tags>
+bool placementOwned(const Tags& tags) {
+    for (const auto& value : tags) {
+        std::string_view tag(value);
+        if (tag.ends_with('*')) tag.remove_suffix(1);
+        if (tag == "fusion-placement-owned") return true;
+    }
+    return false;
+}
+
 // These surfaces own their geometry. A NORMAL fallback in the type list does
 // not turn a menu into an application window. Untyped legacy clients, dialogs
 // and utility windows still participate in ordinary window management.

@@ -256,6 +256,52 @@ class GeometryTests(unittest.TestCase):
 class PopupTests(unittest.TestCase):
     setUp = GeometryTests.setUp
 
+    def test_desktop_owned_menu_ignores_stale_memory_in_every_layout(self):
+        for layout in ('off', 'tile', 'floating', 'kde'):
+            for tag in ('fusion-placement-owned', 'fusion-placement-owned*'):
+                with self.subTest(layout=layout,tag=tag):
+                    self.hypr.reset_mock()
+                    self.client.update(tags=[tag],**{'class':'xetal-launcher'})
+                    self.meta.update(workspace_layout=layout)
+                    key=identity(self.client,self.meta)
+                    saved=dict(self.saved,floating_position=[621,307])
+                    self.store.data={key:saved}
+                    self.tracker=Tracker(self.hypr,self.store)
+                    self.clients=[];self.tracker.update(0)
+                    self.clients=[self.client]
+                    for now in (.1,.4,.7,1,2):self.tracker.update(now)
+                    self.clients=[];self.tracker.update(3);self.tracker.flush()
+                    self.hypr.dispatch.assert_not_called();self.hypr.command.assert_not_called()
+                    self.assertEqual(self.store.data,{key:saved})
+                    self.assertFalse(self.tracker.samples)
+
+    def test_native_first_map_never_receives_a_later_move_even_after_user_resize(self):
+        self.meta['initial_memory']=True
+        self.store.put(self.key,self.saved)
+        self.clients=[];self.tracker.update(0)
+        self.clients=[self.client];self.tracker.update(.1)
+        # The user moves/resizes immediately after map. A later restore must
+        # not pull it back to the saved position when its old deadline expires.
+        self.client.update(size=[900,650],at=[-1600,400])
+        for now in (.2,.4,.7,1,2):self.tracker.update(now)
+        self.assertFalse(self.tracker.pending)
+        self.hypr.dispatch.assert_not_called();self.hypr.command.assert_not_called()
+        self.assertEqual(self.store.data[self.key]['floating_position'],[320,160])
+        self.clients=[];self.tracker.update(2.1)
+        self.assertEqual(Store(self.path).data[self.key]['floating_size'],[900,650])
+
+    def test_ownership_added_during_legacy_restore_cancels_it(self):
+        self.store.put(self.key,self.saved)
+        self.clients=[];self.tracker.update(0)
+        self.clients=[self.client];self.tracker.update(.1)
+        self.assertTrue(self.tracker.pending)
+        self.client['tags']=['fusion-placement-owned*']
+        for now in (.2,.4,.7,1):self.tracker.update(now)
+        self.tracker.flush()
+        self.assertFalse(self.tracker.pending)
+        self.hypr.dispatch.assert_not_called();self.hypr.command.assert_not_called()
+        self.assertEqual(self.store.data[self.key],self.saved)
+
     def test_popup_never_restores_or_saves_in_any_workspace_mode(self):
         for layout in ('off', 'tile', 'floating', 'kde'):
             with self.subTest(layout=layout):

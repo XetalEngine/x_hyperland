@@ -22,14 +22,18 @@
 #include <hyprland/src/layout/algorithm/FloatingAlgorithm.hpp>
 #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
 #include <hyprland/src/render/Renderer.hpp>
+#include <hyprland/src/output/Monitor.hpp>
 #include "../../workspaces/native.hpp"
 #include "../window_types_native.hpp"
 #include "inspector.hpp"
 #include "../../effects/window_close/native/geometry.hpp"
+#include "initial_memory.hpp"
 #include <sstream>
 
 namespace {
-SP<SHyprCtlCommand> metadataCommand, stateCommand, inspectorCommand;
+SP<SHyprCtlCommand> metadataCommand, stateCommand, inspectorCommand, memorySourceCommand;
+std::filesystem::path memorySource;
+std::map<uint64_t, InitialMemory::Plan> initialPlans;
 CHyprSignalListener mappedListener;
 std::vector<CHyprSignalListener> policyListeners;
 WorkspaceRules::Policies workspaceRules;
@@ -37,6 +41,7 @@ SP<CEventLoopTimer> policyTimer;
 std::vector<PHLWINDOWREF> pendingPolicies;
 std::vector<CFunctionHook*> hooks;
 void cleanup(){
+    initialPlans.clear();
     mappedListener.reset();
     policyListeners.clear();pendingPolicies.clear();
     if(policyTimer){policyTimer->cancel();g_pEventLoopManager->removeTimer(policyTimer);policyTimer.reset();}
@@ -193,23 +198,110 @@ uint64_t hash(const std::string& value) {
     for (unsigned char byte : value) { result ^= byte; result *= 1099511628211ULL; }
     return result;
 }
+struct MemoryFacts {
+    bool dialog = false, fixed = false, picker = false, transfer = false;
+    std::string role, app;
+};
+MemoryFacts memoryFacts(PHLWINDOW w) {
+    const auto xdg = w->m_xdgSurface.lock();
+    const auto top = xdg ? xdg->m_toplevel.lock() : nullptr;
+    const auto x11 = w->m_xwaylandSurface.lock();
+    MemoryFacts facts;
+    facts.dialog = w->parent() || (top && top->m_dialog.lock());
+    facts.fixed = top && top->m_current.minSize.x > 0 && top->m_current.minSize.y > 0 &&
+                  top->m_current.minSize == top->m_current.maxSize;
+    facts.role = std::format("{:016x}", hash(x11 && !x11->m_role.empty() ? x11->m_role : facts.dialog ? w->m_initialTitle : "main"));
+    facts.app = w->m_initialClass.empty() ? w->m_class : w->m_initialClass;
+    if (facts.app.empty()) {
+        std::error_code error;
+        facts.app = std::filesystem::read_symlink(std::format("/proc/{}/exe", w->getPID()), error).string();
+    }
+    facts.picker = w->m_class.starts_with("xetal-file-picker");
+    facts.transfer = (w->m_class == "xetal-files" || w->m_class == "xetal-files-external") &&
+                     (w->m_initialTitle.empty() ? w->m_title : w->m_initialTitle) == "Transfer queue — Fusion Files";
+    return facts;
+}
+bool explicitMemoryMode(PHLWINDOW w, const MemoryFacts& facts) {
+    if (workspacePolicy(w).layout != "off" || facts.picker || facts.transfer ||
+        ((w->m_class == "xetal-files" || w->m_class == "xetal-files-external") && !facts.dialog)) return true;
+    for (const auto& value : w->m_ruleApplicator->m_tagKeeper.getTags()) {
+        std::string_view tag(value);
+        if (tag.ends_with('*')) tag.remove_suffix(1);
+        if (tag == "fusion-managed-rule" || tag.starts_with("xetal-float-") || tag.starts_with("xetal-tile-")) return true;
+    }
+    return false;
+}
+InitialMemory::Rect memoryRectangle(PHLWINDOW w, const InitialMemory::Record& saved) {
+    auto target = w->layoutTarget();
+    const auto work = w->m_workspace->m_space->workArea(true);
+    auto current = target->position();
+    // Before the target joins a layout, use the client's requested normal size.
+    if (!target->space()) {
+        const auto desired = target->desiredGeometry();
+        const auto size = desired ? desired->size : Vector2D{saved.normalSize->w, saved.normalSize->h};
+        current = CBox{desired && desired->pos ? *desired->pos : work.middle() - size / 2, size};
+    }
+    const auto minimum = target->minSize().value_or(Vector2D{}), maximum = target->maxSize().value_or(Vector2D{});
+    const auto ext = w->getWindowExtentsUnified(Desktop::View::RESERVED_EXTENTS | Desktop::View::INPUT_EXTENTS);
+    return InitialMemory::fit(saved, {work.x, work.y, work.w, work.h},
+        {current.x, current.y, current.w, current.h}, {minimum.x, minimum.y}, {maximum.x, maximum.y},
+        memoryFacts(w).fixed, {ext.topLeft.x, ext.topLeft.y, ext.bottomRight.x, ext.bottomRight.y});
+}
+void prepareInitialMemory(PHLWINDOW w) {
+    if (!WindowTypes::geometryManaged(w) || !w->m_workspace || !w->m_workspace->m_space ||
+        !w->layoutTarget() || workspacePolicy(w).layout == "tile") return;
+    const auto facts = memoryFacts(w);
+    const auto key = InitialMemory::identity(facts.app, facts.role, facts.dialog, facts.picker, facts.transfer);
+    const auto saved = InitialMemory::read(memorySource, key);
+    if (!saved) return;
+    const auto plan = InitialMemory::plan(*saved, explicitMemoryMode(w, facts), w->m_isFloating);
+    initialPlans[w->m_stableID] = plan;
+    // The pinned core emits openEarly immediately before newTarget(). Set its
+    // first layout choice here, not through an IPC move after the window opens.
+    if (plan.restoreMode) w->layoutTarget()->setFloating(plan.floating);
+    if (!plan.floating || !saved->normalSize) return;
+    const auto rect = memoryRectangle(w, *saved);
+    if (!facts.fixed)
+        w->m_ruleApplicator->static_.size = Math::SExpressionVec2{std::to_string(rect.w), std::to_string(rect.h)};
+    const auto monitor = w->m_monitor.lock();
+    if (monitor) {
+        const auto origin = monitor->logicalBox().pos();
+        w->m_ruleApplicator->static_.position = Math::SExpressionVec2{std::to_string(rect.x - origin.x), std::to_string(rect.y - origin.y)};
+        w->m_ruleApplicator->static_.center = false;
+    }
+    w->layoutTarget()->rememberFloatingSize({rect.w, rect.h});
+}
+void finishInitialMemory(PHLWINDOW w) {
+    const auto found = initialPlans.find(w->m_stableID);
+    if (found == initialPlans.end()) return;
+    const auto plan = found->second; initialPlans.erase(found);
+    if (!w->m_isMapped || !WindowTypes::geometryManaged(w) || !w->layoutTarget() ||
+        !w->layoutTarget()->space() || workspacePolicy(w).layout == "tile") return;
+    const bool mode = plan.restoreMode && !explicitMemoryMode(w, memoryFacts(w));
+    if (mode) Fullscreen::controller()->setFullscreenMode(w, Fullscreen::FSMODE_NONE, Fullscreen::FSMODE_NONE);
+    const auto fullscreen = Fullscreen::controller()->getFullscreenModes(w);
+    // openLate is still inside mapWindow(), before any frame. Final decoration
+    // extents and forced-layout constraints are now available. No timer/retry.
+    if (plan.floating && w->layoutTarget()->floating() && plan.saved.normalSize &&
+        fullscreen.internal == Fullscreen::FSMODE_NONE && fullscreen.client == Fullscreen::FSMODE_NONE) {
+        const auto rect = memoryRectangle(w, plan.saved);
+        auto target = w->layoutTarget();
+        target->space()->algorithm()->floatingAlgo()->setTargetGeom(CBox{rect.x, rect.y, rect.w, rect.h}, target);
+        target->rememberFloatingSize({rect.w, rect.h});
+    }
+    if (mode)
+        Fullscreen::controller()->setFullscreenMode(w, static_cast<Fullscreen::eFullscreenMode>(plan.saved.fullscreen),
+                                                    static_cast<Fullscreen::eFullscreenMode>(plan.saved.clientFullscreen));
+    w->layoutTarget()->warpPositionSize();
+}
 std::string metadata() {
     std::string result = "{";
     for (const auto& window : Desktop::windowState()->windows()) {
         if (!window->m_isMapped) continue;
-        const auto parent = window->parent();
-        const auto xdg = window->m_xdgSurface.lock();
-        const auto top = xdg ? xdg->m_toplevel.lock() : nullptr;
-        const auto x11 = window->m_xwaylandSurface.lock();
-        const bool dialog = parent || (top && top->m_dialog.lock());
-        // xdg-shell uses zero for an unspecified limit, not a zero-size lock.
-        const bool fixed = top && top->m_current.minSize.x > 0 && top->m_current.minSize.y > 0 &&
-                           top->m_current.minSize == top->m_current.maxSize;
-        // Never persist/export titles, document paths, or a window's contents.
-        const auto role = x11 && !x11->m_role.empty() ? x11->m_role : dialog ? window->m_initialTitle : "main";
+        const auto facts = memoryFacts(window);
         if (result.size() > 1) result += ',';
-        result += std::format("\"0x{:x}\":{{\"dialog\":{},\"fixed\":{},\"role\":\"{:016x}\",\"workspace_layout\":\"{}\",\"geometry_managed\":{},\"stableId\":\"{:x}\"}}",
-                              reinterpret_cast<uintptr_t>(window.get()), dialog, fixed, hash(role),workspacePolicy(window).layout,
+        result += std::format("\"0x{:x}\":{{\"dialog\":{},\"fixed\":{},\"role\":\"{}\",\"workspace_layout\":\"{}\",\"initial_memory\":true,\"geometry_managed\":{},\"stableId\":\"{:x}\"}}",
+                              reinterpret_cast<uintptr_t>(window.get()), facts.dialog, facts.fixed, facts.role,workspacePolicy(window).layout,
                               WindowTypes::geometryManaged(window), window->m_stableID);
     }
     return result + '}';
@@ -220,6 +312,17 @@ APICALL EXPORT std::string PLUGIN_API_VERSION() { return HYPRLAND_API_VERSION; }
 APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     if (std::string(__hyprland_api_get_hash()) != __hyprland_api_get_client_hash())
         throw std::runtime_error("Rebuild window memory for this compositor ABI");
+    memorySource = std::filesystem::path(std::getenv("HOME")) / ".config/hypr/runtime/window_memory/state/windows.json";
+    memorySourceCommand = HyprlandAPI::registerHyprCtlCommand(handle, {"xetal-memory-source", false,
+        [](eHyprCtlOutputFormat, std::string input) {
+            const auto separator = input.find(' ');
+            if (separator == std::string::npos) return std::string("missing memory path");
+            const auto path = input.substr(separator + 1);
+            if (path.empty() || path.size() > 4096 || path.find_first_of("\r\n") != std::string::npos || !std::filesystem::path(path).is_absolute())
+                return std::string("invalid memory path");
+            memorySource = path;
+            return std::string("ok");
+        }});
     metadataCommand = HyprlandAPI::registerHyprCtlCommand(handle, {"xetal-windows", true,
         [](eHyprCtlOutputFormat, std::string) { return metadata(); }});
     inspectorCommand = HyprlandAPI::registerHyprCtlCommand(handle, {"xetal-inspector-surfaces", true,
@@ -254,9 +357,13 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         hook(handle,"computeDamage","CWLSurface::computeDamage(",(void*)surfaceDamageHook,originalSurfaceDamage);
         hook(handle,"coordsGlobal","CSubsurface::coordsGlobal(",(void*)subsurfaceCoordsHook,originalSubsurfaceCoords);
         policyListeners.push_back(Event::bus()->m_events.window.openEarly.listen([](PHLWINDOW w){
-            const auto policy=workspacePolicy(w);if(policy.layout=="off")return;
-            if(auto target=w->layoutTarget())target->setFloating(WorkspaceRules::floats(policy));
-            else w->m_isFloating=WorkspaceRules::floats(policy);
+            const auto policy=workspacePolicy(w);
+            if(policy.layout!="off") {
+                if(auto target=w->layoutTarget())target->setFloating(WorkspaceRules::floats(policy));
+                else w->m_isFloating=WorkspaceRules::floats(policy);
+            }
+            try { prepareInitialMemory(w); }
+            catch (const std::exception& error) { initialPlans.erase(w->m_stableID); }
         }));
         policyListeners.push_back(Event::bus()->m_events.window.moveToWorkspace.listen([](PHLWINDOW w,PHLWORKSPACE){queuePolicy(w);}));
         policyListeners.push_back(Event::bus()->m_events.window.fullscreen.listen([](PHLWINDOW w){
@@ -271,8 +378,11 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
             }catch(const std::exception& error){return SDispatchResult{.success=false,.error=error.what()};}
         });
         mappedListener = Event::bus()->m_events.window.openLate.listen([](PHLWINDOW w){
+            if (w && (!w->m_isMapped || !WindowTypes::geometryManaged(w))) initialPlans.erase(w->m_stableID);
             if(w&&w->m_isMapped&&WindowTypes::geometryManaged(w)){
                 enforcePolicy(w,true);
+                try { finishInitialMemory(w); }
+                catch (const std::exception& error) { initialPlans.erase(w->m_stableID); }
                 const auto& tags=w->m_ruleApplicator->m_tagKeeper.getTags();
                 const bool launched=std::ranges::any_of(tags,[](const auto& tag){return tag.starts_with("xetal-tile-")||tag.starts_with("xetal-float-");});
                 if(launched&&w->m_ruleApplicator->static_.fullscreenStateInternal==0&&w->m_ruleApplicator->static_.fullscreenStateClient==0)
@@ -292,6 +402,6 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         for(const auto& w:Desktop::windowState()->windows())if(w->m_workspace&&reconciled.insert(w->m_workspace->m_id).second)
             WorkspaceStack::reconcile(w->m_workspace);
     }catch(...){cleanup();throw;}
-    return {"Xetal Window Memory", "Window geometry, workspace policies and decoration input", "XetalEngine", "1.5"};
+    return {"Xetal Window Memory", "Initial placement, workspace policies and decoration input", "XetalEngine", "1.6"};
 }
 APICALL EXPORT void PLUGIN_EXIT() { cleanup(); }

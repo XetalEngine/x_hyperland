@@ -15,6 +15,21 @@ only newly mapped windows receive saved geometry. Normal windows and transient
 dialogs have separate hashed identities. No titles, filenames, process IDs or
 monitor serials are persisted. `state/` is private and preserved by updates.
 
+Saved placement is applied inside the compositor's map operation: mode and
+normal floating geometry are prepared before the first layout, then fullscreen
+and decoration bounds are finalized before its first frame. The observer never
+sends a delayed resize/move for a window handled by this adapter. Existing
+windows remain untouched on observer restart. The original hashed version-1
+database remains compatible; a rapid close flushes its last sampled rectangle
+before another launch reads it. Temporary IPC timeouts are retried.
+
+Desktop-owned surfaces such as **Apps** and the **quick panel** carry the explicit
+`fusion-placement-owned` window-rule tag. Their own pre-map taskbar placement
+and size preferences take precedence. Generic geometry helpers neither restore
+nor record them, and forced workspace layouts do not retile/recenter them.
+Old database entries are harmless and are left intact. This tag is an explicit
+opt-out, independent of an application's name or protocol role.
+
 All automatic geometry helpers share `runtime/window_types_native.hpp` and
 `window_rules/window_types.py`. The native decision uses protocol roles: XWayland
 override-redirect windows and EWMH menu, dropdown, popup, tooltip, combo, drag,
@@ -38,8 +53,9 @@ The exact-ABI native adapter supplies transient/role metadata and addressed
 fullscreen changes without moving focus. Zero xdg-shell size limits mean
 unspecified, not fixed. Rebuild it with `build.py` for the pinned runtime. Never
 overwrite a native library already mapped by a running compositor. A tested
-adapter update uses a new build path and a controlled plugin unload/load while
-the memory watcher is stopped; existing windows are only observed on restart.
+adapter update uses a new build path and activates at the next login. Existing
+windows are only observed on watcher restart. The watcher retains its legacy
+restoration path while an older adapter remains loaded in an existing session.
 
 The adapter also aligns pointer hits and held-button motion with xdg window
 geometry when clients include invisible decoration padding. This includes child
@@ -75,9 +91,9 @@ Force tiling retain their normal stacking behavior. Protocol-owned popups, pinne
 windows, hidden windows and other workspaces are excluded. The existing Minimize
 adapter still handles explicit Super+F / Super+B and workspace order restoration.
 
-Restoration separates mode, geometry and fullscreen into different compositor
-frames; changing floating state replaces the layout target. Normal floating
-size is preserved when maximizing. Tiled windows retain their remembered mode,
+Restoration sets floating/tiling before the layout target joins its workspace;
+normal geometry and fullscreen are settled during that same map operation.
+Normal floating size is preserved when maximizing. Tiled windows retain their remembered mode,
 but their sizes belong to the current shared layout. Never restore a saved
 tiled pixel size: it changes sibling splits and can squeeze a new window into
 a narrow strip. Older tiled-size records remain readable and are ignored for

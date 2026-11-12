@@ -87,8 +87,10 @@
     "module_path": "@HOME@/.config/hypr/waybar/pins/pins.so"
   },
   "mpris": {
-    "format": "{player_icon} {dynamic}",
-    "format-paused": "{status_icon} {dynamic}",
+    "interval": 1,
+    "format": "{player_icon} {dynamic} [{position}]",
+    "format-paused": "{status_icon} {dynamic} [{position}]",
+    "tooltip-format": "{title}\n{artist}\n{player} ({status}) · {position}",
     "player-icons": {
       "default": "\uf001",
       "firefox": "\uf269",
@@ -98,8 +100,14 @@
       "paused": "\uf04c",
       "playing": "\uf04b"
     },
-    "dynamic-len": 25,
-    "max-length": 30,
+    "title-len": 20,
+    "artist-len": 20,
+    "dynamic-order": [
+      "title",
+      "artist"
+    ],
+    "dynamic-len": 20,
+    "max-length": 36,
     "on-click": "playerctl play-pause",
     "on-click-right": "playerctl next",
     "on-click-middle": "playerctl previous"

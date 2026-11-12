@@ -14,6 +14,8 @@ def geometry_managed(client, metadata):
     # clients and xetal-windows are separate snapshots. Stable IDs prevent an
     # address reused between queries from borrowing the previous window's role.
     stable_id = client.get('stableId')
-    return (isinstance(metadata, dict) and metadata.get('geometry_managed') is True
+    owned = any(isinstance(tag, str) and tag.removesuffix('*') == 'fusion-placement-owned'
+                for tag in client.get('tags', []))
+    return (not owned and isinstance(metadata, dict) and metadata.get('geometry_managed') is True
             and isinstance(stable_id, str) and bool(stable_id)
             and metadata.get('stableId') == stable_id)
