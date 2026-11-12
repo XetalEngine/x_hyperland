@@ -22,6 +22,15 @@ The complete decorated window is captured before deformation, so fast dragging
 near a display edge cannot cut away pixels that the springs bend back onscreen.
 Capture buffers are reused separately for each display scale; rotated outputs
 use the same window coordinates for content, corners, borders and blur.
+The capture pass leaves shader selection with Hyprland, including its cached
+program and uniform values. Restoring only the old OpenGL program after a native
+draw desynchronizes that cache: moving an app with a different surface shader
+can enlarge a minimized icon and corrupt subsequent window contents across
+outputs. `native/gl_state.hpp` distinguishes renderer-owned capture passes from
+raw effect draws, which still restore their borrowed program. The isolated GLES
+regression in `native/test_gl_state.cpp` reproduces the old failure and checks
+pixel output, repeated captures, nested scopes and exception cleanup. This
+correction applies to every client without application-specific exclusions.
 Monitor visibility and transformed-pass blur bounds include the interpolated
 mesh. During a monitor crossing, the trailing edge therefore remains drawable
 after the undeformed window rectangle has left the old output. This extends only

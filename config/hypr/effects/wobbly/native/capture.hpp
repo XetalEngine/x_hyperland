@@ -50,7 +50,7 @@ template<class Paint>void captureWindow(SP<Render::IFramebuffer> fb,PHLMONITOR m
     const auto outputTransform=m->m_transform;
     GLint viewport[4];glGetIntegerv(GL_VIEWPORT,viewport);
     const auto prior=captureContext;
-    GLState glState;
+    GLState glState{*renderer,ShaderOwner::Renderer};
     auto guard=renderer->bindTempFB(fb);
     renderer->pushMonitorTransformEnabled(false);
     const Hyprutils::Utils::CScopeGuard restore([&]{

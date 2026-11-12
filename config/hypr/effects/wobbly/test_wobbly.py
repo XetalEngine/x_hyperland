@@ -1,5 +1,6 @@
 import json
 import os
+import shlex
 from pathlib import Path
 import subprocess
 import sys
@@ -68,6 +69,19 @@ class OptionsTests(unittest.TestCase):
                            check=True,capture_output=True)
             result=subprocess.run([str(exe)],check=True,capture_output=True,text=True,timeout=15)
             self.assertIn('passed',result.stdout)
+
+    def test_capture_and_icon_rendering_preserve_shader_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            exe=Path(directory)/'render-state'
+            flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','egl','glesv2'],text=True))
+            subprocess.run(['g++','-std=c++23','-O2',str(ROOT/'native/test_gl_state.cpp'),'-o',str(exe),*flags],
+                           check=True,capture_output=True)
+            env=dict(os.environ,LIBGL_ALWAYS_SOFTWARE='1',EGL_PLATFORM='surfaceless')
+            mesa=Path('/usr/share/glvnd/egl_vendor.d/50_mesa.json')
+            if mesa.exists():env['__EGL_VENDOR_LIBRARY_FILENAMES']=str(mesa)
+            result=subprocess.run([str(exe)],env=env,check=True,capture_output=True,text=True,timeout=30)
+            self.assertIn('Legacy capture reproduced',result.stdout)
+            self.assertIn('regression passed',result.stdout)
 
 
 class ControlsTests(unittest.TestCase):
