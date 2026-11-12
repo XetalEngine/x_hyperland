@@ -1,4 +1,5 @@
 #include "search.h"
+#include "menu_icons.h"
 #include "core.h"
 #include "search_presets.h"
 #include <QDesktopServices>
@@ -231,15 +232,15 @@ SearchPane::SearchPane(QWidget *parent) : QWidget(parent) {
             if (!results->indexAt(point).isValid())
               return;
             QMenu menu(this);
-            menu.addAction("Open file", this, [this] { openResult(); });
+            menu.addAction(Fusion::menuIcon("document-open"), "Open file", this, [this] { openResult(); });
             if (currentResult()["line"].toInt())
-              menu.addAction("Preview matching text", this,
+              menu.addAction(Fusion::menuIcon("view-preview"), "Preview matching text", this,
                              [this] { openResult(true); });
-            menu.addAction("Show in folder", this, &SearchPane::revealResult);
+            menu.addAction(Fusion::menuIcon("folder-open"), "Show in folder", this, &SearchPane::revealResult);
             menu.addSeparator();
-            menu.addAction("Copy full paths", this,
+            menu.addAction(Fusion::menuIcon("edit-copy-path"), "Copy full paths", this,
                            [this] { copyResults(true); });
-            menu.addAction("Copy result rows", this,
+            menu.addAction(Fusion::menuIcon("edit-copy"), "Copy result rows", this,
                            [this] { copyResults(false); });
             menu.exec(results->viewport()->mapToGlobal(point));
           });

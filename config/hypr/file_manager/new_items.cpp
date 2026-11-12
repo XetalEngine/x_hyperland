@@ -1,4 +1,5 @@
 #include "new_items.h"
+#include "menu_icons.h"
 #include "core.h"
 #include "transfers.h"
 #include <QtWidgets>
@@ -211,14 +212,14 @@ bool Fusion::promptNewItem(const QString &id, const QUrl &directory, QWidget *pa
   return true;
 }
 void Fusion::addNewMenu(QMenu *menu, const QUrl &directory, QWidget *parent, QObject *owner, const NewItemCallbacks &callbacks) {
-  auto *submenu = menu->addMenu(icon("folder-new"), "New"); submenu->setObjectName("newMenu"); submenu->menuAction()->setObjectName("newFolder");
+  auto *submenu = menu->addMenu(menuIcon("folder-new"), "New"); submenu->setObjectName("newMenu"); submenu->menuAction()->setObjectName("newFolder");
   submenu->setEnabled(fileDropDestination(directory));
   for (const auto &item : newItems()) {
-    auto *action = submenu->addAction(icon(item.kind == "folder" ? "folder-new" : "text-x-generic"), QString(item.name).replace('&', "&&"));
+    auto *action = submenu->addAction(menuIcon(item.kind == "folder" ? "folder-new" : "text-x-generic"), QString(item.name).replace('&', "&&"));
     action->setObjectName("new:" + item.id); action->setEnabled(item.enabled);
     if (!item.enabled) action->setToolTip("The template file is unavailable. Update its path in Template Options.");
     QObject::connect(action, &QAction::triggered, owner, [=] { promptNewItem(item.id, directory, parent, owner, callbacks); });
   }
   submenu->addSeparator();
-  submenu->addAction(icon("configure"), "Template Options…", owner, [parent] { configureTemplates(parent); });
+  submenu->addAction(menuIcon("configure"), "Template Options…", owner, [parent] { configureTemplates(parent); });
 }

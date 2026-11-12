@@ -12,6 +12,7 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk, Pango
 import icons_model as model
+import menu_icons
 from desktop_files import Files
 from desktop_clipboard import Clipboard
 from trash_animation import Flights, snapshot
@@ -29,7 +30,8 @@ TARGETS = [Gtk.TargetEntry.new('application/x-xetal-desktop-icons', Gtk.TargetFl
 ATTRIBUTES = 'standard::name,standard::display-name,standard::type,standard::icon,standard::is-hidden,standard::is-symlink,thumbnail::path,thumbnail::is-valid'
 
 
-def style_item(item):
+def style_item(item, icon=None):
+    if icon: menu_icons.decorate(item, icon)
     item.set_size_request(220, 36)
     child = item.get_child()
     if child:
@@ -37,8 +39,8 @@ def style_item(item):
     return item
 
 
-def action(menu, label, callback, sensitive=True):
-    item = style_item(Gtk.MenuItem(label=label))
+def action(menu, label, callback, sensitive=True, icon=None):
+    item = style_item(Gtk.MenuItem(label=label), icon)
     item.set_sensitive(sensitive)
     item.connect('activate', lambda *_: callback())
     menu.append(item)
@@ -448,15 +450,16 @@ class Canvas(Gtk.Layout):
                 for entry in entries:
                     if entry.get('separator'):
                         parent.append(Gtk.SeparatorMenuItem()); continue
-                    item = action(parent, entry['name'], lambda entry=entry: activate(entry), entry.get('enabled', True))
+                    item = action(parent, entry['name'], lambda entry=entry: activate(entry), entry.get('enabled', True),
+                                  icon=entry.get('icon') or 'application-x-executable')
                     if entry.get('local') == 'paste': self.controller.clipboard.bind_paste(item)
                     if 'children' in entry:
                         submenu = Gtk.Menu(); submenu.get_style_context().add_class('desktop-context-menu')
                         append(submenu, entry['children']); item.set_submenu(submenu)
             append(ready, entries)
             if names == [model.TRASH]:
-                action(ready, 'Empty Trash…', lambda: self.controller.files.call('EmptyTrash', '()'))
-                action(ready, 'Hide Trash', lambda: self.controller.setting('show_trash', False))
+                action(ready, 'Empty Trash…', lambda: self.controller.files.call('EmptyTrash', '()'), icon='user-trash')
+                action(ready, 'Hide Trash', lambda: self.controller.setting('show_trash', False), icon='view-hidden')
             ready.attach_to_widget(self, None); ready.show_all()
             menu.popdown(); menu.destroy()
             self.surface.menu = ready
@@ -675,9 +678,10 @@ class Icons:
             # cannot reliably resize a mapped Wayland popup after a slow reply.
             ready = Gtk.Menu(); ready.get_style_context().add_class('desktop-context-menu')
             for entry in entries:
-                action(ready, entry['name'], lambda entry=entry: self.new_item(entry['id'], target), entry.get('enabled', True))
+                action(ready, entry['name'], lambda entry=entry: self.new_item(entry['id'], target), entry.get('enabled', True),
+                       icon=entry.get('icon') or ('folder-new' if entry['id'] == 'folder' else 'text-x-generic'))
             ready.append(Gtk.SeparatorMenuItem())
-            action(ready, 'Template Options…', lambda: self.files.call('ConfigureTemplates', '()'))
+            action(ready, 'Template Options…', lambda: self.files.call('ConfigureTemplates', '()'), icon='configure')
             ready.show_all()
             item.set_submenu(ready); submenu.destroy()
             item.set_sensitive(True); item.set_tooltip_text(None)
@@ -866,53 +870,53 @@ class Icons:
         self.change(lambda settings: model.move(settings, self.entries, self.areas, monitor, names, point, anchor))
 
     def append_menu(self, menu, row, target=None):
-        view = style_item(Gtk.MenuItem(label='View'))
+        view = style_item(Gtk.MenuItem(label='View'), 'view-grid')
         view_menu = Gtk.Menu(); view_menu.get_style_context().add_class('desktop-context-menu')
         for setting, label in [('enabled', 'Show Desktop icons'), ('show_trash', 'Show Trash')]:
-            item = style_item(Gtk.CheckMenuItem(label=label)); item.set_active(self.settings[setting])
+            item = style_item(Gtk.CheckMenuItem(label=label), 'view-grid' if setting == 'enabled' else 'user-trash'); item.set_active(self.settings[setting])
             if setting == 'show_trash': item.set_sensitive(self.settings['enabled'])
             item.connect('toggled', lambda item, setting=setting: self.setting(setting, item.get_active()))
             view_menu.append(item)
         view_menu.append(Gtk.SeparatorMenuItem())
         group = None
         for value, label in [(40, 'Small icons'), (56, 'Medium icons'), (72, 'Large icons')]:
-            item = style_item(Gtk.RadioMenuItem.new_with_label_from_widget(group, label))
+            item = style_item(Gtk.RadioMenuItem.new_with_label_from_widget(group, label), {40: 'zoom-out', 56: 'zoom-original', 72: 'zoom-in'}[value])
             group = item; item.set_active(self.settings['size'] == value)
             item.connect('toggled', lambda item, value=value: item.get_active() and self.setting('size', value))
             view_menu.append(item)
         view.set_submenu(view_menu); menu.attach(view, 0, 1, row, row+1); row += 1
-        arrange = style_item(Gtk.MenuItem(label='Arrange icons'))
+        arrange = style_item(Gtk.MenuItem(label='Arrange icons'), 'view-sort')
         arrange.set_sensitive(self.settings['enabled'])
         submenu = Gtk.Menu(); submenu.get_style_context().add_class('desktop-context-menu')
         group = None
         for value, label in [('columns', 'Columns'), ('rows', 'Rows')]:
-            item = style_item(Gtk.RadioMenuItem.new_with_label_from_widget(group, label))
+            item = style_item(Gtk.RadioMenuItem.new_with_label_from_widget(group, label), 'view-columns' if value == 'columns' else 'view-list')
             group = item; item.set_active(self.settings['flow'] == value)
             item.connect('toggled', lambda item, value=value: item.get_active() and self.setting('flow', value))
             submenu.append(item)
         submenu.append(Gtk.SeparatorMenuItem())
-        auto = style_item(Gtk.CheckMenuItem(label='Auto align'))
+        auto = style_item(Gtk.CheckMenuItem(label='Auto align'), 'view-align')
         auto.set_tooltip_text('Snap icons to grid cells while keeping your chosen positions.')
         auto.set_active(self.settings['auto_align'])
         auto.connect('toggled', lambda item: self.setting('auto_align', item.get_active()))
         submenu.append(auto)
-        automatic = style_item(Gtk.CheckMenuItem(label='Auto arrange'))
+        automatic = style_item(Gtk.CheckMenuItem(label='Auto arrange'), 'view-sort')
         automatic.set_tooltip_text('Keep icons packed together in the selected row or column order.')
         automatic.set_active(self.settings['auto_arrange'])
         automatic.connect('toggled', lambda item: self.setting('auto_arrange', item.get_active()))
         submenu.append(automatic)
-        action(submenu, 'Align now', lambda: self.change(lambda settings: model.align(settings, self.entries, self.areas)))
-        action(submenu, 'Arrange now', lambda: self.change(lambda settings: model.arrange(settings, self.entries, self.areas)))
+        action(submenu, 'Align now', lambda: self.change(lambda settings: model.align(settings, self.entries, self.areas)), icon='view-align')
+        action(submenu, 'Arrange now', lambda: self.change(lambda settings: model.arrange(settings, self.entries, self.areas)), icon='view-sort')
         arrange.set_submenu(submenu)
         menu.attach(arrange, 0, 1, row, row+1); row += 1
         if self.settings['enabled']:
             menu.attach(Gtk.SeparatorMenuItem(), 0, 1, row, row+1); row += 1
             target = target or self.pointer_target()
-            paste = style_item(Gtk.MenuItem(label='Paste'))
+            paste = style_item(Gtk.MenuItem(label='Paste'), 'edit-paste')
             paste.connect('activate', lambda *_: self.paste(target))
             self.clipboard.bind_paste(paste)
             menu.attach(paste, 0, 1, row, row+1); row += 1
-            new = style_item(Gtk.MenuItem(label='New'))
+            new = style_item(Gtk.MenuItem(label='New'), 'folder-new')
             self.new_menu(new, target)
             menu.attach(new, 0, 1, row, row+1); row += 1
         menu.attach(Gtk.SeparatorMenuItem(), 0, 1, row, row+1); row += 1

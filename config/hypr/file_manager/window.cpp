@@ -1,4 +1,5 @@
 #include "window.h"
+#include "menu_icons.h"
 #include "context_actions.h"
 #include "new_items.h"
 #include "transfers.h"
@@ -713,13 +714,13 @@ void FilesWindow::placeMenu(const QPoint &point) {
   QMenu menu(this);
   const QUrl url(item->data(0, UrlRole).toString());
   if (url.scheme() == "trash")
-    menu.addAction(Fusion::icon("user-trash"), "Empty Trash…", this, [this] { Fusion::emptyTrash(this); });
+    menu.addAction(Fusion::menuIcon("user-trash"), "Empty Trash…", this, [this] { Fusion::emptyTrash(this); });
   if (url.isValid())
-    menu.addAction("Open in new tab", this,
+    menu.addAction(Fusion::menuIcon("tab-new"), "Open in new tab", this,
                    [this, url] { openLocation(url, true); });
   if (item->data(0, PinRole).isValid()) {
     const int index = item->data(0, PinRole).toInt();
-    menu.addAction("Rename shortcut…", this, [this, index] {
+    menu.addAction(Fusion::menuIcon("edit-rename"), "Rename shortcut…", this, [this, index] {
       auto list = preferences.places();
       bool ok;
       auto name = QInputDialog::getText(this, "Rename shortcut",
@@ -731,7 +732,7 @@ void FilesWindow::placeMenu(const QPoint &point) {
         rebuildPlaces();
       }
     });
-    menu.addAction("Unpin from quick access", this, [this, index] {
+    menu.addAction(Fusion::menuIcon("bookmark-remove"), "Unpin from quick access", this, [this, index] {
       auto list = preferences.places();
       list.removeAt(index);
       preferences.setPlaces(list);
@@ -739,7 +740,7 @@ void FilesWindow::placeMenu(const QPoint &point) {
     });
   }
   menu.addSeparator();
-  menu.addAction("Add folder shortcut…", this, [this] {
+  menu.addAction(Fusion::menuIcon("bookmark-new"), "Add folder shortcut…", this, [this] {
     const auto folder = QFileDialog::getExistingDirectory(this, "Pin a folder");
     if (!folder.isEmpty())
       pin(QUrl::fromLocalFile(folder));
@@ -1153,7 +1154,7 @@ void FilesWindow::addVolumeActions(QMenu *menu, const Volume &volume) {
     if (entry[0] == "paste" && name == "Paste")
       name = "Paste into drive";
     auto *action = menu->addAction(
-        Fusion::icon(settings.value("icon", entry[2]).toString()), name);
+        Fusion::menuIcon(settings.value("icon", entry[2]).toString()), name);
     action->setObjectName(entry[0]);
     action->setShortcut(QKeySequence(entry[3]));
     action->setEnabled(
@@ -1171,18 +1172,18 @@ void FilesWindow::addVolumeActions(QMenu *menu, const Volume &volume) {
 void FilesWindow::computerMenu(const QPoint &point) {
   QMenu menu(this);
   menu.setObjectName("computerContextMenu");
-  auto *paste = menu.addMenu(Fusion::icon("edit-paste"), "Paste into…");
+  auto *paste = menu.addMenu(Fusion::menuIcon("edit-paste"), "Paste into…");
   paste->setEnabled(
       Fusion::canPasteFiles(QApplication::clipboard()->mimeData()));
   for (const auto &volume : drives->volumes)
     if (volume.mounted() && !volume.readOnly)
-      paste->addAction(Fusion::icon(volume.usb() ? "drive-removable-media-usb"
+      paste->addAction(Fusion::menuIcon(volume.usb() ? "drive-removable-media-usb"
                                                  : "drive-harddisk"),
                        volume.name + " · " + volume.mount, this,
                        [this, volume] { volumeAction(volume, "paste"); });
   if (paste->isEmpty())
     paste->setEnabled(false);
-  menu.addAction(Fusion::icon("view-refresh"), "Refresh", this,
+  menu.addAction(Fusion::menuIcon("view-refresh"), "Refresh", this,
                  [this] { drives->refresh(); });
   menu.exec(point);
 }
@@ -1193,7 +1194,7 @@ void FilesWindow::fileMenu(const QPoint &point) {
   QMenu menu(this);
   menu.setObjectName("fileContextMenu");
   if (location.scheme() == "trash")
-    menu.addAction(Fusion::icon("user-trash"), "Empty Trash…", this, [this] { Fusion::emptyTrash(this); });
+    menu.addAction(Fusion::menuIcon("user-trash"), "Empty Trash…", this, [this] { Fusion::emptyTrash(this); });
   const bool directories = !items.isEmpty() && std::all_of(items.cbegin(), items.cend(), [](const KFileItem &item) { return item.isDir(); });
   const bool folderTarget = items.size() == 1 && directories;
   const auto pasteTarget = folderTarget ? items.first().url() : location;
@@ -1213,7 +1214,7 @@ void FilesWindow::fileMenu(const QPoint &point) {
       preferred = KApplicationTrader::preferredService(type);
   }
   if (location.scheme() == "trash" && !items.isEmpty())
-    menu.addAction(Fusion::icon("edit-undo"), "Restore", this,
+    menu.addAction(Fusion::menuIcon("edit-undo"), "Restore", this,
                    [this] { runAction("restore"); });
   for (const auto &entry : entries) {
     if (!entry.value("enabled", true).toBool())
@@ -1256,6 +1257,7 @@ void FilesWindow::fileMenu(const QPoint &point) {
     if (id == "paste" && ((!items.isEmpty() && !folderTarget) || !Fusion::fileDropDestination(pasteTarget) || browser()->searchActive())) continue;
     Fusion::menuSection(&menu, id);
     QString label = entry["name"].toString(), icon = entry["icon"].toString();
+    if (id == "copyPath" && icon == "edit-copy") icon = "edit-copy-path";
     if (id == "trash" && location.scheme() == "trash") label = "Delete permanently…";
     if (id == "open" && preferred && label == "Open" &&
         !(items.size() == 1 && Fusion::executeOnOpen(items.first().url()))) {
@@ -1265,7 +1267,7 @@ void FilesWindow::fileMenu(const QPoint &point) {
       if (icon == "document-open" && !preferred->icon().isEmpty())
         icon = preferred->icon();
     }
-    auto *action = menu.addAction(Fusion::icon(icon), label);
+    auto *action = menu.addAction(Fusion::menuIcon(icon), label);
     action->setObjectName(id);
     if (shortcuts.contains(id))
       action->setShortcut(shortcuts[id]->shortcut());

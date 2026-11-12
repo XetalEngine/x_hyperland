@@ -75,6 +75,12 @@ pattern rules, limits and supported formats.
 
 ## Configure menus
 
+Context-menu actions use the same outline symbols as the desktop, colored from
+the active theme. Hovered and disabled icons follow the menu's palette; SVG
+rendering stays sharp at the display scale. Custom image paths and application
+icons are retained. This presentation does not alter actions, ordering, shortcuts
+or saved menu preferences. Symbols live in `../theme/menu_icons.json`.
+
 Open **Configure Fusion Files…** from the toolbar's three-dot menu. The
 **Browsing** tab holds the existing display and file-action preferences.
 **Files menu** and **Desktop menu** let you separately reorder, hide, rename,

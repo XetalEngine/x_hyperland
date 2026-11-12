@@ -1,4 +1,5 @@
 #include "drives.h"
+#include "menu_icons.h"
 #include "../control_panel/backend/volume_commands.h"
 #include "core.h"
 #include "drive_properties.h"
@@ -297,20 +298,20 @@ void Drives::menu(const Volume &volume, const QPoint &position,
                   QWidget *parent) {
   QMenu menu(parent);
   menu.setObjectName("volumeContextMenu");
-  auto *open = menu.addAction(Fusion::icon("document-open"),
+  auto *open = menu.addAction(Fusion::menuIcon("document-open"),
                               volume.mounted() ? "Open" : "Mount and open");
   open->setEnabled(volume.mounted() || volume.mountable());
   emit populateFileMenu(&menu, volume);
   menu.addSeparator();
-  auto *mount = menu.addAction(Fusion::icon("media-mount"), "Mount");
+  auto *mount = menu.addAction(Fusion::menuIcon("media-mount"), "Mount");
   mount->setEnabled(!volume.mounted() && volume.mountable());
-  auto *unmount = menu.addAction(Fusion::icon("media-eject"), "Unmount");
+  auto *unmount = menu.addAction(Fusion::menuIcon("media-eject"), "Unmount");
   unmount->setEnabled(volume.mounted() && volume.mount != "/" &&
                       volume.mount != "/home" &&
                       !volume.mount.startsWith("/boot"));
-  auto *force = menu.addAction("Force mount…");
+  auto *force = menu.addAction(Fusion::menuIcon("media-mount"), "Force mount…");
   force->setEnabled(mount->isEnabled());
-  auto *eject = volume.usb() ? menu.addAction(Fusion::icon("media-eject"),
+  auto *eject = volume.usb() ? menu.addAction(Fusion::menuIcon("media-eject"),
                                               "Safely remove drive")
                              : nullptr;
   if (eject) {
@@ -318,9 +319,9 @@ void Drives::menu(const Volume &volume, const QPoint &position,
     eject->setToolTip("Unmount this drive's volumes before removing it.");
   }
   menu.addSeparator();
-  auto *copy = menu.addAction("Copy device path");
+  auto *copy = menu.addAction(Fusion::menuIcon("edit-copy-path"), "Copy device path");
   auto *properties =
-      menu.addAction(Fusion::icon("document-properties"), "Properties…");
+      menu.addAction(Fusion::menuIcon("document-properties"), "Properties…");
   const auto *chosen = menu.exec(position);
   if (chosen == open)
     operate(volume, "open", parent);

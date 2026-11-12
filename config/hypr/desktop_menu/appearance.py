@@ -88,6 +88,9 @@ def css(style):
     }}
     menu.desktop-context-menu menuitem:hover {{background:{c['hover']}; border-color:{c['border']}; color:{c['hover_text']};}}
     menu.desktop-context-menu label, menu.desktop-context-menu image {{color:inherit; background:transparent;}}
+    menu.desktop-context-menu image.menu-action-icon {{color:{c['accent']};}}
+    menu.desktop-context-menu menuitem:hover image.menu-action-icon {{color:{c['hover_text']};}}
+    menu.desktop-context-menu menuitem:disabled image.menu-action-icon {{color:{c['text']}; opacity:0.45;}}
     menu.desktop-context-menu menuitem:disabled {{opacity:1; color:{c['accent']};}}
     menu.desktop-context-menu .section-title {{font-weight:bold;}}
     menu.desktop-context-menu .hotkey {{font-size:{max(9, style['font_size']-2)}px; opacity:0.65;}}

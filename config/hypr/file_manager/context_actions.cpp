@@ -1,4 +1,5 @@
 #include "context_actions.h"
+#include "menu_icons.h"
 #include "transfer_access.h"
 #include <QtWidgets>
 #include <KIO/EmptyTrashJob>
@@ -48,15 +49,18 @@ void Fusion::addArchiveActions(QMenu *menu, const KFileItemList &items, bool com
     QObject *owner, const QUrl &directory, const std::function<void(const QString &)> &message,
     const std::function<bool()> &guard) {
   if (items.isEmpty() || (!compress && !extract)) return;
-  auto *archive = menu->addMenu(Fusion::icon("package-x-generic"), "7-Zip");
+  auto *archive = menu->addMenu(Fusion::menuIcon("package-x-generic"), "7-Zip");
   archive->setObjectName("sevenZipMenu");
   archive->menuAction()->setProperty("iconName", "package-x-generic");
   QList<QUrl> files;
   for (const auto &item : items) files << item.url();
   auto append = [&](const QString &text, const QString &operation) {
-    auto *action = archive->addAction(text);
+    const auto icon = operation.startsWith("extract") ? "archive-extract" :
+                      operation == "test" ? "archive-test" :
+                      operation == "open" ? "document-open" : "package-x-generic";
+    auto *action = archive->addAction(Fusion::menuIcon(icon), text);
     action->setObjectName("sevenZip_"+operation);
-    action->setProperty("iconName", operation.startsWith("extract") ? "archive-extract" : "package-x-generic");
+    action->setProperty("iconName", icon);
     QObject::connect(action, &QAction::triggered, owner, [files, operation, directory, message, guard] {
       if (!guard || guard()) Fusion::launchArchive(operation, files, directory, message);
     });

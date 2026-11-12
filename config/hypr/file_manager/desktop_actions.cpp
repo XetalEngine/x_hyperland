@@ -1,4 +1,5 @@
 #include "desktop_actions.h"
+#include "menu_icons.h"
 #include "applications.h"
 #include "core.h"
 #include "context_actions.h"
@@ -201,7 +202,8 @@ bool DesktopActions::NewFolderWithPlacement(const QString &directory, const QStr
 QString DesktopActions::NewEntries() {
   QJsonArray result;
   for (const auto &item : Fusion::newItems())
-    result.append(QJsonObject{{"id", item.id}, {"name", item.name}, {"enabled", item.enabled}});
+    result.append(QJsonObject{{"id", item.id}, {"name", item.name}, {"enabled", item.enabled},
+                             {"icon", item.kind == "folder" ? "folder-new" : "text-x-generic"}});
   return QString::fromUtf8(QJsonDocument(result).toJson(QJsonDocument::Compact));
 }
 bool DesktopActions::ConfigureTemplates() {
@@ -284,10 +286,12 @@ QString DesktopActions::Menu(const QStringList &sources) {
       addedArchive = true; continue;
     }
     Fusion::menuSection(fileMenu, id);
-    auto *action = fileMenu->addAction(Fusion::icon(entry["icon"].toString()),
+    auto icon = entry["icon"].toString();
+    if (id == "copyPath" && icon == "edit-copy") icon = "edit-copy-path";
+    auto *action = fileMenu->addAction(Fusion::menuIcon(icon),
         id == "openTab" ? "Open in floating window" : entry["name"].toString());
     action->setProperty("desktopAction", id);
-    action->setProperty("iconName", entry["icon"]);
+    action->setProperty("iconName", icon);
     if (id == "rename") action->setEnabled(files.size() == 1);
     connect(action, &QAction::triggered, this, [this, id, sources, files, directory, entry] {
       if (id == "open" || id == "openTab" || id == "openWith") { Open(sources, id == "openWith"); return; }

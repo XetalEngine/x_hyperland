@@ -11,6 +11,7 @@ import menu_config
 import appearance
 import menu_hotkeys
 import menu_focus
+import menu_icons
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'theme'))
@@ -98,17 +99,8 @@ class DesktopSurface(Gtk.Window):
                         item.get_style_context().add_class('spacer'); item.set_sensitive(False)
                     else:
                         if style['show_icons'] and kind != 'heading':
-                            icon = Path(entry['icon']).expanduser()
-                            image = Gtk.Image()
-                            if icon.is_absolute() and icon.is_file():
-                                from gi.repository import GdkPixbuf
-                                try:
-                                    image.set_from_pixbuf(GdkPixbuf.Pixbuf.new_from_file_at_scale(str(icon), style['icon_size'], style['icon_size'], True))
-                                except GLib.Error: pass
-                            else:
-                                image.set_from_icon_name(entry['icon'], Gtk.IconSize.LARGE_TOOLBAR)
-                                image.set_pixel_size(style['icon_size'])
-                            row.pack_start(image, False, False, 0)
+                            image = menu_icons.image(entry['icon'], style['icon_size'])
+                            if image is not None: row.pack_start(image, False, False, 0)
                         label = Gtk.Label(label=entry['label'], xalign=0)
                         label.set_ellipsize(Pango.EllipsizeMode.END); label.set_max_width_chars(24)
                         row.pack_start(label, True, True, 0)
@@ -191,6 +183,7 @@ class Desktop:
         except (OSError, ValueError, menu_hotkeys.keys.ConfigError) as error:
             print('Keeping the last valid desktop menu:', error, file=sys.stderr)
         self.provider.load_from_data(appearance.css(self.config['style']).encode())
+        menu_icons.configure(self.config['style'])
         self.icons.accent.parse(appearance.colors(self.config['style'])['accent'])
         settings = Gtk.Settings.get_default()
         icons=theme_runtime.icon_library.info(ROOT)

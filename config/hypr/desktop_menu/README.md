@@ -46,6 +46,13 @@ the loading popup at the original click, so Wayland can size it for all actions.
 Dismissed or superseded requests cannot reopen an old menu. Keyboard invocation
 uses the selected icon as its anchor.
 
+Wallpaper, file and submenu actions share theme-colored outline icons with
+Fusion Files. They use the current accent and switch to the selection text color
+on hover; disabled icons are subdued. Custom icon files and application icons
+keep their artwork. Checkmarks, radio indicators, labels, actions and order stay
+unchanged. The existing menu icon visibility and size settings apply to these
+rows as well. The shared vector source is `../theme/menu_icons.json`.
+
 Each desktop or icon menu belongs to the monitor and workspace where it opened.
 Compositor focus/workspace notifications trigger a check of the current state;
 delayed notifications from crossing monitors do not dismiss a newly opened menu.

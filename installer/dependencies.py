@@ -45,7 +45,7 @@ X11_LIBRARIES = '''libX11.so.6 libX11-xcb.so.1 libXext.so.6 libXrender.so.1
 PACKAGES = {
     'arch': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole kio kwindowsystem kio-extras kio-admin udisks2 swaync grim slurp wf-recorder wl-clipboard xorg-xwayland
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
-        python python-psutil python-pyqt6 python-gobject python-pillow gcc cmake libxcb pkgconf gtk3 gtk-layer-shell libepoxy json-glib json-c
+        python python-psutil python-pyqt6 python-gobject python-pillow gcc cmake libxcb pkgconf gtk3 gtk-layer-shell librsvg libepoxy json-glib json-c
         qt5-base qt5-wayland qt6-base qt6-wayland qt6-svg qt6-tools wayland wayland-protocols
         networkmanager network-manager-applet blueman bluez-utils pipewire-pulse wireplumber
         playerctl brightnessctl fastfetch htop libnotify polkit-gnome papirus-icon-theme noto-fonts ttf-dejavu
@@ -56,7 +56,7 @@ PACKAGES = {
     'fedora': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole konsole-part kf6-kio-devel kf6-kwindowsystem-devel kio-extras kio-admin udisks2 SwayNotificationCenter grim slurp wf-recorder wl-clipboard xorg-x11-server-Xwayland
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
         python3 python3-psutil python3-pyqt6 python3-gobject python3-pillow gcc gcc-c++ cmake libxcb-devel pkgconf-pkg-config procps-ng glslang-devel
-        gtk3-devel gtk-layer-shell-devel libepoxy-devel json-glib-devel json-c-devel qt5-qtbase-devel qt5-qtbase-private-devel
+        gtk3-devel gtk-layer-shell-devel librsvg2 libepoxy-devel json-glib-devel json-c-devel qt5-qtbase-devel qt5-qtbase-private-devel
         qt5-qtwayland qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtwayland qt6-qtsvg qt6-qttools-devel qt6-linguist wayland-devel wayland-protocols-devel
         NetworkManager NetworkManager-tui network-manager-applet nm-connection-editor blueman bluez
         pipewire-pulseaudio wireplumber pulseaudio-utils playerctl brightnessctl fastfetch htop SDL3
@@ -67,7 +67,7 @@ PACKAGES = {
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux kmod python3-cryptography keyutils-libs libsecret freerdp-devel libcurl-devel libarchive-devel cabextract'''.split(),
     'debian': '''git gvfs gvfs-backends gvfs-fuse hyprpaper hyprlock waybar kitty dolphin konsole konsole-kpart libkf6kio-dev libkf6windowsystem-dev kio-extras kio-admin udisks2 sway-notification-center grim slurp wf-recorder wl-clipboard xwayland
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
-        python3 python3-psutil python3-pyqt6 python3-pyqt6.qtsvg python3-gi python3-pil gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1 build-essential cmake libxcb1-dev libxcb-res0-dev libxcb-xkb-dev pkg-config glslang-dev libsdl3-0
+        python3 python3-psutil python3-pyqt6 python3-pyqt6.qtsvg python3-gi python3-pil gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1 gir1.2-rsvg-2.0 build-essential cmake libxcb1-dev libxcb-res0-dev libxcb-xkb-dev pkg-config glslang-dev libsdl3-0
         libgtk-3-dev libgtk-layer-shell-dev libepoxy-dev libjson-glib-dev libjson-c-dev qtbase5-dev qtbase5-private-dev qtwayland5
         qt6-base-dev qt6-base-dev-tools qt6-base-private-dev qt6-wayland libqt6svg6 qt6-tools-dev qt6-l10n-tools libwayland-dev libwayland-bin wayland-protocols
         network-manager network-manager-gnome blueman bluez pipewire-pulse wireplumber pulseaudio-utils
@@ -282,7 +282,7 @@ def check(runtime=True):
     if not any(shutil.which(command) for command in ('deno','node','qjs')):
         errors.append('Install Deno, Node.js or QuickJS for YouTube downloads.')
     result=subprocess.run([sys.executable,'-c',
-        "import psutil, cryptography; import PyQt6.QtWidgets, PyQt6.QtNetwork, PyQt6.QtDBus, PyQt6.QtSvg; from PIL import Image; import gi; gi.require_version('Gtk','3.0'); gi.require_version('GtkLayerShell','0.1'); from gi.repository import Gio,Gtk,GtkLayerShell"],
+        "import psutil, cryptography; import PyQt6.QtWidgets, PyQt6.QtNetwork, PyQt6.QtDBus, PyQt6.QtSvg; from PIL import Image; import gi; gi.require_version('Gtk','3.0'); gi.require_version('GtkLayerShell','0.1'); gi.require_version('Rsvg','2.0'); from gi.repository import Gio,Gtk,GtkLayerShell,Rsvg"],
         capture_output=True,text=True)
     if result.returncode:errors.append('Python GUI/image dependencies: '+result.stderr.strip().splitlines()[-1])
     if shutil.which('pkg-config'):
