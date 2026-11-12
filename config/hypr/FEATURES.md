@@ -1,5 +1,12 @@
 # Hyper Fusion · Highlighted features
 
+<p align="center">
+  <a href="https://youtu.be/z3_uTzZglvg">
+    <img src="https://img.youtube.com/vi/z3_uTzZglvg/hqdefault.jpg" width="720" alt="Watch Hyper Fusion in action on YouTube">
+  </a>
+  <br><a href="https://youtu.be/z3_uTzZglvg"><strong>▶ Watch Hyper Fusion in action on YouTube</strong></a>
+</p>
+
 - **[Alt+F9 screen recording](#altf9-screen-recording)** — capture a monitor with audio, automatic GPU encoding and MP4 saving.
 - **[Four window modes](#four-window-modes)** — Individual, Force tiling, Force floating and KDE mode, chosen per workspace.
 - **[One cube per monitor](#one-cube-per-monitor)** — four independent workspace faces on each display, with live windows and optional 3D depth.

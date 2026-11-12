@@ -1,5 +1,12 @@
 <h1 align="center">Hyper Fusion ALPHA</h1>
 
+<p align="center">
+  <a href="https://youtu.be/z3_uTzZglvg">
+    <img src="https://img.youtube.com/vi/z3_uTzZglvg/hqdefault.jpg" width="720" alt="Watch Hyper Fusion in action on YouTube">
+  </a>
+  <br><a href="https://youtu.be/z3_uTzZglvg"><strong>▶ Watch Hyper Fusion in action on YouTube</strong></a>
+</p>
+
 <p align="center"><strong>Your workspace. Your colors. Your kind of Linux desktop.</strong><br>A complete Xetal desktop for Hyprland, with native settings, custom menus, KVM tools and a little Compiz nostalgia.</p>
 
 <p align="center">
@@ -116,18 +123,13 @@ Outside KDE mode, the workspace's **Force modifier buttons** menu independently 
 
 <p align="center"><sub>Midnight Transit · Real applications and desktop effects, captured in an isolated headless session. <a href="docs/GALLERY.md#current-theme-midnight-transit">View the current-theme gallery</a></sub></p>
 
-<!-- GitHub renders this attachment as an inline video player. -->
-https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d
-
-<p align="center"><sub>48-second desktop tour · Original 1440p recording · <a href="docs/GALLERY.md">Explore the full gallery</a></sub></p>
-
 ## Two ways to install Hyper Fusion
 
 1. **Install the custom Arch Linux ISO — ONLINE or OFFLINE**
 
    **[Download the ONLINE and OFFLINE Arch Linux ISOs](https://drive.google.com/drive/folders/1bkAs8SiMqnbCihzMGPYzlOXB5mXGfs_Y?usp=sharing)** — both installers are in this shared Google Drive folder.
 
-   **Offline:** This is the version installed in the video above. It includes Arch Linux, KDE, and the entire Hyper Fusion system.
+   **Offline:** Includes Arch Linux, KDE, and the entire Hyper Fusion system.
 
    **Online:** This includes the same setup as the offline version, but downloads the packages from the Arch Linux servers during installation. Since Arch is a rolling release, future package or library changes could cause compatibility issues.
 

@@ -3,7 +3,7 @@
 A tour of the real Xetal interface. Click any picture for its full resolution.
 The KDE-mode screenshots below were supplied by the author from the live desktop. The Midnight Transit showcase uses real applications and compositor effects captured headlessly with a disposable profile. Some applications shown in Favorites are installed separately; transfer previews use sample jobs.
 
-[Back to the README](../README.md) · [Watch the desktop video](https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d)
+[Back to the README](../README.md) · [Watch the desktop video on YouTube](https://youtu.be/z3_uTzZglvg)
 
 ## KDE mode and built-in recording
 

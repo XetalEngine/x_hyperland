@@ -1,11 +1,6 @@
 {
-  "original_filename": "2026-10-28 19-01-49.mp4",
-  "original_sha256": "f11464c74d974e2052f95beecd7e0dae8179b7bf97e7f004d3bf586143012189",
-  "github_attachment": "https://github.com/user-attachments/assets/8a20af5b-ec30-4bbb-ad7f-06d4e392a57d",
-  "resolution": [
-    2560,
-    1440
-  ],
-  "duration_seconds": 47.816667,
-  "note": "Original video and audio streams; MP4 remuxed for fast start without re-encoding."
+  "provider": "YouTube",
+  "url": "https://youtu.be/z3_uTzZglvg",
+  "video_id": "z3_uTzZglvg",
+  "thumbnail": "https://img.youtube.com/vi/z3_uTzZglvg/hqdefault.jpg"
 }
