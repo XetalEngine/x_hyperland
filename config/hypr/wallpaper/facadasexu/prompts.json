@@ -1,0 +1,37 @@
+{
+  "id": "facadasexu",
+  "title": "777 Facadas Exu",
+  "provenance": "Generated with the built-in image_gen tool for Hyper Fusion. Altar of Seven uses the user-supplied concept as its reference.",
+  "images": [
+    {
+      "title": "Altar of Seven",
+      "prompt": "Use case: stylized-concept. Asset type: finished 16:9 desktop wallpaper, landscape, highest available resolution. Input image: style and composition reference, a desktop mockup. Transform the provided reference into a clean wallpaper for a theme named 777 Facadas Exu. Remove ALL desktop UI: no windows, taskbars, icons, menus, controls, interface labels or footer branding. Reconstruct the scene behind those UI regions. Keep the reference's ornate copper goat-head wall sculpture with long curled horns, copper chains, black and oxblood cracked plaster wall, hand-drawn ivory three-pronged trident motifs and a few chalk '777' marks, carved dark wood altar across the lower half, deep red draped cloth, tall red and ivory candles, warm flame light, bottles, incense smoke, bowls, and the antique copper oval mirror on the right. Subject is an inanimate carved sculpture, not a living animal. Rich cinematic craftsmanship and realistic material detail, dark smoky blacks, deep oxblood, warm ivory and burnished copper. Unclutter the left outer edge for real desktop icons, keep upper corners quiet and fairly dark. Balanced wide composition, no extra characters. Preserve the reference's respectful atmospheric still-life treatment. Only text allowed is a few small chalk '777' marks within the wall art. No branding, no watermark, no readable captions.",
+      "file": "altar-of-seven.png",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "aac65d3a0aaee868253f275504ce243c2be0b32334fb0fab8dfef3d382f52f68"
+    },
+    {
+      "title": "Copper Crossroads",
+      "prompt": "Use case: stylized-concept. Asset type: finished 16:9 landscape desktop wallpaper, highest available resolution. Create a distinct atmospheric wallpaper for a desktop theme named 777 Facadas Exu. A quiet night courtyard viewed head-on: an ornate wrought-iron double gate with elegant three-pronged spear finials and restrained aged copper details, the gate partly open onto a dark stone path. Oxblood plaster walls, a few small hand-chalked ivory '777' marks and simple trident motifs on the masonry, one suspended copper lantern, clusters of red and ivory candles near the foot of each gate pillar, faint drifting incense smoke and rain-darkened stone reflecting small candle flames. Cinematic realistic materials, elegant and restrained. Palette smoky almost-black, very deep crimson, warm ivory and burnished copper. Strong silhouette and gentle lighting, more negative space than a busy scene. Keep both upper corners and the left edge dark and quiet for desktop content. No people, no animals, no figures, no gore. No computer UI, no windows, no desktop icons, no panels, no logos, no caption, no watermark. Only text is the small chalk '777' wall markings.",
+      "file": "copper-crossroads.png",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "1bea1608a1309d235a833e6030c848383cf009bcfe5216dbdd1523a8c5a8c632"
+    },
+    {
+      "title": "Ivory and Embers",
+      "prompt": "Use case: stylized-concept. Asset type: finished 16:9 landscape desktop wallpaper, highest available resolution. A beautifully composed candlelit still-life wallpaper for the 777 Facadas Exu desktop theme. Low cinematic close-up across a weathered dark wood table: three tall ivory candles of differing heights and two shorter deep-red candles, flowing wax, small glowing incense bowl made of engraved aged copper, a thin trail of smoke curling upward into shadow, an elegant miniature copper three-pronged trident ornament standing behind the bowl, folded oxblood velvet cloth, an amber glass bottle and a few copper chains. Part of an antique ornate mirror frame at the far right reflecting candlelight without any people. Dark cracked plaster wall with a single small faded chalk '777' marking. Keep the main still life in the lower-right and center, leaving the upper third and left third quiet almost-black for real desktop icons/windows. Photorealistic rich tactile textures, dramatic low warm candlelight, restrained dark red, ivory and copper palette, refined composition, no graphic violence, no living subjects. Absolutely no desktop UI, fake windows, panels, icons, captions, branding or watermark. Only lettering is the subtle '777' on the wall.",
+      "file": "ivory-and-embers.png",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "25b72c60ef69a3723d495451ea78f69a863ee929ead4119fb0234f4fadb505d2"
+    }
+  ]
+}

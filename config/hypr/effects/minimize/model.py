@@ -28,7 +28,8 @@ DOCK_STYLES = {'follow': 'Follow desktop theme', 'raw': 'Xetal Raw · circuit ra
                'leviathan': 'Leviathan · Puzzle Reliquary',
                'ghostbusters': 'Ghostbusters · Ghost Trap',
                'mystery98': 'Windows 98 Mystery · Writing Desk',
-               'prisonbreak': 'Prison Break · Cellblock Dock'}
+               'prisonbreak': 'Prison Break · Cellblock Dock',
+               'facadasexu': '777 Facadas Exu · Candlelight Rail'}
 ORDERS = {'bottom-to-top': 'Bottom to top', 'top-to-bottom': 'Top to bottom'}
 HIDE_ANIMATIONS = {'slide':'Slide away', 'burn':'Burn away'}
 DEFAULTS = dict(enabled=True, effect='fireball', duration=420, size=76,

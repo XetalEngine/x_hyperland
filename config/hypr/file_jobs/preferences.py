@@ -10,7 +10,7 @@ import tempfile
 
 PATH = Path(__file__).with_name('preferences.json')
 STYLES = {'follow': 'Follow desktop theme', 'raw': 'Xetal Raw',
-          'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint', 'binaryknife': 'Binary Knife', 'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud', 'shadowedge': 'Shadow Edge', 'hollowgrove': 'Hollow Grove', 'gildedhollow': 'The Gilded Hollow', 'hyperfusionblue': 'HyperFusion Blue', 'midnighttransit': 'Midnight Transit', 'blackwood': 'Blackwood', 'atomicafterglow': 'Atomic Afterglow', 'mycelium': 'Mycelium', 'mystery98': 'Windows 98 Mystery', 'platform95': 'Platform 95', 'midnightrun': 'Midnight Run', 'prisonbreak': 'Prison Break', 'infernalencore': 'Infernal Encore', 'polaris': 'Polaris', 'leviathan': 'Leviathan', 'ghostbusters': 'Ghostbusters'}
+          'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint', 'binaryknife': 'Binary Knife', 'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud', 'shadowedge': 'Shadow Edge', 'hollowgrove': 'Hollow Grove', 'gildedhollow': 'The Gilded Hollow', 'hyperfusionblue': 'HyperFusion Blue', 'midnighttransit': 'Midnight Transit', 'blackwood': 'Blackwood', 'atomicafterglow': 'Atomic Afterglow', 'mycelium': 'Mycelium', 'mystery98': 'Windows 98 Mystery', 'platform95': 'Platform 95', 'midnightrun': 'Midnight Run', 'prisonbreak': 'Prison Break', 'facadasexu': '777 Facadas Exu', 'infernalencore': 'Infernal Encore', 'polaris': 'Polaris', 'leviathan': 'Leviathan', 'ghostbusters': 'Ghostbusters'}
 APPEARANCE = dict(width=448, height=168, radius=16, opacity=100, glow=55,
                   border=1, track_height=5, accent='')
 PROFILES = {name: {**APPEARANCE, **values} for name, values in {
@@ -21,6 +21,7 @@ PROFILES = {name: {**APPEARANCE, **values} for name, values in {
     'porcelainink': dict(radius=2, opacity=100, glow=0, track_height=4),
     'obsidianforge': dict(radius=3, opacity=100, glow=65, track_height=4),
     'hollowgrove': dict(radius=20, opacity=100, glow=22, track_height=5),
+    'facadasexu': dict(radius=8, opacity=100, glow=35, track_height=6),
     'prisonbreak': dict(radius=5, opacity=100, glow=40, track_height=7), 'infernalencore': dict(radius=5, opacity=100, glow=40, track_height=7),
     'ghostbusters': dict(radius=10, opacity=100, glow=40, track_height=5),
     'leviathan': dict(radius=6, opacity=100, glow=30, track_height=5),

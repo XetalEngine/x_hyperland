@@ -12,7 +12,7 @@ DEFAULTS = {
     'ghostbusters': {'tile_opacity': 100, 'group_opacity': 75, 'sidebar_opacity': 100, 'group_image': ''},
     'leviathan': {'tile_opacity': 100, 'group_opacity': 60, 'sidebar_opacity': 100, 'group_image': ''},
     'polaris': {'tile_opacity': 100, 'group_opacity': 55, 'sidebar_opacity': 96, 'group_image': ''},
-    'prisonbreak': {'tile_opacity': 100, 'group_opacity': 100, 'sidebar_opacity': 100, 'group_image': ''}, 'infernalencore': {'tile_opacity': 100, 'group_opacity': 65, 'sidebar_opacity': 100, 'group_image': ''},
+    'prisonbreak': {'tile_opacity': 100, 'group_opacity': 100, 'sidebar_opacity': 100, 'group_image': ''}, 'facadasexu': {'tile_opacity': 100, 'group_opacity': 90, 'sidebar_opacity': 100, 'group_image': ''}, 'infernalencore': {'tile_opacity': 100, 'group_opacity': 65, 'sidebar_opacity': 100, 'group_image': ''},
     'midnightrun': {'tile_opacity': 100, 'group_opacity': 50, 'sidebar_opacity': 98, 'group_image': ''},
     'mystery98': {'tile_opacity': 100, 'group_opacity': 100, 'sidebar_opacity': 100, 'group_image': ''}, 'platform95': {'tile_opacity': 100, 'group_opacity': 100, 'sidebar_opacity': 100, 'group_image': ''},
     'mycelium': {'tile_opacity': 100, 'group_opacity': 32, 'sidebar_opacity': 94, 'group_image': ''},
@@ -145,6 +145,10 @@ def paint_tile(p, box, colors, style, mode, opacity, selected=False, hover=0, ra
         from infernalencore import paint_tile
         paint_tile(p,box,colors,opacity,selected,hover>0)
         return
+    elif style=='facadasexu':
+        from facadasexu import paint_tile
+        paint_tile(p,box,colors,opacity,selected,hover>0)
+        return
     if style=='midnightrun':
         from midnightrun import paint_tile
         paint_tile(p,box,colors,opacity,selected,hover>0)
@@ -241,7 +245,7 @@ def paint_tile(p, box, colors, style, mode, opacity, selected=False, hover=0, ra
 
 def paint_group(p, box, colors, style, opacity, image=None, focused=False, hovered=False):
     p.save()
-    radius = 10 if style=='ghostbusters' else 6 if style=='leviathan' else 12 if style == 'polaris' else 5 if style in ('infernalencore','prisonbreak') else 7 if style == 'midnightrun' else 1 if style in ('platform95','mystery98') else 2 if style == 'shadowedge' else 22 if style == 'candycloud' else 3 if style == 'obsidianforge' else 2 if style == 'porcelainink' else 16 if style == 'tidalglass' else 4 if style == 'binaryknife' else 10 if style == 'modern' else 8
+    radius = 8 if style=='facadasexu' else 10 if style=='ghostbusters' else 6 if style=='leviathan' else 12 if style == 'polaris' else 5 if style in ('infernalencore','prisonbreak') else 7 if style == 'midnightrun' else 1 if style in ('platform95','mystery98') else 2 if style == 'shadowedge' else 22 if style == 'candycloud' else 3 if style == 'obsidianforge' else 2 if style == 'porcelainink' else 16 if style == 'tidalglass' else 4 if style == 'binaryknife' else 10 if style == 'modern' else 8
     clip = QPainterPath(); clip.addRoundedRect(box, radius, radius)
     p.setClipPath(clip, Qt.ClipOperation.IntersectClip)
     p.setOpacity(p.opacity() * opacity / 100)
@@ -264,6 +268,9 @@ def paint_group(p, box, colors, style, opacity, image=None, focused=False, hover
         paint_surface(p,box,colors)
     elif style == 'infernalencore':
         from infernalencore import paint_surface
+        paint_surface(p,box,colors)
+    elif style == 'facadasexu':
+        from facadasexu import paint_surface
         paint_surface(p,box,colors)
     elif style == 'midnightrun':
         from midnightrun import paint_surface

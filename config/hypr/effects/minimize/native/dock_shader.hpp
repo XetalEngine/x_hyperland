@@ -29,8 +29,8 @@ void main(){
   fragColor=vec4(mix(warm,mix(ink,vec3(1.,.72,.25),.5),core)*a,a)*opacity;return;
  }
  vec2 p=(uv-.5)*dims;vec2 halfSize=dims*.5-vec2(8.);
- float radius=style==21?10.:style==20?6.:style==19?14.:(style==18||style==23)?5.:style==17?7.:(style==16||style==22)?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
- if(part==1)radius=style==21?8.:style==20?4.:style==19?11.:(style==18||style==23)?4.:style==17?6.:(style==16||style==22)?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
+ float radius=style==24?8.:style==21?10.:style==20?6.:style==19?14.:(style==18||style==23)?5.:style==17?7.:(style==16||style==22)?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
+ if(part==1)radius=style==24?6.:style==21?8.:style==20?4.:style==19?11.:(style==18||style==23)?4.:style==17?6.:(style==16||style==22)?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
  radius=min(radius,min(halfSize.x,halfSize.y));
  float distance=roundBox(p,halfSize,radius);
  if(style==2||style==3||style==8)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+(style==3?19.:style==8?14.:10.))*.7071);
@@ -44,7 +44,23 @@ void main(){
  float rim=.26;
  float jewel=0.;float jewelHalo=0.;float gildedSweep=0.;
  if(part==0){
-  if(style==23){
+  if(style==24){
+   // Candlelight Rail: copper hairlines and paired clusters of three lamps.
+   vec3 copper=mix(tint,ink,.65);
+   body=mix(base,ink,shine*.06);rim=.45;
+   float rail=exp(-abs(abs(p.y)-halfSize.y+5.)*2.)*step(abs(p.x),halfSize.x-23.);
+   body+=copper*rail*.75;
+   vec2 q=vec2(halfSize.x-abs(p.x)-12.,p.y);
+   for(int i=-1;i<=1;i++){
+    float x=float(i)*5.;float height=i==0?22.:13.;
+    float wax=step(abs(q.x-x),1.5)*step(10.-height,q.y)*step(q.y,10.);
+    body=mix(body,i==0?ink:tint,wax);
+    vec2 flame=(q-vec2(x,7.-height))/vec2(1.2,2.+.3*sin(time*2.+x));
+    body+=copper*(1.-smoothstep(.7,1.1,length(flame)));
+   }
+   body+=copper*exp(-line(q,vec2(-8.,14.),vec2(8.,14.))*2.);
+   decoration=0.;
+  }else if(style==23){
    // Cellblock Dock: graphite plates, violet rim and orange hazard guards.
    vec2 q=vec2(halfSize.x-abs(p.x),p.y);
    body=mix(base,ink,shine*.08);rim=.75;
@@ -370,7 +386,12 @@ void main(){
   body=mix(base,tint,.08+emphasis*.14)+ink*shine*.045;
   rim=.08+emphasis*.25;
   decoration=exp(-abs(p.y-halfSize.y+3.)*1.7)*(.25+.4*emphasis);
-  if(style==23){
+  if(style==24){
+   vec3 copper=mix(tint,ink,.65);
+   body=mix(base,tint,.04+emphasis*.10);rim=.4+emphasis*.4;
+   body+=copper*exp(-abs(p.y+halfSize.y-4.)*2.)*step(abs(p.x),halfSize.x-8.)*.30;
+   decoration=exp(-abs(p.y-halfSize.y+5.)*2.)*step(abs(p.x),halfSize.x-10.)*(.5+emphasis*.4);
+  }else if(style==23){
    body=mix(base,tint,.035+emphasis*.1)+ink*shine*.06;rim=.4+emphasis*.4;
    decoration=exp(-abs(p.y-halfSize.y+5.)*2.)*step(abs(p.x),halfSize.x-8.)*(.5+emphasis*.4);
    for(int i=0;i<3;i++){

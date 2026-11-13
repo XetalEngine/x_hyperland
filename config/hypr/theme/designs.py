@@ -3,8 +3,8 @@ import colorsys
 from pathlib import Path
 
 DESIGNS = {'raw': 'Xetal Raw', 'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint', 'binaryknife': 'Binary Knife',
-           'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud', 'shadowedge': 'Shadow Edge', 'hollowgrove': 'Hollow Grove', 'gildedhollow': 'The Gilded Hollow', 'hyperfusionblue': 'HyperFusion Blue', 'midnighttransit': 'Midnight Transit', 'blackwood': 'Blackwood', 'atomicafterglow': 'Atomic Afterglow', 'mycelium': 'Mycelium', 'mystery98': 'Windows 98 Mystery', 'platform95': 'Platform 95', 'midnightrun': 'Midnight Run', 'prisonbreak': 'Prison Break', 'infernalencore': 'Infernal Encore', 'polaris': 'Polaris', 'leviathan': 'Leviathan', 'ghostbusters': 'Ghostbusters'}
-DESCRIPTIONS = {'ghostbusters': 'Ectoplasm green · slime, midnight enamel & ghost traps', 'leviathan': 'Obsidian reliquaries · engraved brass & amethyst storms', 'polaris': 'Midnight glass · luminous cyan & violet starlight', 'prisonbreak': 'Violet neon · graphite steel, orange folders & hazard stripes', 'infernalencore': 'Blackened metal · antique brass & crimson stage lights', 'midnightrun': 'Graphite lacquer · cyan edges & magenta Tokyo nights', 'mystery98': 'Walnut libraries · emerald enamel & antique-gold bevels', 'platform95': 'Classic ivory bevels · espresso headers & antique gold', 'mycelium': 'Plum velvet · ivory roots & luminous lilac mushrooms', 'atomicafterglow': 'Olive graphite · brass instruments & phosphor green', 'blackwood': 'Walnut joinery · aged brass, sage & coastal light', 'raw': 'Original layout · cyan accents', 'modern': 'Soft cards · blue accents',
+           'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud', 'shadowedge': 'Shadow Edge', 'hollowgrove': 'Hollow Grove', 'gildedhollow': 'The Gilded Hollow', 'hyperfusionblue': 'HyperFusion Blue', 'midnighttransit': 'Midnight Transit', 'blackwood': 'Blackwood', 'atomicafterglow': 'Atomic Afterglow', 'mycelium': 'Mycelium', 'mystery98': 'Windows 98 Mystery', 'platform95': 'Platform 95', 'midnightrun': 'Midnight Run', 'prisonbreak': 'Prison Break', 'facadasexu': '777 Facadas Exu', 'infernalencore': 'Infernal Encore', 'polaris': 'Polaris', 'leviathan': 'Leviathan', 'ghostbusters': 'Ghostbusters'}
+DESCRIPTIONS = {'facadasexu': 'Black lacquer · oxblood velvet, ivory & candlelit copper', 'ghostbusters': 'Ectoplasm green · slime, midnight enamel & ghost traps', 'leviathan': 'Obsidian reliquaries · engraved brass & amethyst storms', 'polaris': 'Midnight glass · luminous cyan & violet starlight', 'prisonbreak': 'Violet neon · graphite steel, orange folders & hazard stripes', 'infernalencore': 'Blackened metal · antique brass & crimson stage lights', 'midnightrun': 'Graphite lacquer · cyan edges & magenta Tokyo nights', 'mystery98': 'Walnut libraries · emerald enamel & antique-gold bevels', 'platform95': 'Classic ivory bevels · espresso headers & antique gold', 'mycelium': 'Plum velvet · ivory roots & luminous lilac mushrooms', 'atomicafterglow': 'Olive graphite · brass instruments & phosphor green', 'blackwood': 'Walnut joinery · aged brass, sage & coastal light', 'raw': 'Original layout · cyan accents', 'modern': 'Soft cards · blue accents',
                 'breakpoint': 'Charcoal glass · crimson focus', 'binaryknife': 'Sharp graphite · electric blue',
                 'tidalglass': 'Pearl glass · luminous ocean depths',
                 'porcelainink': 'Warm porcelain · charcoal & vermilion',
@@ -45,6 +45,9 @@ def qt_style(p,style='modern'):
         return themed(p)
     elif style=='infernalencore':
         from infernalencore import qt_style as themed
+        return themed(p)
+    elif style=='facadasexu':
+        from facadasexu import qt_style as themed
         return themed(p)
     if style=='midnightrun':
         from midnightrun import qt_style as themed
@@ -192,6 +195,9 @@ def waybar_style(p,style='modern'):
     elif style=='infernalencore':
         from infernalencore import waybar_style as themed
         return themed(p)
+    elif style=='facadasexu':
+        from facadasexu import waybar_style as themed
+        return themed(p)
     if style=='midnightrun':
         from midnightrun import waybar_style as themed
         return themed(p)
@@ -280,6 +286,9 @@ def notification_style(p,style='modern'):
         return themed(p)
     elif style=='infernalencore':
         from infernalencore import notification_style as themed
+        return themed(p)
+    elif style=='facadasexu':
+        from facadasexu import notification_style as themed
         return themed(p)
     if style=='midnightrun':
         from midnightrun import notification_style as themed

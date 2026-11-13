@@ -292,6 +292,64 @@ def polaris(p, box, accent, surface, phase, count, trails, glow, archive, extrac
     p.restore()
 
 
+def facadasexu(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Ivory documents follow an incense ribbon between two copper candle stands.
+
+    Packets, smoke tails and halos share one fade envelope at every wrap.
+    Candle flames and the ribbon each use whole periods of the 0..1 clock.
+    """
+    p.save();mid=box.center();left=box.left()+26;right=box.right()-26
+    ink=QColor('#f2e6cc' if surface.lightnessF()<.5 else '#503020')
+    copper=QColor('#c78c60' if surface.lightnessF()<.5 else '#854a2c')
+    for x,zipped in ((left,extracting),(right,archive)):
+        p.setPen(QPen(copper,1.2));p.setBrush(surface)
+        p.drawRoundedRect(QRectF(x-15,mid.y()-4,30,28),5,5)
+        p.drawLine(QPointF(x-18,mid.y()+24),QPointF(x+18,mid.y()+24))
+        for dx,height in ((-9,14),(0,22),(9,14)):
+            y=mid.y()-4-height
+            p.setPen(QPen(copper,.8));p.setBrush(ink if dx==0 else accent)
+            p.drawRoundedRect(QRectF(x+dx-2.5,y,5,height),1,1)
+            flame=QPainterPath(QPointF(x+dx,y-8-1.1*math.sin(phase*math.tau+dx)))
+            flame.cubicTo(x+dx-5,y-2,x+dx+3,y,x+dx,y-8-1.1*math.sin(phase*math.tau+dx))
+            p.fillPath(flame,copper)
+        p.setPen(QPen(accent,1.4))
+        if zipped:
+            for y in (-1,4,9,14,19):p.drawLine(QPointF(x-1,mid.y()+y),QPointF(x+2,mid.y()+y))
+        else:
+            p.drawLine(QPointF(x,mid.y()+1),QPointF(x,mid.y()+18))
+            path=QPainterPath(QPointF(x-6,mid.y()+3));path.cubicTo(x-6,mid.y()+14,x+6,mid.y()+14,x+6,mid.y()+3);p.drawPath(path)
+    if result:
+        if result=='done':success(p,mid,accent)
+        p.restore();return
+    start,end=left+25,right-25
+    ribbon=QPainterPath()
+    for i in range(81):
+        u=i/80;x=start+(end-start)*u
+        y=mid.y()+14+math.sin(u*math.tau+phase*math.tau)*3*math.sin(u*math.pi)
+        if i==0:ribbon.moveTo(x,y)
+        else:ribbon.lineTo(x,y)
+    p.setPen(QPen(alpha(copper,90),1));p.setBrush(Qt.BrushStyle.NoBrush);p.drawPath(ribbon)
+    for index in range(count):
+        t=(phase+index/count)%1
+        fade=max(0.,min(1.,t/.14,(1-t)/.14));fade=fade*fade*(3-2*fade)
+        u=1-t if extracting else t;direction=-1 if extracting else 1
+        x=start+(end-start)*u;y=mid.y()-5-math.sin(u*math.pi)*9
+        p.save();p.setOpacity(p.opacity()*fade)
+        if trails:
+            smoke=QPainterPath(QPointF(x-direction*8,y+5))
+            smoke.cubicTo(x-direction*16,y-5,x-direction*25,y+10,x-direction*34,y+3)
+            p.setPen(QPen(alpha(ink,75),1));p.setBrush(Qt.BrushStyle.NoBrush);p.drawPath(smoke)
+        if glow:
+            halo=QRadialGradient(QPointF(x,y),20);halo.setColorAt(0,alpha(copper,glow));halo.setColorAt(1,alpha(copper,0))
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(halo);p.drawEllipse(QPointF(x,y),20,18)
+        p.translate(x,y);p.rotate(math.sin(t*math.tau)*6);paper(p,ink,technical=True)
+        p.setPen(QPen(accent,1.5));p.drawLine(QPointF(-5,7),QPointF(5,7))
+        if archive or extracting:
+            for dy in (-6,-2,2):p.drawLine(QPointF(-1,dy),QPointF(2,dy))
+        p.restore()
+    p.restore()
+
+
 def infernalencore(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     """Documents ride a sound wave between two brass amplifier cabinets.
 

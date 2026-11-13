@@ -10,6 +10,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 PATH = ROOT / 'sounds/settings.json'
 PACKS = {
+    'facadasexu': ('777 Facadas Exu', 'Copper whispers', 'Soft copper chimes, warm wood resonance and a quiet minor-key motif.', '#d25a45'),
     'ghostbusters': ('Ghostbusters', 'Ectoplasm echoes', 'Original bubbly synth glides, soft theremin tones and playful ghost-trap chimes.', '#b4ff00'),
     'leviathan': ('Leviathan', 'Brass echoes', 'Quiet struck-brass harmonics and a spacious minor-key welcome.', '#c69ae5'),
     'polaris': ('Polaris', 'Northern lights', 'Gentle glass chimes and a warm, spacious ascending welcome.', '#32e1f2'),

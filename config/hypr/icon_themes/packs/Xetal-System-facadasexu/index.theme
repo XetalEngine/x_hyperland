@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=777 Facadas Exu
+Comment=Oxblood lacquer folders, ivory outlines and fine copper details.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

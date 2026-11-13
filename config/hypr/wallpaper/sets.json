@@ -124,5 +124,10 @@
     "prisonbreak/cellblock-neon.png",
     "prisonbreak/midnight-yard.png",
     "prisonbreak/service-passage.png"
+  ],
+  "facadasexu": [
+    "facadasexu/altar-of-seven.png",
+    "facadasexu/copper-crossroads.png",
+    "facadasexu/ivory-and-embers.png"
   ]
 }

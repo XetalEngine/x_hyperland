@@ -291,8 +291,27 @@ def ghost_trap(p, width, colors, phase):
     lip.closeSubpath();p.fillPath(lip,accent);p.restore()
 
 
+def candlelight_rail(p,width,colors,phase):
+    """Lacquer tray, copper rails and three tiny candle lamps on each end."""
+    from facadasexu import paint_surface
+    paint_surface(p,QRectF(8,8,width-16,80),colors,8,100)
+    p.save();copper=blend(colors['Accent'],colors['WindowText'],.65)
+    p.setPen(QPen(alpha(copper,.75),1))
+    for y in (13,83):line(p,31,y,width-31,y)
+    for x in (20,width-20):
+        for dx,height in ((-5,13),(0,22),(5,13)):
+            p.setPen(QPen(copper,.7));p.setBrush(QColor(colors['WindowText'] if dx==0 else colors['Accent']))
+            p.drawRoundedRect(QRectF(x+dx-1.5,58-height,3,height),1,1)
+            p.setBrush(copper);p.setPen(Qt.PenStyle.NoPen)
+            p.drawEllipse(QPointF(x+dx,55-height),1.2,2+.3*math.sin(phase*2+dx))
+        p.setPen(QPen(copper,1));line(p,x-8,62,x+8,62)
+    p.restore()
+
+
 def tray(painter, width, style, colors, phase):
     """Draw a horizontal tray in a width × 96 coordinate space."""
+    if style == 'facadasexu':
+        candlelight_rail(painter,width,colors,phase);return
     if style == 'ghostbusters':
         ghost_trap(painter,width,colors,phase);return
     if style == 'leviathan':
@@ -540,8 +559,14 @@ def dock(p, area, style, colors, *, phase=0., weights=(1., 1., 1.), zoom=(), ver
         p.save(); p.setOpacity(p.opacity()*max(0., min(1., weight)))
         if not stack:
             p.setPen(QPen(alpha(colors['Accent'], .12+(z-1)), .8)); p.setBrush(alpha(colors['Accent'], .035+(z-1)*.1))
-            radius = 8 if style == 'ghostbusters' else 4 if style == 'leviathan' else 11 if style == 'polaris' else 4 if style in ('infernalencore','prisonbreak') else 1 if style in ('platform95','mystery98') else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style in ('midnighttransit','midnightrun') else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
+            radius = 6 if style == 'facadasexu' else 8 if style == 'ghostbusters' else 4 if style == 'leviathan' else 11 if style == 'polaris' else 4 if style in ('infernalencore','prisonbreak') else 1 if style in ('platform95','mystery98') else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style in ('midnighttransit','midnightrun') else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
             p.drawRoundedRect(rect, radius, radius)
+        if style == 'facadasexu' and not stack:
+            copper=blend(colors['Accent'],colors['WindowText'],.65)
+            p.setBrush(blend(colors['Window'],colors['Accent'],.04+(z-1)*.10))
+            p.setPen(QPen(alpha(copper,min(1,.4+(z-1)*.4)),.8));p.drawRoundedRect(rect,6,6)
+            p.setPen(QPen(alpha(copper,.30),.8));line(p,rect.left()+8,rect.top()+4,rect.right()-8,rect.top()+4)
+            p.setPen(QPen(alpha(colors['Accent'],min(1,.5+(z-1)*.4)),1.5));line(p,rect.left()+10,rect.bottom()-5,rect.right()-10,rect.bottom()-5)
         if style == 'ghostbusters' and not stack:
             accent=QColor(colors['Accent'])
             p.setBrush(blend(colors['Window'],accent,.06+(z-1)*.12))
