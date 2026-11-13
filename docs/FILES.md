@@ -24,24 +24,31 @@ window memory.
 
 ## Navigation and layout
 
-This PC has up to three sections separated by draggable horizontal dividers:
-mounted internal drives, USB devices, and unmounted internal drives. The upper
-section contains disks with at least one mounted partition. Every section has
-one framed row per physical disk, with all its partitions side by side, largest
-to smallest. A partially mounted disk stays together in the mounted section.
-Long rows scroll horizontally without wrapping. USB devices appear together in
-the middle, whether mounted or unmounted; USB SSDs are recognized by their
-connection type even when their removable flag is unset. The lower section
-contains wholly unmounted internal drives. Frames use the theme's accent;
-frames and partition cards inherit its shared corner styling without a list
-of theme names. Data partitions keep full-width cards. EFI, BIOS boot, reserved,
-recovery and swap partitions use cards about 58% as wide, with space information
-below the icon. Classification uses partition roles and boot mount points;
-ordinary FAT-formatted data drives keep the full layout. Divider positions are remembered.
-Empty sections and their extra dividers hide automatically and return when
-matching drives appear. Mounted volumes
-show available space; unmounted volumes show
-capacity and filesystem. In the sidebar, mounted volumes appear below This PC;
+The top toolbar combines navigation, the editable address and folder filter.
+Slim tabs sit directly below it, with the preview toggle and new-tab button
+side by side. The left navigation tree retains its existing layout.
+
+This PC groups volumes by physical disk in a responsive **Drive shelf**.
+Quiet disk headings show the model, device path, capacity and USB connection
+where applicable. Consistent volume cards show the name, mount point or
+filesystem, a status badge, and a thin usage bar with free space when mounted.
+Neutral surfaces and symbolic drive icons use the current theme's palette;
+accent marks selection, focus and capacity bars. Mounted disks appear first,
+followed by other USB devices and unmounted internal disks. A partially mounted
+disk stays together, with its data volumes ordered largest first.
+
+The upper-right buttons switch between the responsive shelf and a compact
+single-column **Storage list**. The choice is remembered. Both use one vertical
+scroll area and reflow without horizontal scrolling. **System partitions · N**
+folds EFI, BIOS boot, reserved, recovery and swap volumes below each disk;
+each disk's expanded state is remembered. Classification uses partition roles
+and boot mount points, so ordinary FAT-formatted data volumes remain visible.
+Selecting a folded volume through navigation restoration reveals it.
+
+**Mount** appears on an eligible unmounted card when hovered or keyboard-focused.
+The existing **Auto mount** checkbox remains in each eligible disk's heading.
+Periodic drive refreshes retain selection, keyboard focus and expanded groups.
+In the sidebar, mounted volumes appear below This PC;
 the Unmounted drives group sits below Trash. Double-click a volume to open it,
 mounting it first when needed. Right-click for Mount, Unmount, Force mount,
 details, and safe removal of unmounted removable drives. Discovery never mounts
@@ -80,16 +87,29 @@ names. Back, Forward and Up work across folder and This PC navigation. Network
 locations accept URLs such as `smb://server/share` and `sftp://host/path`, using
 the installed KIO protocol workers and their authentication dialogs.
 
+Back and Forward restore each visit's selected files, current item, folder
+filter and horizontal/vertical scroll position after the folder finishes
+loading. Removed files are ignored, and an explicit **Show in folder** selection
+takes priority. This PC also remembers its selected volume and scroll position.
+**Ctrl+Shift+T** reopens the last closed tab with its location, navigation history
+and selection. Up to 20 closed tabs are retained in that window's memory;
+closing the window clears that list.
+
 The folder-view icon opens a menu of small, medium and large icons, a compact
 list and details. It shows the current tab's selection and is disabled in This
-PC, where the drive cards keep their own layout. Right-click the details header to choose columns; drag columns to
+PC, which has its own shelf/list buttons. Right-click the details header to choose columns; drag columns to
 reorder and resize them. The folder filter matches names in the current folder.
+Each folder remembers its view mode, sorting, column order/widths/visibility,
+hidden-files and thumbnails choices, and preview visibility/width. These choices
+survive restarting Files and do not change other folders. Previously saved
+global choices remain the defaults for folders without a saved view. File
+pickers keep their own folder-view preferences per application and operation.
 The preview pane is enabled for fresh profiles and displays local images, text excerpts and metadata;
 remote selections display metadata without downloading their full contents.
-The small arrow above the new-tab (+) button hides or shows it and stays available when the pane is hidden.
+The small arrow beside the new-tab (+) button hides or shows it and stays available when the pane is hidden.
 Local picture thumbnails are enabled on file icons by default. Open **⋮ →
-Configure Fusion Files…** to turn thumbnails, the preview pane, hidden files or
-the Trash animation on or off. Saved choices survive reopening and updates;
+Configure Fusion Files…** to change the current folder's thumbnails, preview
+pane and hidden files, or turn the global Trash animation on or off. Saved choices survive reopening and updates;
 the new defaults do not replace an existing preview preference. Remote folders
 keep their file-type icons instead of downloading pictures for thumbnails.
 
@@ -246,7 +266,7 @@ that their unprivileged workers or requesting applications can access.
 
 A readable folder containing only hidden entries instead shows **This folder
 contains hidden files** with **Show hidden files** (also **Ctrl+H**). This enables
-the existing hidden-files option across tabs. A genuinely empty folder or a
+the hidden-files option for that folder. A genuinely empty folder or a
 folder with no filter matches is never described as private.
 
 Protected copy and move operations, including drag-and-drop and protected
@@ -364,6 +384,7 @@ shell expansion; multiple-file placeholders must occupy a separate argument.
 | Escape (in search) | Stop search, then close search |
 | Ctrl+Shift+C | Copy complete selected path(s) |
 | Ctrl+T / Ctrl+W | New / close tab |
+| Ctrl+Shift+T | Reopen the last closed tab |
 | Ctrl+Tab / Ctrl+Shift+Tab | Next / previous tab |
 | Ctrl+N | New window |
 | Alt+Enter | Properties |
@@ -402,7 +423,14 @@ Native tests use a private D-Bus session and disposable configuration, files and
 Trash. Checks click icons in all five views, exercise keyboard file operations,
 numbered copy/move collisions, access routing, drag-and-drop, script/unknown-file menus and a real 64 MiB folder
 copy through the themed JobView service with pause/resume. They do not mount
-real drives. `--select /path/to/file` reveals a file in
+real drives. The `navigation-tests` target also runs without a session bus;
+it feeds the real directory model with asynchronous listing signals to check
+navigation restoration, late completions, deleted files, per-folder views,
+closed-tab recovery and compact layouts. `drive-shelf-tests` checks responsive
+layout, system-partition disclosure, keyboard and Mount actions, retained focus,
+saved view choices and device removal with synthetic inventories; it never
+mounts real volumes and also runs without a session bus.
+`--select /path/to/file` reveals a file in
 its parent folder. `scripts/session.sh` starts a resident `--service` instance
 before startup applications. It owns the standard `org.freedesktop.FileManager1`
 interface throughout the Hyprland login, including while no Files windows are

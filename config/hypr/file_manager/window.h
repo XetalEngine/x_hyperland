@@ -23,6 +23,8 @@ signals:
   void operationFinished(int error);
 
 protected:
+  void showEvent(QShowEvent *) override;
+  void resizeEvent(QResizeEvent *) override;
   void closeEvent(QCloseEvent *) override;
   virtual void openItem(const KFileItem &item, bool newTab = false);
   void preparePicker();
@@ -30,6 +32,9 @@ protected:
 private:
   QString geometryKey, splitterKey;
   QTabWidget *tabs;
+  QStackedWidget *addressHost;
+  QList<QVariantMap> closedTabs;
+  QAction *reopenTabAction;
   QTreeWidget *places;
   QTreeWidgetItem *quickRoot;
   QSplitter *splitter;

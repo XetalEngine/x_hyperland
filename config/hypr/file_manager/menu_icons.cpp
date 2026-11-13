@@ -13,13 +13,13 @@
 namespace {
 class MenuIcon : public QIconEngine {
 public:
-  explicit MenuIcon(const QString &body) : body(body) {}
-  QIconEngine *clone() const override { return new MenuIcon(body); }
-  void paint(QPainter *painter, const QRect &rect, QIcon::Mode mode, QIcon::State) override {
+  explicit MenuIcon(const QString &body, bool accent = true) : body(body), accent(accent) {}
+  QIconEngine *clone() const override { return new MenuIcon(body, accent); }
+  void paint(QPainter *painter, const QRect &rect, QIcon::Mode mode, QIcon::State state) override {
     const auto palette = qApp->palette();
-    QColor color = qApp->property("fusionAccent").value<QColor>();
+    QColor color = accent ? qApp->property("fusionAccent").value<QColor>() : palette.color(QPalette::WindowText);
     if (!color.isValid()) color = palette.color(QPalette::WindowText);
-    if (mode == QIcon::Selected || mode == QIcon::Active)
+    if (mode == QIcon::Selected || mode == QIcon::Active || (!accent && state == QIcon::On))
       color = palette.color(QPalette::HighlightedText);
     else if (mode == QIcon::Disabled)
       color = palette.color(QPalette::Disabled, QPalette::WindowText);
@@ -42,18 +42,20 @@ public:
   }
 private:
   QString body;
+  bool accent;
 };
-}
-
-QIcon Fusion::menuIcon(const QString &name) {
+QIcon symbol(const QString &name, bool accent) {
   static const QJsonObject symbols = [] {
     QFile file(Fusion::root()+"/theme/menu_icons.json");
     return file.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(file.readAll()).object() : QJsonObject{};
   }();
   const auto body = symbols.value(name).toString();
-  if (!body.isEmpty()) return QIcon(new MenuIcon(body));
+  if (!body.isEmpty()) return QIcon(new MenuIcon(body, accent));
   const auto original = Fusion::icon(name);
   if (!original.isNull()) return original;
   const auto fallback = symbols.value("application-x-executable").toString();
-  return fallback.isEmpty() ? original : QIcon(new MenuIcon(fallback));
+  return fallback.isEmpty() ? original : QIcon(new MenuIcon(fallback, accent));
 }
+}
+QIcon Fusion::menuIcon(const QString &name) { return symbol(name, true); }
+QIcon Fusion::symbolicIcon(const QString &name) { return symbol(name, false); }

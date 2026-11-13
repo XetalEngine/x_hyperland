@@ -245,6 +245,20 @@ Preferences::Preferences(const QString &path)
     : settings(path.isEmpty() ? root() + "/file_manager/state/settings.ini"
                               : path,
                QSettings::IniFormat) {}
+static QString folderViewKey(QUrl url) {
+  url = url.adjusted(QUrl::NormalizePathSegments | QUrl::StripTrailingSlash | QUrl::RemovePassword);
+  return QString::fromLatin1(QCryptographicHash::hash(url.toEncoded(), QCryptographicHash::Sha256).toHex());
+}
+QVariantMap Preferences::folderView(const QUrl &url) const {
+  auto result = settings.value(folderViewScope + '/' + folderViewKey(url)).toMap();
+  for (const auto &key : {"view", "columns", "hidden", "thumbnails", "preview"})
+    if (!result.contains(key) && settings.contains(key)) result[key] = settings.value(key);
+  if (!result.contains("previewWidth")) result["previewWidth"] = defaultPreviewWidth;
+  return result;
+}
+void Preferences::setFolderView(const QUrl &url, const QVariantMap &view) {
+  if (url.isValid() && !url.isEmpty()) settings.setValue(folderViewScope + '/' + folderViewKey(url), view);
+}
 static QList<QVariantMap> readList(const QSettings &settings,
                                    const QString &key,
                                    const QList<QVariantMap> &fallback) {

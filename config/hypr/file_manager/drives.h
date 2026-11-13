@@ -64,13 +64,3 @@ private:
   bool automaticMounting = false;
   void mountAutomatically();
 };
-
-class DriveDelegate : public QStyledItemDelegate {
-public:
-  explicit DriveDelegate(QWidget *parent);
-  QSize sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const override;
-  void paint(QPainter *, const QStyleOptionViewItem &,
-             const QModelIndex &) const override;
-private:
-  QGroupBox *cardStyle;
-};

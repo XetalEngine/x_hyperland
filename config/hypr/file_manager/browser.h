@@ -1,6 +1,7 @@
 #pragma once
 #include "core.h"
 #include "drives.h"
+#include "drive_shelf.h"
 #include "pathbar.h"
 #include "search.h"
 #include <KDirModel>
@@ -27,6 +28,9 @@ public:
   QLabel *notice;
   QStackedWidget *stack;
   int viewMode = 2;
+  QPointer<QWidget> navigationRow;
+  bool previewVisible = true, thumbnailsVisible = true;
+  int previewWidth = 270;
   QUrl location() const;
   void navigate(const QUrl &url);
   void refresh();
@@ -37,6 +41,9 @@ public:
   void setPickerFilter(const QJsonArray &patterns, bool directoriesOnly);
   void selectUrl(const QUrl &url);
   void saveView();
+  void setPreview(bool visible, int width = -1);
+  QVariantMap session();
+  void restoreSession(const QVariantMap &saved);
   void editAddress();
   void beginSearch();
   void closeSearch();
@@ -56,6 +63,7 @@ signals:
   void jobStarted(KJob *job);
   void statusChanged(const QString &text);
   void hiddenFilesRequested();
+  void viewSettingsChanged();
 
 protected:
   bool eventFilter(QObject *watched, QEvent *event) override;
@@ -63,19 +71,17 @@ protected:
 private:
   Fusion::Preferences *preferences;
   Drives *drives;
-  QWidget *computer;
-  QLabel *emptyDrives;
-  QSplitter *driveSplitter;
-  struct DriveSection {
-    QScrollArea *scroll = nullptr;
-    QVBoxLayout *layout = nullptr;
-    QMap<QString, QGroupBox *> groups;
-  };
-  DriveSection mountedSection, usbSection, unmountedSection;
-  QList<QListWidget *> driveLists;
-  bool driveLayoutQueued = false, fitSectionContents = false;
+  DriveShelf *computer;
   KFilePreviewGenerator *previews;
   QUrl pendingSelection;
+  QUrl loadedUrl;
+  QByteArray defaultColumns;
+  bool applyingView = true, restoringPlace = false;
+  quint64 placeGeneration = 0;
+  QVariantMap pendingPlace;
+  void rememberPlace();
+  void restorePlace();
+  void applyFolderView(const QUrl &url);
   QWidget *folderMessage;
   QFrame *administratorBar;
   QLabel *folderHeading, *folderExplanation, *folderSymbol;
@@ -89,9 +95,6 @@ private:
   void handleListingError(KIO::Job *job);
   void load(const QUrl &url);
   void updateCards();
-  void queueDriveLayout(bool fitContents = false);
-  void fitDriveSections();
-  void configureCards(QListWidget *list);
   void updateStatus();
   void columnMenu(const QPoint &position);
   KFileItem itemAt(QAbstractItemView *view, const QPoint &position) const;

@@ -21,7 +21,12 @@ public:
   bool isUrlEditable() const;
   void setUrlEditable(bool value);
   KUrlComboBox *editor() const { return input; }
+  QVariantMap visitState() const { return states.value(position); }
+  void setVisitState(const QVariantMap &state) { states[position] = state; }
+  QVariantMap session() const;
+  void restoreSession(const QVariantMap &session);
 signals:
+  void aboutToNavigate();
   void urlChanged(const QUrl &url);
   void editingCancelled();
   void historyChanged();
@@ -33,6 +38,7 @@ protected:
 
 private:
   QList<QUrl> history;
+  QList<QVariantMap> states{QVariantMap{}};
   QUrl selectedFile;
   int position = 0;
   KUrlComboBox *input = nullptr;

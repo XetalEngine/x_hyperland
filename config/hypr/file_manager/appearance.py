@@ -209,6 +209,46 @@ def appearance():
         QLabel#volumeArtwork, QFrame#storageSummary {{border-radius:2px;}}
         QTabBar::tab:selected {{background:{p['Highlight']}; border-top-color:{p['Link']}; border-bottom:2px solid {p['Accent']}; border-radius:1px;}}
         '''
+    # Keep Files' navigation compact after the theme's shape/color rules.
+    # The sidebar keeps its existing spacing and theme treatment.
+    style += '''
+    QToolBar#filesToolbar {padding:4px 6px; spacing:4px;}
+    QToolBar#filesToolbar QToolButton {padding:4px;}
+    QLabel#filesBrand {padding:0 6px;}
+    QToolBar#filesToolbar QFrame#addressRow {background:transparent; border:none;}
+    QComboBox#pathEditor {padding:4px 6px; min-height:20px;}
+    QLineEdit#folderFilter {min-width:80px; max-width:170px; padding:4px 8px; min-height:20px;}
+    QTabWidget#folderTabs::pane {border:0; margin:0;}
+    QTabBar#folderTabBar::tab {padding:3px 10px; min-width:70px; min-height:20px; margin:0 3px 0 0;}
+    QToolButton#closeFolderTab {padding:0; margin:0; border:none; background:transparent;}
+    QToolButton#closeFolderTab:hover {background:palette(highlight); color:palette(highlighted-text);}
+    QLabel#driveSectionTitle {font-size:13px; padding:2px;}
+    '''
+    # A quiet storage shelf: theme surfaces and foreground symbols, with
+    # accent reserved for selection, focus and capacity bars.
+    style += f'''
+    QWidget#driveShelfBody, QScrollArea#computerDrivesScroll, QScrollArea#computerDrivesScroll > QWidget > QWidget {{background:{p['Base']}; border:none;}}
+    QLabel#computerHeading {{font-size:22px; font-weight:700; padding:0;}}
+    QLabel#computerSubtitle {{color:{p['PlaceholderText']}; font-weight:400; padding:0;}}
+    QFrame#physicalDriveGroup {{background:transparent; border:none; border-top:1px solid {p['Midlight']}; border-radius:0; margin:0; padding:0;}}
+    QLabel#driveRowTitle {{font-size:14px; font-weight:600; padding:0;}}
+    QLabel#driveRowDescription {{color:{p['PlaceholderText']}; font-size:12px; font-weight:400; padding:0;}}
+    QFrame#volumeCard {{background:{p['AlternateBase']}; border:1px solid {p['Midlight']}; border-radius:{radius}px;}}
+    QFrame#volumeCard:hover {{border-color:{p['Light']};}}
+    QFrame#volumeCard[selected="true"], QFrame#volumeCard:focus {{border:1px solid {p['Accent']};}}
+    QFrame#volumeCard QLabel, QFrame#volumeCard QWidget#volumeMetrics {{background:transparent; border:none; padding:0;}}
+    QLabel#volumeName {{font-size:14px; font-weight:600;}}
+    QLabel#volumeDescription, QLabel#volumeSpace {{color:{p['PlaceholderText']}; font-size:12px; font-weight:400;}}
+    QFrame#volumeCard QLabel#volumeStatusBadge {{background:{p['Window']}; color:{p['PlaceholderText']}; border-radius:{min(radius,4)}px; padding:3px 7px; font-size:11px;}}
+    QProgressBar#volumeUsage {{background:{p['Mid']}; border:none; border-radius:2px; margin:0; padding:0; min-height:5px; max-height:5px;}}
+    QProgressBar#volumeUsage::chunk {{background:{p['Accent']}; border:none; border-radius:2px;}}
+    QPushButton#mountVolume {{background:{p['Button']}; color:{p['ButtonText']}; border:1px solid {p['Midlight']}; border-radius:{min(radius,4)}px; padding:3px 10px; min-height:20px;}}
+    QPushButton#mountVolume:hover, QPushButton#mountVolume:focus {{border-color:{p['Accent']};}}
+    QToolButton#systemPartitions {{background:transparent; color:{p['PlaceholderText']}; border:none; padding:4px; margin:0;}}
+    QToolButton#systemPartitions:hover, QToolButton#systemPartitions:focus {{color:{p['Text']}; background:{p['AlternateBase']};}}
+    QWidget#systemPartitionBody {{background:transparent; border:none;}}
+    QToolButton#computerShelfView, QToolButton#computerListView {{padding:5px;}}
+    '''
     style += selection_marker.stylesheet(p, runtime.selection_marker())
     return dict(colors=p, stylesheet=style, font=runtime.ui_font(),
                 **runtime.icon_library.info(runtime.ROOT.parent,runtime.design(),runtime.mode()))

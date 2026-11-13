@@ -27,5 +27,9 @@ public:
   void setPlaces(const QList<QVariantMap> &places);
   QList<QVariantMap> menu(const QString &scope = "menu") const;
   void setMenu(const QList<QVariantMap> &entries, const QString &scope = "menu");
+  QVariantMap folderView(const QUrl &url) const;
+  void setFolderView(const QUrl &url, const QVariantMap &view);
+  QString folderViewScope = "folderViews";
+  int defaultPreviewWidth = 270;
 };
 } // namespace Fusion

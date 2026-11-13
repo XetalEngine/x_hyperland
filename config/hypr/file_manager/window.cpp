@@ -1,4 +1,5 @@
 #include "window.h"
+#include <KDirLister>
 #include "menu_icons.h"
 #include "context_actions.h"
 #include "new_items.h"
@@ -144,6 +145,8 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
       splitterKey(this->geometryKey.startsWith("picker/")
           ? this->geometryKey.section('/', 0, -2)+"/splitter" : "splitter") {
   setObjectName("fusionFiles");
+  if (this->geometryKey.startsWith("picker/"))
+    preferences.folderViewScope = this->geometryKey.section('/', 0, -2) + "/folderViews";
   setAttribute(Qt::WA_DeleteOnClose);
   setWindowTitle("Fusion Files");
   setWindowIcon(Fusion::icon("fusion-computer"));
@@ -163,8 +166,9 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   connect(drives, &Drives::populateFileMenu, this,
           &FilesWindow::addVolumeActions);
   auto *toolbar = addToolBar("Navigation");
+  toolbar->setObjectName("filesToolbar");
   toolbar->setMovable(false);
-  toolbar->setIconSize({20, 20});
+  toolbar->setIconSize({18, 18});
   auto tool = [&](const QString &icon, const QString &label,
                   const std::function<void()> &call) {
     auto *a = toolbar->addAction(Fusion::icon(icon), label);
@@ -179,15 +183,18 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   upAction = tool("go-up", "Up", [this] { browser()->navigator->goUp(); });
   tool("view-refresh", "Refresh", [this] { browser()->refresh(); });
   toolbar->addSeparator();
-  auto *brand = new QLabel("  Fusion Files  ");
+  auto *brand = new QLabel("Fusion Files");
+  brand->setObjectName("filesBrand");
   QFont brandFont = font();
-  brandFont.setPointSize(13);
+  brandFont.setPointSize(10);
   brandFont.setBold(true);
   brand->setFont(brandFont);
-  toolbar->addWidget(brand);
-  auto *spacer = new QWidget;
-  spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-  toolbar->addWidget(spacer);
+  toolbar->addWidget(brand)->setObjectName("filesBrandAction");
+  addressHost = new QStackedWidget;
+  addressHost->setObjectName("navigationHost");
+  addressHost->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+  addressHost->setMinimumWidth(300);
+  toolbar->addWidget(addressHost);
   auto *empty = new QToolButton;
   empty->setObjectName("emptyTrashButton");
   empty->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
@@ -214,10 +221,9 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   }
   toolbar->addWidget(views);
   previewAction = tool("view-preview", "Preview pane", [this] {
-    previewStack->setVisible(previewAction->isChecked());
-    ensurePreviewWidth();
-    preferences.settings.setValue("preview", previewAction->isChecked());
-    updatePreview();
+    if (browser()) browser()->setPreview(previewAction->isChecked(),
+        previewStack->isVisible() ? previewStack->width() : -1);
+    updateCurrent();
   });
   previewAction->setCheckable(true);
   previewAction->setObjectName("previewPaneAction");
@@ -236,6 +242,9 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   toolbar->addSeparator();
   toolbar->addWidget(new FusionChrome::Controls(this));
   menu->addAction("New tab", this, [this] { runAction("newTab"); });
+  reopenTabAction = menu->addAction("Reopen closed tab\tCtrl+Shift+T", this, [this] { runAction("reopenTab"); });
+  reopenTabAction->setObjectName("reopenClosedTabAction");
+  reopenTabAction->setEnabled(false);
   menu->addAction("New window", this, [this] { runAction("newWindow"); });
   menu->addAction("Open location…", this, [this] { browser()->editAddress(); });
   menu->addAction("Search files…\tCtrl+F", this, [this] { runAction("search"); });
@@ -251,9 +260,7 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   hiddenAction->setChecked(
       preferences.settings.value("hidden", false).toBool());
   connect(hiddenAction, &QAction::toggled, this, [this](bool value) {
-    preferences.settings.setValue("hidden", value);
-    for (int i = 0; i < tabs->count(); ++i)
-      static_cast<Browser *>(tabs->widget(i))->setHidden(value);
+    if (browser()) browser()->setHidden(value);
   });
   menu->addAction(Fusion::icon("configure"), "Configure Fusion Files…", this, &FilesWindow::configure)->setObjectName("configureFiles");
   undoAction = menu->addAction("Undo", this, [this] { runAction("undo"); });
@@ -291,6 +298,8 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
     }
   };
   tabs = new QTabWidget;
+  tabs->setObjectName("folderTabs");
+  tabs->tabBar()->setObjectName("folderTabBar");
   // The shared theme supplies the tab borders. Qt's document frame draws a
   // second baseline at a different height beneath the corner (+) button.
   tabs->setDocumentMode(false);
@@ -301,12 +310,12 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   tabs->setTabBarAutoHide(false);
   splitter->addWidget(tabs);
   auto *tabCorner = new QWidget;
-  auto *cornerLayout = new QVBoxLayout(tabCorner);
-  cornerLayout->setContentsMargins(0, 2, 2, 0);
-  cornerLayout->setSpacing(0);
+  auto *cornerLayout = new QHBoxLayout(tabCorner);
+  cornerLayout->setContentsMargins(2, 0, 3, 0);
+  cornerLayout->setSpacing(2);
   auto *previewToggle = new QToolButton;
   previewToggle->setObjectName("previewToggle");
-  previewToggle->setFixedSize(24, 20);
+  previewToggle->setFixedSize(26, 26);
   previewToggle->setAutoRaise(true);
   auto updatePreviewToggle = [this, previewToggle] {
     const bool visible = previewAction->isChecked();
@@ -322,7 +331,7 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   newTab->setObjectName("newTabButton");
   newTab->setText("+");
   newTab->setToolTip("New tab · Ctrl+T");
-  newTab->setFixedSize(24, 20);
+  newTab->setFixedSize(26, 26);
   cornerLayout->addWidget(newTab, 0, Qt::AlignHCenter);
   tabs->setCornerWidget(tabCorner);
   connect(newTab, &QToolButton::clicked, this,
@@ -368,6 +377,11 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
     splitter->setSizes(sizes);
   }
   ensurePreviewWidth();
+  if (splitter->sizes().value(2) >= 240)
+    preferences.defaultPreviewWidth = qMin(420, splitter->sizes().value(2));
+  connect(splitter, &QSplitter::splitterMoved, this, [this] {
+    if (browser() && previewAction->isChecked()) browser()->setPreview(true, splitter->sizes().value(2));
+  });
   connect(tabs, &QTabWidget::currentChanged, this, [this] { updateCurrent(); });
   connect(tabs, &QTabWidget::tabCloseRequested, this, [this](int index) {
     if (tabs->count() == 1) {
@@ -375,7 +389,11 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
       return;
     }
     auto *tab = static_cast<Browser *>(tabs->widget(index));
-    tab->saveView();
+    closedTabs.prepend(tab->session());
+    while (closedTabs.size() > 20) closedTabs.removeLast();
+    reopenTabAction->setEnabled(true);
+    addressHost->removeWidget(tab->navigationRow);
+    tab->navigationRow->setParent(tab);
     tabs->removeTab(index);
     tab->deleteLater();
   });
@@ -431,6 +449,7 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
                           {"preview", "Alt+P"},
                           {"newTab", "Ctrl+T"},
                           {"closeTab", "Ctrl+W"},
+                          {"reopenTab", "Ctrl+Shift+T"},
                           {"newWindow", "Ctrl+N"},
                           {"nextTab", "Ctrl+Tab"},
                           {"previousTab", "Ctrl+Shift+Tab"},
@@ -512,6 +531,10 @@ FilesWindow::~FilesWindow() {
 }
 void FilesWindow::addTab(const QUrl &url) {
   auto *tab = new Browser(&preferences, drives, this);
+  addressHost->addWidget(tab->navigationRow);
+  connect(tab, &Browser::viewSettingsChanged, this, [this, tab] {
+    if (tab == browser()) updateCurrent();
+  });
   connect(tab, &Browser::locationChanged, this, [this, tab](const QUrl &url) {
     tabs->setTabText(tabs->indexOf(tab), Fusion::title(url));
     tabs->setTabToolTip(tabs->indexOf(tab), Fusion::displayPath(url));
@@ -540,10 +563,11 @@ void FilesWindow::addTab(const QUrl &url) {
   });
   tabs->setCurrentIndex(tabs->addTab(tab, Fusion::title(url)));
   auto *close = new QToolButton;
+  close->setObjectName("closeFolderTab");
   close->setText("×");
   close->setToolTip("Close tab");
   close->setAutoRaise(true);
-  close->setFixedSize(24, 24);
+  close->setFixedSize(18, 18);
   tabs->tabBar()->setTabButton(tabs->indexOf(tab), QTabBar::RightSide, close);
   connect(close, &QToolButton::clicked, this,
           [this, tab] { emit tabs->tabCloseRequested(tabs->indexOf(tab)); });
@@ -567,6 +591,22 @@ void FilesWindow::updateCurrent() {
   if (!browser())
     return;
   const QUrl url = browser()->location();
+  addressHost->setCurrentWidget(browser()->navigationRow);
+  {
+    QSignalBlocker blocked(hiddenAction);
+    hiddenAction->setChecked(browser()->model->dirLister()->showHiddenFiles());
+  }
+  previewAction->setChecked(browser()->previewVisible);
+  previewStack->setVisible(browser()->previewVisible);
+  // Before first show, the splitter still has its temporary construction
+  // size. Resizing it there would shrink a restored sidebar to its minimum.
+  if (browser()->previewVisible && isVisible()) {
+    auto sizes = splitter->sizes();
+    const int width = browser()->previewWidth;
+    sizes[2] = width;
+    sizes[1] = qMax(180, splitter->width() - sizes[0] - width - 2 * splitter->handleWidth());
+    splitter->setSizes(sizes);
+  }
   emptyTrashAction->setVisible(url.scheme() == "trash");
   setWindowTitle(Fusion::title(url) + " — Fusion Files");
   views->setEnabled(!Fusion::isComputer(url));
@@ -839,6 +879,14 @@ void FilesWindow::runAction(const QString &id) {
   auto *tab = browser();
   if (!tab)
     return;
+  if (id == "reopenTab") {
+    if (closedTabs.isEmpty()) return;
+    const auto saved = closedTabs.takeFirst();
+    addTab(Fusion::computerUrl());
+    browser()->restoreSession(saved);
+    reopenTabAction->setEnabled(!closedTabs.isEmpty());
+    return;
+  }
   if (id == "search") { tab->beginSearch(); return; }
   if (tab->searchActive() && tab->search->handleAction(id)) return;
   const auto items = tab->selectedItems();
@@ -1327,7 +1375,7 @@ void FilesWindow::configure() {
   auto *desktopMenu = new Fusion::MenuEditor(preferences, "desktopMenu");
   pages->addTab(filesMenu, "Files menu");
   pages->addTab(desktopMenu, "Desktop menu");
-  auto *display = new QGroupBox("Browsing");
+  auto *display = new QGroupBox("This folder’s view");
   auto *displayLayout = new QVBoxLayout(display);
   auto *pane = new QCheckBox("Show the preview pane");
   pane->setObjectName("configurePreview");
@@ -1335,9 +1383,10 @@ void FilesWindow::configure() {
   displayLayout->addWidget(pane);
   auto *thumbnails = new QCheckBox("Show picture thumbnails on file icons");
   thumbnails->setObjectName("configureThumbnails");
-  thumbnails->setChecked(preferences.settings.value("thumbnails", true).toBool());
+  thumbnails->setChecked(browser()->thumbnailsVisible);
   displayLayout->addWidget(thumbnails);
-  auto *hint = new QLabel("Local pictures only. Remote folders keep file-type icons.");
+  auto *hint = new QLabel("Views, columns and the preview pane are remembered for each folder.\nThumbnails use local pictures; remote folders keep file-type icons.");
+  hint->setWordWrap(true);
   hint->setObjectName("muted");
   displayLayout->addWidget(hint);
   auto *hidden = new QCheckBox("Show hidden files and folders");
@@ -1361,12 +1410,10 @@ void FilesWindow::configure() {
     preferences.setMenu(filesMenu->entries());
   if (desktopMenu->entries() != savedDesktopMenu)
     preferences.setMenu(desktopMenu->entries(), "desktopMenu");
-  preferences.settings.setValue("thumbnails", thumbnails->isChecked());
   preferences.settings.setValue("trashAnimation", animation->isChecked());
   if (pane->isChecked() != previewAction->isChecked()) previewAction->trigger();
   hiddenAction->setChecked(hidden->isChecked());
-  for (int i = 0; i < tabs->count(); ++i)
-    static_cast<Browser *>(tabs->widget(i))->setThumbnails(thumbnails->isChecked());
+  browser()->setThumbnails(thumbnails->isChecked());
   preferences.settings.sync();
 }
 void FilesWindow::showShortcuts() {
@@ -1379,7 +1426,7 @@ void FilesWindow::showShortcuts() {
       "Refresh\nAlt+. / Ctrl+H — Hidden files\nAlt+P — Preview pane\nCtrl+F — Search files\n"
       "Ctrl+Shift+F — Filter current folder\nEscape — Stop / close search\n"
       "Ctrl+Shift+C — Copy full path\nCtrl+T / Ctrl+W — New / "
-      "close tab\nCtrl+Tab / Ctrl+Shift+Tab — Switch tabs\nCtrl+N — New "
+      "close tab\nCtrl+Shift+T — Reopen closed tab\nCtrl+Tab / Ctrl+Shift+Tab — Switch tabs\nCtrl+N — New "
       "window\nAlt+Enter — Properties");
 }
 void FilesWindow::reloadTheme() {
@@ -1396,13 +1443,23 @@ void FilesWindow::message(const QString &text) {
     browser()->notice->show();
   }
 }
+void FilesWindow::showEvent(QShowEvent *event) {
+  QMainWindow::showEvent(event);
+  if (auto *brand = findChild<QAction *>("filesBrandAction")) brand->setVisible(width() >= 960);
+  updateCurrent();
+}
+void FilesWindow::resizeEvent(QResizeEvent *event) {
+  QMainWindow::resizeEvent(event);
+  if (auto *brand = findChild<QAction *>("filesBrandAction")) brand->setVisible(width() >= 960);
+}
 void FilesWindow::closeEvent(QCloseEvent *event) {
+  if (browser() && previewStack->isVisible())
+    browser()->setPreview(true, previewStack->width());
   for (int i = 0; i < tabs->count(); ++i) {
     auto *tab = static_cast<Browser *>(tabs->widget(i));
+    tab->saveView();
     if (tab->search) tab->search->cancel();
   }
-  if (browser())
-    browser()->saveView();
   if (geometryKey == "external/geometry")
     preferences.settings.setValue("external/size", size());
   else if (geometryKey != "geometry")
@@ -1416,7 +1473,8 @@ void FilesWindow::preparePicker() {
   tabs->setTabsClosable(false);
   tabs->tabBar()->setTabButton(0, QTabBar::RightSide, nullptr);
   if (auto *button = findChild<QToolButton *>("newTabButton")) button->hide();
-  for (const auto &id : {"newTab", "newWindow", "closeTab", "nextTab", "previousTab"})
+  reopenTabAction->setVisible(false);
+  for (const auto &id : {"newTab", "newWindow", "closeTab", "reopenTab", "nextTab", "previousTab"})
     if (shortcuts.contains(id)) shortcuts[id]->setEnabled(false);
   if (auto *menu = findChild<QMenu *>("fileOptionsMenu"))
     for (auto *action : menu->actions())

@@ -108,14 +108,10 @@ class FileTests : public QObject {
     QTest::mouseClick(tab->view()->viewport(), Qt::LeftButton, modifiers,
                       filePoint(tab, index));
   }
-  static QListWidget *driveRow(Browser *tab, const QString &key) {
-    for (auto *row : tab->findChildren<QListWidget *>("driveCards"))
-      if (row->property("driveKey").toString() == key)
-        return row;
+  static VolumeCard *driveCard(Browser *tab, const QString &device) {
+    for (auto *card : tab->findChildren<VolumeCard *>())
+      if (card->volume().device == device) return card;
     return nullptr;
-  }
-  static QList<QGroupBox *> driveGroups(Browser *tab, const QString &section) {
-    return tab->findChild<QScrollArea *>(section)->findChildren<QGroupBox *>("physicalDriveGroup");
   }
   static QList<Volume> computerVolumes() {
     auto volumes = Drives::parse(R"({"blockdevices":[
@@ -306,14 +302,14 @@ private slots:
     FilesWindow window(Fusion::computerUrl(), false, temporary.path()+"/compact.ini");
     window.setAttribute(Qt::WA_DeleteOnClose, false); window.resize(1300, 900); window.show();
     window.drives->volumes = computerVolumes(); emit window.drives->changed();
-    auto *row = driveRow(window.browser(), "/dev/fusion-a"); QVERIFY(row);
-    QListWidgetItem *data = nullptr, *efi = nullptr;
-    for (int n=0; n<row->count(); ++n) { auto *item=row->item(n); if (item->data(Qt::UserRole).value<Volume>().mount == "/") data=item; if (item->data(Qt::UserRole).value<Volume>().mount == "/boot/efi") efi=item; }
-    QVERIFY(data && efi); QTRY_VERIFY(row->visualItemRect(data).width() > 0);
-    const auto main = row->visualItemRect(data), small = row->visualItemRect(efi);
-    QVERIFY(small.width() >= main.width()/2 && small.width() <= main.width()*3/5);
-    QCOMPARE(main.height(), small.height()); QVERIFY(!main.intersects(small));
+    auto *shelf = window.browser()->findChild<DriveShelf *>(); QVERIFY(shelf);
+    auto *data = driveCard(window.browser(), "/dev/fusion-a2");
+    auto *efi = driveCard(window.browser(), "/dev/fusion-a1");
+    QVERIFY(data && efi); QVERIFY(data->isVisible()); QVERIFY(!efi->isVisible());
+    shelf->selectDevice(efi->volume().device);
+    QVERIFY(efi->isVisible()); QCOMPARE(data->width(), efi->width());
   }
+
   void pathsPreserveLiteralCharacters() {
     const QString path = folder + "/deep path/# 100% café %u.txt";
     QCOMPARE(Fusion::displayPath(Fusion::userUrl(path)), path);
@@ -353,7 +349,7 @@ private slots:
     QTRY_COMPARE(tab->proxy->rowCount(), 2);
     QVERIFY(!action->isVisible());
     QVERIFY(window.findChild<QAction *>("hiddenFilesAction")->isChecked());
-    QVERIFY(window.preferences.settings.value("hidden").toBool());
+    QVERIFY(window.preferences.folderView(tab->location()).value("hidden").toBool());
     QVERIFY(tab->details->isVisible());
     QVERIFY(tab->model->indexForUrl(QUrl::fromLocalFile(path + "/.profile")).isValid());
   }
@@ -734,7 +730,7 @@ print(json.dumps(rows))
       QDir().mkpath(artifacts);QVERIFY(reopened.grab().save(artifacts+"/preview-"+QTest::currentDataTag()+".png"));
     }
     reopened.runAction("preview");reopened.close();saved.settings.sync();
-    QVERIFY(!saved.settings.value("preview").toBool());
+    QVERIFY(!saved.folderView(initial).value("preview").toBool());
   }
   void launchGeometrySeparatesNormalAndExternalWindows() {
     const auto path = temporary.path() + "/launch-geometry.ini";
@@ -1281,213 +1277,40 @@ print(json.dumps(rows))
     QCOMPARE(shared.first().driveKey(), QString("/dev/md0"));
     QCOMPARE(shared.first().driveModel, QString("Multiple backing disks"));
   }
-  void mountedRowsSidebarAndSplitter() {
-    FilesWindow window(Fusion::computerUrl(), false,
-                       temporary.path() + "/drive-layout.ini");
-    window.setAttribute(Qt::WA_DeleteOnClose, false);
-    window.resize(1000, 900);
-    window.show();
-    window.drives->volumes = computerVolumes();
-    emit window.drives->changed();
-    auto *tab = window.browser();
-    auto group = [tab](const QString &key) -> QWidget * {
-      for (auto *widget : driveGroups(tab, "mountedDrives"))
-        if (widget->property("driveKey").toString() == key)
-          return widget;
-      return nullptr;
-    };
-    QTRY_VERIFY(group("/dev/fusion-a"));
-    QCOMPARE(driveGroups(tab, "mountedDrives").size(), 2);
-    auto *row = group("/dev/fusion-a")->findChild<QListWidget *>();
-    QCOMPARE(row->count(), 3);
-    QVERIFY(!row->isWrapping());
-    QCOMPARE(row->item(0)->data(Qt::UserRole).value<Volume>().device, QString("/dev/fusion-a2"));
-    QCOMPARE(row->item(1)->data(Qt::UserRole).value<Volume>().device, QString("/dev/fusion-a3"));
-    QCOMPARE(row->item(2)->data(Qt::UserRole).value<Volume>().device, QString("/dev/fusion-a1"));
-    QVERIFY(!row->item(1)->data(Qt::UserRole).value<Volume>().mounted());
-    QVERIFY(driveGroups(tab, "unmountedDrives").isEmpty());
-    QCOMPARE(driveRow(tab, "/dev/fusion-c")->count(), 2);
+  void driveShelfSelectionAndSidebarSurviveMountChanges() {
+    FilesWindow window(Fusion::computerUrl(), false, temporary.path()+"/drive-layout.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false); window.resize(1100, 900); window.show();
+    window.drives->volumes = computerVolumes(); emit window.drives->changed();
+    auto *tab = window.browser(); auto *shelf = tab->findChild<DriveShelf *>(); QVERIFY(shelf);
+    auto *card = driveCard(tab, "/dev/fusion-a2"); QVERIFY(card);
     auto *places = window.findChild<QTreeWidget *>("places");
-    auto sidebar = [places](const QString &name) -> QTreeWidgetItem * {
-      for (int i = 0; i < places->topLevelItemCount(); ++i)
-        if (places->topLevelItem(i)->text(0) == name)
-          return places->topLevelItem(i);
+    auto section = [places](const QString &name) -> QTreeWidgetItem * {
+      for (int i=0; i<places->topLevelItemCount(); ++i)
+        if (places->topLevelItem(i)->text(0)==name) return places->topLevelItem(i);
       return nullptr;
     };
-    QVERIFY(sidebar("This PC"));
-    QCOMPARE(sidebar("This PC")->childCount(), 4);
-    QVERIFY(sidebar("Unmounted drives"));
-    QCOMPARE(sidebar("Unmounted drives")->childCount(), 2);
-    QVERIFY(sidebar("Unmounted drives")->isExpanded());
-    QVERIFY(places->indexOfTopLevelItem(sidebar("Unmounted drives")) >
-            places->indexOfTopLevelItem(sidebar("Trash")));
-    sidebar("Unmounted drives")->setExpanded(false);
-    row->setCurrentRow(0);
-    row->setFocus();
-    const auto selected = tab->selectedVolume().device;
+    QCOMPARE(section("This PC")->childCount(), 4);
+    QCOMPARE(section("Unmounted drives")->childCount(), 2);
+    section("Unmounted drives")->setExpanded(false);
+    shelf->selectDevice(card->volume().device, true);
     emit window.drives->changed();
-    QCOMPARE(group("/dev/fusion-a")->findChild<QListWidget *>(), row);
-    QCOMPARE(tab->selectedVolume().device, selected);
-    QVERIFY(!sidebar("Unmounted drives")->isExpanded());
-    auto *splitter = tab->findChild<QSplitter *>("driveSections");
-    QCOMPARE(splitter->orientation(), Qt::Vertical);
-    QTest::qWait(100);
-    auto *handle = splitter->handle(1);
-    const auto middle = handle->rect().center();
-    QTest::mousePress(handle, Qt::LeftButton, Qt::NoModifier, middle);
-    QTest::mouseMove(handle, middle + QPoint(0, 35), 20);
-    QTest::mouseRelease(handle, Qt::LeftButton, Qt::NoModifier,
-                        middle + QPoint(0, 35));
-    QVERIFY(!window.preferences.settings.value("computerSections")
-                 .toByteArray()
-                 .isEmpty());
-    const auto sizes = splitter->sizes();
-    emit window.drives->changed();
-    QCOMPARE(splitter->sizes(), sizes);
-    window.resize(800, 900);
-    QTRY_VERIFY(row->horizontalScrollBar()->maximum() > 0);
-    QCOMPARE(row->visualItemRect(row->item(0)).y(),
-             row->visualItemRect(row->item(1)).y());
-    row->horizontalScrollBar()->setValue(80);
-    emit window.drives->changed();
-    QTest::qWait(30);
-    QCOMPARE(row->horizontalScrollBar()->value(), 80);
-    window.activateWindow();
-    row->setFocus();
-    QTest::keyClick(row, Qt::Key_Return, Qt::AltModifier);
+    QCOMPARE(driveCard(tab, "/dev/fusion-a2"), card);
+    QCOMPARE(tab->selectedVolume().device, QString("/dev/fusion-a2"));
+    QVERIFY(!section("Unmounted drives")->isExpanded());
+    window.activateWindow(); card->setFocus();
+    QTest::keyClick(card, Qt::Key_Return, Qt::AltModifier);
     QTRY_VERIFY(window.findChild<DriveProperties *>());
-    auto *properties = window.findChild<DriveProperties *>();
-    QCOMPARE(properties->findChild<QLabel *>("volumeDevice")->text(), selected);
-    properties->close();
-    QTRY_VERIFY(!window.findChild<DriveProperties *>());
-    places->setCurrentItem(sidebar("This PC")->child(0));
-    window.activateWindow();
-    places->setFocus();
-    QTRY_VERIFY(window.isActiveWindow());
-    QTRY_VERIFY(places->hasFocus());
-    QTest::keyClick(places, Qt::Key_Return, Qt::AltModifier);
-    QTRY_VERIFY(window.findChild<DriveProperties *>());
+    QCOMPARE(window.findChild<DriveProperties *>()->findChild<QLabel *>("volumeDevice")->text(), card->volume().device);
     window.findChild<DriveProperties *>()->close();
     QTRY_VERIFY(!window.findChild<DriveProperties *>());
-    for (auto &volume : window.drives->volumes)
-      if (volume.device == "/dev/fusion-a3")
-        volume.mount = "/media/Windows";
-    emit window.drives->changed();
-    QCOMPARE(row->count(), 3);
-    QVERIFY(driveGroups(tab, "unmountedDrives").isEmpty());
-    QCOMPARE(sidebar("This PC")->childCount(), 5);
-    window.activateWindow();
-    row->setFocus();
-    QTRY_VERIFY(row->hasFocus());
-    for (auto &volume : window.drives->volumes)
-      if (volume.driveKey() == "/dev/fusion-a")
-        volume.mount.clear();
-    emit window.drives->changed();
-    QVERIFY(!group("/dev/fusion-a"));
-    QCOMPARE(driveGroups(tab, "unmountedDrives").size(), 1);
-    QCOMPARE(driveRow(tab, "/dev/fusion-a"), row);
-    QCOMPARE(row->count(), 3);
-    QTRY_VERIFY(row->hasFocus());
-    QCOMPARE(sidebar("This PC")->childCount(), 2);
-    window.drives->volumes.clear();
-    emit window.drives->changed();
-    QCOMPARE(driveGroups(tab, "mountedDrives").size(), 0);
-    QVERIFY(driveGroups(tab, "unmountedDrives").isEmpty());
-    QVERIFY(driveGroups(tab, "usbDrives").isEmpty());
-    QVERIFY(!sidebar("Unmounted drives"));
-    window.close();
-  }
-  void mountedSectionFitsOnMountAndShrinksOnUnmount() {
-    FilesWindow window(Fusion::computerUrl(), false,
-                       temporary.path() + "/automatic-drive-layout.ini");
-    window.setAttribute(Qt::WA_DeleteOnClose, false);
-    window.resize(1200, 1200); window.show();
-    window.drives->volumes = computerVolumes();
-    for (auto &volume : window.drives->volumes)
-      if (volume.driveKey() == "/dev/fusion-b") volume.mount.clear();
-    emit window.drives->changed();
-    auto *tab = window.browser();
-    auto *splitter = tab->findChild<QSplitter *>("driveSections");
-    auto *mounted = tab->findChild<QScrollArea *>("mountedDrives");
-    auto *row = driveRow(tab, "/dev/fusion-b");
-    row->setCurrentRow(0); row->setFocus();
-    QTest::qWait(100);
-    const int original = splitter->sizes()[0];
-    for (auto &volume : window.drives->volumes)
-      if (volume.driveKey() == "/dev/fusion-b") volume.mount = "/media/Projects";
-    emit window.drives->changed();
-    QTRY_VERIFY(splitter->sizes()[0] > original + 100);
-    QTRY_COMPARE(mounted->verticalScrollBar()->maximum(), 0);
-    QCOMPARE(driveRow(tab, "/dev/fusion-b"), row);
-    QCOMPARE(tab->selectedVolume().device, QString("/dev/fusion-b1"));
-    auto verifyVisible = [&] {
-      for (auto *group : driveGroups(tab, "mountedDrives")) {
-        const QPoint bottom = group->mapTo(mounted->viewport(), group->rect().bottomRight());
-        QVERIFY2(bottom.y() < mounted->viewport()->height(), "Mounted drive is below the visible pane");
-      }
-    };
-    verifyVisible();
-    // A saved small pane or dragging the handle cannot conceal mounted rows
-    // while the surrounding window has room for them.
-    splitter->setSizes({1, 200, 800}); QTest::qWait(40);
-    verifyVisible();
-    const auto stable = splitter->sizes();
-    emit window.drives->changed(); QTest::qWait(40);
-    QCOMPARE(splitter->sizes(), stable);
-    // Content minima adapt instead of forcing the window beyond the screen.
-    window.resize(800, 480);
-    QTRY_VERIFY(window.height() <= 480);
-    QTRY_VERIFY(tab->findChild<QScrollArea *>("computerDrivesScroll")->verticalScrollBar()->maximum() > 0);
-    QTRY_COMPARE(mounted->verticalScrollBar()->maximum(), 0);
-    window.resize(1200, 1200);
-    QTRY_COMPARE(mounted->verticalScrollBar()->maximum(), 0);
-    verifyVisible();
-    for (auto &volume : window.drives->volumes)
-      if (volume.driveKey() == "/dev/fusion-b") volume.mount.clear();
-    emit window.drives->changed();
-    // The outer scrollbar can change available width by a few pixels; the
-    // pane still returns to one row and every card must remain visible.
-    QTRY_VERIFY(qAbs(splitter->sizes()[0] - original) < 10);
-    verifyVisible();
-    QCOMPARE(driveGroups(tab, "mountedDrives").size(), 1);
-    QCOMPARE(driveRow(tab, "/dev/fusion-b"), row);
-    window.close();
-  }
-  void everyDriveSectionFitsItsRowsAfterHotplug() {
-    FilesWindow window(Fusion::computerUrl(), false, temporary.path() + "/all-drive-layout.ini");
-    window.setAttribute(Qt::WA_DeleteOnClose, false);
-    window.resize(1200, 900); window.show();
-    window.drives->volumes = computerVolumes();
-    auto *tab = window.browser();
-    auto *splitter = tab->findChild<QSplitter *>("driveSections");
-    auto *scroll = tab->findChild<QScrollArea *>("computerDrivesScroll");
-    auto verify = [&] {
-      for (const QString &name : {"mountedDrives", "usbDrives", "unmountedDrives"}) {
-        auto *section = tab->findChild<QScrollArea *>(name);
-        if (driveGroups(tab, name).isEmpty()) continue;
-        QTRY_COMPARE(section->verticalScrollBar()->maximum(), 0);
-        for (auto *group : driveGroups(tab, name)) {
-          const auto bottom = group->mapTo(section->viewport(), group->rect().bottomRight());
-          QVERIFY2(bottom.y() < section->viewport()->height(), qPrintable(name + " clips a drive row"));
-        }
-      }
-    };
-    emit window.drives->changed(); QTest::qWait(80); verify();
-    const int usbBefore = splitter->sizes()[1];
-    window.drives->volumes.append(Drives::parse(R"({"blockdevices":[
-      {"path":"/dev/fusion-usb-extra","type":"disk","tran":"usb","fstype":"exfat","size":32000000000,"mountpoints":[null]},
-      {"path":"/dev/fusion-unmounted-extra","type":"disk","tran":"sata","fstype":"ext4","size":1000000000000,"mountpoints":[null]}
-    ]})"));
-    emit window.drives->changed();
-    QTRY_VERIFY(splitter->sizes()[1] > usbBefore + 100); verify();
-    splitter->setSizes({1, 1, 1}); QTest::qWait(60); verify();
-    window.resize(800, 480);
-    QTRY_VERIFY(window.height() <= 480);
-    QTRY_VERIFY(scroll->verticalScrollBar()->maximum() > 0); verify();
-    scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
-    const auto position = scroll->verticalScrollBar()->value();
-    emit window.drives->changed(); QTest::qWait(40);
-    QCOMPARE(scroll->verticalScrollBar()->value(), position);
+    for (auto &v : window.drives->volumes) if (v.device=="/dev/fusion-a3") v.mount="/media/Windows";
+    emit window.drives->changed(); QCOMPARE(section("This PC")->childCount(), 5);
+    for (auto &v : window.drives->volumes) if (v.driveKey()=="/dev/fusion-a") v.mount.clear();
+    emit window.drives->changed(); QCOMPARE(section("This PC")->childCount(), 2);
+    QCOMPARE(driveCard(tab, "/dev/fusion-a2"), card);
+    QCOMPARE(tab->selectedVolume().device, QString("/dev/fusion-a2"));
+    window.drives->volumes.clear(); emit window.drives->changed();
+    QVERIFY(!section("Unmounted drives")); QVERIFY(shelf->selectedVolume().device.isEmpty());
     window.close();
   }
   void sidebarExpansionSurvivesReopenAndReconnect() {
@@ -1536,63 +1359,18 @@ print(json.dumps(rows))
     QVERIFY(!sections(reopened).value("This PC")->isExpanded());
     QVERIFY(!sections(reopened).value("Unmounted drives")->isExpanded());
   }
-  void unmountedDriveRowsAndThemeShapes() {
-    Fusion::Preferences preferences(temporary.path() + "/physical-rows.ini");
-    Drives drives(nullptr, false);
-    Browser tab(&preferences, &drives);
-    tab.resize(1000, 1000);
-    tab.navigate(Fusion::computerUrl());
-    tab.show();
-    drives.volumes = computerVolumes();
-    drives.volumes.append(Drives::parse(R"({"blockdevices":[
-      {"path":"/dev/fusion-d","type":"disk","model":"Archive SSD","size":1000000000000,"children":[
-        {"path":"/dev/fusion-d1","type":"part","fstype":"vfat","size":512000000},
-        {"path":"/dev/fusion-d2","type":"part","fstype":"ext4","size":900000000000},
-        {"path":"/dev/fusion-d3","type":"part","fstype":"swap","size":8000000000}]},
-      {"path":"/dev/fusion-e","type":"disk","model":"Empty disk","size":2000000000000}
-    ]})"));
-    emit drives.changed();
-    QCOMPARE(driveGroups(&tab, "unmountedDrives").size(), 2);
-    auto *row = driveRow(&tab, "/dev/fusion-d");
-    QVERIFY(row);
-    QCOMPARE(row->count(), 3);
-    const QStringList expected{"/dev/fusion-d2", "/dev/fusion-d3", "/dev/fusion-d1"};
-    for (int i = 0; i < expected.size(); ++i) {
-      QCOMPARE(row->item(i)->data(Qt::UserRole).value<Volume>().device, expected[i]);
-      QTRY_COMPARE(row->visualItemRect(row->item(i)).y(), row->visualItemRect(row->item(0)).y());
-    }
-    QCOMPARE(driveRow(&tab, "/dev/fusion-e")->count(), 1);
-    auto *frame = qobject_cast<QGroupBox *>(row->parentWidget());
-    QVERIFY(frame);
+  void driveCardsFollowThemeShapes() {
+    Fusion::Preferences preferences(temporary.path()+"/drive-shapes.ini"); Drives drives(nullptr, false);
+    drives.volumes = computerVolumes(); Browser tab(&preferences, &drives); tab.resize(1000,900); tab.show();
+    auto *card = driveCard(&tab, "/dev/fusion-b1"); QVERIFY(card);
     auto theme = [&](int radius) {
-      // A new theme can supply any shape. Neither the disk frame nor its
-      // painted partition cards should need a theme-name special case.
       tab.setStyleSheet(QString("QWidget {background:#101010;} QLabel {background:transparent;} "
-                               "QGroupBox {background:#345678; border:1px solid #44ddcc; border-radius:%1px; margin:0; padding:0;}")
-                           .arg(radius));
+          "QFrame#volumeCard {background:#345678; border:1px solid #44ddcc; border-radius:%1px;}").arg(radius));
       QApplication::processEvents();
     };
-    theme(0);
-    const auto square = tab.grab().toImage();
-    const auto squareCard = row->viewport()->grab().toImage();
-    theme(24);
-    const auto rounded = tab.grab().toImage();
-    const auto roundedCard = row->viewport()->grab().toImage();
-    const auto frameCorner = frame->mapTo(&tab, QPoint(3, 3));
-    QVERIFY(square.pixelColor(frameCorner) != rounded.pixelColor(frameCorner));
-    const auto corner = row->visualItemRect(row->item(0)).topLeft() + QPoint(7, 7);
-    QVERIFY(squareCard.pixelColor(corner) != roundedCard.pixelColor(corner));
-    tab.resize(700, 1000);
-    QTRY_VERIFY(row->horizontalScrollBar()->maximum() > 0);
-    row->setCurrentRow(0);
-    row->horizontalScrollBar()->setValue(90);
-    std::reverse(drives.volumes.begin(), drives.volumes.end());
-    emit drives.changed();
-    QCOMPARE(driveRow(&tab, "/dev/fusion-d"), row);
-    QCOMPARE(tab.selectedVolume().device, expected.first());
-    QCOMPARE(row->horizontalScrollBar()->value(), 90);
-    for (int i = 0; i < expected.size(); ++i)
-      QCOMPARE(row->item(i)->data(Qt::UserRole).value<Volume>().device, expected[i]);
+    theme(0); const auto square = card->grab().toImage();
+    theme(24); const auto rounded = card->grab().toImage();
+    QVERIFY(square.pixelColor(3,3) != rounded.pixelColor(3,3));
   }
   void propertiesOpenSystemCleaner() {
     const auto originalRoot = qgetenv("XETAL_FILES_ROOT");
@@ -1704,11 +1482,10 @@ print(json.dumps(rows))
     QTest::keyClick(tab->view(), Qt::Key_C, Qt::ControlModifier);
     QCOMPARE(QApplication::clipboard()->mimeData()->urls().size(), 1);
     window.openLocation(Fusion::computerUrl());
-    auto *usbRow = driveRow(tab, usb.driveKey());
+    auto *usbRow = driveCard(tab, usb.device);
     QVERIFY(usbRow);
-    QCOMPARE(usbRow->count(), 1);
     auto selectDrive = [&] {
-      usbRow->setCurrentRow(0);
+      tab->findChild<DriveShelf *>()->selectDevice(usb.device);
       window.activateWindow();
       usbRow->setFocus();
       QTest::qWait(30);
@@ -2608,7 +2385,7 @@ print(json.dumps(rows))
     auto *action = window.findChild<QAction *>("configureFiles"); QVERIFY(action); action->trigger();
     QVERIFY(configured);
     QVERIFY(!preview->isChecked());
-    QCOMPARE(window.preferences.settings.value("thumbnails").toBool(), false);
+    QCOMPARE(window.preferences.folderView(tab->location()).value("thumbnails").toBool(), false);
     window.close();
     FilesWindow reopened(QUrl::fromLocalFile(sample), false, settings);
     reopened.setAttribute(Qt::WA_DeleteOnClose, false);
@@ -2710,6 +2487,7 @@ print(json.dumps(rows))
     window.preferences.settings.sync();
     Fusion::Preferences restored(settings);
     Browser another(&restored, window.drives);
+    another.navigate(QUrl::fromLocalFile(sample));
     QVERIFY(!another.details->isColumnHidden(KDirModel::Owner));
     QVERIFY(another.details->isColumnHidden(KDirModel::ModifiedTime));
     const QString capture = qEnvironmentVariable("FUSION_FILES_CAPTURE");

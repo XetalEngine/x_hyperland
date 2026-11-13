@@ -49,13 +49,19 @@ void PathBar::setLocationUrl(const QUrl &url) {
   if (normalized.path().size() > 1 && normalized.path().endsWith('/'))
     normalized.setPath(normalized.path().chopped(1));
   if (normalized != locationUrl()) {
+    emit aboutToNavigate();
+    const auto previous = states.value(history.indexOf(normalized));
     while (position > 0) {
       history.removeFirst();
+      states.removeFirst();
       --position;
     }
     history.prepend(normalized);
-    while (history.size() > 100)
+    states.prepend(previous);
+    while (history.size() > 100) {
       history.removeLast();
+      states.removeLast();
+    }
     render();
     emit urlChanged(normalized);
     emit historyChanged();
@@ -65,6 +71,7 @@ void PathBar::setLocationUrl(const QUrl &url) {
 bool PathBar::goBack() {
   if (position + 1 >= history.size())
     return false;
+  emit aboutToNavigate();
   ++position;
   selectedFile.clear();
   render();
@@ -75,6 +82,7 @@ bool PathBar::goBack() {
 bool PathBar::goForward() {
   if (position == 0)
     return false;
+  emit aboutToNavigate();
   --position;
   selectedFile.clear();
   render();
@@ -99,6 +107,22 @@ bool PathBar::goUp() {
   return true;
 }
 bool PathBar::isUrlEditable() const { return true; }
+QVariantMap PathBar::session() const {
+  QVariantList urls, visits;
+  for (int i = 0; i < history.size(); ++i) { urls << history[i]; visits << states[i]; }
+  return {{"urls", urls}, {"visits", visits}, {"position", position}};
+}
+void PathBar::restoreSession(const QVariantMap &saved) {
+  const auto urls = saved.value("urls").toList(), visits = saved.value("visits").toList();
+  const int index = saved.value("position").toInt();
+  if (urls.isEmpty() || urls.size() > 100 || visits.size() != urls.size() || index < 0 || index >= urls.size()) return;
+  for (const auto &value : urls) if (!value.toUrl().isValid() || value.toUrl().isEmpty()) return;
+  emit aboutToNavigate();
+  history.clear(); states.clear();
+  for (int i = 0; i < urls.size(); ++i) { history << urls[i].toUrl(); states << visits[i].toMap(); }
+  position = index; selectedFile.clear(); render();
+  emit urlChanged(locationUrl()); emit historyChanged();
+}
 void PathBar::setUrlEditable(bool focus) {
   input->setEditText(Fusion::displayPath(displayedUrl()));
   if (focus) {

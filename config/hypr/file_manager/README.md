@@ -1,5 +1,35 @@
 # Fusion Files
 
+## Folder views and navigation memory
+
+Back/Forward restore selection, the current file, the folder filter and scroll
+position after the directory listing completes. Late results from an older
+navigation cannot restore the wrong visit; missing files are ignored and an
+explicit reveal selection wins. This PC remembers its selected volume and scroll.
+**Ctrl+Shift+T** restores a closed tab and its Back/Forward history. The most
+recent 20 closed tabs stay in memory until that window closes.
+
+View mode, sorting, detail columns, hidden files, thumbnails and preview
+visibility/width are saved per folder in `state/settings.ini`. Existing global
+settings provide defaults for new folders. Folder keys hash normalized URLs
+with passwords removed; navigation and selection history stay in memory.
+Pickers use a separate folder-view scope per application and operation.
+
+The compact toolbar contains the address and folder filter; the slim tab strip
+puts preview and new-tab buttons side by side. This PC keeps physical disks and
+their partitions grouped in a responsive shelf with neutral cards, symbolic
+icons, thin capacity bars and quieter disk headings. Its shelf/list choice and
+each disk's system-partition disclosure are remembered. Mount appears on
+eligible unmounted cards on hover or keyboard focus. The navigation
+tree's styling and controls are unchanged. Spacing overrides are scoped to
+these widgets, after the shared theme styles.
+
+`navigation-tests` exercises all five views with the real directory model and
+controlled asynchronous listing signals, without desktop D-Bus services.
+`drive-shelf-tests` covers reflow, partition disclosure, keyboard and Mount
+signals, preference restoration, focus retention and hotplug changes without
+mounting real drives.
+
 ## Local applications and installers
 
 AppImages and `.sh` / `.run` files show **Execute** first even without an execute
@@ -99,8 +129,9 @@ Paste accepts file clipboard formats, including KDE/GNOME cut selections. Plain
 text and web links never create files through Paste. A selected folder's context
 Paste targets that folder; keyboard Paste targets the current directory.
 
-Existing customizations are preserved. **Save** applies all tabs; **Cancel**
-discards the edits. Menu customization shortcuts no longer appear in either
+Existing customizations are preserved. **Save** applies the dialog's tabs;
+browsing choices apply to the current folder, while menus and the Trash
+animation remain global. **Cancel** discards the edits. Menu customization shortcuts no longer appear in either
 right-click menu. Desktop icon visibility and arrangement remain in the
 desktop's right-click menu.
 
@@ -108,8 +139,9 @@ desktop's right-click menu.
 
 The address is always a textbox, including with old breadcrumb preferences.
 Ctrl+L and Alt+D select it; Escape restores the address without hiding it.
-This PC keeps data partitions full-width and uses compact cards for boot and
-helper partitions identified from their role or mount point.
+This PC keeps data volumes visible and folds boot and helper partitions under
+**System partitions**, identified from their role or mount point. Its shelf/list
+controls are independent of ordinary folders' view modes.
 
 Every Fusion Files window keeps the left navigation tree visible: This PC,
 folders, windows opened by other applications, and Open, Save, and folder
