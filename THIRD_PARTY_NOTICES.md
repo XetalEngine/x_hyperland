@@ -37,6 +37,17 @@ The owner-provided **Programmer Calculator** source and SVG artwork are integrat
 
 The installer includes no browser profiles, account data or application credentials.
 
+- **Ventoy 1.1.18:** the unmodified official Linux release is bundled under
+  [`config/hypr/control_panel/ventoy/vendor`](config/hypr/control_panel/ventoy/README.md).
+  Ventoy's own code is GPL-3.0-or-later; incorporated projects retain their
+  respective GPL, LGPL, BSD, MIT and other upstream terms. The full upstream
+  [`License` directory](config/hypr/control_panel/ventoy/vendor/License) is included.
+  [Corresponding tagged release source and build scripts](https://github.com/ventoy/Ventoy/tree/v1.1.18)
+  and its [source archive](https://github.com/ventoy/Ventoy/archive/refs/tags/v1.1.18.tar.gz)
+  are available separately from upstream at no charge. The local GPL Control Panel
+  integration does not alter Ventoy's engine. Version, hash and notice provenance
+  are documented in the bundle guide.
+
 ## KVM components
 
 The integrated vmstart_2 backend records its origin in `config/hypr/kvm/backend/ORIGIN.json`. The separately compressed components include their upstream license files and dependency notices. QEMU and the prepared Linux KVM sources retain their GPL notices; EDK II/OVMF, libtpms/swtpm and OpenCore retain their respective upstream notices. Looking Glass includes its GPL license and custom Linux client source. OpenCore's bundled validator carries its BSD 3-Clause license and a version/hash manifest.

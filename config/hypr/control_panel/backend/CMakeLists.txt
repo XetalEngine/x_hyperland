@@ -42,6 +42,8 @@ set(PROJECT_SOURCES
     ../disk_layout.h
     ../ram_cleaner.cpp
     ../ram_cleaner.h
+    ../ventoy_page.cpp
+    ../ventoy_page.h
     ../default_apps.cpp
     ../default_apps.h
     ../deb_page.cpp
@@ -229,6 +231,16 @@ option(BUILD_PREFERENCES_TESTS "Build preferences dialog and persistence tests" 
 option(BUILD_WHEEL_GUARD_TESTS "Build settings wheel interaction tests" OFF)
 option(BUILD_DISK_VISUALIZER_TESTS "Build disk map layout and UI tests" OFF)
 option(BUILD_RAM_CLEANER_TESTS "Build isolated RAM cleaner interaction tests" OFF)
+option(BUILD_VENTOY_TESTS "Build isolated Ventoy USB interaction tests" OFF)
+if(BUILD_VENTOY_TESTS)
+    enable_testing()
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(ventoy_tests tests/ventoy_tests.cpp ../ventoy_page.cpp ../ventoy_page.h)
+    target_include_directories(ventoy_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    target_link_libraries(ventoy_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME ventoy COMMAND ventoy_tests)
+    set_tests_properties(ventoy PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_PLATFORMTHEME=")
+endif()
 option(BUILD_DEFAULT_APPS_TESTS "Build isolated default-app interaction tests" OFF)
 if(BUILD_DEFAULT_APPS_TESTS)
     enable_testing()

@@ -1,6 +1,7 @@
 [
   {"title": "Files & recovery","tools":[
     {"id":"iso","title":"System ISO","description":"Clone your system · bootable installer","icon":"media-optical","path":["isoCreatorTab"],"keywords":"snapshot exclusions offline compatibility USB archive restore dummy"},
+    {"id":"ventoy","title":"Ventoy USB","description":"Create or update a multiboot USB · works offline","icon":"drive-removable-media","path":["ventoyTab"],"keywords":"USB bootable flash drive ISO multiboot Ventoy GPT MBR BIOS UEFI Secure Boot"},
     {"id":"backup","title":"System Backup","description":"Choose sources and backup drives","icon":"document-save-all","path":["backupTab"]},
     {"id":"restore","title":"System Restore","description":"Restore files from a backup","icon":"document-revert","path":["restoreTab"]},
     {"id":"drives","title":"Drives & Storage","description":"Mounts, labels, SMART and ISO to USB","icon":"drive-harddisk","path":["driveToolsTab"],"keywords":"format permissions ownership partitions"},

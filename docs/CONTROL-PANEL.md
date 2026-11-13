@@ -16,6 +16,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | --- | --- |
 | Proton | Integrated XetalProton: a searchable app gallery, launch card and Task Manager shortcut, with environment management and Windows tools in Settings. Includes the 13-provider tool downloader, UMU, updates, Winetricks, compatibility options, command export and process logs. [Screenshots and feature showcase →](../README.md#windows-apps-with-our-custom-proton-manager) · [Guide →](../config/hypr/control_panel/proton/README.md) |
 | System ISO | Full system clone, exclusions, online/offline packages, archive selection/verification, first-boot hardware/identity changes, output, restore guide, dependency checks and dummy installer preview |
+| Ventoy USB | Bundled offline engine for creating and updating multiboot USB disks. USB identity and system-disk checks, exact-disk erase confirmation, MBR/GPT and Secure Boot options, progress logs and Open in Fusion Files. [Guide and source →](../config/hypr/control_panel/ventoy/README.md) |
 | System Backup / System Restore | Source/destination drives, filesystem browsing, rsync backup and restore |
 | Drives & Storage | Filters, mounts, labels, formatting, ownership/permissions, SMART health, benchmarking and ISO to USB |
 | GRUB Boot Editor | Current Grub: edit names or boot commands and remove existing entries. Add Entry: detect and add another drive's Windows/Linux bootloader. Backups and undo; system-generated edits can be replaced by GRUB regeneration. [Guide →](GRUB-BOOT-EDITOR.md) |

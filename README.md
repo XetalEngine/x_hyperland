@@ -301,6 +301,8 @@ Fresh installs start with **My Computer**, **Kitty** and the bundled **Calculato
 
 **Super+K** opens Fusion Settings: editable hotkeys with validation and recovery, per-application audio routing, network/Bluetooth controls, keyboard/mouse/touchpad options, calendar, session controls and display arrangement with timed **Keep/Revert** protection.
 
+**Start → Themes → Presets** lets you choose a theme, then select which components to apply. Reselect a preset to restore its chosen components; unchecked components keep their current appearance. If an apply fails, a dialog explains the error and your choices remain available to retry in the same window.
+
 Right-click the wallpaper for your desktop menu. Its editor supports commands, icons, headings, submenus, hotkeys, multiple columns and live styling previews. Save/load presets to reuse a layout.
 
 ### A taskbar for each display
@@ -408,6 +410,7 @@ UMU is prepared automatically when downloading Proton, and Steam is optional. Ex
 | **GRUB Boot Editor** | Select a drive, let Hyper Fusion detect Windows or Linux, give it a name and add it to your boot menu. Includes rename, removal, backups and undo while keeping your existing theme and entries. [Boot editor →](docs/GRUB-BOOT-EDITOR.md) |
 | **Session log protection** | Enabled by default. Clears oversized Hyprland and Hyper Fusion session logs above 64 MiB every minute to protect runtime space. **Control Panel → System Tweaks → Hyprland** also offers **Disable session logs to file**, effective at the next login. [Log guard →](docs/CONTROL-PANEL.md#hyprland-log-guard) |
 | **System ISO** | Create an Arch-based system clone, then restore through a graphical Hyper Fusion wizard with drive cards, review and progress, plus an automatic console fallback. Choose whether the ISO requires a fresh administrator account or preserves existing accounts. Try **Control Panel → System ISO → Preview installer…** with sample drives first. [Restore wizard →](docs/CONTROL-PANEL.md#system-iso) |
+| **[Ventoy USB](config/hypr/control_panel/ventoy/README.md)** | Turn a USB disk into a multiboot drive from Control Panel, then copy ISO files onto it with Fusion Files. Ventoy 1.1.18 is bundled and verified for offline use. Includes updates that preserve ISO files, MBR/GPT, Secure Boot support, protected-disk checks and exact-disk erase confirmation. |
 | **RAM Cleaner** | Manual **Normal** and **Aggressive** cache cleanup with before/after readings. It keeps applications running and does not reclaim their active memory. Linux already reclaims cache when needed; this is an occasional troubleshooting tool. |
 | **Disk Visualizer** | A directory-size tree and treemap, folder navigation, allocated/apparent sizes, and confirmed file actions inside System Cleaner. |
 | **[Fusion Files](docs/FILES.md)** | **My Computer** in Favorites opens **This PC**, with mounted and unmounted drives. Quick access, editable breadcrumbs, tabs, five views, configurable columns and menus, previews and the built-in **7-Zip** archive manager follow the desktop theme. **Ctrl+F** searches names/wildcards or file contents with advanced text/regex filters, matching-line results and parallel workers; **Ctrl+Shift+F** filters the current folder. |

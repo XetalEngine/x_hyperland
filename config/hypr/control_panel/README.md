@@ -22,6 +22,12 @@ passwords, a shared home folder, clipboard text/images, audio, microphone,
 printer redirection, resizing, reconnect, and a hiding session toolbar. See
 [`rdp/README.md`](rdp/README.md) for defaults, controls, dependencies, and checks.
 
+**Ventoy USB** creates and updates multiboot USB disks with the bundled, verified
+Ventoy Linux engine. It works offline, protects active system disks, requires
+confirmation of the exact USB before erasing it, and opens the data partition
+in Fusion Files. See [`ventoy/README.md`](ventoy/README.md) for usage, source,
+licenses and tests.
+
 **Install .deb is available again as an experimental compatibility tool.**
 Choose a trusted Debian application in **Install .deb → Install or update from .deb**.
 **Check dependencies only** reads the package and the existing pacman databases

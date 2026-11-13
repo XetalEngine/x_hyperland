@@ -350,6 +350,7 @@ class StartMenuPage(QWidget):
 class ThemePage(QWidget):
     def __init__(self,async_run,filename=''):
         super().__init__(); self.async_run=async_run; self.applying=False; self.token=None
+        self.preset_selected=False;self.apply_error=None
         self.avatar=runtime.state().get('avatar','assets/account.gif')
         self.backdrop=runtime.launcher_wallpaper()
         self.background=runtime.launcher_background()
@@ -370,12 +371,12 @@ class ThemePage(QWidget):
         conflicts.addWidget(button('Keep my edits',lambda:self.resolve_conflicts('edited')))
         conflicts.addWidget(button('Use saved values',lambda:self.resolve_conflicts('saved')));conflicts.addStretch()
         self.conflict_actions.hide();root.addWidget(self.conflict_actions)
-        self.tabs=QTabWidget();self.wallpapers=WallpapersPage(async_run,filename);self.appearance=WindowEffectsPage(async_run)
-        self.file_transfer=FileTransferPage(async_run)
-        self.task_switcher=TaskSwitcherPage(async_run)
-        self.cursors=CursorsPage(async_run)
-        self.icons_page=IconsPage(async_run)
-        self.sounds_page=SoundsPage(async_run)
+        self.tabs=QTabWidget();self.wallpapers=WallpapersPage(self.component_job,filename);self.appearance=WindowEffectsPage(self.component_job)
+        self.file_transfer=FileTransferPage(self.component_job)
+        self.task_switcher=TaskSwitcherPage(self.component_job)
+        self.cursors=CursorsPage(self.component_job)
+        self.icons_page=IconsPage(self.component_job)
+        self.sounds_page=SoundsPage(self.component_job)
         self.design_page=DesignPage(self)
         self.layout_page=LayoutPage(self);self.custom_page=CustomPage(self)
         self.start_menu_page=StartMenuPage(self)
@@ -398,11 +399,20 @@ class ThemePage(QWidget):
     @property
     def busy(self):return self.applying or self.wallpapers.busy or self.appearance.busy or self.file_transfer.busy or self.task_switcher.busy or self.cursors.busy or self.icons_page.busy or self.sounds_page.busy or self.mix_page.busy
     def other_pending_mix_edits(self):
-        return self.wallpapers.dirty or self.appearance.dirty or self.file_transfer.dirty or self.task_switcher.dirty or self.cursors.dirty or self.icons_page.dirty or self.sounds_page.dirty or self.choice()!=self.baseline or self.layout_page.choice.currentData()!=self.layout_baseline or self.layout_page.marker.currentData()!=self.marker_baseline
+        return self.preset_selected or self.wallpapers.dirty or self.appearance.dirty or self.file_transfer.dirty or self.task_switcher.dirty or self.cursors.dirty or self.icons_page.dirty or self.sounds_page.dirty or self.choice()!=self.baseline or self.layout_page.choice.currentData()!=self.layout_baseline or self.layout_page.marker.currentData()!=self.marker_baseline
     def refresh(self):
-        if not self.busy and self.choice()==self.baseline and self.layout_page.choice.currentData()==self.layout_baseline and self.layout_page.marker.currentData()==self.marker_baseline:
+        if not self.busy and not self.preset_selected and self.choice()==self.baseline and self.layout_page.choice.currentData()==self.layout_baseline and self.layout_page.marker.currentData()==self.marker_baseline:
             self.baseline,self.token=self.read_saved();self.sync_design_controls();self.set_choice(self.baseline);self.changed()
         self.tabs.currentWidget().refresh()
+        self.update_controls()
+    def component_job(self,fn,done,failed):
+        # Detailed pages own their busy flags. Keep the preset button in sync
+        # when a read/save starts and when either completion callback clears it.
+        self.update_controls()
+        def finish(callback,value):
+            try:callback(value)
+            finally:self.update_controls()
+        self.async_run(fn,lambda value:finish(done,value),lambda message:finish(failed,message))
     def sync_design_controls(self):
         self.layout_baseline=runtime.layout();self.marker_baseline=runtime.selection_marker()
         for control,value in ((self.layout_page.choice,self.layout_baseline),(self.layout_page.marker,self.marker_baseline)):
@@ -412,6 +422,17 @@ class ThemePage(QWidget):
             token=backend.theme_token();saved=theme_draft.current()
             if token==backend.theme_token():return saved,token
         raise ValueError('Theme settings are still changing. Apply again in a moment.')
+    def merge_choice(self,saved,prefer='edited'):
+        baseline=self.baseline
+        if self.preset_selected:
+            # Selecting a preset is an explicit replacement, even when it
+            # matches the old draft. A resident window may have an older
+            # baseline than the desktop; treating this as an untouched
+            # field would silently apply the current theme instead.
+            preset_fields={'design','mode','launcher_style'}
+            baseline=tuple(saved[i] if key in preset_fields else value
+                for i,(key,value) in enumerate(zip(theme_draft.FIELDS,baseline)))
+        return theme_draft.merge(baseline,self.choice(),saved,prefer)
     def set_choice(self,value):
         style,mode,self.avatar,self.backdrop,self.background,surfaces,labels,self.visibility,menu=value
         self.surfaces=copy.deepcopy(surfaces);self.labels=dict(labels)
@@ -421,28 +442,32 @@ class ThemePage(QWidget):
         self.design_page.refresh();self.start_menu_page.refresh()
     def resolve_conflicts(self,prefer):
         try:
-            saved,token=self.read_saved();merged,_=theme_draft.merge(self.baseline,self.choice(),saved,prefer)
+            saved,token=self.read_saved();merged,_=self.merge_choice(saved,prefer)
             current_layout=runtime.layout()
-            if prefer=='saved' or self.layout_page.choice.currentData()==self.layout_baseline:
+            if not self.preset_selected and (prefer=='saved' or self.layout_page.choice.currentData()==self.layout_baseline):
                 self.layout_page.choice.setCurrentIndex(self.layout_page.choice.findData(current_layout))
             self.layout_baseline=current_layout
             current_marker=runtime.selection_marker()
-            if prefer=='saved' or self.layout_page.marker.currentData()==self.marker_baseline:
+            if not self.preset_selected and (prefer=='saved' or self.layout_page.marker.currentData()==self.marker_baseline):
                 self.layout_page.marker.setCurrentIndex(self.layout_page.marker.findData(current_marker))
             self.marker_baseline=current_marker
             self.baseline=saved;self.token=token;self.set_choice(merged);self.conflict_actions.hide();self.changed()
             self.status.setText('Choices updated. Apply theme to save your changes.')
         except (OSError,ValueError) as exc:self.failed(str(exc))
-    def changed(self,*_):
+    def update_controls(self):
+        if not hasattr(self,'mix_page'):return  # Detailed pages are still being constructed.
         self.apply.setEnabled(not self.busy)
-        if not self.applying and self.choice()!=self.baseline:
-            self.status.setText('Previewing appearance changes. Apply theme to save them.')
         for control in (self.mode,self.design,self.tabs):control.setEnabled(not self.applying and not self.mix_page.busy)
+    def changed(self,*_):
+        self.update_controls()
+        if not self.applying and (self.preset_selected or self.choice()!=self.baseline):
+            self.status.setText('Previewing appearance changes. Apply theme to save them.')
         self.design_page.refresh();self.start_menu_page.refresh_surfaces()
     def select_preset(self,design):
         if self.design.currentData()==design:self.preset_changed()
         else:self.design.setCurrentIndex(self.design.findData(design))
     def preset_changed(self,*_):
+        self.preset_selected=True
         design=self.design.currentData()
         self.layout_page.choice.setCurrentIndex(self.layout_page.choice.findData(layouts.default(design)))
         self.layout_page.marker.setCurrentIndex(self.layout_page.marker.findData('none'))
@@ -491,13 +516,15 @@ class ThemePage(QWidget):
         if self.pending_components():
             self.status.setText('Apply or discard pending edits in the other theme tabs before applying a preset.');return
         try:
-            saved,token=self.read_saved();choice,conflicts=theme_draft.merge(self.baseline,self.choice(),saved)
+            saved,token=self.read_saved();choice,conflicts=self.merge_choice(saved)
             saved_layout=runtime.layout();edited_layout=self.layout_page.choice.currentData()
-            if edited_layout==self.layout_baseline:edited_layout=saved_layout
-            elif saved_layout!=self.layout_baseline and saved_layout!=edited_layout:conflicts.append('Navigation & controls')
+            if not self.preset_selected:
+                if edited_layout==self.layout_baseline:edited_layout=saved_layout
+                elif saved_layout!=self.layout_baseline and saved_layout!=edited_layout:conflicts.append('Navigation & controls')
             saved_marker=runtime.selection_marker();edited_marker=self.layout_page.marker.currentData()
-            if edited_marker==self.marker_baseline:edited_marker=saved_marker
-            elif saved_marker!=self.marker_baseline and saved_marker!=edited_marker:conflicts.append('Selection marker')
+            if not self.preset_selected:
+                if edited_marker==self.marker_baseline:edited_marker=saved_marker
+                elif saved_marker!=self.marker_baseline and saved_marker!=edited_marker:conflicts.append('Selection marker')
             if conflicts:
                 self.status.setText('Also changed in another window: '+', '.join(conflicts)+'. Choose which values to keep.')
                 self.conflict_actions.show();return
@@ -507,7 +534,7 @@ class ThemePage(QWidget):
                 launcher_surfaces=surfaces,launcher_labels=labels,launcher_background_visibility=visibility,
                 launcher_style=launcher_style,layout=edited_layout,selection_marker=edited_marker)
             selected=None
-            if style==runtime.design():
+            if style==runtime.design() and not self.preset_selected:
                 selected={'colors','layout','launcher','avatar','selection'}
             self.apply_target(runtime.DESIGNS[style],target,token,selected)
         except (OSError,ValueError) as exc:self.failed(str(exc))
@@ -522,21 +549,32 @@ class ThemePage(QWidget):
         if not dialog.exec():return
         selected=dialog.selection()
         self.conflict_actions.hide();self.applying=True;self.changed();self.status.setText('Applying '+name+'…')
-        self.async_run(lambda:backend.apply_components(target,selected,token),lambda token:self.components_saved(name,selected,token),self.failed)
+        self.async_run(lambda:backend.apply_components(target,selected,token),lambda token:self.components_saved(name,selected,token),lambda message:self.apply_failed(name,message))
     def components_saved(self,name,selected,token):
-        self.applying=False;self.sync_design_controls()
+        self.applying=False;self.preset_selected=False;self.sync_design_controls()
         self.baseline=theme_draft.current();self.token=token;self.set_choice(self.baseline);self.changed();self.layout_page.refresh()
         self.status.setText(name+' · applied '+', '.join(presets.COMPONENTS[k][0] for k in presets.COMPONENTS if k in selected)+'.')
         self.custom_page.refresh()
         # Read the applied mix before starting asynchronous detailed-page loads.
         self.mix_page.refresh()
         for page in (self.file_transfer,self.task_switcher,self.cursors,self.icons_page,self.sounds_page,self.appearance,self.appearance.mouse,self.appearance.minimize):page.refresh()
+        self.update_controls()
     def saved(self,value,token):
         self.background=runtime.launcher_background()
         self.surfaces=runtime.launcher_surfaces()
-        self.baseline=(*value[:4],self.background,copy.deepcopy(self.surfaces),dict(self.labels),self.visibility,value[-1]);self.token=token;self.applying=False;self.changed()
+        self.baseline=(*value[:4],self.background,copy.deepcopy(self.surfaces),dict(self.labels),self.visibility,value[-1]);self.token=token;self.applying=False;self.preset_selected=False;self.changed()
         self.design_page.refresh();self.start_menu_page.refresh()
         if self.tabs.currentWidget() is self.wallpapers and not self.wallpapers.dirty:self.wallpapers.refresh()
         menu=value[0] if value[-1]=='follow' else value[-1]
         self.status.setText(runtime.DESIGNS[value[0]]+' desktop · '+runtime.DESIGNS[menu]+' Start menu applied. Older applications may need reopening.')
     def failed(self,message):self.applying=False;self.changed();self.status.setText(message)
+    def apply_failed(self,name,message):
+        self.failed(message)
+        print('Fusion theme apply failed ('+name+'): '+message,file=sys.stderr,flush=True)
+        if self.apply_error is not None:self.apply_error.close()
+        error=QMessageBox(QMessageBox.Icon.Warning,'Could not apply theme',
+            'Could not apply '+name+'.',QMessageBox.StandardButton.Ok,self)
+        error.setObjectName('themeApplyError');error.setTextFormat(Qt.TextFormat.PlainText)
+        error.setInformativeText(message);error.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        error.finished.connect(lambda _:setattr(self,'apply_error',None))
+        self.apply_error=error;error.open()
