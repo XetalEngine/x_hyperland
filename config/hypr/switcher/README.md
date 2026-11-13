@@ -38,8 +38,11 @@ its existing confirmation.
 
 All monitors/workspaces are included by default, including mapped hidden group
 members and special workspaces. Optional scopes narrow this to the current
-monitor, workspace, or application. Choosing a window only calls `focuswindow`;
-windows retain their monitor, workspace, size, and tiled/floating state. The
+monitor, workspace, or application. Choosing a window focuses it and explicitly
+raises that same address, so its drawing and mouse input agree even over a
+maximized app. Minimized windows finish raising through the native restore
+animation; cancelling restores the original focus without changing the stack.
+Windows retain their monitor, workspace, size, and tiled/floating state. The
 switcher fits the focused monitor's logical dimensions and reserved panel area.
 Grid styles page through large lists; keyboard cycling reaches every window.
 

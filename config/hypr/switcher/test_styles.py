@@ -122,7 +122,8 @@ class LifecycleTests(unittest.TestCase):
     def test_fast_tap_commits_once_and_cancels_delayed_position(self):
         self.window.begin(1); self.window.commit(); QTest.qWait(50)
         dispatches = [c for c in self.calls if c[0] == 'dispatch']
-        self.assertEqual(dispatches, [('dispatch', 'focuswindow', 'address:0x2')])
+        self.assertEqual(dispatches, [('dispatch', 'focuswindow', 'address:0x2'),
+                                      ('dispatch', 'alterzorder', 'top,address:0x2')])
         self.assertFalse(self.window.isVisible()); self.assertFalse(self.window.queue.active)
         self.window.commit()
         self.assertEqual([c for c in self.calls if c[0] == 'dispatch'], dispatches)

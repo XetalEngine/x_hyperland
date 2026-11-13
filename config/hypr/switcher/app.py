@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
 import sys
 import signal
 
@@ -38,14 +39,29 @@ def windows(clients, active=''):
                   c.get('focusHistoryID', -1) if c.get('focusHistoryID', -1) >= 0 else 100000))
 
 
-def focus(address):
-    # Resolve the live address again: titles, monitors and workspaces may have changed.
-    client = next((c for c in json.loads(ctl('-j', 'clients')) if c['address'] == address and c.get('mapped')), None)
-    if client is None: return False
-    # focuswindow reveals the window's existing workspace, including special workspaces.
-    # No move-to-workspace or move-to-monitor dispatcher is used here.
-    if ctl('dispatch', 'focuswindow', 'address:'+address) != 'ok': return False
-    return True
+def focus(address, *, raise_window=True):
+    try:
+        # Resolve the live address again: titles, monitors and workspaces may have changed.
+        client = next((c for c in json.loads(ctl('-j', 'clients')) if c['address'] == address and c.get('mapped')), None)
+        if client is None: return False
+        selector = 'address:'+address
+        # Reveal the existing workspace/group first, without moving or resizing it.
+        if ctl('dispatch', 'focuswindow', selector) != 'ok': return False
+        if not raise_window: return True
+        # On the pinned compositor, focus can permit drawing over a maximized
+        # window without changing the input stack. Raise the addressed window
+        # through our existing ordering adapter, just like taskbar activation.
+        try:
+            reply = ctl('dispatch', 'alterzorder', 'top,'+selector)
+        except ValueError as error:
+            reply = str(error).strip()
+        # focuswindow queues minimized restores. Their native completion raises
+        # and focuses the window after unhiding it; do not poll or schedule a
+        # delayed raise that could override the user's next switch.
+        return reply in ('ok', 'Restore the minimized window first')
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        print('Switcher focus:', error, file=sys.stderr, flush=True)
+        return False
 
 
 def window_icon(client):
@@ -205,7 +221,7 @@ class Switcher(QWidget):
 
     def cancel(self):
         was_visible = self.isVisible(); self.hide()
-        if was_visible and self.original and not self.preview: focus(self.original)
+        if was_visible and self.original and not self.preview: focus(self.original, raise_window=False)
         if self.preview: QApplication.instance().quit()
 
     def hideEvent(self, event):
