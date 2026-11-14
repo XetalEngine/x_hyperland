@@ -135,7 +135,7 @@ int64_t workspaceId(PHLWINDOW w){return w&&w->m_workspace?w->m_workspace->m_id:0
 WorkspaceRules::Policy workspacePolicy(PHLWINDOW w){return WorkspaceRules::forWorkspace(workspaceRules,workspaceId(w));}
 bool kdeMode(PHLWINDOW w){return workspacePolicy(w).layout=="kde";}
 std::string controlsMode(PHLWINDOW w){return kdeMode(w)?"individual":workspacePolicy(w).controls;}
-bool workspaceButtons(){return std::ranges::any_of(workspaceRules,[](const auto& entry){return entry.second.controls=="on"||entry.second.layout=="kde";});}
+bool workspaceButtons(){return WorkspaceRules::needsControls(workspaceRules);}
 WindowButtons::Rule ruleFor(PHLWINDOW w){
     const auto policy=workspacePolicy(w);
     if(policy.layout=="kde"){

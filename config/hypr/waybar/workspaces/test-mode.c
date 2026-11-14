@@ -80,7 +80,9 @@ int main(int argc, char **argv) {
     gtk_window_move(GTK_WINDOW(a.window), 40, 40); gtk_window_move(GTK_WINDOW(b.window), 440, 40); pump();
     expect(&a, 0, "Workspace 2 · Individual"); expect(&b, 0, "Workspace 3 · Individual");
     int width = gtk_widget_get_allocated_width(a.mode->root);
-    g_assert_true(g_file_set_contents(path, "{\"version\":1,\"workspaces\":{\"203\":{\"layout\":\"floating\",\"controls\":\"individual\"},\"204\":{\"layout\":\"tile\",\"controls\":\"off\"}}}", -1, NULL));
+    g_assert_true(g_file_set_contents(path, "{\"version\":1,\"default_layout\":\"kde\",\"workspaces\":{}}", -1, NULL));
+    pump(); expect(&a, 3, "KDE mode"); expect(&b, 3, "KDE mode");
+    g_assert_true(g_file_set_contents(path, "{\"version\":1,\"default_layout\":\"kde\",\"workspaces\":{\"203\":{\"layout\":\"floating\",\"controls\":\"individual\"},\"204\":{\"layout\":\"tile\",\"controls\":\"off\"}}}", -1, NULL));
     pump(); expect(&a, 2, "Force floating"); expect(&b, 1, "Force tiling");
     g_assert_cmpint(gtk_widget_get_allocated_width(a.mode->root), ==, width);
     icons(a.mode);
@@ -111,7 +113,7 @@ int main(int argc, char **argv) {
     g_free(contents);g_free(log);g_free(script);
     gtk_style_context_remove_class(gtk_widget_get_style_context(a.first), "visible");
     gtk_style_context_add_class(gtk_widget_get_style_context(a.second), "visible");
-    pump(); expect(&a, 0, "Workspace 4 · Individual"); expect(&b, 1, "Force tiling");
+    pump(); expect(&a, 3, "Workspace 4 · KDE mode"); expect(&b, 1, "Force tiling");
     /* Hiding workspace buttons through Options must not disable the reader. */
     gtk_widget_hide(b.box); pump(); expect(&b, 1, "Force tiling");
     g_file_set_contents(path, "broken", -1, NULL); pump(); g_assert_false(b.mode->known);

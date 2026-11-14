@@ -52,6 +52,8 @@ def payload_ignored(directory, names):
         ignored.add('apply-this-machine.py')
     if relative == 'launcher':
         ignored.update((*LAUNCHER_DEFAULTS, 'favorite-layout.json', 'floating-sizes.json', 'icons'))
+    if relative == 'workspaces':
+        ignored.add('rules.json')
     if relative == 'icon_themes':
         ignored.update(('custom','imported','backups'))
     if relative.startswith('wallpaper/'):
@@ -111,6 +113,10 @@ def render(stage, home, monitors, profile='auto', *, preserve_theme=False):
     (stage/'theme/icons.json').write_text(json.dumps({'version':1,'system':'other','other':'theme:Papirus-Dark','overrides':{}},indent=2)+'\n')
     for name, defaults in LAUNCHER_DEFAULTS.items():
         (stage/'launcher'/name).write_text(json.dumps(defaults, indent=2)+'\n')
+    # Cover every numbered workspace, including later +/Cube/monitor additions,
+    # without copying the source checkout's personal per-workspace choices.
+    (stage/'workspaces/rules.json').write_text(json.dumps(
+        {'version':1, 'default_layout':'kde', 'workspaces':{}}, indent=2)+'\n')
     theme = stage/'theme/state.json'
     theme_defaults = json.loads(theme.read_text())
     theme_defaults.update(design='binaryknife',mode='dark',layout='classic',wallpaper_theme='binaryknife',

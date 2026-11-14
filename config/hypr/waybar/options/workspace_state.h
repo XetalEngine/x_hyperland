@@ -26,6 +26,11 @@ static gboolean workspace_modes(const char *path, int workspace, WorkspaceModes 
     JsonNode *entries = object ? json_object_get_member(object, "workspaces") : NULL;
     valid = version && json_node_get_value_type(version) == G_TYPE_INT64 && json_node_get_int(version) == 1
         && entries && JSON_NODE_HOLDS_OBJECT(entries);
+    if (valid && json_object_has_member(object, "default_layout")) {
+        int fallback = workspace_choice(object, "default_layout", layout_keys, G_N_ELEMENTS(layout_keys));
+        valid = fallback >= 0;
+        if (valid && workspace > 0) modes->layout = fallback;
+    }
     if (valid) {
         char key[24]; g_snprintf(key, sizeof key, "%d", workspace);
         JsonNode *entry = json_object_get_member(json_node_get_object(entries), key);

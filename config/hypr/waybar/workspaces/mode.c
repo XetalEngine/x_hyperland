@@ -74,7 +74,7 @@ static gboolean refresh(gpointer data) {
     if (known && workspace > 0) known = workspace_modes(mode->path, workspace, &modes);
     mode->workspace = workspace; mode->display = display;
     mode->known = known; mode->layout = known ? modes.layout : 0; mode->dirty = FALSE;
-    const char *names[] = {"Individual (default)", "Force tiling", "Force floating", "KDE mode"};
+    const char *names[] = {"Individual", "Force tiling", "Force floating", "KDE mode"};
     char *tip = !known ? g_strdup("Workspace mode is unavailable") : display > 0
         ? g_strdup_printf("Workspace %d · %s", display, names[mode->layout])
         : g_strdup(names[mode->layout]);

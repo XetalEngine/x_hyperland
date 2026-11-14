@@ -223,7 +223,12 @@ def merge_file(name, base, local, remote):
     # Always deliver a complete release, including when the local copy is
     # unregistered, modified, deleted, or unchanged in the incoming commit.
     if ownership == 'release': return remote
-    if local is None: return remote
+    if local is None:
+        # Older profiles had no file until their first workspace edit. Absence
+        # means Individual, not consent to adopt the new fresh-install KDE mode.
+        if name == 'workspaces/rules.json' and remote is not None:
+            return b'{"version":1,"workspaces":{}}\n'
+        return remote
     if ownership == 'keep' or remote is None: return local
     if name == 'theme/state.json':
         # Menu backgrounds are fresh-install defaults. Keep saved choices even

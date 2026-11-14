@@ -114,6 +114,15 @@ class InstallerTests(unittest.TestCase):
     def render(self,monitors=None,**kwargs):
         return install.render(self.stage,self.home,self.monitors if monitors is None else monitors,**kwargs)
 
+    def test_fresh_workspace_default_is_kde_on_every_monitor_and_future_workspace(self):
+        from workspaces import model
+        self.render()
+        data,_=model.load(self.stage/'workspaces/rules.json')
+        self.assertEqual(data, {'version':1, 'default_layout':'kde', 'workspaces':{}})
+        for workspace in (1, 2, 3, 8, 203, 1004, 2147483647):
+            self.assertEqual(model.effective(data, workspace)['layout'], 'kde')
+        self.assertFalse((self.target/'workspaces/rules.json').exists())
+
     def test_other_home_connectors_scaling_and_wallpaper(self):
         self.render()
         text=(self.stage/'control_center/displays.conf').read_text()
@@ -213,6 +222,7 @@ assert m['fire_indicator']
         shutil.copytree(install.PAYLOAD, source, ignore=shutil.ignore_patterns('__pycache__', '.build', 'build'))
         for name in install.LAUNCHER_DEFAULTS:
             (source/'launcher'/name).write_text('{"developer_only": true}')
+        (source/'workspaces/rules.json').write_text('{"developer_only": true}')
         private = ('launcher/favorite-layout.json', 'launcher/floating-sizes.json',
                    'launcher/icons/private.png', 'calculator/state/preferences.ini',
                    'file_manager/state/settings.ini', 'runtime/window_memory/state/windows.json',
@@ -232,6 +242,8 @@ assert m['fire_indicator']
         for name in private: self.assertFalse((self.stage/name).exists(), name)
         for name, expected in install.LAUNCHER_DEFAULTS.items():
             self.assertEqual(json.loads((self.stage/'launcher'/name).read_text()), expected)
+        self.assertEqual(json.loads((self.stage/'workspaces/rules.json').read_text()),
+                         {'version':1, 'default_layout':'kde', 'workspaces':{}})
         defaults=json.loads((self.stage/'theme/state.json').read_text())
         self.assertIs(defaults['launcher_wallpaper'],True)
         self.assertEqual(defaults['launcher_background'],'')

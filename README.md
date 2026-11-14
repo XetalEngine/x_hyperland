@@ -43,6 +43,8 @@ The defaults are **64 FPS · MP4 · desktop audio · high quality · your Videos
 
 Each workspace remembers its own mode. **Left-click the mode indicator between Keys and Update** to cycle **Individual → Force tiling → Force floating → KDE mode**. Or right-click a numbered workspace and choose **Force window layout**. Different workspaces and monitors can use different modes at the same time.
 
+**Fresh installs default to KDE mode on every workspace**, including new workspaces and Cube faces added later on any monitor. Per-workspace choices override that default. Updates keep existing users' workspace settings.
+
 [![Taskbar showing the KDE workspace-mode indicator beside Keys and Update](config/hypr/docs/features/kde-taskbar.png)](config/hypr/docs/features/kde-taskbar.png)
 
 | Mode | How windows behave |

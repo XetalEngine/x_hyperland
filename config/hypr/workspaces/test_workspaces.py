@@ -24,6 +24,31 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(model.effective(data,3),model.DEFAULT)
         self.assertFalse(self.path.exists())
 
+    def test_fresh_default_covers_future_workspaces_and_survives_individual_overrides(self):
+        self.path.write_text(model.encode({'version':1, 'default_layout':'kde', 'workspaces':{}}))
+        data,_=model.load(self.path)
+        for workspace in (1, 8, 203, 1004, 2147483647):
+            self.assertEqual(model.effective(data, workspace)['layout'], 'kde')
+        self.assertTrue(model.needs_controls(data))
+        controller.save(203, controls='off', path=self.path)
+        controller.save(8, layout='tile', path=self.path)
+        controller.save(1, layout='off', path=self.path)
+        data,_=controller.save(203, cycle_layout=True, path=self.path)
+        self.assertEqual(data['default_layout'], 'kde')
+        self.assertEqual(model.effective(data, 203)['layout'], 'off')
+        self.assertEqual(model.effective(data, 203)['controls'], 'off')
+        self.assertEqual(model.effective(data, 8)['layout'], 'tile')
+        self.assertEqual(model.effective(data, 1)['layout'], 'off')
+        self.assertEqual(model.effective(data, 1004)['layout'], 'kde')
+
+    def test_invalid_profile_default_is_rejected_without_overwriting_it(self):
+        import json
+        for value in (None, True, [], 'maximized'):
+            self.path.write_text(json.dumps({'version':1, 'default_layout':value, 'workspaces':{}}))
+            before=self.path.read_bytes()
+            with self.assertRaises(ValueError): controller.save(1, layout='tile', path=self.path)
+            self.assertEqual(self.path.read_bytes(), before)
+
     def test_choices_merge_per_workspace_and_survive_reload(self):
         controller.save(3,layout='tile',path=self.path)
         controller.save(8,controls='off',path=self.path)

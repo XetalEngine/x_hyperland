@@ -63,6 +63,15 @@ static void state_tests(void) {
     g_assert_cmpint(modes.layout, ==, 1); g_assert_cmpint(modes.controls, ==, 2);
     g_assert_true(workspace_modes(workspace_path, 204, &modes));
     g_assert_cmpint(modes.layout, ==, 0); g_assert_cmpint(modes.controls, ==, 0);
+    g_file_set_contents(workspace_path, "{\"version\":1,\"default_layout\":\"kde\",\"workspaces\":{\"203\":{\"layout\":\"tile\",\"controls\":\"off\"}}}", -1, NULL);
+    g_assert_true(workspace_modes(workspace_path, 203, &modes));
+    g_assert_cmpint(modes.layout, ==, 1); g_assert_cmpint(modes.controls, ==, 2);
+    g_assert_true(workspace_modes(workspace_path, 1004, &modes));
+    g_assert_cmpint(modes.layout, ==, 3); g_assert_cmpint(modes.controls, ==, 0);
+    g_assert_true(workspace_modes(workspace_path, -99, &modes));
+    g_assert_cmpint(modes.layout, ==, 0);
+    g_file_set_contents(workspace_path, "{\"version\":1,\"default_layout\":true,\"workspaces\":{}}", -1, NULL);
+    g_assert_false(workspace_modes(workspace_path, 1004, &modes));
     g_file_set_contents(workspace_path, "{\"version\":1,\"workspaces\":{\"203\":{\"layout\":\"invalid\",\"controls\":\"on\"}}}", -1, NULL);
     g_assert_false(workspace_modes(workspace_path, 203, &modes));
     g_unlink(workspace_path); g_free(workspace_path);

@@ -175,6 +175,26 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual((backup/'files/code.py').read_text(), 'old code\n')
         self.assertEqual(engine.installed(self.live)['revision'], NEW)
 
+    def test_fresh_kde_default_does_not_change_legacy_workspaces_during_update(self):
+        name='workspaces/rules.json'
+        engine.write_json(self.upstream/name, {'version':1, 'default_layout':'kde', 'workspaces':{}})
+        plan=self.prepare()
+        self.assertFalse((self.live/name).exists())
+        engine.apply_plan(self.live, self.stage, plan, self.state)
+        self.assertEqual(json.loads((self.live/name).read_text()), {'version':1, 'workspaces':{}})
+
+    def test_workspace_defaults_and_saved_modes_are_kept_exactly_on_update(self):
+        name='workspaces/rules.json'
+        saved={'version':1,'default_layout':'kde','workspaces':{'203':{
+            'layout':'off','controls':'individual','rule':{'mode':'always','anchor':'top-right',
+            'size':18,'x':8,'y':8,'proximity':80,'background':'auto','background_color':'#20242b'}}}}
+        for local in (b'{"version":1,"workspaces":{}}\n',
+                      b'{"version":1,"default_layout":"floating","workspaces":{}}\n',
+                      json.dumps(saved).encode()):
+            base={'sha256':engine.sha(local), 'text':local.decode()}
+            incoming=b'{"version":1,"default_layout":"kde","workspaces":{}}\n'
+            self.assertEqual(engine.merge_file(name, base, local, incoming), local)
+
     def test_control_panel_binary_is_updated_without_cmake_cache_or_personal_state(self):
         settings=self.live/'control_panel/state/prefs.ini'
         settings.parent.mkdir(parents=True);settings.write_text('personal setting')

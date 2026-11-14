@@ -6,6 +6,11 @@ offers Individual (existing app/window choices), On (always-visible shared
 controls), and Off (no artificial controls, including while Super is held).
 These choices belong to the clicked workspace and persist across logins.
 
+Fresh installs start in **KDE mode on every numbered workspace**, including new
+workspaces and Cube faces created later on any monitor. Choose another mode in
+that workspace's menu to override the default. Updates preserve existing profiles'
+defaults and saved choices; legacy profiles retain Individual for unset workspaces.
+
 Between **Keys** and **Update**, each taskbar shows its active workspace's layout:
 one window for Individual (layout forcing Off), four equal panes for Force tiling,
 three overlapping windows for Force floating, and **KDE** text for KDE mode.
@@ -56,7 +61,10 @@ Turning layout forcing Off leaves the current arrangement and permits normal mod
 The gear editor itself remains independently movable. Layer-shell and unmanaged
 X11 surfaces are outside the managed window layout.
 
-`rules.json` is created only when saving. The controller validates and locks it,
+Fresh installs seed `rules.json` with `default_layout: "kde"` and no per-workspace
+overrides. Missing files or legacy files without that field default to Individual.
+Special workspaces, including minimized-window storage, keep native behavior.
+The controller validates and locks the file,
 merges the selected field, checks editor conflicts, activates both native readers
 and rolls back unsuccessful updates. The updater preserves this preference.
 The taskbar stores the actual workspace ID, including when Cube displays local

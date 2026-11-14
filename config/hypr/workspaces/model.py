@@ -20,8 +20,11 @@ def identity(value):
 
 
 def validate(data):
-    if not isinstance(data, dict) or set(data) != {'version', 'workspaces'} or type(data['version']) is not int or data['version'] != 1:
+    if (not isinstance(data, dict) or set(data) not in ({'version', 'workspaces'}, {'version', 'workspaces', 'default_layout'})
+            or type(data['version']) is not int or data['version'] != 1):
         raise ValueError('Unsupported workspace settings file.')
+    if not isinstance(data.get('default_layout', 'off'), str) or data.get('default_layout', 'off') not in LAYOUTS:
+        raise ValueError('Unknown default workspace layout.')
     entries = data['workspaces']
     if not isinstance(entries, dict) or len(entries) > 512: raise ValueError('Invalid workspace settings.')
     result = copy.deepcopy(data)
@@ -44,7 +47,13 @@ def load(path=None):
 
 
 def effective(data, workspace):
-    return copy.deepcopy(data['workspaces'].get(identity(workspace), DEFAULT))
+    fallback = dict(DEFAULT, layout=data.get('default_layout', 'off'))
+    return copy.deepcopy(data['workspaces'].get(identity(workspace), fallback))
+
+
+def needs_controls(data):
+    return data.get('default_layout') == 'kde' or any(
+        p['controls'] == 'on' or p['layout'] == 'kde' for p in data['workspaces'].values())
 
 
 def encode(data): return json.dumps(validate(data), indent=2)+'\n'
