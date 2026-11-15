@@ -122,6 +122,19 @@ int main(int argc,char** argv){
         Engine extreme({100,100,1200,800});extreme.grab(100,100,true);extreme.geometry({700,-100,1200,800},false,700,-100);extreme.release();
         for(int i=0;i<10000&&extreme.step(15,friction,spring);++i){}
     }
+    // Explicit layout placement must finish at the requested position, even
+    // if only position changes (no resize to create a new fixed anchor).
+    for(bool resized:{false,true}){
+        Engine placed({100,100,600,400});placed.grab(140,120,true);
+        placed.geometry({400,200,600,400},false,440,220);
+        for(int i=0;i<8;++i)placed.step(15,3,3);
+        placed.release();Box destination{0,32,resized?960.:600.,resized?1000.:400.};
+        placed.geometry(destination,false,440,220);placed.anchorPlacement();
+        for(int i=0;i<3000&&placed.step(15,3,3);++i){}
+        assert(std::abs(placed.model->topLeft.x-destination.x)<1);
+        assert(std::abs(placed.model->topLeft.y-destination.y)<1);
+        placed.grab(40,55,false);assert(placed.grabbed);placed.release();assert(!placed.model->anchorObject);
+    }
     WindowInfo w;w.app="kitty";w.title="Terminal";w.floating=true;
     assert(Match("Normal & class=ki*").matches(w));assert(!Match("Normal & !class=kitty").matches(w));
     assert(Match("Dialog | (Normal & floating=1)").matches(w));assert(!Match("").matches(w));

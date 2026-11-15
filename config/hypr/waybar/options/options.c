@@ -31,6 +31,7 @@ static const Item items[] = {
     {"group/audio", "Volume & slider", "audio", NULL, "Sound & tools"},
     {"pulseaudio#microphone", "Microphone", "pulseaudio", "microphone", "Sound & tools"},
     {"idle_inhibitor", "Keep awake", "idle_inhibitor", NULL, "Sound & tools"},
+    {"custom/clipboard", "Clipboard history", "custom-clipboard", NULL, "Sound & tools"},
     {"custom/notifications", "Notifications", "custom-notifications", NULL, "Sound & tools"},
     {"tray", "System tray", "tray", NULL, "Sound & tools"},
     {"clock", "Date & time", "clock", NULL, "Sound & tools"},

@@ -85,6 +85,22 @@ Outside KDE mode, the workspace's **Force modifier buttons** menu independently 
 
 [Window-controls guide →](config/hypr/effects/window_close/README.md)
 
+### Clipboard history and KDE snap layouts
+
+**The clipboard icon beside Notifications, or Super+Shift+V, opens clipboard history.**
+The themed dropdown follows your monitor and top/bottom bar, and uses the same
+close effects as Apps and Power, including Burn when enabled. Search recent text and images, pin
+useful entries, delete items, or pause collection. Enter copies the selected
+item and returns you to the app; Ctrl+V pastes. Recent history stays in memory,
+while explicit pins survive logout. [Clipboard guide →](config/hypr/clipboard/README.md)
+
+**KDE mode supports snap layouts.** Drag to a side for halves or a corner for
+quarters. Drag to the top edge to reveal a compact picker with halves, quarters
+and thirds. Pause briefly over the preview, then release. Dragging away restores
+the window's previous size; Escape cancels snapping. The gear editor includes
+an **Apply snap settings** control for all KDE workspaces. Other workspace modes
+keep their existing drag behavior.
+
 ### One cube per monitor
 
 **Each monitor owns a cube with four workspace faces, numbered 1–4 on its own taskbar.** Hold **Ctrl+Alt+left mouse** and drag to rotate the cube on that monitor. Release to choose a face; Escape cancels. The other monitors keep their current workspaces.
@@ -278,6 +294,8 @@ The **Presets** gallery shows every theme in a full-width banner. Search by name
 **[Prison Break](config/hypr/theme/PRISONBREAK.md)** brings comic-book purple neon, graphite steel and orange hazard markings to the desktop. Orange folders, an Escape Key cursor, sliding-gate transfers, the Cellblock Dock and eight original synth cues accompany three illustrated prison wallpapers. Dark, light and high-contrast palettes are included. [Preview](config/hypr/theme/assets/prisonbreak-preview.png).
 
 **[777 Facadas Exu](config/hypr/theme/FACADAS_EXU.md)** pairs black lacquer and oxblood selections with ivory text and copper edges. Three candlelit wallpapers accompany matching folder icons, Ivory Flame cursors, smoke-ribbon transfers, the Candlelight Rail dock and eight original Copper whispers sound cues. Includes dark, parchment-light and high-contrast palettes. [Preview](config/hypr/theme/assets/facadasexu-preview.png).
+
+**[Mortal Kombat II](config/hypr/theme/MORTAL_KOMBAT_II.md)** brings jade selections, charcoal stone, antique-gold bevels and ivory serif lettering to the desktop. Living Forest, Scorpion's fire finisher and Shang Tsung's soul steal wallpapers accompany jade folder icons, Outworld Jade cursors, portal transfers, the Outworld Arcade dock and eight original synthesized sound cues. Dark, light and high-contrast palettes are included. [Preview](config/hypr/theme/assets/mortalkombat2-preview.png).
 
 Tidal Glass, Porcelain Ink, Obsidian Forge, and **Candy Cloud** bring four distinct atmospheres to the gallery. Obsidian Forge pairs machined basalt panels and copper edges with three original volcanic wallpapers: Basalt Reach, The Forge, and Ashen Observatory. Its Cinder wake mouse trail lifts embers from a cooling fissure; its file-transfer animation carries glowing documents through basalt presses.
 

@@ -5,6 +5,14 @@ effect and apply, then drag or resize a floating window. **Try Wobbly** opens a
 sample window with editable text and a live clock. Hold Shift during a drag to
 enable magnetic edge resistance, or choose another snapping modifier.
 
+KDE snap layouts use a separate, explicit placement handoff after dragging ends.
+`xetalwobbly:anchorplacement` identifies a window by compositor lifetime ID,
+anchors its existing mesh towards the chosen geometry, and leaves that geometry
+in charge of the final input rectangle. This also covers a placement that moves
+without resizing. A new drag clears the handoff; normal dragging and magnetic
+edge resistance retain their existing free-settling behavior. The engine tests
+check both same-size and resized placements before another ordinary grab/release.
+
 This is a port of the original `compiz-core/plugins/wobbly.c` from XetalCompiz.
 `native/compiz.hpp` retains its 4 × 4 spring lattice, 24 springs, 15 ms integration,
 bicubic Bézier surface, shiver impulse and magnetic edge resistance. The Hyprland

@@ -1,5 +1,6 @@
 """Original vector cursor families, shared by the picker and generated themes."""
 STYLES = {
+    'mortalkombat2': ('Outworld Jade', '#f5e8c9', '#10291b', '#3dd489'),
     'facadasexu': ('777 Ivory Flame', '#f2e6cc', '#311008', '#c24835'),
     'ghostbusters': ('Ghostbusters Ectoplasm', '#b4ff00', '#102207', '#f4a3dd'),
     'leviathan': ('Leviathan Gilded', '#f0d8b6', '#211c29', '#c69ae5'),
@@ -59,6 +60,8 @@ def svg(style, shape='left_ptr', frame=0):
     if style == 'ghostbusters':
         arrow = 'M5 3Q8 4 13 8L29 19Q30 22 26 22L18 21L22 29Q23 33 19 33Q17 33 16 30L12 23L8 28Q4 29 5 25Z'
     body = f'<path d="{arrow}"/>'
+    if style == 'mortalkombat2':
+        body = f'<path d="M5 3L6 28L13 21L19 32L23 29L17 19L28 18Z"/><path d="M8 8L10 23L14 18L23 17M14 18L20 29" fill="none" stroke="{accent}" stroke-width="1.5"/><path d="M8 8L23 17" stroke="#d9b65d" stroke-width="1"/>'
     if style == 'facadasexu':
         body = f'<path d="M5 3L7 28L13 21L19 32L23 29L17 19L28 18Z"/><path d="M8 9L13 19L22 18M13 19L20 29" fill="none" stroke="{accent}" stroke-width="1.6"/><path d="M8 10L9 22" stroke="#c99569" stroke-width="1"/>'
     if style == 'ghostbusters':
@@ -100,6 +103,10 @@ def svg(style, shape='left_ptr', frame=0):
         hot=(18,18)
     elif shape in ('watch','left_ptr_watch'):
         ring=f'<g transform="rotate({frame*30} 18 18)"><circle cx="18" cy="18" r="11" fill="none" stroke="{edge}" stroke-opacity=".25" stroke-width="4"/><path d="M18 7A11 11 0 0 1 29 18" fill="none" stroke="{accent}" stroke-width="4"/></g>'
+        if style == 'mortalkombat2':
+            ring=(f'<circle cx="18" cy="18" r="14" fill="{edge}" stroke="#e4c474" stroke-width="1.4"/>'
+                  f'<path d="M15 10V26M21 10V26M12 10H24M12 26H24" fill="none" stroke="{fill}" stroke-width="1.8"/>'
+                  f'<g transform="rotate({frame*30} 18 18)"><path d="M18 5A13 13 0 0 1 31 18" fill="none" stroke="{accent}" stroke-width="2.4"/><circle cx="18" cy="5" r="2" fill="#e4c474" stroke="none"/></g>')
         if style == 'facadasexu':
             import math
             tip=6+1.5*math.sin(frame*math.tau/12)

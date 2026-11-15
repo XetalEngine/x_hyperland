@@ -4,8 +4,10 @@ import subprocess
 RULE = 'fusion-quick-panel'
 
 
-def prepare(request):
+def prepare(request, *, rule=RULE):
     # Only numeric geometry and a fixed animation choice enter compositor IPC.
+    if rule not in (RULE, 'fusion-clipboard-history'):
+        raise ValueError('Unknown taskbar popup.')
     monitor = int(request['monitor'])
     width, height = int(request['width']), int(request['height'])
     x, y = int(request['relative_x']), int(request['relative_y'])
@@ -15,7 +17,7 @@ def prepare(request):
     values = {'monitor': str(monitor), 'size': f'{width} {height}',
               'move': f'{x} {y}', 'animation': 'slide ' + edge}
     result = subprocess.run(['hyprctl', '--batch', ';'.join(
-        f'keyword windowrule[{RULE}]:{key} {value}' for key, value in values.items())],
+        f'keyword windowrule[{rule}]:{key} {value}' for key, value in values.items())],
         capture_output=True, text=True, timeout=2)
     replies = [line.strip() for line in result.stdout.splitlines() if line.strip()]
     if result.returncode or len(replies) != len(values) or any(reply != 'ok' for reply in replies):

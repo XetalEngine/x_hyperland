@@ -13,6 +13,7 @@ sys.path.insert(0,str(ROOT/'theme'))
 from effects.window_close import model, rules, controller
 from workspaces import model as workspace_model, controller as workspace_controller
 from effects.window_close.drag_page import DragSettings
+from effects.window_close.snap_settings import SnapSettings
 from window_rules.page import RulesPage
 from PyQt6.QtCore import Qt, QTimer, QProcess, QObject, pyqtSignal
 from PyQt6.QtGui import QColor, QIcon, QImage, QPixmap
@@ -162,6 +163,7 @@ class RuleDialog(QDialog):
                               'Manual covers it with your chosen color, including the gaps between buttons.')
         background_hint.setWordWrap(True);form.addRow(background_hint)
         self.drag_controls=DragSettings(self);form.addRow(self.drag_controls)
+        self.snap_controls=SnapSettings(self);form.addRow(self.snap_controls)
         scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setWidget(form_widget);scroll.setMinimumHeight(160);layout.addWidget(scroll,1)
         self.picker=DesktopPicker(self);self.picker.picked.connect(self.set_color);self.picker.finished.connect(self.picker_finished)
@@ -226,6 +228,7 @@ class RuleDialog(QDialog):
         kde=self.profile=='kde'
         supported=bool(self.info.get('kde_titlebar_supported'))
         self.controls_form.setRowVisible(self.titlebar,kde)
+        self.controls_form.setRowVisible(self.snap_controls,kde)
         self.titlebar.setEnabled(kde and supported)
         bar=kde and supported and self.titlebar.isChecked()
         self.background.setItemText(self.background.findData('auto'),

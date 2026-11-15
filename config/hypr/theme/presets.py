@@ -124,6 +124,8 @@ def builtin(design, mode=None, root=None):
     value['cursors'].update(trail='follow',color=effect[2])
     if design == 'facadasexu':
         value['cursors'].update(style='facadasexu',trail='glow',color='#d25a45')
+    elif design == 'mortalkombat2':
+        value['cursors'].update(style='mortalkombat2',trail='glow',color='#3dd489')
     elif design == 'ghostbusters':
         value['cursors'].update(style='ghostbusters',trail='glow',color='#b4ff00')
     elif design == 'leviathan':

@@ -227,6 +227,7 @@ def run_build(args, label):
 
 def build(stage, checkpoint=lambda:None):
     for args in ([sys.executable,str(stage/'runtime/notices/build.py')],
+                 [sys.executable,str(stage/'clipboard/build.py')],
                  [sys.executable,str(stage/'runtime/cursor_probe/build.py')],
                  [sys.executable,str(stage/'runtime/window_memory/build.py')],
                  [sys.executable,str(stage/'cursors/build.py')],
@@ -304,6 +305,7 @@ def validate(stage):
     for p in stage.rglob('*.sh'):subprocess.run(['bash','-n',str(p)],check=True)
     validate_config(stage)
     for relative in ('runtime/notices/.build/xetal-startup-notices.so',
+                     'clipboard/.build/fusion-clipboard-collector',
                      'theme/gtk3/libxetal-file-preview.so','theme/qt5/platformthemes/libxetaltheme.so','theme/qt6/platformthemes/libxetaltheme.so',
                      'waybar/pins/pins.so','waybar/workspaces/controls.so','waybar/workspaces/mode.so','waybar/options/options.so','share-picker/window-preview','control_panel/.build/xetal-control-panel',
                      'file_manager/.build/xetal-files'):

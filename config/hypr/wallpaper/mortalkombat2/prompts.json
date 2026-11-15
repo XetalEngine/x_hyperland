@@ -1,0 +1,37 @@
+{
+  "id": "mortalkombat2",
+  "title": "Mortal Kombat II",
+  "provenance": "Generated with the built-in image_gen tool for Hyper Fusion, inspired by the user-supplied desktop concepts.",
+  "images": [
+    {
+      "title": "Living Forest",
+      "file": "living-forest.png",
+      "prompt": "Use case: stylized-concept. Asset type: finished desktop wallpaper for a Mortal Kombat II theme in Hyper Fusion. Generate a single widescreen 16:9 landscape image, ideally 3840 x 2160. Style: richly detailed 1993 arcade fantasy illustration with crisp pixel-art-inspired fighters, textured painted environments, ominous cinematic lighting and excellent readability; deliberate crafted game art, not a photograph. Palette: deep jade green, black charcoal, antique gold, moonlit ice blue, with scene-specific fire or supernatural highlights. Composition: full-bleed wallpaper, atmospheric negative space in the upper third and along the left margin for desktop icons; action and environmental detail in the lower middle and right. No desktop UI, no windows, no taskbar, no icons, no watermark, no text or lettering. Scene: Mortal Kombat II's Living Forest at midnight. Two enormous ancient trees with snarling human faces frame a mossy ruined stone fighting platform. A full ice-blue moon, distant evil mountain castle, crumbling dragon-carved gateway, hanging vines, luminous emerald mist, two small fire braziers. Scorpion in his classic yellow-and-black ninja outfit stands facing Sub-Zero in his classic blue-and-black outfit, full-body grounded fighting stances on the platform, each about one fifth of the image height, not large portraits. A subtly engraved gold dragon medallion in the foreground stone. The environment is the hero. Beautifully eerie, vivid and richly layered like the supplied desktop concept.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "3a21820dbe7656d1d5f3fb73b670823dd0cf53af58a27cd2655f3eefdfce7ad2"
+    },
+    {
+      "title": "Toasty!",
+      "file": "toasty.png",
+      "prompt": "Use case: stylized-concept. Asset type: finished desktop wallpaper for a Mortal Kombat II theme in Hyper Fusion. Generate a single widescreen 16:9 landscape image, ideally 3840 x 2160. Style: richly detailed 1993 arcade fantasy illustration with crisp pixel-art-inspired fighters, textured painted environments, ominous cinematic lighting and excellent readability; deliberate crafted game art, not a photograph. Palette: deep jade green, black charcoal, antique gold, moonlit ice blue, with scene-specific fire or supernatural highlights. Composition: full-bleed wallpaper, atmospheric negative space in the upper third and along the left margin for desktop icons; action and environmental detail in the lower middle and right. No desktop UI, no windows, no taskbar, no icons, no watermark, no text or lettering. Scene: Scorpion's iconic TOASTY fatality in a Mortal Kombat II ruined temple arena at night. Scorpion in classic yellow and black ninja costume has removed his mask, revealing a stylized flaming skull, and breathes an arcing torrent of bright orange fire toward a defeated opponent represented as a charred arcade skeleton silhouette disintegrating into sparks. This is exaggerated, clearly fictional retro game art, no realistic human injury. Place Scorpion in the lower middle-left and the fire arc across the lower center-right, leave the upper half calmer. Jade stone pillars carved with dragons, burning braziers, hanging chains, charcoal-black stone, gold inlays, rolling emerald smoke, distant blue moonlight. Dynamic legible silhouettes, dramatic fire light, high visual polish, no HUD and no lettering.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "a08ca699829e21364e6f718696a727977c799bdf31e83b3b20cfcd0a1d1184e9"
+    },
+    {
+      "title": "Soul Steal",
+      "file": "soul-steal.png",
+      "prompt": "Use case: stylized-concept. Asset type: finished desktop wallpaper for a Mortal Kombat II theme in Hyper Fusion. Generate a single widescreen 16:9 landscape image, ideally 3840 x 2160. Style: richly detailed 1993 arcade fantasy illustration with crisp pixel-art-inspired fighters, textured painted environments, ominous cinematic lighting and excellent readability; deliberate crafted game art, not a photograph. Palette: deep jade green, black charcoal, antique gold, moonlit ice blue, with scene-specific fire or supernatural highlights. Composition: full-bleed wallpaper, atmospheric negative space in the upper third and along the left margin for desktop icons; action and environmental detail in the lower middle and right. No desktop UI, no windows, no taskbar, no icons, no watermark, no text or lettering. Scene: a Mortal Kombat II supernatural finisher in Shang Tsung's Outworld throne hall. Shang Tsung in his classic arcade sorcerer form and ornate dark-and-gold robes stands on the right side of a jade-and-black stone arena, drawing luminous emerald soul energy out of a defeated kneeling fighter through a spiraling ribbon of ghostly green faces. The fighter is a dark stylized game silhouette; clearly fictional fantasy action rather than realistic injury. Include imposing dragon pillars, antique gold ornament, a shadowy throne, cold blue shafts of moonlight, and a green circular portal, with very deep black and jade atmosphere. Composition lower middle and right with elegant quieter upper and left regions, readable at desktop size. Showcase the soul-steal fatality as supernatural light and motion.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "f52a25df9b4cf1871134ca137ef961e16dbea22f166f27271d598fe0fc633eb8"
+    }
+  ]
+}

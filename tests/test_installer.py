@@ -123,6 +123,16 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(model.effective(data, workspace)['layout'], 'kde')
         self.assertFalse((self.target/'workspaces/rules.json').exists())
 
+    def test_clipboard_and_snapping_are_delivered_without_private_history(self):
+        self.render()
+        self.assertTrue((self.stage/'clipboard/native/collector.cpp').is_file())
+        self.assertFalse((self.stage/'clipboard/state').exists())
+        self.assertTrue((self.stage/'scripts/clipboard-history.sh').stat().st_mode&0o111)
+        self.assertIn('fusion-clipboard-history',(self.stage/'keybindings.conf').read_text())
+        desktop=(self.stage/'desktop/data/applications/fusion-clipboard.desktop').read_text()
+        self.assertIn(str(self.target/'scripts/clipboard-history.sh'),desktop)
+        self.assertEqual(json.loads((self.stage/'effects/window_close/snap-settings.json').read_text()),{'enabled':True})
+
     def test_other_home_connectors_scaling_and_wallpaper(self):
         self.render()
         text=(self.stage/'control_center/displays.conf').read_text()

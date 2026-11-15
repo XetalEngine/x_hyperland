@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Mortal Kombat II
+Comment=Jade enamel folders, gold arcade fittings and ice-blue screens.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

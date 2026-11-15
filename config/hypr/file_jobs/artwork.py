@@ -292,6 +292,48 @@ def polaris(p, box, accent, surface, phase, count, trails, glow, archive, extrac
     p.restore()
 
 
+def mortalkombat2(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Documents cross jade portals; packets and soul trails fade at each wrap."""
+    p.save();p.setClipRect(box,Qt.ClipOperation.IntersectClip)
+    mid=box.center();left=box.left()+28;right=box.right()-28
+    gold=QColor('#e4c474' if surface.lightnessF()<.5 else '#806127')
+    for x,zipped in ((left,extracting),(right,archive)):
+        p.setBrush(surface);p.setPen(QPen(gold,1.5));p.drawEllipse(QPointF(x,mid.y()),18,28)
+        p.setBrush(alpha(accent,25));p.setPen(QPen(accent,1.2));p.drawEllipse(QPointF(x,mid.y()),14,24)
+        for j in range(3):
+            angle=(phase+j/3)*math.tau
+            p.setBrush(gold);p.setPen(Qt.PenStyle.NoPen)
+            p.drawEllipse(QPointF(x+15*math.cos(angle),mid.y()+25*math.sin(angle)),1.5,1.5)
+        p.setPen(QPen(gold,1.5))
+        if zipped:
+            for dy in range(-10,13,4):p.drawLine(QPointF(x-2,mid.y()+dy),QPointF(x+2,mid.y()+dy))
+        else:
+            for dx in (-3,3):p.drawLine(QPointF(x+dx,mid.y()-10),QPointF(x+dx,mid.y()+10))
+    if result:
+        if result=='done':success(p,mid,accent)
+        p.restore();return
+    start,end=left+18,right-18
+    for index in range(count):
+        t=(phase+index/count)%1
+        fade=max(0.,min(1.,t/.15,(1-t)/.15));fade=fade*fade*(3-2*fade)
+        u=1-t if extracting else t;direction=-1 if extracting else 1
+        x=start+(end-start)*u;y=mid.y()-math.sin(u*math.pi)*9
+        p.save();p.setOpacity(p.opacity()*fade)
+        if trails:
+            soul=QPainterPath(QPointF(x-direction*8,y+2))
+            soul.cubicTo(x-direction*18,y-10,x-direction*24,y+10,x-direction*36,y)
+            p.setPen(QPen(alpha(accent,135),2));p.setBrush(Qt.BrushStyle.NoBrush);p.drawPath(soul)
+        if glow:
+            halo=QRadialGradient(QPointF(x,y),22);halo.setColorAt(0,alpha(accent,glow));halo.setColorAt(1,alpha(accent,0))
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(halo);p.drawEllipse(QPointF(x,y),22,20)
+        p.translate(x,y);p.rotate(math.sin(t*math.tau)*5);paper(p,gold,technical=True)
+        p.setPen(QPen(accent,1.5));p.drawLine(QPointF(-5,7),QPointF(5,7))
+        if archive or extracting:
+            for dy in (-6,-2,2):p.drawLine(QPointF(-1,dy),QPointF(2,dy))
+        p.restore()
+    p.restore()
+
+
 def facadasexu(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     """Ivory documents follow an incense ribbon between two copper candle stands.
 

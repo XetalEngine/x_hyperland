@@ -102,7 +102,7 @@ struct Record {
     std::map<int64_t,CBox> lastDamage;
     bool meshDirty=true;
     Clock::time_point last=Clock::now();
-    bool resize=false,settlePosition=false,hotkey=false;
+    bool resize=false,settlePosition=false,hotkey=false,placementPending=false;
     Record(PHLWINDOW w):window(w),monitor(w->m_monitor),workspace(w->m_workspace),engine(box(w)){}
 };
 std::vector<std::shared_ptr<Record>> records;
@@ -422,6 +422,13 @@ void frame(PHLMONITOR monitor){
             std::unique_ptr<World> world;
             bool max=Fullscreen::controller()->getFullscreenModes(w).internal==Fullscreen::FSMODE_MAXIMIZED;
             r->engine.geometry(box(w),settings.maximize_effect&&max,pointer.x,pointer.y);
+            if(r->placementPending&&!r->engine.grabbed){
+                // Explicit KDE placement owns the final input rectangle. Let
+                // the existing mesh settle towards it, including same-size
+                // moves, without pulling the snapped window out of its slot.
+                if(r->engine.snapping){world=std::make_unique<World>(w,r->engine);r->engine.snap(false);}
+                r->engine.anchorPlacement();r->placementPending=false;
+            }
             if(r->engine.grabbed&&!r->resize){
                 auto mods=g_pInputManager->getModsFromAllKBs();
                 bool held=settings.snapModifiers && (mods&settings.snapModifiers)==settings.snapModifiers;
@@ -475,7 +482,7 @@ void begin(Drag* drag,SP<Layout::ITarget> target,eMouseBindMode mode,std::option
     auto w=target->window();if(!usable(w)||!settings.move_window_match.matches(info(w)))return;
     if(auto r=ensure(w)){
         auto p=Pointer::mgr()->position();r->resize=mode!=MBIND_MOVE;r->hotkey=hotkey;
-        r->settlePosition=!r->resize;r->engine.grab(p.x,p.y,settings.grab_window_match.matches(info(w)));++grabs;
+        r->settlePosition=!r->resize;r->placementPending=false;r->engine.grab(p.x,p.y,settings.grab_window_match.matches(info(w)));++grabs;
     }
 }
 void end(Drag* drag){
@@ -548,6 +555,15 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h){
         HyprlandAPI::addDispatcherV2(handle,"xetalwobbly:shiver",[](std::string){
             auto w=Desktop::focusState()->window();if(!usable(w))return SDispatchResult{.success=false,.error="Enable Wobbly and focus a visible window"};
             shiver(w);return SDispatchResult{};
+        });
+        HyprlandAPI::addDispatcherV2(handle,"xetalwobbly:anchorplacement",[](std::string id){
+            if(id.empty()||id.size()>20||!std::ranges::all_of(id,[](char c){return c>='0'&&c<='9';}))
+                return SDispatchResult{.success=false,.error="Invalid placement window ID"};
+            for(const auto& r:records)if(auto w=r->window.lock();w&&id==std::to_string(w->m_stableID)){
+                if(r->engine.grabbed)return SDispatchResult{.success=false,.error="Finish dragging before placing the window"};
+                r->settlePosition=false;r->placementPending=true;damage(r);break;
+            }
+            return SDispatchResult{};
         });
         statusCommand=HyprlandAPI::registerHyprCtlCommand(handle,{"xetal-wobbly",true,[](eHyprCtlOutputFormat,std::string){
             std::string detail="[";

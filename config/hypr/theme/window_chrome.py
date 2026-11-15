@@ -51,6 +51,12 @@ def style_close(button,design=None):
         button.setProperty('xetalChromeHoverInk',colors['HighlightedText'])
         button.setStyleSheet(chrome_style(colors))
         return
+    elif design=='mortalkombat2':
+        from mortalkombat2 import chrome_style
+        colors=runtime.colors(style=design)
+        button.setProperty('xetalChromeHoverInk',colors['HighlightedText'])
+        button.setStyleSheet(chrome_style(colors))
+        return
     if design=='midnightrun':
         from midnightrun import chrome_style
         colors=runtime.colors(style=design)
@@ -132,7 +138,7 @@ def style_close(button,design=None):
             QToolButton:pressed {{background:{'#6e211e' if close else p['Highlight']};}}
             QToolButton:focus {{border-color:{p['Accent']};}}''')
         return
-    if design in ('breakpoint','binaryknife','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','midnightrun','infernalencore','prisonbreak','polaris','leviathan','ghostbusters', 'facadasexu'):
+    if design in ('breakpoint','binaryknife','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','midnightrun','infernalencore','prisonbreak','polaris','leviathan','ghostbusters', 'mortalkombat2', 'facadasexu'):
         p=runtime.colors(style=design)
         hover=f"background:{p['Highlight']}; color:{p['Text']}; border-color:{p['Accent']};"
         pressed=f"background:{p['Mid']};"

@@ -22,6 +22,7 @@ from sounds.model import PACKS, EVENTS
 RATE = 48000
 # tonic, voice, unique opening melody (semitones), beat spacing
 SCORES = {
+    'mortalkombat2': (50, 'outworld', [0, 7, 12, 3, 10, 7, 0], .30),
     'facadasexu': (55, 'copper', [0, 7, 3, 10, 7, 14, 12], .39),
     'prisonbreak': (60, 'breakout', [0, 3, 7, 12, 10, 15], .32),
     'mystery98': (57, 'clockwork', [0, 7, 3, 14, 10, 12], .41),
@@ -55,7 +56,14 @@ def voice(midi, duration, kind, seed=0):
     f = 440 * 2 ** ((midi - 69) / 12)
     phase = 2 * np.pi * f * t
     attack = .012
-    if kind == 'copper':
+    if kind == 'outworld':
+        # Original arcade gong and a short synth pulse, with no game samples.
+        out = np.sin(phase+.8*np.sin(phase*1.41)*np.exp(-9*t))*np.exp(-3.4*t)
+        out += .20*np.sin(phase*2.76)*np.exp(-7*t)
+        out += .11*np.sin(phase*5.40)*np.exp(-12*t)
+        out += .15*np.sin(phase*.5)*np.exp(-3*t)*(1-np.exp(-18*t))
+        attack = .022
+    elif kind == 'copper':
         # An original, quiet struck-metal and wood voice; no sampled rituals.
         out = np.sin(phase)*np.exp(-3.8*t)
         out += .19*np.sin(phase*2.013)*np.exp(-6.5*t)
@@ -163,7 +171,7 @@ def voice(midi, duration, kind, seed=0):
 
 def score(pack, event):
     tonic, kind, motif, beat = SCORES[pack]
-    minor = pack in ('facadasexu', 'leviathan', 'infernalencore', 'midnightrun', 'mycelium', 'blackwood', 'breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge')
+    minor = pack in ('mortalkombat2', 'facadasexu', 'leviathan', 'infernalencore', 'midnightrun', 'mycelium', 'blackwood', 'breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge')
     third = 3 if minor else 4
     # time, midi note, length, gain, stereo pan
     if event == 'startup':

@@ -362,6 +362,9 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     elif design=='facadasexu':
         from facadasexu import compositor
         content+=compositor(colors)
+    elif design=='mortalkombat2':
+        from mortalkombat2 import compositor
+        content+=compositor(colors)
     elif design=='midnightrun':
         from midnightrun import compositor
         content+=compositor(colors)

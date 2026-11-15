@@ -77,6 +77,31 @@ app choices live in `kde-rules.json`, and window-only choices in the session's
 On/Off settings are preserved for the other modes. Previews and saves carry their
 profile identity, so changing modes cannot apply a stale editor to another profile.
 
+**Snap layouts operate only in KDE workspaces.** Drag an ordinary floating app
+to a left/right edge for halves, or to a corner for quarters. The top edge
+reveals a compact diagram picker for halves, quarters and thirds. Stay over a
+target for at least 180 ms and release to place the window in the preview.
+Crossing a monitor boundary quickly does not snap. Escape cancels snapping;
+holding Ctrl before starting a drag bypasses the layout targets. Drag a snapped
+window away to recover its preceding size, with the grab anchored before native
+drag initialization. Manually resizing it ends that remembered snap state.
+
+The gear editor's **Snap layouts · all KDE workspaces** group has its own
+**Apply snap settings** button. Its `snap-settings.json` preference is kept by
+updates. Native plugin changes load at the next login. Other workspace modes,
+modal/transient dialogs, pinned/grouped windows and placement-owned shell
+windows are excluded. Target rectangles use each output's logical work area,
+reserved title-bar space and the app's minimum/maximum size. Layouts that cannot
+accommodate those constraints are not offered as a preview.
+
+The native adapter observes drag release and hooks drag initialization separately
+from Wobbly's existing hooks. It draws through normal rectangle render passes;
+there are no extra input windows or framebuffer captures. If its optional hooks
+cannot attach, they are rolled back and the existing title bars/controls remain
+available. `hyprctl xetal-windowclose` reports `snap_layouts_supported` and
+`snap_layouts_enabled`. Pre-snap size is held only for the lifetime of that window;
+the existing geometry-memory service still handles app relaunches.
+
 With the title bar disabled, Automatic mode uses the pinned compositor's Wayland decoration requests and
 nonblocking X11 GTK/Motif property replies. It reads protocol state without
 changing client decoration negotiation. These are frame-ownership hints, not a

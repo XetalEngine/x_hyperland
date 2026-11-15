@@ -29,8 +29,8 @@ void main(){
   fragColor=vec4(mix(warm,mix(ink,vec3(1.,.72,.25),.5),core)*a,a)*opacity;return;
  }
  vec2 p=(uv-.5)*dims;vec2 halfSize=dims*.5-vec2(8.);
- float radius=style==24?8.:style==21?10.:style==20?6.:style==19?14.:(style==18||style==23)?5.:style==17?7.:(style==16||style==22)?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
- if(part==1)radius=style==24?6.:style==21?8.:style==20?4.:style==19?11.:(style==18||style==23)?4.:style==17?6.:(style==16||style==22)?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
+ float radius=style==25?4.:style==24?8.:style==21?10.:style==20?6.:style==19?14.:(style==18||style==23)?5.:style==17?7.:(style==16||style==22)?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
+ if(part==1)radius=style==25?3.:style==24?6.:style==21?8.:style==20?4.:style==19?11.:(style==18||style==23)?4.:style==17?6.:(style==16||style==22)?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
  radius=min(radius,min(halfSize.x,halfSize.y));
  float distance=roundBox(p,halfSize,radius);
  if(style==2||style==3||style==8)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+(style==3?19.:style==8?14.:10.))*.7071);
@@ -44,7 +44,19 @@ void main(){
  float rim=.26;
  float jewel=0.;float jewelHalo=0.;float gildedSweep=0.;
  if(part==0){
-  if(style==24){
+  if(style==25){
+   // Outworld Arcade: two gold rails and jade portal lamps on the end caps.
+   vec3 gold=dot(base,vec3(.2126,.7152,.0722))>.5?vec3(.60,.44,.19):vec3(.894,.769,.455);
+   body=mix(base,ink,shine*.05);rim=.4;
+   float rail=exp(-abs(abs(p.y)-halfSize.y+5.)*2.)*step(abs(p.x),halfSize.x-24.);
+   body+=gold*rail*.8;
+   vec2 q=vec2(halfSize.x-abs(p.x)-12.,p.y);
+   float portal=length(q/vec2(6.,16.));
+   body+=gold*exp(-abs(portal-1.)*18.);
+   body=mix(body,tint,(1.-smoothstep(.5,.7,portal))*(.55+.15*sin(time*2.)));
+   float fittings=exp(-line(vec2(q.x,abs(q.y)),vec2(-5.,28.),vec2(5.,28.))*2.);
+   body+=gold*fittings*.7;decoration=0.;
+  }else if(style==24){
    // Candlelight Rail: copper hairlines and paired clusters of three lamps.
    vec3 copper=mix(tint,ink,.65);
    body=mix(base,ink,shine*.06);rim=.45;
@@ -386,7 +398,12 @@ void main(){
   body=mix(base,tint,.08+emphasis*.14)+ink*shine*.045;
   rim=.08+emphasis*.25;
   decoration=exp(-abs(p.y-halfSize.y+3.)*1.7)*(.25+.4*emphasis);
-  if(style==24){
+  if(style==25){
+   vec3 gold=dot(base,vec3(.2126,.7152,.0722))>.5?vec3(.60,.44,.19):vec3(.894,.769,.455);
+   body=mix(base,tint,.04+emphasis*.12);rim=.15;
+   body+=gold*(exp(-abs(distance+.6)*1.8)+.35*exp(-abs(distance+3.5)*2.))*(.5+emphasis*.5);
+   decoration=exp(-abs(p.y-halfSize.y+5.)*2.)*step(abs(p.x),halfSize.x-8.)*(.5+emphasis*.5);
+  }else if(style==24){
    vec3 copper=mix(tint,ink,.65);
    body=mix(base,tint,.04+emphasis*.10);rim=.4+emphasis*.4;
    body+=copper*exp(-abs(p.y+halfSize.y-4.)*2.)*step(abs(p.x),halfSize.x-8.)*.30;
@@ -495,6 +512,10 @@ void main(){
  }
  vec3 surface=body+ink*metal+tint*decoration;
  surface=mix(surface,mix(tint,ink,.3),border*rim);
+ if(style==25){
+  vec3 gold=dot(base,vec3(.2126,.7152,.0722))>.5?vec3(.60,.44,.19):vec3(.894,.769,.455);
+  surface=mix(surface,gold,border*(part==0?.9:.6+emphasis*.3));
+ }
  if(style==20)surface=mix(surface,mix(ink,vec3(.7804,.6078,.3804),.65),border*(part==0?.85:.4+emphasis*.5));
  if(style==16){
   float bevel=1.-smoothstep(1.2,2.5,-distance);

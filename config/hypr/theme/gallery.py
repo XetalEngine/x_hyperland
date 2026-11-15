@@ -12,7 +12,7 @@ import wallpaper_sets
 
 # Presentation only: selecting a banner still uses the normal component chooser.
 STORIES = {
-    'facadasexu': ('777\nFACADAS EXU', 'Candlelight in the dark.\nBlack. Oxblood. Ivory. Copper.', '777 facadas exu black red oxblood ivory copper candles trident altar'),
+    'mortalkombat2': ('MORTAL\nKOMBAT II', 'Choose your destiny.\nJade. Gold. Ice. Fire.', 'mortal kombat 2 ii mk2 arcade living forest scorpion sub zero shang tsung fatality fatalities dragon jade gold'), 'facadasexu': ('777\nFACADAS EXU', 'Candlelight in the dark.\nBlack. Oxblood. Ivory. Copper.', '777 facadas exu black red oxblood ivory copper candles trident altar'),
     'ghostbusters': ('GHOSTBUSTERS', 'A little slime.\nA lot of spirit.', 'ghostbusters ghost busters slimer geleia ecto slime green neon cartoon firehouse'),
     'leviathan': ('LEVIATHAN', 'Beyond the labyrinth.\nObsidian. Brass. Amethyst.', 'leviathan labyrinth puzzle cube gothic hellraiser cenobite pinhead obsidian brass gold violet purple storm'),
     'polaris': ('POLARIS', 'A familiar friend. A brighter horizon.\nMidnight. Cyan. Starlight.', 'polaris tux linux penguin navy cyan blue violet aurora north star orbit glass'),
@@ -36,7 +36,7 @@ STORIES = {
     'candycloud': ('Candy\nCloud', 'Softer worlds. Higher focus.\nPearl clouds and a little starlight.', 'pink purple pastel fantasy atmospheres'),
     'shadowedge': ('SHADOW\nEDGE', 'Move in silence.\nSmoked glass, silver and crimson rain.', 'ninja moon black silver red rain'),
 }
-FOCAL_TOP = {'modern': .05, 'shadowedge': .08}
+FOCAL_TOP = {'modern': .05, 'shadowedge': .08, 'mortalkombat2': .70}
 THUMBNAIL_FOCAL_TOP = {
     'audi-a4-sakura-stance.png': .95,
     'audi-a4-neon-profile.png': .95,
@@ -71,7 +71,7 @@ def shape(box, design):
         from shadowedge import cut_path
         return cut_path(box, 14)
     path = QPainterPath()
-    radius = {'facadasexu': 8, 'ghostbusters': 10, 'leviathan': 6, 'polaris': 12, 'prisonbreak': 5, 'infernalencore': 5, 'midnightrun': 7, 'mystery98': 1, 'platform95': 1, 'mycelium': 14, 'atomicafterglow': 5, 'blackwood': 5, 'midnighttransit': 7, 'hyperfusionblue': 9, 'candycloud': 26, 'porcelainink': 2, 'obsidianforge': 3, 'binaryknife': 3,
+    radius = {'mortalkombat2': 4, 'facadasexu': 8, 'ghostbusters': 10, 'leviathan': 6, 'polaris': 12, 'prisonbreak': 5, 'infernalencore': 5, 'midnightrun': 7, 'mystery98': 1, 'platform95': 1, 'mycelium': 14, 'atomicafterglow': 5, 'blackwood': 5, 'midnighttransit': 7, 'hyperfusionblue': 9, 'candycloud': 26, 'porcelainink': 2, 'obsidianforge': 3, 'binaryknife': 3,
               'breakpoint': 8, 'tidalglass': 20}.get(design, 16)
     path.addRoundedRect(box, radius, radius)
     return path
@@ -140,7 +140,7 @@ class WallpaperReveal(QPushButton):
         area = QRectF(self.rect()).adjusted(18, 12, -18, -10)
         p.save(); p.setOpacity(1-self.amount)
         title, story, _ = STORIES.get(self.card.design, (runtime.DESIGNS[self.card.design], runtime.designs.DESCRIPTIONS[self.card.design], ''))
-        serif = self.card.design in ('porcelainink','blackwood')
+        serif = self.card.design in ('porcelainink','blackwood','mortalkombat2')
         font = QFont('Noto Serif' if serif else 'Inter', 27 if area.width() >= 280 else 22,
                      QFont.Weight.DemiBold if self.card.design in ('candycloud', 'modern', 'breakpoint') else QFont.Weight.Light)
         if self.card.design not in ('candycloud', 'modern', 'porcelainink'):
@@ -206,7 +206,7 @@ class DesignCard(QPushButton):
     def paintEvent(self, event):
         p = QPainter(self); p.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform)
         colors = runtime.colors(self.mode, self.design); box = QRectF(self.rect()).adjusted(2, 2, -2, -2)
-        if self.design in ('shadowedge', 'candycloud', 'obsidianforge', 'porcelainink', 'tidalglass', 'hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','ghostbusters', 'facadasexu'):
+        if self.design in ('shadowedge', 'candycloud', 'obsidianforge', 'porcelainink', 'tidalglass', 'hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','ghostbusters', 'mortalkombat2', 'facadasexu'):
             importlib.import_module(self.design).paint_surface(p, box, colors, focused=self.isChecked())
         else:
             shade = QLinearGradient(box.topLeft(), box.bottomRight())
@@ -218,7 +218,7 @@ class DesignCard(QPushButton):
         scene = box.adjusted(12, 12, -12, -54)
         art = QRectF(scene.left(), scene.top(), self.wallpapers.x()-scene.left()+50, scene.height())
         if self.hero is None:
-            index = min(1, len(self.paths)-1) if self.design not in ('tidalglass','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','ghostbusters', 'facadasexu') else 0
+            index = min(1, len(self.paths)-1) if self.design not in ('tidalglass','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','ghostbusters', 'mortalkombat2', 'facadasexu') else 0
             self.hero = picture(self.paths[index], 1440) if self.paths else QPixmap()
         p.save(); p.setClipPath(shape(scene, self.design))
         p.fillRect(scene, QColor(colors['Base'])); cover(p, self.hero, art, FOCAL_TOP.get(self.design, .35))

@@ -59,6 +59,14 @@ class Engine {
         Compiz::modelAdjustObjectsForShiver(model,box.x,box.y,box.w,box.h);
         wake();
     }
+    void anchorPlacement() {
+        // A completed layout placement has a fixed destination. Ordinary
+        // releases still use the free-settling physics above.
+        if(grabbed)return;
+        Compiz::modelRemoveEdgeAnchors(model,box.x,box.y,box.w,box.h);
+        Compiz::modelSetTopAnchor(model,box.x,box.y,box.w);
+        wake();
+    }
     void geometry(Box next,bool max,float pointerX,float pointerY) {
         const bool resized=next.w!=box.w || next.h!=box.h;
         if(max!=maximized){

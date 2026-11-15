@@ -415,7 +415,7 @@ class ProgressWindow(QWidget):
             scene = {'modern': artwork.modern, 'breakpoint': artwork.breakpoint,
                      'binaryknife': artwork.binaryknife, 'tidalglass': artwork.tidalglass, 'porcelainink': artwork.porcelainink,
                      'obsidianforge': artwork.obsidianforge, 'candycloud': artwork.candycloud, 'shadowedge': artwork.shadowedge, 'hollowgrove': artwork.hollowgrove,
-                     'prisonbreak': artwork.prisonbreak, 'facadasexu': artwork.facadasexu, 'infernalencore': artwork.infernalencore, 'midnightrun': artwork.midnightrun, 'polaris': artwork.polaris, 'leviathan': artwork.leviathan, 'ghostbusters': artwork.ghostbusters, 'mystery98': artwork.mystery98, 'platform95': artwork.platform95, 'mycelium': artwork.mycelium, 'atomicafterglow': artwork.atomicafterglow, 'blackwood': artwork.blackwood, 'midnighttransit': artwork.midnighttransit, 'hyperfusionblue': artwork.hyperfusionblue, 'gildedhollow': artwork.gildedhollow}[self.design]
+                     'prisonbreak': artwork.prisonbreak, 'mortalkombat2': artwork.mortalkombat2, 'facadasexu': artwork.facadasexu, 'infernalencore': artwork.infernalencore, 'midnightrun': artwork.midnightrun, 'polaris': artwork.polaris, 'leviathan': artwork.leviathan, 'ghostbusters': artwork.ghostbusters, 'mystery98': artwork.mystery98, 'platform95': artwork.platform95, 'mycelium': artwork.mycelium, 'atomicafterglow': artwork.atomicafterglow, 'blackwood': artwork.blackwood, 'midnighttransit': artwork.midnighttransit, 'hyperfusionblue': artwork.hyperfusionblue, 'gildedhollow': artwork.gildedhollow}[self.design]
             scene(painter, box, accent, QColor(self.colors['AlternateBase']), self.phase,
                   self.options['animation']['density'], self.options['animation']['trails'],
                   self.appearance['glow'], archive and not extracting, extracting, self.job.result)
@@ -505,6 +505,9 @@ class ProgressWindow(QWidget):
             paint_surface(painter,QRectF(inset,inset,w-2*inset,h-2*inset),self.colors,radius,self.appearance['opacity'])
         elif self.design == 'facadasexu':
             from facadasexu import paint_surface
+            paint_surface(painter,QRectF(inset,inset,w-2*inset,h-2*inset),self.colors,radius,self.appearance['opacity'])
+        elif self.design == 'mortalkombat2':
+            from mortalkombat2 import paint_surface
             paint_surface(painter,QRectF(inset,inset,w-2*inset,h-2*inset),self.colors,radius,self.appearance['opacity'])
         if self.design == 'midnightrun':
             from midnightrun import paint_surface

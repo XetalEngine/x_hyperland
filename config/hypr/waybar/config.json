@@ -31,6 +31,7 @@
     "group/audio",
     "pulseaudio#microphone",
     "idle_inhibitor",
+    "custom/clipboard",
     "custom/notifications",
     "tray",
     "clock",
@@ -191,6 +192,11 @@
     },
     "tooltip-format-activated": "Keep-awake enabled \u00b7 Click to allow idle",
     "tooltip-format-deactivated": "Click to keep this session awake"
+  },
+  "custom/clipboard": {
+    "format": "\uf0ea",
+    "tooltip-format": "Clipboard history · Super+Shift+V",
+    "on-click": "$HOME/.config/hypr/scripts/clipboard-history.sh --from-bar"
   },
   "custom/notifications": {
     "exec": "swaync-client -swb",

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Clipboard history
+Comment=Search recent text and images, pin items, or pause history
+Exec=@HYPR@/scripts/clipboard-history.sh
+Icon=edit-paste
+Terminal=false
+Categories=Utility;
+Keywords=clipboard;copy;paste;history;
+StartupWMClass=fusion-clipboard

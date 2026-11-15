@@ -29,7 +29,7 @@ import monitor_preferences
 from switcher.scene import Scene, sample_clients, sample_pictures
 from switcher.previews import PreviewQueue
 
-EXCLUDED = {'xetal-switcher', 'xetal-launcher', 'hypr-display-id'}
+EXCLUDED = {'xetal-switcher', 'xetal-launcher', 'hypr-display-id', 'fusion-clipboard'}
 
 
 def windows(clients, active=''):

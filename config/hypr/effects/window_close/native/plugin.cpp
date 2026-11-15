@@ -7,6 +7,7 @@
 #include <hyprland/src/desktop/state/ViewState.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
+#include <hyprland/src/desktop/state/GlobalWindowController.hpp>
 #include <hyprland/src/desktop/state/FloatState.hpp>
 #include <hyprland/src/managers/input/InputManager.hpp>
 #include <hyprland/src/managers/KeybindManager.hpp>
@@ -44,6 +45,7 @@
 #include "policies.hpp"
 #include "background.hpp"
 #include "titlebar_paint.hpp"
+#include "snap_geometry.hpp"
 #include "../../../workspaces/native.hpp"
 #include "decorations.hpp"
 #include "../../../runtime/window_types_native.hpp"
@@ -434,16 +436,19 @@ void perform(PHLWINDOW w,Action action){
     Desktop::windowState()->raise(w);
 }
 #include "titlebar.hpp"
+#include "snapping.hpp"
 void tick(SP<CEventLoopTimer> self,void*) {
+    KDESnap::tick();
     refresh();
     const auto w=pending.lock();const auto action=pendingAction;pending.reset();pendingAction=None;
     if(w && w->m_isMapped && !w->isHidden() && available() && settled(w)&&controlsMode(w)!="off"&&
        !(action==Tile&&WorkspaceRules::floats(workspacePolicy(w)))){perform(w,action);refresh();}
-    if(held || captured || waiting || !rows.empty() || !previews.empty())self->updateTimeout(std::chrono::milliseconds(25));
+    if(held || captured || waiting || !rows.empty() || !previews.empty() || KDESnap::gesture.window.lock())self->updateTimeout(std::chrono::milliseconds(25));
 }
 void cleanup() {
     stopping=true;damage();listeners.clear();target.reset();pressed.reset();pending.reset();neverFloated.clear();decorations.clear();
     g_pHyprRenderer->glBackend()->makeEGLCurrent();
+    KDESnap::cleanup();
     cleanupTitlebars();
     if(timer){timer->cancel();g_pEventLoopManager->removeTimer(timer);timer.reset();}
     g_pHyprRenderer->m_renderPass.removeAllOfType("FusionWindowClose");
@@ -457,8 +462,12 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
     if(g_pHyprRenderer->type()!=Render::IHyprRenderer::RT_GL)throw std::runtime_error("Window close needs the OpenGL renderer");
     load();readAccent();
     try {
+        KDESnap::init();
         timer=makeShared<CEventLoopTimer>(std::nullopt,tick,nullptr);g_pEventLoopManager->addTimer(timer);
-        listeners.push_back(Event::bus()->m_events.input.keyboard.key.listen([](IKeyboard::SKeyEvent,Event::SCallbackInfo&){arm();}));
+        listeners.push_back(Event::bus()->m_events.input.keyboard.key.listen([](IKeyboard::SKeyEvent event,Event::SCallbackInfo&){
+            if(event.keycode==KEY_ESC&&event.state==WL_KEYBOARD_KEY_STATE_PRESSED){KDESnap::gesture.cancelled=true;KDESnap::damage();}
+            arm();
+        }));
         listeners.push_back(Event::bus()->m_events.input.mouse.move.listen([](Vector2D,Event::SCallbackInfo&){titlebarMotion();arm();}));
         listeners.push_back(Event::bus()->m_events.window.openLate.listen([](PHLWINDOW w){if(!w->m_isFloating)neverFloated.emplace_back(w);arm();}));
         listeners.push_back(Event::bus()->m_events.window.fullscreen.listen([](PHLWINDOW){arm();}));
@@ -468,13 +477,14 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             if(w->m_isFloating)std::erase_if(neverFloated,[&](const auto& weak){return !weak.lock()||weak.lock()==w;});
         }));
         listeners.push_back(Event::bus()->m_events.window.close.listen([](PHLWINDOW w){
+            KDESnap::saved.erase(w->m_stableID);if(KDESnap::gesture.window.lock()==w)KDESnap::clear();
             g_pHyprRenderer->glBackend()->makeEGLCurrent();backgrounds.erase(w->m_stableID);
             std::erase_if(neverFloated,[&](const auto& weak){return !weak.lock()||weak.lock()==w;});windowRules.erase(std::to_string(w->m_stableID));
             kdeWindowRules.erase(std::to_string(w->m_stableID));decorations.erase(w->m_stableID);
             // Closing either the edited window or its editor ends the preview.
             std::erase_if(previews,[&](const auto& p){return p.second.window.lock()==w||(w->m_class=="fusion-window-buttons"&&p.second.owner==w->getPID());});arm();
         }));
-        listeners.push_back(Event::bus()->m_events.monitor.layoutChanged.listen([](){arm();}));
+        listeners.push_back(Event::bus()->m_events.monitor.layoutChanged.listen([](){KDESnap::clear();arm();}));
         listeners.push_back(Event::bus()->m_events.workspace.active.listen([](PHLWORKSPACE){arm();}));
         listeners.push_back(Event::bus()->m_events.window.moveToWorkspace.listen([](PHLWINDOW,PHLWORKSPACE){arm();}));
         listeners.push_back(Event::bus()->m_events.workspace.specialActive.listen([](PHLWORKSPACE,PHLMONITOR){arm();}));
@@ -482,6 +492,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             // Recheck after the drag controller sees this press/release. This
             // also restores the button after a drag with Super still held.
             arm();
+            KDESnap::release(event);
             if(event.button!=BTN_LEFT)return;
             if(titlebarPointer(event,info))return;
             if(event.state==WL_POINTER_BUTTON_STATE_RELEASED && captured){
@@ -495,6 +506,12 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             }
         }));
         listeners.push_back(Event::bus()->m_events.render.stage.listen([](eRenderStage stage){
+            if(stage==RENDER_LAST_MOMENT&&!g_pHyprRenderer->m_bRenderingSnapshot){
+                auto m=g_pHyprRenderer->m_renderData.pMonitor.lock();
+                if(m&&KDESnap::gesture.monitor.lock()==m&&KDESnap::usable(KDESnap::gesture.window.lock())&&
+                   !KDESnap::gesture.cancelled&&(SnapGeometry::valid(KDESnap::gesture.preview)||SnapGeometry::valid(KDESnap::gesture.panel)))
+                    g_pHyprRenderer->addPassElement(makeUnique<KDESnap::Pass>(m));
+            }
             if(stage!=RENDER_POST_WINDOW || !available() || g_pHyprRenderer->m_bRenderingSnapshot)return;
             auto w=g_pHyprRenderer->m_renderData.currentWindow.lock();auto m=g_pHyprRenderer->m_renderData.pMonitor.lock();
             // Draw in the owning window's stack, so another window or panel
@@ -503,7 +520,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
                 for(const auto& row:rows)if(row.window.lock()==w)g_pHyprRenderer->addPassElement(makeUnique<ClosePass>(m,row));
         }));
         HyprlandAPI::addDispatcherV2(handle,"xetalwindowclose:reload",[](std::string){
-            try{load();readAccent();textures={};refresh();arm();return SDispatchResult{};}
+            try{load();KDESnap::load();readAccent();textures={};refresh();arm();return SDispatchResult{};}
             catch(const std::exception& error){return SDispatchResult{.success=false,.error=error.what()};}
         });
         HyprlandAPI::addDispatcherV2(handle,"xetalwindowclose:preview",[](std::string input){
@@ -553,7 +570,8 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             const auto& gear=buttons[Gear];
             return std::format("{{\"enabled\":{},\"held\":{},\"visible\":{},\"closed\":{},\"draws\":{},\"box\":[{},{},{},{}],\"color\":[{},{},{}],\"buttons\":[{}],\"minimized\":{},\"maximized\":{},\"restored\":{},\"floated\":{},\"gear\":[{},{},{},{}],\"gear_visible\":{},\"settings_opened\":{},\"tiled\":{}}}",
                 settings.enabled,held,available()&&settled(target.lock())&&!button.empty(),closed,draws,button.x,button.y,button.width,button.height,accent[0],accent[1],accent[2],items,minimized,maximized,restored,floated,
-                gear.x,gear.y,gear.w,gear.h,available()&&!gear.empty()&&settled(target.lock()),openedSettings,tiled);
+                gear.x,gear.y,gear.w,gear.h,available()&&!gear.empty()&&settled(target.lock()),openedSettings,tiled)
+                .insert(1,std::format("\"snap_layouts_supported\":{},\"snap_layouts_enabled\":{},",KDESnap::ready,KDESnap::enabled));
         }});
         windowStatus=HyprlandAPI::registerHyprCtlCommand(handle,{"xetal-windowbuttons",false,[](eHyprCtlOutputFormat,std::string input){
             std::istringstream stream(input);std::string command,id,extra;stream>>command>>id;
@@ -581,6 +599,6 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         }});
         arm();
     }catch(...){cleanup();throw;}
-    return {"Xetal Window Close","Theme-aware window controls and KDE title bars with live per-window previews","XetalEngine","1.8"};
+    return {"Xetal Window Close","Theme-aware controls, KDE title bars and snap layouts","XetalEngine","1.9"};
 }
 APICALL EXPORT void PLUGIN_EXIT(){cleanup();}

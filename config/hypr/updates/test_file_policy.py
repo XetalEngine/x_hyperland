@@ -88,6 +88,21 @@ class FilePolicyTests(unittest.TestCase):
         plan=self.prepare();engine.apply_plan(self.live,self.stage,plan,self.state)
         self.assertEqual((self.live/name).read_text(),personal)
 
+    def test_clipboard_state_is_private_and_snap_opt_out_survives(self):
+        self.write(self.live,'clipboard/state/pins.json','private pins',0o600)
+        self.write(self.live,'clipboard/state/preferences.json','{"paused":true}',0o600)
+        self.write(self.live,'effects/window_close/snap-settings.json','{"enabled":false}')
+        self.write(self.upstream,'effects/window_close/snap-settings.json','{"enabled":true}')
+        self.write(self.upstream,'clipboard/app.py','new clipboard code')
+        self.write(self.upstream,'clipboard/state/pins.json','must never ship')
+        plan=self.prepare()
+        self.assertNotIn('clipboard/state/pins.json',plan['changes'])
+        self.assertFalse((self.stage/'clipboard/state/pins.json').exists())
+        engine.apply_plan(self.live,self.stage,plan,self.state)
+        self.assertEqual((self.live/'clipboard/state/pins.json').read_text(),'private pins')
+        self.assertEqual((self.live/'clipboard/state/preferences.json').read_text(),'{"paused":true}')
+        self.assertEqual(engine.json_file(self.live/'effects/window_close/snap-settings.json'),{'enabled':False})
+
     def test_fresh_launcher_defaults_never_replace_existing_favorites_or_copies(self):
         favorites = 'launcher/favorites.json'
         original = '{"add":["old-default.desktop","kitty.desktop"],"hide":[]}'

@@ -16,7 +16,7 @@ window#waybar.bottom { border-bottom: none; border-top: 1px solid alpha(currentC
 .modules-left, .modules-center, .modules-right { padding: 3px 5px; }
 #custom-launcher, #custom-keys, #cpu, #memory, #custom-temperature, #disk,
 #custom-internet, #custom-wifi, #custom-lan, #custom-vpn, #bluetooth, #pulseaudio,
-#idle_inhibitor, #custom-notifications, #clock, #custom-power, #mpris {
+#idle_inhibitor, #custom-clipboard, #custom-notifications, #clock, #custom-power, #mpris {
     padding: 0 7px;
     margin: 1px 1px;
     border-radius: 4px;
@@ -37,7 +37,7 @@ window#waybar.bottom { border-bottom: none; border-top: 1px solid alpha(currentC
 #xetal-pins .pin.drop-before { border-left-color: #8dfbe0; background: #294953; }
 #xetal-pins .pin.drop-after { border-right-color: #8dfbe0; background: #294953; }
 #custom-launcher:hover, #custom-keys:hover, #clock:hover, #custom-power:hover,
-#custom-wifi:hover, #custom-lan:hover, #bluetooth:hover, #pulseaudio:hover, #custom-notifications:hover,
+#custom-wifi:hover, #custom-lan:hover, #bluetooth:hover, #pulseaudio:hover, #custom-clipboard:hover, #custom-notifications:hover,
 #cpu:hover, #memory:hover, #custom-temperature:hover, #disk:hover, #custom-vpn:hover,
 #mpris:hover, #custom-internet:hover, #idle_inhibitor:hover { background: #354651; color: #f3ffff; }
 #workspaces { margin: 0 5px; }

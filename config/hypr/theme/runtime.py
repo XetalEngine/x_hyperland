@@ -96,8 +96,8 @@ def colors(value=None,style=None):
 
 def ui_font(style=None):
     if (style or design()) == 'mycelium': return 'Noto Serif'
-    if (style or design()) in ('blackwood','mystery98'): return 'Noto Serif'
-    return 'Inter' if (style or design()) in ('breakpoint','binaryknife','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','midnightrun','infernalencore','prisonbreak','polaris','leviathan','ghostbusters', 'facadasexu') else 'Noto Sans'
+    if (style or design()) in ('blackwood','mystery98','mortalkombat2'): return 'Noto Serif'
+    return 'Inter' if (style or design()) in ('breakpoint','binaryknife','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','midnightrun','infernalencore','prisonbreak','polaris','leviathan','ghostbusters', 'mortalkombat2', 'facadasexu') else 'Noto Sans'
 
 
 def environment(base=None, value=None):

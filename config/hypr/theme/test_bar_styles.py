@@ -40,6 +40,8 @@ class BarStylesTests(unittest.TestCase):
                     self.assertIn('cffi/new-workspace',result['modules-'+zone])
                     left=result['modules-left'];keys=left.index('custom/keys')
                     self.assertEqual(left[keys+1:keys+3],['cffi/workspace-mode','custom/updates'])
+                    right=result['modules-right'];notifications=right.index('custom/notifications')
+                    self.assertEqual(right[notifications-1],'custom/clipboard')
                     for key,value in original.items():
                         if isinstance(value,dict):self.assertEqual(result[key],value)
 

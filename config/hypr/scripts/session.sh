@@ -137,6 +137,10 @@ children+=("$!")
 "$config_dir/scripts/app-switcher.sh" >"$(session_log switcher.log)" 2>&1 9>&- &
 children+=("$!")
 
+# Clipboard history is private to this login. Ordinary entries stay in memory.
+"$config_dir/scripts/clipboard-history.sh" --serve >"$(session_log clipboard-history.log)" 2>&1 9>&- &
+children+=("$!")
+
 # Plain left-drag near the top of floating windows; idle between click events.
 "$session_python" "$config_dir/scripts/floating-drag.py" >"$(session_log floating-drag.log)" 2>&1 9>&- &
 children+=("$!")

@@ -308,8 +308,26 @@ def candlelight_rail(p,width,colors,phase):
     p.restore()
 
 
+def outworld_arcade(p,width,colors,phase):
+    """Gold double rails, jade portal lamps and charcoal arcade slots."""
+    from mortalkombat2 import paint_surface
+    paint_surface(p,QRectF(8,8,width-16,80),colors,4,100)
+    p.save();gold=QColor(colors['Light']);accent=QColor(colors['Accent'])
+    p.setPen(QPen(gold,1))
+    for y in (13,83):line(p,32,y,width-32,y)
+    for x in (20,width-20):
+        p.setBrush(QColor(colors['Base']));p.setPen(QPen(gold,1.2));p.drawEllipse(QPointF(x,48),6,16)
+        p.setBrush(alpha(accent,.55+.15*math.sin(phase*2)));p.setPen(Qt.PenStyle.NoPen);p.drawEllipse(QPointF(x,48),3,12)
+        p.setPen(QPen(gold,1))
+        for y in (20,76):
+            line(p,x-5,y,x+5,y);line(p,x-5,y-3,x-5,y+3);line(p,x+5,y-3,x+5,y+3)
+    p.restore()
+
+
 def tray(painter, width, style, colors, phase):
     """Draw a horizontal tray in a width × 96 coordinate space."""
+    if style == 'mortalkombat2':
+        outworld_arcade(painter,width,colors,phase);return
     if style == 'facadasexu':
         candlelight_rail(painter,width,colors,phase);return
     if style == 'ghostbusters':
@@ -559,8 +577,13 @@ def dock(p, area, style, colors, *, phase=0., weights=(1., 1., 1.), zoom=(), ver
         p.save(); p.setOpacity(p.opacity()*max(0., min(1., weight)))
         if not stack:
             p.setPen(QPen(alpha(colors['Accent'], .12+(z-1)), .8)); p.setBrush(alpha(colors['Accent'], .035+(z-1)*.1))
-            radius = 6 if style == 'facadasexu' else 8 if style == 'ghostbusters' else 4 if style == 'leviathan' else 11 if style == 'polaris' else 4 if style in ('infernalencore','prisonbreak') else 1 if style in ('platform95','mystery98') else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style in ('midnighttransit','midnightrun') else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
+            radius = 3 if style == 'mortalkombat2' else 6 if style == 'facadasexu' else 8 if style == 'ghostbusters' else 4 if style == 'leviathan' else 11 if style == 'polaris' else 4 if style in ('infernalencore','prisonbreak') else 1 if style in ('platform95','mystery98') else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style in ('midnighttransit','midnightrun') else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
             p.drawRoundedRect(rect, radius, radius)
+        if style == 'mortalkombat2' and not stack:
+            p.setBrush(blend(colors['Window'],colors['Accent'],.04+(z-1)*.12))
+            p.setPen(QPen(alpha(colors['Light'],min(1,.5+(z-1)*.5)),1));p.drawRoundedRect(rect,3,3)
+            p.setPen(QPen(alpha(colors['Light'],.35),.8));p.drawRoundedRect(rect.adjusted(3,3,-3,-3),1,1)
+            p.setPen(QPen(alpha(colors['Accent'],min(1,.5+(z-1)*.5)),1.5));line(p,rect.left()+8,rect.bottom()-5,rect.right()-8,rect.bottom()-5)
         if style == 'facadasexu' and not stack:
             copper=blend(colors['Accent'],colors['WindowText'],.65)
             p.setBrush(blend(colors['Window'],colors['Accent'],.04+(z-1)*.10))
