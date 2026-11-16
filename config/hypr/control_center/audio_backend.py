@@ -5,6 +5,7 @@ from collections import defaultdict
 import json
 import os
 import subprocess
+import audio_gain
 
 KINDS={'playback':('sink-input','sink'), 'recording':('source-output','source')}
 NORMAL=65536
@@ -77,8 +78,19 @@ def snapshot():
     info=json.loads(pactl('-f','json','info'))
     devices={kind:listing(kind) for kind in ('sink','source')}
     streams={kind:groups(listing(stream),kind) for kind,(stream,_) in KINDS.items()}
-    return {'devices':devices,'apps':streams,
-            'defaults':{kind:info.get('default_'+kind+'_name','') for kind in devices}}
+    defaults={kind:info.get('default_'+kind+'_name','') for kind in devices}
+    microphone=next((d for d in devices['source'] if d['name']==defaults['source']),None)
+    return {'devices':devices,'apps':streams,'defaults':defaults,
+            'microphone_gain':audio_gain.inspect_source(microphone)}
+
+
+def apply_gain(device,control,value):
+    current=next((d for d in listing('source') if d['name']==device['name']
+                  and identity(d)==identity(device)),None)
+    if current is None:raise ValueError('That microphone disconnected. Refresh devices.')
+    if audio_gain.source_context(current)!=audio_gain.source_context(device):
+        raise ValueError('The microphone input changed. Refresh before adjusting gain.')
+    audio_gain.apply_gain(current,control,value)
 
 
 def scaled_channels(item,percent,reference):

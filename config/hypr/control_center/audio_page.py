@@ -130,6 +130,78 @@ class AppColumn(QFrame):
         fill_devices(self.route,devices,current,mixed=len(indices)>1)
 
 
+class MicrophoneGain(QWidget):
+    changed=pyqtSignal(object,object,int)
+    def __init__(self):
+        super().__init__();self.device=None;self.controls=[];self.control=None;self.token=None
+        layout=QVBoxLayout(self);layout.setContentsMargins(0,8,0,0);layout.setSpacing(6)
+        heading=QHBoxLayout();self.title=text('Mic boost / hardware gain');heading.addWidget(self.title);heading.addStretch()
+        self.minimum=QPushButton('Minimum');self.minimum.setToolTip('Set this hardware gain control to its lowest available level.')
+        self.minimum.clicked.connect(self.set_minimum);heading.addWidget(self.minimum);layout.addLayout(heading)
+        self.combo=DeviceCombo();self.combo.setAccessibleName('Microphone hardware gain control')
+        self.combo.activated.connect(self.select_control);layout.addWidget(self.combo)
+        self.fader=QWidget();row=QHBoxLayout(self.fader);row.setContentsMargins(0,0,0,0)
+        self.slider=VolumeControl(Qt.Orientation.Horizontal);self.slider.setPageStep(1)
+        self.slider.setAccessibleName('Microphone hardware gain')
+        self.level=text('');self.level.setMinimumWidth(70)
+        row.addWidget(self.slider,1);row.addWidget(self.level);layout.addWidget(self.fader)
+        self.help=text('Checking microphone hardware gain…','muted');self.help.setWordWrap(True);layout.addWidget(self.help)
+        self.slider.valueChanged.connect(self.show_level);self.slider.committed.connect(self.commit)
+        self.set_state({},None)
+
+    def cancel_pending(self):
+        self.slider.delay.stop();self.slider.blockSignals(True)
+        self.slider.setSliderDown(False);self.slider.blockSignals(False)
+
+    def set_state(self,state,device):
+        if not device or state.get('source')!=device['name']:
+            state={'controls':[],'message':'Connect a microphone, then press Refresh to check hardware gain.'}
+        controls=state.get('controls',[])
+        token=(backend.identity(device),backend.audio_gain.source_context(device)) if device else None
+        token=(token,[(backend.audio_gain.control_key(c),c['minimum'],c['maximum'],c['card_identity']) for c in controls])
+        changed=token!=self.token
+        if changed:self.cancel_pending()
+        self.token=token;self.device=copy.deepcopy(device);self.controls=copy.deepcopy(controls)
+        self.help.setText(state.get('message',''))
+        available=bool(controls)
+        self.combo.setVisible(len(controls)>1);self.fader.setVisible(available);self.minimum.setVisible(available)
+        self.setEnabled(available)
+        if not available:
+            self.control=None;self.title.setText('Mic boost / hardware gain');return
+        if not changed and (self.slider.isSliderDown() or self.slider.delay.isActive()):return
+        previous=backend.audio_gain.control_key(self.control) if self.control and not changed else None
+        self.combo.blockSignals(True);self.combo.clear()
+        for control in controls:
+            label=control['name']+(f" ({control['index']+1})" if control['index'] else '')
+            self.combo.addItem(label,backend.audio_gain.control_key(control))
+        selected=next((i for i,c in enumerate(controls) if backend.audio_gain.control_key(c)==previous),0)
+        self.combo.setCurrentIndex(selected);self.combo.blockSignals(False);self.select_control(selected)
+
+    def select_control(self,index):
+        self.cancel_pending()
+        if not 0<=index<len(self.controls):return
+        self.control=copy.deepcopy(self.controls[index]);control=self.control
+        steps=control['steps']
+        selected=min(range(len(steps)),key=lambda i:abs(steps[i][0]-control['value']))
+        self.slider.blockSignals(True);self.slider.setRange(0,len(steps)-1);self.slider.setValue(selected);self.slider.blockSignals(False)
+        title='Mic boost' if control['kind']=='boost' else 'Hardware capture gain'
+        self.title.setText(title);self.title.setToolTip(control['name']);self.slider.setAccessibleName(title+' — '+control['name'])
+        low=backend.audio_gain.gain_label(steps[0][1],steps[0][0]);high=backend.audio_gain.gain_label(steps[-1][1],steps[-1][0])
+        self.slider.setToolTip(f'{control["name"]}: {low} to {high}. Lower gain to reduce distortion. Channel offsets are kept where the hardware range permits.')
+        self.show_level(selected)
+
+    def show_level(self,index):
+        if self.control and 0<=index<len(self.control['steps']):
+            raw,db=self.control['steps'][index];self.level.setText(backend.audio_gain.gain_label(db,raw))
+
+    def commit(self,index):
+        if self.device and self.control and 0<=index<len(self.control['steps']):
+            self.changed.emit(copy.deepcopy(self.device),copy.deepcopy(self.control),self.control['steps'][index][0])
+
+    def set_minimum(self):
+        if self.control:self.slider.setValue(0);self.slider.commit()
+
+
 class AudioPage(QWidget):
     def __init__(self,async_run,listen=True):
         super().__init__();self.async_run=async_run;self.listen=listen
@@ -143,9 +215,11 @@ class AudioPage(QWidget):
         layout.addWidget(text('Set your devices, then mix each application below. Changes take effect immediately.','muted'))
         masters=QHBoxLayout();masters.setSpacing(14);self.devices={}
         for kind,title in [('sink','OUTPUT'),('source','MICROPHONE')]:
-            group=QGroupBox(title);inside=QVBoxLayout(group);inside.setSpacing(7)
+            group=QGroupBox(title);inside=QVBoxLayout(group);inside.setSpacing(7);inside.setAlignment(Qt.AlignmentFlag.AlignTop)
             combo=DeviceCombo();combo.setAccessibleName(title.title()+' device');inside.addWidget(combo)
+            inside.addWidget(text('Microphone volume' if kind=='source' else 'Output volume','muted'))
             row=QHBoxLayout();volume=VolumeControl(Qt.Orientation.Horizontal);percent=text('0%');percent.setMinimumWidth(40)
+            volume.setAccessibleName('Microphone volume' if kind=='source' else 'Output volume')
             row.addWidget(volume,1);row.addWidget(percent);inside.addLayout(row)
             mute=QCheckBox('Muted');inside.addWidget(mute);masters.addWidget(group,1)
             self.devices[kind]=(combo,volume,percent,mute)
@@ -154,6 +228,8 @@ class AudioPage(QWidget):
             mute.clicked.connect(lambda checked,k=kind:self.device_action(k,'mute',checked))
             combo.activated.connect(lambda _,k=kind:self.device_action(k,'default',None))
             combo.setToolTip('Use this device for current and new applications.')
+            if kind=='source':
+                self.mic_gain=MicrophoneGain();self.mic_gain.changed.connect(self.gain_action);inside.addWidget(self.mic_gain)
         layout.addLayout(masters)
         toolbar=QHBoxLayout();self.modes=QTabBar();self.modes.setExpanding(False)
         self.modes.addTab('Playback');self.modes.addTab('Recording');self.modes.currentChanged.connect(self.switch_mode)
@@ -183,6 +259,7 @@ class AudioPage(QWidget):
         if self.active and self.events.state()==QProcess.ProcessState.NotRunning:self.events.start('pactl',['subscribe'])
     def stop(self):
         self.active=False;self.poll.stop();self.refresh_delay.stop()
+        self.mic_gain.cancel_pending()
         if self.events.state()!=QProcess.ProcessState.NotRunning:
             self.events.terminate()
             if not self.events.waitForFinished(250):self.events.kill();self.events.waitForFinished(250)
@@ -228,8 +305,13 @@ class AudioPage(QWidget):
         name=self.devices[kind][0].currentData()
         device=next((d for d in self.data['devices'][kind] if d['name']==name),None)
         if device:
+            if kind=='source' and action=='default':self.mic_gain.cancel_pending()
             device=copy.deepcopy(device)
             self.submit((kind,name,action),lambda:backend.apply_device(kind,device,action,value))
+
+    def gain_action(self,device,control,value):
+        key=('source',device['name'],'hardware-gain',backend.audio_gain.control_key(control))
+        self.submit(key,lambda:backend.apply_gain(device,control,value))
 
     def switch_mode(self,index):
         self.mode='recording' if index else 'playback';self.render()
@@ -266,6 +348,7 @@ class AudioPage(QWidget):
             for widget in (volume,mute):widget.setEnabled(current is not None)
             if current:
                 volume.sync(backend.level([current]));percent.setText(f'{volume.value()}%');mute.setChecked(current.get('mute',False))
+            if kind=='source':self.mic_gain.set_state(self.data.get('microphone_gain',{}),current)
         groups=self.data['apps'][self.mode];keys={(self.mode,g['key']) for g in groups}
         for key in list(self.columns):
             if key not in keys:
