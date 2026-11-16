@@ -20,6 +20,7 @@ from PyQt6.QtCore import pyqtSignal, Qt, QTimer
 from PyQt6.QtGui import QFont
 
 from uiutil import guard_all
+from model import set_chardev_path
 
 MONO = "Monospace"
 
@@ -223,11 +224,7 @@ class PathsTab(QScrollArea):
         c = self._chardev(cid)
         if c is None:
             return
-        c["path"] = v
-        # _raw is what actually gets emitted, so it has to move with the field.
-        raw = c.get("_raw", "")
-        c["_raw"] = (re.sub(r"path=[^,]*", "path=" + v, raw) if "path=" in raw
-                     else raw + ",path=" + v)
+        set_chardev_path(c, v)
 
     def _simple_file_get(self, flag):
         v = self.cfg.simple.get(flag) or ""

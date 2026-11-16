@@ -705,6 +705,7 @@ class TpmTab(QScrollArea):
 
     def _apply_backend(self, emit=True):
         """Rewrite -tpmdev for the selected backend, keeping the device wired."""
+        from model import emit_chardev
         mode = "emulator" if self.rb_emulated.isChecked() else "passthrough"
         cur = self.cfg.simple.get("tpmdev", "")
         m = re.search(r"\bid=([^,]+)", cur)
@@ -720,6 +721,14 @@ class TpmTab(QScrollArea):
         chardev = self.cfg.data.get("tpm_chardev") or "chrtpm"
 
         if mode == "emulator":
+            # Also repair old physical-mode saves whose disabled socket was
+            # removed by compaction. Quick choices and Advanced use this path.
+            chars = self.cfg.data.setdefault('chardevs', [])
+            if not any(c.get('id') == chardev for c in chars):
+                socket = dict(_positional=['socket'], id=chardev,
+                              path=str(data_root() / 'run/swtpm.sock'))
+                socket['_raw'] = emit_chardev(socket)
+                chars.append(socket)
             self.cfg.simple["tpmdev"] = f"emulator,id={tid},chardev={chardev}"
         else:
             path = self.pt_path.text().strip() or self._default_tpm_path()
@@ -752,8 +761,12 @@ class TpmTab(QScrollArea):
             if c.get("id") == chardev:
                 if mode == "passthrough":
                     c["_disabled"] = True
+                    # This is a reversible selection, not a removed device.
+                    # checkpoint.save must retain its custom path and options.
+                    c["_inactive"] = True
                 else:
                     c.pop("_disabled", None)
+                    c.pop("_inactive", None)
 
         self.cfg.data["tpm_backend"] = mode
         self._sync_backend_ui(mode)

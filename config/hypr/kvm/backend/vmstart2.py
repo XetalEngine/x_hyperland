@@ -1184,7 +1184,11 @@ class VMStart2(QMainWindow):
         self._fill_features()
         self._fill_smbios()
         self._update_modified()
-        self.preview.setPlainText(self.cfg.to_script(self.chk_standalone.isChecked()))
+        try:
+            command = self.cfg.to_script(self.chk_standalone.isChecked())
+        except ValueError as error:
+            command = 'Command unavailable: ' + str(error)
+        self.preview.setPlainText(command)
         self._refresh_sections()
 
     def _fill_features(self):

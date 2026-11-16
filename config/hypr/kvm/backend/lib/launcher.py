@@ -21,6 +21,7 @@ from pathlib import Path
 
 import smbios
 import mac_memory
+from model import emit_chardev
 
 from portable import data_root
 APP_DIR = str(data_root())
@@ -49,6 +50,19 @@ def preflight(cfg, pinning):
     'warn' (proceed at your own risk) or 'ok'.
     """
     out = []
+
+    # Later checks consume argv too. Report malformed structured sockets here
+    # before command generation can raise or a launch hands off the host GPU.
+    chardevs = []
+    for char in cfg.data.get('chardevs', []):
+        if char.get('_disabled'):
+            continue
+        try:
+            chardevs.append((char, emit_chardev(char)))
+        except ValueError as error:
+            out.append(('error', str(error)))
+    if out:
+        return out
 
     for sev, msg in cfg.validate():
         out.append((sev, msg))
@@ -310,13 +324,7 @@ def preflight(cfg, pinning):
                                  f"unix socket limit is 107. Use a shorter path."))
 
     # --- every path QEMU opens at startup -----------------------------------
-    for c in cfg.data.get("chardevs", []):
-        # A disabled chardev is never emitted, so validating it reports a
-        # missing socket for something that is not on the command line. Under
-        # TPM passthrough the swtpm chardev is switched off exactly this way.
-        if c.get("_disabled"):
-            continue
-        raw = c.get("_raw", "")
+    for c, raw in chardevs:
         path = c.get("path")
         if not path or "socket" not in raw:
             continue
@@ -1254,7 +1262,7 @@ def build_script(cfg, pinning, standalone=True, reboot_after=True):
     # per launch, so a failure can be traced to the attempt that produced it.
     a('echo ""')
     a('echo "=============== VM STARTED $(date "+%d %m %y %H:%M") ==========================="')
-    a('log "config: $(hostname) | $(uname -r)"')
+    a('log "config: $(uname -n) | $(uname -r)"')
     a(f'export XETAL_KVM_DATA={shlex.quote(str(data_root()))}')
     a("")
     a("REVERTED=0")

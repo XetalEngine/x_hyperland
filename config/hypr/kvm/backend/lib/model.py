@@ -574,8 +574,8 @@ class VMConfig:
         Renumbering removes the reason to keep them. Survivors are kept by
         identity and in their existing relative order, so live dicts that
         widgets already hold stay valid, and the emitted command line does not
-        change. Retained inactive disks survive compaction and remain omitted
-        from the command line. Returns the number of entries dropped.
+        change. Retained inactive disks and TPM sockets survive compaction and
+        remain omitted from the command line. Returns the number of entries dropped.
         """
         remap, removed = {}, 0
         for flag, items in self._buckets().items():
@@ -667,7 +667,7 @@ class VMConfig:
             if flag in ("global", "acpitable"):
                 add(flag, item)
             elif flag == "chardev":
-                raw = item.get("_raw", "")
+                raw = emit_chardev(item)
                 if standalone and "fd=" in raw:
                     # fd 32 is inherited from libvirtd and cannot exist here.
                     raw = raw.replace("fd=32", "path=/tmp/vmstart2-monitor.sock")
@@ -690,7 +690,7 @@ class VMConfig:
                 if flag in ("global", "acpitable"):
                     add(flag, it)
                 elif flag == "chardev":
-                    add(flag, it.get("_raw", ""))
+                    add(flag, emit_chardev(it))
                 else:
                     add(flag, _emit(it))
 
@@ -733,6 +733,55 @@ class VMConfig:
                 i += 1
         out[-1] = out[-1].rstrip(" \\")
         return "\n".join(out)
+
+
+def _option_value(value):
+    """QEMU key/value options escape a literal comma by doubling it."""
+    text = ('on' if value else 'off') if isinstance(value, bool) else str(value)
+    if '\0' in text:
+        raise ValueError('chardev options cannot contain a NUL character')
+    return text.replace(',', ',,')
+
+
+def emit_chardev(item):
+    """Keep imported raw specs, or serialize a structured character device.
+
+    Unlike -device, -chardev needs its backend first in key/value notation.
+    Older saved TPM choices have structured fields but no raw command.
+    """
+    raw = item.get('_raw')
+    if raw is not None and not isinstance(raw, str):
+        raise ValueError('chardev raw command must be text')
+    if raw and raw.strip():
+        if '\0' in raw:
+            raise ValueError('chardev options cannot contain a NUL character')
+        return raw
+    positional = item.get('_positional', [])
+    if (not isinstance(positional, (list, tuple)) or len(positional) != 1
+            or not isinstance(positional[0], str) or not positional[0].strip()
+            or any(character in positional[0] for character in ',=\0')):
+        raise ValueError(f"chardev {item.get('id') or '(unnamed)'} needs a backend such as socket")
+    if not isinstance(item.get('id'), str) or not item['id'].strip():
+        raise ValueError('chardev needs a nonempty id')
+    parts = [positional[0]]
+    parts.extend(key if value is None else f'{key}={_option_value(value)}'
+                 for key, value in item.items() if not key.startswith('_'))
+    return ','.join(parts)
+
+
+def set_chardev_path(item, path):
+    """Update one path without dropping raw-only options or escaped commas."""
+    # Serialize before modifying the entry: an invalid spec must not leave a
+    # half-updated path. The sentinel cannot appear in a valid argv string.
+    raw = emit_chardev(item)
+    replacement = 'path=' + _option_value(path)
+    parts = raw.replace(',,', '\0').split(',')
+    found = any(part.startswith('path=') for part in parts)
+    parts = [replacement if part.startswith('path=') else part.replace('\0', ',,')
+             for part in parts]
+    if not found:
+        parts.append(replacement)
+    item.update(path=path, _raw=','.join(parts))
 
 
 def _emit(obj):

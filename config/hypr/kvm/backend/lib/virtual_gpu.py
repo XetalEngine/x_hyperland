@@ -24,7 +24,7 @@ import launcher
 import console_window
 import ovmf_display
 import smbios
-from model import VMConfig
+from model import VMConfig, set_chardev_path
 from portable import data_root
 
 UNIT = "vmstart2-vm"
@@ -340,8 +340,7 @@ def prepare(cfg, settings=None, workdir="/tmp/vmstart2-virtual-preview", token="
         tpm["sock"] = f"{workdir}/tpm.sock"
         for char in vm.data.get("chardevs", []):
             if char.get("path") == old and not char.get("_disabled"):
-                char["path"] = tpm["sock"]
-                char["_raw"] = f"socket,id={char['id']},path={tpm['sock']}"
+                set_chardev_path(char, tpm['sock'])
 
     # Appended chardevs/objects must precede their device consumers. Compact
     # also removes every disabled entry from recorded emission order.

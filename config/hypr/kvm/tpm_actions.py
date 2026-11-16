@@ -212,11 +212,8 @@ def activate(tab, choice):
     match=re.search(r'\bid=([^,]+)',current);tid=match.group(1) if match else 'tpm-tpm0'
     if not any(str(d.get('driver','')).startswith('tpm-') and not d.get('_disabled') for d in cfg.devices):
         cfg.devices.append(dict(driver='tpm-crb',id='tpm0',tpmdev=tid))
-    match=re.search(r'chardev=([^,]+)',current)
-    chardev=match.group(1) if match else cfg.data.get('tpm_chardev','chrtpm')
-    if not any(c.get('id')==chardev for c in cfg.data.get('chardevs',[])):
-        cfg.data.setdefault('chardevs',[]).append({'_positional':['socket'],'id':chardev,
-                                                 'path':str(portable.data_root()/'run/swtpm.sock')})
+    # _apply_backend owns the socket and its command for both quick choices
+    # and Advanced toggles, including restoration after an older saved profile.
     tab._loading_backend=True
     tab.pt_path.setText(choice.get('device','/dev/tpm0'));tab.pt_cancel.setText(choice.get('cancel','/dev/null'))
     (tab.rb_passthrough if choice['mode']=='passthrough' else tab.rb_emulated).setChecked(True)

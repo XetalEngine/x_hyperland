@@ -79,6 +79,16 @@ def test_virtual_plan_preserves_shared_preset_and_guest_identity(cfg):
     assert not any("original-qmp" in v or "fd=32" in v for v in plan["argv"])
 
 
+def test_tpm_socket_rewrite_keeps_raw_options_and_escapes_new_path(cfg):
+    char = next(c for c in cfg.data['chardevs'] if c.get('id') == 'tpmchar')
+    char['_raw'] += ',reconnect-ms=500'
+    original = copy.deepcopy(cfg.data)
+    plan = vg.prepare(cfg, workdir='/tmp/fixture,comma')
+    assert 'socket,id=tpmchar,path=/tmp/fixture,,comma/tpm.sock,reconnect-ms=500' in plan['argv']
+    assert plan['tpm']['sock'] == '/tmp/fixture,comma/tpm.sock'
+    assert cfg.data == original
+
+
 def test_existing_input_port_assignment_survives_controller_selection(cfg):
     cfg.devices.extend([{"driver": "qemu-xhci", "id": "usb"},
                         {"driver": "usb-kbd", "id": "keyboard", "bus": "usb.0", "port": "3"}])

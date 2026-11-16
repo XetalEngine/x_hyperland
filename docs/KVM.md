@@ -77,6 +77,15 @@ Pages with invalid settings pulse red and show their reasons. **TPM → Install 
 
 The TPM page opens with eight choices: copy the host's public identity, generate an identity, use the published build, use the physical TPM, or apply AMD, Intel, Infineon and STMicroelectronics presets. Each action prepares, verifies and saves the selection for the next VM start. Identity changes use a separate runtime and new guest state; **Undo last TPM change** restores the previous selection without deleting its keys. Encrypted guests may require recovery after changing TPMs. Advanced fields and diagnostics remain available behind **Advanced settings** and **Details**. Host identity copying never copies private hardware keys or writes to the host TPM; physical passthrough is a separate explicit choice.
 
+TPM commands support older saved socket entries without a raw command string;
+their backend, id and path are serialized when generating the preview or launch
+command. Physical mode omits the emulator socket but retains its configuration
+through save/reopen, so switching back preserves a custom socket path. Invalid
+structured entries block launch and replace the command preview with an error.
+Fixing command generation does not require resetting TPM state or guest keys.
+Run `python3 -m unittest test_tpm_commands test_private_tpm` from
+`config/hypr/kvm` for command-generation and private-state regression coverage.
+
 Custom identities require the recipient's local TPM builder, configured in Paths & Tools; unavailable choices explain the missing capability. The developer workstation uses its private builder. Builds run in the background into a new private prefix, restore the builder's identity inputs, and verify the properties actually reported by the resulting TPM before activation. Published binaries still ship without source trees, and the published TPM option needs no builder.
 
 TPM runtime helper scripts are seeded into `tpm-workspace/` without replacing existing edits or identity. Source-dependent rebuilds are optional: provide your own local source/build paths in the editor. The published runtime packages need no compilation. Setup installs the native compilers, autotools, development libraries, hardware utilities, TPM tools, OpenCore disk tools and remote viewer; it does not supply private custom source checkouts. No TPM state, libvirt encryption keys, guest system disks or private publisher keys are included. Matching Looking Glass guest components are still required.

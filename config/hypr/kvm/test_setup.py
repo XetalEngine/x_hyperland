@@ -23,16 +23,37 @@ class SetupTests(unittest.TestCase):
         portable.prepare()
         import app
         cls.kvm=app
+        # Other suites may have imported the backend before XETAL_KVM_DATA was
+        # set. Rebind every cached writable path, not just the environment.
+        import model,launcher,settings_defaults,theme
+        cls.paths=[]
+        root=Path(cls.temporary.name)
+        cached={
+            'APP_DIR':str(root), 'LAST_STATE':str(root/'last-session.json'),
+            'PRESET_DIR':str(root/'presets'), 'TEMPLATE':str(root/'presets/win10-template.json'),
+            'SMBIOS_DEFAULT':str(root/'presets/smbios-default.json'),
+            'DEFAULT_STATE':str(root/'settings_default.json'),
+            'DEFAULT_THEME':str(root/'settings_default.theme.json'),
+            'THEME_FILE':str(root/'theme.json'), 'RUN_DIR':str(root/'run'),
+            **{name:str(root/'run'/filename) for name,filename in app.vmstart2.profiles.RUNTIME_FILES.items()},
+        }
+        for module in (model,launcher,settings_defaults,theme,app.vmstart2):
+            for name,value in cached.items():
+                if hasattr(module,name):
+                    binding=patch.object(module,name,value);binding.start();cls.paths.append(binding)
         cls.application=app.QApplication.instance() or app.QApplication([])
         cls.application.setQuitOnLastWindowClosed(False)
         app.desktop_theme.install(cls.application,app.backend_theme.build_stylesheet('#65d5cb'))
 
     @classmethod
     def tearDownClass(cls):
+        for binding in reversed(cls.paths):binding.stop()
         cls.environment.stop();cls.temporary.cleanup()
 
     def setUp(self):
         import editions
+        self.assertTrue(Path(self.kvm.vmstart2.LAST_STATE).is_relative_to(Path(self.temporary.name)),
+                        'Bind cached profile paths before constructing a test window')
         for name, value in (('host_address','192.168.50.10'), ('username','alice')):
             discovery=patch('guest_connection.'+name, return_value=value)
             discovery.start();self.addCleanup(discovery.stop)
@@ -47,6 +68,8 @@ class SetupTests(unittest.TestCase):
             VMConfig(portable.configuration(profile)).save(path)
         self.kvm.vmstart2.profiles.remember(portable.data_root(),'windows')
         self.window=self.kvm.KVMSettings();self.window.show()
+        self.assertTrue(self.window._paths().session.is_relative_to(Path(self.temporary.name)),
+                        'GUI tests must never use a live saved profile')
         self.application.processEvents()
 
     def tearDown(self):
@@ -639,7 +662,11 @@ class SetupTests(unittest.TestCase):
 
     def test_tpm_selection_and_health_survive_close_and_new_window(self):
         import tpm_actions,tpm_setup
+        import shlex
         tab=self.window.tab_tpm
+        # Applying Published TPM must recreate a missing socket with a complete
+        # command, rather than saving Ready beside an empty -chardev argument.
+        self.window.cfg.data['chardevs']=[c for c in self.window.cfg.data['chardevs'] if c.get('id')!='chrtpm']
         state=portable.data_root()/'tpm-identities/saved-fixture/state';state.mkdir(parents=True,exist_ok=True)
         blob=state/'tpm2-00.permall';blob.write_bytes(b'saved guest keys');blob.chmod(0o600)
         choice={**tpm_actions.snapshot(tab),'binary':sys.executable,'state':str(state),
@@ -657,8 +684,32 @@ class SetupTests(unittest.TestCase):
                 self.assertEqual(reopened.cfg.data['tpm_choice'],'Saved fixture TPM')
                 self.assertFalse([c for c in reopened.tab_tpm.last_checks if c[0]=='FAIL'])
                 self.assertEqual(blob.read_bytes(),b'saved guest keys')
+                argv=shlex.split(reopened.preview.toPlainText())
+                chars=[argv[i+1] for i,arg in enumerate(argv[:-1]) if arg=='-chardev']
+                self.assertNotIn('',chars)
+                self.assertEqual(sum(c.startswith('socket,id=chrtpm,path=') for c in chars),1)
             finally:
                 reopened.hide();reopened.deleteLater()
+
+    def test_tpm_advanced_switch_save_reopen_refreshes_command_without_losing_socket(self):
+        import shlex
+        from tabs_tpm import TpmTab
+        w=self.window
+        socket=next(c for c in w.cfg.data['chardevs'] if c.get('id')=='chrtpm')
+        socket.pop('_raw',None)  # Older affected saved session.
+        original=socket['path']
+        with patch.object(TpmTab,'check_attestation'):
+            w.tab_tpm.rb_passthrough.click()
+            self.assertNotIn('socket,id=chrtpm,',w.preview.toPlainText())
+            self.assertIn('passthrough,id=tpm-tpm0',w.preview.toPlainText())
+            self.assertTrue(w.save_session(quiet=True))
+            w.cfg=w._read_profile(w.profile_id);w._rebuild_tabs()
+            self.assertTrue(w.tab_tpm.rb_passthrough.isChecked())
+            w.tab_tpm.rb_emulated.click()
+            argv=shlex.split(w.preview.toPlainText())
+            chars=[argv[i+1] for i,arg in enumerate(argv[:-1]) if arg=='-chardev']
+            self.assertEqual(sum(c=='socket,id=chrtpm,path='+original for c in chars),1)
+            self.assertIn('emulator,id=tpm-tpm0,chardev=chrtpm',argv)
 
     def test_component_check_pulses_paths_and_clears_after_updates(self):
         import health
