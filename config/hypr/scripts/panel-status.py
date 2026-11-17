@@ -15,6 +15,10 @@ def read(arguments):
 
 
 def status(kind):
+    if kind == 'network':
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'quick_panel'))
+        from network_status import snapshot, bar_status
+        return bar_status(snapshot(details=False))
     if kind == 'temperature':
         values=[]
         for sensor in Path('/sys/class/hwmon').glob('hwmon*'):

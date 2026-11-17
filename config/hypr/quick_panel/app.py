@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compact, session-owned clock and power dashboards anchored to the taskbar."""
+"""Compact, session-owned dashboards anchored to the taskbar."""
 from __future__ import annotations
 import argparse
 import fcntl
@@ -30,6 +30,7 @@ from activation import BarActivation
 from outside_click import CLICK_EVENT,check_pointer
 import wheel_guard
 import model
+import network_status
 from protocol import Request
 from placement import prepare
 
@@ -317,6 +318,102 @@ class PowerPage(QWidget):
         finally: self.owner.modal = False
 
 
+class NetworkPage(QWidget):
+    def __init__(self, owner):
+        super().__init__(); self.owner = owner; self.busy = False; self.changing = False; self.data = None; self.revision = 0
+        layout = QVBoxLayout(self); layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(9)
+        summary, box = card(); row = QHBoxLayout(); row.setSpacing(14)
+        self.symbol = label(network_status.OFFLINE, 'networkHero', True); self.symbol.setFixedWidth(48); row.addWidget(self.symbol)
+        info = QVBoxLayout(); info.setSpacing(4)
+        self.title = label('Checking connections…', 'networkTitle'); self.title.setWordWrap(True)
+        self.internet = label('Internet status', 'muted'); self.internet.setWordWrap(True)
+        info.addWidget(self.title); info.addWidget(self.internet); row.addLayout(info, 1); box.addLayout(row)
+        layout.addWidget(summary); self.details = {}; self.toggles = {}
+        for key, glyph, title, action in [('lan', network_status.LAN, 'Ethernet / LAN', 'Settings'),
+                ('wifi', network_status.WIFI, 'Wi-Fi', 'Networks'), ('vpn', '󰌾', 'VPN', 'Manage'),
+                ('bluetooth', '', 'Bluetooth', 'Devices')]:
+            frame, box = card(); row = QHBoxLayout(); row.setSpacing(10)
+            symbol = label(glyph, 'networkGlyph', True); symbol.setFixedWidth(28); row.addWidget(symbol)
+            info = QVBoxLayout(); info.setSpacing(4); info.addWidget(label(title, 'section'))
+            detail = label('Checking…', 'muted'); detail.setWordWrap(True)
+            detail.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+            self.details[key] = detail; info.addWidget(detail); row.addLayout(info, 1)
+            controls = QVBoxLayout(); controls.setSpacing(4)
+            if key in ('wifi', 'bluetooth'):
+                toggle = button('Off', 'Turn ' + title + ' on', lambda checked, k=key: self.toggle(k, checked))
+                toggle.setObjectName('radioToggle'); toggle.setCheckable(True); toggle.setEnabled(False)
+                self.toggles[key] = toggle; controls.addWidget(toggle)
+            manage = button(action + ' ›', 'Open ' + title + ' settings', lambda _, k=key: self.open_settings(k))
+            manage.setObjectName('networkManage'); controls.addWidget(manage)
+            row.addLayout(controls); box.addLayout(row); layout.addWidget(frame)
+        self.message = label('', 'muted'); self.message.setWordWrap(True); self.message.hide(); layout.addWidget(self.message)
+        footer = QHBoxLayout(); self.refresh_button = button('↻', 'Refresh connection status', self.refresh)
+        footer.addWidget(self.refresh_button); footer.addStretch()
+        footer.addWidget(button('Network settings ↗', 'Open full network settings', lambda: self.open_settings('network')))
+        layout.addLayout(footer); layout.addStretch()
+
+    def refresh(self):
+        if self.busy or self.changing: return
+        self.busy = True; self.refresh_button.setEnabled(False)
+        revision = self.revision
+        def received(data):
+            self.busy = False; self.refresh_button.setEnabled(True)
+            if revision != self.revision: self.refresh(); return
+            self.updated(data)
+        async_run(network_status.snapshot, received, self.failed)
+
+    def updated(self, data):
+        self.busy = False; self.refresh_button.setEnabled(True)
+        # A status read started before a click must not undo a pending toggle.
+        if self.changing: return
+        self.data = data; active = data['active']; self.symbol.setText(data['icon'])
+        self.title.setText(('Wi-Fi connected' if data['kind'] == 'wifi' else 'Ethernet connected') if active else 'Not connected')
+        self.internet.setText(data['internet'])
+        self.title.setToolTip((active['connection'] or active['name']) if active else '')
+        for key in ('lan', 'wifi'):
+            group = data[key]; connected = [d for d in group['devices'] if d['connected']]
+            if not data['available']: text = 'NetworkManager is unavailable'
+            elif not group['available']: text = 'No adapter detected'
+            elif key == 'wifi' and not group['hardware']: text = 'Blocked by the hardware switch'
+            elif key == 'wifi' and not group['enabled']: text = 'Wi-Fi is off'
+            elif connected: text = '\n'.join((d['connection'] or d['name']) + ' · Connected' for d in connected)
+            else: text = 'Not connected'
+            self.details[key].setText(text); self.details[key].setToolTip(text)
+        self.details['vpn'].setText('\n'.join(data['vpn']) if data['vpn'] else 'No active VPN' if data['available'] else 'VPN status unavailable')
+        bluetooth = data['bluetooth']
+        self.details['bluetooth'].setText('No controller available' if not bluetooth['available'] else 'Bluetooth is off' if not bluetooth['enabled']
+            else '\n'.join(bluetooth['devices']) if bluetooth['devices'] else 'On · No connected devices')
+        for key, toggle in self.toggles.items():
+            state = data[key]; enabled = state['enabled']
+            with QSignalBlocker(toggle): toggle.setChecked(enabled)
+            toggle.setText('On' if enabled else 'Off')
+            title = 'Wi-Fi' if key == 'wifi' else 'Bluetooth'
+            toggle.setToolTip('Turn ' + title + (' off' if enabled else ' on'))
+            toggle.setAccessibleName(toggle.toolTip())
+            toggle.setEnabled(state['available'] and (data['available'] and state['hardware'] if key == 'wifi' else True))
+
+    def failed(self, error):
+        self.busy = False; self.refresh_button.setEnabled(True)
+        self.message.setText(error); self.message.show()
+
+    def toggle(self, key, enabled):
+        if self.changing or not self.data: return
+        self.revision += 1; self.changing = True; self.message.setText('Updating radio…'); self.message.show()
+        for toggle in self.toggles.values(): toggle.setEnabled(False)
+        def finished(error=''):
+            self.changing = False; self.message.setText(error); self.message.setVisible(bool(error)); self.refresh()
+        async_run(lambda: network_status.set_radio(key, enabled), lambda _: finished(), finished)
+
+    def open_settings(self, key):
+        if key == 'vpn':
+            argv = ['python3', str(ROOT / 'theme/run.py'), 'nm-connection-editor']
+        else:
+            argv = [str(ROOT / 'scripts/control-center.sh'), '--tab', 'bluetooth' if key == 'bluetooth' else 'network']
+        try: subprocess.Popen(argv, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError as error: self.failed(str(error)); return
+        self.owner.hide()
+
+
 class Popup(QWidget):
     def __init__(self, kind='clock', preview=False):
         super().__init__(None, Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
@@ -329,9 +426,10 @@ class Popup(QWidget):
         close = button('×', 'Close popup', self.hide); close.setFixedSize(28, 28); header.addWidget(close); root.addWidget(grip)
         self.scroll = QScrollArea(); self.scroll.setWidgetResizable(True); self.scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff); root.addWidget(self.scroll, 1)
-        self.pages = {'clock': ClockPage(self.open_calendar), 'power': PowerPage(self)}
+        self.pages = {'clock': ClockPage(self.open_calendar), 'power': PowerPage(self), 'network': NetworkPage(self)}
         self.clock_timer = QTimer(self); self.clock_timer.setInterval(1000); self.clock_timer.timeout.connect(self.pages['clock'].tick)
         self.power_timer = QTimer(self); self.power_timer.setInterval(2000); self.power_timer.timeout.connect(self.pages['power'].refresh)
+        self.network_timer = QTimer(self); self.network_timer.setInterval(5000); self.network_timer.timeout.connect(self.pages['network'].refresh)
         self.change_kind(kind); self.refresh_style(); QApplication.instance().hypr_theme.changed.connect(self.refresh_style)
 
     def refresh_style(self):
@@ -348,10 +446,17 @@ class Popup(QWidget):
             QLabel#username {{color:{c['Accent']}; font-size:23px; font-weight:600;}}
             QLabel#accent, QLabel#weekday {{color:{c['Accent']};}}
             QLabel#battery, QLabel#art {{font-size:32px; color:{c['Accent']};}}
+            QLabel#networkHero, QLabel#networkGlyph {{font-family:"FiraCode Nerd Font"; font-size:24px; color:{c['Accent']};}}
+            QLabel#networkHero {{font-size:34px;}}
+            QLabel#networkTitle {{font-size:18px; font-weight:600;}}
             QPushButton {{background:{c['Button']}; border:1px solid transparent; border-radius:{max(3,radius-5)}px; padding:5px 7px; min-width:0; min-height:0;}}
             QPushButton:hover, QPushButton:focus {{background:{c['Highlight']}; border-color:{c['Accent']};}}
             QPushButton:disabled {{color:{c['Disabled']};}}
             QPushButton#powerAction {{font-size:20px; color:{c['Accent']}; padding:2px 8px;}}
+            QPushButton#radioToggle {{border:1px solid {c['Mid']}; border-radius:12px; min-width:58px;}}
+            QPushButton#radioToggle:checked {{background:{c['Highlight']}; color:{c['HighlightedText']}; border-color:{c['Accent']};}}
+            QPushButton#networkManage {{background:transparent; color:{c['Accent']}; font-size:11px;}}
+            QPushButton#networkManage:hover {{background:{c['Button']};}}
             QPushButton#day {{background:transparent; padding:2px;}}
             QPushButton#day[outside="true"] {{color:{c['Disabled']};}}
             QPushButton#day[today="true"] {{border-color:{c['Accent']};}}
@@ -377,7 +482,7 @@ class Popup(QWidget):
         previous = self.scroll.takeWidget()
         if previous: previous.hide(); previous.setParent(self)
         self.kind = kind; self.scroll.setWidget(self.pages[kind]); self.pages[kind].show()
-        self.caption.setText('LOCAL TIME' if kind == 'clock' else 'YOUR SESSION')
+        self.caption.setText({'clock': 'LOCAL TIME', 'power': 'YOUR SESSION', 'network': 'NETWORK & CONNECTIONS'}[kind])
 
     def present(self, request):
         kind = request.get('kind', 'clock')
@@ -409,7 +514,9 @@ class Popup(QWidget):
             self.activation = BarActivation(self); self.activation.start()
         self.clock_timer.start() if kind == 'clock' else self.clock_timer.stop()
         self.power_timer.start() if kind == 'power' else self.power_timer.stop()
+        self.network_timer.start() if kind == 'network' else self.network_timer.stop()
         if kind == 'power': self.pages['power'].refresh()
+        if kind == 'network': self.pages['network'].refresh()
 
     def dismissal_protected(self): return self.modal or QApplication.activeModalWidget() is not None
 
@@ -430,7 +537,7 @@ class Popup(QWidget):
             elif event.startswith(b'workspace>>'):self.hide()
 
     def hideEvent(self, event):
-        self.generation+=1;self.clock_timer.stop(); self.power_timer.stop(); super().hideEvent(event)
+        self.generation+=1;self.clock_timer.stop(); self.power_timer.stop(); self.network_timer.stop(); super().hideEvent(event)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape: self.hide()
@@ -441,14 +548,15 @@ class Popup(QWidget):
 
 
 def main():
-    parser = argparse.ArgumentParser(); parser.add_argument('--kind', choices=['clock', 'power'], default='clock')
+    parser = argparse.ArgumentParser(); parser.add_argument('--kind', choices=list(model.PANEL_SIZES), default='clock')
     parser.add_argument('--request', default='{}'); parser.add_argument('--preview'); parser.add_argument('--design', choices=list(runtime.DESIGNS))
     args = parser.parse_args()
     if args.design and args.preview: runtime.design = lambda: args.design
     app = QApplication(sys.argv[:1]); app.setApplicationName('fusion-quick-panel'); app.setDesktopFileName('fusion-quick-panel')
     app.setQuitOnLastWindowClosed(False); runtime.install(app); wheel_guard.install(app)
     request = json.loads(args.request); request['kind'] = args.kind
-    request.setdefault('width', 370 if args.kind == 'clock' else 420); request.setdefault('height', 440 if args.kind == 'clock' else 835)
+    width, height = model.PANEL_SIZES[args.kind]
+    request.setdefault('width', width); request.setdefault('height', height)
     server = QLocalServer(app)
     if not args.preview:
         signature = os.environ.get('HYPRLAND_INSTANCE_SIGNATURE'); directory = os.environ.get('XDG_RUNTIME_DIR')

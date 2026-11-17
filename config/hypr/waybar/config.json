@@ -23,11 +23,7 @@
     "memory",
     "custom/temperature",
     "disk",
-    "custom/internet",
-    "custom/lan",
-    "custom/wifi",
-    "custom/vpn",
-    "bluetooth",
+    "custom/network",
     "group/audio",
     "pulseaudio#microphone",
     "idle_inhibitor",
@@ -91,7 +87,7 @@
     "interval": 1,
     "format": "{player_icon} {dynamic} [{position}]",
     "format-paused": "{status_icon} {dynamic} [{position}]",
-    "tooltip-format": "{title}\n{artist}\n{player} ({status}) · {position}",
+    "tooltip-format": "{title}\n{artist}\n{player} ({status}) \u00b7 {position}",
     "player-icons": {
       "default": "\uf001",
       "firefox": "\uf269",
@@ -133,28 +129,6 @@
     "interval": 30,
     "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab system"
   },
-  "custom/internet": {
-    "exec": "$HOME/.config/hypr/scripts/panel-status.py internet",
-    "return-type": "json",
-    "interval": 10,
-    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab network"
-  },
-  "custom/vpn": {
-    "exec": "$HOME/.config/hypr/scripts/panel-status.py vpn",
-    "return-type": "json",
-    "interval": 10,
-    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab network"
-  },
-  "bluetooth": {
-    "format": "\uf294",
-    "format-disabled": "\udb80\udcb2",
-    "format-off": "\udb80\udcb2",
-    "format-no-controller": "\udb80\udcb2",
-    "format-connected": "\uf294 {num_connections}",
-    "tooltip-format": "Bluetooth: {status}\nClick for device manager",
-    "tooltip-format-connected": "{device_enumerate}",
-    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab bluetooth"
-  },
   "pulseaudio": {
     "format": "{icon} {volume}%",
     "format-muted": "\udb81\udf5f Muted",
@@ -195,7 +169,7 @@
   },
   "custom/clipboard": {
     "format": "\uf0ea",
-    "tooltip-format": "Clipboard history · Super+Shift+V",
+    "tooltip-format": "Clipboard history \u00b7 Super+Shift+V",
     "on-click": "$HOME/.config/hypr/scripts/clipboard-history.sh --from-bar"
   },
   "custom/notifications": {
@@ -258,12 +232,6 @@
     "max": 100,
     "orientation": "horizontal"
   },
-  "custom/wifi": {
-    "exec": "$HOME/.config/hypr/scripts/panel-status.py wifi",
-    "return-type": "json",
-    "interval": 5,
-    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab network"
-  },
   "cffi/new-workspace": {
     "module_path": "@HOME@/.config/hypr/waybar/workspaces/controls.so"
   },
@@ -272,12 +240,6 @@
     "return-type": "json",
     "interval": 5,
     "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab system"
-  },
-  "custom/lan": {
-    "exec": "$HOME/.config/hypr/scripts/panel-status.py lan",
-    "return-type": "json",
-    "interval": 5,
-    "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab network"
   },
   "custom/updates": {
     "exec": "python3 $HOME/.config/hypr/updates/service.py --status",
@@ -298,5 +260,12 @@
   "margin-top": 6,
   "margin-bottom": 0,
   "margin-left": 10,
-  "margin-right": 10
+  "margin-right": 10,
+  "custom/network": {
+    "exec": "$HOME/.config/hypr/scripts/panel-status.py network",
+    "return-type": "json",
+    "format": "{text}",
+    "interval": 5,
+    "on-click": "$HOME/.config/hypr/scripts/quick-panel.sh network"
+  }
 }

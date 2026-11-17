@@ -13,12 +13,16 @@ static void change(const char *id, gboolean show, gboolean reset_all) {
 static void state_tests(void) {
     GError *error = NULL; gboolean bottom;
     GHashTable *hidden = read_options(state, &bottom, &error);
-    g_assert_no_error(error); g_assert_cmpuint(g_hash_table_size(hidden), ==, 0); g_hash_table_unref(hidden);
-    change("cpu", FALSE, FALSE); change("custom/wifi", FALSE, FALSE);
+    g_assert_no_error(error); g_assert_cmpuint(g_hash_table_size(hidden), ==, 4);
+    g_assert_true(g_hash_table_contains(hidden, "cpu"));
+    g_assert_true(g_hash_table_contains(hidden, "memory"));
+    g_assert_true(g_hash_table_contains(hidden, "custom/temperature"));
+    g_assert_true(g_hash_table_contains(hidden, "disk")); g_hash_table_unref(hidden);
+    change("cpu", FALSE, FALSE); change("custom/network", FALSE, FALSE);
     change("future/module", FALSE, FALSE); change("cpu", TRUE, FALSE);
     hidden = read_options(state, &bottom, &error); g_assert_no_error(error);
     g_assert_false(g_hash_table_contains(hidden, "cpu"));
-    g_assert_true(g_hash_table_contains(hidden, "custom/wifi"));
+    g_assert_true(g_hash_table_contains(hidden, "custom/network"));
     g_assert_true(g_hash_table_contains(hidden, "future/module")); g_hash_table_unref(hidden);
     g_assert_false(bottom);
     Change edge = {.path = state, .edge = "bottom"};

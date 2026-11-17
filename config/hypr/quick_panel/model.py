@@ -49,13 +49,17 @@ def monitor_at(monitors, cursor):
     return next((m for m in enabled if m.get('focused')), enabled[0] if enabled else None)
 
 
+PANEL_SIZES = {'clock': (370, 440), 'power': (420, 835), 'network': (420, 500)}
+
+
 def placement(monitor, kind, edge='top'):
     w, h = monitor['width'], monitor['height']
     if monitor.get('transform', 0) % 2: w, h = h, w
     scale = monitor.get('scale', 1) or 1
     left, top, right, bottom = monitor.get('reserved', [0, 0, 0, 0])
-    width = max(1, min(420 if kind == 'power' else 370, w / scale - left - right - 24))
-    height = max(1, min(835 if kind == 'power' else 440, h / scale - top - bottom - 20))
+    preferred_width, preferred_height = PANEL_SIZES[kind]
+    width = max(1, min(preferred_width, w / scale - left - right - 24))
+    height = max(1, min(preferred_height, h / scale - top - bottom - 20))
     x = w / scale - right - width - 12
     y = top + 10 if edge == 'top' else h / scale - bottom - height - 10
     return {'monitor': monitor['id'], 'edge': edge, 'x': round(monitor['x'] + x), 'y': round(monitor['y'] + y),

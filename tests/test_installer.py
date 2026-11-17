@@ -393,7 +393,11 @@ assert m['fire_indicator']
         self.assertIn('cffi/bar-options',bar['modules-left'])
         self.assertEqual(bar['cffi/bar-options']['module_path'],str(self.target/'waybar/options/options.so'))
         self.assertEqual(bar['cffi/workspace-mode']['module_path'],str(self.target/'waybar/workspaces/mode.so'))
-        self.assertEqual(json.loads((self.stage/'waybar/options.json').read_text()),{'version':1,'hidden':[]})
+        self.assertEqual(json.loads((self.stage/'waybar/options.json').read_text()),
+                         {'version':1,'hidden':['cpu','memory','custom/temperature','disk']})
+        self.assertIn('custom/network',bar['modules-right'])
+        self.assertTrue(set(bar['modules-right']).isdisjoint({'custom/internet','custom/lan','custom/wifi','custom/vpn','bluetooth'}))
+        self.assertIn('quick-panel.sh network',bar['custom/network']['on-click'])
         self.assertTrue((self.stage/'waybar/options/build.sh').is_file())
 
     def test_update_registration_tracks_delivered_defaults_and_bar_entry(self):

@@ -60,7 +60,7 @@ def configure(config,style,variation=None):
             if module not in all_modules:all_modules.append(module)
     available=set(all_modules)
     apps=['cffi/bar-options','custom/launcher','hyprland/workspaces','cffi/new-workspace','custom/keys','cffi/workspace-mode','custom/updates','cffi/app-pins']
-    status=['custom/recording','cpu','memory','custom/temperature','temperature','disk','custom/internet','custom/lan','network#lan','custom/wifi',
+    status=['custom/recording','cpu','memory','custom/temperature','temperature','disk','custom/network','custom/internet','custom/lan','network#lan','custom/wifi',
             'custom/vpn','bluetooth','group/audio','pulseaudio#microphone','idle_inhibitor','custom/clipboard','custom/notifications','tray','clock','custom/power']
     layouts={
         'prisonbreak': (apps,['mpris'],status), 'mortalkombat2':(apps,['mpris'],status), 'facadasexu':(apps,['mpris'],status), 'infernalencore':(apps,['mpris'],status),

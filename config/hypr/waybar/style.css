@@ -16,7 +16,7 @@ window#waybar {
 window#waybar.bottom { border-bottom: none; border-top: 1px solid alpha(currentColor, 0.2); }
 .modules-left, .modules-center, .modules-right { padding: 3px 5px; }
 #custom-launcher, #custom-keys, #cpu, #memory, #custom-temperature, #disk,
-#custom-internet, #custom-wifi, #custom-lan, #custom-vpn, #bluetooth, #pulseaudio,
+#custom-network, #custom-internet, #custom-wifi, #custom-lan, #custom-vpn, #bluetooth, #pulseaudio,
 #idle_inhibitor, #custom-clipboard, #custom-notifications, #clock, #custom-power, #mpris {
     padding: 0 7px;
     margin: 1px 1px;
@@ -38,7 +38,7 @@ window#waybar.bottom { border-bottom: none; border-top: 1px solid alpha(currentC
 #xetal-pins .pin.drop-before { border-left-color: #a3bc99; background: #27382c; }
 #xetal-pins .pin.drop-after { border-right-color: #a3bc99; background: #27382c; }
 #custom-launcher:hover, #custom-keys:hover, #clock:hover, #custom-power:hover,
-#custom-wifi:hover, #custom-lan:hover, #bluetooth:hover, #pulseaudio:hover, #custom-clipboard:hover, #custom-notifications:hover,
+#custom-network:hover, #custom-wifi:hover, #custom-lan:hover, #bluetooth:hover, #pulseaudio:hover, #custom-clipboard:hover, #custom-notifications:hover,
 #cpu:hover, #memory:hover, #custom-temperature:hover, #disk:hover, #custom-vpn:hover,
 #mpris:hover, #custom-internet:hover, #idle_inhibitor:hover { background: #27382c; color: #a3bc99; }
 #workspaces { margin: 0 5px; }
@@ -156,3 +156,7 @@ window#waybar {background:linear-gradient(150deg,#27382c,alpha(#111915,0.98) 30%
 #workspaces button {border-radius:14px 3px 14px 3px;border:1px solid transparent;margin:0 2px;}
 #workspaces button.active {background:linear-gradient(155deg,#becdb3,#3c5942);border-color:#a3bc99;box-shadow:inset 0 1px alpha(#e8eae1,0.3);}
 #clock {font-family:serif;border-left:1px solid alpha(#a3bc99,0.3);letter-spacing:1px;}
+
+/* One connection indicator; details live in the network popup. */
+#custom-network { font-size: 17px; min-width: 22px; }
+#custom-network.offline { opacity: 0.65; }

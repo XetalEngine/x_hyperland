@@ -22,11 +22,7 @@ static const Item items[] = {
     {"memory", "RAM usage", "memory", NULL, "System"},
     {"custom/temperature", "Temperature", "custom-temperature", NULL, "System"},
     {"disk", "Disk usage", "disk", NULL, "System"},
-    {"custom/internet", "Internet status", "custom-internet", NULL, "Network"},
-    {"custom/lan", "Ethernet / LAN", "custom-lan", NULL, "Network"},
-    {"custom/wifi", "Wi-Fi", "custom-wifi", NULL, "Network"},
-    {"custom/vpn", "VPN", "custom-vpn", NULL, "Network"},
-    {"bluetooth", "Bluetooth", "bluetooth", NULL, "Network"},
+    {"custom/network", "Network & Bluetooth", "custom-network", NULL, "Network"},
     {"mpris", "Now playing", "mpris", NULL, "Sound & tools"},
     {"group/audio", "Volume & slider", "audio", NULL, "Sound & tools"},
     {"pulseaudio#microphone", "Microphone", "pulseaudio", "microphone", "Sound & tools"},
@@ -81,7 +77,11 @@ static GHashTable *read_options(const char *path, gboolean *bottom, GError **err
     char *data = NULL;
     GError *failure = NULL;
     if (!g_file_get_contents(path, &data, NULL, &failure)) {
-        if (g_error_matches(failure, G_FILE_ERROR, G_FILE_ERROR_NOENT)) { g_error_free(failure); return hidden; }
+        if (g_error_matches(failure, G_FILE_ERROR, G_FILE_ERROR_NOENT)) {
+            const char *defaults[] = {"cpu", "memory", "custom/temperature", "disk"};
+            for (guint i = 0; i < G_N_ELEMENTS(defaults); i++) g_hash_table_add(hidden, g_strdup(defaults[i]));
+            g_error_free(failure); return hidden;
+        }
         g_propagate_error(error, failure); g_hash_table_unref(hidden); return NULL;
     }
     JsonParser *parser = json_parser_new();

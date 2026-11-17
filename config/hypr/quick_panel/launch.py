@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
-    parser = argparse.ArgumentParser(); parser.add_argument('kind', choices=['clock', 'power']); args = parser.parse_args()
+    parser = argparse.ArgumentParser(); parser.add_argument('kind', choices=list(model.PANEL_SIZES)); args = parser.parse_args()
     request = {'kind': args.kind}
     try:
         query = lambda key: json.loads(subprocess.check_output(['hyprctl', '-j', key], text=True, timeout=1))
