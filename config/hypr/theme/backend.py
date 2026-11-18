@@ -296,6 +296,13 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     selection_marker=validate_marker(runtime.selection_marker() if selection_marker is None else selection_marker)
     if layout is not None and layout not in runtime.layouts.LAYOUTS:raise ValueError('Choose a supported navigation layout.')
     partial=components is not None
+    # Keep wallpaper ownership with its selection: full switches move both;
+    # color-only mixes retain the previous owner, including older profiles.
+    previous_wallpaper=previous.get('wallpaper_theme',runtime.design())
+    switch_wallpapers=(not partial and design!=runtime.design()) or (partial and 'wallpaper' in components)
+    wallpaper_design=previous_wallpaper
+    if switch_wallpapers:
+        wallpaper_design=bundle.get('wallpaper_theme',bundle['theme']['design']) if partial else design
     from launcher_labels import normalize as normalize_labels
     labels=normalize_labels(previous.get('launcher_labels',{}) if launcher_labels is None else launcher_labels,strict=True)
     visibility=runtime.launcher_background_visibility() if launcher_background_visibility is None else launcher_background_visibility
@@ -444,7 +451,7 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     bar=update_widget.attach(bar)
     files={runtime.ROOT/launcher_background:background_data} if background_data is not None else {}
     files.update(group_files)
-    files.update({runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,**({'layout':layout} if layout is not None else {}),**({'wallpaper_theme':bundle.get('wallpaper_theme',design)} if partial and 'wallpaper' in components else {}),'bar_style':bar_style,'bar_variant':bar_variant,'selection_marker':selection_marker,'launcher_style':launcher_style,'avatar':avatar,'launcher_wallpaper':launcher_wallpaper,'launcher_background':launcher_background,'launcher_surfaces':surfaces,'launcher_labels':labels,'launcher_background_visibility':visibility},indent=2)+'\n').encode(),
+    files.update({runtime.STATE:(json.dumps({**previous,'version':2,'mode':value,'design':design,**({'layout':layout} if layout is not None else {}),'wallpaper_theme':wallpaper_design,'bar_style':bar_style,'bar_variant':bar_variant,'selection_marker':selection_marker,'launcher_style':launcher_style,'avatar':avatar,'launcher_wallpaper':launcher_wallpaper,'launcher_background':launcher_background,'launcher_surfaces':surfaces,'launcher_labels':labels,'launcher_background_visibility':visibility},indent=2)+'\n').encode(),
            runtime.ROOT/'current.colors':scheme.encode(),runtime.ROOT/'kitty-colors.conf':kitty_colors(value,design).encode(),
            isolated:(stream.getvalue().rstrip()+'\n').encode(),
            ROOT/'waybar/style.css':bar.encode(),
@@ -477,12 +484,10 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
         if theme_token()!=expected: raise ValueError('The theme changed elsewhere. Reload before applying.')
         wallpaper_root=ROOT/'wallpaper'
         old_wallpapers={};new_wallpapers={};connected=set();changed_outputs=[]
-        if ((not partial and design!=runtime.design()) or (partial and 'wallpaper' in components)) and (wallpaper_root/'sets.json').exists():
+        if switch_wallpapers and (wallpaper_root/'sets.json').exists():
             monitors=settings.monitors()
             connected={monitor['name'] for monitor in wallpaper_sets.screens(monitors)}
             old_wallpapers=read_wallpapers(wallpaper_root)
-            previous_wallpaper=previous.get('wallpaper_theme',runtime.design())
-            wallpaper_design=bundle.get('wallpaper_theme',bundle['theme']['design']) if partial else design
             new_wallpapers,profiles=wallpaper_sets.switching(wallpaper_root,previous_wallpaper,wallpaper_design,old_wallpapers,monitors)
             if partial and bundle.get('wallpapers'):
                 from PIL import Image

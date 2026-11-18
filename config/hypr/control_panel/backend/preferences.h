@@ -92,12 +92,16 @@ void MainWindow::applyPreferenceValues(const QVariantMap &values, const QVariant
             QSignalBlocker blocker(combo);
             combo->setCurrentIndex(values.value("defaults/packages/searchMode").toInt());
         }
+        for (auto *combo : findChildren<QComboBox *>("aurField"))
+            combo->setCurrentIndex((values.value("defaults/packages/searchMode").toInt() + 1) % 3);
     }
     if (changed("defaults/packages/searchType")) {
         for (QComboBox *combo : {ui->pacmanAurSearchType, ui->yaySearchType, ui->paruSearchType}) {
             QSignalBlocker blocker(combo);
             combo->setCurrentIndex(values.value("defaults/packages/searchType").toInt());
         }
+        for (auto *combo : findChildren<QComboBox *>("aurMatch"))
+            combo->setCurrentIndex(1 - values.value("defaults/packages/searchType").toInt());
     }
     if (isoExclusionsUi) {
         if (changed("defaults/iso/folderMinimumMB")) isoExclusionsUi->isoFolderSizeSpin->setValue(values.value("defaults/iso/folderMinimumMB").toInt());
@@ -153,6 +157,8 @@ QMap<QString, QWidget *> MainWindow::preferenceTabWidgets() const {
             {"networkTab", ui->networkTab}, {"themeTab", ui->themeTab},
             {"pacmanDoctorTab", findChild<QWidget *>("pacmanDoctorTab")},
             {"debInstallTab", findChild<QWidget *>("debInstallTab")},
+            {"aurTab", findChild<QWidget *>("aurTab")},
+            {"softwareTab", findChild<QWidget *>("softwareTab")},
             {"firewallSubTab", findChild<QWidget *>("firewallSubTab")},
             {"networkSharesSubTab", findChild<QWidget *>("networkSharesSubTab")}};
 }
@@ -167,9 +173,14 @@ void MainWindow::applyTabVisibility() {
         QSignalBlocker blocker(ui->tabWidget);
         while (ui->tabWidget->count()) ui->tabWidget->removeTab(0);
         auto *networkSections = findChild<QTabWidget *>("networkSections");
+        auto *softwareSections = findChild<QTabWidget *>("softwareSections");
         for (const auto &tab : AppPreferences::tabs()) {
             // Firewall and Shared folders stay inside Network after changing preferences.
             auto *page = widgets.value(tab.id);
+            if (softwareSections && softwareSections->indexOf(page) >= 0) {
+                softwareSections->setTabVisible(softwareSections->indexOf(page), tabVisibilityMap.value(tab.id, true));
+                continue;
+            }
             if (networkSections && networkSections->indexOf(page) >= 0) {
                 networkSections->setTabVisible(networkSections->indexOf(page), tabVisibilityMap.value(tab.id, true));
                 continue;

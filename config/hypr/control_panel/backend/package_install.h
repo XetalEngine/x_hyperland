@@ -15,7 +15,7 @@ inline QString PackageInstall::script(const QString &installer, const QString &i
                                        const QString &packageName, bool skipReview) {
     QString command;
     if (installer == "pacman") {
-        command = "sudo pacman -Sy && sudo pacman -S -- " + shQuote(packageName);
+        command = "sudo pacman -Syu -- " + shQuote(packageName);
     } else {
         command = shQuote(installer) + " -S";
         if (skipReview && installer == "yay") {

@@ -45,6 +45,11 @@ prompts, dimensions and SHA-256 hashes are in
 [prompts.json](../wallpaper/mystery98/prompts.json). These form the default
 monitor set from physical left to right; saved personal choices take precedence.
 
+**Super+W** saves a separate wallpaper for each display, including a cached copy
+and the configuration read at the next login. Switching to another theme and
+back restores these choices. Applying only another theme's colors keeps the
+wallpaper choices associated with their existing wallpaper theme.
+
 ## Validation and activation
 
 The six theme, icon, cursor, transfer, minimize and sound suites ran 253 tests:

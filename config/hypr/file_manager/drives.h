@@ -1,5 +1,6 @@
 #pragma once
 #include <QtWidgets>
+#include <QFutureWatcher>
 #include "automount.h"
 
 struct Volume {
@@ -16,6 +17,18 @@ struct Volume {
     return driveDevice.isEmpty() ? device : driveDevice;
   }
   bool mounted() const { return !mount.isEmpty(); }
+  bool prefix() const { return type == "wine-prefix" || type == "steam-prefix"; }
+  bool optical() const { return type == "rom"; }
+  bool legacyMedia() const {
+    return QRegularExpression("\\b(zip|jaz|iomega|floppy)\\b", QRegularExpression::CaseInsensitiveOption).match(driveModel).hasMatch()
+        || driveKey().startsWith("/dev/fd");
+  }
+  bool removableMedia() const { return usb() || optical() || legacyMedia(); }
+  int mediaPriority() const { return optical() ? 0 : legacyMedia() ? 1 : usb() ? 2 : 3; }
+  QString symbol() const {
+    return prefix() ? "drive-wine" : optical() ? "drive-optical" : legacyMedia() ? "drive-removable-media"
+        : usb() ? "drive-removable-media-usb" : "drive-storage";
+  }
   bool usb() const {
     return removable || transport.compare("usb", Qt::CaseInsensitive) == 0;
   }
@@ -24,7 +37,7 @@ struct Volume {
            filesystem.compare("BitLocker", Qt::CaseInsensitive) == 0;
   }
   bool mountable() const {
-    return !filesystem.isEmpty() && filesystem != "swap" && !locked() &&
+    return !prefix() && !filesystem.isEmpty() && filesystem != "swap" && !locked() &&
            filesystem != "LVM2_member";
   }
   bool compactCard() const;
@@ -56,6 +69,8 @@ signals:
 
 private:
   QProcess scan, operation;
+  QFutureWatcher<QList<Volume>> prefixScan;
+  QList<Volume> prefixVolumes;
   QTimer timer, operationTimeout;
   AutoMountPolicy autoMountPolicy;
   QString openAfterMount;

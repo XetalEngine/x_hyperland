@@ -687,6 +687,8 @@ void FilesWindow::rebuildPlaces() {
             volume.usb() ? "drive-removable-media-usb" : "drive-harddisk",
             volume.mounted() ? QUrl::fromLocalFile(volume.mount) : QUrl());
     item->setData(0, VolumeRole, QVariant::fromValue(volume));
+    if (volume.prefix() || volume.optical() || volume.legacyMedia())
+      item->setIcon(0, Fusion::symbolicIcon(volume.symbol()));
     item->setToolTip(0, volume.device + "\n" +
                             (volume.mounted() ? volume.mount : "Not mounted"));
     if (!volume.mounted())
@@ -695,7 +697,7 @@ void FilesWindow::rebuildPlaces() {
       places->setCurrentItem(item);
   };
   for (const auto &volume : drives->volumes)
-    if (volume.mounted())
+    if (volume.mounted() && !volume.prefix())
       addVolume(pc, volume);
   quickRoot = add(nullptr, "Quick access", "bookmarks", {});
   quickRoot->setData(0, SectionRole, "quickAccess");
@@ -711,6 +713,17 @@ void FilesWindow::rebuildPlaces() {
   }
   add(nullptr, "Network", "network-workgroup", QUrl("remote:/"));
   add(nullptr, "Trash", "user-trash", QUrl("trash:/"));
+  for (const auto &kind : {QString("wine-prefix"), QString("steam-prefix")}) {
+    QTreeWidgetItem *prefixes = nullptr;
+    for (const auto &volume : drives->volumes) if (volume.type == kind) {
+      if (!prefixes) {
+        prefixes = add(nullptr, kind == "wine-prefix" ? "Wine & Proton" : "Steam prefixes", "drive-wine", {});
+        prefixes->setData(0, SectionRole, kind);
+        prefixes->setExpanded(preferences.settings.value("sidebar/" + kind, false).toBool());
+      }
+      addVolume(prefixes, volume);
+    }
+  }
   QTreeWidgetItem *unmounted = nullptr;
   for (const auto &volume : drives->volumes)
     if (!volume.mounted()) {
@@ -1225,8 +1238,7 @@ void FilesWindow::computerMenu(const QPoint &point) {
       Fusion::canPasteFiles(QApplication::clipboard()->mimeData()));
   for (const auto &volume : drives->volumes)
     if (volume.mounted() && !volume.readOnly)
-      paste->addAction(Fusion::menuIcon(volume.usb() ? "drive-removable-media-usb"
-                                                 : "drive-harddisk"),
+      paste->addAction(Fusion::menuIcon(volume.symbol()),
                        volume.name + " · " + volume.mount, this,
                        [this, volume] { volumeAction(volume, "paste"); });
   if (paste->isEmpty())

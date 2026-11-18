@@ -3,6 +3,9 @@
 #include "../control_panel/backend/volume_commands.h"
 #include "core.h"
 #include "drive_properties.h"
+#include "prefix_drives.h"
+#include <QtConcurrent>
+#include <KPropertiesDialog>
 #include <QStorageInfo>
 
 QList<Volume> Drives::parse(const QByteArray &data) {
@@ -25,7 +28,7 @@ QList<Volume> Drives::parse(const QByteArray &data) {
         QString device = item["path"].toString();
         if (device.isEmpty())
           device = "/dev/" + item["name"].toString();
-        if (type == "disk") {
+        if (type == "disk" || type == "rom") {
           disk = {device, item["model"].toString().trimmed(),
                   item["tran"].toString(),
                   item["size"].toVariant().toULongLong(),
@@ -132,6 +135,7 @@ Drives::Drives(QObject *parent, bool automatic, bool autoMount,
               volume.verifiedMount = !actual.isEmpty() && actual == expected;
             }
           }
+        volumes.append(prefixVolumes);
         updateAutoMounts();
         emit changed();
         if (refreshAgain && !busy()) {
@@ -149,6 +153,12 @@ Drives::Drives(QObject *parent, bool automatic, bool autoMount,
       });
   connect(&scan, &QProcess::errorOccurred, this, [this] {
     emit message("Cannot list drives: " + scan.errorString());
+  });
+  connect(&prefixScan, &QFutureWatcher<QList<Volume>>::finished, this, [this] {
+    prefixVolumes = prefixScan.result();
+    volumes.removeIf([](const Volume &volume) { return volume.prefix(); });
+    volumes.append(prefixVolumes);
+    emit changed();
   });
   connect(&operation, &QProcess::finished, this,
           [this](int code, QProcess::ExitStatus status) {
@@ -188,6 +198,10 @@ void Drives::refresh() {
   if (scan.state() != QProcess::NotRunning) {
     refreshAgain = true;
     return;
+  }
+  if (!prefixScan.isRunning()) {
+    const auto locations = PrefixDrives::Locations::environment();
+    prefixScan.setFuture(QtConcurrent::run([locations] { return PrefixDrives::discover(locations); }));
   }
   scan.start("lsblk", {"--json", "--bytes", "--output",
                        "PATH,NAME,TYPE,FSTYPE,LABEL,SIZE,MOUNTPOINTS,RO,RM,"
@@ -249,6 +263,10 @@ void Drives::operate(const Volume &snapshot, const QString &action,
     return;
   }
   const Volume volume = *found;
+  if (volume.prefix() && action != "open") {
+    emit message("Wine and Steam drives are folders. Open the drive to manage its files.");
+    return;
+  }
   if (action == "open" && volume.mounted()) {
     const auto location = mountedLocation(volume);
     if (!location.isEmpty())
@@ -298,6 +316,18 @@ void Drives::menu(const Volume &volume, const QPoint &position,
                   QWidget *parent) {
   QMenu menu(parent);
   menu.setObjectName("volumeContextMenu");
+  if (volume.prefix()) {
+    auto *open = menu.addAction(Fusion::menuIcon("document-open"), "Open C: drive");
+    emit populateFileMenu(&menu, volume);
+    menu.addSeparator();
+    auto *copy = menu.addAction(Fusion::menuIcon("edit-copy-path"), "Copy folder path");
+    auto *properties = menu.addAction(Fusion::menuIcon("document-properties"), "Properties…");
+    const auto *chosen = menu.exec(position);
+    if (chosen == open) operate(volume, "open", parent);
+    else if (chosen == copy) QApplication::clipboard()->setText(volume.mount);
+    else if (chosen == properties) showProperties(volume, parent);
+    return;
+  }
   auto *open = menu.addAction(Fusion::menuIcon("document-open"),
                               volume.mounted() ? "Open" : "Mount and open");
   open->setEnabled(volume.mounted() || volume.mountable());
@@ -348,6 +378,13 @@ QUrl Drives::mountedLocation(const Volume &snapshot) {
     emit message("Mount this volume before accessing its files.");
     return {};
   }
+  if (found->prefix()) {
+    const QFileInfo folder(found->mount);
+    if (folder.isDir() && folder.canonicalFilePath() == found->device) return QUrl::fromLocalFile(found->mount);
+    emit message("This prefix was moved or removed. Refresh and try again.");
+    refresh();
+    return {};
+  }
   QStorageInfo storage(found->mount);
   const auto actual =
       QFileInfo(QString::fromLocal8Bit(storage.device())).canonicalFilePath();
@@ -361,6 +398,13 @@ QUrl Drives::mountedLocation(const Volume &snapshot) {
   return QUrl::fromLocalFile(found->mount);
 }
 void Drives::showProperties(const Volume &volume, QWidget *parent) {
+  if (volume.prefix()) {
+    const auto location = mountedLocation(volume);
+    if (location.isEmpty()) return;
+    auto *dialog = new KPropertiesDialog(location, parent);
+    dialog->setAttribute(Qt::WA_DeleteOnClose); dialog->show();
+    return;
+  }
   auto *dialog = new DriveProperties(volume, this, parent);
   dialog->setAttribute(Qt::WA_DeleteOnClose);
   dialog->show();
@@ -380,6 +424,10 @@ bool Volume::compactCard() const {
                   "0xef", "ef", "0x82", "82"}.contains(role)) return true;
   if (filesystem == "swap") return true;
   const auto fat = QStringList{"vfat", "fat", "fat16", "fat32"}.contains(filesystem.toLower());
+  // Ventoy's dedicated boot partition uses this label even on MBR media.
+  // See https://www.ventoy.net/en/doc_disk_layout.html and /en/faq.html.
+  if (fat && (name.compare("VTOYEFI", Qt::CaseInsensitive) == 0 ||
+              partitionLabel.compare("VTOYEFI", Qt::CaseInsensitive) == 0)) return true;
   static const QRegularExpression bootLabel("(^|[ _-])(efi|esp|boot)([ _-]|$)", QRegularExpression::CaseInsensitiveOption);
   return fat && (bootLabel.match(name).hasMatch() || bootLabel.match(partitionLabel).hasMatch());
 }

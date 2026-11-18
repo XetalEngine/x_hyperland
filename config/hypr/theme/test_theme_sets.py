@@ -2,6 +2,7 @@
 import copy
 import json
 from pathlib import Path
+import subprocess
 import sys
 import unittest
 from unittest.mock import patch
@@ -125,6 +126,48 @@ class ThemeSetTests(unittest.TestCase):
         self.apply('binaryknife')
         self.assertEqual(json.loads((self.root/'wallpaper/selection.json').read_text()),selection)
         self.assertEqual(burn.load(self.root/'effects/burn/settings.conf')[0]['fire_color'],fire['fire_color'])
+
+    def test_mystery_wallpaper_survives_a_fresh_reader_and_full_theme_round_trip(self):
+        root=self.root/'wallpaper'
+        runtime.STATE.write_text(json.dumps({'design':'mystery98','mode':'dark','wallpaper_theme':'mystery98'}))
+        before=wallpaper_sets.bundled(root,'mystery98',self.monitors)
+        (root/'selection.json').write_bytes(wallpaper_sets.encode(before))
+        custom=self.root/'personal.png';Image.new('RGB',(23,17),'teal').save(custom)
+        with patch.object(backend,'WALLPAPER',root),patch.object(backend,'set_wallpaper'):
+            selection=backend.apply_wallpapers({'DP-1':{'path':str(custom),'fit':'contain'}},before)
+        custom.unlink()  # The saved cache must also survive removal of the source image.
+        script='''
+import json,sys
+from pathlib import Path
+import backend
+backend.WALLPAPER=Path(sys.argv[1])
+backend.settings.ctl=lambda *args: ''
+selection=backend.read_wallpapers()
+assert all(Path(item['path']).is_file() for item in selection.values())
+assert (backend.WALLPAPER/'hyprpaper.conf').read_text()==backend.wallpaper_config(selection)
+assert json.loads((backend.WALLPAPER/'profiles.json').read_text())['themes']['mystery98']==selection
+print(json.dumps(selection))
+'''
+        fresh=subprocess.run([sys.executable,'-c',script,str(root)],cwd=Path(__file__).parent,
+                             capture_output=True,text=True,timeout=10)
+        self.assertEqual(fresh.returncode,0,fresh.stderr)
+        self.assertEqual(json.loads(fresh.stdout),selection)
+        self.assertEqual(selection['DP-2'],before['DP-2']);self.assertEqual(selection['DP-3'],before['DP-3'])
+        self.apply('prisonbreak')
+        self.assertEqual(runtime.state()['wallpaper_theme'],'prisonbreak')
+        self.apply('mystery98')
+        self.assertEqual(runtime.state()['wallpaper_theme'],'mystery98')
+        self.assertEqual(json.loads((root/'selection.json').read_text()),selection)
+
+    def test_color_only_change_keeps_legacy_wallpaper_ownership(self):
+        # Older profiles have no explicit wallpaper_theme; pin the old design
+        # when changing only colors so the next Super+W save uses the right profile.
+        before={name:(self.root/'wallpaper'/name).read_bytes() for name in ('selection.json','hyprpaper.conf')}
+        target={'version':1,'theme':{'design':'mystery98','mode':'dark'},'wallpaper_theme':'mystery98'}
+        backend.apply_components(target,{'colors'},backend.theme_token())
+        self.assertEqual(runtime.design(),'mystery98')
+        self.assertEqual(runtime.state()['wallpaper_theme'],'breakpoint')
+        for name,data in before.items():self.assertEqual((self.root/'wallpaper'/name).read_bytes(),data)
 
     def test_failed_compositor_reload_restores_artwork_and_effect_files(self):
         self.store.save.side_effect=ValueError('compositor reload failed')

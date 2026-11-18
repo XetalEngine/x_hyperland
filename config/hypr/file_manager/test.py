@@ -41,6 +41,7 @@ if __name__ == '__main__':
         subprocess.run(['cmake', '--build', str(build), '--parallel', '4'], check=True, env=env)
         subprocess.run([str(build/'navigation-tests')], check=True, env=env)
         subprocess.run([str(build/'drive-shelf-tests')], check=True, env=env)
+        subprocess.run([str(build/'prefix-drive-tests')], check=True, env=env)
         subprocess.run([sys.executable, str(ROOT/'test_search_worker.py')], check=True, env=env)
         subprocess.run([sys.executable, str(ROOT/'test_execute.py')], check=True, env=env)
         subprocess.run([sys.executable, str(ROOT/'test_transfer_worker.py')], check=True, env=env)

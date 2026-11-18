@@ -1,5 +1,4 @@
 #include "deb_page.h"
-#include "aur_helpers.h"
 #include <QtWidgets>
 
 namespace {
@@ -95,7 +94,6 @@ public:
 } // namespace
 
 DebInstallerPage::DebInstallerPage(const QString &profileRoot, QPushButton *install,
-                                 QPushButton *installYay, QPushButton *installParu,
                                  QWidget *parent)
     : QWidget(parent), root(profileRoot), installButton(install) {
   setObjectName("debInstallTab");
@@ -108,58 +106,23 @@ DebInstallerPage::DebInstallerPage(const QString &profileRoot, QPushButton *inst
   auto *body = new QWidget(scroll);
   auto *layout = new QVBoxLayout(body);
   layout->setContentsMargins(4, 4, 12, 12);
-  layout->setSpacing(16);
+  layout->setSpacing(12);
   scroll->setWidget(body);
   outer->addWidget(scroll);
 
   auto *hero = new QFrame(body);
   hero->setObjectName("debHero");
   auto *intro = new QVBoxLayout(hero);
-  intro->setContentsMargins(22, 18, 22, 18);
+  intro->setContentsMargins(18, 14, 18, 14);
   intro->setSpacing(8);
   auto *heading = new QHBoxLayout;
-  heading->addWidget(label("DEBIAN PACKAGES  /  ARCH LINUX", "debEyebrow", hero), 1);
+  heading->addWidget(label("Install .deb apps", "debTitle", hero), 1);
   auto *badge = label("Experimental", "debExperimental", hero);
   badge->setWordWrap(false);
   heading->addWidget(badge);
   intro->addLayout(heading);
-  intro->addWidget(label("Bring your .deb apps to Arch", "debTitle", hero));
-  intro->addWidget(label("Choose a trusted .deb file. Hyper Fusion checks its dependencies, converts it, "
-                        "and installs it with pacman. Some apps need extra compatibility work.", "debDescription", hero));
+  intro->addWidget(label("Choose a .deb to install an app, or a newer version to update it.", "debDescription", hero));
   layout->addWidget(hero);
-
-  auto *helpers = new QFrame(body);
-  helpers->setObjectName("debHelpers");
-  auto *helpersLayout = new QVBoxLayout(helpers);
-  helpersLayout->setContentsMargins(16, 12, 16, 12);
-  helpersLayout->setSpacing(8);
-  helpersLayout->addWidget(label("AUR helpers · one is enough", "debSectionTitle", helpers));
-  auto *helperRow = new QHBoxLayout;
-  for (const auto &name : {QString("yay"), QString("paru")}) {
-    const QString title = name == "yay" ? "Yay" : "Paru";
-    auto *status = new QLabel(helpers);
-    status->setObjectName("deb" + title + "Status");
-    auto *button = new QPushButton("Install " + title, helpers);
-    button->setObjectName("deb" + title + "Install");
-    auto *existing = name == "yay" ? installYay : installParu;
-    connect(button, &QPushButton::clicked, existing, &QPushButton::click);
-    const auto refresh = [status, button, name, title] {
-      const bool installed = HyperPanel::aurHelperInstalled(name);
-      status->setText(title + (installed ? ": ✓ Installed" : ": Not installed"));
-      button->setVisible(!installed);
-    };
-    refresh();
-    auto *timer = new QTimer(helpers);
-    connect(timer, &QTimer::timeout, this, [this, refresh] { if (isVisible()) refresh(); });
-    timer->start(2000);
-    helperRow->addWidget(status);
-    helperRow->addWidget(button);
-    helperRow->addStretch();
-  }
-  helpersLayout->addLayout(helperRow);
-  helpersLayout->addWidget(label("Arch repositories are checked first. Yay or Paru handles supported AUR dependencies and Debtap. "
-                                "Review package changes in the terminal.", "debMuted", helpers));
-  layout->addWidget(helpers);
 
   packageRow = new QWidget(body);
   packageRow->setObjectName("selectedDebPackageRow");
@@ -200,8 +163,10 @@ DebInstallerPage::DebInstallerPage(const QString &profileRoot, QPushButton *inst
     install->setProperty("debCheckOnly", false);
   });
   layout->addLayout(actions);
-  layout->addWidget(label("Updating an app? Download its newer .deb and use the same button. Updates are not downloaded automatically.", "debMuted", body));
-  layout->addWidget(label("Unresolved dependencies stop installation and are explained in the terminal.", "debMuted", body));
+  auto *hint = label("Review installation in the terminal. Updates use a newer .deb you download.", "debMuted", body);
+  hint->setToolTip("Dependencies are checked before conversion and installation with pacman. "
+                   "Missing dependencies stop installation; some apps need extra compatibility work.");
+  layout->addWidget(hint);
 
   QFile source(root + "/control_panel/deb_apps.json");
   const bool loaded = source.open(QIODevice::ReadOnly);
@@ -213,9 +178,10 @@ DebInstallerPage::DebInstallerPage(const QString &profileRoot, QPushButton *inst
   count->setWordWrap(false);
   catalogTitle->addWidget(count);
   layout->addLayout(catalogTitle);
-  layout->addWidget(label("Test results are snapshots, not a promise for every version. Untested means we have no result yet. "
-                          "Launch tested covers automated installation, startup and removal; app features are not checked. "
-                          "Select an icon to visit the app’s official download page.", "debMuted", body));
+  auto *catalogHint = label("Choose an app for its official download. Results apply to the versions tested.", "debMuted", body);
+  catalogHint->setToolTip("Tested working: a reported result. Launch tested: automated install, startup and removal; "
+                          "app features are not checked. Untested: no result yet.");
+  layout->addWidget(catalogHint);
   appGrid = new QWidget(body);
   appGrid->setObjectName("debAppGrid");
   appGrid->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
@@ -267,23 +233,6 @@ DebInstallerPage::DebInstallerPage(const QString &profileRoot, QPushButton *inst
   feedbackRow->addWidget(report);
   layout->addWidget(feedbackBox);
   layout->addStretch();
-}
-
-void DebInstallerPage::showEvent(QShowEvent *event) {
-  QWidget::showEvent(event);
-  // Defer until the selected page is visible; preloading must never show a dialog.
-  QTimer::singleShot(0, this, [this] {
-    if (!isVisible() || helperWarning || HyperPanel::aurHelperInstalled("yay") ||
-        HyperPanel::aurHelperInstalled("paru")) return;
-    auto *message = new QMessageBox(QMessageBox::Warning, "AUR helper required",
-        "The .deb installer does not work properly without Yay or Paru.\n\n"
-        "Install either helper using the buttons on this page, then try again.",
-        QMessageBox::Ok, this);
-    message->setObjectName("debMissingHelperWarning");
-    message->setAttribute(Qt::WA_DeleteOnClose);
-    helperWarning = message;
-    message->open();
-  });
 }
 
 bool DebInstallerPage::eventFilter(QObject *watched, QEvent *event) {

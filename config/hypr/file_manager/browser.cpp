@@ -826,10 +826,13 @@ void Browser::updateStatus() {
   if (Fusion::isComputer(location())) {
     const int mounted =
         std::count_if(drives->volumes.cbegin(), drives->volumes.cend(),
-                      [](const Volume &v) { return v.mounted(); });
+                      [](const Volume &v) { return v.mounted() && !v.prefix(); });
+    const int prefixes = std::count_if(drives->volumes.cbegin(), drives->volumes.cend(),
+                      [](const Volume &v) { return v.prefix(); });
     emit statusChanged(QString("%1 mounted · %2 unmounted")
                            .arg(mounted)
-                           .arg(drives->volumes.size() - mounted));
+                           .arg(drives->volumes.size() - mounted - prefixes)
+                       + (prefixes ? QString(" · %1 prefixes").arg(prefixes) : QString()));
     return;
   }
   updateFolderMessage();

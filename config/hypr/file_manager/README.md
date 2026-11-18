@@ -17,18 +17,47 @@ Pickers use a separate folder-view scope per application and operation.
 
 The compact toolbar contains the address and folder filter; the slim tab strip
 puts preview and new-tab buttons side by side. This PC keeps physical disks and
-their partitions grouped in a responsive shelf with neutral cards, symbolic
-icons, thin capacity bars and quieter disk headings. Its shelf/list choice and
-each disk's system-partition disclosure are remembered. Mount appears on
-eligible unmounted cards on hover or keyboard focus. The navigation
+their partitions grouped in compact cards with symbolic icons and thin capacity
+bars. The card view uses fixed 380 × 120 tiles, including prefixes and standalone
+swap devices such as zram0. Window resizing changes the number of columns, not
+the tile sizes. Each data volume gets its own tile, stacked with the other
+volumes of the same physical disk. Boot, reserved, recovery and swap partitions appear as small icons inside
+the disk card; hover for their details, double-click/Enter to open, or right-click
+for the existing drive actions. A device with only helper partitions promotes
+its first partition to a full tile. The three view buttons offer Original layout
+(separate disk headings, larger cards, expandable system partitions), fixed-size
+cards, and Storage list. The choice is remembered in `computer/viewMode`, with
+existing `computer/listView` preferences used as the initial fallback. Mount
+replaces the status badge on eligible cards during hover or keyboard focus,
+without changing the row's size. The navigation
 tree's styling and controls are unchanged. Spacing overrides are scoped to
 these widgets, after the shared theme styles.
 
 `navigation-tests` exercises all five views with the real directory model and
 controlled asynchronous listing signals, without desktop D-Bus services.
-`drive-shelf-tests` covers reflow, partition disclosure, keyboard and Mount
+`drive-shelf-tests` covers reflow, partition icons, keyboard and Mount
 signals, preference restoration, focus retention and hotplug changes without
 mounting real drives.
+
+The fixed-size card view places mounted disks on the left, stacked below the system disk, and
+connected removable devices alongside them on the right. Narrow windows and
+list view stack the sections. Prefixes follow the active storage; unmounted
+devices always form the final grid. CD/DVD and ZIP/Jaz/floppy media precede USB
+storage; custom Wine/Proton prefixes precede Steam prefixes. Partitions remain
+inside their physical disk's card, with the root volume first, then other mounted
+volumes. Ventoy's FAT `VTOYEFI` boot partition also uses the compact icon treatment.
+
+Prefix discovery reads Control Panel → Proton's `XetalProton/config.json`, its
+registered prefixes, shortcut/default paths and prefix root. It also finds the
+default Wine prefix, `WINEPREFIX`, and native/Flatpak Steam libraries (including
+external libraries in `libraryfolders.vdf`). `XETALPROTON_HOME` and XDG locations
+are respected. Existing `drive_c` directories appear once as named C: drives;
+Steam names come from installed game manifests, falling back to the app ID.
+Discovery runs in a worker and refreshes with the storage inventory. No prefix
+is created, mounted, or launched. Prefix menus browse folders, and never offer
+physical-disk mount/eject controls. Collapsible sidebar groups provide shortcuts.
+`prefix-drive-tests` uses disposable registries and Steam libraries to check
+discovery, deduplication, moved/deleted prefixes and the folder-only actions.
 
 ## Local applications and installers
 
@@ -139,8 +168,8 @@ desktop's right-click menu.
 
 The address is always a textbox, including with old breadcrumb preferences.
 Ctrl+L and Alt+D select it; Escape restores the address without hiding it.
-This PC keeps data volumes visible and folds boot and helper partitions under
-**System partitions**, identified from their role or mount point. Its shelf/list
+This PC keeps data volumes visible and shows boot and helper partitions as
+small icons inside their disk card, identified from their role or mount point. Its shelf/list
 controls are independent of ordinary folders' view modes.
 
 Every Fusion Files window keeps the left navigation tree visible: This PC,

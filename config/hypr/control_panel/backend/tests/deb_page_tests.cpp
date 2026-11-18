@@ -1,4 +1,5 @@
 #include "deb_page.h"
+#include "deb_prerequisites.h"
 #include <QtTest>
 #include <QtWidgets>
 
@@ -50,54 +51,54 @@ private slots:
   void cleanupTestCase() { QDesktopServices::unsetUrlHandler("https"); }
 
   void installAndCheckKeepOriginalActions() {
-    QPushButton yay, paru;
     auto *install = new QPushButton;
-    DebInstallerPage page(root, install, &yay, &paru);
+    DebInstallerPage page(root, install);
     QList<bool> calls;
     connect(install, &QPushButton::clicked, this, [&] { calls.append(install->property("debCheckOnly").toBool()); });
     install->click();
     button(page, "checkDebButton")->click();
     install->click();
     QCOMPARE(calls, QList<bool>({false, true, false}));
-    QSignalSpy yayClicks(&yay, &QPushButton::clicked), paruClicks(&paru, &QPushButton::clicked);
-    button(page, "debYayInstall")->click();
-    button(page, "debParuInstall")->click();
-    QCOMPARE(yayClicks.count(), 1);
-    QCOMPARE(paruClicks.count(), 1);
     QVERIFY(opened.isEmpty());
   }
 
-  void missingHelperWarningRepeatsOnEntryAndEitherHelperSatisfiesIt() {
+  void prerequisitesAreRequestedOnlyForInstallation() {
     struct RestorePath { QByteArray value = qgetenv("PATH"); ~RestorePath() { qputenv("PATH",value); } } restore;
     QTemporaryDir directory; QVERIFY(directory.isValid());
     qputenv("PATH",directory.path().toUtf8());
-    QPushButton yay, paru;
-    DebInstallerPage page(root,new QPushButton,&yay,&paru);
-    const auto warning = [&] { return page.findChild<QMessageBox *>("debMissingHelperWarning"); };
-    QCoreApplication::processEvents(); QVERIFY(!warning()); // Preload stays silent.
-    for (int entry = 0; entry < 2; ++entry) {
-      page.show(); QTRY_VERIFY(warning());
-      QVERIFY(warning()->text().contains("without Yay or Paru"));
-      warning()->accept(); QTRY_VERIFY(!warning());
-      page.hide(); QCoreApplication::processEvents();
+    DebInstallerPage page(root, new QPushButton);
+    page.show(); QTest::qWait(40);
+    QVERIFY(page.findChildren<QMessageBox *>().isEmpty());
+    QCOMPARE(HyperPanel::confirmDebHelpers(&page, true), HyperPanel::DebHelpers::Ready);
+    for (bool accept : {false, true}) {
+      QTimer::singleShot(0, &page, [&page, accept] {
+        auto *prompt = page.findChild<QMessageBox *>("debHelperPrompt"); QVERIFY(prompt);
+        QVERIFY(prompt->informativeText().contains("both Yay and Paru"));
+        prompt->button(accept ? QMessageBox::Yes : QMessageBox::No)->click();
+      });
+      QCOMPARE(HyperPanel::confirmDebHelpers(&page, false), accept ? HyperPanel::DebHelpers::InstallBoth : HyperPanel::DebHelpers::Cancel);
     }
-    for (const auto &name : {QString("yay"),QString("paru")}) {
+    for (const auto &name : {QString("yay"), QString("paru")}) {
       QFile executable(directory.filePath(name)); QVERIFY(executable.open(QIODevice::WriteOnly));
       executable.write("#!/bin/sh\nexit 0\n"); executable.close();
-      QVERIFY(executable.setPermissions(QFile::ReadOwner|QFile::WriteOwner|QFile::ExeOwner));
-      page.show(); QTest::qWait(40); QVERIFY(!warning());
-      page.hide(); QVERIFY(executable.remove());
+      QVERIFY(executable.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+      QCOMPARE(HyperPanel::confirmDebHelpers(&page, false), HyperPanel::DebHelpers::Ready);
+      QVERIFY(executable.remove());
     }
-    page.show(); QTRY_VERIFY(warning()); warning()->accept();
+    const QString file = "/tmp/app's $(literal).deb";
+    auto args = HyperPanel::debTerminalArguments(root, file, false, HyperPanel::DebHelpers::InstallBoth);
+    QCOMPARE(args, QStringList({"-e", "python3", root + "/control_panel/aur_helper_install.py", "--wait", "--deb", file, "both"}));
+    args = HyperPanel::debTerminalArguments(root, file, true, HyperPanel::DebHelpers::Ready);
+    QVERIFY(args.contains("--check")); QVERIFY(!args.contains("--deb")); QCOMPARE(args.last(), file);
+    QVERIFY(HyperPanel::debTerminalArguments(root, file, false, HyperPanel::DebHelpers::Cancel).isEmpty());
   }
 
   void fileSelectionIsVisibleAndWaitsForInstall() {
     QTemporaryDir temp;
     const auto path = temp.path()+"/package's $(literal) <b>.deb";
     QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly)); file.write("fixture"); file.close();
-    QPushButton yay, paru;
     auto *install = new QPushButton;
-    DebInstallerPage page(root, install, &yay, &paru);
+    DebInstallerPage page(root, install);
     QSignalSpy clicks(install, &QPushButton::clicked);
     page.selectPackage(path);
     QCOMPARE(clicks.count(), 0);
@@ -118,8 +119,7 @@ private slots:
   }
 
   void reportedResultsAndOfficialDownloads() {
-    QPushButton yay, paru;
-    DebInstallerPage page(root, new QPushButton, &yay, &paru);
+    DebInstallerPage page(root, new QPushButton);
     auto *chrome = button(page, "debApp_chrome");
     QVERIFY(chrome);
     QVERIFY(chrome->property("tested").toBool());
@@ -143,8 +143,7 @@ private slots:
   }
 
   void feedbackRequiresReproducibleDetailsAndOpensOnlyOnRequest() {
-    QPushButton yay, paru;
-    DebInstallerPage page(root, new QPushButton, &yay, &paru);
+    DebInstallerPage page(root, new QPushButton);
     auto *dialog = report(page);
     QVERIFY(dialog);
     QVERIFY(opened.isEmpty());
@@ -191,8 +190,7 @@ private slots:
                           {"note", "Automated install, launch and removal; features not tested."}};
     catalog.write(QJsonDocument(QJsonObject{{"apps", QJsonArray{app}}}).toJson());
     catalog.close();
-    QPushButton yay, paru;
-    DebInstallerPage page(directory.path(), new QPushButton, &yay, &paru);
+    DebInstallerPage page(directory.path(), new QPushButton);
     auto *card = button(page, "debApp_example");
     QVERIFY(card);
     QVERIFY(card->property("launchTested").toBool());
@@ -204,8 +202,7 @@ private slots:
   }
 
   void cardsReflowWithoutHorizontalScrolling() {
-    QPushButton yay, paru;
-    DebInstallerPage page(root, new QPushButton, &yay, &paru);
+    DebInstallerPage page(root, new QPushButton);
     page.resize(1240, 850);
     page.show();
     auto *chrome = button(page, "debApp_chrome");

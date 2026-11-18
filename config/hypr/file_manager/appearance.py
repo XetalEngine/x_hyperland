@@ -233,27 +233,35 @@ def appearance():
     # A quiet storage shelf: theme surfaces and foreground symbols, with
     # accent reserved for selection, focus and capacity bars.
     style += f'''
-    QWidget#driveShelfBody, QScrollArea#computerDrivesScroll, QScrollArea#computerDrivesScroll > QWidget > QWidget {{background:{p['Base']}; border:none;}}
+    QWidget#driveShelfBody, QWidget#driveSection, QScrollArea#computerDrivesScroll, QScrollArea#computerDrivesScroll > QWidget > QWidget {{background:{p['Base']}; border:none;}}
     QLabel#computerHeading {{font-size:22px; font-weight:700; padding:0;}}
     QLabel#computerSubtitle {{color:{p['PlaceholderText']}; font-weight:400; padding:0;}}
-    QFrame#physicalDriveGroup {{background:transparent; border:none; border-top:1px solid {p['Midlight']}; border-radius:0; margin:0; padding:0;}}
-    QLabel#driveRowTitle {{font-size:14px; font-weight:600; padding:0;}}
+    QLabel#driveSectionHeading {{background:transparent; color:{p['PlaceholderText']}; font-size:13px; font-weight:600; border:none; padding:3px 0 6px 0;}}
+    QFrame#physicalDriveGroup {{background:transparent; border:none; margin:0; padding:0;}}
+    QFrame#driveTile {{background:{p['AlternateBase']}; border:1px solid {p['Midlight']}; border-radius:{radius}px; margin:0; padding:0;}}
+    QFrame#physicalDriveGroup[original="true"] {{border-top:1px solid {p['Midlight']}; border-radius:0;}}
+    QFrame#driveTile[original="true"] {{background:transparent; border:none;}}
+    QLabel#driveRowTitle {{color:{p['PlaceholderText']}; font-size:11px; font-weight:400; padding:0;}}
     QLabel#driveRowDescription {{color:{p['PlaceholderText']}; font-size:12px; font-weight:400; padding:0;}}
-    QFrame#volumeCard {{background:{p['AlternateBase']}; border:1px solid {p['Midlight']}; border-radius:{radius}px;}}
+    QFrame#physicalDriveGroup[original="true"] QLabel#driveRowTitle {{color:{p['Text']}; font-size:14px; font-weight:600;}}
+    QFrame#volumeCard {{background:transparent; border:1px solid transparent; border-radius:{min(radius,4)}px;}}
+    QFrame#volumeCard[original="true"] {{background:{p['AlternateBase']}; border-color:{p['Midlight']}; border-radius:{radius}px;}}
     QFrame#volumeCard:hover {{border-color:{p['Light']};}}
     QFrame#volumeCard[selected="true"], QFrame#volumeCard:focus {{border:1px solid {p['Accent']};}}
-    QFrame#volumeCard QLabel, QFrame#volumeCard QWidget#volumeMetrics {{background:transparent; border:none; padding:0;}}
+    QFrame#volumeCard QLabel, QWidget#volumeMetrics, QWidget#volumeIdentity, QWidget#volumeActions, QWidget#systemPartitionIcons, QWidget#physicalDriveHeading {{background:transparent; border:none; padding:0;}}
     QLabel#volumeName {{font-size:14px; font-weight:600;}}
     QLabel#volumeDescription, QLabel#volumeSpace {{color:{p['PlaceholderText']}; font-size:12px; font-weight:400;}}
-    QFrame#volumeCard QLabel#volumeStatusBadge {{background:{p['Window']}; color:{p['PlaceholderText']}; border-radius:{min(radius,4)}px; padding:3px 7px; font-size:11px;}}
-    QProgressBar#volumeUsage {{background:{p['Mid']}; border:none; border-radius:2px; margin:0; padding:0; min-height:5px; max-height:5px;}}
+    QFrame#volumeCard QLabel#volumeStatusBadge {{background:{p['Window']}; color:{p['PlaceholderText']}; border-radius:{min(radius,4)}px; padding:2px 6px; font-size:10px;}}
+    QProgressBar#volumeUsage {{background:{p['Mid']}; border:none; border-radius:2px; margin:0; padding:0; min-height:4px; max-height:4px;}}
     QProgressBar#volumeUsage::chunk {{background:{p['Accent']}; border:none; border-radius:2px;}}
-    QPushButton#mountVolume {{background:{p['Button']}; color:{p['ButtonText']}; border:1px solid {p['Midlight']}; border-radius:{min(radius,4)}px; padding:3px 10px; min-height:20px;}}
+    QPushButton#mountVolume {{background:{p['Button']}; color:{p['ButtonText']}; border:1px solid {p['Midlight']}; border-radius:{min(radius,4)}px; padding:2px 8px; min-height:18px;}}
     QPushButton#mountVolume:hover, QPushButton#mountVolume:focus {{border-color:{p['Accent']};}}
+    QFrame#volumeCard[partitionIcon="true"] {{background:transparent; border:1px solid transparent; border-radius:{min(radius,4)}px;}}
+    QFrame#volumeCard[partitionIcon="true"]:hover {{background:{p['Window']}; border-color:{p['Midlight']};}}
+    QFrame#volumeCard[partitionIcon="true"][selected="true"], QFrame#volumeCard[partitionIcon="true"]:focus {{border-color:{p['Accent']};}}
     QToolButton#systemPartitions {{background:transparent; color:{p['PlaceholderText']}; border:none; padding:4px; margin:0;}}
     QToolButton#systemPartitions:hover, QToolButton#systemPartitions:focus {{color:{p['Text']}; background:{p['AlternateBase']};}}
-    QWidget#systemPartitionBody {{background:transparent; border:none;}}
-    QToolButton#computerShelfView, QToolButton#computerListView {{padding:5px;}}
+    QToolButton#computerOriginalView, QToolButton#computerShelfView, QToolButton#computerListView {{padding:5px;}}
     '''
     style += selection_marker.stylesheet(p, runtime.selection_marker())
     return dict(colors=p, stylesheet=style, font=runtime.ui_font(),

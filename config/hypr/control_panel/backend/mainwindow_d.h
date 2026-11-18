@@ -159,16 +159,10 @@ shellConfigFiles["ksh"] = QStringList()
         refreshConnectionsList();
         refreshWifiNetworks(false);
     });
-    // Connect search buttons
-    connect(ui->pacmanAurSearchButton, &QPushButton::clicked, this, &MainWindow::on_pacmanAurSearchButton_clicked);
-    connect(ui->pacmanAurSearch, &QLineEdit::returnPressed, this, &MainWindow::on_pacmanAurSearch_returnPressed);
-    connect(ui->yaySearchButton, &QPushButton::clicked, this, &MainWindow::on_yaySearchButton_clicked);
-    connect(ui->yaySearch, &QLineEdit::returnPressed, this, &MainWindow::on_yaySearch_returnPressed);
-    connect(ui->paruSearchButton, &QPushButton::clicked, this, &MainWindow::on_paruSearchButton_clicked);
-    connect(ui->paruSearch, &QLineEdit::returnPressed, this, &MainWindow::on_paruSearch_returnPressed);
+    // setupUi connects the named search slots once via connectSlotsByName.
     // Auto-refresh installed packages when Package Manager tab is opened
     connect(ui->tabWidget, &QTabWidget::currentChanged, this, [this](int index) {
-        if (ui->tabWidget->widget(index) == ui->packageManagerTab) {
+        if (ui->tabWidget->widget(index) == ui->packageManagerTab && !ui->packageManagerTab->property("fusionSoftwareReplaced").toBool()) {
             refreshPacmanInstalled();
         }
     });

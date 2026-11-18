@@ -10,6 +10,8 @@ public:
   void setVolume(const Volume &volume);
   void setSelected(bool selected);
   void setListMode(bool list);
+  void setPartitionMode(bool partition);
+  void setOriginalMode(bool original);
 signals:
   void selected();
   void openRequested();
@@ -31,12 +33,14 @@ private:
   QLabel *art = nullptr, *name, *description, *space, *status;
   QProgressBar *usage;
   QPushButton *mount;
-  QWidget *metrics;
+  QWidget *metrics, *identityBody, *actionsBody;
+  QStackedLayout *actionStack;
   QHBoxLayout *row;
   QVBoxLayout *identity;
-  bool listMode = false, compact = false;
+  bool listMode = false, compact = false, partitionMode = false, originalMode = false;
   void updateMount();
   void updateLayout();
+  void updateIcon();
 };
 
 class DriveShelf : public QWidget {
@@ -62,20 +66,37 @@ private:
   QWidget *body = nullptr;
   QGridLayout *grid;
   QLabel *empty;
-  QToolButton *shelfButton = nullptr, *listButton = nullptr;
+  QToolButton *originalButton = nullptr, *shelfButton = nullptr, *listButton = nullptr;
+  struct Tile {
+    QFrame *frame;
+    QVBoxLayout *layout;
+    QLabel *heading;
+  };
   struct Group {
     QFrame *frame;
+    QWidget *heading;
     QLabel *art, *name, *description;
     QCheckBox *automatic;
-    QVBoxLayout *dataLayout, *systemLayout;
+    QVBoxLayout *layout, *dataLayout;
+    QBoxLayout *systemLayout;
     QWidget *systemBody;
     QToolButton *disclosure;
+    QMap<QString, Tile> tiles;
+    QStringList volumes;
+  };
+  struct Section {
+    QWidget *body;
+    QLabel *heading;
+    QGridLayout *items;
   };
   QMap<QString, Group> groups;
   QMap<QString, VolumeCard *> cards;
   QStringList order;
+  QMap<QString, int> categories;
+  QMap<int, Section> sections;
   QString selected;
-  int columns = 0;
+  int columns = 0, removableColumns = 0;
+  bool sideBySide = false;
   bool layoutQueued = false, topologyChanged = false;
   QString expansionKey(const QString &drive) const;
   void queueLayout();

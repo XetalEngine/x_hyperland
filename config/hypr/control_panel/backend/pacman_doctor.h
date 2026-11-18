@@ -47,7 +47,7 @@ void MainWindow::scheduleStagedRecheck(const std::function<void()> &recheck) {
 
 bool MainWindow::pacmanDoctorVisible() const {
     return pacDocTab && isVisible() && !isMinimized()
-        && ui->tabWidget->currentWidget() == pacDocTab;
+        && pacDocTab->isVisibleTo(this);
 }
 
 // ============================================================
@@ -74,9 +74,11 @@ void MainWindow::setupPacmanDoctorTab() {
     // --- top bar ---------------------------------------------------------
     QHBoxLayout *bar = new QHBoxLayout();
     QPushButton *diagBtn = new QPushButton(tr("🩺 Diagnose"), pacDocTab);
+    diagBtn->setObjectName("pacDocDiagnose");
     diagBtn->setToolTip(tr("Read-only health check. Nothing is changed."));
     pacDocStatusLabel = new QLabel(tr("Press Diagnose to check the health of your package manager."), pacDocTab);
-    pacDocStatusLabel->setStyleSheet("color:#888;");
+    pacDocStatusLabel->setObjectName("pacDocStatus");
+    pacDocStatusLabel->setStyleSheet({});
     bar->addWidget(diagBtn);
     bar->addWidget(pacDocStatusLabel, 1);
     root->addLayout(bar);
@@ -85,6 +87,7 @@ void MainWindow::setupPacmanDoctorTab() {
     QGroupBox *diagBox = new QGroupBox(tr("Diagnosis"), pacDocTab);
     QVBoxLayout *diagLay = new QVBoxLayout(diagBox);
     pacDocDiagLabel = new QLabel(tr("Not checked yet."), diagBox);
+    pacDocDiagLabel->setObjectName("pacDocDiagnosis");
     pacDocDiagLabel->setTextFormat(Qt::RichText);
     pacDocDiagLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     pacDocDiagLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
@@ -96,16 +99,22 @@ void MainWindow::setupPacmanDoctorTab() {
     QGroupBox *fixBox = new QGroupBox(tr("Repair actions"), pacDocTab);
     QHBoxLayout *fixLay = new QHBoxLayout(fixBox);
     QPushButton *mirrorBtn = new QPushButton(tr("🌍 Rank Mirrors…"), fixBox);
+    mirrorBtn->setObjectName("pacDocMirrors");
     mirrorBtn->setToolTip(tr("Re-sort /etc/pacman.d/mirrorlist by speed. Fixes slow or 404-ing downloads."));
     QPushButton *keyBtn = new QPushButton(tr("🔑 Fix Keyring…"), fixBox);
+    keyBtn->setObjectName("pacDocKeys");
     keyBtn->setToolTip(tr("For \"invalid or corrupted package (PGP signature)\" and \"unknown trust\" errors."));
     QPushButton *lockBtn = new QPushButton(tr("🔓 Remove db.lck"), fixBox);
+    lockBtn->setObjectName("pacDocUnlock");
     lockBtn->setToolTip(tr("For \"unable to lock database\" after pacman was killed mid-run."));
     QPushButton *downBtn = new QPushButton(tr("⏬ Downgrade Package…"), fixBox);
+    downBtn->setObjectName("pacDocDowngrade");
     downBtn->setToolTip(tr("Roll a package back to an older version still sitting in your cache."));
     QPushButton *trimBtn = new QPushButton(tr("🧹 Trim Cache…"), fixBox);
+    trimBtn->setObjectName("pacDocTrim");
     trimBtn->setToolTip(tr("Delete old cached versions but keep enough to downgrade with."));
     QPushButton *syncBtn = new QPushButton(tr("🔄 Force Refresh"), fixBox);
+    syncBtn->setObjectName("pacDocSync");
     syncBtn->setToolTip(tr("pacman -Syyu — re-downloads every database even if it looks current."));
     for (QPushButton *b : {mirrorBtn, keyBtn, lockBtn, downBtn, trimBtn, syncBtn}) fixLay->addWidget(b);
     fixLay->addStretch();
@@ -200,25 +209,34 @@ void MainWindow::setupPacmanDoctorTab() {
     QHBoxLayout *confLay = new QHBoxLayout(confBox);
     confLay->addWidget(new QLabel(tr("Parallel downloads:"), confBox));
     pacDocParallelSpin = new QSpinBox(confBox);
+    pacDocParallelSpin->setObjectName("pacDocParallel");
     pacDocParallelSpin->setRange(1, 20);
     pacDocParallelSpin->setValue(5);
     pacDocParallelSpin->setToolTip(tr("How many packages download at once. 5–10 is a good range."));
     confLay->addWidget(pacDocParallelSpin);
     pacDocColorCheck = new QCheckBox(tr("Color"), confBox);
+    pacDocColorCheck->setObjectName("pacDocColor");
     pacDocCandyCheck = new QCheckBox(tr("ILoveCandy"), confBox);
+    pacDocCandyCheck->setObjectName("pacDocCandy");
     pacDocCandyCheck->setToolTip(tr("Pac-Man progress bar. Purely decorative, entirely worth it."));
     pacDocVerboseCheck = new QCheckBox(tr("VerbosePkgLists"), confBox);
+    pacDocVerboseCheck->setObjectName("pacDocVerbose");
     pacDocVerboseCheck->setToolTip(tr("Show version and size columns before confirming an upgrade."));
     pacDocCheckSpaceCheck = new QCheckBox(tr("CheckSpace"), confBox);
+    pacDocCheckSpaceCheck->setObjectName("pacDocCheckSpace");
     pacDocCheckSpaceCheck->setToolTip(tr("Refuse to start an upgrade that would fill the disk."));
     pacDocTimeoutCheck = new QCheckBox(tr("DisableDownloadTimeout"), confBox);
+    pacDocTimeoutCheck->setObjectName("pacDocTimeout");
     pacDocTimeoutCheck->setToolTip(tr("Turn off the slow-download abort. Useful on bad connections."));
     for (QCheckBox *c : {pacDocColorCheck, pacDocCandyCheck, pacDocVerboseCheck,
                          pacDocCheckSpaceCheck, pacDocTimeoutCheck}) confLay->addWidget(c);
     confLay->addStretch();
     QPushButton *confBackupBtn = new QPushButton(tr("💾 Backup"), confBox);
+    confBackupBtn->setObjectName("pacDocBackup");
     QPushButton *confApplyBtn = new QPushButton(tr("✅ Apply"), confBox);
+    confApplyBtn->setObjectName("pacDocApply");
     QPushButton *confEditBtn = new QPushButton(tr("✏️ Edit"), confBox);
+    confEditBtn->setObjectName("pacDocEdit");
     for (QPushButton *b : {confBackupBtn, confApplyBtn, confEditBtn}) confLay->addWidget(b);
     root->addWidget(confBox);
 
@@ -238,14 +256,18 @@ void MainWindow::setupPacmanDoctorTab() {
     pacnewHint->setStyleSheet("color:#888;");
     pacnewLay->addWidget(pacnewHint);
     pacDocPacnewList = new QListWidget(pacnewBox);
+    pacDocPacnewList->setObjectName("pacDocFiles");
     pacDocPacnewList->setMaximumHeight(96);
     pacDocPacnewList->setFont(QFont("monospace"));
     pacnewLay->addWidget(pacDocPacnewList);
     QHBoxLayout *pacnewBar = new QHBoxLayout();
     QPushButton *pacdiffBtn = new QPushButton(tr("🔍 Merge All (pacdiff)"), pacnewBox);
+    pacdiffBtn->setObjectName("pacDocMerge");
     pacdiffBtn->setToolTip(tr("Walk through every pending file side by side in a terminal."));
     QPushButton *pacnewEditBtn = new QPushButton(tr("✏️ Open Selected"), pacnewBox);
+    pacnewEditBtn->setObjectName("pacDocOpenNew");
     QPushButton *pacnewOldBtn = new QPushButton(tr("📄 Open Current Version"), pacnewBox);
+    pacnewOldBtn->setObjectName("pacDocOpenCurrent");
     pacnewBar->addStretch();
     for (QPushButton *b : {pacdiffBtn, pacnewEditBtn, pacnewOldBtn}) pacnewBar->addWidget(b);
     pacnewLay->addLayout(pacnewBar);
@@ -323,7 +345,7 @@ void MainWindow::refreshPacmanDoctor() {
     if (pacDocBusy) return;   // the watcher can fire faster than du can finish
     pacDocBusy = true;
     pacDocStatusLabel->setText(tr("Checking…"));
-    pacDocStatusLabel->setStyleSheet("color:#888;");
+    pacDocStatusLabel->setStyleSheet({});
 
     QProcess *proc = new QProcess(this);
     connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
@@ -340,8 +362,10 @@ void MainWindow::refreshPacmanDoctor() {
 
         int problems = 0, warnings = 0;
         QString rows;
+        QVariantList diagnoses;
         // status: 0 ok, 1 warning, 2 problem
         auto row = [&](int status, const QString &check, const QString &verdict, const QString &advice) {
+            diagnoses.append(QVariantMap{{"severity", status}, {"check", check}, {"result", verdict}, {"advice", advice}});
             if (status == 2) problems++;
             else if (status == 1) warnings++;
             const char *dot = status == 2 ? "🔴" : (status == 1 ? "🟠" : "🟢");
@@ -426,8 +450,8 @@ void MainWindow::refreshPacmanDoctor() {
         // --- orphans / foreign ---
         int orphans = v.value("ORPHANS").toInt();
         row(orphans > 0 ? 1 : 0, tr("Orphaned packages"), tr("%1").arg(orphans),
-            orphans > 0 ? tr("Dependencies nothing needs any more. The Uninstall tab can clean them.") : QString());
-        row(0, tr("Foreign (AUR) packages"), tr("%1").arg(v.value("FOREIGN").toInt()), QString());
+            orphans > 0 ? tr("Dependencies no longer needed. Use Installed → More to remove them.") : QString());
+        row(0, tr("AUR / local packages"), tr("%1").arg(v.value("FOREIGN").toInt()), QString());
 
         // --- available rankers, for the mirror dialog ---
         pacDocRankers = v.value("RANKERS").split(' ', Qt::SkipEmptyParts);
@@ -436,17 +460,18 @@ void MainWindow::refreshPacmanDoctor() {
             pacDocRankers.isEmpty() ? tr("Install reflector or rate-mirrors to re-rank automatically.") : QString());
 
         pacDocDiagLabel->setText("<table style='border-collapse:collapse;'>" + rows + "</table>");
+        pacDocDiagLabel->setProperty("softwareDiagnostics", diagnoses);
 
         if (problems > 0) {
             pacDocStatusLabel->setText(tr("🔴 %n problem(s) found", "", problems)
                                        + (warnings ? tr(" · %n warning(s)", "", warnings) : QString()));
-            pacDocStatusLabel->setStyleSheet("color:#c0392b; font-weight:bold;");
+            pacDocStatusLabel->setStyleSheet("font-weight:bold;");
         } else if (warnings > 0) {
             pacDocStatusLabel->setText(tr("🟠 %n thing(s) worth fixing", "", warnings));
-            pacDocStatusLabel->setStyleSheet("color:#e67e22; font-weight:bold;");
+            pacDocStatusLabel->setStyleSheet("font-weight:bold;");
         } else {
             pacDocStatusLabel->setText(tr("🟢 pacman is healthy."));
-            pacDocStatusLabel->setStyleSheet("color:#27ae60; font-weight:bold;");
+            pacDocStatusLabel->setStyleSheet("font-weight:bold;");
         }
 
         // --- pacman.conf controls reflect the file as it is now ---

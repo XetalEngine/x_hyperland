@@ -7,20 +7,22 @@ import shutil
 import subprocess
 import tempfile
 
-from deb_install import run
+from deb_install import run, install as install_deb
 
 
-def install(name):
+def install(name, *, reinstall=False):
     if name not in ('yay', 'paru'):
         raise ValueError('Choose Yay or Paru.')
     if os.geteuid() == 0:
         raise RuntimeError('Open this installer as your desktop user, without sudo.')
-    if shutil.which(name):
+    if shutil.which(name) and not reinstall:
         print(name.title()+' is already installed.', flush=True)
         return
     helper = shutil.which('paru' if name == 'yay' else 'yay')
+    if not helper and reinstall:
+        helper = shutil.which(name)
     if helper:
-        run([helper, '-S', '--needed', '--', name])
+        run([helper, '-S', *([] if reinstall else ['--needed']), '--', name])
     else:
         print('Preparing build tools. Review the pacman update below; sudo asks for your password in this terminal.', flush=True)
         run(['sudo', 'pacman', '-Syu', '--needed', 'base-devel', 'git'])
@@ -37,17 +39,30 @@ def install(name):
             run(['makepkg', '-si'], cwd=source)
     if not shutil.which(name):
         raise RuntimeError(name.title()+' was not installed. Review the terminal output above.')
-    print('\n'+name.title()+' is installed. You can return to the .deb installer.', flush=True)
+    print('\n'+name.title()+' is installed.', flush=True)
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--wait', action='store_true')
-    parser.add_argument('helper', choices=('yay', 'paru'))
-    args = parser.parse_args()
+    parser.add_argument('--reinstall', action='store_true', help='Reinstall without removing the existing helper first.')
+    parser.add_argument('--deb', type=Path, help='After installing both helpers, continue with this Debian package.')
+    parser.add_argument('helper', choices=('yay', 'paru', 'both'))
+    args = parser.parse_args(argv)
+    if args.deb and (args.helper != 'both' or args.reinstall):
+        parser.error('--deb requires both helpers and cannot be used with --reinstall')
     code = 0
     try:
-        install(args.helper)
+        if args.deb and (not args.deb.is_file() or args.deb.suffix.lower() != '.deb'):
+            raise ValueError('The selected Debian package is no longer available.')
+        # One terminal, one transaction at a time. A failed/declined bootstrap
+        # stops here; it must never start a second helper or the .deb installer.
+        for name in (('yay', 'paru') if args.helper == 'both' else (args.helper,)):
+            install(name, reinstall=args.reinstall)
+        if args.deb:
+            if not all(shutil.which(name) for name in ('yay', 'paru')):
+                raise RuntimeError('Both helpers must finish installing before continuing.')
+            install_deb(args.deb)
     except (OSError, RuntimeError, ValueError, subprocess.SubprocessError, EOFError) as error:
         print('\nInstallation stopped: '+str(error), flush=True); code = 1
     except KeyboardInterrupt:

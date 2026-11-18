@@ -1,6 +1,8 @@
 #include "native.h"
 #include "tool_tile.h"
 #include "tool_favorites.h"
+#include "aur_page.h"
+#include "software_page.h"
 #include "window_sizing.h"
 #include "ram_cleaner.h"
 #include "default_apps.h"
@@ -224,6 +226,11 @@ PanelController::PanelController(MainWindow *window)
   connect(goHome, &QShortcut::activated, this, [this] { open(""); });
   auto *find = new QShortcut(QKeySequence::Find, owner);
   connect(find, &QShortcut::activated, this, [this] {
+    if (current == "aur") {
+      owner->findChild<QLineEdit *>("aurQuery")->setFocus();
+      return;
+    }
+    if (current == "software") { owner->findChild<SoftwarePage *>()->focusSearch(); return; }
     if (current == "default-apps") {
       owner->findChild<DefaultApps *>()->focusSearch();
       return;
@@ -293,6 +300,10 @@ PanelController::PanelController(MainWindow *window)
                                           QSize(24, 48)));
   const auto startup =
       settings.value("preferences/startupTab", "home").toString();
+  if (startup == "uninstallTab" || startup == "pacmanDoctorTab") {
+    open(startup == "uninstallTab" ? "remove" : "repair");
+    goto startupDone;
+  }
   for (const auto &group : groups)
     for (const auto &tool : group.tools) {
       auto path = tool.data["path"].toArray();
@@ -367,40 +378,44 @@ void PanelController::prepareTools() {
   if (auto *page = owner->findChild<QWidget *>("kvmTab"))
     rootTabs->removeTab(rootTabs->indexOf(page));
 
-  // Keep helper management with the helper it manages, including future
-  // installed/not-installed status changes made by the C++ backend.
+  // Keep legacy Ui pointers alive, but use one shared AUR workflow. It has its
+  // own status/results, so opening it cannot display Pacman's unrelated output.
   auto *shared = owner->findChild<QBoxLayout *>("packageTopLayout");
+  auto *retiredHelpers = new QWidget(owner);
+  retiredHelpers->setObjectName("retiredAurHelpers"); retiredHelpers->hide();
+  auto *packageTabs = owner->findChild<QTabWidget *>("packageManagerTabWidget");
   for (const auto &helper : {QString("yay"), QString("paru")}) {
     auto *page = owner->findChild<QWidget *>(helper + "Tab");
-    auto *row = new QHBoxLayout;
+    packageTabs->removeTab(packageTabs->indexOf(page));
+    page->setParent(retiredHelpers); page->hide();
     for (const auto &suffix : {"StatusLabel", "InstallButton", "ReinstallButton", "UninstallButton"}) {
       auto *widget = owner->findChild<QWidget *>(helper + suffix);
       shared->removeWidget(widget);
-      const bool hidden = widget->isHidden();
-      row->addWidget(widget);
-      widget->setVisible(!hidden);
+      widget->setParent(retiredHelpers); widget->hide();
     }
-    row->addStretch();
-    qobject_cast<QVBoxLayout *>(page->layout())->insertLayout(0, row);
   }
+  auto *aur = new AurPage(HyperPanel::root(), HyperPanel::terminal(), rootTabs);
+  connect(aur, &AurPage::clearCacheRequested, owner->findChild<QPushButton *>("pacDocTrim"), &QPushButton::click);
+  rootTabs->addTab(aur, "Yay & Paru");
   shared->addStretch();
   auto *install = owner->findChild<QPushButton *>("installDebButton");
   shared->removeWidget(install);
-  auto *deb = new DebInstallerPage(HyperPanel::root(), install,
-      owner->findChild<QPushButton *>("yayInstallButton"),
-      owner->findChild<QPushButton *>("paruInstallButton"), rootTabs);
+  auto *deb = new DebInstallerPage(HyperPanel::root(), install, rootTabs);
   rootTabs->addTab(deb, "Install .deb");
 
-  // Separate options from actions instead of making this one unbreakable row.
-  if (auto *actions = owner->findChild<QHBoxLayout *>("uninstallActionsLayout")) {
-    auto *page = owner->findChild<QWidget *>("uninstallTab");
-    auto *row = new QHBoxLayout;
-    while (actions->count() > 3) {
-      auto *item = actions->takeAt(3);
-      row->addItem(item);
-    }
-    actions->addStretch();
-    qobject_cast<QVBoxLayout *>(page->layout())->addLayout(row);
+  {
+    const QSignalBlocker rootGuard(rootTabs), packageGuard(packageTabs);
+    owner->findChild<QWidget *>("packageManagerTab")->setProperty("fusionSoftwareReplaced", true);
+    auto *oldPacman = owner->findChild<QWidget *>("pacmanTab");
+    packageTabs->removeTab(packageTabs->indexOf(oldPacman)); oldPacman->setParent(retiredHelpers); oldPacman->hide();
+    for (const auto &name : {"uninstallTab", "pacmanDoctorTab"}) rootTabs->removeTab(rootTabs->indexOf(owner->findChild<QWidget *>(name)));
+    auto *software = new SoftwarePage(owner, HyperPanel::root(), HyperPanel::terminal(), rootTabs);
+    rootTabs->addTab(software, "Software");
+    auto *sections = software->findChild<QTabWidget *>("softwareSections");
+    QSettings settings("XetalHyperland", "ControlPanel");
+    for (const auto &name : {"uninstallTab", "pacmanDoctorTab"})
+      sections->setTabVisible(sections->indexOf(owner->findChild<QWidget *>(name)), settings.value(QString("tabs/") + name, true).toBool());
+    connect(software, &SoftwarePage::openTool, this, &PanelController::open);
   }
   for (const auto &name : {"isoStatusLabel", "isoInfoText"}) {
     auto *output = owner->findChild<QTextEdit *>(name);
@@ -517,6 +532,13 @@ void PanelController::arrange() {
                      : QString("%1 of %2 tools").arg(shown).arg(total));
 }
 void PanelController::open(const QString &id) {
+  // Existing Apps shortcuts/bookmarks keep working after the pages merge.
+  if (id == "yay" || id == "paru") { open("aur"); return; }
+  if (id == "pacman" || id == "remove" || id == "repair") {
+    open("software");
+    owner->findChild<SoftwarePage *>()->openSection(id == "remove" ? 1 : id == "repair" ? 2 : 0);
+    return;
+  }
   if (id.isEmpty()) {
     isoActions->hide();
     stack->setCurrentIndex(0);

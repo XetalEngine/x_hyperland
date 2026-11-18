@@ -31,6 +31,10 @@ qint64 MainWindow::parsePacmanSizeToBytes(const QString &sizeStr) {
 }
 
 void MainWindow::refreshUninstallList() {
+    if (auto *software = findChild<QWidget *>("softwareTab")) {
+        QMetaObject::invokeMethod(software, "refreshInstalled");
+        return;
+    }
     ui->uninstallCountLabel->setText(tr("Loading installed software..."));
     QApplication::processEvents();
 
@@ -167,7 +171,12 @@ void MainWindow::filterUninstallTable() {
         }
 
         ui->uninstallTable->setRowHidden(row, !visible);
+        // A filtered-out row must never remain part of a removal transaction.
+        if (!visible)
+            ui->uninstallTable->selectionModel()->select(ui->uninstallTable->model()->index(row, 0),
+                QItemSelectionModel::Deselect | QItemSelectionModel::Rows);
     }
+    updateUninstallSelectionInfo();
 }
 
 void MainWindow::updateUninstallSelectionInfo() {
@@ -211,6 +220,7 @@ void MainWindow::on_uninstallButton_clicked() {
     QStringList packages;
     qint64 totalBytes = 0;
     for (const QModelIndex &index : selectedRows) {
+        if (ui->uninstallTable->isRowHidden(index.row())) continue;
         QTableWidgetItem *nameItem = ui->uninstallTable->item(index.row(), 0);
         QTableWidgetItem *sizeItem = ui->uninstallTable->item(index.row(), 2);
         if (nameItem) packages << nameItem->text();
@@ -253,11 +263,14 @@ void MainWindow::on_uninstallButton_clicked() {
         return;
     }
 
+    QStringList quotedPackages;
+    for (const auto &package : packages) quotedPackages << shQuote(package);
+    if (quotedPackages.isEmpty()) return;
     QString command;
     if (helper == "pacman") {
-        command = QString("sudo pacman %1 %2").arg(flags, packages.join(' '));
+        command = QString("sudo pacman %1 -- %2").arg(flags, quotedPackages.join(' '));
     } else {
-        command = QString("%1 %2 %3").arg(helper, flags, packages.join(' '));
+        command = QString("%1 %2 -- %3").arg(helper, flags, quotedPackages.join(' '));
     }
 
     // The terminal runs detached, so completion is signaled through a marker

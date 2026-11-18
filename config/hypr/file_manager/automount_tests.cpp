@@ -135,7 +135,7 @@ private slots:
     Fusion::Preferences preferences(temp.filePath("view.ini"));
     Browser browser(&preferences, &drives); browser.resize(1200, 1000); browser.show();
     QCheckBox *dataCheck = nullptr, *systemCheck = nullptr;
-    for (auto *group : browser.findChildren<QGroupBox *>("physicalDriveGroup")) {
+    for (auto *group : browser.findChildren<QFrame *>("physicalDriveGroup")) {
       auto *check = group->findChild<QCheckBox *>("autoMountDrive");
       if (group->property("driveKey").toString() == a.driveKey()) dataCheck = check;
       else systemCheck = check;
@@ -172,7 +172,8 @@ private slots:
       for (int i = 0; i < 3; ++i) { scanner.refresh(); QTest::qWait(80); }
       QCOMPARE(commands().size(), 1);
       write(inventory, R"({"blockdevices":[]})"); scanner.refresh();
-      QTRY_VERIFY(scanner.volumes.isEmpty());
+      // Folder-backed Wine/Steam drives can remain when all physical disks disconnect.
+      QTRY_VERIFY(std::all_of(scanner.volumes.cbegin(), scanner.volumes.cend(), [](const Volume &v) { return v.prefix(); }));
       write(inventory, R"({"blockdevices":[{"path":"/dev/fusion-c","type":"disk","tran":"usb","disk-seq":16,"children":[{"path":"/dev/fusion-c1","type":"part","fstype":"ext4","uuid":"data-1234"}]}]})");
       scanner.refresh(); QTRY_COMPARE(commands().size(), 2);
     }

@@ -22,13 +22,10 @@
   {"title": "Software & maintenance","tools":[
     {"id":"proton","title":"Proton","description":"Windows apps · isolated prefixes, downloads and dependencies","icon":"applications-games","path":["protonTab"],"keywords":"XetalProton Wine UMU Windows EXE MSI games Proton GE CachyOS Winetricks prefixes bottles launchers runtime downloader"},
     {"id":"default-apps","title":"Default Apps","description":"Choose what opens your files and links","icon":"preferences-desktop-default-applications","path":["defaultAppsTab"],"keywords":"browser music audio video player images photos PDF text editor file manager folders Super E email archives associations MIME extensions protocols"},
-    {"id":"pacman","title":"Pacman","description":"Official packages, search and install","icon":"system-software-install","path":["packageManagerTab","pacmanTab"]},
-    {"id":"paru","title":"Paru","description":"AUR packages and helper management","icon":"package-x-generic","path":["packageManagerTab","paruTab"]},
-    {"id":"yay","title":"Yay","description":"AUR packages and helper management","icon":"applications-other","path":["packageManagerTab","yayTab"]},
+    {"id":"software","title":"Software","description":"Browse, manage installed packages and repair","icon":"system-software-install","path":["softwareTab"],"keywords":"pacman package repair installed software uninstall remove reinstall cache orphans mirrors keyring lock downgrade"},
+    {"id":"aur","title":"Yay & Paru","description":"Search packages and manage both AUR helpers","icon":"package-x-generic","path":["aurTab"],"keywords":"yay paru AUR Arch packages install uninstall reinstall helper"},
     {"id":"deb","title":"Install .deb","description":"Experimental · install Debian apps, see test results and share feedback","icon":"application-x-deb","path":["debInstallTab"],"keywords":"debtap local package Debian compatibility experimental tested Chrome feedback"},
     {"id":"updates","title":"Package Updates","description":"System upgrades and Arch news","icon":"system-software-update","path":["packageManagerTab","updatesTab"]},
-    {"id":"repair","title":"Package Repair","description":"Mirrors, keyrings, locks and downgrades","icon":"tools-check-spelling","path":["pacmanDoctorTab"]},
-    {"id":"remove","title":"Installed Software","description":"Remove packages, orphans and caches","icon":"edit-delete","path":["uninstallTab"]},
     {"id":"cleaner","title":"System Cleaner","description":"Clean up and explore your disk map","icon":"edit-clear","path":["cleanerTab"],"keywords":"disk visualizer treemap space folders files trash sudo partitions"},
     {"id":"ram-cleaner","title":"RAM Cleaner","description":"Reclaim unused caches without closing apps","icon":"media-flash","path":["ramCleanerTab"],"keywords":"memory ram cache normal aggressive cleanup reclaim"}
   ]},

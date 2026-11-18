@@ -72,13 +72,35 @@ confirmation of the exact USB before erasing it, and opens the data partition
 in Fusion Files. See [`ventoy/README.md`](ventoy/README.md) for usage, source,
 licenses and tests.
 
-**Install .deb is available again as an experimental compatibility tool.**
+**Software** combines Pacman, Installed Software and Package Repair. **Browse**
+searches official repositories; **Installed** provides one asynchronous package
+list with source filters, numeric size sorting, details, removal and reinstall.
+**Repair** keeps the guarded repair actions, health checks, configuration-file
+merges and Pacman settings. Opening a page only reads package data. Installs and
+reinstalls use a reviewed full `pacman -Syu` transaction; filtering deselects hidden
+packages before removal. Existing `--section pacman`, `remove` and `repair`
+shortcuts open the corresponding section. Build checks with
+`-DBUILD_SOFTWARE_PAGE_TESTS=ON`, then `ctest -R '^software_page$'`.
+
+**Yay & Paru** combines the two helpers in one package page. Automatic uses an
+installed helper; the selector also lets you choose either explicitly. Search
+runs asynchronously, can be cancelled, and keeps name/description and exact/contains
+filters. Results show the repository, version, votes and installed marker. Package
+changes are reviewed in the terminal. **Manage helpers** contains installation,
+reinstallation, removal and the package-cache action; reinstalling a helper does
+not uninstall it first. Existing `--section yay` and `--section paru` shortcuts
+open the combined page. Native checks: `-DBUILD_AUR_PAGE_TESTS=ON`, then
+`ctest -R '^aur_page$'`; test commands and terminals are disposable fixtures.
+
+**Install .deb is available as an experimental compatibility tool.**
 Choose a trusted Debian application in **Install .deb → Install or update from .deb**.
 **Check dependencies only** reads the package and the existing pacman databases
 without installing tools, downloading packages or changing the system.
-Each visit warns if **neither Yay nor Paru** is installed. Either helper is
-sufficient; the warning does not start an installation and stays silent during
-background preloading.
+Clicking **Install or update from .deb** prompts if **neither Yay nor Paru** is
+installed. Accepting installs **both**, sequentially in one terminal, then
+continues with the chosen `.deb` only after both helpers succeed. Declining or
+cancelling the file picker starts nothing. Either existing helper is sufficient;
+opening the page and checking dependencies never prompt to install helpers.
 
 For an update, download the newer `.deb` from the same publisher and use the same
 button. Conversion and validation run again, then `pacman -U` upgrades the matching
@@ -119,15 +141,15 @@ shows add-friend instructions for both. Discord opens its Friends/direct-message
 area, since a username alone does not supply a numeric profile URL. Contact
 destinations and instructions live in the catalog's `feedback` section.
 
-`deb_page.*` owns this presentation and forwards the original install, check-only
-and helper-install actions. Native interaction checks are available with
+`deb_page.*` owns the compact presentation and forwards the original install and
+check-only actions. `deb_prerequisites.h` handles the click-time helper prompt and
+literal terminal arguments. Native interaction checks are available with
 `-DBUILD_DEB_PAGE_TESTS=ON` and `ctest -R '^deb_page$'`. They intercept browser
 opens and use temporary state; they do not install packages or send reports.
 
-The same page shows whether **Yay** and **Paru** are installed and offers an
-install button for either missing helper. One is sufficient. They use the same
-detector and install actions as the dedicated Yay/Paru pages. When bootstrapping
-without another helper, build tools are prepared with `pacman -Syu`, AUR build
+Helper management lives on **Yay & Paru**, leaving more room for the `.deb` app
+catalog. Both pages use `aur_helper_install.py`. When bootstrapping without
+another helper, build tools are prepared with `pacman -Syu`, AUR build
 files are shown for review, and `makepkg -si` runs as the desktop user. Passwords
 are entered into sudo in the terminal, never embedded in a shell command.
 
