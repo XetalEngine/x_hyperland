@@ -27,6 +27,25 @@ from the repository root; native interaction checks use
 Backend checks use a synthetic filesystem and service runner, including boot
 replay, partial-write failures, restore failures and configuration conflicts.
 
+**Network** consolidates the legacy pages into **Connections**, **Virtual
+networks**, **Diagnostics**, **Firewall**, and **Shared folders**. The everyday view groups adapters and nearby
+Wi-Fi, with expandable saved profiles and compact address/DNS summaries.
+Secondary actions live under **More**, and unavailable actions stay disabled.
+Bridges and libvirt networks share one view; addresses, listening ports, traffic
+counters and service troubleshooting share another. Firewall and Shared folders
+are direct tabs, and their Control Panel shortcuts open those same pages.
+The adapter and Wi-Fi cards match heights side by side, with bottom-aligned actions.
+
+`network_page.*` reuses the original backend widgets and action connections;
+saved-profile UUIDs and adapter identities survive presentation changes and list
+refreshes. It requests data only for the visible area. Wi-Fi background refreshes
+use the cached scan list; **Scan** explicitly requests a new scan. Addressing
+labels use the active NetworkManager profile's `ipv4.method`, and libvirt modes
+come from the network XML forwarding definition. `network_status.h` holds those
+display helpers. Native checks use `-DBUILD_NETWORK_PAGE_TESTS=ON` and
+`ctest -R '^network_page$'`; test fixtures exercise the original button dispatch,
+selection restoration, empty states and responsive layout without network changes.
+
 System Overview's legacy language selector and restart callback are commented
 out. Sensors & Power links to **System Tweaks → Performance** between the power
 controls and Fan control. Users & Groups shows the signed-in account's shared

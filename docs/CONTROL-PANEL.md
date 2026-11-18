@@ -38,7 +38,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | Installed Software | Package removal, orphans and caches |
 | System Cleaner | Curated cleanup plus a sudo disk visualizer with mounted-volume/folder picker, size tree, treemap, breadcrumbs and file actions |
 | RAM Cleaner | Live memory readings, Normal/Aggressive manual cache cleanup and observed before/after results; keeps applications running |
-| Network | Interfaces, Wi-Fi, connections, bridges, libvirt networks and ports |
+| Network | Connections, Virtual networks, Diagnostics, Firewall and Shared folders; themed cards, expandable saved profiles and selection-aware actions |
 | RDP | Native remote desktop client with saved PCs and wallet credentials, shared home folder, clipboard text/images, audio/microphone/printers, resizing/reconnect, optional RD Gateway and a hiding full-screen toolbar. [Guide →](../config/hypr/control_panel/rdp/README.md) |
 | Firewall | UFW/firewalld rules and configuration |
 | Network Shares | Discovery, mounts, sharing and associated services |
@@ -67,6 +67,37 @@ The backend targets **Arch Linux/CachyOS**. Package, kernel, boot and ISO tools 
 - The same **Desktop startup** group controls whether the animated Xetal Engine dashboard appears at login. The dashboard also has a **Show this dashboard at login** checkbox linked to this setting; turning it off skips all four windows. **Super+D** still opens or hides it manually. The preference defaults to on and is stored in the update-preserved `control_panel/state/startup-screen.json`.
 - User environment values are literal `NAME=value` lines in `control_panel/state/environment.env`, applied at the next Hyprland login. The explicit system pane still edits `/etc/environment` when requested.
 - The panel, shortcut editor and startup helper are tied to the active compositor connection.
+
+## Network
+
+The Network page groups related tools into five tabs:
+
+- **Connections** puts adapters and nearby Wi-Fi together, with the computer
+  name, local IPv4 address and DNS servers above them. Select an adapter for
+  **IP & DNS…**, or a wireless network for **Connect**. Expand **Saved connections**
+  to activate an existing profile or manage auto-connect and forgotten networks.
+- **Virtual networks** groups physical bridges and libvirt networks. Create a
+  bridge, update its hardware assignment, or start and stop VM networks here.
+- **Diagnostics** gathers local/public addresses, listening ports, adapter
+  traffic and the existing NetworkManager restart action.
+- **Firewall** contains the existing rules and firewall controls. Loading rules
+  remains an explicit action because it requires administrator authentication.
+- **Shared folders** contains network discovery, mounts and folder sharing.
+  The separate Control Panel shortcuts open these same tabs.
+
+Secondary actions are under **More**. Controls that need a selection stay
+disabled until a valid target is selected. Saved connections retain their UUID
+when the list is refreshed or reordered; duplicate profile names do not change
+which connection an action targets. Tables fit their content, and the two-column
+layout becomes a single column in smaller windows. The adapter and Wi-Fi cards
+share a height when side by side, with their action buttons aligned at the bottom.
+
+Opening the page reads status and does not connect, disconnect or modify network
+settings. Refresh reads only the visible area; **Scan** explicitly requests a new
+Wi-Fi scan. Automatic/manual addressing is read from the active
+[NetworkManager connection profile](https://networkmanager.dev/docs/api/latest/nm-settings-nmcli.html),
+and VM network modes follow the [libvirt forwarding definition](https://libvirt.org/formatnetwork.html).
+These replace the old display heuristics without changing connection actions.
 
 ## Persistent System Tweaks
 

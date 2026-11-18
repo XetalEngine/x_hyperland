@@ -34,9 +34,9 @@
   ]},
   {"title": "Network & connections","tools":[
     {"id":"rdp","title":"RDP","description":"Remote desktops · saved PCs, credentials and shared folders","icon":"preferences-desktop-remote-desktop","path":["rdpTab"],"keywords":"remote desktop Windows PC RDP FreeRDP Remmina gateway connection clipboard audio microphone folder full screen"},
-    {"id":"network","title":"Network","description":"Wi-Fi, interfaces, bridges and ports","icon":"network-workgroup","path":["networkTab"]},
-    {"id":"firewall","title":"Firewall","description":"UFW and firewalld rules","icon":"security-high","path":["firewallSubTab"]},
-    {"id":"shares","title":"Network Shares","description":"Discover, mount and share folders","icon":"folder-network","path":["networkSharesSubTab"]}
+    {"id":"network","title":"Network","description":"Connections, Wi-Fi, virtual networks and diagnostics","icon":"network-workgroup","path":["networkTab"]},
+    {"id":"firewall","title":"Firewall","description":"UFW and firewalld rules","icon":"security-high","path":["networkTab","firewallSubTab"]},
+    {"id":"shares","title":"Network Shares","description":"Discover, mount and share folders","icon":"folder-network","path":["networkTab","networkSharesSubTab"]}
   ]},
   {"title": "Session & advanced tools","tools":[
     {"id":"shell","title":"Shell & Apps Shortcuts","description":"Your shell aliases and Apps favorites","icon":"utilities-terminal","path":["shellToolsTab"],"keywords":"bash zsh fish kitty terminal commands launcher floating"},

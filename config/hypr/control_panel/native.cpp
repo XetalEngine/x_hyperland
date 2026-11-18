@@ -7,6 +7,7 @@
 #include "grub_editor.h"
 #include "runtime_log_guard.h"
 #include "system_tweaks_page.h"
+#include "network_page.h"
 #include "aur_helpers.h"
 #include "deb_page.h"
 #include "proton/page.h"
@@ -295,7 +296,7 @@ PanelController::PanelController(MainWindow *window)
   for (const auto &group : groups)
     for (const auto &tool : group.tools) {
       auto path = tool.data["path"].toArray();
-      if (!path.isEmpty() && path[0].toString() == startup) {
+      if (path.contains(startup)) {
         open(tool.data["id"].toString());
         goto startupDone;
       }
@@ -317,16 +318,35 @@ void PanelController::prepareTools() {
   rootTabs->addTab(new FusionRdp::Page(HyperPanel::root(), rootTabs), "RDP");
   rootTabs->addTab(new VentoyPage(HyperPanel::root(), rootTabs), "Ventoy USB");
   rootTabs->addTab(new GrubEditor(HyperPanel::root() + "/control_panel/grub_editor.py", rootTabs), "GRUB Boot Editor");
-  auto promote = [this, rootTabs](const QString &name, const QString &title) {
-    auto *page = owner->findChild<QWidget *>(name);
-    if (!page) return;
-    auto *parent = page->parentWidget();
-    while (parent && !qobject_cast<QTabWidget *>(parent)) parent = parent->parentWidget();
-    if (auto *tabs = qobject_cast<QTabWidget *>(parent)) tabs->removeTab(tabs->indexOf(page));
-    rootTabs->addTab(page, title);
-  };
-  promote("firewallSubTab", "Firewall");
-  promote("networkSharesSubTab", "Network Shares");
+  if (auto *page = owner->findChild<QWidget *>("networkTab")) {
+    page->setProperty("fusionNetworkReplaced", true);
+    auto *legacyTabs = owner->findChild<QWidget *>("networkTabWidget");
+    auto *network = new NetworkPage(owner, page);
+    page->layout()->removeWidget(legacyTabs); legacyTabs->hide();
+    page->layout()->addWidget(network);
+    auto *sections = network->findChild<QTabWidget *>("networkSections");
+    QSettings settings("XetalHyperland", "ControlPanel");
+    for (const auto &name : {"firewallSubTab", "networkSharesSubTab"})
+      sections->setTabVisible(sections->indexOf(owner->findChild<QWidget *>(name)),
+                             settings.value(QString("tabs/") + name, true).toBool());
+    connect(network, &NetworkPage::refreshRequested, this, [this](const QString &section) {
+      if (section == "Connections") {
+        QMetaObject::invokeMethod(owner, "refreshNetworkInfo");
+        QMetaObject::invokeMethod(owner, "refreshInterfaceConfig");
+        QMetaObject::invokeMethod(owner, "refreshConnectionsList");
+        QMetaObject::invokeMethod(owner, "refreshWifiNetworks", Q_ARG(bool, false));
+      } else if (section == "Virtual networks") {
+        QMetaObject::invokeMethod(owner, "refreshBridges");
+        QMetaObject::invokeMethod(owner, "refreshLibvirtNetworks");
+      } else if (section == "Diagnostics") {
+        QMetaObject::invokeMethod(owner, "refreshNetworkInfo");
+        QMetaObject::invokeMethod(owner, "refreshInterfaceStats");
+        QMetaObject::invokeMethod(owner, "refreshOpenPorts");
+      } else if (section == "Shared folders") {
+        QMetaObject::invokeMethod(owner, "refreshNetworkShares");
+      }
+    });
+  }
   if (auto *page = owner->findChild<QWidget *>("tweaksTab")) {
     page->setProperty("fusionTweaksReplaced", true);
     // Keep legacy Ui pointers valid for the copied backend, but retire every
@@ -473,10 +493,10 @@ void PanelController::arrange() {
     for (auto &tool : group.tools) {
       total++;
       const auto path = tool.data["path"].toArray();
-      const bool enabled =
-          path.isEmpty() || QSettings("XetalHyperland", "ControlPanel")
-                                .value("tabs/" + path[0].toString(), true)
-                                .toBool();
+      bool enabled = true;
+      QSettings settings("XetalHyperland", "ControlPanel");
+      for (const auto &name : path)
+        enabled &= settings.value("tabs/" + name.toString(), true).toBool();
       bool visible = enabled && (tool.data["title"].toString() + " " +
                                  tool.data["description"].toString() + " " +
                                  tool.data["keywords"].toString())
@@ -597,8 +617,11 @@ QJsonArray PanelController::verifyNavigation() {
   // Smoke validation switches pages with refresh signals blocked; never runs a
   // tool.
   std::vector<std::unique_ptr<QSignalBlocker>> blockers;
-  for (auto *tabs : owner->findChildren<QTabWidget *>())
+  QMap<QTabWidget *, QWidget *> previousPages;
+  for (auto *tabs : owner->findChildren<QTabWidget *>()) {
+    previousPages[tabs] = tabs->currentWidget();
     blockers.emplace_back(new QSignalBlocker(tabs));
+  }
   const auto previous = current;
   QJsonArray errors;
   for (const auto &group : groups)
@@ -617,6 +640,8 @@ QJsonArray PanelController::verifyNavigation() {
           errors.append(tool.data["id"].toString() + ": " + name.toString());
       }
     }
+  for (auto it = previousPages.begin(); it != previousPages.end(); ++it)
+    if (it.value()) it.key()->setCurrentWidget(it.value());
   open(previous);
   return errors;
 }

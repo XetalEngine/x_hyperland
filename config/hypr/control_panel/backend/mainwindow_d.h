@@ -147,14 +147,18 @@ shellConfigFiles["ksh"] = QStringList()
     // Package Manager tab setup
     checkAurHelpers();
     
-    // Network tab initialization
-    refreshNetworkInfo();
-    refreshInterfaceStats();
-    refreshBridges();
-    refreshLibvirtNetworks();
-    refreshInterfaceConfig();
-    refreshConnectionsList();
-    refreshWifiNetworks(false);
+    // The native Network page refreshes only the area being opened. Retain
+    // initialization for a legacy-only window, after its presenter is known.
+    QTimer::singleShot(0, this, [this] {
+        if (ui->networkTab->property("fusionNetworkReplaced").toBool()) return;
+        refreshNetworkInfo();
+        refreshInterfaceStats();
+        refreshBridges();
+        refreshLibvirtNetworks();
+        refreshInterfaceConfig();
+        refreshConnectionsList();
+        refreshWifiNetworks(false);
+    });
     // Connect search buttons
     connect(ui->pacmanAurSearchButton, &QPushButton::clicked, this, &MainWindow::on_pacmanAurSearchButton_clicked);
     connect(ui->pacmanAurSearch, &QLineEdit::returnPressed, this, &MainWindow::on_pacmanAurSearch_returnPressed);
@@ -352,7 +356,7 @@ shellConfigFiles["ksh"] = QStringList()
         if (ui->tabWidget->widget(index)->objectName() == "restoreTab") {
             populateRestoreDrives();
         }
-        if (ui->tabWidget->widget(index) == ui->networkTab) {
+        if (ui->tabWidget->widget(index) == ui->networkTab && !ui->networkTab->property("fusionNetworkReplaced").toBool()) {
             refreshNetworkInfo();
             refreshBridges();
             refreshConnectionsList();

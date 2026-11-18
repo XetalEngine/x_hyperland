@@ -166,7 +166,14 @@ void MainWindow::applyTabVisibility() {
         // the rebuild so tab handlers never see an intermediate empty selection.
         QSignalBlocker blocker(ui->tabWidget);
         while (ui->tabWidget->count()) ui->tabWidget->removeTab(0);
+        auto *networkSections = findChild<QTabWidget *>("networkSections");
         for (const auto &tab : AppPreferences::tabs()) {
+            // Firewall and Shared folders stay inside Network after changing preferences.
+            auto *page = widgets.value(tab.id);
+            if (networkSections && networkSections->indexOf(page) >= 0) {
+                networkSections->setTabVisible(networkSections->indexOf(page), tabVisibilityMap.value(tab.id, true));
+                continue;
+            }
             if (widgets.value(tab.id) && tabVisibilityMap.value(tab.id, true))
                 ui->tabWidget->addTab(widgets.value(tab.id), tab.title);
         }

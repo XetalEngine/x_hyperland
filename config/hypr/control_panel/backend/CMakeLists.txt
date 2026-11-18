@@ -57,6 +57,9 @@ set(PROJECT_SOURCES
     ../runtime_log_guard.h
     ../system_tweaks_page.cpp
     ../system_tweaks_page.h
+    ../network_page.cpp
+    ../network_page.h
+    ../network_status.h
         mainwindow.cpp
         mainwindow.h
         mainwindow.ui
@@ -406,4 +409,15 @@ if(BUILD_SYSTEM_TWEAKS_TESTS)
     target_link_libraries(system_tweaks_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
     add_test(NAME system_tweaks COMMAND system_tweaks_tests)
     set_tests_properties(system_tweaks PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_PLATFORMTHEME=")
+endif()
+
+option(BUILD_NETWORK_PAGE_TESTS "Build Network page interaction checks" OFF)
+if(BUILD_NETWORK_PAGE_TESTS)
+    enable_testing()
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(network_page_tests tests/network_page_tests.cpp ../network_page.cpp ../network_page.h ../network_status.h)
+    target_include_directories(network_page_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    target_link_libraries(network_page_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME network_page COMMAND network_page_tests)
+    set_tests_properties(network_page PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_PLATFORMTHEME=")
 endif()
