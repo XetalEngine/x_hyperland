@@ -55,6 +55,8 @@ set(PROJECT_SOURCES
     ../grub_appearance.h
     ../runtime_log_guard.cpp
     ../runtime_log_guard.h
+    ../system_tweaks_page.cpp
+    ../system_tweaks_page.h
         mainwindow.cpp
         mainwindow.h
         mainwindow.ui
@@ -392,4 +394,16 @@ if(BUILD_DRIVE_TREE_TESTS)
     target_link_libraries(drive_tree_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::DBus Qt${QT_VERSION_MAJOR}::Test)
     add_test(NAME drive_tree COMMAND drive_tree_tests)
     set_tests_properties(drive_tree PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
+
+option(BUILD_SYSTEM_TWEAKS_TESTS "Build System Tweaks interaction and dialog sizing checks" OFF)
+if(BUILD_SYSTEM_TWEAKS_TESTS)
+    enable_testing()
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(system_tweaks_tests tests/system_tweaks_tests.cpp
+        ../system_tweaks_page.cpp ../system_tweaks_page.h ../runtime_log_guard.cpp ../runtime_log_guard.h)
+    target_include_directories(system_tweaks_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    target_link_libraries(system_tweaks_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME system_tweaks COMMAND system_tweaks_tests)
+    set_tests_properties(system_tweaks PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_PLATFORMTHEME=")
 endif()

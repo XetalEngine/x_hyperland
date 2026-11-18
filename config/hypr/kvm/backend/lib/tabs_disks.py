@@ -680,6 +680,10 @@ class DisksTab(QScrollArea):
                         "the guest see two separate NVMe devices.")
         addc.clicked.connect(self.add_controller_with_slot)
         btns.addWidget(addc)
+        add_virtual = QPushButton("Add Virtual Disk")
+        add_virtual.setToolTip("Create a new disk image or attach an existing raw .img or .raw disk.")
+        add_virtual.clicked.connect(self.add_virtual_disk)
+        btns.addWidget(add_virtual)
         btns.addStretch()
         self.lbl_count = QLabel("")
         btns.addWidget(self.lbl_count)
@@ -1002,6 +1006,33 @@ class DisksTab(QScrollArea):
         self._claim(self.cfg.devices, "id", dev["id"], dev)
         self.reload()
         self.changed.emit()
+
+    def add_virtual_disk(self):
+        """Attach a new or existing image only after the dialog succeeds."""
+        bus = self.free_ide_port()
+        if bus not in {f"ide.{n}" for n in range(6)}:
+            QMessageBox.warning(self, "No free SATA port",
+                                "All six SATA ports are in use. Remove or deactivate an unused SATA disk, "
+                                "or move one to an NVMe controller before adding a virtual disk.")
+            return
+        from virtual_disk_dialog import VirtualDiskDialog
+        dialog = VirtualDiskDialog(self, attached_paths=[
+            bd["filename"] for bd in self.cfg.blockdevs if not bd.get("_disabled") and bd.get("filename")])
+        try:
+            if not dialog.exec() or dialog.selected_path is None:
+                return
+            n = self._next_index()
+            bd = {"driver": "file", "filename": str(dialog.selected_path), "aio": "threads",
+                  "node-name": f"vmstart2-{n}-storage", "read-only": False,
+                  "discard": "unmap", "cache": {"direct": False, "no-flush": False}}
+            dev = {"driver": "ide-hd", "bus": bus, "drive": bd["node-name"],
+                   "id": f"vmstart2-disk{n}", "write-cache": "on", "serial": _random_serial(11)}
+            self._claim(self.cfg.blockdevs, "node-name", bd["node-name"], bd)
+            self._claim(self.cfg.devices, "id", dev["id"], dev)
+            self.reload()
+            self.changed.emit()
+        finally:
+            dialog.deleteLater()
 
     def add_iso(self):
         """Attach an .iso as a read-only ide-cd optical drive.

@@ -45,7 +45,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | Shell & Apps Shortcuts | Alias add/edit/remove, shell configuration editor, terminal actions and Apps favorites |
 | Services | System/user service controls, failed services, journals and boot analysis |
 | Startup Applications | Choose Num Lock and Xetal Engine behavior at login; add/edit, enable/disable, remove and run login applications; manage user units |
-| System Tweaks | Hyprland tab with log protection and file logging controls; performance, security, network, storage, desktop and system settings |
+| System Tweaks | Searchable cards, inline choices, current/saved values, permanent apply and restore; performance, memory/storage, security, network, system, desktop and Hyprland categories |
 | System Configuration | Privileged editor and configuration catalog, extended with Hyprland and Kitty |
 | Panel Preferences | Language, visible tool families, startup page, size memory, autosave, drive/package/editor defaults, ISO defaults and debug preview |
 | Hyper Fusion Updates | The existing desktop updater, including Control Panel updates |
@@ -67,6 +67,53 @@ The backend targets **Arch Linux/CachyOS**. Package, kernel, boot and ISO tools 
 - The same **Desktop startup** group controls whether the animated Xetal Engine dashboard appears at login. The dashboard also has a **Show this dashboard at login** checkbox linked to this setting; turning it off skips all four windows. **Super+D** still opens or hides it manually. The preference defaults to on and is stored in the update-preserved `control_panel/state/startup-screen.json`.
 - User environment values are literal `NAME=value` lines in `control_panel/state/environment.env`, applied at the next Hyprland login. The explicit system pane still edits `/etc/environment` when requested.
 - The panel, shortcut editor and startup helper are tied to the active compositor connection.
+
+## Persistent System Tweaks
+
+Open **Control Panel → System Tweaks**. Choose a value on its card and click
+**Save & apply**. Administrator authentication appears once per system operation;
+the page reports success or the reason a change failed. Unavailable hardware
+options are disabled. Search works across categories, and **About this setting**
+explains each choice without opening another window.
+
+- **Performance:** hardware-supported CPU governors, energy preferences, turbo
+  boost, game memory mappings and the NMI watchdog. An enabled boot service
+  restores CPU, transparent huge-page and disk scheduler choices without
+  requiring cpupower. Active power managers that may override manual CPU choices
+  are identified on the page.
+- **Memory & storage:** zram0 capacity, swappiness, filesystem cache pressure,
+  separate writeback thresholds, transparent huge pages, supported I/O schedulers,
+  scheduled SSD TRIM and RAM-backed `/tmp`.
+- **Security:** ptrace access, process visibility, crash dump collection and
+  kernel log access. **Network** includes IPv6, available TCP congestion
+  algorithms, Fast Open and buffer ceilings, plus the connection-profile editor
+  for persistent DNS settings.
+- **System:** parallel package downloads, pacman appearance, journal limits and
+  separate inotify watch/instance limits. Boot options, firewall rules, startup
+  configuration and service management link to their dedicated tools.
+- **Desktop:** Fusion Files' saved hidden-file default. Existing per-folder view
+  choices are preserved. **Hyprland** retains the log controls described below.
+
+System settings are saved across reboots. Zram, `/tmp` and `/proc` mount changes
+use **Save for reboot**; they do not tear down active swap or remount live
+filesystems. Ptrace mode 3 is also scheduled for reboot because the kernel will
+not allow it to be lowered during the same boot. Selecting another mode while
+mode 3 is active therefore also requires reboot. Mode 0 permits normal same-user
+debugging, subject to the kernel's remaining checks; it does not grant arbitrary
+cross-user access. See the [kernel's Yama documentation](https://docs.kernel.org/admin-guide/LSM/Yama.html).
+
+Each system change keeps a private previous-state backup. **Restore previous**
+restores that setting's last backup, unless a configuration file has subsequently
+changed. Errors trigger rollback and remain visible; a failed command is never
+reported as a successful apply. Later configuration overrides are checked before
+writing, including [sysctl.d precedence](https://www.freedesktop.org/software/systemd/man/latest/sysctl.d.html)
+and systemd drop-ins. Zram follows the [generator's configuration rules](https://github.com/systemd/zram-generator/blob/main/man/zram-generator.conf.md).
+
+CPU/THP/disk choices are recorded in `/etc/hyperfusion/system-tweaks.json` and
+restored by `hyperfusion-system-tweaks.service`, which runs a root-owned helper
+under `/usr/local/lib/hyperfusion`. It does not execute the user-writable desktop
+profile at boot. Backups are under `/var/lib/hyperfusion-system-tweaks` with
+administrator-only access. Simply opening this page changes no system settings.
 
 ## Hyprland log guard
 

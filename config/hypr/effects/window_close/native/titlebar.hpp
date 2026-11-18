@@ -179,6 +179,7 @@ void syncTitlebars(){
         const auto preview=previewFor(w);
         const auto rule=preview?preview->rule:ruleFor(w);
         const bool enabled=kdeMode(w)&&rule.titlebar.value_or(true)&&!w->m_X11DoesntWantBorders&&
+            WindowButtons::allowsTitlebar(w->m_ruleApplicator->m_tagKeeper.getTags())&&
             w->m_ruleApplicator->decorate().valueOrDefault()&&
             Fullscreen::controller()->getFullscreenModes(w).internal!=Fullscreen::FSMODE_FULLSCREEN;
         auto it=titlebars.find(w->m_stableID);

@@ -12,6 +12,15 @@
 #include <optional>
 
 namespace WindowButtons {
+// Client-owned headers still need the compositor's border and focus shadow.
+// A dedicated tag suppresses only our extra KDE bar, unlike decorate=off.
+template<typename Tags>
+bool allowsTitlebar(const Tags& tags) {
+    for (const auto& tag : tags)
+        if (tag == "fusion-client-header" || tag == "fusion-client-header*") return false;
+    return true;
+}
+
 struct Rule {
     std::string mode="super",anchor="top-right",background="auto",backgroundColor="#20242b";
     int size=18,x=8,y=8,proximity=80;

@@ -204,17 +204,17 @@ shellConfigFiles["ksh"] = QStringList()
     connect(ui->cpuGovernorToggle, &QPushButton::clicked, this, &MainWindow::on_cpuGovernorToggle_clicked);
 
     // Tweaks tab Apply button connections
-    connect(ui->zramApplyButton, &QPushButton::clicked, this, &MainWindow::on_zramApplyButton_clicked);
-    connect(ui->cpuGovernorApplyButton, &QPushButton::clicked, this, &MainWindow::on_cpuGovernorApplyButton_clicked);
-    connect(ui->ipv6ApplyButton, &QPushButton::clicked, this, &MainWindow::on_ipv6ApplyButton_clicked);
-    connect(ui->trimApplyButton, &QPushButton::clicked, this, &MainWindow::on_trimApplyButton_clicked);
-    connect(ui->tmpfsApplyButton, &QPushButton::clicked, this, &MainWindow::on_tmpfsApplyButton_clicked);
-    connect(ui->dnsApplyButton, &QPushButton::clicked, this, &MainWindow::on_dnsApplyButton_clicked);
-    connect(ui->showHiddenFilesApplyButton, &QPushButton::clicked, this, &MainWindow::on_showHiddenFilesApplyButton_clicked);
-    connect(ui->mitigationsApplyButton, &QPushButton::clicked, this, &MainWindow::on_mitigationsApplyButton_clicked);
-    connect(ui->performanceHacksApplyButton, &QPushButton::clicked, this, &MainWindow::on_performanceHacksApplyButton_clicked);
-    connect(ui->ptraceApplyButton, &QPushButton::clicked, this, &MainWindow::on_ptraceApplyButton_clicked);
-    connect(ui->hidepidApplyButton, &QPushButton::clicked, this, &MainWindow::on_hidepidApplyButton_clicked);
+    connect(ui->zramApplyButton, &QPushButton::clicked, this, &MainWindow::on_zramApplyButton_clicked, Qt::UniqueConnection);
+    connect(ui->cpuGovernorApplyButton, &QPushButton::clicked, this, &MainWindow::on_cpuGovernorApplyButton_clicked, Qt::UniqueConnection);
+    connect(ui->ipv6ApplyButton, &QPushButton::clicked, this, &MainWindow::on_ipv6ApplyButton_clicked, Qt::UniqueConnection);
+    connect(ui->trimApplyButton, &QPushButton::clicked, this, &MainWindow::on_trimApplyButton_clicked, Qt::UniqueConnection);
+    connect(ui->tmpfsApplyButton, &QPushButton::clicked, this, &MainWindow::on_tmpfsApplyButton_clicked, Qt::UniqueConnection);
+    connect(ui->dnsApplyButton, &QPushButton::clicked, this, &MainWindow::on_dnsApplyButton_clicked, Qt::UniqueConnection);
+    connect(ui->showHiddenFilesApplyButton, &QPushButton::clicked, this, &MainWindow::on_showHiddenFilesApplyButton_clicked, Qt::UniqueConnection);
+    connect(ui->mitigationsApplyButton, &QPushButton::clicked, this, &MainWindow::on_mitigationsApplyButton_clicked, Qt::UniqueConnection);
+    connect(ui->performanceHacksApplyButton, &QPushButton::clicked, this, &MainWindow::on_performanceHacksApplyButton_clicked, Qt::UniqueConnection);
+    connect(ui->ptraceApplyButton, &QPushButton::clicked, this, &MainWindow::on_ptraceApplyButton_clicked, Qt::UniqueConnection);
+    connect(ui->hidepidApplyButton, &QPushButton::clicked, this, &MainWindow::on_hidepidApplyButton_clicked, Qt::UniqueConnection);
 
     // Tweaks tab config button connections
     disconnect(ui->zramConfigButton, nullptr, nullptr, nullptr);
@@ -302,7 +302,7 @@ shellConfigFiles["ksh"] = QStringList()
     connect(ui->journaldBackupButton, &QPushButton::clicked, this, &MainWindow::on_journaldBackupButton_clicked);
     
     // Tweaks tab widget connection
-    connect(ui->tweaksTabWidget, &QTabWidget::currentChanged, this, &MainWindow::on_tweaksTabWidget_currentChanged);
+    connect(ui->tweaksTabWidget, &QTabWidget::currentChanged, this, &MainWindow::on_tweaksTabWidget_currentChanged, Qt::UniqueConnection);
     
     // Refresh tweaks status when tab is opened (deferred)
     QTimer::singleShot(500, this, [this]() {

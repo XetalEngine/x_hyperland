@@ -15,7 +15,8 @@ namespace HyperPanel {
 inline QSize defaultWindowSize(const QSize &available) {
     return QSize(1650, 910).boundedTo((available - QSize(24, 48)).expandedTo(QSize(1, 1)));
 }
-// Tool dialogs share the panel's starting size; prompts retain their content size.
+// Only explicit large tools inherit the panel size. Ordinary dialogs and
+// prompts keep their own layout/sizeHint instead of becoming full-screen forms.
 class WindowSizing final : public QObject {
 public:
     explicit WindowSizing(QObject *parent) : QObject(parent) {}
@@ -23,6 +24,7 @@ public:
         auto *dialog = qobject_cast<QDialog *>(object);
         if (event->type() != QEvent::Show || !dialog || dialog->property("xetalWindowSized").toBool()) return false;
         dialog->setProperty("xetalWindowSized", true);
+        if (!dialog->property("xetalLargeToolWindow").toBool()) return false;
         if (qobject_cast<QMessageBox *>(dialog) || qobject_cast<QInputDialog *>(dialog) ||
             qobject_cast<QProgressDialog *>(dialog) || qobject_cast<QColorDialog *>(dialog) ||
             qobject_cast<QFontDialog *>(dialog) || dialog->minimumSize() == dialog->maximumSize()) return false;

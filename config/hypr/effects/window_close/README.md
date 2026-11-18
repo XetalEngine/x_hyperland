@@ -66,6 +66,13 @@ native drag controller. Both press and release are captured together, with no
 clicks sent through to the app. Menus, popups, tooltips, override-redirect windows
 and windows with an explicit no-decoration rule are excluded.
 
+Fusion Files (including externally opened folders), Control Panel and Fusion
+Settings keep their own headers through the `fusion-client-header` window tag.
+This suppresses the extra KDE title bar while retaining the compositor's themed
+active/inactive border and shadow. These apps must not use `decorate = off` to
+hide the bar, because that also removes their focus surround. The Start menu
+keeps its separate frameless popup rule.
+
 In the gear editor, uncheck **Add a title bar above the app**, select **Only this
 window** or **All windows of this app**, and Apply. This restores the existing
 Automatic/Always/nearby/modifier/Off overlay controls for that KDE window/app.

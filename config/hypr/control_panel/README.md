@@ -2,6 +2,31 @@
 
 Native floating Qt/C++ panel, opened from Apps above Fusion Settings. See the [feature map and integration guide](../../../docs/CONTROL-PANEL.md).
 
+**System Tweaks** uses searchable, theme-colored cards with inline choices,
+current and saved values, **Save & apply**, and **Restore previous**. Each system
+choice is persisted; settings that need a reboot say **Save for reboot**.
+CPU choices come from the hardware, including energy preference where supported.
+The page also exposes individual memory, networking and file-watcher limits.
+Ordinary input dialogs keep their content size. Explicit large tool dialogs can
+opt in with `xetalLargeToolWindow`; the legacy auto-connected Apply slots use
+`Qt::UniqueConnection` to prevent duplicate prompts.
+
+`system_tweaks_page.*` owns the native page. `system_tweaks.py` performs read-only
+discovery and authenticated, allowlisted transactions; `tweaks_catalog.py` owns
+the choices and explanations. CPU, THP and I/O policies use a root-owned copy of
+`tweaks_runtime.py` and an enabled boot service. Other settings use sysctl,
+systemd drop-ins, service enablement, fstab or pacman's existing configuration.
+Saved selections live in `/etc/hyperfusion/system-tweaks.json`; private backups
+live in `/var/lib/hyperfusion-system-tweaks`. Failed operations attempt rollback
+and report any rollback errors. Restore refuses to overwrite files edited since
+the backup. No system defaults change merely by opening or installing the page.
+
+Validation: `python -m pytest config/hypr/control_panel/tests/test_system_tweaks.py`
+from the repository root; native interaction checks use
+`-DBUILD_SYSTEM_TWEAKS_TESTS=ON` and `ctest -R '^system_tweaks$'`.
+Backend checks use a synthetic filesystem and service runner, including boot
+replay, partial-write failures, restore failures and configuration conflicts.
+
 System Overview's legacy language selector and restart callback are commented
 out. Sensors & Power links to **System Tweaks → Performance** between the power
 controls and Fan control. Users & Groups shows the signed-in account's shared

@@ -26,6 +26,30 @@ Virtual GPU and Dual GPU open their console/viewer as a floating window by defau
 
 Single GPU saves the selected devices' original drivers before handoff and restores them after a failed start, including a device left unbound. It ends the initiating graphical login and refuses handoff while another graphical user session is active. The launch service preserves the recipient's private workspace path for all three modes; Mac helpers run from the installed source directory. Failed starts and termination signals clean up the supervisor's owned processes before restoring the host.
 
+## Adding a virtual disk
+
+Open **Disks & storage → Add Virtual Disk**, immediately after **Add NVMe controller**.
+Select **Create new**, choose the storage folder, filename and capacity in GiB,
+then click **Create and add**.
+The default is a 64 GiB disk in `~/VirtualMachines/`. Names without an extension
+receive `.img`; `.img` and `.raw` files use the existing raw-image storage path.
+
+Select **Use existing** to browse for a raw `.img` or `.raw` disk and click
+**Add disk**. This preserves its contents and capacity: it does not recreate,
+resize or format the image. The dialog checks the image in the background and
+rejects duplicate active attachments, including links to the same file.
+Container formats such as QCOW2, VMDK and VHD are not supported by this raw-image
+path. After a filename-already-exists error, switching to **Use existing**
+prefills the same path so that you can attach the disk directly.
+
+Creation runs in the background and adds the disk card only after success. The
+image is sparse, so host storage is consumed as the guest writes data. Existing
+files, folders and symlinks are never overwritten. Images attach to a free
+SATA port; the card's **Guest** and **Bus** controls can subsequently move them
+to another interface. If all six SATA ports are occupied, free a port first.
+Initialize or format the blank disk inside the guest as needed. Removing its
+card removes the VM attachment and leaves the image file available for reuse.
+
 ## Components and updates
 
 **Paths & Tools → KVM components** offers **Basic free**, **Enhanced free** (build 1963), and a disabled Xetallic MAX placeholder. Basic is the fresh-install default and needs no account or installation token. It includes upstream QEMU/OVMF and uses system KVM. Enhanced is free with an active Echo account; MAX is coming soon and reserves NOS MAX eligibility. The **Switch to Basic** and **Switch to Enhanced** buttons prepare missing components before selecting the edition; a failed download leaves the current selection intact. Each edition has its own signed feed, installed versions and download cache. Switching remaps managed tools and read-only firmware while retaining disks, NVRAM, TPM state and guest identity. Custom paths survive ordinary refreshes; explicitly choosing an edition selects its QEMU/OVMF pair. The internal feed identifiers remain `stock` and `xetallic`.

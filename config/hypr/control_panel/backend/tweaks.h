@@ -548,6 +548,7 @@ void MainWindow::on_tweaksTabWidget_currentChanged(int index) {
 }
 
 void MainWindow::refreshTweaksStatus() {
+    if (ui->tweaksTab->property("fusionTweaksReplaced").toBool()) return;
     checkZramState();
     checkCpuGovernorState();
     checkIpv6State();

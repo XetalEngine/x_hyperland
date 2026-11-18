@@ -63,7 +63,8 @@ private slots:
         QCOMPARE(HyperPanel::defaultWindowSize(QSize(1920,1080)), QSize(1650,910));
         QCOMPARE(HyperPanel::defaultWindowSize(QSize(1280,720)), QSize(1256,672));
         QApplication::instance()->installEventFilter(new HyperPanel::WindowSizing(QApplication::instance()));
-        QDialog dialog; dialog.resize(800,600); dialog.show(); QTest::qWait(30);
+        QDialog dialog; dialog.setProperty("xetalLargeToolWindow", true);
+        dialog.resize(800,600); dialog.show(); QTest::qWait(30);
         QCOMPARE(dialog.size(), HyperPanel::defaultWindowSize(dialog.screen()->availableGeometry().size()));
         QMessageBox prompt(QMessageBox::Information,"Test","Short prompt"); prompt.show(); QTest::qWait(20);
         QVERIFY(prompt.width() < dialog.width());

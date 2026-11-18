@@ -6,6 +6,7 @@
 #include "default_apps.h"
 #include "grub_editor.h"
 #include "runtime_log_guard.h"
+#include "system_tweaks_page.h"
 #include "aur_helpers.h"
 #include "deb_page.h"
 #include "proton/page.h"
@@ -307,8 +308,7 @@ void PanelController::prepareTools() {
   if (auto *link = owner->findChild<QPushButton *>("sensorsTweaksLink"))
     connect(link, &QPushButton::clicked, this, [this] {
       open("tweaks");
-      if (auto *tabs = owner->findChild<QTabWidget *>("tweaksTabWidget"))
-        if (auto *performance = owner->findChild<QWidget *>("performanceTab")) tabs->setCurrentWidget(performance);
+      if (auto *page = owner->findChild<SystemTweaksPage *>()) page->selectCategory("Performance");
     });
   auto *rootTabs = owner->findChild<QTabWidget *>("tabWidget");
   rootTabs->addTab(new RamCleaner(HyperPanel::root() + "/control_panel/ram_cleaner.py", rootTabs), "RAM Cleaner");
@@ -327,17 +327,22 @@ void PanelController::prepareTools() {
   };
   promote("firewallSubTab", "Firewall");
   promote("networkSharesSubTab", "Network Shares");
-  if (auto *tabs = owner->findChild<QTabWidget *>("tweaksTabWidget")) {
-    for (int i = tabs->count() - 1; i >= 0; --i)
-      if (tabs->tabText(i).contains("KDE", Qt::CaseInsensitive))
-        tabs->removeTab(i);
-    auto *hyprland = new QWidget(tabs);
-    hyprland->setObjectName("hyprlandTweaksTab");
-    auto *layout = new QVBoxLayout(hyprland);
-    layout->addWidget(new RuntimeLogGuard(HyperPanel::root() + "/scripts/runtime-log-guard.py", hyprland));
-    layout->addStretch();
-    tabs->insertTab(0, hyprland, "Hyprland");
-    tabs->setCurrentWidget(hyprland);
+  if (auto *page = owner->findChild<QWidget *>("tweaksTab")) {
+    page->setProperty("fusionTweaksReplaced", true);
+    // Keep legacy Ui pointers valid for the copied backend, but retire every
+    // old control and connection from the visible workflow.
+    auto *retired = new QWidget(owner); retired->setObjectName("retiredTweaks"); retired->hide();
+    std::function<void(QLayout *)> retire = [&](QLayout *layout) {
+      while (auto *item = layout->takeAt(0)) {
+        if (auto *widget = item->widget()) { widget->setParent(retired); widget->hide(); }
+        if (item->layout()) retire(item->layout());
+        delete item;
+      }
+    };
+    retire(page->layout());
+    auto *tweaks = new SystemTweaksPage(HyperPanel::root(), page);
+    page->layout()->addWidget(tweaks);
+    connect(tweaks, &SystemTweaksPage::openTool, this, &PanelController::open);
   }
   if (auto *page = owner->findChild<QWidget *>("kvmTab"))
     rootTabs->removeTab(rootTabs->indexOf(page));

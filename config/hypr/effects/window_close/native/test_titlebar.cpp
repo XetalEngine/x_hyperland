@@ -3,9 +3,14 @@
 #include "policies.hpp"
 #include <cassert>
 #include <iostream>
+#include <vector>
 
 int main(int argc,char** argv){
     using namespace WindowButtons;
+    assert(allowsTitlebar(std::vector<std::string>{}));
+    assert(allowsTitlebar(std::vector<std::string>{"fusion-client-header-other", "unrelated*"}));
+    assert(!allowsTitlebar(std::vector<std::string>{"fusion-client-header"}));
+    assert(!allowsTitlebar(std::vector<std::string>{"unrelated", "fusion-client-header*"}));
     assert(Titlebar::height(18)==30);
     // Content starts at y=0; every button remains in the reserved negative-Y
     // strip, even for tiny windows, huge buttons and fractional output scales.
