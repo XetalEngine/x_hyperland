@@ -1,16 +1,9 @@
 <h1 align="center">Hyper Fusion ALPHA</h1>
 
-<p align="center">
-  <a href="https://youtu.be/z3_uTzZglvg">
-    <img src="https://img.youtube.com/vi/z3_uTzZglvg/hqdefault.jpg" width="720" alt="Watch Hyper Fusion in action on YouTube">
-  </a>
-  <br><a href="https://youtu.be/z3_uTzZglvg"><strong>▶ Watch Hyper Fusion in action on YouTube</strong></a>
-</p>
-
-<p align="center"><strong>Your workspace. Your colors. Your kind of Linux desktop.</strong><br>A complete Xetal desktop for Hyprland, with native settings, custom menus, KVM tools and a little Compiz nostalgia.</p>
+<p align="center"><strong>Your workspace. Your colors. Your kind of Linux desktop.</strong><br>A complete Hyprland desktop with Fusion Files, native settings, four window modes and a little Compiz nostalgia.</p>
 
 <p align="center">
-  <a href="#highlighted-features">Highlights</a> ·
+  <a href="#fusion-files">Fusion Files</a> ·
   <a href="#four-window-modes">Window modes</a> ·
   <a href="#altf9-screen-recording">Recording</a> ·
   <a href="#copy-cut-and-move-with-fusion-files">File engine</a> ·
@@ -19,13 +12,54 @@
   <a href="#documentation">Documentation</a>
 </p>
 
+[![Fusion Files in the 7D layout, with themed drive groups, a Linux system-drive icon and the live storage preview](config/hypr/docs/features/fusion-files/7d.png)](docs/GALLERY.md#fusion-files)
+
+<p align="center"><strong>Meet the new Fusion Files.</strong> Eleven This PC layouts. Your theme. Your controls.<br><sub>7D is the fresh-install default. Actual native UI with a sample drive inventory; click to explore the gallery.</sub></p>
+
+<p align="center"><a href="https://youtu.be/z3_uTzZglvg"><strong>▶ Watch Hyper Fusion in action</strong></a> · <a href="#two-ways-to-install-hyper-fusion"><strong>Get Hyper Fusion</strong></a></p>
+
 <!-- Feature showcase: shared with config/hypr/FEATURES.md. Keep both copies aligned. -->
 ## Highlighted features
 
+- **[Fusion Files](#fusion-files)** — eleven This PC layouts, theme gradients, drive previews, Wine/Proton drives and controls you can make your own.
 - **[Alt+F9 screen recording](#altf9-screen-recording)** — capture a monitor with audio, automatic GPU encoding and MP4 saving.
 - **[Four window modes](#four-window-modes)** — Individual, Force tiling, Force floating and KDE mode, chosen per workspace.
 - **[One cube per monitor](#one-cube-per-monitor)** — four independent workspace faces on each display, with live windows and optional 3D depth.
 - **[Fusion's file-transfer engine](#copy-cut-and-move-with-fusion-files)** — Copy, Cut/Paste and Move with animated progress, visible decisions, verified moves and Undo.
+
+### Fusion Files
+
+**Your whole computer, in one place.** Fusion Files brings system disks, connected media and Windows-app prefixes into a native file manager built for Hyper Fusion. The redesigned **This PC** keeps your main drive first, puts mounted and removable storage within reach, and gives unmounted internal drives their own section at the bottom.
+
+**Choose from eleven layouts.** Fresh installs open in **7D**, with compact drive tiles and your theme's colors and background gradient. Existing saved choices stay yours.
+
+| Look | View buttons | What changes |
+| --- | --- | --- |
+| **Fusion** | Original · Cards · List | Separate disk headings, uniform cards or compact storage rows; system-partition controls stay with their disk. |
+| **Classic Windows styles** | ME · 7 · 10 · 11 | White main panes: ME's small icons and information column, 7's grouped tiles, 10's folders and drives, or 11's larger tiles. |
+| **Your theme colors** | MED · **7D** · 10D · 11D | The same four layouts with Fusion Files' palette, selections, capacity bars and background gradient, in dark, light or high-contrast mode. |
+
+| ME · classic icons and information | 10D · folders and drives in your theme |
+| :---: | :---: |
+| [![Fusion Files ME view with a white icon grid and information column](config/hypr/docs/features/fusion-files/me.png)](config/hypr/docs/features/fusion-files/me.png) | [![Fusion Files 10D view with standard folders, grouped drives and a themed background gradient](config/hypr/docs/features/fusion-files/10d.png)](config/hypr/docs/features/fusion-files/10d.png) |
+
+- **Click a drive to understand it.** The slim preview shows its label, model, capacity, filesystem and location. Mounted drives add a space-usage chart; unmounted drives show the information already available. Open **Full properties…** for the complete overview.
+- **Find your Windows-app files.** Custom prefixes from **Control Panel → Proton**, Wine and Steam appear as browsable **C:** drives. Connected CD/DVD and ZIP media come before USB devices; the Linux system disk keeps its little penguin.
+- **Keep the theme you love.** Follow the current desktop theme or pick a separate theme for Files in **⋮ → Configure Fusion Files… → Browsing → Appearance**. The D layouts carry that palette and gradient into This PC.
+- **Choose what stays visible.** The **Show unmounted drives** switch filters the final section while connected removable media stays available. The new **This PC** settings tab lets you show or hide each layout button, the entire button set, or the filter switch. All controls start visible; hiding them keeps your selected view and filter.
+
+<details>
+<summary><strong>See the new This PC settings</strong></summary>
+
+Open **⋮ → Configure Fusion Files… → This PC**, choose the controls you want, then **Save**. The larger dialog gives Browsing and This PC their own pages, and your choices survive reopening.
+
+[![Fusion Files This PC settings with individual Original, Cards, List, ME, 7, 10, 11, MED, 7D, 10D and 11D visibility checkboxes](config/hypr/docs/features/fusion-files/this-pc-settings.png)](config/hypr/docs/features/fusion-files/this-pc-settings.png)
+
+</details>
+
+**More than a drive browser:** tabs with reopen-closed-tab support, five folder views, remembered folder settings, local thumbnails, image/text previews, name and content search, network locations, configurable menus and the bundled **7-Zip** archive manager. Copy, Cut/Paste and Move use [Fusion's streaming transfer engine](#copy-cut-and-move-with-fusion-files), with an attention queue and Undo.
+
+*Screenshots show the actual native application with sample drives and usage figures.* [Compare the layouts →](docs/GALLERY.md#fusion-files) · [Fusion Files guide →](docs/FILES.md)
 
 ### Alt+F9 screen recording
 
@@ -437,7 +471,7 @@ UMU is prepared automatically when downloading Proton, and Steam is optional. Ex
 | **[Ventoy USB](config/hypr/control_panel/ventoy/README.md)** | Turn a USB disk into a multiboot drive from Control Panel, then copy ISO files onto it with Fusion Files. Ventoy 1.1.18 is bundled and verified for offline use. Includes updates that preserve ISO files, MBR/GPT, Secure Boot support, protected-disk checks and exact-disk erase confirmation. |
 | **RAM Cleaner** | Manual **Normal** and **Aggressive** cache cleanup with before/after readings. It keeps applications running and does not reclaim their active memory. Linux already reclaims cache when needed; this is an occasional troubleshooting tool. |
 | **Disk Visualizer** | A directory-size tree and treemap, folder navigation, allocated/apparent sizes, and confirmed file actions inside System Cleaner. |
-| **[Fusion Files](docs/FILES.md)** | **My Computer** in Favorites opens **This PC**, with mounted and unmounted drives. Quick access, editable breadcrumbs, tabs, five views, configurable columns and menus, previews and the built-in **7-Zip** archive manager follow the desktop theme. **Ctrl+F** searches names/wildcards or file contents with advanced text/regex filters, matching-line results and parallel workers; **Ctrl+Shift+F** filters the current folder. |
+| **[Fusion Files](#fusion-files)** | Eleven **This PC** layouts, with **7D** as the fresh-install default; grouped drives, Wine/Proton/Steam prefixes, storage previews and individual control visibility. Tabs, five folder views, editable addresses, theme selection, configurable menus and bundled **7-Zip** complete the file manager. **Ctrl+F** searches names or contents; **Ctrl+Shift+F** filters the current folder. [Full guide →](docs/FILES.md) |
 | **Dolphin** | Available separately with recipient-specific **Places** and an embedded terminal; its private profile remains independent of KDE/Plasma. |
 | **File pickers** | Matching Places and image/text/folder previews in Xetal, Qt Widgets and standard GTK 3 dialogs. Custom application and portal pickers have their own integration limits. [Coverage →](docs/FILE-PREVIEWS.md) |
 | **[7-Zip archives](config/hypr/archive_manager/README.md)** | Pinned engine and complete source included. Compress, browse, test and extract; select compression methods, passwords, AES encryption, split volumes and CPU threads. Archive jobs use Fusion's animated transfer window and expandable attention queue. No separate 7-Zip installation needed. |
@@ -503,12 +537,12 @@ Your hotkeys, monitor arrangement, chosen wallpapers, private Dolphin Places and
 
 | Guide | Details |
 | --- | --- |
-| [Illustrated feature guide](config/hypr/FEATURES.md) | Recording, all four window modes, KDE versus Super controls, per-monitor cubes and the file engine; also available in the installed profile |
+| [Illustrated feature guide](config/hypr/FEATURES.md) | The Fusion Files redesign, recording, window modes, per-monitor cubes and the file engine; also available in the installed profile |
 | [Workspace modes](config/hypr/workspaces/README.md) | Per-workspace layouts, mode cycling and independent button settings |
 | [Window controls](config/hypr/effects/window_close/README.md) | KDE title bars, Super overlays, app/window overrides and live previews |
-| [Fusion Files](docs/FILES.md) | Browsing, Copy/Cut/Move, the native worker, attention queue and Undo |
+| [Fusion Files](docs/FILES.md) | Eleven This PC layouts, drive previews, themes, control visibility, browsing, search and the transfer engine |
 | [Start here: project and AI guide](IA_START_HERE.html) | Offline architecture map, source/live paths, development, privacy, testing and releases; open the HTML in a browser or read its source |
-| [Full gallery](docs/GALLERY.md) | Themes, panels, menus, transfer cards and wallpapers |
+| [Full gallery](docs/GALLERY.md) | Fusion Files layout comparisons, themes, panels, menus, transfer cards and wallpapers |
 | [AI theme creation guide](AI_Theme_creation.md) | Complete theme integration map, three-wallpaper requirement, builds and verification |
 | [Installer](docs/INSTALLER.md) | GUI choices, pinned runtimes, backups and recovery |
 | [Dependencies](docs/DEPENDENCIES.md) | Distro scope, required tools and compatibility checks |

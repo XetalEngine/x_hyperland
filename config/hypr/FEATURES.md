@@ -1,16 +1,50 @@
 # Hyper Fusion · Highlighted features
 
-<p align="center">
-  <a href="https://youtu.be/z3_uTzZglvg">
-    <img src="https://img.youtube.com/vi/z3_uTzZglvg/hqdefault.jpg" width="720" alt="Watch Hyper Fusion in action on YouTube">
-  </a>
-  <br><a href="https://youtu.be/z3_uTzZglvg"><strong>▶ Watch Hyper Fusion in action on YouTube</strong></a>
-</p>
+[![Fusion Files 7D with themed drive groups and the storage preview](docs/features/fusion-files/7d.png)](docs/features/fusion-files/7d.png)
 
+**Fusion Files, redesigned.** Eleven This PC layouts, theme gradients and controls you choose.
+
+[Watch Hyper Fusion in action on YouTube](https://youtu.be/z3_uTzZglvg)
+
+- **[Fusion Files](#fusion-files)** — eleven This PC layouts, theme gradients, drive previews, Wine/Proton drives and controls you can make your own.
 - **[Alt+F9 screen recording](#altf9-screen-recording)** — capture a monitor with audio, automatic GPU encoding and MP4 saving.
 - **[Four window modes](#four-window-modes)** — Individual, Force tiling, Force floating and KDE mode, chosen per workspace.
 - **[One cube per monitor](#one-cube-per-monitor)** — four independent workspace faces on each display, with live windows and optional 3D depth.
 - **[Fusion's file-transfer engine](#copy-cut-and-move-with-fusion-files)** — Copy, Cut/Paste and Move with animated progress, visible decisions, verified moves and Undo.
+
+## Fusion Files
+
+**Your whole computer, in one place.** Fusion Files brings system disks, connected media and Windows-app prefixes into a native file manager built for Hyper Fusion. The redesigned **This PC** keeps your main drive first, puts mounted and removable storage within reach, and gives unmounted internal drives their own section at the bottom.
+
+**Choose from eleven layouts.** Fresh installs open in **7D**, with compact drive tiles and your theme's colors and background gradient. Existing saved choices stay yours.
+
+| Look | View buttons | What changes |
+| --- | --- | --- |
+| **Fusion** | Original · Cards · List | Separate disk headings, uniform cards or compact storage rows; system-partition controls stay with their disk. |
+| **Classic Windows styles** | ME · 7 · 10 · 11 | White main panes: ME's small icons and information column, 7's grouped tiles, 10's folders and drives, or 11's larger tiles. |
+| **Your theme colors** | MED · **7D** · 10D · 11D | The same four layouts with Fusion Files' palette, selections, capacity bars and background gradient, in dark, light or high-contrast mode. |
+
+| ME · classic icons and information | 10D · folders and drives in your theme |
+| :---: | :---: |
+| [![Fusion Files ME view with a white icon grid and information column](docs/features/fusion-files/me.png)](docs/features/fusion-files/me.png) | [![Fusion Files 10D view with standard folders, grouped drives and a themed background gradient](docs/features/fusion-files/10d.png)](docs/features/fusion-files/10d.png) |
+
+- **Click a drive to understand it.** The slim preview shows its label, model, capacity, filesystem and location. Mounted drives add a space-usage chart; unmounted drives show the information already available. Open **Full properties…** for the complete overview.
+- **Find your Windows-app files.** Custom prefixes from **Control Panel → Proton**, Wine and Steam appear as browsable **C:** drives. Connected CD/DVD and ZIP media come before USB devices; the Linux system disk keeps its little penguin.
+- **Keep the theme you love.** Follow the current desktop theme or pick a separate theme for Files in **⋮ → Configure Fusion Files… → Browsing → Appearance**. The D layouts carry that palette and gradient into This PC.
+- **Choose what stays visible.** The **Show unmounted drives** switch filters the final section while connected removable media stays available. The new **This PC** settings tab lets you show or hide each layout button, the entire button set, or the filter switch. All controls start visible; hiding them keeps your selected view and filter.
+
+<details>
+<summary><strong>See the new This PC settings</strong></summary>
+
+Open **⋮ → Configure Fusion Files… → This PC**, choose the controls you want, then **Save**. The larger dialog gives Browsing and This PC their own pages, and your choices survive reopening.
+
+[![Fusion Files This PC settings with individual Original, Cards, List, ME, 7, 10, 11, MED, 7D, 10D and 11D visibility checkboxes](docs/features/fusion-files/this-pc-settings.png)](docs/features/fusion-files/this-pc-settings.png)
+
+</details>
+
+**More than a drive browser:** tabs with reopen-closed-tab support, five folder views, remembered folder settings, local thumbnails, image/text previews, name and content search, network locations, configurable menus and the bundled **7-Zip** archive manager. Copy, Cut/Paste and Move use [Fusion's streaming transfer engine](#copy-cut-and-move-with-fusion-files), with an attention queue and Undo.
+
+*Screenshots show the actual native application with sample drives and usage figures.* [Compare the layouts →](https://github.com/XetalEngine/x_hyperland/blob/main/docs/GALLERY.md#fusion-files) · [Fusion Files guide →](file_manager/README.md)
 
 ## Alt+F9 screen recording
 
@@ -27,6 +61,8 @@ The defaults are **64 FPS · MP4 · desktop audio · high quality · your Videos
 ## Four window modes
 
 Each workspace remembers its own mode. **Left-click the mode indicator between Keys and Update** to cycle **Individual → Force tiling → Force floating → KDE mode**. Or right-click a numbered workspace and choose **Force window layout**. Different workspaces and monitors can use different modes at the same time.
+
+**Fresh installs default to KDE mode on every workspace**, including new workspaces and Cube faces added later on any monitor. Per-workspace choices override that default. Updates keep existing users' workspace settings.
 
 [![Taskbar showing the KDE workspace-mode indicator beside Keys and Update](docs/features/kde-taskbar.png)](docs/features/kde-taskbar.png)
 
@@ -67,6 +103,22 @@ Outside KDE mode, the workspace's **Force modifier buttons** menu independently 
 </details>
 
 [Window-controls guide →](effects/window_close/README.md)
+
+## Clipboard history and KDE snap layouts
+
+**The clipboard icon beside Notifications, or Super+Shift+V, opens clipboard history.**
+The themed dropdown follows your monitor and top/bottom bar, and uses the same
+close effects as Apps and Power, including Burn when enabled. Search recent text and images, pin
+useful entries, delete items, or pause collection. Enter copies the selected
+item and returns you to the app; Ctrl+V pastes. Recent history stays in memory,
+while explicit pins survive logout. [Clipboard guide →](clipboard/README.md)
+
+**KDE mode supports snap layouts.** Drag to a side for halves or a corner for
+quarters. Drag to the top edge to reveal a compact picker with halves, quarters
+and thirds. Pause briefly over the preview, then release. Dragging away restores
+the window's previous size; Escape cancels snapping. The gear editor includes
+an **Apply snap settings** control for all KDE workspaces. Other workspace modes
+keep their existing drag behavior.
 
 ## One cube per monitor
 

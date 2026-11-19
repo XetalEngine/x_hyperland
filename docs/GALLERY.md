@@ -1,9 +1,65 @@
 # Hyper Fusion · Desktop gallery
 
 A tour of the real Xetal interface. Click any picture for its full resolution.
-The KDE-mode screenshots below were supplied by the author from the live desktop. The Midnight Transit showcase uses real applications and compositor effects captured headlessly with a disposable profile. Some applications shown in Favorites are installed separately; transfer previews use sample jobs.
+The Fusion Files showcase uses the native application with a sample drive inventory in an isolated profile. The KDE-mode screenshots were supplied by the author from the live desktop. The Midnight Transit showcase uses real applications and compositor effects captured headlessly with a disposable profile. Some applications shown in Favorites are installed separately; transfer previews use sample jobs.
 
 [Back to the README](../README.md) · [Watch the desktop video on YouTube](https://youtu.be/z3_uTzZglvg)
+
+## Fusion Files
+
+**Eleven This PC layouts, with 7D as the fresh-install default.** System disks,
+connected media, Wine/Proton and Steam prefixes share one browser. Select a drive
+to see its storage summary in the slim preview pane; mounted drives include a
+usage chart, and unmounted drives show their known details.
+
+[![Fusion Files 7D in the StarCraft II theme with a selected system disk and storage preview](../config/hypr/docs/features/fusion-files/7d.png)](../config/hypr/docs/features/fusion-files/7d.png)
+
+*Real Qt interface captured with sample drives. Device names, capacities and
+usage figures are examples. The screenshots are unchanged captures, not design
+mockups.*
+
+### Classic and theme colors
+
+The four classic main panes keep their white backgrounds and familiar layouts.
+Their **D** versions follow Fusion Files' selected palette and background
+gradient. The sidebar, toolbar, preview and drive actions stay part of the same
+application in every view.
+
+| Classic | Theme colors |
+| :---: | :---: |
+| **ME · small icons and information column**<br>[![Fusion Files ME layout with a white main pane and computer information column](../config/hypr/docs/features/fusion-files/me.png)](../config/hypr/docs/features/fusion-files/me.png) | **MED · the same layout in your theme**<br>[![Fusion Files MED layout with themed text and a dark background gradient](../config/hypr/docs/features/fusion-files/med.png)](../config/hypr/docs/features/fusion-files/med.png) |
+| **7 · compact grouped drive tiles**<br>[![Fusion Files 7 layout with separate hard-drive and removable-media groups](../config/hypr/docs/features/fusion-files/7.png)](../config/hypr/docs/features/fusion-files/7.png) | **7D · the fresh-install default**<br>[![Fusion Files 7D layout with theme colors, capacity bars and drive preview](../config/hypr/docs/features/fusion-files/7d.png)](../config/hypr/docs/features/fusion-files/7d.png) |
+| **10 · folders and drives**<br>[![Fusion Files 10 layout with standard folders above its drive groups](../config/hypr/docs/features/fusion-files/10.png)](../config/hypr/docs/features/fusion-files/10.png) | **10D · folders with a themed background**<br>[![Fusion Files 10D layout with theme-colored controls and background](../config/hypr/docs/features/fusion-files/10d.png)](../config/hypr/docs/features/fusion-files/10d.png) |
+| **11 · larger drive tiles**<br>[![Fusion Files 11 layout with larger drive tiles on a white surface](../config/hypr/docs/features/fusion-files/11.png)](../config/hypr/docs/features/fusion-files/11.png) | **11D · larger tiles in your theme**<br>[![Fusion Files 11D layout with a dark theme gradient and selected-drive preview](../config/hypr/docs/features/fusion-files/11d.png)](../config/hypr/docs/features/fusion-files/11d.png) |
+
+### Fusion cards and a palette of your own
+
+**Original**, **Cards** and **List** remain available alongside those eight
+layouts. Cards keep their size as columns reflow, with system-partition icons
+inside the disk card. Original has separate disk headings and expandable system
+partitions; List uses compact storage rows.
+
+Files can follow your desktop theme or use a separate theme selected in its
+settings. Dark, light and high-contrast modes are supported. Here are Cards in
+**StarCraft II** and 7D in **Killer Instinct · Jade Temple**, light mode.
+
+| Fusion Cards | 7D · Jade Temple, light |
+| :---: | :---: |
+| [![Fusion Files uniform drive cards with system-partition icons inside each disk](../config/hypr/docs/features/fusion-files/cards.png)](../config/hypr/docs/features/fusion-files/cards.png) | [![Fusion Files 7D in the light Jade Temple theme with green capacity bars and a pale background gradient](../config/hypr/docs/features/fusion-files/7d-jade-light.png)](../config/hypr/docs/features/fusion-files/7d-jade-light.png) |
+
+### Choose your controls
+
+Open **⋮ → Configure Fusion Files…**. **Browsing → Appearance** chooses the
+theme; **This PC** chooses individual view buttons, the whole button set and
+the visibility of the **Show unmounted drives** switch. All controls start
+visible. Hiding them preserves the current layout and drive filter, and
+**Save** remembers the choices for future launches.
+
+| Browsing and appearance | This PC controls |
+| :---: | :---: |
+| [![Larger Fusion Files settings dialog showing theme, preview, thumbnails and file-action options without a scrollbar](../config/hypr/docs/features/fusion-files/browsing-settings.png)](../config/hypr/docs/features/fusion-files/browsing-settings.png) | [![Dedicated This PC settings tab with each layout button and the unmounted-drive switch enabled](../config/hypr/docs/features/fusion-files/this-pc-settings.png)](../config/hypr/docs/features/fusion-files/this-pc-settings.png) |
+
+[Fusion Files guide →](FILES.md) · [Copy, Cut and Move engine →](../README.md#copy-cut-and-move-with-fusion-files)
 
 ## KDE mode and built-in recording
 
