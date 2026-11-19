@@ -26,8 +26,9 @@ the disk card; hover for their details, double-click/Enter to open, or right-cli
 for the existing drive actions. A device with only helper partitions promotes
 its first partition to a full tile. The view buttons offer Original layout
 (separate disk headings, larger cards, expandable system partitions), fixed-size
-cards, Storage list, and classic or themed Windows ME, 7, 10 and 11 presentations. The choice is remembered in `computer/viewMode`, with
-existing `computer/listView` preferences used as the initial fallback. Mount
+cards, Storage list, and classic or themed Windows ME, 7, 10 and 11 presentations. The choice is remembered in `computer/viewMode`.
+Fresh profiles start in **7D** (`win7-themed`); existing `computer/listView`
+preferences still restore List or Cards when no newer view choice is saved. Mount
 replaces the status badge on eligible cards during hover or keyboard focus,
 without changing the row's size. The navigation
 tree's styling and controls are unchanged. Spacing overrides are scoped to
@@ -56,13 +57,17 @@ partitions remain accessible in the three Fusion views. Drive selection feeds
 the same preview, Enter/double-click opens the same volume, and right-click uses
 the same drive menu in all eleven presentations. The Windows sections can be
 collapsed independently. Their choice, filtering and section states survive
-reopening. Fresh profiles still use the fixed-size card view.
+reopening. Saved choices remain unchanged when the fresh-install default changes.
 
-**Configure Fusion Files → Browsing → Appearance → Show view buttons in This PC**
-hides or shows the entire layout-button strip without changing the selected view
-or the unmounted-drive filter. It saves `computer/showViewButtons`, defaults to
-true, and applies to open tabs as soon as settings are saved. The two button sets
-wrap onto separate rows when space is limited.
+**Configure Fusion Files → This PC** offers a master **Show view buttons in This PC**
+switch and a checkbox for every layout, grouped as Fusion, Windows and Theme
+colors. It also controls visibility of the **Show unmounted drives** switch.
+Hiding controls keeps the selected view and the current drive filter, even when
+every layout button is hidden. These choices use `computer/showViewButtons`,
+`computer/viewButtons/<mode>` and `computer/showUnmountedControl`; all default to
+true and apply to open tabs on Save. The two button sets wrap onto separate rows
+when space is limited. The configuration dialog opens larger and fits its pages
+to their contents, retaining a scroll fallback for small screens or large fonts.
 
 `navigation-tests` exercises all five views with the real directory model and
 controlled asynchronous listing signals, without desktop D-Bus services.
@@ -71,7 +76,8 @@ signals, preference restoration, focus retention and hotplug changes without
 mounting real drives.
 `computer-view-tests` covers all eleven presentations, unmounted filtering,
 hotplug/mount changes, remembered choices, real folder targets, preview routing,
-narrow layouts, button visibility settings, pinned theme changes in dark/light/
+narrow layouts, individual control visibility, fresh/legacy defaults, settings
+page sizing, pinned theme changes in dark/light/
 high-contrast modes, and captures of each Windows view using an isolated inventory.
 
 The fixed-size card view places mounted disks on the left, stacked below the system disk, and

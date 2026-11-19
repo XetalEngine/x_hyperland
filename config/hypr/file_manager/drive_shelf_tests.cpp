@@ -30,7 +30,7 @@ class DriveShelfTests : public QObject {
 private slots:
   void initTestCase() { QVERIFY(temporary.isValid()); qApp->setQuitOnLastWindowClosed(false); }
   void gridReflowsAndSystemPartitionsStayAccessible() {
-    Fusion::Preferences prefs(temporary.path()+"/layout.ini"); Drives drives(nullptr, false); drives.volumes = inventory();
+    Fusion::Preferences prefs(temporary.path()+"/layout.ini"); prefs.settings.setValue("computer/viewMode", "tiles"); Drives drives(nullptr, false); drives.volumes = inventory();
     DriveShelf shelf(&prefs, &drives); shelf.resize(1100, 800); shelf.show();
     QCOMPARE(shelf.findChildren<QFrame *>("physicalDriveGroup").size(), 3);
     auto *a = group(shelf, "/dev/test-a"), *c = group(shelf, "/dev/test-c");
@@ -59,7 +59,7 @@ private slots:
     QVERIFY(scroll->verticalScrollBar()->maximum() > 0);
   }
   void keyboardMountAndOpenUseTheCurrentVolume() {
-    Fusion::Preferences prefs(temporary.path()+"/actions.ini"); Drives drives(nullptr, false); drives.volumes = inventory();
+    Fusion::Preferences prefs(temporary.path()+"/actions.ini"); prefs.settings.setValue("computer/viewMode", "tiles"); Drives drives(nullptr, false); drives.volumes = inventory();
     DriveShelf shelf(&prefs, &drives); shelf.resize(1100, 800); shelf.show(); shelf.activateWindow();
     QSignalSpy operations(&shelf, &DriveShelf::operationRequested);
     auto *windows = card(shelf, "/dev/test-b");
@@ -81,7 +81,7 @@ private slots:
     QCOMPARE(context.size(), 1); QCOMPARE(context.first()[0].value<Volume>().device, QString("/dev/test-c2"));
   }
   void categoriesStayTogetherAtEveryWidthAndFollowMountChanges() {
-    Fusion::Preferences prefs(temporary.path()+"/categories.ini"); Drives drives(nullptr, false); drives.volumes = inventory();
+    Fusion::Preferences prefs(temporary.path()+"/categories.ini"); prefs.settings.setValue("computer/viewMode", "tiles"); Drives drives(nullptr, false); drives.volumes = inventory();
     auto extras = Drives::parse(R"({"blockdevices":[
       {"path":"/dev/first","type":"disk","model":"Backup disk","fstype":"ext4","mountpoints":["/media/backup"]},
       {"path":"/dev/sr0","type":"rom","model":"DVD drive","tran":"usb","rm":1,"fstype":"iso9660"},
@@ -116,7 +116,7 @@ private slots:
     QTRY_COMPARE(position(shelf,cd).x(),position(shelf,zip).x()); QVERIFY(position(shelf,cd).y() < position(shelf,zip).y());
   }
   void refreshPreservesWidgetsFocusSelectionAndPartitionIcons() {
-    Fusion::Preferences prefs(temporary.path()+"/refresh.ini"); Drives drives(nullptr, false); drives.volumes = inventory();
+    Fusion::Preferences prefs(temporary.path()+"/refresh.ini"); prefs.settings.setValue("computer/viewMode", "tiles"); Drives drives(nullptr, false); drives.volumes = inventory();
     DriveShelf shelf(&prefs, &drives); shelf.resize(650, 250); shelf.show(); shelf.activateWindow();
     auto *windows = card(shelf, "/dev/test-b"); shelf.selectDevice("/dev/test-b", true);
     auto *efi = card(shelf, "/dev/test-a1");
@@ -148,7 +148,7 @@ private slots:
     QVERIFY(card(again, "/dev/test-a1")->isVisible());
   }
   void fixedTilesKeepTheirSizeIncludingSwapPrefixesAndMultipleVolumes() {
-    Fusion::Preferences prefs(temporary.path()+"/fixed.ini"); Drives drives(nullptr, false); drives.volumes = inventory();
+    Fusion::Preferences prefs(temporary.path()+"/fixed.ini"); prefs.settings.setValue("computer/viewMode", "tiles"); Drives drives(nullptr, false); drives.volumes = inventory();
     Volume swap; swap.device = "/dev/zram0"; swap.name = "zram0"; swap.type = "disk"; swap.filesystem = "swap"; swap.size = 4ULL << 30;
     Volume wine; wine.device = "/prefix/drive_c"; wine.mount = wine.device; wine.type = "wine-prefix"; wine.name = "Wine (C:)";
     drives.volumes << swap << wine;
@@ -214,7 +214,7 @@ private slots:
     boot.name = "VTOYEFI"; boot.filesystem = "ext4"; QVERIFY(!boot.compactCard());
   }
   void changedPhysicalParentAndHotplugDoNotLeaveStaleCards() {
-    Fusion::Preferences prefs(temporary.path()+"/hotplug.ini"); Drives drives(nullptr, false); drives.volumes = inventory();
+    Fusion::Preferences prefs(temporary.path()+"/hotplug.ini"); prefs.settings.setValue("computer/viewMode", "tiles"); Drives drives(nullptr, false); drives.volumes = inventory();
     DriveShelf shelf(&prefs, &drives); shelf.resize(1000, 700); shelf.show();
     QPointer<VolumeCard> windows = card(shelf, "/dev/test-b"); shelf.selectDevice("/dev/test-b");
     for (auto &v : drives.volumes) if (v.device == "/dev/test-b") v.driveDevice = "/dev/new-backing";

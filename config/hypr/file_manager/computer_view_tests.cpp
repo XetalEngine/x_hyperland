@@ -72,8 +72,10 @@ private slots:
     const auto path = temporary.path() + "/saved.ini";
     {
       Fusion::Preferences prefs(path); Drives drives(nullptr, false); drives.volumes = inventory(); DriveShelf shelf(&prefs, &drives); shelf.show();
-      QVERIFY(shelf.findChild<QToolButton *>("computerShelfView")->isChecked());
+      QVERIFY(shelf.findChild<QToolButton *>("computerWin7ThemedView")->isChecked());
       QVERIFY(shelf.findChild<QCheckBox *>("showUnmountedDrives")->isChecked());
+      QVERIFY(shelf.findChild<QWidget *>("computerViewButtons")->isVisible());
+      for (const auto &name : buttons) QVERIFY(shelf.findChild<QToolButton *>(name)->isVisible());
       shelf.findChild<QToolButton *>("computerWin11ThemedView")->click(); shelf.findChild<QCheckBox *>("showUnmountedDrives")->click(); prefs.settings.sync();
     }
     Fusion::Preferences prefs(path); Drives drives(nullptr, false); drives.volumes = inventory(); DriveShelf shelf(&prefs, &drives); shelf.show();
@@ -85,6 +87,12 @@ private slots:
       QCOMPARE(prefs.settings.value("computer/viewMode").toString(), modes[i]);
       QTRY_VERIFY(!visibleDrive(shelf, "/dev/backup"));
       QVERIFY(visibleDrive(shelf, "/dev/main1"));
+    }
+    for (const bool list : {false, true}) {
+      Fusion::Preferences legacy(temporary.path() + (list ? "/legacy-list.ini" : "/legacy-cards.ini"));
+      legacy.settings.setValue("computer/listView", list);
+      DriveShelf restored(&legacy, &drives);
+      QVERIFY(restored.findChild<QToolButton *>(list ? "computerListView" : "computerShelfView")->isChecked());
     }
   }
   void windowsFoldersAndControlPanelHaveRealTargets_data() {
@@ -167,6 +175,7 @@ private slots:
       QTimer::singleShot(0, &window, [&] {
         auto *dialog = window.findChild<QDialog *>("filesConfiguration");
         if (!dialog) return;
+        dialog->findChild<QTabWidget *>("filesSettingsTabs")->setCurrentWidget(dialog->findChild<QScrollArea *>("computerSettingsScroll"));
         if (auto *toggle = dialog->findChild<QCheckBox *>("configureComputerViewButtons")) {
           found = true; toggle->setChecked(visible);
         }
@@ -198,6 +207,68 @@ private slots:
     for (auto *other : window.findChildren<DriveShelf *>())
       QVERIFY(!other->findChild<QWidget *>("computerViewButtons")->isHidden());
     QCOMPARE(window.preferences.settings.value("computer/viewMode").toString(), QString("win10-themed"));
+    window.close();
+  }
+  void settingsFitAndIndividualControlsKeepTheViewAndFilter() {
+    const auto path = temporary.path() + "/individual-controls.ini";
+    FilesWindow window(Fusion::computerUrl(), false, path);
+    window.setAttribute(Qt::WA_DeleteOnClose, false); window.resize(1400, 900); window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(!window.property("fusionTheme").toString().isEmpty(), 10000);
+    window.drives->volumes = inventory(); emit window.drives->changed();
+    auto *shelf = window.browser()->findChild<DriveShelf *>();
+    auto *filter = shelf->findChild<QCheckBox *>("showUnmountedDrives"); filter->click();
+    auto configure = [&](const QStringList &visible, bool save) {
+      bool found = false, fit = true;
+      QTimer::singleShot(0, &window, [&] {
+        auto *dialog = window.findChild<QDialog *>("filesConfiguration");
+        if (!dialog) return;
+        auto *tabs = dialog->findChild<QTabWidget *>("filesSettingsTabs");
+        const auto artifacts = qEnvironmentVariable("FUSION_FILES_ARTIFACTS");
+        for (const auto &name : {"browsingSettingsScroll", "computerSettingsScroll"}) {
+          auto *page = dialog->findChild<QScrollArea *>(name);
+          if (!page) { fit = false; continue; }
+          tabs->setCurrentWidget(page); QCoreApplication::processEvents();
+          fit &= page->verticalScrollBar()->maximum() == 0 && page->horizontalScrollBar()->maximum() == 0;
+          if (!artifacts.isEmpty()) dialog->grab().save(artifacts + "/" + name + ".png");
+        }
+        int count = 0;
+        for (const auto &[key, label] : DriveShelf::viewOptions())
+          if (auto *toggle = dialog->findChild<QCheckBox *>("configureComputerView_" + key)) {
+            toggle->setChecked(visible.contains(key)); ++count;
+          }
+        auto *switchControl = dialog->findChild<QCheckBox *>("configureUnmountedControl");
+        found = count == modes.size() && switchControl;
+        if (switchControl) switchControl->setChecked(false);
+        if (found && save) dialog->accept(); else dialog->reject();
+      });
+      window.findChild<QAction *>("configureFiles")->trigger();
+      QCoreApplication::processEvents();
+      return found && fit;
+    };
+    QVERIFY(configure({"win7-themed"}, false));
+    QVERIFY(filter->isVisible());
+    for (const auto &name : buttons) QVERIFY(shelf->findChild<QToolButton *>(name)->isVisible());
+    QVERIFY(configure({"win7-themed"}, true));
+    for (int i = 0; i < modes.size(); ++i)
+      QCOMPARE(shelf->findChild<QToolButton *>(buttons[i])->isVisible(), modes[i] == "win7-themed");
+    QVERIFY(!filter->isVisible()); QVERIFY(!filter->isChecked());
+    QVERIFY(!visibleDrive(*shelf, "/dev/backup"));
+    QVERIFY(shelf->findChild<QToolButton *>("computerWin7ThemedView")->isChecked());
+    QVERIFY(shelf->findChild<WindowsComputerView *>()->isVisible());
+    FilesWindow reopened(Fusion::computerUrl(), false, path);
+    reopened.setAttribute(Qt::WA_DeleteOnClose, false); reopened.show();
+    QVERIFY(reopened.findChild<QToolButton *>("computerWin7ThemedView")->isChecked());
+    QVERIFY(reopened.findChild<QToolButton *>("computerWin7ThemedView")->isVisible());
+    QVERIFY(!reopened.findChild<QToolButton *>("computerWin7View")->isVisible());
+    QVERIFY(!reopened.findChild<QCheckBox *>("showUnmountedDrives")->isVisible());
+    reopened.close();
+    // All buttons may be hidden without switching away from the selected view.
+    QVERIFY(configure({}, true));
+    QVERIFY(shelf->findChild<QWidget *>("computerViewButtons")->isHidden());
+    QVERIFY(shelf->findChild<QToolButton *>("computerWin7ThemedView")->isChecked());
+    QVERIFY(shelf->findChild<WindowsComputerView *>()->isVisible());
+    QVERIFY(configure(modes, true));
+    for (const auto &name : buttons) QVERIFY(shelf->findChild<QToolButton *>(name)->isVisible());
     window.close();
   }
   void themedViewsFollowPinnedPaletteAndKeepClassicColors() {

@@ -212,7 +212,7 @@ DriveShelf::DriveShelf(Fusion::Preferences *settings, Drives *service, QWidget *
   auto *identity = new QVBoxLayout(headingBody); identity->setContentsMargins(0, 0, 0, 0); identity->setSpacing(2);
   auto *title = new QLabel("This PC"); title->setObjectName("computerHeading"); identity->addWidget(title);
   auto *subtitle = new QLabel("Storage and devices"); subtitle->setObjectName("computerSubtitle"); identity->addWidget(subtitle);
-  showUnmounted = new QCheckBox("Show unmounted drives"); showUnmounted->setObjectName("showUnmountedDrives");
+  showUnmounted = new QCheckBox("Show unmounted drives", this); showUnmounted->setObjectName("showUnmountedDrives");
   showUnmounted->setToolTip("Show the Unmounted devices section. Connected removable devices stay visible.");
   showUnmounted->setChecked(preferences->settings.value("computer/showUnmounted", true).toBool());
   connect(showUnmounted, &QCheckBox::toggled, this, [this](bool show) {
@@ -220,7 +220,7 @@ DriveShelf::DriveShelf(Fusion::Preferences *settings, Drives *service, QWidget *
   });
   viewButtons = new QWidget(this); viewButtons->setObjectName("computerViewButtons");
   viewButtonsLayout = new QGridLayout(viewButtons); viewButtonsLayout->setContentsMargins(0, 0, 0, 0); viewButtonsLayout->setHorizontalSpacing(12); viewButtonsLayout->setVerticalSpacing(6);
-  standardButtons = new QWidget; themedButtons = new QWidget;
+  standardButtons = new QWidget(viewButtons); themedButtons = new QWidget(viewButtons);
   auto *buttons = new QHBoxLayout(standardButtons); buttons->setContentsMargins(0, 0, 0, 0); buttons->setSpacing(4);
   auto *themeButtons = new QHBoxLayout(themedButtons); themeButtons->setContentsMargins(0, 0, 0, 0); themeButtons->setSpacing(4);
   viewChoices = new QButtonGroup(this); viewChoices->setExclusive(true);
@@ -245,11 +245,13 @@ DriveShelf::DriveShelf(Fusion::Preferences *settings, Drives *service, QWidget *
   choice("computerWin7ThemedView", {}, "Windows 7 · Fusion Files theme colors and background", 8);
   choice("computerWin10ThemedView", {}, "Windows 10 · Fusion Files theme colors and background", 9);
   choice("computerWin11ThemedView", {}, "Windows 11 · Fusion Files theme colors and background", 10);
-  const auto view = preferences->settings.value("computer/viewMode",
-      preferences->settings.value("computer/listView", false).toBool() ? "list" : "tiles").toString();
-  viewChoices->button(qMax(0, int(viewModes.indexOf(view))))->setChecked(true);
+  const auto fallback = preferences->settings.contains("computer/listView")
+      ? (preferences->settings.value("computer/listView").toBool() ? "list" : "tiles") : "win7-themed";
+  const auto view = preferences->settings.value("computer/viewMode", fallback).toString();
+  const int savedMode = viewModes.indexOf(view);
+  viewChoices->button(savedMode < 0 ? viewModes.indexOf("win7-themed") : savedMode)->setChecked(true);
   connect(viewChoices, &QButtonGroup::idClicked, this, [this](int mode) {
-    preferences->settings.setValue("computer/viewMode", viewModes.value(mode, "tiles"));
+    preferences->settings.setValue("computer/viewMode", viewModes.value(mode, "win7-themed"));
     preferences->settings.setValue("computer/listView", mode == 1);
     topologyChanged = true; refresh();
   });
@@ -289,24 +291,43 @@ DriveShelf::DriveShelf(Fusion::Preferences *settings, Drives *service, QWidget *
   hint->setWordWrap(true); layout->addWidget(hint);
   refresh();
 }
-QString DriveShelf::viewMode() const { return viewModes.value(viewChoices->checkedId(), "tiles"); }
+QList<QPair<QString, QString>> DriveShelf::viewOptions() {
+  const QStringList labels{"Cards", "List", "Original", "ME", "7", "10", "11", "MED", "7D", "10D", "11D"};
+  QList<QPair<QString, QString>> result;
+  for (int i = 0; i < viewModes.size(); ++i) result.append({viewModes[i], labels[i]});
+  return result;
+}
+QString DriveShelf::viewMode() const { return viewModes.value(viewChoices->checkedId(), "win7-themed"); }
 bool DriveShelf::windowsMode() const { return viewChoices && viewChoices->checkedId() >= 3; }
 void DriveShelf::layoutHeader() {
   if (!headerLayout || !viewButtonsLayout) return;
-  const bool showButtons = preferences->settings.value("computer/showViewButtons", true).toBool();
+  int standardCount = 0, themedCount = 0;
+  for (auto *button : viewChoices->buttons()) {
+    const int mode = viewChoices->id(button);
+    const bool visible = preferences->settings.value("computer/viewButtons/" + viewModes[mode], true).toBool();
+    button->setVisible(visible);
+    if (visible) (mode < 7 ? standardCount : themedCount)++;
+  }
+  const bool showStandard = standardCount > 0, showThemed = themedCount > 0;
+  standardButtons->setVisible(showStandard); themedButtons->setVisible(showThemed);
+  const bool showButtons = (showStandard || showThemed) && preferences->settings.value("computer/showViewButtons", true).toBool();
+  const bool showFilter = preferences->settings.value("computer/showUnmountedControl", true).toBool();
+  showUnmounted->setVisible(showFilter);
   viewButtons->setVisible(showButtons);
   const int available = width() - 28, title = headingBody->sizeHint().width();
-  const int standard = standardButtons->sizeHint().width(), themed = themedButtons->sizeHint().width();
-  const bool wrap = standard + themed + 12 > available;
-  const int controls = showButtons ? (wrap ? qMax(standard, themed) : standard + themed + 12) : 0;
-  const int filter = showUnmounted->sizeHint().width();
+  const int standard = showStandard ? standardButtons->sizeHint().width() : 0, themed = showThemed ? themedButtons->sizeHint().width() : 0;
+  const int gap = showStandard && showThemed ? 12 : 0;
+  const bool wrap = showStandard && showThemed && standard + themed + gap > available;
+  const int controls = showButtons ? (wrap ? qMax(standard, themed) : standard + themed + gap) : 0;
+  const int filter = showFilter ? showUnmounted->sizeHint().width() : 0;
   const int next = title + filter + controls + 36 <= available ? 0 : title + filter + 12 <= available ? 1 : 2;
-  const int state = next + (wrap ? 3 : 0) + (showButtons ? 6 : 0);
+  const int state = next + (wrap ? 3 : 0) + (showButtons ? 6 : 0) + (showFilter ? 12 : 0)
+      + (showStandard ? 24 : 0) + (showThemed ? 48 : 0);
   if (headerMode == state) return;
   headerMode = state;
   while (auto *item = viewButtonsLayout->takeAt(0)) delete item;
-  viewButtonsLayout->addWidget(standardButtons, 0, 0, Qt::AlignRight);
-  viewButtonsLayout->addWidget(themedButtons, wrap ? 1 : 0, wrap ? 0 : 1, Qt::AlignRight);
+  if (showStandard) viewButtonsLayout->addWidget(standardButtons, 0, 0, Qt::AlignRight);
+  if (showThemed) viewButtonsLayout->addWidget(themedButtons, wrap ? 1 : 0, wrap || !showStandard ? 0 : 1, Qt::AlignRight);
   // Release the previous two-column minimum when the buttons wrap.
   viewButtonsLayout->setColumnMinimumWidth(1, 0);
   while (auto *item = headerLayout->takeAt(0)) delete item;

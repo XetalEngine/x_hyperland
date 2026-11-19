@@ -37,8 +37,8 @@ accent marks selection, focus and capacity bars. Mounted disks appear first,
 followed by other USB devices and unmounted internal disks. A partially mounted
 disk stays together, with its data volumes ordered largest first.
 
-The upper-right buttons keep the original layout, fixed-size cards (the fresh
-install default), and **Storage list**, alongside four Windows-style main panes:
+The upper-right buttons keep the original layout, fixed-size cards, and
+**Storage list**, alongside four Windows-style main panes:
 **ME** has a small icon grid and information column; **7** has compact grouped
 drive tiles; **10** adds your standard folders and pinned network locations;
 **11** uses larger drive tiles. These options have white Explorer surfaces and
@@ -50,11 +50,14 @@ drives work in every view. The selected layout is remembered.
 that use Fusion Files' theme colors and background gradient. They follow your
 desktop theme or the specific theme selected in Files settings. The original
 **ME**, **7**, **10** and **11** views keep their white backgrounds and colors.
+**7D is the default on fresh installs.** Existing saved view choices are kept.
 
-All view buttons are visible by default. To hide them while keeping your chosen
-layout, open **Configure Fusion Files → Browsing → Appearance** and turn off
-**Show view buttons in This PC**. Save to apply the choice to open tabs; the same
-setting brings the buttons back.
+All controls are visible by default. Open **Configure Fusion Files → This PC**
+to choose individual view buttons, hide the whole set, or hide the
+**Show unmounted drives** switch. Your selected layout and drive filter stay
+active. Save applies these choices to open tabs; the same settings bring the
+controls back. The larger settings dialog fits the Browsing and This PC pages
+without scrolling when screen space allows.
 
 **Show unmounted drives** hides or shows the final Unmounted devices section.
 It starts enabled and remembers your choice. Connected USB/CD devices and

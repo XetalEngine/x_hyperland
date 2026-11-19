@@ -228,6 +228,7 @@ private slots:
   }
   void computerPreviewFollowsDriveSelectionAndRefresh() {
     FilesWindow window(Fusion::computerUrl(), false, temporary.path() + "/drive-preview.ini");
+    window.browser()->findChild<QToolButton *>("computerShelfView")->click();
     window.setAttribute(Qt::WA_DeleteOnClose, false);
     window.resize(1500, 920); window.show();
     if (!window.browser()->previewVisible) window.runAction("preview");
@@ -364,6 +365,7 @@ private slots:
   }
   void compactToolbarAndComputerCapture() {
     FilesWindow window(Fusion::computerUrl(), false, temporary.path() + "/layout.ini");
+    window.browser()->findChild<QToolButton *>("computerShelfView")->click();
     window.setAttribute(Qt::WA_DeleteOnClose, false);
     if (window.browser()->previewVisible) window.runAction("preview");
     window.drives->volumes = Drives::parse(R"({"blockdevices":[

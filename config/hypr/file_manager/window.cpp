@@ -1422,7 +1422,6 @@ void FilesWindow::configure() {
   QDialog dialog(this);
   dialog.setObjectName("filesConfiguration");
   dialog.setWindowTitle("Configure Fusion Files");
-  dialog.resize(720, 580);
   auto *layout = new QVBoxLayout(&dialog);
   layout->setContentsMargins(24, 22, 24, 20);
   layout->setSpacing(14);
@@ -1438,9 +1437,17 @@ void FilesWindow::configure() {
   auto *general = new QWidget;
   auto *generalLayout = new QVBoxLayout(general);
   auto *generalScroll = new QScrollArea;
+  generalScroll->setObjectName("browsingSettingsScroll");
   generalScroll->setWidgetResizable(true); generalScroll->setFrameShape(QFrame::NoFrame);
   generalScroll->setWidget(general);
   pages->addTab(generalScroll, "Browsing");
+  auto *computerPage = new QWidget;
+  auto *computerLayout = new QVBoxLayout(computerPage);
+  auto *computerScroll = new QScrollArea;
+  computerScroll->setObjectName("computerSettingsScroll");
+  computerScroll->setWidgetResizable(true); computerScroll->setFrameShape(QFrame::NoFrame);
+  computerScroll->setWidget(computerPage);
+  pages->addTab(computerScroll, "This PC");
   auto *filesMenu = new Fusion::MenuEditor(preferences, "menu");
   auto *desktopMenu = new Fusion::MenuEditor(preferences, "desktopMenu");
   pages->addTab(filesMenu, "Files menu");
@@ -1457,11 +1464,6 @@ void FilesWindow::configure() {
   auto *themeHint = new QLabel("Choose a theme for Files windows and file pickers. Light/dark mode follows the desktop.");
   themeHint->setWordWrap(true); themeHint->setObjectName("muted");
   appearanceLayout->addRow(themeHint);
-  auto *computerButtons = new QCheckBox("Show view buttons in This PC");
-  computerButtons->setObjectName("configureComputerViewButtons");
-  computerButtons->setChecked(preferences.settings.value("computer/showViewButtons", true).toBool());
-  computerButtons->setToolTip("Hide the layout buttons while keeping your chosen This PC view.");
-  appearanceLayout->addRow(computerButtons);
   generalLayout->addWidget(appearance);
   auto *display = new QGroupBox("This folder’s view");
   auto *displayLayout = new QVBoxLayout(display);
@@ -1489,10 +1491,66 @@ void FilesWindow::configure() {
   behaviorLayout->addWidget(animation);
   generalLayout->addWidget(behavior);
   generalLayout->addStretch();
+
+  auto *viewControls = new QGroupBox("View buttons");
+  auto *viewControlsLayout = new QVBoxLayout(viewControls);
+  auto *computerButtons = new QCheckBox("Show view buttons in This PC");
+  computerButtons->setObjectName("configureComputerViewButtons");
+  computerButtons->setChecked(preferences.settings.value("computer/showViewButtons", true).toBool());
+  viewControlsLayout->addWidget(computerButtons);
+  auto *viewHint = new QLabel("Choose which buttons to show. Hiding a button keeps your current layout.");
+  viewHint->setWordWrap(true); viewHint->setObjectName("muted"); viewControlsLayout->addWidget(viewHint);
+  auto *viewOptions = new QWidget;
+  viewOptions->setObjectName("configureComputerViewChoices");
+  auto *viewGrid = new QGridLayout(viewOptions);
+  viewGrid->setContentsMargins(0, 10, 0, 4); viewGrid->setHorizontalSpacing(18); viewGrid->setVerticalSpacing(14);
+  viewGrid->addWidget(new QLabel("Fusion"), 0, 0);
+  viewGrid->addWidget(new QLabel("Windows"), 1, 0);
+  viewGrid->addWidget(new QLabel("Theme colors"), 2, 0);
+  QMap<QString, QCheckBox *> viewToggles;
+  const auto availableViews = DriveShelf::viewOptions();
+  const QList<int> viewOrder{2, 0, 1, 3, 4, 5, 6, 7, 8, 9, 10};
+  for (int position = 0; position < viewOrder.size(); ++position) {
+    const auto &[key, label] = availableViews[viewOrder[position]];
+    auto *toggle = new QCheckBox(label);
+    toggle->setObjectName("configureComputerView_" + key);
+    toggle->setAccessibleName("Show " + label + " view button");
+    toggle->setChecked(preferences.settings.value("computer/viewButtons/" + key, true).toBool());
+    viewToggles.insert(key, toggle);
+    const int row = position < 3 ? 0 : position < 7 ? 1 : 2;
+    const int column = position < 3 ? position : (position - 3) % 4;
+    viewGrid->addWidget(toggle, row, column + 1);
+  }
+  viewOptions->setEnabled(computerButtons->isChecked());
+  connect(computerButtons, &QCheckBox::toggled, viewOptions, &QWidget::setEnabled);
+  viewControlsLayout->addWidget(viewOptions); computerLayout->addWidget(viewControls);
+  auto *filterControls = new QGroupBox("Drive filter");
+  auto *filterLayout = new QVBoxLayout(filterControls);
+  auto *unmountedControl = new QCheckBox("Show the “Show unmounted drives” switch");
+  unmountedControl->setObjectName("configureUnmountedControl");
+  unmountedControl->setChecked(preferences.settings.value("computer/showUnmountedControl", true).toBool());
+  filterLayout->addWidget(unmountedControl);
+  auto *filterHint = new QLabel("Hiding this switch keeps your current drive filter.");
+  filterHint->setWordWrap(true); filterHint->setObjectName("muted"); filterLayout->addWidget(filterHint);
+  computerLayout->addWidget(filterControls); computerLayout->addStretch();
+
   auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);
   layout->addWidget(buttons);
   connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
   connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+  // Fit both settings pages up front; retain scrolling only when the screen
+  // or enlarged system fonts cannot accommodate their full contents.
+  dialog.ensurePolished();
+  const auto available = dialog.screen()->availableGeometry().size() - QSize(48, 48);
+  const int width = qMin(900, available.width());
+  const int pageWidth = width - 56;
+  const auto pageHeight = [pageWidth](QWidget *page) {
+    return qMax(page->sizeHint().height(), page->heightForWidth(pageWidth));
+  };
+  const int chrome = layout->contentsMargins().top() + layout->contentsMargins().bottom()
+      + heading->sizeHint().height() + qMax(intro->sizeHint().height(), intro->heightForWidth(pageWidth))
+      + pages->tabBar()->sizeHint().height() + buttons->sizeHint().height() + 3 * layout->spacing() + 24;
+  dialog.resize(width, qMin(available.height(), qMax(720, chrome + qMax(pageHeight(general), pageHeight(computerPage)))));
   if (dialog.exec() != QDialog::Accepted) return;
   if (filesMenu->entries() != savedFilesMenu)
     preferences.setMenu(filesMenu->entries());
@@ -1500,6 +1558,9 @@ void FilesWindow::configure() {
     preferences.setMenu(desktopMenu->entries(), "desktopMenu");
   if (themeChoice->isEnabled()) preferences.settings.setValue("appearance/theme", themeChoice->currentData());
   preferences.settings.setValue("computer/showViewButtons", computerButtons->isChecked());
+  preferences.settings.setValue("computer/showUnmountedControl", unmountedControl->isChecked());
+  for (auto it = viewToggles.cbegin(); it != viewToggles.cend(); ++it)
+    preferences.settings.setValue("computer/viewButtons/" + it.key(), it.value()->isChecked());
   preferences.settings.setValue("trashAnimation", animation->isChecked());
   if (pane->isChecked() != previewAction->isChecked()) previewAction->trigger();
   hiddenAction->setChecked(hidden->isChecked());

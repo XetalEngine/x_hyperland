@@ -48,6 +48,7 @@ class DriveShelf : public QWidget {
   Q_OBJECT
 public:
   DriveShelf(Fusion::Preferences *preferences, Drives *drives, QWidget *parent = nullptr);
+  static QList<QPair<QString, QString>> viewOptions();
   void refresh();
   Volume selectedVolume() const;
   void selectDevice(const QString &device, bool focus = false);
