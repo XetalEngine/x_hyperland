@@ -368,6 +368,9 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
     }
   });
   computer = new DriveShelf(preferences, drives);
+  connect(computer, &DriveShelf::selectionChanged, this, [this] {
+    if (Fusion::isComputer(location()) && !searchActive()) emit selectionChanged();
+  });
   connect(computer, &DriveShelf::operationRequested, this, [this](const Volume &volume, const QString &action) {
     drives->operate(volume, action, this);
   });

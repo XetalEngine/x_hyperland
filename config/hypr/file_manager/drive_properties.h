@@ -3,6 +3,24 @@
 
 class StorageChart;
 
+class DrivePreview : public QScrollArea {
+  Q_OBJECT
+public:
+  explicit DrivePreview(QWidget *parent = nullptr);
+  void setVolume(const Volume &volume);
+signals:
+  void propertiesRequested(const Volume &volume);
+protected:
+  void changeEvent(QEvent *event) override;
+private:
+  Volume volume;
+  QLabel *art = nullptr, *heading, *status, *hint, *empty;
+  QWidget *details;
+  StorageChart *chart;
+  QMap<QString, QLabel *> metrics, fields;
+  void updateIcon();
+};
+
 class DriveProperties : public QDialog {
   Q_OBJECT
 public:

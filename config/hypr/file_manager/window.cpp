@@ -1,4 +1,5 @@
 #include "window.h"
+#include "drive_properties.h"
 #include <KDirLister>
 #include "menu_icons.h"
 #include "context_actions.h"
@@ -345,6 +346,11 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   preview->setObjectName("filePreview");
   preview->setMaximumWidth(QWIDGETSIZE_MAX);
   previewStack->addWidget(preview);
+  drivePreview = new DrivePreview(previewStack);
+  previewStack->addWidget(drivePreview);
+  connect(drivePreview, &DrivePreview::propertiesRequested, this, [this](const Volume &volume) {
+    drives->showProperties(volume, this);
+  });
   remotePreview = new QLabel;
   remotePreview->setWordWrap(true);
   remotePreview->setTextFormat(Qt::PlainText);
@@ -464,8 +470,24 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   themeDebounce.setInterval(100);
   connect(&themeDebounce, &QTimer::timeout, this, &FilesWindow::reloadTheme);
   auto *watcher = new QFileSystemWatcher({Fusion::root() + "/theme"}, this);
+  const auto preferencesPath = preferences.settings.fileName();
+  const auto settingsDirectory = QFileInfo(preferencesPath).absolutePath();
+  QDir().mkpath(settingsDirectory);
+  watcher->addPath(settingsDirectory);
+  auto preferenceChanged = [this, watcher, preferencesPath] {
+    if (QFileInfo::exists(preferencesPath) && !watcher->files().contains(preferencesPath))
+      watcher->addPath(preferencesPath);
+    preferences.settings.sync();
+    if (preferences.settings.value("appearance/theme", "follow").toString() != requestedTheme)
+      themeDebounce.start();
+  };
+  if (QFileInfo::exists(preferencesPath)) watcher->addPath(preferencesPath);
   connect(watcher, &QFileSystemWatcher::directoryChanged, this,
-          [this] { themeDebounce.start(); });
+          [this, preferenceChanged](const QString &path) {
+            if (path == Fusion::root() + "/theme") themeDebounce.start();
+            else preferenceChanged();
+          });
+  connect(watcher, &QFileSystemWatcher::fileChanged, this, preferenceChanged);
   connect(&theme, &QProcess::finished, this,
           [this](int code, QProcess::ExitStatus) {
             if (code)
@@ -474,6 +496,18 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
                 QJsonDocument::fromJson(theme.readAllStandardOutput()).object();
             if (!value.contains("stylesheet"))
               return;
+            preferences.settings.sync();
+            if (preferences.settings.value("appearance/theme", "follow").toString() != requestedTheme) {
+              themeDebounce.start();
+              return;
+            }
+            themeChoices = value["themeChoices"].toArray();
+            if (auto *choice = findChild<QComboBox *>("configureTheme"))
+              if (!choice->isEnabled()) populateThemeChoices(choice);
+            const bool follow = value["theme"].toString("follow") == "follow";
+            qApp->setProperty("xetalThemeDesign", follow ? QVariant{} : value["design"].toVariant());
+            qApp->setProperty("xetalThemeIconTheme", follow ? QVariant{} : value["iconTheme"].toVariant());
+            setProperty("fusionTheme", value["design"].toString());
             QPalette palette;
             const auto colors = value["colors"].toObject();
             const auto roles = QMetaEnum::fromType<QPalette::ColorRole>();
@@ -494,7 +528,11 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
             const auto iconTheme=value["iconTheme"].toString();
             const bool iconsChanged=property("fusionIconTheme").toString()!=iconTheme;
             setProperty("fusionIconTheme",iconTheme);
-            XetalIcons::apply(Fusion::root());
+            QStringList iconPaths;
+            for (const auto &path : value["iconSearchPaths"].toArray()) iconPaths << path.toString();
+            QIcon::setThemeSearchPaths(iconPaths);
+            QIcon::setFallbackThemeName(value["iconFallbackTheme"].toString("hicolor"));
+            QIcon::setThemeName(iconTheme);
             qApp->setStyleSheet(value["stylesheet"].toString());
             for (auto *action : findChildren<QAction *>())
               if (action->property("fusionIcon").isValid())
@@ -638,6 +676,12 @@ void FilesWindow::ensurePreviewWidth() {
 void FilesWindow::updatePreview() {
   if (!browser() || !previewAction->isChecked())
     return;
+  if (Fusion::isComputer(browser()->location()) && !browser()->searchActive()) {
+    if (previewStack->currentWidget() != drivePreview) preview->select({});
+    drivePreview->setVolume(browser()->selectedVolume());
+    previewStack->setCurrentWidget(drivePreview);
+    return;
+  }
   const auto items = browser()->selectedItems();
   if (items.size() == 1 && !items[0].url().isLocalFile()) {
     previewStack->setCurrentWidget(remotePreview);
@@ -1360,6 +1404,17 @@ void FilesWindow::customAction(const QVariantMap &entry) {
   if (!QProcess::startDetached(program, parts, working))
     message("The custom action could not be started.");
 }
+void FilesWindow::populateThemeChoices(QComboBox *choice) {
+  choice->clear();
+  choice->addItem("Current desktop theme", "follow");
+  for (const auto &item : themeChoices) {
+    const auto entry = item.toObject();
+    choice->addItem(entry["name"].toString(), entry["id"].toString());
+  }
+  const auto index = choice->findData(preferences.settings.value("appearance/theme", "follow"));
+  choice->setCurrentIndex(qMax(0, index));
+  choice->setEnabled(!themeChoices.isEmpty());
+}
 void FilesWindow::configure() {
   preferences.settings.sync();
   const auto savedFilesMenu = preferences.menu();
@@ -1382,11 +1437,27 @@ void FilesWindow::configure() {
   layout->addWidget(pages, 1);
   auto *general = new QWidget;
   auto *generalLayout = new QVBoxLayout(general);
-  pages->addTab(general, "Browsing");
+  auto *generalScroll = new QScrollArea;
+  generalScroll->setWidgetResizable(true); generalScroll->setFrameShape(QFrame::NoFrame);
+  generalScroll->setWidget(general);
+  pages->addTab(generalScroll, "Browsing");
   auto *filesMenu = new Fusion::MenuEditor(preferences, "menu");
   auto *desktopMenu = new Fusion::MenuEditor(preferences, "desktopMenu");
   pages->addTab(filesMenu, "Files menu");
   pages->addTab(desktopMenu, "Desktop menu");
+  auto *appearance = new QGroupBox("Appearance");
+  auto *appearanceLayout = new QFormLayout(appearance);
+  auto *themeChoice = new QComboBox;
+  themeChoice->setObjectName("configureTheme");
+  themeChoice->setAccessibleName("Fusion Files theme");
+  themeChoice->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+  themeChoice->setMinimumContentsLength(24);
+  populateThemeChoices(themeChoice);
+  appearanceLayout->addRow("Theme", themeChoice);
+  auto *themeHint = new QLabel("Choose a theme for Files windows and file pickers. Light/dark mode follows the desktop.");
+  themeHint->setWordWrap(true); themeHint->setObjectName("muted");
+  appearanceLayout->addRow(themeHint);
+  generalLayout->addWidget(appearance);
   auto *display = new QGroupBox("This folder’s view");
   auto *displayLayout = new QVBoxLayout(display);
   auto *pane = new QCheckBox("Show the preview pane");
@@ -1422,11 +1493,13 @@ void FilesWindow::configure() {
     preferences.setMenu(filesMenu->entries());
   if (desktopMenu->entries() != savedDesktopMenu)
     preferences.setMenu(desktopMenu->entries(), "desktopMenu");
+  if (themeChoice->isEnabled()) preferences.settings.setValue("appearance/theme", themeChoice->currentData());
   preferences.settings.setValue("trashAnimation", animation->isChecked());
   if (pane->isChecked() != previewAction->isChecked()) previewAction->trigger();
   hiddenAction->setChecked(hidden->isChecked());
   browser()->setThumbnails(thumbnails->isChecked());
   preferences.settings.sync();
+  reloadTheme();
 }
 void FilesWindow::showShortcuts() {
   QMessageBox::information(
@@ -1446,7 +1519,9 @@ void FilesWindow::reloadTheme() {
     themeDebounce.start();
     return;
   }
-  theme.start("python3", {Fusion::root() + "/file_manager/appearance.py"});
+  preferences.settings.sync();
+  requestedTheme = preferences.settings.value("appearance/theme", "follow").toString();
+  theme.start("python3", {Fusion::root() + "/file_manager/appearance.py", "--theme", requestedTheme});
 }
 void FilesWindow::message(const QString &text) {
   statusBar()->showMessage(text, 15000);

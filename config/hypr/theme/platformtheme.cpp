@@ -36,6 +36,8 @@ class XetalTheme final : public QObject, public QPlatformTheme {
         if (auto app = QCoreApplication::instance()) {
             const auto local = app->property("xetalThemeDesign").toString();
             if (local == "raw" || all.value(local).isObject()) design = local;
+            const auto localIcons = app->property("xetalThemeIconTheme").toString();
+            if (!localIcons.isEmpty()) iconTheme = localIcons;
         }
         if (design != "raw" && all.value(design).isObject()) all = all.value(design).toObject();
         systemFont.setFamily((design == "blackwood" || design == "mycelium" || design == "mystery98" || design == "mortalkombat2") ? "Noto Serif" : design == "breakpoint" || design == "binaryknife" || design == "tidalglass" || design == "porcelainink" || design == "obsidianforge" || design == "candycloud" || design == "shadowedge" || design == "hyperfusionblue" || design == "midnighttransit" || design == "atomicafterglow" || design == "midnightrun" || design == "prisonbreak" || design == "infernalencore" || design == "facadasexu" || design == "polaris" || design == "leviathan" || design == "ghostbusters" || design == "starcraft" || design == "killerinstinct" || design == "kitemple" || design == "kiprimal" || design == "kifireice" ? "Inter" : "Noto Sans");

@@ -52,7 +52,7 @@ class ThemeApplyTests(unittest.TestCase):
         target,selected,token=self.submitted()
         self.assertEqual(target['theme']['design'],'ghostbusters')
         self.assertEqual(target['theme']['mode'],'dark')
-        self.assertEqual(target['theme']['layout'],'ribbon')
+        self.assertEqual(target['theme']['layout'],'sidebar')
         self.assertEqual(target['theme']['launcher_style'],'follow')
         self.assertEqual(target['theme']['launcher_background_visibility'],63)
         self.assertIn('waybar',selected);self.assertIn('wallpaper',selected)
@@ -84,7 +84,7 @@ class ThemeApplyTests(unittest.TestCase):
         target,_,_=self.submitted()
         self.assertEqual(target['theme']['design'],'prisonbreak')
         self.assertEqual(target['theme']['launcher_background'],'theirs.png')
-        self.assertEqual(target['theme']['layout'],'ribbon')
+        self.assertEqual(target['theme']['layout'],'sidebar')
 
     def test_component_read_restores_apply_button_on_success_and_failure(self):
         for failed in (False,True):

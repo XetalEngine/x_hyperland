@@ -202,6 +202,7 @@ bool VolumeCard::eventFilter(QObject *object, QEvent *event) {
 DriveShelf::DriveShelf(Fusion::Preferences *settings, Drives *service, QWidget *parent)
     : QWidget(parent), preferences(settings), drives(service) {
   setObjectName("computerPage");
+  setAttribute(Qt::WA_StyledBackground);
   auto *layout = new QVBoxLayout(this); layout->setContentsMargins(14, 10, 14, 8); layout->setSpacing(8);
   auto *header = new QHBoxLayout;
   auto *identity = new QVBoxLayout; identity->setSpacing(2);
@@ -228,6 +229,7 @@ DriveShelf::DriveShelf(Fusion::Preferences *settings, Drives *service, QWidget *
   });
   layout->addLayout(header);
   scroll = new QScrollArea; scroll->setObjectName("computerDrivesScroll"); scroll->setWidgetResizable(true);
+  scroll->viewport()->setObjectName("computerDrivesViewport");
   scroll->setFrameShape(QFrame::NoFrame); scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   scroll->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Ignored); scroll->viewport()->installEventFilter(this);
   body = new QWidget; body->setObjectName("driveShelfBody");
@@ -246,7 +248,9 @@ DriveShelf::DriveShelf(Fusion::Preferences *settings, Drives *service, QWidget *
     section.items->setHorizontalSpacing(columnGap); section.items->setVerticalSpacing(rowGap); section.items->setAlignment(Qt::AlignTop | Qt::AlignLeft); layout->addLayout(section.items);
     sections.insert(category, section);
   }
-  scroll->setWidget(body); layout->addWidget(scroll, 1);
+  scroll->setWidget(body);
+  body->setAutoFillBackground(false); scroll->viewport()->setAutoFillBackground(false);
+  layout->addWidget(scroll, 1);
   empty = new QLabel("No drives detected."); empty->setObjectName("emptyDrives"); layout->addWidget(empty);
   auto *hint = new QLabel("Double-click a volume to open · Right-click for more options"); hint->setObjectName("muted");
   hint->setWordWrap(true); layout->addWidget(hint);
@@ -429,9 +433,12 @@ void DriveShelf::refresh() {
   selectDevice(selectedBeforeRefresh);
   if (focused && isAncestorOf(focused) && focused->isVisible()) focused->setFocus(Qt::OtherFocusReason);
   scroll->setVisible(!groups.isEmpty()); empty->setVisible(groups.isEmpty()); queueLayout();
+  // A scan can change usage or mount state without changing the selected device.
+  if (selected == selectedBeforeRefresh) emit selectionChanged();
 }
 Volume DriveShelf::selectedVolume() const { return cards.contains(selected) ? cards[selected]->volume() : Volume{}; }
 void DriveShelf::selectDevice(const QString &device, bool focus) {
+  const auto previous = selected;
   selected = cards.contains(device) ? device : QString();
   for (auto *card : cards) card->setSelected(card->volume().device == selected);
   if (auto *card = cards.value(selected)) {
@@ -444,6 +451,7 @@ void DriveShelf::selectDevice(const QString &device, bool focus) {
       card->setFocus(Qt::OtherFocusReason); scroll->ensureWidgetVisible(card, 0, 12);
     }
   }
+  if (selected != previous) emit selectionChanged();
 }
 QVariantMap DriveShelf::place() const { return {{"volume", selected}, {"y", scroll->verticalScrollBar()->value()}}; }
 void DriveShelf::restorePlace(const QVariantMap &state) {

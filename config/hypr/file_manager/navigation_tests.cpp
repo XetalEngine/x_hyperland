@@ -1,5 +1,6 @@
 #include "window.h"
 #include "picker.h"
+#include "drive_properties.h"
 #include <KDirLister>
 #include <QtTest>
 
@@ -225,6 +226,121 @@ private slots:
     QCOMPARE(reopened.browser()->viewMode, 3); QCOMPARE(reopened.browser()->previewWidth, 310);
     reopened.close();
   }
+  void computerPreviewFollowsDriveSelectionAndRefresh() {
+    FilesWindow window(Fusion::computerUrl(), false, temporary.path() + "/drive-preview.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false);
+    window.resize(1500, 920); window.show();
+    if (!window.browser()->previewVisible) window.runAction("preview");
+    constexpr quint64 gib = 1024ULL * 1024 * 1024;
+    Volume mounted;
+    mounted.device = "/dev/fusion-root1"; mounted.driveDevice = "/dev/fusion-root";
+    mounted.name = "HyperFusion"; mounted.mount = "/"; mounted.type = "part";
+    mounted.filesystem = "ext4"; mounted.driveModel = "Samsung SSD 970 EVO Plus 2TB";
+    mounted.transport = "nvme"; mounted.size = mounted.total = 100 * gib;
+    mounted.available = 35 * gib; mounted.freeBytes = 40 * gib; mounted.spaceKnown = true;
+    Volume unmounted = mounted;
+    unmounted.device = unmounted.driveDevice = "/dev/fusion-usb";
+    unmounted.name = "Backups <b> & photos"; unmounted.mount.clear(); unmounted.type = "disk";
+    unmounted.filesystem = "exfat"; unmounted.driveModel = "USB DISK 3.0";
+    unmounted.transport = "usb"; unmounted.removable = true; unmounted.size = 256 * gib;
+    // Stale usage after an unmount must never appear as current space data.
+    window.drives->volumes = {mounted, unmounted}; emit window.drives->changed();
+    auto *shelf = window.browser()->findChild<DriveShelf *>();
+    QSignalSpy operations(shelf, &DriveShelf::operationRequested);
+    auto *stack = window.findChild<QStackedWidget *>("previewStack");
+    auto *pane = window.findChild<DrivePreview *>();
+    QVERIFY(pane); QCOMPARE(stack->currentWidget(), pane);
+    auto value = [pane](const QString &key) { return pane->findChild<QLabel *>("drivePreview_" + key); };
+    auto *heading = pane->findChild<QLabel *>("drivePreviewName");
+    auto *empty = pane->findChild<QLabel *>("drivePreviewEmpty");
+    auto *chart = pane->findChild<QWidget *>("storageChart");
+    auto *hint = pane->findChild<QLabel *>("drivePreviewHint");
+    QVERIFY(empty->isVisible());
+    for (auto *card : shelf->findChildren<VolumeCard *>())
+      if (card->volume().device == mounted.device) QTest::mouseClick(card, Qt::LeftButton);
+    QTRY_COMPARE(heading->text(), mounted.name);
+    QVERIFY(chart->isVisible()); QVERIFY(!empty->isVisible());
+    QCOMPARE(value("used")->text(), QLocale().formattedDataSize(60 * gib));
+    QCOMPARE(value("free")->text(), QLocale().formattedDataSize(35 * gib));
+    QCOMPARE(value("reserved")->text(), QLocale().formattedDataSize(5 * gib));
+    QCOMPARE(value("capacity")->text(), QLocale().formattedDataSize(100 * gib));
+    QCOMPARE(value("location")->text(), QString("/"));
+    QCOMPARE(value("transport")->text(), QString("NVMe"));
+    auto *properties = pane->findChild<QPushButton *>("drivePreviewProperties");
+    properties->click();
+    auto *dialog = window.findChild<DriveProperties *>(); QVERIFY(dialog);
+    QCOMPARE(dialog->findChild<QLabel *>("usedValue")->text(), value("used")->text());
+    dialog->close();
+    QTest::qWait(350);
+    const auto artifacts = qEnvironmentVariable("FUSION_FILES_ARTIFACTS");
+    if (!artifacts.isEmpty()) QVERIFY(window.grab().save(artifacts + "/preview-mounted.png"));
+    window.drives->volumes[0].available = window.drives->volumes[0].freeBytes = 50 * gib;
+    emit window.drives->changed();
+    QCOMPARE(value("free")->text(), QLocale().formattedDataSize(50 * gib));
+    QVERIFY(!value("reserved")->isVisible());
+    // Keyboard selection uses the same notification as clicking a card.
+    shelf->selectDevice(mounted.device, true);
+    for (auto *card : shelf->findChildren<VolumeCard *>())
+      if (card->volume().device == mounted.device) QTest::keyClick(card, Qt::Key_Right);
+    QTRY_COMPARE(heading->text(), unmounted.name);
+    QCOMPARE(heading->textFormat(), Qt::PlainText);
+    QVERIFY(!chart->isVisible()); QVERIFY(!value("used")->isVisible());
+    QCOMPARE(value("capacity")->text(), QLocale().formattedDataSize(256 * gib));
+    QCOMPARE(value("model")->text(), unmounted.driveModel);
+    QVERIFY(!value("location")->isVisible()); QVERIFY(hint->text().contains("Mount"));
+    QTest::qWait(50);
+    if (!artifacts.isEmpty()) QVERIFY(window.grab().save(artifacts + "/preview-unmounted.png"));
+    window.runAction("preview"); shelf->selectDevice(mounted.device);
+    window.runAction("preview"); QCOMPARE(heading->text(), mounted.name);
+    // The active tab controls the preview; hidden This PC scans cannot replace file previews.
+    window.openLocation(folder("preview-files"), true); window.browser()->model->dirLister()->stop();
+    QCOMPARE(stack->currentWidget()->objectName(), QString("filePreview"));
+    emit window.drives->changed();
+    QCOMPARE(stack->currentWidget()->objectName(), QString("filePreview"));
+    window.findChild<QTabWidget *>("folderTabs")->setCurrentIndex(0);
+    QCOMPARE(stack->currentWidget(), pane); QCOMPARE(heading->text(), mounted.name);
+    window.browser()->beginSearch();
+    QCOMPARE(stack->currentWidget()->objectName(), QString("filePreview"));
+    window.browser()->navigate(Fusion::computerUrl());
+    shelf->selectDevice(mounted.device);
+    window.drives->volumes.removeFirst(); emit window.drives->changed();
+    QVERIFY(empty->isVisible()); QVERIFY(!properties->isVisible());
+    QCOMPARE(operations.count(), 0);
+    window.close();
+  }
+  void drivePreviewFitsNarrowPaneAndUnavailableVolumes() {
+    DrivePreview pane; pane.resize(240, 560); pane.show();
+    auto value = [&pane](const QString &key) { return pane.findChild<QLabel *>("drivePreview_" + key); };
+    auto *chart = pane.findChild<QWidget *>("storageChart");
+    auto *status = pane.findChild<QLabel *>("drivePreviewStatus");
+    auto *hint = pane.findChild<QLabel *>("drivePreviewHint");
+    Volume volume;
+    volume.device = "/dev/" + QString(100, 'a'); volume.name = QString(120, 'b');
+    volume.driveModel = QString(180, 'c'); volume.filesystem = "BitLocker";
+    volume.size = 1024; pane.setVolume(volume);
+    QVERIFY(status->text().contains("locked")); QVERIFY(hint->text().contains("Unlock"));
+    QVERIFY(!chart->isVisible()); QCOMPARE(value("capacity")->text(), QLocale().formattedDataSize(1024));
+    for (int width : {240, 270, 420}) {
+      pane.resize(width, 260); QCoreApplication::processEvents();
+      QCOMPARE(pane.width(), width);
+      QCOMPARE(pane.horizontalScrollBar()->maximum(), 0);
+      QVERIFY(pane.widget()->width() <= pane.viewport()->width());
+      QVERIFY(pane.verticalScrollBar()->maximum() > 0);
+    }
+    volume.filesystem = "swap"; volume.name = "zram0"; pane.setVolume(volume);
+    QCOMPARE(status->text(), QString("Swap")); QVERIFY(!hint->isVisible());
+    volume.type = "rom"; volume.filesystem.clear(); volume.size = 0; pane.setVolume(volume);
+    QVERIFY(status->text().contains("No media")); QVERIFY(!value("capacity")->isVisible());
+    QVERIFY(hint->text().contains("disc"));
+    volume.type = "wine-prefix"; volume.mount = "/home/player/prefix/drive_c";
+    volume.name = "Games (C:)"; volume.total = 1000; pane.setVolume(volume);
+    QCOMPARE(status->text(), QString("Wine / Proton prefix"));
+    QVERIFY(!chart->isVisible()); QVERIFY(!value("capacity")->isVisible());
+    QCOMPARE(value("location")->text(), volume.mount);
+    QVERIFY(!value("model")->isVisible());
+    volume.type = "part"; volume.total = 0; pane.setVolume(volume);
+    QVERIFY(hint->text().contains("unavailable")); QVERIFY(!chart->isVisible());
+  }
   void navigationSidebarKeepsItsSavedWidth() {
     const auto path = temporary.path() + "/sidebar.ini";
     int sidebarWidth = 0, previewWidth = 0;
@@ -320,6 +436,79 @@ private slots:
     QTRY_COMPARE(window.browser()->selectedVolume().device, device);
     QTRY_COMPARE(scroll->verticalScrollBar()->value(), position);
     window.close();
+  }
+  void filesThemePersistsCancelsAndFollowsDesktopMode() {
+    if (qEnvironmentVariable("FUSION_FILES_ISOLATED") != "1")
+      QSKIP("Requires an isolated profile so desktop changes stay inside the test.");
+    const auto statePath = Fusion::root() + "/theme/state.json";
+    QFile stateFile(statePath); QVERIFY(stateFile.open(QIODevice::ReadOnly));
+    const auto originalState = stateFile.readAll(); stateFile.close();
+    auto writeState = [&](const QByteArray &data) {
+      QSaveFile file(statePath);
+      return file.open(QIODevice::WriteOnly) && file.write(data) == data.size() && file.commit();
+    };
+    const auto restore = qScopeGuard([&] { writeState(originalState); });
+    auto state = QJsonDocument::fromJson(originalState).object();
+    state["design"] = "killerinstinct"; state["mode"] = "dark";
+    QVERIFY(writeState(QJsonDocument(state).toJson()));
+    const auto path = temporary.path() + "/appearance/settings.ini";
+    FilesWindow window(Fusion::computerUrl(), false, path);
+    window.setAttribute(Qt::WA_DeleteOnClose, false); window.show();
+    if (window.browser()->previewVisible) window.runAction("preview");
+    QTRY_COMPARE_WITH_TIMEOUT(window.property("fusionTheme").toString(), QString("killerinstinct"), 10000);
+    const auto artifacts = qEnvironmentVariable("FUSION_FILES_ARTIFACTS");
+    auto configure = [&](const QString &selection, bool save) {
+      bool selected = false;
+      QTimer::singleShot(0, &window, [&] {
+        auto *dialog = window.findChild<QDialog *>("filesConfiguration");
+        if (!dialog) return;
+        auto *choice = dialog->findChild<QComboBox *>("configureTheme");
+        if (choice && choice->isEnabled() && choice->findData(selection) >= 0) {
+          choice->setCurrentIndex(choice->findData(selection)); selected = true;
+        }
+        if (selected && save && !artifacts.isEmpty()) dialog->grab().save(artifacts + "/files-settings.png");
+        if (selected && save) dialog->accept(); else dialog->reject();
+      });
+      window.findChild<QAction *>("configureFiles")->trigger();
+      return selected;
+    };
+    QVERIFY(configure("kitemple", false));
+    QCOMPARE(window.preferences.settings.value("appearance/theme", "follow").toString(), QString("follow"));
+    QCOMPARE(window.property("fusionTheme").toString(), QString("killerinstinct"));
+    QVERIFY(configure("kitemple", true));
+    QTRY_COMPARE_WITH_TIMEOUT(window.property("fusionTheme").toString(), QString("kitemple"), 10000);
+    QCOMPARE(qApp->property("xetalThemeDesign").toString(), QString("kitemple"));
+    QCOMPARE(qApp->property("xetalThemeIconTheme").toString(), QIcon::themeName());
+    QSettings saved(path, QSettings::IniFormat);
+    QCOMPARE(saved.value("appearance/theme").toString(), QString("kitemple"));
+    stateFile.open(QIODevice::ReadOnly);
+    QCOMPARE(QJsonDocument::fromJson(stateFile.readAll()).object(), state); stateFile.close();
+
+    FilesWindow reopened(Fusion::computerUrl(), false, path);
+    reopened.setAttribute(Qt::WA_DeleteOnClose, false); reopened.show();
+    QTRY_COMPARE_WITH_TIMEOUT(reopened.property("fusionTheme").toString(), QString("kitemple"), 10000);
+    PickerWindow picker({{"title", "Choose a folder"}, {"directory", true}}, path, false);
+    picker.setAttribute(Qt::WA_DeleteOnClose, false); picker.show();
+    QTRY_COMPARE_WITH_TIMEOUT(picker.property("fusionTheme").toString(), QString("kitemple"), 10000);
+
+    state["design"] = "kifireice"; state["mode"] = "light";
+    QVERIFY(writeState(QJsonDocument(state).toJson()));
+    QFile palettes(Fusion::root() + "/theme/palettes.json"); QVERIFY(palettes.open(QIODevice::ReadOnly));
+    const auto all = QJsonDocument::fromJson(palettes.readAll()).object();
+    const auto jade = all["kitemple"].toObject()["light"].toObject();
+    QTRY_COMPARE_WITH_TIMEOUT(qApp->palette().color(QPalette::Window), QColor(jade["Window"].toString()), 10000);
+    QCOMPARE(window.property("fusionTheme").toString(), QString("kitemple"));
+    QCOMPARE(reopened.property("fusionTheme").toString(), QString("kitemple"));
+    QCOMPARE(picker.property("fusionTheme").toString(), QString("kitemple"));
+    if (!artifacts.isEmpty()) QVERIFY(window.grab().save(artifacts + "/pinned-theme-light.png"));
+
+    QVERIFY(configure("follow", true));
+    QTRY_COMPARE_WITH_TIMEOUT(window.property("fusionTheme").toString(), QString("kifireice"), 10000);
+    QTRY_COMPARE_WITH_TIMEOUT(reopened.property("fusionTheme").toString(), QString("kifireice"), 10000);
+    QTRY_COMPARE_WITH_TIMEOUT(picker.property("fusionTheme").toString(), QString("kifireice"), 10000);
+    QVERIFY(qApp->property("xetalThemeDesign").toString().isEmpty());
+    QVERIFY(qApp->property("xetalThemeIconTheme").toString().isEmpty());
+    window.close(); reopened.close(); picker.close();
   }
 };
 QTEST_MAIN(NavigationTests)

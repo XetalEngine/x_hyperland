@@ -106,6 +106,11 @@ global choices remain the defaults for folders without a saved view. File
 pickers keep their own folder-view preferences per application and operation.
 The preview pane is enabled for fresh profiles and displays local images, text excerpts and metadata;
 remote selections display metadata without downloading their full contents.
+In This PC, click a drive to preview its model, label, capacity, file system and
+location. Mounted drives also show a compact space-usage chart. Unmounted drives
+show the details already available, without mounting them. The summary follows
+keyboard selection and drive refreshes; **Full properties…** opens the complete
+dialog. Wine and Steam prefixes show their folder location without a size scan.
 The small arrow beside the new-tab (+) button hides or shows it and stays available when the pane is hidden.
 Local picture thumbnails are enabled on file icons by default. Open **⋮ →
 Configure Fusion Files…** to change the current folder's thumbnails, preview
@@ -391,8 +396,12 @@ shell expansion; multiple-file placeholders must occupy a separate argument.
 
 ## Theme, installation and private state
 
-Appearance follows the active Fusion design and Dark, Light or High contrast
-palette. An open window refreshes when the desktop's theme changes.
+Appearance follows the current desktop theme by default, including its gradient
+backgrounds. To give Files its own theme, open **⋮ → Configure Fusion Files… →
+Browsing → Appearance → Theme**, choose a named theme, and **Save**. The choice
+applies to open and future Files windows and file pickers without changing the
+desktop. **Current desktop theme** resumes following the desktop; Dark, Light
+and High contrast always follow the desktop's mode.
 
 `installer/install.py` builds `file_manager/.build/xetal-files` and validates its
 presence. Update preparation builds the same executable and includes it in the

@@ -33,7 +33,7 @@ class DesignTests(unittest.TestCase):
                             page.design_page.cards[design].click()
                             self.assertEqual(page.design.currentData(),design)
                             self.assertEqual(page.mode.currentData(),'dark')
-                            self.assertEqual(page.layout_page.choice.currentData(),theme_page.layouts.default(design))
+                            self.assertEqual(page.layout_page.choice.currentData(),'sidebar')
                             self.assertEqual(page.menu_design(),design)
                             apply.assert_not_called()
                             self.assertEqual(json.loads(state.read_text())['design'],'breakpoint')
@@ -225,14 +225,14 @@ class DesignTests(unittest.TestCase):
                     editor.edit(refresh=False)
                     self.assertTrue(editor.dirty)
                     draft=keys.serialize(editor.records)
-                    for design in ('modern','raw','modern'):
-                        state.write_text(json.dumps({'design':design,'mode':'dark'}))
+                    for design,layout in (('modern',None),('raw',None),('raw','classic'),('modern','sidebar')):
+                        state.write_text(json.dumps({'design':design,'mode':'dark',**({'layout':layout} if layout else {})}))
                         window.apply_design()
                         self.assertIs(window.pages['hotkeys'],editor)
                         self.assertTrue(editor.dirty)
                         self.assertEqual(keys.serialize(editor.records),draft)
-                        self.assertEqual(window.modern_rail.isHidden(),design=='raw')
-                        self.assertEqual(window.tabs.indexOf(window.home)>=0,design=='modern')
+                        self.assertEqual(window.modern_rail.isHidden(),layout=='classic')
+                        self.assertEqual(window.tabs.indexOf(window.home)>=0,layout!='classic')
                     self.assertEqual((root/'keybindings.conf').read_bytes(),original)
                 finally:
                     window.deleteLater();QT.sendPostedEvents(None,QEvent.Type.DeferredDelete)

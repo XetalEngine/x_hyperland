@@ -5,12 +5,24 @@ The welcome dashboard’s **Take the Tour** and **Send Feedback** buttons open
 bundled here. No server, CDN, telemetry, login, or desktop command bridge is used.
 The Echo download link is the only external destination, and opens on request.
 
-The guide includes 51 lessons in eight chapters, a guided first visit, full-text
+The guide includes 54 lessons in eight chapters, an eleven-step guided first visit, full-text
 search, level/video filters, screenshots, ten captioned short demonstrations,
 interactive workspace explanations, a printable shortcut reference, and the
 Control Panel tool directory. Reading progress and the light/dark reading choice
 use browser-local storage and tolerate storage being disabled. The feedback
 template stays in memory until copied; it never submits or sends a message.
+
+The guided route starts with KDE, Individual, Force tiling, and Force floating,
+including a keyboard-accessible practice diagram. It then teaches recording,
+Cube, moving windows, YouTube MP3/MP4 downloads, wallpapers, task switching, the
+minimize dock, file transfers, Control Panel, and Fusion Files. Numbered steps
+come first; demonstrations are expandable. Next records progress, Previous
+returns to the last step, and the longer reference lessons remain searchable.
+
+The guide uses Binary Knife, the fresh-install theme. Its complete reading
+palettes are bundled from `theme/palettes.json`, independently of the current
+desktop theme. Dark is the initial mode; a saved reading-mode choice stays local
+to the browser.
 
 ## Maintain content
 
@@ -39,15 +51,18 @@ The two small interactive workspace diagrams are explicitly marked illustrations
 Earlier screenshots were reused from `docs/screenshots` for Apps, context menus,
 Control Panel, taskbar options, wallpaper browsing, file-transfer settings,
 shortcut properties, the task switcher, System ISO, and updates. The GRUB
-appearance screenshot was supplied by the user. The scenery comes from the
-bundled Hollow Grove wallpaper. Updated screenshots show Recorder, Icons,
+appearance screenshot was supplied by the user. Updated screenshots show Recorder, Icons,
 Window Rules, the dock gallery, Fusion Settings, and KVM Settings using sample
 configuration. The feedback illustration is the guide’s own feedback page.
+The media-downloader screenshot uses the actual app's offline preview with
+Binary Knife colors and a sample destination; no download or user preference
+change is needed to capture it. The fresh-install Files image uses the rebuilt
+app with a disposable profile and sample drives, saved directly as PNG.
 
 ## Integration
 
 `launch.py` accepts only the home, feedback, or shortcut entry points and passes
-an encoded local file URL to `xdg-open` as a separate argument. The current
-Fusion design and mode set the initial reading palette. Opening the guide hides
+an encoded local file URL to `xdg-open` as a separate argument. The
+fresh-install palette is bundled with the guide. Opening the guide hides
 the welcome workspace through its existing helper, so the browser opens in the
 normal desktop. No system associations or shared desktop settings are changed.

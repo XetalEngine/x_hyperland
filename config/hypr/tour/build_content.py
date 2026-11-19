@@ -6,7 +6,7 @@ import re
 
 ROOT = Path(__file__).resolve().parents[1]
 CHAPTERS = [
-    ('start','Find your feet','01','The first ten minutes'),
+    ('start','Start here','01','Small steps you can try now'),
     ('windows','Windows & workspaces','02','Make space for your work'),
     ('design','Make it yours','03','A desktop with your personality'),
     ('files','Files & the desktop','04','Find, organize, and move things'),
@@ -26,14 +26,48 @@ def lesson(id, chapter, title, summary, where, steps, *, level='Beginner', keys=
         minutes=max(1,round(sum(len(s.split()) for s in [summary,*steps,note,tryit])/130))))
 
 
-lesson('welcome','start','Welcome to your new desktop',
-    'Hyper Fusion brings a launcher, file manager, settings, visual effects, system tools, and virtual machines together around Hyprland. Start with a few controls; explore the rest at your own pace.',
+lesson('window-modes','start','First: choose how windows behave',
+    'A workspace is one screenful of windows. Each workspace can use its own mode. Start with these four.',
+    'Taskbar → mode button between Keys and Update',[
+    'KDE — the default: overlapping windows with title bars. Click the bar’s gear. Set Apply to: All windows of this app · remembered. Tick Add a title bar above the app to add it; untick to remove it. Click Apply.',
+    'Individual — each app keeps its own window behavior. Hold Super over a window to reveal its extra controls.',
+    'Force tiling — windows fit beside each other. Open another app and the layout makes room for it.',
+    'Force floating — windows overlap and can be placed freely. Hold Super and drag with the left mouse button to move one.',
+    'Click the mode button to cycle in that order. To choose directly, right-click a workspace number → Force window layout.'],
+    keys='Super + left drag|Super + right drag',
+    note='Super is usually the Windows-logo key. Modes stay saved for each workspace. To restore a hidden KDE title bar, hold Super over the app, click its gear, tick the box again, then Apply.',
+    tryit='Try the four modes, then return to KDE. Move a window with Super + left drag. Resize it with Super + right drag.',
+    related='move-window window-controls window-gear workspace-force',tags='KDE individual four modes force tiling floating keys update title bar per app resize',
+    image='workspace-force.webp',sources='workspaces/README.md waybar/options/workspace_menu.h effects/window_close/window_settings.py keybindings.conf')
+
+lesson('move-window','windows','Move and resize windows with Super',
+    'Hold Super and drag: the left mouse button moves; the right mouse button resizes.',
+    'Point inside a window → hold Super + a mouse button',[
+    'Put the pointer inside the window.',
+    'To move it: hold Super and the left mouse button. Drag the window to its new place.',
+    'To resize it: hold Super and the right mouse button. Drag to make the window bigger or smaller.',
+    'Release the mouse button, then Super. In Force tiling, a moved window rejoins the layout when dropped.'],
+    keys='Super + left drag|Super + right drag',tryit='Move a window, then make it larger with Super + right drag.',
+    related='window-modes tile-float',image='tile-float.webp',clip='tile-float',sources='keybindings.conf workspaces/README.md')
+
+lesson('media-download','capture','Save a YouTube song or video',
+    'Choose MP3 for sound, or MP4 for video with sound.',
+    'Super + Ctrl + P → Media downloader',[
+    'Copy the YouTube link from your browser’s address bar.',
+    'Press Super + Ctrl + P. Click Paste in the downloader.',
+    'Click MP3 · Music or MP4 · Video. Check the Save to folder shown below.',
+    'Click Download MP3 or Download MP4. When it finishes, click Open file to play it, or Open folder to find it.'],
+    keys='Super + Ctrl + P',related='file-browser recording',tags='youtube music mp3 mp4 download video audio',
+    image='media-download.webp',sources='keybindings.conf media/app.py media/backend.py')
+
+lesson('welcome','start','Welcome to Hyper Fusion',
+    'Learn one small action at a time. Keep this guide open while you try it.',
     'Taskbar → Apps · Super + D → welcome dashboard',[
-    'The taskbar is your map: Apps on one side, numbered workspaces, running apps, and sound, network, notifications, clock, and session controls. Its arrangement can change with the selected design.',
-    'Super means the Windows or Command-style modifier key on your keyboard. Hold it over a window to reveal Fusion’s extra controls. Press Super + K to open Fusion Settings.',
-    'Open Apps and type an application name. Open Fusion Files or My Computer to browse folders and drives. Keep this guide open beside a harmless practice window.',
-    'Follow the First 10 minutes route, or search for a task such as “record”, “force floating”, “cube plus”, or “VM login”. Every lesson includes a location and something to try.'],
-    keys='Super + K|Super + D',tryit='Open Apps, find Fusion Files, then return here with Super + Tab.',related='apps window-controls settings-map',image='desktop.webp',sources='keybindings.conf startup/README.md')
+    'Super is usually the Windows-logo key. Hold it while pressing the other key shown in a shortcut.',
+    'Click Apps, type an app’s name, then click its result to open it.',
+    'Start the guided tour with the four window modes. Click Next after each lesson.',
+    'Use the search box here whenever you forget a step. Press Super + D to reopen the welcome dashboard.'],
+    keys='Super + D',related='window-modes apps settings-map',image='desktop.webp',sources='keybindings.conf startup/README.md')
 
 lesson('apps','start','Find and launch your apps',
     'The Apps menu combines search, categories, favorites, and your own shortcuts. The icons and panels follow your selected designs.',
@@ -98,7 +132,7 @@ lesson('tile-float','windows','Tile, float, move, and resize',
     'Hold Super and drag with the left mouse button to move a window. Use the right mouse button with Super to resize. The exact gesture settings can be customized.',
     'Super + arrow moves focus. Super + Shift + arrow moves a window. Super + Ctrl + arrow resizes it in steps.',
     'Super + Shift + F toggles fullscreen. Super + F brings a floating window forward; Super + B sends it back. These are different operations.',
-    'When Force tiled or Force floating is set on the workspace, its policy wins. Turn forcing Off before expecting ordinary mode switching to work.'],
+    'When Force tiled or Force floating is set on the workspace, its policy wins. Choose Individual before switching one window’s mode.'],
     keys='Super + V|Super + Shift + F|Super + left drag|Super + right drag',related='workspace-force window-controls monitors',image='tile-float.webp',clip='tile-float',sources='keybindings.conf workspaces/README.md')
 
 lesson('workspaces','windows','Workspaces—and why the + button stops working',
@@ -113,12 +147,12 @@ lesson('workspaces','windows','Workspaces—and why the + button stops working',
 lesson('workspace-force','windows','Force a window layout for one workspace',
     'Make one workspace a tiled workbench and another a floating canvas. These choices apply to existing, newly opened, and incoming windows.',
     'Right-click a numbered taskbar workspace',[
-    'Force window layout → Force tiled keeps windows in the shared layout. Force floating fits them to the display using remembered dimensions. Off returns control to ordinary app and window choices.',
-    'Turning layout forcing Off does not rearrange everything back automatically; it leaves the current arrangement and permits future mode changes.',
+    'Force window layout offers KDE, Individual, Force tiling, and Force floating. KDE adds title bars; Individual lets each app use its own behavior.',
+    'Force tiling fits windows together. Force floating lets them overlap. Choosing Individual keeps the current arrangement and allows normal mode changes again.',
     'Force modifier buttons is independent: Individual uses app/window preferences, On shows shared controls, and Off hides all artificial controls even under Super. Native app title-bar buttons are unaffected.',
     'With controls On, the gear edits shared workspace appearance. Settings… in the submenu opens the same editor even for an empty workspace. Switching back to Individual preserves your existing app choices.',
     'These overrides persist across logins. Cube’s displayed face number maps to the actual workspace, so use the right-click menu on the intended monitor.'],
-    level='Intermediate',tryit='On an empty workspace, choose Force floating, open two practice windows, then return the setting to Off.',related='window-rules window-gear workspaces',tags='force layout tiling floating override precedence right click workspace controls always on',image='workspace-force.webp',clip='workspace-force',sources='workspaces/README.md waybar/options/workspace_menu.h')
+    level='Intermediate',tryit='On an empty workspace, choose Force floating, open two practice windows, then return to KDE.',related='window-rules window-gear workspaces',tags='force layout tiling floating override precedence right click workspace controls always on',image='workspace-force.webp',clip='workspace-force',sources='workspaces/README.md waybar/options/workspace_menu.h')
 
 lesson('window-rules','windows','Remember behavior with Window Rules',
     'Rules describe future windows by application and, optionally, title. They can also give matching apps their own controls.',
@@ -129,13 +163,14 @@ lesson('window-rules','windows','Remember behavior with Window Rules',
     'Apply the changes. Behavior rules take effect when matching windows next open; button changes apply immediately. Reopen a practice window to verify the rule.'],
     level='Advanced',related='workspace-force window-gear tile-float',tags='class title wildcard regex match behavior precedence app rule remembered geometry',image='rules.webp',clip='window-rules',sources='window_rules/page.py window_rules/model.py')
 
-lesson('switcher','windows','Switch between apps without hunting',
-    'The task switcher can reach windows across monitors and workspaces. Its design is independent of your desktop theme.',
-    'Super + Tab · Theme → Task Switcher',[
-    'Hold Super and press Tab to advance through apps. Add Shift to move backward. Release Super to focus the selected app in its workspace and monitor.',
-    'The switcher includes windows outside your current workspace, including Stash. Use it to return to the guide after trying an action.',
-    'Open Theme → Task Switcher to preview the available designs and customize their presentation. Save the selection when you are happy with it.'],
-    keys='Super + Tab|Super + Shift + Tab',related='magic workspaces',image='switcher.webp',sources='switcher/README.md keybindings.conf')
+lesson('switcher','windows','Switch apps: Super + Tab',
+    'Reach an open app without looking for it on the desktop.',
+    'Super + Tab',[
+    'Hold Super and tap Tab. The task switcher appears.',
+    'Keep holding Super. Tap Tab again until the app you want is highlighted. Add Shift to go backward.',
+    'Release Super to open that app’s window, even if it is on another screen or workspace.'],
+    keys='Super + Tab|Super + Shift + Tab',tryit='Switch to Files, then switch back to this guide.',
+    related='minimize workspaces',image='switcher.webp',sources='switcher/README.md keybindings.conf')
 
 lesson('magic','windows','Keep a spare window in Stash',
     'Stash is a special scratch workspace for windows you want nearby without occupying your regular layout.',
@@ -155,7 +190,7 @@ lesson('monitors','windows','Work comfortably across monitors',
     level='Intermediate',keys='Super + Alt + Left|Super + Alt + Right',related='workspaces minimize',image='displays.webp',sources='control_center/display_page.py control_center/display_guard.py effects/cube/README.md')
 
 lesson('theme-presets','design','Choose a theme without losing your personality',
-    'A preset can style the entire desktop or only the pieces you select. Hollow Grove Dark is the fresh-install starting point.',
+    'A preset can style the entire desktop or only the pieces you select. Binary Knife Dark is the fresh-install starting point.',
     'Fusion Settings → Theme → Presets',[
     'Select a design and a color mode, then review the components selected for application. Use a full preset when you want a coordinated look.',
     'For a partial change, select only the components you want. A color change can leave your chosen dock, icons, wallpaper, or launcher design independent.',
@@ -181,14 +216,14 @@ lesson('waybar','design','Style and organize the taskbar',
     'System and media modules open their relevant tools. The session/power control opens the compact power menu. Pin your frequently used shortcuts where supported.'],
     related='workspaces workspace-force updates power',tags='waybar taskbar panel full partial center separate modules cpu ram update ready',image='taskbar.webp',sources='waybar/options/workspace_menu.h theme/mix_page.py')
 
-lesson('wallpaper','design','Find your next wallpaper',
-    'Super + W opens the wallpaper selector. Floating cards, Frame Lab, and Orbit Atlas are different ways to browse the same collections.',
-    'Super + W · Fusion Settings → Theme → Wallpapers',[
-    'Open the selector, search or browse your collections, then select a wallpaper to preview it. Use the explicit wallpaper action to apply it.',
-    'Add or remove folders to build your library. Choose the monitor and supported transition or slideshow settings for your setup.',
-    'Change Wallpaper Selector style in Theme → Wallpapers. Its saved style affects the next opening; the styles share folders and wallpaper choices.',
-    'Still pictures and supported animated media can both appear in the library. Use an image when you want a quiet desktop; preview video performance on your own hardware.'],
-    keys='Super + W',related='wallpaper-motion theme-presets',image='wallpapers.webp',sources='wallpaper/README.md theme/page.py wallpaper/README.md')
+lesson('wallpaper','design','Change your wallpaper: Super + W',
+    'Pick a picture, then choose which screen should use it.',
+    'Super + W → wallpaper selector',[
+    'Press Super + W to open the wallpaper selector.',
+    'Scroll through the pictures, or type in Search. Press Enter on your chosen picture; in Frame Lab or Orbit Atlas, you can also click Use wallpaper.',
+    'Choose the screen in the display picker and confirm. Press Escape when you are finished.',
+    'For your own pictures, use Add / remove folders. Your wallpaper choice stays saved after login.'],
+    keys='Super + W',related='wallpaper-motion theme-presets',image='wallpapers.webp',sources='wallpaper/README.md theme/page.py')
 
 lesson('wallpaper-motion','design','Animated wallpapers, transitions, and slideshows',
     'Build a collection that changes over time, or keep one animated scene. The library and the desktop are separate views.',
@@ -208,24 +243,25 @@ lesson('icons','design','System Icons, Other Icons, and Individual Icons',
     'Apply to update the launcher, desktop, Fusion Files, file dialogs, and other integrated tools. Changing artwork keeps the shortcut’s application and command intact.'],
     related='mix-match desktop-icons file-browser',image='icons.webp',clip='theme-icons',tags='papirus aftermarket custom override individual system icons import pack',sources='icon_themes/page.py icon_themes/model.py')
 
-lesson('minimize','design','Meet the Fireball dock',
-    'Minimized apps stay alive in an animated dock. Each monitor has its own dock, which grows as windows arrive and collapses when empty.',
-    'Theme → Window effects → Minimize',[
-    'Press Super + Z or the window’s minimize button. Click its Fireball slot to restore it. The taskbar’s M group also lets you restore minimized apps; M3 means an app minimized from workspace 3.',
-    'Choose Animated dock or Classic edge stack. Use the visual design gallery to preview a theme’s dock independently of the desktop.',
-    'Dock behavior controls position, hide delay, transition time, edge proximity, and hover zoom. Opposite Waybar places it across from the taskbar on each monitor.',
-    'Burn away consumes the dock toward the edge. Fire indicator leaves a low strip of embers while apps remain minimized. Slide away is the other hide style. Move near the hiding edge to reveal it.',
-    'Super + Ctrl + Z toggles the effects’ visibility without restoring apps. Restore all windows brings everything back; an empty dock disappears.'],
-    keys='Super + Z|Super + Ctrl + Z',related='window-controls workspaces mix-match',image='dock.webp',clip='minimize',sources='effects/minimize/README.md effects/minimize/model.py')
+lesson('minimize','design','Put an app in the minimize dock',
+    'Minimize tucks a window away. The app keeps running.',
+    'Super + Z · Fusion Settings → Theme → Window effects → Minimize',[
+    'Click a window, then press Super + Z. Or click its − button. The window moves into the minimize dock.',
+    'If the dock hides, move the pointer to its screen edge. With Opposite Waybar selected, use the edge opposite your taskbar.',
+    'Click the app’s dock icon to bring its window back.',
+    'To customize it, press Super + K → Theme → Window effects → Minimize. Choose a dock design, position, and hiding effect. Click Apply Minimize.'],
+    keys='Super + Z',tryit='Minimize Files, reveal the dock, then click Files to restore it.',
+    related='window-controls mix-match workspaces',image='dock.webp',clip='minimize',sources='effects/minimize/README.md effects/minimize/model.py')
 
-lesson('cube','design','Rotate your desktop in 3D',
-    'Cube is a workspace navigator and a visual effect. Its four side faces hold workspaces; its top, bottom, and sky are decorative.',
-    'Theme → Window effects → Desktop Cube + 3D',[
-    'Hold Ctrl + Alt + the left mouse button and drag on the intended monitor. Release to choose the nearest face. Escape or right-click cancels.',
-    'Choose Standard animation or Rotate cube to destination for taskbar and shortcut switching. The manual drag gesture remains available with either.',
-    'Customize the top and bottom pictures, sky, transparency, depth, and other 3D controls. The bundled pictures work on a new installation without your personal wallpaper folders.',
-    'The four-face limit explains the unavailable + button. Disable Cube to use normal dynamically added workspaces. It is not necessary to disable the whole desktop’s visual styling.'],
-    level='Intermediate',keys='Ctrl + Alt + left drag|Escape',related='workspaces effects monitors',image='cube.webp',clip='cube',sources='effects/cube/README.md effects/cube/page.py')
+lesson('cube','design','Turn the desktop cube',
+    'The cube’s four sides are four workspaces. Turn it to reach another set of windows.',
+    'Ctrl + Alt + left mouse drag',[
+    'Put the pointer on the screen you want to turn.',
+    'Hold Ctrl and Alt. Hold the left mouse button too, then drag left or right.',
+    'Release to land on the nearest side. Press Escape or right-click to cancel a turn.',
+    'To change its look, press Super + K → Theme → Window effects → Desktop Cube + 3D. Enable Cube there if the gesture is off.'],
+    keys='Ctrl + Alt + left drag|Escape',tryit='Turn to side 2, then turn back to side 1.',
+    related='workspaces effects monitors',image='cube.webp',clip='cube',sources='effects/cube/README.md effects/cube/page.py')
 
 lesson('effects','design','Wobble, burn, and pointer effects',
     'Window effects have individual controls. Choose the motion you enjoy, and keep the rest calm.',
@@ -244,14 +280,16 @@ lesson('terminal','design','Give your terminal a welcome',
     'Save terminal to use these choices for new terminals. Existing terminal output is not rewritten. Theme colors and the selected logo can be mixed independently.'],
     keys='Super + Q|Super + Enter',related='theme-presets hotkeys',image='terminal.webp',sources='terminal_fetch/page.py keybindings.conf')
 
-lesson('file-browser','files','Fusion Files and My Computer',
-    'Fusion Files is your file manager. My Computer opens its This PC view of drives and locations; it is a shortcut into the same app.',
-    'Apps → Fusion Files / My Computer · Super + E',[
-    'Use the sidebar for Home, Desktop, Documents, Downloads, Pictures, Music, Videos, Network, and Trash. This PC lists storage devices and their available actions.',
-    'Use back, forward, up, and the path bar to navigate. Switch views and filter the current folder when a directory is crowded. Open folders in tabs to keep related places together.',
-    'Right-click a selection for Open with, copy, cut, paste, rename, archive actions, and properties as available. The current file type and installed tools determine the menu.',
-    'Super + E follows your chosen default file manager. The Fusion Files and My Computer entries explicitly open Fusion Files even if you choose a different default.'],
-    keys='Super + E',related='file-transfers desktop-icons default-apps',image='files.webp',clip='files',sources='file_manager/README.md desktop/data/applications/xetal-files.desktop scripts/file-manager.sh')
+lesson('file-browser','files','Find your way around Fusion Files',
+    'Folders on the left. Files in the middle. Start with Home or This PC.',
+    'Super + E · Apps → Fusion Files',[
+    'Press Super + E to open your default file manager. On a fresh install, that is Fusion Files. Click Home, Downloads, or Documents on the left.',
+    'Double-click a folder to open it. Click the back arrow to return. Press Ctrl + L to type a folder path.',
+    'Click This PC for drives. Your system and mounted drives come first, followed by connected removable devices, Wine/Steam drives, and unmounted devices.',
+    'Press Ctrl + T for another tab. Press Ctrl + F to search for a file or words inside it.',
+    'Click ⋮ → Configure Fusion Files… → Browsing to change previews and thumbnails. Under Appearance, follow the current desktop theme or choose a theme just for Files. Click Save.'],
+    keys='Super + E|Ctrl + L|Ctrl + T|Ctrl + F',tryit='Open Downloads in one tab and Documents in another. Switch between them.',
+    related='file-transfers archives picker',image='fresh-files.png',clip='files',sources='file_manager/README.md keybindings.conf')
 
 lesson('desktop-icons','files','Turn the desktop into a useful workspace',
     'Desktop icons can show real files and folders with saved positions, selection, drag-and-drop, and full file actions.',
@@ -271,14 +309,17 @@ lesson('archives','files','Right-click actions and Ark archives',
     'The configuration page can organize the desktop menu and its actions. Test changes on ordinary sample files before relying on a customized workflow.'],
     related='desktop-icons file-browser',image='context-menu.webp',sources='file_manager/README.md desktop_menu/README.md control_center/context_menu_page.py')
 
-lesson('file-transfers','files','Copy, move, resolve conflicts—and empty Trash',
-    'Transfers show progress and ask how to handle conflicts. Trash is a temporary recovery location until you empty it.',
-    'Fusion Files → copy / move / Trash',[
-    'Copy leaves the original in place; cut-and-paste moves it. Watch the transfer window for progress, pause, cancellation, and any questions that need your answer.',
-    'When a name exists at the destination, compare the choices carefully. Replace, skip, and keep-separate choices have different outcomes; use a choice for all only when it fits every remaining conflict.',
-    'Open Trash to inspect its contents and use the available restore actions. Empty Trash removes the items permanently after its confirmation; review them first.',
-    'Theme → File Transfer changes the transfer window’s design, size, animation, and information. Its preview uses sample progress and does not copy your files.'],
-    related='file-browser picker default-apps',image='transfer.webp',sources='file_manager/README.md file_manager/desktop_actions.cpp file_jobs/page.py')
+lesson('file-transfers','files','Copy folders without babysitting them',
+    'Fusion starts copying right away and counts files in the background. A problem with one file does not hold up the others.',
+    'Fusion Files → select files or folders → Ctrl + C',[
+    'Select a file or folder. Press Ctrl + C. Open the destination folder and press Ctrl + V. Use Ctrl + X instead of Ctrl + C to move it.',
+    'Watch the transfer card for file counts, speed, and progress. Pause and Resume let you take a break without starting over.',
+    'If Items needing attention appears, click a row. Choose Retry, Skip item, or Replace… after checking the names. Other files keep copying.',
+    'For a move between drives, Fusion checks the copied data before removing the originals. Wait for Move complete; skipped files stay in their old folder.',
+    'Use Review queue to see any unfinished items. Save report… keeps their details so you can check them later.'],
+    keys='Ctrl + C|Ctrl + X|Ctrl + V',tryit='Copy a small practice folder. Open the copy and check that your files are there.',
+    related='file-browser picker',image='transfer.webp',tags='copy engine transfer pause resume queue conflicts verify move folders',
+    sources='file_manager/README.md file_manager/transfer_worker.py file_manager/transfer_pending.py')
 
 lesson('picker','files','Open and save dialogs that feel familiar',
     'Fusion file dialogs reuse the places and navigation you know from the file manager.',
@@ -305,14 +346,15 @@ lesson('screenshots','capture','Take a screenshot',
     'For a bug report, include the whole affected window and its error message. Crop out personal messages or account details before sharing.'],
     keys='Print|Shift + Print',related='recording feedback-help',image='system.webp',sources='scripts/screenshot.sh control_center/system_page.py keybindings.conf')
 
-lesson('recording','capture','Record your screen with Alt + F9',
-    'The built-in recorder captures the monitor under your pointer. Press the same shortcut again to finish and save.',
-    'Alt + F9 · Fusion Settings → Recorder',[
-    'Put the pointer on the monitor you want to record, then press Alt + F9. The REC timer in the taskbar confirms that recording is active.',
-    'Demonstrate the action. Moving the pointer to another display or switching workspaces does not change the recorded monitor.',
-    'Press Alt + F9 again, or click REC, to stop. Wait for Recording saved, then click Show in folder or the notification body to select the MP4 in Fusion Files.',
-    'Open Recorder to choose FPS, quality, automatic or software encoding, desktop/microphone/no audio, destination, and filename format. Apply affects the next recording.'],
-    keys='Alt + F9',tryit='Record five seconds of moving a practice window, stop, and open the saved MP4.',related='recording-options screenshots feedback-help',image='recorder.webp',clip='recorder',tags='capture video screencast record screen alt f9 mp4 fps',sources='recording/README.md recording/page.py')
+lesson('recording','capture','Record your screen: Alt + F9',
+    'Press once to start. Press again to stop and save an MP4.',
+    'Alt + F9 · Super + K → Recorder',[
+    'First, press Super + K and click Recorder. Choose your save folder, quality, FPS, and sound: desktop, microphone, or none. Click Apply recording options.',
+    'Put the pointer on the screen you want to record. Press Alt + F9. Look for the REC timer in the taskbar.',
+    'Do what you want to show. The recorder stays on that screen even if your pointer moves elsewhere.',
+    'Press Alt + F9 again to stop. Click Show in folder in the saved notification to find your video.'],
+    keys='Alt + F9',tryit='Record five seconds of moving a window. Stop, then play the saved video.',
+    related='recording-options screenshots',image='recorder.webp',clip='recorder',tags='capture video screencast record screen alt f9 mp4 fps',sources='recording/README.md recording/page.py')
 
 lesson('recording-options','capture','Tune recordings and find a failed capture',
     'Choose a balance of quality, file size, and capture load. The filename preview shows how each recording will be named.',
@@ -366,14 +408,15 @@ lesson('power','settings','Notifications, locking, and session power',
     'Calendar and clock controls help keep appointments nearby. The available calendar features live in Fusion Settings → Calendar.'],
     keys='Super + N|Super + L|Super + M',related='screenshots vm-stop',image='system.webp',sources='control_center/system_page.py control_center/logout.py keybindings.conf')
 
-lesson('control-panel','system','Find your way around Control Panel',
-    'Control Panel is the home for system administration, storage, backup, and diagnostics. Its tool inventory is searchable in this guide too.',
-    'Apps → Control Panel',[
-    'Use the search field to find a tool by name or purpose. Categories group file/recovery, hardware, software, and configuration tasks.',
-    'Open System Overview, Device Manager, Sensors & Power, or Window Inspector for information. A missing optional tool or dependency should be handled through the page’s setup instructions.',
-    'Actions that change the system can request administrator authentication. Read the selected device, package, or file paths before confirming a change.',
-    'Use the Tool directory in this tour for the complete bundled inventory. Package-manager tools vary by distribution; choose the tools supported on your installed system.'],
-    level='Intermediate',related='backups grub updates',image='control-panel.webp',tags='cachyos tools administrator system overview hardware disks packages',sources='control_panel/tools.json control_panel/README.md')
+lesson('control-panel','system','Find tools in Control Panel',
+    'Use Control Panel for software, drives, network settings, and system tools.',
+    'Apps → search Control Panel → open it',[
+    'Click Apps, type Control Panel, then click the result.',
+    'Type what you need in the search box. Try Network for connections, Packages for software, or System Tweaks for performance settings.',
+    'Click a tool. Read its short description, choose your setting, then use its Apply or Save button.',
+    'Click Control Panel in the top breadcrumb to return to the tool list. Use the star on a tool to keep it in Favorites.'],
+    tryit='Search for System Overview and open it to see your computer’s details.',
+    related='settings-map updates backups',image='control-panel.webp',tags='cachyos tools administrator system overview hardware disks packages',sources='control_panel/tools.json control_panel/README.md')
 
 lesson('updates','system','Desktop updates versus system packages',
     'Hyper Fusion updates and distribution package updates are different jobs. The taskbar’s Update Ready item refers to the desktop updater.',
@@ -505,7 +548,8 @@ def content():
     tools=json.loads((ROOT/'control_panel/tools.json').read_text())
     return dict(version=1,chapters=[dict(id=a,title=b,number=c,summary=d) for a,b,c,d in CHAPTERS],
         lessons=LESSONS,shortcuts=shortcuts,tools=tools,
-        route=['welcome','apps','window-controls','tile-float','workspaces','minimize','file-browser','recording','theme-presets','vm-editions'],
+        route=['window-modes','recording','cube','move-window','media-download','wallpaper','switcher','minimize','file-transfers','control-panel','file-browser'],
+        readingTheme='binaryknife',readingPalettes=json.loads((ROOT/'theme/palettes.json').read_text())['binaryknife'],
         feedback={'username':'xetal','download':'https://www.xetal.net/community/site/?p=echo'})
 
 

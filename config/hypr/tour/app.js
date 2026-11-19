@@ -9,11 +9,19 @@
   const storage = {get(k) {try {return localStorage.getItem(k);} catch (_) {return null;}}, set(k,v) {try {localStorage.setItem(k,v);return true;} catch (_) {return false;}}};
   let saved; try {saved = JSON.parse(storage.get('fusion-tour-progress') || '[]');} catch (_) {saved = [];}
   const completed = new Set(Array.isArray(saved) ? saved.filter(x => lessons.has(x)) : []);
-  const params = new URLSearchParams(location.search);
-  const accents = {raw:['#80d7d4','#45888c'],modern:['#a0cfe9','#5d8caa'],breakpoint:['#ff9c9c','#ad454c'],binaryknife:['#94ceff','#467eaf'],tidalglass:['#9edfe0','#4c9fa4'],porcelainink:['#e5be95','#b88056'],obsidianforge:['#ffbe84','#b36e3a'],candycloud:['#eac1eb','#b489bc'],shadowedge:['#deabb7','#8a5e6e'],hollowgrove:['#bdd2a9','#729378'],gildedhollow:['#e9cb84','#9d803c']};
-  const palette = accents[params.get('theme')] || accents.hollowgrove;
-  let mode = storage.get('fusion-tour-mode') || params.get('mode') || 'dark';
-  function setMode(value) {mode = value === 'light' ? 'light' : 'dark'; document.body.classList.toggle('light',mode==='light');document.documentElement.style.setProperty('--accent',mode==='light' ? palette[1] : palette[0]);document.documentElement.style.setProperty('--glow',palette[1]);document.querySelector('#mode-toggle').setAttribute('aria-label',`Switch to ${mode==='light'?'dark':'light'} reading mode`);}
+  // The guide always starts with the fresh-install palette. Its optional
+  // reading mode is local to this browser, independent of the desktop theme.
+  let mode = storage.get('fusion-tour-mode') || 'dark';
+  function setMode(value) {
+    mode = value === 'light' ? 'light' : 'dark';
+    const p = data.readingPalettes[mode];
+    const roles = {bg:'Window',panel:'Base',raised:'AlternateBase',line:'Midlight',
+      text:'Text',muted:'PlaceholderText',accent:'Accent',glow:'Accent',gold:'Link'};
+    Object.entries(roles).forEach(([key,role]) => document.documentElement.style.setProperty('--'+key,p[role]));
+    document.documentElement.style.setProperty('--ink',mode==='light' ? p.HighlightedText : p.Base);
+    document.body.classList.toggle('light',mode==='light');
+    document.querySelector('#mode-toggle').setAttribute('aria-label',`Switch to ${mode==='light'?'dark':'light'} reading mode`);
+  }
   setMode(mode);
   document.querySelector('#mode-toggle').onclick = () => {setMode(mode==='light'?'dark':'light');storage.set('fusion-tour-mode',mode);};
   const el = (tag, cls, text) => {const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
@@ -45,12 +53,12 @@
   function card(l){const a=link('',lessonURL(l.id),'lesson-card');const cover=append(el('div','lesson-cover'),image(l.image,l.title));if(l.clip)cover.append(el('span','play-badge','▶ Short demonstration'));if(completed.has(l.id))cover.append(el('span','done-badge','✓'));const body=el('div','lesson-body');append(body,append(el('div','lesson-meta'),el('span','',l.level),el('span','',l.minutes+' min read')),el('h3','',l.title),el('p','',l.summary),append(el('div','lesson-footer'),el('span','',chapters.get(l.chapter).title),el('span','','↗')));return append(a,cover,body);}
   function home(){
     const hero=el('section','hero');const copy=el('div','hero-copy');
-    append(copy,el('div','edition','WELCOME TO YOUR NEXT CHAPTER'),append(el('h1'),document.createTextNode('Your desktop.'),el('br'),el('em','','Your possibilities.')),el('p','','A small discovery can change the way you work. Get to know Hyper Fusion, from your first window to your own virtual world.'),append(el('div','actions'),link('Start the tour  →',lessonURL(data.route[0],true),'button primary'),link('Explore the chapters','#library','button ghost')));
+    append(copy,el('div','edition','HYPER FUSION · FIRST STEPS'),append(el('h1'),document.createTextNode('Make yourself'),el('br'),el('em','','at home.')),el('p','','Learn the four window modes. Then try recording, the cube, the minimize dock, copying files, and your everyday tools.'),append(el('div','actions'),link('Start the tour  →',lessonURL(data.route[0],true),'button primary'),link('Explore the chapters','#library','button ghost')));
     const stats=el('div','stats');[[String(lessons.size),'practical lessons'],[String(new Set(data.lessons.map(l=>l.clip).filter(Boolean)).size),'short demonstrations'],['100%','available offline']].forEach(([n,t])=>stats.append(append(el('div'),el('b','',n),document.createTextNode(t))));copy.append(stats);
-    const art=el('div','hero-art');append(art,image('landscape.webp','',false));art.firstChild.className='cover';const frame=append(el('div','desktop-frame'),image('desktop.webp','Practice windows on a Hollow Grove desktop',false));append(frame,append(el('div','frame-label'),el('b','','✧'),append(el('span'),document.createTextNode('A little guidance. A lot of freedom.'),el('small','','Your first ten minutes start here.'))));append(art,frame,el('span','orbital-note','EXPLORE / EXPERIMENT / MAKE IT YOURS'));append(hero,copy,art);main.append(hero);
-    const quick=el('section','section');quick.append(heading('The little things that change everything.','Three discoveries worth making first.'));const qg=el('div','quick-grid');
-    [['window-controls','⌘','THE HIDDEN CONTROLS','Hold Super. Find your controls.','Minimize, restore, tile, and close—even without a title bar.'],['workspaces','＋','A QUESTION WE HEAR A LOT','Why can’t I add a workspace?','Cube has four faces. Here’s how its workspace rules work.'],['recording','◉','CAPTURE THE MOMENT','Alt + F9. And you’re recording.','Save a short clip, choose its quality, and find the result.']].forEach(([id,g,tag,title,desc])=>{qg.append(append(link('',lessonURL(id),'quick'),el('span','glyph',g),el('span','tag',tag),el('h3','',title),el('p','',desc)));});quick.append(qg);main.append(quick);
-    main.append(append(el('section','section route-banner'),el('div','route-number','10'),append(el('div'),label('MINUTES TO FEEL AT HOME'),el('h3','','A first lap around your desktop.'),el('p','','Open an app, make space, record a moment, and choose your look.')),link('Begin the guided route  →',lessonURL(data.route[0],true),'button')));
+    const art=el('div','hero-art');const frame=append(el('div','desktop-frame'),image('fresh-files.png','Fusion Files in the fresh-install Binary Knife colors',false));append(frame,append(el('div','frame-label'),el('b','','✧'),append(el('span'),document.createTextNode('Click. Try. Learn.'),el('small','','Short steps. One thing at a time.'))));append(art,frame,el('span','orbital-note','EXPLORE / EXPERIMENT / MAKE IT YOURS'));append(hero,copy,art);main.append(hero);
+    const quick=el('section','section');quick.append(heading('Start with these.','Small actions you can try right now.'));const qg=el('div','quick-grid');
+    [['window-modes','▦','FIRST: YOUR WINDOWS','Choose one of four window modes.','KDE, Individual, Force tiling, or Force floating.'],['minimize','−','TUCK IT AWAY','Meet the minimize dock.','Minimize an app. Click its dock icon to bring it back.'],['recording','◉','RECORD YOUR SCREEN','Start and stop with Alt + F9.','Choose sound and quality. Record, save, and play.']].forEach(([id,g,tag,title,desc])=>{qg.append(append(link('',lessonURL(id),'quick'),el('span','glyph',g),el('span','tag',tag),el('h3','',title),el('p','',desc)));});quick.append(qg);main.append(quick);
+    main.append(append(el('section','section route-banner'),el('div','route-number',String(data.route.length)),append(el('div'),label('SHORT, GUIDED LESSONS'),el('h3','','One step at a time.'),el('p','','Follow the steps in order. Use Next to keep going, or return whenever you like.')),link('Begin the guided route  →',lessonURL(data.route[0],true),'button')));
     const next=el('section','section');next.append(heading('Choose your next discovery.','Follow your curiosity, one lesson at a time.','#library','All lessons →'));const grid=el('div','lesson-grid');['theme-presets','workspace-force','minimize','icons','file-browser','vm-start'].forEach(id=>grid.append(card(lessons.get(id))));next.append(grid);main.append(next);
     main.append(append(el('section','section route-banner'),el('div','route-number','↗'),append(el('div'),label('BUILT WITH ITS COMMUNITY'),el('h3','','Have an idea? Found a rough edge?'),el('p','','Add Xetal in Echo. A screenshot and a few words can make the desktop better.')),link('Send feedback','#feedback','button')));
   }
@@ -59,8 +67,66 @@
   function media(l){const figure=el('figure','media');if(l.clip){const v=el('video');v.controls=true;v.preload='none';v.playsInline=true;v.poster='media/'+l.image;v.setAttribute('aria-label',l.title+' demonstration');const s=el('source');s.src='media/'+l.clip+'.mp4';s.type='video/mp4';v.append(s);const fallback=el('source');fallback.src='media/'+l.clip+'.webm';fallback.type='video/webm';v.append(fallback);const track=el('track');track.kind='captions';track.srclang='en';track.label='English';track.src='media/'+l.clip+'.vtt';v.append(track);v.append(document.createTextNode('Your browser cannot play this clip. The steps and transcript below cover the same actions.'));figure.append(v);}else{const b=button('',()=>lightbox(l),'image-button');b.setAttribute('aria-label','Enlarge screenshot: '+l.title);b.append(image(l.image,l.title,false));figure.append(b);}append(figure,append(el('figcaption'),el('strong','',l.clip?'▶ Watch the short demonstration':'↗ Click to inspect the screenshot'),el('span','',l.clip?'Example desktop · captions available · play at your own pace':'Example appearance; your chosen theme may look different.')));if(l.clip){const d=append(el('details','transcript'),el('summary','','Text walkthrough / video alternative'),el('p','',l.steps.join(' ')));figure.append(d);}return figure;}
   function lightbox(l){const dlg=document.querySelector('#lightbox');document.querySelector('#lightbox-image').src='media/'+l.image;document.querySelector('#lightbox-image').alt=l.title;document.querySelector('#lightbox-caption').textContent=l.title+' · Example appearance';dlg.showModal();}
   document.querySelector('#close-lightbox').onclick=()=>document.querySelector('#lightbox').close();document.querySelector('#lightbox').addEventListener('click',e=>{if(e.target===e.currentTarget)e.currentTarget.close();});
-  function article(id,route){const l=lessons.get(id);if(!l){notFound();return;}document.title=l.title+' · Hyper Fusion Tour';const c=chapters.get(l.chapter);main.append(append(el('div','breadcrumb'),link('Discover','#home'),document.createTextNode('/'),link(c.title,'#chapter/'+c.id),document.createTextNode('/ Lesson')));const header=el('header','article-header');append(header,append(el('div','lesson-heading-row'),label((route?'FIRST TEN MINUTES · ':'')+l.level.toUpperCase()+' / '+l.minutes+' MIN READ'),button('Print lesson',()=>window.print(),'text-button print-button')),el('h1','',l.title),el('p','lead',l.summary));if(l.keys.length){const row=el('div','key-row');l.keys.forEach(k=>row.append(el('kbd','',k)));header.append(row);}main.append(header);const layout=el('div','lesson-layout'),body=el('article','article-main'),aside=el('aside','lesson-aside');append(body,media(l),el('h2','','Here’s how it works'));const steps=el('ol','steps');l.steps.forEach(s=>steps.append(el('li','',s)));body.append(steps);if(l.note)body.append(append(el('div','callout'),el('strong','','Keep in mind'),document.createTextNode(l.note)));if(l.tryit)body.append(append(el('div','callout try-it'),el('strong','','Try it yourself'),document.createTextNode(l.tryit)));if(id==='workspace-force')body.append(forceDemo());if(id==='workspaces')body.append(cubeDemo());append(aside,label('WHERE TO FIND IT'),el('p','',l.where),completionButton(id),el('hr'));const related=append(el('div','aside-related'),label('KEEP EXPLORING'));l.related.filter(x=>lessons.has(x)).forEach(x=>related.append(link(lessons.get(x).title,lessonURL(x))));related.append(link('Something unclear? Send feedback ↗','#feedback'));aside.append(related);const sequence=route?data.route:data.lessons.filter(x=>x.chapter===l.chapter).map(x=>x.id);const idx=sequence.indexOf(id);const action=el('div','article-actions');append(action,completionButton(id),idx+1<sequence.length?link('Next: '+lessons.get(sequence[idx+1]).title+' →',lessonURL(sequence[idx+1],route),'button'):link('Explore another chapter →','#library','button'));body.append(action);append(layout,body,aside);main.append(layout);}
-  function forceDemo(){const root=append(el('section','demo'),label('TRY IT HERE · INTERACTIVE ILLUSTRATION'),el('p','page-intro','This practice area changes only the illustration, never your desktop.'));const controls=el('div','demo-controls'),stage=el('div','demo-stage'),output=el('p','demo-output');['Notes','Files'].forEach((s,i)=>stage.append(append(el('div','demo-window'+(i?' second':'')),document.createTextNode(s),el('span','mini-buttons','− □ ×'))));let layout='Off',buttons='Individual';function update(){stage.classList.toggle('tiled',layout==='Force tiled');stage.classList.toggle('controls-on',buttons==='On');output.textContent=`Layout: ${layout}. Controls: ${buttons}. `+(layout==='Off'?'Normal app/window choices apply.':'The workspace mode takes priority over app rules.')+(buttons==='Off'?' Artificial controls stay hidden, even under Super.':'');}['Off','Force tiled','Force floating'].forEach(v=>controls.append(button(v,()=>{layout=v;update();},'chip')));const select=el('select','chip');select.setAttribute('aria-label','Workspace modifier buttons');['Individual','On','Off'].forEach(x=>{const o=el('option','','Controls: '+x);o.value=x;select.append(o);});select.onchange=()=>{buttons=select.value;update();};append(root,controls,select,stage,output);update();return root;}
+  function article(id,route) {
+    const l=lessons.get(id); if(!l){notFound();return;}
+    const sequence=route?data.route:data.lessons.filter(x=>x.chapter===l.chapter).map(x=>x.id);
+    const idx=sequence.indexOf(id), c=chapters.get(l.chapter);
+    document.title=l.title+' · Hyper Fusion Tour';
+    main.append(append(el('div','breadcrumb'),link('Tour home','#home'),document.createTextNode('/'),link(c.title,'#chapter/'+c.id)));
+    const header=el('header','article-header');
+    append(header,append(el('div','lesson-heading-row'),label(route?`GUIDED TOUR · STEP ${idx+1} OF ${sequence.length}`:l.level.toUpperCase()+' / '+l.minutes+' MIN READ'),button('Print lesson',()=>window.print(),'text-button print-button')),el('h1','',l.title),el('p','lead',l.summary));
+    if(l.keys.length){const row=el('div','key-row');l.keys.forEach(k=>row.append(el('kbd','',k)));header.append(row);}
+    main.append(header);
+    const layout=el('div','lesson-layout'),body=el('article','article-main'),aside=el('aside','lesson-aside');
+    if(!route && id!=='window-modes') body.append(media(l));
+    body.append(el('h2','','Try it step by step'));
+    const steps=el('ol','steps');l.steps.forEach(s=>steps.append(el('li','',s)));body.append(steps);
+    if(l.note)body.append(append(el('div','callout'),el('strong','','Remember'),document.createTextNode(l.note)));
+    if(l.tryit)body.append(append(el('div','callout try-it'),el('strong','','Your turn'),document.createTextNode(l.tryit)));
+    if(id==='window-modes'){const practice=el('details','lesson-example');append(practice,el('summary','','Try the four modes in a practice picture'),modeDemo());body.append(practice);}
+    if(id==='workspace-force')body.append(modeDemo());
+    if(id==='workspaces')body.append(cubeDemo());
+    if(route && id!=='window-modes') {
+      const example=el('details','lesson-example');
+      append(example,el('summary','',l.clip?'Watch the short demonstration':'See an example'),media(l));body.append(example);
+    }
+    append(aside,label('WHERE TO START'),el('p','',l.where));
+    if(!route)append(aside,completionButton(id),el('hr'));
+    const related=append(el('div','aside-related'),label('LEARN MORE'));
+    l.related.filter(x=>lessons.has(x)).forEach(x=>related.append(link(lessons.get(x).title,lessonURL(x))));
+    aside.append(related);
+    const action=el('nav','article-actions');action.setAttribute('aria-label','Lesson navigation');
+    if(route && idx>0)action.append(link('← Previous',lessonURL(sequence[idx-1],true),'button'));
+    if(!route)action.append(completionButton(id));
+    const next=idx+1<sequence.length?link('Next: '+lessons.get(sequence[idx+1]).title+' →',lessonURL(sequence[idx+1],route),'button primary'):link(route?'Finish tour →':'Explore another chapter →','#library','button primary');
+    if(route)next.onclick=()=>{if(!completed.has(id))mark(id);};
+    action.append(next);body.append(action);append(layout,body,aside);main.append(layout);
+  }
+  function modeDemo() {
+    const modes=[
+      ['KDE','kde','Windows overlap, with a title bar and buttons above each app.'],
+      ['Individual','individual','Each app keeps its own tiled or floating behavior.'],
+      ['Force tiling','tiled','Windows fit beside each other in one shared layout.'],
+      ['Force floating','floating','Windows overlap. Hold Super and drag to place them.']
+    ];
+    const root=append(el('section','demo mode-demo'),label('PRACTICE PICTURE · YOUR DESKTOP DOES NOT CHANGE'));
+    const bar=el('div','mode-bar'),controls=el('div','demo-controls'),stage=el('div','demo-stage'),output=el('p','demo-output');
+    let selected=0;const cycle=button('KDE',()=>update((selected+1)%modes.length),'chip active');
+    cycle.setAttribute('aria-label','Cycle practice window mode');
+    append(bar,el('span','','Keys'),cycle,el('span','','Update'));
+    const choices=modes.map(([name,id],i)=>{
+      const item=button(name,()=>update(i),'chip');item.dataset.mode=id;controls.append(item);return item;
+    });
+    ['Files','Notes'].forEach((name,i)=>stage.append(append(el('div','demo-window'+(i?' second':'')),el('span','demo-title',name),el('span','mini-buttons','− □ ×'))));
+    output.setAttribute('aria-live','polite');
+    function update(index){
+      selected=index;const [name,id,description]=modes[index];
+      cycle.textContent=name;stage.className='demo-stage mode-'+id;
+      choices.forEach((item,i)=>{item.classList.toggle('active',i===index);item.setAttribute('aria-pressed',String(i===index));});
+      output.textContent=name+' — '+description;
+    }
+    append(root,bar,controls,stage,output);update(0);return root;
+  }
   function cubeDemo(){const root=append(el('section','demo'),label('TRY IT HERE · THE FOUR-FACE RULE'),el('p','page-intro','A model of the taskbar. This does not change your actual Cube setting.'));const bar=el('div','demo-bar'),out=el('p','demo-output');let enabled=true,count=4;const toggle=button('',()=>{enabled=!enabled;count=4;update();},'chip');function update(){toggle.textContent=enabled?'Cube enabled · click to disable':'Cube disabled · click to enable';toggle.setAttribute('aria-pressed',String(enabled));bar.replaceChildren(el('span','',enabled?'Four faces, per monitor':'Flexible workspaces'));for(let i=1;i<=count;i++)bar.append(button(String(i),e=>{},'selected'));const plus=button('+',()=>{count++;update();},'');plus.disabled=enabled;plus.setAttribute('aria-label',enabled?'Add workspace unavailable while Cube is enabled':'Add a practice workspace');bar.append(plus);out.textContent=enabled?'The + button is unavailable. Disable Cube to add workspaces.':'The + button is available. Try adding another workspace here.';}append(root,toggle,bar,out);update();return root;}
   function normalize(t){return t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\+/g,' plus ').replace(/[^a-z0-9]+/g,' ').trim();}
   const aliases={wobly:'wobbly',minimizer:'minimize',minimise:'minimize',minimising:'minimize',screencast:'record',fps:'fps',qemu:'vm',bios:'firmware',screenshot:'capture',esp:'escape',guilded:'gilded',super:'super',virtualization:'vm',nitro:'nos',ark:'archive'};

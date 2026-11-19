@@ -53,6 +53,7 @@ public:
   QVariantMap place() const;
   void restorePlace(const QVariantMap &state);
 signals:
+  void selectionChanged();
   void operationRequested(const Volume &volume, const QString &operation);
   void volumeContextRequested(const Volume &volume, const QPoint &position);
   void backgroundContextRequested(const QPoint &position);

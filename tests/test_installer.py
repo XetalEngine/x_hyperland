@@ -165,7 +165,7 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual((icons['system'], icons['other']), ('other', 'theme:Papirus-Dark'))
         state=json.loads((self.stage/'theme/state.json').read_text())
         self.assertEqual((state['design'],state['mode'],state['layout'],state['bar_variant']),
-                         ('binaryknife','dark','classic','full'))
+                         ('binaryknife','dark','sidebar','full'))
         self.assertEqual(state['wallpaper_theme'],'binaryknife')
         self.assertIs(state['launcher_wallpaper'],True)
         self.assertEqual(state['launcher_background'],'')
@@ -257,7 +257,7 @@ assert m['fire_indicator']
         defaults=json.loads((self.stage/'theme/state.json').read_text())
         self.assertIs(defaults['launcher_wallpaper'],True)
         self.assertEqual(defaults['launcher_background'],'')
-        self.assertEqual((defaults['design'],defaults['mode'],defaults['layout']),('binaryknife','dark','classic'))
+        self.assertEqual((defaults['design'],defaults['mode'],defaults['layout']),('binaryknife','dark','sidebar'))
         self.assertEqual(json.loads((self.stage/'wallpaper/default.json').read_text()),
                          {'image':'binaryknife/workstation-2.png','fit':'cover'})
         self.assertEqual(kde.read_bytes(), before)

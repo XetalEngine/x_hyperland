@@ -8,7 +8,9 @@ DESCRIPTIONS = {'classic': 'Compact tabs across the top · crisp controls',
     'ribbon': 'Icon toolbar across the top · precise, compact controls'}
 
 
-def default(design): return 'ribbon' if design in ('shadowedge','midnightrun','infernalencore','prisonbreak','polaris','leviathan','ghostbusters', 'killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft', 'mortalkombat2', 'facadasexu') else 'sidebar' if design in ('tidalglass', 'porcelainink', 'obsidianforge', 'candycloud', 'shadowedge', 'hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','ghostbusters', 'killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft', 'mortalkombat2', 'facadasexu') else 'modern' if design == 'modern' else 'classic'
+def default(design):
+    """All presets start with labeled navigation; explicit saved layouts still win."""
+    return 'sidebar'
 
 
 def widget_style(layout, design):

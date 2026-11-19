@@ -141,7 +141,13 @@ icons are retained. This presentation does not alter actions, ordering, shortcut
 or saved menu preferences. Symbols live in `../theme/menu_icons.json`.
 
 Open **Configure Fusion Files…** from the toolbar's three-dot menu. The
-**Browsing** tab holds the existing display and file-action preferences.
+**Browsing → Appearance → Theme** follows the current desktop theme by default,
+or keeps a specific theme for Files windows and file pickers. Its palette, font,
+system icons and gradient surfaces follow that choice; Dark, Light and High
+contrast still follow the desktop. Saving updates open Files windows without
+changing the desktop's theme or icon preferences. The choice is retained in
+`state/settings.ini` under `appearance/theme`, including across updates.
+The rest of **Browsing** holds display and file-action preferences.
 **Files menu** and **Desktop menu** let you separately reorder, hide, rename,
 add or remove right-click actions for Files and desktop files/folders.
 
@@ -159,8 +165,8 @@ text and web links never create files through Paste. A selected folder's context
 Paste targets that folder; keyboard Paste targets the current directory.
 
 Existing customizations are preserved. **Save** applies the dialog's tabs;
-browsing choices apply to the current folder, while menus and the Trash
-animation remain global. **Cancel** discards the edits. Menu customization shortcuts no longer appear in either
+browsing choices apply to the current folder, while the Files theme, menus and
+Trash animation apply throughout Files. **Cancel** discards the edits. Menu customization shortcuts no longer appear in either
 right-click menu. Desktop icon visibility and arrangement remain in the
 desktop's right-click menu.
 
@@ -187,6 +193,13 @@ zero width; old collapsed layouts recover to a usable width when opened or
 when Preview is enabled. Normal custom widths and an intentional Preview-off
 choice are preserved. The divider has a six-pixel grab area. This applies to
 folders, This PC, external windows, and every upload/save picker.
+
+In This PC, selecting a drive fills Preview with its label, model, capacity,
+file system and available connection/location details. Mounted volumes show
+a compact used/free/reserved chart; unmounted or locked volumes show known
+metadata without mounting or unlocking them. Prefixes show their folder location.
+Details refresh with the selected drive and clear when it disconnects. The pane
+scrolls at narrow sizes, and **Full properties…** opens the existing dialog.
 
 
 ## Dragging files

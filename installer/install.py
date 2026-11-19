@@ -119,7 +119,7 @@ def render(stage, home, monitors, profile='auto', *, preserve_theme=False):
         {'version':1, 'default_layout':'kde', 'workspaces':{}}, indent=2)+'\n')
     theme = stage/'theme/state.json'
     theme_defaults = json.loads(theme.read_text())
-    theme_defaults.update(design='binaryknife',mode='dark',layout='classic',wallpaper_theme='binaryknife',
+    theme_defaults.update(design='binaryknife',mode='dark',layout='sidebar',wallpaper_theme='binaryknife',
                           bar_style='follow',bar_variant='full',launcher_style='follow',
                           launcher_wallpaper=True, launcher_background='')
     # Updates render colors for the recipient's chosen theme, including when

@@ -56,7 +56,7 @@ class GuideTests(unittest.TestCase):
         self.assertIn('Super + Escape', [s['keys'] for s in data['shortcuts']])
         self.assertEqual(data['feedback']['username'], 'xetal')
 
-    def test_local_url_encodes_paths_palette_and_explicit_section(self):
+    def test_local_url_encodes_paths_without_inheriting_desktop_palette(self):
         with tempfile.TemporaryDirectory(prefix='guide space ') as directory:
             root = Path(directory)
             (root / 'tour').mkdir()
@@ -67,12 +67,29 @@ class GuideTests(unittest.TestCase):
             self.assertEqual(url.scheme, 'file')
             self.assertEqual(unquote(url.path), str(root / 'tour/index.html'))
             self.assertEqual(url.fragment, 'feedback')
-            self.assertEqual(parse_qs(url.query), {'theme': ['gildedhollow'], 'mode': ['dark']})
+            self.assertEqual(parse_qs(url.query), {})
             with self.assertRaises(ValueError):
                 launch.guide_url('../../private', root)
             (root / 'tour/index.html').unlink()
             with self.assertRaises(FileNotFoundError):
                 launch.guide_url(root=root)
+
+    def test_first_steps_cover_the_requested_workflow_and_fresh_install_palette(self):
+        data = content.content()
+        self.assertEqual(data['route'], ['window-modes','recording','cube','move-window',
+            'media-download','wallpaper','switcher','minimize','file-transfers','control-panel','file-browser'])
+        lessons = {lesson['id']: lesson for lesson in data['lessons']}
+        self.assertEqual([step.split(' — ')[0] for step in lessons['window-modes']['steps'][:4]],
+                         ['KDE','Individual','Force tiling','Force floating'])
+        self.assertEqual(data['readingTheme'], 'binaryknife')
+        self.assertEqual(data['readingPalettes'], json.loads((ROOT.parent/'theme/palettes.json').read_text())['binaryknife'])
+        for id in data['route']:
+            with self.subTest(lesson=id):
+                self.assertLessEqual(len(lessons[id]['steps']), 5)
+                self.assertTrue(all(len(step.split()) <= 45 for step in lessons[id]['steps']))
+        self.assertIn('Super + Ctrl + P', lessons['media-download']['keys'])
+        self.assertIn('Super + Ctrl + P', [shortcut['keys'] for shortcut in data['shortcuts']])
+        self.assertIn('Super + Z', lessons['minimize']['keys'])
 
     def test_open_hides_dashboard_before_opening_local_browser_page(self):
         calls = []

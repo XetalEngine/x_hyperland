@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-from urllib.parse import urlencode
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -16,11 +15,9 @@ def guide_url(section='home', root=ROOT):
     path = root / 'tour/index.html'
     if not path.is_file():
         raise FileNotFoundError('The desktop tour is missing. Reinstall the desktop guide files.')
-    # Palette follows the desktop, while reading progress belongs to the browser.
-    sys.path.insert(0, str(root/'theme'))
-    import runtime
-    query = urlencode({'theme': runtime.design(), 'mode': runtime.mode()})
-    return path.as_uri() + '?' + query + '#' + section
+    # The bundled guide uses the fresh-install palette. Reading mode and
+    # progress belong to the browser, independently of the active desktop.
+    return path.as_uri() + '#' + section
 
 
 def open_guide(section='home', environment=None):

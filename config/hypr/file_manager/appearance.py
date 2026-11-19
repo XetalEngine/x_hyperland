@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Read the desktop's existing palette, typography and shape choices."""
+"""Resolve Files' local theme without changing the desktop's saved choices."""
+import argparse
+import importlib
 import json
 from pathlib import Path
 import sys
@@ -9,12 +11,37 @@ import runtime
 from designs import qt_style
 import selection_marker
 
-def appearance():
-    p = runtime.colors()
-    design = runtime.widget_design()
+def navigation_surface(p, design):
+    """Use the same material helpers as the Settings sidebar, with a quiet fallback."""
+    if design in ('killerinstinct', 'kitemple', 'kiprimal', 'kifireice'):
+        from ki_materials import armor
+        return armor(p, design)
+    materials = {
+        'starcraft': ('armor', ()), 'mystery98': ('casework', ()),
+        'platform95': ('casework', ()), 'blackwood': ('wood', ()),
+        'mycelium': ('velvet', ()), 'atomicafterglow': ('metal', ()),
+        'tidalglass': ('gradient', ('Button', 'AlternateBase')),
+        'candycloud': ('satin', ('Button', 'AlternateBase')),
+        'obsidianforge': ('basalt', ('AlternateBase', 'Base')),
+        'midnighttransit': ('enamel', ()), 'hyperfusionblue': ('steel', ()),
+        'hollowgrove': ('glass', ()), 'gildedhollow': ('stone', ()),
+        'shadowedge': ('smoke', ()),
+    }
+    if design in materials:
+        function, args = materials[design]
+        return getattr(importlib.import_module(design), function)(p, *args)
+    return f"qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 {p['Button']},stop:.6 {p['Window']},stop:1 {p['Base']})"
+
+
+def appearance(theme='follow'):
+    theme = theme if isinstance(theme, str) and theme in runtime.DESIGNS else 'follow'
+    selected = runtime.design() if theme == 'follow' else theme
+    layout = runtime.layout() if theme == 'follow' else runtime.layouts.default(selected)
+    p = runtime.colors(style=selected)
+    design = runtime.layouts.widget_style(layout, selected)
     radius = 4 if design in ('killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft','mortalkombat2') else 8 if design=='facadasexu' else 10 if design=='ghostbusters' else 6 if design=='leviathan' else 12 if design == 'polaris' else 5 if design in ('infernalencore','prisonbreak') else 7 if design == 'midnightrun' else 1 if design in ('platform95','mystery98') else 2 if design == 'shadowedge' else 16 if design == 'candycloud' else 3 if design == 'obsidianforge' else 2 if design == 'porcelainink' else 14 if design == 'tidalglass' else 3 if design == 'binaryknife' else 8 if design == 'breakpoint' else 10
     accent_rgb = ','.join(str(int(p['Accent'][i:i+2], 16)) for i in (1, 3, 5))
-    style = qt_style(p, design) + runtime.layouts.stylesheet(p, runtime.layout(), runtime.design())
+    style = qt_style(p, design) + runtime.layouts.stylesheet(p, layout, selected)
     style += f'''
     QMainWindow, QWidget#filesBody, QTabWidget::pane {{background:{p['Window']}; border:none;}}
     QToolBar {{background:{p['Window']}; border:none; spacing:5px; padding:8px;}}
@@ -94,7 +121,13 @@ def appearance():
     QLabel#cleanerArrow {{font-size:22px;}}
     QTabBar::tab {{padding:9px 18px; min-width:90px;}}
     QTabBar::tab:selected {{border-bottom:2px solid {p['Accent']};}}
-    QScrollArea#filePreview {{background:{p['Base']}; border:none;}}
+    QScrollArea#filePreview, QScrollArea#drivePreview {{background:{p['Base']}; border:none;}}
+    QWidget#drivePreviewBody, QWidget#drivePreviewViewport {{background:transparent;}}
+    QLabel#drivePreviewEyebrow {{color:{p['Accent']}; font-size:11px; letter-spacing:1px;}}
+    QLabel#drivePreviewName {{font-size:17px; font-weight:600;}}
+    QLabel#drivePreviewStatus, QLabel#drivePreviewHint, QLabel[drivePreviewCaption="true"] {{color:{p['PlaceholderText']}; font-size:11px;}}
+    QFrame#drivePreviewStorage {{background:{p['Base']}; border:1px solid {p['Midlight']}; border-radius:{radius}px;}}
+    QPushButton#drivePreviewProperties {{padding:7px 10px;}}
     QLabel#settingsHeading {{font-size:22px; font-weight:600;}}
     QDialog#applicationChooser QLineEdit, QDialog#filesConfiguration QLineEdit {{background:{p['Base']}; color:{p['Text']}; selection-background-color:{p['Highlight']}; selection-color:{p['HighlightedText']}; padding:9px;}}
     QListWidget#applicationList {{background:{p['Base']}; color:{p['Text']}; border:1px solid {p['Midlight']}; border-radius:{radius}px; padding:5px;}}
@@ -278,9 +311,32 @@ def appearance():
     QToolButton#systemPartitions:hover, QToolButton#systemPartitions:focus {{color:{p['Text']}; background:{p['AlternateBase']};}}
     QToolButton#computerOriginalView, QToolButton#computerShelfView, QToolButton#computerListView {{padding:5px;}}
     '''
+    surface = navigation_surface(p, design)
+    # Paint a single stationary gradient behind This PC. Transparent scroll
+    # content prevents each row from restarting the material or covering it.
+    style += f'''
+    QTreeWidget#places, QTreeView#details, QListView#files, QListWidget#driveCards,
+    QWidget#computerPage, QWidget#folderMessage, QTreeView#searchResults,
+    QLabel#searchEmpty, QScrollArea#filePreview, QScrollArea#drivePreview {{background:{surface};}}
+    QScrollArea#computerDrivesScroll, QWidget#computerDrivesViewport,
+    QWidget#driveShelfBody, QWidget#driveSection,
+    QScrollArea#computerDrivesScroll > QWidget > QWidget {{background:transparent; border:none;}}
+    QGroupBox[physicalDrive="true"] QListWidget#driveCards {{background:transparent;}}
+    '''
     style += selection_marker.stylesheet(p, runtime.selection_marker())
-    return dict(colors=p, stylesheet=style, font=runtime.ui_font(),
-                **runtime.icon_library.info(runtime.ROOT.parent,runtime.design(),runtime.mode()))
+    icons = runtime.icon_library.info(runtime.ROOT.parent, selected, runtime.mode())
+    if theme != 'follow':
+        # Keep application icons and individual overrides while using this
+        # theme's system artwork. Only immutable cache files are prepared.
+        values, _ = runtime.icon_library.load(runtime.ROOT.parent)
+        resolved = runtime.icon_library.prepared({**values, 'system': 'builtin:'+selected}, runtime.ROOT.parent)
+        icons['iconTheme'] = resolved['resolved']['themes'][selected+':'+runtime.mode()]
+    return dict(colors=p, stylesheet=style, font=runtime.ui_font(selected),
+                theme=theme, design=selected, mode=runtime.mode(), background=surface,
+                themeChoices=[{'id':key, 'name':name} for key,name in runtime.DESIGNS.items()],
+                **icons)
 
 if __name__ == '__main__':
-    print(json.dumps(appearance()))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--theme', default='follow')
+    print(json.dumps(appearance(parser.parse_args().theme)))

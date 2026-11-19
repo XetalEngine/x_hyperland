@@ -4,6 +4,7 @@ namespace XetalPreview {
 class Pane;
 }
 class KJob;
+class DrivePreview;
 
 class FilesWindow : public QMainWindow {
   Q_OBJECT
@@ -39,6 +40,7 @@ private:
   QTreeWidgetItem *quickRoot;
   QSplitter *splitter;
   XetalPreview::Pane *preview;
+  DrivePreview *drivePreview;
   QLabel *remotePreview;
   QStackedWidget *previewStack;
   QToolButton *views;
@@ -47,6 +49,8 @@ private:
       *undoAction, *emptyTrashAction;
   QProcess theme;
   QTimer themeDebounce;
+  QString requestedTheme;
+  QJsonArray themeChoices;
   QHash<QString, QAction *> shortcuts;
   void addTab(const QUrl &url);
   void rebuildPlaces();
@@ -59,6 +63,7 @@ private:
   void addArchiveActions(QMenu *menu, const KFileItemList &items, bool compress,
                      bool extract, const std::function<bool()> &guard = {});
   void configure();
+  void populateThemeChoices(QComboBox *choice);
   void updateCurrent();
   void updatePreview();
   void ensurePreviewWidth();
