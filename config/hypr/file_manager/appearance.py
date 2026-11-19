@@ -310,6 +310,10 @@ def appearance(theme='follow'):
     QToolButton#systemPartitions {{background:transparent; color:{p['PlaceholderText']}; border:none; padding:4px; margin:0;}}
     QToolButton#systemPartitions:hover, QToolButton#systemPartitions:focus {{color:{p['Text']}; background:{p['AlternateBase']};}}
     QToolButton#computerOriginalView, QToolButton#computerShelfView, QToolButton#computerListView {{padding:5px;}}
+    QWidget#computerViewButtons {{background:transparent;}}
+    QWidget#computerViewButtons QToolButton {{padding:4px; font-size:12px; font-weight:600;}}
+    QCheckBox#showUnmountedDrives {{background:{p['AlternateBase']}; color:{p['Text']}; border:1px solid {p['Midlight']}; border-radius:{radius}px; padding:7px 10px; spacing:7px;}}
+    QCheckBox#showUnmountedDrives:hover, QCheckBox#showUnmountedDrives:focus {{border-color:{p['Accent']};}}
     '''
     surface = navigation_surface(p, design)
     # Paint a single stationary gradient behind This PC. Transparent scroll
@@ -322,6 +326,11 @@ def appearance(theme='follow'):
     QWidget#driveShelfBody, QWidget#driveSection,
     QScrollArea#computerDrivesScroll > QWidget > QWidget {{background:transparent; border:none;}}
     QGroupBox[physicalDrive="true"] QListWidget#driveCards {{background:transparent;}}
+    QWidget#computerPage[windowsView="true"] {{background:white; color:#202020;}}
+    QWidget#computerPage[windowsView="true"] QLabel#computerHeading {{color:#202020;}}
+    QWidget#computerPage[windowsView="true"] QLabel#computerSubtitle {{color:#69737b;}}
+    QWidget#computerPage[windowsView="true"] QLabel#muted, QWidget#computerPage[windowsView="true"] QLabel#emptyDrives {{color:#69737b;}}
+    QWidget#computerPage[windowsView="true"] QCheckBox#showUnmountedDrives {{background:#f5f8fb; color:#33485c; border-color:#ccd7e1;}}
     '''
     style += selection_marker.stylesheet(p, runtime.selection_marker())
     icons = runtime.icon_library.info(runtime.ROOT.parent, selected, runtime.mode())

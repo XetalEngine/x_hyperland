@@ -37,13 +37,27 @@ accent marks selection, focus and capacity bars. Mounted disks appear first,
 followed by other USB devices and unmounted internal disks. A partially mounted
 disk stays together, with its data volumes ordered largest first.
 
-The upper-right buttons switch between the responsive shelf and a compact
-single-column **Storage list**. The choice is remembered. Both use one vertical
-scroll area and reflow without horizontal scrolling. **System partitions · N**
-folds EFI, BIOS boot, reserved, recovery and swap volumes below each disk;
-each disk's expanded state is remembered. Classification uses partition roles
-and boot mount points, so ordinary FAT-formatted data volumes remain visible.
-Selecting a folded volume through navigation restoration reveals it.
+The upper-right buttons keep the original layout, fixed-size cards (the fresh
+install default), and **Storage list**, and add four Windows-style main panes:
+**ME** has a small icon grid and information column; **7** has compact grouped
+drive tiles; **10** adds your standard folders and pinned network locations;
+**11** uses larger drive tiles. These options have white Explorer surfaces and
+their own drive/folder artwork. They do not change the application's sidebar,
+toolbar, preview theme, or desktop theme. Opening, previewing and right-clicking
+drives work in every view. The selected layout is remembered.
+
+**Show unmounted drives** hides or shows the final Unmounted devices section.
+It starts enabled and remembers your choice. Connected USB/CD devices and
+prefixes remain visible when it is off. Selecting a layout or toggling the
+checkbox never mounts a drive. The extra buttons wrap below the heading when
+the window is narrow.
+
+EFI, BIOS boot, reserved, recovery and swap partitions use small icons inside
+their disk's card in the Fusion card/list views. In Original layout,
+**System partitions · N** expands them below the disk, with its state remembered.
+Classification uses partition roles and boot mount points, so ordinary FAT data
+volumes remain visible. Windows-style views omit these helper partitions when
+their physical drive already has a regular data volume.
 
 **Mount** appears on an eligible unmounted card when hovered or keyboard-focused.
 The existing **Auto mount** checkbox remains in each eligible disk's heading.

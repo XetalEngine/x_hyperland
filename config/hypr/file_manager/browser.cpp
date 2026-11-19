@@ -378,6 +378,11 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
     drives->menu(volume, point, this);
   });
   connect(computer, &DriveShelf::backgroundContextRequested, this, &Browser::computerContextRequested);
+  connect(computer, &DriveShelf::locationRequested, this, &Browser::navigate);
+  connect(computer, &DriveShelf::controlPanelRequested, this, [this] {
+    if (!QProcess::startDetached(Fusion::root() + "/scripts/control-panel.sh", {}))
+      QMessageBox::warning(this, "Control Panel", "Could not open Control Panel. Please try again from the Apps menu.");
+  });
   stack->addWidget(computer);
   model = new KDirModel(this);
   model->setDropsAllowed(KDirModel::DropOnDirectory);

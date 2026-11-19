@@ -24,20 +24,41 @@ the tile sizes. Each data volume gets its own tile, stacked with the other
 volumes of the same physical disk. Boot, reserved, recovery and swap partitions appear as small icons inside
 the disk card; hover for their details, double-click/Enter to open, or right-click
 for the existing drive actions. A device with only helper partitions promotes
-its first partition to a full tile. The three view buttons offer Original layout
+its first partition to a full tile. The view buttons offer Original layout
 (separate disk headings, larger cards, expandable system partitions), fixed-size
-cards, and Storage list. The choice is remembered in `computer/viewMode`, with
+cards, Storage list, and Windows ME, 7, 10 and 11 presentations. The choice is remembered in `computer/viewMode`, with
 existing `computer/listView` preferences used as the initial fallback. Mount
 replaces the status badge on eligible cards during hover or keyboard focus,
 without changing the row's size. The navigation
 tree's styling and controls are unchanged. Spacing overrides are scoped to
 these widgets, after the shared theme styles.
 
+**Show unmounted drives** toggles the final Unmounted devices section and saves
+`computer/showUnmounted`. It starts checked; connected removable devices and
+Wine/Steam prefixes remain available when it is unchecked. Hiding the selected
+drive clears its preview. A newly mounted internal drive becomes visible on the
+next inventory refresh, and disconnected drives lose their selection.
+
+The Windows buttons (`ME`, `7`, `10`, `11`) change only This PC's main pane.
+They use white Explorer surfaces and locally drawn drive/folder artwork: ME's
+small icon grid and information column, 7's compact grouped tiles, 10's standard
+folders and pinned network locations, and 11's larger drive tiles. Folder links
+use the account's real XDG paths; the ME Control Panel shortcut opens Fusion
+Control Panel. The Linux system disk keeps its penguin. Auxiliary system
+partitions remain accessible in the three Fusion views. Drive selection feeds
+the same preview, Enter/double-click opens the same volume, and right-click uses
+the same drive menu in all seven presentations. The Windows sections can be
+collapsed independently. Their choice, filtering and section states survive
+reopening. Fresh profiles still use the fixed-size card view.
+
 `navigation-tests` exercises all five views with the real directory model and
 controlled asynchronous listing signals, without desktop D-Bus services.
 `drive-shelf-tests` covers reflow, partition icons, keyboard and Mount
 signals, preference restoration, focus retention and hotplug changes without
 mounting real drives.
+`computer-view-tests` covers all seven presentations, unmounted filtering,
+hotplug/mount changes, remembered choices, real folder targets, preview routing,
+narrow layouts and captures of each Windows view using an isolated inventory.
 
 The fixed-size card view places mounted disks on the left, stacked below the system disk, and
 connected removable devices alongside them on the right. Narrow windows and

@@ -1,8 +1,10 @@
 #include "drive_shelf.h"
 #include "menu_icons.h"
+#include "computer_views.h"
 
 namespace {
 constexpr int tileWidth = 380, tileHeight = 120, rowGap = 10, columnGap = 18;
+const QStringList viewModes{"tiles", "list", "original", "winme", "win7", "win10", "win11"};
 // Long device labels should yield space to controls, while retaining the full
 // text for tooltips and accessibility.
 class ShelfLabel : public QLabel {
@@ -204,30 +206,45 @@ DriveShelf::DriveShelf(Fusion::Preferences *settings, Drives *service, QWidget *
   setObjectName("computerPage");
   setAttribute(Qt::WA_StyledBackground);
   auto *layout = new QVBoxLayout(this); layout->setContentsMargins(14, 10, 14, 8); layout->setSpacing(8);
-  auto *header = new QHBoxLayout;
-  auto *identity = new QVBoxLayout; identity->setSpacing(2);
+  headerLayout = new QGridLayout; headerLayout->setContentsMargins(0, 0, 0, 0); headerLayout->setHorizontalSpacing(12); headerLayout->setVerticalSpacing(6);
+  headingBody = new QWidget;
+  auto *identity = new QVBoxLayout(headingBody); identity->setContentsMargins(0, 0, 0, 0); identity->setSpacing(2);
   auto *title = new QLabel("This PC"); title->setObjectName("computerHeading"); identity->addWidget(title);
   auto *subtitle = new QLabel("Storage and devices"); subtitle->setObjectName("computerSubtitle"); identity->addWidget(subtitle);
-  header->addLayout(identity, 1);
-  auto *choices = new QButtonGroup(this); choices->setExclusive(true);
+  showUnmounted = new QCheckBox("Show unmounted drives"); showUnmounted->setObjectName("showUnmountedDrives");
+  showUnmounted->setToolTip("Show the Unmounted devices section. Connected removable devices stay visible.");
+  showUnmounted->setChecked(preferences->settings.value("computer/showUnmounted", true).toBool());
+  connect(showUnmounted, &QCheckBox::toggled, this, [this](bool show) {
+    preferences->settings.setValue("computer/showUnmounted", show); topologyChanged = true; refresh();
+  });
+  viewButtons = new QWidget; viewButtons->setObjectName("computerViewButtons");
+  auto *buttons = new QHBoxLayout(viewButtons); buttons->setContentsMargins(0, 0, 0, 0); buttons->setSpacing(4);
+  viewChoices = new QButtonGroup(this); viewChoices->setExclusive(true);
   auto choice = [&](const QString &id, const QString &symbol, const QString &label, int mode) {
     auto *button = new QToolButton; button->setObjectName(id); button->setCheckable(true);
-    button->setIcon(Fusion::symbolicIcon(symbol)); button->setIconSize({18, 18});
-    button->setAccessibleName(label); button->setToolTip(label); choices->addButton(button, mode); header->addWidget(button);
+    if (!symbol.isEmpty()) button->setIcon(Fusion::symbolicIcon(symbol));
+    else button->setText(mode == 3 ? "ME" : mode == 4 ? "7" : mode == 5 ? "10" : "11");
+    button->setIconSize({18, 18}); button->setFixedSize(mode >= 3 ? 38 : 34, 32);
+    button->setAccessibleName(label); button->setToolTip(label); viewChoices->addButton(button, mode); buttons->addWidget(button);
     return button;
   };
   originalButton = choice("computerOriginalView", "view-shelf", "Original layout", 2);
   shelfButton = choice("computerShelfView", "view-grid", "Fixed-size cards", 0);
   listButton = choice("computerListView", "view-list", "Storage list", 1);
+  buttons->addSpacing(6);
+  choice("computerWinMEView", {}, "Windows ME · Icons and information panel", 3);
+  choice("computerWin7View", {}, "Windows 7 · Compact drive tiles", 4);
+  choice("computerWin10View", {}, "Windows 10 · Folders and drives", 5);
+  choice("computerWin11View", {}, "Windows 11 · Spacious drive tiles", 6);
   const auto view = preferences->settings.value("computer/viewMode",
       preferences->settings.value("computer/listView", false).toBool() ? "list" : "tiles").toString();
-  (view == "original" ? originalButton : view == "list" ? listButton : shelfButton)->setChecked(true);
-  connect(choices, &QButtonGroup::idClicked, this, [this](int mode) {
-    preferences->settings.setValue("computer/viewMode", mode == 2 ? "original" : mode == 1 ? "list" : "tiles");
+  viewChoices->button(qMax(0, int(viewModes.indexOf(view))))->setChecked(true);
+  connect(viewChoices, &QButtonGroup::idClicked, this, [this](int mode) {
+    preferences->settings.setValue("computer/viewMode", viewModes.value(mode, "tiles"));
     preferences->settings.setValue("computer/listView", mode == 1);
     topologyChanged = true; refresh();
   });
-  layout->addLayout(header);
+  layout->addLayout(headerLayout); layoutHeader();
   scroll = new QScrollArea; scroll->setObjectName("computerDrivesScroll"); scroll->setWidgetResizable(true);
   scroll->viewport()->setObjectName("computerDrivesViewport");
   scroll->setFrameShape(QFrame::NoFrame); scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -250,17 +267,52 @@ DriveShelf::DriveShelf(Fusion::Preferences *settings, Drives *service, QWidget *
   }
   scroll->setWidget(body);
   body->setAutoFillBackground(false); scroll->viewport()->setAutoFillBackground(false);
-  layout->addWidget(scroll, 1);
+  viewStack = new QStackedWidget; viewStack->setObjectName("computerViewStack"); viewStack->addWidget(scroll);
+  windowsView = new WindowsComputerView(preferences); viewStack->addWidget(windowsView); layout->addWidget(viewStack, 1);
+  connect(windowsView, &WindowsComputerView::volumeSelected, this, [this](const QString &device) { selectDevice(device); });
+  connect(windowsView, &WindowsComputerView::operationRequested, this, &DriveShelf::operationRequested);
+  connect(windowsView, &WindowsComputerView::volumeContextRequested, this, &DriveShelf::volumeContextRequested);
+  connect(windowsView, &WindowsComputerView::backgroundContextRequested, this, &DriveShelf::backgroundContextRequested);
+  connect(windowsView, &WindowsComputerView::locationRequested, this, &DriveShelf::locationRequested);
+  connect(windowsView, &WindowsComputerView::controlPanelRequested, this, &DriveShelf::controlPanelRequested);
   empty = new QLabel("No drives detected."); empty->setObjectName("emptyDrives"); layout->addWidget(empty);
-  auto *hint = new QLabel("Double-click a volume to open · Right-click for more options"); hint->setObjectName("muted");
+  hint = new QLabel("Double-click a volume to open · Right-click for more options"); hint->setObjectName("muted");
   hint->setWordWrap(true); layout->addWidget(hint);
   refresh();
 }
+QString DriveShelf::viewMode() const { return viewModes.value(viewChoices->checkedId(), "tiles"); }
+bool DriveShelf::windowsMode() const { return viewChoices && viewChoices->checkedId() >= 3; }
+void DriveShelf::layoutHeader() {
+  if (!headerLayout) return;
+  const int controls = viewButtons->sizeHint().width(), filter = showUnmounted->sizeHint().width();
+  const int available = width() - 28, title = headingBody->sizeHint().width();
+  const int next = title + filter + controls + 36 <= available ? 0 : title + filter + 12 <= available ? 1 : 2;
+  if (headerMode == next) return;
+  headerMode = next;
+  while (auto *item = headerLayout->takeAt(0)) delete item;
+  headerLayout->addWidget(headingBody, 0, 0);
+  if (next == 0) {
+    headerLayout->addWidget(showUnmounted, 0, 1, Qt::AlignRight | Qt::AlignVCenter);
+    headerLayout->addWidget(viewButtons, 0, 2, Qt::AlignRight | Qt::AlignVCenter);
+  } else {
+    headerLayout->addWidget(showUnmounted, next == 1 ? 0 : 1, next == 1 ? 1 : 0, Qt::AlignRight);
+    headerLayout->addWidget(viewButtons, next == 1 ? 1 : 2, 0, 1, 3, Qt::AlignRight);
+  }
+  headerLayout->setColumnStretch(0, 1); headerLayout->setColumnStretch(1, 0); headerLayout->setColumnStretch(2, 0);
+}
+void DriveShelf::resizeEvent(QResizeEvent *event) { QWidget::resizeEvent(event); layoutHeader(); }
 QString DriveShelf::expansionKey(const QString &drive) const {
   return "computer/systemExpanded/" + QString::fromLatin1(QCryptographicHash::hash(drive.toUtf8(), QCryptographicHash::Sha256).toHex());
 }
 void DriveShelf::refresh() {
   const bool original = originalButton->isChecked(), list = listButton->isChecked();
+  if (property("windowsView").toBool() != windowsMode()) {
+    setProperty("windowsView", windowsMode()); repolish(this);
+    for (auto *label : headingBody->findChildren<QLabel *>()) repolish(label);
+    repolish(showUnmounted);
+    repolish(hint); repolish(empty);
+  }
+  viewStack->setCurrentWidget(windowsMode() ? static_cast<QWidget *>(windowsView) : scroll);
   const auto focused = QPointer<QWidget>(QApplication::focusWidget());
   const auto selectedBeforeRefresh = selected;
   QMap<QString, QList<Volume>> inventory;
@@ -430,21 +482,35 @@ void DriveShelf::refresh() {
     group.systemBody->setToolTip(original ? QString() : QString("%1 system partitions · Hover for details, right-click for options").arg(systemIndex));
     repolish(group.frame); repolish(group.name); repolish(group.description);
   }
+  if (windowsMode()) {
+    QList<Volume> visible;
+    for (const auto &key : order) if (showUnmounted->isChecked() || categories.value(key) != 5)
+      for (const auto &device : groups[key].volumes) visible << cards[device]->volume();
+    windowsView->refresh(viewMode(), visible, categories);
+  }
   selectDevice(selectedBeforeRefresh);
   if (focused && isAncestorOf(focused) && focused->isVisible()) focused->setFocus(Qt::OtherFocusReason);
-  scroll->setVisible(!groups.isEmpty()); empty->setVisible(groups.isEmpty()); queueLayout();
+  const bool anyVisible = std::any_of(order.cbegin(), order.cend(), [this](const QString &key) {
+    return showUnmounted->isChecked() || categories.value(key) != 5;
+  });
+  empty->setText(groups.isEmpty() ? "No drives detected." : "No mounted or removable drives. Enable Show unmounted drives to see the rest.");
+  viewStack->setVisible(windowsMode() || anyVisible);
+  empty->setWordWrap(true); empty->setVisible(!windowsMode() && !anyVisible); queueLayout();
   // A scan can change usage or mount state without changing the selected device.
   if (selected == selectedBeforeRefresh) emit selectionChanged();
 }
 Volume DriveShelf::selectedVolume() const { return cards.contains(selected) ? cards[selected]->volume() : Volume{}; }
 void DriveShelf::selectDevice(const QString &device, bool focus) {
   const auto previous = selected;
-  selected = cards.contains(device) ? device : QString();
+  auto *candidate = cards.value(device);
+  selected = candidate && (showUnmounted->isChecked() || categories.value(candidate->volume().driveKey()) != 5)
+      && (!windowsMode() || windowsView->containsDevice(device)) ? device : QString();
   for (auto *card : cards) card->setSelected(card->volume().device == selected);
+  if (windowsMode()) windowsView->selectDevice(selected, focus);
   if (auto *card = cards.value(selected)) {
     if (originalButton->isChecked() && card->volume().compactCard())
       groups[card->volume().driveKey()].disclosure->setChecked(true);
-    if (focus) {
+    if (focus && !windowsMode()) {
       // Put the card in its final section before assigning keyboard focus.
       // Reparenting a just-shown card would otherwise discard Qt's pending focus.
       if (layoutQueued || topologyChanged) relayout();
@@ -453,10 +519,10 @@ void DriveShelf::selectDevice(const QString &device, bool focus) {
   }
   if (selected != previous) emit selectionChanged();
 }
-QVariantMap DriveShelf::place() const { return {{"volume", selected}, {"y", scroll->verticalScrollBar()->value()}}; }
+QVariantMap DriveShelf::place() const { return {{"volume", selected}, {"y", (windowsMode() ? windowsView : scroll)->verticalScrollBar()->value()}}; }
 void DriveShelf::restorePlace(const QVariantMap &state) {
   selectDevice(state.value("volume").toString()); relayout();
-  scroll->verticalScrollBar()->setValue(state.value("y").toInt());
+  (windowsMode() ? windowsView : scroll)->verticalScrollBar()->setValue(state.value("y").toInt());
 }
 void DriveShelf::step(VolumeCard *from, int delta) {
   QList<VolumeCard *> visible;
@@ -488,6 +554,7 @@ void DriveShelf::relayout() {
     while (auto *item = grid->takeAt(0)) delete item;
     QMap<int, QStringList> members;
     for (const auto &key : order) {
+      if (!showUnmounted->isChecked() && categories.value(key) == 5) { groups[key].frame->hide(); continue; }
       const int priority = categories.value(key, 5);
       members[priority == 1 ? 0 : priority == 4 ? 3 : priority] << key;
     }
@@ -539,6 +606,7 @@ void DriveShelf::changeEvent(QEvent *event) {
     if (shelfButton) shelfButton->setIcon(Fusion::symbolicIcon("view-grid"));
     if (originalButton) originalButton->setIcon(Fusion::symbolicIcon("view-shelf"));
     if (listButton) listButton->setIcon(Fusion::symbolicIcon("view-list"));
+    if (viewButtons) { headerMode = -1; layoutHeader(); }
     if (body) QTimer::singleShot(0, this, [this] { refresh(); });
   }
 }

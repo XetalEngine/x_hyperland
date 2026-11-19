@@ -1,6 +1,7 @@
 #pragma once
 #include "core.h"
 #include "drives.h"
+class WindowsComputerView;
 
 class VolumeCard : public QFrame {
   Q_OBJECT
@@ -54,20 +55,30 @@ public:
   void restorePlace(const QVariantMap &state);
 signals:
   void selectionChanged();
+  void locationRequested(const QUrl &url);
+  void controlPanelRequested();
   void operationRequested(const Volume &volume, const QString &operation);
   void volumeContextRequested(const Volume &volume, const QPoint &position);
   void backgroundContextRequested(const QPoint &position);
 protected:
   bool eventFilter(QObject *, QEvent *) override;
   void changeEvent(QEvent *) override;
+  void resizeEvent(QResizeEvent *) override;
 private:
   Fusion::Preferences *preferences;
   Drives *drives;
   QScrollArea *scroll;
   QWidget *body = nullptr;
   QGridLayout *grid;
-  QLabel *empty;
+  QLabel *empty = nullptr, *hint = nullptr;
   QToolButton *originalButton = nullptr, *shelfButton = nullptr, *listButton = nullptr;
+  QButtonGroup *viewChoices = nullptr;
+  QCheckBox *showUnmounted = nullptr;
+  QStackedWidget *viewStack = nullptr;
+  WindowsComputerView *windowsView = nullptr;
+  QGridLayout *headerLayout = nullptr;
+  QWidget *headingBody = nullptr, *viewButtons = nullptr;
+  int headerMode = -1;
   struct Tile {
     QFrame *frame;
     QVBoxLayout *layout;
@@ -103,4 +114,7 @@ private:
   void queueLayout();
   void relayout();
   void step(VolumeCard *from, int delta);
+  QString viewMode() const;
+  bool windowsMode() const;
+  void layoutHeader();
 };
