@@ -1457,6 +1457,11 @@ void FilesWindow::configure() {
   auto *themeHint = new QLabel("Choose a theme for Files windows and file pickers. Light/dark mode follows the desktop.");
   themeHint->setWordWrap(true); themeHint->setObjectName("muted");
   appearanceLayout->addRow(themeHint);
+  auto *computerButtons = new QCheckBox("Show view buttons in This PC");
+  computerButtons->setObjectName("configureComputerViewButtons");
+  computerButtons->setChecked(preferences.settings.value("computer/showViewButtons", true).toBool());
+  computerButtons->setToolTip("Hide the layout buttons while keeping your chosen This PC view.");
+  appearanceLayout->addRow(computerButtons);
   generalLayout->addWidget(appearance);
   auto *display = new QGroupBox("This folder’s view");
   auto *displayLayout = new QVBoxLayout(display);
@@ -1494,11 +1499,13 @@ void FilesWindow::configure() {
   if (desktopMenu->entries() != savedDesktopMenu)
     preferences.setMenu(desktopMenu->entries(), "desktopMenu");
   if (themeChoice->isEnabled()) preferences.settings.setValue("appearance/theme", themeChoice->currentData());
+  preferences.settings.setValue("computer/showViewButtons", computerButtons->isChecked());
   preferences.settings.setValue("trashAnimation", animation->isChecked());
   if (pane->isChecked() != previewAction->isChecked()) previewAction->trigger();
   hiddenAction->setChecked(hidden->isChecked());
   browser()->setThumbnails(thumbnails->isChecked());
   preferences.settings.sync();
+  for (auto *shelf : findChildren<DriveShelf *>()) shelf->refresh();
   reloadTheme();
 }
 void FilesWindow::showShortcuts() {

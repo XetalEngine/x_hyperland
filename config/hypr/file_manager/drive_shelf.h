@@ -78,6 +78,8 @@ private:
   WindowsComputerView *windowsView = nullptr;
   QGridLayout *headerLayout = nullptr;
   QWidget *headingBody = nullptr, *viewButtons = nullptr;
+  QWidget *standardButtons = nullptr, *themedButtons = nullptr;
+  QGridLayout *viewButtonsLayout = nullptr;
   int headerMode = -1;
   struct Tile {
     QFrame *frame;

@@ -36,7 +36,9 @@ private:
   };
   QMap<int, Section> sections;
   QMap<QString, ComputerItem *> items;
-  QString mode, selected;
+  QString mode, settingsMode, selected;
+  bool themed = false;
+  void applyAppearance();
   void relayout();
   void choose(const QString &key, bool notify);
   void activate(const QString &key);

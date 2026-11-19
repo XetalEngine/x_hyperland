@@ -326,11 +326,11 @@ def appearance(theme='follow'):
     QWidget#driveShelfBody, QWidget#driveSection,
     QScrollArea#computerDrivesScroll > QWidget > QWidget {{background:transparent; border:none;}}
     QGroupBox[physicalDrive="true"] QListWidget#driveCards {{background:transparent;}}
-    QWidget#computerPage[windowsView="true"] {{background:white; color:#202020;}}
-    QWidget#computerPage[windowsView="true"] QLabel#computerHeading {{color:#202020;}}
-    QWidget#computerPage[windowsView="true"] QLabel#computerSubtitle {{color:#69737b;}}
-    QWidget#computerPage[windowsView="true"] QLabel#muted, QWidget#computerPage[windowsView="true"] QLabel#emptyDrives {{color:#69737b;}}
-    QWidget#computerPage[windowsView="true"] QCheckBox#showUnmountedDrives {{background:#f5f8fb; color:#33485c; border-color:#ccd7e1;}}
+    QWidget#computerPage[classicWindowsView="true"] {{background:white; color:#202020;}}
+    QWidget#computerPage[classicWindowsView="true"] QLabel#computerHeading {{color:#202020;}}
+    QWidget#computerPage[classicWindowsView="true"] QLabel#computerSubtitle {{color:#69737b;}}
+    QWidget#computerPage[classicWindowsView="true"] QLabel#muted, QWidget#computerPage[classicWindowsView="true"] QLabel#emptyDrives {{color:#69737b;}}
+    QWidget#computerPage[classicWindowsView="true"] QCheckBox#showUnmountedDrives {{background:#f5f8fb; color:#33485c; border-color:#ccd7e1;}}
     '''
     style += selection_marker.stylesheet(p, runtime.selection_marker())
     icons = runtime.icon_library.info(runtime.ROOT.parent, selected, runtime.mode())

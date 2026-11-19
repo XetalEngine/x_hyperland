@@ -6,8 +6,8 @@
 class ComputerViewTests : public QObject {
   Q_OBJECT
   QTemporaryDir temporary;
-  const QStringList modes{"tiles", "list", "original", "winme", "win7", "win10", "win11"};
-  const QStringList buttons{"computerShelfView", "computerListView", "computerOriginalView", "computerWinMEView", "computerWin7View", "computerWin10View", "computerWin11View"};
+  const QStringList modes{"tiles", "list", "original", "winme", "win7", "win10", "win11", "winme-themed", "win7-themed", "win10-themed", "win11-themed"};
+  const QStringList buttons{"computerShelfView", "computerListView", "computerOriginalView", "computerWinMEView", "computerWin7View", "computerWin10View", "computerWin11View", "computerWinMEThemedView", "computerWin7ThemedView", "computerWin10ThemedView", "computerWin11ThemedView"};
   static QList<Volume> inventory() {
     auto volumes = Drives::parse(R"({"blockdevices":[
       {"path":"/dev/main","type":"disk","model":"Samsung SSD 970 EVO Plus 2TB","size":2000000000000,"children":[
@@ -74,10 +74,10 @@ private slots:
       Fusion::Preferences prefs(path); Drives drives(nullptr, false); drives.volumes = inventory(); DriveShelf shelf(&prefs, &drives); shelf.show();
       QVERIFY(shelf.findChild<QToolButton *>("computerShelfView")->isChecked());
       QVERIFY(shelf.findChild<QCheckBox *>("showUnmountedDrives")->isChecked());
-      shelf.findChild<QToolButton *>("computerWin11View")->click(); shelf.findChild<QCheckBox *>("showUnmountedDrives")->click(); prefs.settings.sync();
+      shelf.findChild<QToolButton *>("computerWin11ThemedView")->click(); shelf.findChild<QCheckBox *>("showUnmountedDrives")->click(); prefs.settings.sync();
     }
     Fusion::Preferences prefs(path); Drives drives(nullptr, false); drives.volumes = inventory(); DriveShelf shelf(&prefs, &drives); shelf.show();
-    QVERIFY(shelf.findChild<QToolButton *>("computerWin11View")->isChecked());
+    QVERIFY(shelf.findChild<QToolButton *>("computerWin11ThemedView")->isChecked());
     QVERIFY(!shelf.findChild<QCheckBox *>("showUnmountedDrives")->isChecked());
     QTRY_VERIFY(!visibleDrive(shelf, "/dev/backup"));
     for (int i = 0; i < buttons.size(); ++i) {
@@ -87,8 +87,13 @@ private slots:
       QVERIFY(visibleDrive(shelf, "/dev/main1"));
     }
   }
+  void windowsFoldersAndControlPanelHaveRealTargets_data() {
+    QTest::addColumn<bool>("themed");
+    QTest::newRow("classic") << false; QTest::newRow("themed") << true;
+  }
   void windowsFoldersAndControlPanelHaveRealTargets() {
-    Fusion::Preferences prefs(temporary.path() + "/links.ini"); prefs.settings.setValue("computer/viewMode", "win10");
+    QFETCH(bool, themed);
+    Fusion::Preferences prefs(temporary.path() + "/links.ini"); prefs.settings.setValue("computer/viewMode", themed ? "win10-themed" : "win10");
     prefs.setPlaces({{{"name", "Studio share"}, {"url", "smb://studio.example/shared"}}});
     Drives drives(nullptr, false); drives.volumes = inventory(); DriveShelf shelf(&prefs, &drives); shelf.resize(1100, 950); shelf.show();
     QSignalSpy locations(&shelf, &DriveShelf::locationRequested), panel(&shelf, &DriveShelf::controlPanelRequested);
@@ -101,7 +106,7 @@ private slots:
       }
     }
     QCOMPARE(locations.size(), 2);
-    shelf.findChild<QToolButton *>("computerWinMEView")->click();
+    shelf.findChild<QToolButton *>(themed ? "computerWinMEThemedView" : "computerWinMEView")->click();
     for (auto *item : view->findChildren<QAbstractButton *>("windowsComputerItem"))
       if (item->accessibleName() == "Control Panel") QTest::mouseDClick(item, Qt::LeftButton);
     QCOMPARE(panel.size(), 1);
@@ -137,12 +142,133 @@ private slots:
         QCOMPARE(pane->horizontalScrollBar()->maximum(), 0);
         for (auto *button : shelf->findChild<QWidget *>("computerViewButtons")->findChildren<QToolButton *>())
           QVERIFY(shelf->rect().contains(QRect(button->mapTo(shelf, QPoint()), button->size())));
+        if (i >= 7 && size == QSize(760, 600) && !artifacts.isEmpty())
+          QVERIFY(window.grab().save(artifacts + "/this-pc-" + modes[i] + "-small.png"));
       }
     }
     shelf->findChild<QToolButton *>("computerShelfView")->click();
     shelf->findChild<QCheckBox *>("showUnmountedDrives")->click(); QTest::qWait(60);
     if (!artifacts.isEmpty()) QVERIFY(window.grab().save(artifacts + "/this-pc-filtered.png"));
     QVERIFY(!visibleDrive(*shelf, "/dev/backup"));
+    window.close();
+  }
+  void viewButtonSettingSavesCancelsAndKeepsLayout() {
+    const auto path = temporary.path() + "/view-buttons.ini";
+    FilesWindow window(Fusion::computerUrl(), false, path);
+    window.setAttribute(Qt::WA_DeleteOnClose, false); window.show();
+    QTRY_VERIFY_WITH_TIMEOUT(!window.property("fusionTheme").toString().isEmpty(), 10000);
+    auto *shelf = window.browser()->findChild<DriveShelf *>();
+    auto *controls = shelf->findChild<QWidget *>("computerViewButtons");
+    QVERIFY(controls->isVisible());
+    shelf->findChild<QToolButton *>("computerWin10ThemedView")->click();
+    window.openLocation(Fusion::computerUrl(), true);
+    auto configure = [&](bool visible, bool save) {
+      bool found = false;
+      QTimer::singleShot(0, &window, [&] {
+        auto *dialog = window.findChild<QDialog *>("filesConfiguration");
+        if (!dialog) return;
+        if (auto *toggle = dialog->findChild<QCheckBox *>("configureComputerViewButtons")) {
+          found = true; toggle->setChecked(visible);
+        }
+        const auto artifacts = qEnvironmentVariable("FUSION_FILES_ARTIFACTS");
+        if (found && !artifacts.isEmpty()) dialog->grab().save(artifacts + "/view-buttons-settings.png");
+        if (found && save) dialog->accept(); else dialog->reject();
+      });
+      window.findChild<QAction *>("configureFiles")->trigger();
+      return found;
+    };
+    QVERIFY(configure(false, false));
+    QVERIFY(!controls->isHidden());
+    QVERIFY(window.preferences.settings.value("computer/showViewButtons", true).toBool());
+    QVERIFY(configure(false, true));
+    QCoreApplication::processEvents();
+    const auto artifacts = qEnvironmentVariable("FUSION_FILES_ARTIFACTS");
+    if (!artifacts.isEmpty()) QVERIFY(window.grab().save(artifacts + "/view-buttons-hidden.png"));
+    for (auto *other : window.findChildren<DriveShelf *>()) {
+      QVERIFY(other->findChild<QWidget *>("computerViewButtons")->isHidden());
+      QVERIFY(other->findChild<QToolButton *>("computerWin10ThemedView")->isChecked());
+      QVERIFY(!other->findChild<QCheckBox *>("showUnmountedDrives")->isHidden());
+    }
+    FilesWindow reopened(Fusion::computerUrl(), false, path);
+    reopened.setAttribute(Qt::WA_DeleteOnClose, false); reopened.show();
+    QVERIFY(reopened.findChild<QWidget *>("computerViewButtons")->isHidden());
+    QVERIFY(reopened.findChild<QToolButton *>("computerWin10ThemedView")->isChecked());
+    reopened.close();
+    QVERIFY(configure(true, true));
+    for (auto *other : window.findChildren<DriveShelf *>())
+      QVERIFY(!other->findChild<QWidget *>("computerViewButtons")->isHidden());
+    QCOMPARE(window.preferences.settings.value("computer/viewMode").toString(), QString("win10-themed"));
+    window.close();
+  }
+  void themedViewsFollowPinnedPaletteAndKeepClassicColors() {
+    if (qEnvironmentVariable("FUSION_FILES_ISOLATED") != "1")
+      QSKIP("Requires an isolated profile for theme changes.");
+    const auto statePath = Fusion::root() + "/theme/state.json";
+    QFile stateFile(statePath); QVERIFY(stateFile.open(QIODevice::ReadOnly));
+    const auto original = stateFile.readAll(); stateFile.close();
+    auto writeState = [&](const QByteArray &data) {
+      QSaveFile file(statePath);
+      return file.open(QIODevice::WriteOnly) && file.write(data) == data.size() && file.commit();
+    };
+    const auto restore = qScopeGuard([&] { writeState(original); });
+    auto state = QJsonDocument::fromJson(original).object();
+    state["design"] = "killerinstinct"; state["mode"] = "dark";
+    QVERIFY(writeState(QJsonDocument(state).toJson()));
+    const auto path = temporary.path() + "/pinned-palette.ini";
+    { QSettings settings(path, QSettings::IniFormat); settings.setValue("appearance/theme", "kitemple"); }
+    QFile palettesFile(Fusion::root() + "/theme/palettes.json"); QVERIFY(palettesFile.open(QIODevice::ReadOnly));
+    const auto palettes = QJsonDocument::fromJson(palettesFile.readAll()).object()["kitemple"].toObject();
+    FilesWindow window(Fusion::computerUrl(), false, path);
+    window.setAttribute(Qt::WA_DeleteOnClose, false); window.resize(1600, 900); window.show();
+    window.drives->volumes = inventory(); emit window.drives->changed();
+    auto *shelf = window.browser()->findChild<DriveShelf *>();
+    auto *pane = shelf->findChild<WindowsComputerView *>();
+    QMap<QString, QImage> classicImages;
+    auto hasColor = [](const QImage &image, const QColor &color) {
+      int matches = 0;
+      for (int y = 0; y < image.height(); ++y) for (int x = 0; x < image.width(); ++x) {
+        const auto pixel = image.pixelColor(x, y);
+        // Small text has antialiased edges, even at the center of a stroke.
+        if (qAbs(pixel.red() - color.red()) <= 10 && qAbs(pixel.green() - color.green()) <= 10
+            && qAbs(pixel.blue() - color.blue()) <= 10 && ++matches > 8) return true;
+      }
+      return false;
+    };
+    for (const QString &paletteMode : {"dark", "light", "contrast"}) {
+      // Change the desktop while Files remains pinned to a different theme.
+      state["mode"] = paletteMode; state["design"] = paletteMode == "dark" ? "killerinstinct" : "kifireice";
+      QVERIFY(writeState(QJsonDocument(state).toJson()));
+      const auto colors = palettes[paletteMode].toObject();
+      QTRY_COMPARE_WITH_TIMEOUT(qApp->palette().color(QPalette::Window), QColor(colors["Window"].toString()), 10000);
+      QCOMPARE(window.property("fusionTheme").toString(), QString("kitemple"));
+      for (int i = 3; i < modes.size(); ++i) {
+        auto *button = shelf->findChild<QToolButton *>(buttons[i]); button->click(); button->setFocus();
+        shelf->selectDevice("/dev/main1"); QCoreApplication::processEvents();
+        auto *item = visibleDrive(*shelf, "/dev/main1"); QVERIFY(item);
+        const auto tile = item->grab().toImage();
+        const auto frame = shelf->grab().toImage();
+        QPixmap background(shelf->size()); background.fill(Qt::transparent);
+        shelf->render(&background, QPoint(), QRegion(), QWidget::DrawWindowBackground);
+        const auto expected = background.toImage();
+        for (int y : {20, pane->viewport()->height() / 2, pane->viewport()->height() - 12}) {
+          const auto point = pane->viewport()->mapTo(shelf, QPoint(pane->viewport()->width() - 3, y));
+          QCOMPARE(frame.pixelColor(point), i < 7 ? QColor(Qt::white) : expected.pixelColor(point));
+        }
+        if (i < 7) {
+          if (paletteMode == "dark") classicImages[modes[i]] = tile;
+          else QCOMPARE(tile, classicImages[modes[i]]);
+        } else {
+          const auto artifacts = qEnvironmentVariable("FUSION_FILES_ARTIFACTS");
+          if (!artifacts.isEmpty()) QVERIFY(tile.save(artifacts + "/selected-" + modes[i] + "-" + paletteMode + ".png"));
+          const auto caption = i == 7 ? QRect(3, 42, tile.width() - 6, 48) : QRect(68, 8, tile.width() - 78, 22);
+          QVERIFY2(hasColor(tile, QColor(colors["Highlight"].toString())), qPrintable(modes[i] + ' ' + paletteMode));
+          QVERIFY2(hasColor(tile.copy(caption), QColor(colors["HighlightedText"].toString())), qPrintable(modes[i] + ' ' + paletteMode));
+          shelf->selectDevice({});
+          QVERIFY2(hasColor(item->grab().toImage().copy(caption), QColor(colors["Text"].toString())), qPrintable(modes[i] + ' ' + paletteMode));
+          if (!artifacts.isEmpty()) QVERIFY(window.grab().save(artifacts + "/" + modes[i] + "-jade-" + paletteMode + ".png"));
+        }
+      }
+    }
     window.close();
   }
 };

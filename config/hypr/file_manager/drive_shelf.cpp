@@ -4,7 +4,8 @@
 
 namespace {
 constexpr int tileWidth = 380, tileHeight = 120, rowGap = 10, columnGap = 18;
-const QStringList viewModes{"tiles", "list", "original", "winme", "win7", "win10", "win11"};
+const QStringList viewModes{"tiles", "list", "original", "winme", "win7", "win10", "win11",
+                           "winme-themed", "win7-themed", "win10-themed", "win11-themed"};
 // Long device labels should yield space to controls, while retaining the full
 // text for tooltips and accessibility.
 class ShelfLabel : public QLabel {
@@ -217,15 +218,19 @@ DriveShelf::DriveShelf(Fusion::Preferences *settings, Drives *service, QWidget *
   connect(showUnmounted, &QCheckBox::toggled, this, [this](bool show) {
     preferences->settings.setValue("computer/showUnmounted", show); topologyChanged = true; refresh();
   });
-  viewButtons = new QWidget; viewButtons->setObjectName("computerViewButtons");
-  auto *buttons = new QHBoxLayout(viewButtons); buttons->setContentsMargins(0, 0, 0, 0); buttons->setSpacing(4);
+  viewButtons = new QWidget(this); viewButtons->setObjectName("computerViewButtons");
+  viewButtonsLayout = new QGridLayout(viewButtons); viewButtonsLayout->setContentsMargins(0, 0, 0, 0); viewButtonsLayout->setHorizontalSpacing(12); viewButtonsLayout->setVerticalSpacing(6);
+  standardButtons = new QWidget; themedButtons = new QWidget;
+  auto *buttons = new QHBoxLayout(standardButtons); buttons->setContentsMargins(0, 0, 0, 0); buttons->setSpacing(4);
+  auto *themeButtons = new QHBoxLayout(themedButtons); themeButtons->setContentsMargins(0, 0, 0, 0); themeButtons->setSpacing(4);
   viewChoices = new QButtonGroup(this); viewChoices->setExclusive(true);
   auto choice = [&](const QString &id, const QString &symbol, const QString &label, int mode) {
     auto *button = new QToolButton; button->setObjectName(id); button->setCheckable(true);
     if (!symbol.isEmpty()) button->setIcon(Fusion::symbolicIcon(symbol));
-    else button->setText(mode == 3 ? "ME" : mode == 4 ? "7" : mode == 5 ? "10" : "11");
-    button->setIconSize({18, 18}); button->setFixedSize(mode >= 3 ? 38 : 34, 32);
-    button->setAccessibleName(label); button->setToolTip(label); viewChoices->addButton(button, mode); buttons->addWidget(button);
+    else button->setText(QStringList{"ME", "7", "10", "11"}[(mode - 3) % 4] + (mode >= 7 ? "D" : ""));
+    button->setIconSize({18, 18}); button->setFixedSize(mode >= 7 ? 42 : mode >= 3 ? 38 : 34, 32);
+    button->setAccessibleName(label); button->setToolTip(label); viewChoices->addButton(button, mode);
+    (mode >= 7 ? themeButtons : buttons)->addWidget(button);
     return button;
   };
   originalButton = choice("computerOriginalView", "view-shelf", "Original layout", 2);
@@ -236,6 +241,10 @@ DriveShelf::DriveShelf(Fusion::Preferences *settings, Drives *service, QWidget *
   choice("computerWin7View", {}, "Windows 7 · Compact drive tiles", 4);
   choice("computerWin10View", {}, "Windows 10 · Folders and drives", 5);
   choice("computerWin11View", {}, "Windows 11 · Spacious drive tiles", 6);
+  choice("computerWinMEThemedView", {}, "Windows ME · Fusion Files theme colors and background", 7);
+  choice("computerWin7ThemedView", {}, "Windows 7 · Fusion Files theme colors and background", 8);
+  choice("computerWin10ThemedView", {}, "Windows 10 · Fusion Files theme colors and background", 9);
+  choice("computerWin11ThemedView", {}, "Windows 11 · Fusion Files theme colors and background", 10);
   const auto view = preferences->settings.value("computer/viewMode",
       preferences->settings.value("computer/listView", false).toBool() ? "list" : "tiles").toString();
   viewChoices->button(qMax(0, int(viewModes.indexOf(view))))->setChecked(true);
@@ -283,12 +292,23 @@ DriveShelf::DriveShelf(Fusion::Preferences *settings, Drives *service, QWidget *
 QString DriveShelf::viewMode() const { return viewModes.value(viewChoices->checkedId(), "tiles"); }
 bool DriveShelf::windowsMode() const { return viewChoices && viewChoices->checkedId() >= 3; }
 void DriveShelf::layoutHeader() {
-  if (!headerLayout) return;
-  const int controls = viewButtons->sizeHint().width(), filter = showUnmounted->sizeHint().width();
+  if (!headerLayout || !viewButtonsLayout) return;
+  const bool showButtons = preferences->settings.value("computer/showViewButtons", true).toBool();
+  viewButtons->setVisible(showButtons);
   const int available = width() - 28, title = headingBody->sizeHint().width();
+  const int standard = standardButtons->sizeHint().width(), themed = themedButtons->sizeHint().width();
+  const bool wrap = standard + themed + 12 > available;
+  const int controls = showButtons ? (wrap ? qMax(standard, themed) : standard + themed + 12) : 0;
+  const int filter = showUnmounted->sizeHint().width();
   const int next = title + filter + controls + 36 <= available ? 0 : title + filter + 12 <= available ? 1 : 2;
-  if (headerMode == next) return;
-  headerMode = next;
+  const int state = next + (wrap ? 3 : 0) + (showButtons ? 6 : 0);
+  if (headerMode == state) return;
+  headerMode = state;
+  while (auto *item = viewButtonsLayout->takeAt(0)) delete item;
+  viewButtonsLayout->addWidget(standardButtons, 0, 0, Qt::AlignRight);
+  viewButtonsLayout->addWidget(themedButtons, wrap ? 1 : 0, wrap ? 0 : 1, Qt::AlignRight);
+  // Release the previous two-column minimum when the buttons wrap.
+  viewButtonsLayout->setColumnMinimumWidth(1, 0);
   while (auto *item = headerLayout->takeAt(0)) delete item;
   headerLayout->addWidget(headingBody, 0, 0);
   if (next == 0) {
@@ -306,12 +326,14 @@ QString DriveShelf::expansionKey(const QString &drive) const {
 }
 void DriveShelf::refresh() {
   const bool original = originalButton->isChecked(), list = listButton->isChecked();
-  if (property("windowsView").toBool() != windowsMode()) {
-    setProperty("windowsView", windowsMode()); repolish(this);
+  const bool classicWindows = windowsMode() && viewChoices->checkedId() < 7;
+  if (property("classicWindowsView").toBool() != classicWindows) {
+    setProperty("classicWindowsView", classicWindows); repolish(this);
     for (auto *label : headingBody->findChildren<QLabel *>()) repolish(label);
     repolish(showUnmounted);
     repolish(hint); repolish(empty);
   }
+  layoutHeader();
   viewStack->setCurrentWidget(windowsMode() ? static_cast<QWidget *>(windowsView) : scroll);
   const auto focused = QPointer<QWidget>(QApplication::focusWidget());
   const auto selectedBeforeRefresh = selected;

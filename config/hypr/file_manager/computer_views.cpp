@@ -3,6 +3,10 @@
 
 namespace {
 QString bytes(quint64 value) { return QLocale().formattedDataSize(value); }
+QColor themeAccent() {
+  const auto accent = qApp->property("fusionAccent").value<QColor>();
+  return accent.isValid() ? accent : qApp->palette().color(QPalette::Highlight);
+}
 QFont explorerFont(const QString &mode, int size = 9) {
   QFont result(mode == "winme" ? "Tahoma" : "Segoe UI", size);
   result.setStyleHint(QFont::SansSerif);
@@ -84,6 +88,7 @@ void artwork(QPainter &painter, const QRectF &rect, const QString &kind,
 
 class ExplorerHeading : public QAbstractButton {
 public:
+  bool themed = false;
   explicit ExplorerHeading(QWidget *parent) : QAbstractButton(parent) {
     setCheckable(true); setChecked(true); setFocusPolicy(Qt::StrongFocus); setFixedHeight(29);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
@@ -91,12 +96,13 @@ public:
 protected:
   void paintEvent(QPaintEvent *) override {
     QPainter p(this); p.setRenderHint(QPainter::Antialiasing); p.setFont(explorerFont("win7", 10));
-    p.setPen(QPen(QColor("#777777"), 1.2)); p.setBrush(Qt::NoBrush);
+    const auto colors = qApp->palette();
+    p.setPen(QPen(themed ? colors.color(QPalette::PlaceholderText) : QColor("#777777"), 1.2)); p.setBrush(Qt::NoBrush);
     QPainterPath arrow; arrow.moveTo(4, isChecked() ? 11 : 9); arrow.lineTo(isChecked() ? 8 : 8, 15); arrow.lineTo(isChecked() ? 12 : 4, isChecked() ? 11 : 21); p.drawPath(arrow);
-    p.setPen(QColor("#1b4b86")); p.drawText(QRect(19, 0, width() - 22, height()), Qt::AlignVCenter, text());
+    p.setPen(themed ? colors.color(QPalette::Text) : QColor("#1b4b86")); p.drawText(QRect(19, 0, width() - 22, height()), Qt::AlignVCenter, text());
     const int left = 28 + p.fontMetrics().horizontalAdvance(text());
-    p.setPen(QColor("#dedede")); if (left < width()) p.drawLine(left, 15, width(), 15);
-    if (hasFocus()) { p.setPen(QPen(QColor("#999999"), 1, Qt::DotLine)); p.drawRect(rect().adjusted(1, 1, -2, -2)); }
+    p.setPen(themed ? colors.color(QPalette::Midlight) : QColor("#dedede")); if (left < width()) p.drawLine(left, 15, width(), 15);
+    if (hasFocus()) { p.setPen(QPen(themed ? themeAccent() : QColor("#999999"), 1, Qt::DotLine)); p.drawRect(rect().adjusted(1, 1, -2, -2)); }
   }
 };
 }
@@ -106,6 +112,7 @@ public:
   Volume volume;
   QUrl location;
   QString key, title, kind, mode;
+  bool themed = false;
   int category = 0;
   std::function<void()> chosen, opened;
   std::function<void(int)> moved;
@@ -133,9 +140,16 @@ protected:
   void paintEvent(QPaintEvent *) override {
     QPainter p(this); p.setRenderHint(QPainter::Antialiasing); p.setFont(explorerFont(mode));
     const bool classic = mode == "winme";
+    const auto colors = qApp->palette();
+    const auto textColor = colors.color(isChecked() ? QPalette::HighlightedText : QPalette::Text);
+    const auto detailColor = colors.color(isChecked() ? QPalette::HighlightedText : QPalette::PlaceholderText);
     if (!classic && (isChecked() || underMouse())) {
       QLinearGradient shade(0, 0, 0, height()); shade.setColorAt(0, QColor(isChecked() ? "#e5f2ff" : "#f5faff")); shade.setColorAt(1, QColor(isChecked() ? "#cfe4fa" : "#e9f3fc"));
-      p.setPen(QColor(isChecked() ? "#7da6cf" : "#b9d5ef")); p.setBrush(shade);
+      if (themed) {
+        const auto fill = colors.color(isChecked() ? QPalette::Highlight : QPalette::AlternateBase);
+        shade.setColorAt(0, fill); shade.setColorAt(1, fill);
+      }
+      p.setPen(themed ? themeAccent() : QColor(isChecked() ? "#7da6cf" : "#b9d5ef")); p.setBrush(shade);
       p.drawRoundedRect(QRectF(rect()).adjusted(.5, .5, -.5, -.5), mode == "win11" ? 5 : 2, mode == "win11" ? 5 : 2);
     }
     const auto icon = classic ? QRectF((width() - 34) / 2., 4, 34, 34) : QRectF(8, (height() - 52) / 2., 52, 52);
@@ -150,36 +164,38 @@ protected:
         line.setLineWidth(textRect.width()); line.setPosition(QPointF(0, height)); height += line.height();
       }
       text.endLayout(); textRect.setHeight(qCeil(height));
-      if (isChecked()) p.fillRect(textRect, QColor("#0a246a"));
-      p.setPen(isChecked() ? Qt::white : Qt::black);
+      if (isChecked()) p.fillRect(textRect, themed ? colors.color(QPalette::Highlight) : QColor("#0a246a"));
+      p.setPen(themed ? textColor : QColor(isChecked() ? Qt::white : Qt::black));
       text.draw(&p, textRect.topLeft());
-      if (hasFocus()) { p.setPen(QPen(isChecked() ? Qt::white : Qt::black, 1, Qt::DotLine)); p.setBrush(Qt::NoBrush); p.drawRect(textRect.adjusted(0, 0, -1, -1)); }
+      if (hasFocus()) { p.setPen(QPen(themed ? textColor : QColor(isChecked() ? Qt::white : Qt::black), 1, Qt::DotLine)); p.setBrush(Qt::NoBrush); p.drawRect(textRect.adjusted(0, 0, -1, -1)); }
       return;
     }
     const int x = 68, available = qMax(1, width() - x - 10);
-    p.setPen(mode == "win11" && kind == "drive" ? QColor("#0067c0") : QColor("#111111"));
+    p.setPen(themed ? textColor : mode == "win11" && kind == "drive" ? QColor("#0067c0") : QColor("#111111"));
     p.drawText(QRect(x, kind == "drive" ? 8 : (height() - 22) / 2, available, 22), Qt::AlignVCenter,
                p.fontMetrics().elidedText(title, Qt::ElideRight, available));
     if (kind != "drive") return;
     const bool known = volume.mounted() && volume.spaceKnown && volume.total && !volume.prefix();
     if (known) {
       const QRectF bar(x, mode == "win11" ? 33 : 31, available, 13);
-      p.setPen(QColor("#b3b7bb")); p.setBrush(QColor("#e7e7e7")); p.drawRect(bar);
+      p.setPen(themed ? colors.color(QPalette::Midlight) : QColor("#b3b7bb"));
+      p.setBrush(themed ? colors.color(QPalette::Base) : QColor("#e7e7e7")); p.drawRect(bar);
       const qreal used = qBound(0., 1. - double(volume.available) / volume.total, 1.);
       QLinearGradient fill(bar.topLeft(), bar.bottomLeft());
       fill.setColorAt(0, QColor(used > .9 ? "#ed6964" : mode == "win7" ? "#8ed5f1" : "#58bce8"));
       fill.setColorAt(1, QColor(used > .9 ? "#cc241c" : "#1596c8"));
+      if (themed && used <= .9) { fill.setColorAt(0, themeAccent()); fill.setColorAt(1, themeAccent().darker(115)); }
       p.fillRect(QRectF(bar.x() + 1, bar.y() + 1, qMax(0., (bar.width() - 2) * used), bar.height() - 2), fill);
     }
-    p.setPen(QColor("#5c6369"));
+    p.setPen(themed ? detailColor : QColor("#5c6369"));
     p.drawText(QRect(x, known ? 49 : 30, available, 20), Qt::AlignVCenter,
                p.fontMetrics().elidedText(detail(), Qt::ElideRight, available));
     if (!known && !volume.prefix() && !(volume.optical() && !volume.size)) {
-      p.setPen(QColor("#777777"));
+      p.setPen(themed ? detailColor : QColor("#777777"));
       p.drawText(QRect(x, 50, available, 19), Qt::AlignVCenter,
                  volume.locked() ? "Encrypted" : volume.filesystem == "swap" ? "Swap" : volume.mounted() ? "Mounted" : "Not mounted");
     }
-    if (hasFocus()) { p.setPen(QPen(QColor("#7c9bba"), 1, Qt::DotLine)); p.setBrush(Qt::NoBrush); p.drawRect(rect().adjusted(2, 2, -3, -3)); }
+    if (hasFocus()) { p.setPen(QPen(themed ? themeAccent() : QColor("#7c9bba"), 1, Qt::DotLine)); p.setBrush(Qt::NoBrush); p.drawRect(rect().adjusted(2, 2, -3, -3)); }
   }
   void mousePressEvent(QMouseEvent *event) override {
     if (event->button() == Qt::LeftButton || event->button() == Qt::RightButton) { setFocus(Qt::MouseFocusReason); if (chosen) chosen(); event->accept(); }
@@ -206,15 +222,7 @@ WindowsComputerView::WindowsComputerView(Fusion::Preferences *settings, QWidget 
     : QScrollArea(parent), preferences(settings) {
   setObjectName("windowsComputerView"); setFrameShape(QFrame::NoFrame); setWidgetResizable(true);
   setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff); viewport()->installEventFilter(this);
-  setStyleSheet("QScrollArea#windowsComputerView, QWidget#explorerBody, QWidget#explorerContent, QWidget#explorerSection, QWidget#explorerItems {background:white; color:#111; border:none;}"
-                "QWidget#explorerInformation {background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #eef6fa,stop:.3 #fff,stop:1 #fff); color:#111;}"
-                "QWidget#explorerInformation QLabel {background:transparent; color:#111; font-family:Tahoma; font-size:12px; border:none;}"
-                "QWidget#explorerInformation QLabel#explorerInfoName {font-weight:bold; font-size:19px; padding-bottom:7px; border-bottom:2px solid #739bd1;}"
-                "QWidget#explorerInformation QLabel#explorerInfoDetails {padding:6px 0;}"
-                "QLabel#explorerEmpty {background:transparent; color:#626c76; padding:12px;}"
-                "QWidget#explorerInformation QToolButton {background:transparent; color:#0000c0; border:none; text-align:left; text-decoration:underline; padding:2px 0;}"
-                "QWidget#explorerInformation QToolButton:focus {border:1px dotted #555;}"
-                "QAbstractButton#windowsComputerItem {background:transparent; border:none; padding:0;}");
+  viewport()->setObjectName("windowsComputerViewport");
   body = new QWidget; body->setObjectName("explorerBody");
   auto *layout = new QHBoxLayout(body); layout->setContentsMargins(10, 8, 10, 16); layout->setSpacing(18);
   information = new QWidget; information->setObjectName("explorerInformation"); information->setFixedWidth(180);
@@ -243,7 +251,7 @@ WindowsComputerView::WindowsComputerView(Fusion::Preferences *settings, QWidget 
     group->addWidget(section.items); groups->addWidget(section.body);
     connect(section.heading, &QAbstractButton::toggled, this, [this, category](bool expanded) {
       sections[category].items->setVisible(expanded);
-      preferences->settings.setValue("computer/groups/" + mode + '/' + QString::number(category), expanded);
+      preferences->settings.setValue("computer/groups/" + settingsMode + '/' + QString::number(category), expanded);
       if (!expanded && sections[category].keys.contains(selected)) choose({}, true);
     });
     sections.insert(category, section);
@@ -253,11 +261,40 @@ WindowsComputerView::WindowsComputerView(Fusion::Preferences *settings, QWidget 
   groups->addStretch(); layout->addWidget(content, 1); setWidget(body);
   content->setContextMenuPolicy(Qt::CustomContextMenu);
   connect(content, &QWidget::customContextMenuRequested, this, [this](const QPoint &point) { emit backgroundContextRequested(content->mapToGlobal(point)); });
+  applyAppearance();
+}
+
+void WindowsComputerView::applyAppearance() {
+  // The themed variants reveal the same stationary material as the rest of
+  // This PC. Palette roles also follow a theme pinned in Files' own settings.
+  const QString style = themed
+      ? "QScrollArea#windowsComputerView, QWidget#windowsComputerViewport, QWidget#explorerBody, QWidget#explorerContent, QWidget#explorerSection, QWidget#explorerItems, QWidget#explorerInformation {background:transparent; color:palette(text); border:none;}"
+        "QWidget#explorerInformation QLabel {background:transparent; color:palette(text); font-family:Tahoma; font-size:12px; border:none;}"
+        "QWidget#explorerInformation QLabel#explorerInfoName {font-weight:bold; font-size:19px; padding-bottom:7px; border-bottom:2px solid palette(midlight);}"
+        "QWidget#explorerInformation QLabel#explorerInfoDetails {padding:6px 0;}"
+        "QLabel#explorerEmpty {background:transparent; color:palette(text); padding:12px;}"
+        "QWidget#explorerInformation QToolButton {background:transparent; color:palette(text); border:none; text-align:left; text-decoration:underline; padding:2px 0;}"
+        "QWidget#explorerInformation QToolButton:hover, QWidget#explorerInformation QToolButton:focus {background:palette(highlight); color:palette(highlighted-text);}"
+        "QWidget#explorerInformation QToolButton:focus {border:1px dotted palette(text);}"
+        "QAbstractButton#windowsComputerItem {background:transparent; border:none; padding:0;}"
+      : "QScrollArea#windowsComputerView, QWidget#explorerBody, QWidget#explorerContent, QWidget#explorerSection, QWidget#explorerItems {background:white; color:#111; border:none;}"
+        "QWidget#explorerInformation {background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #eef6fa,stop:.3 #fff,stop:1 #fff); color:#111;}"
+        "QWidget#explorerInformation QLabel {background:transparent; color:#111; font-family:Tahoma; font-size:12px; border:none;}"
+        "QWidget#explorerInformation QLabel#explorerInfoName {font-weight:bold; font-size:19px; padding-bottom:7px; border-bottom:2px solid #739bd1;}"
+        "QWidget#explorerInformation QLabel#explorerInfoDetails {padding:6px 0;}"
+        "QLabel#explorerEmpty {background:transparent; color:#626c76; padding:12px;}"
+        "QWidget#explorerInformation QToolButton {background:transparent; color:#0000c0; border:none; text-align:left; text-decoration:underline; padding:2px 0;}"
+        "QWidget#explorerInformation QToolButton:focus {border:1px dotted #555;}"
+        "QAbstractButton#windowsComputerItem {background:transparent; border:none; padding:0;}";
+  if (styleSheet() != style) setStyleSheet(style);
+  body->setAutoFillBackground(!themed); viewport()->setAutoFillBackground(!themed);
 }
 
 void WindowsComputerView::refresh(const QString &nextMode, const QList<Volume> &volumes,
                                   const QMap<QString, int> &categories) {
-  const bool modeChanged = mode != nextMode; mode = nextMode;
+  const bool modeChanged = settingsMode != nextMode; settingsMode = nextMode;
+  themed = nextMode.endsWith("-themed"); mode = themed ? nextMode.chopped(7) : nextMode;
+  applyAppearance();
   const auto focused = QPointer<QWidget>(QApplication::focusWidget());
   QSet<QString> dataDisks;
   for (const auto &volume : volumes) if (!volume.compactCard()) dataDisks.insert(volume.driveKey());
@@ -276,7 +313,7 @@ void WindowsComputerView::refresh(const QString &nextMode, const QList<Volume> &
         if (!item->volume.device.isEmpty()) emit volumeContextRequested(item->volume, item->mapToGlobal(point.x() < 0 ? item->rect().center() : point));
       });
     }
-    item->title = title; item->kind = kind; item->mode = mode; item->volume = volume; item->location = url; item->category = category; item->updateItem();
+    item->title = title; item->kind = kind; item->mode = mode; item->themed = themed; item->volume = volume; item->location = url; item->category = category; item->updateItem();
     nextOrder << key; sections[category].keys << key;
   };
   if (mode == "win10") for (const auto &place : Fusion::defaultPlaces())
@@ -299,9 +336,11 @@ void WindowsComputerView::refresh(const QString &nextMode, const QList<Volume> &
       {2, "Devices with Removable Storage"}, {3, "Wine, Proton & Steam prefixes"}, {4, "Network locations"}, {5, "Unmounted devices"}};
   for (auto it = sections.begin(); it != sections.end(); ++it) {
     auto &section = it.value();
+    static_cast<ExplorerHeading *>(section.heading)->themed = themed;
+    section.heading->update();
     section.heading->setText(titles[it.key()] + QString(" (%1)").arg(section.keys.size()));
     section.heading->setVisible(!(mode == "winme" && it.key() == 1));
-    const bool expanded = mode == "winme" && it.key() == 1 ? true : preferences->settings.value("computer/groups/" + mode + '/' + QString::number(it.key()), true).toBool();
+    const bool expanded = mode == "winme" && it.key() == 1 ? true : preferences->settings.value("computer/groups/" + settingsMode + '/' + QString::number(it.key()), true).toBool();
     { QSignalBlocker block(section.heading); section.heading->setChecked(expanded); }
     section.items->setVisible(expanded); section.body->setVisible(!section.keys.isEmpty());
   }
