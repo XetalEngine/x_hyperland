@@ -13,7 +13,7 @@ class CursorsTests(unittest.TestCase):
         from cursors import build
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);cache=root/'.build';cache.mkdir()
-            fingerprint=build.hashlib.sha256((build.ROOT/'art.py').read_bytes()+(build.ROOT/'build.py').read_bytes()).hexdigest()
+            fingerprint=build.hashlib.sha256((build.ROOT/'art.py').read_bytes()+(build.ROOT/'ki.py').read_bytes()+(build.ROOT/'build.py').read_bytes()).hexdigest()
             (cache/'version').write_text(fingerprint)
             with patch.object(build,'register_themes') as register:
                 self.assertEqual(build.build(root),cache/'data')

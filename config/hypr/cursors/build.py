@@ -35,7 +35,7 @@ def register_themes(data, directory=None):
 
 def build(root=ROOT, register=False):
     cache=root/'.build';cache.mkdir(parents=True,exist_ok=True)
-    fingerprint=hashlib.sha256((ROOT/'art.py').read_bytes()+(ROOT/'build.py').read_bytes()).hexdigest()
+    fingerprint=hashlib.sha256((ROOT/'art.py').read_bytes()+(ROOT/'ki.py').read_bytes()+(ROOT/'build.py').read_bytes()).hexdigest()
     with (cache/'build.lock').open('w') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX)
         if (cache/'version').exists() and (cache/'version').read_text()==fingerprint:

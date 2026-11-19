@@ -369,6 +369,21 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     elif design=='facadasexu':
         from facadasexu import compositor
         content+=compositor(colors)
+    elif design=='killerinstinct':
+        from killerinstinct import compositor
+        content+=compositor(colors)
+    elif design=='kitemple':
+        from kitemple import compositor
+        content+=compositor(colors)
+    elif design=='kiprimal':
+        from kiprimal import compositor
+        content+=compositor(colors)
+    elif design=='kifireice':
+        from kifireice import compositor
+        content+=compositor(colors)
+    elif design=='starcraft':
+        from starcraft import compositor
+        content+=compositor(colors)
     elif design=='mortalkombat2':
         from mortalkombat2 import compositor
         content+=compositor(colors)

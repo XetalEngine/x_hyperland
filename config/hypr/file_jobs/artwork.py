@@ -292,6 +292,55 @@ def polaris(p, box, accent, surface, phase, count, trails, glow, archive, extrac
     p.restore()
 
 
+def starcraft(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Psionic cargo jumps between two faceted pylons, fading through every wrap."""
+    p.save();p.setClipRect(box,Qt.ClipOperation.IntersectClip)
+    mid=box.center();left=box.left()+28;right=box.right()-28
+    metal=QColor('#b6ccdf' if surface.lightnessF()<.5 else '#486b85')
+    gold=QColor('#dfba72' if surface.lightnessF()<.5 else '#77521d')
+    pulse=.75+.25*math.sin(phase*math.tau)
+    for x,zipped in ((left,extracting),(right,archive)):
+        p.save();p.translate(x,mid.y())
+        crystal=QPainterPath(QPointF(0,-25))
+        for px,py in ((10,-5),(7,14),(0,24),(-7,14),(-10,-5)):crystal.lineTo(px,py)
+        crystal.closeSubpath()
+        p.setPen(QPen(accent,1.4));p.setBrush(alpha(accent,50+40*pulse));p.drawPath(crystal)
+        p.setPen(QPen(metal,1));p.drawLine(QPointF(0,-23),QPointF(0,22));p.drawLine(QPointF(-9,-5),QPointF(9,-5))
+        p.setPen(QPen(gold,2));p.drawLine(QPointF(-13,21),QPointF(-10,5));p.drawLine(QPointF(13,21),QPointF(10,5))
+        p.drawLine(QPointF(-16,26),QPointF(16,26))
+        if zipped:
+            p.setPen(QPen(gold,1.4))
+            for dy in range(-12,13,4):p.drawLine(QPointF(-2,dy),QPointF(2,dy))
+        p.restore()
+    if result:
+        if result=='done':success(p,mid,accent)
+        p.restore();return
+    for index in range(count):
+        t=(phase+index/count)%1
+        fade=max(0.,min(1.,t/.17,(1-t)/.17));fade=fade*fade*(3-2*fade)
+        u=1-t if extracting else t;direction=-1 if extracting else 1
+        x=left+20+(right-left-40)*u;y=mid.y()+math.sin(t*math.tau)*5
+        p.save();p.setOpacity(p.opacity()*fade)
+        if trails:
+            for dy in (-4,4):
+                beam=QLinearGradient(x-direction*40,y,x,y)
+                beam.setColorAt(0,alpha(accent,0));beam.setColorAt(1,alpha(accent,150))
+                p.setPen(QPen(beam,1.4));p.drawLine(QPointF(x-direction*40,y+dy),QPointF(x-direction*8,y+dy))
+        if glow:
+            halo=QRadialGradient(QPointF(x,y),22);halo.setColorAt(0,alpha(accent,glow));halo.setColorAt(1,alpha(accent,0))
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(halo);p.drawEllipse(QPointF(x,y),22,18)
+        p.translate(x,y);p.rotate(math.sin(t*math.tau)*4)
+        cargo=QPainterPath(QPointF(-8,-9))
+        for px,py in ((5,-9),(9,-5),(9,9),(-5,9),(-9,5),(-9,-5)):cargo.lineTo(px,py)
+        cargo.closeSubpath();p.setBrush(surface);p.setPen(QPen(metal,1.3));p.drawPath(cargo)
+        p.setPen(QPen(accent,2));p.drawLine(QPointF(-4,-4),QPointF(4,-4));p.drawLine(QPointF(-4,4),QPointF(4,4))
+        if archive or extracting:
+            p.setPen(QPen(gold,1.2))
+            for dy in (-6,-2,2,6):p.drawLine(QPointF(-1,dy),QPointF(1,dy))
+        p.restore()
+    p.restore()
+
+
 def mortalkombat2(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     """Documents cross jade portals; packets and soul trails fade at each wrap."""
     p.save();p.setClipRect(box,Qt.ClipOperation.IntersectClip)
@@ -1091,3 +1140,89 @@ def midnighttransit(p, box, accent, surface, phase, count, trails, glow, archive
         if trails:
             p.setPen(QPen(alpha(accent,65),1));p.drawLine(QPointF(x-20,y+1),QPointF(x-15,y+1))
     p.restore()
+
+
+def _ki_transfer(p,box,accent,surface,phase,count,trails,glow,archive,extracting,result,*,style):
+    """Four 1994-inspired scenes; all moving layers vanish at their own wrap."""
+    p.save();p.setClipRect(box,Qt.ClipOperation.IntersectClip)
+    left,right=box.left()+28,box.right()-28;cy=box.center().y()
+    pale=QColor('#eee3c8' if surface.lightnessF()<.5 else '#5a5339')
+    cool=QColor('#75dcec' if surface.lightnessF()<.5 else '#22667c')
+    pulse=.75+.25*math.sin(math.tau*phase)
+    for x,zipped in ((left,extracting),(right,archive)):
+        p.save();p.translate(x,cy);p.setPen(QPen(pale,1.3));p.setBrush(surface)
+        if style=='killerinstinct':
+            cabinet=QPainterPath(QPointF(-13,-27))
+            for px,py in ((12,-27),(15,-20),(11,-16),(11,4),(17,9),(17,27),(-16,27),(-16,9),(-11,4),(-11,-17),(-15,-21)):cabinet.lineTo(px,py)
+            cabinet.closeSubpath();p.drawPath(cabinet);p.setBrush(alpha(accent,60+60*pulse));p.drawRect(QRectF(-9,-16,18,18))
+            p.setPen(QPen(accent,2));p.drawLine(QPointF(-8,-23),QPointF(8,-23))
+            for i in range(6):
+                p.setPen(Qt.PenStyle.NoPen);p.setBrush(alpha(accent,90+130*(.5+.5*math.sin(math.tau*phase-i*math.tau/6))))
+                p.drawEllipse(QPointF(-6+(i%3)*6,10+(i//3)*5),1.5,1.5)
+        elif style=='kitemple':
+            p.drawRect(QRectF(-10,-19,20,40));p.drawRect(QRectF(-15,22,30,4))
+            roof=QPainterPath(QPointF(-18,-17));roof.lineTo(0,-28);roof.lineTo(18,-17);roof.closeSubpath();p.drawPath(roof)
+            p.setBrush(alpha(accent,40+40*pulse));p.drawEllipse(QPointF(0,0),7,15)
+            p.setPen(QPen(pale,1));p.drawLine(QPointF(-13,25),QPointF(13,25))
+        elif style=='kiprimal':
+            stone=QPainterPath(QPointF(-12,-26))
+            for px,py in ((12,-22),(15,20),(9,27),(-12,24),(-16,-18)):stone.lineTo(px,py)
+            stone.closeSubpath();p.drawPath(stone)
+            p.setPen(QPen(alpha(accent,130+70*pulse),2))
+            for j in range(3):p.drawLine(QPointF(-8+j*6,13),QPointF(-3+j*6,-12))
+        else:
+            color=accent if x==left else cool
+            p.setPen(QPen(color,1.4));p.setBrush(alpha(color,35+35*pulse))
+            form=QPainterPath(QPointF(0,-26))
+            points=((-5,-12),(-9,-18),(-13,5),(-9,21),(0,26),(10,18),(13,4),(5,-10)) if x==left else ((13,-6),(9,18),(0,26),(-9,18),(-13,-6))
+            for px,py in points:form.lineTo(px,py)
+            form.closeSubpath();p.drawPath(form)
+            p.setPen(QPen(pale,.8));p.drawLine(QPointF(0,-20),QPointF(0,21))
+        if zipped:
+            p.setPen(QPen(pale,1.2))
+            for dy in range(-10,12,4):p.drawLine(QPointF(-2,dy),QPointF(2,dy))
+        p.restore()
+    if result:
+        if result=='done':success(p,box.center(),accent)
+        p.restore();return
+    for index in range(count):
+        t=(phase+index/count)%1;fade=max(0.,min(1.,t/.19,(1-t)/.19));fade=fade*fade*(3-2*fade)
+        u=1-t if extracting else t;direction=-1 if extracting else 1
+        x=left+23+(right-left-46)*u;y=cy
+        if style=='kitemple':y-=math.sin(t*math.pi)*12
+        elif style=='kiprimal':y+=math.sin(t*math.tau)*8
+        elif style=='kifireice':y+=math.sin(t*math.tau)*3
+        color=accent
+        if style=='kifireice':color=QColor.fromRgbF(*(accent.getRgbF()[i]*(1-u)+cool.getRgbF()[i]*u for i in range(3)))
+        p.save();p.setOpacity(p.opacity()*fade)
+        if trails:
+            beam=QLinearGradient(x-direction*34,y,x,y);beam.setColorAt(0,alpha(color,0));beam.setColorAt(1,alpha(color,140));p.setPen(QPen(beam,1.5))
+            for dy in (-4,4):p.drawLine(QPointF(x-direction*33,y+dy),QPointF(x-direction*9,y+dy))
+        if glow:
+            halo=QRadialGradient(QPointF(x,y),20);halo.setColorAt(0,alpha(color,glow));halo.setColorAt(1,alpha(color,0));p.setBrush(halo);p.setPen(Qt.PenStyle.NoPen);p.drawEllipse(QPointF(x,y),20,20)
+        p.translate(x,y);p.setPen(QPen(pale,1.2));p.setBrush(surface)
+        if style=='killerinstinct':
+            p.drawRoundedRect(QRectF(-9,-10,18,20),2,2);p.setPen(QPen(color,2));p.drawLine(QPointF(-5,-5),QPointF(5,-5));p.drawLine(QPointF(-5,4),QPointF(5,4))
+        elif style=='kitemple':
+            p.drawRect(QRectF(-8,-8,16,16));p.setBrush(pale);p.drawRoundedRect(QRectF(-10,-11,20,4),2,2);p.drawRoundedRect(QRectF(-10,7,20,4),2,2);p.setPen(QPen(color,2));p.drawLine(QPointF(-3,-3),QPointF(3,3))
+        elif style=='kiprimal':
+            rune=QPainterPath(QPointF(-8,-9))
+            for px,py in ((7,-11),(10,6),(4,10),(-9,8)):rune.lineTo(px,py)
+            rune.closeSubpath();p.drawPath(rune);p.setPen(QPen(color,1.3))
+            for j in (-3,1,5):p.drawLine(QPointF(j-2,5),QPointF(j+1,-5))
+        else:
+            shard=QPainterPath(QPointF(0,-12))
+            for px,py in ((9,-3),(6,9),(0,12),(-7,6),(-9,-3)):shard.lineTo(px,py)
+            shard.closeSubpath();p.setPen(QPen(color,1.4));p.drawPath(shard);p.drawLine(QPointF(0,-9),QPointF(0,9))
+        if archive or extracting:
+            p.setPen(QPen(pale,1))
+            for dy in (-5,-1,3):p.drawLine(QPointF(-1,dy),QPointF(1,dy))
+        p.restore()
+    p.restore()
+
+
+from functools import partial as _partial
+killerinstinct=_partial(_ki_transfer,style='killerinstinct')
+kitemple=_partial(_ki_transfer,style='kitemple')
+kiprimal=_partial(_ki_transfer,style='kiprimal')
+kifireice=_partial(_ki_transfer,style='kifireice')

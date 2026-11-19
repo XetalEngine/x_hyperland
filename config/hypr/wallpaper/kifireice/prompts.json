@@ -1,0 +1,65 @@
+{
+  "theme": "kifireice",
+  "display_name": "Killer Instinct · Fire & Ice",
+  "generation_mode": "built-in image_gen",
+  "created_utc": "2026-11-19T04:56:07.862886+00:00",
+  "collection": "Killer Instinct 1994 — sixteen shared wallpapers",
+  "images": [
+    {
+      "file": "fire-and-ice.png",
+      "title": "Fire And Ice",
+      "characters": [
+        "Cinder",
+        "Glacius"
+      ],
+      "width": 1672,
+      "height": 941,
+      "sha256": "8f4f8f32fa222928c3c12648e6d4c72df18b5f8474c0229da39deb2b06af2b68",
+      "prompt": "Use case: stylized-concept. Asset: finished 16:9 desktop wallpaper, requested 3840x2160, richly detailed premium cinematic illustration inspired by the ORIGINAL 1994 Killer Instinct arcade game's pre-rendered promotional art. This is a deeply nostalgic personal collection. Use original 1994 character identities and classic costumes, NOT the 2013 reboot, NOT Killer Instinct 2 newcomers. Render one coherent edge-to-edge scene. No application windows, no panels, no desktop icons, no HUD, no borders, no captions, no watermarks. Keep the outer left edge and top corners calm enough for real desktop icons. Full bodies when characters are present, elegant readable silhouettes, finely crafted textures, deep atmosphere, precise anatomy. Transform the reference into a breathtaking real wallpaper without UI. Faithful ORIGINAL 1994 Cinder vs ORIGINAL 1994 Glacius. Cinder is a completely molten fiery orange humanoid, no clothing, jagged yellow-orange flame silhouette and black lava cracks, NOT armored reboot Cinder. Glacius must be the ORIGINAL smooth glossy icy-blue liquid alien humanoid with elongated bald head and simple dark alien eyes, completely blue body sculpted like living ice; NO black hood, NO silver helmet, NO armor, NO clothes, NO modern 2013 giant spiked design. Opposed fighting stances on a wet steel industrial platform: molten steel foundry and roaring furnaces left, blue frozen pipes and crystalline ice right, central steam and luminous moon. Orange ember vs cyan ice lighting, dark charcoal metal and polished silver rails. Dynamic readable silhouettes, classic game spirit. Top center restrained original silver 'KILLER INSTINCT' on fiery KI monogram, small 'HYPER FUSION' below, no II.",
+      "references": [
+        {
+          "role": "User-provided concept or cabinet reference",
+          "attachment": "codex-clipboard-sKftRN.png",
+          "sha256": "e4e8f28df9fcd811f331ba07a6c51c5ddb167e6b5136bed10f9d487a45f83b58"
+        }
+      ]
+    },
+    {
+      "file": "glacius-arrival.png",
+      "title": "Glacius Arrival",
+      "characters": [
+        "Glacius"
+      ],
+      "width": 1672,
+      "height": 941,
+      "sha256": "521d95f40039fc84474aa0a5a07794e814cb543612b2594f63993571a542bdf2",
+      "prompt": "Use case: stylized-concept. Asset: finished 16:9 desktop wallpaper, requested 3840x2160, richly detailed premium cinematic illustration inspired by the ORIGINAL 1994 Killer Instinct arcade game's pre-rendered promotional art. This is a deeply nostalgic personal collection. Use original 1994 character identities and classic costumes, NOT the 2013 reboot, NOT Killer Instinct 2 newcomers. Render one coherent edge-to-edge scene. No application windows, no panels, no desktop icons, no HUD, no borders, no captions, no watermarks. Keep the outer left edge and top corners calm enough for real desktop icons. Full bodies when characters are present, elegant readable silhouettes, finely crafted textures, deep atmosphere, precise anatomy. Original 1994 Glacius at his crashed alien spacecraft in an arctic crater under cyan aurora. Glacius is a sleek muscular translucent icy-blue humanoid, elongated smooth bald alien head, simple dark eyes, no clothing, no hood, no armor, no mechanical pieces, no reboot spiky redesign. Full figure rising out of a reflective pool of blue liquid ice, to right of center. Vast fractured glaciers, ribs of mysterious polished metal ship, quiet moonlight and subtle orange emergency glow reflecting from the wreck, hovering ice crystals and delicate frost. Ice blue, black graphite, silver and occasional amber. Majestic cinematic wide panorama, carefully crafted surfaces, no text.",
+      "references": []
+    },
+    {
+      "file": "cinders-furnace.png",
+      "title": "Cinders Furnace",
+      "characters": [
+        "Cinder"
+      ],
+      "width": 1672,
+      "height": 941,
+      "sha256": "8e5c8257adea566b81688ffbd9dd52ec8eef47ad828928db4effd35169c5019b",
+      "prompt": "Use case: stylized-concept. Asset: finished 16:9 desktop wallpaper, requested 3840x2160, richly detailed premium cinematic illustration inspired by the ORIGINAL 1994 Killer Instinct arcade game's pre-rendered promotional art. This is a deeply nostalgic personal collection. Use original 1994 character identities and classic costumes, NOT the 2013 reboot, NOT Killer Instinct 2 newcomers. Render one coherent edge-to-edge scene. No application windows, no panels, no desktop icons, no HUD, no borders, no captions, no watermarks. Keep the outer left edge and top corners calm enough for real desktop icons. Full bodies when characters are present, elegant readable silhouettes, finely crafted textures, deep atmosphere, precise anatomy. Original 1994 Cinder silhouetted inside an immense abandoned steel foundry, an entirely flaming molten orange human-shaped fighter with glowing yellow core and black lava-like fissures, no clothing or armor, athletic classic arcade silhouette. Full body on a grated bridge, left-center, palms radiating heat. Huge cascades of molten iron, dark steel pillars, rivets and chains, cold cyan light coming through high broken windows, tremendous vertical depth inside a widescreen view. Drifting sparks and steam, charred charcoal textures, warm fire balanced by cool metal. No text, no logo, no extra people.",
+      "references": []
+    },
+    {
+      "file": "cold-front-combo.png",
+      "title": "Cold Front Combo",
+      "characters": [
+        "TJ Combo",
+        "Glacius"
+      ],
+      "width": 1672,
+      "height": 941,
+      "sha256": "0f95c00eaa9508e1217f83967a8eb3e58cdf0d55c57c8efef414522734bc3b94",
+      "prompt": "Use case: stylized-concept. Asset: finished 16:9 desktop wallpaper, requested 3840x2160, richly detailed premium cinematic illustration inspired by the ORIGINAL 1994 Killer Instinct arcade game's pre-rendered promotional art. This is a deeply nostalgic personal collection. Use original 1994 character identities and classic costumes, NOT the 2013 reboot, NOT Killer Instinct 2 newcomers. Render one coherent edge-to-edge scene. No application windows, no panels, no desktop icons, no HUD, no borders, no captions, no watermarks. Keep the outer left edge and top corners calm enough for real desktop icons. Full bodies when characters are present, elegant readable silhouettes, finely crafted textures, deep atmosphere, precise anatomy. Original 1994 TJ Combo and original 1994 Glacius face off on a derelict port platform in winter. TJ is a muscular Black boxer with short hair, classic US flag boxing trunks, red-and-white boxing gloves and white boots. Glacius is a smooth glossy ice-blue alien humanoid with elongated bald head and dark alien eyes, NO armor, NO hood, NO reboot spiked appearance. Moonlit ice flows and an orange foundry glow beyond silhouetted cranes, windblown snow, steaming cracked pipes and wet rails. Both full body, classic strong guard poses separated by center space. Black steel, brushed silver, glowing amber and electric ice-blue. Nostalgic 1994 arcade realism elevated into a beautifully detailed cinematic panorama. No writing or logo.",
+      "references": []
+    }
+  ]
+}

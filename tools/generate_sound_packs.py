@@ -22,6 +22,11 @@ from sounds.model import PACKS, EVENTS
 RATE = 48000
 # tonic, voice, unique opening melody (semitones), beat spacing
 SCORES = {
+    'killerinstinct': (52, 'arcade94', [0,7,3,10,7,12,19], .29),
+    'kitemple': (62, 'jadebell', [0,7,14,12,7,3], .40),
+    'kiprimal': (47, 'stormwood', [0,3,10,7,0,12], .36),
+    'kifireice': (57, 'thermal', [0,12,7,15,10,19,12], .31),
+    'starcraft': (55, 'comms', [0, 7, 14, 10, 12, 19, 12], .34),
     'mortalkombat2': (50, 'outworld', [0, 7, 12, 3, 10, 7, 0], .30),
     'facadasexu': (55, 'copper', [0, 7, 3, 10, 7, 14, 12], .39),
     'prisonbreak': (60, 'breakout', [0, 3, 7, 12, 10, 15], .32),
@@ -50,13 +55,33 @@ SCORES = {
     'gildedhollow': (64, 'gold', [0, 7, 9, 12, 14, 19], .35),
 }
 
+# Original synthesized voices: ratio, FM depth, decay, overtone, gain, bass, attack.
+KI_VOICES = {
+    'arcade94': (2.0, 1.45, 4.0, 3.01, .16, .18, .018),
+    'jadebell': (1.413, .35, 2.8, 2.76, .27, .06, .026),
+    'stormwood': (1.0, .2, 5.2, 3.96, .22, .23, .024),
+    'thermal': (2.003, .65, 3.4, 4.01, .24, .12, .030),
+}
+
 
 def voice(midi, duration, kind, seed=0):
     t = np.arange(round(duration * RATE)) / RATE
     f = 440 * 2 ** ((midi - 69) / 12)
     phase = 2 * np.pi * f * t
     attack = .012
-    if kind == 'outworld':
+    if kind in KI_VOICES:
+        ratio,depth,decay,upper,gain,bass,attack = KI_VOICES[kind]
+        out = np.sin(phase+depth*np.sin(phase*ratio)*np.exp(-9*t))*np.exp(-decay*t)
+        out += gain*np.sin(phase*upper)*np.exp(-8*t)
+        out += bass*np.sin(phase*.5)*np.exp(-3*t)*(1-np.exp(-18*t))
+    elif kind == 'comms':
+        # Clean FM comms chirp over a quiet reactor fundamental; original synthesis.
+        out = np.sin(phase+.85*np.sin(phase*2.001)*np.exp(-8*t))*np.exp(-3.3*t)
+        out += .13*np.sin(phase*.5)*np.exp(-2.7*t)*(1-np.exp(-15*t))
+        out += .08*np.sin(phase*3.008)*np.exp(-9*t)
+        out *= .92+.08*np.cos(2*np.pi*12*t)*np.exp(-4*t)
+        attack = .028
+    elif kind == 'outworld':
         # Original arcade gong and a short synth pulse, with no game samples.
         out = np.sin(phase+.8*np.sin(phase*1.41)*np.exp(-9*t))*np.exp(-3.4*t)
         out += .20*np.sin(phase*2.76)*np.exp(-7*t)
@@ -171,7 +196,7 @@ def voice(midi, duration, kind, seed=0):
 
 def score(pack, event):
     tonic, kind, motif, beat = SCORES[pack]
-    minor = pack in ('mortalkombat2', 'facadasexu', 'leviathan', 'infernalencore', 'midnightrun', 'mycelium', 'blackwood', 'breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge')
+    minor = pack in ('killerinstinct','kitemple','kiprimal','kifireice','starcraft', 'mortalkombat2', 'facadasexu', 'leviathan', 'infernalencore', 'midnightrun', 'mycelium', 'blackwood', 'breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge')
     third = 3 if minor else 4
     # time, midi note, length, gain, stereo pan
     if event == 'startup':

@@ -12,7 +12,7 @@ import selection_marker
 def appearance():
     p = runtime.colors()
     design = runtime.widget_design()
-    radius = 4 if design=='mortalkombat2' else 8 if design=='facadasexu' else 10 if design=='ghostbusters' else 6 if design=='leviathan' else 12 if design == 'polaris' else 5 if design in ('infernalencore','prisonbreak') else 7 if design == 'midnightrun' else 1 if design in ('platform95','mystery98') else 2 if design == 'shadowedge' else 16 if design == 'candycloud' else 3 if design == 'obsidianforge' else 2 if design == 'porcelainink' else 14 if design == 'tidalglass' else 3 if design == 'binaryknife' else 8 if design == 'breakpoint' else 10
+    radius = 4 if design in ('killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft','mortalkombat2') else 8 if design=='facadasexu' else 10 if design=='ghostbusters' else 6 if design=='leviathan' else 12 if design == 'polaris' else 5 if design in ('infernalencore','prisonbreak') else 7 if design == 'midnightrun' else 1 if design in ('platform95','mystery98') else 2 if design == 'shadowedge' else 16 if design == 'candycloud' else 3 if design == 'obsidianforge' else 2 if design == 'porcelainink' else 14 if design == 'tidalglass' else 3 if design == 'binaryknife' else 8 if design == 'breakpoint' else 10
     accent_rgb = ','.join(str(int(p['Accent'][i:i+2], 16)) for i in (1, 3, 5))
     style = qt_style(p, design) + runtime.layouts.stylesheet(p, runtime.layout(), runtime.design())
     style += f'''
@@ -149,6 +149,21 @@ def appearance():
         style += files_style(p)
     elif design == 'facadasexu':
         from facadasexu import files_style
+        style += files_style(p)
+    elif design == 'killerinstinct':
+        from killerinstinct import files_style
+        style += files_style(p)
+    elif design == 'kitemple':
+        from kitemple import files_style
+        style += files_style(p)
+    elif design == 'kiprimal':
+        from kiprimal import files_style
+        style += files_style(p)
+    elif design == 'kifireice':
+        from kifireice import files_style
+        style += files_style(p)
+    elif design == 'starcraft':
+        from starcraft import files_style
         style += files_style(p)
     elif design == 'mortalkombat2':
         from mortalkombat2 import files_style

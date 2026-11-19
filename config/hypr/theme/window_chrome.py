@@ -51,6 +51,36 @@ def style_close(button,design=None):
         button.setProperty('xetalChromeHoverInk',colors['HighlightedText'])
         button.setStyleSheet(chrome_style(colors))
         return
+    elif design=='killerinstinct':
+        from killerinstinct import chrome_style
+        colors=runtime.colors(style=design)
+        button.setProperty('xetalChromeHoverInk',colors['HighlightedText'])
+        button.setStyleSheet(chrome_style(colors))
+        return
+    elif design=='kitemple':
+        from kitemple import chrome_style
+        colors=runtime.colors(style=design)
+        button.setProperty('xetalChromeHoverInk',colors['HighlightedText'])
+        button.setStyleSheet(chrome_style(colors))
+        return
+    elif design=='kiprimal':
+        from kiprimal import chrome_style
+        colors=runtime.colors(style=design)
+        button.setProperty('xetalChromeHoverInk',colors['HighlightedText'])
+        button.setStyleSheet(chrome_style(colors))
+        return
+    elif design=='kifireice':
+        from kifireice import chrome_style
+        colors=runtime.colors(style=design)
+        button.setProperty('xetalChromeHoverInk',colors['HighlightedText'])
+        button.setStyleSheet(chrome_style(colors))
+        return
+    elif design=='starcraft':
+        from starcraft import chrome_style
+        colors=runtime.colors(style=design)
+        button.setProperty('xetalChromeHoverInk',colors['HighlightedText'])
+        button.setStyleSheet(chrome_style(colors))
+        return
     elif design=='mortalkombat2':
         from mortalkombat2 import chrome_style
         colors=runtime.colors(style=design)

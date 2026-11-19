@@ -134,5 +134,34 @@
     "mortalkombat2/living-forest.png",
     "mortalkombat2/toasty.png",
     "mortalkombat2/soul-steal.png"
+  ],
+  "starcraft": [
+    "starcraft/koprulu-frontier.png",
+    "starcraft/orbital-command.png",
+    "starcraft/echoes-of-aiur.png"
+  ],
+  "killerinstinct": [
+    "killerinstinct/moonlit-rivals.png",
+    "killerinstinct/one-more-credit.png",
+    "killerinstinct/rooftop-combo.png",
+    "killerinstinct/eyedols-challenge.png"
+  ],
+  "kitemple": [
+    "kitemple/tiger-spirit.png",
+    "kitemple/thunder-pass.png",
+    "kitemple/orchids-secret.png",
+    "kitemple/monastery-at-dawn.png"
+  ],
+  "kiprimal": [
+    "kiprimal/primal-rivals.png",
+    "kiprimal/sabrewulfs-moon.png",
+    "kiprimal/riptor-unleashed.png",
+    "kiprimal/gate-of-eyes.png"
+  ],
+  "kifireice": [
+    "kifireice/fire-and-ice.png",
+    "kifireice/glacius-arrival.png",
+    "kifireice/cinders-furnace.png",
+    "kifireice/cold-front-combo.png"
   ]
 }

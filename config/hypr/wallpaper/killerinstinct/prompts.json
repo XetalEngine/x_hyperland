@@ -1,0 +1,69 @@
+{
+  "theme": "killerinstinct",
+  "display_name": "Killer Instinct · Arcade 94",
+  "generation_mode": "built-in image_gen",
+  "created_utc": "2026-11-19T04:56:07.838952+00:00",
+  "collection": "Killer Instinct 1994 — sixteen shared wallpapers",
+  "images": [
+    {
+      "file": "moonlit-rivals.png",
+      "title": "Moonlit Rivals",
+      "characters": [
+        "Spinal",
+        "Fulgore"
+      ],
+      "width": 1672,
+      "height": 941,
+      "sha256": "e74f19fbf6dbcb788e808a24e92863a46b7984b45393deecbc9bb45ba4536f2f",
+      "prompt": "Use case: stylized-concept. Asset: finished 16:9 desktop wallpaper, requested 3840x2160, richly detailed premium cinematic illustration inspired by the ORIGINAL 1994 Killer Instinct arcade game's pre-rendered promotional art. This is a deeply nostalgic personal collection. Use original 1994 character identities and classic costumes, NOT the 2013 reboot, NOT Killer Instinct 2 newcomers. Render one coherent edge-to-edge scene. No application windows, no panels, no desktop icons, no HUD, no borders, no captions, no watermarks. Keep the outer left edge and top corners calm enough for real desktop icons. Full bodies when characters are present, elegant readable silhouettes, finely crafted textures, deep atmosphere, precise anatomy. Transform the supplied concept into ONLY its magnificent wallpaper scene; completely remove all fake UI. Spinal, the classic ivory skeleton with red bandanna, curved sword and round bronze shield, on a broken gothic bridge facing classic Fulgore: dark gunmetal-and-copper segmented cyborg armor, long orange-red crest, red visor and THREE green energy blades on each forearm. A great purple moon behind a ruined cathedral, rolling violet mist, silver moonlight, amber torch flames, carved wet stone, spectacular depth. Violet/obsidian/chrome/ember palette. Composition: duel lower-middle, distant architecture above, cinematic wide vista. Top-center, elegantly restrained original silver 'KILLER INSTINCT' wordmark over a fiery red KI monogram, with small spaced 'HYPER FUSION' below. The monogram is KI, NOT a Roman numeral II. Keep logo under 28 percent of image width. Honor original arcade character shapes.",
+      "references": [
+        {
+          "role": "User-provided concept or cabinet reference",
+          "attachment": "codex-clipboard-QmdQyP.png",
+          "sha256": "f5f015deeb5ae6f30ddc7b5cd605fb3d2722c459d45f856c9049cd091c7258bf"
+        }
+      ]
+    },
+    {
+      "file": "one-more-credit.png",
+      "title": "One More Credit",
+      "characters": [],
+      "width": 1672,
+      "height": 941,
+      "sha256": "1e66a6ba8589c3deec0c5f242d3bc56c319883f41ab7a2a87c0777e290d132e5",
+      "prompt": "Use case: stylized-concept. Asset: finished 16:9 desktop wallpaper, requested 3840x2160, richly detailed premium cinematic illustration inspired by the ORIGINAL 1994 Killer Instinct arcade game's pre-rendered promotional art. This is a deeply nostalgic personal collection. Use original 1994 character identities and classic costumes, NOT the 2013 reboot, NOT Killer Instinct 2 newcomers. Render one coherent edge-to-edge scene. No application windows, no panels, no desktop icons, no HUD, no borders, no captions, no watermarks. Keep the outer left edge and top corners calm enough for real desktop icons. Full bodies when characters are present, elegant readable silhouettes, finely crafted textures, deep atmosphere, precise anatomy. A love letter to a 1994 arcade: a beautifully detailed physical ORIGINAL MIDWAY KILLER INSTINCT upright arcade cabinet occupies the right-center of a dim nostalgic arcade room. Use the supplied cabinet photo as the exact design reference: black angular full-height cabinet, distinctive Spinal skeleton and sword side art, lit original Killer Instinct marquee, two BLUE joysticks with six blue buttons per player, coin door and red coin-return lamps. Authentic 'MIDWAY' and 'Nintendo' small cabinet branding where present. The cabinet must say the original Killer Instinct, NEVER Killer Instinct II. Three-quarter view showing side and front, entire machine including its base. CRT glows with an original Spinal versus Fulgore fight, tiny plausible game art contained INSIDE the cabinet screen. A few coins rest on the control ledge. Purple neon tube reflections and warm amber marquee light, worn carpet with subtle geometric 1990s pattern, nearby cabinets out of focus, atmospheric dust beams, polished black laminate, authentic scratched metal. No people. Emotional, peaceful, tactile, museum-quality cabinet detail. No additional poster title or overlaid text.",
+      "references": [
+        {
+          "role": "User-provided concept or cabinet reference",
+          "attachment": "codex-clipboard-rWGmgr.png",
+          "sha256": "5395dc70c14232b944ea289800b6a9b001f57a48641789ba7c58a158a7dc76d5"
+        }
+      ]
+    },
+    {
+      "file": "rooftop-combo.png",
+      "title": "Rooftop Combo",
+      "characters": [
+        "TJ Combo",
+        "Fulgore"
+      ],
+      "width": 1672,
+      "height": 941,
+      "sha256": "20061985a552d75a3874197fedf3905cbdf6095a55d5610b297c32779958973b",
+      "prompt": "Use case: stylized-concept. Asset: finished 16:9 desktop wallpaper, requested 3840x2160, richly detailed premium cinematic illustration inspired by the ORIGINAL 1994 Killer Instinct arcade game's pre-rendered promotional art. This is a deeply nostalgic personal collection. Use original 1994 character identities and classic costumes, NOT the 2013 reboot, NOT Killer Instinct 2 newcomers. Render one coherent edge-to-edge scene. No application windows, no panels, no desktop icons, no HUD, no borders, no captions, no watermarks. Keep the outer left edge and top corners calm enough for real desktop icons. Full bodies when characters are present, elegant readable silhouettes, finely crafted textures, deep atmosphere, precise anatomy. Original 1994 TJ Combo versus Fulgore on a high industrial rooftop overlooking a rain-soaked futuristic 1990s city. TJ is a muscular Black boxer, short hair, red-and-white boxing gloves, classic US flag boxing trunks, white boxing boots, powerful grounded guard; no modern tactical armor. Fulgore is the original copper/gunmetal cyborg with orange crest, red visor, triple green forearm claws. Wet concrete, massive ventilation fans, distant violet corporate towers, silver rain streaks, tiny amber warning lamps, torn fight posters. Twilight-to-night purple sky. Wide composition with fighters separated in the lower half and skyline receding in the middle. Obsidian, brushed silver, deep violet and amber. No letters or logo; let the environment tell the story.",
+      "references": []
+    },
+    {
+      "file": "eyedols-challenge.png",
+      "title": "Eyedols Challenge",
+      "characters": [
+        "Eyedol"
+      ],
+      "width": 1672,
+      "height": 941,
+      "sha256": "8a11ffca745bb33a8602b606c5fa6f627a991022a72d545cb43a5fc9c7bc25cd",
+      "prompt": "Use case: stylized-concept. Asset: finished 16:9 desktop wallpaper, requested 3840x2160, richly detailed premium cinematic illustration inspired by the ORIGINAL 1994 Killer Instinct arcade game's pre-rendered promotional art. This is a deeply nostalgic personal collection. Use original 1994 character identities and classic costumes, NOT the 2013 reboot, NOT Killer Instinct 2 newcomers. Render one coherent edge-to-edge scene. No application windows, no panels, no desktop icons, no HUD, no borders, no captions, no watermarks. Keep the outer left edge and top corners calm enough for real desktop icons. Full bodies when characters are present, elegant readable silhouettes, finely crafted textures, deep atmosphere, precise anatomy. The original 1994 final boss EYEDOL in his immense ancient arena, faithfully classic: ONE huge muscular brown ogre body with TWO separate cyclops heads, each head has one glowing eye, curved horns, goat-like legs with cloven hooves, simple green loincloth, huge rough wooden club gripped in one hand. NOT the 2013 single head split apart. Boss stands center-right on an enormous round stone platform, club resting on floor. Towering dim stone arches, ominous violet rift behind, copper braziers, drifting dust, cracked obsidian dais, tiny architectural details make his scale monumental. Cinematic low camera, deep purple/silver/ember light, weight and presence. No text, no extra characters.",
+      "references": []
+    }
+  ]
+}

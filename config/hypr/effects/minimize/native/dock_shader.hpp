@@ -29,10 +29,12 @@ void main(){
   fragColor=vec4(mix(warm,mix(ink,vec3(1.,.72,.25),.5),core)*a,a)*opacity;return;
  }
  vec2 p=(uv-.5)*dims;vec2 halfSize=dims*.5-vec2(8.);
- float radius=style==25?4.:style==24?8.:style==21?10.:style==20?6.:style==19?14.:(style==18||style==23)?5.:style==17?7.:(style==16||style==22)?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
- if(part==1)radius=style==25?3.:style==24?6.:style==21?8.:style==20?4.:style==19?11.:(style==18||style==23)?4.:style==17?6.:(style==16||style==22)?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
+ float radius=style==27?3.:style==28?2.:style==29?8.:style==30?2.:style==26?5.:style==25?4.:style==24?8.:style==21?10.:style==20?6.:style==19?14.:(style==18||style==23)?5.:style==17?7.:(style==16||style==22)?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
+ if(part==1)radius=style==27?3.:style==28?2.:style==29?8.:style==30?2.:style==26?5.:style==25?3.:style==24?6.:style==21?8.:style==20?4.:style==19?11.:(style==18||style==23)?4.:style==17?6.:(style==16||style==22)?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
  radius=min(radius,min(halfSize.x,halfSize.y));
  float distance=roundBox(p,halfSize,radius);
+ if(style==27||style==30)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+(style==27?6.:9.))*.7071);
+ if(style==26)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+7.)*.7071);
  if(style==2||style==3||style==8)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+(style==3?19.:style==8?14.:10.))*.7071);
  if(style==7&&part==0)distance+=sin(p.x*.10)*.9*smoothstep(0.,halfSize.y,p.y);
  float mask=1.-smoothstep(-.7,1.,distance);
@@ -44,7 +46,67 @@ void main(){
  float rim=.26;
  float jewel=0.;float jewelHalo=0.;float gildedSweep=0.;
  if(part==0){
-  if(style==25){
+  if(style>=27&&style<=30){
+   // KI 1994 materials: cabinet chrome, temple brass, storm stone, thermal steel.
+   vec2 q=vec2(halfSize.x-abs(p.x),p.y);
+   float lightMode=step(.5,dot(base,vec3(.2126,.7152,.0722)));
+   vec3 gold=mix(vec3(.85,.72,.42),vec3(.48,.34,.12),lightMode);
+   vec3 cool=mix(vec3(.46,.86,.94),vec3(.12,.40,.49),lightMode);
+   float inner=step(25.,q.x);
+   body=mix(base,ink,shine*.10);rim=.5;
+   if(style==27){
+    metal=exp(-abs(distance+3.)*2.)*.55;
+    metal+=exp(-abs(p.y+halfSize.y-2.)*2.)*.35;
+    body+=ink*sin(p.y*3.)*.008;
+    for(int i=0;i<6;i++){
+     vec2 button=q-vec2(8.+float(i%3)*5.,-5.+float(i/3)*10.);
+     decoration+=(1.-smoothstep(1.2,2.2,length(button)))*(.45+.15*sin(time*2.-float(i)));
+    }
+    decoration+=exp(-abs(p.y-halfSize.y+5.)*2.)*inner*.6;
+    body=mix(body,gold,exp(-line(q,vec2(9.,-25.),vec2(19.,-25.))*2.)*.8);
+   }else if(style==28){
+    rim=.1;body=mix(body,gold,clamp(exp(-abs(distance+3.)*2.)*.6+exp(-abs(distance+5.)*2.)*.2,0.,1.));
+    vec2 gem=q-vec2(14.,0.);float diamond=abs(gem.x)/7.+abs(gem.y)/18.;
+    body=mix(body,gold,exp(-abs(diamond-1.)*18.)*.9);
+    decoration+=(1.-smoothstep(.4,.7,diamond))*(.45+.15*sin(time*1.5));
+    float fret=min(line(vec2(q.x,abs(p.y)),vec2(6.,22.),vec2(6.,28.)),line(vec2(q.x,abs(p.y)),vec2(6.,28.),vec2(18.,28.)));
+    body=mix(body,gold,exp(-fret*2.)*.8);
+   }else if(style==29){
+    body+=ink*(noise(p*.28)-.5)*.028;
+    metal=exp(-abs(distance+2.5)*2.)*.45;
+    for(int i=0;i<3;i++){
+     float x=7.+float(i)*5.;float claw=line(q,vec2(x,-15.),vec2(x+4.,15.));
+     decoration+=exp(-claw*2.)*(.42+.12*sin(time*1.7+float(i)));
+    }
+    metal+=step(.91,hash(vec2(floor(p.x/3.),floor(p.y/3.))))*exp(-abs(distance+5.))*.3;
+   }else{
+    vec3 element=p.x<0.?tint:cool;rim=.35;
+    body=mix(body,element,exp(-abs(abs(p.y)-halfSize.y+3.)*2.)*inner*.8);
+    metal=exp(-abs(distance+5.)*2.)*.32;
+    vec2 gem=q-vec2(13.,0.);float shape=abs(gem.x)/6.+abs(gem.y)/20.;
+    if(p.x<0.)shape=length(gem/vec2(7.,18.))+.12*sin(gem.y*.35+time*2.);
+    body=mix(body,element,exp(-abs(shape-1.)*12.)*.8);
+    body=mix(body,element,exp(-dot(gem/vec2(6.,15.),gem/vec2(6.,15.)))*(.20+.04*sin(time*2.)));
+   }
+  }else if(style==26){
+   // Command Deck: gunmetal plates, silver bevels and inset reactor conduits.
+   vec2 q=vec2(halfSize.x-abs(p.x),p.y);
+   body=mix(base,ink,shine*.12);rim=.62;
+   metal=exp(-abs(distance+3.)*1.9)*.4;
+   metal+=exp(-abs(p.y+halfSize.y-2.)*2.)*.4;
+   float endcap=1.-smoothstep(23.,24.,q.x);
+   body=mix(body,mix(base,ink,.07),endcap*.8);
+   float vents=step(7.,q.x)*step(q.x,16.)*step(-23.,p.y)*step(p.y,-8.)*step(.65,fract(p.y/4.));
+   body=mix(body,base*.4,vents*.8);
+   vec2 reactor=q-vec2(12.,9.);
+   float core=length(reactor/vec2(3.5,7.));
+   decoration=exp(-abs(core-1.)*4.)*.6+(1.-smoothstep(.4,.9,core))*(.55+.15*sin(time*2.));
+   decoration+=exp(-abs(p.y-halfSize.y+6.)*2.)*step(32.,q.x)*.6;
+   float lightbar=step(abs(p.x),min(28.,halfSize.x*.16));
+   decoration+=exp(-abs(abs(p.y)-halfSize.y+2.)*2.)*lightbar*.95;
+   vec2 rivet=vec2(q.x-5.,abs(p.y)-halfSize.y+12.);
+   metal+=(1.-smoothstep(.7,1.5,length(rivet)))*.65;
+  }else if(style==25){
    // Outworld Arcade: two gold rails and jade portal lamps on the end caps.
    vec3 gold=dot(base,vec3(.2126,.7152,.0722))>.5?vec3(.60,.44,.19):vec3(.894,.769,.455);
    body=mix(base,ink,shine*.05);rim=.4;
@@ -398,7 +460,29 @@ void main(){
   body=mix(base,tint,.08+emphasis*.14)+ink*shine*.045;
   rim=.08+emphasis*.25;
   decoration=exp(-abs(p.y-halfSize.y+3.)*1.7)*(.25+.4*emphasis);
-  if(style==25){
+  if(style>=27&&style<=30){
+   float lightMode=step(.5,dot(base,vec3(.2126,.7152,.0722)));
+   vec3 gold=mix(vec3(.85,.72,.42),vec3(.48,.34,.12),lightMode);
+   vec3 cool=mix(vec3(.46,.86,.94),vec3(.12,.40,.49),lightMode);
+   body=mix(base,tint,.04+emphasis*.12);rim=.4+emphasis*.3;
+   if(style==27){
+    metal=exp(-abs(distance+2.5)*2.)*.4;
+    decoration=exp(-abs(p.y-halfSize.y+5.)*2.)*step(abs(p.x),halfSize.x-8.)*(.6+emphasis*.3);
+   }else if(style==28){
+    body=mix(body,gold,clamp(exp(-abs(distance+2.)*2.)*.45+exp(-abs(distance+4.)*2.)*.2,0.,1.));
+    decoration=exp(-abs(p.y-halfSize.y+6.)*2.)*step(abs(p.x),8.)*.7;
+   }else if(style==29){
+    body+=ink*(noise(p*.3)-.5)*.025;metal=exp(-abs(distance+2.)*2.)*.3;
+    for(int i=0;i<3;i++){float x=halfSize.x-17.+float(i)*4.;decoration+=exp(-line(p,vec2(x,halfSize.y-4.),vec2(x+3.,halfSize.y-10.))*2.)*.6;}
+   }else{
+    body=mix(body,p.x<0.?tint:cool,exp(-abs(p.y-halfSize.y+5.)*2.)*step(abs(p.x),halfSize.x-8.)*(.6+emphasis*.3));
+    metal=exp(-abs(p.y+halfSize.y-3.)*2.)*.3;decoration=0.;
+   }
+  }else if(style==26){
+   body=mix(base,tint,.04+emphasis*.12)+ink*shine*.06;rim=.45+emphasis*.4;
+   metal=exp(-abs(p.y+halfSize.y-3.)*2.)*step(abs(p.x),halfSize.x-6.)*.35;
+   decoration=exp(-abs(p.y-halfSize.y+5.)*2.)*step(abs(p.x),halfSize.x-10.)*(.6+emphasis*.4);
+  }else if(style==25){
    vec3 gold=dot(base,vec3(.2126,.7152,.0722))>.5?vec3(.60,.44,.19):vec3(.894,.769,.455);
    body=mix(base,tint,.04+emphasis*.12);rim=.15;
    body+=gold*(exp(-abs(distance+.6)*1.8)+.35*exp(-abs(distance+3.5)*2.))*(.5+emphasis*.5);
@@ -511,6 +595,10 @@ void main(){
   }
  }
  vec3 surface=body+ink*metal+tint*decoration;
+ if(style>=27&&style<=30){
+  // Mix pigments instead of adding light: maintain the same rim contrast in light mode.
+  surface=mix(body,ink,clamp(metal,0.,.9));surface=mix(surface,tint,clamp(decoration,0.,1.));
+ }
  surface=mix(surface,mix(tint,ink,.3),border*rim);
  if(style==25){
   vec3 gold=dot(base,vec3(.2126,.7152,.0722))>.5?vec3(.60,.44,.19):vec3(.894,.769,.455);

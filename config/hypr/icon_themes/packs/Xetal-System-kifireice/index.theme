@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Killer Instinct · Fire & Ice
+Comment=Split elements · black steel, molten amber and crystalline cyan. Original folders, instruments and arcade emblems.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

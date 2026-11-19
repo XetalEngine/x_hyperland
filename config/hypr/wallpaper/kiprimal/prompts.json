@@ -1,0 +1,65 @@
+{
+  "theme": "kiprimal",
+  "display_name": "Killer Instinct · Primal Storm",
+  "generation_mode": "built-in image_gen",
+  "created_utc": "2026-11-19T04:56:07.855720+00:00",
+  "collection": "Killer Instinct 1994 — sixteen shared wallpapers",
+  "images": [
+    {
+      "file": "primal-rivals.png",
+      "title": "Primal Rivals",
+      "characters": [
+        "Sabrewulf",
+        "Riptor"
+      ],
+      "width": 1672,
+      "height": 941,
+      "sha256": "fcb4fe1d3f63a2b2664d8457c821d915e2a8f1b8faf7bb458a372f92e1710949",
+      "prompt": "Use case: stylized-concept. Asset: finished 16:9 desktop wallpaper, requested 3840x2160, richly detailed premium cinematic illustration inspired by the ORIGINAL 1994 Killer Instinct arcade game's pre-rendered promotional art. This is a deeply nostalgic personal collection. Use original 1994 character identities and classic costumes, NOT the 2013 reboot, NOT Killer Instinct 2 newcomers. Render one coherent edge-to-edge scene. No application windows, no panels, no desktop icons, no HUD, no borders, no captions, no watermarks. Keep the outer left edge and top corners calm enough for real desktop icons. Full bodies when characters are present, elegant readable silhouettes, finely crafted textures, deep atmosphere, precise anatomy. Transform the supplied primal temple concept into a REAL wallpaper without any interface. Classic 1994 Sabrewulf versus Riptor in a rain-soaked jungle ruin. Sabrewulf is a fully furred blue-purple muscular werewolf, enormous claws and long snout, no mechanical arms. Riptor is a CLASSIC brown-orange striped featherless velociraptor hybrid with a long tapering tail, digitigrade powerful legs and taloned arms, no cybernetics or reboot armor. Face one another in the lower half, readable separated silhouettes. Massive overgrown stone masks, stepped ancient pyramids, purple lightning in turbulent night sky, warm amber braziers, glossy wet moss and ferns, fog drifting between ruins. Dark violet, moss green, bone highlights, amber fire. Small top-center original silver 'KILLER INSTINCT' and fiery KI monogram, tiny 'HYPER FUSION' below, NOT II.",
+      "references": [
+        {
+          "role": "User-provided concept or cabinet reference",
+          "attachment": "codex-clipboard-QkvhjG.png",
+          "sha256": "8df893646e37cda27b037f184313f6a28117729b7c961447fc4b6473bf402057"
+        }
+      ]
+    },
+    {
+      "file": "sabrewulfs-moon.png",
+      "title": "Sabrewulfs Moon",
+      "characters": [
+        "Sabrewulf"
+      ],
+      "width": 1672,
+      "height": 941,
+      "sha256": "aa08f0118375bce2767c0dfc790da6c9cc35600240c8a32043ddf22f5fce870b",
+      "prompt": "Use case: stylized-concept. Asset: finished 16:9 desktop wallpaper, requested 3840x2160, richly detailed premium cinematic illustration inspired by the ORIGINAL 1994 Killer Instinct arcade game's pre-rendered promotional art. This is a deeply nostalgic personal collection. Use original 1994 character identities and classic costumes, NOT the 2013 reboot, NOT Killer Instinct 2 newcomers. Render one coherent edge-to-edge scene. No application windows, no panels, no desktop icons, no HUD, no borders, no captions, no watermarks. Keep the outer left edge and top corners calm enough for real desktop icons. Full bodies when characters are present, elegant readable silhouettes, finely crafted textures, deep atmosphere, precise anatomy. Original 1994 Sabrewulf, a huge fully furred blue-purple werewolf with long claws, predatory muzzle, powerful digitigrade legs and no cybernetic implants, howls from the stone balcony of his ruined gothic castle. Lightning illuminates a distant full moon; candles, broken stained glass, dead vines, wet carved gargoyles and emerald moss. Full body left of center, roofline recedes across right half into mist. Rich fur rim-lit violet, bone-colored claws, dark amethyst stone, antique amber candle glow. Atmospheric gothic painting with extraordinary material detail, no text.",
+      "references": []
+    },
+    {
+      "file": "riptor-unleashed.png",
+      "title": "Riptor Unleashed",
+      "characters": [
+        "Riptor"
+      ],
+      "width": 1672,
+      "height": 941,
+      "sha256": "54574864e63d9ca2e6b7dc3a4c8c9e5aee81e243253f10dce2ea0a56dd62a4c0",
+      "prompt": "Use case: stylized-concept. Asset: finished 16:9 desktop wallpaper, requested 3840x2160, richly detailed premium cinematic illustration inspired by the ORIGINAL 1994 Killer Instinct arcade game's pre-rendered promotional art. This is a deeply nostalgic personal collection. Use original 1994 character identities and classic costumes, NOT the 2013 reboot, NOT Killer Instinct 2 newcomers. Render one coherent edge-to-edge scene. No application windows, no panels, no desktop icons, no HUD, no borders, no captions, no watermarks. Keep the outer left edge and top corners calm enough for real desktop icons. Full bodies when characters are present, elegant readable silhouettes, finely crafted textures, deep atmosphere, precise anatomy. Original 1994 Riptor escaping an abandoned overgrown biotech research facility into dense jungle at dusk: featherless orange-brown striped reptilian velociraptor hybrid with vicious talons, long muscular tail and original arcade silhouette. No robotic parts, no armor. A broken glass containment cylinder behind, climbing moss and ferns reclaim rusty metal, violet stormlight through a shattered dome and warm amber emergency lights. Single full-body Riptor near center-right with a clear expressive profile. Huge environmental depth, vivid natural textures, copper scales and wet leaves, moss green and violet atmosphere. No labels, no writing, no extra creatures.",
+      "references": []
+    },
+    {
+      "file": "gate-of-eyes.png",
+      "title": "Gate Of Eyes",
+      "characters": [
+        "Eyedol",
+        "Chief Thunder"
+      ],
+      "width": 1672,
+      "height": 941,
+      "sha256": "f69ceaf77021c629c4a49c3da24383177ab614427ab4e5ce53a9a705ef596c6f",
+      "prompt": "Use case: stylized-concept. Asset: finished 16:9 desktop wallpaper, requested 3840x2160, richly detailed premium cinematic illustration inspired by the ORIGINAL 1994 Killer Instinct arcade game's pre-rendered promotional art. This is a deeply nostalgic personal collection. Use original 1994 character identities and classic costumes, NOT the 2013 reboot, NOT Killer Instinct 2 newcomers. Render one coherent edge-to-edge scene. No application windows, no panels, no desktop icons, no HUD, no borders, no captions, no watermarks. Keep the outer left edge and top corners calm enough for real desktop icons. Full bodies when characters are present, elegant readable silhouettes, finely crafted textures, deep atmosphere, precise anatomy. Original 1994 Chief Thunder confronts the giant original Eyedol at a colossal stone gate swallowed by jungle. Thunder in foreground left, red-black mohawk, classic face paint, open dark fringed vest, dark trousers, feather accents and two tomahawks. Eyedol towers beyond the gate right: one brown ogre torso, TWO separate horned cyclops heads EACH with one eye, muscular arms, green loincloth, goat-like legs with cloven hooves and a huge wooden club. NOT 2013 designs. Violet storm overhead, shafts of pale moonlight, winding roots, carved stone eyes, warm amber fire bowls, green mist and moss. Wide establishing shot, unmistakable two-head silhouette, distinct readable figures, no text.",
+      "references": []
+    }
+  ]
+}

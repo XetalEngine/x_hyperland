@@ -3,8 +3,8 @@ import colorsys
 from pathlib import Path
 
 DESIGNS = {'raw': 'Xetal Raw', 'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint', 'binaryknife': 'Binary Knife',
-           'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud', 'shadowedge': 'Shadow Edge', 'hollowgrove': 'Hollow Grove', 'gildedhollow': 'The Gilded Hollow', 'hyperfusionblue': 'HyperFusion Blue', 'midnighttransit': 'Midnight Transit', 'blackwood': 'Blackwood', 'atomicafterglow': 'Atomic Afterglow', 'mycelium': 'Mycelium', 'mystery98': 'Windows 98 Mystery', 'platform95': 'Platform 95', 'midnightrun': 'Midnight Run', 'prisonbreak': 'Prison Break', 'mortalkombat2': 'Mortal Kombat II', 'facadasexu': '777 Facadas Exu', 'infernalencore': 'Infernal Encore', 'polaris': 'Polaris', 'leviathan': 'Leviathan', 'ghostbusters': 'Ghostbusters'}
-DESCRIPTIONS = {'mortalkombat2': 'Jade arcade · charcoal stone, antique gold & Outworld moonlight', 'facadasexu': 'Black lacquer · oxblood velvet, ivory & candlelit copper', 'ghostbusters': 'Ectoplasm green · slime, midnight enamel & ghost traps', 'leviathan': 'Obsidian reliquaries · engraved brass & amethyst storms', 'polaris': 'Midnight glass · luminous cyan & violet starlight', 'prisonbreak': 'Violet neon · graphite steel, orange folders & hazard stripes', 'infernalencore': 'Blackened metal · antique brass & crimson stage lights', 'midnightrun': 'Graphite lacquer · cyan edges & magenta Tokyo nights', 'mystery98': 'Walnut libraries · emerald enamel & antique-gold bevels', 'platform95': 'Classic ivory bevels · espresso headers & antique gold', 'mycelium': 'Plum velvet · ivory roots & luminous lilac mushrooms', 'atomicafterglow': 'Olive graphite · brass instruments & phosphor green', 'blackwood': 'Walnut joinery · aged brass, sage & coastal light', 'raw': 'Original layout · cyan accents', 'modern': 'Soft cards · blue accents',
+           'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud', 'shadowedge': 'Shadow Edge', 'hollowgrove': 'Hollow Grove', 'gildedhollow': 'The Gilded Hollow', 'hyperfusionblue': 'HyperFusion Blue', 'midnighttransit': 'Midnight Transit', 'blackwood': 'Blackwood', 'atomicafterglow': 'Atomic Afterglow', 'mycelium': 'Mycelium', 'mystery98': 'Windows 98 Mystery', 'platform95': 'Platform 95', 'midnightrun': 'Midnight Run', 'prisonbreak': 'Prison Break', 'killerinstinct': 'Killer Instinct · Arcade 94', 'kitemple': 'Killer Instinct · Jade Temple', 'kiprimal': 'Killer Instinct · Primal Storm', 'kifireice': 'Killer Instinct · Fire & Ice', 'starcraft': 'StarCraft II', 'mortalkombat2': 'Mortal Kombat II', 'facadasexu': '777 Facadas Exu', 'infernalencore': 'Infernal Encore', 'polaris': 'Polaris', 'leviathan': 'Leviathan', 'ghostbusters': 'Ghostbusters'}
+DESCRIPTIONS = {'killerinstinct': 'Violet chrome · obsidian, silver bevels and amber arcade lights', 'kitemple': 'Jade lacquer · carved brass, emerald glass and temple lanterns', 'kiprimal': 'Storm-worn stone · moss, bone inlays and amethyst lightning', 'kifireice': 'Split elements · black steel, molten amber and crystalline cyan', 'starcraft': 'Terran armor · cobalt enamel, psionic cyan & Koprulu starlight', 'mortalkombat2': 'Jade arcade · charcoal stone, antique gold & Outworld moonlight', 'facadasexu': 'Black lacquer · oxblood velvet, ivory & candlelit copper', 'ghostbusters': 'Ectoplasm green · slime, midnight enamel & ghost traps', 'leviathan': 'Obsidian reliquaries · engraved brass & amethyst storms', 'polaris': 'Midnight glass · luminous cyan & violet starlight', 'prisonbreak': 'Violet neon · graphite steel, orange folders & hazard stripes', 'infernalencore': 'Blackened metal · antique brass & crimson stage lights', 'midnightrun': 'Graphite lacquer · cyan edges & magenta Tokyo nights', 'mystery98': 'Walnut libraries · emerald enamel & antique-gold bevels', 'platform95': 'Classic ivory bevels · espresso headers & antique gold', 'mycelium': 'Plum velvet · ivory roots & luminous lilac mushrooms', 'atomicafterglow': 'Olive graphite · brass instruments & phosphor green', 'blackwood': 'Walnut joinery · aged brass, sage & coastal light', 'raw': 'Original layout · cyan accents', 'modern': 'Soft cards · blue accents',
                 'breakpoint': 'Charcoal glass · crimson focus', 'binaryknife': 'Sharp graphite · electric blue',
                 'tidalglass': 'Pearl glass · luminous ocean depths',
                 'porcelainink': 'Warm porcelain · charcoal & vermilion',
@@ -48,6 +48,21 @@ def qt_style(p,style='modern'):
         return themed(p)
     elif style=='facadasexu':
         from facadasexu import qt_style as themed
+        return themed(p)
+    elif style=='killerinstinct':
+        from killerinstinct import qt_style as themed
+        return themed(p)
+    elif style=='kitemple':
+        from kitemple import qt_style as themed
+        return themed(p)
+    elif style=='kiprimal':
+        from kiprimal import qt_style as themed
+        return themed(p)
+    elif style=='kifireice':
+        from kifireice import qt_style as themed
+        return themed(p)
+    elif style=='starcraft':
+        from starcraft import qt_style as themed
         return themed(p)
     elif style=='mortalkombat2':
         from mortalkombat2 import qt_style as themed
@@ -201,6 +216,21 @@ def waybar_style(p,style='modern'):
     elif style=='facadasexu':
         from facadasexu import waybar_style as themed
         return themed(p)
+    elif style=='killerinstinct':
+        from killerinstinct import waybar_style as themed
+        return themed(p)
+    elif style=='kitemple':
+        from kitemple import waybar_style as themed
+        return themed(p)
+    elif style=='kiprimal':
+        from kiprimal import waybar_style as themed
+        return themed(p)
+    elif style=='kifireice':
+        from kifireice import waybar_style as themed
+        return themed(p)
+    elif style=='starcraft':
+        from starcraft import waybar_style as themed
+        return themed(p)
     elif style=='mortalkombat2':
         from mortalkombat2 import waybar_style as themed
         return themed(p)
@@ -295,6 +325,21 @@ def notification_style(p,style='modern'):
         return themed(p)
     elif style=='facadasexu':
         from facadasexu import notification_style as themed
+        return themed(p)
+    elif style=='killerinstinct':
+        from killerinstinct import notification_style as themed
+        return themed(p)
+    elif style=='kitemple':
+        from kitemple import notification_style as themed
+        return themed(p)
+    elif style=='kiprimal':
+        from kiprimal import notification_style as themed
+        return themed(p)
+    elif style=='kifireice':
+        from kifireice import notification_style as themed
+        return themed(p)
+    elif style=='starcraft':
+        from starcraft import notification_style as themed
         return themed(p)
     elif style=='mortalkombat2':
         from mortalkombat2 import notification_style as themed

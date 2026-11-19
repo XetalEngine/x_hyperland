@@ -122,7 +122,17 @@ def builtin(design, mode=None, root=None):
     value.setdefault('cursors',copy.deepcopy(cursors.DEFAULTS))
     effect=mouse_effects.STYLES[mouse_effects.THEMES.get(design,'plasma')]
     value['cursors'].update(trail='follow',color=effect[2])
-    if design == 'facadasexu':
+    if design == 'killerinstinct':
+        value['cursors'].update(style='killerinstinct',trail='glow',color='#c38aff')
+    elif design == 'kitemple':
+        value['cursors'].update(style='kitemple',trail='glow',color='#55d792')
+    elif design == 'kiprimal':
+        value['cursors'].update(style='kiprimal',trail='glow',color='#b5a0f3')
+    elif design == 'kifireice':
+        value['cursors'].update(style='kifireice',trail='glow',color='#ffad45')
+    elif design == 'starcraft':
+        value['cursors'].update(style='starcraft',trail='glow',color='#27c7ff')
+    elif design == 'facadasexu':
         value['cursors'].update(style='facadasexu',trail='glow',color='#d25a45')
     elif design == 'mortalkombat2':
         value['cursors'].update(style='mortalkombat2',trail='glow',color='#3dd489')

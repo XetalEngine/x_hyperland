@@ -121,6 +121,21 @@ def theme():
     elif design == 'facadasexu':
         from facadasexu import files_style
         style += files_style(p)
+    elif design == 'killerinstinct':
+        from killerinstinct import files_style
+        style += files_style(p)
+    elif design == 'kitemple':
+        from kitemple import files_style
+        style += files_style(p)
+    elif design == 'kiprimal':
+        from kiprimal import files_style
+        style += files_style(p)
+    elif design == 'kifireice':
+        from kifireice import files_style
+        style += files_style(p)
+    elif design == 'starcraft':
+        from starcraft import files_style
+        style += files_style(p)
     elif design == 'mortalkombat2':
         from mortalkombat2 import files_style
         style += files_style(p)
@@ -178,7 +193,7 @@ def theme():
           QWidget#defaultAppsTab QToolButton, QListWidget#defaultsAppList, QListWidget#defaultsAppList::item, QLabel#diskDetails {{border-radius:2px;}}
         '''
     return {'stylesheet':style,'colors':p,'font':runtime.ui_font(),
-            'cardRadius':4 if design=='mortalkombat2' else 8 if design=='facadasexu' else 10 if design=='ghostbusters' else 6 if design=='leviathan' else 12 if design=='polaris' else 5 if design in ('infernalencore','prisonbreak') else 7 if design=='midnightrun' else 1 if design in ('platform95','mystery98') else 12 if design=='mycelium' else 5 if design in ('blackwood','atomicafterglow') else 7 if design=='midnighttransit' else 9 if design=='hyperfusionblue' else 17 if design=='gildedhollow' else 18 if design=='hollowgrove' else 3 if design=='shadowedge' else 24 if design=='candycloud' else 3 if design=='obsidianforge' else 2 if design=='porcelainink' else 16 if design=='tidalglass' else 4 if design=='binaryknife' else 10,
+            'cardRadius':4 if design in ('killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft','mortalkombat2') else 8 if design=='facadasexu' else 10 if design=='ghostbusters' else 6 if design=='leviathan' else 12 if design=='polaris' else 5 if design in ('infernalencore','prisonbreak') else 7 if design=='midnightrun' else 1 if design in ('platform95','mystery98') else 12 if design=='mycelium' else 5 if design in ('blackwood','atomicafterglow') else 7 if design=='midnighttransit' else 9 if design=='hyperfusionblue' else 17 if design=='gildedhollow' else 18 if design=='hollowgrove' else 3 if design=='shadowedge' else 24 if design=='candycloud' else 3 if design=='obsidianforge' else 2 if design=='porcelainink' else 16 if design=='tidalglass' else 4 if design=='binaryknife' else 10,
             **runtime.icon_library.info(runtime.ROOT.parent,runtime.design(),runtime.mode())}
 
 

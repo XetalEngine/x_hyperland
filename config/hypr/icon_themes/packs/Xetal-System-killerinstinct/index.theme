@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Killer Instinct · Arcade 94
+Comment=Violet chrome · obsidian, silver bevels and amber arcade lights. Original folders, instruments and arcade emblems.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

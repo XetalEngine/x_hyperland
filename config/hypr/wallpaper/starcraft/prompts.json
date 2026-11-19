@@ -1,0 +1,37 @@
+{
+  "id": "starcraft",
+  "title": "StarCraft II",
+  "provenance": "Generated with the built-in image_gen tool for HyperFusion, using the user-supplied concept for art direction.",
+  "images": [
+    {
+      "title": "Koprulu Frontier",
+      "file": "koprulu-frontier.png",
+      "prompt": "Use case: stylized-concept. Asset type: finished 16:9 desktop wallpaper for the HyperFusion StarCraft II theme, high-resolution landscape. The supplied image is an art-direction reference, not an interface to reproduce. Create a spectacular fully painted StarCraft II scene, closely matching the reference's rich cinematic game art, meticulous materials, perspective, atmosphere and blue mineral light. Foreground: a fully visible Terran marine in bulky battered cobalt CMC power armor with cyan lamps and a gauss rifle, standing left of center; a tall Protoss zealot in ornate gold armor with two luminous cyan psi blades stands right of center. Both planted naturally on a jagged rocky alien plateau, lower half of frame, full body. Bright faceted blue mineral crystals across foreground corners. Background: a magnificent golden Protoss nexus and blue crystalline pylons on the right; distant purple Zerg spires and organic silhouettes in mist on the left; a Terran battlecruiser with blue engines in the middle distance beneath a huge planet, blue stars and soft peach dusk on the horizon. Intricate panel seams, wear, cable details, engraved gold, volumetric light and convincing massive scale. Composition is a clean full-bleed wallpaper with calm upper sky and left margin for real desktop content. Palette midnight navy, cobalt, luminous cyan, silver steel, restrained Protoss gold and Zerg violet. No windows, taskbars, desktop icons, UI panels, captions, logos, text or watermark. Render the scene only, with all desktop UI removed.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "d8c06a8f7051525e52cb56588a0908d38b8043bc4e398daf4d41550459371bf4"
+    },
+    {
+      "title": "Orbital Command",
+      "file": "orbital-command.png",
+      "prompt": "Use case: stylized-concept. Asset type: second finished 16:9 widescreen StarCraft II desktop wallpaper, maximum detailed resolution. A completely new composition, no interface. Scene: Terran Orbital Command at blue hour on a hostile frontier planet. View from a riveted gunmetal landing gantry across a vast Terran base toward the looming side profile of a battlecruiser leaving its dock, its blue engine plumes illuminating steel structures. Several small cobalt-armored marines and SCV machines establish enormous scale, a siege tank and cargo containers on the lower platform, blue mineral crystals at the cliff edge. Cool navy sky, distant planet rings, violet nebula and sparse warm amber windows. Rich StarCraft II cinematic game key art, beveled cobalt armor, scratches, hydraulic struts, realistic shadows, layered atmosphere, sharply articulated silhouettes. Palette: midnight blue, weathered steel, electric cyan, restrained amber; deep charcoal along the left edge. Main ship and busiest detail middle-right, upper left calm enough for real desktop icons. No large character portraits. No UI, windows, taskbars, icons, text, logos, captions, border or watermark. Distinct scene from the supplied reference while maintaining its visual quality and universe.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "acf2e0f7c3f3fe745defc2af2eea786c6e04824006e6b8b02e005369acde4c51"
+    },
+    {
+      "title": "Echoes of Aiur",
+      "file": "echoes-of-aiur.png",
+      "prompt": "Use case: stylized-concept. Asset type: third finished widescreen 16:9 desktop wallpaper for HyperFusion's StarCraft II theme. Create a distinct cinematic StarCraft II scene, exquisitely detailed premium game key art. Scene: Aiur at nightfall, viewed across a monumental broken Protoss causeway. An immense golden nexus and sweeping alien temple arches rise on the right, engraved metal interlaced with luminous blue crystalline cores and tall floating pylons. Several graceful Protoss warriors, a hovering probe and a distant carrier establish scale, all small compared with the architecture. At lower left, a dark valley of Zerg creep with purple bioluminescent spines, organic hive silhouettes and a few distant hydralisks contrasts with the ordered golden city. Electric blue minerals along the foreground steps; thin cyan energy bridges across a misty chasm. Star-filled midnight sky, a pale ringed moon and violet clouds. Refined gold filigree, weathered stone, faceted crystal refractions, volumetric beams, rich shadow detail; navy and cyan dominate with Protoss gold and Zerg violet. Spacious composition with the upper left calm for real desktop content; architecture and dramatic chasm in the lower center and right. No giant character portrait, no UI, windows, taskbars, desktop icons, text, logos, captions, watermark or frame. Finished full-bleed wallpaper only.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "d33dd0b820bcf23a360604e3d9b4c627d069fee800645e358acf0c587585d134"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Killer Instinct · Jade Temple
+Comment=Jade lacquer · carved brass, emerald glass and temple lanterns. Original folders, instruments and arcade emblems.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

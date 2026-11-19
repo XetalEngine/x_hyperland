@@ -1,6 +1,11 @@
 """Original vector cursor families, shared by the picker and generated themes."""
+if __package__:
+    from . import ki
+else:
+    import ki
+
 STYLES = {
-    'mortalkombat2': ('Outworld Jade', '#f5e8c9', '#10291b', '#3dd489'),
+    'killerinstinct': ('Arcade 94', '#ecdfff', '#24132e', '#c38aff'), 'kitemple': ('Jade Temple', '#fff0c7', '#092c20', '#55d792'), 'kiprimal': ('Primal Storm', '#eee5cc', '#242920', '#b5a0f3'), 'kifireice': ('Fire & Ice', '#eaf8ff', '#10212c', '#ffad45'), 'starcraft': ('Terran Command', '#e4f2ff', '#102233', '#27c7ff'), 'mortalkombat2': ('Outworld Jade', '#f5e8c9', '#10291b', '#3dd489'),
     'facadasexu': ('777 Ivory Flame', '#f2e6cc', '#311008', '#c24835'),
     'ghostbusters': ('Ghostbusters Ectoplasm', '#b4ff00', '#102207', '#f4a3dd'),
     'leviathan': ('Leviathan Gilded', '#f0d8b6', '#211c29', '#c69ae5'),
@@ -60,6 +65,10 @@ def svg(style, shape='left_ptr', frame=0):
     if style == 'ghostbusters':
         arrow = 'M5 3Q8 4 13 8L29 19Q30 22 26 22L18 21L22 29Q23 33 19 33Q17 33 16 30L12 23L8 28Q4 29 5 25Z'
     body = f'<path d="{arrow}"/>'
+    if style in ('killerinstinct','kitemple','kiprimal','kifireice'):
+        body=ki.arrow(style,fill,edge,accent)
+    if style == 'starcraft':
+        body = f'<path d="M5 3L29 18L18 21L24 31L19 34L13 23L6 29Z"/><path d="M8 8L10 23L14 18L23 18M14 18L20 29" fill="none" stroke="{accent}" stroke-width="1.5"/><path d="M8 8L23 18" stroke="#ffffff" stroke-width=".8"/>'
     if style == 'mortalkombat2':
         body = f'<path d="M5 3L6 28L13 21L19 32L23 29L17 19L28 18Z"/><path d="M8 8L10 23L14 18L23 17M14 18L20 29" fill="none" stroke="{accent}" stroke-width="1.5"/><path d="M8 8L23 17" stroke="#d9b65d" stroke-width="1"/>'
     if style == 'facadasexu':
@@ -103,6 +112,11 @@ def svg(style, shape='left_ptr', frame=0):
         hot=(18,18)
     elif shape in ('watch','left_ptr_watch'):
         ring=f'<g transform="rotate({frame*30} 18 18)"><circle cx="18" cy="18" r="11" fill="none" stroke="{edge}" stroke-opacity=".25" stroke-width="4"/><path d="M18 7A11 11 0 0 1 29 18" fill="none" stroke="{accent}" stroke-width="4"/></g>'
+        if style in ('killerinstinct','kitemple','kiprimal','kifireice'):
+            ring=ki.busy(style,fill,edge,accent,frame)
+        if style == 'starcraft':
+            ring = f'<circle cx="18" cy="18" r="13" fill="{edge}" stroke="{fill}" stroke-width="1"/><circle cx="18" cy="18" r="4" fill="{accent}" stroke="{fill}" stroke-width=".8"/>'
+            ring += f'<g transform="rotate({frame*30} 18 18)">' + ''.join(f'<path d="M16 6L20 6L22 10L19 12L16 10Z" transform="rotate({angle} 18 18)" fill="{accent if angle==0 else fill}" stroke="{edge}" stroke-width=".6"/>' for angle in range(0,360,60)) + '</g>'
         if style == 'mortalkombat2':
             ring=(f'<circle cx="18" cy="18" r="14" fill="{edge}" stroke="#e4c474" stroke-width="1.4"/>'
                   f'<path d="M15 10V26M21 10V26M12 10H24M12 26H24" fill="none" stroke="{fill}" stroke-width="1.8"/>'

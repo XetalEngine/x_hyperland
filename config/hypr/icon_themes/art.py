@@ -5,7 +5,7 @@ from xml.sax.saxutils import escape
 VERSION = 4
 # Name, metal/light, midtone, shadow, face, decorative language.
 STYLES = {
-    'mortalkombat2': ('Mortal Kombat II', '#f5e8c9', '#d9b65d', '#08613b', '#101412', 'mortalkombat2'), 'facadasexu': ('777 Facadas Exu', '#f2e6cc', '#bb7c50', '#7a101c', '#15100d', 'facadasexu'),
+    'killerinstinct': ('Killer Instinct · Arcade 94', '#ecdfff', '#b9a8c7', '#c38aff', '#24132e', 'killerinstinct'), 'kitemple': ('Killer Instinct · Jade Temple', '#fff0c7', '#d6b967', '#55d792', '#092c20', 'kitemple'), 'kiprimal': ('Killer Instinct · Primal Storm', '#eee5cc', '#b6b58e', '#b5a0f3', '#242920', 'kiprimal'), 'kifireice': ('Killer Instinct · Fire & Ice', '#eaf8ff', '#74d9ef', '#ffad45', '#10212c', 'kifireice'), 'starcraft': ('StarCraft II', '#e4f2ff', '#99aec5', '#27c7ff', '#0c1420', 'starcraft'), 'mortalkombat2': ('Mortal Kombat II', '#f5e8c9', '#d9b65d', '#08613b', '#101412', 'mortalkombat2'), 'facadasexu': ('777 Facadas Exu', '#f2e6cc', '#bb7c50', '#7a101c', '#15100d', 'facadasexu'),
     'ghostbusters': ('Ghostbusters', '#e1ff88', '#b4ff00', '#60b800', '#08110f', 'ghostbusters'),
     'leviathan': ('Leviathan', '#eed7b2', '#c6a06c', '#a47ac0', '#17151d', 'leviathan'),
     'polaris': ('Polaris', '#d8f8ff', '#4de5f5', '#a391fa', '#16243c', 'polaris'),
@@ -30,7 +30,7 @@ STYLES = {
     'gildedhollow': ('The Gilded Hollow', '#fff0b7', '#dfb469', '#836137', '#303c32', 'brass'),
 }
 DESCRIPTIONS = {
-    'mortalkombat2': 'Jade enamel folders, gold arcade fittings and ice-blue screens.', 'facadasexu': 'Oxblood lacquer folders, ivory outlines and fine copper details.',
+    'killerinstinct': 'Violet chrome · obsidian, silver bevels and amber arcade lights. Original folders, instruments and arcade emblems.', 'kitemple': 'Jade lacquer · carved brass, emerald glass and temple lanterns. Original folders, instruments and arcade emblems.', 'kiprimal': 'Storm-worn stone · moss, bone inlays and amethyst lightning. Original folders, instruments and arcade emblems.', 'kifireice': 'Split elements · black steel, molten amber and crystalline cyan. Original folders, instruments and arcade emblems.', 'starcraft': 'Armored blue folders, command crates, silver instruments and cyan reactors.', 'mortalkombat2': 'Jade enamel folders, gold arcade fittings and ice-blue screens.', 'facadasexu': 'Oxblood lacquer folders, ivory outlines and fine copper details.',
     'ghostbusters': 'Slime-green folders, liquid edges and midnight enamel badges.',
     'leviathan': 'Engraved brass folders, obsidian plaques and amethyst details.',
     'polaris': 'Sapphire glass tiles, luminous cyan symbols and violet folder depths.',
@@ -169,6 +169,21 @@ def ornament(style, accent):
 def svg(style, name):
     if style == 'facadasexu':
         from .facadasexu import svg as render
+        return render(name,CATALOG,symbol)
+    elif style == 'killerinstinct':
+        from .killerinstinct import svg as render
+        return render(name,CATALOG,symbol)
+    elif style == 'kitemple':
+        from .kitemple import svg as render
+        return render(name,CATALOG,symbol)
+    elif style == 'kiprimal':
+        from .kiprimal import svg as render
+        return render(name,CATALOG,symbol)
+    elif style == 'kifireice':
+        from .kifireice import svg as render
+        return render(name,CATALOG,symbol)
+    elif style == 'starcraft':
+        from .starcraft import svg as render
         return render(name,CATALOG,symbol)
     elif style == 'mortalkombat2':
         from .mortalkombat2 import svg as render

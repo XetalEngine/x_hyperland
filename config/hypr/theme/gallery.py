@@ -12,7 +12,7 @@ import wallpaper_sets
 
 # Presentation only: selecting a banner still uses the normal component chooser.
 STORIES = {
-    'mortalkombat2': ('MORTAL\nKOMBAT II', 'Choose your destiny.\nJade. Gold. Ice. Fire.', 'mortal kombat 2 ii mk2 arcade living forest scorpion sub zero shang tsung fatality fatalities dragon jade gold'), 'facadasexu': ('777\nFACADAS EXU', 'Candlelight in the dark.\nBlack. Oxblood. Ivory. Copper.', '777 facadas exu black red oxblood ivory copper candles trident altar'),
+    'killerinstinct': ('KILLER INSTINCT\nARCADE 94', 'One more credit.\nChrome. Violet. Ember.', 'killer instinct 1994 midway rare arcade spinal fulgore tj combo eyedol cabinet violet silver'), 'kitemple': ('KILLER INSTINCT\nJADE TEMPLE', 'Awaken the tiger.\nJade. Gold. Sapphire.', 'killer instinct 1994 orchid jago chief thunder temple jade emerald gold'), 'kiprimal': ('KILLER INSTINCT\nPRIMAL STORM', 'Unleash the instinct.\nStorm. Stone. Claw.', 'killer instinct 1994 sabrewulf riptor eyedol jungle primal storm violet moss'), 'kifireice': ('KILLER INSTINCT\nFIRE & ICE', 'Opposing forces.\nFire. Frost. Steel.', 'killer instinct 1994 cinder glacius tj combo fire ice foundry arctic cyan orange'), 'starcraft': ('STARCRAFT II', 'Command the frontier.\nSteel. Plasma. Starlight.', 'starcraft star craft ii 2 terran protoss zerg marine zealot battlecruiser aiur nexus blue cyan armor space'), 'mortalkombat2': ('MORTAL\nKOMBAT II', 'Choose your destiny.\nJade. Gold. Ice. Fire.', 'mortal kombat 2 ii mk2 arcade living forest scorpion sub zero shang tsung fatality fatalities dragon jade gold'), 'facadasexu': ('777\nFACADAS EXU', 'Candlelight in the dark.\nBlack. Oxblood. Ivory. Copper.', '777 facadas exu black red oxblood ivory copper candles trident altar'),
     'ghostbusters': ('GHOSTBUSTERS', 'A little slime.\nA lot of spirit.', 'ghostbusters ghost busters slimer geleia ecto slime green neon cartoon firehouse'),
     'leviathan': ('LEVIATHAN', 'Beyond the labyrinth.\nObsidian. Brass. Amethyst.', 'leviathan labyrinth puzzle cube gothic hellraiser cenobite pinhead obsidian brass gold violet purple storm'),
     'polaris': ('POLARIS', 'A familiar friend. A brighter horizon.\nMidnight. Cyan. Starlight.', 'polaris tux linux penguin navy cyan blue violet aurora north star orbit glass'),
@@ -36,7 +36,7 @@ STORIES = {
     'candycloud': ('Candy\nCloud', 'Softer worlds. Higher focus.\nPearl clouds and a little starlight.', 'pink purple pastel fantasy atmospheres'),
     'shadowedge': ('SHADOW\nEDGE', 'Move in silence.\nSmoked glass, silver and crimson rain.', 'ninja moon black silver red rain'),
 }
-FOCAL_TOP = {'modern': .05, 'shadowedge': .08, 'mortalkombat2': .70}
+FOCAL_TOP = {'modern': .05, 'shadowedge': .08, 'killerinstinct': 0.65, 'kitemple': 0.65, 'kiprimal': 0.65, 'kifireice': 0.65, 'starcraft': 0.62, 'mortalkombat2': .70}
 THUMBNAIL_FOCAL_TOP = {
     'audi-a4-sakura-stance.png': .95,
     'audi-a4-neon-profile.png': .95,
@@ -71,7 +71,7 @@ def shape(box, design):
         from shadowedge import cut_path
         return cut_path(box, 14)
     path = QPainterPath()
-    radius = {'mortalkombat2': 4, 'facadasexu': 8, 'ghostbusters': 10, 'leviathan': 6, 'polaris': 12, 'prisonbreak': 5, 'infernalencore': 5, 'midnightrun': 7, 'mystery98': 1, 'platform95': 1, 'mycelium': 14, 'atomicafterglow': 5, 'blackwood': 5, 'midnighttransit': 7, 'hyperfusionblue': 9, 'candycloud': 26, 'porcelainink': 2, 'obsidianforge': 3, 'binaryknife': 3,
+    radius = {'killerinstinct': 3, 'kitemple': 2, 'kiprimal': 8, 'kifireice': 2, 'starcraft': 5, 'mortalkombat2': 4, 'facadasexu': 8, 'ghostbusters': 10, 'leviathan': 6, 'polaris': 12, 'prisonbreak': 5, 'infernalencore': 5, 'midnightrun': 7, 'mystery98': 1, 'platform95': 1, 'mycelium': 14, 'atomicafterglow': 5, 'blackwood': 5, 'midnighttransit': 7, 'hyperfusionblue': 9, 'candycloud': 26, 'porcelainink': 2, 'obsidianforge': 3, 'binaryknife': 3,
               'breakpoint': 8, 'tidalglass': 20}.get(design, 16)
     path.addRoundedRect(box, radius, radius)
     return path
@@ -206,7 +206,7 @@ class DesignCard(QPushButton):
     def paintEvent(self, event):
         p = QPainter(self); p.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform)
         colors = runtime.colors(self.mode, self.design); box = QRectF(self.rect()).adjusted(2, 2, -2, -2)
-        if self.design in ('shadowedge', 'candycloud', 'obsidianforge', 'porcelainink', 'tidalglass', 'hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','ghostbusters', 'mortalkombat2', 'facadasexu'):
+        if self.design in ('shadowedge', 'candycloud', 'obsidianforge', 'porcelainink', 'tidalglass', 'hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','ghostbusters', 'killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft', 'mortalkombat2', 'facadasexu'):
             importlib.import_module(self.design).paint_surface(p, box, colors, focused=self.isChecked())
         else:
             shade = QLinearGradient(box.topLeft(), box.bottomRight())
@@ -218,7 +218,7 @@ class DesignCard(QPushButton):
         scene = box.adjusted(12, 12, -12, -54)
         art = QRectF(scene.left(), scene.top(), self.wallpapers.x()-scene.left()+50, scene.height())
         if self.hero is None:
-            index = min(1, len(self.paths)-1) if self.design not in ('tidalglass','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','ghostbusters', 'mortalkombat2', 'facadasexu') else 0
+            index = min(1, len(self.paths)-1) if self.design not in ('tidalglass','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','ghostbusters', 'killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft', 'mortalkombat2', 'facadasexu') else 0
             self.hero = picture(self.paths[index], 1440) if self.paths else QPixmap()
         p.save(); p.setClipPath(shape(scene, self.design))
         p.fillRect(scene, QColor(colors['Base'])); cover(p, self.hero, art, FOCAL_TOP.get(self.design, .35))

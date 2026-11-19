@@ -1,0 +1,64 @@
+{
+  "theme": "kitemple",
+  "display_name": "Killer Instinct · Jade Temple",
+  "generation_mode": "built-in image_gen",
+  "created_utc": "2026-11-19T04:56:07.845903+00:00",
+  "collection": "Killer Instinct 1994 — sixteen shared wallpapers",
+  "images": [
+    {
+      "file": "tiger-spirit.png",
+      "title": "Tiger Spirit",
+      "characters": [
+        "Orchid",
+        "Jago"
+      ],
+      "width": 1672,
+      "height": 941,
+      "sha256": "808ac24c84562ee2855d10ec277d9f6c16eb73063889fa2724a2ca99635fbe20",
+      "prompt": "Use case: stylized-concept. Asset: finished 16:9 desktop wallpaper, requested 3840x2160, richly detailed premium cinematic illustration inspired by the ORIGINAL 1994 Killer Instinct arcade game's pre-rendered promotional art. This is a deeply nostalgic personal collection. Use original 1994 character identities and classic costumes, NOT the 2013 reboot, NOT Killer Instinct 2 newcomers. Render one coherent edge-to-edge scene. No application windows, no panels, no desktop icons, no HUD, no borders, no captions, no watermarks. Keep the outer left edge and top corners calm enough for real desktop icons. Full bodies when characters are present, elegant readable silhouettes, finely crafted textures, deep atmosphere, precise anatomy. Convert supplied jade temple desktop concept into only a finished scenic wallpaper, no UI. Original 1994 Orchid and Jago in a moonlit Himalayan temple courtyard. Orchid has long black hair and the classic emerald green fighting leotard with tall black boots and two luminous golden batons; she is an athletic adult, powerful stance. Jago is an adult muscular bare-chested Tibetan warrior monk wearing classic blue trousers, blue face mask and headband, metal shin guards, sword held low across body; no 2013 scars/tattoos or modern armor. Tall carved stone pillars and old prayer flags, distant snowy mountain peaks, warm gold lanterns and moonlit blue stone. The two champions occupy lower middle with breathing room; jade green lacquer, deep black, old gold and cool sapphire. In the high distant sky an elegant moderately sized classic silver 'KILLER INSTINCT' over fiery KI monogram and small gold 'HYPER FUSION'. No numeral II. Detailed rich temple materials.",
+      "references": [
+        {
+          "role": "User-provided concept or cabinet reference",
+          "attachment": "codex-clipboard-9aWq3k.png",
+          "sha256": "43ef97b426c5a1f0e2e0f762cd11998c93ed3c337befde9b0807956a2200d329"
+        }
+      ]
+    },
+    {
+      "file": "thunder-pass.png",
+      "title": "Thunder Pass",
+      "characters": [
+        "Chief Thunder"
+      ],
+      "width": 1672,
+      "height": 941,
+      "sha256": "b0673054255760382847a1c56c2e636f40ec8a0a2fc7e466e8cd82939281e30b",
+      "prompt": "Use case: stylized-concept. Asset: finished 16:9 desktop wallpaper, requested 3840x2160, richly detailed premium cinematic illustration inspired by the ORIGINAL 1994 Killer Instinct arcade game's pre-rendered promotional art. This is a deeply nostalgic personal collection. Use original 1994 character identities and classic costumes, NOT the 2013 reboot, NOT Killer Instinct 2 newcomers. Render one coherent edge-to-edge scene. No application windows, no panels, no desktop icons, no HUD, no borders, no captions, no watermarks. Keep the outer left edge and top corners calm enough for real desktop icons. Full bodies when characters are present, elegant readable silhouettes, finely crafted textures, deep atmosphere, precise anatomy. An evocative portrait of original 1994 Chief Thunder, muscular Native American fighter with tall red-and-black mohawk, classic red/white face paint, feather accents, dark fringed vest open over bare chest, dark trousers, leather boots, carrying two small tomahawks. Respectfully depict the established game character faithfully, not a generic costume or reboot design. Full body standing in a guarded stance on a weathered stone bridge between giant cliffs. Thunderclouds part around an emerald lightning flash, old gold lanterns at the bridge ends, jade-tinted mist, distant soaring mountains and waterfalls. Deep green, polished warm brass, black and pale sapphire. Camera wide and slightly low, rich natural texture, heroic and dignified. No logos or text.",
+      "references": []
+    },
+    {
+      "file": "orchids-secret.png",
+      "title": "Orchids Secret",
+      "characters": [
+        "Orchid"
+      ],
+      "width": 1672,
+      "height": 941,
+      "sha256": "c3b3ab76cf9de7aee649da36c6b618602f3de830ba819e19e8be5a66d2e646b3",
+      "prompt": "Use case: stylized-concept. Asset: finished 16:9 desktop wallpaper, requested 3840x2160, richly detailed premium cinematic illustration inspired by the ORIGINAL 1994 Killer Instinct arcade game's pre-rendered promotional art. This is a deeply nostalgic personal collection. Use original 1994 character identities and classic costumes, NOT the 2013 reboot, NOT Killer Instinct 2 newcomers. Render one coherent edge-to-edge scene. No application windows, no panels, no desktop icons, no HUD, no borders, no captions, no watermarks. Keep the outer left edge and top corners calm enough for real desktop icons. Full bodies when characters are present, elegant readable silhouettes, finely crafted textures, deep atmosphere, precise anatomy. Original 1994 Orchid alone in a secret rooftop garden above an ancient illuminated temple city at night, adult athletic woman with long flowing black hair, classic emerald green leotard, black knee-high boots, two glowing golden batons crossed loosely in a ready stance. Faithful original arcade costume, no reboot military fatigues or goggles. She stands right of center surrounded by elegant carved jade lattice screens, brass lanterns and wet stone tiles, ginkgo leaves in the breeze, layered rooftops falling into cool blue mist. Cinematic calm tension, jade lacquer, old gold, sapphire moonlight, warm reflections. Wide uncluttered composition, full body, fine details, no text.",
+      "references": []
+    },
+    {
+      "file": "monastery-at-dawn.png",
+      "title": "Monastery At Dawn",
+      "characters": [
+        "Jago"
+      ],
+      "width": 1672,
+      "height": 941,
+      "sha256": "3069c40cf66bca1acab42e91acb0d5d5ac1863379c0d4d03e5900d0d3c542d89",
+      "prompt": "Use case: stylized-concept. Asset: finished 16:9 desktop wallpaper, requested 3840x2160, richly detailed premium cinematic illustration inspired by the ORIGINAL 1994 Killer Instinct arcade game's pre-rendered promotional art. This is a deeply nostalgic personal collection. Use original 1994 character identities and classic costumes, NOT the 2013 reboot, NOT Killer Instinct 2 newcomers. Render one coherent edge-to-edge scene. No application windows, no panels, no desktop icons, no HUD, no borders, no captions, no watermarks. Keep the outer left edge and top corners calm enough for real desktop icons. Full bodies when characters are present, elegant readable silhouettes, finely crafted textures, deep atmosphere, precise anatomy. Original 1994 Jago meditating beside his sword in the open doorway of an ancient mountain monastery, bare chest, classic blue mask and headband, blue trousers and simple metal shin guards. Full figure small enough to feel part of a grand landscape. Golden sunrise illuminates intricate stonework, jade green roof tiles, weathered brass bells, quiet mountain mist and cascading terraces. A subtle tiger form carved in the large stone door surround suggests the Tiger Spirit. Deep emerald shadows contrast warm gold and pearl morning light. Elegant extremely wide cinematic environmental composition, luminous detailed realism, visual quiet, no text or logos.",
+      "references": []
+    }
+  ]
+}

@@ -8,7 +8,7 @@ import designs
 STYLES={'follow':'Follow desktop theme', **designs.DESIGNS}
 VARIANTS={'full':'Full · continuous bar', 'partial':'Partial · floating sections',
           'centered':'Centered · workspaces in the middle'}
-DESCRIPTIONS={'mortalkombat2': 'Arcade stone · gold bevels and jade workspace buttons', 'facadasexu': 'Candlelit lacquer · oxblood switches and copper hairlines',
+DESCRIPTIONS={'killerinstinct': 'Violet chrome · obsidian, silver bevels and amber arcade lights', 'kitemple': 'Jade lacquer · carved brass, emerald glass and temple lanterns', 'kiprimal': 'Storm-worn stone · moss, bone inlays and amethyst lightning', 'kifireice': 'Split elements · black steel, molten amber and crystalline cyan', 'starcraft': 'Command rail · silver armor, cyan conduits and cobalt workspaces', 'mortalkombat2': 'Arcade stone · gold bevels and jade workspace buttons', 'facadasexu': 'Candlelit lacquer · oxblood switches and copper hairlines',
  'ghostbusters':'Ectoplasm enamel · slime green, rounded rails and ghost-trap lights',
  'leviathan':'Engraved reliquary · obsidian panels, brass tracery and amethyst workspaces',
  'polaris':'Orbital glass · sapphire depth, cyan workspaces and silver light',
@@ -63,7 +63,7 @@ def configure(config,style,variation=None):
     status=['custom/recording','cpu','memory','custom/temperature','temperature','disk','custom/network','custom/internet','custom/lan','network#lan','custom/wifi',
             'custom/vpn','bluetooth','group/audio','pulseaudio#microphone','idle_inhibitor','custom/clipboard','custom/notifications','tray','clock','custom/power']
     layouts={
-        'prisonbreak': (apps,['mpris'],status), 'mortalkombat2':(apps,['mpris'],status), 'facadasexu':(apps,['mpris'],status), 'infernalencore':(apps,['mpris'],status),
+        'prisonbreak': (apps,['mpris'],status), 'killerinstinct': (apps,['mpris'],status), 'kitemple': (apps,['mpris'],status), 'kiprimal': (apps,['mpris'],status), 'kifireice': (apps,['mpris'],status), 'starcraft': (apps,['mpris'],status), 'mortalkombat2':(apps,['mpris'],status), 'facadasexu':(apps,['mpris'],status), 'infernalencore':(apps,['mpris'],status),
         'midnightrun':(apps,['mpris'],status),
         'ghostbusters':(apps,['mpris'],status),
         'leviathan':(apps,['mpris'],status),
@@ -135,7 +135,7 @@ window#waybar {{color:{t};}}
 }}
 '''
     faces={
-'prisonbreak': __import__('prisonbreak').bar_controls(p,root), 'mortalkombat2':__import__('mortalkombat2').bar_controls(p,root), 'facadasexu':__import__('facadasexu').bar_controls(p,root), 'infernalencore':__import__('infernalencore').bar_controls(p,root),
+'prisonbreak': __import__('prisonbreak').bar_controls(p,root), 'killerinstinct': __import__('killerinstinct').bar_controls(p,root), 'kitemple': __import__('kitemple').bar_controls(p,root), 'kiprimal': __import__('kiprimal').bar_controls(p,root), 'kifireice': __import__('kifireice').bar_controls(p,root), 'starcraft': __import__('starcraft').bar_controls(p,root), 'mortalkombat2':__import__('mortalkombat2').bar_controls(p,root), 'facadasexu':__import__('facadasexu').bar_controls(p,root), 'infernalencore':__import__('infernalencore').bar_controls(p,root),
 'midnightrun':__import__('midnightrun').bar_controls(p,root),
 'ghostbusters':__import__('ghostbusters').bar_controls(p,root),
 'leviathan':__import__('leviathan').bar_controls(p,root),
@@ -268,11 +268,11 @@ window#waybar {{background:linear-gradient(180deg,alpha({p['Button']},0.97),alph
 def architecture(p,style,variation,root):
     """One material vocabulary, available as a rail, islands or centered bank."""
     a,b,w,t,m,h=p['Accent'],p['Base'],p['Window'],p['Text'],p['Midlight'],p['Highlight']
-    radius={'mortalkombat2':'4px', 'facadasexu':'8px','ghostbusters':'10px','leviathan':'6px','polaris':'12px','prisonbreak': '5px', 'infernalencore':'5px','midnightrun':'7px','mystery98': '1px', 'platform95':'1px','mycelium':'14px','atomicafterglow':'5px','blackwood':'5px','midnighttransit':'7px','hyperfusionblue':'7px','raw':'1px','modern':'23px','breakpoint':'12px 2px 12px 2px','binaryknife':'2px 16px 2px 16px',
+    radius={'killerinstinct': '3px', 'kitemple': '2px', 'kiprimal': '8px', 'kifireice': '2px', 'starcraft': '5px', 'mortalkombat2':'4px', 'facadasexu':'8px','ghostbusters':'10px','leviathan':'6px','polaris':'12px','prisonbreak': '5px', 'infernalencore':'5px','midnightrun':'7px','mystery98': '1px', 'platform95':'1px','mycelium':'14px','atomicafterglow':'5px','blackwood':'5px','midnighttransit':'7px','hyperfusionblue':'7px','raw':'1px','modern':'23px','breakpoint':'12px 2px 12px 2px','binaryknife':'2px 16px 2px 16px',
             'tidalglass':'28px 28px 14px 14px','porcelainink':'4px','obsidianforge':'5px',
             'candycloud':'28px','shadowedge':'12px 0 12px 0','hollowgrove':'28px 12px 28px 12px','gildedhollow':'24px'}[style]
     surface={
-        'mortalkombat2':f'linear-gradient(180deg,{p["Button"]},{w} 32%,{b})', 'facadasexu':f'linear-gradient(180deg,{p["Button"]},{w} 32%,{b})',
+        'killerinstinct': f'linear-gradient(180deg,{p["Button"]},{w} 32%,{b})', 'kitemple': f'linear-gradient(180deg,{p["Button"]},{w} 32%,{b})', 'kiprimal': f'linear-gradient(180deg,{p["Button"]},{w} 32%,{b})', 'kifireice': f'linear-gradient(180deg,{p["Button"]},{w} 32%,{b})', 'starcraft': f'linear-gradient(180deg,{p["Button"]},{w} 32%,{b})', 'mortalkombat2':f'linear-gradient(180deg,{p["Button"]},{w} 32%,{b})', 'facadasexu':f'linear-gradient(180deg,{p["Button"]},{w} 32%,{b})',
         'ghostbusters':f'linear-gradient(170deg,{p["Button"]},{w} 30%,{b} 90%)',
         'leviathan':f'linear-gradient(160deg,{p["Button"]},{w} 22%,{b} 70%,{w})',
         'polaris':f'linear-gradient(180deg,{p["Button"]},{w} 35%,{b} 75%,{w})',
@@ -297,6 +297,12 @@ def architecture(p,style,variation,root):
         'gildedhollow':f'linear-gradient(165deg,{p["Button"]},{w} 24%,{b} 65%,{w})',
     }[style]
     frame=f'background:{surface};border:1px solid alpha({a},0.58);border-top-color:alpha({p["Link"]},0.72);border-radius:{radius};box-shadow:inset 0 1px alpha({t},0.12),inset 0 -2px alpha({a},0.1);'
+    if style in ('killerinstinct', 'kitemple', 'kiprimal', 'kifireice'):
+        from ki_materials import bar_frame
+        frame=bar_frame(p,style)
+    if style=='starcraft':
+        conduit=root/'assets/starcraft-conduit.svg'
+        frame=f'background:url("{conduit}"),url("{conduit}"),{surface};background-repeat:no-repeat;background-position:24% 1px,76% 1px,center;border:1px solid {m};border-top-color:{p["Light"]};border-bottom-color:{a};border-radius:5px;box-shadow:inset 0 0 0 2px {b},inset 0 0 0 3px alpha({p["Light"]},.15);'
     if style=='facadasexu':
         frame=f'background:{surface};border:1px solid {m};border-top-color:{p["Light"]};border-bottom-color:{h};border-radius:8px;box-shadow:inset 0 1px alpha({t},0.05);'
     elif style=='mortalkombat2':
@@ -332,7 +338,7 @@ window#waybar {{{frame}}}
     if variation=='centered':
         structure+=f'.modules-center {{background:alpha({b},0.45);border:1px solid alpha({a},0.3);border-radius:{radius};margin:3px 14px;padding:0 9px;}}\n'
     ornament={
-        'prisonbreak': __import__('prisonbreak').bar_controls(p,root), 'mortalkombat2':__import__('mortalkombat2').bar_controls(p,root), 'facadasexu':__import__('facadasexu').bar_controls(p,root), 'infernalencore':__import__('infernalencore').bar_controls(p,root),
+        'prisonbreak': __import__('prisonbreak').bar_controls(p,root), 'killerinstinct': __import__('killerinstinct').bar_controls(p,root), 'kitemple': __import__('kitemple').bar_controls(p,root), 'kiprimal': __import__('kiprimal').bar_controls(p,root), 'kifireice': __import__('kifireice').bar_controls(p,root), 'starcraft': __import__('starcraft').bar_controls(p,root), 'mortalkombat2':__import__('mortalkombat2').bar_controls(p,root), 'facadasexu':__import__('facadasexu').bar_controls(p,root), 'infernalencore':__import__('infernalencore').bar_controls(p,root),
 'midnightrun':__import__('midnightrun').bar_controls(p,root),
 'ghostbusters':__import__('ghostbusters').bar_controls(p,root),
 'leviathan':__import__('leviathan').bar_controls(p,root),

@@ -50,7 +50,7 @@ def symbol(name, color, size=20):
 
 def radius(style):
     return 2 if style in ('mystery98', 'platform95', 'shadowedge') else 5 if style in (
-        'binaryknife', 'mortalkombat2', 'prisonbreak', 'infernalencore') else 14
+        'binaryknife', 'killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft', 'mortalkombat2', 'prisonbreak', 'infernalencore') else 14
 
 
 def paint_panel(widget):

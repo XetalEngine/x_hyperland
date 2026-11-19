@@ -19,7 +19,7 @@ class HeadlessCursorBuildTests(unittest.TestCase):
         source = Path(__file__).resolve().parent
         with tempfile.TemporaryDirectory(prefix='cursor-headless-') as directory:
             root = Path(directory)
-            for name in ('art.py', 'build.py'):
+            for name in ('art.py', 'ki.py', 'build.py'):
                 shutil.copyfile(source/name, root/name)
             runtime = root/'runtime'; runtime.mkdir(mode=0o700)
             environment = {key:value for key,value in os.environ.items()

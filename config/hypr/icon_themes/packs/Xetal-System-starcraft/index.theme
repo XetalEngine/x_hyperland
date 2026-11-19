@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=StarCraft II
+Comment=Armored blue folders, command crates, silver instruments and cyan reactors.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

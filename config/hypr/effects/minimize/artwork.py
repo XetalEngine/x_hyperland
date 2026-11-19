@@ -324,8 +324,56 @@ def outworld_arcade(p,width,colors,phase):
     p.restore()
 
 
+def command_deck(p,width,colors,phase):
+    """Silver armor, cyan conduits, ventilation slots and pulsing end reactors."""
+    from starcraft import paint_surface
+    paint_surface(p,QRectF(8,8,width-16,80),colors,5,100)
+    p.save();metal=QColor(colors['Light']);accent=QColor(colors['Accent'])
+    for x,direction in ((20,1),(width-20,-1)):
+        p.setPen(QPen(metal,1));p.setBrush(QColor(colors['Base']));p.drawRoundedRect(QRectF(x-6,23,12,49),2,2)
+        for y in range(28,42,4):line(p,x-3,y,x+3,y)
+        p.setPen(QPen(accent,1.2));p.setBrush(alpha(accent,.45+.15*math.sin(phase*2)))
+        p.drawEllipse(QPointF(x,57),3.5,7)
+        p.setPen(QPen(metal,.9));line(p,x+direction*9,16,x+direction*15,22);line(p,x+direction*9,80,x+direction*15,74)
+    p.setPen(QPen(alpha(accent,.6),1.5));line(p,42,82,width-42,82)
+    p.restore()
+
+
+def ki_dock(p,width,colors,phase,style):
+    """1994 cabinet, jade altar, claw-cut stone and opposing thermal chambers."""
+    from ki_materials import paint_surface
+    paint_surface(p,QRectF(8,8,width-16,80),colors,opacity=100,style=style)
+    p.save();pale=QColor(colors['Light']);accent=QColor(colors['Accent']);cool=QColor(colors['Link'])
+    for x,left in ((22,True),(width-22,False)):
+        p.setBrush(QColor(colors['Base']));p.setPen(QPen(pale,1))
+        if style=='killerinstinct':
+            line(p,x-5,23,x+5,23)
+            for i in range(6):
+                p.setPen(QPen(pale,.6));p.setBrush(alpha(accent,.45+.15*math.sin(phase*2-i)))
+                p.drawEllipse(QPointF(x-5+(i%3)*5,43+(i//3)*10),2,2)
+        elif style=='kitemple':
+            path=QPainterPath(QPointF(x,30));path.lineTo(x+7,48);path.lineTo(x,66);path.lineTo(x-7,48);path.closeSubpath();p.drawPath(path)
+            p.setBrush(alpha(accent,.45+.15*math.sin(phase*1.5)));p.drawEllipse(QPointF(x,48),3,10)
+            for y,dy in ((20,1),(76,-1)):
+                line(p,x-8,y,x+4,y);line(p,x-8,y,x-8,y+dy*6)
+        elif style=='kiprimal':
+            for j in range(3):
+                p.setPen(QPen(alpha(accent,.42+.12*math.sin(phase*1.7+j)),1.7));line(p,x-7+j*5,33,x-3+j*5,63)
+        else:
+            color=accent if left else cool;p.setPen(QPen(color,1.4));p.setBrush(alpha(color,.13+.04*math.sin(phase*2)))
+            if left:
+                path=QPainterPath(QPointF(x,28));path.cubicTo(x-3,42,x-11,43,x-6,58);path.cubicTo(x-2,70,x+12,60,x+6,43);path.lineTo(x,28);p.drawPath(path)
+            else:
+                path=QPainterPath(QPointF(x,28));path.lineTo(x+6,48);path.lineTo(x,68);path.lineTo(x-6,48);path.closeSubpath();p.drawPath(path)
+    p.restore()
+
+
 def tray(painter, width, style, colors, phase):
     """Draw a horizontal tray in a width × 96 coordinate space."""
+    if style in ('killerinstinct','kitemple','kiprimal','kifireice'):
+        ki_dock(painter,width,colors,phase,style);return
+    if style == 'starcraft':
+        command_deck(painter,width,colors,phase);return
     if style == 'mortalkombat2':
         outworld_arcade(painter,width,colors,phase);return
     if style == 'facadasexu':
@@ -577,8 +625,20 @@ def dock(p, area, style, colors, *, phase=0., weights=(1., 1., 1.), zoom=(), ver
         p.save(); p.setOpacity(p.opacity()*max(0., min(1., weight)))
         if not stack:
             p.setPen(QPen(alpha(colors['Accent'], .12+(z-1)), .8)); p.setBrush(alpha(colors['Accent'], .035+(z-1)*.1))
-            radius = 3 if style == 'mortalkombat2' else 6 if style == 'facadasexu' else 8 if style == 'ghostbusters' else 4 if style == 'leviathan' else 11 if style == 'polaris' else 4 if style in ('infernalencore','prisonbreak') else 1 if style in ('platform95','mystery98') else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style in ('midnighttransit','midnightrun') else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
+            radius = 3 if style in ('starcraft','mortalkombat2') else 6 if style == 'facadasexu' else 8 if style == 'ghostbusters' else 4 if style == 'leviathan' else 11 if style == 'polaris' else 4 if style in ('infernalencore','prisonbreak') else 1 if style in ('platform95','mystery98') else 2 if style == 'raw' else 3 if style == 'atomicafterglow' else 4 if style == 'blackwood' else 6 if style in ('midnighttransit','midnightrun') else 10 if style in ('gildedhollow','hyperfusionblue') else 8 if style in ('breakpoint', 'binaryknife', 'obsidianforge', 'shadowedge') else 16
             p.drawRoundedRect(rect, radius, radius)
+        if style in ('killerinstinct','kitemple','kiprimal','kifireice') and not stack:
+            from ki_materials import paint_tile
+            paint_tile(p,rect,colors,selected=False,hovered=z>1.01,style=style)
+            p.setPen(QPen(alpha(colors['Accent'],min(1,.6+(z-1)*.4)),1.5))
+            line(p,rect.left()+9,rect.bottom()-5,rect.center().x(),rect.bottom()-5)
+            p.setPen(QPen(alpha(colors['Link'] if style=='kifireice' else colors['Accent'],.6),1.5))
+            line(p,rect.center().x(),rect.bottom()-5,rect.right()-9,rect.bottom()-5)
+        if style == 'starcraft' and not stack:
+            p.setBrush(blend(colors['Base'],colors['Accent'],.04+(z-1)*.12))
+            p.setPen(QPen(alpha(colors['Light'],min(1,.5+(z-1)*.5)),1));p.drawRoundedRect(rect,4,4)
+            p.setPen(QPen(alpha(colors['Accent'],min(1,.6+(z-1)*.4)),1.5));line(p,rect.left()+10,rect.bottom()-5,rect.right()-10,rect.bottom()-5)
+            p.setPen(QPen(alpha(colors['Light'],.6),.7));line(p,rect.left()+6,rect.top()+3,rect.right()-6,rect.top()+3)
         if style == 'mortalkombat2' and not stack:
             p.setBrush(blend(colors['Window'],colors['Accent'],.04+(z-1)*.12))
             p.setPen(QPen(alpha(colors['Light'],min(1,.5+(z-1)*.5)),1));p.drawRoundedRect(rect,3,3)
