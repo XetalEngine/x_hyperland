@@ -16,6 +16,7 @@
 #include "rdp/page.h"
 #include "ventoy_page.h"
 #include "../theme/window_chrome.hpp"
+#include "../theme/about.hpp"
 #include "backend/mainwindow.h"
 #include <QFileSystemWatcher>
 #include <QJsonArray>
@@ -202,6 +203,7 @@ PanelController::PanelController(MainWindow *window)
   footer->addWidget(count);
   footer->addStretch();
   auto *about = new QPushButton("About", rootWidget);
+  about->setObjectName("aboutApplicationButton");
   footer->addWidget(about);
   auto *grip = new QSizeGrip(rootWidget);
   footer->addWidget(grip);
@@ -211,11 +213,11 @@ PanelController::PanelController(MainWindow *window)
   connect(back, &QPushButton::clicked, this, [this] { open(""); });
   connect(homeButton, &QPushButton::clicked, this, [this] { open(""); });
   connect(about, &QPushButton::clicked, this, [this] {
-    QMessageBox::about(
-        owner, "Hyper Fusion Control Panel",
-        "<h2>Hyper Fusion</h2><p>A Hyprland control panel powered by the "
-        "CachyOsTools C++ engine.</p><p>All system tools and the ISO builder "
-        "are included in this desktop's source. GPLv3.</p>");
+    FusionAbout::show(
+        owner, HyperPanel::root(), "Control Panel",
+        "System tools and desktop management for Hyper Fusion.",
+        "Powered by the CachyOsTools C++ engine. All system tools and the "
+        "ISO builder are included in this desktop's source. GPLv3.");
   });
   connect(search, &QLineEdit::textChanged, this, [this] {
     if (stack->currentIndex() != 0)

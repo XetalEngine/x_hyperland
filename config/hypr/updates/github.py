@@ -16,6 +16,15 @@ from update_engine import REPOSITORY, revision
 import release_version
 
 API = 'https://api.github.com/repos/XetalEngine/x_hyperland'
+NOTES_UNAVAILABLE = 'Could not load all commit notes. Choose Check now to try again.'
+
+
+def cached_notes(previous, current, commit):
+    """A complete changelog belongs to both ends of an immutable commit range."""
+    return (previous.get('base') == current and previous.get('sha') == commit
+            and previous.get('notes_complete') is True
+            and isinstance(previous.get('commits'), list)
+            and bool(previous['commits']))
 
 
 def git_environment():
@@ -67,7 +76,8 @@ def git_latest(current, previous=None, cache=None):
                                      env=env, text=True, timeout=30, stderr=subprocess.PIPE)
     commit = revision(output.split()[0])
     if (previous.get('sha') == commit and previous.get('base') == current and previous.get('relation') != 'unknown'
-            and ('release_version' in previous or commit == current)):
+            and ('release_version' in previous or commit == current)
+            and (previous.get('relation') != 'ahead' or cached_notes(previous, current, commit))):
         return {**previous, 'transport': 'git'}
     value = {'sha':commit, 'base':current, 'etag':'', 'transport':'git',
              'relation':'identical', 'message':'Current GitHub main version'}
@@ -101,8 +111,36 @@ def git_history(current, commit, value, command, options):
             subprocess.run([*command, 'fetch', '--unshallow', '--no-tags', REPOSITORY, commit, current],
                            check=True, timeout=300, capture_output=True, **options)
     value['relation'] = 'ahead' if ancestor(current,commit) else 'behind' if ancestor(commit,current) else 'diverged'
-    value['message'] = subprocess.check_output([*command, 'show', '-s', '--format=%B', commit], text=True, **options)[:4000].strip()
+    value['message'] = subprocess.check_output([*command, 'show', '-s', '--format=%B', commit], text=True, **options).strip()
+    value.update(commits=[], notes_complete=value['relation'] != 'ahead')
+    if value['relation'] == 'ahead':
+        try:
+            value['commits'] = git_notes(current, commit, command, options)
+            value['notes_complete'] = True
+        except (OSError, ValueError, subprocess.SubprocessError):
+            # Display metadata must not invalidate an already verified update.
+            value['notes_error'] = NOTES_UNAVAILABLE
     return value
+
+
+def git_notes(current, commit, command, options):
+    # Knowing that the installed commit is an ancestor does not prove a shallow
+    # log includes every merged branch. Complete the history before listing it.
+    shallow = subprocess.check_output([*command, 'rev-parse', '--is-shallow-repository'],
+                                      text=True, timeout=30, **options).strip()
+    if shallow == 'true':
+        subprocess.run([*command, 'fetch', '--unshallow', '--no-tags', REPOSITORY, commit, current],
+                       check=True, timeout=300, capture_output=True, **options)
+    output = subprocess.check_output([*command, 'log', '--date-order', '-z', '--format=%H%x00%cI%x00%B',
+                                      current+'..'+commit], text=True, timeout=30, **options)
+    fields = output.split('\0')
+    if fields[-1] == '': fields.pop()
+    if not fields or len(fields) % 3: raise ValueError('Incomplete Git commit notes.')
+    commits = [{'sha': revision(fields[i]), 'date': fields[i+1], 'message': fields[i+2].strip()}
+               for i in range(0, len(fields), 3)]
+    if current in {item['sha'] for item in commits} or commit not in {item['sha'] for item in commits}:
+        raise ValueError('Git commit notes do not match the update range.')
+    return commits
 
 
 class RetryLater(RuntimeError):
@@ -142,13 +180,17 @@ def latest(current, previous=None):
     else:
         if not isinstance(data, list) or not data: raise ValueError('GitHub did not return a release commit.')
         item = data[0]
-        result = {'sha': revision(item['sha']), 'message': str(item['commit']['message'])[:4000], 'etag': etag}
+        result = {'sha': revision(item['sha']), 'message': str(item['commit']['message']), 'etag': etag}
+    # A 304 may reuse the head while the installed version has moved forward.
+    # Never carry that older range's notes into the new comparison.
+    for key in ('commits', 'notes_complete', 'notes_error'): result.pop(key, None)
+    comparison = None
     if result['sha'] == current: result['relation'] = 'identical'
     elif (previous.get('base') == current and previous.get('sha') == result['sha'] and
           previous.get('relation') in ('ahead', 'behind', 'diverged', 'identical')):
         result['relation'] = previous['relation']
     else:
-        try: comparison, _ = request('/compare/'+current+'...'+result['sha'])
+        try: comparison, _ = request('/compare/'+current+'...'+result['sha']+'?per_page=100&page=1')
         except HTTPError as error:
             if error.code != 404: raise
             return with_version({**result,'base':current,'relation':'unknown',
@@ -157,7 +199,47 @@ def latest(current, previous=None):
         if result['relation'] not in ('ahead', 'behind', 'diverged', 'identical'):
             raise ValueError('GitHub returned an unknown commit relationship.')
     result['base'] = current
+    result.update(commits=[], notes_complete=result['relation'] != 'ahead')
+    if result['relation'] == 'ahead':
+        if cached_notes(previous, current, result['sha']):
+            result.update(commits=previous['commits'], notes_complete=True)
+        else:
+            try:
+                result.update(commits=compare_notes(current, result['sha'], comparison), notes_complete=True)
+            except (OSError, ValueError, KeyError, TypeError, RetryLater):
+                result['notes_error'] = NOTES_UNAVAILABLE
     return with_version(result, previous)
+
+
+def compare_notes(current, commit, first_page=None):
+    """Fetch every page for the pinned range; GitHub orders it oldest first."""
+    commits, seen = [], set()
+    page, total = 1, None
+    while True:
+        if page == 1 and first_page is not None:
+            data = first_page
+        else:
+            data, _ = request('/compare/'+current+'...'+commit+'?per_page=100&page='+str(page))
+        count = data.get('total_commits') if isinstance(data, dict) else None
+        items = data.get('commits') if isinstance(data, dict) else None
+        if (type(count) is not int or count < 1 or not isinstance(items, list) or not items
+                or data.get('status') != 'ahead' or (total is not None and count != total)):
+            raise ValueError('GitHub returned incomplete commit notes.')
+        total = count
+        for item in items:
+            sha = revision(item['sha'])
+            message = item['commit']['message']
+            if sha == current or sha in seen or not isinstance(message, str):
+                raise ValueError('GitHub commit notes do not match the update range.')
+            seen.add(sha)
+            committer = item['commit'].get('committer')
+            if not isinstance(committer, dict): committer = {}
+            commits.append({'sha': sha, 'message': message.strip(), 'date': str(committer.get('date') or '')})
+        if len(commits) >= total:
+            if len(commits) != total or commit not in seen:
+                raise ValueError('GitHub commit notes do not match the update range.')
+            return list(reversed(commits))
+        page += 1
 
 
 def with_version(result, previous):

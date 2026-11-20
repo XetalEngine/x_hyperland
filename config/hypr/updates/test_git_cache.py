@@ -75,6 +75,39 @@ class GitCacheTests(unittest.TestCase):
         self.assertEqual(value['release_version'], '0.0.0.237-alpha')
         self.assertFalse((bare/'shallow.lock').exists())
 
+    def test_notes_include_every_missed_commit_and_refresh_legacy_and_changed_base_caches(self):
+        message = 'Third change\n\n'+('Full commit description.\n'*250)+'Last paragraph.'
+        self.git('commit', '--allow-empty', '-qm', message)
+        third = self.git('rev-parse', 'HEAD')
+        previous = {'sha':third, 'base':self.first, 'relation':'ahead', 'transport':'git',
+                    'message':message[:4000], 'release_version':'0.0.0.237-alpha'}
+        value = github.git_latest(self.first, previous, self.cache)
+        self.assertTrue(value['notes_complete'])
+        self.assertEqual([item['sha'] for item in value['commits']], [third, self.commit])
+        self.assertEqual(value['commits'][0]['message'], message)
+        self.assertEqual(value['commits'][1]['message'], 'Second')
+        self.assertTrue(value['commits'][0]['date'])
+        newer = github.git_latest(self.commit, value, self.cache)
+        self.assertEqual([item['sha'] for item in newer['commits']], [third])
+        with patch.object(github, 'git_cache', side_effect=AssertionError('Complete range should reuse its cache')):
+            cached = github.git_latest(self.commit, newer, self.cache)
+        self.assertEqual(cached['commits'], newer['commits'])
+
+    def test_shallow_merged_branch_does_not_lose_older_missed_commits(self):
+        tree = self.git('rev-parse', self.first+'^{tree}')
+        branch = self.first
+        missing = []
+        for index in range(260):
+            branch = self.git('commit-tree', tree, '-p', branch, '-m', f'Side branch change {index}')
+            missing.append(branch)
+        head = self.git('commit-tree', tree, '-p', self.commit, '-p', branch, '-m', 'Merge all branch changes')
+        self.git('update-ref', 'refs/heads/main', head)
+        value = github.git_latest(self.commit, cache=self.cache)
+        self.assertTrue(value['notes_complete'])
+        self.assertEqual({item['sha'] for item in value['commits']}, {*missing, head})
+        self.assertEqual(value['commits'][0]['sha'], head)
+        self.assertNotIn(self.first, [item['sha'] for item in value['commits']])
+
     def test_legacy_cache_is_never_modified_even_if_its_worker_is_still_running(self):
         legacy = self.cache/'repository.git'
         legacy.mkdir(parents=True)

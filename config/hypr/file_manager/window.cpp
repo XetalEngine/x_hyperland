@@ -11,6 +11,7 @@
 #include "trash_animation.h"
 #include "../theme/file_preview.hpp"
 #include "../theme/window_chrome.hpp"
+#include "../theme/about.hpp"
 #include "../theme/icon_theme.hpp"
 #include <KAbstractFileItemActionPlugin>
 #include <KApplicationTrader>
@@ -268,6 +269,10 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   undoAction->setEnabled(false);
   menu->addSeparator();
   menu->addAction("Keyboard shortcuts", this, &FilesWindow::showShortcuts);
+  menu->addAction("About Fusion Files…", this, [this] {
+    FusionAbout::show(this, Fusion::root(), "Fusion Files",
+                      "Your files, drives and folders, at home in Hyper Fusion.");
+  })->setObjectName("aboutApplicationAction");
   auto *body = new QWidget;
   body->setObjectName("filesBody");
   auto *layout = new QVBoxLayout(body);

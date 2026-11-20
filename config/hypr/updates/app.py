@@ -32,11 +32,29 @@ QProgressBar::chunk {background:palette(accent); border-radius:3px;}
 '''
 
 
+def commit_notes(value):
+    history = value.get('github', {})
+    latest = value.get('title', 'Updates are published from XetalEngine/x_hyperland on GitHub.')
+    if (history.get('relation') != 'ahead' or history.get('base') != value.get('current')
+            or history.get('sha') != value.get('latest')):
+        return latest
+    commits = history.get('commits', [])
+    if history.get('notes_complete') is not True or not commits:
+        return (history.get('notes_error') or 'Choose Check now to load all changes since your installed version.') + \
+               '\n\nLatest commit:\n'+latest
+    installed = release_version.label(value.get('current_version'), value.get('current'))
+    heading = 'Changes since '+installed+'\n'+str(len(commits))+(' commit' if len(commits) == 1 else ' commits')+' · Newest first'
+    entries = [(item.get('date', '')[:10]+' · ' if item.get('date') else '') +
+               (item['message'] or '(No commit message)') for item in commits]
+    return heading+'\n\n'+'\n\n'.join(entries)
+
+
 class Window(QWidget):
     def __init__(self):
         super().__init__(); self.setWindowTitle('Xetal / Desktop updates'); self.resize(630, 510)
         self.queued_action = None; self.restart_process = None; self.restarting = False
         self.check_requested_at = float('inf'); self.check_on_idle = False
+        self.notes_text = None
         layout = QVBoxLayout(self); layout.setContentsMargins(24, 20, 24, 22); layout.setSpacing(14)
         header = QHBoxLayout(); label = QLabel('XETAL  /  DESKTOP UPDATES'); label.setObjectName('eyebrow')
         header.addWidget(label, 1); header.addWidget(window_controls(self)); layout.addLayout(header)
@@ -172,15 +190,24 @@ class Window(QWidget):
                                  'Check now to confirm the latest version before updating.')
         if self.restarting: self.message.setText('Restarting…')
         self.rollback.setEnabled(not busy and (service.STATE/'last-backup.json').exists())
-        text = value.get('title', 'Updates are published from XetalEngine/x_hyperland on GitHub.')
+        notes = commit_notes(value)
+        text = notes
+        has_log = False
         if (phase in ('preparing', 'attention', 'ready', 'runtime-required') or ready) and (service.STATE/'update.log').is_file():
+            has_log = True
             with (service.STATE/'update.log').open('rb') as stream:
-                stream.seek(max(0, stream.seek(0, 2)-24000)); text += '\n\n'+stream.read().decode(errors='replace')
+                stream.seek(max(0, stream.seek(0, 2)-24000)); text += '\n\nUpdate progress\n\n'+stream.read().decode(errors='replace')
         if text != self.details.toPlainText():
             bar = self.details.verticalScrollBar()
             position = bar.value(); follow = position >= bar.maximum()-2
+            new_notes = notes != self.notes_text
             self.details.setPlainText(text)
-            bar.setValue(bar.maximum() if follow else position)
+            # New notes open at the top. An active log still opens at its tail
+            # and follows growth without interrupting someone reading earlier.
+            initial_log = has_log and self.notes_text is None
+            bar.setValue(bar.maximum() if initial_log else 0 if new_notes else
+                         bar.maximum() if has_log and follow else position)
+            self.notes_text = notes
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton and event.position().y() < 110 and self.windowHandle():

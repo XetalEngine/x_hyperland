@@ -28,6 +28,7 @@ import runtime as desktop_theme
 import wheel_guard
 from icons import icon
 from window_chrome import window_controls,toggle_maximized
+from fusion_about import about_menu
 from package_ui import PackagesPanel
 from account_ui import AccountHeader
 from activity import supervisor_active
@@ -55,6 +56,10 @@ class KVMSettings(VMStart2):
         brand.setStyleSheet('font-size:21px; font-weight:700;');brand.setFixedWidth(196)
         bar=self.centralWidget().layout().itemAt(0).layout()
         self.chip=QLabel();self.chip.setPixmap(icon('chip',desktop_theme.colors()['Accent'],30).pixmap(30,30));bar.insertWidget(0,self.chip)
+        self.about_menu=about_menu(self, 'KVM Settings',
+                                  'Windows and Apple virtual machines, integrated into Hyper Fusion.',
+                                  'Built on vmstart_2.')
+        bar.insertWidget(2,self.about_menu)
         self.window_controls=window_controls(self);bar.addWidget(self.window_controls)
         self._decorate_pages()
         self.account_header=AccountHeader(self)

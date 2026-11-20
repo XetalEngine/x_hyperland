@@ -57,6 +57,35 @@ class UpdateUiTests(unittest.TestCase):
         self.assertIn('1'*40,window.version.toolTip())
         self.assertIn('2'*40,window.version.toolTip())
 
+    def test_all_commit_notes_start_at_the_top_and_keep_the_reading_position(self):
+        commits = [{'sha':f'{i:040x}', 'date':'2026-11-19T20:00:00Z',
+                    'message':f'Change {i}\n\nDetailed notes for change {i}.\nSecond paragraph.'}
+                   for i in range(40, 0, -1)]
+        service.publish(current_version='0.0.0.273-alpha', github={
+            'base':'1'*40, 'sha':'2'*40, 'relation':'ahead', 'notes_complete':True, 'commits':commits})
+        window = self.window(); bar = window.details.verticalScrollBar()
+        text = window.details.toPlainText()
+        self.assertIn('Changes since 0.0.0.273-alpha', text)
+        self.assertIn('40 commits · Newest first', text)
+        self.assertLess(text.index('Change 40'), text.index('Change 1\n'))
+        for item in commits: self.assertIn(item['message'], text)
+        self.assertGreater(bar.maximum(), 0)
+        self.assertEqual(bar.value(), 0)
+        bar.setValue(bar.maximum()//2); position = bar.value()
+        self.finish_check(window)
+        self.assertEqual(bar.value(), position)
+
+    def test_incomplete_notes_are_labeled_and_stale_ranges_are_not_shown(self):
+        history = {'base':'1'*40, 'sha':'2'*40, 'relation':'ahead', 'notes_complete':False,
+                   'commits':[], 'notes_error':'Could not load all commit notes. Choose Check now to try again.'}
+        service.publish(github=history)
+        window = self.window()
+        self.assertIn('Could not load all commit notes', window.details.toPlainText())
+        self.assertIn('Latest commit:', window.details.toPlainText())
+        history.update(base='3'*40, notes_complete=True, commits=[{'sha':'2'*40,'message':'Already installed old notes'}])
+        service.publish(github=history); window.refresh()
+        self.assertNotIn('Already installed old notes', window.details.toPlainText())
+
     def test_current_version_hides_the_update_button_and_updates_can_reappear(self):
         service.publish(phase='current', current='2'*40, latest='2'*40,
                         github={'relation': 'identical'})

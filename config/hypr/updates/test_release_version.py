@@ -18,8 +18,9 @@ class ReleaseVersionTests(unittest.TestCase):
     def test_api_uses_exact_commit_and_reuses_cached_label(self):
         contents = {'type':'file','encoding':'base64',
                     'content':base64.b64encode(b'0.0.0.200-alpha\n').decode()}
-        responses = [([{'sha':NEW,'commit':{'message':'Release'}}],'etag'),
-                     ({'status':'ahead'},''),(contents,'')]
+        commits = [{'sha':NEW,'commit':{'message':'Release'}}]
+        responses = [(commits,'etag'),
+                     ({'status':'ahead','total_commits':1,'commits':commits},''),(contents,'')]
         with patch.object(github,'request',side_effect=responses) as request:
             value = github.latest(OLD)
         self.assertEqual(value['release_version'],'0.0.0.200-alpha')

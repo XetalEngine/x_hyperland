@@ -34,6 +34,7 @@ from page import ThemePage
 from audio_page import AudioPage, STYLE as AUDIO_STYLE
 from context_menu_page import ContextMenuPage, STYLE as CONTEXT_STYLE
 from window_chrome import window_controls
+from fusion_about import about_menu
 import wheel_guard
 from home_page import HomePage
 from system_page import SystemPage
@@ -1120,6 +1121,9 @@ class Window(QMainWindow):
         header.addLayout(titles)
         header.addStretch()
         self.header_hint=label('LIVE CONFIGURATION\nSuper + K', 'muted');header.addWidget(self.header_hint)
+        self.about_menu=about_menu(self, 'Fusion Settings',
+                                  'Make Hyper Fusion your own: themes, shortcuts, audio and more.')
+        header.addWidget(self.about_menu)
         self.window_controls=window_controls(self,title='Close Fusion Settings');self.close_button=self.window_controls.close
         header.addSpacing(12);header.addWidget(self.window_controls)
         layout.addLayout(header)
