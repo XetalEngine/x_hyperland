@@ -36,11 +36,16 @@ def verify(package, identity):
 def save_previous(backup, before, expected):
     directory = backup/'previous'
     directory.mkdir(mode=0o700)
+    # Each Setup retry has a new recovery record. Reuse completed downloads
+    # from earlier attempts, but verify every copied archive again below.
+    caches = sorted((path for path in backup.parent.glob('*/previous')
+                     if path != directory and path.is_dir() and not path.is_symlink()
+                     and not path.parent.is_symlink()), reverse=True)
     result = {}
     for name, version in before.items():
         if version == expected.get(name):
             continue
-        package = runtime.previous_package(directory, name)
+        package = runtime.previous_package(directory, name, recovery_caches=caches)
         if package is None:
             raise RuntimeError('Installed runtime changed during recovery preparation: '+name)
         verify(package, name+' '+version)

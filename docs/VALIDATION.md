@@ -255,6 +255,18 @@ rule match the repository. Report:
 `~/.local/state/hyperfusion/upgrade-0572/settings-overlay-install-20261121-143803/result.json`.
 The user also confirmed that the actual Echo overlay is fixed.
 
+### VM recovery download timeout
+
+The older-installation VM stopped during recovery preparation because fetching
+the installed `appstream 1.2.2-1` timed out. This occurred before the compositor
+package transaction. Recovery now retries transient package/signature downloads,
+discards truncated responses and reuses completed archives from previous Setup
+attempts. Every reused archive still goes through signature and exact identity
+verification. The runtime and Arch transaction suites pass all 52 checks,
+including eight new cases covering retries, incomplete transfers, permanent
+HTTP errors, bounded failure, cache reuse and signature rejection. The VM rerun
+remains necessary; these local changes do not update its downloaded Setup copy.
+
 ### Remaining release validation
 
 The live Arch installation was upgraded and then received the greeter, rendering,

@@ -163,6 +163,35 @@ class ArchTests(unittest.TestCase):
                 system.prepare_recovery(backup, ['pacman'], ['hyprland'], database, '[options]\n')
         self.assertFalse((backup/'record.json').exists())
 
+    def test_reused_recovery_archives_are_verified_again_for_the_exact_installed_version(self):
+        backup=self.root/'new-attempt';backup.mkdir()
+        old=self.root/'old-attempt/previous';old.mkdir(parents=True)
+        file='appstream-1.2.2-1-x86_64.pkg.tar.zst'
+        (old/file).write_bytes(b'cached archive');(old/(file+'.sig')).write_bytes(b'cached signature')
+        def queries(args,**kwargs):
+            if args[:2]==['pacman','-Q']:value='appstream 1.2.2-1\n'
+            elif args[:2]==['pacman','-Qi']:value='Name : appstream\nArchitecture : x86_64\n'
+            else:raise AssertionError('Unexpected package command: '+repr(args))
+            return subprocess.CompletedProcess(args,0,value,'')
+        with patch.object(runtime.subprocess,'run',side_effect=queries), \
+             patch.object(runtime,'package_caches',return_value=[]), \
+             patch.object(runtime,'urlopen',side_effect=AssertionError('Cached archive attempted download')), \
+             patch.object(system,'verify') as verify:
+            saved=system.save_previous(backup,{'appstream':'1.2.2-1'},{'appstream':'1.2.3-1'})
+        verify.assert_called_once_with(backup/'previous'/file,'appstream 1.2.2-1')
+        self.assertEqual(saved['appstream']['sha256'],hashlib.sha256(b'cached archive').hexdigest())
+        self.assertEqual(saved['appstream']['signature_sha256'],hashlib.sha256(b'cached signature').hexdigest())
+
+    def test_reused_recovery_archive_with_bad_signature_still_stops_preparation(self):
+        backup=self.root/'new-attempt';backup.mkdir()
+        def saved(directory,name,**kwargs):
+            path=directory/'untrusted.pkg.tar.zst';path.write_bytes(b'untrusted');return path
+        with patch.object(runtime,'previous_package',side_effect=saved), \
+             patch.object(system,'verify',side_effect=subprocess.CalledProcessError(1,['pacman-key','--verify'])):
+            with self.assertRaises(subprocess.CalledProcessError):
+                system.save_previous(backup,{'appstream':'1.2.2-1'},{'appstream':'1.2.3-1'})
+        self.assertFalse((backup/'record.json').exists())
+
     def test_dependency_install_always_repairs_even_when_runtime_already_matches(self):
         with patch.object(dependencies, 'distro', return_value='arch'), patch.object(arch, 'ensure') as ensure:
             dependencies.install(True)

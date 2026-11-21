@@ -9,7 +9,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO/'installer'))
@@ -170,7 +170,74 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(package.name,file)
         self.assertEqual(package.read_bytes(),b'CachyOS compositor')
         self.assertEqual(Path(str(package)+'.sig').read_bytes(),b'CachyOS signature')
-        fetch.assert_called_once_with(url,timeout=45)
+        fetch.assert_called_once_with(url,timeout=90)
+
+    def test_recovery_retries_package_and_signature_timeouts_independently(self):
+        cache=self.root/'recovery';cache.mkdir();file='appstream-1.2.2-1-x86_64.pkg.tar.zst'
+        url='https://archive.example/'+file
+        with patch.object(runtime,'urlopen',side_effect=[URLError(TimeoutError('timed out')),
+                io.BytesIO(b'old package'),TimeoutError('timed out'),io.BytesIO(b'old signature')]) as fetch, \
+             patch.object(runtime,'sleep') as pause:
+            package=runtime.save_recovery(cache,file,[],url)
+        self.assertEqual(package.read_bytes(),b'old package')
+        self.assertEqual(Path(str(package)+'.sig').read_bytes(),b'old signature')
+        self.assertEqual([call.args[0] for call in fetch.call_args_list],[url,url,url+'.sig',url+'.sig'])
+        self.assertEqual(pause.call_count,2)
+        self.assertFalse(list(cache.glob('*.part')))
+
+    def test_truncated_recovery_download_is_retried_before_it_can_be_reused(self):
+        cache=self.root/'recovery';cache.mkdir();file='appstream-1.2.2-1-x86_64.pkg.tar.zst'
+        short=io.BytesIO(b'short');short.headers={'Content-Length':'12'}
+        complete=io.BytesIO(b'complete pkg');complete.headers={'Content-Length':'12'}
+        def fetch(*args,**kwargs):
+            self.assertFalse((cache/file).exists())
+            self.assertFalse(list(cache.glob('*.part')))
+            return short if not short.closed else complete
+        with patch.object(runtime,'urlopen',side_effect=fetch) as download,patch.object(runtime,'sleep'):
+            package=runtime.save_recovery(cache,file,[],'https://archive.example/'+file,b'signed metadata')
+        self.assertEqual(download.call_count,2)
+        self.assertEqual(package.read_bytes(),b'complete pkg')
+        self.assertEqual(Path(str(package)+'.sig').read_bytes(),b'signed metadata')
+
+    def test_permanent_recovery_http_error_does_not_retry_the_same_source(self):
+        cache=self.root/'recovery';cache.mkdir();file='appstream-1.2.2-1-x86_64.pkg.tar.zst'
+        with patch.object(runtime,'urlopen',side_effect=HTTPError('fixture',404,'Not Found',None,None)) as fetch, \
+             patch.object(runtime,'sleep') as pause:
+            with self.assertRaises(HTTPError):runtime.save_recovery(cache,file,[],'https://archive.example/'+file)
+        self.assertEqual(fetch.call_count,1);pause.assert_not_called()
+        self.assertFalse(list(cache.iterdir()))
+
+    def test_recovery_timeout_exhaustion_stops_without_promoting_partial_bytes(self):
+        cache=self.root/'recovery';cache.mkdir();file='appstream-1.2.2-1-x86_64.pkg.tar.zst'
+        class Interrupted(io.BytesIO):
+            def read(self,*args):
+                if self.tell():raise TimeoutError('read timed out')
+                return super().read(*args)
+        with patch.object(runtime,'urlopen',side_effect=lambda *a,**k:Interrupted(b'partial archive')) as fetch, \
+             patch.object(runtime,'sleep') as pause:
+            with self.assertRaises(TimeoutError):runtime.save_recovery(cache,file,[],'https://archive.example/'+file)
+        self.assertEqual(fetch.call_count,3);self.assertEqual(pause.call_count,2)
+        self.assertFalse(list(cache.iterdir()))
+
+    def test_recovery_server_failure_is_retryable(self):
+        cache=self.root/'recovery';cache.mkdir()
+        with patch.object(runtime,'urlopen',side_effect=[HTTPError('fixture',503,'Unavailable',None,None),
+                io.BytesIO(b'archive')]) as fetch,patch.object(runtime,'sleep'):
+            package=runtime.save_recovery(cache,'old.pkg.tar.zst',[],'https://archive.example/old.pkg.tar.zst',b'sig')
+        self.assertEqual(fetch.call_count,2);self.assertEqual(package.read_bytes(),b'archive')
+
+    def test_recovery_reuses_completed_download_from_a_previous_setup_attempt(self):
+        previous=self.root/'previous-attempt/previous';previous.mkdir(parents=True)
+        file='hyprland-0.57.0-1.1-x86_64_v3.pkg.tar.zst'
+        (previous/file).write_bytes(b'exact previous package')
+        (previous/(file+'.sig')).write_bytes(b'previous signature')
+        with patch.object(runtime.subprocess,'run',side_effect=self.recovery_queries()) as query, \
+             patch.object(runtime,'package_caches',return_value=[]), \
+             patch.object(runtime,'urlopen',side_effect=AssertionError('Saved recovery archive attempted download')):
+            package=runtime.previous_package(self.root/'new-attempt/previous',recovery_caches=[previous])
+        self.assertEqual(package.read_bytes(),b'exact previous package')
+        self.assertEqual(Path(str(package)+'.sig').read_bytes(),b'previous signature')
+        self.assertFalse(any('-Spdd' in call.args[0] for call in query.call_args_list))
 
     def test_cachyos_recovery_can_reuse_cache_completely_offline(self):
         local=self.root/'pacman-cache';local.mkdir()

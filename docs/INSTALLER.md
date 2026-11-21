@@ -54,6 +54,14 @@ The package operation retains pacman's dependency and conflict checks. The [Arch
 
 Setup refreshes the installed distro signing-key packages before the main transaction, so an old keyring does not reject today's valid package signatures. Verification stays enabled. If that upgrade changes Python's major/minor version, the worker restarts with the new interpreter while preserving its arguments and runtime recovery record.
 
+Before the coordinated upgrade, Setup saves the exact old packages needed for
+rollback. Recovery downloads retry transient failures up to three times per
+source, with a 90-second socket timeout. Incomplete transfers are discarded.
+Retrying Setup reuses completed recovery downloads from earlier attempts and
+verifies their signatures and package identities again. An unavailable recovery
+package still stops the main transaction before compositor changes; check the
+reported source/network error and retry when it is reachable.
+
 On Arch, `/etc/pacman.d/xetal-hyprland.conf` holds all twelve matching runtime packages through pacman's documented [IgnorePkg and Include settings](https://man.archlinux.org/man/pacman.conf.5.en). Other repository settings and holds are preserved. Setup builds the included native sources on the recipient computer, using all available CPU threads for the Control Panel. Cube, Burn and Minimize builds are required, and the complete configuration is checked before and after compilation. KVM runtime binaries remain separate downloads inside KVM Settings.
 
 ## Fedora 44

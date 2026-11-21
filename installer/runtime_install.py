@@ -1,6 +1,7 @@
 """Prepare verified compositor packages and request normal administrator auth."""
 import base64
 import hashlib
+from http.client import IncompleteRead
 import json
 import os
 from pathlib import Path
@@ -8,7 +9,8 @@ import re
 import shutil
 import subprocess
 import sys
-from urllib.error import HTTPError
+from time import sleep
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
@@ -163,6 +165,29 @@ def download(target, cache):
     return cache/policy.filename(target)
 
 
+def recovery_download(url, temporary):
+    """Retry transient transport failures without keeping a partial archive."""
+    host = urlparse(url).hostname or urlparse(url).scheme
+    for attempt in range(3):
+        try:
+            with urlopen(url, timeout=90) as src, temporary.open('wb') as dst:
+                length = getattr(src, 'headers', {}).get('Content-Length')
+                shutil.copyfileobj(src, dst)
+                # HTTPResponse.read(size) can return EOF without raising when
+                # the peer closes early. Never promote those bytes to a cache.
+                if length is not None and dst.tell() != int(length):
+                    raise IncompleteRead(b'', max(0, int(length)-dst.tell()))
+            return
+        except (OSError, IncompleteRead) as error:
+            temporary.unlink(missing_ok=True)
+            retry = (error.code in (408, 429, 500, 502, 503, 504) if isinstance(error, HTTPError)
+                     else isinstance(error, (TimeoutError, ConnectionError, URLError, IncompleteRead)))
+            if isinstance(error, HTTPError): error.close()
+            if not retry or attempt == 2: raise
+            print('Retrying recovery download from '+host+' ('+str(attempt+2)+'/3): '+str(error), flush=True)
+            sleep(1+attempt*2)
+
+
 def save_recovery(cache, filename, local_dirs, url=None, signature=b''):
     """Copy/download only; the privileged helper verifies signatures and identity."""
     for suffix in ('', '.sig'):
@@ -171,19 +196,21 @@ def save_recovery(cache, filename, local_dirs, url=None, signature=b''):
         local = next((directory/output.name for directory in local_dirs if (directory/output.name).is_file()), None)
         temporary = output.with_suffix(output.suffix+'.part')
         try:
-            if local: shutil.copyfile(local, temporary)
+            if local:
+                if not suffix: print('Using cached recovery package: '+filename, flush=True)
+                shutil.copyfile(local, temporary)
             elif suffix and signature: temporary.write_bytes(signature)
             elif url:
-                print('Saving the previous package for recovery: '+output.name, flush=True)
-                with urlopen(url+suffix, timeout=45) as src, temporary.open('wb') as dst:
-                    shutil.copyfileobj(src, dst)
+                print('Saving the previous package for recovery: '+output.name+' from '+
+                      (urlparse(url).hostname or urlparse(url).scheme), flush=True)
+                recovery_download(url+suffix, temporary)
             else: raise FileNotFoundError('No cached '+output.name)
             os.replace(temporary, output)
         finally: temporary.unlink(missing_ok=True)
     return cache/filename
 
 
-def previous_package(cache, package_name='hyprland'):
+def previous_package(cache, package_name='hyprland', recovery_caches=()):
     """Preserve the exact installed package, including CachyOS architecture builds."""
     if not re.fullmatch(r'[A-Za-z0-9_+@.][A-Za-z0-9_+@.-]*', package_name):
         raise ValueError('Invalid recovery package name.')
@@ -203,7 +230,7 @@ def previous_package(cache, package_name='hyprland'):
     filenames = list(dict.fromkeys(package_name+'-'+v+'-'+architecture+'.pkg.tar.zst'
                                    for v in (version.split(':')[-1], version)))
     cache.mkdir(parents=True, exist_ok=True)
-    local_dirs = package_caches()
+    local_dirs = [*(Path(path) for path in recovery_caches), *package_caches()]
     for filename in filenames:
         try:
             return save_recovery(cache, filename, local_dirs)
@@ -236,12 +263,14 @@ def previous_package(cache, package_name='hyprland'):
     errors = []
     for filename, url, signature in dict.fromkeys(sources):
         try: return save_recovery(cache, filename, local_dirs, url, signature)
-        except OSError as error:
-            errors.append(str(error))
+        except (OSError, IncompleteRead) as error:
+            errors.append((urlparse(url).hostname or urlparse(url).scheme)+': '+str(error))
+            print('Recovery source unavailable: '+errors[-1], flush=True)
             if isinstance(error, HTTPError): error.close()
     raise RuntimeError('Could not save the installed '+package_name+' '+version+' ('+architecture+
                        ') for recovery from the package cache or configured repositories. '+
-                       'No compositor changes were made. Last download error: '+errors[-1])
+                       'No compositor changes were made. Check your connection and retry Setup. '+
+                       'Last download error: '+errors[-1])
 
 
 def complete():
