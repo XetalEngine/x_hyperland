@@ -152,10 +152,17 @@ class Wizard:
         self.label(page, packages+
                    '\nKVM components download separately from KVM Settings.', 'copy')
         import dependencies
+        self.package_rollback = None
         if dependencies.distro() == 'arch':
             self.label(page, 'Arch-based systems: Setup upgrades system packages together and installs\n'
-                       'the matching Hyprland libraries. Keep an internet connection available.\n'
-                       'Runtime recovery restores replaced Hyprland packages; system updates remain.', 'copy')
+                       'the matching Hyprland libraries. Keep an internet connection available.', 'copy')
+            self.package_rollback = g.check_button_new_with_label(b'Download old system packages for automatic rollback (optional)')
+            g.toggle_button_set_active(self.package_rollback, 0)
+            g.box_pack_start(page, self.package_rollback, 0, 0, 0)
+            self.label(page, 'Historical packages may return 404 (not found) and block the update.\n'
+                       'If this happens, you can retry or continue without package rollback.\n'
+                       'Off by default. Desktop settings are still backed up; a failed system\n'
+                       'upgrade may need manual repair when package rollback is off.', 'copy')
         page = self.page('Ready when you are.', 'Review your setup, then let us handle the rest.')
         card = self.box(page, spacing=12, name='card')
         self.review = self.label(card, '')
@@ -189,6 +196,7 @@ class Wizard:
         self.back = self.button(footer, 'Back', self.previous)
         self.next = self.button(footer, 'Get started', self.advance, 'primary')
         self.busy = False; self.index = 0; self.events = queue.Queue(); self.lines = []; self.success = False
+        self.package_rollback_unavailable = False
         self.cancel_file = Path(self.temporary.name)/'cancel'
         self.log_path = Path.home()/'.local/state/xetal-hyprland/setup.log'
         self.show(0)
@@ -247,14 +255,19 @@ class Wizard:
                     preferences+'\n'+('Login: Fusion sign-in · installed desktop selector · system backups' if
                     self.g.toggle_button_get_active(self.fusion_login) else
                     'Login: restore previous login screen' if self.login_was_enabled else 'Login: keep current login screen')+
-                    '\n\nSource '+self.revision[:8])
+                    ('\nPackage rollback: '+('on · download historical packages' if
+                     self.g.toggle_button_get_active(self.package_rollback) else 'off · keep desktop settings backup')
+                     if self.package_rollback else '')+'\n\nSource '+self.revision[:8])
             self.g.label_set_text(self.review, text.encode())
         if self.index == 2:
             self.busy = True; self.lines = []; self.cancel_file.unlink(missing_ok=True)
+            self.package_rollback_unavailable = False
             self.g.text_buffer_set_text(self.log_buffer, b'', 0); self.follow_log = True
             self.g.widget_set_sensitive(self.cancel, 1); self.g.label_set_text(self.error, b'')
+            self.g.label_set_text(self.status, b'Preparing...')
             self.g.progress_bar_set_fraction(self.progress, 0.03); self.show(3)
             self.preserve_preferences = self.update and bool(self.g.toggle_button_get_active(self.keep_preferences))
+            self.save_package_rollback = bool(self.package_rollback and self.g.toggle_button_get_active(self.package_rollback))
             selected_login = bool(self.g.toggle_button_get_active(self.fusion_login))
             self.login_choice = True if selected_login else False if self.login_was_enabled else None
             threading.Thread(target=self.worker, daemon=True).start()
@@ -269,11 +282,14 @@ class Wizard:
                 args = [sys.executable, str(install.REPO/'installer/install.py'), '--yes', '--cancel-file', str(self.cancel_file)]
             if self.login_choice is not None:
                 args.append('--fusion-login' if self.login_choice else '--no-fusion-login')
+            if self.save_package_rollback:
+                args.append('--package-rollback')
             self.log_path.parent.mkdir(parents=True, exist_ok=True)
             with self.log_path.open('w') as log:
                 process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                                            start_new_session=True,
-                                           env={**os.environ, 'XETAL_SETUP_GUI':'1', 'PYTHONUNBUFFERED':'1'})
+                                           env={**os.environ, 'XETAL_SETUP_GUI':'1', 'PYTHONUNBUFFERED':'1',
+                                                'XETAL_SETUP_CANCEL_FILE':str(self.cancel_file)})
                 for line in process.stdout:
                     log.write(line); log.flush(); self.events.put(('line', line.rstrip()))
                 code = process.wait()
@@ -322,7 +338,10 @@ class Wizard:
             if event == 'line':
                 self.lines.append(value); self.lines = self.lines[-500:]
                 pending.append(value)
-                prefixes = ('Required desktop', 'Downloading ', 'Package command:', 'Building ', 'Built ', 'Checking Hyprland', 'Validating ', 'Installed.', 'Ready.')
+                if value.startswith('Package rollback unavailable:'):
+                    self.package_rollback_unavailable = True
+                prefixes = ('Required desktop', 'Downloading ', 'Package command:', 'Building ', 'Built ', 'Checking Hyprland', 'Validating ', 'Installed.', 'Ready.',
+                            'Waiting for your recovery choice:', 'Retrying recovery downloads.', 'Continuing without package rollback')
                 if value.startswith(prefixes):
                     self.g.label_set_text(self.status, value[:150].encode())
                     fraction = .2 if value.startswith('Package') else .4 if value.startswith('Building') else .8 if value.startswith('Built') else .9 if value.startswith(('Checking','Validating')) else .1
@@ -334,6 +353,8 @@ class Wizard:
                     message = ('Hyprland '+self.target['hyprland']+' and your desktop are installed.\n\n'+
                                ('Reboot to use Fusion sign-in. Choose your account and desktop.\nWelcome opens after signing in if it is enabled.\n\n' if self.login_choice else
                                 'Reboot when ready, then select Hyprland and sign in.\nYour Cube, effects and desktop tools will start together.\n\n')+
+                               ('Automatic package rollback was disabled for this installation.\n'
+                                'Your desktop settings backup was kept.\n\n' if self.package_rollback_unavailable else '')+
                                'Installation log: '+str(self.log_path))
                     self.g.label_set_text(self.complete, message.encode()); self.show(4)
                 else:

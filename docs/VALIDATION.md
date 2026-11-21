@@ -267,6 +267,24 @@ including eight new cases covering retries, incomplete transfers, permanent
 HTTP errors, bounded failure, cache reuse and signature rejection. The VM rerun
 remains necessary; these local changes do not update its downloaded Setup copy.
 
+### Optional Arch package rollback
+
+The next revision makes package rollback off by default for normal Arch
+installation and updates. The default transaction test completes the matched
+runtime/hold update while treating any historical-package fetch as a test
+failure. Forward dependency and package-signature checks remain mandatory.
+Opted-in failures are collected for the Retry/Cancel/Continue dialog. Tests
+cover cancellation and noninteractive defaults, exact identities on a waiver,
+additional missing packages, Python restart state, and refusal to attempt a
+partial downgrade. Fresh-install and update greeter-failure tests retain the
+new matching desktop when package rollback is disabled and preserve the old
+profile backup. A VM upgrade and first reboot remain necessary.
+
+All 167 tests pass across the recovery-choice, Arch/runtime setup, Debian and
+Fedora runtime, installer, installer-source and login-setup suites. The native
+GTK smoke test could not open its private Xvfb display because the sandbox
+refused listener sockets; the popup still needs a graphical VM check.
+
 ### Remaining release validation
 
 The live Arch installation was upgraded and then received the greeter, rendering,

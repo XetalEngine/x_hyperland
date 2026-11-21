@@ -337,7 +337,7 @@ class ArchTests(unittest.TestCase):
         self.assertEqual(binary, '/usr/bin/python3')
         self.assertEqual(args[1:], ['installer/install.py', '--yes', '--cancel-file', '/tmp/cancel'])
         self.assertEqual(json.loads(environment['XETAL_SETUP_PACKAGE_RECOVERY']),
-                         dict(backend='arch-bundle', path=str(record)))
+                         dict(backend='arch-bundle', path=str(record), rollback_available=True))
 
     def test_unchanged_python_does_not_restart_setup(self):
         version = '%d.%d' % sys.version_info[:2]

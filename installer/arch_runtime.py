@@ -1,5 +1,6 @@
 """Resolve the signed Arch runtime and desktop as one native transaction."""
 import hashlib
+import json
 import os
 from pathlib import Path
 import re
@@ -9,6 +10,7 @@ import tempfile
 from urllib.request import urlopen
 
 import runtime_install as runtime
+import recovery_choice
 
 REPOSITORY = 'xetal-fusion-runtime'
 ENV = {**os.environ, 'LC_ALL':'C'}
@@ -209,24 +211,53 @@ def ensure(yes=False, force=False):
         raise RuntimeError('Package setup cancelled.')
     packages()
     prefix = runtime.administrator()
-    args = [*prefix, '/usr/bin/python3', str(runtime.ROOT/'installer/system_arch_runtime.py')]
+    helper = [*prefix, '/usr/bin/python3', str(runtime.ROOT/'installer/system_arch_runtime.py')]
+    if runtime.PACKAGE_ROLLBACK_ENABLED or runtime.REQUIRE_RECOVERY:
+        helper.append('--package-rollback')
+    args = helper
     # GPG user IDs can contain legacy non-UTF-8 bytes. They are display text,
     # not package identities; keep reading through them so the transaction's
     # recovery marker and exit status are never lost to a decoding exception.
-    with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                          text=True, errors='replace') as process:
-        try:
-            for line in process.stdout:
-                if line.startswith('XETAL_RUNTIME_TRANSACTION '):
-                    runtime.TRANSACTION = Path(line.strip().split(' ', 1)[1])
-                    runtime.TRANSACTION_BACKEND = 'arch-bundle'
-                else:
-                    print(line, end='', flush=True)
-            code = process.wait()
-        except KeyboardInterrupt:
-            process.wait()
-            raise
-    runtime.check_administrator_result(prefix, code)
+    while True:
+        missing = None
+        with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                              text=True, errors='replace') as process:
+            try:
+                for line in process.stdout:
+                    if line.startswith('XETAL_RUNTIME_TRANSACTION '):
+                        runtime.TRANSACTION = Path(line.strip().split(' ', 1)[1])
+                        runtime.TRANSACTION_BACKEND = 'arch-bundle'
+                        runtime.TRANSACTION_ROLLBACK_AVAILABLE = True
+                    elif line.startswith('XETAL_RUNTIME_ROLLBACK_UNAVAILABLE '):
+                        if runtime.TRANSACTION != Path(line.strip().split(' ', 1)[1]):
+                            raise RuntimeError('Package recovery status does not match its transaction.')
+                        runtime.TRANSACTION_ROLLBACK_AVAILABLE = False
+                        print('Package rollback unavailable: it is disabled for this installation. '
+                              'Manual repair may be needed if Setup fails. Transaction details: '+str(runtime.TRANSACTION), flush=True)
+                    elif line.startswith(recovery_choice.MARKER):
+                        missing = recovery_choice.validate(json.loads(line[len(recovery_choice.MARKER):]))
+                    else:
+                        print(line, end='', flush=True)
+                code = process.wait()
+            except KeyboardInterrupt:
+                process.wait()
+                raise
+        runtime.check_administrator_result(prefix, code)
+        if code != recovery_choice.EXIT_REQUIRED or missing is None:
+            break
+        if runtime.REQUIRE_RECOVERY:
+            raise RuntimeError('Preparing a review copy requires complete package rollback. '
+                               'Retry when the missing recovery packages can be downloaded.')
+        print('Waiting for your recovery choice: retry, cancel, or continue without package rollback.', flush=True)
+        answer = recovery_choice.ask(missing)
+        if answer == 'retry':
+            args = helper
+            print('Retrying recovery downloads. Completed archives will be reused.', flush=True)
+        elif answer == recovery_choice.CONTINUE:
+            args = [*helper, '--without-package-rollback', json.dumps(missing)]
+            print('Continuing without package rollback by your explicit choice.', flush=True)
+        else:
+            raise RuntimeError('Installation cancelled before the package upgrade. Recovery downloads were kept for retry.')
     if code:
         raise RuntimeError('Arch runtime/dependency installation failed. See the package details above.')
     runtime.policy.require()

@@ -110,14 +110,19 @@ def activate(home, login_choice=None):
         login_setup.apply(login_choice, root)
     except BaseException:
         # The greeter helper restores its own files on failure. Put the desktop
-        # back before the caller restores the matching package transaction.
+        # back only when the caller can also restore the matching packages.
         with engine.locked(state):
-            plan = engine.rollback_plan(root, backup)
-            engine.apply_plan(root, backup/'files', plan, state)
-            service.publish(state, phase='attention', current=plan['revision'],
+            if install.runtime_install.rollback_available():
+                plan = engine.rollback_plan(root, backup)
+                engine.apply_plan(root, backup/'files', plan, state)
+                message = 'Sign-in setup failed. The previous desktop was restored.'
+            else:
+                message = ('Sign-in setup failed. Package rollback was disabled, so the matching new desktop was kept. '
+                           'The previous settings backup is still available. Manual repair may be needed.')
+                print(message, flush=True)
+            service.publish(state, phase='attention', current=engine.installed(root)['revision'],
                             current_version=engine.installed(root).get('release_version',''),
-                            message='Sign-in setup failed. The previous desktop was restored.',
-                            retry_prepare=True)
+                            message=message, retry_prepare=True)
         raise
     install.runtime_install.complete()
 
@@ -127,10 +132,13 @@ if __name__ == '__main__':
     parser.add_argument('--manual', action='store_true')
     parser.add_argument('--runtime', action='store_true', help='Open administrator authentication for the matching compositor.')
     parser.add_argument('--activate', action='store_true', help='Activate a reviewed coordinated update before the next login.')
+    parser.add_argument('--package-rollback', action='store_true',
+                        help='Arch: download historical packages for automatic rollback (off by default).')
     login = parser.add_mutually_exclusive_group()
     login.add_argument('--fusion-login', dest='fusion_login', action='store_true', default=None)
     login.add_argument('--no-fusion-login', dest='fusion_login', action='store_false')
     parser.add_argument('--cancel-file', type=Path); args = parser.parse_args()
+    install.runtime_install.PACKAGE_ROLLBACK_ENABLED = args.package_rollback
     def checkpoint():
         if args.cancel_file and args.cancel_file.exists(): raise RuntimeError('Update cancelled after completing the current step.')
     try:

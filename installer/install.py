@@ -351,6 +351,8 @@ def main():
     parser=argparse.ArgumentParser(description='Install the complete Xetal Hyprland desktop, including wallpaper and native modules.')
     parser.add_argument('--yes',action='store_true',help='Accept dependency installation and profile replacement.')
     parser.add_argument('--skip-packages',action='store_true',help='Use existing dependencies; fail if anything is missing.')
+    parser.add_argument('--package-rollback', action='store_true',
+                        help='Arch: download historical packages for automatic rollback (off by default).')
     mode=parser.add_mutually_exclusive_group()
     mode.add_argument('--check',action='store_true',help='Read-only dependency/compatibility check.')
     mode.add_argument('--dry-run',action='store_true',help='Read-only installation plan and dependency report.')
@@ -364,6 +366,8 @@ def main():
     parser.add_argument('--cancel-file',type=Path,help=argparse.SUPPRESS)
     mode.add_argument('--restore',type=Path,help='Restore a previous installer backup; retain the replaced profile separately.')
     args=parser.parse_args()
+    runtime_install.REQUIRE_RECOVERY = bool(args.prepare)
+    runtime_install.PACKAGE_ROLLBACK_ENABLED = args.package_rollback
     def checkpoint():
         if args.cancel_file and args.cancel_file.exists():
             raise RuntimeError('Setup cancelled after completing the current step. The desktop profile was not replaced.')
@@ -382,7 +386,9 @@ def main():
         try:print('Installer source: '+source_revision(),flush=True)
         except RuntimeError as error:errors.append(str(error))
         print('Profile: '+args.profile+'; build Qt 5/6 theme plugins, Waybar modules, and screen-share preview helper.')
-        print('Include current wallpaper, licensed fonts, all session tools, backup and rollback. Activate at next Hyprland login.')
+        print('Include current wallpaper, licensed fonts, all session tools and desktop settings backup. Activate at next Hyprland login.')
+        if dependencies.distro() == 'arch':
+            print('System package rollback: '+('enabled' if args.package_rollback else 'off (optional --package-rollback)'))
         if args.fusion_login is not None:
             print('Login: '+('enable Fusion sign-in; system backups in /var/lib/xetal-fusion-login/backups/' if args.fusion_login else 'restore previous login configuration'))
         for error in errors:print('  '+error)
@@ -446,7 +452,11 @@ def main():
             except BaseException:
                 # Keep the old desktop paired with any compositor recovery.
                 # The enclosing error handler also recovers this transaction's runtime.
-                restore(backup, target, state, runtime_check=False)
+                if runtime_install.rollback_available():
+                    restore(backup, target, state, runtime_check=False)
+                else:
+                    print('Sign-in setup failed. Package rollback was disabled, so the matching new desktop '
+                          'was kept. The previous profile backup is at '+str(backup)+'. Manual repair may be needed.', flush=True)
                 raise
             runtime_install.complete()
     print('Installed. Backup: '+str(backup))

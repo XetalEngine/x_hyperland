@@ -12,10 +12,12 @@ import re
 import signal
 import stat
 import subprocess
+import sys
 
 import arch_runtime as arch
 import arch_recovery as recovery
 import dependencies
+import recovery_choice
 import runtime_install as runtime
 from system_runtime import atomic, config_with_hold
 
@@ -33,7 +35,14 @@ def verify(package, identity):
         raise RuntimeError('Recovery package identity differs: '+package.name)
 
 
-def save_previous(backup, before, expected):
+class MissingRecoveryPackages(RuntimeError):
+    def __init__(self, packages):
+        self.packages = recovery_choice.validate(packages)
+        super().__init__('Rollback packages could not be downloaded: '+
+                         ', '.join(p['name']+' '+p['version'] for p in packages))
+
+
+def save_previous(backup, before, expected, waived=()):
     directory = backup/'previous'
     directory.mkdir(mode=0o700)
     # Each Setup retry has a new recovery record. Reuse completed downloads
@@ -41,16 +50,30 @@ def save_previous(backup, before, expected):
     caches = sorted((path for path in backup.parent.glob('*/previous')
                      if path != directory and path.is_dir() and not path.is_symlink()
                      and not path.parent.is_symlink()), reverse=True)
-    result = {}
+    result, missing, waived_missing = {}, [], []
+    accepted = {p['name']:p['version'] for p in waived}
     for name, version in before.items():
         if version == expected.get(name):
             continue
-        package = runtime.previous_package(directory, name, recovery_caches=caches)
+        if accepted.get(name) == version:
+            waived_missing.append(dict(name=name, version=version,
+                                       error='Recovery download waived by your explicit choice.'))
+            continue
+        try:
+            package = runtime.previous_package(directory, name, recovery_caches=caches)
+        except runtime.RecoveryDownloadError as error:
+            missing.append(dict(name=name, version=version, error=str(error)))
+            print('Recovery download unavailable: '+name+' '+version, flush=True)
+            continue
         if package is None:
             raise RuntimeError('Installed runtime changed during recovery preparation: '+name)
         verify(package, name+' '+version)
         result[name] = {'file':package.name, 'sha256':arch.digest(package),
                         'signature_sha256':arch.digest(Path(str(package)+'.sig'))}
+    if missing:
+        # Report every unavailable download together. Signature, identity and
+        # local storage failures are deliberately not eligible for this choice.
+        raise MissingRecoveryPackages([*waived_missing, *missing])
     return result
 
 
@@ -71,14 +94,13 @@ def recovery_configuration(text):
     return text[:end]
 
 
-def prepare_recovery(backup, prefix, targets, database, base):
+def prepare_recovery(backup, prefix, targets, database, base, waived=(), rollback=True):
     """Prove forward/rollback dependency resolution in a disposable database.
 
     --dbonly updates this copy, with an empty filesystem root and no scriptlets.
-    Every installed package that would change gets a signed recovery archive,
-    including ordinary system libraries and packages replaced by new names.
-    A rollback that would leave incompatible new dependencies fails here,
-    before the live package transaction starts.
+    When rollback is enabled, every replaced package gets a signed archive and
+    the complete reverse transaction is checked too. The forward dependency
+    check remains mandatory when rollback downloads are disabled.
     """
     before = inventory(database)
     (backup/'install-reasons.json').write_text(json.dumps(recovery.reasons(database))+'\n')
@@ -89,10 +111,19 @@ def prepare_recovery(backup, prefix, targets, database, base):
     shutil.copytree(database/'local', db/'local')
     shutil.copytree(database/'sync', db/'sync')
     isolated = ['--root', root, '--dbpath', db, '--logfile', projection/'pacman.log']
-    print('Checking the full upgrade and its recovery in a disposable package database…', flush=True)
+    print('Checking the full upgrade'+(' and its recovery' if rollback else '')+
+          ' in a disposable package database…', flush=True)
     run([*prefix, *isolated, '-Su', '--noconfirm', '--needed', '--dbonly', '--noscriptlet', *targets])
     expected = inventory(db)
-    previous = save_previous(backup, before, expected)
+    if waived:
+        recovery_choice.validate(waived)
+    previous = {}
+    if rollback:
+        previous = save_previous(backup, before, expected, waived=waived) if waived else save_previous(backup, before, expected)
+    else:
+        print('Package rollback is off. Historical package downloads are skipped.', flush=True)
+    missing = [p for p in waived if before.get(p['name']) == p['version']
+               and before[p['name']] != expected.get(p['name'])]
     recovery_config = backup/'recovery.conf'
     recovery_config.write_text(recovery_configuration(base))
     additions=[dict(path=str(backup/'previous'/saved['file']),name=name,version=before[name])
@@ -101,13 +132,21 @@ def prepare_recovery(backup, prefix, targets, database, base):
     # Upgrading OpenSSL can introduce openssl-3. The old package owns the same
     # files, so restoration and removal must be a single checked transaction.
     # A database-only pacman -U by itself misses this file ownership collision.
-    recovery.replay(backup,base,additions,removals,expected,database=db,root=root,database_only=True)
-    restored = inventory(db)
-    if restored != before:
-        raise RuntimeError('The previous package set could not be restored in the recovery check. '
-                           'The live system has not been upgraded.')
+    if rollback and not missing:
+        recovery.replay(backup,base,additions,removals,expected,database=db,root=root,database_only=True)
+        restored = inventory(db)
+        if restored != before:
+            raise RuntimeError('The previous package set could not be restored in the recovery check. '
+                               'The live system has not been upgraded.')
     if inventory(database) != before:
         raise RuntimeError('Packages changed while preparing recovery. Retry Setup.')
+    recovery_status = {'available':bool(rollback and not missing), 'enabled':rollback, 'missing':missing}
+    if missing:
+        recovery_status.update(choice=recovery_choice.CONTINUE,
+                               acknowledged_at=datetime.now(timezone.utc).isoformat())
+    elif not rollback:
+        recovery_status['choice'] = 'disabled'
+    atomic(backup/'package-recovery.json', (json.dumps(recovery_status, indent=2)+'\n').encode(), 0o600)
     return before, expected, previous
 
 
@@ -181,6 +220,10 @@ def restore(backup, state=STATE, conf=CONF, pin=runtime.PIN, _locked=False):
     record = json.loads((backup/'record.json').read_text())
     if record.get('restored'):
         return
+    if record.get('rollback_available') is False:
+        raise RuntimeError('Automatic package rollback was disabled for this transaction. '
+                           'A partial downgrade would be unsafe. Manual repair may be needed; '
+                           'transaction details: '+str(backup))
     original_pin = (backup/'hold.conf').read_bytes() if record['had_pin'] else None
     if pin.is_symlink() or conf.is_symlink() or (pin.read_bytes() if pin.exists() else None) not in (
             original_pin, record['new_hold'].encode()):
@@ -225,7 +268,9 @@ def restore(backup, state=STATE, conf=CONF, pin=runtime.PIN, _locked=False):
           (' Newly introduced packages were removed.' if record.get('schema',1)>=3 else ' Compatible new dependencies may remain.'), flush=True)
 
 
-def install(state=STATE, conf=CONF, pin=runtime.PIN):
+def install(state=STATE, conf=CONF, pin=runtime.PIN, waived=(), rollback=False):
+    if waived:
+        recovery_choice.validate(waived)
     if conf.is_symlink() or pin.is_symlink():
         raise RuntimeError('Package configuration must use regular files.')
     required, expected = arch.target(), arch.expected()
@@ -264,13 +309,18 @@ def install(state=STATE, conf=CONF, pin=runtime.PIN):
         # library update. Download everything before modifying package files.
         run([*prefix, '-Syu', '--noconfirm', '--needed', '--downloadonly', *targets])
         plan = arch.resolve(config, dependencies.PACKAGES['arch'], required=required, preserve=preserve)
-        before, projected, previous = prepare_recovery(backup, prefix, targets, database.parent, base)
+        before, projected, previous = prepare_recovery(backup, prefix, targets, database.parent, base,
+                                                       waived=waived, rollback=rollback)
+        recovery_status = json.loads((backup/'package-recovery.json').read_text())
         record = {'schema':3, 'before':before, 'expected':projected, 'previous':previous,
                   'had_pin':old_pin is not None, 'new_hold':arch.hold_text(required),
-                  'package_plan':plan, 'preserved_local_packages':sorted(preserve)}
+                  'package_plan':plan, 'preserved_local_packages':sorted(preserve),
+                  'rollback_available':recovery_status['available'], 'package_recovery':recovery_status}
         atomic(backup/'record.json', (json.dumps(record, indent=2)+'\n').encode(), 0o600)
-        print('Recovery files: '+str(backup), flush=True)
+        print(('Recovery files: ' if record['rollback_available'] else 'Transaction details (package rollback disabled): ')+str(backup), flush=True)
         print('XETAL_RUNTIME_TRANSACTION '+str(backup), flush=True)
+        if not record['rollback_available']:
+            print('XETAL_RUNTIME_ROLLBACK_UNAVAILABLE '+str(backup), flush=True)
         try:
             if inventory(database.parent) != before:
                 raise RuntimeError('Packages changed during preparation. Retry Setup.')
@@ -295,19 +345,37 @@ def install(state=STATE, conf=CONF, pin=runtime.PIN):
             atomic(pin, record['new_hold'].encode())
             atomic(conf, config_with_hold(original.decode(), str(pin)).encode(), stat.S_IMODE(conf.stat().st_mode))
         except BaseException:
-            restore(backup, state, conf, pin, True)
+            if record['rollback_available']:
+                restore(backup, state, conf, pin, True)
+            else:
+                print('Package installation stopped. Automatic package rollback was disabled; '
+                      'no partial downgrade was attempted. Manual repair may be needed. '
+                      'Transaction details: '+str(backup), flush=True)
             raise
-        print('Matching Arch runtime and desktop dependencies installed. Recovery: '+str(backup), flush=True)
+        print('Matching Arch runtime and desktop dependencies installed. '+
+              ('Recovery: ' if record['rollback_available'] else 'Package rollback disabled. Transaction details: ')+str(backup), flush=True)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--restore', type=Path)
+    parser.add_argument('--package-rollback', action='store_true',
+                        help='Save and verify historical packages for automatic rollback (off by default).')
+    parser.add_argument('--without-package-rollback', type=json.loads,
+                        help='Internal: exact missing package identities explicitly accepted in foreground Setup.')
     args = parser.parse_args()
     if os.geteuid() != 0:
         parser.error('Administrator authentication is required through Setup.')
     signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
     if args.restore:
+        if args.without_package_rollback is not None or args.package_rollback:
+            parser.error('A restore cannot waive package recovery.')
         restore(args.restore)
     else:
-        install()
+        try:
+            install(rollback=args.package_rollback, waived=recovery_choice.validate(args.without_package_rollback)
+                    if args.without_package_rollback is not None else ())
+        except MissingRecoveryPackages as error:
+            print(str(error), flush=True)
+            print(recovery_choice.MARKER+json.dumps(error.packages), flush=True)
+            sys.exit(recovery_choice.EXIT_REQUIRED)

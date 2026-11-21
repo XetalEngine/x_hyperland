@@ -45,6 +45,7 @@ class GTK:
             'gtk_entry_set_visibility': (None, p, i), 'gtk_entry_set_activates_default': (None, p, i),
             'gtk_dialog_new': (p,), 'gtk_dialog_add_button': (p, p, s, i),
             'gtk_dialog_get_content_area': (p, p), 'gtk_dialog_run': (i, p),
+            'gtk_dialog_response': (None, p, i),
             'gtk_dialog_set_default_response': (None, p, i),
             'gtk_window_set_modal': (None, p, i),
             'gtk_scrolled_window_new': (p, p, p), 'gtk_scrolled_window_set_policy': (None, p, i, i),
@@ -81,6 +82,8 @@ class GTK:
         self.obj.g_signal_connect_data.restype = C.c_ulong
         self.glib.g_timeout_add.argtypes = (C.c_uint, p, p)
         self.glib.g_timeout_add.restype = C.c_uint
+        self.glib.g_source_remove.argtypes = (C.c_uint,)
+        self.glib.g_source_remove.restype = i
         self.glib.g_free.argtypes = (p,)
         self.pixbuf.gdk_pixbuf_new_from_file_at_scale.argtypes = (s, i, i, i, p)
         self.pixbuf.gdk_pixbuf_new_from_file_at_scale.restype = p

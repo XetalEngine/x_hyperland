@@ -54,13 +54,30 @@ The package operation retains pacman's dependency and conflict checks. The [Arch
 
 Setup refreshes the installed distro signing-key packages before the main transaction, so an old keyring does not reject today's valid package signatures. Verification stays enabled. If that upgrade changes Python's major/minor version, the worker restarts with the new interpreter while preserving its arguments and runtime recovery record.
 
-Before the coordinated upgrade, Setup saves the exact old packages needed for
-rollback. Recovery downloads retry transient failures up to three times per
+On Arch, **automatic package rollback is optional and off by default**. Setup
+still backs up desktop settings and checks the complete forward package
+transaction, signatures and matching runtime. With package rollback off, it
+does not fetch historical packages; old-package 404s or archive timeouts cannot
+block this path. If a later step fails, system package repair may be manual.
+The matching new desktop is retained if sign-in setup fails after activation;
+the old desktop is not automatically restored against the upgraded compositor.
+
+Enable **Download old system packages for automatic rollback** in Setup, or
+pass `--package-rollback` to the CLI installer/update worker, to save and verify
+all replaced packages and rehearse the complete reverse transaction. The option
+warns that historical packages may return 404 and block the update. Missing
+downloads are listed in a dialog with **Retry downloads**, **Cancel
+installation**, and **Continue without package rollback**. Closing it cancels;
+`--yes` does not accept a missing-recovery waiver. Signature/identity failures,
+dependency conflicts and disk errors still stop Setup.
+
+Opted-in recovery downloads retry transient failures up to three times per
 source, with a 90-second socket timeout. Incomplete transfers are discarded.
-Retrying Setup reuses completed recovery downloads from earlier attempts and
-verifies their signatures and package identities again. An unavailable recovery
-package still stops the main transaction before compositor changes; check the
-reported source/network error and retry when it is reachable.
+Retrying Setup reuses completed archives from earlier attempts and verifies
+them again. A decision to continue without rollback is saved in the root-owned
+transaction record, survives a Python upgrade, and never triggers a partial
+automatic downgrade. The `--prepare` review-only mode always requires complete
+package recovery so it can leave the installed runtime unchanged.
 
 On Arch, `/etc/pacman.d/xetal-hyprland.conf` holds all twelve matching runtime packages through pacman's documented [IgnorePkg and Include settings](https://man.archlinux.org/man/pacman.conf.5.en). Other repository settings and holds are preserved. Setup builds the included native sources on the recipient computer, using all available CPU threads for the Control Panel. Cube, Burn and Minimize builds are required, and the complete configuration is checked before and after compilation. KVM runtime binaries remain separate downloads inside KVM Settings.
 
@@ -157,11 +174,11 @@ The native runtime has passed installation from a clean Debian root using standa
 
 ## Cancellation and recovery
 
-Before replacing installed Arch packages, Setup rehearses the full upgrade in a disposable package database with an empty filesystem root and scriptlets disabled. It saves exact signed archives for every changed or replaced installed package, including ordinary libraries such as OpenSSL and libjxl, then rehearses their restoration with dependency checks enabled. Missing recovery archives or incompatible recovery stop the operation before the live transaction. Root-owned records under `/var/lib/xetal-hyprland/arch-runtime/` contain the original package configuration, holds, signed archives, inventories and hashes. The existing Hyprland profile is separately backed up before replacement.
+Before replacing installed Arch packages, Setup rehearses the full upgrade in a disposable package database with an empty filesystem root and scriptlets disabled. Package rollback is off by default. When enabled, Setup saves exact signed archives for every changed or replaced installed package, including ordinary libraries such as OpenSSL and libjxl, then rehearses their restoration with dependency checks enabled. Unavailable downloads open the recovery choice; incompatible recovery still stops before the live transaction. Root-owned records under `/var/lib/xetal-hyprland/arch-runtime/` contain the original package configuration, holds, inventories, and whether package rollback is available, plus saved archives and hashes when enabled. The existing Hyprland profile is separately backed up before replacement.
 
-**Stop after this step** waits for the current package transaction or build command to finish. Arch recovery restores all upgraded package versions and removes newly introduced packages in one dependency-checked libalpm transaction, then verifies the complete previous inventory. This also handles compatibility-library file ownership changes such as `openssl-3`. Recovery refuses to overwrite later external changes. It does not restore application data or undo arbitrary package-script migrations; it is not a filesystem snapshot. Older recovery records retain their original behavior. Debian recovery also removes newly introduced dependants when restoring its runtime. A successful install leaves the matching runtime held and the profile ready for the next login. The current graphical session is never forcibly restarted.
+**Stop after this step** waits for the current package transaction or build command to finish. When available, Arch package recovery restores all upgraded versions and removes newly introduced packages in one dependency-checked libalpm transaction, then verifies the complete previous inventory. This also handles compatibility-library file ownership changes such as `openssl-3`. Recovery refuses to overwrite later external changes. With package rollback disabled, cancellation or failure after package changes does not undo those changes; rerunning Setup or manual repair may be necessary. Recovery does not restore application data or undo arbitrary package-script migrations; it is not a filesystem snapshot. Older recovery records retain their original behavior. Debian recovery also removes newly introduced dependants when restoring its runtime. A successful install leaves the matching runtime held and the profile ready for the next login. The current graphical session is never forcibly restarted.
 
-For manual Arch runtime recovery, use `sudo python3 installer/system_arch_runtime.py --restore /var/lib/xetal-hyprland/arch-runtime/RECORD`, replacing `RECORD` with the printed backup name. Older compositor-only records still use `installer/system_runtime.py --restore /var/lib/xetal-hyprland/runtime/RECORD`. Both verify saved packages and refuse to overwrite packages changed by another operation. Restore the associated desktop profile using the installer backup command printed at completion. Profile restoration refuses a declared compositor mismatch.
+For manual Arch runtime recovery when package rollback was enabled and completed, use `sudo python3 installer/system_arch_runtime.py --restore /var/lib/xetal-hyprland/arch-runtime/RECORD`, replacing `RECORD` with the printed backup name. A record marked as unavailable refuses package restoration instead of attempting a partial downgrade. Older compositor-only records still use `installer/system_runtime.py --restore /var/lib/xetal-hyprland/runtime/RECORD`. Both verify saved packages and refuse to overwrite packages changed by another operation. Restore the associated desktop profile using the installer backup command printed at completion. Profile restoration refuses a declared compositor mismatch.
 
 ## Future version changes
 
@@ -226,8 +243,10 @@ or its adapter changes, including when no new login-screen choice is supplied.
 It backs up and updates the greeter's own plugin, configuration and exit command
 before completing the coordinated upgrade. It preserves the original recovery
 backup and existing keyboard settings. A failed greeter refresh restores its
-files; a failed coordinated update also restores the previous desktop before
-package recovery. The current session is not restarted.
+files; a failed coordinated update restores the previous desktop before
+package recovery when that recovery is available. With package rollback
+disabled, the new matching desktop and old settings backup are kept instead.
+The current session is not restarted.
 
 A disabled greeter stays disabled. An already-matching greeter does not request
 another administrator authentication solely for a runtime refresh. For a full

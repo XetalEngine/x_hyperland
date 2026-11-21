@@ -250,6 +250,12 @@ class BackupTests(unittest.TestCase):
 
 class InstallRecoveryTests(unittest.TestCase):
     def test_login_failure_restores_desktop_before_outer_runtime_recovery(self):
+        self.exercise_login_failure(True)
+
+    def test_login_failure_after_waiver_keeps_desktop_matching_new_packages(self):
+        self.exercise_login_failure(False)
+
+    def exercise_login_failure(self, can_rollback):
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)/'recipient'; target = home/'.config/hypr'
             target.mkdir(parents=True); (target/'hyprland.conf').write_text('original desktop')
@@ -268,10 +274,15 @@ class InstallRecoveryTests(unittest.TestCase):
                  patch.object(install, 'build'), patch.object(install, 'validate'), \
                  patch.object(install.runtime_install.policy, 'require') as require, \
                  patch.object(install.runtime_install, 'complete') as complete, \
+                 patch.object(install.runtime_install, 'rollback_available', return_value=can_rollback), \
                  patch.object(install.commands, 'install'), \
                  patch.object(install.login_setup, 'apply', side_effect=RuntimeError('test login failure')):
                 with self.assertRaisesRegex(RuntimeError, 'test login failure'): install.main()
-            self.assertEqual((target/'hyprland.conf').read_text(), 'original desktop')
+            self.assertEqual((target/'hyprland.conf').read_text(), 'original desktop' if can_rollback else 'new desktop')
+            if not can_rollback:
+                saved = list((home/'.local/state/xetal-hyprland/backups').glob('*/hypr/hyprland.conf'))
+                self.assertEqual(len(saved), 1)
+                self.assertEqual(saved[0].read_text(), 'original desktop')
             self.assertEqual(require.call_count, 1)
             complete.assert_not_called()
 
@@ -327,6 +338,22 @@ class UpdateRecoveryTests(unittest.TestCase):
         apply.assert_called_once_with(None,self.live)
         self.complete.assert_called_once_with()
         self.assertEqual(update.engine.installed(self.live)['revision'],'2'*40)
+
+    def test_greeter_failure_after_waiver_keeps_matching_new_profile_and_backup(self):
+        (self.live/'notes.txt').write_text('personal settings')
+        with patch.object(login_setup, 'apply', side_effect=RuntimeError('greeter validation failed')), \
+             patch.object(install.runtime_install, 'rollback_available', return_value=False):
+            with self.assertRaisesRegex(RuntimeError, 'greeter validation failed'):
+                update.activate(self.home)
+        self.assertEqual((self.live/'code.py').read_text(), 'new desktop')
+        self.assertEqual((self.live/'notes.txt').read_text(), 'personal settings')
+        self.assertEqual(update.engine.installed(self.live)['revision'], '2'*40)
+        backup = Path(update.engine.json_file(self.state/'last-backup.json')['backup'])
+        self.assertEqual((backup/'files/code.py').read_text(), 'old desktop')
+        status = update.engine.json_file(self.state/'status.json')
+        self.assertEqual(status['phase'], 'attention')
+        self.assertIn('matching new desktop was kept', status['message'])
+        self.complete.assert_not_called()
 
     def test_failed_activation_never_changes_greeter_or_commits_recovery(self):
         with patch.object(service,'activate',return_value=False),patch.object(login_setup,'apply') as apply:

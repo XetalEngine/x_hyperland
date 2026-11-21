@@ -22,6 +22,9 @@ PIN = Path('/etc/pacman.d/xetal-hyprland.conf')
 BUNDLED = ROOT/'installer/packages'
 TRANSACTION = None
 TRANSACTION_BACKEND = 'arch'
+TRANSACTION_ROLLBACK_AVAILABLE = True
+PACKAGE_ROLLBACK_ENABLED = False
+REQUIRE_RECOVERY = False
 _handoff = os.environ.pop('XETAL_SETUP_PACKAGE_RECOVERY', '')
 if _handoff:
     _record = json.loads(_handoff)
@@ -33,6 +36,7 @@ if _handoff:
         raise RuntimeError('Invalid package recovery handoff.')
     TRANSACTION = Path(_record['path'])
     TRANSACTION_BACKEND = _record['backend']
+    TRANSACTION_ROLLBACK_AVAILABLE = _record.get('rollback_available', True)
 # Reserve these for the Debian authentication wrapper, outside APT's exit codes.
 DEBIAN_AUTH_CANCELLED = 200
 DEBIAN_AUTH_FAILED = 201
@@ -210,6 +214,10 @@ def save_recovery(cache, filename, local_dirs, url=None, signature=b''):
     return cache/filename
 
 
+class RecoveryDownloadError(RuntimeError):
+    """The exact previous package could not be fetched from any source."""
+
+
 def previous_package(cache, package_name='hyprland', recovery_caches=()):
     """Preserve the exact installed package, including CachyOS architecture builds."""
     if not re.fullmatch(r'[A-Za-z0-9_+@.][A-Za-z0-9_+@.-]*', package_name):
@@ -263,19 +271,24 @@ def previous_package(cache, package_name='hyprland', recovery_caches=()):
     errors = []
     for filename, url, signature in dict.fromkeys(sources):
         try: return save_recovery(cache, filename, local_dirs, url, signature)
-        except (OSError, IncompleteRead) as error:
+        except (URLError, TimeoutError, ConnectionError, IncompleteRead) as error:
             errors.append((urlparse(url).hostname or urlparse(url).scheme)+': '+str(error))
             print('Recovery source unavailable: '+errors[-1], flush=True)
             if isinstance(error, HTTPError): error.close()
-    raise RuntimeError('Could not save the installed '+package_name+' '+version+' ('+architecture+
+    raise RecoveryDownloadError('Could not save the installed '+package_name+' '+version+' ('+architecture+
                        ') for recovery from the package cache or configured repositories. '+
                        'No compositor changes were made. Check your connection and retry Setup. '+
                        'Last download error: '+errors[-1])
 
 
 def complete():
-    global TRANSACTION
+    global TRANSACTION, TRANSACTION_ROLLBACK_AVAILABLE
     TRANSACTION = None
+    TRANSACTION_ROLLBACK_AVAILABLE = True
+
+
+def rollback_available():
+    return TRANSACTION is None or TRANSACTION_ROLLBACK_AVAILABLE
 
 
 def restart_after_python_upgrade():
@@ -287,7 +300,8 @@ def restart_after_python_upgrade():
     print('System Python was upgraded. Continuing Setup with the new interpreter and preserved recovery record.', flush=True)
     environment = dict(os.environ)
     if TRANSACTION:
-        environment['XETAL_SETUP_PACKAGE_RECOVERY'] = json.dumps({'backend':TRANSACTION_BACKEND, 'path':str(TRANSACTION)})
+        environment['XETAL_SETUP_PACKAGE_RECOVERY'] = json.dumps({'backend':TRANSACTION_BACKEND, 'path':str(TRANSACTION),
+                                                                'rollback_available':TRANSACTION_ROLLBACK_AVAILABLE})
     os.execve('/usr/bin/python3', ['/usr/bin/python3', *sys.argv], environment)
 
 
@@ -312,6 +326,11 @@ def check_transaction(package):
 def rollback():
     global TRANSACTION
     if not TRANSACTION: return
+    if not rollback_available():
+        print('Automatic package rollback was disabled for this installation. No partial downgrade was attempted. '
+              'The system may need manual repair; rerun Setup to finish the matching desktop. '
+              'Transaction details: '+str(TRANSACTION), flush=True)
+        return
     print('Restoring the previous compositor because desktop setup did not finish.', flush=True)
     helper = {'fedora':'system_fedora_runtime.py', 'debian':'system_debian_runtime.py',
               'arch':'system_runtime.py', 'arch-bundle':'system_arch_runtime.py'}[TRANSACTION_BACKEND]
