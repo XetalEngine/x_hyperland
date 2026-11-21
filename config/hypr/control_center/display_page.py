@@ -198,6 +198,16 @@ class DisplaysPage(QWidget):
         for spin in (self.x, self.y): spin.setRange(-32000, 32000); spin.setKeyboardTracking(False)
         for title, widget in [('Resolution', self.resolution), ('Refresh rate', self.rate), ('Scale', self.scale),
                               ('Rotation', self.rotation), ('Mode', self.mirror), ('Position X', self.x), ('Position Y', self.y)]: self.form.addRow(title, widget)
+        self.hdr = QComboBox(); self.hdr.setAccessibleName('HDR for this display')
+        self.form.addRow('HDR', self.hdr)
+        self.hdr_info = label('', 'muted'); self.form.addRow(self.hdr_info)
+        self.sdr_brightness = QDoubleSpinBox(); self.sdr_saturation = QDoubleSpinBox()
+        for spin in (self.sdr_brightness, self.sdr_saturation):
+            spin.setRange(0, 500); spin.setSuffix('%'); spin.setDecimals(0); spin.setSingleStep(5); spin.setKeyboardTracking(False)
+        self.sdr_brightness.setToolTip('Brightness of normal apps and videos while HDR is on. 100% is unchanged.')
+        self.sdr_saturation.setToolTip('Color strength of normal apps and videos while HDR is on. 100% is unchanged.')
+        self.form.addRow('SDR brightness', self.sdr_brightness)
+        self.form.addRow('SDR saturation', self.sdr_saturation)
         self.info = label('', 'muted'); self.form.addRow(self.info)
         scroll.setWidget(panel); body.addWidget(scroll); layout.addLayout(body, 1)
         self.panel = panel
@@ -206,6 +216,9 @@ class DisplaysPage(QWidget):
         self.discard = button('Discard', self.discard_changes); self.apply = button('Apply & preview', self.start_preview, True)
         actions.addWidget(self.discard); actions.addWidget(self.apply); layout.addLayout(actions)
         self.resolution.currentIndexChanged.connect(self.change_resolution)
+        self.hdr.currentIndexChanged.connect(self.change_hdr)
+        self.sdr_brightness.valueChanged.connect(self.change_hdr_adjustments)
+        self.sdr_saturation.valueChanged.connect(self.change_hdr_adjustments)
         for widget in [self.enabled, self.rate, self.scale, self.rotation, self.mirror, self.x, self.y]:
             signal = widget.toggled if isinstance(widget, QCheckBox) else widget.valueChanged if isinstance(widget, QSpinBox) else widget.currentTextChanged
             signal.connect(self.edit)
@@ -257,10 +270,49 @@ class DisplaysPage(QWidget):
         if self.mirror.findData(m['mirror']) < 0: self.mirror.addItem('Mirror '+m['mirror'], m['mirror'])
         self.mirror.setCurrentIndex(self.mirror.findData(m['mirror']))
         self.x.setValue(m['x']); self.y.setValue(m['y'])
+        self.hdr.clear()
+        for title, value in [('Off (SDR)', 'srgb'), ('On', 'hdr'), ('On (display colors)', 'hdredid')]:
+            self.hdr.addItem(title, value)
+            if value in settings.HDR_MODES:
+                self.hdr.model().item(self.hdr.count()-1).setEnabled(m.get('hdr_capable') is not False or m.get('cm') == value)
+        cm = m.get('cm', 'srgb')
+        if self.hdr.findData(cm) < 0: self.hdr.addItem('Off ('+cm+')', cm)
+        self.hdr.setCurrentIndex(self.hdr.findData(cm))
+        self.sdr_brightness.setValue(m.get('sdrbrightness', 1)*100)
+        self.sdr_saturation.setValue(m.get('sdrsaturation', 1)*100)
+        self.sync_hdr(m)
         for widget in [self.resolution, self.rate, self.scale, self.rotation, self.mirror, self.x, self.y]: widget.setEnabled(m['enabled'])
         self.x.setEnabled(m['enabled'] and not m['mirror']); self.y.setEnabled(m['enabled'] and not m['mirror'])
         w, h = settings.logical_size(m); self.info.setText(f"{m['label']}\nDesktop size: {w} × {h}\nOnly advertised display modes are listed.")
         self.loading = False
+
+    def sync_hdr(self, m):
+        on = m.get('cm') in settings.HDR_MODES
+        self.hdr.setEnabled(m['enabled'])
+        for spin in (self.sdr_brightness, self.sdr_saturation):
+            self.form.setRowVisible(spin, on)
+            spin.setEnabled(m['enabled'] and on)
+        support = ('HDR supported.' if m.get('hdr_capable') is True else
+                   'This display does not report HDR support.' if m.get('hdr_capable') is False else
+                   'HDR support is unknown. Use preview to check the picture.')
+        detail = (' HDR stays on until you turn it off.' if on else ' HDR is off by default.')
+        if m.get('cm') == 'hdredid': detail += ' Uses colors reported by the display.'
+        self.hdr_info.setText(support+detail+' Apply previews the change before saving.')
+
+    def change_hdr(self):
+        if self.loading or self.busy: return
+        m = self.selected_model()
+        if not m: return
+        m['cm'] = self.hdr.currentData()
+        if m['cm'] in settings.HDR_MODES: m['bitdepth'] = 10
+        self.sync_hdr(m); self.update_state()
+
+    def change_hdr_adjustments(self):
+        if self.loading or self.busy: return
+        m = self.selected_model()
+        if not m: return
+        m.update(sdrbrightness=self.sdr_brightness.value()/100, sdrsaturation=self.sdr_saturation.value()/100)
+        self.update_state()
 
     def fill_rates(self, m):
         rates = sorted({settings.mode_parts(mode)[2] for mode in m['modes'] if settings.mode_parts(mode)[:2] == (m['width'], m['height'])}, reverse=True)
@@ -290,6 +342,7 @@ class DisplaysPage(QWidget):
         if not any(v.get('primary') and v['enabled'] and not v['mirror'] for v in self.models):
             replacement = next((v for v in self.models if v['enabled'] and not v['mirror']), None)
             for v in self.models: v['primary'] = v is replacement
+        self.sync_hdr(m)
         self.canvas.update(); self.update_state()
 
     def canvas_changed(self): self.sync_form(); self.update_state()

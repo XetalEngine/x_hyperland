@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock,patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from PyQt6.QtCore import Qt,QByteArray,QBuffer,QIODevice
@@ -23,6 +23,7 @@ class ClipboardFixture(unittest.TestCase):
         directory=Path(self.stack.enter_context(tempfile.TemporaryDirectory()))
         self.stack.enter_context(patch.object(ui,'STATE',directory))
         self.stack.enter_context(patch.object(ui.History,'start_collector'))
+        self.stack.enter_context(patch.object(ui.History,'start_keeper'))
         self.ctl=self.stack.enter_context(patch.object(ui,'ctl',return_value='{}'))
         self.store=Store(directory/'pins.json');self.window=ui.History(self.store,Path('/unused'))
         self.addCleanup(self.window.deleteLater);self.addCleanup(self.window.stop)
@@ -55,6 +56,13 @@ class ClipboardUI(ClipboardFixture):
         self.assertIn('true',(ui.STATE/'preferences.json').read_text())
         self.assertFalse(self.store.add('text/plain;charset=utf-8',b'private'))
         self.window.pause.setChecked(False);self.assertFalse(self.store.paused)
+    def test_pausing_history_keeps_the_current_copy_until_logout(self):
+        keeper=Mock();self.window.keeper=keeper
+        self.window.pause.setChecked(True)
+        self.assertTrue(self.store.paused);keeper.kill.assert_not_called()
+        self.window.pause.setChecked(False);keeper.kill.assert_not_called()
+        self.window.stop();keeper.kill.assert_called_once()
+        self.window.keeper=None
     def test_closing_does_not_steal_focus_from_another_app(self):
         self.window.previous='0xab12';self.ctl.return_value='{"class":"other"}'
         self.window.dismiss();self.assertEqual(self.ctl.call_count,1)

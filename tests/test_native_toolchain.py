@@ -14,6 +14,20 @@ import native_toolchain
 
 
 class ToolchainTests(unittest.TestCase):
+    def test_exact_header_revision_selects_its_adapter_and_unknown_is_rejected(self):
+        with tempfile.TemporaryDirectory() as name:
+            directory = Path(name)
+            for source in ('plugin.cpp', 'plugin_057.cpp'):
+                (directory/source).write_text('// '+source)
+            self.assertEqual(native_toolchain.adapter(directory, 'efb50993780079460b0cbed1363e2166a2de1d9f').name, 'plugin.cpp')
+            self.assertEqual(native_toolchain.adapter(directory, '11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947').name, 'plugin_057.cpp')
+            for revision in ('', 'a'*40, '11cbc6c'):
+                with self.assertRaisesRegex(RuntimeError, 'No Hyper Fusion native adapter'):
+                    native_toolchain.adapter(directory, revision)
+            (directory/'plugin_057.cpp').unlink()
+            with self.assertRaisesRegex(RuntimeError, 'No Hyper Fusion native adapter'):
+                native_toolchain.adapter(directory, '11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947')
+
     def test_driver_version_alone_does_not_pass_missing_backend(self):
         with tempfile.TemporaryDirectory() as name:
             compiler=Path(name)/'g++'

@@ -101,6 +101,11 @@ children+=("$!")
 # File dialogs and geometry memory belong to this login, never a user service.
 "$session_python" "$config_dir/file_manager/portal.py" >"$(session_log file-picker.log)" 2>&1 9>&- &
 children+=("$!")
+# A portal activated from a TTY before login lacks ScreenCast. Repair that
+# activation after Hyprland publishes its environment and before startup apps
+# cache an X11 fallback. Service settings and other desktops are preserved.
+"$session_python" "$config_dir/scripts/portal-session.py" \
+    >"$(session_log portal-session.log)" 2>&1 || true
 "$session_python" "$config_dir/runtime/window_memory/service.py" >"$(session_log window-memory.log)" 2>&1 9>&- &
 children+=("$!")
 

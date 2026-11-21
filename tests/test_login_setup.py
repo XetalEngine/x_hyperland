@@ -4,7 +4,9 @@ import json
 import os
 import sys
 import tempfile
+import subprocess
 import tomllib
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -13,6 +15,8 @@ sys.path.insert(0, str(REPO/'installer'))
 import login_setup
 import system_login
 import install
+import update
+import service
 
 
 class ChoiceTests(unittest.TestCase):
@@ -44,6 +48,32 @@ class ChoiceTests(unittest.TestCase):
             login_setup.apply(False, Path('/profile'))
             self.assertEqual(run.call_args.args[0][-2:], ['--restore', 'original'])
 
+    def test_existing_greeter_migrates_without_requiring_a_new_opt_in(self):
+        identity={'version':'0.57.2','adapter_sha256':'new'}
+        with tempfile.TemporaryDirectory() as directory:
+            state=Path(directory)/'installation.json'
+            for previous in ({}, {'version':'0.56.2'}, {'version':'0.57.2','adapter_sha256':'old'}):
+                with self.subTest(previous=previous):
+                    state.write_text(json.dumps({'enabled':True,'runtime':previous}))
+                    with patch.object(login_setup,'STATE',state), \
+                         patch.object(system_login,'runtime_identity',return_value=identity), \
+                         patch.object(login_setup.runtime_install,'administrator',return_value=['sudo']), \
+                         patch.object(login_setup.subprocess,'run') as run:
+                        login_setup.apply(None,Path('/profile'))
+                    self.assertEqual(run.call_args.args[0][-3:],['--refresh-runtime','--source','/profile'])
+                    self.assertNotIn('--user',run.call_args.args[0])
+
+    def test_matching_enabled_greeter_does_not_request_admin_again(self):
+        identity={'version':'0.57.2','adapter_sha256':'same'}
+        with tempfile.TemporaryDirectory() as directory:
+            state=Path(directory)/'installation.json'
+            state.write_text(json.dumps({'enabled':True,'runtime':identity}))
+            with patch.object(login_setup,'STATE',state), \
+                 patch.object(system_login,'runtime_identity',return_value=identity), \
+                 patch.object(login_setup.runtime_install,'administrator',side_effect=AssertionError('already matching')), \
+                 patch.object(login_setup.subprocess,'run',side_effect=AssertionError('already matching')):
+                login_setup.apply(None,Path('/profile'))
+
     def test_greeter_never_autologs_into_a_persons_desktop(self):
         configs = system_login.configuration()
         config = tomllib.loads(configs[Path('/etc/xetal-fusion-login/greetd.toml')])
@@ -66,6 +96,83 @@ class ChoiceTests(unittest.TestCase):
         self.assertIn('action.id === "org.freedesktop.login1.reboot"', policy)
         self.assertNotIn('ignore-inhibit', policy)
         self.assertNotIn('multiple-sessions', policy)
+
+    def test_modern_greeter_uses_lua_and_correct_session_exit_without_desktop_bindings(self):
+        configs=system_login.configuration(modern=True)
+        command=tomllib.loads(configs[system_login.CONFIG/'greetd.toml'])['default_session']['command']
+        self.assertTrue(command.endswith('/hyprland.lua'))
+        lua=configs[system_login.CONFIG/'hyprland.lua']
+        self.assertIn('hl.plugin.load(',lua)
+        self.assertIn('hl.on("hyprland.start"',lua)
+        self.assertIn('greeter-session.sh',lua)
+        self.assertNotIn('hl.bind(',lua)
+        self.assertNotIn('startup-scene',lua)
+        self.assertIn("dispatch 'hl.dsp.exit()'",system_login.session_script(True))
+        self.assertIn('dispatch exit ',system_login.session_script(False))
+
+
+class RuntimeRefreshTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
+        self.root=Path(self.temp.name)
+        self.base=self.root/'state';self.base.mkdir()
+        self.code=self.root/'code';self.code.mkdir()
+        self.config=self.root/'config';self.config.mkdir()
+        self.state=self.base/'installation.json'
+        self.previous={'enabled':True,'user':'xetal','original_backup':'original','latest_backup':'old'}
+        self.state.write_text(json.dumps(self.previous))
+        self.legacy=system_login.configuration()[system_login.CONFIG/'hyprland.conf']+'\ninput {\nkb_layout = br\nkb_variant = abnt2\n}\n'
+        (self.config/'hyprland.conf').write_text(self.legacy)
+        (self.config/'greetd.toml').write_text('[default_session]\nuser="fusion-greeter"\ncommand="start-hyprland -- --config '+str(self.config/'hyprland.conf')+'"\n')
+        (self.code/'xetal-startup-notices.so').write_bytes(b'old-plugin')
+        (self.code/'app.py').write_text('existing greeter UI')
+        self.source=self.root/'source'
+        notices=self.source/'runtime/notices/.build';notices.mkdir(parents=True)
+        (notices/'xetal-startup-notices.so').write_bytes(b'matching-plugin')
+        self.identity={'version':'0.57.2','commit':'a'*40,'configuration':'lua','adapter_sha256':'checksum'}
+        self.enterContext(patch.object(system_login.pwd,'getpwnam',return_value=system_login.pwd.getpwuid(os.getuid())))
+        self.chown=self.enterContext(patch.object(system_login.os,'chown'))
+        for name,value in (('BASE',self.base),('CODE',self.code),('CONFIG',self.config),('STATE',self.state)):
+            patcher=patch.object(system_login,name,value);patcher.start();self.addCleanup(patcher.stop)
+
+    def test_enabled_greeter_refresh_preserves_choices_and_replaces_only_runtime_files(self):
+        with patch.object(system_login,'runtime_identity',return_value=self.identity), \
+             patch.object(system_login,'run',return_value=subprocess.CompletedProcess([],0,'config ok','')) as run:
+            backup=system_login.refresh_runtime(self.source)
+        current=json.loads(self.state.read_text())
+        self.assertEqual(current['original_backup'],'original')
+        self.assertEqual(current['runtime'],self.identity)
+        self.assertEqual(current['latest_backup'],str(backup))
+        self.assertEqual((self.config/'hyprland.conf').read_text(),self.legacy)
+        self.assertIn('["input.kb_layout"]="br"',(self.config/'hyprland.lua').read_text())
+        self.assertIn('["input.kb_variant"]="abnt2"',(self.config/'hyprland.lua').read_text())
+        self.assertIn('hyprland.lua',(self.config/'greetd.toml').read_text())
+        self.assertEqual((self.code/'app.py').read_text(),'existing greeter UI')
+        self.assertEqual((self.code/'xetal-startup-notices.so').read_bytes(),b'matching-plugin')
+        self.assertEqual(len(run.call_args_list),1)
+        self.assertIn('--verify-config',run.call_args.args[0])
+        self.assertNotIn('systemctl',run.call_args.args[0])
+        runtime=next(value.split('=',1)[1] for value in run.call_args.args[0] if value.startswith('XDG_RUNTIME_DIR='))
+        self.assertFalse(Path(runtime).exists())
+        self.chown.assert_any_call(runtime,os.getuid(),os.getgid())
+
+    def test_failed_validation_restores_plugin_config_and_state(self):
+        original=(self.config/'greetd.toml').read_text()
+        with patch.object(system_login,'runtime_identity',return_value=self.identity), \
+             patch.object(system_login,'run',side_effect=subprocess.CalledProcessError(1,['Hyprland'],
+                          output='checking greeter\n',stderr='the actual configuration error')):
+            with self.assertRaisesRegex(RuntimeError,'the actual configuration error'):system_login.refresh_runtime(self.source)
+        self.assertEqual(json.loads(self.state.read_text()),self.previous)
+        self.assertEqual((self.config/'greetd.toml').read_text(),original)
+        self.assertEqual((self.code/'xetal-startup-notices.so').read_bytes(),b'old-plugin')
+        self.assertFalse((self.config/'hyprland.lua').exists())
+
+    def test_runtime_refresh_never_enables_a_disabled_greeter(self):
+        self.state.write_text(json.dumps({'enabled':False}))
+        with patch.object(system_login,'run') as run:
+            with self.assertRaisesRegex(RuntimeError,'will not enable'):system_login.refresh_runtime(self.source)
+        run.assert_not_called()
+        self.assertFalse((self.base/'backups').exists())
 
 
 class BackupTests(unittest.TestCase):
@@ -167,6 +274,65 @@ class InstallRecoveryTests(unittest.TestCase):
             self.assertEqual((target/'hyprland.conf').read_text(), 'original desktop')
             self.assertEqual(require.call_count, 1)
             complete.assert_not_called()
+
+
+class UpdateRecoveryTests(unittest.TestCase):
+    """Exercise actual profile activation and rollback around greeter failure."""
+    def setUp(self):
+        temporary=tempfile.TemporaryDirectory();self.addCleanup(temporary.cleanup)
+        self.home=Path(temporary.name)/'recipient'
+        self.live=self.home/'.config/hypr';self.live.mkdir(parents=True)
+        self.state=self.home/'.local/state/xetal-hyprland/updates'
+        self.stage=self.state/'prepared'
+        (self.live/'code.py').write_text('old desktop')
+        (self.live/'personal.txt').write_text('personal settings')
+        engine=update.engine
+        engine.write_json(self.live/engine.META,engine.metadata(self.live,'1'*40))
+        self.before={path.name:path.read_bytes() for path in self.live.iterdir()}
+        upstream=Path(temporary.name)/'upstream';upstream.mkdir()
+        (upstream/'code.py').write_text('new desktop')
+        expected=engine.merge_profile(self.live,upstream,self.stage,'2'*40)
+        plan=engine.prepare_plan(self.live,self.stage,expected,'2'*40,automatic=False)
+        engine.write_json(self.stage/'plan.json',plan)
+        engine.write_json(self.state/'pending.json',{'revision':'2'*40,'stage':str(self.stage),'automatic':False})
+        compatibility=SimpleNamespace(candidate=lambda *args:self.stage/'hyprland.conf')
+        self.enterContext(patch.dict(sys.modules,{'hypr_compat':compatibility}))
+        self.enterContext(patch.object(service,'ROOT',self.live))
+        self.enterContext(patch.object(service.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'config ok','')))
+        self.enterContext(patch.object(install.commands,'install'))
+        self.complete=self.enterContext(patch.object(install.runtime_install,'complete'))
+
+    def test_greeter_failure_restores_profile_before_runtime_recovery(self):
+        def fail(choice, root):
+            self.assertIsNone(choice)
+            self.assertEqual((root/'code.py').read_text(),'new desktop')
+            self.complete.assert_not_called()
+            raise RuntimeError('greeter validation failed')
+        with patch.object(login_setup,'apply',side_effect=fail):
+            with self.assertRaisesRegex(RuntimeError,'greeter validation failed'):
+                update.activate(self.home)
+        self.assertEqual({path.name:path.read_bytes() for path in self.live.iterdir()},self.before)
+        self.assertEqual(update.engine.installed(self.live)['revision'],'1'*40)
+        self.assertFalse((self.state/'pending.json').exists())
+        self.complete.assert_not_called()
+        self.assertEqual(update.engine.json_file(self.state/'status.json')['phase'],'attention')
+
+    def test_success_keeps_recovery_active_until_greeter_is_ready(self):
+        def finish(choice,root):
+            self.assertIsNone(choice)
+            self.assertEqual((root/'code.py').read_text(),'new desktop')
+            self.complete.assert_not_called()
+        with patch.object(login_setup,'apply',side_effect=finish) as apply:
+            update.activate(self.home)
+        apply.assert_called_once_with(None,self.live)
+        self.complete.assert_called_once_with()
+        self.assertEqual(update.engine.installed(self.live)['revision'],'2'*40)
+
+    def test_failed_activation_never_changes_greeter_or_commits_recovery(self):
+        with patch.object(service,'activate',return_value=False),patch.object(login_setup,'apply') as apply:
+            with self.assertRaisesRegex(RuntimeError,'could not be activated'):update.activate(self.home)
+        apply.assert_not_called();self.complete.assert_not_called()
+        self.assertEqual({path.name:path.read_bytes() for path in self.live.iterdir()},self.before)
 
 
 if __name__ == '__main__': unittest.main()

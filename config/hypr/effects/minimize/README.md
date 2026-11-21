@@ -116,14 +116,19 @@ The report includes the startup error and log path when available. It is read-on
 `fusion-check --json` produces the same results for scripts. Foreground installation
 also installs the command in `/usr/local/bin`, so Bash, Zsh and Fish can all use it.
 
-- Hyprland **0.56.2**, commit `efb50993780079460b0cbed1363e2166a2de1d9f`,
-  x86-64 and OpenGL. Other compositor ABIs are rejected before loading.
+- Separate x86-64/OpenGL adapters support Hyprland **0.56.2**
+  (`efb50993780079460b0cbed1363e2166a2de1d9f`) and **0.57.2**
+  (`11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947`). Other ABIs are rejected.
 - Build dependencies: C++23, matching Hyprland headers, `pkg-config`,
   `libeis-1.0` development headers and GLESv2. Setup builds the adapter; the
   session owns its loader. No shared desktop services are changed.
 - Handles Wayland xdg-shell, XWayland and foreign-toplevel minimize requests.
   Apps without a minimize button can use **Super+Z**. A custom hotkey can run
   `hyprctl dispatch xetalminimize:minimize` with the `exec` dispatcher.
+  On 0.57.2, the adapter subscribes to each window backend's state requests,
+  including windows already open when the module loads. This avoids relying on
+  an inlined compositor function for Brave/Chromium's native minimize button.
+  Subscriptions use weak window references and disconnect on module unload.
 - Restore preserves workspace, floating geometry, maximized/fullscreen and
   pinned state. Plugin unload and monitor disconnect restore apps first.
 - An adapter upgrade unloads the old, recorded build before loading a distinct
@@ -167,6 +172,18 @@ Add `--dock-only` for the dock scenarios. They produce a gallery of all designs 
 palette changes, custom colors, rejected reloads, growth/collapse, hover zoom,
 auto-hide, burn-away, indicator cleanup, all four edges, real top/bottom Waybars,
 multiple outputs, overflow, reduced motion and rendering sleep.
+
+For the 0.57.2 client-request adapter, run:
+
+```sh
+python3 -m unittest discover -s tests -p test_minimize_requests_057.py
+python3 tests/check-browser-minimize.py /absolute/path/to/xetal-minimize.so /tmp/new-browser-minimize-test
+```
+
+The browser check uses fresh Brave profiles in an isolated compositor, on both
+Wayland and XWayland. It checks native minimize, maximize/restore, already-open
+and newly created windows, and recovery when the module unloads. It saves logs,
+screenshots and a JSON report without changing the user's browser or desktop.
 
 ## Attribution
 

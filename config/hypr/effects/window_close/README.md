@@ -152,6 +152,11 @@ saves atomically, activates the setting, and rolls back on failure. The updater
 treats it, `rules.json` and `kde-rules.json` as personal preferences. Fresh installations enable the controls.
 `page.py` supplies the themed Hotkeys dialog. `scripts/session.sh` starts the
 controller for this compositor session; there is no persistent system service.
+On Hyprland 0.57, the gear editor prepares its own local IPC adapter using the
+running compositor's version. Direct native gear launches therefore support live
+title-bar preview and Apply even without an inherited Fusion command PATH. The
+0.56 session keeps its original command format.
+
 `window_settings.py` supplies the gear editor; `rules.py` and `native/policies.hpp`
 validate its overrides. Window-only overrides live under the compositor's runtime
 directory. Saves check for external edits and roll back if the native reload fails.
@@ -188,8 +193,9 @@ references, hides during locking, input capture and file drags, and sends
 `CWindow::sendClose()` rather than terminating a process. Its timer sleeps when
 there are no visible controls or settling windows to follow. No Hyprland function hooks are patched.
 
-The native adapter currently supports x86-64 **Hyprland 0.56.2**, commit
-`efb50993780079460b0cbed1363e2166a2de1d9f`, and OpenGL. A mismatched compositor,
+Separate native adapters support x86-64/OpenGL **Hyprland 0.56.2**
+(`efb50993780079460b0cbed1363e2166a2de1d9f`) and **0.57.2**
+(`11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947`). A mismatched compositor,
 headers, or renderer is rejected. Builds require the existing compositor
 development dependencies plus Cairo, Pango and json-c headers/libraries (included
 with the existing GTK development dependencies); each source/ABI build gets

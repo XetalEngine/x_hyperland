@@ -52,8 +52,8 @@ def activate(values, target=None):
         hypr('dispatch','xetalburn:reload')
     elif values['enabled']:
         current = json.loads(hypr('-j','version'))
-        if current.get('commit') != build.SUPPORTED_COMMIT:
-            raise RuntimeError('Burn needs the supported Hyprland 0.56.2 session. Close normally until Burn is updated.')
+        if current.get('commit') not in build.SUPPORTED_COMMITS:
+            raise RuntimeError('Burn needs a supported Hyprland session. Close normally until Burn is updated.')
         target = target or build.build()
         answer = hypr('plugin','load',str(target))
         if answer != 'ok':

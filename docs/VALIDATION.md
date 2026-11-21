@@ -1,5 +1,273 @@
 # Validation
 
+## Hyprland 0.57.2 migration — 21 November 2026
+
+The candidate was extracted from verified signed Arch packages and run in a
+disposable nested session. All eight native modules loaded and unloaded. The
+expanded session passed Compiz shiver rendering, the minimize dock and restore,
+cube capture/rendering, maximization, forced tiling/floating, KDE titlebars and
+per-app titlebar toggles, X11 minimize/restore, and Burn on close. The native
+wobble guard remained effective after an explicit enable request and reload.
+Captured windows, titlebars, dock and cube were visually inspected.
+
+All eight adapters also compile against the existing 0.56.2 headers. The Arch
+runtime target is 0.57.2; Fedora 44 and Debian 13 retain their earlier contracts.
+The runtime, recovery and distribution policy unit tests pass. Of 111 updater
+tests, 110 pass here; the remaining lifecycle test needs a Unix socket forbidden
+by the agent sandbox. The expanded nested session also passed real Super-drag,
+Ctrl+Alt mouse-drag cube rotation, and both Wayland and X11 bell shivers. Its
+report is `/tmp/hyperfusion-0572/session-20261121-053444/results.json` on the test
+machine. The X11 listener observes the executable's XCB import without blocking
+startup or consuming events separately from XWM. Standalone import-hook tests
+verify forwarding, isolation from other libraries, cleanup and RELRO restoration.
+
+The first full-upgrade rehearsal exposed a locally converted Discord package
+whose version has no signed repository archive. The updater now preserves
+unsigned local builds during this transaction while keeping dependency checks
+and the required runtime contract. The revised full plan and database-only
+restoration passed for 358 changed packages, with host versions and holds
+unchanged. A subsequent file-ownership review found that the new `openssl-3`
+must be removed while restoring the old OpenSSL package. Recovery now uses one
+libalpm transaction for additions and removals. Five real libalpm tests in
+temporary roots pass, including the split-library file collision, dependency
+rejection, signature enforcement and restoration of install reasons. The new
+combined recovery path also passed the complete package-set rehearsal, removing
+both new packages and restoring all 358 old versions in the copied database.
+Installed packages and holds remained unchanged during that rehearsal.
+
+The actual coordinated upgrade then completed on the test machine: all 358
+changed packages and two new packages installed, the NVIDIA DKMS module built
+for the new kernel, and initramfs generation succeeded. The updater rebuilt the
+desktop components, validated the complete merged configuration and activated
+the matching profile. Installed runtime versions, holds and profile target were
+verified; all nine locally built applications kept their previous versions.
+A non-UTF-8 GPG signer name exposed an output-decoding error before the first
+install attempt; tolerant display decoding and a subprocess regression test now
+cover that case without weakening package identity or signature verification.
+Reports and a read-only post-reboot check are retained under
+`~/.local/state/hyperfusion/upgrade-0572/` on the test machine.
+
+The first reboot exposed the separately installed greeter's old configuration
+and adapter. The repository now migrates an enabled greeter with its compositor:
+generated Lua, a matching root-owned plugin, the modern exit command and a
+private greeter runtime directory for validation from sudo/TTY. Validation
+failures retain the compositor diagnostic and restore the previous greeter.
+Coordinated update tests verify desktop restoration before package recovery and
+keep recovery active until greeter setup succeeds. All 170 targeted checks pass:
+19 login/setup, 53 update activation/status, 44 runtime/package, 39 installer
+and 15 compatibility checks, including the real 0.57 Lua validator.
+
+The repaired system greeter successfully authenticated the account and started
+the upgraded desktop. The real post-reboot check passed: Hyprland 0.57.2 and its
+matching libraries and holds, no live configuration errors, all eight modules
+loaded and responding, native wobble disabled, and three active physical
+displays (1920×1080, 2560×1440, 2560×1440). The report is
+`~/.local/state/hyperfusion/upgrade-0572/installed-check-20261121-061300.json`.
+Extended physical-session interaction and offline/online ISO validation remain
+pending. No release commit or push has been made during these tests.
+
+Follow-up physical-session use exposed an abort in the automatic window-button
+background sampler. Both crash reports identify `Backgrounds::sample`: the
+0.57 adapter called `lock()` on a color description owned by Hyprland's unique
+pointer registry. The corrected adapter passes the weak reference accepted by
+the color-management API. `tests/test_background_057.py` exercises the actual
+sampler with real Hyprutils ownership and deterministic GPU completion, checking
+color updates, pending readback, export exclusion, allocation failure, cleanup,
+and restoration of both GL bindings and the renderer's binding cache. The fix
+was installed locally, and a new desktop login succeeded.
+
+The cube's reduced-resolution captures also clipped surface damage a second
+time, leaving blank strips inside each face. Capture now uses transformed-source
+damage and disables monitor-space occlusion simplification. The cube, minimize
+preview and button sampler use 0.57's cache-aware framebuffer bindings; failed
+cube capture also aborts its private render session. The original 0.56 adapters
+are unchanged. The sampler regression, 10 cube, 31 window-control and 23 minimize
+checks pass, and all three changed native modules build against 0.57.2.
+
+`tests/check-cube-render.py` uses an isolated nested compositor and private
+1920×1080 and 2560×1440 outputs. Its edge-inclusive image checks reproduce the
+old cube's clipping on both outputs and pass for the repaired cube. Flat and
+panoramic artwork remain visible and stationary when motion is disabled. The
+test also exercises automatic button color sampling and, when given a minimize
+module, large-window capture, minimize/restore and subsequent cube rendering.
+Fixtures, logs and screenshots stay outside the repository. Existing cube and
+wobble preferences and the chosen artwork are preserved.
+
+The complete repaired-renderer run passed all 20 integration checks, including
+both actual output sizes, all face edges, three automatic button-color changes,
+and two 1500×900 minimize/restore cycles followed by another cube capture. The
+passing modules were installed with a backup, unchanged settings and no live
+configuration errors; subsequent desktop use was confirmed working. The report
+is `~/.local/state/hyperfusion/upgrade-0572/cube-install-20261121-064303/result.json`.
+
+The final delivery audit compared the repository's native/runtime release
+sources against that working installation and the system greeter helper against
+`installer/system_login.py`. All matched before the additional HDR-default
+change. All 23 modern adapter sources/headers are included by the installer and
+update inventory and are not Git-ignored. The 12 bundled Arch packages and their
+detached signatures match their manifest hashes. No production fix depends on
+the temporary test or repair scripts.
+
+### Native browser minimize requests
+
+Brave's own minimize button exposed a request path not covered by the earlier
+dispatcher tests. The pinned 0.57 binary inlines `CWindow::onUpdateState` into its
+backend listener, bypassing a detour on that exported function. The adapter now
+subscribes directly to each window backend's state-request signal, including
+already-open windows. Weak references and RAII listeners prevent retaining closed
+windows and disconnect every subscription before unloading the module.
+
+The original module failed all six real Brave minimize cases across Wayland and
+XWayland in `tests/check-browser-minimize.py`. The candidate passes all 20 checks:
+repeated native minimize/restore, maximize/restore, newly opened windows and
+unload recovery. The fixture waits for Chromium to acknowledge its initial
+Wayland configuration before issuing state changes. A first run exposed that
+startup race: no maximize request was emitted for the premature test command.
+The production subscription test uses real Hyprutils signals and weak ownership;
+it and the existing 23 minimize tests pass. The repaired binary and sources were
+installed with a backup, unchanged preferences and no live configuration errors.
+Report: `~/.local/state/hyperfusion/upgrade-0572/minimize-install-20261121-071253/result.json`.
+The 0.56 adapter is unchanged; no release commit or push has been made.
+
+### HDR defaults and display controls
+
+Fullscreen automatic HDR switching is now off by default (`render:cm_auto_hdr =
+0`). Fresh display rules explicitly use SDR. The Lua reader also supplies the
+default before reading personal settings, so retaining an older main config
+during an update does not inherit upstream's automatic HDR default. Explicit
+personal configuration remains an override. Existing saved monitor arrangements
+and manually chosen color modes remain personal settings.
+
+Displays & arrangement offers per-output HDR Off, On, and On with display-reported
+colors, with SDR brightness/saturation controls in HDR mode. Reported non-HDR
+outputs cannot newly enable HDR; older/unknown capability reports allow the
+guarded preview. Color, depth and SDR tuning participate in dirty detection,
+driver verification and timeout/cancel/save-failure restoration. Geometry edits
+preserve existing color tuning. Three offscreen UI tests and real 0.57 Lua
+configuration checks cover the controls; no hardware HDR enable was automated.
+
+The final focused audit passed 238 checks: 39 installer, 19 greeter, 22 runtime,
+22 Arch, five real libalpm recovery, six toolchain, 16 Fedora, 14 Debian, 53 updater,
+17 configuration/Lua, 22 display/primary-output, and three HDR UI checks. The
+live HDR repair also passed with automatic HDR off, all three physical outputs
+in SDR, no configuration errors and unchanged layout/effect preferences. Its
+report is `~/.local/state/hyperfusion/upgrade-0572/hdr-install-20261121-065326/result.json`.
+Physical HDR-on behavior and the online/offline ISO rebuilds still need separate
+validation. No commit or push has been made.
+
+### Screen-sharing portal after TTY login
+
+Echo's black monitor previews were traced to a portal activated before the
+graphical login. Its process had no Wayland display or desktop identity, and
+the Hyprland backend had failed its service environment condition. Echo logged
+the missing `org.freedesktop.portal.ScreenCast` interface and fell back to X11:
+individual XWayland apps remained capturable, while whole monitors were black.
+The later Hyprland activation environment was correct, but the existing portal
+did not reread it. This follows the portal's
+[activation-environment model](https://github.com/flatpak/xdg-desktop-portal/blob/main/doc/system-integration.rst).
+
+The session now verifies portal ownership and monitor-capture capabilities before
+launching startup applications. It starts the matching Hyprland backend before
+repairing an unbound or stale portal. Healthy services, another live compositor,
+another desktop and unidentified owners are preserved. Service PID/start-time
+checks reject owner changes; shared environment, saved service configuration and
+enablement are not modified. The check has 14 passing regressions covering these
+boundaries, capability parsing and startup ordering.
+
+The live repair passed with ScreenCast version 6 and source mask 7 at both the
+frontend and Hyprland backend. The installed sources match the repository and
+desktop preferences are unchanged. Report:
+`~/.local/state/hyperfusion/upgrade-0572/portal-install-20261121-072109/result.json`.
+Echo must fully exit and reopen to discard its cached X11 fallback. The user
+subsequently confirmed that actual screen sharing works after the repair. This
+is a manual functional check in addition to the portal capability checks above.
+No Echo source, package or account settings were changed.
+
+### KDE title-bar editor launched from the gear
+
+The native gear launcher bypasses translated config exec bindings, so the editor
+could inherit a PATH without the 0.57 IPC adapter. Its raw preview command reached
+the Lua parser and failed; Apply also failed and rolled back the edited rules.
+The editor now checks the running compositor and prepares its own process-local
+IPC environment before constructing the controls. It does not rely on the
+installed binary version or change systemd/D-Bus activation environments.
+
+Nineteen compatibility/config checks and 31 window-control tests pass. These
+cover direct launches without the adapter PATH, quoted preview payloads, reload,
+legacy-session handling and unknown-version rejection. The two repaired Python
+files were installed with backups and unchanged saved rules. The user confirmed
+both adding and removing the KDE title bar work after reopening the gear editor.
+Report: `~/.local/state/hyperfusion/upgrade-0572/titlebar-editor-install-20261121-074340/result.json`.
+
+### Clipboard persistence after closing the source app
+
+The previous clipboard service recorded history but did not retain the active
+selection. An isolated baseline reproduced copy being available until its source
+app closed. A separate session-owned keeper now captures every offered format of
+eligible text/images before taking clipboard ownership, preserving rich text as
+well as Unicode text. Pausing history does not drop the current clipboard. File
+offers, password-manager hints, oversized and incomplete copies retain their
+original owner; explicit clear is respected. Capture and paste transfers have
+size, count and time bounds and use nonblocking pipes. No content is logged or
+saved by the keeper, and no additional package is required.
+
+The actual Wayland/XWayland test passed all 22 checks, including source exit,
+Unicode and legacy encodings, HTML, images, large transfers, newer copies,
+duplicate-service exclusion, explicit clearing and sensitive/file/size exclusions.
+The first X11 assertion requested its legacy Latin-1 representation but compared
+UTF-8; the corrected test verifies the advertised Unicode representation and the
+unchanged bytes of each legacy representation separately. The production keeper's
+pipe test covers cancellation, memory bounds, partial writes, receiver exit and
+backpressure. History/UI checks and the 39 installer checks also pass.
+
+The passing keeper was installed without restarting history or changing saved
+preferences. Report:
+`~/.local/state/hyperfusion/upgrade-0572/clipboard-install-20261121-075034/result.json`.
+The clipboard startup code, native source and builder are included in the normal
+installer/update payload; the temporary repair helper is not required at login.
+
+### Input readback, cursor layout and Echo overlay follow-up
+
+The Input page now reads the `bool` values returned by Hyprland 0.57, along
+with the previous integer representation. CSS gap values are also retained.
+Readback, Apply and Reload regression tests pass with both compositor formats;
+unknown option responses stop with an error instead of silently becoming blank.
+The eight cursor model/controller tests pass. An offscreen check of the complete
+Fusion Settings window at 1300, 1460 and 1800 pixels wide verifies that all 25
+cursor choices remain inside the page and gain columns as the window widens.
+The cursor page uses no scroll area and preserves its current selection.
+
+A narrow rule for the X11 `Echo Overlay` helper disables blur, decorations and
+focus without matching Echo's main window. Native validation accepts the complete
+profile with this rule. `tests/check-echo-overlay.py OUTPUT_DIRECTORY` checks
+transparent pixels, visible overlay content and click-through to Wayland and
+XWayland windows in a private compositor, including reload and reopening the
+overlay. It uses synthetic fixtures and does not launch Echo. Both backends pass
+all 14 checks. The baseline reproduces blur on both and blocked clicks to the
+Wayland window; with the rule, transparent pixels match the clear desktop exactly,
+the roster stays visible, and clicks reach both window types. The fixture uses
+real pointer motion and monotonic timestamps so the X server receives valid
+motion and button events after switching windows.
+
+The three fixes were installed successfully with saved preferences unchanged and
+no live configuration errors. The installed cursor/Input sources and single Echo
+rule match the repository. Report:
+`~/.local/state/hyperfusion/upgrade-0572/settings-overlay-install-20261121-143803/result.json`.
+The user also confirmed that the actual Echo overlay is fixed.
+
+### Remaining release validation
+
+The live Arch installation was upgraded and then received the greeter, rendering,
+minimize, HDR and portal repairs incrementally. Those fixes are now in the source
+used by the installer and updater, but that does not validate the entire final
+migration in one run. Before release, test an untouched older installation through
+the real Update button, foreground runtime setup and administrator authentication,
+then its first reboot into the custom greeter and desktop. Confirm the effects,
+native application controls, saved preferences and screen sharing after that login.
+The runtime setup performs the coordinated full system upgrade; users should not
+need a separate package-manager upgrade to complete this migration. Online/offline
+ISO builds and their boot/install checks remain separate pending work.
+
 ## Default Apps and file selection — 1 November 2026
 
 The new Control Panel page passed eleven association-helper checks with real Gio

@@ -2,11 +2,11 @@
 from copy import deepcopy
 import math
 import time
-from PyQt6.QtCore import Qt,QTimer,QRectF,QByteArray,QPointF,QSize
+from PyQt6.QtCore import Qt,QTimer,QRectF,QByteArray,QPointF,QSize,QEvent
 from PyQt6.QtGui import QPainter,QColor,QPen,QPixmap,QIcon
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,QLabel,QPushButton,
-    QGroupBox,QFormLayout,QComboBox,QSpinBox,QCheckBox,QColorDialog,QScrollArea)
+    QGroupBox,QFormLayout,QComboBox,QSpinBox,QCheckBox,QColorDialog,QSizePolicy,QLayout)
 from . import model,art,controller,effects
 from .mouse_preview import paint_trail
 
@@ -14,7 +14,7 @@ from .mouse_preview import paint_trail
 class Preview(QWidget):
     def __init__(self):
         super().__init__();self.values=deepcopy(model.DEFAULTS);self.points=[];self.ripples=[]
-        self.setMinimumHeight(135);self.setMouseTracking(True)
+        self.setFixedHeight(72);self.setMouseTracking(True)
         self.timer=QTimer(self);self.timer.timeout.connect(self.advance);self.timer.setInterval(16)
     def mouseMoveEvent(self,event):
         if self.values['trail']!='none':self.points.append((event.position(),time.monotonic()));self.points=self.points[-64:];self.timer.start()
@@ -40,8 +40,39 @@ class Preview(QWidget):
             age=(now-born)/lifetime;color.setAlphaF(max(0,1-age));p.setPen(QPen(color,2));p.setBrush(Qt.BrushStyle.NoBrush);p.drawEllipse(point,6+age*27,6+age*27)
         for index,shape in enumerate(('left_ptr','hand2','xterm','sb_h_double_arrow','watch')):
             renderer=QSvgRenderer(QByteArray(art.svg(self.values['style'],shape)[0].encode()))
-            renderer.render(p,QRectF(22+index*72,22,46,46))
-        p.setPen(self.palette().color(self.foregroundRole()));p.drawText(22,109,'Move and click here to preview your effects')
+            renderer.render(p,QRectF(22+index*72,2,38,38))
+        p.setPen(self.palette().color(self.foregroundRole()));p.drawText(22,62,'Move and click here to preview your effects')
+
+
+class CursorGallery(QWidget):
+    """Keep every choice visible; widening the page adds columns."""
+    def __init__(self,buttons):
+        super().__init__();self.buttons=buttons;self.columns=0
+        self.grid=QGridLayout(self);self.grid.setContentsMargins(0,0,0,0);self.grid.setSpacing(8)
+        # A previous wide grid must not establish the minimum width for the
+        # next, narrower layout. Its height is derived from the current width.
+        self.grid.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Fixed)
+    def minimumSizeHint(self):return QSize(150,0)
+    def resizeEvent(self,event):
+        super().resizeEvent(event);self.reflow(event.size().width())
+    def changeEvent(self,event):
+        super().changeEvent(event)
+        if event.type() in (QEvent.Type.FontChange,QEvent.Type.StyleChange):
+            QTimer.singleShot(0,lambda:self.reflow(self.width()))
+    def reflow(self,width):
+        gap=self.grid.spacing();tile=max(150,max(button.minimumSizeHint().width() for button in self.buttons))
+        columns=max(1,min(len(self.buttons),(width+gap)//(tile+gap)))
+        if columns!=self.columns:
+            while self.grid.count():self.grid.takeAt(0)
+            for index in range(max(self.columns,columns)):
+                self.grid.setColumnStretch(index,1 if index<columns else 0)
+                self.grid.setColumnMinimumWidth(index,0)
+            self.columns=columns
+            for index,button in enumerate(self.buttons):self.grid.addWidget(button,index//columns,index%columns)
+        height=max(max(button.minimumHeight(),button.minimumSizeHint().height()) for button in self.buttons)
+        rows=(len(self.buttons)+columns-1)//columns
+        self.setFixedHeight(rows*height+(rows-1)*gap)
 
 
 class CursorsPage(QWidget):
@@ -49,27 +80,30 @@ class CursorsPage(QWidget):
         super().__init__();self.async_run=async_run;self.busy=self.dirty=self.loading=False
         self.baseline,self.token=model.load();self.draft=deepcopy(self.baseline)
         root=QVBoxLayout(self);title=QLabel('Cursors');title.setObjectName('brand');root.addWidget(title)
-        root.addWidget(QLabel('A finishing touch for your desktop. Cursor style, trails and click feedback are independent.'))
-        scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        description=QLabel('A finishing touch for your desktop. Cursor style, trails and click feedback are independent.');description.setWordWrap(True);root.addWidget(description)
         body=QWidget();layout=QVBoxLayout(body)
         self.preview=Preview();layout.addWidget(self.preview)
-        gallery=QHBoxLayout();self.styles={}
+        self.styles={}
         for key,(name,*_) in art.STYLES.items():
-            button=QPushButton(name);button.setCheckable(True);button.clicked.connect(lambda _,k=key:self.choose_style(k))
-            pixmap=QPixmap(42,42);pixmap.fill(Qt.GlobalColor.transparent);painter=QPainter(pixmap)
+            button=QPushButton();button.setCheckable(True);button.clicked.connect(lambda _,k=key:self.choose_style(k))
+            words=name.split();metrics=button.fontMetrics()
+            split=min(range(1,len(words)),key=lambda n:max(metrics.horizontalAdvance(' '.join(words[:n])),metrics.horizontalAdvance(' '.join(words[n:])))) if len(words)>1 else 0
+            button.setText(' '.join(words[:split])+'\n'+' '.join(words[split:]) if split else name)
+            pixmap=QPixmap(32,32);pixmap.fill(Qt.GlobalColor.transparent);painter=QPainter(pixmap)
             QSvgRenderer(QByteArray(art.svg(key)[0].encode())).render(painter);painter.end()
-            button.setIcon(QIcon(pixmap));button.setIconSize(QSize(42,42))
-            button.setMinimumHeight(65);button.setAccessibleName(name+' cursor');self.styles[key]=button;gallery.addWidget(button)
-        layout.addLayout(gallery)
-        group=QGroupBox('Pointer & effects');form=QFormLayout(group);self.fields={}
+            button.setIcon(QIcon(pixmap));button.setIconSize(QSize(32,32))
+            button.setMinimumHeight(50);button.setAccessibleName(name+' cursor');button.setToolTip(name);self.styles[key]=button
+        self.gallery=CursorGallery(list(self.styles.values()));layout.addWidget(self.gallery)
+        group=QGroupBox('Pointer & effects');forms=QHBoxLayout(group);form=QFormLayout();other=QFormLayout();forms.addLayout(form,1);forms.addLayout(other,1);forms.setSpacing(24);self.fields={}
+        for side in (form,other):side.setContentsMargins(0,0,0,0);side.setVerticalSpacing(6)
         for key,title,lo,hi,suffix in [('size','Cursor size',20,64,' px'),('duration','Trail lifetime',100,1000,' ms'),('intensity','Effect opacity',10,100,'%')]:
-            spin=QSpinBox();spin.setRange(lo,hi);spin.setSuffix(suffix);spin.valueChanged.connect(lambda value,k=key:self.edit(k,value));self.fields[key]=spin;form.addRow(title,spin)
+            spin=QSpinBox();spin.setRange(lo,hi);spin.setSuffix(suffix);spin.valueChanged.connect(lambda value,k=key:self.edit(k,value));self.fields[key]=spin;(other if key=='intensity' else form).addRow(title,spin)
         trail=QComboBox()
         for key,title in model.TRAILS.items():trail.addItem(title,key)
         trail.currentIndexChanged.connect(lambda:self.edit('trail',trail.currentData()));self.fields['trail']=trail;form.insertRow(1,'Mouse trail',trail)
-        ripple=QCheckBox('Ripple when I click');ripple.toggled.connect(lambda value:self.edit('click_ripple',value));self.fields['click_ripple']=ripple;form.addRow(ripple)
-        self.color=QPushButton('Effect color');self.color.clicked.connect(self.choose_color);form.addRow('Color',self.color);layout.addWidget(group);layout.addStretch()
-        scroll.setWidget(body);root.addWidget(scroll,1)
+        ripple=QCheckBox('Ripple when I click');ripple.toggled.connect(lambda value:self.edit('click_ripple',value));self.fields['click_ripple']=ripple;other.addRow(ripple)
+        self.color=QPushButton('Effect color');self.color.clicked.connect(self.choose_color);other.addRow('Color',self.color);layout.addWidget(group);layout.addStretch()
+        root.addWidget(body,1)
         self.status=QLabel('Effects are optional. Your other desktop sessions keep their own cursors.');self.status.setWordWrap(True);root.addWidget(self.status)
         row=QHBoxLayout();defaults=QPushButton('Defaults');defaults.clicked.connect(lambda:self.fill(model.DEFAULTS));row.addWidget(defaults);row.addStretch()
         self.reload=QPushButton('Reload');self.reload.clicked.connect(lambda:self.refresh(True));row.addWidget(self.reload)

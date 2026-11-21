@@ -46,6 +46,7 @@ def image_preview(mime,data):
 class History(QWidget):
     def __init__(self,store,collector):
         super().__init__(); self.store=store; self.collector_path=collector; self.collector=None; self.owners=set()
+        self.keeper=None; self.keeper_failures=0
         self.frames=Frames(); self.previous=''; self.cache={}; self.stopping=False; self.failure_count=0
         self.generation=0; self.opened_at=0.; self.dismissed_at=-1.; self.activation=None
         # A normal frameless toplevel unmaps through the compositor's Burn
@@ -96,7 +97,26 @@ class History(QWidget):
         try:paused=json.loads((STATE/'preferences.json').read_text()).get('paused') is True
         except (OSError,ValueError,AttributeError):paused=False
         self.store.paused=paused; self.pause.blockSignals(True); self.pause.setChecked(paused); self.pause.blockSignals(False); self.populate()
+        self.start_keeper()
         if not paused:self.start_collector()
+
+    def start_keeper(self):
+        if self.stopping or self.keeper:return
+        process=QProcess(self);self.keeper=process
+        process.readyReadStandardError.connect(lambda:process.readAllStandardError())
+        process.finished.connect(lambda *_:self.keeper_finished(process))
+        process.errorOccurred.connect(lambda *_:self.keeper_finished(process,failed=True) if process.state()==QProcess.ProcessState.NotRunning else None)
+        process.start(str(self.collector_path.with_name('fusion-clipboard-keeper')),[])
+
+    def keeper_finished(self,process,*,failed=False):
+        if self.keeper is not process:return
+        self.keeper=None
+        # Exit zero also means another keeper already owns this session's lock.
+        successful=not failed and process.exitStatus()==QProcess.ExitStatus.NormalExit and process.exitCode()==0
+        process.deleteLater()
+        if self.stopping or successful:return
+        self.keeper_failures+=1
+        QTimer.singleShot(min(30000,1000*2**min(self.keeper_failures,5)),self.start_keeper)
 
     def start_collector(self):
         if self.stopping or self.store.paused or self.collector:return
@@ -271,7 +291,7 @@ class History(QWidget):
     def stop(self):
         self.stopping=True
         if self.activation:self.activation.cancel()
-        for process in (self.collector,*self.owners.copy()):
+        for process in (self.collector,self.keeper,*self.owners.copy()):
             if process:process.kill();process.waitForFinished(500)
 
 def session_directory():

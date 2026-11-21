@@ -45,7 +45,7 @@ def prepare(home, commit, automatic=True, allow_runtime=False, checkpoint=lambda
     if message and not allow_runtime:
         with engine.locked(state):
             engine.write_json(state/'runtime-required.json', {'revision':commit,
-                'required':install.runtime_install.policy.manifest()['hyprland'], 'message':message})
+                'required':install.runtime_install.policy.contract(install.runtime_install.policy.manifest())['hyprland'], 'message':message})
             (state/'pending.json').unlink(missing_ok=True)
         raise RuntimeError(message)
     if allow_runtime:
@@ -97,6 +97,31 @@ def prepare(home, commit, automatic=True, allow_runtime=False, checkpoint=lambda
                             'This update will activate at your next Hyprland login.'), flush=True)
 
 
+def activate(home, login_choice=None):
+    """Finish the desktop and its existing greeter before committing recovery."""
+    import service
+    root = home/'.config/hypr'
+    state = home/'.local/state/xetal-hyprland/updates'
+    install.commands.install()
+    if not service.activate(root, state):
+        raise RuntimeError('Update was prepared but could not be activated. Open Desktop Updates for details.')
+    backup = Path(engine.json_file(state/'last-backup.json')['backup'])
+    try:
+        login_setup.apply(login_choice, root)
+    except BaseException:
+        # The greeter helper restores its own files on failure. Put the desktop
+        # back before the caller restores the matching package transaction.
+        with engine.locked(state):
+            plan = engine.rollback_plan(root, backup)
+            engine.apply_plan(root, backup/'files', plan, state)
+            service.publish(state, phase='attention', current=plan['revision'],
+                            current_version=engine.installed(root).get('release_version',''),
+                            message='Sign-in setup failed. The previous desktop was restored.',
+                            retry_prepare=True)
+        raise
+    install.runtime_install.complete()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(); parser.add_argument('--revision', required=True)
     parser.add_argument('--manual', action='store_true')
@@ -116,13 +141,9 @@ if __name__ == '__main__':
         prepare(Path.home(), args.revision, not args.manual, args.runtime, checkpoint)
         if args.activate:
             checkpoint()
-            install.commands.install()
-            import service
-            if not service.activate(Path.home()/'.config/hypr'):
-                raise RuntimeError('Update was prepared but could not be activated. Open Desktop Updates for details.')
-            install.runtime_install.complete()
-            login_setup.apply(args.fusion_login, Path.home()/'.config/hypr')
+            activate(Path.home(), args.fusion_login)
             print('Installed. Reboot to use Fusion sign-in and choose your desktop.' if args.fusion_login else
+                  'Installed. Reboot when ready to start the upgraded system and matching desktop.' if args.runtime else
                   'Installed. Log out and sign in again to start the matching compositor and desktop.', flush=True)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError, KeyboardInterrupt) as error:
         install.runtime_install.rollback()

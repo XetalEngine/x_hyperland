@@ -126,6 +126,7 @@ class InstallerTests(unittest.TestCase):
     def test_clipboard_and_snapping_are_delivered_without_private_history(self):
         self.render()
         self.assertTrue((self.stage/'clipboard/native/collector.cpp').is_file())
+        self.assertTrue((self.stage/'clipboard/native/keeper.cpp').is_file())
         self.assertFalse((self.stage/'clipboard/state').exists())
         self.assertTrue((self.stage/'scripts/clipboard-history.sh').stat().st_mode&0o111)
         self.assertIn('fusion-clipboard-history',(self.stage/'keybindings.conf').read_text())
@@ -139,6 +140,8 @@ class InstallerTests(unittest.TestCase):
         self.assertIn('HDMI-A-1,1920x1080@59.940,0x0,1',text)
         self.assertIn('eDP-1,2560x1600@165.000,1920x0,1.25',text)
         self.assertNotIn('DP-5',text)
+        self.assertEqual(text.count(',cm,srgb'), 2)
+        self.assertIn('render:cm_auto_hdr = 0', (self.stage/'hyprland.conf').read_text())
         state=json.loads((self.stage/'wallpaper/selection.json').read_text())
         self.assertEqual(set(state),{'HDMI-A-1','eDP-1'})
         self.assertTrue(state['eDP-1']['path'].startswith(str(self.target)))
@@ -549,6 +552,7 @@ assert m['fire_indicator']
                  patch.object(sys,'argv',['install.py','--yes','--skip-packages',*mode]), \
                  patch.object(Path,'home',return_value=self.home), \
                  patch.object(dependencies,'check',return_value=[]), \
+                 patch.object(install.runtime_install.policy,'require'), \
                  patch.object(install,'connected_monitors',return_value=[]), \
                  patch.object(install,'render',side_effect=invalid_profile), \
                  patch.object(install,'register_updates'), \

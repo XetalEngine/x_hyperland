@@ -86,8 +86,8 @@ session locking, disabling the effect, and plugin unload cancel the scene.
 Pointer constraints, input capture, and an active special workspace prevent a
 gesture. Rendering/input hooks are removed on unload. Burn remains independent.
 
-The adapter is tested with **Hyprland 0.56.2**, commit
-`efb50993780079460b0cbed1363e2166a2de1d9f`, on x86-64 with its OpenGL renderer.
+Separate adapters support **Hyprland 0.56.2** (`efb50993780079460b0cbed1363e2166a2de1d9f`)
+and **0.57.2** (`11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947`) on x86-64/OpenGL.
 Build requirements: C++23, matching Hyprland development headers, pkg-config,
 GLESv2, json-c and libei development files (`hyprland`, `json-c`,
 `libeis-1.0` pkg-config modules). On Arch, these are provided by Hyprland,

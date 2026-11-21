@@ -467,7 +467,10 @@ def main():
     app=QApplication(sys.argv[:1]);app.setDesktopFileName('fusion-window-buttons')
     theme_runtime.install(app,'QLabel { background: transparent; } QDialog { padding: 0; } QPushButton { padding: 7px 10px; }')
     try:
-        session=controller.instance_dir();dialog=RuleDialog(args.window_id,workspace=args.workspace)
+        session=controller.instance_dir()
+        from compat.hypr_compat import prepare_session_ipc
+        prepare_session_ipc()
+        dialog=RuleDialog(args.window_id,workspace=args.workspace)
     except Exception as error:
         print(str(error),file=sys.stderr);return 1
     timer=QTimer(app);timer.setInterval(1500);timer.timeout.connect(lambda:app.quit() if not (session/'.socket.sock').exists() else None);timer.start()

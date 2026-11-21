@@ -32,8 +32,8 @@ displays. Color is converted to the compositor's working color space.
 
 ## Integration and compatibility
 
-The native adapter is tested with **Hyprland 0.56.2**, commit
-`efb50993780079460b0cbed1363e2166a2de1d9f`, on x86-64 with its OpenGL renderer.
+Separate adapters support **Hyprland 0.56.2** (`efb50993780079460b0cbed1363e2166a2de1d9f`)
+and **0.57.2** (`11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947`) on x86-64/OpenGL.
 It needs matching Hyprland development headers (`pkg-config hyprland`), a C++23
 compiler, pkg-config and GLESv2 development files. The profile installer tries
 the optional build. Session startup loads it asynchronously, and the control

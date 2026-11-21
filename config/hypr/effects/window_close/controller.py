@@ -58,8 +58,8 @@ def activate(values, target=None):
             workspaces, _ = workspace_model.load()
             if not workspace_model.needs_controls(workspaces): return
         current = json.loads(hypr('-j','version'))
-        if current.get('commit') != build.SUPPORTED_COMMIT:
-            raise RuntimeError('Window Close needs the supported Hyprland 0.56.2 session. The windowclose handler needs an updated adapter.')
+        if current.get('commit') not in build.SUPPORTED_COMMITS:
+            raise RuntimeError('Window Close needs a supported Hyprland session. The windowclose handler needs an updated adapter.')
         target = target or build.build()
         answer = hypr('plugin','load',str(target))
         if answer != 'ok':

@@ -53,8 +53,8 @@ def activate(values, target=None, previews=False):
         hypr('dispatch','xetalcube:reload')
     elif values['enabled'] or previews:
         current = json.loads(hypr('-j','version'))
-        if current.get('commit') != build.SUPPORTED_COMMIT:
-            raise RuntimeError('Desktop Cube needs the supported Hyprland 0.56.2 session. Ordinary workspace switching remains available.')
+        if current.get('commit') not in build.SUPPORTED_COMMITS:
+            raise RuntimeError('Desktop Cube needs a supported Hyprland session. Ordinary workspace switching remains available.')
         target = target or build.build()
         answer = hypr('plugin','load',str(target))
         if answer != 'ok':

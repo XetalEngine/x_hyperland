@@ -142,7 +142,8 @@ class DebianTests(unittest.TestCase):
 
     def test_matching_commit_still_requires_matching_debian_libraries(self):
         target = runtime.policy.manifest()
-        actual = dict(version=target['hyprland'], commit=target['commit'])
+        contract = runtime.policy.contract(target, 'debian-13')
+        actual = dict(version=contract['hyprland'], commit=contract['commit'])
         expected = {p['name']+':'+p['architecture']: p['version'] for p in debian.target()['packages']}
         with patch.object(runtime.policy, 'installed', return_value=actual), patch.object(runtime.policy, 'debian_host', return_value=True), \
              patch.object(runtime.policy, 'fedora_host', return_value=False), patch.object(runtime.policy, 'deb_versions', return_value={}):

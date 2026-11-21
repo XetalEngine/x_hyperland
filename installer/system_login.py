@@ -8,6 +8,8 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import fcntl
+import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -24,6 +26,7 @@ CODE = Path('/usr/local/lib/xetal-fusion-login')
 UNIT = 'xetal-fusion-login.service'
 STATE = BASE/'installation.json'
 POWER_POLICY = Path('/etc/polkit-1/rules.d/49-xetal-fusion-login.rules')
+CONFIG = Path('/etc/xetal-fusion-login')
 SYSTEM_PATHS = [CODE, Path('/etc/xetal-fusion-login'),
                 POWER_POLICY,
                 Path('/etc/systemd/system')/UNIT,
@@ -146,8 +149,42 @@ def keyring_pam(content, wallet=None):
     return content
 
 
-def configuration(greetd_binary='/usr/bin/greetd'):
-    return {
+def converter_path():
+    source = Path(__file__).resolve().parents[1]/'config/hypr/compat/hypr_compat.py'
+    return source if source.is_file() else Path(__file__).with_name('hypr_compat.py')
+
+
+def lua_configuration(legacy):
+    spec = importlib.util.spec_from_file_location('fusion_greeter_compat', converter_path())
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return module.Renderer(CONFIG, {CONFIG/'hyprland.conf': legacy}).render()
+
+
+def runtime_identity(source):
+    version = subprocess.check_output(['/usr/bin/Hyprland', '--version'], text=True)
+    match = re.search(r'Hyprland\s+(\d+\.\d+\.\d+).*?at commit ([a-f0-9]{40})', version)
+    if not match: raise RuntimeError('Cannot identify the installed greeter compositor.')
+    notices = source/'runtime/notices/.build/xetal-startup-notices.so'
+    data = notices.read_bytes()
+    if match[2].encode() not in data:
+        raise RuntimeError('The greeter adapter was not built for the installed Hyprland. Build the matching desktop first.')
+    return {'version': match[1], 'commit': match[2], 'adapter_sha256': hashlib.sha256(data).hexdigest(),
+            'configuration': 'lua' if tuple(map(int, match[1].split('.')[:2])) >= (0, 57) else 'conf'}
+
+
+def session_script(modern=False):
+    exit_command = "'hl.dsp.exit()'" if modern else 'exit'
+    return '''#!/bin/sh
+/usr/bin/python3 /usr/local/lib/xetal-fusion-login/app.py
+result=$?
+# A successful start_session takes effect when this greeter compositor exits.
+/usr/bin/hyprctl dispatch '''+exit_command+''' >/dev/null 2>&1
+exit "$result"
+'''
+
+
+def configuration(greetd_binary='/usr/bin/greetd', modern=False):
+    result = {
         Path('/etc/xetal-fusion-login/greetd.toml'): '''[terminal]
 vt = 1
 switch = true
@@ -217,6 +254,77 @@ TimeoutStopSec=30
 WantedBy=graphical.target
 Alias=display-manager.service
 '''.replace('@GREETD@', greetd_binary)}
+    if modern:
+        result[CONFIG/'greetd.toml'] = result[CONFIG/'greetd.toml'].replace('hyprland.conf', 'hyprland.lua')
+        result[CONFIG/'hyprland.lua'] = lua_configuration(result[CONFIG/'hyprland.conf'])
+    return result
+
+
+def validate_runtime(modern):
+    path = CONFIG/('hyprland.lua' if modern else 'hyprland.conf')
+    # A sudo/runuser check has no logind runtime directory. Do not borrow the
+    # active greeter's sockets or depend on that account already being logged in.
+    greeter = pwd.getpwnam('fusion-greeter')
+    with tempfile.TemporaryDirectory(prefix='fusion-greeter-verify-') as runtime:
+        os.chown(runtime, greeter.pw_uid, greeter.pw_gid)
+        try:
+            checked = run(['runuser', '-u', 'fusion-greeter', '--', 'env',
+                           'XDG_RUNTIME_DIR='+runtime, '/usr/bin/Hyprland',
+                           '--verify-config', '--config', str(path)], capture_output=True, text=True, errors='replace')
+        except subprocess.CalledProcessError as error:
+            diagnostic = ((error.stdout or '') + (error.stderr or '')).strip()
+            raise RuntimeError('The greeter configuration did not validate (exit '+str(error.returncode)+'):\n'+
+                               (diagnostic or str(error))) from error
+    if 'config ok' not in checked.stdout:
+        raise RuntimeError('The greeter configuration did not validate:\n'+checked.stdout+checked.stderr)
+
+
+def refresh_runtime(source):
+    """Keep an already enabled greeter paired with its upgraded compositor.
+
+    No accounts, PAM, services, enablement links or default target are changed.
+    Retain the administrator's legacy settings as the source for generated Lua.
+    """
+    source = source.resolve(strict=True)
+    previous = json.loads(STATE.read_text())
+    if previous.get('enabled') is not True:
+        raise RuntimeError('Fusion sign-in is not enabled; runtime refresh will not enable it.')
+    identity = runtime_identity(source)
+    modern = identity['configuration'] == 'lua'
+    import tomllib
+    original = (CONFIG/'greetd.toml').read_text()
+    config = tomllib.loads(original)
+    command = config.get('default_session', {}).get('command', '')
+    if config.get('default_session', {}).get('user') != 'fusion-greeter':
+        raise RuntimeError('The greeter account was changed externally; keeping its configuration.')
+    active = next((str(CONFIG/name) for name in ('hyprland.conf', 'hyprland.lua') if str(CONFIG/name) in command), None)
+    if active is None or original.count(active) != 1:
+        raise RuntimeError('The greeter startup command was customized; cannot select its runtime configuration.')
+    legacy = (CONFIG/'hyprland.conf').read_text()
+    rendered = lua_configuration(legacy) if modern else legacy
+    backups = BASE/'backups'; backups.mkdir(exist_ok=True, mode=0o700)
+    destination = Path(tempfile.mkdtemp(prefix=datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S-runtime-'), dir=backups))
+    backup = Backup(destination)
+    for path in (CODE, CONFIG, STATE): backup.save(path)
+    backup.finish({'kind': 'runtime-refresh'})
+    print('Fusion sign-in runtime backup: '+str(destination), flush=True)
+    try:
+        write(CODE/'xetal-startup-notices.so', (source/'runtime/notices/.build/xetal-startup-notices.so').read_bytes())
+        write(CODE/'greeter-session.sh', session_script(modern), 0o755)
+        write(CODE/'hypr_compat.py', converter_path().read_bytes())
+        write(CODE/'system_setup.py', Path(__file__).read_bytes(), 0o755)
+        target = CONFIG/('hyprland.lua' if modern else 'hyprland.conf')
+        write(target, rendered)
+        write(CONFIG/'greetd.toml', original.replace(active, str(target)))
+        validate_runtime(modern)
+        write(STATE, json.dumps({**previous, 'latest_backup': str(destination), 'runtime': identity}, indent=2)+'\n')
+    except BaseException:
+        Backup.restore(destination)
+        print('Greeter refresh failed; its previous files were restored.', file=sys.stderr)
+        raise
+    print('XETAL_LOGIN_TRANSACTION '+str(destination), flush=True)
+    print('Fusion sign-in matches Hyprland '+identity['version']+'. No session was restarted.', flush=True)
+    return destination
 
 
 def install(source, username, skip_packages=False):
@@ -227,6 +335,8 @@ def install(source, username, skip_packages=False):
     notices = source/'runtime/notices/.build/xetal-startup-notices.so'
     if not notices.is_file():
         raise RuntimeError('Build the Fusion desktop before installing sign-in; the matching startup adapter is missing.')
+    identity = runtime_identity(source)
+    modern = identity['configuration'] == 'lua'
     BASE.mkdir(parents=True, exist_ok=True, mode=0o755)
     backups = BASE/'backups'; backups.mkdir(exist_ok=True, mode=0o700)
     backups.chmod(0o700)
@@ -277,6 +387,7 @@ def install(source, username, skip_packages=False):
         # already built this adapter against the selected compositor headers.
         write(CODE/'xetal-startup-notices.so', notices.read_bytes())
         shutil.copy2(__file__, CODE/'system_setup.py'); os.chmod(CODE/'system_setup.py', 0o755)
+        write(CODE/'hypr_compat.py', converter_path().read_bytes())
         shutil.copy2(source/'theme/palettes.json', CODE/'palettes.json')
         shutil.copy2(source/'theme/assets/account.gif', CODE/'account.gif')
         (CODE/'palettes.json').chmod(0o644); (CODE/'account.gif').chmod(0o644)
@@ -285,16 +396,9 @@ def install(source, username, skip_packages=False):
         for item in (source/'assets/fonts').glob('Inter-*'):
             shutil.copy2(item, CODE/'fonts'/item.name)
             (CODE/'fonts'/item.name).chmod(0o644)
-        write(CODE/'greeter-session.sh', '''#!/bin/sh
-/usr/bin/python3 /usr/local/lib/xetal-fusion-login/app.py
-result=$?
-# A successful start_session takes effect when this greeter compositor exits.
-/usr/bin/hyprctl dispatch exit >/dev/null 2>&1
-exit "$result"
-''', 0o755)
-        for path, text in configuration(greetd_binary).items(): write(path, text)
-        run(['runuser', '-u', 'fusion-greeter', '--', '/usr/bin/Hyprland',
-             '--verify-config', '--config', '/etc/xetal-fusion-login/hyprland.conf'])
+        write(CODE/'greeter-session.sh', session_script(modern), 0o755)
+        for path, text in configuration(greetd_binary, modern).items(): write(path, text)
+        validate_runtime(modern)
         # Catch missing Qt modules and unreadable system-owned code before enabling boot changes.
         run(['runuser', '-u', 'fusion-greeter', '--', '/usr/bin/python3', '-c',
              'import sys; sys.path.insert(0, "/usr/local/lib/xetal-fusion-login"); import app'])
@@ -341,7 +445,7 @@ exit "$result"
         run(['systemctl', 'set-default', 'graphical.target'])
         write(STATE, json.dumps({'enabled': True, 'original_backup': previous.get('original_backup', str(destination)),
                                'original_additions': additions,
-                               'latest_backup': str(destination), 'user': username}, indent=2)+'\n')
+                               'latest_backup': str(destination), 'user': username, 'runtime': identity}, indent=2)+'\n')
         print('Fusion sign-in is ready for the next boot. The current desktop was not restarted.', flush=True)
         print('Recovery: sudo /usr/local/lib/xetal-fusion-login/system_setup.py --restore original', flush=True)
     except BaseException:
@@ -380,15 +484,17 @@ def main():
     parser.add_argument('--user')
     parser.add_argument('--skip-packages', action='store_true')
     parser.add_argument('--restore')
+    parser.add_argument('--refresh-runtime', action='store_true')
     args = parser.parse_args()
     if os.geteuid() != 0: raise RuntimeError('Run this system configuration step with sudo.')
     os.umask(0o022)
-    if not args.restore and not (args.source and args.user):
+    if not args.restore and not (args.source and (args.user or args.refresh_runtime)):
         parser.error('--source and --user, or --restore, are required')
     BASE.mkdir(parents=True, exist_ok=True, mode=0o755)
     with (BASE/'setup.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if args.restore: restore(args.restore)
+        elif args.refresh_runtime: refresh_runtime(args.source)
         else: install(args.source, args.user, args.skip_packages)
 
 

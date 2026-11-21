@@ -124,7 +124,8 @@ class FedoraTests(unittest.TestCase):
 
     def test_fedora_library_change_requires_setup_even_when_hyprland_commit_matches(self):
         target = runtime.policy.manifest()
-        actual = dict(version=target['hyprland'],commit=target['commit'])
+        contract = runtime.policy.contract(target, 'fedora-44')
+        actual = dict(version=contract['hyprland'],commit=contract['commit'])
         packages = {p['name']:p['evr']+'.'+p['architecture'] for p in self.required['packages']}
         with patch.object(runtime.policy,'installed',return_value=actual), \
              patch.object(runtime.policy,'fedora_host',return_value=True), \

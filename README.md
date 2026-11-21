@@ -253,13 +253,13 @@ Prefer a ZIP? Choose **Code → Download ZIP**, extract the entire archive, open
 
 When Setup finishes, **log out, select Hyprland and sign in again**. Your current session is not forcibly restarted. The desktop keeps its themes, Dolphin profile and startup helpers separate from KDE/Plasma and shared desktop preferences.
 
-### One tested compositor version
+### Matched compositor and effects
 
-This release uses **Hyprland 0.56.2** and its exact tested source commit so the desktop, **Cube**, **Burn** and **Minimize** stay compatible. Setup installs or downgrades to that version and applies the appropriate package holds.
+The Arch migration targets **Hyprland 0.57.2** with matching Hyper Fusion adapters. Fedora 44 and Debian 13 retain their **0.56.2** bundles. Setup checks the exact source commit for each distribution and builds the effects for that ABI. **Compiz Wobbly Windows stays in charge:** the 0.57 adapter prevents native Hyprland wobble from activating, including after reloads or explicit enable requests. See the [migration validation status](docs/VALIDATION.md#hyprland-0572-migration--21-november-2026).
 
 | Included runtime | Download ZIP contains |
 | --- | --- |
-| **Arch family** | Signed official Hyprland **0.56.2-4** package — **51.3 MB**. |
+| **Arch family** | Signed official Hyprland **0.57.2-1** with eleven matching library/companion packages — **54.5 MB total**. |
 | **Fedora 44** | Signed **0.56.2-6.fc44** runtime, matching libraries and headers — **55.9 MB**; corresponding LGPL source RPMs add **55.4 MB** separately. |
 | **Debian 13** | Native **0.56.2** runtime, matching headers/libraries, Waybar, Kitty and SDL3 — **22.3 MB ZIP**; corresponding sources are included separately. |
 
@@ -279,9 +279,9 @@ Each bundled package is below 100 MB. Fedora packages come from the documented g
 ./x_hyperinstall.sh --restore /path/to/backup       # Use the backup path printed by Setup
 ```
 
-The installation log is `~/.local/state/xetal-hyprland/setup.log`. Include the source revision and the first compiler/package error when reporting a failure. Setup keeps the existing desktop profile if preparation fails. If it changed the compositor, its recovery path restores the previous runtime; successfully installed ordinary dependencies remain available for a retry.
+The installation log is `~/.local/state/xetal-hyprland/setup.log`. Include the source revision and the first compiler/package error when reporting a failure. Setup keeps the existing desktop profile if preparation fails. Arch prepares signed recovery archives for all upgraded packages and rehearses recovery in a copied package database before installation. Compatible new dependencies may remain after recovery.
 
-On 0.56.2, the brief `.conf` deprecation notice refers to a future Hyprland format change. The pinned release still supports this configuration. [Compatibility notes →](docs/DEPENDENCIES.md)
+The 0.57 session renders the managed configuration as Lua; 0.56 sessions retain the `.conf` entry point. [Compatibility notes →](docs/DEPENDENCIES.md)
 
 </details>
 
@@ -415,7 +415,7 @@ Fresh installs always enable Welcome so plugin failures are visible at the first
 
 Five cursor designs add optional Comet, Soft glow or Stardust trails and click ripples. Cursor effects start disabled and stop rendering when idle. [Cursor guide →](config/hypr/cursors/README.md)
 
-The native [Burn](config/hypr/effects/burn/README.md), [Cube](config/hypr/effects/cube/README.md) and [Minimize](config/hypr/effects/minimize/README.md) sources are included, along with Compiz attribution for Burn, Cube and the minimize flame. Setup builds them against the pinned **0.56.2 x86-64/OpenGL** runtime; their effects remain individually configurable. Front/Back also handles floating windows above maximized windows and preserves their order across workspace switches.
+The native [Burn](config/hypr/effects/burn/README.md), [Cube](config/hypr/effects/cube/README.md) and [Minimize](config/hypr/effects/minimize/README.md) sources are included, along with Compiz attribution for Burn, Cube and the minimize flame. Setup selects the matching **0.56.2 or 0.57.2 x86-64/OpenGL** adapter; effects remain individually configurable. Front/Back also handles floating windows above maximized windows and preserves their order across workspace switches.
 
 ## KVM Settings
 

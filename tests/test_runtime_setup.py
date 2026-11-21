@@ -27,7 +27,7 @@ class RuntimeTests(unittest.TestCase):
         self.target = runtime.policy.manifest()
 
     def test_exact_version_and_source_commit_are_both_required(self):
-        for version, commit, accepted in [('0.56.2',self.target['commit'],True),
+        for version, commit, accepted in [(self.target['hyprland'],self.target['commit'],True),
                                          ('0.57.0','a'*40,False),('0.56.2','b'*40,False)]:
             with self.subTest(version=version,commit=commit), patch.object(runtime.policy,'installed',return_value={'version':version,'commit':commit}):
                 self.assertEqual(not runtime.policy.problem(), accepted)
@@ -78,10 +78,47 @@ class RuntimeTests(unittest.TestCase):
 
     def test_repository_bundle_matches_pinned_hashes_and_size_limit(self):
         for suffix, key in [('', 'package_sha256'), ('.sig', 'signature_sha256')]:
-            file=runtime.BUNDLED/(runtime.policy.filename(self.target)+suffix)
+            file=runtime.BUNDLED/'arch'/(runtime.policy.filename(self.target)+suffix)
             self.assertLess(file.stat().st_size,100_000_000)
             with file.open('rb') as stream:
                 self.assertEqual(hashlib.file_digest(stream,'sha256').hexdigest(),self.target[key])
+
+    def test_staged_arch_migration_preserves_other_distribution_contracts(self):
+        for distro in ('arch', 'fedora-44', 'debian-13'):
+            expected = runtime.policy.contract(self.target, distro)
+            actual = {'version':expected['hyprland'], 'commit':expected['commit']}
+            with self.subTest(distro=distro), patch.object(runtime.policy, 'fedora_host', return_value=distro=='fedora-44'), \
+                 patch.object(runtime.policy, 'debian_host', return_value=distro=='debian-13'), \
+                 patch.object(runtime.policy, 'installed', return_value=actual):
+                self.assertTrue(runtime.policy.matches_requirement(self.target))
+                actual['commit'] = '0'*40
+                self.assertFalse(runtime.policy.matches_requirement(self.target))
+        self.assertEqual(runtime.policy.contract(self.target, 'arch')['hyprland'], '0.57.2')
+        for distro in ('fedora-44', 'debian-13'):
+            self.assertEqual(runtime.policy.contract(self.target, distro)['hyprland'], '0.56.2')
+
+    def test_distribution_contracts_reject_invalid_shapes_and_commits(self):
+        (self.root/'runtime').mkdir()
+        for overrides in ([], {'unknown':{}}, {'fedora-44':None},
+                          {'debian-13':{'hyprland':'0.56.2','commit':'not a commit'}}):
+            (self.root/'runtime/manifest.json').write_text(json.dumps({**self.target, 'distribution_runtimes':overrides}))
+            with self.subTest(overrides=overrides), self.assertRaises(ValueError):
+                runtime.policy.manifest(self.root)
+
+    def test_recovery_cache_accepts_epochs_and_underscores_in_package_names(self):
+        source=self.root/'packages'; source.mkdir()
+        filename='lm_sensors-1:3.6.2-1-x86_64.pkg.tar.zst'
+        (source/filename).write_bytes(b'cached package')
+        (source/(filename+'.sig')).write_bytes(b'cached signature')
+        def query(args, **kwargs):
+            self.assertEqual(args[-1], 'lm_sensors')
+            return subprocess.CompletedProcess(args, 0, 'lm_sensors 1:3.6.2-1\n' if '-Q' in args else 'Architecture : x86_64\n', '')
+        with patch.object(runtime.subprocess, 'run', side_effect=query), \
+             patch.object(runtime, 'package_caches', return_value=[source]), \
+             patch.object(runtime, 'urlopen', side_effect=AssertionError('Unexpected network')):
+            saved=runtime.previous_package(self.root/'recovery', 'lm_sensors')
+        self.assertEqual(saved.name, filename)
+        self.assertEqual(saved.read_bytes(), b'cached package')
 
     def test_bundled_package_works_without_archive_or_pacman_cache(self):
         bundled=self.root/'bundle';bundled.mkdir()
@@ -194,7 +231,7 @@ class RuntimeTests(unittest.TestCase):
         with patch.object(updater.install,'source_revision',return_value=commit), \
              patch.object(runtime.policy,'installed',return_value={'version':'0.57.0','commit':'b'*40}), \
              patch.object(runtime,'ensure') as ensure,patch.object(updater.install,'build') as build:
-            with self.assertRaisesRegex(RuntimeError,'requires Hyprland 0.56.2'):
+            with self.assertRaisesRegex(RuntimeError,'requires Hyprland '+self.target['hyprland']):
                 updater.prepare(home,commit)
         ensure.assert_not_called();build.assert_not_called()
         self.assertFalse((home/'.config/hypr').exists())

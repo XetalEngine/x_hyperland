@@ -113,9 +113,12 @@ XKB bell subscription for XWayland; it does not alter audio settings.
 
 ## Build and diagnostics
 
-The adapter is pinned to the repository's x86-64 Hyprland 0.56.2 build
-(`efb50993780079460b0cbed1363e2166a2de1d9f`). A different compositor ABI requires
-an adapter update. Dependencies include g++, pkg-config, matching Hyprland
+Separate x86-64 adapters support Hyprland 0.56.2
+(`efb50993780079460b0cbed1363e2166a2de1d9f`) and 0.57.2
+(`11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947`). The original Compiz physics remain
+shared. On 0.57, the always-loaded runtime policy disables upstream wobble even
+when this effect is turned off. Other compositor ABIs require an adapter update.
+Dependencies include g++, pkg-config, matching Hyprland
 headers, json-c, libei, GLESv2 and xcb-xkb development files. Setup builds this
 adapter alongside Cube, Burn and Minimize. Each native build has a unique path
 so a loaded library is never overwritten.

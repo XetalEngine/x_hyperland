@@ -52,8 +52,8 @@ def activate(values, target=None):
     replacing = bool(loaded and target and target != previous_target)
     if replacing or not loaded:
         current = json.loads(hypr('-j','version'))
-        if current.get('commit') != build.SUPPORTED_COMMIT:
-            raise RuntimeError('Minimize needs the supported Hyprland 0.56.2 session. The minimize handler needs an updated adapter.')
+        if current.get('commit') not in build.SUPPORTED_COMMITS:
+            raise RuntimeError('Minimize needs a supported Hyprland session. The minimize handler needs an updated adapter.')
     if replacing:
         if previous_target is None or not previous_target.is_file():
             raise RuntimeError('The running minimizer has no recovery path. Start a new Hyprland session to load this update.')

@@ -1,12 +1,22 @@
 {
   "schema": 1,
-  "hyprland": "0.56.2",
-  "commit": "efb50993780079460b0cbed1363e2166a2de1d9f",
-  "arch_package": "0.56.2-4",
+  "hyprland": "0.57.2",
+  "commit": "11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947",
+  "arch_package": "0.57.2-1",
   "architecture": "x86_64",
-  "package_sha256": "163bc740241880192d90027fad39ddb809b1705b04800a1f0185a58f3ce0884a",
-  "signature_sha256": "a885f28848fd22ca02cb9cb92d4d33feb5ae4de729409ef0900ec354dfcf095b",
+  "package_sha256": "b927522ddf55b39b0ba652ab1bf652216fe45bd7733454e2a3ce59f15f3956a6",
+  "signature_sha256": "8c2eed8ef7d8980e98a2b2f003222d06dab5e575d91a40aa8192f75e87cbe9ad",
   "fedora_manifest": "fedora-44.json",
   "debian_manifest": "debian-13.json",
-  "arch_manifest": "arch.json"
+  "arch_manifest": "arch.json",
+  "distribution_runtimes": {
+    "fedora-44": {
+      "hyprland": "0.56.2",
+      "commit": "efb50993780079460b0cbed1363e2166a2de1d9f"
+    },
+    "debian-13": {
+      "hyprland": "0.56.2",
+      "commit": "efb50993780079460b0cbed1363e2166a2de1d9f"
+    }
+  }
 }

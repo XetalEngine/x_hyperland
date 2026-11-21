@@ -8,7 +8,10 @@ namespace WorkspaceRules {
 struct Policy {std::string layout="off",controls="individual";WindowButtons::Rule rule;};
 inline bool floats(const Policy& p){return p.layout=="floating"||p.layout=="kde";}
 struct Policies {std::map<int64_t,Policy> workspaces;std::string defaultLayout="off";};
-inline std::filesystem::path path(){return std::filesystem::path(std::getenv("HOME"))/".config/hypr/workspaces/rules.json";}
+inline std::filesystem::path path(){
+    if(const char* source=std::getenv("XETAL_WORKSPACE_RULES"))return source;
+    return std::filesystem::path(std::getenv("HOME"))/".config/hypr/workspaces/rules.json";
+}
 inline Policies read(const std::filesystem::path& source=path()){
     if(!std::filesystem::exists(source))return {};
     if(std::filesystem::file_size(source)>1024*1024)throw std::runtime_error("Workspace rules file is too large");

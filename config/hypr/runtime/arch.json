@@ -2,116 +2,116 @@
   "schema": 1,
   "distribution": "arch",
   "architecture": "x86_64",
-  "hyprland": "0.56.2",
-  "commit": "efb50993780079460b0cbed1363e2166a2de1d9f",
+  "hyprland": "0.57.2",
+  "commit": "11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947",
   "packages": [
     {
       "name": "hyprland",
-      "version": "0.56.2-4",
-      "architecture": "x86_64",
-      "file": "hyprland-0.56.2-4-x86_64.pkg.tar.zst",
-      "bytes": 51303184,
-      "sha256": "163bc740241880192d90027fad39ddb809b1705b04800a1f0185a58f3ce0884a",
-      "signature_sha256": "a885f28848fd22ca02cb9cb92d4d33feb5ae4de729409ef0900ec354dfcf095b"
+      "version": "0.57.2-1",
+      "file": "hyprland-0.57.2-1-x86_64.pkg.tar.zst",
+      "sha256": "b927522ddf55b39b0ba652ab1bf652216fe45bd7733454e2a3ce59f15f3956a6",
+      "signature_sha256": "8c2eed8ef7d8980e98a2b2f003222d06dab5e575d91a40aa8192f75e87cbe9ad",
+      "bytes": 51615480,
+      "architecture": "x86_64"
     },
     {
       "name": "aquamarine",
-      "version": "0.15.1-1",
-      "architecture": "x86_64",
-      "file": "aquamarine-0.15.1-1-x86_64.pkg.tar.zst",
-      "bytes": 469302,
-      "sha256": "ac96995cceea132e32cafd9bf63fd6cbe3d0599ab175e82bcee85b0c7da9706c",
-      "signature_sha256": "b2b263bf0e1d2d815dd34c86289b4645096085a0c434ccb108f59d9aace6316c"
+      "version": "0.16.0-1",
+      "file": "aquamarine-0.16.0-1-x86_64.pkg.tar.zst",
+      "sha256": "355e5919b3485811617eaf7a16032d3c811492c23154d84a3962ed99176ebbef",
+      "signature_sha256": "192dc2ebda87ac760f8237822bb280264aee6ebebba9ba7ba15b7ea77c9df332",
+      "bytes": 476451,
+      "architecture": "x86_64"
     },
     {
       "name": "hyprgraphics",
-      "version": "0.5.1-4",
-      "architecture": "x86_64",
-      "file": "hyprgraphics-0.5.1-4-x86_64.pkg.tar.zst",
-      "bytes": 91662,
-      "sha256": "c916b1fb9d7ad0e78fab2d94b0066dcdc8be0a2810be7e72df57ddf5b639fea3",
-      "signature_sha256": "74ff012fe4372e11287baedf733b88c24fa4c7ba20da300637c03c984b6d52dc"
+      "version": "0.6.0-2",
+      "file": "hyprgraphics-0.6.0-2-x86_64.pkg.tar.zst",
+      "sha256": "ea0bdead023bc66469340c3c4255555521042e8a57bbbfa287116ee97d8d6ca3",
+      "signature_sha256": "9ea2386de1decb683d22f979bed431ba4f628f38332da3b59f6a751559b79823",
+      "bytes": 92576,
+      "architecture": "x86_64"
     },
     {
       "name": "hyprutils",
-      "version": "0.14.3-1",
-      "architecture": "x86_64",
-      "file": "hyprutils-0.14.3-1-x86_64.pkg.tar.zst",
-      "bytes": 222737,
-      "sha256": "4e30d54567ff3324cf003aca5d1ab85df4fe3215c3f378eb6bcaaec941da39df",
-      "signature_sha256": "bd14f065f8af7632315f7ce88c20e0c9c83425c60259988cc2ae708fc2cc46b6"
+      "version": "0.14.4-1",
+      "file": "hyprutils-0.14.4-1-x86_64.pkg.tar.zst",
+      "sha256": "ab3e9b40e14c4627f7cafd85fef190f779b758eda42ff33a3ab4f7e610baab3b",
+      "signature_sha256": "bc4e27c6ba28f4b66dfd80ccdfb9b1b58a1edfec78241696d30c161ccff7be34",
+      "bytes": 240498,
+      "architecture": "x86_64"
     },
     {
       "name": "hyprlang",
       "version": "0.6.8-5",
-      "architecture": "x86_64",
       "file": "hyprlang-0.6.8-5-x86_64.pkg.tar.zst",
-      "bytes": 118367,
       "sha256": "212eb288e5a695650cdc4b91b59039ad80423ae5fb938de997e915d979948553",
-      "signature_sha256": "482d828a4d2c022254f01435b89eec2b36e1d6d722d806f3da1d3ac8e0b7c4e3"
+      "signature_sha256": "482d828a4d2c022254f01435b89eec2b36e1d6d722d806f3da1d3ac8e0b7c4e3",
+      "bytes": 118367,
+      "architecture": "x86_64"
     },
     {
       "name": "hyprcursor",
-      "version": "0.1.13-7",
-      "architecture": "x86_64",
-      "file": "hyprcursor-0.1.13-7-x86_64.pkg.tar.zst",
-      "bytes": 227391,
-      "sha256": "1a145509039b1914c179364c4a61fad0dadceea9cc039296ac69ffb48e983fce",
-      "signature_sha256": "39696ff9a458ea7a0f1b9cf08f66de08ceb8ec73129fee8b02248356e3a64df0"
+      "version": "0.1.14-1",
+      "file": "hyprcursor-0.1.14-1-x86_64.pkg.tar.zst",
+      "sha256": "90d9be2d4fb15c8fee618ebadf258a0a4e4b95b9b2ff2578c16b31acccb69627",
+      "signature_sha256": "c16f871acb5f46aae31fbf79a90e9c9f93ffbb837ac1319a7c1a40bf8d83cdcb",
+      "bytes": 228503,
+      "architecture": "x86_64"
     },
     {
       "name": "hyprwire",
       "version": "0.3.1-3",
-      "architecture": "x86_64",
       "file": "hyprwire-0.3.1-3-x86_64.pkg.tar.zst",
-      "bytes": 203146,
       "sha256": "21c889597fc33cf1c2a4c45d13c709f73606a48dfa63c676d4bd4db120de3914",
-      "signature_sha256": "cd908f1866a50a05c1eeb2bc0a7e3058afd43a8feef263719bee7994eff4e557"
+      "signature_sha256": "cd908f1866a50a05c1eeb2bc0a7e3058afd43a8feef263719bee7994eff4e557",
+      "bytes": 203146,
+      "architecture": "x86_64"
     },
     {
       "name": "hyprtoolkit",
-      "version": "0.6.0-1",
-      "architecture": "x86_64",
-      "file": "hyprtoolkit-0.6.0-1-x86_64.pkg.tar.zst",
-      "bytes": 529401,
-      "sha256": "2f223b6c9fb03416e3ddf4a7380c3411452e3701da2285fa4bfee972a22f42cf",
-      "signature_sha256": "f906dde6394138eaee76f0f5a6ae4297a272c37bfd710ddbbe715eb8c8bb19a8"
+      "version": "0.6.0-3",
+      "file": "hyprtoolkit-0.6.0-3-x86_64.pkg.tar.zst",
+      "sha256": "76a70eb83c6eefabdbedd1ab4724a2732eb282b9c44ad1a3b4d0454e293a002a",
+      "signature_sha256": "eb76995935e9fb5b1df8ff9d8ff46d63552ce30ba9d340f7bc0f4b07a2f3c8e6",
+      "bytes": 529384,
+      "architecture": "x86_64"
     },
     {
       "name": "hyprland-guiutils",
-      "version": "0.2.2-4",
-      "architecture": "x86_64",
-      "file": "hyprland-guiutils-0.2.2-4-x86_64.pkg.tar.zst",
-      "bytes": 184274,
-      "sha256": "c0a0938005128c574fa0fb8fcb7061876db381213143d2ed3b37faf1ea21f09e",
-      "signature_sha256": "4aec759201518ff4f53821e2a9d2f49acc74f65d34b0b43235922797583dc72d"
+      "version": "0.2.2-6",
+      "file": "hyprland-guiutils-0.2.2-6-x86_64.pkg.tar.zst",
+      "sha256": "e09ef1b8d758af7ca72eba65a375349b28120f1a6c18c625a6f5a4c8ca52ebd0",
+      "signature_sha256": "034e0596e352bc0201b201ab4fbb4dac4789c542b1cbaed85ac166d992b0de34",
+      "bytes": 184174,
+      "architecture": "x86_64"
     },
     {
       "name": "hyprpaper",
-      "version": "0.8.4-9",
-      "architecture": "x86_64",
-      "file": "hyprpaper-0.8.4-9-x86_64.pkg.tar.zst",
-      "bytes": 164099,
-      "sha256": "8be950d50b261769b0a11d49eff8b25e7135d95bbc41350688478a54f4fdb9ea",
-      "signature_sha256": "63a34c3c03af42d844de954a908619502a0bb137bf1f0440cb901bff279503e6"
+      "version": "0.8.5-3",
+      "file": "hyprpaper-0.8.5-3-x86_64.pkg.tar.zst",
+      "sha256": "571890bc94033b5e6edb28c7271dbf0eda54a3577f0fecb8c00344d8faeb0d1b",
+      "signature_sha256": "1d78a8444f7a436696e140764fae3dff581be2a786156e50b78bec4602f9333f",
+      "bytes": 164066,
+      "architecture": "x86_64"
     },
     {
       "name": "hyprlock",
-      "version": "0.9.6-3",
-      "architecture": "x86_64",
-      "file": "hyprlock-0.9.6-3-x86_64.pkg.tar.zst",
-      "bytes": 315760,
-      "sha256": "e1408ddf42d77c9babed0fac2e4022e9f45df44e9d3cd708ed8073242aaf1964",
-      "signature_sha256": "b7958ff79a89c34faac00ca763ac6c02f99ff6d64918df8e0307efc991f1e801"
+      "version": "0.9.7-2",
+      "file": "hyprlock-0.9.7-2-x86_64.pkg.tar.zst",
+      "sha256": "44ec33c69624ca7912c75dc0b0fff944bb7ff073711d579feb150044b26b4aa0",
+      "signature_sha256": "f1d12fe2e407c6a8764f7c9c2a09808d8ee151ddbd87a28f65aa6b0a6db070c3",
+      "bytes": 317504,
+      "architecture": "x86_64"
     },
     {
       "name": "xdg-desktop-portal-hyprland",
-      "version": "1.4.1-2",
-      "architecture": "x86_64",
-      "file": "xdg-desktop-portal-hyprland-1.4.1-2-x86_64.pkg.tar.zst",
-      "bytes": 303132,
-      "sha256": "1df1cac8f5066998a937e848bcb8ff64d1a40de15a0ca24f328a40a805787d66",
-      "signature_sha256": "c313908275bc342d2857623a8c1ce1a2fed99c01e1e924e59ccf07995f9c8362"
+      "version": "1.5.0-1",
+      "file": "xdg-desktop-portal-hyprland-1.5.0-1-x86_64.pkg.tar.zst",
+      "sha256": "b4f6dfe53610a4b8550a4762ca7923ebd47766026834f78e2360a1b6a5dbb78c",
+      "signature_sha256": "baf372fe8dcad9462eb549c8d3d3db42572edcb009a5d89e02fb5f9fec1570d8",
+      "bytes": 376709,
+      "architecture": "x86_64"
     }
   ]
 }

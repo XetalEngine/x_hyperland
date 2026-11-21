@@ -5,6 +5,24 @@ import shutil
 import subprocess
 import tempfile
 
+ADAPTERS = {
+    'efb50993780079460b0cbed1363e2166a2de1d9f': 'plugin.cpp',
+    '11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947': 'plugin_057.cpp',
+}
+
+
+def adapter(directory, commit):
+    """Select only a source adapter written for these exact compositor headers."""
+    name = ADAPTERS.get(commit)
+    source = Path(directory)/name if name else None
+    if source is None or not source.is_file():
+        raise RuntimeError('No Hyper Fusion native adapter for these Hyprland headers.')
+    return source
+
+
+def adapter_headers(hypr_root):
+    return sorted((Path(hypr_root)/'runtime').glob('*_057.hpp'))
+
 
 def compiler():
     # A desktop started by an AppImage/SDK can inherit a different g++ wrapper.

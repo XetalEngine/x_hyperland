@@ -96,27 +96,54 @@ def repository(directory, required=None, verify=False):
     return directory/(REPOSITORY+'.db')
 
 
-def configuration(text, directory):
+def local_packages(database):
+    """Keep unsigned local builds when a repository has a same-named package.
+
+    pacman -Qm cannot detect this collision (for example a converted Discord
+    .deb shares its name with extra/discord). The installed database records
+    whether the installed build was signature-validated. Do not infer its
+    origin from its name, version, or the current repository membership.
+    Runtime packages are deliberately excluded: the tested ABI is mandatory.
+    This is a temporary transaction preference, never a persistent system hold.
+    """
+    result=set()
+    required=set(expected())
+    for path in (Path(database)/'local').glob('*/desc'):
+        sections={}
+        for block in path.read_text().split('\n\n'):
+            lines=block.splitlines()
+            if lines: sections[lines[0]]=lines[1:]
+        name=sections.get('%NAME%', [''])[0]
+        if (re.fullmatch(r'[A-Za-z0-9_+@.][A-Za-z0-9_+@.-]*', name) and name not in required
+                and sections.get('%VALIDATION%') == ['none']):
+            result.add(name)
+    return result
+
+
+def configuration(text, directory, preserve=()):
     """Prepend the private repository without editing the user's repositories."""
     sections = list(re.finditer(r'^\[([^\]\n]+)\]\s*$', text, re.M))
     if not sections or sections[0][1] != 'options' or any(s[1] == REPOSITORY for s in sections):
         raise RuntimeError('Unexpected pacman repository configuration.')
     start = sections[1].start() if len(sections) > 1 else len(text)
+    if any(not re.fullmatch(r'[A-Za-z0-9_+@.][A-Za-z0-9_+@.-]*', name) for name in preserve):
+        raise ValueError('Invalid locally built package name.')
+    preserved = ''.join('IgnorePkg = '+name+'\n' for name in sorted(preserve))
     # DatabaseNever applies only to our generated, hash-verified local index.
     # Every package still requires its original trusted distro signature.
     local = ('\n['+REPOSITORY+']\nSigLevel = PackageRequired DatabaseNever\n'
              'Usage = Search Install Upgrade\nServer = '+directory.as_uri()+'\n\n')
-    return text[:start]+local+text[start:]
+    return text[:start]+preserved+local+text[start:]
 
 
-def package_args(desktop, required=None):
+def package_args(desktop, required=None, preserve=()):
     names = expected(required)
-    return [*(REPOSITORY+'/'+name for name in names), *(name for name in desktop if name not in names)]
+    return [*(REPOSITORY+'/'+name for name in names), *(name for name in desktop if name not in names and name not in preserve)]
 
 
-def resolve(config, desktop, prefix=(), required=None):
+def resolve(config, desktop, prefix=(), required=None, preserve=()):
     result = subprocess.run(['pacman', '--config', str(config), *prefix, '-Sup', '--noconfirm',
-                             '--print-format', '%n %v', *package_args(desktop, required)],
+                             '--print-format', '%n %v', *package_args(desktop, required, preserve)],
                             capture_output=True, text=True, timeout=180, env=ENV)
     if result.returncode:
         raise RuntimeError('The matching runtime and desktop dependencies could not be resolved together. '
@@ -160,15 +187,16 @@ def preflight(desktop):
         db = root/'db'
         local = Path((runtime.pacman_config('DBPath') or ['/var/lib/pacman'])[0])/'local'
         shutil.copytree(local, db/'local')
+        preserve=local_packages(db)
         refresh_metadata(db/'sync')
         index = repository(root/'runtime')
         shutil.copyfile(index, db/'sync'/index.name)
         base = subprocess.run(['pacman-conf'], capture_output=True, text=True, check=True).stdout
         config = root/'pacman.conf'
-        config.write_text(configuration(base, root/'runtime'))
+        config.write_text(configuration(base, root/'runtime', preserve))
         (root/'cache').mkdir()
         return resolve(config, desktop, ['--dbpath', str(db), '--cachedir', str(root/'cache'),
-                                        '--logfile', str(root/'pacman.log')])
+                                        '--logfile', str(root/'pacman.log')], preserve=preserve)
 
 
 def ensure(yes=False, force=False):
@@ -182,7 +210,11 @@ def ensure(yes=False, force=False):
     packages()
     prefix = runtime.administrator()
     args = [*prefix, '/usr/bin/python3', str(runtime.ROOT/'installer/system_arch_runtime.py')]
-    with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True) as process:
+    # GPG user IDs can contain legacy non-UTF-8 bytes. They are display text,
+    # not package identities; keep reading through them so the transaction's
+    # recovery marker and exit status are never lost to a decoding exception.
+    with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                          text=True, errors='replace') as process:
         try:
             for line in process.stdout:
                 if line.startswith('XETAL_RUNTIME_TRANSACTION '):

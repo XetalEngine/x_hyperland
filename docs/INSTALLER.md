@@ -12,6 +12,13 @@ desired. Fresh Start menus show the desktop wallpaper across all themes. Window
 defaults are 10 px corners, 2 px borders, `5 5 5 5` inner/outer gaps, border-drag
 resizing off, animations/blur/shadows on, and focused/unfocused opacity at 1.00.
 
+HDR starts off. Fullscreen videos do not automatically change a display to HDR.
+In **Fusion Settings → Displays & arrangement**, select a screen, choose its
+**HDR** mode, then **Apply & preview → Keep changes**. HDR stays on until changed;
+SDR brightness and saturation adjust normal apps while HDR is on. The preview
+restores the previous display settings after 20 seconds unless confirmed.
+Updates preserve saved display layouts and explicit per-display color choices.
+
 Dolphin Places are generated for the recipient: Home, existing standard XDG folders, Trash and Network. Drives are discovered on that computer. Developer bookmarks, history and Dolphin runtime data are excluded from both Git and installer copies. Updates keep the recipient's own Places; a fresh/default install generates a clean list.
 
 Dolphin starts with Hyper Fusion's dark colors on a fresh install. Its private `dolphinrc` explicitly selects the bundled `HyperFusion` scheme, so KDE's color-scheme manager cannot fall back to a light theme outside Plasma. That scheme follows the selected Hyper Fusion palette when Dolphin opens; choosing a different scheme in Dolphin remains respected. The standard Dolphin launcher in the Hyprland application directory also uses this private profile. Shared KDE/Plasma settings are untouched. [KDE color-scheme manager behavior](https://api.kde.org/kcolorschememanager.html).
@@ -41,9 +48,9 @@ Minimal installations do not need sudo preinstalled: Setup can use an existing g
 
 ## Tested compositor
 
-`config/hypr/runtime/manifest.json` selects Hyprland **0.56.2**, commit `efb50993780079460b0cbed1363e2166a2de1d9f`, official Arch package **0.56.2-4** for x86-64. Setup compares both the version and commit. The unmodified package (51.3 MB / 48.9 MiB) and detached signature are included in `installer/packages/`, including GitHub ZIP downloads. Setup prefers this bundle, reuses verified pacman cache files, and falls back to the official Arch Linux Archive if needed. It verifies both recorded SHA-256 hashes and the package signature with the system Arch keyring. Other dependencies may still need downloads.
+`config/hypr/runtime/manifest.json` selects Hyprland **0.57.2**, commit `11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947`, official Arch package **0.57.2-1** for x86-64. Its distribution overrides retain **0.56.2** on Fedora 44 and Debian 13. Setup compares both version and commit. The unmodified Arch package (51.6 MB) and detached signature are included in `installer/packages/arch/`. Setup prefers the bundle, reuses verified pacman cache files, and falls back to the official Arch Linux Archive. Both recorded SHA-256 hashes and the package signature are checked. Other dependencies may still need downloads.
 
-The package operation retains pacman's dependency and conflict checks. It never forces a dependency-incompatible downgrade. The [Arch runtime manifest](../config/hypr/runtime/arch.json) adds eleven signed matching library/companion packages (about 2.8 MB) alongside Hyprland. A temporary local repository makes pacman select that complete runtime and fetch all remaining desktop dependencies from the user's configured distro repositories. It performs a coordinated full system upgrade, including on older installations. The temporary repository is not enabled in the user's persistent configuration.
+The package operation retains pacman's dependency and conflict checks. The [Arch runtime manifest](../config/hypr/runtime/arch.json) includes twelve signed packages totaling 54.5 MB. A temporary local repository selects that complete runtime while a coordinated full upgrade fetches other dependencies from the user's configured repositories. Unsigned local builds, including converted `.deb` applications that share a repository package name, are preserved during this transaction; their dependencies must still resolve. Mandatory runtime packages remain subject to the exact ABI contract. Neither the temporary repository nor local-application holds are added to the persistent configuration.
 
 Setup refreshes the installed distro signing-key packages before the main transaction, so an old keyring does not reject today's valid package signatures. Verification stays enabled. If that upgrade changes Python's major/minor version, the worker restarts with the new interpreter while preserving its arguments and runtime recovery record.
 
@@ -51,7 +58,7 @@ On Arch, `/etc/pacman.d/xetal-hyprland.conf` holds all twelve matching runtime p
 
 ## Fedora 44
 
-Mutable **Fedora 44 x86-64**, including KDE and Workstation installations, has a native RPM path selected from `/etc/os-release`. It uses the exact same Hyprland source commit as Arch. Other Fedora releases, derivatives and immutable OSTree variants are not covered by this bundle.
+Mutable **Fedora 44 x86-64**, including KDE and Workstation installations, has a native RPM path selected from `/etc/os-release`. It retains the 0.56.2 commit `efb50993780079460b0cbed1363e2166a2de1d9f` during the Arch migration. Other Fedora releases, derivatives and immutable OSTree variants are not covered by this bundle.
 
 [`runtime/fedora-44.json`](../config/hypr/runtime/fedora-44.json) pins 19 unmodified signed packages from **giperborey/Hyprland on Fedora COPR**. The runtime totals **55,923,257 bytes (55.9 MB)**. Matching Hyprland and Hyprlang source RPMs add 55.4 MB separately for the bundled LGPL components. Every individual file is below GitHub's 100 MB limit; actual RPMs, not LFS pointers, are included in Download ZIP. Other desktop/build dependencies still download from the recipient's configured Fedora repositories. [Bundle provenance, key and licenses](../installer/packages/fedora-44/README.md).
 
@@ -142,9 +149,9 @@ The native runtime has passed installation from a clean Debian root using standa
 
 ## Cancellation and recovery
 
-Before replacing installed Arch runtime packages, Setup preserves each changed package at its exact version and architecture, including CachyOS `x86_64_v3` / `x86_64_v4` builds. It checks package caches, matching repository URLs/signatures, configured mirrors and the official archive. It never substitutes a different recovery version or bypasses signatures. If an exact previous runtime package is unavailable, Setup stops before replacing it. Root-owned records under `/var/lib/xetal-hyprland/arch-runtime/` contain `pacman.conf`, the previous hold file, signed previous packages and `record.json` with package versions and hashes. The path is printed before installation. The existing Hyprland profile is separately backed up under `~/.local/state/xetal-hyprland/backups/` before replacement.
+Before replacing installed Arch packages, Setup rehearses the full upgrade in a disposable package database with an empty filesystem root and scriptlets disabled. It saves exact signed archives for every changed or replaced installed package, including ordinary libraries such as OpenSSL and libjxl, then rehearses their restoration with dependency checks enabled. Missing recovery archives or incompatible recovery stop the operation before the live transaction. Root-owned records under `/var/lib/xetal-hyprland/arch-runtime/` contain the original package configuration, holds, signed archives, inventories and hashes. The existing Hyprland profile is separately backed up before replacement.
 
-**Stop after this step** waits for the current package transaction or build command to finish, then stops before installing the desktop profile. Arch recovery restores changed compositor/library packages together, with dependency checks and protection against later external edits. Ordinary dependency installs and system upgrades remain; this is runtime recovery, not an operating-system snapshot. If the upgraded system can no longer satisfy an older package's dependencies, recovery reports the conflict instead of forcing broken packages. Debian recovery also removes newly introduced dependants when restoring its native runtime. A successful install leaves the matching runtime held and the profile ready for the next login. The current graphical session is never forcibly restarted.
+**Stop after this step** waits for the current package transaction or build command to finish. Arch recovery restores all upgraded package versions and removes newly introduced packages in one dependency-checked libalpm transaction, then verifies the complete previous inventory. This also handles compatibility-library file ownership changes such as `openssl-3`. Recovery refuses to overwrite later external changes. It does not restore application data or undo arbitrary package-script migrations; it is not a filesystem snapshot. Older recovery records retain their original behavior. Debian recovery also removes newly introduced dependants when restoring its runtime. A successful install leaves the matching runtime held and the profile ready for the next login. The current graphical session is never forcibly restarted.
 
 For manual Arch runtime recovery, use `sudo python3 installer/system_arch_runtime.py --restore /var/lib/xetal-hyprland/arch-runtime/RECORD`, replacing `RECORD` with the printed backup name. Older compositor-only records still use `installer/system_runtime.py --restore /var/lib/xetal-hyprland/runtime/RECORD`. Both verify saved packages and refuse to overwrite packages changed by another operation. Restore the associated desktop profile using the installer backup command printed at completion. Profile restoration refuses a declared compositor mismatch.
 
@@ -175,15 +182,18 @@ rule permits only the two ordinary power actions for the local, active
 
 The dedicated login compositor uses the same ABI-checked startup-notice adapter
 as the pinned Hyprland desktop. Setup installs its own root-owned copy and
-validates the greeter configuration before enabling it. The supported `.conf`
-migration reminder and optional `hyprland-guiutils` reminder are handled at
-startup; configuration errors and unrelated warnings remain visible.
+validates the greeter configuration as `fusion-greeter`, using a private runtime
+directory even when Setup runs from a TTY. Hyprland 0.57 uses generated
+`hyprland.lua` and its Lua exit command; 0.56 retains `hyprland.conf` and its
+legacy exit command. The legacy configuration remains the source for keyboard
+and other administrator settings. Configuration errors remain visible, including
+the compositor's actual diagnostic output when validation fails.
 
 The four themes, Dark/Light/High contrast modes, and GIF/PNG/JPG account images come from each person's Fusion profile. Public copies of account artwork are kept in `/var/lib/xetal-fusion-login/profiles/<uid>/`; the greeter does not need access to private home directories. Applying a Fusion theme refreshes those copies without administrator access.
 
 Before changing settings, Setup creates a dated, root-only backup under **`/var/lib/xetal-fusion-login/backups/`**. The backup records original contents, modes, owners, symbolic links and paths that did not previously exist. Relevant paths are:
 
-- `/etc/xetal-fusion-login/greetd.toml` and `hyprland.conf`.
+- `/etc/xetal-fusion-login/greetd.toml`, `hyprland.conf` and generated `hyprland.lua`.
 - `/etc/pam.d/greetd` and existing `/etc/greetd/config.toml`.
 - `/etc/polkit-1/rules.d/49-xetal-fusion-login.rules` (the scoped power-action rule).
 - `/etc/X11/default-display-manager`, if supplied by the distribution.
@@ -203,7 +213,37 @@ sudo systemctl reboot
 
 The original backup remains available across later Fusion sign-in updates. A specific dated backup can also be supplied to `--restore`. Unchecking the option in a later foreground Setup restores the original login configuration. Neither choosing another desktop nor disabling the Welcome dashboard changes this opt-in setting.
 
-To update an already-installed Fusion greeter, run foreground Setup again with
-**Use Fusion sign-in at boot** selected. Updating only the desktop profile cannot
-replace the root-owned greeter. The update creates a new backup and takes effect
-at the next sign-in; it does not restart the current desktop.
+Foreground Setup migrates an already-enabled Fusion greeter when the compositor
+or its adapter changes, including when no new login-screen choice is supplied.
+It backs up and updates the greeter's own plugin, configuration and exit command
+before completing the coordinated upgrade. It preserves the original recovery
+backup and existing keyboard settings. A failed greeter refresh restores its
+files; a failed coordinated update also restores the previous desktop before
+package recovery. The current session is not restarted.
+
+A disabled greeter stays disabled. An already-matching greeter does not request
+another administrator authentication solely for a runtime refresh. For a full
+greeter UI update, run foreground Setup with **Use Fusion sign-in at boot**
+selected. Ordinary background profile updates do not replace system-owned files.
+
+### Screen-sharing portal readiness
+
+At login, the session checks that the desktop portal exposes monitor sharing
+before launching startup applications. A portal activated earlier from a TTY
+can retain an empty desktop environment even after Hyprland has published the
+correct session information. Fusion starts the matching capture backend and
+repairs that verified service activation. It preserves healthy portals and
+owners belonging to another desktop, without editing shared activation variables
+or service configuration. The result is recorded in the current Hyprland
+instance's `portal-session.json`, with diagnostics in `portal-session.log`.
+
+To repeat the check inside a Fusion desktop, without sudo:
+
+```bash
+python3 ~/.config/hypr/scripts/portal-session.py
+```
+
+An application that already fell back to X11 capture may need to be fully closed
+and reopened after portal recovery. In Echo, that fallback can capture individual
+XWayland apps while whole-monitor images remain black. No reboot or application
+reinstallation is needed for this portal startup issue.

@@ -150,7 +150,7 @@ def render(stage, home, monitors, profile='auto', *, preserve_theme=False):
         for m in monitors:
             name=m['name']
             if m.get('disabled'):lines.append(f'monitor = {name},disable');continue
-            line=f'monitor = {name},{m["width"]}x{m["height"]}@{m["refreshRate"]:.3f},{m["x"]}x{m["y"]},{m.get("scale",1)},transform,{m.get("transform",0)}'
+            line=f'monitor = {name},{m["width"]}x{m["height"]}@{m["refreshRate"]:.3f},{m["x"]}x{m["y"]},{m.get("scale",1)},transform,{m.get("transform",0)},cm,srgb'
             mirror=m.get('mirrorOf','none')
             if mirror not in ('none','',None):line+=',mirror,'+mirror
             lines.append(line)

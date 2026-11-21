@@ -138,7 +138,7 @@ def package_caches():
 
 def download(target, cache):
     cache.mkdir(parents=True, exist_ok=True)
-    sources = [BUNDLED, *package_caches()]
+    sources = [BUNDLED, BUNDLED/'arch', *package_caches()]
     for suffix, key in [('', 'package_sha256'), ('.sig', 'signature_sha256')]:
         destination = cache/(policy.filename(target)+suffix)
         if destination.is_file() and hashlib.sha256(destination.read_bytes()).hexdigest() == target[key]:
@@ -149,7 +149,7 @@ def download(target, cache):
         temporary = destination.with_suffix(destination.suffix+'.part')
         try:
             if local:
-                print('Using '+('bundled package: ' if local.parent == BUNDLED else 'cached package: ')+local.name, flush=True)
+                print('Using '+('bundled package: ' if local.parent in (BUNDLED, BUNDLED/'arch') else 'cached package: ')+local.name, flush=True)
                 shutil.copyfile(local, temporary)
             else:
                 print('Downloading '+destination.name, flush=True)
@@ -174,7 +174,7 @@ def save_recovery(cache, filename, local_dirs, url=None, signature=b''):
             if local: shutil.copyfile(local, temporary)
             elif suffix and signature: temporary.write_bytes(signature)
             elif url:
-                print('Saving the previous compositor for recovery: '+output.name, flush=True)
+                print('Saving the previous package for recovery: '+output.name, flush=True)
                 with urlopen(url+suffix, timeout=45) as src, temporary.open('wb') as dst:
                     shutil.copyfileobj(src, dst)
             else: raise FileNotFoundError('No cached '+output.name)
@@ -185,7 +185,7 @@ def save_recovery(cache, filename, local_dirs, url=None, signature=b''):
 
 def previous_package(cache, package_name='hyprland'):
     """Preserve the exact installed package, including CachyOS architecture builds."""
-    if not re.fullmatch(r'[a-z][a-z0-9+-]*', package_name):
+    if not re.fullmatch(r'[A-Za-z0-9_+@.][A-Za-z0-9_+@.-]*', package_name):
         raise ValueError('Invalid recovery package name.')
     result = subprocess.run(['pacman', '-Q', package_name], capture_output=True, text=True, timeout=10)
     if result.returncode: return None
@@ -198,14 +198,17 @@ def previous_package(cache, package_name='hyprland'):
     if details.returncode or not arch:
         raise RuntimeError('Cannot identify the installed compositor architecture for recovery.')
     architecture = arch[1]
-    # Epochs belong in the package version, not its archive filename.
-    filename = package_name+'-'+version.split(':')[-1]+'-'+architecture+'.pkg.tar.zst'
+    # Different repository generations retain or omit the epoch in filenames.
+    # The privileged caller verifies package identity, not just the pathname.
+    filenames = list(dict.fromkeys(package_name+'-'+v+'-'+architecture+'.pkg.tar.zst'
+                                   for v in (version.split(':')[-1], version)))
     cache.mkdir(parents=True, exist_ok=True)
     local_dirs = package_caches()
-    try:
-        return save_recovery(cache, filename, local_dirs)
-    except FileNotFoundError:
-        pass
+    for filename in filenames:
+        try:
+            return save_recovery(cache, filename, local_dirs)
+        except FileNotFoundError:
+            pass
     # --print only queries pacman's configured repositories. It never changes
     # packages or refreshes databases. %g also covers caches without a .sig file.
     result = subprocess.run(['pacman', '-Spdd', '--noconfirm', '--print-format',
@@ -217,20 +220,21 @@ def previous_package(cache, package_name='hyprland'):
             fields = line.split('|')
             if len(fields) != 6: continue
             pkg, candidate_version, candidate_arch, file, url, encoded = fields
-            if (pkg, candidate_version, candidate_arch, file) != (package_name, version, architecture, filename):
+            if (pkg, candidate_version, candidate_arch) != (package_name, version, architecture) or file not in filenames:
                 continue
             if urlparse(url).scheme not in ('https', 'http', 'file'): continue
             try: signature = base64.b64decode(encoded, validate=True)
             except ValueError: signature = b''
-            sources.append((url, signature))
+            sources.append((file, url, signature))
     # Try other configured mirrors when the preferred mirror lacks the file.
     for repo in pacman_config('--repo-list'):
         for server in pacman_config('--repo', repo, 'Server')[:3]:
             if urlparse(server).scheme in ('https', 'http', 'file'):
-                sources.append((server.rstrip('/')+'/'+filename, b''))
-    sources.append(('https://archive.archlinux.org/packages/'+package_name[0]+'/'+package_name+'/'+filename, b''))
+                sources.extend((filename, server.rstrip('/')+'/'+filename, b'') for filename in filenames)
+    sources.extend((filename, 'https://archive.archlinux.org/packages/'+package_name[0]+'/'+package_name+'/'+filename, b'')
+                   for filename in filenames)
     errors = []
-    for url, signature in dict.fromkeys(sources):
+    for filename, url, signature in dict.fromkeys(sources):
         try: return save_recovery(cache, filename, local_dirs, url, signature)
         except OSError as error:
             errors.append(str(error))

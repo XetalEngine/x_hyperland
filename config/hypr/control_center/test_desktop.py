@@ -44,10 +44,40 @@ class LayoutTests(unittest.TestCase):
         config=settings.display_config(self.draft,'# personal\nmonitor = HDMI-A-1,1920x1080@60,0x1440,1\nmonitor = DP-1,disable\n')
         self.assertIn('HDMI-A-1,1920',config);self.assertIn('# personal',config);self.assertEqual(config.count('monitor = DP-1,'),1)
 
+    def test_color_changes_are_dirty_and_driver_rejection_is_detected(self):
+        self.draft[1].update(cm='hdr', bitdepth=10, sdrbrightness=1.2, sdrsaturation=.8)
+        self.assertNotEqual(settings.layout_state(self.before), settings.layout_state(self.draft))
+        self.assertFalse(settings.matches_layout(self.draft, self.before))
+        settings.validate_displays(self.draft, self.before)
+        self.assertTrue(settings.matches_layout(self.draft, copy.deepcopy(self.draft)))
+        for key, value in [('cm','srgb'), ('bitdepth',8), ('sdrbrightness',1), ('sdrsaturation',1)]:
+            rejected = copy.deepcopy(self.draft); rejected[1][key] = value
+            self.assertFalse(settings.matches_layout(self.draft, rejected), key)
+        config = settings.display_config(self.draft)
+        self.assertIn(',bitdepth,10,vrr,0,cm,hdr,sdrbrightness,1.2,sdrsaturation,0.8', config)
+        self.assertIn('DP-1,1920x1080@60.00,0x0,1,transform,0,bitdepth,8,vrr,0,cm,srgb', config)
+
+    def test_live_hdr_metadata_and_tuning_survive_geometry_edits(self):
+        raw = monitors(); raw[1].update(colorManagementPreset='hdredid', currentFormat='XRGB2101010',
+            hardwareDetails={'hdr':True}, sdrBrightness=1.35, sdrSaturation=.85, sdrMinLuminance=.05, sdrMaxLuminance=120)
+        model = settings.display_models(raw)[1]
+        self.assertTrue(model['hdr_capable']); model['x'] = 0; model['y'] = 1080
+        self.assertIn(',cm,hdredid,sdrbrightness,1.35,sdrsaturation,0.85,sdr_min_luminance,0.05,sdr_max_luminance,120', settings.monitor_rule(model))
+
+    def test_hdr_support_and_numeric_input_are_validated(self):
+        self.before[1]['hdr_capable'] = False; self.draft[1]['cm'] = 'hdr'
+        with self.assertRaisesRegex(ValueError, 'HDR support'): settings.validate_displays(self.draft, self.before)
+        self.before[1]['hdr_capable'] = None
+        settings.validate_displays(self.draft, self.before)  # older compositors do not report support
+        for key, value in [('sdrbrightness', float('nan')), ('sdrsaturation', 6), ('sdr_min_luminance','bad')]:
+            draft = copy.deepcopy(self.draft); draft[1][key] = value
+            with self.assertRaises(ValueError): settings.validate_displays(draft, self.before)
+
 
 class GuardianTests(unittest.TestCase):
-    def run_trial(self,decision='revert',failure=None):
+    def run_trial(self,decision='revert',failure=None,hdr=False):
         before=settings.display_models(monitors());draft=copy.deepcopy(before);draft[0]['rate']=144
+        if hdr: draft[1].update(cm='hdr', bitdepth=10, sdrbrightness=1.2)
         request={'models':draft,'baseline':settings.layout_state(before),'token':'original'}
         store=Mock();store.load.return_value=('# config','original')
         events=[]
@@ -75,6 +105,12 @@ class GuardianTests(unittest.TestCase):
     def test_logout_does_not_write_to_another_session(self):
         store,runtime,events,*_=self.run_trial('session-ended')
         store.save.assert_not_called();self.assertEqual(runtime.call_count,1)
+    def test_hdr_cancel_timeout_and_save_failure_restore_colors_and_depth(self):
+        for decision, failure in [('revert',None), ('timeout',None), ('keep','save'), ('keep','driver')]:
+            store, runtime, _, before, draft = self.run_trial(decision, failure, hdr=True)
+            self.assertEqual(runtime.call_args.args[0], before)
+            self.assertIn(',bitdepth,8,vrr,0,cm,srgb', settings.monitor_rule(runtime.call_args.args[0][1]))
+            self.assertEqual(draft[1]['cm'], 'hdr')
     def test_parent_eof_and_timer(self):
         a,b=socket.socketpair();reader,writer=os.pipe()
         try:

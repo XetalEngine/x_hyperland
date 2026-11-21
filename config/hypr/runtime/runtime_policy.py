@@ -22,7 +22,24 @@ def manifest(root=ROOT):
             raise ValueError('Invalid desktop runtime field: '+name)
     if data['arch_package'].rsplit('-', 1)[0] != data['hyprland']:
         raise ValueError('Compositor and package versions differ.')
+    overrides = data.get('distribution_runtimes', {})
+    if not isinstance(overrides, dict):
+        raise ValueError('Invalid distribution compositor contracts.')
+    for distribution, contract in overrides.items():
+        if (distribution not in ('fedora-44', 'debian-13') or not isinstance(contract, dict)
+                or set(contract) != {'hyprland', 'commit'}):
+            raise ValueError('Unsupported distribution compositor contract.')
+        for key in ('hyprland', 'commit'):
+            if not isinstance(contract[key], str) or not re.fullmatch(checks[key], contract[key]):
+                raise ValueError('Invalid distribution compositor contract: '+distribution)
     return data
+
+
+def contract(target, distribution=None):
+    """A staged Arch migration must not silently move RPM/DEB users with it."""
+    if distribution is None:
+        distribution = 'fedora-44' if fedora_host() else 'debian-13' if debian_host() else 'arch'
+    return {**target, **target.get('distribution_runtimes', {}).get(distribution, {})}
 
 
 def authenticated_account():
@@ -67,7 +84,7 @@ def installed(binary='Hyprland'):
 
 
 def problem(root=ROOT, binary='Hyprland'):
-    target, actual = manifest(root), installed(binary)
+    target, actual = contract(manifest(root)), installed(binary)
     if actual.get('error'):
         return 'Could not verify Hyprland: '+actual['error']
     if actual['version'] == target['hyprland'] and actual['commit'] == target['commit']:
@@ -92,6 +109,7 @@ def require(root=ROOT):
 
 
 def matches_requirement(required):
+    required = contract(required)
     actual = installed()
     if actual['version'] != required['hyprland'] or actual['commit'] != required['commit']: return False
     packages = required.get('fedora_packages')
@@ -151,7 +169,7 @@ def fedora_host(data=None):
 
 
 def fedora_manifest(root=ROOT):
-    target = manifest(root)
+    target = contract(manifest(root), 'fedora-44')
     name = target.get('fedora_manifest')
     if name is None: return None
     if name != 'fedora-44.json': raise ValueError('Unsupported Fedora runtime manifest.')
@@ -194,7 +212,7 @@ def debian_host(data=None):
 
 
 def debian_manifest(root=ROOT):
-    target = manifest(root)
+    target = contract(manifest(root), 'debian-13')
     name = target.get('debian_manifest')
     if name is None: return None
     if name != 'debian-13.json': raise ValueError('Unsupported Debian runtime manifest.')

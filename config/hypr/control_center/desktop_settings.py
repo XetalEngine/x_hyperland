@@ -19,6 +19,13 @@ import monitor_preferences
 
 ROOT = keys.ROOT
 STATE = keys.STATE
+HDR_MODES = ('hdr', 'hdredid')
+COLOR_DEFAULTS = {'cm': 'srgb', 'bitdepth': 8, 'sdrbrightness': 1.0, 'sdrsaturation': 1.0,
+                  'sdr_min_luminance': .2, 'sdr_max_luminance': 80}
+
+
+def color_state(model):
+    return {key: model.get(key, default) for key, default in COLOR_DEFAULTS.items()}
 
 
 def command(args, timeout=12):
@@ -58,7 +65,12 @@ def display_models(raw):
                        'transform': item.get('transform', 0),
                        'mirror': '' if item.get('mirrorOf', 'none') in ('none', '', None) else item['mirrorOf'],
                        'modes': modes, 'bitdepth': 10 if '2101010' in item.get('currentFormat', '') else 8,
-                       'vrr': int(bool(item.get('vrr'))), 'cm': item.get('colorManagementPreset', 'srgb')})
+                       'vrr': int(bool(item.get('vrr'))), 'cm': item.get('colorManagementPreset', 'srgb'),
+                       'hdr_capable': item.get('hardwareDetails', {}).get('hdr'),
+                       'sdrbrightness': item.get('sdrBrightness', 1.0),
+                       'sdrsaturation': item.get('sdrSaturation', 1.0),
+                       'sdr_min_luminance': item.get('sdrMinLuminance', .2),
+                       'sdr_max_luminance': item.get('sdrMaxLuminance', 80)})
     chosen = monitor_preferences.select(raw, 'primary')
     for m in result: m['primary'] = bool(chosen and m['name'] == chosen['name'])
     return result
@@ -66,7 +78,7 @@ def display_models(raw):
 
 def layout_state(models):
     fields = ('name', 'enabled', 'width', 'height', 'rate', 'x', 'y', 'scale', 'transform', 'mirror')
-    return sorted([{**{k: m[k] for k in fields}, 'primary': m.get('primary', False)} for m in models], key=lambda m: m['name'])
+    return sorted([{**{k: m[k] for k in fields}, **color_state(m), 'primary': m.get('primary', False)} for m in models], key=lambda m: m['name'])
 
 
 def logical_size(model):
@@ -92,6 +104,18 @@ def validate_displays(models, available):
     for m in models:
         if not re.fullmatch(r'[A-Za-z0-9_.:-]+', m['name']): raise ValueError('Unsupported display connector name.')
         if not m['enabled']: continue
+        color = color_state(m)
+        if not isinstance(color['cm'], str) or not re.fullmatch(r'[a-zA-Z0-9_-]+', color['cm']):
+            raise ValueError('Choose a valid display color mode.')
+        if color['bitdepth'] not in (8, 10): raise ValueError('Display color depth must be 8 or 10 bits.')
+        if color['cm'] in HDR_MODES and known[m['name']].get('hdr_capable') is False and color['cm'] != known[m['name']].get('cm'):
+            raise ValueError(m['name'] + ': this display does not report HDR support.')
+        for key in ('sdrbrightness', 'sdrsaturation'):
+            if not isinstance(color[key], (int, float)) or not math.isfinite(color[key]) or not 0 <= color[key] <= 5:
+                raise ValueError('HDR desktop brightness and saturation must be between 0% and 500%.')
+        for key in ('sdr_min_luminance', 'sdr_max_luminance'):
+            if not isinstance(color[key], (int, float)) or not math.isfinite(color[key]) or not 0 <= color[key] <= 10000:
+                raise ValueError('Invalid SDR luminance for this display.')
         if not any(mode_parts(mode)[:2] == (m['width'], m['height']) and abs(mode_parts(mode)[2]-m['rate']) < .03
                    for mode in known[m['name']]['modes']):
             raise ValueError(m['name'] + ': choose a supported resolution and refresh rate.')
@@ -124,6 +148,8 @@ def monitor_rule(m):
     value += f",bitdepth,{m.get('bitdepth', 8)},vrr,{m.get('vrr', 0)}"
     cm = m.get('cm', 'srgb')
     if re.fullmatch('[a-zA-Z0-9_-]+', cm): value += ',cm,' + cm
+    for key, data in color_state(m).items():
+        if key not in ('cm', 'bitdepth'): value += f',{key},{data:g}'
     if m['mirror']: value += ',mirror,' + m['mirror']
     return value
 
@@ -157,6 +183,10 @@ def matches_layout(wanted, actual):
         a = actual.get(m['name'])
         if a is None or a['enabled'] != m['enabled']: return False
         if not m['enabled']: continue
+        if a.get('cm', 'srgb') != m.get('cm', 'srgb'): return False
+        if a.get('bitdepth', 8) != m.get('bitdepth', 8): return False
+        for key in ('sdrbrightness', 'sdrsaturation', 'sdr_min_luminance', 'sdr_max_luminance'):
+            if abs(color_state(a)[key]-color_state(m)[key]) > .01: return False
         if any(a[k] != m[k] for k in ('width', 'height', 'transform', 'mirror')): return False
         if abs(a['rate']-m['rate']) > .1 or abs(a['scale']-m['scale']) > .01: return False
         if not m['mirror'] and any(abs(a[k]-m[k]) > 1 for k in ('x', 'y')): return False
@@ -212,7 +242,12 @@ def read_options(names):
     result = {}
     for name in names:
         item = json.loads(ctl('-j', 'getoption', name))
-        result[name] = next((item[k] for k in ('int', 'float', 'str', 'custom') if k in item), '')
+        # 0.57 has separate boolean and CSS-gap values. Older compositors
+        # report those through int/custom; retain both formats on readback.
+        kind = next((key for key in ('bool', 'int', 'float', 'str', 'css', 'custom') if key in item), None)
+        if kind is None:
+            raise ValueError('Could not read '+name+': '+str(item.get('error', 'unsupported setting response')))
+        result[name] = item[kind]
         if result[name] == '[[EMPTY]]': result[name] = ''
     return result
 

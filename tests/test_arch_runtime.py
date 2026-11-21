@@ -1,5 +1,5 @@
 """Matched Arch ABI packages, transaction recovery and older-system upgrades."""
-from contextlib import ExitStack
+from contextlib import ExitStack, redirect_stdout
 import hashlib
 import io
 import json
@@ -91,6 +91,78 @@ class ArchTests(unittest.TestCase):
             pin.write_text(runtime.pin_text(runtime.policy.manifest()))
             self.assertFalse(arch.pinned())
 
+    def test_local_build_with_repository_name_is_preserved_but_runtime_is_mandatory(self):
+        database=self.root/'db'
+        for name, validation in (('discord','none'),('curl','pgp'),('hyprland','none'),('aquamarine','none')):
+            entry=database/'local'/(name+'-1-1');entry.mkdir(parents=True)
+            (entry/'desc').write_text('%NAME%\n'+name+'\n\n%VERSION%\n1-1\n\n%VALIDATION%\n'+validation+'\n\n')
+        preserve=arch.local_packages(database)
+        self.assertEqual(preserve, {'discord'})
+        original='[options]\nSigLevel = Required DatabaseOptional\n[extra]\nServer = https://example.invalid\n'
+        config=arch.configuration(original,self.root/'runtime',preserve)
+        self.assertLess(config.index('IgnorePkg = discord'), config.index('[extra]'))
+        self.assertIn('SigLevel = Required DatabaseOptional',config)
+        self.assertIn('PackageRequired DatabaseNever',config)
+        self.assertNotIn('discord',arch.package_args(['discord','hyprland'],preserve=preserve))
+        self.assertIn('xetal-fusion-runtime/hyprland',arch.package_args(['discord','hyprland'],preserve=preserve))
+        self.assertNotIn('discord',arch.hold_text())  # No permanent local-app hold.
+
+    def test_preserved_local_build_still_requires_a_valid_complete_dependency_graph(self):
+        failed=subprocess.CompletedProcess([],1,'installing openssl breaks dependency required by local-app','failed')
+        with patch.object(arch.subprocess,'run',return_value=failed) as run:
+            with self.assertRaisesRegex(RuntimeError,'local-app'):
+                arch.resolve(self.root/'conf',['local-app'],preserve={'local-app'})
+        args=run.call_args.args[0]
+        self.assertIn('-Sup',args)
+        self.assertNotIn('--nodeps',args)
+        self.assertNotIn('local-app',args)
+
+    def test_recovery_prepares_all_system_libraries_in_an_isolated_database(self):
+        backup = self.root/'backup'; backup.mkdir()
+        database = self.root/'database'
+        for name in ('local', 'sync'):
+            (database/name).mkdir(parents=True)
+            (database/name/'sentinel').write_text('original')
+        before = {'hyprland':'old', 'openssl':'3', 'libjxl':'0.12', 'replaced-package':'1'}
+        expected = {'hyprland':'new', 'openssl':'4', 'libjxl':'0.13', 'new-helper':'1'}
+        previous = {name:{'file':name+'.pkg.tar.zst'} for name in before}
+        base = '[options]\nSigLevel = Required DatabaseOptional\n[core]\nServer = https://example.invalid\n'
+        with patch.object(system, 'inventory', side_effect=[before, expected, before, before]), \
+             patch.object(system, 'save_previous', return_value=previous) as save, \
+             patch.object(system.recovery, 'replay') as replay, \
+             patch.object(system, 'run') as calls:
+            actual = system.prepare_recovery(backup, ['pacman'], ['hyprland'], database, base)
+        self.assertEqual(actual, (before, expected, previous))
+        save.assert_called_once_with(backup, before, expected)
+        for call in calls.call_args_list:
+            args = call.args[0]
+            self.assertIn('--dbonly', args)
+            self.assertIn('--noscriptlet', args)
+            self.assertEqual(args[args.index('--dbpath')+1], backup/'projection/db')
+            self.assertEqual(args[args.index('--root')+1], backup/'projection/root')
+            self.assertNotIn('--nodeps', args)
+        rollback = replay.call_args.args[2]
+        for name in ('openssl', 'libjxl', 'replaced-package'):
+            self.assertIn(dict(path=str(backup/'previous'/(name+'.pkg.tar.zst')),name=name,version=before[name]), rollback)
+        self.assertEqual(replay.call_args.args[3],[dict(name='new-helper',version='1')])
+        self.assertTrue(replay.call_args.kwargs['database_only'])
+        self.assertNotIn('[core]', (backup/'recovery.conf').read_text())
+        self.assertEqual((database/'local/sentinel').read_text(), 'original')
+
+    def test_incompatible_recovery_stops_before_any_live_package_transaction(self):
+        backup = self.root/'backup'; backup.mkdir()
+        database = self.root/'database'
+        for name in ('local', 'sync'): (database/name).mkdir(parents=True)
+        before, after = {'openssl':'3'}, {'openssl':'4', 'new-helper':'1'}
+        def run(args, **kwargs):self.assertIn('--dbonly', args)
+        with patch.object(system, 'inventory', side_effect=[before, after]), \
+             patch.object(system, 'save_previous', return_value={'openssl':{'file':'openssl.pkg.tar.zst'}}), \
+             patch.object(system.recovery, 'replay',side_effect=subprocess.CalledProcessError(1,['arch-recovery'])), \
+             patch.object(system, 'run', side_effect=run):
+            with self.assertRaises(subprocess.CalledProcessError):
+                system.prepare_recovery(backup, ['pacman'], ['hyprland'], database, '[options]\n')
+        self.assertFalse((backup/'record.json').exists())
+
     def test_dependency_install_always_repairs_even_when_runtime_already_matches(self):
         with patch.object(dependencies, 'distro', return_value='arch'), patch.object(arch, 'ensure') as ensure:
             dependencies.install(True)
@@ -126,7 +198,7 @@ class ArchTests(unittest.TestCase):
         conf = self.root/'pacman.conf';conf.write_text('[options]\nIgnorePkg = linux\n')
         pin = self.root/'hold.conf';pin.write_text('new hold\n')
         (backup/'pacman.conf').write_text(conf.read_text())
-        before = {'hyprland':'0.57.1-1', 'aquamarine':'0.16.0-1', 'hyprgraphics':'0.6.0-1'}
+        before = {'hyprland':'0.56.2-4', 'aquamarine':'0.15.1-1', 'hyprgraphics':'0.5.1-4'}
         expected = {name:arch.expected()[name] for name in before}
         record = dict(before=before, expected=expected, had_pin=False, new_hold='new hold\n', previous={})
         for name in before:
@@ -163,6 +235,27 @@ class ArchTests(unittest.TestCase):
         run.assert_not_called()
         self.assertEqual(pin.read_text(), 'new hold\n')
 
+    def test_full_recovery_removes_new_compatibility_packages_with_old_libraries(self):
+        state, backup, conf, pin, record = self.fixture_recovery()
+        record['schema']=3
+        record['expected']['compat-library']='1-1'
+        (backup/'record.json').write_text(json.dumps(record))
+        (backup/'recovery.conf').write_text('[options]\n')
+        current=record['expected'].copy()
+        def replay(saved, base, additions, removals, inventory):
+            self.assertEqual(saved,backup)
+            self.assertEqual(inventory,current)
+            self.assertEqual({item['name'] for item in additions},set(record['before']))
+            self.assertEqual(removals,[dict(name='compat-library',version='1-1')])
+            current.clear();current.update(record['before'])
+        with patch.object(runtime.policy,'arch_versions',side_effect=lambda _:current.copy()), \
+             patch.object(system,'inventory',side_effect=lambda:current.copy()), \
+             patch.object(system,'verify'),patch.object(system.recovery,'replay',side_effect=replay) as transaction:
+            system.restore(backup,state,conf,pin)
+        transaction.assert_called_once()
+        self.assertTrue(json.loads((backup/'record.json').read_text())['restored'])
+        self.assertEqual(current,record['before'])
+
     def test_corrupt_library_backup_is_rejected_before_any_package_change(self):
         state, backup, conf, pin, record = self.fixture_recovery()
         (backup/'previous/aquamarine.pkg.tar.zst').write_bytes(b'wrong')
@@ -187,6 +280,22 @@ class ArchTests(unittest.TestCase):
              patch.object(runtime, 'administrator', return_value=['sudo']), patch.object(runtime.subprocess, 'run') as run:
             runtime.rollback()
         self.assertIn(str(ROOT/'installer/system_arch_runtime.py'), run.call_args.args[0])
+
+    def test_non_utf8_signer_does_not_interrupt_runtime_output_or_lose_recovery(self):
+        record=self.root/'recovery'
+        output=b'gpg: Good signature from "Test Jos\xf3"\nXETAL_RUNTIME_TRANSACTION '+str(record).encode()+b'\n'
+        child=[sys.executable,'-c','import os;os.write(1,'+repr(output)+')']
+        log=io.StringIO()
+        with patch.object(arch,'packages'),patch.object(arch,'pinned',return_value=True), \
+             patch.object(runtime,'administrator',return_value=child), \
+             patch.object(runtime,'TRANSACTION',None),patch.object(runtime,'TRANSACTION_BACKEND','arch'), \
+             patch.object(runtime.policy,'require'),patch.object(runtime.policy,'arch_versions',return_value=arch.expected()), \
+             redirect_stdout(log):
+            self.assertTrue(arch.ensure(yes=True,force=True))
+            self.assertEqual(runtime.TRANSACTION,record)
+            self.assertEqual(runtime.TRANSACTION_BACKEND,'arch-bundle')
+        self.assertIn('Good signature',log.getvalue())
+        self.assertIn('\ufffd',log.getvalue())
 
     def test_python_upgrade_restarts_worker_with_its_arguments_and_recovery(self):
         record = Path('/var/lib/xetal-hyprland/arch-runtime/test-recovery')

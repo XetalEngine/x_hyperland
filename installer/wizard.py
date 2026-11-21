@@ -78,7 +78,7 @@ def failure_message(lines):
 class Wizard:
     def __init__(self, update=False):
         self.update = update
-        self.target = runtime_install.policy.manifest()
+        self.target = runtime_install.policy.contract(runtime_install.policy.manifest())
         self.actual = runtime_install.policy.installed()
         self.revision = install.source_revision()
         self.temporary = tempfile.TemporaryDirectory(prefix='xetal-setup-')
@@ -333,7 +333,7 @@ class Wizard:
                 if self.success:
                     message = ('Hyprland '+self.target['hyprland']+' and your desktop are installed.\n\n'+
                                ('Reboot to use Fusion sign-in. Choose your account and desktop.\nWelcome opens after signing in if it is enabled.\n\n' if self.login_choice else
-                                'Log out, then select Hyprland and sign in again.\nYour Cube, effects and desktop tools will start together.\n\n')+
+                                'Reboot when ready, then select Hyprland and sign in.\nYour Cube, effects and desktop tools will start together.\n\n')+
                                'Installation log: '+str(self.log_path))
                     self.g.label_set_text(self.complete, message.encode()); self.show(4)
                 else:

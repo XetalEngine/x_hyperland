@@ -14,6 +14,8 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT.parents[1]/'effects'))
+from native_toolchain import compiler, environment, adapter, adapter_headers
 
 
 def output(args):
@@ -24,19 +26,19 @@ def output(args):
 
 
 def build(root=ROOT):
-    manifest = json.loads((root.parent/'manifest.json').read_text())
     if platform.machine() not in ('x86_64', 'AMD64'):
         raise RuntimeError('The cursor probe requires the supported x86-64 Hyprland runtime.')
     flags = shlex.split(output(['pkg-config', '--cflags', 'hyprland', 'libeis-1.0']))
     headers = next((Path(arg[2:])/'src/version.h' for arg in flags
                     if arg.startswith('-I') and (Path(arg[2:])/'src/version.h').is_file()), None)
     match = re.search(r'#define\s+GIT_COMMIT_HASH\s+"([a-f0-9]+)"', headers.read_text()) if headers else None
-    if not match or match[1] != manifest['commit']:
-        raise RuntimeError('The cursor probe needs development headers matching the pinned Hyprland runtime.')
+    plugin_source = adapter(root, match[1] if match else '')
     versions = output(['pkg-config', '--modversion', 'hyprland', 'aquamarine', 'hyprutils', 'hyprgraphics', 'hyprcursor', 'hyprlang'])
-    signature = hashlib.sha256((versions+str(flags)+headers.read_text()+output(['g++', '-dumpfullversion'])).encode())
+    signature = hashlib.sha256((versions+str(flags)+headers.read_text()+output([compiler(), '-dumpfullversion'])).encode())
     for source in (root/'plugin.cpp', root/'drag_actions.hpp', root/'build.py', root.parent/'window_types.hpp', root.parent/'window_types_native.hpp'):
         signature.update(source.read_bytes())
+    for source in [*root.glob('*_057.*'), *adapter_headers(root.parents[1]), ROOT.parents[1]/'effects/native_toolchain.py']:
+        signature.update(source.name.encode()); signature.update(source.read_bytes())
     directory = root/'.build'/signature.hexdigest()[:20]
     directory.mkdir(parents=True, exist_ok=True)
     target = directory/'xetal-cursor-probe.so'
@@ -48,9 +50,9 @@ def build(root=ROOT):
         fd, temporary = tempfile.mkstemp(prefix='compile-', suffix='.so', dir=directory)
         os.close(fd)
         try:
-            cmd = ['g++', '-std=c++23', '-shared', '-fPIC', '-O2', '-Wall', '-Wextra',
-                   '-Wno-unused-parameter', *flags, str(root/'plugin.cpp'), '-o', temporary]
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
+            cmd = [compiler(), '-std=c++23', '-shared', '-fPIC', '-O2', '-Wall', '-Wextra',
+                   '-Wno-unused-parameter', *flags, str(plugin_source), '-o', temporary]
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True, env=environment())
             try:
                 stdout, stderr = process.communicate(timeout=180)
             except BaseException:

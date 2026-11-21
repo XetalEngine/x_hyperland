@@ -14,6 +14,18 @@ import shlex
 import subprocess
 import sys
 
+NATIVE_WOBBLE_KEY = 'decoration.wobble.enabled'
+
+
+def compiz_wobble_policy():
+    """Only our Compiz adapter may deform windows in a Hyper Fusion session."""
+    return '\n'.join((
+        '-- Hyper Fusion uses its Compiz engine, including when its effect is off.',
+        call('config', {NATIVE_WOBBLE_KEY: False}),
+        call('window_rule', {'name': 'hyperfusion-disable-native-wobble',
+                             'match': {'class': '.*'}, 'no_wobble': True}),
+    ))
+
 
 def lua(value):
     if isinstance(value, dict):
@@ -41,6 +53,17 @@ def scalar(value):
         angle = re.search(r'([+-]?\d+)deg$', value)
         return {'colors': colors, 'angle': int(angle[1]) if angle else 0}
     return value
+
+
+def gaps(value):
+    values = [int(part) for part in re.split(r'[\s,]+', value.strip())]
+    if not 1 <= len(values) <= 4:
+        raise ValueError('Gaps need one to four integer values')
+    top = values[0]
+    right = values[1] if len(values) > 1 else top
+    bottom = values[2] if len(values) > 2 else top
+    left = values[3] if len(values) > 3 else right
+    return dict(zip(('top', 'right', 'bottom', 'left'), (top, right, bottom, left)))
 
 
 def parts(value, separator=','):
@@ -93,6 +116,11 @@ def session_command(command):
 
 def dispatcher(name, args=''):
     args = args.strip()
+    if re.fullmatch(r'xetal[a-z_]+:[a-z_]+', name):
+        namespace, action = name.split(':', 1)
+        # Defer lookup until invocation: optional plugins can load after binds.
+        # 0.57's old addDispatcherV2 API is a no-op; adapters expose Lua callbacks.
+        return 'function() return hl.plugin['+lua(namespace)+']['+lua(action)+']('+lua(args)+') end'
     direction = {'l': 'left', 'r': 'right', 'u': 'up', 'd': 'down'}.get(args, args)
     simple = {'exec': 'exec_cmd', 'execr': 'exec_raw', 'event': 'event', 'submap': 'submap',
               'layoutmsg': 'layout', 'togglespecialworkspace': 'workspace.toggle_special', 'global': 'global'}
@@ -166,11 +194,19 @@ def binding(key, value):
     if 'd' in flags: options['description'] = fields[2]
     if 'm' in flags: name, _, args = remaining.partition(' ')
     else: name, _, args = remaining.partition(',')
+    if name.strip() == 'event' and args.strip() == 'xetal-cube:rotate':
+        # Lua callbacks no longer carry the original dispatcher name/argument.
+        # Retain a readable identity for the cube's pointer-grab handler.
+        options['description'] = 'Rotate desktop cube'
     shortcut = ' + '.join([*mods.split(), button])
     return 'hl.bind('+lua(shortcut)+', '+dispatcher(name.strip(), args)+', '+lua(options)+')'
 
 
 def keyword(key, value):
+    if key.replace(':', '.') == NATIVE_WOBBLE_KEY:
+        # Settings/theme reloads and our IPC adapter obey the same policy.
+        # Never silently substitute Hyprland wobble when Compiz is disabled.
+        return call('config', {NATIVE_WOBBLE_KEY: False})
     if key.startswith('bind'): return binding(key, value)
     if key == 'plugin': return call('plugin.load', value)
     if key in ('env', 'envd'):
@@ -189,7 +225,7 @@ def keyword(key, value):
         values = parts(value); options = {'workspace': values[0]}
         for item in values[1:]:
             name, data = item.split(':', 1)
-            options[name] = data if name in ('monitor', 'on-created-empty') else scalar(data)
+            options[name] = gaps(data) if name in ('gapsin', 'gapsout') else data if name in ('monitor', 'on-created-empty') else scalar(data)
         return call('workspace_rule', options)
     if key == 'bezier':
         name, *values = parts(value)
@@ -200,12 +236,17 @@ def keyword(key, value):
         options = dict(zip(('leaf', 'enabled', 'speed', 'bezier', 'style'), values))
         options['enabled'] = bool(scalar(values[1])); options['speed'] = float(values[2])
         return call('animation', options)
-    if key == 'windowrule': return call('window_rule', window_rule(rule_fields(value)))
-    match = re.fullmatch(r'windowrule\[(.+)\]:(\w+)', key)
-    if match: return call('window_rule', window_rule([('name', match[1]), (match[2], value)]))
+    if key in ('windowrule', 'layerrule'):
+        return call('window_rule' if key == 'windowrule' else 'layer_rule', window_rule(rule_fields(value)))
+    match = re.fullmatch(r'(windowrule|layerrule)\[(.+)\]:(\w+)', key)
+    if match:
+        return call('window_rule' if match[1] == 'windowrule' else 'layer_rule',
+                    window_rule([('name', match[2]), (match[3], value)]))
     if key == 'exec-once': return 'hl.on("hyprland.start", function() '+call('exec_cmd', session_command(value))+' end)'
     if key == 'exec': return call('exec_cmd', session_command(value))
     if ':' not in key and '.' not in key: raise ValueError('Unsupported managed setting: '+key)
+    if key.replace(':', '.') in ('general.gaps_in', 'general.gaps_out'):
+        return call('config', {key.replace(':', '.'): gaps(value)})
     return call('config', {key.replace(':', '.'): scalar(value)})
 
 
@@ -232,6 +273,10 @@ class Renderer:
         path = Path(path or self.root/'hyprland.conf').resolve()
         if path in self.stack: raise ValueError('Recursive source: '+str(path))
         self.stack.append(path); output, sections, block = ['-- Source: '+lua(str(path))], [], []
+        if len(self.stack) == 1:
+            # Older personal main configs may win a three-way merge. Give them
+            # the same opt-in HDR default; explicit user settings still win.
+            output.append(call('config', {'render.cm_auto_hdr': 0}))
         text = self.overrides[path] if path in self.overrides else path.read_text()
         for number, raw in enumerate(text.splitlines(), 1):
             if raw.lstrip().startswith('#'): continue
@@ -242,15 +287,16 @@ class Renderer:
                 if line == '}':
                     if not sections: raise ValueError('Unmatched closing brace')
                     name = sections.pop()
-                    if name in ('windowrule', 'device'):
-                        output.append(call('window_rule', window_rule(block)) if name=='windowrule' else call('device', {k: scalar(v) for k,v in block}))
+                    if name in ('windowrule', 'layerrule', 'device'):
+                        output.append(call('window_rule' if name == 'windowrule' else 'layer_rule', window_rule(block))
+                                      if name != 'device' else call('device', {k: scalar(v) for k,v in block}))
                         block = []
                     continue
                 if '=' not in line: raise ValueError('Expected a setting assignment')
                 key, value = (v.strip() for v in line.split('=', 1))
                 value = self.expand(value)
                 if key.startswith('$'): self.variables[key[1:]] = value; continue
-                if sections and sections[0] in ('windowrule', 'device'):
+                if sections and sections[0] in ('windowrule', 'layerrule', 'device'):
                     block.append((key, value)); continue
                 if key == 'source':
                     source = self.source_path(value, path.parent)
@@ -275,6 +321,10 @@ class Renderer:
         if sections: raise ValueError(f'{path}: unclosed {sections[-1]} block')
         self.stack.pop()
         if not self.stack and self.submap != 'reset': output.append('end)'); self.submap = 'reset'
+        if not self.stack:
+            # Last, after every sourced setting and after leaving any submap.
+            # The generated entry is evaluated again on compositor reload.
+            output.append(compiz_wobble_policy())
         return '\n'.join(output)+'\n'
 
 
@@ -283,6 +333,30 @@ def uses_lua(binary='Hyprland'):
     match = re.search(r'Hyprland\s+(\d+)\.(\d+)', result.stdout)
     if not match: raise ValueError('Could not determine the installed Hyprland configuration format')
     return tuple(map(int, match.groups())) >= (0, 57)
+
+
+def prepare_session_ipc():
+    """Scope the adapter to an editor launched directly by a native plugin.
+
+    A gear click bypasses our translated exec bindings. Inspect the running
+    compositor, since an upgraded on-disk binary can coexist with an old login.
+    This changes only this process and its children, never activation services.
+    """
+    result = subprocess.run(['/usr/bin/hyprctl', '-j', 'version'],
+                            capture_output=True, text=True, timeout=2, check=True)
+    current = json.loads(result.stdout)
+    version = current.get('version') or current.get('tag') or current.get('branch', '')
+    match = re.match(r'^v?(\d+)\.(\d+)(?:\D|$)', version)
+    if not match:
+        raise ValueError('Could not determine the running Hyprland command format')
+    adapter = str(Path(__file__).resolve().parent/'bin')
+    paths = [part for part in os.environ.get('PATH', os.defpath).split(os.pathsep) if part != adapter]
+    if tuple(map(int, match.groups())) >= (0, 57):
+        paths.insert(0, adapter)
+        os.environ['XETAL_HYPRLAND_LUA'] = '1'
+    else:
+        os.environ.pop('XETAL_HYPRLAND_LUA', None)
+    os.environ['PATH'] = os.pathsep.join(paths)
 
 
 def install_entry(root, binary='Hyprland'):

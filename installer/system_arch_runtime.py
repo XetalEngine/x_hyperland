@@ -14,6 +14,7 @@ import stat
 import subprocess
 
 import arch_runtime as arch
+import arch_recovery as recovery
 import dependencies
 import runtime_install as runtime
 from system_runtime import atomic, config_with_hold
@@ -37,7 +38,7 @@ def save_previous(backup, before, expected):
     directory.mkdir(mode=0o700)
     result = {}
     for name, version in before.items():
-        if version == expected[name]:
+        if version == expected.get(name):
             continue
         package = runtime.previous_package(directory, name)
         if package is None:
@@ -46,6 +47,63 @@ def save_previous(backup, before, expected):
         result[name] = {'file':package.name, 'sha256':arch.digest(package),
                         'signature_sha256':arch.digest(Path(str(package)+'.sig'))}
     return result
+
+
+def inventory(database=None):
+    args = ['/usr/bin/pacman']
+    if database is not None:
+        args += ['--dbpath', database]
+    result = run([*args, '-Q'], capture_output=True, text=True)
+    return dict(line.split() for line in result.stdout.splitlines() if line.strip())
+
+
+def recovery_configuration(text):
+    """Recovery uses only the saved archives, never newer repository packages."""
+    sections = list(re.finditer(r'^\[([^\]\n]+)\]\s*$', text, re.M))
+    if not sections or sections[0][1] != 'options':
+        raise RuntimeError('Unexpected package recovery configuration.')
+    end = sections[1].start() if len(sections) > 1 else len(text)
+    return text[:end]
+
+
+def prepare_recovery(backup, prefix, targets, database, base):
+    """Prove forward/rollback dependency resolution in a disposable database.
+
+    --dbonly updates this copy, with an empty filesystem root and no scriptlets.
+    Every installed package that would change gets a signed recovery archive,
+    including ordinary system libraries and packages replaced by new names.
+    A rollback that would leave incompatible new dependencies fails here,
+    before the live package transaction starts.
+    """
+    before = inventory(database)
+    (backup/'install-reasons.json').write_text(json.dumps(recovery.reasons(database))+'\n')
+    projection = backup/'projection'
+    db = projection/'db'
+    root = projection/'root'
+    root.mkdir(parents=True)
+    shutil.copytree(database/'local', db/'local')
+    shutil.copytree(database/'sync', db/'sync')
+    isolated = ['--root', root, '--dbpath', db, '--logfile', projection/'pacman.log']
+    print('Checking the full upgrade and its recovery in a disposable package database…', flush=True)
+    run([*prefix, *isolated, '-Su', '--noconfirm', '--needed', '--dbonly', '--noscriptlet', *targets])
+    expected = inventory(db)
+    previous = save_previous(backup, before, expected)
+    recovery_config = backup/'recovery.conf'
+    recovery_config.write_text(recovery_configuration(base))
+    additions=[dict(path=str(backup/'previous'/saved['file']),name=name,version=before[name])
+               for name,saved in previous.items()]
+    removals=[dict(name=name,version=expected[name]) for name in sorted(set(expected)-set(before))]
+    # Upgrading OpenSSL can introduce openssl-3. The old package owns the same
+    # files, so restoration and removal must be a single checked transaction.
+    # A database-only pacman -U by itself misses this file ownership collision.
+    recovery.replay(backup,base,additions,removals,expected,database=db,root=root,database_only=True)
+    restored = inventory(db)
+    if restored != before:
+        raise RuntimeError('The previous package set could not be restored in the recovery check. '
+                           'The live system has not been upgraded.')
+    if inventory(database) != before:
+        raise RuntimeError('Packages changed while preparing recovery. Retry Setup.')
+    return before, expected, previous
 
 
 def refresh_keyrings():
@@ -93,7 +151,10 @@ def restore_configuration(backup, record, conf, pin):
     current = pin.read_bytes() if pin.exists() else None
     if current not in (old_pin, record['new_hold'].encode()):
         raise RuntimeError('Package holds were edited externally; recovery will not overwrite them.')
-    if conf.read_bytes() == config_with_hold(original.decode(), str(pin)).encode():
+    upgraded = backup/'pacman.conf.after-system-upgrade'
+    baseline = upgraded.read_bytes() if upgraded.exists() else original
+    if conf.read_bytes() in (config_with_hold(original.decode(), str(pin)).encode(),
+                            config_with_hold(baseline.decode(), str(pin)).encode(), baseline):
         atomic(conf, original, stat.S_IMODE(conf.stat().st_mode))
     elif ('Include = '+str(pin)) not in original.decode():
         lines = conf.read_text().splitlines(keepends=True)
@@ -120,9 +181,9 @@ def restore(backup, state=STATE, conf=CONF, pin=runtime.PIN, _locked=False):
             original_pin, record['new_hold'].encode()):
         raise RuntimeError('Package configuration was edited externally; recovery will not overwrite it.')
     before, expected = record['before'], record['expected']
-    current = runtime.policy.arch_versions(expected)
-    for name in expected:
-        if current.get(name) not in (before.get(name), expected[name]):
+    current = runtime.policy.arch_versions(set(before) | set(expected))
+    for name in set(before) | set(expected):
+        if current.get(name) not in (before.get(name), expected.get(name)):
             raise RuntimeError('Runtime package changed outside Setup: '+name+'. Recovery will not overwrite it.')
     paths = []
     for name, saved in record['previous'].items():
@@ -133,19 +194,30 @@ def restore(backup, state=STATE, conf=CONF, pin=runtime.PIN, _locked=False):
             raise RuntimeError('Runtime recovery package changed: '+name)
         verify(path, name+' '+before[name])
         paths.append(str(path))
-    if paths:
-        # Restore the previous compositor AND ABI-coupled libraries together.
-        run(['/usr/bin/pacman', '-Up', '--noconfirm', *paths])
-        run(['/usr/bin/pacman', '-U', '--noconfirm', '--needed', *paths])
-    if 'hyprland' not in before and 'hyprland' in current:
+    if record.get('schema',1)>=3:
+        additions=[dict(path=str(backup/'previous'/saved['file']),name=name,version=before[name])
+                   for name,saved in record['previous'].items() if current.get(name)!=before[name]]
+        removals=[dict(name=name,version=current[name]) for name in sorted(set(expected)-set(before)) if name in current]
+        if additions or removals:
+            recovery.replay(backup,(backup/'recovery.conf').read_text(),additions,removals,current)
+    elif paths:
+        # Restore ALL upgraded packages together; libjxl/OpenSSL/etc. are part
+        # of the same dependency graph as the compositor's own libraries.
+        config = ['--config', backup/'recovery.conf'] if record.get('schema', 1) >= 2 else []
+        run(['/usr/bin/pacman', *config, '-Up', '--noconfirm', *paths])
+        run(['/usr/bin/pacman', *config, '-U', '--noconfirm', '--needed', *paths])
+    if record.get('schema',1)<3 and 'hyprland' not in before and 'hyprland' in current:
         run(['/usr/bin/pacman', '-R', '--noconfirm', 'hyprland'])
     restored = runtime.policy.arch_versions(before) if before else {}
     if restored != before:
         raise RuntimeError('Previous runtime package versions could not be verified after recovery.')
+    if record.get('schema',1)>=3 and inventory()!=before:
+        raise RuntimeError('The full previous package inventory could not be verified after recovery.')
     restore_configuration(backup, record, conf, pin)
     record['restored'] = True
     atomic(backup/'record.json', (json.dumps(record, indent=2)+'\n').encode(), 0o600)
-    print('Previous Arch runtime and package holds restored. Ordinary dependency installs and system updates remain.', flush=True)
+    print('Previous package versions and compositor holds restored.'+
+          (' Newly introduced packages were removed.' if record.get('schema',1)>=3 else ' Compatible new dependencies may remain.'), flush=True)
 
 
 def install(state=STATE, conf=CONF, pin=runtime.PIN):
@@ -163,13 +235,14 @@ def install(state=STATE, conf=CONF, pin=runtime.PIN):
         if old_pin is not None:
             (backup/'hold.conf').write_bytes(old_pin)
         refresh_keyrings()
-        before = runtime.policy.arch_versions(expected)
-        previous = save_previous(backup, before, expected)
         index = arch.repository(backup/'packages', required, verify=True)
         base = run(['/usr/bin/pacman-conf', '--config', conf], capture_output=True, text=True).stdout
-        config = backup/'transaction.conf'
-        config.write_text(arch.configuration(base, index.parent))
         database = Path((runtime.pacman_config('DBPath') or ['/var/lib/pacman'])[0])/'sync'
+        preserve = arch.local_packages(database.parent)
+        if preserve:
+            print('Preserving locally built packages during this desktop upgrade: '+', '.join(sorted(preserve)), flush=True)
+        config = backup/'transaction.conf'
+        config.write_text(arch.configuration(base, index.parent, preserve))
         database.mkdir(parents=True, exist_ok=True)
         # This generated index is local, never fetched by pacman's download
         # user. Usage excludes Sync only for this one temporary repository.
@@ -181,30 +254,35 @@ def install(state=STATE, conf=CONF, pin=runtime.PIN):
         for directory in runtime.package_caches():
             prefix += ['--cachedir', str(directory)]
         prefix += ['--cachedir', str(index.parent)]
-        targets = arch.package_args(dependencies.PACKAGES['arch'], required)
+        targets = arch.package_args(dependencies.PACKAGES['arch'], required, preserve)
         # Refresh + coordinated full upgrade, not -Sy followed by a partial
         # library update. Download everything before modifying package files.
         run([*prefix, '-Syu', '--noconfirm', '--needed', '--downloadonly', *targets])
-        plan = arch.resolve(config, dependencies.PACKAGES['arch'], required=required)
-        record = {'schema':1, 'before':before, 'expected':expected, 'previous':previous,
+        plan = arch.resolve(config, dependencies.PACKAGES['arch'], required=required, preserve=preserve)
+        before, projected, previous = prepare_recovery(backup, prefix, targets, database.parent, base)
+        record = {'schema':3, 'before':before, 'expected':projected, 'previous':previous,
                   'had_pin':old_pin is not None, 'new_hold':arch.hold_text(required),
-                  'package_plan':plan}
+                  'package_plan':plan, 'preserved_local_packages':sorted(preserve)}
         atomic(backup/'record.json', (json.dumps(record, indent=2)+'\n').encode(), 0o600)
         print('Recovery files: '+str(backup), flush=True)
         print('XETAL_RUNTIME_TRANSACTION '+str(backup), flush=True)
         try:
-            if runtime.policy.arch_versions(expected) != before:
-                raise RuntimeError('Runtime packages changed during preparation. Retry Setup.')
+            if inventory(database.parent) != before:
+                raise RuntimeError('Packages changed during preparation. Retry Setup.')
+            if arch.resolve(config, dependencies.PACKAGES['arch'], required=required, preserve=preserve) != plan:
+                raise RuntimeError('The package upgrade plan changed during preparation. Retry Setup.')
             run([*prefix, '-Su', '--noconfirm', '--needed', *targets])
+            if inventory(database.parent) != projected:
+                raise RuntimeError('Installed packages differ from the verified upgrade plan.')
             if runtime.policy.arch_versions(expected) != expected:
                 raise RuntimeError('Installed runtime does not match the verified package set.')
             runtime.policy.require()
             if conf.read_bytes() != original and package_managed_config(conf):
                 # An unmodified pacman.conf is normally replaced by pacman's
-                # own upgrade. Keep that new default as our recovery baseline.
-                (backup/'pacman.conf.before-system-upgrade').write_bytes(original)
+                # own upgrade. Recognize that new default without discarding
+                # the old configuration needed by full-package recovery.
                 original = conf.read_bytes()
-                atomic(backup/'pacman.conf', original, 0o600)
+                atomic(backup/'pacman.conf.after-system-upgrade', original, 0o600)
                 record['package_config_upgraded'] = True
                 atomic(backup/'record.json', (json.dumps(record, indent=2)+'\n').encode(), 0o600)
             if conf.read_bytes() != original or (pin.read_bytes() if pin.exists() else None) != old_pin:

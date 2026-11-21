@@ -202,7 +202,7 @@ def check(root=None, state=None):
         if latest['sha'] == current and (root/'runtime/manifest.json').exists():
             local_problem = runtime_policy.problem(root)
             if local_problem:
-                required = {'revision': current, 'required': runtime_policy.manifest(root)['hyprland'], 'message': local_problem}
+                required = {'revision': current, 'required': runtime_policy.contract(runtime_policy.manifest(root))['hyprland'], 'message': local_problem}
                 engine.write_json(state/'runtime-required.json', required)
             else:
                 (state/'runtime-required.json').unlink(missing_ok=True); required = {}
@@ -284,7 +284,7 @@ def activate(root=None, state=None):
                 message = runtime_policy.problem(stage)
                 if message:
                     engine.write_json(state/'runtime-required.json', {'revision':pending['revision'],
-                        'required':runtime_policy.manifest(stage)['hyprland'], 'message':message})
+                        'required':runtime_policy.contract(runtime_policy.manifest(stage))['hyprland'], 'message':message})
                     publish(state, phase='runtime-required', current=engine.installed(root)['revision'],
                             latest=pending['revision'], message=message, failed_revision=pending['revision'])
                     return False
