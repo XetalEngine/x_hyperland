@@ -1,5 +1,9 @@
 <h1 align="center">Hyper Fusion ALPHA</h1>
 
+<p align="center"><a href="https://drive.google.com/drive/folders/1bkAs8SiMqnbCihzMGPYzlOXB5mXGfs_Y?usp=sharing"><strong>Download the ONLINE and OFFLINE ISOs — Google Drive</strong></a></p>
+
+<p align="center"><a href="https://youtu.be/z3_uTzZglvg"><strong>▶ Watch Hyper Fusion in action on YouTube</strong></a></p>
+
 <p align="center"><strong>Your workspace. Your colors. Your kind of Linux desktop.</strong><br>A complete Hyprland desktop with Fusion Files, native settings, four window modes and a little Compiz nostalgia.</p>
 
 <p align="center">
@@ -15,8 +19,6 @@
 [![Fusion Files in the 7D layout, with themed drive groups, a Linux system-drive icon and the live storage preview](config/hypr/docs/features/fusion-files/7d.png)](docs/GALLERY.md#fusion-files)
 
 <p align="center"><strong>Meet the new Fusion Files.</strong> Eleven This PC layouts. Your theme. Your controls.<br><sub>7D is the fresh-install default. Actual native UI with a sample drive inventory; click to explore the gallery.</sub></p>
-
-<p align="center"><a href="https://youtu.be/z3_uTzZglvg"><strong>▶ Watch Hyper Fusion in action</strong></a> · <a href="#two-ways-to-install-hyper-fusion"><strong>Get Hyper Fusion</strong></a></p>
 
 <!-- Feature showcase: shared with config/hypr/FEATURES.md. Keep both copies aligned. -->
 ## Highlighted features
