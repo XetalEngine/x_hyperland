@@ -146,14 +146,14 @@ WindowButtons::Rule ruleFor(PHLWINDOW w){
     if(policy.layout=="kde"){
         if(auto it=kdeWindowRules.find(std::to_string(w->metadata().stableID()));it!=kdeWindowRules.end())return it->second;
         if(auto it=kdeAppRules.find(appId(w));it!=kdeAppRules.end())return it->second;
-        WindowButtons::Rule r;r.mode="auto";r.titlebar=true;r.size=settings.size;r.x=r.y=settings.inset;return r;
+        return WindowButtons::defaultRule(true,settings.size,settings.inset);
     }
     if(policy.controls=="on")return policy.rule;
     if(policy.controls=="off"){auto rule=policy.rule;rule.mode="off";return rule;}
     if(auto it=windowRules.find(std::to_string(w->metadata().stableID()));it!=windowRules.end())return it->second;
     if(auto rule=WindowRules::effective(matchedRules,appId(w),w->metadata().initialTitle()))return *rule;
     if(auto it=appRules.find(appId(w));it!=appRules.end())return it->second;
-    WindowButtons::Rule r;r.size=settings.size;r.x=r.y=settings.inset;return r;
+    return WindowButtons::defaultRule(false,settings.size,settings.inset);
 }
 Preview* previewFor(PHLWINDOW w){
     if(!w)return nullptr;

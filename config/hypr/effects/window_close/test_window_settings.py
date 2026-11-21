@@ -111,7 +111,7 @@ class EditorTests(unittest.TestCase):
             self.assertIn('no tile button',self.dialog.hint.text())
             files.assert_any_call('app','kde');files.assert_any_call('window','kde')
             self.dialog.reset.click()
-            self.assertEqual(self.dialog.values()['mode'],'auto')
+            self.assertEqual(self.dialog.values()['mode'],'off')
             expected=self.dialog.values();self.dialog.apply()
             self.save.assert_called_once_with('12','window',expected,self.dialog.tokens['window'],window_token=None,profile='kde')
         self.dialog.info.update(control_profile='standard',rule=self.window_rule)
@@ -126,8 +126,11 @@ class EditorTests(unittest.TestCase):
             self.dialog.load()
             self.assertTrue(self.dialog.titlebar.isChecked())
             self.assertTrue(self.dialog.titlebar.isEnabled())
-            self.assertFalse(self.dialog.mode.isEnabled())
-            self.assertFalse(self.dialog.anchor.isEnabled())
+            self.assertTrue(self.dialog.mode.isEnabled())
+            self.assertTrue(self.dialog.anchor.isEnabled())
+            for control in (self.dialog.mode,self.dialog.anchor,self.dialog.x,self.dialog.y,
+                            self.dialog.proximity,self.dialog.drag_controls):
+                self.assertTrue(self.dialog.controls_form.isRowVisible(control))
             self.assertTrue(self.dialog.size.isEnabled())
             self.dialog.scope.setCurrentIndex(self.dialog.scope.findData('window'))
             self.dialog.titlebar.setChecked(False)
@@ -140,11 +143,42 @@ class EditorTests(unittest.TestCase):
             self.assertFalse(saved.args[2]['titlebar'])
             self.assertEqual(saved.kwargs['profile'],'kde')
             self.dialog.reset.click();self.assertTrue(self.dialog.values()['titlebar'])
+            self.assertEqual(self.dialog.values()['mode'],'off')
         self.dialog.info.update(control_profile='standard',rule=self.window_rule)
         self.dialog.load()
         self.assertFalse(self.dialog.controls_form.isRowVisible(self.dialog.titlebar))
         self.assertNotIn('titlebar',self.dialog.values())
         self.assertTrue(self.dialog.mode.isEnabled())
+
+    def test_fresh_kde_app_can_edit_and_save_overlays_with_titlebar_checked(self):
+        for path,section in self.files.values():
+            path.write_text(ui.rules.encode({'version':1,section:{}},section))
+        defaults=ui.rules.effective(dict(ui.model.DEFAULTS,size=36,inset=10),profile='kde')
+        self.dialog.info.update(app='hypr-control',control_profile='kde',workspace_controls='individual',
+                                kde_titlebar_supported=True,rule=defaults,window_override=False,app_override=False)
+        with patch.object(ui.controller,'rule_file',side_effect=lambda scope,profile:self.files[scope]):
+            self.dialog.load()
+            self.assertTrue(self.dialog.valid,self.dialog.status.text())
+            self.assertTrue(self.dialog.titlebar.isChecked())
+            self.assertEqual(self.dialog.values(),defaults)
+            self.assertTrue(self.dialog.mode.isEnabled())
+            self.assertTrue(self.dialog.controls_form.isRowVisible(self.dialog.mode))
+            self.dialog.mode.setCurrentIndex(self.dialog.mode.findData('nearby'))
+            self.assertTrue(self.dialog.proximity.isEnabled())
+            self.dialog.proximity.slider.setValue(120)
+            self.dialog.x.slider.setValue(48)
+            self.dialog.anchor.setCurrentIndex(self.dialog.anchor.findData('bottom-left'))
+            draft=self.dialog.values()
+            self.dialog.titlebar.setChecked(False)
+            self.assertEqual(self.dialog.values(),dict(draft,titlebar=False))
+            self.dialog.titlebar.setChecked(True)
+            self.assertEqual(self.dialog.values(),draft)
+            self.dialog.mode.setCurrentIndex(self.dialog.mode.findData('off'))
+            self.assertFalse(self.dialog.proximity.isEnabled())
+            expected=dict(draft,mode='off')
+            self.dialog.apply()
+            self.save.assert_called_once_with('12','app',expected,self.dialog.tokens['app'],
+                                              window_token=self.dialog.tokens['window'],profile='kde')
 
     def test_old_loaded_adapter_does_not_receive_new_fields(self):
         self.dialog.info.update(control_profile='kde',workspace_controls='individual',rule=dict(self.window_rule,mode='auto'))

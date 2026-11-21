@@ -10,6 +10,17 @@ import controller
 
 
 class RuleTests(unittest.TestCase):
+    def test_kde_defaults_keep_titlebar_on_and_overlays_off_without_replacing_saved_choices(self):
+        settings=dict(model.DEFAULTS,size=36,inset=10)
+        self.assertEqual(rules.effective(settings,profile='kde'),
+                         dict(rules.DEFAULTS,mode='off',titlebar=True,size=36,x=10,y=10))
+        self.assertEqual(rules.effective(settings),dict(rules.DEFAULTS,size=36,x=10,y=10))
+        for mode in rules.KDE_MODES:
+            with self.subTest(mode=mode):
+                saved=dict(rules.DEFAULTS,mode=mode,titlebar=False,size=24)
+                self.assertEqual(rules.effective(settings,saved,profile='kde'),saved)
+                self.assertEqual(rules.effective(settings,dict(rules.DEFAULTS),saved,profile='kde'),saved)
+
     def test_kde_titlebar_migration_opt_out_and_standard_isolation(self):
         old=dict(rules.DEFAULTS,mode='auto',size=32)
         self.assertTrue(rules.effective(model.DEFAULTS,old,profile='kde')['titlebar'])
@@ -63,7 +74,7 @@ class RuleTests(unittest.TestCase):
                 self.assertEqual(windows.read_bytes(),old)
                 with self.assertRaisesRegex(ValueError,'mode changed'):
                     controller.save_rule('12','window',None,token)
-        self.assertEqual(rules.effective(model.DEFAULTS,profile='kde')['mode'],'auto')
+        self.assertEqual(rules.effective(model.DEFAULTS,profile='kde')['mode'],'off')
         self.assertEqual(rules.effective(model.DEFAULTS)['mode'],'super')
         self.assertEqual(json.loads(controller.preview_payload('12','a'*32,rules.DEFAULTS,profile='kde'))['profile'],'kde')
 

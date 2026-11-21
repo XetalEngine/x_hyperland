@@ -27,6 +27,13 @@ struct Rule {
     // Absent in legacy/standard rules. Only the KDE profile consumes this.
     std::optional<bool> titlebar;
 };
+inline Rule defaultRule(bool kde,int size,int inset){
+    Rule rule;rule.size=size;rule.x=rule.y=inset;
+    // KDE uses a title bar by default. Apps with their own Fusion header
+    // must not receive duplicate overlay buttons when that bar is suppressed.
+    if(kde){rule.mode="off";rule.titlebar=true;}
+    return rule;
+}
 using Rules=std::map<std::string,Rule>;
 using Json=std::unique_ptr<json_object,decltype(&json_object_put)>;
 inline Json json(json_object* p){return Json(p,json_object_put);}

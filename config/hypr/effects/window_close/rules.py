@@ -64,7 +64,7 @@ def load(path=PATH, section='apps'):
 
 
 def effective(settings, app_rule=None, window_rule=None, *, profile='standard'):
-    result = validate(window_rule or app_rule or dict(DEFAULTS, mode='auto' if profile=='kde' else 'super',
+    result = validate(window_rule or app_rule or dict(DEFAULTS, mode='off' if profile=='kde' else 'super',
                                                      size=settings['size'],x=settings['inset'],y=settings['inset']))
     if profile == 'kde': result.setdefault('titlebar', True)
     return result

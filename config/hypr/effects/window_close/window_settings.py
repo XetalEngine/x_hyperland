@@ -138,7 +138,8 @@ class RuleDialog(QDialog):
         self.controls_form=form
         self.titlebar=QCheckBox('Add a title bar above the app')
         self.titlebar.setToolTip('KDE mode only. Reserves space above the content; the bar grows with your button size. '
-                                'Turn off to use the overlay controls below.')
+                                'Fusion apps with built-in headers keep their own title bar. '
+                                'Overlay controls are configured separately below.')
         form.addRow('KDE title bar',self.titlebar)
         form.setRowVisible(self.titlebar,False)
         self.mode=QComboBox()
@@ -236,11 +237,13 @@ class RuleDialog(QDialog):
         self.background_hint.setText('Auto uses the current theme’s title bar colors. Manual uses your chosen color.' if bar else
                                     'Auto blends the solid background with the window underneath. '
                                     'Manual covers it with your chosen color, including the gaps between buttons.')
-        self.mode.setEnabled(not bar and self.scope.currentData()!='workspace')
-        for control in (self.anchor,self.x,self.y):control.setEnabled(not bar)
-        self.proximity.setEnabled(not bar and self.mode.currentData()=='nearby')
+        self.controls_form.labelForField(self.mode).setText('Show overlay controls' if kde else 'Show controls')
+        self.mode.setToolTip('Controls shown over the app when the extra title bar is absent. Off by default in KDE mode.' if kde else '')
+        self.mode.setEnabled(self.scope.currentData()!='workspace')
+        for control in (self.anchor,self.x,self.y):control.setEnabled(True)
+        self.proximity.setEnabled(self.mode.currentData()=='nearby')
         for control in (self.mode,self.anchor,self.x,self.y,self.proximity,self.drag_controls):
-            self.controls_form.setRowVisible(control,not bar)
+            self.controls_form.setRowVisible(control,True)
 
     def update_color_controls(self):
         manual=self.background.currentData()=='manual'
@@ -327,7 +330,8 @@ class RuleDialog(QDialog):
             self.hint.setText('Changes preview live on all windows in this workspace. Apply saves the shared size, position and background. '
                               'The gear normally appears while Super is held. Use the workspace menu to change visibility.' if shared else
                               'KDE mode has separate saved choices. The title bar sits above the app and fits your button size. '
-                              'Turn it off for this window or app to return to overlay controls. '
+                              'Fusion apps with built-in headers keep their own title bar. '
+                              'Overlay controls are off by default and apply when the extra title bar is absent. '
                               'Settings, minimize, maximize/restore and close preview here; there is no tile button. '
                               'Hold Super to reach the gear when the bar and controls are off. '
                               + ('' if self.info.get('kde_titlebar_supported') else

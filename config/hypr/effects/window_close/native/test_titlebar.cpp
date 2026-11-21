@@ -11,6 +11,12 @@ int main(int argc,char** argv){
     assert(allowsTitlebar(std::vector<std::string>{"fusion-client-header-other", "unrelated*"}));
     assert(!allowsTitlebar(std::vector<std::string>{"fusion-client-header"}));
     assert(!allowsTitlebar(std::vector<std::string>{"unrelated", "fusion-client-header*"}));
+    const auto kdeDefault=defaultRule(true,36,10);
+    assert(kdeDefault.mode=="off"&&kdeDefault.titlebar==true);
+    assert(kdeDefault.size==36&&kdeDefault.x==10&&kdeDefault.y==10);
+    const auto standardDefault=defaultRule(false,36,10);
+    assert(standardDefault.mode=="super"&&!standardDefault.titlebar.has_value());
+    assert(standardDefault.size==36&&standardDefault.x==10&&standardDefault.y==10);
     assert(Titlebar::height(18)==30);
     // Content starts at y=0; every button remains in the reserved negative-Y
     // strip, even for tiny windows, huge buttons and fractional output scales.
@@ -33,7 +39,7 @@ int main(int argc,char** argv){
             ++checks;
         }
     auto old=parseJson(R"({"mode":"auto","size":18,"anchor":"top-right","x":8,"y":8,"proximity":80})");
-    auto rule=readRule(old.get());assert(rule.titlebar.value_or(true));
+    auto rule=readRule(old.get());assert(rule.titlebar.value_or(true));assert(rule.mode=="auto");
     rule.titlebar=false;auto encoded=ruleJson(rule);
     assert(readRule(encoded.get()).titlebar==false);
     for(auto bad:{json_object_new_int(0),json_object_new_string("false"),json_object_new_null()}){

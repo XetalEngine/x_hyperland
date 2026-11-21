@@ -73,13 +73,16 @@ active/inactive border and shadow. These apps must not use `decorate = off` to
 hide the bar, because that also removes their focus surround. The Start menu
 keeps its separate frameless popup rule.
 
-In the gear editor, uncheck **Add a title bar above the app**, select **Only this
-window** or **All windows of this app**, and Apply. This restores the existing
-Automatic/Always/nearby/modifier/Off overlay controls for that KDE window/app.
-Super reveals the gear even when both the bar and fallback controls are hidden.
-Overlay position/visibility settings are retained while the title bar is on.
-Persistent
-app choices live in `kde-rules.json`, and window-only choices in the session's
+In the gear editor, **Add a title bar above the app** defaults to on, and **Show
+overlay controls** defaults to **Off** in KDE mode. This also keeps duplicate
+overlay buttons off Fusion apps with built-in headers. Existing saved app and
+window choices are preserved. All overlay options remain visible and editable
+while the title-bar box is checked; they apply when the extra bar is absent.
+Choose Automatic/Always/nearby/modifier to enable overlays, select **Only this
+window** or **All windows of this app**, and Apply. Super reveals the gear even
+when both the bar and fallback controls are hidden. Toggling the title bar keeps
+the overlay visibility and position choices. Persistent app choices live in
+`kde-rules.json`, and window-only choices in the session's
 `xetal-windowbuttons-kde-rules.json`. Standard app/title rules and workspace
 On/Off settings are preserved for the other modes. Previews and saves carry their
 profile identity, so changing modes cannot apply a stale editor to another profile.
