@@ -46,7 +46,7 @@ def unavailable(directory=None, *, check_busy=True):
         reason = packages.compatibility('kvm-amd', entry)
         if reason:
             return reason
-        path = base / 'components/kvm-amd/current'
+        path = packages.component_path('kvm-amd', base)
         files = ['load-kvm.sh']
         if entry.get('runtime'):
             files += ['.vm-runtime.json', *(v['file'] for v in entry['runtime']['files'].values())]
@@ -65,7 +65,7 @@ def warning(data, release=None):
     reason = unavailable()
     if not reason:
         return '', ''
-    entry = (release or {}).get('components', {}).get('kvm-amd', {})
+    entry = packages.component_entries(release).get('kvm-amd', {})
     kernel = platform.release()
     text = f'⚠ Kernel {kernel}: KVM interception / native timing tweaks unavailable. Using standard KVM.'
     if 'using KVM' in reason or 'consumer' in reason:

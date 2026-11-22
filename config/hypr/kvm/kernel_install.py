@@ -53,9 +53,11 @@ class Target:
         return cls(release, f'{match[1]}.arch{match[2]}-{match[3]}')
 
 
-def required_kernel():
+def available_kernels(catalog=None):
     """Read the newest locally available, signature-verified Enhanced catalogue."""
     import packages
+    if catalog is not None:
+        return list(packages.kernel_entries(catalog))
     releases = []
     error = None
     for reader in (lambda:packages.Store(edition='xetallic').cached(),
@@ -67,7 +69,12 @@ def required_kernel():
     if not releases:
         raise RuntimeError('The signed KVM catalogue could not be read. '+str(error or 'Check for component updates.'))
     release = max(releases, key=lambda r:packages.version(r['version']))
-    return release.get('components', {}).get('kvm-amd', {}).get('kernel', '')
+    return list(packages.kernel_entries(release))
+
+
+def required_kernel():
+    releases = available_kernels()
+    return platform.release() if platform.release() in releases else next(iter(releases), '')
 
 
 def platform_problem(distribution=None, machine=None):

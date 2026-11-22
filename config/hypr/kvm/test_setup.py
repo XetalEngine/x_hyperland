@@ -280,7 +280,7 @@ class SetupTests(unittest.TestCase):
         previous=copy.deepcopy(cfg['smbios'])
         inventories={edition:packages.decode((portable.ROOT/filename).read_bytes())['components']
                      for edition,filename in [('stock','catalog-stock.json'),('xetallic','catalog.json')]}
-        with patch.object(packages,'installed',side_effect=lambda name,root=None:inventories[root.name if root else editions.selected()].get(name,{})), \
+        with patch.object(packages,'installed',side_effect=lambda name,root=None,**options:inventories[root.name if root else editions.selected()].get(name,{})), \
              patch.object(panel,'busy',return_value=False):
             self.assertEqual(panel.edition_buttons['xetallic'].text(),'Switch to Enhanced')
             panel.choose_edition('xetallic')
@@ -638,10 +638,13 @@ class SetupTests(unittest.TestCase):
         panel.store=packages.Store(edition='xetallic');panel.load_catalog()
         entry=copy.deepcopy(panel.release['components']['kvm-amd'])
         entry['kernel']=platform.release();entry.pop('runtime',None)
-        panel.release['components']['kvm-amd']=entry
+        legacy=copy.deepcopy(entry);legacy['kernel']='7.1.0-arch1-1'
+        panel.release['components']['kvm-amd']=legacy
+        panel.release['kernel_modules']={legacy['kernel']:legacy,entry['kernel']:entry}
         def download(name,selected,progress):
             self.assertEqual(name,'kvm-amd')
-            directory=panel.store.root/'components/kvm-amd/current';directory.mkdir(parents=True,exist_ok=True)
+            self.assertEqual(selected['kernel'],platform.release())
+            directory=panel.store.root/'components/kvm-amd/kernels'/selected['kernel']/'current';directory.mkdir(parents=True,exist_ok=True)
             packages.atomic_json(directory/'.component.json',selected)
             for filename in ('load-kvm.sh','kvm.ko','kvm-amd.ko'):
                 (directory/filename).write_text('fixture; never execute')
@@ -723,7 +726,7 @@ class SetupTests(unittest.TestCase):
         w.cfg.data['_meta']['binary']=sys.executable
         w.cfg.data['tools']['kvm_build_enabled']=False
         with patch.object(w.cfg,'validate',return_value=[]), \
-             patch.object(packages,'installed',side_effect=lambda name,root=None:installed.get(name,{})), \
+             patch.object(packages,'installed',side_effect=lambda name,root=None,**options:installed.get(name,{})), \
              patch.object(panel.store,'check',return_value=release), \
              patch.object(panel.store,'download') as download, \
              patch.object(portable,'prepare_firmware') as firmware, \
@@ -767,7 +770,7 @@ class SetupTests(unittest.TestCase):
         installed=copy.deepcopy(panel.release['components'])
         panel.release=copy.deepcopy(panel.release)
         panel.release['components']['qemu']['sha256']='b'*64
-        with patch.object(packages,'installed',side_effect=lambda name,root=None:installed.get(name,{})):
+        with patch.object(packages,'installed',side_effect=lambda name,root=None,**options:installed.get(name,{})):
             panel.refresh()
             self.assertEqual(panel.update_messages(),[])
             row=next(r for r in range(panel.table.rowCount()) if panel.table.item(r,0).text()==panel.release['components']['qemu']['label'])

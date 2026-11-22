@@ -29,6 +29,35 @@ LEGACY_SOURCES = {'sources-qemu','sources-ovmf','sources-tpm','sources-kvm'}
 MAX_MANIFEST = 512*1024
 MAX_ARCHIVE = 8*1024**3
 MAX_EXPANDED = 32*1024**3
+KERNEL = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.+-]{0,99}')
+
+
+def kernel_order(release):
+    return tuple(int(part) for part in re.findall(r'\d+',release)),release
+
+
+def kernel_entries(release):
+    """All signed builds, including the default retained for older clients."""
+    result=dict((release or {}).get('kernel_modules',{}))
+    legacy=(release or {}).get('components',{}).get('kvm-amd',{})
+    if legacy.get('kernel'):result.setdefault(legacy['kernel'],legacy)
+    return dict(sorted(result.items(),key=lambda item:kernel_order(item[0]),reverse=True))
+
+
+def component_entries(release, kernel=None):
+    result=dict((release or {}).get('components',{}))
+    kernels=kernel_entries(release)
+    if kernels:result['kvm-amd']=kernels.get(kernel or platform.release(),next(iter(kernels.values())))
+    return result
+
+
+def artifacts(release):
+    """Deduplicated inventory used by signing, encryption and transport."""
+    result={entry['file']:entry for entry in release['components'].values()}
+    for entry in release.get('kernel_modules',{}).values():
+        if entry['file'] in result and result[entry['file']]!=entry:raise ValueError('Conflicting module artifact')
+        result[entry['file']]=entry
+    return result
 
 
 def version(value):
@@ -72,6 +101,23 @@ def validate(release):
         if edition=='stock' and name=='kvm-amd': raise ValueError('Stock uses the system KVM module')
         if edition=='xetallic' and name in ('qemu','kvm-amd'):
             validate_runtime(a.get('runtime'),name)
+    kernels=release.get('kernel_modules',{})
+    if not isinstance(kernels,dict) or len(kernels)>32 or (kernels and edition!='xetallic'):
+        raise ValueError('Invalid kernel module inventory')
+    legacy=entries.get('kvm-amd',{})
+    for kernel,entry in kernels.items():
+        if not isinstance(kernel,str) or not KERNEL.fullmatch(kernel) or not isinstance(entry,dict) or entry.get('kernel')!=kernel:
+            raise ValueError('Invalid kernel module release')
+        if kernel==legacy.get('kernel'):
+            if entry!=legacy:raise ValueError('Default module conflicts with its kernel entry')
+        else:
+            filename=f'XetalKVM-kvm-amd-{kernel}-{entry.get("version")}-linux-x86_64.tar.xz'
+            if entry.get('file')!=filename:raise ValueError('Invalid versioned module archive')
+            # Apply the same complete validation to every variant. The legacy
+            # compatibility entry retains its original filename and identity.
+            normalized=dict(entry,file=f'XetalKVM-kvm-amd-{entry.get("version")}-linux-x86_64.tar.xz')
+            validate({k:v for k,v in dict(release,components={'kvm-amd':normalized}).items() if k!='kernel_modules'})
+    artifacts(release)
     return release
 
 
@@ -138,9 +184,22 @@ def atomic_json(path,value):
         if os.path.exists(temp): os.unlink(temp)
 
 
-def installed(name, root=None):
+def component_path(name, root=None, *, kernel=None):
+    if name not in IDS:raise ValueError('Unknown component')
+    base=(root or editions.component_root())/'components'/name
+    if name=='kvm-amd':
+        release=kernel or platform.release()
+        if not isinstance(release,str) or not KERNEL.fullmatch(release):raise ValueError('Invalid kernel release')
+        path=base/'kernels'/release/'current'
+        if path.exists():return path
+    return base/'current'
+
+
+def installed(name, root=None, *, kernel=None):
     if name not in IDS: raise ValueError('Unknown component')
-    return read_json((root or editions.component_root())/'components'/name/'current/.component.json',{})
+    value=read_json(component_path(name,root,kernel=kernel)/'.component.json',{})
+    if name=='kvm-amd' and kernel is not None and value.get('kernel')!=kernel:return {}
+    return value
 
 
 def update_available(name, entry, current):
@@ -204,14 +263,19 @@ def install_archive(name, entry, archive, root=None):
     archive=Path(archive)
     if archive.stat().st_size!=entry['size'] or digest(archive)!=entry['sha256']:
         raise ValueError('Downloaded archive checksum or size is wrong')
-    base=root/'components'/name;base.mkdir(parents=True,exist_ok=True,mode=0o700)
+    base=root/'components'/name
+    if name=='kvm-amd':
+        if not isinstance(entry.get('kernel'),str) or not KERNEL.fullmatch(entry['kernel']):raise ValueError('Invalid kernel release')
+        base=base/'kernels'/entry['kernel']
+    base.mkdir(parents=True,exist_ok=True,mode=0o700)
     with (base/'.install.lock').open('a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX)
-        previous=installed(name,root)
+        kernel=entry['kernel'] if name=='kvm-amd' else None
+        previous=installed(name,root,kernel=kernel)
         if previous and version(entry['version'])<version(previous['version']):
             raise ValueError('Refusing a component downgrade')
         if previous.get('sha256')==entry['sha256']:
-            return prepare_runtime(name,entry,base/'current')
+            return prepare_runtime(name,entry,component_path(name,root,kernel=kernel))
         if previous.get('version')==entry['version']: raise ValueError('This component version has different bytes')
         if shutil.disk_usage(base).free<entry['unpacked_size']+64*1024**2: raise OSError('Not enough disk space to unpack the component')
         target=base/(entry['version']+'-'+entry['sha256'][:12])

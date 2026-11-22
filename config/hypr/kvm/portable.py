@@ -13,8 +13,8 @@ def data_root():
 
 
 def component_path(name):
-    from editions import component_root
-    return component_root()/'components'/name/'current'
+    from packages import component_path as installed_path
+    return installed_path(name)
 
 
 def tool_defaults():

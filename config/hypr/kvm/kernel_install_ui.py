@@ -7,7 +7,7 @@ import sys
 import threading
 
 from PyQt6.QtCore import QThread, Qt, pyqtSignal
-from PyQt6.QtWidgets import QApplication, QCheckBox, QDialog, QDialogButtonBox, QLabel, QPlainTextEdit, QProgressBar, QVBoxLayout
+from PyQt6.QtWidgets import QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QLabel, QPlainTextEdit, QProgressBar, QVBoxLayout
 
 import kernel_install as kernel
 
@@ -42,7 +42,7 @@ class InstallJob(QThread):
 
 
 class KernelInstallDialog(QDialog):
-    def __init__(self, release=None, parent=None, *, busy=lambda:False):
+    def __init__(self, release=None, parent=None, *, busy=lambda:False, catalog=None):
         super().__init__(parent)
         self.setWindowTitle('Install compatible KVM kernel')
         self.resize(800, 600)
@@ -50,6 +50,9 @@ class KernelInstallDialog(QDialog):
         layout = QVBoxLayout(self);layout.setSpacing(14)
         title = QLabel('Use the kernel built for KVM interception', self)
         title.setStyleSheet('font-size:20px;font-weight:600;');title.setWordWrap(True);layout.addWidget(title)
+        layout.addWidget(QLabel('Compatible kernels · newest first', self))
+        self.kernels = QComboBox(self);self.kernels.setObjectName('compatibleKernelSelection')
+        layout.addWidget(self.kernels)
         self.description = QLabel(self);self.description.setWordWrap(True);layout.addWidget(self.description)
         self.aur = QCheckBox('Try the AUR if needed — set up missing yay and paru automatically', self)
         self.aur.setChecked(True);layout.addWidget(self.aur)
@@ -71,14 +74,37 @@ class KernelInstallDialog(QDialog):
         self.proceed.clicked.connect(self.start)
         self.cancel_button.clicked.connect(self.cancel_or_close);layout.addWidget(self.buttons)
         try:
-            self.target = kernel.Target.parse(release or kernel.required_kernel())
+            from packages import kernel_order
+            choices = kernel.available_kernels(catalog)
+            if release and release not in choices:choices.append(release)
+            choices = sorted(set(choices),key=kernel_order,reverse=True)
+            if not choices:raise RuntimeError('No compatible kernels are listed. Check for component updates first.')
+            for value in choices:
+                self.kernels.addItem(value+(' · running' if value==platform.release() else ''), value)
+            selected=release or (platform.release() if platform.release() in choices else choices[0])
+            self.kernels.setCurrentIndex(choices.index(selected))
+            self.kernels.currentIndexChanged.connect(self.select_kernel)
+            self.select_kernel()
+        except (OSError, ValueError, RuntimeError) as error:
+            self.status.setText(str(error));self.proceed.setEnabled(False);self.aur.setEnabled(False)
+
+    def select_kernel(self):
+        if self.job:return
+        self.target = None
+        self.proceed.setEnabled(True);self.aur.setEnabled(True);self.cancel_button.setText('Cancel')
+        self.status.setText('Ready to check and install.')
+        try:
+            self.target = kernel.Target.parse(self.kernels.currentData())
             self.description.setText('Running: '+platform.release()+'\nRequired: '+self.target.release+
                                      '\nPackages: linux + linux-headers '+self.target.version)
             problem = kernel.platform_problem()
             if problem:raise RuntimeError(problem)
             if kernel.complete(self.target):
-                self.status.setText('This kernel and its matching headers are already installed. Boot '+self.target.release+
-                                    ', then reopen KVM Settings. No installation is needed.')
+                if self.target.release == platform.release():
+                    self.status.setText('You are already running this kernel and its matching headers are installed. No installation or reboot is needed.')
+                else:
+                    self.status.setText('This kernel and its matching headers are already installed. Boot '+self.target.release+
+                                        ', then reopen KVM Settings. No installation is needed.')
                 self.proceed.setEnabled(False);self.aur.setEnabled(False);self.cancel_button.setText('Close')
         except (ValueError, RuntimeError) as error:
             self.status.setText(str(error));self.proceed.setEnabled(False);self.aur.setEnabled(False)
@@ -89,7 +115,7 @@ class KernelInstallDialog(QDialog):
         reason = module_policy.busy_reason()
         if self.busy() or reason:
             self.status.setText('Shut down running VMs and finish other KVM operations before installing a kernel. '+reason);return
-        self.proceed.setEnabled(False);self.aur.setEnabled(False)
+        self.proceed.setEnabled(False);self.aur.setEnabled(False);self.kernels.setEnabled(False)
         self.progress.setRange(0, 0);self.progress.show()
         self.job = InstallJob(self.target, self.aur.isChecked(), self)
         self.job.message.connect(self.log.appendPlainText)
@@ -108,6 +134,7 @@ class KernelInstallDialog(QDialog):
 
     def finished_job(self):
         self.job.deleteLater();self.job = None
+        self.kernels.setEnabled(True)
         self.cancel_button.setEnabled(True);self.cancel_button.setText('Close')
 
     def cancel_or_close(self):

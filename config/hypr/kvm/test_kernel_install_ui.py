@@ -40,5 +40,25 @@ class KernelDialogTests(unittest.TestCase):
             dialog = ui.KernelInstallDialog('7.2.11-arch1-1')
             self.assertFalse(dialog.proceed.isEnabled());self.assertIn('Arch-family', dialog.status.text());dialog.close()
 
+    def test_newest_first_selects_running_kernel_without_installing(self):
+        from test_kernel_catalog import catalog,NEW,OLD
+        with patch.object(ui.platform,'release',return_value=OLD), patch.object(ui.kernel.Installer,'install') as install:
+            dialog=ui.KernelInstallDialog(catalog=catalog())
+            self.assertEqual([dialog.kernels.itemData(i) for i in range(dialog.kernels.count())],[NEW,OLD])
+            self.assertEqual(dialog.target.release,OLD)
+            dialog.kernels.setCurrentIndex(0)
+            self.assertEqual(dialog.target.release,NEW)
+            self.assertIn('7.3.5.arch1-1',dialog.description.text())
+            install.assert_not_called();dialog.close()
+
+    def test_unknown_kernel_defaults_to_newest_and_existing_install_can_change(self):
+        from test_kernel_catalog import catalog,NEW,OLD
+        with patch.object(ui.platform,'release',return_value='unknown'), \
+             patch.object(ui.kernel,'complete',side_effect=lambda target:target.release==NEW):
+            dialog=ui.KernelInstallDialog(catalog=catalog())
+            self.assertEqual(dialog.target.release,NEW);self.assertFalse(dialog.proceed.isEnabled())
+            dialog.kernels.setCurrentIndex(1)
+            self.assertEqual(dialog.target.release,OLD);self.assertTrue(dialog.proceed.isEnabled());dialog.close()
+
 
 if __name__ == '__main__':unittest.main()

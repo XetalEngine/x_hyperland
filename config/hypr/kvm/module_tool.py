@@ -22,7 +22,7 @@ def check(directory):
     if not entry:raise RuntimeError('Download the matching custom KVM module in Paths & Tools first.')
     reason=packages.compatibility('kvm-amd',entry)
     if reason:raise RuntimeError(reason)
-    path=base/'components/kvm-amd/current'
+    path=packages.component_path('kvm-amd',base)
     if entry.get('runtime'):
         packages.prepare_runtime('kvm-amd',entry,path)
         return path

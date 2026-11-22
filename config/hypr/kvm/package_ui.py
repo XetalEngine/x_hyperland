@@ -68,6 +68,11 @@ class PackagesPanel(QGroupBox):
         self.table.horizontalHeader().setSectionResizeMode(4,QHeaderView.ResizeMode.Fixed)
         self.table.setColumnWidth(4,144)
         layout.addWidget(self.table)
+        kernel_row=QHBoxLayout()
+        self.kernel_info=QLabel();self.kernel_info.setWordWrap(True);self.kernel_info.setTextFormat(Qt.TextFormat.PlainText)
+        kernel_row.addWidget(self.kernel_info,1)
+        self.kernel_button=QPushButton('Compatible kernels…');self.kernel_button.clicked.connect(self.show_kernels)
+        kernel_row.addWidget(self.kernel_button);layout.addLayout(kernel_row)
         self.progress=QProgressBar();self.progress.hide();layout.addWidget(self.progress)
         note=QLabel('Downloads are compressed and verified before installation. Your disks, NVRAM and TPM state stay in your private workspace.')
         note.setWordWrap(True);note.setObjectName('muted');layout.addWidget(note)
@@ -97,8 +102,8 @@ class PackagesPanel(QGroupBox):
             if release.get('edition')!=edition:raise ValueError('The release does not match the selected edition.')
         except Exception as error:self.info.setText(str(error));return
         def missing(release):
-            return [(name,entry) for name,entry in release['components'].items()
-                    if not packages.installed(name,target.root) and not packages.compatibility(name,entry)]
+            return [(name,entry) for name,entry in packages.component_entries(release).items()
+                    if not packages.installed(name,target.root,kernel=entry.get('kernel')) and not packages.compatibility(name,entry)]
         if not missing(release):
             self._commit_edition(target,release);return
         if edition=='xetallic' and not self.account.token:
@@ -182,11 +187,15 @@ class PackagesPanel(QGroupBox):
     def refresh(self):
         self.edition_cards.refresh(self.store.edition,busy=bool(self.job))
         self.refresh_account()
-        entries=(self.release or {}).get('components',{})
-        self.missing.setEnabled(not self.job and any(not packages.installed(n,self.store.root) and not packages.compatibility(n,e) for n,e in entries.items()))
+        entries=packages.component_entries(self.release)
+        kernels=packages.kernel_entries(self.release)
+        self.kernel_info.setVisible(bool(kernels));self.kernel_button.setVisible(bool(kernels))
+        self.kernel_button.setEnabled(not self.job and not self.busy())
+        self.kernel_info.setText('The module is selected for your running kernel automatically. Available kernels: '+', '.join(kernels))
+        self.missing.setEnabled(not self.job and any(not packages.installed(n,self.store.root,kernel=e.get('kernel')) and not packages.compatibility(n,e) for n,e in entries.items()))
         self.table.setRowCount(len(entries))
         for row,(name,entry) in enumerate(sorted(entries.items(),key=lambda item:item[0]=='kvm-amd')):
-            current=packages.installed(name,self.store.root);reason=packages.compatibility(name,entry)
+            current=packages.installed(name,self.store.root,kernel=entry.get('kernel'));reason=packages.compatibility(name,entry)
             same=current.get('sha256')==entry['sha256']
             newer=bool(current) and packages.version(current['version'])>packages.version(entry['version'])
             update=packages.update_available(name,entry,current)
@@ -213,12 +222,18 @@ class PackagesPanel(QGroupBox):
         self.table.setVisible(bool(entries))
         self.inventory_changed.emit()
 
+    def show_kernels(self):
+        if self.job or self.busy():return
+        from kernel_install_ui import KernelInstallDialog
+        dialog=KernelInstallDialog(parent=self,busy=lambda:bool(self.job) or self.busy(),catalog=self.release)
+        dialog.exec();self.refresh()
+
     def update_messages(self):
         # The release is already signature-verified. Health refreshes read only
         # local metadata, so an external install also clears its notification.
         messages=[]
-        for name,entry in (self.release or {}).get('components',{}).items():
-            current=packages.installed(name,self.store.root)
+        for name,entry in packages.component_entries(self.release).items():
+            current=packages.installed(name,self.store.root,kernel=entry.get('kernel'))
             if packages.update_available(name,entry,current):
                 messages.append(f'{entry["label"]} update available: {current["version"]} → {entry["version"]}.')
         return messages
@@ -267,8 +282,8 @@ class PackagesPanel(QGroupBox):
         if not self.require_account():return
         if self.job or self.busy():
             self.info.setText('Finish the running VM or component operation first.');return
-        entries=[(n,e) for n,e in (self.release or {}).get('components',{}).items()
-                 if not packages.installed(n,self.store.root) and not packages.compatibility(n,e)]
+        entries=[(n,e) for n,e in packages.component_entries(self.release).items()
+                 if not packages.installed(n,self.store.root,kernel=e.get('kernel')) and not packages.compatibility(n,e)]
         self.info.setText('Installing missing components…')
         def work(progress):
             changed=[]

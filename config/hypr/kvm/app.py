@@ -210,7 +210,7 @@ class KVMSettings(VMStart2):
         if not getattr(self,'package_panel',None):return
         import module_policy,platform,packages
         text,detail=module_policy.warning(self.cfg.data,self.package_panel.release)
-        entry=(self.package_panel.release or {}).get('components',{}).get('kvm-amd',{})
+        entry=packages.component_entries(self.package_panel.release).get('kvm-amd',{})
         kernel=entry.get('kernel','') if module_policy.requested(self.cfg.data) and packages.cpu_vendor()=='amd' else ''
         if kernel==platform.release():kernel=''
         for label in getattr(self,'module_warnings',[]):
@@ -230,8 +230,7 @@ class KVMSettings(VMStart2):
         if self.package_panel.job or self._busy():
             self.status.setText('Finish the current operation and shut down the VM before installing a kernel.');return
         from kernel_install_ui import KernelInstallDialog
-        entry=(self.package_panel.release or {}).get('components',{}).get('kvm-amd',{})
-        dialog=KernelInstallDialog(entry.get('kernel'),self,busy=self._busy)
+        dialog=KernelInstallDialog(parent=self,busy=self._busy,catalog=self.package_panel.release)
         dialog.exec();self._refresh_module_status()
 
     def _prepare_optional_module(self,retry=None):
@@ -244,7 +243,7 @@ class KVMSettings(VMStart2):
         if not module_policy.requested(self.cfg.data):return False
         panel=self.package_panel
         if panel.job:return False
-        entry=(panel.release or {}).get('components',{}).get('kvm-amd')
+        entry=packages.component_entries(panel.release).get('kvm-amd')
         if (not entry or packages.compatibility('kvm-amd',entry)
                 or not module_policy.unavailable(check_busy=False) or self._busy()):return False
         identity=(str(panel.store.root),entry['sha256'])
