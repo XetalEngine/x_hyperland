@@ -49,6 +49,58 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
   appearance = new GrubAppearance(QFileInfo(helper).dir().filePath("grub_appearance.py"), tabs);
   tabs->addTab(appearance, "Appearance");
   connect(appearance, &GrubAppearance::requested, this, &GrubEditor::request);
+  auto *optionsPage = new QWidget(tabs);
+  auto *optionsLayout = new QVBoxLayout(optionsPage); optionsLayout->setSpacing(14);
+  tabs->addTab(optionsPage, "Boot preferences");
+  optionsLayout->addWidget(label("Choose which system starts, whether GRUB remembers your last selection, and how long the boot menu waits.", optionsPage));
+  auto *form = new QFormLayout; form->setRowWrapPolicy(QFormLayout::WrapLongRows);
+  defaultEntry = new QComboBox(optionsPage); defaultEntry->setObjectName("grubDefaultEntry");
+  defaultEntry->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon); defaultEntry->setMinimumContentsLength(20);
+  form->addRow("Default / initial entry", defaultEntry);
+  rememberEntry = new QCheckBox("Remember the last selected operating system", optionsPage); rememberEntry->setObjectName("grubRememberEntry");
+  form->addRow("", rememberEntry);
+  rememberReason = label("Load boot preferences to check whether this boot volume supports saved selections.", optionsPage, "grubRememberReason");
+  form->addRow("", rememberReason);
+  bootTimeout = new QSpinBox(optionsPage); bootTimeout->setObjectName("grubTimeout"); bootTimeout->setRange(-1, 3600);
+  bootTimeout->setSpecialValueText("Wait until I choose"); bootTimeout->setSuffix(" seconds"); bootTimeout->setValue(5);
+  form->addRow("Wait before booting", bootTimeout);
+  timeoutStyle = new QComboBox(optionsPage); timeoutStyle->setObjectName("grubTimeoutStyle");
+  timeoutStyle->addItem("Show the boot menu", "menu"); timeoutStyle->addItem("Show a countdown", "countdown"); timeoutStyle->addItem("Hide until interrupted", "hidden");
+  form->addRow("Menu visibility", timeoutStyle);
+  optionsLayout->addLayout(form);
+  optionsLayout->addWidget(label("A timeout of 0 boots immediately. Hold Shift or press Esc to reveal a hidden menu. Preferences are also saved for future GRUB regeneration. Entry names and ordering edited in Current Grub can be replaced by system generators when GRUB is regenerated.", optionsPage, "muted"));
+  optionsLayout->addStretch(1);
+  auto *optionActions = new QHBoxLayout;
+  optionsLoad = new QPushButton("Reload preferences", optionsPage); optionsLoad->setObjectName("grubOptionsLoad");
+  optionsUndo = new QPushButton("Undo preferences", optionsPage); optionsUndo->setObjectName("grubOptionsUndo");
+  optionsSave = new QPushButton("Apply boot preferences", optionsPage); optionsSave->setObjectName("grubOptionsSave"); optionsSave->setProperty("primary", true);
+  optionActions->addWidget(optionsLoad); optionActions->addWidget(optionsUndo); optionActions->addStretch(); optionActions->addWidget(optionsSave); optionsLayout->addLayout(optionActions);
+
+  auto *firmwarePage = new QWidget(tabs);
+  auto *firmwareLayout = new QVBoxLayout(firmwarePage); firmwareLayout->setSpacing(14);
+  tabs->addTab(firmwarePage, "UEFI boot option");
+  firmwareLayout->addWidget(label("Register this Linux installation in UEFI", firmwarePage, "panelTitle"));
+  firmwareLayout->addWidget(label("Create a dedicated EFI loader that opens this installation’s GRUB menu. It will appear beside Windows Boot Manager and other entries in your firmware boot choices.", firmwarePage));
+  firmwareStatus = label("Load firmware details to find mounted EFI System Partitions.", firmwarePage, "grubFirmwareStatus");
+  firmwareLayout->addWidget(firmwareStatus);
+  auto *efiForm = new QFormLayout; efiForm->setRowWrapPolicy(QFormLayout::WrapLongRows);
+  efiPartition = new QComboBox(firmwarePage); efiPartition->setObjectName("grubEfiPartition");
+  efiPartition->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon); efiPartition->setMinimumContentsLength(20);
+  efiForm->addRow("EFI System Partition", efiPartition);
+  firmwareLabel = new QLineEdit("Hyper Fusion", firmwarePage); firmwareLabel->setObjectName("grubFirmwareLabel"); firmwareLabel->setMaxLength(80);
+  efiForm->addRow("Name in firmware", firmwareLabel);
+  firmwareFirst = new QCheckBox("Make this the first firmware boot choice", firmwarePage); firmwareFirst->setObjectName("grubFirmwareFirst");
+  efiForm->addRow("", firmwareFirst); firmwareLayout->addLayout(efiForm);
+  firmwareEntries = new QTreeWidget(firmwarePage); firmwareEntries->setObjectName("grubFirmwareEntries");
+  firmwareEntries->setHeaderLabels({"Boot ID", "Existing firmware entry", "EFI loader"}); firmwareEntries->setRootIsDecorated(false);
+  firmwareEntries->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+  firmwareEntries->header()->setSectionResizeMode(1, QHeaderView::Stretch);
+  firmwareEntries->header()->setSectionResizeMode(2, QHeaderView::Stretch);
+  firmwareEntries->setMinimumHeight(80); firmwareLayout->addWidget(firmwareEntries, 1);
+  auto *efiActions = new QHBoxLayout;
+  firmwareLoad = new QPushButton("Reload firmware details", firmwarePage); firmwareLoad->setObjectName("grubFirmwareLoad");
+  firmwareRegister = new QPushButton("Review registration…", firmwarePage); firmwareRegister->setObjectName("grubFirmwareRegister"); firmwareRegister->setProperty("primary", true);
+  efiActions->addWidget(firmwareLoad); efiActions->addStretch(); efiActions->addWidget(firmwareRegister); firmwareLayout->addLayout(efiActions);
   layout->addWidget(tabs, 1);
   currentLayout->addWidget(label("Your current boot menu. Select an entry to edit its name or boot commands, or remove it from the menu.", currentPage));
   addLayout->addWidget(label("Choose a drive, detect its bootable systems, and add the one you want to your current GRUB menu.", addPage));
@@ -136,6 +188,10 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
   remove = new QPushButton("Remove from menu…", savedBox); remove->setObjectName("grubRemove");
   undo = new QPushButton("Undo last change", savedBox); undo->setObjectName("grubUndo");
   savedActions->addWidget(load); savedActions->addWidget(rename); savedActions->addWidget(remove);
+  moveUp = new QPushButton("Move up", savedBox); moveUp->setObjectName("grubMoveUp");
+  moveDown = new QPushButton("Move down", savedBox); moveDown->setObjectName("grubMoveDown");
+  moveUp->setToolTip("Move within the menu; crossing a source boundary moves its complete group."); moveDown->setToolTip(moveUp->toolTip());
+  savedActions->addWidget(moveUp); savedActions->addWidget(moveDown);
   savedActions->addStretch(); savedActions->addWidget(undo);
   savedLayout->addLayout(savedActions); currentLayout->addWidget(savedBox, 1);
   auto *footnote = label("Each change is backed up and checked before saving. Your GRUB theme is kept.", this, "muted");
@@ -149,6 +205,26 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
   });
 
   reader = new QProcess(this); worker = new QProcess(this);
+  connect(tabs, &QTabWidget::currentChanged, this, &GrubEditor::loadTab);
+  connect(moveUp, &QPushButton::clicked, this, [this] { moveEntry(-1); });
+  connect(moveDown, &QPushButton::clicked, this, [this] { moveEntry(1); });
+  connect(optionsLoad, &QPushButton::clicked, this, [this] { request({{"action", "boot-options-load"}}); });
+  connect(optionsSave, &QPushButton::clicked, this, [this] {
+    request({{"action", "boot-options-save"}, {"options_revision", optionsRevision}, {"options", QJsonObject{
+      {"default", defaultEntry->currentData().toString()}, {"remember", rememberEntry->isChecked()},
+      {"timeout", bootTimeout->value()}, {"style", timeoutStyle->currentData().toString()}}}});
+  });
+  connect(optionsUndo, &QPushButton::clicked, this, [this] {
+    if (QMessageBox::question(this, "Undo boot preferences?", "Restore the menu and preferences from before the last preference change?",
+        QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) == QMessageBox::Yes)
+      request({{"action", "boot-options-undo"}, {"options_revision", optionsRevision}});
+  });
+  connect(firmwareLoad, &QPushButton::clicked, this, [this] { request({{"action", "firmware-load"}}); });
+  connect(firmwareLabel, &QLineEdit::textChanged, this, &GrubEditor::updateActions);
+  connect(firmwareRegister, &QPushButton::clicked, this, [this] {
+    request({{"action", "firmware-review"}, {"partition_token", efiPartition->currentData().toString()},
+      {"label", firmwareLabel->text().trimmed()}, {"first", firmwareFirst->isChecked()}});
+  });
   connect(refresh, &QPushButton::clicked, this, &GrubEditor::refreshDrives);
   connect(drives, &QTreeWidget::currentItemChanged, this, &GrubEditor::chooseDrive);
   connect(drives, &QTreeWidget::itemActivated, this, &GrubEditor::scanDrive);
@@ -230,7 +306,9 @@ int GrubEditor::heightForWidth(int width) const {
 }
 void GrubEditor::showEvent(QShowEvent *event) {
   QWidget::showEvent(event);
-  if (!loaded) { loaded = true; refreshDrives(); }
+  if (!loaded || (!busy && !revision.isEmpty() && worker->state() == QProcess::NotRunning)) {
+    loaded = true; QTimer::singleShot(0, this, [this] { request({{"action", "refresh"}}); });
+  }
 }
 void GrubEditor::resizeEvent(QResizeEvent *event) {
   QWidget::resizeEvent(event);
@@ -252,8 +330,21 @@ void GrubEditor::updateActions() {
   systems->setEnabled(!busy); name->setEnabled(!busy && system().value("available").toBool());
   add->setEnabled(!busy && supported && system().value("available").toBool() && !name->text().trimmed().isEmpty() && !revision.isEmpty());
   entries->setEnabled(!busy);
-  load->setEnabled(!busy && supported); rename->setEnabled(!busy && entry()["editable"].toBool());
+  load->setEnabled(!busy); rename->setEnabled(!busy && entry()["editable"].toBool());
   remove->setEnabled(!busy && entry()["editable"].toBool()); undo->setEnabled(!busy && canUndo);
+  auto *item = entries->currentItem();
+  const int index = !item ? -1 : item->parent() ? item->parent()->indexOfChild(item) : entries->indexOfTopLevelItem(item);
+  const int count = item && item->parent() ? item->parent()->childCount() : entries->topLevelItemCount();
+  moveUp->setEnabled(!busy && entry()["editable"].toBool() && index > 0);
+  moveDown->setEnabled(!busy && entry()["editable"].toBool() && index >= 0 && index+1 < count);
+  optionsLoad->setEnabled(!busy && supported);
+  optionsSave->setEnabled(!busy && !optionsRevision.isEmpty() && defaultEntry->count());
+  optionsUndo->setEnabled(!busy && optionsCanUndo && !optionsRevision.isEmpty());
+  defaultEntry->setEnabled(!busy && !optionsRevision.isEmpty()); bootTimeout->setEnabled(defaultEntry->isEnabled()); timeoutStyle->setEnabled(defaultEntry->isEnabled());
+  rememberEntry->setEnabled(defaultEntry->isEnabled() && (rememberSupported || rememberEntry->isChecked()));
+  firmwareLoad->setEnabled(!busy && supported); efiPartition->setEnabled(!busy && firmwareAvailable);
+  firmwareLabel->setEnabled(!busy && firmwareAvailable); firmwareFirst->setEnabled(!busy && firmwareAvailable);
+  firmwareRegister->setEnabled(!busy && firmwareAvailable && efiPartition->count() && !firmwareLabel->text().trimmed().isEmpty());
   bool existing = false;
   for (const auto &item : managedEntries)
     if (item.toObject()["id"] == system()["id"]) existing = true;
@@ -262,10 +353,42 @@ void GrubEditor::updateActions() {
 void GrubEditor::refreshDrives() {
   if (busy) return;
   systems->clear(); name->clear(); notes->hide();
-  operation = "refresh"; status->setText("Finding drives…"); setBusy(true);
-  if (worker->state() == QProcess::Running) {
-    worker->write(QJsonDocument(QJsonObject{{"action", "refresh"}}).toJson(QJsonDocument::Compact)+'\n');
-  } else reader->start("python3", {helper, "status"});
+  request({{"action", "refresh"}});
+}
+void GrubEditor::loadTab() {
+  if (busy || !supported) return;
+  if (tabs->currentIndex() == 3 && optionsRevision.isEmpty()) request({{"action", "boot-options-load"}});
+  if (tabs->currentIndex() == 4 && !firmwareLoaded) request({{"action", "firmware-load"}});
+}
+void GrubEditor::moveEntry(int direction) {
+  if (busy || entry().isEmpty()) return;
+  auto *item = entries->currentItem(); auto *parent = item->parent();
+  const int index = parent ? parent->indexOfChild(item) : entries->indexOfTopLevelItem(item);
+  auto *neighbor = parent ? parent->child(index+direction) : entries->topLevelItem(index+direction);
+  if (!neighbor) return;
+  if (neighbor->data(0, Qt::UserRole).toJsonObject()["source"] != entry()["source"] &&
+      QMessageBox::question(this, "Move boot entry groups?", "These entries come from different GRUB generators. Move their complete source groups together to keep each system’s setup commands intact?\n\nA later GRUB regeneration can restore the generated order.",
+        QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) != QMessageBox::Yes) return;
+  request({{"action", "move-current"}, {"id", entry()["id"]}, {"direction", direction}});
+}
+void GrubEditor::reviewFirmware(const QJsonObject &review) {
+  QDialog dialog(this); dialog.setObjectName("grubFirmwareReview"); dialog.setWindowTitle("Register this system in UEFI?"); dialog.resize(720, 520);
+  auto *layout = new QVBoxLayout(&dialog);
+  layout->addWidget(label(review["scope"].toString(), &dialog));
+  auto *details = new QPlainTextEdit(&dialog); details->setObjectName("grubFirmwareReviewDetails"); details->setReadOnly(true);
+  details->setPlainText("Boot label: "+review["label"].toString()+"\nEFI partition: "+review["partition"].toString()+
+    "\nEFI loader: "+review["target"].toString()+"\nGRUB menu: "+review["config"].toString()+
+    "\nFilesystem UUID: "+review["filesystem_uuid"].toString()+"\n\n"+review["priority"].toString()+
+    "\n\n"+review["support_files"].toString()+
+    "\n\n"+(review["existing"].toBool() ? "Refresh the existing registration." : "Create a new firmware boot entry.")+
+    "\nExisting Windows and other bootloaders are kept. No drive is formatted.\n\nBackups and recovery details:\n"+review["backup"].toString());
+  layout->addWidget(details, 1);
+  auto *buttons = new QDialogButtonBox(QDialogButtonBox::Cancel, &dialog);
+  auto *confirm = buttons->addButton("Register current system", QDialogButtonBox::AcceptRole); confirm->setObjectName("grubFirmwareConfirm");
+  buttons->button(QDialogButtonBox::Cancel)->setDefault(true); layout->addWidget(buttons);
+  connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept); connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+  const bool accepted = dialog.exec() == QDialog::Accepted;
+  request({{"action", accepted ? "firmware-confirm" : "firmware-cancel"}, {"token", review["token"]}});
 }
 void GrubEditor::chooseDrive() {
   if (busy) return;
@@ -410,8 +533,8 @@ void GrubEditor::editEntry() {
 }
 void GrubEditor::request(const QJsonObject &data) {
   if (busy) return;
-  if ((data["action"] == "appearance-confirm" || data["action"] == "appearance-cancel") && worker->state() != QProcess::Running) {
-    status->setText(data["action"] == "appearance-cancel" ?
+  if ((data["action"] == "appearance-confirm" || data["action"] == "appearance-cancel" || data["action"] == "firmware-confirm" || data["action"] == "firmware-cancel") && worker->state() != QProcess::Running) {
+    status->setText(data["action"].toString().endsWith("cancel") ?
       "Cancelled. Boot files are unchanged; your recovery backups are kept." :
       "This recovery review expired. Choose Review & apply again for fresh backups.");
     return;
@@ -419,7 +542,7 @@ void GrubEditor::request(const QJsonObject &data) {
   pending = data; pending["revision"] = revision; pending["menu_revision"] = menuRevision;
   operation = data["action"].toString();
   status->setText(operation == "scan" ? "Detecting the system. Authenticate if prompted…" :
-    operation == "appearance-load" ? "Loading your GRUB menu. Authenticate if prompted…" : "Working on your boot menu…");
+    (operation == "appearance-load" || operation == "refresh") ? "Loading your GRUB menu. Authenticate if prompted…" : "Working on your boot menu…");
   setBusy(true);
   if (worker->state() == QProcess::Running) {
     worker->write(QJsonDocument(pending).toJson(QJsonDocument::Compact)+'\n'); pending = {};
@@ -438,6 +561,8 @@ void GrubEditor::readWorker() {
         // second request with the helper's single-use review token.
         QTimer::singleShot(0, appearance, [this, value] { appearance->reviewChanges(value["appearance_review"].toObject()); });
       }
+      if (value.contains("firmware_review")) QTimer::singleShot(0, this, [this, value] { reviewFirmware(value["firmware_review"].toObject()); });
+      if (operation == "refresh") QTimer::singleShot(0, this, &GrubEditor::loadTab);
     }
     else if (data.contains("error")) {
       status->setText(data["error"].toString());
@@ -469,12 +594,15 @@ void GrubEditor::result(const QJsonObject &data) {
     else if (operation == "refresh") selection->setText("Select Detect bootable systems to inspect this drive’s partitions.");
   }
   if (data.contains("revision")) revision = data["revision"].toString();
-  if (data.contains("menu_revision")) menuRevision = data["menu_revision"].toString();
+  if (data.contains("menu_revision")) {
+    if (menuRevision != data["menu_revision"].toString() && !data.contains("boot_options")) optionsRevision.clear();
+    menuRevision = data["menu_revision"].toString();
+  }
   if (data.contains("can_undo")) canUndo = data["can_undo"].toBool();
   if (data.contains("entries")) managedEntries = data["entries"].toArray();
   if (data.contains("current_entries")) {
     appearance->setMenu(data["current_entries"].toArray());
-    const auto previous = entry()["id"].toString();
+    const auto previousEntry = entry(); const auto previous = previousEntry["id"].toString();
     QHash<QString, QTreeWidgetItem *> rows;
     const QSignalBlocker guard(entries);
     entries->clear();
@@ -490,7 +618,10 @@ void GrubEditor::result(const QJsonObject &data) {
       if (auto *parent = rows.value(item["parent_id"].toString())) parent->addChild(row);
       else entries->addTopLevelItem(row);
       rows.insert(item["id"].toString(), row);
-      if (item["id"].toString() == previous || (operation == "add" && item["managed_id"] == system()["id"]))
+      const bool moved = operation == "move-current" && item["source"] == previousEntry["source"] &&
+        ((!item["menu_id"].toString().isEmpty() && item["menu_id"] == previousEntry["menu_id"]) ||
+         (item["name"] == previousEntry["name"] && item["commands"] == previousEntry["commands"]));
+      if (moved || (operation != "move-current" && item["id"].toString() == previous) || (operation == "add" && item["managed_id"] == system()["id"]))
         entries->setCurrentItem(row);
     }
     entries->expandAll();
@@ -528,4 +659,25 @@ void GrubEditor::result(const QJsonObject &data) {
       "Select an entry to edit, or open Add Entry to add another system."));
   if (data.contains("backup")) saved->setToolTip("Backup: "+data["backup"].toString());
   if (data.contains("appearance")) appearance->acceptResult(data["appearance"].toObject());
+  if (data.contains("boot_options")) {
+    const auto value = data["boot_options"].toObject(), options = value["options"].toObject();
+    optionsRevision = value["revision"].toString(); optionsCanUndo = value["can_undo"].toBool();
+    defaultEntry->clear();
+    for (const auto &choice : value["choices"].toArray()) defaultEntry->addItem(choice.toObject()["name"].toString(), choice.toObject()["value"].toString());
+    defaultEntry->setCurrentIndex(defaultEntry->findData(options["default"].toString()));
+    rememberSupported = value["remember_supported"].toBool(); rememberReason->setText(value["remember_reason"].toString());
+    rememberEntry->setChecked(options["remember"].toBool()); bootTimeout->setValue(options["timeout"].toInt(5));
+    timeoutStyle->setCurrentIndex(timeoutStyle->findData(options["style"].toString()));
+  }
+  if (data.contains("firmware")) {
+    const auto value = data["firmware"].toObject(); firmwareLoaded = true; firmwareAvailable = value["available"].toBool();
+    firmwareStatus->setText(value["scope"].toString()+"\n"+value["reason"].toString());
+    const auto selected = efiPartition->currentData(); efiPartition->clear();
+    for (const auto &part : value["partitions"].toArray()) { const auto p = part.toObject(); efiPartition->addItem(p["partition"].toString()+" · "+p["mount"].toString(), p["token"].toString()); }
+    if (efiPartition->findData(selected) >= 0) efiPartition->setCurrentIndex(efiPartition->findData(selected));
+    firmwareEntries->clear();
+    for (const auto &entry : value["entries"].toArray()) {
+      const auto e = entry.toObject(); new QTreeWidgetItem(firmwareEntries, {e["number"].toString(), e["label"].toString()+(e["active"].toBool() ? "" : " (disabled)"), e["loader"].toString()});
+    }
+  }
 }

@@ -13,6 +13,9 @@ class QProgressBar;
 class QPushButton;
 class QTabWidget;
 class GrubAppearance;
+class QComboBox;
+class QCheckBox;
+class QSpinBox;
 
 class GrubEditor final : public QWidget {
   Q_OBJECT
@@ -24,7 +27,7 @@ protected:
   void showEvent(QShowEvent *event) override;
   void resizeEvent(QResizeEvent *event) override;
 private:
-  QString helper, revision, menuRevision, operation;
+  QString helper, revision, menuRevision, operation, optionsRevision;
   QProcess *reader, *worker;
   QByteArray output, errors;
   QJsonObject pending;
@@ -38,6 +41,14 @@ private:
   QPushButton *refresh, *detect, *properties, *add, *load, *rename, *remove, *undo;
   QLabel *status, *mode, *selection, *saved, *notes, *driveCount, *entryDetails;
   QProgressBar *progress;
+  QComboBox *defaultEntry, *timeoutStyle, *efiPartition;
+  QCheckBox *rememberEntry, *firmwareFirst;
+  QSpinBox *bootTimeout;
+  QLineEdit *firmwareLabel;
+  QTreeWidget *firmwareEntries;
+  QLabel *rememberReason, *firmwareStatus;
+  QPushButton *moveUp, *moveDown, *optionsLoad, *optionsSave, *optionsUndo, *firmwareLoad, *firmwareRegister;
+  bool rememberSupported = false, optionsCanUndo = false, firmwareAvailable = false, firmwareLoaded = false;
   bool busy = false, supported = false, loaded = false, canUndo = false;
   void refreshDrives();
   void request(const QJsonObject &data);
@@ -51,6 +62,9 @@ private:
   void chooseSystem();
   void editEntry();
   void chooseEntry();
+  void moveEntry(int direction);
+  void loadTab();
+  void reviewFirmware(const QJsonObject &review);
   QJsonObject drive() const;
   QJsonObject system() const;
   QJsonObject entry() const;

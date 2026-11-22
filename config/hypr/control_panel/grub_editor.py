@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Drive discovery and transactional GRUB menu editing.
 
-The GUI owns the authenticated helper through its stdin pipe. Foreign disks are
-only read; this never installs a bootloader, changes a partition or writes EFI
-variables. Current-menu edits preserve surrounding configuration; Fusion-added
+The GUI owns the authenticated helper through its stdin pipe. Foreign-system
+discovery is read-only. Firmware registration has its own reviewed transaction;
+it never partitions a drive. Current-menu edits preserve surrounding configuration; Fusion-added
 entries also update our own generator. Every write is journaled and checked.
 All disk selections are re-discovered before saving.
 """
@@ -132,6 +132,22 @@ def secure_boot():
         return False
 
 
+def efi_device_path(text):
+    """Read efibootmgr's File() and raw path forms, excluding load options."""
+    match = re.search(r'HD\(\d+,GPT,([0-9a-fA-F-]+),[^)]*\)/(?:File\(([^)]+)\)|([\\/][^\t\r\n]+))', text, re.I)
+    if not match:
+        return None
+    path = (match[2] or match[3]).strip()
+    if match[3]:
+        # efivar's raw form appends optional data as hex without a separator,
+        # e.g. bootmgfw.efi57494e... or BOOTX64.EFI0000424f. File() is already
+        # delimited. Strip only a complete even-length hex suffix after .efi.
+        optional = re.fullmatch(r'(.+?\.efi)(?:[0-9a-f]{2})+', path, re.I)
+        if optional:
+            path = optional[1]
+    return match[1].lower(), path.replace('\\', '/').lower()
+
+
 def current_efi():
     try:
         output = command(['efibootmgr', '-v'], timeout=8).decode(errors='replace')
@@ -139,8 +155,7 @@ def current_efi():
         if not current:
             return None
         line = next(line for line in output.splitlines() if line.startswith('Boot'+current[1]))
-        match = re.search(r'HD\(\d+,GPT,([0-9a-fA-F-]+),[^)]*\)/(?:File\(([^)]+)\)|([\\/][^\t\r\n]+))', line, re.I)
-        return (match[1].lower(), (match[2] or match[3]).strip().replace('\\', '/').lower()) if match else None
+        return efi_device_path(line)
     except (OSError, RuntimeError, StopIteration, subprocess.TimeoutExpired):
         return None
 
@@ -417,6 +432,7 @@ def render_entry(entry):
             raise ValueError('Invalid bootloader path.')
     os_class = 'windows' if kind == 'legacy-windows' or '/microsoft/' in loader.lower() else 'gnu-linux'
     lines = [f'menuentry {quote(name)} --class {os_class} --id {quote(entry["id"])} {{',
+             '    if [ "${fusion_remember}" = true ]; then savedefault; fi # Fusion remember selection',
              '    insmod part_gpt', '    insmod part_msdos', f'    insmod {fs}',
              f'    if search --no-floppy --fs-uuid --set=root {quote(entry["uuid"])}; then']
     if kind == 'config': lines += ['        configfile '+quote(loader)]
@@ -568,6 +584,49 @@ def public_menu(text):
     return [{key: value for key, value in entry.items() if key not in private} for entry in menu_entries(text)]
 
 
+def move_menu(text, identity, direction):
+    """Move siblings, or whole generator sections, without moving setup code.
+
+    Conditional entries and entries separated by executable code cannot be
+    split apart. Moving across generators moves the complete source groups.
+    """
+    if type(direction) is not int or direction not in (-1, 1):
+        raise ValueError('Choose Move up or Move down.')
+    items = menu_entries(text)
+    selected = next((e for e in items if e['id'] == identity), None)
+    if selected is None: raise ValueError('Select an existing entry.')
+    if not selected['editable']: raise ValueError('Variable-generated entries cannot be reordered here.')
+    siblings = [e for e in items if e['parent_id'] == selected['parent_id']]
+    index = siblings.index(selected) + direction
+    if not 0 <= index < len(siblings): raise ValueError('This entry is already at the end of its menu.')
+    neighbor = siblings[index]
+    left, right = sorted((selected, neighbor), key=lambda e: e['start'])
+    group = left['source'] != right['source']
+    if group:
+        if left['parent_id'] or not left['source'] or not right['source']:
+            raise ValueError('Entries from different script scopes cannot be moved together.')
+        def section(entry):
+            pattern = r'^### BEGIN '+re.escape(entry['source'])+r' ###[ \t]*\n.*?^### END '+re.escape(entry['source'])+r' ###[ \t]*(?:\n|$)'
+            matches = list(re.finditer(pattern, text, re.M | re.S))
+            if len(matches) != 1: raise ValueError('This generator section cannot be safely reordered.')
+            m = matches[0]
+            # Header initialization must always precede the menu.
+            if not re.fullmatch(r'\d{2}_[\w.-]+', Path(entry['source']).name) or Path(entry['source']).name[:2] < '10':
+                raise ValueError('GRUB initialization sections must stay in their original order.')
+            return m.start(), m.end()
+        a, b = section(left); c, d = section(right)
+    else:
+        a, b, c, d = left['start'], left['end'], right['start'], right['end']
+        if any(t[0] not in ('\n', ';') for t in menu_tokens(text[b:c])):
+            raise ValueError('Setup commands or conditions separate these entries. Edit their generator to change this order.')
+    if b > c: raise ValueError('Overlapping GRUB sections cannot be reordered.')
+    revised = text[:a]+text[c:d]+text[b:c]+text[a:b]+text[d:]
+    # Moving declarations must preserve every entry and its source ownership.
+    signature = lambda s: sorted((e['name'], e['kind'], e['menu_id'], e['source']) for e in menu_entries(s))
+    if signature(revised) != signature(text): raise ValueError('This move would change the menu structure.')
+    return revised, group
+
+
 def edit_menu(text, identity, *, name=None, commands=None, remove=False):
     entries = menu_entries(text)
     selected = next((entry for entry in entries if entry['id'] == identity), None)
@@ -656,6 +715,23 @@ class Store:
         return {'config': str(self.config), 'entries': self.entries(), 'revision': self.revision(),
                 'current_entries': public_menu(text), 'menu_revision': digest(text.encode()),
                 'can_undo': (self.state/'last.json').is_file()}
+
+    def move_current(self, request, alive=lambda: None):
+        text = self.config.read_text()
+        if request.get('revision') != self.revision() or request.get('menu_revision') != digest(text.encode()):
+            raise RuntimeError('GRUB changed. Reload the menu before changing its order.')
+        revised, group = move_menu(text, request.get('id'), request.get('direction'))
+        self.check(revised)
+        targets = {k: (read_optional(p), stat.S_IMODE(p.stat().st_mode) if p.exists() else 0o600)
+                   for k, p in self.files().items()}
+        targets['config'] = (revised.encode(), stat.S_IMODE(self.config.stat().st_mode))
+        selected = next(e for e in menu_entries(text) if e['id'] == request['id'])
+        if selected['managed_id'] and not group:
+            order = [e['managed_id'] for e in menu_entries(revised) if e['managed_id']]
+            managed = sorted(self.entries(), key=lambda e: order.index(e['id']))
+            targets['entries'] = (encoded({'version': 1, 'entries': managed}), 0o600)
+            targets['generator'] = (('#!/bin/sh\nexec tail -n +3 "$0"\n'+render(managed)).encode(), 0o755)
+        return self.publish(targets, request['revision'], alive), group
 
     def check(self, text):
         with tempfile.NamedTemporaryFile(prefix='fusion-grub-check-', suffix='.cfg') as stream:
@@ -777,9 +853,9 @@ class Store:
                 raise RuntimeError('The undo history backup changed. Review fresh backups before applying.')
         atomic(self.state/'pending.json', encoded(record))
         try:
-            # Publish the complete validated configuration last. No source disk
-            # writes, grub-install, firmware edits or third-party scripts run.
-            for key in ('generator', 'entries', 'config'):
+            # Publish the complete validated configuration last. Subclasses
+            # include their own fixed, validated preference-file targets.
+            for key in [k for k in self.files() if k != 'config'] + ['config']:
                 data, mode = targets[key]; path = self.files()[key]
                 if data is None: path.unlink(missing_ok=True)
                 elif data != read_optional(path) or stat.S_IMODE(path.stat().st_mode) != mode:
@@ -832,13 +908,50 @@ def status_payload():
 
 class Session:
     def __init__(self):
+        # The authenticated worker starts with Python -I (no script directory).
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
         self.store = Store()
         self.appearance_plan = None
+        self.firmware_plan = None
         private_mounts()
 
     def handle(self, request):
         action = request.get('action')
         with self.store.locked():
+            # Finish any interrupted preference transaction before another
+            # menu action reads or edits its shared grub.cfg.
+            if (self.store.root/'var/lib/hyper-fusion/grub-preferences/pending.json').exists():
+                from grub_preferences import Preferences
+                with Preferences(self.store.root, self.store.checker).locked(): pass
+            if action in ('boot-options-load', 'boot-options-save', 'boot-options-undo'):
+                from grub_preferences import Preferences
+                preferences = Preferences(self.store.root, self.store.checker)
+                with preferences.locked():
+                    if action == 'boot-options-save':
+                        backup = preferences.save(request, client_alive)
+                        message = 'Boot preferences saved. Your GRUB theme and entry commands are kept.'
+                    elif action == 'boot-options-undo':
+                        preferences.undo(request.get('options_revision'), client_alive)
+                        backup = ''; message = 'The previous boot preferences were restored.'
+                    else: backup = ''; message = 'Boot preferences loaded.'
+                    return {**self.store.status(), 'boot_options': preferences.options_status(), 'backup': backup, 'message': message}
+            if isinstance(action, str) and action.startswith('firmware-'):
+                from grub_firmware import Firmware
+                firmware_editor = Firmware(self.store)
+                if action == 'firmware-load':
+                    return {'firmware': firmware_editor.status(), 'message': 'UEFI firmware and mounted EFI partitions loaded.'}
+                if action == 'firmware-review':
+                    self.firmware_plan = None
+                    self.firmware_plan = firmware_editor.prepare(request, client_alive)
+                    return {'firmware_review': self.firmware_plan['review'], 'message': 'Review the EFI loader and firmware entry before registering.'}
+                if action == 'firmware-cancel':
+                    self.firmware_plan = None
+                    return {'message': 'Cancelled. EFI files and firmware entries are unchanged.'}
+                if action == 'firmware-confirm':
+                    plan, self.firmware_plan = self.firmware_plan, None
+                    report = firmware_editor.install(plan, request.get('token'), client_alive)
+                    return {'firmware': firmware_editor.status(), 'message': report}
+                raise ValueError('Unknown firmware action.')
             if isinstance(action, str) and action.startswith('appearance-'):
                 # Share the menu editor lock, so appearance and entry changes
                 # cannot race. Appearance keeps a separate undo history.
@@ -917,6 +1030,11 @@ class Session:
                 backup = self.store.edit_current(request, client_alive)
                 return {**self.store.status(), 'backup': backup,
                         'message': 'Saved. Your current GRUB menu is ready for the next restart.'}
+            elif action == 'move-current':
+                backup, group = self.store.move_current(request, client_alive)
+                return {**self.store.status(), 'backup': backup,
+                        'message': ('Source groups moved together to keep their boot commands intact. ' if group else 'Entry order saved. ')+
+                                   'Regenerating GRUB may restore system-generated ordering.'}
             elif action == 'undo':
                 self.store.undo(request.get('revision'), client_alive)
                 return {**self.store.status(), 'message': 'The last GRUB change was undone.'}

@@ -19,7 +19,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | Ventoy USB | Bundled offline engine for creating and updating multiboot USB disks. USB identity and system-disk checks, exact-disk erase confirmation, MBR/GPT and Secure Boot options, progress logs and Open in Fusion Files. [Guide and source →](../config/hypr/control_panel/ventoy/README.md) |
 | System Backup / System Restore | Source/destination drives, filesystem browsing, rsync backup and restore |
 | Drives & Storage | Filters, mounts, labels, formatting, ownership/permissions, SMART health, benchmarking and ISO to USB |
-| GRUB Boot Editor | Current Grub: edit names or boot commands and remove existing entries. Add Entry: detect and add another drive's Windows/Linux bootloader. Backups and undo; system-generated edits can be replaced by GRUB regeneration. [Guide →](GRUB-BOOT-EDITOR.md) |
+| GRUB Boot Editor | Automatically loads the menu after authentication. Edit names, commands and ordering; choose a default, timeout or remembered selection; add other systems or register this Linux installation in UEFI. Includes appearance, backups and undo. [Guide →](GRUB-BOOT-EDITOR.md) |
 | Restore Points | Snapper/Btrfs snapshot management |
 | Logs & Reports | Plain-text hardware reports, decoded login history, journal filters, boot selection and live following |
 | System Overview | Health, resource use, quick actions and language selection |

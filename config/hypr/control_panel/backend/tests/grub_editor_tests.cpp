@@ -70,7 +70,11 @@ private slots:
   void appearanceFitsInControlPanelHost() {
     const auto helper = QFINDTESTDATA("../../grub_editor.py"); QVERIFY(!helper.isEmpty());
     QScrollArea host; host.setWidgetResizable(true);
-    auto *page = new GrubEditor(helper); host.setWidget(page);
+    QTemporaryDir fixture;
+    QVERIFY(QFile::link(QFileInfo(helper).dir().filePath("grub_appearance.py"), fixture.filePath("grub_appearance.py")));
+    QFile fake(fixture.filePath("helper.py")); QVERIFY(fake.open(QIODevice::WriteOnly));
+    fake.write("import sys,json\nfor line in sys.stdin: print(json.dumps(dict(result=dict(supported=True,drives=[],current_entries=[dict(id='linux',name='Linux',kind='menuentry')],revision='fixture',menu_revision='fixture'))),flush=True)\n"); fake.close();
+    auto *page = new GrubEditor(fake.fileName()); host.setWidget(page);
     QProcess theme; theme.start("python3", {QFileInfo(helper).dir().filePath("bridge.py"), "theme"});
     QVERIFY(theme.waitForFinished(10000));
     const auto styling = QJsonDocument::fromJson(theme.readAllStandardOutput()).object();
@@ -122,7 +126,7 @@ else:
  for line in sys.stdin:
   request=json.loads(line)
   with (root/'calls').open('a') as log: log.write(line)
-  if request['action']=='appearance-load':
+  if request['action'] in ('refresh','appearance-load'):
    if (root/'cancel-next').exists():
     (root/'cancel-next').unlink();sys.exit(126)
    emit(dict(result=dict(state,appearance=dict(active=True,can_undo=True,revision='existing-design'),message='GRUB menu loaded.')))
@@ -138,33 +142,19 @@ else:
     page.findChild<QTabWidget *>("grubTabs")->setCurrentIndex(2); page.show();
     auto *apply = page.findChild<QPushButton *>("grubAppearanceApply");
     QTRY_VERIFY_WITH_TIMEOUT(page.findChild<QListWidget *>("grubAppearanceThemes")->count() >= 9, 10000);
+    if (cancelOnce) {
+      QTRY_VERIFY_WITH_TIMEOUT(page.findChild<QLabel *>("grubStatus")->text().contains("cancelled"), 10000);
+      page.findChild<QPushButton *>("grubLoad")->click();
+    }
     QTRY_VERIFY_WITH_TIMEOUT(apply->isEnabled(), 10000);
     auto *heading = page.findChild<QLineEdit *>("grubAppearanceHeading"); heading->setText("Keep my selected design");
     auto *caption = page.findChild<QLabel *>("grubPreviewStatus");
-    if (privateMenu) {
-      QCOMPARE(apply->text(), QString("Load GRUB menu…"));
-      QTRY_VERIFY(caption->text().contains("authenticate"));
-      auto *tabs = page.findChild<QTabWidget *>("grubTabs"); tabs->setCurrentIndex(0); tabs->setCurrentIndex(2);
-      QVERIFY(page.findChild<QLabel *>("grubStatus")->text().contains("Administrator access"));
-      QVERIFY(!QFile::exists(fixture.filePath("calls"))); // Switching tabs does not prompt.
-      if (cancelOnce) {
-        apply->click();
-        QTRY_VERIFY_WITH_TIMEOUT(page.findChild<QLabel *>("grubStatus")->text().contains("cancelled"), 10000);
-        QVERIFY(apply->isEnabled()); QCOMPARE(apply->text(), QString("Load GRUB menu…"));
-        QCOMPARE(heading->text(), QString("Keep my selected design"));
-        QVERIFY(!QFile::exists(fixture.filePath("confirmed")));
-      }
-      apply->click();
-      QTRY_COMPARE_WITH_TIMEOUT(apply->text(), QString("Review && apply…"), 10000);
-      QTRY_VERIFY_WITH_TIMEOUT(apply->isEnabled(), 10000);
-      QVERIFY(page.findChild<QPushButton *>("grubAppearanceSystem")->isEnabled());
-      QVERIFY(page.findChild<QPushButton *>("grubAppearanceUndo")->isEnabled());
-      QCOMPARE(heading->text(), QString("Keep my selected design"));
-      QVERIFY(caption->text().contains("Your current boot entries"));
-      QVERIFY(!QFile::exists(fixture.filePath("confirmed")));
-    }
+    QTRY_COMPARE_WITH_TIMEOUT(apply->text(), QString("Review && apply…"), 10000);
     QTRY_VERIFY_WITH_TIMEOUT(apply->isEnabled(), 10000);
-    const int loadingRequests = (privateMenu ? 1 : 0)+(cancelOnce ? 1 : 0);
+    QCOMPARE(heading->text(), QString("Keep my selected design"));
+    QVERIFY(caption->text().contains("Your current boot entries"));
+    QVERIFY(!QFile::exists(fixture.filePath("confirmed")));
+    const int loadingRequests = 1+(cancelOnce ? 1 : 0);
     bool reviewed = false;
     QTimer confirm; confirm.setInterval(20);
     connect(&confirm, &QTimer::timeout, &page, [&] {
@@ -180,7 +170,7 @@ else:
     QFile calls(fixture.filePath("calls")); QVERIFY(calls.open(QIODevice::ReadOnly));
     const auto lines = calls.readAll().trimmed().split('\n'); QCOMPARE(lines.size(), loadingRequests+2);
     for (int i=0; i<loadingRequests; ++i)
-      QCOMPARE(QJsonDocument::fromJson(lines[i]).object()["action"].toString(), QString("appearance-load"));
+      QCOMPARE(QJsonDocument::fromJson(lines[i]).object()["action"].toString(), QString("refresh"));
     const auto review = QJsonDocument::fromJson(lines[loadingRequests]).object();
     QCOMPARE(review["operation"].toString(), QString("apply"));
     QCOMPARE(review["options"].toObject()["heading"].toString(), QString("Keep my selected design"));
@@ -244,7 +234,8 @@ else:
         with (root/'calls').open('a') as log: log.write(line)
         emit(dict(progress='Inspecting test drive'))
         time.sleep(.1)
-        if request['action']=='scan':
+        if request['action']=='refresh' and state['revision']=='original': emit(dict(result=state))
+        elif request['action']=='scan':
             systems=[dict(id='windows',title='Windows Boot Manager',available=True,drive='/dev/fixture',drive_token='disk-token',loader_hash='loader-verified',loader='/EFI/Microsoft/Boot/bootmgfw.efi',kind='efi',partition='/dev/fixture1'),
                      dict(id='linux',title='Linux test system',available=True,drive='/dev/fixture',drive_token='disk-token',loader_hash='linux-verified',loader='/boot/grub/grub.cfg',kind='config',partition='/dev/fixture2')]
             emit(dict(result=dict(state,candidates=systems,notes=[])))
@@ -264,7 +255,7 @@ else:
     auto *tabs = page.findChild<QTabWidget *>("grubTabs");
     auto *status = page.findChild<QLabel *>("grubStatus");
     QTRY_COMPARE(drives->topLevelItemCount(), 8);
-    QCOMPARE(tabs->count(), 3); QCOMPARE(tabs->tabText(0), QString("Current Grub"));
+    QCOMPARE(tabs->count(), 5); QCOMPARE(tabs->tabText(0), QString("Current Grub"));
     QCOMPARE(tabs->tabText(2), QString("Appearance"));
     QCOMPARE(tabs->tabText(1), QString("Add Entry")); QCOMPARE(tabs->currentIndex(), 0);
     QCOMPARE(entries->topLevelItemCount(), 1); QCOMPARE(entries->topLevelItem(0)->text(0), QString("Existing Linux"));
@@ -283,7 +274,7 @@ else:
     }
     QCOMPARE(drives->topLevelItem(0)->text(3), QString("Not mounted"));
     QCOMPARE(drives->topLevelItem(1)->text(3), QString("Current system"));
-    QVERIFY(!QFile::exists(fixture.filePath("calls"))); // Browsing never authenticates or writes.
+    QVERIFY(QFile::exists(fixture.filePath("calls"))); // Entry automatically authenticates for reading.
     QVERIFY(!add->isEnabled());
     drives->setCurrentItem(drives->topLevelItem(0));
     bool sawProperties = false;
@@ -313,7 +304,8 @@ else:
     QApplication::sendEvent(drives->viewport(), &context);
     QVERIFY(sawProperties); QCOMPARE(filesystem, QString("ext4")); QCOMPARE(volumeLabel, QString("Other Linux"));
     QCOMPARE(diskId, QString("nvme-Fixture")); QCOMPARE(uuid, QString("ABCD-1234"));
-    QVERIFY(!QFile::exists(fixture.filePath("calls"))); // Properties require no elevated helper.
+    { QFile log(fixture.filePath("calls")); QVERIFY(log.open(QIODevice::ReadOnly));
+      QCOMPARE(log.readAll().trimmed().split('\n').size(), 1); } // Properties add no request.
     page.findChild<QPushButton *>("grubDetect")->click();
     QTRY_COMPARE(systems->count(), 2);
     QTRY_VERIFY(add->isEnabled());
@@ -327,8 +319,8 @@ else:
     QTRY_VERIFY(drives->isEnabled());
     QVERIFY(status->text().startsWith("Saved."));
     QFile calls(fixture.filePath("calls")); QVERIFY(calls.open(QIODevice::ReadOnly));
-    const auto lines = calls.readAll().trimmed().split('\n'); QCOMPARE(lines.size(), 2);
-    const auto request = QJsonDocument::fromJson(lines[1]).object();
+    const auto lines = calls.readAll().trimmed().split('\n'); QCOMPARE(lines.size(), 3);
+    const auto request = QJsonDocument::fromJson(lines[2]).object();
     QCOMPARE(request["action"].toString(), QString("add"));
     QCOMPARE(request["candidate"].toString(), QString("linux"));
     QCOMPARE(request["name"].toString(), QString("My Linux drive"));
@@ -356,6 +348,8 @@ else:
     for line in sys.stdin:
         request=json.loads(line)
         with (root/'calls').open('a') as stream: stream.write(line)
+        if request['action']=='refresh':
+            emit(dict(result=state));continue
         if request['action']=='edit-current':
             native.update(name=request['name'],commands=request.get('commands',native['commands']))
         elif request['action']=='remove-current':
@@ -368,9 +362,10 @@ else:
     auto *entries = page.findChild<QTreeWidget *>("grubEntries");
     auto *edit = page.findChild<QPushButton *>("grubEdit");
     QTRY_COMPARE(entries->topLevelItemCount(), 2); QVERIFY(edit->isEnabled());
-    QVERIFY(!QFile::exists(fixture.filePath("calls")));
+    QVERIFY(QFile::exists(fixture.filePath("calls")));
     QTimer::singleShot(0, &page, [&] { page.findChild<QDialog *>("grubEditDialog")->reject(); });
-    edit->click(); QVERIFY(!QFile::exists(fixture.filePath("calls")));
+    edit->click();
+    { QFile log(fixture.filePath("calls")); QVERIFY(log.open(QIODevice::ReadOnly)); QCOMPARE(log.readAll().trimmed().split('\n').size(), 1); }
     QTimer::singleShot(0, &page, [&] {
       auto *dialog = page.findChild<QDialog *>("grubEditDialog"); QVERIFY(dialog);
       dialog->findChild<QLineEdit *>("grubEditName")->setText("My main Linux");
@@ -381,7 +376,7 @@ else:
     edit->click();
     QTRY_COMPARE(entries->topLevelItem(0)->text(0), QString("My main Linux"));
     QFile calls(fixture.filePath("calls")); QVERIFY(calls.open(QIODevice::ReadOnly));
-    const auto request = QJsonDocument::fromJson(calls.readLine()).object(); calls.close();
+    calls.readLine(); const auto request = QJsonDocument::fromJson(calls.readLine()).object(); calls.close();
     QCOMPARE(request["action"].toString(), QString("edit-current"));
     QCOMPARE(request["menu_revision"].toString(), QString("public-menu"));
     QCOMPARE(request["commands"].toString(), QString("linux /vmlinuz root=UUID=fixture quiet"));
@@ -394,6 +389,83 @@ else:
     QTRY_COMPARE(entries->topLevelItemCount(), 1);
     QCOMPARE(entries->topLevelItem(0)->text(0), QString("My main Linux"));
   }
+  void preferencesAndFirmwareReview() {
+    QTemporaryDir fixture;
+    QFile helper(fixture.filePath("helper.py")); QVERIFY(helper.open(QIODevice::WriteOnly));
+    helper.write(R"PY(import json,sys
+from pathlib import Path
+root=Path(__file__).parent
+entries=[dict(id='linux',name='My Linux',menu_id='linux',kind='menuentry',editable=True,source='fixture',commands='linux /vmlinuz'),dict(id='windows',name='Windows',menu_id='windows',kind='menuentry',editable=True,source='fixture',commands='chainloader /bootmgfw.efi')]
+state=dict(supported=True,mode='uefi',drives=[],entries=[],current_entries=entries,revision='menu',menu_revision='menu',config='/boot/grub/grub.cfg')
+options=dict(revision='options',remember_supported=True,remember_reason='Supported fixture volume',can_undo=False,choices=[dict(name='My Linux',value='linux'),dict(name='Windows',value='windows')],options=dict(default='linux',remember=False,timeout=5,style='menu'))
+firmware=dict(available=True,scope='Fixture VM firmware only',reason='',entries=[dict(number='0001',label='Windows Boot Manager',active=True,loader='/EFI/Microsoft/Boot/bootmgfw.efi')],partitions=[dict(partition='/dev/test1',mount='/efi',token='esp-token')])
+def emit(value): print(json.dumps(dict(result=value)),flush=True)
+for line in sys.stdin:
+ request=json.loads(line)
+ with (root/'calls').open('a') as f:f.write(line)
+ action=request['action']
+ if action=='refresh':emit(state)
+ elif action=='move-current':
+  entries.reverse();emit(state)
+ elif action=='boot-options-load':emit(dict(state,boot_options=options))
+ elif action=='boot-options-save':
+  (root/'preferences').write_text(json.dumps(request));options['options']=request['options'];emit(dict(state,boot_options=options))
+ elif action=='firmware-load':emit(dict(firmware=firmware))
+ elif action=='firmware-review':emit(dict(firmware_review=dict(token='one-review',label=request['label'],partition='/dev/test1',target='/efi/EFI/HyperFusion-fixture/grubx64.efi',config='/boot/grub/grub.cfg',filesystem_uuid='test-uuid',backup='/private/backup',priority='Keep existing boot priority',scope=firmware['scope'])))
+ elif action=='firmware-cancel':emit(dict(message='Cancelled. Firmware unchanged.'))
+ elif action=='firmware-confirm':
+  (root/'registered').write_text(request['token']);emit(dict(firmware=firmware,message='Registered fixture'))
+)PY"); helper.close();
+    GrubEditor page(helper.fileName()); page.resize(1100, 780); page.show();
+    auto *tabs = page.findChild<QTabWidget *>("grubTabs");
+    auto *entries = page.findChild<QTreeWidget *>("grubEntries");
+    QTRY_COMPARE(entries->topLevelItemCount(), 2);
+    QFile calls(fixture.filePath("calls")); QVERIFY(calls.open(QIODevice::ReadOnly));
+    QCOMPARE(QJsonDocument::fromJson(calls.readLine()).object()["action"].toString(), QString("refresh")); calls.close();
+    page.hide(); page.show(); QTest::qWait(50);
+    QVERIFY(calls.open(QIODevice::ReadOnly)); QCOMPARE(calls.readAll().trimmed().split('\n').size(), 1); calls.close();
+    page.findChild<QPushButton *>("grubMoveDown")->click(); QTRY_COMPARE(entries->topLevelItem(0)->text(0), QString("Windows"));
+    QCOMPARE(entries->currentItem()->text(0), QString("My Linux"));
+    tabs->setCurrentIndex(3);
+    auto *apply = page.findChild<QPushButton *>("grubOptionsSave"); QTRY_VERIFY(apply->isEnabled());
+    page.findChild<QComboBox *>("grubDefaultEntry")->setCurrentIndex(1);
+    page.findChild<QCheckBox *>("grubRememberEntry")->setChecked(true);
+    page.findChild<QSpinBox *>("grubTimeout")->setValue(12);
+    QVERIFY(!QFile::exists(fixture.filePath("preferences"))); apply->click();
+    QTRY_VERIFY(QFile::exists(fixture.filePath("preferences")));
+    QFile preferences(fixture.filePath("preferences")); QVERIFY(preferences.open(QIODevice::ReadOnly));
+    const auto req = QJsonDocument::fromJson(preferences.readAll()).object();
+    QCOMPARE(req["options_revision"].toString(), QString("options"));
+    QCOMPARE(req["options"].toObject()["default"].toString(), QString("windows"));
+    QVERIFY(req["options"].toObject()["remember"].toBool());
+    QTRY_VERIFY(apply->isEnabled()); tabs->setCurrentIndex(4);
+    auto *review = page.findChild<QPushButton *>("grubFirmwareRegister"); QTRY_VERIFY(review->isEnabled());
+    QVERIFY(page.findChild<QLabel *>("grubFirmwareStatus")->text().contains("VM firmware only"));
+    QVERIFY(!page.findChild<QCheckBox *>("grubFirmwareFirst")->isChecked());
+    QCOMPARE(page.findChild<QTreeWidget *>("grubFirmwareEntries")->topLevelItemCount(), 1);
+    for (const QSize size : {QSize(1000, 700), QSize(1400, 800)}) {
+      page.resize(size); QTest::qWait(30);
+      QVERIFY(page.rect().contains(QRect(review->mapTo(&page, QPoint()), review->size())));
+    }
+    if (qEnvironmentVariableIsSet("FUSION_GRUB_FIRMWARE_SCREENSHOT")) QVERIFY(page.grab().save(qEnvironmentVariable("FUSION_GRUB_FIRMWARE_SCREENSHOT")));
+    bool seen = false;
+    QTimer modal; modal.setInterval(20);
+    connect(&modal, &QTimer::timeout, &page, [&] {
+      auto *dialog = page.findChild<QDialog *>("grubFirmwareReview"); if (!dialog) return;
+      modal.stop(); seen = true; QVERIFY(!QFile::exists(fixture.filePath("registered")));
+      QVERIFY(dialog->findChild<QPlainTextEdit *>("grubFirmwareReviewDetails")->toPlainText().contains("/efi/EFI/HyperFusion")); dialog->reject();
+    });
+    modal.start(); review->click(); QTRY_VERIFY(seen);
+    QTRY_VERIFY(page.findChild<QLabel *>("grubStatus")->text().contains("Cancelled"));
+    QVERIFY(!QFile::exists(fixture.filePath("registered")));
+    disconnect(&modal, nullptr, &page, nullptr);
+    connect(&modal, &QTimer::timeout, &page, [&] {
+      auto *dialog = page.findChild<QDialog *>("grubFirmwareReview"); if (!dialog) return;
+      modal.stop(); dialog->findChild<QPushButton *>("grubFirmwareConfirm")->click();
+    });
+    modal.start(); review->click(); QTRY_VERIFY(QFile::exists(fixture.filePath("registered")));
+    QFile registered(fixture.filePath("registered")); QVERIFY(registered.open(QIODevice::ReadOnly)); QCOMPARE(registered.readAll(), QByteArray("one-review"));
+  }
   void cancelledAuthentication() {
     QTemporaryDir fixture;
     QFile helper(fixture.filePath("helper.py")); QVERIFY(helper.open(QIODevice::WriteOnly));
@@ -401,12 +473,12 @@ else:
     helper.close();
     GrubEditor page(helper.fileName()); page.show();
     page.findChild<QTabWidget *>("grubTabs")->setCurrentIndex(1);
-    auto *drives = page.findChild<QTreeWidget *>("grubDrives"); QTRY_COMPARE(drives->topLevelItemCount(), 1);
-    drives->setCurrentItem(drives->topLevelItem(0));
-    page.findChild<QPushButton *>("grubDetect")->click();
     QTRY_VERIFY(page.findChild<QLabel *>("grubStatus")->text().contains("cancelled"));
-    QVERIFY(!page.findChild<QPushButton *>("grubAdd")->isEnabled()); QVERIFY(drives->isEnabled());
-    QVERIFY(page.findChild<QPushButton *>("grubDetect")->isEnabled());
+    QVERIFY(!page.findChild<QPushButton *>("grubAdd")->isEnabled());
+    QVERIFY(page.findChild<QPushButton *>("grubLoad")->isEnabled());
+    page.findChild<QPushButton *>("grubLoad")->click();
+    QTRY_VERIFY(page.findChild<QLabel *>("grubStatus")->text().contains("cancelled"));
+
   }
 };
 QTEST_MAIN(GrubEditorTests)

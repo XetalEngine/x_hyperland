@@ -5,12 +5,16 @@ Explicit integration check (not part of ordinary unit-test discovery). Needs
 QEMU, GRUB BIOS/EFI tools, OVMF, xorriso, mtools and mke2fs. Runs without root.
 """
 from pathlib import Path
+from contextlib import nullcontext
+import os
 import shutil
 import subprocess
 import tempfile
 import time
 
 import grub_editor as grub
+import grub_firmware as efi
+import grub_preferences as preferences
 
 SERIAL = 'serial --unit=0 --speed=115200\nterminal_output serial\n'
 
@@ -22,9 +26,11 @@ def run(*args):
 
 def boot(root, name, drives, marker, firmware=(), qemu=None):
     log=root/(name+'.log')
-    qemu=qemu or shutil.which('qemu-system-x86_64')
+    qemu=qemu or os.environ.get('FUSION_GRUB_QEMU') or shutil.which('qemu-system-x86_64')
+    if not qemu: raise RuntimeError('Install QEMU or set FUSION_GRUB_QEMU to its executable.')
+    data = ['-L', os.environ['FUSION_GRUB_QEMU_DATA']] if os.environ.get('FUSION_GRUB_QEMU_DATA') else []
     args=[qemu,'-no-user-config','-machine','q35,accel=tcg','-m','256','-display','none','-monitor','none','-parallel','none',
-          '-serial','file:'+str(log),'-nic','none','-no-reboot',*firmware,*drives]
+          '-serial','file:'+str(log),'-nic','none','-no-reboot',*data,*firmware,*drives]
     process=subprocess.Popen(args,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     try:
         until=time.monotonic()+35
@@ -43,7 +49,9 @@ def boot(root, name, drives, marker, firmware=(), qemu=None):
 
 
 def main():
-    with tempfile.TemporaryDirectory(prefix='fusion-grub-boot-') as directory:
+    output = os.environ.get('FUSION_GRUB_TEST_OUTPUT')
+    if output: Path(output).mkdir(parents=True, exist_ok=False)
+    with (nullcontext(output) if output else tempfile.TemporaryDirectory(prefix='fusion-grub-boot-')) as directory:
         root=Path(directory)
         # UEFI: a real GRUB EFI program chainloads a second EFI program using
         # precisely the same rendered command used for Windows/shim loaders.
@@ -61,8 +69,9 @@ def main():
         run('mmd','-i',fat,'::/EFI','::/EFI/BOOT','::/EFI/target')
         run('mcopy','-i',fat,first,'::/EFI/BOOT/BOOTX64.EFI')
         run('mcopy','-i',fat,loader,'::/EFI/target/grubx64.efi')
-        ovmf=next(Path(p) for p in ('/usr/share/OVMF/OVMF_CODE.fd','/usr/share/edk2/x64/OVMF_CODE.4m.fd') if Path(p).is_file())
-        vars_source=ovmf.with_name(ovmf.name.replace('CODE','VARS'))
+        ovmf=next((Path(p) for p in (os.environ.get('FUSION_GRUB_OVMF_CODE',''), '/usr/share/OVMF/OVMF_CODE.fd','/usr/share/edk2/x64/OVMF_CODE.4m.fd') if p and Path(p).is_file()), None)
+        if ovmf is None: raise RuntimeError('Install OVMF, or set FUSION_GRUB_OVMF_CODE and FUSION_GRUB_OVMF_VARS to a matching firmware/template pair.')
+        vars_source=Path(os.environ['FUSION_GRUB_OVMF_VARS']) if os.environ.get('FUSION_GRUB_OVMF_VARS') else ovmf.with_name(ovmf.name.replace('CODE','VARS'))
         variables=root/'vars.fd';shutil.copyfile(vars_source,variables)
         boot(root,'UEFI chainload',['-drive',f'file={fat},format=raw'], 'FUSION_EFI_TARGET_REACHED',
              ['-drive',f'if=pflash,format=raw,readonly=on,file={ovmf}','-drive',f'if=pflash,format=raw,file={variables}'])
@@ -92,6 +101,46 @@ def main():
         boot(root,'UEFI Linux menu',['-drive',f'file={fat},format=raw','-drive',f'file={linux},format=raw'],
              'FUSION_LINUX_MENU_REACHED',
              ['-drive',f'if=pflash,format=raw,readonly=on,file={ovmf}','-drive',f'if=pflash,format=raw,file={variables}'])
+        # This is the new registration image's embedded script, with an actual
+        # UUID handoff to a separate filesystem (never the host's /boot).
+        # Registration also supplies missing EFI modules, as for a Linux disk
+        # originally installed with BIOS GRUB in a VM.
+        support = tree/'boot/grub/x86_64-efi'; support.mkdir()
+        for source in Path('/usr/lib/grub/x86_64-efi').iterdir():
+            # A normal x86_64 grub-install omits this empty build index.
+            # Exercise the layout produced by both ISO installer editions.
+            if source.name == 'fdt.lst' and not source.read_bytes(): continue
+            if source.suffix in ('.mod', '.lst') or source.name == 'modinfo.sh': shutil.copyfile(source, support/source.name)
+        run('mke2fs','-q','-t','ext4','-U',fs_uuid,'-d',tree,linux)
+        start.write_text(SERIAL+efi.loader_config(fs_uuid, '/boot/grub/grub.cfg'))
+        run('grub-script-check', start)
+        run('grub-mkstandalone','-O','x86_64-efi','--locales=','--fonts=',
+            '--modules=part_gpt part_msdos search search_fs_uuid configfile normal loadenv linux chain',
+            '-o',first,'boot/grub/grub.cfg='+str(start))
+        run('mcopy','-o','-i',fat,first,'::/EFI/BOOT/BOOTX64.EFI')
+        shutil.copyfile(vars_source,variables)
+        boot(root,'UEFI current-system registration loader',['-drive',f'file={fat},format=raw','-drive',f'file={linux},format=raw'],
+             'FUSION_LINUX_MENU_REACHED',
+             ['-drive',f'if=pflash,format=raw,readonly=on,file={ovmf}','-drive',f'if=pflash,format=raw,file={variables}'])
+        # Two real boots prove saved selection is written to grubenv and then
+        # loaded. The first boot chooses B; the second offers A as the fallback.
+        # Saved B must still win. All writes stay inside this disposable FAT.
+        run('mmd','-i',fat,'::/boot','::/boot/grub')
+        run('mcopy','-s','-i',fat,support,'::/boot/grub')
+        env = root/'grubenv'; run('grub-editenv',env,'create')
+        run('mcopy','-i',fat,env,'::/boot/grub/grubenv')
+        for i in range(2):
+            text = SERIAL+'search --fs-uuid --set=root CABF-1234\nset prefix=($root)/boot/grub\nload_env\n'
+            text += "menuentry 'A' --id a { linux /missing; }\nmenuentry 'B' --id b { echo FUSION_SAVED_B; halt; }\n"
+            # B is a synthetic OS entry; add its normal savedefault call while
+            # keeping this test independent of a kernel image.
+            text = text.replace('echo FUSION_SAVED_B;', 'savedefault; echo FUSION_SAVED_B;')
+            text = preferences.apply_to_menu(text, {'default': 'b' if i == 0 else 'a', 'remember': True, 'timeout': 0, 'style': 'menu'})
+            start.write_text(text); run('grub-script-check', start)
+            run('grub-mkstandalone','-O','x86_64-efi','--modules=loadenv search search_fs_uuid fat', '-o',first,'boot/grub/grub.cfg='+str(start))
+            run('mcopy','-o','-i',fat,first,'::/EFI/BOOT/BOOTX64.EFI'); shutil.copyfile(vars_source,variables)
+            boot(root,'UEFI remembered selection boot '+str(i+1),['-drive',f'file={fat},format=raw'], 'FUSION_SAVED_B',
+                 ['-drive',f'if=pflash,format=raw,readonly=on,file={ovmf}','-drive',f'if=pflash,format=raw,file={variables}'])
         # Exercise Current Grub's exact-range removal and command editing in
         # real GRUB, keeping the independently maintained target menu bootable.
         edited = SERIAL+'set default=0\nset timeout=0\n'+"menuentry 'Obsolete' { echo obsolete; halt; }\n"+grub.render_entry(item)
