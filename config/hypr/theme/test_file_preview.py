@@ -9,7 +9,7 @@ from PyQt6 import sip
 from PyQt6.QtCore import QSettings, QTimer, Qt
 from PyQt6.QtGui import QImage
 from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication, QDialogButtonBox, QFileDialog, QLineEdit, QScrollArea
+from PyQt6.QtWidgets import QApplication, QComboBox, QDialogButtonBox, QFileDialog, QLineEdit, QScrollArea, QWidget
 import file_preview as preview
 from image_picker import ImagePicker
 
@@ -110,6 +110,24 @@ class PreviewTests(unittest.TestCase):
                                                       options=QFileDialog.Option.DontUseNativeDialog)
         guard.stop(); self.assertEqual(observed, [True])
         self.assertEqual(filename, str(self.picture)); self.assertEqual(filter, 'Images (*.png)')
+
+    def test_long_image_filter_and_restored_geometry_stay_on_parent_screen(self):
+        parent=QWidget();parent.resize(640,440);parent.show()
+        formats='Images ('+' '.join('*.imageformat'+str(i) for i in range(120))+' *.png)'
+        dialog=ImagePicker(parent,'Open image',str(self.root),formats+';;All files (*)')
+        dialog.resize(5000,1800);dialog.selectFile(str(self.picture));dialog.show();QTest.qWait(180)
+        area=parent.screen().availableGeometry()
+        self.assertLessEqual(dialog.width(),area.width()-32)
+        self.assertLessEqual(dialog.height(),area.height()-32)
+        self.assertEqual(dialog.screen(),parent.screen())
+        self.assertEqual(dialog.selectedNameFilter(),formats)
+        self.assertEqual(dialog.selectedFiles(),[str(self.picture)])
+        self.assertEqual(dialog.findChild(QComboBox,'fileTypeCombo').currentText(),'Images')
+        # A subsequent oversized restore/map cannot bypass the display bound.
+        dialog.hide();dialog.resize(6000,2200);dialog.show();QTest.qWait(180)
+        self.assertLessEqual(dialog.width(),area.width()-32)
+        self.assertLessEqual(dialog.height(),area.height()-32)
+        dialog.reject();sip.delete(dialog);parent.close();sip.delete(parent)
 
     def test_switching_selection_and_closing_during_work(self):
         started = threading.Event(); release = threading.Event(); inspect = preview.inspect_path

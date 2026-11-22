@@ -37,6 +37,39 @@ class PresetTests(unittest.TestCase):
             self.assertEqual(presets.builtin(design,root=self.root)['theme']['mode'],'dark')
             self.assertEqual(presets.builtin(design,'light',self.root)['theme']['mode'],'light')
 
+    def test_applying_preset_keeps_saved_focus_and_appearance(self):
+        from visuals import model
+        path=self.root/'visuals/settings.json';path.parent.mkdir(parents=True)
+        values=copy.deepcopy(model.DEFAULTS)
+        values['focus'].update(enabled=True,border=3,shadow=9,glow=True,glow_size=4,exceptions=['mpv'])
+        values['appearance'].update({'decoration:rounding':14,'general:gaps_in':'7'})
+        path.write_text(json.dumps(values));before=path.read_bytes()
+        expected=model.native_settings(model.load(self.root)[0],self.root)
+        with patch.object(backend.Path,'iterdir',return_value=iter(())),patch.object(backend.effect_colors,'plan',return_value=({},[])),patch.object(backend.effect_colors,'reload_active'):
+            backend.apply_components(presets.builtin('modern','light',self.root),{'colors','effects'},backend.theme_token())
+        self.assertEqual(runtime.design(),'modern');self.assertEqual(path.read_bytes(),before)
+        rendered=model.native_settings(model.load(self.root)[0],self.root)
+        for key in ('general.border_size','decoration.shadow.range','decoration.glow.range','decoration.glow.enabled','decoration.rounding','general.gaps_in'):
+            self.assertEqual(rendered[key],expected[key],key)
+
+    def test_first_preset_change_promotes_legacy_focus_and_failure_restores_it(self):
+        from visuals import model
+        path=self.root/'visuals/settings.json';path.parent.mkdir(parents=True)
+        values=copy.deepcopy(model.DEFAULTS);values.pop('focus');values.pop('appearance');values['version']=1
+        values['themes']['binaryknife']=copy.deepcopy(model.THEME)
+        focus=values['themes']['binaryknife']['focus'];focus.update(enabled=True,border=3,glow=True)
+        path.write_text(json.dumps(values));before=path.read_bytes()
+        target=presets.builtin('modern','light',self.root)
+        self.store.save.side_effect=ValueError('reload failed')
+        with patch.object(backend.effect_colors,'plan',return_value=({},[])),patch.object(backend.effect_colors,'reload_active'),self.assertRaisesRegex(ValueError,'reload failed'):
+            backend.apply_components(target,{'colors'},backend.theme_token())
+        self.assertEqual(path.read_bytes(),before)
+        self.store.save.side_effect=None
+        with patch.object(backend.Path,'iterdir',return_value=iter(())),patch.object(backend.effect_colors,'plan',return_value=({},[])),patch.object(backend.effect_colors,'reload_active'):
+            backend.apply_components(target,{'colors'},backend.theme_token())
+        self.assertEqual(json.loads(path.read_text())['version'],2)
+        self.assertEqual(model.load(self.root)[0]['focus'],focus)
+
     def test_all_themes_keep_desktop_wallpaper_default_and_user_background_choices(self):
         for enabled, background in ((True,''),(False,''),(True,'backgrounds/custom.png')):
             runtime.STATE.write_text(json.dumps(dict(runtime.state(),launcher_wallpaper=enabled,

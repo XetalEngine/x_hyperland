@@ -491,6 +491,7 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     with ExitStack() as locks:
         lock_paths=[settings.STATE/'theme-files.lock',settings.STATE/'wallpaper-save.lock']
         lock_paths.append(settings.STATE/'appearance-save.lock')
+        if (ROOT/'visuals').is_dir():lock_paths.append(ROOT/'visuals/.settings.lock')
         for path in (ROOT/'effects/burn/settings.conf',ROOT/'effects/cube/settings.json',ROOT/'effects/minimize/settings.conf',ROOT/'effects/wobbly/settings.json',ROOT/'cursors/settings.json',ROOT/'file_jobs/preferences.json',ROOT/'switcher/preferences.json',ROOT/'terminal_fetch/settings.json',ROOT/'theme/icons.json',ROOT/'sounds/settings.json'):
             if path.exists():lock_paths.append(path.with_suffix('.lock'))
         for path in lock_paths:

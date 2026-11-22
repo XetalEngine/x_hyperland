@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 from PyQt6.QtCore import Qt,QRectF,pyqtSignal
 from PyQt6.QtGui import QPixmap,QImageReader,QPainter,QPainterPath,QColor,QPen,QFont
-from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,QLayout,QLabel,QComboBox,QPushButton,QFileDialog,QTabWidget,QMessageBox,QFrame,QScrollArea,QCheckBox,QSlider,QSizePolicy)
+from PyQt6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,QLayout,QLabel,QComboBox,QPushButton,QFileDialog,QMessageBox,QFrame,QScrollArea,QCheckBox,QSlider,QSizePolicy)
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import backend
 import runtime
@@ -27,6 +27,7 @@ from preset_page import LayoutPage,CustomPage,ComponentDialog
 from mix_page import MixMatchPage
 import presets
 import layouts
+from wrapping_tabs import WrappingTabs
 from launcher_surfaces import DEFAULTS,StripImage,paint_group,paint_tile
 from launcher_labels import positions as label_positions
 
@@ -371,7 +372,7 @@ class ThemePage(QWidget):
         conflicts.addWidget(button('Keep my edits',lambda:self.resolve_conflicts('edited')))
         conflicts.addWidget(button('Use saved values',lambda:self.resolve_conflicts('saved')));conflicts.addStretch()
         self.conflict_actions.hide();root.addWidget(self.conflict_actions)
-        self.tabs=QTabWidget();self.wallpapers=WallpapersPage(self.component_job,filename);self.appearance=WindowEffectsPage(self.component_job)
+        self.tabs=WrappingTabs();self.wallpapers=WallpapersPage(self.component_job,filename);self.appearance=WindowEffectsPage(self.component_job)
         self.file_transfer=FileTransferPage(self.component_job)
         self.task_switcher=TaskSwitcherPage(self.component_job)
         self.cursors=CursorsPage(self.component_job)

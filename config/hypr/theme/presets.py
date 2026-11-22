@@ -201,6 +201,16 @@ def merged_theme(previous, target, selected):
 def resources(root, target, selected, previous_design):
     """Return validated bytes; the backend writes and rolls them back in one transaction."""
     files, reloads = {}, []
+    # The early visual preview saved focus per theme. Promote the current
+    # choice before switching palettes, as part of this same saved transaction.
+    visual_path=root/'visuals/settings.json'
+    if 'colors' in selected and visual_path.is_file():
+        try:
+            from visuals import model as visual_model
+            saved=json.loads(visual_path.read_text())
+            if isinstance(saved,dict) and saved.get('version')==1:
+                files[visual_path]=encode(visual_model.upgrade(saved,previous_design))
+        except (OSError,ValueError):pass
     sound_path = root / RESOURCE_PATHS['sounds']
     sound_choices = sounds.load(sound_path)[0]
     if 'sounds' in selected and 'sounds' in target:

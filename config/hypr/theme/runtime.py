@@ -205,7 +205,12 @@ def install(app, source='', *, style=None):
         changed=pyqtSignal()
         def __init__(self):
             super().__init__(app)
-            self.inputs=(STATE,ROOT/'palettes.json',ROOT/'icons.json')
+            self.inputs=(STATE,ROOT/'palettes.json',ROOT/'icons.json',ROOT.parent/'visuals/settings.json')
+            try:
+                from visuals.controller import instance
+                preview=instance()/'fusion-visuals/preview.json';preview.parent.mkdir(exist_ok=True)
+                self.inputs+=(preview,)
+            except (ImportError,OSError,ValueError):pass
             self.previous=None
             self.watcher=QFileSystemWatcher(self)
             self.delay=QTimer(self);self.delay.setSingleShot(True);self.delay.setInterval(40)

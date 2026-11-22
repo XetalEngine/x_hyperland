@@ -2,6 +2,10 @@
 
 <p align="center"><a href="https://drive.google.com/drive/folders/1bkAs8SiMqnbCihzMGPYzlOXB5mXGfs_Y?usp=sharing"><strong>Download the ONLINE and OFFLINE ISOs — Google Drive</strong></a></p>
 
+**Making a bootable USB? We recommend balenaEtcher or Ventoy instead of Rufus.** In our previous Rufus test, a filename containing punctuation caused a file to become unusable. Use one of the recommended tools for these ISOs.
+
+<p align="center"><a href="https://youtu.be/eUuaaynZhfk"><strong>▶ Arch + Hyper Fusion few clicks install video</strong></a></p>
+
 <p align="center"><a href="https://youtu.be/z3_uTzZglvg"><strong>▶ Watch Hyper Fusion in action on YouTube</strong></a></p>
 
 <p align="center"><strong>Your workspace. Your colors. Your kind of Linux desktop.</strong><br>A complete Hyprland desktop with Fusion Files, native settings, four window modes and a little Compiz nostalgia.</p>
@@ -542,6 +546,7 @@ Your hotkeys, monitor arrangement, chosen wallpapers, private Dolphin Places and
 | [Illustrated feature guide](config/hypr/FEATURES.md) | The Fusion Files redesign, recording, window modes, per-monitor cubes and the file engine; also available in the installed profile |
 | [Workspace modes](config/hypr/workspaces/README.md) | Per-workspace layouts, mode cycling and independent button settings |
 | [Window controls](config/hypr/effects/window_close/README.md) | KDE title bars, Super overlays, app/window overrides and live previews |
+| [Window appearance and testing](docs/VISUALS-057.md) | Shape, spacing and persistent focus styling with an interactive preview |
 | [Fusion Files](docs/FILES.md) | Eleven This PC layouts, drive previews, themes, control visibility, browsing, search and the transfer engine |
 | [Start here: project and AI guide](IA_START_HERE.html) | Offline architecture map, source/live paths, development, privacy, testing and releases; open the HTML in a browser or read its source |
 | [Full gallery](docs/GALLERY.md) | Fusion Files layout comparisons, themes, panels, menus, transfer cards and wallpapers |

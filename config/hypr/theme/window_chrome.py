@@ -232,7 +232,18 @@ class WindowControls(QWidget):
 
     def eventFilter(self,window,event):
         if event.type() in (QEvent.Type.WindowStateChange,QEvent.Type.Show):self.sync()
+        if event.type() in (QEvent.Type.WindowActivate,QEvent.Type.WindowDeactivate):self.update()
         return False
+
+    def paintEvent(self,event):
+        super().paintEvent(event)
+        import runtime
+        from visuals.focus import header_enabled
+        owner=self.owner()
+        if owner is None or not header_enabled():return
+        colors=runtime.colors();active=owner.isActiveWindow()
+        painter=QPainter(self);painter.setPen(QPen(QColor(colors['Accent'] if active else colors['Midlight']),2))
+        painter.drawLine(2,self.height()-1,self.width()-2,self.height()-1)
 
 
 def window_controls(window,callback=None,title=None):

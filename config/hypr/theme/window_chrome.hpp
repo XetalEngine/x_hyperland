@@ -1,8 +1,27 @@
 // Shared, native Qt window actions for Fusion's C++ application headers.
 #pragma once
 #include <QtWidgets>
+#include <csignal>
 
 namespace FusionChrome {
+inline bool coordinatedFocus(){
+  static QElapsedTimer clock;static bool enabled=false;
+  if(clock.isValid()&&clock.elapsed()<250)return enabled;
+  clock.restart();const auto root=QDir::homePath()+"/.config/hypr/";
+  auto read=[](const QString& path){QFile file(path);if(!file.open(QIODevice::ReadOnly)||file.size()>262144)return QJsonObject();return QJsonDocument::fromJson(file.readAll()).object();};
+  const auto theme=read(root+"theme/state.json").value("design").toString("raw");
+  auto settings=read(root+"visuals/settings.json");
+  const auto signature=qEnvironmentVariable("HYPRLAND_INSTANCE_SIGNATURE");
+  if(!signature.isEmpty()&&!signature.contains('/')){
+    const auto lease=read(qEnvironmentVariable("XDG_RUNTIME_DIR")+"/hypr/"+signature+"/fusion-visuals/preview.json");
+    const auto pid=lease.value("pid").toInt();
+    if(pid>0&&kill(pid,0)==0&&lease.value("expires").toDouble()>QDateTime::currentMSecsSinceEpoch()/1000.&&
+       lease.value("root").toString()==QDir(root).canonicalPath())settings=lease.value("settings").toObject();
+  }
+  const auto focus=settings.contains("focus")?settings.value("focus").toObject():settings.value("themes").toObject().value(theme).toObject().value("focus").toObject();
+  enabled=focus.value("enabled").toBool();
+  return enabled;
+}
 inline void toggleMaximized(QWidget *window) {
   if (window->isMaximized() || window->isFullScreen()) window->showNormal();
   else window->showMaximized();
@@ -28,7 +47,7 @@ protected:
     if(symbol==Minimize)p.drawLine(QPointF(-5,3),QPointF(5,3));
     else if(symbol==Maximize)p.drawRect(QRectF(-5,-5,10,10));
     else if(symbol==Restore){
-      p.drawPolyline(QPolygonF{QPointF(-2,-4),QPointF(-2,-6),QPointF(6,-6),QPointF(6,2),QPointF(4,2)});
+      p.drawPolyline(QPolygonF(QVector<QPointF>{QPointF(-2,-4),QPointF(-2,-6),QPointF(6,-6),QPointF(6,2),QPointF(4,2)}));
       p.drawRect(QRectF(-5,-2,8,8));
     }else{
       p.drawLine(QPointF(-4.5,-4.5),QPointF(4.5,4.5));p.drawLine(QPointF(-4.5,4.5),QPointF(4.5,-4.5));
@@ -64,8 +83,20 @@ public:
     owner->installEventFilter(this);sync();
   }
 protected:
+  void paintEvent(QPaintEvent *event) override {
+    QWidget::paintEvent(event);if(!coordinatedFocus())return;
+    QPainter painter(this);
+#if QT_VERSION >= QT_VERSION_CHECK(6,6,0)
+    const auto active=QPalette::Accent;
+#else
+    const auto active=QPalette::Link;
+#endif
+    painter.setPen(QPen(palette().color(owner->isActiveWindow()?active:QPalette::Midlight),2));
+    painter.drawLine(2,height()-1,width()-2,height()-1);
+  }
   bool eventFilter(QObject *,QEvent *event) override {
     if(event->type()==QEvent::WindowStateChange||event->type()==QEvent::Show)sync();
+    if(event->type()==QEvent::WindowActivate||event->type()==QEvent::WindowDeactivate)update();
     return false;
   }
 };

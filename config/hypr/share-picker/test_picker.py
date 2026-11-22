@@ -5,7 +5,7 @@ from unittest.mock import patch
 from PyQt6.QtCore import Qt,QPoint
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtTest import QTest
-from model import portal_windows, match_windows, selection, logical_size
+from model import portal_windows, portal_workspaces, match_windows, selection, logical_size
 from app import Picker
 
 QT=QApplication.instance() or QApplication([])
@@ -15,6 +15,20 @@ SOURCE='71[HC>]example[HT>]A window[HE>]305419896[HA>]'
 
 
 class ContractTests(unittest.TestCase):
+    def test_workspace_protocol_uses_byte_lengths_and_portal_id(self):
+        text='42[HN>]6:作業[HM>]1:4:DP-1[HE>]'
+        source=portal_workspaces(text)[0]
+        self.assertEqual(source['name'],'作業');self.assertEqual(source['outputs'],['DP-1'])
+        self.assertEqual(selection(source),'[SELECTION]/workspace-id:42\n')
+        self.assertEqual(selection(source,True),'[SELECTION]r/workspace-id:42\n')
+        self.assertEqual(len(portal_workspaces(text+text)),1)
+        for malformed in (text[:-1],text.replace('6:','2:'),text.replace('1:4:','100:4:')):
+            self.assertEqual(portal_workspaces(malformed),[])
+
+    def test_workspace_selection_rejects_non_portal_identifiers(self):
+        for ident in ('DP-1','1\nscreen:DP-1','0',str(2**64),'１２'):
+            with self.assertRaises(ValueError):selection({'kind':'workspace','id':ident})
+
     def test_portal_handle_is_not_compositor_address(self):
         window=match_windows(portal_windows(SOURCE),[CLIENT])[0]
         self.assertEqual(window['address'],'0x12345678')
@@ -81,6 +95,23 @@ class PickerTests(unittest.TestCase):
         for actual,expected in zip(self.window.chosen['rect'],(512,288,1024,576)):
             # Two rounded pointer positions can span one thumbnail pixel extra.
             self.assertLessEqual(abs(actual-expected),6)
+
+    def test_workspace_confirmation_keeps_tracker_id(self):
+        self.window.close()
+        with patch.dict(os.environ,{'XDPH_WORKSPACE_SHARING_LIST_V3':'982[HN>]1:4[HM>]1:4:DP-1[HE>]'}):
+            self.window=Picker(monitors=[MONITOR],clients=[CLIENT],source_text=SOURCE)
+        self.window.tabs.setCurrentIndex(3)
+        self.window.choose(self.window.workspace_cards[0]);self.assertEqual(self.window.output,'')
+        with patch('app.ctl',side_effect=lambda cmd:[{'name':'4','id':4}] if cmd=='workspaces' else [CLIENT] if cmd=='clients' else [MONITOR]):
+            self.window.confirm()
+        self.assertEqual(self.window.output,'[SELECTION]/workspace-id:982\n')
+
+    def test_closed_workspace_cannot_be_shared(self):
+        self.window.close()
+        with patch.dict(os.environ,{'XDPH_WORKSPACE_SHARING_LIST_V3':'982[HN>]1:4[HM>]0:[HE>]'}):
+            self.window=Picker(monitors=[MONITOR],clients=[CLIENT],source_text=SOURCE)
+        self.window.choose(self.window.workspace_cards[0])
+        self.window.confirm();self.assertEqual(self.window.output,'');self.assertIsNone(self.window.chosen)
 
 
 if __name__=='__main__':unittest.main()

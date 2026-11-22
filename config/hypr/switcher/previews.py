@@ -24,6 +24,11 @@ class PreviewQueue(QObject):
         self.timer = QTimer(self); self.timer.setInterval(500); self.timer.timeout.connect(self.tick)
 
     def start(self, fps=60):
+        try:
+            from visuals.controller import runtime_settings
+            quality=runtime_settings()['quality']
+            fps=min(fps,{'lightweight':5,'balanced':20,'full':60,'current':144}[quality])
+        except (ImportError,OSError,ValueError):pass
         self.fps = max(1, min(144, int(fps)))
         self.active = self.helper.is_file()
         if self.active: self.timer.start(); self.tick()

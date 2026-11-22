@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "previews.h"
 const size_t wbcffi_version = 2;
 
 typedef struct {
@@ -281,9 +282,10 @@ static gboolean refresh(gpointer data) {
         /* Named workspaces have no numbered layout override. Publish readiness
          * separately so the indicator can distinguish them from initial setup. */
         g_object_set_data(G_OBJECT(button), "xetal-workspace-layout-ready", GINT_TO_POINTER(!number || d != NULL));
-        if (!d) continue;
+        if (!d) { fusion_preview_attach(button, number); continue; }
         if (!d->number) d->number = number;
         number = d->number;
+        fusion_preview_attach(button, number);
         int face = GPOINTER_TO_INT(g_hash_table_lookup(faces, GSIZE_TO_POINTER(number)));
         d->face = cube ? face : 0;
         /* The displayed Cube face can differ from Hyprland's persistent ID.

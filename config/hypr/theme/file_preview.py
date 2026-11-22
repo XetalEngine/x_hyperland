@@ -7,7 +7,7 @@ from PyQt6 import sip
 from PyQt6.QtCore import (QEvent, QFile, QFileDevice, QIODevice, QObject, QRunnable,
                          QThreadPool, QTimer, Qt, pyqtSignal)
 from PyQt6.QtGui import QImageReader, QPixmap
-from PyQt6.QtWidgets import (QApplication, QFileDialog, QFrame, QGridLayout, QLabel,
+from PyQt6.QtWidgets import (QApplication, QFileDialog, QFrame, QGridLayout, QLabel, QComboBox, QSizePolicy,
                             QLineEdit, QPlainTextEdit, QScrollArea, QVBoxLayout, QWidget)
 
 MARKER = 'xetalFilePreview'
@@ -164,6 +164,41 @@ class PreviewPane(QScrollArea):
         if hasattr(self, 'image'): self.update_image()
 
 
+class DialogBounds(QObject):
+    """Keep restored file-dialog sizes inside one output, including after map."""
+    def __init__(self,dialog):
+        super().__init__(dialog);self.dialog=dialog;self.connected=False
+        dialog.installEventFilter(self)
+        self.timer=QTimer(self);self.timer.setSingleShot(True);self.timer.setInterval(150);self.timer.timeout.connect(self.fit)
+        self.fit(initial=True)
+
+    def fit(self,initial=False):
+        dialog=self.dialog;parent=dialog.parentWidget()
+        screen=parent.screen() if initial and parent else dialog.screen()
+        if screen is None:return
+        if initial:dialog.setScreen(screen)
+        area=screen.availableGeometry().adjusted(16,16,-16,-16)
+        if area.width()<1 or area.height()<1:return
+        dialog.setMaximumSize(area.size())
+        size=dialog.size().boundedTo(area.size())
+        if initial:size.setWidth(min(1100,size.width()));size.setHeight(min(760,size.height()))
+        dialog.resize(size)
+        if QApplication.platformName()!='wayland':
+            rect=dialog.frameGeometry()
+            if initial:rect.moveCenter((parent.frameGeometry() if parent else area).center())
+            x=max(area.left(),min(rect.x(),area.right()-rect.width()+1))
+            y=max(area.top(),min(rect.y(),area.bottom()-rect.height()+1))
+            dialog.move(x,y)
+        handle=dialog.windowHandle()
+        if handle and not self.connected:
+            handle.screenChanged.connect(lambda _:self.timer.start());self.connected=True
+
+    def eventFilter(self,obj,event):
+        if event.type()==QEvent.Type.Show:
+            self.fit();self.timer.start()
+        return False
+
+
 def attach(dialog):
     import file_places
     file_places.attach(dialog)
@@ -171,12 +206,22 @@ def attach(dialog):
     grid = dialog.layout()
     if not isinstance(grid, QGridLayout): return
     dialog.setProperty(MARKER, True)
+    # Xetal Images offers many formats. Display the filter name, not a very
+    # long extension list; retain the complete list for actual filtering.
+    dialog.setOption(QFileDialog.Option.HideNameFilterDetails,True)
+    filters=dialog.findChild(QComboBox,'fileTypeCombo')
+    if filters:
+        filters.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        filters.setMinimumContentsLength(18)
+        filters.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Fixed)
+        filters.setToolTip('Choose which file types to show.')
     pane = PreviewPane(dialog); dialog.xetal_preview = pane
     grid.addWidget(pane, 0, grid.columnCount(), grid.rowCount(), 1)
     screen = dialog.screen()
     available = screen.availableGeometry().size() if screen else dialog.size()
     dialog.resize(min(max(900, dialog.width()+260), available.width()-32),
                   min(max(580, dialog.height()), available.height()-32))
+    dialog.xetal_bounds=DialogBounds(dialog)
 
 
 class FileDialogs(QObject):

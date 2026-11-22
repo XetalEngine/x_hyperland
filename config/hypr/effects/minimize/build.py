@@ -61,7 +61,7 @@ def build(root=ROOT):
         # A unique pathname for each build avoids replacing a mapped .so.
         fd, tmp = tempfile.mkstemp(prefix='compile-',suffix='.so',dir=build_dir); os.close(fd)
         try:
-            cmd = [compiler(),*COMPILE_FLAGS,*flags,str(plugin_source),'-o',tmp,'-lGLESv2']
+            cmd = [compiler(),*COMPILE_FLAGS,*flags,str(plugin_source),'-o',tmp,'-lGLESv2','-ljson-c']
             process = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True,env=environment())
             try:
                 stdout,stderr = process.communicate(timeout=180)

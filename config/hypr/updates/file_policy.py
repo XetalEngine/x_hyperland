@@ -37,7 +37,7 @@ PREFERENCES = frozenset({
     'effects/window_close/snap-settings.json',
     'file_jobs/preferences.json',
     'file_manager/automount.json',
-    'recording/settings.json',
+    'recording/settings.json', 'visuals/settings.json',
     'sounds/settings.json',
     'startup/fastfetch.jsonc', 'startup/kitty.conf', 'startup/projects.json', 'startup/window-rules.conf',
     'swaync/config.json', 'switcher/preferences.json', 'terminal_fetch/settings.json',

@@ -2,6 +2,33 @@
 import re
 
 
+def portal_workspaces(value):
+    """XDPH 1.5 V3: byte-counted UTF-8 names and portal-owned tracker IDs."""
+    data=value.encode('utf-8');pos=0;result=[];seen=set()
+    def until(marker):
+        nonlocal pos
+        end=data.index(marker,pos);part=data[pos:end];pos=end+len(marker);return part
+    def sized():
+        nonlocal pos
+        size=int(until(b':'))
+        if not 0<=size<=65536 or pos+size>len(data):raise ValueError('Invalid workspace length')
+        text=data[pos:pos+size].decode('utf-8');pos+=size;return text
+    try:
+        while pos<len(data):
+            ident=int(until(b'[HN>]'));name=sized()
+            if data[pos:pos+5]!=b'[HM>]':raise ValueError('Invalid workspace metadata')
+            pos+=5;count=int(until(b':'))
+            if not 0<=count<=64:raise ValueError('Invalid workspace outputs')
+            outputs=[sized() for _ in range(count)]
+            if data[pos:pos+5]!=b'[HE>]':raise ValueError('Invalid workspace terminator')
+            pos+=5
+            if not 0<ident<2**64 or ident in seen:continue
+            seen.add(ident);result.append({'kind':'workspace','id':str(ident),'name':name,'title':'Workspace '+name,
+                                         'outputs':outputs,'detail':', '.join(outputs) or 'Workspace'})
+    except (ValueError,UnicodeError):return []
+    return result
+
+
 def portal_windows(value):
     result = []
     pattern = r'(\d+)\[HC>\](.*?)\[HT>\](.*?)\[HE>\](\d+)\[HA>\]'
@@ -50,6 +77,10 @@ def selection(source, remember=False):
         if not ident.isdecimal() or not 0 < int(ident) <= 0xffffffff:
             raise ValueError('This window is no longer available.')
         target = 'window:' + ident
+    elif kind == 'workspace':
+        ident=str(source['id'])
+        if not ident.isascii() or not ident.isdecimal() or not 0<int(ident)<2**64:raise ValueError('This workspace is no longer available.')
+        target='workspace-id:'+ident
     elif kind in ('screen', 'region'):
         name = source['name']
         if not re.fullmatch(r'[A-Za-z0-9_.:-]+', name):

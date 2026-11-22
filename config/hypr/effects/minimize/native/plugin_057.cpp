@@ -1,4 +1,6 @@
 #include "../../../runtime/native_057.hpp"
+#include "../../../runtime/visual_policy_057.hpp"
+#include <hyprland/src/render/pass/RectPassElement.hpp>
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Copyright (c) 2026 XetalEngine.
 #include <hyprland/src/plugins/PluginAPI.hpp>
@@ -49,6 +51,8 @@ using Clock=std::chrono::steady_clock;
 using Rect=Minimize::Rect;
 HANDLE handle;
 Minimize::Settings settings;
+FusionVisuals::Policy visualPolicy;
+uint64_t previewHover=0;
 Minimize::Graphics graphics;
 bool stopping=false, mutating=false, capturing=false, effectsHidden=false;
 bool tickArmed=false;
@@ -67,6 +71,8 @@ struct Pending { PHLWINDOWREF window; bool minimize; };
 std::vector<Pending> pending;
 
 struct Record {
+    SP<Render::ITexture> previewLabel;
+    std::string previewLabelText;
     uint64_t id=0;
     std::vector<PHLWINDOWREF> members;
     PHLWINDOWREF primary;
@@ -458,7 +464,7 @@ class MinimizePass:public IPassElement {
         auto m=monitor.lock();if(!visible(m))return {};
         const auto pointer=Pointer::mgr()->position()-m->m_position;
         static const auto epoch=Clock::now();
-        const double seconds=std::fmod(std::chrono::duration<double>(Clock::now()-epoch).count(),3600.0);
+        const double seconds=animationsEnabled()?std::fmod(std::chrono::duration<double>(Clock::now()-epoch).count(),3600.0):0;
         if(settings.dock){
             const auto layout=dockLayout(m);auto& state=docks[m->m_id];
             if(state.reveal>.002){
@@ -491,7 +497,7 @@ class MinimizePass:public IPassElement {
             fire.x=dest.x+dest.w/2-fire.w/2;fire.y=dest.y+dest.h/2-fire.h*(settings.dock?.60:.72);
             fire.y+=r->settled?std::sin(seconds*2.2+r->id)*2:0;
             const bool hover=box(fire).containsPoint(pointer);
-            graphics.fire(ctx,m,fire,r->fire,settings.rgb,float(burn)*dockAlpha,hover);
+            if(animationsEnabled())graphics.fire(ctx,m,fire,r->fire,settings.rgb,float(burn)*dockAlpha,hover);
             const double iconBlend=r->appIcon?std::clamp((burn-.5)*2.0,0.0,1.0):0;
             snapshot(ctx,*r,m,dest,float((1-burn*.25)*(1-iconBlend))*dockAlpha);
             if(r->appIcon && iconBlend>0){
@@ -501,6 +507,25 @@ class MinimizePass:public IPassElement {
                 g_pHyprRenderer->draw(ctx,data,ctx.m_data.damage);
             }
             ++draws;
+        }
+        // Use the same bounded snapshot as minimize/restore; no second capture
+        // of a hidden window and no additional per-frame framebuffer allocation.
+        if(visualPolicy.hover&&m->m_size.x>64)for(auto& r:records)if(r->id==previewHover&&r->settled&&!r->restoring&&r->monitor.lock()==m){
+            auto anchor=slot(*r);if(!anchor||!box(*anchor).containsPoint(pointer))continue;
+            const double width=std::min(double(visualPolicy.width),m->m_size.x-32);
+            const double height=std::min(width*r->source.h/std::max(1.,r->source.w),m->m_size.y*.45);
+            double x=std::clamp(anchor->x+anchor->w/2-width/2,8.,std::max(8.,m->m_size.x-width-8));
+            double y=anchor->y-height-48;
+            if(y<8)y=anchor->y+anchor->h+12;
+            y=std::clamp(y,8.,std::max(8.,m->m_size.y-height-42));
+            CRectPassElement::SRectData backing;backing.box=box({x-6,y-6,width+12,height+40}).scale(m->m_scale);
+            backing.color=CHyprColor(.04,.06,.09,.97);backing.round=10*m->m_scale;
+            g_pHyprRenderer->draw(ctx,backing,ctx.m_data.damage);
+            snapshot(ctx,*r,m,{x,y,width,height},1);
+            if(r->previewLabel){CTexPassElement::SRenderData label;label.tex=r->previewLabel;label.a=1;
+                label.box=CBox{x*m->m_scale,(y+height+7)*m->m_scale,r->previewLabel->m_size.x,r->previewLabel->m_size.y};
+                g_pHyprRenderer->draw(ctx,label,ctx.m_data.damage);}
+            break;
         }
         return {};
     }
@@ -615,6 +640,7 @@ Minimize::Settings readSettings() {
     const char* overridePath=std::getenv("XETAL_MINIMIZE_CONFIG");
     auto path=overridePath?std::filesystem::path(overridePath):std::filesystem::path(std::getenv("HOME"))/".config/hypr/effects/minimize/settings.conf";
     const char* colors=std::getenv("XETAL_MINIMIZE_COLORS");
+    visualPolicy=FusionVisuals::read(path.parent_path().parent_path().parent_path());
     return Minimize::readSettings(path,colors?std::filesystem::path(colors):path.parent_path().parent_path().parent_path()/"theme/current.colors");
 }
 std::shared_ptr<Record> hit(Vector2D position) {
@@ -624,6 +650,22 @@ std::shared_ptr<Record> hit(Vector2D position) {
         if(box(*b).translate(r->monitor->m_position).containsPoint(position))return r;
     }
     return nullptr;
+}
+void updatePreviewHover() {
+    auto r=visualPolicy.hover?hit(Pointer::mgr()->position()):nullptr;
+    const auto next=r&&r->settled?r->id:0;
+    if(next!=previewHover){damage();previewHover=next;}
+    if(next)if(auto m=r->monitor.lock();m&&m->m_size.x>64){
+        const auto window=r->primary.lock();
+        const auto text=(r->original?"Workspace "+r->original->displayName()+" · ":"")+(window?window->metadata().title():"Minimized window");
+        const double width=std::min(double(visualPolicy.width),m->m_size.x-32);
+        const auto key=text+std::to_string(width)+std::to_string(m->m_scale);
+        if(!r->previewLabel||r->previewLabelText!=key){
+            // Prepare text outside the render pass, like the cube's label.
+            r->previewLabelText=key;r->previewLabel=g_pHyprRenderer->renderText(text,CHyprColor(.92,.95,1,1),14*m->m_scale,false,"Inter",width*m->m_scale,32*m->m_scale);
+            damage();
+        }
+    }
 }
 void tick(SP<CEventLoopTimer> self,void*) {
     tickArmed=false;
@@ -639,7 +681,7 @@ void tick(SP<CEventLoopTimer> self,void*) {
         refreshIcon(*r);
         const auto now=Clock::now();
         const double dt=std::chrono::duration<double>(now-r->lastFrame).count();r->lastFrame=now;
-        if(visible(r->monitor.lock()) && (slot(*r) || !r->settled)) {
+        if(animationsEnabled() && visible(r->monitor.lock()) && (slot(*r) || !r->settled)) {
             const double step=std::clamp(dt,0.0,.1)*settings.speed/100.0;
             r->effectTime+=step;
             if(settings.effect=="fireball")r->fire.advance(step);
@@ -653,9 +695,10 @@ void tick(SP<CEventLoopTimer> self,void*) {
     // Otherwise removing the last record leaves a fully open, "idle" tray
     // and the timer stops before its empty-state transition ever begins.
     updateDocks();
+    updatePreviewHover();
     damage(false);
     const bool playing=std::ranges::any_of(records,[](const auto& r){
-        return !r->settled || (visible(r->monitor.lock()) && (!settings.dock || slot(*r).has_value()));
+        return !r->settled || r->restoring || (animationsEnabled() && visible(r->monitor.lock()) && (!settings.dock || slot(*r).has_value()));
     });
     const bool movingDock=settings.dock && !effectsHidden && std::ranges::any_of(docks,[](const auto& item){return item.second.awake;});
     const bool embers=settings.dock && animationsEnabled() && std::ranges::any_of(docks,[](const auto& item){
@@ -692,6 +735,10 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         hook("attemptDirectScanout","CMonitor::attemptDirectScanout(",(void*)scanoutHook,originalScanout);
         hook("postEvent","IPC::Socket2::CSocket2::postEvent(",(void*)eventHook,originalEvent);
         Order::init();
+        listeners.push_back(Event::bus()->m_events.config.reloaded.listen([]{
+            try { settings=readSettings();updateDocks();damage();arm(); }
+            catch(const std::exception& e){Log::logger->log(Log::ERR,"Visual profile: {}",e.what());}
+        }));
         auto report=[](PHLWINDOW w){if(w&&w->mapped())reportWindowState(w,Fullscreen::controller()->getFullscreenModes(w).client);};
         listeners.push_back(Event::bus()->m_events.window.openLate.listen(report));
         listeners.push_back(Event::bus()->m_events.window.floating.listen(report));
@@ -720,6 +767,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             }
         }));
         listeners.push_back(Event::bus()->m_events.input.mouse.move.listen([](Vector2D,Event::SCallbackInfo&){
+            if(visualPolicy.hover&&!records.empty()){updatePreviewHover();arm();}
             if(settings.dock && !effectsHidden && !records.empty())arm();
         }));
         listeners.push_back(Event::bus()->m_events.window.active.listen([](PHLWINDOW w,Desktop::eFocusReason){

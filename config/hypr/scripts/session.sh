@@ -138,6 +138,11 @@ children+=("$!")
 "$session_python" "$config_dir/session_ui/preload.py" >"$(session_log session-ui-preload.log)" 2>&1 9>&- &
 children+=("$!")
 
+# Experimental hover captures / capture indicator are paused. Focus is applied
+# through the normal configuration and Window appearance; no daemon is needed.
+# "$session_python" "$config_dir/visuals/service.py" >"$(session_log visuals.log)" 2>&1 9>&- &
+# children+=("$!")
+
 # A resident switcher receives ordered key events, including a very quick Super release.
 "$config_dir/scripts/app-switcher.sh" >"$(session_log switcher.log)" 2>&1 9>&- &
 children+=("$!")

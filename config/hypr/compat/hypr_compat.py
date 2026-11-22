@@ -251,8 +251,9 @@ def keyword(key, value):
 
 
 class Renderer:
-    def __init__(self, root, overrides=None):
+    def __init__(self, root, overrides=None, visual_settings=None):
         self.root = Path(root).resolve()
+        self.visual_settings = visual_settings
         self.overrides = {Path(k).resolve(): v for k, v in (overrides or {}).items()}
         self.variables = {}; self.stack = []; self.submap = 'reset'
 
@@ -322,6 +323,17 @@ class Renderer:
         self.stack.pop()
         if not self.stack and self.submap != 'reset': output.append('end)'); self.submap = 'reset'
         if not self.stack:
+            if (self.root/'visuals/model.py').is_file():
+                # Optional settings are also applied to older merged main configs.
+                sys.path.insert(0,str(self.root))
+                from visuals import model as visual_model, controller as visual_controller
+                try:
+                    visual_settings = self.visual_settings if self.visual_settings is not None else visual_controller.runtime_settings(self.root)
+                    output.append(visual_model.lua_config(visual_settings,self.root,visual_controller.quiet_active()))
+                except (ValueError, OSError, TypeError, KeyError):
+                    # Optional preferences must not make the desktop unbootable.
+                    output.append('-- Invalid optional visual preferences; using existing desktop effects.')
+                    output.append(visual_model.lua_config(visual_model.DEFAULTS,self.root,visual_controller.quiet_active()))
             # Last, after every sourced setting and after leaving any submap.
             # The generated entry is evaluated again on compositor reload.
             output.append(compiz_wobble_policy())

@@ -1,4 +1,5 @@
 #include "../../../runtime/native_057.hpp"
+#include "../../../runtime/visual_policy_057.hpp"
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Copyright (c) 2026 XetalEngine. Compiz geometry/3D attribution: README.md.
 #include <hyprland/src/plugins/PluginAPI.hpp>
@@ -57,7 +58,13 @@ std::filesystem::path configPath() {
     return std::filesystem::path(home) / ".config/hypr/effects/cube/settings.json";
 }
 Cube::Settings settings;
-Cube::Settings readSettings() { return Cube::readSettings(configPath()); }
+Cube::Settings readSettings() {
+    auto next=Cube::readSettings(configPath());
+    const auto policy=FusionVisuals::read(configPath().parent_path().parent_path().parent_path());
+    next.previewFps=std::min(next.previewFps,policy.fps);
+    if(policy.lightweight){next.windows3d=false;next.skyMotion=false;next.skySpeed=0;}
+    return next;
+}
 
 using RenderWorkspaceFn = void (*)(IHyprRenderer *, CRenderContext&, PHLMONITOR, PHLWORKSPACE, const Time::steady_tp &, const CBox &);
 using RenderWindowFn = void (*)(IHyprRenderer *, CRenderContext&, PHLWINDOW, PHLMONITOR, const SWindowRenderPresentation&, const Time::steady_tp &, bool, eRenderPassMode, bool, bool);
@@ -564,8 +571,9 @@ void drawScene(CRenderContext& ctx,Scene &s) {
     graphics.draw(ctx,Cube::flat(0, 0, 1, 1, nullptr, {settings.top[0], settings.top[1], settings.top[2], 1}));
     glUniform1i(graphics.skyMode, settings.skyMode);
     double seconds = std::chrono::duration<double>(Clock::now() - s.began).count();
-    const double skyYaw = (settings.skyMotion ? s.yaw : 0) + seconds * settings.skySpeed * Cube::PI / 180;
-    const double skyPitch = settings.skyMotion ? s.pitch : 0;
+    static auto animations=CConfigValue<Config::INTEGER>("animations:enabled");
+    const double skyYaw = *animations?((settings.skyMotion ? s.yaw : 0) + seconds * settings.skySpeed * Cube::PI / 180):0;
+    const double skyPitch = *animations&&settings.skyMotion ? s.pitch : 0;
     glUniform2f(graphics.skyAngles, skyYaw, skyPitch);
     glUniform1f(graphics.aspect, m->m_size.x / m->m_size.y);
     glUniform4fv(graphics.skyTop, 1, settings.top.data());
@@ -895,7 +903,10 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         listeners.push_back(Event::bus()->m_events.monitor.layoutChanged.listen([] { scheduleFaces(); }));
         listeners.push_back(Event::bus()->m_events.workspace.createdLate.listen([](PHLWORKSPACEREF) { scheduleFaces(); }));
         listeners.push_back(Event::bus()->m_events.workspace.moveToMonitor.listen([](PHLWORKSPACE, PHLMONITOR) { scheduleFaces(); }));
-        listeners.push_back(Event::bus()->m_events.config.reloaded.listen([] { scheduleFaces(); }));
+        listeners.push_back(Event::bus()->m_events.config.reloaded.listen([] {
+            try { endScene(false);settings=readSettings(); } catch(const std::exception& e){lastError=e.what();}
+            scheduleFaces();
+        }));
         Fusion057::addDispatcher(handle, "xetalcube:workspace", localWorkspace);
         scheduleFaces();
         listeners.push_back(Event::bus()->m_events.render.pre.listen([](PHLMONITOR m) {

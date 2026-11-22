@@ -17,7 +17,8 @@ from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QL
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT.parent/'theme'))
 import runtime as theme_runtime
-from model import portal_windows, logical_size, match_windows, selection
+from model import portal_windows, portal_workspaces, logical_size, match_windows, selection
+from switcher.previews import PreviewQueue as WindowStreams
 
 STYLE = '''
 QWidget { color: #d4e2f4; font-family: "Noto Sans"; font-size: 13px; }
@@ -91,7 +92,7 @@ class PreviewCard(QAbstractButton):
             p.setPen(color('#91a3bd')); p.setFont(QFont('Noto Sans',10))
             p.drawText(area.adjusted(8,50,-8,0),Qt.AlignmentFlag.AlignCenter,'Preview unavailable' if self.error else 'Loading preview…')
         p.restore()
-        if not self.pixmap.isNull():
+        if not self.pixmap.isNull() and self.source['kind']!='workspace':
             live=time.monotonic()-self.updated<3
             badge=QRectF(area.x()+8,area.y()+8,54 if live else 73,21)
             p.setPen(Qt.PenStyle.NoPen); p.setBrush(theme_runtime.qcolor(10,19,28,225)); p.drawRoundedRect(badge,8,8)
@@ -174,6 +175,8 @@ class PreviewQueue:
             if len(self.running)>=2:break
             if card in self.running:continue
             source=card.source;kind=source['kind']
+            if kind=='workspace':
+                card.last_attempt=time.monotonic();self.window.workspace_preview(card);continue
             if kind=='window':
                 if not source.get('address'):card.error=True;card.update();continue
                 args=[str(ROOT/'window-preview'),source['address']]
@@ -225,7 +228,7 @@ class Picker(QWidget):
         top=QHBoxLayout();eyebrow=QLabel('XETAL  /  SCREEN SHARING');eyebrow.setObjectName('eyebrow');top.addWidget(eyebrow);top.addStretch()
         close=QPushButton('×');close.setObjectName('close');close.setAccessibleName('Cancel sharing');close.clicked.connect(self.close);top.addWidget(close);root.addLayout(top)
         title=QLabel('Choose what to share');title.setObjectName('title');root.addWidget(title)
-        subtitle=QLabel('Select a screen, a window, or part of one screen.');subtitle.setObjectName('subtitle');root.addWidget(subtitle)
+        subtitle=QLabel('Select a screen, a window, a workspace, or part of one screen.');subtitle.setObjectName('subtitle');root.addWidget(subtitle)
         root.addSpacing(12)
         self.tabs=QTabWidget();root.addWidget(self.tabs,1)
         self.screen_page,self.screen_grid,self.screen_scroll=self.grid_page()
@@ -249,6 +252,19 @@ class Picker(QWidget):
         self.region.setEnabled(bool(self.monitors))
         self.region.regionChanged.connect(self.choose_region);self.region_monitor.currentIndexChanged.connect(self.change_region)
         self.tabs.addTab(self.region_page,'Region');self.change_region()
+        self.workspace_page,self.workspace_grid,self.workspace_scroll=self.grid_page()
+        self.workspace_cards=[]
+        sources=portal_workspaces(os.environ.get('XDPH_WORKSPACE_SHARING_LIST_V3',''))
+        if preview and not sources:
+            sources=[dict(kind='workspace',id=str(w['id']),name=w['name'],title='Workspace '+w['name'],
+                          detail=w.get('monitor',''),outputs=[w.get('monitor','')]) for w in ctl('workspaces') if w.get('id',0)>0]
+        for source in sources:
+            card=PreviewCard(source);card.clicked.connect(lambda checked,c=card:self.choose(c));self.workspace_cards.append(card)
+        self.cards+=self.workspace_cards
+        self.tabs.addTab(self.workspace_page,f'Workspaces · {len(sources)}')
+        if not sources:
+            message=QLabel('Workspace sharing is not offered by this portal. Use a screen or window, or update the portal with Hyper Fusion.')
+            message.setWordWrap(True);self.workspace_grid.addWidget(message,0,0)
         self.tabs.currentChanged.connect(self.tab_changed)
         self.hint=QLabel('Choose a source to continue.');self.hint.setObjectName('hint');self.hint.setMinimumHeight(30);self.hint.setWordWrap(True);root.addWidget(self.hint)
         footer=QHBoxLayout();self.remember=QCheckBox('Remember this selection');self.remember.setChecked(allow_token)
@@ -257,6 +273,8 @@ class Picker(QWidget):
         self.share=QPushButton('Share selected');self.share.setObjectName('share');self.share.setEnabled(False);self.share.clicked.connect(self.confirm);footer.addWidget(self.share)
         footer.addWidget(QSizeGrip(self));root.addLayout(footer)
         QShortcut(QKeySequence('Escape'),self,activated=self.close);QShortcut(QKeySequence('Return'),self,activated=self.confirm)
+        self.workspace_streams=WindowStreams(self)
+        self.workspace_streams.changed.connect(lambda _:self.paint_workspaces())
         self.queue=PreviewQueue(self);self.layout_cards()
         self.refresh_timer=QTimer(self);self.refresh_timer.timeout.connect(self.refresh_sources);self.refresh_timer.start(2000)
         self.session=None;self.notifier=None
@@ -276,12 +294,13 @@ class Picker(QWidget):
         return page,grid,scroll
 
     def layout_cards(self):
-        if not hasattr(self,'screen_cards'):return
+        if not hasattr(self,'workspace_cards'):return
         columns=max(1,min(3,(self.width()-70)//265))
         query=self.search.text().casefold()
-        for grid,cards in ((self.screen_grid,self.screen_cards),(self.window_grid,self.window_cards)):
+        for grid,cards in ((self.screen_grid,self.screen_cards),(self.window_grid,self.window_cards),(self.workspace_grid,self.workspace_cards)):
+            if not cards:continue
             while grid.count():grid.takeAt(0)
-            shown=[c for c in cards if cards is self.screen_cards or query in (c.source['title']+' '+c.source.get('app','')).casefold()]
+            shown=[c for c in cards if cards is not self.window_cards or query in (c.source['title']+' '+c.source.get('app','')).casefold()]
             for card in cards:card.setVisible(card in shown)
             for n,card in enumerate(shown):grid.addWidget(card,n//columns,n%columns)
             for column in range(3):grid.setColumnStretch(column,1 if column<columns else 0)
@@ -293,16 +312,40 @@ class Picker(QWidget):
 
     def visible_cards(self):
         if self.tabs.currentIndex()==2:return [self.region] if self.monitors else []
-        scroll=self.screen_scroll if self.tabs.currentIndex()==0 else self.window_scroll
+        scroll=self.workspace_scroll if self.tabs.currentIndex()==3 else self.screen_scroll if self.tabs.currentIndex()==0 else self.window_scroll
         viewport=scroll.viewport()
-        return [c for c in (self.screen_cards if self.tabs.currentIndex()==0 else self.window_cards)
+        return [c for c in (self.workspace_cards if self.tabs.currentIndex()==3 else self.screen_cards if self.tabs.currentIndex()==0 else self.window_cards)
                 if c.isVisible() and viewport.rect().intersects(c.geometry().translated(c.parent().pos()))]
 
     def choose(self,card):
         self.chosen=card.source
         for other in self.cards:other.setChecked(other is card)
         self.share.setEnabled(True)
-        self.hint.setText(('Entire screen: ' if card.source['kind']=='screen' else 'One window: ')+card.source.get('title',card.source['name']))
+        self.hint.setText(('Only this workspace, even when you switch away: ' if card.source['kind']=='workspace' else
+                         'Entire screen: ' if card.source['kind']=='screen' else 'One window: ')+card.source.get('title',card.source['name']))
+
+    def workspace_preview(self,card):
+        addresses=[c['address'] for c in self.clients if c.get('mapped') and not c.get('hidden') and
+                   any(c.get('workspace',{}).get('name')==w.source['name'] for w in self.visible_cards())]
+        if not self.workspace_streams.active:self.workspace_streams.start(10)
+        self.workspace_streams.request(addresses);self.paint_workspaces()
+
+    def paint_workspaces(self):
+        for card in self.workspace_cards:
+            clients=[c for c in self.clients if c.get('mapped') and not c.get('hidden') and c.get('workspace',{}).get('name')==card.source['name']]
+            picture=QPixmap(640,360);picture.fill(color('#0d131b'));p=QPainter(picture)
+            p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+            for i,c in enumerate(clients[:6]):
+                area=QRectF(8+(i%3)*210,8+(i//3)*170,202,155);frame=self.workspace_streams.cache.get(c['address'])
+                if frame is not None and not frame.isNull():
+                    size=frame.size().scaled(area.size().toSize(),Qt.AspectRatioMode.KeepAspectRatio)
+                    box=QRectF(0,0,size.width(),size.height());box.moveCenter(area.center());p.drawPixmap(box,frame,QRectF(frame.rect()))
+                else:
+                    p.setPen(color('#91a3bd'));p.drawText(area,Qt.AlignmentFlag.AlignCenter|Qt.TextFlag.TextWordWrap,c.get('class','Window'))
+            if not clients:
+                p.setPen(color('#91a3bd'));p.drawText(picture.rect(),Qt.AlignmentFlag.AlignCenter,'Empty workspace')
+            p.setPen(color('#91a3bd'));p.drawText(12,351,'Window previews · sharing captures the whole workspace')
+            p.end();card.pixmap=picture;card.update()
 
     def choose_region(self,value):
         self.chosen=value
@@ -317,6 +360,7 @@ class Picker(QWidget):
         if hasattr(self,'tabs') and self.tabs.currentIndex()==2:self.choose_region(None)
 
     def tab_changed(self,*_):
+        if self.tabs.currentIndex()!=3:self.workspace_streams.stop()
         self.chosen=None;self.share.setEnabled(False)
         for card in self.cards:card.setChecked(False)
         self.region.region=None
@@ -326,11 +370,14 @@ class Picker(QWidget):
     def refresh_sources(self):
         clients=ctl('clients');monitors=ctl('monitors')
         if not clients and not monitors:return
+        self.clients=clients
+        workspaces={w.get('name') for w in ctl('workspaces')} if self.workspace_cards else set()
         by_id={s['id']:s for s in match_windows(self.sources,clients)}
         names={m['name'] for m in monitors}
         for card in self.cards:
             if card.source['kind']=='window':
                 available=by_id.get(card.source['id'],{}).get('available',False)
+            elif card.source['kind']=='workspace':available=card.source['name'] in workspaces
             else:available=card.source['name'] in names
             card.setEnabled(available)
             if not available and self.chosen is card.source:
@@ -360,6 +407,7 @@ class Picker(QWidget):
         self.output='';self.close()
 
     def closeEvent(self,event):
+        self.workspace_streams.shutdown()
         self.queue.stop();self.refresh_timer.stop()
         if self.notifier:self.notifier.setEnabled(False)
         if self.session:self.session.close();self.session=None

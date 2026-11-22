@@ -152,12 +152,12 @@ class BurnPage(QWidget):
 class WindowEffectsPage(QWidget):
     def __init__(self,async_run):
         super().__init__()
-        from preferences_page import PreferencesPage
+        from visuals.appearance import AppearancePage
         from effects.cube.page import CubePage
         from effects.minimize.page import MinimizePage
         from effects.wobbly.page import WobblyPage
         from cursors.mouse_page import MouseEffectsPage
-        self.burn = BurnPage(async_run);self.cube = CubePage(async_run);self.appearance = PreferencesPage('appearance',async_run)
+        self.burn = BurnPage(async_run);self.cube = CubePage(async_run);self.appearance = AppearancePage(async_run)
         self.minimize = MinimizePage(async_run);self.wobbly = WobblyPage(async_run)
         self.mouse = MouseEffectsPage(async_run)
         layout = QVBoxLayout(self);layout.setContentsMargins(0,8,0,0)

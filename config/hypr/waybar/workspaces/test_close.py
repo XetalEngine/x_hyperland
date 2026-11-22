@@ -21,7 +21,7 @@ def wait_for(predicate, message):
 def run():
     with tempfile.TemporaryDirectory(prefix='workspace-close-test-') as temp:
         root=Path(temp);binary=root/'widget'
-        flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','gtk+-3.0','gtk-layer-shell-0'],text=True))
+        flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','gtk+-3.0','gtk-layer-shell-0','json-glib-1.0'],text=True))
         subprocess.run(['cc','-Wall','-Wextra','-Werror','-Wno-unused-parameter',str(ROOT/'test-close.c'),'-o',str(binary),*flags],check=True)
         with (root/'log').open('w+') as log:
             runtime=root/'runtime';state=runtime/'hypr/test/xetal-cube-faces';state.parent.mkdir(parents=True)
