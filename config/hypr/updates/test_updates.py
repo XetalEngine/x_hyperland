@@ -43,6 +43,33 @@ class UpdateTests(unittest.TestCase):
         engine.write_json(self.state/'pending.json', value)
         return value
 
+    def test_pinned_cargo_lock_survives_merge_install_and_rollback(self):
+        name = 'desktop_services/third_party/hypr-rdp/Cargo.lock'
+        pinned = (service.ROOT/name).read_bytes()
+        incoming = self.upstream/name; incoming.parent.mkdir(parents=True)
+        incoming.write_bytes(pinned)
+        (incoming.parent/'session.lock').write_text('runtime lock')
+        (self.upstream/'Cargo.lock').write_text('unrelated lock')
+        # Older inventories did not register this path, even when it existed.
+        original = self.live/name; original.parent.mkdir(parents=True)
+        original.write_bytes(b'old unregistered lockfile\n')
+        expected = engine.merge_profile(self.live, self.upstream, self.stage, NEW)
+        self.assertEqual((self.stage/name).read_bytes(), pinned)
+        self.assertIn(name, engine.installed(self.stage)['files'])
+        self.assertFalse((self.stage/'Cargo.lock').exists())
+        self.assertFalse((self.stage/name).with_name('session.lock').exists())
+        cache_lock = self.stage/'desktop_services/.build/hypr-rdp.lock'
+        cache_lock.parent.mkdir(parents=True); cache_lock.touch()
+        plan = engine.prepare_plan(self.live, self.stage, expected, NEW)
+        self.assertIn(name, plan['changes'])
+        self.assertNotIn(str(cache_lock.relative_to(self.stage)), plan['changes'])
+        self.assertEqual(plan['changes'][name]['sha256'], engine.sha(pinned))
+        backup = engine.apply_plan(self.live, self.stage, plan, self.state)
+        self.assertEqual(original.read_bytes(), pinned)
+        undo = engine.rollback_plan(self.live, backup)
+        engine.apply_plan(self.live, backup/'files', undo, self.state)
+        self.assertEqual(original.read_bytes(), b'old unregistered lockfile\n')
+
     def serve_ticks(self, count, start, step=lambda _index: None, delay=3600):
         """Drive the real request loop without networking or installer children."""
         with patch.object(service, 'STATE', self.state), patch.object(service, 'ROOT', self.live), \

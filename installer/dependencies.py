@@ -78,9 +78,9 @@ PACKAGES = {
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux bsdextrautils parted xz-utils kmod python3-cryptography libkeyutils1 libsecret-tools freerdp3-dev libcurl4-openssl-dev libarchive-dev cabextract'''.split(),
 }
 DESKTOP_SERVICE_PACKAGES = {
-    'arch': 'wayvnc tigervnc kdeconnect mpv hypridle ddcutil meson ninja rust libpulse libxkbcommon libva'.split(),
-    'fedora': 'wayvnc tigervnc kde-connect mpv mpv-devel hypridle ddcutil meson ninja-build rust cargo pulseaudio-libs-devel libxkbcommon-devel libva-devel'.split(),
-    'debian': 'wayvnc tigervnc-viewer kdeconnect mpv libmpv-dev hypridle ddcutil meson ninja-build rustc cargo libpulse-dev libxkbcommon-dev libva-dev'.split(),
+    'arch': 'wayvnc tigervnc kdeconnect mpv hypridle ddcutil meson ninja rust clang libpipewire pam mesa libpulse libxkbcommon libva'.split(),
+    'fedora': 'wayvnc tigervnc kde-connect mpv mpv-devel hypridle ddcutil meson ninja-build rust cargo clang clang-devel pipewire-devel pam-devel mesa-libgbm-devel pulseaudio-libs-devel libxkbcommon-devel libva-devel'.split(),
+    'debian': 'wayvnc tigervnc-viewer kdeconnect mpv libmpv-dev hypridle ddcutil meson ninja-build rustc cargo clang libclang-dev libpipewire-0.3-dev libpam0g-dev libgbm-dev libpulse-dev libxkbcommon-dev libva-dev'.split(),
 }
 for _family, _packages in DESKTOP_SERVICE_PACKAGES.items():
     PACKAGES[_family] += _packages
@@ -88,7 +88,7 @@ for _family, _packages in DESKTOP_SERVICE_PACKAGES.items():
 for _family, _packages in X11_PACKAGES.items():
     PACKAGES[_family] = list(dict.fromkeys([*PACKAGES[_family], *_packages, 'ripgrep']))
 
-COMMANDS = '''wayvnc vncviewer kdeconnect-cli mpv hypridle ddcutil meson ninja cargo rustc git rg Hyprland hyprctl Xwayland hyprpaper hyprlock waybar kitty dolphin konsole udisksctl lsblk swaync swaync-client grim slurp wf-recorder
+COMMANDS = '''wayvnc vncviewer kdeconnect-cli mpv hypridle ddcutil meson ninja cargo rustc clang git rg Hyprland hyprctl Xwayland hyprpaper hyprlock waybar kitty dolphin konsole udisksctl lsblk swaync swaync-client grim slurp wf-recorder
     wl-copy wl-paste xdg-open xdg-user-dir nmcli nm-applet nm-connection-editor bluetoothctl blueman-manager
     pactl wpctl playerctl brightnessctl fastfetch htop notify-send gdbus pgrep flock
     xcursorgen hyprcursor-util cc c++ g++ cmake pkg-config wayland-scanner fc-match yt-dlp ffmpeg ffprobe sudo xhost xauth xdpyinfo xclip zenity openssl remote-viewer virt-fw-vars certtool
@@ -96,7 +96,8 @@ COMMANDS = '''wayvnc vncviewer kdeconnect-cli mpv hypridle ddcutil meson ninja c
     tpm2_getcap dmidecode lspci lsusb mcopy mtype fsck.fat losetup modinfo secret-tool parted xzcat hexdump'''.split()
 LIBRARIES = ['gtk+-3.0','gio-unix-2.0','gtk-layer-shell-0','epoxy','json-glib-1.0','Qt5Widgets','Qt6Widgets','Qt5Concurrent','Qt6Concurrent','wayland-client','xcb','xcb-res',
              'openssl','libcurl','libarchive','libtasn1','gmp','glib-2.0','gnutls','libseccomp','fuse3','libeis-1.0','json-c','xcb-xkb',
-             'freerdp3','freerdp-client3','winpr3']
+             'freerdp3','freerdp-client3','winpr3',
+             'mpv','libpipewire-0.3','libspa-0.2','libva','libva-drm','xkbcommon','gbm','pam']
 # Hyprland comes from the exact, signed package selected by Setup.
 MINIMUM = {'waybar':(0,15,0),'kitty':(0,49,0),'hyprpaper':(0,8,0)}
 

@@ -20,6 +20,7 @@ REPOSITORY = 'https://github.com/XetalEngine/x_hyperland.git'
 BRANCH = 'main'
 META = '.xetal-update.json'
 IGNORE = {'__pycache__', 'cache', 'state', 'font-cache', 'qt-settings', 'mozilla', '.git', '.build', 'build'}
+BUILD_LOCKFILES = frozenset({'desktop_services/third_party/hypr-rdp/Cargo.lock'})
 
 
 def now(): return datetime.now(timezone.utc).isoformat()
@@ -80,10 +81,15 @@ def locked(state):
         yield
 
 
+def transient_lock(relative):
+    # Cargo.lock pins source dependencies; it is not a process/runtime lock.
+    return relative.suffix == '.lock' and relative.as_posix() not in BUILD_LOCKFILES
+
+
 def source_files(root):
     return [p for p in sorted(root.rglob('*')) if p.is_file() and not p.is_symlink()
             and not IGNORE.intersection(p.relative_to(root).parts)
-            and p.suffix not in ('.pyc', '.so', '.o', '.lock')
+            and p.suffix not in ('.pyc', '.so', '.o') and not transient_lock(p.relative_to(root))
             and p.name not in (META, '.xetal-install.json', 'window-preview', 'version.txt')]
 
 
@@ -321,7 +327,7 @@ def prepare_plan(live, stage, expected, commit, automatic=True):
         if (IGNORE - {'.build', 'build'}).intersection(Path(name).parts): continue
         if name.startswith('control_panel/.build/') and name != 'control_panel/.build/xetal-control-panel': continue
         if name.startswith('file_manager/.build/') and name != 'file_manager/.build/xetal-files': continue
-        if '__pycache__' in path.parts or path.suffix in ('.lock', '.pyc', '.o') or path.name == 'build.log': continue
+        if '__pycache__' in path.parts or path.suffix in ('.pyc', '.o') or transient_lock(Path(name)) or path.name == 'build.log': continue
         current = location(live, name); old = read(current); data = path.read_bytes()
         if data != old or (current.exists() and path.stat().st_mode & 0o777 != current.stat().st_mode & 0o777):
             expected.setdefault(name, sha(old))
