@@ -10,7 +10,7 @@ import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGroupBox,
                              QCheckBox, QComboBox, QSpinBox, QPushButton, QFormLayout,
                              QPlainTextEdit, QScrollArea, QGridLayout, QLineEdit,
-                             QRadioButton, QButtonGroup)
+                             QRadioButton, QButtonGroup, QSizePolicy)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 
@@ -49,35 +49,36 @@ class PinningTab(QScrollArea):
 
     # ------------------------------------------------------------- build ---
     def _build(self):
-        w = QWidget()
+        w = compact_page(QWidget())
         self.setWidget(w)
         lay = QVBoxLayout(w)
 
-        lay.addWidget(QLabel(
-            "Tick the physical cores to hand to the guest. Cores are grouped by L3 "
-            "domain, which is the CCD boundary on Ryzen: keeping a guest inside one "
-            "group avoids cross CCD latency, and on an X3D part only one group has "
-            "the stacked cache."))
-
         # --- SMT ---------------------------------------------------------
-        smt_box = QGroupBox("Threads")
-        sl = QHBoxLayout(smt_box)
+        sl = QHBoxLayout()
+        intro = QLabel("Choose the physical cores for your VM.")
+        intro.setToolTip(
+            "Cores are grouped by their shared L3 cache (a CCD on Ryzen). "
+            "Keeping the guest in one group avoids cross-CCD latency. On many "
+            "X3D CPUs, only one group has the stacked cache.")
+        sl.addWidget(intro, 1)
         self.smt_mode = QComboBox()
         self.smt_mode.addItem("Both threads of each core (SMT on)", "both")
         self.smt_mode.addItem("First thread only (guest sees no SMT)", "single")
         self.smt_mode.currentIndexChanged.connect(self.recalc)
         sl.addWidget(QLabel("Per selected core:"))
-        sl.addWidget(self.smt_mode, 1)
-        lay.addWidget(smt_box)
+        sl.addWidget(self.smt_mode)
+        lay.addLayout(sl)
 
         # --- one column per L3 group ------------------------------------
         groups_row = QHBoxLayout()
+        groups_row.setSpacing(10)
         l3 = self.topo["l3_to_cores"]
         if not l3:
             l3 = {"all": sorted(self.topo["core_to_cpus"].keys())}
         for gi, (key, cores) in enumerate(l3.items()):
             gb = QGroupBox(f"CCD {gi}   (L3 {key})")
             gl = QVBoxLayout(gb)
+            gl.setSpacing(6)
 
             btns = QHBoxLayout()
             for label, val in (("All", True), ("None", False)):
@@ -87,6 +88,7 @@ class PinningTab(QScrollArea):
             gl.addLayout(btns)
 
             grid = QGridLayout()
+            grid.setVerticalSpacing(4)
             for i, core in enumerate(sorted(cores)):
                 cpus = self.topo["core_to_cpus"].get(core, [])
                 cb = QCheckBox(f"core {core}   (cpu {', '.join(map(str, cpus))})")
@@ -111,7 +113,8 @@ class PinningTab(QScrollArea):
         # Keep placement fields aligned and independent of the cache explanation.
         place = QGroupBox("Emulator and I/O threads")
         pv = QVBoxLayout(place)
-        note = QLabel(
+        note = QLabel("Keep device emulation and I/O on the host's spare cores.")
+        note.setToolTip(
             "These carry device emulation and disk submission. Put them on cores the "
             "guest does NOT own, or they steal time from pinned vCPUs.")
         note.setWordWrap(True)
@@ -156,7 +159,8 @@ class PinningTab(QScrollArea):
         # --- guest cache topology -----------------------------------------
         topo_box = QGroupBox("Guest cache topology")
         tf = QVBoxLayout(topo_box)
-        intro = QLabel(
+        intro = QLabel("Let the guest see the cache groups used by its cores.")
+        intro.setToolTip(
             "A Ryzen CCD is an L3 domain, and moving a thread across that "
             "boundary costs far more than moving it within one. QEMU describes "
             "the guest as a single L3 domain no matter how the cores were "
@@ -185,6 +189,8 @@ class PinningTab(QScrollArea):
         # --- scheduling ---------------------------------------------------
         sched = QGroupBox("Scheduling")
         sv = QVBoxLayout(sched)
+        policies = QHBoxLayout()
+        policies.setSpacing(18)
         for attr, label, policy, priority in (
                 ("vcpu", "vCPU threads", "rr", 1),
                 ("emu", "Emulator threads", "fifo", 10),
@@ -194,7 +200,8 @@ class PinningTab(QScrollArea):
             setattr(self, attr + "_sched", combo)
             setattr(self, attr + "_prio", spin)
             srow.addStretch()
-            sv.addLayout(srow)
+            policies.addLayout(srow, 1)
+        sv.addLayout(policies)
 
         # --- RT throttling ------------------------------------------------
         # The kernel lets real-time policies have at most sched_rt_runtime_us
@@ -265,7 +272,10 @@ class PinningTab(QScrollArea):
         self.view = QPlainTextEdit()
         self.view.setReadOnly(True)
         self.view.setFont(QFont(MONO, 10))
-        self.view.setMinimumHeight(220)
+        self.view.setMinimumHeight(140)
+        # The core lists determine this row's minimum height. Let the output
+        # use the remaining space instead of forcing the editor's size hint.
+        self.view.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Ignored)
         rl.addWidget(self.view, 1)
         groups_row.addWidget(res, 2)
 
@@ -298,12 +308,10 @@ class PinningTab(QScrollArea):
         spin.valueChanged.connect(self.recalc)
 
         name = QLabel(label + ":")
-        name.setMinimumWidth(130)
         row.addWidget(name)
         row.addWidget(combo)
         row.addWidget(QLabel("prio:"))
         row.addWidget(spin)
-        row.addSpacing(20)
         return combo, spin
 
     def _preselect(self):
@@ -732,7 +740,9 @@ class MemoryTab(QScrollArea):
         right.addWidget(hp)
 
         opts = QGroupBox("Backend options")
-        of = QFormLayout(opts)
+        ov = QVBoxLayout(opts)
+        of = QFormLayout()
+        ov.addLayout(of)
         self.prealloc = QCheckBox("prealloc  (touch every page up front; avoids first-touch stalls)")
         self.prealloc.setChecked(True)
         self.share = QCheckBox("share  (shared mapping; needed for vhost-user)")
@@ -757,7 +767,7 @@ class MemoryTab(QScrollArea):
         for c in (self.prealloc, self.share, self.locked, self.discard, self.balloon):
             c.stateChanged.connect(self.recalc)
             of.addRow(c)
-        left.addWidget(opts)
+        left.addWidget(opts, 1)
 
         if self.cfg.profile == "macos":
             self.capture = QCheckBox("Record performance diagnostics during Single GPU runs")
@@ -765,10 +775,10 @@ class MemoryTab(QScrollArea):
             self.capture.setToolTip("Record QEMU memory mappings, thread affinity, CPU activity and PCIe link state for up to "
                                     "30 minutes. Reports stay in macos/performance/reports. No host tuning or guest changes.")
             self.capture.toggled.connect(self._capture_changed)
-            left.addWidget(self.capture)
-
-        left.addStretch()
-        right.addStretch()
+            of.addRow(self.capture)
+        # Keep the options together at the top while the card fills the left
+        # column down to the bottom of Hugepage backing.
+        ov.addStretch()
 
         self.note = QLabel("")
         self.note.setWordWrap(True)
