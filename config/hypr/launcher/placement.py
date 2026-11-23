@@ -47,7 +47,13 @@ def main():
         if contact_existing(sys.argv[1:]):return 0
         import bar_toggle
         if '--from-bar' in sys.argv and '--edit' not in sys.argv and bar_toggle.consume():return 0
-    os.execvp(command[0], command)
+    # The preloader inherits the login workspace from Hyprland's Lua autostart.
+    # That one-shot token overrides our monitor rule on the first map. Apps
+    # owns its placement at click time, so start Qt without the inherited token.
+    # Remove it before exec: Hyprland reads the process's initial environment.
+    environment = dict(os.environ)
+    environment.pop('HL_INITIAL_WORKSPACE_TOKEN', None)
+    os.execvpe(command[0], command, environment)
 
 
 def prepare(preferred):

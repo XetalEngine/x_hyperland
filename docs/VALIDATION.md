@@ -1,5 +1,24 @@
 # Validation
 
+## Apps first opening on multiple monitors — 23 November 2026
+
+The preloaded Apps menu now starts without the inherited
+`HL_INITIAL_WORKSPACE_TOKEN`. On Hyprland 0.57.2, that token overrode the menu's
+monitor rule on its first opening and sent it to the login workspace. The menu
+still chooses its monitor from the pointer and retains the saved size and
+top/bottom taskbar placement. Ordinary application workspace tracking is unchanged.
+
+Twenty-two launcher tests passed, covering startup, placement, focus handoff
+and taskbar toggling. A separate Hyprland instance with three private outputs
+and real compositor-issued startup tokens passed twelve openings, including a
+fresh preload opened first on each monitor. The same regression check with the
+original entrypoint failed on its first opening (center requested, left used).
+The test does not restart the user's compositor or move the host pointer.
+
+```sh
+python3 tests/check-launcher-placement.py /tmp/fusion-launcher-placement-new
+```
+
 ## Desktop integrations and remote desktop — 23 November 2026
 
 The desktop integrations are present in the repository, installer and live

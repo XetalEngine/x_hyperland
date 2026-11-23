@@ -41,7 +41,8 @@ HostingPage::HostingPage(const QString &root, QWidget *parent) : QWidget(parent)
     port = new QSpinBox(setup); port->setObjectName("rdpHostPort"); port->setRange(1024, 65535);
     username = new QLineEdit(setup); username->setObjectName("rdpHostUsername"); username->setMaxLength(64);
     password = new QLineEdit(setup); password->setObjectName("rdpHostPassword"); password->setEchoMode(QLineEdit::Password); password->setMaxLength(256);
-    password->setPlaceholderText("12+ characters · blank keeps saved password");
+    password->setPlaceholderText("12+ characters · blank keeps saved password — NOT THE SUDO PASSWORD");
+    password->setToolTip("Choose a separate password for remote desktop sharing. This is not your Linux sudo password. Leave it blank to keep the saved sharing password.");
     fps = new QSpinBox(setup); fps->setObjectName("rdpHostFps"); fps->setRange(5, 60); fps->setSuffix(" fps");
     control = new QCheckBox("Allow keyboard and mouse control", setup); control->setObjectName("rdpHostControl");
     automatic = new QCheckBox("Start sharing after I sign in", setup); automatic->setObjectName("rdpHostAutostart");

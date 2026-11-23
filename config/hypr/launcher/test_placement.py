@@ -6,10 +6,37 @@ import os
 import socket
 from unittest.mock import patch
 
-from placement import bar_edge, bounds, selected_monitor,contact_existing
+from placement import bar_edge, bounds, selected_monitor,contact_existing,main
 
 
 class PlacementTests(unittest.TestCase):
+    def test_new_menu_does_not_inherit_the_preload_workspace(self):
+        for arguments in (['--preload'], ['--from-bar'], []):
+            with self.subTest(arguments=arguments), \
+                    patch.dict(os.environ, {'HL_INITIAL_WORKSPACE_TOKEN': 'login-workspace',
+                                            'HYPRLAND_INSTANCE_SIGNATURE': 'test',
+                                            'WAYLAND_DISPLAY': 'wayland-test'}), \
+                    patch('placement.sys.argv', ['placement.py', *arguments]), \
+                    patch('placement.contact_existing', return_value=False), \
+                    patch('bar_toggle.consume', return_value=False), \
+                    patch('placement.os.execvpe') as execute:
+                main()
+                executable, command, environment = execute.call_args.args
+                self.assertEqual(executable, 'python3')
+                self.assertEqual(command[4:], arguments)
+                expected = dict(os.environ)
+                expected.pop('HL_INITIAL_WORKSPACE_TOKEN')
+                self.assertEqual(environment, expected)
+                self.assertEqual(os.environ['HL_INITIAL_WORKSPACE_TOKEN'], 'login-workspace')
+
+    def test_existing_menu_toggle_does_not_start_another_process(self):
+        with patch.dict(os.environ, {'HYPRLAND_INSTANCE_SIGNATURE': 'test'}), \
+                patch('placement.sys.argv', ['placement.py', '--from-bar']), \
+                patch('placement.contact_existing', return_value=True), \
+                patch('placement.os.execvpe') as execute:
+            self.assertEqual(main(), 0)
+            execute.assert_not_called()
+
     def test_open_menu_receives_toggle_and_edit_without_launching_qt(self):
         with tempfile.TemporaryDirectory() as directory,patch.dict(os.environ,{'XDG_RUNTIME_DIR':directory,'HYPRLAND_INSTANCE_SIGNATURE':'test'}):
             path=Path(directory)/'hypr/test';path.mkdir(parents=True)
