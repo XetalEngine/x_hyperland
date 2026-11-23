@@ -89,6 +89,18 @@ children+=("$!")
 "$session_python" "$config_dir/effects/window_close/controller.py" --session >"$(session_log window-close.log)" 2>&1 9>&- &
 children+=("$!")
 
+# Restore saved video wallpapers and follow monitor/battery changes.
+PYTHONPATH="$config_dir" "$session_python" -m wallpaper.video >"$(session_log video-wallpapers.log)" 2>&1 9>&- &
+children+=("$!")
+
+# Persistent monitor/power preferences and optional Control Panel → RDP hosting.
+PYTHONPATH="$config_dir" "$session_python" -m desktop_services.monitor_hardware >"$(session_log monitor-picture.log)" 2>&1 9>&- &
+children+=("$!")
+PYTHONPATH="$config_dir" "$session_python" -m desktop_services.power >"$(session_log power-settings.log)" 2>&1 9>&- &
+children+=("$!")
+PYTHONPATH="$config_dir" "$session_python" -m desktop_services.remote >"$(session_log remote-desktop.log)" 2>&1 9>&- &
+children+=("$!")
+
 # Original welcome melody, once per compositor. Its player stops on logout.
 "$session_python" "$config_dir/sounds/play.py" --startup >"$(session_log sounds.log)" 2>&1 9>&- &
 children+=("$!")

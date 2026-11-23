@@ -31,7 +31,10 @@ BACKUPS = '/var/lib/hyperfusion-system-tweaks'
 SERVICE = '/etc/systemd/system/hyperfusion-system-tweaks.service'
 BOOT = '/usr/local/lib/hyperfusion/tweaks-runtime.py'
 UNIT = 'hyperfusion-system-tweaks.service'
-UNITS = (UNIT, 'fstrim.timer', 'tmp.mount', 'power-profiles-daemon.service', 'tlp.service', 'tuned.service', 'auto-cpufreq.service')
+RESUME_UNIT = 'hyperfusion-system-tweaks-resume.service'
+RESUME = '/etc/systemd/system/' + RESUME_UNIT
+POWER_MANAGERS = ('power-profiles-daemon.service', 'tlp.service', 'tuned.service', 'auto-cpufreq.service', 'cpupower.service')
+UNITS = (UNIT, 'fstrim.timer', 'tmp.mount', *POWER_MANAGERS, RESUME_UNIT)
 SYSCTLS = {
     'gaming': 'vm.max_map_count', 'swappiness': 'vm.swappiness', 'cache_pressure': 'vm.vfs_cache_pressure',
     'dirty_ratio': 'vm.dirty_ratio', 'dirty_background': 'vm.dirty_background_ratio',
@@ -207,6 +210,8 @@ class Engine:
             if kind == 'cpu_boost':
                 path, inverted = runtime.boost_file(self.root)
                 return 'on' if (runtime.read(path) == '1') != inverted else 'off'
+            if kind == 'battery_limit':
+                return ', '.join(runtime.read(p/'charge_control_end_threshold') for p in runtime.batteries(self.root))
             if kind in ('cpu_governor', 'cpu_energy'):
                 name = 'scaling_governor' if kind == 'cpu_governor' else 'energy_performance_preference'
                 values = {runtime.read(p/name) for p in runtime.policies(self.root)}
@@ -264,7 +269,7 @@ class Engine:
         state, revision = self.state()
         services = self.services()
         rows = []
-        managers = [name.removesuffix('.service') for name in UNITS[3:] if services.get(name, {}).get('ActiveState') == 'active']
+        managers = [name.removesuffix('.service') for name in POWER_MANAGERS if services.get(name, {}).get('ActiveState') == 'active']
         for original in catalog.CATALOG:
             row = copy.deepcopy(original); kind = row['id']
             if kind == 'hidden_files':
@@ -287,7 +292,7 @@ class Engine:
             if not row['supported']:
                 row['note'] = 'Not available with this hardware or installed system components.'
             elif managers and kind.startswith('cpu_'):
-                row['note'] = 'Another power manager may override manual choices: ' + ', '.join(managers) + '.'
+                row['note'] = 'Saving this choice lets Fusion manage power and stops: ' + ', '.join(managers) + '. Restore reinstates their previous state.'
             elif kind in runtime.RUNTIME_IDS and row['saved'] and services.get(UNIT, {}).get('UnitFileState') != 'enabled':
                 row['note'] = 'Saved, but the boot service is not confirmed enabled. Save & apply again to repair it.'
             if kind == 'ptrace' and (current == '3' or row['saved'] == '3'):
@@ -375,6 +380,19 @@ class Engine:
                 'ConditionPathExists=' + STATE + '\n[Service]\nType=oneshot\nExecStart=/usr/bin/python3 -I ' + BOOT + '\n'
                 '[Install]\nWantedBy=multi-user.target\n')
             actions = [['systemctl', 'daemon-reload'], ['systemctl', 'enable', UNIT]]
+            files[RESUME] = ('[Unit]\nDescription=Restore Hyper Fusion policies after sleep\n'
+                'After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target\n'
+                'ConditionPathExists=' + STATE + '\n[Service]\nType=oneshot\nExecStart=/usr/bin/python3 -I ' + BOOT + '\n'
+                '[Install]\nWantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target\n')
+            actions.append(['systemctl', 'enable', RESUME_UNIT])
+            if kind.startswith('cpu_') or kind == 'battery_limit':
+                # Explicit CPU choices belong to Fusion until the user changes
+                # them. Do not race another daemon on every AC or battery event.
+                services = self.services()
+                for manager in POWER_MANAGERS:
+                    info = services.get(manager, {})
+                    if info.get('LoadState') == 'loaded' and info.get('UnitFileState') not in ('masked', 'masked-runtime'):
+                        actions.extend([['systemctl', 'stop', manager], ['systemctl', 'mask', manager]])
         elif kind == 'zram':
             if not self.path('/usr/lib/systemd/system-generators/zram-generator').is_file():
                 raise ValueError('Install zram-generator before configuring compressed swap.')
@@ -459,7 +477,7 @@ class Engine:
                     self.run(['systemctl', '--runtime', 'enable' if state == 'enabled-runtime' else 'mask', unit])
                 elif state != 'static' and previous.get('LoadState') != 'not-found':
                     self.run(['systemctl', 'enable' if state == 'enabled' else 'disable', unit])
-            if unit == 'fstrim.timer':
+            if unit == 'fstrim.timer' or unit in POWER_MANAGERS:
                 self.run(['systemctl', 'start' if previous.get('ActiveState') == 'active' else 'stop', unit])
 
     def runtime_snapshot(self, writes, kind):
@@ -484,9 +502,9 @@ class Engine:
                 fn()
             except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired) as error:
                 errors.append(str(error))
-        if UNIT in services and services[UNIT].get('LoadState') == 'not-found':
-            # Remove newly-created wants links while the unit still exists.
-            attempt(lambda: self.run(['systemctl', 'disable', UNIT]))
+        for unit in (UNIT, RESUME_UNIT):
+            if unit in services and services[unit].get('LoadState') == 'not-found':
+                attempt(lambda u=unit: self.run(['systemctl', 'disable', u]))
         for name, previous in files.items():
             attempt(lambda n=name, p=previous: self.restore_file(n, p))
         attempt(lambda: self.restore_runtime(values))
@@ -524,15 +542,17 @@ class Engine:
         before_runtime = self.runtime_snapshot(writes, kind)
         before_files = {name: self.snapshot(name) for name in files}
         before_state = self.snapshot(STATE)
-        touched_units = [u for u in (UNIT, 'fstrim.timer', 'tmp.mount') if any(u in cmd for cmd in actions)]
+        touched_units = [u for u in UNITS if any(u in cmd for cmd in actions)]
         unit_state = self.services() if touched_units else {}
         if any(u not in unit_state for u in touched_units):
             raise RuntimeError('Could not read system service state. No settings were changed.')
         previous_units = {u: unit_state[u] for u in touched_units}
         new_state = copy.deepcopy(state)
+        if kind.startswith('cpu_') or kind == 'battery_limit':
+            new_state.setdefault('power_services', {u: unit_state[u] for u in POWER_MANAGERS if u in previous_units})
         new_state['settings'][kind] = value
         new_state['backups'] = sorted(set(state.get('backups', [])) | {kind})
-        new_state.setdefault('files', {})[kind] = {n: fingerprint(v.encode()) for n, v in files.items() if n not in (BOOT, SERVICE)}
+        new_state.setdefault('files', {})[kind] = {n: fingerprint(v.encode()) for n, v in files.items() if n not in (BOOT, SERVICE, RESUME)}
         try:
             for name, content in files.items():
                 self.atomic(name, content.encode(), before_files[name]['mode'] if before_files[name] else 0o644)
@@ -541,11 +561,14 @@ class Engine:
                 runtime.write_verified(path, content)
             for args in actions:
                 self.run(args)
+            if kind.startswith('cpu_') or kind == 'battery_limit':
+                for path, content in writes.items():
+                    runtime.write_verified(path, content)
             self.verify_services(kind, value)
             backup = {'version': 1, 'kind': kind, 'previous': state['settings'].get(kind),
                       'previous_files': state.get('files', {}).get(kind, {}),
-                      'files': {n: v for n, v in before_files.items() if n not in (BOOT, SERVICE)},
-                      'after': {n: fingerprint(self.path(n).read_bytes()) for n in files if n not in (BOOT, SERVICE)},
+                      'files': {n: v for n, v in before_files.items() if n not in (BOOT, SERVICE, RESUME)},
+                      'after': {n: fingerprint(self.path(n).read_bytes()) for n in files if n not in (BOOT, SERVICE, RESUME)},
                       'runtime': before_runtime, 'services': previous_units, 'restart': restart}
             self.path(BACKUPS).mkdir(parents=True, exist_ok=True, mode=0o700)
             self.atomic(BACKUPS + '/' + kind + '.json', json.dumps(backup).encode(), 0o600)
@@ -574,15 +597,19 @@ class Engine:
         before_files[STATE] = self.snapshot(STATE)
         values = {} if needs_restart else backup['runtime']
         before_runtime = {name: runtime.selected(runtime.read(self.path(name))) for name in values}
-        services = {k: v for k, v in backup['services'].items() if k != UNIT}
-        now_services = self.services() if services else {}
-        if any(k not in now_services for k in services):
-            raise RuntimeError('Could not read system service state. No settings were changed.')
-        before_services = {k: now_services[k] for k in services}
+        services = {k: v for k, v in backup['services'].items() if k not in (UNIT, RESUME_UNIT)}
         if backup['previous'] is None:
             state['settings'].pop(kind, None)
         else:
             state['settings'][kind] = backup['previous']
+        if kind.startswith('cpu_') or kind == 'battery_limit':
+            services = {k:v for k,v in services.items() if k not in POWER_MANAGERS}
+            if not any(k.startswith('cpu_') or k == 'battery_limit' for k in state['settings']):
+                services.update(state.pop('power_services', {}))
+        now_services = self.services() if services else {}
+        if any(k not in now_services for k in services):
+            raise RuntimeError('Could not read system service state. No settings were changed.')
+        before_services = {k: now_services[k] for k in services}
         state['backups'] = [v for v in state.get('backups', []) if v != kind]
         state.setdefault('files', {})[kind] = backup.get('previous_files', {})
         try:

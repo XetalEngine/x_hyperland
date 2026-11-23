@@ -30,7 +30,7 @@
     {"id":"ram-cleaner","title":"RAM Cleaner","description":"Reclaim unused caches without closing apps","icon":"media-flash","path":["ramCleanerTab"],"keywords":"memory ram cache normal aggressive cleanup reclaim"}
   ]},
   {"title": "Network & connections","tools":[
-    {"id":"rdp","title":"RDP","description":"Remote desktops · saved PCs, credentials and shared folders","icon":"preferences-desktop-remote-desktop","path":["rdpTab"],"keywords":"remote desktop Windows PC RDP FreeRDP Remmina gateway connection clipboard audio microphone folder full screen"},
+    {"id":"rdp","title":"RDP","description":"Remote desktop · connect to PCs or share this desktop with RDP / VNC","icon":"preferences-desktop-remote-desktop","path":["rdpTab"],"keywords":"remote desktop Windows PC RDP VNC FreeRDP TigerVNC WayVNC hosting incoming outgoing server client viewer share gateway connection clipboard audio microphone folder full screen"},
     {"id":"network","title":"Network","description":"Connections, Wi-Fi, virtual networks and diagnostics","icon":"network-workgroup","path":["networkTab"]},
     {"id":"firewall","title":"Firewall","description":"UFW and firewalld rules","icon":"security-high","path":["networkTab","firewallSubTab"]},
     {"id":"shares","title":"Network Shares","description":"Discover, mount and share folders","icon":"folder-network","path":["networkTab","networkSharesSubTab"]}

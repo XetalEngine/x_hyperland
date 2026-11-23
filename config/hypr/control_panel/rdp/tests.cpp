@@ -3,6 +3,8 @@
 #include "engine.h"
 #include "clipboard.h"
 #include "page.h"
+#include "hosting_page.h"
+#include "vnc.h"
 #include "view.h"
 #include <QtTest>
 #include <QtWidgets>
@@ -23,6 +25,33 @@ Profile profile() {
 QByteArray pngImage() {
     QImage image(13, 9, QImage::Format_RGB32); image.fill(QColor(220, 30, 70));
     QByteArray png; QBuffer buffer(&png); buffer.open(QIODevice::WriteOnly); image.save(&buffer, "PNG"); return png;
+}
+bool hostingFixture(const QString &root) {
+    QDir().mkpath(root + "/desktop_services");
+    QFile helper(root + "/desktop_services/remote_cli.py");
+    if (!helper.open(QIODevice::WriteOnly)) return false;
+    helper.write(R"PY(import json,sys,time
+from pathlib import Path
+p=Path(__file__).resolve().parents[1]
+action=sys.argv[1];request=json.load(sys.stdin)
+with (p/'requests').open('a') as f:f.write(json.dumps(dict(action=action,argv=sys.argv,request=request))+'\n')
+if action=='status' and (p/'slow').exists():time.sleep(.25)
+if action=='start' and (p/'fail-start').exists():
+ print(json.dumps(dict(ok=False,error='Fixture listener could not bind',has_password=True,status=dict(running=False,log=''),components=dict(vnc=True,rdp=True))));sys.exit(1)
+prefs=dict(version=1,protocol='vnc',address='127.0.0.1',port=5900,output='',fps=30,username='fixture',control=False,autostart=False)
+if (p/'settings').exists():prefs=json.loads((p/'settings').read_text())
+if action in ('save','start'):
+ prefs=request['values'];(p/'settings').write_text(json.dumps(prefs))
+if action=='start':(p/'running').touch()
+if action=='stop':(p/'running').unlink(missing_ok=True)
+running=(p/'running').exists()
+status=dict(running=running,listening=running,connections=int((p/'clients').read_text()) if (p/'clients').exists() else 0,log='',process=dict(protocol=prefs['protocol'],output='DP-1',address=prefs['address'],port=prefs['port'],control=prefs['control'],fingerprint='SHA256:00:11:22') if running else None)
+if request.get('password'):(p/'missing-password').unlink(missing_ok=True)
+result=dict(ok=True,has_password=not (p/'missing-password').exists(),status=status,components=dict(vnc=True,rdp=True))
+if action=='refresh':result.update(preferences=prefs,monitors=[dict(name='DP-1',description='Fixture display')],addresses=['127.0.0.1','192.0.2.10'])
+print(json.dumps(result))
+)PY");
+    return true;
 }
 struct ClipPeer {
     ClipboardBridge bridge;
@@ -99,6 +128,55 @@ private slots:
         edited=p; edited.username="someoneelse"; QVERIFY(p.credentialKey()!=edited.credentialKey());
         edited=p; edited.gateway="gateway.test"; QVERIFY(p.credentialKey()!=edited.credentialKey());
         edited=p; edited.name="New label"; QCOMPARE(p.credentialKey(),edited.credentialKey());
+        edited=p; edited.protocol="vnc"; QVERIFY(p.credentialKey()!=edited.credentialKey());
+    }
+    void vncProfilesKeepLegacyRdpWalletKeysAndDoNotUseRdpOptions() {
+        auto p=profile(); auto old=p.json(); old.remove("protocol"); old.remove("vncSecurity");
+        const auto legacy=Profile::fromJson(old); QCOMPARE(legacy.protocol,QString("rdp")); QCOMPARE(legacy.port,3389);
+        const auto identity=QJsonArray{p.id,p.host.toLower(),p.port,p.username,p.domain,p.gateway.toLower()};
+        QCOMPARE(legacy.credentialKey(),QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(identity).toJson(QJsonDocument::Compact),QCryptographicHash::Sha256).toHex()));
+        p.protocol="vnc";p.port=5901;p.vncViewOnly=true;p.vncSecurity="legacy";p.sharedFolder="/missing/rdp/folder";
+        QVERIFY(p.validate().isEmpty()); QTemporaryDir temp;ProfileStore store(temp.filePath("connections.json"));QString error;
+        QVERIFY(store.save(p,&error));QCOMPARE(store.load().at(0).json(),p.json());
+        p.host="-SecurityTypes=None";QVERIFY(!p.validate().isEmpty());
+    }
+    void vncLaunchUsesLiteralArgumentsAndPrivateEnvironment() {
+        auto p=profile();p.protocol="vnc";p.port=5901;p.host="::1";p.vncViewOnly=true;p.autoAcceptCertificate=true;
+        auto args=vncArguments(p);QCOMPARE(args.last(),QString("[::1]::5901"));
+        QVERIFY(args.contains("-ViewOnly=1"));QVERIFY(args.contains("-SendClipboard=0"));QVERIFY(args.contains("-RemoteResize=0"));
+        const auto security=args.filter("-SecurityTypes=").at(0);QVERIFY(!security.contains(",VncAuth"));QVERIFY(!security.endsWith(",None"));
+        p.vncSecurity="legacy";QVERIFY(vncArguments(p).filter("-SecurityTypes=").at(0).contains(",VncAuth,None"));
+        const QString secret="private long password ' $(literal)";const auto env=vncEnvironment(p,secret);
+        QCOMPARE(env.value("VNC_PASSWORD"),secret);QCOMPARE(env.value("VNC_USERNAME"),p.username);
+        QVERIFY(!args.join(' ').contains(secret));QVERIFY(!p.json().contains("password"));
+        QVERIFY(!vncEnvironment(p,{}).contains("VNC_PASSWORD"));
+        if(qEnvironmentVariableIsSet("FUSION_VNC_TEST_PORT")) {
+            p.host="127.0.0.1";p.port=qEnvironmentVariableIntValue("FUSION_VNC_TEST_PORT");p.vncSecurity="encrypted";p.vncViewOnly=false;p.dynamicResolution=false;
+            QWidget owner;openVncSession(qEnvironmentVariable("FUSION_VNC_TEST_ROOT"),p,"fixture8",&owner);
+            QPointer<QProcess> viewer=qApp->findChild<QProcess *>("fusionVncClient");QVERIFY(viewer);
+            QTRY_COMPARE(viewer->state(),QProcess::Running);
+            const auto cleanup=qScopeGuard([&]{if(viewer){viewer->kill();viewer->waitForFinished(1000);}});
+            const QDir sync(qEnvironmentVariable("FUSION_VNC_TEST_SYNC"));
+            QFile started(sync.filePath("started"));QVERIFY(started.open(QIODevice::WriteOnly));started.close();
+            QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(sync.filePath("verified")),15000);
+            QVERIFY(viewer && viewer->state()==QProcess::Running);
+        }
+    }
+    void outgoingProtocolDefaultsToRdpAndSavesVncWithoutChangingOtherPcs() {
+        QTemporaryDir temp;auto old=profile();old.rememberPassword=false;ProfileStore store(temp.filePath("control_panel/state/rdp/connections.json"));QString error;QVERIFY(store.save(old,&error));
+        QFile helper(temp.filePath("secret-tool"));QVERIFY(helper.open(QIODevice::WriteOnly));helper.write("#!/bin/sh\nexit 0\n");helper.close();QVERIFY(helper.setPermissions(QFile::ReadOwner|QFile::WriteOwner|QFile::ExeOwner));
+        const auto path=qgetenv("PATH");const auto restore=qScopeGuard([&]{qputenv("PATH",path);});qputenv("PATH",temp.path().toUtf8()+":"+path);
+        Profile opened;QString openedSecret;Page page(temp.path(),nullptr,[&](const Profile &p,const QString &s){opened=p;openedSecret=s;});page.resize(1220,900);page.show();
+        auto *protocol=page.findChild<QComboBox *>("rdpProtocol");auto *port=page.findChild<QSpinBox *>("rdpPort");auto *password=page.findChild<QLineEdit *>("rdpPassword");
+        QCOMPARE(page.draft().protocol,QString("rdp"));QCOMPARE(port->value(),3389);
+        password->setText("rdp-secret-must-not-follow");protocol->setCurrentIndex(1);QCOMPARE(port->value(),5900);QVERIFY(password->text().isEmpty());
+        QVERIFY(page.findChild<QGroupBox *>("vncOptions")->isVisible());QVERIFY(!page.findChild<QLineEdit *>("rdpDomain")->isVisible());QVERIFY(!page.findChild<QCheckBox *>("rdpShareFolder")->isVisible());
+        port->setValue(5995);protocol->setCurrentIndex(0);QCOMPARE(port->value(),5995);protocol->setCurrentIndex(1);QCOMPARE(port->value(),5995);
+        page.findChild<QLineEdit *>("rdpName")->setText("Linux VNC");page.findChild<QLineEdit *>("rdpHost")->setText("vnc.example.test");password->setText("vnc-test-secret-1234");
+        page.findChild<QPushButton *>("rdpConnect")->click();QTRY_COMPARE(opened.protocol,QString("vnc"));QCOMPARE(openedSecret,QString("vnc-test-secret-1234"));QCOMPARE(opened.port,5995);
+        const auto saved=store.load();QCOMPARE(saved.size(),2);QCOMPARE(saved[0].json(),old.json());QCOMPARE(saved[1].protocol,QString("vnc"));
+        if(qEnvironmentVariableIsSet("RDP_TEST_SCREENSHOTS"))QVERIFY(page.grab().save(qEnvironmentVariable("RDP_TEST_SCREENSHOTS")+"/vnc-outgoing.png"));
+        page.findChild<QPushButton *>("rdpNew")->click();QCOMPARE(page.draft().protocol,QString("rdp"));QCOMPARE(port->value(),3389);
     }
     void connectionValidationAndLiteralSharedPaths() {
         auto p=profile(); QVERIFY(p.validate().isEmpty()); p.host="rdp://bad/path"; QVERIFY(!p.validate().isEmpty());
@@ -213,6 +291,98 @@ private slots:
             page.findChild<QLabel *>("rdpStatus")->clear();
             QVERIFY(page.grab().save(qEnvironmentVariable("RDP_TEST_SCREENSHOTS")+"/rdp-page.png"));
         }
+    }
+    void hostingTabsPreserveOutgoingDraftAndSavedPcs() {
+        QTemporaryDir temp; QVERIFY(hostingFixture(temp.path()));
+        auto pc = profile(); QString error;
+        ProfileStore store(temp.path()+"/control_panel/state/rdp/connections.json"); QVERIFY(store.save(pc, &error));
+        Page page(temp.path(), nullptr, [](const Profile &, const QString &) {});
+        page.resize(1220,930); page.show(); QTest::qWait(30);
+        auto *tabs = page.findChild<QTabWidget *>("rdpModes"); QVERIFY(tabs); QCOMPARE(tabs->count(), 2); QCOMPARE(tabs->currentIndex(), 0);
+        QVERIFY(!QFile::exists(temp.path()+"/requests")); // Reading saved PCs never invokes the hosting helper.
+        page.findChild<QLineEdit *>("rdpHost")->setText("draft.example.test");
+        page.findChild<QLineEdit *>("rdpUsername")->setText("my-draft-login");
+        page.showHosting();
+        QTRY_VERIFY(page.findChild<QPushButton *>("rdpHostStart")->isEnabled());
+        QCOMPARE(page.findChild<QLabel *>("rdpHostState")->text(), QString("Sharing is off"));
+        QVERIFY(!QFile::exists(temp.path()+"/running")); QVERIFY(!QFile::exists(temp.path()+"/settings"));
+        if (qEnvironmentVariableIsSet("RDP_TEST_SCREENSHOTS"))
+            QVERIFY(page.grab().save(qEnvironmentVariable("RDP_TEST_SCREENSHOTS")+"/rdp-hosting-page.png"));
+        tabs->setCurrentIndex(0);
+        QCOMPARE(page.draft().host, QString("draft.example.test")); QCOMPARE(page.draft().username, QString("my-draft-login"));
+        QCOMPARE(page.findChild<QListWidget *>("rdpConnections")->count(), 1);
+        QCOMPARE(store.load(&error).at(0).host, pc.host);
+        QVERIFY(!page.findChild<QTimer *>("rdpHostPoll")->isActive());
+    }
+    void hostingRefreshPreservesEditsAndCredentialsTravelOnStdin() {
+        QTemporaryDir temp; QVERIFY(hostingFixture(temp.path()));
+        HostingPage page(temp.path()); page.resize(1100,760); page.show();
+        auto *save = page.findChild<QPushButton *>("rdpHostSave"); QTRY_VERIFY(save->isEnabled());
+        auto *timer = page.findChild<QTimer *>("rdpHostPoll"); timer->stop();
+        auto *protocol = page.findChild<QComboBox *>("rdpHostProtocol");
+        auto *port = page.findChild<QSpinBox *>("rdpHostPort");
+        auto *control = page.findChild<QCheckBox *>("rdpHostControl");
+        auto *secret = page.findChild<QLineEdit *>("rdpHostPassword");
+        auto *username = page.findChild<QLineEdit *>("rdpHostUsername");
+        auto *refresh = page.findChild<QPushButton *>("rdpHostRefresh");
+        QCOMPARE(protocol->currentData().toString(), QString("vnc")); QVERIFY(!control->isChecked());
+        protocol->setCurrentIndex(protocol->findData("rdp")); QCOMPARE(port->value(),3389); QVERIFY(control->isChecked()); QVERIFY(!control->isEnabled());
+        port->setValue(3395); username->setText("new-sharing-user"); secret->setText("fixture-private-password");
+        refresh->click(); QTRY_VERIFY(save->isEnabled());
+        QCOMPARE(port->value(),3395); QCOMPARE(username->text(),QString("new-sharing-user")); QCOMPARE(secret->text(),QString("fixture-private-password"));
+        QFile slow(temp.path()+"/slow"); QVERIFY(slow.open(QIODevice::WriteOnly)); slow.close();
+        QVERIFY(QMetaObject::invokeMethod(timer,"timeout"));
+        QVERIFY(username->isEnabled()); QVERIFY(secret->isEnabled()); // Polling must not interrupt typing.
+        QVERIFY(save->isEnabled()); QVERIFY(refresh->isEnabled()); QVERIFY(page.findChild<QPushButton *>("rdpHostStart")->isEnabled());
+        QTRY_VERIFY(save->isEnabled());
+        auto *start = page.findChild<QPushButton *>("rdpHostStart"); start->click();
+        auto *stop = page.findChild<QPushButton *>("rdpHostStop"); QTRY_VERIFY(stop->isEnabled());
+        QVERIFY(secret->text().isEmpty()); QVERIFY(!start->isEnabled());
+        QVERIFY(page.findChild<QLabel *>("rdpHostState")->text().contains("Listening · waiting for a connection"));
+        QFile requests(temp.path()+"/requests"); QVERIFY(requests.open(QIODevice::ReadOnly));
+        bool sawStart = false;
+        for (const auto &line : requests.readAll().split('\n')) {
+            if (line.isEmpty()) continue;
+            const auto request = QJsonDocument::fromJson(line).object();
+            QVERIFY(!QJsonDocument(request["argv"].toArray()).toJson().contains("fixture-private-password"));
+            if (request["action"].toString() == "start") {
+                sawStart = true; QCOMPARE(request["request"].toObject()["password"].toString(),QString("fixture-private-password"));
+                QCOMPARE(request["request"].toObject()["values"].toObject()["port"].toInt(),3395);
+            }
+        }
+        QVERIFY(sawStart); stop->click(); QTRY_VERIFY(start->isEnabled()); QVERIFY(!stop->isEnabled());
+        QCOMPARE(page.findChild<QLabel *>("rdpHostState")->text(),QString("Sharing is off"));
+        page.hide(); QVERIFY(!timer->isActive());
+    }
+    void hostingPasswordRequirementAndFailuresStayVisibleAcrossPolling() {
+        QTemporaryDir temp;QVERIFY(hostingFixture(temp.path()));
+        QFile missing(temp.filePath("missing-password"));QVERIFY(missing.open(QIODevice::WriteOnly));missing.close();
+        HostingPage page(temp.path());page.show();
+        auto *save=page.findChild<QPushButton *>("rdpHostSave");QTRY_VERIFY(save->isEnabled());
+        auto *timer=page.findChild<QTimer *>("rdpHostPoll");timer->stop();
+        auto *process=page.findChild<QProcess *>("rdpHostProcess");auto *start=page.findChild<QPushButton *>("rdpHostStart");auto *password=page.findChild<QLineEdit *>("rdpHostPassword");
+        QVERIFY(!start->isEnabled());QVERIFY(page.findChild<QLabel *>("rdpHostMessage")->text().contains("password"));
+        password->setText("short");QVERIFY(!start->isEnabled());password->setText("test-sharing-secret");QVERIFY(start->isEnabled());
+        QFile failure(temp.filePath("fail-start"));QVERIFY(failure.open(QIODevice::WriteOnly));failure.close();start->click();
+        auto *message=page.findChild<QLabel *>("rdpHostMessage");QTRY_COMPARE(message->text(),QString("Fixture listener could not bind"));
+        QVERIFY(!page.findChild<QPushButton *>("rdpHostStop")->isEnabled());
+        QVERIFY(QMetaObject::invokeMethod(timer,"timeout"));QVERIFY(start->isEnabled());QVERIFY(save->isEnabled());
+        QTRY_COMPARE(process->state(),QProcess::NotRunning);QCOMPARE(message->text(),QString("Fixture listener could not bind"));
+        QVERIFY(QFile::remove(failure.fileName()));start->click();QTRY_VERIFY(page.findChild<QPushButton *>("rdpHostStop")->isEnabled());
+        auto *state=page.findChild<QLabel *>("rdpHostState");QVERIFY(state->text().contains("Listening"));
+        QFile clients(temp.filePath("clients"));QVERIFY(clients.open(QIODevice::WriteOnly));clients.write("1");clients.close();
+        QVERIFY(QMetaObject::invokeMethod(timer,"timeout"));QVERIFY(page.findChild<QPushButton *>("rdpHostStop")->isEnabled());QTRY_VERIFY(state->text().contains("1 remote connection"));
+        // Editing a draft does not change the connection address of the active server.
+        const auto active=page.findChild<QLabel *>("rdpHostConnection")->text();page.findChild<QSpinBox *>("rdpHostPort")->setValue(5998);QCOMPARE(page.findChild<QLabel *>("rdpHostConnection")->text(),active);
+        QFile slow(temp.filePath("slow"));QVERIFY(slow.open(QIODevice::WriteOnly));slow.close();
+        QVERIFY(QMetaObject::invokeMethod(timer,"timeout"));page.findChild<QPushButton *>("rdpHostStop")->click();
+        QTRY_VERIFY(!QFile::exists(temp.filePath("running")));QTRY_VERIFY(start->isEnabled());QVERIFY(!page.findChild<QPushButton *>("rdpHostStop")->isEnabled());
+    }
+    void hostingMissingHelperKeepsControlsSafeAndReportsAnError() {
+        QTemporaryDir temp; HostingPage page(temp.path()); page.show();
+        auto *message = page.findChild<QLabel *>("rdpHostMessage"); QTRY_VERIFY(!message->text().isEmpty());
+        QVERIFY(!page.findChild<QPushButton *>("rdpHostStart")->isEnabled());
+        QVERIFY(page.findChild<QPushButton *>("rdpHostRefresh")->isEnabled());
     }
     void savedPasswordsCannotFollowAnEditedPcOrOverwriteTyping() {
         QTemporaryDir temp; auto p = profile(); QString error;

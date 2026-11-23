@@ -4,7 +4,12 @@ from pathlib import Path
 import re
 import sys
 
-RUNTIME_IDS = ('cpu_governor', 'cpu_energy', 'cpu_boost', 'thp', 'io_scheduler')
+RUNTIME_IDS = ('cpu_governor', 'cpu_energy', 'cpu_boost', 'battery_limit', 'thp', 'io_scheduler')
+
+
+def batteries(root=Path('/')):
+    return [p for p in sorted((root/'sys/class/power_supply').glob('*'))
+            if read(p/'type') == 'Battery' and (p/'charge_control_end_threshold').is_file()]
 
 
 def read(path):
@@ -25,6 +30,8 @@ def disks(root=Path('/')):
 
 
 def available(kind, root=Path('/')):
+    if kind == 'battery_limit':
+        return ['80', '90', '100'] if batteries(root) else []
     if kind in ('cpu_governor', 'cpu_energy'):
         name = 'scaling_available_governors' if kind == 'cpu_governor' else 'energy_performance_available_preferences'
         sets = [set(read(p/name).split()) for p in policies(root)]
@@ -56,6 +63,14 @@ def targets(kind, value, root=Path('/')):
     if kind == 'cpu_boost':
         path, inverted = boost_file(root)
         return {path: str(int((value == 'on') != inverted))}
+    if kind == 'battery_limit':
+        targets = {}
+        for battery in batteries(root):
+            start = read(battery/'charge_control_start_threshold')
+            if start.isdigit() and int(start) >= int(value):
+                raise ValueError('The battery’s existing charge-start threshold must be lower than this limit.')
+            targets[battery/'charge_control_end_threshold'] = value
+        return targets
     if kind == 'thp':
         return {root/'sys/kernel/mm/transparent_hugepage/enabled': value}
     result = {}

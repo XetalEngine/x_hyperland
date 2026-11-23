@@ -207,6 +207,7 @@ class SystemPage(QWidget):
         controls.addLayout(power,1); root.addLayout(controls,3)
         footer=QHBoxLayout(); self.status=QLabel(''); self.status.setObjectName('muted'); self.status.setWordWrap(True); footer.addWidget(self.status,1)
         self.shortcut_button=QPushButton('Customize monitor shortcut…'); self.shortcut_button.clicked.connect(self.edit_shortcut); footer.addWidget(self.shortcut_button)
+        power_settings=QPushButton('Power & battery settings…'); power_settings.clicked.connect(lambda: self.navigate('power')); footer.addWidget(power_settings)
         root.addLayout(footer); scroll.setWidget(content); outer.addWidget(scroll)
         self.timer=QTimer(self); self.timer.setInterval(2500); self.timer.timeout.connect(self.refresh)
         self.update_design()

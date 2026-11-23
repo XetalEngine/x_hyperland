@@ -57,7 +57,7 @@ def set_wallpaper(connector,item):
     if 'error' in result.lower() or 'failed' in result.lower(): raise ValueError(result)
 
 
-def apply_wallpapers(draft, expected):
+def apply_wallpapers(draft, expected, *, keep_video=False):
     from PIL import Image
     settings.STATE.mkdir(parents=True,exist_ok=True,mode=0o700)
     with (settings.STATE/'wallpaper-save.lock').open('a') as lock:
@@ -94,6 +94,9 @@ def apply_wallpapers(draft, expected):
                     if content is None:path.unlink()
                     else:keys.atomic_write(path,content)
             raise
+        if not keep_video:
+            from wallpaper import video
+            video.clear(draft)
         return read_wallpapers()
 
 
@@ -564,6 +567,9 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
                 try:effect_colors.reload_active(settings.ctl,effect_reloads)
                 except Exception:pass
             raise
+    if changed_outputs:
+        from wallpaper import video
+        video.clear(changed_outputs)
     if not partial or 'colors' in components or 'waybar' in components:bar_styles.reload_session(ROOT)
     if not partial or 'colors' in components:reload_kitty(include_startup=True)
     # Reload only our notification daemon, never a notification server from KDE.

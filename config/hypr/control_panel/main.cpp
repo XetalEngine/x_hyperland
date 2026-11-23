@@ -119,6 +119,7 @@ int main(int argc, char **argv) {
       return 1;
   }
   MainWindow window;
+  window.setProperty("panelPreview", smoke);
   PanelController controller(&window);
   auto openTool = [&](const QString &section, const QString &package) {
     if (!package.isEmpty()) {

@@ -6,6 +6,30 @@
 class GrubEditorTests final : public QObject {
   Q_OBJECT
 private slots:
+  void navigationAuditDoesNotOpenAuthentication() {
+    QTemporaryDir fixture;
+    QFile helper(fixture.filePath("helper.py")); QVERIFY(helper.open(QIODevice::WriteOnly));
+    helper.write("from pathlib import Path\nPath(__file__).with_name('called').touch()\n"); helper.close();
+    QWidget host; host.setProperty("panelNavigationAudit", true); auto *layout = new QVBoxLayout(&host);
+    auto *page = new GrubEditor(helper.fileName(), &host); layout->addWidget(page);
+    host.show(); QTest::qWait(50); page->hide(); host.setProperty("panelNavigationAudit", false); QTest::qWait(50);
+    QVERIFY(!QFile::exists(fixture.filePath("called")));
+    host.setProperty("panelPreview", true); page->show(); page->findChild<QPushButton *>("grubLoad")->click(); QTest::qWait(50);
+    QVERIFY(!QFile::exists(fixture.filePath("called")));
+  }
+  void closingDuringHelperWorkDoesNotCallDestroyedWidgets() {
+    QTemporaryDir fixture;
+    QFile helper(fixture.filePath("helper.py")); QVERIFY(helper.open(QIODevice::WriteOnly));
+    helper.write("import sys,time,json\nfrom pathlib import Path\nsys.stdin.readline()\nPath(__file__).with_name('started').touch()\ntime.sleep(.15)\nprint(json.dumps(dict(error='fixture completed')),flush=True)\nPath(__file__).with_name('finished').touch()\n"); helper.close();
+    auto *page = new GrubEditor(helper.fileName()); page->show();
+    QTRY_VERIFY(QFile::exists(fixture.filePath("started")));
+    QPointer<QProcess> worker;
+    for (auto *process : page->findChildren<QProcess *>())
+      if (process->arguments().contains("connect")) worker = process;
+    QVERIFY(worker); delete page;
+    QTRY_VERIFY(QFile::exists(fixture.filePath("finished")));
+    QTRY_VERIFY(worker.isNull());
+  }
   void appearancePreviewAndExplicitApply() {
     const auto helper = QFINDTESTDATA("../../grub_appearance.py"); QVERIFY(!helper.isEmpty());
     GrubAppearance page(helper); page.resize(1500, 620);

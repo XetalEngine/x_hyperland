@@ -318,7 +318,7 @@ class Menu(QWidget):
         main.addLayout(greeting)
         self.search = QLineEdit()
         self.search.setObjectName('appSearch')
-        self.search.setPlaceholderText('Search apps, tools, and favorites…')
+        self.search.setPlaceholderText('Search apps, Control Panel, and Fusion Settings…')
         self.search.setClearButtonEnabled(True)
         self.search.textChanged.connect(self.populate)
         self.search.returnPressed.connect(self.activate_current)
@@ -689,7 +689,7 @@ class Menu(QWidget):
         categories = {'Development': ('Development',), 'Internet': ('Network',),
                       'Media': ('AudioVideo', 'Graphics'), 'Games': ('Game',),
                       'Utilities': ('Utility', 'System', 'Settings', 'Office')}
-        apps = list(self.apps.values())
+        apps = [a for a in self.apps.values() if query or not getattr(a, 'search_target', False) or a.get_id() in self.pinned]
         if query:
             def rank(app):
                 name = app.get_display_name().casefold()
@@ -721,7 +721,7 @@ class Menu(QWidget):
         self.views.setCurrentWidget(self.favorites_board if grouped else self.grid)
         self.add_group_button.setVisible(grouped)
         self.heading.setText('Search results' if query else self.page)
-        self.count.setText(f'{len(apps)} apps')
+        self.count.setText(f'{len(apps)} '+('results' if query else 'apps'))
         if hasattr(self, 'status'):
             self.report(self.layout_error if grouped and self.layout_error else
                         'No matching applications. Try a different name.' if not apps else '')
@@ -927,6 +927,7 @@ class Menu(QWidget):
             title = menu.addAction(entry.get_display_name().replace('&', '&&'))
             title.setEnabled(False)
             add('Open', 'system-run', 'open')
+            if getattr(entry, 'search_target', False): return menu
             add('Launch floating', 'window-new', 'open-floating')
             add('Open in terminal', 'utilities-terminal', 'terminal')
             menu.addSeparator()

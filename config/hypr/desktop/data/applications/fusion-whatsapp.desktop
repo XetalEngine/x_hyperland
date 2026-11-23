@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=WhatsApp
+Comment=Messages, voice clips and videos through WhatsApp Web
+Icon=whatsapp
+Exec=sh -c "exec \"$HOME/.config/hypr/scripts/whatsapp.sh\" \"$1\"" sh %u
+Terminal=false
+Categories=Network;InstantMessaging;
+MimeType=x-scheme-handler/whatsapp;
+StartupNotify=true

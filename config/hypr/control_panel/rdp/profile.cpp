@@ -13,6 +13,7 @@
 namespace FusionRdp {
 QJsonObject Profile::json() const {
     return {{"id", id}, {"name", name}, {"host", host}, {"port", port},
+        {"protocol", protocol}, {"vncSecurity", vncSecurity}, {"vncViewOnly", vncViewOnly}, {"vncShared", vncShared},
         {"username", username}, {"domain", domain}, {"sharedFolder", sharedFolder},
         {"gateway", gateway}, {"rememberPassword", rememberPassword},
         {"shareFolder", shareFolder}, {"clipboard", clipboard}, {"sound", sound},
@@ -24,7 +25,9 @@ QJsonObject Profile::json() const {
 Profile Profile::fromJson(const QJsonObject &o) {
     Profile p;
     p.id = o["id"].toString(); p.name = o["name"].toString(); p.host = o["host"].toString();
-    p.port = o["port"].toInt(3389); p.username = o["username"].toString(); p.domain = o["domain"].toString();
+    p.protocol = o["protocol"].toString("rdp"); p.vncSecurity = o["vncSecurity"].toString("encrypted");
+    p.vncViewOnly = o["vncViewOnly"].toBool(); p.vncShared = o["vncShared"].toBool(true);
+    p.port = o["port"].toInt(p.protocol == "vnc" ? 5900 : 3389); p.username = o["username"].toString(); p.domain = o["domain"].toString();
     p.sharedFolder = o["sharedFolder"].toString(QDir::homePath()); p.gateway = o["gateway"].toString();
     p.rememberPassword = o["rememberPassword"].toBool(true);
     p.shareFolder = o["shareFolder"].toBool(true); p.clipboard = o["clipboard"].toBool(true);
@@ -36,24 +39,29 @@ Profile Profile::fromJson(const QJsonObject &o) {
     return p;
 }
 QString Profile::validate() const {
+    if (protocol != "rdp" && protocol != "vnc") return "Choose RDP or VNC.";
+    if (protocol == "vnc" && vncSecurity != "encrypted" && vncSecurity != "legacy") return "Choose the VNC connection security.";
     if (QUuid(id).isNull()) return "Create a new connection before saving.";
     if (name.trimmed().isEmpty()) return "Give this connection a name.";
     if (host.trimmed().isEmpty()) return "Enter the PC's hostname or IP address.";
     const QRegularExpression invalid("[\\s/\\\\@?#]");
-    if (host.contains(invalid) || host.contains(QChar::Null))
+    if (host.contains(invalid) || host.contains(QChar::Null) || host.startsWith('-') || host.contains('='))
         return "Use a hostname or IP address, without a URL or username. Set the port separately.";
     if (port < 1 || port > 65535) return "The port must be between 1 and 65535.";
     if (username.contains(QChar::Null) || domain.contains(QChar::Null) || gateway.contains(QChar::Null))
         return "The connection details contain an invalid character.";
-    if (!gateway.isEmpty() && (gateway.contains(invalid) || gateway.startsWith('-')))
+    if (protocol == "rdp" && !gateway.isEmpty() && (gateway.contains(invalid) || gateway.startsWith('-')))
         return "Use a gateway hostname, optionally followed by :port.";
-    if (shareFolder && (!QDir::isAbsolutePath(sharedFolder) || !QFileInfo(sharedFolder).isDir()))
+    if (protocol == "rdp" && shareFolder && (!QDir::isAbsolutePath(sharedFolder) || !QFileInfo(sharedFolder).isDir()))
         return "Choose an existing folder to share, or turn off folder sharing.";
     return {};
 }
 QString Profile::credentialKey() const {
     // Editing a saved PC or account must never send its old password to a new host.
-    const QJsonArray identity{id, host.toLower(), port, username, domain, gateway.toLower()};
+    // Preserve existing RDP wallet keys exactly; VNC has a separate identity.
+    const QJsonArray identity = protocol == "rdp"
+        ? QJsonArray{id, host.toLower(), port, username, domain, gateway.toLower()}
+        : QJsonArray{id, host.toLower(), port, username, protocol};
     return QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(identity).toJson(QJsonDocument::Compact),
                                                       QCryptographicHash::Sha256).toHex());
 }
@@ -74,7 +82,7 @@ QList<Profile> ProfileStore::load(QString *error) const {
     QSet<QString> seen;
     for (const auto &entry : document.object()["connections"].toArray()) {
         auto p = Profile::fromJson(entry.toObject());
-        if (!entry.isObject() || QUuid(p.id).isNull() || seen.contains(p.id)) {
+        if (!entry.isObject() || QUuid(p.id).isNull() || seen.contains(p.id) || (p.protocol != "rdp" && p.protocol != "vnc")) {
             if (error) *error = "The saved RDP connections contain an invalid or duplicate entry.";
             return {};
         }

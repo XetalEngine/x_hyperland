@@ -7,6 +7,8 @@
 namespace FusionRdp {
 struct Profile {
     QString id, name, host, username, domain;
+    QString protocol = "rdp", vncSecurity = "encrypted";
+    bool vncViewOnly = false, vncShared = true;
     int port = 3389;
     QString sharedFolder = QDir::homePath();
     QString gateway;

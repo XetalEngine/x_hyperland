@@ -13,6 +13,7 @@ from PyQt6.QtGui import QColor, QPainter, QPen, QFont, QLinearGradient
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QComboBox, QCheckBox, QSpinBox, QDoubleSpinBox, QFormLayout, QScrollArea, QDialog, QMessageBox)
 
+from desktop_services.monitor_page import MonitorPicture
 import desktop_settings as settings
 import runtime as theme_runtime
 
@@ -182,7 +183,8 @@ class DisplaysPage(QWidget):
         toolbar.addWidget(button('Arrange vertically', lambda: self.arrange(True)))
         toolbar.addStretch(); toolbar.addWidget(button('Reload displays', lambda: self.refresh(force=True)))
         layout.addLayout(toolbar)
-        body = QHBoxLayout(); self.canvas = Arrangement(); body.addWidget(self.canvas, 1)
+        body = QHBoxLayout(); left = QVBoxLayout(); self.canvas = Arrangement(); left.addWidget(self.canvas, 1)
+        self.picture=MonitorPicture(async_run); left.addWidget(self.picture); body.addLayout(left,1)
         self.canvas.selected.connect(self.select); self.canvas.edited.connect(self.canvas_changed)
         scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setMinimumWidth(295); scroll.setMaximumWidth(350)
         panel = QWidget(); self.form = QFormLayout(panel); self.form.setContentsMargins(16, 12, 14, 12); self.form.setVerticalSpacing(13)
@@ -198,8 +200,8 @@ class DisplaysPage(QWidget):
         for spin in (self.x, self.y): spin.setRange(-32000, 32000); spin.setKeyboardTracking(False)
         for title, widget in [('Resolution', self.resolution), ('Refresh rate', self.rate), ('Scale', self.scale),
                               ('Rotation', self.rotation), ('Mode', self.mirror), ('Position X', self.x), ('Position Y', self.y)]: self.form.addRow(title, widget)
-        self.hdr = QComboBox(); self.hdr.setAccessibleName('HDR for this display')
-        self.form.addRow('HDR', self.hdr)
+        self.hdr = QComboBox(); self.hdr.setAccessibleName('Color space for this display')
+        self.form.addRow('Color space', self.hdr)
         self.hdr_info = label('', 'muted'); self.form.addRow(self.hdr_info)
         self.sdr_brightness = QDoubleSpinBox(); self.sdr_saturation = QDoubleSpinBox()
         for spin in (self.sdr_brightness, self.sdr_saturation):
@@ -251,7 +253,7 @@ class DisplaysPage(QWidget):
         if not self.loading: self.select(self.selector.currentData())
 
     def select(self, name):
-        self.canvas.current = name; self.sync_form(); self.canvas.update()
+        self.canvas.current = name; self.picture.select(name); self.sync_form(); self.canvas.update()
 
     def sync_form(self):
         m = self.selected_model()
@@ -271,7 +273,7 @@ class DisplaysPage(QWidget):
         self.mirror.setCurrentIndex(self.mirror.findData(m['mirror']))
         self.x.setValue(m['x']); self.y.setValue(m['y'])
         self.hdr.clear()
-        for title, value in [('Off (SDR)', 'srgb'), ('On', 'hdr'), ('On (display colors)', 'hdredid')]:
+        for title, value in [('sRGB', 'srgb'), ('Automatic', 'auto'), ('Display P3', 'dp3'), ('DCI P3', 'dcip3'), ('Adobe RGB', 'adobe'), ('Wide · BT.2020', 'wide'), ('Display colors · EDID', 'edid'), ('HDR · PQ', 'hdr'), ('HDR · display colors', 'hdredid')]:
             self.hdr.addItem(title, value)
             if value in settings.HDR_MODES:
                 self.hdr.model().item(self.hdr.count()-1).setEnabled(m.get('hdr_capable') is not False or m.get('cm') == value)
@@ -295,7 +297,7 @@ class DisplaysPage(QWidget):
         support = ('HDR supported.' if m.get('hdr_capable') is True else
                    'This display does not report HDR support.' if m.get('hdr_capable') is False else
                    'HDR support is unknown. Use preview to check the picture.')
-        detail = (' HDR stays on until you turn it off.' if on else ' HDR is off by default.')
+        detail = (' HDR stays on until you turn it off.' if on else ' This color preset is saved per monitor.')
         if m.get('cm') == 'hdredid': detail += ' Uses colors reported by the display.'
         self.hdr_info.setText(support+detail+' Apply previews the change before saving.')
 

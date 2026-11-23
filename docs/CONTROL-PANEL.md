@@ -6,6 +6,8 @@ The minus button hides the panel while its work continues. Open Control Panel fr
 
 Click the star at the right of any tool tile to add a direct shortcut to **Apps → Favorites**. A filled star means it is saved; click again to remove the pin. Launching that favorite opens the specific page in the existing Control Panel window. Stars stay in sync with changes made in Apps, and saved favorites survive desktop updates.
 
+The Start menu also searches Control Panel tools alongside installed apps and Fusion Settings destinations. Search a name or purpose, such as `grub`, `rdp` or `governor`, to open the corresponding page directly.
+
 The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine. The original application is not replaced or modified. System operations, dialogs, scripts, translations and ISO resources are included in [`control_panel/backend`](../config/hypr/control_panel/backend). [`UPSTREAM.json`](../config/hypr/control_panel/UPSTREAM.json) records the original source revision and file hashes. The engine and integration use [GPLv3](../config/hypr/control_panel/LICENSE).
 
 ![Control Panel in BreakPoint](screenshots/control-panel.png)
@@ -39,7 +41,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | System Cleaner | Curated cleanup plus a sudo disk visualizer with mounted-volume/folder picker, size tree, treemap, breadcrumbs and file actions |
 | RAM Cleaner | Live memory readings, Normal/Aggressive manual cache cleanup and observed before/after results; keeps applications running |
 | Network | Connections, Virtual networks, Diagnostics, Firewall and Shared folders; themed cards, expandable saved profiles and selection-aware actions |
-| RDP | Native remote desktop client with saved PCs and wallet credentials, shared home folder, clipboard text/images, audio/microphone/printers, resizing/reconnect, optional RD Gateway and a hiding full-screen toolbar. [Guide →](../config/hypr/control_panel/rdp/README.md) |
+| RDP | Outgoing RDP/VNC connections and incoming desktop sharing in two tabs. RDP keeps its native client, saved PCs, wallet credentials, folder/clipboard/audio options and session toolbar. VNC connections use TigerVNC; hosting uses hypr-rdp or WayVNC with monitor/address selection and live status. [Guide →](../config/hypr/control_panel/rdp/README.md) |
 | Firewall | UFW/firewalld rules and configuration |
 | Network Shares | Discovery, mounts, sharing and associated services |
 | Shell & Apps Shortcuts | Alias add/edit/remove, shell configuration editor, terminal actions and Apps favorites |
@@ -67,6 +69,29 @@ The backend targets **Arch Linux/CachyOS**. Package, kernel, boot and ISO tools 
 - The same **Desktop startup** group controls whether the animated Xetal Engine dashboard appears at login. The dashboard also has a **Show this dashboard at login** checkbox linked to this setting; turning it off skips all four windows. **Super+D** still opens or hides it manually. The preference defaults to on and is stored in the update-preserved `control_panel/state/startup-screen.json`.
 - User environment values are literal `NAME=value` lines in `control_panel/state/environment.env`, applied at the next Hyprland login. The explicit system pane still edits `/etc/environment` when requested.
 - The panel, shortcut editor and startup helper are tied to the active compositor connection.
+
+## Remote desktop: RDP and VNC
+
+All remote desktop options are under **Control Panel → RDP**.
+
+| Tab | Purpose |
+| --- | --- |
+| **Connect to a PC · RDP / VNC out** | Open a saved PC or create a connection. RDP is the default; VNC opens TigerVNC with its own encryption, clipboard, resizing, full-screen and view-only options. Existing RDP profiles and wallet credentials retain their behavior. |
+| **Share this desktop · RDP / VNC in** | Share a monitor from this logged-in desktop. Choose RDP or authenticated TLS VNC, the monitor, listening address, port and a sharing password. One incoming protocol runs at a time. |
+
+Hosting starts off, bound to the local computer, with automatic startup disabled.
+For another PC, choose the LAN address and verify the certificate fingerprint.
+Start requires a new password of 12–256 characters or a previously saved one.
+The status shows starting, listening, active TCP connection counts or off, and
+failed starts retain their error. Counts include authentication negotiation.
+Polling preserves form edits and leaves buttons stable; the log pane removes
+terminal color/control codes from both old and newly written output.
+
+RDP includes keyboard/mouse control, clipboard and mirrored audio. VNC also
+supports view-only sharing. Sharing stops at logout and does not expose a login
+screen. No firewall ports are opened automatically. See the
+[remote desktop guide](../config/hypr/control_panel/rdp/README.md) for connection,
+credential and validation details.
 
 ## Network
 

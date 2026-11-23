@@ -38,7 +38,7 @@ class Presentation:
         w.setStyleSheet(self.stylesheet())
         layout = QVBoxLayout(w); layout.setContentsMargins(24, 16, 24, 16); layout.setSpacing(14)
         header = QHBoxLayout(); header.setSpacing(12)
-        self.brand = Brand(self.style); header.addWidget(self.brand)
+        self.brand = Brand(self.style); header.addWidget(self.brand); header.addWidget(w.media)
         w.collection = QComboBox(); w.collection.setAccessibleName('Wallpaper collection')
         w.collection.addItem('All collections', ''); w.collection.setMinimumWidth(140); w.collection.setMaximumWidth(200)
         w.collection.currentIndexChanged.connect(w.filter)
@@ -242,7 +242,11 @@ class Presentation:
             self.resolution.setText('…'); self.format.setText(Path(picture.path).suffix.lstrip('.').upper() or 'Image')
             self.metadata_pending.add(picture.path)
             def inspect():
-                reader = QImageReader(picture.path); size = reader.size()
+                path=picture.path
+                from wallpaper import video
+                if Path(path).suffix.lower() in video.EXTENSIONS:
+                    _,info=video.inspect(path);return info['width'],info['height'],Path(path).suffix.lstrip('.').upper()+' video'
+                reader = QImageReader(path); size = reader.size()
                 return size.width(), size.height(), bytes(reader.format()).decode('ascii', errors='replace').upper()
             w.jobs.run(inspect, lambda result: self.show_metadata(picture.path, result),
                        lambda _: self.show_metadata(picture.path, (-1, -1, 'Image')))

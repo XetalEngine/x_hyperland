@@ -11,6 +11,7 @@
 <p align="center"><strong>Your workspace. Your colors. Your kind of Linux desktop.</strong><br>A complete Hyprland desktop with Fusion Files, native settings, four window modes and a little Compiz nostalgia.</p>
 
 <p align="center">
+  <a href="#recent-desktop-updates">Recent updates</a> ·
   <a href="#fusion-files">Fusion Files</a> ·
   <a href="#four-window-modes">Window modes</a> ·
   <a href="#altf9-screen-recording">Recording</a> ·
@@ -23,6 +24,24 @@
 [![Fusion Files in the 7D layout, with themed drive groups, a Linux system-drive icon and the live storage preview](config/hypr/docs/features/fusion-files/7d.png)](docs/GALLERY.md#fusion-files)
 
 <p align="center"><strong>Meet the new Fusion Files.</strong> Eleven This PC layouts. Your theme. Your controls.<br><sub>7D is the fresh-install default. Actual native UI with a sample drive inventory; click to explore the gallery.</sub></p>
+
+## Recent desktop updates
+
+The November 22–23, 2026 updates bring more everyday settings into the desktop and refine the existing tools.
+
+| Area | What's new |
+| --- | --- |
+| **Remote desktop** | **Control Panel → RDP** now handles RDP and VNC in both directions. RDP remains the default for outgoing connections; existing saved Windows PCs and wallet credentials are preserved. Incoming sharing shows when it is starting, listening or connected, with stable buttons and readable logs. |
+| **Video wallpapers** | **Super+W** switches between **Pictures** and **Videos** and remembers the choice. Picture and video folders are managed separately. Local videos loop silently per monitor, with fullscreen/battery pause options and a still-image fallback. |
+| **Universal search** | The Start menu searches installed apps, Control Panel tools and Fusion Settings pages together. Try `grub`, `phone`, `governor` or `rdp`. |
+| **Phone integration** | **Fusion Settings → Phone** adds KDE Connect pairing, file/clipboard sharing and supported Android SMS. WhatsApp opens its official linked web client; an optional link handler opens WhatsApp links there. |
+| **Persistent power settings** | CPU governor, energy preference, boost and supported battery charge limits survive reboot and resume. Separate AC/battery idle and lid choices live in **Fusion Settings → Power**, also reachable from the taskbar and Start menu. |
+| **Per-monitor picture controls** | **Displays & arrangement** adds color-space presets, supported hardware brightness/contrast/RGB controls, and a 20-second **Keep/Revert** preview. Saved hardware choices follow the monitor. |
+| **Desktop polish** | Fusion Viewer has a centered toolbar, navigation below the image and a rotate/wallpaper context menu. Floating wallpaper cards open centered without an enclosing border; the calendar opens only on click; clipboard history is taller. |
+| **Window appearance** | Focus styling joins shape, opacity and shadows in **Window effects → Window appearance**, with an interactive preview and preferences preserved when applying themes. The experimental Visuals pages are hidden for now. |
+| **KVM and boot tools** | More compact KVM pages, aligned Memory panels, tabbed Paths & tools and a working Clear history action. GRUB supports menu ordering, remembered selection and registering this installation in UEFI. |
+
+The live profile, repository and installer include the new desktop integrations. **Online/offline ISO images have not been rebuilt for this integration pass.** Software discovery remains scheduled for later; WhatsApp uses its web client, and display controls do not yet provide ICC calibration. Physical hardware and Windows RDP input/audio checks remain listed in the [recent changes and remaining work](docs/DESKTOP-ROADMAP.md).
 
 <!-- Feature showcase: shared with config/hypr/FEATURES.md. Keep both copies aligned. -->
 ## Highlighted features
@@ -171,7 +190,9 @@ keep their existing drag behavior.
 
 **Wobbly windows, Burn closing effects, per-monitor minimize docks and live task switchers** bring the Compiz-style desktop together. **Real Desktop icons** show your files and folders, with positions remembered per monitor. Theme presets coordinate the launcher, panels, controls, icons, cursors, sounds, wallpapers and transfer animations, while Mix & match lets you choose pieces independently.
 
-**Fusion Files, the Control Panel, KVM tools, the Proton application manager and Fusion RDP** are part of the desktop. The RDP client has saved connections, credential storage and an auto-hiding session toolbar, using FreeRDP's protocol libraries. [Desktop icons →](config/hypr/desktop_menu/README.md) · [Control Panel →](config/hypr/control_panel/README.md) · [Fusion RDP →](config/hypr/control_panel/rdp/README.md)
+**Fusion Files, Fusion Viewer, the Control Panel, KVM tools, the Proton application manager and remote desktop** are part of the desktop. **Control Panel → RDP** combines outgoing RDP/VNC connections and incoming desktop sharing in two tabs. RDP keeps its native session window, saved connections, wallet credentials and auto-hiding toolbar; VNC connections use TigerVNC. [Desktop icons →](config/hypr/desktop_menu/README.md) · [Control Panel →](config/hypr/control_panel/README.md) · [Remote desktop →](config/hypr/control_panel/rdp/README.md)
+
+**Video wallpapers, unified Start search, phone integration, persistent power settings and per-monitor picture controls** extend the everyday desktop. Super+W remembers Pictures or Videos, and the Start menu finds apps, Control Panel tools and Fusion Settings pages together. Phone, Power and Displays & arrangement live in Fusion Settings.
 
 <!-- End feature showcase. -->
 
@@ -353,6 +374,8 @@ Candy Cloud adds sculpted satin controls, pill-shaped navigation, a pearlescent 
 
 Press **Super+Space** and start typing. Arrange favorites into named groups, drag them into place, and mix medium tiles with compact icons. Resize the menu without losing your layout. Right-click an app to pin it to Favorites or the taskbar, assign a global hotkey, edit its command/icon, or choose terminal and floating behavior.
 
+Search finds **installed apps, all 35 Control Panel tools and Fusion Settings pages** together. Results such as `grub`, `phone`, `governor` and `rdp` open the relevant tool or settings page directly. Settings destinations appear in search without filling the ordinary installed-app list.
+
 The refresh icon beside **Favorites** (or **F5**) reloads installed applications while keeping your search and pins. Apps also refreshes whenever you open the menu and watches for new application folders created by installers. Newly installed applications are not automatically pinned.
 
 Fresh installs start with **My Computer**, **Kitty** and the bundled **Calculator** as the supplied favorites. My Computer opens Fusion Files at This PC. Your existing KDE favorites can also appear; the developer's pins and shortcut copies are never imported. While dragging a favorite, a small trash icon appears beside **Favorites**. Drop the tile there to unpin it; the application remains installed. Updates keep your own pins and layout.
@@ -363,15 +386,31 @@ Fresh installs start with **My Computer**, **Kitty** and the bundled **Calculato
 
 ### Settings and desktop menus
 
-**Super+K** opens Fusion Settings: editable hotkeys with validation and recovery, per-application audio routing, network/Bluetooth controls, keyboard/mouse/touchpad options, calendar, session controls and display arrangement with timed **Keep/Revert** protection.
+**Super+K** opens Fusion Settings: editable hotkeys with validation and recovery, per-application audio routing, network/Bluetooth controls, keyboard/mouse/touchpad options, phone integration, power preferences, calendar, session controls and display arrangement with timed **Keep/Revert** protection.
 
 **Start → Themes → Presets** lets you choose a theme, then select which components to apply. Reselect a preset to restore its chosen components; unchecked components keep their current appearance. If an apply fails, a dialog explains the error and your choices remain available to retry in the same window.
 
 Right-click the wallpaper for your desktop menu. Its editor supports commands, icons, headings, submenus, hotkeys, multiple columns and live styling previews. Save/load presets to reuse a layout.
 
+### Phone, power and display settings
+
+**Phone** uses KDE Connect to discover and pair devices, send files or clipboard text, ring a paired phone and open SMS on supported Android devices. WhatsApp opens the official linked web client for text, voice recordings and audio/video attachments. Its optional `whatsapp://send` handler is enabled only when selected; Fusion does not implement a separate native WhatsApp chat client.
+
+**Power** saves CPU governor, energy preference, boost and supported battery charge limits through authenticated transactions with backups and restore. Hardware choices persist across boot and resume. Separate AC/battery idle and lid settings honor idle inhibitors and can lock before sleep; they remain disabled until enabled by the user. Hibernate requires a working swap/resume configuration. Power settings are also available from the Waybar power panel and Start menu's session/power page.
+
+**Displays & arrangement** offers per-monitor color-space presets plus hardware brightness, contrast and RGB gain where supported. External monitor controls require DDC/CI. A **20-second Keep/Revert preview** restores unconfirmed hardware changes even if the editor closes. Kept values follow the monitor's EDID identity across login, reconnect and resume. These controls do not yet include ICC profile calibration.
+
+### Remote desktop in both directions
+
+Open **Control Panel → RDP**. **Connect to a PC · RDP / VNC out** keeps RDP as the default and also saves VNC PCs, with TigerVNC handling their session windows. Existing RDP connections and wallet passwords are preserved. VNC requires encryption by default and has its own clipboard, resizing, full-screen and view-only options.
+
+**Share this desktop · RDP / VNC in** shares a monitor from the logged-in session through RDP or authenticated TLS VNC, one hosting protocol at a time. Choose the monitor, listening address, port and sharing password, then **Start sharing**. The status reports **Starting**, **Listening · waiting for a connection**, connection counts or **Off**. Logs show readable text, and background refreshes leave the buttons stable. RDP includes remote input, clipboard and mirrored audio; VNC also offers view-only sharing.
+
+Hosting starts disabled and bound to the local computer, with automatic startup off. Choose a LAN address to connect from another computer and verify the displayed certificate fingerprint. Sharing ends at logout; it does not provide a remote login screen. [Connection options, hosting and verification →](config/hypr/control_panel/rdp/README.md)
+
 ### A taskbar for each display
 
-Workspaces, running apps, draggable pins and your chosen status modules stay close to the screen where you work. **Right-click → Options** moves the bar to the top or bottom and shows/hides individual modules. **Hide Update Ready** hides the ready/restart notice while updates keep checking normally. The clock opens a calendar; power opens a compact system dashboard. A session helper restores the bar if it exits unexpectedly.
+Workspaces, running apps, draggable pins and your chosen status modules stay close to the screen where you work. **Right-click → Options** moves the bar to the top or bottom and shows/hides individual modules. **Hide Update Ready** hides the ready/restart notice while updates keep checking normally. The clock opens a calendar **only when clicked**, without an overlapping hover calendar. Power opens a compact system dashboard with access to Power settings. Clipboard history uses a taller popup, bounded to the display. A session helper restores the bar if it exits unexpectedly.
 
 The indicator between **Keys** and **Update** shows that display's active workspace mode: one window for Individual, four panes for Force tiling, three overlapping windows for Force floating, or **KDE** text. Click it to cycle all four modes, or right-click a workspace number to choose its layout directly. [Compare the modes and their controls above.](#four-window-modes)
 
@@ -379,11 +418,13 @@ Every theme has its own taskbar materials and details. **Theme → Mix & match �
 
 ### Wallpaper carousel
 
-**Super+W** opens a flowing ribbon of wallpaper cards, with search, collections and a slideshow preview. All twelve bundled wallpapers are included. Add or remove your own folders directly in the browser; folder choices stay on your computer and removing a folder never deletes its images.
+**Super+W** opens a flowing ribbon of wallpaper cards, with search, collections and a slideshow preview. Choose **Pictures** or **Videos** from the dropdown; your last selection is remembered. All bundled theme pictures are included. **Wallpaper Selector** settings manages picture folders and video folders separately. Folder choices stay on your computer, and removing a folder never deletes its files.
 
-**Theme → Wallpapers → Wallpaper Selector** defaults to **Floating cards**, which places the carousel and compact controls directly over your desktop. The original **Gallery window** is also available. Your chosen style is used by Super+W, and both styles share your collection.
+**Theme → Wallpapers → Wallpaper Selector** defaults to **Floating cards**, which places the carousel and compact controls directly over your desktop without an enclosing square border, shadow or focus glow. It opens centered on the monitor under the pointer, including after an accidental move. The original **Gallery window**, **Frame Lab** and **Orbit Atlas** are also available. Your chosen style is used by Super+W, and all four styles share your media libraries.
 
-The center card opens on the current wallpaper for the display hosting the selector, even if its image is outside your selected folders. Click an image to choose its display from a preview of your real monitor arrangement. A single display applies immediately. **Bloom**, **Crossfade**, **Silk sweep**, **Ripple**, **Iris** and **Glide** transitions run behind your apps. **Random** picks an animated effect each time; **Instant** and reduced-motion settings skip the animation. Choices are saved per monitor and theme, and also appear in Fusion Settings. [Wallpaper guide →](config/hypr/wallpaper/README.md)
+The center card opens on the current wallpaper for the display hosting the selector, even if its image is outside your selected folders. Choose a display from a preview of your real monitor arrangement; a single display applies immediately. Pictures support **Bloom**, **Crossfade**, **Silk sweep**, **Ripple**, **Iris** and **Glide** transitions behind your apps. **Random** picks an animated effect each time; **Instant** and reduced-motion settings skip the animation. Picture choices are saved per monitor and theme, and also appear in Fusion Settings.
+
+Local videos play muted and loop on the chosen monitor, with a still-image fallback, fullscreen auto-pause and optional pause on battery. Saved playback returns at login or monitor reconnect. Applying a picture or theme wallpaper stops video on that monitor. [Picture and video wallpaper guide →](config/hypr/wallpaper/README.md)
 
 ### Screen recording
 
@@ -398,6 +439,8 @@ Choose frame rate, quality, encoding, desktop/microphone/no audio, the filename 
 Fresh installs always enable Welcome so plugin failures are visible at the first login. Uncheck **Show this dashboard at login** right on the dashboard to disable all four startup windows. Re-enable it in **Control Panel → Startup Applications**; Super+D continues to work manually. **Num Lock starts on by default**, with a matching switch in Startup Applications and Fusion Settings → Input.
 
 ## Compiz spirit. Hyprland desktop.
+
+**Theme → Window effects → Window appearance** combines shape, spacing, opacity, shadows and Focus. Click between active/inactive sample windows in the preview, then apply or discard your changes. Focus preferences and app exceptions survive theme preset changes and future logins; themes supply the accent colors. The experimental **Visuals**, **Glass & materials**, **Quality & previews** and **Workspace tools** pages, including the new large taskbar-hover preview option, are hidden for now. [Window appearance guide →](docs/VISUALS-057.md)
 
 | Burn close animation | Desktop Cube |
 | :---: | :---: |
@@ -433,8 +476,12 @@ Open **Apps → KVM** for the integrated Windows/Mac VM editor and setup wizard.
 - **Create Bridge** for a suitable wired NetworkManager connection, preserving IP/DNS settings with recovery checkpoints. **NAT** shares the host connection and also works over Wi-Fi.
 - Signed downloads for QEMU, OVMF, TPM, OpenCore, Looking Glass and support files. **Paths & Tools pulses red** for missing required components or a newer compatible installed-component release; updates remain an explicit action.
 - Private disks, TPM state and writable NVRAM stay separate from component and desktop updates.
+- Compact Single GPU, Memory, CPU pinning, SMBIOS, Machine & network and PCI/USB pages reduce scrolling; Memory panels align, and **Clear history** clears the log without closing KVM Settings.
+- **Paths & tools** separates **KVM components**, **QEMU & firmware**, **Kernel & helpers** and **ACPI tables** into tabs.
 
-The **Custom KVM module · Ultra AMD Stealth Interceptor** is **optional** and appears last in Downloads. It requires the published matching AMD CPU/kernel combination; standard system KVM remains available when it does not match. The built-in Windows guest-script preview and **Copy** action are available before downloading that module; using the script still requires a compatible custom host module and SSH setup.
+The **Custom KVM module · Ultra AMD Stealth Interceptor** is **optional** and appears last in Downloads. A signed multi-kernel catalog selects the published matching AMD CPU/kernel build; standard system KVM remains available when it does not match. **Install compatible KVM kernel** lists available releases newest first and recognizes a matching running kernel. Older published builds remain available. The built-in Windows guest-script preview and **Copy** action are available before downloading that module; using the script still requires a compatible custom host module and SSH setup.
+
+For supported **Windows → Virtual GPU** setups, **Do not ask for sudo again for this VM setup** remembers permission for an approved launch snapshot after the first authentication. Configuration, kernel or component changes require approval again, and other administrator actions keep their normal prompts. [Permission scope and revocation →](docs/KVM.md#first-setup)
 
 Runtime components download inside KVM Settings; they are not bundled with the desktop. Supply your own guest installation media and disks. Physical GPU passthrough and guest behavior still depend on the host hardware. [KVM setup, components and recovery →](docs/KVM.md)
 
@@ -472,6 +519,7 @@ UMU is prepared automatically when downloading Proton, and Steam is optional. Ex
 | **Control Panel** | A searchable native interface built from CachyOsTools: hardware, storage, services, startup apps, backups, system tools and shortcuts. **Some features remain Arch-only until further notice**, including Pacman/Paru/Yay and Arch package repair/kernel tools. [Feature map and platform requirements →](docs/CONTROL-PANEL.md) |
 | **Proton** | Our integrated XetalProton manager: Windows application library, custom prefixes, per-app runners, Proton downloads and updates, Winetricks, launch options and process logs. [Proton guide →](config/hypr/control_panel/proton/README.md) |
 | **GRUB Boot Editor** | Automatically load your menu, edit names, commands and order, choose the default and timeout, remember your last selection, or register this Linux installation in UEFI. Detect other systems, customize appearance, and keep backups with undo. [Boot editor →](docs/GRUB-BOOT-EDITOR.md) |
+| **Remote desktop** | **Control Panel → RDP** brings outgoing RDP/VNC connections and incoming session sharing together. Saved PCs, wallet credentials, monitor/address selection, certificate details and live sharing status. [Remote desktop guide →](config/hypr/control_panel/rdp/README.md) |
 | **Session log protection** | Enabled by default. Clears oversized Hyprland and Hyper Fusion session logs above 64 MiB every minute to protect runtime space. **Control Panel → System Tweaks → Hyprland** also offers **Disable session logs to file**, effective at the next login. [Log guard →](docs/CONTROL-PANEL.md#hyprland-log-guard) |
 | **System ISO** | Create an Arch-based system clone, then restore through a graphical Hyper Fusion wizard with drive cards, review and progress, plus an automatic console fallback. Choose whether the ISO requires a fresh administrator account or preserves existing accounts. Try **Control Panel → System ISO → Preview installer…** with sample drives first. [Restore wizard →](docs/CONTROL-PANEL.md#system-iso) |
 | **[Ventoy USB](config/hypr/control_panel/ventoy/README.md)** | Turn a USB disk into a multiboot drive from Control Panel, then copy ISO files onto it with Fusion Files. Ventoy 1.1.18 is bundled and verified for offline use. Includes updates that preserve ISO files, MBR/GPT, Secure Boot support, protected-disk checks and exact-disk erase confirmation. |
@@ -482,7 +530,7 @@ UMU is prepared automatically when downloading Proton, and Steam is optional. Ex
 | **File pickers** | Matching Places and image/text/folder previews in Xetal, Qt Widgets and standard GTK 3 dialogs. Custom application and portal pickers have their own integration limits. [Coverage →](docs/FILE-PREVIEWS.md) |
 | **[7-Zip archives](config/hypr/archive_manager/README.md)** | Pinned engine and complete source included. Compress, browse, test and extract; select compression methods, passwords, AES encryption, split volumes and CPU threads. Archive jobs use Fusion's animated transfer window and expandable attention queue. No separate 7-Zip installation needed. |
 | **File transfers** | Animated transfer-card designs for Fusion Files, built-in archive jobs and Dolphin/KIO, with real progress, pause/cancel where supported, error details and appearance controls. |
-| **Fusion Viewer** | Pointer-centered zoom, pan, Fit/100%, folder navigation, GIF playback, fullscreen and remembered window sizing. |
+| **Fusion Viewer** | Formerly Xetal Images. Centered Fit/100%/zoom/fullscreen/Open toolbar, navigation below the image, GIF playback and a right-click menu for rotation or setting wallpaper. Multiple monitors open the display picker. The file picker fits one display; extra KDE title bars and injected controls default to off. |
 | **Capture and sharing** | Alt+F9 screen recording with audio, 64 FPS MP4 saved to Videos by default, area/all-display screenshots, clipboard support and a custom Hyprland screen-share picker. Recording options live in Fusion Settings → Recorder. |
 | **Media downloader** | **Super+Ctrl+P** opens an MP3/MP4 popup with progress, cancellation and updates for its private yt-dlp copy. |
 | **Kitty** | Matching colors, animated cursor, a draggable scrollback scrollbar and a configurable Fastfetch welcome. |
@@ -543,6 +591,7 @@ Your hotkeys, monitor arrangement, chosen wallpapers, private Dolphin Places and
 
 | Guide | Details |
 | --- | --- |
+| [Recent desktop changes and remaining work](docs/DESKTOP-ROADMAP.md) | November integrations, UI fixes, completed checks, deferred features and ISO rebuild status |
 | [Illustrated feature guide](config/hypr/FEATURES.md) | The Fusion Files redesign, recording, window modes, per-monitor cubes and the file engine; also available in the installed profile |
 | [Workspace modes](config/hypr/workspaces/README.md) | Per-workspace layouts, mode cycling and independent button settings |
 | [Window controls](config/hypr/effects/window_close/README.md) | KDE title bars, Super overlays, app/window overrides and live previews |
@@ -556,6 +605,8 @@ Your hotkeys, monitor arrangement, chosen wallpapers, private Dolphin Places and
 | [Desktop updates](docs/UPDATES.md) | Settings preservation, activation and rollback |
 | [KVM Settings](docs/KVM.md) | VM setup, downloads, networking and private state |
 | [Control Panel](docs/CONTROL-PANEL.md) | Administration tools, RAM Cleaner and Disk Visualizer |
+| [Remote desktop](config/hypr/control_panel/rdp/README.md) | RDP and VNC connections, incoming sharing, credentials and status |
+| [Picture and video wallpapers](config/hypr/wallpaper/README.md) | Super+W, separate libraries, selector styles, monitor choices and playback |
 | [Screen recording](config/hypr/recording/README.md) | Alt+F9, audio, video settings and saved-recording notifications |
 | [File previews](docs/FILE-PREVIEWS.md) | Supported applications, Places and preview behavior |
 | [Validation](docs/VALIDATION.md) | Test suites and the limits of automated coverage |

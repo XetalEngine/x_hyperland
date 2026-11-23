@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
     QProgressBar, QListWidget, QFrame, QGraphicsOpacityEffect, QScrollArea, QFileDialog, QSizePolicy,
 )
 import keys
+sys.path.insert(0,str(keys.ROOT))
 from key_capture import CaptureEdit
 sys.path.insert(0, str(keys.ROOT / 'theme'))
 import runtime as theme_runtime
@@ -43,6 +44,9 @@ from icons import icon as navigation_icon
 from terminal_fetch.page import TerminalPage
 from recording.page import CapturePage
 from default_apps_page import DefaultAppsPage
+sys.path.insert(0, str(keys.ROOT))
+from desktop_services.phone_page import PhonePage
+from desktop_services.power_page import PowerPage
 sys.path.append(str(keys.ROOT/'launcher'))
 from activation import BarActivation
 
@@ -1134,7 +1138,7 @@ class Window(QMainWindow):
                       'context-menu': ContextMenuPage(async_run),
                       'default-apps': DefaultAppsPage(async_run, launch),
                       'calendar': CalendarPage(), 'capture': CapturePage(async_run),
-                      'system': SystemPage(async_run, launch, self.switch), 'terminal': TerminalPage(async_run)}
+                      'system': SystemPage(async_run, launch, self.switch), 'phone': PhonePage(async_run), 'power': PowerPage(async_run), 'terminal': TerminalPage(async_run)}
         for name, page in self.pages.items():
             self.tabs.addTab(page, ('Recorder' if name == 'capture' else name.replace('-', ' ').title()))
         self.tabs.currentChanged.connect(self.changed)
@@ -1149,7 +1153,9 @@ class Window(QMainWindow):
             caption=('Recorder' if name == 'capture' else name.replace('-',' ').title());control=QToolButton();control.setText(caption);control.setObjectName('railButton');control.setCheckable(True)
             control.setFixedSize(48,42);control.setIconSize(QSize(22,22));control.setToolTip(caption);control.setAccessibleName(caption)
             control.clicked.connect(lambda _,n=name:self.switch(n));rail.addWidget(control);self.rail_buttons[name]=control
-        rail.addStretch();content.addWidget(self.modern_rail);content.addWidget(self.tabs,1);layout.addLayout(content,1)
+        rail.addStretch()
+        self.rail_view=QScrollArea();self.rail_view.setWidgetResizable(True);self.rail_view.setFrameShape(QFrame.Shape.NoFrame);self.rail_view.setWidget(self.modern_rail)
+        content.addWidget(self.rail_view);content.addWidget(self.tabs,1);layout.addLayout(content,1)
         self.home=HomePage(self.switch,async_run,launch)
         self.home.setParent(self.tabs);self.home.hide()
         self.pages['home']=self.home
@@ -1165,6 +1171,9 @@ class Window(QMainWindow):
             self.switch(tab)
 
     def switch(self, name):
+        if name == 'remote-desktop':
+            launch([str(keys.ROOT / 'scripts/control-panel.sh'), '--section', 'rdp-host'])
+            return
         if name == 'window-hints':
             self.toggle_hints()
             return
@@ -1215,14 +1224,14 @@ class Window(QMainWindow):
     def request(self, request):
         if request.get('preload'):return
         name=request.get('tab','hotkeys')
-        if name not in self.pages and name!='window-hints':return
+        if name not in self.pages and name not in ('home','window-hints','remote-desktop'):return
         filename=request.get('wallpaper','')
         if filename and isinstance(filename,str):
             page=self.pages['theme'];page.wallpapers.filename=filename
             page.tabs.setCurrentWidget(page.wallpapers)
             if page.wallpapers.models:page.wallpapers.filename='';page.wallpapers.stage_image(filename)
         self.switch(name)
-        if name!='window-hints' and QApplication.platformName()!='offscreen':
+        if name not in ('window-hints','remote-desktop') and QApplication.platformName()!='offscreen':
             if hasattr(self,'activation'):self.activation.cancel();self.activation.deleteLater()
             self.activation=BarActivation(self);self.activation.start()
 
@@ -1251,13 +1260,16 @@ class Window(QMainWindow):
         self.modern_rail.setMinimumSize(0,0);self.modern_rail.setMaximumSize(16777215,16777215)
         if ribbon:self.modern_rail.setFixedHeight(78)
         else:self.modern_rail.setFixedWidth(184 if sidebar else 66)
+        self.rail_view.setMinimumSize(0,0);self.rail_view.setMaximumSize(16777215,16777215)
+        if ribbon:self.rail_view.setFixedHeight(96)
+        else:self.rail_view.setFixedWidth(200 if sidebar else 82)
         self.rail_avatar.setVisible(not ribbon)
         for key,control in self.rail_buttons.items():
             caption='Recorder' if key == 'capture' else key.replace('-',' ').title()
             control.setText(' '+caption if sidebar else 'Menus' if ribbon and key=='context-menu' else caption)
             control.setFixedSize(78 if ribbon else 166 if sidebar else 48,54 if ribbon else 40)
             control.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon if ribbon else Qt.ToolButtonStyle.ToolButtonTextBesideIcon if sidebar else Qt.ToolButtonStyle.ToolButtonIconOnly)
-        self.modern_rail.setVisible(modern);self.tabs.tabBar().setVisible(not modern)
+        self.modern_rail.setVisible(modern);self.rail_view.setVisible(modern);self.tabs.tabBar().setVisible(not modern)
         self.eyebrow.setVisible(not modern);self.header_hint.setVisible(not modern)
         if not modern:self.brand.setText('Fusion Settings')
         self.rail_avatar.refresh();self.home.update_design();self.pages['system'].update_design();self.update_navigation();self.changing_design=False
@@ -1294,7 +1306,7 @@ class Window(QMainWindow):
         if hotkeys.busy or (hotkeys.dirty and not hotkeys.confirm_discard()):
             event.ignore()
             return
-        if not self.pages['displays'].can_close() or any(self.pages[name].busy for name in ('input','theme','context-menu')):
+        if not self.pages['displays'].can_close() or any(self.pages[name].busy for name in ('input','theme','context-menu','power','phone')):
             event.ignore()
             return
         unsaved = [('Recorder' if name == 'capture' else name.replace('-', ' ').title()) for name in ('displays','input','theme','context-menu','terminal','capture') if self.pages[name].dirty]
@@ -1313,7 +1325,7 @@ class Window(QMainWindow):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--tab', choices=['home', 'hotkeys', 'audio', 'network', 'bluetooth', 'displays', 'input', 'theme', 'context-menu', 'default-apps', 'calendar', 'capture', 'system', 'terminal'], default='hotkeys')
+    parser.add_argument('--tab', choices=['home', 'hotkeys', 'audio', 'network', 'bluetooth', 'displays', 'input', 'theme', 'context-menu', 'default-apps', 'calendar', 'capture', 'system', 'remote-desktop', 'phone', 'power', 'terminal'], default='hotkeys')
     parser.add_argument('--preview', help='Render the initial window to a PNG and exit')
     parser.add_argument('--window-hints', action='store_true')
     parser.add_argument('--preload', action='store_true', help=argparse.SUPPRESS)

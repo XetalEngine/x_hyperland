@@ -175,7 +175,9 @@ class PowerPage(QWidget):
         controls = QHBoxLayout(); controls.setSpacing(7)
         for glyph, key, title in [('⏻', 'poweroff', 'Power off'), ('↻', 'reboot', 'Restart'), ('⇥', 'logout', 'Log out'), ('⌑', 'lock', 'Lock screen'), ('☾', 'suspend', 'Suspend')]:
             control = button(glyph, title, lambda _, k=key, t=title: self.power(k, t)); control.setObjectName('powerAction'); controls.addWidget(control)
-        box.addLayout(controls); layout.addWidget(profile)
+        box.addLayout(controls)
+        settings=QPushButton('Power & battery settings…'); settings.clicked.connect(self.open_power_settings); box.addWidget(settings)
+        layout.addWidget(profile)
         battery, box = card(); row = QHBoxLayout(); self.battery_icon = label('▰', 'battery'); row.addWidget(self.battery_icon)
         info = QVBoxLayout(); self.battery_title = label('Power', 'section'); self.battery_detail = label('', 'muted')
         info.addWidget(self.battery_title); info.addWidget(self.battery_detail); row.addLayout(info, 1); box.addLayout(row); layout.addWidget(battery)
@@ -303,6 +305,10 @@ class PowerPage(QWidget):
         media = self.data.get('media')
         if media and media['length'] > 0:
             self.execute(['playerctl', '--player=' + media['player'], 'position', str(media['length'] * self.progress.value() / 1000)])
+
+    def open_power_settings(self):
+        self.window().hide()
+        subprocess.Popen([str(ROOT/'scripts/control-center.sh'),'--tab','power'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 
     def power(self, key, title):
         actions = {'poweroff': ['systemctl', 'poweroff'], 'reboot': ['systemctl', 'reboot'],

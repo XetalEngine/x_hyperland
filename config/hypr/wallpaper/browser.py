@@ -16,7 +16,7 @@ from PyQt6.QtGui import QColor, QFont, QIcon, QKeySequence, QPainter, QPainterPa
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QFrame, QLineEdit, QComboBox, QDialog, QListWidget, QFileDialog, QCheckBox, QDialogButtonBox,
-    QAbstractButton, QSizePolicy)
+    QAbstractButton, QSizePolicy, QGroupBox)
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT/'theme'), str(ROOT/'control_center')]
@@ -40,32 +40,35 @@ def button(text, action, primary=False):
 
 class Folders(QDialog):
     def __init__(self, options, parent):
-        super().__init__(parent); self.setWindowTitle('Wallpaper folders'); self.resize(650, 430); self.options = copy.deepcopy(options)
-        layout = QVBoxLayout(self); layout.setContentsMargins(24, 24, 24, 24); layout.setSpacing(16)
-        layout.addWidget(label('Make room for your favorites', 'sectionTitle'))
-        layout.addWidget(label('Images in these folders and their subfolders appear in the browser.', 'muted'))
-        self.bundled = QCheckBox('Include the bundled wallpaper collection'); self.bundled.setChecked(options['bundled']); layout.addWidget(self.bundled)
-        self.folders = QListWidget(); self.folders.addItems(options['folders']); self.folders.setAccessibleName('Wallpaper folders'); layout.addWidget(self.folders, 1)
-        actions = QHBoxLayout(); actions.addWidget(button('＋  Add folder…', self.add)); self.remove = button('Remove folder', self.remove_selected); actions.addWidget(self.remove); actions.addStretch(); layout.addLayout(actions)
-        self.folders.currentRowChanged.connect(lambda row: self.remove.setEnabled(row>=0)); self.remove.setEnabled(False)
-        layout.addWidget(label('Removing a folder only removes it from this browser. Your images stay where they are.', 'muted'))
-        self.error = label('', 'error'); self.error.hide(); layout.addWidget(self.error)
-        bottom = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Save)
-        bottom.rejected.connect(self.reject); bottom.accepted.connect(self.accept); layout.addWidget(bottom)
+        super().__init__(parent); self.setWindowTitle('Wallpaper folders'); self.resize(850, 460); self.options = copy.deepcopy(options)
+        layout = QVBoxLayout(self); layout.setContentsMargins(24,24,24,24); layout.setSpacing(14)
+        layout.addWidget(label('Your pictures. Your videos.', 'sectionTitle'))
+        layout.addWidget(label('Folders and their subfolders stay separate for each wallpaper type.', 'muted'))
+        self.bundled=QCheckBox('Include bundled pictures'); self.bundled.setChecked(options['bundled']);layout.addWidget(self.bundled)
+        columns=QHBoxLayout();self.folders=QListWidget();self.video_folders=QListWidget()
+        for title,widget,key in [('Pictures',self.folders,'folders'),('Videos',self.video_folders,'video_folders')]:
+            box=QGroupBox(title);body=QVBoxLayout(box);widget.addItems(options.get(key,[]));widget.setAccessibleName(title+' wallpaper folders');body.addWidget(widget)
+            actions=QHBoxLayout();actions.addWidget(button('Add '+title.lower()+' folder…',lambda _,k=key:self.add(k)))
+            remove=button('Remove folder',lambda _,w=widget:w.takeItem(w.currentRow()));actions.addWidget(remove);body.addLayout(actions);columns.addWidget(box)
+        layout.addLayout(columns,1)
+        layout.addWidget(label('Removing a folder from the selector never deletes its files.', 'muted'))
+        self.error=label('','error');self.error.hide();layout.addWidget(self.error)
+        bottom=QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel|QDialogButtonBox.StandardButton.Save)
+        bottom.rejected.connect(self.reject);bottom.accepted.connect(self.accept);layout.addWidget(bottom)
 
-    def add(self):
-        path = QFileDialog.getExistingDirectory(self, 'Add a wallpaper folder', str(Path.home()/'Pictures'))
-        if path:
-            path = str(Path(path).resolve())
-            if path not in self.paths(): self.folders.addItem(path); self.folders.setCurrentRow(self.folders.count()-1)
+    def add(self,kind='folders'):
+        widget=self.video_folders if kind=='video_folders' else self.folders
+        path=QFileDialog.getExistingDirectory(self,'Add video folder' if kind=='video_folders' else 'Add picture folder',str(Path.home()/('Videos' if kind=='video_folders' else 'Pictures')))
+        if path and str(Path(path).resolve()) not in self.paths(widget):widget.addItem(str(Path(path).resolve()))
 
-    def paths(self): return [self.folders.item(i).text() for i in range(self.folders.count())]
-    def remove_selected(self): self.folders.takeItem(self.folders.currentRow())
-    def value(self): return {**self.options, 'bundled': self.bundled.isChecked(), 'folders': self.paths()}
-
+    def paths(self,widget=None):
+        widget=self.folders if widget is None else widget
+        return [widget.item(i).text() for i in range(widget.count())]
+    def remove_selected(self):self.folders.takeItem(self.folders.currentRow())
+    def value(self):return {**self.options,'bundled':self.bundled.isChecked(),'folders':self.paths(),'video_folders':self.paths(self.video_folders)}
     def accept(self):
-        try: self.options = library.save(self.value(), self.options, fields=('folders', 'bundled'))
-        except (OSError, ValueError) as error: self.error.setText(str(error)); self.error.show(); return
+        try:self.options=library.save(self.value(),self.options,fields=('folders','video_folders','bundled'))
+        except (OSError,ValueError) as error:self.error.setText(str(error));self.error.show();return
         super().accept()
 
 
@@ -154,6 +157,10 @@ class Browser(QWidget):
         self.jobs = Jobs(self); self.thumbnails = Thumbnails(self); self.thumbnails.changed.connect(lambda _: self.update())
         self.background_animation = QVariantAnimation(self); self.background_animation.setDuration(500); self.background_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.background_animation.valueChanged.connect(self.blend_background)
+        self.media=QComboBox();self.media.setAccessibleName('Wallpaper type')
+        self.media.addItem('Pictures','pictures');self.media.addItem('Videos','videos')
+        self.media.setCurrentIndex(self.media.findData(self.options.get('media','pictures')))
+        self.media.currentIndexChanged.connect(self.change_media)
         self.presentation = None
         if self.style in ('frame-lab', 'orbit-atlas'):
             from wallpaper.presentations import Presentation
@@ -171,6 +178,7 @@ class Browser(QWidget):
                 for widget in (self.count, self.hero, self.subtitle): widget.setParent(self); widget.hide()
             toolbar = QFrame(); toolbar.setObjectName('wallpaperToolbar'); bar = QHBoxLayout(toolbar); bar.setContentsMargins(14,10,14,10); bar.setSpacing(10)
             self.play = button('▶  Slideshow', self.toggle_play); self.play.setToolTip('Preview each image in the carousel. Wallpapers change only when you select one.'); bar.addWidget(self.play)
+            bar.addWidget(self.media)
             self.collection = QComboBox(); self.collection.addItem('All collections', ''); self.collection.setMinimumWidth(150); self.collection.currentIndexChanged.connect(self.filter); bar.addWidget(self.collection)
             self.search = QLineEdit(); self.search.setPlaceholderText('Search wallpapers…'); self.search.setClearButtonEnabled(True); self.search.setAccessibleName('Search wallpapers')
             self.search.textChanged.connect(self.filter); bar.addWidget(self.search,1)
@@ -253,7 +261,7 @@ class Browser(QWidget):
         options=copy.deepcopy(self.options); monitor=self.monitor_name
         def collect():
             pictures,notices=library.scan(options,cancelled=token.is_set); selected=''
-            if monitor and not self.preview and not token.is_set():
+            if options.get('media','pictures')=='pictures' and monitor and not self.preview and not token.is_set():
                 try:
                     current=backend.read_wallpapers()
                     pictures,selected=library.include_current(pictures,current.get(monitor,current.get('',{})))
@@ -293,7 +301,7 @@ class Browser(QWidget):
     def toggle_play(self):
         if self.slideshow.isActive(): self.pause()
         elif len(self.carousel.pictures)>1:
-            self.slideshow.start(); self.play.setText('Ⅱ' if self.narrow else 'Ⅱ  Pause slideshow'); self.status.setText('Slideshow preview · Select an image to set your wallpaper')
+            self.slideshow.start(); self.play.setText('Ⅱ' if self.narrow else 'Ⅱ  Pause slideshow'); self.status.setText('Slideshow preview · Select a wallpaper to use it')
         if self.presentation: self.presentation.playing(self.slideshow.isActive())
 
     def advance(self): self.carousel.step(1,False)
@@ -309,6 +317,13 @@ class Browser(QWidget):
         if self.dialog.exec()==QDialog.DialogCode.Accepted: self.options=self.dialog.options; self.scan()
         self.dialog=None
 
+    def change_media(self):
+        if self.busy:return
+        try:self.options=library.save({**self.options,'media':self.media.currentData()},self.options,fields=('media',))
+        except (OSError,ValueError) as error:
+            self.media.blockSignals(True);self.media.setCurrentIndex(self.media.findData(self.options['media']));self.media.blockSignals(False);self.failure(str(error));return
+        self.search.clear();self.scan();self.transition.setEnabled(self.options['media']=='pictures')
+
     def change_transition(self):
         try:
             value={**self.options,'transition':self.transition.currentData()}; self.options=library.save(value,self.options,fields=('transition',))
@@ -317,7 +332,8 @@ class Browser(QWidget):
 
     def set_busy(self, value):
         self.busy=value
-        for widget in (self.carousel,self.apply,self.play,self.search,self.collection,self.folder_button,self.transition,self.previous,self.next): widget.setEnabled(not value)
+        for widget in (self.carousel,self.apply,self.play,self.search,self.collection,self.media,self.folder_button,self.transition,self.previous,self.next): widget.setEnabled(not value)
+        self.transition.setEnabled(not value and self.options['media']=='pictures')
         if self.presentation: self.presentation.set_busy(value)
 
     def choose(self, picture):
@@ -338,6 +354,11 @@ class Browser(QWidget):
 
     def begin_apply(self, picture, monitor, current):
         if self.preview: self.set_busy(False); self.status.setText('Preview · Wallpaper would be applied to '+monitor['name']); return
+        if Path(picture.path).suffix.lower() in library.VIDEO_EXTENSIONS:
+            from wallpaper import video
+            self.status.setText('Starting video on '+monitor['name']+'…')
+            self.jobs.run(lambda:video.apply(monitor['name'],picture.path,current,backend),lambda _:self.applied(),self.failure)
+            return
         choice={'path':picture.path,'original':picture.path,'fit':'cover'}; self.status.setText('Preparing '+monitor['name']+'…')
         style='none' if self.reduced_motion else self.options['transition']
         self.jobs.run(lambda:transitions.prepare(monitor,current.get(monitor['name'],{}),choice,style),
@@ -469,8 +490,9 @@ def main():
                     previous = window; window = replacement
                     previous.hide(); previous.shutdown(); previous.deleteLater()
                 else:
-                    rescan = any(options[key] != window.options[key] for key in ('folders', 'bundled'))
+                    rescan = any(options[key] != window.options[key] for key in ('folders', 'video_folders', 'media', 'bundled'))
                     window.options = options
+                    window.media.blockSignals(True);window.media.setCurrentIndex(window.media.findData(options.get('media','pictures')));window.media.blockSignals(False)
                     window.transition.blockSignals(True); window.transition.setCurrentIndex(window.transition.findData(options['transition'])); window.transition.blockSignals(False)
                     if rescan: window.scan()
                 show_browser(window)

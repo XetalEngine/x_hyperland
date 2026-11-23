@@ -18,11 +18,13 @@ def setting(id, category, title, description, *, choices=None, limits=None, deta
 ON_OFF = [('on', 'Enabled'), ('off', 'Disabled')]
 CATALOG = [
     setting('cpu_governor', 'Performance', 'CPU governor', 'Choose how your processor responds to load.',
-            details='Only governors supported by every CPU policy are offered. A boot service restores your choice. Powersave with AMD/Intel p-state still scales up under load; it is not an error. Other power-management services can override manual choices.'),
+            details='Only governors supported by every CPU policy are offered. Fusion restores your choice at boot and after sleep. Saving takes over CPU management and masks conflicting power daemons; Restore reinstates their previous state. Powersave with AMD/Intel p-state still scales up under load.'),
     setting('cpu_energy', 'Performance', 'Energy preference', 'Balance performance, heat and battery life with your CPU driver.',
             details='Available on CPUs with energy-performance preferences. The performance governor owns this preference; use powersave to choose a balance.'),
     setting('cpu_boost', 'Performance', 'CPU turbo boost', 'Allow the processor to run above its base frequency.', choices=ON_OFF,
             details='Disabling boost can reduce heat and power draw. Saved for future boots; it does not change firmware voltage or overclock settings.'),
+    setting('battery_limit', 'Performance', 'Battery charge limit', 'Limit charging to extend battery lifespan on supported laptops.',
+            details='Applied to batteries exposing a charge threshold. Restored at boot and after sleep. Saving lets Fusion manage power instead of competing power daemons. 100% restores full charging.'),
     setting('gaming', 'Performance', 'Game memory mappings', 'Maximum memory mappings a process may create.', limits=(65530, 2147483642, ''),
             details='Some games and development tools need a larger vm.max_map_count. This sets a limit; it does not reserve that much RAM.', default=1048576),
     setting('nmi_watchdog', 'Performance', 'NMI watchdog', 'Detect hard CPU lockups.', choices=ON_OFF,

@@ -1,9 +1,11 @@
-# Wallpaper browser
+# Picture and video wallpapers
 
 Press **Super+W** to open or close the wallpaper ribbon. Scroll, drag, or use
-Left/Right to browse. Click any image or press Enter to select it. Search and
-collection filters help find a picture; **Slideshow** previews images without
-changing your desktop until you choose one.
+Left/Right to browse. Choose **Pictures** or **Videos** from the dropdown; the
+last choice is saved across openings and selector styles. Click a card or press
+Enter to select it. Search and collection filters help find a wallpaper;
+**Slideshow** previews the collection without changing your desktop until you
+choose one.
 
 **Esc** closes any browser style, including while the search box or toolbar
 has focus. If a folder or display dialog is open, Esc cancels that dialog first.
@@ -39,10 +41,13 @@ These two gallery designs keep their own visual palettes with any desktop theme.
 They show your actual image dimensions and format and use the same image library
 as the original selectors.
 
-All bundled theme wallpapers appear by default. **Add / remove folders** adds
-personal folders, including their subfolders, or hides the bundled collection.
-Removing a folder only removes it from this browser; it never deletes images.
-Folder preferences stay private in `wallpaper/state/browser.json`.
+All bundled theme pictures appear by default. **Theme → Wallpapers → Wallpaper
+Selector** has separate picture-folder and video-folder lists, with individual
+add/remove controls. The browser's **Add / remove folders** manages the selected
+media library. Picture folders include their subfolders, and the bundled picture
+collection can be hidden. Removing a folder only removes it from the browser;
+it never deletes files. Folder preferences and the selected media type stay
+private in `wallpaper/state/browser.json`.
 
 With one display, selecting a picture applies it immediately. With multiple
 displays, choose a screen from a preview of the actual layout, including portrait
@@ -50,12 +55,30 @@ screens, scaling and offsets. Hover a display to preview your choice. Cancel
 returns to browsing without changing any wallpaper. Selections are shared with
 Fusion Settings and saved per monitor and theme.
 
-Choose **Bloom**, **Crossfade**, **Silk sweep**, **Ripple**, **Iris**, **Glide** or
+For pictures, choose **Bloom**, **Crossfade**, **Silk sweep**, **Ripple**, **Iris**, **Glide** or
 **Instant**. **Random** chooses one of the six animated effects each time you
 apply a wallpaper. Ripple adds a liquid wave, Iris opens a rotating aperture,
 and Glide slides the new image over the outgoing wallpaper. Animations run
 behind applications on the selected display. Disabling compositor animations
 also disables wallpaper transitions, including Random, and carousel motion.
+
+## Video playback
+
+Add a video folder, select **Videos**, and choose a card. Multi-monitor systems
+use the same display picker; a single monitor applies immediately. Supported
+local files include MP4, WebM, MKV, MOV, M4V and AVI, subject to the installed
+decoder. FFprobe validates the video and FFmpeg creates its poster preview.
+
+Videos play **muted and looping** through mpvpaper, independently per monitor.
+A saved still picture remains available as the fallback. Playback pauses for
+fullscreen applications; **Pause video wallpapers while on battery** starts
+enabled and can be turned off. Saved video choices
+return at login, monitor reconnect and after a wallpaper-backend restart.
+Applying a picture or theme wallpaper stops the video on the affected monitor.
+If a video is missing, its still fallback is retained.
+
+The picture transition effects described above apply to still images. Video
+playback has its own per-monitor state and process lifecycle.
 
 ## Implementation and checks
 
@@ -67,15 +90,22 @@ The short-lived native transition helper uses GTK layer-shell and OpenGL 3.3.
 It draws above hyprpaper and below applications, accepts no keyboard or pointer
 input, and exits after handoff. If the helper is unavailable, applying the
 wallpaper still works. The existing wallpaper backend owns saving, conflict
-checks, cache copies and rollback. No extra persistent wallpaper daemon runs.
+checks, cache copies and rollback. Picture transitions do not add a persistent
+daemon. Each active video output uses an mpvpaper process managed by the desktop
+video service.
 
 Build requirements: `gtk+-3.0`, `gtk-layer-shell-0`, `epoxy`, a C compiler and
 `pkg-config`. Setup installs the corresponding development packages and builds
 the helper. The browser uses the same PyQt6 and profile theme as Fusion Settings.
+Video playback additionally needs FFmpeg/ffprobe, mpv/libmpv and the pinned
+mpvpaper build in `desktop_services`. Setup installs the required build/runtime
+dependencies; offline snapshots need the built binary. See the
+[dependency guide](../../../docs/DEPENDENCIES.md).
 
 ```sh
 python3 config/hypr/wallpaper/build.py
 QT_QPA_PLATFORM=offscreen python3 config/hypr/wallpaper/test_browser.py
+PYTHONPATH=config/hypr QT_QPA_PLATFORM=offscreen python3 -m unittest discover -s config/hypr/wallpaper -p test_video_library.py
 python3 tests/check-wallpaper.py /tmp/new-wallpaper-check
 python3 tests/check-wallpaper.py /tmp/new-gallery-check --browser-only
 ```
@@ -84,3 +114,8 @@ The integration check uses a separate compositor, hyprpaper instance and saved
 preferences. It checks real intermediate animation frames, one/two-display
 selection, cancel, disconnect handling, transparent overlay rendering, switching
 styles from Settings and repeated launcher toggles.
+
+The video-library checks cover separate folders, remembered media selection and
+poster handling. `python3 tests/check-desktop-services.py /tmp/new-services-check`
+also exercises a real decoder in an isolated session. Physical-display video
+rendering and fullscreen/battery behavior still need a hands-on hardware check.

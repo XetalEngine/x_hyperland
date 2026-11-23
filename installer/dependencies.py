@@ -77,10 +77,18 @@ PACKAGES = {
         libtasn1-6-dev libgmp-dev libglib2.0-dev libgnutls28-dev libseccomp-dev libfuse3-dev libei-dev libeis-dev
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux bsdextrautils parted xz-utils kmod python3-cryptography libkeyutils1 libsecret-tools freerdp3-dev libcurl4-openssl-dev libarchive-dev cabextract'''.split(),
 }
+DESKTOP_SERVICE_PACKAGES = {
+    'arch': 'wayvnc tigervnc kdeconnect mpv hypridle ddcutil meson ninja rust libpulse libxkbcommon libva'.split(),
+    'fedora': 'wayvnc tigervnc kde-connect mpv mpv-devel hypridle ddcutil meson ninja-build rust cargo pulseaudio-libs-devel libxkbcommon-devel libva-devel'.split(),
+    'debian': 'wayvnc tigervnc-viewer kdeconnect mpv libmpv-dev hypridle ddcutil meson ninja-build rustc cargo libpulse-dev libxkbcommon-dev libva-dev'.split(),
+}
+for _family, _packages in DESKTOP_SERVICE_PACKAGES.items():
+    PACKAGES[_family] += _packages
+
 for _family, _packages in X11_PACKAGES.items():
     PACKAGES[_family] = list(dict.fromkeys([*PACKAGES[_family], *_packages, 'ripgrep']))
 
-COMMANDS = '''git rg Hyprland hyprctl Xwayland hyprpaper hyprlock waybar kitty dolphin konsole udisksctl lsblk swaync swaync-client grim slurp wf-recorder
+COMMANDS = '''wayvnc vncviewer kdeconnect-cli mpv hypridle ddcutil meson ninja cargo rustc git rg Hyprland hyprctl Xwayland hyprpaper hyprlock waybar kitty dolphin konsole udisksctl lsblk swaync swaync-client grim slurp wf-recorder
     wl-copy wl-paste xdg-open xdg-user-dir nmcli nm-applet nm-connection-editor bluetoothctl blueman-manager
     pactl wpctl playerctl brightnessctl fastfetch htop notify-send gdbus pgrep flock
     xcursorgen hyprcursor-util cc c++ g++ cmake pkg-config wayland-scanner fc-match yt-dlp ffmpeg ffprobe sudo xhost xauth xdpyinfo xclip zenity openssl remote-viewer virt-fw-vars certtool
@@ -266,7 +274,8 @@ def check(runtime=True):
         message=runtime_install.policy.problem()
         if message:errors.append(message)
     if sys.version_info < (3,11): errors.append('Python 3.11 or newer is required.')
-    errors += ['Missing command: '+command for command in COMMANDS if not shutil.which(command)]
+    errors += ['Missing command: '+command for command in COMMANDS
+               if not shutil.which(command) and not (command == 'vncviewer' and shutil.which('xtigervncviewer'))]
     errors += x11_runtime_problems()
     compiler_error = native_toolchain.problem()
     if compiler_error:

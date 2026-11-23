@@ -1,6 +1,8 @@
 #include "page.h"
 #include "credentials.h"
 #include "view.h"
+#include "hosting_page.h"
+#include "vnc.h"
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QGroupBox>
@@ -17,11 +19,18 @@ namespace FusionRdp {
 Page::Page(const QString &root, QWidget *parent, SessionOpener openSession)
     : QWidget(parent), store(root + "/control_panel/state/rdp/connections.json"), opener(std::move(openSession)) {
     setObjectName("rdpTab");
-    if (!opener) opener = [](const Profile &p, const QString &password) {
+    if (!opener) opener = [this, root](const Profile &p, const QString &password) {
+        if (p.protocol == "vnc") { openVncSession(root, p, password, this); return; }
         auto *window = new SessionWindow(p, password); window->showSession();
     };
-    auto *layout = new QVBoxLayout(this); layout->setContentsMargins(12, 12, 12, 12); layout->setSpacing(14);
-    auto *heading = new QLabel("RDP · Remote Desktop", this); heading->setObjectName("panelTitle"); layout->addWidget(heading);
+    auto *outer = new QVBoxLayout(this); outer->setContentsMargins(12, 12, 12, 12); outer->setSpacing(12);
+    auto *heading = new QLabel("RDP · Remote Desktop", this); heading->setObjectName("panelTitle"); outer->addWidget(heading);
+    modes = new QTabWidget(this); modes->setObjectName("rdpModes"); modes->setDocumentMode(true); modes->setUsesScrollButtons(false);
+    outer->addWidget(modes, 1);
+    auto *outgoing = new QWidget(modes); outgoing->setObjectName("rdpOutgoingPage");
+    auto *layout = new QVBoxLayout(outgoing); layout->setContentsMargins(0, 10, 0, 0); layout->setSpacing(10);
+    modes->addTab(outgoing, "Connect to a PC · RDP / VNC out");
+    modes->addTab(new HostingPage(root, modes), "Share this desktop · RDP / VNC in");
     auto *intro = new QLabel("Connect to your PCs. Save a connection and pick up where you left off.", this);
     intro->setWordWrap(true); layout->addWidget(intro);
     auto *splitter = new QSplitter(Qt::Horizontal, this); layout->addWidget(splitter, 1);
@@ -36,8 +45,9 @@ Page::Page(const QString &root, QWidget *parent, SessionOpener openSession)
     remove = new QPushButton("Delete", sidebar); remove->setObjectName("rdpDelete");
     listActions->addWidget(create, 1); listActions->addWidget(remove); listLayout->addLayout(listActions);
     auto *editor = editorWidget = new QWidget(splitter); editor->setMinimumWidth(440);
-    auto *editorLayout = new QVBoxLayout(editor); editorLayout->setContentsMargins(12,0,0,0); editorLayout->setSpacing(12);
-    auto *form = new QFormLayout; form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+    auto *editorLayout = new QVBoxLayout(editor); editorLayout->setContentsMargins(12,0,0,0); editorLayout->setSpacing(6);
+    auto *form = connectionForm = new QFormLayout; form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+    form->setVerticalSpacing(6);
     auto field = [&](const char *id, const QString &hint) {
         auto *input = new QLineEdit(editor); input->setObjectName(id); input->setPlaceholderText(hint);
         connect(input, &QLineEdit::textEdited, this, [this] { if (!loading) dirty = true; });
@@ -45,8 +55,11 @@ Page::Page(const QString &root, QWidget *parent, SessionOpener openSession)
     };
     name = field("rdpName", "Office PC"); form->addRow("Connection name", name);
     host = field("rdpHost", "Hostname or IP address");
+    protocol = new QComboBox(editor); protocol->setObjectName("rdpProtocol");
+    protocol->addItem("RDP", "rdp"); protocol->addItem("VNC", "vnc");
+    protocol->setToolTip("RDP is the default. VNC opens the PC in TigerVNC.");
     port = new QSpinBox(editor); port->setObjectName("rdpPort"); port->setRange(1,65535); port->setValue(3389);
-    auto *address = new QHBoxLayout; address->addWidget(host, 1); address->addWidget(new QLabel("Port", editor)); address->addWidget(port);
+    auto *address = new QHBoxLayout; address->addWidget(protocol); address->addWidget(host, 1); address->addWidget(new QLabel("Port", editor)); address->addWidget(port);
     form->addRow("PC address", address);
     username = field("rdpUsername", "Username, DOMAIN\\user, or email"); form->addRow("Username", username);
     domain = field("rdpDomain", "Optional"); form->addRow("Domain", domain);
@@ -60,7 +73,7 @@ Page::Page(const QString &root, QWidget *parent, SessionOpener openSession)
     remember = new QCheckBox("Remember password in the system wallet", editor); remember->setObjectName("rdpRemember"); remember->setChecked(true);
     form->addRow({}, remember); editorLayout->addLayout(form);
 
-    auto *sharing = new QGroupBox("Shared folder", editor); auto *sharingLayout = new QVBoxLayout(sharing);
+    auto *sharing = sharingGroup = new QGroupBox("Shared folder", editor); auto *sharingLayout = new QVBoxLayout(sharing);
     shareFolder = new QCheckBox("Share a folder with the remote PC", sharing); shareFolder->setObjectName("rdpShareFolder");
     sharingLayout->addWidget(shareFolder);
     sharedFolder = field("rdpSharedPath", QDir::homePath());
@@ -90,10 +103,20 @@ Page::Page(const QString &root, QWidget *parent, SessionOpener openSession)
     adminSession = check("rdpAdminSession", "Administrative session", 4, 0);
     adminSession->setToolTip("Connect to the server's administration session when supported.");
     editorLayout->addWidget(options);
-    auto *advancedToggle = new QToolButton(editor); advancedToggle->setText("Gateway and keyboard");
+    vncOptions = new QGroupBox("VNC options", editor); vncOptions->setObjectName("vncOptions");
+    auto *vncForm = new QFormLayout(vncOptions);
+    vncSecurity = new QComboBox(vncOptions); vncSecurity->setObjectName("vncSecurity");
+    vncSecurity->addItem("Encrypted connections", "encrypted"); vncSecurity->addItem("Allow legacy unencrypted VNC", "legacy");
+    vncForm->addRow("Security", vncSecurity);
+    vncViewOnly = new QCheckBox("View only · do not send keyboard, mouse or clipboard", vncOptions); vncViewOnly->setObjectName("vncViewOnly");
+    vncShared = new QCheckBox("Keep other viewers connected", vncOptions); vncShared->setObjectName("vncShared");
+    vncForm->addRow({}, vncViewOnly); vncForm->addRow({}, vncShared);
+    auto *vncNote = new QLabel("TigerVNC asks before trusting an unknown certificate. Use legacy mode only for a trusted network or SSH tunnel. VNC does not share folders, printers or microphones here.", vncOptions);
+    vncNote->setWordWrap(true); vncNote->setObjectName("muted"); vncForm->addRow(vncNote); editorLayout->addWidget(vncOptions);
+    advancedToggle = new QToolButton(editor); advancedToggle->setText("Gateway and keyboard");
     advancedToggle->setToolButtonStyle(Qt::ToolButtonTextBesideIcon); advancedToggle->setArrowType(Qt::RightArrow); advancedToggle->setCheckable(true);
     editorLayout->addWidget(advancedToggle);
-    auto *advanced = new QWidget(editor); auto *advancedForm = new QFormLayout(advanced); advancedForm->setContentsMargins(0,0,0,0);
+    advanced = new QWidget(editor); auto *advancedForm = new QFormLayout(advanced); advancedForm->setContentsMargins(0,0,0,0);
     gateway = field("rdpGateway", "Optional · gateway.example.com:443 (same account)"); advancedForm->addRow("RD Gateway", gateway);
     keyboard = new QComboBox(editor); keyboard->setObjectName("rdpKeyboard");
     for (const auto &entry : QList<QPair<QString, quint32>>{{"English (US)",0x409},{"English (UK)",0x809},
@@ -101,10 +124,10 @@ Page::Page(const QString &root, QWidget *parent, SessionOpener openSession)
         {"Portuguese (Brazil)",0x416},{"Portuguese",0x816},{"Italian",0x410},{"Japanese",0x411},{"Russian",0x419}})
         keyboard->addItem(entry.first, entry.second);
     advancedForm->addRow("Keyboard layout", keyboard); advanced->hide(); editorLayout->addWidget(advanced);
-    connect(advancedToggle, &QToolButton::toggled, this, [advanced, advancedToggle](bool visible) {
+    connect(advancedToggle, &QToolButton::toggled, this, [this](bool visible) {
         advanced->setVisible(visible); advancedToggle->setArrowType(visible ? Qt::DownArrow : Qt::RightArrow);
     });
-    auto *hint = new QLabel("In a session, move to the top edge for controls. Ctrl+Alt+Shift+F switches full screen; Ctrl+Alt+Shift+Home reveals the toolbar.", editor);
+    auto *hint = sessionHint = new QLabel(editor);
     hint->setWordWrap(true); hint->setObjectName("muted"); editorLayout->addWidget(hint);
     status = new QLabel(editor); status->setObjectName("rdpStatus"); status->setTextFormat(Qt::PlainText); status->setWordWrap(true); editorLayout->addWidget(status);
     auto *actions = new QHBoxLayout; actions->addStretch();
@@ -128,19 +151,39 @@ Page::Page(const QString &root, QWidget *parent, SessionOpener openSession)
     });
     for (auto *field : {host, username, domain, gateway}) connect(field, &QLineEdit::textChanged, this, &Page::clearStalePassword);
     connect(port, &QSpinBox::valueChanged, this, [this] { clearStalePassword(); if (!loading) dirty = true; });
+    connect(protocol, &QComboBox::currentIndexChanged, this, [this] {
+        if (loading) return;
+        password->clear(); passwordIdentity.clear(); clearStalePassword(); dirty = true; protocolChanged();
+    });
+    connect(vncSecurity, &QComboBox::currentIndexChanged, this, [this] { if (!loading) dirty = true; });
     connect(password, &QLineEdit::textEdited, this, [this] {
         passwordIdentity.clear(); ++lookupGeneration; lookupPending = false; updateActions();
     });
     connect(remember, &QCheckBox::toggled, this, [this](bool enabled) {
         if (!loading && !enabled) { ++lookupGeneration; lookupPending = false; updateActions(); }
     });
-    for (auto *box : {remember, shareFolder, clipboard, sound, microphone, printers, dynamicResolution, autoAcceptCertificate, reconnect, fullscreen, adminSession})
+    for (auto *box : {remember, shareFolder, clipboard, sound, microphone, printers, dynamicResolution, autoAcceptCertificate, reconnect, fullscreen, adminSession, vncViewOnly, vncShared})
         connect(box, &QCheckBox::toggled, this, [this] { if (!loading) dirty = true; });
     connect(keyboard, &QComboBox::currentIndexChanged, this, [this] { if (!loading) dirty = true; });
     refresh(); newConnection();
 }
+void Page::showHosting() { modes->setCurrentIndex(1); }
+void Page::protocolChanged(bool resetPort) {
+    const bool rdp = protocol->currentData().toString() == "rdp";
+    if (resetPort && port->value() == (rdp ? 5900 : 3389)) port->setValue(rdp ? 3389 : 5900);
+    connectionForm->setRowVisible(domain, rdp); sharingGroup->setVisible(rdp);
+    for (auto *box : {sound, microphone, printers, autoAcceptCertificate, adminSession}) box->setVisible(rdp);
+    vncOptions->setVisible(!rdp); advancedToggle->setVisible(rdp); advanced->setVisible(rdp && advancedToggle->isChecked());
+    username->setPlaceholderText(rdp ? "Username, DOMAIN\\user, or email" : "Optional · only if the VNC server requires a username");
+    clipboard->setText(rdp ? "Share clipboard (text and images)" : "Share clipboard text");
+    reconnect->setText(rdp ? "Reconnect if interrupted" : "Offer to reconnect if interrupted");
+    sessionHint->setText(rdp ? "In a session, move to the top edge for controls. Ctrl+Alt+Shift+F switches full screen; Ctrl+Alt+Shift+Home reveals the toolbar."
+                            : "VNC opens in TigerVNC. Use its session menu for full screen, special keys and disconnect.");
+}
 Profile Page::draft() const {
     Profile p; p.id = currentId; p.name = name->text().trimmed(); p.host = host->text().trimmed(); p.port = port->value();
+    p.protocol = protocol->currentData().toString(); p.vncSecurity = vncSecurity->currentData().toString();
+    p.vncViewOnly = vncViewOnly->isChecked(); p.vncShared = vncShared->isChecked();
     p.username = username->text().trimmed(); p.domain = domain->text().trimmed(); p.sharedFolder = sharedFolder->text();
     if (p.sharedFolder == "~") p.sharedFolder = QDir::homePath();
     else if (p.sharedFolder.startsWith("~/")) p.sharedFolder = QDir::homePath() + p.sharedFolder.mid(1);
@@ -168,7 +211,7 @@ void Page::refresh(const QString &select) {
     if (!error.isEmpty()) { say(error, true); return; }
     profiles = next; QSignalBlocker block(connections); connections->clear();
     for (const auto &p : profiles) {
-        auto *item = new QListWidgetItem(QIcon::fromTheme("computer"), p.name + "\n" + p.username + " @ " + p.host, connections);
+        auto *item = new QListWidgetItem(QIcon::fromTheme("computer"), p.name + "\n" + p.protocol.toUpper() + " · " + (p.username.isEmpty() ? QString() : p.username + " @ ") + p.host, connections);
         item->setData(Qt::UserRole, p.id); item->setToolTip(p.host + ':' + QString::number(p.port));
         item->setHidden(!item->text().contains(filter->text(), Qt::CaseInsensitive));
         if (p.id == select) connections->setCurrentItem(item);
@@ -179,6 +222,8 @@ void Page::load(const Profile &p) {
     loading = true; ++lookupGeneration; lookupPending = false; currentId = p.id; passwordIdentity.clear(); password->clear();
     password->setEchoMode(QLineEdit::Password); findChild<QToolButton *>("rdpShowPassword")->setChecked(false);
     name->setText(p.name); host->setText(p.host); port->setValue(p.port); username->setText(p.username); domain->setText(p.domain);
+    protocol->setCurrentIndex(protocol->findData(p.protocol)); vncSecurity->setCurrentIndex(vncSecurity->findData(p.vncSecurity));
+    vncViewOnly->setChecked(p.vncViewOnly); vncShared->setChecked(p.vncShared); protocolChanged(false);
     sharedFolder->setText(p.sharedFolder); gateway->setText(p.gateway); remember->setChecked(p.rememberPassword);
     shareFolder->setChecked(p.shareFolder); clipboard->setChecked(p.clipboard); sound->setChecked(p.sound);
     microphone->setChecked(p.microphone); printers->setChecked(p.printers); dynamicResolution->setChecked(p.dynamicResolution);

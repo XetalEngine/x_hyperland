@@ -534,6 +534,11 @@ void PanelController::arrange() {
                      : QString("%1 of %2 tools").arg(shown).arg(total));
 }
 void PanelController::open(const QString &id) {
+  if (id == "rdp-host") {
+    open("rdp");
+    if (auto *page = owner->findChild<FusionRdp::Page *>()) page->showHosting();
+    return;
+  }
   // Existing Apps shortcuts/bookmarks keep working after the pages merge.
   if (id == "yay" || id == "paru") { open("aur"); return; }
   if (id == "pacman" || id == "remove" || id == "repair") {
@@ -640,6 +645,9 @@ QJsonObject PanelController::inventory() const {
 QJsonArray PanelController::verifyNavigation() {
   // Smoke validation switches pages with refresh signals blocked; never runs a
   // tool.
+  const auto previousAudit = owner->property("panelNavigationAudit");
+  owner->setProperty("panelNavigationAudit", true);
+  const auto restoreAudit = qScopeGuard([&] { owner->setProperty("panelNavigationAudit", previousAudit); });
   std::vector<std::unique_ptr<QSignalBlocker>> blockers;
   QMap<QTabWidget *, QWidget *> previousPages;
   for (auto *tabs : owner->findChildren<QTabWidget *>()) {

@@ -5,6 +5,27 @@
 class ToolFavoritesTests final : public QObject {
   Q_OBJECT
 private slots:
+  void shutdownStopsReadCallbacksAndFinishesAnAtomicEdit() {
+    QTemporaryDir fixture; QDir().mkpath(fixture.filePath("control_panel"));
+    QFile helper(fixture.filePath("control_panel/bridge.py")); QVERIFY(helper.open(QIODevice::WriteOnly));
+    helper.write(R"PY(import json,sys,time
+from pathlib import Path
+root=Path(__file__).parent.parent;data=json.load(sys.stdin)
+if sys.argv[1]=='tool-favorite':
+ (root/'editing').touch();time.sleep(.15);(root/'saved').write_text(data['id'])
+elif (root/'slow-read').exists():
+ (root/'reading').touch();time.sleep(2)
+print(json.dumps(dict(favorites=[])))
+)PY"); helper.close();
+    auto *editor = new ToolFavorites(fixture.path()); QTRY_VERIFY(editor->available());
+    editor->setFavorite("rdp", true); QTRY_VERIFY(QFile::exists(fixture.filePath("editing")));
+    delete editor;
+    QFile saved(fixture.filePath("saved")); QVERIFY(saved.open(QIODevice::ReadOnly)); QCOMPARE(saved.readAll(),QByteArray("rdp"));
+    QFile slow(fixture.filePath("slow-read")); QVERIFY(slow.open(QIODevice::WriteOnly)); slow.close();
+    auto *reader = new ToolFavorites(fixture.path()); QSignalSpy changes(reader, &ToolFavorites::changed);
+    QTRY_VERIFY(QFile::exists(fixture.filePath("reading"))); delete reader;
+    QCOMPARE(changes.count(),0);
+  }
   void starClickKeyboardAndExternalUnpin() {
     QTemporaryDir fixture;
     QVERIFY(fixture.isValid());

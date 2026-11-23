@@ -4,6 +4,24 @@ Open **Apps → KVM**, between Control Panel and Fusion Settings. The chip icon 
 
 The integrated editor retains vmstart_2's Windows and Apple profiles: Single GPU, Virtual GPU, Dual GPU, CPU pinning and features, memory, disks, PCI/USB, machine/network, SMBIOS, TPM, Mac/OpenCore, boot arguments, launch hooks, command preview and saved presets. The original development checkout is not used at runtime.
 
+## Layout and navigation
+
+The November layout refresh makes Single GPU, CPU pinning, Memory, SMBIOS
+identity, Machine & network and PCI/USB more compact at the default window size.
+Guest RAM and Backend options align with Hugepage backing on the Memory page.
+The Single GPU page gives launch controls, detected hardware and history a
+tighter layout; **Clear history** clears the log without closing KVM Settings.
+Tables and long output can still scroll when their content needs it.
+
+**Paths & tools** is split into four tabs:
+
+| Tab | Contents |
+| --- | --- |
+| **KVM components** | Editions, installed/available components and downloads |
+| **QEMU & firmware** | QEMU, OVMF, SMBIOS and TPM paths; Mac profiles show their firmware, NVRAM and OpenCore paths |
+| **Kernel & helpers** | Kernel module options, module environment, host/guest helpers and runtime paths |
+| **ACPI tables** | Additional ACPI files in launch order; OpenCore's own ACPI entries remain in the Mac editor |
+
 ## First setup
 
 1. Select Windows or Mac. Each has its own captured vmstart_2 baseline and saved configuration.
@@ -60,7 +78,7 @@ card removes the VM attachment and leaves the image file available for reuse.
 
 **Paths & Tools → KVM components** offers **Basic free**, **Enhanced free** (build 1963), and a disabled Xetallic MAX placeholder. Basic is the fresh-install default and needs no account or installation token. It includes upstream QEMU/OVMF and uses system KVM. Enhanced is free with an active Echo account; MAX is coming soon and reserves NOS MAX eligibility. The **Switch to Basic** and **Switch to Enhanced** buttons prepare missing components before selecting the edition; a failed download leaves the current selection intact. Each edition has its own signed feed, installed versions and download cache. Switching remaps managed tools and read-only firmware while retaining disks, NVRAM, TPM state and guest identity. Custom paths survive ordinary refreshes; explicitly choosing an edition selects its QEMU/OVMF pair. The internal feed identifiers remain `stock` and `xetallic`.
 
-Downloads use the [community release service](https://www.xetal.net/community/site/kvm.php). A check does not replace components automatically. Xetallic's first download retains the existing installation-registration flow. Every Enhanced launch rechecks the Echo session on the authoritative server; banned, suspended, expired or revoked accounts cannot start a new VM. Hover over an available version for compressed and installed sizes; **Open components** opens the selected edition's files.
+Downloads use the [community release service](https://www.xetal.net/community/site/kvm.php). A check does not replace components automatically. Enhanced's first download retains the existing installation-registration flow. Every Enhanced launch rechecks the Echo session on the authoritative server; banned, suspended, expired or revoked accounts cannot start a new VM. Hover over an available version for compressed and installed sizes; **Open components** opens the selected edition's files.
 
 The header beside **Save current setup** shows **Logged in as username**, with **Download Echo** and **Logout** underneath. Each opening starts logged out: click **Login** and authenticate with Echo again, including a current authentication code if enabled. **Save password in the system password wallet** only prefills that form after clicking Login; it never restores a session or signs in automatically. Without a wallet, no password is saved. Closing Settings clears its session even if a download or login is still finishing, while retaining an explicitly saved password. **Logout** also removes the saved password. Existing guests continue running. Profiles, presets and **Save current setup** contain no Echo credentials. Older saved session tokens are never read and are removed on the next successful sign-in or Logout.
 
@@ -68,15 +86,24 @@ The desktop contains signed download metadata and the editor, with no KVM execut
 
 **Paths & Tools also pulses red when an installed component has a newer compatible release.** Its tooltip and page banner name the components and show installed → available versions. Checks run when KVM Settings opens, including while a VM is running, or through **Check for updates**. Previously verified release metadata supplies the notice while offline. Each update notice clears when that component is updated; unrelated diagnostics remain. Missing optional components, older releases and builds for another CPU/kernel do not count as available updates. These notices do not block launching a VM or install anything automatically.
 
+The signed module catalog can contain multiple kernel releases. KVM Settings
+selects the exact running CPU/kernel match. **Install compatible KVM kernel** lists published releases
+newest first, selects the running release when available, and lets the user
+choose another supported release. Kernel and matching header packages are
+verified before installation; reboot into the chosen kernel is required before
+using its module. Automatic installation currently supports exact Arch `linux`
+builds. Older published module versions remain available, and each module still
+requires its matching kernel ABI.
+
 Use the documented `git clone --depth 1` install command to avoid fetching past bundles. Older Git history still contains earlier binary releases; removing files from the current checkout does not erase that history.
 
-Stock disables the custom KVM module. Xetallic exposes it as an optional choice, requiring an AMD CPU and the exact published kernel release. Downloading does not load it. Before loading, the helper checks compatibility, authenticated image integrity and both module vermagic values, then retains the existing idle-VM checks and rollback loader. This edition loads modules for the current boot only; persistent installation is rejected. Selecting Stock unloads an idle custom module before restoring the system module. A distribution module that was previously overwritten by an older manual install must first be restored; no kernel package is changed automatically.
+Basic free disables the custom KVM module. Enhanced free exposes it as an optional choice, requiring an AMD CPU and the exact published kernel release. Downloading does not load it. Before loading, the helper checks compatibility, authenticated image integrity and both module vermagic values, then retains the existing idle-VM checks and rollback loader. This edition loads modules for the current boot only; persistent installation is rejected. Selecting Basic unloads an idle custom module before restoring the system module. A distribution module that was previously overwritten by an older manual install must first be restored; no kernel package is changed automatically.
 
 When the published module is enabled, its normal load action works in all three
 launch modes. Virtual GPU and Dual GPU use the same loader before preparing the
 guest; they continue to skip Single GPU's display teardown and other shell hooks.
 
-**Paths & Tools → Guest script** includes the Windows batch template and host helper on every supported desktop build, including ZIP installs. With Enhanced selected and the custom module enabled, KVM Settings downloads the compatible package and authenticates, decrypts and loads its modules **before starting the VM**. After Windows reaches the desktop, the BAT enables native CPUID timing on those already-loaded modules. KVM modules cannot be replaced underneath a running guest; if Windows was started with standard KVM, shut it down and relaunch with the compatible custom module.
+**Paths & tools → Kernel & helpers** includes the Windows batch template and host helper on every supported desktop build, including ZIP installs. With Enhanced selected and the custom module enabled, KVM Settings downloads the compatible package and authenticates, decrypts and loads its modules **before starting the VM**. After Windows reaches the desktop, the BAT enables native CPUID timing on those already-loaded modules. KVM modules cannot be replaced underneath a running guest; if Windows was started with standard KVM, shut it down and relaunch with the compatible custom module.
 
 Click **Enable local SSH** beside **Copy** and authenticate with your Linux administrator password. Then click **Copy**, save the result as a `.bat` file inside Windows, and run it after Windows reaches the desktop. Copy fills the current Linux username, local IPv4 address, SSH port, host helper, QMP socket and guest name (for example, QEMU's `guest=win10` becomes `win10`). SSH allocates a terminal so the host helper can request your Linux administrator password through sudo after SSH login. No passwordless-sudo rule is required or installed. Windows OpenSSH Client must be available.
 

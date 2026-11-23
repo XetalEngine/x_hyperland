@@ -7,8 +7,12 @@
 #include <QListWidget>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QTabWidget>
 #include <QWidget>
 #include <functional>
+class QFormLayout;
+class QGroupBox;
+class QToolButton;
 
 namespace FusionRdp {
 class Page : public QWidget {
@@ -17,14 +21,22 @@ public:
     using SessionOpener = std::function<void(const Profile &, const QString &)>;
     explicit Page(const QString &root, QWidget *parent = nullptr, SessionOpener opener = {});
     Profile draft() const;
+    void showHosting();
 private:
+    QTabWidget *modes;
     ProfileStore store;
     QList<Profile> profiles;
     SessionOpener opener;
     QListWidget *connections;
     QLineEdit *filter, *name, *host, *username, *domain, *password, *sharedFolder, *gateway;
     QSpinBox *port;
-    QComboBox *keyboard;
+    QComboBox *keyboard, *protocol, *vncSecurity;
+    QCheckBox *vncViewOnly, *vncShared;
+    QFormLayout *connectionForm;
+    QGroupBox *sharingGroup, *vncOptions;
+    QWidget *advanced;
+    QToolButton *advancedToggle;
+    QLabel *sessionHint;
     QCheckBox *remember, *shareFolder, *clipboard, *sound, *microphone, *printers;
     QCheckBox *dynamicResolution, *autoAcceptCertificate, *reconnect, *fullscreen, *adminSession;
     QPushButton *save, *connectButton, *remove, *create;
@@ -41,6 +53,7 @@ private:
     void setBusy(bool value);
     void updateActions();
     void clearStalePassword();
+    void protocolChanged(bool resetPort = true);
     void say(const QString &message, bool error = false);
 };
 }

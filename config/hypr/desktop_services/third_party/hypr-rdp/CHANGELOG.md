@@ -1,0 +1,169 @@
+# Changelog
+
+## [0.1.9] - 2026-11-22
+
+### Added
+
+- Added `aarch64-linux` to the Nix flake's supported systems.
+- Added the low-power VA-API H.264 entrypoint (`EncSliceLP`) for GPUs such as Intel Jasper Lake that expose only low-power encoding. When the driver does not offer the requested rate control, VA-API setup now fails with a hint to set `rate_control = "cqp"`, so the default `h264_backend = auto` falls back to software encoding instead of ignoring the bitrate.
+
+### Changed
+
+- **Breaking:** the server no longer starts without authentication when credentials are missing. Configured mode now requires both a username and a password, and startup fails otherwise. To keep accepting unauthenticated connections, set `auth_mode = "none"` (`--auth-mode none`).
+
+### Fixed
+
+- Fixed FreeRDP 3 rejecting the graphics pipeline reset: ResetGraphics now carries one primary monitor covering the output, on initial setup and on resize.
+- Updated Rustls to 0.23.46 to fix TLS secret exposure in session `Debug` output (GHSA-c8m5-c952-6cm4), unbounded Brotli certificate decompression (GHSA-h2v8-394m-p7vv), key-exchange record poisoning by an unauthenticated ServerHello (GHSA-w44r-93j7-qv28), and buffered data exposure on ECH rejection (GHSA-vp88-798v-h67f).
+
+## [0.1.8] - 2026-11-06
+
+### Added
+
+- Added a `domain` setting (`--domain`) for configured credentials, so Windows clients that send their workstation name as the NTLM domain can authenticate.
+
+### Changed
+
+- Updated IronRDP to an upstream revision that passes the configured domain through authentication.
+
+### Fixed
+
+- Fixed startup on Hyprland 0.57, which removed the `keyword` IPC command: monitor rules are now sent with `eval hl.monitor(...)` first, falling back to `keyword monitor` for older config managers.
+- Restored the managed headless output to its startup resolution and scale after a client disconnects.
+
+## [0.1.7] - 2026-10-20
+
+### Added
+
+- Added opt-in Linux password authentication through PAM for the user running the desktop, with bounded authentication and account checks.
+- Added `egfx_codec = "clearcodec"` / `--egfx-codec clearcodec` to select ClearCodec even when the client supports AVC.
+
+### Fixed
+
+- Updated Rustls to 0.23.45 to fix TLS 1.3 handshake record-boundary validation (GHSA-2mjx-qc3c-rqvc).
+- Fixed clipboard text from X11 applications that offer only the `STRING` format.
+- Preserved locked clipboard file selections across clipboard replacement, with bounded retention and cleanup.
+- Fixed overlapping clipboard text and image copies so a delayed response does not discard the latest selection.
+- Restored authenticated session hooks when explicit credentials are configured.
+- Adopted upstream authentication-denial framing and made connection failures visible at the default log level.
+- Released DMA-BUF capture resources on fallback, resize and shutdown, corrected VA-API cleanup order, and closed rejected exported file descriptors.
+- Bounded pending EGFX output across reconnects.
+- Included the PAM runtime dependency and Arch PAM service in the stable AUR package.
+
+## [0.1.6] - 2026-09-10
+
+### Added
+
+- Added clipboard file transfer in both directions: files from the RDP client are exposed through a bounded FUSE view, and files from the Hyprland desktop can be copied to the client, including directories within the configured entry and protocol path-length limits.
+- Added `file_transfer_mode`, `file_transfer_max_entries`, and `file_transfer_max_chunk_bytes` settings, each also a command-line flag.
+- Added outbound filename adjustment so names illegal on the client's filesystem still arrive, with collisions disambiguated.
+- Added ClearCodec support for clients that do not negotiate AVC.
+- Added session hooks that run on authenticated session boundaries.
+- Added `--password-file` / `password_file` for supplying NLA credentials from a file.
+- Added `--scale` for the managed headless output.
+- Enabled upstream authenticated session replacement for connections with configured NLA credentials; TLS-only connections retain their existing queue policy.
+
+### Changed
+
+- Replaced FFmpeg with bundled OpenH264 for software H.264 encoding. AVC420 retains native VA-API acceleration; experimental AVC444 currently uses software encoding.
+- Switched the IronRDP dependency from the local fork to upstream IronRDP and adopted the connection-info hook.
+
+### Fixed
+
+- Added bounded capture retries and graphics-pipeline waits, EGFX activation fallback, and validation of implicit DMA-BUF fallback.
+- Fixed H.264 level, IDR numbering, and coded-buffer overflow handling.
+- Fixed initial-size headless resize handling so resize ownership survives cancellation.
+- Fixed server session handling: a second connection is rejected instead of hanging, a dead peer no longer holds the session slot indefinitely, and malformed pre-auth connections recover.
+- Fixed input handling: horizontal scroll is no longer inverted, sub-detent scroll deltas accumulate, keys left held by the client are released, repeated modifiers no longer stick, and keyboard state is restored on synchronize.
+- Fixed audio teardown and routing so deadlines bound every pactl call and streams that start during redirect are routed to the remote sink.
+- Fixed TLS certificate generation to use an RSA key and preserve existing certificate identities.
+- Fixed Hyprland instance discovery to align with hyprctl.
+- Fixed VA-API VBR quality ceiling, VPP display ownership, pipeline parameter buffer handling, and DMA-BUF import format descriptors.
+- Fixed clipboard echo suppression, line-ending normalization, duplicate format request coalescing, offer lifecycle, and pipe transfer deadlines.
+- Fixed EGFX surface reinitialization after a capability reset and AVC444 capability refresh without resetting the codec.
+- Fixed startup security warnings for reachability and half-set credentials.
+- Fixed Rust 1.98 clippy lint compliance.
+
+## [0.1.5] - 2026-08-19
+
+### Fixed
+
+- Fixed PipeWire initialization across repeated RDP sessions so later sessions can create the redirect sink and capture streams.
+- Fixed RDPSND Wave2 timestamps to use boot-time milliseconds instead of advancing by audio frames.
+- Fixed the compositor keyboard layout policy so startup state and later Hyprland layout switches converge without being reverted by modifier updates.
+
+## [0.1.4] - 2026-08-18
+
+### Added
+
+- Added explicit `auto`, `software`, and `vaapi` H.264 backend selection through `--h264-backend` and `h264_backend`.
+
+### Changed
+
+- Improved presentation downscaling quality with area filtering.
+- Updated the FFmpeg binding for FFmpeg 9 compatibility.
+
+### Fixed
+
+- Fixed physical-output size negotiation so the presentation size converges instead of repeatedly requesting the same layout.
+- Fixed VA-API packed-header submission for drivers that require sequence, picture, and slice headers.
+- Fixed VA-API rate control so zero-bitrate configurations do not emit invalid HRD parameters.
+- Fixed clipboard echo suppression so only the matching remote copy is suppressed without dropping later local updates.
+
+## [0.1.3] - 2026-06-25
+
+### Added
+
+- Added physical output downscaling for managed headless RDP sessions.
+- Added NLA acceptor support when username/password credentials are configured.
+- Added remote audio routing modes so captured audio can be redirected to the RDP client sink.
+
+### Changed
+
+- Changed the default audio routing mode to `redirect` so RDP session audio is not played locally by default.
+
+### Fixed
+
+- Fixed PipeWire audio capture to honor valid chunk offset/size metadata, including wrapped ranges and corrupted chunks.
+- Fixed keyboard input handling so layout state is preserved across client layout policy changes.
+- Hardened physical output downscaling resize/aspect handling and package runtime dependencies.
+
+## [0.1.2] - 2026-06-16
+
+### Added
+
+- Added `keyboard_layout_policy = "compositor"` / `--keyboard-layout-policy compositor` to keep the compositor/Hyprland keymap instead of applying the RDP client's keyboard layout.
+- Added a Nix flake and Nix package definition.
+
+### Fixed
+
+- Fixed Hyprland 0.55+/Lua config parser compatibility by falling back from `keyword monitor` to `eval hl.monitor(...)` when setting managed headless output resolutions.
+- Updated runtime dependencies and package metadata after the 0.1.1 release.
+
+### Tests
+
+- Added regression tests for Hyprland Lua monitor command generation and non-legacy parser error detection.
+- Added regression tests for the compositor keyboard layout policy and config parsing.
+
+## [0.1.1] - 2026-05-26
+
+### Changed
+
+- Reworked the display encoding path around FFmpeg/libavcodec and improved protocol compliance.
+- Added AVC420 VA-API connection validation with Windows Remote Desktop clients.
+
+## [0.1.0] - 2026-03-15
+
+### Added
+
+- Initial public release.
+
+[0.1.8]: https://github.com/MuNeNiCK/hypr-rdp/compare/v0.1.7...v0.1.8
+[0.1.7]: https://github.com/MuNeNiCK/hypr-rdp/compare/v0.1.6...v0.1.7
+[0.1.6]: https://github.com/MuNeNiCK/hypr-rdp/compare/v0.1.5...v0.1.6
+[0.1.5]: https://github.com/MuNeNiCK/hypr-rdp/compare/v0.1.4...v0.1.5
+[0.1.4]: https://github.com/MuNeNICK/hypr-rdp/compare/v0.1.3...v0.1.4
+[0.1.3]: https://github.com/MuNeNICK/hypr-rdp/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/MuNeNICK/hypr-rdp/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/MuNeNICK/hypr-rdp/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/MuNeNICK/hypr-rdp/releases/tag/v0.1.0

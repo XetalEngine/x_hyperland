@@ -26,7 +26,10 @@ class DesktopIntegrationTests(unittest.TestCase):
         self.server.listen(1)
         self.server.settimeout(5)
         self.env = dict(os.environ, HYPRLAND_INSTANCE_SIGNATURE='fixture',
-                        XDG_RUNTIME_DIR=str(self.root), QT_QPA_PLATFORM='offscreen')
+                        XDG_RUNTIME_DIR=str(self.root), QT_QPA_PLATFORM='offscreen',
+                        WAYLAND_DISPLAY='unavailable-validation-socket', DISPLAY='',
+                        DBUS_SESSION_BUS_ADDRESS='unix:path='+str(self.root/'unavailable-bus'),
+                        QT_QPA_PLATFORMTHEME='', QT_PLUGIN_PATH='')
 
     def child(self, code):
         process = subprocess.Popen([sys.executable, '-c', code, str(self.root)], cwd=ROOT,
@@ -102,6 +105,11 @@ raise SystemExit(startup.session())
 
     @unittest.skipUnless((ROOT/'.build/xetal-control-panel').is_file(), 'Build the native panel to test instance reuse')
     def test_native_panel_reuses_its_instance_and_keeps_settings_private(self):
+        # Hold a dashboard probe open across window destruction. Its completion
+        # must not touch the deleted Ui::MainWindow or any of its controls.
+        commands=self.root/'bin';commands.mkdir()
+        probe=commands/'lspci';probe.write_text('#!/bin/sh\nsleep 1\nprintf "fixture VGA display\\n"\n');probe.chmod(0o700)
+        self.env['PATH']=str(commands)+os.pathsep+self.env.get('PATH',os.defpath)
         profile=self.root/'profile';panel=profile/'control_panel';panel.mkdir(parents=True)
         for name in ('tools.json','bridge.py','aliases.py'):
             shutil.copy2(ROOT/name,panel/name)

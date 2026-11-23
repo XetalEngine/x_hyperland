@@ -8,6 +8,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parent
 PREFERENCES = ROOT/'state/browser.json'
+VIDEO_EXTENSIONS = {'.mp4', '.webm', '.mkv', '.mov', '.m4v', '.avi'}
 EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.bmp', '.avif'}
 TRANSITIONS = {'random': 'Random', 'bloom': 'Bloom', 'fade': 'Crossfade', 'sweep': 'Silk sweep',
                'ripple': 'Ripple', 'iris': 'Iris', 'glide': 'Glide', 'none': 'Instant'}
@@ -20,7 +21,8 @@ DESCRIPTIONS = {
     'frame-lab': 'A brass-trimmed wallpaper studio with a filmstrip, collection shelves and a large preview.',
     'orbit-atlas': 'A midnight gallery with luminous orbits, floating previews and a quiet teal glow.',
 }
-DEFAULTS = {'version': 1, 'folders': [], 'bundled': True, 'transition': 'bloom', 'style': 'overlay'}
+DEFAULTS = {'version': 1, 'folders': [], 'bundled': True, 'transition': 'bloom', 'style': 'overlay',
+            'media': 'pictures', 'video_folders': [], 'pause_on_battery': True}
 
 
 @dataclass(frozen=True)
@@ -61,13 +63,21 @@ def normalize(value):
         raise ValueError('Choose folders using their full paths.')
     if len(folders) > 64:
         raise ValueError('Choose up to 64 wallpaper folders.')
+    video_folders = value.get('video_folders', [])
+    if (not isinstance(video_folders, list) or len(video_folders)>64 or
+            any(not isinstance(p,str) or not Path(p).is_absolute() for p in video_folders)):
+        raise ValueError('Choose up to 64 video folders using their full paths.')
+    if value.get('media','pictures') not in ('pictures','videos') or type(value.get('pause_on_battery',True)) is not bool:
+        raise ValueError('Invalid wallpaper media settings.')
     transition = value.get('transition', 'bloom')
     style = value.get('style', DEFAULTS['style'])
     if (not isinstance(transition, str) or transition not in TRANSITIONS or
             not isinstance(style, str) or style not in STYLES or type(value.get('bundled', True)) is not bool):
         raise ValueError('Invalid wallpaper browser settings.')
     return {'version': 1, 'folders': list(dict.fromkeys(str(Path(p).resolve()) for p in folders)),
-            'bundled': value.get('bundled', True), 'transition': transition, 'style': style}
+            'bundled': value.get('bundled', True), 'transition': transition, 'style': style,
+            'media':value.get('media','pictures'), 'video_folders':list(dict.fromkeys(str(Path(p).resolve()) for p in video_folders)),
+            'pause_on_battery':value.get('pause_on_battery',True)}
 
 
 def read(path=None):
@@ -103,17 +113,19 @@ def scan(options, root=None, cancelled=lambda: False, limit=20000):
     """Bounded, cancellable enumeration; no recursive symlink traversal or decoding."""
     root = root or ROOT
     pictures, notices, seen = [], [], set()
+    videos = options.get('media','pictures') == 'videos'
+    extensions = VIDEO_EXTENSIONS if videos else EXTENSIONS
 
     def add(path, collection):
         try:
             path = path.resolve(strict=True)
-            if path.suffix.lower() not in EXTENSIONS or not path.is_file(): return
+            if path.suffix.lower() not in extensions or not path.is_file(): return
             stat = path.stat(); identity = (stat.st_dev, stat.st_ino)
             if identity in seen: return
             seen.add(identity); pictures.append(Picture(str(path), collection))
         except OSError: pass
 
-    if options['bundled']:
+    if options['bundled'] and not videos:
         names = {'raw': 'Original', 'modern': 'Xetal Modern', 'breakpoint': 'Breakpoint', 'binaryknife': 'Binary Knife', 'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud', 'shadowedge': 'Shadow Edge', 'hollowgrove': 'Hollow Grove', 'gildedhollow': 'The Gilded Hollow', 'hyperfusionblue': 'HyperFusion Blue', 'midnighttransit': 'Midnight Transit', 'blackwood': 'Blackwood', 'atomicafterglow': 'Atomic Afterglow', 'mycelium': 'Mycelium', 'mystery98': 'Windows 98 Mystery', 'platform95': 'Platform 95', 'midnightrun': 'Midnight Run', 'prisonbreak': 'Prison Break', 'killerinstinct': 'Killer Instinct · Arcade 94', 'kitemple': 'Killer Instinct · Jade Temple', 'kiprimal': 'Killer Instinct · Primal Storm', 'kifireice': 'Killer Instinct · Fire & Ice', 'starcraft': 'StarCraft II', 'mortalkombat2': 'Mortal Kombat II', 'facadasexu': '777 Facadas Exu', 'infernalencore': 'Infernal Encore', 'polaris': 'Polaris', 'leviathan': 'Leviathan', 'ghostbusters': 'Ghostbusters'}
         try:
             catalog = json.loads((root/'sets.json').read_text())
@@ -123,7 +135,7 @@ def scan(options, root=None, cancelled=lambda: False, limit=20000):
                     if path.is_relative_to(root.resolve()): add(path, names.get(collection, collection))
         except (OSError, ValueError, TypeError): notices.append('The bundled wallpaper collection could not be read.')
     visited = 0
-    for name in options['folders']:
+    for name in options.get('video_folders', []) if videos else options['folders']:
         if cancelled(): break
         folder = Path(name)
         if not folder.is_dir():
@@ -139,7 +151,7 @@ def scan(options, root=None, cancelled=lambda: False, limit=20000):
             if len(pictures) >= limit or visited > 100000: break
         if errors: notices.append(f'Some files in {folder.name} could not be read.')
         if len(pictures) >= limit or visited > 100000:
-            notices.append('Showing the first 20,000 images. Choose narrower folders to see more.'); break
+            notices.append('Showing the first 20,000 wallpapers. Choose narrower folders to see more.'); break
     return pictures, notices
 
 

@@ -103,4 +103,7 @@ def applications():
     for app in Gio.AppInfo.get_all():
         if app.get_id() and (app.should_show() or app.get_id() in pinned):
             result[app.get_id()] = app
-    return shortcuts.catalog_entries(result)
+    entries = shortcuts.catalog_entries(result)
+    from search_catalog import entries as search_entries
+    entries.update(search_entries(ROOT, shortcuts.Entry))
+    return entries

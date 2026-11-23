@@ -26,6 +26,7 @@ CredentialJob::CredentialJob(QObject *parent, QString command)
         });
 }
 CredentialJob::~CredentialJob() {
+    deadline.stop(); process.disconnect(this);
     if (process.state() != QProcess::NotRunning) { process.kill(); process.waitForFinished(1000); }
 }
 void CredentialJob::finish(bool success, const QString &password, const QString &error) {
@@ -36,9 +37,9 @@ void CredentialJob::start(Operation action, const Profile &profile, const QStrin
     operation = action;
     if (program.isEmpty()) { finish(false, {}, "Install the system password wallet helper (secret-tool) to remember passwords."); return; }
     QStringList args;
-    if (action == Store) args << "store" << "--label=Hyper Fusion RDP — " + profile.name;
+    if (action == Store) args << "store" << "--label=Hyper Fusion " + profile.protocol.toUpper() + " — " + profile.name;
     else args << (action == Lookup ? "lookup" : "clear");
-    args << "application" << "hyperfusion-rdp" << "connection" << profile.credentialKey();
+    args << "application" << (profile.protocol == "vnc" ? "hyperfusion-vnc" : "hyperfusion-rdp") << "connection" << profile.credentialKey();
     process.start(program, args);
     if (action == Store) {
         auto bytes = password.toUtf8(); process.write(bytes); bytes.fill('\0');

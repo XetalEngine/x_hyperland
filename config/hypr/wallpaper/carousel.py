@@ -36,6 +36,8 @@ class Thumbnails(QWidget):
 
     @staticmethod
     def read(path):
+        from wallpaper import video
+        if Path(path).suffix.lower() in video.EXTENSIONS:path=str(video.poster(path))
         reader = QImageReader(path); reader.setAutoTransform(True)
         size = reader.size()
         if size.width()*size.height() > 100_000_000: raise ValueError('Image too large to preview')

@@ -30,6 +30,20 @@ ToolFavorites::ToolFavorites(const QString &profile, QObject *parent)
   refresh();
 }
 
+ToolFavorites::~ToolFavorites() {
+  // Timers are value members declared after worker, so they are destroyed
+  // first. QProcess must not emit finish() into those already-dead timers.
+  debounce.stop(); deadline.stop();
+  if (!current.id.isEmpty() && worker.state() == QProcess::Starting) worker.waitForStarted(300);
+  worker.disconnect(this);
+  worker.closeWriteChannel();
+  if (worker.state() != QProcess::NotRunning) {
+    // Let an atomic Favorites edit finish; a status read can stop immediately.
+    if (current.id.isEmpty() || !worker.waitForFinished(1000)) worker.kill();
+    worker.waitForFinished(1000);
+  }
+}
+
 void ToolFavorites::refresh() { debounce.start(); }
 
 void ToolFavorites::setFavorite(const QString &id, bool enabled) {

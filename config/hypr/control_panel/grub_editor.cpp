@@ -294,8 +294,15 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
 }
 
 GrubEditor::~GrubEditor() {
+  // QProcess destruction can emit finished while QWidget deletes its children.
+  // Disconnect first, while the labels and controls are still alive.
+  reader->disconnect(this); worker->disconnect(this);
   worker->closeWriteChannel();
   if (!busy && worker->state() != QProcess::NotRunning) worker->waitForFinished(1000);
+  if (worker->state() != QProcess::NotRunning) {
+    worker->setParent(QCoreApplication::instance());
+    connect(worker, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), worker, &QObject::deleteLater);
+  }
   if (reader->state() != QProcess::NotRunning) { reader->kill(); reader->waitForFinished(1000); }
 }
 int GrubEditor::heightForWidth(int width) const {
@@ -306,8 +313,11 @@ int GrubEditor::heightForWidth(int width) const {
 }
 void GrubEditor::showEvent(QShowEvent *event) {
   QWidget::showEvent(event);
+  // Navigation checks briefly show each page. They must never authenticate or
+  // queue a GRUB request after the checker has moved to the next page.
+  if (window()->property("panelNavigationAudit").toBool() || window()->property("panelPreview").toBool()) return;
   if (!loaded || (!busy && !revision.isEmpty() && worker->state() == QProcess::NotRunning)) {
-    loaded = true; QTimer::singleShot(0, this, [this] { request({{"action", "refresh"}}); });
+    loaded = true; QTimer::singleShot(0, this, [this] { if (isVisible()) request({{"action", "refresh"}}); });
   }
 }
 void GrubEditor::resizeEvent(QResizeEvent *event) {
@@ -532,6 +542,7 @@ void GrubEditor::editEntry() {
   request(change);
 }
 void GrubEditor::request(const QJsonObject &data) {
+  if (window()->property("panelNavigationAudit").toBool() || window()->property("panelPreview").toBool()) return;
   if (busy) return;
   if ((data["action"] == "appearance-confirm" || data["action"] == "appearance-cancel" || data["action"] == "firmware-confirm" || data["action"] == "firmware-cancel") && worker->state() != QProcess::Running) {
     status->setText(data["action"].toString().endsWith("cancel") ?

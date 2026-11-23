@@ -1,5 +1,41 @@
 # Validation
 
+## Desktop integrations and remote desktop — 23 November 2026
+
+The desktop integrations are present in the repository, installer and live
+profile. This record distinguishes completed checks from remaining hardware
+validation; it does not imply a rebuilt online/offline ISO release.
+
+| Area | Completed checks |
+| --- | --- |
+| **Settings and state** | Separate picture/video folders, remembered media selection, search destinations, fake-hardware power transactions and rollback, display preview restore and persistence |
+| **Control Panel remote desktop** | 28 native RDP tests passed, covering existing profiles/wallet behavior, outgoing VNC arguments and private credential environment, protocol switching, hosting state, queued actions, stable polling, preserved drafts, visible errors and cleanup |
+| **Desktop services and installer** | 51 Python tests with 12 subtests passed, plus seven routing/lifecycle integration checks |
+| **Incoming protocols and video** | An isolated nested Hyprland session exercised a real video decoder and VNC/RDP authentication with correct and incorrect passwords |
+| **Outgoing VNC** | The actual Control Panel launch path passed TLS authentication, rendered-pixel checks, text clipboard transfer and clean shutdown against private X servers |
+| **Sharing logs** | Live server output and fixtures verified ANSI/color/control removal and bounded complete-line tails. Twelve remote tests with seven subtests passed after the fix; these overlap the broader service suite and are not an additional total. New server processes request plain text, while existing logs are cleaned when read. |
+| **UI lifetime** | GRUB readers, dashboard probes, Favorites jobs and credential workers disconnect callbacks before destruction. Navigation previews avoid GRUB authentication; integration checks use private compositor sockets without the real display/session bus. |
+
+The live RDP page has displayed **Listening · waiting for a connection**.
+That status and successful private authentication do not establish physical
+screen capture or Windows client input/audio behavior. Nested pixel capture was
+not reliable on the NVIDIA test session. Physical video playback, monitor
+hardware controls, phone pairing/SMS, laptop-only power behavior and Windows
+RDP input/audio still need hands-on checks. Tests do not send messages or change
+the test desktop's hardware power policy. These UI fixes do not establish that
+an upstream Hyprland compositor crash has been resolved.
+
+From the repository root, repeat the isolated protocol checks with:
+
+```sh
+python3 tests/check-desktop-services.py /tmp/fusion-services-check-new
+python3 tests/check-vnc-client.py
+```
+
+See the [remote desktop build/tests](../config/hypr/control_panel/rdp/README.md#build-and-checks)
+and [recent changes and remaining work](DESKTOP-ROADMAP.md) for component
+requirements, feature scope and deferred work.
+
 ## Hyprland 0.57.2 migration — 21 November 2026
 
 The candidate was extracted from verified signed Arch packages and run in a

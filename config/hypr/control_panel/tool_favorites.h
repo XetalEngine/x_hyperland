@@ -11,6 +11,7 @@ class ToolFavorites final : public QObject {
   Q_OBJECT
 public:
   explicit ToolFavorites(const QString &root, QObject *parent = nullptr);
+  ~ToolFavorites() override;
   void setFavorite(const QString &id, bool enabled);
   void refresh();
   bool contains(const QString &id) const { return favorites.contains(id); }

@@ -46,6 +46,8 @@ def payload_ignored(directory, names):
     ignored = set(shutil.ignore_patterns('__pycache__','*.pyc','*.so','*.o','*.lock','build','.build',
                  'cache','state','font-cache','qt-settings','window-preview','version.txt')(directory, names))
     relative = Path(directory).relative_to(PAYLOAD).as_posix()
+    if relative == 'desktop_services/third_party/hypr-rdp':
+        ignored.discard('Cargo.lock')
     if relative == 'grub':
         # Ship appearance assets for Control Panel, never the old one-machine
         # installer. Copying the profile does not apply a boot theme.
@@ -226,7 +228,8 @@ def run_build(args, label):
 
 
 def build(stage, checkpoint=lambda:None):
-    for args in ([sys.executable,str(stage/'runtime/notices/build.py')],
+    for args in ([sys.executable,str(stage/'desktop_services/build.py')],
+                 [sys.executable,str(stage/'runtime/notices/build.py')],
                  [sys.executable,str(stage/'clipboard/build.py')],
                  [sys.executable,str(stage/'runtime/cursor_probe/build.py')],
                  [sys.executable,str(stage/'runtime/window_memory/build.py')],

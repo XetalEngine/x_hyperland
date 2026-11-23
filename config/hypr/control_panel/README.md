@@ -61,10 +61,14 @@ come from the compositor and local process information. Controls are limited to
 ordinary managed windows; popup/layer/child-surface inspection is read-only.
 See [backend coverage](backend/docs/WINDOW_ENUM.md) for details and checks.
 
-**RDP** provides native remote desktop sessions with saved PCs and system-wallet
-passwords, a shared home folder, clipboard text/images, audio, microphone,
-printer redirection, resizing, reconnect, and a hiding session toolbar. See
-[`rdp/README.md`](rdp/README.md) for defaults, controls, dependencies, and checks.
+**RDP** combines **Connect to a PC · RDP / VNC out** and **Share this desktop ·
+RDP / VNC in**. Outgoing RDP remains the default and keeps native sessions,
+saved PCs, system-wallet passwords, shared folders, clipboard, audio and its
+hiding session toolbar. VNC connections use TigerVNC with separate credentials
+and protocol options. Incoming sharing uses hypr-rdp or WayVNC, with a monitor
+and address selector, certificate details, stable status polling and plain-text
+logs. It starts disabled/local-only and ends at logout. See
+[`rdp/README.md`](rdp/README.md) for options, dependencies and checks.
 
 **Ventoy USB** creates and updates multiboot USB disks with the bundled, verified
 Ventoy Linux engine. It works offline, protects active system disks, requires

@@ -429,6 +429,11 @@ shellConfigFiles["ksh"] = QStringList()
 
 MainWindow::~MainWindow()
 {
+    // Background probes (including dashboard lambdas without a receiver) may
+    // emit finished from QProcess's destructor, after ui has been deleted.
+    // Shut down their UI callbacks before tearing down any widgets.
+    for (auto *timer : findChildren<QTimer *>()) timer->stop();
+    for (auto *process : findChildren<QProcess *>()) process->disconnect();
     if (currentProcess) {
         currentProcess->kill();
         delete currentProcess;

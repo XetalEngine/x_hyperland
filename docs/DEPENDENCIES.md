@@ -14,11 +14,25 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 | Media downloader | yt-dlp, FFmpeg/ffprobe, and a supported Deno, Node.js or QuickJS runtime; wl-paste for selected links |
 | Video playback on Arch | VLC and `vlc-plugin-ffmpeg`, which supplies VLC's H.264 decoder for screen recordings and other common video codecs |
 | Network | NetworkManager/nmcli, network-manager-applet, nm-connection-editor, BlueZ/bluetoothctl, Blueman |
+| Remote desktop | FreeRDP 3 client libraries and Secret Service tools for outgoing RDP; TigerVNC for outgoing VNC; WayVNC and the pinned hypr-rdp build for incoming session sharing |
+| Video wallpapers | FFmpeg/ffprobe, mpv/libmpv and the pinned mpvpaper build |
+| Phone, power and monitor controls | KDE Connect, Hypridle, DDCUtil and brightnessctl; hardware features depend on the available kernel/monitor interfaces |
+| Desktop-services builds | Meson, Ninja, Rust/Cargo, libmpv, PulseAudio client libraries, libxkbcommon and libva development files; distribution package names are maintained in the installer recipes |
 | Desktop updates | Git, Python standard-library HTTPS, access to the GitHub repository; native builds use the dependencies above. No automatic system-package installation. |
 | Session/tools | libnotify/notify-send, GDBus, GNOME PolicyKit agent (Hyprpolkitagent on Fedora 44 and Debian 13), xdg-utils, xdg-user-dirs, util-linux/flock, procps/pgrep, brightnessctl, Fastfetch, htop, sudo and xhost for elevated graphical tools |
 | Appearance | Papirus icon theme, Noto Sans, DejaVu Sans/Mono, Fontconfig; licensed Fira Code Nerd Font, Inter 4.1 and JetBrains Mono 2.304 files are bundled |
 
 The custom Waybar modules use its CFFI v2 interface and its 0.15 workspace taskbar structure. Qt theme plugins use private APIs and are built against the installed Qt versions; session startup checks and rebuilds them after Qt changes. Their source is included.
+
+The installer builds **mpvpaper 1.9** and **hypr-rdp 0.1.9** from pinned sources
+under `config/hypr/desktop_services/third_party`, with upstream provenance and
+licenses included. Cargo needs its pinned dependencies cached or Internet
+access. An offline system snapshot must carry the completed native binaries;
+the online/offline ISO images have not been rebuilt for this integration pass.
+TigerVNC is `tigervnc` on Arch/Fedora and `tigervnc-viewer` on Debian/Ubuntu;
+both `vncviewer` and Debian's `xtigervncviewer` are recognized. See the
+[integration record](DESKTOP-ROADMAP.md#components-and-validation) and
+[remote desktop guide](../config/hypr/control_panel/rdp/README.md).
 
 The Arch migration pins **Hyprland 0.57.2**, commit `11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947`. Arch-family Setup supplies the complete signed runtime in [`runtime/arch.json`](../config/hypr/runtime/arch.json), including Aquamarine ABI 15 and Hyprgraphics ABI 5. Fedora 44 and Debian 13 keep their 0.56.2 contracts. Matching packages are bundled and can also be fetched from the official archive with checksum and signature verification. All twelve Arch runtime packages are held through `/etc/pacman.d/xetal-hyprland.conf`.
 

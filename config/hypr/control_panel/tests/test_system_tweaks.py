@@ -372,3 +372,39 @@ def test_status_reports_conflicts_and_external_changes(machine, monkeypatch):
     machine.put('/etc/sysctl.d/zz-hyperfusion-ptrace.conf', '# changed externally')
     rows = {r['id']: r for r in machine.status()['settings']}
     assert 'since changed' in rows['ptrace']['note']
+
+
+def test_cpu_policy_masks_competing_daemon_and_restores_after_undo(machine):
+    manager='power-profiles-daemon.service'
+    machine.service_stub.units[manager].update(ActiveState='active',UnitFileState='enabled')
+    apply(machine,'cpu_governor','performance')
+    assert machine.service_stub.units[manager]['UnitFileState']=='masked'
+    assert ['systemctl','stop',manager] in machine.service_stub.calls
+    assert 'After=suspend.target' in machine.read(tweaks.RESUME)
+    assert machine.service_stub.units[tweaks.RESUME_UNIT]['UnitFileState']=='enabled'
+    restore(machine,'cpu_governor')
+    assert machine.service_stub.units[manager]['UnitFileState']=='enabled'
+    assert ['systemctl','start',manager] in machine.service_stub.calls
+
+
+def test_charge_limit_survives_resume_and_refuses_conflicting_threshold(machine):
+    machine.put('/sys/class/power_supply/BAT0/type','Battery')
+    machine.put('/sys/class/power_supply/BAT0/charge_control_end_threshold','100')
+    machine.put('/sys/class/power_supply/BAT0/charge_control_start_threshold','40')
+    apply(machine,'battery_limit','80')
+    machine.put('/sys/class/power_supply/BAT0/charge_control_end_threshold','100')
+    tweaks.runtime.boot(machine.root)
+    assert machine.read('/sys/class/power_supply/BAT0/charge_control_end_threshold')=='80'
+    machine.put('/sys/class/power_supply/BAT0/charge_control_start_threshold','90')
+    with pytest.raises(ValueError,match='start threshold'):apply(machine,'battery_limit','80')
+
+
+def test_restoring_one_cpu_choice_keeps_other_saved_choices_in_control(machine):
+    manager='power-profiles-daemon.service'
+    machine.service_stub.units[manager].update(ActiveState='active',UnitFileState='enabled')
+    apply(machine,'cpu_governor','powersave')
+    apply(machine,'cpu_energy','balance_power')
+    restore(machine,'cpu_governor')
+    assert machine.service_stub.units[manager]['UnitFileState']=='masked'
+    restore(machine,'cpu_energy')
+    assert machine.service_stub.units[manager]['UnitFileState']=='enabled'

@@ -7,6 +7,7 @@ def icon(name, color, size=24):
     themed={'home':'user-home','network':'network-workgroup','displays':'computer',
             'capture':'multimedia-video-player','chip':'xetal-kvm-settings','fusion-settings':'xetal-fusion-settings',
             'theme':'preferences-desktop-theme','terminal':'utilities-terminal','system':'system-shutdown',
+            'power':'battery','phone':'smartphone','remote-desktop':'krdc',
             'monitor':'utilities-system-monitor','files':'system-file-manager','folder':'folder','trash':'user-trash'}.get(name)
     if themed:
         candidate=QIcon.fromTheme(themed)

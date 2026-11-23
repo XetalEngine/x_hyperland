@@ -1,7 +1,7 @@
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(FUSION_RDP REQUIRED IMPORTED_TARGET freerdp-client3>=3.2 freerdp3>=3.2 winpr3)
 add_library(fusion_rdp STATIC profile.cpp profile.h credentials.cpp credentials.h clipboard.cpp clipboard.h
-    engine.cpp engine.h view.cpp view.h page.cpp page.h)
+    engine.cpp engine.h view.cpp view.h page.cpp page.h hosting_page.cpp hosting_page.h vnc.cpp vnc.h)
 target_link_libraries(fusion_rdp PUBLIC Qt${QT_VERSION_MAJOR}::Widgets PkgConfig::FUSION_RDP)
 target_include_directories(fusion_rdp PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 option(BUILD_RDP_TESTS "Build native RDP profile, protocol and interaction tests" OFF)
