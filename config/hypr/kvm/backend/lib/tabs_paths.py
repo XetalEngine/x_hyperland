@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGroupBo
 from PyQt6.QtCore import pyqtSignal, Qt, QTimer
 from PyQt6.QtGui import QFont
 
-from uiutil import guard_all
+from uiutil import guard_all, compact_page, section_tabs, section_page
 from model import set_chardev_path
 
 MONO = "Monospace"
@@ -57,7 +57,8 @@ class PathRow(QWidget):
 
         g = QGridLayout(self)
         g.setContentsMargins(0, 0, 0, 0)
-        g.setSpacing(6)
+        g.setHorizontalSpacing(6)
+        g.setVerticalSpacing(2)
 
         lb = QLabel(label + ":")
         if tip:
@@ -162,7 +163,97 @@ class PathsTab(QScrollArea):
         self.rows = []
         self.setWidgetResizable(True)
         self._build()
+        self._organize_sections()
         guard_all(self)
+
+    def _organize_sections(self):
+        content = compact_page(self.widget())
+        layout = content.layout()
+        groups = {box.title(): box for box in content.findChildren(
+            QGroupBox, options=Qt.FindChildOption.FindDirectChildrenOnly)}
+
+        def empty(old):
+            while old.count():
+                item = old.takeAt(0)
+                if item.layout():
+                    empty(item.layout())
+                    item.layout().deleteLater()
+                elif item.widget() and item.widget() not in groups.values():
+                    item.widget().hide()
+                    item.widget().deleteLater()
+        empty(layout)
+        title = QLabel('Files, components & host tools')
+        title.setObjectName('compactTitle')
+        layout.addWidget(title)
+        self.sections = section_tabs(layout)
+        self.components_host, components = section_page(self.sections, 'KVM components')
+        self.components_hint = QLabel('Component downloads are available in Hyper Fusion KVM Settings.')
+        self.components_hint.setWordWrap(True)
+        components.addWidget(self.components_hint)
+        components.addStretch()
+        _, files = section_page(self.sections, 'QEMU & firmware')
+        file_grid = QGridLayout()
+        file_grid.setSpacing(10)
+        for column in (0, 1):
+            file_grid.setColumnStretch(column, 1)
+        names = (('QEMU', 'Firmware (OVMF)', 'SMBIOS', 'TPM') if self.cfg.profile != 'macos'
+                 else ('QEMU', 'Mac firmware and NVRAM', 'OpenCore'))
+        for i, name in enumerate(names):
+            if name in groups:
+                file_grid.addWidget(groups.pop(name), i // 2, i % 2, Qt.AlignmentFlag.AlignTop)
+        files.addLayout(file_grid)
+        files.addStretch()
+
+        _, helpers = section_page(self.sections, 'Kernel & helpers')
+        columns = QHBoxLayout()
+        columns.setSpacing(10)
+        left, right = QVBoxLayout(), QVBoxLayout()
+        left.setSpacing(8); right.setSpacing(8)
+        columns.addLayout(left, 1); columns.addLayout(right, 1)
+        for name in ('KVM kernel module', 'Optional host KVM module'):
+            if name in groups:
+                left.addWidget(groups.pop(name))
+        if hasattr(self, 'module_environment'):
+            self.module_environment.parentWidget().layout().removeWidget(self.module_environment)
+            left.addWidget(self.module_environment)
+        if 'Stealth helpers' in groups:
+            right.addWidget(groups.pop('Stealth helpers'))
+        if hasattr(self, 'guest_batch_box'):
+            right.addWidget(self.guest_batch_box)
+        left.addStretch()
+        right.addStretch()
+        helpers.addLayout(columns)
+        for name in ('Runtime paths', 'Mac runtime'):
+            if name not in groups:
+                continue
+            runtime = groups.pop(name)
+            grid = runtime.layout()
+            grid.setHorizontalSpacing(14)
+            rows = [grid.takeAt(0).widget() for _ in range(grid.count())]
+            for column, row in enumerate(rows):
+                grid.addWidget(row, 0, column)
+                grid.setColumnStretch(column, 1)
+            helpers.addWidget(runtime)
+        helpers.addStretch()
+
+        _, acpi = section_page(self.sections, 'ACPI tables')
+        for name in ('ACPI tables', 'Additional QEMU ACPI tables'):
+            if name in groups:
+                acpi.addWidget(groups.pop(name), 1)
+        if not acpi.count():
+            box = QGroupBox('Additional QEMU ACPI tables')
+            body = QVBoxLayout(box)
+            body.addWidget(_wrap(QLabel('Extra host tables, in launch order. One file path per line. OpenCore ACPI entries are edited in Mac & OpenCore.')))
+            self.acpi_edit = QPlainTextEdit()
+            self.acpi_edit.setFont(QFont(MONO, 9))
+            self.acpi_edit.textChanged.connect(self._push_acpi)
+            body.addWidget(self.acpi_edit, 1)
+            self.acpi_status = QLabel('No additional tables')
+            body.addWidget(self.acpi_status)
+            acpi.addWidget(box, 1)
+        # Keep newly added groups reachable even when a profile grows more tools.
+        for box in groups.values():
+            files.insertWidget(files.count() - 1, box)
 
     # ------------------------------------------------------------ helpers ---
     def tools(self):
@@ -439,7 +530,14 @@ class PathsTab(QScrollArea):
         g.addWidget(argrow, 3, 0)
 
         env_box = QGroupBox("Module build environment")
+        self.module_environment = env_box
         eg = QGridLayout(env_box)
+        eg.setHorizontalSpacing(10)
+        eg.setVerticalSpacing(6)
+        note = QLabel('Keep CPUID intercepted at boot. Hover for setting details.')
+        note.setWordWrap(True)
+        note.setObjectName('muted')
+        eg.addWidget(note, 0, 0, 1, 4)
         self.kvm_env = {}
         env = t.setdefault("kvm_env", {})
         for i, (name, default, desc) in enumerate(KVM_KNOBS):
@@ -448,24 +546,20 @@ class PathsTab(QScrollArea):
             e.setToolTip(desc)
             e.textEdited.connect(lambda v, n=name: (env.__setitem__(n, v.strip()),
                                                     self._touched()))
-            lb = QLabel(name)
-            lb.setToolTip(desc)
-            note = QLabel(desc)
-            note.setWordWrap(True)
-            note.setStyleSheet("color: #888;")
-            eg.addWidget(lb, i, 0)
-            eg.addWidget(e, i, 1)
-            # The long boot/interception explanations keep the full width;
-            # the shorter rows leave room for the guest batch preview.
-            eg.addWidget(note, i, 2, 1, 2 if i < 2 else 1)
+            lb = QLabel(name.removeprefix('KVM_').replace('_', ' '))
+            lb.setToolTip(name + '\n' + desc)
+            row, column = i // 2 + 1, (i % 2) * 2
+            eg.addWidget(lb, row, column)
+            eg.addWidget(e, row, column + 1)
             self.kvm_env[name] = e
             env.setdefault(name, default)
-        eg.setColumnStretch(2, 3)
-        eg.setColumnStretch(3, 2)
+        eg.setColumnStretch(0, 1)
+        eg.setColumnStretch(2, 1)
 
-        batch_box = QWidget()
+        batch_box = QGroupBox('Windows guest helper')
+        self.guest_batch_box = batch_box
         batch_layout = QVBoxLayout(batch_box)
-        batch_layout.setContentsMargins(12, 0, 0, 0)
+        batch_layout.setContentsMargins(6, 4, 6, 6)
         batch_layout.setSpacing(6)
         batch_header = QHBoxLayout()
         self.guest_batch_name = QLabel()
@@ -488,17 +582,17 @@ class PathsTab(QScrollArea):
         self.guest_batch_preview = QPlainTextEdit()
         self.guest_batch_preview.setReadOnly(True)
         self.guest_batch_preview.setFont(QFont(MONO, 9))
-        self.guest_batch_preview.setMinimumSize(280, 170)
+        self.guest_batch_preview.setMinimumSize(200, 70)
+        self.guest_batch_preview.setMaximumHeight(90)
         self.guest_batch_preview.setAccessibleName("Guest batch file contents")
         batch_layout.addWidget(self.guest_batch_preview)
-        self.guest_ssh_status = QLabel("Enable local SSH once, then Copy. Run in Windows after boot; enter your Linux password for SSH and the administrator prompt.")
+        self.guest_ssh_status = QLabel("Enable SSH once; copy into Windows and run after boot. Use your Linux password for SSH and sudo.")
         self.guest_ssh_status.setTextFormat(Qt.TextFormat.PlainText)
         self.guest_ssh_status.setWordWrap(True)
         batch_layout.addWidget(self.guest_ssh_status)
         self.guest_batch_copy_timer = QTimer(self)
         self.guest_batch_copy_timer.setSingleShot(True)
         self.guest_batch_copy_timer.timeout.connect(lambda: self.guest_batch_copy.setText("Copy"))
-        eg.addWidget(batch_box, 2, 3, len(KVM_KNOBS) - 2, 1)
         self._refresh_guest_batch()
         g.addWidget(env_box, 4, 0)
         lay.addWidget(box)

@@ -155,7 +155,8 @@ class KVMSettings(VMStart2):
         panel=PackagesPanel(self._busy,self.tab_paths,switch_edition=self._switch_edition)
         panel.changed.connect(self._refresh_all)
         panel.inventory_changed.connect(self._health_changed)
-        self.tab_paths.widget().layout().insertWidget(0,panel)
+        self.tab_paths.components_host.layout().insertWidget(0,panel,1)
+        self.tab_paths.components_hint.hide()
         self.package_panel=panel
         if not getattr(self,'_wizard_connected',False):
             self.tab_wizard.finished.connect(self._wizard_finished)
@@ -461,8 +462,9 @@ class KVMSettings(VMStart2):
         panel=getattr(self,'package_panel',None)
         if panel is None:return
         if self.tabs.currentWidget() is not self.tab_wizard:host=None
-        panel.setParent(host or self.tab_paths.widget())
-        (host.layout() if host is not None else self.tab_paths.widget().layout()).insertWidget(0,panel)
+        target=host if host is not None else self.tab_paths.components_host
+        panel.setParent(target)
+        target.layout().insertWidget(0,panel,1)
         panel.show()
 
     def _components_ready(self):

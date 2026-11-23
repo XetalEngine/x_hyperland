@@ -10,7 +10,8 @@ from pathlib import Path
 from PyQt6.QtCore import QObject, QEvent, Qt
 from PyQt6.QtWidgets import (QComboBox, QSpinBox, QDoubleSpinBox, QAbstractSpinBox,
                              QScrollArea, QLabel, QFormLayout, QTableWidget,
-                             QAbstractItemView)
+                             QAbstractItemView, QWidget, QVBoxLayout, QTabWidget,
+                             QFrame)
 
 
 # --------------------------------------------------------------- privilege ---
@@ -115,20 +116,60 @@ def guard_all(root):
     return root
 
 
+def compact_page(content):
+    """Dense editor surfaces, with colors and fonts supplied by the current theme."""
+    content.setProperty('kvmCompact', True)
+    content.setStyleSheet('''
+        QGroupBox { padding: 10px; margin-top: 10px; }
+        QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; }
+        QLineEdit, QComboBox, QSpinBox { min-height: 20px; padding: 3px 7px; }
+        QPushButton { min-height: 20px; padding: 4px 10px; }
+        QLabel#compactTitle { font-size: 20px; font-weight: 700; }
+        QTabWidget#kvmSections::pane { border: none; background: transparent; }
+        QTabWidget#kvmSections > QTabBar::tab { padding: 7px 14px; }
+        QPlainTextEdit { padding: 6px; }
+    ''')
+    return content
+
+
+def section_tabs(layout):
+    tabs = QTabWidget()
+    tabs.setObjectName('kvmSections')
+    tabs.setDocumentMode(True)
+    layout.addWidget(tabs, 1)
+    return tabs
+
+
+def section_page(tabs, title):
+    """A tab that fills the editor; scrolling remains available on small screens."""
+    scroll = QScrollArea()
+    scroll.setFrameShape(QFrame.Shape.NoFrame)
+    scroll.setWidgetResizable(True)
+    content = QWidget()
+    layout = QVBoxLayout(content)
+    layout.setContentsMargins(2, 10, 2, 2)
+    layout.setSpacing(8)
+    scroll.setWidget(content)
+    tabs.addTab(scroll, title.replace('&', '&&'))
+    return content, layout
+
+
 def polish_page(page):
     """Apply shared spacing and readable wrapping without changing controls."""
     content = page.widget() if isinstance(page, QScrollArea) else page
+    compact = bool(content.property('kvmCompact'))
     if content.layout() is not None:
-        content.layout().setContentsMargins(12, 12, 12, 12)
-        content.layout().setSpacing(14)
+        margin = 8 if compact else 12
+        content.layout().setContentsMargins(margin, margin, margin, margin)
+        content.layout().setSpacing(8 if compact else 14)
     for label in content.findChildren(QLabel):
         if len(label.text()) > 110:
             label.setWordWrap(True)
     for form in content.findChildren(QFormLayout):
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
-        form.setHorizontalSpacing(16)
-        form.setVerticalSpacing(10)
+        form.setHorizontalSpacing(10 if compact else 16)
+        form.setVerticalSpacing(6 if compact else 10)
     for table in content.findChildren(QTableWidget):
         table.setAlternatingRowColors(True)
         table.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)

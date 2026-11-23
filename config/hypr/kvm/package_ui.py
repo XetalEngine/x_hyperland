@@ -67,7 +67,7 @@ class PackagesPanel(QGroupBox):
         for n in (1,2): self.table.horizontalHeader().setSectionResizeMode(n,QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(4,QHeaderView.ResizeMode.Fixed)
         self.table.setColumnWidth(4,144)
-        layout.addWidget(self.table)
+        layout.addWidget(self.table,1)
         kernel_row=QHBoxLayout()
         self.kernel_info=QLabel();self.kernel_info.setWordWrap(True);self.kernel_info.setTextFormat(Qt.TextFormat.PlainText)
         kernel_row.addWidget(self.kernel_info,1)
@@ -76,6 +76,7 @@ class PackagesPanel(QGroupBox):
         self.progress=QProgressBar();self.progress.hide();layout.addWidget(self.progress)
         note=QLabel('Downloads are compressed and verified before installation. Your disks, NVRAM and TPM state stay in your private workspace.')
         note.setWordWrap(True);note.setObjectName('muted');layout.addWidget(note)
+        layout.addStretch()
         self.load_catalog()
         self.refresh()
 
@@ -217,8 +218,12 @@ class PackagesPanel(QGroupBox):
                 button.setToolTip('This version has different files than the installed component. A newer version is required.')
             button.clicked.connect(lambda _,n=name,e=entry:self.download(n,e))
             cell=QWidget();buttons=QHBoxLayout(cell);buttons.setContentsMargins(6,4,6,4);buttons.addWidget(button)
-            self.table.setCellWidget(row,4,cell);self.table.setRowHeight(row,64 if name=='kvm-amd' else 44)
-        self.table.setFixedHeight(self.table.horizontalHeader().height()+sum(self.table.rowHeight(r) for r in range(len(entries)))+4)
+            self.table.setCellWidget(row,4,cell);self.table.setRowHeight(row,54 if name=='kvm-amd' else 40)
+        # Let the inventory absorb a small window or a longer kernel catalog,
+        # keeping edition controls and actions in view without scrolling the page.
+        full_height=self.table.horizontalHeader().height()+sum(self.table.rowHeight(r) for r in range(len(entries)))+4
+        self.table.setMinimumHeight(min(200,full_height))
+        self.table.setMaximumHeight(full_height)
         self.table.setVisible(bool(entries))
         self.inventory_changed.emit()
 

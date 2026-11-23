@@ -18,7 +18,7 @@ from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QFont
 
 import hostinfo
-from uiutil import guard_all
+from uiutil import guard_all, compact_page, section_tabs, section_page
 
 MONO = "Monospace"
 
@@ -83,12 +83,12 @@ SIMPLE_OPTS = [
 # here for completeness but not editable: to_argv rebuilds them from that data,
 # so anything typed here would be silently thrown away.
 OWNED_ELSEWHERE = {
-    "machine":    "the machine type and option dropdowns above",
+    "machine":    "Machine & network",
     "cpu":        "the CPU Features tab",
     "smp":        "the CPU Pinning tab (generated from the selected cores)",
     "m":          "the Memory tab",
     "overcommit": "the Memory tab (mem-lock checkbox)",
-    "netdev":     "the Networking section above",
+    "netdev":     "Machine & network",
     "tpmdev":     "the TPM tab and Paths & Tools",
 }
 
@@ -136,13 +136,13 @@ class PassthroughTab(QScrollArea):
         self.setWidget(w)
         lay = QVBoxLayout(w)
 
-        lay.addWidget(QLabel(
-            "Devices handed straight to the guest. A PCI function can only be passed "
-            "if its whole IOMMU group goes with it, so the group members are shown "
-            "next to each choice."))
-
-        if self.cfg.profile == "macos":
-            lay.addWidget(self._mac_usb_controls())
+        compact_page(w)
+        heading = QLabel("PCI & USB devices")
+        heading.setObjectName("compactTitle")
+        lay.addWidget(heading)
+        description = QLabel("Choose devices on the left; manage assignments on the right. Pass every member of a PCI device’s IOMMU group together.")
+        description.setWordWrap(True)
+        lay.addWidget(description)
 
         # ---- adders on the left, what they added on the right ---------------
         # One unfiltered dropdown of every PCI function on the machine is
@@ -170,7 +170,7 @@ class PassthroughTab(QScrollArea):
             self.gpu_combo.addItem(f"{g['slot']}  {g['device']}   (functions {fns})", g["slot"])
         self._wide_popup(self.gpu_combo)
         gl.addWidget(QLabel("GPU:"), 0, 0)
-        gl.addWidget(self.gpu_combo, 0, 1, 1, 2)
+        gl.addWidget(self.gpu_combo, 0, 1)
 
         self.rom = QLineEdit()
         self.rom.setPlaceholderText("Auto-dump on Add GPU, or select a ROM")
@@ -183,14 +183,13 @@ class PassthroughTab(QScrollArea):
 
         add = QPushButton("Add this GPU")
         add.clicked.connect(self._add_gpu)
-        gl.addWidget(add, 2, 0, 1, 3)
+        gl.addWidget(add, 0, 2)
         gl.setColumnStretch(1, 1)
         addcol.addWidget(gbox)
 
         self.audio_new = self._add_card(
             addcol, "Add a PCI audio device", ("0403", "0401", "0480"),
-            "A graphics card's audio function comes with the GPU. This is "
-            "normally for the motherboard's own codec.",
+            "On-board audio. GPU audio is added with the GPU.",
             full="On-board and add-in audio. A graphics card's audio function is "
                  "part of its IOMMU group and is added with the GPU, so what you "
                  "usually want here is the motherboard's own controller.")
@@ -198,8 +197,7 @@ class PassthroughTab(QScrollArea):
         self.usbc_new = self._add_card(
             addcol, "Add a PCI USB controller", ("0c03",),
             "The whole controller moves. The host loses every port on it.",
-            warn="Not every board resets one cleanly, and an ACS patched kernel "
-                 "makes it worse. If it misbehaves, use usb-host below.",
+            warn="Reset can fail, especially with ACS patches. Use individual USB devices if needed.",
             full="A whole host controller, so every port on it moves to the guest "
                  "at once and the host loses them until it is given back.\n\n"
                  "Not every board does this cleanly, and an ACS patched kernel "
@@ -208,7 +206,7 @@ class PassthroughTab(QScrollArea):
 
         self.pci_new = self._add_card(
             addcol, "Add any PCI device   (unfiltered)", None,
-            "Everything, bridges included. For anything not in a category above.",
+            "All PCI functions, including bridges.",
             full="Every PCI function on the machine, bridges included. Use this "
                  "when what you want is not in one of the categories above.")
 
@@ -236,12 +234,13 @@ class PassthroughTab(QScrollArea):
         self.usb_by.addItem("by vendor:product id (survives replug)", "id")
         self.usb_by.addItem("by host device node (this port only)", "node")
         self._wide_popup(self.usb_by)
-        uv.addWidget(self.usb_by)
+        usb_actions = QHBoxLayout()
+        usb_actions.addWidget(self.usb_by, 1)
+        uv.addLayout(usb_actions)
 
         b = QPushButton("Add selected")
         b.clicked.connect(self._add_usb)
-        uv.addWidget(b)
-        uv.addStretch()
+        usb_actions.addWidget(b)
 
         addcol.addWidget(ubox)
 
@@ -257,6 +256,7 @@ class PassthroughTab(QScrollArea):
         self.warn.setReadOnly(True)
         self.warn.setFont(QFont(MONO, 10))
         self.warn.setMinimumHeight(90)
+        self.warn.setMaximumHeight(140)
 
         # Two columns, each packed from the top. The lists were centred against
         # the adders while the adder column overflowed and scrolled; now that it
@@ -266,7 +266,10 @@ class PassthroughTab(QScrollArea):
         rightcol.setSpacing(6)
         rightcol.addWidget(self.pci_box)
         rightcol.addWidget(self.usb_box)
+        if self.cfg.profile == "macos":
+            rightcol.addWidget(self._mac_usb_controls())
         rightcol.addWidget(self.warn, 1)
+        rightcol.addStretch()
 
         cols = QHBoxLayout()
         cols.setSpacing(10)
@@ -277,8 +280,6 @@ class PassthroughTab(QScrollArea):
         cols.addLayout(rightcol, 66)
         lay.addLayout(cols, 1)
 
-
-        lay.addStretch()
 
     def _browse_rom(self):
         p, _ = QFileDialog.getOpenFileName(self, "Select ROM file", os.path.expanduser("~"),
@@ -606,7 +607,9 @@ class PassthroughTab(QScrollArea):
             combo.addItem(label, slot)
         self._wide_popup(combo)
         self._pci_pickers.append((combo, classes))
-        v.addWidget(combo)
+        actions = QHBoxLayout()
+        actions.addWidget(combo, 1)
+        v.addLayout(actions)
 
         # The card title already says what this adds.
         b = QPushButton("Add selected")
@@ -617,7 +620,7 @@ class PassthroughTab(QScrollArea):
             combo.setEnabled(False)
             b.setEnabled(False)
         b.clicked.connect(lambda _, c=combo: self._add_pci(c))
-        v.addWidget(b)
+        actions.addWidget(b)
         column.addWidget(box)
         return combo
 
@@ -769,6 +772,23 @@ class MachineTab(QScrollArea):
         self.setWidget(w)
         lay = QVBoxLayout(w)
 
+        compact_page(w)
+        heading = QLabel("Machine & network")
+        heading.setObjectName("compactTitle")
+        lay.addWidget(heading)
+        self.sections = section_tabs(lay)
+        _, overview = section_page(self.sections, "Machine & network")
+        _, advanced = section_page(self.sections, "Advanced arguments")
+        _, diagnostics = section_page(self.sections, "Argument coverage")
+        columns = QHBoxLayout()
+        columns.setSpacing(10)
+        machine_column, network_column = QVBoxLayout(), QVBoxLayout()
+        machine_column.setSpacing(8)
+        network_column.setSpacing(8)
+        columns.addLayout(machine_column, 3)
+        columns.addLayout(network_column, 2)
+        overview.addLayout(columns, 1)
+
         mbox = QGroupBox("Machine")
         mv = QVBoxLayout(mbox)
 
@@ -781,19 +801,19 @@ class MachineTab(QScrollArea):
         mv.addLayout(topf)
 
         og = QGridLayout()
-        og.setColumnStretch(0, 1)
         og.setColumnStretch(1, 1)
+        og.setColumnStretch(3, 1)
+        og.setHorizontalSpacing(8)
+        og.setVerticalSpacing(6)
         self.mwidgets = {}
         opts = self.cfg.data["machine"]["opts"]
         for i, (name, choices, desc) in enumerate(MACHINE_OPTS):
-            row = QHBoxLayout()
             lbl = QLabel(name + ":")
-            lbl.setMinimumWidth(150)
             lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             lbl.setToolTip(desc)
             if choices is None:
                 w2 = QLineEdit(str(opts.get(name, "")))
-                w2.setFixedWidth(150)
+                w2.setMinimumWidth(65)
                 w2.textEdited.connect(self._push_machine)
             else:
                 w2 = QComboBox()
@@ -807,11 +827,9 @@ class MachineTab(QScrollArea):
             # No visible copy of desc. It is already the tooltip on both the
             # label and the control, and at half width it wrapped to three or
             # four lines -- twenty-three times, which was most of this tab.
-            row.addWidget(lbl)
-            row.addWidget(w2, 1)
-            holder = QWidget()
-            holder.setLayout(row)
-            og.addWidget(holder, i // 2, i % 2)
+            column = (i % 2) * 2
+            og.addWidget(lbl, i // 2, column)
+            og.addWidget(w2, i // 2, column + 1)
             self.mwidgets[name] = w2
         options_box = QGroupBox("Machine options")
         options_layout = QVBoxLayout(options_box)
@@ -823,18 +841,23 @@ class MachineTab(QScrollArea):
         self.mpass.textChanged.connect(self._push_machine)
         botf.addRow("Extra:", self.mpass)
         options_layout.addLayout(botf)
-        lay.addWidget(mbox)
+        machine_column.addWidget(mbox)
+        machine_column.addWidget(options_box)
+        machine_column.addStretch()
 
         # ---- globals ---------------------------------------------------------
         gbox = QGroupBox("-global overrides")
         gl = QVBoxLayout(gbox)
-        gl.addWidget(QLabel(
+        globals_help = QLabel(
             "Raw QOM property overrides, one per line. host-x86_64-cpu.model-id "
-            "rewrites the CPU brand string the guest reads from CPUID 8000_0002-4."))
+            "rewrites the CPU brand string the guest reads from CPUID 8000_0002-4.")
+        globals_help.setWordWrap(True)
+        gl.addWidget(globals_help)
         self.globals_edit = QPlainTextEdit()
         self.globals_edit.setFont(QFont(MONO, 10))
         self.globals_edit.setPlainText("\n".join(self.cfg.globals))
-        self.globals_edit.setMaximumHeight(140)
+        self.globals_edit.setMinimumHeight(80)
+        self.globals_edit.setMaximumHeight(110)
         self.globals_edit.textChanged.connect(self._push_globals)
         gl.addWidget(self.globals_edit)
 
@@ -901,9 +924,9 @@ class MachineTab(QScrollArea):
         self.net_raw.setToolTip("The -netdev argument as it will be emitted.")
         self.net_raw.setReadOnly(True)
         nf.addRow("-netdev:", self.net_raw)
-        lay.addWidget(nbox)
-        lay.addWidget(options_box)
-        lay.addWidget(gbox)
+        network_column.addWidget(nbox)
+        network_column.addStretch()
+        advanced.addWidget(gbox)
 
         # ---- simple flags -----------------------------------------------------
         sbox = QGroupBox("Top-level flags")
@@ -927,7 +950,11 @@ class MachineTab(QScrollArea):
                 desc = "Built from " + OWNED_ELSEWHERE[name] + "."
                 # Kept visible for these: that the field is read-only is state,
                 # not help, and a greyed box with no reason given reads as broken.
-                marker = "from " + OWNED_ELSEWHERE[name].split("(")[0].strip()
+                marker = {
+                    'machine': 'Machine', 'cpu': 'CPU features', 'smp': 'CPU pinning',
+                    'm': 'Memory', 'overcommit': 'Memory', 'netdev': 'Networking',
+                    'tpmdev': 'TPM / Paths',
+                }[name]
                 e.setReadOnly(True)
                 e.setStyleSheet("color: #888;")
                 self.readonly_rows.append(name)
@@ -947,7 +974,7 @@ class MachineTab(QScrollArea):
             sf.addWidget(e, r, col + 1)
             sf.addWidget(ml, r, col + 2)
             self.swidgets[name] = e
-        lay.addWidget(sbox)
+        advanced.addWidget(sbox)
 
         # ---- boolean flags ------------------------------------------------------
         bbox = QGroupBox("Switches (no value)")
@@ -961,14 +988,17 @@ class MachineTab(QScrollArea):
             bf.addWidget(c)
             self.bwidgets[name] = c
         bf.addStretch()
-        lay.addWidget(bbox)
+        advanced.addWidget(bbox)
+        advanced.addStretch()
 
         # ---- completeness --------------------------------------------------------
         cbox = QGroupBox("Coverage")
         cl = QVBoxLayout(cbox)
-        cl.addWidget(QLabel(
+        coverage_help = QLabel(
             "Every argument the launcher will emit, and where it is edited. "
-            "Anything listed as unreachable is a gap in this app, not in QEMU."))
+            "Anything listed as unreachable is a gap in this app, not in QEMU.")
+        coverage_help.setWordWrap(True)
+        cl.addWidget(coverage_help)
         self.coverage = QPlainTextEdit()
         self.coverage.setReadOnly(True)
         self.coverage.setFont(QFont(MONO, 9))
@@ -977,12 +1007,11 @@ class MachineTab(QScrollArea):
         b = QPushButton("Re-check coverage")
         b.clicked.connect(self.check_coverage)
         cl.addWidget(b)
-        lay.addWidget(cbox)
+        diagnostics.addWidget(cbox, 1)
 
         self.note = QLabel("")
         self.note.setWordWrap(True)
         lay.addWidget(self.note)
-        lay.addStretch()
 
     def _push_machine(self):
         if self._loading:

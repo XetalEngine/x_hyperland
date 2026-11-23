@@ -45,7 +45,7 @@ import theme
 import settings_defaults
 import profiles
 from navigation import PageNavigation
-from uiutil import guard_all, polish_page
+from uiutil import guard_all, polish_page, compact_page, section_tabs
 
 MONO = "Monospace"
 
@@ -508,6 +508,18 @@ class VMStart2(QMainWindow):
                    if 0 < index <= len(self._section_entries) else None)
         page = self.tabs.currentWidget()
         if section is not None and isinstance(page, QScrollArea):
+            # A section may live in one of the compact editor's inner tabs.
+            # Reveal that tab before scrolling to the card.
+            child = section
+            while child.parentWidget() is not None and child is not page:
+                parent = child.parentWidget()
+                if isinstance(parent, QTabWidget):
+                    for tab_index in range(parent.count()):
+                        tab_page = parent.widget(tab_index)
+                        if tab_page is section or tab_page.isAncestorOf(section):
+                            parent.setCurrentIndex(tab_index)
+                            break
+                child = parent
             parent = section.parentWidget()
             while parent is not None and parent is not page:
                 if isinstance(parent, QScrollArea):
@@ -914,8 +926,11 @@ class VMStart2(QMainWindow):
     # -- pinning ------------------------------------------------------------
     # -- smbios -------------------------------------------------------------
     def _tab_smbios(self):
-        w = QWidget()
+        w = compact_page(QWidget())
         lay = QVBoxLayout(w)
+        title = QLabel("Guest identity")
+        title.setObjectName("compactTitle")
+        lay.addWidget(title)
         actions = QHBoxLayout()
         self.smbios_blob_actions = []
         self.btn_apply_smbios = QPushButton("Apply SMBIOS Identity")
@@ -930,8 +945,6 @@ class VMStart2(QMainWindow):
                  "Show what would be patched without writing the blob"),
                 ("Regenerate all fields", self._smbios_regen_all,
                  "Give every enabled field a new random value of the same length and shape"),
-                ("New System UUID", self._smbios_new_uuid,
-                 "Generate a fresh SMBIOS System UUID"),
                 ("Reload defaults", self._smbios_reload_defaults,
                  "Re-read presets/smbios-default.json, discarding edits")):
             button = QPushButton(text)
@@ -942,12 +955,17 @@ class VMStart2(QMainWindow):
         actions.addStretch()
         lay.addLayout(actions)
         self.smbios_help = QLabel(
-            "Apply SMBIOS Identity builds the file for the next VM launch. "
+            "Set the hardware identity your guest sees. Apply builds the file; "
             "Save current setup remembers your edits. The template stays unchanged.")
         self.smbios_help.setWordWrap(True)
         self.smbios_help.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         self.smbios_blob_help = self.smbios_help.text()
         lay.addWidget(self.smbios_help)
+        identity_cards = QWidget()
+        cards = QHBoxLayout(identity_cards)
+        cards.setContentsMargins(0, 0, 0, 0)
+        cards.setSpacing(10)
+        lay.addWidget(identity_cards)
 
         identity_box = QGroupBox("Template and system identity")
         f = QFormLayout(identity_box)
@@ -966,10 +984,11 @@ class VMStart2(QMainWindow):
             widget.textEdited.connect(
                 lambda v, k=key: (self._smbios_cfg().__setitem__(k, v.strip()),
                                   self._update_modified()))
-        f.addRow("Template blob (read only):", self.ed_tpl)
-        f.addRow("Output blob:", self.ed_out)
+        f.addRow("Template:", self.ed_tpl)
+        f.addRow("Output:", self.ed_out)
 
         urow = QHBoxLayout()
+        urow.setContentsMargins(0, 0, 0, 0)
         urow.addWidget(self.ed_uuid, 1)
         ub = QPushButton("Generate")
         ub.setFixedWidth(90)
@@ -979,11 +998,11 @@ class VMStart2(QMainWindow):
         uholder = QWidget()
         uholder.setLayout(urow)
         f.addRow("System UUID:", uholder)
-        lay.addWidget(identity_box)
+        cards.addWidget(identity_box, 4)
 
         model_box = QGroupBox("Manufacturer and model")
         model_form = QFormLayout(model_box)
-        self.chk_manufacturer_model = QCheckBox("Use these manufacturer and model values")
+        self.chk_manufacturer_model = QCheckBox("Override manufacturer and model")
         self.chk_manufacturer_model.toggled.connect(self._toggle_manufacturer_model)
         model_form.addRow(self.chk_manufacturer_model)
         self.ed_manufacturer = QLineEdit()
@@ -998,19 +1017,18 @@ class VMStart2(QMainWindow):
         self.manufacturer_model_note = QLabel()
         self.manufacturer_model_note.setWordWrap(True)
         model_form.addRow(self.manufacturer_model_note)
-        lay.addWidget(model_box)
+        cards.addWidget(model_box, 3)
 
         # ---- Type 0, edited as fields rather than as byte patches -------------
         # A byte patch cannot change a string's length; Type 0 is rewritten
         # structurally instead, so "3.06" can become "F.42a" without corrupting
         # every structure behind it.
-        t0box = QGroupBox("BIOS Information (SMBIOS Type 0)")
+        t0box = QGroupBox("BIOS information · Type 0")
         t0g = QGridLayout(t0box)
         t0g.setContentsMargins(8, 4, 8, 6)
         t0g.setHorizontalSpacing(6)
         t0g.setVerticalSpacing(3)
-        note = QLabel("What the guest reports as its BIOS. Blank means leave the "
-                      "template's value alone.")
+        note = QLabel("Leave a field blank to use its template value.")
         note.setWordWrap(True)
         note.setStyleSheet("color: #888;")
         t0g.addWidget(note, 0, 0, 1, 4)
@@ -1029,10 +1047,10 @@ class VMStart2(QMainWindow):
             "Type 0 BIOS Release Date, MM/DD/YYYY. Win32_BIOS.ReleaseDate.")
         t0g.addWidget(QLabel("Vendor:"), 1, 0)
         t0g.addWidget(self.ed_bios_vendor, 1, 1, 1, 3)
-        t0g.addWidget(QLabel("BIOS version:"), 2, 0)
-        t0g.addWidget(self.ed_bios_version, 2, 1)
-        t0g.addWidget(QLabel("Release date:"), 2, 2)
-        t0g.addWidget(self.ed_bios_date, 2, 3)
+        t0g.addWidget(QLabel("Version:"), 2, 0)
+        t0g.addWidget(self.ed_bios_version, 2, 1, 1, 3)
+        t0g.addWidget(QLabel("Date:"), 3, 0)
+        t0g.addWidget(self.ed_bios_date, 3, 1, 1, 3)
 
         self.sp_bios_major = QSpinBox()
         self.sp_bios_major.setRange(0, 255)
@@ -1050,14 +1068,14 @@ class VMStart2(QMainWindow):
         rrow.addStretch()
         rh = QWidget()
         rh.setLayout(rrow)
-        t0g.addWidget(QLabel("BIOS revision:"), 3, 0)
-        t0g.addWidget(rh, 3, 1)
+        t0g.addWidget(QLabel("Revision:"), 4, 0)
+        t0g.addWidget(rh, 4, 1)
 
         rb = QPushButton("Read from template")
         rb.setToolTip("Load the pristine dump's own Type 0 values into these "
                       "fields, so you can edit from what the real board reports.")
         rb.clicked.connect(self._smbios_read_type0)
-        t0g.addWidget(rb, 3, 3)
+        t0g.addWidget(rb, 4, 3)
 
         for wdg in (self.ed_bios_vendor, self.ed_bios_version, self.ed_bios_date):
             wdg.textEdited.connect(self._push_type0)
@@ -1065,7 +1083,7 @@ class VMStart2(QMainWindow):
             s.valueChanged.connect(self._push_type0)
         t0g.setColumnStretch(1, 1)
         t0g.setColumnStretch(3, 1)
-        lay.addWidget(t0box)
+        cards.addWidget(t0box, 4)
 
         self.smbios_table = QTableWidget(0, 5)
         self.smbios_table.setHorizontalHeaderLabels(
@@ -1081,25 +1099,28 @@ class VMStart2(QMainWindow):
         self.smbios_table.setColumnWidth(
             4, QPushButton("Regenerate").sizeHint().width() + 16)
         self.smbios_table.itemChanged.connect(self._smbios_item_changed)
-        patches_box = QGroupBox("Identity fields and byte patches")
+        self.smbios_sections = section_tabs(lay)
+        patches_box = QWidget()
         patches_layout = QVBoxLayout(patches_box)
+        patches_layout.setContentsMargins(0, 8, 0, 0)
         patch_help = QLabel(
-            "Edit the manufacturer and model in the fields above. Double-click a guest "
-            "value below to edit serial numbers or other identity fields. Save current "
-            "setup remembers your edits; Apply SMBIOS Identity at the top builds the file "
-            "for the next VM launch.")
+            "Double-click a guest value to edit it. Regenerate changes only that field; "
+            "unchecked fields keep their original value.")
         patch_help.setWordWrap(True)
         patches_layout.addWidget(patch_help)
-        self.smbios_table.setMinimumHeight(240)
+        self.smbios_table.setMinimumHeight(200)
         patches_layout.addWidget(self.smbios_table, 1)
-        lay.addWidget(patches_box, 1)
+        self.smbios_sections.addTab(patches_box, "Identity fields")
 
         self.smbios_log = QPlainTextEdit()
         self.smbios_log.setReadOnly(True)
         self.smbios_log.setFont(QFont(MONO, 10))
-        self.smbios_log.setMinimumHeight(150)
-        lay.addWidget(self.smbios_log)
-        self.smbios_blob_editors = [identity_box, model_box, t0box, patches_box, self.smbios_log]
+        self.smbios_log.setPlaceholderText("Apply SMBIOS Identity or run a dry run to see the result here.")
+        self.smbios_sections.addTab(self.smbios_log, "Build output")
+        self.smbios_log.textChanged.connect(
+            lambda: self.smbios_sections.setCurrentWidget(self.smbios_log)
+            if self.smbios_log.toPlainText() else None)
+        self.smbios_blob_editors = [identity_cards, self.smbios_sections]
         self.tab_opencore = OpenCoreTab(self.cfg) if self.cfg.profile == "macos" else None
         if self.tab_opencore:
             lay.addWidget(self.tab_opencore)

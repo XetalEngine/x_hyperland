@@ -86,9 +86,9 @@ class SetupTests(unittest.TestCase):
         self.assertIs(panel.parentWidget(),wizard.component_host)
         self.assertFalse(w._components_ready())
         w._select_tab_by_name('Paths & Tools')
-        self.assertIs(panel.parentWidget(),w.tab_paths.widget())
+        self.assertIs(panel.parentWidget(),w.tab_paths.components_host)
         w._select_tab_by_name('Wizard');wizard.go(1)
-        self.assertIs(panel.parentWidget(),w.tab_paths.widget())
+        self.assertIs(panel.parentWidget(),w.tab_paths.components_host)
         wizard.go(0)
         self.application.sendPostedEvents(None,self.kvm.QEvent.Type.DeferredDelete)
         self.assertIs(panel.parentWidget(),wizard.component_host)
@@ -894,6 +894,87 @@ class SetupTests(unittest.TestCase):
                     self.assertEqual(after[:row]+after[row+1:],before[:row]+before[row+1:])
                     self.assertEqual(after[row]['find_ascii'],before[row]['find_ascii'])
         self.application.hypr_theme.apply()
+
+    def test_compact_editors_fit_default_window_and_keep_configuration(self):
+        from PyQt6.QtWidgets import QScrollArea
+        import packages
+        w=self.window;app=self.application
+        def settle():
+            for _ in range(3):
+                app.sendPostedEvents(None,self.kvm.QEvent.Type.DeferredDelete)
+                app.processEvents()
+        w.resize(1820,920)
+        # Include populated passthrough cards, not only the empty-state layout.
+        w.cfg.devices.extend([
+            {'driver':'vfio-pci','host':f'0000:01:00.{i}','id':f'layout-pci-{i}'}
+            for i in range(3)])
+        w.cfg.devices.extend([
+            {'driver':'usb-host','vendorid':'0x1234','productid':f'0x000{i}',
+             'id':f'layout-usb-{i}'} for i in range(2)])
+        w.tab_hw.reload()
+        before=copy.deepcopy(w.cfg.data)
+        command=w.cfg.to_script(True)
+        for edition in ('stock','xetallic'):
+            panel=w.package_panel
+            panel.store=packages.Store(edition=edition)
+            panel.release=packages.decode((portable.ROOT/('catalog-stock.json' if edition=='stock' else 'catalog.json')).read_bytes())
+            panel.refresh()
+            for mode in ('dark','light'):
+                with patch.object(self.kvm.desktop_theme,'state',return_value=dict(design='modern',mode=mode,layout='sidebar')):
+                    app.hypr_theme.apply()
+                    for name in ('SMBIOS','Machine','PCI / USB','Paths && Tools'):
+                        w._select_tab_by_name(name);settle()
+                        page=w.tabs.currentWidget()
+                        tabs=getattr(page,'sections',None)
+                        for index in range(tabs.count()) if tabs else [None]:
+                            if index is not None:tabs.setCurrentIndex(index)
+                            settle()
+                            with self.subTest(edition=edition,mode=mode,page=name,tab=index):
+                                for area in [page,*page.findChildren(QScrollArea)]:
+                                    if isinstance(area,QScrollArea) and area.isVisible():
+                                        self.assertEqual(area.verticalScrollBar().maximum(),0)
+                                        self.assertEqual(area.horizontalScrollBar().maximum(),0)
+                                if name=='SMBIOS':
+                                    self.assertEqual(w.smbios_table.verticalScrollBar().maximum(),0)
+        self.assertEqual(w.cfg.data,before)
+        self.assertEqual(w.cfg.to_script(True),command)
+        app.hypr_theme.apply()
+
+    def test_path_section_jump_and_edits_survive_profile_rebuild(self):
+        from PyQt6.QtTest import QTest
+        from PyQt6.QtWidgets import QMessageBox
+        from model import VMConfig
+        w=self.window
+        for profile in ('windows','macos'):
+            w.switch_profile(profile)
+            w._select_tab_by_name('Paths && Tools')
+            self.application.processEvents()
+            tabs=w.tab_paths.sections
+            self.assertEqual(tabs.count(),4)
+            for index in range(4):
+                tabs.setCurrentIndex(index)
+                self.application.processEvents()
+            # The sidebar must reveal a section even when its inner tab is hidden.
+            w._refresh_sections()
+            section_index=next(i for i,(_,title) in enumerate(w._section_entries,1) if title=='QEMU')
+            w._jump_to_section(section_index)
+            self.application.processEvents()
+            self.assertEqual(tabs.currentIndex(),1)
+            qemu=w.tab_paths.rows[0]
+            self.assertTrue(qemu.edit.isVisible())
+            replacement=str(Path(self.temporary.name)/profile/'qemu-test')
+            qemu.edit.setFocus();qemu.edit.selectAll();QTest.keyClicks(qemu.edit,replacement)
+            tabs.setCurrentIndex(3)
+            acpi=str(Path(self.temporary.name)/profile/'test.aml')
+            w.tab_paths.acpi_edit.setPlainText(acpi)
+            with patch.object(QMessageBox,'critical') as failure:
+                self.assertTrue(w.save_session(quiet=True),str(failure.call_args))
+            restored=VMConfig.load(w._paths().session,root=w._paths().root)
+            self.assertEqual(restored.data['_meta']['binary'],replacement)
+            self.assertIn('file='+acpi,restored.acpitables)
+            w.cfg=w._read_profile(w.profile_id);w._rebuild_tabs()
+            self.assertEqual(w.tab_paths.rows[0].edit.text(),replacement)
+            self.assertEqual(w.tab_paths.acpi_edit.toPlainText(),acpi)
 
 
 if __name__=='__main__':unittest.main()
