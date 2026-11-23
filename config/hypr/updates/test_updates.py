@@ -434,6 +434,68 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
         self.assertIn('--worker', command); self.assertIn('--manual', command)
         self.assertIn(newest, command); self.assertNotIn(NEW, command)
 
+    def test_update_request_survives_another_window_check_and_completes_once(self):
+        service.publish(self.state, phase='available', current=OLD, latest=NEW, github={'relation':'ahead'})
+        request = service.request('prepare', self.state)
+        self.assertEqual(service.request('check', self.state), request)
+        self.assertEqual(service.request('prepare', self.state), request)
+        newest = '3'*40
+        def start(command, **_options):
+            if '--check' in command:
+                with patch.object(github, 'latest', return_value={'sha':newest, 'base':OLD, 'relation':'ahead', 'message':'Newest release'}):
+                    service.check()
+                # The network child has published a result but the parent
+                # hasn't started the download yet. The request remains active.
+                self.assertEqual(service.status()['active_request']['id'], request['id'])
+            else:
+                self.assertIn(newest, command)
+                self.pending(newest, automatic=False)
+            return SimpleNamespace(poll=lambda:0, returncode=0)
+        popen = self.serve_ticks(3, start)
+        self.assertEqual(popen.call_count, 2)
+        value = service.status(self.state, self.live)
+        self.assertEqual(value['phase'], 'ready')
+        self.assertEqual(value['prepared'], newest)
+        self.assertEqual(value['completed_request'], request['id'])
+        self.assertIsNone(value['active_request'])
+
+    def test_update_opens_required_setup_and_reports_cancellation(self):
+        service.publish(self.state, phase='available', current=OLD, latest=NEW, github={'relation':'ahead'})
+        service.request('prepare', self.state)
+        engine.write_json(self.state/'runtime-required.json', {'revision':NEW, 'message':'Packages needed'})
+        def start(command, **options):
+            if '--check' in command:
+                with patch.object(github, 'latest', return_value={'sha':NEW, 'base':OLD, 'relation':'ahead', 'message':'Release'}):
+                    service.check()
+                code = 0
+            else:
+                self.assertIn('--setup', command)
+                options['stdout'].write('Setup was cancelled.\n'); options['stdout'].flush()
+                code = 1
+            return SimpleNamespace(poll=lambda:code, returncode=code)
+        self.assertEqual(self.serve_ticks(3, start).call_count, 2)
+        value = service.status(self.state, self.live)
+        self.assertEqual(value['phase'], 'runtime-required')
+        self.assertIn('cancelled', value['message'])
+        self.assertIsNone(value['active_request'])
+        self.assertFalse(service.restart_ready(value))
+        with patch.object(github, 'latest', return_value={'sha':NEW, 'base':OLD, 'relation':'ahead', 'message':'Release'}):
+            self.assertIn('cancelled', service.check(self.live, self.state)['message'])
+
+    def test_worker_success_without_a_prepared_update_is_an_explicit_error(self):
+        service.publish(self.state, phase='available', current=OLD, latest=NEW, github={'relation':'ahead'})
+        service.request('prepare', self.state)
+        def start(command, **_options):
+            if '--check' in command:
+                with patch.object(github, 'latest', return_value={'sha':NEW, 'base':OLD, 'relation':'ahead', 'message':'Release'}):
+                    service.check()
+            return SimpleNamespace(poll=lambda:0, returncode=0)
+        self.serve_ticks(3, start)
+        value = service.status(self.state, self.live)
+        self.assertEqual(value['phase'], 'attention')
+        self.assertIn('without a complete prepared desktop', value['message'])
+        self.assertIsNone(value['active_request'])
+
     def test_manual_update_never_downloads_after_a_failed_or_no_longer_new_check(self):
         for result in ('offline', 'rate-limit', 'current', 'behind'):
             with self.subTest(result=result):

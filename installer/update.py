@@ -16,6 +16,10 @@ sys.path.insert(0, str(install.PAYLOAD/'updates'))
 import update_engine as engine
 
 
+class SetupRequired(RuntimeError):
+    """Preparation needs the foreground package/installation workflow."""
+
+
 def repair_user_directories(home):
     """Repair old accounts during download/preparation, without a logout.
 
@@ -54,7 +58,7 @@ def prepare(home, commit, automatic=True, allow_runtime=False, checkpoint=lambda
     if message and not allow_runtime:
         require_setup(state, commit, message,
                       required=install.runtime_install.policy.contract(install.runtime_install.policy.manifest())['hyprland'])
-        raise RuntimeError(message)
+        raise SetupRequired(message)
     if allow_runtime:
         dependencies.prepare_repositories()
         dependencies.preflight()
@@ -70,10 +74,10 @@ def prepare(home, commit, automatic=True, allow_runtime=False, checkpoint=lambda
     if errors:
         message = 'Dependencies need attention; no desktop files changed.'
         if not allow_runtime:
-            message = ('This update needs desktop/build packages. Choose Update! to open Setup, '
-                       'install the required packages and finish the update. '
+            message = ('Setup is required to install this update’s desktop/build packages. '
                        'Keep existing preferences selected; administrator authentication may be required.')
             require_setup(state, commit, message, reason='dependencies', problems=errors)
+            raise SetupRequired(message+'\n'+'\n'.join(errors))
         raise RuntimeError(message+'\n'+'\n'.join(errors))
     if allow_runtime:
         dependencies.prepare_account()
@@ -141,7 +145,7 @@ def activate(home, login_choice=None):
     install.runtime_install.complete()
 
 
-if __name__ == '__main__':
+def main(argv=None):
     parser = argparse.ArgumentParser(); parser.add_argument('--revision', required=True)
     parser.add_argument('--manual', action='store_true')
     parser.add_argument('--runtime', action='store_true', help='Open administrator authentication for the matching compositor.')
@@ -151,7 +155,7 @@ if __name__ == '__main__':
     login = parser.add_mutually_exclusive_group()
     login.add_argument('--fusion-login', dest='fusion_login', action='store_true', default=None)
     login.add_argument('--no-fusion-login', dest='fusion_login', action='store_false')
-    parser.add_argument('--cancel-file', type=Path); args = parser.parse_args()
+    parser.add_argument('--cancel-file', type=Path); args = parser.parse_args(argv)
     install.runtime_install.PACKAGE_ROLLBACK_ENABLED = args.package_rollback
     def checkpoint():
         if args.cancel_file and args.cancel_file.exists(): raise RuntimeError('Update cancelled after completing the current step.')
@@ -167,6 +171,25 @@ if __name__ == '__main__':
             print('Installed. Reboot to use Fusion sign-in and choose your desktop.' if args.fusion_login else
                   'Installed. Reboot when ready to start the upgraded system and matching desktop.' if args.runtime else
                   'Installed. Log out and sign in again to start the matching compositor and desktop.', flush=True)
+    except SetupRequired as error:
+        print(str(error), flush=True)
+        if not args.manual: return 1
+        try:
+            checkpoint()
+            print('Opening Setup to continue this update. Review the installation there; existing preferences are kept by default.', flush=True)
+            result = subprocess.run([sys.executable, str(install.REPO/'installer/launcher.py'), '--gui', '--update'])
+            if result.returncode:
+                print('Update stopped: Setup was cancelled or failed. Details: '+
+                      str(Path.home()/'.local/state/xetal-hyprland/setup.log'), file=sys.stderr)
+            return result.returncode
+        except (OSError, RuntimeError, subprocess.SubprocessError, KeyboardInterrupt) as setup_error:
+            print('Could not finish Setup: '+str(setup_error), file=sys.stderr)
+            return 1
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError, KeyboardInterrupt) as error:
         install.runtime_install.rollback()
-        print(str(error), file=sys.stderr); sys.exit(1)
+        print(str(error), file=sys.stderr); return 1
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

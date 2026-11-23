@@ -8,18 +8,21 @@ An animated **UPDATE** badge appears beside **Keys** when a newer commit is avai
 
 Opening the window starts a fresh GitHub check. **Update!** stays hidden until that check succeeds and finds an available update; cached version information is labelled **Last seen**. **Check now** repeats the check. Offline failures and rate limits keep downloads unavailable, with the reason shown in the window. If an update is already being prepared, opening the window schedules its fresh check after preparation finishes.
 
-Clicking **Update!** checks the branch again before selecting the commit to download. A newer release published while the window was open replaces the earlier candidate. A failed check or a branch that is no longer ahead starts no download. An already-prepared older release remains separate from the newly available version.
+Clicking **Update!** keeps one update request active while it checks the branch again, selects the newest commit, downloads, builds and validates it. A newer release published while the window was open replaces the earlier candidate. The button stays **Updating…** through the handoff from checking to downloading. A stale button or another window's check cannot turn that request into a check-only action or overwrite it. A failed check or a branch that is no longer ahead starts no download; its result stays visible. An already-prepared older release remains separate from the newly available version.
 
 The main button changes from **Update!** to **Updating…**, then **Restart** once the update has finished building and validating. The log opens at its newest output and follows new lines; scrolling up pauses following until you return to the bottom. Restart asks you to save your work and confirm, then uses the normal system restart request. If authorization or a shutdown inhibitor blocks it, the update remains ready and the button allows another attempt. Updates never restart the computer automatically.
 
 If an older installation is missing packages required by a new release, the
-updater shows **Setup required** and lists the missing commands/libraries in its
-log. Choose **Update!** again to open the incoming release's Setup, leave **Keep
-my existing desktop and startup preferences** selected, and review the install.
+incoming release opens Setup as part of the same requested update and lists
+the missing commands/libraries in the log. Leave **Keep my existing desktop
+and startup preferences** selected and review the install.
 Setup requests administrator authentication when needed, installs the packages,
 checks them again, then builds and installs the matching desktop. This also
 works when Hyprland already has the correct version; no manual reinstall is
-needed. The handoff is understood by the updater in `0.0.0.297-alpha`.
+needed. The incoming installer can open Setup even when called by the older
+`0.0.0.297-alpha` updater. Passive/background preparation never opens Setup or
+installs packages. Cancellation and failed checks remain visible and do not
+report a successful update without a completed profile.
 Arch-family Setup uses its coordinated system package upgrade, so begin that
 step when ready for package changes. Cancellation or failed dependency checks
 do not activate an incomplete desktop.
@@ -79,6 +82,13 @@ repairs can still require activation at the same source revision.
 ## Failure and recovery
 
 Preparation works in a separate directory. A differing application file no longer blocks an update or needs a manual reinstall. Missing packages, failed builds, invalid configuration or files changed during preparation still leave the current desktop installed. Ordinary update preparation never runs `sudo` or changes system packages; missing dependencies offer foreground Setup, using the downloaded release's package recipes. The full dependency report remains in the update log instead of leaving the user with only the last missing command.
+
+The RDP server's committed `Cargo.lock` is a required build input and survives
+the update merge and installation. Temporary `.lock` files are still excluded.
+This fixes the `cannot create the lock file ... --locked was passed` failure
+when updating an older profile. After a repair is published, close the failed
+Setup and use **Check now → Update!** to fetch it; **Retry** in the old Setup
+window rebuilds the same downloaded release.
 
 Source downloads and Git history checks share an exclusive process lock. Git
 inherits that lock, so terminating its Python parent cannot allow another worker

@@ -1,6 +1,7 @@
 """Old installations hand new package requirements to foreground Setup."""
 from pathlib import Path
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -57,7 +58,7 @@ class DependencyUpdates(unittest.TestCase):
         self.assertEqual({p.name: p.read_bytes() for p in self.live.iterdir()}, self.before)
 
     def request_packages(self, automatic=False):
-        with self.assertRaisesRegex(RuntimeError, 'Choose Update! to open Setup') as error:
+        with self.assertRaisesRegex(update.SetupRequired, 'Setup is required') as error:
             update.prepare(self.home, NEW, automatic=automatic)
         self.assertTrue(all(problem in str(error.exception) for problem in MISSING))
         return update.engine.json_file(self.state/'runtime-required.json')
@@ -120,6 +121,31 @@ class DependencyUpdates(unittest.TestCase):
         self.assertFalse(pending['runtime_setup'])
         self.assertEqual(pending['revision'], NEW)
         self.assert_live_unchanged()
+
+    def test_manual_update_opens_setup_in_the_same_worker_and_propagates_its_result(self):
+        for code in (0, 1):
+            with self.subTest(code=code), patch.object(update.Path, 'home', return_value=self.home), \
+                 patch.object(update.subprocess, 'run', return_value=subprocess.CompletedProcess([], code)) as run:
+                self.assertEqual(update.main(['--manual', '--revision', NEW]), code)
+            self.assertEqual(run.call_args.args[0], [sys.executable,
+                str(REPO/'installer/launcher.py'), '--gui', '--update'])
+            self.mocks['install'].assert_not_called()
+            self.assert_live_unchanged()
+
+    def test_background_preparation_never_opens_setup_or_installs_packages(self):
+        with patch.object(update.Path, 'home', return_value=self.home), \
+             patch.object(update.subprocess, 'run') as run:
+            self.assertEqual(update.main(['--revision', NEW]), 1)
+        run.assert_not_called()
+        self.mocks['install'].assert_not_called()
+        self.assert_live_unchanged()
+
+    def test_compiler_error_does_not_open_setup_again(self):
+        with patch.object(update, 'prepare', side_effect=RuntimeError('Compiler failure')), \
+             patch.object(update.install.runtime_install, 'rollback') as rollback, \
+             patch.object(update.subprocess, 'run') as run:
+            self.assertEqual(update.main(['--manual', '--revision', NEW]), 1)
+        run.assert_not_called(); rollback.assert_called_once_with()
 
 
 if __name__ == '__main__':

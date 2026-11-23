@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """One session-owned update checker; Waybar only reads its cached status."""
 from __future__ import annotations
+from contextlib import contextmanager
 import argparse
 import fcntl
 import html
@@ -15,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 
 import github
 import update_engine as engine
@@ -147,10 +149,26 @@ def publish(state=None, **changes):
     return value
 
 
+@contextmanager
+def request_lock(state):
+    # This short queue lock is separate from the long install/build lock.
+    state.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with (state/'request.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        yield
+
+
 def request(action, state=None):
     state = state or STATE
     if action not in ('check', 'prepare', 'setup', 'rollback'): raise ValueError('Unknown update action.')
-    engine.write_json(state/'request.json', {'action': action, 'time': time.time()})
+    with request_lock(state):
+        queued = engine.json_file(state/'request.json', {})
+        if (time.time()-queued.get('time', 0) < 300 and queued.get('action') in ('prepare', 'setup', 'rollback')
+                and (action == 'check' or action == queued['action'])):
+            return queued
+        value = {'action': action, 'time': time.time(), 'id': uuid.uuid4().hex}
+        engine.write_json(state/'request.json', value)
+        return value
 
 
 def badge(value, root=None):
@@ -207,7 +225,9 @@ def check(root=None, state=None):
             else:
                 (state/'runtime-required.json').unlink(missing_ok=True); required = {}
         if required.get('revision') == latest['sha']:
-            phase = 'runtime-required'; message = required['message']
+            phase = 'runtime-required'
+            message = (value.get('message', required['message']) if value.get('phase') == 'runtime-required'
+                       and value.get('failed_revision') == latest['sha'] else required['message'])
         if phase == 'current' and restart_ready({**value, 'phase': phase, 'current': current}):
             message = READY_MESSAGE
         return publish(state, phase=phase, current=current, current_version=installed.get('release_version',''),
@@ -314,13 +334,17 @@ def activate(root=None, state=None):
         return True
 
 
-def take_request(state=None):
+def take_request(state=None, *, details=False):
     state = state or STATE
     path = state/'request-handled.json'
-    try: os.replace(state/'request.json', path)
-    except FileNotFoundError: return None
-    command = engine.json_file(path, {})
-    return command.get('action') if time.time()-command.get('time', 0) < 300 else None
+    with request_lock(state):
+        try: os.replace(state/'request.json', path)
+        except FileNotFoundError: return None
+        command = engine.json_file(path, {})
+    if time.time()-command.get('time', 0) >= 300: return None
+    # Requests from an older, still-open update window have no identifier.
+    command.setdefault('id', uuid.uuid4().hex)
+    return command if details else command.get('action')
 
 
 def stop_worker(process):
@@ -351,9 +375,16 @@ def serve():
         try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError: return
         session.connect(str(runtime/'.socket2.sock')); session.setblocking(False)
-        process = None; log = None; running_revision = ''; role = ''
+        process = None; log = None; running_revision = ''; role = ''; running_request = None
         next_check = time.time()+random.uniform(35, 70)
         after_check = None; check_started = 0
+        def finish_request(**changes):
+            nonlocal running_request
+            publish(active_request=None, completed_request=(running_request or {}).get('id', ''), **changes)
+            running_request = None
+        if status().get('active_request'):
+            # The previous daemon exited without completing its request.
+            publish(active_request=None, phase='attention', message='The previous update was interrupted. Choose Update! to try again.')
         def stop(*_): raise KeyboardInterrupt
         signal.signal(signal.SIGTERM, stop); signal.signal(signal.SIGINT, stop)
         try:
@@ -372,58 +403,75 @@ def serve():
                         if code == 0 and checked_since(status(), check_started):
                             verified_action = after_check
                         after_check = None
+                        if not verified_action: finish_request()
                     elif code == 0:
                         if engine.installed(ROOT)['revision'] == running_revision:
-                            publish(phase='current', current=running_revision, message=READY_MESSAGE, failed_revision='', prepared='',
-                                    restart_revision=running_revision, restart_session=signature)
+                            finish_request(phase='current', current=running_revision, message=READY_MESSAGE, failed_revision='', prepared='',
+                                           restart_revision=running_revision, restart_session=signature)
                         else:
-                            publish(phase='ready', message=READY_MESSAGE, failed_revision='', prepared=running_revision)
+                            pending = pending_update(STATE, engine.installed(ROOT)['revision'])
+                            if pending and pending['revision'] == running_revision:
+                                finish_request(phase='ready', message=READY_MESSAGE, failed_revision='', prepared=running_revision)
+                            else:
+                                finish_request(phase='attention', failed_revision=running_revision,
+                                               message='Update stopped without a complete prepared desktop. See the update log.')
                     else:
                         lines = (STATE/'update.log').read_text(errors='replace').strip().splitlines()
                         detail = next((x for x in reversed(lines) if not x.startswith(('Traceback', '  File', 'subprocess.'))), 'See the update log.')
                         required = engine.json_file(STATE/'runtime-required.json', {})
                         if required.get('revision') == running_revision:
-                            publish(phase='runtime-required', message=required['message'], failed_revision=running_revision)
+                            finish_request(phase='runtime-required', message='Update stopped. '+detail[-800:]+' Choose Update! to retry Setup.',
+                                           failed_revision=running_revision)
                         else:
-                            publish(phase='attention', message='Update preparation stopped. '+detail[-800:], failed_revision=running_revision)
+                            finish_request(phase='attention', message='Update preparation stopped. '+detail[-800:], failed_revision=running_revision)
                 if process: continue
                 # Keep requests made while checking/building until the worker is idle.
-                action = verified_action or take_request()
+                request = verified_action or take_request(details=True)
+                action = request.get('action') if request else None
                 if action == 'rollback':
-                    try: queue_rollback()
-                    except Exception as error: publish(phase='attention', message=str(error))
+                    running_request = request
+                    try: queue_rollback(); finish_request()
+                    except Exception as error: finish_request(phase='attention', message=str(error))
                     continue
                 value = status()
                 if not verified_action and (action in ('check', 'prepare', 'setup') or time.time() >= next_check):
                     # Every explicit download gets a new head check, even if the
                     # window has been open since an earlier successful check.
-                    after_check = action if action in ('prepare', 'setup') else None
+                    after_check = request if action in ('prepare', 'setup') else None
                     check_started = time.time()
+                    running_request = request or {'id': uuid.uuid4().hex, 'action': 'check', 'time': check_started}
                     role = 'check'; log = (STATE/'check.log').open('w')
-                    publish(phase='checking', message='Checking GitHub…', check_ok=False)
+                    publish(phase='checking', message='Checking GitHub…', check_ok=False, active_request=running_request)
                     process = subprocess.Popen([sys.executable, str(Path(__file__)), '--check'],
                                                stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
                     continue
                 if not verified_action: continue
                 pending = pending_update(STATE, value.get('current'))
-                if pending and (pending.get('rollback') or pending.get('revision') == value.get('latest')) and action != 'setup': continue
+                if pending and (pending.get('rollback') or pending.get('revision') == value.get('latest')) and action != 'setup':
+                    finish_request(); continue
                 eligible = value.get('latest') and (value.get('github', {}).get('relation') == 'ahead' or
                                                    (action == 'setup' and value.get('phase') == 'runtime-required'))
                 if eligible:
                     role = 'prepare'
                     running_revision = engine.revision(value['latest'])
-                    publish(phase='preparing', message='Downloading, merging and validating the new desktop…', retry_prepare=False)
+                    setup = action == 'setup' or value.get('phase') == 'runtime-required'
+                    publish(phase='preparing', message='Opening Setup to finish the update…' if setup else
+                            'Downloading, merging and validating the new desktop…', retry_prepare=False)
                     log = (STATE/'update.log').open('w')
                     args = [sys.executable, str(Path(__file__)), '--worker', running_revision]
                     args.append('--manual')
-                    if action == 'setup': args.append('--setup')
+                    if setup: args.append('--setup')
                     process = subprocess.Popen(args, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+                else:
+                    finish_request()
         except (KeyboardInterrupt, ConnectionError): pass
         finally:
             if process and process.poll() is None:
                 stop_worker(process)
-                publish(phase='available' if role == 'prepare' else 'current',
-                        message='Update work paused at logout. Open Desktop Updates to check and try again.')
+                finish_request(phase='available' if role == 'prepare' else 'current',
+                               message='Update work paused at logout. Open Desktop Updates to check and try again.')
+            elif running_request:
+                finish_request()
             if log: log.close()
 
 

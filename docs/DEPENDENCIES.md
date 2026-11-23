@@ -17,7 +17,7 @@ Run `./x_hyperinstall.sh --check` before installing. The package recipes are in 
 | Remote desktop | FreeRDP 3 client libraries and Secret Service tools for outgoing RDP; TigerVNC for outgoing VNC; WayVNC and the pinned hypr-rdp build for incoming session sharing |
 | Video wallpapers | FFmpeg/ffprobe, mpv/libmpv and the pinned mpvpaper build |
 | Phone, power and monitor controls | KDE Connect, Hypridle, DDCUtil and brightnessctl; hardware features depend on the available kernel/monitor interfaces |
-| Desktop-services builds | Meson, Ninja, Rust/Cargo, libmpv, PulseAudio client libraries, libxkbcommon and libva development files; distribution package names are maintained in the installer recipes |
+| Desktop-services builds | Meson, Ninja, Rust/Cargo, Clang/libclang for Rust bindings, and development files for libmpv, PipeWire/SPA, PulseAudio, PAM, GBM, libxkbcommon and libva; distribution package names are maintained in the installer recipes |
 | Desktop updates | Git, Python standard-library HTTPS, access to the GitHub repository; native builds use the dependencies above. No automatic system-package installation. |
 | Session/tools | libnotify/notify-send, GDBus, GNOME PolicyKit agent (Hyprpolkitagent on Fedora 44 and Debian 13), xdg-utils, xdg-user-dirs, util-linux/flock, procps/pgrep, brightnessctl, Fastfetch, htop, sudo and xhost for elevated graphical tools |
 | Appearance | Papirus icon theme, Noto Sans, DejaVu Sans/Mono, Fontconfig; licensed Fira Code Nerd Font, Inter 4.1 and JetBrains Mono 2.304 files are bundled |
@@ -26,8 +26,14 @@ The custom Waybar modules use its CFFI v2 interface and its 0.15 workspace taskb
 
 The installer builds **mpvpaper 1.9** and **hypr-rdp 0.1.9** from pinned sources
 under `config/hypr/desktop_services/third_party`, with upstream provenance and
-licenses included. Cargo needs its pinned dependencies cached or Internet
-access. An offline system snapshot must carry the completed native binaries;
+licenses included. The committed `Cargo.lock` is retained in release inventories,
+merged update profiles and installation/rollback transactions; temporary process
+locks remain excluded. Cargo builds keep `--locked` and need their pinned
+dependencies cached or Internet access. Setup includes Clang and its binding
+libraries ([Fedora](https://packages.fedoraproject.org/pkgs/llvm/clang-devel/),
+[Debian](https://packages.debian.org/trixie/libclang-dev)) and checks the desktop
+services' development libraries before compiling.
+An offline system snapshot must carry the completed native binaries;
 the online/offline ISO images have not been rebuilt for this integration pass.
 TigerVNC is `tigervnc` on Arch/Fedora and `tigervnc-viewer` on Debian/Ubuntu;
 both `vncviewer` and Debian's `xtigervncviewer` are recognized. See the

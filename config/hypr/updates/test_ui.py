@@ -135,7 +135,8 @@ class UpdateUiTests(unittest.TestCase):
         window.queued_at -= 11; window.refresh()
         self.assertFalse(window.prepare.isVisible())
         window.primary_action()
-        self.assertEqual(service.take_request(), 'check')
+        self.assertEqual(service.take_request(), 'prepare')
+        self.assertFalse(window.prepare.isEnabled())
 
     def test_an_opening_during_preparation_checks_after_it_finishes(self):
         service.publish(phase='preparing')
@@ -214,13 +215,54 @@ class UpdateUiTests(unittest.TestCase):
         self.assertEqual(window.prepare.text(), 'Updating…')
         service.publish(phase='preparing'); window.refresh()
         self.assertFalse(window.prepare.isEnabled())
-        self.ready(); window.refresh()
+        self.ready(); self.finish_check(window)
         self.assertEqual(window.prepare.text(), 'Restart')
         self.assertTrue(window.prepare.isEnabled())
         (self.state/'pending.json').unlink()
         service.publish(phase='attention', message='Compiler error'); window.refresh()
         self.assertEqual(window.prepare.text(), 'Update!')
         self.assertTrue(window.prepare.isEnabled())
+
+    def test_click_during_a_background_recheck_keeps_the_download_request(self):
+        window = self.window()
+        service.publish(phase='checking', check_ok=False)
+        # The button was painted just before the daemon changed its status.
+        window.prepare.click()
+        request = engine.json_file(self.state/'request.json')
+        self.assertEqual(request['action'], 'prepare')
+        window.refresh()
+        self.assertEqual(window.prepare.text(), 'Updating…')
+        self.assertTrue(window.prepare.isVisible())
+        self.assertFalse(window.prepare.isEnabled())
+        window.queued_at -= 20; window.refresh()
+        self.assertEqual(window.queued_action, 'prepare', 'A queued update must survive a slow check')
+
+    def test_update_remains_busy_between_check_completion_and_worker_start(self):
+        window = self.window(); window.prepare.click()
+        request = service.take_request(details=True)
+        service.publish(phase='checking', check_ok=False, active_request=request)
+        window.refresh()
+        self.assertIsNone(window.queued_action)
+        self.assertEqual(window.prepare.text(), 'Updating…')
+        self.finish_check(window, phase='available')
+        self.assertEqual(window.prepare.text(), 'Updating…')
+        self.assertTrue(window.prepare.isVisible())
+        self.assertFalse(window.prepare.isEnabled())
+        self.assertIn('newest release', window.message.text())
+        service.publish(phase='preparing'); window.refresh()
+        self.assertFalse(window.prepare.isEnabled())
+        self.ready(); service.publish(active_request=None, completed_request=request['id'])
+        window.refresh()
+        self.assertEqual(window.prepare.text(), 'Restart')
+        self.assertTrue(window.prepare.isEnabled())
+
+    def test_opening_another_window_cannot_overwrite_a_queued_update(self):
+        first = self.window(); first.prepare.click()
+        request = engine.json_file(self.state/'request.json')
+        second = self.window(checked=False)
+        self.assertEqual(engine.json_file(self.state/'request.json'), request)
+        self.assertEqual(second.prepare.text(), 'Updating…')
+        self.assertFalse(second.prepare.isEnabled())
 
     def test_restart_cancel_does_not_launch_or_change_pending_update(self):
         from PyQt6.QtWidgets import QMessageBox
