@@ -94,6 +94,35 @@ class SetupTests(unittest.TestCase):
         self.assertIs(panel.parentWidget(),wizard.component_host)
         self.assertEqual(panel.table.rowCount(),6)
 
+    def test_remembered_virtual_launch_uses_scoped_permission_not_general_sudo(self):
+        import launch_permission
+        w=self.window;w.cfg.data['wizard']['complete']=True
+        w.remember_launch.blockSignals(True);w.remember_launch.setChecked(True);w.remember_launch.blockSignals(False)
+        with patch.object(w.package_panel,'require_account',return_value=True), \
+             patch.object(w,'_prepare_optional_module',return_value=False), \
+             patch.object(w,'_refresh_module_status'), \
+             patch.object(self.kvm.VMStart2,'_before_mac_launch',return_value=True), \
+             patch.object(launch_permission,'authorize',return_value=True) as authorize, \
+             patch('uiutil.sudo_command',side_effect=AssertionError('General sudo requested')):
+            self.assertTrue(w._ready(mode='virtual'))
+        authorize.assert_called_once_with(w.cfg,w,'')
+
+    def test_checkbox_does_not_bypass_authentication_for_other_launch_modes(self):
+        import launch_permission
+        from subprocess import CompletedProcess
+        w=self.window;w.cfg.data['wizard']['complete']=True
+        w.remember_launch.blockSignals(True);w.remember_launch.setChecked(True);w.remember_launch.blockSignals(False)
+        with patch.object(w.package_panel,'require_account',return_value=True), \
+             patch.object(w,'_prepare_optional_module',return_value=False), \
+             patch.object(w,'_refresh_module_status'), \
+             patch.object(self.kvm.VMStart2,'_before_mac_launch',return_value=True), \
+             patch.object(launch_permission,'authorize') as authorize, \
+             patch('uiutil.sudo_command',return_value=(['fixture-auth'],{},True)), \
+             patch.object(self.kvm.subprocess,'run',return_value=CompletedProcess([],0,'','')) as run:
+            self.assertTrue(w._ready())
+        authorize.assert_not_called()
+        run.assert_called_once()
+
     def test_close_saves_without_a_confirmation_or_applying_opencore(self):
         from PyQt6.QtWidgets import QMessageBox
         self.window.cfg.simple['name']='saved automatically'

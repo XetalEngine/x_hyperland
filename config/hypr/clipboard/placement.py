@@ -19,7 +19,7 @@ def geometry(monitor, cursor, edge='top', *, from_bar=False):
     width, height = width / scale, height / scale
     left, top, right, bottom = monitor.get('reserved', [0, 0, 0, 0])
     popup_width = max(1, min(440, width - left - right - 24))
-    popup_height = max(1, min(540, height - top - bottom - 20))
+    popup_height = max(1, min(1080, height - top - bottom - 20))
     # Bar clicks line up with the icon even with a centered/floating bar.
     # The keyboard shortcut uses the same output's right-hand tray area.
     x = cursor['x'] - monitor['x'] - popup_width + 24 if from_bar else width - right - popup_width - 12

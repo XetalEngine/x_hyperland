@@ -255,7 +255,7 @@ class Runtime:
 
     def start_guest(self):
         log("Starting QEMU paused to finish setup")
-        self.child = subprocess.Popen(self.plan["argv"], stdin=subprocess.DEVNULL)
+        self.child = self.spawn_guest()
         self.defer(stop_child, self.child)
         deadline = time.monotonic() + 120
         while time.monotonic() < deadline:
@@ -281,6 +281,9 @@ class Runtime:
             log("Guest running. Start and revert scripts are skipped for this entire run.")
             return self.child.wait()
         raise RuntimeError("QEMU did not become ready within 120 seconds")
+
+    def spawn_guest(self):
+        return subprocess.Popen(self.plan["argv"], stdin=subprocess.DEVNULL)
 
     def run(self):
         rc, error = 1, ""

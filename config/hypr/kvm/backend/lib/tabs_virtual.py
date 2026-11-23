@@ -378,7 +378,9 @@ class VirtualGPUTab(QScrollArea):
 
     def _preflight(self):
         try:
-            checks = virtual_gpu.preflight(virtual_gpu.prepare(self.cfg, self.settings()))
+            settings=self.settings()
+            work=lambda:virtual_gpu.preflight(virtual_gpu.prepare(self.cfg, settings))
+            checks = getattr(self,'run_operation',lambda function:function())(work)
         except Exception as exc:
             checks = [("error", str(exc))]
         self.log.setPlainText("\n".join(f"[{severity.upper():5}] {message}" for severity, message in checks))
@@ -403,7 +405,7 @@ class VirtualGPUTab(QScrollArea):
         self._submitting = True
         QApplication.processEvents()
         try:
-            self.run = virtual_gpu.launch(self.cfg)
+            self.run = getattr(self,'run_operation',lambda function:function())(lambda:virtual_gpu.launch(self.cfg))
             self._auto_minimize = True
             self._auto_open = self.auto_open.isChecked()
             self._submission_deadline = time.monotonic() + 20

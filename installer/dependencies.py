@@ -49,7 +49,7 @@ PACKAGES = {
         qt5-base qt5-wayland qt6-base qt6-wayland qt6-svg qt6-tools wayland wayland-protocols
         networkmanager network-manager-applet blueman bluez-utils pipewire-pulse wireplumber alsa-lib
         playerctl brightnessctl fastfetch htop libnotify polkit-gnome papirus-icon-theme noto-fonts ttf-dejavu
-        yt-dlp ffmpeg vlc vlc-plugin-ffmpeg deno sudo xorg-xhost xorg-xcursorgen hyprcursor openssl virt-viewer virt-firmware gnutls
+        yt-dlp ffmpeg vlc vlc-plugin-ffmpeg deno sudo bubblewrap xorg-xhost xorg-xcursorgen hyprcursor openssl virt-viewer virt-firmware gnutls
         base-devel autoconf automake libtool make perl gettext gawk expect socat pacman-contrib pkgfile
         libtasn1 gmp libseccomp fuse3 libei tpm2-tools dmidecode pciutils usbutils
         mtools dosfstools util-linux parted xz kmod python-cryptography keyutils libsecret freerdp curl libarchive cabextract'''.split(),
@@ -61,7 +61,7 @@ PACKAGES = {
         NetworkManager NetworkManager-tui network-manager-applet nm-connection-editor blueman bluez
         pipewire-pulseaudio wireplumber pulseaudio-utils alsa-lib playerctl brightnessctl fastfetch htop SDL3
         libnotify hyprpolkitagent papirus-icon-theme papirus-icon-theme-dark google-noto-sans-fonts dejavu-sans-fonts dejavu-sans-mono-fonts
-        yt-dlp+default ffmpeg-free nodejs sudo xhost xcursorgen hyprcursor openssl virt-viewer python3-virt-firmware gnutls-utils
+        yt-dlp+default ffmpeg-free nodejs sudo bubblewrap xhost xcursorgen hyprcursor openssl virt-viewer python3-virt-firmware gnutls-utils
         autoconf automake libtool make perl gettext gawk expect socat openssl-devel
         libtasn1-devel gmp-devel glib2-devel gnutls-devel libseccomp-devel fuse3-devel libei-devel libeis-devel
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux parted xz kmod python3-cryptography keyutils-libs libsecret freerdp-devel libcurl-devel libarchive-devel cabextract'''.split(),
@@ -72,7 +72,7 @@ PACKAGES = {
         qt6-base-dev qt6-base-dev-tools qt6-base-private-dev qt6-wayland libqt6svg6 qt6-tools-dev qt6-l10n-tools libwayland-dev libwayland-bin wayland-protocols
         network-manager network-manager-gnome blueman bluez pipewire-pulse wireplumber pulseaudio-utils libasound2t64
         playerctl brightnessctl fastfetch htop libnotify-bin hyprpolkitagent papirus-icon-theme fonts-noto-core fonts-dejavu-core
-        yt-dlp ffmpeg nodejs sudo pkexec x11-xserver-utils x11-apps hyprcursor-util openssl virt-viewer python3-virt-firmware gnutls-bin
+        yt-dlp ffmpeg nodejs sudo bubblewrap pkexec x11-xserver-utils x11-apps hyprcursor-util openssl virt-viewer python3-virt-firmware gnutls-bin
         autoconf automake libtool libtool-bin make perl gettext gawk expect socat libssl-dev
         libtasn1-6-dev libgmp-dev libglib2.0-dev libgnutls28-dev libseccomp-dev libfuse3-dev libei-dev libeis-dev
         tpm2-tools dmidecode pciutils usbutils mtools dosfstools util-linux bsdextrautils parted xz-utils kmod python3-cryptography libkeyutils1 libsecret-tools freerdp3-dev libcurl4-openssl-dev libarchive-dev cabextract'''.split(),

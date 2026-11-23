@@ -32,13 +32,16 @@ def inspection(binary,query):
         raise OSError('Select this build in KVM Settings before checking its devices.')
     identity=(str(executable),executable.stat().st_mtime_ns,descriptor.read_bytes())
     if identity not in _inspections:
-        reply=subprocess.run(['sudo','-n','/usr/bin/env',
-            'XETAL_KVM_DATA='+str(portable.data_root()),'XETAL_KVM_EDITION=xetallic',
-            sys.executable,str(runtime)],capture_output=True,text=True,timeout=60)
-        if reply.returncode:
-            raise OSError('Sign in to Echo and use Launch VM to complete the QEMU checks. '+reply.stderr.strip()[-800:])
+        import launch_permission
         try:
-            result=json.loads(reply.stdout)
+            result=launch_permission.inspection()
+            if result is None:
+                reply=subprocess.run(['sudo','-n','/usr/bin/env',
+                    'XETAL_KVM_DATA='+str(portable.data_root()),'XETAL_KVM_EDITION=xetallic',
+                    sys.executable,str(runtime)],capture_output=True,text=True,timeout=60)
+                if reply.returncode:
+                    raise OSError('Sign in to Echo and use Launch VM to complete the QEMU checks. '+reply.stderr.strip()[-800:])
+                result=json.loads(reply.stdout)
             if not isinstance(result,dict) or not isinstance(result['capabilities']['devices'],list):raise ValueError()
         except (ValueError,KeyError,TypeError):raise OSError('The QEMU device check returned an invalid result.') from None
         _inspections.clear();_inspections[identity]=result

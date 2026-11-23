@@ -18,7 +18,7 @@ import portable
 from PyQt6.QtCore import Qt,QTimer,QSize,QEvent
 from PyQt6.QtGui import QCursor,QGuiApplication
 from PyQt6.QtNetwork import QLocalServer,QLocalSocket
-from PyQt6.QtWidgets import QApplication,QLabel,QPushButton,QMessageBox,QWidget,QHBoxLayout,QSizePolicy
+from PyQt6.QtWidgets import QApplication,QLabel,QPushButton,QMessageBox,QWidget,QHBoxLayout,QSizePolicy,QCheckBox
 import vmstart2
 from vmstart2 import VMStart2
 import virtual_gpu
@@ -164,8 +164,22 @@ class KVMSettings(VMStart2):
             self._wizard_connected=True
         self.tab_wizard.components_ready=self._components_ready
         self._mount_components(self.tab_wizard.component_host)
-        self.tab_virtual.before_launch=lambda:self._ready(self.tab_virtual._launch)
+        self.tab_virtual.before_launch=lambda:self._ready(self.tab_virtual._launch,mode='virtual')
         self.tab_dual.before_launch=lambda:self._ready(self.tab_dual._launch)
+        import launch_permission,launch_wait
+        self.tab_virtual.run_operation=lambda work:launch_wait.run(work,self)
+        self.remember_launch=QCheckBox('Do not ask for sudo again for this VM setup')
+        self.remember_launch.setChecked(launch_permission.preferred())
+        self.remember_launch.setEnabled(self.cfg.profile=='windows')
+        self.remember_launch.setToolTip('Approve this Windows Virtual GPU setup once. Other sudo commands still require authentication. '
+            'Changes to the setup, kernel or launch code need approval again. Physical passthrough and other launch modes use normal authentication.')
+        self.remember_launch.toggled.connect(self._remember_launch_changed)
+        self.forget_launch=QPushButton('Forget VM launch permission')
+        self.forget_launch.clicked.connect(lambda:self._remember_launch_changed(False))
+        permission_layout=self.tab_virtual.log.parentWidget().layout()
+        permission_layout.addWidget(self.remember_launch)
+        permission_row=QHBoxLayout();permission_row.addStretch();permission_row.addWidget(self.forget_launch)
+        permission_layout.addLayout(permission_row)
         from module_warning import ModuleWarning
         self.module_warnings=[ModuleWarning(button,self._install_compatible_kernel) for button in
                               (self.btn_launch,self.tab_virtual.btn_launch,self.tab_dual.btn_launch)]
@@ -466,6 +480,9 @@ class KVMSettings(VMStart2):
         return True
 
     def _can_replace_profile(self):
+        if getattr(self,'_launch_waiting',False):
+            self.status.setText('Finish or cancel the current launch operation before changing profiles.')
+            return False
         if hasattr(self,'package_panel') and self.package_panel.job:
             self.status.setText('Wait for the component operation before changing profiles or loading a preset.')
             return False
@@ -498,7 +515,25 @@ class KVMSettings(VMStart2):
             if supervisor_active(virtual_gpu.status(panel.run)):return True
         return False
 
-    def _ready(self,retry=None):
+    def _remember_launch_changed(self,enabled):
+        import launch_permission,launch_wait
+        try:
+            if not enabled and launch_permission.helper().is_file():
+                # The broker can revoke only this account's own permission.
+                try:launch_wait.run(launch_permission.forget,self)
+                except RuntimeError as error:
+                    if 'not installed' not in str(error) and 'No such file' not in str(error):raise
+            launch_permission.preference(enabled)
+            self.remember_launch.blockSignals(True);self.remember_launch.setChecked(enabled);self.remember_launch.blockSignals(False)
+            self.status.setText('Your next launch will approve this VM setup.' if enabled else 'Remembered VM launch access is off.')
+        except Exception as error:
+            self.remember_launch.blockSignals(True);self.remember_launch.setChecked(True);self.remember_launch.blockSignals(False)
+            QMessageBox.warning(self,'VM launch permission',str(error))
+
+    def _ready(self,retry=None,mode=None):
+        if getattr(self,'_launch_waiting',False):return False
+        import launch_permission,launch_wait
+        launch_permission.reset()
         import kernel_install
         if kernel_install.active():
             QMessageBox.information(self,'Kernel setup is running','Wait for compatible-kernel installation to finish before launching a VM.');return False
@@ -522,27 +557,43 @@ class KVMSettings(VMStart2):
             except Exception as error:
                 QMessageBox.warning(self,'Custom module unavailable',str(error));return False
         if not super()._before_mac_launch():return False
+        import editions
+        token=''
+        if editions.selected()=='xetallic':
+            try:
+                self.status.setText('Checking your Echo account…')
+                launch_wait.run(self.package_panel.account.check,self)
+                token=self.package_panel.account.token
+            except Exception as error:
+                QMessageBox.warning(self,'Echo sign-in',str(error));return False
+            finally:self.package_panel.refresh_account()
+        if mode=='virtual' and self.cfg.profile=='windows' and self.remember_launch.isChecked():
+            try:
+                launch_permission.authorize(self.cfg,self,token)
+                self.status.setText('This VM setup has remembered launch access. Other sudo commands are unchanged.')
+                return True
+            except Exception as error:
+                QMessageBox.warning(self,'VM launch permission',str(error));return False
         # Existing launch routines use sudo -n after this one explicit prompt.
-        # The credential timestamp is scoped to this GUI process, not a policy
-        # change or a permanent passwordless-sudo rule.
+        # Unchecked/other launch modes retain normal administrator authentication.
         from uiutil import sudo_command
         command,environment,available=sudo_command(['true'],'KVM Settings: launch a virtual machine')
         if not available:
             QMessageBox.warning(self,'Administrator access','The desktop password prompt is unavailable.');return False
         try:
-            reply=subprocess.run(command,env=environment,capture_output=True,text=True,timeout=120)
+            import launch_wait
+            self.status.setText('Waiting for administrator authentication…')
+            reply=launch_wait.run(lambda:subprocess.run(command,env=environment,capture_output=True,text=True,timeout=120),self)
         except Exception as error:
             QMessageBox.warning(self,'Administrator access',str(error));return False
         if reply.returncode:
             self.status.setText('Launch cancelled: administrator access was not granted.')
             return False
-        import editions
         if editions.selected()=='xetallic':
             self.status.setText('Checking your Echo account…');QApplication.processEvents()
             try:
-                self.package_panel.account.check()
-                reply=subprocess.run(['sudo','-n',sys.executable,str(ROOT/'runtime_access.py'),str(portable.data_root())],
-                    input=json.dumps({'token':self.package_panel.account.token}),capture_output=True,text=True,timeout=30)
+                reply=launch_wait.run(lambda:subprocess.run(['sudo','-n',sys.executable,str(ROOT/'runtime_access.py'),str(portable.data_root())],
+                    input=json.dumps({'token':token}),capture_output=True,text=True,timeout=30),self)
                 if reply.returncode:raise RuntimeError(reply.stderr.strip() or 'Could not prepare the VM launch session.')
             except Exception as error:
                 QMessageBox.warning(self,'Echo sign-in',str(error));return False
@@ -566,6 +617,9 @@ class KVMSettings(VMStart2):
         self.tab_wizard.btn_next.setFocus()
 
     def closeEvent(self,event):
+        if getattr(self,'_launch_waiting',False):
+            self.status.setText('Finish or cancel the administrator prompt before closing KVM Settings.')
+            event.ignore();return
         self.package_panel.end_account_session()
         import checkpoint
         focus=QApplication.focusWidget()

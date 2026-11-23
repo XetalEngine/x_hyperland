@@ -53,7 +53,7 @@ class History(QWidget):
         # effect, just like Power. Qt.Popup would use a different Wayland role.
         self.setWindowTitle('Clipboard history'); self.setWindowFlags(Qt.WindowType.Tool|Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.resize(440,540)
+        self.resize(440,1080)
         layout=QVBoxLayout(self); layout.setContentsMargins(14,12,14,12); layout.setSpacing(10)
         heading=QHBoxLayout(); heading.setSpacing(10)
         self.mark=QLabel(); self.mark.setFixedSize(30,36); self.mark.setAlignment(Qt.AlignmentFlag.AlignCenter); heading.addWidget(self.mark)

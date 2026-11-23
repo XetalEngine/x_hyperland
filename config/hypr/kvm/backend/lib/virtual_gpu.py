@@ -594,6 +594,13 @@ def launch(cfg):
     """Submit an isolated snapshot; no start/revert hooks are read or written."""
     if service_active():
         raise RuntimeError("A VM is already running or stopping")
+    if (Path(__file__).resolve().parents[2]/'launch_permission.py').is_file():
+        import launch_permission
+        run=launch_permission.launch(cfg)
+        if run is not None:
+            current_path().parent.mkdir(parents=True,exist_ok=True)
+            current_path().write_text(json.dumps(run))
+            return run
     workdir = tempfile.mkdtemp(prefix="vmstart2-virtual-")
     plan = prepare(cfg, workdir=workdir, token=uuid.uuid4().hex)
     payload = Path(workdir) / "plan.json"

@@ -54,7 +54,7 @@ class Geometry(unittest.TestCase):
         request = placement.geometry(monitor(), dict(x=6500, y=20), from_bar=True)
         with patch('quick_panel.placement.subprocess.run', return_value=SimpleNamespace(
                 returncode=0, stdout='ok\nok\nok\nok\n', stderr='')) as run:
-            self.assertEqual(placement.prepare(request, rule='fusion-clipboard-history'), (440, 540))
+            self.assertEqual(placement.prepare(request, rule='fusion-clipboard-history'), (440, 1080))
             command = run.call_args.args[0][-1]
             self.assertIn('windowrule[fusion-clipboard-history]:move', command)
             self.assertNotIn('windowrule[fusion-quick-panel]', command)
@@ -65,15 +65,15 @@ class Geometry(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, patch.object(placement, 'ROOT', Path(directory)), \
                 patch.object(placement.subprocess, 'check_output', side_effect=[
                     '{"x":6500,"y":10}', '[{"id":2,"x":4480,"y":0,"width":2560,"height":1440,"reserved":[0,38,0,0]}]']), \
-                patch.object(placement, 'prepare', return_value=(440, 540)) as prepare:
-            self.assertEqual(placement.prepare_popup(from_bar=True), (440, 540))
+                patch.object(placement, 'prepare', return_value=(440, 1080)) as prepare:
+            self.assertEqual(placement.prepare_popup(from_bar=True), (440, 1080))
             self.assertEqual(prepare.call_args.args[0]['relative_y'], 48)
 
 
 class Popup(test_ui.ClipboardFixture):
     def setUp(self):
         super().setUp()
-        self.placement = self.stack.enter_context(patch.object(ui, 'prepare_popup', return_value=(440, 540)))
+        self.placement = self.stack.enter_context(patch.object(ui, 'prepare_popup', return_value=(440, 1080)))
         self.activation = self.stack.enter_context(patch.object(ui, 'BarActivation'))
         self.pointer = self.stack.enter_context(patch.object(ui, 'check_pointer'))
         self.now = self.stack.enter_context(patch.object(ui.time, 'monotonic', return_value=100.))
