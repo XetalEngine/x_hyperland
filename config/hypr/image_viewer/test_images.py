@@ -3,6 +3,7 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 from PyQt6.QtCore import QPoint, QPointF, Qt
 from PyQt6.QtGui import QImage, QWheelEvent
 from PyQt6.QtWidgets import QApplication
@@ -113,6 +114,52 @@ class ImageTests(unittest.TestCase):
         self.assertIn('Could not open', window.message.text())
         self.assertTrue(window.previous.isEnabled()); self.assertTrue(window.next.isEnabled())
         window.next.click(); self.assertEqual(window.current.name, 'photo10.png')
+
+    def test_context_rotation_preserves_source_zoom_and_resets_for_next_image(self):
+        window = self.viewer(self.first); canvas = window.canvas
+        original = self.first.read_bytes()
+        menu = window.context_menu(); self.addCleanup(menu.deleteLater)
+        actions = {action.text(): action for action in menu.actions() if not action.isSeparator()}
+        self.assertEqual(set(actions), {'Rotate left', 'Rotate right', 'Set as wallpaper'})
+        actions['Rotate right'].trigger()
+        self.assertEqual(canvas.rotation, 90)
+        self.assertEqual((canvas.sceneRect().width(), canvas.sceneRect().height()), (900, 1200))
+        self.assertLessEqual(canvas.sceneRect().height()*canvas.transform().m11(), canvas.viewport().height())
+        window.actual.click(); actions['Rotate left'].trigger()
+        self.assertEqual(canvas.rotation, 0); self.assertAlmostEqual(canvas.transform().m11(), 1)
+        for _ in range(4): actions['Rotate right'].trigger()
+        self.assertEqual(canvas.rotation, 0)
+        self.assertEqual(self.first.read_bytes(), original)
+        actions['Rotate left'].trigger(); window.next.click()
+        self.assertEqual(canvas.rotation, 0)
+
+    def test_rotated_gif_keeps_orientation_across_frames_and_fit(self):
+        gif = self.root/'animated.gif'
+        Image.new('RGB', (80, 60), 'red').save(gif, save_all=True,
+            append_images=[Image.new('RGB', (80, 60), 'blue')], duration=100, loop=0)
+        window = self.viewer(gif); window.canvas.rotate_image(-90)
+        window.movie.jumpToFrame(1); window.movie_frame(); window.fit.click()
+        self.assertEqual(window.canvas.rotation, 270)
+        self.assertEqual((window.canvas.sceneRect().width(), window.canvas.sceneRect().height()), (60, 80))
+
+    def test_menu_cannot_rotate_or_set_wallpaper_while_empty_loading_or_failed(self):
+        pending = []
+        window = self.viewer(loader=lambda fn, done, failed: pending.append((fn, done, failed)))
+        def disabled():
+            menu=window.context_menu(); self.addCleanup(menu.deleteLater)
+            self.assertTrue(all(not action.isEnabled() for action in menu.actions() if not action.isSeparator()))
+        disabled(); window.open_path(self.first); disabled()
+        pending[-1][2]('Image was removed'); disabled()
+
+    def test_wallpaper_menu_sends_current_frame_and_rotation(self):
+        window=self.viewer(self.first);window.canvas.rotate_image(90)
+        with patch('wallpaper_action.WallpaperAction') as flow:
+            flow.return_value.busy=False
+            menu=window.context_menu();self.addCleanup(menu.deleteLater)
+            next(a for a in menu.actions() if a.text()=='Set as wallpaper').trigger()
+            source, image, rotation=flow.return_value.start.call_args.args
+            self.assertEqual(source,self.first);self.assertEqual(rotation,90)
+            self.assertEqual((image.width(),image.height()),(1200,900))
 
 
 if __name__ == '__main__': unittest.main()

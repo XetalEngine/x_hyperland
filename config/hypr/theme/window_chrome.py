@@ -1,4 +1,5 @@
 """Native Qt window actions, drawn consistently in Fusion's own headers."""
+from PyQt6 import sip
 from PyQt6.QtCore import Qt,QEvent,QObject,QRectF,QPointF
 from PyQt6.QtGui import QColor,QPainter,QPen,QPolygonF
 from PyQt6.QtWidgets import QDialog,QHBoxLayout,QLabel,QToolButton,QWidget,QSizePolicy,QStyle,QStyleOptionToolButton
@@ -201,8 +202,9 @@ def toggle_maximized(window):
 
 
 class WindowControls(QWidget):
-    def __init__(self,window,callback=None,title=None):
+    def __init__(self,window,callback=None,title=None,*,focus_indicator=True):
         super().__init__(window);self.owner=weakref.ref(window)
+        self.focus_indicator=focus_indicator
         self.setObjectName('windowControls');self.setSizePolicy(QSizePolicy.Policy.Fixed,QSizePolicy.Policy.Fixed)
         self.setStyleSheet('QWidget#windowControls {background:transparent;}')
         layout=QHBoxLayout(self);layout.setContentsMargins(0,0,0,0);layout.setSpacing(2)
@@ -237,6 +239,7 @@ class WindowControls(QWidget):
 
     def paintEvent(self,event):
         super().paintEvent(event)
+        if not self.focus_indicator:return
         import runtime
         from visuals.focus import header_enabled
         owner=self.owner()
@@ -246,16 +249,28 @@ class WindowControls(QWidget):
         painter.drawLine(2,self.height()-1,self.width()-2,self.height()-1)
 
 
-def window_controls(window,callback=None,title=None):
+def window_controls(window,callback=None,title=None,*,focus_indicator=True):
     if not hasattr(window,'xetal_window_controls'):
-        window.xetal_window_controls=WindowControls(window,callback,title)
+        window.xetal_window_controls=WindowControls(window,callback,title,focus_indicator=focus_indicator)
     return window.xetal_window_controls
 
 
 class DialogHeaders(QObject):
+    def __init__(self,parent=None):
+        super().__init__(parent)
+        self.native_dialogs={}
+
     def eventFilter(self,window,event):
         if not isinstance(window,QDialog) or not window.isWindow() or window.property('xetalOverlay'):return False
         if event.type()==QEvent.Type.Show and not window.property('xetalCloseButton'):
+            # QMessageBox.question() and other Qt shortcuts create their dialogs
+            # in C++. Keep that temporary Python wrapper alive with its header:
+            # otherwise the ControlButton wrapper loses its paintEvent override
+            # and the close control becomes an empty QToolButton.
+            if not sip.ispycreated(window):
+                identity=sip.unwrapinstance(window)
+                self.native_dialogs[identity]=window
+                window.destroyed.connect(lambda _=None,key=identity:self.native_dialogs.pop(key,None))
             margins=window.contentsMargins()
             window.setContentsMargins(margins.left(),margins.top()+38,margins.right(),margins.bottom())
             header=QWidget(window);header.setObjectName('xetalDialogHeader')

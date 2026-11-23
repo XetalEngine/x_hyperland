@@ -482,7 +482,7 @@ UMU is prepared automatically when downloading Proton, and Steam is optional. Ex
 | **File pickers** | Matching Places and image/text/folder previews in Xetal, Qt Widgets and standard GTK 3 dialogs. Custom application and portal pickers have their own integration limits. [Coverage →](docs/FILE-PREVIEWS.md) |
 | **[7-Zip archives](config/hypr/archive_manager/README.md)** | Pinned engine and complete source included. Compress, browse, test and extract; select compression methods, passwords, AES encryption, split volumes and CPU threads. Archive jobs use Fusion's animated transfer window and expandable attention queue. No separate 7-Zip installation needed. |
 | **File transfers** | Animated transfer-card designs for Fusion Files, built-in archive jobs and Dolphin/KIO, with real progress, pause/cancel where supported, error details and appearance controls. |
-| **Xetal Images** | Pointer-centered zoom, pan, Fit/100%, folder navigation, GIF playback, fullscreen and remembered window sizing. |
+| **Fusion Viewer** | Pointer-centered zoom, pan, Fit/100%, folder navigation, GIF playback, fullscreen and remembered window sizing. |
 | **Capture and sharing** | Alt+F9 screen recording with audio, 64 FPS MP4 saved to Videos by default, area/all-display screenshots, clipboard support and a custom Hyprland screen-share picker. Recording options live in Fusion Settings → Recorder. |
 | **Media downloader** | **Super+Ctrl+P** opens an MP3/MP4 popup with progress, cancellation and updates for its private yt-dlp copy. |
 | **Kitty** | Matching colors, animated cursor, a draggable scrollback scrollbar and a configurable Fastfetch welcome. |

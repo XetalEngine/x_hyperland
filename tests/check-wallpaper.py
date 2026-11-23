@@ -18,22 +18,34 @@ import time
 from PIL import Image
 
 REPO=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(REPO/'config/hypr/compat'))
+import hypr_compat
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('output',type=Path)
     parser.add_argument('--browser-only',action='store_true',help='Check the galleries and wallpaper transactions without the separate GPU animation probes')
+    parser.add_argument('--no-capture',action='store_true',help='With --browser-only, check native placement without compositor screenshots')
     args=parser.parse_args()
+    if args.no_capture and not args.browser_only:parser.error('--no-capture requires --browser-only')
     root=args.output; root.mkdir(parents=True,exist_ok=False)
     profile=root/'hypr'; shutil.copytree(REPO/'config/hypr',profile,ignore=shutil.ignore_patterns('.build','__pycache__','qt5','qt6','gtk3','qt-settings','cache','state'))
     runtime=Path(tempfile.mkdtemp(prefix='wp-',dir='/tmp'))
     parent=os.environ['WAYLAND_DISPLAY']
     if not parent.startswith('/'): parent=str(Path(os.environ['XDG_RUNTIME_DIR'])/parent)
-    env=dict(os.environ,XDG_RUNTIME_DIR=str(runtime),WAYLAND_DISPLAY=parent,GSETTINGS_BACKEND='memory',QT_QPA_PLATFORM='wayland',PYTHONFAULTHANDLER='1')
+    home=root/'home';home.mkdir()
+    env=dict(os.environ,HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_CACHE_HOME=str(home/'.cache'),
+             XDG_STATE_HOME=str(home/'.local/state'),XDG_RUNTIME_DIR=str(runtime),WAYLAND_DISPLAY=parent,
+             GSETTINGS_BACKEND='memory',QT_QPA_PLATFORM='wayland',PYTHONFAULTHANDLER='1',
+             AQ_BACKENDS='wayland',HYPRLAND_NO_SD_VARS='1',HYPRLAND_NO_SD_NOTIFY='1')
     env.pop('HYPRLAND_INSTANCE_SIGNATURE',None)
+    env.pop('DBUS_SESSION_BUS_ADDRESS',None);env.pop('DISPLAY',None)
     config=root/'hyprland.conf'
     config.write_text('''monitor = ,1280x800@60,auto,1
+decoration:glow:enabled = true
+decoration:glow:range = 12
+decoration:glow:color = rgba(ff00ffff)
 misc {
  disable_hyprland_logo = true
  disable_splash_rendering = true
@@ -66,6 +78,10 @@ windowrule {
 }
 layerrule = no_anim on, match:namespace ^xetal-wallpaper-transition$
 ''')
+    modern=hypr_compat.uses_lua()
+    if modern:
+        config=root/'hyprland.lua';config.write_text(hypr_compat.Renderer(root).render())
+        env.update(XETAL_HYPRLAND_LUA='1',PATH=str(profile/'compat/bin')+os.pathsep+env['PATH'])
     pictures=root/'pictures'; pictures.mkdir()
     for name,color in [('red','#c03040'),('blue','#2040d0'),('green','#30b070')]: Image.new('RGB',(1280,800),color).save(pictures/(name+'.png'))
     (profile/'wallpaper/state').mkdir(); (profile/'wallpaper/state/browser.json').write_text(json.dumps({'version':1,'folders':[str(pictures)],'bundled':True,'transition':'random'}))
@@ -83,6 +99,9 @@ layerrule = no_anim on, match:namespace ^xetal-wallpaper-transition$
         if r.returncode: raise RuntimeError(str(args)+': '+r.stdout+r.stderr)
         return r.stdout.strip()
     def ctl(*args): return run('hyprctl',*args)
+    def move_cursor(x,y):
+        if modern:return ctl('dispatch',hypr_compat.call('dsp.cursor.move',{'x':x,'y':y}))
+        return ctl('dispatch','movecursor',str(x),str(y))
     def wait(predicate,timeout=8):
         deadline=time.monotonic()+timeout
         while time.monotonic()<deadline:
@@ -114,12 +133,21 @@ layerrule = no_anim on, match:namespace ^xetal-wallpaper-transition$
             time.sleep(.1)
         else: raise RuntimeError('No nested compositor')
         time.sleep(1)
-        first=json.loads(ctl('-j','monitors'))[0]; name=first['name']
+        # Headless outputs keep rendering while the nested host window is
+        # occluded/minimized, so capture checks do not depend on the user's focus.
+        host_outputs=json.loads(ctl('-j','monitors'))
+        ctl('output','create','headless','WALLPAPER-A')
+        wait(lambda:any(m['name']=='WALLPAPER-A' for m in json.loads(ctl('-j','monitors'))))
+        for monitor in host_outputs:ctl('output','remove',monitor['name'])
+        wait(lambda:len(json.loads(ctl('-j','monitors')))==1)
+        ctl('keyword','monitor','WALLPAPER-A,1280x800@60,0x0,1')
+        first=next(m for m in json.loads(ctl('-j','monitors')) if m['name']=='WALLPAPER-A');name=first['name']
+        move_cursor(100,100)
         log=(root/'hyprpaper.log').open('w');logs.append(log)
         paper=spawn(['hyprpaper','-c',str(paper_config)],env=env,stdout=log,stderr=log)
         time.sleep(1); assert paper.poll() is None
         binary=run(sys.executable,str(profile/'wallpaper/build.py'))
-        assert not ctl('configerrors').strip()
+        errors=ctl('configerrors');assert not errors.strip(),errors
         if not args.browser_only:
             for style in ('bloom','fade','sweep','ripple','iris','glide'):
                 ctl('hyprpaper','wallpaper',f'{name},{pictures/"red.png"},cover'); time.sleep(.2)
@@ -139,6 +167,7 @@ layerrule = no_anim on, match:namespace ^xetal-wallpaper-transition$
             child=helper(first); child.stdin.close();child.wait(timeout=2)
             assert 'xetal-wallpaper-transition' not in ctl('-j','layers')
         ctl('hyprpaper','wallpaper',f'{name},{pictures/"blue.png"},cover')
+        wait(lambda:str(pictures/'blue.png') in ctl('hyprpaper','listactive'))
         ctl('keyword','animations:enabled','true')
         log=(root/'browser.log').open('w');logs.append(log)
         browser=spawn([sys.executable,str(REPO/'tests/wallpaper-client.py'),str(profile)],env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=log,text=True)
@@ -148,15 +177,16 @@ layerrule = no_anim on, match:namespace ^xetal-wallpaper-transition$
             assert select.select([browser.stdout],[],[],10)[0], 'UI timeout'
             reply=json.loads(browser.stdout.readline());assert not isinstance(reply,dict) or 'error' not in reply,reply;return reply
         wait(lambda:command('status')['pictures']==expected_pictures)
-        assert command('status')['selected']==str(pictures/'blue.png')
-        assert command('status')['monitor']==name
+        status=command('status')
+        assert status['selected']==str(pictures/'blue.png'),status
+        assert status['monitor']==name,status
         time.sleep(.8)
         command('grab',path=str(root/'browser.png'))
         command('choose',path=str(pictures/'green.png'));wait(lambda:command('status')['completed'])
         saved=json.loads((profile/'wallpaper/selection.json').read_text());assert saved[name]['original']==str(pictures/'green.png')
         assert command('status')['dialog']==''
         print('Single-display selection applied directly and persisted: passed',flush=True)
-        ctl('output','create','wayland');wait(lambda:len(json.loads(ctl('-j','monitors')))==2)
+        ctl('output','create','headless','WALLPAPER-B');wait(lambda:len(json.loads(ctl('-j','monitors')))==2)
         second=next(m for m in json.loads(ctl('-j','monitors')) if m['name']!=name)
         ctl('keyword','monitor',f'{second["name"]},800x600@60,{first["width"]}x0,1');time.sleep(.7)
         command('show');command('choose',path=str(pictures/'blue.png'));wait(lambda:command('status')['dialog']=='ScreenPicker')
@@ -170,7 +200,7 @@ layerrule = no_anim on, match:namespace ^xetal-wallpaper-transition$
         for monitor,expected in ((first,'green'),(second,'blue')):
             command('quit');assert browser.wait(timeout=5)==0
             monitor=next(m for m in json.loads(ctl('-j','monitors')) if m['name']==monitor['name'])
-            ctl('dispatch','movecursor',str(monitor['x']+100),str(monitor['y']+100))
+            move_cursor(monitor['x']+100,monitor['y']+100)
             browser=spawn([sys.executable,str(REPO/'tests/wallpaper-client.py'),str(profile)],env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=log,text=True)
             wait(lambda:command('status')['pictures']==expected_pictures)
             assert command('status')['monitor']==monitor['name'],command('status')
@@ -187,7 +217,7 @@ layerrule = no_anim on, match:namespace ^xetal-wallpaper-transition$
         # Both studio layouts use real search/collection controls and the same
         # wallpaper transaction, inside this disposable compositor only.
         preferences=profile/'wallpaper/state/browser.json'
-        ctl('dispatch','movecursor',str(first['x']+100),str(first['y']+100))
+        move_cursor(first['x']+100,first['y']+100)
         for style in ('frame-lab','orbit-atlas'):
             options=json.loads(preferences.read_text());options['style']=style;preferences.write_text(json.dumps(options))
             browser=spawn([sys.executable,str(REPO/'tests/wallpaper-client.py'),str(profile)],env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=log,text=True)
@@ -219,27 +249,53 @@ layerrule = no_anim on, match:namespace ^xetal-wallpaper-transition$
         log=(root/'singleton.log').open('w');logs.append(log)
         styles=('window','overlay','frame-lab','orbit-atlas')
         for index,style in enumerate(styles):
+            print('Checking native presentation: '+style,flush=True)
             preferences=profile/'wallpaper/state/browser.json'
             options=json.loads(preferences.read_text());options['style']=style;preferences.write_text(json.dumps(options))
-            desktop=shot('desktop-'+style,name)
+            desktop=None if args.no_capture else shot('desktop-'+style,name)
             app=spawn([sys.executable,str(profile/'wallpaper/launch.py')],env=env,stdout=log,stderr=log)
             wait(lambda:any(c['class']=='xetal-wallpaper-browser' for c in json.loads(ctl('-j','clients'))))
             time.sleep(.5)
             client=next(c for c in json.loads(ctl('-j','clients')) if c['class']=='xetal-wallpaper-browser')
             assert client['floating'],client
-            view=shot('selector-'+style,name);x,y=client['at'];point=(x+2,y+2)
-            assert (view.getpixel(point)==desktop.getpixel(point))==(style=='overlay'), (style,point)
-            run(sys.executable,str(profile/'wallpaper/launch.py'),'--show');assert app.poll() is None
+            view=None if args.no_capture else shot('selector-'+style,name);x,y=client['at'];point=(x+2,y+2)
+            if view:assert (view.getpixel(point)==desktop.getpixel(point))==(style=='overlay'), (style,point)
+            if style=='overlay':
+                assert any(tag.removesuffix('*')=='fusion-placement-owned' for tag in client['tags']),client
+                # The transparent perimeter must stay clear even with an active
+                # compositor glow. Only the internal cards/panels have borders.
+                w,h=client['size']
+                if view:
+                    for px,py in ((x,y),(x+w-1,y),(x,y+h-1),(x+w-1,y+h-1),(x+w//2,y+2)):
+                        assert view.getpixel((px,py))==desktop.getpixel((px,py)),(px,py)
+                centered=client['at'][:];size=client['size'][:]
+                ctl('dispatch','resizewindowpixel',f'exact 950 650,address:{client["address"]}')
+                ctl('dispatch','movewindowpixel',f'exact 7 9,address:{client["address"]}')
+                moved=next(c for c in json.loads(ctl('-j','clients')) if c['address']==client['address'])
+                assert moved['at']!=centered,moved
+                run(sys.executable,str(profile/'wallpaper/launch.py'),'--show')
+                wait(lambda:any(c['class']=='xetal-wallpaper-browser' and c['at']==centered and c['size']==size
+                                and c.get('stableId',c['address'])!=client.get('stableId',client['address'])
+                                for c in json.loads(ctl('-j','clients'))))
+                client=next(c for c in json.loads(ctl('-j','clients')) if c['class']=='xetal-wallpaper-browser')
+            else:
+                run(sys.executable,str(profile/'wallpaper/launch.py'),'--show');time.sleep(.3)
+            assert app.poll() is None
             # Settings can switch an open selector without toggling it closed.
             options['style']=styles[(index+1)%len(styles)];preferences.write_text(json.dumps(options))
             run(sys.executable,str(profile/'wallpaper/launch.py'),'--show')
             title='Wallpapers · Floating cards' if options['style']=='overlay' else 'Wallpapers'
-            wait(lambda:any(c['title']==title and c['address']!=client['address'] for c in json.loads(ctl('-j','clients'))))
+            try:
+                wait(lambda:any(c['title']==title and c.get('stableId',c['address'])!=client.get('stableId',client['address'])
+                                for c in json.loads(ctl('-j','clients'))))
+            except AssertionError as error:
+                raise AssertionError((style,options['style'],client,json.loads(ctl('-j','clients')))) from error
             assert app.poll() is None
             assert len([c for c in json.loads(ctl('-j','clients')) if c['class']=='xetal-wallpaper-browser'])==1
             run(sys.executable,str(profile/'wallpaper/launch.py'));assert app.wait(timeout=5)==0
             assert not any(c['class']=='xetal-wallpaper-browser' for c in json.loads(ctl('-j','clients')))
-        print('All four styles, transparent desktop, Settings show/switch, singleton toggle and clean exit: passed',flush=True)
+        print('All four styles, centered reopening, Settings show/switch, singleton toggle and clean exit: passed',flush=True)
+        print('Compositor screenshot checks: '+('skipped (--no-capture)' if args.no_capture else 'passed'),flush=True)
         print('WALLPAPER INTEGRATION PASS',flush=True)
     finally:
         for child in reversed(children):

@@ -1,6 +1,39 @@
 {
   "version": 1,
   "apps": {
+    "xetal-wallpaper-browser": {
+      "mode": "auto",
+      "size": 18,
+      "anchor": "top-right",
+      "x": 8,
+      "y": 8,
+      "proximity": 80,
+      "background": "auto",
+      "background_color": "#20242b",
+      "titlebar": false
+    },
+    "fusion-quick-panel": {
+      "mode": "off",
+      "size": 18,
+      "anchor": "top-right",
+      "x": 8,
+      "y": 8,
+      "proximity": 80,
+      "background": "auto",
+      "background_color": "#20242b",
+      "titlebar": false
+    },
+    "xetal-logout": {
+      "mode": "off",
+      "size": 18,
+      "anchor": "top-right",
+      "x": 8,
+      "y": 8,
+      "proximity": 80,
+      "background": "auto",
+      "background_color": "#20242b",
+      "titlebar": false
+    },
     "xetal-image-viewer": {
       "mode": "off",
       "size": 18,

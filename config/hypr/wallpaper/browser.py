@@ -121,14 +121,15 @@ class MonitorMap(QWidget):
 
 
 class ScreenPicker(QDialog):
-    def __init__(self, models, current, picture, thumbnails, parent):
+    def __init__(self, models, current, picture, thumbnails, parent, *, cancel_text='Back to wallpapers'):
         super().__init__(parent); self.selected = None; self.setWindowTitle('Choose a display'); self.resize(min(1000,parent.width()-80), min(620,parent.height()-80))
+        self.setStyleSheet('QLabel#sectionTitle {font-size:23px;font-weight:600;}')
         layout = QVBoxLayout(self); layout.setContentsMargins(30,24,30,24); layout.setSpacing(12)
         layout.addWidget(label('Where should it live?', 'sectionTitle'))
         layout.addWidget(label('Your screens, just as they are arranged. Click one to apply the wallpaper.', 'muted'))
         layout.addWidget(MonitorMap(models,current,picture,thumbnails,self.choose,self),1)
         row = QHBoxLayout(); row.addWidget(label(picture.title+'  ·  '+picture.collection, 'muted'),1)
-        row.addWidget(button('Back to wallpapers',self.reject)); layout.addLayout(row)
+        row.addWidget(button(cancel_text,self.reject)); layout.addLayout(row)
 
     def choose(self, model): self.selected = model; self.accept()
 
@@ -412,6 +413,11 @@ def place(window):
     x=round(left+(w-left-right-width)/2); y=round(top+(h-top-bottom-height)/2)
     values={'monitor':int(monitor['id']),'size':f'{width} {height}','move':f'{x} {y}'}
     rule = 'fusion-wallpaper-overlay' if window.floating else 'fusion-wallpaper-browser'
+    if window.floating:
+        # Own the first-map rectangle: ordinary window memory must not restore
+        # an accidental move/resize. Also update personally merged old profiles.
+        values.update(tag='+fusion-placement-owned', decorate='off', border_size=0,
+                      no_blur='on', no_shadow='on', no_glow='on')
     reply=settings.ctl('--batch',';'.join(f'keyword windowrule[{rule}]:{key} {value}' for key,value in values.items()))
     if any(line.strip()!='ok' for line in reply.splitlines() if line.strip()): raise ValueError('Could not position the wallpaper browser: '+reply)
     window.fit_layout(width,height); window.resize(width,height)
@@ -419,6 +425,15 @@ def place(window):
     try: window.reduced_motion=json.loads(settings.ctl('-j','getoption','animations:enabled')).get('int')==0
     except (OSError,ValueError): pass
     window.carousel.reduced_motion=window.reduced_motion
+
+
+def show_browser(window):
+    if window.floating:
+        place(window)
+        # Wayland position rules apply when mapping. Remap this one surface so
+        # Show also recenters an already-open browser on the selected monitor.
+        window.hide()
+    window.show(); window.raise_(); window.activateWindow(); window.carousel.setFocus()
 
 
 def main():
@@ -458,7 +473,7 @@ def main():
                     window.options = options
                     window.transition.blockSignals(True); window.transition.setCurrentIndex(window.transition.findData(options['transition'])); window.transition.blockSignals(False)
                     if rescan: window.scan()
-                window.show(); window.raise_(); window.activateWindow(); window.carousel.setFocus()
+                show_browser(window)
             except (OSError, ValueError) as error: window.failure(str(error))
         def incoming():
             while server.hasPendingConnections():

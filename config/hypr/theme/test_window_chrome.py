@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt,QTimer
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication,QWidget,QDialog,QVBoxLayout,QLabel,QMessageBox,QToolButton
 import window_chrome
@@ -54,6 +54,23 @@ class CloseTests(unittest.TestCase):
         box.grab().save('/tmp/hypr-close-dialog.png')
         QTest.mouseClick(box.findChild(QToolButton,'windowClose'),Qt.MouseButton.LeftButton)
         self.assertEqual(box.standardButton(box.clickedButton()),QMessageBox.StandardButton.Cancel);box.deleteLater()
+
+    def test_native_question_retains_painted_close_button_until_destroyed(self):
+        previous=len(QT.window_chrome.native_dialogs)
+        observed={}
+        def cancel():
+            box=QT.activeModalWidget()
+            button=box.findChild(QToolButton,'windowClose')
+            observed['painted']=isinstance(button,window_chrome.ControlButton)
+            observed['retained']=len(QT.window_chrome.native_dialogs)
+            button.click()
+        QTimer.singleShot(20,cancel)
+        result=QMessageBox.question(None,'Log out','Log out this session now?',
+            QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.Cancel,QMessageBox.StandardButton.Cancel)
+        self.assertTrue(observed['painted'])
+        self.assertEqual(observed['retained'],previous+1)
+        self.assertEqual(result,QMessageBox.StandardButton.Cancel)
+        self.assertEqual(len(QT.window_chrome.native_dialogs),previous)
 
 
 if __name__=='__main__':unittest.main(verbosity=2)

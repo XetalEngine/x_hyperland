@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Xetal Images: a read-only, themed viewer with folder navigation."""
+"""Fusion Viewer: a read-only, themed viewer with folder navigation."""
 import argparse
 from pathlib import Path
 import subprocess
@@ -9,7 +9,7 @@ from PyQt6 import sip
 from PyQt6.QtCore import Qt, QStandardPaths, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QIcon, QKeySequence, QMovie, QPainter, QPixmap, QShortcut
 from PyQt6.QtWidgets import (QApplication, QFrame, QGraphicsPixmapItem, QGraphicsScene, QGraphicsView,
-    QHBoxLayout, QLabel, QPushButton, QSizePolicy, QStackedWidget, QVBoxLayout, QWidget)
+    QGridLayout, QHBoxLayout, QLabel, QMenu, QPushButton, QSizePolicy, QStackedWidget, QVBoxLayout, QWidget)
 import images
 import window_size
 
@@ -26,7 +26,6 @@ QLabel#brand {color:#80e2d8; font-size:15px; font-weight:700;}
 QLabel#filename {font-size:14px; font-weight:600;}
 QLabel#muted {color:#8d9bad;}
 QLabel#empty {background:#10151c; color:#8d9bad; font-size:16px; padding:30px; border-radius:12px;}
-QFrame#toolbar {background:#202630; border-radius:9px;}
 QPushButton {background:#293340; border:1px solid #3a4859; border-radius:7px; padding:7px 11px;}
 QPushButton:hover {background:#36475a; border-color:#70909d;}
 QPushButton:pressed {background:#182e36;}
@@ -57,6 +56,7 @@ class Canvas(QGraphicsView):
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
         self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         self.fit_mode = True
+        self.rotation = 0
         self.fit_timer = QTimer(self)
         self.fit_timer.setSingleShot(True)
         self.fit_timer.timeout.connect(self.fit_image)
@@ -64,8 +64,12 @@ class Canvas(QGraphicsView):
     def set_image(self, image, reset=True):
         pixmap = image if isinstance(image, QPixmap) else QPixmap.fromImage(image)
         pixmap.setDevicePixelRatio(1)
+        if reset:
+            self.rotation = 0
         self.picture.setPixmap(pixmap)
-        self.setSceneRect(self.picture.boundingRect())
+        self.picture.setTransformOriginPoint(self.picture.boundingRect().center())
+        self.picture.setRotation(self.rotation)
+        self.setSceneRect(self.picture.sceneBoundingRect())
         if reset or self.fit_mode:
             self.fit_image()
 
@@ -73,7 +77,7 @@ class Canvas(QGraphicsView):
         if self.picture.pixmap().isNull():
             return
         self.fit_mode = True
-        size = self.picture.boundingRect()
+        size = self.picture.sceneBoundingRect()
         scale = min((self.viewport().width() - 4) / size.width(),
                     (self.viewport().height() - 4) / size.height(), 1.0)
         self.resetTransform()
@@ -96,6 +100,14 @@ class Canvas(QGraphicsView):
 
     def zoom(self, factor, position=None):
         self.set_zoom(self.transform().m11() * factor, position)
+
+    def rotate_image(self, degrees):
+        if self.picture.pixmap().isNull(): return
+        self.rotation = (self.rotation + degrees) % 360
+        self.picture.setRotation(self.rotation)
+        self.setSceneRect(self.picture.sceneBoundingRect())
+        if self.fit_mode: self.fit_image()
+        else: self.centerOn(self.picture)
 
     def wheelEvent(self, event):
         amount = event.angleDelta().y() or event.pixelDelta().y()
@@ -137,7 +149,7 @@ class Canvas(QGraphicsView):
 class Viewer(QWidget):
     def __init__(self, filename=None, async_run=background, remember=True):
         super().__init__()
-        self.setWindowTitle('Xetal Images')
+        self.setWindowTitle('Fusion Viewer')
         self.setWindowIcon(QIcon.fromTheme('image-x-generic'))
         self.setMinimumSize(580, 400)
         self.setAcceptDrops(True)
@@ -148,33 +160,29 @@ class Viewer(QWidget):
         self.movie = None
         self.closed = False
         self.loading = False
+        self.wallpaper_action = None
         self.shortcuts = []
         self.resize(window_size.DEFAULT)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 14, 18, 12)
         layout.setSpacing(12)
-        header = QHBoxLayout()
-        brand = QLabel('Xetal Images'); brand.setObjectName('brand'); header.addWidget(brand)
-        header.addSpacing(16)
+        header = QGridLayout()
+        header.setSpacing(6)
+        header.setColumnStretch(0, 1); header.setColumnStretch(2, 1)
+        identity = QWidget(); identity.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        title = QHBoxLayout(identity); title.setContentsMargins(0, 0, 0, 0); title.setSpacing(6)
+        self.brand = QLabel('Fusion Viewer'); self.brand.setObjectName('brand'); title.addWidget(self.brand)
         self.name = QLabel('Open a picture to begin'); self.name.setObjectName('filename')
         self.name.setTextFormat(Qt.TextFormat.PlainText)
         self.name.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-        header.addWidget(self.name, 1)
-        header.addWidget(self.button('Open…', 'Open image · Ctrl+O', self.choose))
-        self.folder = self.button('↗', 'Show image in folder', self.show_folder)
-        self.folder.setFixedWidth(36); self.folder.setEnabled(False); header.addWidget(self.folder)
-        header.addWidget(window_controls(self)); layout.addLayout(header)
+        title.addWidget(self.name, 1); header.addWidget(identity, 0, 0)
 
-        toolbar = QFrame(); toolbar.setObjectName('toolbar')
-        controls = QHBoxLayout(toolbar); controls.setContentsMargins(8, 6, 8, 6); controls.setSpacing(6)
-        self.previous = self.button('‹', 'Previous image · Left arrow', lambda: self.navigate(-1))
-        self.next = self.button('›', 'Next image · Right arrow', lambda: self.navigate(1))
-        for arrow in (self.previous, self.next):
-            arrow.setObjectName('arrow'); arrow.setFixedSize(36, 32); controls.addWidget(arrow)
-        self.count = QLabel(''); self.count.setObjectName('muted'); controls.addWidget(self.count)
-        controls.addStretch()
+        self.toolbar = QWidget(); self.toolbar.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
+        controls = QHBoxLayout(self.toolbar); controls.setContentsMargins(0, 0, 0, 0); controls.setSpacing(6)
         self.canvas = Canvas()
+        self.canvas.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.canvas.customContextMenuRequested.connect(self.show_context_menu)
         self.fit = self.button('Fit', 'Fit to window · F', self.canvas.fit_image)
         self.fit.setCheckable(True); self.fit.setChecked(True); controls.addWidget(self.fit)
         self.actual = self.button('100%', 'Actual size · 1', lambda: self.canvas.set_zoom(1))
@@ -183,11 +191,15 @@ class Viewer(QWidget):
         self.percent = QLabel('—'); self.percent.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.percent.setFixedWidth(58); controls.addWidget(self.percent)
         self.plus = self.button('+', 'Zoom in · +', lambda: self.canvas.zoom(1.2)); controls.addWidget(self.plus)
-        self.pause = self.button('Pause', 'Play / pause animation · Space', self.pause_movie)
-        controls.addWidget(self.pause); self.pause.hide()
         controls.addSpacing(4)
         controls.addWidget(self.button('⛶', 'Full screen · F11', self.fullscreen))
-        layout.addWidget(toolbar)
+        controls.addSpacing(8)
+        controls.addWidget(self.button('Open…', 'Open image · Ctrl+O', self.choose))
+        self.folder = self.button('↗', 'Show image in folder', self.show_folder)
+        self.folder.setFixedWidth(36); self.folder.setEnabled(False); controls.addWidget(self.folder)
+        header.addWidget(self.toolbar, 0, 1, Qt.AlignmentFlag.AlignCenter)
+        header.addWidget(window_controls(self,focus_indicator=False), 0, 2, Qt.AlignmentFlag.AlignRight)
+        layout.addLayout(header)
 
         self.pages = QStackedWidget()
         self.pages.addWidget(self.canvas)
@@ -197,13 +209,28 @@ class Viewer(QWidget):
         self.message.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.pages.addWidget(self.message); self.pages.setCurrentWidget(self.message)
         layout.addWidget(self.pages, 1)
-        footer = QHBoxLayout()
-        self.details = QLabel(''); self.details.setObjectName('muted'); footer.addWidget(self.details)
-        footer.addStretch()
+        self.notice = QLabel(''); self.notice.setObjectName('muted'); self.notice.setWordWrap(True)
+        self.notice.setTextFormat(Qt.TextFormat.PlainText); self.notice.hide(); layout.addWidget(self.notice)
+        self.notice_timer = QTimer(self); self.notice_timer.setSingleShot(True)
+        self.notice_timer.timeout.connect(self.notice.hide)
+        footer = QGridLayout()
+        footer.setColumnStretch(0, 1); footer.setColumnStretch(2, 1)
+        self.details = QLabel(''); self.details.setObjectName('muted')
+        self.details.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        footer.addWidget(self.details, 0, 0)
+        navigation = QHBoxLayout(); navigation.setSpacing(6)
+        self.previous = self.button('‹', 'Previous image · Left arrow', lambda: self.navigate(-1))
+        self.next = self.button('›', 'Next image · Right arrow', lambda: self.navigate(1))
+        for arrow in (self.previous, self.next):
+            arrow.setObjectName('arrow'); arrow.setFixedSize(36, 32); navigation.addWidget(arrow)
+        self.count = QLabel(''); self.count.setObjectName('muted'); navigation.addWidget(self.count)
+        self.pause = self.button('Pause', 'Play / pause animation · Space', self.pause_movie)
+        navigation.addWidget(self.pause); self.pause.hide()
+        footer.addLayout(navigation, 0, 1)
         self.folder_name = QLabel(''); self.folder_name.setObjectName('muted')
         self.folder_name.setTextFormat(Qt.TextFormat.PlainText)
         self.folder_name.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-        footer.addWidget(self.folder_name, 1, Qt.AlignmentFlag.AlignRight); layout.addLayout(footer)
+        footer.addWidget(self.folder_name, 0, 2, Qt.AlignmentFlag.AlignRight); layout.addLayout(footer)
         self.canvas.zoomChanged.connect(self.zoom_changed)
         for key, action in [('Left', lambda: self.navigate(-1)), ('Right', lambda: self.navigate(1)),
             ('Ctrl+O', self.choose), ('Escape', self.escape), ('F11', self.fullscreen), ('F', self.canvas.fit_image),
@@ -223,6 +250,14 @@ class Viewer(QWidget):
         button.clicked.connect(action)
         return button
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        # Keep the actions on one readable row in small windows. The filename
+        # remains in the window title when there is no room for its header.
+        compact = event.size().width() < 820
+        self.brand.setVisible(not compact)
+        self.name.setVisible(not compact)
+
     def navigation(self):
         index = self.files.index(self.current) if self.current in self.files else -1
         self.previous.setEnabled(index > 0)
@@ -231,6 +266,36 @@ class Viewer(QWidget):
 
     def image_controls(self, enabled):
         for button in (self.fit, self.actual, self.minus, self.plus): button.setEnabled(enabled)
+
+    def context_menu(self):
+        menu = QMenu(self)
+        ready = not self.loading and self.pages.currentWidget() is self.canvas and not self.canvas.picture.pixmap().isNull()
+        for text, degrees in (('Rotate left', -90), ('Rotate right', 90)):
+            action = menu.addAction(text)
+            action.setEnabled(ready)
+            action.triggered.connect(lambda checked=False, angle=degrees: self.canvas.rotate_image(angle))
+        menu.addSeparator()
+        wallpaper = menu.addAction('Set as wallpaper')
+        wallpaper.setEnabled(ready and not (self.wallpaper_action and self.wallpaper_action.busy))
+        wallpaper.triggered.connect(self.set_wallpaper)
+        return menu
+
+    def show_context_menu(self, position):
+        menu = self.context_menu()
+        menu.aboutToHide.connect(menu.deleteLater)
+        menu.popup(self.canvas.viewport().mapToGlobal(position))
+
+    def set_wallpaper(self):
+        if self.loading or self.pages.currentWidget() is not self.canvas or not self.current: return
+        if self.wallpaper_action is None:
+            from wallpaper_action import WallpaperAction
+            self.wallpaper_action = WallpaperAction(self)
+            self.wallpaper_action.message.connect(self.wallpaper_message)
+        self.wallpaper_action.start(self.current, self.canvas.picture.pixmap().toImage(), self.canvas.rotation)
+
+    def wallpaper_message(self, text):
+        self.notice_timer.stop(); self.notice.setText(text); self.notice.setVisible(bool(text))
+        if text.startswith('Wallpaper applied to '): self.notice_timer.start(4000)
 
     def open_path(self, filename):
         try:
@@ -245,7 +310,7 @@ class Viewer(QWidget):
         self.current = path
         self.loading = True
         self.name.setText(path.name); self.name.setToolTip(str(path))
-        self.setWindowTitle(path.name + ' — Xetal Images')
+        self.setWindowTitle(path.name + ' — Fusion Viewer')
         self.folder_name.setText(path.parent.name); self.folder_name.setToolTip(str(path.parent))
         self.details.clear(); self.percent.setText('—')
         self.folder.setEnabled(path.is_file())
@@ -329,16 +394,17 @@ class Viewer(QWidget):
         if files: self.open_path(files[0]); event.acceptProposedAction()
 
     def closeEvent(self, event):
+        if self.wallpaper_action: self.wallpaper_action.shutdown()
         self.closed = True; self.generation += 1; self.stop_movie()
         super().closeEvent(event)
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Open an image in Xetal Images')
+    parser = argparse.ArgumentParser(description='Open an image in Fusion Viewer')
     parser.add_argument('files', nargs='*')
     args = parser.parse_args()
     app = QApplication([sys.argv[0]])
-    app.setApplicationName('Xetal Images'); app.setDesktopFileName('xetal-image-viewer')
+    app.setApplicationName('Fusion Viewer'); app.setDesktopFileName('xetal-image-viewer')
     theme_runtime.install(app, STYLE)
     window = Viewer(args.files[0] if args.files else None)
     window.show()

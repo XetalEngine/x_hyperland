@@ -259,7 +259,7 @@ The downloader offers 13 tool providers, release search, archive variants, compa
 
 [Feature showcase](../README.md#windows-apps-with-our-custom-proton-manager) · [Setup and complete feature guide](../config/hypr/control_panel/proton/README.md)
 
-### Xetal Images
+### Fusion Viewer
 
 [![Zoomable image viewer](screenshots/image-viewer.png)](screenshots/image-viewer.png)
 

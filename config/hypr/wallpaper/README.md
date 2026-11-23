@@ -18,7 +18,10 @@ Open **Theme → Wallpapers → Wallpaper Selector** to choose **Floating cards*
 (the default), **Gallery window** (the original design), **Frame Lab**, or
 **Orbit Atlas**. Floating cards shows the ribbon and
 compact controls directly over your desktop, with no enclosing window, blur or
-shadow. The style saves automatically and is used by Super+W. **Open Wallpaper
+shadow or focus glow. Floating cards opens centered on the monitor under the
+pointer, even after an accidental move or resize; it does not use remembered
+window positions. Its KDE title bar defaults to off, with controls set to
+**Automatic · add missing controls**. The style saves automatically and is used by Super+W. **Open Wallpaper
 Selector** also brings an existing selector forward using the saved style.
 All four styles share your folders, slideshow, transitions and monitor selection.
 

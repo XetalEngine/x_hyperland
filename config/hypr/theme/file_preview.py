@@ -206,7 +206,7 @@ def attach(dialog):
     grid = dialog.layout()
     if not isinstance(grid, QGridLayout): return
     dialog.setProperty(MARKER, True)
-    # Xetal Images offers many formats. Display the filter name, not a very
+    # Fusion Viewer offers many formats. Display the filter name, not a very
     # long extension list; retain the complete list for actual filtering.
     dialog.setOption(QFileDialog.Option.HideNameFilterDetails,True)
     filters=dialog.findChild(QComboBox,'fileTypeCombo')

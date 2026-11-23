@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Xetal Images
+Name=Fusion Viewer
 Comment=View pictures, zoom, and browse the images in a folder
 Exec=@HOME@/.config/hypr/scripts/image-viewer.sh -- %F
 Icon=image-x-generic
