@@ -17,6 +17,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import smbios
@@ -1744,7 +1745,19 @@ def read_log(max_bytes=400000):
 
 
 def clear_log():
-    os.makedirs(RUN_DIR, exist_ok=True)
-    with open(LOG, "w"):
-        pass
+    # The privileged launch can create a root-owned log in the user's run
+    # directory. Replace that directory entry instead of trying to truncate it.
+    # A running tee still holds its original inode, so never rotate a live run.
+    from virtual_gpu import service_active
+    if service_active():
+        raise RuntimeError("Shut down the Single GPU VM before clearing its history.")
+    directory = os.path.dirname(LOG)
+    os.makedirs(directory, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=".launch-log-", dir=directory)
+    os.close(fd)
+    try:
+        os.replace(temporary, LOG)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
     return LOG

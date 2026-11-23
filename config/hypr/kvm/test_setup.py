@@ -940,6 +940,43 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(w.cfg.to_script(True),command)
         app.hypr_theme.apply()
 
+    def test_single_gpu_and_memory_fit_smaller_window_without_changing_settings(self):
+        w=self.window;app=self.application
+        for profile in ('windows','macos'):
+            w.switch_profile(profile)
+            before=copy.deepcopy(w.cfg.data)
+            command=w.cfg.to_script(True)
+            for mode in ('dark','light'):
+                with patch.object(self.kvm.desktop_theme,'state',return_value=dict(design='modern',mode=mode,layout='sidebar')):
+                    app.hypr_theme.apply()
+                    for size in ((1600,900),(1440,820)):
+                        w.resize(*size)
+                        for name in ('Overview','Memory'):
+                            w._select_tab_by_name(name)
+                            if name=='Overview':
+                                # Also fit the optional warning and kernel action.
+                                warning=w.module_warnings[0]
+                                warning.setText('This kernel has no matching custom module. Using standard KVM.')
+                                warning.show();warning.kernel_action('fixture-kernel')
+                            for _ in range(3):
+                                app.sendPostedEvents(None,self.kvm.QEvent.Type.DeferredDelete)
+                                app.processEvents()
+                            with self.subTest(profile=profile,mode=mode,size=size,page=name):
+                                page=w.tabs.currentWidget()
+                                self.assertEqual(page.verticalScrollBar().maximum(),0)
+                                self.assertEqual(page.horizontalScrollBar().maximum(),0)
+                                if name=='Overview':
+                                    self.assertTrue(w.btn_clear_history.isVisible())
+                                    self.assertTrue(page.viewport().rect().contains(
+                                        w.btn_clear_history.mapTo(page.viewport(),w.btn_clear_history.rect().bottomRight())))
+                                    for editor in (w.launch_log,w.history):
+                                        self.assertTrue(editor.parentWidget().rect().contains(editor.geometry()),
+                                                        'Output must fit inside its card, not be clipped to hide scrolling')
+                                    self.assertGreaterEqual(warning.height(),warning.heightForWidth(warning.width()))
+            self.assertEqual(w.cfg.data,before)
+            self.assertEqual(w.cfg.to_script(True),command)
+        app.hypr_theme.apply()
+
     def test_path_section_jump_and_edits_survive_profile_rebuild(self):
         from PyQt6.QtTest import QTest
         from PyQt6.QtWidgets import QMessageBox

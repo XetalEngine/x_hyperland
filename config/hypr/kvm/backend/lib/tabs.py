@@ -16,7 +16,7 @@ from PyQt6.QtGui import QFont
 
 import hostinfo
 import launcher
-from uiutil import guard_all, sudo_command
+from uiutil import guard_all, sudo_command, compact_page
 
 MONO = "Monospace"
 
@@ -625,6 +625,15 @@ class MemoryTab(QScrollArea):
         self.setWidget(w)
         lay = QVBoxLayout(w)
         mem = self.mem()
+        compact_page(w)
+        columns = QHBoxLayout()
+        columns.setSpacing(10)
+        left, right = QVBoxLayout(), QVBoxLayout()
+        left.setSpacing(8)
+        right.setSpacing(8)
+        columns.addLayout(left, 2)
+        columns.addLayout(right, 3)
+        lay.addLayout(columns)
 
         g = QGroupBox("Guest RAM")
         f = QFormLayout(g)
@@ -636,14 +645,14 @@ class MemoryTab(QScrollArea):
         f.addRow("Size:", self.gb)
         self.lbl_host_ram = QLabel("")
         f.addRow("Host has:", self.lbl_host_ram)
-        lay.addWidget(g)
+        left.addWidget(g)
 
         hp = QGroupBox("Hugepage backing")
         if self.cfg.profile == "macos":
             note = QLabel("After changing VM RAM, open Mac & OpenCore and sync the custom memory description "
                           "before applying the new boot configuration.")
             note.setWordWrap(True)
-            lay.addWidget(note)
+            left.addWidget(note)
         hf = QFormLayout(hp)
         # Let the field column take the available width so the mem-path box and
         # the status labels use it instead of being squeezed and wrapping.
@@ -696,6 +705,7 @@ class MemoryTab(QScrollArea):
         hf.addRow("Pool right now:", self.lbl_hp_state)
 
         row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
         for text, slot, tip in (
                 ("Allocate now (and verify)", self._allocate,
                  "Write the pool size and read back what the kernel actually gave"),
@@ -715,9 +725,11 @@ class MemoryTab(QScrollArea):
         self.alloc_log = QPlainTextEdit()
         self.alloc_log.setReadOnly(True)
         self.alloc_log.setFont(QFont(MONO, 10))
-        self.alloc_log.setMaximumHeight(110)
+        self.alloc_log.setMinimumHeight(80)
+        self.alloc_log.setMaximumHeight(100)
+        self.alloc_log.setPlaceholderText("Hugepage allocation results appear here.")
         hf.addRow(self.alloc_log)
-        lay.addWidget(hp)
+        right.addWidget(hp)
 
         opts = QGroupBox("Backend options")
         of = QFormLayout(opts)
@@ -727,6 +739,14 @@ class MemoryTab(QScrollArea):
         self.locked = QCheckBox("mem-lock  (mlock guest RAM, never swapped)")
         self.discard = QCheckBox("discard-data  (release pages back on shutdown)")
         self.balloon = QCheckBox("memballoon  (paravirtual device; a virtualisation tell)")
+        for checkbox, label in (
+                (self.prealloc, "Preallocate guest RAM"),
+                (self.share, "Share memory with other backends"),
+                (self.locked, "Lock guest RAM in memory"),
+                (self.discard, "Release pages on shutdown"),
+                (self.balloon, "Memory balloon device")):
+            checkbox.setToolTip(checkbox.text())
+            checkbox.setText(label)
         if self.cfg.profile == "macos":
             ram = self._ram_obj() or {}
             self.prealloc.setChecked(bool(ram.get("prealloc", False)))
@@ -737,7 +757,7 @@ class MemoryTab(QScrollArea):
         for c in (self.prealloc, self.share, self.locked, self.discard, self.balloon):
             c.stateChanged.connect(self.recalc)
             of.addRow(c)
-        lay.addWidget(opts)
+        left.addWidget(opts)
 
         if self.cfg.profile == "macos":
             self.capture = QCheckBox("Record performance diagnostics during Single GPU runs")
@@ -745,7 +765,10 @@ class MemoryTab(QScrollArea):
             self.capture.setToolTip("Record QEMU memory mappings, thread affinity, CPU activity and PCIe link state for up to "
                                     "30 minutes. Reports stay in macos/performance/reports. No host tuning or guest changes.")
             self.capture.toggled.connect(self._capture_changed)
-            lay.addWidget(self.capture)
+            left.addWidget(self.capture)
+
+        left.addStretch()
+        right.addStretch()
 
         self.note = QLabel("")
         self.note.setWordWrap(True)

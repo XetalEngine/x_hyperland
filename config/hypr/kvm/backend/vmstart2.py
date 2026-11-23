@@ -540,7 +540,7 @@ class VMStart2(QMainWindow):
 
     # -- overview -----------------------------------------------------------
     def _tab_overview(self):
-        w = QWidget()
+        w = compact_page(QWidget())
         lay = QVBoxLayout(w)
 
         self.host_box = QGroupBox("Detected host")
@@ -578,10 +578,10 @@ class VMStart2(QMainWindow):
         lb = QGroupBox("Launch")
         ll = QVBoxLayout(lb)
         note = QLabel(
-            "Launching stops the display manager and rebinds the GPU, so this "
-            "window disappears. QEMU is handed to systemd as the transient unit "
-            "<b>vmstart2-vm</b> so it outlives the desktop. Preflight runs first "
-            "and refuses to tear anything down if the config cannot start.")
+            "Your desktop closes while the GPU is assigned to the VM. "
+            "Preflight checks run before the handoff; the VM continues independently of this window.")
+        note.setToolTip("Launching stops the display manager and rebinds the GPU. "
+                        "QEMU runs in the vmstart2-vm systemd unit so it outlives the desktop.")
         note.setWordWrap(True)
         ll.addWidget(note)
 
@@ -626,8 +626,8 @@ class VMStart2(QMainWindow):
         self.launch_log = QPlainTextEdit()
         self.launch_log.setReadOnly(True)
         self.launch_log.setFont(QFont(MONO, 10))
-        self.launch_log.setMinimumHeight(130)
-        self.launch_log.setMaximumHeight(180)
+        self.launch_log.setMinimumHeight(60)
+        self.launch_log.setMaximumHeight(100)
         self.launch_log.setPlaceholderText("Preflight checks, QEMU tests, and launch output appear here.")
         ll.addWidget(self.launch_log)
         lay.addWidget(lb)
@@ -635,10 +635,8 @@ class VMStart2(QMainWindow):
 
         # --- history -----------------------------------------------------------
         hb = QGroupBox("VM history and output")
+        hb.setToolTip("Launch and QEMU output, grouped by run. No sudo is needed to read this log.")
         hl = QVBoxLayout(hb)
-        hnote = QLabel("Launch and QEMU output, grouped by run. No sudo is needed to read this log.")
-        hnote.setWordWrap(True)
-        hl.addWidget(hnote)
 
         hrow = QHBoxLayout()
         self.chk_follow = QCheckBox("Follow (refresh every 2s)")
@@ -651,7 +649,7 @@ class VMStart2(QMainWindow):
         b.setToolTip("Scroll to the most recent VM STARTED banner")
         b.clicked.connect(self._jump_last_run)
         hrow.addWidget(b)
-        b = QPushButton("Clear history")
+        b = self.btn_clear_history = QPushButton("Clear history")
         b.setToolTip(f"Empty {launcher.LOG}")
         b.clicked.connect(self._clear_history)
         hrow.addWidget(b)
@@ -664,7 +662,11 @@ class VMStart2(QMainWindow):
         self.history.setReadOnly(True)
         self.history.setFont(QFont(MONO, 9))
         self.history.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
-        self.history.setMinimumHeight(260)
+        self.history.setMinimumHeight(120)
+        # Wrapped host labels make this page use height-for-width. Ignore the
+        # editor's large preferred height so the history fills the space left
+        # by the controls instead of making the entire page scroll.
+        self.history.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Ignored)
         hl.addWidget(self.history, 1)
         lay.addWidget(hb, 2)
 
@@ -694,7 +696,12 @@ class VMStart2(QMainWindow):
             self._refresh_history()
 
     def _refresh_history(self):
-        text = launcher.read_log()
+        try:
+            text = launcher.read_log()
+        except OSError as error:
+            self.history.setPlainText(f"Could not read VM history: {error}")
+            self.lbl_runs.setText("History unavailable")
+            return
         self._hist_len = len(text.encode(errors="replace")) if text else 0
         try:
             self._hist_len = os.path.getsize(launcher.LOG)
@@ -726,7 +733,12 @@ class VMStart2(QMainWindow):
                 f"Empty {launcher.LOG}?\n\nEvery recorded run is discarded."
                 ) != QMessageBox.StandardButton.Yes:
             return
-        launcher.clear_log()
+        try:
+            launcher.clear_log()
+        except (OSError, RuntimeError) as error:
+            self.status.setText("History was not cleared: " + str(error))
+            QMessageBox.warning(self, "Could not clear history", str(error))
+            return
         self._refresh_history()
         self.status.setText("history cleared")
 

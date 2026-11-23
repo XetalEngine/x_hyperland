@@ -108,6 +108,57 @@ def open_wizard(window, source):
                          pos=window.navigation.list.visualItemRect(item).center())
 
 
+def test_clear_history_keeps_window_and_unsaved_settings(window, monkeypatch, tmp_path, app):
+    path = tmp_path / 'launch.log'
+    path.write_text('=============== VM STARTED\ncompleted run\n')
+    path.chmod(0o444)
+    monkeypatch.setattr(vmstart2.launcher, 'LOG', str(path))
+    monkeypatch.setattr(vmstart2.virtual_gpu, 'service_active', lambda: False)
+    monkeypatch.setattr(QMessageBox, 'question', lambda *_: QMessageBox.StandardButton.Yes)
+    window.cfg.simple['name'] = 'unsaved name'
+    before = copy.deepcopy(window.cfg.data)
+    window._refresh_history()
+    window.btn_clear_history.click()
+    settle(app)
+    assert window.isVisible()
+    assert window.cfg.data == before
+    assert path.read_bytes() == b''
+    assert 'no runs recorded' in window.history.toPlainText()
+    assert window.lbl_runs.text().startswith('0 runs')
+
+
+def test_clear_history_error_is_reported_without_closing(window, monkeypatch):
+    monkeypatch.setattr(QMessageBox, 'question', lambda *_: QMessageBox.StandardButton.Yes)
+    warning = Mock()
+    monkeypatch.setattr(QMessageBox, 'warning', warning)
+    def denied():
+        raise PermissionError('fixture: directory is read only')
+    monkeypatch.setattr(vmstart2.launcher, 'clear_log', denied)
+    window.btn_clear_history.click()
+    assert window.isVisible()
+    warning.assert_called_once()
+    assert 'directory is read only' in window.status.text()
+
+
+def test_cancel_history_clear_keeps_log(window, monkeypatch):
+    monkeypatch.setattr(QMessageBox, 'question', lambda *_: QMessageBox.StandardButton.No)
+    clear = Mock()
+    monkeypatch.setattr(vmstart2.launcher, 'clear_log', clear)
+    window.btn_clear_history.click()
+    clear.assert_not_called()
+    assert window.isVisible()
+
+
+def test_history_read_error_remains_visible_in_app(window, monkeypatch):
+    def denied():
+        raise PermissionError('fixture: history is unreadable')
+    monkeypatch.setattr(vmstart2.launcher, 'read_log', denied)
+    window._refresh_history()
+    assert window.isVisible()
+    assert 'history is unreadable' in window.history.toPlainText()
+    assert window.lbl_runs.text() == 'History unavailable'
+
+
 @pytest.mark.parametrize("source", ["toolbar"])
 def test_open_wizard_restarts_with_existing_configuration(window, monkeypatch, source):
     before = copy.deepcopy(window.cfg.data)
