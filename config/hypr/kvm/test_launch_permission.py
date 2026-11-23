@@ -136,10 +136,20 @@ sys.path.insert(0, '/source')
 import launch_sandbox as sandbox
 base=Path('/fixture');fds=[]
 plan=dict(uid=0,workdir=str(base/'run'),approved_snapshot=str(base/'snapshot'))
-command=sandbox.sandbox_command(plan,['/usr/bin/python3','/fixture/disk-link'],fds)
-# Replace the guest executable test with a fixture that opens the mounted input.
-guest="from pathlib import Path; p=Path('/fixture/disk-link'); p.write_text('VM write'); assert not Path('/fixture/host-secret').exists(); assert not Path('/etc/shadow').exists(); assert not Path('/proc/1/root/fixture/host-secret').exists(); print('isolated')"
-command=command[:-1]+['-c',guest]
+guest="""#!/usr/bin/python3
+import fcntl,json,os,sys
+from pathlib import Path
+fds=[int(sys.argv[i+1].split(',')[0].split('=')[1]) for i,arg in enumerate(sys.argv[:-1]) if arg=='-add-fd']
+node=json.loads(sys.argv[sys.argv.index('-blockdev')+1]);assert node['filename'].startswith('/dev/fdset/')
+fd=next(fd for fd in fds if fcntl.fcntl(fd,fcntl.F_GETFL)&os.O_ACCMODE==os.O_RDWR)
+os.ftruncate(fd,0);os.write(fd,b'VM write')
+assert not Path('/fixture/host-secret').exists();assert not Path('/etc/shadow').exists()
+assert not Path('/proc/1/root/fixture/host-secret').exists()
+print('isolated')
+"""
+(base/'snapshot/guest').write_text(guest);(base/'snapshot/guest').chmod(0o755)
+argv=sandbox.block_descriptors(plan,[str(base/'snapshot/guest'),'-blockdev',json.dumps({'driver':'file','filename':'/fixture/disk-link'})],fds)
+command=sandbox.sandbox_command(plan,argv,fds)
 # /dev/kvm is irrelevant to this filesystem test; remove only its exact bind.
 i=command.index('--dev-bind');del command[i:i+3]
 # Change the source after its descriptor was opened: the bind must retain the

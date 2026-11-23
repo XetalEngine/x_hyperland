@@ -50,6 +50,77 @@ def file_paths(argv):
     return result
 
 
+def block_descriptors(plan, argv, descriptors):
+    """Give QEMU approved disk handles without reopening private host paths.
+
+    The guest retains no capabilities. Its root in a new user namespace cannot
+    reopen another UID's 0600 files, even when those files are bind mounted.
+    QEMU fdsets duplicate already-authorized descriptors instead.
+    """
+    inputs = {}
+    def remember(path, direct=False, readonly=False):
+        if isinstance(path, str) and path.startswith('/'):
+            modes = inputs.setdefault(path, set())
+            modes.add((False, direct))
+            if not readonly: modes.add((True, direct))
+    def collect(value):
+        if isinstance(value, dict):
+            if value.get('driver') in ('file', 'host_device'):
+                remember(value.get('filename'), value.get('cache', {}).get('direct') is True,
+                         value.get('read-only') is True)
+            for item in value.values(): collect(item)
+        elif isinstance(value, list):
+            for item in value: collect(item)
+    for index, option in enumerate(argv[:-1]):
+        value = argv[index+1]
+        if option == '-blockdev': collect(json.loads(value))
+        elif option == '-drive':
+            fields = dict(part.split('=', 1) for part in value.replace(',,', '\0').split(',') if '=' in part)
+            remember(fields.get('file', '').replace('\0', ','), fields.get('cache') in ('none', 'directsync'),
+                     fields.get('readonly') in ('on', 'yes', 'true'))
+        elif option in ('-hda', '-hdb', '-hdc', '-hdd', '-fda', '-fdb', '-pflash', '-cdrom'):
+            remember(value, readonly=option == '-cdrom')
+    sets = [int(m.group(1)) for i, arg in enumerate(argv[:-1]) if arg == '-add-fd'
+            for m in [re.search(r'(?:^|,)set=(\d+)(?:,|$)', argv[i+1])] if m]
+    next_set = max(sets, default=-1) + 1
+    replacements, additions = {}, []
+    for path, modes in sorted(inputs.items()):
+        if any(Path(path).is_relative_to(plan[key]) for key in ('approved_snapshot', 'workdir')): continue
+        disk = next((item for item in plan.get('approved_disks', []) if item['path'] == path), None)
+        if not disk and any(Path(path).is_relative_to(prefix) for prefix in ('/proc', '/sys', '/dev', '/etc', '/run')):
+            raise ValueError('This VM path requires ordinary administrator authentication: '+path)
+        identity = None
+        for writable, direct in sorted(modes):
+            try:
+                fd = (device_file(disk, writable=writable, direct=direct) if disk else
+                      user_file(path, plan['uid'], writable=writable, direct=direct))
+            except OSError as error:
+                if writable and error.errno in (errno.EACCES, errno.EPERM, errno.EROFS): continue
+                raise
+            descriptors.append(fd)
+            info = os.fstat(fd); current = (info.st_dev, info.st_ino, info.st_rdev)
+            if identity is not None and current != identity:
+                raise RuntimeError('A VM file changed while opening it. Launch again: '+path)
+            identity = current
+            additions += ['-add-fd', f'fd={fd},set={next_set}']
+        replacements[path] = f'/dev/fdset/{next_set}'; next_set += 1
+    def replace(value):
+        if isinstance(value, dict): return {key: replace(item) for key, item in value.items()}
+        if isinstance(value, list): return [replace(item) for item in value]
+        return replacements.get(value, value) if isinstance(value, str) else value
+    rewritten = list(argv)
+    for index, option in enumerate(argv[:-1]):
+        value = argv[index+1]
+        if option == '-blockdev': rewritten[index+1] = json.dumps(replace(json.loads(value)))
+        elif option == '-drive':
+            fields = value.replace(',,', '\0').split(',')
+            rewritten[index+1] = ','.join('file='+replacements.get(part[5:].replace('\0', ','), part[5:].replace('\0', ',')).replace(',', ',,')
+                if part.startswith('file=') else part.replace('\0', ',,') for part in fields)
+        elif option in ('-hda', '-hdb', '-hdc', '-hdd', '-fda', '-fdb', '-pflash', '-cdrom'):
+            rewritten[index+1] = replacements.get(value, value)
+    return [rewritten[0], *additions, *rewritten[1:]]
+
+
 def sandbox_command(plan, argv, descriptors):
     snapshot, workdir = Path(plan['approved_snapshot']), Path(plan['workdir'])
     command = ['/usr/bin/bwrap', '--unshare-user', '--disable-userns', '--unshare-pid', '--unshare-ipc', '--unshare-uts',
@@ -74,25 +145,20 @@ def sandbox_command(plan, argv, descriptors):
     for path in sorted(file_paths(argv)):
         candidate = Path(path)
         if candidate.is_relative_to(snapshot) or candidate.is_relative_to(workdir): continue
-        if candidate.is_relative_to('/usr') or path in ('/dev/null', '/dev/random', '/dev/urandom'): continue
+        if candidate.is_relative_to('/usr') or candidate.is_relative_to('/dev/fdset') or path in ('/dev/null', '/dev/random', '/dev/urandom'): continue
         disk = next((record for record in plan.get('approved_disks', []) if record['path'] == path), None)
         if disk:
-            fd = device_file(disk); descriptors.append(fd)
-            command += ['--dev-bind', f'/proc/self/fd/{fd}', path]
-            continue
+            raise ValueError('Approved physical disks must use a QEMU block device: '+path)
         if any(candidate.is_relative_to(prefix) for prefix in ('/proc', '/sys', '/dev', '/etc', '/run')):
             raise ValueError('This VM path requires ordinary administrator authentication: '+path)
-        try:
-            fd = user_file(path, plan['uid'], writable=True)
-            option = '--bind'
-        except OSError as error:
-            if error.errno not in (errno.EACCES, errno.EPERM, errno.EROFS): raise
-            fd = user_file(path, plan['uid'])
-            option = '--ro-bind'
+        fd = user_file(path, plan['uid'])
         descriptors.append(fd)
-        # The source is a held descriptor opened with the desktop account's
-        # permissions. Swapping a symlink cannot substitute a root-only file.
-        command += [option, f'/proc/self/fd/{fd}', path]
+        if os.fstat(fd).st_size > 64*1024*1024:
+            raise ValueError('Large VM inputs must use a QEMU block device: '+path)
+        # ACPI/SMBIOS and other small inputs become read-only private copies.
+        # Read their held descriptors directly, without resolving /proc links
+        # through a user-owned 0700 directory in the new user namespace.
+        command += ['--perms', '0444', '--ro-bind-data', str(fd), path]
     return command + ['--', *argv]
 
 
@@ -150,6 +216,21 @@ class ApprovedRuntime(Runtime):
         argv = list(self.plan['argv'])
         descriptors = []
         try:
+            if self.plan.get('tpm'):
+                endpoint = self.plan['tpm']['sock']
+                for index, option in enumerate(argv[:-1]):
+                    if option != '-chardev': continue
+                    fields = argv[index+1].replace(',,', '\0').split(',')
+                    if 'path='+endpoint.replace(',', '\0') not in fields: continue
+                    # The socket lives in a user-owned directory. Connect as
+                    # that user so replacing it cannot delegate root's socket
+                    # credentials or access to a privileged host service.
+                    with desktop_user(self.plan['uid']):
+                        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
+                            connection.connect(endpoint)
+                            fd = connection.detach()
+                    descriptors.append(fd)
+                    argv[index+1] = ','.join(f'fd={fd}' if part.startswith('path=') else part.replace('\0', ',,') for part in fields)
             if self.plan.get('tap'):
                 # Pass an already opened tap. QEMU never receives NET_ADMIN or
                 # access to /dev/net/tun inside its restricted filesystem.
@@ -165,6 +246,7 @@ class ApprovedRuntime(Runtime):
                     descriptors.append(vhost); net['vhostfd'] = str(vhost)
                 net['fd'] = str(fd)
                 argv[index] = json.dumps(net)
+            argv = block_descriptors(self.plan, argv, descriptors)
             command = sandbox_command(self.plan, argv, descriptors)
             return subprocess.Popen(command, stdin=subprocess.DEVNULL, pass_fds=tuple(descriptors))
         finally:

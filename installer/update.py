@@ -35,6 +35,15 @@ def repair_user_directories(home):
     return True
 
 
+def require_setup(state, commit, message, **details):
+    # Keep the existing handoff format: older installed updaters must be able
+    # to open this release's Setup before they can install their own update.
+    with engine.locked(state):
+        engine.write_json(state/'runtime-required.json', {
+            'revision': commit, 'message': message, **details})
+        (state/'pending.json').unlink(missing_ok=True)
+
+
 def prepare(home, commit, automatic=True, allow_runtime=False, checkpoint=lambda:None):
     if os.geteuid() == 0: raise RuntimeError('Updates run as your desktop user, without sudo.')
     install.safe_home(home); engine.revision(commit)
@@ -43,10 +52,8 @@ def prepare(home, commit, automatic=True, allow_runtime=False, checkpoint=lambda
     live = home/'.config/hypr'; state = home/'.local/state/xetal-hyprland/updates'
     message = install.runtime_install.policy.problem()
     if message and not allow_runtime:
-        with engine.locked(state):
-            engine.write_json(state/'runtime-required.json', {'revision':commit,
-                'required':install.runtime_install.policy.contract(install.runtime_install.policy.manifest())['hyprland'], 'message':message})
-            (state/'pending.json').unlink(missing_ok=True)
+        require_setup(state, commit, message,
+                      required=install.runtime_install.policy.contract(install.runtime_install.policy.manifest())['hyprland'])
         raise RuntimeError(message)
     if allow_runtime:
         dependencies.prepare_repositories()
@@ -60,7 +67,14 @@ def prepare(home, commit, automatic=True, allow_runtime=False, checkpoint=lambda
         install.runtime_install.restart_after_python_upgrade()
         dependencies.repair_toolchain(yes=True)
         checkpoint(); errors = dependencies.check()
-    if errors: raise RuntimeError('Dependencies need attention; no desktop files changed:\n'+'\n'.join(errors))
+    if errors:
+        message = 'Dependencies need attention; no desktop files changed.'
+        if not allow_runtime:
+            message = ('This update needs desktop/build packages. Choose Update! to open Setup, '
+                       'install the required packages and finish the update. '
+                       'Keep existing preferences selected; administrator authentication may be required.')
+            require_setup(state, commit, message, reason='dependencies', problems=errors)
+        raise RuntimeError(message+'\n'+'\n'.join(errors))
     if allow_runtime:
         dependencies.prepare_account()
         checkpoint()

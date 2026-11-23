@@ -36,7 +36,16 @@ Changing the VM configuration, selected disk identity, kernel, installed compone
 
 The exception names a root-owned, no-argument broker under `/usr/local/libexec`, with its own validated sudoers rule. It runs a protected copy of the approved configuration, launch code and components under `/var/lib/hyperfusion-kvm-launch/<uid>/`. Copies use additional disk space; previous snapshots remain available to an already-running guest. QEMU runs with a restricted filesystem and no Linux capabilities; writable VM files are opened with the desktop user's access, and physical disks are checked against their approved identities. Arbitrary scripts, Python commands and `systemd-run` are never added to passwordless sudo. No password or Echo token is saved in the permission. The desktop remains responsive while authentication, component approval and preflight checks wait.
 
-Permission checks run with `python3 -m unittest test_launch_permission test_launch_policy_container` from `config/hypr/kvm`. The second test exercises real sudo approval, denial and revocation in a disposable user namespace/root filesystem; it does not change the host's sudo policy.
+Remembered launches also support private `0600` disk/NVRAM files and TPM sockets
+inside `0700` folders. Disk access uses already-authorized file descriptors;
+small ACPI/SMBIOS inputs become read-only copies, and the TPM connection uses the
+desktop account's credentials. This fixes the earlier sandbox permission error
+that ended a launch with status 1. Launch logs remain readable by the desktop
+account even when the administrator's umask is `0077`. After updating launch
+code, reopen KVM Settings; the next remembered launch requests approval for the
+new snapshot. An already-running VM keeps its existing snapshot.
+
+Permission checks run with `python3 -m unittest test_launch_permission test_launch_policy_container` from `config/hypr/kvm`. The container tests exercise real sudo approval, denial and revocation, private VM files, TPM peer credentials and readable launch logs in disposable user namespaces; they do not change the host's sudo policy.
 
 After a **Virtual GPU** or **Dual GPU** launch reports that the guest is running,
 KVM Settings minimizes itself once. The viewer stays open. Failed starts or

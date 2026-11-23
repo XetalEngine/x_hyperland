@@ -37,6 +37,13 @@ NAMES = {'modern': 'Hyper Fusion', 'shadowedge': 'Shadow Edge', 'hollowgrove': '
 SLICES = ('nw', 'n', 'ne', 'w', 'c', 'e', 'sw', 's', 'se')
 FILES = {'background.png', 'source.png', 'menu.pf2', 'selected.pf2', 'heading.pf2', 'detail.pf2',
          *(f'select_{part}.png' for part in SLICES)}
+EXTRA_PRESETS = {
+    'killerinstinct-cabinet': {
+        'theme': 'killerinstinct', 'name': 'Killer Instinct · One More Credit',
+        'background': 'killerinstinct/one-more-credit.png',
+        'options': {'heading': 'KILLER INSTINCT', 'dimming': 12, 'contrast': 65},
+    },
+}
 
 
 def presets():
@@ -46,12 +53,18 @@ def presets():
     for key, title in NAMES.items():
         if key not in palettes or key not in pictures: continue
         palette = palettes[key]['dark']
-        result.append({'id': key, 'name': title, 'options': {
+        options = {
             'preset': key, 'background': str(ROOT/'wallpaper'/pictures[key][0]),
             'layout': 'left', 'heading': 'HYPER FUSION' if key == 'modern' else title.upper(),
             'subtitle': 'Choose a system to start', 'size': 22, 'dimming': 28, 'contrast': 78,
             'accent': palette['Accent'], 'text': palette['Text'], 'base': palette['Base'],
-            'hints': True}})
+            'hints': True}
+        result.append({'id': key, 'name': title, 'options': options})
+        for preset_id, extra in EXTRA_PRESETS.items():
+            if extra['theme'] != key: continue
+            result.append({'id': preset_id, 'name': extra['name'], 'options': {
+                **options, **extra['options'], 'preset': preset_id,
+                'background': str(ROOT/'wallpaper'/extra['background'])}})
     return result
 
 
@@ -59,7 +72,7 @@ def normalize(value):
     if not isinstance(value, dict): raise ValueError('Invalid appearance settings.')
     defaults = presets()[0]['options']
     result = {key: value.get(key, default) for key, default in defaults.items()}
-    if result['preset'] not in NAMES or result['layout'] not in ('left', 'center', 'right'):
+    if (result['preset'] not in NAMES and result['preset'] not in EXTRA_PRESETS) or result['layout'] not in ('left', 'center', 'right'):
         raise ValueError('Choose a bundled theme and menu position.')
     for key, maximum in (('heading', 64), ('subtitle', 100)):
         text = result[key]

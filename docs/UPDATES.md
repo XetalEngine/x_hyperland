@@ -12,6 +12,18 @@ Clicking **Update!** checks the branch again before selecting the commit to down
 
 The main button changes from **Update!** to **Updating…**, then **Restart** once the update has finished building and validating. The log opens at its newest output and follows new lines; scrolling up pauses following until you return to the bottom. Restart asks you to save your work and confirm, then uses the normal system restart request. If authorization or a shutdown inhibitor blocks it, the update remains ready and the button allows another attempt. Updates never restart the computer automatically.
 
+If an older installation is missing packages required by a new release, the
+updater shows **Setup required** and lists the missing commands/libraries in its
+log. Choose **Update!** again to open the incoming release's Setup, leave **Keep
+my existing desktop and startup preferences** selected, and review the install.
+Setup requests administrator authentication when needed, installs the packages,
+checks them again, then builds and installs the matching desktop. This also
+works when Hyprland already has the correct version; no manual reinstall is
+needed. The handoff is understood by the updater in `0.0.0.297-alpha`.
+Arch-family Setup uses its coordinated system package upgrade, so begin that
+step when ready for package changes. Cancellation or failed dependency checks
+do not activate an incomplete desktop.
+
 ![Desktop updates](screenshots/desktop-updates.png)
 
 One session helper checks roughly every 15 minutes, with a short startup delay, and announces available releases. Downloads require **Update!**; the automatic-update checkbox and background-download behavior have been removed. Older saved automatic-update preferences are ignored. Requested updates merge new defaults with personal settings, build native components and validate the complete Hyprland configuration.
@@ -66,7 +78,7 @@ repairs can still require activation at the same source revision.
 
 ## Failure and recovery
 
-Preparation works in a separate directory. A differing application file no longer blocks an update or needs a manual reinstall. Missing packages, failed builds, invalid configuration or files changed during preparation still leave the current desktop installed. Ordinary update preparation never runs `sudo` or changes system packages; dependency problems are shown for the user to resolve.
+Preparation works in a separate directory. A differing application file no longer blocks an update or needs a manual reinstall. Missing packages, failed builds, invalid configuration or files changed during preparation still leave the current desktop installed. Ordinary update preparation never runs `sudo` or changes system packages; missing dependencies offer foreground Setup, using the downloaded release's package recipes. The full dependency report remains in the update log instead of leaving the user with only the last missing command.
 
 Source downloads and Git history checks share an exclusive process lock. Git
 inherits that lock, so terminating its Python parent cannot allow another worker

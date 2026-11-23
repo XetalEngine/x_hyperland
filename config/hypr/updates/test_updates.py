@@ -466,6 +466,22 @@ e.apply_plan(live,stage,json.loads(plan.read_text()),state)
         self.assertEqual(result['github']['relation'],'unknown')
         self.assertEqual(service.badge(result)['text'],'')
 
+    def test_new_dependency_requirements_offer_the_incoming_release_setup(self):
+        message = 'This update needs desktop/build packages. Choose Update! to open Setup.'
+        engine.write_json(self.state/'runtime-required.json', {
+            'revision': NEW, 'message': message, 'reason': 'dependencies',
+            'problems': ['Missing command: rustc']})
+        latest = {'sha': NEW, 'base': OLD, 'relation': 'ahead', 'message': 'Desktop update'}
+        with patch.object(github, 'latest', return_value=latest):
+            value = service.check(self.live, self.state)
+        self.assertEqual(value['phase'], 'runtime-required')
+        self.assertEqual(value['message'], message)
+        with patch.object(github, 'source', return_value=self.upstream), \
+             patch.object(service.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0)) as run:
+            self.assertEqual(service.worker(NEW, manual=True, setup=True), 0)
+        self.assertEqual(run.call_args.args[0], [sys.executable,
+            str(self.upstream/'installer/launcher.py'), '--gui', '--update'])
+
     def test_runtime_mismatch_cannot_activate_prepared_desktop(self):
         (self.upstream/'runtime').mkdir()
         shutil.copyfile(service.ROOT/'runtime/manifest.json',self.upstream/'runtime/manifest.json')

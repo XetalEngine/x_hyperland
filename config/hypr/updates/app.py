@@ -173,7 +173,7 @@ class Window(QWidget):
         self.prepare.setText('Restarting…' if self.restarting else 'Updating…' if updating else 'Restart' if ready else
                              'Update!')
         self.prepare.setToolTip('Restart this computer to finish updating.' if ready else
-                               'Open Setup to install the required compositor and desktop.' if phase == 'runtime-required' else
+                               'Open Setup to install required packages and finish the desktop update.' if phase == 'runtime-required' else
                                'The latest desktop update is already installed.' if current else
                                'Download, build and check the latest desktop update.')
         actionable = ready or phase == 'runtime-required' or (

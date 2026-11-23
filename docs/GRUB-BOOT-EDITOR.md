@@ -114,6 +114,11 @@ panel. It offers Hyper Fusion, Shadow Edge, Hollow Grove, Tidal Glass, Porcelain
 Ink, Obsidian Forge, Candy Cloud, Breakpoint and Binary Knife. Any bundled picture
 can be paired with any design, or choose a local picture or a solid color.
 
+**Killer Instinct · One More Credit** is a dedicated preset for the purple-lit
+arcade cabinet wallpaper. It keeps the menu on the left so the cabinet stays
+visible, with matching purple accents and adjustable picture/menu shading.
+Select it from the theme thumbnails, then use **Review & apply…** to save it.
+
 The page has no scrolling settings panels: Picture, Menu and Colors tabs keep
 the controls beside the preview. Theme thumbnails use arrow buttons; short
 windows switch to a compact theme picker.

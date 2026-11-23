@@ -45,10 +45,12 @@ def device_identity(path):
                 sysfs=str(sysfs), identity=identity)
 
 
-def device_file(record):
+def device_file(record, *, writable=True, direct=False):
     if device_identity(record['path']) != record:
         raise RuntimeError('An approved VM disk changed. Approve this setup again.')
-    fd = os.open(record['canonical'], os.O_RDWR | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK)
+    flags = (os.O_RDWR if writable else os.O_RDONLY) | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK
+    if direct: flags |= os.O_DIRECT
+    fd = os.open(record['canonical'], flags)
     if os.fstat(fd).st_rdev != record['rdev'] or not stat.S_ISBLK(os.fstat(fd).st_mode):
         os.close(fd); raise RuntimeError('The VM disk changed while opening it.')
     return fd
@@ -82,10 +84,12 @@ def desktop_user(uid):
         os.seteuid(previous[0]); os.setegid(previous[1]); os.setgroups(previous[2])
 
 
-def user_file(path, uid, *, writable=False, directory=False):
+def user_file(path, uid, *, writable=False, directory=False, direct=False):
     flags = (os.O_RDWR if writable else os.O_RDONLY) | os.O_CLOEXEC | os.O_NONBLOCK
     if directory:
         flags |= os.O_DIRECTORY
+    if direct:
+        flags |= os.O_DIRECT
     with desktop_user(uid):
         fd = os.open(path, flags)
     info = os.fstat(fd)
@@ -321,7 +325,7 @@ def submit(approved):
     runbase = protected_directory(Path('/run/hyperfusion-kvm-launch'))
     directory = Path(tempfile.mkdtemp(prefix=f'{approved["uid"]}-', dir=runbase))
     directory.chmod(0o750); os.chown(directory, 0, approved['gid'])
-    log = directory/'output.log'; log.touch(mode=0o640); os.chown(log, 0, approved['gid'])
+    log = directory/'output.log'; log.touch(mode=0o640); log.chmod(0o640); os.chown(log, 0, approved['gid'])
     plan = json.loads(json.dumps(approved['plan']).replace('/run/hyperfusion-approved-guest', str(directory)))
     if plan.get('tap'):
         name = 'hfv'+os.urandom(5).hex()
