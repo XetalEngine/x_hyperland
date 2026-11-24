@@ -32,6 +32,7 @@ The November 22–24, 2026 updates bring more everyday settings into the desktop
 
 | Area | What's new |
 | --- | --- |
+| **Default Settings** | The last Fusion Settings page offers **Save System Settings**, **Load**, and **Reset Defaults**, with category checkboxes, **Select All**, a searchable value inventory and automatic recovery. Includes individual window geometry/title bars, sound preferences, Pacman/AUR package lists, CPU policy, GRUB and system settings. Full reset requires the original system baseline recorded by new installations. [Guide and screenshot →](docs/DEFAULT_SETTINGS.md) |
 | **Reachable title bars** | Protection is enabled by default under **Theme → Window effects → Window Behavior**. After dragging, a title bar obscured by Waybar or the screen edge moves smoothly back within reach. The saved off switch keeps its choice across logins and updates. |
 | **Audio organization** | **Audio → Devices** contains the device controls and application mixer. **Audio → System Audio** contains the sound packs, previews and event choices previously under Theme. Existing sound preferences are preserved. |
 | **Software catalog** | **Control Panel → Software** now has a category tree, app cards, descriptions and six featured banners. Pacman is selected by default, with optional Yay/Paru search and current Linux downloads for Echo, Linux Studio, XMusic and Xetal Video Editor. [Explore the new Software page →](#software-made-for-hyper-fusion) |
@@ -134,7 +135,7 @@ These policies manage application windows. Menus, tooltips and desktop panels ke
 | **Moving windows** | Drag the title area without Super; the bar moves and wobbles with the window. | Super+left-drag remains available; overlays hide while the window moves or settles. |
 | **Saved choices** | Separate KDE settings for this app or this window. | Standard app/window settings, with optional workspace overrides. |
 
-To disable the added bar, open its **gear**, uncheck **Add a title bar above the app**, choose **Only this window** or **All windows of this app**, and **Apply**. Window-only choices last until that window closes; app choices persist across logins. KDE returns to its overlay controls for that window/app. Hold Super to reach the gear again when those controls are hidden. KDE choices stay separate from the other modes.
+To disable the added bar, open its **gear**, uncheck **Add a title bar above the app**, choose **Only this window** or **All windows of this app**, and **Apply**. Individual choices are remembered by application, window identity and occurrence; app choices cover all matching windows. Both are included in **Default Settings** archives. KDE returns to its overlay controls for that window/app. Hold Super to reach the gear again when those controls are hidden. KDE choices stay separate from the other modes.
 
 Outside KDE mode, the workspace's **Force modifier buttons** menu independently selects **Individual** (your app/window choices), **On** (shared, always-visible controls), or **Off** (hide all Fusion overlay buttons, including under Super). KDE temporarily uses its own settings and preserves that workspace choice for when you leave KDE mode.
 
@@ -636,6 +637,7 @@ Your hotkeys, monitor arrangement, chosen wallpapers, private Dolphin Places and
 | Guide | Details |
 | --- | --- |
 | [Recent desktop changes and remaining work](docs/DESKTOP-ROADMAP.md) | November integrations, UI fixes, completed checks, deferred features and ISO rebuild status |
+| [Default Settings](docs/DEFAULT_SETTINGS.md) | Save/Load categories, complete value inventory, packages and system settings, factory baseline, recovery and activation timing |
 | [Illustrated feature guide](config/hypr/FEATURES.md) | The Fusion Files redesign, recording, window modes, per-monitor cubes and the file engine; also available in the installed profile |
 | [Workspace modes](config/hypr/workspaces/README.md) | Per-workspace layouts, mode cycling and independent button settings |
 | [Window controls](config/hypr/effects/window_close/README.md) | KDE title bars, Super overlays, app/window overrides and live previews |

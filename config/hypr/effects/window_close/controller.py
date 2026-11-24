@@ -173,6 +173,14 @@ def save_rule(window_id, scope, rule, token, window_token=None, *, profile='stan
             try: hypr('dispatch','xetalwindowclose:reload')
             except Exception: pass
             raise
+    # Per-window IDs disappear when their windows close. Keep the corresponding
+    # application/role/title identity for the complete settings archive.
+    from settings_profiles.windows import remember
+    class Snapshot:
+        def query(self, name): return json.loads(hypr('-j', *name.split()))
+    try: remember(Path(__file__).resolve().parents[2], instance_dir(), Snapshot())
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        print('Window settings saved for this session; archive inventory could not be refreshed: '+str(error), file=sys.stderr)
     return rules.load(path,section)
 
 

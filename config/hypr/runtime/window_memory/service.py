@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from effects.session import initialize
 from window_rules.window_types import geometry_managed, window_metadata
+from settings_profiles.windows import Restore as SettingsWindowRestore
 sys.path.insert(0, str(ROOT/'launcher'))
 from floating import Hypr, valid_size, valid_position, window_key, workarea
 
@@ -169,6 +170,7 @@ class Tracker:
     def update(self, now):
         clients = self.hypr.query('clients')
         metadata = window_metadata(self.hypr)
+        if getattr(self, 'settings_restore', None): self.settings_restore.update(clients, metadata)
         monitors = {m['id']: m for m in self.hypr.query('monitors')}
         current = {(c['address'], c.get('pid'), c.get('stableId')) for c in clients if c.get('mapped')}
         for client in clients:
@@ -270,6 +272,7 @@ class Tracker:
             previous, _ = self.samples.get(token, (None, 0))
             if previous: self.store.put(self.keys[token], previous)
         self.store.save()
+        if getattr(self, 'settings_restore', None): self.settings_restore.flush()
 
 
 def ensure_plugin(hypr):
@@ -300,6 +303,9 @@ def main():
         # An older adapter can remain loaded until logout and uses the legacy path.
         hypr.command('xetal-memory-source '+str(state.resolve()))
         tracker = Tracker(hypr, Store(state))
+        try: tracker.settings_restore = SettingsWindowRestore(ROOT, instance, hypr)
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            print('Saved window settings could not be read: '+str(error), file=sys.stderr, flush=True)
         stopping = False
         def stop(*_):
             nonlocal stopping
@@ -313,7 +319,11 @@ def main():
                 if now-last_update < .15: continue
                 try:
                     tracker.update(now)
-                except (OSError, ValueError) as error:
+                    flush_request = instance/'settings-memory-flush'
+                    if flush_request.exists():
+                        tracker.flush()
+                        flush_request.unlink(missing_ok=True)
+                except (OSError, ValueError, RuntimeError) as error:
                     # A busy compositor can miss an IPC deadline. Keep observing
                     # this session instead of silently losing all future saves.
                     if now-last_error > 10:
@@ -324,6 +334,7 @@ def main():
                 last_update = now
                 if now-last_save > 2:
                     tracker.store.save(); last_save = now
+                    if getattr(tracker, 'settings_restore', None): tracker.settings_restore.flush()
         finally:
             tracker.flush()
     return 0

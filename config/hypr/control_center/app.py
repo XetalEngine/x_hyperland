@@ -44,6 +44,7 @@ from icons import icon as navigation_icon
 from terminal_fetch.page import TerminalPage
 from recording.page import CapturePage
 from default_apps_page import DefaultAppsPage
+from settings_profiles.page import DefaultSettingsPage
 sys.path.insert(0, str(keys.ROOT))
 from desktop_services.phone_page import PhonePage
 from desktop_services.power_page import PowerPage
@@ -1139,7 +1140,8 @@ class Window(QMainWindow):
                       'context-menu': ContextMenuPage(async_run),
                       'default-apps': DefaultAppsPage(async_run, launch),
                       'calendar': CalendarPage(), 'capture': CapturePage(async_run),
-                      'system': SystemPage(async_run, launch, self.switch), 'phone': PhonePage(async_run), 'power': PowerPage(async_run), 'terminal': TerminalPage(async_run)}
+                      'system': SystemPage(async_run, launch, self.switch), 'phone': PhonePage(async_run), 'power': PowerPage(async_run), 'terminal': TerminalPage(async_run),
+                      'default-settings': DefaultSettingsPage(async_run)}
         for name, page in self.pages.items():
             self.tabs.addTab(page, ('Recorder' if name == 'capture' else name.replace('-', ' ').title()))
         self.pages['theme'].systemAudioRequested.connect(self.open_system_audio)
@@ -1312,7 +1314,7 @@ class Window(QMainWindow):
         if hotkeys.busy or (hotkeys.dirty and not hotkeys.confirm_discard()):
             event.ignore()
             return
-        if not self.pages['displays'].can_close() or any(self.pages[name].busy for name in ('input','theme','audio','context-menu','power','phone')):
+        if not self.pages['displays'].can_close() or any(self.pages[name].busy for name in ('input','theme','audio','context-menu','power','phone','default-settings')):
             event.ignore()
             return
         unsaved = [('Recorder' if name == 'capture' else name.replace('-', ' ').title()) for name in ('displays','input','theme','audio','context-menu','terminal','capture') if self.pages[name].dirty]
@@ -1331,7 +1333,7 @@ class Window(QMainWindow):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--tab', choices=['home', 'hotkeys', 'audio', 'network', 'bluetooth', 'displays', 'input', 'theme', 'context-menu', 'default-apps', 'calendar', 'capture', 'system', 'remote-desktop', 'phone', 'power', 'terminal'], default='hotkeys')
+    parser.add_argument('--tab', choices=['home', 'hotkeys', 'audio', 'network', 'bluetooth', 'displays', 'input', 'theme', 'context-menu', 'default-apps', 'calendar', 'capture', 'system', 'remote-desktop', 'phone', 'power', 'terminal', 'default-settings'], default='hotkeys')
     parser.add_argument('--preview', help='Render the initial window to a PNG and exit')
     parser.add_argument('--window-hints', action='store_true')
     parser.add_argument('--preload', action='store_true', help=argparse.SUPPRESS)

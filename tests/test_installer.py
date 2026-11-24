@@ -123,6 +123,24 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(model.effective(data, workspace)['layout'], 'kde')
         self.assertFalse((self.target/'workspaces/rules.json').exists())
 
+    def test_settings_factory_matches_fresh_render_and_excludes_personal_snapshots(self):
+        from settings_profiles import archive, catalog
+        self.render()
+        document, blobs = archive.read(self.stage/'settings_profiles/factory.hfsettings')
+        self.assertEqual(set(document['categories']), catalog.USER_IDS)
+        files = {r['path']:r for r in document['files'] if r['scope'] == 'profile'}
+        for name in ('control_center/displays.conf', 'control_center/input.conf', 'effects/window_close/behavior-settings.json',
+                     'theme/state.json', 'wallpaper/selection.json', 'launcher/bar-pins.json'):
+            saved, actual = blobs[files[name]['sha256']], (self.stage/name).read_bytes()
+            self.assertEqual(json.loads(saved) if name.endswith('.json') else saved,
+                             json.loads(actual) if name.endswith('.json') else actual, name)
+        for directory, names in (('settings_profiles', ['audio.json', 'imported-assets', 'factory.hfsettings']),
+                                 ('effects/window_close', ['saved-windows.json'])):
+            ignored = install.payload_ignored(install.PAYLOAD/directory, names)
+            self.assertTrue(set(names) <= ignored)
+        self.assertNotIn('effects/window_close/saved-windows.json', files)
+        self.assertNotIn('settings_profiles/audio.json', files)
+
     def test_clipboard_and_snapping_are_delivered_without_private_history(self):
         self.render()
         self.assertTrue((self.stage/'clipboard/native/collector.cpp').is_file())

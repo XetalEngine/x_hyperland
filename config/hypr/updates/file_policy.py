@@ -21,6 +21,8 @@ KEEP = frozenset({
     'effects/window_close/rules.json',
     'effects/window_close/kde-rules.json',
     'workspaces/rules.json',
+    'effects/window_close/saved-windows.json',
+    'settings_profiles/audio.json',
 })
 
 # Keep this list with the settings code: adding a new editable file requires

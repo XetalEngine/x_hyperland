@@ -29,6 +29,10 @@ config/hypr/startup/state/
 config/hypr/assets/font-cache/
 .xetal-install.json
 .xetal-update.json
+config/hypr/settings_profiles/factory.hfsettings
+config/hypr/settings_profiles/imported-assets/
+config/hypr/settings_profiles/audio.json
+config/hypr/effects/window_close/saved-windows.json
 .DS_Store
 config/hypr/effects/burn/.build/
 config/hypr/effects/cube/.build/

@@ -20,6 +20,7 @@ import dependencies
 import runtime_install
 import login_setup
 import commands
+import settings_factory
 
 REPO=Path(__file__).resolve().parents[1]
 PAYLOAD=REPO/'config/hypr'
@@ -27,6 +28,7 @@ sys.path.insert(0, str(PAYLOAD/'compat'))
 import hypr_compat
 sys.path.insert(0, str(PAYLOAD))
 from dolphin import profile as dolphin_profile
+from settings_profiles.factory import LAUNCHER_DEFAULTS, THEME_DEFAULTS
 
 DOLPHIN_DEFAULTS = {'dolphin/config/dolphinrc', 'dolphin/config/kdeglobals',
                     'dolphin/config/kservicemenurc',
@@ -34,12 +36,6 @@ DOLPHIN_DEFAULTS = {'dolphin/config/dolphinrc', 'dolphin/config/kdeglobals',
 
 # A source checkout may also have been used as a desktop. Seed portable
 # launcher settings explicitly instead of copying its owner's saved pins.
-LAUNCHER_DEFAULTS = {
-    'favorites.json': {'add': ['xetal-files-computer.desktop', 'kitty.desktop', 'xetal-calculator.desktop'], 'hide': []},
-    'shortcuts.json': {'version': 1, 'overrides': {'xetal-calculator.desktop': {'floating': True}}, 'copies': {}},
-    'bar-pins.json': {'version': 1, 'pins': []},
-    'window.json': {'width': 980, 'height': 720},
-}
 
 
 def payload_ignored(directory, names):
@@ -58,6 +54,10 @@ def payload_ignored(directory, names):
         ignored.add('rules.json')
     if relative == 'icon_themes':
         ignored.update(('custom','imported','backups'))
+    if relative == 'effects/window_close':
+        ignored.add('saved-windows.json')
+    if relative == 'settings_profiles':
+        ignored.update(('factory.hfsettings', 'audio.json', 'imported-assets'))
     if relative.startswith('wallpaper/'):
         # Artwork creation notes remain in the repository, not in recipients'
         # desktop profiles (they can refer to the artist's local source files).
@@ -121,9 +121,7 @@ def render(stage, home, monitors, profile='auto', *, preserve_theme=False):
         {'version':1, 'default_layout':'kde', 'workspaces':{}}, indent=2)+'\n')
     theme = stage/'theme/state.json'
     theme_defaults = json.loads(theme.read_text())
-    theme_defaults.update(design='binaryknife',mode='dark',layout='sidebar',wallpaper_theme='binaryknife',
-                          bar_style='follow',bar_variant='full',launcher_style='follow',
-                          launcher_wallpaper=True, launcher_background='')
+    theme_defaults.update(THEME_DEFAULTS)
     # Updates render colors for the recipient's chosen theme, including when
     # it still matches an old release default. Fresh/reset installs use Binary Knife.
     saved_theme=target/'theme/state.json'
@@ -191,6 +189,12 @@ def render(stage, home, monitors, profile='auto', *, preserve_theme=False):
     dolphin_profile.prepare_layout(stage)
     # Render the selected fresh-install theme; no live IPC or shared settings.
     subprocess.run([sys.executable,str(stage/'theme/render_defaults.py'),'--asset-root',str(target/'theme')],check=True)
+    # A reset must never use the recipient's merged/personal settings as defaults.
+    # Package this release's pristine defaults with every install and update.
+    sys.path.insert(0, str(PAYLOAD))
+    from settings_profiles.factory import build as build_settings_factory
+    build_settings_factory(PAYLOAD if preserve_theme else stage, stage/'settings_profiles/factory.hfsettings', home,
+                           rendered=not preserve_theme)
     # Copy the recipient's XDG directory locations, without invoking a shell or
     # creating/changing any of those folders.
     user_dirs=home/'.config/user-dirs.dirs'
@@ -433,6 +437,7 @@ def main():
         dependencies.prepare_account()
         checkpoint()
     target.parent.mkdir(parents=True,exist_ok=True)
+    first_install = not target.exists()
     state.mkdir(parents=True,exist_ok=True,mode=0o700)
     with (state/'install.lock').open('a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -452,6 +457,7 @@ def main():
             try:
                 commands.install()
                 login_setup.apply(args.fusion_login, target, args.skip_packages)
+                settings_factory.record(target, first_install, args.skip_packages)
             except BaseException:
                 # Keep the old desktop paired with any compositor recovery.
                 # The enclosing error handler also recovers this transaction's runtime.

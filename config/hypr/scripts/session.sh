@@ -38,6 +38,16 @@ if [[ "${XETAL_UPDATE_ACTIVATED:-}" != 1 ]]; then
     fi
 fi
 unset XETAL_UPDATE_ACTIVATED
+
+# Apply a reviewed settings archive before any preference-writing helper starts.
+# A reset never logs the user out or hot-swaps a native plugin.
+settings_result=0
+"$session_python" "$config_dir/settings_profiles/cli.py" activate >"$(session_log settings-activation.log)" 2>&1 || settings_result=$?
+if [[ "$settings_result" == 20 ]]; then
+    hyprctl reload >>"$(session_log settings-activation.log)" 2>&1 || true
+elif [[ "$settings_result" != 0 ]]; then
+    notify-send -a 'Fusion Settings' 'Settings could not be loaded' 'Your previous settings were restored. See Default Settings for the recovery details.' || true
+fi
 children=()
 
 cleanup() {
@@ -53,6 +63,9 @@ trap 'exit 0' INT TERM HUP
 export XDG_CURRENT_DESKTOP=Hyprland
 export XDG_SESSION_DESKTOP=Hyprland
 export XDG_SESSION_TYPE=wayland
+
+"$session_python" "$config_dir/settings_profiles/cli.py" audio >"$(session_log settings-audio.log)" 2>&1 9>&- &
+children+=("$!")
 
 # Fresh accounts need their standard folders before Files and desktop helpers
 # start. Existing XDG locations and opt-outs are preserved; failure is nonfatal.

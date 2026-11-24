@@ -7,7 +7,7 @@ def icon(name, color, size=24):
     themed={'home':'user-home','network':'network-workgroup','displays':'computer',
             'capture':'multimedia-video-player','chip':'xetal-kvm-settings','fusion-settings':'xetal-fusion-settings',
             'theme':'preferences-desktop-theme','terminal':'utilities-terminal','system':'system-shutdown',
-            'power':'battery','phone':'smartphone','remote-desktop':'krdc',
+            'power':'battery','phone':'smartphone','remote-desktop':'krdc','default-settings':'document-save-all',
             'monitor':'utilities-system-monitor','files':'system-file-manager','folder':'folder','trash':'user-trash'}.get(name)
     if themed:
         candidate=QIcon.fromTheme(themed)
@@ -59,6 +59,8 @@ def icon(name, color, size=24):
     elif name=='context-menu':
         p.drawRoundedRect(QRectF(3,3,18,18),3,3)
         for y in (8,12,16):line(7,y,7.5,y);line(11,y,17,y)
+    elif name=='default-settings':
+        p.drawRoundedRect(QRectF(3,3,18,18),2,2);p.drawRect(QRectF(7,3,10,6));p.drawRect(QRectF(7,14,10,7))
     elif name=='default-apps':
         for x,y in ((3,3),(14,3),(3,14)):
             p.drawRoundedRect(QRectF(x,y,7,7),1.4,1.4)
