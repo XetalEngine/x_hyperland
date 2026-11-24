@@ -32,6 +32,7 @@ def main():
     parser.add_argument('--capture', action='store_true')
     parser.add_argument('--wobbly-plugin', type=Path)
     parser.add_argument('--wobbly-first', action='store_true')
+    parser.add_argument('--protect-titlebars', action='store_true', help='Also exercise title-bar recovery and its saved off switch')
     args = parser.parse_args()
     binary = args.plugin.resolve(strict=True)
     root = args.directory.resolve(); root.mkdir(parents=True, exist_ok=False)
@@ -224,6 +225,71 @@ windowrule = match:class ^fusion-snap-test$, float on
                             check(f'{index}: drag away restores size', client()['size'] == before['size'], client())
                 else:
                     check(f'{index}: {choice} does not snap', after['fullscreen'] == 0 and (choice == 'resize' or after['size'] == before['size']), detail)
+            if args.protect_titlebars:
+                settle_test_springs()
+                settings_file=root/'effects/window_close/behavior-settings.json'
+                snap_file=root/'effects/window_close/snap-settings.json'
+                snap_file.write_text(json.dumps({'enabled':False}))
+                dispatch('xetalwindowclose:reload')
+                check('title-bar protection defaults on',status()['titlebar_protection_enabled'],status())
+                if client()['fullscreen']:dispatch('fullscreen','1')
+                if not client()['floating']:dispatch('setfloating',address)
+                dispatch('resizewindowpixel','exact 600 400,'+address)
+                # A real layer-shell panel exercises exclusive-zone changes.
+                (root/'panel.json').write_text(json.dumps({'layer':'top','position':'top','output':'SNAP','height':40,
+                    'exclusive':True,'modules-left':['custom/test'],'custom/test':{'format':'Test panel'}}))
+                (root/'panel.css').write_text('* {font-family: sans-serif; font-size: 12px; min-height: 0;} window#waybar {background: #123;}')
+                panel=spawn(['waybar','-c',str(root/'panel.json'),'-s',str(root/'panel.css')])
+                def output():return next(m for m in json.loads(ctl('-j','monitors')) if m['name']=='SNAP')
+                wait(lambda: output()['reserved'][1]>=40,'panel exclusive zone')
+                def bar_box():
+                    ids=json.loads(ctl('xetal-windowbuttons'))['windows']
+                    for identity in ids:
+                        item=json.loads(ctl('xetal-windowbuttons',identity))
+                        if item['address']==client()['address']:return item['titlebar']['box']
+                def recovered():
+                    box=bar_box();monitor=output()
+                    return bool(box) and box[1]>=monitor['y']+monitor['reserved'][1]-.1
+                def set_protection(enabled):
+                    settings_file.write_text(json.dumps({'titlebar_protection':enabled}))
+                    dispatch('xetalwindowclose:reload')
+                for label,monitor_config in [('normal','SNAP,1280x900@60,0x0,1'),
+                                             ('negative origin','SNAP,1280x900@60,-1280x-200,1'),
+                                             ('fractional scale','SNAP,1920x1350@60,0x0,1.5')]:
+                    assert ctl('keyword','monitor',monitor_config)=='ok'
+                    time.sleep(.2);monitor=output();settle_test_springs();set_protection(False)
+                    x,y=monitor['x']+300,monitor['y']-100
+                    dispatch('movewindowpixel',f'exact {x} {y},'+address);time.sleep(.4)
+                    before=client()
+                    check(label+': disabled stays offscreen',before['at']==[x,y] and not status()['titlebar_protection_enabled'],before)
+                    set_protection(True);wait(recovered,label+': recovered')
+                    after=client()
+                    check(label+': title above panel',recovered(),dict(bar=bar_box(),monitor=output()))
+                    check(label+': size and workspace preserved',after['size']==before['size'] and after['workspace']==before['workspace'] and after['at'][0]==before['at'][0],after)
+                    time.sleep(.4);count=status()['titlebar_protection_corrections'];time.sleep(.4)
+                    check(label+': no repeated correction',status()['titlebar_protection_corrections']==count,status())
+                assert ctl('keyword','monitor','SNAP,1280x900@60,0x0,1')=='ok'
+                if not args.wobbly_plugin:
+                    set_protection(False);dispatch('movewindowpixel','exact 330 -100,'+address);time.sleep(.3)
+                    assert ctl('keyword','animations:enabled','true')=='ok'
+                    assert ctl('keyword','animation','windows,1,4,default')=='ok'
+                    set_protection(True);positions=[];until=time.monotonic()+1.1
+                    while time.monotonic()<until:
+                        positions.append(round(bar_box()[1],2));time.sleep(.02)
+                    check('recovery uses a smooth position animation',len(set(positions))>3 and recovered(),positions)
+                    assert ctl('keyword','animations:enabled','false')=='ok'
+                settle_test_springs();dispatch('movewindowpixel','exact 330 230,'+address)
+                point('move 510 310');point('key 125 1');point('button 1');point('move 640 1',.4)
+                check('active drag is not pulled down',client()['at'][1]<output()['reserved'][1],client())
+                point('button 0',.4);point('key 125 0');wait(recovered,'drag release recovery')
+                check('release recovers title bar',recovered(),client())
+                settle_test_springs();dispatch('fullscreen','0');time.sleep(.4)
+                full=client();count=status()['titlebar_protection_corrections'];time.sleep(.4)
+                check('fullscreen is untouched',full['fullscreen']==2 and client()['at']==full['at'] and status()['titlebar_protection_corrections']==count,client())
+                dispatch('fullscreen','0');settle_test_springs();dispatch('settiled',address);time.sleep(.4)
+                tiled=client();count=status()['titlebar_protection_corrections'];time.sleep(.4)
+                check('tiled windows are untouched',not tiled['floating'] and client()['at']==tiled['at'] and status()['titlebar_protection_corrections']==count,client())
+                panel.terminate();panel.wait(timeout=3)
             report['passed'] = True
         finally:
             (root/'result.json').write_text(json.dumps(report, indent=2)+'\n')

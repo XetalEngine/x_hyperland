@@ -140,16 +140,24 @@ this Hyprland session. Reopen older applications after an upgrade. Custom app
 pickers and separate portal processes need their own integration. The installer
 builds the private native modules from source; shared desktop settings stay alone.
 
-Audio now includes its per-application mixer in the Audio tab. Playback and
+Audio has Devices and System Audio tabs. Devices includes the output and
+microphone controls, hardware capture gain and per-application mixer. Playback and
 Recording show one column per application with its icon, vertical volume fader,
 mute, and device route. Multiple streams from one app stay together; channel and
 stream balance are retained when changing the group level. The strip scrolls
 horizontally with its scrollbar, mouse wheel, or touchpad. App/device changes
 update live, and meter probes do not appear as recording apps. Audio event
 listeners run only while this page is visible. No audio service is restarted.
+System Audio holds the sound packs formerly under Theme: startup, shutdown,
+notifications, previews, volume and individual sound switches. Saved choices and
+unsaved edits survive tab switches; hiding this tab stops its preview.
 Audio device selection routes existing streams to the chosen device. Network,
 audio and power actions run only when selected. Bluetooth is not started by setup;
 the Bluetooth tab can start it on demand without enabling it at boot.
+Theme > Window effects > Window Behavior enables title-bar protection by
+default. After a drag, a title bar hidden above the monitor or behind Waybar
+moves smoothly into the usable area. The window keeps its size and workspace.
+The switch can be turned off and its choice survives updates and logins.
 External GTK controls keep preferences under hypr/apps using the keyfile backend.
 
 The application menu reads favorites from the active KDE Kickoff menu without

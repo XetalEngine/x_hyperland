@@ -55,8 +55,9 @@ def activate(values, target=None):
     else:
         if not values['enabled']:
             from workspaces import model as workspace_model
+            from effects.window_close import behavior
             workspaces, _ = workspace_model.load()
-            if not workspace_model.needs_controls(workspaces): return
+            if not workspace_model.needs_controls(workspaces) and not behavior.load()[0]: return
         current = json.loads(hypr('-j','version'))
         if current.get('commit') not in build.SUPPORTED_COMMITS:
             raise RuntimeError('Window Close needs a supported Hyprland session. The windowclose handler needs an updated adapter.')

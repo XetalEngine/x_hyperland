@@ -41,6 +41,8 @@ class SessionCacheTests(unittest.TestCase):
              {'tab': 'window-hints', 'wallpaper': '', 'preload': False}),
             (['settings', '--preload'], settings,
              {'tab': 'hotkeys', 'wallpaper': '', 'preload': True}),
+            (['settings', '--system-audio'], settings,
+             {'tab': 'audio', 'wallpaper': '', 'preload': False, 'system_audio': True}),
             (['panel', '--section', 'cleaner'], panel,
              {'section': 'cleaner', 'preload': False}),
             (['panel', '--section', 'deb', '--deb-file', "/tmp/package's $(literal).deb"], panel,

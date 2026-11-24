@@ -28,10 +28,12 @@
 
 ## Recent desktop updates
 
-The November 22–23, 2026 updates bring more everyday settings into the desktop and refine the existing tools.
+The November 22–24, 2026 updates bring more everyday settings into the desktop and refine the existing tools.
 
 | Area | What's new |
 | --- | --- |
+| **Reachable title bars** | Protection is enabled by default under **Theme → Window effects → Window Behavior**. After dragging, a title bar obscured by Waybar or the screen edge moves smoothly back within reach. The saved off switch keeps its choice across logins and updates. |
+| **Audio organization** | **Audio → Devices** contains the device controls and application mixer. **Audio → System Audio** contains the sound packs, previews and event choices previously under Theme. Existing sound preferences are preserved. |
 | **Software catalog** | **Control Panel → Software** now has a category tree, app cards, descriptions and six featured banners. Pacman is selected by default, with optional Yay/Paru search and current Linux downloads for Echo, Linux Studio, XMusic and Xetal Video Editor. [Explore the new Software page →](#software-made-for-hyper-fusion) |
 | **Remote desktop** | **Control Panel → RDP** now handles RDP and VNC in both directions. RDP remains the default for outgoing connections; existing saved Windows PCs and wallet credentials are preserved. Incoming sharing shows when it is starting, listening or connected, with stable buttons and readable logs. |
 | **Video wallpapers** | **Super+W** switches between **Pictures** and **Videos** and remembers the choice. Picture and video folders are managed separately. Local videos loop silently per monitor, with fullscreen/battery pause options and a still-image fallback. |

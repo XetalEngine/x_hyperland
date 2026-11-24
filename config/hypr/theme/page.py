@@ -349,7 +349,8 @@ class StartMenuPage(QWidget):
 
 
 class ThemePage(QWidget):
-    def __init__(self,async_run,filename=''):
+    systemAudioRequested=pyqtSignal()
+    def __init__(self,async_run,filename='',sounds_page=None):
         super().__init__(); self.async_run=async_run; self.applying=False; self.token=None
         self.preset_selected=False;self.apply_error=None
         self.avatar=runtime.state().get('avatar','assets/account.gif')
@@ -377,7 +378,10 @@ class ThemePage(QWidget):
         self.task_switcher=TaskSwitcherPage(self.component_job)
         self.cursors=CursorsPage(self.component_job)
         self.icons_page=IconsPage(self.component_job)
-        self.sounds_page=SoundsPage(self.component_job)
+        # Audio owns the detailed sound editor; retain its draft guard because
+        # applying a theme or a mix can also change the selected sound pack.
+        self.sounds_page=sounds_page if sounds_page is not None else SoundsPage(self.component_job)
+        if sounds_page is None:self.sounds_page.setParent(self);self.sounds_page.hide()
         self.design_page=DesignPage(self)
         self.layout_page=LayoutPage(self);self.custom_page=CustomPage(self)
         self.start_menu_page=StartMenuPage(self)
@@ -385,7 +389,6 @@ class ThemePage(QWidget):
         self.tabs.addTab(self.design_page,'Presets');self.tabs.addTab(self.mix_page,'Mix && match');self.tabs.addTab(self.layout_page,'Design');self.tabs.addTab(self.custom_page,'Custom');self.tabs.addTab(self.start_menu_page,'Start Menu')
         self.tabs.addTab(self.task_switcher,'Task Switcher');self.tabs.addTab(self.cursors,'Cursors')
         self.tabs.addTab(self.icons_page,'Icons')
-        self.tabs.addTab(self.sounds_page,'Sounds')
         self.tabs.addTab(self.wallpapers,'Wallpapers');self.tabs.addTab(self.file_transfer,'File Transfer');self.tabs.addTab(self.appearance,'Window effects');root.addWidget(self.tabs,1)
         if filename:self.tabs.setCurrentWidget(self.wallpapers)
         self.design.currentIndexChanged.connect(self.preset_changed);self.mode.currentIndexChanged.connect(self.changed)
@@ -396,11 +399,11 @@ class ThemePage(QWidget):
         style=self.launcher_style.currentData()
         return self.design.currentData() if style=='follow' else style
     @property
-    def dirty(self):return self.other_pending_mix_edits() or self.mix_page.dirty
+    def dirty(self):return self.other_pending_mix_edits(include_sounds=False) or self.mix_page.dirty
     @property
     def busy(self):return self.applying or self.wallpapers.busy or self.appearance.busy or self.file_transfer.busy or self.task_switcher.busy or self.cursors.busy or self.icons_page.busy or self.sounds_page.busy or self.mix_page.busy
-    def other_pending_mix_edits(self):
-        return self.preset_selected or self.wallpapers.dirty or self.appearance.dirty or self.file_transfer.dirty or self.task_switcher.dirty or self.cursors.dirty or self.icons_page.dirty or self.sounds_page.dirty or self.choice()!=self.baseline or self.layout_page.choice.currentData()!=self.layout_baseline or self.layout_page.marker.currentData()!=self.marker_baseline
+    def other_pending_mix_edits(self,include_sounds=True):
+        return self.preset_selected or self.wallpapers.dirty or self.appearance.dirty or self.file_transfer.dirty or self.task_switcher.dirty or self.cursors.dirty or self.icons_page.dirty or (include_sounds and self.sounds_page.dirty) or self.choice()!=self.baseline or self.layout_page.choice.currentData()!=self.layout_baseline or self.layout_page.marker.currentData()!=self.marker_baseline
     def refresh(self):
         if not self.busy and not self.preset_selected and self.choice()==self.baseline and self.layout_page.choice.currentData()==self.layout_baseline and self.layout_page.marker.currentData()==self.marker_baseline:
             self.baseline,self.token=self.read_saved();self.sync_design_controls();self.set_choice(self.baseline);self.changed()
@@ -515,7 +518,7 @@ class ThemePage(QWidget):
     def save_mode(self):
         if self.busy:return
         if self.pending_components():
-            self.status.setText('Apply or discard pending edits in the other theme tabs before applying a preset.');return
+            self.status.setText('Apply or discard pending Theme or System Audio edits before applying a preset.');return
         try:
             saved,token=self.read_saved();choice,conflicts=self.merge_choice(saved)
             saved_layout=runtime.layout();edited_layout=self.layout_page.choice.currentData()

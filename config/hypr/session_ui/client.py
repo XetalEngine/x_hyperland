@@ -47,9 +47,11 @@ def main():
             arguments = ['--tab', 'theme'] + (['--wallpaper', args.filename] if args.filename else []) + (['--preload'] if args.preload else [])
         parser = argparse.ArgumentParser(add_help=False)
         parser.add_argument('--tab', default='hotkeys'); parser.add_argument('--wallpaper', default='')
+        parser.add_argument('--system-audio', action='store_true')
         parser.add_argument('--window-hints', action='store_true'); parser.add_argument('--preload', action='store_true'); parser.add_argument('--preview')
         args, unknown = parser.parse_known_args(arguments)
         request = {'tab': 'window-hints' if args.window_hints else args.tab, 'wallpaper': args.wallpaper, 'preload': args.preload}
+        if args.system_audio:request.update(tab='audio',system_audio=True)
         if not args.preview and not unknown and contact('control-center.sock', request): return 0
         command = [sys.executable, str(ROOT / 'theme/run.py'), sys.executable, str(ROOT / 'control_center/app.py'), *arguments]
     os.execv(command[0], command)

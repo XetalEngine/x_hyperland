@@ -1,5 +1,22 @@
 # Window buttons
 
+**Theme → Window effects → Window Behavior** has **title-bar protection**, on
+by default. When a floating window's header goes above its monitor or behind
+Waybar, the native adapter moves it back into the monitor's usable area after
+the drag ends. It keeps the same size, workspace and focus, uses normal position
+animation and hands the corrected destination to Wobbly. At least a draggable
+header segment remains reachable for oversized or partially off-screen windows.
+Fullscreen/maximized windows, tiled layouts, active grabs, lock/input-capture
+sessions and surfaces with application-owned placement are excluded.
+
+The adapter uses logical work-area coordinates and decoration extents, including
+exclusive-zone changes, negative output origins and fractional scaling. A native
+reachability scan is bounded to four per second, with no subprocess/IPC polling.
+It runs independently of modifier-button visibility. The profile-local
+`behavior-settings.json` default is `{"titlebar_protection": true}`; a saved false
+choice persists across updates and logins and is independent of theme presets.
+This new adapter activates at the next login; never replace a mapped plugin.
+
 Hold **Super** while pointing at a window to reveal a gear, minimize,
 maximize/restore, and close buttons at its top-right corner. Minimize uses Fusion's existing
 Minimize effect and its restore icons. Close sends the application's normal

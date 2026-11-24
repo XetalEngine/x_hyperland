@@ -48,6 +48,8 @@
 #include <hyprland/src/config/supplementary/executor/Executor.hpp>
 #include "titlebar_paint.hpp"
 #include "snap_geometry.hpp"
+#include "title_protection_geometry.hpp"
+#include "title_protection_config.hpp"
 #include "../../../workspaces/native.hpp"
 #include "decorations_057.hpp"
 #include "../../../runtime/window_types_native_057.hpp"
@@ -59,6 +61,7 @@ struct Settings { bool enabled=true, pulse=true; int modifier=64, size=18, inset
 std::array<double,3> accent{.224,.663,1};
 WindowButtons::Titlebar::Palette titlebarPalette;
 uint64_t paletteRevision=0;
+bool titleProtectionEnabled=true;
 void syncTitlebars();
 bool titlebarActive(PHLWINDOW);
 bool titlebarPointer(IPointer::SButtonEvent,Event::SCallbackInfo&);
@@ -132,8 +135,9 @@ void load(){
     auto kdeWindows=WindowButtons::readRules(sessionRulesPath(true),"windows");
     auto workspaces=WorkspaceRules::read();
     auto patterns=WindowRules::read(root()/"window_rules/rules.json");
+    const bool protect=TitleProtection::readEnabled(root()/"effects/window_close/behavior-settings.json");
     matchedRules=std::move(patterns);settings=next;appRules=std::move(apps);windowRules=std::move(windows);workspaceRules=std::move(workspaces);
-    kdeAppRules=std::move(kdeApps);kdeWindowRules=std::move(kdeWindows);
+    kdeAppRules=std::move(kdeApps);kdeWindowRules=std::move(kdeWindows);titleProtectionEnabled=protect;
 }
 std::string appId(PHLWINDOW w){return w->metadata().initialAppID().empty()?w->metadata().appID():w->metadata().initialAppID();}
 int64_t workspaceId(PHLWINDOW w){return w&&w->m_workspace?Fusion057::numberedID(w->m_workspace):0;}
@@ -441,13 +445,16 @@ void perform(PHLWINDOW w,Action action){
 }
 #include "titlebar_057.hpp"
 #include "snapping_057.hpp"
+#include "title_protection_057.hpp"
 void tick(SP<CEventLoopTimer> self,void*) {
     KDESnap::tick();
     refresh();
+    TitlebarProtection::tick();
     const auto w=pending.lock();const auto action=pendingAction;pending.reset();pendingAction=None;
     if(w && w->mapped() && !w->isHidden() && available() && settled(w)&&controlsMode(w)!="off"&&
        !(action==Tile&&WorkspaceRules::floats(workspacePolicy(w)))){perform(w,action);refresh();}
     if(held || captured || waiting || !rows.empty() || !previews.empty() || KDESnap::gesture.window.lock())self->updateTimeout(std::chrono::milliseconds(25));
+    else if(titleProtectionEnabled)self->updateTimeout(std::chrono::milliseconds(250));
 }
 void cleanup() {
     stopping=true;damage();listeners.clear();target.reset();pressed.reset();pending.reset();neverFloated.clear();decorations.clear();
@@ -578,7 +585,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             return std::format("{{\"enabled\":{},\"held\":{},\"visible\":{},\"closed\":{},\"draws\":{},\"box\":[{},{},{},{}],\"color\":[{},{},{}],\"buttons\":[{}],\"minimized\":{},\"maximized\":{},\"restored\":{},\"floated\":{},\"gear\":[{},{},{},{}],\"gear_visible\":{},\"settings_opened\":{},\"tiled\":{}}}",
                 settings.enabled,held,available()&&settled(target.lock())&&!button.empty(),closed,draws,button.x,button.y,button.width,button.height,accent[0],accent[1],accent[2],items,minimized,maximized,restored,floated,
                 gear.x,gear.y,gear.w,gear.h,available()&&!gear.empty()&&settled(target.lock()),openedSettings,tiled)
-                .insert(1,std::format("\"snap_layouts_supported\":{},\"snap_layouts_enabled\":{},",KDESnap::ready,KDESnap::enabled)+KDESnap::status());
+                .insert(1,std::format("\"snap_layouts_supported\":{},\"snap_layouts_enabled\":{},",KDESnap::ready,KDESnap::enabled)+KDESnap::status()+TitlebarProtection::status());
         }});
         windowStatus=Fusion057::registerCommand(handle,{"xetal-windowbuttons",false,[](Fusion057::OutputFormat,std::string input){
             std::istringstream stream(input);std::string command,id,extra;stream>>command>>id;

@@ -93,6 +93,8 @@ class FilePolicyTests(unittest.TestCase):
         self.write(self.live,'clipboard/state/preferences.json','{"paused":true}',0o600)
         self.write(self.live,'effects/window_close/snap-settings.json','{"enabled":false}')
         self.write(self.upstream,'effects/window_close/snap-settings.json','{"enabled":true}')
+        self.write(self.live,'effects/window_close/behavior-settings.json','{"titlebar_protection":false}')
+        self.write(self.upstream,'effects/window_close/behavior-settings.json','{"titlebar_protection":true}')
         self.write(self.upstream,'clipboard/app.py','new clipboard code')
         self.write(self.upstream,'clipboard/state/pins.json','must never ship')
         plan=self.prepare()
@@ -102,6 +104,7 @@ class FilePolicyTests(unittest.TestCase):
         self.assertEqual((self.live/'clipboard/state/pins.json').read_text(),'private pins')
         self.assertEqual((self.live/'clipboard/state/preferences.json').read_text(),'{"paused":true}')
         self.assertEqual(engine.json_file(self.live/'effects/window_close/snap-settings.json'),{'enabled':False})
+        self.assertEqual(engine.json_file(self.live/'effects/window_close/behavior-settings.json'),{'titlebar_protection':False})
 
     def test_fresh_launcher_defaults_never_replace_existing_favorites_or_copies(self):
         favorites = 'launcher/favorites.json'

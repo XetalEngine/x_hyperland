@@ -32,7 +32,7 @@ import runtime as theme_runtime
 from display_page import DisplaysPage
 from preferences_page import PreferencesPage
 from page import ThemePage
-from audio_page import AudioPage, STYLE as AUDIO_STYLE
+from audio_page import AudioSettingsPage, STYLE as AUDIO_STYLE
 from context_menu_page import ContextMenuPage, STYLE as CONTEXT_STYLE
 from window_chrome import window_controls
 from fusion_about import about_menu
@@ -1132,15 +1132,17 @@ class Window(QMainWindow):
         header.addSpacing(12);header.addWidget(self.window_controls)
         layout.addLayout(header)
         self.tabs = QTabWidget()
-        self.pages = {'hotkeys': Hotkeys(), 'audio': AudioPage(async_run), 'network': NetworkPage(),
+        audio=AudioSettingsPage(async_run)
+        self.pages = {'hotkeys': Hotkeys(), 'audio': audio, 'network': NetworkPage(),
                       'bluetooth': BluetoothPage(), 'displays': DisplaysPage(async_run),
-                      'input': PreferencesPage('input', async_run), 'theme': ThemePage(async_run),
+                      'input': PreferencesPage('input', async_run), 'theme': ThemePage(async_run,sounds_page=audio.sounds),
                       'context-menu': ContextMenuPage(async_run),
                       'default-apps': DefaultAppsPage(async_run, launch),
                       'calendar': CalendarPage(), 'capture': CapturePage(async_run),
                       'system': SystemPage(async_run, launch, self.switch), 'phone': PhonePage(async_run), 'power': PowerPage(async_run), 'terminal': TerminalPage(async_run)}
         for name, page in self.pages.items():
             self.tabs.addTab(page, ('Recorder' if name == 'capture' else name.replace('-', ' ').title()))
+        self.pages['theme'].systemAudioRequested.connect(self.open_system_audio)
         self.tabs.currentChanged.connect(self.changed)
         self.refresh_timer=QTimer(self);self.refresh_timer.setSingleShot(True)
         self.refresh_timer.timeout.connect(self.refresh_current)
@@ -1231,6 +1233,7 @@ class Window(QMainWindow):
             page.tabs.setCurrentWidget(page.wallpapers)
             if page.wallpapers.models:page.wallpapers.filename='';page.wallpapers.stage_image(filename)
         self.switch(name)
+        if name=='audio' and request.get('system_audio') is True:self.pages['audio'].open_system_audio()
         if name not in ('window-hints','remote-desktop') and QApplication.platformName()!='offscreen':
             if hasattr(self,'activation'):self.activation.cancel();self.activation.deleteLater()
             self.activation=BarActivation(self);self.activation.start()
@@ -1301,15 +1304,18 @@ class Window(QMainWindow):
                 QApplication.instance().quit()
         async_run(lambda: (hovered_window(), keys.parse((keys.ROOT / 'keybindings.conf').read_text())), show, failed)
 
+    def open_system_audio(self):
+        self.switch('audio');self.pages['audio'].open_system_audio()
+
     def closeEvent(self, event):
         hotkeys = self.pages['hotkeys']
         if hotkeys.busy or (hotkeys.dirty and not hotkeys.confirm_discard()):
             event.ignore()
             return
-        if not self.pages['displays'].can_close() or any(self.pages[name].busy for name in ('input','theme','context-menu','power','phone')):
+        if not self.pages['displays'].can_close() or any(self.pages[name].busy for name in ('input','theme','audio','context-menu','power','phone')):
             event.ignore()
             return
-        unsaved = [('Recorder' if name == 'capture' else name.replace('-', ' ').title()) for name in ('displays','input','theme','context-menu','terminal','capture') if self.pages[name].dirty]
+        unsaved = [('Recorder' if name == 'capture' else name.replace('-', ' ').title()) for name in ('displays','input','theme','audio','context-menu','terminal','capture') if self.pages[name].dirty]
         if unsaved and QMessageBox.question(self, 'Discard unsaved changes?',
                 'Discard the draft in '+', '.join(unsaved)+' and close?',
                 QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
@@ -1330,6 +1336,7 @@ def main():
     parser.add_argument('--window-hints', action='store_true')
     parser.add_argument('--preload', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--wallpaper', default='', help=argparse.SUPPRESS)
+    parser.add_argument('--system-audio', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args()
     app = QApplication(sys.argv[:1])
     app.setApplicationName('hypr-control')
@@ -1337,6 +1344,7 @@ def main():
     theme_runtime.install(app, STYLE)
     app.setQuitOnLastWindowClosed(False)
     request={'tab':'window-hints' if args.window_hints else args.tab,'wallpaper':args.wallpaper,'preload':args.preload}
+    if args.system_audio:request.update(tab='audio',system_audio=True)
     address = None
     if not args.preview:
         instance = os.environ.get('HYPRLAND_INSTANCE_SIGNATURE')

@@ -41,8 +41,10 @@ class CloseSettingsTests(unittest.TestCase):
 
     def test_disabled_unloaded_effect_does_not_build_or_load(self):
         from workspaces import model as workspace_model
+        from effects.window_close import behavior
         with patch.object(controller,'instance_dir',return_value=Path('/fixture')), \
              patch.object(controller,'hypr',return_value='[]') as ipc, \
+             patch.object(behavior,'load',return_value=(False,'disabled')), \
              patch.object(workspace_model,'load',return_value=({'version':1,'workspaces':{}},'legacy')), \
              patch.object(controller.build,'build') as build:
             controller.activate(dict(model.DEFAULTS,enabled=False))
@@ -59,6 +61,18 @@ class CloseSettingsTests(unittest.TestCase):
                                                         'ok', '{"enabled":false}']) as ipc:
             controller.activate(dict(model.DEFAULTS,enabled=False), target=Path('/fixture.so'))
             self.assertIn(('plugin','load','/fixture.so'), [call.args for call in ipc.call_args_list])
+
+    def test_protection_loads_even_with_buttons_and_workspace_controls_disabled(self):
+        import json
+        from workspaces import model as workspace_model
+        from effects.window_close import behavior
+        with patch.object(controller,'instance_dir',return_value=Path('/fixture')), \
+             patch.object(workspace_model,'load',return_value=({'version':1,'workspaces':{}},'legacy')), \
+             patch.object(behavior,'load',return_value=(True,'default')), \
+             patch.object(controller,'atomic'), \
+             patch.object(controller,'hypr',side_effect=['[]',json.dumps({'commit':controller.build.SUPPORTED_COMMIT}),'ok','{"enabled":false}']) as ipc:
+            controller.activate(dict(model.DEFAULTS,enabled=False),target=Path('/fixture.so'))
+            self.assertIn(('plugin','load','/fixture.so'),[call.args for call in ipc.call_args_list])
 
 
 if __name__=='__main__': unittest.main()

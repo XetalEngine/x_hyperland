@@ -9,7 +9,7 @@ from PyQt6 import sip
 from PyQt6.QtCore import Qt,QTimer,QProcess,QProcessEnvironment,pyqtSignal,QPointF
 from PyQt6.QtGui import QIcon,QPainter,QPen
 from PyQt6.QtWidgets import (QApplication,QWidget,QFrame,QLabel,QVBoxLayout,QHBoxLayout,
-    QComboBox,QSlider,QPushButton,QCheckBox,QScrollArea,QSizePolicy,QTabBar,QGroupBox)
+    QComboBox,QSlider,QPushButton,QCheckBox,QScrollArea,QSizePolicy,QTabBar,QTabWidget,QGroupBox)
 import audio_backend as backend
 
 STYLE='''
@@ -200,6 +200,26 @@ class MicrophoneGain(QWidget):
 
     def set_minimum(self):
         if self.control:self.slider.setValue(0);self.slider.commit()
+
+
+class AudioSettingsPage(QWidget):
+    """Devices and system sounds share one Audio destination."""
+    def __init__(self,async_run,listen=True):
+        super().__init__()
+        from sounds.page import SoundsPage
+        self.devices=AudioPage(async_run,listen=listen)
+        self.sounds=SoundsPage(async_run)
+        layout=QVBoxLayout(self);layout.setContentsMargins(0,8,0,0)
+        self.tabs=QTabWidget();self.tabs.addTab(self.devices,'Devices');self.tabs.addTab(self.sounds,'System Audio')
+        layout.addWidget(self.tabs)
+        self.tabs.currentChanged.connect(lambda _:self.refresh())
+
+    @property
+    def dirty(self):return self.sounds.dirty
+    @property
+    def busy(self):return self.sounds.busy or self.devices.writing or bool(self.devices.pending)
+    def refresh(self):self.tabs.currentWidget().refresh()
+    def open_system_audio(self):self.tabs.setCurrentWidget(self.sounds)
 
 
 class AudioPage(QWidget):

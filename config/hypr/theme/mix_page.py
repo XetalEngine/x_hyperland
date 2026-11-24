@@ -77,6 +77,8 @@ class MixMatchPage(QWidget):
     def showEvent(self,event):self.refresh();super().showEvent(event)
     def hideEvent(self,event):self.refresh_timer.stop();super().hideEvent(event)
     def open_details(self,page):
+        if page is self.owner.sounds_page:
+            self.owner.systemAudioRequested.emit();return
         if page is self.owner.appearance:page.tabs.setCurrentWidget(page.mouse)
         self.owner.tabs.setCurrentWidget(page)
     def open_dock(self):

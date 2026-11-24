@@ -1,7 +1,8 @@
 # Fusion sounds
 
-Fusion Settings → Theme → Sounds previews eight original sounds for each of the
-11 desktop themes. Startup is 4.15 seconds; shutdown is 3.05 seconds. The other
+Fusion Settings → Audio → System Audio previews eight original sounds for each
+bundled sound pack. Audio → Devices contains the output, microphone and
+per-application mixer. Startup is 4.15 seconds; shutdown is 3.05 seconds. The other
 six cues are Error, Exclamation, Information, Question, Success and Notification.
 
 Fresh installs enable sounds at 35%, follow the desktop theme and respect SwayNC
@@ -9,6 +10,10 @@ Do Not Disturb. Each cue can be disabled independently. Listen previews the draf
 pack and volume even if normal sounds are muted. Apply sounds saves the choices.
 The same pack can be selected in Theme → Mix & match. Theme component application
 changes the sound design while preserving volume, mute and individual switches.
+Its detailed-settings link opens Audio → System Audio. Moving between tabs keeps
+unsaved sound edits; closing Settings asks before discarding them. Preview
+playback stops when System Audio is hidden. There is one shared sound editor, so
+pending audio edits also protect against a theme or mix replacing the sound pack.
 
 The profile owns all assets and preferences. No shared mixer, KDE setting, user
 service, login manager or system sound theme is changed. `settings.json` is a

@@ -9,7 +9,7 @@ from PyQt6.QtCore import QTimer
 from PyQt6.QtNetwork import QLocalSocket
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'control_center'))
-from app import STYLE, async_run, theme_runtime, ThemePage
+from app import STYLE, async_run, theme_runtime, ThemePage, launch
 from window_chrome import window_controls
 import wheel_guard
 
@@ -19,6 +19,7 @@ class ThemeWindow(QWidget):
         wheel_guard.install(QApplication.instance())
         layout=QVBoxLayout(self);layout.setContentsMargins(0,0,0,0)
         self.page=ThemePage(async_run,filename);layout.addWidget(self.page);self.page.refresh()
+        self.page.systemAudioRequested.connect(lambda:launch([str(ROOT/'scripts/control-center.sh'),'--tab','audio','--system-audio']))
         self.window_controls=window_controls(self,title='Close Theme');self.close_button=self.window_controls.close
         self.page.layout().itemAt(0).layout().addWidget(self.window_controls)
     def closeEvent(self,event):
