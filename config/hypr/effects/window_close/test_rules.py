@@ -10,6 +10,23 @@ import controller
 
 
 class RuleTests(unittest.TestCase):
+    def test_optional_archive_inventory_timeout_does_not_fail_a_saved_rule(self):
+        from contextlib import redirect_stderr
+        import io
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for failure in (RuntimeError('busy compositor'), subprocess.TimeoutExpired('hyprctl', 15)):
+                def ipc(*args):
+                    if args[0] == '-j': raise failure
+                    return '{"windows":["12"]}' if args == ('xetal-windowbuttons',) else 'ok'
+                with patch.object(controller, 'instance_dir', return_value=root), \
+                     patch.object(controller, 'window_info', return_value={'app':'fixture'}), \
+                     patch.object(controller, 'hypr', side_effect=ipc), redirect_stderr(io.StringIO()):
+                    path, section = controller.rule_file('window'); _, token = rules.load(path, section)
+                    data, _ = controller.save_rule('12', 'window', dict(rules.DEFAULTS, mode='always'), token)
+                    self.assertEqual(data['windows']['12']['mode'], 'always')
+                    self.assertEqual(rules.load(path, section)[0], data)
+
     def test_kde_defaults_keep_titlebar_on_and_overlays_off_without_replacing_saved_choices(self):
         settings=dict(model.DEFAULTS,size=36,inset=10)
         self.assertEqual(rules.effective(settings,profile='kde'),

@@ -179,7 +179,7 @@ def save_rule(window_id, scope, rule, token, window_token=None, *, profile='stan
     class Snapshot:
         def query(self, name): return json.loads(hypr('-j', *name.split()))
     try: remember(Path(__file__).resolve().parents[2], instance_dir(), Snapshot())
-    except (OSError, ValueError, KeyError, TypeError) as error:
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError, subprocess.SubprocessError) as error:
         print('Window settings saved for this session; archive inventory could not be refreshed: '+str(error), file=sys.stderr)
     return rules.load(path,section)
 
