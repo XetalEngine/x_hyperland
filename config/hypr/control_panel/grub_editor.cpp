@@ -281,6 +281,12 @@ GrubEditor::GrubEditor(const QString &helper, QWidget *parent) : QWidget(parent)
   connect(worker, &QProcess::readyReadStandardError, this, [this] { errors += worker->readAllStandardError(); errors = errors.right(4096); });
   connect(worker, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this, [this](int code, QProcess::ExitStatus) {
     readWorker();
+    if (!pending.isEmpty()) {
+      // A request can arrive between the previous result and process exit.
+      // Start it only after that authenticated helper has closed.
+      output.clear(); errors.clear(); worker->start("python3", {this->helper, "connect"});
+      return;
+    }
     if (busy) {
       status->setText(code == 126 ? "Administrator authentication was cancelled. Nothing was changed." :
                        "The GRUB helper stopped. "+QString::fromUtf8(errors).trimmed());
@@ -544,7 +550,9 @@ void GrubEditor::editEntry() {
 void GrubEditor::request(const QJsonObject &data) {
   if (window()->property("panelNavigationAudit").toBool() || window()->property("panelPreview").toBool()) return;
   if (busy) return;
-  if ((data["action"] == "appearance-confirm" || data["action"] == "appearance-cancel" || data["action"] == "firmware-confirm" || data["action"] == "firmware-cancel") && worker->state() != QProcess::Running) {
+  const bool continuation = data["action"] == "appearance-confirm" || data["action"] == "appearance-cancel" ||
+                            data["action"] == "firmware-confirm" || data["action"] == "firmware-cancel";
+  if (continuation && worker->state() != QProcess::Running) {
     status->setText(data["action"].toString().endsWith("cancel") ?
       "Cancelled. Boot files are unchanged; your recovery backups are kept." :
       "This recovery review expired. Choose Review & apply again for fresh backups.");
@@ -553,10 +561,13 @@ void GrubEditor::request(const QJsonObject &data) {
   pending = data; pending["revision"] = revision; pending["menu_revision"] = menuRevision;
   operation = data["action"].toString();
   status->setText(operation == "scan" ? "Detecting the system. Authenticate if prompted…" :
-    (operation == "appearance-load" || operation == "refresh") ? "Loading your GRUB menu. Authenticate if prompted…" : "Working on your boot menu…");
+    (operation == "appearance-load" || operation == "refresh") ? "Loading your GRUB menu. Authenticate to continue…" :
+    continuation ? "Working on your boot menu…" : "Authenticate to continue with this GRUB operation…");
   setBusy(true);
-  if (worker->state() == QProcess::Running) {
+  if (continuation) {
     worker->write(QJsonDocument(pending).toJson(QJsonDocument::Compact)+'\n'); pending = {};
+  } else if (worker->state() != QProcess::NotRunning) {
+    worker->closeWriteChannel();
   } else { output.clear(); errors.clear(); worker->start("python3", {helper, "connect"}); }
 }
 void GrubEditor::readWorker() {

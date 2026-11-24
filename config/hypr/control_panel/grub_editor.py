@@ -959,6 +959,7 @@ class Session:
                 from grub_appearance import AppearanceStore
                 theme = AppearanceStore(self.store.root, self.store.checker)
                 with theme.locked():
+                    theme.repair_asset_permissions()
                     if action == 'appearance-load':
                         # Authentication loads the real entries and saved-state
                         # flags only. Keep the design the user is previewing.
@@ -999,7 +1000,11 @@ class Session:
                                    'undo': 'The last appearance change was undone.'}[plan['operation']]
                         return {**self.store.status(), 'appearance': theme.status(), 'backup': backup, 'message': message}
                     raise ValueError('Review the recovery backups before applying an appearance change.')
-            if action == 'refresh': return status_payload()
+            if action == 'refresh':
+                from grub_appearance import AppearanceStore
+                theme = AppearanceStore(self.store.root, self.store.checker)
+                with theme.locked(): theme.repair_asset_permissions()
+                return status_payload()
             if action in ('scan', 'add'):
                 drives = inventory()
                 drive = selected_drive(drives, request.get('drive'), request.get('drive_token'))
@@ -1049,6 +1054,37 @@ def emit(value):
     print(json.dumps(value, ensure_ascii=False), flush=True)
 
 
+def serve(session):
+    """One authentication authorizes one operation, including its review.
+
+    A review may only be followed by its own confirmation/cancellation. The
+    helper then exits, so loading the editor never authorizes later edits.
+    """
+    continuation = None
+    while select.select([sys.stdin], [], [], 300)[0]:
+        line = sys.stdin.readline(65537)
+        if not line: break
+        try:
+            if len(line) > 65536: raise ValueError('The request is too large.')
+            request = json.loads(line)
+            if not isinstance(request, dict): raise ValueError('Invalid request.')
+            action = request.get('action')
+            if continuation and action not in continuation:
+                raise ValueError('Authenticate again to start another GRUB operation.')
+            client_alive()
+            result = session.handle(request)
+            emit({'result': result})
+            if continuation: break
+            if action == 'appearance-review' and 'appearance_review' in result:
+                continuation = ('appearance-confirm', 'appearance-cancel')
+            elif action == 'firmware-review' and 'firmware_review' in result:
+                continuation = ('firmware-confirm', 'firmware-cancel')
+            else: break
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+            emit({'error': str(error)})
+            break
+
+
 def main():
     args = sys.argv[1:]
     try:
@@ -1060,19 +1096,7 @@ def main():
         if args != ['--serve'] or os.geteuid() != 0:
             raise PermissionError('Open GRUB Boot Editor from Control Panel to authenticate.')
         client_alive()
-        session = Session()
-        while select.select([sys.stdin], [], [], 300)[0]:
-            line = sys.stdin.readline(65537)
-            if not line: break
-            if len(line) > 65536: raise ValueError('The request is too large.')
-            try:
-                request = json.loads(line)
-                if not isinstance(request, dict): raise ValueError('Invalid request.')
-                client_alive()
-                result = session.handle(request)
-                emit({'result': result})
-            except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
-                emit({'error': str(error)})
+        serve(Session())
         return 0
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         emit({'error': str(error)}); return 1

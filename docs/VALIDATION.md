@@ -1,5 +1,34 @@
 # Validation
 
+## GRUB appearance permissions and authentication — 23 November 2026
+
+The authenticated helper now handles one operation and exits. Appearance and
+firmware reviews allow only their matching confirmation/cancellation before
+exit; another operation must start a new `pkexec` process. The system's
+`org.freedesktop.policykit.exec` policy requests `auth_admin`, without retained
+authorization. The Qt client queues a new request while the previous helper
+exits, so a fast second action cannot reuse its authentication or lose the click.
+
+Theme publication explicitly sets public design directories to `0755` after
+creation, independent of the helper's `077` umask. Authenticated loading repairs
+older `0700` Fusion theme directories after checking their marker, regular
+assets, ownership and permissions. It leaves boot configuration contents,
+private state/backups, other themes and linked assets unchanged.
+
+The 106 Python tests passed, including restrictive-umask publication, reopening
+and preparing a saved picture, scoped legacy repairs, symlink rejection and
+authorization lifetime. All 14 native Qt checks passed, including distinct
+helper processes for load/apply, a shared process only for a review and its
+confirmation, authentication cancellation, recovery review and subsequent edits.
+The Control Panel build also passed. Tests used disposable boot trees and GUI
+helpers; they did not apply a design to the host or change its firmware.
+
+```sh
+cd config/hypr/control_panel
+python3 -m unittest test_grub_editor test_grub_appearance test_grub_options_firmware
+QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME= .build/grub_editor_tests
+```
+
 ## Apps first opening on multiple monitors — 23 November 2026
 
 The preloaded Apps menu now starts without the inherited

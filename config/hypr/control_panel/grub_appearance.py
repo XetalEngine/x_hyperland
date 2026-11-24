@@ -350,6 +350,33 @@ class AppearanceStore(grub.Store):
         return {'revision': self.revision(), 'can_undo': (self.state/'last.json').is_file(),
                 'active': BEGIN in self.config.read_text(), 'options': value.get('options', {})}
 
+    def repair_asset_permissions(self):
+        """Reopen our public artwork folders created under pkexec's 077 umask.
+
+        Configuration, recovery backups and other themes stay untouched. Only
+        marked Fusion designs with regular, root-owned assets are eligible.
+        """
+        self.safe_paths()
+        if not self.assets.exists(): return
+        directories = []
+        for directory in self.assets.iterdir():
+            if not re.fullmatch(r'design-[0-9a-f]{32}', directory.name): continue
+            info = directory.lstat()
+            if not stat.S_ISDIR(info.st_mode) or info.st_mode & 0o022: continue
+            if self.root == Path('/') and info.st_uid != 0: continue
+            files = list(directory.iterdir())
+            if {p.name for p in files} != FILES | {'theme.txt', 'appearance.json'}: continue
+            infos = [p.lstat() for p in files]
+            if any(not stat.S_ISREG(s.st_mode) or s.st_mode & 0o022 or
+                   (self.root == Path('/') and s.st_uid != 0) for s in infos): continue
+            if not (directory/'theme.txt').read_bytes().startswith(SIGNATURE.encode()+b'\n'): continue
+            directories.append(directory)
+        # The themes container must also be traversable when it was first
+        # created by this editor. No recursive chmod and no new write access.
+        for directory in [self.assets.parent, self.assets, *directories]:
+            if stat.S_IMODE(directory.stat().st_mode) == 0o700:
+                directory.chmod(0o755)
+
     def unchanged_targets(self):
         return {key: (grub.read_optional(path), stat.S_IMODE(path.stat().st_mode) if path.exists() else 0o600)
                 for key, path in self.files().items()}
@@ -492,8 +519,14 @@ class AppearanceStore(grub.Store):
             if target:
                 if assets['probe'].stat().st_dev != assets['device']:
                     raise RuntimeError('The boot filesystem changed. Review fresh backups before applying.')
-                self.assets.mkdir(parents=True, exist_ok=True, mode=0o755)
+                for directory in (self.assets.parent, self.assets):
+                    if not directory.exists():
+                        directory.mkdir(mode=0o755)
+                        directory.chmod(0o755)
                 target.mkdir(mode=0o755); created = True
+                # mkdir's mode is filtered by pkexec's private umask. These
+                # immutable assets must be readable by the desktop preview.
+                target.chmod(0o755)
                 if target.stat().st_dev != assets['device']:
                     raise RuntimeError('The boot filesystem changed. Review fresh backups before applying.')
                 for name, data in assets['files'].items(): grub.atomic(target/name, data, 0o644)

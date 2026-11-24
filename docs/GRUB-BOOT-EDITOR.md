@@ -6,6 +6,14 @@ The editor requests administrator authentication when you enter it, then loads
 your current menu automatically. Cancelling authentication keeps the page open;
 **Load current menu** retries. The desktop UI itself stays unprivileged.
 
+Every new privileged operation opens a fresh administrator prompt, including
+entry edits, ordering, boot preferences, undo, appearance and UEFI registration.
+Loading the menu does not authorize later changes. A reviewed appearance or
+firmware operation uses one prompt when starting its review; its confirmation
+or cancellation completes that same operation, then the helper exits. Recovery
+reviews expire after five minutes. Passwords are handled by the system's
+authentication agent, not stored by the editor.
+
 ## Current Grub
 
 The first tab reads the installed boot menu, including distribution entries, firmware tools, submenus and entries added with Fusion. Select an entry and choose **Edit entry…** to change its name. Enable **Edit boot commands (advanced)** to edit that entry's commands. Submenus can be renamed; edit their individual entries to change boot commands.
@@ -118,6 +126,12 @@ can be paired with any design, or choose a local picture or a solid color.
 arcade cabinet wallpaper. It keeps the menu on the left so the cabinet stays
 visible, with matching purple accents and adjustable picture/menu shading.
 Select it from the theme thumbnails, then use **Review & apply…** to save it.
+
+Published design folders are readable by the desktop and writable only by root,
+even when authentication uses a private file-creation mask. Loading the editor
+repairs older Fusion design folders created with mode `0700`, so their saved
+pictures can be previewed and edited again. This changes only public theme
+directory permissions; boot configuration contents and private backups stay intact.
 
 The page has no scrolling settings panels: Picture, Menu and Colors tabs keep
 the controls beside the preview. Theme thumbnails use arrow buttons; short

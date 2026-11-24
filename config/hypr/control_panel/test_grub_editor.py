@@ -1,6 +1,7 @@
 """Boot-menu fixtures only: no host mounts, sudo, firmware or boot writes."""
 from contextlib import contextmanager
 import json
+import io
 import os
 from pathlib import Path
 import shutil
@@ -10,7 +11,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import grub_editor as grub
@@ -40,6 +41,51 @@ class Fixtures(unittest.TestCase):
     def file(self, name, data):
         path = self.root/name; path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data if isinstance(data, bytes) else data.encode()); return path
+
+
+class AuthenticationScopeTests(unittest.TestCase):
+    def run_requests(self, requests, result=None, error=None):
+        session = Mock()
+        session.handle.side_effect = error
+        session.handle.return_value = result or {'message': 'Saved.'}
+        messages = []
+        with patch.object(grub.sys, 'stdin', io.StringIO(''.join(json.dumps(r)+'\n' for r in requests))), \
+             patch.object(grub.select, 'select', return_value=([0], [], [])), \
+             patch.object(grub, 'client_alive'), patch.object(grub, 'emit', side_effect=messages.append):
+            grub.serve(session)
+        return [call.args[0] for call in session.handle.call_args_list], messages
+
+    def test_read_authentication_cannot_be_reused_to_write(self):
+        requests = [{'action': 'refresh'}, {'action': 'remove-current', 'id': 'linux'}]
+        calls, messages = self.run_requests(requests)
+        self.assertEqual(calls, requests[:1]); self.assertEqual(len(messages), 1)
+
+    def test_each_edit_requires_a_new_authenticated_process(self):
+        for action in ('add', 'rename', 'remove', 'edit-current', 'remove-current', 'move-current',
+                       'undo', 'boot-options-save', 'boot-options-undo'):
+            with self.subTest(action=action):
+                request = {'action': action}
+                calls, _ = self.run_requests([request, request])
+                self.assertEqual(calls, [request])
+
+    def test_review_only_accepts_its_confirmation_or_cancellation_once(self):
+        for kind in ('appearance', 'firmware'):
+            for finish in ('confirm', 'cancel'):
+                with self.subTest(kind=kind, finish=finish):
+                    requests = [{'action': kind+'-review'}, {'action': kind+'-'+finish, 'token': 'fixture'},
+                                {'action': 'boot-options-save'}]
+                    calls, _ = self.run_requests(requests, {kind+'_review': {'token': 'fixture'}})
+                    self.assertEqual(calls, requests[:2])
+
+    def test_other_action_during_review_is_rejected_before_dispatch(self):
+        requests = [{'action': 'appearance-review'}, {'action': 'firmware-confirm', 'token': 'fixture'}]
+        calls, messages = self.run_requests(requests, {'appearance_review': {'token': 'fixture'}})
+        self.assertEqual(calls, requests[:1]); self.assertIn('Authenticate again', messages[-1]['error'])
+
+    def test_failed_request_does_not_keep_authentication_alive(self):
+        requests = [{'action': 'boot-options-save'}, {'action': 'remove-current'}]
+        calls, messages = self.run_requests(requests, error=RuntimeError('Fixture failure'))
+        self.assertEqual(calls, requests[:1]); self.assertEqual(messages, [{'error': 'Fixture failure'}])
 
 
 class DiscoveryTests(Fixtures):

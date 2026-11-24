@@ -207,6 +207,45 @@ class AppearanceTests(unittest.TestCase):
             self.assertIn(setting, theme)
         self.assertFalse((self.root/'etc/default/grub').exists())
 
+    def test_private_authentication_umask_keeps_published_artwork_readable(self):
+        previous = os.umask(0o077)
+        try: self.apply()
+        finally: os.umask(previous)
+        source = Path(self.store.status()['options']['background'])
+        for directory in (self.store.assets.parent, self.store.assets, source.parent):
+            self.assertEqual(directory.stat().st_mode & 0o777, 0o755)
+        for path in source.parent.iterdir():
+            self.assertEqual(path.stat().st_mode & 0o777, 0o644)
+        self.assertEqual(self.store.state.stat().st_mode & 0o777, 0o700)
+        self.assertEqual((self.store.state/'entries.json').stat().st_mode & 0o777, 0o600)
+        self.assertTrue(appearance.preview(self.store.status()['options'])['background_sha'])
+
+    def test_repair_existing_private_design_reopens_preview_without_reapplying(self):
+        self.apply()
+        options = self.store.status()['options']; source = Path(options['background'])
+        original = {str(p): p.read_bytes() for p in [*self.store.files().values(), self.store.state/'last.json', source]}
+        unrelated = self.store.assets.parent/'another-theme'; unrelated.mkdir(mode=0o700)
+        incomplete = self.store.assets/('design-'+'a'*32); incomplete.mkdir(mode=0o700)
+        for directory in (self.store.assets.parent, self.store.assets, source.parent): directory.chmod(0o700)
+        with self.store.locked(): self.store.repair_asset_permissions()
+        for directory in (self.store.assets.parent, self.store.assets, source.parent):
+            self.assertEqual(directory.stat().st_mode & 0o777, 0o755)
+        self.assertEqual(unrelated.stat().st_mode & 0o777, 0o700)
+        self.assertEqual(incomplete.stat().st_mode & 0o777, 0o700)
+        for name, contents in original.items(): self.assertEqual(Path(name).read_bytes(), contents)
+        self.assertTrue(appearance.preview(options)['background_sha'])
+        # The saved source can be prepared again, not just drawn once.
+        self.assertEqual(set(appearance.prepare(options)['files']), appearance.FILES)
+
+    def test_permission_repair_does_not_follow_design_symlinks(self):
+        self.apply()
+        source = Path(self.store.status()['options']['background'])
+        unrelated = self.root/'private-picture'; unrelated.write_bytes(source.read_bytes()); unrelated.chmod(0o600)
+        source.unlink(); source.symlink_to(unrelated); source.parent.chmod(0o700)
+        with self.store.locked(): self.store.repair_asset_permissions()
+        self.assertEqual(source.parent.stat().st_mode & 0o777, 0o700)
+        self.assertEqual(unrelated.stat().st_mode & 0o777, 0o600)
+
     def test_reapply_then_undo_retains_old_design_assets(self):
         self.apply(); first = self.config.read_bytes(); original_source = self.store.status()['options']['background']
         self.apply(layout='right', size=28)

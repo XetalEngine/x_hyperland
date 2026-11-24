@@ -139,7 +139,7 @@ private slots:
     const auto appearance = QFINDTESTDATA("../../grub_appearance.py"); QVERIFY(!appearance.isEmpty());
     QVERIFY(QFile::link(appearance, fixture.filePath("grub_appearance.py")));
     QFile helper(fixture.filePath("helper.py")); QVERIFY(helper.open(QIODevice::WriteOnly));
-    helper.write(R"PY(import json,sys
+    helper.write(R"PY(import json,sys,os
 from pathlib import Path
 root=Path(__file__).parent
 state=dict(supported=True,mode='uefi',drives=[],current_entries=[dict(id='linux',name='Linux',kind='menuentry',commands='linux /vmlinuz',editable=True)],menu_revision='original-menu',revision='original')
@@ -149,7 +149,7 @@ if sys.argv[1]=='status':
 else:
  for line in sys.stdin:
   request=json.loads(line)
-  with (root/'calls').open('a') as log: log.write(line)
+  with (root/'calls').open('a') as log: log.write(json.dumps(dict(request,fixture_pid=os.getpid()))+'\n')
   if request['action'] in ('refresh','appearance-load'):
    if (root/'cancel-next').exists():
     (root/'cancel-next').unlink();sys.exit(126)
@@ -196,6 +196,10 @@ else:
     for (int i=0; i<loadingRequests; ++i)
       QCOMPARE(QJsonDocument::fromJson(lines[i]).object()["action"].toString(), QString("refresh"));
     const auto review = QJsonDocument::fromJson(lines[loadingRequests]).object();
+    // Opening the editor must not authorize a later apply. The confirmation
+    // belongs to the newly authenticated review, never to the initial load.
+    QVERIFY(review["fixture_pid"] != QJsonDocument::fromJson(lines[loadingRequests-1]).object()["fixture_pid"]);
+    QCOMPARE(review["fixture_pid"], QJsonDocument::fromJson(lines[loadingRequests+1]).object()["fixture_pid"]);
     QCOMPARE(review["operation"].toString(), QString("apply"));
     QCOMPARE(review["options"].toObject()["heading"].toString(), QString("Keep my selected design"));
     QCOMPARE(QJsonDocument::fromJson(lines.last()).object()["action"].toString(), QString("appearance-confirm"));
@@ -250,7 +254,10 @@ current=dict(path='/dev/current',token='current-token',size=1000000000000,model=
 extra=[dict(path='/dev/extra'+str(i),token='extra-'+str(i),size=1000000000000,model='Another SSD',mountpoints=[]) for i in range(6)]
 native=dict(id='current-native',name='Existing Linux',kind='menuentry',source='/etc/grub.d/10_linux',editable=True,managed_id='',commands='linux /vmlinuz root=UUID=fixture')
 state=dict(supported=True,mode='uefi',secure_boot=False,drives=[drive,current,*extra],entries=[],current_entries=[native],revision='original',menu_revision='menu-original',can_undo=False,config='/boot/grub/grub.cfg')
-def emit(v): print(json.dumps(v),flush=True)
+if (root/'state.json').exists(): state=json.loads((root/'state.json').read_text())
+def emit(v):
+ (root/'state.json').write_text(json.dumps(state))
+ print(json.dumps(v),flush=True)
 if sys.argv[1]=='status': emit(state)
 else:
     for line in sys.stdin:
@@ -366,7 +373,12 @@ root=Path(__file__).parent
 native=dict(id='native',name='Installed Linux',kind='menuentry',source='/etc/grub.d/10_linux',editable=True,managed_id='',commands='linux /vmlinuz root=UUID=fixture')
 firmware=dict(id='firmware',name='Firmware',kind='menuentry',source='/etc/grub.d/30_uefi-firmware',editable=True,managed_id='',commands='fwsetup')
 state=dict(supported=True,drives=[],entries=[],current_entries=[native,firmware],revision='',menu_revision='public-menu',config='/boot/grub/grub.cfg')
-def emit(value): print(json.dumps(value),flush=True)
+if (root/'state.json').exists():
+ state=json.loads((root/'state.json').read_text())
+ native=state['current_entries'][0]
+def emit(value):
+ (root/'state.json').write_text(json.dumps(state))
+ print(json.dumps(value),flush=True)
 if sys.argv[1]=='status': emit(state)
 else:
     for line in sys.stdin:
