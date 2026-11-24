@@ -9,6 +9,10 @@ from unittest.mock import Mock, patch
 spec = importlib.util.spec_from_file_location('remove_workspace', Path(__file__).with_name('remove-workspace.py'))
 remove = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(remove)
+add_spec = importlib.util.spec_from_file_location('new_workspace', Path(__file__).with_name('new-workspace.py'))
+add = importlib.util.module_from_spec(add_spec)
+add_spec.loader.exec_module(add)
+import workspace
 
 
 def snapshot(occupied=False, active=5):
@@ -29,6 +33,16 @@ class RemovalTests(unittest.TestCase):
         self.assertEqual(fallback['id'],2)
         target, fallback = remove.removal_target(5,'DP-1',*snapshot(active=2))
         self.assertIsNone(fallback)
+
+    def test_hyprland_057_named_and_special_workspaces_have_no_numeric_id(self):
+        workspaces,clients,monitors=snapshot()
+        workspaces.insert(0,{'name':'special:xetal-startup','type':'special','monitor':'DP-1','windows':4})
+        workspaces.append({'name':'Research','type':'named','monitor':'DP-1','windows':1})
+        target,fallback=remove.removal_target(5,'DP-1',workspaces,clients,monitors)
+        self.assertEqual(target['id'],5);self.assertEqual(fallback['id'],2)
+        self.assertEqual(add.next_id(workspaces,''),1)
+        with patch.object(workspace,'cube_faces',return_value={2,5,6,7}):
+            self.assertEqual(workspace.monitor_faces(workspaces,'DP-1'),[2,5])
 
     def test_occupied_hidden_clients_wrong_monitor_and_last_are_guarded(self):
         with self.assertRaisesRegex(ValueError,'open windows'):
@@ -101,6 +115,48 @@ class RemovalTests(unittest.TestCase):
         store,before=self.transaction([snapshot(),snapshot(),ready],lambda *args:'error')
         with self.assertRaisesRegex(ValueError,'error'):remove.remove(5,1,1)
         self.assertEqual(store.save.call_args.args,(before,'after'))
+
+    def test_cube_minimum_rejects_removal_without_writing(self):
+        store,_=self.transaction([snapshot()])
+        with patch.object(workspace,'monitor_faces',return_value=[2,5,6,7]):
+            with self.assertRaisesRegex(ValueError,'at least 4'):remove.remove(5,1,1)
+        store.save.assert_not_called()
+
+    def test_cube_removal_pins_remaining_sides_and_releases_runtime_owner(self):
+        gone=snapshot(active=2);gone[0].pop(1)
+        commands=[]
+        def ctl(*args):commands.append(args);return 'ok'
+        store,_=self.transaction([snapshot(),snapshot(),gone],ctl)
+        with patch.object(workspace,'monitor_faces',return_value=[2,5,6,7,8]):
+            self.assertEqual(remove.remove(5,1,1),5)
+        content=store.save.call_args.args[0]
+        for n in (2,6,7,8):self.assertIn(f'workspace = {n}, monitor:DP-1, persistent:true',content)
+        self.assertIn('workspace = 5, persistent:false',content)
+        self.assertEqual(commands,[('dispatch','xetalcube:reload')])
+
+    def test_cube_rule_failure_rolls_back(self):
+        store,before=self.transaction([snapshot(),snapshot()],lambda *args:'Cannot reload cube')
+        with patch.object(workspace,'monitor_faces',return_value=[2,5,6,7,8]):
+            with self.assertRaisesRegex(ValueError,'Cannot reload cube'):remove.remove(5,1,1)
+        self.assertEqual(store.save.call_args.args,(before,'after'))
+
+    def test_cube_addition_limit_and_saved_sides(self):
+        with tempfile.TemporaryDirectory() as temp:
+            store=Mock(state=Path(temp));store.load.return_value=('# Workspaces\n','token');store.main.read_text.return_value=''
+            state=[{'id':n,'monitor':'DP-1'} for n in range(1,5)]
+            def ctl(*args):
+                if args==('-j','workspaces'):return json.dumps(state)
+                if args==('-j','workspacerules'):return '[]'
+                return 'ok\nok'
+            with patch.object(add.settings,'Store',return_value=store),patch.object(add,'monitor_at',return_value='DP-1'), \
+                 patch.object(add.settings,'monitors',return_value=[]),patch.object(add.settings,'ctl',side_effect=ctl), \
+                 patch.object(workspace,'monitor_faces',return_value=[1,2,3,4]) as faces:
+                self.assertEqual(add.create(1,1),(5,'DP-1'))
+                content=store.save.call_args.args[0]
+                for n in range(1,6):self.assertIn(f'workspace = {n}, monitor:DP-1, persistent:true',content)
+                store.save.reset_mock();faces.return_value=list(range(1,11))
+                with self.assertRaisesRegex(ValueError,'up to 10'):add.create(1,1)
+                store.save.assert_not_called()
 
 
 if __name__ == '__main__':unittest.main()

@@ -11,6 +11,7 @@
 
 namespace Cube {
 using Color = std::array<float, 4>;
+constexpr size_t MIN_FACES = 4, MAX_FACES = 10;
 constexpr double PI = 3.14159265358979323846;
 struct V3 {
     double x = 0, y = 0, z = 0;
@@ -72,7 +73,7 @@ inline std::vector<int64_t> faces(const std::vector<Workspace> &all, int64_t mon
         result.push_back(current);
     std::sort(result.begin(), result.end());
     result.erase(std::unique(result.begin(), result.end()), result.end());
-    while (result.size() < 4)
+    while (result.size() < MIN_FACES)
         result.push_back(0); // placeholders create a workspace only when selected
     return result;
 }

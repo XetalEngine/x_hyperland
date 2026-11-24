@@ -107,6 +107,10 @@ bool DesktopActions::Open(const QStringList &sources, bool choose) {
         track(job); job->start();
         continue;
       }
+      if (!choose && !Fusion::executionOpenHint(url).isEmpty()) {
+        error(Fusion::executionOpenHint(url));
+        continue;
+      }
       if (!choose && Fusion::executeOnOpen(url)) {
         auto command = Fusion::executionCommand(url);
         const auto program = command.takeFirst();

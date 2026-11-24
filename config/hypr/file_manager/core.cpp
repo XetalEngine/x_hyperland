@@ -195,6 +195,14 @@ bool executeOnOpen(const QUrl &url) {
   return kind == "appimage" || kind == "deb" ||
       (url.isLocalFile() && QFileInfo(url.toLocalFile()).isExecutable() && !executionCommand(url).isEmpty());
 }
+QString executionOpenHint(const QUrl &url) {
+  if (!url.isLocalFile()) return {};
+  const QFileInfo file(url.toLocalFile());
+  if (!file.isFile() || file.suffix().compare("run", Qt::CaseInsensitive) || file.isExecutable()) return {};
+  return "This .run file does not have execute permission.\n\n"
+         "Please right-click the .run file and choose Execute instead of double-clicking. "
+         "Execute will ask for confirmation before giving it execute permission and running it.";
+}
 QList<QVariantMap> executionMenu(QList<QVariantMap> entries, const QList<QUrl> &urls) {
   if (urls.size() != 1) return entries;
   const auto kind = executionKind(urls.first());

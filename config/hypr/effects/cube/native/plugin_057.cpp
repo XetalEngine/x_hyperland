@@ -799,11 +799,12 @@ SDispatchResult switchWorkspace(std::string arg) {
     if (target && target->m_monitor) m = target->m_monitor.lock();
     if (!m || m->m_activeSpecialWorkspace) return ordinaryWorkspace(arg);
     auto ids = faceIDs(m);
+    const int count = ids.size();
     auto current = std::find(ids.begin(), ids.end(), Fusion057::numberedID(m->m_activeWorkspace));
     if (!target) {
         if (arg == "e+1" || arg == "e-1") {
             int index = current == ids.end() ? 0 : current-ids.begin();
-            target = State::workspaceState()->query().numbered(Workspace::SWorkspaceNumberedID{uint32_t(ids[(index+(arg=="e+1"?1:3))%4])}).run();
+            target = State::workspaceState()->query().numbered(Workspace::SWorkspaceNumberedID{uint32_t(ids[(index+(arg=="e+1"?1:count-1))%count])}).run();
         } else return ordinaryWorkspace(arg);
     }
     if (std::find(ids.begin(), ids.end(), Fusion057::numberedID(target)) == ids.end()) target = State::workspaceState()->query().numbered(Workspace::SWorkspaceNumberedID{uint32_t(ids.back())}).run();
@@ -813,9 +814,9 @@ SDispatchResult switchWorkspace(std::string arg) {
         begin(m, 0, false, true);
         if (!scene) return ordinaryWorkspace(workspaceAddress(target));
         int index = std::find(ids.begin(), ids.end(), Fusion057::numberedID(target))-ids.begin();
-        int delta = (index-scene->initial+4)%4;
-        if (delta > 2) delta -= 4;
-        scene->targetYaw = -delta * Cube::PI/2;
+        int delta = (index-scene->initial+count)%count;
+        if (delta > count/2) delta -= count;
+        scene->targetYaw = -delta * 2*Cube::PI/count;
         scene->help.reset();
         return SDispatchResult{};
     } catch (const std::exception &e) {
@@ -838,12 +839,13 @@ SDispatchResult localWorkspace(std::string arg) {
     reconcileFaces();
     auto m = State::monitorState()->query().vec(Pointer::mgr()->position()).run();
     if (!m) return {.success=false, .error="No monitor under the pointer"};
-    auto ids = faceIDs(m); int index = -1;
+    auto ids = faceIDs(m); const int count = ids.size(); int index = -1;
     if (number == "e+1" || number == "e-1") {
         auto active = std::find(ids.begin(), ids.end(), Fusion057::numberedID(m->m_activeWorkspace));
-        index = ((active == ids.end() ? 0 : active-ids.begin())+(number=="e+1"?1:3))%4;
-    } else if (number.size() == 1 && number[0] >= '1' && number[0] <= '4') index = number[0]-'1';
-    if (index < 0 || index >= int(ids.size())) return SDispatchResult{}; // 5–0 are intentionally inactive in Cube mode.
+        index = ((active == ids.end() ? 0 : active-ids.begin())+(number=="e+1"?1:count-1))%count;
+    } else if (number.size() == 1 && number[0] >= '1' && number[0] <= '9') index = number[0]-'1';
+    else if (number == "10") index = 9;
+    if (index < 0 || index >= int(ids.size())) return SDispatchResult{}; // A shortcut never creates a missing side.
     auto target = workspaceAddress(State::workspaceState()->query().numbered(Workspace::SWorkspaceNumberedID{uint32_t(ids[index])}).run());
     if (move) {
         auto result = ordinaryMove(target);
@@ -1035,7 +1037,8 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             add("cursor_vertices", json_object_new_int64(cursorVertices));
             add("cursor_style", json_object_new_string(cursorOptions.style.c_str()));
             add("cursor_size", json_object_new_int(cursorOptions.size));
-            add("four_faces", json_object_new_boolean(true));
+            add("min_faces", json_object_new_int(Cube::MIN_FACES));
+            add("max_faces", json_object_new_int(Cube::MAX_FACES));
             add("workspace_animation", json_object_new_string(settings.rotateWorkspace ? "cube" : "standard"));
             add("active", json_object_new_boolean(bool(scene)));
             add("started", json_object_new_int64(started));

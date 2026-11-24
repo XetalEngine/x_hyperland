@@ -5,16 +5,20 @@ Hold **Ctrl + Alt + left mouse** and drag to rotate the cube on that monitor.
 Release the button to select the nearest face. **Escape** or a right click
 cancels. The pointer stays where the drag started.
 
-Cube is enabled by default. Each monitor has four fixed workspace faces, labeled
-**1–4** on its own taskbar. **Super+1–4**, **Super+Shift+1–4**, and Super+wheel
-use the monitor under the mouse. Keys 5–0 do nothing while Cube is enabled.
-The +/remove controls become available again when Cube is disabled, along with
-the original global workspace numbers and shortcuts. Scratch workspaces remain separate.
+Cube is enabled by default. Each monitor has **4–10 workspace sides**, labeled
+locally on its own taskbar. **+** adds a side on that display. The red **×**
+removes an empty side when more than four remain; occupied sides cannot be removed.
+At ten sides, **+** explains the limit. These workspace choices are saved across logins.
 
-If a monitor already has more than four workspaces, extra windows are collected
-on its fourth face. Disabling Cube restores those windows to their original
-workspaces if they have not since been moved manually. All of this state belongs
-to the running compositor; no saved workspace rules are rewritten.
+**Super+1–9 / Super+0** selects sides 1–10 on the monitor under the mouse;
+**Super+Shift+number** moves the active window there. A shortcut for a side that
+does not exist does nothing. Super+wheel cycles through that monitor's actual sides.
+Disabling Cube restores ordinary global workspace numbers and shortcuts.
+Scratch workspaces remain separate.
+
+If an older setup already has more than ten workspaces on one monitor, excess
+windows are collected on its last cube side. Disabling Cube restores those windows
+to their original workspaces if they have not since been moved manually.
 
 **Workspace switching** defaults to **Standard animation** for taskbar clicks
 and workspace shortcuts; **Rotate cube to destination** is optional. The Ctrl+Alt drag gesture
@@ -118,7 +122,13 @@ images, scaled/rotated outputs, and replacement with a different plugin build,
 before loading on a working desktop. The pixel/replacement probe is
 `tests/check-cube-sky.py` at the repository root; its optional third argument is
 the previous plugin binary for checking an upgrade.
-`tests/check-cube-workspaces.py` checks four faces, shortcuts, animated/direct switches,
+`tests/check-cube-sides.py` checks real add/remove transactions, 4–10 sides per monitor,
+rendered variable-sided previews, shortcuts/wraparound, persistence, occupied-workspace
+guards, replacement and hot-unplug in a disposable compositor.
+If the nested graphics driver cannot capture headless outputs, set
+`FUSION_CUBE_CHECK_FRAMES=0` to run the workspace checks separately; the probe
+explicitly reports that pixel capture was skipped.
+`tests/check-cube-workspaces.py` also checks shortcuts, animated/direct switches,
 occupied overflow restoration, hot-unplug, cursor effects and visible trail pixels.
 `tests/check-preview-fps.py` measures per-window capture at 10 and 60 FPS,
 checks that inactive-workspace clients produce new frames, verifies switcher

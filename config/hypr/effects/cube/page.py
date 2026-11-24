@@ -66,7 +66,7 @@ class CubePage(QWidget):
         grid.addWidget(cube,0,0);grid.addWidget(windows,0,1);grid.addWidget(caps,1,0);grid.addWidget(sky,1,1)
         grid.setColumnStretch(0,1);grid.setColumnStretch(1,1);grid.setRowStretch(2,1)
         scroll.setWidget(self.body);root.addWidget(scroll,1)
-        self.status=QLabel('Four faces per monitor. Super + 1–4 switches on the monitor under your mouse; turn Cube off to restore global workspaces.')
+        self.status=QLabel('4–10 sides per monitor. Taskbar + adds a side; × removes an empty side. Super + 1–9 / 0 selects sides 1–10 under your mouse.')
         self.status.setWordWrap(True);self.status.setObjectName('muted');root.addWidget(self.status)
         row=QHBoxLayout()
         self.defaults=QPushButton('Defaults');self.defaults.clicked.connect(self.reset_defaults);row.addWidget(self.defaults)

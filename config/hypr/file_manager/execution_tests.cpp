@@ -17,6 +17,7 @@ private slots:
       QVERIFY(!kind.isEmpty());
       QCOMPARE(Fusion::executionCommand(url), QStringList({"/usr/bin/python3", Fusion::root()+"/file_manager/execute.py", "--", path}));
       QCOMPARE(Fusion::executeOnOpen(url), kind == "appimage" || kind == "deb");
+      QCOMPARE(!Fusion::executionOpenHint(url).isEmpty(), QString(suffix) == "run");
       auto entries = Fusion::menuDefaults();
       auto first = entries.takeFirst(); first["enabled"] = false; entries.append(first);
       const auto menu = Fusion::executionMenu(entries, {url});
@@ -25,6 +26,7 @@ private slots:
       QVERIFY(menu.first()["enabled"].toBool());
       QVERIFY(QFile::setPermissions(path, QFile::ReadOwner|QFile::WriteOwner|QFile::ExeOwner));
       QVERIFY(Fusion::executeOnOpen(url));
+      QVERIFY(Fusion::executionOpenHint(url).isEmpty());
     }
   }
   void remoteAndDirectoryNeverExecute() {
@@ -34,6 +36,7 @@ private slots:
       QVERIFY(Fusion::executionKind(url).isEmpty());
       QVERIFY(Fusion::executionCommand(url).isEmpty());
       QVERIFY(!Fusion::executeOnOpen(url));
+      QVERIFY(Fusion::executionOpenHint(url).isEmpty());
     }
   }
   void extensionlessAppImageRecognizedByHeader() {

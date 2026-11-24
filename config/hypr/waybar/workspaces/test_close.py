@@ -56,12 +56,22 @@ def run():
                 def cube_state():
                     try:return (root/'cube-state').read_text()
                     except OSError:return ''
-                wait_for(lambda:cube_state()=='1 |2 |1|0', 'Cube labels or guarded add/remove controls are wrong')
+                wait_for(lambda:cube_state()=='1 |2 |1|0', 'Cube labels or minimum-side guard are wrong')
                 xdo('key','u')
                 labels=[line for line in actions() if line.startswith('labels ')]
                 assert labels==['labels 1 |2 ']*25, 'Internal workspace numbers escaped before refresh: '+repr(labels)
                 _,_,_,bx,by=geometry();click(bx,by);assert actions()[-1]=='activate 5',actions()
-                original,tip=add_state();assert tip=='Not available with 3D Cube on',tip
+                assert add_state()[1]=='Add a cube side on this display (4–10 workspaces)'
+                click(*add_state()[0][:2]);assert actions()[-1].startswith('new-workspace.py '),actions()
+                # Five real pills on this bar: an empty side can now be closed.
+                state.write_text('enabled\n2 1\n5 2\n6 3\n7 4\n8 5\n')
+                xdo('key','c');wait_for(lambda:geometry()[0]==1,'Fifth cube side did not enable empty-side removal')
+                _,x,y,*_=geometry();click(x,y);assert actions()[-1]=='remove-workspace.py 5',actions()
+                xdo('key','o');wait_for(lambda:geometry()[0]==0,'Occupied cube side could be removed')
+                xdo('key','e');wait_for(lambda:geometry()[0]==1,'Empty cube side did not regain close control')
+                state.write_text('enabled\n2 1\n5 2\n'+''.join(f'{n} {n-3}\n' for n in range(6,14)))
+                xdo('key','t');wait_for(lambda:add_state()[1].startswith('Maximum 10'),'Ten-side limit not shown')
+                original,tip=add_state();assert tip=='Maximum 10 cube workspaces on this display',tip
                 before=actions();click(*original[:2])
                 wait_for(lambda:add_state()[0][3], 'Blocked click did not show feedback')
                 xdo('key','p')
@@ -82,7 +92,7 @@ def run():
                 # Repeated clicks and module reload must not leave a frame callback alive.
                 click(*add_state()[0][:2]);click(*add_state()[0][:2])
                 xdo('key','b');time.sleep(.3)
-                assert cube_state()=='1 |2 |1|0',cube_state()
+                assert cube_state()=='1 |2 |1|1',cube_state()
                 assert not add_state()[0][3],add_state()
                 assert actions()==before,actions()
                 click(*add_state()[0][:2])
@@ -93,9 +103,9 @@ def run():
                 click(*add_state()[0][:2]);assert actions()[-1].startswith('new-workspace.py '),actions()
                 xdo('key','u')
                 assert actions()[-25:]==['labels 2 |5 ']*25,actions()[-25:]
-                xdo('key','l');wait_for(lambda:geometry()[0]==0,'Last workspace must keep its number without a close button')
+                xdo('key','d');xdo('key','l');wait_for(lambda:geometry()[0]==0,'Last workspace must keep its number without a close button')
                 assert proc.poll() is None
-                print('PASS: close/add click routing; cube labels stay local; blocked tooltip, red pixels and shake; stable neighbouring controls; feedback resets on timeout, Cube off and module reload.')
+                print('PASS: close/add click routing; cube labels stay local; add sides and close empty sides; ten-side limit, red pixels and shake; stable neighbouring controls; feedback resets on timeout, Cube off and module reload.')
             finally:
                 proc.terminate();proc.wait(timeout=4);log.seek(0);errors=log.read()
                 assert not any(word in errors for word in ['CRITICAL','WARNING','ERROR']),errors

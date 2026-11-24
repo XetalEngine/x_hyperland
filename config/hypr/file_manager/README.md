@@ -104,7 +104,10 @@ discovery, deduplication, moved/deleted prefixes and the folder-only actions.
 
 AppImages and `.sh` / `.run` files show **Execute** first even without an execute
 bit. AppImages open through `execute.py` on double-click; scripts do so once
-executable. The shared helper inspects AppImage ELF headers without running them,
+executable. Double-clicking a `.run` file without execute permission shows a
+native message directing you to **right-click → Execute**, in both Files and
+desktop icons. Opening it never silently grants permission or sends it to a URL
+handler. The shared helper inspects AppImage ELF headers without running them,
 offers missing FUSE packages/interpreters and executable permissions, and opens
 a terminal only after confirmation. Only package installation, `modprobe` and
 `chmod +x` use sudo. The selected program always runs as the normal user, with

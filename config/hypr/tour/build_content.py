@@ -135,14 +135,14 @@ lesson('tile-float','windows','Tile, float, move, and resize',
     'When Force tiled or Force floating is set on the workspace, its policy wins. Choose Individual before switching one window’s mode.'],
     keys='Super + V|Super + Shift + F|Super + left drag|Super + right drag',related='workspace-force window-controls monitors',image='tile-float.webp',clip='tile-float',sources='keybindings.conf workspaces/README.md')
 
-lesson('workspaces','windows','Workspaces—and why the + button stops working',
-    'A workspace is a separate arrangement of windows. Cube mode deliberately gives every monitor a fixed set of four workspace faces.',
+lesson('workspaces','windows','Workspaces—add a side to your cube',
+    'A workspace is a separate arrangement of windows. Each monitor can have its own cube with four to ten sides.',
     'Taskbar → numbered workspace buttons · Theme → Window effects → Desktop Cube + 3D',[
-    'With Cube enabled, each monitor has local faces 1–4. Super + 1–4 switches the monitor under the pointer; Super + Shift + 1–4 moves the active window. Super + mouse wheel cycles faces.',
-    'The taskbar + and remove controls are unavailable because adding or removing a face would break the fixed four-face arrangement. Number shortcuts 5–0 do nothing in this mode. This is expected.',
-    'For freely added workspaces, open Desktop Cube + 3D and disable Cube. The + and remove controls return, together with normal global workspace numbers and shortcuts.',
-    'Special workspaces such as Welcome and Stash remain separate from cube faces. Existing excess workspaces may be folded into face four when Cube is enabled; disabling it can restore their original placement if you have not moved them manually.'],
-    keys='Super + 1–4|Super + Shift + 1–4|Super + wheel',tryit='With Cube enabled, switch between faces 1 and 2. Notice the + control is unavailable.',related='cube workspace-force magic',tags='plus new workspace add grey disabled four sides 3d cube ceiling',image='cube.webp',clip='cube',sources='effects/cube/README.md scripts/workspace.py scripts/new-workspace.py')
+    'With Cube enabled, workspaces are numbered locally on each monitor. Super + 1–9 or Super + 0 selects sides 1–10 under the pointer; Super + Shift + number moves the active window. Super + mouse wheel cycles the sides.',
+    'Click + to add an empty side on that display, up to ten. The red × closes an empty workspace when more than four remain. Occupied workspaces must be emptied first. Your choices are saved for future logins.',
+    'Shortcuts for sides you have not added do nothing. Disabling Cube restores ordinary global workspace numbers and the usual add/remove controls.',
+    'Welcome and Stash stay separate. When an older setup has more than ten workspaces on a display, excess windows are collected on its last side; disabling Cube restores their previous placement if you have not moved them manually.'],
+    keys='Super + 1–0|Super + Shift + 1–0|Super + wheel',tryit='Click + to add a fifth cube side, then use its red × to remove it while it is empty.',related='cube workspace-force magic',tags='plus new workspace add remove close four ten sides 3d cube ceiling',image='cube.webp',clip='cube',sources='effects/cube/README.md scripts/workspace.py scripts/new-workspace.py scripts/remove-workspace.py')
 
 lesson('workspace-force','windows','Force a window layout for one workspace',
     'Make one workspace a tiled workbench and another a floating canvas. These choices apply to existing, newly opened, and incoming windows.',
@@ -177,7 +177,7 @@ lesson('magic','windows','Keep a spare window in Stash',
     'Super + Shift + S / Super + S',[
     'Focus a practice window and press Super + Shift + S to send it to Stash.',
     'Press Super + S to show or hide Stash. The app keeps running while hidden, and the taskbar retains its Stash entry while it contains windows.',
-    'Bring a window back with your ordinary move-to-workspace shortcut. Stash is separate from Cube’s four faces; it is also different from minimizing to the dock.'],
+    'Bring a window back with your ordinary move-to-workspace shortcut. Stash is separate from Cube’s workspace sides; it is also different from minimizing to the dock.'],
     keys='Super + Shift + S|Super + S',related='workspaces minimize switcher',image='workspaces.webp',sources='keybindings.conf README.txt')
 
 lesson('monitors','windows','Work comfortably across monitors',
@@ -254,7 +254,7 @@ lesson('minimize','design','Put an app in the minimize dock',
     related='window-controls mix-match workspaces',image='dock.webp',clip='minimize',sources='effects/minimize/README.md effects/minimize/model.py')
 
 lesson('cube','design','Turn the desktop cube',
-    'The cube’s four sides are four workspaces. Turn it to reach another set of windows.',
+    'The cube’s 4–10 sides are separate workspaces. Turn it to reach another set of windows.',
     'Ctrl + Alt + left mouse drag',[
     'Put the pointer on the screen you want to turn.',
     'Hold Ctrl and Alt. Hold the left mouse button too, then drag left or right.',

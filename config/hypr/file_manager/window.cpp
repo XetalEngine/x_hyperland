@@ -896,6 +896,14 @@ void FilesWindow::openItem(const KFileItem &item, bool newTab) {
     openLocation(item.url(), newTab);
     return;
   }
+  const auto hint = Fusion::executionOpenHint(item.url());
+  if (!hint.isEmpty()) {
+    auto *dialog = new QMessageBox(QMessageBox::Information, "Run this installer", hint, QMessageBox::Ok, this);
+    dialog->setTextFormat(Qt::PlainText);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->open();
+    return;
+  }
   if (Fusion::executeOnOpen(item.url())) {
     execute(item.url());
     return;

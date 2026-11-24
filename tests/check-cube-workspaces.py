@@ -72,25 +72,25 @@ xwayland {
             ctl('keyword','monitor',f"{b['name']},1280x800@60,1280x0,1")
             wait_for(lambda:all(m['width']>0 for m in monitors()))
             dispatch('focusmonitor',a['name'])
-            for index,n in enumerate((21,22,23,24,25),1):
+            for index,n in enumerate(range(21,32),1):
                 dispatch('workspace',str(n))
                 child=subprocess.Popen(['kitty','--config','/dev/null','--class','cube-test','-e','sh','-c','sleep 300'],env=env,stdout=log,stderr=log);children.append(child)
                 wait_for(lambda:len(json.loads(ctl('-j','clients')))>=index)
-            client=next(c for c in json.loads(ctl('-j','clients')) if c['workspace']['id']==24)
+            client=next(c for c in json.loads(ctl('-j','clients')) if c['workspace']['id']==30)
             dispatch('focusmonitor',b['name']);dispatch('workspace','name:Research')
             child=subprocess.Popen(['kitty','--config','/dev/null','--class','cube-test','-e','sh','-c','sleep 300'],env=env,stdout=log,stderr=log);children.append(child)
-            wait_for(lambda:len(json.loads(ctl('-j','clients')))>=6)
-            dispatch('focusmonitor',a['name']);dispatch('workspace','25')
+            wait_for(lambda:len(json.loads(ctl('-j','clients')))>=12)
+            dispatch('focusmonitor',a['name']);dispatch('workspace','31')
             assert ctl('plugin','load',str(binary))=='ok'
             mapfile=Path(env['XDG_RUNTIME_DIR'])/'hypr'/env['HYPRLAND_INSTANCE_SIGNATURE']/'xetal-cube-faces'
-            wait_for(lambda:mapfile.exists() and len(mapfile.read_text().splitlines())==9)
+            wait_for(lambda:mapfile.exists() and len(mapfile.read_text().splitlines())==15)
             face_map={int(line.split()[0]):int(line.split()[1]) for line in mapfile.read_text().splitlines()[1:]}
             assignments={m['name']:sorted([w['id'] for w in workspaces() if w['monitor']==m['name'] and w['id'] in face_map]) for m in outputs[:2]}
-            assert all(len(ids)==4 for ids in assignments.values()),assignments
-            assert {face_map[i] for i in assignments[a['name']]}=={1,2,3,4}
+            assert len(assignments[a['name']])==10 and len(assignments[b['name']])==4,assignments
+            assert {face_map[i] for i in assignments[a['name']]}==set(range(1,11))
             assert status()['error']=='',status()
             folded=next(c for c in json.loads(ctl('-j','clients')) if c['address']==client['address'])
-            assert folded['workspace']['id']!=24,folded['workspace']
+            assert folded['workspace']['id']!=30,folded['workspace']
             for monitor in (a,b):
                 current=next(m for m in monitors() if m['name']==monitor['name'])
                 dispatch('movecursor',f"{current['x']+400} {current['y']+400}")
@@ -149,11 +149,11 @@ xwayland {
             assert seen and all(c['monitor']==destination['id'] and c['at']==[destination['x']+rx,destination['y']+ry] for c in seen),seen
             popup.terminate();popup.wait(timeout=5)
             # Reload does not create extra faces, including repeated enable/disable.
-            ctl('reload');time.sleep(.2);assert len(mapfile.read_text().splitlines())==9
+            ctl('reload');time.sleep(.2);assert len(mapfile.read_text().splitlines())==15
             values['enabled']=False;config.write_text(model.encode(values));dispatch('xetalcube:reload')
             assert mapfile.read_text().startswith('disabled')
             restored=next(c for c in json.loads(ctl('-j','clients')) if c['address']==client['address'])
-            assert restored['workspace']['id']==24,restored['workspace']
+            assert restored['workspace']['id']==30,restored['workspace']
             for effect in ('cloud','cinder','glow','sparkle','none'):
                 cursorvalues['trail']=effect;cursorfile.write_bytes(cursors.encode(cursorvalues));dispatch('xetalcube:cursor')
                 for x in range(200,500,25):dispatch('movecursor',f'{x} 300');time.sleep(.012)
@@ -166,10 +166,10 @@ xwayland {
             dispatch('xetalcube:workspace','switch 9');assert any(m['activeWorkspace']['id']==9 for m in monitors())
             values['enabled']=True;config.write_text(model.encode(values));dispatch('xetalcube:reload')
             ctl('output','remove',b['name']);time.sleep(.4)
-            assert len(mapfile.read_text().splitlines())==5,mapfile.read_text()
+            assert len(mapfile.read_text().splitlines())==11,mapfile.read_text()
             assert ctl('plugin','unload',str(binary))=='ok'
             assert mapfile.read_text().startswith('disabled')
-            print('PASS: four faces/output, local shortcuts, global taskbar rotation, standard animation, overflow restore, cursor styles/trails/idle, reload, hot-unplug, unload.',flush=True)
+            print('PASS: 4–10 faces/output, local shortcuts, global taskbar rotation, standard animation, overflow restore, cursor styles/trails/idle, reload, hot-unplug, unload.',flush=True)
         finally:
             for child in reversed(children):
                 if child.poll() is None:

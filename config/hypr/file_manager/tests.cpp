@@ -2318,6 +2318,27 @@ print(json.dumps(rows))
     if (!capture.isEmpty()) chooser.grab().save(capture + "-open-with.png");
     chooser.reject(); window.close();
   }
+  void runDoubleClickExplainsExecuteWithoutChangingPermissions() {
+    const QString sample = folder + "/installer-guidance";
+    QDir().mkpath(sample);
+    const auto script = QUrl::fromLocalFile(sample + "/test installer.run");
+    write(script.toLocalFile(), "#!/bin/sh\nexit 0\n");
+    QVERIFY(QFile::setPermissions(script.toLocalFile(), QFile::ReadOwner | QFile::WriteOwner));
+    const auto permissions = QFileInfo(script.toLocalFile()).permissions();
+    FilesWindow window(QUrl::fromLocalFile(sample), false, temporary.path() + "/run-hint.ini");
+    window.setAttribute(Qt::WA_DeleteOnClose, false); window.show();
+    auto *tab = window.browser();
+    QTRY_VERIFY(tab->model->indexForUrl(script).isValid());
+    clickFile(tab, script);
+    const auto index = tab->proxy->mapFromSource(tab->model->indexForUrl(script));
+    QTest::mouseDClick(tab->view()->viewport(), Qt::LeftButton, Qt::NoModifier, filePoint(tab, index));
+    QTRY_VERIFY(window.findChild<QMessageBox *>());
+    auto *dialog = window.findChild<QMessageBox *>();
+    QCOMPARE(dialog->textFormat(), Qt::PlainText);
+    QVERIFY(dialog->text().contains("right-click the .run file and choose Execute"));
+    QCOMPARE(QFileInfo(script.toLocalFile()).permissions(), permissions);
+    dialog->accept(); window.close();
+  }
   void executableDoubleClickRunsWithoutChangingPermissions() {
     const QString sample = folder + "/executable-click";
     QDir().mkpath(sample + "/bin");

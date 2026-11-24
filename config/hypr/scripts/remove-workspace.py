@@ -22,7 +22,7 @@ def snapshot():
 def removal_target(number, monitor, workspaces, clients, monitors):
     if number < 1:
         raise ValueError('Only numbered workspaces can be removed here.')
-    target = next((w for w in workspaces if w['id'] == number), None)
+    target = next((w for w in workspaces if w.get('id') == number), None)
     if target is None:
         return None, None
     if target['monitor'] != monitor or target['name'] != str(number):
@@ -32,7 +32,7 @@ def removal_target(number, monitor, workspaces, clients, monitors):
     output = next((m for m in monitors if m['name'] == monitor and not m.get('disabled')), None)
     if output is None:
         raise ValueError('This display disconnected.')
-    siblings = [w for w in workspaces if w['monitor'] == monitor and w['id'] > 0 and w['id'] != number]
+    siblings = [w for w in workspaces if w['monitor'] == monitor and w.get('id',0) > 0 and w['id'] != number]
     if not siblings:
         raise ValueError('Keep at least one workspace on this display.')
     active = output.get('activeWorkspace', {}).get('id')
@@ -76,8 +76,7 @@ def monitor_at(monitors, x, y):
 
 def remove(number, x, y):
     sys.path.insert(0,str(Path(__file__).resolve().parent))
-    from workspace import cube_enabled
-    if cube_enabled():raise ValueError('Desktop Cube uses four fixed workspaces on each monitor.')
+    from workspace import monitor_faces, keep_faces
     store = settings.Store('workspaces')
     store.state.mkdir(parents=True, exist_ok=True, mode=0o700)
     # Serialize + and × so a new workspace cannot reuse an ID mid-transaction.
@@ -89,13 +88,25 @@ def remove(number, x, y):
         target, _ = removal_target(number, monitor, workspaces, clients, monitors)
         if target is None:
             return number
+        faces = monitor_faces(workspaces, monitor)
+        if faces is not None:
+            if number not in faces:raise ValueError('That cube workspace changed. Try its button again.')
+            if len(faces) <= 4:raise ValueError('Keep at least 4 cube workspaces on this display.')
         content = removal_config(previous, number) if target.get('ispersistent') else previous
+        if faces is not None:
+            content = keep_faces(content, [n for n in faces if n != number], monitor)
+            # Explicitly release Cube's runtime ownership as well as any rule
+            # inherited from the main profile. Other workspace options survive.
+            content = content.rstrip()+f'\nworkspace = {number}, persistent:false\n'
         if content != previous:
             store.check(content, token)
         # Check again after validation. The bar's empty indicator can be stale.
         removal_target(number, monitor, *snapshot())
         saved = store.save(content, token) if content != previous else None
         try:
+            if faces is not None:
+                result = settings.ctl('dispatch', 'xetalcube:reload')
+                if result.strip() != 'ok':raise ValueError(result)
             target, fallback = removal_target(number, monitor, *snapshot())
             if target is None:
                 return number
@@ -108,7 +119,7 @@ def remove(number, x, y):
                     raise ValueError(result)
             for _ in range(30):
                 current = json.loads(settings.ctl('-j', 'workspaces'))
-                if all(w['id'] != number for w in current):
+                if all(w.get('id') != number for w in current):
                     return number
                 time.sleep(.05)
             raise ValueError('The workspace is still in use. Its saved settings were kept.')

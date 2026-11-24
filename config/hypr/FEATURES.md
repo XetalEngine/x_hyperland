@@ -9,7 +9,7 @@
 - **[Fusion Files](#fusion-files)** — eleven This PC layouts, theme gradients, drive previews, Wine/Proton drives and controls you can make your own.
 - **[Alt+F9 screen recording](#altf9-screen-recording)** — capture a monitor with audio, automatic GPU encoding and MP4 saving.
 - **[Four window modes](#four-window-modes)** — Individual, Force tiling, Force floating and KDE mode, chosen per workspace.
-- **[One cube per monitor](#one-cube-per-monitor)** — four independent workspace faces on each display, with live windows and optional 3D depth.
+- **[One cube per monitor](#one-cube-per-monitor)** — 4–10 independent workspace sides on each display, with live windows and optional 3D depth.
 - **[Fusion's file-transfer engine](#copy-cut-and-move-with-fusion-files)** — Copy, Cut/Paste and Move with animated progress, visible decisions, verified moves and Undo.
 
 ## Fusion Files
@@ -122,9 +122,9 @@ keep their existing drag behavior.
 
 ## One cube per monitor
 
-**Each monitor owns a cube with four workspace faces, numbered 1–4 on its own taskbar.** Hold **Ctrl+Alt+left mouse** and drag to rotate the cube on that monitor. Release to choose a face; Escape cancels. The other monitors keep their current workspaces.
+**Each monitor owns a cube with 4–10 workspace sides, numbered locally on its own taskbar.** Hold **Ctrl+Alt+left mouse** and drag to rotate the cube on that monitor. Release to choose a face; Escape cancels. The other monitors keep their current workspaces. Use **+** to add a side, up to ten. The red **×** removes an empty workspace while keeping at least four. Added and removed sides are saved for future logins. **Super+0** selects side 10 when it exists.
 
-**Super+1–4** switches faces on the monitor under the pointer; **Super+Shift+1–4** sends the active window to a face there. Choose standard workspace animations or automatic cube rotation when switching normally. Customize wall transparency, ceiling/floor artwork, moving skies and the spacing/thickness of raised **3D windows**.
+**Super+1–0** switches faces on the monitor under the pointer; **Super+Shift+1–0** sends the active window to a face there. Choose standard workspace animations or automatic cube rotation when switching normally. Customize wall transparency, ceiling/floor artwork, moving skies and the spacing/thickness of raised **3D windows**.
 
 [![Midnight Transit cube with live application windows and themed ceiling artwork](docs/features/monitor-cube.png)](docs/features/monitor-cube.png)
 

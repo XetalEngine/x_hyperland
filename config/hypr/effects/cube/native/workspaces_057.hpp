@@ -1,5 +1,5 @@
-// Session-only four-face ownership. Existing windows are retained on overflow
-// faces and restored on disable if the user has not moved them in the meantime.
+// Per-monitor ownership of 4–10 sides. Saved persistence rules survive Cube
+// toggles; overflow windows are restored on disable if not moved by the user.
 std::string workspaceAddress(PHLWORKSPACE workspace) {
     return workspace->addressableName();
 }
@@ -55,6 +55,18 @@ void writeFaceState() {
     std::error_code ec;
     std::filesystem::rename(temporary, path, ec);
 }
+// A saved persistent:false is the explicit removal request from Waybar.
+// Check windows again in the compositor; the Python/GTK snapshot can be stale.
+std::optional<bool> savedPersistence(PHLWORKSPACE w) {
+    const auto rule = Config::workspaceRuleMgr()->getWorkspaceRuleFor(w);
+    return rule ? rule->m_isPersistent : std::nullopt;
+}
+bool removeRequested(PHLWORKSPACE w) {
+    if (savedPersistence(w) != std::optional<bool>{false}) return false;
+    for (auto window : Desktop::windowState()->windows())
+        if (window->m_workspace == w) return false;
+    return true;
+}
 void releaseFaces() {
     for (auto &fold : foldedWindows)
         if (auto w = fold.window.lock(); w && w->mapped() && valid(fold.from) &&
@@ -63,7 +75,7 @@ void releaseFaces() {
     foldedWindows.clear();
     for (auto &[name, faces] : monitorFaces)
         for (auto &face : faces)
-            if (valid(face.workspace)) setPersistent(face.workspace,face.persistent);
+            if (valid(face.workspace)) setPersistent(face.workspace,savedPersistence(face.workspace).value_or(face.persistent));
     monitorFaces.clear();
     writeFaceState();
 }
@@ -82,19 +94,29 @@ void reconcileFaces() {
             if (valid(f.workspace)) setPersistent(f.workspace,f.persistent);
             return true;
         });
+        for (auto it = faces.begin(); it != faces.end() && faces.size() > Cube::MIN_FACES;) {
+            auto w = it->workspace;
+            if (!removeRequested(w)) { ++it; continue; }
+            if (m->m_activeWorkspace == w) {
+                auto next = std::find_if(faces.begin(), faces.end(), [&](auto &f) { return f.workspace != w; });
+                m->changeWorkspace(next->workspace, false, true);
+            }
+            setPersistent(w,false);
+            it = faces.erase(it);
+        }
         auto candidates = Cube::faces(workspaceList(), m->m_id, Fusion057::numberedID(m->m_activeWorkspace));
-        // Keep the visible desktop in the first four when enabling an old setup.
-        if (faces.empty() && candidates.size() > 4 &&
-            std::find(candidates.begin(), candidates.begin()+4, Fusion057::numberedID(m->m_activeWorkspace)) == candidates.begin()+4) {
-            candidates[3] = Fusion057::numberedID(m->m_activeWorkspace); candidates.resize(4); std::sort(candidates.begin(), candidates.end());
+        // Keep the visible desktop in the first ten when enabling an old setup.
+        if (faces.empty() && candidates.size() > Cube::MAX_FACES &&
+            std::find(candidates.begin(), candidates.begin()+Cube::MAX_FACES, Fusion057::numberedID(m->m_activeWorkspace)) == candidates.begin()+Cube::MAX_FACES) {
+            candidates[Cube::MAX_FACES-1] = Fusion057::numberedID(m->m_activeWorkspace); candidates.resize(Cube::MAX_FACES); std::sort(candidates.begin(), candidates.end());
         }
         for (auto id : candidates) {
-            if (!id || faces.size() == 4) break;
+            if (!id || faces.size() == Cube::MAX_FACES) break;
             if (std::any_of(faces.begin(), faces.end(), [&](auto &f) { return Fusion057::numberedID(f.workspace) == id; })) continue;
             auto w = State::workspaceState()->query().numbered(Workspace::SWorkspaceNumberedID{uint32_t(id)}).run();
-            if (valid(w) && w->m_monitor == m) faces.push_back({w, persistent(w)});
+            if (valid(w) && w->m_monitor == m && !removeRequested(w)) faces.push_back({w, persistent(w)});
         }
-        while (faces.size() < 4) {
+        while (faces.size() < Cube::MIN_FACES) {
             auto used = workspaceList();
             for (auto &rule : Config::workspaceRuleMgr()->getAllWorkspaceRules())
                 if (rule->isEnabled() && ruleID(*rule) > 0) used.push_back({ruleID(*rule), -1, false});
@@ -103,7 +125,7 @@ void reconcileFaces() {
             w->ready();faces.push_back({w, false});
         }
         std::sort(faces.begin(), faces.end(), [](auto &a, auto &b) { return Fusion057::numberedID(a.workspace) < Fusion057::numberedID(b.workspace); });
-        for (auto &f : faces) setPersistent(f.workspace,true);
+        for (auto &f : faces) { f.persistent = savedPersistence(f.workspace).value_or(f.persistent); setPersistent(f.workspace,true); }
         auto destination = faces.back().workspace;
         for (auto w : Desktop::windowState()->windows()) {
             if (!w->mapped() || w->m_monitor != m || !w->m_workspace || w->onSpecialWorkspace()) continue;

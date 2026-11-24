@@ -19,6 +19,7 @@ static GSubprocess *capture_spawn(const gchar *const *argv, GSubprocessFlags fla
 
 static GtkWidget *window, *host, *workspace_box, *empty, *occupied, *minimized;
 static Workspaces *instance;
+static GtkWidget *extra[8];
 static GtkContainer *get_root(wbcffi_module *unused) { return GTK_CONTAINER(host); }
 static gboolean activated(GtkWidget *widget, GdkEventButton *event, gpointer data) {
     if (event->type == GDK_BUTTON_PRESS) { record(data); return TRUE; }
@@ -34,6 +35,13 @@ static GtkWidget *workspace(const char *name, gboolean is_empty, const char *act
     gtk_widget_show_all(button);return button;
 }
 static gboolean keyboard(GtkWidget *widget, GdkEventKey *event, gpointer data) {
+    if (event->keyval==GDK_KEY_c || event->keyval==GDK_KEY_t || event->keyval==GDK_KEY_d) {
+        int count = event->keyval==GDK_KEY_c ? 3 : event->keyval==GDK_KEY_t ? 8 : 0;
+        for (int i=0;i<8;++i) {
+            if (i<count && !extra[i]) { char *name=g_strdup_printf("%d ",6+i); extra[i]=workspace(name,TRUE,"activate extra");g_free(name); }
+            if (i>=count && extra[i]) {gtk_widget_destroy(extra[i]);extra[i]=NULL;}
+        }
+    }
     if (event->keyval==GDK_KEY_o) gtk_style_context_remove_class(gtk_widget_get_style_context(empty),"empty");
     if (event->keyval==GDK_KEY_e) gtk_style_context_add_class(gtk_widget_get_style_context(empty),"empty");
     if (event->keyval==GDK_KEY_r) { gtk_widget_destroy(empty);empty=NULL; }

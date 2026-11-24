@@ -25,6 +25,7 @@ typedef struct {
     guint timer, feedback_tick;
     gint64 feedback_started;
     gboolean cube;
+    int count;
 } Workspaces;
 
 static void invoke(GtkWidget *widget, long number) {
@@ -56,10 +57,10 @@ static gboolean cube_faces(GHashTable *faces, GHashTable *names) {
         char **lines = g_strsplit(data, "\n", -1);
         for (int i=1; lines[i]; ++i) {
             long id=0; int face=0;
-            if (sscanf(lines[i], "%ld %d", &id, &face) == 2 && id != 0 && face >= 1 && face <= 4)
+            if (sscanf(lines[i], "%ld %d", &id, &face) == 2 && id != 0 && face >= 1 && face <= 10)
                 g_hash_table_insert(faces, GSIZE_TO_POINTER(id), GINT_TO_POINTER(face));
             char *tab = strchr(lines[i], '\t');
-            if (names && tab && id != 0 && face >= 1 && face <= 4)
+            if (names && tab && id != 0 && face >= 1 && face <= 10)
                 g_hash_table_insert(names, g_strdup(tab+1), GSIZE_TO_POINTER(id));
         }
         g_strfreev(lines);
@@ -92,11 +93,15 @@ static gboolean feedback_frame(GtkWidget *button, GdkFrameClock *clock, gpointer
     return G_SOURCE_CONTINUE;
 }
 
-static void update_add_button(Workspaces *owner, gboolean cube) {
+static gboolean refresh(gpointer data);
+static void update_add_button(Workspaces *owner, gboolean cube, int count) {
     owner->cube = cube;
-    const char *tip = cube ? "Not available with 3D Cube on" : "New empty workspace on this display";
+    owner->count = count;
+    gboolean full = cube && count >= 10;
+    const char *tip = full ? "Maximum 10 cube workspaces on this display" :
+        cube ? "Add a cube side on this display (4–10 workspaces)" : "New empty workspace on this display";
     GtkStyleContext *context = gtk_widget_get_style_context(owner->button);
-    if (cube) gtk_style_context_add_class(context, "cube-unavailable");
+    if (full) gtk_style_context_add_class(context, "cube-unavailable");
     else { gtk_style_context_remove_class(context, "cube-unavailable"); stop_feedback(owner); }
     gtk_widget_set_tooltip_text(owner->button, tip);
     atk_object_set_description(gtk_widget_get_accessible(owner->button), tip);
@@ -104,9 +109,8 @@ static void update_add_button(Workspaces *owner, gboolean cube) {
 
 static void clicked(GtkButton *button, gpointer data) {
     Workspaces *owner = data;
-    gboolean cube = cube_faces(NULL, NULL);
-    if (cube != owner->cube) update_add_button(owner, cube);
-    if (!cube) { invoke(GTK_WIDGET(button), 0); return; }
+    refresh(owner);
+    if (!owner->cube || owner->count < 10) { invoke(GTK_WIDGET(button), 0); return; }
     owner->feedback_started = g_get_monotonic_time();
     gtk_style_context_add_class(gtk_widget_get_style_context(owner->button), "cube-blocked");
     if (!owner->feedback_tick)
@@ -115,7 +119,7 @@ static void clicked(GtkButton *button, gpointer data) {
 
 static void remove_clicked(GtkButton *button, gpointer data) {
     Decoration *d = data;
-    if (!cube_faces(NULL, NULL) && d->button && d->number > 0 && gtk_style_context_has_class(gtk_widget_get_style_context(d->button), "empty"))
+    if (gtk_widget_get_visible(GTK_WIDGET(button)) && d->button && d->number > 0 && gtk_style_context_has_class(gtk_widget_get_style_context(d->button), "empty"))
         invoke(d->button, d->number);
 }
 
@@ -144,7 +148,7 @@ static long workspace_number(GtkWidget *button) {
 }
 
 /* The stash name carries the original workspace ID, never a window sequence.
- * Cube's face map translates that ID to the same 1–4 shown by the main pills. */
+ * Cube's face map translates that ID to the same 1–10 shown by the main pills. */
 static long minimized_workspace(GtkWidget *button) {
     if (!gtk_style_context_has_class(gtk_widget_get_style_context(button), "special")) return 0;
     GtkWidget *label = find_widget(button, "workspace-label", TRUE);
@@ -247,7 +251,6 @@ static gboolean refresh(gpointer data) {
     GHashTable *faces = g_hash_table_new(g_direct_hash, g_direct_equal);
     GHashTable *names = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
     gboolean cube = cube_faces(faces, names);
-    if (cube != owner->cube) update_add_button(owner, cube);
     for (GSList *it = owner->decorations, *next; it; it = next) {
         next = it->next;
         Decoration *d = it->data;
@@ -258,8 +261,12 @@ static gboolean refresh(gpointer data) {
     if (!GTK_IS_BOX(box)) { g_hash_table_unref(faces); g_hash_table_unref(names); return G_SOURCE_CONTINUE; }
     GList *children = gtk_container_get_children(GTK_CONTAINER(box));
     int count = 0;
-    for (GList *it = children; it; it = it->next)
-        if (workspace_number(it->data) && gtk_widget_get_visible(it->data)) count++;
+    for (GList *it = children; it; it = it->next) {
+        Decoration *d = g_object_get_data(G_OBJECT(it->data), "xetal-workspace-decoration");
+        long id = d ? (d->minimized || d->stash ? 0 : d->number) : workspace_number(it->data);
+        if (id > 0 && (cube ? g_hash_table_contains(faces, GSIZE_TO_POINTER(id)) : gtk_widget_get_visible(it->data))) count++;
+    }
+    update_add_button(owner, cube, count);
     for (GList *it = children; it; it = it->next) {
         GtkWidget *button = it->data;
         if (!GTK_IS_BUTTON(button)) continue;
@@ -300,7 +307,7 @@ static gboolean refresh(gpointer data) {
             if (g_strcmp0(text, gtk_label_get_text(GTK_LABEL(label)))) gtk_label_set_text(GTK_LABEL(label), text);
             g_free(text);
         }
-        gboolean removable = !d->minimized && !cube && number > 0 && count > 1 && gtk_style_context_has_class(gtk_widget_get_style_context(button), "empty");
+        gboolean removable = !d->minimized && number > 0 && (!cube || face > 0) && count > (cube ? 4 : 1) && gtk_style_context_has_class(gtk_widget_get_style_context(button), "empty");
         gtk_widget_set_margin_end(d->content, d->margin + (removable ? 16 : 0));
         gtk_widget_set_visible(d->close, removable);
         if (d->stash) {
@@ -313,7 +320,7 @@ static gboolean refresh(gpointer data) {
             gtk_widget_set_tooltip_text(button, tip);g_free(tip);
         }
         if (removable) {
-            char *tip = g_strdup_printf("Remove empty workspace %ld", number);
+            char *tip = g_strdup_printf("Remove empty workspace %ld", d->face ? (long)d->face : number);
             gtk_widget_set_tooltip_text(d->close, tip);
             atk_object_set_name(gtk_widget_get_accessible(d->close), tip);
             g_free(tip);
@@ -343,7 +350,7 @@ void *wbcffi_init(const wbcffi_init_info *info, const wbcffi_config_entry *entri
     gtk_style_context_add_provider(gtk_widget_get_style_context(button), GTK_STYLE_PROVIDER(feedback),
                                    GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1);
     g_object_unref(feedback);
-    update_add_button(owner, cube_faces(NULL, NULL));
+    update_add_button(owner, cube_faces(NULL, NULL), 0);
     gtk_container_add(info->get_root_widget(info->obj), button);
     g_signal_connect(button, "clicked", G_CALLBACK(clicked), owner);
     gtk_widget_show_all(button);
