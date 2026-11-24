@@ -5,6 +5,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "../pins/waybar_cffi_module.h"
 #include "menu.h"
+#include "../tray/activation.h"
 #include <json-glib/json-glib.h>
 #include <gtk-layer-shell.h>
 #include <glib/gstdio.h>
@@ -54,6 +55,7 @@ typedef struct {
     gboolean alive, saving, bottom;
     GtkWidget *root, *top, *menu;
     GtkGesture *gesture;
+    FusionTray *tray;
     GSList *slots;
     guint timer;
     GFileMonitor *monitor;
@@ -470,6 +472,8 @@ static gboolean refresh(gpointer data) {
         gtk_gesture_single_set_button(GTK_GESTURE_SINGLE(o->gesture), 3);
         gtk_event_controller_set_propagation_phase(GTK_EVENT_CONTROLLER(o->gesture), GTK_PHASE_CAPTURE);
         g_signal_connect(o->gesture, "pressed", G_CALLBACK(pressed), o);
+        char *helper = g_build_filename(g_get_home_dir(), ".config/hypr/scripts/tray-activate.py", NULL);
+        o->tray = fusion_tray_new(top, helper); g_free(helper);
     }
     for (GSList *it = o->slots, *next; it; it = next) {
         next = it->next; Slot *slot = it->data;
@@ -507,6 +511,7 @@ void *wbcffi_init(const wbcffi_init_info *info, const wbcffi_config_entry *entri
 
 void wbcffi_deinit(void *instance) {
     Options *o = instance; o->alive = FALSE;
+    fusion_tray_stop(o->tray);
     if (o->timer) g_source_remove(o->timer);
     if (o->monitor) { g_file_monitor_cancel(o->monitor); g_object_unref(o->monitor); }
     if (o->menu) { g_signal_handlers_disconnect_by_data(o->menu, o); gtk_widget_destroy(o->menu); }

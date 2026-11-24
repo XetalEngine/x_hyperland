@@ -402,6 +402,8 @@ assert m['fire_indicator']
         self.assertTrue(set(bar['modules-right']).isdisjoint({'custom/internet','custom/lan','custom/wifi','custom/vpn','bluetooth'}))
         self.assertIn('quick-panel.sh network',bar['custom/network']['on-click'])
         self.assertTrue((self.stage/'waybar/options/build.sh').is_file())
+        self.assertTrue((self.stage/'waybar/tray/activation.h').is_file())
+        self.assertTrue((self.stage/'scripts/tray-activate.py').is_file())
 
     def test_update_registration_tracks_delivered_defaults_and_bar_entry(self):
         self.render(); install.register_updates(self.stage)

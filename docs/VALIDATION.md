@@ -1,5 +1,36 @@
 # Validation
 
+## Tray activation on multiple monitors — 23 November 2026
+
+Left-clicks on Waybar tray items now focus the app's most recently used window
+on its existing monitor/workspace through the taskbar's restore/focus helper.
+The tray's D-Bus owner and process start time identify its windows; matching a
+window title alone is insufficient. An existing window receives no application
+show/hide toggle. With no mapped window, an activatable item receives one native
+activation request, followed by bounded waiting for its new window. Unknown
+items and menu-only applets retain native handling. Right/middle clicks and
+scroll are not intercepted. GTK's additional double/triple-click notifications
+cannot leak a second toggle to the application.
+
+Nineteen Python checks passed for ownership, unique menu identity, process reuse,
+last-used selection, minimized/closed windows, menu applets and activation
+failures. Bar-options persistence and the installer profile-delivery check also
+passed. The extension builds with `-Wall -Wextra -Werror` through the existing
+Waybar options build, with no new package dependency or separate Waybar fork.
+
+Eight integration scenarios passed in a private D-Bus/Hyprland session with
+three headless monitors, the real Waybar and a real Qt tray application:
+GTK fallback/deduplication/timeout/teardown, one reveal from each monitor,
+repeated clicks, most-recent-window selection, reopening a closed window with
+one activation, and preserved right-click behavior. The native menu screenshot
+was inspected. The real Echo tray owner also matched its existing host window
+in a read-only check. Host windows/workspaces were not used as test fixtures.
+
+```sh
+python3 -m unittest discover -s config/hypr/scripts -p test_tray_activation.py
+python3 tests/check-tray-activation.py /tmp/fusion-tray-check-new
+```
+
 ## GRUB appearance permissions and authentication — 23 November 2026
 
 The authenticated helper now handles one operation and exits. Appearance and
