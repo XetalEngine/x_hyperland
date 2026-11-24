@@ -1,6 +1,6 @@
 #include "software_page.h"
 #include "software_packages.h"
-#include "aur_page.h"
+#include "software_catalog.h"
 #include "native.h"
 #include "backend/package_install.h"
 #include "terminal_exit.h"
@@ -64,7 +64,7 @@ SoftwarePage::SoftwarePage(QWidget *legacy, const QString &root, const QString &
         "QToolButton[softwareFold=\"true\"] {background:transparent;border:0;text-align:left;font-size:14px;font-weight:600;}");
     auto *outer = new QVBoxLayout(this); outer->setContentsMargins(6, 6, 6, 6); outer->setSpacing(12);
     auto *heading = new QHBoxLayout; auto *titles = new QVBoxLayout; titles->setSpacing(4);
-    titles->addWidget(label("Software", "softwareHeading")); titles->addWidget(label("Packages, installed apps and repairs in one place.")); heading->addLayout(titles, 1);
+    titles->addWidget(label("Software", "softwareHeading")); titles->addWidget(label("Find your next app. Make this desktop yours.")); heading->addLayout(titles, 1);
     auto *aur = new QPushButton(QIcon::fromTheme("package-x-generic"), "Yay && Paru");
     connect(aur, &QPushButton::clicked, this, [this] { emit openTool("aur"); }); heading->addWidget(aur);
     auto *updates = new QPushButton(QIcon::fromTheme("system-software-update"), "Updates");
@@ -73,7 +73,9 @@ SoftwarePage::SoftwarePage(QWidget *legacy, const QString &root, const QString &
     connect(refresh, &QPushButton::clicked, this, &SoftwarePage::refreshSection); heading->addWidget(refresh); outer->addLayout(heading);
 
     sections = new PanelTabs(this); sections->setObjectName("softwareSections"); sections->setDocumentMode(true); outer->addWidget(sections, 1);
-    browser = new AurPage(root, terminal, sections, AurPage::Mode::Repositories); sections->addTab(browser, "Browse");
+    browser = new SoftwareCatalogPage(root, terminal, sections); sections->addTab(browser, "Browse");
+    connect(browser, &SoftwareCatalogPage::openTool, this, &SoftwarePage::openTool);
+    connect(browser, &SoftwareCatalogPage::packagesChanged, this, [this] { loaded = false; if (isVisible() && sections->currentIndex() == 1) refreshInstalled(); });
     auto *storage = new QWidget(this); storage->setObjectName("retiredSoftwareWidgets"); storage->hide();
     auto *installedPage = take<QWidget>(legacy, "uninstallTab");
     auto *repairPage = take<QWidget>(legacy, "pacmanDoctorTab");

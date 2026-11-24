@@ -1,0 +1,816 @@
+{
+  "schema": 1,
+  "categories": [
+    {
+      "id": "top",
+      "name": "Top picks",
+      "icon": "starred",
+      "tags": [],
+      "children": []
+    },
+    {
+      "id": "all",
+      "name": "All apps",
+      "icon": "applications-all",
+      "tags": [],
+      "children": []
+    },
+    {
+      "id": "internet",
+      "name": "Internet & chat",
+      "icon": "applications-internet",
+      "tags": [
+        "Network"
+      ],
+      "children": [
+        {
+          "id": "browsers",
+          "name": "Web browsers",
+          "icon": "internet-web-browser",
+          "tags": [
+            "WebBrowser"
+          ],
+          "children": []
+        },
+        {
+          "id": "chat",
+          "name": "Chat & calls",
+          "icon": "internet-chat",
+          "tags": [
+            "InstantMessaging",
+            "Chat",
+            "Telephony",
+            "VideoConference"
+          ],
+          "children": []
+        },
+        {
+          "id": "email",
+          "name": "Email",
+          "icon": "internet-mail",
+          "tags": [
+            "Email"
+          ],
+          "children": []
+        },
+        {
+          "id": "downloads",
+          "name": "Downloads",
+          "icon": "folder-download",
+          "tags": [
+            "FileTransfer",
+            "P2P"
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "creative",
+      "name": "Create",
+      "icon": "applications-multimedia",
+      "tags": [
+        "Graphics",
+        "AudioVideo",
+        "Audio",
+        "Video"
+      ],
+      "children": [
+        {
+          "id": "graphics",
+          "name": "Graphics & photos",
+          "icon": "applications-graphics",
+          "tags": [
+            "Graphics",
+            "Photography"
+          ],
+          "children": []
+        },
+        {
+          "id": "audio",
+          "name": "Audio & music",
+          "icon": "applications-multimedia",
+          "tags": [
+            "Audio",
+            "Music"
+          ],
+          "children": []
+        },
+        {
+          "id": "video",
+          "name": "Video",
+          "icon": "video-x-generic",
+          "tags": [
+            "Video",
+            "AudioVideoEditing"
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "work",
+      "name": "Work & learn",
+      "icon": "applications-office",
+      "tags": [
+        "Office",
+        "Education",
+        "Science"
+      ],
+      "children": [
+        {
+          "id": "office",
+          "name": "Office",
+          "icon": "applications-office",
+          "tags": [
+            "Office"
+          ],
+          "children": []
+        },
+        {
+          "id": "education",
+          "name": "Education",
+          "icon": "applications-education",
+          "tags": [
+            "Education"
+          ],
+          "children": []
+        },
+        {
+          "id": "science",
+          "name": "Science",
+          "icon": "applications-science",
+          "tags": [
+            "Science"
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "development",
+      "name": "Development",
+      "icon": "applications-development",
+      "tags": [
+        "Development"
+      ],
+      "children": [
+        {
+          "id": "editors",
+          "name": "Editors & IDEs",
+          "icon": "accessories-text-editor",
+          "tags": [
+            "IDE",
+            "TextEditor"
+          ],
+          "children": []
+        },
+        {
+          "id": "devtools",
+          "name": "Developer tools",
+          "icon": "applications-development",
+          "tags": [
+            "Development",
+            "Debugger",
+            "Building",
+            "RevisionControl"
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "games",
+      "name": "Games",
+      "icon": "applications-games",
+      "tags": [
+        "Game"
+      ],
+      "children": []
+    },
+    {
+      "id": "system",
+      "name": "System & utilities",
+      "icon": "applications-system",
+      "tags": [
+        "System",
+        "Utility",
+        "Settings"
+      ],
+      "children": [
+        {
+          "id": "utilities",
+          "name": "Utilities",
+          "icon": "applications-utilities",
+          "tags": [
+            "Utility"
+          ],
+          "children": []
+        },
+        {
+          "id": "security",
+          "name": "Security",
+          "icon": "security-high",
+          "tags": [
+            "Security"
+          ],
+          "children": []
+        },
+        {
+          "id": "accessibility",
+          "name": "Accessibility",
+          "icon": "preferences-desktop-accessibility",
+          "tags": [
+            "Accessibility"
+          ],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "packages",
+      "name": "All packages",
+      "icon": "package-x-generic",
+      "tags": [],
+      "children": []
+    }
+  ],
+  "apps": [
+    {
+      "id": "vendor/echo",
+      "package": "echo",
+      "name": "Echo",
+      "summary": "A Discord alternative with chat, voice, video and online emulator gaming.",
+      "categories": [
+        "Network",
+        "InstantMessaging",
+        "Chat"
+      ],
+      "icon": "startup/assets/projects/echo.png",
+      "source": "vendor",
+      "kind": "app",
+      "featured": true,
+      "tagline": "A Discord alternative. Chat, call and play emulator games online.",
+      "accent": "#36dfff",
+      "website": "https://www.xetal.net/community/site/?p=echo",
+      "desktop_id": "echo.desktop",
+      "featured_order": 0,
+      "description": "Bring your friends together for chat, voice and video, then jump into emulator games online. Echo is a Discord alternative that keeps your community, conversations and games in one app."
+    },
+    {
+      "id": "vendor/linuxstudio",
+      "package": "linuxstudio",
+      "name": "Linux Studio",
+      "summary": "A native C++ IDE for writing, building and debugging your next project.",
+      "description": "Bring your C++ ideas to life in a native Linux IDE inspired by Visual Studio. Organize your code and projects, design interfaces, and move from editing to building and debugging in one familiar workspace.",
+      "tagline": "A native C++ IDE. Write, build and debug in one place.",
+      "categories": [
+        "Development",
+        "IDE"
+      ],
+      "desktop_id": "linux-studio-2026.desktop",
+      "accent": "#a59cff",
+      "source": "vendor",
+      "kind": "app",
+      "icon": "startup/assets/projects/linuxstudio.png",
+      "website": "https://www.xetal.net/community/site/?p=linuxstudio",
+      "featured": true,
+      "essential": true,
+      "featured_order": 1
+    },
+    {
+      "id": "vendor/xmusic",
+      "package": "xmusic",
+      "name": "XMusic",
+      "summary": "A Winamp clone for local music, custom skins and animated visualizers.",
+      "description": "Enjoy the classic Winamp experience with your local music library. Customize the player with skins, tune your sound with an equalizer, and bring your music to life with animated visualizers.",
+      "tagline": "A Winamp clone with skins, an equalizer and visualizers.",
+      "categories": [
+        "AudioVideo",
+        "Audio",
+        "Music"
+      ],
+      "desktop_id": "xmusic.desktop",
+      "accent": "#ffca76",
+      "source": "vendor",
+      "kind": "app",
+      "icon": "startup/assets/projects/xmusic.png",
+      "website": "https://www.xetal.net/community/site/?p=xmusic",
+      "featured": true,
+      "essential": true,
+      "featured_order": 2
+    },
+    {
+      "id": "vendor/xvideo",
+      "package": "xvideo",
+      "name": "Xetal Video Editor",
+      "summary": "A simple, fast video editor for everyday cuts and quick projects.",
+      "description": "Trim and arrange clips, add a title or transition, and export your video. Xetal Video Editor keeps basic editing simple, fast and easy to learn, so you can get from a few clips to a finished video.",
+      "tagline": "Simple, fast video editing. Trim, arrange and export.",
+      "categories": [
+        "AudioVideo",
+        "Video"
+      ],
+      "desktop_id": "xvideo.desktop",
+      "accent": "#58e2bc",
+      "source": "vendor",
+      "kind": "app",
+      "icon": "startup/assets/projects/xvideo.png",
+      "website": "https://www.xetal.net/community/site/?p=xvideo",
+      "featured": true,
+      "essential": true,
+      "featured_order": 3
+    },
+    {
+      "id": "pacman/discord",
+      "package": "discord",
+      "name": "Discord",
+      "summary": "Find your community. Talk, share and play together.",
+      "categories": [
+        "Network",
+        "InstantMessaging",
+        "Chat"
+      ],
+      "icon": "control_panel/assets/deb/discord.svg",
+      "source": "pacman",
+      "kind": "app",
+      "featured": true,
+      "tagline": "Good company. Great conversations.",
+      "accent": "#9694ff",
+      "website": "https://discord.com/download",
+      "desktop_id": "discord.desktop",
+      "featured_order": 4
+    },
+    {
+      "id": "aur/google-chrome",
+      "package": "google-chrome",
+      "name": "Google Chrome",
+      "summary": "A familiar browser for work, play and everything between.",
+      "categories": [
+        "Network",
+        "WebBrowser"
+      ],
+      "icon": "control_panel/assets/deb/google-chrome.svg",
+      "source": "aur",
+      "kind": "app",
+      "featured": true,
+      "tagline": "Your next idea is a tab away.",
+      "accent": "#70d8a5",
+      "website": "https://www.google.com/chrome/",
+      "desktop_id": "google-chrome.desktop",
+      "installed_aliases": [
+        "google-chrome-stable"
+      ],
+      "featured_order": 5
+    },
+    {
+      "id": "pacman/firefox",
+      "package": "firefox",
+      "name": "Firefox",
+      "summary": "Browse the web with privacy controls and extensions.",
+      "categories": [
+        "Network",
+        "WebBrowser"
+      ],
+      "icon": "firefox",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/vlc",
+      "package": "vlc",
+      "name": "VLC",
+      "summary": "Play your videos, music and streams.",
+      "categories": [
+        "AudioVideo",
+        "Video",
+        "Audio"
+      ],
+      "icon": "vlc",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/gimp",
+      "package": "gimp",
+      "name": "GIMP",
+      "summary": "Edit photographs and create digital artwork.",
+      "categories": [
+        "Graphics",
+        "Photography"
+      ],
+      "icon": "gimp",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/krita",
+      "package": "krita",
+      "name": "Krita",
+      "summary": "Paint, sketch and animate your next idea.",
+      "categories": [
+        "Graphics"
+      ],
+      "icon": "krita",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/blender",
+      "package": "blender",
+      "name": "Blender",
+      "summary": "Create 3D models, animations and visual effects.",
+      "categories": [
+        "Graphics",
+        "3DGraphics"
+      ],
+      "icon": "blender",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/inkscape",
+      "package": "inkscape",
+      "name": "Inkscape",
+      "summary": "Design illustrations, logos and vector graphics.",
+      "categories": [
+        "Graphics",
+        "VectorGraphics"
+      ],
+      "icon": "inkscape",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/obs-studio",
+      "package": "obs-studio",
+      "name": "OBS Studio",
+      "summary": "Record your screen and stream your creations.",
+      "categories": [
+        "AudioVideo",
+        "Video"
+      ],
+      "icon": "com.obsproject.Studio",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/kdenlive",
+      "package": "kdenlive",
+      "name": "Kdenlive",
+      "summary": "Edit video with a full multitrack timeline.",
+      "categories": [
+        "AudioVideo",
+        "Video",
+        "AudioVideoEditing"
+      ],
+      "icon": "kdenlive",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/audacity",
+      "package": "audacity",
+      "name": "Audacity",
+      "summary": "Record, edit and mix audio.",
+      "categories": [
+        "AudioVideo",
+        "Audio",
+        "AudioVideoEditing"
+      ],
+      "icon": "audacity",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/libreoffice-fresh",
+      "package": "libreoffice-fresh",
+      "name": "LibreOffice",
+      "summary": "Documents, spreadsheets and presentations.",
+      "categories": [
+        "Office"
+      ],
+      "icon": "libreoffice-startcenter",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/thunderbird",
+      "package": "thunderbird",
+      "name": "Thunderbird",
+      "summary": "Keep email, calendars and contacts together.",
+      "categories": [
+        "Network",
+        "Email",
+        "Office"
+      ],
+      "icon": "thunderbird",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/telegram-desktop",
+      "package": "telegram-desktop",
+      "name": "Telegram",
+      "summary": "Messaging, groups and channels on your desktop.",
+      "categories": [
+        "Network",
+        "InstantMessaging"
+      ],
+      "icon": "telegram",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/signal-desktop",
+      "package": "signal-desktop",
+      "name": "Signal",
+      "summary": "Private messaging and calls.",
+      "categories": [
+        "Network",
+        "InstantMessaging"
+      ],
+      "icon": "signal-desktop",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/steam",
+      "package": "steam",
+      "name": "Steam",
+      "summary": "Your games and friends, together.",
+      "categories": [
+        "Game"
+      ],
+      "icon": "steam",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/lutris",
+      "package": "lutris",
+      "name": "Lutris",
+      "summary": "Organize and launch games from different sources.",
+      "categories": [
+        "Game"
+      ],
+      "icon": "lutris",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/kate",
+      "package": "kate",
+      "name": "Kate",
+      "summary": "A capable text editor for projects large and small.",
+      "categories": [
+        "Development",
+        "TextEditor"
+      ],
+      "icon": "kate",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/code",
+      "package": "code",
+      "name": "Code - OSS",
+      "summary": "An extensible editor for code and projects.",
+      "categories": [
+        "Development",
+        "IDE"
+      ],
+      "icon": "code-oss",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/geany",
+      "package": "geany",
+      "name": "Geany",
+      "summary": "A small, fast editor with development tools.",
+      "categories": [
+        "Development",
+        "IDE",
+        "TextEditor"
+      ],
+      "icon": "geany",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/gitg",
+      "package": "gitg",
+      "name": "Gitg",
+      "summary": "Browse repositories and manage Git history.",
+      "categories": [
+        "Development",
+        "RevisionControl"
+      ],
+      "icon": "gitg",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/filezilla",
+      "package": "filezilla",
+      "name": "FileZilla",
+      "summary": "Transfer files over FTP and SFTP.",
+      "categories": [
+        "Network",
+        "FileTransfer"
+      ],
+      "icon": "filezilla",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/qbittorrent",
+      "package": "qbittorrent",
+      "name": "qBittorrent",
+      "summary": "Manage BitTorrent downloads.",
+      "categories": [
+        "Network",
+        "P2P"
+      ],
+      "icon": "qbittorrent",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/keepassxc",
+      "package": "keepassxc",
+      "name": "KeePassXC",
+      "summary": "Keep passwords in an encrypted local vault.",
+      "categories": [
+        "Utility",
+        "Security"
+      ],
+      "icon": "keepassxc",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/okular",
+      "package": "okular",
+      "name": "Okular",
+      "summary": "Read and annotate documents.",
+      "categories": [
+        "Office",
+        "Viewer"
+      ],
+      "icon": "okular",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/calibre",
+      "package": "calibre",
+      "name": "Calibre",
+      "summary": "Organize and read your ebook library.",
+      "categories": [
+        "Office"
+      ],
+      "icon": "calibre-gui",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/remmina",
+      "package": "remmina",
+      "name": "Remmina",
+      "summary": "Connect to remote computers.",
+      "categories": [
+        "Network",
+        "RemoteAccess"
+      ],
+      "icon": "org.remmina.Remmina",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/gnome-boxes",
+      "package": "gnome-boxes",
+      "name": "Boxes",
+      "summary": "Create and manage virtual machines.",
+      "categories": [
+        "System"
+      ],
+      "icon": "org.gnome.Boxes",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/gparted",
+      "package": "gparted",
+      "name": "GParted",
+      "summary": "Manage disk partitions.",
+      "categories": [
+        "System"
+      ],
+      "icon": "gparted",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/dolphin",
+      "package": "dolphin",
+      "name": "Dolphin",
+      "summary": "Browse and organize your files.",
+      "categories": [
+        "System",
+        "FileManager"
+      ],
+      "icon": "system-file-manager",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/stellarium",
+      "package": "stellarium",
+      "name": "Stellarium",
+      "summary": "Explore a realistic sky from your desktop.",
+      "categories": [
+        "Education",
+        "Science",
+        "Astronomy"
+      ],
+      "icon": "stellarium",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/geogebra",
+      "package": "geogebra",
+      "name": "GeoGebra",
+      "summary": "Explore geometry, algebra and graphs.",
+      "categories": [
+        "Education",
+        "Science",
+        "Math"
+      ],
+      "icon": "geogebra",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/ark",
+      "package": "ark",
+      "name": "Ark",
+      "summary": "Create and open compressed archives.",
+      "categories": [
+        "Utility",
+        "Archiving"
+      ],
+      "icon": "ark",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
+      "id": "pacman/mpv",
+      "package": "mpv",
+      "name": "mpv",
+      "summary": "A lightweight media player.",
+      "categories": [
+        "AudioVideo",
+        "Video",
+        "Audio"
+      ],
+      "icon": "mpv",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    }
+  ]
+}

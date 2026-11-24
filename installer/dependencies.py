@@ -46,11 +46,11 @@ PACKAGES = {
     'arch': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole kio kwindowsystem kio-extras kio-admin udisks2 swaync grim slurp wf-recorder wl-clipboard xorg-xwayland
         xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-utils xdg-user-dirs
         python python-psutil python-pyqt6 python-gobject python-pillow gcc cmake libxcb pkgconf gtk3 gtk-layer-shell librsvg libepoxy json-glib json-c
-        qt5-base qt5-wayland qt6-base qt6-wayland qt6-svg qt6-tools wayland wayland-protocols
+        qt5-base qt5-wayland qt6-base qt6-wayland qt6-svg qt6-tools kimageformats wayland wayland-protocols
         networkmanager network-manager-applet blueman bluez-utils pipewire-pulse wireplumber alsa-lib
         playerctl brightnessctl fastfetch htop libnotify polkit-gnome papirus-icon-theme noto-fonts ttf-dejavu
         yt-dlp ffmpeg vlc vlc-plugin-ffmpeg deno sudo bubblewrap xorg-xhost xorg-xcursorgen hyprcursor openssl virt-viewer virt-firmware gnutls
-        base-devel autoconf automake libtool make perl gettext gawk expect socat pacman-contrib pkgfile
+        base-devel autoconf automake libtool make perl gettext gawk expect socat pacman-contrib pkgfile archlinux-appstream-data
         libtasn1 gmp libseccomp fuse3 libei tpm2-tools dmidecode pciutils usbutils
         mtools dosfstools util-linux parted xz kmod python-cryptography keyutils libsecret freerdp curl libarchive cabextract'''.split(),
     'fedora': '''git gvfs gvfs-smb hyprpaper hyprlock waybar kitty dolphin konsole konsole-part kf6-kio-devel kf6-kwindowsystem-devel kio-extras kio-admin udisks2 SwayNotificationCenter grim slurp wf-recorder wl-clipboard xorg-x11-server-Xwayland
@@ -268,6 +268,12 @@ def x11_runtime_problems():
     return errors
 
 
+def software_catalog_problems():
+    if distro()=='arch' and not any(Path('/usr/share/swcatalog/xml').glob('*.xml*')):
+        return ['Software app catalog is missing: install archlinux-appstream-data.']
+    return []
+
+
 def check(runtime=True):
     prepare_environment()
     errors=platform_problems(auto_packages=False)
@@ -278,6 +284,7 @@ def check(runtime=True):
     errors += ['Missing command: '+command for command in COMMANDS
                if not shutil.which(command) and not (command == 'vncviewer' and shutil.which('xtigervncviewer'))]
     errors += x11_runtime_problems()
+    errors += software_catalog_problems()
     compiler_error = native_toolchain.problem()
     if compiler_error:
         errors.append('C++ compiler cannot compile/link (including cc1plus and C++ headers): '+compiler_error)

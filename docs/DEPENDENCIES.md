@@ -129,3 +129,9 @@ KVM Settings uses OpenSSL for signed package verification, `remote-viewer` (virt
 On Arch, the [`perl` package](https://archlinux.org/packages/core/x86_64/perl/files/) provides `pod2man` under `/usr/bin/core_perl`. The installer and update builder add existing Perl script directories to their own process PATH before checking dependencies, including after package installation. This works in a terminal opened before Perl was installed without changing shell profiles or requiring another login. To retry an older downloaded installer that stopped at `Missing command: pod2man`, run `PATH="$PATH:/usr/bin/core_perl" ./x_hyperinstall.sh` from its extracted directory.
 
 `virt-fw-vars` is provided by `virt-firmware` on Arch and `python3-virt-firmware` on [Fedora](https://packages.fedoraproject.org/pkgs/python-virt-firmware/python3-virt-firmware/) and [Debian](https://ftp.debian.org/debian/pool/main/v/virt-firmware/). The terminal emblem uses the same Qt SVG bindings already used by the desktop; rendered PNGs are cached in the recipient's cache directory.
+
+The Arch Software catalog uses `archlinux-appstream-data` for desktop app names,
+descriptions, categories and cached icons, plus `kimageformats` for image formats
+used by the cache. Setup includes both; its dependency check detects missing
+AppStream metadata on Arch. Local browsing uses the configured Pacman databases
+and never runs a repository synchronization.

@@ -4,7 +4,7 @@
 #include <QTimer>
 #include <QWidget>
 
-class AurPage;
+class SoftwareCatalogPage;
 class QBoxLayout;
 class QLabel;
 class QLineEdit;
@@ -33,7 +33,7 @@ private:
     QWidget *legacy;
     QString terminal;
     QTabWidget *sections;
-    AurPage *browser;
+    SoftwareCatalogPage *browser;
     QTableWidget *installed;
     QTreeWidget *diagnostics;
     QLabel *count, *space, *foreign, *installedStatus, *diagnosisSource;

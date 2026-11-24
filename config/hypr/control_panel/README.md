@@ -76,15 +76,32 @@ confirmation of the exact USB before erasing it, and opens the data partition
 in Fusion Files. See [`ventoy/README.md`](ventoy/README.md) for usage, source,
 licenses and tests.
 
-**Software** combines Pacman, Installed Software and Package Repair. **Browse**
-searches official repositories; **Installed** provides one asynchronous package
-list with source filters, numeric size sorting, details, removal and reinstall.
-**Repair** keeps the guarded repair actions, health checks, configuration-file
-merges and Pacman settings. Opening a page only reads package data. Installs and
-reinstalls use a reviewed full `pacman -Syu` transaction; filtering deselects hidden
-packages before removal. Existing `--section pacman`, `remove` and `repair`
-shortcuts open the corresponding section. Build checks with
-`-DBUILD_SOFTWARE_PAGE_TESTS=ON`, then `ctest -R '^software_page$'`.
+**Software** combines a cached app catalog, Installed Software and Package Repair.
+**Browse** has a category tree, virtualized app cards and six featured banners:
+Echo, Linux Studio, XMusic, Xetal Video Editor, Discord and Chrome. Pacman is the
+default; remembered Yay/Paru checkboxes add the shared AUR search without duplicate
+requests. Xetal app downloads resolve published Linux artifacts on demand from
+the host. **Installed** and **Repair** retain the existing reviewed transactions
+and guarded actions. Existing `--section pacman`, `remove` and `repair` aliases
+still work. See [the Software guide](../../../docs/CONTROL-PANEL.md#software-catalog).
+
+`software_catalog.py` reads only configured Pacman sync databases, installed
+packages, desktop launchers and local AppStream XML/icons. It writes an atomic,
+fingerprinted cache below `$XDG_CACHE_HOME/hyper-fusion/software`, emits cached
+metadata before revalidation, and retains usable data when refresh fails. AUR is
+an explicit, debounced search with bounded responses and a six-hour cache. Vendor
+release resolution is an explicit download action; it never runs an installer.
+`software/catalog.json` owns the category tree and curated picks. Branding reuses
+the existing Startup project icons and .deb app icons. Arch setup includes
+`archlinux-appstream-data` and `kimageformats` for catalog data and cached icons.
+
+Build with `-DBUILD_SOFTWARE_PAGE_TESTS=ON`, then run
+`ctest -R '^software_(page|catalog)$'`. Backend cache/provider checks:
+`python -m unittest discover -s config/hypr/control_panel -p test_software_catalog.py`.
+The Qt fixtures use isolated settings, fake metadata and a fake terminal;
+installation checks never run Pacman or an AUR helper. An optional real-data,
+read-only screenshot pass uses `FUSION_SOFTWARE_PREVIEW_ROOT`,
+`FUSION_SOFTWARE_PREVIEW_DIR` and `FUSION_SOFTWARE_PREVIEW_THEME` (a bridge theme JSON).
 
 **Yay & Paru** combines the two helpers in one package page. Automatic uses an
 installed helper; the selector also lets you choose either explicitly. Search

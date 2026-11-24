@@ -116,7 +116,8 @@ listening state; a listening socket alone does not verify Windows input/audio.
 
 ## What remains
 
-- Software discovery is deliberately deferred as described above.
+- Flatpak, desktop extensions and a separate add-on catalog remain future work;
+  Pacman/AUR app discovery is implemented in Control Panel → Software.
 - WhatsApp uses the official linked web client; there is no native WhatsApp
   conversation or recording implementation in Fusion Settings.
 - Monitor presets/hardware controls are implemented; ICC profile calibration is
@@ -126,14 +127,16 @@ listening state; a listening socket alone does not verify Windows input/audio.
 - The live profile, repository and installer are updated. New online/offline ISO
   images have not been rebuilt during this desktop integration pass.
 
-### Software discovery — deferred at the user's request
+### Software discovery — implemented in Control Panel
 
-Reuse **Control Panel → Software** for an application and add-on browser.
-Provide a category tree, recognizable application icons, clear descriptions,
-and useful screenshots/details. Preserve the existing package maintenance and
-repair tools. Plan installation sources and update ownership carefully before
-adding Flatpak or desktop extensions. This redesign is intentionally scheduled
-for later; it is not part of the current desktop integration work.
+**Control Panel → Software → Browse** now has an expandable category tree,
+recognizable app icons, descriptions and a responsive virtualized card grid.
+Top picks starts with Echo, Linux Studio, XMusic and Xetal Video Editor, then
+Discord and Chrome. The four Xetal apps resolve current Linux downloads from
+the host; Pacman is the default package source, with optional Yay/Paru AUR search.
+The local metadata/icon cache keeps browsing independent of network requests.
+Installed packages and repair tools remain in their existing tabs. Flatpak and
+desktop add-ons are still separate future work. See [the Software guide](CONTROL-PANEL.md#software-catalog).
 
 ## Repeatable checks
 

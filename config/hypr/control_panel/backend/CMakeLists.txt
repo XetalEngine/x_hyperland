@@ -55,6 +55,8 @@ set(PROJECT_SOURCES
     ../software_page.cpp
     ../software_page.h
     ../software_packages.h
+    ../software_catalog.cpp
+    ../software_catalog.h
         ../account_avatar.h
     ../grub_editor.cpp
     ../grub_editor.h
@@ -267,11 +269,16 @@ option(BUILD_SOFTWARE_PAGE_TESTS "Build unified software page checks" OFF)
 if(BUILD_SOFTWARE_PAGE_TESTS)
     enable_testing()
     find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
-    add_executable(software_page_tests tests/software_page_tests.cpp ../software_page.cpp ../software_page.h ../aur_page.cpp ../aur_page.h)
+    add_executable(software_page_tests tests/software_page_tests.cpp ../software_page.cpp ../software_page.h ../software_catalog.cpp ../software_catalog.h)
     target_include_directories(software_page_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
     target_link_libraries(software_page_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
     add_test(NAME software_page COMMAND software_page_tests)
     set_tests_properties(software_page PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_PLATFORMTHEME=")
+    add_executable(software_catalog_tests tests/software_catalog_tests.cpp ../software_catalog.cpp ../software_catalog.h ../software_page.cpp ../software_page.h)
+    target_include_directories(software_catalog_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/..")
+    target_link_libraries(software_catalog_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME software_catalog COMMAND software_catalog_tests)
+    set_tests_properties(software_catalog PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_PLATFORMTHEME=")
 endif()
 option(BUILD_DEB_PAGE_TESTS "Build .deb page interaction tests" OFF)
 option(BUILD_AUR_PAGE_TESTS "Build combined AUR package page checks" OFF)

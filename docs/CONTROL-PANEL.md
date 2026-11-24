@@ -33,11 +33,10 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | Environment Variables | System environment editor and separate Hyprland login environment |
 | Window Inspector | Window/process inspection, X11/Wayland backends and window actions |
 | Default Apps | Browser, email, file manager, music, video, images, PDF, text, archives and office defaults; searchable individual file types and links; Undo |
-| **Pacman / Paru / Yay** | Three adjacent entries: installed packages, repository/AUR searches, details, installation and helper management |
+| Software | App discovery with a category tree, featured banners, app icons/descriptions, cached Pacman catalog and optional AUR search. Installed and Repair tabs keep package maintenance in the same page. |
+| Yay & Paru | Advanced helper search, installation and management; both helpers use the same AUR catalog. |
 | Install .deb | Check Debian dependencies, convert supported applications, and install with pacman (experimental) |
 | Package Updates | System upgrades, package checks and Arch news |
-| Package Repair | Mirrors, keyrings, locks, diagnostics and downgrades |
-| Installed Software | Package removal, orphans and caches |
 | System Cleaner | Curated cleanup plus a sudo disk visualizer with mounted-volume/folder picker, size tree, treemap, breadcrumbs and file actions |
 | RAM Cleaner | Live memory readings, Normal/Aggressive manual cache cleanup and observed before/after results; keeps applications running |
 | Network | Connections, Virtual networks, Diagnostics, Firewall and Shared folders; themed cards, expandable saved profiles and selection-aware actions |
@@ -52,11 +51,54 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | Panel Preferences | Language, visible tool families, startup page, size memory, autosave, drive/package/editor defaults, ISO defaults and debug preview |
 | Hyper Fusion Updates | The existing desktop updater, including Control Panel updates |
 
-Package Repair, Shares, Firewall, Services and Startup Applications each have a dedicated entry. Yay and Paru keep their own helper controls. KDE Plasma tweaks and the old KVM interface are omitted from this Hyprland panel; their upstream source remains in the engine archive.
+Software includes package repair and installed-package management. Shares, Firewall, Services and Startup Applications keep their dedicated entries. Yay and Paru share one helper-management page. KDE Plasma tweaks and the old KVM interface are omitted from this Hyprland panel; their upstream source remains in the engine archive.
 
 The separate CachyOsTools Theme page is replaced by the **desktop master theme**. Raw, Modern, BreakPoint and Binary Knife, including Dark/Light/High contrast, apply to the panel and its dialogs. Appearance preferences link to Fusion Settings. Hyper Fusion's updater supersedes the original application's self-updater.
 
 The backend targets **Arch Linux/CachyOS**. Package, kernel, boot and ISO tools retain their platform/dependency requirements; installing Hyper Fusion on another distribution does not translate these commands to another package manager. Existing confirmation and privilege prompts remain. Opening or searching the panel does not execute a system-changing operation.
+
+## Software catalog
+
+![Software catalog in Polaris](screenshots/software-catalog-polaris.png)
+
+**Software → Browse** opens Top picks immediately. The first six banners are Echo,
+Linux Studio, XMusic, Xetal Video Editor, Discord and Google Chrome, in that order.
+The banners scroll with the app cards and adapt to the window width. Select a
+category or expand it for browsers, chat, creative tools, development, games and
+other apps. **All packages** also includes command-line tools and libraries.
+Click a card for its description and source, or use its **Open**, **Install** or
+**Download** button.
+
+**Pacman** is selected by default. **Yay · AUR** and **Paru · AUR** are optional,
+remembered checkboxes; a missing helper links to its existing setup page. They
+search the same AUR catalog, so selecting both does not duplicate results or
+network requests. Yay is used when both are selected. Chrome is clearly marked
+as an AUR app; its featured card can enable a helper before installation. Only
+repositories enabled in the machine's Pacman configuration are shown, with their
+normal priority. The ISO enables multilib, and the catalog reports that state.
+
+The four Xetal apps use the host's published Linux releases, independently of
+Pacman/AUR. **Download** checks the current release on xetal.net and offers the
+published installer, AppImage or archive. Installed Xetal apps also expose
+**Linux downloads…** in their details. Download links open in the browser, with
+format-specific instructions; downloaded programs are not executed automatically.
+The host remains responsible for publishing these apps and their updates.
+
+Browsing and local search read Pacman databases and Arch AppStream metadata.
+Icons are loaded locally, and a virtualized grid paints visible cards without
+creating a widget for every package. An atomic disk cache reopens immediately;
+changed repository data, installed packages, desktop launchers or bundled picks
+invalidate it. **Refresh** rereads local metadata; **Updates** performs the existing
+package-update workflow. Returning to a category after a minute also checks the
+local cache. Opening Browse does not synchronize repositories or request elevation.
+AUR queries are debounced, bounded and cached for six hours; Refresh rechecks the
+current query. Failed refreshes preserve the previous list and show the error.
+
+Pacman installations retain a reviewed full `pacman -Syu` transaction. AUR
+installation retains the helper's build-file review. **Installed** and **Repair**
+keep removal, reinstall, cache/orphan cleanup and guarded repair tools. The
+catalog refreshes installed state after a package transaction exits. Existing
+`--section pacman`, `remove` and `repair` shortcuts continue to work.
 
 ## Hyprland integration
 

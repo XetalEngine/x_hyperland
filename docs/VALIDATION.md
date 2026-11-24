@@ -859,3 +859,35 @@ the repository.
 The tab strip also suppresses Qt's document-mode baseline, which drew a stray
 line at a different height beneath the new-tab corner button. The targeted
 native view check passed and its current-theme capture shows a clean tab edge.
+
+
+## Software catalog — 2026-11-23
+
+- The native Control Panel and both Software Qt suites built successfully.
+  Python catalog checks passed (15), Qt catalog checks including the real-data
+  preview passed (10), and existing Installed/Repair page checks passed (5).
+  Existing update dependency checks (8) and distribution checks (15) also passed.
+- Fixtures cover repository priority, disabled repository exclusion, local
+  AppStream names/descriptions/icons, installed package aliases, hidden desktop
+  overrides, warm-cache reuse and invalidation, failed-refresh retention, bounded
+  AUR responses and offline fallback. Qt checks cover immediate featured order,
+  source defaults/persistence, local search without network requests, explicit
+  AUR refresh, stale-query isolation, and the reviewed Pacman transaction.
+- Vendor fixtures cover all four products, Linux-only choices, product/version/
+  architecture validation, malformed metadata and download response limits.
+  The actual Echo, Linux Studio, XMusic and Xetal Video Editor host feeds returned
+  current Linux download choices. Browser-link activation used a captured URL
+  handler in tests; no test installed a package or executed a downloaded program.
+- The complete native panel smoke check reported zero navigation errors. Polaris
+  screenshots were inspected at 1600×900 and 900×700, and the deployed Control
+  Panel was inspected at its saved 1709×1130 size. Existing package maintenance
+  remains in Installed/Repair. The live panel alone was reloaded.
+- On this host, the warm catalog reached the UI in **275 ms**, including
+  decoding and filtering; initial widgets took **16 ms**. Development
+  filtering took **5 ms**, and All packages took **18 ms** for
+  **15,775** enabled Pacman packages. The grid had five child widgets, independent
+  of the number of apps. These are local measurements, not a cross-machine or
+  competing-store benchmark.
+- The existing ISO's offline package set already contains Arch AppStream data,
+  and its installer enables multilib. This catalog change updates the desktop
+  source and live profile; it does not rebuild the previously produced ISO files.
