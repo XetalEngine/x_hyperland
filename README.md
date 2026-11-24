@@ -13,6 +13,7 @@
 <p align="center">
   <a href="#recent-desktop-updates">Recent updates</a> ·
   <a href="#fusion-files">Fusion Files</a> ·
+  <a href="#software-made-for-hyper-fusion">Software</a> ·
   <a href="#four-window-modes">Window modes</a> ·
   <a href="#altf9-screen-recording">Recording</a> ·
   <a href="#copy-cut-and-move-with-fusion-files">File engine</a> ·
@@ -31,6 +32,7 @@ The November 22–23, 2026 updates bring more everyday settings into the desktop
 
 | Area | What's new |
 | --- | --- |
+| **Software catalog** | **Control Panel → Software** now has a category tree, app cards, descriptions and six featured banners. Pacman is selected by default, with optional Yay/Paru search and current Linux downloads for Echo, Linux Studio, XMusic and Xetal Video Editor. [Explore the new Software page →](#software-made-for-hyper-fusion) |
 | **Remote desktop** | **Control Panel → RDP** now handles RDP and VNC in both directions. RDP remains the default for outgoing connections; existing saved Windows PCs and wallet credentials are preserved. Incoming sharing shows when it is starting, listening or connected, with stable buttons and readable logs. |
 | **Video wallpapers** | **Super+W** switches between **Pictures** and **Videos** and remembers the choice. Picture and video folders are managed separately. Local videos loop silently per monitor, with fullscreen/battery pause options and a still-image fallback. |
 | **Universal search** | The Start menu searches installed apps, Control Panel tools and Fusion Settings pages together. Try `grub`, `phone`, `governor` or `rdp`. |
@@ -42,7 +44,7 @@ The November 22–23, 2026 updates bring more everyday settings into the desktop
 | **KVM and boot tools** | More compact KVM pages, aligned Memory panels, tabbed Paths & tools and a working Clear history action. Remembered launch permission works with private VM files and TPM sockets. GRUB supports menu ordering, remembered selection, registering this installation in UEFI and the **Killer Instinct · One More Credit** wallpaper preset. |
 | **Updating older installations** | One Update click rechecks GitHub and continues through preparation, opening Setup when packages are needed. Existing preferences are kept, errors stay visible, and the RDP server's pinned Cargo lockfile survives the update merge. |
 
-The live profile, repository and installer include the new desktop integrations. **Online/offline ISO images have not been rebuilt for this integration pass.** Software discovery remains scheduled for later; WhatsApp uses its web client, and display controls do not yet provide ICC calibration. Physical hardware and Windows RDP input/audio checks remain listed in the [recent changes and remaining work](docs/DESKTOP-ROADMAP.md).
+The repository and installer source include the desktop integrations and the new Software catalog. ISO contents depend on the image's release. WhatsApp uses its web client, and display controls do not yet provide ICC calibration. Physical hardware and Windows RDP input/audio checks remain listed in the [recent changes and remaining work](docs/DESKTOP-ROADMAP.md).
 
 <!-- Feature showcase: shared with config/hypr/FEATURES.md. Keep both copies aligned. -->
 ## Highlighted features
@@ -486,6 +488,39 @@ For supported **Windows → Virtual GPU** setups, **Do not ask for sudo again fo
 
 Runtime components download inside KVM Settings; they are not bundled with the desktop. Supply your own guest installation media and disks. Physical GPU passthrough and guest behavior still depend on the host hardware. [KVM setup, components and recovery →](docs/KVM.md)
 
+## Software, made for Hyper Fusion
+
+**Find your next favorite.** Open **Control Panel → Software** for a native app
+catalog with a Fusion Files-style category tree, recognizable icons and clear
+descriptions. It follows your desktop theme, with **Top picks** ready when you
+open the page.
+
+[![Software Top picks in Polaris, featuring Echo, Linux Studio, XMusic and Xetal Video Editor above Discord, Chrome and desktop essentials](docs/screenshots/software-catalog-polaris.png)](docs/GALLERY.md#software-catalog)
+
+*Your apps, front and center. Actual Software interface in the Polaris theme; click to explore the gallery.*
+
+| Start with Xetal | Make it yours |
+| --- | --- |
+| **Echo** | A Discord alternative. Chat, call and play emulator games online with friends. |
+| **Linux Studio** | A native C++ IDE. Write, build and debug your next project in one familiar workspace. |
+| **XMusic** | A Winamp clone with skins, an equalizer and animated visualizers. |
+| **Xetal Video Editor** | Simple, fast video editing. Trim, arrange and export everyday projects. |
+
+Discord and Chrome join the featured lineup, with more desktop essentials below,
+including **VLC · All plugins** for complete playback, streaming and visualization support.
+
+| Explore a category | See what an app offers |
+| :---: | :---: |
+| [![Expanded Development category with Editors and IDEs selected, showing native app cards with icons, descriptions and package actions](docs/screenshots/software-development-polaris.png)](docs/screenshots/software-development-polaris.png) | [![Echo app details describing chat, calls and online emulator gaming, with official website, Linux downloads, Open and Uninstall actions](docs/screenshots/software-echo-details-polaris.png)](docs/screenshots/software-echo-details-polaris.png) |
+
+- **Pacman first, AUR when you want it.** Pacman starts selected. Optional Yay and Paru checkboxes remember your choice and share one AUR search. Missing helpers have a setup link.
+- **Browse quickly.** Cached app information and local icons keep categories and search responsive. **All apps** focuses on desktop applications; **All packages** includes command-line tools and libraries.
+- **Downloads from Xetal.** Choose a current Linux installer, AppImage or archive for the four Xetal apps. Software saves it with progress and verifies the download before it is ready to use.
+- **Choose how to install.** Validated apps offer package-manager and **.deb installer** routes. The first visit offers an authenticated package-list refresh; normal browsing uses the local cache.
+- **Keep maintenance close.** **Installed** and **Repair** sit beside Browse. Package installation keeps the existing review and authentication flow; installed apps offer **Open** and **Uninstall…**.
+
+[Software guide →](docs/CONTROL-PANEL.md#software-catalog) · [More screenshots →](docs/GALLERY.md#software-catalog)
+
 ## Windows apps with our custom Proton manager
 
 **XetalProton is built into Hyper Fusion's Control Panel.** Manage Windows applications and games from a native interface that follows your desktop theme, with your library, prefixes, downloads, dependencies and process logs together. Open **Control Panel → Software & maintenance → Proton**.
@@ -518,6 +553,7 @@ UMU is prepared automatically when downloading Proton, and Steam is optional. Ex
 | Tool | What you get |
 | --- | --- |
 | **Control Panel** | A searchable native interface built from CachyOsTools: hardware, storage, services, startup apps, backups, system tools and shortcuts. **Some features remain Arch-only until further notice**, including Pacman/Paru/Yay and Arch package repair/kernel tools. [Feature map and platform requirements →](docs/CONTROL-PANEL.md) |
+| **[Software](#software-made-for-hyper-fusion)** | A category browser with cached app cards, featured Xetal apps, Pacman by default, optional Yay/Paru AUR search and direct Linux downloads. Installed-package management and repairs share the same page. |
 | **Proton** | Our integrated XetalProton manager: Windows application library, custom prefixes, per-app runners, Proton downloads and updates, Winetricks, launch options and process logs. [Proton guide →](config/hypr/control_panel/proton/README.md) |
 | **GRUB Boot Editor** | Automatically load your menu, edit names, commands and order, choose the default and timeout, remember your last selection, or register this Linux installation in UEFI. Detect other systems, customize appearance, and keep backups with undo. [Boot editor →](docs/GRUB-BOOT-EDITOR.md) |
 | **Remote desktop** | **Control Panel → RDP** brings outgoing RDP/VNC connections and incoming session sharing together. Saved PCs, wallet credentials, monitor/address selection, certificate details and live sharing status. [Remote desktop guide →](config/hypr/control_panel/rdp/README.md) |
@@ -605,7 +641,7 @@ Your hotkeys, monitor arrangement, chosen wallpapers, private Dolphin Places and
 | [Dependencies](docs/DEPENDENCIES.md) | Distro scope, required tools and compatibility checks |
 | [Desktop updates](docs/UPDATES.md) | Settings preservation, activation and rollback |
 | [KVM Settings](docs/KVM.md) | VM setup, downloads, networking and private state |
-| [Control Panel](docs/CONTROL-PANEL.md) | Administration tools, RAM Cleaner and Disk Visualizer |
+| [Control Panel](docs/CONTROL-PANEL.md) | Software discovery, package maintenance, administration tools, RAM Cleaner and Disk Visualizer |
 | [Remote desktop](config/hypr/control_panel/rdp/README.md) | RDP and VNC connections, incoming sharing, credentials and status |
 | [Picture and video wallpapers](config/hypr/wallpaper/README.md) | Super+W, separate libraries, selector styles, monitor choices and playback |
 | [Screen recording](config/hypr/recording/README.md) | Alt+F9, audio, video settings and saved-recording notifications |

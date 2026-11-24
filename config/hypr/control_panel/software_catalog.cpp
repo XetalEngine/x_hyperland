@@ -1,4 +1,5 @@
 #include "software_catalog.h"
+#include "software_actions.h"
 #include "backend/package_install.h"
 #include "terminal_exit.h"
 #include <QtWidgets>
@@ -6,8 +7,51 @@
 
 namespace {
 constexpr int AppRole=Qt::UserRole+1;
+class RepositoryDialog final : public QDialog {
+public:
+    using QDialog::QDialog;
+    bool running=false;
+    void reject() override { if(!running)QDialog::reject(); }
+};
 QLabel *words(const QString &text,const char *name="catalogMuted") {
     auto *label=new QLabel(text);label->setObjectName(name);label->setTextFormat(Qt::PlainText);label->setWordWrap(true);return label;
+}
+void saveVendorDownload(QWidget *parent,const QString &root,const SoftwareApp &app,const QVariantMap &choice) {
+    const QString suggested=QDir(QStandardPaths::writableLocation(QStandardPaths::DownloadLocation)).filePath(choice["filename"].toString());
+    const QString destination=QFileDialog::getSaveFileName(parent,"Save "+app.name+" download",suggested);
+    if(destination.isEmpty())return;
+    QDialog dialog(parent);dialog.setObjectName("softwareDownloadProgress");dialog.setWindowTitle("Download "+app.name);dialog.resize(580,230);
+    auto *layout=new QVBoxLayout(&dialog);layout->setContentsMargins(24,24,24,24);layout->setSpacing(14);
+    auto *status=words("Preparing your download…","softwareDownloadStatus");layout->addWidget(status);
+    auto *progress=new QProgressBar;progress->setRange(0,1000);progress->setValue(0);layout->addWidget(progress);
+    auto *path=words(destination);path->setTextInteractionFlags(Qt::TextSelectableByMouse);layout->addWidget(path);
+    auto *row=new QHBoxLayout;auto *folder=new QPushButton("Open folder");folder->setEnabled(false);row->addWidget(folder);row->addStretch();
+    auto *close=new QPushButton("Cancel download");row->addWidget(close);layout->addLayout(row);
+    QProcess worker;QByteArray buffer;bool saved=false;QString failure;
+    auto receive=[&]{
+        buffer+=worker.readAllStandardOutput();
+        while(buffer.contains('\n')){
+            int end=buffer.indexOf('\n');const auto value=QJsonDocument::fromJson(buffer.left(end)).object();buffer.remove(0,end+1);
+            if(value["type"]=="progress"){
+                const auto total=qint64(value["total"].toDouble()),current=qint64(value["current"].toDouble());
+                progress->setValue(total>0?int(current*1000/total):0);
+                status->setText("Downloading · "+QLocale().formattedDataSize(current)+" / "+QLocale().formattedDataSize(total));
+            }else if(value["type"]=="downloaded")saved=value["path"].toString()==QFileInfo(destination).absoluteFilePath();
+            else if(value["type"]=="error")failure=value["message"].toString();
+        }
+    };
+    QObject::connect(&worker,&QProcess::readyReadStandardOutput,&dialog,receive);
+    QObject::connect(&worker,&QProcess::errorOccurred,&dialog,[&](QProcess::ProcessError error){if(error==QProcess::FailedToStart){status->setText("Could not start the download helper.");close->setText("Close");}});
+    QObject::connect(&worker,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),&dialog,[&](int code,QProcess::ExitStatus exit){
+        receive();close->setText("Close");
+        if(!code&&exit==QProcess::NormalExit&&saved){progress->setValue(1000);status->setText("Download complete · checksum verified.\n"+choice["instructions"].toString());folder->setEnabled(true);}
+        else status->setText(failure.isEmpty()?"Download did not complete. Please retry.":failure);
+    });
+    QObject::connect(folder,&QPushButton::clicked,&dialog,[&]{QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(destination).absolutePath()));});
+    QObject::connect(close,&QPushButton::clicked,&dialog,&QDialog::reject);
+    worker.start("python3",{root+"/control_panel/software_download.py","--vendor",app.package,"--filename",choice["filename"].toString(),"--output",destination});
+    dialog.exec();worker.disconnect(&dialog);
+    if(worker.state()!=QProcess::NotRunning){worker.terminate();if(!worker.waitForFinished(2000)){worker.kill();worker.waitForFinished(1000);}}
 }
 QColor mix(QColor a,QColor b,qreal ratio) {
     return QColor::fromRgbF(a.redF()*(1-ratio)+b.redF()*ratio,a.greenF()*(1-ratio)+b.greenF()*ratio,a.blueF()*(1-ratio)+b.blueF()*ratio);
@@ -52,6 +96,7 @@ SoftwareApp SoftwareApp::fromJson(const QJsonObject &v,const QString &root) {
     if (a.icon.contains('/')&&!QFileInfo(a.icon).isAbsolute()) a.icon=root+'/'+a.icon;
     a.cachedIcon=v["cached_icon"].toString();a.source=v["source"].toString("pacman");a.repository=v["repository"].toString();
     a.version=v["version"].toString();a.installedVersion=v["installed_version"].toString();a.license=v["license"].toString();
+    a.installedPackage=v["installed_package"].toString();a.debId=v["deb_id"].toString();a.debNote=v["deb_note"].toString();
     a.website=v["website"].toString();a.desktopFile=v["desktop_file"].toString();a.accent=v["accent"].toString();a.tagline=v["tagline"].toString();
     for (const auto &c:v["categories"].toArray()) a.categories<<c.toString();
     a.installed=v["installed"].toBool();a.available=v["available"].toBool();a.featured=v["featured"].toBool();a.essential=v["essential"].toBool();
@@ -225,6 +270,8 @@ SoftwareCatalogPage::SoftwareCatalogPage(const QString &root,const QString &term
     pacman->setToolTip("Apps and packages from your configured Pacman repositories, including multilib when enabled.");
     for (auto *check:{pacman,yay,paru}) {side->addWidget(check);connect(check,&QCheckBox::toggled,this,&SoftwareCatalogPage::sourceChanged);}
     auto *manage=new QPushButton("Manage Yay & Paru…");manage->setObjectName("catalogManage");side->addWidget(manage);
+    syncButton=new QPushButton(QIcon::fromTheme("view-refresh"),"Refresh package lists…");syncButton->setObjectName("softwareSyncRepositories");side->addWidget(syncButton);
+    connect(syncButton,&QPushButton::clicked,this,&SoftwareCatalogPage::syncRepositories);
     connect(manage,&QPushButton::clicked,this,[this]{emit openTool("aur");});splitter->addWidget(sidebar);
     auto *content=new QWidget;content->setObjectName("catalogContent");auto *body=new QVBoxLayout(content);body->setContentsMargins(0,0,0,0);body->setSpacing(10);
     search=new QLineEdit;search->setObjectName("softwareAppSearch");search->setPlaceholderText("Search apps, descriptions and packages…");search->setAccessibleName("Search software");search->setClearButtonEnabled(true);
@@ -236,7 +283,7 @@ SoftwareCatalogPage::SoftwareCatalogPage(const QString &root,const QString &term
     grid->setResizeMode(QListView::Adjust);grid->setMovement(QListView::Static);grid->setUniformItemSizes(true);grid->setLayoutMode(QListView::Batched);grid->setBatchSize(128);grid->setWrapping(true);grid->setWordWrap(false);grid->setSpacing(0);
     grid->setMouseTracking(true);grid->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);grid->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);grid->setSelectionMode(QAbstractItemView::SingleSelection);grid->viewport()->installEventFilter(this);
     model=new SoftwareAppModel(this);grid->setModel(model);auto *delegate=new AppDelegate(grid);grid->setItemDelegate(delegate);
-    delegate->action=[this](const SoftwareApp &app){activate(app);};
+    delegate->action=[this](const SoftwareApp &app){if(!app.installed&&!app.debId.isEmpty())details(app);else activate(app);};
     delegate->showDetails=[this](const SoftwareApp &app){details(app);};
     auto *detailShortcut=new QShortcut(QKeySequence(Qt::Key_Return),grid);detailShortcut->setContext(Qt::WidgetShortcut);connect(detailShortcut,&QShortcut::activated,this,[this]{if(grid->currentIndex().isValid())details(model->entries[grid->currentIndex().row()]);});
     results->addWidget(grid);
@@ -283,7 +330,7 @@ void SoftwareCatalogPage::addCategory(const QJsonObject &v,QTreeWidgetItem *pare
     for(const auto &child:v["children"].toArray())addCategory(child.toObject(),item);
 }
 void SoftwareCatalogPage::showEvent(QShowEvent *event) {
-    QWidget::showEvent(event);QTimer::singleShot(0,this,[this]{fitGrid();if(!lastRead.isValid()||lastRead.secsTo(QDateTime::currentDateTime())>60)requestCatalog();});
+    QWidget::showEvent(event);QTimer::singleShot(0,this,[this]{fitGrid();if(!lastRead.isValid()||lastRead.secsTo(QDateTime::currentDateTime())>60)requestCatalog();offerRepositorySync();});
 }
 bool SoftwareCatalogPage::eventFilter(QObject *object,QEvent *event) {
     if(object==grid->viewport()&&event->type()==QEvent::Resize)fitGrid();
@@ -297,6 +344,45 @@ void SoftwareCatalogPage::fitGrid() {
 }
 void SoftwareCatalogPage::focusSearch(){search->setFocus();}
 void SoftwareCatalogPage::refresh(){requestCatalog(true);if(!search->text().trimmed().isEmpty())requestAur(true);}
+void SoftwareCatalogPage::offerRepositorySync() {
+    if(!isVisible()||!loaded||!hasPacman||repositoryPrompted||repositorySyncRunning)return;
+    QSettings settings("XetalHyperland","ControlPanel");
+    if(settings.value("software/catalog/repositoriesInitialized",false).toBool()&&!needsSync)return;
+    repositoryPrompted=true;
+    QMessageBox prompt(QMessageBox::Question,"Refresh package lists?",
+        needsSync?"Some package lists are missing or unreadable. Refresh them to show available apps?":"Refresh package lists before your first visit to Software?",
+        QMessageBox::Yes|QMessageBox::No,this);
+    prompt.setObjectName("softwareRepositoryPrompt");prompt.setTextFormat(Qt::PlainText);
+    prompt.setInformativeText("This downloads repository lists with sudo pacman -Sy. It does not install or upgrade packages. Administrator authentication is required.");
+    prompt.button(QMessageBox::Yes)->setText("Refresh lists");prompt.button(QMessageBox::No)->setText("Later");
+    if(prompt.exec()==QMessageBox::Yes)syncRepositories();
+}
+void SoftwareCatalogPage::syncRepositories() {
+    if(repositorySyncRunning)return;
+    repositoryPrompted=true;
+    const QString askpass=root+"/scripts/sudo-askpass.sh";
+    if(!QFileInfo::exists(askpass)){notice->setText("The administrator authentication helper is missing. Update Hyper Fusion to restore it.");notice->show();return;}
+    RepositoryDialog dialog(this);dialog.setObjectName("softwareRepositorySync");dialog.setWindowTitle("Refresh package lists");dialog.resize(640,350);
+    auto *layout=new QVBoxLayout(&dialog);layout->setContentsMargins(24,24,24,24);layout->setSpacing(12);
+    auto *status=words("Refreshing repository lists. No packages will be installed or upgraded.","softwareRepositoryStatus");layout->addWidget(status);
+    auto *output=new QPlainTextEdit;output->setReadOnly(true);output->document()->setMaximumBlockCount(1500);layout->addWidget(output,1);
+    auto *row=new QHBoxLayout;row->addStretch();auto *retry=new QPushButton("Retry");retry->hide();row->addWidget(retry);auto *close=new QPushButton("Close");close->setEnabled(false);row->addWidget(close);layout->addLayout(row);
+    QProcess worker;worker.setProcessChannelMode(QProcess::MergedChannels);auto env=QProcessEnvironment::systemEnvironment();env.insert("SUDO_ASKPASS",askpass);env.insert("TERM","dumb");worker.setProcessEnvironment(env);
+    auto finished=[&](bool success){
+        repositorySyncRunning=false;dialog.running=false;syncButton->setEnabled(true);close->setEnabled(true);retry->setVisible(!success);
+        if(success){QSettings("XetalHyperland","ControlPanel").setValue("software/catalog/repositoriesInitialized",true);status->setText("Package lists refreshed. Your app catalog is ready.");requestCatalog(true);}
+        else status->setText("Package lists could not be refreshed. Check the details below, then retry.");
+    };
+    auto start=[&]{
+        repositorySyncRunning=true;dialog.running=true;syncButton->setEnabled(false);close->setEnabled(false);retry->hide();output->clear();status->setText("Refreshing repository lists. No packages will be installed or upgraded.");
+        worker.start("sudo",{"-A","-k","--","pacman","-Sy"});
+    };
+    connect(&worker,&QProcess::readyReadStandardOutput,&dialog,[&]{output->moveCursor(QTextCursor::End);output->insertPlainText(QString::fromUtf8(worker.readAllStandardOutput()));output->ensureCursorVisible();});
+    connect(&worker,&QProcess::errorOccurred,&dialog,[&](QProcess::ProcessError error){if(error==QProcess::FailedToStart){output->appendPlainText(worker.errorString());finished(false);}});
+    connect(&worker,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),&dialog,[&](int code,QProcess::ExitStatus exit){finished(code==0&&exit==QProcess::NormalExit);});
+    connect(retry,&QPushButton::clicked,&dialog,start);connect(close,&QPushButton::clicked,&dialog,&QDialog::reject);
+    start();dialog.exec();
+}
 void SoftwareCatalogPage::requestCatalog(bool force) {
     if(localWorker.state()!=QProcess::NotRunning){pendingRefresh|=force;return;}
     if(!QFileInfo::exists(root+"/control_panel/software_catalog.py"))return;
@@ -317,6 +403,7 @@ void SoftwareCatalogPage::applyCatalog(const QJsonObject &value) {
     QVector<SoftwareApp> incoming;for(const auto &entry:value["apps"].toArray())incoming<<SoftwareApp::fromJson(entry.toObject(),root);
     apps=std::move(incoming);loaded=true;lastRead=QDateTime::currentDateTime();installedPackages=value["installed_packages"].toObject();
     const auto helpers=value["helpers"].toObject();
+    hasPacman=helpers["pacman"].toBool();needsSync=value["needs_sync"].toBool();syncButton->setEnabled(hasPacman&&!repositorySyncRunning);
     for(const auto &pair:{qMakePair(yay,QString("yay")),qMakePair(paru,QString("paru"))}){
         const bool present=helpers[pair.second].toBool();pair.first->setEnabled(present);
         pair.first->setToolTip(present?"Include community AUR apps. Yay and Paru use the same AUR catalog.":"Not installed. Open Manage Yay & Paru to set it up.");
@@ -325,7 +412,7 @@ void SoftwareCatalogPage::applyCatalog(const QJsonObject &value) {
     notice->setText(warnings.join(" · "));notice->setVisible(!warnings.isEmpty());
     cacheStatus->setText(QString("Local app catalog · %1%2 · refreshed %3")
         .arg(value["cached"].toBool()?"cached":"up to date",value["multilib"].toBool()?" · multilib enabled":"",QDateTime::fromSecsSinceEpoch(qint64(value["generated"].toDouble())).toString("MMM d, HH:mm")));
-    refilter();
+    refilter();QTimer::singleShot(0,this,&SoftwareCatalogPage::offerRepositorySync);
 }
 QString SoftwareCatalogPage::aurHelper() const {
     if(yay->isChecked()&&yay->isEnabled())return "yay";
@@ -337,7 +424,7 @@ QString SoftwareCatalogPage::actionText(const SoftwareApp &app) const {
     if(app.source=="aur"&&aurHelper().isEmpty())return "Enable AUR";
     if(app.source=="pacman"&&!pacman->isChecked())return "Enable Pacman";
     if(!loaded)return "View app";
-    if(!app.available)return "Unavailable";
+    if(!app.available)return needsSync?"Refresh lists":"Unavailable";
     return app.installed?"Installed":"Install";
 }
 void SoftwareCatalogPage::refilter(bool resetScroll) {
@@ -350,7 +437,7 @@ void SoftwareCatalogPage::refilter(bool resetScroll) {
     const bool includeAur=!query.isEmpty()&&query==aurResultsQuery.toCaseFolded();
     if(includeAur)for(const auto &app:apps)known.insert(app.id);
     if(includeAur)for(auto app:aurApps){
-        app.installed=installedPackages.contains(app.package);app.installedVersion=installedPackages[app.package].toString();
+        app.installed=installedPackages.contains(app.package);app.installedVersion=installedPackages[app.package].toString();if(app.installed)app.installedPackage=app.package;
         if(!known.contains(app.id))candidates<<app;
         else for(auto &curated:candidates)if(curated.id==app.id){curated.version=app.version;if(curated.license.isEmpty())curated.license=app.license;break;}
     }
@@ -420,13 +507,25 @@ void SoftwareCatalogPage::details(const SoftwareApp &app) {
     auto *facts=new QFormLayout;facts->addRow("Source",words(sourceName(app)));if(!app.package.isEmpty()&&app.source!="vendor")facts->addRow("Package",words(app.package));
     if(!app.version.isEmpty())facts->addRow("Version",words(app.version));if(!app.installedVersion.isEmpty())facts->addRow("Installed",words(app.installedVersion));if(!app.license.isEmpty())facts->addRow("License",words(app.license));layout->addLayout(facts);
     if(app.source=="aur")layout->addWidget(words("Community package · choose Yay or Paru to install. The build files are available for review before installation."));
+    if(!app.debId.isEmpty())layout->addWidget(words("Also validated with the .deb installer. "+app.debNote));
+    auto *installChoices=new QHBoxLayout;
+    if(!app.debId.isEmpty()&&!app.installed){
+        auto *package=new QPushButton(app.source=="pacman"?"Install with Pacman":aurHelper().isEmpty()?"Install with Yay / Paru":"Install with "+aurHelper());
+        package->setObjectName("softwareInstallPackage");package->setEnabled(app.available||needsSync);installChoices->addWidget(package);
+        package->setToolTip(app.source=="pacman"?"Install from your configured Pacman repositories.":"This app uses the community AUR; choose an installed helper.");
+        connect(package,&QPushButton::clicked,&dialog,[this,&dialog,app]{dialog.accept();activate(app);});
+        auto *deb=new QPushButton("Install with .deb installer");deb->setObjectName("softwareInstallDeb");installChoices->addWidget(deb);
+        connect(deb,&QPushButton::clicked,&dialog,[this,&dialog,app]{dialog.accept();emit installDebRequested(app.debId);});
+    }
+    if(app.installed){auto *remove=new QPushButton(QIcon::fromTheme("edit-delete"),"Uninstall…");remove->setObjectName("softwareUninstallApp");installChoices->addWidget(remove);connect(remove,&QPushButton::clicked,&dialog,[this,&dialog,app]{dialog.accept();uninstall(app);});}
+    if(installChoices->count()){installChoices->addStretch();layout->addLayout(installChoices);}else delete installChoices;
     auto *buttons=new QHBoxLayout;QUrl website(app.website);
     if((website.scheme()=="https"||website.scheme()=="http")&&!website.host().isEmpty()){
         auto *site=new QPushButton("Official website ↗");buttons->addWidget(site);connect(site,&QPushButton::clicked,&dialog,[website]{QDesktopServices::openUrl(website);});
     }
     if(app.source=="vendor"&&app.installed){auto *downloads=new QPushButton("Linux downloads…");buttons->addWidget(downloads);connect(downloads,&QPushButton::clicked,&dialog,[this,app]{vendorDownloads(app);});}
     buttons->addStretch();auto *close=new QPushButton("Close");buttons->addWidget(close);connect(close,&QPushButton::clicked,&dialog,&QDialog::reject);
-    auto *action=new QPushButton(actionText(app));action->setObjectName("catalogAction");action->setEnabled(action->text()!="Unavailable"&&action->text()!="Installed");buttons->addWidget(action);
+    auto *action=new QPushButton(actionText(app));action->setObjectName("catalogAction");action->setEnabled(action->text()!="Unavailable"&&action->text()!="Installed");action->setVisible(app.debId.isEmpty()||app.installed);buttons->addWidget(action);
     connect(action,&QPushButton::clicked,&dialog,[this,&dialog,app]{dialog.accept();activate(app);});layout->addLayout(buttons);dialog.exec();
 }
 void SoftwareCatalogPage::vendorDownloads(const SoftwareApp &app) {
@@ -435,7 +534,7 @@ void SoftwareCatalogPage::vendorDownloads(const SoftwareApp &app) {
     auto *top=new QHBoxLayout;auto *icon=new QLabel;icon->setPixmap(appIcon(app).pixmap(56));top->addWidget(icon);auto *title=new QVBoxLayout;title->addWidget(words(app.name,"catalogHeading"));auto *status=words("Checking the latest Linux release on xetal.net…");title->addWidget(status);top->addLayout(title,1);layout->addLayout(top);
     auto *choices=new QComboBox;choices->setObjectName("softwareDownloadFormat");choices->setEnabled(false);layout->addWidget(choices);
     auto *filename=words({});filename->setTextInteractionFlags(Qt::TextSelectableByMouse);layout->addWidget(filename);
-    auto *instructions=words("Choose a download format. Your browser saves the file; you can open it when you are ready.");layout->addWidget(instructions);layout->addStretch();
+    auto *instructions=words("Choose a format and save the file. Software checks the download before making it available.");layout->addWidget(instructions);layout->addStretch();
     auto *buttons=new QHBoxLayout;auto *site=new QPushButton("Official downloads ↗");buttons->addWidget(site);
     connect(site,&QPushButton::clicked,&dialog,[app]{QUrl url(app.website);url.setFragment("download");if(url.scheme()=="https"&&url.host()=="www.xetal.net")QDesktopServices::openUrl(url);});
     auto *retry=new QPushButton("Retry");retry->hide();buttons->addWidget(retry);buttons->addStretch();auto *close=new QPushButton("Close");buttons->addWidget(close);connect(close,&QPushButton::clicked,&dialog,&QDialog::reject);
@@ -457,7 +556,7 @@ void SoftwareCatalogPage::vendorDownloads(const SoftwareApp &app) {
         status->setText(choices->count()?"Linux · version "+data["version"].toString()+" · from xetal.net":"No Linux download is available. Try the official downloads page.");
     });
     connect(choices,qOverload<int>(&QComboBox::currentIndexChanged),&dialog,[&]{const auto choice=choices->currentData().toMap();filename->setText(choice["filename"].toString());instructions->setText(choice["instructions"].toString());});
-    connect(download,&QPushButton::clicked,&dialog,[&]{const QUrl url(choices->currentData().toMap()["url"].toString());if(url.scheme()=="https"&&url.host()=="www.xetal.net"&&url.userInfo().isEmpty()){status->setText(QDesktopServices::openUrl(url)?"Download opened in your browser.":"Could not open your browser. Try the official downloads page.");}});
+    connect(download,&QPushButton::clicked,&dialog,[&]{saveVendorDownload(&dialog,root,app,choices->currentData().toMap());});
     load();dialog.exec();timeout.stop();worker.disconnect(&dialog);if(worker.state()!=QProcess::NotRunning){worker.kill();worker.waitForFinished(1000);}
 }
 void SoftwareCatalogPage::activate(const SoftwareApp &app) {
@@ -471,7 +570,8 @@ void SoftwareCatalogPage::activate(const SoftwareApp &app) {
     }
     if(app.source=="pacman"&&!pacman->isChecked()){pacman->setChecked(true);return;}
     if(!loaded){requestCatalog();notice->setText("Checking package availability. Select the app again when the catalog is ready.");notice->show();return;}
-    if(!app.available||app.installed)return;
+    if(!app.available){if(needsSync)syncRepositories();return;}
+    if(app.installed)return;
     static const QRegularExpression packagePattern("^[a-zA-Z0-9@_+][a-zA-Z0-9@_.+\\-]*$");
     if(!packagePattern.match(app.package).hasMatch())return;
     const QString helper=app.source=="aur"?aurHelper():"pacman";
@@ -484,4 +584,34 @@ void SoftwareCatalogPage::activate(const SoftwareApp &app) {
     if(!QProcess::startDetached(terminal,{"-e","bash","-c",script},{},&pid)){notice->setText("Could not open the installation terminal.");notice->show();return;}
     notice->setText("Review and confirm the installation in the terminal.");notice->show();
     TerminalExit::watch(this,pid,[this]{requestCatalog(true);emit packagesChanged();});
+}
+void SoftwareCatalogPage::uninstall(const SoftwareApp &app) {
+    if(!app.installed)return;
+    QString package=app.installedPackage;
+    if(package.isEmpty()&&installedPackages.contains(app.package))package=app.package;
+    if(package.isEmpty()&&!app.desktopFile.isEmpty()){
+        QProcess owner;owner.start("pacman",{"-Qqo","--",app.desktopFile});
+        if(owner.waitForFinished(2000)&&owner.exitCode()==0)package=QString::fromUtf8(owner.readAllStandardOutput()).trimmed();
+    }
+    if(!package.isEmpty()){
+        const QString script=SoftwareActions::removePackage(package);if(script.isEmpty())return;
+        QMessageBox prompt(QMessageBox::Question,"Uninstall "+app.name,"Uninstall "+app.name+"?",QMessageBox::Yes|QMessageBox::No,this);
+        prompt.setObjectName("softwareUninstallConfirm");prompt.setTextFormat(Qt::PlainText);
+        prompt.setInformativeText("Package: "+package+"\nReview and confirm removal in the terminal. Your personal settings and files are kept.");prompt.setDefaultButton(QMessageBox::No);
+        if(prompt.exec()!=QMessageBox::Yes)return;
+        qint64 pid=0;if(!QProcess::startDetached(terminal,{"-e","bash","-c",script},{},&pid)){notice->setText("Could not open the uninstall terminal.");notice->show();return;}
+        notice->setText("Review and confirm removal in the terminal.");notice->show();
+        TerminalExit::watch(this,pid,[this]{requestCatalog(true);emit packagesChanged();});return;
+    }
+    const auto paths=SoftwareActions::localRemovalPaths(app.package,app.desktopFile);
+    if(paths.isEmpty()){
+        QMessageBox::information(this,"Uninstall "+app.name,"This app uses a custom or portable installation that Software does not manage. Use its original uninstaller or remove its portable copy.\n\nLauncher: "+app.desktopFile);return;
+    }
+    QMessageBox prompt(QMessageBox::Question,"Uninstall "+app.name,"Move this app and its launcher to Trash?",QMessageBox::Yes|QMessageBox::No,this);
+    prompt.setTextFormat(Qt::PlainText);prompt.setDefaultButton(QMessageBox::No);
+    prompt.setInformativeText(paths.join('\n')+"\n\nSettings outside this installation folder are kept. You can restore the app from Trash.");
+    if(prompt.exec()!=QMessageBox::Yes)return;
+    if(paths!=SoftwareActions::localRemovalPaths(app.package,app.desktopFile)){QMessageBox::warning(this,"Uninstall stopped","The installation changed. Refresh the catalog and try again.");return;}
+    for(const auto &path:paths){if(!QFile::moveToTrash(path)){QMessageBox::warning(this,"Uninstall incomplete","Could not move to Trash: "+path);break;}}
+    requestCatalog(true);emit packagesChanged();
 }

@@ -418,6 +418,10 @@ void PanelController::prepareTools() {
     for (const auto &name : {"uninstallTab", "pacmanDoctorTab"})
       sections->setTabVisible(sections->indexOf(owner->findChild<QWidget *>(name)), settings.value(QString("tabs/") + name, true).toBool());
     connect(software, &SoftwarePage::openTool, this, &PanelController::open);
+    connect(software, &SoftwarePage::installDebRequested, this, [this, deb](const QString &id) {
+      open("deb");
+      deb->selectApp(id);
+    });
   }
   for (const auto &name : {"isoStatusLabel", "isoInfoText"}) {
     auto *output = owner->findChild<QTextEdit *>(name);

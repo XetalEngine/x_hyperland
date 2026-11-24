@@ -182,6 +182,9 @@ DebInstallerPage::DebInstallerPage(const QString &profileRoot, QPushButton *inst
   catalogHint->setToolTip("Tested working: a reported result. Launch tested: automated install, startup and removal; "
                           "app features are not checked. Untested: no result yet.");
   layout->addWidget(catalogHint);
+  selectedApp = label({}, "softwareDebSelection", body);
+  selectedApp->hide();
+  layout->addWidget(selectedApp);
   appGrid = new QWidget(body);
   appGrid->setObjectName("debAppGrid");
   appGrid->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
@@ -233,6 +236,19 @@ DebInstallerPage::DebInstallerPage(const QString &profileRoot, QPushButton *inst
   feedbackRow->addWidget(report);
   layout->addWidget(feedbackBox);
   layout->addStretch();
+}
+
+void DebInstallerPage::selectApp(const QString &id) {
+  for (auto *card : cards) {
+    if (card->objectName() != "debApp_" + id) continue;
+    installButton->setProperty("debSelectedFile", QVariant());
+    packageRow->hide();
+    selectedApp->setText("Install " + card->text() + ": open its official download below, save the Linux .deb, then choose Install .deb above to review and install it.");
+    selectedApp->show();
+    card->setFocus();
+    if (auto *scroll = findChild<QScrollArea *>("debScroll")) scroll->ensureWidgetVisible(card);
+    return;
+  }
 }
 
 bool DebInstallerPage::eventFilter(QObject *watched, QEvent *event) {

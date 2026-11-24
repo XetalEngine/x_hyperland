@@ -15,11 +15,13 @@ class QTreeWidget;
 class QTreeWidgetItem;
 class QStackedWidget;
 class QSplitter;
+class QPushButton;
 class SoftwareAppModel;
 
 struct SoftwareApp {
     QString id, package, name, summary, description, icon, cachedIcon, source, repository,
-            version, installedVersion, license, website, desktopFile, searchText, action, accent, tagline;
+            version, installedVersion, installedPackage, license, website, desktopFile, searchText, action, accent, tagline,
+            debId, debNote;
     QStringList categories;
     int featuredOrder=100;
     bool installed=false, available=false, featured=false, essential=false;
@@ -36,6 +38,7 @@ public:
 signals:
     void openTool(const QString &id);
     void packagesChanged();
+    void installDebRequested(const QString &appId);
 protected:
     void showEvent(QShowEvent *event) override;
     bool eventFilter(QObject *object,QEvent *event) override;
@@ -49,6 +52,7 @@ private:
     SoftwareAppModel *model;
     QStackedWidget *results;
     QSplitter *splitter;
+    QPushButton *syncButton;
     QVector<SoftwareApp> apps, aurApps;
     QJsonObject installedPackages;
     QProcess localWorker, aurWorker;
@@ -56,6 +60,7 @@ private:
     QByteArray localBuffer, aurBuffer;
     QDateTime lastRead;
     bool loaded=false, pendingRefresh=false, aurForcePending=false;
+    bool repositoryPrompted=false, repositorySyncRunning=false, needsSync=false, hasPacman=false;
     void buildTree(const QJsonArray &categories);
     void addCategory(const QJsonObject &value,QTreeWidgetItem *parent=nullptr);
     void requestCatalog(bool force=false);
@@ -70,5 +75,8 @@ private:
     void details(const SoftwareApp &app);
     void activate(const SoftwareApp &app);
     void vendorDownloads(const SoftwareApp &app);
+    void offerRepositorySync();
+    void syncRepositories();
+    void uninstall(const SoftwareApp &app);
     void fitGrid();
 };

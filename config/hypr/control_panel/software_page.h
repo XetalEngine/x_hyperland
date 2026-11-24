@@ -26,6 +26,7 @@ public slots:
     void filterInstalled();
 signals:
     void openTool(const QString &id);
+    void installDebRequested(const QString &appId);
 protected:
     void showEvent(QShowEvent *event) override;
     bool eventFilter(QObject *object, QEvent *event) override;

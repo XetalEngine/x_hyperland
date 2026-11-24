@@ -69,6 +69,12 @@ other apps. **All packages** also includes command-line tools and libraries.
 Click a card for its description and source, or use its **Open**, **Install** or
 **Download** button.
 
+| Browse by category | App details |
+| :---: | :---: |
+| [![Software category tree expanded to Editors and IDEs](screenshots/software-development-polaris.png)](screenshots/software-development-polaris.png) | [![Echo app details with official downloads and launch controls](screenshots/software-echo-details-polaris.png)](screenshots/software-echo-details-polaris.png) |
+
+[Featured apps and full-size screenshots →](GALLERY.md#software-catalog)
+
 **Pacman** is selected by default. **Yay · AUR** and **Paru · AUR** are optional,
 remembered checkboxes; a missing helper links to its existing setup page. They
 search the same AUR catalog, so selecting both does not duplicate results or
@@ -80,8 +86,11 @@ normal priority. The ISO enables multilib, and the catalog reports that state.
 The four Xetal apps use the host's published Linux releases, independently of
 Pacman/AUR. **Download** checks the current release on xetal.net and offers the
 published installer, AppImage or archive. Installed Xetal apps also expose
-**Linux downloads…** in their details. Download links open in the browser, with
-format-specific instructions; downloaded programs are not executed automatically.
+**Linux downloads…** in their details. **Download** opens a save dialog and shows
+progress inside Software. The file's byte count and SHA-256 are checked against
+the published release before it replaces the destination. Cancelled or failed
+downloads discard the partial file and preserve an existing download. Format-specific
+instructions appear on completion; downloaded programs are not executed automatically.
 The host remains responsible for publishing these apps and their updates.
 
 Browsing and local search read Pacman databases and Arch AppStream metadata.
@@ -90,7 +99,11 @@ creating a widget for every package. An atomic disk cache reopens immediately;
 changed repository data, installed packages, desktop launchers or bundled picks
 invalidate it. **Refresh** rereads local metadata; **Updates** performs the existing
 package-update workflow. Returning to a category after a minute also checks the
-local cache. Opening Browse does not synchronize repositories or request elevation.
+local cache. The first visit offers **Refresh lists**, which requests administrator
+authentication and runs **`pacman -Sy` only**; it installs or upgrades no packages.
+A successful refresh is remembered. Missing/unreadable databases offer the same
+repair, and **Refresh package lists…** in the sidebar can retry it at any time.
+Ordinary catalog **Refresh** rereads local data without elevation.
 AUR queries are debounced, bounded and cached for six hours; Refresh rechecks the
 current query. Failed refreshes preserve the previous list and show the error.
 
@@ -99,6 +112,18 @@ installation retains the helper's build-file review. **Installed** and **Repair*
 keep removal, reinstall, cache/orphan cleanup and guarded repair tools. The
 catalog refreshes installed state after a package transaction exits. Existing
 `--section pacman`, `remove` and `repair` shortcuts continue to work.
+
+Validated apps offer **Install with Pacman** and **Install with .deb installer**
+in their details. AUR-only apps label the package route Yay/Paru instead.
+The .deb route opens the existing installer with the matching app selected;
+download its official Linux .deb, then choose it for the existing review and
+conversion workflow. Compatibility notes describe the version actually tested.
+
+Installed apps have **Uninstall…** in their details. Package-managed apps use the
+actual installed package name, including .deb-converted aliases, and keep Pacman's
+removal confirmation. Recognized per-user Xetal installer folders and launchers
+can be moved to Trash. Custom development checkouts and arbitrary portable copies
+require their own removal method; Software does not delete them automatically.
 
 ## Hyprland integration
 

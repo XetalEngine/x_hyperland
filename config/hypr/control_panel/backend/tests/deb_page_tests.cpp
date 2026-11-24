@@ -234,6 +234,17 @@ private slots:
       dialog->reject();
     }
   }
+  void catalogSelectionGuidesTheUserToTheMatchingDebDownload() {
+    auto *install = new QPushButton;
+    install->setProperty("debSelectedFile","/old-selection.deb");
+    DebInstallerPage page(root, install);
+    page.show();page.selectApp("discord");
+    auto *selection=page.findChild<QLabel *>("softwareDebSelection");
+    QVERIFY(selection&&selection->isVisible());QVERIFY(selection->text().contains("Discord"));
+    QVERIFY(selection->text().contains(".deb"));
+    QVERIFY(install->property("debSelectedFile").toString().isEmpty());
+    QVERIFY(opened.isEmpty());
+  }
 };
 
 QTEST_MAIN(DebPageTests)

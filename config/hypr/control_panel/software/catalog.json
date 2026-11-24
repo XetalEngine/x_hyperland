@@ -393,6 +393,22 @@
       "essential": true
     },
     {
+      "id": "pacman/vlc-plugins-all",
+      "package": "vlc-plugins-all",
+      "name": "VLC · All plugins",
+      "summary": "The complete plugin bundle for VLC playback, streaming and visualizers.",
+      "description": "Add all VLC plugins, including extra playback, streaming and visualization components. Install alongside VLC for full plugin coverage.",
+      "categories": [
+        "AudioVideo",
+        "Video",
+        "Audio"
+      ],
+      "icon": "vlc",
+      "source": "pacman",
+      "kind": "app",
+      "essential": true
+    },
+    {
       "id": "pacman/gimp",
       "package": "gimp",
       "name": "GIMP",

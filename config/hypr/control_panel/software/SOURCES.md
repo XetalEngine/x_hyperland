@@ -19,5 +19,10 @@ banner order; vendor entries remain visible without enabling an AUR helper.
 
 Vendor manifest endpoints are explicitly defined in `software_catalog.py`.
 Only published Linux x86_64 artifacts with the expected product/version filename,
-size and SHA-256 metadata are offered. The browser handles downloads; the catalog
-does not claim to verify downloaded bytes and never executes downloaded files.
+size and SHA-256 metadata are offered. `software_download.py` streams the chosen
+file into a temporary sibling, verifies its size and SHA-256, then commits it to
+the user's chosen destination. It never executes downloaded files. This also
+handles `.run` files served without a browser download Content-Disposition.
+
+Validated .deb alternatives are mapped explicitly through `packages` in
+`deb_apps.json`; the existing .deb installer owns package selection and review.

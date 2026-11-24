@@ -26,7 +26,8 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 SEED = Path(__file__).with_name('software') / 'catalog.json'
-SCHEMA = 1
+SCHEMA = 2
+DEB_APPS = Path(__file__).with_name('deb_apps.json')
 NAME = re.compile(r'[a-zA-Z0-9@_+][a-zA-Z0-9@_.+\-]*\Z')
 LANG = '{http://www.w3.org/XML/1998/namespace}lang'
 MAX_CACHE = 40 * 1024 * 1024
@@ -210,7 +211,7 @@ def merge_seed(packages, seed, desktops):
 
 
 def fingerprint(db, repos, desktops, catalog):
-    files = [SEED, Path(__file__), db/'local', *(db/'sync'/(r+'.db') for r in repos)]
+    files = [SEED, DEB_APPS, Path(__file__), db/'local', *(db/'sync'/(r+'.db') for r in repos)]
     files += sorted((catalog/'xml').glob('*.xml*'))
     for folder in desktops:
         files.append(folder); files += sorted(folder.glob('*.desktop'))
@@ -222,13 +223,26 @@ def fingerprint(db, repos, desktops, catalog):
     return hashlib.sha256(json.dumps(signature,sort_keys=True).encode()).hexdigest()
 
 
+def attach_deb_choices(apps):
+    try: deb_apps = json.loads(DEB_APPS.read_text()).get('apps', [])
+    except (OSError, ValueError): deb_apps = []
+    choices = {name: app for app in deb_apps if app.get('status') in ('tested', 'launch_tested')
+               for name in app.get('packages', []) if NAME.fullmatch(name)}
+    for value in apps:
+        if value.get('package') in choices:
+            deb = choices[value['package']]
+            value['deb_id'] = deb['id']; value['deb_note'] = deb.get('note', '')
+
+
 def build_catalog(db, repos, desktops, catalog):
     seed = json.loads(SEED.read_text())
     packages, warnings = package_records(db, repos)
+    needs_sync = bool(warnings) or not packages
     installed = installed_records(db)
     count, extra = appstream_records(catalog, packages); warnings += extra
     entries = desktop_entries(desktops)
     merge_seed(packages, seed, entries)
+    attach_deb_choices(packages.values())
     for value in packages.values():
         name = value['package']; attach_desktop(value, entries)
         candidates=[name,*value.get('installed_aliases',[])]
@@ -238,7 +252,7 @@ def build_catalog(db, repos, desktops, catalog):
         value['installed_package'] = installed_name
     return dict(schema=SCHEMA,type='catalog',generated=time.time(),apps=list(packages.values()),
                 categories=seed['categories'], repositories=repos, multilib='multilib' in repos,
-                appstream_count=count, warnings=warnings, installed_packages=installed)
+                appstream_count=count, warnings=warnings, installed_packages=installed, needs_sync=needs_sync)
 
 
 def cache_root():
@@ -286,7 +300,7 @@ def local_catalog(force=False):
         # A later refresh must retry transient failures instead of caching them forever.
         if value['warnings']:
             if cached:
-                emit({**cached,'warnings':value['warnings'],'cached':True})
+                emit({**cached,'warnings':value['warnings'],'cached':True,'needs_sync':value['needs_sync']})
                 return cached
         else: atomic_json(path, value)
         emit(value)
@@ -324,6 +338,7 @@ def aur_search(query, force=False, opener=urllib.request.urlopen):
                 version=str(item.get('Version',''))[:200],source='aur',repository='AUR',kind='package',icon='package-x-generic',
                 categories=[],installed=name in installed,installed_version=installed.get(name,''),available=True,
                 website=safe_url(item.get('URL') or ''),desktop_file='',license=', '.join(s for s in licenses if isinstance(s,str))))
+        attach_deb_choices(apps)
         result=dict(schema=SCHEMA,type='aur',query=query,generated=time.time(),apps=apps,truncated=len(data['results'])>500)
         atomic_json(path,result)
         # Bound this one-purpose search cache; never touch any other cache files.
@@ -347,7 +362,7 @@ VENDOR_MANIFESTS = {
 def vendor_release(product, opener=urllib.request.urlopen):
     """Resolve only published Linux artifacts, on an explicit Downloads action.
 
-    These are browser downloads, never automatic execution or package installs.
+    These are explicit file downloads, never automatic execution or package installs.
     No versioned download links are frozen into the catalog.
     """
     if product not in VENDOR_MANIFESTS: raise ValueError('Unknown Xetal app.')

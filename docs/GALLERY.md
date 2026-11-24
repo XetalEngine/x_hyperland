@@ -61,6 +61,38 @@ visible. Hiding them preserves the current layout and drive filter, and
 
 [Fusion Files guide →](FILES.md) · [Copy, Cut and Move engine →](../README.md#copy-cut-and-move-with-fusion-files)
 
+## Software catalog
+
+**Find your next favorite in Control Panel → Software.** The category tree keeps
+browsers, creative tools, development apps, games and utilities easy to explore.
+App cards bring the icon, purpose and install or launch action together, with
+colors drawn from your desktop theme.
+
+[![Top picks in the Polaris Software catalog, with the four Xetal apps first and Discord and Chrome beside desktop essentials](screenshots/software-catalog-polaris.png)](screenshots/software-catalog-polaris.png)
+
+*Top picks starts with Echo, Linux Studio, XMusic and Xetal Video Editor. Pacman is selected by default, with optional Yay and Paru sources in the sidebar.*
+
+### Follow your interests
+
+Expand **Development → Editors & IDEs**, browse the app cards, or search by name
+and description. Category browsing uses the local catalog and icon cache;
+**All packages** also makes libraries and command-line tools discoverable.
+
+[![Development expanded to Editors and IDEs, with the local application catalog displayed as a grid of icons and descriptions](screenshots/software-development-polaris.png)](screenshots/software-development-polaris.png)
+
+### Know what you are opening
+
+Click a card to read its description and source. Echo brings chat, voice, video
+and online emulator gaming together. Its details also link to the official site
+and the current Linux downloads. Installed apps can be opened from here.
+
+[![Echo details in Polaris, showing its description, official source and download and launch controls](screenshots/software-echo-details-polaris.png)](screenshots/software-echo-details-polaris.png)
+
+*Native Software interface captured in an isolated Polaris preview with the real
+local catalog. App availability and Open/Install actions depend on your system.*
+
+[README showcase →](../README.md#software-made-for-hyper-fusion) · [Software guide →](CONTROL-PANEL.md#software-catalog)
+
 ## KDE mode and built-in recording
 
 The **KDE** indicator sits between Keys and Update. Click it to cycle Individual, Force tiling, Force floating and KDE mode; the choice belongs to the active workspace on that display.

@@ -75,6 +75,7 @@ SoftwarePage::SoftwarePage(QWidget *legacy, const QString &root, const QString &
     sections = new PanelTabs(this); sections->setObjectName("softwareSections"); sections->setDocumentMode(true); outer->addWidget(sections, 1);
     browser = new SoftwareCatalogPage(root, terminal, sections); sections->addTab(browser, "Browse");
     connect(browser, &SoftwareCatalogPage::openTool, this, &SoftwarePage::openTool);
+    connect(browser, &SoftwareCatalogPage::installDebRequested, this, &SoftwarePage::installDebRequested);
     connect(browser, &SoftwareCatalogPage::packagesChanged, this, [this] { loaded = false; if (isVisible() && sections->currentIndex() == 1) refreshInstalled(); });
     auto *storage = new QWidget(this); storage->setObjectName("retiredSoftwareWidgets"); storage->hide();
     auto *installedPage = take<QWidget>(legacy, "uninstallTab");

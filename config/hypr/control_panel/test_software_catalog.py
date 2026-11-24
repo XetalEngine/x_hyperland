@@ -82,6 +82,19 @@ class CatalogTests(unittest.TestCase):
         entries=catalog.desktop_entries([self.apps,system]);self.assertEqual(entries['alpha.desktop'],{})
         a={'package':'alpha'};catalog.attach_desktop(a,entries);self.assertNotIn('desktop_file',a)
 
+    def test_missing_databases_are_distinguished_from_absent_packages(self):
+        self.assertFalse(self.build()['needs_sync'])
+        (self.db/'sync/extra.db').unlink()
+        value=self.build();self.assertTrue(value['needs_sync']);self.assertTrue(value['warnings'])
+
+    def test_validated_deb_apps_include_alternative_route_and_installed_alias(self):
+        self.repo('extra',{'discord':desc('discord'),'code':desc('code')})
+        self.install('discord')
+        app=next(a for a in self.build()['apps'] if a['package']=='discord')
+        self.assertEqual(app['deb_id'],'discord');self.assertIn('working',app['deb_note'])
+        self.assertEqual(app['installed_package'],'discord')
+        self.assertNotIn('deb_id',next(a for a in self.build()['apps'] if a['package']=='code'))
+
     def test_warm_cache_skips_reparse_but_database_and_install_changes_invalidate(self):
         first=self.local()
         with patch.object(catalog,'build_catalog',side_effect=AssertionError('Reparsed unchanged cache')):self.assertEqual(self.local()['apps'],first['apps'])
