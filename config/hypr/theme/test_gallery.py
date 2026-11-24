@@ -39,7 +39,7 @@ class GalleryTests(unittest.TestCase):
 
     def test_search_across_collections_keeps_selection_and_handles_no_results(self):
         for query, expected in (('  BLUE  ', ['modern', 'binaryknife', 'tidalglass', 'hyperfusionblue', 'starcraft', 'polaris']),
-                                ('moon rain', ['shadowedge']), ('CANDY', ['candycloud']),
+                                ('moon rain', ['shadowedge', 'amazon']), ('CANDY', ['candycloud']),
                                 ('audi a4 sedan', ['midnightrun']),
                                 ('tux north star', ['polaris']),
                                 ('terran protoss', ['starcraft']),

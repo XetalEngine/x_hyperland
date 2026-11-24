@@ -39,7 +39,7 @@ def appearance(theme='follow'):
     layout = runtime.layout() if theme == 'follow' else runtime.layouts.default(selected)
     p = runtime.colors(style=selected)
     design = runtime.layouts.widget_style(layout, selected)
-    radius = 4 if design in ('killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft','mortalkombat2') else 8 if design=='facadasexu' else 10 if design=='ghostbusters' else 6 if design=='leviathan' else 12 if design == 'polaris' else 5 if design in ('infernalencore','prisonbreak') else 7 if design == 'midnightrun' else 1 if design in ('platform95','mystery98') else 2 if design == 'shadowedge' else 16 if design == 'candycloud' else 3 if design == 'obsidianforge' else 2 if design == 'porcelainink' else 14 if design == 'tidalglass' else 3 if design == 'binaryknife' else 8 if design == 'breakpoint' else 10
+    radius = 4 if design in ('killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft','mortalkombat2') else 8 if design=='facadasexu' else 10 if design=='ghostbusters' else 8 if design=='amazon' else 6 if design=='leviathan' else 12 if design == 'polaris' else 5 if design in ('infernalencore','prisonbreak') else 7 if design == 'midnightrun' else 1 if design in ('platform95','mystery98') else 2 if design == 'shadowedge' else 16 if design == 'candycloud' else 3 if design == 'obsidianforge' else 2 if design == 'porcelainink' else 14 if design == 'tidalglass' else 3 if design == 'binaryknife' else 8 if design == 'breakpoint' else 10
     accent_rgb = ','.join(str(int(p['Accent'][i:i+2], 16)) for i in (1, 3, 5))
     style = qt_style(p, design) + runtime.layouts.stylesheet(p, layout, selected)
     style += f'''
@@ -206,6 +206,9 @@ def appearance(theme='follow'):
         style += files_style(p)
     if design == 'ghostbusters':
         from ghostbusters import files_style
+        style += files_style(p)
+    elif design == 'amazon':
+        from amazon import files_style
         style += files_style(p)
     elif design == 'leviathan':
         from leviathan import files_style

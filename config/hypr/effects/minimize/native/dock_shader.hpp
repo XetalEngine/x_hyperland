@@ -29,8 +29,8 @@ void main(){
   fragColor=vec4(mix(warm,mix(ink,vec3(1.,.72,.25),.5),core)*a,a)*opacity;return;
  }
  vec2 p=(uv-.5)*dims;vec2 halfSize=dims*.5-vec2(8.);
- float radius=style==27?3.:style==28?2.:style==29?8.:style==30?2.:style==26?5.:style==25?4.:style==24?8.:style==21?10.:style==20?6.:style==19?14.:(style==18||style==23)?5.:style==17?7.:(style==16||style==22)?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
- if(part==1)radius=style==27?3.:style==28?2.:style==29?8.:style==30?2.:style==26?5.:style==25?3.:style==24?6.:style==21?8.:style==20?4.:style==19?11.:(style==18||style==23)?4.:style==17?6.:(style==16||style==22)?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
+ float radius=style==31?8.:style==27?3.:style==28?2.:style==29?8.:style==30?2.:style==26?5.:style==25?4.:style==24?8.:style==21?10.:style==20?6.:style==19?14.:(style==18||style==23)?5.:style==17?7.:(style==16||style==22)?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
+ if(part==1)radius=style==31?6.:style==27?3.:style==28?2.:style==29?8.:style==30?2.:style==26?5.:style==25?3.:style==24?6.:style==21?8.:style==20?4.:style==19?11.:(style==18||style==23)?4.:style==17?6.:(style==16||style==22)?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
  radius=min(radius,min(halfSize.x,halfSize.y));
  float distance=roundBox(p,halfSize,radius);
  if(style==27||style==30)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+(style==27?6.:9.))*.7071);
@@ -174,6 +174,21 @@ void main(){
    decoration=step(p.y+halfSize.y,lip)*step(24.,q.x)*.8;
    decoration+=exp(-abs(p.y-halfSize.y+7.)*2.)*step(24.,q.x)*.8;
    decoration+=exp(-dot(q-vec2(11.,30.),q-vec2(11.,30.))*.20)*(.75+.15*sin(time));
+  }else if(style==31){
+   // Amazon Riverbank: gold leaf veins at the ends, enamel and calm water.
+   vec2 q=vec2(halfSize.x-abs(p.x)-15.,p.y);
+   body=mix(base,ink,shine*.075);rim=.7;
+   vec2 leafq=vec2((q.x+q.y*.35)/7.,q.y/15.);
+   float leafEdge=abs(length(leafq)-1.);
+   decoration=exp(-leafEdge*18.)*.72;
+   decoration+=exp(-line(q,vec2(-5.,12.),vec2(5.,-12.))*2.)*.75;
+   for(int i=-1;i<=1;i++){
+    float y=float(i)*6.;
+    decoration+=exp(-line(q,vec2(-y*.3,y),vec2(5.-y*.3,y+3.))*2.5)*.55;
+   }
+   float ripple=p.y-halfSize.y+7.+1.2*sin(p.x*.07-time);
+   decoration+=exp(-abs(ripple)*1.8)*step(30.,halfSize.x-abs(p.x))*.4;
+   metal=exp(-abs(distance+3.)*2.)*.15;
   }else if(style==20){
    // Puzzle Reliquary: engraved brass, double rims and violet faceted seals.
    vec3 brass=mix(ink,vec3(.7804,.6078,.3804),.65);
@@ -510,6 +525,10 @@ void main(){
     vec2 q=p-vec2(-5.+10.*float(i),-halfSize.y+5.);
     decoration+=exp(-dot(q,q)*.8)*.5;
    }
+  }else if(style==31){
+   body=mix(base,tint,.035+emphasis*.08)+ink*shine*.075;rim=.55+emphasis*.35;
+   decoration=exp(-abs(p.y-halfSize.y+5.)*2.)*step(abs(p.x),halfSize.x-8.)*(.5+emphasis*.4);
+   metal=exp(-abs(distance+3.)*1.8)*.12;
   }else if(style==20){
    vec3 brass=mix(ink,vec3(.7804,.6078,.3804),.65);
    body=mix(base,tint,.04+emphasis*.1);rim=0.;

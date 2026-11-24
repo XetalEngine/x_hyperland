@@ -3,8 +3,8 @@ import colorsys
 from pathlib import Path
 
 DESIGNS = {'raw': 'Xetal Raw', 'modern': 'Xetal Modern', 'breakpoint': 'BreakPoint', 'binaryknife': 'Binary Knife',
-           'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud', 'shadowedge': 'Shadow Edge', 'hollowgrove': 'Hollow Grove', 'gildedhollow': 'The Gilded Hollow', 'hyperfusionblue': 'HyperFusion Blue', 'midnighttransit': 'Midnight Transit', 'blackwood': 'Blackwood', 'atomicafterglow': 'Atomic Afterglow', 'mycelium': 'Mycelium', 'mystery98': 'Windows 98 Mystery', 'platform95': 'Platform 95', 'midnightrun': 'Midnight Run', 'prisonbreak': 'Prison Break', 'killerinstinct': 'Killer Instinct · Arcade 94', 'kitemple': 'Killer Instinct · Jade Temple', 'kiprimal': 'Killer Instinct · Primal Storm', 'kifireice': 'Killer Instinct · Fire & Ice', 'starcraft': 'StarCraft II', 'mortalkombat2': 'Mortal Kombat II', 'facadasexu': '777 Facadas Exu', 'infernalencore': 'Infernal Encore', 'polaris': 'Polaris', 'leviathan': 'Leviathan', 'ghostbusters': 'Ghostbusters'}
-DESCRIPTIONS = {'killerinstinct': 'Violet chrome · obsidian, silver bevels and amber arcade lights', 'kitemple': 'Jade lacquer · carved brass, emerald glass and temple lanterns', 'kiprimal': 'Storm-worn stone · moss, bone inlays and amethyst lightning', 'kifireice': 'Split elements · black steel, molten amber and crystalline cyan', 'starcraft': 'Terran armor · cobalt enamel, psionic cyan & Koprulu starlight', 'mortalkombat2': 'Jade arcade · charcoal stone, antique gold & Outworld moonlight', 'facadasexu': 'Black lacquer · oxblood velvet, ivory & candlelit copper', 'ghostbusters': 'Ectoplasm green · slime, midnight enamel & ghost traps', 'leviathan': 'Obsidian reliquaries · engraved brass & amethyst storms', 'polaris': 'Midnight glass · luminous cyan & violet starlight', 'prisonbreak': 'Violet neon · graphite steel, orange folders & hazard stripes', 'infernalencore': 'Blackened metal · antique brass & crimson stage lights', 'midnightrun': 'Graphite lacquer · cyan edges & magenta Tokyo nights', 'mystery98': 'Walnut libraries · emerald enamel & antique-gold bevels', 'platform95': 'Classic ivory bevels · espresso headers & antique gold', 'mycelium': 'Plum velvet · ivory roots & luminous lilac mushrooms', 'atomicafterglow': 'Olive graphite · brass instruments & phosphor green', 'blackwood': 'Walnut joinery · aged brass, sage & coastal light', 'raw': 'Original layout · cyan accents', 'modern': 'Soft cards · blue accents',
+           'tidalglass': 'Tidal Glass', 'porcelainink': 'Porcelain Ink', 'obsidianforge': 'Obsidian Forge', 'candycloud': 'Candy Cloud', 'shadowedge': 'Shadow Edge', 'hollowgrove': 'Hollow Grove', 'gildedhollow': 'The Gilded Hollow', 'hyperfusionblue': 'HyperFusion Blue', 'midnighttransit': 'Midnight Transit', 'blackwood': 'Blackwood', 'atomicafterglow': 'Atomic Afterglow', 'mycelium': 'Mycelium', 'mystery98': 'Windows 98 Mystery', 'platform95': 'Platform 95', 'midnightrun': 'Midnight Run', 'prisonbreak': 'Prison Break', 'killerinstinct': 'Killer Instinct · Arcade 94', 'kitemple': 'Killer Instinct · Jade Temple', 'kiprimal': 'Killer Instinct · Primal Storm', 'kifireice': 'Killer Instinct · Fire & Ice', 'starcraft': 'StarCraft II', 'mortalkombat2': 'Mortal Kombat II', 'facadasexu': '777 Facadas Exu', 'infernalencore': 'Infernal Encore', 'polaris': 'Polaris', 'amazon': 'Amazon', 'leviathan': 'Leviathan', 'ghostbusters': 'Ghostbusters'}
+DESCRIPTIONS = {'amazon': 'Emerald enamel · leaf-gold edges, coral accents & moonlit rainforest', 'killerinstinct': 'Violet chrome · obsidian, silver bevels and amber arcade lights', 'kitemple': 'Jade lacquer · carved brass, emerald glass and temple lanterns', 'kiprimal': 'Storm-worn stone · moss, bone inlays and amethyst lightning', 'kifireice': 'Split elements · black steel, molten amber and crystalline cyan', 'starcraft': 'Terran armor · cobalt enamel, psionic cyan & Koprulu starlight', 'mortalkombat2': 'Jade arcade · charcoal stone, antique gold & Outworld moonlight', 'facadasexu': 'Black lacquer · oxblood velvet, ivory & candlelit copper', 'ghostbusters': 'Ectoplasm green · slime, midnight enamel & ghost traps', 'leviathan': 'Obsidian reliquaries · engraved brass & amethyst storms', 'polaris': 'Midnight glass · luminous cyan & violet starlight', 'prisonbreak': 'Violet neon · graphite steel, orange folders & hazard stripes', 'infernalencore': 'Blackened metal · antique brass & crimson stage lights', 'midnightrun': 'Graphite lacquer · cyan edges & magenta Tokyo nights', 'mystery98': 'Walnut libraries · emerald enamel & antique-gold bevels', 'platform95': 'Classic ivory bevels · espresso headers & antique gold', 'mycelium': 'Plum velvet · ivory roots & luminous lilac mushrooms', 'atomicafterglow': 'Olive graphite · brass instruments & phosphor green', 'blackwood': 'Walnut joinery · aged brass, sage & coastal light', 'raw': 'Original layout · cyan accents', 'modern': 'Soft cards · blue accents',
                 'breakpoint': 'Charcoal glass · crimson focus', 'binaryknife': 'Sharp graphite · electric blue',
                 'tidalglass': 'Pearl glass · luminous ocean depths',
                 'porcelainink': 'Warm porcelain · charcoal & vermilion',
@@ -72,6 +72,9 @@ def qt_style(p,style='modern'):
         return themed(p)
     if style=='ghostbusters':
         from ghostbusters import qt_style as themed
+        return themed(p)
+    elif style=='amazon':
+        from amazon import qt_style as themed
         return themed(p)
     elif style=='leviathan':
         from leviathan import qt_style as themed
@@ -240,6 +243,9 @@ def waybar_style(p,style='modern'):
     if style=='ghostbusters':
         from ghostbusters import waybar_style as themed
         return themed(p)
+    elif style=='amazon':
+        from amazon import waybar_style as themed
+        return themed(p)
     elif style=='leviathan':
         from leviathan import waybar_style as themed
         return themed(p)
@@ -349,6 +355,9 @@ def notification_style(p,style='modern'):
         return themed(p)
     if style=='ghostbusters':
         from ghostbusters import notification_style as themed
+        return themed(p)
+    elif style=='amazon':
+        from amazon import notification_style as themed
         return themed(p)
     elif style=='leviathan':
         from leviathan import notification_style as themed

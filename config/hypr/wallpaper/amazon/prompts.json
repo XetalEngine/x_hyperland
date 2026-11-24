@@ -1,0 +1,40 @@
+{
+  "id": "amazon",
+  "name": "Amazon",
+  "generator": "Built-in imagegen",
+  "wallpapers": [
+    {
+      "file": "moonlit-river.png",
+      "title": "Moonlit River",
+      "prompt": "Use case: precise-object-edit. Asset type: finished 16:9 desktop wallpaper for the Amazon theme. Edit the supplied reference into clean wallpaper art only. Remove ALL desktop UI: both bars, all text including AMAZONIA, icons, file window, settings window, borders and controls. Reconstruct the moonlit rainforest and night sky naturally in those areas. Preserve the illustrated adult woman sitting on the rocks at the lower right in her gold patterned top and coral-red patterned wrap, her calm pose and black hair, the moon high left of center, its reflection across a still dark-blue Amazon river, layered emerald forest silhouettes, the small warmly lit riverside hut, and foreground branches. Keep the same elegant detailed hand-painted graphic novel illustration style and cinematic lighting. The left half is quiet open navy water and mist with room for real desktop content. Extend the art to all edges. Output a wide 16:9 landscape, preferably 3840x2160; no desktop interface, no captions, no logos, no lettering, no watermark. Do not add characters.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "e7af46c1ea13639ec8c890b56e8480f257b9adb970860560bbf2669c2e1a06d7",
+      "provenance": "Generated with the built-in imagegen tool using the user-provided Amazon concept as a visual reference; no desktop UI embedded."
+    },
+    {
+      "file": "canopy-at-dawn.png",
+      "title": "Canopy at Dawn",
+      "prompt": "Use case: style-reference. Asset type: original desktop wallpaper for the Amazon theme. Use the supplied illustration only as a reference for its detailed hand-painted graphic novel style and midnight navy / emerald / warm gold color language. Create a completely different wide landscape composition: a sweeping high view over an immense Amazon rainforest canopy at blue hour, a silver-blue river curling in an S shape from lower left to far center, layered tropical trees and a thin golden dawn on the horizon. Close foreground leaves frame the upper corners, distant mist floats between trees, tiny warm fireflies hover over the near bank. Calm, rich, elegant illustration, dark enough for a desktop with a spacious quiet center. No woman or people in this composition, no huts, no UI, no icons, no lettering, no logos, no watermark. Landscape 16:9, preferably 3840x2160. This must be a new scene, not a recolor or crop of the supplied image.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "e2bc82cf24a7d17a7191e34b2c000917475cefc7121d86e4293d8eb54d68c315",
+      "provenance": "Generated with the built-in imagegen tool using the user-provided Amazon concept as a visual reference; no desktop UI embedded."
+    },
+    {
+      "file": "emerald-lagoon.png",
+      "title": "Emerald Lagoon",
+      "prompt": "Use case: style-reference. Asset type: third original desktop wallpaper for the Amazon theme. Refer to the supplied art for its elegant detailed hand-painted graphic novel illustration style, natural ink contours and rich midnight navy, deep emerald and warm gold colors. Create a distinctly new environment: a secluded rainforest lagoon under moonlight, silky luminous waterfalls cascading over dark mossy cliffs in the right half, a monumental ancient tropical tree and hanging vines framing the left edge, broad emerald lily pads on still blue water in the foreground, a few golden fireflies over soft drifting mist, small coral-red tropical flowers near the right bank. No people. A cool moonbeam enters from above the center, illuminating the waterfall mist. Expansive calm dark blue water in the left-center gives room for actual desktop content. Lush botanical depth, strong atmospheric perspective, peaceful and cinematic. A new composition, not a crop or recolor. Wide 16:9 landscape, preferably 3840x2160. Absolutely no user interface, windows, panels, taskbar, icons, letters, text, logos, captions or watermark.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "6ee6db7ca77d1740088fb90b8f998aea80cae48d150679a036025928f53dbb8e",
+      "provenance": "Generated with the built-in imagegen tool using the user-provided Amazon concept as a visual reference; no desktop UI embedded."
+    }
+  ]
+}

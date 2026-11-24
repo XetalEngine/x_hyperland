@@ -138,6 +138,8 @@ def builtin(design, mode=None, root=None):
         value['cursors'].update(style='mortalkombat2',trail='glow',color='#3dd489')
     elif design == 'ghostbusters':
         value['cursors'].update(style='ghostbusters',trail='glow',color='#b4ff00')
+    elif design == 'amazon':
+        value['cursors'].update(style='amazon',trail='glow',color='#ebcb72')
     elif design == 'leviathan':
         value['cursors'].update(style='leviathan',trail='glow',color='#c69ae5')
     elif design == 'polaris':

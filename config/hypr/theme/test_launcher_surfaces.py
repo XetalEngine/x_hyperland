@@ -65,5 +65,11 @@ class SurfaceTests(unittest.TestCase):
         bad['raw']['tile_opacity']=99
         self.assertEqual(normalize({}),defaults)
 
+    def test_every_selectable_design_has_surface_preferences(self):
+        from designs import DESIGNS
+        settings = normalize({})
+        for design in DESIGNS:
+            self.assertIn(design, settings)
+
 
 if __name__=='__main__':unittest.main()

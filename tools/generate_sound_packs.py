@@ -32,6 +32,7 @@ SCORES = {
     'prisonbreak': (60, 'breakout', [0, 3, 7, 12, 10, 15], .32),
     'mystery98': (57, 'clockwork', [0, 7, 3, 14, 10, 12], .41),
     'ghostbusters': (62, 'ectoplasm', [0, 7, 3, 10, 14, 12], .36),
+    'amazon': (64, 'river', [0, 7, 9, 12, 16, 19], .40),
     'leviathan': (50, 'reliquary', [0, 7, 10, 3, 14, 12], .44),
     'polaris': (67, 'polar', [0, 7, 14, 12, 19, 16], .38),
     'infernalencore': (52, 'encore', [0, 0, 7, 10, 7, 3], .29),
@@ -133,6 +134,13 @@ def voice(midi, duration, kind, seed=0):
         out += .16*np.sin(phase*2+.7*np.exp(-15*t))*np.exp(-6*t)
         out += .10*np.sin(phase*.5)*np.exp(-2.4*t)*(1-np.exp(-14*t))
         attack = .035
+    elif kind == 'river':
+        # Original bamboo-like fundamental with quiet droplet harmonics.
+        out = np.sin(phase+.12*np.sin(phase*2)*np.exp(-12*t))*np.exp(-4.1*t)
+        out += .13*np.sin(phase*2.76)*np.exp(-9*t)
+        out += .06*np.sin(phase*4.03)*np.exp(-13*t)
+        out += .10*np.sin(phase*.5)*np.exp(-2.6*t)*(1-np.exp(-14*t))
+        attack = .038
     elif kind == 'reliquary':
         # Soft struck brass, a delayed low resonance and a gentle attack.
         out = np.sin(phase)*np.exp(-3*t)

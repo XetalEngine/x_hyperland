@@ -35,7 +35,8 @@ DOCK_STYLES = {'follow': 'Follow desktop theme', 'raw': 'Xetal Raw · circuit ra
                'killerinstinct': 'Killer Instinct · Arcade 94 · Arcade Console',
                'kitemple': 'Killer Instinct · Jade Temple · Temple Altar',
                'kiprimal': 'Killer Instinct · Primal Storm · Primal Relic',
-               'kifireice': 'Killer Instinct · Fire & Ice · Thermal Chamber'}
+               'kifireice': 'Killer Instinct · Fire & Ice · Thermal Chamber',
+               'amazon': 'Amazon · Riverbank'}
 ORDERS = {'bottom-to-top': 'Bottom to top', 'top-to-bottom': 'Top to bottom'}
 HIDE_ANIMATIONS = {'slide':'Slide away', 'burn':'Burn away'}
 DEFAULTS = dict(enabled=True, effect='fireball', duration=420, size=76,

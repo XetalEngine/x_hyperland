@@ -368,6 +368,22 @@ def ki_dock(p,width,colors,phase,style):
     p.restore()
 
 
+def riverbank(p,width,colors,phase):
+    """An enamel riverbank with gold leaves and a slow, continuous ripple."""
+    from amazon import paint_surface, leaf
+    paint_surface(p,QRectF(8,8,width-16,80),colors,8,100)
+    p.save();gold=QColor(colors['Accent'])
+    for x in (23,width-23):
+        leaf(p,QPointF(x,48),25,gold,colors['Button'],25)
+    p.setPen(QPen(alpha(gold,.4),.85));p.setBrush(Qt.BrushStyle.NoBrush)
+    wave=QPainterPath()
+    for i in range(81):
+        x=40+(width-80)*i/80;y=81+1.2*math.sin(x*.07-phase)
+        if i:wave.lineTo(x,y)
+        else:wave.moveTo(x,y)
+    p.drawPath(wave);p.restore()
+
+
 def tray(painter, width, style, colors, phase):
     """Draw a horizontal tray in a width × 96 coordinate space."""
     if style in ('killerinstinct','kitemple','kiprimal','kifireice'):
@@ -380,6 +396,8 @@ def tray(painter, width, style, colors, phase):
         candlelight_rail(painter,width,colors,phase);return
     if style == 'ghostbusters':
         ghost_trap(painter,width,colors,phase);return
+    if style == 'amazon':
+        riverbank(painter,width,colors,phase);return
     if style == 'leviathan':
         puzzle_reliquary(painter,width,colors,phase);return
     if style == 'polaris':

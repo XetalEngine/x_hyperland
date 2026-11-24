@@ -190,6 +190,62 @@ def ghostbusters(p, box, accent, surface, phase, count, trails, glow, archive, e
     p.restore()
 
 
+def amazon(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Gold documents drift on leaves across an emerald river.
+
+    The entire packet, wake and halo fade together at each wrap. River motion
+    uses whole revolutions, so the clock can loop without a discontinuity.
+    """
+    from amazon import leaf
+    p.save();p.setClipRect(box,Qt.ClipOperation.IntersectClip)
+    mid=box.center();left=box.left()+29;right=box.right()-29
+    gold=QColor('#edcd76' if surface.lightnessF()<.5 else '#886317')
+    green=QColor('#245c35' if surface.lightnessF()<.5 else '#b7d298')
+    for x,zipped in ((left,extracting),(right,archive)):
+        folder(p,QPointF(x,mid.y()),gold,surface,archive=zipped,technical=True)
+        leaf(p,QPointF(x+16,mid.y()+16),11,gold,green)
+    start,end=left+29,right-29
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    for row in range(3):
+        wave=QPainterPath()
+        for i in range(51):
+            x=start+(end-start)*i/50
+            y=mid.y()+20+row*4+1.4*math.sin(i/50*math.tau*2-phase*math.tau+row)
+            if i:wave.lineTo(x,y)
+            else:wave.moveTo(x,y)
+        p.setPen(QPen(alpha(gold,65-row*13),.8));p.drawPath(wave)
+    if result:
+        if result=='done':success(p,mid,accent)
+        p.restore();return
+    count=max(1,count)
+    for index in range(count):
+        t=(phase+index/count)%1
+        fade=max(0.,min(1.,t/.16,(1-t)/.16));fade=fade*fade*(3-2*fade)
+        travel=1-t if extracting else t;direction=-1 if extracting else 1
+        x=start+(end-start)*travel;y=mid.y()+2*math.sin(t*math.tau)
+        p.save();p.setOpacity(p.opacity()*fade)
+        if glow:
+            halo=QRadialGradient(QPointF(x,y+7),22)
+            halo.setColorAt(0,alpha(accent,glow));halo.setColorAt(1,alpha(accent,0))
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(halo);p.drawEllipse(QPointF(x,y+7),22,12)
+        if trails:
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            for n in range(1,4):
+                tx=x-direction*(16+n*6)
+                p.setPen(QPen(alpha(gold,90/n),.8))
+                p.drawArc(QRectF(tx-4,y+7,8,5),0,180*16)
+        leaf(p,QPointF(x,y+6),30,gold,green,35+4*math.sin(t*math.tau))
+        p.translate(x,y-4)
+        if archive or extracting:
+            p.setPen(QPen(gold,1.1));p.setBrush(surface)
+            p.drawRoundedRect(QRectF(-8,-10,16,18),2,2)
+            for yy in range(-7,7,4):p.drawLine(QPointF(-2,yy),QPointF(2,yy))
+        else:
+            p.scale(.65,.65);paper(p,gold,technical=True)
+        p.restore()
+    p.restore()
+
+
 def leviathan(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     """Documents and puzzle cubes pass between brass labyrinth gateways.
 

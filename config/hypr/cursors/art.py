@@ -8,6 +8,7 @@ STYLES = {
     'killerinstinct': ('Arcade 94', '#ecdfff', '#24132e', '#c38aff'), 'kitemple': ('Jade Temple', '#fff0c7', '#092c20', '#55d792'), 'kiprimal': ('Primal Storm', '#eee5cc', '#242920', '#b5a0f3'), 'kifireice': ('Fire & Ice', '#eaf8ff', '#10212c', '#ffad45'), 'starcraft': ('Terran Command', '#e4f2ff', '#102233', '#27c7ff'), 'mortalkombat2': ('Outworld Jade', '#f5e8c9', '#10291b', '#3dd489'),
     'facadasexu': ('777 Ivory Flame', '#f2e6cc', '#311008', '#c24835'),
     'ghostbusters': ('Ghostbusters Ectoplasm', '#b4ff00', '#102207', '#f4a3dd'),
+    'amazon': ('Amazon Golden Leaf', '#f8dfa0', '#073522', '#d56a4e'),
     'leviathan': ('Leviathan Gilded', '#f0d8b6', '#211c29', '#c69ae5'),
     'polaris': ('Polaris Starlight', '#e8fcff', '#18344b', '#22daed'),
     'prisonbreak': ('Prison Break Escape Key', '#d5b5f0', '#291633', '#ffb326'), 'infernalencore': ('Infernal Blade', '#f4dfbd', '#36150f', '#ff472c'),
@@ -58,6 +59,8 @@ def svg(style, shape='left_ptr', frame=0):
         arrow = 'M5 3L28 18L18 20L23 31L18 34L12 23L6 28Z'
     elif style == 'infernalencore':
         arrow = 'M5 3L28 16L18 19L24 30L20 33L13 22L7 28Z'
+    if style == 'amazon':
+        arrow = 'M5 3Q18 5 29 18L18 21L23 31L18 34L12 23L6 29Q4 16 5 3Z'
     if style == 'leviathan':
         arrow = 'M5 3L29 17L18 20L23 31L18 34L12 23L6 28Z'
     if style == 'polaris':
@@ -75,6 +78,8 @@ def svg(style, shape='left_ptr', frame=0):
         body = f'<path d="M5 3L7 28L13 21L19 32L23 29L17 19L28 18Z"/><path d="M8 9L13 19L22 18M13 19L20 29" fill="none" stroke="{accent}" stroke-width="1.6"/><path d="M8 10L9 22" stroke="#c99569" stroke-width="1"/>'
     if style == 'ghostbusters':
         body += '<path d="M8 9V18M10 10L20 17" fill="none" stroke="#eeffc7" stroke-width="1.3"/><circle cx="10" cy="21" r="1" fill="#e1ff88" stroke="none"/>'
+    if style == 'amazon':
+        body += f'<path d="M8 8L20 29M11 13L10 20M14 18L23 18M9 10L19 14" fill="none" stroke="{edge}" stroke-width=".85"/><path d="M14 18L20 29" stroke="{accent}" stroke-width="1.1"/>'
     if style == 'leviathan':
         body += f'<path d="M8 8L10 22L14 18L23 17M10 12L17 16L13 19Z" fill="none" stroke="{edge}" stroke-width=".8"/><path d="M10 12L17 16L13 19Z" fill="{accent}" stroke-width=".5"/>'
     if style == 'polaris':
@@ -133,6 +138,9 @@ def svg(style, shape='left_ptr', frame=0):
                     f'<ellipse cx="14" cy="14" rx="2" ry="3" fill="{edge}"/><ellipse cx="22" cy="14" rx="2" ry="3" fill="{edge}"/>'
                     f'<path d="M13 20Q19 29 25 19Q19 21 13 20Z" fill="{edge}"/>'
                     f'<g transform="rotate({frame*30} 18 18)"><circle cx="18" cy="2.5" r="2" fill="{accent}" stroke="{edge}" stroke-width=".8"/></g>')
+        if style == 'amazon':
+            ring = (f'<circle cx="18" cy="18" r="14" fill="{edge}" stroke="{fill}" stroke-width=".8"/>'
+                    f'<g transform="rotate({frame*30} 18 18)"><path d="M12 24Q9 11 25 9Q25 24 12 24Z" fill="{fill}"/><path d="M10 27L23 12M16 21L15 15M18 19L23 19" fill="none" stroke="{edge}" stroke-width="1"/><circle cx="18" cy="3" r="1.8" fill="{accent}" stroke="none"/></g>')
         if style == 'leviathan':
             ring = (f'<circle cx="18" cy="18" r="14" fill="{edge}" stroke="{fill}" stroke-width=".8"/>'
                     f'<g transform="rotate({frame*30} 18 18)"><path d="M18 5L29 18L18 31L7 18ZM18 5V31M7 18H29M18 9L25 18L18 27L11 18Z" fill="none" stroke="{fill}" stroke-width="1.1"/>'

@@ -396,6 +396,9 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     elif design=='ghostbusters':
         from ghostbusters import compositor
         content+=compositor(colors)
+    elif design=='amazon':
+        from amazon import compositor
+        content+=compositor(colors)
     elif design=='leviathan':
         from leviathan import compositor
         content+=compositor(colors)
