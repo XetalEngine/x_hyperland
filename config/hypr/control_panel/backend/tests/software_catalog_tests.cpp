@@ -42,7 +42,7 @@ class SoftwareCatalogTests:public QObject {
 private slots:
     void initTestCase(){qApp->setQuitOnLastWindowClosed(false);qApp->setAttribute(Qt::AA_DontUseNativeDialogs);qApp->setStyle("Fusion");QSettings::setDefaultFormat(QSettings::IniFormat);QSettings::setPath(QSettings::IniFormat,QSettings::UserScope,directory.path());}
     void init(){
-        openedUrls.clear();QDesktopServices::setUrlHandler("https",this,"recordUrl");
+        openedUrls.clear();QDesktopServices::setUrlHandler("https",this,"recordUrl");QDesktopServices::setUrlHandler("file",this,"recordUrl");
         QSettings("XetalHyperland","ControlPanel").clear();QSettings("XetalHyperland","ControlPanel").setValue("software/catalog/repositoriesInitialized",true);root=directory.filePath(QUuid::createUuid().toString(QUuid::WithoutBraces));QDir().mkpath(root+"/control_panel/software");
         QVERIFY(QFile::copy(sourceRoot()+"/control_panel/software/catalog.json",root+"/control_panel/software/catalog.json"));
         packet={{"type","catalog"},{"schema",1},{"generated",1700000000},{"helpers",QJsonObject{{"pacman",true},{"yay",true},{"paru",true}}},{"multilib",true},
@@ -59,7 +59,7 @@ else:print((p/'packet.json').read_text())
 )PY"));
         QVERIFY(write(root+"/terminal",("#!/bin/sh\nprintf '%s\\n' \"$@\" > '"+root+"/transaction'\n").toUtf8(),true));
     }
-    void cleanup(){QDesktopServices::unsetUrlHandler("https");}
+    void cleanup(){QDesktopServices::unsetUrlHandler("https");QDesktopServices::unsetUrlHandler("file");}
     void recordUrl(const QUrl &url){openedUrls<<url;}
     void immediateFeaturedAndPacmanDefault(){
         auto p=page();QVERIFY(p->findChild<QCheckBox *>("softwareSourcePacman")->isChecked());QVERIFY(!p->findChild<QCheckBox *>("softwareSourceYay")->isChecked());QVERIFY(!p->findChild<QCheckBox *>("softwareSourceParu")->isChecked());
@@ -99,11 +99,13 @@ p=pathlib.Path(sys.argv[sys.argv.index('--output')+1]);p.write_bytes(b'fixture i
 print(json.dumps({'type':'progress','current':17,'total':17}),flush=True)
 print(json.dumps({'type':'downloaded','path':str(p)}),flush=True)
 )PY"));
+        QDir().mkpath(root+"/scripts");
+        QVERIFY(write(root+"/scripts/files.sh",("#!/bin/sh\nprintf '%s\\n' \"$@\" > '"+root+"/fusion-files-folder'\n").toUtf8(),true));
         bool offered=false,saved=false,fileChosen=false;QTimer check;check.setInterval(20);
         connect(&check,&QTimer::timeout,p.get(),[&]{
             if(auto *progress=p->findChild<QDialog *>("softwareDownloadProgress")){
                 auto *status=progress->findChild<QLabel *>("softwareDownloadStatus");
-                if(status&&status->text().contains("checksum verified")){saved=true;progress->reject();}return;
+                if(status&&status->text().contains("checksum verified")){saved=true;auto *folder=progress->findChild<QPushButton *>("softwareOpenDownloadFolder");if(folder)folder->click();progress->reject();}return;
             }
             for(auto *w:qApp->topLevelWidgets())if(auto *file=qobject_cast<QFileDialog *>(w)){
                 if(file->isVisible()){
@@ -119,6 +121,7 @@ print(json.dumps({'type':'downloaded','path':str(p)}),flush=True)
         QTimer::singleShot(5000,p.get(),[&]{for(auto *w:qApp->topLevelWidgets())if(auto *dialog=qobject_cast<QDialog *>(w))dialog->reject();});
         QTest::qWait(20);const auto rect=grid->visualRect(grid->model()->index(0,0));QTest::mouseClick(grid->viewport(),Qt::LeftButton,Qt::NoModifier,QPoint(rect.right()-70,rect.bottom()-30));check.stop();
         QVERIFY(offered);QVERIFY(saved);QCOMPARE(QString::fromUtf8(read(root+"/download-target")),root+"/saved.run");QCOMPARE(read(root+"/saved.run"),QByteArray("fixture installer"));QVERIFY(openedUrls.isEmpty());
+        QTRY_COMPARE(QString::fromUtf8(read(root+"/fusion-files-folder")),root+'\n');
         QVERIFY(read(root+"/calls").contains("--vendor xmusic"));QVERIFY(!QFileInfo::exists(root+"/transaction"));
     }
     void failedRefreshKeepsCardsAndSelection(){
@@ -191,7 +194,7 @@ print(json.dumps({'type':'downloaded','path':str(p)}),flush=True)
         auto p=page();auto *grid=p->findChild<QListView *>("softwareAppGrid");QTRY_COMPARE(grid->model()->rowCount(),3);QTest::qWait(20);
         QTimer::singleShot(30,p.get(),[]{for(auto *w:qApp->topLevelWidgets())if(auto *box=qobject_cast<QMessageBox *>(w))box->done(QMessageBox::Yes);});
         const auto rect=grid->visualRect(grid->model()->index(0,0));QTest::mouseClick(grid->viewport(),Qt::LeftButton,Qt::NoModifier,QPoint(rect.right()-70,rect.bottom()-30));
-        QTRY_VERIFY(QFileInfo::exists(root+"/transaction"));auto transaction=read(root+"/transaction");QVERIFY(transaction.contains("sudo pacman -Syu -- 'extra/alpha'"));QVERIFY(!transaction.contains("--noconfirm"));QVERIFY(!transaction.contains("--skipreview"));
+        QTRY_VERIFY(read(root+"/transaction").contains("sudo pacman -Syu -- 'extra/alpha'"));auto transaction=read(root+"/transaction");QVERIFY(!transaction.contains("--noconfirm"));QVERIFY(!transaction.contains("--skipreview"));
     }
     void realCatalogPreview(){
         const auto profile=qEnvironmentVariable("FUSION_SOFTWARE_PREVIEW_ROOT");if(profile.isEmpty())QSKIP("Optional real-data, read-only preview");

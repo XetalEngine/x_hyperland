@@ -90,7 +90,8 @@ published installer, AppImage or archive. Installed Xetal apps also expose
 progress inside Software. The file's byte count and SHA-256 are checked against
 the published release before it replaces the destination. Cancelled or failed
 downloads discard the partial file and preserve an existing download. Format-specific
-instructions appear on completion; downloaded programs are not executed automatically.
+instructions appear on completion; **Open folder** opens the download location in
+Fusion Files. Downloaded programs are not executed automatically.
 The host remains responsible for publishing these apps and their updates.
 
 Browsing and local search read Pacman databases and Arch AppStream metadata.

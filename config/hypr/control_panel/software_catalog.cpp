@@ -25,7 +25,7 @@ void saveVendorDownload(QWidget *parent,const QString &root,const SoftwareApp &a
     auto *status=words("Preparing your download…","softwareDownloadStatus");layout->addWidget(status);
     auto *progress=new QProgressBar;progress->setRange(0,1000);progress->setValue(0);layout->addWidget(progress);
     auto *path=words(destination);path->setTextInteractionFlags(Qt::TextSelectableByMouse);layout->addWidget(path);
-    auto *row=new QHBoxLayout;auto *folder=new QPushButton("Open folder");folder->setEnabled(false);row->addWidget(folder);row->addStretch();
+    auto *row=new QHBoxLayout;auto *folder=new QPushButton("Open folder");folder->setObjectName("softwareOpenDownloadFolder");folder->setEnabled(false);row->addWidget(folder);row->addStretch();
     auto *close=new QPushButton("Cancel download");row->addWidget(close);layout->addLayout(row);
     QProcess worker;QByteArray buffer;bool saved=false;QString failure;
     auto receive=[&]{
@@ -47,7 +47,10 @@ void saveVendorDownload(QWidget *parent,const QString &root,const SoftwareApp &a
         if(!code&&exit==QProcess::NormalExit&&saved){progress->setValue(1000);status->setText("Download complete · checksum verified.\n"+choice["instructions"].toString());folder->setEnabled(true);}
         else status->setText(failure.isEmpty()?"Download did not complete. Please retry.":failure);
     });
-    QObject::connect(folder,&QPushButton::clicked,&dialog,[&]{QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(destination).absolutePath()));});
+    QObject::connect(folder,&QPushButton::clicked,&dialog,[&]{
+        if(!QProcess::startDetached(root+"/scripts/files.sh",{QFileInfo(destination).absolutePath()}))
+            status->setText("Could not open Fusion Files. Your download is saved at:\n"+destination);
+    });
     QObject::connect(close,&QPushButton::clicked,&dialog,&QDialog::reject);
     worker.start("python3",{root+"/control_panel/software_download.py","--vendor",app.package,"--filename",choice["filename"].toString(),"--output",destination});
     dialog.exec();worker.disconnect(&dialog);
