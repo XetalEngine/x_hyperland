@@ -22,8 +22,19 @@ int main(){
         assert(edge(monitor,work,{work.x+work.w-2,work.y+work.h-4})==BottomRight);
         assert(edge(monitor,work,{work.x+work.w+1,work.y})==NoSnap);
         assert(edge(monitor,work,{work.x+work.w/2,work.y+200})==NoSnap);
+        assert(edge(monitor,work,{work.x+work.w/2,monitor.y})==Maximize);
+        assert(edge(monitor,work,{work.x+work.w/2,work.y+16})==Maximize);
+        assert(edge(monitor,work,{work.x+work.w/2,work.y+17})==NoSnap);
+        assert(edge(monitor,work,{work.x+work.w/2,monitor.y-1})==NoSnap);
+        assert(edge(monitor,work,{work.x+2,monitor.y})==TopLeft);
+        assert(edge(monitor,work,{work.x+work.w-2,monitor.y})==TopRight);
+        assert(same(region(work,Maximize),work));
         auto panel=palette(work);auto choices=cells(panel);assert(choices.size()==9);
-        for(const auto& cell:choices){assert(contains(panel,{cell.box.x,cell.box.y}));assert(valid(region(work,cell.zone)));}
+        for(const auto& cell:choices){
+            assert(contains(panel,{cell.box.x,cell.box.y}));assert(valid(region(work,cell.zone)));
+            // Moving down into the chooser still selects halves/quarters/thirds.
+            assert(cell.zone!=Maximize&&cell.box.y>work.y+16);
+        }
     }
     Box work{100,64,1600,900},snapped{100,64,800,900},normal{200,170,640,480};
     auto restored=restore(normal,snapped,work,{500,80});

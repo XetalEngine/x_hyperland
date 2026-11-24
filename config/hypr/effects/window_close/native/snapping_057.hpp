@@ -47,6 +47,8 @@ std::optional<Box> fit(PHLWINDOW w,Box outer){
     const auto low=t->minSize().value_or(Vector2D{}),high=t->maxSize().value_or(Vector2D{});
     return client(outer,{extents.topLeft.x,extents.topLeft.y},{extents.bottomRight.x,extents.bottomRight.y},{low.x,low.y},{high.x,high.y});
 }
+void sample(bool releasing=false);
+void motion();
 bool update(Drag* drag){
     auto t=drag->target();auto w=t?t->window():nullptr;
     if(w&&drag->mode()==MBIND_MOVE&&drag->dragThresholdReached()&&usable(w)&&t->space()){
@@ -70,7 +72,9 @@ bool update(Drag* drag){
     }
     // This initializes the native grab AFTER restoring. Wobbly's separate
     // dragBegin hook then grabs the restored geometry in either load order.
-    return originalUpdate(drag);
+    const bool rejected=originalUpdate(drag);
+    if(!rejected)motion();
+    return rejected;
 }
 void begin(Layout::CLayoutManager* manager,SP<Layout::ITarget> t,eMouseBindMode mode,std::optional<Layout::eRectCorner> edge,bool exclusive){
     clear();auto w=t?t->window():nullptr;
@@ -78,13 +82,26 @@ void begin(Layout::CLayoutManager* manager,SP<Layout::ITarget> t,eMouseBindMode 
     else if(w)saved.erase(w->metadata().stableID());
     originalBegin(manager,t,mode,edge,exclusive);
     if(g_layoutManager->dragController()->target()!=t)clear();
+    else motion();
     arm();
 }
-void sample(){
+// Native/client-side drags can become usable only after the compositor has
+// initialized the grab. Adopt that first motion as well as beginDragTarget.
+void motion(){
+    auto* drag=g_layoutManager->dragController().get();auto t=drag->target();auto w=t?t->window():nullptr;
+    if(!gesture.window.lock()&&drag->mode()==MBIND_MOVE&&usable(w)){
+        clear();
+        gesture.window=w;gesture.normal=box(t->position());
+    }
+    sample();arm();
+}
+void sample(bool releasing){
     auto w=gesture.window.lock();auto* drag=g_layoutManager->dragController().get();
     if(!w||gesture.cancelled||gesture.released)return;
-    if(!usable(w)||!drag->target()||drag->target()->window()!=w||drag->mode()!=MBIND_MOVE){clear();return;}
-    gesture.threshold=drag->dragThresholdReached();
+    // Some input paths finish the native grab before delivering button release.
+    // Keep its last threshold state and hit-test the release point in that case.
+    if(!usable(w)||(drag->target()&&(drag->target()->window()!=w||drag->mode()!=MBIND_MOVE))||(!releasing&&!drag->target())){clear();return;}
+    if(drag->target())gesture.threshold=drag->dragThresholdReached();
     const auto point=Pointer::mgr()->position();auto m=State::monitorState()->query().vec(point).run();
     auto ws=m?m->m_activeWorkspace:nullptr;
     if(!m||!ws||m->m_activeSpecialWorkspace||WorkspaceRules::forWorkspace(workspaceRules,Fusion057::numberedID(ws)).layout!="kde"||!ws->space()){
@@ -101,7 +118,7 @@ void sample(){
     Zone next=edge(monitor,work,{point.x,point.y});
     const bool bypass=(uint32_t(g_pInputManager->getModsFromAllKBs())&4)!=0; // Ctrl held before the drag bypasses layout snapping.
     if(!bypass&&gesture.threshold){
-        if(next==NoSnap&&point.y<=work.y+16)gesture.palette=true;
+        if(next==SnapGeometry::Maximize)gesture.palette=true;
         if(gesture.palette){
             Box vicinity{panel.x-30,monitor.y,panel.w+60,panel.y+panel.h+24-monitor.y};
             if(!contains(vicinity,{point.x,point.y}))gesture.palette=false;
@@ -115,9 +132,19 @@ void sample(){
     if(next!=gesture.zone||!same(rect,gesture.preview)){gesture.entered=Clock::now();gesture.zone=next;}
     gesture.preview=rect;damage();
 }
+void layoutChanged(){
+    // Output initialization/hotplug must not discard a grab already in flight.
+    damage();gesture.monitor.reset();gesture.preview={};gesture.panel={};gesture.palette=false;gesture.zone=NoSnap;
+    sample();
+}
+std::string status(){
+    const auto& g=gesture;
+    return std::format("\"snap_gesture\":{{\"active\":{},\"threshold\":{},\"zone\":{},\"preview\":[{},{},{},{}],\"panel\":[{},{},{},{}]}},",
+        bool(g.window.lock()),g.threshold,int(g.zone),g.preview.x,g.preview.y,g.preview.w,g.preview.h,g.panel.x,g.panel.y,g.panel.w,g.panel.h);
+}
 void release(IPointer::SButtonEvent event){
     if(event.button!=BTN_LEFT||event.state!=WL_POINTER_BUTTON_STATE_RELEASED||!gesture.window.lock())return;
-    sample();gesture.armed=gesture.zone!=NoSnap&&Clock::now()-gesture.entered>=std::chrono::milliseconds(180);
+    sample(true);gesture.armed=gesture.zone!=NoSnap&&Clock::now()-gesture.entered>=std::chrono::milliseconds(180);
     gesture.released=true;arm();
 }
 void tick(){
@@ -134,10 +161,24 @@ void tick(){
     auto t=w->layoutTarget();if(!usable(w)||!t||!t->floating()||!t->space())return;
     // Recompute after monitor/workspace handoff and decoration recalculation.
     auto result=fit(w,region(box(t->space()->workArea(true)),finished.zone));if(!result)return;
-    t->space()->algorithm()->floatingAlgo()->setTargetGeom(native(*result),t);
-    t->rememberFloatingSize({normal.w,normal.h});
+    if(finished.zone==SnapGeometry::Maximize){
+        // Maximize through the regular window state so restore/title-bar buttons
+        // behave normally. Preserve the pre-drag rectangle, not the edge grab.
+        saved.erase(w->metadata().stableID());
+        const auto work=box(t->space()->workArea(true));
+        const auto extents=w->getWindowExtentsUnified(Desktop::View::RESERVED_EXTENTS|Desktop::View::INPUT_EXTENTS);
+        const auto available=client(work,{extents.topLeft.x,extents.topLeft.y},{extents.bottomRight.x,extents.bottomRight.y},{},{});
+        if(!available)return;
+        const Box restored{std::clamp(normal.x,available->x,available->x+std::max(0.,available->w-normal.w)),
+                           std::clamp(normal.y,available->y,available->y+std::max(0.,available->h-normal.h)),normal.w,normal.h};
+        t->space()->algorithm()->floatingAlgo()->setTargetGeom(native(restored),t);
+        t->warpPositionSize();maximizeOrRestore(w);
+    }else{
+        t->space()->algorithm()->floatingAlgo()->setTargetGeom(native(*result),t);
+        t->rememberFloatingSize({normal.w,normal.h});
+        saved.insert_or_assign(w->metadata().stableID(),Saved{w,normal,*result});
+    }
     Fusion057::dispatchPlugin("xetalwobbly:anchorplacement",std::to_string(w->metadata().stableID()));
-    saved.insert_or_assign(w->metadata().stableID(),Saved{w,normal,*result});
     Desktop::windowState()->raise(w);g_pHyprRenderer->damageWindow(w,true);
 }
 class Pass:public IPassElement {

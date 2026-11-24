@@ -8,13 +8,14 @@
 namespace SnapGeometry {
 struct Point {double x=0,y=0;};
 struct Box {double x=0,y=0,w=0,h=0;};
-enum Zone {NoSnap,Left,Right,TopLeft,TopRight,BottomLeft,BottomRight,FirstThird,MiddleThird,LastThird};
+enum Zone {NoSnap,Left,Right,TopLeft,TopRight,BottomLeft,BottomRight,FirstThird,MiddleThird,LastThird,Maximize};
 inline bool valid(Box b){return std::isfinite(b.x)&&std::isfinite(b.y)&&std::isfinite(b.w)&&std::isfinite(b.h)&&b.w>=1&&b.h>=1;}
 inline bool contains(Box b,Point p){return valid(b)&&p.x>=b.x&&p.x<b.x+b.w&&p.y>=b.y&&p.y<b.y+b.h;}
 inline bool same(Box a,Box b){return std::abs(a.x-b.x)<2&&std::abs(a.y-b.y)<2&&std::abs(a.w-b.w)<2&&std::abs(a.h-b.h)<2;}
 inline Box region(Box area,Zone zone){
     if(!valid(area)||zone==NoSnap)return {};
-    if(zone>=FirstThird){
+    if(zone==Maximize)return area;
+    if(zone>=FirstThird&&zone<=LastThird){
         const auto i=int(zone)-int(FirstThird);const double left=std::round(area.w*i/3),right=std::round(area.w*(i+1)/3);
         return {area.x+left,area.y,right-left,area.h};
     }
@@ -28,7 +29,7 @@ inline Box region(Box area,Zone zone){
 inline Zone edge(Box monitor,Box work,Point p){
     if(!contains(monitor,p)||!valid(work))return NoSnap;
     const bool left=p.x<work.x+16,right=p.x>=work.x+work.w-16;
-    if(!left&&!right)return NoSnap;
+    if(!left&&!right)return p.y<=work.y+16?Maximize:NoSnap;
     if(p.y<work.y+64)return left?TopLeft:TopRight;
     if(p.y>=work.y+work.h-64)return left?BottomLeft:BottomRight;
     return left?Left:Right;

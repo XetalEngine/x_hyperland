@@ -266,7 +266,11 @@ void refresh() {
     }
     damage();
 }
-void arm(){if(timer)timer->updateTimeout(std::chrono::milliseconds(1));}
+void arm(){
+    // Coalesce wakeups without postponing an already imminent tick on every
+    // pointer event (high-rate mice used to starve first-drag detection).
+    if(timer&&(!timer->armed()||timer->leftUs()>1000))timer->updateTimeout(std::chrono::milliseconds(1));
+}
 void createTexture(int glyph) {
     constexpr int side=192;
     auto surface=cairo_image_surface_create(CAIRO_FORMAT_ARGB32,side,side);
@@ -469,6 +473,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             arm();
         }));
         listeners.push_back(Event::bus()->m_events.input.mouse.move.listen([](Vector2D,Event::SCallbackInfo&){titlebarMotion();arm();}));
+        listeners.push_back(g_layoutManager->dragController()->m_events.motion.listen([](){KDESnap::motion();}));
         listeners.push_back(Event::bus()->m_events.window.openLate.listen([](PHLWINDOW w){if(!w->m_isFloating)neverFloated.emplace_back(w);arm();}));
         listeners.push_back(Event::bus()->m_events.window.fullscreen.listen([](PHLWINDOW){arm();}));
         listeners.push_back(Event::bus()->m_events.window.title.listen([](PHLWINDOW){arm();}));
@@ -484,7 +489,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             // Closing either the edited window or its editor ends the preview.
             std::erase_if(previews,[&](const auto& p){return p.second.window.lock()==w||(w->m_class=="fusion-window-buttons"&&p.second.owner==w->getPID());});arm();
         }));
-        listeners.push_back(Event::bus()->m_events.monitor.layoutChanged.listen([](){KDESnap::clear();arm();}));
+        listeners.push_back(Event::bus()->m_events.monitor.layoutChanged.listen([](){KDESnap::layoutChanged();arm();}));
         listeners.push_back(Event::bus()->m_events.workspace.active.listen([](PHLWORKSPACE){arm();}));
         listeners.push_back(Event::bus()->m_events.window.moveToWorkspace.listen([](PHLWINDOW,PHLWORKSPACE){arm();}));
         listeners.push_back(Event::bus()->m_events.workspace.specialActive.listen([](PHLWORKSPACE,PHLMONITOR){arm();}));
@@ -571,7 +576,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             return std::format("{{\"enabled\":{},\"held\":{},\"visible\":{},\"closed\":{},\"draws\":{},\"box\":[{},{},{},{}],\"color\":[{},{},{}],\"buttons\":[{}],\"minimized\":{},\"maximized\":{},\"restored\":{},\"floated\":{},\"gear\":[{},{},{},{}],\"gear_visible\":{},\"settings_opened\":{},\"tiled\":{}}}",
                 settings.enabled,held,available()&&settled(target.lock())&&!button.empty(),closed,draws,button.x,button.y,button.width,button.height,accent[0],accent[1],accent[2],items,minimized,maximized,restored,floated,
                 gear.x,gear.y,gear.w,gear.h,available()&&!gear.empty()&&settled(target.lock()),openedSettings,tiled)
-                .insert(1,std::format("\"snap_layouts_supported\":{},\"snap_layouts_enabled\":{},",KDESnap::ready,KDESnap::enabled));
+                .insert(1,std::format("\"snap_layouts_supported\":{},\"snap_layouts_enabled\":{},",KDESnap::ready,KDESnap::enabled)+KDESnap::status());
         }});
         windowStatus=HyprlandAPI::registerHyprCtlCommand(handle,{"xetal-windowbuttons",false,[](eHyprCtlOutputFormat,std::string input){
             std::istringstream stream(input);std::string command,id,extra;stream>>command>>id;

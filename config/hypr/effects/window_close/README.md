@@ -88,9 +88,12 @@ On/Off settings are preserved for the other modes. Previews and saves carry thei
 profile identity, so changing modes cannot apply a stale editor to another profile.
 
 **Snap layouts operate only in KDE workspaces.** Drag an ordinary floating app
-to a left/right edge for halves, or to a corner for quarters. The top edge
-reveals a compact diagram picker for halves, quarters and thirds. Stay over a
-target for at least 180 ms and release to place the window in the preview.
+to a left/right edge for halves, or to a corner for quarters. Hold at the top
+edge and release to **maximize**. The same gesture reveals the compact diagram
+picker: move down into it to choose halves, quarters or thirds instead. Stay
+over a target for at least 180 ms and release to place the window in the preview.
+Top-edge maximize uses the app's normal maximize state; Restore returns it to
+its pre-drag size and position, clamped onto the destination display.
 Crossing a monitor boundary quickly does not snap. Escape cancels snapping;
 holding Ctrl before starting a drag bypasses the layout targets. Drag a snapped
 window away to recover its preceding size, with the grab anchored before native
@@ -105,12 +108,32 @@ reserved title-bar space and the app's minimum/maximum size. Layouts that cannot
 accommodate those constraints are not offered as a preview.
 
 The native adapter observes drag release and hooks drag initialization separately
-from Wobbly's existing hooks. It draws through normal rectangle render passes;
+from Wobbly's existing hooks. It samples native drag motion immediately, including
+the first usable grab, rather than waiting for a repeatedly postponed pointer
+timer. Output initialization or a monitor layout change recomputes the target
+without discarding the active drag. Native release paths that finish their grab
+before sending the button event retain the last valid drag threshold.
+It draws through normal rectangle render passes;
 there are no extra input windows or framebuffer captures. If its optional hooks
 cannot attach, they are rolled back and the existing title bars/controls remain
 available. `hyprctl xetal-windowclose` reports `snap_layouts_supported` and
-`snap_layouts_enabled`. Pre-snap size is held only for the lifetime of that window;
+`snap_layouts_enabled`, plus `snap_gesture` with the active threshold, zone and
+preview/picker rectangles. Zone 10 is maximize; the existing 1–9 layout IDs are
+unchanged. Pre-snap size is held only for the lifetime of that window;
 the existing geometry-memory service still handles app relaunches.
+
+`tests/check-snap-layouts.py PLUGIN DIRECTORY` exercises real input in a fresh,
+private compositor session. `--first left|right|top|palette` chooses the first
+gesture, `--titlebar` tests the Fusion title bar, and `--hotplug` changes the
+monitor layout during that first grab. It checks maximize/restore, halves, the
+picker, drag-away size restoration, Escape, Ctrl, short dwell and resize bypass.
+`--wobbly-plugin PATH [--wobbly-first]` covers both plugin load orders. Optional
+`--capture` records the preview when nested rendering supports screencopy; on
+the NVIDIA test host that capture times out, so the native geometry/input results
+do not claim compositor pixel validation.
+The Wobbly fixture disables focus/map shivers and resets springs between test
+grabs because that headless output does not advance render-driven physics. Its
+grab, release, maximize and placement hooks still run in both load orders.
 
 With the title bar disabled, Automatic mode uses the pinned compositor's Wayland decoration requests and
 nonblocking X11 GTK/Motif property replies. It reads protocol state without

@@ -157,8 +157,11 @@ item and returns you to the app; Ctrl+V pastes. Recent history stays in memory,
 while explicit pins survive logout. [Clipboard guide →](config/hypr/clipboard/README.md)
 
 **KDE mode supports snap layouts.** Drag to a side for halves or a corner for
-quarters. Drag to the top edge to reveal a compact picker with halves, quarters
-and thirds. Pause briefly over the preview, then release. Dragging away restores
+quarters. Hold at the top edge and release to **maximize**, or move down into
+the compact picker to choose halves, quarters and thirds. Pause briefly over
+the preview, then release. The first drag updates immediately, including while
+monitor layout initialization settles. Restore after maximizing returns to the
+previous normal geometry. Dragging away from a half, quarter or third restores
 the window's previous size; Escape cancels snapping. The gear editor includes
 an **Apply snap settings** control for all KDE workspaces. Other workspace modes
 keep their existing drag behavior.
