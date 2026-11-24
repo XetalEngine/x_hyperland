@@ -12,6 +12,12 @@ in charge of the final input rectangle. This also covers a placement that moves
 without resizing. A new drag clears the handoff; normal dragging and magnetic
 edge resistance retain their existing free-settling behavior. The engine tests
 check both same-size and resized placements before another ordinary grab/release.
+For a top-edge maximize, the handoff keeps the four corner anchors created by
+the normal maximize transition. Replacing those with the ordinary placement's
+single top anchor caused the enlarged window to sag for several seconds. The
+regression test advances the actual spring solver at 60, 144 and 240 Hz on three
+monitor geometries and compares every rendered mesh point with normal maximize;
+the interior keeps wobbling while all four corners stay at their targets.
 
 This is a port of the original `compiz-core/plugins/wobbly.c` from XetalCompiz.
 `native/compiz.hpp` retains its 4 × 4 spring lattice, 24 springs, 15 ms integration,

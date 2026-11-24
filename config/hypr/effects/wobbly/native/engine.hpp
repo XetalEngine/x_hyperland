@@ -62,7 +62,9 @@ class Engine {
     void anchorPlacement() {
         // A completed layout placement has a fixed destination. Ordinary
         // releases still use the free-settling physics above.
-        if(grabbed)return;
+        // Maximize already pins all four corners in geometry(). Replacing
+        // those with a single top anchor makes the enlarged mesh sag.
+        if(grabbed||maximized)return;
         Compiz::modelRemoveEdgeAnchors(model,box.x,box.y,box.w,box.h);
         Compiz::modelSetTopAnchor(model,box.x,box.y,box.w);
         wake();

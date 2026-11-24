@@ -94,6 +94,8 @@ picker: move down into it to choose halves, quarters or thirds instead. Stay
 over a target for at least 180 ms and release to place the window in the preview.
 Top-edge maximize uses the app's normal maximize state; Restore returns it to
 its pre-drag size and position, clamped onto the destination display.
+Wobbly retains the normal maximize corner anchors during this placement, so it
+uses the same spring transition as the maximize button.
 Crossing a monitor boundary quickly does not snap. Escape cancels snapping;
 holding Ctrl before starting a drag bypasses the layout targets. Drag a snapped
 window away to recover its preceding size, with the grab anchored before native

@@ -118,6 +118,36 @@ int main(int argc,char** argv){
     max.step(15,3,8);assert(near(max.model->objects[15].position.x,1000));
     max.geometry({100,100,400,300},false,100,100);assert(!max.model->objects[15].immobile);
     max.shiver();assert(max.step(15,3,8));
+    // Top-edge drops must animate exactly like regular maximize. The snap
+    // placement handoff used to replace its four corner anchors with a single
+    // top anchor, leaving the enlarged window sagging for several seconds.
+    for(Box destination:std::array<Box,3>{{{0,32,1920,1048},{-2560,0,2560,1440},{1920,-192,1707,936}}}){
+        for(int hz:{60,144,240}){
+            const Box normal{destination.x+200,destination.y+170,800,550};
+            Engine regular(normal),placed(normal);
+            for(auto* e:{&regular,&placed}){
+                e->grab(normal.x+400,normal.y+12,false);
+                e->geometry({normal.x,destination.y-12,normal.w,normal.h},false,normal.x+400,destination.y);
+                for(int i=0;i<12;++i)e->step(1000.f/hz,3,3);
+                e->release();e->geometry(destination,true,normal.x+400,destination.y);
+            }
+            placed.anchorPlacement();
+            const auto initial=placed.renderPoints();bool animated=false;
+            for(int frame=0;frame<hz*3;++frame){
+                regular.step(1000.f/hz,3,3);placed.step(1000.f/hz,3,3);
+                const auto expected=regular.renderPoints(),actual=placed.renderPoints();
+                for(int corner:{0,3,12,15}){
+                    assert(near(actual[corner].x,destination.x+(corner%4?destination.w:0)));
+                    assert(near(actual[corner].y,destination.y+(corner>=12?destination.h:0)));
+                }
+                for(int i=0;i<16;++i){assert(near(actual[i].x,expected[i].x));assert(near(actual[i].y,expected[i].y));}
+                animated|=!near(actual[5].x,initial[5].x)||!near(actual[5].y,initial[5].y);
+            }
+            assert(animated); // Preserve the natural wobble, not a rigid jump.
+            placed.geometry(normal,false,normal.x,normal.y);placed.grab(normal.x+40,normal.y+15,false);
+            assert(placed.grabbed&&!placed.maximized);placed.release();
+        }
+    }
     for(double friction:{.1,3.,10.})for(double spring:{.1,8.,10.}){
         Engine extreme({100,100,1200,800});extreme.grab(100,100,true);extreme.geometry({700,-100,1200,800},false,700,-100);extreme.release();
         for(int i=0;i<10000&&extreme.step(15,friction,spring);++i){}
