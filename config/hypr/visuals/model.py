@@ -28,7 +28,7 @@ SUGGESTIONS = {'tidalglass':'acrylic', 'midnighttransit':'drops', 'polaris':'aur
                'obsidianforge':'heat_shimmer', 'candycloud':'haze'}
 MATERIAL = dict(enabled=False, variant='kawase', size=4, passes=2, proportional=False,
                 parameters={group:{name:spec[0] for name,spec in items.items()} for group,items in PARAMETERS.items()})
-FOCUS = dict(enabled=False, border=2, shadow=16, glow=False, glow_size=8, exceptions=[])
+FOCUS = dict(enabled=True, border=2, shadow=8, glow=True, glow_size=3, exceptions=[])
 THEME = dict(material=MATERIAL, focus=FOCUS)
 DEFAULTS = dict(version=2, quality='current', reduced_motion=False, preview_size=360, preview_fps=30,
                 hover_previews=False, quiet_sharing=False, themes={}, focus=FOCUS, appearance={})
@@ -147,7 +147,7 @@ def preview_limits(settings):
 
 
 def native_settings(settings, root=ROOT, quiet=False):
-    """Sparse overrides: absent defaults leave existing themes/effects alone."""
+    """Render focus defaults and saved appearance; leave other effects alone."""
     validate(settings);settings=active_settings(settings)
     theme=theme_settings(settings,theme_name(root)); material=theme['material']; focus=settings['focus']
     result={key.replace(':','.'):value for key,value in settings['appearance'].items()}

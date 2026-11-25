@@ -13,7 +13,7 @@ SCHEMA = APPEARANCE + [('Focus', 'decoration:shadow:range', 'Shadow size', 'int'
 INITIAL = {'decoration:rounding':10,'general:border_size':1,'general:gaps_in':'5','general:gaps_out':'5',
     'general:resize_on_border':False,'animations:enabled':True,'decoration:blur:enabled':True,
     'decoration:shadow:enabled':True,'decoration:active_opacity':1.,'decoration:inactive_opacity':1.,
-    'decoration:shadow:range':16}
+    'decoration:shadow:range':model.FOCUS['shadow']}
 
 
 def note(text):

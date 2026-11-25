@@ -1,0 +1,164 @@
+{
+  "metric": "nonblank source lines; includes comments, tests, and original Compiz switcher reference sources",
+  "excluded_directory_names": [
+    ".git",
+    "external",
+    "subprojects",
+    "third-party",
+    "third_party",
+    "vendor"
+  ],
+  "excluded": "binary packages, images, audio, documents, data/config files and vendored library directories",
+  "excluded_xml_translation_files": [
+    "config/hypr/control_panel/backend/translations/cachyostools_de.ts",
+    "config/hypr/control_panel/backend/translations/cachyostools_pt_BR.ts"
+  ],
+  "hyperfusion_revision": "937da04874473b3a01c2d2fb873e8f9b8a923f7e",
+  "hyprland_revision": "11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947",
+  "hyprland_archive_sha256": "645d6def782975b8d99c3400e3b72576e084dcc33d0458a4a17f3fe536340d9e",
+  "total_lines": 403045,
+  "groups": {
+    "Everything else in HyperFusion": {
+      "lines": 214638,
+      "files": 1249,
+      "percent": 53.25
+    },
+    "Compiz-related components": {
+      "lines": 27422,
+      "files": 98,
+      "percent": 6.8
+    },
+    "Hyprland": {
+      "lines": 160985,
+      "files": 1228,
+      "percent": 39.94
+    }
+  },
+  "original_compiz_switcher_reference_lines": 10527,
+  "caveat": "Component grouping, not original authorship. Compiz-related components include HyperFusion integration and UI code; everything else includes integrated third-party engines such as CachyOsTools.",
+  "as_of": "2026-11-25",
+  "release": "0.0.0.324-alpha",
+  "display_percent_precision": 1,
+  "source_extensions": [
+    ".py",
+    ".cpp",
+    ".hpp",
+    ".h",
+    ".c",
+    ".cc",
+    ".cxx",
+    ".hxx",
+    ".sh",
+    ".bash",
+    ".fish",
+    ".zsh",
+    ".js",
+    ".ts",
+    ".qml",
+    ".rs",
+    ".vert",
+    ".frag",
+    ".glsl",
+    ".lua",
+    ".go",
+    ".awk",
+    ".pl",
+    ".pm",
+    ".m",
+    ".mm",
+    ".asm",
+    ".S",
+    ".dsl"
+  ],
+  "repository_selection": "Git-tracked regular, non-symlink files at hyperfusion_revision; count each decoded nonblank line once in eligible extensions.",
+  "hyprland_selection": "Regular files in the official source archive at hyprland_revision, using the same extensions and excluded directory names.",
+  "hyprland_source_url": "https://codeload.github.com/hyprwm/Hyprland/tar.gz/11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947",
+  "compiz_directory_prefixes": [
+    "config/hypr/effects/burn/",
+    "config/hypr/effects/cube/",
+    "config/hypr/effects/wobbly/",
+    "config/hypr/effects/minimize/",
+    "config/hypr/switcher/"
+  ],
+  "hyperfusion_selection": "All other eligible repository files; separately distributed application/VM engine sources are not included. Hyprland is counted separately from its upstream archive.",
+  "hyperfusion_breakdown": [
+    {
+      "name": "Control Panel and integrated tools",
+      "lines": 59202,
+      "paths": [
+        "config/hypr/control_panel/"
+      ]
+    },
+    {
+      "name": "KVM manager and launch services",
+      "lines": 36533,
+      "paths": [
+        "config/hypr/kvm/"
+      ]
+    },
+    {
+      "name": "Fusion Files, transfer UI and archive integration",
+      "lines": 26917,
+      "paths": [
+        "config/hypr/file_manager/",
+        "config/hypr/file_jobs/",
+        "config/hypr/archive_manager/"
+      ]
+    },
+    {
+      "name": "Themes, wallpapers, icons, cursors and sound",
+      "lines": 18492,
+      "paths": [
+        "config/hypr/theme/",
+        "config/hypr/wallpaper/",
+        "config/hypr/icon_themes/",
+        "config/hypr/cursors/",
+        "config/hypr/sounds/"
+      ]
+    },
+    {
+      "name": "Launcher, taskbar, desktop menus and other window controls",
+      "lines": 17409,
+      "paths": [
+        "config/hypr/launcher/",
+        "config/hypr/waybar/",
+        "config/hypr/desktop_menu/",
+        "config/hypr/effects/ (excluding the four Compiz component directories)",
+        "config/hypr/window_rules/",
+        "config/hypr/workspaces/"
+      ]
+    },
+    {
+      "name": "Repository-wide regression tests",
+      "lines": 16191,
+      "paths": [
+        "tests/"
+      ]
+    },
+    {
+      "name": "Setup, updates and runtime coordination",
+      "lines": 11454,
+      "paths": [
+        "installer/",
+        "config/hypr/updates/",
+        "config/hypr/runtime/",
+        "x_hyperinstall.sh"
+      ]
+    },
+    {
+      "name": "Fusion Settings and settings archives",
+      "lines": 7937,
+      "paths": [
+        "config/hypr/control_center/",
+        "config/hypr/settings_profiles/"
+      ]
+    },
+    {
+      "name": "Other applications, helpers and integration code",
+      "lines": 20503,
+      "paths": [
+        "Remaining eligible files in the HyperFusion group"
+      ]
+    }
+  ]
+}

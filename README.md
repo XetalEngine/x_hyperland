@@ -11,6 +11,7 @@
 <p align="center"><strong>Your workspace. Your colors. Your kind of Linux desktop.</strong><br>A complete Hyprland desktop with Fusion Files, native settings, four window modes and a little Compiz nostalgia.</p>
 
 <p align="center">
+  <a href="#what-makes-up-hyper-fusion">Code &amp; components</a> ·
   <a href="#recent-desktop-updates">Recent updates</a> ·
   <a href="#fusion-files">Fusion Files</a> ·
   <a href="#software-made-for-hyper-fusion">Software</a> ·
@@ -24,13 +25,136 @@
   <a href="#documentation">Documentation</a>
 </p>
 
+## What makes up Hyper Fusion?
+
+**As of November 25, 2026 · Hyper Fusion 0.0.0.324-alpha**
+
+Hyper Fusion combines the Hyprland compositor, adapted Compiz effects, and a desktop layer containing applications, settings, file operations, virtualization tools and installation services. Counting the source in this repository **together with the exact Hyprland revision we ship**, the approximate split is **53% HyperFusion · 40% Hyprland · 7% Compiz-related components**.
+
+[![HyperFusion source composition as of November 25, 2026: HyperFusion desktop and integrations 53.3%, Hyprland 39.9%, Compiz-related effects and switchers 6.8%; 403,045 nonblank source lines in total.](docs/media/code-composition-2026-11-25.svg)](docs/media/code-composition-2026-11-25.svg)
+
+| Component | Nonblank source lines | Share | What this includes |
+| --- | ---: | ---: | --- |
+| **HyperFusion desktop & integrations** | **214,638** | **53.3%** | Fusion Files, the transfer engine and job UI, KVM management, Control Panel, Fusion Settings, themes, launcher, desktop services, installer, updater and their tests. |
+| **Hyprland** | **160,985** | **39.9%** | The pinned upstream compositor: window management, rendering, input, output/workspace handling and Wayland integration. Its source is counted alongside this repository; Hyprland is installed as a runtime package. |
+| **Compiz-related effects & switchers** | **27,422** | **6.8%** | The Burn, Cube, Wobbly and Minimize component directories and the task-switcher directory, including their HyperFusion adapters, controls, tests and preserved Compiz reference sources. |
+| **Total measured source** | **403,045** | **100.0%** | A dated component-size snapshot, including comments and tests. |
+
+**These percentages describe source size, not original authorship, performance or the whole Linux operating system.** The HyperFusion group includes integrated projects such as CachyOsTools and vmstart_2; the Compiz group includes our adaptation work. Separately supplied engines and libraries—including Linux KVM, QEMU, Qt, GTK, KIO, Kitty and the bundled 7-Zip engine—are not counted in full. Images, sounds, binary packages and vendored library directories are excluded. [Measurement snapshot and counting rules](docs/metrics/code-composition-2026-11-25.json) · [Component credits and licenses](THIRD_PARTY_NOTICES.md).
+
+### Inside the HyperFusion layer
+
+The **214,638-line desktop layer** includes the applications people interact with, the services behind them and the code that connects them to the compositor and operating system. The two areas below illustrate how much sits beyond window effects.
+
+#### KVM: virtual-machine setup, devices and the launch lifecycle
+
+The KVM application integrates the vmstart_2 backend into a native, themed editor. Its **36,533 measured lines** cover management and integration, including tests; they do not represent the separately supplied QEMU or Linux KVM engine source.
+
+| Area | What HyperFusion provides |
+| --- | --- |
+| **Profiles & setup** | Separate Windows and Mac profiles, saved presets, a guided first setup, hardware detection, validation, component paths, launch hooks and a command preview. Personal disks and passthrough devices are selected on the recipient's computer. |
+| **Three launch modes** | Single GPU handoff, Virtual GPU and Dual GPU workflows. The launcher coordinates authorization, preflight checks, the guest process, viewers and cleanup. Single GPU has explicit handoff confirmation and driver-restoration handling for failed starts. |
+| **CPU & memory** | CPU allocation, topology/pinning and feature controls; guest RAM, memory backends and hugepage options. IOMMU/GRUB preparation includes a preview, administrator authentication and backups. |
+| **Graphics & devices** | PCI/USB selection, GPU ROM selection and authenticated ROM dumping, virtual display options, and SPICE/VNC/Looking Glass viewer integration. Viewer windows can start floating or tiled, independently per mode/profile. |
+| **Disks & storage** | Attach storage, configure controllers and buses, or create a sparse virtual disk in the background. The Add Virtual Disk path accepts raw `.img`/`.raw` images; it does not imply QCOW2/VMDK support. Removing an attachment leaves its disk file intact. |
+| **Networking** | NAT sharing or a selected bridge. Create Bridge can preserve an Ethernet connection's IP/DNS settings through NetworkManager, with checkpoint recovery on failure. Host network changes are guarded while a guest is running. |
+| **Firmware & identity** | UEFI/OVMF paths, SMBIOS, ordered ACPI inputs, Mac/OpenCore editing and private NVRAM. TPM setup, initialization, identity choices, diagnostics and Undo preserve existing keys unless replacement is explicitly chosen. Available capabilities depend on the selected runtime and hardware. |
+| **Components & updates** | Edition selection, compatible component downloads, signed catalogs, size/hash verification, staged installation and versioned directories. A failed component update leaves the previous version active. Guest disks, TPM state and private firmware copies are kept separately. |
+| **Permissions & diagnostics** | Fresh authentication for privileged work; optional remembered permission for an approved Windows Virtual GPU setup. Changes to that setup require approval again. Logs, launch history, validation errors and helper configuration stay accessible in the UI. |
+
+The application orchestrates QEMU/KVM, firmware and viewer components; it does not replace those upstream engines. Guest operating-system media and personal VM disks are supplied separately. [Full KVM guide](docs/KVM.md) · [KVM source](config/hypr/kvm).
+
+#### Fusion Files: browsing, Copy / Cut / Paste and file transfers
+
+Fusion Files is a native Qt/C++ file manager with KIO integration, a local streaming transfer worker and a shared animated job interface. **Fusion Files, its transfer UI and the archive integration account for 26,917 measured lines**, including their tests.
+
+| Area | What happens behind the interface |
+| --- | --- |
+| **Browse & remember** | Tabs, Back/Forward navigation, selection/scroll restoration, reopening closed tabs, five folder views and per-folder preferences. This PC offers eleven layouts, storage groups, mount actions and discovered Wine/Proton/Steam C: drives. |
+| **Find & preview** | Name/wildcard search, optional text/regex content search, exclusions, size/date filters, encoding choices and parallel workers. Saved search presets, thumbnails, file previews and CSV result export complement ordinary folder filtering. |
+| **Copy immediately** | Local copying starts while a background scan continues counting files and bytes. The transfer card reports progress and supports pause, resume and cancellation, avoiding a mandatory full-tree scan before the first file transfers. |
+| **Cut / Paste & Move** | Same-filesystem moves use a rename where possible. Other moves verify copied data before removing unchanged originals. The UI distinguishes copied-but-pending items from completed moves and items whose originals were kept. |
+| **Drag & drop** | Folder drops use Move by default; holding Ctrl requests Copy and updates the dragged icon. The sidebar follows the same policy. Same-folder copies use numbered names such as `photo_copy1.png` instead of overwriting the source. |
+| **Conflicts & errors** | An expanding **Items needing attention** drawer lists paths, stages, errors and results while other files continue. Retry, Skip, Replace and matching-item choices apply to the relevant job; permission failures can request administrator access scoped to that transfer. |
+| **Accurate completion** | Directory merges keep unrelated destination files. Attribute processing has its own progress phase; skipped items and retained originals are reported. Filesystem sockets are skipped and logged without treating ordinary `.sock` filenames as sockets. Save report retains the affected paths and outcomes. |
+| **Undo & deletion** | Supported operations integrate with Undo; Trash and Restore use the system's file-operation facilities. Permanent deletion requires confirmation, and a missing Trash facility never silently becomes deletion. Replacing a destination does **not** preserve its previous contents for Undo. |
+| **One job interface** | Local transfers, KIO jobs and archive publishing share themed progress cards. Questions and answers belong to their specific job, so simultaneous transfers do not share an overwrite decision. Tracked file work can continue after the last browser window closes. |
+| **Archives** | A native browser and dialogs integrate the bundled 7-Zip engine: compression controls, encryption, split volumes, selected extraction and supported archive updates. New archives are tested before publishing; extraction validates paths/links in private staging before the transfer worker publishes files. RAR is extraction-only. |
+| **Desktop integration** | FileManager1 routing opens/reveals files in Fusion Files. File associations, desktop icons, application picking, executable/install-file handling and authenticated private-folder access share the desktop's existing services. Remote operations, Rename, Trash and Restore use KIO rather than the local streaming worker. |
+
+[Fusion Files guide](docs/FILES.md) · [Local transfer worker](config/hypr/file_manager/transfer_worker.py) · [Shared job UI](config/hypr/file_jobs) · [Archive engine and provenance](config/hypr/archive_manager/README.md).
+
+<details open>
+<summary><strong>The rest of the desktop: applications, settings, appearance and system services</strong></summary>
+
+#### Control Panel, Software and Windows applications
+
+- **Control Panel:** a native Qt interface integrating the CachyOsTools engine, with tool search, favorites, persistent work and themed dialogs. Its tools cover drives, SMART information, backup/restore, Btrfs restore points, kernel management, devices, users/groups, services, logs, environment variables, cleanup and system information. [Tool inventory](docs/CONTROL-PANEL.md#tools-and-feature-coverage).
+- **Software:** a category tree, cached app metadata, icons, descriptions and featured banners. Pacman is the default source; Yay/Paru add optional AUR access. Installed/Repair pages, uninstall actions and validated vendor-installer flows complete the app lifecycle. Successful installs can add Apps favorites; the supported `.run` flow downloads and runs the installer for the user, while Linux Studio uses its tarball. [Software guide](docs/CONTROL-PANEL.md#software-catalog).
+- **Proton:** the integrated XetalProton library manages Windows application shortcuts, isolated Wine-prefix configurations, runner versions, Winetricks dependencies, per-app launch options, process logs and browser sign-in handlers. The downloader supports 13 providers; Proton/UMU remain separately downloaded upstream tools. Prefix separation is configuration separation, not a security sandbox. [Proton guide](config/hypr/control_panel/proton/README.md).
+- **GRUB, recovery & removable media:** preview and edit boot entries, order, default selection, timeout and appearance; review backups, apply with authentication and undo supported changes. System ISO, backup/restore and the Ventoy integration add system-copy and USB workflows around their respective engines. [GRUB guide](docs/GRUB-BOOT-EDITOR.md) · [Ventoy guide](config/hypr/control_panel/ventoy/README.md).
+
+#### Fusion Settings, saved configurations and hardware controls
+
+- **Everyday settings:** the home dashboard and pages for hotkeys, input, displays, default applications, context menus, calendars, recording, terminal behavior, power, networking, Bluetooth and phone integration. Settings reuse the shared theme and launch the relevant native/system service when needed.
+- **Save / Load / Reset:** Default Settings groups the inventory into **16 selectable categories**, with Select All, search and per-value inspection. It includes window geometry/title bars, themes, hotkeys, audio, file-manager preferences, KVM/Proton configuration, supported system settings, GRUB and package inventories. Load and Reset create a recovery archive first. Full factory reset requires the original baseline recorded at installation; archives contain settings and package inventories, not a complete disk image or copies of every installed program. [Default Settings guide](docs/DEFAULT_SETTINGS.md).
+- **Devices & power:** audio-device selection, output/microphone levels and an application mixer; monitor arrangement and supported hardware brightness/contrast/RGB controls with Keep/Revert; CPU governor, energy preference, boost, supported charge limits and separate AC/battery idle/lid policies. These controls use the capabilities exposed by the host and its drivers. [Audio guide](docs/AUDIO.md) · [Persistent system controls](docs/CONTROL-PANEL.md#persistent-system-tweaks).
+
+#### The desktop shell and window behavior
+
+- **Apps, Waybar & workspaces:** a searchable launcher covering installed applications, Control Panel tools and Fusion Settings pages; favorites, desktop shortcuts, taskbar controls, tray integration and per-monitor workspace management. Tray activation can reveal an existing app on its current workspace/monitor. Four to ten workspaces can become the sides of each monitor's cube.
+- **Window management additions:** per-workspace Individual, Force tiling, Force floating and KDE-style modes; title-bar/button preferences per application or window; remembered size/position; snapping layouts, top-edge maximize and default-on title-bar protection. These controls and their persistence live in the HyperFusion layer; rendering/input foundations remain Hyprland's. “KDE mode” describes the window-control style, not a separate Plasma session. [Window modes](#four-window-modes).
+- **Compiz integration:** Burn, Wobbly, Cube/3D windows, Minimize and the switcher family form the separate **6.8%** group. Native adapters and Wayland previews bring those behaviors into Hyprland; the desktop does not load the original X11 Compiz plugins. Switcher choices include Fusion Cards, Application, Static Application, Ring, Shift Cover, Shift Flip, Stack and Scale. [Switcher implementation and credits](config/hypr/switcher/README.md).
+
+#### Themes, media, sound and small applications
+
+- **Appearance:** coordinated application palettes, taskbars, launchers, window controls, icon/cursor choices and per-app overrides. The theme collection includes Amazon and BMW S1000RR HP4; the HP4 set has six wallpapers. Artwork contributes to the experience but is excluded from the source-line graph.
+- **Wallpapers & sound:** per-monitor pictures and muted looping videos, separate media folders, still fallbacks and fullscreen/battery pause choices. **Audio → System Audio** offers independent sound-pack selection, volume, event toggles and previews. The current collection has **33 theme sound sets and 264 MP3 cues**: startup, shutdown, error, exclamation, information, question, success and notification. [Sound collection](config/hypr/sounds/README.md).
+- **Recording & sharing:** Alt+F9 monitor recording integrates wf-recorder/FFmpeg with encoding selection, desktop audio, saving and notifications. Screen-share selection and portal readiness support other applications' capture workflows. [Recorder](#altf9-screen-recording).
+- **Remote access & phones:** saved outgoing RDP/VNC connections, wallet credentials and incoming monitor sharing with explicit address, port, frame-rate and input choices. KDE Connect supplies supported phone pairing, file/clipboard sharing and SMS integration. These services remain distinct from VM console viewers. [Remote desktop guide](config/hypr/control_panel/rdp/README.md).
+- **Daily tools:** Fusion Viewer, calculator, clipboard history/pins, calendar, quick panel, media controls, notifications, desktop menus, a startup dashboard and the desktop tour. XMusic is installed as the music player for its supported audio formats; its application source is a separate project, not part of this source-count bucket.
+
+#### Terminal, installation and keeping the desktop working
+
+- **Kitty & the shell:** Kitty supplies the terminal emulator; the bundled Enhanced Bash integration adds live command/argument coloring, suggestions, completion and Ctrl+R history search using ble.sh and completion definitions. Fusion Settings controls history retention/sharing/clearing, scrollback, appearance and the welcome screen without changing the account's login shell. [Terminal guide](docs/TERMINAL.md).
+- **Setup & desktop updates:** dependency planning, native builds, validation, a pinned compositor/runtime, installation into the user's profile and first-install baselines. The updater rechecks the remote revision, prepares the update, preserves personal preferences, shows failures and coordinates activation/rollback rather than replacing files blindly. [Setup](docs/INSTALLER.md) · [Updates](docs/UPDATES.md).
+- **Session services & compatibility:** launch wrappers, ABI checks, monitor/output routing, startup supervision, diagnostics and shared theme/configuration helpers connect independently running components. Tests exercise those boundaries as well as individual applications. **Arch Linux and CachyOS are the supported host distributions**; Manjaro, Fedora and Debian support has been dropped. Compatibility source retained in the tree is not a promise of current support.
+
+</details>
+
+<details>
+<summary><strong>Measurement details and the breakdown within the 53.3% HyperFusion layer</strong></summary>
+
+These rows partition the **214,638 lines** in the HyperFusion group; they do not add another layer to the chart. Component-local tests remain with their component, while the repository-wide `tests/` directory has its own row. The group names follow directory boundaries, so shared helpers may support several features.
+
+| Source group | Nonblank lines |
+| --- | ---: |
+| Control Panel and integrated tools | 59,202 |
+| KVM manager and launch services | 36,533 |
+| Fusion Files, transfer UI and archive integration | 26,917 |
+| Themes, wallpapers, icons, cursors and sound | 18,492 |
+| Launcher, taskbar, desktop menus and other window controls | 17,409 |
+| Repository-wide regression tests | 16,191 |
+| Setup, updates and runtime coordination | 11,454 |
+| Fusion Settings and settings archives | 7,937 |
+| Other applications, helpers and integration code | 20,503 |
+| **HyperFusion group total** | **214,638** |
+
+The measurement uses repository revision `937da04874473b3a01c2d2fb873e8f9b8a923f7e` and the [Hyprland source at `11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947`](https://github.com/hyprwm/Hyprland/tree/11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947), pinned by our runtime manifest. It counts nonblank lines in the selected programming/script/shader extensions, including comments, tests and build helpers. It excludes assets, documents, configuration/data formats, compiled packages, XML translation catalogs and the listed vendor/library directories. It is a reproducible size estimate, not a language-parser count of executable statements.
+
+The Compiz grouping includes the entire Burn, Cube, Wobbly, Minimize and switcher directories. Of its 27,422 lines, **10,527 are preserved original switcher reference-source lines**; including them measures maintained/reference source rather than only code executed at runtime. The [dated JSON snapshot](docs/metrics/code-composition-2026-11-25.json) records extensions, exclusions, revisions, the Hyprland archive checksum and group membership. Percentages are rounded to one decimal place; this section is a dated snapshot, not a live counter.
+
+</details>
+
+---
+
 [![Fusion Files in the 7D layout, with themed drive groups, a Linux system-drive icon and the live storage preview](config/hypr/docs/features/fusion-files/7d.png)](docs/GALLERY.md#fusion-files)
 
 <p align="center"><strong>Meet the new Fusion Files.</strong> Eleven This PC layouts. Your theme. Your controls.<br><sub>7D is the fresh-install default. Actual native UI with a sample drive inventory; click to explore the gallery.</sub></p>
 
 ## Recent desktop updates
 
-The November 22–24, 2026 updates bring more everyday settings into the desktop and refine the existing tools.
+The November 22–25, 2026 updates bring more everyday settings into the desktop and refine the existing tools.
 
 | Area | What's new |
 | --- | --- |
@@ -47,9 +171,9 @@ The November 22–24, 2026 updates bring more everyday settings into the desktop
 | **Persistent power settings** | CPU governor, energy preference, boost and supported battery charge limits survive reboot and resume. Separate AC/battery idle and lid choices live in **Fusion Settings → Power**, also reachable from the taskbar and Start menu. |
 | **Per-monitor picture controls** | **Displays & arrangement** adds color-space presets, supported hardware brightness/contrast/RGB controls, and a 20-second **Keep/Revert** preview. Saved hardware choices follow the monitor. |
 | **Desktop polish** | Fusion Viewer has a centered toolbar, navigation below the image and a rotate/wallpaper context menu. Floating wallpaper cards open centered without an enclosing border; the calendar opens only on click; clipboard history is taller. |
-| **Window appearance** | Focus styling joins shape, opacity and shadows in **Window effects → Window appearance**, with an interactive preview and preferences preserved when applying themes. The experimental Visuals pages are hidden for now. |
+| **Window appearance** | Focus styling joins shape, opacity and shadows in **Window effects → Window appearance**, with an interactive preview and preferences preserved when applying themes. Fresh profiles coordinate borders, shadows and headers, enable a **3 px** active-window glow and use **8 px** shadows with no exclusions. The experimental Visuals pages are hidden for now. |
 | **KVM and boot tools** | More compact KVM pages, aligned Memory panels, tabbed Paths & tools and a working Clear history action. Remembered launch permission works with private VM files and TPM sockets. GRUB supports menu ordering, remembered selection, registering this installation in UEFI and the **Killer Instinct · One More Credit** wallpaper preset. |
-| **Updating older installations** | One Update click rechecks GitHub and continues through preparation, opening Setup when packages are needed. Existing preferences are kept, errors stay visible, and the RDP server's pinned Cargo lockfile survives the update merge. |
+| **Updating older installations** | Desktop updates opens in a compact **420 × 780** window by default. One Update click rechecks GitHub and continues through preparation, opening Setup when packages are needed. Existing preferences are kept, errors stay visible, and the RDP server's pinned Cargo lockfile survives the update merge. |
 
 The repository and installer source include the desktop integrations and the new Software catalog. ISO contents depend on the image's release. WhatsApp uses its web client, and display controls do not yet provide ICC calibration. Physical hardware and Windows RDP input/audio checks remain listed in the [recent changes and remaining work](docs/DESKTOP-ROADMAP.md).
 

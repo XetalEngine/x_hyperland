@@ -35,25 +35,34 @@ class SettingsTests(unittest.TestCase):
         (self.root/'theme').mkdir();(self.root/'theme/state.json').write_text('{"design":"raw"}')
         self.settings=deepcopy(model.DEFAULTS)
 
-    def test_default_leaves_saved_effects_untouched(self):
-        self.assertEqual(model.native_settings(self.settings,self.root),{})
+    def test_default_focus_coordinates_headers_glow_and_shadows_only(self):
+        rendered=model.native_settings(self.settings,self.root)
+        self.assertTrue(self.settings['focus']['enabled'])
+        self.assertTrue(rendered['decoration.glow.enabled'])
+        self.assertEqual(rendered['decoration.glow.range'],3)
+        self.assertTrue(rendered['decoration.shadow.enabled'])
+        self.assertEqual(rendered['decoration.shadow.range'],8)
+        self.assertEqual(self.settings['focus']['exceptions'],[])
+        self.assertNotIn('animations.enabled',rendered)
+        self.assertNotIn('decoration.blur.enabled',rendered)
         self.assertEqual(model.load(self.root)[0],model.DEFAULTS)
         self.assertFalse((self.root/'visuals/settings.json').exists())
 
     def test_profiles_and_reduced_motion_are_non_destructive(self):
+        default_focus=model.native_settings(self.settings,self.root)
         self.settings['themes']['raw']=deepcopy(model.THEME)
         m=self.settings['themes']['raw']['material'];m.update(enabled=True,variant='water',size=12,passes=4)
         before=deepcopy(self.settings)
         self.settings.update(quality='balanced',reduced_motion=True)
         result=model.native_settings(self.settings,self.root)
-        self.assertEqual(result,{})
+        self.assertEqual(result,default_focus)
         self.assertEqual(self.settings['themes'],before['themes'])
         self.settings.update(quality='current',reduced_motion=False)
         restored=model.native_settings(self.settings,self.root)
-        self.assertEqual(restored,{})
+        self.assertEqual(restored,default_focus)
         self.assertNotIn('animations.enabled',restored)
         self.settings['quality']='lightweight'
-        self.assertEqual(model.native_settings(self.settings,self.root),{})
+        self.assertEqual(model.native_settings(self.settings,self.root),default_focus)
         self.assertFalse(model.active_settings(self.settings)['hover_previews'])
 
     def test_focus_preferences_survive_switching_themes(self):
@@ -114,7 +123,8 @@ class TransactionTests(unittest.TestCase):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name)
         self.instance=self.root/'session';(self.instance/'fusion-visuals').mkdir(parents=True)
         self.path=self.root/'visuals/settings.json';self.path.parent.mkdir()
-        self.original=json.dumps(model.DEFAULTS,indent=2)+'\n';self.path.write_text(self.original)
+        existing=deepcopy(model.DEFAULTS);existing['focus']['enabled']=False
+        self.original=json.dumps(existing,indent=2)+'\n';self.path.write_text(self.original)
         self.settings,self.token=model.load(self.root);self.settings['focus']['enabled']=True
         for name,value in [('instance',self.instance),('verify',None),('reload',None)]:
             p=patch.object(controller,name,return_value=value);setattr(self,name+'_mock',p.start());self.addCleanup(p.stop)

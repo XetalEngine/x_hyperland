@@ -4,6 +4,10 @@ Hyper Fusion watches `XetalEngine/x_hyperland` on GitHub, branch **main**. Every
 
 ## What users see
 
+The update window starts at **420 × 780** pixels in a compact portrait layout,
+with scrollable release notes and the actions at the bottom. It remains resizable.
+The application and its Hyprland window rule use the same initial size.
+
 An animated **UPDATE** badge appears beside **Keys** when a newer commit is available. It stays completely hidden while the desktop is up to date or checking for updates, and remains visible while an update downloads or waits for the next login. Click it for installed/latest revisions, the commit message, a live update log, **Check now**, **Update!** and **Roll back**. Right-click the taskbar and check **Hide Update Ready** to hide the ready/restart notice across all monitors and future logins. New-update and error notices still appear, and update checks continue. Uncheck it to show the notice again. **Options → Desktop updates** hides all update notices; **Show all items** resets both choices. To manage updates while the badge is hidden, run `~/.config/hypr/scripts/desktop-updates.sh`.
 
 Opening the window starts a fresh GitHub check. **Update!** stays hidden until that check succeeds and finds an available update; cached version information is labelled **Last seen**. **Check now** repeats the check. Offline failures and rate limits keep downloads unavailable, with the reason shown in the window. If an update is already being prepared, opening the window schedules its fresh check after preparation finishes.

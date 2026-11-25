@@ -51,7 +51,7 @@ def commit_notes(value):
 
 class Window(QWidget):
     def __init__(self):
-        super().__init__(); self.setWindowTitle('Xetal / Desktop updates'); self.resize(630, 510)
+        super().__init__(); self.setWindowTitle('Xetal / Desktop updates'); self.resize(420, 780)
         self.queued_action = None; self.queued_id = None; self.request_error = ''
         self.restart_process = None; self.restarting = False
         self.check_requested_at = float('inf'); self.check_on_idle = False

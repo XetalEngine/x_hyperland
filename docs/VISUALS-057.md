@@ -2,6 +2,10 @@
 
 Open **Fusion Settings → Theme → Window effects → Window appearance**.
 
+Fresh profiles enable **Coordinate borders, shadows and headers** and **Glow around
+the active window**, with a **3 px glow**, **8 px shadow** and no application
+exceptions. Both switches remain editable; existing saved focus choices are kept.
+
 Shape, spacing, opacity, shadows and focus styling now share one editor. The preview shows active and inactive windows; click either sample to change its focus. Editing this preview does not change your desktop until you choose **Apply appearance**. **Discard** returns to the saved values.
 
 Focus preferences are saved across themes and future logins. Applying a theme changes the accent colors, while your border width, shadow size, glow and application exceptions stay as you saved them. Existing Focus settings are carried into the combined editor.
