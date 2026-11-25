@@ -478,7 +478,7 @@ class ThemePage(QWidget):
         preferred=runtime.designs.DEFAULT_MODES.get(design)
         if preferred:
             self.mode.setCurrentIndex(self.mode.findData(preferred))
-        if design in ('tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','amazon','ghostbusters', 'killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft', 'mortalkombat2', 'facadasexu'):
+        if design in ('tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','hp4','amazon','ghostbusters', 'killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft', 'mortalkombat2', 'facadasexu'):
             if self.launcher_style.currentData() in ('follow',self.baseline[0]):
                 self.launcher_style.setCurrentIndex(self.launcher_style.findData('follow'))
         self.changed()

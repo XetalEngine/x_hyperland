@@ -396,6 +396,9 @@ def tray(painter, width, style, colors, phase):
         candlelight_rail(painter,width,colors,phase);return
     if style == 'ghostbusters':
         ghost_trap(painter,width,colors,phase);return
+    if style == 'hp4':
+        from hp4 import paint_surface
+        paint_surface(painter,QRectF(8,8,width-16,80),colors,6,100);return
     if style == 'amazon':
         riverbank(painter,width,colors,phase);return
     if style == 'leviathan':

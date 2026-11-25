@@ -38,11 +38,12 @@ class GalleryTests(unittest.TestCase):
     def visible(self): return [name for name, card in self.page.cards.items() if not card.isHidden()]
 
     def test_search_across_collections_keeps_selection_and_handles_no_results(self):
-        for query, expected in (('  BLUE  ', ['modern', 'binaryknife', 'tidalglass', 'hyperfusionblue', 'starcraft', 'polaris']),
+        for query, expected in (('  BLUE  ', ['modern', 'binaryknife', 'tidalglass', 'hyperfusionblue', 'starcraft', 'polaris', 'hp4']),
                                 ('moon rain', ['shadowedge', 'amazon']), ('CANDY', ['candycloud']),
                                 ('audi a4 sedan', ['midnightrun']),
                                 ('tux north star', ['polaris']),
                                 ('terran protoss', ['starcraft']),
+                                ('HP4', ['hp4']),
                                 ('no-such-theme', [])):
             self.page.search.setText(query); self.page.refresh(); QT.processEvents()
             self.assertEqual(self.visible(), expected)

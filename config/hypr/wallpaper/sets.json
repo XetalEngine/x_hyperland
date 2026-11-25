@@ -168,5 +168,13 @@
     "amazon/moonlit-river.png",
     "amazon/canopy-at-dawn.png",
     "amazon/emerald-lagoon.png"
+  ],
+  "hp4": [
+    "hp4/midnight-pit.png",
+    "hp4/blue-hour-circuit.png",
+    "hp4/carbon-detail.png",
+    "hp4/rain-line.png",
+    "hp4/workshop-04.png",
+    "hp4/midnight-wheelie.png"
   ]
 }

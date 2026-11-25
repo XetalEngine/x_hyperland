@@ -190,6 +190,42 @@ def ghostbusters(p, box, accent, surface, phase, count, trails, glow, archive, e
     p.restore()
 
 
+def hp4(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Documents race along a pit lane; fading wraps avoid visible jumps."""
+    p.save();p.setClipRect(box,Qt.ClipOperation.IntersectClip)
+    mid=box.center();left=box.left()+29;right=box.right()-29
+    for x,zipped in ((left,extracting),(right,archive)):
+        folder(p,QPointF(x,mid.y()),accent,surface,archive=zipped,technical=True)
+    start,end=left+30,right-30
+    p.setPen(QPen(alpha(accent,100),1));p.setBrush(Qt.BrushStyle.NoBrush)
+    for y in (mid.y()-19,mid.y()+19):p.drawLine(QPointF(start,y),QPointF(end,y))
+    p.setPen(QPen(alpha(QColor('#dbe5f3'),75),.8))
+    for i in range(12):
+        x=start+(end-start)*i/12;p.drawLine(QPointF(x,mid.y()+24),QPointF(x+4,mid.y()+20))
+    if result:
+        if result=='done':success(p,mid,accent)
+        p.restore();return
+    for index in range(max(1,count)):
+        t=(phase+index/max(1,count))%1
+        fade=max(0.,min(1.,t/.14,(1-t)/.14));fade=fade*fade*(3-2*fade)
+        travel=1-t if extracting else t;direction=-1 if extracting else 1
+        x=start+(end-start)*travel;y=mid.y()
+        p.save();p.setOpacity(p.opacity()*fade)
+        if glow:
+            halo=QRadialGradient(QPointF(x,y),20);halo.setColorAt(0,alpha(accent,glow));halo.setColorAt(1,alpha(accent,0))
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(halo);p.drawEllipse(QPointF(x,y),20,17)
+        if trails:
+            for n in range(3):
+                p.setPen(QPen(alpha(accent,100-n*25),1));p.drawLine(QPointF(x-direction*12,y-5+n*5),QPointF(x-direction*(23+n*4),y-5+n*5))
+        p.translate(x,y)
+        if archive or extracting:
+            p.setPen(QPen(accent,1.2));p.setBrush(surface);p.drawRoundedRect(QRectF(-7,-10,14,20),2,2)
+            for yy in range(-7,7,4):p.drawLine(QPointF(-2,yy),QPointF(2,yy))
+        else:paper(p,accent,technical=True)
+        p.restore()
+    p.restore()
+
+
 def amazon(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     """Gold documents drift on leaves across an emerald river.
 

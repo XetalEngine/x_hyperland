@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=BMW S1000RR HP4
+Comment=Cobalt folders, silver instruments and black carbon details.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

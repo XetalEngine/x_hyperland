@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>Documents · HP4</title><defs><linearGradient id="blue" x2=".2" y2="1">
+    <stop stop-color="#61b6ff"/><stop offset=".3" stop-color="#147ff0"/>
+    <stop offset="1" stop-color="#073c8e"/></linearGradient>
+    <linearGradient id="metal" x2=".1" y2="1"><stop stop-color="#e8f2ff"/>
+    <stop offset=".5" stop-color="#9aafc9"/><stop offset="1" stop-color="#5d789e"/></linearGradient>
+    <pattern id="carbon" width="6" height="6" patternUnits="userSpaceOnUse">
+    <rect width="6" height="6" fill="#0b111b"/><path d="M0 6L6 0" stroke="#273448" stroke-width="1"/></pattern></defs><path d="M5 20V13Q5 9 10 9H25L31 16H54Q59 16 59 22V49Q59 55 53 55H11Q5 55 5 49Z" fill="#093d88" stroke="#8abfff"/><path d="M5 24Q5 19 11 19H53Q59 19 59 25V49Q59 55 53 55H11Q5 55 5 49Z" fill="url(#blue)" stroke="#8abfff" stroke-width="1.2"/><path d="M10 24H53" stroke="#c4e4ff" stroke-opacity=".65"/><path d="M11 50H52" stroke="#082e66"/><g transform="translate(9 13) scale(.72)" fill="none" stroke="#eaf4ff" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 18H37L44 25V47H22ZM36 18V27H44M27 33H39M27 38H39M27 43H35"/></g></svg>

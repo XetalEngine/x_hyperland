@@ -32,6 +32,7 @@ SCORES = {
     'prisonbreak': (60, 'breakout', [0, 3, 7, 12, 10, 15], .32),
     'mystery98': (57, 'clockwork', [0, 7, 3, 14, 10, 12], .41),
     'ghostbusters': (62, 'ectoplasm', [0, 7, 3, 10, 14, 12], .36),
+    'hp4': (57, 'pitlane', [0, 7, 12, 19, 14, 12], .27),
     'amazon': (64, 'river', [0, 7, 9, 12, 16, 19], .40),
     'leviathan': (50, 'reliquary', [0, 7, 10, 3, 14, 12], .44),
     'polaris': (67, 'polar', [0, 7, 14, 12, 19, 16], .38),
@@ -75,6 +76,11 @@ def voice(midi, duration, kind, seed=0):
         out = np.sin(phase+depth*np.sin(phase*ratio)*np.exp(-9*t))*np.exp(-decay*t)
         out += gain*np.sin(phase*upper)*np.exp(-8*t)
         out += bass*np.sin(phase*.5)*np.exp(-3*t)*(1-np.exp(-18*t))
+    elif kind == 'pitlane':
+        out = np.sin(phase + .42*np.sin(phase*2)*np.exp(-12*t))*np.exp(-5*t)
+        out += .18*np.sin(phase*.5)*np.exp(-3*t)*(1-np.exp(-24*t))
+        out += .06*np.sin(phase*4)*np.exp(-15*t)
+        attack = .018
     elif kind == 'comms':
         # Clean FM comms chirp over a quiet reactor fundamental; original synthesis.
         out = np.sin(phase+.85*np.sin(phase*2.001)*np.exp(-8*t))*np.exp(-3.3*t)

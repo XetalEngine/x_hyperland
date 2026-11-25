@@ -1,0 +1,64 @@
+{
+  "theme": "BMW S1000RR HP4",
+  "tool": "built-in image_gen.imagegen",
+  "references": [
+    "User-supplied HP4 desktop concept",
+    "User-supplied adult blue-haired character (wheelie scene only)"
+  ],
+  "assets": [
+    {
+      "file": "midnight-pit.png",
+      "prompt": "Use case: product-mockup. Asset type: production desktop wallpaper, landscape 16:9, highest practical resolution, ideally 3840x2160. Reference image is ONLY the motorcycle and dark carbon/electric-blue visual direction; do not recreate its desktop UI. Generate a clean wallpaper called Midnight Pit for a BMW S1000RR HP4 (2012 launch-era) theme. The same original HP4 motorcycle: asymmetric original headlights, white/silver fairings with cobalt blue accents, exposed dark carbon fiber, bright blue wheels, BMW roundel and HP4 fairing graphics. Full motorcycle, cinematic front three-quarter view, on its side stand, facing left, occupying the lower middle/right of a nearly black pit garage with faint blue mist and wet concrete reflections. Keep broad dark negative space in upper left for desktop icons, deep charcoal backgrounds everywhere, subtle silver edge light, detailed realistic metal/carbon/rubber, restrained highlights. Premium automotive illustration/photoreal CGI, coherent correct motorcycle geometry, both complete wheels visible. No people, no windows, no panels, no taskbar, no desktop icons, no framing or border, no large captions or watermark.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "855787cc8ec40ed9d797e8d58d3394e1724ae437a2a6d6ec0f86c375904ac722"
+    },
+    {
+      "file": "blue-hour-circuit.png",
+      "prompt": "Production wallpaper, wide landscape 16:9, highest practical resolution ideally 3840x2160. Use the reference only for the original BMW S1000RR HP4 (2012 launch era) motorcycle and dark carbon/cobalt visual direction. Correct original asymmetric headlights, white and silver fairings with cobalt blue accents, dark carbon fiber, blue wheels, BMW roundel and HP4 markings. Nearly black backgrounds, premium rich photographic lighting, no desktop UI, no windows, no panels, no taskbar, no borders, no watermark or large captions. Blue Hour Circuit: cinematic rear three-quarter full motorcycle parked in a silent closed racing pit lane at night. Deep midnight indigo sky, distant blue circuit lights, wet asphalt reflecting electric blue, beautiful rear tire and tail-light detail. Bike on right half with ample dark negative space on left. Both full wheels visible. No people.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "906977f72fde4d0463c3def8a5c089800e16346cc1d8c730ffbeb584e2cd6913"
+    },
+    {
+      "file": "carbon-detail.png",
+      "prompt": "Production wallpaper, wide landscape 16:9, highest practical resolution ideally 3840x2160. Use the reference only for the original BMW S1000RR HP4 (2012 launch era) motorcycle and dark carbon/cobalt visual direction. Correct original asymmetric headlights, white and silver fairings with cobalt blue accents, dark carbon fiber, blue wheels, BMW roundel and HP4 markings. Nearly black backgrounds, premium rich photographic lighting, no desktop UI, no windows, no panels, no taskbar, no borders, no watermark or large captions. Carbon Detail: dramatic close automotive product study of the motorcycle's asymmetric original headlights, windscreen, sculpted white/blue nose and exposed woven carbon. Front three-quarter diagonal composition filling right two thirds. Nearly black studio with controlled thin cobalt reflections and silver contours. Left third empty dark carbon-black atmosphere. Detailed original HP4 engineering, tasteful authentic tiny markings only. No people.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "284759ab1cdb045f6bd4bd5ddc21e64b5a0c5eb8d04e7b5194f20d85c2fd63b4"
+    },
+    {
+      "file": "rain-line.png",
+      "prompt": "Production wallpaper, wide landscape 16:9, highest practical resolution ideally 3840x2160. Use the reference only for the original BMW S1000RR HP4 (2012 launch era) motorcycle and dark carbon/cobalt visual direction. Correct original asymmetric headlights, white and silver fairings with cobalt blue accents, dark carbon fiber, blue wheels, BMW roundel and HP4 markings. Nearly black backgrounds, premium rich photographic lighting, no desktop UI, no windows, no panels, no taskbar, no borders, no watermark or large captions. Rain Line: the full motorcycle parked on its side stand facing right on a sweeping empty mountain pass at midnight, foreground left/middle, both wheels visible. Fine rain and drifting blue mist over black pine forest silhouettes, a distant mountain ridge, subtle wet road reflections. Moody cinematic realism, understated cobalt light, vast dark upper sky for icons. No people.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "644933a40211e2dab0eaa15e7ad399a22dd50759a09a483e25985df1d3ca425c"
+    },
+    {
+      "file": "workshop-04.png",
+      "prompt": "Production wallpaper, wide landscape 16:9, highest practical resolution ideally 3840x2160. Use the reference only for the original BMW S1000RR HP4 (2012 launch era) motorcycle and dark carbon/cobalt visual direction. Correct original asymmetric headlights, white and silver fairings with cobalt blue accents, dark carbon fiber, blue wheels, BMW roundel and HP4 markings. Nearly black backgrounds, premium rich photographic lighting, no desktop UI, no windows, no panels, no taskbar, no borders, no watermark or large captions. Workshop 04: exact elegant side profile of the whole original HP4 motorcycle, facing left, on a paddock stand in a dark private race workshop. Balanced low centered composition, both complete blue wheels visible, technical engine and carbon details, white and cobalt fairings. One blue horizontal practical light in background, charcoal concrete floor, ample dark space above. Minimal uncluttered architectural setting, photoreal automotive photography. No people.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "0be5f85ecf5309db5f5280794d2621e6e80de1300da1e2e2e83cbd2c98900b0e"
+    },
+    {
+      "file": "midnight-wheelie.png",
+      "prompt": "Production illustrated desktop wallpaper, wide landscape 16:9, highest practical resolution ideally 3840x2160. First reference supplies ONLY the original BMW S1000RR HP4 motorcycle with asymmetric headlights, white/silver and cobalt blue fairings, exposed carbon, blue wheels, BMW roundel and HP4 markings; do not reproduce any desktop UI. Second reference supplies the SAME clearly ADULT blue-haired anime woman: recognizable adult face, long cobalt-blue ponytail, blue eyes, detailed arm tattoos, dark blue headset. Show her riding this motorcycle performing a controlled wheelie on an empty closed circuit at night: rear tire touching tarmac, front wheel raised, hands naturally gripping handlebars, correctly articulated arms and legs. Barefoot, her bare feet naturally placed on the bike's foot pegs, visible as part of the full rider, no close-up of feet. Outfit: stylish black and cobalt sporty shorts and cropped racing jacket over a simple blue top. Confident focused expression, long ponytail streaming back. Full motorcycle and full rider in frame, three-quarter side view, coherent correct bike geometry. Non-erotic exciting motorcycle action illustration, not a pin-up. Nearly black and deep navy background, blue track lights, restrained motion streaks and mist, generous dark negative space upper left. High quality anime painted detail, cinematic cobalt and silver highlights. No UI, no windows, no taskbar, no captions, no watermark.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "fb183eb8f9102c22b4ab74ec4ce999aa4bbf0116af2cb61acb05e450fbea838d"
+    }
+  ]
+}

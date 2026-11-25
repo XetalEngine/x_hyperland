@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>PDF · HP4</title><defs><linearGradient id="blue" x2=".2" y2="1">
+    <stop stop-color="#61b6ff"/><stop offset=".3" stop-color="#147ff0"/>
+    <stop offset="1" stop-color="#073c8e"/></linearGradient>
+    <linearGradient id="metal" x2=".1" y2="1"><stop stop-color="#e8f2ff"/>
+    <stop offset=".5" stop-color="#9aafc9"/><stop offset="1" stop-color="#5d789e"/></linearGradient>
+    <pattern id="carbon" width="6" height="6" patternUnits="userSpaceOnUse">
+    <rect width="6" height="6" fill="#0b111b"/><path d="M0 6L6 0" stroke="#273448" stroke-width="1"/></pattern></defs><path d="M15 5H39L51 17V57H15Z" fill="url(#carbon)" stroke="url(#metal)" stroke-width="1.5"/><path d="M39 5V18H51" fill="#165ab0" stroke="#a6ceff"/><g transform="translate(10 12) scale(.7)" fill="none" stroke="#72baff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 41C30 31 30 21 30 22 28 37 42 42 44 38 41 34 24 38 22 41Z"/></g><path d="M20 52H45" stroke="#278cff" stroke-width="2"/></svg>
