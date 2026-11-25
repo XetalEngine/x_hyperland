@@ -14,6 +14,7 @@
   <a href="#recent-desktop-updates">Recent updates</a> ·
   <a href="#fusion-files">Fusion Files</a> ·
   <a href="#software-made-for-hyper-fusion">Software</a> ·
+  <a href="#default-settings">Save &amp; restore settings</a> ·
   <a href="#four-window-modes">Window modes</a> ·
   <a href="#altf9-screen-recording">Recording</a> ·
   <a href="#copy-cut-and-move-with-fusion-files">File engine</a> ·
@@ -32,7 +33,7 @@ The November 22–24, 2026 updates bring more everyday settings into the desktop
 
 | Area | What's new |
 | --- | --- |
-| **Default Settings** | The last Fusion Settings page offers **Save System Settings**, **Load**, and **Reset Defaults**, with category checkboxes, **Select All**, a searchable value inventory and automatic recovery. Includes individual window geometry/title bars, sound preferences, Pacman/AUR package lists, CPU policy, GRUB and system settings. Full reset requires the original system baseline recorded by new installations. [Guide and screenshot →](docs/DEFAULT_SETTINGS.md) |
+| **Default Settings** | The last Fusion Settings page offers **Save System Settings**, **Load**, and **Reset Defaults**, with category checkboxes, **Select All**, a searchable value inventory and automatic recovery. Includes individual window geometry/title bars, sound preferences, Pacman/AUR package lists, CPU policy, GRUB and system settings. Full reset requires the original system baseline recorded by new installations. [Explore the three tabs →](#default-settings) |
 | **Reachable title bars** | Protection is enabled by default under **Theme → Window effects → Window Behavior**. After dragging, a title bar obscured by Waybar or the screen edge moves smoothly back within reach. The saved off switch keeps its choice across logins and updates. |
 | **Audio organization** | **Audio → Devices** contains the device controls and application mixer. **Audio → System Audio** contains the sound packs, previews and event choices previously under Theme. Existing sound preferences are preserved. |
 | **Software catalog** | **Control Panel → Software** now has a category tree, app cards, descriptions and six featured banners. Pacman is selected by default, with optional Yay/Paru search and current Linux downloads for Echo, Linux Studio, XMusic and Xetal Video Editor. [Explore the new Software page →](#software-made-for-hyper-fusion) |
@@ -448,6 +449,30 @@ Choose frame rate, quality, encoding, desktop/microphone/no audio, the filename 
 **Super+D** opens or hides the four-window Welcome dashboard: system information, Matrix rain, live **fusion-check** results and six interactive project cubes. Plugin failures appear first with a red cross and their diagnostic details; successful checks have green ticks. The taskbar groups it as **Welcome**, without four duplicate app icons.
 
 Fresh installs always enable Welcome so plugin failures are visible at the first login. Uncheck **Show this dashboard at login** right on the dashboard to disable all four startup windows. Re-enable it in **Control Panel → Startup Applications**; Super+D continues to work manually. **Num Lock starts on by default**, with a matching switch in Startup Applications and Fusion Settings → Input.
+
+## Default Settings
+
+**Your setup, down to the individual window.** Open **Fusion Settings → Default Settings**, the last item in the sidebar, to save your configuration in one `.hfsettings` archive. Choose among **16 categories**, use **Select All**, and expand or search the inventory to see the values included.
+
+[![Default Settings in Polaris, with category checkboxes, Select All and expanded window settings](docs/screenshots/default-settings.png)](docs/screenshots/default-settings.png)
+
+| Tab | What it does |
+| --- | --- |
+| **Save System Settings** | Select the categories to export and inspect their settings. Administrator-protected values can be inspected with **Inspect system values**; Save reads every selected category again. |
+| **Load** | Open an archive and choose which categories to restore. Review package changes before including installed applications. A recovery archive is created before changes begin. |
+| **Reset Defaults** | Restore every category using the installer's desktop defaults and the original system/package baseline. Older installations without that baseline show an explanation and keep full Reset disabled. |
+
+**The details come with you:** remembered window sizes and positions, individual KDE title bars, effects, workspaces, themes and artwork, sounds, hotkeys, taskbar pins, Fusion Files preferences, remote connections and KVM/Proton settings. System categories include CPU power policy, services, networking, firewall rules, GRUB themes and Pacman/AUR package inventories.
+
+| Load only the categories you choose | Reset availability explained |
+| :---: | :---: |
+| [![Load tab with themes, windows and audio selected while other categories remain unchecked](docs/screenshots/default-settings-load.png)](docs/screenshots/default-settings-load.png) | [![Reset Defaults explaining that an older installation lacks its original system baseline](docs/screenshots/default-settings-reset.png)](docs/screenshots/default-settings-reset.png) |
+
+Desktop restores activate at the **next normal sign-in**; system and boot changes may require a restart. Privileged operations request fresh administrator authentication. Installed apps are recorded as package lists and use available packages when restored; personal documents and VM disks stay in place.
+
+*Actual native Qt interface in Polaris, captured headlessly with example settings. The Load image illustrates selective restoration; the Reset image shows the missing-baseline state. No settings were applied to create these pictures.*
+
+Headless archive, UI, window and isolated administrator-helper checks passed. A full VM factory reset and reboot, real package installation/removal and hardware governor changes still need end-to-end verification. [Complete guide, category list and test coverage →](docs/DEFAULT_SETTINGS.md) · [Gallery →](docs/GALLERY.md#default-settings)
 
 ## Compiz spirit. Hyprland desktop.
 

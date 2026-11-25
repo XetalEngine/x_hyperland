@@ -1,7 +1,7 @@
 # Hyper Fusion · Desktop gallery
 
 A tour of the real Xetal interface. Click any picture for its full resolution.
-The Fusion Files showcase uses the native application with a sample drive inventory in an isolated profile. The KDE-mode screenshots were supplied by the author from the live desktop. The Midnight Transit showcase uses real applications and compositor effects captured headlessly with a disposable profile. Some applications shown in Favorites are installed separately; transfer previews use sample jobs.
+The Fusion Files showcase uses the native application with a sample drive inventory in an isolated profile. Default Settings uses the real Qt window with example settings in an isolated account environment. The KDE-mode screenshots were supplied by the author from the live desktop. The Midnight Transit showcase uses real applications and compositor effects captured headlessly with a disposable profile. Some applications shown in Favorites are installed separately; transfer previews use sample jobs.
 
 [Back to the README](../README.md) · [Watch the desktop video on YouTube](https://youtu.be/z3_uTzZglvg)
 
@@ -92,6 +92,33 @@ and the current Linux downloads. Installed apps can be opened from here.
 local catalog. App availability and Open/Install actions depend on your system.*
 
 [README showcase →](../README.md#software-made-for-hyper-fusion) · [Software guide →](CONTROL-PANEL.md#software-catalog)
+
+## Default Settings
+
+**Keep the details that make the desktop yours.** The last Fusion Settings sidebar
+item brings Save, Load and Reset together. Sixteen categories cover the desktop,
+individual window geometry and controls, apps and system configuration.
+
+[![Save System Settings in Polaris with category selection and an expanded value inventory](screenshots/default-settings.png)](screenshots/default-settings.png)
+
+**Select All** includes every category. Expand a file or search to inspect its
+values. Administrator-protected settings have an explicit inspection action;
+private values stay hidden in the list while remaining part of the archive.
+
+| Choose what to load | Understand reset availability |
+| :---: | :---: |
+| [![Load with only themes, windows and audio selected](screenshots/default-settings-load.png)](screenshots/default-settings-load.png) | [![Reset Defaults explaining the original system baseline requirement](screenshots/default-settings-reset.png)](screenshots/default-settings-reset.png) |
+
+Load can restore selected categories while preserving the rest. Full Reset
+requires the original system/package baseline; the screenshot shows the disabled
+state on an older installation without that record. The updated installer records
+it for future installations.
+
+*Unedited native Qt captures in Polaris with example settings, taken headlessly
+on November 24, 2026. No settings were applied for these pictures. End-to-end
+factory-reset, boot, real package and hardware checks remain outstanding.*
+
+[README showcase →](../README.md#default-settings) · [Categories, recovery and verification →](DEFAULT_SETTINGS.md)
 
 ## KDE mode and built-in recording
 
