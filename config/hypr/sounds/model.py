@@ -10,31 +10,31 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 PATH = ROOT / 'sounds/settings.json'
 PACKS = {
-    'killerinstinct': ('Killer Instinct · Arcade 94', 'Arcade 94', 'Original arcade synth and resonant chrome chimes.', '#c38aff'), 'kitemple': ('Killer Instinct · Jade Temple', 'Jade Temple', 'Original soft temple bells and plucked jade tones.', '#55d792'), 'kiprimal': ('Killer Instinct · Primal Storm', 'Primal Storm', 'Original dark wooden percussion and distant storm harmonics.', '#b5a0f3'), 'kifireice': ('Killer Instinct · Fire & Ice', 'Fire & Ice', 'Original warm synth embers and bright crystalline notes.', '#ffad45'), 'starcraft': ('StarCraft II', 'Koprulu comms', 'Original digital communications, soft reactor resonance and psionic chimes.', '#27c7ff'), 'mortalkombat2': ('Mortal Kombat II', 'Outworld arcade', 'Original struck-gong tones, restrained arcade pulses and jade-temple resonance.', '#3dd489'), 'facadasexu': ('777 Facadas Exu', 'Copper whispers', 'Soft copper chimes, warm wood resonance and a quiet minor-key motif.', '#d25a45'),
-    'ghostbusters': ('Ghostbusters', 'Ectoplasm echoes', 'Original bubbly synth glides, soft theremin tones and playful ghost-trap chimes.', '#b4ff00'),
-    'hp4': ('BMW S1000RR HP4', 'Pit-lane signals', 'Original clean synth ignition notes, precise blue pulses and a quiet finish.', '#278cff'),
-    'amazon': ('Amazon', 'River chimes', 'Original bamboo-like plucks, soft water bells and a warm forest welcome.', '#edcd76'),
-    'leviathan': ('Leviathan', 'Brass echoes', 'Quiet struck-brass harmonics and a spacious minor-key welcome.', '#c69ae5'),
-    'polaris': ('Polaris', 'Northern lights', 'Gentle glass chimes and a warm, spacious ascending welcome.', '#32e1f2'),
-    'prisonbreak': ('Prison Break', 'Midnight breakout', 'Original violet synth pulses, soft metal chimes and a warm bass echo.', '#e580ff'), 'infernalencore': ('Infernal Encore', 'Backstage signals', 'Soft muted guitar harmonics and restrained minor-key power chords.', '#ff472c'),
-    'midnightrun': ('Midnight Run', 'After-hours signals', 'Soft synth plucks, neon bell harmonics and a restrained minor arpeggio.', '#42e5f5'),
-    'mystery98': ('Windows 98 Mystery', 'The midnight study', 'Soft clockwork chimes and warm string overtones from an original minor-key score.', '#dbb46a'), 'platform95': ('Platform 95', 'Golden departure', 'Warm desk-bell notes and a gentle major-key welcome.', '#d1aa58'),
-    'mycelium': ('Mycelium', 'Spore songs', 'Airy wooden chimes and soft, luminous bell harmonics.', '#c9a0e1'),
-    'atomicafterglow': ('Atomic Afterglow', 'Phosphor signals', 'Soft analog instruments, warm sine chimes and a quiet rising signal.', '#b5ed29'),
-    'blackwood': ('Blackwood', 'Harbour bells', 'Low wooden mallets, soft brass overtones and a quiet coastal cadence.', '#c7af7d'),
-    'midnighttransit': ('Midnight Transit', 'Platform chimes', 'Soft station bells and a warm descending electric-piano cadence.', '#ffb239'),
-    'hyperfusionblue': ('HyperFusion Blue', 'Blue horizon', 'Clear glass notes over a warm, restrained electronic chord.', '#00baff'),
-    'raw': ('Xetal Raw', 'Prismatic notes', 'Clean digital plucks and crystalline echoes.', '#65d9d0'),
-    'modern': ('Xetal Modern', 'First light', 'Soft electric keys with a warm, airy finish.', '#87b6da'),
-    'breakpoint': ('BreakPoint', 'Red signal', 'Low analog pulses and a restrained minor melody.', '#eb4358'),
-    'binaryknife': ('Binary Knife', 'Blue circuit', 'Precise glass tones and a cool metallic shimmer.', '#3da8ff'),
-    'tidalglass': ('Tidal Glass', 'Waterlight', 'Rounded water bells with drifting, pearly harmonics.', '#65d4dc'),
-    'porcelainink': ('Porcelain Ink', 'Quiet porcelain', 'Delicate plucked strings and ceramic resonance.', '#ce7560'),
-    'obsidianforge': ('Obsidian Forge', 'Emberwork', 'Deep bronze mallets and a warm forged-metal chord.', '#f8a44e'),
-    'candycloud': ('Candy Cloud', 'Sugar stars', 'A tiny music box with bright, sparkling upper notes.', '#eab4dc'),
-    'shadowedge': ('Shadow Edge', 'Moonlit passage', 'Breathy flute tones and distant silver bells.', '#b4c0d1'),
-    'hollowgrove': ('Hollow Grove', 'Woodland greeting', 'Wooden kalimba notes, soft flute and a gentle echo.', '#a7bd9a'),
-    'gildedhollow': ('The Gilded Hollow', 'Lantern gold', 'Hammered strings, warm brass and small golden chimes.', '#e9ba64'),
+    'killerinstinct': ('Killer Instinct · Arcade 94', 'Arcade 94', 'Dark arcade synth and metal.', '#c38aff'), 'kitemple': ('Killer Instinct · Jade Temple', 'Jade Temple', 'Jade temple resonances.', '#55d792'), 'kiprimal': ('Killer Instinct · Primal Storm', 'Primal Storm', 'Stormy low growls and strikes.', '#b5a0f3'), 'kifireice': ('Killer Instinct · Fire & Ice', 'Fire & Ice', 'Icy bells with warm fizz.', '#ffad45'), 'starcraft': ('StarCraft II', 'Koprulu comms', 'Space-console energy tones.', '#27c7ff'), 'mortalkombat2': ('Mortal Kombat II', 'Outworld arcade', 'Dark martial arcade tones.', '#3dd489'), 'facadasexu': ('777 Facadas Exu', 'Copper whispers', 'Low resonant bells and smoke-like air.', '#d25a45'),
+    'ghostbusters': ('Ghostbusters', 'Ectoplasm echoes', 'Playful ectoplasm and proton zaps.', '#b4ff00'),
+    'hp4': ('BMW S1000RR HP4', 'Pit-lane signals', 'Sportbike-inspired mechanical blips.', '#278cff'),
+    'amazon': ('Amazon', 'River chimes', 'Wooden taps and rainforest-like chirps.', '#edcd76'),
+    'leviathan': ('Leviathan', 'Brass echoes', 'Deep watery sonar.', '#c69ae5'),
+    'polaris': ('Polaris', 'Northern lights', 'Cold crystalline starlight.', '#32e1f2'),
+    'prisonbreak': ('Prison Break', 'Midnight breakout', 'Arcade steel-lock percussion.', '#e580ff'), 'infernalencore': ('Infernal Encore', 'Backstage signals', 'Distorted power-chord accents.', '#ff472c'),
+    'midnightrun': ('Midnight Run', 'After-hours signals', 'Night-drive engine swells.', '#42e5f5'),
+    'mystery98': ('Windows 98 Mystery', 'The midnight study', 'Candlelit antique music box.', '#dbb46a'), 'platform95': ('Platform 95', 'Golden departure', 'Nostalgic train-platform chimes.', '#d1aa58'),
+    'mycelium': ('Mycelium', 'Spore songs', 'Organic soft bubbling.', '#c9a0e1'),
+    'atomicafterglow': ('Atomic Afterglow', 'Phosphor signals', 'Retro radiation-counter textures.', '#b5ed29'),
+    'blackwood': ('Blackwood', 'Harbour bells', 'Low walnut knocks.', '#c7af7d'),
+    'midnighttransit': ('Midnight Transit', 'Platform chimes', 'Muted rail-station bells.', '#ffb239'),
+    'hyperfusionblue': ('HyperFusion Blue', 'Blue horizon', 'Clean blue interface chimes.', '#00baff'),
+    'raw': ('Xetal Raw', 'Prismatic notes', 'Dry cyan console ticks.', '#65d9d0'),
+    'modern': ('Xetal Modern', 'First light', 'Soft blue glass.', '#87b6da'),
+    'breakpoint': ('BreakPoint', 'Red signal', 'Crimson debugger pulses.', '#eb4358'),
+    'binaryknife': ('Binary Knife', 'Blue circuit', 'Sharp electric-blue signals.', '#3da8ff'),
+    'tidalglass': ('Tidal Glass', 'Waterlight', 'Water droplets and glass.', '#65d4dc'),
+    'porcelainink': ('Porcelain Ink', 'Quiet porcelain', 'Porcelain taps and ink-brush hush.', '#ce7560'),
+    'obsidianforge': ('Obsidian Forge', 'Emberwork', 'Dark forge strikes.', '#f8a44e'),
+    'candycloud': ('Candy Cloud', 'Sugar stars', 'Playful pastel bells.', '#eab4dc'),
+    'shadowedge': ('Shadow Edge', 'Moonlit passage', 'Dark blade-like shimmers.', '#b4c0d1'),
+    'hollowgrove': ('Hollow Grove', 'Woodland greeting', 'Hollow wood and airy forest.', '#a7bd9a'),
+    'gildedhollow': ('The Gilded Hollow', 'Lantern gold', 'Warm golden cavern bells.', '#e9ba64'),
 }
 STYLES = {'follow': 'Follow desktop theme', **{k: v[0] for k, v in PACKS.items()}}
 EVENTS = {
@@ -106,4 +106,7 @@ def resolve(pack, root=ROOT):
 
 def asset(pack, event, root=ROOT):
     if event not in EVENTS: raise ValueError('Unknown sound event.')
-    return Path(root) / 'sounds/packs' / resolve(pack, root) / (event + '.ogg')
+    directory = Path(root) / 'sounds/packs' / resolve(pack, root)
+    path = directory / (event + '.mp3')
+    # An older installation can still contain Ogg assets during an update.
+    return path if path.is_file() else directory / (event + '.ogg')

@@ -184,7 +184,7 @@ def desktop_entries(directories):
 
 
 def attach_desktop(value, desktops):
-    ids = [value.get('desktop_id',''), value['package']+'.desktop']
+    ids = [value.get('desktop_id',''), *value.get('desktop_aliases', []), value['package']+'.desktop']
     for name in ids:
         data = desktops.get(name)
         if not data or data.get('type') != 'Application': continue
@@ -360,11 +360,7 @@ VENDOR_MANIFESTS = {
 
 
 def vendor_release(product, opener=urllib.request.urlopen):
-    """Resolve only published Linux artifacts, on an explicit Downloads action.
-
-    These are explicit file downloads, never automatic execution or package installs.
-    No versioned download links are frozen into the catalog.
-    """
+    """Resolve published Linux artifacts only after an explicit install/download action."""
     if product not in VENDOR_MANIFESTS: raise ValueError('Unknown Xetal app.')
     request=urllib.request.Request(VENDOR_MANIFESTS[product],headers={'User-Agent':'HyperFusion-Software/1','Accept':'application/json'})
     with opener(request,timeout=12) as response: raw=response.read(1024*1024+1)
@@ -384,7 +380,7 @@ def vendor_release(product, opener=urllib.request.urlopen):
         choices.append(dict(label=label,filename=filename,sha256=checksum,size=size,
                             url=url(filename),instructions=instructions))
 
-    installer_help='After downloading, open a terminal in Downloads and run sh followed by the .run filename. The installer guides you through setup.'
+    installer_help='Install downloads and verifies the file, grants execute permission and runs setup for you. The app is added to Favorites after installation.'
     appimage_help='After downloading, make the AppImage executable in its file properties, then open it.'
     archive_help='Extract the downloaded archive into a folder, then open run.sh from that folder.'
     platforms=release.get('platforms',{})
@@ -403,8 +399,9 @@ def vendor_release(product, opener=urllib.request.urlopen):
         version=release.get('buildVersion','')
         if release.get('arch')!='x86_64' or not isinstance(version,str) or not re.fullmatch(r'\d+(?:\.\d+){2,4}',version): raise RuntimeError('No published Linux x86_64 release was found.')
         stem=r'ls2026-x86_64_[a-z]+-'+re.escape(version)
-        add(release,'AppImage',stem+r'\.AppImage',lambda _:VENDOR_SITE+'api/d.php?t=a',appimage_help)
-        add(release.get('targz'),'Portable · .tar.gz',stem+r'\.tar\.gz',lambda _:VENDOR_SITE+'api/d.php?t=g',archive_help)
+        add(release.get('targz'),'Install · .tar.gz',stem+r'\.tar\.gz',lambda _:VENDOR_SITE+'api/d.php?t=g',
+            'Install downloads and verifies the archive, unpacks Linux Studio and adds it to your application menu and Favorites.')
+        add(release,'AppImage · download only',stem+r'\.AppImage',lambda _:VENDOR_SITE+'api/d.php?t=a',appimage_help)
     else:
         version=release.get('version','')
         if release.get('app')!=product or release.get('architecture')!='x86_64' or not isinstance(version,str) or not re.fullmatch(r'\d+\.\d+\.\d+',version): raise RuntimeError('No published Linux x86_64 release was found.')

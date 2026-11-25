@@ -1,4 +1,5 @@
 #include "package_install.h"
+#include "../software_actions.h"
 #include "../aur_helpers.h"
 #include "../deb_prerequisites.h"
 
@@ -843,7 +844,8 @@ void MainWindow::installPackageInTerminal(const QString &packageName, const QStr
     }
 
     const QString script = PackageInstall::script(installer, installerName, packageName,
-                                                 skipReview && skipReview->isChecked());
+                                                 skipReview && skipReview->isChecked(),
+                                                 SoftwareActions::pinCommand(HyperPanel::root(), packageName));
     if (!QProcess::startDetached(HyperPanel::terminal(), QStringList() << "-e" << "bash" << "-c" << script)) {
         ui->packageOutputText->setPlainText(tr("Could not open the installation terminal."));
         QMessageBox::warning(this, tr("Terminal Not Found"),

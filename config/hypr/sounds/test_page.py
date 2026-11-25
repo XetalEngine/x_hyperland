@@ -1,5 +1,8 @@
 """Sound previews and UI drafts never overwrite newer choices."""
 import copy
+import json
+import tempfile
+import time
 import os
 from pathlib import Path
 import sys
@@ -40,6 +43,33 @@ class SoundPageTests(unittest.TestCase):
             self.assertEqual(start.call_args.args[1][1:],['question','--preview','--pack','porcelainink','--volume','24'])
             self.assertTrue(self.window.timer.isActive())
             self.window.hide();self.assertFalse(self.window.timer.isActive());self.assertIsNone(self.window.player)
+
+
+class SoundMetadataTests(unittest.TestCase):
+    def test_pack_selection_uses_catalog_durations_and_waveforms(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/'sounds/packs').mkdir(parents=True)
+            packs={name:{'events':{event:{'seconds':seconds,'waveform':[.2]*96}
+                                  for event,seconds in durations.items()}}
+                   for name,durations in {'hp4':{'startup':3.6,'shutdown':1.1},
+                                          'raw':{'startup':2.4,'shutdown':.9}}.items()}
+            (root/'sounds/packs/catalog.json').write_text(json.dumps({'packs':packs}))
+            with patch.object(model,'ROOT',root),patch.object(model,'load',return_value=(dict(copy.deepcopy(model.DEFAULTS),pack='hp4'),None)):
+                page=SoundsPage()
+                try:
+                    page.resize(1000,720);page.show();QT.processEvents()
+                    self.assertIn('Startup · 3.6 s',page.now.text())
+                    self.assertIn('Shutdown · 1.1 s',page.now.text())
+                    self.assertEqual(page.art.seconds(),3.6)
+                    self.assertFalse(page.art.grab().isNull())
+                    page.pick('raw')
+                    self.assertIn('Startup · 2.4 s',page.now.text())
+                    self.assertIn('Shutdown · 0.9 s',page.now.text())
+                    self.assertTrue(page.dirty);self.assertIsNone(page.player)
+                    page.art.catalog={};page.started=time.monotonic();page.tick()
+                    self.assertEqual(page.pack_summary(),'Eight sounds per pack')
+                finally:
+                    page.close();page.deleteLater();QT.sendPostedEvents(None,QEvent.Type.DeferredDelete)
 
 
 if __name__=='__main__':unittest.main()

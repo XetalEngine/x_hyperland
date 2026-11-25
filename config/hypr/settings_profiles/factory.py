@@ -5,7 +5,7 @@ from pathlib import Path
 from . import archive, catalog
 
 LAUNCHER_DEFAULTS = {
-    'favorites.json': {'add': ['xetal-files-computer.desktop', 'kitty.desktop', 'xetal-calculator.desktop'], 'hide': []},
+    'favorites.json': {'add': ['xetal-files-computer.desktop', 'kitty.desktop', 'xetal-calculator.desktop', 'xmusic.desktop'], 'hide': []},
     'shortcuts.json': {'version': 1, 'overrides': {'xetal-calculator.desktop': {'floating': True}}, 'copies': {}},
     'bar-pins.json': {'version': 1, 'pins': []},
     'window.json': {'width': 980, 'height': 720},

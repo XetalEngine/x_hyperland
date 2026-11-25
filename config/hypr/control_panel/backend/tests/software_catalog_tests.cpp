@@ -87,10 +87,41 @@ else:print((p/'packet.json').read_text())
         p->refresh();QTRY_VERIFY(read(root+"/calls").contains("--aur hello --refresh"));
         QVERIFY(write(root+"/aur-fail","1"));search->setText("fixture");QTRY_VERIFY(p->findChild<QLabel *>("catalogNotice")->text().contains("AUR fixture unavailable"));QCOMPARE(grid->model()->rowCount(),0);
     }
+    void vendorInstallRunsSetupAndRefreshesWithoutSaveDialog(){
+        auto value=app("xmusic","Music","vendor");value["name"]="XMusic";packet["apps"]=QJsonArray{value};save();
+        QJsonObject choice{{"label","Installer · .run"},{"size",1024},{"filename","XMusic-fixture.run"},{"url","https://www.xetal.net/community/site/Downloads/xmusic/XMusic-fixture.run"},{"instructions","Install and add to Favorites."}};
+        QVERIFY(write(root+"/vendor.json",QJsonDocument(QJsonObject{{"type","vendor"},{"product","xmusic"},{"version","0.1.2"},{"choices",QJsonArray{choice}}}).toJson()));
+        QVERIFY(write(root+"/control_panel/software_install.py",R"PY(import json,pathlib,sys,time
+p=pathlib.Path(__file__).parent.parent
+(p/'install-call').write_text(' '.join(sys.argv[1:]))
+for event in ({'type':'progress','current':10,'total':10},{'type':'installing','message':'Installing XMusic…'}):
+ print(json.dumps(event),flush=True)
+ time.sleep(.1)
+print(json.dumps({'type':'installed','path':str(p/'xmusic.desktop')}),flush=True)
+)PY"));
+        auto p=page();auto *grid=p->findChild<QListView *>("softwareAppGrid");QTRY_COMPARE(grid->model()->rowCount(),1);
+        QSignalSpy changed(p.get(),&SoftwareCatalogPage::packagesChanged);
+        bool started=false,done=false,sawSave=false;QTimer check;check.setInterval(20);
+        connect(&check,&QTimer::timeout,p.get(),[&]{
+            for(auto *w:qApp->topLevelWidgets())if(qobject_cast<QFileDialog *>(w))sawSave=true;
+            if(auto *progress=p->findChild<QDialog *>("softwareInstallProgress")){
+                auto *status=progress->findChild<QLabel *>("softwareInstallStatus");
+                if(status&&status->text().contains("installed and ready")){done=true;progress->reject();}return;
+            }
+            auto *dialog=p->findChild<QDialog *>("softwareVendorDownloads");if(!dialog)return;
+            auto *formats=dialog->findChild<QComboBox *>("softwareDownloadFormat");if(!formats||!formats->isEnabled()||started)return;
+            auto *button=dialog->findChild<QPushButton *>("catalogAction");QCOMPARE(button->text(),QString("Install"));
+            started=true;QTimer::singleShot(0,button,&QPushButton::click);
+        });check.start();
+        QTimer::singleShot(5000,p.get(),[&]{for(auto *w:qApp->topLevelWidgets())if(auto *dialog=qobject_cast<QDialog *>(w))dialog->reject();});
+        const auto rect=grid->visualRect(grid->model()->index(0,0));QTest::mouseClick(grid->viewport(),Qt::LeftButton,Qt::NoModifier,QPoint(rect.right()-70,rect.bottom()-30));check.stop();
+        QVERIFY(started);QVERIFY(done);QVERIFY(!sawSave);QCOMPARE(changed.count(),1);QVERIFY(openedUrls.isEmpty());
+        QCOMPARE(read(root+"/install-call"),QByteArray("--vendor xmusic"));QTRY_VERIFY(read(root+"/calls").contains("--refresh"));
+    }
     void vendorDownloadsSaveTheFileWithoutOpeningTheBrowser(){
         auto value=app("xmusic","Music","vendor");value["name"]="XMusic";value["website"]="https://www.xetal.net/community/site/?p=xmusic";
         packet["apps"]=QJsonArray{value};save();
-        QJsonObject choice{{"label","Installer · .run"},{"size",1024},{"filename","XMusic-fixture.run"},{"url","https://www.xetal.net/community/site/Downloads/xmusic/XMusic-fixture.run"},{"instructions","Run the downloaded installer when ready."}};
+        QJsonObject choice{{"label","Archive · download only"},{"size",1024},{"filename","XMusic-fixture.tar.gz"},{"url","https://www.xetal.net/community/site/Downloads/xmusic/XMusic-fixture.tar.gz"},{"instructions","Run the downloaded installer when ready."}};
         QVERIFY(write(root+"/vendor.json",QJsonDocument(QJsonObject{{"type","vendor"},{"product","xmusic"},{"version","0.1.2"},{"choices",QJsonArray{choice}}}).toJson()));
         auto p=page();auto *grid=p->findChild<QListView *>("softwareAppGrid");QTRY_COMPARE(grid->model()->rowCount(),1);QVERIFY(!read(root+"/calls").contains("--vendor"));QVERIFY(openedUrls.isEmpty());
         QVERIFY(write(root+"/control_panel/software_download.py",R"PY(import json,pathlib,sys
@@ -109,7 +140,7 @@ print(json.dumps({'type':'downloaded','path':str(p)}),flush=True)
             }
             for(auto *w:qApp->topLevelWidgets())if(auto *file=qobject_cast<QFileDialog *>(w)){
                 if(file->isVisible()){
-                    if(!fileChosen){fileChosen=true;file->setDirectory(root);QTimer::singleShot(40,file,[file]{if(auto *name=file->findChild<QLineEdit *>("fileNameEdit"))name->setText("saved.run");QMetaObject::invokeMethod(file,"accept",Qt::QueuedConnection);});}
+                    if(!fileChosen){fileChosen=true;file->setDirectory(root);QTimer::singleShot(40,file,[file]{if(auto *name=file->findChild<QLineEdit *>("fileNameEdit"))name->setText("saved.tar.gz");QMetaObject::invokeMethod(file,"accept",Qt::QueuedConnection);});}
                     return;
                 }
             }
@@ -120,7 +151,7 @@ print(json.dumps({'type':'downloaded','path':str(p)}),flush=True)
         });check.start();
         QTimer::singleShot(5000,p.get(),[&]{for(auto *w:qApp->topLevelWidgets())if(auto *dialog=qobject_cast<QDialog *>(w))dialog->reject();});
         QTest::qWait(20);const auto rect=grid->visualRect(grid->model()->index(0,0));QTest::mouseClick(grid->viewport(),Qt::LeftButton,Qt::NoModifier,QPoint(rect.right()-70,rect.bottom()-30));check.stop();
-        QVERIFY(offered);QVERIFY(saved);QCOMPARE(QString::fromUtf8(read(root+"/download-target")),root+"/saved.run");QCOMPARE(read(root+"/saved.run"),QByteArray("fixture installer"));QVERIFY(openedUrls.isEmpty());
+        QVERIFY(offered);QVERIFY(saved);QCOMPARE(QString::fromUtf8(read(root+"/download-target")),root+"/saved.tar.gz");QCOMPARE(read(root+"/saved.tar.gz"),QByteArray("fixture installer"));QVERIFY(openedUrls.isEmpty());
         QTRY_COMPARE(QString::fromUtf8(read(root+"/fusion-files-folder")),root+'\n');
         QVERIFY(read(root+"/calls").contains("--vendor xmusic"));QVERIFY(!QFileInfo::exists(root+"/transaction"));
     }

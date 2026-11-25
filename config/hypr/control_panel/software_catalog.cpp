@@ -56,6 +56,46 @@ void saveVendorDownload(QWidget *parent,const QString &root,const SoftwareApp &a
     dialog.exec();worker.disconnect(&dialog);
     if(worker.state()!=QProcess::NotRunning){worker.terminate();if(!worker.waitForFinished(2000)){worker.kill();worker.waitForFinished(1000);}}
 }
+bool installVendorApplication(QWidget *parent,const QString &root,const SoftwareApp &app) {
+    RepositoryDialog dialog(parent);dialog.setObjectName("softwareInstallProgress");dialog.setWindowTitle("Install "+app.name);dialog.resize(580,280);
+    auto *layout=new QVBoxLayout(&dialog);layout->setContentsMargins(24,24,24,24);layout->setSpacing(14);
+    auto *status=words("Checking the latest release…","softwareInstallStatus");layout->addWidget(status);
+    auto *progress=new QProgressBar;progress->setRange(0,0);layout->addWidget(progress);
+    auto *details=new QPlainTextEdit;details->setReadOnly(true);details->setMaximumHeight(140);details->hide();layout->addWidget(details);
+    auto *close=new QPushButton("Cancel download");layout->addWidget(close,0,Qt::AlignRight);
+    QProcess worker;QByteArray buffer;bool installed=false;QString failure;
+    auto receive=[&]{
+        buffer+=worker.readAllStandardOutput();
+        while(buffer.contains('\n')){
+            const int end=buffer.indexOf('\n');const auto value=QJsonDocument::fromJson(buffer.left(end)).object();buffer.remove(0,end+1);
+            const auto type=value["type"].toString();
+            if(type=="progress"){
+                const auto total=qint64(value["total"].toDouble()),current=qint64(value["current"].toDouble());
+                progress->setRange(0,1000);progress->setValue(total>0?int(current*1000/total):0);
+                status->setText("Downloading · "+QLocale().formattedDataSize(current)+" / "+QLocale().formattedDataSize(total));
+            }else if(type=="status"||type=="installing"){
+                status->setText(value["message"].toString());
+                if(type=="installing"){dialog.running=true;close->setEnabled(false);close->setText("Installing…");progress->setRange(0,0);}
+            }else if(type=="installed")installed=true;
+            else if(type=="error")failure=value["message"].toString();
+            else if(type=="log"){details->appendPlainText(value["message"].toString());details->show();}
+        }
+    };
+    QObject::connect(&worker,&QProcess::readyReadStandardOutput,&dialog,receive);
+    QObject::connect(&worker,&QProcess::errorOccurred,&dialog,[&](QProcess::ProcessError error){
+        if(error==QProcess::FailedToStart){dialog.running=false;status->setText("Could not start the installer.");close->setText("Close");close->setEnabled(true);}
+    });
+    QObject::connect(&worker,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),&dialog,[&](int code,QProcess::ExitStatus exit){
+        receive();dialog.running=false;close->setText("Close");close->setEnabled(true);progress->setRange(0,1000);
+        if(!code&&exit==QProcess::NormalExit&&installed){progress->setValue(1000);status->setText(app.name+" is installed and ready to open.");}
+        else {installed=false;status->setText(failure.isEmpty()?"Installation did not complete. Please retry.":failure);}
+    });
+    QObject::connect(close,&QPushButton::clicked,&dialog,&QDialog::reject);
+    worker.start("python3",{root+"/control_panel/software_install.py","--vendor",app.package});
+    dialog.exec();worker.disconnect(&dialog);
+    if(worker.state()!=QProcess::NotRunning){worker.terminate();if(!worker.waitForFinished(7000)){worker.kill();worker.waitForFinished(1000);}}
+    return installed;
+}
 QColor mix(QColor a,QColor b,qreal ratio) {
     return QColor::fromRgbF(a.redF()*(1-ratio)+b.redF()*ratio,a.greenF()*(1-ratio)+b.greenF()*ratio,a.blueF()*(1-ratio)+b.blueF()*ratio);
 }
@@ -155,7 +195,7 @@ public:
         font.setLetterSpacing(QFont::AbsoluteSpacing,0);font.setPixelSize(20);p->setFont(font);p->setPen(QColor("#f2f7ff"));
         wrapped(p,app.name,QRectF(r.left()+20,r.top()+41,r.width()-116,51),font,QColor("#f2f7ff"));
         font.setPixelSize(12);font.setBold(false);wrapped(p,app.tagline.isEmpty()?app.summary:app.tagline,QRectF(r.left()+20,r.top()+97,r.width()-40,34),font,QColor("#c8d8ec"));
-        p->setFont(font);p->setPen(accent);p->drawText(r.adjusted(20,0,-135,-15),Qt::AlignLeft|Qt::AlignBottom,app.source=="vendor"?"Direct download · Linux":sourceName(app));
+        p->setFont(font);p->setPen(accent);p->drawText(r.adjusted(20,0,-135,-15),Qt::AlignLeft|Qt::AlignBottom,app.source=="vendor"?"Install · Linux":sourceName(app));
         const auto button=buttonRect(QRect(QPoint(),opt.rect.size()));p->setPen(Qt::NoPen);p->setBrush(mix(QColor("#112034"),accent,.16));p->drawRoundedRect(button,8,8);
         p->setPen(accent);font.setBold(true);p->setFont(font);p->drawText(button,Qt::AlignCenter,app.action);
         p->setClipping(false);p->setBrush(Qt::NoBrush);bool active=opt.state&(QStyle::State_MouseOver|QStyle::State_Selected|QStyle::State_HasFocus);p->setPen(QPen(active?accent:mix(accent,QColor("#24334a"),.65),active?1.6:1));p->drawPath(clip);p->restore();
@@ -423,7 +463,7 @@ QString SoftwareCatalogPage::aurHelper() const {
 }
 QString SoftwareCatalogPage::actionText(const SoftwareApp &app) const {
     if(app.installed&&!app.desktopFile.isEmpty())return "Open";
-    if(app.source=="vendor")return "Download";
+    if(app.source=="vendor")return "Install";
     if(app.source=="aur"&&aurHelper().isEmpty())return "Enable AUR";
     if(app.source=="pacman"&&!pacman->isChecked())return "Enable Pacman";
     if(!loaded)return "View app";
@@ -532,16 +572,16 @@ void SoftwareCatalogPage::details(const SoftwareApp &app) {
     connect(action,&QPushButton::clicked,&dialog,[this,&dialog,app]{dialog.accept();activate(app);});layout->addLayout(buttons);dialog.exec();
 }
 void SoftwareCatalogPage::vendorDownloads(const SoftwareApp &app) {
-    QDialog dialog(this);dialog.setObjectName("softwareVendorDownloads");dialog.setWindowTitle(app.name+" · Linux downloads");dialog.setMinimumWidth(540);dialog.resize(620,390);dialog.setProperty("xetalWindowSized",true);
+    QDialog dialog(this);dialog.setObjectName("softwareVendorDownloads");dialog.setWindowTitle(app.name+" · Install");dialog.setMinimumWidth(540);dialog.resize(620,390);dialog.setProperty("xetalWindowSized",true);
     auto *layout=new QVBoxLayout(&dialog);layout->setContentsMargins(24,24,24,24);layout->setSpacing(14);
     auto *top=new QHBoxLayout;auto *icon=new QLabel;icon->setPixmap(appIcon(app).pixmap(56));top->addWidget(icon);auto *title=new QVBoxLayout;title->addWidget(words(app.name,"catalogHeading"));auto *status=words("Checking the latest Linux release on xetal.net…");title->addWidget(status);top->addLayout(title,1);layout->addLayout(top);
     auto *choices=new QComboBox;choices->setObjectName("softwareDownloadFormat");choices->setEnabled(false);layout->addWidget(choices);
     auto *filename=words({});filename->setTextInteractionFlags(Qt::TextSelectableByMouse);layout->addWidget(filename);
-    auto *instructions=words("Choose a format and save the file. Software checks the download before making it available.");layout->addWidget(instructions);layout->addStretch();
+    auto *instructions=words("Install for your account and add the app to Favorites.");layout->addWidget(instructions);layout->addStretch();
     auto *buttons=new QHBoxLayout;auto *site=new QPushButton("Official downloads ↗");buttons->addWidget(site);
     connect(site,&QPushButton::clicked,&dialog,[app]{QUrl url(app.website);url.setFragment("download");if(url.scheme()=="https"&&url.host()=="www.xetal.net")QDesktopServices::openUrl(url);});
     auto *retry=new QPushButton("Retry");retry->hide();buttons->addWidget(retry);buttons->addStretch();auto *close=new QPushButton("Close");buttons->addWidget(close);connect(close,&QPushButton::clicked,&dialog,&QDialog::reject);
-    auto *download=new QPushButton("Download");download->setObjectName("catalogAction");download->setEnabled(false);buttons->addWidget(download);layout->addLayout(buttons);
+    auto *download=new QPushButton("Install");download->setObjectName("catalogAction");download->setEnabled(false);buttons->addWidget(download);layout->addLayout(buttons);
     QProcess worker;QTimer timeout;timeout.setSingleShot(true);timeout.setInterval(18000);QByteArray buffer;
     auto load=[&]{if(worker.state()!=QProcess::NotRunning)return;buffer.clear();retry->hide();choices->clear();choices->setEnabled(false);download->setEnabled(false);status->setText("Checking the latest Linux release on xetal.net…");timeout.start();worker.start("python3",{root+"/control_panel/software_catalog.py","--vendor",app.package});};
     connect(retry,&QPushButton::clicked,&dialog,load);
@@ -558,8 +598,13 @@ void SoftwareCatalogPage::vendorDownloads(const SoftwareApp &app) {
         choices->setEnabled(choices->count()>0);download->setEnabled(choices->count()>0);
         status->setText(choices->count()?"Linux · version "+data["version"].toString()+" · from xetal.net":"No Linux download is available. Try the official downloads page.");
     });
-    connect(choices,qOverload<int>(&QComboBox::currentIndexChanged),&dialog,[&]{const auto choice=choices->currentData().toMap();filename->setText(choice["filename"].toString());instructions->setText(choice["instructions"].toString());});
-    connect(download,&QPushButton::clicked,&dialog,[&]{saveVendorDownload(&dialog,root,app,choices->currentData().toMap());});
+    connect(choices,qOverload<int>(&QComboBox::currentIndexChanged),&dialog,[&]{const auto choice=choices->currentData().toMap();filename->setText(choice["filename"].toString());instructions->setText(choice["instructions"].toString());
+        const auto file=choice["filename"].toString();download->setText(file.endsWith(".run")||(app.package=="linuxstudio"&&file.endsWith(".tar.gz"))?"Install":"Download only");});
+    connect(download,&QPushButton::clicked,&dialog,[&]{
+        if(download->text()=="Install"){
+            if(installVendorApplication(&dialog,root,app)){requestCatalog(true);emit packagesChanged();dialog.accept();}
+        }else saveVendorDownload(&dialog,root,app,choices->currentData().toMap());
+    });
     load();dialog.exec();timeout.stop();worker.disconnect(&dialog);if(worker.state()!=QProcess::NotRunning){worker.kill();worker.waitForFinished(1000);}
 }
 void SoftwareCatalogPage::activate(const SoftwareApp &app) {
@@ -583,7 +628,7 @@ void SoftwareCatalogPage::activate(const SoftwareApp &app) {
     prompt.setTextFormat(Qt::PlainText);prompt.setProperty("xetalWindowSized",true);
     prompt.setInformativeText(helper=="pacman"?"Review the full package transaction in the terminal. Pending system updates are included.":"Review the community build files and package transaction in the terminal.");
     if(prompt.exec()!=QMessageBox::Yes)return;
-    qint64 pid=0;const QString script=PackageInstall::script(helper,helper=="pacman"?"Pacman":helper=="yay"?"Yay":"Paru",target,false);
+    qint64 pid=0;const QString script=PackageInstall::script(helper,helper=="pacman"?"Pacman":helper=="yay"?"Yay":"Paru",target,false,SoftwareActions::pinCommand(root,target));
     if(!QProcess::startDetached(terminal,{"-e","bash","-c",script},{},&pid)){notice->setText("Could not open the installation terminal.");notice->show();return;}
     notice->setText("Review and confirm the installation in the terminal.");notice->show();
     TerminalExit::watch(this,pid,[this]{requestCatalog(true);emit packagesChanged();});

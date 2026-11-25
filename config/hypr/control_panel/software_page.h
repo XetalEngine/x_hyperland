@@ -32,7 +32,7 @@ protected:
     bool eventFilter(QObject *object, QEvent *event) override;
 private:
     QWidget *legacy;
-    QString terminal;
+    QString root, terminal;
     QTabWidget *sections;
     SoftwareCatalogPage *browser;
     QTableWidget *installed;

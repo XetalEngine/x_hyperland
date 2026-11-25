@@ -36,7 +36,7 @@ class SoundArt(QWidget):
             tint=QColor(color);tint.setAlpha(230 if self.position<0 or i/len(values)<=self.position else 65)
             painter.setPen(QPen(tint,max(1.5,step*.48),Qt.PenStyle.SolidLine,Qt.PenCapStyle.RoundCap))
             x=area.x()+i*step;painter.drawLine(int(x),int(area.center().y()-height/2),int(x),int(area.center().y()+height/2))
-    def seconds(self): return self.catalog.get(self.pack,{}).get('events',{}).get(self.event,{}).get('seconds',4.15)
+    def seconds(self,event=None): return self.catalog.get(self.pack,{}).get('events',{}).get(event or self.event,{}).get('seconds',0.)
 
 
 class PackCard(QPushButton):
@@ -120,16 +120,21 @@ class SoundsPage(QWidget):
         self.loading=False;self.changed()
     def changed(self):
         self.dirty=self.draft!=self.baseline;self.apply.setEnabled(self.dirty);self.discard.setEnabled(self.dirty)
-        self.readout.setText(str(self.draft['volume'])+'%');pack=model.resolve(self.draft['pack']);self.art.pack=pack;self.art.update()
+        self.readout.setText(str(self.draft['volume'])+'%');pack=model.resolve(self.draft['pack']);previous=self.art.pack;self.art.pack=pack;self.art.update()
         for key,card in self.cards.items():card.setChecked(key==pack);card.update()
         title,motif,description,_=model.PACKS[pack];self.name.setText(title+' · '+motif);self.description.setText(description)
         self.stop.setEnabled(self.player is not None)
+        if previous!=pack and self.player is None:self.now.setText(self.pack_summary())
+    def pack_summary(self):
+        startup,shutdown=self.art.seconds('startup'),self.art.seconds('shutdown')
+        return (f'Startup · {startup:g} s   /   Shutdown · {shutdown:g} s   /   Eight sounds per pack'
+                if startup and shutdown else 'Eight sounds per pack')
     def refresh(self,force=False):
         if self.dirty and not force:return
         try:
             self.baseline,self.token=model.load();self.fill(self.baseline)
             self.status.setText('Sounds follow '+model.PACKS[model.resolve(self.draft['pack'])][0]+'.' if self.draft['pack']=='follow' else 'Your independent sound pack is saved.')
-            self.now.setText('Startup · 4.15 s   /   Shutdown · 3.05 s   /   Eight sounds per pack')
+            self.now.setText(self.pack_summary())
         except (OSError,ValueError) as exc:self.status.setText(str(exc))
     def save(self):
         try:
@@ -144,7 +149,7 @@ class SoundsPage(QWidget):
         process.start(sys.executable,[str(model.ROOT/'sounds/play.py'),event,'--preview','--pack',model.resolve(self.draft['pack']),'--volume',str(self.draft['volume'])])
         self.timer.start();self.changed()
     def tick(self):
-        self.art.position=min(1,(time.monotonic()-self.started)/self.art.seconds());self.art.update()
+        self.art.position=min(1,(time.monotonic()-self.started)/max(.01,self.art.seconds()));self.art.update()
     def finished(self,process,code):
         if self.player is not process:return
         error=bytes(process.readAllStandardError()).decode(errors='replace').strip()

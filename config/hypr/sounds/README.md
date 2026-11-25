@@ -2,7 +2,8 @@
 
 Fusion Settings → Audio → System Audio previews eight original sounds for each
 bundled sound pack. Audio → Devices contains the output, microphone and
-per-application mixer. Startup is 4.15 seconds; shutdown is 3.05 seconds. The other
+per-application mixer. All 33 themes use the owner's replacement sound collection,
+encoded as MP3. Startup is 3.6 seconds; shutdown is 1.1 seconds. The other
 six cues are Error, Exclamation, Information, Question, Success and Notification.
 
 Fresh installs enable sounds at 35%, follow the desktop theme and respect SwayNC
@@ -39,9 +40,32 @@ Only bundled filenames are playable. PipeWire `pw-play` is preferred, with
 socket, and terminates only its own audio process. Missing audio never prevents
 normal notifications or a confirmed session action.
 
-The Ogg files are original compositions and synthesis, under the repository's
-MIT license; they contain no third-party samples or songs. From the repository,
-`python3 tools/generate_sound_packs.py` regenerates them with NumPy and FFmpeg.
-`python3 tools/check_sound_packs.py` checks decoded duration, headroom, quiet edges,
-stereo format, unique assets and catalog hashes. These are authoring tools, not
-runtime dependencies. The catalog also contains the actual waveform previews.
+The supplied collection contains 264 original synthesized cues and 33 combined
+preview tracks. Its [source notes](packs/SOURCE.txt) describe the recordings.
+The desktop ships the eight individual cues per theme; combined previews remain
+in the converted download collection. `information.wav` maps to `info.mp3` and
+`exclamation.wav` maps to `warning.mp3`, preserving existing event preferences.
+
+The MP3 files use LAME VBR quality 4 at 44.1 kHz stereo. Encoding preserves the
+source duration and levels, with no normalization, trimming or resampling. The
+catalog includes source/output hashes and waveform previews measured from the
+decoded MP3. The settings page reads durations from that catalog. Playback prefers
+MP3 but accepts older Ogg assets while an installation is being updated.
+
+To convert the original collection again, choose a new output folder:
+
+```bash
+python3 tools/import_sound_packs.py /path/to/HyperFusion_Theme_Sounds /path/to/new-mp3-folder --install
+python3 tools/check_sound_packs.py
+```
+
+The converter preserves the WAV masters and converts all 297 files, including
+combined previews. `--install` replaces the repository's sound assets after all
+conversions succeed. The checker validates decoded duration, headroom, boundary
+samples, stereo format, waveform data and hashes. Both require NumPy and FFmpeg
+only during authoring. Runtime uses the existing PipeWire/PulseAudio tools.
+
+`tools/generate_sound_packs.py` retains the previous procedural scores for future
+authoring; it does **not** reproduce this replacement collection. Use its
+`--output` option to create drafts. It refuses to overwrite existing MP3 packs
+unless `--replace` is explicitly supplied.

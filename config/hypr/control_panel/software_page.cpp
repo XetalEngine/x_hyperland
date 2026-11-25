@@ -3,6 +3,7 @@
 #include "software_catalog.h"
 #include "native.h"
 #include "backend/package_install.h"
+#include "software_actions.h"
 #include "terminal_exit.h"
 #include <QtWidgets>
 
@@ -47,7 +48,7 @@ public:
 }
 
 SoftwarePage::SoftwarePage(QWidget *legacy, const QString &root, const QString &terminal, QWidget *parent)
-    : QWidget(parent), legacy(legacy), terminal(terminal) {
+    : QWidget(parent), legacy(legacy), root(root), terminal(terminal) {
     setObjectName("softwareTab");
     setStyleSheet(
         "QWidget#softwareTab,QWidget#softwareRepairCanvas {background:transparent;}"
@@ -313,6 +314,6 @@ void SoftwarePage::reinstallPackage() {
     confirmation.setInformativeText("Repositories will be refreshed and pending system updates included. Review the full transaction in the terminal.");
     if (confirmation.exec() != QMessageBox::Yes) return;
     qint64 pid = 0;
-    if (!QProcess::startDetached(terminal, {"-e", "bash", "-c", PackageInstall::script("pacman", "Pacman", package, false)}, {}, &pid)) { installedStatus->setText("Could not open the installation terminal."); return; }
+    if (!QProcess::startDetached(terminal, {"-e", "bash", "-c", PackageInstall::script("pacman", "Pacman", package, false, SoftwareActions::pinCommand(root,package))}, {}, &pid)) { installedStatus->setText("Could not open the installation terminal."); return; }
     installedStatus->setText("Reinstallation opened in the terminal. Review the changes there."); TerminalExit::watch(this, pid, [this] { refreshInstalled(); });
 }

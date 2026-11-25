@@ -8,11 +8,11 @@ class PackageInstall {
     Q_DECLARE_TR_FUNCTIONS(PackageInstall)
 public:
     static QString script(const QString &installer, const QString &installerName,
-                          const QString &packageName, bool skipReview);
+                          const QString &packageName, bool skipReview, const QString &afterSuccess = {});
 };
 
 inline QString PackageInstall::script(const QString &installer, const QString &installerName,
-                                       const QString &packageName, bool skipReview) {
+                                       const QString &packageName, bool skipReview, const QString &afterSuccess) {
     QString command;
     if (installer == "pacman") {
         command = "sudo pacman -Syu -- " + shQuote(packageName);
@@ -55,6 +55,7 @@ inline QString PackageInstall::script(const QString &installer, const QString &i
           "printf '\\n'\n"
           "if [ \"$package_install_status\" -eq 0 ]; then\n"
           "  printf '%s\\n' " + shQuote(tr("Installation completed successfully.")) + "\n"
+        + (afterSuccess.isEmpty()?QString():afterSuccess+"\n") +
           "else\n"
           "  printf '%s\\n' " + shQuote(tr("Installation did not complete. Check the output above.")) + "\n"
           "fi\n"

@@ -123,6 +123,7 @@ class RuleDialog(QDialog):
         self.preview_dirty=False;self.valid=False;self.remove_override=False
         self.color_dialog=None;self.background_color=rules.DEFAULTS['background_color'];self.picking=False
         self.setWindowTitle('Window controls');self.setMinimumWidth(540);self.resize(640,790)
+        self.setSizeGripEnabled(True)
         outer=QVBoxLayout(self);tabs=QTabWidget();outer.addWidget(tabs)
         controls=QWidget();tabs.addTab(controls,'Controls')
         self.rule_page=RulesPage(self);tabs.addTab(self.rule_page,'Window Rules')

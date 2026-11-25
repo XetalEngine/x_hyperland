@@ -2,7 +2,8 @@
   "add": [
     "xetal-files-computer.desktop",
     "kitty.desktop",
-    "xetal-calculator.desktop"
+    "xetal-calculator.desktop",
+    "xmusic.desktop"
   ],
   "hide": []
 }

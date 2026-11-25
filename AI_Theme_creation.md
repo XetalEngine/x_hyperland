@@ -190,9 +190,13 @@ verify every thumbnail is visible and existing selections survive switching.
 
 ## Sounds
 
-Register `sounds/model.py` and add an original score/voice to the repository's
-`tools/generate_sound_packs.py`. Generate the pack by ID and include its catalog
-metadata plus all eight cues (startup, shutdown, error, warning, information,
+Register `sounds/model.py` and provide MP3 assets with decoded catalog metadata.
+The current 33 themes use the owner's `HyperFusion_Theme_Sounds` collection;
+`tools/import_sound_packs.py` converts that collection without changing its WAV
+masters. Do not regenerate those packs with the legacy score generator.
+For a new synthesized pack, add an original score/voice to
+`tools/generate_sound_packs.py` and render into an authoring folder using
+`--output`. Include all eight cues (startup, shutdown, error, warning, info,
 question, success and notification). Use bounded volume, short duration, fades and no abrupt
 clipping. Existing event enable switches, volume and selected sound pack must be
 preserved unless the user selects Sounds in Apply preset.
@@ -206,7 +210,8 @@ python3 config/hypr/theme/build.py
 python3 config/hypr/cursors/build.py
 python3 config/hypr/effects/cube/build.py
 python3 config/hypr/effects/minimize/build.py
-python3 tools/generate_sound_packs.py YOUR_THEME_ID
+python3 tools/generate_sound_packs.py YOUR_THEME_ID --output /tmp/fusion-sound-draft
+python3 tools/check_sound_packs.py
 ```
 
 Only rebuild affected native components. Do not bypass the pinned compositor

@@ -84,15 +84,23 @@ repositories enabled in the machine's Pacman configuration are shown, with their
 normal priority. The ISO enables multilib, and the catalog reports that state.
 
 The four Xetal apps use the host's published Linux releases, independently of
-Pacman/AUR. **Download** checks the current release on xetal.net and offers the
-published installer, AppImage or archive. Installed Xetal apps also expose
-**Linux downloads…** in their details. **Download** opens a save dialog and shows
-progress inside Software. The file's byte count and SHA-256 are checked against
-the published release before it replaces the destination. Cancelled or failed
-downloads discard the partial file and preserve an existing download. Format-specific
-instructions appear on completion; **Open folder** opens the download location in
-Fusion Files. Downloaded programs are not executed automatically.
-The host remains responsible for publishing these apps and their updates.
+Pacman/AUR. **Install** checks the latest release, downloads privately and verifies
+its byte count and SHA-256 before installation. `.run` files receive execute
+permission and run automatically; Echo opens its own setup wizard. Linux Studio
+uses the tarball, installs under `~/.local/opt/LinuxStudio`, and receives a menu
+launcher. Progress and installation errors stay visible in Software.
+
+Successful installations add their app launchers to **Favorites**. This also
+applies to Pacman, Yay, Paru and converted `.deb` packages; libraries and hidden
+helper launchers are skipped. Existing favorites and their arrangement are kept.
+Fresh desktop installs include **XMusic**, pinned and registered as the default
+player for the audio formats it supports. Its verified installer is bundled so
+setup also works offline. Existing desktops keep their chosen music player.
+
+AppImage and optional portable formats remain available as **Download only**.
+These use a save dialog and do not execute the download. Cancelled or failed
+downloads discard the partial file and preserve an existing download. **Open
+folder** opens the destination in Fusion Files. The host publishes app updates.
 
 Browsing and local search read Pacman databases and Arch AppStream metadata.
 Icons are loaded locally, and a virtualized grid paints visible cards without

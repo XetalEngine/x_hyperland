@@ -404,6 +404,8 @@ def install(deb, *, check_only=False, convert_only=None):
         verify_installation(identity,required)
         verify_installed_recipe(fields['package'])
     print('\n== Installed successfully: '+' '.join(identity)+'. Package registration and files verified.',flush=True)
+    from software_favorites import package_installed
+    package_installed(identity[0])
 
 
 def main(argv=None):

@@ -284,3 +284,5 @@ Add `--files-only` to `tests/check-file-drag-and-close.py` for file transfers,
 changing Ctrl mid-drag, replacement confirmation, view menus and real Ark ZIP/tar.gz
 extraction. Its host-facing input devices are disabled only in the private test
 compositor so ordinary desktop pointer movement cannot interfere with the checks.
+
+The Window controls editor always opens as a centered, resizable floating dialog. Its `fusion-window-controls` rule owns placement, so stale tiled/maximized window-memory records cannot expand it across a KDE workspace. The bottom corner also provides a resize grip. Regression: `tests/check-window-controls.py` maps the real dialog in an isolated compositor with stale saved states.

@@ -8,6 +8,9 @@
 #include "backend/script_helpers.h"
 
 namespace SoftwareActions {
+inline QString pinCommand(const QString &root,const QString &package) {
+    return "python3 "+shQuote(root+"/control_panel/software_favorites.py")+" --package "+shQuote(package);
+}
 inline QString removePackage(const QString &name) {
     static const QRegularExpression valid("^[a-zA-Z0-9@_+][a-zA-Z0-9@_.+\\-]*$");
     if(!valid.match(name).hasMatch())return {};

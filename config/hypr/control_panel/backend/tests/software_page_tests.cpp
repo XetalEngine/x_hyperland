@@ -72,6 +72,15 @@ private slots:
         QVERIFY(f.findChild<QPushButton *>("pacDocOpenNew")->isEnabled());
         f.resize(780, 700); QTest::qWait(30); QCOMPARE(f.findChild<QScrollArea *>("softwareRepairScroll")->horizontalScrollBar()->maximum(), 0);
     }
+    void favoritesHookRunsOnlyAfterSuccessfulTransaction(){
+        const auto helper=files.filePath("fixture-helper"),marker=files.filePath("favorite-added");
+        for(int code:{1,0}){
+            QFile::remove(marker);QVERIFY(write(helper,("#!/bin/sh\nexit "+QString::number(code)+"\n").toUtf8(),true));
+            const auto script=PackageInstall::script(helper,"Fixture","app",false,"printf added > "+shQuote(marker));
+            QProcess worker;worker.start("/bin/bash",{"-c",script});QVERIFY(worker.waitForStarted());worker.write("\n");worker.closeWriteChannel();QVERIFY(worker.waitForFinished());
+            QCOMPARE(worker.exitCode(),code);QCOMPARE(QFileInfo::exists(marker),code==0);
+        }
+    }
     void parsesMetadataAndUsesOneCompleteTransaction() {
         auto values = SoftwarePackages::parse(packages); QCOMPARE(values.size(), 2); QCOMPARE(values[0].bytes, qint64(2097152));
         QCOMPARE(SoftwarePackages::sizeBytes("bad"), qint64(0)); QCOMPARE(SoftwarePackages::sizeBytes("-1 MiB"), qint64(0));

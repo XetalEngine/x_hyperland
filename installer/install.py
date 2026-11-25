@@ -21,6 +21,7 @@ import runtime_install
 import login_setup
 import commands
 import settings_factory
+import default_software
 
 REPO=Path(__file__).resolve().parents[1]
 PAYLOAD=REPO/'config/hypr'
@@ -457,6 +458,7 @@ def main():
             try:
                 commands.install()
                 login_setup.apply(args.fusion_login, target, args.skip_packages)
+                if first_install: default_software.install(target)
                 settings_factory.record(target, first_install, args.skip_packages)
             except BaseException:
                 # Keep the old desktop paired with any compositor recovery.

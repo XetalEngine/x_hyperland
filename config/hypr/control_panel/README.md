@@ -80,8 +80,8 @@ licenses and tests.
 **Browse** has a category tree, virtualized app cards and six featured banners:
 Echo, Linux Studio, XMusic, Xetal Video Editor, Discord and Chrome. Pacman is the
 default; remembered Yay/Paru checkboxes add the shared AUR search without duplicate
-requests. Xetal app downloads resolve published Linux artifacts on demand from
-the host. **Installed** and **Repair** retain the existing reviewed transactions
+requests. Xetal app installs resolve published Linux artifacts on demand from
+the host, verify them, then run `.run` setup or install Linux Studio’s tarball. **Installed** and **Repair** retain the existing reviewed transactions
 and guarded actions. Existing `--section pacman`, `remove` and `repair` aliases
 still work. See [the Software guide](../../../docs/CONTROL-PANEL.md#software-catalog).
 
@@ -90,7 +90,13 @@ packages, desktop launchers and local AppStream XML/icons. It writes an atomic,
 fingerprinted cache below `$XDG_CACHE_HOME/hyper-fusion/software`, emits cached
 metadata before revalidation, and retains usable data when refresh fails. AUR is
 an explicit, debounced search with bounded responses and a six-hour cache. Vendor
-release resolution is an explicit download action; it never runs an installer.
+release resolution is read-only. `software_install.py` handles an explicit Install
+action, verifies private download bytes, executes setup and reports completion.
+`software_favorites.py` pins only visible launchers after successful installs;
+Pacman/Yay/Paru and `.deb` transactions use the same completion hook. XMusic’s
+pinned offline installer lives under `installer/packages/xmusic` and fresh setup
+registers its supported audio formats. Download-only choices keep the existing
+non-executing save flow.
 `software/catalog.json` owns the category tree and curated picks. Branding reuses
 the existing Startup project icons and .deb app icons. Arch setup includes
 `archlinux-appstream-data` and `kimageformats` for catalog data and cached icons.

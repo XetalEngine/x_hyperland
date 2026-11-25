@@ -268,7 +268,7 @@
         "Development",
         "IDE"
       ],
-      "desktop_id": "linux-studio-2026.desktop",
+      "desktop_id": "linux-studio.desktop",
       "accent": "#a59cff",
       "source": "vendor",
       "kind": "app",
@@ -276,7 +276,10 @@
       "website": "https://www.xetal.net/community/site/?p=linuxstudio",
       "featured": true,
       "essential": true,
-      "featured_order": 1
+      "featured_order": 1,
+      "desktop_aliases": [
+        "linux-studio-2026.desktop"
+      ]
     },
     {
       "id": "vendor/xmusic",

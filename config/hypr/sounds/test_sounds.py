@@ -38,6 +38,16 @@ class SoundTests(unittest.TestCase):
                 self.assertEqual(model.resolve('raw',root),'raw')
             with self.assertRaises(ValueError):model.asset('raw','../error',root)
 
+    def test_mp3_replaces_ogg_and_old_installations_remain_playable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);pack=root/'sounds/packs/raw';pack.mkdir(parents=True)
+            ogg=pack/'warning.ogg';ogg.write_bytes(b'old asset')
+            self.assertEqual(model.asset('raw','warning',root),ogg)
+            mp3=pack/'warning.mp3';mp3.write_bytes(b'new asset')
+            self.assertEqual(model.asset('raw','warning',root),mp3)
+            ogg.unlink();self.assertEqual(model.asset('raw','warning',root),mp3)
+            with self.assertRaises(ValueError):model.asset('../raw','warning',root)
+
     def test_notification_hints_suppression_and_replacements(self):
         cases=[({},'notification'),({'SWAYNC_URGENCY':'Critical'},'error'),
             ({'SWAYNC_SOUND_NAME':'dialog-warning'},'warning'),({'SWAYNC_SOUND_NAME':'dialog-information'},'info'),

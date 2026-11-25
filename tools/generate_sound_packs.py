@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Author Fusion's original miniatures. Build-only: Python + NumPy + FFmpeg.
+"""Author legacy synthesized miniatures. Build-only: Python + NumPy + FFmpeg.
 
 No samples, recordings, pretrained audio or third-party melodies are used.
 The compositions, synthesis and resulting audio are covered by the repo's MIT
-license. Runtime only needs the committed Ogg files and PipeWire/PulseAudio.
+license. Runtime only needs the committed MP3 files and PipeWire/PulseAudio.
+This synthesizer does not reproduce the owner-supplied replacement collection.
 """
+import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -252,30 +254,39 @@ def score(pack, event):
     return audio
 
 
-def main(selected=None):
+def main(selected=None, output=None, replace=False):
     if selected and set(selected)-PACKS.keys():raise ValueError('Unknown sound pack.')
-    output=ROOT/'sounds/packs';manifest={'version':1,'sample_rate':RATE,'license':'MIT','packs':{}}
-    if selected and (output/'catalog.json').is_file():manifest=json.loads((output/'catalog.json').read_text())
+    output=Path(output or ROOT/'sounds/packs')
+    if not replace and any((output/pack/(event+'.mp3')).exists() for pack in selected or PACKS for event in EVENTS):
+        raise FileExistsError('Sound packs already exist. Use --output for authoring; --replace explicitly replaces them with the legacy score.')
+    manifest={'version':2,'format':'mp3','sample_rate':RATE,'license':'MIT','packs':{}}
+    if (output/'catalog.json').is_file():manifest=json.loads((output/'catalog.json').read_text())
     for pack,(_,title,description,_) in PACKS.items():
         if selected and pack not in selected:continue
         target=output/pack;target.mkdir(parents=True,exist_ok=True)
         info={'title':title,'description':description,'events':{}}
         for event in EVENTS:
-            audio=score(pack,event);destination=target/(event+'.ogg')
+            audio=score(pack,event);destination=target/(event+'.mp3')
             with tempfile.TemporaryDirectory(prefix='fusion-audio-') as tmp:
                 wav=Path(tmp)/'source.wav'
                 with wave.open(str(wav),'wb') as stream:
                     stream.setnchannels(2);stream.setsampwidth(2);stream.setframerate(RATE)
                     stream.writeframes((audio*32767).round().astype('<i2').tobytes())
                 subprocess.run(['ffmpeg','-v','error','-nostdin','-y','-i',str(wav),'-map_metadata','-1',
-                    '-c:a','libvorbis','-q:a','5','-metadata','artist=Xetal Fusion',
+                    '-c:a','libmp3lame','-q:a','4','-metadata','artist=Xetal Fusion',
                     '-metadata','title='+title+' · '+event,'-metadata','copyright=MIT · XetalEngine',str(destination)],check=True)
-            envelope=[round(float(np.max(np.abs(chunk))),4) for chunk in np.array_split(audio,96)]
-            info['events'][event]={'seconds':len(audio)/RATE,'peak_dbfs':round(float(20*np.log10(np.max(np.abs(audio)))),2),'waveform':envelope,
+            decoded=subprocess.check_output(['ffmpeg','-v','error','-nostdin','-i',str(destination),'-f','f32le','-'])
+            samples=np.frombuffer(decoded,dtype='<f4').reshape(-1,2)
+            envelope=[round(float(np.max(np.abs(chunk))),4) for chunk in np.array_split(samples,96)]
+            info['events'][event]={'seconds':len(samples)/RATE,'sample_rate':RATE,'channels':2,'peak_dbfs':round(float(20*np.log10(np.max(np.abs(samples)))),2),'waveform':envelope,
                 'sha256':hashlib.sha256(destination.read_bytes()).hexdigest()}
         manifest['packs'][pack]=info
         print(pack+': 8 original sounds',flush=True)
     (output/'catalog.json').write_text(json.dumps(manifest,indent=2,ensure_ascii=False)+'\n')
 
 
-if __name__=='__main__':main(sys.argv[1:] or None)
+if __name__=='__main__':
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('packs',nargs='*');parser.add_argument('--output',type=Path)
+    parser.add_argument('--replace',action='store_true')
+    args=parser.parse_args();main(args.packs or None,args.output,args.replace)

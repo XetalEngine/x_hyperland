@@ -224,7 +224,7 @@ assert m['fire_indicator']
 
     def test_fresh_favorites_include_my_computer_and_bundled_apps(self):
         self.render()
-        expected = {'add': ['xetal-files-computer.desktop', 'kitty.desktop', 'xetal-calculator.desktop'], 'hide': []}
+        expected = {'add': ['xetal-files-computer.desktop', 'kitty.desktop', 'xetal-calculator.desktop', 'xmusic.desktop'], 'hide': []}
         self.assertEqual(json.loads((self.stage/'launcher/favorites.json').read_text()), expected)
         self.assertEqual(json.loads((install.PAYLOAD/'launcher/favorites.json').read_text()), expected)
         self.assertEqual(json.loads((self.stage/'launcher/shortcuts.json').read_text()),

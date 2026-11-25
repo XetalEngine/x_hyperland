@@ -9,7 +9,6 @@ import tempfile
 
 import gi
 from gi.repository import Gio
-import shortcuts
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCAL = ROOT / 'launcher/favorites.json'
@@ -98,6 +97,7 @@ def pin(app_id, enabled):
 
 
 def applications():
+    import shortcuts
     pinned = set(favorites())
     result = {}
     for app in Gio.AppInfo.get_all():
