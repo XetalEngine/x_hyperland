@@ -41,7 +41,7 @@ from home_page import HomePage
 from system_page import SystemPage
 from identity import Avatar
 from icons import icon as navigation_icon
-from terminal_fetch.page import TerminalPage
+from terminal_fetch.settings_page import TerminalPage
 from recording.page import CapturePage
 from default_apps_page import DefaultAppsPage
 from settings_profiles.page import DefaultSettingsPage

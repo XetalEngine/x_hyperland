@@ -1,0 +1,38 @@
+# Semantic colors use Kitty's active theme palette (ANSI 0–15).
+bleopt highlight_syntax=$([[ $FUSION_SYNTAX_HIGHLIGHTING == 1 ]] && printf 1)
+bleopt highlight_filename=$([[ $FUSION_SYNTAX_HIGHLIGHTING == 1 ]] && printf 1)
+bleopt highlight_variable=$([[ $FUSION_SYNTAX_HIGHLIGHTING == 1 ]] && printf 1)
+bleopt complete_auto_complete=$([[ $FUSION_AUTOSUGGESTIONS == 1 ]] && printf 1)
+bleopt complete_auto_history=$([[ $FUSION_AUTOSUGGESTIONS == 1 ]] && printf 1)
+bleopt complete_auto_delay="$FUSION_SUGGESTION_DELAY"
+bleopt complete_menu_complete=$([[ $FUSION_COMPLETION_MENU == 1 ]] && printf 1)
+bleopt complete_menu_filter=$([[ $FUSION_COMPLETION_MENU == 1 ]] && printf 1)
+bleopt complete_ambiguous=$([[ $FUSION_COMPLETION_FUZZY == 1 ]] && printf 1)
+bleopt complete_menu_style=desc
+bleopt complete_menu_maxlines=10
+bleopt history_share=$([[ $FUSION_HISTORY_SHARE == 1 && $FUSION_HISTORY_ENABLED == 1 ]] && printf 1)
+bleopt edit_bell=vbell
+bleopt exec_errexit_mark=
+bleopt exec_elapsed_mark=
+bleopt exec_exit_mark=
+bleopt prompt_eol_mark=
+ble-face -s syntax_command fg=4,bold
+ble-face -s command_file fg=2,bold
+ble-face -s command_builtin fg=4,bold
+ble-face -s command_alias fg=6,bold
+ble-face -s command_function fg=4,bold
+ble-face -s command_keyword fg=5,bold
+ble-face -s argument_option fg=6
+ble-face -s syntax_quoted fg=3
+ble-face -s syntax_quotation fg=3,bold
+ble-face -s syntax_varname fg=5
+ble-face -s syntax_param_expansion fg=5
+ble-face -s syntax_brace fg=5,bold
+ble-face -s syntax_delimiter fg=5,bold
+ble-face -s syntax_error fg=1,underline
+ble-face -s argument_error fg=1,underline
+ble-face -s auto_complete fg=8
+ble-face -s syntax_comment fg=8
+ble-face -s filename_directory fg=4,underline
+ble-bind -m emacs -k up history-search-backward
+ble-bind -m emacs -k down history-search-forward

@@ -1,10 +1,17 @@
 # Dependencies and portability
 
+**Supported distributions: Arch Linux and CachyOS only.** Current installation testing has confirmed both working. **Support for Manjaro, Fedora and Debian has been dropped.** Other distribution recipes and package names below are legacy reference material, not maintained compatibility claims. See the [current support policy](../README.md#supported-distributions).
+
+The enhanced Kitty terminal bundles pinned **ble.sh** and **bash-completion**
+shell sources. It uses Bash and the standard tools already supplied by Setup,
+including gawk; no startup download or new shell package is needed. See the
+[Terminal guide](TERMINAL.md) and [vendor manifest](../config/hypr/terminal_fetch/vendor/manifest.json).
+
 Run `./x_hyperinstall.sh --check` before installing. The package recipes are in [`installer/dependencies.py`](../installer/dependencies.py); the same file checks executable versions, Python imports, development libraries, Qt private headers and the portal/authentication helpers.
 
 | Area | Required components |
 | --- | --- |
-| Desktop | Exact distribution runtime and commit from the manifest: Arch 0.57.2; Fedora 44/Debian 13 0.56.2. Hyprpaper 0.8+, Hyprlock, Waybar 0.15+, Kitty 0.49+ (0.47.1+ on Fedora 44, 0.48.2+ on Debian 13), Dolphin, Konsole's Qt 6 embedded terminal, SwayNotificationCenter |
+| Desktop | Exact Arch Linux/CachyOS runtime and commit from the manifest: Hyprland 0.57.2. Hyprpaper 0.8+, Hyprlock, Waybar 0.15+, Kitty 0.49+, Dolphin, Konsole's Qt 6 embedded terminal, SwayNotificationCenter |
 | X11 application compatibility | XWayland; X11/XCB client libraries, including Xpresent and the Qt XCB backend dependencies; xauth, xhost, xdpyinfo, xclip and Zenity. Qt 5/6 Wayland support remains installed for native applications. |
 | Python | Python 3.11+, PyQt6 Widgets/Network/DBus/SVG, PyGObject with Gio/GTK 3/GtkLayerShell, Pillow |
 | Native builds | C/C++23 compiler, matching Hyprland headers, GLESv2, json-c, libei, CMake, pkg-config, GTK 3, gio-unix, gtk-layer-shell, json-glib, Wayland client/scanner; Qt 5 and 6 Widgets/Concurrent, Qt Network/DBus/Linguist, development tools and private QtGui/QtCore headers; XCB and XCB-RES |
@@ -40,7 +47,7 @@ both `vncviewer` and Debian's `xtigervncviewer` are recognized. See the
 [integration record](DESKTOP-ROADMAP.md#components-and-validation) and
 [remote desktop guide](../config/hypr/control_panel/rdp/README.md).
 
-The Arch migration pins **Hyprland 0.57.2**, commit `11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947`. Arch-family Setup supplies the complete signed runtime in [`runtime/arch.json`](../config/hypr/runtime/arch.json), including Aquamarine ABI 15 and Hyprgraphics ABI 5. Fedora 44 and Debian 13 keep their 0.56.2 contracts. Matching packages are bundled and can also be fetched from the official archive with checksum and signature verification. All twelve Arch runtime packages are held through `/etc/pacman.d/xetal-hyprland.conf`.
+The supported Arch Linux/CachyOS setup pins **Hyprland 0.57.2**, commit `11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947`. Setup supplies the complete signed runtime in [`runtime/arch.json`](../config/hypr/runtime/arch.json), including Aquamarine ABI 15 and Hyprgraphics ABI 5. The older Fedora 44 and Debian 13 manifests are retained as unsupported legacy material. Matching Arch packages are bundled and can also be fetched from the official archive with checksum and signature verification. All twelve Arch runtime packages are held through `/etc/pacman.d/xetal-hyprland.conf`.
 
 The remaining desktop/build dependencies are fetched through the recipient's own distribution repositories. On Arch-family systems, Setup resolves and applies a coordinated full package upgrade with the matching runtime, rather than mixing a pinned compositor with whatever library ABI the mirrors currently offer. An older Python interpreter is restarted after a major/minor Python upgrade, preserving the setup arguments and runtime recovery record. Dependency/conflict checks remain enabled. See [Setup and recovery](INSTALLER.md).
 

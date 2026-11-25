@@ -1,0 +1,16 @@
+{
+  "blesh": {
+    "url": "https://github.com/akinomyoga/ble.sh",
+    "commit": "152942758f567e51fd17bdc7b3783d27b3c476aa",
+    "contrib_commit": "d2109203480a7dfe1dead5f5f8f9f15a9146c90d",
+    "build": "make -j4; copy out/ without ble.dep and doc/",
+    "license": "BSD-3-Clause; see blesh/LICENSE.md and blesh/licenses"
+  },
+  "bash-completion": {
+    "url": "https://github.com/scop/bash-completion/releases/download/2.18.0/bash-completion-2.18.0.tar.xz",
+    "version": "2.18.0",
+    "sha256": "88bcf85124f77f74f2f2f8bcd16ac4382d807a827ede742a64940c7116aea33f",
+    "build": "./configure --prefix=/usr --disable-tests; make; make install DESTDIR=stage; copy share/bash-completion/ with links dereferenced",
+    "license": "GPL-2.0-or-later; see bash-completion/COPYING"
+  }
+}

@@ -4,3 +4,6 @@ if [[ -n ${KITTY_INSTALLATION_DIR:-} && ${KITTY_SHELL_INTEGRATION:-} != disabled
     source "$KITTY_INSTALLATION_DIR/shell-integration/bash/kitty.bash"
 fi
 python3 "$(dirname -- "${BASH_SOURCE[0]}")/model.py"
+if [[ -r $(dirname -- "${BASH_SOURCE[0]}")/bash-enhancements.sh ]]; then
+    source "$(dirname -- "${BASH_SOURCE[0]}")/bash-enhancements.sh"
+fi

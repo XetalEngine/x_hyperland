@@ -14,6 +14,7 @@
   <a href="#recent-desktop-updates">Recent updates</a> ·
   <a href="#fusion-files">Fusion Files</a> ·
   <a href="#software-made-for-hyper-fusion">Software</a> ·
+  <a href="#a-smarter-kitty-terminal">Terminal</a> ·
   <a href="#default-settings">Save &amp; restore settings</a> ·
   <a href="#four-window-modes">Window modes</a> ·
   <a href="#altf9-screen-recording">Recording</a> ·
@@ -33,6 +34,7 @@ The November 22–24, 2026 updates bring more everyday settings into the desktop
 
 | Area | What's new |
 | --- | --- |
+| **Kitty terminal** | Live Bash command coloring, inline suggestions, completion menus and shared searchable history. **Fusion Settings → Terminal** adds typing, history and Kitty appearance controls alongside the existing welcome screen. [Explore Terminal →](#a-smarter-kitty-terminal) |
 | **Default Settings** | The last Fusion Settings page offers **Save System Settings**, **Load**, and **Reset Defaults**, with category checkboxes, **Select All**, a searchable value inventory and automatic recovery. Includes individual window geometry/title bars, sound preferences, Pacman/AUR package lists, CPU policy, GRUB and system settings. Full reset requires the original system baseline recorded by new installations. [Explore the three tabs →](#default-settings) |
 | **Reachable title bars** | Protection is enabled by default under **Theme → Window effects → Window Behavior**. After dragging, a title bar obscured by Waybar or the screen edge moves smoothly back within reach. The saved off switch keeps its choice across logins and updates. |
 | **Audio organization** | **Audio → Devices** contains the device controls and application mixer. **Audio → System Audio** contains the sound packs, previews and event choices previously under Theme. Existing sound preferences are preserved. |
@@ -243,29 +245,27 @@ Fresh installations use **Use Other Icons → Papirus-Dark**. Desktop updates pr
 
 **Control Panel → Software & maintenance → Proton** includes our custom Windows application manager, with isolated prefixes, Proton downloads, dependencies and launch controls. [See it in action below.](#windows-apps-with-our-custom-proton-manager)
 
-## Tested on
+## Supported distributions
 
 <table>
   <tr>
-    <td align="center" width="20%"><a href="https://archlinux.org/"><img src="docs/media/distros/archlinux.svg" width="52" height="52" alt="Arch Linux"><br><strong>Arch Linux</strong></a></td>
-    <td align="center" width="20%"><a href="https://cachyos.org/"><img src="docs/media/distros/cachyos.svg" width="52" height="52" alt="CachyOS"><br><strong>CachyOS</strong></a></td>
-    <td align="center" width="20%"><a href="https://manjaro.org/"><img src="docs/media/distros/manjaro.svg" width="52" height="52" alt="Manjaro"><br><strong>Manjaro</strong></a></td>
-    <td align="center" width="20%"><a href="https://fedoraproject.org/"><img src="docs/media/distros/fedora.svg" width="52" height="52" alt="Fedora"><br><strong>Fedora</strong></a></td>
-    <td align="center" width="20%"><a href="https://www.debian.org/"><img src="docs/media/distros/debian.svg" width="52" height="52" alt="Debian"><br><strong>Debian</strong></a></td>
+    <td align="center" width="50%"><a href="https://archlinux.org/"><img src="docs/media/distros/archlinux.svg" width="52" height="52" alt="Arch Linux"><br><strong>Arch Linux</strong></a></td>
+    <td align="center" width="50%"><a href="https://cachyos.org/"><img src="docs/media/distros/cachyos.svg" width="52" height="52" alt="CachyOS"><br><strong>CachyOS</strong></a></td>
   </tr>
 </table>
 
+**Arch Linux and CachyOS are the only compatible and supported distributions.** Both have been confirmed working in current installation testing.
+
+**Support for Manjaro, Fedora and Debian has been dropped.** Hyper Fusion is maintained by one developer. Ongoing testing, compatibility fixes and maintenance are limited to **Arch Linux and CachyOS**.
+
 | Distribution | Current testing and installation scope |
 | --- | --- |
-| **Arch Linux** | Development desktop and fresh-install testing; automatic setup on x86-64. |
-| **CachyOS** | Fresh-install testing; automatic x86-64 setup, with repository checks for v3/v4 packages. |
-| **Manjaro** | Project-reported testing and stable-repository compatibility checks; uses the Arch-family setup path. |
-| **Fedora 44** | Native x86-64 RPM setup, desktop build and recovery checks; graphical VM testing is ongoing. Targets mutable Workstation/KDE installations. |
-| **Debian 13 (trixie)** | Native x86-64 DEB bundle, clean-container installation and complete desktop build; graphical VM login testing is pending. |
+| **Arch Linux** | Current installation confirmed working on x86-64; development desktop and fresh-install testing. |
+| **CachyOS** | Current installation confirmed working on x86-64; repository checks include v3/v4 packages. |
 
-These notes describe project testing, not certification of every release or GPU. Setup checks the recipient's repositories and dependencies before changing the compositor. Fedora Atomic/OSTree editions, Ubuntu and other Debian releases are outside the current automatic setup paths. See [dependencies and compatibility](docs/DEPENDENCIES.md) for the exact scope.
+These notes describe project testing, not certification of every release or GPU. Setup checks the recipient's repositories and dependencies before changing the compositor. Legacy installer paths, bundled packages and older validation notes for other distributions remain historical material and do not imply maintained support. See [dependencies and compatibility](docs/DEPENDENCIES.md) for implementation details; the support policy above takes precedence over older platform notes.
 
-> **Control Panel compatibility:** Some features currently work **only on Arch-based systems, until further notice**. These include Pacman/Paru/Yay, Arch package repair and kernel-management tools. Fedora and Debian desktop support do not provide distribution-specific equivalents for these features.
+> **Control Panel compatibility:** Software management, Pacman/Paru/Yay, package repair and kernel tools target Arch Linux and CachyOS.
 
 ## Install
 
@@ -292,15 +292,13 @@ When Setup finishes, **log out, select Hyprland and sign in again**. Your curren
 
 ### Matched compositor and effects
 
-The Arch migration targets **Hyprland 0.57.2** with matching Hyper Fusion adapters. Fedora 44 and Debian 13 retain their **0.56.2** bundles. Setup checks the exact source commit for each distribution and builds the effects for that ABI. **Compiz Wobbly Windows stays in charge:** the 0.57 adapter prevents native Hyprland wobble from activating, including after reloads or explicit enable requests. See the [migration validation status](docs/VALIDATION.md#hyprland-0572-migration--21-november-2026).
+The supported setup targets **Hyprland 0.57.2** with matching Hyper Fusion adapters. Setup checks the exact source commit and builds the effects for that ABI. **Compiz Wobbly Windows stays in charge:** the 0.57 adapter prevents native Hyprland wobble from activating, including after reloads or explicit enable requests. See the [migration validation status](docs/VALIDATION.md#hyprland-0572-migration--21-november-2026).
 
-| Included runtime | Download ZIP contains |
+| Supported runtime | Download ZIP contains |
 | --- | --- |
-| **Arch family** | Signed official Hyprland **0.57.2-1** with eleven matching library/companion packages — **54.5 MB total**. |
-| **Fedora 44** | Signed **0.56.2-6.fc44** runtime, matching libraries and headers — **55.9 MB**; corresponding LGPL source RPMs add **55.4 MB** separately. |
-| **Debian 13** | Native **0.56.2** runtime, matching headers/libraries, Waybar, Kitty and SDL3 — **22.3 MB ZIP**; corresponding sources are included separately. |
+| **Arch Linux / CachyOS** | Signed official Hyprland **0.57.2-1** with eleven matching library/companion packages — **54.5 MB total**. |
 
-Each bundled package is below 100 MB. Fedora packages come from the documented giperborey/Hyprland COPR publisher; Setup verifies them without enabling a COPR repository. Other desktop dependencies still download as needed. Future compositor changes go through foreground Setup together with matching desktop/effect builds. [Installer, signatures and recovery →](docs/INSTALLER.md)
+Each bundled package is below 100 MB. Other desktop dependencies still download as needed. Future compositor changes go through foreground Setup together with matching desktop/effect builds. Legacy Fedora and Debian bundles are retained without ongoing support. [Installer, signatures and recovery →](docs/INSTALLER.md)
 
 <details>
 <summary><strong>Terminal options and troubleshooting</strong></summary>
@@ -521,6 +519,21 @@ For supported **Windows → Virtual GPU** setups, **Do not ask for sudo again fo
 
 Runtime components download inside KVM Settings; they are not bundled with the desktop. Supply your own guest installation media and disks. Physical GPU passthrough and guest behavior still depend on the host hardware. [KVM setup, components and recovery →](docs/KVM.md)
 
+## A smarter Kitty terminal
+
+**Color as you type. Complete with Tab. Find it again with Ctrl+R.** Fusion's
+enhanced Bash prompt keeps your aliases, adds inline suggestions and completion
+menus, and shares history between open terminals.
+
+[![Kitty terminal settings with a colored command preview, completion controls and shell preferences](docs/screenshots/terminal-settings.png)](docs/TERMINAL.md)
+
+Open **Fusion Settings → Terminal** to control history size, recording and
+clearing; scrollback; fonts, opacity, cursor and tabs; or the existing welcome
+logo. Command history and output scrollback have separate limits. Preferences
+are included in Save / Load / Reset System Settings.
+
+[Terminal guide and shortcuts →](docs/TERMINAL.md)
+
 ## Software, made for Hyper Fusion
 
 **Find your next favorite.** Open **Control Panel → Software** for a native app
@@ -585,7 +598,7 @@ UMU is prepared automatically when downloading Proton, and Steam is optional. Ex
 
 | Tool | What you get |
 | --- | --- |
-| **Control Panel** | A searchable native interface built from CachyOsTools: hardware, storage, services, startup apps, backups, system tools and shortcuts. **Some features remain Arch-only until further notice**, including Pacman/Paru/Yay and Arch package repair/kernel tools. [Feature map and platform requirements →](docs/CONTROL-PANEL.md) |
+| **Control Panel** | A searchable native interface built from CachyOsTools: hardware, storage, services, startup apps, backups, system tools and shortcuts. Package and kernel tools target **Arch Linux and CachyOS**. [Feature map and platform requirements →](docs/CONTROL-PANEL.md) |
 | **[Software](#software-made-for-hyper-fusion)** | A category browser with cached app cards, featured Xetal apps, Pacman by default, optional Yay/Paru AUR search and direct Linux downloads. Installed-package management and repairs share the same page. |
 | **Proton** | Our integrated XetalProton manager: Windows application library, custom prefixes, per-app runners, Proton downloads and updates, Winetricks, launch options and process logs. [Proton guide →](config/hypr/control_panel/proton/README.md) |
 | **GRUB Boot Editor** | Automatically load your menu, edit names, commands and order, choose the default and timeout, remember your last selection, or register this Linux installation in UEFI. Detect other systems, customize appearance, and keep backups with undo. [Boot editor →](docs/GRUB-BOOT-EDITOR.md) |
@@ -692,7 +705,7 @@ python3 -m unittest discover -s tests -v
 python3 tests/run-file-preview-checks.py
 ```
 
-The [installer compatibility workflow](.github/workflows/installer-compatibility.yml) checks Arch-family repositories and runs Fedora and Debian installation, native builds and recovery in disposable containers. Graphical login, GPU/driver and physical passthrough testing remain separate.
+The [installer compatibility workflow](.github/workflows/installer-compatibility.yml) includes Arch-family repository checks and legacy Fedora/Debian container jobs. Legacy jobs do not extend the supported distribution list; ongoing validation and maintenance target **Arch Linux and CachyOS**. Graphical login, GPU/driver and physical passthrough testing remain separate.
 
 </details>
 
@@ -700,7 +713,7 @@ The [installer compatibility workflow](.github/workflows/installer-compatibility
 
 Made by **Xetal**, on [Hyprland](https://github.com/hyprwm/Hyprland), with Qt, GTK, Waybar, Kitty, Dolphin and the wider Linux desktop community. Compiz effects retain their original authorship and licenses; the Control Panel includes the CachyOsTools engine. Modern takes visual inspiration from [Noctalia](https://github.com/noctalia-dev/noctalia).
 
-See the [repository license](LICENSE), [third-party notices](THIRD_PARTY_NOTICES.md), [asset manifest](assets-manifest.json) and [distro icon sources](docs/media/distros/README.md). Distribution names and logos identify tested environments and do not imply endorsement.
+See the [repository license](LICENSE), [third-party notices](THIRD_PARTY_NOTICES.md), [asset manifest](assets-manifest.json) and [distro icon sources](docs/media/distros/README.md). Distribution names and logos identify project platform targets and do not imply endorsement.
 
 Screenshots may show separately installed applications. Echo, XMusic, Linux Studio, Xetal BV and other featured projects are available separately; their presence in the launcher or Welcome dashboard does not install them. Personal bookmarks, credentials, browser profiles and runtime caches are excluded from this repository.
 

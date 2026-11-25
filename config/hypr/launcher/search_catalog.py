@@ -18,7 +18,7 @@ PAGES = [
     ('system','Session & power','Session dashboard and power actions','system-shutdown','logout restart reboot shutdown suspend'),
     ('power','Power settings','Persistent CPU, battery and laptop policies','battery','cpu governor boost energy laptop lid battery charge idle suspend'),
     ('phone','Phone','Pair a phone, send files and open messages','smartphone','kde connect sms whatsapp messages android phone share'),
-    ('terminal','Terminal','Terminal appearance and welcome screen','utilities-terminal','shell terminal fetch'),
+    ('terminal','Terminal','Kitty, command colors, completion, history and welcome screen','utilities-terminal','shell terminal kitty bash autocomplete history scrollback fetch'),
     ('default-settings','Default Settings','Save, load or reset the complete setup','document-save-all','backup restore reset factory defaults configuration settings packages governor grub title bars'),
 ]
 

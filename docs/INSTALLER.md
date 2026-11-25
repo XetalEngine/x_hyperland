@@ -1,5 +1,7 @@
 # Hyper Fusion Setup
 
+**Compatible and supported distributions: Arch Linux and CachyOS only.** Both have been confirmed working in current installation testing. **Support for Manjaro, Fedora and Debian has been dropped.** Their legacy installer code and historical notes do not imply maintained support. See the [current support policy](../README.md#supported-distributions).
+
 Run `./x_hyperinstall.sh` from a complete checkout or extracted GitHub ZIP as your regular desktop user. It opens the GTK 3 wizard, using the same lightweight GTK approach as the Echo Linux installer. Welcome, setup choices, review, progress/details and completion all remain in one window. An existing registered Xetal desktop selects the settings-preserving update flow automatically. `--cli` opens the terminal flow; existing command-line options such as `--check`, `--prepare` and `--yes` retain their terminal behavior.
 
 For an existing desktop, **Keep my existing desktop and startup preferences** starts checked. Uncheck it to install the current desktop and startup defaults instead. The Review page shows the selected behavior, and the existing profile is backed up before replacement in either case.
@@ -48,7 +50,7 @@ Minimal installations do not need sudo preinstalled: Setup can use an existing g
 
 ## Tested compositor
 
-`config/hypr/runtime/manifest.json` selects Hyprland **0.57.2**, commit `11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947`, official Arch package **0.57.2-1** for x86-64. Its distribution overrides retain **0.56.2** on Fedora 44 and Debian 13. Setup compares both version and commit. The unmodified Arch package (51.6 MB) and detached signature are included in `installer/packages/arch/`. Setup prefers the bundle, reuses verified pacman cache files, and falls back to the official Arch Linux Archive. Both recorded SHA-256 hashes and the package signature are checked. Other dependencies may still need downloads.
+`config/hypr/runtime/manifest.json` selects Hyprland **0.57.2**, commit `11cbc6c577b84ffb1edf4df3fc5b6128c3ae6947`, official Arch package **0.57.2-1** for x86-64. Arch Linux and CachyOS use this supported runtime; legacy distribution overrides are unsupported. Setup compares both version and commit. The unmodified Arch package (51.6 MB) and detached signature are included in `installer/packages/arch/`. Setup prefers the bundle, reuses verified pacman cache files, and falls back to the official Arch Linux Archive. Both recorded SHA-256 hashes and the package signature are checked. Other dependencies may still need downloads.
 
 The package operation retains pacman's dependency and conflict checks. The [Arch runtime manifest](../config/hypr/runtime/arch.json) includes twelve signed packages totaling 54.5 MB. A temporary local repository selects that complete runtime while a coordinated full upgrade fetches other dependencies from the user's configured repositories. Unsigned local builds, including converted `.deb` applications that share a repository package name, are preserved during this transaction; their dependencies must still resolve. Mandatory runtime packages remain subject to the exact ABI contract. Neither the temporary repository nor local-application holds are added to the persistent configuration.
 
@@ -81,7 +83,11 @@ package recovery so it can leave the installed runtime unchanged.
 
 On Arch, `/etc/pacman.d/xetal-hyprland.conf` holds all twelve matching runtime packages through pacman's documented [IgnorePkg and Include settings](https://man.archlinux.org/man/pacman.conf.5.en). Other repository settings and holds are preserved. Setup builds the included native sources on the recipient computer, using all available CPU threads for the Control Panel. Cube, Burn and Minimize builds are required, and the complete configuration is checked before and after compilation. KVM runtime binaries remain separate downloads inside KVM Settings.
 
-## Fedora 44
+<a id="fedora-44"></a>
+
+## Fedora 44 — support dropped
+
+The following describes the legacy implementation and earlier testing. Fedora is no longer a supported distribution.
 
 Mutable **Fedora 44 x86-64**, including KDE and Workstation installations, has a native RPM path selected from `/etc/os-release`. It retains the 0.56.2 commit `efb50993780079460b0cbed1363e2166a2de1d9f` during the Arch migration. Other Fedora releases, derivatives and immutable OSTree variants are not covered by this bundle.
 
@@ -95,7 +101,11 @@ Before replacing a bundled component, Setup saves its exact signed installed RPM
 
 A disposable Fedora 44 test environment completed package signature/dependency checks, the complete native desktop build, configuration validation, Kitty dashboard rendering, successful runtime rollback, a real 0.57 → 0.56.2 downgrade with exact 0.57 recovery, DNF lock-file rewrites, and recovery from an injected post-install failure. The Fedora CI job repeats installation, builds and recovery. These checks do not replace a graphical VM login or tests of each GPU/driver combination.
 
-## Debian 13
+<a id="debian-13"></a>
+
+## Debian 13 — support dropped
+
+The following describes the legacy implementation and earlier testing. Debian is no longer a supported distribution.
 
 **Debian 13 (trixie) amd64** has a native DEB path selected from `/etc/os-release`. The [runtime ZIP](../installer/packages/debian-13/README.md) contains 52 packages totaling **22.3 MB**: Hyprland 0.56.2, matching headers/libraries, Waybar 0.15, Kitty 0.48.2 and SDL3 3.4.18. Corresponding sources and a rebuild helper are included separately; every individual archive is below 100 MB. Ubuntu, Debian 12/14 and derivatives are not accepted by this bundle.
 
@@ -184,7 +194,7 @@ For manual Arch runtime recovery when package rollback was enabled and completed
 
 Update the runtime manifest only after validating the new compositor, native effect adapters and complete desktop together. Keep the package/signature hashes and commit in agreement. The updater compares the incoming requirement before building and again before activation. A system package change goes through foreground Setup; ordinary background updates continue without sudo. A compositor upgrade or downgrade therefore carries the matching profile and rebuilt plugins with it.
 
-Arch-based x86-64, mutable Fedora 44 x86-64 and Debian 13 amd64 have automatic compositor installation paths. Other distributions must install the exact required native compositor themselves before using their remaining dependency recipes. Pinning Hyprland does not pin the complete operating system; dependency checks and native builds remain necessary on every recipient machine.
+Automatic compositor installation is supported on **Arch Linux and CachyOS x86-64 only**. Retained installer paths for other distributions are unsupported. Pinning Hyprland does not pin the complete operating system; dependency checks and native builds remain necessary on every recipient machine.
 ## Optional Fusion sign-in
 
 The **Use Fusion sign-in at boot instead of my current login screen** checkbox is off by default on a new install. Leaving it off does not change system login services, PAM, SDDM, GDM or LightDM. Updates keep the existing choice. Welcome's own startup preference is independent.

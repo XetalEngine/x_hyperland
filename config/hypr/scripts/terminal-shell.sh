@@ -4,6 +4,14 @@ set -eu
 fusion_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 export XETAL_FUSION_TERMINAL=1
 fusion_shell=${SHELL:-/bin/sh}
+# Keep command-only invocations and recovery profiles on the requested shell.
+# The interactive Kitty preference never changes the account's login shell.
+if [ "$#" -eq 0 ] && [ -r "$fusion_root/terminal_fetch/preferences.py" ]; then
+    fusion_mode=$(python3 "$fusion_root/terminal_fetch/preferences.py" shell-mode) || fusion_mode=login
+    if [ "$fusion_mode" = bash ] && command -v bash >/dev/null 2>&1; then
+        fusion_shell=$(command -v bash)
+    fi
+fi
 # Kitty cannot identify a shell behind this wrapper, so retain its normal
 # prompt/CWD integration explicitly in the profile-local startup files.
 if [ -n "${KITTY_INSTALLATION_DIR:-}" ]; then
