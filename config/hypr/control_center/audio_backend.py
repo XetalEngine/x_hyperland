@@ -1,4 +1,4 @@
-"""Live audio controls through PipeWire's PulseAudio interface; no service/config changes."""
+"""Live device, monitor-routing and mixer controls through PipeWire's PulseAudio interface."""
 from __future__ import annotations
 
 from collections import defaultdict
@@ -6,6 +6,8 @@ import json
 import os
 import subprocess
 import audio_gain
+import audio_outputs
+import audio_routing
 
 KINDS={'playback':('sink-input','sink'), 'recording':('source-output','source')}
 NORMAL=65536
@@ -74,14 +76,38 @@ def groups(streams,kind):
     return sorted(result,key=lambda group:(group['name'].casefold(),group['key']))
 
 
-def snapshot():
+def snapshot(*, playback_only=False):
     info=json.loads(pactl('-f','json','info'))
-    devices={kind:listing(kind) for kind in ('sink','source')}
-    streams={kind:groups(listing(stream),kind) for kind,(stream,_) in KINDS.items()}
+    devices={'sink':listing('sink'),'source':[] if playback_only else listing('source')}
+    streams={kind:[] if playback_only and kind=='recording' else groups(listing(stream),kind)
+             for kind,(stream,_) in KINDS.items()}
     defaults={kind:info.get('default_'+kind+'_name','') for kind in devices}
     microphone=next((d for d in devices['source'] if d['name']==defaults['source']),None)
-    return {'devices':devices,'apps':streams,'defaults':defaults,
-            'microphone_gain':audio_gain.inspect_source(microphone)}
+    return {'devices':devices,'apps':streams,'defaults':defaults,'routes':audio_routing.targets(),
+            'outputs':audio_outputs.choices(listing('card'),devices['sink']),
+            'microphone_gain':{} if playback_only else audio_gain.inspect_source(microphone)}
+
+
+def apply_output(choice):
+    device=audio_outputs.activate(choice,listing,pactl) if 'monitor_route' in choice else choice
+    apply_device('sink',device,'default',None)
+
+
+def apply_app_output(group,choice):
+    """Activate a connected monitor for this app without changing the default."""
+    if group['kind']!='playback':raise ValueError('Choose a playback application.')
+    expected={identity(stream) for stream in group['streams']}
+    if not any(identity(stream) in expected and not is_meter(stream) for stream in listing('sink-input')):
+        raise ValueError(group['name']+' is no longer using audio.')
+    def route(device):
+        # Recheck stream identities after the asynchronous profile transition.
+        apply_app(group,'device',device['name'])
+    if 'monitor_route' in choice:
+        audio_outputs.activate(choice,listing,pactl,on_ready=route)
+    else:
+        current=next((d for d in listing('sink') if d['name']==choice['name'] and identity(d)==identity(choice)),None)
+        if current is None:raise ValueError('That audio device disconnected. Refresh devices.')
+        route(current)
 
 
 def apply_gain(device,control,value):
@@ -111,14 +137,31 @@ def apply_app(group,action,value):
     expected={identity(s) for s in group['streams']}
     current=[s for s in listing(stream_kind) if identity(s) in expected and not is_meter(s)]
     if not current:raise ValueError(group['name']+' is no longer using audio.')
+    device=None
     if action=='volume':value=validate_level(value)
     elif action=='device':
-        if not any(d['name']==value for d in listing(device_kind)):
-            raise ValueError('That audio device disconnected. Choose another device.')
+        if value==audio_routing.SYSTEM_DEFAULT:
+            # Resolve at the server when the command runs, not to a stale device
+            # name. Moving to the default also clears WirePlumber's saved target.
+            value='@DEFAULT_'+device_kind.upper()+'@'
+        else:
+            device=next((d for d in listing(device_kind) if d['name']==value),None)
+            if device is None:raise ValueError('That audio device disconnected. Choose another device.')
     elif action!='mute':raise ValueError('Unknown mixer action.')
     reference=max((v for s in current for v in channel_values(s)),default=0)
     changed=0
     for stream in current:
+        if device is not None:
+            # PipeWire node IDs can be recycled. Recheck the stream and device
+            # identities immediately before addressing their routing metadata.
+            if not any(identity(s)==identity(stream) for s in listing(stream_kind)):continue
+            if not any(d['name']==device['name'] and identity(d)==identity(device) for d in listing(device_kind)):
+                raise ValueError('That audio device disconnected. Refresh devices.')
+            try:
+                if audio_routing.pin(stream,device):changed+=1;continue
+            except RuntimeError:
+                if any(identity(s)==identity(stream) for s in listing(stream_kind)):raise
+                continue
         if action=='volume':
             if not stream.get('has_volume',True) or not stream.get('volume_writable',True):continue
             channels=scaled_channels(stream,value,reference)
@@ -143,11 +186,7 @@ def apply_device(kind,device,action,value):
         if values:pactl('set-'+kind+'-volume',current['name'],*scaled_channels(current,value,max(values)))
     elif action=='mute':pactl('set-'+kind+'-mute',current['name'],'1' if value else '0')
     elif action=='default':
-        stream_kind='sink-input' if kind=='sink' else 'source-output'
-        previous=[s for s in listing(stream_kind) if not is_meter(s)]
+        # The session manager moves following streams and keeps app overrides.
+        # Moving every stream here would erase those individual preferences.
         pactl('set-default-'+kind,current['name'])
-        for stream in previous:
-            try:pactl('move-'+stream_kind,str(stream['index']),current['name'])
-            except RuntimeError:
-                if any(identity(s)==identity(stream) for s in listing(stream_kind)):raise
     else:raise ValueError('Unknown device action.')

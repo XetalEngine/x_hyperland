@@ -143,7 +143,7 @@
     },
     "scroll-step": 3,
     "max-volume": 100,
-    "tooltip-format": "{desc}\nScroll: volume \u00b7 Right-click: mute\nClick: mixer and routing",
+    "tooltip-format": "{desc}\nScroll: volume \u00b7 Right-click: mute\nClick: Audio settings",
     "on-click": "$HOME/.config/hypr/scripts/control-center.sh --tab audio",
     "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
   },
@@ -224,8 +224,15 @@
     "orientation": "inherit",
     "modules": [
       "pulseaudio",
-      "pulseaudio/slider"
+      "pulseaudio/slider",
+      "custom/audio-mixer"
     ]
+  },
+  "custom/audio-mixer": {
+    "format": "\udb81\udd7e  Mixer",
+    "tooltip-format": "Open the app mixer popup\nMain volume, app volumes and output devices\nRight-click: Audio settings",
+    "on-click": "$HOME/.config/hypr/scripts/quick-panel.sh audio",
+    "on-click-right": "$HOME/.config/hypr/scripts/control-center.sh --tab audio"
   },
   "pulseaudio/slider": {
     "min": 0,

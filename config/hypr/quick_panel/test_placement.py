@@ -1,4 +1,6 @@
 import unittest
+import json
+import threading
 from types import SimpleNamespace
 from unittest.mock import patch
 import placement
@@ -23,6 +25,31 @@ class Placement(unittest.TestCase):
         with patch.object(placement.subprocess, 'run') as run:
             with self.assertRaises(ValueError): placement.prepare(dict(request, relative_x='0; dispatch exit'))
             run.assert_not_called()
+
+    def test_wide_mixer_is_allowed_without_expanding_other_panels(self):
+        request=dict(kind='audio',monitor=0,width=2046,height=470,relative_x=308,relative_y=48)
+        with patch.object(placement.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout='ok\nok\nok\nok\n',stderr='')):
+            self.assertEqual(placement.prepare(request),(2046,470))
+            with self.assertRaises(ValueError):placement.prepare(dict(request,kind='clock'))
+            with self.assertRaises(ValueError):placement.prepare(dict(request,width=2047))
+            with self.assertRaises(ValueError):placement.prepare(request,rule='fusion-clipboard-history')
+
+    def test_live_resize_targets_only_the_mapped_popup_without_focusing(self):
+        clients=[dict(pid=12,mapped=True,title='Hyper Fusion quick panel',**{'class':'fusion-quick-panel'},address='0xabc'),
+                 dict(pid=99,mapped=True,title='Browser',**{'class':'browser'},address='0xdef')]
+        replies=[SimpleNamespace(returncode=0,stdout=json.dumps(clients),stderr=''),
+                 SimpleNamespace(returncode=0,stdout='ok\nok\n',stderr='')]
+        request=dict(width=408,height=470,x=1500,y=50)
+        cancelled=threading.Event()
+        with patch.object(placement.subprocess,'run',side_effect=replies) as run:
+            self.assertTrue(placement.resize_mapped(request,12,cancelled))
+            self.assertEqual(run.call_args.args[0],['hyprctl','--batch',
+                'dispatch resizewindowpixel exact 408 470,address:0xabc;dispatch movewindowpixel exact 1500 50,address:0xabc'])
+        cancelled.set()
+        with patch.object(placement.subprocess,'run',return_value=replies[0]) as run:
+            self.assertFalse(placement.resize_mapped(request,12,cancelled));self.assertEqual(run.call_count,1)
+        with patch.object(placement.subprocess,'run',return_value=replies[0]) as run:
+            self.assertFalse(placement.resize_mapped(request,123,threading.Event()));self.assertEqual(run.call_count,1)
 
 
 if __name__ == '__main__': unittest.main()

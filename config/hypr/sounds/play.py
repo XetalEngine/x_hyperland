@@ -50,15 +50,17 @@ def session_directory(env=os.environ):
     return instance if (instance / '.socket2.sock').is_socket() else None
 
 
-def command(path, volume):
+def command(path, volume, sink=None):
     if player := shutil.which('pw-play'):
-        return [player, '--media-role', 'Notification', '--volume', str(volume/100), str(path)]
+        return [player, '--media-role', 'Notification', '--volume', str(volume/100),
+                *(['--target='+sink] if sink else []), str(path)]
     if player := shutil.which('paplay'):
-        return [player, '--property=media.role=event', '--volume='+str(round(65536*volume/100)), str(path)]
+        return [player, '--property=media.role=event', '--volume='+str(round(65536*volume/100)),
+                *(['--device='+sink] if sink else []), str(path)]
     raise RuntimeError('Install PipeWire audio tools or paplay to preview sounds.')
 
 
-def play(event, *, preview=False, pack=None, volume=None, once=False):
+def play(event, *, preview=False, pack=None, volume=None, once=False, sink=None):
     config, _ = model.load()
     instance = session_directory()
     if not instance:
@@ -77,7 +79,7 @@ def play(event, *, preview=False, pack=None, volume=None, once=False):
         if not preview and config['respect_dnd'] and do_not_disturb(): return 0
         path = model.asset(pack or config['pack'], event)
         if not path.is_file(): raise RuntimeError('This sound pack is incomplete. Reinstall the desktop sound assets.')
-        args = command(path, level)
+        args = command(path, level, sink=sink)
         channel = 'preview' if preview else 'session' if event in ('startup', 'shutdown') else 'alerts'
         with (instance / ('fusion-sound-'+channel+'.lock')).open('a+') as lock:
             try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -120,11 +122,12 @@ def main():
     parser.add_argument('--preview', action='store_true')
     parser.add_argument('--pack', choices=model.STYLES)
     parser.add_argument('--volume', type=int, choices=range(101), metavar='0–100')
+    parser.add_argument('--sink', help='Play through this output device without changing the default.')
     args=parser.parse_args()
     if args.notification and args.startup: parser.error('Choose one sound source.')
     event='startup' if args.startup else notification_event(os.environ) if args.notification else args.event
     if not event: return 0
-    try: return play(event, preview=args.preview, pack=args.pack, volume=args.volume, once=args.startup)
+    try: return play(event, preview=args.preview, pack=args.pack, volume=args.volume, once=args.startup, sink=args.sink)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
         # A sound must never interrupt a notification or a session action.
         if args.preview: print(str(exc), file=sys.stderr); return 1

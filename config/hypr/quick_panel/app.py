@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import threading
 import time
 from urllib.parse import unquote, urlparse
 
@@ -32,7 +33,7 @@ import wheel_guard
 import model
 import network_status
 from protocol import Request
-from placement import prepare
+from placement import prepare,resize_mapped
 
 
 class Signals(QObject):
@@ -426,13 +427,16 @@ class Popup(QWidget):
         self.setObjectName('quickPanel'); self.setWindowTitle('Hyper Fusion quick panel'); self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.preview = preview; self.kind = kind; self.modal = False; self.armed = False; self.dismissed_at = 0
         self.generation=0;self.opened_at=0
+        self.audio_request=None;self.audio_resizing=False;self.resize_cancel=threading.Event()
+        self.audio_resize=QTimer(self);self.audio_resize.setSingleShot(True);self.audio_resize.setInterval(100)
+        self.audio_resize.timeout.connect(self.fit_audio)
         root = QVBoxLayout(self); root.setContentsMargins(12, 8, 12, 12); root.setSpacing(5)
         grip = Grip(); header = QHBoxLayout(grip); header.setContentsMargins(3, 0, 0, 0)
         self.caption = label('', 'eyebrow'); self.caption.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents); header.addWidget(self.caption, 1)
         close = button('×', 'Close popup', self.hide); close.setFixedSize(28, 28); header.addWidget(close); root.addWidget(grip)
         self.scroll = QScrollArea(); self.scroll.setWidgetResizable(True); self.scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff); root.addWidget(self.scroll, 1)
-        self.pages = {'clock': ClockPage(self.open_calendar), 'power': PowerPage(self), 'network': NetworkPage(self)}
+        self.pages = {'clock': ClockPage(self.open_calendar), 'power': PowerPage(self), 'network': NetworkPage(self), 'audio': None}
         self.clock_timer = QTimer(self); self.clock_timer.setInterval(1000); self.clock_timer.timeout.connect(self.pages['clock'].tick)
         self.power_timer = QTimer(self); self.power_timer.setInterval(2000); self.power_timer.timeout.connect(self.pages['power'].refresh)
         self.network_timer = QTimer(self); self.network_timer.setInterval(5000); self.network_timer.timeout.connect(self.pages['network'].refresh)
@@ -440,13 +444,16 @@ class Popup(QWidget):
 
     def refresh_style(self):
         c = runtime.colors(); radius = 5 if runtime.widget_design() == 'binaryknife' else 19 if runtime.layout()=='sidebar' else 14
+        audio=self.kind=='audio'
         self.setStyleSheet(f'''
-            QWidget {{background:transparent; color:{c['Text']}; font-family:"{runtime.ui_font()}"; font-size:12px;}}
+            QWidget {{background:transparent; color:{c['Text']}; font-family:"{runtime.ui_font()}"; font-size:{14 if audio else 12}px;}}
             QWidget#quickPanel, QScrollArea, QScrollArea > QWidget > QWidget {{background:transparent;}}
             QFrame#card {{background:{c['Window']}; border:1px solid {c['Mid']}; border-radius:{radius}px;}}
             QLabel {{border:none; background:transparent;}}
-            QLabel#muted {{color:{c['PlaceholderText']}; font-size:11px;}}
+            QLabel#muted {{color:{c['Text'] if audio else c['PlaceholderText']}; font-size:{13 if audio else 11}px;}}
             QLabel#section {{font-weight:600;}}
+            QLabel#brand {{font-size:19px; font-weight:600;}}
+            QLabel#audioTitle {{font-size:18px; font-weight:600;}}
             QLabel#eyebrow {{font-family:"JetBrains Mono"; color:{c['Accent']}; font-size:10px; letter-spacing:2px;}}
             QLabel#clock {{font-family:"JetBrains Mono"; color:{c['Accent']}; font-size:41px; font-weight:600; letter-spacing:1px;}}
             QLabel#username {{color:{c['Accent']}; font-size:23px; font-weight:600;}}
@@ -472,6 +479,25 @@ class Popup(QWidget):
             QSlider::sub-page:horizontal {{background:{c['Accent']}; border-radius:2px;}}
             QSlider::handle:horizontal {{background:{c['Accent']}; width:10px; margin:-4px 0; border-radius:5px;}}
             QSlider:disabled::sub-page:horizontal {{background:{c['Mid']};}}
+            QFrame#audioColumn, QFrame#audioMaster {{background:{c['Window']}; border:1px solid {c['Mid']}; border-radius:10px;}}
+            QFrame#audioMaster {{border-color:{c['Accent']};}}
+            QLabel#audioApp {{font-size:16px; font-weight:600;}}
+            QLabel#audioLevel {{color:{c['Accent']}; font-size:28px; font-weight:600;}}
+            QLabel#status {{color:{c['Text'] if audio else c['PlaceholderText']}; font-size:{13 if audio else 11}px;}}
+            QPushButton#audioMute:checked {{background:{c['Highlight']}; color:{c['HighlightedText']}; border-color:{c['Accent']};}}
+            QComboBox {{background:{c['Base']}; border:1px solid {c['Mid']}; border-radius:5px; padding:5px 18px 5px 5px; min-width:0;}}
+            QComboBox:focus {{border-color:{c['Accent']};}}
+            QComboBox::drop-down {{border:none; width:18px;}}
+            QComboBox QAbstractItemView {{background:{c['Base']}; color:{c['Text']}; selection-background-color:{c['Highlight']}; selection-color:{c['HighlightedText']};}}
+            QSlider {{background:transparent; border:none;}}
+            QSlider::groove:vertical {{width:6px; background:{c['Mid']}; border-radius:3px;}}
+            QSlider::add-page:vertical {{background:{c['Accent']}; border-radius:3px;}}
+            QSlider::sub-page:vertical {{background:transparent;}}
+            QSlider::handle:vertical {{background:{c['Accent']}; border:1px solid {c['Light']}; height:11px; margin:0 -8px; border-radius:4px;}}
+            QScrollBar:horizontal {{background:transparent; height:10px; margin:0;}}
+            QScrollBar::handle:horizontal {{background:{c['Mid']}; min-width:35px; border-radius:4px;}}
+            QScrollBar::handle:horizontal:hover {{background:{c['Accent']};}}
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{width:0;}}
             QScrollBar:vertical {{background:transparent; width:5px; margin:0;}}
             QScrollBar::handle:vertical {{background:{c['Mid']}; min-height:24px; border-radius:2px;}}
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{height:0;}}
@@ -485,10 +511,19 @@ class Popup(QWidget):
         p.drawRoundedRect(QRectF(self.rect()).adjusted(.5, .5, -.5, -.5), radius, radius)
 
     def change_kind(self, kind):
+        if kind == 'audio' and self.pages['audio'] is None:
+            # Share device identities, grouping and serialized writes with Settings.
+            # Other quick panels never start audio discovery or subscriptions.
+            sys.path.append(str(ROOT / 'control_center'))
+            from audio_page import AudioPage
+            self.pages['audio'] = AudioPage(async_run, listen=not self.preview, compact=True, open_settings=self.open_audio)
+            self.pages['audio'].appCountChanged.connect(lambda _:self.audio_resize.start())
         previous = self.scroll.takeWidget()
         if previous: previous.hide(); previous.setParent(self)
         self.kind = kind; self.scroll.setWidget(self.pages[kind]); self.pages[kind].show()
-        self.caption.setText({'clock': 'LOCAL TIME', 'power': 'YOUR SESSION', 'network': 'NETWORK & CONNECTIONS'}[kind])
+        self.caption.setObjectName('audioTitle' if kind=='audio' else 'eyebrow')
+        self.caption.setText({'clock': 'LOCAL TIME', 'power': 'YOUR SESSION', 'network': 'NETWORK & CONNECTIONS', 'audio': 'Audio mixer'}[kind])
+        self.refresh_style()
 
     def present(self, request):
         kind = request.get('kind', 'clock')
@@ -513,6 +548,11 @@ class Popup(QWidget):
         if self.isVisible(): self.hide()
         self.generation+=1;self.opened_at=time.monotonic()
         self.change_kind(kind); self.armed = False
+        self.audio_request=dict(request) if kind=='audio' else None
+        if kind=='audio':
+            self.audio_request.setdefault('width_limit',model.audio_layout.MAX_WIDTH)
+            self.pages['audio'].fit_compact(size[0],request.get('app_count',1))
+            self.audio_resize.start()
         self.resize(*size)
         self.show(); self.raise_(); self.activateWindow()
         if not self.preview:
@@ -524,7 +564,37 @@ class Popup(QWidget):
         if kind == 'power': self.pages['power'].refresh()
         if kind == 'network': self.pages['network'].refresh()
 
-    def dismissal_protected(self): return self.modal or QApplication.activeModalWidget() is not None
+    def fit_audio(self):
+        if self.kind!='audio' or not self.isVisible() or not self.audio_request:return
+        page=self.pages['audio']
+        if page.app_count is None:return
+        # Keep a held fader or open device picker under the pointer.
+        if (self.audio_resizing or self.dismissal_protected() or QApplication.mouseButtons()!=Qt.MouseButton.NoButton
+                or any(slider.isSliderDown() for slider in page.findChildren(QSlider))):
+            self.audio_resize.start();return
+        request=self.audio_request
+        width,_=model.audio_layout.fit(page.app_count,request['width_limit'])
+        page.fit_compact(width)
+        if width==request['width'] and width==self.width():return
+        target=dict(request,width=width)
+        for key in ('x','relative_x'):
+            if key in request:target[key]=request[key]+request['width']-width
+        if self.preview:
+            self.resize(width,int(request['height']));self.audio_request=target;return
+        self.audio_resizing=True;generation=self.generation;cancelled=threading.Event();self.resize_cancel=cancelled
+        def finished(applied):
+            self.audio_resizing=False
+            if cancelled.is_set() or generation!=self.generation or self.kind!='audio' or not self.isVisible():return
+            if applied:
+                self.audio_request=target;self.resize(width,int(target['height']))
+                if page.app_count is not None:self.audio_resize.start()
+            elif time.monotonic()-self.opened_at<2:self.audio_resize.start()
+        def failed(error):
+            print(error,file=sys.stderr);finished(False)
+        async_run(lambda:resize_mapped(target,os.getpid(),cancelled),finished,failed)
+
+    def dismissal_protected(self):
+        return self.modal or QApplication.activeModalWidget() is not None or QApplication.activePopupWidget() is not None
 
     def event(self, event):
         if event.type() == QEvent.Type.WindowActivate: self.armed = True
@@ -543,7 +613,8 @@ class Popup(QWidget):
             elif event.startswith(b'workspace>>'):self.hide()
 
     def hideEvent(self, event):
-        self.generation+=1;self.clock_timer.stop(); self.power_timer.stop(); self.network_timer.stop(); super().hideEvent(event)
+        self.generation+=1;self.resize_cancel.set();self.audio_resize.stop()
+        self.clock_timer.stop(); self.power_timer.stop(); self.network_timer.stop(); super().hideEvent(event)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape: self.hide()
@@ -551,6 +622,9 @@ class Popup(QWidget):
 
     def open_calendar(self):
         self.hide(); subprocess.Popen([str(ROOT / 'scripts/control-center.sh'), '--tab', 'calendar'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def open_audio(self):
+        self.hide(); subprocess.Popen([str(ROOT / 'scripts/control-center.sh'), '--tab', 'audio'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def main():

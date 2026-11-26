@@ -15,6 +15,14 @@ from sounds import actions, model, play
 
 
 class SoundTests(unittest.TestCase):
+    def test_output_test_targets_pipewire_or_pulse_without_changing_default(self):
+        for player, flag in [('pw-play','--target='), ('paplay','--device=')]:
+            with self.subTest(player=player), patch.object(play.shutil,'which',side_effect=lambda name: '/usr/bin/'+name if name==player else None):
+                argv=play.command(Path('/sounds/success.mp3'),35,sink='alsa_output.monitor-3')
+                self.assertIn(flag+'alsa_output.monitor-3',argv)
+                self.assertEqual(argv[-1],'/sounds/success.mp3')
+                self.assertFalse(any(arg.startswith(flag) for arg in play.command(Path('/sounds/success.mp3'),35)))
+
     def test_settings_conflicts_and_unrelated_fields_survive(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'settings.json'

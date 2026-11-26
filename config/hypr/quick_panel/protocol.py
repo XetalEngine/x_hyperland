@@ -11,5 +11,5 @@ class Request:
         if b'\n' not in self.pending:return None
         self.done=True
         value=json.loads(self.pending.split(b'\n',1)[0])
-        if not isinstance(value,dict) or value.get('kind') not in ('clock','power','network'):raise ValueError('Invalid popup request.')
+        if not isinstance(value,dict) or value.get('kind') not in ('clock','power','network','audio'):raise ValueError('Invalid popup request.')
         return value

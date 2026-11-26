@@ -1,5 +1,6 @@
 """A bar launch activates its own mapped menu without retaining focus later."""
 import os
+import json
 import unittest
 from unittest.mock import patch
 
@@ -34,32 +35,41 @@ class Window(QWidget):
 class ActivationTests(unittest.TestCase):
     def setUp(self):
         self.patch=patch.object(activation,'QProcess',Process);self.patch.start()
-        self.window=Window();self.window.show();QT.processEvents()
+        self.window=Window();self.window.setWindowTitle('Fusion Settings');self.window.show();QT.processEvents()
         self.job=activation.BarActivation(self.window)
     def tearDown(self):
         self.job.cancel();self.window.close();self.window.deleteLater()
         QT.sendPostedEvents(None,QEvent.Type.DeferredDelete);self.patch.stop()
     def start(self):self.job.start();QT.processEvents()
 
-    def test_bar_requests_compositor_focus_for_only_its_own_process_once(self):
+    def found(self,**changes):
+        client=dict(pid=os.getpid(),title='Fusion Settings',address='0xabc',mapped=True)
+        client.update(changes);self.job.process.complete(json.dumps([client]).encode())
+
+    def test_bar_focuses_and_raises_exact_own_window_once(self):
         self.start()
-        self.assertEqual(self.job.process.calls,[('hyprctl',['dispatch','focuswindow',f'pid:{os.getpid()}'])])
+        self.assertEqual(self.job.process.calls,[('hyprctl',['-j','clients'])])
+        self.found();self.job.process.complete(b'ok\n')
+        self.assertEqual(self.job.process.calls[1:],[
+            ('hyprctl',['dispatch','focuswindow','address:0xabc']),
+            ('hyprctl',['dispatch','alterzorder','top,address:0xabc'])])
         self.job.process.complete(b'ok\n');QTest.qWait(60)
-        self.assertTrue(self.job.done);self.assertEqual(len(self.job.process.calls),1)
+        self.assertTrue(self.job.done);self.assertEqual(len(self.job.process.calls),3)
         self.assertFalse(self.job.process.killed)
 
     def test_unmapped_first_frame_retries_then_stops_on_success(self):
-        self.start();self.job.process.complete(b'No such window found\n')
+        self.start();self.job.process.complete(b'[]')
         QTest.qWait(40);self.assertEqual(len(self.job.process.calls),2)
+        self.found();self.job.process.complete(b'ok\n')
         self.job.process.complete(b'ok\n');QTest.qWait(40)
-        self.assertEqual(len(self.job.process.calls),2);self.assertTrue(self.job.done)
+        self.assertEqual(len(self.job.process.calls),4);self.assertTrue(self.job.done)
 
     def test_unavailable_compositor_does_not_keep_retrying(self):
         self.start();self.job.process.errorOccurred.emit(QProcess.ProcessError.FailedToStart)
         QTest.qWait(40);self.assertTrue(self.job.done);self.assertEqual(len(self.job.process.calls),1)
 
     def test_outside_click_cancels_pending_handoff_before_retry(self):
-        self.start();self.job.process.complete(b'No such window found\n')
+        self.start();self.job.process.complete(b'[]')
         self.job.cancel();QTest.qWait(40)
         self.assertEqual(len(self.job.process.calls),1)
 
@@ -78,6 +88,27 @@ class ActivationTests(unittest.TestCase):
     def test_hung_focus_request_is_bounded(self):
         self.start();QTest.qWait(800)
         self.assertTrue(self.job.done);self.assertTrue(self.job.process.killed)
+
+    def test_other_process_and_another_window_in_this_process_are_not_activated(self):
+        self.start()
+        clients=[dict(pid=os.getpid()+1,title='Fusion Settings',address='0x111',mapped=True),
+                 dict(pid=os.getpid(),title='Window shortcuts',address='0x222',mapped=True),
+                 dict(pid=os.getpid(),title='Fusion Settings',address='0x333',mapped=True)]
+        self.job.process.complete(json.dumps(clients).encode())
+        self.assertEqual(self.job.process.calls[-1],('hyprctl',['dispatch','focuswindow','address:0x333']))
+
+    def test_failed_focus_does_not_raise(self):
+        self.start();self.found();self.job.process.complete(b'Cannot focus window\n')
+        self.assertTrue(self.job.done);self.assertEqual(len(self.job.process.calls),2)
+
+    def test_malformed_reply_does_not_focus_any_window(self):
+        self.start();self.job.process.complete(b'not json')
+        self.assertTrue(self.job.done);self.assertEqual(len(self.job.process.calls),1)
+
+    def test_user_input_cancels_between_discovery_and_focus(self):
+        self.start();self.found();QTest.keyClick(self.window,Qt.Key.Key_Down)
+        self.job.process.complete(b'ok\n')
+        self.assertTrue(self.job.done);self.assertEqual(len(self.job.process.calls),2)
 
 
 if __name__=='__main__':unittest.main()

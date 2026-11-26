@@ -1,5 +1,7 @@
-"""Hand keyboard focus from the bar to this newly opened menu, once."""
+"""Focus and raise the exact window requested from the bar, once."""
+import json
 import os
+import re
 
 from PyQt6.QtCore import QObject,QEvent,QProcess,QTimer
 from PyQt6.QtWidgets import QApplication
@@ -8,7 +10,7 @@ from PyQt6.QtWidgets import QApplication
 class BarActivation(QObject):
     def __init__(self,window):
         super().__init__(window)
-        self.window=window;self.done=False;self.attempts=0
+        self.window=window;self.done=False;self.attempts=0;self.phase='find';self.selector=None
         self.process=QProcess(self)
         self.process.finished.connect(self.finished)
         self.process.errorOccurred.connect(lambda *_:self.cancel())
@@ -28,17 +30,41 @@ class BarActivation(QObject):
         if not self.window.isVisible() or self.window.dismissal_protected():
             self.cancel();return
         self.attempts+=1
-        # Wayland widget focus does not activate a toplevel opened by a layer
-        # surface. Target only this process, never a class shared by other apps.
-        self.process.start('hyprctl',['dispatch','focuswindow',f'pid:{os.getpid()}'])
+        self.phase='find'
+        # A resident process can own several windows. Resolve this exact title
+        # inside our own process, never another window sharing the app class.
+        self.process.start('hyprctl',['-j','clients'])
 
-    def finished(self,*_):
+    def finished(self,code=0,*_):
         if self.done:return
-        reply=bytes(self.process.readAllStandardOutput()).decode(errors='replace').strip().lower()
-        # The first frame can still be in flight. Retry only the map race;
-        # unavailable IPC and all other errors leave ordinary focus alone.
-        if reply in ('window not found','no such window found') and self.attempts<8:
-            self.retry.start(25)
+        if code:self.cancel();return
+        reply=bytes(self.process.readAllStandardOutput()).decode(errors='replace').strip()
+        if self.phase=='find':
+            try:
+                clients=json.loads(reply)
+                if not isinstance(clients,list):raise ValueError('Invalid client list')
+                matches=[c for c in clients if c.get('pid')==os.getpid() and c.get('mapped')
+                         and c.get('title')==self.window.windowTitle()
+                         and re.fullmatch(r'0x[0-9a-fA-F]+',c.get('address',''))]
+            except (ValueError,AttributeError,TypeError):self.cancel();return
+            if not matches:self.retry_map();return
+            if len(matches)!=1:self.cancel();return
+            self.selector='address:'+matches[0]['address'];self.phase='focus'
+            self.process.start('hyprctl',['dispatch','focuswindow',self.selector])
+        elif self.phase=='focus':
+            if reply.lower()=='ok':
+                # Focus alone permits rendering above a maximized window on
+                # this compositor, but leaves the pointer input stack behind.
+                # Use the same explicit raise as taskbar and switcher clicks.
+                self.phase='raise'
+                self.process.start('hyprctl',['dispatch','alterzorder','top,'+self.selector])
+            elif reply.lower() in ('window not found','no such window found'):self.retry_map()
+            else:self.cancel()
+        else:self.cancel() # Minimize's native restore owns a pending raise.
+
+    def retry_map(self):
+        # Retry only the map race. Never keep stealing focus after a click.
+        if self.attempts<8:self.retry.start(25)
         else:self.cancel()
 
     def cancel(self):

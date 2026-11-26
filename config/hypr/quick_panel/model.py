@@ -6,9 +6,12 @@ import math
 from pathlib import Path
 import re
 import subprocess
+import sys
 import time
 
 import psutil
+sys.path.append(str(Path(__file__).resolve().parents[1] / 'control_center'))
+import audio_layout
 
 
 def command(argv, timeout=1.5):
@@ -49,21 +52,24 @@ def monitor_at(monitors, cursor):
     return next((m for m in enabled if m.get('focused')), enabled[0] if enabled else None)
 
 
-PANEL_SIZES = {'clock': (370, 440), 'power': (420, 835), 'network': (420, 500)}
+PANEL_SIZES = {'clock': (370, 440), 'power': (420, 835), 'network': (420, 500), 'audio': (audio_layout.MAX_WIDTH, audio_layout.HEIGHT)}
 
 
-def placement(monitor, kind, edge='top'):
+def placement(monitor, kind, edge='top', *, app_count=None):
     w, h = monitor['width'], monitor['height']
     if monitor.get('transform', 0) % 2: w, h = h, w
     scale = monitor.get('scale', 1) or 1
     left, top, right, bottom = monitor.get('reserved', [0, 0, 0, 0])
     preferred_width, preferred_height = PANEL_SIZES[kind]
-    width = max(1, min(preferred_width, w / scale - left - right - 24))
+    width_limit = max(1, min(preferred_width, int(w / scale - left - right - 24)))
+    width = audio_layout.fit(1 if app_count is None else app_count,width_limit)[0] if kind=='audio' else width_limit
     height = max(1, min(preferred_height, h / scale - top - bottom - 20))
     x = w / scale - right - width - 12
     y = top + 10 if edge == 'top' else h / scale - bottom - height - 10
-    return {'monitor': monitor['id'], 'edge': edge, 'x': round(monitor['x'] + x), 'y': round(monitor['y'] + y),
+    result = {'monitor': monitor['id'], 'edge': edge, 'x': round(monitor['x'] + x), 'y': round(monitor['y'] + y),
             'relative_x': round(x), 'relative_y': round(y), 'width': round(width), 'height': round(height)}
+    if kind=='audio':result.update(width_limit=width_limit,app_count=1 if app_count is None else app_count)
+    return result
 
 
 def battery_status(battery):

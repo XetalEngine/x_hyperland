@@ -19,6 +19,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / 'config/hypr'))
 from effects.window_close import model, rules
 from effects.minimize import build as minimize_build, model as minimize_model
+from compat import hypr_compat
 
 
 def main():
@@ -79,12 +80,23 @@ general:border_size=3
 bindm=SUPER,mouse:272,movewindow
 bindm=SUPER,mouse:273,resizewindow
 ''')
+    modern=hypr_compat.uses_lua()
+    if modern:
+        lua_conf=conf.with_suffix('.lua')
+        lua_conf.write_text(hypr_compat.Renderer(home/'.config/hypr').render(conf));conf=lua_conf
     verify = subprocess.run(['Hyprland', '--verify-config', '--config', str(conf)], capture_output=True, text=True)
     assert verify.returncode == 0, verify.stdout + verify.stderr
     runtime = Path(tempfile.mkdtemp(prefix='wb-', dir='/tmp'))
-    parent = os.environ.get('WAYLAND_DISPLAY', 'wayland-0')
+    parent_env=dict(os.environ)
+    instances=json.loads(subprocess.check_output(['hyprctl','-j','instances'],text=True))
+    current=next((i for i in instances if i['wl_socket']==os.environ.get('WAYLAND_DISPLAY')),None)
+    if current:parent_env['HYPRLAND_INSTANCE_SIGNATURE']=current['instance']
+    if modern:
+        parent_env['PATH']=str(REPO/'config/hypr/compat/bin')+':'+parent_env.get('PATH','/usr/bin:/bin')
+        parent_env['XETAL_HYPRLAND_LUA']='1'
+    parent = parent_env.get('WAYLAND_DISPLAY', 'wayland-0')
     if not parent.startswith('/'): parent = str(Path(os.environ['XDG_RUNTIME_DIR']) / parent)
-    env = dict(os.environ, HOME=str(home), XDG_CONFIG_HOME=str(home / '.config'), XDG_CACHE_HOME=str(home / '.cache'),
+    env = dict(parent_env, HOME=str(home), XDG_CONFIG_HOME=str(home / '.config'), XDG_CACHE_HOME=str(home / '.cache'),
                XDG_DATA_HOME=str(home / '.local/share'), XDG_STATE_HOME=str(home / '.local/state'), XDG_RUNTIME_DIR=str(runtime),
                WAYLAND_DISPLAY=parent, AQ_BACKENDS='wayland', HYPRLAND_NO_SD_VARS='1', HYPRLAND_NO_SD_NOTIFY='1',
                QT_QPA_PLATFORM='wayland', QT_QPA_PLATFORMTHEME='', QT_WAYLAND_DISABLE_WINDOWDECORATION='1',
@@ -128,11 +140,11 @@ bindm=SUPER,mouse:273,resizewindow
         i = wait(instance); env.update(HYPRLAND_INSTANCE_SIGNATURE=i['instance'], WAYLAND_DISPLAY=i['wl_socket'])
         def size_output(w, h):
             def parent_clients():
-                return json.loads(subprocess.check_output(['hyprctl', '-j', 'clients'], env=os.environ, text=True))
+                return json.loads(subprocess.check_output(['hyprctl', '-j', 'clients'], env=parent_env, text=True))
             surface = wait(lambda: next((c for c in parent_clients() if c['pid'] == compositor.pid), None))
             target = 'address:' + surface['address']
             for action, arg in [('setfloating', target), ('resizewindowpixel', f'exact {w} {h},' + target)]:
-                subprocess.run(['hyprctl', 'dispatch', action, arg], env=os.environ, capture_output=True, check=True)
+                subprocess.run(['hyprctl', 'dispatch', action, arg], env=parent_env, capture_output=True, check=True)
             wait(lambda: json.loads(ctl('-j', 'monitors'))[0]['width'] == w)
             time.sleep(.3)
         wait(lambda: json.loads(ctl('-j', 'monitors'))); size_output(1280, 900)
@@ -141,7 +153,10 @@ bindm=SUPER,mouse:273,resizewindow
         devices=json.loads(ctl('-j','devices'))
         for group in ('mice','keyboards'):
             for device in devices[group]:
-                assert ctl('keyword',f'device[{device["name"]}]:enabled','false')=='ok'
+                if modern:
+                    response=ctl('lua','return '+hypr_compat.call('device',{'name':device['name'],'enabled':False}))
+                    assert not response.lower().startswith('error'),response
+                else:assert ctl('keyword',f'device[{device["name"]}]:enabled','false')=='ok'
         minimize_binary = sys.argv[sys.argv.index('--minimize-plugin')+1] if '--minimize-plugin' in sys.argv else str(minimize_build.build())
         assert ctl('plugin', 'load', minimize_binary) == 'ok'
         memory_binary=subprocess.check_output([sys.executable,str(REPO/'config/hypr/runtime/window_memory/build.py')],text=True).strip()
@@ -152,7 +167,7 @@ bindm=SUPER,mouse:273,resizewindow
             env['DBUS_SESSION_BUS_ADDRESS']=bus.stdout.readline().strip()
             assert env['DBUS_SESSION_BUS_ADDRESS'].startswith('unix:')
         fixture='tests/window-buttons/background_client.py' if '--background-only' in sys.argv else 'tests/wobbly/client.py'
-        if '--stacking-only' in sys.argv:fixture='tests/window-buttons/stacking_client.py'
+        if '--stacking-only' in sys.argv or '--activation-only' in sys.argv:fixture='tests/window-buttons/stacking_client.py'
         app = spawn([sys.executable, str(REPO / fixture), '-name', 'wobbly-test'],
                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         def command(op, name='Buttons', process=app):
@@ -233,6 +248,35 @@ bindm=SUPER,mouse:273,resizewindow
             run('grim',str(root/'kde-titlebar-editor.png'))
             dispatch('closewindow','address:'+editor['address'])
             print('PASS: KDE reserved title bar, size/geometry, click cancellation, fullscreen, native drag, gear, per-window opt-out and mode isolation.',flush=True)
+            return
+
+        if '--activation-only' in sys.argv:
+            workspace=client()['workspace']['id']
+            run(sys.executable,str(workspace_dir/'controller.py'),'--workspace',str(workspace),'--layout','kde')
+            command('add','Media');wait(lambda:client('Media'))
+            dispatch('resizewindowpixel','exact 400 260,'+address('Media'))
+            dispatch('movewindowpixel','exact 400 250,'+address('Media'))
+            def reply(op,name='Media'):
+                app.stdin.write(json.dumps(dict(op=op,name=name))+'\n');app.stdin.flush()
+                return json.loads(app.stdout.readline())
+            def tap(x,y):
+                point(f'move {x} {y}');point('down 272');point('up 272')
+            for operation,fullscreen in (('max',1),('full',2)):
+                command(operation);wait(lambda:client()['fullscreen']==fullscreen)
+                initial_browser=geometry();initial_media=geometry('Media')
+                for repeat in range(3):
+                    tap(80,760)
+                    wait(lambda:json.loads(ctl('-j','activewindow'))['title']=='Buttons')
+                    command('activate','Media')
+                    wait(lambda:reply('activation')['done'])
+                    assert reply('activation')['phase']=='raise'
+                    before=reply('counts');tap(450,470)
+                    wait(lambda:reply('counts')['Media']>before['Media'])
+                    assert reply('counts')['Buttons']==before['Buttons'],'Click fell through to the browser'
+                    assert geometry()==initial_browser and client()['fullscreen']==fullscreen
+                    assert geometry('Media')==initial_media
+                command('restore');wait(lambda:client()['fullscreen']==0)
+            print('PASS: Repeated bar activation receives actual pointer clicks above maximized/fullscreen windows in KDE mode; both windows keep their geometry.',flush=True)
             return
 
         if '--stacking-only' in sys.argv:

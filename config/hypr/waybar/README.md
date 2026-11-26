@@ -20,6 +20,18 @@ The shared snapshot is `quick_panel/network_status.py`;
 `scripts/panel-status.py network` emits the icon for Waybar. The popup is opened through
 `scripts/quick-panel.sh network`. Theme rearrangements retain this single module.
 
+## Audio shortcuts
+
+The **Mixer** button beside the output volume slider opens the app mixer popup.
+The volume percentage opens the full Audio settings window. These bar shortcuts
+focus and raise the exact requested window, including its pointer-input order
+above a maximized window in KDE mode. They do not change the background window's
+maximized state or either window's geometry. The handoff ends after activation
+and cancels on user input; it is not an always-on-top or focus-stealing rule.
+
+See the [audio guide](../../../docs/AUDIO.md) for devices, monitor outputs and the
+fixed main-volume strip.
+
 ## Tray clicks
 
 Left-clicking an application's tray icon reveals its most recently used window

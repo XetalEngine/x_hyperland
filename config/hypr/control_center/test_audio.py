@@ -60,7 +60,7 @@ class BackendTests(unittest.TestCase):
 
     def test_recording_mute_and_route_target_only_selected_application(self):
         selected=stream(10);other=stream(20,'Browser');group=backend.groups([selected],'recording')[0]
-        def listing(kind):return [{'name':'mic-two'}] if kind=='source' else [selected,other]
+        def listing(kind):return [{'index':3,'name':'mic-two'}] if kind=='source' else [selected,other]
         with patch.object(backend,'listing',side_effect=listing),patch.object(backend,'pactl') as command:
             backend.apply_app(group,'mute',True);backend.apply_app(group,'device','mic-two')
         self.assertEqual([call.args for call in command.call_args_list],
