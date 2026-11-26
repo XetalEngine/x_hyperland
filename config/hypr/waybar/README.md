@@ -20,6 +20,43 @@ The shared snapshot is `quick_panel/network_status.py`;
 `scripts/panel-status.py network` emits the icon for Waybar. The popup is opened through
 `scripts/quick-panel.sh network`. Theme rearrangements retain this single module.
 
+## Workspace transitions
+
+Adding or closing an empty workspace uses a 220 ms slide-and-fade transition.
+The horizontal row grows or contracts smoothly, including the + button and
+controls beside it. Repeated changes continue from the current position.
+GTK's animation-off setting skips the transition.
+
+Cube faces keep their local 1–10 labels during compositor configuration reloads;
+internal workspace IDs do not flash on screen. The workspace mode indicator
+updates before painting too. The existing cube limits remain: at least four
+workspaces and at most ten per display, with close controls only on empty sides.
+
+`workspaces/button.c` prepares labels and metadata before the frame is laid out.
+`workspaces/motion.h` retains presentation by workspace identity across Waybar's
+button rebuilds, animates row width and positions, and fades snapshots of removed
+buttons. Native buttons retain their app icons and click handlers. All callbacks
+and snapshots are released when the module reloads. The regular installer build
+in `workspaces/build.sh` includes this code.
+
+After replacing these shared libraries locally, restart the session-owned Waybar
+child so it loads the new binaries. A configuration reload alone can retain the
+previous libraries in memory; the compositor and other apps need no restart.
+
+Native pointer/layout checks run in a disposable X server; the integration check
+observes real Waybar frames on two isolated Hyprland outputs:
+
+```sh
+xvfb-run -a env GDK_BACKEND=x11 python3 config/hypr/waybar/workspaces/test_close.py
+xvfb-run -a env GDK_BACKEND=x11 python3 config/hypr/waybar/workspaces/test_mode.py
+xvfb-run -a env GDK_BACKEND=x11 python3 config/hypr/waybar/workspaces/test_motion.py
+python3 tests/check-workspace-transitions.py /tmp/fusion-workspace-check-new
+```
+
+Run these commands from the repository root. The pointer suites require
+`xdotool`; the integration check uses the shared nested-session isolation helper
+and never clicks the real desktop's add/remove controls.
+
 ## Audio shortcuts
 
 The **Mixer** button beside the output volume slider opens the app mixer popup.

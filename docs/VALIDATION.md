@@ -1,5 +1,23 @@
 # Validation
 
+## Workspace row transitions — 25 November 2026
+
+Workspace labels and the mode indicator now update before painting, including
+the native button rebuild triggered by a compositor configuration reload.
+Horizontal rows animate width and pill positions over 220 ms, fade entering and
+removed pills, preserve workspace identity, and honor GTK's animation setting.
+
+Three native GTK suites passed for add/close pointer routing, empty-workspace
+guards, cube limits and feedback, mode switching, frame-by-frame local labels,
+growth/shrink, interrupted transitions, hide/show, teardown and reduced motion.
+Thirteen Python workspace transaction tests and two isolation checks passed.
+The real Waybar integration check passed on two isolated Hyprland outputs with
+an app icon: initial labels, adding a fifth side, rebuilding existing buttons,
+removing the fifth side, and reloading Waybar. Painted frames retained local
+labels and the existing mode; the + button moved through intermediate positions.
+The parent compositor stayed running throughout. See the commands in the
+[taskbar guide](../config/hypr/waybar/README.md#workspace-transitions).
+
 ## Nested compositor isolation and Ctrl+C — 25 November 2026
 
 All 27 disposable compositor checks now build their environment through

@@ -71,6 +71,7 @@ def run():
                 xdo('key','e');wait_for(lambda:geometry()[0]==1,'Empty cube side did not regain close control')
                 state.write_text('enabled\n2 1\n5 2\n'+''.join(f'{n} {n-3}\n' for n in range(6,14)))
                 xdo('key','t');wait_for(lambda:add_state()[1].startswith('Maximum 10'),'Ten-side limit not shown')
+                wait_for(lambda:(root/'settled').read_text()=='1','Workspace entrance did not settle')
                 original,tip=add_state();assert tip=='Maximum 10 cube workspaces on this display',tip
                 before=actions();click(*original[:2])
                 wait_for(lambda:add_state()[0][3], 'Blocked click did not show feedback')

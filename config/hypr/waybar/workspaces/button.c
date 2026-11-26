@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "previews.h"
+#include "motion.h"
 const size_t wbcffi_version = 2;
 
 typedef struct {
@@ -26,6 +27,9 @@ typedef struct {
     gint64 feedback_started;
     gboolean cube;
     int count;
+    GdkFrameClock *clock;
+    gulong paint_handler;
+    WorkspaceStrip *strip;
 } Workspaces;
 
 static void invoke(GtkWidget *widget, long number) {
@@ -299,6 +303,8 @@ static gboolean refresh(gpointer data) {
          * Context menus must save the actual workspace, never the active one. */
         g_object_set_data(G_OBJECT(button), "xetal-workspace-id", d->minimized || number < 1 ? NULL : GINT_TO_POINTER(number));
         g_object_set_data(G_OBJECT(button), "xetal-workspace-display", d->stash ? NULL : GINT_TO_POINTER(d->face ? d->face : number));
+        char *motion_key=d->stash ? g_strdup("stash") : g_strdup_printf("%s:%ld",d->minimized ? "minimized" : "workspace",number);
+        g_object_set_data_full(G_OBJECT(button), "xetal-workspace-motion-key",motion_key,g_free);
         gtk_widget_set_visible(button, d->stash || d->minimized || !cube || face > 0);
         GtkWidget *label = find_widget(button, "workspace-label", TRUE);
         watch_label(d, GTK_IS_LABEL(label) ? label : NULL);
@@ -328,7 +334,20 @@ static gboolean refresh(gpointer data) {
     }
     g_list_free(children);
     g_hash_table_unref(faces); g_hash_table_unref(names);
+    if (!owner->strip) owner->strip=motion_attach(box);
     return G_SOURCE_CONTINUE;
+}
+
+static void before_paint(GdkFrameClock *clock, gpointer data) { refresh(data); }
+static void mapped(GtkWidget *widget, gpointer data) {
+    Workspaces *owner=data;
+    if (owner->clock) return;
+    owner->clock=gtk_widget_get_frame_clock(widget);
+    if (owner->clock) {
+        g_object_ref(owner->clock);
+        owner->paint_handler=g_signal_connect(owner->clock,"before-paint",G_CALLBACK(before_paint),owner);
+    }
+    refresh(owner);
 }
 
 void *wbcffi_init(const wbcffi_init_info *info, const wbcffi_config_entry *entries, size_t length) {
@@ -353,6 +372,7 @@ void *wbcffi_init(const wbcffi_init_info *info, const wbcffi_config_entry *entri
     update_add_button(owner, cube_faces(NULL, NULL), 0);
     gtk_container_add(info->get_root_widget(info->obj), button);
     g_signal_connect(button, "clicked", G_CALLBACK(clicked), owner);
+    g_signal_connect(button, "map", G_CALLBACK(mapped), owner);
     gtk_widget_show_all(button);
     owner->timer = g_timeout_add(200, refresh, owner);
     return owner;
@@ -360,6 +380,10 @@ void *wbcffi_init(const wbcffi_init_info *info, const wbcffi_config_entry *entri
 void wbcffi_deinit(void *instance) {
     Workspaces *owner = instance;
     if (owner->timer) g_source_remove(owner->timer);
+    if (owner->clock) {
+        g_signal_handler_disconnect(owner->clock,owner->paint_handler); g_object_unref(owner->clock);
+    }
+    motion_detach(owner->strip);
     stop_feedback(owner);
     for (GSList *it = owner->decorations; it; it = it->next) {
         Decoration *d = it->data;
@@ -376,6 +400,7 @@ void wbcffi_deinit(void *instance) {
             g_object_set_data(G_OBJECT(d->button), "xetal-workspace-id", NULL);
             g_object_set_data(G_OBJECT(d->button), "xetal-workspace-display", NULL);
             g_object_set_data(G_OBJECT(d->button), "xetal-workspace-layout-ready", NULL);
+            g_object_set_data(G_OBJECT(d->button), "xetal-workspace-motion-key", NULL);
             gtk_widget_set_margin_end(d->content, d->margin);
             g_object_ref(d->content);
             gtk_container_remove(GTK_CONTAINER(d->overlay), d->content);

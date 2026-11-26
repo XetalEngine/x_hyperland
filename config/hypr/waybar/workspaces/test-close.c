@@ -79,6 +79,8 @@ static gboolean keyboard(GtkWidget *widget, GdkEventKey *event, gpointer data) {
     return TRUE;
 }
 static gboolean state(gpointer unused) {
+    char *settled_file=g_build_filename(directory,"settled",NULL);
+    g_file_set_contents(settled_file,instance->strip && instance->strip->tick ? "0" : "1",-1,NULL);g_free(settled_file);
     char *file=g_build_filename(directory,"geometry",NULL);
     gint x=-1,y=-1,bx=-1,by=-1;gboolean visible=FALSE;
     Decoration *d=empty ? g_object_get_data(G_OBJECT(empty),"xetal-workspace-decoration") : NULL;
@@ -124,7 +126,8 @@ int main(int argc,char **argv) {
     gtk_window_set_default_size(GTK_WINDOW(window),360,45);
     GtkWidget *bar=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,2);gtk_container_add(GTK_CONTAINER(window),bar);
     workspace_box=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,0);gtk_widget_set_name(workspace_box,"workspaces");
-    gtk_box_pack_start(GTK_BOX(bar),workspace_box,FALSE,FALSE,0);
+    GtkWidget *module=gtk_event_box_new();gtk_container_add(GTK_CONTAINER(module),workspace_box);
+    gtk_box_pack_start(GTK_BOX(bar),module,FALSE,FALSE,0);
     occupied=workspace("2 ",FALSE,"activate 2");empty=workspace("5 ",TRUE,"activate 5");
     GtkWidget *special=workspace("xetal-startup ",FALSE,"special");
     gtk_style_context_add_class(gtk_widget_get_style_context(special),"special");

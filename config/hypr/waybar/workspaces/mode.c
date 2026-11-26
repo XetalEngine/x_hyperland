@@ -17,6 +17,8 @@ typedef struct {
     int workspace, display, layout;
     gboolean dirty, active, known, saving, alive;
     guint refs;
+    GdkFrameClock *clock;
+    gulong paint_handler;
 } Mode;
 
 static void release(Mode *mode) {
@@ -153,6 +155,18 @@ static void changed(GFileMonitor *monitor, GFile *file, GFile *other, GFileMonit
     g_free(path); g_free(destination);
 }
 
+static void before_paint(GdkFrameClock *clock, gpointer data) { refresh(data); }
+static void mapped(GtkWidget *widget, gpointer data) {
+    Mode *mode=data;
+    if (mode->clock) return;
+    mode->clock=gtk_widget_get_frame_clock(widget);
+    if (mode->clock) {
+        g_object_ref(mode->clock);
+        mode->paint_handler=g_signal_connect(mode->clock,"before-paint",G_CALLBACK(before_paint),mode);
+    }
+    refresh(mode);
+}
+
 static gboolean draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
     Mode *mode = data;
     GdkRGBA color;
@@ -226,6 +240,7 @@ void *wbcffi_init(const wbcffi_init_info *info, const wbcffi_config_entry *entri
     atk_object_set_role(gtk_widget_get_accessible(mode->root), ATK_ROLE_PUSH_BUTTON);
     g_signal_connect(mode->root, "button-press-event", G_CALLBACK(clicked), mode);
     g_signal_connect(mode->root, "key-press-event", G_CALLBACK(key_pressed), mode);
+    g_signal_connect(mode->root, "map", G_CALLBACK(mapped), mode);
     /* Local styling works with existing, personally edited bar styles too. */
     GtkCssProvider *css = gtk_css_provider_new();
     gtk_css_provider_load_from_data(css,
@@ -254,6 +269,9 @@ void wbcffi_deinit(void *instance) {
     Mode *mode = instance;
     mode->alive = FALSE;
     if (mode->timer) g_source_remove(mode->timer);
+    if (mode->clock) {
+        g_signal_handler_disconnect(mode->clock,mode->paint_handler); g_object_unref(mode->clock);
+    }
     if (mode->monitor) {
         g_signal_handlers_disconnect_by_data(mode->monitor, mode);
         g_file_monitor_cancel(mode->monitor); g_object_unref(mode->monitor);
