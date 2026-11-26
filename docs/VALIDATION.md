@@ -1,5 +1,37 @@
 # Validation
 
+## Nested compositor isolation and Ctrl+C — 25 November 2026
+
+All 27 disposable compositor checks now build their environment through
+`tests/nested_session.py`. The pinned Hyprland/Aquamarine runtime can probe DRM
+and acquire a physical logind seat despite `AQ_BACKENDS=wayland`. A private
+Wayland socket and runtime directory alone did not prevent that acquisition.
+The shared helper explicitly rejects libseat acquisition, removes inherited
+session/seat/VT identifiers and disables systemd environment publication. This
+environment is only for tests, never for starting the user's real desktop.
+
+Two regression tests passed for environment isolation and harness coverage.
+Twenty-three native clipboard checks passed, including Unicode URLs through
+Wayland and XWayland, source exit, rich text, image bytes, large copies and
+excluded formats. Four virtual-keyboard scenarios passed with the shipped
+Kitty configuration: active history search, Escape, Ctrl+C cancellation and a
+held Ctrl across a focus change. Each scenario also copied selected text with
+Ctrl+C in a second application and verified continued compositor operation.
+
+Both native checks verified that the disposable compositor inherited no login
+identity, opened no physical login seat and held no input/VT/DRM-card device
+descriptors. The original parent compositor remained alive after each test's
+teardown. Physical-key reproduction on the active desktop was deliberately
+not attempted. These results confirm the isolation defect and its correction;
+they do not establish the exact signal behind the reported earlier logout,
+which left no compositor crash report.
+
+```sh
+python3 -m unittest discover -s tests -p 'test_nested_session.py' -v
+python3 tests/check-clipboard-persistence.py /tmp/fusion-clipboard-check-new
+python3 tests/check-terminal-history.py
+```
+
 ## Tray activation on multiple monitors — 23 November 2026
 
 Left-clicks on Waybar tray items now focus the app's most recently used window

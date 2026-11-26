@@ -4,6 +4,7 @@
 Usage: python3 tests/check-file-drag-and-close.py OUTPUT_DIR FILES_BUILD
 The browser uses a private profile and local upload fixture; no files leave the machine.
 """
+from nested_session import nested_environment
 import http.server
 import json
 import os
@@ -45,12 +46,12 @@ def main():
     (root/'preferences.ini').write_text('[General]\npreview=false\n')
     parent=os.environ['WAYLAND_DISPLAY']
     if not parent.startswith('/'):parent=str(Path(os.environ['XDG_RUNTIME_DIR'])/parent)
-    env=dict(os.environ,HOME=str(root/'home'),XDG_RUNTIME_DIR=str(runtime),WAYLAND_DISPLAY=parent,
+    env=nested_environment(dict(os.environ,HOME=str(root/'home'),XDG_RUNTIME_DIR=str(runtime),WAYLAND_DISPLAY=parent,
              XDG_CONFIG_HOME=str(root/'home/.config'),XDG_DATA_HOME=str(root/'home/.local/share'),
              XDG_CACHE_HOME=str(root/'home/.cache'),XDG_STATE_HOME=str(root/'home/.local/state'),
              XDG_CURRENT_DESKTOP='Hyprland',GSETTINGS_BACKEND='memory',AQ_BACKENDS='wayland',
              HYPRLAND_NO_SD_VARS='1',HYPRLAND_NO_SD_NOTIFY='1',QT_QPA_PLATFORM='wayland',QT_QPA_PLATFORMTHEME='',
-             FUSION_FILES_ISOLATED='1',XETAL_FILES_ROOT=str(REPO/'config/hypr'),QT_PLUGIN_PATH='')
+             FUSION_FILES_ISOLATED='1',XETAL_FILES_ROOT=str(REPO/'config/hypr'),QT_PLUGIN_PATH=''))
     env.pop('HYPRLAND_INSTANCE_SIGNATURE',None);env.pop('DISPLAY',None)
     children=[];logs=[];uploads=[];browser_events=[]
     def spawn(args,**kwargs):

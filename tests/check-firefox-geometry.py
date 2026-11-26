@@ -6,6 +6,7 @@ Requires Firefox, a parent Wayland session, grim, Pillow and the Wayland C tools
 Uses only a fresh browser profile and a local test page. Never loads plugins or
 sends pointer input into the parent session.
 """
+from nested_session import nested_environment
 import argparse
 import json
 import os
@@ -100,9 +101,9 @@ debug {
     subprocess.run(['cc','-I'+str(root),str(REPO/'tests/minimize/pointer.c'),str(root/'virtual-pointer.c'),'-o',str(pointer),*flags],check=True)
     parent = os.environ['WAYLAND_DISPLAY']
     if not parent.startswith('/'):parent = str(Path(os.environ['XDG_RUNTIME_DIR'])/parent)
-    env = dict(os.environ, XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=parent,
+    env = nested_environment(dict(os.environ, XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=parent,
                GSETTINGS_BACKEND='memory', XETAL_MINIMIZE_CONFIG=str(root/'minimize.conf'),
-               XETAL_WORKSPACE_RULES=str(root/'workspace-rules.json'))
+               XETAL_WORKSPACE_RULES=str(root/'workspace-rules.json')))
     env.pop('HYPRLAND_INSTANCE_SIGNATURE',None)
     children = [];logs = []
 

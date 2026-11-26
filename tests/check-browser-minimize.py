@@ -5,6 +5,7 @@ Usage: check-browser-minimize.py PLUGIN DIRECTORY
 Runs only a disposable nested compositor and fresh browser profiles. Never
 controls the user's browser, installs modules or changes desktop preferences.
 """
+from nested_session import nested_environment
 import hashlib
 import json
 import os
@@ -43,7 +44,7 @@ debug:disable_logs = false
 debug:enable_stdout_logs = true
 ''')
     lua=root/'hyprland.lua';lua.write_text(hypr_compat.Renderer(root).render())
-    env={k:v for k,v in os.environ.items() if not k.startswith(('HYPRLAND_INSTANCE','XETAL_'))}
+    env=nested_environment({k:v for k,v in os.environ.items() if not k.startswith(('HYPRLAND_INSTANCE','XETAL_'))})
     parent=Path(os.environ['WAYLAND_DISPLAY'])
     if not parent.is_absolute():parent=Path(os.environ['XDG_RUNTIME_DIR'])/parent
     env.update(HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_CACHE_HOME=str(home/'.cache'),

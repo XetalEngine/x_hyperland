@@ -4,6 +4,7 @@
 Unlike --verify-config, a real startup applies env directives. The parent
 desktop is never reloaded; only the test compositor and its capture helper run.
 """
+from nested_session import nested_environment
 import argparse
 import json
 import os
@@ -36,7 +37,7 @@ def check(environment):
                           'misc {\n disable_hyprland_logo = true\n disable_splash_rendering = true\n}\n'
                           'xwayland {\n enabled = false\n}\n'
                           'source = '+str(rendered)+'\nexec = /usr/bin/python3 '+str(capture)+'\n')
-        env = dict(os.environ, HOME=str(home), XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=str(parent))
+        env = nested_environment(dict(os.environ, HOME=str(home), XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=str(parent)))
         env.pop('HYPRLAND_INSTANCE_SIGNATURE', None)
         compositor = None
         log = root/'compositor.log'

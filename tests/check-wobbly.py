@@ -5,6 +5,7 @@ Usage: check-wobbly.py /path/to/xetal-wobbly.so /tmp/new-test-directory
 Use --cursors-only to check cursor families and general glow with all adapters loaded.
 Never loads a plugin into the parent compositor or modifies its configuration.
 """
+from nested_session import nested_environment
 import json,os,shlex,subprocess,sys,tempfile,time
 from pathlib import Path
 REPO=Path(__file__).resolve().parents[1]
@@ -64,10 +65,10 @@ windowrule=match:class ^wobbly-test$,float on
     runtime=Path(tempfile.mkdtemp(prefix='xw-',dir='/tmp'))
     parent=os.environ.get('WAYLAND_DISPLAY','wayland-0')
     if not parent.startswith('/'):parent=str(Path(os.environ['XDG_RUNTIME_DIR'])/parent)
-    env=dict(os.environ,HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_CACHE_HOME=str(home/'.cache'),XDG_DATA_HOME=str(home/'.local/share'),
+    env=nested_environment(dict(os.environ,HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_CACHE_HOME=str(home/'.cache'),XDG_DATA_HOME=str(home/'.local/share'),
              XDG_STATE_HOME=str(home/'.local/state'),XDG_RUNTIME_DIR=str(runtime),WAYLAND_DISPLAY=parent,AQ_BACKENDS='wayland',
              HYPRLAND_NO_SD_VARS='1',HYPRLAND_NO_SD_NOTIFY='1',XETAL_WOBBLY_CONFIG=str(config),QT_QPA_PLATFORM='wayland',QT_QPA_PLATFORMTHEME='',
-             QT_WAYLAND_DISABLE_WINDOWDECORATION='1',QT_PLUGIN_PATH='',GSETTINGS_BACKEND='memory',XETAL_CUBE_CONFIG=str(cube),XETAL_BURN_CONFIG=str(burn),XETAL_MINIMIZE_CONFIG=str(minimize),XETAL_CURSOR_CONFIG=str(cursor_config))
+             QT_WAYLAND_DISABLE_WINDOWDECORATION='1',QT_PLUGIN_PATH='',GSETTINGS_BACKEND='memory',XETAL_CUBE_CONFIG=str(cube),XETAL_BURN_CONFIG=str(burn),XETAL_MINIMIZE_CONFIG=str(minimize),XETAL_CURSOR_CONFIG=str(cursor_config)))
     for k in ('HYPRLAND_INSTANCE_SIGNATURE','DISPLAY','DBUS_SESSION_BUS_ADDRESS'):env.pop(k,None)
     children=[];logs=[]
     def spawn(args,**kwargs):

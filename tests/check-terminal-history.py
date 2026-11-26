@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check Kitty Ctrl+R and A-key delivery after Wayland focus changes.
+"""Check Kitty Ctrl+R, Ctrl+C copying and A-key delivery after focus changes.
 
 Uses the shipped shell configuration in a temporary HOME and a disposable
 Hyprland session. All virtual input goes to that session, never the desktop.
@@ -7,6 +7,7 @@ Requires a running Hyprland parent, kitty/kitten, PyQt6, wayland-scanner and cc.
 Optional --cube-plugin and --minimize-plugin paths exercise desktop effects.
 This is a virtual-keyboard test; it cannot exclude physical-device/IME faults.
 """
+from nested_session import nested_environment, assert_seat_isolated
 import argparse,json,os,select,shutil,subprocess,tempfile,time,sys
 from pathlib import Path
 
@@ -20,7 +21,7 @@ def main():
     (profile/'scripts').mkdir();shutil.copy2(src/'scripts/terminal-shell.sh',profile/'scripts/terminal-shell.sh');(profile/'theme').mkdir();shutil.copy2(src/'theme/kitty-colors.conf',profile/'theme/kitty-colors.conf')
     (profile/'kitty.conf').write_text((src/'kitty.conf').read_text().replace('@HYPR@',str(profile)));(home/'.bashrc').write_text("PS1='HF_KITTY> '\n")
     instances=json.loads(subprocess.check_output(['hyprctl','-j','instances']));assert instances,'A parent Wayland compositor is required';parent=instances[-1]
-    env=dict(os.environ,HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_STATE_HOME=str(home/'state'),XDG_CACHE_HOME=str(home/'cache'),XDG_RUNTIME_DIR=str(runtime),WAYLAND_DISPLAY=str(Path('/run/user')/str(os.getuid())/parent['wl_socket']),AQ_BACKENDS='wayland',HYPRLAND_NO_SD_VARS='1',HYPRLAND_NO_SD_NOTIFY='1',QT_QPA_PLATFORM='wayland',QT_QPA_PLATFORMTHEME='',GSETTINGS_BACKEND='memory',LIBGL_ALWAYS_SOFTWARE='1')
+    env=nested_environment(dict(os.environ,HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_STATE_HOME=str(home/'state'),XDG_CACHE_HOME=str(home/'cache'),XDG_RUNTIME_DIR=str(runtime),WAYLAND_DISPLAY=str(Path('/run/user')/str(os.getuid())/parent['wl_socket']),AQ_BACKENDS='wayland',HYPRLAND_NO_SD_VARS='1',HYPRLAND_NO_SD_NOTIFY='1',QT_QPA_PLATFORM='wayland',QT_QPA_PLATFORMTHEME='',GSETTINGS_BACKEND='memory',LIBGL_ALWAYS_SOFTWARE='1'))
     for key in ('DISPLAY','DBUS_SESSION_BUS_ADDRESS','HYPRLAND_INSTANCE_SIGNATURE','KITTY_LISTEN_ON','KITTY_PID','KITTY_WINDOW_ID','KITTY_SHELL_INTEGRATION','KITTY_BASH_INJECT'):env.pop(key,None)
     config=root/'hyprland.lua';config.write_text('hl.monitor({output="",mode="1200x800@60",position="auto",scale=1})\nhl.config({animations={enabled=false},misc={disable_hyprland_logo=true,disable_splash_rendering=true},input={follow_mouse=0}})\n')
     for name,xml in [('pointer',repo/'tests/minimize/wlr-virtual-pointer-unstable-v1.xml'),('keyboard',repo/'tests/native/virtual-keyboard-unstable-v1.xml')]:
@@ -59,6 +60,8 @@ def main():
     try:
      comp=spawn(['Hyprland','-c',str(config)],start_new_session=True)
      ipc=wait(lambda:next(iter(runtime.glob('hypr/*/.socket.sock')),None),'IPC');display=wait(lambda:next((p for p in runtime.glob('wayland-*') if p.is_socket()),None),'display');env.update(HYPRLAND_INSTANCE_SIGNATURE=ipc.parent.name,WAYLAND_DISPLAY=str(display))
+     assert_seat_isolated(comp.pid,root/'session.log')
+     print('PASS no physical login seat or input devices',flush=True)
      ctl('output','create','headless','KEYS')
      for m in json.loads(ctl('-j','monitors')):
       if m['name']!='KEYS':ctl('output','remove',m['name'])
@@ -82,6 +85,10 @@ def main():
       for k in (30,48,46,30):tap(k)
       expected='abca'*(('search-active','escape','ctrl-c','ctrl-held-at-focus').index(ending)+1)
       wait(lambda:(root/'text').exists() and (root/'text').read_text()==expected,'A works in second app '+ending)
+      key(29,1);tap(30);tap(46);key(29,0)
+      wait(lambda:run(['wl-paste','--no-newline'])==expected,'Ctrl+C copies text '+ending)
+      tap(106)  # Clear selection so the next round appends to the existing text.
+      assert comp.poll() is None,'Ctrl+C stopped the disposable compositor'
       print('PASS',ending,flush=True)
       focus(kitty.pid);key(29,1);tap(46);key(29,0)
      print('RESULT',root,flush=True)
@@ -93,5 +100,8 @@ def main():
       except subprocess.TimeoutExpired:c.kill();c.wait()
      log.close()
      print('Artifacts',root,flush=True)
+    live=json.loads(subprocess.check_output(['hyprctl','-j','instances']))
+    assert any(item['pid']==parent['pid'] and item['instance']==parent['instance'] for item in live),'Parent compositor changed during the test'
+    print('PASS parent compositor survives test startup, Ctrl+C and teardown',flush=True)
 
 if __name__=='__main__':main()

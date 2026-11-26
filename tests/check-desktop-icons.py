@@ -4,6 +4,7 @@
 Usage: python3 tests/check-desktop-icons.py NEW_OUTPUT_DIRECTORY FILES_BUILD [--menus-only | --drag-actions-only | --drag-refresh-only]
 Only virtual input in the nested compositor is used; no personal files change.
 """
+from nested_session import nested_environment
 import json
 import os
 from pathlib import Path
@@ -50,14 +51,14 @@ def main():
     runtime = Path(tempfile.mkdtemp(prefix='fi-'))
     parent = os.environ['WAYLAND_DISPLAY']
     if not parent.startswith('/'): parent = str(Path(os.environ['XDG_RUNTIME_DIR'])/parent)
-    env = dict(os.environ, HOME=str(home), XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=parent,
+    env = nested_environment(dict(os.environ, HOME=str(home), XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=parent,
         XDG_CONFIG_HOME=str(home/'.config'), XDG_DATA_HOME=str(home/'.local/share'),
         XDG_CACHE_HOME=str(home/'.cache'), XDG_STATE_HOME=str(home/'.local/state'),
         AQ_BACKENDS='wayland', HYPRLAND_NO_SD_VARS='1', HYPRLAND_NO_SD_NOTIFY='1',
         QT_QPA_PLATFORM='wayland', QT_QPA_PLATFORMTHEME='', QT_PLUGIN_PATH='',
         QT_WAYLAND_DISABLE_WINDOWDECORATION='1', GSETTINGS_BACKEND='memory', NO_AT_BRIDGE='1',
         XETAL_FILES_ROOT=str(profile), XDG_CURRENT_DESKTOP='Hyprland',
-        PATH=str(commands)+os.pathsep+os.environ['PATH'], PYTHONWARNINGS='ignore::DeprecationWarning')
+        PATH=str(commands)+os.pathsep+os.environ['PATH'], PYTHONWARNINGS='ignore::DeprecationWarning'))
     for key in ('HYPRLAND_INSTANCE_SIGNATURE', 'DISPLAY', 'DBUS_SESSION_BUS_ADDRESS', 'GTK3_MODULES'):
         env.pop(key, None)
     for name, xml in [('pointer', REPO/'tests/minimize/wlr-virtual-pointer-unstable-v1.xml'),

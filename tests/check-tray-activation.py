@@ -4,6 +4,7 @@
 Uses a private D-Bus session, HOME and compositor; never moves host windows or
 the host pointer. Run from a desktop with a destination report directory.
 """
+from nested_session import nested_environment
 import json
 import os
 from pathlib import Path
@@ -30,10 +31,10 @@ def main():
                     ignore=shutil.ignore_patterns('.build', '__pycache__'))
     parent = Path(os.environ['WAYLAND_DISPLAY'])
     if not parent.is_absolute(): parent = Path(os.environ['XDG_RUNTIME_DIR'])/parent
-    env = {k: v for k, v in os.environ.items() if k not in (
+    env = nested_environment({k: v for k, v in os.environ.items() if k not in (
         'DISPLAY', 'DBUS_SESSION_BUS_ADDRESS', 'HYPRLAND_INSTANCE_SIGNATURE',
         'HL_INITIAL_WORKSPACE_TOKEN', 'HL_EXEC_RULE_TOKEN', 'XDG_ACTIVATION_TOKEN',
-        'DESKTOP_STARTUP_ID') and not k.startswith('XETAL_')}
+        'DESKTOP_STARTUP_ID') and not k.startswith('XETAL_')})
     env.update(HOME=str(home), XDG_RUNTIME_DIR=str(runtime), XDG_CONFIG_HOME=str(home/'.config'),
                XDG_CACHE_HOME=str(home/'.cache'), XDG_STATE_HOME=str(home/'.local/state'),
                AQ_BACKENDS='wayland', WAYLAND_DISPLAY=str(parent), HYPRLAND_NO_SD_VARS='1',

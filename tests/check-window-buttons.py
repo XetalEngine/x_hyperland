@@ -4,6 +4,7 @@
 Usage: check-window-buttons.py PLUGIN OUTPUT_DIR
 Only the disposable compositor's output window is resized in the parent.
 """
+from nested_session import nested_environment
 import json
 import os
 from pathlib import Path
@@ -96,11 +97,11 @@ bindm=SUPER,mouse:273,resizewindow
         parent_env['XETAL_HYPRLAND_LUA']='1'
     parent = parent_env.get('WAYLAND_DISPLAY', 'wayland-0')
     if not parent.startswith('/'): parent = str(Path(os.environ['XDG_RUNTIME_DIR']) / parent)
-    env = dict(parent_env, HOME=str(home), XDG_CONFIG_HOME=str(home / '.config'), XDG_CACHE_HOME=str(home / '.cache'),
+    env = nested_environment(dict(parent_env, HOME=str(home), XDG_CONFIG_HOME=str(home / '.config'), XDG_CACHE_HOME=str(home / '.cache'),
                XDG_DATA_HOME=str(home / '.local/share'), XDG_STATE_HOME=str(home / '.local/state'), XDG_RUNTIME_DIR=str(runtime),
                WAYLAND_DISPLAY=parent, AQ_BACKENDS='wayland', HYPRLAND_NO_SD_VARS='1', HYPRLAND_NO_SD_NOTIFY='1',
                QT_QPA_PLATFORM='wayland', QT_QPA_PLATFORMTHEME='', QT_WAYLAND_DISABLE_WINDOWDECORATION='1',
-               QT_PLUGIN_PATH='', GSETTINGS_BACKEND='memory', XETAL_MINIMIZE_CONFIG=str(minimize))
+               QT_PLUGIN_PATH='', GSETTINGS_BACKEND='memory', XETAL_MINIMIZE_CONFIG=str(minimize)))
     for key in ('HYPRLAND_INSTANCE_SIGNATURE', 'DISPLAY', 'DBUS_SESSION_BUS_ADDRESS'): env.pop(key, None)
     children, logs = [], []
 

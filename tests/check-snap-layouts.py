@@ -8,6 +8,7 @@ Every invocation starts a fresh compositor and sends input only to its private
 socket. No window rules, settings, plugins or input in the working desktop are
 changed. Requires Hyprland, kitty, a C compiler and wayland-scanner.
 """
+from nested_session import nested_environment
 import argparse
 import json
 import os
@@ -75,7 +76,7 @@ windowrule = match:class ^fusion-snap-test$, float on
                     str(root/'virtual-pointer.c'), str(root/'virtual-keyboard.c'), '-o', str(root/'input'), *flags], check=True)
     parent = Path(os.environ['WAYLAND_DISPLAY'])
     if not parent.is_absolute(): parent = Path(os.environ['XDG_RUNTIME_DIR'])/parent
-    env = {k: v for k, v in os.environ.items() if not k.startswith(('HYPRLAND_', 'XETAL_'))}
+    env = nested_environment({k: v for k, v in os.environ.items() if not k.startswith(('HYPRLAND_', 'XETAL_'))})
     env.update(XDG_RUNTIME_DIR=str(runtime), XDG_CONFIG_HOME=str(root/'config'), XDG_CACHE_HOME=str(root/'cache'),
                XDG_STATE_HOME=str(root/'state'), WAYLAND_DISPLAY=str(parent), HYPRLAND_NO_SD_VARS='1',
                HYPRLAND_NO_SD_NOTIFY='1', QT_QPA_PLATFORMTHEME='', QT_QPA_PLATFORM='wayland',

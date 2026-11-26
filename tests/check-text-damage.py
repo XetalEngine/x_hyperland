@@ -5,6 +5,7 @@ Usage: python3 tests/check-text-damage.py MEMORY_SO MINIMIZE_SO OUTPUT_DIR
 Add --expect-bug to verify the old adapter reproduces the padded-surface defect.
 All clients, input isolation and plugins belong to the private child session.
 """
+from nested_session import nested_environment
 import argparse
 import json
 import os
@@ -81,10 +82,10 @@ debug {
     parent = os.environ['WAYLAND_DISPLAY']
     if not parent.startswith('/'):parent = str(Path(os.environ['XDG_RUNTIME_DIR'])/parent)
     home = root/'home';home.mkdir()
-    env = dict(os.environ, HOME=str(home), XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=parent, AQ_BACKENDS='wayland',
+    env = nested_environment(dict(os.environ, HOME=str(home), XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=parent, AQ_BACKENDS='wayland',
                HYPRLAND_NO_SD_VARS='1', HYPRLAND_NO_SD_NOTIFY='1', GSETTINGS_BACKEND='memory',
                XETAL_MINIMIZE_CONFIG=str(root/'minimize.conf'),
-               XETAL_WORKSPACE_RULES=str(root/'workspace-rules.json'))
+               XETAL_WORKSPACE_RULES=str(root/'workspace-rules.json')))
     for key in ('HYPRLAND_INSTANCE_SIGNATURE','DISPLAY','DBUS_SESSION_BUS_ADDRESS',
                 'HL_INITIAL_WORKSPACE_TOKEN','XDG_ACTIVATION_TOKEN','DESKTOP_STARTUP_ID'):
         env.pop(key,None)

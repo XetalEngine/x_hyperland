@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Map the real controls editor against stale geometry in an isolated Hyprland."""
+from nested_session import nested_environment
 import sys,json,subprocess,tempfile,os,time,shutil,hashlib
 from pathlib import Path
 repo=Path(__file__).resolve().parents[1];src=repo/'config/hypr'
@@ -12,7 +13,7 @@ for directory,dirs,files in os.walk(src):
   if p.suffix in ('.py','.json','.conf','.colors','.css'):
    out=profile/p.relative_to(src);out.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,out)
 parent=json.loads(subprocess.check_output(['hyprctl','-j','instances']))[0]
-env=dict(os.environ,HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_STATE_HOME=str(home/'state'),XDG_CACHE_HOME=str(home/'cache'),XDG_DATA_HOME=str(home/'data'),XDG_RUNTIME_DIR=str(runtime),WAYLAND_DISPLAY=str(Path(os.environ['XDG_RUNTIME_DIR'])/parent['wl_socket']),AQ_BACKENDS='wayland',HYPRLAND_NO_SD_VARS='1',HYPRLAND_NO_SD_NOTIFY='1',QT_QPA_PLATFORM='wayland',QT_QPA_PLATFORMTHEME='',QT_PLUGIN_PATH='',QT_WAYLAND_DISABLE_WINDOWDECORATION='1',LIBGL_ALWAYS_SOFTWARE='1')
+env=nested_environment(dict(os.environ,HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_STATE_HOME=str(home/'state'),XDG_CACHE_HOME=str(home/'cache'),XDG_DATA_HOME=str(home/'data'),XDG_RUNTIME_DIR=str(runtime),WAYLAND_DISPLAY=str(Path(os.environ['XDG_RUNTIME_DIR'])/parent['wl_socket']),AQ_BACKENDS='wayland',HYPRLAND_NO_SD_VARS='1',HYPRLAND_NO_SD_NOTIFY='1',QT_QPA_PLATFORM='wayland',QT_QPA_PLATFORMTHEME='',QT_PLUGIN_PATH='',QT_WAYLAND_DISABLE_WINDOWDECORATION='1',LIBGL_ALWAYS_SOFTWARE='1'))
 for k in ('HYPRLAND_INSTANCE_SIGNATURE','DISPLAY','DBUS_SESSION_BUS_ADDRESS'):env.pop(k,None)
 config=root/'hyprland.lua';config.write_text('hl.monitor({output="",mode="1280x1000@60",position="auto",scale=1})\nhl.config({animations={enabled=false},misc={disable_hyprland_logo=true,disable_splash_rendering=true},input={follow_mouse=0}})\n')
 children=[];log=(root/'session.log').open('w');ctlbin=src/'compat/bin/hyprctl'

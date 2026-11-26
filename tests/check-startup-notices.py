@@ -4,6 +4,7 @@
 Run inside a Wayland session: python3 tests/check-startup-notices.py OUTPUT_DIR
 No IPC command is sent to the user's compositor; every target is matched by PID.
 """
+from nested_session import nested_environment
 import json
 import os
 from pathlib import Path
@@ -54,7 +55,7 @@ plugin = {probe}
             text = text.replace('exec-once = /usr/local/lib/xetal-fusion-login/greeter-session.sh', '# No real greeter in this isolated compositor check.')
             text += '\nxwayland:enabled = false\ndebug:disable_logs = false\n'
         conf.write_text(text)
-        env = dict(os.environ)
+        env = nested_environment(dict(os.environ))
         env.pop('HYPRLAND_INSTANCE_SIGNATURE', None)
         env.update(AQ_BACKENDS='wayland', HOME=str(home), XDG_CONFIG_HOME=str(home/'.config'),
                    XDG_CACHE_HOME=str(home/'.cache'), XDG_DATA_HOME=str(home/'.local/share'),

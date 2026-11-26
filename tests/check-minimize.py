@@ -6,6 +6,7 @@ Add --upgrade-from /absolute/path/previous.so to exercise an in-session upgrade.
 Requires a parent Wayland session, PyQt6, grim, wayland-scanner and a C compiler.
 It never loads the plugin into the parent compositor or launches a real VM.
 """
+from nested_session import nested_environment
 import json
 import os
 from pathlib import Path
@@ -64,9 +65,9 @@ debug {
     parent = os.environ['WAYLAND_DISPLAY']
     if not parent.startswith('/'):
         parent = str(Path(os.environ['XDG_RUNTIME_DIR'])/parent)
-    env = dict(os.environ, XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=parent,
+    env = nested_environment(dict(os.environ, XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=parent,
                GSETTINGS_BACKEND='memory', XETAL_MINIMIZE_CONFIG=str(config), XETAL_MINIMIZE_COLORS=str(palette),
-               XETAL_CUBE_CONFIG=str(cube), XETAL_BURN_CONFIG=str(burn))
+               XETAL_CUBE_CONFIG=str(cube), XETAL_BURN_CONFIG=str(burn)))
     env.pop('HYPRLAND_INSTANCE_SIGNATURE', None)
     children = []
     logs = []

@@ -6,6 +6,7 @@ Never changes the working compositor, workspace files, or application windows.
 Set FUSION_CUBE_CHECK_FRAMES=0 only when the nested driver cannot capture outputs;
 workspace/scene checks still run and pixel verification is reported as skipped.
 """
+from nested_session import nested_environment
 import importlib.util
 import json
 import os
@@ -57,7 +58,7 @@ xwayland {
     add = module('add_sides', 'new-workspace.py'); remove = module('remove_sides', 'remove-workspace.py')
     original_store = add.settings.Store
     def store(name): return original_store(name, root=profile, state=root/'state')
-    env = dict(os.environ); env.pop('HYPRLAND_INSTANCE_SIGNATURE', None)
+    env = nested_environment(dict(os.environ)); env.pop('HYPRLAND_INSTANCE_SIGNATURE', None)
     env.update(AQ_BACKENDS=os.environ.get('XETAL_TEST_BACKEND','wayland'), XETAL_CUBE_CONFIG=str(config), GSETTINGS_BACKEND='memory')
     children = []
     with (root/'compositor.log').open('w') as log:

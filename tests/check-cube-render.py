@@ -6,6 +6,7 @@ Never loads plugins or changes settings in the working desktop. All images,
 configuration and logs remain in DIRECTORY. Needs Hyprland, grim, GTK layer
 shell and Pillow. Run outside a sandbox that forbids Wayland/IPC sockets.
 """
+from nested_session import nested_environment
 import json
 import math
 import os
@@ -68,7 +69,7 @@ debug:disable_logs = false
 debug:enable_stdout_logs = true
 ''')
     lua = root/'hyprland.lua'; lua.write_text(hypr_compat.Renderer(root).render())
-    env = {k:v for k,v in os.environ.items() if not k.startswith(('HYPRLAND_INSTANCE','XETAL_'))}
+    env = nested_environment({k:v for k,v in os.environ.items() if not k.startswith(('HYPRLAND_INSTANCE','XETAL_'))})
     parent=Path(os.environ['WAYLAND_DISPLAY'])
     if not parent.is_absolute():parent=Path(os.environ['XDG_RUNTIME_DIR'])/parent
     env.update(HOME=str(home), XDG_RUNTIME_DIR=str(runtime), XDG_CONFIG_HOME=str(home/'.config'),

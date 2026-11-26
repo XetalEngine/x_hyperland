@@ -4,6 +4,7 @@
 Usage: check-preview-fps.py CUBE_PLUGIN EMPTY_OUTPUT_DIRECTORY [PREVIOUS_PLUGIN]
 All windows and compositor commands belong to the nested test session.
 """
+from nested_session import nested_environment
 import collections
 import json
 import os
@@ -53,7 +54,7 @@ animations {
 }
 ''')
     (root/'fixture.py').write_text(FIXTURE)
-    env = dict(os.environ); env.pop('HYPRLAND_INSTANCE_SIGNATURE',None)
+    env = nested_environment(dict(os.environ)); env.pop('HYPRLAND_INSTANCE_SIGNATURE',None)
     env.update(AQ_BACKENDS='wayland',XETAL_CUBE_CONFIG=str(config))
     processes = []
     logs = []

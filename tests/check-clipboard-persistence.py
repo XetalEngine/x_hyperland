@@ -4,6 +4,7 @@
 Usage: check-clipboard-persistence.py OUTPUT_DIRECTORY
 Requires a graphical terminal for a private nested Wayland compositor.
 """
+from nested_session import nested_environment, assert_seat_isolated
 import base64
 import json
 import os
@@ -38,7 +39,7 @@ debug:enable_stdout_logs = true
     lua = root/'hyprland.lua'; lua.write_text(hypr_compat.Renderer(root).render())
     parent = Path(os.environ['WAYLAND_DISPLAY'])
     if not parent.is_absolute(): parent = Path(os.environ['XDG_RUNTIME_DIR'])/parent
-    env = {k:v for k,v in os.environ.items() if not k.startswith(('HYPRLAND_INSTANCE', 'XETAL_'))}
+    env = nested_environment({k:v for k,v in os.environ.items() if not k.startswith(('HYPRLAND_INSTANCE', 'XETAL_'))})
     env.update(HOME=str(home), XDG_CONFIG_HOME=str(home/'.config'), XDG_CACHE_HOME=str(home/'.cache'),
         XDG_STATE_HOME=str(home/'.local/state'), XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=str(parent),
         AQ_BACKENDS='wayland', HYPRLAND_NO_SD_VARS='1', HYPRLAND_NO_SD_NOTIFY='1',
@@ -91,6 +92,8 @@ debug:enable_stdout_logs = true
         endpoint=wait(lambda:next(iter(runtime.glob('hypr/*/.socket.sock')),None),20)
         env['HYPRLAND_INSTANCE_SIGNATURE']=endpoint.parent.name
         env['WAYLAND_DISPLAY']=str(wait(lambda:next((p for p in runtime.glob('wayland-*') if p.is_socket()),None)))
+        assert_seat_isolated(comp.pid,root/'compositor.log')
+        check('compositor has no physical login seat or input devices',True)
         xdisplay=root/'xdisplay'
         ctl('dispatch',hypr_compat.dispatcher('exec','sh -c '+shlex.quote('printf "%s" "$DISPLAY" > '+shlex.quote(str(xdisplay)))))
         wait(lambda:xdisplay.exists() and xdisplay.read_text());env['DISPLAY']=xdisplay.read_text()

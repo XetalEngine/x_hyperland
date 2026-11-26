@@ -4,6 +4,7 @@
 Run from a desktop terminal: python3 tests/check-visuals.py REPORT_DIRECTORY
 All compositor commands target the new private instance. No host input is sent.
 """
+from nested_session import nested_environment
 from copy import deepcopy
 import hashlib
 import json
@@ -47,7 +48,7 @@ workspace=1,monitor:VISUALS-A,default:true,persistent:true
 workspace=2,monitor:VISUALS-A,persistent:true
 ''')
     shutil.copy2(SOURCE/'compat/entry.lua',root/'hyprland.lua')
-    env={k:v for k,v in os.environ.items() if not k.startswith(('HYPRLAND_INSTANCE','XETAL_'))}
+    env=nested_environment({k:v for k,v in os.environ.items() if not k.startswith(('HYPRLAND_INSTANCE','XETAL_'))})
     parent=Path(os.environ['WAYLAND_DISPLAY'])
     if not parent.is_absolute():parent=Path(os.environ['XDG_RUNTIME_DIR'])/parent
     env.update(HOME=str(home),XDG_RUNTIME_DIR=str(runtime),XDG_CONFIG_HOME=str(home/'.config'),XDG_CACHE_HOME=str(home/'.cache'),

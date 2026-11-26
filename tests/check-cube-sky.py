@@ -5,6 +5,7 @@ Usage: python3 tests/check-cube-sky.py /path/to/xetal-cube.so /tmp/new-test-dir 
 Never loads a plugin into the parent/working compositor. Needs a Wayland session,
 Hyprland, grim and the repository's normal Pillow dependencies.
 """
+from nested_session import nested_environment
 import json
 import os
 import shutil
@@ -46,7 +47,7 @@ animations {
     enabled = false
 }
 ''')
-    env = dict(os.environ); env.pop('HYPRLAND_INSTANCE_SIGNATURE', None)
+    env = nested_environment(dict(os.environ)); env.pop('HYPRLAND_INSTANCE_SIGNATURE', None)
     env.update(AQ_BACKENDS='wayland', XETAL_CUBE_CONFIG=str(config))
     with (root/'compositor.log').open('w') as log:
         compositor = subprocess.Popen(['Hyprland', '--config', str(root/'hyprland.conf')],

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Exercise native cube policy and cursor effects in a disposable compositor only."""
+from nested_session import nested_environment
 import json
 import os
 import re
@@ -35,7 +36,7 @@ xwayland {
 ''')
     rule=re.search(r'windowrule \{\n    name = fusion-task-switcher\n.*?\n}',(REPO/'config/hypr/hyprland.conf').read_text(),re.S).group()
     conf.write_text(conf.read_text()+rule+'\n')
-    env=dict(os.environ);env.pop('HYPRLAND_INSTANCE_SIGNATURE',None)
+    env=nested_environment(dict(os.environ));env.pop('HYPRLAND_INSTANCE_SIGNATURE',None)
     env.update(AQ_BACKENDS=os.environ.get('XETAL_TEST_BACKEND','wayland'),XETAL_CUBE_CONFIG=str(config),GSETTINGS_BACKEND='memory')
     children=[]
     with (root/'compositor.log').open('w') as log:

@@ -4,6 +4,7 @@
 Usage: python3 tests/check-file-picker.py NEW_OUTPUT_DIRECTORY FILES_BUILD [--memory-only]
 No test input reaches the parent session; XWayland is disabled in the fixture.
 """
+from nested_session import nested_environment
 import json
 import shutil
 import http.server
@@ -53,7 +54,7 @@ def main():
         path.write_text(path.read_text().replace('@HYPR@', str(profile)).replace('@HOME@', str(home)))
     parent = os.environ['WAYLAND_DISPLAY']
     if not parent.startswith('/'): parent = str(Path(os.environ['XDG_RUNTIME_DIR'])/parent)
-    env = dict(os.environ, HOME=str(home), XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=parent,
+    env = nested_environment(dict(os.environ, HOME=str(home), XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=parent,
                XDG_CONFIG_HOME=str(home/'.config'), XDG_DATA_HOME=str(home/'.local/share'),
                XDG_CACHE_HOME=str(home/'.cache'), XDG_STATE_HOME=str(home/'.local/state'),
                AQ_BACKENDS='wayland', HYPRLAND_NO_SD_VARS='1', HYPRLAND_NO_SD_NOTIFY='1',
@@ -62,7 +63,7 @@ def main():
                XCURSOR_THEME='Adwaita', XCURSOR_SIZE='24',
                XETAL_FILES_ROOT=str(profile), XDG_CURRENT_DESKTOP='Hyprland', GTK_USE_PORTAL='1',
                XDG_DATA_DIRS=str(profile/'desktop/data')+':/usr/share',
-               XDG_DESKTOP_PORTAL_DIR=str(profile/'desktop/data/xdg-desktop-portal/portals'))
+               XDG_DESKTOP_PORTAL_DIR=str(profile/'desktop/data/xdg-desktop-portal/portals')))
     for key in ('HYPRLAND_INSTANCE_SIGNATURE','DISPLAY','DBUS_SESSION_BUS_ADDRESS'): env.pop(key,None)
     children=[];logs=[];input_process=None;results=[]
     def spawn(args,**kwargs):

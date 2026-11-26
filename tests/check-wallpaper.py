@@ -4,6 +4,7 @@
 Usage: python3 tests/check-wallpaper.py /tmp/new-wallpaper-test-directory
 Never changes the parent compositor's wallpapers or user preferences.
 """
+from nested_session import nested_environment
 import json
 import argparse
 import os
@@ -35,10 +36,10 @@ def main():
     parent=os.environ['WAYLAND_DISPLAY']
     if not parent.startswith('/'): parent=str(Path(os.environ['XDG_RUNTIME_DIR'])/parent)
     home=root/'home';home.mkdir()
-    env=dict(os.environ,HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_CACHE_HOME=str(home/'.cache'),
+    env=nested_environment(dict(os.environ,HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_CACHE_HOME=str(home/'.cache'),
              XDG_STATE_HOME=str(home/'.local/state'),XDG_RUNTIME_DIR=str(runtime),WAYLAND_DISPLAY=parent,
              GSETTINGS_BACKEND='memory',QT_QPA_PLATFORM='wayland',PYTHONFAULTHANDLER='1',
-             AQ_BACKENDS='wayland',HYPRLAND_NO_SD_VARS='1',HYPRLAND_NO_SD_NOTIFY='1')
+             AQ_BACKENDS='wayland',HYPRLAND_NO_SD_VARS='1',HYPRLAND_NO_SD_NOTIFY='1'))
     env.pop('HYPRLAND_INSTANCE_SIGNATURE',None)
     env.pop('DBUS_SESSION_BUS_ADDRESS',None);env.pop('DISPLAY',None)
     config=root/'hyprland.conf'

@@ -4,6 +4,7 @@
 Usage: python3 tests/check-floating-text-drag.py NEW_OUTPUT_DIRECTORY
 No test input reaches the parent session; XWayland is disabled in the fixture.
 """
+from nested_session import nested_environment
 import json
 import os
 from pathlib import Path
@@ -35,13 +36,13 @@ def main():
     wobble=root/'wobbly.json';wobble_values=dict(wobble_model.DEFAULTS);wobble.write_text(wobble_model.encode(wobble_values))
     parent = os.environ['WAYLAND_DISPLAY']
     if not parent.startswith('/'): parent = str(Path(os.environ['XDG_RUNTIME_DIR'])/parent)
-    env = dict(os.environ, HOME=str(home), XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=parent,
+    env = nested_environment(dict(os.environ, HOME=str(home), XDG_RUNTIME_DIR=str(runtime), WAYLAND_DISPLAY=parent,
                XDG_CONFIG_HOME=str(home/'.config'), XDG_DATA_HOME=str(home/'.local/share'),
                XDG_CACHE_HOME=str(home/'.cache'), XDG_STATE_HOME=str(home/'.local/state'),
                AQ_BACKENDS='wayland', HYPRLAND_NO_SD_VARS='1', HYPRLAND_NO_SD_NOTIFY='1',
                QT_QPA_PLATFORM='wayland', QT_QPA_PLATFORMTHEME='', QT_PLUGIN_PATH='',
                QT_WAYLAND_DISABLE_WINDOWDECORATION='1', GSETTINGS_BACKEND='memory',
-               XCURSOR_THEME='Adwaita', XCURSOR_SIZE='24',XETAL_WOBBLY_CONFIG=str(wobble))
+               XCURSOR_THEME='Adwaita', XCURSOR_SIZE='24',XETAL_WOBBLY_CONFIG=str(wobble)))
     for key in ('HYPRLAND_INSTANCE_SIGNATURE','DISPLAY','DBUS_SESSION_BUS_ADDRESS'): env.pop(key,None)
     children=[];logs=[];input_process=None;results=[];takeovers=[]
     def spawn(args,**kwargs):

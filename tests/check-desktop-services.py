@@ -2,6 +2,7 @@
 """Real video playback and authenticated VNC/RDP on a private nested compositor.
 No host display, firewall, power setting, or phone is changed.
 """
+from nested_session import nested_environment
 import argparse,json,os,shutil,socket,ssl,struct,subprocess,sys,tempfile,time
 from pathlib import Path
 from PIL import Image
@@ -14,7 +15,7 @@ def main():
     parent=json.loads(subprocess.check_output(['hyprctl','-j','instances']))[-1]
     runtime=Path(tempfile.mkdtemp(prefix='fusion-check-'));runtime.chmod(0o700)
     home=folder/'home';home.mkdir()
-    env=dict(os.environ,HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_STATE_HOME=str(home/'.local/state'),XDG_RUNTIME_DIR=str(runtime),WAYLAND_DISPLAY=str(Path(os.environ['XDG_RUNTIME_DIR'])/parent['wl_socket']),AQ_BACKENDS='wayland',HYPRLAND_NO_SD_VARS='1',HYPRLAND_NO_SD_NOTIFY='1',QT_QPA_PLATFORM='wayland',PYTHONPATH=str(ROOT/'config/hypr'))
+    env=nested_environment(dict(os.environ,HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_STATE_HOME=str(home/'.local/state'),XDG_RUNTIME_DIR=str(runtime),WAYLAND_DISPLAY=str(Path(os.environ['XDG_RUNTIME_DIR'])/parent['wl_socket']),AQ_BACKENDS='wayland',HYPRLAND_NO_SD_VARS='1',HYPRLAND_NO_SD_NOTIFY='1',QT_QPA_PLATFORM='wayland',PYTHONPATH=str(ROOT/'config/hypr')))
     for key in ('DISPLAY','DBUS_SESSION_BUS_ADDRESS','HYPRLAND_INSTANCE_SIGNATURE'):env.pop(key,None)
     config=folder/'hyprland.lua';config.write_text('hl.monitor({output="",mode="1280x720@60",position="auto",scale=1})\nhl.config({animations={enabled=false},misc={disable_hyprland_logo=true,disable_splash_rendering=true}})\n')
     children=[]

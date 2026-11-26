@@ -4,6 +4,7 @@
 Usage: check-echo-overlay.py OUTPUT_DIRECTORY
 Only synthetic pixels and clicks are used. Never launches or modifies Echo.
 """
+from nested_session import nested_environment
 import json
 import os
 from pathlib import Path
@@ -48,7 +49,7 @@ debug:disable_logs = false
     lua=root/'hyprland.lua';lua.write_text(hypr_compat.Renderer(root).render())
     parent=Path(os.environ['WAYLAND_DISPLAY'])
     if not parent.is_absolute():parent=Path(os.environ['XDG_RUNTIME_DIR'])/parent
-    env={k:v for k,v in os.environ.items() if not k.startswith(('HYPRLAND_INSTANCE','XETAL_'))}
+    env=nested_environment({k:v for k,v in os.environ.items() if not k.startswith(('HYPRLAND_INSTANCE','XETAL_'))})
     env.update(HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_CACHE_HOME=str(home/'.cache'),
         XDG_STATE_HOME=str(home/'.local/state'),XDG_RUNTIME_DIR=str(runtime),WAYLAND_DISPLAY=str(parent),
         AQ_BACKENDS='wayland',HYPRLAND_NO_SD_VARS='1',HYPRLAND_NO_SD_NOTIFY='1',
