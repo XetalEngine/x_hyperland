@@ -40,6 +40,11 @@ Shortcuts (Super is the Windows key):
 Screenshots are saved under your Pictures/Screenshots directory and copied to
 the clipboard. Existing workspace, move/resize and media shortcuts are retained.
 
+Left-drag any window edge or corner to resize, without Super. The border has a
+15-pixel grab area and shows a resize cursor. Restore maximized/fullscreen
+windows before resizing. Adjust Resize grab area in Fusion Settings -> Theme ->
+Window effects -> Window appearance -> Shape & spacing.
+
 Media downloader: Super+Ctrl+P, Apps → Xetal Media Downloader, or run
 ~/.config/hypr/scripts/media-download.sh. Choose MP3 for the XDG Music folder
 or MP4 for the XDG Videos folder, enter a YouTube link and select Download.

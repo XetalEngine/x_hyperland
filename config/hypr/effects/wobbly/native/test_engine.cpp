@@ -165,6 +165,47 @@ int main(int argc,char** argv){
         assert(std::abs(placed.model->topLeft.y-destination.y)<1);
         placed.grab(40,55,false);assert(placed.grabbed);placed.release();assert(!placed.model->anchorObject);
     }
+    // Resize release must be continuous and finish at the fixed input box.
+    // Freeing its anchor let the entire lattice drift tens of pixels, followed
+    // by a rigid jump when the renderer removed the settled transformer.
+    constexpr std::array<std::array<int,2>,8> edges{{{-1,0},{1,0},{0,-1},{0,1},{-1,-1},{1,-1},{-1,1},{1,1}}};
+    for(const auto edge:edges)for(int hz:{60,120,144,240})for(bool lateConfigure:{false,true}){
+        const Box initial{300,200,600,400};Engine resize(initial);
+        const float px=initial.x+(edge[0]<0?0:edge[0]>0?initial.w:initial.w/2);
+        const float py=initial.y+(edge[1]<0?0:edge[1]>0?initial.h:initial.h/2);
+        resize.grab(px,py,false);
+        for(int i=1;i<=16;++i){
+            const double dx=edge[0]*i*8,dy=edge[1]*i*6;
+            resize.geometry({initial.x+std::min(dx,0.),initial.y+std::min(dy,0.),
+                             initial.w+std::abs(dx),initial.h+std::abs(dy)},false,px+dx,py+dy);
+            resize.step(1000.f/hz,3,3);
+        }
+        const auto before=resize.renderPoints();auto anchor=resize.model->anchorObject;
+        std::array<Compiz::Point,16> velocities;
+        for(int i=0;i<16;++i)velocities[i]=resize.model->objects[i].velocity;
+        resize.release(true);
+        assert(!resize.grabbed&&resize.resizeSettling&&resize.model->anchorObject==anchor&&anchor->immobile);
+        const auto released=resize.renderPoints();
+        for(int i=0;i<16;++i){
+            assert(near(before[i].x,released[i].x)&&near(before[i].y,released[i].y));
+            assert(near(velocities[i].x,resize.model->objects[i].velocity.x)&&near(velocities[i].y,resize.model->objects[i].velocity.y));
+        }
+        if(lateConfigure){
+            auto final=resize.box;final.x-=edge[0]<0?3:0;final.y-=edge[1]<0?3:0;
+            final.w+=edge[0]?3:0;final.h+=edge[1]?3:0;
+            resize.geometry(final,false,px,py);
+            assert(resize.model->anchorObject==anchor&&anchor->immobile);
+        }
+        int frames=0;while(resize.step(1000.f/hz,3,3)&&++frames<3000){}
+        assert(frames>2&&frames<3000);
+        const auto resting=resize.renderPoints();
+        for(int i=0;i<16;++i){
+            assert(near(resting[i].x,resize.box.x+(i%4)*resize.box.w/3,1.5));
+            assert(near(resting[i].y,resize.box.y+(i/4)*resize.box.h/3,1.5));
+        }
+        resize.grab(px,py,false);resize.release();
+        assert(!resize.resizeSettling&&!resize.model->anchorObject); // Move remains free-settling.
+    }
     WindowInfo w;w.app="kitty";w.title="Terminal";w.floating=true;
     assert(Match("Normal & class=ki*").matches(w));assert(!Match("Normal & !class=kitty").matches(w));
     assert(Match("Dialog | (Normal & floating=1)").matches(w));assert(!Match("").matches(w));

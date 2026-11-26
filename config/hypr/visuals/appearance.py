@@ -11,7 +11,8 @@ from preferences_page import APPEARANCE, validate_values
 
 SCHEMA = APPEARANCE + [('Focus', 'decoration:shadow:range', 'Shadow size', 'int', (0,40,' px'))]
 INITIAL = {'decoration:rounding':10,'general:border_size':1,'general:gaps_in':'5','general:gaps_out':'5',
-    'general:resize_on_border':False,'animations:enabled':True,'decoration:blur:enabled':True,
+    'general:resize_on_border':True,'general:extend_border_grab_area':15,
+    'animations:enabled':True,'decoration:blur:enabled':True,
     'decoration:shadow:enabled':True,'decoration:active_opacity':1.,'decoration:inactive_opacity':1.,
     'decoration:shadow:range':model.FOCUS['shadow']}
 

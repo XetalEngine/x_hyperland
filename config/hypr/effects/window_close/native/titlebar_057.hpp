@@ -11,6 +11,7 @@ bool titlebarDragPending=false;
 PHLWINDOWREF titlebarLastClick;
 Vector2D titlebarPressPoint,titlebarClickPoint;
 Clock::time_point titlebarClickTime{};
+bool titlebarResizeCursorSet=false;
 
 bool titlebarUncovered(PHLWINDOW w,Vector2D point){
     if(!w||w->hasPopupAt(point)||Desktop::viewState()->hitTest().windowAt(point,
@@ -67,6 +68,36 @@ public:
         const auto b=box();if(!b.containsPoint(point))return None;
         const int i=WindowButtons::Titlebar::hit(WindowButtons::Titlebar::layout(b.w,b.h,rule.size),point.x-b.x,point.y-b.y);
         constexpr std::array actions{Gear,Minimize,Maximize,Close};return i<0?None:actions[i];
+    }
+    Layout::eRectCorner resizeEdge(Vector2D point)const{
+        static auto enabled=CConfigValue<Config::INTEGER>("general:resize_on_border");
+        static auto extra=CConfigValue<Config::INTEGER>("general:extend_border_grab_area");
+        static auto border=CConfigValue<Config::INTEGER>("general:border_size");
+        auto w=owner();
+        if(!*enabled||!w||!active()||!settled(w)||w->backend().traits().overrideRedirect||
+           Fullscreen::controller()->isFullscreen(w)||uint32_t(g_pInputManager->getModsFromAllKBs()))return Layout::CORNER_NONE;
+        const auto client=w->getWindowMainSurfaceBox(),bar=box();
+        // The core already expands hit testing around decorations, but its
+        // resize handler tests only the client rectangle. Fill just the strip
+        // above the client; all other edges remain owned by the compositor.
+        if(point.y>=client.y||bar.containsPoint(point))return Layout::CORNER_NONE;
+        const CBox outer{client.x,bar.y,client.w,client.y+client.h-bar.y};
+        if(!outer.copy().expand(*border+*extra).containsPoint(point))return Layout::CORNER_NONE;
+        const auto corner=w->presentation().rounding()+w->presentation().borderSize()+10;
+        int edge=point.y<bar.y+corner?Layout::CORNER_TOP:Layout::CORNER_NONE;
+        if(point.x<outer.x+corner)edge|=Layout::CORNER_LEFT;
+        else if(point.x>outer.x+outer.w-corner)edge|=Layout::CORNER_RIGHT;
+        return Layout::eRectCorner(edge);
+    }
+    bool resize(Vector2D point){
+        const auto edge=resizeEdge(point);auto w=owner();
+        if(edge==Layout::CORNER_NONE||!available())return false;
+        auto t=w->layoutTarget();if(!t||!t->space())return false;
+        Desktop::focusState()->fullWindowFocus(w,Desktop::FOCUS_REASON_CLICK);Desktop::windowState()->raise(w);
+        g_layoutManager->beginDragTarget(t,MBIND_RESIZE,edge,true);
+        if(g_layoutManager->dragController()->target()!=t)return false;
+        titlebarPressed=w;titlebarPressedAction=None;titlebarCaptured=true;titlebarDragging=true;
+        titlebarDragPending=false;titlebarLastClick.reset();arm();return true;
     }
     std::string status()const{
         const auto b=box();std::string buttons="[";
@@ -165,6 +196,31 @@ public:
     }
 };
 
+void titlebarResizeCursor(){
+    static auto show=CConfigValue<Config::INTEGER>("general:hover_icon_on_border");
+    const char* shape=nullptr;
+    if(*show&&available()&&!titlebarCaptured&&!g_pInputManager->hasHeldButtons()){
+        const auto point=Pointer::mgr()->position();
+        const auto w=Desktop::viewState()->hitTest().windowAt(point,
+            Desktop::View::ALLOW_FLOATING|Desktop::View::RESERVED_EXTENTS|Desktop::View::INPUT_EXTENTS);
+        if(w){auto it=titlebars.find(w->metadata().stableID());
+            if(it!=titlebars.end()&&titlebarUncovered(w,point))switch(it->second->resizeEdge(point)){
+                case Layout::CORNER_TOP:shape="top_side";break;
+                case Layout::CORNER_LEFT:shape="left_side";break;
+                case Layout::CORNER_RIGHT:shape="right_side";break;
+                case Layout::CORNER_TOPLEFT:shape="top_left_corner";break;
+                case Layout::CORNER_TOPRIGHT:shape="top_right_corner";break;
+                default:break;
+            }
+        }
+    }
+    // Use the lowest-priority slot: native border cursors, resize drags and
+    // drag-and-drop keep ownership of their own overrides and cached state.
+    if(shape)Pointer::Cursor::overrideController->setOverride(shape,Pointer::Cursor::CURSOR_OVERRIDE_UNKNOWN);
+    else if(titlebarResizeCursorSet)Pointer::Cursor::overrideController->unsetOverride(Pointer::Cursor::CURSOR_OVERRIDE_UNKNOWN);
+    titlebarResizeCursorSet=shape;
+}
+
 bool titlebarActive(PHLWINDOW w){
     if(!w)return false;
     auto it=titlebars.find(w->metadata().stableID());return it!=titlebars.end()&&it->second->active();
@@ -191,8 +247,10 @@ void syncTitlebars(){
         }
         if(it!=titlebars.end())it->second->configure(rule,enabled);
     }
+    titlebarResizeCursor();
 }
 void titlebarMotion(){
+    titlebarResizeCursor();
     if(!titlebarCaptured||!titlebarDragPending)return;
     const auto point=Pointer::mgr()->position();
     if(std::hypot(point.x-titlebarPressPoint.x,point.y-titlebarPressPoint.y)<3)return;
@@ -217,6 +275,7 @@ bool titlebarPointer(IPointer::SButtonEvent event,Event::SCallbackInfo& info){
             Desktop::View::ALLOW_FLOATING|Desktop::View::RESERVED_EXTENTS|Desktop::View::INPUT_EXTENTS);
         if(!titlebarActive(w)||!titlebarUncovered(w,point))return false;
         auto bar=titlebars.at(w->metadata().stableID());
+        if(bar->resize(point)){info.cancelled=true;return true;}
         if(!bar->box().containsPoint(point)||!bar->press(point))return false;
         info.cancelled=true;return true;
     }
@@ -239,6 +298,8 @@ bool titlebarPointer(IPointer::SButtonEvent event,Event::SCallbackInfo& info){
     titlebarPressed.reset();titlebarPressedAction=None;titlebarDragging=false;titlebarCaptured=false;titlebarDragPending=false;arm();return true;
 }
 void cleanupTitlebars(){
+    if(titlebarResizeCursorSet)Pointer::Cursor::overrideController->unsetOverride(Pointer::Cursor::CURSOR_OVERRIDE_UNKNOWN);
+    titlebarResizeCursorSet=false;
     if(auto w=titlebarPressed.lock();w&&titlebarDragging){
         auto t=g_layoutManager->dragController()->target();if(t&&t->window()==w)g_layoutManager->dragController()->dragEnd();
     }

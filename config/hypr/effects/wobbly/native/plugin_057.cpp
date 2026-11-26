@@ -484,7 +484,7 @@ void frame(PHLMONITOR monitor){
 
 using Drag=Layout::Supplementary::CDragStateController;
 using BeginFn=void(*)(Drag*,SP<Layout::ITarget>,eMouseBindMode,std::optional<Layout::eRectCorner>,bool);
-using EndFn=void(*)(Drag*);
+using EndFn=bool(*)(Drag*);
 using FullscreenFn=void(*)(Fullscreen::CFullscreenController*,PHLWINDOW,std::optional<Fullscreen::eFullscreenMode>,std::optional<Fullscreen::eFullscreenMode>,std::optional<bool>,Fullscreen::eFullscreenMutationContext);
 using KeyFn=bool(*)(Keybinds::CKeybindManager*,std::any,SP<IKeyboard>);
 using MouseStateFn=bool(*)(Layout::CLayoutManager*);
@@ -525,9 +525,11 @@ void begin(Drag* drag,SP<Layout::ITarget> target,eMouseBindMode mode,std::option
         r->settlePosition=!r->resize;r->placementPending=false;r->engine.grab(p.x,p.y,settings.grab_window_match.matches(info(w)));++grabs;
     }
 }
-void end(Drag* drag){
+bool end(Drag* drag){
     auto target=drag->target();auto r=target?record(target->window()):nullptr;
-    originalEnd(drag);if(r){r->engine.release();damage(r);}
+    const bool ended=originalEnd(drag);
+    if(ended&&r){r->engine.release(r->resize);damage(r);}
+    return ended;
 }
 void fullscreen(Fullscreen::CFullscreenController* c,PHLWINDOW w,std::optional<Fullscreen::eFullscreenMode> internal,
                 std::optional<Fullscreen::eFullscreenMode> client,std::optional<bool> aware,Fullscreen::eFullscreenMutationContext context){

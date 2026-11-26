@@ -487,7 +487,7 @@ void begin(Drag* drag,SP<Layout::ITarget> target,eMouseBindMode mode,std::option
 }
 void end(Drag* drag){
     auto target=drag->target();auto r=target?record(target->window()):nullptr;
-    originalEnd(drag);if(r){r->engine.release();damage(r);}
+    originalEnd(drag);if(r){r->engine.release(r->resize);damage(r);}
 }
 void fullscreen(Fullscreen::CFullscreenController* c,PHLWINDOW w,std::optional<Fullscreen::eFullscreenMode> internal,
                 std::optional<Fullscreen::eFullscreenMode> client,std::optional<bool> aware){

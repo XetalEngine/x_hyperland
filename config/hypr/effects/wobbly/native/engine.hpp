@@ -12,7 +12,7 @@ class Engine {
     Compiz::CompWindow window;
     Compiz::Model* model;
     Box box;
-    bool grabbed=false, snapping=false, maximized=false;
+    bool grabbed=false, snapping=false, maximized=false, resizeSettling=false;
     int active=Compiz::WobblyInitial;
     std::array<Compiz::Point,16> previous;
     double remainder=0;
@@ -26,7 +26,7 @@ class Engine {
     Engine& operator=(const Engine&)=delete;
     void wake(){active|=Compiz::WobblyInitial;}
     void grab(float x,float y,bool impulse) {
-        grabbed=true;
+        grabbed=true;resizeSettling=false;
         Compiz::modelRemoveEdgeAnchors(model,box.x,box.y,box.w,box.h);
         if(model->anchorObject)model->anchorObject->immobile=false;
         model->anchorObject=Compiz::modelFindNearestObject(model,x,y);
@@ -40,10 +40,17 @@ class Engine {
         }
         wake();
     }
-    void release() {
+    void release(bool resized=false) {
         grabbed=false;
-        if(model->anchorObject)model->anchorObject->immobile=false;
-        model->anchorObject=nullptr;
+        // A move may come to rest at a new position; a resize must return to
+        // its exact input rectangle. Retain the existing resize anchor, pose
+        // and velocities so neither release nor the last frame can jump.
+        // Replacing it with a top anchor would teleport a deformed node.
+        resizeSettling=resized&&!maximized&&model->anchorObject;
+        if(!resizeSettling){
+            if(model->anchorObject)model->anchorObject->immobile=false;
+            model->anchorObject=nullptr;
+        }
         if(maximized)Compiz::modelAddEdgeAnchors(model,box.x,box.y,box.w,box.h);
         wake();
     }
@@ -55,6 +62,7 @@ class Engine {
         wake();
     }
     void shiver() {
+        resizeSettling=false;
         Compiz::modelSetMiddleAnchor(model,box.x,box.y,box.w,box.h);
         Compiz::modelAdjustObjectsForShiver(model,box.x,box.y,box.w,box.h);
         wake();
@@ -65,6 +73,7 @@ class Engine {
         // Maximize already pins all four corners in geometry(). Replacing
         // those with a single top anchor makes the enlarged mesh sag.
         if(grabbed||maximized)return;
+        resizeSettling=false;
         Compiz::modelRemoveEdgeAnchors(model,box.x,box.y,box.w,box.h);
         Compiz::modelSetTopAnchor(model,box.x,box.y,box.w);
         wake();
@@ -72,6 +81,7 @@ class Engine {
     void geometry(Box next,bool max,float pointerX,float pointerY) {
         const bool resized=next.w!=box.w || next.h!=box.h;
         if(max!=maximized){
+            resizeSettling=false;
             if(max){
                 if(model->anchorObject)model->anchorObject->immobile=false;
                 model->anchorObject=nullptr;
@@ -85,6 +95,10 @@ class Engine {
             wake();
         } else if(resized){
             if(max)Compiz::modelAddEdgeAnchors(model,next.x,next.y,next.w,next.h);
+            // A client's final size acknowledgement may arrive after release.
+            // Keep the same node anchored through that last geometry update.
+            else if(resizeSettling&&model->anchorObject)
+                Compiz::modelAdjustObjectPosition(model,model->anchorObject,next.x,next.y,next.w,next.h);
             else Compiz::modelSetTopAnchor(model,next.x,next.y,next.w);
             Compiz::modelInitSprings(model,next.x,next.y,next.w,next.h);
             wake();

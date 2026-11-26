@@ -5,6 +5,12 @@ effect and apply, then drag or resize a floating window. **Try Wobbly** opens a
 sample window with editable text and a live clock. Hold Shift during a drag to
 enable magnetic edge resistance, or choose another snapping modifier.
 
+Releasing a resize keeps its existing spring anchor at the final window size.
+The remaining mesh keeps its motion and settles around that anchor, including
+when an application acknowledges its last size change after mouse release.
+This avoids a jump both on release and when deformation finishes. Ordinary
+window movement retains its free-settling behavior.
+
 KDE snap layouts use a separate, explicit placement handoff after dragging ends.
 `xetalwobbly:anchorplacement` identifies a window by compositor lifetime ID,
 anchors its existing mesh towards the chosen geometry, and leaves that geometry

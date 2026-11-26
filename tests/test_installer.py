@@ -196,7 +196,8 @@ class InstallerTests(unittest.TestCase):
                         if line.strip() and not line.lstrip().startswith('#'))
         appearance={key.strip():value.strip() for key,value in appearance.items()}
         self.assertEqual(appearance,{'decoration:rounding':'10','general:border_size':'2',
-            'general:gaps_in':'5 5 5 5','general:gaps_out':'5 5 5 5','general:resize_on_border':'false',
+            'general:gaps_in':'5 5 5 5','general:gaps_out':'5 5 5 5','general:resize_on_border':'true',
+            'general:extend_border_grab_area':'15','general:hover_icon_on_border':'true',
             'animations:enabled':'true','decoration:blur:enabled':'true','decoration:shadow:enabled':'true',
             'decoration:active_opacity':'1.00','decoration:inactive_opacity':'1.00'})
         self.assertIn('XetalHp4Dark',(self.stage/'theme/current.colors').read_text())

@@ -8,6 +8,14 @@ exceptions. Both switches remain editable; existing saved focus choices are kept
 
 Shape, spacing, opacity, shadows and focus styling now share one editor. The preview shows active and inactive windows; click either sample to change its focus. Editing this preview does not change your desktop until you choose **Apply appearance**. **Discard** returns to the saved values.
 
+Resize ordinary windows by left-dragging any edge or corner, without holding
+Super. Fresh profiles enable **Resize from edges and corners**, with a **15 px**
+grab area outside the border and a resize cursor on hover. Adjust **Resize grab
+area** under Shape & spacing to change that margin without thickening the visible
+border. Maximized and fullscreen windows keep their size; restore them first.
+Fusion title bars include the same grab area above their top edge and corners;
+their buttons and drag-to-move area keep their normal behavior.
+
 Focus preferences are saved across themes and future logins. Applying a theme changes the accent colors, while your border width, shadow size, glow and application exceptions stay as you saved them. Existing Focus settings are carried into the combined editor.
 
 ## Try it
@@ -39,3 +47,12 @@ python3 tools/install-visuals-preview.py --check-only
 ```
 
 The first command checks preference migration, theme-independent settings, Apply/Discard, failed-save recovery and native configuration validation. The second needs a desktop terminal and uses a separate compositor for rendering checks. GPU rendering and the actual multi-monitor image picker still need a check on the target desktop.
+
+`tests/check-border-resize.py WINDOW_CONTROLS_PLUGIN CURSOR_PROBE_PLUGIN`
+checks all eight resize directions with and without Fusion title bars, the grab
+area and cursor switches, maximized/fullscreen windows, application clicks,
+overlapping windows, title-bar controls and plugin reload. It sends virtual input
+only to a disposable compositor isolated from the login seat.
+Add `--wobbly-plugin WOBBLY_PLUGIN` to check real rendered settling after every
+resize; this mode opens a temporary Wayland output and verifies that the spring
+mesh returns to the final window rectangle before its transformer is removed.

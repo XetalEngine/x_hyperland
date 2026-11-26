@@ -22,6 +22,8 @@
 #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
 #include <hyprland/src/event/EventBus.hpp>
 #include <hyprland/src/pointer/PointerManager.hpp>
+#include <hyprland/src/pointer/cursor/CursorShapeOverrideController.hpp>
+#include <hyprland/src/config/ConfigValue.hpp>
 #include <hyprland/src/protocols/InputCapture.hpp>
 #include <hyprland/src/protocols/core/DataDevice.hpp>
 #include <hyprland/src/render/Renderer.hpp>

@@ -36,6 +36,7 @@ DEFAULTS = dict(version=2, quality='current', reduced_motion=False, preview_size
 # Keep their saved data/code for later; hidden controls must not override effects.
 EXPERIMENTAL_VISUALS = False
 APPEARANCE_RANGES = {'decoration:rounding':(0,40,True), 'general:border_size':(0,10,True),
+    'general:extend_border_grab_area':(0,100,True),
     'decoration:shadow:range':(0,40,True), 'decoration:active_opacity':(.3,1,False),
     'decoration:inactive_opacity':(.3,1,False)}
 APPEARANCE_BOOLS = {'general:resize_on_border','animations:enabled','decoration:blur:enabled','decoration:shadow:enabled'}
