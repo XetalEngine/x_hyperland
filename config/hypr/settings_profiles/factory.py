@@ -63,6 +63,9 @@ def build(source, destination, home, *, rendered=False):
     theme = json.loads(blobs[table['theme/state.json']['sha256']]); theme.update(THEME_DEFAULTS)
     put('theme/state.json', theme)
     if not rendered:
+        from theme import effect_colors
+        for path,data in effect_colors.fresh_files(source,THEME_DEFAULTS['design'],THEME_DEFAULTS['mode']).items():
+            put(path.relative_to(source).as_posix(),data)
         put('control_center/displays.conf', b'# Automatic fresh-install monitor detection.\nmonitor = ,preferred,auto,1\n')
         put('control_center/workspaces.conf', b'# Workspaces are assigned to connected outputs at login.\n')
         choice = json.loads(blobs[table['wallpaper/default.json']['sha256']])

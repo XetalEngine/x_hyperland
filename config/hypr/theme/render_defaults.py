@@ -9,11 +9,12 @@ from pathlib import Path
 import backend
 import bar_styles
 import designs
+import effect_colors
 import runtime
 import update_widget
 
 
-def render(asset_root):
+def render(asset_root, *, effect_defaults=False):
     root=runtime.ROOT.parent;state=runtime.state();design=state['design'];mode=state['mode']
     colors=runtime.colors(mode,design);style=bar_styles.resolve(state.get('bar_style','follow'),design)
     variation=bar_styles.variant(state.get('bar_variant'),style)
@@ -50,9 +51,13 @@ def render(asset_root):
     (root/'hyprlock.conf').write_text(backend.modern_lock(colors,design))
     startup=(root/'theme/startup-raw.conf').read_text()
     (root/'startup/kitty.conf').write_text(startup+'\n'+backend.kitty_colors(mode,design))
+    if effect_defaults:
+        for path,data in effect_colors.fresh_files(root,design,mode).items():path.write_bytes(data)
 
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--asset-root',required=True)
-    render(parser.parse_args().asset_root)
+    parser.add_argument('--effect-defaults',action='store_true',help='Initialize fresh theme effect colors without altering animation preferences.')
+    args=parser.parse_args()
+    render(args.asset_root,effect_defaults=args.effect_defaults)

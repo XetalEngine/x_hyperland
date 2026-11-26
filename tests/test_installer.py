@@ -214,7 +214,8 @@ class InstallerTests(unittest.TestCase):
         probe='''from effects.cube import model
 from effects.wobbly import model as wobbly
 from effects.minimize import model as minimize
-values,_=model.load();assert values==model.DEFAULTS
+values,_=model.load()
+assert all(values[key]==value for key,value in model.DEFAULTS.items() if key not in model.COLORS)
 model.prepare_images(values)
 w,_=wobbly.load();assert w==wobbly.DEFAULTS
 assert w['enabled'] and w['friction']==3 and w['spring_k']==3
@@ -224,6 +225,27 @@ assert m['dock_zoom']==125 and m['proximity']==12 and m['hide_animation']=='burn
 assert m['fire_indicator']
 '''
         subprocess.run([sys.executable,'-c',probe],env=dict(os.environ,PYTHONPATH=str(self.stage)),check=True,capture_output=True)
+
+    def test_fresh_hp4_effect_colors_and_factory_archive_match_the_desktop(self):
+        from effects.burn import model as burn
+        from effects.cube import model as cube
+        from settings_profiles import archive
+        self.render()
+        fire,_=burn.load(self.stage/'effects/burn/settings.conf')
+        self.assertEqual(fire['fire_color'],[10023,35980,65535,65535])
+        self.assertFalse(fire['fire_mystical'])
+        original_fire=burn.load(install.PAYLOAD/'effects/burn/settings.conf')[0]
+        self.assertEqual({k:v for k,v in fire.items() if k not in ('fire_color','fire_mystical')},
+                         {k:v for k,v in original_fire.items() if k not in ('fire_color','fire_mystical')})
+        values,_=cube.load(self.stage/'effects/cube/settings.json')
+        expected={'edge_color':[39,140,255],'cap_color':[13,16,21],
+                  'sky_top':[7,9,13],'sky_bottom':[7,85,184],'window_color':[75,90,112]}
+        for key,channels in expected.items():
+            self.assertEqual(values[key],[c/255 for c in channels]+[1.0],key)
+        document,blobs=archive.read(self.stage/'settings_profiles/factory.hfsettings')
+        files={item['path']:blobs[item['sha256']] for item in document['files']}
+        self.assertEqual(burn.decode(files['effects/burn/settings.conf'].decode()),fire)
+        self.assertEqual(json.loads(files['effects/cube/settings.json']),values)
 
     def test_fresh_favorites_include_my_computer_and_bundled_apps(self):
         self.render()
@@ -260,7 +282,7 @@ assert m['fire_indicator']
         private = ('launcher/favorite-layout.json', 'launcher/floating-sizes.json',
                    'launcher/icons/private.png', 'calculator/state/preferences.ini',
                    'file_manager/state/settings.ini', 'runtime/window_memory/state/windows.json',
-                   'control_panel/state/startup-screen.json')
+                   'control_panel/state/startup-screen.json', 'theme/effect-colors.json')
         theme=source/'theme/state.json'
         theme.write_text(json.dumps(dict(json.loads(theme.read_text()),design='hollowgrove',mode='light',
                                         layout='sidebar',wallpaper_theme='hollowgrove',
@@ -287,6 +309,8 @@ assert m['fire_indicator']
         self.assertEqual(kde.read_bytes(), before)
 
     def test_update_renders_existing_theme_even_when_it_is_the_previous_stock_default(self):
+        from effects.burn import model as burn
+        from settings_profiles import archive
         saved={'design':'hollowgrove','mode':'dark','layout':'sidebar','wallpaper_theme':'hollowgrove',
                'launcher_style':'follow','bar_style':'follow','bar_variant':'full',
                'launcher_wallpaper':False,'launcher_background':''}
@@ -295,6 +319,9 @@ assert m['fire_indicator']
         wallpaper=self.target/'wallpaper/default.json';wallpaper.parent.mkdir(parents=True)
         choice={'image':'hollowgrove/hollow-grove.png','fit':'contain'}
         wallpaper.write_text(json.dumps(choice))
+        fire=self.target/'effects/burn/settings.conf';fire.parent.mkdir(parents=True)
+        custom_fire=burn.encode({**burn.DEFAULTS,'fire_color':[12000,40000,18000,65535],'duration':475})
+        fire.write_text(custom_fire)
         self.render(preserve_theme=True)
         result=json.loads((self.stage/'theme/state.json').read_text())
         self.assertEqual({key:result[key] for key in saved},saved)
@@ -305,6 +332,16 @@ assert m['fire_indicator']
         self.assertNotIn(str(self.stage),(self.stage/'waybar/style.css').read_text())
         self.assertIn('/hollowgrove/hollow-grove.png',(self.stage/'wallpaper/hyprpaper.conf').read_text())
         self.assertEqual(json.loads(theme.read_text()),saved)
+        self.assertEqual(fire.read_text(),custom_fire)
+        self.assertEqual((self.stage/'effects/burn/settings.conf').read_bytes(),
+                         (install.PAYLOAD/'effects/burn/settings.conf').read_bytes())
+        # Updates carry pristine HP4 reset colors, independently of the saved
+        # theme and effect choices that the recipient's preference merge keeps.
+        document,blobs=archive.read(self.stage/'settings_profiles/factory.hfsettings')
+        files={item['path']:blobs[item['sha256']] for item in document['files']}
+        self.assertEqual(burn.decode(files['effects/burn/settings.conf'].decode())['fire_color'],
+                         [10023,35980,65535,65535])
+        self.assertEqual(json.loads(files['effects/cube/settings.json'])['edge_color'],[39/255,140/255,1.0,1.0])
 
     def test_places_use_recipient_folders_without_importing_private_bookmarks(self):
         (self.home/'Desktop').mkdir()

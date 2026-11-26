@@ -59,6 +59,8 @@ def payload_ignored(directory, names):
         ignored.add('saved-windows.json')
     if relative == 'settings_profiles':
         ignored.update(('factory.hfsettings', 'audio.json', 'imported-assets'))
+    if relative == 'theme':
+        ignored.add('effect-colors.json')
     if relative.startswith('wallpaper/'):
         # Artwork creation notes remain in the repository, not in recipients'
         # desktop profiles (they can refer to the artist's local source files).
@@ -191,7 +193,8 @@ def render(stage, home, monitors, profile='auto', *, preserve_theme=False):
     dolphin_profile.prepare_terminal(stage)
     dolphin_profile.prepare_layout(stage)
     # Render the selected fresh-install theme; no live IPC or shared settings.
-    subprocess.run([sys.executable,str(stage/'theme/render_defaults.py'),'--asset-root',str(target/'theme')],check=True)
+    subprocess.run([sys.executable,str(stage/'theme/render_defaults.py'),'--asset-root',str(target/'theme'),
+                    *([] if preserve_theme else ['--effect-defaults'])],check=True)
     # A reset must never use the recipient's merged/personal settings as defaults.
     # Package this release's pristine defaults with every install and update.
     sys.path.insert(0, str(PAYLOAD))

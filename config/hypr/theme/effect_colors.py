@@ -12,6 +12,29 @@ def rgba(color):
     return [int(color[i:i+2], 16)/255 for i in (1, 3, 5)]+[1.0]
 
 
+def defaults(design, palette):
+    from effects.burn import model as burn
+    fire = dict(fire_color=[round(c*65535) for c in rgba(palette['Accent'])], fire_mystical=False)
+    if design == 'raw': fire = {key: copy.deepcopy(burn.DEFAULTS[key]) for key in BURN_KEYS}
+    return dict(burn=fire, cube=dict(edge_color=rgba(palette['Accent']), cap_color=rgba(palette['Window']),
+                sky_top=rgba(palette['Base']), sky_bottom=rgba(palette['Highlight']),
+                window_color=rgba(palette['Midlight'])))
+
+
+def fresh_files(root, design, mode):
+    """Initialize palette-dependent colors without importing personal theme history."""
+    root = Path(root)
+    from effects.burn import model as burn
+    from effects.cube import model as cube
+    resources = [('burn', root/'effects/burn/settings.conf', burn),
+                 ('cube', root/'effects/cube/settings.json', cube)]
+    if not any(path.is_file() for _,path,_ in resources): return {}
+    palettes = json.loads((root/'theme/palettes.json').read_text())
+    colors = defaults(design, (palettes if design == 'raw' else palettes[design])[mode])
+    return {path: model.encode({**model.load(path)[0], **colors[name]}).encode()
+            for name,path,model in resources if path.is_file()}
+
+
 def plan(root, previous, design, palette):
     if design == previous: return {}, []
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -25,15 +48,13 @@ def plan(root, previous, design, palette):
     chosen = saved['themes'].setdefault(design, {})
     if not isinstance(old, dict) or not isinstance(chosen, dict):
         raise ValueError('The saved theme effect colors are invalid.')
+    theme_defaults = defaults(design, palette)
     files, reloads = {}, []
     fire_path = root/'effects/burn/settings.conf'
     if fire_path.exists():
         current, _ = burn.load(fire_path)
         old['burn'] = {key: copy.deepcopy(current[key]) for key in BURN_KEYS}
-        default_color = [round(c*65535) for c in rgba(palette['Accent'])]
-        defaults = {'fire_color': default_color, 'fire_mystical': False}
-        if design == 'raw': defaults = {key: copy.deepcopy(burn.DEFAULTS[key]) for key in BURN_KEYS}
-        selected = chosen.get('burn', defaults)
+        selected = chosen.get('burn', theme_defaults['burn'])
         if not isinstance(selected, dict) or any(key not in selected for key in BURN_KEYS):
             raise ValueError('The saved theme flame color is invalid.')
         values = burn.validate({**current, **{key: selected[key] for key in BURN_KEYS}})
@@ -44,10 +65,7 @@ def plan(root, previous, design, palette):
     if cube_path.exists():
         current, _ = cube.load(cube_path)
         old['cube'] = {key: copy.deepcopy(current[key]) for key in CUBE_KEYS}
-        defaults = dict(edge_color=rgba(palette['Accent']), cap_color=rgba(palette['Window']),
-                        sky_top=rgba(palette['Base']), sky_bottom=rgba(palette['Highlight']),
-                        window_color=rgba(palette['Midlight']))
-        selected = chosen.get('cube', defaults)
+        selected = chosen.get('cube', theme_defaults['cube'])
         if not isinstance(selected, dict) or any(key not in selected for key in CUBE_KEYS):
             raise ValueError('The saved theme cube colors are invalid.')
         values = cube.validate({**current, **{key: selected[key] for key in CUBE_KEYS}})

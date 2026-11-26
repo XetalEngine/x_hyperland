@@ -9,6 +9,11 @@ The default wallpaper is **Midnight Pit**; additional monitors use the other
 wallpapers in screen order. Existing installations keep their selected theme
 when updating.
 
+Fresh installs and Reset Defaults initialize closing flames and desktop-cube
+colors from the HP4 palette, including cobalt blue accents. Animation timing,
+physics and cube artwork keep their configured defaults; updates preserve
+existing effect preferences and personal theme-color history.
+
 ![HP4 controls, wallpaper collection, icons, transfer card and dock preview](assets/hp4-preview.png)
 
 Choose **Fusion Settings → Theme → Presets → BMW S1000RR HP4**, then select

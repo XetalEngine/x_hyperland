@@ -52,7 +52,7 @@ def monitor_at(monitors, cursor):
     return next((m for m in enabled if m.get('focused')), enabled[0] if enabled else None)
 
 
-PANEL_SIZES = {'clock': (370, 440), 'power': (420, 835), 'network': (420, 500), 'audio': (audio_layout.MAX_WIDTH, audio_layout.HEIGHT)}
+PANEL_SIZES = {'clock': (370, 440), 'power': (420, 895), 'network': (420, 500), 'audio': (audio_layout.MAX_WIDTH, audio_layout.HEIGHT)}
 
 
 def placement(monitor, kind, edge='top', *, app_count=None):
