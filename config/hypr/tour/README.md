@@ -19,7 +19,7 @@ minimize dock, file transfers, Control Panel, and Fusion Files. Numbered steps
 come first; demonstrations are expandable. Next records progress, Previous
 returns to the last step, and the longer reference lessons remain searchable.
 
-The guide uses Binary Knife, the fresh-install theme. Its complete reading
+The guide uses its own Binary Knife reading theme. Its complete reading
 palettes are bundled from `theme/palettes.json`, independently of the current
 desktop theme. Dark is the initial mode; a saved reading-mode choice stays local
 to the browser.

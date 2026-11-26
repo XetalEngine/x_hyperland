@@ -1,9 +1,9 @@
 {
-  "style": "pearl",
+  "style": "hp4",
   "size": 32,
-  "trail": "follow",
+  "trail": "glow",
   "click_ripple": false,
-  "color": "#38bdf8",
+  "color": "#278cff",
   "duration": 560,
   "intensity": 65
 }

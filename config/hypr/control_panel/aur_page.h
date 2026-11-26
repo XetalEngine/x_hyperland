@@ -30,8 +30,8 @@ private:
     Mode mode;
     QComboBox *helper, *field, *match;
     QLineEdit *query;
-    QLabel *helperStatus, *status, *resultTitle, *emptyTitle, *emptyHint;
-    QPushButton *search, *install, *remove;
+    QLabel *yayStatus, *paruStatus, *status, *resultTitle, *emptyTitle, *emptyHint;
+    QPushButton *installYay, *installParu, *search, *install, *remove;
     QMenu *manage;
     QStackedWidget *results;
     QTableWidget *table;

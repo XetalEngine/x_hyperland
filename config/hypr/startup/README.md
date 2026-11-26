@@ -10,7 +10,9 @@ The catalog in `projects.json` links Echo, Linux Studio, Xetal BV (the website's
 Binary Knife page), CachyOsTools, XMusic and Xetal Video Editor to their respective
 pages on <https://www.xetal.net/community/site/>. Clicking, Enter or Space opens
 the selected page in the default browser after hiding the special workspace.
-Escape and the X hide the entire dashboard; Super+D shows it again.
+The Welcome **X** closes all four dashboard windows, including the three consoles,
+and removes the Welcome taskbar entry. Super+D creates the dashboard again.
+Escape hides the dashboard, and Super+D toggles its visibility while it is open.
 
 The header also offers **Take the Tour** and **Send Feedback** beside the project
 introduction. They open the bundled, searchable [desktop guide](../tour/README.md)

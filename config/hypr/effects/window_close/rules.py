@@ -15,6 +15,11 @@ BACKGROUNDS = {'auto': 'Auto · match the window underneath', 'manual': 'Manual 
 DEFAULTS = dict(mode='super', size=18, anchor='top-right', x=8, y=8, proximity=80,
                 background='auto', background_color='#20242b')
 LEGACY_KEYS = DEFAULTS.keys() - {'background', 'background_color'}
+# Bundled apps with their own chrome start without an additional KDE title bar.
+# Explicit per-app and per-window choices can still enable it.
+KDE_APP_DEFAULTS = {app: dict(DEFAULTS, mode=mode, titlebar=False) for app, mode in (
+    ('xetal-wallpaper-browser', 'auto'), ('fusion-quick-panel', 'off'),
+    ('xetal-logout', 'off'), ('xetal-image-viewer', 'off'), ('xmusic', 'off'))}
 
 
 def validate(rule):

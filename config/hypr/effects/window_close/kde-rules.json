@@ -44,6 +44,17 @@
       "background": "auto",
       "background_color": "#20242b",
       "titlebar": false
+    },
+    "xmusic": {
+      "mode": "off",
+      "size": 18,
+      "anchor": "top-right",
+      "x": 8,
+      "y": 8,
+      "proximity": 80,
+      "background": "auto",
+      "background_color": "#20242b",
+      "titlebar": false
     }
   }
 }

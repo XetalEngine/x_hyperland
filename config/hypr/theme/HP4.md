@@ -4,6 +4,11 @@ Black carbon, cobalt blue and machined silver, inspired by the supplied 2012
 HP4 concept. Every background stays dark. The global **Light** mode provides a
 slightly brighter graphite palette; it does not turn this theme white.
 
+HP4 in dark mode is the default for fresh installations and Reset Defaults.
+The default wallpaper is **Midnight Pit**; additional monitors use the other
+wallpapers in screen order. Existing installations keep their selected theme
+when updating.
+
 ![HP4 controls, wallpaper collection, icons, transfer card and dock preview](assets/hp4-preview.png)
 
 Choose **Fusion Settings → Theme → Presets → BMW S1000RR HP4**, then select

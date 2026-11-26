@@ -37,6 +37,11 @@ class RuleTests(unittest.TestCase):
                 saved=dict(rules.DEFAULTS,mode=mode,titlebar=False,size=24)
                 self.assertEqual(rules.effective(settings,saved,profile='kde'),saved)
                 self.assertEqual(rules.effective(settings,dict(rules.DEFAULTS),saved,profile='kde'),saved)
+        bundled,_=rules.load(rules.PATH.with_name('kde-rules.json'))
+        self.assertEqual(bundled['apps'],rules.KDE_APP_DEFAULTS)
+        xmusic=bundled['apps']['xmusic']
+        self.assertFalse(rules.effective(settings,xmusic,profile='kde')['titlebar'])
+        self.assertTrue(rules.effective(settings,xmusic,dict(xmusic,titlebar=True),profile='kde')['titlebar'])
 
     def test_kde_titlebar_migration_opt_out_and_standard_isolation(self):
         old=dict(rules.DEFAULTS,mode='auto',size=32)

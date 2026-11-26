@@ -195,7 +195,7 @@ GrubAppearance::~GrubAppearance() {
   for (auto *process : {catalog, renderer}) if (process->state() != QProcess::NotRunning) { process->kill(); process->waitForFinished(1500); }
 }
 void GrubAppearance::showEvent(QShowEvent *event) {
-  QWidget::showEvent(event); if (!loaded) { loaded = true; loadCatalog(); }
+  QWidget::showEvent(event); if (!loaded) loadCatalog();
 }
 void GrubAppearance::resizeEvent(QResizeEvent *event) {
   QWidget::resizeEvent(event);
@@ -203,7 +203,14 @@ void GrubAppearance::resizeEvent(QResizeEvent *event) {
   themeShelf->setVisible(!compact); themePicker->setVisible(compact);
 }
 void GrubAppearance::loadCatalog() {
-  if (busy || catalog->state() != QProcess::NotRunning) return;
+  if (busy) {
+    caption->setText("Waiting for the current GRUB operation to finish…");
+    return;
+  }
+  if (catalog->state() != QProcess::NotRunning) return;
+  // Opening Appearance while the menu is loading must leave this request
+  // pending. Only mark it loaded once the theme reader can actually start.
+  loaded = true;
   previewReady = false; ++generation; caption->setText("Loading boot screen themes…"); updateActions();
   catalog->start("python3", {helper, "catalog"});
 }
@@ -250,6 +257,7 @@ void GrubAppearance::setMenu(const QJsonArray &entries) {
 }
 void GrubAppearance::setAvailability(bool working, bool available, bool hasMenu) {
   busy = working; supported = available; readable = hasMenu; updateActions();
+  if (!busy && !loaded && isVisible()) loadCatalog();
 }
 void GrubAppearance::updateActions() {
   content->setEnabled(!busy); themePicker->setEnabled(!busy); reload->setEnabled(!busy && catalog->state() == QProcess::NotRunning);

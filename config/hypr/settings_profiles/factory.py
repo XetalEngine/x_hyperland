@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 from . import archive, catalog
+from effects.window_close.rules import KDE_APP_DEFAULTS
 
 LAUNCHER_DEFAULTS = {
     'favorites.json': {'add': ['xetal-files-computer.desktop', 'kitty.desktop', 'xetal-calculator.desktop', 'xmusic.desktop'], 'hide': []},
@@ -10,9 +11,10 @@ LAUNCHER_DEFAULTS = {
     'bar-pins.json': {'version': 1, 'pins': []},
     'window.json': {'width': 980, 'height': 720},
 }
-THEME_DEFAULTS = dict(design='binaryknife', mode='dark', layout='sidebar', wallpaper_theme='binaryknife',
+THEME_DEFAULTS = dict(design='hp4', mode='dark', layout='sidebar', wallpaper_theme='hp4',
                       bar_style='follow', bar_variant='full', launcher_style='follow',
                       launcher_wallpaper=True, launcher_background='')
+WALLPAPER_DEFAULTS = dict(image='hp4/midnight-pit.png', fit='cover')
 
 
 def build(source, destination, home, *, rendered=False):
@@ -52,8 +54,8 @@ def build(source, destination, home, *, rendered=False):
     for name, data in LAUNCHER_DEFAULTS.items(): put('launcher/' + name, data)
     put('theme/icons.json', {'version': 1, 'system': 'other', 'other': 'theme:Papirus-Dark', 'overrides': {}})
     put('workspaces/rules.json', {'version': 1, 'default_layout': 'kde', 'workspaces': {}})
-    for name in ('effects/window_close/rules.json', 'effects/window_close/kde-rules.json'):
-        put(name, {'version': 1, 'apps': {}})
+    put('effects/window_close/rules.json', {'version': 1, 'apps': {}})
+    put('effects/window_close/kde-rules.json', {'version': 1, 'apps': KDE_APP_DEFAULTS})
     # Always clear maintainer-owned choices which are explicitly not delivered.
     for name in ('theme/custom-presets.json', 'launcher/favorite-layout.json', 'launcher/floating-sizes.json',
                  'desktop_menu/icons.json', 'file_manager/automount.json', 'wallpaper/profiles.json'):
@@ -64,10 +66,10 @@ def build(source, destination, home, *, rendered=False):
         put('control_center/displays.conf', b'# Automatic fresh-install monitor detection.\nmonitor = ,preferred,auto,1\n')
         put('control_center/workspaces.conf', b'# Workspaces are assigned to connected outputs at login.\n')
         choice = json.loads(blobs[table['wallpaper/default.json']['sha256']])
-        choice.update(image='binaryknife/workstation-2.png', fit='cover')
+        choice.update(WALLPAPER_DEFAULTS)
         put('wallpaper/default.json', choice)
         table.pop('wallpaper/selection.json', None)
-        wallpaper = str(home/'.config/hypr/wallpaper/binaryknife/workstation-2.png')
+        wallpaper = str(home/'.config/hypr/wallpaper'/choice['image'])
         put('wallpaper/hyprpaper.conf', ('ipc = true\nsplash = false\nwallpaper {\n    monitor =\n    path = ' + wallpaper + '\n    fit_mode = cover\n}\n').encode())
     # Standard shell files are defaults, not the exporting user's custom aliases.
     for name in ('.bashrc', '.bash_profile', '.zshrc', '.zprofile'):

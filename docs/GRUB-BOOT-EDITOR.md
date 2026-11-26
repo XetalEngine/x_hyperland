@@ -137,6 +137,11 @@ The page has no scrolling settings panels: Picture, Menu and Colors tabs keep
 the controls beside the preview. Theme thumbnails use arrow buttons; short
 windows switch to a compact theme picker.
 
+Opening Appearance while the current menu is still loading shows a waiting
+message, then loads the theme list automatically when that operation finishes.
+Cancelling authentication still allows theme previews. Later menu refreshes and
+tab switches preserve the design you are editing.
+
 The controls adjust picture dimming, menu shading, left/center/right placement,
 heading, subtitle, menu text size, accent/text/shade colors and navigation hints.
 The live preview uses the same artwork renderer as the saved design and shows

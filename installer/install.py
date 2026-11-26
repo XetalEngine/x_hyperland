@@ -29,7 +29,7 @@ sys.path.insert(0, str(PAYLOAD/'compat'))
 import hypr_compat
 sys.path.insert(0, str(PAYLOAD))
 from dolphin import profile as dolphin_profile
-from settings_profiles.factory import LAUNCHER_DEFAULTS, THEME_DEFAULTS
+from settings_profiles.factory import LAUNCHER_DEFAULTS, THEME_DEFAULTS, WALLPAPER_DEFAULTS, KDE_APP_DEFAULTS
 
 DOLPHIN_DEFAULTS = {'dolphin/config/dolphinrc', 'dolphin/config/kdeglobals',
                     'dolphin/config/kservicemenurc',
@@ -114,6 +114,8 @@ def render(stage, home, monitors, profile='auto', *, preserve_theme=False):
     # Fresh installs use Papirus-Dark for both system and application icons.
     # Do not copy the author's imports, overrides or generated paths.
     (stage/'theme/icons.json').write_text(json.dumps({'version':1,'system':'other','other':'theme:Papirus-Dark','overrides':{}},indent=2)+'\n')
+    (stage/'effects/window_close/kde-rules.json').write_text(json.dumps(
+        {'version':1,'apps':KDE_APP_DEFAULTS},indent=2)+'\n')
     for name, defaults in LAUNCHER_DEFAULTS.items():
         (stage/'launcher'/name).write_text(json.dumps(defaults, indent=2)+'\n')
     # Cover every numbered workspace, including later +/Cube/monitor additions,
@@ -124,7 +126,7 @@ def render(stage, home, monitors, profile='auto', *, preserve_theme=False):
     theme_defaults = json.loads(theme.read_text())
     theme_defaults.update(THEME_DEFAULTS)
     # Updates render colors for the recipient's chosen theme, including when
-    # it still matches an old release default. Fresh/reset installs use Binary Knife.
+    # it still matches an old release default. Fresh/reset installs use BMW HP4.
     saved_theme=target/'theme/state.json'
     if preserve_theme and saved_theme.is_file():
         saved=json.loads(saved_theme.read_text())
@@ -160,7 +162,7 @@ def render(stage, home, monitors, profile='auto', *, preserve_theme=False):
         lines += [f'workspace = {i}, monitor:{m["name"]}, default:true' for i,m in enumerate(active,1)]
         (stage/'control_center/workspaces.conf').write_text('\n'.join(lines)+'\n')
     choice=json.loads((stage/'wallpaper/default.json').read_text())
-    choice.update(image='binaryknife/workstation-2.png',fit='cover')
+    choice.update(WALLPAPER_DEFAULTS)
     saved_wallpaper=target/'wallpaper/default.json'
     if preserve_theme and saved_wallpaper.is_file():choice.update(json.loads(saved_wallpaper.read_text()))
     (stage/'wallpaper/default.json').write_text(json.dumps(choice,indent=2)+'\n')

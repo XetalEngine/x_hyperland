@@ -1,5 +1,76 @@
 # Validation
 
+## Complete Control Panel deployment check — 25 November 2026
+
+The first local Appearance hotfix was linked against an older installed object
+cache, which temporarily removed the Boot preferences and UEFI boot option tabs
+from that executable. Both features remained present in the repository and
+installed source. The replacement was built from scratch in a new directory;
+the stale local build cache was archived and the complete executable installed.
+
+All 17 GRUB editor checks passed against the clean build. The actual production
+executable and its installed copy each passed the isolated navigation check:
+35 tools, no navigation errors, and all five GRUB tabs present. The full-panel
+capture confirms both restored tabs. Preview settings and D-Bus were isolated;
+no boot menu or firmware changes were made.
+
+## GRUB theme loading after a busy menu read — 25 November 2026
+
+Opening Appearance during the editor's initial GRUB operation could mark its
+catalog as loaded before starting the reader. This left both the theme shelf
+and preview empty, even after the operation finished or the tab was reopened.
+The installed theme reader returned all 33 presets and valid background paths;
+the issue was independent of the BMW desktop theme.
+
+The native Qt regression reproduced the blank list before the fix in both
+stay-on-tab and return-after-loading cases. All 17 editor checks now pass,
+including those cases, cancelled authentication, draft preservation, explicit
+apply/recovery review and private-menu handling. The production Control Panel
+built successfully, and the HP4-styled host preview was visually checked.
+Tests used fixture helpers and read-only theme loading; no host boot menu or
+firmware settings were changed.
+
+## Visible Yay and Paru setup — 25 November 2026
+
+Yay & Paru now shows both install buttons directly above search. Yay has a
+Recommended badge and a highlighted button; installed helpers show their status
+in the same cards. The existing reviewed installer and management menu are reused.
+All 10 native AUR page checks passed with fixture helpers and terminals, including
+direct-button selection, cancellation, installed-state refresh and repository-only
+mode. The final HP4 layout was checked at 1100 and 760 pixels wide, and the
+production Control Panel built successfully. No host helpers were installed and
+neither ISO was rebuilt.
+
+## Fresh-install review changes — 25 November 2026
+
+Fresh profiles and factory resets now select BMW S1000RR HP4 in dark mode,
+Midnight Pit as the fallback wallpaper, the ordered HP4 monitor wallpapers,
+and Carbon Apex cursors. Packaged colors were regenerated for the taskbar,
+terminal, notifications, Dolphin and lock screen. Existing-theme preservation
+and portable profile rendering passed the 40 installer tests and 27 settings
+archive tests; the affected rendering/archive checks were repeated after adding
+the XMusic title-bar default.
+
+Welcome's X and native close requests now close its generated companion consoles
+before closing the main window. Escape remains a hide action, and Super+D can
+recreate the dashboard. The 38 startup tests passed, including close targeting,
+unrelated-window exclusion, native/button close, and failure/retry handling.
+
+Software's successful repository refresh now shows a green checkmark and a clear
+success message. Logs are collapsed under Show details; failure output and Retry
+remain visible. The native catalog suite reported 15 passes and one optional
+real-data preview skip. Its successful-dialog capture was visually checked, and
+the production Control Panel executable built successfully. Package commands in
+these tests used fixtures; no host package refresh or installation was run.
+
+XMusic's extra KDE-mode title bar defaults to disabled. The shipped app rules,
+fresh profile renderer and factory archive use the same curated defaults;
+explicit per-window choices can still enable it. All 23 window-rule and settings
+dialog tests passed, including native policy helpers.
+
+These changes are prepared in source. Neither ISO was rebuilt during this review.
+No compositor was restarted or nested compositor launched for these checks.
+
 ## Workspace row transitions — 25 November 2026
 
 Workspace labels and the mode indicator now update before painting, including

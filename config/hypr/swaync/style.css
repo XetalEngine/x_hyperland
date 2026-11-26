@@ -1,13 +1,16 @@
 /* Profile-local notification colors. */
-@define-color cc-bg #111915;
-@define-color noti-bg #111915;
-@define-color noti-bg-hover #27382c;
-@define-color text-color #e8eae1;
-@define-color text-color-disabled #72816e;
-@define-color noti-border-color #45594a;
-
-    .control-center,.notification {background:linear-gradient(155deg,#27382c,#090f0c);color:#e8eae1;border:1px solid #becdb3;border-radius:19px;}
-    .notification-content {padding:14px;}
-    .summary {font-family:serif;color:#e8eae1;}
-    .body,.time {color:#adbca6;}
-    .notification-action,.close-button,.widget-title > button {background:#3c5942;color:#e8eae1;border-radius:12px;}
+@define-color cc-bg #0d1015;
+@define-color noti-bg #0d1015;
+@define-color noti-bg-hover #1c2430;
+@define-color text-color #e5ebf3;
+@define-color text-color-disabled #8390a2;
+@define-color noti-border-color #4b5a70;
+.control-center,.notification {background:#0d1015;color:#e5ebf3;border:1px solid #4b5a70;border-top-color:#8b99ac;border-bottom-color:#8b99ac;border-radius:6px;}
+    .notification-content {background:transparent;padding:13px;color:#e5ebf3;}
+    .summary,.widget-title {color:#e5ebf3;font-family:"Inter",sans-serif;font-weight:600;}
+    .body,.time,.widget-label {color:#aab8ca;}
+    .notification-action,.close-button,.widget-title > button,.widget-buttons-grid > flowbox > flowboxchild > button {background:#1c2430;color:#e5ebf3;border:1px solid #4b5a70;border-radius:6px;}
+    .notification-action:hover,.close-button:hover,.widget-title > button:hover {background:#0755b8;color:#ffffff;}
+    .widget-dnd,.widget-mpris {background:#141922;color:#e5ebf3;border-radius:6px;padding:8px;}
+    .widget-dnd > switch:checked {background:#0755b8;}
+    .widget-mpris button {color:#e5ebf3;}

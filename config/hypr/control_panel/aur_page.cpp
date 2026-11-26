@@ -26,6 +26,7 @@ AurPage::AurPage(const QString &profileRoot, const QString &terminal, QWidget *p
         "QFrame#aurCard QLabel {background:transparent;border:0;}"
         "QLabel#aurHeading {font-size:26px;font-weight:650;}"
         "QLabel#aurCardTitle {font-size:16px;font-weight:600;}"
+        "QFrame#aurCard QLabel#aurRecommended {background:palette(highlight);color:palette(highlighted-text);border-radius:5px;padding:4px 8px;font-size:11px;font-weight:600;}"
         "QLabel#aurEmptyTitle {font-size:20px;font-weight:600;}"
         "QLabel#aurMuted,QLabel#aurStatus {color:palette(placeholder-text);}"
         "QPushButton[aurPrimary=\"true\"]:enabled {background:palette(highlight);color:palette(highlighted-text);border:1px solid palette(highlight);font-weight:600;}"
@@ -48,8 +49,25 @@ AurPage::AurPage(const QString &profileRoot, const QString &terminal, QWidget *p
     connect(refresh, &QPushButton::clicked, this, &AurPage::refresh);
     heading->addWidget(refresh); outer->addWidget(headingWidget);
     headingWidget->setVisible(mode == Mode::Helpers);
-    helperStatus = label({}, "aurMuted"); helperStatus->setObjectName("aurHelperStatus"); outer->addWidget(helperStatus);
-    helperStatus->setVisible(mode == Mode::Helpers);
+    auto *choices=new QWidget;choices->setObjectName("aurHelperChoices");
+    auto *choiceLayout=new QHBoxLayout(choices);choiceLayout->setContentsMargins(0,0,0,0);choiceLayout->setSpacing(12);
+    auto helperCard=[&](const QString &name,QLabel *&state,QPushButton *&button){
+        auto *card=new QFrame;card->setObjectName("aurCard");
+        auto *row=new QHBoxLayout(card);row->setContentsMargins(16,14,16,14);row->setSpacing(12);
+        auto *text=new QVBoxLayout;text->setSpacing(6);auto *titleRow=new QHBoxLayout;
+        titleRow->addWidget(label(title(name),"aurCardTitle"));
+        if(name=="yay"){
+            auto *recommended=label("Recommended","aurRecommended");recommended->setWordWrap(false);
+            recommended->setToolTip("Our recommended package helper for HyperFusion.");titleRow->addWidget(recommended);
+        }
+        titleRow->addStretch();text->addLayout(titleRow);state=label({});text->addWidget(state);row->addLayout(text,1);
+        button=new QPushButton;button->setObjectName(name=="yay"?"aurInstallYay":"aurInstallParu");button->setMinimumHeight(40);
+        button->setProperty("aurPrimary",name=="yay");row->addWidget(button);
+        connect(button,&QPushButton::clicked,this,[this,name]{helperAction(name,"install");});
+        choiceLayout->addWidget(card,1);
+    };
+    helperCard("yay",yayStatus,installYay);helperCard("paru",paruStatus,installParu);
+    outer->addWidget(choices);choices->setVisible(mode==Mode::Helpers);
 
     auto *searchCard = new QFrame; searchCard->setObjectName("aurCard");
     auto *searchLayout = new QVBoxLayout(searchCard); searchLayout->setContentsMargins(16, 14, 16, 14); searchLayout->setSpacing(10);
@@ -150,16 +168,22 @@ QString AurPage::selectedHelper() const {
     return {};
 }
 void AurPage::refreshHelpers() {
-    helperStatus->setText(QString("Yay · %1    /    Paru · %2")
-        .arg(HyperPanel::aurHelperInstalled("yay") ? "Installed" : "Not installed", HyperPanel::aurHelperInstalled("paru") ? "Installed" : "Not installed"));
+    for(const auto &name:{QString("yay"),QString("paru")}){
+        const bool installed=HyperPanel::aurHelperInstalled(name);
+        auto *button=name=="yay"?installYay:installParu;auto *state=name=="yay"?yayStatus:paruStatus;
+        state->setText(installed?"Installed · ready to use":"Not installed");
+        button->setText(installed?title(name)+" installed":"Install "+title(name));button->setEnabled(!installed);
+        button->setIcon(installed?style()->standardIcon(QStyle::SP_DialogApplyButton):QIcon::fromTheme("system-software-install",style()->standardIcon(QStyle::SP_ArrowDown)));
+        button->setToolTip(installed?"Reinstall or remove this helper in Manage helpers.":"Install "+title(name)+" to find repository and AUR packages.");
+    }
     const auto chosen = selectedHelper();
     const auto automatic = HyperPanel::aurHelperInstalled("yay") ? "Yay" : HyperPanel::aurHelperInstalled("paru") ? "Paru" : "none installed";
     helper->setItemText(0, "Automatic · " + QString(automatic));
     search->setEnabled(busy || !chosen.isEmpty());
-    search->setToolTip(chosen.isEmpty() ? "Install a helper from Manage helpers, or select an installed one." : "Search using " + title(chosen));
+    search->setToolTip(chosen.isEmpty() ? "Install Yay above (recommended), or choose Paru." : "Search using " + title(chosen));
     if (!busy && packages.isEmpty() && searchedQuery.isEmpty()) {
         emptyTitle->setText(chosen.isEmpty() ? "Choose a package helper" : "Find your next app");
-        emptyHint->setText(chosen.isEmpty() ? (mode == Mode::Repositories ? "Pacman is not available on this system." : "Open Manage helpers to install Yay or Paru, or select an installed helper.") : mode == Mode::Repositories ? "Search the configured repositories. Community packages are in Yay & Paru." : "Search above to see packages from your repositories and the AUR.");
+        emptyHint->setText(chosen.isEmpty() ? (mode == Mode::Repositories ? "Pacman is not available on this system." : "Install Yay above (recommended), or choose Paru. One helper is enough to get started.") : mode == Mode::Repositories ? "Search the configured repositories. Community packages are in Yay & Paru." : "Search above to see packages from your repositories and the AUR.");
     }
     updateActions();
 }

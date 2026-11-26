@@ -407,22 +407,31 @@ void SoftwareCatalogPage::syncRepositories() {
     if(!QFileInfo::exists(askpass)){notice->setText("The administrator authentication helper is missing. Update Hyper Fusion to restore it.");notice->show();return;}
     RepositoryDialog dialog(this);dialog.setObjectName("softwareRepositorySync");dialog.setWindowTitle("Refresh package lists");dialog.resize(640,350);
     auto *layout=new QVBoxLayout(&dialog);layout->setContentsMargins(24,24,24,24);layout->setSpacing(12);
-    auto *status=words("Refreshing repository lists. No packages will be installed or upgraded.","softwareRepositoryStatus");layout->addWidget(status);
-    auto *output=new QPlainTextEdit;output->setReadOnly(true);output->document()->setMaximumBlockCount(1500);layout->addWidget(output,1);
-    auto *row=new QHBoxLayout;row->addStretch();auto *retry=new QPushButton("Retry");retry->hide();row->addWidget(retry);auto *close=new QPushButton("Close");close->setEnabled(false);row->addWidget(close);layout->addLayout(row);
+    auto *summary=new QHBoxLayout;summary->setSpacing(14);
+    auto *successIcon=new QLabel;successIcon->setObjectName("softwareRepositorySuccess");successIcon->setAccessibleName("Success");successIcon->setFixedSize(36,36);
+    const qreal scale=dialog.devicePixelRatioF();QPixmap mark(QSize(36,36)*scale);mark.setDevicePixelRatio(scale);mark.fill(Qt::transparent);
+    {QPainter painter(&mark);painter.setRenderHint(QPainter::Antialiasing);painter.setPen(QPen(QColor("#46d986"),2));painter.setBrush(QColor("#163c2b"));painter.drawRoundedRect(QRectF(2,2,32,32),7,7);
+     painter.setPen(QPen(QColor("#46d986"),3,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));painter.drawPolyline(QPolygonF{QPointF(10,18),QPointF(16,24),QPointF(27,12)});}
+    successIcon->setPixmap(mark);successIcon->hide();summary->addWidget(successIcon);
+    auto *status=words("Refreshing repository lists. No packages will be installed or upgraded.","softwareRepositoryStatus");summary->addWidget(status,1);layout->addLayout(summary);
+    auto *progress=new QProgressBar;progress->setRange(0,0);progress->setTextVisible(false);layout->addWidget(progress);
+    auto *output=new QPlainTextEdit;output->setObjectName("softwareRepositoryOutput");output->setReadOnly(true);output->document()->setMaximumBlockCount(1500);layout->addWidget(output,1);
+    auto *row=new QHBoxLayout;auto *details=new QPushButton("Show details");details->setObjectName("softwareRepositoryDetails");details->setCheckable(true);details->hide();row->addWidget(details);row->addStretch();auto *retry=new QPushButton("Retry");retry->hide();row->addWidget(retry);auto *close=new QPushButton("Close");close->setEnabled(false);row->addWidget(close);layout->addLayout(row);
     QProcess worker;worker.setProcessChannelMode(QProcess::MergedChannels);auto env=QProcessEnvironment::systemEnvironment();env.insert("SUDO_ASKPASS",askpass);env.insert("TERM","dumb");worker.setProcessEnvironment(env);
     auto finished=[&](bool success){
-        repositorySyncRunning=false;dialog.running=false;syncButton->setEnabled(true);close->setEnabled(true);retry->setVisible(!success);
-        if(success){QSettings("XetalHyperland","ControlPanel").setValue("software/catalog/repositoriesInitialized",true);status->setText("Package lists refreshed. Your app catalog is ready.");requestCatalog(true);}
+        repositorySyncRunning=false;dialog.running=false;syncButton->setEnabled(true);close->setEnabled(true);retry->setVisible(!success);progress->hide();successIcon->setVisible(success);details->setVisible(success);details->setChecked(false);output->setVisible(!success);
+        if(success){QSettings("XetalHyperland","ControlPanel").setValue("software/catalog/repositoriesInitialized",true);status->setText("Your package list has been refreshed successfully.");status->setStyleSheet("font-weight:600;");requestCatalog(true);}
         else status->setText("Package lists could not be refreshed. Check the details below, then retry.");
+        dialog.adjustSize();
     };
     auto start=[&]{
-        repositorySyncRunning=true;dialog.running=true;syncButton->setEnabled(false);close->setEnabled(false);retry->hide();output->clear();status->setText("Refreshing repository lists. No packages will be installed or upgraded.");
+        repositorySyncRunning=true;dialog.running=true;syncButton->setEnabled(false);close->setEnabled(false);retry->hide();successIcon->hide();details->hide();progress->show();output->show();output->clear();status->setStyleSheet({});status->setText("Refreshing repository lists. No packages will be installed or upgraded.");
         worker.start("sudo",{"-A","-k","--","pacman","-Sy"});
     };
     connect(&worker,&QProcess::readyReadStandardOutput,&dialog,[&]{output->moveCursor(QTextCursor::End);output->insertPlainText(QString::fromUtf8(worker.readAllStandardOutput()));output->ensureCursorVisible();});
     connect(&worker,&QProcess::errorOccurred,&dialog,[&](QProcess::ProcessError error){if(error==QProcess::FailedToStart){output->appendPlainText(worker.errorString());finished(false);}});
     connect(&worker,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),&dialog,[&](int code,QProcess::ExitStatus exit){finished(code==0&&exit==QProcess::NormalExit);});
+    connect(details,&QPushButton::toggled,&dialog,[&](bool visible){output->setVisible(visible);details->setText(visible?"Hide details":"Show details");dialog.adjustSize();});
     connect(retry,&QPushButton::clicked,&dialog,start);connect(close,&QPushButton::clicked,&dialog,&QDialog::reject);
     start();dialog.exec();
 }

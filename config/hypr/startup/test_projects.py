@@ -56,6 +56,26 @@ class CatalogTests(unittest.TestCase):
             with patch.object(model.subprocess,'run',side_effect=[subprocess.CompletedProcess([],0,json.dumps([monitor])),subprocess.CompletedProcess([],0,'ok')]) as run:
                 model.hide_dashboard();self.assertEqual(run.call_count,expected)
 
+    def test_close_only_targets_generated_welcome_consoles(self):
+        clients=[{'class':'xetal-startup-'+mode,'mapped':True,'address':hex(index+16)}
+                 for index,mode in enumerate(('info','matrix','clock','hero','projects','unrelated'))]
+        clients += [{'class':'kitty','mapped':True,'address':'0x99'},
+                    {'class':'xetal-startup-info','mapped':False,'address':'0x98'}]
+        responses=[subprocess.CompletedProcess([],0,json.dumps(clients))]+[subprocess.CompletedProcess([],0,'ok')]*4
+        with patch.object(model.subprocess,'run',side_effect=responses) as run:
+            model.close_companions()
+        self.assertEqual([call.args[0] for call in run.call_args_list[1:]],
+                         [['hyprctl','dispatch','closewindow','address:'+hex(index+16)] for index in range(4)])
+
+    def test_close_attempts_other_panels_when_one_fails(self):
+        clients=[{'class':'xetal-startup-'+mode,'mapped':True,'address':hex(index+16)}
+                 for index,mode in enumerate(('info','matrix','clock'))]
+        responses=[subprocess.CompletedProcess([],0,json.dumps(clients)),subprocess.CompletedProcess([],1,'failed'),
+                   subprocess.CompletedProcess([],0,'ok'),subprocess.CompletedProcess([],0,'ok')]
+        with patch.object(model.subprocess,'run',side_effect=responses) as run:
+            with self.assertRaisesRegex(RuntimeError,'Could not close all Welcome'):model.close_companions()
+        self.assertEqual(run.call_count,4)
+
     def test_dashboard_upgrade_reuses_three_consoles(self):
         monitors=[{'name':'test','focused':True,'width':1280,'scale':1,'specialWorkspace':{'name':launch.WORKSPACE}}]
         clients=[{'class':'xetal-startup-'+m,'mapped':True,'address':str(i)} for i,m in enumerate(('info','matrix','clock','hero'))]
@@ -81,6 +101,37 @@ class GalleryTests(unittest.TestCase):
     def setUpClass(cls):
         from PyQt6.QtWidgets import QApplication
         cls.app=QApplication.instance() or QApplication([])
+
+    def test_x_and_native_close_wait_for_companions_then_remove_welcome(self):
+        import projects
+        from PyQt6.QtCore import QProcess
+        for native in (False,True):
+            with self.subTest(native=native), tempfile.TemporaryDirectory() as directory, \
+                 patch.dict(os.environ,XETAL_HYPR_ROOT=directory,HYPRLAND_INSTANCE_SIGNATURE='isolated-test'):
+                window=projects.Dashboard(model.catalog(),session_managed=True);window.show();self.app.processEvents()
+                try:
+                    with patch.object(window.close_worker,'start') as start:
+                        if native:window.close()
+                        else:window.xetal_window_controls.close.click()
+                        self.assertTrue(window.isVisible())
+                        self.assertEqual(start.call_args.args[1], [str(projects.ROOT/'projects.py'),'--close-companions'])
+                        window.close_worker.finished.emit(0,QProcess.ExitStatus.NormalExit)
+                        self.assertFalse(window.isVisible())
+                        self.assertEqual(start.call_count,1)
+                finally:window.session_managed=False;window.close()
+
+    def test_failed_companion_close_keeps_welcome_open_for_retry(self):
+        import projects
+        from PyQt6.QtCore import QProcess
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.dict(os.environ,XETAL_HYPR_ROOT=directory,HYPRLAND_INSTANCE_SIGNATURE='isolated-test'):
+            window=projects.Dashboard(model.catalog(),session_managed=True);window.show();self.app.processEvents()
+            try:
+                with patch.object(window.close_worker,'start') as start:
+                    window.close();window.close_worker.finished.emit(1,QProcess.ExitStatus.NormalExit)
+                    self.assertTrue(window.isVisible());self.assertIn('Please try again',window.message.text())
+                    window.close();self.assertEqual(start.call_count,2)
+            finally:window.session_managed=False;window.close()
 
     def test_login_checkbox_shares_startup_setting_and_rolls_back_failed_saves(self):
         import projects

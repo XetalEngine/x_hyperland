@@ -15,7 +15,7 @@ from PyQt6.QtGui import (QColor, QFont, QPainter, QPainterPath, QPalette, QPen, 
 from PyQt6.QtWidgets import (QApplication, QAbstractButton, QWidget, QLabel, QVBoxLayout,
                             QHBoxLayout, QGridLayout, QScrollArea, QSizePolicy, QCheckBox,
                             QFrame, QPushButton)
-from projects_model import catalog, hide_dashboard, open_project, WORKSPACE
+from projects_model import catalog, hide_dashboard, close_companions, open_project, WORKSPACE
 import login_settings
 
 ROOT = Path(__file__).resolve().parent
@@ -158,8 +158,9 @@ class Gallery(QWidget):
 
 
 class Dashboard(QWidget):
-    def __init__(self,projects):
+    def __init__(self,projects,*,session_managed=False):
         super().__init__();self.setWindowTitle('Xetal / Projects');self.setObjectName('projectsWindow')
+        self.session_managed=session_managed;self.scene_closed=False
         self.setWindowFlags(Qt.WindowType.Window|Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.resize(1120,820);self.setMinimumSize(390,410)
@@ -167,7 +168,7 @@ class Dashboard(QWidget):
         layout=QVBoxLayout(self);layout.setContentsMargins(30,19,30,20);layout.setSpacing(7)
         top=QHBoxLayout();brand=QLabel('04 / XETAL ENGINE');brand.setObjectName('projectEyebrow');brand.setFont(font(12,QFont.Weight.DemiBold,True))
         top.addWidget(brand);top.addStretch();count=QLabel(f'{len(projects):02d} PROJECTS');count.setFont(font(11,mono=True));count.setObjectName('projectMuted');top.addWidget(count)
-        top.addWidget(window_controls(self,self.hide_dashboard,'Hide dashboard'));layout.addLayout(top)
+        top.addWidget(window_controls(self,title='Close Welcome'));layout.addLayout(top)
         self.intro=QWidget();self.intro_layout=QGridLayout(self.intro);self.intro_layout.setContentsMargins(0,10,0,7);self.intro_layout.setSpacing(22)
         self.project_intro=QWidget();intro=QVBoxLayout(self.project_intro);intro.setContentsMargins(0,0,0,0);intro.setSpacing(8)
         self.title=QLabel('Try my other projects :D');self.title.setObjectName('projectTitle');self.title.setWordWrap(True);intro.addWidget(self.title)
@@ -194,6 +195,8 @@ class Dashboard(QWidget):
         footer=QHBoxLayout();self.message=QLabel('Made by Xetal');self.message.setObjectName('projectMuted');self.message.setFont(font(11,mono=True));footer.addWidget(self.message,1)
         site=QLabel('xetal.net  ↗');site.setObjectName('projectMuted');site.setFont(font(12));footer.addWidget(site);layout.addLayout(footer)
         self.worker=QProcess(self);self.worker.finished.connect(self.opened);self.worker.errorOccurred.connect(lambda _:self.message.setText('Could not open the page.'))
+        self.close_worker=QProcess(self);self.close_worker.finished.connect(self.companions_closed)
+        self.close_worker.errorOccurred.connect(lambda _:self.message.setText('Could not close Welcome. Please try again.'))
         self.gallery.activated.connect(lambda p:self.run_action('--open',p.id))
         self.tour_button.clicked.connect(lambda:self.run_action('--tour'))
         self.feedback_button.clicked.connect(lambda:self.run_action('--feedback'))
@@ -254,6 +257,21 @@ class Dashboard(QWidget):
         self.message.setText('Made by Xetal' if code==0 else 'Could not open the page. Try again.')
 
     def hide_dashboard(self): self.run_action('--hide')
+
+    def closeEvent(self,event):
+        # Previews are standalone widgets; only the session's Welcome owns the consoles.
+        if not self.session_managed or self.scene_closed or not os.environ.get('HYPRLAND_INSTANCE_SIGNATURE'):
+            super().closeEvent(event);return
+        event.ignore()
+        if self.close_worker.state()==QProcess.ProcessState.NotRunning:
+            self.message.setText('Closing Welcome…')
+            self.close_worker.start(sys.executable or '/usr/bin/python3',[str(ROOT/'projects.py'),'--close-companions'])
+
+    def companions_closed(self,code,status):
+        if code==0 and status==QProcess.ExitStatus.NormalExit:
+            self.scene_closed=True;self.close()
+        else:
+            self.message.setText('Could not close all Welcome panels. Please try again.')
 
     def resizeEvent(self,event):
         super().resizeEvent(event)
@@ -330,10 +348,11 @@ STYLE='QToolTip {padding:8px; border:1px solid palette(midlight); border-radius:
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--open');parser.add_argument('--hide',action='store_true');parser.add_argument('--tour',action='store_true');parser.add_argument('--feedback',action='store_true');args=parser.parse_args()
-    if args.open or args.hide or args.tour or args.feedback:
+    parser=argparse.ArgumentParser();parser.add_argument('--open');parser.add_argument('--hide',action='store_true');parser.add_argument('--close-companions',action='store_true');parser.add_argument('--tour',action='store_true');parser.add_argument('--feedback',action='store_true');args=parser.parse_args()
+    if args.open or args.hide or args.close_companions or args.tour or args.feedback:
         try:
-            if args.tour or args.feedback:
+            if args.close_companions:close_companions()
+            elif args.tour or args.feedback:
                 sys.path.insert(0,str(ROOT.parent))
                 from tour.launch import open_guide
                 open_guide('feedback' if args.feedback else 'home',theme_runtime.environment())
@@ -346,7 +365,7 @@ def main():
         return 0
     app=QApplication(sys.argv[:1]);app.setApplicationName('Xetal Projects');app.setDesktopFileName('xetal-startup-projects')
     live_theme=theme_runtime.install(app,STYLE)
-    window=Dashboard(catalog());live_theme.changed.connect(window.apply_theme)
+    window=Dashboard(catalog(),session_managed=True);live_theme.changed.connect(window.apply_theme)
     visibility=SessionVisibility(window);app.aboutToQuit.connect(visibility.close)
     window.show();return app.exec()
 

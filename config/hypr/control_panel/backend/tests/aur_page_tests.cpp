@@ -82,8 +82,15 @@ private slots:
     void pageStaysSilentAndSelectsAvailableHelper() {
         AurPage page(files.path(), path("terminal")); page.resize(1100, 700); page.show();
         QVERIFY(!button(page, "aurSearch")->isEnabled()); QVERIFY(page.findChildren<QMessageBox *>().isEmpty());
+        for(const auto *name:{"aurInstallYay","aurInstallParu"}){QVERIFY(button(page,name)->isVisible());QVERIFY(button(page,name)->isEnabled());}
+        QCOMPARE(button(page,"aurInstallYay")->text(),QString("Install Yay"));QVERIFY(button(page,"aurInstallYay")->property("aurPrimary").toBool());
+        QVERIFY(page.findChild<QLabel *>("aurRecommended")->isVisible());
+        const auto capture=qEnvironmentVariable("AUR_PAGE_CAPTURE");
+        if(!capture.isEmpty()){QDir().mkpath(capture);page.grab().save(capture+"/install-helpers.png");}
         QVERIFY(!QFile::exists(path("queries"))); QVERIFY(helper("paru"));
         button(page, "aurRefresh")->click(); QVERIFY(button(page, "aurSearch")->isEnabled());
+        QVERIFY(!button(page,"aurInstallParu")->isEnabled());QCOMPARE(button(page,"aurInstallParu")->text(),QString("Paru installed"));
+        QVERIFY(button(page,"aurInstallYay")->isEnabled());
         page.findChild<QLineEdit *>("aurQuery")->setText("obs"); button(page, "aurSearch")->click();
         auto *table = page.findChild<QTableWidget *>("aurResults"); QTRY_COMPARE(table->rowCount(), 3);
         QCOMPARE(QJsonDocument::fromJson(read(path("queries")).trimmed()).array(), QJsonArray({"-Ss", "--color", "never", "--", "obs"}));
@@ -132,6 +139,13 @@ private slots:
     }
     void helperMenuKeepsBothInstallInOneTerminal() {
         AurPage page(files.path(), path("terminal"));
+        answer(page,QMessageBox::No);button(page,"aurInstallYay")->click();QVERIFY(!QFile::exists(path("terminal.json")));
+        for(const auto &name:{QString("yay"),QString("paru")}){
+            answer(page,QMessageBox::Yes);button(page,name=="yay"?"aurInstallYay":"aurInstallParu")->click();
+            QTRY_VERIFY(QFile::exists(path("terminal.json")));
+            QCOMPARE(QJsonDocument::fromJson(read(path("terminal.json"))).array(),QJsonArray({"-e","python3",path("control_panel/aur_helper_install.py"),"--wait",name}));
+            QVERIFY(QFile::remove(path("terminal.json")));
+        }
         auto *menu = page.findChild<QMenu *>("aurHelperMenu");
         QMetaObject::invokeMethod(menu, "aboutToShow");
         QVERIFY(menu->actions().first()->text().contains("both"));
@@ -145,6 +159,7 @@ private slots:
         QVERIFY(write(path("output"), "extra/obs-studio 32.0.2-1 [installed]\n    Recording software\n"));
         AurPage page(files.path(), path("terminal"), nullptr, AurPage::Mode::Repositories); page.show();
         QVERIFY(button(page,"aurSearch")->isEnabled()); QVERIFY(!page.findChild<QComboBox *>("aurHelper")->isVisible());
+        QVERIFY(!page.findChild<QWidget *>("aurHelperChoices")->isVisible());
         QVERIFY(!button(page,"aurRemove")->isVisible());
         page.findChild<QLineEdit *>("aurQuery")->setText("obs"); button(page,"aurSearch")->click();
         auto *table=page.findChild<QTableWidget *>("aurResults"); QTRY_COMPARE(table->rowCount(),1); table->selectRow(0);

@@ -110,7 +110,10 @@ invalidate it. **Refresh** rereads local metadata; **Updates** performs the exis
 package-update workflow. Returning to a category after a minute also checks the
 local cache. The first visit offers **Refresh lists**, which requests administrator
 authentication and runs **`pacman -Sy` only**; it installs or upgrades no packages.
-A successful refresh is remembered. Missing/unreadable databases offer the same
+A successful refresh shows a green checkmark and **Your package list has been
+refreshed successfully.** Command output stays available under **Show details**;
+failures display the output and a **Retry** button. A successful refresh is
+remembered. Missing/unreadable databases offer the same
 repair, and **Refresh package lists…** in the sidebar can retry it at any time.
 Ordinary catalog **Refresh** rereads local data without elevation.
 AUR queries are debounced, bounded and cached for six hours; Refresh rechecks the
@@ -133,6 +136,12 @@ actual installed package name, including .deb-converted aliases, and keep Pacman
 removal confirmation. Recognized per-user Xetal installer folders and launchers
 can be moved to Trash. Custom development checkouts and arbitrary portable copies
 require their own removal method; Software does not delete them automatically.
+
+**Yay & Paru** shows **Install Yay** and **Install Paru** directly on the page.
+**Yay is recommended for HyperFusion** and its install button is highlighted.
+Either helper is sufficient; installed helpers show their status in the same
+cards. **Manage helpers** retains reinstall, uninstall, install-both and cache
+actions. Installation still opens the existing reviewed terminal setup.
 
 ## Hyprland integration
 

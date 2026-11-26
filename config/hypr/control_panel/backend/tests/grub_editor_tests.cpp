@@ -1,5 +1,6 @@
 #include "grub_editor.h"
 #include "grub_appearance.h"
+#include <QScopeGuard>
 #include <QtTest>
 #include <QtWidgets>
 
@@ -29,6 +30,42 @@ private slots:
     QVERIFY(worker); delete page;
     QTRY_VERIFY(QFile::exists(fixture.filePath("finished")));
     QTRY_VERIFY(worker.isNull());
+  }
+  void appearanceOpenedDuringMenuLoad_data() {
+    QTest::addColumn<bool>("leaveTab"); QTest::addColumn<bool>("readableMenu");
+    QTest::newRow("stay on Appearance") << false << true;
+    QTest::newRow("return after loading") << true << true;
+    QTest::newRow("authentication cancelled") << false << false;
+  }
+  void appearanceOpenedDuringMenuLoad() {
+    const auto helper = QFINDTESTDATA("../../grub_appearance.py"); QVERIFY(!helper.isEmpty());
+    QFETCH(bool, leaveTab); QFETCH(bool, readableMenu);
+    GrubAppearance page(helper); page.resize(1400, 720);
+    page.setAvailability(true, true, false);
+    QSignalSpy requests(&page, &GrubAppearance::requested);
+    auto *themes = page.findChild<QListWidget *>("grubAppearanceThemes");
+    auto *apply = page.findChild<QPushButton *>("grubAppearanceApply");
+    auto *heading = page.findChild<QLineEdit *>("grubAppearanceHeading");
+    page.show();
+    QCOMPARE(themes->count(), 0); QVERIFY(!apply->isEnabled());
+    if (leaveTab) page.hide();
+    if (readableMenu) page.setMenu({QJsonObject{{"name", "Installed Linux"}, {"kind", "menuentry"}}});
+    page.setAvailability(false, true, readableMenu);
+    if (leaveTab) page.show();
+    // The initial request must resume without Reload design or another tab click.
+    QTRY_VERIFY_WITH_TIMEOUT(themes->count() >= 9, 10000);
+    QTRY_VERIFY_WITH_TIMEOUT(apply->isEnabled(), 10000);
+    QCOMPARE(requests.count(), 0);
+    QTRY_VERIFY_WITH_TIMEOUT(page.findChild<QLabel *>("grubPreviewStatus")->text().contains(
+      readableMenu ? "Your current boot entries" : "Choose Load GRUB menu"), 10000);
+    // Later menu refreshes must not reload the catalog over the user's draft.
+    heading->setText("Keep this draft");
+    page.setAvailability(true, true, true);
+    page.setAvailability(false, true, true);
+    page.hide(); page.show();
+    QTRY_VERIFY_WITH_TIMEOUT(apply->isEnabled(), 10000);
+    QCOMPARE(heading->text(), QString("Keep this draft"));
+    QCOMPARE(requests.count(), 0);
   }
   void appearancePreviewAndExplicitApply() {
     const auto helper = QFINDTESTDATA("../../grub_appearance.py"); QVERIFY(!helper.isEmpty());
@@ -102,7 +139,20 @@ private slots:
     QProcess theme; theme.start("python3", {QFileInfo(helper).dir().filePath("bridge.py"), "theme"});
     QVERIFY(theme.waitForFinished(10000));
     const auto styling = QJsonDocument::fromJson(theme.readAllStandardOutput()).object();
-    QVERIFY(styling.contains("stylesheet")); host.setStyleSheet(styling["stylesheet"].toString());
+    QVERIFY(styling.contains("stylesheet"));
+    QPalette palette; const auto roles = QMetaEnum::fromType<QPalette::ColorRole>();
+    const auto colors = styling["colors"].toObject();
+    for (auto i=colors.begin(); i!=colors.end(); ++i) {
+      const int role = roles.keyToValue(i.key().toUtf8());
+      if (role >= 0) palette.setColor(QPalette::All, QPalette::ColorRole(role), QColor(i.value().toString()));
+    }
+    const auto originalPalette = qApp->palette();
+    const auto originalStyle = qApp->styleSheet();
+    const auto restoreStyle = qScopeGuard([originalPalette, originalStyle] {
+      qApp->setStyleSheet(originalStyle); qApp->setPalette(originalPalette);
+    });
+    qApp->setPalette(palette);
+    qApp->setStyleSheet(styling["stylesheet"].toString());
     host.setFont(QFont(styling["font"].toString(), 10));
     page->findChild<QTabWidget *>("grubTabs")->setCurrentIndex(2);
     host.resize(1650, 750); host.show();

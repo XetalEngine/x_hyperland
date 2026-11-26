@@ -183,12 +183,20 @@ print(json.dumps({'type':'downloaded','path':str(p)}),flush=True)
         QDir().mkpath(root+"/bin");QDir().mkpath(root+"/scripts");QVERIFY(write(root+"/scripts/sudo-askpass.sh","#!/bin/sh\n",true));
         QVERIFY(write(root+"/bin/sudo",("#!/bin/sh\nprintf '%s\\n' \"$@\" > '"+root+"/sync-command'\nprintf 'Package lists refreshed\\n'\n").toUtf8(),true));
         const auto old=qgetenv("PATH");qputenv("PATH",root.toUtf8()+"/bin:"+old);const auto restore=qScopeGuard([old]{qputenv("PATH",old);});
-        auto p=page();QTimer check;check.setInterval(20);int prompts=0;
+        auto p=page();QTimer check;check.setInterval(20);int prompts=0;bool clearSuccess=false,detailsAvailable=false;
         connect(&check,&QTimer::timeout,p.get(),[&]{
             if(auto *prompt=p->findChild<QMessageBox *>("softwareRepositoryPrompt");prompt&&prompt->isVisible()){++prompts;prompt->done(QMessageBox::Yes);return;}
-            if(auto *dialog=p->findChild<QDialog *>("softwareRepositorySync")){auto *status=dialog->findChild<QLabel *>("softwareRepositoryStatus");if(status&&status->text().contains("catalog is ready"))dialog->reject();}
+            if(auto *dialog=p->findChild<QDialog *>("softwareRepositorySync")){
+                auto *status=dialog->findChild<QLabel *>("softwareRepositoryStatus");
+                if(!status||status->text()!="Your package list has been refreshed successfully.")return;
+                auto *icon=dialog->findChild<QLabel *>("softwareRepositorySuccess");auto *output=dialog->findChild<QPlainTextEdit *>("softwareRepositoryOutput");auto *details=dialog->findChild<QPushButton *>("softwareRepositoryDetails");
+                clearSuccess=icon&&icon->isVisible()&&!icon->pixmap().isNull()&&output&&!output->isVisible();
+                if(details&&details->isVisible()){details->click();detailsAvailable=output->isVisible()&&output->toPlainText().contains("Package lists refreshed");details->click();}
+                if(!qEnvironmentVariableIsEmpty("FUSION_REFRESH_PREVIEW"))dialog->grab().save(qEnvironmentVariable("FUSION_REFRESH_PREVIEW"));
+                dialog->reject();
+            }
         });check.start();QTRY_VERIFY(QSettings("XetalHyperland","ControlPanel").value("software/catalog/repositoriesInitialized").toBool());check.stop();
-        QCOMPARE(prompts,1);QCOMPARE(read(root+"/sync-command"),QByteArray("-A\n-k\n--\npacman\n-Sy\n"));
+        QVERIFY(clearSuccess);QVERIFY(detailsAvailable);QCOMPARE(prompts,1);QCOMPARE(read(root+"/sync-command"),QByteArray("-A\n-k\n--\npacman\n-Sy\n"));
         p->hide();p->show();p->refresh();QTest::qWait(120);QCOMPARE(prompts,1);
     }
     void localUninstallRecognizesOnlyInstallerFolders(){
@@ -210,7 +218,7 @@ print(json.dumps({'type':'downloaded','path':str(p)}),flush=True)
         connect(&check,&QTimer::timeout,p.get(),[&]{
             if(auto *dialog=p->findChild<QDialog *>("softwareRepositorySync")){
                 auto *status=dialog->findChild<QLabel *>("softwareRepositoryStatus");if(!status||!status->text().contains("could not"))return;
-                sawFailure=true;for(auto *button:dialog->findChildren<QPushButton *>())if(button->text()=="Retry")sawRetry=button->isVisible()&&button->isEnabled();dialog->reject();
+                sawFailure=!dialog->findChild<QLabel *>("softwareRepositorySuccess")->isVisible()&&dialog->findChild<QPlainTextEdit *>("softwareRepositoryOutput")->isVisible();for(auto *button:dialog->findChildren<QPushButton *>())if(button->text()=="Retry")sawRetry=button->isVisible()&&button->isEnabled();dialog->reject();
             }
         });check.start();p->findChild<QPushButton *>("softwareSyncRepositories")->click();check.stop();
         QVERIFY(sawFailure);QVERIFY(sawRetry);QVERIFY(!QSettings("XetalHyperland","ControlPanel").value("software/catalog/repositoriesInitialized").toBool());

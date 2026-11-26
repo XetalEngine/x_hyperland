@@ -8,6 +8,7 @@ from urllib.parse import urlsplit, parse_qs
 
 ROOT = Path(__file__).resolve().parent
 WORKSPACE = 'special:xetal-startup'
+COMPANION_CLASSES = {'xetal-startup-'+mode for mode in ('info', 'matrix', 'clock', 'hero')}
 
 
 @dataclass(frozen=True)
@@ -47,6 +48,25 @@ def hide_dashboard():
                                   capture_output=True, text=True, timeout=3)
         if response.returncode or response.stdout.strip() != 'ok':
             raise RuntimeError('Could not hide the dashboard.')
+
+
+def close_companions():
+    """Close our generated consoles; the Welcome window closes after this finishes."""
+    response = subprocess.run(['hyprctl', '-j', 'clients'], capture_output=True, text=True, timeout=3)
+    if response.returncode:
+        raise RuntimeError('The Hyprland session is unavailable.')
+    failed = []
+    for client in json.loads(response.stdout):
+        address = client.get('address', '')
+        if (not client.get('mapped') or client.get('class') not in COMPANION_CLASSES
+                or not re.fullmatch(r'0x[0-9a-fA-F]+', address)):
+            continue
+        response = subprocess.run(['hyprctl', 'dispatch', 'closewindow', 'address:'+address],
+                                  capture_output=True, text=True, timeout=3)
+        if response.returncode or response.stdout.strip() != 'ok':
+            failed.append(client['class'])
+    if failed:
+        raise RuntimeError('Could not close all Welcome panels. Please try again.')
 
 
 def open_project(project, environment):

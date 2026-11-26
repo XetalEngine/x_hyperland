@@ -223,7 +223,7 @@ class SettingsTests(unittest.TestCase):
         target = self.base/'factory.hfsettings'; factory.build(self.profile, target, self.home)
         doc, blobs = archive.read(target); names = {r['path']:r for r in doc['files']}
         self.assertNotIn('runtime/window_memory/state/windows.json', names); self.assertNotIn('theme/custom-presets.json', names)
-        self.assertEqual(json.loads(blobs[names['theme/state.json']['sha256']])['design'], 'binaryknife')
+        self.assertEqual(json.loads(blobs[names['theme/state.json']['sha256']])['design'], 'hp4')
         self.assertEqual(json.loads(blobs[names['launcher/bar-pins.json']['sha256']])['pins'], [])
         self.assertEqual(set(doc['categories']), catalog.USER_IDS)
 

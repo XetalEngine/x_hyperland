@@ -6,8 +6,12 @@ Run `./x_hyperinstall.sh` from a complete checkout or extracted GitHub ZIP as yo
 
 For an existing desktop, **Keep my existing desktop and startup preferences** starts checked. Uncheck it to install the current desktop and startup defaults instead. The Review page shows the selected behavior, and the existing profile is backed up before replacement in either case.
 
-Fresh installs and resets use the **Binary Knife** preset in dark mode, with its
-matching wallpapers. Updates keep the existing theme and wallpaper choices.
+Fresh installs and resets use **BMW S1000RR HP4** in dark mode, with Carbon Apex
+cursors and its six matching wallpapers. **Midnight Pit** is the default when
+installing without a connected desktop; connected monitors receive the HP4
+wallpapers in screen order. Updates keep existing theme and wallpaper choices.
+XMusic uses its own window controls: the extra KDE-mode title bar starts disabled.
+It can be enabled for XMusic in **Window controls → Add a title bar above the app**.
 Fresh installs always open Welcome at login, including its live `fusion-check`
 panel. Disable **Show this dashboard at login** in Welcome after signing in if
 desired. Fresh Start menus show the desktop wallpaper across all themes. Window

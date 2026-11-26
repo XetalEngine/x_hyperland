@@ -85,6 +85,10 @@ the host, verify them, then run `.run` setup or install Linux Studio’s tarball
 and guarded actions. Existing `--section pacman`, `remove` and `repair` aliases
 still work. See [the Software guide](../../../docs/CONTROL-PANEL.md#software-catalog).
 
+Successful package-list refreshes use a compact green-check confirmation, with
+command output under **Show details**. Failures keep their output visible and
+offer **Retry**; only a successful process exit marks the lists initialized.
+
 `software_catalog.py` reads only configured Pacman sync databases, installed
 packages, desktop launchers and local AppStream XML/icons. It writes an atomic,
 fingerprinted cache below `$XDG_CACHE_HOME/hyper-fusion/software`, emits cached
@@ -113,8 +117,11 @@ read-only screenshot pass uses `FUSION_SOFTWARE_PREVIEW_ROOT`,
 installed helper; the selector also lets you choose either explicitly. Search
 runs asynchronously, can be cancelled, and keeps name/description and exact/contains
 filters. Results show the repository, version, votes and installed marker. Package
-changes are reviewed in the terminal. **Manage helpers** contains installation,
-reinstallation, removal and the package-cache action; reinstalling a helper does
+changes are reviewed in the terminal. **Install Yay** and **Install Paru** are
+visible at the top of the page. Yay has a **Recommended** badge and a highlighted
+install button. Each card changes to an installed status when its helper is ready.
+**Manage helpers** retains installing both together, reinstallation, removal and
+the package-cache action; reinstalling a helper does
 not uninstall it first. Existing `--section yay` and `--section paru` shortcuts
 open the combined page. Native checks: `-DBUILD_AUR_PAGE_TESTS=ON`, then
 `ctest -R '^aur_page$'`; test commands and terminals are disposable fixtures.
