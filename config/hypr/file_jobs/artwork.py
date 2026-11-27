@@ -1,7 +1,7 @@
 """Original transfer scenes; phase is a repeating 0..1 animation cycle."""
 import math
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen, QRadialGradient
+from PyQt6.QtGui import QBrush, QColor, QLinearGradient, QPainter, QPainterPath, QPen, QRadialGradient
 
 
 def alpha(color, opacity):
@@ -190,46 +190,136 @@ def ghostbusters(p, box, accent, surface, phase, count, trails, glow, archive, e
     p.restore()
 
 
+def _integra_pose(t, start, span, middle, amplitude):
+    """A rounded zigzag with a little sideways slip at each drifting apex."""
+    envelope=math.sin(math.pi*t);wave=math.tau*2*t
+    sway=envelope*math.sin(wave)
+    slope=amplitude*(math.pi*math.cos(math.pi*t)*math.sin(wave)
+                     +math.tau*2*envelope*math.cos(wave))
+    slip=.42*sway
+    heading=math.atan2(slope,max(1.,span))+slip
+    return QPointF(start+span*t,middle+amplitude*sway),heading,slip
+
+
+def _integra_wheel(point, heading, scale, side):
+    # The skid ends at the actual rear tire, including the car's drifting yaw.
+    x,y=-11*scale,side*9*scale
+    c,s=math.cos(heading),math.sin(heading)
+    return point+QPointF(x*c-y*s,x*s+y*c)
+
+
+def _integra_car(p, accent, slip, zipped):
+    """An overhead pearl DC2 silhouette, pointing right in local coordinates."""
+    ink=QColor('#17172b');pearl=QColor('#faf2f5');rose=QColor('#db89a7')
+    # The front tires countersteer while the body slides across its path.
+    for x in (-11,10):
+        for y in (-9,9):
+            p.save();p.translate(x,y)
+            if x>0:p.rotate(-math.degrees(slip)*1.25)
+            p.setPen(QPen(alpha(accent,110),.6));p.setBrush(ink)
+            p.drawRoundedRect(QRectF(-3.5,-1.8,7,3.6),1,1);p.restore()
+    body=QPainterPath(QPointF(-20,-5))
+    body.cubicTo(-20,-8,-15,-9,-9,-9);body.lineTo(12,-8)
+    body.cubicTo(19,-8,21,-5,21,0);body.cubicTo(21,5,19,8,12,8)
+    body.lineTo(-9,9);body.cubicTo(-15,9,-20,8,-20,5);body.closeSubpath()
+    finish=QLinearGradient(-12,-9,8,10)
+    finish.setColorAt(0,pearl);finish.setColorAt(.48,QColor('#e9dcec'))
+    finish.setColorAt(1,QColor('#b69bc8'))
+    p.setBrush(finish);p.setPen(QPen(accent.darker(135),.9));p.drawPath(body)
+    p.setBrush(ink);p.setPen(QPen(alpha(accent,180),.6))
+    windscreen=QPainterPath(QPointF(4,-5.5));windscreen.lineTo(8,-6)
+    windscreen.quadTo(10,0,8,6);windscreen.lineTo(4,5.5);windscreen.closeSubpath();p.drawPath(windscreen)
+    rear=QPainterPath(QPointF(-7,-5.4));rear.lineTo(-13,-5.8)
+    rear.quadTo(-15,0,-13,5.8);rear.lineTo(-7,5.4);rear.closeSubpath();p.drawPath(rear)
+    for y in (-7,7):p.drawLine(QPointF(-6,y),QPointF(4,y))
+    p.setPen(QPen(alpha(accent.darker(150),100),.6));p.setBrush(Qt.BrushStyle.NoBrush)
+    p.drawRoundedRect(QRectF(10,-5,6,10),1.8,1.8)
+    # Rear wing, rose tail lamps and the Integra's four round headlights.
+    p.setBrush(pearl);p.setPen(QPen(accent.darker(130),.7))
+    p.drawRoundedRect(QRectF(-18,-10,2.4,20),.7,.7)
+    p.setPen(Qt.PenStyle.NoPen);p.setBrush(rose)
+    for y in (-6,3):p.drawRoundedRect(QRectF(-20,y,1.6,3),.5,.5)
+    p.setPen(QPen(QColor('#8b728d'),.5));p.setBrush(QColor('#fff5d9'))
+    for y in (-5.1,-2.5,2.5,5.1):p.drawEllipse(QPointF(18,y),1.2,1.05)
+    # Keep the file/archive cue on the roof instead of obscuring the silhouette.
+    p.save();p.translate(-1.5,0);p.rotate(90);p.scale(.34,.34)
+    if zipped:
+        p.setPen(QPen(accent.darker(150),1.5));p.setBrush(pearl)
+        p.drawRoundedRect(QRectF(-7,-10,14,20),2,2)
+        for y in range(-7,8,4):p.drawLine(QPointF(-2,y),QPointF(2,y))
+    else:paper(p,accent.darker(145),technical=True)
+    p.restore()
+
+
 def integra(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
-    """Pearl couriers follow a moonlit lane; the whole car fades before wrapping."""
+    """Overhead pearl cars drift between folders, leaving fading twin tire marks.
+
+    Every mark samples a past rear-wheel position on the same continuous route.
+    Cars, smoke and marks fade together before a wrap; no trail crosses a reset.
+    """
     p.save();p.setClipRect(box,Qt.ClipOperation.IntersectClip)
     mid=box.center();left=box.left()+29;right=box.right()-29
+    start,end=left+33,right-33;span=max(1.,end-start)
+    scale=min(1.,max(.1,box.height()/58))
+    amplitude=12*scale
+    p.setPen(QPen(alpha(accent,38),.8))
+    for offset in (-box.height()/2+3,box.height()/2-3):
+        p.drawLine(QPointF(start,mid.y()+offset),QPointF(end,mid.y()+offset))
+    if not result:
+        cars=[]
+        p.save()
+        # Mirror the entire route for extraction, including steering and skids.
+        if extracting:p.translate(2*mid.x(),0);p.scale(-1,1)
+        for index in range(max(1,count)):
+            t=(phase+index/max(1,count))%1
+            fade=max(0.,min(1.,t/.17,(1-t)/.17));fade=fade*fade*(3-2*fade)
+            point,heading,slip=_integra_pose(t,start,span,mid.y(),amplitude)
+            cars.append((point,heading,slip,fade))
+            if not trails or not fade:continue
+            p.save();p.setOpacity(p.opacity()*fade)
+            history=min(t,.42);steps=32
+            tracks=[QPainterPath(),QPainterPath()];smoke=[]
+            # Draw all skids beneath all cars, so another car cannot get a
+            # tire mark painted over its roof at higher packet densities.
+            for step in range(steps+1):
+                past=t-history+history*step/steps;age=(t-past)/.42
+                position,angle,_=_integra_pose(past,start,span,mid.y(),amplitude)
+                wheels=[_integra_wheel(position,angle,scale,side) for side in (-1,1)]
+                strength=max(0.,1-age)**1.6*min(1.,past/.14)
+                for track,wheel in zip(tracks,wheels):
+                    if step:track.lineTo(wheel)
+                    else:track.moveTo(wheel)
+                if step%5==0 and .04<age<.48:
+                    smoke.append((wheels,age,strength))
+            # One gradient stroke per track avoids darker dots at segment joins.
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            for track in tracks:
+                for color,width,opacity in ((accent,3.5,65),(QColor('#080a14'),1.65,190)):
+                    ink=QLinearGradient(track.pointAtPercent(0),track.pointAtPercent(1))
+                    for stop in range(9):
+                        fraction=stop/8;past=t-history*(1-fraction);age=(t-past)/.42
+                        ink.setColorAt(fraction,alpha(color,opacity*max(0.,1-age)**1.6*min(1.,past/.14)))
+                    p.setPen(QPen(QBrush(ink),width*scale,Qt.PenStyle.SolidLine,Qt.PenCapStyle.RoundCap,Qt.PenJoinStyle.RoundJoin))
+                    p.drawPath(track)
+            p.setPen(Qt.PenStyle.NoPen)
+            for wheels,age,strength in smoke:
+                p.setBrush(alpha(accent.lighter(120),26*strength))
+                for wheel in wheels:p.drawEllipse(wheel,(2+age*7)*scale,(1.5+age*5)*scale)
+            p.restore()
+        for point,heading,slip,fade in cars:
+            p.save();p.setOpacity(p.opacity()*fade)
+            p.translate(point);p.rotate(math.degrees(heading));p.scale(scale,scale)
+            if glow:
+                halo=QRadialGradient(QPointF(0,0),26)
+                halo.setColorAt(0,alpha(accent,glow));halo.setColorAt(1,alpha(accent,0))
+                p.setPen(Qt.PenStyle.NoPen);p.setBrush(halo);p.drawEllipse(QPointF(0,0),26,19)
+            _integra_car(p,accent,slip,archive or extracting)
+            p.restore()
+        p.restore()
+    # Endpoints stay in the foreground as the cars arrive and fade away.
     for x,zipped in ((left,extracting),(right,archive)):
         folder(p,QPointF(x,mid.y()),accent,surface,archive=zipped)
-    start,end=left+33,right-33
-    p.setPen(QPen(alpha(accent,65),1))
-    for offset in (17,21):p.drawLine(QPointF(start,mid.y()+offset),QPointF(end,mid.y()+offset))
-    if result:
-        if result=='done':success(p,mid,accent)
-        p.restore();return
-    for index in range(max(1,count)):
-        t=(phase+index/max(1,count))%1
-        fade=max(0.,min(1.,t/.17,(1-t)/.17));fade=fade*fade*(3-2*fade)
-        travel=1-t if extracting else t;direction=-1 if extracting else 1
-        x=start+(end-start)*travel;y=mid.y()+7
-        p.save();p.setOpacity(p.opacity()*fade)
-        if glow:
-            halo=QRadialGradient(QPointF(x,y),24);halo.setColorAt(0,alpha(accent,glow));halo.setColorAt(1,alpha(accent,0))
-            p.setPen(Qt.PenStyle.NoPen);p.setBrush(halo);p.drawEllipse(QPointF(x,y),24,17)
-        if trails:
-            for j in range(3):
-                p.setPen(QPen(alpha(accent,85-j*22),1));p.drawLine(QPointF(x-direction*17,y+j*3),QPointF(x-direction*(26+j*5),y+j*3))
-        p.translate(x,y);p.scale(direction,1)
-        body=QPainterPath();body.moveTo(-17,2);body.lineTo(-16,-4);body.lineTo(-9,-6);body.lineTo(-5,-12)
-        body.lineTo(6,-12);body.lineTo(11,-6);body.lineTo(18,-4);body.lineTo(19,3);body.closeSubpath()
-        pearl=QColor('#f5e9f7' if surface.lightnessF()<.5 else '#8f699f')
-        p.setBrush(pearl);p.setPen(QPen(accent,.8));p.drawPath(body)
-        p.setBrush(surface);p.drawRoundedRect(QRectF(-4,-11,10,5),1,1)
-        p.setBrush(surface);p.setPen(QPen(pearl,1.3))
-        for wheel in (-10,11):p.drawEllipse(QPointF(wheel,3),3.6,3.6)
-        p.setPen(QPen(QColor('#f6bf8e'),1.5));p.drawLine(QPointF(16,-3),QPointF(18,-3))
-        # The carried document keeps the transfer meaning visible at small sizes.
-        p.translate(0,-19);p.scale(.42,.42)
-        if archive or extracting:
-            p.setPen(QPen(accent,1.5));p.setBrush(surface);p.drawRoundedRect(QRectF(-7,-10,14,20),2,2)
-            for yy in range(-7,7,4):p.drawLine(QPointF(-2,yy),QPointF(2,yy))
-        else:paper(p,accent,technical=True)
-        p.restore()
+    if result=='done':success(p,mid,accent)
     p.restore()
 
 

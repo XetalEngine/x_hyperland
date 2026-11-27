@@ -4,6 +4,9 @@ Right-click the wallpaper and enable **View → Show Desktop icons**. The transp
 desktop surface displays files and folders directly from `~/Desktop`, beneath
 application windows and panels. Turning icons off only hides them.
 
+**Wallpaper** opens the same wallpaper switcher as **Super+W**, including its
+collections and hidden-thumbnail tabs. If it is already open, it stays visible.
+
 **View** contains icon visibility and size. **Arrange icons** offers Columns
 (the default), Rows, and alignment controls.
 **Auto align** is on by default: drag an icon to any grid cell and it snaps there,

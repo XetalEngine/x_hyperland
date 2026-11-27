@@ -164,7 +164,7 @@ keep their existing drag behavior.
 **Wobbly windows, Burn closing effects, per-monitor minimize docks and live task switchers** bring the Compiz-style desktop together. **Real Desktop icons** show your files and folders, with positions remembered per monitor. Theme presets coordinate the launcher, panels, controls, icons, cursors, sounds, wallpapers and transfer animations, while Mix & match lets you choose pieces independently.
 
 **[Integra · Ivory Midnight](theme/INTEGRA.md)** adds pearl, lilac and sakura-rose
-styling, six wallpapers, matching folders and cursors, car courier transfers,
+styling, six wallpapers, matching folders and cursors, overhead drifting-car transfers,
 a pearl dock and soft original sounds. Dark, Light and High contrast are included.
 
 **Presets in two columns, with room for your favorites.** Each theme card has an

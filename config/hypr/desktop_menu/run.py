@@ -17,7 +17,7 @@ def invocation(item, root=ROOT):
     scripts = root/'scripts'
     builtins = {
         'file_manager': [str(scripts/'file-manager.sh'), str(Path.home())],
-        'wallpaper': [str(scripts/'wallpaper.sh')],
+        'wallpaper': [str(scripts/'wallpaper-browser.sh'), '--show'],
         'displays': [str(scripts/'control-center.sh'), '--tab', 'displays'],
         'control_desk': [str(scripts/'control-center.sh')],
         'menu_settings': [str(scripts/'control-center.sh'), '--tab', 'context-menu'],

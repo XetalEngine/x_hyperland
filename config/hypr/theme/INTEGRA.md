@@ -18,8 +18,11 @@ It is also available in the greeter and GRUB appearance selectors.
 
 - **Pearl Apex cursors:** ivory pointers, lilac details and an animated wheel
   for busy states, provided in Hyprcursor and XCursor formats.
-- **Pearl couriers:** small cars carry documents and archive packets between
-  folders. Extraction reverses direction, and couriers fade at the ends.
+- **Pearl drift couriers:** overhead Integra cars carry documents and archive
+  packets through a smooth zigzag between folders. Countersteering front wheels,
+  twin fading tire marks and a little tire smoke follow the drift. Extraction
+  mirrors the route; cars and trails fade at the ends. Existing animation speed,
+  density, motion-trail and glow settings still apply.
 - **Pearl rail:** a smooth midnight dock, lilac seam and warm end reflection.
 - **Sakura afterhours:** eight original synthesized cues for startup, shutdown,
   notification, question, warning, error, success and information.
