@@ -98,6 +98,20 @@ motion use the same geometry origin; Chrome's tab X no longer requires clicking
 below the visible button. Client popups and XWayland retain their existing paths.
 These corrections remain active when the minimize animation is disabled.
 
+Fullscreen apps stay visible when focus moves to another window or display.
+Some clients, including GLFW video players, automatically ask to minimize when
+they lose fullscreen focus. The adapter ignores those background fullscreen
+requests, including the empty-display transition where the focused monitor
+changes before the focused window. It also suppresses the corresponding IPC
+minimize notification. Native minimize requests from focused fullscreen apps,
+ordinary and maximized windows still work. Explicit desktop minimize actions
+(Super+Z, window controls or the dispatcher) work regardless of focus.
+
+`tests/check-fullscreen-monitors.py` exercises this with real Wayland fullscreen
+requests and pointer focus changes in a private three-output compositor. It also
+checks intentional native/desktop minimize and restore. A running session keeps
+its loaded native binary; log out and back in to pick up an installed update.
+
 ## Compatibility and recovery
 
 Minimizing is enabled on fresh installations. Native plugins wait for a ready

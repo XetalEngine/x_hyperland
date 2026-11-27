@@ -43,6 +43,7 @@
 #include "dock.hpp"
 #include "icons.hpp"
 #include "client_requests_057.hpp"
+#include "client_policy.hpp"
 #include <hyprgraphics/image/Image.hpp>
 #include <drm_fourcc.h>
 
@@ -279,6 +280,9 @@ void updateDocks() {
 void enqueue(PHLWINDOW w, bool minimize) {
     if(stopping || mutating || !w)return;
     pending.push_back({w,minimize});arm();
+}
+void clientRequest(PHLWINDOW w, bool minimize) {
+    if(!Minimize::ignoreClientMinimize(w,minimize))enqueue(w,minimize);
 }
 
 // Keep bounded previews instead of one full-resolution monitor texture per window.
@@ -616,13 +620,16 @@ bool scanoutHook(Monitor::CMonitor* monitor) {
     return originalScanout(monitor);
 }
 void eventHook(IPC::Socket2::CSocket2* manager,IPC::Socket2::SEvent&& outgoing) {
-    const auto event=outgoing;
-    originalEvent(manager,std::move(outgoing));
-    if(event.event!="minimized" || stopping || mutating)return;
-    const auto comma=event.data.find(',');if(comma==std::string::npos)return;
-    for(auto& w:Desktop::windowState()->windows())if(std::format("{:x}",reinterpret_cast<uintptr_t>(w.get()))==event.data.substr(0,comma)){
-        enqueue(w,event.data.substr(comma+1)=="1");break;
+    if(outgoing.event=="minimized" && !stopping && !mutating){
+        const auto comma=outgoing.data.find(',');
+        if(comma!=std::string::npos)for(auto& w:Desktop::windowState()->windows())if(std::format("{:x}",reinterpret_cast<uintptr_t>(w.get()))==outgoing.data.substr(0,comma)){
+            const bool minimize=outgoing.data.substr(comma+1)=="1";
+            // Do not announce an ignored minimize to taskbar/dock consumers.
+            if(Minimize::ignoreClientMinimize(w,minimize))return;
+            enqueue(w,minimize);break;
+        }
     }
+    originalEvent(manager,std::move(outgoing));
 }
 template<typename T> void hook(const std::string& name,const std::string& signature,const void* replacement,T& original) {
     for(const auto& match:HyprlandAPI::findFunctionsByName(handle,name)) {
@@ -742,7 +749,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
         auto report=[](PHLWINDOW w){if(w&&w->mapped())reportWindowState(w,Fullscreen::controller()->getFullscreenModes(w).client);};
         listeners.push_back(Event::bus()->m_events.window.openLate.listen(report));
         listeners.push_back(Event::bus()->m_events.window.floating.listen(report));
-        auto track=[](PHLWINDOW w){clientRequests.track(w,enqueue);};
+        auto track=[](PHLWINDOW w){clientRequests.track(w,clientRequest);};
         listeners.push_back(Event::bus()->m_events.window.openLate.listen(track));
         for(const auto& w:Desktop::windowState()->windows()){report(w);track(w);}
         hook("focus","Config::Actions::focus(",(void*)focusHook,ordinaryFocus);
@@ -817,6 +824,6 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE h) {
             return std::format("{{\"enabled\":{},\"hidden\":{},\"effect\":\"{}\",\"edge\":\"{}\",\"order\":\"{}\",\"shape\":{},\"surface\":{},\"color\":[{},{},{}],\"active\":{},\"minimized\":{},\"restored\":{},\"draws\":{},\"presentation\":\"{}\",\"dock_style\":{},\"hide_animation\":\"{}\",\"fire_indicator\":{},\"timer_armed\":{},\"animations\":{},\"docks\":[{}],\"windows\":[{}]}}",settings.enabled,effectsHidden,settings.effect,settings.rightEdge?"right":"left",settings.bottomToTop?"bottom-to-top":"top-to-bottom",settings.shape,settings.surface,settings.rgb[0],settings.rgb[1],settings.rgb[2],records.size(),requests,restored,draws,settings.dock?"dock":"stack",settings.dockStyle,settings.burnHide?"burn":"slide",settings.fireIndicator,tickArmed,animationsEnabled(),trays,items);
         }});
     }catch(...){cleanup();throw;}
-    return {"Xetal Minimize","Animated theme docks and Fireball edge stacks","XetalEngine","1.4.0"};
+    return {"Xetal Minimize","Animated theme docks and Fireball edge stacks","XetalEngine","1.4.1"};
 }
 APICALL EXPORT void PLUGIN_EXIT(){cleanup();}

@@ -35,6 +35,7 @@ int main(void) {
                 glfwRestoreWindow(window);
             } else if (!strcmp(command, "restore")) glfwRestoreWindow(window);
             else if (!strcmp(command, "maximize")) glfwMaximizeWindow(window);
+            else if (!strcmp(command, "minimize")) glfwIconifyWindow(window);
             else if (!strcmp(command, "quit")) break;
             else return 4;
             puts("ok"); fflush(stdout);
