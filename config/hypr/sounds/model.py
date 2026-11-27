@@ -10,6 +10,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 PATH = ROOT / 'sounds/settings.json'
 PACKS = {
+    'integra': ('Integra · Ivory Midnight', 'Sakura afterhours', 'Soft pearl keys with warm amber overtones.', '#d9b6ea'),
     'killerinstinct': ('Killer Instinct · Arcade 94', 'Arcade 94', 'Dark arcade synth and metal.', '#c38aff'), 'kitemple': ('Killer Instinct · Jade Temple', 'Jade Temple', 'Jade temple resonances.', '#55d792'), 'kiprimal': ('Killer Instinct · Primal Storm', 'Primal Storm', 'Stormy low growls and strikes.', '#b5a0f3'), 'kifireice': ('Killer Instinct · Fire & Ice', 'Fire & Ice', 'Icy bells with warm fizz.', '#ffad45'), 'starcraft': ('StarCraft II', 'Koprulu comms', 'Space-console energy tones.', '#27c7ff'), 'mortalkombat2': ('Mortal Kombat II', 'Outworld arcade', 'Dark martial arcade tones.', '#3dd489'), 'facadasexu': ('777 Facadas Exu', 'Copper whispers', 'Low resonant bells and smoke-like air.', '#d25a45'),
     'ghostbusters': ('Ghostbusters', 'Ectoplasm echoes', 'Playful ectoplasm and proton zaps.', '#b4ff00'),
     'hp4': ('BMW S1000RR HP4', 'Pit-lane signals', 'Sportbike-inspired mechanical blips.', '#278cff'),

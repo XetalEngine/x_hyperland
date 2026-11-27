@@ -5,6 +5,7 @@ else:
     import ki
 
 STYLES = {
+    'integra': ('Integra Pearl Apex', '#fff6ef', '#30253e', '#d9b6ea'),
     'killerinstinct': ('Arcade 94', '#ecdfff', '#24132e', '#c38aff'), 'kitemple': ('Jade Temple', '#fff0c7', '#092c20', '#55d792'), 'kiprimal': ('Primal Storm', '#eee5cc', '#242920', '#b5a0f3'), 'kifireice': ('Fire & Ice', '#eaf8ff', '#10212c', '#ffad45'), 'starcraft': ('Terran Command', '#e4f2ff', '#102233', '#27c7ff'), 'mortalkombat2': ('Outworld Jade', '#f5e8c9', '#10291b', '#3dd489'),
     'facadasexu': ('777 Ivory Flame', '#f2e6cc', '#311008', '#c24835'),
     'ghostbusters': ('Ghostbusters Ectoplasm', '#b4ff00', '#102207', '#f4a3dd'),
@@ -79,7 +80,7 @@ def svg(style, shape='left_ptr', frame=0):
         body = f'<path d="M5 3L7 28L13 21L19 32L23 29L17 19L28 18Z"/><path d="M8 9L13 19L22 18M13 19L20 29" fill="none" stroke="{accent}" stroke-width="1.6"/><path d="M8 10L9 22" stroke="#c99569" stroke-width="1"/>'
     if style == 'ghostbusters':
         body += '<path d="M8 9V18M10 10L20 17" fill="none" stroke="#eeffc7" stroke-width="1.3"/><circle cx="10" cy="21" r="1" fill="#e1ff88" stroke="none"/>'
-    if style == 'hp4':
+    if style in ('hp4','integra'):
         body += f'<path d="M8 8L10 23L14 18L23 18M14 18L20 29" fill="none" stroke="{accent}" stroke-width="2"/>'
     if style == 'amazon':
         body += f'<path d="M8 8L20 29M11 13L10 20M14 18L23 18M9 10L19 14" fill="none" stroke="{edge}" stroke-width=".85"/><path d="M14 18L20 29" stroke="{accent}" stroke-width="1.1"/>'
@@ -141,7 +142,7 @@ def svg(style, shape='left_ptr', frame=0):
                     f'<ellipse cx="14" cy="14" rx="2" ry="3" fill="{edge}"/><ellipse cx="22" cy="14" rx="2" ry="3" fill="{edge}"/>'
                     f'<path d="M13 20Q19 29 25 19Q19 21 13 20Z" fill="{edge}"/>'
                     f'<g transform="rotate({frame*30} 18 18)"><circle cx="18" cy="2.5" r="2" fill="{accent}" stroke="{edge}" stroke-width=".8"/></g>')
-        if style == 'hp4':
+        if style in ('hp4','integra'):
             ring = (f'<circle cx="18" cy="18" r="14" fill="{edge}" stroke="{fill}" stroke-width="1"/><circle cx="18" cy="18" r="10" fill="none" stroke="{accent}" stroke-width="2.5"/>' + f'<g transform="rotate({frame*30} 18 18)">' + ''.join(f'<path d="M18 18L18 8L21 10" transform="rotate({angle} 18 18)" fill="none" stroke="{accent}" stroke-width="1.4"/>' for angle in range(0,360,72)) + f'</g><circle cx="18" cy="18" r="2" fill="{fill}"/>')
         if style == 'amazon':
             ring = (f'<circle cx="18" cy="18" r="14" fill="{edge}" stroke="{fill}" stroke-width=".8"/>'

@@ -174,10 +174,12 @@ class GalleryStage(Carousel):
         p = QPainter(self); p.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform)
         self.boxes = []
         if not self.pictures:
+            self.sync_hide_buttons()
             p.setPen(ink(self.palette, 'muted')); p.setFont(font(14))
             p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, 'No wallpapers here yet\nAdd a folder or clear your search.'); return
         if self.style == 'frame-lab': self.film_preview(p)
         else: self.orbit_preview(p)
+        self.sync_hide_buttons()
 
     def film_preview(self, p):
         palette = self.palette; outer = QRectF(self.rect()).adjusted(8, 8, -8, -8)
@@ -250,9 +252,18 @@ class GalleryStage(Carousel):
 class Filmstrip(QWidget):
     def __init__(self, stage, parent=None):
         super().__init__(parent); self.stage = stage; self.boxes = []; self.press = None; self.dragged = False
+        self.hide_buttons = []
         self.setFixedHeight(174); self.setMouseTracking(True); self.setAccessibleName('Wallpaper filmstrip')
         stage.animation.valueChanged.connect(lambda _: self.update()); stage.selected.connect(lambda _: self.update())
         stage.thumbnails.changed.connect(lambda _: self.update())
+
+    pictures = property(lambda self: self.stage.pictures)
+    reduced_motion = property(lambda self: self.stage.reduced_motion)
+    omitted = property(lambda self: self.stage.omitted)
+    hideRequested = property(lambda self: self.stage.hideRequested)
+    picture_rect = Carousel.picture_rect
+    picture_skew = Carousel.picture_skew
+    sync_hide_buttons = Carousel.sync_hide_buttons
 
     def paintEvent(self, _):
         p = QPainter(self); p.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform)
@@ -270,7 +281,7 @@ class Filmstrip(QWidget):
             for yy in (y + 5, y + h - 32):
                 p.setBrush(ink(palette, 'base')); p.setPen(QPen(ink(palette, 'edge', 180), .7))
                 p.drawRoundedRect(QRectF(x, yy, 10, 10), 2, 2)
-        if not self.stage.pictures: return
+        if not self.stage.pictures: self.sync_hide_buttons(); return
         count = len(self.stage.pictures); card_height = h - 64; card_width = card_height * 16 / 9; spacing = card_width + 14
         first = math.floor(self.stage.position) - min(4, (count - 1) // 2)
         for index in range(first, first + min(count, 9)):
@@ -285,6 +296,7 @@ class Filmstrip(QWidget):
             p.setFont(font(10, bold=active)); p.setPen(ink(palette, 'bright' if active else 'muted'))
             p.drawText(QRectF(rect.left(), rect.top() - 18, rect.width(), 15), Qt.AlignmentFlag.AlignCenter, f'{index % count + 1:03d}')
             p.restore(); self.boxes.append((index, transform.map(path)))
+        self.sync_hide_buttons()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:

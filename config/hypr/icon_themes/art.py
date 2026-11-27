@@ -5,6 +5,7 @@ from xml.sax.saxutils import escape
 VERSION = 4
 # Name, metal/light, midtone, shadow, face, decorative language.
 STYLES = {
+    'integra': ('Integra · Ivory Midnight', '#f4e8fa', '#cdb3dd', '#9c7cb8', '#191a2d', 'integra'),
     'hp4': ('BMW S1000RR HP4', '#eaf2ff', '#278cff', '#a7bdd8', '#0b111b', 'hp4'),
     'amazon': ('Amazon', '#fff3d5', '#edcd76', '#df7256', '#073522', 'amazon'),
     'killerinstinct': ('Killer Instinct · Arcade 94', '#ecdfff', '#b9a8c7', '#c38aff', '#24132e', 'killerinstinct'), 'kitemple': ('Killer Instinct · Jade Temple', '#fff0c7', '#d6b967', '#55d792', '#092c20', 'kitemple'), 'kiprimal': ('Killer Instinct · Primal Storm', '#eee5cc', '#b6b58e', '#b5a0f3', '#242920', 'kiprimal'), 'kifireice': ('Killer Instinct · Fire & Ice', '#eaf8ff', '#74d9ef', '#ffad45', '#10212c', 'kifireice'), 'starcraft': ('StarCraft II', '#e4f2ff', '#99aec5', '#27c7ff', '#0c1420', 'starcraft'), 'mortalkombat2': ('Mortal Kombat II', '#f5e8c9', '#d9b65d', '#08613b', '#101412', 'mortalkombat2'), 'facadasexu': ('777 Facadas Exu', '#f2e6cc', '#bb7c50', '#7a101c', '#15100d', 'facadasexu'),
@@ -32,6 +33,7 @@ STYLES = {
     'gildedhollow': ('The Gilded Hollow', '#fff0b7', '#dfb469', '#836137', '#303c32', 'brass'),
 }
 DESCRIPTIONS = {
+    'integra': 'Pearl-lilac folders, ivory instruments and soft sakura details.',
     'hp4': 'Cobalt folders, silver instruments and black carbon details.',
     'amazon': 'Emerald enamel folders, leaf-gold symbols and coral details.',
     'killerinstinct': 'Violet chrome · obsidian, silver bevels and amber arcade lights. Original folders, instruments and arcade emblems.', 'kitemple': 'Jade lacquer · carved brass, emerald glass and temple lanterns. Original folders, instruments and arcade emblems.', 'kiprimal': 'Storm-worn stone · moss, bone inlays and amethyst lightning. Original folders, instruments and arcade emblems.', 'kifireice': 'Split elements · black steel, molten amber and crystalline cyan. Original folders, instruments and arcade emblems.', 'starcraft': 'Armored blue folders, command crates, silver instruments and cyan reactors.', 'mortalkombat2': 'Jade enamel folders, gold arcade fittings and ice-blue screens.', 'facadasexu': 'Oxblood lacquer folders, ivory outlines and fine copper details.',
@@ -195,6 +197,9 @@ def svg(style, name):
     if style == 'ghostbusters':
         from .ghostbusters import svg as ghostbusters_svg
         return ghostbusters_svg(ALIASES.get(name,name),CATALOG,symbol)
+    if style == 'integra':
+        from .integra import svg as themed_svg
+        return themed_svg(ALIASES.get(name,name),CATALOG,symbol)
     if style == 'hp4':
         from .hp4 import svg as hp4_svg
         return hp4_svg(ALIASES.get(name,name),CATALOG,symbol)

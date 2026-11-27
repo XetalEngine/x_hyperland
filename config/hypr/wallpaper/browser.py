@@ -11,12 +11,12 @@ import signal
 import sys
 import threading
 
-from PyQt6.QtCore import Qt, QRectF, QTimer, QVariantAnimation, QEasingCurve, QCoreApplication, QEvent
+from PyQt6.QtCore import Qt, QPoint, QPointF, QRectF, QTimer, QVariantAnimation, QEasingCurve, QCoreApplication, QEvent
 from PyQt6.QtGui import QColor, QFont, QIcon, QKeySequence, QPainter, QPainterPath, QPen, QLinearGradient, QShortcut
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QFrame, QLineEdit, QComboBox, QDialog, QListWidget, QFileDialog, QCheckBox, QDialogButtonBox,
-    QAbstractButton, QSizePolicy, QGroupBox)
+    QAbstractButton, QSizePolicy, QGroupBox, QLayout, QMenu)
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT/'theme'), str(ROOT/'control_center')]
@@ -25,6 +25,8 @@ import backend
 import desktop_settings as settings
 from wallpaper import library, transitions
 from wallpaper.carousel import Carousel, Thumbnails, color, cover
+from wallpaper.hidden import HiddenDock, ThumbnailFlight
+from wallpaper.tabs import TabNameDialog, DeleteTabDialog
 from wallpaper.jobs import Jobs
 
 
@@ -141,6 +143,7 @@ class Browser(QWidget):
     def __init__(self, preview=False, style=None):
         super().__init__(); self.preview = preview; self.pictures = []; self.busy = False; self.cancel_scan = threading.Event(); self.scanning = False
         self.monitor_name = ''; self.center_current = True
+        self.flight = None; self.restore_selection = None
         self.background = None; self.previous_background = None; self.background_mix = 1.; self.dialog = None; self.reduced_motion = False; self.compact = None; self.narrow = False
         error = ''; self.error_options = False
         try: self.options = library.read()
@@ -155,6 +158,11 @@ class Browser(QWidget):
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground); self.setAutoFillBackground(False)
             self.setStyleSheet('QWidget#wallpaperBrowser {background:transparent; border:none;}')
         self.jobs = Jobs(self); self.thumbnails = Thumbnails(self); self.thumbnails.changed.connect(lambda _: self.update())
+        self.hidden_dock = HiddenDock(self); self.hidden_dock.restored.connect(self.restore_picture)
+        self.hidden_dock.tabChosen.connect(self.switch_hidden_tab); self.hidden_dock.tabAdded.connect(self.create_hidden_tab)
+        self.hidden_dock.tabRenamed.connect(self.rename_hidden_tab); self.hidden_dock.tabDeleted.connect(self.delete_hidden_tab)
+        self.hidden_dock.moved.connect(self.move_hidden_picture)
+        self.hidden_dock.setMaximumWidth(1200)
         self.background_animation = QVariantAnimation(self); self.background_animation.setDuration(500); self.background_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.background_animation.valueChanged.connect(self.blend_background)
         self.media=QComboBox();self.media.setAccessibleName('Wallpaper type')
@@ -192,6 +200,7 @@ class Browser(QWidget):
             self.carousel.backdrop = not self.floating
             self.search.returnPressed.connect(self.carousel.activate)
             layout.addWidget(self.carousel,1)
+            shelf = QHBoxLayout(); shelf.addStretch(); shelf.addWidget(self.hidden_dock,1); shelf.addStretch(); layout.addLayout(shelf)
             info = QHBoxLayout(); self.previous = button('←',lambda:self.carousel.step(-1)); self.previous.setAccessibleName('Previous wallpaper'); self.previous.setFixedWidth(46); info.addWidget(self.previous)
             self.next = button('→',lambda:self.carousel.step(1)); self.next.setAccessibleName('Next wallpaper'); self.next.setFixedWidth(46); info.addWidget(self.next)
             details = QVBoxLayout(); self.title = label('Your wallpaper collection','imageTitle'); self.meta = label('','muted'); details.addWidget(self.title); details.addWidget(self.meta); info.addLayout(details,1)
@@ -210,6 +219,11 @@ class Browser(QWidget):
                 centered = QHBoxLayout(); centered.addStretch(); centered.addWidget(self.footer, 1); centered.addStretch(); layout.addLayout(centered)
             else:
                 layout.addLayout(info); layout.addSpacing(6); layout.addLayout(bottom)
+        self.carousel.hideRequested.connect(self.hide_picture)
+        # Let responsive geometry run before a tall shelf's old minimum size
+        # can clamp a drag/monitor placement to the previous window height.
+        self.layout().setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
+        self.setMinimumSize(640,520)
         self.slideshow = QTimer(self); self.slideshow.setInterval(3500); self.slideshow.timeout.connect(self.advance)
         # Handle Escape before focused editors/combo boxes or another shortcut
         # can consume it. Limit the filter to this browser and its own children.
@@ -226,6 +240,7 @@ class Browser(QWidget):
         super().resizeEvent(event)
 
     def fit_layout(self, width, height):
+        self.hidden_dock.fit(height)
         if self.presentation:
             self.presentation.fit(width, height); return
         compact=height<760; self.narrow=width<1000
@@ -272,22 +287,142 @@ class Browser(QWidget):
     def scanned(self, token, result):
         if token is not self.cancel_scan or token.is_set(): return
         self.scanning=False; self.pictures,notices,selected=result
+        if self.restore_selection:
+            picture = self.restore_selection; self.restore_selection = None
+            if Path(picture.path).is_file():
+                if not any(p.path == picture.path for p in self.pictures): self.pictures.append(picture)
+                selected = picture.path; self.center_current = True
         previous=self.collection.currentData(); self.collection.blockSignals(True); self.collection.clear(); self.collection.addItem('All collections','')
         for name in dict.fromkeys(p.collection for p in self.pictures): self.collection.addItem(name,name)
         self.collection.setCurrentIndex(max(0,self.collection.findData(previous))); self.collection.blockSignals(False)
         self.filter(initial=selected if self.center_current else ''); self.center_current=False
         if notices: self.status.setText(notices[0]); self.status.setToolTip('\n'.join(notices))
 
-    def filter(self, *_, initial=''):
+    def filter(self, *_, initial='', animate=False, reveal_hidden=''):
         if self.busy: return
+        if not animate and self.flight: self.finish_flight()
         self.pause(); search=self.search.text().strip().casefold(); collection=self.collection.currentData()
-        pictures=[p for p in self.pictures if (not collection or p.collection==collection) and (not search or search in (p.title+' '+p.collection+' '+Path(p.path).name).casefold())]
-        current=self.carousel.current(); self.carousel.populate(pictures,initial or (current.path if current else ''))
+        hidden = set(self.options['hidden'])
+        pictures=[p for p in self.pictures if p.path not in hidden and (not collection or p.collection==collection) and (not search or search in (p.title+' '+p.collection+' '+Path(p.path).name).casefold())]
+        current=self.carousel.current(); self.carousel.populate(pictures,initial or (current.path if current else ''),animate=animate)
+        self.refresh_hidden_dock(animate=animate,reveal=reveal_hidden)
         self.count.setText(f'{len(pictures)} wallpapers  /  {len(set(p.collection for p in pictures))} collections')
         self.apply.setEnabled(bool(pictures)); self.play.setEnabled(len(pictures)>1)
         self.previous.setEnabled(len(pictures)>1); self.next.setEnabled(len(pictures)>1)
-        if not pictures: self.title.setText('No matching wallpapers'); self.meta.setText('Try another collection, search or folder.')
+        if not pictures:
+            self.title.setText('No matching wallpapers'); self.meta.setText('Restore a thumbnail below, or change your search.' if hidden else 'Try another collection, search or folder.')
         if self.presentation: self.presentation.filtered(pictures)
+
+    def refresh_hidden_dock(self, animate=False, reveal=''):
+        self.hidden_dock.reduced_motion = self.reduced_motion
+        self.hidden_dock.set_tabs(self.options['hidden_tabs'],self.options['active_hidden_tab'])
+        self.hidden_dock.populate(library.hidden_pictures(self.options,self.pictures),animate=animate,reveal=reveal)
+
+    def switch_hidden_tab(self, identity):
+        if self.busy or identity==self.options['active_hidden_tab']: return
+        self.finish_flight(); self.pause()
+        try:
+            library.hidden_tab(self.options,identity)
+            self.options = library.save({**self.options,'active_hidden_tab':identity},self.options,fields=library.HIDDEN_FIELDS)
+        except (OSError,ValueError) as error:
+            self.refresh_hidden_dock(); self.failure(str(error)); return
+        self.refresh_hidden_dock(animate=True)
+        self.status.setText('Hide wallpapers into “'+library.hidden_tab(self.options)['name']+'” · Drag hidden thumbnails to another tab to move them.')
+
+    def edit_hidden_tab(self, dialog):
+        self.finish_flight(); self.pause(); self.dialog = dialog
+        try:
+            if dialog.exec()==QDialog.DialogCode.Accepted:
+                self.options = dialog.options; self.refresh_hidden_dock(animate=True)
+                self.status.setText('Active hidden tab: '+library.hidden_tab(self.options)['name']+' · Drag thumbnails onto a tab to organize them.')
+        finally: self.dialog = None; dialog.deleteLater()
+
+    def create_hidden_tab(self):
+        if not self.busy: self.edit_hidden_tab(TabNameDialog(self.options,self))
+
+    def rename_hidden_tab(self, identity):
+        if not self.busy: self.edit_hidden_tab(TabNameDialog(self.options,self,identity))
+
+    def delete_hidden_tab(self, identity):
+        if self.busy: return
+        if len(self.options['hidden_tabs'])<2:
+            self.status.setText('Create another tab to transfer these wallpapers before deleting this one.'); return
+        self.edit_hidden_tab(DeleteTabDialog(self.options,identity,self))
+
+    def move_hidden_picture(self, path, destination):
+        if self.busy: return
+        self.finish_flight(); self.pause()
+        try:
+            value = library.move_hidden_picture(self.options,path,destination)
+            self.options = library.save(value,self.options,fields=library.HIDDEN_FIELDS)
+        except (OSError,ValueError) as error: self.failure(str(error)); return
+        self.refresh_hidden_dock(animate=True,reveal=path)
+        self.status.setText('Wallpaper moved to “'+library.hidden_tab(self.options)['name']+'”.')
+
+    def flight_rect(self, widget, rect):
+        return rect.translated(QPointF(widget.mapTo(self,QPoint(0,0))))
+
+    def finish_flight(self):
+        if self.flight:
+            flight, self.flight = self.flight, None
+            flight.animation.stop(); flight.hide(); flight.deleteLater()
+        self.hidden_dock.omitted.clear(); self.carousel.omitted.clear()
+        self.hidden_dock.update(); self.carousel.update()
+
+    def fly(self, picture, source, destination, source_skew=0., destination_skew=lambda:0.):
+        pixmap = self.thumbnails.get(picture.path)
+        if pixmap.isNull(): pixmap = self.hidden_dock.thumbnails.get(picture.path)
+        if self.reduced_motion or source.isEmpty() or pixmap.isNull(): self.finish_flight(); return
+        self.flight = ThumbnailFlight(self,pixmap,source,destination,source_skew,destination_skew)
+        self.flight.finished.connect(self.finish_flight); self.flight.start()
+
+    def hide_picture(self, picture):
+        if self.busy or not picture or picture.path in self.options['hidden']: return
+        self.finish_flight(); self.pause()
+        try:
+            self.options = library.save({**self.options,'hidden':[*self.options['hidden'],picture.path]},self.options,fields=library.HIDDEN_FIELDS)
+        except (OSError,ValueError) as error: self.failure(str(error)); return
+        origin = self.carousel
+        focused = QApplication.focusWidget()
+        if getattr(focused,'picture',None) == picture and hasattr(focused.parentWidget(),'picture_rect'):
+            origin = focused.parentWidget()
+        source = self.flight_rect(origin,origin.picture_rect(picture))
+        skew = origin.picture_skew(picture)
+        current = self.carousel.current(); selected = current.path if current and current != picture else ''
+        if current == picture:
+            index = self.carousel.index % len(self.carousel.pictures)
+            others = self.carousel.pictures[index+1:]+self.carousel.pictures[:index]
+            if others: selected = others[0].path
+        self.hidden_dock.omitted.add(picture.path)
+        self.filter(initial=selected,animate=True,reveal_hidden=picture.path)
+        self.status.setText(picture.title+' hidden in “'+library.hidden_tab(self.options)['name']+'” · Click to restore, or drag to another tab.')
+        self.fly(picture,source,lambda:self.flight_rect(self.hidden_dock,self.hidden_dock.location(picture.path)),source_skew=skew)
+
+    def restore_picture(self, picture):
+        if self.busy or picture.path not in self.options['hidden']: return
+        self.finish_flight(); self.pause()
+        media = 'videos' if Path(picture.path).suffix.lower() in library.VIDEO_EXTENSIONS else 'pictures'
+        changed_media = media != self.options['media']
+        try:
+            self.options = library.save({**self.options,'hidden':[p for p in self.options['hidden'] if p!=picture.path], 'media':media},
+                                       self.options,fields=(*library.HIDDEN_FIELDS,'media'))
+        except (OSError,ValueError) as error: self.failure(str(error)); return
+        source = self.flight_rect(self.hidden_dock,self.hidden_dock.location(picture.path))
+        self.search.blockSignals(True); self.search.clear(); self.search.blockSignals(False)
+        self.collection.blockSignals(True); self.collection.setCurrentIndex(0); self.collection.blockSignals(False)
+        self.media.blockSignals(True); self.media.setCurrentIndex(self.media.findData(media)); self.media.blockSignals(False)
+        self.transition.setEnabled(media=='pictures')
+        if changed_media: self.pictures = []
+        available = Path(picture.path).is_file()
+        if available and not any(p.path==picture.path for p in self.pictures): self.pictures.append(picture)
+        self.carousel.omitted.add(picture.path)
+        self.filter(initial=picture.path,animate=True)
+        self.carousel.repaint() # Establish the destination before starting the flight.
+        self.status.setText(picture.title+' restored to the gallery.' if available else picture.title+' unhidden · Its file is currently unavailable.')
+        self.fly(picture,source,lambda:self.flight_rect(self.carousel,self.carousel.picture_rect(picture)),
+                 destination_skew=lambda:self.carousel.picture_skew(picture))
+        if changed_media:
+            self.restore_selection = picture; self.scan()
 
     def selected(self, picture):
         self.title.setText(picture.title); self.title.setToolTip(picture.path); self.meta.setText(f'{picture.collection}  ·  {self.carousel.index%len(self.carousel.pictures)+1:02d} / {len(self.carousel.pictures):02d}')
@@ -332,7 +467,7 @@ class Browser(QWidget):
 
     def set_busy(self, value):
         self.busy=value
-        for widget in (self.carousel,self.apply,self.play,self.search,self.collection,self.media,self.folder_button,self.transition,self.previous,self.next): widget.setEnabled(not value)
+        for widget in (self.carousel,self.hidden_dock,self.apply,self.play,self.search,self.collection,self.media,self.folder_button,self.transition,self.previous,self.next): widget.setEnabled(not value)
         self.transition.setEnabled(not value and self.options['media']=='pictures')
         if self.presentation: self.presentation.set_busy(value)
 
@@ -381,6 +516,7 @@ class Browser(QWidget):
             belongs = watched is self or watched is self.windowHandle() or (
                 isinstance(watched, QWidget) and self.isAncestorOf(watched))
             if belongs and event.key() == Qt.Key.Key_Escape:
+                if self.hidden_dock.drag_path or isinstance(QApplication.activePopupWidget(),QMenu): return False
                 event.accept()
                 if event.type() == QEvent.Type.KeyPress: self.escape()
                 return True
@@ -392,13 +528,16 @@ class Browser(QWidget):
 
     def closeEvent(self, event):
         if self.busy: event.ignore(); return
+        self.finish_flight(); self.hidden_dock.stop(); self.carousel.reflow.stop()
         self.cancel_scan.set(); self.pause(); self.background_animation.stop(); self.carousel.animation.stop(); event.accept(); QApplication.instance().quit()
 
     def shutdown(self):
         QApplication.instance().removeEventFilter(self)
+        self.finish_flight(); self.hidden_dock.stop(); self.carousel.reflow.stop()
         self.cancel_scan.set(); self.pause(); self.background_animation.stop(); self.carousel.animation.stop()
         # Let any wallpaper transaction finish before tearing down its Qt owner.
         self.jobs.shutdown(); self.thumbnails.jobs.shutdown(cancel_queued=True)
+        self.hidden_dock.thumbnails.jobs.shutdown(cancel_queued=True)
 
 
 STYLE = '''
@@ -495,6 +634,7 @@ def main():
                     window.media.blockSignals(True);window.media.setCurrentIndex(window.media.findData(options.get('media','pictures')));window.media.blockSignals(False)
                     window.transition.blockSignals(True); window.transition.setCurrentIndex(window.transition.findData(options['transition'])); window.transition.blockSignals(False)
                     if rescan: window.scan()
+                    else: window.filter()
                 show_browser(window)
             except (OSError, ValueError) as error: window.failure(str(error))
         def incoming():

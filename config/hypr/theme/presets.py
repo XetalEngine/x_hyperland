@@ -100,7 +100,9 @@ def validate(value):
         # Presets cannot embed arbitrary Hyprland commands or startup programs.
         if not isinstance(value['appearance'],str):raise ValueError('Invalid window appearance options.')
         from preferences_page import APPEARANCE
-        allowed = {field[1] for field in APPEARANCE}
+        # Our shipped edge-resize defaults also enable the native resize cursor.
+        # It is a valid appearance setting even though it has no editor field.
+        allowed = {field[1] for field in APPEARANCE} | {'general:hover_icon_on_border'}
         for line in value['appearance'].splitlines():
             if not line.strip() or line.lstrip().startswith('#'): continue
             key, sep, setting = line.partition('=')
@@ -138,6 +140,8 @@ def builtin(design, mode=None, root=None):
         value['cursors'].update(style='mortalkombat2',trail='glow',color='#3dd489')
     elif design == 'ghostbusters':
         value['cursors'].update(style='ghostbusters',trail='glow',color='#b4ff00')
+    elif design == 'integra':
+        value['cursors'].update(style='integra',trail='glow',color='#d9b6ea')
     elif design == 'hp4':
         value['cursors'].update(style='hp4',trail='glow',color='#278cff')
     elif design == 'amazon':

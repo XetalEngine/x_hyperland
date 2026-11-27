@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Integra · Ivory Midnight
+Comment=Pearl-lilac folders, ivory instruments and soft sakura details.
+Directories=scalable
+
+[scalable]
+Size=64
+Type=Scalable
+MinSize=16
+MaxSize=512

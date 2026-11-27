@@ -29,8 +29,8 @@ void main(){
   fragColor=vec4(mix(warm,mix(ink,vec3(1.,.72,.25),.5),core)*a,a)*opacity;return;
  }
  vec2 p=(uv-.5)*dims;vec2 halfSize=dims*.5-vec2(8.);
- float radius=style==32?6.:style==31?8.:style==27?3.:style==28?2.:style==29?8.:style==30?2.:style==26?5.:style==25?4.:style==24?8.:style==21?10.:style==20?6.:style==19?14.:(style==18||style==23)?5.:style==17?7.:(style==16||style==22)?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
- if(part==1)radius=style==32?5.:style==31?6.:style==27?3.:style==28?2.:style==29?8.:style==30?2.:style==26?5.:style==25?3.:style==24?6.:style==21?8.:style==20?4.:style==19?11.:(style==18||style==23)?4.:style==17?6.:(style==16||style==22)?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
+ float radius=style==33?8.:style==32?6.:style==31?8.:style==27?3.:style==28?2.:style==29?8.:style==30?2.:style==26?5.:style==25?4.:style==24?8.:style==21?10.:style==20?6.:style==19?14.:(style==18||style==23)?5.:style==17?7.:(style==16||style==22)?1.:style==0?3.:style==2?10.:style==3?5.:style==5?5.:style==6?9.:style==8?4.:style==11?12.:style==12?9.:style==13||style==14?5.:style==15?20.:halfSize.y;
+ if(part==1)radius=style==33?8.:style==32?5.:style==31?6.:style==27?3.:style==28?2.:style==29?8.:style==30?2.:style==26?5.:style==25?3.:style==24?6.:style==21?8.:style==20?4.:style==19?11.:(style==18||style==23)?4.:style==17?6.:(style==16||style==22)?1.:style==0?2.:style==14?3.:style==13?4.:style==12?6.:style==2||style==3||style==6||style==8?8.:style==10||style==11?10.:16.;
  radius=min(radius,min(halfSize.x,halfSize.y));
  float distance=roundBox(p,halfSize,radius);
  if(style==27||style==30)distance=max(distance,(abs(p.x)+abs(p.y)-halfSize.x-halfSize.y+(style==27?6.:9.))*.7071);
@@ -174,6 +174,13 @@ void main(){
    decoration=step(p.y+halfSize.y,lip)*step(24.,q.x)*.8;
    decoration+=exp(-abs(p.y-halfSize.y+7.)*2.)*step(24.,q.x)*.8;
    decoration+=exp(-dot(q-vec2(11.,30.),q-vec2(11.,30.))*.20)*(.75+.15*sin(time));
+  }else if(style==33){
+   // Integra: pearl lacquer, a lilac seam and warm lamp reflections.
+   body=mix(base,tint,.025+emphasis*.07)+ink*shine*.08;rim=.4+emphasis*.3;
+   metal=exp(-abs(distance+2.)*2.)*.22;
+   float lamp=exp(-abs(p.y-halfSize.y+3.)*2.)*step(halfSize.x-34.,p.x)*step(p.x,halfSize.x-8.);
+   body=mix(body,mix(tint,vec3(1.,.73,.53),.55),lamp*.30);
+   decoration=exp(-abs(p.y-halfSize.y+4.)*2.)*step(abs(p.x),halfSize.x-9.)*emphasis*.45;
   }else if(style==32){
    // HP4: carbon weave, a machined silver seam and cobalt race stripe.
    float weave=mod(floor((p.x+p.y)*.25)+floor((p.x-p.y)*.25),2.);
@@ -531,6 +538,13 @@ void main(){
     vec2 q=p-vec2(-5.+10.*float(i),-halfSize.y+5.);
     decoration+=exp(-dot(q,q)*.8)*.5;
    }
+  }else if(style==33){
+   // Integra: pearl lacquer, a lilac seam and warm lamp reflections.
+   body=mix(base,tint,.025+emphasis*.07)+ink*shine*.08;rim=.4+emphasis*.3;
+   metal=exp(-abs(distance+2.)*2.)*.22;
+   float lamp=exp(-abs(p.y-halfSize.y+3.)*2.)*step(halfSize.x-34.,p.x)*step(p.x,halfSize.x-8.);
+   body=mix(body,mix(tint,vec3(1.,.73,.53),.55),lamp*.30);
+   decoration=exp(-abs(p.y-halfSize.y+4.)*2.)*step(abs(p.x),halfSize.x-9.)*emphasis*.45;
   }else if(style==32){
    // HP4: carbon weave, a machined silver seam and cobalt race stripe.
    float weave=mod(floor((p.x+p.y)*.25)+floor((p.x-p.y)*.25),2.);

@@ -79,6 +79,10 @@ These policies manage application windows. Menus, tooltips and desktop panels ke
 
 **KDE mode extends the window above its content.** Its title bar is **30 pixels tall with the default 18-pixel buttons**, and grows with your chosen button size. Drag the bar without Super, or double-click its title area to maximize/restore. Maximization leaves space for the bar; true fullscreen hides it. Apps retain their own headers.
 
+Fullscreen stays on the window's current display, even when a video player or
+game requests the primary output. Moving a fullscreen window between workspaces
+or restoring it from the minimize dock preserves fullscreen through layout changes.
+
 **Super-key overlay controls appear over the existing window.** Hold Super over a window to reveal Fusion's controls without adding a permanent title bar. The gear editor offers modifier-only, Always, Nearby and Off visibility, plus button size, position, insets and background choices.
 
 | | KDE title bar | Super-key overlay controls |
@@ -159,6 +163,37 @@ keep their existing drag behavior.
 
 **Wobbly windows, Burn closing effects, per-monitor minimize docks and live task switchers** bring the Compiz-style desktop together. **Real Desktop icons** show your files and folders, with positions remembered per monitor. Theme presets coordinate the launcher, panels, controls, icons, cursors, sounds, wallpapers and transfer animations, while Mix & match lets you choose pieces independently.
 
+**[Integra · Ivory Midnight](theme/INTEGRA.md)** adds pearl, lilac and sakura-rose
+styling, six wallpapers, matching folders and cursors, car courier transfers,
+a pearl dock and soft original sounds. Dark, Light and High contrast are included.
+
+**Presets in two columns, with room for your favorites.** Each theme card has an
+animated **Hide** button that sends it into a scrollable dock below the gallery.
+Name your own dock tabs, drag thumbnails between highlighted tabs and click a
+thumbnail to restore its card. The last active tab is remembered; deleting a tab
+asks where to transfer its contents. Hiding or restoring a card keeps your
+current theme applied. The center arrow smoothly folds the dock into a slim tab
+strip. Organization and the expanded/collapsed state are remembered and included
+in Default Settings → Themes & artwork.
+Narrow windows use one column to keep the cards readable.
+
 **Fusion Files, Fusion Viewer, the Control Panel, KVM tools, the Proton application manager and remote desktop** are part of the desktop. **Control Panel → RDP** combines outgoing RDP/VNC connections and incoming desktop sharing in two tabs. RDP keeps its native session window, saved connections, wallet credentials and auto-hiding toolbar; VNC connections use TigerVNC. [Desktop icons →](desktop_menu/README.md) · [Control Panel →](control_panel/README.md) · [Remote desktop →](control_panel/rdp/README.md)
 
 **Video wallpapers, unified Start search, phone integration, persistent power settings and per-monitor picture controls** extend the everyday desktop. Super+W remembers Pictures or Videos, and the Start menu finds apps, Control Panel tools and Fusion Settings pages together. Phone, Power and Displays & arrangement live in Fusion Settings.
+
+**Keep your wallpaper gallery personal.** Each Super+W wallpaper has an animated
+Hide button. Hidden pictures and videos move into a persistent, scrollable strip
+below the gallery, arranged in two staggered rows. Click a thumbnail to restore
+it; hiding never deletes a file or changes the wallpaper already on your desktop.
+The hidden list is saved with wallpaper-selector preferences and is included in
+Fusion Settings → Default Settings save, load and reset.
+
+Organize hidden wallpapers with named tabs at the top left of the strip. **+**
+creates a tab, **Rename** changes its name, and the last active tab is remembered.
+Newly hidden wallpapers go into that tab. Drag a thumbnail up onto another tab
+to move it; the destination lights up and opens after the drop. Hover over the
+tab scroll arrows to reach more tabs, or use a thumbnail's **Move to tab** menu.
+**Delete** first asks which remaining tab should receive every hidden wallpaper;
+cancelling keeps the tab and its contents. Existing hidden wallpapers stay in
+the initial **Hidden** tab, and tab names, contents and selection are covered by
+Default Settings archives too.

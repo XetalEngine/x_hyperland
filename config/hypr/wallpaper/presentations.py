@@ -101,6 +101,7 @@ class Presentation:
         layout.addLayout(self.body, 1)
         self.strip = Filmstrip(w.carousel) if self.film else None
         if self.strip: layout.addWidget(self.strip); self.extra_controls.append(self.strip)
+        w.hidden_dock.setMaximumWidth(16777215); layout.addWidget(w.hidden_dock)
 
         self.transport = QFrame(); self.transport.setObjectName('transport')
         transport = QHBoxLayout(self.transport); transport.setContentsMargins(20, 9, 20, 9); transport.setSpacing(12)
@@ -194,6 +195,10 @@ class Presentation:
         w.hint.setVisible(width >= 1340); self.slideshow_label.setVisible(width >= 960)
         self.brand.setFixedWidth(254 if width < 1200 else 294)
         if self.strip: self.strip.setFixedHeight(132 if compact else 174)
+        has_hidden = bool(w.options.get('hidden'))
+        if self.strip: self.strip.setVisible(not has_hidden or height>=950)
+        self.facts_scroll.setVisible(not has_hidden or height>=760)
+        w.carousel.setMinimumHeight(150 if compact else 230)
         # The orbit sidebar owns these controls on a wide window. A compact
         # header keeps search, folders and collection filtering reachable.
         if not self.film:
@@ -213,6 +218,7 @@ class Presentation:
             self.window.collection.setCurrentIndex(self.window.collection.findData(key))
 
     def filtered(self, pictures):
+        self.fit(self.window.width(),self.window.height())
         w = self.window; counts = Counter(p.collection for p in w.pictures)
         signature = [(key, count) for key, count in counts.items()]
         if signature != self.collection_signature:

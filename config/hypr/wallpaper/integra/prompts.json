@@ -1,0 +1,64 @@
+{
+  "theme": "Integra · Ivory Midnight",
+  "tool": "built-in imagegen",
+  "images": [
+    {
+      "file": "midnight-garage.png",
+      "source": "User-supplied artwork, unchanged",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "1e73a582d576c5c6d202c143222d6c233125789260503a8278a4ace0f67a0b35"
+    },
+    {
+      "file": "xetal-auto-tuning.png",
+      "source": "User-supplied artwork, unchanged",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "052e28529f0b39e38c7d6e89d99166b5c9a6edc3b3ae8ca766f3f5c4c5dd3daf"
+    },
+    {
+      "file": "ivory-midnight.png",
+      "source": "Built-in imagegen, cleaned third user reference",
+      "prompt": "Use case: precise-object-edit. Asset type: clean desktop wallpaper, landscape 16:9, highest practical resolution. Edit this supplied reference: remove ALL desktop interface overlays—the entire top and bottom panels, every desktop shortcut and label, the Files window and the Fusion Settings window—and reconstruct the scenery behind them seamlessly. Also remove the decorative IVORY MIDNIGHT / Integra DC2 caption at bottom right. Preserve the pearl-white lowered Acura Integra, its four round headlights, white wheels, red seats, angle, proportions and placement; preserve the Japanese railway station, moon, purple mountains, cherry blossom tree, wet reflections and hand-painted anime automotive illustration aesthetic. Extend the original painted scene into every formerly covered region. Keep the same panoramic composition and palette: midnight indigo, soft lilac, sakura pink, ivory and small warm amber lamps. The whole output is uninterrupted artwork. NO windows, controls, panels, bars, icons, cursor, typography, watermark or framing.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "543f8873d37b10f76511db2d8353b85bb103c130c87a3c4e36d4f040b5d55632"
+    },
+    {
+      "file": "sakura-summit.png",
+      "source": "Built-in imagegen, new companion wallpaper",
+      "prompt": "Use case: stylized-concept. Create a finished widescreen 16:9 desktop wallpaper at 3840x2160 if supported, one complete scene, no collage. A pearl-white lowered 1990s Acura Integra DC2 Type R with the classic FOUR ROUND HEADLIGHTS, white five-spoke wheels and red bucket seats, parked at a quiet mountain road overlook under blooming cherry trees. Front three-quarter view of the entire car, right of center in the lower half, realistic elegant automotive proportions, car fully in frame. Moonlit Japanese mountain valley layered far below, winding road and a few warm amber lamps, drifting sakura petals and a luminous lavender moon reflected in damp pavement. Rich hand-painted anime automotive illustration with precise bodywork, subtle brush texture, cinematic lighting, tasteful detail like an illustrated racing-game background. Palette: deep midnight indigo, pearl ivory body, lilac shadows, muted sakura rose, small amber lights. Reserve calm shadowed space in the upper left for real desktop windows. Peaceful late-night atmosphere. No people, no other vehicles, no text, no logos added as captions, no desktop interface, no fake screen, no borders, no watermark.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "0ea72a4d0a5a3d77b8e699911eb5ce0442b44bb448f15576e88a4bb8e9523d8a"
+    },
+    {
+      "file": "rainline.png",
+      "source": "Built-in imagegen, new companion wallpaper",
+      "prompt": "Use case: stylized-concept. Create a finished landscape 16:9 desktop wallpaper at 3840x2160 if supported. One complete painterly anime automotive illustration: a pearl-white 1990s Acura Integra DC2 Type R, unmistakable long low coupe with FOUR ROUND HEADLIGHTS, white five-spoke wheels, restrained rear wing, red seats. Entire car seen front three-quarter, parked in a quiet small Japanese roadside service station after rain at midnight, lower center-right of frame. Warm amber canopy lights reflect along the ivory bodywork and in the wet asphalt. Dark indigo hills, soft violet mist, a few cherry blossom branches at frame edge, lavender sky. No other cars, no people. Strong elegant composition, car proportions accurate, wheels circular, ample calm dark space in upper left. Soft detailed hand-painted anime background style with cinematic warm/cool balance and gentle brushwork, matching a midnight-lilac desktop theme. Color story midnight navy, lilac, pearl ivory, muted rose and amber, avoid harsh cyberpunk neon. No readable signage, no typography, no desktop controls or windows, no frame, no watermark.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "8b519781cb1b4c91c37b58323b809e8cd874fb0476ead3a093d6461bd5faaac7"
+    },
+    {
+      "file": "first-light.png",
+      "source": "Built-in imagegen, new companion wallpaper",
+      "prompt": "Use case: stylized-concept. Finished landscape 16:9 illustrated desktop wallpaper at 3840x2160 if supported. A quiet early-dawn automotive scene: a pearl-white lowered 1990s Acura Integra DC2 Type R with FOUR ROUND HEADLIGHTS, white five-spoke wheels, red interior and restrained rear wing, parked just outside a traditional dark timber tuning garage. Full car visible in a front three-quarter view across the lower half. Garage interior softly lit amber with orderly tools, an engine on a stand, warm wooden beams; open doors frame violet mountain silhouettes and cherry blossoms. Pale lavender pre-dawn sky and a thin peach sunrise, dew on smooth concrete reflects soft lilac and amber. Hand-painted anime automotive illustration, cinematic but tranquil, precise elegant car geometry, dense tasteful detail near garage and calmer negative space above. Unified palette of midnight indigo, pearl ivory, lavender, sakura rose and warm amber. No people, no extra cars, no motorcycle, no title lettering, no desktop panels, no UI, no watermark, no borders. One complete coherent artwork.",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "6dc760768c879bb62a32ac1d1e187b8c5486ff60c27ed21d0acfaa58236d8b50"
+    }
+  ]
+}

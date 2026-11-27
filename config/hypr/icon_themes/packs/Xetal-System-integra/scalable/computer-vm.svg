@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><title>KVM Settings · Integra</title><defs><linearGradient id="pearl" x2=".35" y2="1">
+    <stop stop-color="#f4e8fa"/><stop offset=".45" stop-color="#cdb3dd"/>
+    <stop offset="1" stop-color="#9c7cb8"/></linearGradient>
+    <linearGradient id="ivory" x2=".2" y2="1"><stop stop-color="#fffaf4"/>
+    <stop offset="1" stop-color="#c9b7d9"/></linearGradient>
+    <linearGradient id="night" x2=".2" y2="1"><stop stop-color="#3c354e"/>
+    <stop offset="1" stop-color="#191a2d"/></linearGradient></defs><rect x="5" y="5" width="54" height="54" rx="10" fill="url(#night)" stroke="#af97c2" stroke-width="1"/><g fill="none" stroke="url(#pearl)" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 22H42V42H22ZM28 28H36V36H28ZM26 16V22M38 16V22M26 42V48M38 42V48M16 26H22M16 38H22M42 26H48M42 38H48"/></g><path d="M20 55H44" stroke="#e6a4bb" stroke-opacity=".7"/></svg>

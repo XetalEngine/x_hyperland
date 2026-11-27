@@ -81,6 +81,18 @@ floating still records and restores each app's normal floating size and position
 force tiled never restores pixel geometry or samples temporary floating drag
 targets. Neither override replaces the app's ordinary remembered mode.
 
+Workspace transfers preserve a window's live fullscreen state. An incoming
+window already using the destination's floating/tiled layout no longer has
+its fullscreen or maximize state reset. A required layout conversion retains
+true fullscreen as well, including minimize-dock restoration. The desktop's
+`fusion-fullscreen-current-display` rule suppresses only client requests to
+relocate fullscreen to another output; fullscreen remains on the current display.
+Manual moves between displays still work. Static rules take effect when a client
+is next opened, and an updated native adapter is loaded at the next login.
+`tests/check-fullscreen-monitors.py` exercises primary-output requests, repeated
+fullscreen/maximize, cross-layout workspace moves and dock restoration in an
+isolated three-output compositor; `--allow-output` independently checks transfers.
+
 Force floating and KDE also synchronize the floating-over-fullscreen rendering
 plane after every native raise/lower, including mouse clicks, app activation and
 window switching. The pinned compositor otherwise reorders input without clearing

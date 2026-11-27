@@ -70,6 +70,22 @@ class SettingsTests(unittest.TestCase):
         archive.restore_files(recovery, objects, self.roots, ['windows'], self.base/'undo')
         self.assertTrue(extra.exists()); self.assertEqual(json.loads(memory.read_text()), {'changed': True})
 
+    def test_hidden_wallpapers_roundtrip_and_reset_in_existing_wallpaper_category(self):
+        # Keep the previous category so existing wallpaper backups stay valid.
+        name = 'wallpaper/state/browser.json'; group = catalog.profile_category(name)
+        saved = {'version':1,'folders':[],'hidden':['/pictures/keep.png'],'style':'overlay',
+                 'hidden_tabs':[{'id':'hidden','name':'Hidden','paths':[]},
+                                {'id':'favorites','name':'Favorites','paths':['/pictures/keep.png']}],
+                 'active_hidden_tab':'favorites'}
+        path = self.put('profile',name,saved)
+        document,blobs = self.snapshot([group])
+        path.write_text('{"version":1,"hidden":[]}')
+        archive.restore_files(document,blobs,self.roots,[group],self.state)
+        self.assertEqual(json.loads(path.read_text()),saved)
+        empty = archive.manifest([group],[],home=str(self.home),profile=str(self.profile),factory=True)
+        archive.restore_files(empty,{},self.roots,[group],self.base/'reset')
+        self.assertFalse(path.exists())
+
     def test_checksum_damage_and_traversal_rejected(self):
         self.put('profile', 'sounds/settings.json', {'enabled': True}); doc, blobs = self.snapshot(['audio'])
         corrupt = copy.deepcopy(doc); corrupt['files'][0]['sha256'] = '0'*64
@@ -83,6 +99,17 @@ class SettingsTests(unittest.TestCase):
             z.writestr('manifest.json', archive.encode(doc)); z.writestr('../escape', b'evil')
         with self.assertRaises(ValueError): archive.read(target)
         self.assertFalse((self.base.parent/'escape').exists())
+
+    def test_hidden_preset_tabs_roundtrip_and_reset_with_appearance(self):
+        name='theme/state/preset-gallery.json';self.assertEqual(catalog.profile_category(name),'appearance')
+        value={'version':1,'hidden':['raw','integra'],'hidden_tabs':[{'id':'cars','name':'Cars','paths':['integra']},
+               {'id':'later','name':'Later','paths':['raw']}],'active_hidden_tab':'cars','hidden_dock_collapsed':True}
+        path=self.put('profile',name,value);document,blobs=self.snapshot(['appearance'])
+        path.write_text('{}');archive.restore_files(document,blobs,self.roots,['appearance'],self.state)
+        self.assertEqual(json.loads(path.read_text()),value)
+        empty=archive.manifest(['appearance'],[],home=str(self.home),profile=str(self.profile),factory=True)
+        archive.restore_files(empty,{},self.roots,['appearance'],self.base/'reset')
+        self.assertFalse(path.exists())
 
     def test_unknown_scope_category_and_duplicate_rejected(self):
         self.put('profile', 'sounds/settings.json', {'enabled': True}); doc, blobs = self.snapshot(['audio'])

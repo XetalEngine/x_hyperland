@@ -40,7 +40,7 @@ class DesktopPreview:
         modern=design=='modern';colors=runtime.colors(mode,design)
         launcher_design=launcher_design or design
         surfaces=surfaces or DEFAULTS[launcher_design]
-        p.save();clip=QPainterPath();radius=5 if design in ('killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft') else 4 if design=='mortalkombat2' else 8 if design=='facadasexu' else 10 if design=='ghostbusters' else 6 if design=='hp4' else 8 if design=='amazon' else 6 if design=='leviathan' else 12 if design=='polaris' else 5 if design in ('infernalencore','prisonbreak') else 7 if design=='midnightrun' else 1 if design in ('platform95','mystery98') else 3 if design=='shadowedge' else 18 if design=='candycloud' else 3 if design=='obsidianforge' else 2 if design=='porcelainink' else 10
+        p.save();clip=QPainterPath();radius=5 if design in ('killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft') else 4 if design=='mortalkombat2' else 8 if design=='facadasexu' else 10 if design=='ghostbusters' else 8 if design=='integra' else 6 if design=='hp4' else 8 if design=='amazon' else 6 if design=='leviathan' else 12 if design=='polaris' else 5 if design in ('infernalencore','prisonbreak') else 7 if design=='midnightrun' else 1 if design in ('platform95','mystery98') else 3 if design=='shadowedge' else 18 if design=='candycloud' else 3 if design=='obsidianforge' else 2 if design=='porcelainink' else 10
         clip.addRoundedRect(box,radius,radius);p.setClipPath(clip)
         p.translate(box.topLeft());p.scale(box.width()/720,box.height()/240)
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
@@ -57,7 +57,7 @@ class DesktopPreview:
         wallpaper=self.theme_wallpapers.get(design,self.wallpaper)
         if wallpaper.isNull():wallpaper=self.wallpaper
         self.picture(p,wallpaper,QRectF(0,0,720,240))
-        p.fillRect(QRectF(0,0,720,240),QColor(8,17,28,0 if design in ('porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','hp4','amazon','ghostbusters', 'killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft', 'mortalkombat2', 'facadasexu') else 15 if design=='tidalglass' else 80))
+        p.fillRect(QRectF(0,0,720,240),QColor(8,17,28,0 if design in ('porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','hp4','integra','amazon','ghostbusters', 'killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft', 'mortalkombat2', 'facadasexu') else 15 if design=='tidalglass' else 80))
         panel(0,0,720,23)
         panel(5,3,55,17,'Highlight',5 if modern else 2)
         text(13,2,45,18,'Apps',8,'HighlightedText',True)
@@ -72,6 +72,14 @@ class DesktopPreview:
                 text(320+i*24,4,12,17,str(i+1),7,'HighlightedText' if i==1 else 'Text')
             text(575,2,140,20,'♪   ◉   100%    23:47',7,'Text')
 
+        elif design=='integra':
+            from integra import paint_surface
+            paint_surface(p,QRectF(1,1,718,23),colors,4,100,True)
+            text(13,2,270,20,'//   Integra     |     Apps',8,'Text',True)
+            for i in range(4):
+                panel(313+i*24,4,20,17,'Highlight' if i==1 else 'Base',3,'Light')
+                text(320+i*24,4,12,17,str(i+1),7,'HighlightedText' if i==1 else 'Text')
+            text(575,2,140,20,'♪   ◉   100%    23:47',7,'Text')
         elif design=='hp4':
             from hp4 import paint_surface
             paint_surface(p,QRectF(1,1,718,23),colors,4,100,True)
@@ -261,7 +269,7 @@ class DesktopPreview:
             text(575,2,140,20,'♪   ◉   100%    21:10',7,'Link')
 
         # Launcher: profile, navigation, group title and real application icons.
-        modern=launcher_design in ('modern','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','hp4','amazon','ghostbusters', 'killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft', 'mortalkombat2', 'facadasexu');colors=runtime.colors(mode,launcher_design)
+        modern=launcher_design in ('modern','tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','hp4','integra','amazon','ghostbusters', 'killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft', 'mortalkombat2', 'facadasexu');colors=runtime.colors(mode,launcher_design)
         radius=5 if launcher_design in ('killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft') else 4 if launcher_design=='mortalkombat2' else 8 if launcher_design=='facadasexu' else 10 if launcher_design=='ghostbusters' else 6 if launcher_design=='hp4' else 8 if launcher_design=='amazon' else 6 if launcher_design=='leviathan' else 12 if launcher_design=='polaris' else 5 if launcher_design in ('infernalencore','prisonbreak') else 7 if launcher_design=='midnightrun' else 1 if launcher_design in ('platform95','mystery98') else 3 if launcher_design=='shadowedge' else 20 if launcher_design=='candycloud' else 3 if launcher_design=='obsidianforge' else 2 if launcher_design=='porcelainink' else 4 if launcher_design=='binaryknife' else 12 if launcher_design=='breakpoint' else 13 if modern else 5
         panel(14,37,389,190,'Window',radius,'Midlight')
         if launcher_design=='tidalglass':
@@ -272,6 +280,9 @@ class DesktopPreview:
             paint_surface(p,QRectF(14,37,389,190),colors)
         elif launcher_design=='ghostbusters':
             from ghostbusters import paint_surface
+            paint_surface(p,QRectF(14,37,389,190),colors)
+        elif launcher_design=='integra':
+            from integra import paint_surface
             paint_surface(p,QRectF(14,37,389,190),colors)
         elif launcher_design=='hp4':
             from hp4 import paint_surface
@@ -379,9 +390,12 @@ class DesktopPreview:
         # The Fusion Settings changes from Raw tabs to the Modern navigation rail.
         modern=design=='modern';colors=runtime.colors(mode,design)
         panel(420,52,284,166,'Window',13 if modern else 5,'Midlight')
-        if design in ('tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','hp4','amazon','ghostbusters', 'killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft', 'mortalkombat2', 'facadasexu'):
+        if design in ('tidalglass','porcelainink','obsidianforge','candycloud','shadowedge','hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','hp4','integra','amazon','ghostbusters', 'killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft', 'mortalkombat2', 'facadasexu'):
             if design=='ghostbusters':
                 from ghostbusters import paint_surface
+                paint_surface(p,QRectF(420,52,284,166),colors)
+            elif design=='integra':
+                from integra import paint_surface
                 paint_surface(p,QRectF(420,52,284,166),colors)
             elif design=='hp4':
                 from hp4 import paint_surface

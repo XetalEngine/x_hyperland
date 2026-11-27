@@ -19,7 +19,7 @@ class Category:
 
 CATEGORIES = (
     Category('desktop', 'Desktop & shortcuts', 'Hotkeys, input, monitors, context menus, Fusion Settings window buttons and shown pages, calendar and notifications.'),
-    Category('appearance', 'Themes & artwork', 'Design, colors, wallpapers, cursors, icons, custom presets and their artwork.'),
+    Category('appearance', 'Themes & artwork', 'Design, colors, wallpapers, cursors, icons, custom presets, hidden theme tabs and their expanded/collapsed dock.'),
     Category('windows', 'Windows & workspaces', 'Every remembered size and position, individual title bars, controls, snapping and effects.'),
     Category('launcher', 'Apps menu & taskbar', 'Favorites, pins, copies, launch options, workspace bar and task switcher.'),
     Category('audio', 'Audio & system sounds', 'Devices, volume, microphone, mixer state, sound packs and event choices.'),
@@ -44,7 +44,7 @@ SYSTEM_IDS = frozenset(BY_ID) - USER_IDS
 PROFILE_DIRS = {
     'desktop': ('control_center/state',),
     'virtualization': ('kvm/state',),
-    'appearance': ('icon_themes/custom', 'icon_themes/imported', 'theme/backgrounds'),
+    'appearance': ('icon_themes/custom', 'icon_themes/imported', 'theme/backgrounds', 'theme/state'),
     'windows': ('runtime/window_memory/state', 'workspaces/state'),
     'launcher': ('launcher/icons',),
     'files': ('file_manager/state', 'dolphin/config', 'dolphin/state', 'dolphin/data'),

@@ -24,6 +24,7 @@ from sounds.model import PACKS, EVENTS
 RATE = 48000
 # tonic, voice, unique opening melody (semitones), beat spacing
 SCORES = {
+    'integra': (62, 'pearlkeys', [0, 7, 9, 16, 14, 12], .37),
     'killerinstinct': (52, 'arcade94', [0,7,3,10,7,12,19], .29),
     'kitemple': (62, 'jadebell', [0,7,14,12,7,3], .40),
     'kiprimal': (47, 'stormwood', [0,3,10,7,0,12], .36),
@@ -78,6 +79,11 @@ def voice(midi, duration, kind, seed=0):
         out = np.sin(phase+depth*np.sin(phase*ratio)*np.exp(-9*t))*np.exp(-decay*t)
         out += gain*np.sin(phase*upper)*np.exp(-8*t)
         out += bass*np.sin(phase*.5)*np.exp(-3*t)*(1-np.exp(-18*t))
+    elif kind == 'pearlkeys':
+        out = np.sin(phase+.24*np.sin(phase*2.002)*np.exp(-7*t))*np.exp(-3.1*t)
+        out += .12*np.sin(phase*3.002)*np.exp(-7*t)
+        out += .12*np.sin(phase*.5)*np.exp(-2.6*t)*(1-np.exp(-14*t))
+        attack = .035
     elif kind == 'pitlane':
         out = np.sin(phase + .42*np.sin(phase*2)*np.exp(-12*t))*np.exp(-5*t)
         out += .18*np.sin(phase*.5)*np.exp(-3*t)*(1-np.exp(-24*t))

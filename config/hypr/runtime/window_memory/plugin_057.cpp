@@ -86,6 +86,14 @@ void enforcePolicy(PHLWINDOW w,bool initial=false){
         queuePolicy(w);policyTimer->updateTimeout(std::chrono::milliseconds(25));return;
     }
     const bool floating=WorkspaceRules::floats(policy),wasTiled=!target->floating();
+    // Moving between workspaces (including minimize/restore) is not a new
+    // layout choice. An already-conforming target must retain its live state.
+    if(!initial && floating==target->floating()){
+        WorkspaceStack::reconcile(w->m_workspace);return;
+    }
+    const auto fullscreen=Fullscreen::controller()->getFullscreenModes(w);
+    const bool preserveFullscreen=fullscreen.internal==Fullscreen::FSMODE_FULLSCREEN ||
+                                  fullscreen.client==Fullscreen::FSMODE_FULLSCREEN;
     auto saved=target->lastFloatingSize();const auto before=target->position();
     // Clear startup maximization only when applying/entering a forced layout.
     // Subsequent native maximize/restore requests remain functional.
@@ -104,6 +112,9 @@ void enforcePolicy(PHLWINDOW w,bool initial=false){
             target->rememberFloatingSize({fit.w,fit.h});
         }
     }
+    // A client's real fullscreen request remains valid across a layout change.
+    // Only the underlying normal layout/geometry belongs to workspace policy.
+    if(preserveFullscreen)Fullscreen::controller()->setFullscreenMode(w,fullscreen.internal,fullscreen.client);
     if(initial)target->warpPositionSize();
     WorkspaceStack::reconcile(w->m_workspace);
 }

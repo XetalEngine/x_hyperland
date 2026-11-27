@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QApplication
 import runtime
 
 DEFAULTS = {
+    'integra': {'tile_opacity':100,'group_opacity':95,'sidebar_opacity':100,'group_image':''},
     'ghostbusters': {'tile_opacity': 100, 'group_opacity': 75, 'sidebar_opacity': 100, 'group_image': ''},
     'leviathan': {'tile_opacity': 100, 'group_opacity': 60, 'sidebar_opacity': 100, 'group_image': ''},
     'hp4': {'tile_opacity': 100, 'group_opacity': 100, 'sidebar_opacity': 100, 'group_image': ''},
@@ -183,6 +184,10 @@ def paint_tile(p, box, colors, style, mode, opacity, selected=False, hover=0, ra
         from ghostbusters import paint_tile
         paint_tile(p,box,colors,opacity,selected,hover>0)
         return
+    elif style=='integra':
+        from integra import paint_tile
+        paint_tile(p,box,colors,opacity,selected,hover>0)
+        return
     elif style=='hp4':
         from hp4 import paint_tile
         paint_tile(p,box,colors,opacity,selected,hover>0)
@@ -329,6 +334,9 @@ def paint_group(p, box, colors, style, opacity, image=None, focused=False, hover
         paint_surface(p,box,colors)
     elif style == 'ghostbusters':
         from ghostbusters import paint_surface
+        paint_surface(p,box,colors)
+    elif style == 'integra':
+        from integra import paint_surface
         paint_surface(p,box,colors)
     elif style == 'hp4':
         from hp4 import paint_surface

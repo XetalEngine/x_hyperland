@@ -190,6 +190,49 @@ def ghostbusters(p, box, accent, surface, phase, count, trails, glow, archive, e
     p.restore()
 
 
+def integra(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
+    """Pearl couriers follow a moonlit lane; the whole car fades before wrapping."""
+    p.save();p.setClipRect(box,Qt.ClipOperation.IntersectClip)
+    mid=box.center();left=box.left()+29;right=box.right()-29
+    for x,zipped in ((left,extracting),(right,archive)):
+        folder(p,QPointF(x,mid.y()),accent,surface,archive=zipped)
+    start,end=left+33,right-33
+    p.setPen(QPen(alpha(accent,65),1))
+    for offset in (17,21):p.drawLine(QPointF(start,mid.y()+offset),QPointF(end,mid.y()+offset))
+    if result:
+        if result=='done':success(p,mid,accent)
+        p.restore();return
+    for index in range(max(1,count)):
+        t=(phase+index/max(1,count))%1
+        fade=max(0.,min(1.,t/.17,(1-t)/.17));fade=fade*fade*(3-2*fade)
+        travel=1-t if extracting else t;direction=-1 if extracting else 1
+        x=start+(end-start)*travel;y=mid.y()+7
+        p.save();p.setOpacity(p.opacity()*fade)
+        if glow:
+            halo=QRadialGradient(QPointF(x,y),24);halo.setColorAt(0,alpha(accent,glow));halo.setColorAt(1,alpha(accent,0))
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(halo);p.drawEllipse(QPointF(x,y),24,17)
+        if trails:
+            for j in range(3):
+                p.setPen(QPen(alpha(accent,85-j*22),1));p.drawLine(QPointF(x-direction*17,y+j*3),QPointF(x-direction*(26+j*5),y+j*3))
+        p.translate(x,y);p.scale(direction,1)
+        body=QPainterPath();body.moveTo(-17,2);body.lineTo(-16,-4);body.lineTo(-9,-6);body.lineTo(-5,-12)
+        body.lineTo(6,-12);body.lineTo(11,-6);body.lineTo(18,-4);body.lineTo(19,3);body.closeSubpath()
+        pearl=QColor('#f5e9f7' if surface.lightnessF()<.5 else '#8f699f')
+        p.setBrush(pearl);p.setPen(QPen(accent,.8));p.drawPath(body)
+        p.setBrush(surface);p.drawRoundedRect(QRectF(-4,-11,10,5),1,1)
+        p.setBrush(surface);p.setPen(QPen(pearl,1.3))
+        for wheel in (-10,11):p.drawEllipse(QPointF(wheel,3),3.6,3.6)
+        p.setPen(QPen(QColor('#f6bf8e'),1.5));p.drawLine(QPointF(16,-3),QPointF(18,-3))
+        # The carried document keeps the transfer meaning visible at small sizes.
+        p.translate(0,-19);p.scale(.42,.42)
+        if archive or extracting:
+            p.setPen(QPen(accent,1.5));p.setBrush(surface);p.drawRoundedRect(QRectF(-7,-10,14,20),2,2)
+            for yy in range(-7,7,4):p.drawLine(QPointF(-2,yy),QPointF(2,yy))
+        else:paper(p,accent,technical=True)
+        p.restore()
+    p.restore()
+
+
 def hp4(p, box, accent, surface, phase, count, trails, glow, archive, extracting, result):
     """Documents race along a pit lane; fading wraps avoid visible jumps."""
     p.save();p.setClipRect(box,Qt.ClipOperation.IntersectClip)

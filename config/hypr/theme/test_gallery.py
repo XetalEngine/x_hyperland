@@ -76,15 +76,21 @@ class GalleryTests(unittest.TestCase):
         self.owner.select_preset.assert_not_called()
         self.page.search.clear(); card.click(); self.owner.select_preset.assert_called_once_with('shadowedge')
 
-    def test_all_presets_scroll_in_one_column_and_refresh_keeps_browsing_position(self):
+    def test_two_columns_and_narrow_fallback_keep_browsing_position(self):
+        # Desktop themes style ordinary push buttons. Custom painted cards
+        # must keep their artwork height after Qt's stylesheet polish.
+        self.page.setStyleSheet(runtime.stylesheet('QPushButton { min-height:20px; padding:10px 14px; }', 'dark', 'hp4'))
         for width in (1280, 720):
-            self.page.resize(width, 600); QT.processEvents()
-            previous = None
-            for card in self.page.cards.values():
-                self.assertEqual(card.x(), 0)
+            self.page.resize(width, 600); QT.processEvents(); QT.processEvents()
+            columns = 2 if width == 1280 else 1
+            self.assertEqual(self.page.columns, columns)
+            cards = list(self.page.cards.values())
+            for index,card in enumerate(cards):
+                self.assertEqual(card.height(),304)
+                self.assertEqual(card.x(), cards[index % columns].x())
                 self.assertLessEqual(card.width(), self.page.scroll.viewport().width())
-                if previous is not None: self.assertGreater(card.y(), previous.y()+previous.height())
-                previous = card
+                if index % columns: self.assertEqual(card.y(), cards[index-1].y())
+                if index >= columns: self.assertGreater(card.y(), cards[index-columns].y()+card.height())
             self.assertEqual(self.page.scroll.horizontalScrollBar().maximum(), 0)
             self.page.scroll.ensureWidgetVisible(self.page.cards['shadowedge'], 0, 0); QT.processEvents()
             value = self.page.scroll.verticalScrollBar().value(); self.assertGreater(value, 0)

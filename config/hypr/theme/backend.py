@@ -396,6 +396,9 @@ def apply_mode(value,expected,design=None,avatar=None,launcher_wallpaper=None,la
     elif design=='ghostbusters':
         from ghostbusters import compositor
         content+=compositor(colors)
+    elif design=='integra':
+        from integra import compositor
+        content+=compositor(colors)
     elif design=='hp4':
         from hp4 import compositor
         content+=compositor(colors)

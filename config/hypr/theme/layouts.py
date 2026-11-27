@@ -14,7 +14,7 @@ def default(design):
 
 
 def widget_style(layout, design):
-    if design in ('tidalglass', 'porcelainink', 'obsidianforge', 'candycloud', 'shadowedge', 'hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','hp4','amazon','ghostbusters', 'killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft', 'mortalkombat2', 'facadasexu'): return design
+    if design in ('tidalglass', 'porcelainink', 'obsidianforge', 'candycloud', 'shadowedge', 'hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','hp4','integra','amazon','ghostbusters', 'killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft', 'mortalkombat2', 'facadasexu'): return design
     if layout in ('modern', 'sidebar'): return 'modern'
     if layout == 'ribbon': return 'binaryknife'
     return design if design in ('raw', 'breakpoint', 'binaryknife') else 'raw'
@@ -34,7 +34,7 @@ def stylesheet(p, layout, palette=''):
     QFrame#presetCard {{background:{p['AlternateBase']}; border:1px solid {p['Midlight']}; border-radius:{radius}px;}}
     '''
     # These designs supply their own surfaces for every navigation layout.
-    if palette in ('tidalglass', 'porcelainink', 'obsidianforge', 'candycloud', 'shadowedge', 'hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','hp4','amazon','ghostbusters', 'killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft', 'mortalkombat2', 'facadasexu'): shapes = ''
+    if palette in ('tidalglass', 'porcelainink', 'obsidianforge', 'candycloud', 'shadowedge', 'hollowgrove', 'gildedhollow','hyperfusionblue','midnighttransit','blackwood','atomicafterglow','mycelium','platform95','mystery98','midnightrun','infernalencore','prisonbreak','polaris','leviathan','hp4','integra','amazon','ghostbusters', 'killerinstinct', 'kitemple', 'kiprimal', 'kifireice', 'starcraft', 'mortalkombat2', 'facadasexu'): shapes = ''
     return shapes + f'''
     QCheckBox::indicator:checked, QAbstractItemView::indicator:checked {{image:url("{check}");
         background:{p['Highlight']}; border:1px solid {p['Accent']}; width:16px; height:16px;}}

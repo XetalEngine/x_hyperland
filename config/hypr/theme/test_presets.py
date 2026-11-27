@@ -37,6 +37,17 @@ class PresetTests(unittest.TestCase):
             self.assertEqual(presets.builtin(design,root=self.root)['theme']['mode'],'dark')
             self.assertEqual(presets.builtin(design,'light',self.root)['theme']['mode'],'light')
 
+    def test_shipped_edge_resize_defaults_allow_every_theme_to_reach_component_selection(self):
+        appearance=(Path(__file__).resolve().parents[1]/'control_center/appearance.conf').read_text()
+        path=self.root/'control_center/appearance.conf';path.write_text(appearance)
+        self.assertEqual(presets.current(self.root)['appearance'],appearance)
+        for design in runtime.DESIGNS:
+            target=presets.builtin(design,root=self.root)
+            self.assertEqual(target['theme']['design'],design)
+            files,_=presets.resources(self.root,target,{'effects'},runtime.design())
+            self.assertNotIn(path,files)  # Theme changes keep the user's resize behavior.
+        self.assertEqual(path.read_text(),appearance)
+
     def test_applying_preset_keeps_saved_focus_and_appearance(self):
         from visuals import model
         path=self.root/'visuals/settings.json';path.parent.mkdir(parents=True)

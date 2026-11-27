@@ -8,7 +8,7 @@ import designs
 STYLES={'follow':'Follow desktop theme', **designs.DESIGNS}
 VARIANTS={'full':'Full · continuous bar', 'partial':'Partial · floating sections',
           'centered':'Centered · workspaces in the middle'}
-DESCRIPTIONS={'killerinstinct': 'Violet chrome · obsidian, silver bevels and amber arcade lights', 'kitemple': 'Jade lacquer · carved brass, emerald glass and temple lanterns', 'kiprimal': 'Storm-worn stone · moss, bone inlays and amethyst lightning', 'kifireice': 'Split elements · black steel, molten amber and crystalline cyan', 'starcraft': 'Command rail · silver armor, cyan conduits and cobalt workspaces', 'mortalkombat2': 'Arcade stone · gold bevels and jade workspace buttons', 'facadasexu': 'Candlelit lacquer · oxblood switches and copper hairlines',
+DESCRIPTIONS={'integra':'Midnight pearl rail · lilac seams and sakura workspace buttons', 'killerinstinct': 'Violet chrome · obsidian, silver bevels and amber arcade lights', 'kitemple': 'Jade lacquer · carved brass, emerald glass and temple lanterns', 'kiprimal': 'Storm-worn stone · moss, bone inlays and amethyst lightning', 'kifireice': 'Split elements · black steel, molten amber and crystalline cyan', 'starcraft': 'Command rail · silver armor, cyan conduits and cobalt workspaces', 'mortalkombat2': 'Arcade stone · gold bevels and jade workspace buttons', 'facadasexu': 'Candlelit lacquer · oxblood switches and copper hairlines',
  'ghostbusters':'Ectoplasm enamel · slime green, rounded rails and ghost-trap lights',
  'hp4':'Carbon pit rail · silver seams and cobalt workspace controls',
  'amazon':'Emerald river rail · leaf-gold edges and coral workspace buttons',
@@ -68,6 +68,7 @@ def configure(config,style,variation=None):
         'prisonbreak': (apps,['mpris'],status), 'killerinstinct': (apps,['mpris'],status), 'kitemple': (apps,['mpris'],status), 'kiprimal': (apps,['mpris'],status), 'kifireice': (apps,['mpris'],status), 'starcraft': (apps,['mpris'],status), 'mortalkombat2':(apps,['mpris'],status), 'facadasexu':(apps,['mpris'],status), 'infernalencore':(apps,['mpris'],status),
         'midnightrun':(apps,['mpris'],status),
         'ghostbusters':(apps,['mpris'],status),
+        'integra':(apps,['mpris'],status),
         'hp4':(apps,['mpris'],status),
         'amazon':(apps,['mpris'],status),
         'leviathan':(apps,['mpris'],status),
@@ -142,6 +143,7 @@ window#waybar {{color:{t};}}
 'prisonbreak': __import__('prisonbreak').bar_controls(p,root), 'killerinstinct': __import__('killerinstinct').bar_controls(p,root), 'kitemple': __import__('kitemple').bar_controls(p,root), 'kiprimal': __import__('kiprimal').bar_controls(p,root), 'kifireice': __import__('kifireice').bar_controls(p,root), 'starcraft': __import__('starcraft').bar_controls(p,root), 'mortalkombat2':__import__('mortalkombat2').bar_controls(p,root), 'facadasexu':__import__('facadasexu').bar_controls(p,root), 'infernalencore':__import__('infernalencore').bar_controls(p,root),
 'midnightrun':__import__('midnightrun').bar_controls(p,root),
 'ghostbusters':__import__('ghostbusters').bar_controls(p,root),
+'integra':__import__('integra').bar_controls(p,root),
 'hp4':__import__('hp4').bar_controls(p,root),
 'amazon':__import__('amazon').bar_controls(p,root),
 'leviathan':__import__('leviathan').bar_controls(p,root),
@@ -274,12 +276,13 @@ window#waybar {{background:linear-gradient(180deg,alpha({p['Button']},0.97),alph
 def architecture(p,style,variation,root):
     """One material vocabulary, available as a rail, islands or centered bank."""
     a,b,w,t,m,h=p['Accent'],p['Base'],p['Window'],p['Text'],p['Midlight'],p['Highlight']
-    radius={'killerinstinct': '3px', 'kitemple': '2px', 'kiprimal': '8px', 'kifireice': '2px', 'starcraft': '5px', 'mortalkombat2':'4px', 'facadasexu':'8px','ghostbusters':'10px','hp4':'6px','amazon':'8px','leviathan':'6px','polaris':'12px','prisonbreak': '5px', 'infernalencore':'5px','midnightrun':'7px','mystery98': '1px', 'platform95':'1px','mycelium':'14px','atomicafterglow':'5px','blackwood':'5px','midnighttransit':'7px','hyperfusionblue':'7px','raw':'1px','modern':'23px','breakpoint':'12px 2px 12px 2px','binaryknife':'2px 16px 2px 16px',
+    radius={'killerinstinct': '3px', 'kitemple': '2px', 'kiprimal': '8px', 'kifireice': '2px', 'starcraft': '5px', 'mortalkombat2':'4px', 'facadasexu':'8px','ghostbusters':'10px','integra':'8px','hp4':'6px','amazon':'8px','leviathan':'6px','polaris':'12px','prisonbreak': '5px', 'infernalencore':'5px','midnightrun':'7px','mystery98': '1px', 'platform95':'1px','mycelium':'14px','atomicafterglow':'5px','blackwood':'5px','midnighttransit':'7px','hyperfusionblue':'7px','raw':'1px','modern':'23px','breakpoint':'12px 2px 12px 2px','binaryknife':'2px 16px 2px 16px',
             'tidalglass':'28px 28px 14px 14px','porcelainink':'4px','obsidianforge':'5px',
             'candycloud':'28px','shadowedge':'12px 0 12px 0','hollowgrove':'28px 12px 28px 12px','gildedhollow':'24px'}[style]
     surface={
         'killerinstinct': f'linear-gradient(180deg,{p["Button"]},{w} 32%,{b})', 'kitemple': f'linear-gradient(180deg,{p["Button"]},{w} 32%,{b})', 'kiprimal': f'linear-gradient(180deg,{p["Button"]},{w} 32%,{b})', 'kifireice': f'linear-gradient(180deg,{p["Button"]},{w} 32%,{b})', 'starcraft': f'linear-gradient(180deg,{p["Button"]},{w} 32%,{b})', 'mortalkombat2':f'linear-gradient(180deg,{p["Button"]},{w} 32%,{b})', 'facadasexu':f'linear-gradient(180deg,{p["Button"]},{w} 32%,{b})',
         'ghostbusters':f'linear-gradient(170deg,{p["Button"]},{w} 30%,{b} 90%)',
+        'integra':f'linear-gradient(150deg,{p["Button"]},{w} 30%,{b})',
         'hp4':f'url("{root/"assets/hp4-carbon.svg"}"),linear-gradient(180deg,{p["Button"]},{b})',
         'amazon':f'linear-gradient(160deg,{p["Button"]},{w} 22%,{b} 70%,{w})',
         'leviathan':f'linear-gradient(160deg,{p["Button"]},{w} 22%,{b} 70%,{w})',
@@ -322,7 +325,9 @@ def architecture(p,style,variation,root):
         frame=f'background:{surface};border:1px solid {p["Midlight"]};border-top-color:{p["Light"]};border-bottom-color:{a};border-radius:5px;box-shadow:inset 0 1px alpha({t},0.10);'
     if style=='ghostbusters':
         frame=f'background:{surface};border:1px solid {a};border-radius:10px;box-shadow:inset 0 1px alpha({p["Light"]},0.22),inset 0 -2px alpha({a},0.18);'
-    if style=='hp4':
+    if style=='integra':
+        frame=f'background:{surface};border:1px solid {m};border-top-color:{p["Light"]};border-radius:8px;box-shadow:inset 0 1px alpha({t},0.10);'
+    elif style=='hp4':
         frame=f'background:{surface};border:1px solid {m};border-top-color:{p["Light"]};border-bottom-color:{a};border-radius:6px;box-shadow:inset 0 1px alpha({t},0.08);'
     elif style=='amazon':
         frame=f'background:{surface};border:1px solid {p["Light"]};border-radius:8px;box-shadow:inset 0 1px alpha({t},0.09),inset 0 -1px alpha({a},0.12);'
@@ -353,6 +358,7 @@ window#waybar {{{frame}}}
         'prisonbreak': __import__('prisonbreak').bar_controls(p,root), 'killerinstinct': __import__('killerinstinct').bar_controls(p,root), 'kitemple': __import__('kitemple').bar_controls(p,root), 'kiprimal': __import__('kiprimal').bar_controls(p,root), 'kifireice': __import__('kifireice').bar_controls(p,root), 'starcraft': __import__('starcraft').bar_controls(p,root), 'mortalkombat2':__import__('mortalkombat2').bar_controls(p,root), 'facadasexu':__import__('facadasexu').bar_controls(p,root), 'infernalencore':__import__('infernalencore').bar_controls(p,root),
 'midnightrun':__import__('midnightrun').bar_controls(p,root),
 'ghostbusters':__import__('ghostbusters').bar_controls(p,root),
+'integra':__import__('integra').bar_controls(p,root),
 'hp4':__import__('hp4').bar_controls(p,root),
 'amazon':__import__('amazon').bar_controls(p,root),
 'leviathan':__import__('leviathan').bar_controls(p,root),

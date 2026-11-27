@@ -176,5 +176,13 @@
     "hp4/rain-line.png",
     "hp4/workshop-04.png",
     "hp4/midnight-wheelie.png"
+  ],
+  "integra": [
+    "integra/ivory-midnight.png",
+    "integra/midnight-garage.png",
+    "integra/xetal-auto-tuning.png",
+    "integra/sakura-summit.png",
+    "integra/rainline.png",
+    "integra/first-light.png"
   ]
 }
