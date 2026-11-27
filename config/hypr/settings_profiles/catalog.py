@@ -18,16 +18,16 @@ class Category:
 
 
 CATEGORIES = (
-    Category('desktop', 'Desktop & shortcuts', 'Hotkeys, input, monitors, context menus, calendar and notifications.'),
+    Category('desktop', 'Desktop & shortcuts', 'Hotkeys, input, monitors, context menus, Fusion Settings window buttons and shown pages, calendar and notifications.'),
     Category('appearance', 'Themes & artwork', 'Design, colors, wallpapers, cursors, icons, custom presets and their artwork.'),
     Category('windows', 'Windows & workspaces', 'Every remembered size and position, individual title bars, controls, snapping and effects.'),
     Category('launcher', 'Apps menu & taskbar', 'Favorites, pins, copies, launch options, workspace bar and task switcher.'),
     Category('audio', 'Audio & system sounds', 'Devices, volume, microphone, mixer state, sound packs and event choices.'),
     Category('files', 'Fusion Files & default apps', 'Views, toolbar buttons, appearance, geometry, bookmarks, templates, searches, mounts and file associations.'),
-    Category('tools', 'Control Panel & desktop tools', 'Panel preferences, calculator, clipboard pins, recorder, startup dashboard and updates.'),
+    Category('tools', 'Control Panel & desktop tools', 'Panel window buttons and shown tools, calculator, clipboard pins, recorder, startup dashboard and updates.'),
     Category('terminal', 'Terminal & shell', 'Terminal appearance, fetch, aliases and shell preferences.'),
     Category('remote', 'RDP, VNC & phone', 'Saved connections, hosting options, passwords, certificates and device pairing.'),
-    Category('virtualization', 'KVM & Proton settings', 'Machine definitions, presets, launch options and prefix configuration; disk contents stay in place.'),
+    Category('virtualization', 'KVM & Proton settings', 'Machine definitions, presets, launch options, KVM window buttons and shown pages, and prefix configuration; disk contents stay in place.'),
     Category('power', 'Desktop power', 'Idle, lid, battery, monitor brightness and charging preferences.'),
     Category('applications', 'Other application preferences', 'Account application configuration, autostart, user services and desktop entries.'),
     Category('system', 'System configuration & services', 'System configuration, enabled services, CPU governor, power policy and kernel tuning.', True),
@@ -42,6 +42,8 @@ SYSTEM_IDS = frozenset(BY_ID) - USER_IDS
 # A registry entry owns a complete file or directory, including newly created
 # preferences. All updater-owned preference files are added below as well.
 PROFILE_DIRS = {
+    'desktop': ('control_center/state',),
+    'virtualization': ('kvm/state',),
     'appearance': ('icon_themes/custom', 'icon_themes/imported', 'theme/backgrounds'),
     'windows': ('runtime/window_memory/state', 'workspaces/state'),
     'launcher': ('launcher/icons',),

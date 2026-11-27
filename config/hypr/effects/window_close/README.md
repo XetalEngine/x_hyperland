@@ -83,16 +83,20 @@ native drag controller. Both press and release are captured together, with no
 clicks sent through to the app. Menus, popups, tooltips, override-redirect windows
 and windows with an explicit no-decoration rule are excluded.
 
-Fusion Files (including externally opened folders), Control Panel and Fusion
-Settings keep their own headers through the `fusion-client-header` window tag.
-This suppresses the extra KDE title bar while retaining the compositor's themed
-active/inactive border and shadow. These apps must not use `decorate = off` to
-hide the bar, because that also removes their focus surround. The Start menu
-keeps its separate frameless popup rule.
+Fresh installations give Fusion Files (including externally opened folders),
+Control Panel, Fusion Settings and KVM Settings the added KDE title bar and hide
+their built-in minimize/maximize/close buttons. These remain independent choices:
+use the window gear's **Add a title bar above the app** switch and the app's
+**Settings → Appearance → Show window buttons** (Files uses **Configure → Browsing
+→ Appearance**). Setup and the factory-reset archive seed the same choices.
+Existing saved app and window choices are retained. The Start menu keeps its
+separate frameless popup rule.
 
-In the gear editor, **Add a title bar above the app** defaults to on, and **Show
-overlay controls** defaults to **Off** in KDE mode. This also keeps duplicate
-overlay buttons off Fusion apps with built-in headers. Existing saved app and
+In the gear editor, **Add a title bar above the app** defaults to on for ordinary
+apps and the four desktop tools above; media players and dedicated popups keep
+their own defaults. **Show overlay
+controls** defaults to **Off** in KDE mode. This also keeps duplicate overlay
+buttons off Fusion apps with built-in headers. Existing saved app and
 window choices are preserved. All overlay options remain visible and editable
 while the title-bar box is checked; they apply when the extra bar is absent.
 Choose Automatic/Always/nearby/modifier to enable overlays, select **Only this

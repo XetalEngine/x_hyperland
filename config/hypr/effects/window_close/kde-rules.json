@@ -55,6 +55,61 @@
       "background": "auto",
       "background_color": "#20242b",
       "titlebar": false
+    },
+    "xetal-files": {
+      "mode": "off",
+      "size": 18,
+      "anchor": "top-right",
+      "x": 8,
+      "y": 8,
+      "proximity": 80,
+      "background": "auto",
+      "background_color": "#20242b",
+      "titlebar": true
+    },
+    "xetal-files-external": {
+      "mode": "off",
+      "size": 18,
+      "anchor": "top-right",
+      "x": 8,
+      "y": 8,
+      "proximity": 80,
+      "background": "auto",
+      "background_color": "#20242b",
+      "titlebar": true
+    },
+    "hypr-control": {
+      "mode": "off",
+      "size": 18,
+      "anchor": "top-right",
+      "x": 8,
+      "y": 8,
+      "proximity": 80,
+      "background": "auto",
+      "background_color": "#20242b",
+      "titlebar": true
+    },
+    "xetal-control-panel": {
+      "mode": "off",
+      "size": 18,
+      "anchor": "top-right",
+      "x": 8,
+      "y": 8,
+      "proximity": 80,
+      "background": "auto",
+      "background_color": "#20242b",
+      "titlebar": true
+    },
+    "xetal-kvm-settings": {
+      "mode": "off",
+      "size": 18,
+      "anchor": "top-right",
+      "x": 8,
+      "y": 8,
+      "proximity": 80,
+      "background": "auto",
+      "background_color": "#20242b",
+      "titlebar": true
     }
   }
 }

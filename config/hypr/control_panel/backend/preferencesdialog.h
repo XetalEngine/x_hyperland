@@ -19,7 +19,12 @@ class QVBoxLayout;
 
 namespace AppPreferences {
 struct Tab { QString id, title, description; };
+struct Tool { QString id, title, description, icon; QStringList path; };
 QList<Tab> tabs();
+QList<Tool> tools();
+QString toolKey(const QString &id);
+bool toolVisible(QSettings &settings, const Tool &tool);
+QString startupTool(const QString &value);
 QVariantMap defaults();
 QVariantMap read(QSettings &settings);
 bool write(QSettings &settings, const QVariantMap &values);
@@ -52,6 +57,9 @@ private:
     QLineEdit *m_search;
     QLabel *m_status;
     QLabel *m_tabCount;
+    QListWidget *m_shownTools = nullptr, *m_hiddenTools = nullptr;
+    QLabel *m_shownCount = nullptr, *m_hiddenCount = nullptr;
+    QPushButton *m_hideTools = nullptr, *m_showTools = nullptr;
     QWidget *m_themePreview;
     QPushButton *m_apply;
     QPushButton *m_done;
@@ -72,6 +80,8 @@ private:
     void buildIso();
     void loadWidgets();
     void updateStartupChoices();
+    void loadToolLists();
+    void moveTools(bool show);
     void updateThemePreview();
     void styleDialog();
     void edited(bool stageOnly = false);

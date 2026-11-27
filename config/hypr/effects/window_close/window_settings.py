@@ -139,7 +139,7 @@ class RuleDialog(QDialog):
         self.controls_form=form
         self.titlebar=QCheckBox('Add a title bar above the app')
         self.titlebar.setToolTip('KDE mode only. Reserves space above the content; the bar grows with your button size. '
-                                'Fusion apps with built-in headers keep their own title bar. '
+                                'This also works above Fusion apps’ built-in headers. '
                                 'Overlay controls are configured separately below.')
         form.addRow('KDE title bar',self.titlebar)
         form.setRowVisible(self.titlebar,False)
@@ -331,7 +331,7 @@ class RuleDialog(QDialog):
             self.hint.setText('Changes preview live on all windows in this workspace. Apply saves the shared size, position and background. '
                               'The gear normally appears while Super is held. Use the workspace menu to change visibility.' if shared else
                               'KDE mode has separate saved choices. The title bar sits above the app and fits your button size. '
-                              'Fusion apps with built-in headers keep their own title bar. '
+                              'You can add it above Fusion Files, Fusion Settings, Control Panel and KVM Settings. '
                               'Overlay controls are off by default and apply when the extra title bar is absent. '
                               'Settings, minimize, maximize/restore and close preview here; there is no tile button. '
                               'Hold Super to reach the gear when the bar and controls are off. '

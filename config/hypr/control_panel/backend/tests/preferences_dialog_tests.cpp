@@ -10,6 +10,12 @@ class PreferencesTests : public QObject {
         return widget;
     }
 private slots:
+    void initTestCase() {
+        const auto catalog = QFINDTESTDATA("../../tools.json");
+        QVERIFY(!catalog.isEmpty());
+        QDir profile(QFileInfo(catalog).absolutePath()); profile.cdUp();
+        qputenv("XETAL_HYPR_ROOT", profile.absolutePath().toUtf8());
+    }
     void legacySettingsAndUnknownKeysSurvive() {
         QTemporaryDir directory;
         const auto path = directory.filePath("settings.ini");
@@ -21,6 +27,7 @@ private slots:
         settings.setValue("unrelated/setting", "keep-this");
         auto values = AppPreferences::read(settings);
         QVERIFY(!values["tabs/backupTab"].toBool());
+        QVERIFY(!values[AppPreferences::toolKey("backup")].toBool());
         QVERIFY(!values["preferences/windowSizeEnabled"].toBool());
         QVERIFY(!values["preferences/debugIsoCreatorEnabled"].toBool());
         values["preferences/debugIsoCreatorEnabled"] = true;
@@ -97,30 +104,65 @@ private slots:
         auto saved = AppPreferences::defaults(); saved["preferences/autoSaveEnabled"] = false;
         int writes = 0;
         PreferencesDialog dialog(saved, [&](const auto &values) { saved = values; ++writes; return true; });
-        for (const auto &tab : AppPreferences::tabs()) dialog.findChild<QCheckBox *>("tabs_" + tab.id)->setChecked(false);
-        QVERIFY(!control<QPushButton>(dialog, "preferencesApply")->isEnabled());
-        QVERIFY(!control<QPushButton>(dialog, "preferencesDone")->isEnabled());
+        auto *shown = control<QListWidget>(dialog, "preferencesShownTools");
+        auto *hidden = control<QListWidget>(dialog, "preferencesHiddenTools");
+        shown->selectAll();
+        control<QPushButton>(dialog, "preferencesHideTools")->click();
+        QCOMPARE(shown->count(), 0);
+        QCOMPARE(hidden->count(), AppPreferences::tools().count());
+        QVERIFY(control<QPushButton>(dialog, "preferencesApply")->isEnabled());
         QCOMPARE(writes, 0);
-        control<QCheckBox>(dialog, "tabs_networkTab")->setChecked(true);
         auto *startup = control<QComboBox>(dialog, "preferences_startupTab");
-        QCOMPARE(startup->count(), 2);
+        QCOMPARE(startup->count(), 1);
         QCOMPARE(startup->currentData().toString(), QString("home"));
         control<QPushButton>(dialog, "preferencesApply")->click();
         QCOMPARE(writes, 1);
         QCOMPARE(saved["preferences/startupTab"].toString(), QString("home"));
+        hidden->clearSelection();
+        for (int i = 0; i < hidden->count(); ++i)
+            if (hidden->item(i)->data(Qt::UserRole).toString() == "network") hidden->item(i)->setSelected(true);
+        control<QPushButton>(dialog, "preferencesShowTools")->click();
+        QCOMPARE(shown->count(), 1); QCOMPARE(startup->count(), 2);
+        control<QPushButton>(dialog, "preferencesApply")->click();
+        QCOMPARE(writes, 2);
+        QVERIFY(saved[AppPreferences::toolKey("network")].toBool());
+        QVERIFY(!saved[AppPreferences::toolKey("firewall")].toBool());
     }
 
     void bulkWorkspaceChangesSaveOnce() {
-        auto saved = AppPreferences::defaults(); saved["preferences/startupTab"] = "isoCreatorTab";
+        auto saved = AppPreferences::defaults(); saved["preferences/startupTab"] = "iso";
         int writes = 0;
         PreferencesDialog dialog(saved, [&](const auto &values) { saved = values; ++writes; return true; });
         control<QPushButton>(dialog, "preferencesEssentials")->click();
         QCOMPARE(writes, 1);
         QCOMPARE(saved["preferences/startupTab"].toString(), QString("home"));
-        QVERIFY(!saved["tabs/isoCreatorTab"].toBool());
+        QVERIFY(!saved[AppPreferences::toolKey("iso")].toBool());
         control<QPushButton>(dialog, "preferencesShowAll")->click();
         QCOMPARE(writes, 2);
-        for (const auto &tab : AppPreferences::tabs()) QVERIFY(saved["tabs/" + tab.id].toBool());
+        for (const auto &tool : AppPreferences::tools()) QVERIFY(saved[AppPreferences::toolKey(tool.id)].toBool());
+    }
+
+    void individualVisibilityOverridesLegacyFamilyAndPersists() {
+        QTemporaryDir directory;
+        QSettings settings(directory.filePath("settings.ini"), QSettings::IniFormat);
+        settings.setValue("tabs/networkTab", false);
+        settings.setValue("preferences/startupTab", "firewallSubTab");
+        auto values = AppPreferences::read(settings);
+        QVERIFY(!values[AppPreferences::toolKey("network")].toBool());
+        QVERIFY(!values[AppPreferences::toolKey("firewall")].toBool());
+        QCOMPARE(values["preferences/startupTab"].toString(), QString("home"));
+        values[AppPreferences::toolKey("firewall")] = true;
+        values["appearance/showWindowControls"] = false;
+        values["preferences/startupTab"] = "firewall";
+        QVERIFY(AppPreferences::write(settings, values));
+        QSettings reopened(settings.fileName(), QSettings::IniFormat);
+        QCOMPARE(AppPreferences::read(reopened), values);
+        PreferencesDialog dialog(values, [](const auto &) { return true; });
+        QVERIFY(!control<QCheckBox>(dialog, "appearance_showWindowControls")->isChecked());
+        auto *shown = control<QListWidget>(dialog, "preferencesShownTools");
+        QVERIFY(!shown->findItems("Firewall", Qt::MatchExactly).isEmpty());
+        QVERIFY(shown->findItems("Network", Qt::MatchExactly).isEmpty());
+        QCOMPARE(control<QComboBox>(dialog, "preferences_startupTab")->currentData().toString(), QString("firewall"));
     }
 
     void resettingAPageStagesOnlyThatPage() {

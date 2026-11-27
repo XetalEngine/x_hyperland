@@ -91,6 +91,15 @@ These policies manage application windows. Menus, tooltips and desktop panels ke
 
 To disable the added bar, open its **gear**, uncheck **Add a title bar above the app**, choose **Only this window** or **All windows of this app**, and **Apply**. Individual choices are remembered by application, window identity and occurrence; app choices cover all matching windows. Both are included in **Default Settings** archives. KDE returns to its overlay controls for that window/app. Hold Super to reach the gear again when those controls are hidden. KDE choices stay separate from the other modes.
 
+Fresh installations give Fusion Files, Fusion Settings, Control Panel and KVM
+Settings the added KDE title bar and hide their built-in window buttons. The gear
+editor can change the title bar independently. Use **Settings → Appearance** to
+show/hide the built-in buttons (Files uses **Configure → Browsing → Appearance**).
+Control Panel, Fusion Settings and KVM Settings also offer **Settings → Workspace**
+with Shown/Hidden lists and arrows for choosing which tools or pages appear.
+The header Settings button stays available, and all choices are covered by
+**Default Settings**, including factory reset.
+
 Outside KDE mode, the workspace's **Force modifier buttons** menu independently selects **Individual** (your app/window choices), **On** (shared, always-visible controls), or **Off** (hide all Fusion overlay buttons, including under Super). KDE temporarily uses its own settings and preserves that workspace choice for when you leave KDE mode.
 
 <details>

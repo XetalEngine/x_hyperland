@@ -4,6 +4,25 @@ Open **Apps → Control Panel**, immediately above Fusion Settings. It opens as 
 
 The minus button hides the panel while its work continues. Open Control Panel from Apps again to return to the same instance and tool.
 
+The header **Settings** button opens Control Panel Settings. In **Appearance**,
+turn **Show window buttons (minimize, maximize/restore, close)** on or off; the
+header closes the gap immediately and restores the space when you turn them back
+on. In KDE mode, the window's gear editor also supports **Add a title bar above
+the app**, independently of these built-in buttons. Hold Super to reach the gear
+when the title bar and overlay controls are off.
+Fresh installations start with the built-in buttons hidden and the added KDE
+title bar enabled, matching Fusion Files, Fusion Settings and KVM Settings.
+
+In **Settings → Workspace**, select tools in the left **Shown** pane and click
+**→** to hide them, or select tools in the right **Hidden** pane and click **←**
+to show them again. Ctrl/Shift selection moves several at once. Hidden tools
+disappear from the home page and its search; their saved Apps shortcuts continue
+to work. Empty categories disappear too. **Show all** restores every home tool,
+and the header Settings button remains available even if every tile is hidden.
+The existing automatic-save preference also applies here; with it off, use Apply
+or Save & Close. These choices are included in Fusion Settings → Default Settings
+under **Control Panel & desktop tools**.
+
 Click the star at the right of any tool tile to add a direct shortcut to **Apps → Favorites**. A filled star means it is saved; click again to remove the pin. Launching that favorite opens the specific page in the existing Control Panel window. Stars stay in sync with changes made in Apps, and saved favorites survive desktop updates.
 
 The Start menu also searches Control Panel tools alongside installed apps and Fusion Settings destinations. Search a name or purpose, such as `grub`, `rdp` or `governor`, to open the corresponding page directly.

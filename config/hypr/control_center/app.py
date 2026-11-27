@@ -14,7 +14,7 @@ import subprocess
 import sys
 import uuid
 
-from PyQt6.QtCore import Qt, QTimer, QRunnable, QThreadPool, QObject, pyqtSignal, QPropertyAnimation, QEasingCurve, QFileSystemWatcher, QStandardPaths, QSize
+from PyQt6.QtCore import Qt, QTimer, QRunnable, QThreadPool, QObject, pyqtSignal, QPropertyAnimation, QEasingCurve, QFileSystemWatcher, QStandardPaths, QSize, QSignalBlocker
 from PyQt6.QtGui import QFont, QKeySequence, QShortcut, QColor, QPalette, QTextCharFormat
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
@@ -35,6 +35,7 @@ from page import ThemePage
 from audio_page import AudioSettingsPage, STYLE as AUDIO_STYLE
 from context_menu_page import ContextMenuPage, STYLE as CONTEXT_STYLE
 from window_chrome import window_controls
+from interface_settings import InterfaceSettingsDialog, read_preferences
 from fusion_about import about_menu
 import wheel_guard
 from home_page import HomePage
@@ -1116,6 +1117,8 @@ class Window(QMainWindow):
         self.setMinimumSize(1040, 650)
         self.initial_size_pending = True
         self.navigation_width = 0
+        self.interface_path = keys.ROOT / 'control_center/state/interface.json'
+        self.interface_preferences = read_preferences(self.interface_path)
         root = QWidget();root.setObjectName('controlRoot')
         layout = QVBoxLayout(root)
         layout.setContentsMargins(18, 16, 18, 14)
@@ -1129,8 +1132,12 @@ class Window(QMainWindow):
         self.about_menu=about_menu(self, 'Fusion Settings',
                                   'Make Hyper Fusion your own: themes, shortcuts, audio and more.')
         header.addWidget(self.about_menu)
+        self.app_settings_button = button('Settings', self.open_interface_settings)
+        self.app_settings_button.setObjectName('appSettingsButton')
+        self.app_settings_button.setToolTip('Window buttons and shown pages')
+        header.addWidget(self.app_settings_button)
         self.window_controls=window_controls(self,title='Close Fusion Settings');self.close_button=self.window_controls.close
-        header.addSpacing(12);header.addWidget(self.window_controls)
+        header.addWidget(self.window_controls)
         layout.addLayout(header)
         self.tabs = QTabWidget()
         audio=AudioSettingsPage(async_run)
@@ -1163,6 +1170,12 @@ class Window(QMainWindow):
         self.home=HomePage(self.switch,async_run,launch)
         self.home.setParent(self.tabs);self.home.hide()
         self.pages['home']=self.home
+        self.empty_page = QWidget()
+        empty_layout = QVBoxLayout(self.empty_page); empty_layout.addStretch()
+        hint = label('Your pages are hidden. Open Settings → Workspace to show them again.', 'muted')
+        hint.setWordWrap(True); hint.setAlignment(Qt.AlignmentFlag.AlignCenter); empty_layout.addWidget(hint)
+        empty_layout.addWidget(button('Open Settings', self.open_interface_settings), 0, Qt.AlignmentFlag.AlignCenter)
+        empty_layout.addStretch(); self.tabs.addTab(self.empty_page, 'Settings')
         self.setCentralWidget(root)
         self.hints = None
         self.fade = None
@@ -1190,6 +1203,31 @@ class Window(QMainWindow):
         self.show()
         self.raise_()
         self.activateWindow()
+
+    def open_interface_settings(self):
+        entries = [(name, 'Recorder' if name == 'capture' else name.replace('-', ' ').title(),
+                    navigation_icon(name, theme_runtime.colors()['Accent']), '') for name in self.pages]
+        InterfaceSettingsDialog('Fusion Settings', self.interface_path, entries,
+                                self.apply_interface_preferences, self).exec()
+
+    def apply_interface_preferences(self, values=None):
+        if values is not None: self.interface_preferences = values
+        hidden = set(self.interface_preferences['hidden_pages'])
+        self.window_controls.setVisible(self.interface_preferences['show_window_controls'])
+        current = self.tabs.currentWidget()
+        with QSignalBlocker(self.tabs):
+            for name, page in self.pages.items():
+                index = self.tabs.indexOf(page)
+                if index >= 0: self.tabs.setTabVisible(index, name not in hidden)
+                self.rail_buttons[name].setVisible(name not in hidden)
+            available = [page for name, page in self.pages.items() if name not in hidden and self.tabs.indexOf(page) >= 0]
+            self.tabs.setTabVisible(self.tabs.indexOf(self.empty_page), not available)
+            if not available: self.tabs.setCurrentWidget(self.empty_page)
+            elif current not in available: self.tabs.setCurrentWidget(available[0])
+        for image, target in self.home.quick_buttons:
+            image.parentWidget().setVisible(target not in hidden)
+        self.update_navigation()
+        if current is not self.tabs.currentWidget(): self.changed()
 
     def size_for_first_open(self, page):
         # A preloaded window has no chosen page yet. Size the first real
@@ -1244,8 +1282,8 @@ class Window(QMainWindow):
 
     def update_navigation(self):
         modern=theme_runtime.layout()!='classic';current=self.tabs.currentWidget()
-        name=next((name for name,page in self.pages.items() if page is current),'hotkeys')
-        if modern:self.brand.setText(('Recorder' if name == 'capture' else name.replace('-',' ').title()))
+        name=next((name for name,page in self.pages.items() if page is current),'')
+        if modern:self.brand.setText(('Recorder' if name == 'capture' else name.replace('-',' ').title()) if name else 'Fusion Settings')
         for key,control in self.rail_buttons.items():
             selected=key==name;control.setChecked(selected)
             control.setIcon(navigation_icon(key,theme_runtime.colors()['HighlightedText' if selected else 'Accent']))
@@ -1278,6 +1316,7 @@ class Window(QMainWindow):
         self.eyebrow.setVisible(not modern);self.header_hint.setVisible(not modern)
         if not modern:self.brand.setText('Fusion Settings')
         self.rail_avatar.refresh();self.home.update_design();self.pages['system'].update_design();self.update_navigation();self.changing_design=False
+        self.apply_interface_preferences()
         self.fit_navigation(choice)
 
     def fit_navigation(self, choice):

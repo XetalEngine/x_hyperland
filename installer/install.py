@@ -29,7 +29,7 @@ sys.path.insert(0, str(PAYLOAD/'compat'))
 import hypr_compat
 sys.path.insert(0, str(PAYLOAD))
 from dolphin import profile as dolphin_profile
-from settings_profiles.factory import LAUNCHER_DEFAULTS, THEME_DEFAULTS, WALLPAPER_DEFAULTS, KDE_APP_DEFAULTS
+from settings_profiles.factory import LAUNCHER_DEFAULTS, THEME_DEFAULTS, WALLPAPER_DEFAULTS, KDE_APP_DEFAULTS, APP_INTERFACE_DEFAULTS
 
 DOLPHIN_DEFAULTS = {'dolphin/config/dolphinrc', 'dolphin/config/kdeglobals',
                     'dolphin/config/kservicemenurc',
@@ -118,6 +118,9 @@ def render(stage, home, monitors, profile='auto', *, preserve_theme=False):
     (stage/'theme/icons.json').write_text(json.dumps({'version':1,'system':'other','other':'theme:Papirus-Dark','overrides':{}},indent=2)+'\n')
     (stage/'effects/window_close/kde-rules.json').write_text(json.dumps(
         {'version':1,'apps':KDE_APP_DEFAULTS},indent=2)+'\n')
+    for name, defaults in APP_INTERFACE_DEFAULTS.items():
+        path = stage/name; path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(defaults if isinstance(defaults, bytes) else (json.dumps(defaults, indent=2)+'\n').encode())
     for name, defaults in LAUNCHER_DEFAULTS.items():
         (stage/'launcher'/name).write_text(json.dumps(defaults, indent=2)+'\n')
     # Cover every numbered workspace, including later +/Cube/monitor additions,

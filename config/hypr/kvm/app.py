@@ -28,6 +28,7 @@ import runtime as desktop_theme
 import wheel_guard
 from icons import icon
 from window_chrome import window_controls,toggle_maximized
+from interface_settings import InterfaceSettingsDialog, read_preferences
 from fusion_about import about_menu
 from package_ui import PackagesPanel
 from account_ui import AccountHeader
@@ -49,6 +50,8 @@ class KVMSettings(VMStart2):
     def __init__(self):
         super().__init__()
         self.setWindowFlags(Qt.WindowType.Window|Qt.WindowType.FramelessWindowHint)
+        self.interface_path = ROOT / 'state/interface.json'
+        self.interface_preferences = read_preferences(self.interface_path, ('Wizard',))
         self.setMinimumSize(800,560)
         self.theme_bar.hide()
         brand=self.findChild(QLabel,'appLogo');brand.setPixmap(vmstart2.QPixmap());brand.setText('KVM Settings')
@@ -75,6 +78,11 @@ class KVMSettings(VMStart2):
             else:actions.addItem(item)
         bar.insertWidget(bar.indexOf(self.window_controls),self.account_actions)
         self.account_actions.setSizePolicy(QSizePolicy.Policy.Maximum,QSizePolicy.Policy.Fixed)
+        self.app_settings_button = QPushButton('Settings')
+        self.app_settings_button.setObjectName('appSettingsButton')
+        self.app_settings_button.setToolTip('Window buttons and shown pages')
+        self.app_settings_button.clicked.connect(self.open_interface_settings)
+        bar.insertWidget(bar.indexOf(self.window_controls), self.app_settings_button)
         self.account_row=QHBoxLayout();self.account_row.setContentsMargins(0,0,0,0);self.account_row.addStretch()
         self.centralWidget().layout().insertLayout(1,self.account_row)
         self._account_wrapped=False
@@ -89,6 +97,22 @@ class KVMSettings(VMStart2):
             self._select_tab_by_name('Wizard')
         import health
         health.install(self)
+        self.apply_interface_preferences()
+
+    def open_interface_settings(self):
+        from navigation import PAGES
+        entries = [(key, self.navigation.items[key].text(), self.navigation.items[key].icon(), description)
+                   for key, group, title, description, keywords in PAGES if key not in self.navigation.blocked_pages]
+        InterfaceSettingsDialog('KVM Settings', self.interface_path, entries,
+                                self.apply_interface_preferences, self, ('Wizard',)).exec()
+
+    def apply_interface_preferences(self, values=None):
+        if values is not None: self.interface_preferences = values
+        self.window_controls.setVisible(self.interface_preferences['show_window_controls'])
+        # Wizard remains hidden initially, but can now be added to navigation.
+        self.navigation.hidden_pages.clear()
+        self.navigation.set_user_hidden_pages(self.interface_preferences['hidden_pages'])
+        self._layout_account_actions()
 
     def _refresh_all(self):
         if hasattr(self,'cfg'):

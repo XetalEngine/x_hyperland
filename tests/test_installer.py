@@ -130,7 +130,8 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(set(document['categories']), catalog.USER_IDS)
         files = {r['path']:r for r in document['files'] if r['scope'] == 'profile'}
         for name in ('control_center/displays.conf', 'control_center/input.conf', 'effects/window_close/behavior-settings.json',
-                     'theme/state.json', 'wallpaper/selection.json', 'launcher/bar-pins.json', 'effects/window_close/kde-rules.json'):
+                     'theme/state.json', 'wallpaper/selection.json', 'launcher/bar-pins.json', 'effects/window_close/kde-rules.json',
+                     *install.APP_INTERFACE_DEFAULTS):
             saved, actual = blobs[files[name]['sha256']], (self.stage/name).read_bytes()
             self.assertEqual(json.loads(saved) if name.endswith('.json') else saved,
                              json.loads(actual) if name.endswith('.json') else actual, name)
@@ -140,6 +141,19 @@ class InstallerTests(unittest.TestCase):
             self.assertTrue(set(names) <= ignored)
         self.assertNotIn('effects/window_close/saved-windows.json', files)
         self.assertNotIn('settings_profiles/audio.json', files)
+
+    def test_fresh_apps_use_external_titlebars_and_hidden_builtin_buttons(self):
+        self.render()
+        bars = json.loads((self.stage/'effects/window_close/kde-rules.json').read_text())['apps']
+        for name in ('xetal-files', 'xetal-files-external', 'hypr-control', 'xetal-control-panel', 'xetal-kvm-settings'):
+            self.assertTrue(bars[name]['titlebar'], name)
+            self.assertEqual(bars[name]['mode'], 'off', name)
+        import configparser
+        for name in ('file_manager/state/settings.ini', 'control_panel/state/XetalHyperland/ControlPanel.conf'):
+            settings = configparser.ConfigParser(); settings.read(self.stage/name)
+            self.assertFalse(settings.getboolean('appearance', 'showWindowControls'))
+        for name in ('control_center/state/interface.json', 'kvm/state/interface.json'):
+            self.assertFalse(json.loads((self.stage/name).read_text())['show_window_controls'])
 
     def test_clipboard_and_snapping_are_delivered_without_private_history(self):
         self.render()

@@ -57,9 +57,45 @@ QList<AppPreferences::Tab> AppPreferences::tabs() {
     };
 }
 
+QList<AppPreferences::Tool> AppPreferences::tools() {
+    QFile file(HyperPanel::root() + "/control_panel/tools.json");
+    if (!file.open(QIODevice::ReadOnly)) return {};
+    QList<Tool> result;
+    for (const auto &group : QJsonDocument::fromJson(file.readAll()).array())
+        for (const auto &entry : group.toObject()["tools"].toArray()) {
+            const auto value = entry.toObject();
+            Tool tool{value["id"].toString(), value["title"].toString(),
+                      value["description"].toString(), value["icon"].toString(), {}};
+            for (const auto &name : value["path"].toArray()) tool.path << name.toString();
+            if (!tool.id.isEmpty()) result.append(tool);
+        }
+    return result;
+}
+
+QString AppPreferences::toolKey(const QString &id) { return "tools/visible/" + id; }
+
+bool AppPreferences::toolVisible(QSettings &settings, const Tool &tool) {
+    const auto key = toolKey(tool.id);
+    if (settings.contains(key)) return settings.value(key).toBool();
+    // Keep older family choices until an individual tool choice is saved.
+    for (const auto &name : tool.path)
+        if (!settings.value("tabs/" + name, true).toBool()) return false;
+    return true;
+}
+
+QString AppPreferences::startupTool(const QString &value) {
+    const auto catalog = tools();
+    for (const auto &tool : catalog) if (tool.id == value && !tool.path.isEmpty()) return value;
+    // Previous versions stored backend tab names, sometimes a parent tab.
+    for (const auto &tool : catalog) if (tool.path.contains(value)) return tool.id;
+    if (value == "uninstallTab" || value == "pacmanDoctorTab") return "software";
+    return "home";
+}
+
 QVariantMap AppPreferences::defaults() {
     QVariantMap values{
         {"preferences/windowSizeEnabled", true}, {"preferences/autoSaveEnabled", true},
+        {"appearance/showWindowControls", true},
         {"preferences/debugIsoCreatorEnabled", false}, {"preferences/startupTab", "home"},
         {"language/code", "en"}, {"theme/preset", 0}, {"theme/accent", "#27ae60"},
         {"theme/background", ""}, {"theme/text", ""},
@@ -69,6 +105,7 @@ QVariantMap AppPreferences::defaults() {
         {"defaults/iso/folderMinimumMB", 500}, {"defaults/iso/fileMinimumMB", 100},
     };
     for (const auto &tab : tabs()) values.insert("tabs/" + tab.id, true);
+    for (const auto &tool : tools()) values.insert(toolKey(tool.id), true);
     return values;
 }
 
@@ -100,7 +137,9 @@ QVariantMap AppPreferences::read(QSettings &settings) {
     QStringList visible;
     for (const auto &tab : tabs()) if (values["tabs/" + tab.id].toBool()) visible << tab.id;
     if (visible.isEmpty()) { values["tabs/dashboardTab"] = true; visible << "dashboardTab"; }
-    if (values["preferences/startupTab"] != "home" && !visible.contains(values["preferences/startupTab"].toString())) values["preferences/startupTab"] = "home";
+    for (const auto &tool : tools()) values[toolKey(tool.id)] = toolVisible(settings, tool);
+    const auto startup = startupTool(values["preferences/startupTab"].toString());
+    values["preferences/startupTab"] = values.value(toolKey(startup), false).toBool() ? startup : "home";
     return values;
 }
 
@@ -127,7 +166,7 @@ bool AppPreferences::write(QSettings &settings, const QVariantMap &values) {
 PreferencesDialog::PreferencesDialog(const QVariantMap &values, Save save, QWidget *parent)
     : QDialog(parent), m_saved(values), m_draft(values), m_save(std::move(save)) {
     setObjectName("preferencesDialog");
-    setWindowTitle(tr("Preferences"));
+    setWindowTitle(tr("Control Panel Settings"));
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
     setMinimumSize(720, 520);
     auto *outer = new QVBoxLayout(this);
@@ -135,7 +174,7 @@ PreferencesDialog::PreferencesDialog(const QVariantMap &values, Save save, QWidg
     outer->setSpacing(18);
     auto *header = new QHBoxLayout;
     auto *titles = new QVBoxLayout;
-    auto *title = new QLabel(tr("Preferences"), this);
+    auto *title = new QLabel(tr("Control Panel Settings"), this);
     title->setObjectName("preferencesTitle");
     titles->addWidget(title);
     titles->addWidget(hint(tr("Your workspace. Your way."), this));
@@ -332,6 +371,10 @@ void PreferencesDialog::buildGeneral() {
 
 void PreferencesDialog::buildAppearance() {
     int nativePage = addPage(tr("Appearance"), tr("Follows your Hyprland desktop theme."), "preferences-desktop-theme");
+    auto *controls = addCard(nativePage, tr("Window buttons"));
+    addCheck(controls, "appearance/showWindowControls", tr("Show window buttons (minimize, maximize/restore, close)"),
+             tr("The header makes room automatically. Settings stays available when the buttons are hidden."));
+    controls->layout()->addWidget(hint(tr("In KDE mode, use the window's gear menu to add a title bar above the app. Hold Super to reach the gear when the title bar and overlay controls are off."), controls));
     auto *nativeCard = addCard(nativePage, tr("Desktop appearance"), tr("Desktop themes, including Binary Knife, are managed in Fusion Settings."));
     m_themePreview = new QWidget(nativeCard); m_themePreview->hide();
     auto *openTheme = new QPushButton(tr("Open Fusion Settings theme settings"), nativeCard);
@@ -385,8 +428,9 @@ void PreferencesDialog::buildAppearance() {
 }
 
 void PreferencesDialog::buildWorkspace() {
-    int page = addPage(tr("Workspace"), tr("Choose which tools appear in the main window. Keep at least one tool family visible."), "view-grid");
-    auto *card = addCard(page, tr("Visible tool families"));
+    int page = addPage(tr("Workspace"), tr("Choose which tools appear on your Control Panel home page and in its search."), "view-grid");
+    auto *card = addCard(page, tr("Shown and hidden tools"),
+                         tr("Select tools, then use the arrows to move them. The header Settings button is always available."));
     auto *layout = qobject_cast<QVBoxLayout *>(card->layout());
     auto *actions = new QHBoxLayout;
     m_tabCount = hint({}, card);
@@ -396,34 +440,95 @@ void PreferencesDialog::buildWorkspace() {
         button->setObjectName(preset.second ? "preferencesShowAll" : "preferencesEssentials");
         actions->addWidget(button);
         connect(button, &QPushButton::clicked, this, [this, all = preset.second]() {
-            const QStringList essentials{"dashboardTab", "driveToolsTab", "servicesTab", "logsTab", "packageManagerTab", "networkTab"};
-            for (const auto &tab : AppPreferences::tabs()) m_draft["tabs/" + tab.id] = all || essentials.contains(tab.id);
+            const QStringList essentials{"overview", "drives", "services", "autostart", "logs", "updates", "network", "preferences"};
+            for (const auto &tool : AppPreferences::tools()) m_draft[AppPreferences::toolKey(tool.id)] = all || essentials.contains(tool.id);
             loadWidgets(); edited();
         });
     }
     layout->addLayout(actions);
-    auto *grid = new QGridLayout;
-    grid->setHorizontalSpacing(18); grid->setVerticalSpacing(8);
-    int index = 0;
-    for (const auto &tab : AppPreferences::tabs()) {
-        auto *cell = new QWidget(card);
-        auto *cellLayout = new QVBoxLayout(cell);
-        cellLayout->setContentsMargins(0, 0, 0, 0); cellLayout->setSpacing(3);
-        auto *box = new QCheckBox(tab.title, cell);
-        QString key = "tabs/" + tab.id;
-        registerControl(card, key, box);
-        box->setToolTip(tab.description);
-        cellLayout->addWidget(box);
-        cellLayout->addWidget(hint(tab.description, cell));
-        grid->addWidget(cell, index / 2, index % 2);
-        ++index;
-        connect(box, &QCheckBox::toggled, this, [this, key](bool checked) {
-            if (m_loading) return;
-            m_draft[key] = checked; edited();
-        });
+    auto *lists = new QHBoxLayout;
+    auto pane = [&](const QString &name, const QString &title, QLabel *&count) {
+        auto *column = new QVBoxLayout;
+        count = new QLabel(title, card);
+        column->addWidget(count);
+        auto *list = new QListWidget(card);
+        list->setObjectName(name);
+        list->setAccessibleName(title);
+        list->setSelectionMode(QAbstractItemView::ExtendedSelection);
+        list->setIconSize(QSize(22, 22));
+        list->setSpacing(3);
+        list->setMinimumWidth(0);
+        list->setMinimumHeight(250);
+        list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        list->setTextElideMode(Qt::ElideRight);
+        list->setSortingEnabled(true);
+        column->addWidget(list, 1);
+        lists->addLayout(column, 1);
+        return list;
+    };
+    m_shownTools = pane("preferencesShownTools", tr("Shown"), m_shownCount);
+    auto *arrows = new QVBoxLayout;
+    arrows->addStretch();
+    m_hideTools = new QPushButton(QString::fromUtf8("→"), card);
+    m_showTools = new QPushButton(QString::fromUtf8("←"), card);
+    m_hideTools->setObjectName("preferencesHideTools");
+    m_showTools->setObjectName("preferencesShowTools");
+    m_hideTools->setToolTip(tr("Hide selected tools"));
+    m_showTools->setToolTip(tr("Show selected tools"));
+    for (auto *button : {m_hideTools, m_showTools}) {
+        button->setAccessibleName(button->toolTip());
+        button->setFixedSize(40, 36);
+        button->setAutoDefault(false);
+        arrows->addWidget(button);
     }
-    grid->setColumnStretch(0, 1); grid->setColumnStretch(1, 1);
-    layout->addLayout(grid);
+    arrows->addStretch();
+    lists->addLayout(arrows);
+    m_hiddenTools = pane("preferencesHiddenTools", tr("Hidden"), m_hiddenCount);
+    layout->addLayout(lists);
+    connect(m_hideTools, &QPushButton::clicked, this, [this] { moveTools(false); });
+    connect(m_showTools, &QPushButton::clicked, this, [this] { moveTools(true); });
+    connect(m_shownTools, &QListWidget::itemSelectionChanged, this, [this] { m_hideTools->setEnabled(!m_shownTools->selectedItems().isEmpty()); });
+    connect(m_hiddenTools, &QListWidget::itemSelectionChanged, this, [this] { m_showTools->setEnabled(!m_hiddenTools->selectedItems().isEmpty()); });
+    for (const auto &tool : AppPreferences::tools()) m_sections[page].keys.append(AppPreferences::toolKey(tool.id));
+
+    // These sections have no separate home tile. Keep their existing choices.
+    auto *sections = addCard(page, tr("Software sections"));
+    addCheck(sections, "tabs/uninstallTab", tr("Show Installed Software"));
+    addCheck(sections, "tabs/pacmanDoctorTab", tr("Show Package Repair"));
+}
+
+void PreferencesDialog::loadToolLists() {
+    m_shownTools->clear(); m_hiddenTools->clear();
+    for (const auto &tool : AppPreferences::tools()) {
+        const bool shown = m_draft.value(AppPreferences::toolKey(tool.id), true).toBool();
+        auto *item = new QListWidgetItem(QIcon::fromTheme(tool.icon), tool.title, shown ? m_shownTools : m_hiddenTools);
+        item->setData(Qt::UserRole, tool.id);
+        item->setToolTip(tool.title + "\n" + tool.description);
+        item->setSizeHint(QSize(0, 34));
+    }
+    m_shownCount->setText(tr("Shown · %1").arg(m_shownTools->count()));
+    m_hiddenCount->setText(tr("Hidden · %1").arg(m_hiddenTools->count()));
+    m_tabCount->setText(tr("%1 of %2 tools shown").arg(m_shownTools->count()).arg(m_shownTools->count() + m_hiddenTools->count()));
+    m_hideTools->setEnabled(false); m_showTools->setEnabled(false);
+}
+
+void PreferencesDialog::moveTools(bool show) {
+    auto *source = show ? m_hiddenTools : m_shownTools;
+    QStringList moved;
+    for (auto *item : source->selectedItems()) {
+        const auto id = item->data(Qt::UserRole).toString();
+        m_draft[AppPreferences::toolKey(id)] = show;
+        moved << id;
+    }
+    if (moved.isEmpty()) return;
+    const int next = source->currentRow();
+    loadToolLists();
+    if (source->count()) source->setCurrentRow(qBound(0, next, source->count() - 1));
+    auto *destination = show ? m_shownTools : m_hiddenTools;
+    for (int i = 0; i < destination->count(); ++i)
+        destination->item(i)->setSelected(moved.contains(destination->item(i)->data(Qt::UserRole).toString()));
+    source->setFocus();
+    edited();
 }
 
 void PreferencesDialog::buildTools() {
@@ -458,6 +563,7 @@ void PreferencesDialog::loadWidgets() {
         else if (auto *spin = qobject_cast<QSpinBox *>(it.value())) spin->setValue(value.toInt());
     }
     m_loading = false;
+    loadToolLists();
     updateStartupChoices();
     updateThemePreview();
     m_controls["defaults/drives/minimumMB"]->setEnabled(m_draft["defaults/drives/minimumEnabled"].toBool());
@@ -467,12 +573,13 @@ void PreferencesDialog::updateStartupChoices() {
     auto *combo = qobject_cast<QComboBox *>(m_controls["preferences/startupTab"]);
     QSignalBlocker blocker(combo);
     combo->clear();combo->addItem(tr("Control Panel — all tools"),"home");
-    for (const auto &tab : AppPreferences::tabs()) if (m_draft["tabs/" + tab.id].toBool()) combo->addItem(tab.title, tab.id);
+    for (const auto &tool : AppPreferences::tools())
+        if (!tool.path.isEmpty() && m_draft.value(AppPreferences::toolKey(tool.id), true).toBool()) combo->addItem(tool.title, tool.id);
+    m_draft["preferences/startupTab"] = AppPreferences::startupTool(m_draft["preferences/startupTab"].toString());
     int index = combo->findData(m_draft["preferences/startupTab"]);
     if (index < 0 && combo->count()) index = 0;
     combo->setCurrentIndex(index);
     if (index >= 0) m_draft["preferences/startupTab"] = combo->currentData();
-    m_tabCount->setText(tr("%1 of %2 tool families visible").arg(combo->count()-1).arg(AppPreferences::tabs().size()));
 }
 
 void PreferencesDialog::updateThemePreview() {
@@ -554,8 +661,7 @@ void PreferencesDialog::styleDialog() {
 }
 
 QString PreferencesDialog::validationError() const {
-    for (const auto &tab : AppPreferences::tabs()) if (m_draft.value("tabs/" + tab.id).toBool()) return {};
-    return tr("Keep at least one workspace tab visible.");
+    return {}; // Home and the header Settings button remain usable with every tool hidden.
 }
 
 void PreferencesDialog::edited(bool stageOnly) {
@@ -599,6 +705,7 @@ void PreferencesDialog::resetPage() {
     if (page < 0 || page >= m_sections.size()) return;
     const auto defaults = AppPreferences::defaults();
     for (const auto &key : m_sections[page].keys) m_draft[key] = defaults[key];
+    if (m_sections[page].keys.contains("appearance/showWindowControls")) m_draft["appearance/showWindowControls"] = false;
     loadWidgets();
     edited(true);
 }
@@ -612,6 +719,8 @@ void PreferencesDialog::filter(const QString &query) {
         for (auto *box : card.widget->findChildren<QCheckBox *>()) text += ' ' + box->text() + ' ' + box->toolTip();
         for (auto *combo : card.widget->findChildren<QComboBox *>())
             for (int i = 0; i < combo->count(); ++i) text += ' ' + combo->itemText(i);
+        for (auto *list : card.widget->findChildren<QListWidget *>())
+            for (int i = 0; i < list->count(); ++i) text += ' ' + list->item(i)->text() + ' ' + list->item(i)->toolTip();
         bool match = true;
         for (const QString &word : words) if (!text.contains(word, Qt::CaseInsensitive)) match = false;
         card.widget->setVisible(match);

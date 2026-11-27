@@ -192,7 +192,8 @@ contrast still follow the desktop. Saving updates open Files windows without
 changing the desktop's theme or icon preferences. The choice is retained in
 `state/settings.ini` under `appearance/theme`, including across updates.
 **Browsing → Appearance → Show window buttons** controls the toolbar's minimize,
-maximize/restore and close buttons. They are shown by default. Hiding them also
+maximize/restore and close buttons. Fresh installs hide them and use the added
+KDE title bar; existing saved choices are retained. Hiding them also
 removes their separator and lets the address field and toolbar use the freed
 space; showing them again restores the layout. Save updates open Files windows
 and remembers the choice under `appearance/showWindowControls`.

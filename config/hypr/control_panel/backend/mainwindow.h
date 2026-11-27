@@ -134,6 +134,9 @@ public:
     void hyperSaveAliases();
     void hyperShortcut(const AliasEntry &entry);
     
+signals:
+    void preferencesChanged();
+
 protected:
     void closeEvent(QCloseEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;

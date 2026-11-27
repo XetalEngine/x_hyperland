@@ -18,6 +18,7 @@
 #include "../theme/window_chrome.hpp"
 #include "../theme/about.hpp"
 #include "backend/mainwindow.h"
+#include "backend/preferencesdialog.h"
 #include <QFileSystemWatcher>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -115,7 +116,14 @@ PanelController::PanelController(MainWindow *window)
   search->setClearButtonEnabled(true);
   search->setMaximumWidth(310);
   top->addWidget(search);
-  top->addWidget(new FusionChrome::Controls(owner));
+  auto *settingsButton = new QPushButton("Settings", header);
+  settingsButton->setObjectName("panelSettingsButton");
+  settingsButton->setIcon(QIcon::fromTheme("configure"));
+  settingsButton->setToolTip("Control Panel settings · window buttons and shown tools");
+  top->addWidget(settingsButton);
+  connect(settingsButton, &QPushButton::clicked, this, [this] { open("preferences"); });
+  windowControls = new FusionChrome::Controls(owner);
+  top->addWidget(windowControls);
   layout->addWidget(header);
   stack = new QStackedWidget(rootWidget);
   layout->addWidget(stack, 1);
@@ -162,6 +170,11 @@ PanelController::PanelController(MainWindow *window)
   connect(favorites, &ToolFavorites::failed, this, [this](const QString &error) {
     QMessageBox::warning(owner, "Could not update Favorites", error);
   });
+  homeEmpty = new QLabel(home);
+  homeEmpty->setObjectName("panelEmptyTools");
+  homeEmpty->setWordWrap(true);
+  homeEmpty->setAlignment(Qt::AlignCenter);
+  homeLayout->addWidget(homeEmpty);
   homeLayout->addStretch();
   homeScroll->setWidget(home);
   stack->addWidget(homeScroll);
@@ -210,6 +223,8 @@ PanelController::PanelController(MainWindow *window)
   layout->addLayout(footer);
   owner->setCentralWidget(rootWidget);
   prepareTools();
+  connect(owner, &MainWindow::preferencesChanged, this, &PanelController::refreshPreferences);
+  refreshPreferences();
   connect(back, &QPushButton::clicked, this, [this] { open(""); });
   connect(homeButton, &QPushButton::clicked, this, [this] { open(""); });
   connect(about, &QPushButton::clicked, this, [this] {
@@ -300,21 +315,8 @@ PanelController::PanelController(MainWindow *window)
   if (auto *screen = owner->screen())
     owner->resize(owner->size().boundedTo(screen->availableGeometry().size() -
                                           QSize(24, 48)));
-  const auto startup =
-      settings.value("preferences/startupTab", "home").toString();
-  if (startup == "uninstallTab" || startup == "pacmanDoctorTab") {
-    open(startup == "uninstallTab" ? "remove" : "repair");
-    goto startupDone;
-  }
-  for (const auto &group : groups)
-    for (const auto &tool : group.tools) {
-      auto path = tool.data["path"].toArray();
-      if (path.contains(startup)) {
-        open(tool.data["id"].toString());
-        goto startupDone;
-      }
-    }
-startupDone:
+  const auto startup = layoutPreferences.value("preferences/startupTab", "home").toString();
+  if (startup != "home") open(startup);
   QTimer::singleShot(0, this, [this] { arrange(); });
 }
 
@@ -513,11 +515,7 @@ void PanelController::arrange() {
     int index = 0;
     for (auto &tool : group.tools) {
       total++;
-      const auto path = tool.data["path"].toArray();
-      bool enabled = true;
-      QSettings settings("XetalHyperland", "ControlPanel");
-      for (const auto &name : path)
-        enabled &= settings.value("tabs/" + name.toString(), true).toBool();
+      const bool enabled = layoutPreferences.value(AppPreferences::toolKey(tool.data["id"].toString()), true).toBool();
       bool visible = enabled && (tool.data["title"].toString() + " " +
                                  tool.data["description"].toString() + " " +
                                  tool.data["keywords"].toString())
@@ -533,9 +531,18 @@ void PanelController::arrange() {
     for (int column = 0; column < 4; column++)
       group.grid->setColumnStretch(column, column < columns ? 1 : 0);
   }
-  count->setText(query.isEmpty()
+  count->setText(shown == total && query.isEmpty()
                      ? QString("%1 tools · CachyOsTools engine").arg(total)
-                     : QString("%1 of %2 tools").arg(shown).arg(total));
+                     : QString("%1 of %2 tools shown").arg(shown).arg(total));
+  homeEmpty->setText(query.isEmpty() ? "Your tools are hidden. Open Settings → Workspace to show them again."
+                                   : "No matching tools. Try another search, or show more tools in Settings → Workspace.");
+  homeEmpty->setVisible(shown == 0);
+}
+void PanelController::refreshPreferences() {
+  QSettings settings("XetalHyperland", "ControlPanel");
+  layoutPreferences = AppPreferences::read(settings);
+  windowControls->setVisible(layoutPreferences.value("appearance/showWindowControls", true).toBool());
+  arrange();
 }
 void PanelController::open(const QString &id) {
   if (id == "rdp-host") {
@@ -563,7 +570,7 @@ void PanelController::open(const QString &id) {
       if (tool.data["id"] == id) {
         if (id == "preferences") {
           QMetaObject::invokeMethod(owner, "on_actionShowHideTabs_triggered");
-          arrange();
+          refreshPreferences();
           return;
         }
         if (id == "desktop-updates") {
@@ -590,6 +597,8 @@ void PanelController::open(const QString &id) {
           }
           if (tabs->indexOf(page) < 0)
             tabs->addTab(page, tool.data["title"].toString());
+          // Hiding a home tile must not disable a tool or its saved shortcuts.
+          tabs->setTabVisible(tabs->indexOf(page), true);
           tabs->setCurrentWidget(page);
         }
         stack->setCurrentIndex(1);
@@ -614,6 +623,7 @@ QJsonObject PanelController::inventory() const {
           missing.append(name);
       item.insert("missing", missing);
       item.insert("hasIcon", QIcon::hasThemeIcon(item["icon"].toString()));
+      item.insert("shown", !tool.button->isHidden());
       tools.append(item);
     }
   QJsonObject views, tabs, cells;
@@ -641,6 +651,8 @@ QJsonObject PanelController::inventory() const {
       {"tools", tools},
       {"views", views}, {"tabs", tabs}, {"cellActions", cells},
       {"section", current}, {"startupScreen", startupScreen->isChecked()},
+      {"windowControlsShown", !windowControls->isHidden()},
+      {"settingsButtonAvailable", !owner->findChild<QWidget *>("panelSettingsButton")->isHidden()},
       {"settingsFile", QSettings("XetalHyperland", "ControlPanel").fileName()},
       {"title", owner->windowTitle()},
       {"width", owner->width()},

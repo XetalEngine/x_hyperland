@@ -8,6 +8,7 @@
 #include <QTabBar>
 #include <QTabWidget>
 #include <QVector>
+#include <QVariantMap>
 // Inactive tools must not impose their minimum size on the selected tool.
 class PanelTabs : public QTabWidget {
 public:
@@ -90,6 +91,9 @@ private:
   QCheckBox *numLockStartup;
   QLabel *numLockStatus;
   QLabel *crumb, *count;
+  QLabel *homeEmpty;
+  QWidget *windowControls;
+  QVariantMap layoutPreferences;
   QLineEdit *search;
   QPushButton *back;
   QProcess *themeProcess;
@@ -106,6 +110,7 @@ private:
   QVector<Group> groups;
   QString current;
   void arrange();
+  void refreshPreferences();
   void theme();
   void prepareTools();
   void loadStartupPreference();

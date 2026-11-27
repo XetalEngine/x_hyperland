@@ -107,6 +107,7 @@ void MainWindow::applyPreferenceValues(const QVariantMap &values, const QVariant
         if (changed("defaults/iso/folderMinimumMB")) isoExclusionsUi->isoFolderSizeSpin->setValue(values.value("defaults/iso/folderMinimumMB").toInt());
         if (changed("defaults/iso/fileMinimumMB")) isoExclusionsUi->isoFileSizeSpin->setValue(values.value("defaults/iso/fileMinimumMB").toInt());
     }
+    emit preferencesChanged();
 }
 
 void MainWindow::on_actionAbout_triggered() {

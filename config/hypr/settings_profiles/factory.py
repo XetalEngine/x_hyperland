@@ -16,6 +16,14 @@ THEME_DEFAULTS = dict(design='hp4', mode='dark', layout='sidebar', wallpaper_the
                       launcher_wallpaper=True, launcher_background='')
 WALLPAPER_DEFAULTS = dict(image='hp4/midnight-pit.png', fit='cover')
 
+# Existing profiles keep their familiar header; fresh installs and reset agree.
+APP_INTERFACE_DEFAULTS = {
+    'file_manager/state/settings.ini': b'[appearance]\nshowWindowControls=false\n',
+    'control_panel/state/XetalHyperland/ControlPanel.conf': b'[appearance]\nshowWindowControls=false\n',
+    'control_center/state/interface.json': dict(version=1, show_window_controls=False, hidden_pages=[]),
+    'kvm/state/interface.json': dict(version=1, show_window_controls=False, hidden_pages=['Wizard']),
+}
+
 
 def build(source, destination, home, *, rendered=False):
     """Called by foreground Setup before any recipient preference merge.
@@ -56,6 +64,7 @@ def build(source, destination, home, *, rendered=False):
     put('workspaces/rules.json', {'version': 1, 'default_layout': 'kde', 'workspaces': {}})
     put('effects/window_close/rules.json', {'version': 1, 'apps': {}})
     put('effects/window_close/kde-rules.json', {'version': 1, 'apps': KDE_APP_DEFAULTS})
+    for name, data in APP_INTERFACE_DEFAULTS.items(): put(name, data)
     # Always clear maintainer-owned choices which are explicitly not delivered.
     for name in ('theme/custom-presets.json', 'launcher/favorite-layout.json', 'launcher/floating-sizes.json',
                  'desktop_menu/icons.json', 'file_manager/automount.json', 'wallpaper/profiles.json'):

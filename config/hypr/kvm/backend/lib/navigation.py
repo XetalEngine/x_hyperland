@@ -84,6 +84,7 @@ class PageNavigation(QWidget):
         self.items = {}
         self.groups = {}
         self.hidden_pages = {"Wizard"}
+        self.user_hidden_pages = set()
         self.blocked_pages = {"Boot Arguments"}
         self.profile = "windows"
         for key, group, title, description, keywords in PAGES:
@@ -123,7 +124,7 @@ class PageNavigation(QWidget):
         return super().eventFilter(obj, event)
 
     def select(self, key):
-        if key == "Wizard":
+        if key in self.user_hidden_pages or (key == "Wizard" and key in self.hidden_pages):
             self.list.setCurrentRow(-1)
             return
         if key in self.blocked_pages:
@@ -147,13 +148,19 @@ class PageNavigation(QWidget):
             if self.profile == "macos" and key == "SMBIOS":
                 title, description, keywords = "Mac & OpenCore", "Mac boot settings, identity and security", "opencore nvidia boot sip amfi ram serial uuid firmware"
             haystack = f"{key} {group} {title} {description} {keywords}".casefold()
-            visible = key not in self.hidden_pages | self.blocked_pages and all(word in haystack for word in words)
+            visible = key not in self.hidden_pages | self.blocked_pages | self.user_hidden_pages and all(word in haystack for word in words)
             self.items[key].setHidden(not visible)
             if visible:
                 visible_groups.add(group)
         for group, item in self.groups.items():
             item.setHidden(group not in visible_groups)
         self.empty.setVisible(not visible_groups)
+        self.empty.setText("Pages are hidden. Use Settings → Workspace to show them." if not text and self.user_hidden_pages else "No matching pages")
+        self.empty.setWordWrap(True)
+
+    def set_user_hidden_pages(self, pages):
+        self.user_hidden_pages = set(pages)
+        self._filter(self.search.text())
 
     def set_profile(self, profile):
         self.profile = profile

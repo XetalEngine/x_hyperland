@@ -34,7 +34,7 @@ category again and writes the archive to the location you choose.
 | Apps menu & taskbar | Favorites, shortcuts, pins, floating launch sizes, taskbar and task switcher |
 | Audio & system sounds | Selected devices, channel volumes, mute, WirePlumber preferences, sound packs and event choices |
 | Fusion Files & default apps | Views, toolbar window buttons, appearance, window geometry, bookmarks, templates, saved searches, automount and file associations |
-| Control Panel & desktop tools | Panel preferences, calculator, clipboard pins, recorder, startup dashboard and updater preferences |
+| Control Panel & desktop tools | Panel window buttons, shown/hidden tools and other preferences, calculator, clipboard pins, recorder, startup dashboard and updater preferences |
 | Terminal & shell | Terminal design, fetch, shell configuration and aliases |
 | RDP, VNC & phone | Connections, hosting settings, passwords, certificates, KDE Connect and wallet files |
 | KVM & Proton settings | Machine definitions, presets, last setup, tool paths and prefix configuration |
@@ -52,7 +52,20 @@ preferences. Keep them somewhere private and load archives you trust.
 Fusion Files' **Show window buttons** choice is included under **Fusion Files &
 default apps**, together with the other preferences in `file_manager/state`.
 Refresh the inventory after saving a change to inspect it. Save/Load preserves
-the choice; Reset Defaults removes the override and shows the buttons again.
+the choice; the current factory default hides the built-in buttons and enables
+the added KDE title bar.
+
+Control Panel's **Settings → Appearance → Show window buttons** and
+**Settings → Workspace → Shown / Hidden** choices are included under
+**Control Panel & desktop tools**, in `control_panel/state`. Save/Load preserves
+both; the current factory default hides the built-in buttons and shows all home
+tools. Fusion Settings and KVM Settings offer the same Appearance and Workspace
+choices, stored in `control_center/state/interface.json` under **Desktop &
+shortcuts** and `kvm/state/interface.json` under **KVM & Proton settings**.
+Fresh installs hide the built-in buttons for all four apps and enable their
+added KDE title bars. The per-app **Add a title bar above the app** choices are
+included in **Windows & workspaces**. To restore the complete fresh-install
+appearance, select that category together with the app's own preferences.
 
 Application selections are package inventories, not copies of installed binaries.
 Missing official packages use Pacman; foreign packages first use an available

@@ -20,6 +20,10 @@ LEGACY_KEYS = DEFAULTS.keys() - {'background', 'background_color'}
 KDE_APP_DEFAULTS = {app: dict(DEFAULTS, mode=mode, titlebar=False) for app, mode in (
     ('xetal-wallpaper-browser', 'auto'), ('fusion-quick-panel', 'off'),
     ('xetal-logout', 'off'), ('xetal-image-viewer', 'off'), ('xmusic', 'off'))}
+# These desktop tools share the external KDE title bar on fresh installations.
+# Their own buttons are independently configurable in the application settings.
+KDE_APP_DEFAULTS.update({app: dict(DEFAULTS, mode='off', titlebar=True) for app in (
+    'xetal-files', 'xetal-files-external', 'hypr-control', 'xetal-control-panel', 'xetal-kvm-settings')})
 
 
 def validate(rule):
