@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+from pathlib import Path
 from gi.repository import Gio, GLib
 
 INTERFACE = 'org.xetal.FusionFiles.Desktop1'
@@ -62,6 +63,28 @@ class Files:
 
     def transfer(self, urls, destination, copy):
         self.call('Transfer', '(assb)', urls, destination, copy)
+
+    def extract_archive(self, service, path, destination, on_reply):
+        """Ask the drag's archive owner to extract using its normal job UI."""
+        target = Gio.File.new_for_uri(destination).get_path()
+        if (not Gio.dbus_is_name(service) or not GLib.Variant.is_object_path(path)
+                or not target or not Path(target).is_dir()):
+            self.error('The archive drop or its destination is no longer available. Drag the selection again.')
+            on_reply(False)
+            return
+
+        def finished(bus, result, _data):
+            accepted = False
+            try:
+                bus.call_finish(result)
+                accepted = True
+            except GLib.Error as error:
+                self.error('Could not extract the archive selection: '+error.message)
+            on_reply(accepted)
+
+        self.bus.call(service, path, 'org.kde.ark.DndExtract', 'extractSelectedFilesTo',
+                      GLib.Variant('(s)', (target,)), GLib.VariantType.new('()'),
+                      Gio.DBusCallFlags.NO_AUTO_START, 5000, None, finished, None)
 
     def refresh_trash(self):
         self.call('RefreshTrash', '()', quiet=True)

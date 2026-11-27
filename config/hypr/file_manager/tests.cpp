@@ -2365,6 +2365,40 @@ print(json.dumps(rows))
     QCOMPARE(QFileInfo(script.toLocalFile()).permissions(), permissions);
     window.close();
   }
+  void settingsAboutKeepsDraftAndCancelDiscardsIt() {
+    const QString settings = temporary.path() + "/about-settings.ini";
+    FilesWindow window(QUrl::fromLocalFile(folder), false, settings);
+    window.setAttribute(Qt::WA_DeleteOnClose, false); window.show();
+    auto *preview = window.findChild<QAction *>("previewPaneAction");
+    QVERIFY(preview && preview->isChecked());
+    auto *aboutAction = window.findChild<QAction *>("aboutApplicationAction");
+    QVERIFY(aboutAction && aboutAction->isVisible());
+    aboutAction->trigger();
+    auto *directAbout = window.findChild<QDialog *>("fusionAboutDialog");
+    QVERIFY(directAbout);
+    QCOMPARE(directAbout->findChild<QLabel *>("aboutAppName")->text(), QString("Fusion Files"));
+    directAbout->close(); QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    bool opened = false, draftKept = false;
+    QTimer::singleShot(0, &window, [&] {
+      auto *settingsDialog = window.findChild<QDialog *>("filesConfiguration");
+      if (!settingsDialog) return;
+      settingsDialog->findChild<QCheckBox *>("configurePreview")->setChecked(false);
+      auto *button = settingsDialog->findChild<QPushButton *>("aboutApplicationButton");
+      if (button) {
+        button->click();
+        auto *about = settingsDialog->findChild<QDialog *>("fusionAboutDialog");
+        if (about) {
+          opened = about->findChild<QLabel *>("aboutAppName")->text() == "Fusion Files";
+          about->close(); QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+          draftKept = settingsDialog->isVisible() && !settingsDialog->findChild<QCheckBox *>("configurePreview")->isChecked();
+        }
+      }
+      settingsDialog->reject();
+    });
+    auto *configure = window.findChild<QAction *>("configureFiles"); QVERIFY(configure); configure->trigger();
+    QVERIFY(opened); QVERIFY(draftKept); QVERIFY(preview->isChecked());
+    window.close();
+  }
   void thumbnailsConfigurationAndTrashAnimation() {
     const QString sample = folder + "/thumbnails";
     QDir().mkpath(sample);

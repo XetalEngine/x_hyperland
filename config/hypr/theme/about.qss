@@ -1,0 +1,13 @@
+QDialog#fusionAboutDialog { background: palette(window); color: palette(window-text); }
+QDialog#fusionAboutDialog QLabel { background: transparent; color: palette(window-text); border: none; padding: 0; }
+QDialog#fusionAboutDialog QLabel#aboutBrand { color: palette(link); font-size: 11px; font-weight: 700; letter-spacing: 3px; }
+QDialog#fusionAboutDialog QLabel#aboutAppName { font-size: 26px; font-weight: 700; }
+QDialog#fusionAboutDialog QLabel#aboutAuthor { font-size: 18px; font-weight: 600; }
+QDialog#fusionAboutDialog QLabel[aboutMuted=true] { color: palette(placeholder-text); }
+QDialog#fusionAboutDialog QLabel[aboutCaption=true] { font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+QDialog#fusionAboutDialog QFrame#aboutIdentity { background: palette(alternate-base); border: 1px solid palette(mid); border-radius: 16px; }
+QDialog#fusionAboutDialog QFrame[aboutContact=true] { background: palette(base); border: 1px solid palette(mid); border-radius: 12px; }
+QDialog#fusionAboutDialog QLabel#aboutVersion { background: palette(base); border: 1px solid palette(mid); border-radius: 10px; padding: 4px 10px; font-size: 11px; }
+QDialog#fusionAboutDialog QLabel#aboutCredits { font-size: 11px; }
+QDialog#fusionAboutDialog QPushButton { min-height: 24px; padding: 5px 16px; border-radius: 8px; }
+QDialog#fusionAboutDialog QLabel[aboutHandle=true] { font-size: 16px; font-weight: 600; }

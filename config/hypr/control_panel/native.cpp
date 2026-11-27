@@ -16,7 +16,6 @@
 #include "rdp/page.h"
 #include "ventoy_page.h"
 #include "../theme/window_chrome.hpp"
-#include "../theme/about.hpp"
 #include "backend/mainwindow.h"
 #include "backend/preferencesdialog.h"
 #include <QFileSystemWatcher>
@@ -215,9 +214,6 @@ PanelController::PanelController(MainWindow *window)
   count->setObjectName("muted");
   footer->addWidget(count);
   footer->addStretch();
-  auto *about = new QPushButton("About", rootWidget);
-  about->setObjectName("aboutApplicationButton");
-  footer->addWidget(about);
   auto *grip = new QSizeGrip(rootWidget);
   footer->addWidget(grip);
   layout->addLayout(footer);
@@ -227,13 +223,6 @@ PanelController::PanelController(MainWindow *window)
   refreshPreferences();
   connect(back, &QPushButton::clicked, this, [this] { open(""); });
   connect(homeButton, &QPushButton::clicked, this, [this] { open(""); });
-  connect(about, &QPushButton::clicked, this, [this] {
-    FusionAbout::show(
-        owner, HyperPanel::root(), "Control Panel",
-        "System tools and desktop management for Hyper Fusion.",
-        "Powered by the CachyOsTools C++ engine. All system tools and the "
-        "ISO builder are included in this desktop's source. GPLv3.");
-  });
   connect(search, &QLineEdit::textChanged, this, [this] {
     if (stack->currentIndex() != 0)
       open("");

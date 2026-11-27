@@ -1,5 +1,6 @@
 #pragma once
 #include "browser.h"
+namespace Fusion { class Appearance; }
 namespace XetalPreview {
 class Pane;
 }
@@ -48,9 +49,7 @@ private:
   QAction *backAction, *forwardAction, *upAction, *previewAction, *hiddenAction,
       *undoAction, *emptyTrashAction;
   QAction *windowControlsAction, *windowControlsSeparator;
-  QProcess theme;
-  QTimer themeDebounce;
-  QString requestedTheme;
+  Fusion::Appearance *appearance = nullptr;
   QJsonArray themeChoices;
   QHash<QString, QAction *> shortcuts;
   void addTab(const QUrl &url);

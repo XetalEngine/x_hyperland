@@ -1,8 +1,8 @@
 #include "window.h"
 #include "picker.h"
 #include "desktop_actions.h"
+#include "properties.h"
 #include "../theme/icon_theme.hpp"
-#include <KPropertiesDialog>
 #include <QDBusAbstractAdaptor>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
@@ -60,12 +60,7 @@ public slots:
     openWithDefault(uris, true, startupId);
   }
   void ShowItemProperties(const QStringList &uris, const QString &) {
-    if (uris.isEmpty())
-      return;
-    window()->reveal(QUrl(uris.first()));
-    auto *dialog = new KPropertiesDialog(QUrl(uris.first()), active);
-    dialog->setAttribute(Qt::WA_DeleteOnClose);
-    dialog->show();
+    Fusion::openProperties(uris);
   }
 };
 
@@ -88,11 +83,13 @@ int main(int argc, char **argv) {
   parser.addOption({"external", "Open a centered floating folder window for another application."});
   parser.addOption({"from-desktop", "Treat locations supplied by a desktop association as external requests."});
   parser.addOption({"service", "Activate the desktop file-manager service."});
+  parser.addOption({"properties", "Show Properties for the specified file URLs."});
   parser.addOption({"picker", "Open a file chooser using a JSON request on standard input."});
   parser.addPositionalArgument("locations", "Paths or URLs to open.",
                                "[locations…]");
   parser.process(app);
   if (parser.isSet("picker")) return runPicker(app);
+  if (parser.isSet("properties")) return Fusion::runProperties(app, parser.positionalArguments());
   // Establish the role before any native window is created. The compositor
   // applies its floating/centering rule on the first map, never after showing.
   if (parser.isSet("external") || parser.isSet("select") || parser.isSet("service") ||

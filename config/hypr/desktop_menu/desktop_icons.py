@@ -27,6 +27,8 @@ from icon_themes import model as icon_library
 TARGETS = [Gtk.TargetEntry.new('application/x-xetal-desktop-icons', Gtk.TargetFlags.SAME_APP, 0),
            Gtk.TargetEntry.new('text/uri-list', 0, 1),
            Gtk.TargetEntry.new('application/x-hyperfusion-file-drag', 0, 2)]
+ARCHIVE_MIMES = ('application/x-kde-ark-dndextract-service', 'application/x-kde-ark-dndextract-path')
+ARCHIVE_TARGETS = [Gtk.TargetEntry.new(mime, 0, index+3) for index, mime in enumerate(ARCHIVE_MIMES)]
 ATTRIBUTES = 'standard::name,standard::display-name,standard::type,standard::icon,standard::is-hidden,standard::is-symlink,thumbnail::path,thumbnail::is-valid'
 
 
@@ -271,6 +273,7 @@ class Canvas(Gtk.Layout):
         self.drop_name = None
         self.drop_action = Gdk.DragAction(0)
         self.drop_operation = Gdk.DragAction(0)
+        self.archive_drops = {}
         self.search, self.search_time = '', 0
         self.set_can_focus(True)
         self.get_style_context().add_class('desktop-icons')
@@ -280,11 +283,12 @@ class Canvas(Gtk.Layout):
         self.connect('motion-notify-event', self.motion)
         self.connect('key-press-event', self.key)
         self.connect_after('draw', self.draw_selection)
-        self.drag_dest_set(Gtk.DestDefaults(0), TARGETS[:2], Gdk.DragAction.COPY | Gdk.DragAction.MOVE | Gdk.DragAction.LINK)
+        self.drag_dest_set(Gtk.DestDefaults(0), TARGETS[:2]+ARCHIVE_TARGETS, Gdk.DragAction.COPY | Gdk.DragAction.MOVE | Gdk.DragAction.LINK)
         self.connect('drag-motion', self.drag_motion)
         self.connect('drag-leave', lambda *_: self.highlight(None))
         self.connect('drag-drop', self.drop)
         self.connect('drag-data-received', self.received)
+        self.connect('destroy', self.cancel_archive_drops)
 
     def update(self, positions):
         area = self.controller.areas.get(self.monitor, (0, 0, 1, 1))
@@ -492,6 +496,14 @@ class Canvas(Gtk.Layout):
         possible = context.get_actions()
         operation = drop_operation(state, possible)
         destination = self.destination(x, y)
+        offered = {target.name() for target in context.list_targets()}
+        if offered.intersection(ARCHIVE_MIMES):
+            # Archive members are extraction requests, never movable file URLs.
+            valid = (set(ARCHIVE_MIMES) <= offered and possible & Gdk.DragAction.COPY
+                     and not state & Gdk.ModifierType.SHIFT_MASK
+                     and destination != model.TRASH
+                     and (self.hit(x, y) is None or destination is not None))
+            operation = Gdk.DragAction.COPY if valid else Gdk.DragAction(0)
         if destination == model.TRASH and operation != Gdk.DragAction.MOVE: operation = Gdk.DragAction(0)
         if model.TRASH in self.controller.drag.get('names', []) and (destination or operation != Gdk.DragAction.MOVE): operation = Gdk.DragAction(0)
         self.drop_operation = operation
@@ -504,6 +516,16 @@ class Canvas(Gtk.Layout):
         target = self.drag_dest_find_target(context, None)
         if not target or not self.controller.settings['enabled']: return False
         if not self.drag_motion(self, context, x, y, timestamp): return False
+        if set(ARCHIVE_MIMES) <= {target.name() for target in context.list_targets()}:
+            if context in self.archive_drops: return True
+            # Freeze the folder at release. Later MIME replies must not follow
+            # the pointer, a new selection, or another drag's hover target.
+            pending = dict(destination=self.controller.uri(self.destination(x, y)),
+                           timestamp=timestamp, expected=3, service=None, timer=0)
+            self.archive_drops[context] = pending
+            pending['timer'] = GLib.timeout_add(5000, self.archive_timeout, context)
+            self.drag_get_data(context, Gdk.Atom.intern(ARCHIVE_MIMES[0], False), timestamp)
+            return True
         if target == Gdk.Atom.intern('application/x-xetal-desktop-icons', False) and self.controller.drag:
             # SAME_APP already identifies our in-process drag. Its selection
             # request can be cancelled by GTK's Wayland handoff; use the owned
@@ -514,6 +536,9 @@ class Canvas(Gtk.Layout):
         return True
 
     def received(self, _widget, context, x, y, data, info, timestamp):
+        if info in (3, 4):
+            self.archive_received(context, data, info)
+            return
         success = False
         try:
             if data is not None and data.get_length() < 0: raise ValueError('The drag source did not supply its files. Please try again.')
@@ -551,6 +576,47 @@ class Canvas(Gtk.Layout):
             self.controller.error(str(error))
         self.highlight(None)
         Gtk.drag_finish(context, success, False, timestamp)
+
+    def archive_received(self, context, data, info):
+        pending = self.archive_drops.get(context)
+        if not pending or pending['expected'] != info: return
+        try:
+            if data is None or not 0 < data.get_length() <= 4096 or data.get_format() != 8:
+                raise ValueError('The archive did not supply a valid extraction request. Drag the selection again.')
+            value = bytes(data.get_data()).decode('utf-8')
+            if '\x00' in value: raise ValueError('The archive extraction request is invalid.')
+            if info == 3:
+                if not Gio.dbus_is_name(value): raise ValueError('The archive drag connection is invalid.')
+                pending.update(service=value, expected=4)
+                self.drag_get_data(context, Gdk.Atom.intern(ARCHIVE_MIMES[1], False), pending['timestamp'])
+            else:
+                if not GLib.Variant.is_object_path(value): raise ValueError('The archive extraction request is invalid.')
+                pending['expected'] = None
+                GLib.source_remove(pending['timer']); pending['timer'] = 0
+                self.controller.files.extract_archive(pending['service'], value, pending['destination'],
+                    lambda accepted: self.finish_archive_drop(context, accepted))
+        except (UnicodeError, ValueError, TypeError) as error:
+            self.controller.error(str(error))
+            self.finish_archive_drop(context, False)
+
+    def finish_archive_drop(self, context, success):
+        pending = self.archive_drops.pop(context, None)
+        if not pending: return
+        if pending['timer']: GLib.source_remove(pending['timer'])
+        self.highlight(None)
+        # A successful extraction never deletes members from the source archive.
+        Gtk.drag_finish(context, bool(success), False, pending['timestamp'])
+
+    def archive_timeout(self, context):
+        pending = self.archive_drops.get(context)
+        if pending:
+            pending['timer'] = 0
+            self.controller.error('The archive drag expired. Drag the selection again.')
+            self.finish_archive_drop(context, False)
+        return False
+
+    def cancel_archive_drops(self, *_):
+        for context in list(self.archive_drops): self.finish_archive_drop(context, False)
 
 
 class Icons:

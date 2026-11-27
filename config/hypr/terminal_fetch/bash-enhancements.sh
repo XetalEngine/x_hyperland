@@ -19,7 +19,9 @@ shopt -s histappend cmdhist
 if [[ $FUSION_HISTORY_IGNORE_DUPLICATES == 1 ]]; then
     HISTCONTROL=${HISTCONTROL:+$HISTCONTROL:}ignoredups
 fi
-[[ $FUSION_HISTORY_ENABLED == 1 ]] && set -o history || set +o history
+# Bash begins recording interactive commands after its rc file returns. Turning
+# history on explicitly here also records the rest of this startup script.
+[[ $FUSION_HISTORY_ENABLED == 1 ]] || set +o history
 
 function _fusion_history_guard {
     local previous_status=$? next_generation
@@ -41,7 +43,9 @@ function _fusion_history_guard {
 function _fusion_history_prompt {
     local previous_status=$?
     _fusion_history_guard
-    if [[ $FUSION_HISTORY_ENABLED == 1 && $FUSION_HISTORY_SHARE == 1 && -f $HISTFILE ]]; then
+    # ble.sh owns history sharing in enhanced mode. A second read here can
+    # import the same entries twice while its first prompt is being attached.
+    if [[ ! ${BLE_VERSION-} && $FUSION_HISTORY_ENABLED == 1 && $FUSION_HISTORY_SHARE == 1 && -f $HISTFILE ]]; then
         history -a
         history -n
     fi
@@ -81,5 +85,6 @@ if [[ ! ${BASH_COMPLETION_VERSINFO-} ]]; then
     source "$_fusion_terminal_dir/vendor/bash-completion/bash_completion"
 fi
 if [[ $FUSION_KEYMAP == vi ]]; then set -o vi; else set -o emacs; fi
-[[ ${BLE_VERSION-} && $FUSION_ENHANCED == 1 ]] && ble-attach
 unset _fusion_terminal_dir
+# Attaching must be the final startup action, after all setup and cleanup.
+[[ ${BLE_VERSION-} && $FUSION_ENHANCED == 1 ]] && ble-attach

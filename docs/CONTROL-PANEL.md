@@ -31,6 +31,32 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 
 ![Control Panel in BreakPoint](screenshots/control-panel.png)
 
+## System Overview and About
+
+System Overview groups hardware and memory into a summary, combines storage and
+SMART health, and keeps services, package updates and recovery in compact cards.
+It follows the desktop palette and adapts from three columns to two or one, with
+scrolling at smaller sizes. Refresh runs asynchronous, time-limited checks;
+missing tools, failed checks and unavailable authorization stay distinct from a
+healthy or up-to-date result. SMART checks only reuse an existing sudo session.
+The action buttons open the named tools with their navigation breadcrumbs.
+
+The Xetal Engine logo lives in the shared **About** dialog. Open **Settings →
+About** in Control Panel, Fusion Settings and KVM Settings, or **Configure Fusion
+Files → About** in Fusion Files. Files also has **About Fusion Files…** directly
+in its three-dot menu. The dialog fits its content without scrollbars and shows
+the application, desktop version, author, Discord/Echo copy buttons and any
+upstream credits. Opening it
+does not apply, discard or change preferences. Other apps using the shared About
+component receive the same design and logo.
+
+Native state/layout checks: configure the Control Panel build with
+`-DBUILD_OVERVIEW_TESTS=ON -DBUILD_PREFERENCES_TESTS=ON`, then run
+`ctest --test-dir config/hypr/control_panel/.build -R '^(overview|preferences_dialog)$'`.
+Python checks: `python -m unittest discover -s config/hypr/theme -p test_about.py`.
+`tools/preview_overview.cpp` renders the production widgets with fixture data and
+never runs a system action.
+
 ## Tools and feature coverage
 
 | Control Panel entry | Included tools |
@@ -43,7 +69,7 @@ The native Qt/C++ interface uses a complete copy of the **CachyOsTools** engine.
 | GRUB Boot Editor | Automatically loads the menu after authentication. Edit names, commands and ordering; choose a default, timeout or remembered selection; add other systems or register this Linux installation in UEFI. Includes appearance, backups and undo. [Guide →](GRUB-BOOT-EDITOR.md) |
 | Restore Points | Snapper/Btrfs snapshot management |
 | Logs & Reports | Plain-text hardware reports, decoded login history, journal filters, boot selection and live following |
-| System Overview | Health, resource use, quick actions and language selection |
+| System Overview | Hardware and memory summary, storage meters, drive health, services, package updates and safety ISO status |
 | Device Manager | Hardware categories, drivers and device operations |
 | Sensors & Power | Temperatures, fans, power profiles and diagnostics |
 | Users & Groups | Accounts, passwords, membership and administration |

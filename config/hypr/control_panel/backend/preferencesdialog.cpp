@@ -1,4 +1,5 @@
 #include "../native.h"
+#include "../../theme/about.hpp"
 #include <QProcess>
 #include "preferencesdialog.h"
 #include "themepresets.h"
@@ -240,6 +241,16 @@ PreferencesDialog::PreferencesDialog(const QVariantMap &values, Save save, QWidg
     m_status->setWordWrap(true);
     m_status->setMinimumWidth(100);
     footer->addWidget(m_status, 1);
+    auto *about = new QPushButton(tr("About…"), this);
+    about->setObjectName("aboutApplicationButton");
+    about->setAutoDefault(false);
+    footer->addWidget(about);
+    connect(about, &QPushButton::clicked, this, [this] {
+        FusionAbout::show(this, HyperPanel::root(), "Control Panel",
+            "System tools and desktop management for Hyper Fusion.",
+            "Powered by the CachyOsTools C++ engine. All system tools and the "
+            "ISO builder are included in this desktop's source. GPLv3.");
+    });
     m_cancel = new QPushButton(tr("Cancel"), this);
     m_cancel->setObjectName("preferencesCancel");
     m_apply = new QPushButton(tr("Apply"), this);

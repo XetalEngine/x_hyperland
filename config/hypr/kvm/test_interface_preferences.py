@@ -15,8 +15,8 @@ class InterfaceTests(unittest.TestCase):
 import copy, json, sys
 from pathlib import Path
 from unittest.mock import patch
-from PyQt6.QtCore import QEvent
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import QEvent, QTimer
+from PyQt6.QtWidgets import QApplication, QDialog, QLabel, QPushButton
 sys.path.insert(0, sys.argv[2])
 import app as kvm
 from interface_settings import InterfaceSettingsDialog, read_preferences, write_preferences
@@ -52,7 +52,25 @@ try:
     assert not window.navigation.items['Memory'].isHidden()
     assert not window.navigation.items['Wizard'].isHidden()
     assert window.navigation.items['Boot Arguments'].isHidden(), 'Show all exposed a macOS-only page in Windows'
-    print('PASS: full KVM editor, profile rebuilds, hidden direct links, all-hidden recovery and VM configuration preservation')
+    observed = {}
+    before = path.read_bytes()
+    config_before = copy.deepcopy(window.cfg.data)
+    def inspect_about():
+        settings = window.findChild(QDialog, 'interfaceSettingsDialog')
+        if settings is None: return
+        try:
+            settings.findChild(QPushButton, 'aboutApplicationButton').click()
+            about = settings.findChild(QDialog, 'fusionAboutDialog')
+            observed['name'] = about.findChild(QLabel, 'aboutAppName').text()
+            observed['credit'] = about.findChild(QLabel, 'aboutCredits').text()
+            about.close()
+        finally:
+            settings.reject()
+    QTimer.singleShot(0, inspect_about)
+    window.open_interface_settings()
+    assert observed == dict(name='KVM Settings', credit='Built on vmstart_2.')
+    assert path.read_bytes() == before and window.cfg.data == config_before
+    print('PASS: full KVM editor, profile rebuilds, hidden direct links, About from Settings and VM configuration preservation')
 finally:
     window.tabs.blockSignals(True); window.tab_wizard.blockSignals(True)
     window.deleteLater(); qt.sendPostedEvents(None, QEvent.Type.DeferredDelete)

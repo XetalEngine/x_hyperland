@@ -47,6 +47,7 @@ if __name__ == '__main__':
         subprocess.run([sys.executable, str(ROOT/'test_transfer_worker.py')], check=True, env=env)
         subprocess.run(['dbus-run-session', '--', str(build/'search-tests')], check=True, env=env)
         subprocess.run(['dbus-run-session', '--', str(build/'files-tests')], check=True, env=env)
+        subprocess.run(['dbus-run-session', '--', str(build/'properties-tests')], check=True, env=env)
         subprocess.run([str(build/'execution-tests')], check=True, env=env)
         subprocess.run(['dbus-run-session', '--', str(build/'picker-tests')], check=True, env=env)
         subprocess.run(['dbus-run-session', '--', str(build/'automount-tests')], check=True, env=env)

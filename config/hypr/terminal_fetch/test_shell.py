@@ -66,12 +66,14 @@ class Shell:
         return self.until(b'HF_TEST> ')
 
     def close(self):
+        if self.master is None: return
         if self.process.poll() is None:
             self.send(b'\x03'); self.read(.05); self.send('exit\r'); self.read(.2)
             try: self.process.wait(timeout=2)
             except subprocess.TimeoutExpired:
                 self.process.terminate(); self.process.wait(timeout=2)
         os.close(self.master)
+        self.master = None
 
 
 class BashIntegrationTests(unittest.TestCase):
@@ -93,6 +95,35 @@ class BashIntegrationTests(unittest.TestCase):
         return shell
 
     def state(self): return self.home/'state/hyperfusion/terminal'
+
+    def test_startup_stays_out_of_history_and_up_recalls_the_last_real_command(self):
+        for enhanced in (True, False):
+            with self.subTest(enhanced=enhanced):
+                self.settings['enhanced'] = enhanced
+                first = self.shell()
+                first.command('history > startup-history.txt')
+                entries = [re.sub(r'^\s*\d+\*?\s+', '', line)
+                    for line in (self.home/'startup-history.txt').read_text().splitlines()]
+                self.assertEqual(entries, ['echo HF_ORIGINAL_HISTORY', 'history > startup-history.txt'])
+                first.command('printf "HF_UP_ARROW_LAST_COMMAND\\n"')
+                second = self.shell()
+                second.send(b'\x1b[A')
+                recalled = ANSI.sub(b'', second.read(.4))
+                self.assertIn(b'HF_UP_ARROW_LAST_COMMAND', recalled)
+                self.assertNotIn(b'_fusion_terminal_dir', recalled)
+                second.send(b'\x03'); second.until(b'HF_TEST> ')
+                # Inspect only the fixture: startup must not save or duplicate
+                # anything merely because another terminal was opened.
+                path = preferences.history_path(self.state(), preferences.generation(self.state()))
+                saved = path.read_text()
+                self.assertEqual(saved.count('echo HF_ORIGINAL_HISTORY\n'), 1)
+                self.assertNotIn('_fusion_', saved)
+                self.assertNotIn('ble-attach', saved)
+                second.close(); first.close()
+                preferences.clear_history(self.state())
+                # Restore the test's seed for the next editing-mode case.
+                path = preferences.history_path(self.state(), preferences.generation(self.state()))
+                path.write_text('echo HF_ORIGINAL_HISTORY\n')
 
     def test_live_colors_aliases_exit_status_and_completion_after_sudo(self):
         shell = self.shell()

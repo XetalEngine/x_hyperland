@@ -29,7 +29,6 @@ import wheel_guard
 from icons import icon
 from window_chrome import window_controls,toggle_maximized
 from interface_settings import InterfaceSettingsDialog, read_preferences
-from fusion_about import about_menu
 from package_ui import PackagesPanel
 from account_ui import AccountHeader
 from activity import supervisor_active
@@ -59,10 +58,6 @@ class KVMSettings(VMStart2):
         brand.setStyleSheet('font-size:21px; font-weight:700;');brand.setFixedWidth(196)
         bar=self.centralWidget().layout().itemAt(0).layout()
         self.chip=QLabel();self.chip.setPixmap(icon('chip',desktop_theme.colors()['Accent'],30).pixmap(30,30));bar.insertWidget(0,self.chip)
-        self.about_menu=about_menu(self, 'KVM Settings',
-                                  'Windows and Apple virtual machines, integrated into Hyper Fusion.',
-                                  'Built on vmstart_2.')
-        bar.insertWidget(2,self.about_menu)
         self.window_controls=window_controls(self);bar.addWidget(self.window_controls)
         self._decorate_pages()
         self.account_header=AccountHeader(self)
@@ -80,7 +75,7 @@ class KVMSettings(VMStart2):
         self.account_actions.setSizePolicy(QSizePolicy.Policy.Maximum,QSizePolicy.Policy.Fixed)
         self.app_settings_button = QPushButton('Settings')
         self.app_settings_button.setObjectName('appSettingsButton')
-        self.app_settings_button.setToolTip('Window buttons and shown pages')
+        self.app_settings_button.setToolTip('Window buttons, shown pages and About KVM Settings')
         self.app_settings_button.clicked.connect(self.open_interface_settings)
         bar.insertWidget(bar.indexOf(self.window_controls), self.app_settings_button)
         self.account_row=QHBoxLayout();self.account_row.setContentsMargins(0,0,0,0);self.account_row.addStretch()
@@ -104,7 +99,9 @@ class KVMSettings(VMStart2):
         entries = [(key, self.navigation.items[key].text(), self.navigation.items[key].icon(), description)
                    for key, group, title, description, keywords in PAGES if key not in self.navigation.blocked_pages]
         InterfaceSettingsDialog('KVM Settings', self.interface_path, entries,
-                                self.apply_interface_preferences, self, ('Wizard',)).exec()
+                                self.apply_interface_preferences, self, ('Wizard',),
+                                about_description='Windows and Apple virtual machines, integrated into Hyper Fusion.',
+                                about_credits='Built on vmstart_2.').exec()
 
     def apply_interface_preferences(self, values=None):
         if values is not None: self.interface_preferences = values

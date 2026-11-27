@@ -1,332 +1,92 @@
-
-// Dashboard tab: styled system-at-a-glance cards. Every card loads
-// asynchronously so opening the tab never blocks the UI.
-
-#include <QGroupBox>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QStandardPaths>
-
-// Unicode usage bar: colored blocks, green -> orange -> red by fill level
-static QString dashUsageBar(int percent, int width = 14) {
-    if (percent < 0) percent = 0;
-    if (percent > 100) percent = 100;
-    int filled = percent * width / 100;
-    QString color = (percent >= 90) ? "#c0392b" : (percent >= 70) ? "#e67e22" : "#27ae60";
-    return QString("<span style='font-family:monospace; color:%1;'>%2</span>"
-                   "<span style='font-family:monospace; color:#555;'>%3</span>"
-                   " <b>%4%</b>")
-        .arg(color, QString("█").repeated(filled), QString("░").repeated(width - filled))
-        .arg(percent);
-}
+// Overview checks are asynchronous, bounded, and never prompt for privileges.
+#include "../overview_page.h"
 
 void MainWindow::refreshDashboard() {
-    // Card styling follows the current theme accent (re-applied on each refresh
-    // so theme changes take effect immediately)
-    QColor dashAccent(themeAccent.isEmpty() ? "#27ae60" : themeAccent);
-    auto dashRgba = [&dashAccent](double alpha) {
-        return QString("rgba(%1,%2,%3,%4)").arg(dashAccent.red()).arg(dashAccent.green()).arg(dashAccent.blue()).arg(alpha);
-    };
-    ui->dashboardTab->setStyleSheet(QString(
-        "QGroupBox {"
-        "  background: rgba(127,127,127,0.07);"
-        "  border: 1px solid rgba(127,127,127,0.25);"
-        "  border-top: 3px solid %1;"
-        "  border-radius: 10px;"
-        "  margin-top: 14px;"
-        "  padding: 16px 12px 8px 12px;"
-        "  font-weight: bold;"
-        "  font-size: 14px;"
-        "}"
-        "QGroupBox::title { subcontrol-origin: margin; left: 14px; padding: 0 6px; }"
-        "QGroupBox QLabel { font-weight: normal; font-size: 14px; }"
-        "QGroupBox QPushButton {"
-        "  border: 1px solid rgba(127,127,127,0.3);"
-        "  border-radius: 6px;"
-        "  padding: 6px;"
-        "  background: rgba(127,127,127,0.12);"
-        "}"
-        "QGroupBox QPushButton:hover { background: %2; }")
-        .arg(dashAccent.name(), dashRgba(0.25)));
-
-    // One-time layout setup: logo header, expanding grid, promo banner
-    static bool dashStyled = false;
-    if (!dashStyled) {
-        dashStyled = true;
-
-        ui->dashTitleLabel->setTextFormat(Qt::RichText);
-        ui->dashTitleLabel->setText(
-            QString("<img src=':/images/XetalEngine.png' height='44' style='vertical-align:middle;'>"
-                    "&nbsp;&nbsp;<span style='font-size:15px; color:#888;'>%1</span>")
-                .arg(tr("System at a glance")));
-
-        // Retired standalone language selector; Hyper Fusion owns the desktop UI.
-        ui->dashLangCombo->hide();
-        /* Language selector: flag dropdown, persisted choice, applied on restart
-        ui->dashLangCombo->setIconSize(QSize(24, 16));
-        ui->dashLangCombo->addItem(QIcon(":/images/flag_us.png"), "English", "en");
-        ui->dashLangCombo->addItem(QIcon(":/images/flag_br.png"), "Português", "pt_BR");
-        ui->dashLangCombo->addItem(QIcon(":/images/flag_de.png"), "Deutsch", "de");
-        {
-            // Show the effective language (env override wins, like in main.cpp)
-            QString cur = qEnvironmentVariable("CACHYOSTOOLS_LANG");
-            if (cur.isEmpty()) {
-                cur = QSettings("XetalHyperland", "ControlPanel").value("language/code", "en").toString();
-            }
-            int langIdx = ui->dashLangCombo->findData(cur);
-            if (langIdx >= 0) ui->dashLangCombo->setCurrentIndex(langIdx);
-        }
-        */
-        // Self-updater: orange button appears when origin/main is ahead of us
-        dashUpdateBtn = new QPushButton(ui->dashboardTab);
-        dashUpdateBtn->setStyleSheet(
-            "QPushButton { background:#e67e22; color:white; font-weight:bold; border-radius:6px; padding:6px 14px; }"
-            "QPushButton:hover { background:#f39c12; }");
+    if (!overviewPage) {
+        // Keep the original buttons and their navigation connections alive in a
+        // hidden container. The new page replaces only their presentation.
+        auto *legacy = new QWidget(ui->welcomeSubTab);
+        legacy->setObjectName("legacyOverview");
+        legacy->setLayout(ui->welcomeSubTab->layout());
+        legacy->hide();
+        auto *layout = new QVBoxLayout(ui->welcomeSubTab);
+        layout->setContentsMargins(0, 0, 0, 0);
+        overviewPage = new FusionOverview::Page(ui->welcomeSubTab);
+        layout->addWidget(overviewPage);
+        connect(overviewPage->refresh, &QPushButton::clicked, this, &MainWindow::refreshDashboard);
+        const auto link = [this](QPushButton *button, const QString &tool, QPushButton *legacyButton) {
+            connect(button, &QPushButton::clicked, this, [this, tool, legacyButton] {
+                if (auto *panel = findChild<PanelController *>()) panel->open(tool);
+                else legacyButton->click();
+            });
+        };
+        link(overviewPage->drives, "drives", ui->dashDrivesButton);
+        link(overviewPage->manageServices, "services", ui->dashServicesButton);
+        link(overviewPage->reviewUpdates, "updates", ui->dashUpdatesButton);
+        link(overviewPage->safetyIso, "iso", ui->dashIsoButton);
+        link(overviewPage->logs, "logs", ui->dashSystemButton);
+        // The vendored standalone updater is not used by Hyper Fusion.
+        dashUpdateBtn = new QPushButton(legacy);
         dashUpdateBtn->hide();
-        ui->dashTopLayout->insertWidget(2, dashUpdateBtn);
-        connect(dashUpdateBtn, &QPushButton::clicked, this, &MainWindow::runAppUpdate);
-        // Hyper Fusion updates this vendored backend with the desktop.
-
-        /* Standalone language restart flow, retained for reference.
-        connect(ui->dashLangCombo, QOverload<int>::of(&QComboBox::activated), this, [this](int index) {
-            QString code = ui->dashLangCombo->itemData(index).toString();
-            QSettings settings("XetalHyperland", "ControlPanel");
-            if (settings.value("language/code", "en").toString() == code) return;
-            settings.setValue("language/code", code);
-            settings.sync();
-            if (QMessageBox::question(this, tr("Language Changed"),
-                                      tr("The new language takes effect after a restart.\n\nRestart CachyOsTools now?"))
-                == QMessageBox::Yes) {
-                QProcess::startDetached(QCoreApplication::applicationFilePath(), QStringList());
-                qApp->quit();
-            }
-        });
-        */
-
-        const QList<QGroupBox*> cards = {ui->dashDrivesGroup, ui->dashServicesGroup, ui->dashUpdatesGroup,
-                                         ui->dashDiskGroup, ui->dashIsoGroup, ui->dashSystemGroup};
-        for (QGroupBox *card : cards) {
-            card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-            card->setMinimumHeight(210);
-        }
-        ui->dashGrid->setRowStretch(0, 1);
-        ui->dashGrid->setRowStretch(1, 1);
-        for (int c = 0; c < 3; c++) ui->dashGrid->setColumnStretch(c, 1);
-        ui->dashGrid->setHorizontalSpacing(14);
-        ui->dashGrid->setVerticalSpacing(14);
-
-        ui->dashPromoLabel->hide();
-
     }
-
-    // ---- 🧠 System card ----
-    {
-        QProcess *proc = new QProcess(this);
-        connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                [this, proc](int, QProcess::ExitStatus) {
-                    QString cpu, gpu, kernel, uptime, ramText;
-                    int ramPct = -1;
-                    const QStringList lines = QString::fromUtf8(proc->readAllStandardOutput()).split('\n');
-                    for (const QString &line : lines) {
-                        if (line.startsWith("CPU:")) cpu = line.mid(4).trimmed();
-                        else if (line.startsWith("GPU:")) gpu = line.mid(4).trimmed();
-                        else if (line.startsWith("KERNEL:")) kernel = line.mid(7).trimmed();
-                        else if (line.startsWith("UPTIME:")) uptime = line.mid(7).trimmed();
-                        else if (line.startsWith("RAMPCT:")) ramPct = line.mid(7).trimmed().toInt();
-                        else if (line.startsWith("RAM:")) {
-                            const QStringList ram = line.mid(4).trimmed().split(' ', Qt::SkipEmptyParts);
-                            if (ram.size() == 2) ramText = tr("%1 used of %2").arg(ram[0], ram[1]);
-                        }
-                    }
-                    QString html = QString(
-                        "<p style='margin:0;'><b>%1</b><br>"
-                        "<span style='color:#888;'>%2</span></p>"
-                        "<p style='margin:6px 0 0 0;'>%3</p>"
-                        "<p style='margin:8px 0 0 0;'>RAM &nbsp;%4<br>"
-                        "<span style='color:#888;'>%5</span></p>")
-                        .arg(cpu.toHtmlEscaped(), gpu.toHtmlEscaped(),
-                             tr("Kernel <b>%1</b> &nbsp;·&nbsp; up %2").arg(kernel.toHtmlEscaped(), uptime.toHtmlEscaped()),
-                             dashUsageBar(ramPct), ramText.toHtmlEscaped());
-                    ui->dashSystemLabel->setTextFormat(Qt::RichText);
-                    ui->dashSystemLabel->setText(html);
-                    proc->deleteLater();
-                });
-        proc->start("bash", QStringList() << "-c" <<
-            "echo \"CPU: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ //')\"; "
-            "echo \"GPU: $(lspci 2>/dev/null | grep -Ei 'vga|3d controller' | head -1 | sed 's/.*: //; s/ (rev.*//')\"; "
-            "echo \"KERNEL: $(uname -r)\"; "
-            "echo \"UPTIME: $(uptime -p | sed 's/^up //')\"; "
-            "free -b | awk '/^Mem:/{printf \"RAMPCT: %d\\n\", $3*100/$2}'; "
-            "free -h | awk '/^Mem:/{printf \"RAM: %s %s\\n\", $3, $2}'");
-    }
-
-    // ---- 📊 Disk space card (usage bars for / and /home) ----
-    {
-        QProcess *proc = new QProcess(this);
-        connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                [this, proc](int, QProcess::ExitStatus) {
-                    QString html;
-                    const QStringList lines = QString::fromUtf8(proc->readAllStandardOutput()).split('\n', Qt::SkipEmptyParts);
-                    for (const QString &line : lines) {
-                        QStringList parts = line.simplified().split(' ');
-                        if (parts.size() < 4) continue;
-                        int pct = parts[3].replace("%", "").toInt();
-                        html += QString("<p style='margin:0 0 10px 0;'><b>%1</b><br>%2<br>"
-                                        "<span style='color:#888;'>%3</span></p>")
-                                .arg(parts[0].toHtmlEscaped(), dashUsageBar(pct),
-                                     tr("%1 used of %2").arg(parts[1], parts[2]));
-                    }
-                    ui->dashDiskLabel->setTextFormat(Qt::RichText);
-                    ui->dashDiskLabel->setText(html.isEmpty() ? tr("No data") : html);
-                    proc->deleteLater();
-                });
-        proc->start("bash", QStringList() << "-c" <<
-            "df -h --output=target,used,size,pcent / /home 2>/dev/null | tail -n +2 | sort -u");
-    }
-
-    // ---- 🧩 Services card ----
-    {
-        QProcess *proc = new QProcess(this);
-        connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                [this, proc](int, QProcess::ExitStatus) {
-                    const QStringList lines = QString::fromUtf8(proc->readAllStandardOutput()).split('\n', Qt::SkipEmptyParts);
-                    int running = 0;
-                    QStringList failed;
-                    for (const QString &line : lines) {
-                        if (line.startsWith("RUNNING:")) running = line.mid(8).trimmed().toInt();
-                        else if (line.startsWith("FAILED:")) failed << line.mid(7).trimmed();
-                    }
-                    QString html;
-                    if (failed.isEmpty()) {
-                        html = QString("<p style='margin:0; font-size:34px; color:#27ae60;'><b>✔</b></p>"
-                                       "<p style='margin:4px 0 0 0; color:#27ae60;'><b>%1</b></p>"
-                                       "<p style='margin:6px 0 0 0; color:#888;'>%2</p>")
-                               .arg(tr("All services healthy"), tr("%1 services running").arg(running));
-                    } else {
-                        html = QString("<p style='margin:0; font-size:34px; color:#c0392b;'><b>%1</b></p>"
-                                       "<p style='margin:4px 0 0 0; color:#c0392b;'><b>%2</b></p>"
-                                       "<p style='margin:6px 0 0 0; color:#888;'>%3</p>")
-                               .arg(failed.size())
-                               .arg(tr("failed service(s)"), failed.mid(0, 4).join("<br>").toHtmlEscaped());
-                    }
-                    ui->dashServicesLabel->setTextFormat(Qt::RichText);
-                    ui->dashServicesLabel->setText(html);
-                    proc->deleteLater();
-                });
-        proc->start("bash", QStringList() << "-c" <<
-            "echo \"RUNNING: $(systemctl list-units --type=service --state=running --no-legend --plain | wc -l)\"; "
-            "systemctl --failed --no-legend --plain | awk '{print \"FAILED: \" $1}'");
-    }
-
-    // ---- ⬆️ Updates card ----
-    {
-        QProcess *proc = new QProcess(this);
-        connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                [this, proc](int exitCode, QProcess::ExitStatus) {
-                    const QStringList lines = QString::fromUtf8(proc->readAllStandardOutput()).split('\n', Qt::SkipEmptyParts);
-                    QString html;
-                    if (exitCode == 2 || (exitCode == 0 && lines.isEmpty())) {
-                        html = QString("<p style='margin:0; font-size:34px; color:#27ae60;'><b>0</b></p>"
-                                       "<p style='margin:4px 0 0 0; color:#27ae60;'><b>%1</b></p>")
-                               .arg(tr("System is up to date"));
-                    } else if (exitCode == 0) {
-                        QStringList names;
-                        for (const QString &line : lines) names << line.section(' ', 0, 0);
-                        QString preview = names.mid(0, 4).join(", ");
-                        if (names.size() > 4) preview += tr(" +%1 more").arg(names.size() - 4);
-                        QString color = (lines.size() > 50) ? "#e67e22" : "#3498db";
-                        html = QString("<p style='margin:0; font-size:34px; color:%1;'><b>%2</b></p>"
-                                       "<p style='margin:4px 0 0 0;'><b>%3</b></p>"
-                                       "<p style='margin:6px 0 0 0; color:#888;'>%4</p>")
-                               .arg(color).arg(lines.size()).arg(tr("update(s) pending"), preview.toHtmlEscaped());
-                    } else {
-                        html = tr("<p style='color:#888;'>Install <b>pacman-contrib</b> to enable update checks.</p>");
-                    }
-                    ui->dashUpdatesLabel->setTextFormat(Qt::RichText);
-                    ui->dashUpdatesLabel->setText(html);
-                    proc->deleteLater();
-                });
-        proc->start("checkupdates", QStringList());
-        connect(proc, &QProcess::errorOccurred, [this, proc](QProcess::ProcessError) {
-            ui->dashUpdatesLabel->setText(tr("<p style='color:#888;'>Install <b>pacman-contrib</b> to enable update checks.</p>"));
+    if (overviewPending) return;
+    overviewPending = 5;
+    overviewPage->setBusy(true);
+    const auto launch = [this](const QString &program, const QStringList &arguments, auto apply, int timeout = 30000) {
+        auto *proc = new QProcess(this);
+        auto environment = QProcessEnvironment::systemEnvironment();
+        environment.insert("LC_ALL", "C");
+        proc->setProcessEnvironment(environment);
+        const auto finish = [this, proc, apply](int code, bool normal) {
+            if (proc->property("overviewFinished").toBool()) return;
+            proc->setProperty("overviewFinished", true);
+            apply(QString::fromUtf8(proc->readAllStandardOutput()), code, normal);
+            if (--overviewPending == 0) overviewPage->setBusy(false);
             proc->deleteLater();
-        });
-    }
-
-    // ---- 📀 Safety ISO card ----
-    {
-        QDir isoDir(QDir::homePath() + "/iso/xiso/output");
-        QFileInfoList isos = isoDir.entryInfoList(QStringList() << "*.iso", QDir::Files, QDir::Time);
-        QString html;
-        if (isos.isEmpty()) {
-            html = QString("<p style='margin:0; font-size:34px; color:#e67e22;'><b>—</b></p>"
-                           "<p style='margin:4px 0 0 0; color:#e67e22;'><b>%1</b></p>"
-                           "<p style='margin:6px 0 0 0; color:#888;'>%2</p>")
-                   .arg(tr("No safety ISO yet"),
-                        tr("Create one in the System ISO tab —<br>your insurance against drive failure."));
-        } else {
-            const QFileInfo &newest = isos.first();
-            qint64 days = newest.lastModified().daysTo(QDateTime::currentDateTime());
-            QString age = (days == 0) ? tr("today") : (days == 1) ? tr("yesterday") : tr("%1 days ago").arg(days);
-            QString color = (days > 30) ? "#e67e22" : "#27ae60";
-            html = QString("<p style='margin:0; font-size:34px; color:%1;'><b>%2</b></p>"
-                           "<p style='margin:4px 0 0 0; color:%1;'><b>%3</b></p>"
-                           "<p style='margin:6px 0 0 0; color:#888;'>%4<br>%5</p>")
-                   .arg(color, age, tr("last safety ISO"), newest.fileName().toHtmlEscaped(), formatSize(newest.size()));
-        }
-        ui->dashIsoLabel->setTextFormat(Qt::RichText);
-        ui->dashIsoLabel->setText(html);
-    }
-
-    // ---- 💾 Drive health card (sudo only if already cached — never prompts) ----
-    {
-        QProcess *proc = new QProcess(this);
-        connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                [this, proc](int, QProcess::ExitStatus) {
-                    QString out = QString::fromUtf8(proc->readAllStandardOutput()).trimmed();
-                    QString html;
-                    if (out == "NOAUTH") {
-                        html = tr("<p style='color:#888;'>🔒 Health checks need a sudo session.<br><br>"
-                                  "Use <b>Load Labels</b> or <b>Health Check</b> in the Drives tab once, "
-                                  "then Refresh here.</p>");
-                    } else if (out.isEmpty()) {
-                        html = tr("<p style='color:#888;'>No SMART data<br>(is smartmontools installed?)</p>");
-                    } else {
-                        // Two-column table so many drives stay compact
-                        const QStringList entries = out.split('\n', Qt::SkipEmptyParts);
-                        html = "<table cellspacing='2'>";
-                        for (int i = 0; i < entries.size(); i += 2) {
-                            html += "<tr>";
-                            for (int j = i; j < i + 2 && j < entries.size(); j++) {
-                                QString e = entries[j];
-                                QString color = e.contains("❌") ? "#c0392b" : e.contains("⚠️") ? "#e67e22" : "";
-                                html += QString("<td style='padding-right:16px; %1'>%2</td>")
-                                        .arg(color.isEmpty() ? "" : "color:" + color + "; font-weight:bold;",
-                                             e.toHtmlEscaped());
-                            }
-                            html += "</tr>";
-                        }
-                        html += "</table>";
-                    }
-                    ui->dashDrivesLabel->setTextFormat(Qt::RichText);
-                    ui->dashDrivesLabel->setText(html);
-                    proc->deleteLater();
-                });
-        proc->start("bash", QStringList() << "-c" <<
-            "if ! sudo -n true 2>/dev/null; then echo NOAUTH; exit 0; fi; "
-            "for d in $(lsblk -dpno NAME,TYPE | awk '$2==\"disk\"{print $1}'); do "
-            "  h=$(sudo -n smartctl -H \"$d\" 2>/dev/null | grep -Ei 'overall-health|SMART Health Status'); "
-            "  case \"$h\" in *PASSED*|*OK*) v='✅';; *FAILED*) v='❌ FAILING';; *) v='?';; esac; "
-            "  s=$(sudo -n smartctl -a \"$d\" 2>/dev/null | grep 'Available Spare:' | awk '{print $3}'); "
-            "  if [ -n \"$s\" ] && [ \"${s%\\%}\" -lt 80 ] 2>/dev/null && [ \"$v\" = '✅' ]; then v=\"⚠️ spare $s\"; fi; "
-            "  echo \"$(basename $d): $v\"; "
-            "done");
+        };
+        connect(proc, &QProcess::finished, this, [finish](int code, QProcess::ExitStatus status) { finish(code, status == QProcess::NormalExit); });
+        connect(proc, &QProcess::errorOccurred, this, [finish](QProcess::ProcessError error) { if (error == QProcess::FailedToStart) finish(-1, false); });
+        QTimer::singleShot(timeout, proc, [proc] { if (proc->state() != QProcess::NotRunning) proc->kill(); });
+        proc->start(program, arguments);
+    };
+    launch("bash", {"-c", R"SH(
+        echo "CPU: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ //')"
+        echo "GPU: $(lspci 2>/dev/null | grep -E ' (VGA compatible controller|3D controller|Display controller): ' | head -1 | sed -E 's/^[^ ]+ [^:]+: //; s/ \(rev.*//')"
+        echo "KERNEL: $(uname -r)"
+        echo "UPTIME: $(uptime -p | sed 's/^up //')"
+        free -b | awk '/^Mem:/{printf "RAMPCT: %d\n", $3*100/$2}'
+        free -h | awk '/^Mem:/{printf "RAM: %s %s\n", $3, $2}'
+    )SH"}, [this](const QString &out, int code, bool normal) { overviewPage->systemResult(out, normal && code == 0); });
+    launch("bash", {"-o", "pipefail", "-c", "df -h --output=target,used,size,pcent / /home 2>/dev/null | tail -n +2 | sort -u"},
+        [this](const QString &out, int code, bool normal) { overviewPage->storageResult(out, normal && code == 0); });
+    launch("bash", {"-c", R"SH(
+        running=$(systemctl list-units --type=service --state=running --no-legend --plain 2>/dev/null) || exit 1
+        failed=$(systemctl --failed --no-legend --plain 2>/dev/null) || exit 1
+        printf '%s\n' "$running" | awk 'NF{n++} END{print "RUNNING: " n+0}'
+        printf '%s\n' "$failed" | awk 'NF{print "FAILED: " $1}'
+    )SH"}, [this](const QString &out, int code, bool normal) { overviewPage->servicesResult(out, normal && code == 0); });
+    launch("checkupdates", {}, [this](const QString &out, int code, bool normal) { overviewPage->updatesResult(out, code, normal); }, 60000);
+    launch("bash", {"-c", R"SH(
+        if ! sudo -n true 2>/dev/null; then echo NOAUTH; exit 0; fi
+        command -v smartctl >/dev/null || exit 1
+        for d in $(lsblk -dpno NAME,TYPE | awk '$2=="disk"{print $1}'); do
+            h=$(sudo -n smartctl -H "$d" 2>/dev/null | grep -Ei 'overall-health|SMART Health Status')
+            case "$h" in *PASSED*|*OK*) v='Passed';; *FAILED*) v='FAILING';; *) v='Status unavailable';; esac
+            s=$(sudo -n smartctl -a "$d" 2>/dev/null | grep 'Available Spare:' | awk '{print $3}')
+            if [ -n "$s" ] && [ "${s%\%}" -lt 80 ] 2>/dev/null && [ "$v" = 'Passed' ]; then v="Low spare capacity: $s"; fi
+            printf '%s: %s\n' "$(basename "$d")" "$v"
+        done
+    )SH"}, [this](const QString &out, int code, bool normal) { overviewPage->healthResult(out, normal && code == 0); });
+    QDir isoDir(QDir::homePath() + "/iso/xiso/output");
+    const auto isos = isoDir.entryInfoList({"*.iso"}, QDir::Files, QDir::Time);
+    if (isos.isEmpty()) overviewPage->recoveryResult({}, {}, 0);
+    else {
+        const auto &newest = isos.first();
+        overviewPage->recoveryResult(newest.fileName(), formatSize(newest.size()), newest.lastModified().daysTo(QDateTime::currentDateTime()));
     }
 }
 
-void MainWindow::on_dashRefreshButton_clicked() {
-    refreshDashboard();
-}
+void MainWindow::on_dashRefreshButton_clicked() { refreshDashboard(); }
 
 // ---- Self-updater: git-based, source-build aware ----------------------------
 

@@ -5,6 +5,7 @@ import hashlib
 import os
 from pathlib import Path
 import socket
+import signal
 import shutil
 import subprocess
 import sys
@@ -140,6 +141,34 @@ with (root/'calls.jsonl').open('a') as log:
             assert any(row.get('local') == 'paste' for row in folder_menu)
             assert not any(row.get('local') == 'newFolder' for row in folder_menu)
             assert not desktop('MenuAction','(s)', (old,)), 'Stale menus must not act on a new selection'
+            def properties_processes():
+                matches = []
+                for entry in Path('/proc').iterdir():
+                    if not entry.name.isdigit(): continue
+                    try:
+                        argv = (entry/'cmdline').read_bytes().split(b'\0')
+                        if (len(argv) > 3 and argv[0] == os.fsencode(binary) and argv[1] == b'--properties'
+                                and os.fsencode(source.as_uri()) in argv):
+                            matches.append((int(entry.name), [os.fsdecode(arg) for arg in argv if arg]))
+                    except (OSError, ValueError): pass
+                return matches
+            def check_properties_request(invoke):
+                try:
+                    invoke()
+                    wait_for(lambda: bool(properties_processes()), 'Desktop Properties did not open its dedicated dialog.')
+                    pid, argv = properties_processes()[0]
+                    assert argv[1:] == ['--properties', '--', source.as_uri(), (source/filename).as_uri()], argv
+                    assert owner_pid() == process.pid, 'Properties must not take over the folder service.'
+                finally:
+                    for pid, _argv in properties_processes():
+                        try: os.kill(pid, signal.SIGTERM)
+                        except ProcessLookupError: pass
+                    wait_for(lambda: not properties_processes(), 'The Properties fixture did not close.')
+            assert not desktop('Properties', '(as)', (['relative-file'],))
+            check_properties_request(lambda: desktop('Properties', '(as)', ([source.as_uri(), (source/filename).as_uri()],)))
+            check_properties_request(lambda: bus.call_sync(name, '/org/freedesktop/FileManager1', name,
+                'ShowItemProperties', GLib.Variant('(ass)', ([source.as_uri(), (source/filename).as_uri()], '')),
+                None, Gio.DBusCallFlags.NONE, 3000, None))
             assert desktop('TransferWithPlacement', '(assbs)', ([(source/filename).as_uri()], target.as_uri(), True, 'copy-origin'))
             wait_for(lambda: (target/filename).exists(), 'Desktop copy did not reach the Files transfer engine.')
             wait_for(lambda: ('PlacementFinished', ('copy-origin',)) in signals, 'Copy placement context was not completed.')
@@ -255,7 +284,7 @@ with (root/'calls.jsonl').open('a') as log:
             outside = dict(env); outside.pop('HYPRLAND_INSTANCE_SIGNATURE')
             assert subprocess.run([str(binary), '--service'], env=outside, timeout=5).returncode==1
             assert not owns_name()
-            print('PASS: routing, desktop copy/move, inline rename and collision protection, private Trash and success signals, animation preference, floating folder requests, service ownership, Auto mount and logout.')
+            print('PASS: routing, dedicated Properties requests, desktop copy/move, inline rename and collision protection, private Trash and success signals, animation preference, floating folder requests, service ownership, Auto mount and logout.')
         finally:
             for process in processes:
                 if process.poll() is None:

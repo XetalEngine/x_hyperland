@@ -3,9 +3,10 @@ import json
 from pathlib import Path
 
 from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
-    QApplication, QDialog, QDialogButtonBox, QFrame, QGridLayout,
-    QHBoxLayout, QLabel, QMenu, QPushButton, QStyle, QToolButton, QVBoxLayout,
+    QApplication, QDialog, QDialogButtonBox, QFrame,
+    QHBoxLayout, QLabel, QLayout, QMenu, QPushButton, QToolButton, QVBoxLayout,
 )
 
 
@@ -31,76 +32,127 @@ class AboutDialog(QDialog):
         self.setWindowIcon(parent.windowIcon())
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setWindowModality(Qt.WindowModality.WindowModal)
-        self.setMinimumWidth(440)
-        self.setStyleSheet('''
-            QDialog#fusionAboutDialog { background: palette(window); color: palette(window-text); }
-            QDialog#fusionAboutDialog QLabel { background: transparent; color: palette(window-text); border: none; padding: 0; }
-            QLabel#aboutAppName { font-size: 23px; font-weight: 700; }
-            QLabel#aboutBrand { color: palette(highlight); font-weight: 700; letter-spacing: 2px; }
-            QLabel#aboutAuthor { font-size: 17px; font-weight: 600; }
-            QFrame#aboutIdentity { background: palette(base); border: 1px solid palette(mid); border-radius: 10px; }
-            QDialog#fusionAboutDialog QPushButton { min-height: 22px; padding: 5px 14px; }
-        ''')
+        self.setMinimumWidth(400)
+        theme = Path(__file__).parent
+        try:
+            self.setStyleSheet((theme / 'about.qss').read_text())
+        except OSError:
+            pass
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 24, 24, 20)
-        layout.setSpacing(18)
-        header = QHBoxLayout()
-        header.setSpacing(16)
-        app_icon = parent.windowIcon()
-        if app_icon.isNull():
-            app_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation)
-        icon = QLabel(self)
-        icon.setFixedSize(48, 48)
-        icon.setPixmap(app_icon.pixmap(48, 48))
-        header.addWidget(icon)
+        layout.setContentsMargins(22, 20, 22, 18)
+        layout.setSpacing(14)
+        layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        content = self
+        body = layout
+        brand = QHBoxLayout()
+        brand.addWidget(self._label('HYPER FUSION', 'aboutBrand'), 1)
+        try:
+            version = (theme.parent / 'VERSION').read_text().strip()
+        except OSError:
+            version = ''
+        if version:
+            brand.addWidget(self._label(version, 'aboutVersion'))
+        body.addLayout(brand)
+        logo = QLabel(content)
+        logo.setObjectName('aboutEngineLogo')
+        logo.setAccessibleName('Xetal Engine')
+        pixmap = QPixmap(str(theme / 'assets/xetal-engine.png'))
+        if not pixmap.isNull():
+            logo.setPixmap(pixmap.scaled(330, 60, Qt.AspectRatioMode.KeepAspectRatio,
+                                         Qt.TransformationMode.SmoothTransformation))
+        else:
+            logo.setText('XETAL ENGINE')
+        logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        logo.setFixedHeight(68)
+        body.addWidget(logo)
         titles = QVBoxLayout()
-        titles.setSpacing(4)
-        titles.addWidget(self._label('HYPER FUSION', 'aboutBrand'))
-        titles.addWidget(self._label(app_name, 'aboutAppName'))
-        header.addLayout(titles, 1)
-        layout.addLayout(header)
-        layout.addWidget(self._label(description))
+        titles.setSpacing(6)
+        app_label = self._label(app_name, 'aboutAppName')
+        app_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        titles.addWidget(app_label)
+        description_label = self._label(description, 'aboutDescription')
+        description_label.setProperty('aboutMuted', True)
+        description_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        titles.addWidget(description_label)
+        body.addLayout(titles)
 
         identity = _identity()
-        card = QFrame(self)
+        card = QFrame(content)
         card.setObjectName('aboutIdentity')
         details = QVBoxLayout(card)
         details.setContentsMargins(18, 16, 18, 16)
-        details.setSpacing(10)
-        details.addWidget(self._label('Author'))
+        details.setSpacing(8)
+        caption = self._label('CREATED BY')
+        caption.setProperty('aboutCaption', True)
+        caption.setProperty('aboutMuted', True)
+        details.addWidget(caption)
         details.addWidget(self._label(identity['author'], 'aboutAuthor'))
-        details.addSpacing(8)
-        contacts = QGridLayout()
-        contacts.setHorizontalSpacing(18)
-        contacts.setVerticalSpacing(10)
-        contacts.setColumnStretch(1, 1)
-        for row, service in enumerate(('Discord', 'Echo')):
+        details.addSpacing(4)
+        contacts = QHBoxLayout()
+        contacts.setSpacing(12)
+        for service in ('Discord', 'Echo'):
             username = identity[service.lower()]
-            contacts.addWidget(self._label(service), row, 0)
-            contacts.addWidget(self._label(username, 'about' + service), row, 1)
-            copy = QPushButton('Copy', card)
+            contact = QFrame(card)
+            contact.setProperty('aboutContact', True)
+            row = QHBoxLayout(contact)
+            row.setContentsMargins(14, 12, 14, 12)
+            row.setSpacing(10)
+            column = QVBoxLayout()
+            column.setSpacing(4)
+            row.addLayout(column, 1)
+            service_label = self._label(service)
+            service_label.setProperty('aboutMuted', True)
+            column.addWidget(service_label)
+            handle = self._label(username, 'about' + service)
+            handle.setProperty('aboutHandle', True)
+            column.addWidget(handle)
+            copy = QPushButton('Copy', contact)
             copy.setObjectName('copy' + service + 'Username')
             copy.setAccessibleName('Copy ' + service + ' username')
             copy.setToolTip('Copy ' + service + ' username')
             copy.setAutoDefault(False)
-            copy.setMinimumWidth(86)
             reset = QTimer(copy)
             reset.setSingleShot(True)
             reset.timeout.connect(lambda button=copy: button.setText('Copy'))
             copy.clicked.connect(lambda checked=False, button=copy, timer=reset, text=username:
                                  self._copy(button, timer, text))
-            contacts.addWidget(copy, row, 2)
+            row.addWidget(copy)
+            contacts.addWidget(contact, 1)
         details.addLayout(contacts)
-        layout.addWidget(card)
+        body.addWidget(card)
         if credits:
-            layout.addWidget(self._label(credits, 'aboutCredits'))
+            credit_label = self._label(credits, 'aboutCredits')
+            credit_label.setProperty('aboutMuted', True)
+            body.addWidget(credit_label)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
         close = buttons.button(QDialogButtonBox.StandardButton.Close)
         close.setDefault(True)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
-        self.resize(480, self.sizeHint().height())
+        self.fit_timer = QTimer(self)
+        self.fit_timer.setSingleShot(True)
+        self.fit_timer.timeout.connect(self._fit_contents)
+        self._fit_contents()
         close.setFocus()
+
+    def _fit_contents(self):
+        self.ensurePolished()
+        available = self.screen().availableGeometry()
+        layout = self.layout()
+        width = max(layout.minimumSize().width(), min(580, available.width() - 40))
+        height = max(layout.minimumSize().height(), layout.totalHeightForWidth(width))
+        # Widen first on shorter displays so all text stays visible at its
+        # normal font size. The layout's minimum protects against saved tiny
+        # window sizes and compositor resize requests.
+        if height > available.height() - 72:
+            width = max(width, min(720, available.width() - 40))
+            height = max(layout.minimumSize().height(), layout.totalHeightForWidth(width))
+        self.setMinimumSize(width, height)
+        self.resize(width, height)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.fit_timer.start(0)
 
     def _label(self, text, name=''):
         label = QLabel(text, self)

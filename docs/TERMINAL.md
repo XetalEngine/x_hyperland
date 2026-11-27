@@ -25,7 +25,7 @@ and do not load the interactive editor.
 | **Tab** | Complete a command, option or path; browse available choices. |
 | **Right / End** | Accept the suggested text when at the end of the command. |
 | **Ctrl+R** | Search command history interactively. |
-| **Up / Down** | Recall commands starting with the text already typed. |
+| **Up / Down** | Recall recent commands; when text is already typed, recall matching commands. |
 | **Ctrl+Shift+H** | Open Kitty's output-history pager. |
 | **Ctrl+Shift+Delete** | Clear output and scrollback up to the current prompt. |
 | **Ctrl+Shift+F5** | Reload Kitty appearance after saving settings. |
@@ -42,6 +42,8 @@ standard/Vim editing keys are adjustable too.
 entries**. You can disable recording, change the limit, share new commands
 between terminals, omit consecutive duplicates and skip commands beginning
 with a space. Existing terminals adopt these preferences when reopened.
+Shell setup and cleanup stay out of command history. Enhanced Bash owns its
+history synchronization; plain Bash uses the profile's prompt hook.
 
 On first use, Fusion creates a private copy of the standard `.bash_history`
 if it is a regular file no larger than 32 MiB. The original remains unchanged.
@@ -72,6 +74,9 @@ changes. No administrator authentication is required.
 These preferences are preserved by desktop updates and included in
 **Default Settings → Terminal & shell** for Save, Load and Reset. Command
 history and editor caches are private runtime data, not configuration exports.
+If a graphical session leaves `LANG` empty, the terminal launcher inherits
+`LC_ALL` or `LC_CTYPE`, falling back to `C.UTF-8`. Existing locale choices remain
+in effect.
 
 ## Implementation and verification
 
@@ -89,7 +94,8 @@ No shell enhancement is downloaded or installed at terminal startup.
 - Editor caches: the user's XDG cache directory, never shipped with the profile.
 
 The tests exercise real Bash PTYs for live colors, aliases, completion after
-`sudo`, suggestions, prefix search, exit-status preservation, shared history,
+`sudo`, suggestions, prefix search, startup without history pollution,
+Up-arrow recall across sessions, exit-status preservation, shared history,
 clearing with two open sessions, history limits and disabled recording. Qt tests
 cover editing, saving, discarding, resetting, clear confirmation and the existing
 welcome. The screenshots above are unchanged captures of the actual Qt page in

@@ -4,6 +4,7 @@
 #include "core.h"
 #include "context_actions.h"
 #include "new_items.h"
+#include "properties.h"
 #include <QtWidgets>
 #include "removal.h"
 #include "transfers.h"
@@ -15,7 +16,6 @@
 #include <KIO/JobUiDelegateFactory>
 #include <KIO/RenameFileDialog>
 #include <KIO/StatJob>
-#include <KPropertiesDialog>
 #include <QCryptographicHash>
 #include <algorithm>
 #include <memory>
@@ -227,12 +227,7 @@ bool DesktopActions::CreateNewWithPlacement(const QString &directory, const QStr
 }
 
 bool DesktopActions::Properties(const QStringList &sources) {
-  const auto files = urls(sources);
-  if (files.isEmpty()) return false;
-  KFileItemList items; for (const auto &url : files) items << KFileItem(url);
-  auto *dialog = new KPropertiesDialog(items);
-  dialog->setAttribute(Qt::WA_DeleteOnClose); dialog->show();
-  return true;
+  return Fusion::openProperties(sources);
 }
 
 bool DesktopActions::EmptyTrash() {

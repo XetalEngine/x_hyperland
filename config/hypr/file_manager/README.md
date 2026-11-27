@@ -1,5 +1,14 @@
 # Fusion Files
 
+Desktop **Properties** and the `FileManager1.ShowItemProperties` action open
+the same native property tabs as Files, with Files' selected theme, colors,
+icons and live appearance updates. Their `--properties` process loads the
+theme before showing the dialog and uses `xetal-file-properties` for its
+floating, content-sized window with the normal title bar and resizing. It does
+not inherit browser geometry; explicit workspace layout overrides still apply.
+Folder, file, desktop
+entry and multiple-item properties retain their native editing actions.
+
 ## Folder views and navigation memory
 
 Back/Forward restore selection, the current file, the folder filter and scroll
@@ -416,3 +425,8 @@ test_transfer_privileged.py` additionally checks real protected files and an
 actual `/tmp` → `/dev/shm` move; it never changes the host's authorization policy.
 `FUSION_FILES_BUILD` can reuse a build directory. The native test profile stays
 on the home filesystem so the real Trash and mounted-volume checks work.
+
+**About Fusion Files…** is available directly in the toolbar’s three-dot menu
+and at the top right of **Configure Fusion Files…**. The shared Xetal Engine
+About dialog fits the logo, desktop version, author, contacts and credits without
+scrollbars. Opening and closing About keeps unsaved Configure choices intact.

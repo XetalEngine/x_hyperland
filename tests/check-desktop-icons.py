@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real desktop-layer input in a disposable Hyprland, private HOME and bus.
 
-Usage: python3 tests/check-desktop-icons.py NEW_OUTPUT_DIRECTORY FILES_BUILD [--menus-only | --drag-actions-only | --drag-refresh-only]
+Usage: python3 tests/check-desktop-icons.py NEW_OUTPUT_DIRECTORY FILES_BUILD [--menus-only | --drag-actions-only | --drag-refresh-only | --archive-drag-only]
 Only virtual input in the nested compositor is used; no personal files change.
 """
 from nested_session import nested_environment
@@ -17,6 +17,8 @@ import time
 
 REPO = Path(__file__).resolve().parents[1]
 SOURCE = REPO/'config/hypr'
+sys.path.insert(0, str(SOURCE/'compat'))
+import hypr_compat
 
 
 def main():
@@ -153,7 +155,7 @@ class Desktop(app.Desktop):
    geometry=surface.desktop_monitor.get_geometry()
    surfaces.append(dict(monitor=canvas.monitor,positions=canvas.positions,area=self.icons.areas.get(canvas.monitor),
        allocation=[surface.get_allocated_width(),surface.get_allocated_height()],
-       geometry=[geometry.x,geometry.y,geometry.width,geometry.height],scale=surface.get_scale_factor()))
+       geometry=[geometry.x,geometry.y,geometry.width,geometry.height],scale=surface.get_scale_factor(),drop=canvas.drop_name))
    menu=surface.menu
    while menu and menu.get_visible():
     selected=menu.get_selected_item();menus.append(dict(labels=labels(menu),selected=labels(selected) if selected else [],
@@ -180,6 +182,12 @@ xwayland:enabled=false
 general:layout=dwindle
 windowrule=match:class ^xetal-files-external$,float on,center on
 ''')
+    if hypr_compat.uses_lua():
+        translated = conf.with_suffix('.lua')
+        translated.write_text(hypr_compat.Renderer(profile).render(conf))
+        conf = translated
+        env['XETAL_HYPRLAND_LUA'] = '1'
+        env['PATH'] = str(profile/'compat/bin')+os.pathsep+env['PATH']
     compositor = spawn(['Hyprland', '--config', str(conf)], start_new_session=True)
     input_process = None
     try:
@@ -194,7 +202,7 @@ windowrule=match:class ^xetal-files-external$,float on,center on
         assert instance
         # The host tiler can resize its nested compositor window between
         # gestures. Fix only our own host window's size before creating icons.
-        if os.environ.get('HYPRLAND_INSTANCE_SIGNATURE'):
+        if os.environ.get('HYPRLAND_INSTANCE_SIGNATURE') and '--archive-drag-only' not in sys.argv[3:]:
             parent_clients=json.loads(subprocess.check_output(['hyprctl','-j','clients'],text=True))
             for owned in parent_clients:
                 if owned.get('pid')==compositor.pid:
@@ -203,14 +211,28 @@ windowrule=match:class ^xetal-files-external$,float on,center on
                     subprocess.run(['hyprctl','dispatch','resizewindowpixel','exact 1280 900,'+address],check=True,stdout=subprocess.DEVNULL)
                     break
         env.update(HYPRLAND_INSTANCE_SIGNATURE=instance['instance'], WAYLAND_DISPLAY=instance['wl_socket'])
-        assert not ctl('configerrors')
+        errors = ctl('configerrors')
+        assert not errors, errors
+        if '--archive-drag-only' in sys.argv[3:]:
+            # Archive DND needs real Wayland input, but no parent presentation.
+            # A private output keeps host workspace tiling from resizing the
+            # test surface halfway through a gesture.
+            assert ctl('output', 'create', 'headless', 'ARCHIVE') == 'ok'
+            for output in json.loads(ctl('-j', 'monitors')):
+                if output['name'] != 'ARCHIVE':
+                    assert ctl('output', 'remove', output['name']) == 'ok'
+            assert ctl('dispatch', 'focusmonitor', 'ARCHIVE') == 'ok'
         if '--menus-only' not in sys.argv[3:]:
             plugin = subprocess.check_output([sys.executable, str(SOURCE/'runtime/cursor_probe/build.py')], text=True).strip()
             assert ctl('plugin', 'load', plugin) == 'ok'
         devices = json.loads(ctl('-j', 'devices'))
         for kind in ('mice', 'keyboards'):
             for device in devices.get(kind, []):
-                assert ctl('keyword', 'device['+device['name']+']:enabled', 'false') == 'ok'
+                if conf.suffix == '.lua':
+                    assert ctl('eval', hypr_compat.call('device', {
+                        'name': device['name'], 'enabled': False})) == 'ok'
+                else:
+                    assert ctl('keyword', 'device['+device['name']+']:enabled', 'false') == 'ok'
         # Keep host pointer motion out of the fixture and finish sizing its
         # output before any layer surface observes the initial geometry.
         monitor = json.loads(ctl('-j', 'monitors'))[0]
@@ -292,6 +314,10 @@ windowrule=match:class ^xetal-files-external$,float on,center on
         if '--drag-refresh-only' in sys.argv[3:]:
             from check_drag_refresh import check_drag_refresh
             check_drag_refresh(root, desktop, positions, spawn, ctl, gesture, wait, popup, key, state)
+            return
+        if '--archive-drag-only' in sys.argv[3:]:
+            from check_archive_drag import check_archive_drag
+            check_archive_drag(root, SOURCE, desktop, positions, spawn, ctl, run, gesture, wait, state)
             return
         # File actions arrive over D-Bus after the popup request. Its Wayland
         # window must fit the completed menu, not the one-row loading message.

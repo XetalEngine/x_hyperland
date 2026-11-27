@@ -1,4 +1,6 @@
 #include "window.h"
+#include "appearance.h"
+#include "properties.h"
 #include "drive_properties.h"
 #include <KDirLister>
 #include "menu_icons.h"
@@ -270,7 +272,7 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   undoAction->setEnabled(false);
   menu->addSeparator();
   menu->addAction("Keyboard shortcuts", this, &FilesWindow::showShortcuts);
-  menu->addAction("About Fusion Files…", this, [this] {
+  menu->addAction(Fusion::icon("help-about"), "About Fusion Files…", this, [this] {
     FusionAbout::show(this, Fusion::root(), "Fusion Files",
                       "Your files, drives and folders, at home in Hyper Fusion.");
   })->setObjectName("aboutApplicationAction");
@@ -472,10 +474,7 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
     bind(binding[0], binding[1]);
   addTab(initial);
   rebuildPlaces();
-  themeDebounce.setSingleShot(true);
-  themeDebounce.setInterval(100);
-  connect(&themeDebounce, &QTimer::timeout, this, &FilesWindow::reloadTheme);
-  auto *watcher = new QFileSystemWatcher({Fusion::root() + "/theme"}, this);
+  auto *watcher = new QFileSystemWatcher(this);
   const auto preferencesPath = preferences.settings.fileName();
   const auto settingsDirectory = QFileInfo(preferencesPath).absolutePath();
   QDir().mkpath(settingsDirectory);
@@ -485,62 +484,20 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
       watcher->addPath(preferencesPath);
     preferences.settings.sync();
     updateWindowControls();
-    if (preferences.settings.value("appearance/theme", "follow").toString() != requestedTheme)
-      themeDebounce.start();
   };
   if (QFileInfo::exists(preferencesPath)) watcher->addPath(preferencesPath);
-  connect(watcher, &QFileSystemWatcher::directoryChanged, this,
-          [this, preferenceChanged](const QString &path) {
-            if (path == Fusion::root() + "/theme") themeDebounce.start();
-            else preferenceChanged();
-          });
+  connect(watcher, &QFileSystemWatcher::directoryChanged, this, preferenceChanged);
   connect(watcher, &QFileSystemWatcher::fileChanged, this, preferenceChanged);
-  connect(&theme, &QProcess::finished, this,
-          [this](int code, QProcess::ExitStatus) {
-            if (code)
-              return;
-            const auto value =
-                QJsonDocument::fromJson(theme.readAllStandardOutput()).object();
-            if (!value.contains("stylesheet"))
-              return;
-            preferences.settings.sync();
-            if (preferences.settings.value("appearance/theme", "follow").toString() != requestedTheme) {
-              themeDebounce.start();
-              return;
-            }
+  appearance = new Fusion::Appearance(preferencesPath, this);
+  connect(appearance, &Fusion::Appearance::changed, this,
+          [this](const QJsonObject &value) {
             themeChoices = value["themeChoices"].toArray();
             if (auto *choice = findChild<QComboBox *>("configureTheme"))
               if (!choice->isEnabled()) populateThemeChoices(choice);
-            const bool follow = value["theme"].toString("follow") == "follow";
-            qApp->setProperty("xetalThemeDesign", follow ? QVariant{} : value["design"].toVariant());
-            qApp->setProperty("xetalThemeIconTheme", follow ? QVariant{} : value["iconTheme"].toVariant());
             setProperty("fusionTheme", value["design"].toString());
-            QPalette palette;
-            const auto colors = value["colors"].toObject();
-            const auto roles = QMetaEnum::fromType<QPalette::ColorRole>();
-            for (auto it = colors.begin(); it != colors.end(); ++it) {
-              int role = roles.keyToValue(it.key().toUtf8());
-              if (role >= 0)
-                palette.setColor(QPalette::All, QPalette::ColorRole(role),
-                                 QColor(it.value().toString()));
-            }
-            for (auto role :
-                 {QPalette::Text, QPalette::WindowText, QPalette::ButtonText})
-              palette.setColor(QPalette::Disabled, role,
-                               QColor(colors["Disabled"].toString()));
-            qApp->setPalette(palette);
-            qApp->setProperty("fusionAccent",
-                              QColor(colors["Accent"].toString()));
-            qApp->setFont(QFont(value["font"].toString("Noto Sans"), 10));
             const auto iconTheme=value["iconTheme"].toString();
             const bool iconsChanged=property("fusionIconTheme").toString()!=iconTheme;
             setProperty("fusionIconTheme",iconTheme);
-            QStringList iconPaths;
-            for (const auto &path : value["iconSearchPaths"].toArray()) iconPaths << path.toString();
-            QIcon::setThemeSearchPaths(iconPaths);
-            QIcon::setFallbackThemeName(value["iconFallbackTheme"].toString("hicolor"));
-            QIcon::setThemeName(iconTheme);
-            qApp->setStyleSheet(value["stylesheet"].toString());
             for (auto *action : findChildren<QAction *>())
               if (action->property("fusionIcon").isValid())
                 action->setIcon(
@@ -554,20 +511,15 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
               for (auto *page:findChildren<Browser *>()) page->refreshIcons();
             update();
           });
-  reloadTheme();
 }
 Browser *FilesWindow::browser() const {
   return tabs ? qobject_cast<Browser *>(tabs->currentWidget()) : nullptr;
 }
 FilesWindow::~FilesWindow() {
-  themeDebounce.stop();
-  disconnect(&theme, nullptr, this, nullptr);
+  delete appearance;
+  appearance = nullptr;
   for (auto *child : findChildren<QObject *>())
     disconnect(child, nullptr, this, nullptr);
-  if (theme.state() != QProcess::NotRunning) {
-    theme.kill();
-    theme.waitForFinished(1000);
-  }
   // Destroy views while their settings and drive service still exist.
   delete takeCentralWidget();
   tabs = nullptr;
@@ -1096,9 +1048,8 @@ void FilesWindow::runAction(const QString &id) {
         drives->showProperties(volume, this);
       return;
     }
-    auto *dialog = items.isEmpty() ? new KPropertiesDialog(location, this)
-                                   : new KPropertiesDialog(items, this);
-    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    auto *dialog = Fusion::propertiesDialog(
+        items.isEmpty() ? KFileItemList{KFileItem(location)} : items, this);
     dialog->show();
     return;
   }
@@ -1442,7 +1393,17 @@ void FilesWindow::configure() {
   layout->setSpacing(14);
   auto *heading = new QLabel("Your files, your way");
   heading->setObjectName("settingsHeading");
-  layout->addWidget(heading);
+  auto *header = new QHBoxLayout;
+  header->addWidget(heading, 1);
+  auto *about = new QPushButton(Fusion::icon("help-about"), "About Fusion Files…", &dialog);
+  about->setObjectName("aboutApplicationButton");
+  about->setAutoDefault(false);
+  connect(about, &QPushButton::clicked, &dialog, [&dialog] {
+    FusionAbout::show(&dialog, Fusion::root(), "Fusion Files",
+                      "Your files, drives and folders, at home in Hyper Fusion.");
+  });
+  header->addWidget(about);
+  layout->addLayout(header);
   auto *intro = new QLabel("Choose how you browse and which actions appear when you right-click.");
   intro->setWordWrap(true);
   layout->addWidget(intro);
@@ -1568,7 +1529,7 @@ void FilesWindow::configure() {
     return qMax(page->sizeHint().height(), page->heightForWidth(pageWidth));
   };
   const int chrome = layout->contentsMargins().top() + layout->contentsMargins().bottom()
-      + heading->sizeHint().height() + qMax(intro->sizeHint().height(), intro->heightForWidth(pageWidth))
+      + header->sizeHint().height() + qMax(intro->sizeHint().height(), intro->heightForWidth(pageWidth))
       + pages->tabBar()->sizeHint().height() + buttons->sizeHint().height() + 3 * layout->spacing() + 24;
   dialog.resize(width, qMin(available.height(), qMax(720, chrome + qMax(pageHeight(general), pageHeight(computerPage)))));
   if (dialog.exec() != QDialog::Accepted) return;
@@ -1612,13 +1573,7 @@ void FilesWindow::showShortcuts() {
       "window\nAlt+Enter — Properties");
 }
 void FilesWindow::reloadTheme() {
-  if (theme.state() != QProcess::NotRunning) {
-    themeDebounce.start();
-    return;
-  }
-  preferences.settings.sync();
-  requestedTheme = preferences.settings.value("appearance/theme", "follow").toString();
-  theme.start("python3", {Fusion::root() + "/file_manager/appearance.py", "--theme", requestedTheme});
+  appearance->reload();
 }
 void FilesWindow::message(const QString &text) {
   statusBar()->showMessage(text, 15000);

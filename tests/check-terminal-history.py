@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check Kitty Ctrl+R, Ctrl+C copying and A-key delivery after focus changes.
+"""Check Kitty startup history, Ctrl+R and key delivery after focus changes.
 
 Uses the shipped shell configuration in a temporary HOME and a disposable
 Hyprland session. All virtual input goes to that session, never the desktop.
@@ -22,7 +22,8 @@ def main():
     (profile/'kitty.conf').write_text((src/'kitty.conf').read_text().replace('@HYPR@',str(profile)));(home/'.bashrc').write_text("PS1='HF_KITTY> '\n")
     instances=json.loads(subprocess.check_output(['hyprctl','-j','instances']));assert instances,'A parent Wayland compositor is required';parent=instances[-1]
     env=nested_environment(dict(os.environ,HOME=str(home),XDG_CONFIG_HOME=str(home/'.config'),XDG_STATE_HOME=str(home/'state'),XDG_CACHE_HOME=str(home/'cache'),XDG_RUNTIME_DIR=str(runtime),WAYLAND_DISPLAY=str(Path('/run/user')/str(os.getuid())/parent['wl_socket']),AQ_BACKENDS='wayland',HYPRLAND_NO_SD_VARS='1',HYPRLAND_NO_SD_NOTIFY='1',QT_QPA_PLATFORM='wayland',QT_QPA_PLATFORMTHEME='',GSETTINGS_BACKEND='memory',LIBGL_ALWAYS_SOFTWARE='1'))
-    for key in ('DISPLAY','DBUS_SESSION_BUS_ADDRESS','HYPRLAND_INSTANCE_SIGNATURE','KITTY_LISTEN_ON','KITTY_PID','KITTY_WINDOW_ID','KITTY_SHELL_INTEGRATION','KITTY_BASH_INJECT'):env.pop(key,None)
+    for key in ('DISPLAY','DBUS_SESSION_BUS_ADDRESS','HYPRLAND_INSTANCE_SIGNATURE','KITTY_LISTEN_ON','KITTY_PID','KITTY_WINDOW_ID','KITTY_SHELL_INTEGRATION','KITTY_BASH_INJECT','LANG','LC_ALL'):env.pop(key,None)
+    env['LC_CTYPE']='C.UTF-8'  # Match graphical sessions that do not set LANG.
     config=root/'hyprland.lua';config.write_text('hl.monitor({output="",mode="1200x800@60",position="auto",scale=1})\nhl.config({animations={enabled=false},misc={disable_hyprland_logo=true,disable_splash_rendering=true},input={follow_mouse=0}})\n')
     for name,xml in [('pointer',repo/'tests/minimize/wlr-virtual-pointer-unstable-v1.xml'),('keyboard',repo/'tests/native/virtual-keyboard-unstable-v1.xml')]:
      for mode,ext in [('client-header','h'),('private-code','c')]:subprocess.run(['wayland-scanner',mode,str(xml),str(root/f'virtual-{name}.{ext}')],check=True)
@@ -73,6 +74,17 @@ def main():
      remote('send-text','echo alpha-history-marker\r');time.sleep(.4)
      app=spawn(['/usr/bin/python3',str(probe),str(root/'text')]);wait(lambda:any(c['pid']==app.pid for c in clients()),'text app')
      inputp=spawn([str(root/'input'),'1200','800'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True,bufsize=1)
+     # A fresh terminal must recall the previous session's real command, not
+     # shell initialization, without a missing-LANG warning on startup.
+     new_window=remote('launch','--type=tab',str(profile/'scripts/terminal-shell.sh')).strip()
+     wait(lambda:'HF_KITTY>' in remote('get-text'),'second terminal prompt')
+     focus(kitty.pid);tap(103)  # Up, from the private virtual keyboard.
+     wait(lambda:'HF_KITTY> echo alpha-history-marker' in remote('get-text'),'Up recalls the last real command')
+     screen=remote('get-text');(root/'up-after-startup.txt').write_text(screen)
+     assert 'suspicious environment' not in screen and '_fusion_terminal_dir' not in screen,screen
+     key(29,1);tap(46);key(29,0)
+     remote('close-window','--match','id:'+new_window)
+     print('PASS new terminal Up recalls real commands and missing LANG inherits LC_CTYPE',flush=True)
      for ending in ('search-active','escape','ctrl-c','ctrl-held-at-focus'):
       focus(kitty.pid);key(29,1);tap(19);key(29,0);tap(30);time.sleep(.15)
       screen=remote('get-text');(root/(ending+'.txt')).write_text(screen)

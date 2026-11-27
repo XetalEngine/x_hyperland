@@ -45,7 +45,7 @@ def write_preferences(path, values):
 
 class InterfaceSettingsDialog(QDialog):
     """entries are (stable page id, caption, icon, description)."""
-    def __init__(self, title, path, entries, apply, parent=None, default_hidden=()):
+    def __init__(self, title, path, entries, apply, parent=None, default_hidden=(), *, about_description='', about_credits=''):
         super().__init__(parent)
         self.setObjectName('interfaceSettingsDialog')
         self.setWindowTitle(title + ' · Settings')
@@ -97,6 +97,10 @@ class InterfaceSettingsDialog(QDialog):
         self.pages.addWidget(workspace)
         footer = QHBoxLayout(); reset = QPushButton('Reset page'); reset.setObjectName('resetInterfacePage')
         footer.addWidget(reset); self.status = QLabel('Changes save automatically.'); self.status.setWordWrap(True); footer.addWidget(self.status, 1)
+        from fusion_about import show_about
+        about = QPushButton('About…'); about.setObjectName('aboutApplicationButton'); about.setAutoDefault(False)
+        about.clicked.connect(lambda: show_about(self, title, about_description, about_credits))
+        footer.addWidget(about)
         done = QPushButton('Done'); done.clicked.connect(self.accept); footer.addWidget(done); root.addLayout(footer)
         self.navigation.currentRowChanged.connect(self.pages.setCurrentIndex); self.navigation.setCurrentRow(0)
         self.buttons.toggled.connect(lambda checked: self.change(show_window_controls=checked))

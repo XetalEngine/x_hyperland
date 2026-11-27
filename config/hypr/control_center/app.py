@@ -36,7 +36,6 @@ from audio_page import AudioSettingsPage, STYLE as AUDIO_STYLE
 from context_menu_page import ContextMenuPage, STYLE as CONTEXT_STYLE
 from window_chrome import window_controls
 from interface_settings import InterfaceSettingsDialog, read_preferences
-from fusion_about import about_menu
 import wheel_guard
 from home_page import HomePage
 from system_page import SystemPage
@@ -1129,12 +1128,9 @@ class Window(QMainWindow):
         header.addLayout(titles)
         header.addStretch()
         self.header_hint=label('LIVE CONFIGURATION\nSuper + K', 'muted');header.addWidget(self.header_hint)
-        self.about_menu=about_menu(self, 'Fusion Settings',
-                                  'Make Hyper Fusion your own: themes, shortcuts, audio and more.')
-        header.addWidget(self.about_menu)
         self.app_settings_button = button('Settings', self.open_interface_settings)
         self.app_settings_button.setObjectName('appSettingsButton')
-        self.app_settings_button.setToolTip('Window buttons and shown pages')
+        self.app_settings_button.setToolTip('Window buttons, shown pages and About Fusion Settings')
         header.addWidget(self.app_settings_button)
         self.window_controls=window_controls(self,title='Close Fusion Settings');self.close_button=self.window_controls.close
         header.addWidget(self.window_controls)
@@ -1208,7 +1204,8 @@ class Window(QMainWindow):
         entries = [(name, 'Recorder' if name == 'capture' else name.replace('-', ' ').title(),
                     navigation_icon(name, theme_runtime.colors()['Accent']), '') for name in self.pages]
         InterfaceSettingsDialog('Fusion Settings', self.interface_path, entries,
-                                self.apply_interface_preferences, self).exec()
+                                self.apply_interface_preferences, self,
+                                about_description='Make Hyper Fusion your own: themes, shortcuts, audio and more.').exec()
 
     def apply_interface_preferences(self, values=None):
         if values is not None: self.interface_preferences = values

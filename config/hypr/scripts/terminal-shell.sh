@@ -1,6 +1,10 @@
 #!/bin/sh
 # Only this Kitty profile uses the Fusion welcome. User aliases remain in their original rc file.
 set -eu
+# Some graphical sessions provide only LC_CTYPE. Preserve explicit language
+# choices and give interactive editors a matching LANG instead of an empty one.
+: "${LANG:=${LC_ALL:-${LC_CTYPE:-C.UTF-8}}}"
+export LANG
 fusion_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 export XETAL_FUSION_TERMINAL=1
 fusion_shell=${SHELL:-/bin/sh}

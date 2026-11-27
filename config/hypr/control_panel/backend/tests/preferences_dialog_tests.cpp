@@ -16,6 +16,21 @@ private slots:
         QDir profile(QFileInfo(catalog).absolutePath()); profile.cdUp();
         qputenv("XETAL_HYPR_ROOT", profile.absolutePath().toUtf8());
     }
+    void aboutDoesNotSaveOrCloseStagedPreferences() {
+        auto values = AppPreferences::defaults(); values["preferences/autoSaveEnabled"] = false;
+        int writes = 0;
+        PreferencesDialog dialog(values, [&](const auto &) { ++writes; return true; });
+        dialog.show();
+        control<QCheckBox>(dialog, "debugIsoCreatorCheck")->setChecked(true);
+        control<QPushButton>(dialog, "aboutApplicationButton")->click();
+        auto *about = dialog.findChild<QDialog *>("fusionAboutDialog"); QVERIFY(about);
+        QCOMPARE(about->findChild<QLabel *>("aboutAppName")->text(), QString("Control Panel"));
+        QVERIFY(about->findChild<QLabel *>("aboutCredits")->text().contains("GPLv3"));
+        about->close(); QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(dialog.isVisible()); QCOMPARE(writes, 0);
+        QVERIFY(control<QCheckBox>(dialog, "debugIsoCreatorCheck")->isChecked());
+        dialog.reject(); QCOMPARE(writes, 0);
+    }
     void legacySettingsAndUnknownKeysSurvive() {
         QTemporaryDir directory;
         const auto path = directory.filePath("settings.ini");

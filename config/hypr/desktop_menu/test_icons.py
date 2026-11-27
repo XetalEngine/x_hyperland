@@ -241,6 +241,111 @@ class EnumerationTests(unittest.TestCase):
 
 @unittest.skipUnless(os.environ.get('FUSION_DESKTOP_TEST_GUI') == '1', 'Run on a private display with FUSION_DESKTOP_TEST_GUI=1')
 class CanvasTests(unittest.TestCase):
+    def archive_context(self, targets=None, actions=None):
+        context = Mock()
+        context.list_targets.return_value = [self.Gdk.Atom.intern(name, False)
+            for name in (targets if targets is not None else self.icons.ARCHIVE_MIMES)]
+        context.get_actions.return_value = self.Gdk.DragAction.COPY if actions is None else actions
+        return context
+
+    def archive_data(self, value):
+        data = Mock()
+        data.get_data.return_value = value
+        data.get_length.return_value = len(value)
+        data.get_format.return_value = 8
+        return data
+
+    def test_archive_drop_highlights_folder_and_extracts_once_after_both_replies(self):
+        from unittest.mock import ANY
+        context = self.archive_context()
+        x, y = self.canvas.positions['Folder']; x += 25; y += 25
+        keymap = Mock(); keymap.get_modifier_state.return_value = 0
+        with patch.object(self.Gdk.Keymap, 'get_for_display', return_value=keymap), \
+             patch.object(self.Gdk, 'drag_status') as status, \
+             patch.object(self.canvas, 'drag_dest_find_target', return_value=context.list_targets()[0]), \
+             patch.object(self.canvas, 'drag_get_data') as request, \
+             patch.object(self.Gtk, 'drag_finish') as finish:
+            self.assertTrue(self.canvas.drag_motion(self.canvas, context, x, y, 10))
+            self.assertEqual(self.canvas.drop_name, 'Folder')
+            self.assertTrue(self.canvas.tiles['Folder'].get_style_context().has_class('drop-target'))
+            status.assert_called_with(context, self.Gdk.DragAction.COPY, 10)
+            self.assertTrue(self.canvas.drop(self.canvas, context, x, y, 11))
+            request.assert_called_once_with(context, context.list_targets()[0], 11)
+            self.canvas.received(self.canvas, context, 550, 380, self.archive_data(b':1.123'), 3, 12)
+            request.assert_called_with(context, context.list_targets()[1], 11)
+            self.fake_files.extract_archive.assert_not_called()
+            self.canvas.received(self.canvas, context, 550, 380, self.archive_data(b'/Archive/drag/one'), 4, 13)
+            self.fake_files.extract_archive.assert_called_once_with(':1.123', '/Archive/drag/one',
+                self.controller.uri('Folder'), ANY)
+            finish.assert_not_called()
+            # Duplicate delivery cannot start another extraction or change its destination.
+            self.canvas.received(self.canvas, context, x, y, self.archive_data(b'/Archive/drag/one'), 4, 13)
+            self.assertEqual(self.fake_files.extract_archive.call_count, 1)
+            self.fake_files.extract_archive.call_args.args[-1](True)
+            finish.assert_called_once_with(context, True, False, 11)
+            self.assertIsNone(self.canvas.drop_name)
+            self.assertFalse(self.canvas.archive_drops)
+            self.fake_files.transfer.assert_not_called()
+
+    def test_archive_hover_rejects_files_trash_shift_and_incomplete_offers(self):
+        keymap = Mock(); keymap.get_modifier_state.return_value = 0
+        x, y = self.canvas.positions['Folder']; x += 25; y += 25
+        filex, filey = self.canvas.positions['notes # café.txt']
+        context = self.archive_context()
+        with patch.object(self.Gdk.Keymap, 'get_for_display', return_value=keymap), \
+             patch.object(self.Gdk, 'drag_status'), \
+             patch.object(self.canvas, 'drag_dest_find_target', return_value=context.list_targets()[0]):
+            self.assertFalse(self.canvas.drag_motion(self.canvas, context, filex+25, filey+25, 1))
+            self.assertIsNone(self.canvas.drop_name)
+            self.assertTrue(self.canvas.drag_motion(self.canvas, context, 550, 380, 1))
+            with patch.object(self.canvas, 'destination', return_value=model.TRASH):
+                self.assertFalse(self.canvas.drag_motion(self.canvas, context, x, y, 1))
+            keymap.get_modifier_state.return_value = self.Gdk.ModifierType.SHIFT_MASK
+            self.assertFalse(self.canvas.drag_motion(self.canvas, context, x, y, 1))
+            keymap.get_modifier_state.return_value = 0
+            incomplete = self.archive_context(targets=self.icons.ARCHIVE_MIMES[:1])
+            self.assertFalse(self.canvas.drag_motion(self.canvas, incomplete, x, y, 1))
+            self.assertFalse(self.canvas.drag_motion(self.canvas,
+                self.archive_context(actions=self.Gdk.DragAction.MOVE), x, y, 1))
+
+    def test_archive_background_and_failed_request_finish_without_file_moves(self):
+        context = self.archive_context()
+        keymap = Mock(); keymap.get_modifier_state.return_value = 0
+        with patch.object(self.Gdk.Keymap, 'get_for_display', return_value=keymap), \
+             patch.object(self.Gdk, 'drag_status'), \
+             patch.object(self.canvas, 'drag_dest_find_target', return_value=context.list_targets()[0]), \
+             patch.object(self.canvas, 'drag_get_data'), patch.object(self.Gtk, 'drag_finish') as finish:
+            self.assertTrue(self.canvas.drop(self.canvas, context, 550, 380, 21))
+            self.canvas.archive_received(context, self.archive_data(b':1.123'), 3)
+            self.canvas.archive_received(context, self.archive_data(b'/Archive/drag/two'), 4)
+            self.assertEqual(self.fake_files.extract_archive.call_args.args[2], self.controller.uri())
+            self.fake_files.extract_archive.call_args.args[-1](False)
+            finish.assert_called_once_with(context, False, False, 21)
+            self.assertFalse(self.canvas.archive_drops)
+            self.fake_files.transfer.assert_not_called()
+
+    def test_archive_invalid_payload_and_cancel_do_not_extract(self):
+        keymap = Mock(); keymap.get_modifier_state.return_value = 0
+        for payload in [b'', b'bad connection', b':1.4\x00other', b'\xff', b'a'*4097]:
+            context = self.archive_context()
+            with self.subTest(payload=payload[:20]), \
+                 patch.object(self.Gdk.Keymap, 'get_for_display', return_value=keymap), \
+                 patch.object(self.Gdk, 'drag_status'), \
+                 patch.object(self.canvas, 'drag_dest_find_target', return_value=context.list_targets()[0]), \
+                 patch.object(self.canvas, 'drag_get_data'), patch.object(self.Gtk, 'drag_finish') as finish, \
+                 patch.object(self.controller, 'error') as error:
+                self.assertTrue(self.canvas.drop(self.canvas, context, 550, 380, 31))
+                self.canvas.archive_received(context, self.archive_data(payload), 3)
+                finish.assert_called_once_with(context, False, False, 31)
+                error.assert_called_once()
+        context = self.archive_context()
+        self.canvas.archive_drops[context] = dict(timestamp=40, timer=0, expected=3)
+        with patch.object(self.Gtk, 'drag_finish') as finish:
+            self.canvas.cancel_archive_drops()
+            self.canvas.archive_received(context, self.archive_data(b':1.123'), 3)
+            finish.assert_called_once_with(context, False, False, 40)
+        self.fake_files.extract_archive.assert_not_called()
+
     def test_control_press_preserves_drag_source_until_click_release(self):
         name='notes # café.txt';self.controller.select({name})
         tile=self.canvas.tiles[name]

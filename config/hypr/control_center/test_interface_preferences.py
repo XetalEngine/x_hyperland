@@ -6,8 +6,8 @@ import unittest
 from unittest.mock import patch
 
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
-from PyQt6.QtCore import QEvent
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import QEvent, QTimer
+from PyQt6.QtWidgets import QApplication, QDialog, QLabel, QPushButton
 import app
 import keys
 from interface_settings import read_preferences, write_preferences
@@ -45,6 +45,23 @@ class InterfaceTests(unittest.TestCase):
                     self.assertIsNot(window.tabs.currentWidget(), window.empty_page)
                     self.assertTrue(all(not button.isHidden() for button in window.rail_buttons.values()))
                     self.assertEqual(read_preferences(path)['hidden_pages'], ['audio', 'network'])
+                    observed = {}
+                    before = path.read_bytes()
+                    def inspect_about():
+                        settings = window.findChild(QDialog, 'interfaceSettingsDialog')
+                        if settings is None: return
+                        try:
+                            settings.findChild(QPushButton, 'aboutApplicationButton').click()
+                            about = settings.findChild(QDialog, 'fusionAboutDialog')
+                            observed['name'] = about.findChild(QLabel, 'aboutAppName').text()
+                            observed['logo'] = not about.findChild(QLabel, 'aboutEngineLogo').pixmap().isNull()
+                            about.close()
+                        finally:
+                            settings.reject()
+                    QTimer.singleShot(0, inspect_about)
+                    window.open_interface_settings()
+                    self.assertEqual(observed, dict(name='Fusion Settings', logo=True))
+                    self.assertEqual(path.read_bytes(), before)
                 finally:
                     window.refresh_timer.stop(); window.deleteLater()
                     QT.sendPostedEvents(None, QEvent.Type.DeferredDelete)

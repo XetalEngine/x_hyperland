@@ -85,6 +85,13 @@ Copy and Shortcut cannot drop into Trash; neither operation silently moves files
 Fusion Files handles transfers and any conflict prompts. The desktop watches the
 folder for changes, so files saved or renamed elsewhere appear automatically.
 
+Drag selected files and folders from the archive browser onto a desktop folder
+icon to extract into that folder. The destination highlights while hovering.
+Dropping on empty desktop space extracts into `~/Desktop`. Archive drops always
+copy out the selection and leave the archive unchanged; ordinary file icons,
+Trash and move/shortcut modifiers are rejected. The archive browser handles
+extraction and its normal progress, password and replacement prompts.
+
 Directory refreshes update existing icon widgets in place. In particular, an
 archive being written on the desktop must not destroy the source of an active
 drag or an inline rename editor. Each drag retains the URLs selected at its
@@ -108,13 +115,18 @@ The desktop uses the session's native Fusion Files service through
 `org.xetal.FusionFiles.Desktop1`. Folder launches use `--external --new-window`
 and the existing `xetal-files-external` floating rule. Transfer handling stays in
 the Files service so operations can continue when the icon surface refreshes.
-Desktop Properties and operation dialogs use that same floating application role.
+Desktop Properties uses the shared Fusion Files dialog in a separate
+`xetal-file-properties` process with its own floating rule. Operation dialogs
+retain the Files service's floating application role.
+Archive drops use the source application's `org.kde.ark.DndExtract` interface;
+the desktop validates both MIME fields, freezes the destination at release and
+acknowledges the copy only after the source accepts the request.
 
 Validation:
 
 ```sh
 cd config/hypr/desktop_menu
-python3 -m unittest test_icons test_menu test_focus
+python3 -m unittest test_icons test_menu test_focus test_desktop_files
 FUSION_DESKTOP_TEST_GUI=1 GDK_BACKEND=x11 GSETTINGS_BACKEND=memory \
   xvfb-run -a dbus-run-session -- python3 -m unittest test_icons
 ```
@@ -134,3 +146,9 @@ external GTK target, then check URL delivery, Escape, source removal and clicks
 in both applications. The target is a local upload-queue fixture; it never
 contacts an external server. The unit suite also covers hidden icons, metadata
 updates, rename editor preservation and opening archive submenus.
+Use `--archive-drag-only` to drag a real Qt archive selection into the GTK
+desktop: folder highlighting, selected-file extraction into a folder and the
+background, rejected ordinary file targets and an unchanged source archive.
+This mode uses a private headless output so host window sizing cannot alter a
+gesture. The unit suite covers malformed/expired requests, asynchronous replies,
+duplicate data delivery and cancellation when the desktop surface closes.

@@ -33,6 +33,8 @@
 #include <memory>
 #include <QDialog>
 
+namespace FusionOverview { class Page; }
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -642,6 +644,8 @@ private:
     void checkForAppUpdatesViaApi();
     void runAppUpdate();
     void runAppUpdateFromClone();
+    FusionOverview::Page *overviewPage = nullptr;
+    int overviewPending = 0;
     QPushButton *dashUpdateBtn = nullptr;
 
     // System ISO tab: missing-dependency bar (one install button per tool)
