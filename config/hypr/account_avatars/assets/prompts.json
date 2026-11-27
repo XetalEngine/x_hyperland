@@ -1,0 +1,14 @@
+{
+  "tool": "Built-in imagegen",
+  "reference": "Project-owner avatar sheet 1",
+  "prompts": [
+    [
+      "flat-cap",
+      "Use case: stylized-concept. Asset: one square account avatar for HyperFusion. Reference image is only a STYLE reference: match the polished softly lit 3D collectible object icons in the first hat row. Create ONE single charcoal herringbone tweed flat cap, three-quarter front view, centered and fully visible with 12 percent padding on all sides. Plain muted slate-blue studio background, soft contact shadow, elegant fabric detail, readable silhouette at 80 pixels. No face, no person, no text, no logo, no grid, no border. Do not reproduce the sheet; deliver only one square icon."
+    ],
+    [
+      "diver-watch",
+      "Use case: stylized-concept. Asset: one square account avatar for HyperFusion. Reference image is only a STYLE reference: match the polished softly lit 3D collectible object icons in the second watch row. Create ONE single stainless-steel diver wristwatch with a deep teal face and silver metal link bracelet, front three-quarter view, upright with entire bracelet visible, centered with 12 percent padding. Plain muted desaturated teal-gray studio background, soft shadow, attractive metallic highlights, readable silhouette at 80 pixels. No brand, no text, no grid, no border. Do not reproduce the sheet; deliver only one square icon."
+    ]
+  ]
+}

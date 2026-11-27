@@ -295,7 +295,7 @@ assert m['fire_indicator']
         (source/'workspaces/rules.json').write_text('{"developer_only": true}')
         private = ('launcher/favorite-layout.json', 'launcher/floating-sizes.json',
                    'launcher/icons/private.png', 'calculator/state/preferences.ini',
-                   'file_manager/state/settings.ini', 'runtime/window_memory/state/windows.json',
+                   *install.APP_INTERFACE_DEFAULTS, 'runtime/window_memory/state/windows.json',
                    'control_panel/state/startup-screen.json', 'theme/effect-colors.json')
         theme=source/'theme/state.json'
         theme.write_text(json.dumps(dict(json.loads(theme.read_text()),design='hollowgrove',mode='light',
@@ -309,7 +309,13 @@ assert m['fire_indicator']
         kde.write_text('[Favorites-instance-1-global]\nordering=applications:recipient.desktop\n')
         before = kde.read_bytes()
         with patch.object(install, 'PAYLOAD', source): self.render()
-        for name in private: self.assertFalse((self.stage/name).exists(), name)
+        for name in private:
+            if name in install.APP_INTERFACE_DEFAULTS:
+                expected = install.APP_INTERFACE_DEFAULTS[name]
+                actual = (self.stage/name).read_bytes()
+                self.assertEqual(actual if isinstance(expected, bytes) else json.loads(actual), expected, name)
+            else:
+                self.assertFalse((self.stage/name).exists(), name)
         for name, expected in install.LAUNCHER_DEFAULTS.items():
             self.assertEqual(json.loads((self.stage/'launcher'/name).read_text()), expected)
         self.assertEqual(json.loads((self.stage/'workspaces/rules.json').read_text()),
@@ -639,7 +645,7 @@ assert m['fire_indicator']
     def test_every_shipped_wallpaper_matches_manifest(self):
         import hashlib
         manifest=json.loads((REPO/'assets-manifest.json').read_text())
-        for name,digest in manifest.items():self.assertEqual(hashlib.sha256((REPO/name).read_bytes()).hexdigest(),digest)
+        for name,digest in manifest.items():self.assertEqual(hashlib.sha256((REPO/name).read_bytes()).hexdigest(),digest,name)
 
 
 if __name__=='__main__':unittest.main()

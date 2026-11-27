@@ -48,7 +48,7 @@ inline QPixmap cropped(const QPixmap &source, int size) {
 
 class Avatar final : public QWidget {
 public:
-  explicit Avatar(QWidget *parent = nullptr) : QWidget(parent) { setFixedSize(72,72); }
+  explicit Avatar(QWidget *parent = nullptr, int size = 72) : QWidget(parent) { setFixedSize(size,size); }
   void setSource(const QString &path) {
     const auto modified = QFileInfo(path).lastModified();
     if (source == path && stamp == modified) return;
@@ -66,7 +66,14 @@ protected:
   void paintEvent(QPaintEvent *) override {
     QPainter painter(this);
     const auto frame = movie && !movie->currentPixmap().isNull() ? movie->currentPixmap() : still;
-    painter.drawPixmap(0,0,cropped(frame,72));
+    if (!frame.isNull()) painter.drawPixmap(0,0,cropped(frame,width()));
+    else {
+      painter.setRenderHint(QPainter::Antialiasing);
+      painter.setBrush(palette().highlight()); painter.setPen(Qt::NoPen);
+      painter.drawEllipse(rect()); painter.setPen(palette().highlightedText().color());
+      auto font=painter.font(); font.setPixelSize(width()/3); font.setBold(true); painter.setFont(font);
+      painter.drawText(rect(),Qt::AlignCenter,property("initial").toString());
+    }
   }
   void showEvent(QShowEvent *event) override {
     QWidget::showEvent(event);

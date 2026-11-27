@@ -1,0 +1,6 @@
+HyperFusion account artwork
+
+298 pictures cropped from three sheets supplied by the project owner.
+Two matching additions created with the built-in imagegen tool.
+The original HyperFusion animated account GIF is preserved byte-for-byte.
+Crop rectangles and source hashes: provenance.json. Generation prompts: prompts.json.

@@ -58,6 +58,8 @@ set(PROJECT_SOURCES
     ../software_catalog.cpp
     ../software_catalog.h
         ../account_avatar.h
+        ../account_picker.h
+        ../accounts_page.h
     ../grub_editor.cpp
     ../grub_editor.h
     ../grub_appearance.cpp
@@ -454,4 +456,14 @@ if(BUILD_NETWORK_PAGE_TESTS)
     target_link_libraries(network_page_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
     add_test(NAME network_page COMMAND network_page_tests)
     set_tests_properties(network_page PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_PLATFORMTHEME=")
+endif()
+
+option(BUILD_ACCOUNT_PAGE_TESTS "Build Users and Groups gallery and interaction checks" OFF)
+if(BUILD_ACCOUNT_PAGE_TESTS)
+    enable_testing()
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Test)
+    add_executable(account_page_tests tests/account_page_tests.cpp)
+    target_link_libraries(account_page_tests PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Test)
+    add_test(NAME account_page COMMAND account_page_tests)
+    set_tests_properties(account_page PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_PLATFORMTHEME=;XETAL_HYPR_ROOT=${CMAKE_CURRENT_SOURCE_DIR}/../..")
 endif()

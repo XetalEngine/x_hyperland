@@ -1,0 +1,3290 @@
+[
+  {
+    "id": "fedora",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1,
+      1,
+      138,
+      140
+    ]
+  },
+  {
+    "id": "cowboy-hat",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      140,
+      1,
+      277,
+      140
+    ]
+  },
+  {
+    "id": "red-cap",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      279,
+      1,
+      417,
+      140
+    ]
+  },
+  {
+    "id": "blue-beanie",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      419,
+      1,
+      557,
+      140
+    ]
+  },
+  {
+    "id": "wizard-hat",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      559,
+      1,
+      697,
+      140
+    ]
+  },
+  {
+    "id": "sun-hat",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      699,
+      1,
+      837,
+      140
+    ]
+  },
+  {
+    "id": "top-hat",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      839,
+      1,
+      977,
+      140
+    ]
+  },
+  {
+    "id": "beret",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      979,
+      1,
+      1116,
+      140
+    ]
+  },
+  {
+    "id": "aviator-hat",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1118,
+      1,
+      1253,
+      140
+    ]
+  },
+  {
+    "id": "classic-watch",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1,
+      142,
+      138,
+      284
+    ]
+  },
+  {
+    "id": "gold-chronograph",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      140,
+      142,
+      277,
+      284
+    ]
+  },
+  {
+    "id": "digital-watch",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      279,
+      142,
+      417,
+      284
+    ]
+  },
+  {
+    "id": "sport-watch",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      419,
+      142,
+      557,
+      284
+    ]
+  },
+  {
+    "id": "pocket-watch",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      559,
+      142,
+      697,
+      284
+    ]
+  },
+  {
+    "id": "skeleton-watch",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      699,
+      142,
+      837,
+      284
+    ]
+  },
+  {
+    "id": "orange-watch",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      839,
+      142,
+      977,
+      284
+    ]
+  },
+  {
+    "id": "dress-watch",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      979,
+      142,
+      1116,
+      284
+    ]
+  },
+  {
+    "id": "smartwatch",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1118,
+      142,
+      1253,
+      284
+    ]
+  },
+  {
+    "id": "open-palm",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1,
+      286,
+      128,
+      418
+    ]
+  },
+  {
+    "id": "back-of-hand",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      130,
+      286,
+      255,
+      418
+    ]
+  },
+  {
+    "id": "thumbs-up",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      257,
+      286,
+      381,
+      418
+    ]
+  },
+  {
+    "id": "peace-sign",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      383,
+      286,
+      504,
+      418
+    ]
+  },
+  {
+    "id": "fist",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      506,
+      286,
+      629,
+      418
+    ]
+  },
+  {
+    "id": "waving-hand",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      631,
+      286,
+      756,
+      418
+    ]
+  },
+  {
+    "id": "open-hand",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      758,
+      286,
+      881,
+      418
+    ]
+  },
+  {
+    "id": "pointing-hand",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      883,
+      286,
+      1005,
+      418
+    ]
+  },
+  {
+    "id": "okay-hand",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1007,
+      286,
+      1128,
+      418
+    ]
+  },
+  {
+    "id": "offering-hand",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1130,
+      286,
+      1253,
+      418
+    ]
+  },
+  {
+    "id": "left-sole",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1,
+      420,
+      128,
+      545
+    ]
+  },
+  {
+    "id": "right-sole",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      130,
+      420,
+      255,
+      545
+    ]
+  },
+  {
+    "id": "left-foot",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      257,
+      420,
+      381,
+      545
+    ]
+  },
+  {
+    "id": "right-foot",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      383,
+      420,
+      504,
+      545
+    ]
+  },
+  {
+    "id": "heel",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      506,
+      420,
+      629,
+      545
+    ]
+  },
+  {
+    "id": "foot-sole",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      631,
+      420,
+      756,
+      545
+    ]
+  },
+  {
+    "id": "relaxed-foot",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      758,
+      420,
+      881,
+      545
+    ]
+  },
+  {
+    "id": "barefoot-pair",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      883,
+      420,
+      1005,
+      545
+    ]
+  },
+  {
+    "id": "standing-feet",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1007,
+      420,
+      1128,
+      545
+    ]
+  },
+  {
+    "id": "side-foot",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1130,
+      420,
+      1253,
+      545
+    ]
+  },
+  {
+    "id": "golden-alarm",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1,
+      547,
+      128,
+      678
+    ]
+  },
+  {
+    "id": "red-alarm",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      130,
+      547,
+      255,
+      678
+    ]
+  },
+  {
+    "id": "cuckoo-clock",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      257,
+      547,
+      381,
+      678
+    ]
+  },
+  {
+    "id": "wall-clock",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      383,
+      547,
+      504,
+      678
+    ]
+  },
+  {
+    "id": "mantel-clock",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      506,
+      547,
+      629,
+      678
+    ]
+  },
+  {
+    "id": "hourglass",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      631,
+      547,
+      756,
+      678
+    ]
+  },
+  {
+    "id": "digital-alarm",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      758,
+      547,
+      881,
+      678
+    ]
+  },
+  {
+    "id": "sundial",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      883,
+      547,
+      1005,
+      678
+    ]
+  },
+  {
+    "id": "ship-clock",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1007,
+      547,
+      1128,
+      678
+    ]
+  },
+  {
+    "id": "grandfather-clock",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1130,
+      547,
+      1253,
+      678
+    ]
+  },
+  {
+    "id": "sunburst-guitar",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1,
+      680,
+      128,
+      798
+    ]
+  },
+  {
+    "id": "flying-v-guitar",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      130,
+      680,
+      255,
+      798
+    ]
+  },
+  {
+    "id": "acoustic-guitar",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      257,
+      680,
+      381,
+      798
+    ]
+  },
+  {
+    "id": "bass-guitar",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      383,
+      680,
+      504,
+      798
+    ]
+  },
+  {
+    "id": "ukulele",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      506,
+      680,
+      629,
+      798
+    ]
+  },
+  {
+    "id": "amplifier",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      631,
+      680,
+      756,
+      798
+    ]
+  },
+  {
+    "id": "guitar-pick",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      758,
+      680,
+      881,
+      798
+    ]
+  },
+  {
+    "id": "violin",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      883,
+      680,
+      1005,
+      798
+    ]
+  },
+  {
+    "id": "saxophone",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1007,
+      680,
+      1128,
+      798
+    ]
+  },
+  {
+    "id": "microphone",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1130,
+      680,
+      1253,
+      798
+    ]
+  },
+  {
+    "id": "silver-pentacle",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1,
+      800,
+      128,
+      919
+    ]
+  },
+  {
+    "id": "golden-pentacle",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      130,
+      800,
+      255,
+      919
+    ]
+  },
+  {
+    "id": "stone-pentacle",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      257,
+      800,
+      381,
+      919
+    ]
+  },
+  {
+    "id": "crystal-pentacle",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      383,
+      800,
+      504,
+      919
+    ]
+  },
+  {
+    "id": "celtic-ring",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      506,
+      800,
+      629,
+      919
+    ]
+  },
+  {
+    "id": "crescent-pendant",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      631,
+      800,
+      756,
+      919
+    ]
+  },
+  {
+    "id": "crystal-ball",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      758,
+      800,
+      881,
+      919
+    ]
+  },
+  {
+    "id": "black-candle",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      883,
+      800,
+      1005,
+      919
+    ]
+  },
+  {
+    "id": "star-card",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1007,
+      800,
+      1128,
+      919
+    ]
+  },
+  {
+    "id": "ornate-mirror",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1130,
+      800,
+      1253,
+      919
+    ]
+  },
+  {
+    "id": "ginger-cat",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1,
+      921,
+      128,
+      1029
+    ]
+  },
+  {
+    "id": "black-cat",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      130,
+      921,
+      255,
+      1029
+    ]
+  },
+  {
+    "id": "white-cat",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      257,
+      921,
+      381,
+      1029
+    ]
+  },
+  {
+    "id": "siamese-cat",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      383,
+      921,
+      504,
+      1029
+    ]
+  },
+  {
+    "id": "british-shorthair",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      506,
+      921,
+      629,
+      1029
+    ]
+  },
+  {
+    "id": "calico-cat",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      631,
+      921,
+      756,
+      1029
+    ]
+  },
+  {
+    "id": "tuxedo-cat",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      758,
+      921,
+      881,
+      1029
+    ]
+  },
+  {
+    "id": "bengal-cat",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      883,
+      921,
+      1005,
+      1029
+    ]
+  },
+  {
+    "id": "silver-tabby",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1007,
+      921,
+      1128,
+      1029
+    ]
+  },
+  {
+    "id": "ragdoll-cat",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1130,
+      921,
+      1253,
+      1029
+    ]
+  },
+  {
+    "id": "golden-retriever",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1,
+      1031,
+      128,
+      1146
+    ]
+  },
+  {
+    "id": "husky",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      130,
+      1031,
+      255,
+      1146
+    ]
+  },
+  {
+    "id": "german-shepherd",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      257,
+      1031,
+      381,
+      1146
+    ]
+  },
+  {
+    "id": "corgi",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      383,
+      1031,
+      504,
+      1146
+    ]
+  },
+  {
+    "id": "dachshund",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      506,
+      1031,
+      629,
+      1146
+    ]
+  },
+  {
+    "id": "dalmatian",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      631,
+      1031,
+      756,
+      1146
+    ]
+  },
+  {
+    "id": "shiba-inu",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      758,
+      1031,
+      881,
+      1146
+    ]
+  },
+  {
+    "id": "black-labrador",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      883,
+      1031,
+      1005,
+      1146
+    ]
+  },
+  {
+    "id": "border-collie",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1007,
+      1031,
+      1128,
+      1146
+    ]
+  },
+  {
+    "id": "pug",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1130,
+      1031,
+      1253,
+      1146
+    ]
+  },
+  {
+    "id": "sunglasses",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1,
+      1148,
+      128,
+      1253
+    ]
+  },
+  {
+    "id": "red-sneakers",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      130,
+      1148,
+      255,
+      1253
+    ]
+  },
+  {
+    "id": "leather-boots",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      257,
+      1148,
+      381,
+      1253
+    ]
+  },
+  {
+    "id": "blue-backpack",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      383,
+      1148,
+      504,
+      1253
+    ]
+  },
+  {
+    "id": "skateboard",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      506,
+      1148,
+      629,
+      1253
+    ]
+  },
+  {
+    "id": "roller-skate",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      631,
+      1148,
+      756,
+      1253
+    ]
+  },
+  {
+    "id": "racing-helmet",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      758,
+      1148,
+      881,
+      1253
+    ]
+  },
+  {
+    "id": "compass-pendant",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      883,
+      1148,
+      1005,
+      1253
+    ]
+  },
+  {
+    "id": "camera",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1007,
+      1148,
+      1128,
+      1253
+    ]
+  },
+  {
+    "id": "studio-headphones",
+    "sheet": 1,
+    "source_sha256": "419989ef8722f7b76a4dbd295995d08f0feddd628dd6a149aabe4d26eaf472d7",
+    "crop": [
+      1130,
+      1148,
+      1253,
+      1253
+    ]
+  },
+  {
+    "id": "saturn",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1,
+      1,
+      138,
+      127
+    ]
+  },
+  {
+    "id": "crescent-moon",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      140,
+      1,
+      270,
+      127
+    ]
+  },
+  {
+    "id": "comet",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      272,
+      1,
+      401,
+      127
+    ]
+  },
+  {
+    "id": "spiral-galaxy",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      403,
+      1,
+      517,
+      127
+    ]
+  },
+  {
+    "id": "earth",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      519,
+      1,
+      636,
+      127
+    ]
+  },
+  {
+    "id": "rocket",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      638,
+      1,
+      761,
+      127
+    ]
+  },
+  {
+    "id": "satellite",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      763,
+      1,
+      885,
+      127
+    ]
+  },
+  {
+    "id": "space-station",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      887,
+      1,
+      1012,
+      127
+    ]
+  },
+  {
+    "id": "lunar-lander",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1014,
+      1,
+      1136,
+      127
+    ]
+  },
+  {
+    "id": "nebula",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1138,
+      1,
+      1253,
+      127
+    ]
+  },
+  {
+    "id": "sports-hatchback",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1,
+      129,
+      138,
+      257
+    ]
+  },
+  {
+    "id": "red-motorcycle",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      140,
+      129,
+      270,
+      257
+    ]
+  },
+  {
+    "id": "steam-train",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      272,
+      129,
+      401,
+      257
+    ]
+  },
+  {
+    "id": "yellow-submarine",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      403,
+      129,
+      517,
+      257
+    ]
+  },
+  {
+    "id": "red-biplane",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      519,
+      129,
+      636,
+      257
+    ]
+  },
+  {
+    "id": "moon-rover",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      638,
+      129,
+      761,
+      257
+    ]
+  },
+  {
+    "id": "sailboat",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      763,
+      129,
+      885,
+      257
+    ]
+  },
+  {
+    "id": "camper-van",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      887,
+      129,
+      1012,
+      257
+    ]
+  },
+  {
+    "id": "helicopter",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1014,
+      129,
+      1136,
+      257
+    ]
+  },
+  {
+    "id": "future-car",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1138,
+      129,
+      1253,
+      257
+    ]
+  },
+  {
+    "id": "vintage-computer",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1,
+      259,
+      138,
+      400
+    ]
+  },
+  {
+    "id": "mechanical-keyboard",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      140,
+      259,
+      270,
+      400
+    ]
+  },
+  {
+    "id": "gaming-headphones",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      272,
+      259,
+      401,
+      400
+    ]
+  },
+  {
+    "id": "game-controller",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      403,
+      259,
+      517,
+      400
+    ]
+  },
+  {
+    "id": "arcade-cabinet",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      519,
+      259,
+      636,
+      400
+    ]
+  },
+  {
+    "id": "classic-camera",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      638,
+      259,
+      761,
+      400
+    ]
+  },
+  {
+    "id": "cassette-player",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      763,
+      259,
+      885,
+      400
+    ]
+  },
+  {
+    "id": "record-player",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      887,
+      259,
+      1012,
+      400
+    ]
+  },
+  {
+    "id": "handheld-console",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1014,
+      259,
+      1136,
+      400
+    ]
+  },
+  {
+    "id": "vacuum-tube",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1138,
+      259,
+      1253,
+      400
+    ]
+  },
+  {
+    "id": "amethyst-crystals",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1,
+      402,
+      138,
+      532
+    ]
+  },
+  {
+    "id": "spellbook",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      140,
+      402,
+      270,
+      532
+    ]
+  },
+  {
+    "id": "potion-bottle",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      272,
+      402,
+      401,
+      532
+    ]
+  },
+  {
+    "id": "golden-key",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      403,
+      402,
+      517,
+      532
+    ]
+  },
+  {
+    "id": "lantern",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      519,
+      402,
+      636,
+      532
+    ]
+  },
+  {
+    "id": "wizard-tower",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      638,
+      402,
+      761,
+      532
+    ]
+  },
+  {
+    "id": "treasure-chest",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      763,
+      402,
+      885,
+      532
+    ]
+  },
+  {
+    "id": "floating-island",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      887,
+      402,
+      1012,
+      532
+    ]
+  },
+  {
+    "id": "fairytale-castle",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1014,
+      402,
+      1136,
+      532
+    ]
+  },
+  {
+    "id": "rune-stone",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1138,
+      402,
+      1253,
+      532
+    ]
+  },
+  {
+    "id": "log-cabin",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1,
+      534,
+      138,
+      665
+    ]
+  },
+  {
+    "id": "greenhouse",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      140,
+      534,
+      270,
+      665
+    ]
+  },
+  {
+    "id": "lighthouse",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      272,
+      534,
+      401,
+      665
+    ]
+  },
+  {
+    "id": "treehouse",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      403,
+      534,
+      517,
+      665
+    ]
+  },
+  {
+    "id": "windmill",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      519,
+      534,
+      636,
+      665
+    ]
+  },
+  {
+    "id": "alpine-chalet",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      638,
+      534,
+      761,
+      665
+    ]
+  },
+  {
+    "id": "train-station",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      763,
+      534,
+      885,
+      665
+    ]
+  },
+  {
+    "id": "autumn-tea-house",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      887,
+      534,
+      1012,
+      665
+    ]
+  },
+  {
+    "id": "coastal-cottage",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1014,
+      534,
+      1136,
+      665
+    ]
+  },
+  {
+    "id": "observatory",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1138,
+      534,
+      1253,
+      665
+    ]
+  },
+  {
+    "id": "ramen",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1,
+      667,
+      138,
+      789
+    ]
+  },
+  {
+    "id": "pizza-slice",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      140,
+      667,
+      270,
+      789
+    ]
+  },
+  {
+    "id": "sushi-roll",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      272,
+      667,
+      401,
+      789
+    ]
+  },
+  {
+    "id": "burger",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      403,
+      667,
+      517,
+      789
+    ]
+  },
+  {
+    "id": "pancakes",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      519,
+      667,
+      636,
+      789
+    ]
+  },
+  {
+    "id": "ice-cream",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      638,
+      667,
+      761,
+      789
+    ]
+  },
+  {
+    "id": "croissant",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      763,
+      667,
+      885,
+      789
+    ]
+  },
+  {
+    "id": "pink-doughnut",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      887,
+      667,
+      1012,
+      789
+    ]
+  },
+  {
+    "id": "tea-cup",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1014,
+      667,
+      1136,
+      789
+    ]
+  },
+  {
+    "id": "strawberry-cake",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1138,
+      667,
+      1253,
+      789
+    ]
+  },
+  {
+    "id": "bonsai",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1,
+      791,
+      138,
+      912
+    ]
+  },
+  {
+    "id": "waterfall",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      140,
+      791,
+      270,
+      912
+    ]
+  },
+  {
+    "id": "terrarium",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      272,
+      791,
+      401,
+      912
+    ]
+  },
+  {
+    "id": "flowering-cactus",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      403,
+      791,
+      517,
+      912
+    ]
+  },
+  {
+    "id": "mountains",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      519,
+      791,
+      636,
+      912
+    ]
+  },
+  {
+    "id": "tropical-island",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      638,
+      791,
+      761,
+      912
+    ]
+  },
+  {
+    "id": "autumn-tree",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      763,
+      791,
+      885,
+      912
+    ]
+  },
+  {
+    "id": "toadstool",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      887,
+      791,
+      1012,
+      912
+    ]
+  },
+  {
+    "id": "lotus",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1014,
+      791,
+      1136,
+      912
+    ]
+  },
+  {
+    "id": "volcano",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1138,
+      791,
+      1253,
+      912
+    ]
+  },
+  {
+    "id": "paint-palette",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1,
+      914,
+      138,
+      1024
+    ]
+  },
+  {
+    "id": "fountain-pen",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      140,
+      914,
+      270,
+      1024
+    ]
+  },
+  {
+    "id": "acoustic-musician",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      272,
+      914,
+      401,
+      1024
+    ]
+  },
+  {
+    "id": "trumpet",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      403,
+      914,
+      517,
+      1024
+    ]
+  },
+  {
+    "id": "drum-kit",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      519,
+      914,
+      636,
+      1024
+    ]
+  },
+  {
+    "id": "clapperboard",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      638,
+      914,
+      761,
+      1024
+    ]
+  },
+  {
+    "id": "sewing-machine",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      763,
+      914,
+      885,
+      1024
+    ]
+  },
+  {
+    "id": "origami-crane",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      887,
+      914,
+      1012,
+      1024
+    ]
+  },
+  {
+    "id": "pottery",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1014,
+      914,
+      1136,
+      1024
+    ]
+  },
+  {
+    "id": "sketchbook",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1138,
+      914,
+      1253,
+      1024
+    ]
+  },
+  {
+    "id": "brass-compass",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1,
+      1026,
+      138,
+      1136
+    ]
+  },
+  {
+    "id": "hiking-backpack",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      140,
+      1026,
+      270,
+      1136
+    ]
+  },
+  {
+    "id": "tent",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      272,
+      1026,
+      401,
+      1136
+    ]
+  },
+  {
+    "id": "hiking-boots",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      403,
+      1026,
+      517,
+      1136
+    ]
+  },
+  {
+    "id": "diving-helmet",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      519,
+      1026,
+      636,
+      1136
+    ]
+  },
+  {
+    "id": "telescope",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      638,
+      1026,
+      761,
+      1136
+    ]
+  },
+  {
+    "id": "hot-air-balloon",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      763,
+      1026,
+      885,
+      1136
+    ]
+  },
+  {
+    "id": "treasure-map",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      887,
+      1026,
+      1012,
+      1136
+    ]
+  },
+  {
+    "id": "binoculars",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1014,
+      1026,
+      1136,
+      1136
+    ]
+  },
+  {
+    "id": "campfire",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1138,
+      1026,
+      1253,
+      1136
+    ]
+  },
+  {
+    "id": "engine",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1,
+      1138,
+      138,
+      1253
+    ]
+  },
+  {
+    "id": "turbocharger",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      140,
+      1138,
+      270,
+      1253
+    ]
+  },
+  {
+    "id": "gears",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      272,
+      1138,
+      401,
+      1253
+    ]
+  },
+  {
+    "id": "toolbox",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      403,
+      1138,
+      517,
+      1253
+    ]
+  },
+  {
+    "id": "robot-arm",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      519,
+      1138,
+      636,
+      1253
+    ]
+  },
+  {
+    "id": "microchip",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      638,
+      1138,
+      761,
+      1253
+    ]
+  },
+  {
+    "id": "soldering-station",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      763,
+      1138,
+      885,
+      1253
+    ]
+  },
+  {
+    "id": "wrench",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      887,
+      1138,
+      1012,
+      1253
+    ]
+  },
+  {
+    "id": "generator",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1014,
+      1138,
+      1136,
+      1253
+    ]
+  },
+  {
+    "id": "server-rack",
+    "sheet": 2,
+    "source_sha256": "457da4e5020891d2d2a3a0f24e7f2d0339498ce399360bf87ef31cf6164e87f3",
+    "crop": [
+      1138,
+      1138,
+      1253,
+      1253
+    ]
+  },
+  {
+    "id": "red-panda",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1,
+      1,
+      138,
+      135
+    ]
+  },
+  {
+    "id": "arctic-fox",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      140,
+      1,
+      263,
+      135
+    ]
+  },
+  {
+    "id": "otter",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      265,
+      1,
+      388,
+      135
+    ]
+  },
+  {
+    "id": "axolotl",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      390,
+      1,
+      512,
+      135
+    ]
+  },
+  {
+    "id": "snow-leopard",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      514,
+      1,
+      633,
+      135
+    ]
+  },
+  {
+    "id": "raccoon",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      635,
+      1,
+      758,
+      135
+    ]
+  },
+  {
+    "id": "koala",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      760,
+      1,
+      883,
+      135
+    ]
+  },
+  {
+    "id": "capybara",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      885,
+      1,
+      1008,
+      135
+    ]
+  },
+  {
+    "id": "white-rabbit",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1010,
+      1,
+      1131,
+      135
+    ]
+  },
+  {
+    "id": "bear-cub",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1133,
+      1,
+      1253,
+      135
+    ]
+  },
+  {
+    "id": "penguin",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1,
+      137,
+      138,
+      265
+    ]
+  },
+  {
+    "id": "hedgehog",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      140,
+      137,
+      263,
+      265
+    ]
+  },
+  {
+    "id": "sea-turtle",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      265,
+      137,
+      388,
+      265
+    ]
+  },
+  {
+    "id": "tree-frog",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      390,
+      137,
+      512,
+      265
+    ]
+  },
+  {
+    "id": "purple-octopus",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      514,
+      137,
+      633,
+      265
+    ]
+  },
+  {
+    "id": "owl",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      635,
+      137,
+      758,
+      265
+    ]
+  },
+  {
+    "id": "happy-corgi",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      760,
+      137,
+      883,
+      265
+    ]
+  },
+  {
+    "id": "purple-cat",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      885,
+      137,
+      1008,
+      265
+    ]
+  },
+  {
+    "id": "smiling-ginger-cat",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1010,
+      137,
+      1131,
+      265
+    ]
+  },
+  {
+    "id": "chameleon",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1133,
+      137,
+      1253,
+      265
+    ]
+  },
+  {
+    "id": "happy-robot",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1,
+      267,
+      138,
+      402
+    ]
+  },
+  {
+    "id": "orange-robot",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      140,
+      267,
+      263,
+      402
+    ]
+  },
+  {
+    "id": "silver-robot",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      265,
+      267,
+      388,
+      402
+    ]
+  },
+  {
+    "id": "retro-robot",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      390,
+      267,
+      512,
+      402
+    ]
+  },
+  {
+    "id": "pearl-robot",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      514,
+      267,
+      633,
+      402
+    ]
+  },
+  {
+    "id": "mechanical-owl",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      635,
+      267,
+      758,
+      402
+    ]
+  },
+  {
+    "id": "satellite-robot",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      760,
+      267,
+      883,
+      402
+    ]
+  },
+  {
+    "id": "neon-catbot",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      885,
+      267,
+      1008,
+      402
+    ]
+  },
+  {
+    "id": "brass-robot",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1010,
+      267,
+      1131,
+      402
+    ]
+  },
+  {
+    "id": "nurse-robot",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1133,
+      267,
+      1253,
+      402
+    ]
+  },
+  {
+    "id": "emerald-dragon",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1,
+      404,
+      138,
+      536
+    ]
+  },
+  {
+    "id": "purple-dragon",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      140,
+      404,
+      263,
+      536
+    ]
+  },
+  {
+    "id": "phoenix",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      265,
+      404,
+      388,
+      536
+    ]
+  },
+  {
+    "id": "flower-fairy",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      390,
+      404,
+      512,
+      536
+    ]
+  },
+  {
+    "id": "stone-guardian",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      514,
+      404,
+      633,
+      536
+    ]
+  },
+  {
+    "id": "mushroom-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      635,
+      404,
+      758,
+      536
+    ]
+  },
+  {
+    "id": "water-spirit",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      760,
+      404,
+      883,
+      536
+    ]
+  },
+  {
+    "id": "little-ghost",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      885,
+      404,
+      1008,
+      536
+    ]
+  },
+  {
+    "id": "forest-guardian",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1010,
+      404,
+      1131,
+      536
+    ]
+  },
+  {
+    "id": "crystal-creature",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1133,
+      404,
+      1253,
+      536
+    ]
+  },
+  {
+    "id": "astronaut",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1,
+      538,
+      138,
+      668
+    ]
+  },
+  {
+    "id": "aviator",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      140,
+      538,
+      263,
+      668
+    ]
+  },
+  {
+    "id": "space-captain",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      265,
+      538,
+      388,
+      668
+    ]
+  },
+  {
+    "id": "purple-alien",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      390,
+      538,
+      512,
+      668
+    ]
+  },
+  {
+    "id": "green-alien",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      514,
+      538,
+      633,
+      668
+    ]
+  },
+  {
+    "id": "orange-alien",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      635,
+      538,
+      758,
+      668
+    ]
+  },
+  {
+    "id": "happy-comet",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      760,
+      538,
+      883,
+      668
+    ]
+  },
+  {
+    "id": "happy-saturn",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      885,
+      538,
+      1008,
+      668
+    ]
+  },
+  {
+    "id": "little-star",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1010,
+      538,
+      1131,
+      668
+    ]
+  },
+  {
+    "id": "space-explorer",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1133,
+      538,
+      1253,
+      668
+    ]
+  },
+  {
+    "id": "teal-haired-artist",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1,
+      670,
+      138,
+      806
+    ]
+  },
+  {
+    "id": "coiled-hair-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      140,
+      670,
+      263,
+      806
+    ]
+  },
+  {
+    "id": "red-haired-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      265,
+      670,
+      388,
+      806
+    ]
+  },
+  {
+    "id": "silver-haired-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      390,
+      670,
+      512,
+      806
+    ]
+  },
+  {
+    "id": "braided-hair-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      514,
+      670,
+      633,
+      806
+    ]
+  },
+  {
+    "id": "curly-haired-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      635,
+      670,
+      758,
+      806
+    ]
+  },
+  {
+    "id": "dark-haired-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      760,
+      670,
+      883,
+      806
+    ]
+  },
+  {
+    "id": "bearded-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      885,
+      670,
+      1008,
+      806
+    ]
+  },
+  {
+    "id": "purple-haired-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1010,
+      670,
+      1131,
+      806
+    ]
+  },
+  {
+    "id": "wavy-haired-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1133,
+      670,
+      1253,
+      806
+    ]
+  },
+  {
+    "id": "chef",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1,
+      808,
+      138,
+      944
+    ]
+  },
+  {
+    "id": "gardener",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      140,
+      808,
+      263,
+      944
+    ]
+  },
+  {
+    "id": "painter",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      265,
+      808,
+      388,
+      944
+    ]
+  },
+  {
+    "id": "inventor",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      390,
+      808,
+      512,
+      944
+    ]
+  },
+  {
+    "id": "scientist",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      514,
+      808,
+      633,
+      944
+    ]
+  },
+  {
+    "id": "firefighter",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      635,
+      808,
+      758,
+      944
+    ]
+  },
+  {
+    "id": "pilot",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      760,
+      808,
+      883,
+      944
+    ]
+  },
+  {
+    "id": "winter-explorer",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      885,
+      808,
+      1008,
+      944
+    ]
+  },
+  {
+    "id": "young-explorer",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1010,
+      808,
+      1131,
+      944
+    ]
+  },
+  {
+    "id": "knight",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1133,
+      808,
+      1253,
+      944
+    ]
+  },
+  {
+    "id": "raven",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1,
+      946,
+      138,
+      1056
+    ]
+  },
+  {
+    "id": "bat",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      140,
+      946,
+      263,
+      1056
+    ]
+  },
+  {
+    "id": "wolf",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      265,
+      946,
+      388,
+      1056
+    ]
+  },
+  {
+    "id": "lynx",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      390,
+      946,
+      512,
+      1056
+    ]
+  },
+  {
+    "id": "panther",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      514,
+      946,
+      633,
+      1056
+    ]
+  },
+  {
+    "id": "luna-moth",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      635,
+      946,
+      758,
+      1056
+    ]
+  },
+  {
+    "id": "fennec-fox",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      760,
+      946,
+      883,
+      1056
+    ]
+  },
+  {
+    "id": "tiger",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      885,
+      946,
+      1008,
+      1056
+    ]
+  },
+  {
+    "id": "wolf-pup",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1010,
+      946,
+      1131,
+      1056
+    ]
+  },
+  {
+    "id": "brown-bear",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1133,
+      946,
+      1253,
+      1056
+    ]
+  },
+  {
+    "id": "strawberry-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1,
+      1058,
+      138,
+      1147
+    ]
+  },
+  {
+    "id": "sushi-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      140,
+      1058,
+      263,
+      1147
+    ]
+  },
+  {
+    "id": "coffee-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      265,
+      1058,
+      388,
+      1147
+    ]
+  },
+  {
+    "id": "cactus-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      390,
+      1058,
+      512,
+      1147
+    ]
+  },
+  {
+    "id": "sunflower-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      514,
+      1058,
+      633,
+      1147
+    ]
+  },
+  {
+    "id": "cloud-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      635,
+      1058,
+      758,
+      1147
+    ]
+  },
+  {
+    "id": "moon-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      760,
+      1058,
+      883,
+      1147
+    ]
+  },
+  {
+    "id": "acorn-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      885,
+      1058,
+      1008,
+      1147
+    ]
+  },
+  {
+    "id": "flame-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1010,
+      1058,
+      1131,
+      1147
+    ]
+  },
+  {
+    "id": "ice-friend",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1133,
+      1058,
+      1253,
+      1147
+    ]
+  },
+  {
+    "id": "samurai-cat",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1,
+      1149,
+      138,
+      1253
+    ]
+  },
+  {
+    "id": "little-wizard",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      140,
+      1149,
+      263,
+      1253
+    ]
+  },
+  {
+    "id": "space-frog",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      265,
+      1149,
+      388,
+      1253
+    ]
+  },
+  {
+    "id": "aviator-dragon",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      390,
+      1149,
+      512,
+      1253
+    ]
+  },
+  {
+    "id": "ninja-penguin",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      514,
+      1149,
+      633,
+      1253
+    ]
+  },
+  {
+    "id": "explorer-fox",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      635,
+      1149,
+      758,
+      1253
+    ]
+  },
+  {
+    "id": "elven-deer",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      760,
+      1149,
+      883,
+      1253
+    ]
+  },
+  {
+    "id": "headphone-robot",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      885,
+      1149,
+      1008,
+      1253
+    ]
+  },
+  {
+    "id": "cyber-cat",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1010,
+      1149,
+      1131,
+      1253
+    ]
+  },
+  {
+    "id": "firefly-robot",
+    "sheet": 3,
+    "source_sha256": "3d32e8509e6a6e34be3b74d44cd89c42c050245d0be4f44048d785485c2d4d7a",
+    "crop": [
+      1133,
+      1149,
+      1253,
+      1253
+    ]
+  },
+  {
+    "id": "flat-cap",
+    "source": "Built-in imagegen",
+    "source_sha256": "ad7361225909720ab5f93d50d38c519c1b3b5d1a71e98eea4e7f29a4a080d992"
+  },
+  {
+    "id": "diver-watch",
+    "source": "Built-in imagegen",
+    "source_sha256": "98e01d1adf8934cc08372fbe3b4c4774efa594c70cd1f2090feaba8986a97c3d"
+  }
+]

@@ -48,10 +48,29 @@ selection restoration, empty states and responsive layout without network change
 
 System Overview's legacy language selector and restart callback are commented
 out. Sensors & Power links to **System Tweaks → Performance** between the power
-controls and Fan control. Users & Groups shows the signed-in account's shared
-Hyper Fusion profile image, including animated GIFs in its account card; other
-accounts retain their own account images. **Change Icon** for the current account
-opens the shared appearance settings.
+controls and Fan control. **Users & Groups** has a searchable account list and
+separate profile, access and account-detail cards. **Change picture…** opens a
+native gallery with search, collections and an animated preview. It includes
+300 new pictures and the unchanged original GIF; it does not launch Fusion
+Settings. The supplied sheets contain 298 pictures, with two matching additions
+made using the built-in image generator.
+
+The shared catalog is in `../account_avatars/assets/`; `icons.json` records image
+hashes, `provenance.json` records the sheet crops, and `prompts.json` preserves the
+two generation prompts. `tools/import_account_avatars.py` at the repository root
+reproduces the crops. Both installer authoring trees use this same catalog.
+
+The account-picture helper changes only picture files and the theme's avatar
+field. It preserves the account's other theme choices and AccountsService
+metadata. Changes to another account require normal administrator authentication;
+home files are written with that account's access. Failed multi-file changes are
+rolled back. Managed desktop pictures live in `theme/state/`, which is already
+included by Fusion Settings → Default Settings export and restore.
+
+Validation: `python3 -m unittest discover -s config/hypr/account_avatars` from
+the repository root; native gallery/layout checks use
+`-DBUILD_ACCOUNT_PAGE_TESTS=ON` and `ctest -R '^account_page$'` in the native build
+directory. Tests use temporary accounts and files, without changing host users.
 
 **Window Inspector** automatically uses Hyprland's window and layer inventory,
 with `xetal-inspector-surfaces` adding popup menus and child surfaces after the

@@ -1,0 +1,2413 @@
+{
+  "version": 1,
+  "icons": [
+    {
+      "id": "original",
+      "name": "HyperFusion \u00b7 original",
+      "file": "original.gif",
+      "group": "HyperFusion",
+      "animated": true,
+      "sha256": "6d1051ace8d82e1dfaa79cf5b2a47df11aa29513438983ba3a2c18ce34d79e19"
+    },
+    {
+      "id": "fedora",
+      "name": "Fedora",
+      "file": "fedora.png",
+      "group": "Hats",
+      "animated": false,
+      "sha256": "f085607a494757fcfb48d4b5433529a1502e95b057a5ebfcf3fc5198deec4994"
+    },
+    {
+      "id": "cowboy-hat",
+      "name": "Cowboy hat",
+      "file": "cowboy-hat.png",
+      "group": "Hats",
+      "animated": false,
+      "sha256": "1735219e947ac715e5b3f5a652f697aff6a38dffa08db1cef9206dedf8817eb2"
+    },
+    {
+      "id": "red-cap",
+      "name": "Red cap",
+      "file": "red-cap.png",
+      "group": "Hats",
+      "animated": false,
+      "sha256": "807cd8b791df0c319115c770c4e8627da172d0dee2daea121ed46a8f2e655254"
+    },
+    {
+      "id": "blue-beanie",
+      "name": "Blue beanie",
+      "file": "blue-beanie.png",
+      "group": "Hats",
+      "animated": false,
+      "sha256": "2e0f53b0e0138480955688f1a84c99f30c8eb727ab1993bfecf2b06255e19529"
+    },
+    {
+      "id": "wizard-hat",
+      "name": "Wizard hat",
+      "file": "wizard-hat.png",
+      "group": "Hats",
+      "animated": false,
+      "sha256": "ecb9d064406bb84d1ff1bb7a3320e0fed1f5d27b1e350e0c3d610c62e29c1316"
+    },
+    {
+      "id": "sun-hat",
+      "name": "Sun hat",
+      "file": "sun-hat.png",
+      "group": "Hats",
+      "animated": false,
+      "sha256": "1228a62874a1c125893fb8998a9694ca8bed54b410efeb86cfdedb7c1dfc30f8"
+    },
+    {
+      "id": "top-hat",
+      "name": "Top hat",
+      "file": "top-hat.png",
+      "group": "Hats",
+      "animated": false,
+      "sha256": "1e93feb9a609a570150a4309b9d98fa61c599092f71646d123ebca0b914e2767"
+    },
+    {
+      "id": "beret",
+      "name": "Beret",
+      "file": "beret.png",
+      "group": "Hats",
+      "animated": false,
+      "sha256": "eaa3bf2cb0ebaa0712514e2558a2780281ba40e5ec183d4861061615948d411e"
+    },
+    {
+      "id": "aviator-hat",
+      "name": "Aviator hat",
+      "file": "aviator-hat.png",
+      "group": "Hats",
+      "animated": false,
+      "sha256": "9481e89cbf1ae9441ec752ee75c45fb7afe4025c50ff0de92bc3d62d034b403b"
+    },
+    {
+      "id": "classic-watch",
+      "name": "Classic watch",
+      "file": "classic-watch.png",
+      "group": "Watches",
+      "animated": false,
+      "sha256": "445c42a3348bcf2d5f5594eb1252b8254211461ad2e1fff0d6d637e2f4f21360"
+    },
+    {
+      "id": "gold-chronograph",
+      "name": "Gold chronograph",
+      "file": "gold-chronograph.png",
+      "group": "Watches",
+      "animated": false,
+      "sha256": "f35dfaf878524a48ce363e853be635dbb350f992f19e2dd934a17417ba888de6"
+    },
+    {
+      "id": "digital-watch",
+      "name": "Digital watch",
+      "file": "digital-watch.png",
+      "group": "Watches",
+      "animated": false,
+      "sha256": "2b867b150cbc67f4b99d5f9821ce53712957869b6a4dbdec7e3c299b4d6407a6"
+    },
+    {
+      "id": "sport-watch",
+      "name": "Sport watch",
+      "file": "sport-watch.png",
+      "group": "Watches",
+      "animated": false,
+      "sha256": "30a1dbbd2a02557b7382f1908b0cb96337d1fd31d50c0d3eb71234c2eb9e401f"
+    },
+    {
+      "id": "pocket-watch",
+      "name": "Pocket watch",
+      "file": "pocket-watch.png",
+      "group": "Watches",
+      "animated": false,
+      "sha256": "687a6189d5b5539701b87003f90554b07234399df815c3dec0378b982edfa4d3"
+    },
+    {
+      "id": "skeleton-watch",
+      "name": "Skeleton watch",
+      "file": "skeleton-watch.png",
+      "group": "Watches",
+      "animated": false,
+      "sha256": "8709df717c391d5fb81ef9321a556ede2283470e8274f4fd63682a88312b7992"
+    },
+    {
+      "id": "orange-watch",
+      "name": "Orange watch",
+      "file": "orange-watch.png",
+      "group": "Watches",
+      "animated": false,
+      "sha256": "0e1cdcd15a95ae365e3270038901be8de3a8ad472c8b0c30368f049fcd41ab88"
+    },
+    {
+      "id": "dress-watch",
+      "name": "Dress watch",
+      "file": "dress-watch.png",
+      "group": "Watches",
+      "animated": false,
+      "sha256": "f6ec7e2a880a50b1a26ac645405650afc7a72a0423d261be673035e62f3cbd5b"
+    },
+    {
+      "id": "smartwatch",
+      "name": "Smartwatch",
+      "file": "smartwatch.png",
+      "group": "Watches",
+      "animated": false,
+      "sha256": "8395b70a91e425e7f8f0b6ad35c548269facc20c4208ba701ec96f82ddd228cf"
+    },
+    {
+      "id": "open-palm",
+      "name": "Open palm",
+      "file": "open-palm.png",
+      "group": "Hands",
+      "animated": false,
+      "sha256": "10471d4690a21176e62e8cd0f277e767ef17343f6c647fc6a768c1e8113d6921"
+    },
+    {
+      "id": "back-of-hand",
+      "name": "Back of hand",
+      "file": "back-of-hand.png",
+      "group": "Hands",
+      "animated": false,
+      "sha256": "c3dab3e401982851f7c903bc0058b6fd50d65d5695f8581c63d075e85c1ddbee"
+    },
+    {
+      "id": "thumbs-up",
+      "name": "Thumbs up",
+      "file": "thumbs-up.png",
+      "group": "Hands",
+      "animated": false,
+      "sha256": "a447884929954182c5888c9254a252fb01a949d2bd87e50a0dafb2f20b15b691"
+    },
+    {
+      "id": "peace-sign",
+      "name": "Peace sign",
+      "file": "peace-sign.png",
+      "group": "Hands",
+      "animated": false,
+      "sha256": "afddda4308775e4bb800c79df1d37df11bc584139bded84003244685441653a5"
+    },
+    {
+      "id": "fist",
+      "name": "Fist",
+      "file": "fist.png",
+      "group": "Hands",
+      "animated": false,
+      "sha256": "2c593ccaee876ed5362fccf4d0923e1e0c38db6332557a6e5153ea112c435de1"
+    },
+    {
+      "id": "waving-hand",
+      "name": "Waving hand",
+      "file": "waving-hand.png",
+      "group": "Hands",
+      "animated": false,
+      "sha256": "f36af295bb31150effd639e0951a965bb32f811c843fea440d6e1da2fbbaa940"
+    },
+    {
+      "id": "open-hand",
+      "name": "Open hand",
+      "file": "open-hand.png",
+      "group": "Hands",
+      "animated": false,
+      "sha256": "de8d9a707b1ff1f74cc66ebdedb514d26aa3151593de02919a33787570c2e40f"
+    },
+    {
+      "id": "pointing-hand",
+      "name": "Pointing hand",
+      "file": "pointing-hand.png",
+      "group": "Hands",
+      "animated": false,
+      "sha256": "15db6f402bd1dd3cc48163a41edb206c9393cc244546f9f80347ffa19ab7ff53"
+    },
+    {
+      "id": "okay-hand",
+      "name": "Okay hand",
+      "file": "okay-hand.png",
+      "group": "Hands",
+      "animated": false,
+      "sha256": "f6f80150a3640085c7dc107dc88a417c5c052bd5366bc2277ff2f39dade5b367"
+    },
+    {
+      "id": "offering-hand",
+      "name": "Offering hand",
+      "file": "offering-hand.png",
+      "group": "Hands",
+      "animated": false,
+      "sha256": "3bf711208b982edad1eb49ea09c7e216ec70e722dfb2897ff0c7a7b05e0cf128"
+    },
+    {
+      "id": "left-sole",
+      "name": "Left sole",
+      "file": "left-sole.png",
+      "group": "Footprints",
+      "animated": false,
+      "sha256": "c002e2af756fcab9d5f18c3ee758d907eebce85c126663d55e5c38cc15e79fd1"
+    },
+    {
+      "id": "right-sole",
+      "name": "Right sole",
+      "file": "right-sole.png",
+      "group": "Footprints",
+      "animated": false,
+      "sha256": "abf9ed2a3f395fece54b3510e9ee1da3e97baac075b3eaba67b752c91ee47789"
+    },
+    {
+      "id": "left-foot",
+      "name": "Left foot",
+      "file": "left-foot.png",
+      "group": "Footprints",
+      "animated": false,
+      "sha256": "0523b2bca0762844eeb557a1fa542c9b652d76ca84da14818be7b182db5a28eb"
+    },
+    {
+      "id": "right-foot",
+      "name": "Right foot",
+      "file": "right-foot.png",
+      "group": "Footprints",
+      "animated": false,
+      "sha256": "442551e4fd2a471290d1e8d66fc50b5c2ac336a52186050c06fcb481002a44f7"
+    },
+    {
+      "id": "heel",
+      "name": "Heel",
+      "file": "heel.png",
+      "group": "Footprints",
+      "animated": false,
+      "sha256": "8773ee1d1b147ba1be45795f124dc362a59550f5b972ff52f6845fb364eda264"
+    },
+    {
+      "id": "foot-sole",
+      "name": "Foot sole",
+      "file": "foot-sole.png",
+      "group": "Footprints",
+      "animated": false,
+      "sha256": "2715af96b6f055552c96f9897463fe4371c0e18cc327fff78ea6d0693c3d5520"
+    },
+    {
+      "id": "relaxed-foot",
+      "name": "Relaxed foot",
+      "file": "relaxed-foot.png",
+      "group": "Footprints",
+      "animated": false,
+      "sha256": "58aa99523a1ec87e20054e73ab9a22d93a3285a1270b9223ed109623682aba14"
+    },
+    {
+      "id": "barefoot-pair",
+      "name": "Barefoot pair",
+      "file": "barefoot-pair.png",
+      "group": "Footprints",
+      "animated": false,
+      "sha256": "8c356eebccf73cbee172295353ac096a7f0bc25c9dc86a1d7f87deca2b200ea0"
+    },
+    {
+      "id": "standing-feet",
+      "name": "Standing feet",
+      "file": "standing-feet.png",
+      "group": "Footprints",
+      "animated": false,
+      "sha256": "7250a3bbcd4fe2a45295cf4b532f8e9858baea895af67fb2e2f16a6327aa8b2e"
+    },
+    {
+      "id": "side-foot",
+      "name": "Side foot",
+      "file": "side-foot.png",
+      "group": "Footprints",
+      "animated": false,
+      "sha256": "dbe221085d1c86dcf2257382b64d46f54f3ef74a1c80f522b7965b9c870b61b9"
+    },
+    {
+      "id": "golden-alarm",
+      "name": "Golden alarm",
+      "file": "golden-alarm.png",
+      "group": "Clocks",
+      "animated": false,
+      "sha256": "f4170e0bf2c144166665d68c74177b014edfc760076e2e4a82478c7d62d2570f"
+    },
+    {
+      "id": "red-alarm",
+      "name": "Red alarm",
+      "file": "red-alarm.png",
+      "group": "Clocks",
+      "animated": false,
+      "sha256": "dc289def75efbae474dbf18137dbeffb641794ae7d2ef1e100f49090a6c0f0be"
+    },
+    {
+      "id": "cuckoo-clock",
+      "name": "Cuckoo clock",
+      "file": "cuckoo-clock.png",
+      "group": "Clocks",
+      "animated": false,
+      "sha256": "42cd9762be692c956ea8acf7e952b0b3a444d6b01aff21f6d033e36e6b4d34b7"
+    },
+    {
+      "id": "wall-clock",
+      "name": "Wall clock",
+      "file": "wall-clock.png",
+      "group": "Clocks",
+      "animated": false,
+      "sha256": "aca6a9edecbad71b28ca1898c46df494fbfbaa8a44e444011e76d96cbc7015a0"
+    },
+    {
+      "id": "mantel-clock",
+      "name": "Mantel clock",
+      "file": "mantel-clock.png",
+      "group": "Clocks",
+      "animated": false,
+      "sha256": "dd1ab530dfb2a5fc99d71ca15444ad8adc4d8c0f013b0f664cae7e04725e4c2a"
+    },
+    {
+      "id": "hourglass",
+      "name": "Hourglass",
+      "file": "hourglass.png",
+      "group": "Clocks",
+      "animated": false,
+      "sha256": "8b1d05c487fdc0a018c106971d06d3166ffb927b051c0a74e857179e1601c18f"
+    },
+    {
+      "id": "digital-alarm",
+      "name": "Digital alarm",
+      "file": "digital-alarm.png",
+      "group": "Clocks",
+      "animated": false,
+      "sha256": "50f22c8b356c2ebd013fa8ec9f3261f47748c6f40d0da66ff47018af552eefc7"
+    },
+    {
+      "id": "sundial",
+      "name": "Sundial",
+      "file": "sundial.png",
+      "group": "Clocks",
+      "animated": false,
+      "sha256": "df72bd02cd160c9ad47dc4f04f30e6cc7b080a8d3cf8e202e2d8238a4f78b4d5"
+    },
+    {
+      "id": "ship-clock",
+      "name": "Ship clock",
+      "file": "ship-clock.png",
+      "group": "Clocks",
+      "animated": false,
+      "sha256": "2600cbf3606959a7b7525a817008092df16b364e09a91fcaf72a792f7473013e"
+    },
+    {
+      "id": "grandfather-clock",
+      "name": "Grandfather clock",
+      "file": "grandfather-clock.png",
+      "group": "Clocks",
+      "animated": false,
+      "sha256": "61c70b52e9d74767268bec16a6c2a33b867ef9be344182bb8f6d8c0484a8d274"
+    },
+    {
+      "id": "sunburst-guitar",
+      "name": "Sunburst guitar",
+      "file": "sunburst-guitar.png",
+      "group": "Music",
+      "animated": false,
+      "sha256": "61b348d741d296335f4d9cc2d013394dde83ac1abcd8a50d4e7a3675286a0c93"
+    },
+    {
+      "id": "flying-v-guitar",
+      "name": "Flying V guitar",
+      "file": "flying-v-guitar.png",
+      "group": "Music",
+      "animated": false,
+      "sha256": "6805e31984b78704a828f385da35971a8844d7924528a24a86ff5eda4ff54bd1"
+    },
+    {
+      "id": "acoustic-guitar",
+      "name": "Acoustic guitar",
+      "file": "acoustic-guitar.png",
+      "group": "Music",
+      "animated": false,
+      "sha256": "41e960aa61a59ac476601de63623710133d2bdaf06cedc58f97b6d82263ee46a"
+    },
+    {
+      "id": "bass-guitar",
+      "name": "Bass guitar",
+      "file": "bass-guitar.png",
+      "group": "Music",
+      "animated": false,
+      "sha256": "6fe6519cc2475ee38fc6bd3e7199e8a311e6a059a512cd68b5c5f2f2bb50dcdf"
+    },
+    {
+      "id": "ukulele",
+      "name": "Ukulele",
+      "file": "ukulele.png",
+      "group": "Music",
+      "animated": false,
+      "sha256": "6412601c929138cd5af6905b46a811706a99415cd3b9b45f22371cdeca7243b0"
+    },
+    {
+      "id": "amplifier",
+      "name": "Amplifier",
+      "file": "amplifier.png",
+      "group": "Music",
+      "animated": false,
+      "sha256": "2d24d928856c9d91dbfbf5565960466150ebe5163c1e51244a9dcfd9490628a9"
+    },
+    {
+      "id": "guitar-pick",
+      "name": "Guitar pick",
+      "file": "guitar-pick.png",
+      "group": "Music",
+      "animated": false,
+      "sha256": "21745837bf6f6e091eea442ee27f27ecf96fcdc2d964f6aec5260606faba127f"
+    },
+    {
+      "id": "violin",
+      "name": "Violin",
+      "file": "violin.png",
+      "group": "Music",
+      "animated": false,
+      "sha256": "d8ceec6a733a732af4866f176bf4293bf5a212ffb0efecdc5b43e0f8f50e27fa"
+    },
+    {
+      "id": "saxophone",
+      "name": "Saxophone",
+      "file": "saxophone.png",
+      "group": "Music",
+      "animated": false,
+      "sha256": "53115ff27777ea9a7b0130b1a4d975ac62dcb930271a404f9c2191edb2fd7eb2"
+    },
+    {
+      "id": "microphone",
+      "name": "Microphone",
+      "file": "microphone.png",
+      "group": "Music",
+      "animated": false,
+      "sha256": "7dec231c75eb720bb191969f94116c77953143d499d270195143e34729dc1427"
+    },
+    {
+      "id": "silver-pentacle",
+      "name": "Silver pentacle",
+      "file": "silver-pentacle.png",
+      "group": "Mystic",
+      "animated": false,
+      "sha256": "e871744d41ed0a133058425f639461e2ad855273707095fcdd0d5d9f2e8395b1"
+    },
+    {
+      "id": "golden-pentacle",
+      "name": "Golden pentacle",
+      "file": "golden-pentacle.png",
+      "group": "Mystic",
+      "animated": false,
+      "sha256": "da8e46b53e05e8bd9ed4023dad6fecd35b805d430f359cf0453b49fa845f5ecc"
+    },
+    {
+      "id": "stone-pentacle",
+      "name": "Stone pentacle",
+      "file": "stone-pentacle.png",
+      "group": "Mystic",
+      "animated": false,
+      "sha256": "529dac4ee4c5de0eed4a0817837b1c366a3a7df207b9526bfe2b66ffe6ac388a"
+    },
+    {
+      "id": "crystal-pentacle",
+      "name": "Crystal pentacle",
+      "file": "crystal-pentacle.png",
+      "group": "Mystic",
+      "animated": false,
+      "sha256": "5ec43dc2284747613bd95109fa5207a3fc7b9681df20154708b17f45d84f9518"
+    },
+    {
+      "id": "celtic-ring",
+      "name": "Celtic ring",
+      "file": "celtic-ring.png",
+      "group": "Mystic",
+      "animated": false,
+      "sha256": "04cdc340382556d5a8982057f9dbf4ab9d7c8664d045b2e9032afe2724c9ec79"
+    },
+    {
+      "id": "crescent-pendant",
+      "name": "Crescent pendant",
+      "file": "crescent-pendant.png",
+      "group": "Mystic",
+      "animated": false,
+      "sha256": "116a6d9fa2be960654791f3620d9656e0ed28a1352b55af260e8b131fc5c8986"
+    },
+    {
+      "id": "crystal-ball",
+      "name": "Crystal ball",
+      "file": "crystal-ball.png",
+      "group": "Mystic",
+      "animated": false,
+      "sha256": "f3f5551678befc3decbb0683f6f8315653381a07a73d0be8aa2dbe1a6b816d75"
+    },
+    {
+      "id": "black-candle",
+      "name": "Black candle",
+      "file": "black-candle.png",
+      "group": "Mystic",
+      "animated": false,
+      "sha256": "458184db773183ddeabf500fe258b4947bacc84f66aa2d58db4f2b1302c010bf"
+    },
+    {
+      "id": "star-card",
+      "name": "Star card",
+      "file": "star-card.png",
+      "group": "Mystic",
+      "animated": false,
+      "sha256": "ed660c5496f297ac633afb05fdea3753ac1826288b1a0ed93239060894a442e9"
+    },
+    {
+      "id": "ornate-mirror",
+      "name": "Ornate mirror",
+      "file": "ornate-mirror.png",
+      "group": "Mystic",
+      "animated": false,
+      "sha256": "ff85ce55e36b00b0b4ab3fe84bf898720d0b5e5525aae2b30c34a2b584df305e"
+    },
+    {
+      "id": "ginger-cat",
+      "name": "Ginger cat",
+      "file": "ginger-cat.png",
+      "group": "Cats",
+      "animated": false,
+      "sha256": "9b67be95f0a3f50f9aadeb3ca7588d795c499adcaa112169b8597a3a15f6f36e"
+    },
+    {
+      "id": "black-cat",
+      "name": "Black cat",
+      "file": "black-cat.png",
+      "group": "Cats",
+      "animated": false,
+      "sha256": "43ea2d3c9072ea4eb8b08f6a1d9dcc6ebf4965130b50e45c61c724d1079586f1"
+    },
+    {
+      "id": "white-cat",
+      "name": "White cat",
+      "file": "white-cat.png",
+      "group": "Cats",
+      "animated": false,
+      "sha256": "b07a81dc2ca1552d8f73cf36c3f0dcc9efa512c6e5947363e983231cb1ee78d0"
+    },
+    {
+      "id": "siamese-cat",
+      "name": "Siamese cat",
+      "file": "siamese-cat.png",
+      "group": "Cats",
+      "animated": false,
+      "sha256": "bb8c80f25b51b0c7d6f1ea7a032e400a3be03df9792d426e1c5376ecc02198e9"
+    },
+    {
+      "id": "british-shorthair",
+      "name": "British shorthair",
+      "file": "british-shorthair.png",
+      "group": "Cats",
+      "animated": false,
+      "sha256": "cdad4556ac5fdad1a43a5d02d7ef65f5eefc781cfbab6a507d254dd3704093f2"
+    },
+    {
+      "id": "calico-cat",
+      "name": "Calico cat",
+      "file": "calico-cat.png",
+      "group": "Cats",
+      "animated": false,
+      "sha256": "8994165cbafbe1432d0f679e8344bd77544a6380314370d8d4e5f461c18ff1a2"
+    },
+    {
+      "id": "tuxedo-cat",
+      "name": "Tuxedo cat",
+      "file": "tuxedo-cat.png",
+      "group": "Cats",
+      "animated": false,
+      "sha256": "6986b459d1abe9ca730c57182476a6350865f4ce85bfd3d31112be20a3ed0daf"
+    },
+    {
+      "id": "bengal-cat",
+      "name": "Bengal cat",
+      "file": "bengal-cat.png",
+      "group": "Cats",
+      "animated": false,
+      "sha256": "704c5cb18f6f618ec4e58f86704bfa85d75bffdd48475b969329ba155b37f34d"
+    },
+    {
+      "id": "silver-tabby",
+      "name": "Silver tabby",
+      "file": "silver-tabby.png",
+      "group": "Cats",
+      "animated": false,
+      "sha256": "7e48f1786a484be56dc3b6cd15299ed3c6277faf9e595c723bf0c06a43d2faac"
+    },
+    {
+      "id": "ragdoll-cat",
+      "name": "Ragdoll cat",
+      "file": "ragdoll-cat.png",
+      "group": "Cats",
+      "animated": false,
+      "sha256": "3b1e12f38eead052e77d2fa2ac7fe338ce54e010ca044ec331c08e85d561de93"
+    },
+    {
+      "id": "golden-retriever",
+      "name": "Golden retriever",
+      "file": "golden-retriever.png",
+      "group": "Dogs",
+      "animated": false,
+      "sha256": "75138db753fb16c20354da7318db9bfbd81d38b622999e7d96a9319b171b7cf6"
+    },
+    {
+      "id": "husky",
+      "name": "Husky",
+      "file": "husky.png",
+      "group": "Dogs",
+      "animated": false,
+      "sha256": "ff067df20fc9fc2df242407f7d92bebcf3185563a3c6ddac6372ff7c0f29dc61"
+    },
+    {
+      "id": "german-shepherd",
+      "name": "German shepherd",
+      "file": "german-shepherd.png",
+      "group": "Dogs",
+      "animated": false,
+      "sha256": "21ae4b8ba9e15f71f1379fa96e9c2eceb70b37fc94914bd4f2c9919127dac01e"
+    },
+    {
+      "id": "corgi",
+      "name": "Corgi",
+      "file": "corgi.png",
+      "group": "Dogs",
+      "animated": false,
+      "sha256": "e73d01c7380b157e37828cf6a19ab93f27e4f74703867540050cbea27edeb531"
+    },
+    {
+      "id": "dachshund",
+      "name": "Dachshund",
+      "file": "dachshund.png",
+      "group": "Dogs",
+      "animated": false,
+      "sha256": "98aefc626f9fa9565472cc9b13e0027f82ee6f9d7c24fd593de1324c4391c2ab"
+    },
+    {
+      "id": "dalmatian",
+      "name": "Dalmatian",
+      "file": "dalmatian.png",
+      "group": "Dogs",
+      "animated": false,
+      "sha256": "3aa9f165ed93721acd8760b8aac853468e2385db35d890193960499ed2f05798"
+    },
+    {
+      "id": "shiba-inu",
+      "name": "Shiba inu",
+      "file": "shiba-inu.png",
+      "group": "Dogs",
+      "animated": false,
+      "sha256": "cd5a2b0ca8a7c4cafff8f2cac1342ad5c821ce51afbf1967416822c5005fe045"
+    },
+    {
+      "id": "black-labrador",
+      "name": "Black labrador",
+      "file": "black-labrador.png",
+      "group": "Dogs",
+      "animated": false,
+      "sha256": "747b0a564556049978b003aa8a16ff6727dfa79a0d26e25b81044f42c443a852"
+    },
+    {
+      "id": "border-collie",
+      "name": "Border collie",
+      "file": "border-collie.png",
+      "group": "Dogs",
+      "animated": false,
+      "sha256": "bc5d11f4f16ad2feeadc5195df0911fc32eeab4bb2d8b1d6c3a064b2be9f7ed3"
+    },
+    {
+      "id": "pug",
+      "name": "Pug",
+      "file": "pug.png",
+      "group": "Dogs",
+      "animated": false,
+      "sha256": "32238857063c3003f1a9b3ed342ff0604b400460b15b8283f4babe78fef97556"
+    },
+    {
+      "id": "sunglasses",
+      "name": "Sunglasses",
+      "file": "sunglasses.png",
+      "group": "Accessories",
+      "animated": false,
+      "sha256": "fec094eded951ced7aece9e0b9eb282ad8a2006d5ee94fd400e6f399bececf81"
+    },
+    {
+      "id": "red-sneakers",
+      "name": "Red sneakers",
+      "file": "red-sneakers.png",
+      "group": "Accessories",
+      "animated": false,
+      "sha256": "0dea77ecdc5a91f280f838b364d74c7cdc8f704876b0b7e45f4a1e2889faf3bc"
+    },
+    {
+      "id": "leather-boots",
+      "name": "Leather boots",
+      "file": "leather-boots.png",
+      "group": "Accessories",
+      "animated": false,
+      "sha256": "78b050b94ec7cc1d79656faf6ae7b1e0983b736fb46be88813fe5aaaced57b63"
+    },
+    {
+      "id": "blue-backpack",
+      "name": "Blue backpack",
+      "file": "blue-backpack.png",
+      "group": "Accessories",
+      "animated": false,
+      "sha256": "e7ee8a17b0e896da728ddcf7abd638a620943239cee0328fd08d12700ff41bf7"
+    },
+    {
+      "id": "skateboard",
+      "name": "Skateboard",
+      "file": "skateboard.png",
+      "group": "Accessories",
+      "animated": false,
+      "sha256": "af17513b103a964f6ebed09d5637f943b980dc26fa6697f8ee4038e0e2ba9293"
+    },
+    {
+      "id": "roller-skate",
+      "name": "Roller skate",
+      "file": "roller-skate.png",
+      "group": "Accessories",
+      "animated": false,
+      "sha256": "e98620cd469628641071bfc16a395fa019ed7ac19063b43c85c23562a0e84bd1"
+    },
+    {
+      "id": "racing-helmet",
+      "name": "Racing helmet",
+      "file": "racing-helmet.png",
+      "group": "Accessories",
+      "animated": false,
+      "sha256": "76a3c1e24f0446e79572d23d863931b7af22a5233330dfca9e35f34aaebd81b9"
+    },
+    {
+      "id": "compass-pendant",
+      "name": "Compass pendant",
+      "file": "compass-pendant.png",
+      "group": "Accessories",
+      "animated": false,
+      "sha256": "8f841f32e368cb4d6a6d22c6d6adcfbce10a0ee5edbbf7be0c75fb664507214a"
+    },
+    {
+      "id": "camera",
+      "name": "Camera",
+      "file": "camera.png",
+      "group": "Accessories",
+      "animated": false,
+      "sha256": "e205f2d01717368073884482ad3932942ad7c3a9297fc33f3d55072afbee62e0"
+    },
+    {
+      "id": "studio-headphones",
+      "name": "Studio headphones",
+      "file": "studio-headphones.png",
+      "group": "Accessories",
+      "animated": false,
+      "sha256": "47bb2bf16e3fd3b25d5720e557244d5f9b37c627a72e981ea4e37d80280a5f2e"
+    },
+    {
+      "id": "saturn",
+      "name": "Saturn",
+      "file": "saturn.png",
+      "group": "Space",
+      "animated": false,
+      "sha256": "b1b149d86a2ee8b8b15d0df703c8623f6d31a9eedfabd0d972262c568d73290f"
+    },
+    {
+      "id": "crescent-moon",
+      "name": "Crescent moon",
+      "file": "crescent-moon.png",
+      "group": "Space",
+      "animated": false,
+      "sha256": "ff7896a078d069c6fac1e459c30fc8bb35101b13703612520c750729d296f24f"
+    },
+    {
+      "id": "comet",
+      "name": "Comet",
+      "file": "comet.png",
+      "group": "Space",
+      "animated": false,
+      "sha256": "06dc5b2b76cd511b341a1cad4841f421580945b6bff35a5a3d16329e5a51e4a4"
+    },
+    {
+      "id": "spiral-galaxy",
+      "name": "Spiral galaxy",
+      "file": "spiral-galaxy.png",
+      "group": "Space",
+      "animated": false,
+      "sha256": "2ec26dcfc71a9b8dadf50e7c8ea1653b2f62e01c2cc7de80d0a700201cd65bb1"
+    },
+    {
+      "id": "earth",
+      "name": "Earth",
+      "file": "earth.png",
+      "group": "Space",
+      "animated": false,
+      "sha256": "96aa40e10daf35c45daaad0bd38ca90f6f18704b49dd5dcc7eca746cc4983f2b"
+    },
+    {
+      "id": "rocket",
+      "name": "Rocket",
+      "file": "rocket.png",
+      "group": "Space",
+      "animated": false,
+      "sha256": "102be58f46a18fc5e552b11ef93092446375d92d5582e80b8b6ecce771a07855"
+    },
+    {
+      "id": "satellite",
+      "name": "Satellite",
+      "file": "satellite.png",
+      "group": "Space",
+      "animated": false,
+      "sha256": "2a9769af14f7da7287f4b20c8650cd3c843a1e4d10ec56cfe42adbd0ff3bd8fb"
+    },
+    {
+      "id": "space-station",
+      "name": "Space station",
+      "file": "space-station.png",
+      "group": "Space",
+      "animated": false,
+      "sha256": "0e02108c8855568745d231d0228ac630c5d1b8f675442846bf8ece3a08025166"
+    },
+    {
+      "id": "lunar-lander",
+      "name": "Lunar lander",
+      "file": "lunar-lander.png",
+      "group": "Space",
+      "animated": false,
+      "sha256": "18bce4f6647a0046663bf05252158995ee359803a0e0cd0a5998f94fb315a0be"
+    },
+    {
+      "id": "nebula",
+      "name": "Nebula",
+      "file": "nebula.png",
+      "group": "Space",
+      "animated": false,
+      "sha256": "4762fb87ea2a1622dc38d79ff84fd39cb24d021c4bc5063cf82cd6bbc38753fe"
+    },
+    {
+      "id": "sports-hatchback",
+      "name": "Sports hatchback",
+      "file": "sports-hatchback.png",
+      "group": "Transport",
+      "animated": false,
+      "sha256": "7fb3b0a2196ffa3f8b6adb76514cbce00d8db0426244847f3cd293724c06a6ed"
+    },
+    {
+      "id": "red-motorcycle",
+      "name": "Red motorcycle",
+      "file": "red-motorcycle.png",
+      "group": "Transport",
+      "animated": false,
+      "sha256": "5a293093412eed60d6693de091f98d2e0aa971db3bfc04f7d2d5878860e2451a"
+    },
+    {
+      "id": "steam-train",
+      "name": "Steam train",
+      "file": "steam-train.png",
+      "group": "Transport",
+      "animated": false,
+      "sha256": "5075f365f3aa9680bd349139cbeaa4a1637faef7ac6d404e0f1ea171d81dbc0e"
+    },
+    {
+      "id": "yellow-submarine",
+      "name": "Yellow submarine",
+      "file": "yellow-submarine.png",
+      "group": "Transport",
+      "animated": false,
+      "sha256": "48a576c82190aece8b423cbe6e41f3f9c9de5c1b0cf79a9bdce0d61356ae6a63"
+    },
+    {
+      "id": "red-biplane",
+      "name": "Red biplane",
+      "file": "red-biplane.png",
+      "group": "Transport",
+      "animated": false,
+      "sha256": "1023dc6b34220a31a7af42d318e42b655f82a2393eeb8e30907386f929d44fdd"
+    },
+    {
+      "id": "moon-rover",
+      "name": "Moon rover",
+      "file": "moon-rover.png",
+      "group": "Transport",
+      "animated": false,
+      "sha256": "781f683123724db1a85e7cf1d14fd21581a34452d45dc9b8453de576d7381bf5"
+    },
+    {
+      "id": "sailboat",
+      "name": "Sailboat",
+      "file": "sailboat.png",
+      "group": "Transport",
+      "animated": false,
+      "sha256": "852329c0ea8aea63888cdbf566e9411f4e57b05c4ccebec29978d2b32f80d19d"
+    },
+    {
+      "id": "camper-van",
+      "name": "Camper van",
+      "file": "camper-van.png",
+      "group": "Transport",
+      "animated": false,
+      "sha256": "fb4a21cd6e2e2760e9d81d97ce1587831c0f3b298783f1a5e0967cc0ad66b528"
+    },
+    {
+      "id": "helicopter",
+      "name": "Helicopter",
+      "file": "helicopter.png",
+      "group": "Transport",
+      "animated": false,
+      "sha256": "362ff61818c3b25a5c1f3c351e0763854792bb2efe98742a0b7fa7ca820af99f"
+    },
+    {
+      "id": "future-car",
+      "name": "Future car",
+      "file": "future-car.png",
+      "group": "Transport",
+      "animated": false,
+      "sha256": "dbed4858cfc7f0a68b96493b9707b3152816d7f8cc288f0c814fca447726ad9e"
+    },
+    {
+      "id": "vintage-computer",
+      "name": "Vintage computer",
+      "file": "vintage-computer.png",
+      "group": "Retro tech",
+      "animated": false,
+      "sha256": "1c2c0db56ef2fdf4aaf0a22372a359db11a72d9635b9cd9abee2eba0dde630d6"
+    },
+    {
+      "id": "mechanical-keyboard",
+      "name": "Mechanical keyboard",
+      "file": "mechanical-keyboard.png",
+      "group": "Retro tech",
+      "animated": false,
+      "sha256": "c3c8ba569215541f8d0a75823de7b0a8dc50928ba7b69ad58862b0cb579f85a5"
+    },
+    {
+      "id": "gaming-headphones",
+      "name": "Gaming headphones",
+      "file": "gaming-headphones.png",
+      "group": "Retro tech",
+      "animated": false,
+      "sha256": "3292161c1a3833a180648ab00a5e9a16f51f1106546cff574c9cdb2a075884ba"
+    },
+    {
+      "id": "game-controller",
+      "name": "Game controller",
+      "file": "game-controller.png",
+      "group": "Retro tech",
+      "animated": false,
+      "sha256": "5de78246ce549c405049c1d5e8ad1b22180ebd9075376b3d822fbb6e67f1ac89"
+    },
+    {
+      "id": "arcade-cabinet",
+      "name": "Arcade cabinet",
+      "file": "arcade-cabinet.png",
+      "group": "Retro tech",
+      "animated": false,
+      "sha256": "cad8ed6c38650fba686c296ebb0bcc14432b652ad711fcc79fc198a0e9ba8267"
+    },
+    {
+      "id": "classic-camera",
+      "name": "Classic camera",
+      "file": "classic-camera.png",
+      "group": "Retro tech",
+      "animated": false,
+      "sha256": "9cdf4900d3b7ea163a17710486122eae2fab249da02c078102a1e94a324ef3d3"
+    },
+    {
+      "id": "cassette-player",
+      "name": "Cassette player",
+      "file": "cassette-player.png",
+      "group": "Retro tech",
+      "animated": false,
+      "sha256": "fdca258eb4508796b1402e1fec156a3b0c0fe4a481840db684bbb18d3ba73a0a"
+    },
+    {
+      "id": "record-player",
+      "name": "Record player",
+      "file": "record-player.png",
+      "group": "Retro tech",
+      "animated": false,
+      "sha256": "1550e446ca63357d59a69cd8ade70cf7f60328b1c096d10bc08b2c53d5a4cc74"
+    },
+    {
+      "id": "handheld-console",
+      "name": "Handheld console",
+      "file": "handheld-console.png",
+      "group": "Retro tech",
+      "animated": false,
+      "sha256": "34c90e80e0403c697878c9664856ae57aa5dca92c1c403d85b988bea95ee7342"
+    },
+    {
+      "id": "vacuum-tube",
+      "name": "Vacuum tube",
+      "file": "vacuum-tube.png",
+      "group": "Retro tech",
+      "animated": false,
+      "sha256": "880588801c87be4893a739ae64a5bf5b41cf64318b817a9b94f0fa6c10fd4d51"
+    },
+    {
+      "id": "amethyst-crystals",
+      "name": "Amethyst crystals",
+      "file": "amethyst-crystals.png",
+      "group": "Fantasy objects",
+      "animated": false,
+      "sha256": "8f8467851b570b98ac70e440213ebef4e67131f92a0c31e405b5fb99a335200e"
+    },
+    {
+      "id": "spellbook",
+      "name": "Spellbook",
+      "file": "spellbook.png",
+      "group": "Fantasy objects",
+      "animated": false,
+      "sha256": "af004f2e066f9ac9d8199fba819add07d84876cbc66e9e97e9d11c0196704c2d"
+    },
+    {
+      "id": "potion-bottle",
+      "name": "Potion bottle",
+      "file": "potion-bottle.png",
+      "group": "Fantasy objects",
+      "animated": false,
+      "sha256": "f59a9e826fd2aca46f8b73bd01ba9bb6f74570e25a73a9ad82a33e864083f8b5"
+    },
+    {
+      "id": "golden-key",
+      "name": "Golden key",
+      "file": "golden-key.png",
+      "group": "Fantasy objects",
+      "animated": false,
+      "sha256": "5d8c893b7167079a10334865f5934c5218eac6d40588b6e8df6fe393207dc195"
+    },
+    {
+      "id": "lantern",
+      "name": "Lantern",
+      "file": "lantern.png",
+      "group": "Fantasy objects",
+      "animated": false,
+      "sha256": "74753f854de5d740b6754a2681b751890396409e903d2f737a9ac42fdfbd5e0b"
+    },
+    {
+      "id": "wizard-tower",
+      "name": "Wizard tower",
+      "file": "wizard-tower.png",
+      "group": "Fantasy objects",
+      "animated": false,
+      "sha256": "f332493d5df1fdc1d21b52116500721a429d56c55dcc5789b1f455c6366e6aab"
+    },
+    {
+      "id": "treasure-chest",
+      "name": "Treasure chest",
+      "file": "treasure-chest.png",
+      "group": "Fantasy objects",
+      "animated": false,
+      "sha256": "c0238f2400b0b1a5279304a5b89a0fb90f08dd8706a5cc82830ca1688c466366"
+    },
+    {
+      "id": "floating-island",
+      "name": "Floating island",
+      "file": "floating-island.png",
+      "group": "Fantasy objects",
+      "animated": false,
+      "sha256": "21cf09ee1f081b54136a7ecf0ba2f7cc578bde7e065106d7d2cebc552247f7d5"
+    },
+    {
+      "id": "fairytale-castle",
+      "name": "Fairytale castle",
+      "file": "fairytale-castle.png",
+      "group": "Fantasy objects",
+      "animated": false,
+      "sha256": "0383b90b3dd3043ff3d0c31a23859a93ae7e07891771c9cdfec09a473bae3779"
+    },
+    {
+      "id": "rune-stone",
+      "name": "Rune stone",
+      "file": "rune-stone.png",
+      "group": "Fantasy objects",
+      "animated": false,
+      "sha256": "e5045bd3a484cbe11f4308869583d82241cb666932828ba2a22751c0688007be"
+    },
+    {
+      "id": "log-cabin",
+      "name": "Log cabin",
+      "file": "log-cabin.png",
+      "group": "Places",
+      "animated": false,
+      "sha256": "31a7ff76dd37b04489735959fc6514057c63c0b34d84ce1a7b7a84a510f7d200"
+    },
+    {
+      "id": "greenhouse",
+      "name": "Greenhouse",
+      "file": "greenhouse.png",
+      "group": "Places",
+      "animated": false,
+      "sha256": "56a3fd7791b484043c03f4c508c9741eb15a2799303d4b1ccfe79b924a71f60c"
+    },
+    {
+      "id": "lighthouse",
+      "name": "Lighthouse",
+      "file": "lighthouse.png",
+      "group": "Places",
+      "animated": false,
+      "sha256": "afb73df0eeef5b06c2fc9fa5f3c504745079e861f0231731f14c34a8e517b8a3"
+    },
+    {
+      "id": "treehouse",
+      "name": "Treehouse",
+      "file": "treehouse.png",
+      "group": "Places",
+      "animated": false,
+      "sha256": "297f41fe1abdadf7ea7f8ea104e20eb0e16ac5d5b8ff98ebe773381226cbda1e"
+    },
+    {
+      "id": "windmill",
+      "name": "Windmill",
+      "file": "windmill.png",
+      "group": "Places",
+      "animated": false,
+      "sha256": "06c527d5553a7d999771049f9ad86fb3a3df76a2c5edfdb35462289be0e592ad"
+    },
+    {
+      "id": "alpine-chalet",
+      "name": "Alpine chalet",
+      "file": "alpine-chalet.png",
+      "group": "Places",
+      "animated": false,
+      "sha256": "76b37ae69ec78adc12226b350859fb4f9f4e74c9c717b553d21c009920cebbb6"
+    },
+    {
+      "id": "train-station",
+      "name": "Train station",
+      "file": "train-station.png",
+      "group": "Places",
+      "animated": false,
+      "sha256": "70268614515e795ede42789e4a8b65c8ca31e3c3bf8ce0202e578124093608fe"
+    },
+    {
+      "id": "autumn-tea-house",
+      "name": "Autumn tea house",
+      "file": "autumn-tea-house.png",
+      "group": "Places",
+      "animated": false,
+      "sha256": "33f08be286d599d37f7ab1da5417d49b8d0aeeb59be7c323c04f47eda60289a6"
+    },
+    {
+      "id": "coastal-cottage",
+      "name": "Coastal cottage",
+      "file": "coastal-cottage.png",
+      "group": "Places",
+      "animated": false,
+      "sha256": "082db48f548d263263ce39f0c2e7744a867e815ada8e2d1ba4b261b2df46cbc4"
+    },
+    {
+      "id": "observatory",
+      "name": "Observatory",
+      "file": "observatory.png",
+      "group": "Places",
+      "animated": false,
+      "sha256": "1072fcd052e587f4f2bb0acdd1486a5c6fa27397d8a36c825c84332ca5dd6bfc"
+    },
+    {
+      "id": "ramen",
+      "name": "Ramen",
+      "file": "ramen.png",
+      "group": "Food",
+      "animated": false,
+      "sha256": "ba551cbd3a39207c4e205c2a1b0d22cb216162ef3027440fb2333bb36a398090"
+    },
+    {
+      "id": "pizza-slice",
+      "name": "Pizza slice",
+      "file": "pizza-slice.png",
+      "group": "Food",
+      "animated": false,
+      "sha256": "9445775d9a96901466e25554442e2a31c2891f47e710060e7833246ccb754bce"
+    },
+    {
+      "id": "sushi-roll",
+      "name": "Sushi roll",
+      "file": "sushi-roll.png",
+      "group": "Food",
+      "animated": false,
+      "sha256": "425ce865146f04766d0bf94daebdaa5ed596b7509d6a1a307a385dbeba9d3a94"
+    },
+    {
+      "id": "burger",
+      "name": "Burger",
+      "file": "burger.png",
+      "group": "Food",
+      "animated": false,
+      "sha256": "660f94a05587f427af738abccc79e56c9b5104d85c1858b480b08658c891294b"
+    },
+    {
+      "id": "pancakes",
+      "name": "Pancakes",
+      "file": "pancakes.png",
+      "group": "Food",
+      "animated": false,
+      "sha256": "7aff485d22416cb37dc5130b80d2e0b668e2198cdc71a421c5a605b61d446719"
+    },
+    {
+      "id": "ice-cream",
+      "name": "Ice cream",
+      "file": "ice-cream.png",
+      "group": "Food",
+      "animated": false,
+      "sha256": "05d6818ec3955b23fc45acbc58ead0774b245b143709ebaaae5e07c9fc8dab30"
+    },
+    {
+      "id": "croissant",
+      "name": "Croissant",
+      "file": "croissant.png",
+      "group": "Food",
+      "animated": false,
+      "sha256": "67682eeb8ad6a52b98e08068a43889462ce130f7f40a19fdae35ee3236a02713"
+    },
+    {
+      "id": "pink-doughnut",
+      "name": "Pink doughnut",
+      "file": "pink-doughnut.png",
+      "group": "Food",
+      "animated": false,
+      "sha256": "e53fab38df10305ee929e0e98f731aab75c8b40773441d31e8fb9c971aa861ac"
+    },
+    {
+      "id": "tea-cup",
+      "name": "Tea cup",
+      "file": "tea-cup.png",
+      "group": "Food",
+      "animated": false,
+      "sha256": "9c02bd40dd3793f36d6b1b1379d99273dd4a205acbc11b664efd10a45e0d3944"
+    },
+    {
+      "id": "strawberry-cake",
+      "name": "Strawberry cake",
+      "file": "strawberry-cake.png",
+      "group": "Food",
+      "animated": false,
+      "sha256": "2985ac3d929ce2bba006ac27bc2666a5f1f57b551189b7f6cd1576546060c8c0"
+    },
+    {
+      "id": "bonsai",
+      "name": "Bonsai",
+      "file": "bonsai.png",
+      "group": "Nature",
+      "animated": false,
+      "sha256": "ff8676e1c5f81414155d5314a04757bb04aacbccec36a9d3aa90e096300b7866"
+    },
+    {
+      "id": "waterfall",
+      "name": "Waterfall",
+      "file": "waterfall.png",
+      "group": "Nature",
+      "animated": false,
+      "sha256": "bb3cb9991b13d184717cfb70d8967a893c244d1146fada1a605c6c7bcc897b89"
+    },
+    {
+      "id": "terrarium",
+      "name": "Terrarium",
+      "file": "terrarium.png",
+      "group": "Nature",
+      "animated": false,
+      "sha256": "67a874fe0e1d32d35b12acfc5e214cf5db1d525677d8a1be70b2d7843862dd01"
+    },
+    {
+      "id": "flowering-cactus",
+      "name": "Flowering cactus",
+      "file": "flowering-cactus.png",
+      "group": "Nature",
+      "animated": false,
+      "sha256": "e0b585b5decea78ed887384eff64e4402908c74938ab643544ceb1acc36f7ede"
+    },
+    {
+      "id": "mountains",
+      "name": "Mountains",
+      "file": "mountains.png",
+      "group": "Nature",
+      "animated": false,
+      "sha256": "ee059a0e6a115ac809f86b310858ec10f7649018732cf35e108f5c926cc6f96c"
+    },
+    {
+      "id": "tropical-island",
+      "name": "Tropical island",
+      "file": "tropical-island.png",
+      "group": "Nature",
+      "animated": false,
+      "sha256": "14b1da1fa8ba14b30a49ffeb5057587e4e692c7fc83828fb2a16c786fac22b82"
+    },
+    {
+      "id": "autumn-tree",
+      "name": "Autumn tree",
+      "file": "autumn-tree.png",
+      "group": "Nature",
+      "animated": false,
+      "sha256": "acf4c1047d1b066490b0e4dfbd68240b84d9692106c8592dc952c5122c3a8242"
+    },
+    {
+      "id": "toadstool",
+      "name": "Toadstool",
+      "file": "toadstool.png",
+      "group": "Nature",
+      "animated": false,
+      "sha256": "33776e87639442cb2cd60c5804283c64ade5e40447eb6469a219d1792aec208e"
+    },
+    {
+      "id": "lotus",
+      "name": "Lotus",
+      "file": "lotus.png",
+      "group": "Nature",
+      "animated": false,
+      "sha256": "fd0d8c9753db1e6f2ea2cfa121bf27135218f702c20d2961b57f5e363eea5ee4"
+    },
+    {
+      "id": "volcano",
+      "name": "Volcano",
+      "file": "volcano.png",
+      "group": "Nature",
+      "animated": false,
+      "sha256": "a3b9c53462311232508edbe7608dc9fe2a9c1a951da18d0aabd11a2d993085d1"
+    },
+    {
+      "id": "paint-palette",
+      "name": "Paint palette",
+      "file": "paint-palette.png",
+      "group": "Arts",
+      "animated": false,
+      "sha256": "90058b843744db90e7075cd54c5eb662b0d35fbbe95fcf52a12bad85a0c226bb"
+    },
+    {
+      "id": "fountain-pen",
+      "name": "Fountain pen",
+      "file": "fountain-pen.png",
+      "group": "Arts",
+      "animated": false,
+      "sha256": "2821e2f2774bc857121ab6334d0111e798e8244956d405c4f22dac30f78627d6"
+    },
+    {
+      "id": "acoustic-musician",
+      "name": "Acoustic musician",
+      "file": "acoustic-musician.png",
+      "group": "Arts",
+      "animated": false,
+      "sha256": "e402349ef57c72cfb7edbcd0c9cd0273ffe907d9f9b10915133ebaeb53716f99"
+    },
+    {
+      "id": "trumpet",
+      "name": "Trumpet",
+      "file": "trumpet.png",
+      "group": "Arts",
+      "animated": false,
+      "sha256": "1ad7b4099f72fec500c89ab5d50ec86b55d4aad3fe1f92d35fd0fec44e6e757e"
+    },
+    {
+      "id": "drum-kit",
+      "name": "Drum kit",
+      "file": "drum-kit.png",
+      "group": "Arts",
+      "animated": false,
+      "sha256": "741505f3367d2b572d0b5ff99aef2043ec134757b774173dc45b6b7e3fcb67df"
+    },
+    {
+      "id": "clapperboard",
+      "name": "Clapperboard",
+      "file": "clapperboard.png",
+      "group": "Arts",
+      "animated": false,
+      "sha256": "98d72b8b97b56f044af37823ab599b3b81ccf290f3f71bfa9ae002daa4f411ef"
+    },
+    {
+      "id": "sewing-machine",
+      "name": "Sewing machine",
+      "file": "sewing-machine.png",
+      "group": "Arts",
+      "animated": false,
+      "sha256": "2540ca6f3112cfb420af971aba2371c4cb9504d49df1244b505199aaf6dfda40"
+    },
+    {
+      "id": "origami-crane",
+      "name": "Origami crane",
+      "file": "origami-crane.png",
+      "group": "Arts",
+      "animated": false,
+      "sha256": "c760bc6e028529e3ab07b1881af2a0cb827607cdb210a5ddaf7e355f1c5d0cf1"
+    },
+    {
+      "id": "pottery",
+      "name": "Pottery",
+      "file": "pottery.png",
+      "group": "Arts",
+      "animated": false,
+      "sha256": "2ca268438ae99b87feab65f0121543654a2b00eba1ea4b16a15ddc8b38ef9cd7"
+    },
+    {
+      "id": "sketchbook",
+      "name": "Sketchbook",
+      "file": "sketchbook.png",
+      "group": "Arts",
+      "animated": false,
+      "sha256": "55d5c8afcc1cbcfadfd0f2e8c1bff898c7d918f31ae6871ab3c5f0ba43a7b9c9"
+    },
+    {
+      "id": "brass-compass",
+      "name": "Brass compass",
+      "file": "brass-compass.png",
+      "group": "Adventure",
+      "animated": false,
+      "sha256": "0902c0492581a3f631555d263d8be18c98a71e3500a2a73f62e330eca0e5f64a"
+    },
+    {
+      "id": "hiking-backpack",
+      "name": "Hiking backpack",
+      "file": "hiking-backpack.png",
+      "group": "Adventure",
+      "animated": false,
+      "sha256": "d5878bbb76656d9e050aa3fc61598d333ac3c9d85c2027449f1a72a0b58d8f79"
+    },
+    {
+      "id": "tent",
+      "name": "Tent",
+      "file": "tent.png",
+      "group": "Adventure",
+      "animated": false,
+      "sha256": "40f716cc6597cf37e2325af5d196aeaf5b0a3d23e06f221e35905927bc4b1c20"
+    },
+    {
+      "id": "hiking-boots",
+      "name": "Hiking boots",
+      "file": "hiking-boots.png",
+      "group": "Adventure",
+      "animated": false,
+      "sha256": "5871170d6745a8661c624095d1828e97e06309417db276e57a2103cd88bf2acb"
+    },
+    {
+      "id": "diving-helmet",
+      "name": "Diving helmet",
+      "file": "diving-helmet.png",
+      "group": "Adventure",
+      "animated": false,
+      "sha256": "445489d0cd5ffa19979050fde7152f4fa91d6aab2e21b149d19986a8b05cb0d3"
+    },
+    {
+      "id": "telescope",
+      "name": "Telescope",
+      "file": "telescope.png",
+      "group": "Adventure",
+      "animated": false,
+      "sha256": "06114e78352f62f4d4b5278ccc56710c0611346385447ef45c236471f364ea4e"
+    },
+    {
+      "id": "hot-air-balloon",
+      "name": "Hot air balloon",
+      "file": "hot-air-balloon.png",
+      "group": "Adventure",
+      "animated": false,
+      "sha256": "1fe4a273cca89d9fb68b015cdf2b78540d4a6c0cdf522d760f96f251b3caaf1a"
+    },
+    {
+      "id": "treasure-map",
+      "name": "Treasure map",
+      "file": "treasure-map.png",
+      "group": "Adventure",
+      "animated": false,
+      "sha256": "5f0c53f4aab7066626db01863f9b71b3c90c4207dd23ce126cace46494fa9c9c"
+    },
+    {
+      "id": "binoculars",
+      "name": "Binoculars",
+      "file": "binoculars.png",
+      "group": "Adventure",
+      "animated": false,
+      "sha256": "16581f0a9f106ea4ea31d35fea05a491e3ac49e7e91ffd5fa68ad3e425098900"
+    },
+    {
+      "id": "campfire",
+      "name": "Campfire",
+      "file": "campfire.png",
+      "group": "Adventure",
+      "animated": false,
+      "sha256": "c151f42dfa693a80a556002bff20b96d010e2382b3530535ab642fcaa35b719a"
+    },
+    {
+      "id": "engine",
+      "name": "Engine",
+      "file": "engine.png",
+      "group": "Workshop",
+      "animated": false,
+      "sha256": "45711c513bd9337bff1e151816757e45eae4e445b9b5c8f6490a15688f7cf658"
+    },
+    {
+      "id": "turbocharger",
+      "name": "Turbocharger",
+      "file": "turbocharger.png",
+      "group": "Workshop",
+      "animated": false,
+      "sha256": "dab96576676dc3721db99c9dfcd2730644fb12b7f8989dc553a04d1ad535143f"
+    },
+    {
+      "id": "gears",
+      "name": "Gears",
+      "file": "gears.png",
+      "group": "Workshop",
+      "animated": false,
+      "sha256": "4f6f44b9a85a306a9dfcc2b2af62674ae7eece1480e1d3c3b9adf6fe91e4672f"
+    },
+    {
+      "id": "toolbox",
+      "name": "Toolbox",
+      "file": "toolbox.png",
+      "group": "Workshop",
+      "animated": false,
+      "sha256": "134440289dc4fcce921c9411575811ea48ccbee5a823c510940b5f580132e62a"
+    },
+    {
+      "id": "robot-arm",
+      "name": "Robot arm",
+      "file": "robot-arm.png",
+      "group": "Workshop",
+      "animated": false,
+      "sha256": "d4f44bca1dbbd848ebd0d959474b5783c559498a85cb74b37857d3e6f1bff258"
+    },
+    {
+      "id": "microchip",
+      "name": "Microchip",
+      "file": "microchip.png",
+      "group": "Workshop",
+      "animated": false,
+      "sha256": "fe67d0ab94b953faecfd21d5b62d8f9383e4c7005b059ff70a2b95b68d160224"
+    },
+    {
+      "id": "soldering-station",
+      "name": "Soldering station",
+      "file": "soldering-station.png",
+      "group": "Workshop",
+      "animated": false,
+      "sha256": "adfa664e3e0617e2b154a5b229d90a29a69fb597b7dd6e502f8fedecb3d45ebd"
+    },
+    {
+      "id": "wrench",
+      "name": "Wrench",
+      "file": "wrench.png",
+      "group": "Workshop",
+      "animated": false,
+      "sha256": "f4c82c5c0ddc76e247a6d29239eef6d2412e02d6a847ea40380d218d316938f4"
+    },
+    {
+      "id": "generator",
+      "name": "Generator",
+      "file": "generator.png",
+      "group": "Workshop",
+      "animated": false,
+      "sha256": "fa26ac0f6a30927a1e0cbe8d09bffa0503c4b65c95c4af2d344ae398002003be"
+    },
+    {
+      "id": "server-rack",
+      "name": "Server rack",
+      "file": "server-rack.png",
+      "group": "Workshop",
+      "animated": false,
+      "sha256": "af5ed17f3c31db70935ffe2bd668032e7c339461f4167a4eb55cc89ae9963a1c"
+    },
+    {
+      "id": "red-panda",
+      "name": "Red panda",
+      "file": "red-panda.png",
+      "group": "Animal friends",
+      "animated": false,
+      "sha256": "add4469d441f72633a8a110012f7c6470120ffcd78f5f11c1b135145bb0eb0b1"
+    },
+    {
+      "id": "arctic-fox",
+      "name": "Arctic fox",
+      "file": "arctic-fox.png",
+      "group": "Animal friends",
+      "animated": false,
+      "sha256": "3db20e816cbeeaeb37495ee1fdcb5ec54ef988f18abb72106ab30e96a78e7820"
+    },
+    {
+      "id": "otter",
+      "name": "Otter",
+      "file": "otter.png",
+      "group": "Animal friends",
+      "animated": false,
+      "sha256": "d252ccc71f55788ed02a50c672431865357fa36d68cc123779cf7c5dfd3d10a9"
+    },
+    {
+      "id": "axolotl",
+      "name": "Axolotl",
+      "file": "axolotl.png",
+      "group": "Animal friends",
+      "animated": false,
+      "sha256": "b010c1f1f15eedc9f6bb7b78e478b0cba4fb5ee4f429259c43523e0eba6cf034"
+    },
+    {
+      "id": "snow-leopard",
+      "name": "Snow leopard",
+      "file": "snow-leopard.png",
+      "group": "Animal friends",
+      "animated": false,
+      "sha256": "89f42aed4252f3fed1e9dc03239da4f25f2ee8f3c01471fb29f347c19157bc16"
+    },
+    {
+      "id": "raccoon",
+      "name": "Raccoon",
+      "file": "raccoon.png",
+      "group": "Animal friends",
+      "animated": false,
+      "sha256": "4776ebd7d3d9bb77569493e53f1b987fc8c9904a57820be550e85365a6ddb565"
+    },
+    {
+      "id": "koala",
+      "name": "Koala",
+      "file": "koala.png",
+      "group": "Animal friends",
+      "animated": false,
+      "sha256": "19fe38f087ec1f4c9b2cc3bb77977009131f4929af8b33c7fe5b96b47a46d44d"
+    },
+    {
+      "id": "capybara",
+      "name": "Capybara",
+      "file": "capybara.png",
+      "group": "Animal friends",
+      "animated": false,
+      "sha256": "00c19df7a61c7ebbf162b89040721b64355e7c78bef8f3367f44f90650f3a6de"
+    },
+    {
+      "id": "white-rabbit",
+      "name": "White rabbit",
+      "file": "white-rabbit.png",
+      "group": "Animal friends",
+      "animated": false,
+      "sha256": "1da99b4d7a1fd61c6ea6e83abbd2c390fa8b7b32638d7c88fe7c5e40dcb0fdb2"
+    },
+    {
+      "id": "bear-cub",
+      "name": "Bear cub",
+      "file": "bear-cub.png",
+      "group": "Animal friends",
+      "animated": false,
+      "sha256": "d0fff5cdf756fec6dd97e7f7d33a09a1041b4d00ecf3dc63185d4dc9f085ffc0"
+    },
+    {
+      "id": "penguin",
+      "name": "Penguin",
+      "file": "penguin.png",
+      "group": "Little friends",
+      "animated": false,
+      "sha256": "eb8bd3bf48e70924c31f3c788d524e49fdac169c69f81c037323fccd6135a5ce"
+    },
+    {
+      "id": "hedgehog",
+      "name": "Hedgehog",
+      "file": "hedgehog.png",
+      "group": "Little friends",
+      "animated": false,
+      "sha256": "98ead6c0665d7a31014911242b387284ea87ab2cd869182643a74234312f21ab"
+    },
+    {
+      "id": "sea-turtle",
+      "name": "Sea turtle",
+      "file": "sea-turtle.png",
+      "group": "Little friends",
+      "animated": false,
+      "sha256": "2cc81286516044b83a04029ba97f402a4f258edb26add7dfde0e754b806fabad"
+    },
+    {
+      "id": "tree-frog",
+      "name": "Tree frog",
+      "file": "tree-frog.png",
+      "group": "Little friends",
+      "animated": false,
+      "sha256": "74f3f6c58b103c28a10bb2875fa4d5fa32748b9bebaaaf169da9090b156e96c3"
+    },
+    {
+      "id": "purple-octopus",
+      "name": "Purple octopus",
+      "file": "purple-octopus.png",
+      "group": "Little friends",
+      "animated": false,
+      "sha256": "413525a7d1e676eb6f6aee50a8be77abb5f86b5884aced3d5fc60f78b7308f86"
+    },
+    {
+      "id": "owl",
+      "name": "Owl",
+      "file": "owl.png",
+      "group": "Little friends",
+      "animated": false,
+      "sha256": "66d8ce96e07e08d022539be8932e79a4eaabb7565d8c5d83d9261f282974c9f2"
+    },
+    {
+      "id": "happy-corgi",
+      "name": "Happy corgi",
+      "file": "happy-corgi.png",
+      "group": "Little friends",
+      "animated": false,
+      "sha256": "8fd8e2ad87ef03a6551cc4c82be9f96489d6c9ac37b63ca36d62fa98e452df07"
+    },
+    {
+      "id": "purple-cat",
+      "name": "Purple cat",
+      "file": "purple-cat.png",
+      "group": "Little friends",
+      "animated": false,
+      "sha256": "d03c65f35a7597aed07d8a21134fe3dba4c8962292b40518060a21e538b0775b"
+    },
+    {
+      "id": "smiling-ginger-cat",
+      "name": "Smiling ginger cat",
+      "file": "smiling-ginger-cat.png",
+      "group": "Little friends",
+      "animated": false,
+      "sha256": "0256a35432e21f29f590d7f1922bcf65ee48618da0ddd26a51df54c86af49759"
+    },
+    {
+      "id": "chameleon",
+      "name": "Chameleon",
+      "file": "chameleon.png",
+      "group": "Little friends",
+      "animated": false,
+      "sha256": "6d2de1743ea037212474d5568e69c6ecc069e882a83c728dc6d5eef55f6c90b1"
+    },
+    {
+      "id": "happy-robot",
+      "name": "Happy robot",
+      "file": "happy-robot.png",
+      "group": "Robots",
+      "animated": false,
+      "sha256": "e8a7d10d17aaa6cc02cf2370cbec253100b90391c918b28e04008374c818c3c3"
+    },
+    {
+      "id": "orange-robot",
+      "name": "Orange robot",
+      "file": "orange-robot.png",
+      "group": "Robots",
+      "animated": false,
+      "sha256": "2c92ed0f073a8a49b9b6fea0323eeb4d291ddbe742ee45b84cfe73a9c33270b8"
+    },
+    {
+      "id": "silver-robot",
+      "name": "Silver robot",
+      "file": "silver-robot.png",
+      "group": "Robots",
+      "animated": false,
+      "sha256": "ce355c5ce5c602ae0670ce8ff8b69f30d4a65ea7eca74c38a0602dd04ee32bca"
+    },
+    {
+      "id": "retro-robot",
+      "name": "Retro robot",
+      "file": "retro-robot.png",
+      "group": "Robots",
+      "animated": false,
+      "sha256": "972811aaebb8c9362911d4531ba5226baa9305c92869951b76358139e3f42d6f"
+    },
+    {
+      "id": "pearl-robot",
+      "name": "Pearl robot",
+      "file": "pearl-robot.png",
+      "group": "Robots",
+      "animated": false,
+      "sha256": "dc66ce805f57fa2c30292ea7e687d63adbf43b460c465c9664783f6dc3a71884"
+    },
+    {
+      "id": "mechanical-owl",
+      "name": "Mechanical owl",
+      "file": "mechanical-owl.png",
+      "group": "Robots",
+      "animated": false,
+      "sha256": "a9749f50ebbb2de158cbbe601a33699f3597cca9bf9f445a7f7582073fc49f46"
+    },
+    {
+      "id": "satellite-robot",
+      "name": "Satellite robot",
+      "file": "satellite-robot.png",
+      "group": "Robots",
+      "animated": false,
+      "sha256": "035aad7e52d8b4148a331d7bfc7b545c862af44f645312a32c372556683963e2"
+    },
+    {
+      "id": "neon-catbot",
+      "name": "Neon catbot",
+      "file": "neon-catbot.png",
+      "group": "Robots",
+      "animated": false,
+      "sha256": "b5554cc5018e2746911b33e7c971236cf8a21880148aa01dfbc13ecb638b0fde"
+    },
+    {
+      "id": "brass-robot",
+      "name": "Brass robot",
+      "file": "brass-robot.png",
+      "group": "Robots",
+      "animated": false,
+      "sha256": "fc3621c182b594b7ea651f2c93672e3c6aab4d3cda7f90375401180dbc9c8b3a"
+    },
+    {
+      "id": "nurse-robot",
+      "name": "Nurse robot",
+      "file": "nurse-robot.png",
+      "group": "Robots",
+      "animated": false,
+      "sha256": "f59ecbd372aece5f745695bd19a31f99d34431200a4c1326d205dd6a83ab9f9c"
+    },
+    {
+      "id": "emerald-dragon",
+      "name": "Emerald dragon",
+      "file": "emerald-dragon.png",
+      "group": "Forest magic",
+      "animated": false,
+      "sha256": "98b150d10f85154f34776615294ac47cc5b05daa65007ff6ec3611e82511b760"
+    },
+    {
+      "id": "purple-dragon",
+      "name": "Purple dragon",
+      "file": "purple-dragon.png",
+      "group": "Forest magic",
+      "animated": false,
+      "sha256": "c172d1b3d35561f0b4e1a637b8d75a53fcef9cf7b4170cc8633418349aa75730"
+    },
+    {
+      "id": "phoenix",
+      "name": "Phoenix",
+      "file": "phoenix.png",
+      "group": "Forest magic",
+      "animated": false,
+      "sha256": "20487f1debc8e3d194687115fb0ff715f591656b941328031f53b02f37749d81"
+    },
+    {
+      "id": "flower-fairy",
+      "name": "Flower fairy",
+      "file": "flower-fairy.png",
+      "group": "Forest magic",
+      "animated": false,
+      "sha256": "8315d68b1dc7f65c521d3361c4fda82910c6a1ffed4f25a134df5ba40b688162"
+    },
+    {
+      "id": "stone-guardian",
+      "name": "Stone guardian",
+      "file": "stone-guardian.png",
+      "group": "Forest magic",
+      "animated": false,
+      "sha256": "a362a87dfd297b559bfd614f7ba252cadee617fd72657b2e712a9c31201c7934"
+    },
+    {
+      "id": "mushroom-friend",
+      "name": "Mushroom friend",
+      "file": "mushroom-friend.png",
+      "group": "Forest magic",
+      "animated": false,
+      "sha256": "fdedb4755937d78409890bc31d8f180a5f140c3a9eec3080862a29c8bb598458"
+    },
+    {
+      "id": "water-spirit",
+      "name": "Water spirit",
+      "file": "water-spirit.png",
+      "group": "Forest magic",
+      "animated": false,
+      "sha256": "d8bbefd7a91de04d607f2e15fa3bf2d8a4d80bd77461cbfad02fb841ce89e3b8"
+    },
+    {
+      "id": "little-ghost",
+      "name": "Little ghost",
+      "file": "little-ghost.png",
+      "group": "Forest magic",
+      "animated": false,
+      "sha256": "8c279c7bac4f573fa0296ac6aadf4ada038fa2e633ccd8b7491dc0e83888639a"
+    },
+    {
+      "id": "forest-guardian",
+      "name": "Forest guardian",
+      "file": "forest-guardian.png",
+      "group": "Forest magic",
+      "animated": false,
+      "sha256": "50f20064d4ddfce5d4e9f7c9cb3d1f92d372087c2682b5c7ff5fb79b7155e308"
+    },
+    {
+      "id": "crystal-creature",
+      "name": "Crystal creature",
+      "file": "crystal-creature.png",
+      "group": "Forest magic",
+      "animated": false,
+      "sha256": "203064f3ba23bdab1849d0dd3b1b9ccf369a1e942fc24e6fa7391be240a29255"
+    },
+    {
+      "id": "astronaut",
+      "name": "Astronaut",
+      "file": "astronaut.png",
+      "group": "Space friends",
+      "animated": false,
+      "sha256": "89bec9047dcde2c98769e63ad8a2a3e44ac9f22fed8eb743a32b7a7455b9344a"
+    },
+    {
+      "id": "aviator",
+      "name": "Aviator",
+      "file": "aviator.png",
+      "group": "Space friends",
+      "animated": false,
+      "sha256": "d7a280d3d0cd2e9f9119e4dd975b8195a90257b41789bf573fde1a96430c3b4a"
+    },
+    {
+      "id": "space-captain",
+      "name": "Space captain",
+      "file": "space-captain.png",
+      "group": "Space friends",
+      "animated": false,
+      "sha256": "8e87e114b210ed41fbaaecc74d7db0c76064006229a8c8fe725b57a275f0924c"
+    },
+    {
+      "id": "purple-alien",
+      "name": "Purple alien",
+      "file": "purple-alien.png",
+      "group": "Space friends",
+      "animated": false,
+      "sha256": "1c80b2c436184b8c70d71c11d12143bdcec1b6db57df77071b4e2fa3483d0012"
+    },
+    {
+      "id": "green-alien",
+      "name": "Green alien",
+      "file": "green-alien.png",
+      "group": "Space friends",
+      "animated": false,
+      "sha256": "3acf6ba2c69f6b9e752cdfc02372698b0f86e1248158584417daf3d1b1f23ccf"
+    },
+    {
+      "id": "orange-alien",
+      "name": "Orange alien",
+      "file": "orange-alien.png",
+      "group": "Space friends",
+      "animated": false,
+      "sha256": "66c9eb1cff8126e8a4eca7c8b8074875f1d55feaaf87bd410781c50878c9eabc"
+    },
+    {
+      "id": "happy-comet",
+      "name": "Happy comet",
+      "file": "happy-comet.png",
+      "group": "Space friends",
+      "animated": false,
+      "sha256": "dc2ad2c0231186dde33b233b73d01e0c7de4805d61ec4d702c0120e50a6b4514"
+    },
+    {
+      "id": "happy-saturn",
+      "name": "Happy Saturn",
+      "file": "happy-saturn.png",
+      "group": "Space friends",
+      "animated": false,
+      "sha256": "a398a21c034a4d7ffc28ab0edd20a3b2659ed434f7926b7b970afa211f069fa1"
+    },
+    {
+      "id": "little-star",
+      "name": "Little star",
+      "file": "little-star.png",
+      "group": "Space friends",
+      "animated": false,
+      "sha256": "7c5b71b04f285e70c667ba495b5fbbea51c72123832b7afb717bda4aa8333aa7"
+    },
+    {
+      "id": "space-explorer",
+      "name": "Space explorer",
+      "file": "space-explorer.png",
+      "group": "Space friends",
+      "animated": false,
+      "sha256": "265c49167075171c1988115412e240cc0e741207bcfb5fa5280c77e6c9d8417e"
+    },
+    {
+      "id": "teal-haired-artist",
+      "name": "Teal-haired artist",
+      "file": "teal-haired-artist.png",
+      "group": "People",
+      "animated": false,
+      "sha256": "ebd566f94d23c8365ae1c45d11560269e8fb57882e708fa08b02baca9ebd328c"
+    },
+    {
+      "id": "coiled-hair-friend",
+      "name": "Coiled-hair friend",
+      "file": "coiled-hair-friend.png",
+      "group": "People",
+      "animated": false,
+      "sha256": "ffcd131ee0710a33dbc137186d5e72238119cb36e5f38e7e5e90e1a74246c64b"
+    },
+    {
+      "id": "red-haired-friend",
+      "name": "Red-haired friend",
+      "file": "red-haired-friend.png",
+      "group": "People",
+      "animated": false,
+      "sha256": "81c22ad43769ad8b2e1def4537fd0101aff52666e6857f0190b4295e924e7660"
+    },
+    {
+      "id": "silver-haired-friend",
+      "name": "Silver-haired friend",
+      "file": "silver-haired-friend.png",
+      "group": "People",
+      "animated": false,
+      "sha256": "78bf4ea64e5ed868a8138979e64b72ce3cd85859b341abb7050d8470f0de31c5"
+    },
+    {
+      "id": "braided-hair-friend",
+      "name": "Braided-hair friend",
+      "file": "braided-hair-friend.png",
+      "group": "People",
+      "animated": false,
+      "sha256": "1c9ce9be82fa4bec51240153cd217edb9c1852dd533b5cea74b31d2f288c9fe9"
+    },
+    {
+      "id": "curly-haired-friend",
+      "name": "Curly-haired friend",
+      "file": "curly-haired-friend.png",
+      "group": "People",
+      "animated": false,
+      "sha256": "8e8948b543319c8db6e0559d07d9b1c598dccf74374d60966e5db3de71fd7707"
+    },
+    {
+      "id": "dark-haired-friend",
+      "name": "Dark-haired friend",
+      "file": "dark-haired-friend.png",
+      "group": "People",
+      "animated": false,
+      "sha256": "016002790effae707d7603bcdcc1def09b703c4dc97c0fc0738998a3215c47c4"
+    },
+    {
+      "id": "bearded-friend",
+      "name": "Bearded friend",
+      "file": "bearded-friend.png",
+      "group": "People",
+      "animated": false,
+      "sha256": "f23f64d41a466685edb7715b29db5a7f19f520a3a9682863e0485d066b9b971f"
+    },
+    {
+      "id": "purple-haired-friend",
+      "name": "Purple-haired friend",
+      "file": "purple-haired-friend.png",
+      "group": "People",
+      "animated": false,
+      "sha256": "a56427f7d342143101d6377fb25e25a22c50582d7bb4b62cbc84e6564d623a48"
+    },
+    {
+      "id": "wavy-haired-friend",
+      "name": "Wavy-haired friend",
+      "file": "wavy-haired-friend.png",
+      "group": "People",
+      "animated": false,
+      "sha256": "d4eaa367c4b8b3ccd5e7710d86f973538a1dc9a2cca073a34a6b5ccdffbd5964"
+    },
+    {
+      "id": "chef",
+      "name": "Chef",
+      "file": "chef.png",
+      "group": "Adventurers",
+      "animated": false,
+      "sha256": "99438ad99cfdadaf747588992f82a919b6eb1090002b58ae8562126feb058819"
+    },
+    {
+      "id": "gardener",
+      "name": "Gardener",
+      "file": "gardener.png",
+      "group": "Adventurers",
+      "animated": false,
+      "sha256": "f41d8da4130785d64066cc151c22db3ccc97b3217ce88ae79a4b2306e034d690"
+    },
+    {
+      "id": "painter",
+      "name": "Painter",
+      "file": "painter.png",
+      "group": "Adventurers",
+      "animated": false,
+      "sha256": "e6077f60a188910cca6792111beddf5341026f14be28c18c10f4949dde5448b2"
+    },
+    {
+      "id": "inventor",
+      "name": "Inventor",
+      "file": "inventor.png",
+      "group": "Adventurers",
+      "animated": false,
+      "sha256": "6f78e9fad192b45a20583d45c38f1590854a7cd6c112a474cf9aae7fda8b5ba2"
+    },
+    {
+      "id": "scientist",
+      "name": "Scientist",
+      "file": "scientist.png",
+      "group": "Adventurers",
+      "animated": false,
+      "sha256": "fad59b8a3c897f2d0848734e9b5e60a01a65e46caa11578d7013aef87ee61a91"
+    },
+    {
+      "id": "firefighter",
+      "name": "Firefighter",
+      "file": "firefighter.png",
+      "group": "Adventurers",
+      "animated": false,
+      "sha256": "596462257c9f247c40b7f83c50d7989eb486736600c3b587a7390942b25f40ed"
+    },
+    {
+      "id": "pilot",
+      "name": "Pilot",
+      "file": "pilot.png",
+      "group": "Adventurers",
+      "animated": false,
+      "sha256": "0aad5715c80ac562136522b733c76b732b905a4e50d008954d09f7112d99fa0e"
+    },
+    {
+      "id": "winter-explorer",
+      "name": "Winter explorer",
+      "file": "winter-explorer.png",
+      "group": "Adventurers",
+      "animated": false,
+      "sha256": "b637f571bad6c4e2d91a764a736efbf270d3fbe227a2d4e8aa6e57e3311bf1f1"
+    },
+    {
+      "id": "young-explorer",
+      "name": "Young explorer",
+      "file": "young-explorer.png",
+      "group": "Adventurers",
+      "animated": false,
+      "sha256": "99297a24b0249053f847ff192127a0f4010277a9ddbeb7c8d070477deb41bef3"
+    },
+    {
+      "id": "knight",
+      "name": "Knight",
+      "file": "knight.png",
+      "group": "Adventurers",
+      "animated": false,
+      "sha256": "6863a3d8b3c815a90fcbbc6a473507ecd9c53418d9a80130808fe24ec0321be2"
+    },
+    {
+      "id": "raven",
+      "name": "Raven",
+      "file": "raven.png",
+      "group": "Wildlife",
+      "animated": false,
+      "sha256": "b133a470f22e4c325b53523843dd2f2cd1fd0d1973a22863198e938bd6a8faf3"
+    },
+    {
+      "id": "bat",
+      "name": "Bat",
+      "file": "bat.png",
+      "group": "Wildlife",
+      "animated": false,
+      "sha256": "9dd3d51404ca20a8e84a1ec03ecf15283a00f92354f0c10ad4e420ff3f8be57f"
+    },
+    {
+      "id": "wolf",
+      "name": "Wolf",
+      "file": "wolf.png",
+      "group": "Wildlife",
+      "animated": false,
+      "sha256": "fcd8b0ccffad20280c6ba8d2d5bb72f29a7add90e3f6390502d403a1b71cca86"
+    },
+    {
+      "id": "lynx",
+      "name": "Lynx",
+      "file": "lynx.png",
+      "group": "Wildlife",
+      "animated": false,
+      "sha256": "9ef737f4c1df582564ee0d399a7f3fcbfa74d9a54c3d432977d6b9009c823fce"
+    },
+    {
+      "id": "panther",
+      "name": "Panther",
+      "file": "panther.png",
+      "group": "Wildlife",
+      "animated": false,
+      "sha256": "faae554397afca1bf30d6af1b6c6b396b728767526cca91cc6f1d91dfe6f80a7"
+    },
+    {
+      "id": "luna-moth",
+      "name": "Luna moth",
+      "file": "luna-moth.png",
+      "group": "Wildlife",
+      "animated": false,
+      "sha256": "d03ad710a69219eb322ad977cdae71d496e922a603656b22b91ce7bd95051786"
+    },
+    {
+      "id": "fennec-fox",
+      "name": "Fennec fox",
+      "file": "fennec-fox.png",
+      "group": "Wildlife",
+      "animated": false,
+      "sha256": "f396da21dfe8224c7842013acaec7e52bcde46577dffefbe565cec842c97959e"
+    },
+    {
+      "id": "tiger",
+      "name": "Tiger",
+      "file": "tiger.png",
+      "group": "Wildlife",
+      "animated": false,
+      "sha256": "c27938c7c6c6decc5101192ab6c1479d86579e5ac11c6fc49c60ba2da9236187"
+    },
+    {
+      "id": "wolf-pup",
+      "name": "Wolf pup",
+      "file": "wolf-pup.png",
+      "group": "Wildlife",
+      "animated": false,
+      "sha256": "c90a3a84fcc89b4c63b6bce959bbc9b23f4df642710c2f6beccf27b2b37c3ce7"
+    },
+    {
+      "id": "brown-bear",
+      "name": "Brown bear",
+      "file": "brown-bear.png",
+      "group": "Wildlife",
+      "animated": false,
+      "sha256": "6408911422602f7d119e9adc5abe3466e520a44f73dafa099f131e58e4c8b5d3"
+    },
+    {
+      "id": "strawberry-friend",
+      "name": "Strawberry friend",
+      "file": "strawberry-friend.png",
+      "group": "Happy nature",
+      "animated": false,
+      "sha256": "696a517910b49994046d6aaeb4e1299135667d93e94d10144355faa79ae1a770"
+    },
+    {
+      "id": "sushi-friend",
+      "name": "Sushi friend",
+      "file": "sushi-friend.png",
+      "group": "Happy nature",
+      "animated": false,
+      "sha256": "e182f5c94bef9b4a78a19171b299da13ff8c0982c11f36401e5bad5f89e0b71f"
+    },
+    {
+      "id": "coffee-friend",
+      "name": "Coffee friend",
+      "file": "coffee-friend.png",
+      "group": "Happy nature",
+      "animated": false,
+      "sha256": "b7246d1945a8c0a35f600cf15528f68326845deb9b2db0c11b1adb93540cec65"
+    },
+    {
+      "id": "cactus-friend",
+      "name": "Cactus friend",
+      "file": "cactus-friend.png",
+      "group": "Happy nature",
+      "animated": false,
+      "sha256": "2bc1432322d8aca47c810ea17cc3e7070049383fa77f343d0bbcc393640e48af"
+    },
+    {
+      "id": "sunflower-friend",
+      "name": "Sunflower friend",
+      "file": "sunflower-friend.png",
+      "group": "Happy nature",
+      "animated": false,
+      "sha256": "8651e2553033959ab483354bad9f95c53f4c5dde4e9205e76fa5cf26dfa9fad1"
+    },
+    {
+      "id": "cloud-friend",
+      "name": "Cloud friend",
+      "file": "cloud-friend.png",
+      "group": "Happy nature",
+      "animated": false,
+      "sha256": "c5ef0c90da8b397970a3a821f2c08fbc174296bab2e6d05ea01d94802b983a3a"
+    },
+    {
+      "id": "moon-friend",
+      "name": "Moon friend",
+      "file": "moon-friend.png",
+      "group": "Happy nature",
+      "animated": false,
+      "sha256": "9766b88820e4a892c8d072cc5214d6e57f1be3fb7ce8fb31b1315e66efb7fc0a"
+    },
+    {
+      "id": "acorn-friend",
+      "name": "Acorn friend",
+      "file": "acorn-friend.png",
+      "group": "Happy nature",
+      "animated": false,
+      "sha256": "d42b0c65279c297ea5fcbdfcbb7389e8875223086ba47a12196767b5b07fe022"
+    },
+    {
+      "id": "flame-friend",
+      "name": "Flame friend",
+      "file": "flame-friend.png",
+      "group": "Happy nature",
+      "animated": false,
+      "sha256": "78c62299c69ce2f463be1626c7e96a84837ce6ac7157f291b7ef8a80416ddb2e"
+    },
+    {
+      "id": "ice-friend",
+      "name": "Ice friend",
+      "file": "ice-friend.png",
+      "group": "Happy nature",
+      "animated": false,
+      "sha256": "4c839a97cc538af68806d4a65580427afdebd49c74f22b9e35fc29635c566787"
+    },
+    {
+      "id": "samurai-cat",
+      "name": "Samurai cat",
+      "file": "samurai-cat.png",
+      "group": "Storybook",
+      "animated": false,
+      "sha256": "eea682e16f0ccc2b3d94fb39f330c32ba9c3364025dfac48a36826ca2ea41755"
+    },
+    {
+      "id": "little-wizard",
+      "name": "Little wizard",
+      "file": "little-wizard.png",
+      "group": "Storybook",
+      "animated": false,
+      "sha256": "8c05536b32979d426e7133da7e1317e82617e4911e9202d05f5b0b055125b233"
+    },
+    {
+      "id": "space-frog",
+      "name": "Space frog",
+      "file": "space-frog.png",
+      "group": "Storybook",
+      "animated": false,
+      "sha256": "ab7e5c825be637bedd41421283b1c35aa82298a4277bb1071219f4d86177ea71"
+    },
+    {
+      "id": "aviator-dragon",
+      "name": "Aviator dragon",
+      "file": "aviator-dragon.png",
+      "group": "Storybook",
+      "animated": false,
+      "sha256": "9ee51f56f18e90eb94d0b4a511e7715ca8b3c6b53ba01dcb7a9848d5cb386a79"
+    },
+    {
+      "id": "ninja-penguin",
+      "name": "Ninja penguin",
+      "file": "ninja-penguin.png",
+      "group": "Storybook",
+      "animated": false,
+      "sha256": "acbc42b1c2d84c99997bcfde1025c1ab71fecd1804fbee88e55431342d998bb5"
+    },
+    {
+      "id": "explorer-fox",
+      "name": "Explorer fox",
+      "file": "explorer-fox.png",
+      "group": "Storybook",
+      "animated": false,
+      "sha256": "afc1b4eff33a86dd11f92f14d257b41cfe514535d35714daffb76fee7f3b570c"
+    },
+    {
+      "id": "elven-deer",
+      "name": "Elven deer",
+      "file": "elven-deer.png",
+      "group": "Storybook",
+      "animated": false,
+      "sha256": "d4d624cb2fa9c7aafeb77fb2a73b9c811de65d25de7fbbbc570c23c66358d3be"
+    },
+    {
+      "id": "headphone-robot",
+      "name": "Headphone robot",
+      "file": "headphone-robot.png",
+      "group": "Storybook",
+      "animated": false,
+      "sha256": "fc8212c8bd6bdbd3b626bac7259310938d74888419c66a92a6569bd6b267a3ac"
+    },
+    {
+      "id": "cyber-cat",
+      "name": "Cyber cat",
+      "file": "cyber-cat.png",
+      "group": "Storybook",
+      "animated": false,
+      "sha256": "b4c150ea3e159532e62f5d425981f8df20f39aab62e74e08e68cd855495bdd23"
+    },
+    {
+      "id": "firefly-robot",
+      "name": "Firefly robot",
+      "file": "firefly-robot.png",
+      "group": "Storybook",
+      "animated": false,
+      "sha256": "70e6ea8b5ec532aac399a48c9240bba80fb91172835d621e141d6619d6accc7f"
+    },
+    {
+      "id": "flat-cap",
+      "name": "Flat cap",
+      "file": "flat-cap.png",
+      "group": "Hats",
+      "animated": false,
+      "sha256": "af28fe4f2aaf190e01aa4de117ddbf765a52ea83c160b1150f707984437daea2"
+    },
+    {
+      "id": "diver-watch",
+      "name": "Diver watch",
+      "file": "diver-watch.png",
+      "group": "Watches",
+      "animated": false,
+      "sha256": "3d8533a5d5bcd77801d2ddb833e8d90abdb5aa4ae3f12fc855f673a1e202c5f4"
+    }
+  ]
+}

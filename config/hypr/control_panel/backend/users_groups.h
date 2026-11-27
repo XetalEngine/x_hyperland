@@ -5,6 +5,8 @@
 #include <pwd.h>
 #include <unistd.h>
 #include "../account_avatar.h"
+#include "../account_picker.h"
+#include "../accounts_page.h"
 #include "../native.h"
 // Dashboard -> Users & Groups sub-tab: account management the Windows
 // lusrmgr.msc way. Group membership is where Arch permission problems live.
@@ -14,50 +16,11 @@
 void MainWindow::setupUsersGroupsTab() {
     QVBoxLayout *layout = new QVBoxLayout(ui->usersGroupsSubTab);
 
-    auto *profile = new QHBoxLayout;
-    auto *avatar = new FusionAccounts::Avatar(ui->usersGroupsSubTab);
-    avatar->setObjectName("usersCurrentAvatar");
-    profile->addWidget(avatar);
-    auto *identity = new QVBoxLayout;
-    auto *name = new QLabel(ui->usersGroupsSubTab);
-    name->setObjectName("usersCurrentName"); name->setTextFormat(Qt::PlainText);
-    auto font = name->font(); font.setPointSize(font.pointSize()+5); font.setBold(true); name->setFont(font);
-    identity->addWidget(name);
-    auto *description = new QLabel(ui->usersGroupsSubTab);
-    description->setObjectName("usersCurrentDescription"); description->setTextFormat(Qt::PlainText);
-    identity->addWidget(description); profile->addLayout(identity); profile->addStretch();
-    layout->addLayout(profile);
-
-    QHBoxLayout *bar = new QHBoxLayout();
-    QLabel *hint = new QLabel(tr("Local accounts and their group memberships (wheel = sudo)."), ui->usersGroupsSubTab);
-    hint->setStyleSheet("color:#888;");
-    QPushButton *refreshBtn = new QPushButton(tr("🔄 Refresh"), ui->usersGroupsSubTab);
-    QPushButton *addBtn = new QPushButton(tr("➕ Add User"), ui->usersGroupsSubTab);
-    QPushButton *delBtn = new QPushButton(tr("🗑️ Delete User"), ui->usersGroupsSubTab);
-    QPushButton *passBtn = new QPushButton(tr("🔑 Change Password"), ui->usersGroupsSubTab);
-    QPushButton *shellBtn = new QPushButton(tr("🐚 Change Shell"), ui->usersGroupsSubTab);
-    QPushButton *groupsBtn = new QPushButton(tr("👥 Edit Groups"), ui->usersGroupsSubTab);
-    QPushButton *iconBtn = new QPushButton(tr("🖼️ Change Icon"), ui->usersGroupsSubTab);
-    layout->addWidget(hint);
-    bar->addStretch();
-    for (QPushButton *b : {refreshBtn, addBtn, delBtn, passBtn, shellBtn, groupsBtn, iconBtn}) bar->addWidget(b);
-    layout->addLayout(bar);
-
-    ugUsersTable = new QTableWidget(ui->usersGroupsSubTab);
-    ugUsersTable->setColumnCount(5);
-    ugUsersTable->setHorizontalHeaderLabels(QStringList() << tr("User") << tr("UID") << tr("Home") << tr("Shell") << tr("Groups"));
-    ugUsersTable->horizontalHeader()->setStretchLastSection(true);
-    for (int column = 0; column < 4; ++column)
-        ugUsersTable->horizontalHeader()->setSectionResizeMode(column, QHeaderView::ResizeToContents);
-    ugUsersTable->setWordWrap(false);
-    ugUsersTable->setIconSize(QSize(48, 48));
-    ugUsersTable->verticalHeader()->setDefaultSectionSize(60);
-    ugUsersTable->setSelectionBehavior(QAbstractItemView::SelectRows);
-    ugUsersTable->setSelectionMode(QAbstractItemView::SingleSelection);
-    ugUsersTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    ugUsersTable->setAlternatingRowColors(true);
-    ugUsersTable->verticalHeader()->setVisible(false);
-    layout->addWidget(ugUsersTable);
+    auto *page = new FusionAccounts::Page(HyperPanel::root(), ui->usersGroupsSubTab);
+    layout->setContentsMargins(0,0,0,0); layout->addWidget(page);
+    ugUsersTable = page->table;
+    auto *refreshBtn=page->refresh; auto *addBtn=page->add; auto *delBtn=page->remove;
+    auto *passBtn=page->password; auto *shellBtn=page->shell; auto *groupsBtn=page->groups; auto *iconBtn=page->icon;
 
     connect(refreshBtn, &QPushButton::clicked, this, &MainWindow::refreshUsersGroups);
     auto *profileWatcher = new QFileSystemWatcher({HyperPanel::root()+"/theme"}, this);
@@ -169,39 +132,28 @@ void MainWindow::setupUsersGroupsTab() {
                                      .arg(wanted.join(','), name));
     });
 
-    connect(iconBtn, &QPushButton::clicked, this, [this, selectedUser]() {
-        QString name = selectedUser();
-        if (name.isEmpty()) { QMessageBox::information(this, tr("No Selection"), tr("Select a user first.")); return; }
-        if (ugUsersTable->item(ugUsersTable->currentRow(), 1)->text().toUInt() == getuid()) {
-            // Use the same profile picker as Apps and the desktop, so changing
-            // the image cannot silently write an unused legacy account icon.
-            QProcess::startDetached("python3", {HyperPanel::root()+"/control_center/app.py", "--tab", "theme"});
-            return;
-        }
-        QString file = QFileDialog::getOpenFileName(this, tr("Choose Avatar for %1").arg(name),
-                                                    QDir::homePath(), tr("Images (*.png *.jpg *.jpeg *.bmp *.webp)"));
-        if (file.isEmpty()) return;
-        QImage img(file);
-        if (img.isNull()) { QMessageBox::warning(this, tr("Invalid Image"), tr("Could not read that image file.")); return; }
-        // Square 256px crop — the format SDDM/KDE expect from AccountsService
-        QImage scaled = img.scaled(256, 256, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
-        scaled = scaled.copy((scaled.width() - 256) / 2, (scaled.height() - 256) / 2, 256, 256);
-        QString tmp = QDir::temp().filePath("cachyostools-avatar.png");
-        if (!scaled.save(tmp, "PNG")) { QMessageBox::warning(this, tr("Failed"), tr("Could not prepare the avatar image.")); return; }
-        // AccountsService icon + config (login screen) and ~/.face.icon (legacy consumers)
-        QString home = "/home/" + name;
-        for (int row = 0; row < ugUsersTable->rowCount(); ++row)
-            if (ugUsersTable->item(row, 0)->text() == name) home = ugUsersTable->item(row, 2)->text();
-        runSudoCommandInTerminal(QString(
-            "sudo mkdir -p /var/lib/AccountsService/icons /var/lib/AccountsService/users && "
-            "sudo cp '%1' '/var/lib/AccountsService/icons/%2' && "
-            "F='/var/lib/AccountsService/users/%2'; sudo touch \"$F\"; "
-            "grep -q '^\\[User\\]' \"$F\" || echo '[User]' | sudo tee -a \"$F\" >/dev/null; "
-            "sudo sed -i '/^Icon=/d' \"$F\"; "
-            "echo 'Icon=/var/lib/AccountsService/icons/%2' | sudo tee -a \"$F\" >/dev/null; "
-            "sudo cp '%1' '%3/.face.icon' 2>/dev/null && sudo chown '%2:' '%3/.face.icon' 2>/dev/null; "
-            "echo 'Avatar updated for %2 — visible on the next login screen. Click Refresh in the app.'; read -p 'Press Enter...'")
-            .arg(tmp, name, home));
+    connect(iconBtn, &QPushButton::clicked, this, [this, page, selectedUser]() {
+        const QString name=selectedUser(); const int row=ugUsersTable->currentRow();
+        if(name.isEmpty() || row<0)return;
+        const auto home=ugUsersTable->item(row,2)->text();
+        const bool current=ugUsersTable->item(row,1)->text().toUInt()==getuid();
+        FusionAccounts::Picker picker(HyperPanel::root(),FusionAccounts::avatarPath(name,home,HyperPanel::root(),current),this);
+        if(picker.exec()!=QDialog::Accepted)return;
+        page->icon->setEnabled(false);page->status->setText(tr("Saving account picture…"));
+        auto *process=new QProcess(this);
+        connect(process,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),this,[this,page,process](int code,QProcess::ExitStatus exit){
+            const auto result=QJsonDocument::fromJson(process->readAllStandardOutput()).object();
+            const bool ok=exit==QProcess::NormalExit && code==0 && result.value("ok").toBool();
+            auto message=result.value("message").toString();
+            if(message.isEmpty())message=tr("The picture was not saved. Authentication may have been cancelled.");
+            page->status->setText(message);page->icon->setEnabled(true);
+            if(ok)refreshUsersGroups();else QMessageBox::warning(this,tr("Account picture"),message);
+            process->deleteLater();
+        });
+        connect(process,&QProcess::errorOccurred,this,[page,process](QProcess::ProcessError error){
+            if(error==QProcess::FailedToStart){page->icon->setEnabled(true);page->status->setText(QObject::tr("Could not start the account-picture helper."));process->deleteLater();}
+        });
+        process->start("python3",{HyperPanel::root()+"/account_avatars/model.py","apply",name,picker.selectedId()});
     });
 }
 
@@ -247,21 +199,13 @@ void MainWindow::refreshUsersGroups() {
                         ugUsersTable->setItem(row, c, new QTableWidgetItem(f[c]));
                     const bool current = f[1].toUInt() == getuid();
                     ugUsersTable->item(row, 0)->setIcon(ugAvatarFor(f[0], f[2], current));
-                    if (current) {
-                        auto *avatar = dynamic_cast<FusionAccounts::Avatar *>(ui->usersGroupsSubTab->findChild<QWidget *>("usersCurrentAvatar"));
-                        if (avatar) avatar->setSource(FusionAccounts::avatarPath(f[0], f[2], HyperPanel::root(), true));
-                        const auto *account = getpwuid(getuid());
-                        const auto fullName = account ? QString::fromLocal8Bit(account->pw_gecos).section(',',0,0) : QString();
-                        ui->usersGroupsSubTab->findChild<QLabel *>("usersCurrentName")->setText(fullName.isEmpty() ? f[0] : fullName+" · "+f[0]);
-                        ui->usersGroupsSubTab->findChild<QLabel *>("usersCurrentDescription")->setText(
-                            tr("Signed in · %1 · %2").arg(f[4].split(' ').contains("wheel") ? tr("Administrator") : tr("Standard account"), f[2]));
-                        ugUsersTable->item(row,0)->setToolTip(tr("Your Hyper Fusion profile picture. Change it in Fusion Settings → Appearance."));
-                    }
+                    if (current) ugUsersTable->item(row,0)->setToolTip(tr("Your signed-in account"));
                     if (f[0] == selectedName || (selectedName.isEmpty() && current)) ugUsersTable->selectRow(row);
                     if (f[4].split(' ').contains("wheel"))
                         ugUsersTable->item(row, 0)->setForeground(QColor("#27ae60"));
                 }
-                ugUsersTable->resizeColumnsToContents();
+                if (auto *page=dynamic_cast<FusionAccounts::Page *>(ui->usersGroupsSubTab->findChild<QWidget *>("fusionAccountsPage")))
+                    page->rebuilt();
                 proc->deleteLater();
             });
     proc->start("bash", QStringList() << "-c"
