@@ -79,9 +79,17 @@ the repository license.
   copy out of the archive and use the existing progress, password and overwrite
   dialogs. Canceling the drag does not start extraction. No Ark installation is
   needed: the browser uses the archive handoff already supported by Fusion Files.
+- **Drop local files or folders into an open archive to add them.** Empty space
+  targets the archive root, regardless of the current selection. Folder rows
+  highlight on hover and expand after a short pause; dropping there adds inside
+  that folder. Matching folders merge, missing files are added, and existing
+  members offer Replace or Skip with the normal transfer queue. Original source
+  files are kept. Skipped members and unrelated archive contents stay intact.
 - Extract selected entries with the toolbar, or add/delete/rename entries in
   writable formats. Updates use a temporary copy and verify it before replacing
-  anything.
+  anything. Confirmed edits save back to the same archive without a second
+  overwrite prompt. If the original changes during editing or saving, the update
+  stops and asks you to reload; another program's changes are kept.
 - Animated Fusion transfer cards, pause/resume/cancel, live engine progress,
   an expanding attention drawer, explicit Retry/Skip and saved reports.
 
@@ -141,6 +149,7 @@ native transfer finishes.
 
 ```sh
 python3 config/hypr/archive_manager/test_archives.py -v
+python3 config/hypr/archive_manager/test_additions.py -v
 python3 config/hypr/archive_manager/test_decisions.py -v
 QT_QPA_PLATFORM=offscreen python3 config/hypr/archive_manager/test_ui.py -v
 QT_QPA_PLATFORM=offscreen python3 config/hypr/archive_manager/test_tree.py -v
@@ -157,3 +166,10 @@ selection. Drop checks cover immutable handoffs, browser closure, cancellation,
 changed archives, encrypted files and compressed tar selections.
 They also exercise extraction requests arriving before and after the drag
 returns, including `IgnoreAction`, and abandoned handoffs expiring without work.
+Archive-edit checks delete four ZIP members without a replacement choice, verify
+add/rename/delete saves and preserve concurrent edits at the save handoff. Transfer
+checks also cover original-file changes immediately before publication.
+Incoming-drop checks cover folder highlighting and expansion, background/root
+targeting, nested and implicit folders, real ZIP merges, per-member Replace/Skip,
+separate conflict queues, cancellation and concurrent archive changes. Nonlocal
+and mixed URL payloads are rejected before starting an archive operation.

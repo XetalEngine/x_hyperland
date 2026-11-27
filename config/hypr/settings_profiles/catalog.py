@@ -23,7 +23,7 @@ CATEGORIES = (
     Category('windows', 'Windows & workspaces', 'Every remembered size and position, individual title bars, controls, snapping and effects.'),
     Category('launcher', 'Apps menu & taskbar', 'Favorites, pins, copies, launch options, workspace bar and task switcher.'),
     Category('audio', 'Audio & system sounds', 'Devices, volume, microphone, mixer state, sound packs and event choices.'),
-    Category('files', 'Fusion Files & default apps', 'Views, geometry, bookmarks, templates, searches, mounts and file associations.'),
+    Category('files', 'Fusion Files & default apps', 'Views, toolbar buttons, appearance, geometry, bookmarks, templates, searches, mounts and file associations.'),
     Category('tools', 'Control Panel & desktop tools', 'Panel preferences, calculator, clipboard pins, recorder, startup dashboard and updates.'),
     Category('terminal', 'Terminal & shell', 'Terminal appearance, fetch, aliases and shell preferences.'),
     Category('remote', 'RDP, VNC & phone', 'Saved connections, hosting options, passwords, certificates and device pairing.'),

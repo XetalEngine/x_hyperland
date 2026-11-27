@@ -9,7 +9,8 @@ import unittest
 from unittest.mock import Mock,patch
 import zipfile
 
-from PyQt6.QtCore import QModelIndex,Qt,QUrl,QItemSelectionModel
+from PyQt6.QtCore import QModelIndex,Qt,QUrl,QItemSelectionModel,QMimeData,QPoint,QPointF
+from PyQt6.QtGui import QDragEnterEvent,QDragMoveEvent,QDropEvent,QDragLeaveEvent
 from PyQt6.QtTest import QAbstractItemModelTester
 from PyQt6.QtWidgets import QApplication
 
@@ -58,6 +59,101 @@ class TreeAndDrops(unittest.TestCase):
             found=next((model.index(row,0,parent) for row in range(model.rowCount(parent)) if model.index(row,0,parent).data()==name),None)
             self.assertIsNotNone(found,path);parent=found
         return parent
+
+    def browser(self):
+        browser=ui.ArchiveBrowser(self.archive);browser.show()
+        self.assertTrue(until(lambda:browser.model.db is not None));browser.reader.wait()
+        self.addCleanup(browser.close)
+        return browser
+
+    def incoming(self):
+        path=self.base/'incoming/new.txt';path.parent.mkdir();path.write_text('incoming')
+        mime=QMimeData();mime.setUrls([QUrl.fromLocalFile(str(path))])
+        return path,mime
+
+    def enter(self,browser,mime,point,actions=Qt.DropAction.CopyAction|Qt.DropAction.MoveAction):
+        event=QDragEnterEvent(point,actions,mime,Qt.MouseButton.LeftButton,Qt.KeyboardModifier.NoModifier)
+        APP.sendEvent(browser.table.viewport(),event)
+        return event
+
+    def drop(self,browser,mime,point):
+        event=QDropEvent(QPointF(point),Qt.DropAction.CopyAction|Qt.DropAction.MoveAction,mime,
+                         Qt.MouseButton.LeftButton,Qt.KeyboardModifier.NoModifier)
+        APP.sendEvent(browser.table.viewport(),event)
+        return event
+
+    def test_incoming_folder_highlight_and_nested_drop_add_real_zip_member(self):
+        browser=self.browser();path,mime=self.incoming();requests=[];browser.launch.connect(requests.append)
+        browser.table.expandAll();APP.processEvents()
+        selected=self.find(browser.model,'README.md')
+        browser.table.selectionModel().select(selected,QItemSelectionModel.SelectionFlag.ClearAndSelect|QItemSelectionModel.SelectionFlag.Rows)
+        index=self.find(browser.model,'web/src');point=browser.table.visualRect(index).center()
+        self.assertTrue(self.enter(browser,mime,point).isAccepted())
+        self.assertEqual(browser.table.drop_folder,'web/src')
+        self.assertEqual(QModelIndex(browser.table.drop_index),index)
+        self.assertIn('web/src',browser.status.text());self.assertEqual(browser.selected(),['README.md'])
+        browser.table.viewport().repaint()
+        event=self.drop(browser,mime,point)
+        self.assertTrue(event.isAccepted());self.assertEqual(event.dropAction(),Qt.DropAction.CopyAction)
+        self.assertIsNone(browser.table.drop_folder);self.assertFalse(browser.table.scroll_timer.isActive())
+        self.assertEqual(len(requests),1);self.assertEqual(requests[0]['folder'],'web/src')
+        self.assertTrue(self.task(requests[0])['ok'])
+        with zipfile.ZipFile(self.archive) as archive:
+            self.assertEqual(archive.read('web/src/new.txt'),b'incoming')
+            self.assertEqual(archive.read('web/src/main.ts'),b'main')
+            self.assertNotIn('new.txt',archive.namelist())
+        self.assertEqual(path.read_text(),'incoming')
+
+    def test_incoming_background_drop_uses_root_even_with_selected_folder(self):
+        browser=self.browser();requests=[];browser.launch.connect(requests.append)
+        path=self.base/'external/web';path.mkdir(parents=True);(path/'new.txt').write_text('new')
+        mime=QMimeData();mime.setUrls([QUrl.fromLocalFile(str(path))])
+        selected=self.find(browser.model,'web')
+        browser.table.selectionModel().select(selected,QItemSelectionModel.SelectionFlag.ClearAndSelect|QItemSelectionModel.SelectionFlag.Rows)
+        point=QPoint(200,browser.table.viewport().height()-45)
+        self.assertFalse(browser.table.indexAt(point).isValid())
+        self.assertTrue(self.enter(browser,mime,point).isAccepted());self.assertEqual(browser.table.drop_folder,'')
+        self.assertIn('archive root',browser.status.text())
+        self.assertTrue(self.drop(browser,mime,point).isAccepted())
+        self.assertEqual(requests[0]['folder'],'');self.assertTrue(self.task(requests[0])['ok'])
+        with zipfile.ZipFile(self.archive) as archive:
+            self.assertEqual(archive.read('web/new.txt'),b'new')
+            self.assertEqual(archive.read('web/src/main.ts'),b'main')
+            self.assertFalse(any(n.startswith('web/web/') for n in archive.namelist()))
+
+    def test_incoming_hover_expands_folder_and_clears_on_leave_or_model_reset(self):
+        browser=self.browser();_,mime=self.incoming();requests=[];browser.launch.connect(requests.append)
+        index=self.find(browser.model,'web');point=browser.table.visualRect(index).center()
+        self.assertFalse(browser.table.isExpanded(index));self.assertTrue(self.enter(browser,mime,point).isAccepted())
+        self.assertTrue(until(lambda:browser.table.isExpanded(index)))
+        APP.sendEvent(browser.table.viewport(),QDragLeaveEvent())
+        self.assertIsNone(browser.table.drop_folder);self.assertFalse(browser.table.expand_timer.isActive())
+        self.assertEqual(browser.status.text(),browser.ready_text)
+        self.assertTrue(self.enter(browser,mime,point).isAccepted())
+        browser.model.filter('logo')
+        self.assertIsNone(browser.table.drop_folder);self.assertFalse(browser.table.scroll_timer.isActive())
+        self.assertEqual(requests,[])
+
+    def test_incoming_file_rows_reject_drop_without_changing_selection(self):
+        browser=self.browser();_,mime=self.incoming();requests=[];browser.launch.connect(requests.append)
+        point=browser.table.visualRect(self.find(browser.model,'README.md')).center()
+        self.assertTrue(self.enter(browser,mime,point).isAccepted())
+        move=QDragMoveEvent(point,Qt.DropAction.CopyAction,mime,Qt.MouseButton.LeftButton,Qt.KeyboardModifier.NoModifier)
+        APP.sendEvent(browser.table.viewport(),move)
+        self.assertFalse(move.isAccepted());self.assertIsNone(browser.table.drop_folder)
+        self.assertFalse(self.drop(browser,mime,point).isAccepted());self.assertEqual(requests,[])
+
+    def test_incoming_rejects_remote_mixed_and_nonfile_payloads(self):
+        browser=self.browser();path,local=self.incoming();point=QPoint(200,250)
+        for urls in ([QUrl('https://example.com/file.zip')],
+                     [QUrl.fromLocalFile(str(path)),QUrl('smb://server/share/file')],
+                     [QUrl('file://server/share/file')], [QUrl('file:///tmp/file?query')]):
+            with self.subTest(urls=urls):
+                mime=QMimeData();mime.setUrls(urls)
+                self.assertFalse(self.enter(browser,mime,point).isAccepted())
+        mime=QMimeData();mime.setData(SERVICE_MIME,b':1.1');mime.setData(PATH_MIME,b'/archive')
+        self.assertFalse(self.enter(browser,mime,point).isAccepted())
+        self.assertFalse(self.enter(browser,local,point,Qt.DropAction.MoveAction).isAccepted())
 
     def test_implicit_folders_parent_indexes_and_sorting(self):
         model=self.model()

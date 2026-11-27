@@ -13,7 +13,7 @@ import unittest
 from unittest.mock import patch
 
 from transfer_worker import Transfer, Undo, Control, Cancelled, Counter
-from transfer_io import FileOps
+from transfer_io import FileOps, snapshot
 from transfer_authority import send, receive, serve
 from transfer_pending import export_report
 
@@ -158,6 +158,67 @@ class TransferTests(unittest.TestCase):
         self.assertEqual(old.read_bytes(), b'old data')
         self.assertEqual(item.read_bytes(), b'new data')
         self.assertEqual(list(self.target.iterdir()), [old])
+
+    def test_saved_update_replaces_matching_file_without_a_conflict(self):
+        item = self.write('archive.zip', b'updated archive')
+        old = self.target/item.name; old.write_bytes(b'original archive')
+        request = dict(self.request([item], operation='move'), replace_expected=snapshot(old.stat()))
+        self.on_issue = lambda event: self.decide(event, 'skip')
+        transfer = self.transfer(request)
+        self.assertTrue(transfer.run()['ok'])
+        self.assertEqual(old.read_bytes(), b'updated archive')
+        self.assertFalse(item.exists())
+        self.assertFalse([event for event in self.events if event['event'] == 'issue'])
+
+    def test_saved_update_refuses_changed_or_missing_original(self):
+        for change in ('in_place', 'replacement', 'missing'):
+            with self.subTest(change=change):
+                item = self.write(change+'.zip', b'updated archive')
+                old = self.target/item.name; old.write_bytes(b'original archive')
+                before = old.stat()
+                request = dict(self.request([item], operation='move'), replace_expected=snapshot(before))
+                if change == 'missing': old.unlink()
+                else:
+                    if change == 'replacement': old.unlink()
+                    old.write_bytes(b'external changes')
+                    # Content changed despite retaining the original size/mtime.
+                    os.utime(old, ns=(before.st_atime_ns, before.st_mtime_ns))
+                transfer = self.transfer(request)
+                with self.assertRaisesRegex(ValueError, 'changed'): transfer.run()
+                self.assertEqual(item.read_bytes(), b'updated archive')
+                if change == 'missing': self.assertFalse(old.exists())
+                else: self.assertEqual(old.read_bytes(), b'external changes')
+        self.assertFalse([event for event in self.events if event['event'] == 'issue'])
+
+    def test_saved_update_rechecks_original_at_publication(self):
+        item = self.write('archive.zip', b'updated archive')
+        old = self.target/item.name; old.write_bytes(b'original archive')
+        transfer = self.transfer(dict(self.request([item], operation='move'), replace_expected=snapshot(old.stat())))
+        execute = transfer.ops.execute
+        def changed(action, args):
+            if action == 'publish': old.write_bytes(b'changed during save')
+            return execute(action, args)
+        with patch.object(transfer.ops, 'execute', side_effect=changed):
+            with self.assertRaisesRegex(ValueError, 'changed'): transfer.run()
+        self.assertEqual(old.read_bytes(), b'changed during save')
+        self.assertEqual(item.read_bytes(), b'updated archive')
+        self.assertEqual(list(self.target.iterdir()), [old])
+        self.assertFalse([event for event in self.events if event['event'] == 'issue'])
+
+    def test_saved_update_permission_is_limited_to_one_regular_file(self):
+        item = self.write('archive.zip', b'updated archive')
+        other = self.write('other.zip', b'other archive')
+        old = self.target/item.name; old.write_bytes(b'original archive')
+        expected = snapshot(old.stat())
+        for sources,identity in (([item,other],expected), ([item],{}), ([item],dict(expected,ino=True))):
+            with self.subTest(sources=sources,identity=identity):
+                with self.assertRaises(ValueError):
+                    self.transfer(dict(self.request(sources),replace_expected=identity))
+        item.unlink(); item.mkdir(); (item/'child').write_bytes(b'do not copy')
+        transfer = self.transfer(dict(self.request([item]), replace_expected=expected))
+        with self.assertRaisesRegex(ValueError, 'regular file'): transfer.run()
+        self.assertEqual(old.read_bytes(), b'original archive')
+        self.assertEqual((item/'child').read_bytes(), b'do not copy')
 
     def test_cancel_mid_file_keeps_original_and_previous_destination(self):
         item = self.write('a', b'new data')

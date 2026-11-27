@@ -200,11 +200,43 @@ class Archives(unittest.TestCase):
 
     def test_update_delete_rename(self):
         archive=self.create('zip');extra=self.base/'extra.txt';extra.write_text('added')
-        result,_=self.task(dict(operation='add',sources=[str(archive)],add=[str(extra)]));self.assertTrue(result.get('ok'),result)
-        result,_=self.task(dict(operation='rename',sources=[str(archive)],members=['extra.txt'],new_name='renamed.txt'));self.assertTrue(result.get('ok'),result)
-        result,_=self.task(dict(operation='delete',sources=[str(archive)],members=['input/hello.txt']));self.assertTrue(result.get('ok'),result)
+        for request in (dict(operation='add',sources=[str(archive)],add=[str(extra)]),
+                        dict(operation='rename',sources=[str(archive)],members=['extra.txt'],new_name='renamed.txt'),
+                        dict(operation='delete',sources=[str(archive)],members=['input/hello.txt'])):
+            result,events=self.task(request);self.assertTrue(result.get('ok'),result)
+            self.assertFalse([event for event in events if event['event']=='issue'],events)
         with zipfile.ZipFile(archive) as output:
             self.assertEqual(output.read('renamed.txt'),b'added');self.assertNotIn('input/hello.txt',output.namelist())
+
+    def test_deleting_four_zip_members_saves_without_an_overwrite_choice(self):
+        archive=self.output/'application.zip'
+        removed=['app/bin/app.exe','app/bin/core-one.dll','app/bin/core-two.dll','app/bin/core-three.dll']
+        kept={'app/README.txt':b'Keep this documentation', 'app/assets/data.bin':bytes(range(256))}
+        with zipfile.ZipFile(archive,'w') as output:
+            for name in removed:output.writestr(name,b'delete this member')
+            for name,content in kept.items():output.writestr(name,content)
+        result,events=self.task(dict(operation='delete',sources=[str(archive)],members=removed),choice='skip')
+        self.assertTrue(result.get('ok'),result)
+        self.assertFalse([event for event in events if event['event']=='issue'],events)
+        with zipfile.ZipFile(archive) as output:
+            self.assertEqual(set(output.namelist()),set(kept))
+            self.assertIsNone(output.testzip())
+            for name,content in kept.items():self.assertEqual(output.read(name),content)
+
+    def test_archive_changed_at_save_handoff_is_not_overwritten(self):
+        archive=self.create('zip')
+        transfer=Task.transfer
+        updated=[]
+        def concurrent_edit(task,*args,**kwargs):
+            with zipfile.ZipFile(archive,'a') as output:output.writestr('external-edit.txt','another editor')
+            updated.append(archive.read_bytes())
+            return transfer(task,*args,**kwargs)
+        with patch.object(Task,'transfer',concurrent_edit):
+            result,events=self.task(dict(operation='delete',sources=[str(archive)],members=['input/hello.txt']))
+        self.assertFalse(result.get('ok'),result)
+        self.assertIn('changed',result['error'])
+        self.assertEqual(archive.read_bytes(),updated[0])
+        self.assertFalse([event for event in events if event['event']=='issue'],events)
 
     def test_cancel_before_start_creates_nothing(self):
         task=Task(dict(operation='compress',sources=[str(self.source)],output=str(self.output/'cancel.zip'),options={'format':'zip'}))

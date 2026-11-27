@@ -30,6 +30,7 @@ from transfer_authority import send, receive
 from transfer_pending import Pending, Conflict, SpecialFile
 
 CHUNK = 8 * 1024 * 1024  # Bounded I/O buffer, never a file/transfer size limit.
+EDIT_CHANGED = 'The file changed while the update was being saved. Reload it and try again.'
 
 
 class Cancelled(Exception):
@@ -297,6 +298,13 @@ class Transfer:
         self.moving = request['operation'] == 'move'
         self.sources = [os.path.join(os.path.realpath(os.path.dirname(p)), os.path.basename(p)) for p in request['sources']]
         self.destination = os.path.realpath(request['destination'])
+        self.replace_expected = request.get('replace_expected')
+        if self.replace_expected is not None:
+            keys = ('dev','ino','size','mtime_ns','ctime_ns')
+            if len(self.sources) != 1 or not isinstance(self.replace_expected, dict) or any(
+                    type(self.replace_expected.get(key)) is not int for key in keys):
+                raise ValueError('Saving an update requires the identity of exactly one existing file.')
+            self.replace_expected = {key:self.replace_expected[key] for key in keys}
         self.ops = FileOps(self.sources, self.destination, self.moving)
         self.access = access or Access(self.ops, control, emit)
         self.access.defer_authorization = True
@@ -364,6 +372,15 @@ class Transfer:
 
     def conflict(self, source, target, info, approved=None):
         old = self.get(target)
+        if self.replace_expected is not None:
+            # Archive edits already confirmed this one save. Never extend that
+            # consent to a directory, another file version, or a missing target.
+            if not stat.S_ISREG(info['mode']):
+                raise ValueError('Only a regular file can be saved as an existing-file update.')
+            if old is None or not stat.S_ISREG(old['mode']) or any(
+                    old[key] != expected for key,expected in self.replace_expected.items()):
+                raise ValueError(EDIT_CHANGED)
+            return old, False
         if old is None: return None, False
         if stat.S_ISDIR(info['mode']) and stat.S_ISDIR(old['mode']): return old, False
         can_replace = not stat.S_ISDIR(info['mode']) and not stat.S_ISDIR(old['mode'])
@@ -422,7 +439,7 @@ class Transfer:
             raise ValueError('Move the contents of a mounted drive, not the mount point itself.')
         if stat.S_ISDIR(info['mode']) and beneath(self.destination, source):
             raise ValueError('A folder cannot be copied or moved into itself.')
-        if self.moving and self.get(target) is None:
+        if self.moving and self.replace_expected is None and self.get(target) is None:
             try:
                 final = self.access.value('rename', path=target, origin=source, expected=info, durable=True)
                 self.record('rename', source, target, info, final, removed=True)
@@ -541,7 +558,10 @@ class Transfer:
                             pending.append(('children', source, target, (iterator, fd)))
                         elif stat.S_ISREG(info['mode']): self.copy_file(source, target, info, old)
                         else: self.copy_link(source, target, info, old)
-                except OSError as error: self.pending.add(task, error)
+                except OSError as error:
+                    if self.replace_expected is not None and error.errno in (errno.ESTALE, errno.ENOENT):
+                        raise ValueError(EDIT_CHANGED) from error
+                    self.pending.add(task, error)
                 self.progress()
         finally:
             for iterator, fd in iterators:

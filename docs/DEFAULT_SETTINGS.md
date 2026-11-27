@@ -33,7 +33,7 @@ category again and writes the archive to the location you choose.
 | Windows & workspaces | Effects, snapping, title-bar protection, workspace layouts, app rules, individual KDE title bars and remembered geometry |
 | Apps menu & taskbar | Favorites, shortcuts, pins, floating launch sizes, taskbar and task switcher |
 | Audio & system sounds | Selected devices, channel volumes, mute, WirePlumber preferences, sound packs and event choices |
-| Fusion Files & default apps | Views, window geometry, bookmarks, templates, saved searches, automount and file associations |
+| Fusion Files & default apps | Views, toolbar window buttons, appearance, window geometry, bookmarks, templates, saved searches, automount and file associations |
 | Control Panel & desktop tools | Panel preferences, calculator, clipboard pins, recorder, startup dashboard and updater preferences |
 | Terminal & shell | Terminal design, fetch, shell configuration and aliases |
 | RDP, VNC & phone | Connections, hosting settings, passwords, certificates, KDE Connect and wallet files |
@@ -48,6 +48,11 @@ category again and writes the archive to the location you choose.
 Archives have the `.hfsettings` extension. They are private files with permissions
 `0600`, **not encrypted**. They can contain connection passwords, keys and personal
 preferences. Keep them somewhere private and load archives you trust.
+
+Fusion Files' **Show window buttons** choice is included under **Fusion Files &
+default apps**, together with the other preferences in `file_manager/state`.
+Refresh the inventory after saving a change to inspect it. Save/Load preserves
+the choice; Reset Defaults removes the override and shows the buttons again.
 
 Application selections are package inventories, not copies of installed binaries.
 Missing official packages use Pacman; foreign packages first use an available

@@ -241,8 +241,9 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
   menuButton->setMenu(menu);
   menu->setObjectName("fileOptionsMenu");
   toolbar->addWidget(menuButton);
-  toolbar->addSeparator();
-  toolbar->addWidget(new FusionChrome::Controls(this));
+  windowControlsSeparator = toolbar->addSeparator();
+  windowControlsAction = toolbar->addWidget(new FusionChrome::Controls(this));
+  updateWindowControls();
   menu->addAction("New tab", this, [this] { runAction("newTab"); });
   reopenTabAction = menu->addAction("Reopen closed tab\tCtrl+Shift+T", this, [this] { runAction("reopenTab"); });
   reopenTabAction->setObjectName("reopenClosedTabAction");
@@ -483,6 +484,7 @@ FilesWindow::FilesWindow(const QUrl &initial, bool scanDrives,
     if (QFileInfo::exists(preferencesPath) && !watcher->files().contains(preferencesPath))
       watcher->addPath(preferencesPath);
     preferences.settings.sync();
+    updateWindowControls();
     if (preferences.settings.value("appearance/theme", "follow").toString() != requestedTheme)
       themeDebounce.start();
   };
@@ -1477,6 +1479,11 @@ void FilesWindow::configure() {
   auto *themeHint = new QLabel("Choose a theme for Files windows and file pickers. Light/dark mode follows the desktop.");
   themeHint->setWordWrap(true); themeHint->setObjectName("muted");
   appearanceLayout->addRow(themeHint);
+  auto *windowButtons = new QCheckBox("Show window buttons (minimize, maximize/restore, close)");
+  windowButtons->setObjectName("configureWindowControls");
+  windowButtons->setChecked(preferences.settings.value("appearance/showWindowControls", true).toBool());
+  windowButtons->setToolTip("Hiding these buttons gives the toolbar more space.");
+  appearanceLayout->addRow(windowButtons);
   generalLayout->addWidget(appearance);
   auto *display = new QGroupBox("This folder’s view");
   auto *displayLayout = new QVBoxLayout(display);
@@ -1570,6 +1577,7 @@ void FilesWindow::configure() {
   if (desktopMenu->entries() != savedDesktopMenu)
     preferences.setMenu(desktopMenu->entries(), "desktopMenu");
   if (themeChoice->isEnabled()) preferences.settings.setValue("appearance/theme", themeChoice->currentData());
+  preferences.settings.setValue("appearance/showWindowControls", windowButtons->isChecked());
   preferences.settings.setValue("computer/showViewButtons", computerButtons->isChecked());
   preferences.settings.setValue("computer/showUnmountedControl", unmountedControl->isChecked());
   for (auto it = viewToggles.cbegin(); it != viewToggles.cend(); ++it)
@@ -1579,8 +1587,16 @@ void FilesWindow::configure() {
   hiddenAction->setChecked(hidden->isChecked());
   browser()->setThumbnails(thumbnails->isChecked());
   preferences.settings.sync();
+  updateWindowControls();
   for (auto *shelf : findChildren<DriveShelf *>()) shelf->refresh();
   reloadTheme();
+}
+void FilesWindow::updateWindowControls() {
+  const bool visible = preferences.settings.value("appearance/showWindowControls", true).toBool();
+  // Hide the toolbar actions as well as the controls so their layout space
+  // and separator disappear. The expanding address field reclaims the width.
+  windowControlsSeparator->setVisible(visible);
+  windowControlsAction->setVisible(visible);
 }
 void FilesWindow::showShortcuts() {
   QMessageBox::information(

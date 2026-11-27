@@ -122,9 +122,10 @@ class MemberModel(QAbstractItemModel):
             return Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter
 
     def flags(self, index):
-        if not index.isValid():return Qt.ItemFlag.NoItemFlags
+        if not index.isValid():return Qt.ItemFlag.ItemIsDropEnabled
         flags=Qt.ItemFlag.ItemIsEnabled|Qt.ItemFlag.ItemIsSelectable|Qt.ItemFlag.ItemIsDragEnabled
-        if not self.node(index.internalId())['directory']: flags|=Qt.ItemFlag.ItemNeverHasChildren
+        if self.node(index.internalId())['directory']: flags|=Qt.ItemFlag.ItemIsDropEnabled
+        else: flags|=Qt.ItemFlag.ItemNeverHasChildren
         return flags
 
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):

@@ -47,6 +47,7 @@ private:
   QActionGroup *viewActions;
   QAction *backAction, *forwardAction, *upAction, *previewAction, *hiddenAction,
       *undoAction, *emptyTrashAction;
+  QAction *windowControlsAction, *windowControlsSeparator;
   QProcess theme;
   QTimer themeDebounce;
   QString requestedTheme;
@@ -63,6 +64,7 @@ private:
   void addArchiveActions(QMenu *menu, const KFileItemList &items, bool compress,
                      bool extract, const std::function<bool()> &guard = {});
   void configure();
+  void updateWindowControls();
   void populateThemeChoices(QComboBox *choice);
   void updateCurrent();
   void updatePreview();

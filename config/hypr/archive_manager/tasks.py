@@ -40,6 +40,8 @@ class Task(QThread):
         self.answers = queue.Queue()
         self.transfer_process = None
         self.transfer_lock = threading.Lock()
+        self.transfer_issue_serial = 0
+        self.transfer_ids = {}
         self.password = request.get('password')
         self.phase = ''
         self.report = state_directory()/(uuid.uuid4().hex+'.jsonl')
@@ -83,6 +85,14 @@ class Task(QThread):
                 else: self.answers.put(value)
 
     def write_transfer(self, value):
+        if value.get('command') == 'issue_answer':
+            # Each staging/publication worker has its own queue. Keep visible
+            # rows unique and never apply a delayed answer to a later worker.
+            ids = [i for i in value.get('ids', []) if i in self.transfer_ids]
+            if not ids: return
+            versions = value.get('versions', {})
+            value = dict(value, ids=[self.transfer_ids[i] for i in ids],
+                         versions={str(self.transfer_ids[i]):versions.get(str(i)) for i in ids})
         try:
             self.transfer_process.stdin.write((json.dumps(value)+'\n').encode())
             self.transfer_process.stdin.flush()
@@ -228,14 +238,17 @@ class Task(QThread):
                 self.archive_condition.wait(.1)
         return any(row['status']=='retry' for row in rows)
 
-    def transfer(self, sources, destination, moving=False):
-        self.set_phase('Saving archive' if self.request['operation'] in ('compress','add','delete','rename') else 'Saving extracted files')
+    def transfer(self, sources, destination, moving=False, *, replace_expected=None, phase=None,
+                 display_source=None, display_destination=None):
+        self.set_phase(phase or ('Saving archive' if self.request['operation'] in ('compress','add','delete','rename') else 'Saving extracted files'))
         journal = state_directory()/(uuid.uuid4().hex+'.sqlite')
         request = dict(operation='move' if moving else 'copy', sources=[str(p) for p in sources],
                        destination=str(destination), journal=str(journal))
+        if replace_expected is not None: request['replace_expected'] = replace_expected
         self.message.emit({'event':'transfer', 'journal':str(journal)})
         authority = None
         result = None
+        issue_ids = {}
         process = subprocess.Popen(['/usr/bin/python3', '-I', str(ROOT/'file_manager/transfer_worker.py')],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
         with self.transfer_lock:
@@ -260,7 +273,19 @@ class Task(QThread):
                     threading.Thread(target=authority_result, daemon=True).start()
                 elif value['event'] == 'result': result = value
                 elif value['event'] == 'progress': self.message.emit(dict(value, event='transfer_progress'))
-                elif value['event'] == 'issue': self.send(value)
+                elif value['event'] == 'issue':
+                    with self.transfer_lock:
+                        ident = value['id']
+                        if ident not in issue_ids:
+                            self.transfer_issue_serial += 1
+                            issue_ids[ident] = self.transfer_issue_serial
+                            self.transfer_ids[self.transfer_issue_serial] = ident
+                        value['id'] = issue_ids[ident]
+                    for key, display in (('source',display_source), ('destination',display_destination)):
+                        if display and value.get(key):
+                            try: value[key] = str(display[1]).rstrip('/')+'/'+str(Path(value[key]).relative_to(display[0]))
+                            except ValueError: pass
+                    self.send(value)
             code = process.wait()
             if not result or not result.get('ok') or code:
                 if result and result.get('cancelled'): raise Cancelled()
@@ -271,6 +296,7 @@ class Task(QThread):
         finally:
             with self.transfer_lock:
                 self.transfer_process = None
+                self.transfer_ids.clear()
                 if process.poll() is None:
                     process.stdin.write(b'{"command":"cancel"}\n'); process.stdin.flush()
             if process.poll() is None:
@@ -416,20 +442,24 @@ class Task(QThread):
             self.publish(list(published.iterdir()), target, work)
 
     def modify(self, runner, work):
-        archive = Path(self.request['sources'][0])
+        archive = Path(os.path.abspath(self.request['sources'][0]))
         if not archive.is_file() or archive.is_symlink(): raise ArchiveError('Choose a regular, writable archive.')
         if archive.name.endswith('.001'): raise ArchiveError('Extract split archives before modifying them.')
         self.set_phase('Preparing archive update')
         original = archive.stat()
+        original = {key:getattr(original, 'st_'+key) for key in ('dev','ino','size','mtime_ns','ctime_ns')}
         target = work/archive.name
         # Reflink when available, otherwise stream a copy with cancellation checks.
         with archive.open('rb') as src, target.open('wb') as dst:
             while chunk := src.read(1024*1024): self.control.check(); dst.write(chunk)
         operation = self.request['operation']
         if operation == 'add':
-            inputs = [Path(os.path.abspath(p)) for p in self.request['add']]
-            cwd = Path(os.path.commonpath([str(p.parent) for p in inputs]))
-            arguments = ['a', '-snl', '--', str(target), *[str(p.relative_to(cwd)) for p in inputs]]
+            from additions import prepare
+            cwd, names = prepare(self, runner, target, work)
+            if not names:
+                self.notes.append('No entries were added. The original archive was kept.')
+                return
+            arguments = ['a', '-snl', '--', str(target), *names]
         elif operation == 'delete':
             cwd = work; arguments = ['d', '--', str(target), *self.request['members']]
         else:
@@ -441,10 +471,13 @@ class Task(QThread):
         self.set_phase('Verifying archive')
         result = self.invoke(runner, ['t','--',str(target)])
         if result.code: raise ArchiveError('The updated archive failed verification. The original was kept.\n'+result.output.strip())
-        current = archive.stat()
-        if (original.st_dev,original.st_ino,original.st_size,original.st_mtime_ns) != (current.st_dev,current.st_ino,current.st_size,current.st_mtime_ns):
+        current = archive.lstat()
+        if original != {key:getattr(current, 'st_'+key) for key in original}:
             raise ArchiveError('The original archive changed while it was being updated. Reload it and try again.')
-        self.transfer([target], archive.parent, moving=True)
+        # Confirming the edit authorizes saving it over this exact original.
+        # The worker rechecks its identity through publication, including after
+        # permission retries; this is not a general overwrite preference.
+        self.transfer([target], archive.parent, moving=True, replace_expected=original)
 
     def run(self):
         try:

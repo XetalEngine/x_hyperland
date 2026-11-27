@@ -10,7 +10,7 @@ from PyQt6.QtGui import QDesktopServices, QDrag, QIcon, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog,
     QDialogButtonBox, QFileDialog, QFormLayout, QGridLayout, QGroupBox, QHBoxLayout,
     QHeaderView, QInputDialog, QLabel, QLineEdit, QMessageBox, QPushButton,
-    QSpinBox, QTreeView, QTabWidget, QVBoxLayout, QWidget)
+    QSpinBox, QTabWidget, QVBoxLayout, QWidget)
 
 from engine import FORMATS, LEVELS, ArchiveError
 from tasks import Task
@@ -19,6 +19,7 @@ from file_jobs.window import ProgressWindow
 from progress import RemoteProgress
 from members import MemberModel
 from drag import ArchiveDrag
+from drop_tree import ArchiveTree
 
 
 def plain(text):
@@ -279,12 +280,6 @@ class JobController(QObject):
         self.completed.emit(result)
 
 
-class ArchiveTree(QTreeView):
-    dragRequested=pyqtSignal()
-    def startDrag(self, _actions):
-        self.dragRequested.emit()
-
-
 class ArchiveBrowser(QWidget):
     launch = pyqtSignal(dict)
     def __init__(self, archive, parent=None):
@@ -306,12 +301,13 @@ class ArchiveBrowser(QWidget):
         self.table.header().setStretchLastSection(False)
         self.table.header().setSectionResizeMode(0,QHeaderView.ResizeMode.Stretch)
         self.table.setUniformRowHeights(True); self.table.setRootIsDecorated(True)
-        self.table.setDragEnabled(True); self.table.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
-        self.table.setDefaultDropAction(Qt.DropAction.CopyAction)
         self.table.sortByColumn(0,Qt.SortOrder.AscendingOrder)
         self.table.dragRequested.connect(self.start_drag)
+        self.table.filesDropped.connect(lambda paths,folder:self.submit('add',add=paths,folder=folder))
         layout.addWidget(self.table,1)
         self.status=plain('Reading archive…'); layout.addWidget(self.status)
+        self.ready_text='Reading archive…'
+        self.table.dropHint.connect(lambda hint:self.status.setText(hint or self.ready_text))
         self.timer=QTimer(self); self.timer.setSingleShot(True); self.timer.setInterval(180)
         self.search.textChanged.connect(lambda:self.timer.start()); self.timer.timeout.connect(self.filter_members)
         QShortcut(QKeySequence.StandardKey.Find,self,activated=self.search.setFocus)
@@ -359,8 +355,9 @@ class ArchiveBrowser(QWidget):
         def finished(result):
             if result.get('ok'):
                 self.model.open(database); self.filter_members()
-                self.status.setText(f'{self.model.count:,} entries · 7-Zip 26.06 · Drag files or folders into Fusion Files to extract')
-            else: self.status.setText(result.get('error','Canceled'))
+                self.ready_text=f'{self.model.count:,} entries · 7-Zip 26.06 · Drop onto a folder or background to add · Drag into Fusion Files to extract'
+            else: self.ready_text=result.get('error','Canceled')
+            self.status.setText(self.ready_text)
         self.reader.outcome.connect(finished); self.reader.start()
     def read_event(self,event):
         if event['event']=='password':

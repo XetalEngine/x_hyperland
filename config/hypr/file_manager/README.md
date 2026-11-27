@@ -191,6 +191,13 @@ system icons and gradient surfaces follow that choice; Dark, Light and High
 contrast still follow the desktop. Saving updates open Files windows without
 changing the desktop's theme or icon preferences. The choice is retained in
 `state/settings.ini` under `appearance/theme`, including across updates.
+**Browsing → Appearance → Show window buttons** controls the toolbar's minimize,
+maximize/restore and close buttons. They are shown by default. Hiding them also
+removes their separator and lets the address field and toolbar use the freed
+space; showing them again restores the layout. Save updates open Files windows
+and remembers the choice under `appearance/showWindowControls`.
+Default Settings includes this and the other saved Files preferences in **Fusion
+Files & default apps** for inventory, Save, Load and Reset Defaults.
 The rest of **Browsing** holds display and file-action preferences.
 **Files menu** and **Desktop menu** let you separately reorder, hide, rename,
 add or remove right-click actions for Files and desktop files/folders.
