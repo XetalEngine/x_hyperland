@@ -93,6 +93,32 @@ is next opened, and an updated native adapter is loaded at the next login.
 fullscreen/maximize, cross-layout workspace moves and dock restoration in an
 isolated three-output compositor; `--allow-output` independently checks transfers.
 
+On the 0.57 runtime, native Wayland applications retain their actual maximize
+intent. Stock core converts both `set_maximized` and `unset_maximized` into a
+toggle because it advertises every client as maximized; Fusion's Minimize
+adapter instead reports the real state. Brave and Chrome send `set_maximized`
+after leaving fullscreen when the browser was maximized before it. Applying
+that as a toggle incorrectly shrinks the restored browser. The memory adapter
+now passes the original requested value to core, so repeated maximize requests
+are idempotent. Core still restores normal geometry, layout and monitor state;
+an explicit restore button remains a request to unmaximize.
+
+Game content types, Steam game identities/environment, gamescope and the
+`fusion-game` rule tag retain the original application-owned handling. XWayland
+requests, protocol popups and desktop-owned surfaces bypass this correction.
+The new native adapter activates on the next login; an active compositor's
+loaded library is never replaced or unloaded for this update.
+
+`tests/check-fullscreen-restore.py MEMORY_SO MINIMIZE_SO CONTROLS_SO OUTPUT_DIR`
+checks real Brave by default in KDE mode with a private browser profile and an
+offline fullscreen page. `--browser chrome` and `--browser firefox` check those
+browsers too. It repeats page fullscreen/Escape and F11 round-trips from both
+normal and maximized states, compares the restored rectangle and display, and
+clicks the actual KDE restore button afterward. `--expect-bug` demonstrates the
+failure with the previous adapter. `check-fullscreen-monitors.py --game-owned`
+also exercises a native GLFW game client's explicit mode changes, display
+placement, focus loss and minimize/restore on three private outputs.
+
 Force floating and KDE also synchronize the floating-over-fullscreen rendering
 plane after every native raise/lower, including mouse clicks, app activation and
 window switching. The pinned compositor otherwise reorders input without clearing

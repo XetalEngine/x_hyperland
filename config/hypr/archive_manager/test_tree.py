@@ -10,8 +10,8 @@ from unittest.mock import Mock,patch
 import zipfile
 
 from PyQt6.QtCore import QModelIndex,Qt,QUrl,QItemSelectionModel,QMimeData,QPoint,QPointF
-from PyQt6.QtGui import QDragEnterEvent,QDragMoveEvent,QDropEvent,QDragLeaveEvent
-from PyQt6.QtTest import QAbstractItemModelTester
+from PyQt6.QtGui import QDragEnterEvent,QDragMoveEvent,QDropEvent,QDragLeaveEvent,QKeyEvent
+from PyQt6.QtTest import QAbstractItemModelTester,QTest
 from PyQt6.QtWidgets import QApplication
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -65,6 +65,47 @@ class TreeAndDrops(unittest.TestCase):
         self.assertTrue(until(lambda:browser.model.db is not None));browser.reader.wait()
         self.addCleanup(browser.close)
         return browser
+
+    def test_delete_key_confirms_and_removes_selected_files_and_folders(self):
+        browser=self.browser();requests=[];browser.launch.connect(requests.append)
+        for path in ('web/src','web/src/main.ts','odd/a*?\n雪.txt'):
+            browser.table.selectionModel().select(self.find(browser.model,path),
+                QItemSelectionModel.SelectionFlag.Select|QItemSelectionModel.SelectionFlag.Rows)
+        browser.table.setFocus();APP.processEvents()
+        original=self.archive.read_bytes()
+        with patch.object(ui.QMessageBox,'question',return_value=ui.QMessageBox.StandardButton.No) as prompt:
+            QTest.keyClick(browser.table,Qt.Key.Key_Delete)
+            prompt.assert_called_once()
+        self.assertEqual(requests,[]);self.assertEqual(self.archive.read_bytes(),original)
+        with patch.object(ui.QMessageBox,'question',return_value=ui.QMessageBox.StandardButton.Yes) as prompt:
+            QTest.keyClick(browser.table,Qt.Key.Key_Delete)
+            prompt.assert_called_once()
+        self.assertEqual(len(requests),1);self.assertEqual(requests[0]['operation'],'delete')
+        self.assertEqual(set(requests[0]['members']),{'web/src','odd/a*?\n雪.txt'})
+        result=self.task(requests[0]);self.assertTrue(result['ok'],result)
+        with zipfile.ZipFile(self.archive) as archive:
+            remaining={path:data for path,data in self.entries.items()
+                       if not path.startswith('web/src/') and path!='odd/a*?\n雪.txt'}
+            self.assertEqual(set(archive.namelist()),set(remaining))
+            for path,data in remaining.items():self.assertEqual(archive.read(path),data.encode())
+
+    def test_delete_key_leaves_search_empty_selection_and_key_repeat_alone(self):
+        browser=self.browser();requests=[];browser.launch.connect(requests.append)
+        with patch.object(ui.QMessageBox,'question',return_value=ui.QMessageBox.StandardButton.Yes) as prompt:
+            browser.table.setFocus();APP.processEvents()
+            QTest.keyClick(browser.table,Qt.Key.Key_Delete)
+            prompt.assert_not_called()
+            browser.table.selectionModel().select(self.find(browser.model,'README.md'),
+                QItemSelectionModel.SelectionFlag.ClearAndSelect|QItemSelectionModel.SelectionFlag.Rows)
+            APP.sendEvent(browser.table,QKeyEvent(QKeyEvent.Type.KeyPress,Qt.Key.Key_Delete,
+                Qt.KeyboardModifier.NoModifier,'',True))
+            prompt.assert_not_called()
+            browser.search.setText('README');browser.search.setCursorPosition(0)
+            browser.search.setFocus();APP.processEvents()
+            QTest.keyClick(browser.search,Qt.Key.Key_Delete)
+            self.assertEqual(browser.search.text(),'EADME')
+            prompt.assert_not_called()
+        self.assertEqual(requests,[])
 
     def incoming(self):
         path=self.base/'incoming/new.txt';path.parent.mkdir();path.write_text('incoming')

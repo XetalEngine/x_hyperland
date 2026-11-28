@@ -2,7 +2,7 @@
 """Real fullscreen/restore requests in a private three-output compositor.
 
 Usage: check-fullscreen-monitors.py MEMORY_PLUGIN OUTPUT_DIR
-       --minimize-plugin PATH --controls-plugin PATH [--allow-output]
+       --minimize-plugin PATH --controls-plugin PATH [--allow-output] [--game-owned]
 The default exercises the shipped current-display rule. --allow-output omits
 that rule to test workspace policy when a client explicitly changes displays.
 Only the disposable compositor loads plugins or receives test commands.
@@ -35,6 +35,7 @@ def main():
     parser.add_argument('--minimize-plugin', type=Path, required=True)
     parser.add_argument('--controls-plugin', type=Path, required=True)
     parser.add_argument('--allow-output', action='store_true')
+    parser.add_argument('--game-owned', action='store_true', help='Run the GLFW client with a native Steam game identity.')
     args = parser.parse_args()
     plugins = [p.resolve(strict=True) for p in (args.memory_plugin, args.minimize_plugin, args.controls_plugin)]
     root = args.directory.resolve()
@@ -129,7 +130,9 @@ animations:enabled = false
         for group in ('mice','keyboards'):
             for device in json.loads(ctl('-j','devices'))[group]:
                 assert ctl('eval',hypr_compat.call('device',{'name':device['name'],'enabled':False})) == 'ok'
+        if args.game_owned: env['SteamAppId'] = '480'
         app = spawn([str(binary)], 'client', stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+        env.pop('SteamAppId', None)
         def current(): return next((w for w in json.loads(ctl('-j','clients')) if w['pid'] == app.pid), None)
         def command(operation):
             app.stdin.write(operation+'\n'); app.stdin.flush()

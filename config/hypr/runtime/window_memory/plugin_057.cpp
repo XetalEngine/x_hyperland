@@ -6,6 +6,7 @@
 #include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
 #include <hyprland/src/protocols/XDGShell.hpp>
+#include <hyprland/src/protocols/types/ContentType.hpp>
 #include <hyprland/src/protocols/core/Compositor.hpp>
 #include <hyprland/src/protocols/core/Subcompositor.hpp>
 #include <hyprland/src/desktop/view/Subsurface.hpp>
@@ -63,6 +64,38 @@ WorkspaceRules::Policy workspacePolicy(PHLWINDOW w){
     return WorkspaceRules::forWorkspace(workspaceRules,Fusion057::numberedID(w->m_workspace));
 }
 #include "stacking_057.hpp"
+using ClientFullscreenFn=void (*)(Desktop::View::CWindow*,const Desktop::View::SClientFullscreenRequest&);
+ClientFullscreenFn originalClientFullscreen;
+bool appOwnsFullscreen(PHLWINDOW w){
+    if(w->getContentType()==NContentType::CONTENT_TYPE_GAME)return true;
+    const auto& app=w->metadata().appID();
+    if(app.starts_with("steam_app_")||app=="gamescope")return true;
+    const auto& tags=w->m_ruleApplicator->m_tagKeeper.getTags();
+    if(std::ranges::any_of(tags,[](const auto& tag){return tag=="fusion-game"||tag=="fusion-game*";}))return true;
+    // Native Steam games can use their own app ID instead of steam_app_N.
+    // Read only when a maximize request arrives; never retain process data.
+    const auto env=w->getEnv();
+    for(const auto* key:{"SteamAppId","SteamGameId"})
+        if(const auto it=env.find(key);it!=env.end()&&!it->second.empty()&&it->second!="0")return true;
+    return false;
+}
+void clientFullscreenHook(Desktop::View::CWindow* window,const Desktop::View::SClientFullscreenRequest& request){
+    auto w=window->m_self.lock();
+    auto next=request;
+    if(w&&w->mapped()&&WindowTypes::geometryManaged(w)&&
+       request.origin==Desktop::View::SClientFullscreenRequest::ORIGIN_BACKEND&&request.maximized.has_value()){
+        if(auto xdg=Fusion057::xdg(w).lock();xdg&&xdg->m_toplevel&&!appOwnsFullscreen(w)){
+            const auto desired=xdg->m_toplevel->m_state.requestsMaximize;
+            if(desired.has_value())next.maximized=desired;
+        }
+    }
+    // Core's Wayland backend converts set/unset_maximized into a toggle because
+    // stock Hyprland advertises every window as maximized. Fusion reports the
+    // real state. Preserve the actual request: Chrome's set_maximized after
+    // unset_fullscreen must be idempotent once core has restored maximization.
+    // Fullscreen placement, normal geometry and explicit restore still use core.
+    originalClientFullscreen(window,next);
+}
 using FloatingFn=void (*)(Layout::CLayoutManager*,SP<Layout::ITarget>);
 FloatingFn originalFloating;
 void queuePolicy(PHLWINDOW w);
@@ -363,6 +396,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
             for(auto weak:work)enforcePolicy(weak.lock());
         },nullptr);g_pEventLoopManager->addTimer(policyTimer);
         hook(handle,"changeFloatingMode","CLayoutManager::changeFloatingMode(",(void*)floatingHook,originalFloating);
+        hook(handle,"requestClientFullscreen","CWindow::requestClientFullscreen(",(void*)clientFullscreenHook,originalClientFullscreen);
         hook(handle,"moveToZ","CWindowState::moveToZ(",(void*)WorkspaceStack::move,WorkspaceStack::originalMove);
         hook(handle,"windowSurfaceAt","CViewHitTester::windowSurfaceAt(",(void*)surfaceAtHook,originalSurfaceAt);
         hook(handle,"getSurfaceBoxGlobal","CWLSurface::getSurfaceBoxGlobal(",(void*)surfaceBoxHook,originalSurfaceBox);
@@ -414,6 +448,6 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         for(const auto& w:Desktop::windowState()->windows())if(w->m_workspace&&reconciled.insert(w->m_workspace->addressableName()).second)
             WorkspaceStack::reconcile(w->m_workspace);
     }catch(...){cleanup();throw;}
-    return {"Xetal Window Memory", "Initial placement, workspace policies and decoration input", "XetalEngine", "1.6"};
+    return {"Xetal Window Memory", "Initial placement, workspace policies and decoration input", "XetalEngine", "1.7"};
 }
 APICALL EXPORT void PLUGIN_EXIT() { cleanup(); }

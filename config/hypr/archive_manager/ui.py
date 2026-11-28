@@ -311,6 +311,9 @@ class ArchiveBrowser(QWidget):
         self.timer=QTimer(self); self.timer.setSingleShot(True); self.timer.setInterval(180)
         self.search.textChanged.connect(lambda:self.timer.start()); self.timer.timeout.connect(self.filter_members)
         QShortcut(QKeySequence.StandardKey.Find,self,activated=self.search.setFocus)
+        delete_shortcut=QShortcut(QKeySequence(Qt.Key.Key_Delete),self.table,activated=self.remove)
+        delete_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        delete_shortcut.setAutoRepeat(False)
         self.table.activated.connect(self.activate_member)
         QTimer.singleShot(0,self.reload)
 

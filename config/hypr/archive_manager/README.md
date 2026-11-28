@@ -86,10 +86,11 @@ the repository license.
   members offer Replace or Skip with the normal transfer queue. Original source
   files are kept. Skipped members and unrelated archive contents stay intact.
 - Extract selected entries with the toolbar, or add/delete/rename entries in
-  writable formats. Updates use a temporary copy and verify it before replacing
-  anything. Confirmed edits save back to the same archive without a second
-  overwrite prompt. If the original changes during editing or saving, the update
-  stops and asks you to reload; another program's changes are kept.
+  writable formats. Press **Delete** in the file list to delete the selected
+  files and folders after confirmation. Updates use a temporary copy and verify
+  it before replacing anything. Confirmed edits save back to the same archive
+  without a second overwrite prompt. If the original changes during editing or
+  saving, the update stops and asks you to reload; another program's changes are kept.
 - Animated Fusion transfer cards, pause/resume/cancel, live engine progress,
   an expanding attention drawer, explicit Retry/Skip and saved reports.
 
