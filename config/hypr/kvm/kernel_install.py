@@ -266,6 +266,17 @@ class Installer:
         code, text = self.run(['pacman-conf', 'CacheDir'], quiet=True, check=False)
         return [Path(p) for p in text.splitlines()] if not code else [Path('/var/cache/pacman/pkg')]
 
+    def copy_cached(self, source, destination):
+        """Stage readable cache data without inheriting system-cache permissions."""
+        temporary = destination.with_name(destination.name+'.part')
+        try:
+            self.checkpoint()
+            shutil.copyfile(source, temporary)
+            self.checkpoint()
+            temporary.replace(destination)
+        finally:
+            temporary.unlink(missing_ok=True)
+
     def official_package(self, name, version, directory):
         """Exact package cache, configured repository, then official archive."""
         if not PACKAGE.fullmatch(name) or not re.fullmatch(r'[A-Za-z0-9_.+:-]+', version):
@@ -278,18 +289,27 @@ class Installer:
             for line in text.splitlines():
                 fields = line.split('\t')
                 if len(fields) == 3 and fields[:2] == [name, version]:urls.insert(0, fields[2])
+        signature = path.with_name(filename+'.sig')
         for cache in self.caches():
-            source = cache/filename
-            if source.is_file():
-                self.log('Using cached package: '+str(source));shutil.copy2(source, path)
-                signature = source.with_name(filename+'.sig')
-                if signature.is_file():shutil.copy2(signature, path.with_name(filename+'.sig'))
-                break
+            for destination in (path, signature):
+                if destination.exists():continue
+                source = cache/destination.name
+                try:
+                    if not source.is_file():continue
+                    self.copy_cached(source, destination)
+                except OSError as error:
+                    # Cache files may be readable only by pacman's download
+                    # account/root. They are optional: keep trying other caches
+                    # and exact signed downloads, without chmod/chown or sudo.
+                    message = 'Could not reuse cached file '+str(source)+': '+str(error)
+                    errors.append(message);self.log(message+'; trying another cache or download.')
+                    continue
+                self.log('Using cached file: '+str(source))
+            if path.exists() and signature.exists():break
         for url in dict.fromkeys(urls):
             try:
                 if not path.exists():self.download(url, path)
-                if not path.with_name(filename+'.sig').exists():
-                    self.download(url+'.sig', path.with_name(filename+'.sig'), maximum=64*1024)
+                if not signature.exists():self.download(url+'.sig', signature, maximum=64*1024)
                 return path
             except Cancelled:raise
             except (OSError, ValueError, RuntimeError) as error:errors.append(str(error))

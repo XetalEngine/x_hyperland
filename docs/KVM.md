@@ -104,6 +104,14 @@ using its module. Automatic installation currently supports exact Arch `linux`
 builds. Older published module versions remain available, and each module still
 requires its matching kernel ABI.
 
+Setup saves signed recovery packages for the installed kernel and headers before
+replacing them. It tries readable packages and signatures from the configured
+[pacman cache directories](https://man.archlinux.org/man/pacman.conf.5.en#CacheDir),
+then downloads the exact versions it still needs. An unreadable cache file or
+signature does not stop that search. Cache ownership and permissions stay
+unchanged, and incomplete cache copies are discarded. If the signed recovery
+packages cannot be obtained, setup stops before replacing the kernel.
+
 Use the documented `git clone --depth 1` install command to avoid fetching past bundles. Older Git history still contains earlier binary releases; removing files from the current checkout does not erase that history.
 
 Basic free disables the custom KVM module. Enhanced free exposes it as an optional choice, requiring an AMD CPU and the exact published kernel release. Downloading does not load it. Before loading, the helper checks compatibility, authenticated image integrity and both module vermagic values, then retains the existing idle-VM checks and rollback loader. This edition loads modules for the current boot only; persistent installation is rejected. Selecting Basic unloads an idle custom module before restoring the system module. A distribution module that was previously overwritten by an older manual install must first be restored; no kernel package is changed automatically.

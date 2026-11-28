@@ -82,6 +82,135 @@ class KernelInstallTests(unittest.TestCase):
             result = self.runner.official_package('linux', self.target.version, dest)
         self.assertEqual(result.read_bytes(), source.read_bytes());download.assert_not_called()
 
+    def test_unreadable_cached_package_downloads_the_exact_version(self):
+        cache = self.root/'cache';cache.mkdir();source = package(cache, 'linux', self.target)
+        dest = self.root/'dest';dest.mkdir();messages = [];self.runner.log = messages.append
+        contents = source.read_bytes();copyfile = kernel.shutil.copyfile
+        def copy(source_path, target_path):
+            if source_path == source:raise PermissionError(13, 'Permission denied', str(source))
+            return copyfile(source_path, target_path)
+        with patch.object(self.runner, 'caches', return_value=[cache]), \
+             patch.object(self.runner, 'run', return_value=(0, 'linux\t7.2.14.arch1-1\thttps://mirror.invalid/new.zst')), \
+             patch.object(kernel.shutil, 'copyfile', side_effect=copy), \
+             patch.object(self.runner, 'download', side_effect=lambda url,path,**kw:path.write_bytes(contents)) as download:
+            result = self.runner.official_package('linux', self.target.version, dest)
+        self.assertEqual(result.read_bytes(), contents)
+        download.assert_called_once_with(kernel.ARCHIVE+'/l/linux/'+source.name, result)
+        self.assertTrue(result.with_name(result.name+'.sig').is_file())
+        self.assertTrue(any('Permission denied' in message and 'trying another cache or download' in message for message in messages))
+        self.assertFalse(list(dest.glob('*.part')))
+
+    def test_unreadable_cached_signature_downloads_only_the_signature(self):
+        cache = self.root/'cache';cache.mkdir();source = package(cache, 'linux', self.target)
+        signature = source.with_name(source.name+'.sig');copyfile = kernel.shutil.copyfile
+        dest = self.root/'dest';dest.mkdir()
+        def copy(source_path, target_path):
+            if source_path == signature:raise PermissionError(13, 'Permission denied', str(signature))
+            return copyfile(source_path, target_path)
+        with patch.object(self.runner, 'caches', return_value=[cache]), \
+             patch.object(self.runner, 'run', return_value=(1, '')), \
+             patch.object(kernel.shutil, 'copyfile', side_effect=copy), \
+             patch.object(self.runner, 'download', side_effect=lambda url,path,**kw:path.write_bytes(b'retrieved signature')) as download:
+            result = self.runner.official_package('linux', self.target.version, dest)
+        self.assertEqual(result.read_bytes(), source.read_bytes())
+        download.assert_called_once_with(kernel.ARCHIVE+'/l/linux/'+signature.name, dest/signature.name, maximum=64*1024)
+        self.assertEqual((dest/signature.name).read_bytes(), b'retrieved signature')
+
+    @unittest.skipIf(os.geteuid() == 0, 'Root bypasses ordinary file read permissions')
+    def test_real_cache_permission_denial_falls_back_without_changing_permissions(self):
+        cache = self.root/'protected cache';cache.mkdir();source = package(cache, 'linux', self.target)
+        signature = source.with_name(source.name+'.sig');contents = source.read_bytes()
+        source.chmod(0);signature.chmod(0)
+        def download(url, path, **kwargs):
+            path.write_bytes(b'new signature' if path.name.endswith('.sig') else contents)
+        try:
+            # Exercise both unreadable files and an unsearchable cache directory.
+            for directory_mode in (0o700, 0):
+                with self.subTest(directory_mode=directory_mode):
+                    cache.chmod(directory_mode)
+                    dest = self.root/str(directory_mode);dest.mkdir()
+                    with patch.object(self.runner, 'caches', return_value=[cache]), \
+                         patch.object(self.runner, 'run', return_value=(1, '')), \
+                         patch.object(self.runner, 'download', side_effect=download) as fetch:
+                        result = self.runner.official_package('linux', self.target.version, dest)
+                    self.assertEqual(result.read_bytes(), contents)
+                    self.assertEqual(fetch.call_count, 2)
+                    self.assertEqual(cache.stat().st_mode & 0o777, directory_mode)
+                    self.assertFalse(list(dest.glob('*.part')))
+        finally:cache.chmod(0o700)
+        self.assertEqual(source.stat().st_mode & 0o777, 0)
+        self.assertEqual(signature.stat().st_mode & 0o777, 0)
+
+    def test_interrupted_cache_copy_tries_next_cache_without_reusing_partial_data(self):
+        first, second, dest = (self.root/name for name in ('first', 'second', 'dest'))
+        for directory in (first, second, dest):directory.mkdir()
+        bad = package(first, 'linux', self.target);good = package(second, 'linux', self.target)
+        copyfile = kernel.shutil.copyfile
+        def copy(source_path, target_path):
+            if source_path == bad:
+                target_path.write_bytes(b'partial package')
+                raise OSError('Cache read interrupted')
+            return copyfile(source_path, target_path)
+        with patch.object(self.runner, 'caches', return_value=[first, second]), \
+             patch.object(self.runner, 'run', return_value=(1, '')), \
+             patch.object(kernel.shutil, 'copyfile', side_effect=copy), \
+             patch.object(self.runner, 'download') as download:
+            result = self.runner.official_package('linux', self.target.version, dest)
+        self.assertEqual(result.read_bytes(), good.read_bytes());download.assert_not_called()
+        self.assertFalse(list(dest.glob('*.part')))
+
+    def test_cache_permissions_are_unchanged_and_not_copied_to_staged_files(self):
+        cache = self.root/'cache';cache.mkdir();source = package(cache, 'linux', self.target)
+        source.chmod(0o440);signature = source.with_name(source.name+'.sig');signature.chmod(0o444)
+        before = {path:(path.stat().st_mode,path.stat().st_uid,path.stat().st_gid) for path in (cache,source,signature)}
+        dest = self.root/'dest';dest.mkdir()
+        with patch.object(self.runner, 'caches', return_value=[cache]), \
+             patch.object(self.runner, 'run', return_value=(1, '')), \
+             patch.object(self.runner, 'download') as download:
+            result = self.runner.official_package('linux', self.target.version, dest)
+        self.assertEqual(result.read_bytes(), source.read_bytes());download.assert_not_called()
+        for path in (result, result.with_name(result.name+'.sig')):
+            self.assertTrue(path.stat().st_mode & 0o200)
+            self.assertEqual(path.stat().st_uid, os.geteuid())
+        self.assertEqual(before, {path:(path.stat().st_mode,path.stat().st_uid,path.stat().st_gid) for path in before})
+
+    def test_cancel_during_cache_copy_leaves_no_partial_package(self):
+        cache = self.root/'cache';cache.mkdir();source = package(cache, 'linux', self.target)
+        dest = self.root/'dest';dest.mkdir();copyfile = kernel.shutil.copyfile
+        def copy(source_path, target_path):
+            result = copyfile(source_path, target_path);self.runner.cancel.set();return result
+        with patch.object(self.runner, 'caches', return_value=[cache]), \
+             patch.object(self.runner, 'run', return_value=(1, '')), \
+             patch.object(kernel.shutil, 'copyfile', side_effect=copy), \
+             patch.object(self.runner, 'download') as download:
+            with self.assertRaises(kernel.Cancelled):self.runner.official_package('linux', self.target.version, dest)
+        download.assert_not_called();self.assertFalse(list(dest.iterdir()))
+
+    def test_recovery_of_installed_kernel_survives_protected_cache(self):
+        current = kernel.Target.parse('7.3.6-arch1-1')
+        cache = self.root/'cache';cache.mkdir();source = package(cache, 'linux', current)
+        source.with_name(source.name+'.sig').unlink()
+        self.runner.directory = self.root/'install';self.runner.directory.mkdir()
+        contents = source.read_bytes();commands = []
+        def run(args, **kwargs):
+            commands.append((args, kwargs))
+            if args[:2] == ['pacman', '-Q']:return 0, 'linux '+current.version+'\n'
+            if args[0] == 'pacman-key':return ''
+            return 1, ''
+        def download(url, path, **kwargs):
+            path.write_bytes(b'recovery signature' if path.name.endswith('.sig') else contents)
+        with patch.object(self.runner, 'caches', return_value=[cache]), \
+             patch.object(self.runner, 'run', side_effect=run), \
+             patch.object(kernel.shutil, 'copyfile', side_effect=PermissionError(13, 'Permission denied')), \
+             patch.object(self.runner, 'download', side_effect=download):
+            self.runner.backup_previous([dict(pkgname=['linux'], pkgver=[self.target.version])])
+        saved = self.runner.directory/'previous'/source.name
+        self.assertEqual(saved.read_bytes(), contents)
+        self.assertEqual(self.runner.recovery['linux'], str(saved))
+        self.assertIn(str(saved), (self.runner.directory/'restore.txt').read_text())
+        self.assertIn((['pacman-key', '--verify', str(saved)+'.sig', str(saved)], {'admin':True}), commands)
+        self.assertFalse(any(args[:2] == ['pacman', '-U'] for args,kwargs in commands))
+
     def install_fixture(self, *, available=True, signature=True):
         stack = ExitStack();self.addCleanup(stack.close)
         first = package(self.root, 'linux', self.target);second = package(self.root, 'linux-headers', self.target)
