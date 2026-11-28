@@ -59,6 +59,15 @@
         941
       ],
       "sha256": "6dc760768c879bb62a32ac1d1e187b8c5486ff60c27ed21d0acfaa58236d8b50"
+    },
+    {
+      "file": "midnight-revival.png",
+      "source": "User-supplied artwork, unchanged",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "sha256": "d1b43c02cf4d527005991dbcaee260e7a57c86a31db573b4a4e7a7a8339194fd"
     }
   ]
 }

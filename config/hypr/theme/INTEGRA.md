@@ -31,7 +31,7 @@ Native cursor and minimize-dock support is built for the installed compositor
 and becomes available on the next desktop login. Existing loaded plugins are
 left running during installation.
 
-## Six wallpapers
+## Seven wallpapers
 
 | Ivory Midnight | Midnight Garage | Xetal Auto Tuning |
 | --- | --- | --- |
@@ -41,11 +41,15 @@ left running during installation.
 | --- | --- | --- |
 | ![Integra at a moonlit mountain overlook](../wallpaper/integra/sakura-summit.png) | ![Integra at a rainy service station](../wallpaper/integra/rainline.png) | ![Integra outside a dawn workshop](../wallpaper/integra/first-light.png) |
 
-Midnight Garage and Xetal Auto Tuning preserve the supplied originals.
+### Midnight Revival
+
+![A weathered white sports car, purple Integra and BMW in a moonlit garage](../wallpaper/integra/midnight-revival.png)
+
+Midnight Garage, Xetal Auto Tuning and Midnight Revival preserve the supplied originals.
 Ivory Midnight is a clean wallpaper derived from the desktop concept, with the
 baked-in windows, panels, icons and title removed. The three new companion
 scenes and the clean wallpaper were made with the built-in image generation
-tool. All six PNGs are **1672 × 941**. Their [prompts, provenance and SHA-256
+tool. All seven PNGs are **1672 × 941**. Their [prompts, provenance and SHA-256
 hashes](../wallpaper/integra/prompts.json) are included beside the images.
 
 ## Palette previews
