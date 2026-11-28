@@ -7,6 +7,7 @@
 #include "context_actions.h"
 #include "new_items.h"
 #include "transfers.h"
+#include "drop_feedback.h"
 #include "native_transfer.h"
 #include "applications.h"
 #include "removal.h"
@@ -43,7 +44,9 @@ namespace {
 enum PlaceRole { UrlRole = Qt::UserRole, PinRole, VolumeRole, SectionRole };
 class PlacesTree : public QTreeWidget {
 public:
-  using QTreeWidget::QTreeWidget;
+  explicit PlacesTree(QWidget *parent = nullptr) : QTreeWidget(parent) {
+    feedback = new Fusion::DropTargetFeedback(this);
+  }
   std::function<void(const QUrl &)> pin;
   std::function<void(int, int)> reorder;
   std::function<void(KJob *)> transfer;
@@ -77,25 +80,37 @@ protected:
     drag->exec(Qt::MoveAction | Qt::CopyAction);
   }
   void dragEnterEvent(QDragEnterEvent *event) override {
+    feedback->clear();
     if (event->mimeData()->hasFormat("application/x-fusion-place"))
       event->acceptProposedAction();
     else if (Fusion::acceptsFileDrop(event->mimeData())) {
       const auto action=Fusion::fileDropAction(event->mimeData(),event->modifiers(),event->possibleActions());
-      if (action!=Qt::IgnoreAction) { event->setDropAction(action);event->accept(); }
+      if (action!=Qt::IgnoreAction) {
+        if (dropFolder(event->position().toPoint()).isValid())
+          feedback->present(indexAt(event->position().toPoint()),
+              Fusion::fileDropOperation(event->mimeData(), event->modifiers(), event->possibleActions()));
+        event->setDropAction(action);event->accept();
+      }
     }
   }
   void dragMoveEvent(QDragMoveEvent *event) override {
-    if (event->mimeData()->hasFormat("application/x-fusion-place"))
+    if (event->mimeData()->hasFormat("application/x-fusion-place")) {
+      feedback->clear();
       event->acceptProposedAction();
-    else if (dropFolder(event->position().toPoint()).isValid()) {
+    } else if (dropFolder(event->position().toPoint()).isValid()) {
       const auto action=Fusion::fileDropAction(event->mimeData(),event->modifiers(),event->possibleActions());
-      if (action!=Qt::IgnoreAction) { event->setDropAction(action);event->accept(); }
-      else event->ignore();
+      if (action!=Qt::IgnoreAction) {
+        feedback->present(indexAt(event->position().toPoint()),
+            Fusion::fileDropOperation(event->mimeData(), event->modifiers(), event->possibleActions()));
+        event->setDropAction(action);event->accept();
+      } else { feedback->clear();event->ignore(); }
     } else if (pinArea(event->position().toPoint()) && event->mimeData()->hasUrls()) {
+      feedback->clear();
       event->setDropAction(Qt::CopyAction);event->accept();
-    } else event->ignore();
+    } else { feedback->clear();event->ignore(); }
   }
   void dropEvent(QDropEvent *event) override {
+    feedback->clear();
     if (event->source() == this &&
         event->mimeData()->hasFormat("application/x-fusion-place")) {
       auto *item = itemAt(event->position().toPoint());
@@ -122,6 +137,7 @@ protected:
     } else event->ignore();
   }
 private:
+  Fusion::DropTargetFeedback *feedback;
   bool pinArea(const QPoint &point) const {
     const auto *item=itemAt(point);
     return !item || item->data(0,SectionRole).toString()=="quickAccess";

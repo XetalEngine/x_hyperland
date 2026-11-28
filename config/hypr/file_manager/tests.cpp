@@ -1,5 +1,6 @@
 #include "../control_panel/backend/volume_commands.h"
 #include "drive_properties.h"
+#include "appearance.h"
 #include "window.h"
 #include "applications.h"
 #include "removal.h"
@@ -1103,8 +1104,11 @@ print(json.dumps(rows))
       auto index=tab->proxy->index(0,0);const auto point=filePoint(tab,index);
       QDragEnterEvent enter(point,Qt::CopyAction,&mime,Qt::LeftButton,Qt::NoModifier);
       QApplication::sendEvent(tab->view()->viewport(),&enter);QVERIFY(enter.isAccepted());QCOMPARE(enter.dropAction(),Qt::CopyAction);
+      auto *feedback=tab->view()->viewport()->findChild<QWidget *>("folderDropFeedback");
+      QVERIFY(feedback);QVERIFY(feedback->isVisible());QCOMPARE(feedback->accessibleName(),"Copy into Extract here");
       QDropEvent drop(point,Qt::CopyAction,&mime,Qt::LeftButton,Qt::NoModifier);
       QApplication::sendEvent(tab->view()->viewport(),&drop);QVERIFY(drop.isAccepted());
+      QVERIFY(!feedback->isVisible());
       QTRY_COMPARE(ark.destination,base+"/Extract here");
     }
   }
@@ -1139,9 +1143,17 @@ print(json.dumps(rows))
     QMimeData mime;mime.setUrls({QUrl::fromLocalFile(base+"/item.txt")});
     QDragEnterEvent enter(QPointF(point),Qt::MoveAction|Qt::CopyAction,&mime,Qt::LeftButton,Qt::NoModifier);
     QApplication::sendEvent(tree->viewport(),&enter);QVERIFY(enter.isAccepted());
+    auto *feedback=tree->viewport()->findChild<QWidget *>("folderDropFeedback");
+    QVERIFY(feedback);QVERIFY(feedback->isVisible());QCOMPARE(feedback->accessibleName(),"Move into Drop target");
+    QDragMoveEvent copy(point,Qt::MoveAction|Qt::CopyAction,&mime,Qt::LeftButton,Qt::ControlModifier);
+    QApplication::sendEvent(tree->viewport(),&copy);QVERIFY(copy.isAccepted());QCOMPARE(feedback->accessibleName(),"Copy into Drop target");
+    QDragLeaveEvent leave;QApplication::sendEvent(tree->viewport(),&leave);QVERIFY(!feedback->isVisible());
+    QDragEnterEvent again(point,Qt::MoveAction|Qt::CopyAction,&mime,Qt::LeftButton,Qt::NoModifier);
+    QApplication::sendEvent(tree->viewport(),&again);QVERIFY(feedback->isVisible());
     QSignalSpy finished(&window,&FilesWindow::operationFinished);
     QDropEvent drop(point,Qt::MoveAction|Qt::CopyAction,&mime,Qt::LeftButton,Qt::NoModifier);
     QApplication::sendEvent(tree->viewport(),&drop);QVERIFY(drop.isAccepted());QCOMPARE(drop.dropAction(),Qt::MoveAction);
+    QVERIFY(!feedback->isVisible());
     QTRY_COMPARE_WITH_TIMEOUT(finished.count(),1,10000);QCOMPARE(finished.first().first().toInt(),0);
     QVERIFY(!QFileInfo::exists(base+"/item.txt"));QVERIFY(QFileInfo::exists(base+"/target/item.txt"));
     QCOMPARE(Fusion::Preferences(preferences).places(),bookmarks);
@@ -1894,6 +1906,98 @@ print(json.dumps(rows))
       QVERIFY(QFileInfo::exists(incoming));
     }
     window.close();
+  }
+  void animatedFolderDropTargets_data() {
+    QTest::addColumn<int>("mode");
+    for (int mode = 0; mode < 5; ++mode)
+      QTest::newRow(qPrintable(QString("view-%1").arg(mode))) << mode;
+  }
+  void animatedFolderDropTargets() {
+    QFETCH(int, mode);
+    const auto base = folder + QString("/drop-feedback-%1").arg(mode);
+    QVERIFY(QDir().mkpath(base + "/Copy here"));
+    QVERIFY(QDir().mkpath(base + "/Move here"));
+    QList<QUrl> sources;
+    for (int n = 1; n <= 5; ++n) {
+      sources << QUrl::fromLocalFile(base + QString("/File %1 café.txt").arg(n));
+      write(sources.last().toLocalFile(), QByteArray::number(n));
+    }
+    FilesWindow window(QUrl::fromLocalFile(base), false, temporary.path() + QString("/feedback-%1.ini").arg(mode));
+    QSignalSpy appearanceReady(window.findChild<Fusion::Appearance *>(), &Fusion::Appearance::initialized);
+    window.setAttribute(Qt::WA_DeleteOnClose, false); window.show();
+    auto *tab = window.browser();
+    QTRY_COMPARE(appearanceReady.count(), 1);
+    QTRY_COMPARE(tab->proxy->rowCount(), 7);
+    tab->setView(mode); focus(tab);
+    for (const auto &url : sources) {
+      const auto index = tab->proxy->mapFromSource(tab->model->indexForUrl(url));
+      tab->view()->selectionModel()->select(index, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+    }
+    QCOMPARE(tab->selectedUrls().size(), 5);
+    auto pointFor = [&](const QString &name) {
+      return filePoint(tab, tab->proxy->mapFromSource(tab->model->indexForUrl(QUrl::fromLocalFile(base + "/" + name))));
+    };
+    auto *viewport = tab->view()->viewport();
+    auto *feedback = viewport->findChild<QWidget *>("folderDropFeedback");
+    QVERIFY(feedback); QVERIFY(!feedback->isVisible());
+    QMimeData mime; mime.setUrls(sources);
+    const auto actions = Qt::MoveAction | Qt::CopyAction;
+    QDragEnterEvent enter(pointFor("Copy here"), actions, &mime, Qt::LeftButton, Qt::NoModifier);
+    QApplication::sendEvent(viewport, &enter); QVERIFY(enter.isAccepted());
+    QVERIFY(feedback->isVisible()); QCOMPARE(feedback->accessibleName(), "Move into Copy here");
+    QCOMPARE(tab->selectedUrls().size(), 5);
+    const auto frame = feedback->grab().toImage();
+    QTest::qWait(250);
+    QVERIFY(feedback->isVisible());
+    QVERIFY2(frame != feedback->grab().toImage(), "The folder target must animate while the pointer is still");
+    if (const auto output = qEnvironmentVariable("FUSION_FILES_DROP_PREVIEWS"); !output.isEmpty())
+      QVERIFY(window.grab().save(output + QString("/view-%1.png").arg(mode)));
+    QDragMoveEvent shortcut(pointFor("Copy here"), actions, &mime, Qt::LeftButton, Qt::ControlModifier | Qt::ShiftModifier);
+    QApplication::sendEvent(viewport, &shortcut); QVERIFY(shortcut.isAccepted());
+    QCOMPARE(feedback->accessibleName(), "Create shortcuts into Copy here");
+    QDragMoveEvent ordinaryFile(pointFor(QFileInfo(sources.first().toLocalFile()).fileName()), actions, &mime, Qt::LeftButton, Qt::ControlModifier);
+    QApplication::sendEvent(viewport, &ordinaryFile); QVERIFY(!feedback->isVisible());
+    QDragMoveEvent background(QPoint(viewport->width() - 10, viewport->height() - 10), actions, &mime, Qt::LeftButton, Qt::ControlModifier);
+    QApplication::sendEvent(viewport, &background); QVERIFY(!feedback->isVisible());
+    QDragMoveEvent copy(pointFor("Copy here"), actions, &mime, Qt::LeftButton, Qt::ControlModifier);
+    QApplication::sendEvent(viewport, &copy); QVERIFY(copy.isAccepted());
+    QCOMPARE(feedback->accessibleName(), "Copy into Copy here");
+    QCOMPARE(tab->selectedUrls().size(), 5);
+    // Leaving/cancelling a drag must remove the marker without changing selection.
+    QDragLeaveEvent leave; QApplication::sendEvent(viewport, &leave);
+    QVERIFY(!feedback->isVisible()); QCOMPARE(tab->selectedUrls().size(), 5);
+    QDragEnterEvent reenter(pointFor("Copy here"), actions, &mime, Qt::LeftButton, Qt::ControlModifier);
+    QApplication::sendEvent(viewport, &reenter); QVERIFY(feedback->isVisible());
+    QSignalSpy finished(&window, &FilesWindow::operationFinished);
+    QDropEvent copyDrop(pointFor("Copy here"), actions, &mime, Qt::LeftButton, Qt::ControlModifier);
+    QApplication::sendEvent(viewport, &copyDrop); QVERIFY(copyDrop.isAccepted());
+    QVERIFY(!feedback->isVisible());
+    QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 1, 10000); QCOMPARE(finished.first().first().toInt(), 0);
+    for (const auto &url : sources) {
+      QVERIFY(QFileInfo::exists(url.toLocalFile()));
+      QFile result(base + "/Copy here/" + QFileInfo(url.toLocalFile()).fileName());
+      QVERIFY(result.open(QIODevice::ReadOnly));
+      QCOMPARE(result.readAll(), QByteArray::number(sources.indexOf(url) + 1));
+    }
+    QDragEnterEvent moveEnter(pointFor("Move here"), actions, &mime, Qt::LeftButton, Qt::NoModifier);
+    QApplication::sendEvent(viewport, &moveEnter); QVERIFY(feedback->isVisible());
+    QCOMPARE(feedback->accessibleName(), "Move into Move here");
+    QDropEvent moveDrop(pointFor("Move here"), actions, &mime, Qt::LeftButton, Qt::NoModifier);
+    QApplication::sendEvent(viewport, &moveDrop); QVERIFY(moveDrop.isAccepted()); QVERIFY(!feedback->isVisible());
+    QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 2, 10000); QCOMPARE(finished.last().first().toInt(), 0);
+    for (const auto &url : sources) {
+      QVERIFY(!QFileInfo::exists(url.toLocalFile()));
+      QVERIFY(QFileInfo::exists(base + "/Move here/" + QFileInfo(url.toLocalFile()).fileName()));
+    }
+    // Copy-only archive sources reject a forced move; unsupported drags cannot leave a glow.
+    QDragEnterEvent rejected(pointFor("Copy here"), Qt::CopyAction, &mime, Qt::LeftButton, Qt::ShiftModifier);
+    QApplication::sendEvent(viewport, &rejected); QVERIFY(!rejected.isAccepted()); QVERIFY(!feedback->isVisible());
+    QMimeData text; text.setText("not files");
+    QDragEnterEvent unsupported(pointFor("Copy here"), actions, &text, Qt::LeftButton, Qt::NoModifier);
+    QApplication::sendEvent(viewport, &unsupported); QVERIFY(!unsupported.isAccepted()); QVERIFY(!feedback->isVisible());
+    QDragEnterEvent beforeNavigation(pointFor("Copy here"), actions, &mime, Qt::LeftButton, Qt::NoModifier);
+    QApplication::sendEvent(viewport, &beforeNavigation); QVERIFY(feedback->isVisible());
+    tab->navigate(QUrl::fromLocalFile(base + "/Copy here")); QVERIFY(!feedback->isVisible());
   }
   void iconPaddingIsBackgroundForClicksAndBoxSelection_data() {
     QTest::addColumn<bool>("longNames");

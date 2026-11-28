@@ -373,6 +373,13 @@ they use the existing transfer engine, conflict prompts and Undo. These gestures
 also work between Files and desktop icons in either direction. Without a modifier,
 folder drops move; a source that only allows copying is copied instead.
 
+Hovering a destination folder adds a pulsing, theme-colored outline and a small
+animated badge over its icon: an arrow for Move, stacked files with a plus for
+Copy, or a chain for Shortcut. It works in all five folder views and the sidebar,
+including files dragged out of archives. The source files stay selected, and
+the marker clears when the pointer leaves the target, the drag ends, or the
+folder view changes. Animation runs only while a folder is an active target.
+
 The drag image has a bottom-left plus for Copy, an arrow for Shortcut, and a
 red prohibited badge over a target that cannot accept the operation. Move fades
 the drag image like a cut item. My Computer's drive overview and non-drop areas

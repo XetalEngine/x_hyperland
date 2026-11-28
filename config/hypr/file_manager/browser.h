@@ -11,6 +11,7 @@
 class KJob;
 class KFilePreviewGenerator;
 namespace KIO { class Job; }
+namespace Fusion { class DropTargetFeedback; }
 
 class Browser : public QWidget {
   Q_OBJECT
@@ -73,6 +74,7 @@ private:
   Drives *drives;
   DriveShelf *computer;
   KFilePreviewGenerator *previews;
+  Fusion::DropTargetFeedback *iconDrop = nullptr, *detailDrop = nullptr;
   QUrl pendingSelection;
   QUrl loadedUrl;
   QByteArray defaultColumns;

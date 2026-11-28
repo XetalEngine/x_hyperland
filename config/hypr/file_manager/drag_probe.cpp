@@ -15,6 +15,10 @@ int main(int argc,char **argv) {
   QTimer timer;
   QObject::connect(&timer,&QTimer::timeout,&window,[&]{
     QJsonObject data;
+    data["_selected"] = tab->selectedUrls().size();
+    data["_drop"] = QString();
+    for (auto *feedback : window.findChildren<QWidget *>("folderDropFeedback"))
+      if (feedback->isVisible()) data["_drop"] = feedback->accessibleName();
     const auto background=tab->view()->viewport()->mapTo(&window,QPoint(150,tab->view()->viewport()->height()-65));
     data["_background"]=QJsonArray{background.x(),background.y()};
     for(int row=0;row<tab->proxy->rowCount();++row){

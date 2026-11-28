@@ -1,5 +1,6 @@
 #include "browser.h"
 #include "transfers.h"
+#include "drop_feedback.h"
 #include <KDirLister>
 #include <KFileItemDelegate>
 #include <KFilePreviewGenerator>
@@ -441,6 +442,8 @@ Browser::Browser(Fusion::Preferences *settings, Drives *volumes,
   details->header()->setContextMenuPolicy(Qt::CustomContextMenu);
   connect(details->header(), &QHeaderView::customContextMenuRequested, this,
           &Browser::columnMenu);
+  iconDrop = new Fusion::DropTargetFeedback(icons);
+  detailDrop = new Fusion::DropTargetFeedback(details);
   for (auto *view : {static_cast<QAbstractItemView *>(icons),
                      static_cast<QAbstractItemView *>(details)}) {
     view->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -574,6 +577,7 @@ void Browser::navigate(const QUrl &url) {
   navigator->setLocationUrl(url);
 }
 void Browser::load(const QUrl &url) {
+  iconDrop->clear(); detailDrop->clear();
   saveView();
   loadedUrl = url;
   ++placeGeneration;
@@ -632,6 +636,8 @@ void Browser::refreshIcons() {
   details->viewport()->update();
 }
 void Browser::setView(int mode) {
+  if (iconDrop) iconDrop->clear();
+  if (detailDrop) detailDrop->clear();
   viewMode = qBound(0, mode, 4);
   const int size = mode == 0 ? 24 : mode == 1 ? 48 : mode == 2 ? 80 : 20;
   icons->setIconSize({size, size});
@@ -993,11 +999,17 @@ bool Browser::eventFilter(QObject *watched, QEvent *event) {
     const auto destination = !item.isNull() && item.isDir() ? item.url() : location();
     const auto action = Fusion::fileDropDestination(destination)
         ? Fusion::fileDropAction(drag->mimeData(), drag->modifiers(), drag->possibleActions()) : Qt::IgnoreAction;
+    auto *feedback = target == icons ? iconDrop : detailDrop;
+    if (action != Qt::IgnoreAction && !item.isNull() && item.isDir())
+      feedback->present(target->indexAt(drag->position().toPoint()),
+          Fusion::fileDropOperation(drag->mimeData(), drag->modifiers(), drag->possibleActions()));
+    else feedback->clear();
     if (action == Qt::IgnoreAction) drag->ignore();
     else { drag->setDropAction(action);drag->accept(); }
     return true;
   }
   if (event->type() == QEvent::Drop) {
+    iconDrop->clear(); detailDrop->clear();
     auto *drop = static_cast<QDropEvent *>(event);
     const auto action = Fusion::fileDropAction(drop->mimeData(), drop->modifiers(), drop->possibleActions());
     if (action == Qt::IgnoreAction) { drop->ignore();return true; }
